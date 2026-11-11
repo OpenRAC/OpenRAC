@@ -26,7 +26,9 @@ use serde_json::Value;
 use crate::differences::{read_switch, read_value, settings_file, with_value, write_settings};
 use crate::plugins::{check_value, Choice, PluginView, SettingSpec, SettingView};
 
+mod bake_mods;
 mod bakes;
+pub use bake_mods::assemble_bake_mods;
 pub use bakes::{bake_log, bake_status, delete_bakes, version_bake_status, BakeStatus};
 
 /// The entry's id on the Mods tab (`?mod=enhanced-graphics`).

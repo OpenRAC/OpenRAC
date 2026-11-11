@@ -32,7 +32,7 @@
     "config/us/symbol_addrs.txt",
     "config/us/port_symbols.txt"
   ],
-  "places": "config/overlays/us/functions.tsv",
+  "places": "config/us/levels/functions.tsv",
   "libraries": "libraries.tsv",
   "host_shared": ["../rac1/host"],
   "overlay_hook": true,

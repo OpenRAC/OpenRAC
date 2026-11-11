@@ -69,7 +69,11 @@ void upload(
 }
 }  // namespace
 
-void EnvironmentLighting::load(const std::filesystem::path& directory, const ProbeGrid& gi) {
+void EnvironmentLighting::load(
+    const std::filesystem::path& directory,
+    const ProbeGrid& gi,
+    std::optional<std::uint64_t> loaded_gi_hash
+) {
     release();
     const auto path = directory / "environment.orpe";
 
@@ -97,7 +101,8 @@ void EnvironmentLighting::load(const std::filesystem::path& directory, const Pro
 
         if (asset.level != gi.level || asset.scene_hash != gi.scene_hash
             || asset.settings_hash != gi.settings_hash
-            || asset.gi_hash != environment_gi_hash(directory)) {
+            || asset.gi_hash
+                   != (loaded_gi_hash ? *loaded_gi_hash : environment_gi_hash(directory))) {
             throw std::runtime_error(
                 "environment capture differs from active GI bake; rebake reflections"
             );

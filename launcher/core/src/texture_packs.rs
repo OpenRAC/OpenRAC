@@ -26,6 +26,8 @@ use std::path::{Path, PathBuf};
 
 use crate::differences::{read_switch, settings_file, with_value, write_settings};
 
+pub mod pcsx2;
+
 /// The pack's manifest, at the top of its .zip.
 pub const MANIFEST: &str = "openrac-texture-pack.json";
 /// The port's setting that reads the pack (port/game/common/settings.h); on unless it says 0.
@@ -62,6 +64,7 @@ pub struct View {
     pub id: String,
     /// The `texture_pack` setting.
     pub enabled: bool,
+    pub pcsx2_path: Option<String>,
     /// Whether the next Play saves the textures.
     pub dumping: bool,
     pub pack_count: u32,
@@ -292,6 +295,7 @@ pub fn view(data_home: &Path, data: &Path, game: &str, version: &str) -> Result<
     let dump = items_under(&dump_dir(data_home, &id));
     Ok(View {
         enabled: read_switch(&settings, SWITCH).unwrap_or(true),
+        pcsx2_path: pcsx2::selected(data_home, game, version)?.map(|path| path.display().to_string()),
         dumping: dump_flag(data_home, &id).is_file(),
         pack_count: pack.len() as u32,
         pack_animated: pack.iter().filter(|i| i.animated).count() as u32,

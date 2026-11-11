@@ -345,7 +345,7 @@ async fn library(state: State<'_, AppState>) -> Result<Library, String> {
 /// Runs action `id` of `scope`: a job whose output streams as `job-output`
 /// and `job-exit` events, or a detached launch (id 0).
 #[tauri::command]
-fn run_action(
+async fn run_action(
     app: AppHandle,
     state: State<'_, AppState>,
     scope: Scope,
@@ -356,7 +356,20 @@ fn run_action(
 ) -> Result<Started, String> {
     let config = state.config.lock().unwrap().clone();
     let inputs = openrac_launcher_core::actions::Inputs { level, path, option };
-    let plan = library::plan(&config, &scope, &id, &inputs)?;
+    let mut plan = library::plan(&config, &scope, &id, &inputs)?;
+    let mut bake_mods = None;
+    if let (openrac_launcher_core::enhanced::BAKE_ACTION, Scope::Version(key)) = (id.as_str(), &scope) {
+        let config = config.clone();
+        let key = key.clone();
+        bake_mods = tauri::async_runtime::spawn_blocking(move || {
+            openrac_launcher_core::enhanced::assemble_bake_mods(&config, &key, true)
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+        if let Some(snapshot) = &bake_mods {
+            plan.args.extend(["--mods-dir".into(), snapshot.path().to_string_lossy().into_owned()]);
+        }
+    }
     let is_play = library::is_play(&config, &scope, &id);
 
     // The play job's Discord presence (core discord.rs): its status now, its game for its log.
@@ -385,6 +398,8 @@ fn run_action(
     let title = plan.title.clone();
     launcher_log::line(&format!("run: {}", openrac_launcher_core::jobs::command_line(&plan)));
     let started = state.jobs.start(&plan, config.root.as_deref(), move |event| {
+        // Keep the assembled files alive through native baking, including cancellation.
+        let _snapshot = &bake_mods;
         let _ = match &event {
             Event::Output { line, .. } => {
                 // The planet and bolts the game logs.
@@ -507,9 +522,25 @@ async fn texture_packs_set(
     version: String,
     enabled: Option<bool>,
     dumping: Option<bool>,
+    pcsx2: Option<String>,
 ) -> Result<openrac_launcher_core::texture_packs::View, String> {
     use openrac_launcher_core::texture_packs;
     let home = openrac_launcher_core::saves::data_home();
+    if let Some(source) = pcsx2 {
+        let serial = {
+            let config = state.config.lock().unwrap();
+            let catalog = openrac_launcher_core::catalog::load(config.root()?)?;
+            catalog.version(&format!("{game}/{version}")).ok_or("Unknown game version")?.serial.clone()
+        };
+        let selected_game = game.clone();
+        let selected_version = version.clone();
+        let selected_home = home.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            texture_packs::pcsx2::select(&selected_home, &selected_game, &selected_version, &serial, &source)
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+    }
     if let Some(on) = enabled {
         texture_packs::set_enabled(&home, &game, &version, on)?;
         launcher_log::line(&format!("{game}/{version}: texture pack {}", if on { "on" } else { "off" }));
@@ -3061,7 +3092,7 @@ fn listen_for_links(app: &tauri::App, pending: &Arc<Mutex<Option<String>>>) {
     });
 }
 
-/// A link after `--` in a start's arguments (`Exec=… -- %u`), handed to the deep-link plugin as
+/// A link after `--` in a start's arguments (`Exec=â€¦ -- %u`), handed to the deep-link plugin as
 /// it takes one: the program, then the link alone. Only the one argument after `--` that starts
 /// with openrac:// is taken (deeplink::link_from_args); any other argument means no link. A lone
 /// link is the plugin's own to read, by the same rule, so it is not handed on twice.
@@ -3097,7 +3128,7 @@ fn set_up_deep_links(app: &tauri::App) {
         #[cfg(target_os = "linux")]
         openrac_launcher_core::desktop::claim_scheme();
     }
-    // The plugin registers `"…" "%1"`; the launcher's own form puts the link after `--`.
+    // The plugin registers `"â€¦" "%1"`; the launcher's own form puts the link after `--`.
     #[cfg(windows)]
     {
         let fix = || -> Result<(), String> {

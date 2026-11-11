@@ -227,6 +227,9 @@ EnvironmentAsset bake_environment(
     asset.scene_hash = gi[0].grid.scene_hash;
     asset.settings_hash = gi[0].grid.settings_hash;
     asset.probes = place_environment_probes(scene, gi, floors, settings, options, placement);
+    if (asset.probes.empty()) {
+        return asset;
+    }
 
     if (asset.height() > 16384 || asset.width() > 16384
         || std::uint64_t(asset.width()) * asset.height() * 4 > 512ull * 1024 * 1024) {

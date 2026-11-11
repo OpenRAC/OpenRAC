@@ -27,7 +27,12 @@ struct ProbeSourceHashes {
 };
 
 // Fingerprints canonical inputs; file errors propagate to the tool or activation error boundary.
-[[nodiscard]] std::uint64_t probe_input_hash(const std::filesystem::path& directory);
+// Names a lighting variant from the same packed and renderer files available in the game.
+[[nodiscard]] std::string probe_variant_key(const std::filesystem::path& overrides);
+
+[[nodiscard]] std::uint64_t probe_input_hash(
+    const std::filesystem::path& directory, const std::filesystem::path& overrides = {}
+);
 
 // Fingerprints source bytes for levels, or structural transport for in-memory fixtures.
 // `liquid_source` marks automatic liquid interpretation independently of whether it was analysed.

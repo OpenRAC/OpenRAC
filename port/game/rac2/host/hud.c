@@ -93,16 +93,22 @@ SHIP_HUD(func_L23_0041DA48)
  */
 #define STRETCH (1ull << 32)
 
+/* Takes the game function's own result type: the decomp's matched C may give one (rac2-decomp's
+ * func_L04_00411298 is s32) where the assembly's is void. The cleanup restores the plain HUD after
+ * the call, whichever it is. */
+static inline void openrac_race_hud_end(const int* side) {
+    if (*side != 0) {
+        func_002FC560(REG_NOP, 0x4853ull << 48);
+    }
+}
+
 #define RACE_HUD(name)                                                                             \
-    void name(void) {                                                                              \
-        const int side = openrac_game_hud_side();                                                  \
+    __typeof__(name##__game()) name(void) {                                                        \
+        const int side __attribute__((cleanup(openrac_race_hud_end))) = openrac_game_hud_side();   \
         if (side != 0) {                                                                           \
             func_002FC560(REG_NOP, 0x4853ull << 48 | STRETCH | (uint32_t)side);                     \
         }                                                                                          \
-        name##__game();                                                                            \
-        if (side != 0) {                                                                           \
-            func_002FC560(REG_NOP, 0x4853ull << 48);                                               \
-        }                                                                                          \
+        return name##__game();                                                                     \
     }
 
 RACE_HUD(func_L04_0040AD28)

@@ -30,7 +30,7 @@ import shutil
 import struct
 from pathlib import Path
 
-from collision import collision_mesh, decode
+from collision import Collision, collision_mesh, decode
 import collision_scene
 from formats import FormatError, png, unpack
 from lighting import light_bank
@@ -160,6 +160,13 @@ class Scene:
         parts = ["[gd_scene format=3]", "\n".join(self.resources), *self.subresources, *self.nodes]
         parts += ["\n".join(f'[editable path="{path}"]' for path in self.editable)] if self.editable else []
         return "\n\n".join(p for p in parts if p) + "\n"
+
+
+def collision_glb(data: Collision) -> bytes:
+    """The renderer export of a packed static collision block."""
+    gltf = Gltf()
+    gltf.node("Collision", gltf.coloured(collision_mesh(data), gltf.overlay("collision", COLLISION_ALPHA)))
+    return gltf.glb()
 
 
 class LevelWriter:
@@ -347,9 +354,7 @@ class LevelWriter:
             self.stats["collision"]["hero_triangles"] = sum(h["triangles"] for h in manifest["hero_walls"].values())
             collision_scene.add_collision_nodes(self.scene, self.res, manifest)
             return
-        gltf = Gltf()
-        gltf.node("Collision", gltf.coloured(collision_mesh(data), gltf.overlay("collision", COLLISION_ALPHA)))
-        (self.dir / "collision.glb").write_bytes(gltf.glb())
+        (self.dir / "collision.glb").write_bytes(collision_glb(data))
         self.scene.node("Collision", "Game", instance=self.scene.resource("PackedScene", f"{self.res}/collision.glb", "collision"),
                         visible=False)
         # Godot's glTF import ignores vertex colours, so the mesh gets the material here.

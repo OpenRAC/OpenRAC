@@ -173,11 +173,14 @@ Result<std::string> apply_interior_sources(
     const scene::LevelData& level,
     BakeScene& scene,
     bake_detail::EmissionAverageCache* emission_cache,
-    BakeThreadPool* pool
+    BakeThreadPool* pool,
+    const std::filesystem::path& prepared
 ) {
     // Optional experiment inputs leave all ordinary levels on the existing bake path.
     try {
-        const auto path = level.dir / "probe-interiors.json";
+        const auto generated = prepared / "probe-interiors.json";
+        const bool use_prepared = !prepared.empty() && std::filesystem::is_regular_file(generated);
+        const auto path = use_prepared ? generated : level.dir / "probe-interiors.json";
 
         if (!std::filesystem::exists(path)) {
             return std::string{};
@@ -190,6 +193,10 @@ Result<std::string> apply_interior_sources(
             return unexpected(Error{error});
         }
 
+        if (!prepared.empty() && !use_prepared
+            && data["generator"].string() == "openrac-interiors-v1") {
+            return std::string{};
+        }
         if (data["version"].number() != 1 || data["level"].number(-1) != level.level
             || !data["samples"].is_array() || data["samples"].items().size() > 100'000
             || level.light_sets.size() != std::size_t{kInteriorLightSetCount} * kLightSetFloats) {

@@ -17,5 +17,7 @@ struct ProbeBatchOptions;
     const ProbeBatchOptions& options, const json::Value& request
 );
 // Registers fixed output names only after every grid and source identity has been verified.
-[[nodiscard]] Result<void> register_batch_outputs(const ProbeBatchOptions& options);
+[[nodiscard]] Result<void> register_batch_outputs(
+    const ProbeBatchOptions& options, bool environment_unavailable
+);
 }  // namespace openrac::lighting

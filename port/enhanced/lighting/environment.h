@@ -4,6 +4,7 @@
 // GPU-ready reflection faces, GGX levels and their spatial influence boxes.
 #pragma once
 #include <filesystem>
+#include <map>
 
 #include "enhanced/lighting/probes.h"
 
@@ -14,9 +15,10 @@ inline constexpr unsigned kEnvironmentBrdfSize = 64;
 // Omit the sharpest capture level while retaining its source resolution for GGX filtering.
 inline constexpr unsigned kEnvironmentFirstMip = 1;
 
-// Per-level capture safety limit, not a placement target; disabled until a level opts in.
+// Per-level capture safety limit, not a placement target.
 struct EnvironmentBakeSettings {
     bool enabled = false;
+    bool require_full_coverage = true;
     unsigned resolution = 64, maximum_probes = kEnvironmentProbeLimit, filter_samples = 64;
     float spacing = 24, box_distance = 64, normal_bias = .5f, view_bias = .5f;
     float minimum_capture_spacing = 6;
@@ -97,7 +99,10 @@ float environment_probe_coverage(const EnvironmentProbe& probe, Float3 point);
 std::uint32_t pack_environment_colour(Float3 colour);
 Float3 unpack_environment_colour(std::uint32_t colour);
 // Includes every GI payload so replacing a bake invalidates its reflection captures.
-std::uint64_t environment_gi_hash(const std::filesystem::path& directory);
+using EnvironmentGiPayloads = std::map<std::filesystem::path, std::span<const std::uint8_t>>;
+std::uint64_t environment_gi_hash(
+    const std::filesystem::path& directory, const EnvironmentGiPayloads& loaded = {}
+);
 // Portable versioned files; malformed or stale data is never uploaded.
 std::vector<std::uint8_t> encode_environment(const EnvironmentAsset& asset);
 EnvironmentAsset decode_environment(std::span<const std::uint8_t> bytes);

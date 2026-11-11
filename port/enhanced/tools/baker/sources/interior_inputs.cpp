@@ -245,13 +245,27 @@ Result<std::string> bake_source_identity(const std::filesystem::path& path) {
     }
 }
 
+std::filesystem::path bake_input(
+    const std::filesystem::path& original, const std::filesystem::path& overrides
+) {
+    if (!overrides.empty()) {
+        const auto edited = overrides / "bake-inputs" / original.filename();
+        if (std::filesystem::is_regular_file(edited)) {
+            return edited;
+        }
+    }
+    return original;
+}
+
 Result<std::string> interior_source_identity(
-    const std::filesystem::path& level, const std::filesystem::path& gameplay
+    const std::filesystem::path& level,
+    const std::filesystem::path& gameplay,
+    const std::filesystem::path& overrides
 ) {
     try {
         assets::disc::Sha256 hash;
         bake_json::hash_file(hash, gameplay);
-        bake_json::hash_file(hash, level / "collision.glb");
+        bake_json::hash_file(hash, bake_input(level / "collision.glb", overrides));
         return assets::disc::to_hex(hash.finish());
     } catch (const std::exception& error) {
         return unexpected(Error{error.what()});
@@ -259,17 +273,19 @@ Result<std::string> interior_source_identity(
 }
 
 Result<std::vector<interiors::Triangle>> load_coverage_collision(
-    const std::filesystem::path& level
+    const std::filesystem::path& level, const std::filesystem::path& overrides
 ) {
     try {
-        return read_collision(level / "collision.glb");
+        return read_collision(bake_input(level / "collision.glb", overrides));
     } catch (const std::exception& error) {
         return unexpected(Error{error.what()});
     }
 }
 
 Result<InteriorInput> load_interior_input(
-    const std::filesystem::path& level, const std::filesystem::path& gameplay
+    const std::filesystem::path& level,
+    const std::filesystem::path& gameplay,
+    const std::filesystem::path& overrides
 ) {
     try {
         json::Value manifest;
@@ -289,7 +305,7 @@ Result<InteriorInput> load_interior_input(
             return unexpected(Error{"unsupported interior level identity"});
         }
 
-        auto source = interior_source_identity(level, gameplay);
+        auto source = interior_source_identity(level, gameplay, overrides);
 
         if (!source) {
             return unexpected(source.error());
@@ -299,7 +315,7 @@ Result<InteriorInput> load_interior_input(
         input.game = manifest["game"].string() + "-" + manifest["version"].string();
         input.level = static_cast<int>(manifest["level"].number(-1));
         input.source_sha256 = *source;
-        input.triangles = read_collision(level / "collision.glb");
+        input.triangles = read_collision(bake_input(level / "collision.glb", overrides));
         input.transitions = read_transitions(
             gameplay, manifest["game"].string() == "rac2" ? assets::Game::Rac2 : assets::Game::Rac1
         );

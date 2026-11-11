@@ -111,3 +111,58 @@ Measured from the programs, not assumed (release_carry.json has each):
   call_copies.tsv's row by the executable's own target, a hook call in its C through a row
   copycalls.py writes under the hook's name, and its globals are where each level's build put them
   (`level_data`), not the executable's addresses its C says.
+
+## The end credits
+
+The credits are game state 9 in a level's program, the same code on the three discs: entered by
+`func_00278EB0`, updated by `func_00278FC0` (it lists the names, text ids `0x33C0` on in v1.01, and
+reads one of 20 pictures a page, by the table at `0x0014B540` + `0x21A0`, into two buffers in turn),
+drawn by `func_L00_002E2958`'s copies (`levels/shared/L00_002D7940-wipe.c`), left by
+`func_00278F80`. They are asked for with `func_002B49E0(9, 1, ...)`, the credits word
+(`0x001B1580` in the executable) saying which part plays: `func_002D01D0`'s menu entry puts 2.
+
+- **The picture.** Each frame the draw writes the page's 512 x 416 picture straight to the frame
+  buffer (`func_002FCB00`), then draws the names over it. These frames have no frame set-up and
+  nothing else clears the frame buffer: on the console the picture is what wipes the last frame's
+  names. The port drew the picture only after a frame set-up (`func_0027B858`, the splash's and the
+  title's), so in the credits it never showed, and the names piled up over the last frame
+  (host/picture.c). In a level's program the picture is now drawn where the transfer is, after the
+  world's marker (a level's tick without a world goes over the picture shown last, and only what
+  follows the marker is drawn over it), with the depth test set to pass (the last tick leaves it at
+  GREATER). A wider picture gets the blurred sides the title has. The names' short streaks while
+  they slide in are the game's own (`func_L00_002E2C30` draws each moving name several times).
+- **Skipping, a PC addition.** On the console the update ends the credits on R2 pressed (the pad
+  block's +0x1A4 & 2): the credits word goes to 1 if it was 0, as the ending's last page leaves it,
+  then `PopGameState` (`func_002B4B70`) goes back to the state they were asked from. With Skip
+  cutscenes on (the default), Start presses R2 there (host/tools.c, `skip_buttons`), so the game
+  takes them down itself, the same way it does when they finish.
+
+## Ratchet & Clank's saves: the Barlow vendor's free weapons
+
+On a console, Going Commando looks for Ratchet & Clank saves on the memory card and gives the
+first game's weapons away at the Gadgetron vendor on Barlow. The port keeps that.
+
+**What the game does** (the same code on the three discs):
+
+- The vendor's card check (`func_002FAE68`) asks the card state machine (`func_00298F00`) for
+  its state 24 on the first card, then on the second: a card the game knows (type 2, formatted).
+- States 25 to 27 open `BASCUS-97199RATCHET/save0.bin` to `save4.bin`, then
+  `BESCES-50916RATCHET/…` and `BISCPS-15037RATCHET/…` (USA, Europe, Japan; every disc looks
+  for all three), read the first `0x2800` bytes of each and check the save (`func_0029AF58`). A
+  region's first missing file ends that region.
+- In a save's item block (block 10, a byte per rac1 item id) the bytes `0x0A` (Bomb Glove),
+  `0x0D` (Visibomb Gun), `0x12` (Walloper), `0x13` (Tesla Claw) and `0x19` (Decoy Glove) set the
+  bits `0x01`, `0x08`, `0x02`, `0x10` and `0x04` of the word at `0x001A7A20` (v1.01;
+  `D_001A7A00[8]`), and any good save sets `0x80`. The card's `x1C` counts 1 plus each weapon
+  found.
+- The vendor then picks its message from `0x80` and that count, marks its items 12, 53, 17, 14
+  and 18 (the same five weapons in Going Commando's ids) free for the bits set (`func_002FADB0`
+  → `func_002FAD68`) and clears `0x80`.
+
+**What the port does**: the first card shows the other games' save folders as well, from the
+serial folders beside it (`memcard/SCUS_971.99/BASCUS-97199RATCHET`,
+`memcard/SCES_509.16/BESCES-50916RATCHET`, `memcard/SCPS_150.37/…`), read only
+(port/game/common/lib/mc.c, "The other games' saves"). Going Commando reads Ratchet & Clank's
+saves byte for byte as it would from a console's card, and every region the player has a save
+of counts, as the game itself checks all three. Nothing is ever written, created or deleted in
+another game's folder. The second card shows only its own folders.

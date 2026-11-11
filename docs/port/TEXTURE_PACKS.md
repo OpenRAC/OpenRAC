@@ -95,14 +95,28 @@ says. Other files (a readme) are left out.
 
 ## PCSX2 packs
 
-PCSX2 names its replacements by a hash of the texture as it lies in the
-console's video memory. The port converts textures before it sees them, so
-those names do not match. A PCSX2 pack can be carried over by dumping with
-`OPENRAC_DUMP_TEXTURES`, matching the pictures to the pack's by eye or by image
-comparison, and copying the pack's picture under the dumped name.
+In the desktop launcher, open **Mods > My mods**, then the three-dot menu
+beside **Your texture pack**, and choose **Choose PCSX2 Pack**. Select the
+extracted pack's `textures` folder, the matching disc-serial folder, or its
+`replacements` folder. The launcher remembers the folder for this game version
+and reads the images directly from it. Choose **Choose PCSX2 Pack** again to
+select another pack, or **Clear PCSX2 Pack** to remove the selection. Enable
+the texture-pack switch and restart the game to use it.
 
-The dumped pictures are taken from your disc. Do not share them; share only the
-pictures you made.
+For a game started outside the launcher, set `OPENRAC_PCSX2_TEXTURE_PACK` to
+the `replacements` folder. A PCSX2 pack is loaded only from an explicitly
+selected folder. Clearing the selection disables it from the next game start.
+
+OpenRAC looks up full 8-bit indexed textures using the PCSX2 texture and
+palette hashes. It also looks up cropped 8-bit interface textures whose
+legacy PCSX2 filenames contain the source rectangle (`-r<hex>`). Crops are
+placed back in the interface atlas, so a crop changes only its rectangle.
+OpenRAC loads PNG and DDS replacements (DXT1, DXT3, DXT5, and 32-bit RGB/RGBA).
+Regular OpenRAC texture packs take priority. Region names containing only
+dimensions (`-rWxH`), dedicated mip levels, and other GS pixel formats still
+use the original textures. Some older level exports lost raw palette alpha values above
+`0x80`. If a matching level texture is skipped, re-export the levels to
+preserve those values.
 
 ## Animated textures
 

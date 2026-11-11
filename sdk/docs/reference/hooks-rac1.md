@@ -62,6 +62,7 @@ game address.
 | `rac1.save.serialize` | `Save_Serialize` | `void(u32)` | out | pal, ntsc | Writes the whole save into out (memcard_MakeWholeSave), with no memory card access. |
 | `rac1.save.update_state` | `Save_UpdateState` | `void()` |  | pal, ntsc | The memory card's state machine, each tick (memcard_update_state): saves and loads go through it. |
 | `rac1.text.msg_string` | `msg_string` | `i32(i32)` | id | pal, ntsc | Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn. |
+| `rac1.vendor.open_menu` | `Vendor_OpenMenu` | `void(u32)` | moby | pal, ntsc | Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero. |
 
 ## Fields
 

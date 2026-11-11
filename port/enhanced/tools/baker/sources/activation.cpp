@@ -146,6 +146,9 @@ EnvironmentBakeSettings read_environment_profile(
             }
 
             (key == "enabled" ? result.enabled : result.merge_enabled) = setting.boolean();
+            if (key == "enabled") {
+                result.require_full_coverage = true;
+            }
             continue;
         }
 
@@ -460,14 +463,26 @@ LevelBakeProfile load_level_bake_profile(
     } rounding;
 
     LevelBakeProfile profile;
+    bool has_placement_inputs = false;
+    if (std::filesystem::is_regular_file(directory / "bake-inputs/gameplay.bin")) {
+        json::Value manifest;
+        std::string error;
+        has_placement_inputs =
+            json::parse_file((directory / "manifest.json").string(), manifest, error)
+            && !manifest["collision"].is_null();
+    }
+    if (has_placement_inputs) {
+        profile.environment.enabled = true;
+        profile.environment.require_full_coverage = false;
+    }
     apply_profile(directory / "probe-bake.json", profile);
 
     if (!overrides.empty()) {
         apply_profile(overrides / "probe-bake.json", profile);
     }
 
-    // Scene strategy has no playable-floor graph for local reflection capture placement.
-    if (profile.strategy == BakeStrategy::Scene) {
+    // Scene GI also serves background exports that have no data for reflection placement.
+    if (profile.strategy == BakeStrategy::Scene && !has_placement_inputs) {
         profile.environment.enabled = false;
     }
 

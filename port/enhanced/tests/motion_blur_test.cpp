@@ -640,7 +640,6 @@ int main(int argc, char**) {
         compared_frames = 0;
         for (bool direct : {false, true}) {
             renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurFastPath, direct);
-            renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, direct);
             renderer::render_opt::set(renderer::render_opt::Opt::OverwriteDiscard, direct);
             compare_direct = direct;
             test_cutscene_camera_blur();

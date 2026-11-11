@@ -1170,6 +1170,7 @@ def main(argv: list[str] | None = None) -> int:
             command.add_argument("--json", action="store_true")
         if name == "stack":
             command.add_argument("--out", type=Path, required=True, help="the folder the port's --mods reads")
+            command.add_argument("--lighting-disc", type=Path, help="decode the stacked level inputs for lighting")
             command.add_argument("--packed", type=Path, help="the level packer's output, beneath the packs")
             command.add_argument("--levels", type=Path, required=True,
                                  help="the levels the game plays (either disc's): packs made from the other "
@@ -1211,6 +1212,12 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "stack":
             summary = stack(args.into, args.out, args.packed, args.levels)
+            if args.lighting_disc is not None:
+                from enhanced.mod_inputs import prepare_mod_inputs
+                try:
+                    prepare_mod_inputs(args.lighting_disc, args.out, args.levels)
+                except ValueError as error:
+                    raise PackError(f"cannot decode the packed lighting inputs: {error}") from error
             for note in summary["notes"]:
                 print(f"note: {note}")
             added = len(summary.get('destinations', []))

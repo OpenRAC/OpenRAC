@@ -162,6 +162,19 @@ void test_batch_matches_synchronous() {
         vk::present();
     }
     CHECK(batch.read() == reference);
+    // Reusing storage must replace every previous scenario's pixels.
+    CHECK(batch.create(16, 12, kFrames, error));
+    reference.clear();
+    for (int index = 0; index < kFrames; ++index) {
+        gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, frame.id());
+        gl::glDisable(gl::GL_SCISSOR_TEST);
+        gl::glClearColor(0, static_cast<float>(index) / static_cast<float>(kFrames), 0, 1);
+        gl::glClear(gl::GL_COLOR_BUFFER_BIT);
+        reference.push_back(frame.read_rgba());
+        CHECK(batch.capture(frame.id(), index));
+        vk::present();
+    }
+    CHECK(batch.read() == reference);
     frame.release();
 }
 

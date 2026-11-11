@@ -107,6 +107,10 @@ class Program:
     statics: dict[tuple[str, str], Function] = field(default_factory=dict)
     places: dict[str, list[tuple[int, int]]] = field(default_factory=dict)  # symbol -> (overlay, addr)
     sizes: dict[str, int] = field(default_factory=dict)  # catalogued symbol -> bytes
+    # Executable copies of level functions (release catalogue boot: places): symbol -> [address].
+    boot_places: dict[str, list[int]] = field(default_factory=dict)
+    # Functions whose code uses level data; their boot places are skipped.
+    level_relative: set = field(default_factory=set)
     splits: dict[str, list] = field(default_factory=dict)  # symbol -> places split off to variants
     split_parent: dict[str, str] = field(default_factory=dict)  # a variant -> the symbol it was split from
     split_twin: dict[str, str] = field(default_factory=dict)  # an executable function -> the variant at its level copies
@@ -342,6 +346,16 @@ class Program:
                 offset = getattr(self, "entries", {}).get(sym)
                 if offset:
                     tables[overlay].append((addr + offset, sym))
+        # Executable copies of level functions, if the address is free and the code uses no level data.
+        taken = {addr for addr, _ in tables.get(-1, [])}
+        for sym, addrs in sorted(self.boot_places.items()):
+            f = self.functions.get(sym)
+            if f is None or f.unit is None or sym in self.level_relative or prototype(f, self.typedefs) is None:
+                continue
+            for addr in addrs:
+                if addr not in taken:
+                    tables.setdefault(-1, []).append((addr, sym))
+                    taken.add(addr)
         for entries in tables.values():
             entries.sort()
         self._code_tables = tables
@@ -1012,10 +1026,16 @@ def read_places(path: Path, program: Program) -> int:
             continue
         column = 8 if len(cols) >= 9 and ":" in cols[8] else 5
         places = []
+        boot = []
         for item in cols[column].split(","):
             level, _, addr = item.partition(":")
             if level and addr and level != "boot":
                 places.append((int(level), int(addr, 16)))
+            elif level == "boot" and addr and column == 8 and cols[7] == "yes":
+                boot.append(int(addr, 16))
+        if boot and places:
+            # A level function's copy in the executable (NTSC-J's card menu calls 0x0020A448).
+            program.boot_places[cols[0]] = boot
         if places:
             program.places[cols[0]] = places
             if cols[2].isdigit():

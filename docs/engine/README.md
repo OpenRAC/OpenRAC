@@ -270,7 +270,7 @@ says for each.
 ### RAC1 US
 
 Lombyte keeps each level's disc location and program records as JSON under
-`config/overlays/us/` ([overlays.md](../../games/rac1/ntsc-decomp/docs/build/overlays.md)).
+`config/us/levels/` ([overlays.md](../../games/rac1/ntsc-decomp/docs/build/overlays.md)).
 Its level loader agrees with the PAL reading above: the header ranges at
 0x10 and 0x18 are the two gameplay archives, not sound (corrected there on
 2026-10-06, Lombyte pull request 112). It documents the sky,

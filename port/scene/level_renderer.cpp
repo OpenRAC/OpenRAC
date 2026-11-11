@@ -172,84 +172,70 @@ bool LevelScene::upload(
 #endif
     // The same small pass shaders also serve OpenGL and direct/CPU draws. No
     // material-buffer or batching capability is required to fix these controls.
-    if (m_colour_opaque.id()
-        || renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
-        || renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeFastBlended)) {
-        // Keep opaque features constant per native program. In particular,
-        // static geometry never needs the joint-palette path, and solid
-        // geometry must not inherit the alpha shader's discard instructions.
-        for (unsigned variant = 0; variant < m_colour_specialised.size(); ++variant) {
-            std::string vertex(mesh_vertex);
-            vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-            vertex = renderer::shader_constants(vertex, {{"metal_pass", 0}});
+    // Keep opaque features constant per native program. In particular,
+    // static geometry never needs the joint-palette path, and solid
+    // geometry must not inherit the alpha shader's discard instructions.
+    for (unsigned variant = 0; variant < m_colour_specialised.size(); ++variant) {
+        std::string vertex(mesh_vertex);
+        vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
+        vertex = renderer::shader_constants(vertex, {{"metal_pass", 0}});
+        if (variant < 2) {
+            vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
+            vertex = renderer::shader_constants(vertex, {{"skinning", 0}});
+        }
+        const auto specialise = [&](std::string source) {
+            source.insert(source.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
+            // Both stages must agree when static variants remove material-specific interfaces.
             if (variant < 2) {
-                vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-                vertex = renderer::shader_constants(vertex, {{"skinning", 0}});
+                source.insert(source.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
             }
-            const auto specialise = [&](std::string source) {
-                source.insert(source.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-                // Both stages must agree when static variants remove material-specific interfaces.
-                if (variant < 2) {
-                    source.insert(source.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-                }
-                if (variant == 0) {
-                    source.insert(source.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
-                }
-                for (const auto* name :
-                     {"metal_pass",
-                      "glow_pass",
-                      "translucent_pass",
-                      "effect_pass",
-                      "probe_effect"}) {
-                    source = renderer::shader_constants(std::move(source), {{name, 0}});
-                }
-                return source;
-            };
-            const char* names[] =
-                {"solid static colour", "alpha static colour", "opaque moby colour"};
-            if (!m_colour_specialised[variant]
-                     .build(names[variant], vertex, specialise(fragment), error)
-                || (m_early_capable
-                    && !m_early_colour_specialised[variant].build(
-                        std::string("early ") + names[variant],
-                        vertex,
-                        specialise(m_lighting->early_fragment(shaders::mesh_frag)),
-                        error
-                    ))) {
-                return false;
+            if (variant == 0) {
+                source.insert(source.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
             }
-        }
-        std::string static_vertex(mesh_vertex), static_translucent(fragment);
-        static_vertex
-            .insert(static_vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-        static_translucent
-            .insert(static_translucent.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-        static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-        static_translucent
-            .insert(static_translucent.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-        static_vertex = renderer::shader_constants(std::move(static_vertex), {{"skinning", 0}});
-        static_vertex = renderer::shader_constants(std::move(static_vertex), {{"metal_pass", 0}});
-        for (const auto* name : {"metal_pass", "glow_pass", "effect_pass", "probe_effect"}) {
-            static_translucent =
-                renderer::shader_constants(std::move(static_translucent), {{name, 0}});
-        }
-        static_translucent =
-            renderer::shader_constants(std::move(static_translucent), {{"translucent_pass", 1}});
-        // The default blended static pass reads cheaper probe light and shadows (Enhanced is
-        // allowed to be lossy, probe-fast-blended); the full one stays as the reference.
-        std::string static_fast(static_translucent);
-        static_fast.insert(static_fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
-        if (!m_static_translucent
-                 .build("static translucent colour", static_vertex, static_fast, error)
-            || !m_static_translucent_full.build(
-                "static translucent colour, full probe light",
-                static_vertex,
-                static_translucent,
-                error
-            )) {
+            for (const auto* name :
+                 {"metal_pass", "glow_pass", "translucent_pass", "effect_pass", "probe_effect"}) {
+                source = renderer::shader_constants(std::move(source), {{name, 0}});
+            }
+            return source;
+        };
+        const char* names[] = {"solid static colour", "alpha static colour", "opaque moby colour"};
+        if (!m_colour_specialised[variant]
+                 .build(names[variant], vertex, specialise(fragment), error)
+            || (m_early_capable
+                && !m_early_colour_specialised[variant].build(
+                    std::string("early ") + names[variant],
+                    vertex,
+                    specialise(m_lighting->early_fragment(shaders::mesh_frag)),
+                    error
+                ))) {
             return false;
         }
     }
+    std::string static_vertex(mesh_vertex), static_translucent(fragment);
+    static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
+    static_translucent
+        .insert(static_translucent.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
+    static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
+    static_translucent
+        .insert(static_translucent.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
+    static_vertex = renderer::shader_constants(std::move(static_vertex), {{"skinning", 0}});
+    static_vertex = renderer::shader_constants(std::move(static_vertex), {{"metal_pass", 0}});
+    for (const auto* name : {"metal_pass", "glow_pass", "effect_pass", "probe_effect"}) {
+        static_translucent = renderer::shader_constants(std::move(static_translucent), {{name, 0}});
+    }
+    static_translucent =
+        renderer::shader_constants(std::move(static_translucent), {{"translucent_pass", 1}});
+    // The default blended static pass reads cheaper probe light and shadows (Enhanced is
+    // allowed to be lossy, probe-fast-blended); the full one stays as the reference.
+    std::string static_fast(static_translucent);
+    static_fast.insert(static_fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
+    if (!m_static_translucent.build("static translucent colour", static_vertex, static_fast, error)
+        || !m_static_translucent_full.build(
+            "static translucent colour, full probe light", static_vertex, static_translucent, error
+        )) {
+        return false;
+    }
+
     const std::string depth_source = deformation_vertex(shaders::mesh_depth_vert);
     std::string depth_vertex(depth_source), depth_fragment(shaders::mesh_depth_frag);
     depth_vertex.insert(depth_vertex.find('\n') + 1, "#define OPENRAC_DEPTH_SOLID 1\n");
@@ -1226,17 +1212,21 @@ void LevelScene::draw_layer(
     std::uint64_t rigid_prepass_draws = 0, empty_prepass_groups = 0;
     // The mobys' glow pass runs twice (scene/moby_passes.h): its texels at or above the GS's alpha
     // reference first, writing depth, then the rest without.
-    const int steps = mobys ? static_cast<int>(kMobyPassSteps.size()) : passes;
+    const auto moby_steps = input.opaque_effects
+                                ? std::span<const MobyPassStep>(kMobyOpaqueSplitSteps)
+                                : std::span<const MobyPassStep>(kMobyPassSteps);
+    const int steps = mobys ? static_cast<int>(moby_steps.size()) : passes;
     for (int step = 0; step < steps; ++step) {
         const MobyPassStep moby_step =
-            mobys ? kMobyPassSteps[static_cast<std::size_t>(step)] : MobyPassStep{};
+            mobys ? moby_steps[static_cast<std::size_t>(step)] : MobyPassStep{};
         const int pass = mobys ? moby_step.pass : step;
         const int glow_split = moby_step.glow_split;
-        if (state.depth_prepass && (mobys ? pass > 0 : pass > 1)) {
+        const bool opaque_fragment = moby_step.opacity_split > 0;
+        const bool opaque = mobys ? pass == 0 || opaque_fragment : pass <= 1;
+        if (state.depth_prepass && !opaque) {
             break;
         }
         if (colour_batch) {
-            const bool opaque = mobys ? pass == 0 : pass <= 1;
             if (state.opaque_colour_phase >= 0) {
                 if (!opaque || (state.opaque_colour_phase == 0) != (!mobys && pass == 0)) {
                     continue;
@@ -1270,7 +1260,8 @@ void LevelScene::draw_layer(
         const bool early = !state.depth_prepass
                            && (mobys ? pass == kMobySolid || pass == kMobyMetal : pass <= 1)
                            && m_lighting && m_lighting->early_matches(input, state);
-        const bool batch_shader = colour_batch && state.opaque_colour_phase >= 0;
+        const bool batch_shader =
+            colour_batch && state.opaque_colour_phase >= 0 && !opaque_fragment;
         static const bool& specialisation_off = stats::probe(
             "OPENRAC_OPAQUE_SPECIALISE_OFF", "Reference: unspecialised mesh colour shaders"
         );
@@ -1279,16 +1270,12 @@ void LevelScene::draw_layer(
         static const bool& fast_off = stats::probe(
             "OPENRAC_PROBE_FAST_OFF", "Reference: full probe light on blended static passes"
         );
-        // The cheaper probe light exists only in the static variant, so it takes that variant
-        // with shader-variants off too: shader-variants alone stays byte-identical.
+        // The cheaper probe light is selected within the static blended variants.
         const bool fast_blended =
             !fast_off && !m_sweep_translucent_full
             && renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeFastBlended);
-        const bool static_translucent =
-            !state.depth_prepass && !mobys && pass == 2 && m_static_translucent.id()
-            && !specialisation_off
-            && (fast_blended
-                || renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants));
+        const bool static_translucent = !state.depth_prepass && !mobys && pass == 2
+                                        && m_static_translucent.id() && !specialisation_off;
         const renderer::Shader* selected = &m_mesh;
         // Both depth variants retain identical positions and alpha coverage.
         if (state.depth_prepass) {
@@ -1302,7 +1289,6 @@ void LevelScene::draw_layer(
             // Static blended packets omit moby-only vertex work.
             selected = fast_blended ? &m_static_translucent : &m_static_translucent_full;
         } else if (!specialisation_off && specialised[variant].id()
-                   && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
                    && (batch_shader || (mobys ? pass == 0 : pass <= 1))) {
             // Opaque variants specialise alpha handling for each geometry kind.
             selected = &specialised[variant];
@@ -1377,6 +1363,11 @@ void LevelScene::draw_layer(
             program->uniform("gameplay_rim_lift"), m_gameplay_rim_lift[0], m_gameplay_rim_lift[1]
         );
         glUniform1i(program->uniform("glow_split"), glow_split);
+        glUniform1i(program->uniform("opacity_split"), moby_step.opacity_split);
+        if (opaque_fragment) {
+            // Preserve destination alpha like the original moby blend, while replacing RGB.
+            glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ZERO, GL_ONE);
+        }
         glUniform2f(
             program->uniform("gameplay_rim_parameters"), m_gameplay_rim[0], m_gameplay_rim[1]
         );
@@ -1385,8 +1376,14 @@ void LevelScene::draw_layer(
             if (!visible[gi] || (!metal && (g.blend != 0) != effects)) {
                 continue;
             }
+            if (opaque_fragment && pass == kMobyGlow && !g.cpu_instances.empty()
+                && std::ranges::none_of(g.cpu_instances, [](const InstanceData& instance) {
+                       return instance.moby_ambient[3] > .5f;
+                   })) {
+                continue;
+            }
             // An added moby writes no depth: all of it is drawn in the second half.
-            if (effects && glow_split == 1 && g.blend == 2) {
+            if (effects && glow_split == 1 && (g.blend == 2 || (opaque_fragment && g.blend == 5))) {
                 continue;
             }
             // Inspection includes blended and chrome geometry in the selected frustum filter.
@@ -1421,7 +1418,7 @@ void LevelScene::draw_layer(
             if (m_lighting) {
                 m_lighting->bind_deformation(*program, g.floats_on_water);
             }
-            if (effects) {
+            if (effects && !opaque_fragment) {
                 // Additive: the shader writes Cs * As (mesh.frag, effect_additive).
                 glBlendFuncSeparate(
                     g.blend == 2 ? GL_ONE : GL_SRC_ALPHA,
@@ -1628,7 +1625,10 @@ void LevelScene::draw_layer(
                 }
                 // The glow pass draws a glow packet's faces only: the rest would be discarded.
                 if (mobys && pass == kMobyGlow && !p.glow_vertices
-                    && renderer::render_opt::enabled(renderer::render_opt::Opt::MobyGlowSkip)) {
+                    && (opaque_fragment
+                        || renderer::render_opt::enabled(
+                            renderer::render_opt::Opt::MobyGlowSkip
+                        ))) {
                     continue;
                 }
                 const bool is_cutout = m_materials[static_cast<std::size_t>(p.material)].cutout;
@@ -1643,7 +1643,10 @@ void LevelScene::draw_layer(
                 std::uint32_t first = p.first_index;
                 std::uint32_t count = p.index_count;
                 if (mobys && pass == kMobyGlow && p.glow_count != 0 && !compact_indices
-                    && renderer::render_opt::enabled(renderer::render_opt::Opt::MobyGlowSkip)) {
+                    && (opaque_fragment
+                        || renderer::render_opt::enabled(
+                            renderer::render_opt::Opt::MobyGlowSkip
+                        ))) {
                     first = p.glow_first;
                     count = p.glow_count;
                 }

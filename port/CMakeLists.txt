@@ -337,6 +337,8 @@ openrac_add_c_test(rac4_io
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
 openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include)
+# The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).
+openrac_add_c_test(mc_shared_card INCLUDES runtime/include game/common/include)
 
 # ---- assets, media, audio, the extractor: no window ----
 openrac_add_c_test(crate_init NO_STRICT_ALIASING WRAPV NO_FP_CONTRACT)
@@ -360,8 +362,14 @@ endif()
 
 # Probe assets and CPU sampling need neither a graphics context nor Embree.
 add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_depth.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
-  enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp)
+  enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp enhanced/lighting/bake_lz4.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
+option(OPENRAC_BAKE_LZ4 "Enable LZ4 bake asset storage" ON)
+if(OPENRAC_BAKE_LZ4)
+  include(BakeLz4)
+  target_link_libraries(openrac_lighting PRIVATE openrac_bake_lz4)
+  target_compile_definitions(openrac_lighting PRIVATE OPENRAC_BAKE_LZ4=1)
+endif()
 if(TARGET openrac_astc_decode)
   target_link_libraries(openrac_lighting PRIVATE openrac_astc_decode openrac_bc6)
   target_compile_definitions(openrac_lighting PRIVATE OPENRAC_PROBE_COMPRESSION=1)

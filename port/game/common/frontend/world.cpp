@@ -51,6 +51,7 @@
 #include "renderer/effects.h"
 #include "renderer/gl.h"
 #include "renderer/gl_warmup.h"
+#include "renderer/pcsx2_pack.h"
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
 #include "renderer/texture.h"
@@ -339,6 +340,7 @@ void use_level(int number) {
     g->hud = hud.get();
     g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
     configure_level_shadows(*g, wanted);
+    bool split_opaque_effects = false;
     for (std::size_t layer = 0; layer < scene::kLayerCount; ++layer) {
         // The caster is drawn after its shadow, so its proxy cannot darken
         // Ratchet himself. Opaque scenery has already filled the depth buffer.
@@ -352,6 +354,22 @@ void use_level(int number) {
             std::make_unique<scene::LayerRenderer>(g->scene, static_cast<scene::Layer>(layer)),
             error
         );
+        if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
+            && g->game.starts_with("rac1-")) {
+            split_opaque_effects = g->renderer->add(
+                                       std::make_unique<renderer::EffectRenderer>(
+                                           "opaque effects",
+                                           renderer::EffectPart::Opaque,
+                                           renderer::Bucket::Ties,
+                                           enhanced::atmosphere_material(g->scene)
+                                       ),
+                                       error
+                                   )
+                                   != nullptr;
+            if (!split_opaque_effects) {
+                log::error("opaque effect renderer: {}", error);
+            }
+        }
         // The liquids (the seas and lava the game draws solid) after the ties, where retail's draw
         // callback list 3 draws them, before the shrubs and mobys (renderer/effects.h).
         if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
@@ -360,7 +378,8 @@ void use_level(int number) {
                        "liquids",
                        renderer::EffectPart::Liquids,
                        renderer::Bucket::Ties,
-                       enhanced::atmosphere_material(g->scene)
+                       enhanced::atmosphere_material(g->scene),
+                       split_opaque_effects
                    ),
                    error
                ) == nullptr) {
@@ -376,7 +395,8 @@ void use_level(int number) {
                     g->scene,
                     supports_enhanced_water(g->game, wanted) ? enhanced::make_water(g->scene, dir)
                                                              : nullptr
-                )
+                ),
+                split_opaque_effects
             ),
             error
         )
@@ -457,6 +477,7 @@ void savestate_restored(std::uint64_t tick) {
     g->repeat_frame = false;
     g->overdraw = false;
     g->skipped = 0;
+    g->bloom.release();
     g->agx.release();
     g->haze.release();
     g->frame.release();
@@ -514,6 +535,28 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
     const std::uint32_t height = 1u << ((quad.tex0 >> 30) & 0xF);
     if (pixels != 0 && clut != 0 && pixels + width * height <= ram.size()
         && clut + 1024 <= ram.size()) {
+        const renderer::gs::Tex0 t = renderer::gs::Tex0::decode(quad.tex0);
+        const bool own_texture = t.psm == 0x13 && t.cpsm == 0x00 && !t.csm;
+        const std::array<std::uint32_t, 3> source{pixels, clut, width << 16 | height};
+        auto hashed = g->effect_hashed.end();
+        if (own_texture) {
+            hashed =
+                std::find_if(g->effect_hashed.begin(), g->effect_hashed.end(), [&](const auto& h) {
+                    return h.source == source;
+                });
+        }
+        // The same source again this frame (a field of quads with one texture): its uploads are
+        // the earlier quad's, already copied, rather than another copy of the same bytes (each
+        // ~5 KB; a thousand of them cost the game's tick milliseconds on a phone).
+        if (hashed != g->effect_hashed.end() && hashed->uploads >= 0
+            && static_cast<std::size_t>(hashed->uploads) + 1 < g->effect_uploads.size()
+            && g->effect_uploads[static_cast<std::size_t>(hashed->uploads)].dbp == cbp
+            && g->effect_uploads[static_cast<std::size_t>(hashed->uploads) + 1].dbp == tbp) {
+            q.uploads = hashed->uploads;
+            g->effect_texture_ids.push_back({g->effects.size(), hashed->pixels, hashed->clut});
+            g->effects.push_back(q);
+            return;
+        }
         renderer::ImageUpload palette;
         palette.dbp = cbp;
         palette.dbw = 1;
@@ -532,24 +575,18 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
         // An 8-bit texture with a 32-bit CLUT (the paging's own) is drawn from a texture of its own,
         // by content (effect_textures): its GS blocks are shared with other effect textures in the
         // frame, and the pool holds only the last upload at a block when the quads are drawn.
-        const renderer::gs::Tex0 t = renderer::gs::Tex0::decode(quad.tex0);
-        if (t.psm == 0x13 && t.cpsm == 0x00 && !t.csm) {
-            const std::array<std::uint32_t, 3> source{pixels, clut, width << 16 | height};
-            auto hashed =
-                std::find_if(g->effect_hashed.begin(), g->effect_hashed.end(), [&](const auto& h) {
-                    return h.first == source;
-                });
+        if (own_texture) {
             if (hashed == g->effect_hashed.end()) {
                 g->effect_hashed.push_back(
                     {source,
-                     {renderer::hash_bytes(image.data.data(), image.data.size()),
-                      renderer::hash_bytes(palette.data.data(), palette.data.size())}}
+                     renderer::hash_bytes(image.data.data(), image.data.size()),
+                     renderer::hash_bytes(palette.data.data(), palette.data.size()),
+                     q.uploads}
                 );
                 hashed = std::prev(g->effect_hashed.end());
             }
-            g->effect_texture_ids.push_back(
-                {g->effects.size(), hashed->second.first, hashed->second.second}
-            );
+            hashed->uploads = q.uploads;
+            g->effect_texture_ids.push_back({g->effects.size(), hashed->pixels, hashed->clut});
         }
         g->effect_uploads.push_back(std::move(palette));
         g->effect_uploads.push_back(std::move(image));
@@ -605,7 +642,11 @@ void effect_textures() {
             );
             // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
             renderer::texture_pack::Replacement replaced;
-            renderer::texture_pack::replace(texture, {}, &replaced);
+            if (!renderer::texture_pack::replace(texture, {}, &replaced)) {
+                renderer::pcsx2_pack::replace_indexed8(
+                    texture, image.data, colours, renderer::AlphaScale::Gs
+                );
+            }
             const renderer::TextureHandle h = g->renderer->textures().add(
                 std::move(texture),
                 renderer::AlphaScale::Gs,
@@ -831,7 +872,9 @@ std::uint32_t particle_texture(
         renderer::convert_t8(indices, kSide, kSide, palette, renderer::AlphaScale::Gs);
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
     renderer::texture_pack::Replacement replaced;
-    renderer::texture_pack::replace(image, {}, &replaced);
+    if (!renderer::texture_pack::replace(image, {}, &replaced)) {
+        renderer::pcsx2_pack::replace_indexed8(image, indices, palette, renderer::AlphaScale::Gs);
+    }
     const renderer::TextureHandle h = g->renderer->textures().add(
         std::move(image),
         renderer::AlphaScale::Gs,

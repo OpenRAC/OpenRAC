@@ -485,6 +485,14 @@ rac1.text.msg_string (msg_string) i32(i32): Resolves a game message id to its te
 type msg_stringFn = (id: number) -> number
 ```
 
+### `Vendor_OpenMenuFn`
+
+rac1.vendor.open_menu (Vendor_OpenMenu) void(u32): Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero.
+
+```lua
+type Vendor_OpenMenuFn = (moby: number) -> ()
+```
+
 ### `MobyUpdateFn`
 
 rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.

@@ -14,6 +14,7 @@
 #include <stdexcept>
 
 #include "common/profiler.h"
+#include "enhanced/lighting/bake_lz4.h"
 #include "enhanced/tools/baker/sources/activation.h"
 
 namespace fs = std::filesystem;
@@ -68,6 +69,12 @@ std::string describe_level_bake_profile(const LevelBakeProfile& profile) {
            << profile.dense_spacing[2] << "],\"resolution\":" << resolution
            << ",\"rays\":" << settings.rays_per_probe;
     output << ",\"adaptive_rays\":" << (settings.adaptive_rays ? "true" : "false");
+    if (bake_lz4_available()) {
+        output << ",\"asset_storage\":\"lz4-v1\"";
+    }
+    if (profile.environment.enabled) {
+        output << ",\"reflections\":true";
+    }
     output << ",\"bounces\":" << settings.bounces << ",\"sky\":\""
            << (settings.use_level_sky ? "level" : "uniform") << "\""
            << ",\"light_set\":" << light_set << ",\"environment\":[" << environment[0] << ','

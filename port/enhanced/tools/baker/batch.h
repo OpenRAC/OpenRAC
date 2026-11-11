@@ -18,6 +18,7 @@ struct ProbeBatchOptions {
     std::filesystem::path output_directory;
     std::filesystem::path
         level_directory;  // Optional authored water coastline input for gameplay planning.
+    std::filesystem::path level_overrides;
     BakeSettings settings;
     unsigned light_set = 0, threads = 0;
     std::uint64_t source_snapshot = 0;
@@ -35,7 +36,7 @@ struct ProbeBatchOptions {
 // Throws on malformed plans, tracing/verification errors, or existing output files (unless
 // resuming). Prints "Probe batch probes N" first, then "Probes DONE/N" as the probes are baked
 // (each half per cent at most), for the planner's progress.
-void run_probe_batch(
+bool run_probe_batch(
     const scene::LevelData& level,
     const BakeSceneExport& exported,
     const ProbeGrid& sparse_grid,

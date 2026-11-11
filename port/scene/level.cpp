@@ -4,6 +4,8 @@
 #include "scene/level.h"
 
 #include <algorithm>
+#include <array>
+#include <bit>
 #include <cgltf.h>
 #include <cmath>
 #include <cstdlib>
@@ -19,6 +21,7 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "common/profiler.h"
+#include "renderer/pcsx2_pack.h"
 #include "renderer/texture_pack.h"
 #include "scene/material_overrides.h"
 
@@ -123,6 +126,88 @@ fs::path override_of(const fs::path& path, const LevelData& level, int* overridd
     return (level.dir / rel).lexically_normal();
 }
 
+// Editor exports retain the texture's indexed raster and its palette in the PNG.
+void replace_pcsx2(const fs::path& path, renderer::Rgba8Image& image) {
+    if (!renderer::pcsx2_pack::enabled() || image.width > renderer::kMaxTextureSide
+        || image.height > renderer::kMaxTextureSide
+        || !std::has_single_bit(static_cast<unsigned>(image.width))
+        || !std::has_single_bit(static_cast<unsigned>(image.height))) {
+        return;
+    }
+    const auto stride = static_cast<std::size_t>(image.width) + 1;
+    const auto row_bytes = stride * static_cast<std::size_t>(image.height);
+    std::ifstream file(path, std::ios::binary);
+    std::array<char, 8> header{};
+    if (!file.read(header.data(), header.size())
+        || std::string_view(header.data(), header.size()) != "\x89PNG\r\n\x1a\n") {
+        return;
+    }
+    std::array<std::uint8_t, 768> rgb{};
+    std::array<std::uint8_t, 256> alpha{}, raw_alpha{};
+    bool has_palette = false, has_alpha = false, has_raw_alpha = false;
+    std::vector<char> compressed;
+    while (file.read(header.data(), header.size())) {
+        const auto* size_bytes = reinterpret_cast<const unsigned char*>(header.data());
+        const std::uint32_t size = (std::uint32_t{size_bytes[0]} << 24)
+                                   | (std::uint32_t{size_bytes[1]} << 16)
+                                   | (std::uint32_t{size_bytes[2]} << 8) | size_bytes[3];
+        const std::string_view type(header.data() + 4, 4);
+        if (type == "IHDR") {
+            std::array<char, 13> info{};
+            if (size != info.size() || !file.read(info.data(), info.size()) || info[8] != 8
+                || info[9] != 3 || info[12] != 0) {
+                return;
+            }
+        } else if (type == "PLTE" && size == rgb.size()) {
+            has_palette = static_cast<bool>(file.read(reinterpret_cast<char*>(rgb.data()), size));
+        } else if (type == "tRNS" && size == alpha.size()) {
+            has_alpha = static_cast<bool>(file.read(reinterpret_cast<char*>(alpha.data()), size));
+        } else if (type == "orAC" && size == raw_alpha.size()) {
+            has_raw_alpha =
+                static_cast<bool>(file.read(reinterpret_cast<char*>(raw_alpha.data()), size));
+        } else if (type == "IDAT") {
+            const auto offset = compressed.size();
+            if (offset + size > row_bytes + 65536) {
+                return;
+            }
+            compressed.resize(offset + size);
+            file.read(compressed.data() + offset, size);
+        } else if (type == "IEND") {
+            break;
+        } else {
+            file.seekg(size, std::ios::cur);
+        }
+        file.seekg(4, std::ios::cur);  // CRC
+    }
+    if (!has_palette || !has_alpha || compressed.empty()) {
+        return;
+    }
+    std::vector<char> rows(row_bytes);
+    if (stbi_zlib_decode_buffer(
+            rows.data(),
+            static_cast<int>(rows.size()),
+            compressed.data(),
+            static_cast<int>(compressed.size())
+        )
+        != static_cast<int>(rows.size())) {
+        return;
+    }
+    std::vector<std::uint8_t> raster;
+    raster.reserve(row_bytes);
+    for (std::size_t y = 0; y < rows.size(); y += stride) {
+        if (rows[y] != 0) {
+            return;  // The editor writes unfiltered rows.
+        }
+        raster.insert(raster.end(), rows.data() + y + 1, rows.data() + y + stride);
+    }
+    std::array<std::uint32_t, 256> palette{};
+    for (std::size_t i = 0; i < palette.size(); ++i) {
+        const auto a = has_raw_alpha ? raw_alpha[i] : (alpha[i] + 1u) / 2;
+        palette[i] = renderer::rgba(rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2], a);
+    }
+    renderer::pcsx2_pack::replace_indexed8(image, raster, palette);
+}
+
 int image_index(const fs::path& requested, LevelData& level) {
     int overridden = 0;
     const std::string key =
@@ -150,7 +235,9 @@ int image_index(const fs::path& requested, LevelData& level) {
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size, and its frames
     // when it is animated.
     renderer::texture_pack::Replacement replaced;
-    renderer::texture_pack::replace(image, {.level = level.level}, &replaced);
+    if (!renderer::texture_pack::replace(image, {.level = level.level}, &replaced)) {
+        replace_pcsx2(key, image);
+    }
     level.image_animations.resize(level.images.size());
     level.image_animations.push_back(std::move(replaced.animation));
     bool translucent = false;

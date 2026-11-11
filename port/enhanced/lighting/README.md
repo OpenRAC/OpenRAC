@@ -358,7 +358,7 @@ For emission generated from game textures, put an authored 8-bit grayscale PNG i
 
 The native baker reads `source` from the local export. It must match the mask size.
 `source` keeps the texture's RGB detail. `tint` multiplies it by an RGB `colour` in
-0–255, and `solid` uses that colour without a source texture. The mask scales the
+0â€“255, and `solid` uses that colour without a source texture. The mask scales the
 encoded RGB channels from black to full colour. Optional `gain` scales those channels
 before they are clamped. The output is opaque.
 
@@ -516,9 +516,11 @@ independently of lighting selection. It uses the CPU diagnostic filter; normal l
 
 ## Environment reflections
 
-Enable `environment_probes.enabled` in a level's `probe-bake.json`. After all GI grids verify,
-the baker captures static HDR surroundings using the runtime GI reference, shadowed sun,
-visible emission and the skybox. Bake-only emission gains affect transport, not visible surfaces.
+Reflection probes default on for gameplay levels with exported collision and gameplay data.
+Set `environment_probes.enabled` to `false` in a level's `probe-bake.json` to opt out.
+After all GI grids verify, the baker captures static HDR surroundings using the runtime GI
+reference, shadowed sun, visible emission and the skybox. Bake-only emission gains affect
+transport, not visible surfaces.
 Water and authored chrome/glass packets use these captures in enhanced mode.
 
 Captures sit near floor-space centres, normally 3 units above their actual supporting floor.
@@ -532,7 +534,9 @@ must merge or relocate until at least `minimum_capture_spacing` (6 units) apart.
 storeys and water media exempt pairs. Other merges require 85% shared receiver area and similar
 GI signatures: Rec.709 luminance within 2:1 plus 0.02, and Oklab distance at most 0.06 at a common
 18% luminance. These are placement heuristics, not comparisons of finished cubemaps.
-Every accepted replacement preserves every receiver; unresolved coverage or spacing fails baking.
+Every accepted merge preserves coverage within the placement tolerances. Automatic placement drops
+unsafe captures and leaves uncovered areas to local GI. Setting `environment_probes.enabled` to
+`true` explicitly requires complete coverage and fails the bake if conflicts remain.
 
 `maximum_probes` defaults to 512 as a safety limit. Captures use 128x128 source faces and 128 GGX
 samples. `environment.orpe` version 6 stores a GPU-ready compressed HDR atlas, oriented influence and
@@ -622,3 +626,11 @@ recover HDR detail.
 AgX matrices are adapted from Google Filament's `ToneMapper.cpp` at
 `be858f42ab95cf0ba6e224ac2dc3950bdb172080` (Apache-2.0); see
 [the retained licence](../renderer/agx-LICENSE.txt) and the third-party notices.
+
+## Lighting for edited levels
+
+In the launcher, turn on Mods for Play, then prepare lighting under Enhanced
+Graphics. Preparation uses the same packed levels and enabled override packs as
+Play, including each enabled ship destination. Repacking or changing the
+enabled overrides makes the affected lighting due for preparation. Original
+levels and previously baked edits keep separate cache entries.

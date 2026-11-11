@@ -17,6 +17,12 @@
  * sides, which Ratchet & Clank's title world reaches, are not left black: the picture's own edges,
  * blurred (the backdrop), are drawn out to them, darkening towards the window's sides. At 4:3 nothing
  * of it is drawn.
+ *
+ * The end credits (game state 9, func_L00_002E2958's copies in every level's program) write their
+ * picture of the page to the frame buffer every frame, through the same routine, in the middle of
+ * the frame's list: those frames have no set-up (func_0027B858) and nothing else clears the frame
+ * buffer, so on the console the picture written over it is what wipes the last frame's names. In a
+ * level's program the picture is drawn where the console's transfer is (draw_now).
  */
 #include <stdint.h>
 #include <string.h>
@@ -46,12 +52,14 @@ enum {
     REG_XYZ2 = 0x05,
     REG_TEX0_1 = 0x06,
     REG_TEX1_1 = 0x14,
+    REG_TEST_1 = 0x47,
     REG_NOP = 0x7F,
 };
 
-/* Markers in the display list (renderer::GifInterpreter::kFrameMarker, kWholeMarker). */
+/* Markers in the display list (renderer::GifInterpreter::kFrameMarker, kWholeMarker, kWorldMarker). */
 #define FRAME_MARKER (0x4653ull << 48)
 #define WHOLE_MARKER (0x5754ull << 48)
+#define WORLD_MARKER (0x574Cull << 48) /* kWorldMarker */
 
 static gaddr picture;
 static gaddr backdrop;
@@ -125,10 +133,13 @@ static void make_backdrop(int lines) {
     backdrop_lines = rows;
 }
 
+void func_002FC990(int a0, int a1, int a2);
+static void draw_now(void);
+
 /* The picture to the frame buffer's pages, 32 lines at a time on the console. Nothing draws it there:
  * the splash and the no-card notice (func_0026EAC8) are the frame buffer's own contents. The window has
  * no frame buffer to write into, so the picture is kept and drawn as a sprite once the frame's set-up
- * has gone out (func_0027B858). */
+ * has gone out (func_0027B858); the credits' picture, in a level's program, at once (draw_now). */
 long long func_002FCB00(int data, int destination, int width, int height) {
     if (width == PICTURE_WIDTH && height > 0 && height <= PICTURE_HEIGHT) {
         /* The splash and the no-card notice write the same picture every frame (func_0026EA00's
@@ -146,6 +157,9 @@ long long func_002FCB00(int data, int destination, int width, int height) {
     const openrac_game_image image =
         {destination >> 8, width >> 6, 0, 0, 0, width, height, (gaddr)data};
     openrac_game_load_image(&image);
+    if (picture_in_frame && openrac_guest_overlay() >= 0) {
+        draw_now();
+    }
     return 0;
 }
 
@@ -258,6 +272,25 @@ void func_002FC990(int a0, int a1, int a2) {
     if (picture_of_frame) {
         func_002FC560(REG_NOP, FRAME_MARKER);
     }
+}
+
+/* The credits' picture where the console's transfer is in the list, under the names drawn after it.
+ * A level's tick that draws no world goes over the picture shown last (frontend/tick_picture.h,
+ * Overdraw), and only the part of its list after the world's marker is drawn over it: the marker goes
+ * first, so the picture covers the last tick's names as the console's transfer does. Nothing in these
+ * frames sets the chip's TEST before the picture (the transfer needs none); the last tick's left the
+ * depth test at GREATER, which a sprite at depth 0 fails, so the picture's own goes with it: depth
+ * always passes, no alpha test. The names set theirs. A new picture reaches the texture pool after
+ * this tick's list, so its first tick shows the page before's (the first page's, under the credits'
+ * fade from black). */
+static void draw_now(void) {
+    picture_in_frame = 0;
+    if (picture_new) {
+        func_002FC990(0, 0, 0); /* to the texture pool */
+    }
+    func_002FC560(REG_NOP, WORLD_MARKER);
+    func_002FC560(REG_TEST_1, 0x30000); /* ZTE on, ZTST ALWAYS */
+    func_002FC990(0, 0, 0);
 }
 
 void func_0027B858__game(void);

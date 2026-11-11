@@ -88,7 +88,12 @@ json::Value planned_seeds(
 // Keeps floor evidence available independently of local allocations and generated interior lights.
 json::Value seed_plan(const ProbeBatchOptions& options, const json::Value& request) {
     const bool coverage = request["region_settings"]["enabled"].boolean();
-    const bool reflections = load_level_bake_profile(options.level_directory).environment.enabled;
+    const auto environment =
+        load_level_bake_profile(options.level_directory, options.level_overrides).environment;
+    const bool reflections =
+        environment.enabled
+        && (environment.require_full_coverage
+            || std::filesystem::is_regular_file(request["whitelist"].string()));
 
     // Sparse-only scenes need no gameplay when neither placement feature uses it.
     if (!coverage && !reflections) {

@@ -14,6 +14,12 @@ and replaces stale data only after a successful bake. `--dry-run` lists validate
 override transport or encoding. Source inputs are retained by level export. Missing inputs or a
 required water profile need a fresh export.
 
+Lossless LZ4 storage compression defaults on in the baker and launcher. Each published
+`.orpg` or `.orpe` file uses a checksummed LZ4 frame when it reduces the file size.
+Filenames and GPU payloads are preserved, and readers accept both plain and wrapped assets.
+Use `--no-lz4-assets` to write plain assets, or configure `-DOPENRAC_BAKE_LZ4=OFF`
+to build without the codec. Cache readiness follows the current baker's storage default.
+
 For emissive review, look up a saved task against the level exports:
 
 ```sh

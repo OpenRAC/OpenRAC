@@ -24,6 +24,7 @@
 #include "enhanced/tools/baker/probe_device.h"
 #include "enhanced/tools/baker/sources/activation.h"
 #include "enhanced/tools/baker/sources/emission_audit.h"
+#include "enhanced/tools/baker/sources/interior_inputs.h"
 #include "enhanced/tools/baker/sources/interior_prepare.h"
 #include "enhanced/tools/baker/sources/interior_sources.h"
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
@@ -46,7 +47,7 @@ void parse_request(std::span<const std::string> arguments, Request& request) {
     const std::string_view allowed =
         " --level-dir --batch-output --prepare-interiors --rays --bounces --threads --seed "
         "--resolution --light-set --spacing --environment --sky --sky-intensity --tracy-wait "
-        "--profiles-dir --compression ";
+        "--profiles-dir --compression --level-overrides ";
 
     for (std::size_t index = 0; index < arguments.size(); ++index) {
         const auto& key = arguments[index];
@@ -172,8 +173,8 @@ void integer_overrides(LevelBakeProfile& profile, const Request& request) {
 }
 
 // Resolves the same scalar environment and grid overrides used by single-level command lines.
-LevelBakeProfile resolved_profile(const Request& request) {
-    auto profile = load_level_bake_profile(request.values.at("--level-dir"));
+LevelBakeProfile resolved_profile(const Request& request, const ProbeBatchOptions& options) {
+    auto profile = load_level_bake_profile(options.level_directory, options.level_overrides);
     integer_overrides(profile, request);
 
     for (const auto& [key, value] : request.values) {
@@ -218,8 +219,13 @@ void prepare_sources(
     std::ostream& output
 ) {
     const profiling::Zone zone("Prepare interior sources");
-    const auto report =
-        apply_interior_sources(level, exported.scene, &emission_cache, options.pool);
+    const auto report = apply_interior_sources(
+        level,
+        exported.scene,
+        &emission_cache,
+        options.pool,
+        level.overrides.empty() ? std::filesystem::path{} : options.output_directory
+    );
 
     if (!report) {
         throw std::runtime_error(report.error().message);
@@ -245,6 +251,7 @@ void prepare_sources(
 // Loads and audits the level after the scheduler has admitted its estimated memory footprint.
 scene::LevelData load_level(
     const std::filesystem::path& directory,
+    const std::filesystem::path& overrides,
     const std::filesystem::path& output_directory,
     std::ostream& output
 ) {
@@ -253,7 +260,8 @@ scene::LevelData load_level(
     std::string error;
     output << "Loading extracted level " << directory.string() << '\n' << std::flush;
 
-    if (!scene::load_level(directory, level, error)) {
+    const auto edited = overrides.empty() ? std::filesystem::path{} : overrides / "placements.json";
+    if (!scene::load_level(directory, level, error, edited)) {
         throw std::runtime_error(error);
     }
 
@@ -298,24 +306,40 @@ std::string game_version(const std::filesystem::path& directory) {
 bool prepare_interiors(
     const Request& request, const ProbeBatchOptions& options, std::ostream& output
 ) {
-    // Explicit generation finishes before scene hashing and loading.
-    if (request.values.contains("--prepare-interiors")) {
-        output << "Bake stage: Infer interior lighting\n" << std::flush;
-        const auto result = prepare_level_interiors(
-            options.level_directory,
-            request.values.at("--prepare-interiors"),
-            options.output_directory,
-            !request.automatic
-                || pipeline::region_settings(options.level_directory)["interior_lighting"].boolean()
-        );
-
-        // A missing interior report cannot become part of a verified lighting scene.
-        if (!result) {
-            throw std::runtime_error(result.error().message);
+    const auto requested = request.values.find("--prepare-interiors");
+    const bool explicit_input = requested != request.values.end();
+    const auto gameplay = explicit_input ? std::filesystem::path(requested->second)
+                                         : bake_input(
+                                               options.level_directory / "bake-inputs/gameplay.bin",
+                                               options.level_overrides
+                                           );
+    if (!explicit_input) {
+        const auto environment =
+            load_level_bake_profile(options.level_directory, options.level_overrides).environment;
+        if (!environment.enabled || environment.require_full_coverage) {
+            return false;
         }
-        return *result;
     }
-    return false;
+
+    // Reflection-only floor analysis must not generate GI light sources.
+    const bool generate_lights = explicit_input
+                                 && (!request.automatic
+                                     || pipeline::region_settings(
+                                            options.level_directory, options.level_overrides
+                                     )["interior_lighting"]
+                                            .boolean());
+    output << "Bake stage: Infer interior lighting\n" << std::flush;
+    const auto result = prepare_level_interiors(
+        options.level_directory,
+        gameplay,
+        options.output_directory,
+        generate_lights,
+        options.level_overrides
+    );
+    if (!result) {
+        throw std::runtime_error(result.error().message);
+    }
+    return *result;
 }
 
 // Captures generated source identity before transport and makes interrupted first bakes resumable.
@@ -327,9 +351,10 @@ void prepare_batch_inputs(
 ) {
     const bool changed = prepare_interiors(request, options, output);
 
-    options.source_snapshot = sources && sources->initial && !changed
-                                  ? *sources->initial
-                                  : probe_input_hash(options.level_directory);
+    options.source_snapshot =
+        sources && sources->initial && !changed
+            ? *sources->initial
+            : probe_input_hash(options.level_directory, options.level_overrides);
 
     // Generated interior sources must not discard completed grids after an interrupted first bake.
     if (request.automatic) {
@@ -363,10 +388,12 @@ Result<std::string> resolve_plan(
 }
 
 // Publishes registration and the verified source identity only after the batch content checks pass.
-void complete_batch(const ProbeBatchOptions& options, ProbeSourceHashes* sources) {
+void complete_batch(
+    const ProbeBatchOptions& options, ProbeSourceHashes* sources, bool environment_unavailable
+) {
     // Reference batch requests omit automatic registration but share all transport verification.
     if (options.register_outputs) {
-        const auto result = register_batch_outputs(options);
+        const auto result = register_batch_outputs(options, environment_unavailable);
 
         // Completion must follow successful registration, never merely successful transport.
         if (!result) {
@@ -388,9 +415,16 @@ void execute(
     BakeThreadPool* pool,
     ProbeSourceHashes* sources
 ) {
-    const auto profile = resolved_profile(request);
     ProbeBatchOptions options;
     options.level_directory = request.values.at("--level-dir");
+    if (request.values.contains("--level-overrides")) {
+        options.level_overrides =
+            std::filesystem::canonical(request.values.at("--level-overrides"));
+        if (!std::filesystem::is_directory(options.level_overrides)) {
+            throw std::runtime_error("expected a level overrides directory");
+        }
+    }
+    const auto profile = resolved_profile(request, options);
     options.output_directory = request.values.at("--batch-output");
     options.settings = profile.activation.bake;
     options.light_set = profile.activation.light_set;
@@ -401,7 +435,9 @@ void execute(
     const auto identity = game_version(options.level_directory);
 
     prepare_batch_inputs(request, options, output, sources);
-    auto level = load_level(options.level_directory, options.output_directory, output);
+    auto level = load_level(
+        options.level_directory, options.level_overrides, options.output_directory, output
+    );
     auto exported = export_probe_scene(level, options.light_set, profile.activation.environment);
     bake_detail::EmissionAverageCache emission_cache(exported.scene);
     prepare_sources(level, exported, options, emission_cache, output);
@@ -434,9 +470,10 @@ void execute(
         std::filesystem::remove(options.output_directory / "probe-density-report.json");
     }
 
-    run_probe_batch(level, exported, grid, options, emission_cache, output);
+    const bool environment_unavailable =
+        run_probe_batch(level, exported, grid, options, emission_cache, output);
 
-    complete_batch(options, sources);
+    complete_batch(options, sources, environment_unavailable);
     output << "Probe batch complete\n" << std::flush;
 }
 }  // namespace

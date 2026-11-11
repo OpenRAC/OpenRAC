@@ -38,10 +38,9 @@ Events::Events(const Options& options, const std::vector<Level>& levels, std::os
 
     // Initial summary rows distinguish unfinished levels from prior run failures.
     for (const auto& level : levels) {
-        m_results.push_back(parsed(
-            "{\"level\":" + coordinator_string(level.path.filename().string())
-            + ",\"verified\":false}"
-        ));
+        m_results.push_back(
+            parsed("{\"level\":" + coordinator_string(level.label) + ",\"verified\":false}")
+        );
     }
 
     write("Native enhanced bake started");
@@ -136,13 +135,7 @@ void Events::finish(unsigned id, const json::Value& result) {
     }
 
     write(
-        std::format(
-            "[{}/{}] {}: {}",
-            m_finished,
-            m_levels.size(),
-            m_levels.at(id).path.filename().string(),
-            status
-        )
+        std::format("[{}/{}] {}: {}", m_finished, m_levels.size(), m_levels.at(id).label, status)
     );
     progress();
 }

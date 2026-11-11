@@ -536,8 +536,8 @@ void end_deferred(const Target& t) {
 void begin_rendering(const Target& t, const Clear& clear) {
     end_rendering(PassEnd::Target);
 
-    // The operations chosen at the pass's end, or as it begins (the reference path).
-    if (!render_opt::enabled(render_opt::Opt::AttachmentDiscard) || !begin_deferred(t, clear)) {
+    // Choose operations at the pass's end; record directly if deferred setup fails.
+    if (!begin_deferred(t, clear)) {
         begin_direct(t, clear);
     }
 

@@ -146,6 +146,7 @@ struct EffectStrip {
     // The list set ZBUF before the strip: with ZMSK (z_masked), or without (z_written).
     bool z_masked = false;
     bool z_written = false;
+    bool blend_disabled = false;  // The strip's GIF tag explicitly clears PRIM.ABE.
 };
 
 // A textured quad of the 2D layer the game drew through one of its 2D routines (rac1:
@@ -219,6 +220,7 @@ struct FrameInput {
     bool keep_pvs_history = true;
     // Opt-in culling preview: 0 for the main camera, 1-4 for near-to-far shadow cascades.
     std::optional<unsigned> culling_inspection;
+    bool opaque_effects = false;  // The earlier world bucket for opaque effect draws is visible.
     // The frame's world effect quads, in the order the game drew them.
     std::span<const EffectQuad> effects{};
     std::span<const ImageUpload> effect_uploads{};

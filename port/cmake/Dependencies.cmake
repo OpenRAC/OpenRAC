@@ -9,6 +9,7 @@
 #   SDL3      window, OpenGL context, input, audio (zlib license)
 #   cgltf     glTF 2.0 reader, for the level viewer (MIT)
 #   stb       stb_image and stb_image_write, for the viewer's PNGs (MIT or public domain)
+#   xxHash    PCSX2 texture replacement keys (BSD-2-Clause)
 #   nanosvg   the on-screen pad's SVG icons (zlib)
 #   Dear ImGui  the games' debug overlay (MIT)
 #
@@ -125,6 +126,11 @@ FetchContent_Declare(stb
 )
 # Neither has a CMakeLists.txt at its top, so this only downloads them.
 FetchContent_MakeAvailable(cgltf stb)
+
+# PCSX2 names its texture replacements with XXH3. Only the portable header is needed.
+FetchContent_Declare(openrac_xxhash
+  URL https://github.com/Cyan4973/xxHash/archive/refs/tags/v0.8.2.tar.gz)
+FetchContent_MakeAvailable(openrac_xxhash)
 
 # nanosvg (zlib): the on-screen pad's icons are SVG (game/common/touch/icons/, and a mod's own),
 # drawn into a texture when the pad first shows (renderer/ui/touch_icons.cpp). A commit is pinned

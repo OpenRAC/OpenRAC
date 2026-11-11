@@ -1162,9 +1162,7 @@ constexpr GLenum kGlDepth = 0x1801;    // GL_DEPTH
 constexpr GLenum kGlStencil = 0x1802;  // GL_STENCIL
 
 void VKGL invalidate_framebuffer(GLenum target, GLsizei count, const GLenum* attachments) {
-    // The reference path: nothing is let go, as before the call existed here.
-    if (!renderer::render_opt::enabled(renderer::render_opt::Opt::AttachmentDiscard)
-        || attachments == nullptr) {
+    if (attachments == nullptr) {
         return;
     }
 

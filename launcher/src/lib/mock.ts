@@ -1927,12 +1927,23 @@ function samplePack(name: string): PackView {
 
 /** A game's texture pack and saved textures, as the preview pretends (`?notextures`: none yet). */
 const mockTextures: TexturePackView = query.has("notextures")
-  ? { id: "", enabled: true, dumping: false, packCount: 0, packAnimated: 0, pack: [], dumpCount: 0, dump: [] }
+  ? {
+      id: "",
+      enabled: true,
+      pcsx2Path: null,
+      dumping: false,
+      packCount: 0,
+      packAnimated: 0,
+      pack: [],
+      dumpCount: 0,
+      dump: [],
+    }
   : {
       id: "",
       enabled: true,
       dumping: false,
       packCount: 38,
+      pcsx2Path: null,
       packAnimated: 2,
       pack: [
         { path: "Interface", label: "Interface", count: 12 },
@@ -2747,6 +2758,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "texture_packs_view":
       return delay<TexturePackView>({ ...mockTextures, id: `${String(args.game)}-${String(args.version)}` });
     case "texture_packs_set":
+      if (typeof args.pcsx2 === "string") mockTextures.pcsx2Path = args.pcsx2 || null;
       if (typeof args.enabled === "boolean") mockTextures.enabled = args.enabled;
       if (typeof args.dumping === "boolean") mockTextures.dumping = args.dumping;
       return delay<TexturePackView>({ ...mockTextures, id: `${String(args.game)}-${String(args.version)}` });
