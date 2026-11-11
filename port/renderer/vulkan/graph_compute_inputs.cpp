@@ -40,7 +40,10 @@ Result<graph::BufferUse> GraphExecution::read_buffer(
 
     prepare_frame();
     const BufferRef region = resolve(*found);
-    const auto handle = m_recording->import_buffer(std::move(name), region, true);
+    constexpr auto kShaders =
+        graph::Stage::VertexShader | graph::Stage::FragmentShader | graph::Stage::ComputeShader;
+    const bool shaders_only = (stages | kShaders) == kShaders;
+    const auto handle = m_recording->import_buffer(std::move(name), region, true, shaders_only);
 
     // Conflicting aliases or invalid allocation ranges cannot be sampled.
     if (!handle) {

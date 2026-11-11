@@ -674,6 +674,7 @@ bool make_resident(Buffer& b) {
         const VkBufferCopy region{0, 0, size};
         vkCmdCopyBuffer(upload_cmd(), staging.buffer, buffer, 1, &region);
         count_command(Command::Copy);
+        note_buffer_write();
         defer([staging] { vmaDestroyBuffer(g->allocator, staging.buffer, staging.allocation); });
         b.staged = staging.mapped;
         b.staged_recording = g->recording;

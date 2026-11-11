@@ -166,7 +166,7 @@ Result<graph::BufferHandle> GraphExecution::import_buffer(
 }
 
 Result<graph::BufferHandle> GraphExecution::Recording::import_buffer(
-    std::string name, detail::BufferRef region, bool defined
+    std::string name, detail::BufferRef region, bool defined, bool read_only
 ) {
     using namespace detail;
     VkDeviceSize allocation_size = region.size;
@@ -182,13 +182,27 @@ Result<graph::BufferHandle> GraphExecution::Recording::import_buffer(
         return unexpected(Error{"graph buffer region exceeds its allocation"});
     }
     // Buffer keys use a separate generation namespace from image serials.
-    const auto handle = graph.import_buffer(
-        std::move(name),
-        {{std::bit_cast<std::uint64_t>(region.buffer), 1},
-         allocation_size,
-         {graph::Stage::All, graph::Access::ReadWrite, graph::Layout::Buffer},
-         defined}
-    );
+    const graph::ResourceKey key{std::bit_cast<std::uint64_t>(region.buffer), 1};
+    // What came before is not known: any stage may have written it. A buffer that is only read
+    // here, while every GPU buffer write so far is visible, enters as read instead: its barrier
+    // would end the open render pass, and a tiled GPU stores and loads the whole frame for that.
+    graph::State initial{graph::Stage::All, graph::Access::ReadWrite, graph::Layout::Buffer};
+    const bool trusted = read_only && defined && buffer_writes_visible();
+    if (trusted) {
+        initial.access = graph::Access::Read;
+    }
+    // One allocation has one entry state in a graph: its first import's.
+    bool known = false;
+    for (const auto& resource : graph.resources()) {
+        const auto* buffer = std::get_if<graph::BufferDesc>(&resource.description);
+        if (buffer && buffer->key == key) {
+            initial = buffer->initial;
+            known = true;
+        }
+    }
+    trusted_reads = trusted_reads || (trusted && !known);
+    const auto handle =
+        graph.import_buffer(std::move(name), {key, allocation_size, initial, defined});
 
     // Canonical allocation identity prevents aliases from receiving conflicting histories.
     if (!handle) {
@@ -328,12 +342,17 @@ void GraphExecution::Recording::enter(const graph::PlannedPass& pass) {
                && (image.get() == g->rendering_target.colour
                    || image.get() == g->rendering_target.depth);
     };
+    // A buffer import that carries no barrier relied on every GPU buffer write being visible.
+    // One recorded since (a dispatch between this graph's passes, a staged copy) is made so here.
+    const bool stale = trusted_reads && !buffer_writes_visible();
     // A separate pass starts a render pass of its own: its area is only what it touches.
-    if (!pass.separate && std::all_of(pass.barriers.begin(), pass.barriers.end(), continues)) {
+    if (!stale && !pass.separate
+        && std::all_of(pass.barriers.begin(), pass.barriers.end(), continues)) {
         return;
     }
-    end_rendering();
+    end_rendering(PassEnd::Graph);
     const auto command = frame().main;
+    bool buffer_read = stale, buffer_write = false;
 
     // Exact buffer ranges allow one allocation to hold several independent depth mips.
     for (const auto& transition : pass.barriers) {
@@ -344,7 +363,18 @@ void GraphExecution::Recording::enter(const graph::PlannedPass& pass) {
             record_graph_image_barrier(command, transition, *binding.image);
         } else {
             detail::record_graph_buffer_barrier(command, transition, binding.buffer);
+            const bool writes = transition.after.access != graph::Access::Read;
+            buffer_write = buffer_write || writes;
+            buffer_read = buffer_read || !writes;
         }
+    }
+    // The pass is ended already: one barrier more makes every buffer readable, so the passes
+    // after this one, with their own read-only imports, draw on in one render pass.
+    if (buffer_read) {
+        make_buffer_writes_visible();
+    }
+    if (buffer_write) {
+        note_buffer_write();
     }
 }
 }  // namespace openrac::vkgl

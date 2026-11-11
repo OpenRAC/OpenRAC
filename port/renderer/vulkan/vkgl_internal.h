@@ -1238,6 +1238,12 @@ struct Context {
     int default_width = 0, default_height = 0;
 
     bool rendering = false;
+    // GPU writes into buffers recorded so far (note_buffer_write), and the count at which a
+    // barrier last made them all visible to later reads (make_buffer_writes_visible). While the
+    // two are equal a graph's read-only buffer import needs no barrier of its own, so the pass
+    // that reads it goes on in the open render pass.
+    std::uint64_t buffer_writes = 1;
+    std::uint64_t buffer_writes_visible = 0;
     Target rendering_target;
     OpenPass pass;                 // The pass `main` renders in, while `rendering`.
     PendingPresent present_copy;   // The copy to the default framebuffer that waits, if any.
@@ -1500,12 +1506,31 @@ enum class PassEnd : std::uint8_t {
     Submit,
     Present,
     Timing,  // split pass timing (split_pass_timing, pass sampling)
+    Graph,   // a graph pass that could not go on in the open pass (GraphExecution enter)
+    Import,  // a graph import of an attachment of the open pass (end_rendering_for)
+    Replay,  // a prepared raster node exchanging its targets (PreparedRaster)
     Other
 };
 
 // Flushes the merged draws and ends the rendering pass `main` is in, if any, forgetting the
 // bound pipeline; `why` is counted when a pass was open.
 void end_rendering(PassEnd why = PassEnd::Other);
+
+// A GPU write into a buffer is being recorded: a compute dispatch, a staged copy, a graph pass that
+// writes one. Host writes (the ring, mapped buffers) need no barrier and are not counted.
+inline void note_buffer_write() {
+    ++g->buffer_writes;
+}
+
+// Whether every GPU buffer write recorded so far is visible to shader, vertex, indirect and
+// transfer reads without another barrier.
+inline bool buffer_writes_visible() {
+    return g->buffer_writes_visible == g->buffer_writes;
+}
+
+// Records one memory barrier, outside a render pass, that makes every GPU buffer write so far
+// visible to those reads.
+void make_buffer_writes_visible();
 
 // Ends the open pass only when `image` is one of its attachments, whose layout and contents are
 // settled as the pass ends. Any other image is untouched by it: the pass goes on.

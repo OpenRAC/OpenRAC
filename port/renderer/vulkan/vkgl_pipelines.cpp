@@ -2372,6 +2372,7 @@ void record_prepared_dispatch(const PreparedDispatch& packet) {
     count_command(Command::BindDescriptors);
     vkCmdDispatch(frame().main, packet.groups[0], packet.groups[1], packet.groups[2]);
     count_command(Command::Dispatch);
+    note_buffer_write();  // its storage blocks
     g->bound_pipeline = VK_NULL_HANDLE;
 }
 

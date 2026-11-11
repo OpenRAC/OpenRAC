@@ -94,6 +94,8 @@ Result<std::vector<unsigned>> SurfaceBatch::import(const GraphExecution::Recordi
         target.bindings[*imported] = source.bindings.at(index);
         handles.push_back(*imported);
     }
+    // The chain's passes check what the local graph's trusted buffer reads relied on.
+    target.trusted_reads = target.trusted_reads || source.trusted_reads;
     return handles;
 }
 

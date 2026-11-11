@@ -737,7 +737,7 @@ void end_rendering(PassEnd why) {
     gpu_flush_draws();
     if (g->rendering) {
         if (stats::enabled()) {
-            constexpr std::array<std::string_view, 9> kWhy = {
+            constexpr std::array<std::string_view, 12> kWhy = {
                 "vk_pass_end target",
                 "vk_pass_end copy",
                 "vk_pass_end sample",
@@ -746,6 +746,9 @@ void end_rendering(PassEnd why) {
                 "vk_pass_end submit",
                 "vk_pass_end present",
                 "vk_pass_end timing",
+                "vk_pass_end graph",
+                "vk_pass_end import",
+                "vk_pass_end replay",
                 "vk_pass_end other",
             };
             count_where(kWhy[static_cast<std::size_t>(why)]);
@@ -767,10 +770,37 @@ void end_rendering(PassEnd why) {
     }
 }
 
+void make_buffer_writes_visible() {
+    constexpr VkPipelineStageFlags kReaders =
+        VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+        | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT
+        | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
+    VkMemoryBarrier writes{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+    writes.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+    writes.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT
+                           | VK_ACCESS_INDIRECT_COMMAND_READ_BIT
+                           | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT
+                           | VK_ACCESS_TRANSFER_READ_BIT;
+    vkCmdPipelineBarrier(
+        frame().main,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        kReaders,
+        0,
+        1,
+        &writes,
+        0,
+        nullptr,
+        0,
+        nullptr
+    );
+    count_barrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, kReaders);
+    g->buffer_writes_visible = g->buffer_writes;
+}
+
 void end_rendering_for(const Image* image) {
     if (g->rendering
         && (g->rendering_target.colour == image || g->rendering_target.depth == image)) {
-        end_rendering();
+        end_rendering(PassEnd::Import);
     }
 }
 
