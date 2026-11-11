@@ -455,6 +455,7 @@ void savestate_restored(std::uint64_t tick) {
     g->loaded = -2;
     g->index = tick;
     g->world_camera.reset();
+    g->world_shrubs.reset();
     g->moby_cameras.clear();
     g->effects.clear();
     g->effect_uploads.clear();

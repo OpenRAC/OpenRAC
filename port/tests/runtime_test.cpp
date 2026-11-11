@@ -328,6 +328,36 @@ void relocation_with_folded_copies() {
     openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
 }
 
+int card_prompt(int a) {
+    return a;
+}
+
+// A level function the executable also carries (rac1 PAL v1 and NTSC-J: the title's card menu runs
+// level 0's code at its boot place). With no level loaded, its level data is the executable's.
+void level_data_in_the_executable() {
+    // Level 0's program: the prompt at 0x1E0000 forms 0x1B9E70, its menu.
+    const std::uint32_t level0[] = {0x3C04001Cu, 0x24849E70u, 0x03E00008u, 0};
+    // The executable's copy at 0x12F000 forms 0x1D5D70, the executable's menu.
+    const std::uint32_t copy[] = {0x3C04001Du, 0x24845D70u, 0x03E00008u, 0};
+    std::memcpy(G(0x0012F000u), copy, sizeof copy);
+    const auto fn = reinterpret_cast<openrac_host_fn>(card_prompt);
+    static const openrac_fn_entry exe_fns[] = {{0x0012F000u, fn, "prompt"}};
+    static const openrac_fn_entry level_fns[] = {{0x001E0000u, fn, "prompt"}};
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 1);
+    openrac_guest_register(0, level_fns, 1);
+    openrac_guest_add_level_program(
+        0, 0x001E0000u, reinterpret_cast<const std::uint8_t*>(level0), sizeof level0
+    );
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    CHECK(OPENRAC_LDATA(0, 0x001B9E70u) == 0x001D5D70u);
+    CHECK(OPENRAC_LDATA(0, 0x001B9F44u) == 0x001D5E44u);  // a field of it
+    CHECK(OPENRAC_LCODE(0, 0x001E0000u) == 0x0012F000u);
+    openrac_guest_set_overlay(0);
+    CHECK(OPENRAC_LDATA(0, 0x001B9E70u) == 0x001B9E70u);  // its own level: as written
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    openrac_guest_clear_level_programs();
+}
+
 int particle_loop(int a) {
     return a;
 }
@@ -547,6 +577,7 @@ int main() {
     code_in_copy_jal();
     folded_address();
     relocation_with_folded_copies();
+    level_data_in_the_executable();
     elf();
     reach_report_updates();
     host_stack();

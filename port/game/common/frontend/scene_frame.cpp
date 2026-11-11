@@ -392,7 +392,9 @@ void set_camera(SceneFrame& frame) {
     }
     const auto& visibility_camera = input.culling_camera ? *input.culling_camera : input.camera;
     owner.scene.choose_scenery(
-        frame.graphics.original_lod, visibility_camera.position, visibility_camera.projection
+        frame.graphics.draw_distance_scale(),
+        visibility_camera.position,
+        visibility_camera.projection
     );
     const bool had_probes = owner.scene.probe_data_available();
     owner.scene.update_probe_regions(input.camera);

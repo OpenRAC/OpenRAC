@@ -38,7 +38,8 @@ constexpr Old kOld[] = {
     {kDesktop, "Render scale", Id::RenderScale},
     {kDesktop, "Anti-aliasing", Id::Msaa},
     {kDesktop, "Anisotropic filtering", Id::Anisotropy},
-    {kDesktop, "Scenery detail", Id::SceneryDetail},
+    // "Scenery detail" is a step of Draw distance now (Original, Unlimited).
+    {kDesktop, "Scenery detail", Id::DrawDistance},
     {kDesktop, "Frame rate", Id::FrameRate},
     {kDesktop, "VSync", Id::VSync},
     {kDesktop, "Enhanced Settings", Id::EnhancedAdvanced},
@@ -77,7 +78,7 @@ constexpr Old kOld[] = {
     {kTouch, "Render scale", Id::RenderScale},
     {kTouch, "Anti-aliasing", Id::Msaa},
     {kTouch, "Anisotropic filtering", Id::Anisotropy},
-    {kTouch, "Scenery detail", Id::SceneryDetail},
+    {kTouch, "Scenery detail", Id::DrawDistance},
     {kTouch, "Frame rate", Id::FrameRate},
     {kTouch, "VSync", Id::VSync},
     {kTouch, "HDR", Id::Hdr},

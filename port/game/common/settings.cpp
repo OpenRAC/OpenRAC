@@ -466,7 +466,7 @@ void load(const std::filesystem::path& file) {
         } else if (key == "mute_unfocused") {
             known = parse_bool(value, s.mute_unfocused);
         } else if (key == "original_lod") {
-            known = parse_bool(value, s.original_lod);
+            // Old "Scenery detail", merged into draw_distance: dropped.
         } else if (key == "draw_distance") {
             known = parse_listed(value, kDrawDistances, s.draw_distance);
         } else if (key == "responsive_controls") {
@@ -669,7 +669,6 @@ void save() {
         << "menu_bar_key = " << s.menu_bar_key << "\n"
         << "menu_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"
-        << "original_lod = " << (s.original_lod ? 1 : 0) << "\n"
         << "draw_distance = " << s.draw_distance << "\n"
         << "responsive_controls = " << (s.responsive_controls ? 1 : 0) << "\n"
         << "low_latency_frames = " << (s.low_latency_frames ? 1 : 0) << "\n"

@@ -47,9 +47,6 @@ constexpr Entry kEntries[] = {
      "Smooths the edges of the world's shapes. Each step costs the graphics card more."},
     {Id::Anisotropy, Tab::Graphics, "Picture", kChoice, A, "Anisotropic filtering",
      "Keeps floors and walls sharp when seen at a slant. Cheap on most graphics cards."},
-    {Id::SceneryDetail, Tab::Graphics, "Picture", kChoice, A, "Scenery detail",
-     "Full draws the scenery's most detailed models at every distance; Original swaps them for "
-     "simpler ones far away, as the console did."},
     {Id::DrawDistance, Tab::Graphics, "Picture", kChoice, A, "Draw distance",
      "How far away things are still drawn. Original stops where the console did; the larger "
      "steps draw farther, and Unlimited draws everything in view. What the game hides from a "
