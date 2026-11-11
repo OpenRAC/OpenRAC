@@ -492,6 +492,7 @@
         class="wheel"
         data-pad-right=".info .acts button"
         data-pad-down="none"
+        data-pad-move-first
         bind:this={wheel}
         aria-label="Your games"
         role="group"
@@ -931,8 +932,10 @@
     min-height: 0;
     padding: 0 12px 0 14px;
     border-radius: calc(var(--radius) - 3px);
+    margin: 0;
     background: var(--control-card-hi);
     font-size: var(--ctl-font);
+    transition: none;
   }
 
   .go.primary {

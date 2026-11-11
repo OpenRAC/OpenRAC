@@ -143,7 +143,7 @@ class MainActivity : TauriActivity() {
     KeyEvent.KEYCODE_DPAD_DOWN -> "down"
     KeyEvent.KEYCODE_DPAD_LEFT -> "left"
     KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
-    KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_BUTTON_START -> "accept"
+    KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER -> "accept"
     KeyEvent.KEYCODE_BUTTON_B -> "back"
     KeyEvent.KEYCODE_BUTTON_Y -> "more"
     KeyEvent.KEYCODE_BUTTON_X -> "extra"
@@ -160,6 +160,9 @@ class MainActivity : TauriActivity() {
   }
 
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    // Start does nothing in the launcher: as A it pressed the page's main button, which could
+    // open the system's file picker (Set up from your disc).
+    if (event.keyCode == KeyEvent.KEYCODE_BUTTON_START && fromController(event)) return true
     val name = if (fromController(event)) button(event.keyCode) else null
     if (name == null || webView == null) return super.dispatchKeyEvent(event)
     if (webView?.hasFocus() == false) webView?.requestFocus()

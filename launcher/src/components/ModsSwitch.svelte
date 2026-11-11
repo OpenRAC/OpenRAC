@@ -75,9 +75,23 @@
     cursor: pointer;
   }
 
+  /* Words in the pill, not a button in it: a press only dims them. As a button, its own box lit
+     up inside the pill on a tap, as the page slid away. The padding keeps a thumb's target. */
   .link {
     display: inline-flex;
     align-items: center;
     gap: 2px;
+    min-height: 0;
+    margin: -8px -10px;
+    padding: 8px 10px;
+    background: none;
+    color: inherit;
+    font-weight: 500;
+    transition: opacity var(--fast);
+  }
+
+  .link:active {
+    filter: none;
+    opacity: 0.7;
   }
 </style>

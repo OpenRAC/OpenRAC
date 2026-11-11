@@ -277,9 +277,13 @@ function move(dir: Direction) {
     if (!still || !visible(still)) {
       const first = start(root, items);
       if (first) show(first);
-      return;
+      // In a part that asks for it (Android's wheel of discs), the first press already moves on
+      // from there: on the launcher's first start, down took two presses to turn the wheel.
+      if (!first?.closest("[data-pad-move-first]")) return;
+      from = first;
+    } else {
+      from = still;
     }
-    from = still;
   }
   // A range, and a list to pick from, move their value sideways.
   const sideways = (dir === "left" || dir === "right") && from === current(items);

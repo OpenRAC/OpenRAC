@@ -285,6 +285,13 @@ describe("A controller", () => {
     expect(await shownName()).toContain("Going Commando");
   });
 
+  it("turns the wheel on the very first press, with nothing focused yet", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".slot.on").waitFor();
+    await press("down");
+    expect(await shownName()).toContain("Going Commando");
+  });
+
   it("stays on the last disc when down is pressed past it", async () => {
     await open("built&version=rac1/pal&page=library");
     await page.locator(".slot.on").waitFor();
