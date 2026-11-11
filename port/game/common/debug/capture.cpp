@@ -442,7 +442,6 @@ perf_capture::Context context(const Shown& shown) {
           kRenderScale,
           kMsaa,
           kAnisotropy,
-          kSceneryDetail,
           kDrawDistance,
           kFrameRate,
           kFrameCap,

@@ -61,7 +61,7 @@ struct GameScenery {
     // (0x2E15B0) test to leave it undrawn. Empty: none hidden.
     // Going Commando's frontend also leaves out the ones its culls leave undrawn this tick: a tie
     // whose occlusion bit the frame's mask clears, and a tie or shrub past its draw distance (at
-    // most the level's cap; under "Scenery detail: Full" the cap alone).
+    // most the level's cap; at "Draw distance: Unlimited" the cap alone).
     std::vector<std::uint8_t> tie_hidden;
     std::vector<std::uint8_t> shrub_hidden;
     // Each terrain fragment's occlusion word, in the game's fragment order (its tfrag records'
@@ -147,17 +147,17 @@ public:
     // ship paint jobs) with the game's `number`; one the level does not have leaves the one bound.
     void set_variant(int number);
 
-    // "Scenery detail: Original" (settings.h), from the camera at `eye` seeing through
-    // `projection`: the ties and shrubs beyond their draw distances (LevelData::draw_distances) left
+    // Draw distance (settings.h) for the ties and shrubs, from the camera at `eye` seeing through
+    // `projection`: those beyond their draw distances (LevelData::draw_distances) times `scale` left
     // out, every one drawn at its most detailed LOD. A layer is grouped again only when one of its
     // instances changes, so the test holds back by a few units: an instance leaves only some way
     // past its distance, by straight-line distance however the camera turns; it comes back as soon
-    // as the game would draw it. Off, the instances as loaded: never set again unless the setting
-    // was on, so the default draws the level's resident ties and shrubs untouched.
-    void choose_scenery(bool original, const renderer::Vec3& eye, const renderer::Mat4& projection);
+    // as the game would draw it. Scale 0 (Unlimited): the instances as loaded, never set again
+    // unless a distance was in use.
+    void choose_scenery(float scale, const renderer::Vec3& eye, const renderer::Mat4& projection);
 
-    // ShrubProc's choice for the tick (GameProfile::shrub_draws), one per shrub as loaded: with
-    // "Scenery detail: Original" the shrubs' layer then keeps those it draws whole (choose_scenery)
+    // ShrubProc's choice for the tick (GameProfile::shrub_draws), one per shrub as loaded: at
+    // "Draw distance: Original" the shrubs' layer then keeps those it draws whole (choose_scenery)
     // and add_shrub_effects the rest. Empty, or not one per shrub: the draw distances alone.
     void set_shrub_draws(std::vector<ShrubDraw> draws);
 

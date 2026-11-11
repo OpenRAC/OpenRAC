@@ -36,7 +36,6 @@ constexpr const char* kLabels[kRows] = {
     "Render scale",
     "Anti-aliasing",
     "Anisotropic filtering",
-    "Scenery detail",
     "Draw distance",
     "VSync",
     "HDR",
@@ -76,11 +75,6 @@ constexpr Words kWords[] = {
       "Anisotrope Filterung",
       "Filtrado anisotrópico",
       "Filtro anisotropico"}},
-    {{"Scenery detail",
-      "Détail du décor",
-      "Szeneriedetails",
-      "Detalle del escenario",
-      "Dettaglio scenario"}},
     {{"Draw distance",
       "Distance d'affichage",
       "Sichtweite",
@@ -334,8 +328,6 @@ std::string value_of(int row) {
                 s.anisotropy_samples(gl::enhanced_rendering_available() && s.enhanced_graphics);
             return samples > 1 ? std::format("Anisotropic {}x", samples) : std::string("Trilinear");
         }
-        case kSceneryDetail:
-            return s.original_lod ? "Original" : "Full";
         case kDrawDistance:
             return s.draw_distance == 100 ? std::string("Original")
                    : s.draw_distance == 0 ? std::string("Unlimited")
@@ -406,9 +398,6 @@ void step_value(int row, int by) {
                     static_cast<int>(renderer::TexturePool::max_anisotropy())
                 )
             );
-            break;
-        case kSceneryDetail:
-            s.original_lod = !s.original_lod;
             break;
         case kDrawDistance:
             s.draw_distance = stepped(settings::kDrawDistances, s.draw_distance, by);

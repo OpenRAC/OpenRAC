@@ -157,20 +157,18 @@ struct Settings {
     float temporal_sharpness = 0.2f;         // AMD RCAS strength in [0, 1].
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;
     int anisotropy = 0;  // 0: mode default; otherwise 1 (off), 2, 4, 8, 16
-    // Scenery detail: false draws every tie and shrub, however far (the port's default); true,
-    // "Original", leaves out the ties and shrubs beyond the game's draw distances (a low-end option,
-    // scene::LevelScene::choose_scenery; levels exported before it have no shrub limits). Both draw
-    // each one at its most detailed LOD.
-    bool original_lod = false;
     // Draw distance: how far the game's own culls reach, in percent of the game's (100, Original:
     // each moby's, tie's and shrub's own distance, at most the level's caps; 400 the default); 0
     // Unlimited, no distance limit. What the game hides by its visibility mask or a bit of its
-    // records stays hidden at any setting. Applied to the mobys of both games and to Going
-    // Commando's ties, shrubs and terrain (rac1's ties and shrubs follow Scenery detail).
+    // records stays hidden at any setting. Applied to the mobys, ties and shrubs of every game and
+    // to Going Commando's terrain (rac1's ties and shrubs: scene::LevelScene::choose_scenery).
     int draw_distance = 400;
 
     // The draw distance's factor: 1 at Original, 0 Unlimited.
     float draw_distance_scale() const { return static_cast<float>(draw_distance) / 100.0f; }
+
+    // Original: the game's own distances, with its fades and billboards.
+    bool original_draw_distance() const { return draw_distance == 100; }
 
     int anisotropy_samples(bool enhanced) const {
         return anisotropy ? anisotropy : enhanced ? 4 : 1;
