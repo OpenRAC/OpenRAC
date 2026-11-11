@@ -312,8 +312,29 @@ jobs:
         run: yarn install --immutable
       - name: Lint and unit tests (svelte-check, ESLint, Prettier, Vitest)
         run: yarn verify
+      # The browser comes from Playwright's CDN, cached by version. No apt on the way: the
+      # runner has its libraries already, and apt mirrors that fail to resolve took 10 minutes
+      # and failed the job over fonts the tests never use. install-deps runs only when a
+      # library is really missing, and is cut short.
+      - id: playwright
+        run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
       - name: A headless Chromium
-        run: yarn playwright-core install --with-deps chromium-headless-shell
+        run: |
+          for try in 1 2 3; do
+            timeout 180 yarn playwright-core install chromium-headless-shell && break
+            [ "$try" = 3 ] && exit 1
+            sleep $((try * 10))
+          done
+          shell=$(find ~/.cache/ms-playwright -type f -name 'chrome-headless-shell' -o -type f -name 'headless_shell' | head -n 1)
+          if ldd "$shell" | grep -q 'not found'; then
+            ldd "$shell" | grep 'not found'
+            timeout 300 yarn playwright-core install-deps chromium-headless-shell \
+              || echo "::warning::install-deps failed; trying the tests anyway"
+          fi
       - name: Android pages
         run: yarn test:android
 
