@@ -337,6 +337,8 @@ openrac_add_c_test(rac4_io
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
 openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include)
+# The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).
+openrac_add_c_test(mc_shared_card INCLUDES runtime/include game/common/include)
 
 # ---- assets, media, audio, the extractor: no window ----
 openrac_add_c_test(crate_init NO_STRICT_ALIASING WRAPV NO_FP_CONTRACT)

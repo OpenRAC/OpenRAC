@@ -15,7 +15,12 @@
  * (docs/port/RAC1_PAL_SURVEY.md, section 7).
  *
  * While a party plays, a filter stands between the game and its saves (the end of "The save mark"
- * below says how): whatever the game believes it writes, a player's own saves stay as they were. */
+ * below says how): whatever the game believes it writes, a player's own saves stay as they were.
+ *
+ * A console's card holds every game's saves, and a game may look at another's: Going Commando
+ * reads Ratchet & Clank's saves for the Barlow vendor's free weapons. Here each game's card is its
+ * own folder, so the first card also shows the other games' save folders, read only ("The other
+ * games' saves" below). */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,27 +111,214 @@ static int finish(int cmd, int result) {
  * is in it. */
 static char current_dir[2][512];
 
-/* The first port's card is card_dir itself, the folder the launcher's save
- * manager shows (launcher/core/src/saves.rs); the second port's is beside it,
- * card_dir.slot2, and counts as inserted only if it exists. */
-static int card_path(int port, const char* name, char* out, size_t size) {
+/* ---- The other games' saves ---- */
+
+/* The launcher keeps each game's card in a folder named after its disc's serial, all of them side
+ * by side (<data home>/memcard/SCUS_971.99, SCUS_972.68, ...; launcher/core/src/saves.rs). On a
+ * console they would be one card, and Going Commando looks on it for Ratchet & Clank's saves:
+ * when the Barlow vendor is first visited it opens BASCUS-97199RATCHET/save0.bin to save4.bin,
+ * then BESCES-50916RATCHET's and BISCPS-15037RATCHET's (every disc looks for all three regions,
+ * func_00298F00 states 24 to 27), reads their first 0x2800 bytes and takes the weapons Ratchet
+ * had from their unlock block; the vendor then gives those weapons away (func_002FAE68,
+ * func_002FADB0).
+ *
+ * So the first card shows, besides its own folders, every folder at the top of another game's
+ * card that it does not have itself, from the serial folders beside it, as a console's card would
+ * list them. They are read only: a game may list them, enter them and read their files, but
+ * opening one of their files to write or create, making one of their folders, deleting from
+ * them, all fail and change nothing on the disk. Nothing is ever added to them either (a stray
+ * file in a save folder makes its game take the card for a damaged one). The second card is a
+ * card of its own and shows only its own folders. */
+
+/* Whether `name` is a disc serial as the card folders are named: SCUS_972.68, or SCES-50916 as
+ * older launchers wrote it. */
+static int is_serial_folder(const char* name) {
+    for (int i = 0; i < 4; i++) {
+        if (name[i] < 'A' || name[i] > 'Z') {
+            return 0;
+        }
+    }
+    if (name[4] != '_' && name[4] != '-') {
+        return 0;
+    }
+    int digits = 0, dots = 0;
+    for (const char* p = name + 5; *p; p++) {
+        if (*p >= '0' && *p <= '9') {
+            digits++;
+        } else if (*p == '.' && digits == 3 && dots == 0) {
+            dots++;
+        } else {
+            return 0;
+        }
+    }
+    return digits == 5;
+}
+
+/* The folder the card folders are in, and the first card's own folder name in it. */
+static int card_parent(char* parent, size_t size, char* own, size_t own_size) {
+    const char* root = openrac_game_card_dir != NULL ? openrac_game_card_dir : "memcard";
+    char path[1024];
+    if (snprintf(path, sizeof path, "%s", root) >= (int)sizeof path) {
+        return 0;
+    }
+    size_t length = strlen(path);
+    while (length > 1 && (path[length - 1] == '/' || path[length - 1] == '\\')) {
+        path[--length] = '\0';
+    }
+    char* slash = strrchr(path, '/');
+    char* back = strrchr(path, '\\');
+    if (back != NULL && (slash == NULL || back > slash)) {
+        slash = back;
+    }
+    const char* name = slash != NULL ? slash + 1 : path;
+    if (*name == '\0' || snprintf(own, own_size, "%s", name) >= (int)own_size) {
+        return 0;
+    }
+    if (slash == NULL) {
+        return snprintf(parent, size, "%s", ".") < (int)size;
+    }
+    if (slash == path) {
+        return snprintf(parent, size, "%s", "/") < (int)size;
+    }
+    *slash = '\0';
+    return snprintf(parent, size, "%s", path) < (int)size;
+}
+
+/* Calls `each` with every name in the folder `dir`, "." and ".." too; 0 when it cannot be read. */
+static int each_name(const char* dir, void (*each)(const char* dir, const char* name, void* data),
+                     void* data) {
+#if defined(_WIN32)
+    char query[1100];
+    struct _finddata_t found;
+    snprintf(query, sizeof query, "%s/*", dir);
+    intptr_t h = _findfirst(query, &found);
+    if (h == -1) {
+        return 0;
+    }
+    do {
+        each(dir, found.name, data);
+    } while (_findnext(h, &found) == 0);
+    _findclose(h);
+#else
+    DIR* d = opendir(dir);
+    if (d == NULL) {
+        return 0;
+    }
+    struct dirent* ent;
+    while ((ent = readdir(d)) != NULL) {
+        each(dir, ent->d_name, data);
+    }
+    closedir(d);
+#endif
+    return 1;
+}
+
+static int is_dir(const char* path) {
+    struct stat st;
+    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+/* The search for another card holding a folder: the first serial folder by name that has it. */
+typedef struct {
+    const char* own;
+    const char* top;
+    char found[256];
+} neighbour_search;
+
+static void consider_card(const char* parent, const char* name, void* data) {
+    neighbour_search* search = (neighbour_search*)data;
+    char path[1200];
+    if (!is_serial_folder(name) || strcmp(name, search->own) == 0
+        || (search->found[0] != '\0' && strcmp(name, search->found) >= 0)
+        || snprintf(path, sizeof path, "%s/%s/%s", parent, name, search->top)
+               >= (int)sizeof path
+        || !is_dir(path) || strlen(name) >= sizeof search->found) {
+        return;
+    }
+    snprintf(search->found, sizeof search->found, "%s", name);
+}
+
+/* The card folder (`parent`/<serial>) whose top folder `top` the first card shows; 0 for none. */
+static int neighbour_card(const char* top, char* out, size_t size) {
+    char parent[1024], own[256];
+    neighbour_search search;
+    if (*top == '\0' || top[0] == '.' || !card_parent(parent, sizeof parent, own, sizeof own)) {
+        return 0;
+    }
+    search.own = own;
+    search.top = top;
+    search.found[0] = '\0';
+    if (!each_name(parent, consider_card, &search) || search.found[0] == '\0') {
+        return 0;
+    }
+    return snprintf(out, size, "%s/%s", parent, search.found) < (int)size;
+}
+
+/* A file or folder of the card, as the game names it (from the root with a leading '/', else in
+ * the current folder), on the disk: in the card's own folder, or for the first card in another
+ * game's when that is where its top folder is (`foreign` set). The first port's card is card_dir
+ * itself, the folder the launcher's save manager shows (launcher/core/src/saves.rs); the second
+ * port's is beside it, card_dir.slot2, and counts as inserted only if it exists. */
+static int card_path_of(int port, const char* name, char* out, size_t size, int* foreign) {
     const char* root = openrac_game_card_dir != NULL ? openrac_game_card_dir : "memcard";
     const char* dir = *name == '/' ? "" : current_dir[port != 0];
+    char relative[1024];
     while (*name == '/') {
         name++;
     }
-    return snprintf(
-               out,
-               size,
-               "%s%s%s%s%s%s",
-               root,
-               port == 0 ? "" : ".slot2",
-               *dir ? "/" : "",
-               dir,
-               *name ? "/" : "",
-               name
-           )
-           < (int)size;
+    if (foreign != NULL) {
+        *foreign = 0;
+    }
+    if (snprintf(relative, sizeof relative, "%s%s%s", dir, *dir && *name ? "/" : "", name)
+        >= (int)sizeof relative) {
+        return 0;
+    }
+    if (snprintf(out, size, "%s%s%s%s", root, port == 0 ? "" : ".slot2", *relative ? "/" : "",
+                 relative)
+        >= (int)size) {
+        return 0;
+    }
+    if (foreign == NULL || port != 0 || *relative == '\0') {
+        return 1;
+    }
+    /* Another game's folder: its top folder is not on this card, and the path stays inside it. */
+    char top[256];
+    const size_t top_length = strcspn(relative, "/");
+    if (top_length >= sizeof top) {
+        return 1;
+    }
+    memcpy(top, relative, top_length);
+    top[top_length] = '\0';
+    char own_top[1200];
+    snprintf(own_top, sizeof own_top, "%s/%s", root, top);
+    struct stat st;
+    if (stat(own_top, &st) == 0) {
+        return 1;
+    }
+    for (const char* p = relative; *p;) {
+        const size_t length = strcspn(p, "/");
+        if (length == 2 && p[0] == '.' && p[1] == '.') {
+            return 1;
+        }
+        p += length;
+        while (*p == '/') {
+            p++;
+        }
+    }
+    char other[1024];
+    if (!neighbour_card(top, other, sizeof other)) {
+        return 1;
+    }
+    if (snprintf(out, size, "%s/%s", other, relative) >= (int)size) {
+        return 0;
+    }
+    *foreign = 1;
+    return 1;
+}
+
+/* The path of a card's own file or folder, never another game's. */
+static int card_path(int port, const char* name, char* out, size_t size) {
+    return card_path_of(port, name, out, size, NULL);
 }
 
 static int card_present(int port) {
@@ -135,7 +327,8 @@ static int card_present(int port) {
         return 0;
     }
     struct stat st;
-    if (!card_path(port, "", path, sizeof path)) {
+    /* The card's root, whatever its current folder: after a sceMcChdir "" is that folder. */
+    if (!card_path(port, "/", path, sizeof path)) {
         return 0;
     }
     if (port == 0) {
@@ -178,6 +371,8 @@ static int file_written[MAX_FILES];
 static int file_fate[MAX_FILES];
 /* The bytes the game read from each open file: a save read whole is a save loaded. */
 static long file_read[MAX_FILES];
+/* Whether each open file is another game's (read only, "The other games' saves"). */
+static int file_foreign[MAX_FILES];
 
 /* The save the game in progress came from or last went to (game_host.h). */
 int openrac_game_save_in_use = -1;
@@ -514,11 +709,17 @@ static int fate_of(const char* path, int mode) {
 int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
     (void)slot;
     char path[1024];
+    int foreign = 0;
     if (no_name(name)) {
         return MC_NO_NAME;
     }
-    if (!card_present(port) || !card_path(port, (const char*)G(name), path, sizeof path)) {
+    if (!card_present(port)
+        || !card_path_of(port, (const char*)G(name), path, sizeof path, &foreign)) {
         return finish(MC_OPEN, MC_NO_CARD);
+    }
+    /* Another game's file is only ever read. */
+    if (foreign && (mode & (2 | 0x200)) != 0) {
+        return finish(MC_OPEN, MC_FAILED);
     }
     int fd = -1;
     for (int i = 0; i < MAX_FILES; i++) {
@@ -531,8 +732,10 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
         return finish(MC_OPEN, -7);
     }
     FILE* f = NULL;
-    int fate = fate_of(path, mode);
-    if (fate == FATE_REDIRECTED) {
+    int fate = foreign ? FATE_ASKED : fate_of(path, mode);
+    if (foreign) {
+        f = fopen(path, "rb");
+    } else if (fate == FATE_REDIRECTED) {
         const char* slash = strrchr(path, '/');
         char temp[1100];
         if (start_redirect(
@@ -570,6 +773,7 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
     file_written[fd] = 0;
     file_fate[fd] = fate;
     file_read[fd] = 0;
+    file_foreign[fd] = foreign;
     return finish(MC_OPEN, fd);
 }
 
@@ -583,6 +787,12 @@ int openrac_lib_sceMcClose(int fd) {
     }
     fclose(files[fd]);
     files[fd] = NULL;
+    /* Another game's save read: nothing of this game's to mark or take as the game in progress. */
+    if (file_foreign[fd]) {
+        file_foreign[fd] = 0;
+        file_read[fd] = 0;
+        return finish(MC_CLOSE, MC_OK);
+    }
     /* The party's save just written: in place now, whole, or not at all. */
     if (file_fate[fd] == FATE_REDIRECTED) {
         char temp[1100];
@@ -643,6 +853,9 @@ int openrac_lib_sceMcWrite(int fd, gaddr buffer, int size) {
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_WRITE, MC_FAILED);
     }
+    if (file_foreign[fd]) {
+        return finish(MC_WRITE, MC_FAILED);
+    }
     if (file_fate[fd] == FATE_DROPPED) {
         fseek(files[fd], size, SEEK_CUR);
         return finish(MC_WRITE, size);
@@ -658,11 +871,17 @@ int openrac_lib_sceMcMkdir(int port, int slot, gaddr name) {
     (void)slot;
     char path[1024];
     struct stat st;
+    int foreign = 0;
     if (no_name(name)) {
         return MC_NO_NAME;
     }
-    if (!card_present(port) || !card_path(port, (const char*)G(name), path, sizeof path)) {
+    if (!card_present(port)
+        || !card_path_of(port, (const char*)G(name), path, sizeof path, &foreign)) {
         return finish(MC_MKDIR, MC_NO_CARD);
+    }
+    /* Inside another game's folder, nothing is made; its own top folder is there already. */
+    if (foreign) {
+        return finish(MC_MKDIR, stat(path, &st) == 0 ? MC_EXISTS : MC_FAILED);
     }
     if (stat(path, &st) == 0) {
         return finish(MC_MKDIR, MC_EXISTS);
@@ -674,11 +893,17 @@ int openrac_lib_sceMcMkdir(int port, int slot, gaddr name) {
 int openrac_lib_sceMcDelete(int port, int slot, gaddr name) {
     (void)slot;
     char path[1024];
+    int foreign = 0;
     if (no_name(name)) {
         return MC_NO_NAME;
     }
-    if (!card_present(port) || !card_path(port, (const char*)G(name), path, sizeof path)) {
+    if (!card_present(port)
+        || !card_path_of(port, (const char*)G(name), path, sizeof path, &foreign)) {
         return finish(MC_DELETE, MC_NO_CARD);
+    }
+    /* Another game's saves are never deleted. */
+    if (foreign) {
+        return finish(MC_DELETE, MC_FAILED);
     }
     if (card_mode != CARD_PASS) {
         return finish(MC_DELETE, MC_OK);
@@ -797,47 +1022,96 @@ static int matches(const char* pattern, const char* name) {
     return strcmp(pattern, name) == 0;
 }
 
+/* Whether the listing has an entry called `name` already. */
+static int listed(const char* name) {
+    for (int i = 0; i < listing_count; i++) {
+        if (strcmp(listing[i].name, name) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* What a listing collects: the names in one folder matching its pattern; `folders_only` for the
+ * other cards' tops, which give only their save folders. */
+typedef struct {
+    const char* pattern;
+    int folders_only;
+} listing_filter;
+
+static void list_name(const char* dir, const char* name, void* data) {
+    const listing_filter* filter = (const listing_filter*)data;
+    if (!matches(filter->pattern, name) || listed(name)) {
+        return;
+    }
+    if (filter->folders_only) {
+        char path[1200];
+        if (name[0] == '.') {
+            return; /* another card's "." and "..": the root's own are listed already */
+        }
+        if (snprintf(path, sizeof path, "%s/%s", dir, name) >= (int)sizeof path || !is_dir(path)) {
+            return;
+        }
+    }
+    add_entry(dir, name);
+}
+
+/* The other cards in name order, as neighbour_card takes the first by name that has a folder. */
+typedef struct {
+    char names[32][64];
+    int count;
+} card_names;
+
+static void collect_card(const char* parent, const char* name, void* data) {
+    (void)parent;
+    card_names* cards = (card_names*)data;
+    if (cards->count < 32 && is_serial_folder(name) && strlen(name) < sizeof cards->names[0]) {
+        snprintf(cards->names[cards->count++], sizeof cards->names[0], "%s", name);
+    }
+}
+
+static int by_name(const void* a, const void* b) {
+    return strcmp((const char*)a, (const char*)b);
+}
+
 static void list(int port, const char* spec) {
-    char dir_part[512], pattern[64], path[1024];
+    char dir_part[512], pattern[64], path[1024], root[1024];
     const char* slash = strrchr(spec, '/');
+    int foreign = 0;
     listing_count = listing_next = 0;
     if (slash == NULL) {
         snprintf(dir_part, sizeof dir_part, "%s", "");
         snprintf(pattern, sizeof pattern, "%s", spec);
     } else {
-        snprintf(dir_part, sizeof dir_part, "%.*s", (int)(slash - spec), spec);
+        /* A spec from the root ("/name") lists the root, whatever the current folder. */
+        snprintf(dir_part, sizeof dir_part, "%.*s", (int)(slash == spec ? 1 : slash - spec), spec);
         snprintf(pattern, sizeof pattern, "%s", slash + 1);
     }
-    if (!card_path(port, dir_part, path, sizeof path)) {
+    if (!card_path_of(port, dir_part, path, sizeof path, &foreign)) {
         return;
     }
-#if defined(_WIN32)
-    char query[1100];
-    struct _finddata_t found;
-    snprintf(query, sizeof query, "%s/*", path);
-    intptr_t h = _findfirst(query, &found);
-    if (h == -1) {
+    listing_filter filter = {pattern, 0};
+    each_name(path, list_name, &filter);
+    /* The first card's root also holds the other games' save folders it does not have itself. */
+    if (port != 0 || foreign || !card_path(port, "/", root, sizeof root) || strcmp(path, root) != 0) {
         return;
     }
-    do {
-        if (matches(pattern, found.name)) {
-            add_entry(path, found.name);
-        }
-    } while (_findnext(h, &found) == 0);
-    _findclose(h);
-#else
-    DIR* d = opendir(path);
-    if (d == NULL) {
+    char parent[1024], own[256];
+    if (!card_parent(parent, sizeof parent, own, sizeof own)) {
         return;
     }
-    struct dirent* ent;
-    while ((ent = readdir(d)) != NULL) {
-        if (matches(pattern, ent->d_name)) {
-            add_entry(path, ent->d_name);
+    card_names cards;
+    cards.count = 0;
+    each_name(parent, collect_card, &cards);
+    qsort(cards.names, (size_t)cards.count, sizeof cards.names[0], by_name);
+    listing_filter folders = {pattern, 1};
+    for (int i = 0; i < cards.count; i++) {
+        char card[1200];
+        if (strcmp(cards.names[i], own) != 0
+            && snprintf(card, sizeof card, "%s/%s", parent, cards.names[i]) < (int)sizeof card) {
+            each_name(card, list_name, &folders);
         }
     }
-    closedir(d);
-#endif
 }
 
 /* sceMcGetDir(port, slot, name, mode, max entries, table): mode 0 starts a
@@ -907,7 +1181,9 @@ int openrac_lib_sceMcChdir(int port, int slot, gaddr path, gaddr old_path) {
     char saved[512];
     snprintf(saved, sizeof saved, "%s", cur);
     snprintf(cur, sizeof current_dir[0], "%s", next);
-    if (!card_path(port, "", full, sizeof full) || stat(full, &st) != 0 || !S_ISDIR(st.st_mode)) {
+    int foreign = 0;
+    if (!card_path_of(port, "", full, sizeof full, &foreign) || stat(full, &st) != 0
+        || !S_ISDIR(st.st_mode)) {
         snprintf(cur, sizeof current_dir[0], "%s", saved);
         return finish(MC_CHDIR, MC_NOT_FOUND);
     }
