@@ -487,6 +487,7 @@
             class="slot"
             class:on={i === at}
             class:away={i === at && !!launching}
+            aria-current={i === at ? "true" : undefined}
             style={place(i)}
             inert={!near}
             aria-label={i === at ? `${g.title}: ${next.status}` : g.title}

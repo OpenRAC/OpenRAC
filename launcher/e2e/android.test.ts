@@ -296,8 +296,10 @@ describe("A controller", () => {
     await open("built&version=rac1/pal&page=library");
     await page.locator(".acts .go").click();
     await page.getByRole("dialog", { name: /^Starting Ratchet & Clank/ }).waitFor();
-    await page.locator(".launch .led.on").waitFor({ timeout: 4000 });
-    await page.getByRole("dialog", { name: /^Starting/ }).waitFor({ state: "detached", timeout: 6000 });
+    await page.locator(".launch .led.on").waitFor({ state: "attached", timeout: 4000 });
+    // The black stays until the game covers the launcher; with no game window in the preview, the
+    // shelf comes back after its wait (DiscShelf launched).
+    await page.getByRole("dialog", { name: /^Starting/ }).waitFor({ state: "detached", timeout: 10000 });
   });
 
   it("puts the disc back when B comes before the click", async () => {

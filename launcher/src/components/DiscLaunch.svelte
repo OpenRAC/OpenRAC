@@ -172,7 +172,7 @@
     }
     // Open, it catches the light.
     if (litEl) litEl.style.opacity = `${1 - lid}`;
-    if (ledEl) ledEl.style.background = t >= shutAt() ? "rgb(93 255 122)" : "";
+    ledEl?.classList.toggle("on", t >= shutAt());
 
     if (holeEl) {
       holeEl.style.opacity = black > 0 && !over ? "1" : "0";
@@ -488,6 +488,11 @@
     border-radius: 50%;
     background: rgb(58 18 16);
     transition: background 120ms;
+  }
+
+  /* Set from the frame loop (paint), not the markup. */
+  .led:global(.on) {
+    background: rgb(93 255 122);
   }
 
   /* Drawn once at its small size and scaled up: its edge is soft anyway. */
