@@ -182,6 +182,10 @@ const std::string& menu_graphics_line() {
     return graphics_line();
 }
 
+// The drawer's sections for its jumps: where each starts, and where a jump is gliding to.
+float s_jump_marks[4] = {};
+float s_jump_to = -1.0f;
+
 void drawer(const Shown& shown) {
     const ImGuiIO& io = ImGui::GetIO();
     // Out in the launcher's --medium, back in a little quicker, as its pages come and go.
@@ -209,8 +213,7 @@ void drawer(const Shown& shown) {
     ImGui::GetBackgroundDrawList()->AddRectFilled(
         viewport->Pos,
         ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y),
-        // Light, as a side sheet's scrim: the game stays clear enough to judge a setting by.
-        ui_colors::fade(ui().ink_deep, 0.35f * ease)
+        ui_colors::fade(ui().ink_deep, 0.6f * ease)
     );
     // A tap right of the drawer or B closes it. With the controller panel open, B closes the panel
     // first and taps go to the panel.
@@ -234,12 +237,24 @@ void drawer(const Shown& shown) {
     }
     // The launcher's panel: its ink, a thin border, 16-pixel corners on the open side; a header
     // above the rows, which scroll under it.
-    const float header = dp(52.0f);
+    // The logo's row, then the sections' row: a tap jumps to one.
+    const float head = dp(52.0f);
+    const float jumps_h = dp(40.0f);
+    const float header = head + jumps_h;
     std::optional<PanelStyle> style(std::in_place, ImVec2(dp(14.0f) + inset, header + dp(4.0f)));
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
                                    | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("OpenRAC options", nullptr, flags)) {
         drag_scroll(s.menu_scroll);
+        if (s_jump_to >= 0.0f) {
+            // A jump glides there in a few frames; a finger on the rows stops it.
+            const float now = ImGui::GetScrollY();
+            const float next = now + (s_jump_to - now) * std::min(1.0f, io.DeltaTime * 14.0f);
+            ImGui::SetScrollY(std::abs(s_jump_to - next) < 1.0f ? s_jump_to : next);
+            if (std::abs(s_jump_to - next) < 1.0f || ImGui::IsMouseDown(0)) {
+                s_jump_to = -1.0f;
+            }
+        }
         {
             ImDrawList* back = ImGui::GetWindowDrawList();
             const ImVec2 top(x, viewport->Pos.y);
@@ -282,10 +297,7 @@ void drawer(const Shown& shown) {
                 front->AddLine(ImVec2(top.x, bottom.y), bottom, ui_colors::fade(ui().line, under));
             }
             draw_logo(
-                front,
-                ImVec2(top.x + inset + dp(18.0f), top.y + header * 0.5f),
-                ui().amber,
-                ui().text
+                front, ImVec2(top.x + inset + dp(18.0f), top.y + head * 0.5f), ui().amber, ui().text
             );
             // Once Resume has scrolled away, the badge becomes it: the way back to the game
             // stays one tap away however far down the rows are.
@@ -295,7 +307,7 @@ void drawer(const Shown& shown) {
                 const char* state = s.keep_paused ? "Paused" : "Paused while open";
                 const ImVec2 state_size = ImGui::CalcTextSize(state);
                 const ImVec2 pill_b(
-                    bottom.x - dp(16.0f), top.y + header * 0.5f + state_size.y * 0.5f + dp(4.0f)
+                    bottom.x - dp(16.0f), top.y + head * 0.5f + state_size.y * 0.5f + dp(4.0f)
                 );
                 const ImVec2 pill_a(
                     pill_b.x - state_size.x - dp(20.0f), pill_b.y - state_size.y - dp(8.0f)
@@ -315,7 +327,7 @@ void drawer(const Shown& shown) {
                 ImFont* font = menu_fonts.strong;
                 const char* label = "Resume";
                 const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, label);
-                const ImVec2 pill_b(bottom.x - dp(12.0f), top.y + header * 0.5f + dp(18.0f));
+                const ImVec2 pill_b(bottom.x - dp(12.0f), top.y + head * 0.5f + dp(18.0f));
                 const ImVec2 pill_a(pill_b.x - size.x - dp(36.0f), pill_b.y - dp(36.0f));
                 front->AddRectFilled(pill_a, pill_b, ui_colors::fade(ui().amber, resume), dp(6.0f));
                 front->AddText(
@@ -330,9 +342,56 @@ void drawer(const Shown& shown) {
                 const ImVec2 at = io.MouseClickedPos[0];
                 if (resume >= 1.0f && s.menu_open && ImGui::IsMouseReleased(0)
                     && !s.menu_scroll.dragged && at.x >= pill_a.x - dp(6.0f) && at.x <= bottom.x
-                    && at.y >= top.y && at.y <= bottom.y) {
+                    && at.y >= top.y && at.y <= top.y + head) {
                     menu_sound(MenuSound::Confirm);
                     set_menu(false);
+                }
+            }
+            // The sections, as a segmented control: the one in view in the accent; a tap scrolls
+            // to its heading. Where each starts is from the last frame's layout (marks).
+            static constexpr const char* kJumps[] = {"Graphics", "Enhanced", "Game", "Controls"};
+            const float scroll = ImGui::GetScrollY();
+            int in_view = 0;
+            for (int i = 0; i < 4; ++i) {
+                if (s_jump_marks[i] > 0.0f && scroll >= s_jump_marks[i] - header - dp(8.0f)) {
+                    in_view = i;
+                }
+            }
+            const float left = top.x + inset + dp(14.0f);
+            const float span = (bottom.x - dp(14.0f) - left) / 4.0f;
+            const float y0 = top.y + head + dp(2.0f);
+            const float y1 = y0 + dp(30.0f);
+            front->AddRectFilled(
+                ImVec2(left, y0), ImVec2(left + span * 4.0f, y1), ui().control_card, dp(6.0f)
+            );
+            for (int i = 0; i < 4; ++i) {
+                const ImVec2 ca(left + span * i, y0);
+                const ImVec2 cb(left + span * (i + 1), y1);
+                const float on = tween(ImGui::GetID(kJumps[i]), i == in_view ? 1.0f : 0.0f, kFast);
+                if (on > 0.0f) {
+                    front->AddRectFilled(
+                        ImVec2(ca.x + dp(2.0f), ca.y + dp(2.0f)),
+                        ImVec2(cb.x - dp(2.0f), cb.y - dp(2.0f)),
+                        ui_colors::fade(ui().amber, on),
+                        dp(5.0f)
+                    );
+                }
+                ImFont* font = menu_fonts.bar;
+                const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, kJumps[i]);
+                front->AddText(
+                    font,
+                    font->FontSize,
+                    ImVec2((ca.x + cb.x - size.x) * 0.5f, (ca.y + cb.y - size.y) * 0.5f),
+                    ui_colors::mix(ui().soft, ui().bar_ink, on),
+                    kJumps[i]
+                );
+                const ImVec2 at = io.MouseClickedPos[0];
+                if (s.menu_open && ImGui::IsMouseReleased(0) && !s.menu_scroll.dragged
+                    && at.x >= ca.x && at.x < cb.x && at.y >= top.y + head && at.y <= top.y + header
+                    && s_jump_marks[i] > 0.0f) {
+                    menu_sound(MenuSound::Page);
+                    s_jump_to = i == 0 ? 0.0f : s_jump_marks[i] - header - dp(4.0f);
+                    s.menu_scroll.velocity = 0.0f;
                 }
             }
         }
@@ -345,8 +404,15 @@ void drawer(const Shown& shown) {
         // The menu's tabs one after another, a heading and a card for each of their sections,
         // then the mods' own menus.
         using menu::Tab;
+        // Where each section starts, for the jumps above (content's own y, as the scroll counts).
+        const auto mark = [](int i) {
+            s_jump_marks[i] = ImGui::GetCursorPosY();
+        };
+        mark(0);
         draw_tab(Tab::Graphics, menu::kTouch);
+        mark(1);
         draw_tab(Tab::Enhanced, menu::kTouch);
+        mark(2);
         // The game's fixes are many: folded away under one row, as the developer tools are.
         const auto fixes = [](std::string_view section) {
             return section == "Game fixes";
@@ -362,6 +428,7 @@ void drawer(const Shown& shown) {
             draw_tab(Tab::Game, menu::kTouch, fixes);
         }
         // Controller settings open in their own panel; touch settings stay in the drawer.
+        mark(3);
         menu_heading("Controls");
         card_begin();
         const bool controller = s.drawer_controller;
