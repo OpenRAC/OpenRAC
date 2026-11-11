@@ -207,6 +207,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::OpaqueDepthGequal, "opaque-depth-gequal",
      "opaque colour over the reused prepass depth tests GEQUAL, which keeps Adreno's low-resolution Z on",
      true, Tolerance{}},
+    {Opt::VertexPositionStream, "vertex-position-stream",
+     "a level's vertex positions are read from a tight buffer of their own, 12 bytes a vertex instead of 72",
+     true, Tolerance{}},
 }};
 // clang-format on
 

@@ -562,6 +562,8 @@ private:
     void combine_scrolling_shadows(unsigned mask, renderer::RenderState& state);
     void release_scrolling_shadows();
     Group make_group(std::uint32_t model);
+    void point_positions() const;
+    void sync_position_stream();
     void fill_group(Group& g, const std::vector<InstanceData>& list, unsigned usage);
     void build_groups(Layer layer, const std::vector<Instance>& instances, bool live);
     // build_groups' parts, also for set_instances' in-place path (level_renderer.cpp says more).
@@ -749,6 +751,8 @@ private:
     MobyLayout m_moby_layout;
     std::size_t m_palette_rows = 0;  // the palette texture's height now
     unsigned m_vertices = 0;
+    unsigned m_positions = 0;        // the vertices' positions alone (vertex-position-stream)
+    bool m_position_stream = false;  // the vertex arrays read positions from m_positions
     unsigned m_indices = 0;
     unsigned m_palette = 0;           // RGBA32F texture, four texels per matrix
     unsigned m_lights = 0;            // RGBA8 texture, the ties' lit colours

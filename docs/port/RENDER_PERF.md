@@ -94,6 +94,7 @@ before and after, and how its frames are shown to be the same.
 | `vk-pipeline-library` | on | none (exact) | A new pipeline is linked at once from parts built ahead; a worker builds the optimised one and swaps it in. Desktop only ([vk-pipeline-library](#vk-pipeline-library-pipelines-linked-from-parts)). |
 | `gl-state-warmup` | on | none (exact) | OpenGL: saves each draw state per driver and draws it once into a private target at level load, so driver recompiles happen there ([OpenGL's states behind the loading screen](#opengls-states-behind-the-loading-screen)). |
 | `opaque-depth-gequal` | on | none (exact) | Opaque colour over the reused prepass depth tests GEQUAL instead of EQUAL. Every surface it draws is in the prepass, so the same fragments pass; Adreno keeps its low-resolution Z (LRZ) on for GEQUAL without depth writes and turns it off for EQUAL ([opaque-depth-gequal](#opaque-depth-gequal-lrz-over-the-reused-depth)). |
+| `vertex-position-stream` | on | none (exact) | A level's vertex positions sit in a tight buffer of their own, 12 bytes a vertex instead of 72. Shadow, depth and velocity passes, and a tile GPU's binning, read positions only ([vertex-position-stream](#vertex-position-stream-a-tight-buffer-for-positions)). |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the
@@ -2073,3 +2074,16 @@ still draws that fragment where EQUAL would leave a hole. The passes that write 
 layers, blended passes) are unchanged. The Graphics sweep measures it on a device (its step with
 the entry off); the equivalence test compares frames with it on and off.
 
+## vertex-position-stream: a tight buffer for positions
+
+A level vertex is 72 bytes: position, normal, colour, texture coordinate and more, interleaved. The
+shadow, depth and velocity passes read the position alone, and so does the binning pass a tile GPU
+runs before every render pass. With the wide vertex each of them pulls 72 bytes through the cache
+for the 12 it uses. Arm's guide asks for a
+[position stream of its own](https://developer.arm.com/documentation/101897/latest/Vertex-shading/Attribute-layout)
+for this reason.
+
+With the entry on, the level upload writes the positions a second time into a tight buffer and
+attribute 0 reads from it. The other attributes stay where they were. The values are the same
+floats, so the picture is the same; the cost is 12 bytes of memory a vertex. The Graphics sweep has
+a step with the entry off.

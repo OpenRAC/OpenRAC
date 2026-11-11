@@ -29,6 +29,51 @@ namespace openrac::scene {
 using namespace openrac::gl;
 using namespace render_detail;
 
+// Points attribute 0 of the bound vertex array at the positions: the tight buffer of their own
+// (vertex-position-stream), so that depth-only passes and a tile GPU's binning read 12 bytes a
+// vertex, or the wide vertex.
+void LevelScene::point_positions() const {
+    if (m_position_stream) {
+        glBindBuffer(GL_ARRAY_BUFFER, m_positions);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), offset(0));
+    } else {
+        glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
+        glVertexAttribPointer(
+            0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offset(offsetof(Vertex, position))
+        );
+    }
+}
+
+// Follows vertex-position-stream when it is switched while a level is loaded (the Graphics sweep,
+// the equivalence test): every vertex array made so far is pointed again.
+void LevelScene::sync_position_stream() {
+    const bool wanted =
+        m_positions != 0
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::VertexPositionStream);
+    if (wanted == m_position_stream) {
+        return;
+    }
+    m_position_stream = wanted;
+    const auto point = [this](unsigned vao) {
+        if (vao != 0) {
+            glBindVertexArray(vao);
+            point_positions();
+        }
+    };
+    for (const auto* all : {&m_groups, &m_idle}) {
+        for (const auto& groups : *all) {
+            for (const Group& g : groups) {
+                point(g.vao);
+                point(g.camera_vao);
+                point(g.pvs_vao);
+            }
+        }
+    }
+    point(m_shadow_compact.vao);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 // A class model's vertex array: the level's vertices and indices, and an instance buffer of its own
 // (empty until fill_group).
 LevelScene::Group LevelScene::make_group(std::uint32_t model) {
@@ -36,11 +81,11 @@ LevelScene::Group LevelScene::make_group(std::uint32_t model) {
     g.model = model;
     glGenVertexArrays(1, &g.vao);
     glBindVertexArray(g.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indices);
     constexpr auto kStride = static_cast<GLsizei>(sizeof(Vertex));
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, kStride, offset(offsetof(Vertex, position)));
+    point_positions();
+    glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, kStride, offset(offsetof(Vertex, normal)));
     glEnableVertexAttribArray(2);

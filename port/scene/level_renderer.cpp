@@ -525,6 +525,22 @@ bool LevelScene::upload(
         level.vertices.data(),
         GL_STATIC_DRAW
     );
+    // The same positions again, tightly packed (vertex-position-stream).
+    std::vector<float> positions;
+    positions.reserve(level.vertices.size() * 3);
+    for (const Vertex& vertex : level.vertices) {
+        positions.insert(positions.end(), std::begin(vertex.position), std::end(vertex.position));
+    }
+    glGenBuffers(1, &m_positions);
+    glBindBuffer(GL_ARRAY_BUFFER, m_positions);
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(positions.size() * sizeof(float)),
+        positions.data(),
+        GL_STATIC_DRAW
+    );
+    m_position_stream =
+        renderer::render_opt::enabled(renderer::render_opt::Opt::VertexPositionStream);
     // Buffers have no type of their own: the indices are filled through the
     // array target, before any vertex array exists to hold the element binding.
     glGenBuffers(1, &m_indices);
@@ -697,6 +713,11 @@ void LevelScene::release() {
         glDeleteBuffers(1, &m_vertices);
         m_vertices = 0;
     }
+    if (m_positions != 0) {
+        glDeleteBuffers(1, &m_positions);
+        m_positions = 0;
+        m_position_stream = false;
+    }
     if (m_indices != 0) {
         glDeleteBuffers(1, &m_indices);
         m_indices = 0;
@@ -841,6 +862,7 @@ std::vector<Instance> LevelScene::animated_instances(double seconds) const {
 void LevelScene::draw_layer(
     Layer layer, const renderer::FrameInput& input, renderer::RenderState& state
 ) {
+    sync_position_stream();
     if (m_lighting) {
         m_lighting->prepare_deformation(input, *this);
     }
@@ -1351,9 +1373,8 @@ void LevelScene::draw_layer(
         // surface drawn here is in the prepass, so none is nearer than the depth it left. Adreno
         // turns its low-resolution Z (LRZ) off for EQUAL, and keeps it for GEQUAL without writes.
         const GLenum reused_func =
-            renderer::render_opt::enabled(renderer::render_opt::Opt::OpaqueDepthGequal)
-                ? GL_GEQUAL
-                : GL_EQUAL;
+            renderer::render_opt::enabled(renderer::render_opt::Opt::OpaqueDepthGequal) ? GL_GEQUAL
+                                                                                        : GL_EQUAL;
         glDepthFunc(reused ? reused_func : GL_GEQUAL);
         glDepthMask(reused ? GL_FALSE : GL_TRUE);
         glUniform1i(program->uniform("metal_pass"), metal ? 1 : 0);
