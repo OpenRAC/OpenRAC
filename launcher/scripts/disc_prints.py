@@ -8,9 +8,13 @@ pal (Europe) and jp (Japan): the scan cut to the disc, at most 768 px square. Th
 are the ones Cartouche uses (github.com/Hakimba/cartouche, app/data/art/ps2.tsv); the Japanese ones
 come from archive.org, as no game database has them. Needs Pillow, NumPy and curl.
 
-No scan was found of Ratchet & Clank's, Up Your Arsenal's or Size Matters' Japanese disc, nor of any
-Korean disc (searched: LaunchBox, PSX Data Center, archive.org). Secret Agent Clank had no PS2
-release in Asia. A region without a print shows the North American one (src/lib/discArt.ts).
+The Japanese prints are kept as they are (KEEP): Going Commando's and Deadlocked's come from the
+scans below, Ratchet & Clank's, Up Your Arsenal's and Size Matters' from photos (no scan exists),
+all straightened to a circle, with reflections painted out, the silver band redrawn grey and the
+light and colour evened to match the other prints; Ratchet & Clank's is the PBPX-95516 print, the
+same art as the retail disc. Korean discs show the Japanese print (user decision; no scan of one
+exists), and Secret Agent Clank had no PS2 release in Asia. A region without a print shows the
+North American one (src/lib/discArt.ts).
 
 Secret Agent Clank's PAL disc is not a scan: its only scan with a print is 226 px, so it is a
 photo of the disc, straightened, white-balanced on its white and black and given the hub of Up
@@ -53,7 +57,7 @@ HUB_FROM = {
 HUB = 0.2
 
 # Made otherwise (the module's notes): the script does not write these.
-KEEP = {("rac6", "pal")}
+KEEP = {("rac6", "pal"), ("rac1", "jp"), ("rac2", "jp"), ("rac3", "jp"), ("rac4", "jp"), ("rac5", "jp")}
 
 
 def fetch(url: str) -> bytes:

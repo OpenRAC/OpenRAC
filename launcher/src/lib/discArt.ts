@@ -6,21 +6,21 @@
 import { storeArtwork } from "./media";
 
 /** The regions each game has a print of: the North American disc (ntsc), the European (pal) and the
- *  Japanese (jp). No scan of the other Japanese discs, nor of any Korean one, was found. */
+ *  Japanese (jp). Secret Agent Clank had no PS2 release in Asia. */
 const PRINTS: Record<string, string[]> = {
-  rac1: ["ntsc", "pal"],
+  rac1: ["ntsc", "pal", "jp"],
   rac2: ["ntsc", "pal", "jp"],
-  rac3: ["ntsc", "pal"],
+  rac3: ["ntsc", "pal", "jp"],
   rac4: ["ntsc", "pal", "jp"],
-  rac5: ["ntsc", "pal"],
+  rac5: ["ntsc", "pal", "jp"],
   rac6: ["ntsc", "pal"],
 };
 
-/** The region of a version of game.json, by its name (`pal1`: pal, `jp`: jp, `ntsc2`: ntsc). */
+/** The print region of a version of game.json, by its name (`pal1`: pal, `jp`: jp, `ntsc2`: ntsc).
+ *  Korean discs show the Japanese print (user decision: no scan of one exists). */
 function region(version: string): string {
   if (version.startsWith("pal")) return "pal";
-  if (version === "jp" || version === "ntsc-j") return "jp";
-  if (version === "kr" || version === "ntsc-k") return "kr";
+  if (["jp", "ntsc-j", "kr", "ko", "ntsc-k"].includes(version)) return "jp";
   return "ntsc";
 }
 

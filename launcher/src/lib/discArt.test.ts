@@ -10,8 +10,12 @@ describe("discPrint", () => {
   });
 
   it("shows the North American disc for a region without a print", () => {
-    expect(discPrint("rac1", "jp")).toBe("/img/discs/rac1-ntsc.webp");
-    expect(discPrint("rac3", "kr")).toBe("/img/discs/rac3-ntsc.webp");
+    expect(discPrint("rac6", "jp")).toBe("/img/discs/rac6-ntsc.webp");
+  });
+
+  it("shows the Japanese print for Korean discs", () => {
+    expect(discPrint("rac1", "jp")).toBe("/img/discs/rac1-jp.webp");
+    expect(discPrint("rac3", "kr")).toBe("/img/discs/rac3-jp.webp");
   });
 
   it("has no print for another game", () => {
