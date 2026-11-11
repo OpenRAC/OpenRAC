@@ -1,0 +1,20 @@
+# apt packages for a Linux job, robust against a bad mirror. The runner's Azure mirror sometimes
+# fails to resolve (DNS) or crawls at 90 kB/s, and a plain apt-get then fails the job or burns
+# its time limit. Each try downloads within five minutes; the next one drops the Azure mirror.
+name: apt install
+description: Install apt packages with short timeouts, retries and a mirror fallback
+inputs:
+  packages:
+    description: Packages to install, separated by spaces or new lines
+    required: true
+  archives:
+    description: Folder for the downloaded .deb files (to cache them); apt's own when empty
+    default: ""
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        ARCHIVES: ${{ inputs.archives }}
+      run: bash "$GITHUB_ACTION_PATH/apt_install.sh"

@@ -250,24 +250,9 @@ jobs:
           components: clippy, rustfmt
       - name: Tauri's system libraries
         if: runner.os == 'Linux'
-        run: |
-          apt=(sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-          packages=(libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev)
-          "${apt[@]}" update
-          # As launcher.yml: the downloads first, within five minutes (the runner's Azure mirror has
-          # sent packages at 90 kB/s), then once more from Ubuntu's own archive.
-          fetch() { timeout 300 "${apt[@]}" install -y --no-install-recommends --download-only "${packages[@]}"; }
-          if ! fetch; then
-            echo "::warning::the packages did not come within five minutes: once more without the Azure mirror"
-            if [ -f /etc/apt/apt-mirrors.txt ]; then
-              sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
-              grep -q '^http' /etc/apt/apt-mirrors.txt \
-                || echo "http://archive.ubuntu.com/ubuntu/" | sudo tee /etc/apt/apt-mirrors.txt
-            fi
-            "${apt[@]}" update
-            "${apt[@]}" install -y --no-install-recommends --download-only "${packages[@]}"
-          fi
-          "${apt[@]}" install -y --no-install-recommends "${packages[@]}"
+        uses: ./.github/actions/apt-install
+        with:
+          packages: libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev
 
       # The pages' checks (yarn verify) are the same on every system: they run once, in
       # launcher-android. Here only what differs per system: the Rust side.
@@ -312,8 +297,29 @@ jobs:
         run: yarn install --immutable
       - name: Lint and unit tests (svelte-check, ESLint, Prettier, Vitest)
         run: yarn verify
+      # The browser comes from Playwright's CDN, cached by version. No apt on the way: the
+      # runner has its libraries already, and apt mirrors that fail to resolve took 10 minutes
+      # and failed the job over fonts the tests never use. install-deps runs only when a
+      # library is really missing, and is cut short.
+      - id: playwright
+        run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
       - name: A headless Chromium
-        run: yarn playwright-core install --with-deps chromium-headless-shell
+        run: |
+          for try in 1 2 3; do
+            timeout 180 yarn playwright-core install chromium-headless-shell && break
+            [ "$try" = 3 ] && exit 1
+            sleep $((try * 10))
+          done
+          shell=$(find ~/.cache/ms-playwright -type f -name 'chrome-headless-shell' -o -type f -name 'headless_shell' | head -n 1)
+          if ldd "$shell" | grep -q 'not found'; then
+            ldd "$shell" | grep 'not found'
+            timeout 300 yarn playwright-core install-deps chromium-headless-shell \
+              || echo "::warning::install-deps failed; trying the tests anyway"
+          fi
       - name: Android pages
         run: yarn test:android
 
@@ -361,9 +367,10 @@ jobs:
         with:
           variant: ubuntu-release
       - name: Compilers, SDL3 and software Vulkan
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang lld ninja-build libsdl3-dev \
+        uses: ./.github/actions/apt-install
+        with:
+          packages: >-
+            clang lld ninja-build libsdl3-dev
             libgl1-mesa-dev libegl1-mesa-dev libgl1-mesa-dri mesa-vulkan-drivers vulkan-validationlayers
 
       - uses: ./.github/actions/port-build-cache
@@ -469,12 +476,11 @@ jobs:
           key: enhanced-apt-v1-ubuntu-26.04-${{ runner.arch }}-${{ hashFiles('.github/workflows/checks.yml') }}
           restore-keys: enhanced-apt-v1-ubuntu-26.04-${{ runner.arch }}-
       - name: Compilers, software Vulkan and Embree 4
-        run: |
-          archives="$RUNNER_TEMP/openrac-enhanced-apt"
-          mkdir -p "$archives"
-          sudo apt-get update
-          sudo apt-get -o Dir::Cache::archives="$archives" install -y --no-install-recommends \
-            clang lld ninja-build libembree-dev libsdl3-dev \
+        uses: ./.github/actions/apt-install
+        with:
+          archives: ${{ runner.temp }}/openrac-enhanced-apt
+          packages: >-
+            clang lld ninja-build libembree-dev libsdl3-dev
             libgl1-mesa-dev libegl1-mesa-dev zstd
       - name: Save enhanced Vulkan packages
         if: steps.enhanced-apt.outputs.cache-hit != 'true'
@@ -560,10 +566,11 @@ jobs:
           name: openrac-enhanced-tests
           path: ${{ runner.temp }}
       - name: Install test runtime dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ninja-build libembree-dev libsdl3-dev \
-            libgl1 libegl1 libgles2 libglx-mesa0 libegl-mesa0 libgl1-mesa-dri \
+        uses: ./.github/actions/apt-install
+        with:
+          packages: >-
+            ninja-build libembree-dev libsdl3-dev
+            libgl1 libegl1 libgles2 libglx-mesa0 libegl-mesa0 libgl1-mesa-dri
             mesa-vulkan-drivers vulkan-validationlayers xvfb xauth zstd
       - name: Run the restored test group
         env:
