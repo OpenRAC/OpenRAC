@@ -306,7 +306,6 @@ int main(int argc, char** argv) {
     std::vector<std::vector<std::uint8_t>> variant_reference;
     std::size_t compared_variants = 0;
     for (const bool variants : {false, true}) {
-        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, variants);
         renderer::render_opt::set(renderer::render_opt::Opt::VkDrawUniform, variants);
         renderer::render_opt::set(renderer::render_opt::Opt::EffectStaticControls, variants);
         renderer::render_opt::set(renderer::render_opt::Opt::WaterLocalShader, variants);

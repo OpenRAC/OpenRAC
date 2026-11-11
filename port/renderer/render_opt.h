@@ -35,7 +35,6 @@ enum class Opt : std::uint8_t {
     StaticBuffersForceStaging,  // static-buffers-force-staging
     TexturePrepare,             // texture-prepare: a level's textures made at its load
     VkDrawCache,  // vk-draw-cache: Vulkan pipelines and descriptor sets found without allocating
-    AttachmentDiscard,     // attachment-discard
     GpuResidentInstances,  // gpu-resident-instances: static instances kept on the GPU
     ShadowStaticCache,     // shadow-static-cache: static shadow casters kept between frames
     PresentSingleCopy,     // present-single-copy
@@ -79,7 +78,6 @@ enum class Opt : std::uint8_t {
     ProbeSelectionVariants,  // probe-selection-variants: separate shortlist and tile kernels
     EarlyProbeSetup,         // early-probe-setup: prepare receiver atlas coordinates once per grid
     VkDrawUniform,           // vk-draw-uniform: opt-in vertex draw integer as a push constant
-    ShaderVariants,          // shader-variants: compile fixed pass controls out of local shaders
     ShaderFloat16,           // shader-float16: audited local mixed-precision arithmetic
     CameraVisibilityReuse,   // camera-visibility-reuse: depth and colour share GPU visibility
     ShadowDepthOnly,  // shadow-depth-only: the shadow maps hold depth alone, no colour or stencil

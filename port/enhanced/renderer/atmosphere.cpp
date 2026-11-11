@@ -174,11 +174,7 @@ void Atmosphere::prepare(
             volume.colour_density.begin(), volume.colour_density.end(), media.begin() + i * 4
         );
     }
-    auto& compute = m_compute
-        [renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
-                 && volume_count == 0
-             ? 0
-             : 1];
+    auto& compute = m_compute[volume_count == 0 ? 0 : 1];
     std::string error;
     if (!compute.id()) {
         std::string source = "#version 430 core\n#define OPENRAC_PROBE_PIXEL ivec2(-1)\n"

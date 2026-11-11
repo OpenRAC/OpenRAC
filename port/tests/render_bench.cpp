@@ -688,8 +688,8 @@ bool switch_entries(std::string_view list, bool enabled, std::string& error) {
 
     // A misspelt entry would measure the optimised path while saying the reference.
     if (!off.unknown.empty()) {
-        error = std::string(enabled ? "--opt-on names " : "--opt-off names ")
-                + off.unknown.front() + ", which is no optimisation";
+        error = std::string(enabled ? "--opt-on names " : "--opt-off names ") + off.unknown.front()
+                + ", which is no optimisation";
         return false;
     }
 

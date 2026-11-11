@@ -82,12 +82,27 @@ def plan(build):
 
 
 def execute(build, path, report, jobs, env=None):
-    subprocess.run(
+    start = time.monotonic()
+    result = subprocess.run(
         ["ctest", "--test-dir", str(build), "--tests-from-file", str(path),
          "--parallel", str(jobs), "--no-tests=error", "--output-on-failure",
          "--test-output-size-passed", "1048576", "--output-junit", str(report)],
-        check=True, env=env,
+        check=False, env=env,
     )
+    if report.exists():
+        cases = list(ET.parse(report).iter("testcase"))
+        rows = sorted(cases, key=lambda case: float(case.attrib.get("time", 0)), reverse=True)
+        summary = [f"### Enhanced tests: {path.stem}", "",
+                   f"Elapsed: {time.monotonic() - start:.1f}s; CTest slots: {jobs}", "",
+                   "| Test | Seconds | Result |", "| --- | ---: | --- |"]
+        for case in rows:
+            status = ("failed" if case.find("failure") is not None else
+                      "skipped" if case.find("skipped") is not None else "passed")
+            summary.append(f"| {case.attrib['name']} | {float(case.attrib.get('time', 0)):.2f} | {status} |")
+        if destination := os.environ.get("GITHUB_STEP_SUMMARY"):
+            with open(destination, "a", encoding="utf-8") as output:
+                output.write("\n".join(summary) + "\n\n")
+    result.check_returncode()
     return list(ET.parse(report).iter("testcase"))
 
 

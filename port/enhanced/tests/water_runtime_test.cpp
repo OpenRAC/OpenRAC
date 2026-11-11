@@ -57,7 +57,6 @@ void main(){
         const bool compact = mode != 0;
 
         renderer::render_opt::set(renderer::render_opt::Opt::WaterStepBarriers, compact);
-        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, compact);
         auto water = enhanced::make_water(scene, fixture.folder);
         CHECK(bool(water));
         if (!water || !water->init(error)) {

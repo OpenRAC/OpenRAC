@@ -72,7 +72,7 @@ private:
     std::array<FrameTarget, 2>
         m_seeds;  // R32UI packed 16-bit source coordinates, ping-ponged by JFA.
     std::array<renderer::Shader, 2> m_extract_variants;
-    renderer::Shader m_extract, m_first_jump, m_jump, m_resolve, m_copy_resolve;
+    renderer::Shader m_first_jump, m_jump, m_resolve, m_copy_resolve;
     renderer::Shader m_fast_first_jump, m_fast_jump;
     renderer::Shader m_unique_jump;
 

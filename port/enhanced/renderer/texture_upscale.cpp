@@ -10,7 +10,6 @@
 #include "common/log.h"
 #include "enhanced_texture_shaders.h"
 #include "renderer/gl.h"
-#include "renderer/render_opt.h"
 #include "renderer/texture_pool.h"
 #if defined(OPENRAC_VULKAN) && OPENRAC_VULKAN
 #include "renderer/vulkan/vkgl.h"
@@ -122,14 +121,11 @@ unsigned TextureUpscaler::create(
         return 0;
     }
 
-    auto& shader = m_shaders
-        [renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants) ? wrap : 4u];
+    auto& shader = m_shaders[wrap];
     if (!shader.id()) {
         std::string source_code(shaders::texture_upscale_comp);
-        if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)) {
-            source_code =
-                renderer::shader_constants(std::move(source_code), {{"wrap_mode", int(wrap)}});
-        }
+        source_code =
+            renderer::shader_constants(std::move(source_code), {{"wrap_mode", int(wrap)}});
         if (!shader.build_compute("texture upscale", source_code, error)) {
             return 0;
         }
