@@ -830,6 +830,25 @@ void particle_pass_cache() {
     }
 }
 
+// A font's thinnest marks (a one-texel dot, an accent, the TM sign) stay inside the glyph's shape:
+// the field's smooth filter passes through the texels instead of blurring them away (issue #380).
+void thin_glyph_marks() {
+    TexturePool textures;
+    Rgba8Image font(16, 16);
+    font.set_texel(3, 3, rgba(0x80, 0x80, 0x80, 0x80));  // a dot
+    for (int y = 6; y < 14; ++y) {
+        font.set_texel(10, y, rgba(0x80, 0x80, 0x80, 0x80));  // a one-texel stroke
+    }
+    const TextureHandle glyphs = textures.add(font, AlphaScale::Gs, "font");
+    const Rgba8Image& field = textures.image(textures.distance_field(glyphs));
+    auto inside = [&field](int x, int y) {
+        return (field.texel(x * 4 + 2, y * 4 + 2) >> 24) > 0x80;  // a source texel's centre
+    };
+    CHECK(inside(3, 3));
+    CHECK(inside(10, 9));
+    CHECK(!inside(1, 3) && !inside(5, 3) && !inside(8, 9) && !inside(12, 9));
+}
+
 int main() {
     pcsx2_texture_pack();
     direct_colour();
@@ -839,6 +858,7 @@ int main() {
     pool();
     glyph_fields();
     resting_fields();
+    thin_glyph_marks();
     absurd_sizes();
     long_session();
     inside_and_loaded();
