@@ -11,7 +11,7 @@
 //
 //   openrac_render_bench [--size WxH] [--frames N] [--warmup M] [--enhanced on|off]
 //                        [--gpu-driven on|off] [--materials on|off] [--cache cold|warm]
-//                        [--opt-off LIST] [--scenario NAME] [--camera static|walk|turn]
+//                        [--opt-off LIST] [--opt-on LIST] [--scenario NAME] [--camera static|walk|turn]
 //                        [--between K] [--msaa N] [--tris N] [--seed N] [--level DIR]
 //
 // It exits 77 (skipped) where Vulkan cannot open, 1 when a check fails (a validation error, a
@@ -133,6 +133,7 @@ struct Options {
     bool gpu_driven = true;  // The GPU-driven instances (OPENRAC_GPU_DRIVEN_OFF's reference off).
     bool materials = true;   // The native material path (OPENRAC_GPU_MATERIALS_OFF's off).
     bool warm = false;       // The run drawn twice in one process; the second one printed.
+    std::string opt_on;      // Explicitly enabled entries for default-off measurements.
     std::string opt_off;     // Registry entries switched off, as OPENRAC_RENDER_OPT_OFF says.
     std::string scenario = "walk";
     std::optional<render::CameraPath> camera;  // Over the scenario's, when given.
@@ -270,7 +271,12 @@ bool read_word(
         return render::find_scenario(value) != nullptr;
     }
 
-    // --opt-off, a list checked when the registry is asked (switch_off).
+    if (name == "--opt-on") {
+        options.opt_on = std::string(value);
+        return true;
+    }
+
+    // --opt-off, a list checked when the registry is asked.
     if (name == "--opt-off") {
         options.opt_off = std::string(value);
         return true;
@@ -288,7 +294,7 @@ bool read_option(
         {"--frames", "--warmup", "--between", "--msaa", "--tris", "--seed"};
     constexpr std::string_view kSwitches[] = {"--enhanced", "--gpu-driven", "--materials"};
     constexpr std::string_view kWords[] =
-        {"--cache", "--camera", "--scenario", "--opt-off", "--level"};
+        {"--cache", "--camera", "--scenario", "--opt-off", "--opt-on", "--level"};
 
     // The picture's size.
     if (name == "--size") {
@@ -674,23 +680,24 @@ void print_summary(const Options& options, const Measured& measured) {
     std::printf("%s}}\n", line.c_str());
 }
 
-// Switches the registry entries `list` names off (OPENRAC_RENDER_OPT_OFF's syntax). False with
+// Switches the registry entries `list` names (OPENRAC_RENDER_OPT_OFF's syntax). False with
 // `error` for a name that is no entry's.
-bool switch_off(std::string_view list, std::string& error) {
+bool switch_entries(std::string_view list, bool enabled, std::string& error) {
     namespace render_opt = openrac::renderer::render_opt;
     const render_opt::OffList off = render_opt::parse_off_list(list);
 
     // A misspelt entry would measure the optimised path while saying the reference.
     if (!off.unknown.empty()) {
-        error = "--opt-off names " + off.unknown.front() + ", which is no optimisation";
+        error = std::string(enabled ? "--opt-on names " : "--opt-off names ")
+                + off.unknown.front() + ", which is no optimisation";
         return false;
     }
 
     // Every entry, for all.
     for (const render_opt::Entry& entry : render_opt::entries()) {
-        // Off when the list says all or names it.
+        // Apply the requested state when the list says all or names it.
         if (off.all || std::ranges::find(off.off, entry.opt) != off.off.end()) {
-            render_opt::set(entry.opt, false);
+            render_opt::set(entry.opt, enabled);
         }
     }
 
@@ -747,7 +754,8 @@ int main(int argc, char** argv) {
     openrac::test::gpu_material_reference(!options.materials);
 
     // A misspelt entry stops the run.
-    if (!switch_off(options.opt_off, error)) {
+    if (!switch_entries(options.opt_off, false, error)
+        || !switch_entries(options.opt_on, true, error)) {
         std::fprintf(stderr, "render_bench: %s\n", error.c_str());
         return kBadOptions;
     }

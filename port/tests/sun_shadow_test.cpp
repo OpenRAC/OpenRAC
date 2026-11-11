@@ -1051,6 +1051,43 @@ void gpu() {
             static_cast<unsigned long long>(colour_reference_calls),
             static_cast<unsigned long long>(colour_batch_calls)
         );
+        // Empty animated scenery is submitted by both depth and colour passes.
+        // It must not evict static depth; actually removing casters still must.
+        renderer.add(std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Animated), error);
+        renderer::render_opt::set(renderer::render_opt::Opt::ShadowStaticCache, true);
+        stats::set_enabled(stats::Client::Overlay, true);
+        auto cached_frame = [&](std::uint64_t frame) {
+            stats::begin_frame(stats::FrameKind::Tick, frame);
+            renderer.render(input, rt);
+            const auto pixels = target.read_rgba();
+            vkgl::present();
+            stats::begin_frame(stats::FrameKind::Tick, frame + 1);
+            return pixels;
+        };
+        const auto cached_pixels = cached_frame(10);
+        CHECK(cached_frame(12) == cached_pixels);
+        auto rerenders = [] {
+            const auto* frame = stats::history(0);
+            CHECK(frame != nullptr);
+            if (frame) {
+                for (const auto& [name, value] : frame->gauges) {
+                    if (name == "shadow_static_rerenders") {
+                        return value;
+                    }
+                }
+            }
+            CHECK(false);
+            return -1.0;
+        };
+        CHECK(rerenders() == 0);
+        scene.set_instances(scene::Layer::Ties, {});
+        const auto removed_pixels = cached_frame(14);
+        CHECK(rerenders() == scene::kSunCascades);
+        CHECK(cached_frame(16) == removed_pixels);
+        CHECK(rerenders() == 0);
+        renderer::render_opt::set(renderer::render_opt::Opt::ShadowStaticCache, false);
+        CHECK(cached_frame(18) == removed_pixels);
+        stats::set_enabled(stats::Client::Overlay, false);
         test::gpu_draw_reference(true);
 #endif
     }

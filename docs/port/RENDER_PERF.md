@@ -1318,13 +1318,45 @@ whole release preset pass on both machines (on box1 one GLES test, `renderer_sha
 in a full run and passed alone twice, beside NVIDIA Xid faults; see R-05's note), the headless preset
 on the Mac.
 
-Measured with (the entry's default switched to on in `render_opt.cpp` for the "on" rows):
+The benchmark now accepts `--opt-on shadow-static-cache` as well as
+`--opt-off shadow-static-cache`, without changing the renderer's default.
+
+**Reprofile, 2026-11-11.** On AMD Radeon 780M, AMD proprietary driver 26.5.2 (LLPC),
+the current synthetic Vulkan workload at 1920x1080, Enhanced on, rebuilt all four
+static cascades every measured frame, even with the static camera and animated mobys.
+Three runs per state/scenario, 10 warm-up and 60 measured frames, alternating on/off
+order: median shadow-stage GPU time was 0.909 / 1.874 ms off/on for `static-mobys`,
+1.494 / 2.675 ms for `walk`, and 0.884 / 1.863 ms for `creep`. These sum the timed
+cache-update, depth-copy, dynamic-atlas and completion stages; the parent atlas timer
+was unavailable. Draw counts did not fall. These measure the current miss path,
+not best-case cache hits. Follow-up key instrumentation found unchanged matrices and
+caster volumes, but the static generation changed every frame: the empty animated layer
+was resubmitted during depth/colour rendering and invalidated static depth. Empty-to-empty
+non-moby layer submissions now leave the generation unchanged; nonempty-to-empty removal
+still invalidates it. After this fix, all 60 measured static-camera frames reused all four
+cascades, with shadow draws reduced from 934 to 184 per frame. The default remains off
+because repeat measurements still show a GPU regression. After the fix, three runs
+per setting (same 10 warm-up / 60 measured frames, alternating order) gave shadow-stage
+GPU medians of 1.176 / 1.523 ms off/on for `static-mobys`, 1.469 / 2.569 ms for
+`walk`, and 0.857 / 1.890 ms for `creep`. All 180 measured static-camera cache-on
+frames had zero cascade rebuilds, while all walking and creeping frames rebuilt all four.
+Static-camera draws fell from 934 to 184, but copying/composition still outweighed the saving
+on this Radeon 780M.
+Whole-frame CPU timings were noisy; shader compiles during measured frames were zero.
 
 ```sh
-OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --scenario static-mobys --frames 60 --warmup 10
-OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --scenario walk --frames 60 --warmup 10
-# the "off" rows: the same with --opt-off shadow-static-cache
+OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --scenario static-mobys --frames 60 --warmup 10 --opt-on shadow-static-cache
+# Repeat with --opt-off shadow-static-cache and with walk / creep.
 ```
+
+**Profiling reminder.** Whenever static shadow caching is enabled, check how often it is
+invalidated alongside GPU timings. Inspect `shadow_static_rerenders` (0 means all four
+cascades were reused; 4 means all were rebuilt), and the `shadow static matrix changes`,
+`shadow static volume changes`, `shadow static generation changes`, and
+`shadow static fresh target` gauges to identify why it misses. Report hit/miss behaviour
+with the camera movement and scene changes: a cache enabled for every frame may still
+save no rendering work if it is repeatedly invalidated.
+
 ## Prepared static shadow draws
 
 `shadow-draw-cache` prepares static shadow ranges at level upload, merging adjacent opaque ranges

@@ -7,6 +7,7 @@
 #include <string>
 
 #include "common/log.h"
+#include "common/stats.h"
 #include "renderer/gl.h"
 #include "scene/level_renderer.h"
 #include "scene/level_renderer_internal.h"
@@ -22,6 +23,8 @@ LevelScene::StaticShadowUpdate LevelScene::static_shadow_update() const {
     StaticShadowUpdate update;
     update.fresh = !m_static_shadow || !m_static_shadow->id();
 
+    unsigned matrix_changes = 0, volume_changes = 0, generation_changes = 0;
+
     // Every changed caster view invalidates its rectangle independently of the other cascades.
     for (unsigned i = 0; i < kSunCascades; ++i) {
         const auto& volume = m_sun_cascades.casters[i];
@@ -32,7 +35,11 @@ LevelScene::StaticShadowUpdate LevelScene::static_shadow_update() const {
         key.plane_count = volume.plane_count;
         key.separate_hero = m_hero_ready;
         key.generation = m_static_generation;
-        update.missed[i] = update.fresh || !same_static_key(key, m_static_keys[i]);
+        const auto& previous = m_static_keys[i];
+        matrix_changes += key.matrix != previous.matrix;
+        volume_changes += key.planes != previous.planes || key.plane_count != previous.plane_count;
+        generation_changes += key.generation != previous.generation;
+        update.missed[i] = update.fresh || !same_static_key(key, previous);
 
         // The last changed cascade flushes the same shared atlas draw buckets as before.
         if (update.missed[i]) {
@@ -41,6 +48,10 @@ LevelScene::StaticShadowUpdate LevelScene::static_shadow_update() const {
         }
     }
 
+    stats::gauge("shadow static matrix changes", matrix_changes);
+    stats::gauge("shadow static volume changes", volume_changes);
+    stats::gauge("shadow static generation changes", generation_changes);
+    stats::gauge("shadow static fresh target", update.fresh ? 1 : 0);
     return update;
 }
 
