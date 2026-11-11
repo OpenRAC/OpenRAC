@@ -249,6 +249,12 @@ void set_buckets(SceneFrame& frame) {
     State& owner = frame.owner;
     const Kept& scene = frame.scene;
     const bool has_camera = frame.has_camera;
+    static const bool& opaque_effects_off = stats::probe(
+        "OPENRAC_OPAQUE_EFFECTS_OFF", "Reference: draw opaque effects in their original passes"
+    );
+    frame.input.opaque_effects =
+        !opaque_effects_off && owner.game.starts_with("rac1-") && has_camera
+        && (scene.draws & (1u << static_cast<unsigned>(renderer::Bucket::Ties))) != 0;
 
     // Native HUD remains available even when the game submits no world.
     for (auto& bucket : owner.renderer

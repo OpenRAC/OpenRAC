@@ -246,6 +246,7 @@ std::vector<std::uint8_t> direct_packets(
     std::array<std::uint32_t, 16> vu_fog{};
     unsigned vu_fog_set = 0;
     bool strip_fog = false;
+    bool strip_blend_disabled = false;
     const std::uint8_t* strip_st = nullptr;
     const std::uint8_t* strip_rgba = nullptr;
     const std::uint8_t* strip_xyz = nullptr;
@@ -532,6 +533,7 @@ std::vector<std::uint8_t> direct_packets(
                     const std::uint64_t prim = ((tag >> 46) & 1) != 0 ? tag >> 47 : reg_prim;
                     strip_fog = ((prim >> 5) & 1) != 0;
                     strip_context = ((prim >> 9) & 1) != 0;
+                    strip_blend_disabled = ((tag >> 46) & 1) != 0 && ((prim >> 6) & 1) == 0;
                     strip_st = strip_rgba = strip_xyz = nullptr;
                 } else if (strip_tag && address == 1 && vn == 1 && vl == 0
                            && count == strip_count) {
@@ -574,6 +576,7 @@ std::vector<std::uint8_t> direct_packets(
                 strip.test = gs.test;
                 strip.z_masked = gs.zbuf_seen && ((gs.zbuf >> 32) & 1) != 0;
                 strip.z_written = gs.zbuf_seen && ((gs.zbuf >> 32) & 1) == 0;
+                strip.blend_disabled = strip_blend_disabled;
                 strip.surface = surface;
                 strip.uv_motion = uv_motion;
                 static const bool& strip_fog_off = stats::probe(

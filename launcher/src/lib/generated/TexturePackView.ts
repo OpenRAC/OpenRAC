@@ -12,7 +12,7 @@ id: string,
 /**
  * The `texture_pack` setting.
  */
-enabled: boolean, 
+enabled: boolean, pcsx2Path: string | null, 
 /**
  * Whether the next Play saves the textures.
  */

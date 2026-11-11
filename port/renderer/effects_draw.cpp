@@ -43,7 +43,7 @@ void normalize_quad_state(std::uint64_t& tex1, std::uint64_t& clamp, std::uint64
 void EffectRenderer::draw_prepared(
     const FrameInput& input, RenderState& state, const PreparedEffects& prepared
 ) {
-    const bool quads = m_part != EffectPart::Liquids && !input.effects.empty();
+    const bool quads = prepared.quads;
     const auto& strip_counts = prepared.strip_counts;
     const auto& material_meshes = prepared.meshes;
     const std::size_t quads_from = prepared.quads_from;
@@ -56,7 +56,7 @@ void EffectRenderer::draw_prepared(
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GEQUAL);  // reversed depth
-    glDepthMask(m_part == EffectPart::Liquids ? GL_TRUE : GL_FALSE);
+    glDepthMask(m_part == EffectPart::Liquids || m_part == EffectPart::Opaque ? GL_TRUE : GL_FALSE);
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     glActiveTexture(GL_TEXTURE0);
@@ -251,10 +251,9 @@ void EffectRenderer::draw_prepared(
 
     // Accepted strips retain authored draw and texture-upload order.
     for (const EffectStrip& strip : input.strips) {
-        // Malformed or excluded strips have no prepared geometry entry.
         if (strip.count < 3
             || static_cast<std::size_t>(strip.first) + strip.count > input.strip_vertices.size()
-            || !draws(strip)) {
+            || !draws(strip, input)) {
             continue;
         }
 
@@ -314,7 +313,7 @@ void EffectRenderer::draw_prepared(
         add({strip.tex0,
              strip.tex1,
              strip.clamp,
-             strip.alpha,
+             m_part == EffectPart::Opaque && strip.blend_disabled ? 0 : strip.alpha,
              0,
              0,
              strip.surface,
@@ -362,7 +361,8 @@ void EffectRenderer::draw_prepared(
     // keep their order. A field of quads paging two textures through one block in turn sent
     // (copied and hashed) one texture a quad, a thousand a frame.
     std::vector<std::size_t> quad_uploads;
-    for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
+    for (const EffectQuad& q :
+         quads&& m_part != EffectPart::Opaque ? input.effects : std::span<const EffectQuad>{}) {
         // A complete texture/palette pair must exist before either is uploaded.
         if (q.uploads >= 0
             && static_cast<std::size_t>(q.uploads) + 1 < input.effect_uploads.size()) {
@@ -400,6 +400,9 @@ void EffectRenderer::draw_prepared(
 
     // Captured quad order preserves back-to-front blending across shader switches.
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
+        if (!draws(q, input)) {
+            continue;
+        }
         State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
         if (quad_indices) {
             normalize_quad_state(wanted.tex1, wanted.clamp, wanted.alpha);
@@ -407,7 +410,7 @@ void EffectRenderer::draw_prepared(
         Shader* shader = quad_shader;
 
         // Captured list registers override quad alpha testing and depth writes.
-        if (q.registers) {
+        if (q.registers && m_part != EffectPart::Opaque) {
             // The list's TEST and ZBUF (EffectQuad::test, zbuf). An alpha test needs the shader
             // that keeps it; without that shader the quad is drawn as before, every pixel, no Z.
             const gs::Test t = gs::Test::decode(q.test);

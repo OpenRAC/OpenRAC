@@ -51,6 +51,7 @@
 #include "renderer/effects.h"
 #include "renderer/gl.h"
 #include "renderer/gl_warmup.h"
+#include "renderer/pcsx2_pack.h"
 #include "renderer/renderer.h"
 #include "renderer/shadows.h"
 #include "renderer/texture.h"
@@ -339,6 +340,7 @@ void use_level(int number) {
     g->hud = hud.get();
     g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
     configure_level_shadows(*g, wanted);
+    bool split_opaque_effects = false;
     for (std::size_t layer = 0; layer < scene::kLayerCount; ++layer) {
         // The caster is drawn after its shadow, so its proxy cannot darken
         // Ratchet himself. Opaque scenery has already filled the depth buffer.
@@ -352,6 +354,22 @@ void use_level(int number) {
             std::make_unique<scene::LayerRenderer>(g->scene, static_cast<scene::Layer>(layer)),
             error
         );
+        if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
+            && g->game.starts_with("rac1-")) {
+            split_opaque_effects = g->renderer->add(
+                                       std::make_unique<renderer::EffectRenderer>(
+                                           "opaque effects",
+                                           renderer::EffectPart::Opaque,
+                                           renderer::Bucket::Ties,
+                                           enhanced::atmosphere_material(g->scene)
+                                       ),
+                                       error
+                                   )
+                                   != nullptr;
+            if (!split_opaque_effects) {
+                log::error("opaque effect renderer: {}", error);
+            }
+        }
         // The liquids (the seas and lava the game draws solid) after the ties, where retail's draw
         // callback list 3 draws them, before the shrubs and mobys (renderer/effects.h).
         if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
@@ -360,7 +378,8 @@ void use_level(int number) {
                        "liquids",
                        renderer::EffectPart::Liquids,
                        renderer::Bucket::Ties,
-                       enhanced::atmosphere_material(g->scene)
+                       enhanced::atmosphere_material(g->scene),
+                       split_opaque_effects
                    ),
                    error
                ) == nullptr) {
@@ -376,7 +395,8 @@ void use_level(int number) {
                     g->scene,
                     supports_enhanced_water(g->game, wanted) ? enhanced::make_water(g->scene, dir)
                                                              : nullptr
-                )
+                ),
+                split_opaque_effects
             ),
             error
         )
@@ -622,7 +642,11 @@ void effect_textures() {
             );
             // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
             renderer::texture_pack::Replacement replaced;
-            renderer::texture_pack::replace(texture, {}, &replaced);
+            if (!renderer::texture_pack::replace(texture, {}, &replaced)) {
+                renderer::pcsx2_pack::replace_indexed8(
+                    texture, image.data, colours, renderer::AlphaScale::Gs
+                );
+            }
             const renderer::TextureHandle h = g->renderer->textures().add(
                 std::move(texture),
                 renderer::AlphaScale::Gs,
@@ -848,7 +872,9 @@ std::uint32_t particle_texture(
         renderer::convert_t8(indices, kSide, kSide, palette, renderer::AlphaScale::Gs);
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
     renderer::texture_pack::Replacement replaced;
-    renderer::texture_pack::replace(image, {}, &replaced);
+    if (!renderer::texture_pack::replace(image, {}, &replaced)) {
+        renderer::pcsx2_pack::replace_indexed8(image, indices, palette, renderer::AlphaScale::Gs);
+    }
     const renderer::TextureHandle h = g->renderer->textures().add(
         std::move(image),
         renderer::AlphaScale::Gs,

@@ -271,6 +271,8 @@ add_library(openrac_renderer STATIC
   renderer/subsystems.cpp
   renderer/texture.cpp
   renderer/texture_pack.cpp
+  renderer/pcsx2_pack.cpp
+  renderer/pcsx2_dds.cpp
   renderer/texture_pool.cpp
 )
 openrac_embed_shaders(openrac_renderer renderer openrac::renderer
@@ -291,6 +293,7 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/effect.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/effect_depth.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow_composite.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.frag"
@@ -298,6 +301,7 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.frag"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common)
+target_include_directories(openrac_renderer SYSTEM PRIVATE "${openrac_xxhash_SOURCE_DIR}")
 if(OPENRAC_VULKAN)
   target_link_libraries(openrac_renderer PRIVATE openrac_renderer_vulkan)
   target_compile_definitions(openrac_renderer PRIVATE OPENRAC_VULKAN=1)

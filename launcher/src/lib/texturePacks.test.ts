@@ -5,6 +5,7 @@ import type { TexturePackView } from "./api";
 const view = (over: Partial<TexturePackView>): TexturePackView => ({
   id: "rac2-ntsc",
   enabled: true,
+  pcsx2Path: null,
   dumping: false,
   packCount: 0,
   packAnimated: 0,
@@ -22,6 +23,14 @@ describe("textureCount", () => {
 });
 
 describe("packSummary", () => {
+  it("recognises an external PCSX2 pack when the OpenRAC pack is empty", () => {
+    expect(packSummary(view({ pcsx2Path: "D:/HD pack/SCUS-97199/replacements" }))).toBe(
+      "PCSX2 pack selected for the next game start.",
+    );
+    expect(packSummary(view({ pcsx2Path: "D:/HD pack/SCUS-97199/replacements", enabled: false }))).toBe(
+      "Texture packs are off.",
+    );
+  });
   it("says what the pack holds and whether it is on", () => {
     expect(packSummary(view({}))).toMatch(/^Empty for now/);
     expect(packSummary(view({ packCount: 38, packAnimated: 2 }))).toBe(

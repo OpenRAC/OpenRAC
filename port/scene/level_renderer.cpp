@@ -1226,17 +1226,21 @@ void LevelScene::draw_layer(
     std::uint64_t rigid_prepass_draws = 0, empty_prepass_groups = 0;
     // The mobys' glow pass runs twice (scene/moby_passes.h): its texels at or above the GS's alpha
     // reference first, writing depth, then the rest without.
-    const int steps = mobys ? static_cast<int>(kMobyPassSteps.size()) : passes;
+    const auto moby_steps = input.opaque_effects
+                                ? std::span<const MobyPassStep>(kMobyOpaqueSplitSteps)
+                                : std::span<const MobyPassStep>(kMobyPassSteps);
+    const int steps = mobys ? static_cast<int>(moby_steps.size()) : passes;
     for (int step = 0; step < steps; ++step) {
         const MobyPassStep moby_step =
-            mobys ? kMobyPassSteps[static_cast<std::size_t>(step)] : MobyPassStep{};
+            mobys ? moby_steps[static_cast<std::size_t>(step)] : MobyPassStep{};
         const int pass = mobys ? moby_step.pass : step;
         const int glow_split = moby_step.glow_split;
-        if (state.depth_prepass && (mobys ? pass > 0 : pass > 1)) {
+        const bool opaque_fragment = moby_step.opacity_split > 0;
+        const bool opaque = mobys ? pass == 0 || opaque_fragment : pass <= 1;
+        if (state.depth_prepass && !opaque) {
             break;
         }
         if (colour_batch) {
-            const bool opaque = mobys ? pass == 0 : pass <= 1;
             if (state.opaque_colour_phase >= 0) {
                 if (!opaque || (state.opaque_colour_phase == 0) != (!mobys && pass == 0)) {
                     continue;
@@ -1270,7 +1274,8 @@ void LevelScene::draw_layer(
         const bool early = !state.depth_prepass
                            && (mobys ? pass == kMobySolid || pass == kMobyMetal : pass <= 1)
                            && m_lighting && m_lighting->early_matches(input, state);
-        const bool batch_shader = colour_batch && state.opaque_colour_phase >= 0;
+        const bool batch_shader =
+            colour_batch && state.opaque_colour_phase >= 0 && !opaque_fragment;
         static const bool& specialisation_off = stats::probe(
             "OPENRAC_OPAQUE_SPECIALISE_OFF", "Reference: unspecialised mesh colour shaders"
         );
@@ -1377,6 +1382,11 @@ void LevelScene::draw_layer(
             program->uniform("gameplay_rim_lift"), m_gameplay_rim_lift[0], m_gameplay_rim_lift[1]
         );
         glUniform1i(program->uniform("glow_split"), glow_split);
+        glUniform1i(program->uniform("opacity_split"), moby_step.opacity_split);
+        if (opaque_fragment) {
+            // Preserve destination alpha like the original moby blend, while replacing RGB.
+            glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ZERO, GL_ONE);
+        }
         glUniform2f(
             program->uniform("gameplay_rim_parameters"), m_gameplay_rim[0], m_gameplay_rim[1]
         );
@@ -1385,8 +1395,14 @@ void LevelScene::draw_layer(
             if (!visible[gi] || (!metal && (g.blend != 0) != effects)) {
                 continue;
             }
+            if (opaque_fragment && pass == kMobyGlow && !g.cpu_instances.empty()
+                && std::ranges::none_of(g.cpu_instances, [](const InstanceData& instance) {
+                       return instance.moby_ambient[3] > .5f;
+                   })) {
+                continue;
+            }
             // An added moby writes no depth: all of it is drawn in the second half.
-            if (effects && glow_split == 1 && g.blend == 2) {
+            if (effects && glow_split == 1 && (g.blend == 2 || (opaque_fragment && g.blend == 5))) {
                 continue;
             }
             // Inspection includes blended and chrome geometry in the selected frustum filter.
@@ -1421,7 +1437,7 @@ void LevelScene::draw_layer(
             if (m_lighting) {
                 m_lighting->bind_deformation(*program, g.floats_on_water);
             }
-            if (effects) {
+            if (effects && !opaque_fragment) {
                 // Additive: the shader writes Cs * As (mesh.frag, effect_additive).
                 glBlendFuncSeparate(
                     g.blend == 2 ? GL_ONE : GL_SRC_ALPHA,
@@ -1628,7 +1644,10 @@ void LevelScene::draw_layer(
                 }
                 // The glow pass draws a glow packet's faces only: the rest would be discarded.
                 if (mobys && pass == kMobyGlow && !p.glow_vertices
-                    && renderer::render_opt::enabled(renderer::render_opt::Opt::MobyGlowSkip)) {
+                    && (opaque_fragment
+                        || renderer::render_opt::enabled(
+                            renderer::render_opt::Opt::MobyGlowSkip
+                        ))) {
                     continue;
                 }
                 const bool is_cutout = m_materials[static_cast<std::size_t>(p.material)].cutout;
@@ -1643,7 +1662,10 @@ void LevelScene::draw_layer(
                 std::uint32_t first = p.first_index;
                 std::uint32_t count = p.index_count;
                 if (mobys && pass == kMobyGlow && p.glow_count != 0 && !compact_indices
-                    && renderer::render_opt::enabled(renderer::render_opt::Opt::MobyGlowSkip)) {
+                    && (opaque_fragment
+                        || renderer::render_opt::enabled(
+                            renderer::render_opt::Opt::MobyGlowSkip
+                        ))) {
                     first = p.glow_first;
                     count = p.glow_count;
                 }

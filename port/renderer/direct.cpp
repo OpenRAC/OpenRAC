@@ -1239,7 +1239,8 @@ void GifInterpreter::ensure_draw() {
             s.clamp_t = true;
         } else if (s.textured) {
             s.texture = m_textures.resolve(c.tex0, m_texa);
-            if (m_glyph && s.texture != m_textures.placeholder()) {
+            if (m_glyph && s.texture != m_textures.placeholder()
+                && !m_textures.has_cropped_replacement(s.texture)) {
                 s.field = m_textures.distance_field(s.texture);
                 s.distance_field = s.field != s.texture;
             }
@@ -1391,8 +1392,7 @@ void GifInterpreter::emit_triangle(
             std::memcpy(x.rgba, colour_from.rgba, 4);
         }
     }
-    m_vertices.insert(m_vertices.end(), v, v + 3);
-    m_draws.back().count += 3;
+    append_vertices(v);
 }
 
 void GifInterpreter::emit_quad(const DirectVertex corners[4]) {
@@ -1400,8 +1400,23 @@ void GifInterpreter::emit_quad(const DirectVertex corners[4]) {
     // Corners 0 1 / 2 3: two triangles.
     const DirectVertex order[6] =
         {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
-    m_vertices.insert(m_vertices.end(), order, order + 6);
-    m_draws.back().count += 6;
+    append_vertices(order);
+}
+
+void GifInterpreter::append_vertices(std::span<const DirectVertex> vertices) {
+    const auto texture = m_draws.back().state.texture;
+    const auto first = m_vertices.size();
+    m_vertices.insert(m_vertices.end(), vertices.begin(), vertices.end());
+    if (texture) {
+        const auto [s, t] = m_textures.uv_scale(texture);
+        if (s != 1.0f || t != 1.0f) {
+            for (std::size_t i = first; i < m_vertices.size(); ++i) {
+                m_vertices[i].s *= s;
+                m_vertices[i].t *= t;
+            }
+        }
+    }
+    m_draws.back().count += static_cast<std::uint32_t>(vertices.size());
 }
 
 void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {

@@ -6,7 +6,16 @@
   // its grip drags it, or Up and Down), remove one. Every change is instant. Adding is AddMod's
   // (lib/addMods.ts), a texture pack's .zip too. The packs are the game's, shared by its discs. With
   // many mods, My mods' toolbar (lib/modsView.svelte.ts) finds them and sorts them by name.
-  import { api, ask, pickZip, type PackView, type TexturePackView, type VersionView } from "$lib/api";
+  import {
+    api,
+    ask,
+    onAndroid,
+    pickFolder,
+    pickZip,
+    type PackView,
+    type TexturePackView,
+    type VersionView,
+  } from "$lib/api";
   import { app, guardShown, toast } from "$lib/app.svelte";
   import { dragSort } from "$lib/dragSort";
   import { arrange, matches, steps } from "$lib/modsList";
@@ -117,14 +126,14 @@
 
   /** The packs as shown: searched, in their order or by name. */
   const shown = $derived(arrange(packs, modsView.query, modsView.sort, (p) => [p.name, p.author, p.description]));
-  const packShown = $derived(!!pack && matches(modsView.query, TEXTURES.name, TEXTURES.badge));
+  const packShown = $derived(!!pack && matches(modsView.query, TEXTURES.name, TEXTURES.badge, "PCSX2", pack.pcsx2Path));
 
   // What the list holds, for the toolbar (counts, Mods off, a search that finds nothing).
   const found = $derived(shows("looks") ? shown.length + (packShown ? 1 : 0) : 0);
   $effect(() => {
     report("packs", {
       counts: { looks: packs.length + (pack ? 1 : 0) },
-      on: packs.filter((p) => p.enabled).length + (pack?.enabled && pack.packCount > 0 ? 1 : 0),
+      on: packs.filter((p) => p.enabled).length + (pack?.enabled && (pack.packCount > 0 || pack.pcsx2Path) ? 1 : 0),
       found,
     });
   });
@@ -144,6 +153,29 @@
       const left = done.leftOut ? ` ${grouped(done.leftOut)} unchanged picture(s) from the game were left out.` : "";
       toast(`Saved ${textureCount(done.textures)} as ${done.saved}.${left}`);
     });
+
+  let choosingPcsx2 = $state(false);
+  async function selectPcsx2(clear = false) {
+    if (choosingPcsx2) return;
+    choosingPcsx2 = true;
+    try {
+      const source = clear ? "" : await pickFolder(`Choose a PCSX2 texture pack for ${v.serial}`);
+      if (source === null) return;
+      const next = await guardShown(api.texturePacksSet(v.game, v.name, { pcsx2: source }));
+      if (next) {
+        pack = next;
+        toast(
+          clear
+            ? "PCSX2 pack selection cleared."
+            : next.enabled
+              ? "PCSX2 pack selected. It will be used from the next game start."
+              : "PCSX2 pack selected. Turn on texture packs to use it.",
+        );
+      }
+    } finally {
+      choosingPcsx2 = false;
+    }
+  }
 
   async function replace() {
     const source = await pickZip(TEXTURES.pickTitle);
@@ -186,6 +218,7 @@
             >
           </div>
           <div class="dim small-text">{packSummary(pack)}</div>
+          {#if pack.pcsx2Path}<div class="dim small-text pcsx2-path">PCSX2 · {pack.pcsx2Path}</div>{/if}
         </div>
         {#if onmake}
           <button class="small ghost" onclick={onmake}><Icon name="edit" size={14} />{TEXTURES.make}</button>
@@ -193,6 +226,9 @@
         <Menu
           label={`More for ${TEXTURES.name}`}
           items={[
+            ...(!onAndroid && pack.pcsx2Path
+              ? [{ label: "Clear PCSX2 Pack", icon: "trash" as const, run: () => void selectPcsx2(true) }]
+              : []),
             ...(pack.packCount ? [{ label: TEXTURES.share, icon: "upload" as const, run: () => void share() }] : []),
             { label: TEXTURES.replace, icon: "download" as const, run: () => void replace() },
             {
@@ -200,6 +236,9 @@
               icon: "folder" as const,
               run: () => void guardShown(api.texturePacksOpen(v.game, v.name, false)),
             },
+            ...(!onAndroid
+              ? [{ label: "Choose PCSX2 Pack", icon: "folder" as const, run: () => void selectPcsx2() }]
+              : []),
           ]}
         />
       </div>
@@ -274,6 +313,9 @@
 {/if}
 
 <style>
+  .pcsx2-path {
+    overflow-wrap: anywhere;
+  }
   /* What follows a name on its line, a space after it (Svelte trims the space). */
   .by {
     margin-left: 0.3em;

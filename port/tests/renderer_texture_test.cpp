@@ -6,13 +6,17 @@
 // uploaded in another format, and the pool's identities and cache. No GL.
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
+#include <filesystem>
 #include <format>
+#include <fstream>
 #include <set>
 #include <vector>
 
 #include "check.h"
 #include "game/common/particle_texture_cache.h"
+#include "renderer/pcsx2_pack.h"
 #include "renderer/texture.h"
 #include "renderer/texture_pool.h"
 
@@ -21,6 +25,132 @@ namespace {
 using namespace openrac::renderer;
 
 constexpr gs::Texa kTexa{0x10, false, 0x70};
+
+void pcsx2_texture_pack() {
+    namespace fs = std::filesystem;
+    const auto root = fs::temp_directory_path() / u8"openrac_pcsx2_texture_test_\u4e2d\u6587";
+    const auto folder = root / "SCUS-97199" / "replacements";
+    fs::create_directories(folder);
+
+    // A solid red BC3 block in a legacy PCSX2 filename (bit 14 was TCC).
+    std::array<std::uint8_t, 144> dds{};
+    dds[0] = 'D';
+    dds[1] = 'D';
+    dds[2] = 'S';
+    dds[3] = ' ';
+    dds[4] = 124;
+    dds[12] = dds[16] = 4;
+    dds[76] = 32;
+    dds[80] = 4;
+    dds[84] = 'D';
+    dds[85] = 'X';
+    dds[86] = 'T';
+    dds[87] = '5';
+    dds[128] = 64;
+    dds[137] = 0xf8;
+    const auto file = folder / "afe99bfcb9620477-5d0d9d5be530f11a-00005153.dds";
+    std::ofstream(file, std::ios::binary)
+        .write(reinterpret_cast<const char*>(dds.data()), static_cast<std::streamsize>(dds.size()));
+
+    // Two different GS blocks and a raw palette. The filename's hashes were calculated
+    // independently over the swizzled bytes and the unscaled palette.
+    std::array<std::uint8_t, 512> indices{};
+    std::array<std::uint32_t, 256> palette{};
+    for (std::size_t i = 0; i < indices.size(); ++i) {
+        indices[i] = static_cast<std::uint8_t>(i * 13 + (i / 32) * 29);
+    }
+    for (std::size_t i = 0; i < palette.size(); ++i) {
+        palette[i] = 0x80200000 + static_cast<std::uint32_t>(i);
+    }
+    Rgba8Image image(32, 16);
+    pcsx2_pack::configure({}, nullptr);
+    CHECK(!pcsx2_pack::replace_indexed8(image, indices, palette));
+
+    pcsx2_pack::configure(folder, nullptr);
+    ++palette[0];
+    CHECK(!pcsx2_pack::replace_indexed8(image, indices, palette));
+    --palette[0];
+    CHECK(pcsx2_pack::replace_indexed8(image, indices, palette, AlphaScale::Gs));
+    CHECK(image.width == 4 && image.height == 4 && image.texel(3, 3) == rgba(255, 0, 0, 64));
+    image = Rgba8Image(32, 16);
+    CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));
+    CHECK(image.texel(3, 3) == rgba(255, 0, 0, 128));
+    // Reopening an explicitly selected external folder keeps its replacement available.
+    pcsx2_pack::configure(folder, nullptr);
+    image = Rgba8Image(32, 16);
+    CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));
+    CHECK(image.texel(3, 3) == rgba(255, 0, 0, 128));
+    // Clearing the selection disables replacements even while the pack remains on disk.
+    pcsx2_pack::configure({}, nullptr);
+    CHECK(!pcsx2_pack::enabled());
+    // An old-style cropped name has two exclusive ranges packed into the region word.
+    const auto crop = folder / "b5f0fd28a2874ea1-5d0d9d5be530f11a-r500030021001f-00005153.dds";
+    fs::copy_file(file, crop, fs::copy_options::overwrite_existing);
+    pcsx2_pack::configure(folder, nullptr);
+    gs::Tex0 tex0{};
+    tex0.psm = gs::kPsmt8;
+    tex0.tw = 5;
+    tex0.th = 4;
+    std::array<std::uint8_t, 33 * 16> extended{};
+    for (std::size_t y = 0; y < 16; ++y) {
+        for (std::size_t x = 0; x < 33; ++x) {
+            extended[y * 33 + x] = static_cast<std::uint8_t>(x * 13 + y * 29);
+        }
+    }
+    image = Rgba8Image(32, 16);
+    image.set_texel(0, 0, rgba(1, 2, 3, 128));
+    const auto extent = pcsx2_pack::crop_extent(tex0, palette);
+    CHECK(extent[0] == 33 && extent[1] == 16);
+    ++extended[3 * 33 + 32];
+    CHECK(!pcsx2_pack::replace_crops(image, tex0, extended, palette, extent));
+    --extended[3 * 33 + 32];
+    CHECK(pcsx2_pack::replace_crops(image, tex0, extended, palette, extent));
+    CHECK(image.width == 66 && image.height == 32);
+    CHECK(image.texel(62, 6) == rgba(255, 0, 0, 64));
+    CHECK(image.texel(65, 9) == rgba(255, 0, 0, 64));
+    CHECK(image.texel(1, 1) == rgba(1, 2, 3, 128));
+    CHECK(image.texel(61, 6) == 0);
+
+    // The right column comes from a different GS upload. Changing it must
+    // invalidate the cached crop, even though the atlas and CLUT are unchanged.
+    TexturePool pool;
+    tex0.tbp0 = 0x100;
+    tex0.tbw = 2;
+    tex0.cbp = 0x180;
+    std::vector<std::uint8_t> base(32 * 16), neighbour(16 * 16);
+    for (std::size_t y = 0; y < 16; ++y) {
+        std::copy_n(extended.data() + y * 33, 32, base.data() + y * 32);
+        neighbour[y * 16] = extended[y * 33 + 32];
+    }
+    std::vector<std::uint8_t> clut(1024);
+    for (std::size_t i = 0; i < palette.size(); ++i) {
+        const auto offset = csm1_position(static_cast<std::uint32_t>(i)) * 4;
+        for (int byte = 0; byte < 4; ++byte) {
+            clut[offset + byte] = static_cast<std::uint8_t>(palette[i] >> (byte * 8));
+        }
+    }
+    const auto block = static_cast<std::uint32_t>(
+        swizzle::nibble_address(tex0.psm, 32, 0, tex0.tbp0, tex0.tbw) / 512
+    );
+    pool.upload({tex0.tbp0, 2, tex0.psm, 0, 0, 32, 16, std::move(base)});
+    pool.upload({tex0.cbp, 1, gs::kPsmct32, 0, 0, 16, 16, std::move(clut)});
+    pool.upload({block, 2, tex0.psm, 0, 0, 16, 16, neighbour});
+    const auto first = pool.resolve(tex0, kTexa);
+    CHECK(pool.has_cropped_replacement(first));
+    CHECK(pool.image(first).texel(65, 9) == rgba(255, 0, 0, 64));
+    CHECK(pool.uv_scale(first)[0] == 32.0f / 33.0f);
+    ++neighbour[3 * 16];
+    pool.upload({block, 2, tex0.psm, 0, 0, 16, 16, std::move(neighbour)});
+    const auto changed = pool.resolve(tex0, kTexa);
+    CHECK(changed != first && !pool.has_cropped_replacement(changed));
+
+    pcsx2_pack::configure({}, nullptr);
+    fs::remove(crop);
+    fs::remove(file);
+    fs::remove(folder);
+    fs::remove(folder.parent_path());
+    fs::remove(root);
+}
 
 void direct_colour() {
     // PSMCT32: R, G, B, A bytes.
@@ -701,6 +831,7 @@ void particle_pass_cache() {
 }
 
 int main() {
+    pcsx2_texture_pack();
     direct_colour();
     palettes();
     indexed();

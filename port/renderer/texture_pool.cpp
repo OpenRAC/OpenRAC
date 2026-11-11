@@ -21,6 +21,7 @@
 #include "common/parallel.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
+#include "renderer/pcsx2_pack.h"
 #include "renderer/shader.h"
 #include "renderer/texture_pack.h"
 
@@ -87,6 +88,7 @@ std::size_t TexturePool::KeyHash::operator()(const Key& key) const {
             | (std::uint64_t{key.texa.aem} << 32),
         key.pixels_hash,
         key.clut_hash,
+        key.crop_border_hash,
     };
     return static_cast<std::size_t>(
         hash_bytes(reinterpret_cast<const std::uint8_t*>(words), sizeof(words))
@@ -162,6 +164,16 @@ bool TexturePool::repeat_upload(const ImageUpload& upload) {
     return true;
 }
 
+// Match the page coverage used when resolving an address inside an uploaded rectangle.
+std::uint32_t ImageUpload::end_block() const {
+    const int bits = std::max(gs::bits_per_pixel(dpsm), 4);
+    const std::uint64_t line =
+        static_cast<std::uint64_t>(std::max<std::uint32_t>(dbw, 1)) * 64 * bits / 8;
+    const std::uint64_t bytes =
+        (static_cast<std::uint64_t>(y) + std::max<std::uint32_t>(height, 1)) * line;
+    return dbp + static_cast<std::uint32_t>((bytes + 8191) / 8192 * 32);
+}
+
 void TexturePool::upload(ImageUpload upload) {
     // The same transfer again (the 2D layer sends its pages every frame): only its order changes,
     // without hashing the bytes again.
@@ -175,10 +187,7 @@ void TexturePool::upload(ImageUpload upload) {
     stored.sequence = ++m_sequence;
     // The pages the rectangle's last row reaches, in its format's page size (a page is 32 blocks
     // whatever the format: 64 x 32 pixels of 32 bits, 64 x 64 of 16, 128 x 64 of 8, 128 x 128 of 4).
-    const int bits = std::max(gs::bits_per_pixel(upload.dpsm), 4);
-    const std::uint64_t line = static_cast<std::uint64_t>(std::max<std::uint32_t>(upload.dbw, 1)) * 64 * bits / 8;
-    const std::uint64_t bytes = (static_cast<std::uint64_t>(upload.y) + std::max<std::uint32_t>(upload.height, 1)) * line;
-    stored.end = upload.dbp + static_cast<std::uint32_t>((bytes + 8191) / 8192 * 32);
+    stored.end = upload.end_block();
     stored.upload = std::move(upload);
     const std::uint32_t dbp = stored.upload.dbp;
     m_uploads[dbp] = std::move(stored);
@@ -211,11 +220,10 @@ const TexturePool::Stored* TexturePool::upload_at(std::uint32_t block, std::uint
     return best;
 }
 
-std::vector<std::uint8_t> TexturePool::texture_raster(const Stored& stored, const gs::Tex0& tex0)
-    const {
+std::vector<std::uint8_t> TexturePool::texture_raster(
+    const Stored& stored, const gs::Tex0& tex0, int tw, int th
+) const {
     const ImageUpload& up = stored.upload;
-    const int tw = tex0.width();
-    const int th = tex0.height();
     const int up_w = static_cast<int>(up.width);
     const int up_h = static_cast<int>(up.height);
     if (tex0.tbp0 != up.dbp || up.x != 0 || up.y != 0) {
@@ -225,7 +233,7 @@ std::vector<std::uint8_t> TexturePool::texture_raster(const Stored& stored, cons
                               tex0.tbp0 - up.dbp, tex0.psm, tw, th, std::max<std::uint32_t>(tex0.tbw, 1));
     }
     const bool both_16 = gs::bits_per_pixel(up.dpsm) == 16 && gs::bits_per_pixel(tex0.psm) == 16;
-    if (up.dpsm != tex0.psm && !both_16) {
+    if ((up.dpsm != tex0.psm && !both_16) || tw > tex0.width() || th > tex0.height()) {
         // Sent in one format and read in another (an 8-bit texture sent as
         // 32-bit pixels, say): the only case that needs the chip's layout.
         return reinterpret(
@@ -274,6 +282,25 @@ std::vector<std::uint8_t> TexturePool::texture_raster(const Stored& stored, cons
         }
     }
     return out;
+}
+
+std::vector<TexturePool::CropBlock> TexturePool::crop_border(
+    const gs::Tex0& tex0, std::array<int, 2> extent
+) const {
+    std::vector<CropBlock> border;
+    // PSMT8 is arranged in 16x16 blocks. A crop may include texels written by
+    // the next upload, even though the draw's TEX0 still names the atlas.
+    for (int y = 0; y < extent[1]; y += 16) {
+        const int left = y + 16 <= tex0.height() ? tex0.width() & ~15 : 0;
+        for (int x = left; x < extent[0]; x += 16) {
+            const auto address = swizzle::nibble_address(tex0.psm, x, y, tex0.tbp0, tex0.tbw);
+            std::uint32_t offset = 0;
+            const auto* upload =
+                upload_at(static_cast<std::uint32_t>(address / 512) & 0x3fff, offset);
+            border.push_back({x, y, offset, upload});
+        }
+    }
+    return border;
 }
 
 bool TexturePool::clut_in_memory(const gs::Tex0& tex0, Clut& out) const {
@@ -359,6 +386,22 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     Clut now;
     const Clut* clut = indexed ? palette_clut(tex0, now) : nullptr;
     const std::uint64_t clut_hash = clut != nullptr ? clut->hash : 0;
+    std::vector<std::uint32_t> colours;
+    std::array<int, 2> extent{};
+    std::vector<CropBlock> border;
+    std::uint64_t border_hash = 0;
+    if (clut != nullptr && pcsx2_pack::may_have_crops(tex0)) {
+        colours = clut_csm1(clut->data, clut->cpsm, clut->width, entries, texa);
+        extent = pcsx2_pack::crop_extent(tex0, colours);
+        if (extent[0] > tex0.width() || extent[1] > tex0.height()) {
+            border = crop_border(tex0, extent);
+            for (const auto& block : border) {
+                const std::uint64_t value =
+                    block.upload ? block.upload->hash ^ (std::uint64_t{block.offset} << 32) : 0;
+                border_hash = (border_hash ^ value) * 1099511628211ull;
+            }
+        }
+    }
     const Key key{
         tex0.tbp0,
         tex0.tbw,
@@ -369,18 +412,19 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
         indexed ? tex0.cpsm : std::uint8_t{0},
         texa,
         stored->hash ^ (static_cast<std::uint64_t>(offset) << 40),
-        clut_hash
+        clut_hash,
+        border_hash
     };
     if (auto found = m_converted.find(key); found != m_converted.end()) {
         return found->second;
     }
-    std::vector<std::uint32_t> colours;
-    if (indexed) {
+    if (indexed && colours.empty()) {
         colours = clut != nullptr
                       ? clut_csm1(clut->data, clut->cpsm, clut->width, entries, texa)
                       : std::vector<std::uint32_t>(static_cast<std::size_t>(entries), 0);
     }
-    const std::vector<std::uint8_t> raster = texture_raster(*stored, tex0);
+    const std::vector<std::uint8_t> raster =
+        texture_raster(*stored, tex0, tex0.width(), tex0.height());
     Rgba8Image image =
         convert(raster, tex0.psm, tex0.width(), tex0.height(), colours, texa, AlphaScale::Gs);
     if (image.pixels.empty()) {
@@ -417,11 +461,57 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     // texture coordinates are fractions of the chip's size, not of the picture's.
     // An animated one gives its frames as well.
     texture_pack::Replacement replaced;
-    texture_pack::replace(image, {.interface = true}, &replaced);
+    bool cropped = false;
+    std::array<float, 2> uv_scale{1.0f, 1.0f};
+    if (!texture_pack::replace(image, {.interface = true}, &replaced) && clut != nullptr) {
+        pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs);
+        if (extent[0] != 0) {
+            auto extended = border.empty() ? std::vector<std::uint8_t>{}
+                                           : texture_raster(*stored, tex0, extent[0], extent[1]);
+            for (const auto& block : border) {
+                if (block.upload == nullptr || block.upload == stored) {
+                    continue;
+                }
+                const auto& source = block.upload->upload;
+                const auto pixels = reinterpret_at(
+                    source.data,
+                    source.dpsm,
+                    source.x,
+                    source.y,
+                    source.width,
+                    source.height,
+                    source.dbw,
+                    block.offset,
+                    gs::kPsmt8,
+                    16,
+                    16,
+                    2
+                );
+                for (int y = block.y; y < std::min(block.y + 16, extent[1]); ++y) {
+                    for (int x = block.x; x < std::min(block.x + 16, extent[0]); ++x) {
+                        if (x >= tex0.width() || y >= tex0.height()) {
+                            extended[y * extent[0] + x] = pixels[(y - block.y) * 16 + x - block.x];
+                        }
+                    }
+                }
+            }
+            cropped = pcsx2_pack::replace_crops(
+                image, tex0, extended.empty() ? raster : extended, colours, extent
+            );
+            if (cropped) {
+                uv_scale =
+                    {static_cast<float>(tex0.width()) / static_cast<float>(extent[0]),
+                     static_cast<float>(tex0.height()) / static_cast<float>(extent[1])};
+            }
+        }
+    }
     const TextureHandle h = add(std::move(image), AlphaScale::Gs, "upload");
-    m_entries[h - 1].from_upload = true;
-    m_entries[h - 1].key = key;
-    m_entries[h - 1].pack_hash = replaced.hash;
+    auto& entry = m_entries[h - 1];
+    entry.cropped_replacement = cropped;
+    entry.uv_scale = uv_scale;
+    entry.from_upload = true;
+    entry.key = key;
+    entry.pack_hash = replaced.hash;
     animate(h, std::move(replaced.animation));
     m_converted.emplace(key, h);
     return h;
@@ -447,6 +537,14 @@ TextureHandle TexturePool::resolve(const gs::Tex0& tex0, const gs::Texa& texa) {
 
 const Rgba8Image& TexturePool::image(TextureHandle texture) const {
     return m_entries[texture - 1].image;
+}
+
+bool TexturePool::has_cropped_replacement(TextureHandle texture) const {
+    return m_entries[texture - 1].cropped_replacement;
+}
+
+std::array<float, 2> TexturePool::uv_scale(TextureHandle texture) const {
+    return m_entries[texture - 1].uv_scale;
 }
 
 AlphaScale TexturePool::alpha_scale(TextureHandle texture) const {

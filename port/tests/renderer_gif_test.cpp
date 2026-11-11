@@ -631,10 +631,58 @@ void blend_weights() {
     CHECK(before_mobys_writes_z(solid));  // a solid strip, as the liquids' pass drew it before
 }
 
+void opaque_effects() {
+    const std::array<EffectVertex, 3> vertices{
+        {{.rgba = 0x80808080}, {.rgba = 0x80808080}, {.rgba = 0x80808080}}
+    };
+    EffectStrip strip;
+    strip.count = 3;
+    strip.alpha = 0x8000000064ull;
+    strip.test = 0x50000;  // Gaspar's scrolling lava base and overlay.
+    CHECK(opaque_effect_strip(strip, vertices));
+    strip.alpha = 0x6000000064ull;
+    CHECK(!opaque_effect_strip(strip, vertices));
+    strip.alpha = 0x7F00000064ull;
+    CHECK(!opaque_effect_strip(strip, vertices));
+    strip.z_written = true;
+    strip.blend_disabled = true;
+    CHECK(opaque_effect_strip(strip, vertices));
+    strip.blend_disabled = false;
+    strip.z_written = false;
+    strip.alpha = 0x8000000064ull;
+    strip.z_masked = true;
+    CHECK(!opaque_effect_strip(strip, vertices));
+    strip.z_masked = false;
+    strip.test = 0x513F1;  // Every sample fails alpha and only writes colour.
+    CHECK(!opaque_effect_strip(strip, vertices));
+    strip.test = 0x5360A;
+    strip.surface = 1;
+    CHECK(!opaque_effect_strip(strip, vertices));
+    strip.surface = 0;
+    strip.first = 1;
+    CHECK(!opaque_effect_strip(strip, vertices));
+
+    EffectQuad quad{};
+    for (auto& colour : quad.rgba) {
+        colour = 0x80808080;
+    }
+    quad.alpha = 0x44;
+    quad.test = 0x5360B;               // The known vertex alpha passes the test.
+    CHECK(!opaque_effect_quad(quad));  // TEST and ZBUF were not captured.
+    quad.registers = true;
+    CHECK(opaque_effect_quad(quad));
+    quad.tex0 = std::uint64_t{1} << 34;  // TCC: the texture now contributes to alpha.
+    CHECK(!opaque_effect_quad(quad));
+    quad.tex0 = 0;
+    quad.rgba[0] = 0x7F808080;
+    CHECK(!opaque_effect_quad(quad));
+}
+
 }  // namespace
 
 int main() {
     blend_weights();
+    opaque_effects();
     sprite();
     whole_target_marker();
     strips_and_kicks();

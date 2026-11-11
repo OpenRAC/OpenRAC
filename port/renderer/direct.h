@@ -332,6 +332,7 @@ private:
     void emit_line(const GsVertex& a, const GsVertex& b);
     void emit_point(const GsVertex& a);
     void emit_quad(const DirectVertex corners[4]);
+    void append_vertices(std::span<const DirectVertex> vertices);
     // An image transfer into the draw buffer: its pixels drawn where the chip would store them.
     void draw_frame_upload(const ImageUpload& upload);
     // The frame snapshot over the whole target (kFrameMarker).

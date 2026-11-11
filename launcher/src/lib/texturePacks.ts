@@ -11,6 +11,7 @@ export function textureCount(n: number): string {
 /** The pack's line: what it holds and whether the game uses it. */
 export function packSummary(view: TexturePackView): string {
   if (!view.packCount) {
+    if (view.pcsx2Path) return view.enabled ? "PCSX2 pack selected for the next game start." : "Texture packs are off.";
     return "Empty for now. Put your pictures in it, or add a pack someone shared.";
   }
   const animated = view.packAnimated ? `, ${grouped(view.packAnimated)} of them animated` : "";

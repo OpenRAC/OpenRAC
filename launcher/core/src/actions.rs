@@ -648,6 +648,12 @@ impl Action {
                         env.push(pair);
                     }
                 }
+                if let Some(path) = crate::texture_packs::pcsx2::selected(&crate::saves::data_home(), &v.game, &v.name)?
+                {
+                    let key = crate::texture_packs::pcsx2::ENV;
+                    env.retain(|(name, _)| name != key);
+                    env.push((key.to_string(), path.display().to_string()));
+                }
             }
         }
         let output = match &self.output {
@@ -1044,6 +1050,19 @@ mod tests {
         let plan = play.plan(&ctx(&installed)).unwrap();
         let data = Path::new("/games").join("active").join("rac1").join("data");
         assert_eq!(plan.args[1], data.display().to_string());
+        // Only an explicitly selected PCSX2 pack is passed to the game, including spaces.
+        let pack = tempfile::tempdir().unwrap();
+        let folder = pack.path().join("HD pack/SCES-50916/replacements");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("abc-def-00001153.png"), b"PNG").unwrap();
+        let home = crate::saves::data_home();
+        use crate::texture_packs::pcsx2;
+        assert!(!plan.env.iter().any(|(name, _)| name == pcsx2::ENV));
+        pcsx2::select(&home, "rac1", "pal", "SCES_509.16", folder.to_str().unwrap()).unwrap();
+        let selected_plan = play.plan(&ctx(&installed)).unwrap();
+        assert!(selected_plan.env.contains(&(pcsx2::ENV.to_string(), folder.display().to_string())));
+        pcsx2::select(&home, "rac1", "pal", "SCES_509.16", "").unwrap();
+        assert!(!play.plan(&ctx(&installed)).unwrap().env.iter().any(|(name, _)| name == pcsx2::ENV));
         assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_LOG"));
         // The Mods switch off, the default: no native mods.
         assert_eq!(plan.args.last().map(String::as_str), Some("--no-mods"), "{:?}", plan.args);
