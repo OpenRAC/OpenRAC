@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -33,6 +34,7 @@ in vec2 v_uv;
 uniform sampler2D tex_T0;
 uniform vec2 step;
 uniform float sigma;
+uniform float calm;
 out vec4 out_colour;
 void main() {
     int radius = int(ceil(sigma * 2.5));
@@ -43,7 +45,12 @@ void main() {
         sum += w * (texture(tex_T0, v_uv + step * float(i)) + texture(tex_T0, v_uv - step * float(i)));
         total += 2.0 * w;
     }
-    out_colour = vec4(sum.rgb / total, 1.0);
+    vec3 c = sum.rgb / total;
+    // Calmer colours (the last pass only): a little less saturated, the brightest pulled down, so
+    // something bright under the menu does not glare through it.
+    float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c = mix(c, mix(vec3(lum), c, 0.8) * (1.0 - 0.3 * smoothstep(0.5, 1.0, lum)), calm);
+    out_colour = vec4(c, 1.0);
 }
 )glsl";
 
@@ -62,6 +69,8 @@ struct State {
     GLuint vao = 0;
     std::array<Target, kLevels + 1> levels{};  // [0] the first half, then halves again
     Target across;                             // the horizontal pass's result
+    Target shown;                              // what is shown: eased toward each new blur
+    std::chrono::steady_clock::time_point last{};
     bool failed = false;
 };
 
@@ -96,7 +105,9 @@ void free_target(Target& t) {
 }
 
 // One pass of the Gaussian from `from` into `to`, along (dx, dy) texels.
-void pass(const Target& from, const Target& to, float dx, float dy, float sigma) {
+void pass(
+    const Target& from, const Target& to, float dx, float dy, float sigma, float calm = 0.0f
+) {
     glBindFramebuffer(GL_FRAMEBUFFER, to.framebuffer);
     glViewport(0, 0, to.width, to.height);
     glBindTexture(GL_TEXTURE_2D, from.texture);
@@ -106,6 +117,7 @@ void pass(const Target& from, const Target& to, float dx, float dy, float sigma)
         dy / static_cast<float>(from.height)
     );
     glUniform1f(s->shader.uniform("sigma"), sigma);
+    glUniform1f(s->shader.uniform("calm"), calm);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
@@ -172,12 +184,31 @@ Picture blur(int width, int height, int rows, float sigma) {
     s->shader.use();
     glActiveTexture(GL_TEXTURE0);
     pass(out, s->across, 1.0f, 0.0f, left);
-    pass(s->across, out, 0.0f, 1.0f, left);
+    pass(s->across, out, 0.0f, 1.0f, left, 1.0f);
+    // Eased toward the new blur over about a tenth of a second, so a flash under the menu fades
+    // in and out instead of jumping. A new size or a menu just opened takes it at once.
+    const auto now = std::chrono::steady_clock::now();
+    const float since = std::chrono::duration<float>(now - s->last).count();
+    s->last = now;
+    const bool fresh = s->shown.width != w || s->shown.height != h || since > 0.25f;
+    if (!fit(s->shown, w, h)) {
+        s->failed = true;
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        return {};
+    }
+    if (!fresh) {
+        glEnable(GL_BLEND);
+        glBlendFuncSeparate(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA, GL_ONE, GL_ZERO);
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendColor(0.0f, 0.0f, 0.0f, 1.0f - std::exp(-since / 0.1f));
+    }
+    pass(out, s->shown, 0.0f, 0.0f, 0.01f);  // a copy: a Gaussian this narrow is one texel
+    glDisable(GL_BLEND);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindVertexArray(0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, width, height);
-    return {out.texture, rows};
+    return {s->shown.texture, rows};
 }
 
 void release() {
@@ -190,6 +221,7 @@ void release() {
         free_target(t);
     }
     free_target(s->across);
+    free_target(s->shown);
     s.reset();
 }
 

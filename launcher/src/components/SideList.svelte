@@ -27,6 +27,18 @@
   const intro = !lists.introduced;
   lists.introduced = true;
 
+  /** Just shown (another tab's list, as Games and Mods each have their own): no transitions until
+   *  it has been drawn, so its discs show at once as they were, not growing or turning into place. */
+  let still = $state(true);
+  $effect(() => {
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => (still = false));
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  });
+
   // The open entry's highlight slides to the entry picked, as the bar's does from tab to tab. Placed
   // without a transition the first time, so that it does not fly in from the top.
   let list = $state<HTMLElement | null>(null);
@@ -59,6 +71,7 @@
 <nav
   class="list"
   class:discs={entries.some((e) => e.disc)}
+  class:still
   aria-label={label}
   bind:this={list}
   ontransitionend={(e) => {
@@ -288,6 +301,13 @@
     width: 64px;
     height: 64px;
     margin: -5px 0;
+  }
+
+  .still .disc,
+  .still .disc :global(.disc),
+  .still .entry,
+  .still .marker {
+    transition: none;
   }
 
   /* The disc turns, not its place: the crash dot stays where it is. */
