@@ -1,3 +1,9 @@
+<script module lang="ts">
+  /** The last count read for each version: shown at once when the page comes back, which read it
+   *  again and blinked "enabled" to "enabled: 3". */
+  const lastCount = new Map<string, number | null>();
+</script>
+
 <script lang="ts">
   // Whether Play brings the mods (config.playWithMods): a switch, and beside it what it means, the
   // state, "enabled: 3" or "disabled", which leads to the Mods tab. One pill under Play on the
@@ -17,10 +23,11 @@
   let count = $state<number | null>(null);
   $effect(() => {
     const shown = version;
-    count = null;
+    count = lastCount.get(shown.key) ?? null;
     if (!setUp) return;
     let current = true;
     void modsOnCount(shown).then((n) => {
+      lastCount.set(shown.key, n);
       if (current) count = n;
     });
     return () => {

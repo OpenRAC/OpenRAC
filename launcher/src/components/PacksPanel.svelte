@@ -55,14 +55,19 @@
   let packsError = $state<string | null>(null);
   let pack = $state<TexturePackView | null>(null);
 
+  /** Both read at once and shown together: one after the other, the texture pack's row (and the
+   *  toolbar's count) came in a moment late and blinked. */
   async function load(withTextures: boolean) {
-    try {
-      packs = await api.overridesList(v.game);
-      packsError = null;
-    } catch (e) {
-      packsError = typeof e === "string" ? e : String(e);
-    }
-    pack = withTextures ? await api.texturePacks(v.game, v.name).catch(() => null) : null;
+    const [list, textures] = await Promise.all([
+      api.overridesList(v.game).then(
+        (l) => ({ l, e: null }),
+        (e: unknown) => ({ l: null, e: typeof e === "string" ? e : String(e) }),
+      ),
+      withTextures ? api.texturePacks(v.game, v.name).catch(() => null) : null,
+    ]);
+    if (list.l) packs = list.l;
+    packsError = list.e;
+    pack = textures;
   }
 
   // Read again when RELOAD is bumped, and when the game stops: it may have saved textures.

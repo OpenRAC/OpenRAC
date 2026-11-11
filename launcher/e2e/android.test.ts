@@ -285,6 +285,19 @@ describe("A controller", () => {
     expect(await shownName()).toContain("Going Commando");
   });
 
+  it("stays on the last disc when down is pressed past it", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".slot.on").waitFor();
+    await page.locator(".slot.on").focus();
+    await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
+    const discs = await page.locator(".slot").count();
+    for (let i = 0; i < discs; i++) await press("down");
+    const last = await focused();
+    await press("down");
+    expect(await focused()).toBe(last);
+    expect(await page.evaluate(() => document.activeElement?.classList.contains("slot"))).toBe(true);
+  });
+
   it("starts a game's next step from beside its disc by a tap", async () => {
     await open("");
     await page.locator(".acts .go").click();

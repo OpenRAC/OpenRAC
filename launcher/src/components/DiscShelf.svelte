@@ -457,6 +457,14 @@
     delay: reduced ? 0 : 70 + 45 * i,
     easing: cubicOut,
   });
+  /** The shelf is on screen: from now on a new disc's words come in one after another. */
+  let opened = $state(false);
+  $effect(() => {
+    const t = setTimeout(() => (opened = true));
+    return () => {
+      clearTimeout(t);
+    };
+  });
   const leave = () => ({ y: -14 * dir, duration: reduced ? 0 : 150, easing: cubicIn });
 </script>
 
@@ -479,7 +487,15 @@
       }}
       role="presentation"
     >
-      <div class="wheel" data-pad-right=".info .acts button" bind:this={wheel} aria-label="Your games" role="group">
+      <!-- Down past the last disc stays on it, not on the words' buttons beside it. -->
+      <div
+        class="wheel"
+        data-pad-right=".info .acts button"
+        data-pad-down="none"
+        bind:this={wheel}
+        aria-label="Your games"
+        role="group"
+      >
         {#each games as g, i (g.id)}
           {@const gv = playerVersion(g)}
           {@const near = Math.abs(i - at) <= 1}
@@ -554,8 +570,9 @@
           </div>
           {#if (startsGame && playable) || choice}
             <!-- |global: a local intro in an {#if} plays only when the {#if} changes, not with the
-                 words around it on a new disc. -->
-            <div class="extra" in:fly|global={enter(4)}>
+                 words around it on a new disc. Not as the page opens, where the words above it
+                 show at once: alone it came in late and blinked. -->
+            <div class="extra" in:fly|global={opened ? enter(4) : { duration: 0 }}>
               {#if startsGame && playable}
                 <ModsSwitch version={v} setUp={!!game.install?.extracted} onopen={openMods} />
               {/if}
