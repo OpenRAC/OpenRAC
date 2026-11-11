@@ -478,7 +478,8 @@ Item item(Id id, std::uint8_t where) {
             it.value = capture_length_name();
             return it;
         case Id::RecordSweep:
-            it.shown = !capture_pending();
+            // It measures the parts of Enhanced graphics, so it is offered only with them on.
+            it.shown = !capture_pending() && enhanced_on();
             it.label = std::format("Graphics sweep ({:.0f} s)", settings_sweep_seconds());
             return it;
         case Id::RecordFolder:

@@ -40,8 +40,7 @@ export const mockEnhanced: EnhancedView = {
           { value: "fast", name: "Fast" },
           { value: "soft", name: "Soft" },
         ],
-        description:
-          "Soft blurs shadow edges with a wide filter. Fast costs less and leaves them harder.",
+        description: "Soft blurs shadow edges with a wide filter. Fast costs less and leaves them harder.",
       },
       {
         key: "gtao",

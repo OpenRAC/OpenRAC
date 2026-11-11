@@ -240,7 +240,7 @@ constexpr Entry kEntries[] = {
      "How long a gameplay recording runs, or until it is stopped."},
     {Id::RecordSweep, Tab::Developer, "Record diagnostics", kAction, A, "Graphics sweep",
      "Stand still while it runs: it changes the graphics settings every few seconds, with "
-     "VSync off, and measures what each one costs. Use it when the game is slow everywhere."},
+     "VSync off, and measures what each one costs. Shown while Enhanced graphics is on."},
     {Id::RecordFolder, Tab::Developer, "Record diagnostics", kAction, D, "Open recordings folder",
      "Opens the folder the recordings and their reports are saved in."},
     {Id::SlowCpu, Tab::Developer, "Performance", kChoice, A, "Simulate slow CPU",
