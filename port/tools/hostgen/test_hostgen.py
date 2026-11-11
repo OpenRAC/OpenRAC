@@ -2736,8 +2736,8 @@ class Places(unittest.TestCase):
                 self.assertIn(f"{{{addr}, (openrac_host_fn)func_L00_00354DF8", text)
 
     def test_a_release_catalogues_boot_place_answers_calls_in_the_executable(self):
-        # NTSC-J's card menu calls 0x0020A448, a copy of func_L00_0024BAE8. Copies that use level
-        # data or differ are skipped.
+        # NTSC-J's card menu calls 0x0020A448, a copy of func_L00_0024BAE8. A copy that uses level
+        # data is kept too (the runtime pairs its data); one whose bytes differ is skipped.
         with tempfile.TemporaryDirectory() as tmp:
             out = self.generate(Path(tmp),
                 "extern int D_0015EFB0;\nextern int D_L00_001B9E70;\n"
@@ -2755,12 +2755,11 @@ class Places(unittest.TestCase):
             text = (out / "functions.c").read_text()
             exe = text.split("static const openrac_fn_entry k_exe[] = {", 1)[1].split("};", 1)[0]
             self.assertIn("{0x0020A448u, (openrac_host_fn)func_L00_0024BAE8", exe)
-            self.assertNotIn("0x002238F0u", exe)  # reaches level 0's data
+            self.assertIn("{0x002238F0u, (openrac_host_fn)func_L00_00280708", exe)
+            self.assertIn("OPENRAC_LDATA(0, ", "".join(f.read_text() for f in out.glob("*.c")))
             self.assertNotIn("0x00223928u", exe)  # its bytes differ there
             for addr in ("0x0024BAE8u", "0x00260A10u"):
                 self.assertIn(f"{{{addr}, (openrac_host_fn)func_L00_0024BAE8", text)
-            report = json.loads((out / "report.json").read_text())
-            self.assertEqual(report["boot_places_left_out"], ["func_L00_00280708 boot:002238F0"])
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_copys_call_keeps_a_returns_64_result_whole(self):

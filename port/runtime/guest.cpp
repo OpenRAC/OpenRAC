@@ -1580,8 +1580,13 @@ LevelMap& level_pair_map(int from, int loaded) {
     }
     LevelMap& map = g_level_pair_maps[key];
     auto source = g_overlays.find(from);
+    // With no level loaded, the copies are the executable's: a level function the executable also
+    // carries (rac1 PAL v1 and NTSC-J: the title's card menu), paired at its boot place.
     auto level = g_overlays.find(loaded);
-    if (source == g_overlays.end() || level == g_overlays.end() || level_program(from).empty()) {
+    const Table* loaded_table = loaded == OPENRAC_OVERLAY_EXE ? &g_exe
+                                : level != g_overlays.end()   ? &level->second
+                                                              : nullptr;
+    if (source == g_overlays.end() || loaded_table == nullptr || level_program(from).empty()) {
         return map;
     }
     Functions own;
@@ -1591,7 +1596,7 @@ LevelMap& level_pair_map(int from, int loaded) {
     }
     std::sort(own.begin(), own.end());
     std::unordered_map<openrac_host_fn, std::vector<gaddr>> copies;
-    for (const auto& [address, entry] : level->second) {
+    for (const auto& [address, entry] : *loaded_table) {
         copies[entry.fn].push_back(address);
     }
     std::map<gaddr, std::int32_t> pairs;
@@ -1858,8 +1863,7 @@ void openrac_guest_add_level_program(int level, gaddr base, const uint8_t* bytes
 
 gaddr openrac_relocate_level_data(int from, gaddr address) {
     const int overlay = current_overlay();
-    if (overlay == from || overlay == OPENRAC_OVERLAY_EXE
-        || address - g_level_low >= g_level_high - g_level_low) {
+    if (overlay == from || address - g_level_low >= g_level_high - g_level_low) {
         return address;
     }
     thread_local AnswerCache<int, int, gaddr> answers;
@@ -2230,7 +2234,7 @@ static gaddr hook_in_copy(
 
 static gaddr relocate_level_code(int from, gaddr address) {
     const int overlay = current_overlay();
-    if (overlay == from || overlay == OPENRAC_OVERLAY_EXE) {
+    if (overlay == from) {
         return address;
     }
     std::scoped_lock hold(g_relocate_lock);

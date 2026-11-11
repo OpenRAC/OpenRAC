@@ -1352,12 +1352,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     """Every file after the units': the program's files, the libraries, the hooks, the assembly's,
     units.txt and the report. Returns the report's summary, or None when a hook point has no
     signature a hook can take (said)."""
-    program.level_relative = {f.name for r in reports for f in r.functions if f.level_relative}
     extra = write_program_files(program, out, cfg.get("title", cfg.get("name", args.game.parent.name)))
-    # Executable copies skipped because their code uses level data.
-    extra["boot_places_left_out"] = sorted(
-        f"{sym} boot:{addr:08X}" for sym, addrs in program.boot_places.items() for addr in addrs
-        if sym in program.level_relative)
     extra["roots"] = cfg.get("roots", [])
     extra["candidates_used"] = sorted(used)
     extra["overrides_used"] = sorted(overridden)

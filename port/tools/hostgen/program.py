@@ -109,8 +109,6 @@ class Program:
     sizes: dict[str, int] = field(default_factory=dict)  # catalogued symbol -> bytes
     # Executable copies of level functions (release catalogue boot: places): symbol -> [address].
     boot_places: dict[str, list[int]] = field(default_factory=dict)
-    # Functions whose code uses level data; their boot places are skipped.
-    level_relative: set = field(default_factory=set)
     splits: dict[str, list] = field(default_factory=dict)  # symbol -> places split off to variants
     split_parent: dict[str, str] = field(default_factory=dict)  # a variant -> the symbol it was split from
     split_twin: dict[str, str] = field(default_factory=dict)  # an executable function -> the variant at its level copies
@@ -346,11 +344,12 @@ class Program:
                 offset = getattr(self, "entries", {}).get(sym)
                 if offset:
                     tables[overlay].append((addr + offset, sym))
-        # Executable copies of level functions, if the address is free and the code uses no level data.
+        # Executable copies of level functions, if the address is free. Their level data is paired
+        # with the executable's at run time (openrac_relocate_level_data).
         taken = {addr for addr, _ in tables.get(-1, [])}
         for sym, addrs in sorted(self.boot_places.items()):
             f = self.functions.get(sym)
-            if f is None or f.unit is None or sym in self.level_relative or prototype(f, self.typedefs) is None:
+            if f is None or f.unit is None or prototype(f, self.typedefs) is None:
                 continue
             for addr in addrs:
                 if addr not in taken:
