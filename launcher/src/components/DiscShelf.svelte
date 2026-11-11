@@ -647,6 +647,8 @@
     --frost: var(--nav-left);
     overflow: hidden;
     pointer-events: none;
+    /* Fades in place when the page changes, never sliding with it under the rail (app.css). */
+    view-transition-name: wave;
   }
 
   /* ---- the wheel: the discs stand one above the other, the one picked in the middle ---- */

@@ -34,8 +34,10 @@ follows the same rules.
   near white: more contrast than that only tires the eyes.
 - Cards and panels have no border and no stripes: a flat `#24221e`
   (`--panel`, `--card`), `#2c2a26` when hovered or open (`--panel-hi`,
-  `--card-hi`). Unlike the site, stripes on a big surface tire the eyes (user
-  decision). Nothing in the launcher or the game's menu wears stripes now.
+  `--card-hi`). A hint inside a page (Mods off, say) is warm, `--panel` mixed
+  9 % with `--amber`, as the Get mods card. Unlike the site, stripes on a big surface tire the eyes (user
+  decision). The one place left with stripes is the game menu's right side:
+  faint, only in its top left corner (user decision).
 - Controls (buttons, fields, chips, segmented choices, the search box) are
   filled with `--control` and have no edge or border (user decision: gold
   edges looked bad). The fill alone sets a control apart.
@@ -159,8 +161,9 @@ controls on them are `--control-card`, with no edge. A row under the
 pointer or the focus lifts to `--control-card-hi` with a short gold bar at its
 left (no gold tint, which reads brown on dark). Key hints and the "Paused while
 open" badge sit on `--ink-deep`. The desktop's menu bar is the launcher's
-desktop header over the dimmed game: no bar of its own (only the game a
-little darker at the top, fading out with no edge), the logo's name in
+desktop header over the dimmed game: no bar of its own (only the game
+blurred under it as much as the header blurs its page, 18 px, and a little
+darker at the top, both fading out with no edge), the logo's name in
 `--text` and its mark in `--amber`, the tabs and the Quit and Resume buttons
 filled with `--panel` (`--control-card` under the pointer), `--amber` text, no
 edge. The open tab's pill is `--amber`, its words in `--bar-ink-deep`, and it
@@ -170,7 +173,7 @@ The game's window ground is the theme's coal with a glow of the game's colour
 along its top: `--panel-hi` mixed 8 % with `--glow`, more of which looks odd
 on the coal. Android's drawer and its controller settings panel have the same
 light along their top, under the header too. The window's right side is a
-darker plain ground, with no stripes.
+darker plain ground, with faint stripes in its top left corner.
 
 ## Logo
 
@@ -264,6 +267,9 @@ shows through it soft, as through frosted glass.
   motion). The GPU draws it (WebGL) at the screen's own pixels, each sheet one smooth band with soft edges (no threads), only in the band it can reach, at most 60 frames a
   second. It follows the wheel, not its bounce. A finger held on the disc
   turns it. The discs below fade out down to the screen's edge, under the foot.
+  Opening Games from another tab, the wave only fades in (it never slides with
+  the page under the rail) and gives a short push, as after one turn of the
+  wheel down.
 - Right: year and region, the name in the game's title font, its newest save
   or progress, notes (crash, mods), then Play (A), Game page (Y) and "..."
   (`src/lib/gameMenu.svelte.ts`), and the Mods switch under them, the same pill as on the desktop's game page (X turns it).

@@ -995,6 +995,26 @@ html[data-nav="up"] {
   --page-in-time: 0.32s;
 }
 
+/* Android Games' wave (DiscShelf) only fades as its page comes or goes, under the page and the
+   rail, over the window's ground. */
+::view-transition-group(wave) {
+  animation: none;
+  z-index: 1;
+}
+
+::view-transition-group(page),
+::view-transition-group(side) {
+  z-index: 2;
+}
+
+::view-transition-old(wave):only-child {
+  animation: page-fade 0.2s ease-in both;
+}
+
+::view-transition-new(wave):only-child {
+  animation: page-fade 0.45s var(--ease) reverse both;
+}
+
 ::view-transition-old(page) {
   animation: page-out 0.14s ease-in both;
 }

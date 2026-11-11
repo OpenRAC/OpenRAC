@@ -175,7 +175,9 @@ void main() {
       colour = rgb(c),
       frost = frostOf(c),
       read = 0,
-      slide = untrack(() => shift),
+      // Coming in, it moves on as after one turn of the wheel down (a short push), while the page
+      // fades it in (app.css, `wave`).
+      slide = untrack(() => (still ? shift : shift - 1)),
       // A slow GPU: drawn at the CSS pixels instead (see `pace`), for good.
       cap = 2,
       drawn = 0,
@@ -225,7 +227,9 @@ void main() {
         read = now;
       }
       slide += (shift - slide) * 0.08;
-      draw(10 + (now - start) / 1000);
+      // The push: about three times its pace at first, back to its own within a second or so.
+      const rush = still ? 0 : 1.2 * (1 - Math.exp(-(now - start) / 600));
+      draw(10 + (now - start) / 1000 + rush);
       pace(now);
     };
     // Every 90 frames drawn: if they came under 36 a second (a weak GPU, the shader at twice the

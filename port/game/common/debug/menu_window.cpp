@@ -22,6 +22,7 @@
 #include "common/build_info.h"
 #include "debug/menu_ui.h"
 #include "openrac/game_host.h"
+#include "renderer/ui/backdrop_blur.h"
 
 namespace openrac::frontend::debug_overlay {
 
@@ -66,6 +67,83 @@ void bar_ground(ImDrawList* list, ImVec2 a, ImVec2 b) {
     const ImU32 none = ui_colors::fade(ui().ink_deep, 0.0f);
     const ImVec2 foot(b.x, b.y + dp(28.0f));
     list->AddRectFilledMultiColor(a, foot, dark, dark, none, none);
+}
+
+// The game under the bar blurred, as the launcher's header blurs its page (blur(18px), solid
+// to 65% of the header and 20px below it, then fading out), under the dim so both match.
+void backdrop(const ImGuiViewport* viewport, const Shown& shown, float ease) {
+    if (viewport->Size.y <= 0.0f || ease <= 0.0f) {
+        return;
+    }
+    const float scale = static_cast<float>(shown.window_height) / viewport->Size.y;
+    const float sigma = dp(18.0f);
+    const float tall = dp(56.0f + 20.0f);
+    const renderer::ui::backdrop_blur::Picture picture = renderer::ui::backdrop_blur::blur(
+        shown.window_width,
+        shown.window_height,
+        static_cast<int>(std::ceil((tall + sigma * 3.0f) * scale)),
+        sigma * scale
+    );
+    if (picture.texture == 0) {
+        return;
+    }
+    ImDrawList* back = ImGui::GetBackgroundDrawList();
+    const ImVec2 a = viewport->Pos;
+    const float w = viewport->Size.x;
+    const float shown_rows = static_cast<float>(picture.rows) / scale;
+    const ImU32 solid = ui_colors::fade(IM_COL32_WHITE, ease);
+    const ImU32 none = ui_colors::fade(IM_COL32_WHITE, 0.0f);
+    // The texture's first row is its bottom: v runs from 1 at the window's top.
+    const auto v = [&](float y) {
+        return 1.0f - y / shown_rows;
+    };
+    const auto quad = [&](float y0, float y1, ImU32 top, ImU32 bottom) {
+        back->PrimReserve(6, 4);
+        const ImDrawIdx i = static_cast<ImDrawIdx>(back->_VtxCurrentIdx);
+        back->PrimWriteIdx(i);
+        back->PrimWriteIdx(static_cast<ImDrawIdx>(i + 1));
+        back->PrimWriteIdx(static_cast<ImDrawIdx>(i + 2));
+        back->PrimWriteIdx(i);
+        back->PrimWriteIdx(static_cast<ImDrawIdx>(i + 2));
+        back->PrimWriteIdx(static_cast<ImDrawIdx>(i + 3));
+        back->PrimWriteVtx(ImVec2(a.x, a.y + y0), ImVec2(0.0f, v(y0)), top);
+        back->PrimWriteVtx(ImVec2(a.x + w, a.y + y0), ImVec2(1.0f, v(y0)), top);
+        back->PrimWriteVtx(ImVec2(a.x + w, a.y + y1), ImVec2(1.0f, v(y1)), bottom);
+        back->PrimWriteVtx(ImVec2(a.x, a.y + y1), ImVec2(0.0f, v(y1)), bottom);
+    };
+    back->PushTextureID(static_cast<ImTextureID>(picture.texture));
+    quad(0.0f, tall * 0.65f, solid, solid);
+    quad(tall * 0.65f, tall, solid, none);
+    back->PopTextureID();
+}
+
+// Bands of `ink` at 35 degrees over [a, b], `strength` at its top left corner and fading out to
+// none down and to the right: stripes, barely there, in the corner of the window's side (user
+// decision: the one place the menu keeps them).
+void faint_stripes(ImDrawList* list, ImVec2 a, ImVec2 b, ImU32 ink, float strength) {
+    const float band = dp(20.0f);
+    const float lean = (b.y - a.y) * std::tan(35.0f * 3.14159265f / 180.0f);
+    const ImU32 top = ui_colors::fade(ink, strength);
+    const ImU32 bottom = ui_colors::fade(ink, 0.0f);
+    list->PushClipRect(a, b, true);
+    for (float x = a.x - lean; x < b.x + lean; x += band * 2.0f) {
+        const int first = list->VtxBuffer.Size;
+        list->AddQuadFilled(
+            ImVec2(x + band, a.y),
+            ImVec2(x + band * 2.0f, a.y),
+            ImVec2(x + band * 2.0f - lean, b.y),
+            ImVec2(x + band - lean, b.y),
+            IM_COL32_WHITE
+        );
+        // Each corner's colour by its height: the top's, fading to none at the bottom.
+        for (int v = first; v < list->VtxBuffer.Size; ++v) {
+            ImDrawVert& vert = list->VtxBuffer[v];
+            const float down = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
+            const float across = std::clamp((vert.pos.x - a.x) / (b.x - a.x), 0.0f, 1.0f);
+            vert.col = ui_colors::mix(top, bottom, std::min(1.0f, down + across));
+        }
+    }
+    list->PopClipRect();
 }
 
 // A tab on the bar, a button of its own: the launcher's control fill, the accent's text, lighter
@@ -175,12 +253,19 @@ void kicker(ImDrawList* list, ImVec2 at, ImU32 ink, const std::string& text) {
 }
 
 // The right side of the window: what the entry under the pointer or the focus is and does, on a
-// darker ground.
+// darker ground with stripes, barely there, in its top left corner.
 void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float round = dp(12.0f);
     list->AddRectFilled(
         a, b, ui_colors::fade(ui().ink_deep, 0.55f), round, ImDrawFlags_RoundCornersRight
+    );
+    faint_stripes(
+        list,
+        ImVec2(a.x, a.y + 1.0f),
+        ImVec2(std::min(b.x - 1.0f, a.x + dp(300.0f)), a.y + dp(170.0f)),
+        ui().amber,
+        0.05f
     );
     list->AddLine(ImVec2(a.x, a.y), ImVec2(a.x, b.y), ui().line);
     const float pad = dp(30.0f);
@@ -421,10 +506,10 @@ void menu_window(const Shown& shown) {
         }
         return;
     }
-    (void)shown;
     s.menu_row_height = 42.0f;
     const float ease = ease_out(s.menu_at);
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    backdrop(viewport, shown, ease);
     {
         // The game under it dimmed, more at the foot and the sides, so the window stands out of it.
         ImDrawList* back = ImGui::GetBackgroundDrawList();
