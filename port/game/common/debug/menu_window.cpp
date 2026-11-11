@@ -653,7 +653,12 @@ void menu_window(const Shown& shown) {
     const float margin = dp(32.0f);
     const float width = std::min(viewport->Size.x - margin * 2.0f, dp(1060.0f));
     const float top = viewport->Pos.y + bar + dp(24.0f);
-    const float height = std::min(viewport->Pos.y + viewport->Size.y - top - margin, dp(700.0f));
+    // Its foot clear of the hints and the version in the corners below, with a gap.
+    const float foot = dp(18.0f)
+                       + std::max(key_cap_height(), menu_fonts.small->FontSize * 1.45f * 2.0f)
+                       + dp(20.0f);
+    const float height =
+        std::min(viewport->Pos.y + viewport->Size.y - top - std::max(margin, foot), dp(700.0f));
     if (height < dp(120.0f)) {
         return;
     }

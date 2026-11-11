@@ -462,6 +462,10 @@ void drawer(const Shown& shown) {
                     in_view = i;
                 }
             }
+            // A section tapped is lit at once, while the list still glides to it.
+            if (s_jump_section >= 0) {
+                in_view = s_jump_section;
+            }
             const float left = top.x + inset + dp(14.0f);
             const float span = (bottom.x - dp(14.0f) - left) / 4.0f;
             const float y0 = top.y + head + dp(2.0f);

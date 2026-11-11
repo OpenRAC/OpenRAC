@@ -35,8 +35,43 @@ uniform sampler2D tex_T0;
 uniform vec2 step;
 uniform float sigma;
 uniform float calm;
+uniform float upscale;
 out vec4 out_colour;
+vec4 bspline(float v) {
+    vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
+    vec4 c = n * n * n;
+    float x = c.x;
+    float y = c.y - 4.0 * c.x;
+    float z = c.z - 4.0 * c.y + 6.0 * c.x;
+    return vec4(x, y, z, 6.0 - x - y - z) / 6.0;
+}
+// A cubic B-spline of the texture from four bilinear reads: smooth where a plain bilinear
+// enlargement of a small picture shows a grid of squares.
+vec4 smooth_sample(vec2 uv) {
+    vec2 size = vec2(textureSize(tex_T0, 0));
+    vec2 p = uv * size - 0.5;
+    vec2 f = fract(p);
+    p -= f;
+    vec4 xc = bspline(f.x);
+    vec4 yc = bspline(f.y);
+    vec4 c = p.xxyy + vec2(-0.5, 1.5).xyxy;
+    vec4 w = vec4(xc.xz + xc.yw, yc.xz + yc.yw);
+    vec4 o = (c + vec4(xc.yw, yc.yw) / w) / size.xxyy;
+    vec4 s0 = texture(tex_T0, o.xz);
+    vec4 s1 = texture(tex_T0, o.yz);
+    vec4 s2 = texture(tex_T0, o.xw);
+    vec4 s3 = texture(tex_T0, o.yw);
+    float sx = w.x / (w.x + w.y);
+    float sy = w.z / (w.z + w.w);
+    return mix(mix(s3, s2, sx), mix(s1, s0, sx), sy);
+}
 void main() {
+    if (upscale > 0.5) {
+        // A little noise, under one step of eight bits, so dark gradients do not band.
+        float noise = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+        out_colour = vec4(smooth_sample(v_uv).rgb + noise / 255.0, 1.0);
+        return;
+    }
     int radius = int(ceil(sigma * 2.5));
     vec4 sum = texture(tex_T0, v_uv);
     float total = 1.0;
@@ -106,7 +141,13 @@ void free_target(Target& t) {
 
 // One pass of the Gaussian from `from` into `to`, along (dx, dy) texels.
 void pass(
-    const Target& from, const Target& to, float dx, float dy, float sigma, float calm = 0.0f
+    const Target& from,
+    const Target& to,
+    float dx,
+    float dy,
+    float sigma,
+    float calm = 0.0f,
+    bool upscale = false
 ) {
     glBindFramebuffer(GL_FRAMEBUFFER, to.framebuffer);
     glViewport(0, 0, to.width, to.height);
@@ -118,6 +159,7 @@ void pass(
     );
     glUniform1f(s->shader.uniform("sigma"), sigma);
     glUniform1f(s->shader.uniform("calm"), calm);
+    glUniform1f(s->shader.uniform("upscale"), upscale ? 1.0f : 0.0f);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
@@ -190,8 +232,12 @@ Picture blur(int width, int height, int rows, float sigma) {
     const auto now = std::chrono::steady_clock::now();
     const float since = std::chrono::duration<float>(now - s->last).count();
     s->last = now;
-    const bool fresh = s->shown.width != w || s->shown.height != h || since > 0.25f;
-    if (!fit(s->shown, w, h)) {
+    // Shown four times larger, enlarged smoothly: a bilinear enlargement of the small blur to
+    // the window showed its texels as squares.
+    const int sw = std::min(width, w * 4);
+    const int sh = std::min(rows, h * 4);
+    const bool fresh = s->shown.width != sw || s->shown.height != sh || since > 0.25f;
+    if (!fit(s->shown, sw, sh)) {
         s->failed = true;
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return {};
@@ -202,7 +248,7 @@ Picture blur(int width, int height, int rows, float sigma) {
         glBlendEquation(GL_FUNC_ADD);
         glBlendColor(0.0f, 0.0f, 0.0f, 1.0f - std::exp(-since / 0.1f));
     }
-    pass(out, s->shown, 0.0f, 0.0f, 0.01f);  // a copy: a Gaussian this narrow is one texel
+    pass(out, s->shown, 0.0f, 0.0f, 0.0f, 0.0f, true);
     glDisable(GL_BLEND);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindVertexArray(0);
