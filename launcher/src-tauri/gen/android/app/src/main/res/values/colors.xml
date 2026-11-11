@@ -7,6 +7,6 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <!-- The launcher page's ground (src/app.css --ink). -->
+    <!-- The launcher page's ground (src/app.css, the ink colour). -->
     <color name="launcher_ground">#FF1C1A16</color>
 </resources>
