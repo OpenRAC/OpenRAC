@@ -60,7 +60,10 @@ struct Slot {
     std::unique_ptr<std::uintptr_t[]> returns;
 };
 
-std::array<Slot, kThreads> g_slots;
+// Never destroyed: a timer's signal can still arrive while the program's statics go at exit, and
+// the handler then wrote through a sample buffer already freed (a crash on closing the game
+// during a recording).
+std::array<Slot, kThreads>& g_slots = *new std::array<Slot, kThreads>;
 std::atomic<bool> g_running{false};
 std::atomic<unsigned> g_epoch{0};  // a new one each start: threads arm again
 std::mutex g_mutex;                // start, stop and arming, never the handler
