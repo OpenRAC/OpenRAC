@@ -161,9 +161,10 @@ controls on them are `--control-card`, with no edge. A row under the
 pointer or the focus lifts to `--control-card-hi` with a short gold bar at its
 left (no gold tint, which reads brown on dark). Key hints and the "Paused while
 open" badge sit on `--ink-deep`. The desktop's menu bar is the launcher's
-desktop header over the dimmed game: no bar of its own (only the game
-blurred under it as much as the header blurs its page, 18 px, and a little
-darker at the top, both fading out with no edge), the logo's name in
+desktop header over the dimmed game: no bar of its own and no blur (user
+decision), only a scrim: the game darker at the top (`--ink-deep` at 66 %),
+held over the tabs and easing out below with no edge, a little more under the
+logo, the one thing drawn straight on the game. The logo's name in
 `--text` and its mark in `--amber`, the tabs and the Quit and Resume buttons
 filled with `--panel` (`--control-card` under the pointer), `--amber` text, no
 edge. The open tab's pill is `--amber`, its words in `--bar-ink-deep`, and it

@@ -22,7 +22,6 @@
 #include "common/build_info.h"
 #include "debug/menu_ui.h"
 #include "openrac/game_host.h"
-#include "renderer/ui/backdrop_blur.h"
 
 namespace openrac::frontend::debug_overlay {
 
@@ -61,60 +60,38 @@ std::vector<BarTab> bar_tabs() {
 }
 
 // Under the bar's tabs, as the launcher's header lies over its page: no bar, only the dimmed game
-// a little darker at the window's top, fading out below, with no edge.
-void bar_ground(ImDrawList* list, ImVec2 a, ImVec2 b) {
-    const ImU32 dark = ui_colors::fade(ui().ink_deep, 0.55f);
-    const ImU32 none = ui_colors::fade(ui().ink_deep, 0.0f);
-    const ImVec2 foot(b.x, b.y + dp(28.0f));
-    list->AddRectFilledMultiColor(a, foot, dark, dark, none, none);
-}
-
-// The game under the bar blurred, as the launcher's header blurs its page (blur(18px), solid
-// to 65% of the header and 20px below it, then fading out), under the dim so both match.
-void backdrop(const ImGuiViewport* viewport, const Shown& shown, float ease) {
-    if (viewport->Size.y <= 0.0f || ease <= 0.0f) {
-        return;
+// darker at the window's top (a scrim), held over the tabs and easing out below with no edge, and
+// a little more under the logo, the one thing drawn straight on the game.
+void bar_ground(ImDrawList* list, ImVec2 a, ImVec2 b, float logo_w) {
+    const float top = 0.66f;
+    const float hold = (b.y - a.y) * 0.5f;
+    const float fall = (b.y - a.y) * 0.5f + dp(44.0f);
+    list->AddRectFilled(a, ImVec2(b.x, a.y + hold), ui_colors::fade(ui().ink_deep, top));
+    // Eased out (cosine) in steps, so the end of the fade shows no line.
+    constexpr int kSteps = 12;
+    for (int i = 0; i < kSteps; ++i) {
+        const float t0 = static_cast<float>(i) / kSteps;
+        const float t1 = static_cast<float>(i + 1) / kSteps;
+        const auto at = [&](float t) {
+            return ui_colors::fade(ui().ink_deep, top * 0.5f * (1.0f + std::cos(t * 3.14159265f)));
+        };
+        const float y0 = a.y + hold + fall * t0;
+        const float y1 = a.y + hold + fall * t1;
+        list->AddRectFilledMultiColor(
+            ImVec2(a.x, y0), ImVec2(b.x, y1), at(t0), at(t0), at(t1), at(t1)
+        );
     }
-    const float scale = static_cast<float>(shown.window_height) / viewport->Size.y;
-    const float sigma = dp(18.0f);
-    const float tall = dp(56.0f + 20.0f);
-    const renderer::ui::backdrop_blur::Picture picture = renderer::ui::backdrop_blur::blur(
-        shown.window_width,
-        shown.window_height,
-        static_cast<int>(std::ceil((tall + sigma * 3.0f) * scale)),
-        sigma * scale
-    );
-    if (picture.texture == 0) {
-        return;
+    // A soft dark patch under the logo: rings, each a little fainter, adding up to about 30 %.
+    const ImVec2 logo(a.x + dp(18.0f) + logo_w * 0.5f, a.y + (b.y - a.y) * 0.5f);
+    constexpr int kRings = 10;
+    for (int i = 0; i < kRings; ++i) {
+        const float k = 1.0f - static_cast<float>(i) / kRings;
+        list->AddEllipseFilled(
+            logo,
+            ImVec2(logo_w * 0.8f * k + dp(8.0f), (b.y - a.y) * 0.75f * k + dp(4.0f)),
+            ui_colors::fade(ui().ink_deep, 0.035f)
+        );
     }
-    ImDrawList* back = ImGui::GetBackgroundDrawList();
-    const ImVec2 a = viewport->Pos;
-    const float w = viewport->Size.x;
-    const float shown_rows = static_cast<float>(picture.rows) / scale;
-    const ImU32 solid = ui_colors::fade(IM_COL32_WHITE, ease);
-    const ImU32 none = ui_colors::fade(IM_COL32_WHITE, 0.0f);
-    // The texture's first row is its bottom: v runs from 1 at the window's top.
-    const auto v = [&](float y) {
-        return 1.0f - y / shown_rows;
-    };
-    const auto quad = [&](float y0, float y1, ImU32 top, ImU32 bottom) {
-        back->PrimReserve(6, 4);
-        const ImDrawIdx i = static_cast<ImDrawIdx>(back->_VtxCurrentIdx);
-        back->PrimWriteIdx(i);
-        back->PrimWriteIdx(static_cast<ImDrawIdx>(i + 1));
-        back->PrimWriteIdx(static_cast<ImDrawIdx>(i + 2));
-        back->PrimWriteIdx(i);
-        back->PrimWriteIdx(static_cast<ImDrawIdx>(i + 2));
-        back->PrimWriteIdx(static_cast<ImDrawIdx>(i + 3));
-        back->PrimWriteVtx(ImVec2(a.x, a.y + y0), ImVec2(0.0f, v(y0)), top);
-        back->PrimWriteVtx(ImVec2(a.x + w, a.y + y0), ImVec2(1.0f, v(y0)), top);
-        back->PrimWriteVtx(ImVec2(a.x + w, a.y + y1), ImVec2(1.0f, v(y1)), bottom);
-        back->PrimWriteVtx(ImVec2(a.x, a.y + y1), ImVec2(0.0f, v(y1)), bottom);
-    };
-    back->PushTextureID(static_cast<ImTextureID>(picture.texture));
-    quad(0.0f, tall * 0.65f, solid, solid);
-    quad(tall * 0.65f, tall, solid, none);
-    back->PopTextureID();
 }
 
 // Bands of `ink` at 35 degrees over [a, b], `strength` at its top left corner and fading out to
@@ -509,7 +486,6 @@ void menu_window(const Shown& shown) {
     s.menu_row_height = 42.0f;
     const float ease = ease_out(s.menu_at);
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    backdrop(viewport, shown, ease);
     {
         // The game under it dimmed, more at the foot and the sides, so the window stands out of it.
         ImDrawList* back = ImGui::GetBackgroundDrawList();
@@ -592,15 +568,15 @@ void menu_window(const Shown& shown) {
             fixed | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing
         )) {
         ImDrawList* list = ImGui::GetWindowDrawList();
+        const float logo_w = s.logo_rect >= 0
+                                 ? ImGui::GetIO().Fonts->GetCustomRectByIndex(s.logo_rect)->Width
+                                 : dp(120.0f);
         list->PushClipRectFullScreen();
-        bar_ground(list, bar_a, ImVec2(bar_a.x + viewport->Size.x, bar_a.y + bar));
+        bar_ground(list, bar_a, ImVec2(bar_a.x + viewport->Size.x, bar_a.y + bar), logo_w);
         list->PopClipRect();
         // The logo as on the launcher's desktop header: its mark in the accent, its name in the
         // text's colour.
         draw_logo(list, ImVec2(bar_a.x + dp(18.0f), bar_a.y + bar * 0.5f), ui().amber, ui().text);
-        const float logo_w = s.logo_rect >= 0
-                                 ? ImGui::GetIO().Fonts->GetCustomRectByIndex(s.logo_rect)->Width
-                                 : dp(120.0f);
         const float tab_h = dp(32.0f);
         ImGui::SetCursorScreenPos(
             ImVec2(bar_a.x + dp(18.0f) + logo_w + dp(22.0f), bar_a.y + (bar - tab_h) * 0.5f)
