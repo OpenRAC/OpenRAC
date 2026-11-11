@@ -80,6 +80,7 @@ sceCdGetError	cdvd	sceCdGetError	host	PAL func_00121930
 sceCdBreak	cdvd	sceCdBreak	host	PAL func_001219C8
 sceCdReadClock	cdvd	sceCdReadClock	host	PAL func_00121A80
 sceGsResetGraph	graph	sceGsResetGraph	host	the renderer's video mode; PAL func_00121B78
+_GetGsDxDyOffset	graph	_GetGsDxDyOffset	host	system call 0x80; PAL func_00121DB8
 sceGsSetDefDispEnv	graph	sceGsSetDefDispEnv	host	PAL func_00121DC8
 sceGsPutDispEnv	graph	sceGsPutDispEnv	host	the renderer's display state; PAL func_00122140, paired as called
 sceGsSetDefDrawEnv	graph	sceGsSetDefDrawEnv	game	PAL func_001222C8
@@ -319,7 +320,7 @@ InvokeKernelSyscall005A_Rfu	kernel	Copy	host	system call 0x5A; PAL func_0011D360
 Rfu091Early	kernel	GetEntryAddress	host	system call 0x5B; PAL func_0011D3A8
 Rfu116SetSyscallEarly	kernel	SetSyscall	host	system call 0x74; PAL func_0011D3B8
 func_0011D190	kernel	_SetTLBEntry	host	system call 0x56; PAL func_0011D490
-InvokeKernelSyscall0083_Rfu	kernel	FindAddress	host	system call 0x83; PAL func_0011DA80
+FindAddress	kernel	FindAddress	host	system call 0x83; PAL func_0011DA80
 Rfu116SetSyscallMid	kernel	SetSyscall	host	system call 0x74; PAL func_0011DB98
 Rfu116SetSyscallLate	kernel	SetSyscall	host	system call 0x74; PAL func_0011DBE8
 InvokeKernelSyscall005A_RfuWorker	kernel	Copy	host	system call 0x5A; PAL func_0011DBF8
