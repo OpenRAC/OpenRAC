@@ -156,7 +156,8 @@ first game's weapons away at the Gadgetron vendor on Barlow. The port keeps that
   `D_001A7A00[8]`), and any good save sets `0x80`. The card's `x1C` counts 1 plus each weapon
   found.
 - The vendor then picks its message from `0x80` and that count, marks its items 12, 53, 17, 14
-  and 18 free for the bits set (`func_002FADB0` → `func_002FAD68`) and clears `0x80`.
+  and 18 (the same five weapons in Going Commando's ids) free for the bits set (`func_002FADB0`
+  → `func_002FAD68`) and clears `0x80`.
 
 **What the port does**: the first card shows the other games' save folders as well, from the
 serial folders beside it (`memcard/SCUS_971.99/BASCUS-97199RATCHET`,
