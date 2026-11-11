@@ -87,6 +87,8 @@ class MainActivity : TauriActivity() {
   override fun onResume() {
     super.onResume()
     inFront = true
+    // Back in front: Recents may take its picture again (OpenracPlugin's play turned it off).
+    if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(true)
     UpdateReceiver.showWaiting(this)
   }
 
