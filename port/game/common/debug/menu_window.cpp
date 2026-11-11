@@ -369,6 +369,8 @@ void version_corner(const ImGuiViewport* viewport, float shown) {
     );
 }
 
+}  // namespace
+
 // The make of the first controller connected (SDL's), for the names its buttons wear.
 SDL_GamepadType pad_type() {
     SDL_GamepadType type = SDL_GAMEPAD_TYPE_STANDARD;
@@ -418,6 +420,8 @@ std::string pad_name(SDL_GamepadType type, SDL_GamepadButton button) {
             return "?";
     }
 }
+
+namespace {
 
 // What the buttons do, along the screen's foot on the left while the menu is open: the
 // controller's when it was the last used, else the keyboard's. Each as a key cap and its use.

@@ -14,6 +14,9 @@
 #include <imgui.h>
 #include <string>
 #include <string_view>
+#include <vector>
+
+#include <SDL3/SDL_gamepad.h>
 
 #include "audio/ui_sounds.h"
 #include "debug/overlay.h"
@@ -117,6 +120,11 @@ float key_cap_height();
 // draws them only when `list` is set.
 float key_caps(ImDrawList* list, float x, float middle, std::string_view keys, float alpha);
 
+// The make of the first controller connected, and a button's name as that make prints it
+// (A, Cross, LB, R1 ...).
+SDL_GamepadType pad_type();
+std::string pad_name(SDL_GamepadType type, SDL_GamepadButton button);
+
 // Where to draw `text` so its letters (not its line box) are centred on `centre`: across by the
 // ink, from the first letter's left edge to the last's right; down by a capital's height.
 ImVec2 centred_text(ImFont* font, float size, std::string_view text, ImVec2 centre);
@@ -159,6 +167,15 @@ bool menu_button(const char* label);
 
 // A line of the card, in `ink` (the launcher's soft text by default): what is not pressed.
 void menu_note(const char* line, ImU32 ink = ui().soft);
+
+// A list of keys or buttons and what each does, one per line in a card, the caps on the left
+// and the words lined up after them.
+struct KeyRow {
+    std::vector<std::string> keys;
+    std::string does;
+};
+
+void menu_key_rows(const std::vector<KeyRow>& rows);
 
 // ---- The menu's entries ----
 

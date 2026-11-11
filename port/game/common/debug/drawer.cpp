@@ -15,6 +15,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <SDL3/SDL.h>
 
@@ -183,8 +184,99 @@ const std::string& menu_graphics_line() {
 }
 
 // The drawer's sections for its jumps: where each starts, and where a jump is gliding to.
+// The pad's buttons as the launcher draws them: a round one, or a rounded pill for a long name
+// (LB, Cross); A filled in the accent. The name is centred by its letters, not its line box.
+float pad_glyph(
+    ImDrawList* list, float x, float middle, const std::string& name, bool primary, float alpha
+) {
+    ImFont* font = menu_fonts.strong;
+    const float size = std::round(menu_fonts.body->FontSize * 0.8f);
+    const float h = std::round(dp(22.0f));
+    const float text = font->CalcTextSizeA(size, FLT_MAX, 0.0f, name.c_str()).x;
+    const float w = name.size() > 1 ? std::round(std::max(h, text + dp(12.0f))) : h;
+    if (list == nullptr) {
+        return w;
+    }
+    const ImVec2 a(std::round(x), std::round(middle - h * 0.5f));
+    const ImVec2 b(a.x + w, a.y + h);
+    list->AddRectFilled(
+        a,
+        b,
+        ui_colors::fade(primary ? ui().amber : ui().control_card, alpha),
+        name.size() > 1 ? dp(6.0f) : h * 0.5f
+    );
+    const ImVec2 at =
+        centred_text(font, size, name, ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f));
+    list->AddText(
+        font, size, at, ui_colors::fade(primary ? ui().bar_ink : ui().text, alpha), name.c_str()
+    );
+    return w;
+}
+
+// What the pad's buttons do, at the screen's foot on the right as in the launcher: shown while
+// the pad was the last thing used.
+void pad_hints(const ImGuiViewport* viewport, const SDL_Rect& safe, float ease) {
+    const float shown =
+        ease * tween(ImGui::GetID("pad hints"), s.menu_motion.pad ? 1.0f : 0.0f, kFast);
+    if (shown <= 0.0f) {
+        return;
+    }
+
+    struct Hint {
+        std::vector<std::string> keys;
+        const char* does;
+    };
+
+    const SDL_GamepadType type = pad_type();
+    const std::string south = pad_name(type, SDL_GAMEPAD_BUTTON_SOUTH);
+    const std::vector<Hint> list = {
+        {{pad_name(type, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER),
+          pad_name(type, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER)},
+         "Sections"},
+        {{south}, "Select"},
+        {{pad_name(type, SDL_GAMEPAD_BUTTON_EAST)}, "Back to the game"},
+    };
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+    ImFont* body = menu_fonts.body;
+    const float gap = dp(6.0f);
+    const float between = dp(16.0f);
+    // Measured first (drawn nowhere), then drawn from the left so the last ends at the edge.
+    float total = 0.0f;
+    for (const Hint& hint : list) {
+        for (const std::string& key : hint.keys) {
+            total += pad_glyph(nullptr, 0.0f, 0.0f, key, false, 0.0f) + dp(4.0f);
+        }
+        total += gap - dp(4.0f) + body->CalcTextSizeA(body->FontSize, FLT_MAX, 0.0f, hint.does).x
+                 + between;
+    }
+    total -= between;
+    float right = viewport->Pos.x + viewport->Size.x;
+    if (safe.w > 0) {
+        right = std::min(right, viewport->Pos.x + static_cast<float>(safe.x + safe.w));
+    }
+    const float edge = dp(18.0f);
+    float x = right - edge - total;
+    const float middle = viewport->Pos.y + viewport->Size.y - edge - dp(11.0f);
+    for (const Hint& hint : list) {
+        for (const std::string& key : hint.keys) {
+            x += pad_glyph(draw, x, middle, key, key == south, shown) + dp(4.0f);
+        }
+        x += gap - dp(4.0f);
+        draw->AddText(
+            body,
+            body->FontSize,
+            ImVec2(std::round(x), beside_caps(body, middle)),
+            ui_colors::fade(ui().text, shown),
+            hint.does
+        );
+        x += body->CalcTextSizeA(body->FontSize, FLT_MAX, 0.0f, hint.does).x + between;
+    }
+}
+
 float s_jump_marks[4] = {};
 float s_jump_to = -1.0f;
+// The section LB or RB jumped to: the pad's focus goes to its first row as it is drawn.
+int s_jump_focus = -1;
 
 void drawer(const Shown& shown) {
     const ImGuiIO& io = ImGui::GetIO();
@@ -395,6 +487,20 @@ void drawer(const Shown& shown) {
                     s.menu_scroll.velocity = 0.0f;
                 }
             }
+            // LB and RB step through the sections as a tap would, and the pad's focus goes along.
+            const int step = ImGui::IsKeyPressed(ImGuiKey_GamepadR1, false)   ? 1
+                             : ImGui::IsKeyPressed(ImGuiKey_GamepadL1, false) ? -1
+                                                                              : 0;
+            if (s.menu_open && !s.drawer_controller && step != 0) {
+                const int to = std::clamp(in_view + step, 0, 3);
+                if (to != in_view && s_jump_marks[to] > 0.0f) {
+                    menu_sound(MenuSound::Page);
+                    s_jump_to = to == 0 ? 0.0f : s_jump_marks[to] - header - dp(4.0f);
+                    s_jump_focus = to;
+                    s.menu_scroll.velocity = 0.0f;
+                }
+            }
+            pad_hints(viewport, safe, ease);
         }
 
         if (menu_button("Resume")) {
@@ -408,6 +514,10 @@ void drawer(const Shown& shown) {
         // Where each section starts, for the jumps above (content's own y, as the scroll counts).
         const auto mark = [](int i) {
             s_jump_marks[i] = ImGui::GetCursorPosY();
+            if (s_jump_focus == i) {
+                ImGui::SetKeyboardFocusHere();
+                s_jump_focus = -1;
+            }
         };
         mark(0);
         draw_tab(Tab::Graphics, menu::kTouch);
