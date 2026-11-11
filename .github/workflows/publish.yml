@@ -10,6 +10,9 @@ on:
   workflow_run:
     workflows: [launcher, checks]
     types: [completed]
+    # Only the runs a release waits for: checks on master and the tag's build. Pull request and
+    # other branches' runs never start this workflow.
+    branches: [master, "launcher-v*"]
 
 permissions:
   contents: write
