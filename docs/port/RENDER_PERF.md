@@ -97,6 +97,7 @@ before and after, and how its frames are shown to be the same.
 | `vertex-position-stream` | on | none (exact) | A level's vertex positions sit in a tight buffer of their own, 12 bytes a vertex instead of 72. Shadow, depth and velocity passes, and a tile GPU's binning, read positions only ([vertex-position-stream](#vertex-position-stream-a-tight-buffer-for-positions)). |
 | `shadow-far-alternate` | on | 25% of pixels, any value (measured: see the section) | The sun's cascades 1 to 3 are drawn every other frame, 1 in turn with 2 and 3, while this frame's receivers fit the cascade as it was drawn. A kept cascade is sampled with the matrix it was drawn with ([shadow-far-alternate](#shadow-far-alternate-far-cascades-every-other-frame)). |
 | `motion-blur-half-flood` | on | 1% of pixels by at most 32 | Motion blur quality Performance: the blur's jump flood runs on a half-resolution seed grid, a quarter of its pixels in every pass. The first flood offers every render pixel of a cell, and the gather still tests each display pixel against the trail. |
+| `vk-program-keep` | on | none (exact) | Vulkan: a deleted program's shader modules, layouts and pipelines are kept, and the next link of the same shaders takes them. A level's load links the programs of the level before, so it makes no pipelines again ([vk-program-keep](#vk-program-keep-pipelines-kept-across-level-loads)). |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the
@@ -2119,3 +2120,30 @@ Measured on Novalis in the cloud container (software Vulkan, 480x270), walking: 
 triangles a frame with the entry off, 3.6 and 2.5 million in turn with it on; 47 MB of attachments
 stored a frame against 37 MB on average. The picture differs on 2 to 3% of the pixels, by at most
 12 of 255.
+
+## vk-program-keep: pipelines kept across level loads
+
+A level's load deletes the level renderer's shader programs and links them again. The shaders are
+the same text from level to level, but each link gave the program a new serial, and the pipelines
+are keyed by it. So every load made all pipelines again: on the title screen, on the flight to a
+planet and on the planet itself. With Enhanced graphics the shaders are large, and a phone's driver
+takes about 150 ms for each pipeline it has not cached.
+
+With the entry on, the game asks the backend to keep programs (`vkgl::keep_programs`). A deleted
+program's modules, layouts, pipelines and parts wait in a pool of up to 128. A link whose SPIR-V,
+layout and descriptor types match takes them and renames their keys to its serial. Uniform values
+and descriptor sets are never kept: the new program starts from zero, as OpenGL asks. The pre-warm
+then queues only what the program still misses. The oldest kept program is destroyed when the pool
+is full. The tests' own retention (`vkgl::test_reuse_programs`) shares the pool and is unchanged.
+
+Measured in the cloud container (software Vulkan, Enhanced graphics, Low), pipelines and parts made
+at a level's load:
+
+| Load | Entry off | Entry on |
+|---|---|---|
+| Title screen (first of the run) | 131 in 19.4 s | 131 in 19.3 s |
+| Flight to the planet | 131 in 19.1 s | 26 in 0.10 s |
+| Novalis | 135 in 18.6 s | 16 in 0.46 s |
+
+The frames are the same bytes. The `vk_program_reuses` gauge counts the links that took kept
+objects. Its test is `render_equivalence_support`.

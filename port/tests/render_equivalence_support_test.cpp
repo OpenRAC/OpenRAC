@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Checks test-only program retention and exact atlas capture against fresh synchronous draws.
+// Checks program retention (a test's, and the game's kept programs) and exact atlas capture against
+// fresh synchronous draws.
 
 #include <algorithm>
 #include <string>
@@ -44,7 +45,10 @@ void main() { colour = vec4(tint.rgb + vec3(fract(gl_FragCoord.y / 5.0)), tint.a
 )";
 
 // Draws a newly linked GL program, optionally leaving its uniforms at GL's required zero defaults.
-std::vector<std::uint8_t> fresh_draw(bool set_tint, bool different_source = false) {
+// `own_stripes` gives the kept-programs test shaders no other test has left in the pool.
+std::vector<std::uint8_t> fresh_draw(
+    bool set_tint, bool different_source = false, bool own_stripes = false
+) {
     renderer::FrameBuffer frame;
     renderer::Shader shader;
     std::string error;
@@ -52,6 +56,9 @@ std::vector<std::uint8_t> fresh_draw(bool set_tint, bool different_source = fals
     std::string source(kFragment);
     if (different_source) {
         source.replace(source.find("tint.rgb"), 8, "(tint.rgb * 0.5)");
+    }
+    if (own_stripes) {
+        source.replace(source.find("5.0"), 3, "7.0");
     }
     CHECK(shader.build("retained program regression", kVertex, source, error));
     gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, frame.id());
@@ -133,6 +140,55 @@ void test_descriptor_mode_isolation() {
     CHECK(vk::submission_counters().test_program_reuses == changed.test_program_reuses + 1);
     off = previous;
     vk::test_reuse_programs(false);
+}
+
+// The game's kept programs (vk-program-keep): a deleted program's pipelines serve the next link of
+// the same shaders, with the same pixels and none of its uniform values.
+void test_kept_programs() {
+    using renderer::render_opt::Opt;
+    vk::test_reuse_programs(false);
+    // Whole pipelines first: each is made by its draw, so the driver's calls can be counted.
+    renderer::render_opt::set(Opt::VkPipelineLibrary, false);
+    const auto tinted = fresh_draw(true, false, true);
+    const auto zero = fresh_draw(false, false, true);
+    const auto changed = fresh_draw(true, true, true);
+    vk::keep_programs(true);
+    // Nothing is kept yet: this program is the first one deleted while keeping is on.
+    const auto first = vk::submission_counters();
+    CHECK(fresh_draw(true, false, true) == tinted);
+    CHECK(vk::submission_counters().program_reuses == first.program_reuses);
+    const auto before = vk::submission_counters();
+    CHECK(fresh_draw(false, false, true) == zero);
+    const auto after = vk::submission_counters();
+    CHECK(after.program_reuses == before.program_reuses + 1);
+    CHECK(after.pipeline_creation_calls == before.pipeline_creation_calls);
+    CHECK(after.test_program_reuses == before.test_program_reuses);
+    // Other shaders take nothing.
+    CHECK(fresh_draw(true, true, true) == changed);
+    CHECK(vk::submission_counters().program_reuses == after.program_reuses);
+    // Switched off, a link is fresh and what is kept waits.
+    renderer::render_opt::set(Opt::VkProgramKeep, false);
+    const auto off = vk::submission_counters();
+    CHECK(fresh_draw(true, false, true) == tinted);
+    CHECK(vk::submission_counters().program_reuses == off.program_reuses);
+    CHECK(vk::submission_counters().pipeline_creation_calls > off.pipeline_creation_calls);
+    renderer::render_opt::set(Opt::VkProgramKeep, true);
+    CHECK(fresh_draw(true, false, true) == tinted);
+    CHECK(vk::submission_counters().program_reuses == off.program_reuses + 1);
+    // Linked from parts (where the device offers it): the parts and the linked pipeline are kept.
+    renderer::render_opt::set(Opt::VkPipelineLibrary, true);
+    CHECK(fresh_draw(true, true, true) == changed);
+    const auto linked = vk::submission_counters();
+    CHECK(fresh_draw(true, true, true) == changed);
+    CHECK(vk::submission_counters().program_reuses == linked.program_reuses + 1);
+    CHECK(vk::submission_counters().pipelines_linked == linked.pipelines_linked);
+    vk::wait_for_pipeline_prewarm();
+    CHECK(fresh_draw(true, true, true) == changed);
+    vk::keep_programs(false);
+    const auto cold = vk::submission_counters();
+    CHECK(fresh_draw(false, false, true) == zero);
+    CHECK(vk::submission_counters().program_reuses == cold.program_reuses);
+    renderer::render_opt::reset();
 }
 
 // Preserves every channel and row when snapshots cross presents and framebuffer replacement.
@@ -225,7 +281,7 @@ void test_multisample_resolve() {
 
 }  // namespace
 
-// Opens only the Vulkan test context; player launches never enable program retention.
+// Opens only the Vulkan test context; a player's launch keeps programs through keep_programs only.
 int main() {
     test::GlContext context;
     std::string error;
@@ -234,6 +290,7 @@ int main() {
     }
     test_fresh_uniforms_and_pipeline_reuse();
     test_descriptor_mode_isolation();
+    test_kept_programs();
     test_batch_matches_synchronous();
     test_multisample_resolve();
     CHECK(vk::submission_counters().validation_errors == 0);

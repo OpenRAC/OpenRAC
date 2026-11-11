@@ -1341,9 +1341,11 @@ void prewarm_program(Program& p) {
     PipelinePrewarm& w = g->prewarm;
     std::lock_guard lock(w.mutex);
     const std::size_t queued = w.queue.size();
+    PipelineLibraries& l = g->libraries;
 
     // The program's two shader parts as most of its draws take them (filled polygons, one
     // viewport, the fixed state dynamic), so that a pipeline first needed mid-frame is only linked.
+    // A program linked from kept objects has them already (vk-program-keep).
     if (libraries_enabled()) {
         PipelineKey part;
         std::memset(&part, 0, sizeof part);
@@ -1351,8 +1353,15 @@ void prewarm_program(Program& p) {
         part.polygon = 0;
         part.viewports = 1;
         part.dynamic_fixed = fixed_state_dynamic() ? 1 : 0;
-        w.queue.push_back({part, p.vertex, p.fragment, p.layout, PrewarmPart::PreRaster});
-        w.queue.push_back({part, p.vertex, p.fragment, p.layout, PrewarmPart::Fragment});
+        const std::string bytes = key_bytes(part);
+
+        if (!l.pre_raster.contains(bytes)) {
+            w.queue.push_back({part, p.vertex, p.fragment, p.layout, PrewarmPart::PreRaster});
+        }
+
+        if (!l.fragment.contains(bytes)) {
+            w.queue.push_back({part, p.vertex, p.fragment, p.layout, PrewarmPart::Fragment});
+        }
     }
 
     // Each key of this program in the manifest, as a job for this link's serial.
@@ -1364,8 +1373,36 @@ void prewarm_program(Program& p) {
 
         PrewarmJob job{entry.key, p.vertex, p.fragment, p.layout, PrewarmPart::Whole};
         job.key.program = p.serial;
-        w.queue.push_back(job);
         entry.age = 0;
+
+        // A kept program's pipeline, made whole before.
+        if (const VkPipeline* made = g->pipelines.find(job.key, hash_key(job.key));
+            made != nullptr && !l.linked.contains(*made)) {
+            continue;
+        }
+
+        w.queue.push_back(job);
+    }
+
+    // A kept program's pipelines still linked from parts, whose whole ones were queued when its
+    // last owner was deleted: queued again, as link_pipeline queued them.
+    for (const auto& [key, pipeline] : g->pipelines) {
+        // Another program's, one made whole, or one of the clamped stage, never made ahead.
+        if (key.program != p.serial || !l.linked.contains(pipeline) || key.clamp_colour != 0) {
+            continue;
+        }
+
+        const bool again = std::any_of(
+            w.queue.begin() + static_cast<std::ptrdiff_t>(queued),
+            w.queue.end(),
+            [&key](const PrewarmJob& job) {
+                return job.part == PrewarmPart::Whole && same_key(job.key, key);
+            }
+        );
+
+        if (!again) {
+            w.queue.push_back({key, p.vertex, p.fragment, p.layout, PrewarmPart::Whole});
+        }
     }
 
     // Nothing of this program to make ahead.
@@ -1377,7 +1414,7 @@ void prewarm_program(Program& p) {
     w.changed.notify_all();
 }
 
-void prewarm_forget(std::uint64_t serial) {
+void prewarm_forget(std::uint64_t serial, bool keep) {
     PipelinePrewarm& w = g->prewarm;
     std::unique_lock lock(w.mutex);
     std::erase_if(w.queue, [serial](const PrewarmJob& job) { return job.key.program == serial; });
@@ -1388,6 +1425,12 @@ void prewarm_forget(std::uint64_t serial) {
             return job.first.program == serial;
         });
     });
+
+    // A kept program's pipelines and parts stay with its objects (vk-program-keep).
+    if (keep) {
+        take_ready(w);
+        return;
+    }
 
     // What was made for it and never drawn with: no command buffer holds it.
     std::erase_if(w.ready, [serial](const PrewarmDone& done) {
@@ -1466,6 +1509,34 @@ void release_program_libraries(std::uint64_t serial) {
             defer([part = entry.second] { vkDestroyPipeline(g->device, part, nullptr); });
             return true;
         });
+    }
+}
+
+void rename_program_libraries(std::uint64_t from, std::uint64_t to) {
+    // The shader parts name their program; the others are any program's.
+    for (auto* table : {&g->libraries.pre_raster, &g->libraries.fragment}) {
+        std::vector<std::pair<std::string, VkPipeline>> moved;
+
+        // Each part of `from`, taken out under its old key.
+        for (auto at = table->begin(); at != table->end();) {
+            PipelineKey key;
+            std::memcpy(&key, at->first.data(), sizeof key);
+
+            // Another program's.
+            if (key.program != from) {
+                ++at;
+                continue;
+            }
+
+            key.program = to;
+            moved.emplace_back(key_bytes(key), at->second);
+            at = table->erase(at);
+        }
+
+        // And put back under its new one.
+        for (auto& part : moved) {
+            table->emplace(std::move(part));
+        }
     }
 }
 

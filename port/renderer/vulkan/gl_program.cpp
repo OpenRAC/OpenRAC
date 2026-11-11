@@ -306,7 +306,7 @@ std::vector<VkDescriptorSetLayoutBinding> program_bindings(Program& program) {
                                               : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         }
     }
-    if (g->test_program_reuse) {
+    if (g->test_program_reuse || keeps_programs()) {
         program.test_layout_bindings = bindings;
     }
     return bindings;
@@ -534,7 +534,7 @@ void VKGL link_program(GLuint name) {
     }
     separate_draw_uniform(*p, vs, fs);
     // Descriptor mode is part of compatibility even when the same SPIR-V is used.
-    if (g->test_program_reuse) {
+    if (g->test_program_reuse || keeps_programs()) {
         (void)program_bindings(*p);
     }
     const bool reused = reuse_test_program(*p);
@@ -544,8 +544,9 @@ void VKGL link_program(GLuint name) {
         return;
     }
 
-    // Retained objects already own the graphics pipelines; fresh links keep normal prewarming.
-    if (!reused) {
+    // A test's retained objects already own the graphics pipelines; fresh links keep normal
+    // prewarming, and the game's kept ones queue what they still miss.
+    if (!reused || keeps_programs()) {
         prewarm_program(*p);
     }
 }
@@ -801,12 +802,17 @@ void VKGL uniform_block_binding(GLuint program, GLuint block, GLuint binding) {
 
 // Retires a program's driver objects after all referencing frames finish.
 void release_program(Program& p) {
-    // No pre-warm job may use its modules or layout once they are handed to defer.
-    prewarm_forget(p.serial);
-    // Tests retain only immutable objects; a later link still starts with zero GL uniforms.
+    // No pre-warm job may use its modules or layout once they are handed to defer. What the
+    // workers made for a kept program stays with it.
+    prewarm_forget(p.serial, keeps_programs());
+    // Only immutable objects are retained; a later link still starts with zero GL uniforms.
     if (retain_test_program(p)) {
         return;
     }
+    destroy_program(p);
+}
+
+void destroy_program(Program& p) {
     // Relinking and deletion retire every pipeline referenced by the program's fast lookup.
     p.last_pipeline = VK_NULL_HANDLE;
     p.last_pipeline_key.clear();

@@ -84,6 +84,7 @@ constexpr auto kGauges = std::to_array<Gauge>({
     {"vk_shader_fp32_ops", &SubmissionCounters::shader_fp32_ops, Span::Total},
     {"vk_shader_fp16_modules", &SubmissionCounters::shader_fp16_modules, Span::Total},
     {"vk_shader_compiles", &SubmissionCounters::shader_compiles, Span::Total},
+    {"vk_program_reuses", &SubmissionCounters::program_reuses, Span::Total},
 });
 // clang-format on
 

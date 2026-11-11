@@ -216,6 +216,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::MotionBlurHalfFlood, "motion-blur-half-flood",
      "the blur's jump flood runs on a half-resolution seed grid, a quarter of its pixels in every pass",
      true, Tolerance{0.01, 32}},
+    {Opt::VkProgramKeep, "vk-program-keep",
+     "a deleted program's modules, layouts and pipelines are kept for the next link of the same shaders",
+     true, Tolerance{}},
 }};
 // clang-format on
 

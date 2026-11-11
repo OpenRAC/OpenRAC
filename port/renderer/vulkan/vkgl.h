@@ -287,6 +287,7 @@ struct SubmissionCounters {
     std::uint64_t shader_compiles = 0;  // glslang runs: shaders checked, programs compiled.
     double shader_compile_s = 0.0;      // The seconds those compiles took.
     std::uint64_t test_program_reuses = 0;  // Immutable driver object reuse in an opted-in test.
+    std::uint64_t program_reuses = 0;       // Links that took a kept program's objects.
     double pipeline_compile_s = 0.0;    // Driver pipeline creation, including prewarm workers.
     std::uint64_t pipeline_creation_calls =
         0;  // Driver calls, including speculative and failed ones.
@@ -317,6 +318,12 @@ bool test_poison_discards(bool on);
 // Disabling bypasses the pool without discarding its objects; close() releases them.
 // borrow=false retains objects after an independent fresh-driver oracle without reusing them.
 void test_reuse_programs(bool on, bool borrow = true);
+
+// For the game: with `on`, a deleted program's shader modules, layouts and pipelines are kept, and
+// the next link of the same shaders takes them (vk-program-keep, docs/port/RENDER_PERF.md). A
+// level's load deletes and links the same programs, so it makes no pipelines again. Uniform values
+// are never kept. Off (the default, and the tests'), a deleted program's objects are destroyed.
+void keep_programs(bool on);
 
 // For the tests: draws the copy into the default framebuffer that waits for the present
 // (present-single-copy) into two stand-ins of the screen, B8G8R8A8 at the default framebuffer's

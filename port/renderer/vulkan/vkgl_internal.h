@@ -584,7 +584,7 @@ struct Program {
     std::string last_pipeline_key;
     VkPipeline last_pipeline = VK_NULL_HANDLE;  // Cleared before the program's pipelines retire.
     CompiledProgram compiled;
-    // Test retention also compares every reflected descriptor binding, including inactive resources.
+    // Retention also compares every reflected descriptor binding, including inactive resources.
     std::vector<VkDescriptorSetLayoutBinding> test_layout_bindings;
     bool gpu_materials = false;
     unsigned material_start = 0;
@@ -888,7 +888,7 @@ public:
         rebuild();
     }
 
-    // Moves test-retained immutable pipelines to a newly linked program serial.
+    // Moves retained immutable pipelines to a newly linked program serial.
     void rename_program(std::uint64_t from, std::uint64_t to);
 
     // The entries, for destroying every pipeline at close.
@@ -1159,8 +1159,11 @@ struct Context {
 #ifdef OPENRAC_TRACY
     void* tracy_state = nullptr;
 #endif
-    bool test_program_borrow = false;    // Retain-only oracles create fresh driver objects.
-    bool test_program_reuse = false;     // Explicitly enabled only by rendering tests.
+    bool test_program_borrow = false;  // Retain-only oracles create fresh driver objects.
+    bool test_program_reuse = false;   // Explicitly enabled only by rendering tests.
+    // The game's (vkgl::keep_programs, vk-program-keep): a deleted program's objects wait in
+    // test_programs for the next link of the same shaders, oldest first.
+    bool keep_programs = false;
     std::vector<Program> test_programs;  // Retained immutable objects, without GL uniform state.
     std::atomic_uint64_t validation_errors = 0;
     bool device_fault_enabled = false;
@@ -1317,12 +1320,18 @@ VkResult timed_pipeline_creation(Create&& create) {
     return result;
 }
 
-// Borrows exactly matching immutable driver objects from the test-only retention pool.
+// Whether the game keeps deleted programs' objects now (vkgl::keep_programs and vk-program-keep).
+bool keeps_programs();
+// Borrows exactly matching immutable driver objects from the retention pool (a test's, or the
+// game's kept programs).
 bool reuse_test_program(Program& program);
 // Retains a linked program's driver objects without retaining its uniform or descriptor state.
 bool retain_test_program(Program& program);
-// Releases all retained test objects with retention disabled, before device teardown.
+// Releases all retained objects with retention disabled, before device teardown.
 void clear_test_programs();
+// Destroys a program's driver objects, its pipelines and their parts once the frames that may
+// draw with them are done. For release_program, and for a retained program pushed out of the pool.
+void destroy_program(Program& p);
 
 // Releases the optional depth-composition pipeline after device idle at context teardown.
 void release_depth_combine();
@@ -1717,13 +1726,15 @@ std::vector<ManifestEntry> manifest_entries();
 void write_manifest(const std::filesystem::path& path, std::span<const ManifestEntry> entries);
 
 // Notes program `p`'s identity and queues the manifest's keys of that identity for the pre-warm
-// worker, which it starts if it is not running. For glLinkProgram, once `p` is linked.
+// worker, which it starts if it is not running. For glLinkProgram, once `p` is linked. A program
+// linked from kept objects (vk-program-keep) queues only what it does not have yet.
 void prewarm_program(Program& p);
 
 // Takes back the pre-warm's jobs of program `serial` and waits for the one being made, then
-// destroys what the worker made for it that no draw took. For a program's release, before its
-// modules and layout go.
-void prewarm_forget(std::uint64_t serial);
+// destroys what the worker made for it that no draw took; with `keep` that goes into the tables
+// instead, for a program whose objects are kept. For a program's release, before its modules and
+// layout go.
+void prewarm_forget(std::uint64_t serial, bool keep = false);
 
 // Stops the pre-warm workers and waits for them, and destroys the pipelines and parts they made
 // that no draw took. For the backend's close, before the programs are released.
@@ -1737,6 +1748,9 @@ void collect_prewarm();
 // Destroys the parts of pipelines program `serial` owns (vk-pipeline-library), once the frames
 // that may still draw with what was linked from them are done. For a program's release.
 void release_program_libraries(std::uint64_t serial);
+
+// Gives the parts of pipelines program `from` owns to program `to` (vk-program-keep).
+void rename_program_libraries(std::uint64_t from, std::uint64_t to);
 
 // Destroys every part of pipelines left. For the backend's close, after the device is idle.
 void destroy_pipeline_libraries();
