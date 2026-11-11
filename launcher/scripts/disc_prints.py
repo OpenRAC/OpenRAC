@@ -3,9 +3,14 @@
 
     python3 scripts/disc_prints.py
 
-For each game it writes <game>-ntsc.webp (the North American disc) and <game>-pal.webp (the
-European one): the scan cut to the disc, at most 768 px square. The scans are the ones Cartouche
-uses (github.com/Hakimba/cartouche, app/data/art/ps2.tsv). Needs Pillow, NumPy and curl.
+For each game it writes <game>-<region>.webp, one per region with a scan: ntsc (North America),
+pal (Europe) and jp (Japan): the scan cut to the disc, at most 768 px square. The NTSC and PAL scans
+are the ones Cartouche uses (github.com/Hakimba/cartouche, app/data/art/ps2.tsv); the Japanese ones
+come from archive.org, as no game database has them. Needs Pillow, NumPy and curl.
+
+No scan was found of Ratchet & Clank's, Up Your Arsenal's or Size Matters' Japanese disc, nor of any
+Korean disc (searched: LaunchBox, PSX Data Center, archive.org). Secret Agent Clank had no PS2
+release in Asia. A region without a print shows the North American one (src/lib/discArt.ts).
 
 Secret Agent Clank's PAL disc is not a scan: its only scan with a print is 226 px, so it is a
 photo of the disc, straightened, white-balanced on its white and black and given the hub of Up
@@ -23,8 +28,9 @@ LAUNCHBOX = "https://images.launchbox-app.com/"
 OUT = Path(__file__).resolve().parent.parent / "public" / "img" / "discs"
 SIZE = 768
 
-# The scan of each game's disc, by region. Going Commando uses the Australian PAL disc: the European
-# scan is a Platinum disc.
+# The scan of each game's disc, by region: a LaunchBox image id, or a link. Going Commando uses the
+# Australian PAL disc: the European scan is a Platinum disc. Deadlocked's Japanese disc is the Asian
+# print (SCAJ-20157), the same art: LaunchBox's Japanese one is a blurred photo.
 PRINTS = {
     "rac1": {"ntsc": "03c0c663-f1f1-4fbb-adb1-91a44d755eff", "pal": "c1b455c3-82e0-4b55-8e3e-56cc508c6f78"},
     "rac2": {"ntsc": "2b79e872-135c-47a4-a5fa-191483b7a1cf", "pal": "5d66507e-ae5e-406e-b980-3d6c21709fb9"},
@@ -33,10 +39,17 @@ PRINTS = {
     "rac5": {"ntsc": "b21c6132-f24a-4f4b-afbe-8ca153aff245", "pal": "0095ef61-7cca-432a-963b-4ada2e7bc04e"},
     "rac6": {"ntsc": "e596a445-b75c-4b48-acd6-3097eafff420", "pal": "728530ca-db61-4653-ad5b-3a850638c96f"},
 }
+PRINTS["rac2"]["jp"] = "https://archive.org/download/image-001_20260714/Image002.jpg"
+PRINTS["rac4"]["jp"] = "https://archive.org/download/ps2-scans-scaj-20157/Disc.jpg"
 
 # Scans without the clear hub round the hole (Secret Agent Clank's NTSC one is cut at its print, black
-# to the hole): it is taken from another disc of the same region, cut the same way.
-HUB_FROM = {("rac6", "ntsc"): ("rac4", "ntsc")}
+# to the hole; the Japanese scans show the scanner's white through it): it is taken from another disc,
+# cut the same way.
+HUB_FROM = {
+    ("rac6", "ntsc"): ("rac4", "ntsc"),
+    ("rac2", "jp"): ("rac2", "ntsc"),
+    ("rac4", "jp"): ("rac4", "ntsc"),
+}
 HUB = 0.2
 
 # Made otherwise (the module's notes): the script does not write these.
@@ -60,13 +73,24 @@ def with_hub(im: Image.Image, donor: Image.Image) -> Image.Image:
     return Image.fromarray((a * (1 - k) + b * k + 0.5).astype(np.uint8), "RGBA")
 
 
-def disc(data: bytes) -> Image.Image:
-    """The scan centred on its disc, square, at most SIZE wide. Some scans cut the disc's edge off
-    at a side: the circle is fitted to the edge where it is whole, and the cut part stays empty."""
-    im = Image.open(io.BytesIO(data)).convert("RGBA")
-    alpha = im.getchannel("A").load()
-    w, h = im.size
-    # The disc's outline: per row and column, its first and last solid pixel, away from the image edge.
+def cut_out(im: Image.Image) -> Image.Image:
+    """A flat scan (a JPEG on the scanner's white) with the white round the disc made clear."""
+    a = np.asarray(im.convert("RGB"), np.float32)
+    solid = (a.min(axis=2) < 225).astype(np.uint8) * 255
+    mask = Image.fromarray(solid, "L")
+    probe = Image.new("RGBA", im.size)
+    probe.putalpha(mask)
+    cx, cy, r = fit_circle(outline(probe.getchannel("A").load(), *im.size))
+    y, x = np.mgrid[: im.size[1], : im.size[0]]
+    k = np.clip(r - 1.5 - np.hypot(x - cx, y - cy), 0, 1)
+    out = im.convert("RGBA")
+    out.putalpha(Image.fromarray((k * 255 + 0.5).astype(np.uint8), "L"))
+    return out
+
+
+def outline(alpha, w: int, h: int) -> list[tuple[int, int]]:
+    """The disc's outline: per row and column, its first and last solid pixel, away from the image
+    edge."""
     edge = []
     for y in range(0, h, 2):
         xs = [x for x in range(w) if alpha[x, y] > 128]
@@ -76,7 +100,17 @@ def disc(data: bytes) -> Image.Image:
         ys = [y for y in range(h) if alpha[x, y] > 128]
         if ys:
             edge += [(x, y) for y in (ys[0], ys[-1]) if 1 < y < h - 2]
-    cx, cy, r = fit_circle(edge)
+    return edge
+
+
+def disc(data: bytes) -> Image.Image:
+    """The scan centred on its disc, square, at most SIZE wide. Some scans cut the disc's edge off
+    at a side: the circle is fitted to the edge where it is whole, and the cut part stays empty."""
+    im = Image.open(io.BytesIO(data))
+    im = im.convert("RGBA") if "A" in im.getbands() else cut_out(im)
+    alpha = im.getchannel("A").load()
+    w, h = im.size
+    cx, cy, r = fit_circle(outline(alpha, w, h))
     side = round(2 * r)
     square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
     square.paste(im, (round(r - cx), round(r - cy)))
@@ -116,7 +150,7 @@ def main() -> None:
         for region, image_id in regions.items():
             if (game, region) in KEEP:
                 continue
-            data = fetch(f"{LAUNCHBOX}{image_id}.png")
+            data = fetch(image_id if "://" in image_id else f"{LAUNCHBOX}{image_id}.png")
             path = OUT / f"{game}-{region}.webp"
             im = disc(data)
             if (game, region) in HUB_FROM:
