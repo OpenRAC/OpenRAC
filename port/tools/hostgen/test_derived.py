@@ -174,5 +174,13 @@ class Committed(unittest.TestCase):
         self.assertEqual(games, ["rac2-ntsc", "rac2-ntsc2", "rac2-pal", "rac3-ntsc"])
 
 
+class SuffixedRac1Names(unittest.TestCase):
+    def test_a_rac1_name_with_its_place_is_derived(self):
+        # rac2-decomp writes one rac1 routine's calls as r1_func_0011CC38_002FC5C8: the name and the
+        # place it is called from. The whole name is the derived one, not its first part.
+        text = "int f(void) { return r1_func_0011CC38_002FC5C8() + r1_func_0011CC38(); }"
+        self.assertEqual(derived.DERIVED_NAME.findall(text), ["r1_func_0011CC38_002FC5C8", "r1_func_0011CC38"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -38,7 +38,7 @@ from pathlib import Path
 # So are the references of a matched function its build derives (`ref_L00_002F5FB8_04`, `ref_002B6658_00`:
 # the function's address and the reference's number, after the level whose memory it is in, if any); a
 # `__gp` view of one (`ref_L00_00424F98_03__gp`) is the name itself.
-DERIVED_NAME = re.compile(r"\b(?:r1_(?:func|D)_(?:L\d\d_)?[0-9A-Fa-f]{8}|F[0-9a-f]{8}_(?:FUN|func|D)_[0-9A-Fa-f]{8})\b"
+DERIVED_NAME = re.compile(r"\b(?:r1_(?:func|D)_(?:L\d\d_)?[0-9A-Fa-f]{8}(?:_[0-9A-Fa-f]{8})?|F[0-9a-f]{8}_(?:FUN|func|D)_[0-9A-Fa-f]{8})\b"
                           r"|\bref_(?:[A-Z][A-Z0-9]*_)*[0-9A-Fa-f]{8}_[0-9A-Fa-f]{2}(?![0-9A-Za-z])")
 
 
