@@ -4,7 +4,8 @@
 
 Pushes and manual runs check everything. A pull request skips what its files cannot affect:
 the launcher's jobs when it changes only port/, the port's jobs when it changes only launcher/,
-and builds of the games it does not touch. A release carried from another (a hostgen.json with
+and builds of the games it does not touch, and any build for Markdown that no build or test reads
+(MARKDOWN_READ lists those that are read). A release carried from another (a hostgen.json with
 "release": rac1-pal1, rac1-jp, rac2-ntsc2, rac2-pal) is built in a pull request only when its
 own folder changes. Anything unclear (a workflow, this file, a failed git call) checks everything.
 `ci_scope.py ios` does the same for the iOS jobs, for pushes too.
@@ -51,9 +52,18 @@ def pushed_paths(before):
     return paths or None
 
 
+# Markdown a build or test reads: the native env test checks DEBUGGING.md against its registry.
+MARKDOWN_READ = ("docs/port/DEBUGGING.md",)
+
+
 def is_docs(path):
-    # The native env test checks DEBUGGING.md against the environment registry.
-    return path.startswith("docs/") and path.endswith(".md") and path != "docs/port/DEBUGGING.md"
+    return path.startswith("docs/") and path.endswith(".md") and path not in MARKDOWN_READ
+
+
+def is_text(path, removed=frozenset()):
+    """True for Markdown no build or test reads. A removed page still checks as before: the
+    launcher's test wants every page actions.json links to exist."""
+    return path.endswith(".md") and path not in MARKDOWN_READ and path not in removed
 
 
 def docs_only(base):
@@ -102,9 +112,9 @@ def shared_game_dirs(root=ROOT):
     return found
 
 
-def plan(paths, known, shared=frozenset()):
-    """What to run for PATHS (None: everything), with KNOWN from programs() and SHARED from
-    shared_game_dirs()."""
+def plan(paths, known, shared=frozenset(), removed=frozenset()):
+    """What to run for PATHS (None: everything), with KNOWN from programs(), SHARED from
+    shared_game_dirs() and REMOVED the paths the change deletes."""
     every = sorted(known)
     everything = {"docs_only": False, "launcher": True, "pages": True, "port": True,
                   "enhanced": True, "port_parts": ["common", *every]}
@@ -113,9 +123,8 @@ def plan(paths, known, shared=frozenset()):
     if all(map(is_docs, paths)):
         return {**everything, "docs_only": True, "launcher": False, "pages": False, "port": False,
                 "enhanced": False, "port_parts": []}
-    # Plain text that no build or test reads.
-    quiet = [path for path in paths if path.startswith(PORT_READS) or not (
-        is_docs(path) or ("/" not in path and path.endswith(".md")))]
+    # Markdown that no build or test reads, wherever it is (port/docs, sdk/docs, release notes).
+    quiet = [path for path in paths if path.startswith(PORT_READS) or not is_text(path, removed)]
     launcher = any(not path.startswith(("port/", "docs/")) or LAUNCHER_READS.match(path)
                    for path in quiet)
     pages = any(path.startswith("launcher/") or PAGES_READS.match(path) for path in quiet)
@@ -188,7 +197,8 @@ if __name__ == "__main__":
             paths = pushed_paths(os.environ["PUSH_BEFORE"])
         result = ios_plan(paths, shared_game_dirs())
     else:
-        result = plan(paths, programs(), shared_game_dirs())
+        removed = frozenset(path for path in paths or () if not (ROOT / path).exists())
+        result = plan(paths, programs(), shared_game_dirs(), removed)
     with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
         for key, value in result.items():
             print(f"{key}={json.dumps(value) if isinstance(value, list) else str(value).lower()}",

@@ -11,6 +11,8 @@ on:
   push:
     branches: [master, develop]
   pull_request:
+    # ready_for_review: a draft skips the port's builds (scope below), so they run when it is ready.
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       time-vulkan-shards:
@@ -36,6 +38,8 @@ jobs:
   # What a pull request needs (tools/ci_scope.py: the jobs and the port's parts its files can
   # affect), and on every event all the parts the Linux port job is built in: one for what the
   # games share, one per game program (port/game/*/hostgen.json "id"). A push runs everything.
+  # A draft pull request runs no port build (Linux, Enhanced, Fedora, Windows), only the cheap
+  # checks; marking it ready runs the rest.
   scope:
     name: Which checks run
     runs-on: ubuntu-26.04
@@ -44,10 +48,10 @@ jobs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
       launcher: ${{ steps.scope.outputs.launcher }}
       pages: ${{ steps.scope.outputs.pages }}
-      port: ${{ steps.scope.outputs.port }}
-      enhanced: ${{ steps.scope.outputs.enhanced }}
+      port: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.port }}
+      enhanced: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.enhanced }}
       port_programs: ${{ steps.parts.outputs.port_programs }}
-      port_parts: ${{ steps.scope.outputs.port_parts || steps.parts.outputs.port_parts }}
+      port_parts: ${{ github.event.pull_request.draft && '[]' || steps.scope.outputs.port_parts || steps.parts.outputs.port_parts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -471,7 +475,7 @@ jobs:
           sudo apt-get update
           sudo apt-get -o Dir::Cache::archives="$archives" install -y --no-install-recommends \
             clang lld ninja-build libembree-dev libsdl3-dev \
-            libgl1-mesa-dev libegl1-mesa-dev
+            libgl1-mesa-dev libegl1-mesa-dev zstd
       - name: Save enhanced Vulkan packages
         if: steps.enhanced-apt.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -497,14 +501,27 @@ jobs:
           python3 tools/ci_port_tests.py port/build/enhanced plan
           # CTest and some fixtures embed absolute paths. Consumers use the same checkout layout.
           pwd -P > port/build/enhanced/ci-workspace.txt
+          # The tests need no DWARF (RelWithDebInfo), and it is most of the size. The symbol
+          # table stays, so backtraces still name functions.
+          echo "before strip: $(du -sh --exclude=CMakeFiles --exclude='*-src' port/build/enhanced | cut -f1)"
+          find port/build/enhanced -path '*/CMakeFiles' -prune -o -path '*-src' -prune -o -type f \
+            -size +100k ! -name '*.o' -print0 | while IFS= read -r -d '' file; do
+            if [ "$(head -c 4 "$file" | od -An -tx1 | tr -d ' ')" = 7f454c46 ]; then
+              strip --strip-debug "$file"
+            fi
+          done
           tar -C port/build --exclude=CMakeFiles --exclude='*-src' --exclude='*-subbuild' \
             --exclude='*.a' --exclude='*.o' --exclude='*.ninja' --exclude='.ninja_*' \
             --exclude=Testing --exclude=CMakeCache.txt \
-            -cf - enhanced | gzip -1 > "$RUNNER_TEMP/openrac-enhanced-tests.tar.gz"
+            -cf - enhanced | zstd -3 -T0 -q > "$RUNNER_TEMP/openrac-enhanced-tests.tar.zst"
+          ls -lh "$RUNNER_TEMP/openrac-enhanced-tests.tar.zst"
+          # What is left, largest first, to see what to trim next.
+          find port/build/enhanced -path '*/CMakeFiles' -prune -o -path '*-src' -prune -o -type f \
+            ! -name '*.a' ! -name '*.o' -printf '%s %p\n' | sort -rn | head -15 | numfmt --to=iec --field=1
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openrac-enhanced-tests
-          path: ${{ runner.temp }}/openrac-enhanced-tests.tar.gz
+          path: ${{ runner.temp }}/openrac-enhanced-tests.tar.zst
           compression-level: 0
           retention-days: 1
           if-no-files-found: error
@@ -547,13 +564,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ninja-build libembree-dev libsdl3-dev \
             libgl1 libegl1 libgles2 libglx-mesa0 libegl-mesa0 libgl1-mesa-dri \
-            mesa-vulkan-drivers vulkan-validationlayers xvfb xauth
+            mesa-vulkan-drivers vulkan-validationlayers xvfb xauth zstd
       - name: Run the restored test group
         env:
           TEST_GROUP: ${{ matrix.group }}
         run: |
           mkdir -p port/build
-          tar -C port/build -xzf "$RUNNER_TEMP/openrac-enhanced-tests.tar.gz"
+          zstd -dc "$RUNNER_TEMP/openrac-enhanced-tests.tar.zst" | tar -C port/build -xf -
           test "$(cat port/build/enhanced/ci-workspace.txt)" = "$(pwd -P)"
           for group in ${TEST_GROUP//-/ }; do
             xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$group"
