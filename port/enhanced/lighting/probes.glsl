@@ -567,8 +567,8 @@ float shadow_pcf_unique_rect(sampler2D map, ivec4 rect, vec3 position, float bia
 }
 
 float shadow_pcf_kernel_rect(sampler2D map, ivec4 rect, vec3 position, float bias, vec2 slope, bool tent) {
-#if defined(OPENRAC_PROBE_FAST)
-    // Blended surfaces: four taps instead of the wide kernel (Enhanced, lossy).
+#if defined(OPENRAC_PROBE_FAST) || defined(OPENRAC_CHEAP_SHADOWS)
+    // Blended surfaces, and shadow filtering Fast: four taps instead of the wide kernel (lossy).
     return shadow_bilinear_rect(map, rect, position, bias, slope);
 #elif defined(OPENRAC_SHADOW_FILTER_REFERENCE)
     return shadow_pcf_reference_rect(map, rect, position, bias, slope, tent);
@@ -683,7 +683,7 @@ float sun_shadow_visibility(vec3 p, vec3 n, vec3 plane_normal) {
     float start = cascade == 0 ? sun_shadow_near : sun_shadow_ends[cascade - 1];
     float blend =
         smoothstep(mix(start, sun_shadow_ends[cascade], 0.9), sun_shadow_ends[cascade], distance);
-#ifdef OPENRAC_PROBE_FAST
+#if defined(OPENRAC_PROBE_FAST) || defined(OPENRAC_CHEAP_SHADOWS)
     blend = 0.0;
 #endif
     float next =

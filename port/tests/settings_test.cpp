@@ -33,10 +33,20 @@ void test_temporal_settings(const std::filesystem::path& file) {
     std::ofstream(file) << "temporal_quality = unsupported\ntemporal_sharpness = nan\nmotion_blur "
                            "= invalid\nmotion_blur_strength = nan\n";
     settings::load(file);
-    CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
+    CHECK(settings::get().temporal_quality == settings::Settings{}.temporal_quality);
     CHECK(settings::get().temporal_sharpness == .2f);
     CHECK(settings::get().motion_blur);
     CHECK(settings::get().motion_blur_strength == .5f);
+    CHECK(!settings::get().motion_blur_settings.quality);
+    for (const bool quality : {true, false}) {
+        std::ofstream(file) << "motion_blur_quality = " << (quality ? "quality" : "performance")
+                            << "\n";
+        settings::load(file);
+        CHECK(settings::get().motion_blur_settings.quality == quality);
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().motion_blur_settings.quality == quality);
+    }
 }
 
 void test_lily_momentum(const std::filesystem::path& file) {
@@ -111,7 +121,7 @@ void test_reset_enhanced() {
     CHECK(s.enhanced_rendering && s.enhanced_graphics);
     CHECK(s.volume == 37 && s.render_scale == 75 && s.frame_cap == 144);
     CHECK(s.texture_filter == renderer::TextureFilter::EdgeAware);
-    CHECK(s.shadow_quality == renderer::ShadowQuality::High);
+    CHECK(s.shadow_quality == settings::Settings{}.shadow_quality);
     CHECK(s.volumetric_quality == renderer::VolumetricQuality::Off);
     CHECK(s.agx_preview && s.agx_exposure == .25f && s.agx_brightness == .5f);
     CHECK(!s.sun_direction_override && !s.probe_spheres);
@@ -119,20 +129,47 @@ void test_reset_enhanced() {
     CHECK(s.lily_momentum == .25f);
 }
 
-// The handheld preset lowers costs only: every effect the player had stays on, other settings alone.
-void test_handheld_enhanced() {
+// The presets set the costly options together and leave the other settings alone.
+void test_enhanced_presets() {
     using namespace openrac;
     settings::Settings s;
     s.render_scale = 75;
-    s.motion_blur = true;
     s.gtao_settings.half_resolution = false;
     s.volumetric_quality = renderer::VolumetricQuality::High;
-    s.apply_handheld_enhanced();
-    CHECK(s.temporal_quality == renderer::TemporalQuality::Balanced);
+
+    // A new file starts at a preset: Medium where the GPU is a low-power one, High elsewhere.
+    CHECK(
+        settings::Settings{}.enhanced_preset()
+        == (settings::kHandheldDefaults ? settings::EnhancedPreset::Medium
+                                        : settings::EnhancedPreset::High)
+    );
+
+    // Each preset sets its options and is then the one the settings match.
+    for (const auto preset :
+         {settings::EnhancedPreset::Low,
+          settings::EnhancedPreset::Medium,
+          settings::EnhancedPreset::High}) {
+        s.apply_enhanced_preset(preset);
+        CHECK(s.enhanced_preset() == preset);
+    }
+
+    s.apply_enhanced_preset(settings::EnhancedPreset::Low);
+    CHECK(s.temporal_quality == renderer::TemporalQuality::Performance);
     CHECK(s.shadow_quality == renderer::ShadowQuality::Low);
-    CHECK(s.gtao_settings.half_resolution && !s.gtao_settings.hi_z);
-    CHECK(s.volumetric_quality == renderer::VolumetricQuality::Off);
-    CHECK(s.render_scale == 75 && s.motion_blur && s.gtao && s.enhanced_shadows && s.agx_preview);
+    CHECK(s.shadow_filter == renderer::ShadowFilter::Fast);
+    CHECK(s.gtao_settings.quality == renderer::GtaoQuality::Low);
+    CHECK(!s.motion_blur);
+
+    // What a preset does not cover stays as the player set it.
+    CHECK(s.render_scale == 75 && s.gtao && s.enhanced_shadows && s.agx_preview);
+    CHECK(!s.gtao_settings.half_resolution);
+    CHECK(s.volumetric_quality == renderer::VolumetricQuality::High);
+
+    // Any other mix is Custom, and applying Custom changes nothing.
+    s.shadow_filter = renderer::ShadowFilter::Soft;
+    CHECK(s.enhanced_preset() == settings::EnhancedPreset::Custom);
+    s.apply_enhanced_preset(settings::EnhancedPreset::Custom);
+    CHECK(s.shadow_quality == renderer::ShadowQuality::Low);
 }
 
 void test_agx_preview(const std::filesystem::path& file) {
@@ -223,7 +260,22 @@ void test_volumetric_quality(const std::filesystem::path& file) {
 
 void test_shadow_quality(const std::filesystem::path& file) {
     using namespace openrac;
-    CHECK(settings::Settings{}.shadow_quality == renderer::ShadowQuality::High);
+    // Low-power GPUs (Android, Apple Silicon) start at Medium.
+    CHECK(
+        settings::Settings{}.shadow_quality
+        == (settings::kHandheldDefaults ? renderer::ShadowQuality::Medium
+                                        : renderer::ShadowQuality::High)
+    );
+    for (const auto filter : {renderer::ShadowFilter::Fast, renderer::ShadowFilter::Soft}) {
+        std::ofstream(file) << "shadow_filter = "
+                            << renderer::kShadowFilterKeys[static_cast<int>(filter)] << "\n";
+        settings::load(file);
+        CHECK(settings::get().shadow_filter == filter);
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().shadow_filter == filter);
+    }
+    settings::get().shadow_filter = renderer::ShadowFilter::Soft;
     for (std::size_t n = 0; n < std::size(renderer::kShadowQualityKeys); ++n) {
         std::ofstream(file) << "shadow_quality = " << renderer::kShadowQualityKeys[n] << "\n";
         settings::load(file);
@@ -234,7 +286,7 @@ void test_shadow_quality(const std::filesystem::path& file) {
     }
     std::ofstream(file) << "shadow_quality = invalid\n";
     settings::load(file);
-    CHECK(settings::get().shadow_quality == renderer::ShadowQuality::High);
+    CHECK(settings::get().shadow_quality == settings::Settings{}.shadow_quality);
 }
 
 void test_sunlight_settings(const std::filesystem::path& file) {
@@ -459,12 +511,12 @@ int main() {
     settings::load(file);
     CHECK(settings::get().ceiling_area_lights);
     CHECK(settings::get().medial_axis_debug);
-    CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
+    CHECK(settings::get().temporal_quality == settings::Settings{}.temporal_quality);
     test_temporal_settings(file);
     test_lily_momentum(file);
     test_hdr_settings(file);
     test_reset_enhanced();
-    test_handheld_enhanced();
+    test_enhanced_presets();
     test_agx_preview(file);
     test_motion_blur_tuning(file);
     test_shadow_quality(file);
@@ -632,7 +684,10 @@ int main() {
         CHECK(options.probe_normal_bias == bias);
         CHECK(options.probe_view_bias == 2.0f - bias);
     }
-    for (auto quality : {renderer::GtaoQuality::Quality, renderer::GtaoQuality::Performance}) {
+    for (auto quality :
+         {renderer::GtaoQuality::Quality,
+          renderer::GtaoQuality::Low,
+          renderer::GtaoQuality::Performance}) {
         options.gtao_settings.quality = quality;
         settings::save();
         settings::load(file);

@@ -85,6 +85,24 @@ inline constexpr int kDefaultGameplayFov = 100;
 inline constexpr int kMaxGameplayFov = 120;
 inline constexpr int kGameplayFovStep = 5;
 
+// The presets of Enhanced graphics: the options that cost the most, set together. Custom is any
+// other mix of them.
+enum class EnhancedPreset {
+    Low,     // weak phones and integrated graphics: every effect at its cheapest, motion blur off
+    Medium,  // handhelds and Apple Silicon: fewer rendered pixels and smaller sun maps
+    High,    // desktop graphics cards
+    Custom
+};
+inline constexpr const char* kEnhancedPresetNames[] = {"Low", "Medium", "High", "Custom"};
+
+// Where Enhanced graphics start at the Medium preset: phones, handhelds and Apple Silicon. The
+// same effects at a lower cost; players can still pick High.
+#if defined(__ANDROID__) || (defined(__APPLE__) && defined(__aarch64__))
+inline constexpr bool kHandheldDefaults = true;
+#else
+inline constexpr bool kHandheldDefaults = false;
+#endif
+
 struct Settings {
     DisplayMode display_mode = DisplayMode::Windowed;
     int monitor = 0;  // 0: the display the window is on; n: the nth display, counted from 1
@@ -104,7 +122,9 @@ struct Settings {
     bool enhanced_rendering = false;
     bool enhanced_graphics = true;  // F4 within it; retains individual feature preferences
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
-    renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High;
+    renderer::ShadowQuality shadow_quality =
+        kHandheldDefaults ? renderer::ShadowQuality::Medium : renderer::ShadowQuality::High;
+    renderer::ShadowFilter shadow_filter = renderer::ShadowFilter::Soft;
     renderer::VolumetricQuality volumetric_quality = renderer::VolumetricQuality::Off;
 
     struct NanotechLight {
@@ -140,13 +160,15 @@ struct Settings {
     std::optional<std::array<float, 3>> sunlight_direction() const;
     // Restore this window's preferences without changing general graphics/audio or startup enablement.
     void reset_enhanced();
-    // The handheld preset of Enhanced graphics (phones, Android handhelds): the same effects at a
-    // lower cost. Fewer rendered pixels for the upscaler to rebuild (Balanced), the sun's maps at
-    // Low and ambient occlusion at half size; nothing is switched off. Leaves the rest alone.
-    void apply_handheld_enhanced();
+    // Sets the options a preset covers (upscaling, shadow quality and filtering, occlusion
+    // quality, motion blur, texture upscaling) and leaves the rest alone; Custom changes nothing.
+    void apply_enhanced_preset(EnhancedPreset preset);
+    // The preset those options match now, or Custom.
+    EnhancedPreset enhanced_preset() const;
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
-    renderer::TemporalQuality temporal_quality =
-        renderer::TemporalQuality::Quality;  // Enhanced Vulkan only.
+    renderer::TemporalQuality temporal_quality =  // Enhanced Vulkan only.
+        kHandheldDefaults ? renderer::TemporalQuality::Balanced
+                          : renderer::TemporalQuality::Quality;
     renderer::BloomSettings bloom;
     bool agx_preview = true;                 // SDR-only AgX colour treatment experiment.
     float agx_exposure = 0.25f;              // Base exposure in stops, before AgX.

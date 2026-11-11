@@ -31,6 +31,19 @@ export const mockEnhanced: EnhancedView = {
           "Low uses the smallest shadow textures. Medium balances detail and cost. High keeps the sharpest shadows.",
       },
       {
+        key: "shadow_filter",
+        name: "Shadow filtering",
+        type: "choice",
+        default: "soft",
+        value: "soft",
+        choices: [
+          { value: "fast", name: "Fast" },
+          { value: "soft", name: "Soft" },
+        ],
+        description:
+          "Soft blurs shadow edges with a wide filter. Fast costs less and leaves them harder.",
+      },
+      {
         key: "gtao",
         name: "Ambient occlusion",
         type: "bool",
@@ -45,6 +58,7 @@ export const mockEnhanced: EnhancedView = {
         default: "performance",
         value: "performance",
         choices: [
+          { value: "low", name: "Low" },
           { value: "performance", name: "Performance" },
           { value: "quality", name: "Quality" },
         ],
@@ -102,6 +116,19 @@ export const mockEnhanced: EnhancedView = {
         default: true,
         value: true,
         description: "Subtle motion blur to enhance animations.",
+      },
+      {
+        key: "motion_blur_quality",
+        name: "Motion blur quality",
+        type: "choice",
+        default: "performance",
+        value: "performance",
+        description:
+          "Quality finds blur trails at full resolution. Performance costs less with nearly the same trails.",
+        choices: [
+          { value: "performance", name: "Performance" },
+          { value: "quality", name: "Quality" },
+        ],
       },
       {
         key: "temporal_sharpness",

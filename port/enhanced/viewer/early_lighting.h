@@ -37,7 +37,7 @@ public:
     void release();
 
 private:
-    renderer::Shader m_compute;
+    renderer::Shader m_compute, m_compute_fast;  // shadow filtering Soft's, and Fast's
     std::array<unsigned, 2> m_buffers{}, m_textures{};
     int m_width = 0, m_height = 0;
     unsigned m_target = 0;

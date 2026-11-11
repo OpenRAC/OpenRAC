@@ -213,6 +213,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::ShadowFarAlternate, "shadow-far-alternate",
      "the sun's cascades 1 to 3 are drawn every other frame, 1 and the far two in turn, while their receivers fit",
      true, Tolerance{0.25, 255}},
+    {Opt::MotionBlurHalfFlood, "motion-blur-half-flood",
+     "the blur's jump flood runs on a half-resolution seed grid, a quarter of its pixels in every pass",
+     true, Tolerance{0.01, 32}},
 }};
 // clang-format on
 

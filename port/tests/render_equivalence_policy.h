@@ -21,6 +21,7 @@ inline constexpr std::array kFocusedEquivalence{
     std::pair{renderer::render_opt::Opt::MotionBlurUniqueSeeds, "motion_blur"},
     std::pair{renderer::render_opt::Opt::MotionBlurSetupReuse, "motion_blur"},
     std::pair{renderer::render_opt::Opt::MotionBlurAdaptiveSamples, "motion_blur"},
+    std::pair{renderer::render_opt::Opt::MotionBlurHalfFlood, "motion_blur"},
     std::pair{renderer::render_opt::Opt::FsrMotionBatch, "fsr3_motion"},
     std::pair{renderer::render_opt::Opt::FsrPaletteReuse, "fsr3_frame"},
     std::pair{renderer::render_opt::Opt::FsrObjectHistoryReuse, "fsr3_frame"},

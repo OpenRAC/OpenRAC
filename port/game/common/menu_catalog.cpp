@@ -89,10 +89,16 @@ constexpr Entry kEntries[] = {
     {Id::EnhancedGraphics, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Enhanced graphics",
      "Bounced light, modern shadows and ambient occlusion over the original lighting. Off shows "
      "the game as the console drew it."},
+    {Id::EnhancedPreset, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Preset",
+     "Sets upscaling, shadows, occlusion, motion blur and texture upscaling together. Low is for "
+     "weak phones and integrated graphics, Medium for handhelds, High for desktop graphics cards. "
+     "Custom is your own mix."},
     {Id::ModernShadows, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Modern shadows",
      "Shadows cast by the level's sun on everything, in place of the game's round blobs."},
     {Id::ShadowQuality, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Shadow quality",
      "The shadows' sharpness and reach. Higher costs the graphics card more."},
+    {Id::ShadowFilter, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Shadow filtering",
+     "Soft blurs shadow edges with a wide filter; Fast costs less and leaves them harder."},
     {Id::RimLight, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Gameplay rim light",
      "A thin light along the edges of characters, so they stand out from the scenery."},
     {Id::RimShadowLift, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Rim shadow lift",
@@ -102,7 +108,8 @@ constexpr Entry kEntries[] = {
     {Id::AmbientOcclusion, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Ambient occlusion",
      "Darkens corners and creases where light hardly reaches."},
     {Id::OcclusionQuality, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Occlusion quality",
-     "Quality traces more directions for smoother occlusion; Performance costs less."},
+     "Quality refines contacts and silhouettes more; Performance costs less; Low searches fewer "
+     "directions, for weak graphics cards."},
     {Id::OcclusionHiZ, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Hierarchical depth (Hi-Z)",
      "Uses a depth hierarchy for distant ambient-occlusion samples."},
     {Id::TextureUpscaling, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Texture upscaling",
@@ -115,6 +122,9 @@ constexpr Entry kEntries[] = {
      "How much the upscaler sharpens the picture it builds."},
     {Id::MotionBlur, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Motion blur",
      "Blurs what moves fast across the picture."},
+    {Id::MotionBlurQuality, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Motion blur quality",
+     "Quality finds blur trails at full resolution; Performance costs less with nearly the same "
+     "trails."},
     {Id::ColorCorrection, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Color correction",
      "A filmic tone curve (AgX) for the enhanced lighting's brighter colours."},
     {Id::Brightness, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Brightness",

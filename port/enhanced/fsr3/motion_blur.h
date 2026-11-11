@@ -65,7 +65,9 @@ private:
     int jump_flood(const Passes& passes);
     // Resolves moving samples and, for direct reconstruction, copies stationary pixels too.
     void gather(const Passes& passes, int source);
-    bool prepare(int width, int height, int render_width, int render_height, std::string& error);
+    bool prepare(
+        int width, int height, int render_width, int render_height, bool quality, std::string& error
+    );
     bool prepare_colour(int width, int height, std::string& error);
     FrameTarget m_velocity, m_colour;
     std::array<int, 2> m_colour_size{};
@@ -79,7 +81,7 @@ private:
     struct FloodSetup {
         std::array<int, 2> display;
         float min_motion, spread;
-        int first_jump;
+        int first_jump, seed_scale;
         bool fast, unique;
         bool operator==(const FloodSetup&) const = default;
     };
@@ -87,6 +89,7 @@ private:
     std::optional<FloodSetup> m_flood_setup;
     unsigned m_vao = 0;
     std::array<int, 4> m_size{};
+    int m_seed_scale = 1;  // Render pixels per seed cell, 2 with motion-blur-half-flood.
     bool m_failed = false;
 };
 

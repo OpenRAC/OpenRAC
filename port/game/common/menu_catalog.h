@@ -76,8 +76,10 @@ enum class Id : std::uint8_t {
     // Enhanced
     EnhancedStatus,
     EnhancedGraphics,
+    EnhancedPreset,
     ModernShadows,
     ShadowQuality,
+    ShadowFilter,
     RimLight,
     RimShadowLift,
     BounceStrength,
@@ -88,6 +90,7 @@ enum class Id : std::uint8_t {
     Upscaling,
     Sharpening,
     MotionBlur,
+    MotionBlurQuality,
     ColorCorrection,
     Brightness,
     EnhancedReset,

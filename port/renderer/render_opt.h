@@ -97,10 +97,12 @@ enum class Opt : std::uint8_t {
     // vertex-position-stream: positions in a tight vertex buffer of their own
     VertexPositionStream,
     ShadowFarAlternate,  // shadow-far-alternate: the far sun cascades drawn every other frame
+    // motion-blur-half-flood: the blur's jump flood runs on a half-resolution seed grid (lossy)
+    MotionBlurHalfFlood,
 };
 
-// The number of entries: ShadowFarAlternate is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::ShadowFarAlternate) + 1;
+// The number of entries: MotionBlurHalfFlood is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::MotionBlurHalfFlood) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in

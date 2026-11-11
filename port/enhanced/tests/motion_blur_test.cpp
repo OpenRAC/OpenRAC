@@ -608,6 +608,46 @@ void test_adaptive_gather_contract() {
     renderer::render_opt::set(Opt::MotionBlurAdaptiveSamples, true);
 }
 
+// The half-resolution flood stays within its registry tolerance and still blurs moving detail.
+void test_half_flood_contract() {
+    Fixture f;
+    std::string error;
+    CHECK(f.create(error));
+    f.moving_square();
+    using renderer::render_opt::Opt;
+    renderer::render_opt::set(Opt::MotionBlurHalfFlood, false);
+    const auto reference = f.render(.5f);
+    renderer::render_opt::set(Opt::MotionBlurHalfFlood, true);
+    const auto half = f.render(.5f);
+    renderer::render_opt::set(Opt::MotionBlurHalfFlood, false);
+    CHECK(reference != f.colour);
+    CHECK(half != f.colour);
+    std::size_t different = 0;
+    int maximum = 0;
+    for (std::size_t pixel = 0; pixel < reference.size(); ++pixel) {
+        int delta = 0;
+        for (std::size_t channel = 0; channel < 4; ++channel) {
+            delta = std::max(
+                delta,
+                std::abs(
+                    static_cast<int>(reference[pixel][channel])
+                    - static_cast<int>(half[pixel][channel])
+                )
+            );
+        }
+        different += delta != 0;
+        maximum = std::max(maximum, delta);
+    }
+    std::cout << "half flood: " << different << " of " << reference.size()
+              << " pixels differ, at most " << maximum << '\n';
+    const auto tolerance = renderer::render_opt::entry(Opt::MotionBlurHalfFlood).tolerance;
+    CHECK(
+        static_cast<double>(different) / static_cast<double>(reference.size())
+        <= tolerance.max_differing_fraction
+    );
+    CHECK(maximum <= tolerance.max_channel_delta);
+}
+
 void test_foreground_occlusion() {
     Fixture f;
     std::string error;
@@ -639,6 +679,8 @@ int main(int argc, char**) {
         reference_frames.clear();
         compared_frames = 0;
         for (bool direct : {false, true}) {
+            // Exact-pixel cases run on the full-resolution flood; its lossy half has its own test.
+            renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurHalfFlood, false);
             renderer::render_opt::set(renderer::render_opt::Opt::MotionBlurFastPath, direct);
             renderer::render_opt::set(renderer::render_opt::Opt::OverwriteDiscard, direct);
             compare_direct = direct;
@@ -659,6 +701,7 @@ int main(int argc, char**) {
             test_dense_motion_equivalence();
             test_scaled_resize_equivalence();
             test_flood_setup_reuse();
+            test_half_flood_contract();
         }
         CHECK(compared_frames == reference_frames.size());
         if (!repeated) {

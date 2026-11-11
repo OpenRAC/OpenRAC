@@ -41,17 +41,27 @@ bool EarlyLighting::render(
     if (cells * 2 > std::size_t(limit)) {
         return false;
     }
-    if (!m_compute.id()) {
+    // Shadow filtering Fast: four-tap shadows, one cascade at a time.
+    const bool fast = input.shadow_filter == renderer::ShadowFilter::Fast;
+    renderer::Shader& compute = fast ? m_compute_fast : m_compute;
+    if (!compute.id()) {
         std::string source = shaders::early_lighting_comp;
         source = probe_shader_source(std::move(source));
         if (renderer::render_opt::enabled(renderer::render_opt::Opt::EarlyProbeSetup)) {
             source.insert(source.find('\n') + 1, "#define OPENRAC_PROBE_RECEIVER_SETUP 1\n");
         }
+        if (fast) {
+            source.insert(source.find('\n') + 1, "#define OPENRAC_CHEAP_SHADOWS 1\n");
+        }
         source.insert(source.find('\n') + 1, renderer::shaders::surface_normal_glsl);
         source.insert(
             source.find('\n') + 1, "#define OPENRAC_PROBE_PIXEL early_pixel\nivec2 early_pixel;\n"
         );
-        if (!m_compute.build_compute("early GI and cascades", source, error)) {
+        if (!compute.build_compute(
+                fast ? "early GI and cascades (fast shadows)" : "early GI and cascades",
+                source,
+                error
+            )) {
             m_failed = true;
             return false;
         }
@@ -70,20 +80,20 @@ bool EarlyLighting::render(
         glBindTexture(wgl::GL_TEXTURE_BUFFER, m_textures[i]);
         glTexBuffer(wgl::GL_TEXTURE_BUFFER, i ? wgl::GL_R32UI : GL_RGBA8, m_buffers[i]);
     }
-    m_compute.use();
-    bind_lighting(m_compute);
+    compute.use();
+    bind_lighting(compute);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, depth);
-    glUniform1i(m_compute.uniform("early_depth"), 0);
-    glUniform1i(m_compute.uniform("surface_normals"), 19);
-    glUniform1i(m_compute.uniform("surface_normals_enabled"), target.normal_texture != 0 ? 1 : 0);
+    glUniform1i(compute.uniform("early_depth"), 0);
+    glUniform1i(compute.uniform("surface_normals"), 19);
+    glUniform1i(compute.uniform("surface_normals_enabled"), target.normal_texture != 0 ? 1 : 0);
     glActiveTexture(GL_TEXTURE0 + 19);
     glBindTexture(GL_TEXTURE_2D, target.normal_texture);
     glActiveTexture(GL_TEXTURE0);
     glUniformMatrix4fv(
-        m_compute.uniform("early_projection"), 1, GL_FALSE, input.camera.projection.data()
+        compute.uniform("early_projection"), 1, GL_FALSE, input.camera.projection.data()
     );
-    glUniformMatrix4fv(m_compute.uniform("early_view"), 1, GL_FALSE, input.camera.view.data());
+    glUniformMatrix4fv(compute.uniform("early_view"), 1, GL_FALSE, input.camera.view.data());
     const std::array<enhanced::ComputeOutput, 2> outputs{
         {{m_buffers[0], cells * 4}, {m_buffers[1], cells * 8}}
     };
@@ -159,6 +169,7 @@ std::span<const unsigned> EarlyLighting::buffers(
 
 void EarlyLighting::release() {
     m_compute.release();
+    m_compute_fast.release();
     if (m_buffers[0]) {
         glDeleteBuffers(2, m_buffers.data());
     }

@@ -22,6 +22,7 @@ void Settings::reset_enhanced() {
     enhanced_graphics = defaults.enhanced_graphics;
     enhanced_shadows = defaults.enhanced_shadows;
     shadow_quality = defaults.shadow_quality;
+    shadow_filter = defaults.shadow_filter;
     volumetric_quality = defaults.volumetric_quality;
     rim_light = defaults.rim_light;
     nanotech_light = defaults.nanotech_light;
@@ -53,13 +54,62 @@ void Settings::reset_enhanced() {
     texture_filter = defaults.texture_filter;
 }
 
-void Settings::apply_handheld_enhanced() {
-    temporal_quality = renderer::TemporalQuality::Balanced;
-    shadow_quality = renderer::ShadowQuality::Low;
-    gtao_settings.quality = renderer::GtaoQuality::Performance;
-    gtao_settings.half_resolution = true;
-    gtao_settings.hi_z = false;
-    volumetric_quality = renderer::VolumetricQuality::Off;
+namespace {
+// What a preset sets. The rest of Enhanced graphics costs little or is a matter of taste.
+struct PresetValues {
+    renderer::TemporalQuality temporal;
+    renderer::ShadowQuality shadows;
+    renderer::ShadowFilter shadow_filter;
+    renderer::GtaoQuality occlusion;
+    bool motion_blur;
+    renderer::TextureFilter textures;
+};
+
+constexpr PresetValues kPresets[] = {
+    {renderer::TemporalQuality::Performance,
+     renderer::ShadowQuality::Low,
+     renderer::ShadowFilter::Fast,
+     renderer::GtaoQuality::Low,
+     false,
+     renderer::TextureFilter::Normal},
+    {renderer::TemporalQuality::Balanced,
+     renderer::ShadowQuality::Medium,
+     renderer::ShadowFilter::Soft,
+     renderer::GtaoQuality::Performance,
+     true,
+     renderer::TextureFilter::EdgeAware},
+    {renderer::TemporalQuality::Quality,
+     renderer::ShadowQuality::High,
+     renderer::ShadowFilter::Soft,
+     renderer::GtaoQuality::Performance,
+     true,
+     renderer::TextureFilter::EdgeAware},
+};
+}  // namespace
+
+void Settings::apply_enhanced_preset(EnhancedPreset preset) {
+    if (preset == EnhancedPreset::Custom) {
+        return;
+    }
+    const PresetValues& values = kPresets[static_cast<int>(preset)];
+    temporal_quality = values.temporal;
+    shadow_quality = values.shadows;
+    shadow_filter = values.shadow_filter;
+    gtao_settings.quality = values.occlusion;
+    motion_blur = values.motion_blur;
+    texture_filter = values.textures;
+}
+
+EnhancedPreset Settings::enhanced_preset() const {
+    for (int n = 0; n < static_cast<int>(EnhancedPreset::Custom); ++n) {
+        const PresetValues& values = kPresets[n];
+        if (temporal_quality == values.temporal && shadow_quality == values.shadows
+            && shadow_filter == values.shadow_filter && gtao_settings.quality == values.occlusion
+            && motion_blur == values.motion_blur && texture_filter == values.textures) {
+            return static_cast<EnhancedPreset>(n);
+        }
+    }
+    return EnhancedPreset::Custom;
 }
 
 std::optional<std::array<float, 3>> Settings::sunlight_direction() const {
@@ -92,7 +142,8 @@ constexpr int kGameOptionLimit = 1'000'000;
 constexpr const char* kDisplayMode[] = {"windowed", "borderless"};
 constexpr const char* kAspect[] = {"4:3", "16:10", "16:9", "21:9", "32:9", "window", "custom"};
 constexpr const char* kHud[] = {"centre", "edges"};
-constexpr const char* kGtaoQuality[] = {"performance", "quality"};
+constexpr const char* kGtaoQuality[] = {"low", "performance", "quality"};
+constexpr const char* kBlurQuality[] = {"performance", "quality"};
 constexpr const char* kTextureFilter[] = {"normal", "edge-aware"};
 constexpr const char* kVSync[] = {"off", "on", "adaptive"};
 
@@ -311,6 +362,8 @@ void load(const std::filesystem::path& file) {
             known = parse(value, renderer::kVolumetricQualityKeys, s.volumetric_quality);
         } else if (key == "shadow_quality") {
             known = parse(value, renderer::kShadowQualityKeys, s.shadow_quality);
+        } else if (key == "shadow_filter") {
+            known = parse(value, renderer::kShadowFilterKeys, s.shadow_filter);
         } else if (key == "enhanced_shadows") {
             known = parse_bool(value, s.enhanced_shadows);
         } else if (key == "rim_light") {
@@ -403,6 +456,8 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 1.0f, s.lily_momentum);
         } else if (key == "motion_blur_strength") {
             known = parse_float(value, 0.0f, 1.0f, s.motion_blur_strength);
+        } else if (key == "motion_blur_quality") {
+            known = parse(value, kBlurQuality, s.motion_blur_settings.quality);
         } else if (key == "motion_blur_radius") {
             known = parse_int(value, 1, 128, s.motion_blur_settings.max_radius);
         } else if (key == "motion_blur_samples") {
@@ -610,6 +665,8 @@ void save() {
         << renderer::kVolumetricQualityKeys[static_cast<int>(s.volumetric_quality)] << "\n"
         << "shadow_quality = " << renderer::kShadowQualityKeys[static_cast<int>(s.shadow_quality)]
         << "\n"
+        << "shadow_filter = " << renderer::kShadowFilterKeys[static_cast<int>(s.shadow_filter)]
+        << "\n"
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
         << "rim_light = " << (s.rim_light ? 1 : 0) << "\n"
         << "texture_pack = " << (s.texture_pack ? 1 : 0) << "\n"
@@ -656,6 +713,7 @@ void save() {
         << "motion_blur = " << (s.motion_blur ? 1 : 0) << "\n"
         << "lily_momentum = " << s.lily_momentum << "\n"
         << "motion_blur_strength = " << s.motion_blur_strength << "\n"
+        << "motion_blur_quality = " << kBlurQuality[s.motion_blur_settings.quality ? 1 : 0] << "\n"
         << "motion_blur_radius = " << s.motion_blur_settings.max_radius << "\n"
         << "motion_blur_samples = " << s.motion_blur_settings.samples << "\n"
         << "motion_blur_min_motion = " << s.motion_blur_settings.min_motion << "\n"

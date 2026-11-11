@@ -141,10 +141,7 @@ bool Gtao::render(
             !direct_depth && !scratch
         )
         || !prepare_program(
-            scale,
-            target.normal_texture != 0,
-            options.quality == GtaoQuality::Performance,
-            options.hi_z
+            scale, target.normal_texture != 0, options.quality != GtaoQuality::Quality, options.hi_z
         )) {
         glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
         glViewport(0, 0, target.width, target.height);

@@ -9,11 +9,18 @@
 
 namespace openrac::renderer {
 
-// How carefully the horizons are refined: three silhouette-refinement steps, or seven.
+// How carefully the horizons are searched. Low: two directions and four samples a side, a third
+// of Performance's depth samples, for weak GPUs. Performance and Quality use the settings'
+// directions and steps, with three silhouette-refinement steps or seven.
 enum class GtaoQuality {
+    Low,
     Performance,
     Quality
 };
+
+// Low's fixed search: directions, and samples on each side of one.
+inline constexpr int kGtaoLowSlices = 2;
+inline constexpr int kGtaoLowSteps = 4;
 
 // The ambient occlusion's settings, with the defaults the player's settings start from
 // (docs/port/SETTINGS.md, the `gtao_*` keys).

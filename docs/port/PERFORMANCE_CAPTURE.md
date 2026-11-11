@@ -55,15 +55,16 @@ time; the other nine give the frame's true GPU time. Nothing needs switching on.
 
 ### What each graphics setting costs (settings sweep)
 
-Developer tools > **Record diagnostics** > **Graphics sweep** records 88 seconds and
+Developer tools > **Record diagnostics** > **Graphics sweep** records 108 seconds and
 changes the graphics settings every 4 seconds. It measures Enhanced graphics as set, one part at a
 time: Enhanced off; render scale 50% with Enhanced on and off, and with probe lighting off (a cost
 that stays at half scale does not follow the pixels: vertices, binning or a fixed pass); the
 blended passes left out or drawn without probe light; scenery detail Original; the opaque colour
 pass's depth test as EQUAL (`opaque-depth-gequal` off); positions read from the wide vertex
 (`vertex-position-stream` off); temporal off and Performance; each effect off on its own; every
-effect off; the handheld preset; the far sun cascades drawn every frame (`shadow-far-alternate`
-off). VSync is off while it runs, so a step's time is the device's own
+effect off; shadow filtering Fast; occlusion quality Low; the far sun cascades drawn every frame
+(`shadow-far-alternate` off); the motion blur flood at full size (`motion-blur-half-flood` off);
+the presets High, Medium and Low. VSync is off while it runs, so a step's time is the device's own
 and not a multiple of the display's refresh. Stand still for the whole recording. The report
 lists each step's time a picture (ticks the game runs without drawing are not counted) and GPU
 time (frames split to time their passes left out); the first 1.5 s of each step are left out,

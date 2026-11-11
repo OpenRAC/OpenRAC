@@ -146,10 +146,22 @@ constexpr SweepStep kSweep[] = {
     {"as set, AgX off", [](settings::Settings& g) { g.agx_preview = false; }},
     {"as set, rim light off", [](settings::Settings& g) { g.rim_light = false; }},
     {"enhanced, every effect off", effects_off},
-    {"handheld preset", [](settings::Settings& g) { g.apply_handheld_enhanced(); }},
+    {"as set, shadow filtering fast",
+     [](settings::Settings& g) { g.shadow_filter = renderer::ShadowFilter::Fast; }},
+    {"as set, occlusion quality low",
+     [](settings::Settings& g) { g.gtao_settings.quality = renderer::GtaoQuality::Low; }},
     {"as set, far sun cascades every frame (shadow-far-alternate off)",
      [](settings::Settings&) {},
      renderer::render_opt::Opt::ShadowFarAlternate},
+    {"as set, motion blur flood at full size (motion-blur-half-flood off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::MotionBlurHalfFlood},
+    {"preset high",
+     [](settings::Settings& g) { g.apply_enhanced_preset(settings::EnhancedPreset::High); }},
+    {"preset medium",
+     [](settings::Settings& g) { g.apply_enhanced_preset(settings::EnhancedPreset::Medium); }},
+    {"preset low",
+     [](settings::Settings& g) { g.apply_enhanced_preset(settings::EnhancedPreset::Low); }},
     {"as set (again)", [](settings::Settings&) {}},
 };
 constexpr int kSweepSteps = static_cast<int>(std::size(kSweep));
@@ -490,6 +502,8 @@ perf_capture::Context context(const Shown& shown) {
                                     "{} {}x{}{}",
                                     graphics.gtao_settings.quality == renderer::GtaoQuality::Quality
                                         ? "quality"
+                                    : graphics.gtao_settings.quality == renderer::GtaoQuality::Low
+                                        ? "low"
                                         : "performance",
                                     graphics.gtao_settings.slices,
                                     graphics.gtao_settings.steps,
