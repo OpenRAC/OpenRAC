@@ -378,14 +378,29 @@
     void playerAct(v, next);
   }
 
-  /** The screen is black: the game starts; the console steps aside once the game has covered it. */
+  /** The screen is black: the game starts; the black stays until the game has covered the launcher
+   *  and the player is back (a fixed wait showed the shelf again when the game was slow to open). */
   let aside = 0;
+  let back: (() => void) | null = null;
   function launched() {
     if (v && next) void playerAct(v, next);
-    aside = window.setTimeout(() => (launching = null), 1200);
+    const clear = () => {
+      clearTimeout(aside);
+      if (back) document.removeEventListener("visibilitychange", back);
+      back = null;
+      launching = null;
+    };
+    back = () => {
+      if (document.visibilityState === "hidden") clearTimeout(aside);
+      else clear();
+    };
+    document.addEventListener("visibilitychange", back);
+    // The game never came (it failed to start): the shelf comes back.
+    aside = window.setTimeout(clear, 6000);
   }
   $effect(() => () => {
     clearTimeout(aside);
+    if (back) document.removeEventListener("visibilitychange", back);
     clearTimeout(unwind);
   });
 

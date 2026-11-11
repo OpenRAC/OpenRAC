@@ -47,39 +47,43 @@
     SY = 280,
     SIZE = 420;
 
-  let t = $state(0);
-  let screen = $state({ w: 1280, h: 720 });
-  const fit = $derived(Math.min((screen.w * 0.86) / W, (screen.h * 0.86) / H));
-  const left = $derived((screen.w - W * fit) / 2);
-  const top = $derived(screen.h * 0.52 - (H * fit) / 2);
+  /** Seconds since the press. Read by the handlers only: each frame writes its styles straight to
+   *  the elements (`paint`), so nothing re-renders, and only transforms and opacities change: the
+   *  WebView composites them without laying out or repainting a thing. */
+  let t = 0;
+  let screen = { w: 1280, h: 720 };
+  let fit = 1,
+    left = 0,
+    top = 0;
+  let fromX = 0,
+    fromY = 0,
+    fromScale = 1;
 
-  // The disc's path, in the console's own units: from where it stood on the shelf to the spindle.
-  const fromX = $derived((from.left + from.width / 2 - left) / fit);
-  const fromY = $derived((from.top + from.height / 2 - top) / fit);
-  const fromSize = $derived(from.width / fit);
-  const disc = $derived.by(() => {
-    const go = travelAt(t);
-    const lift = liftAt(t);
-    const x = fromX + (SX - fromX) * go;
-    const y = fromY + (SY - fromY) * go;
-    const size = fromSize + (SIZE - fromSize) * go;
-    const z = 2 + lift * 600 + (1 - go) * 160;
-    // Taken in hand it tips towards the player a little.
-    const tip = lift * -60;
-    return `left: ${x}px; top: ${y}px; width: ${size}px; height: ${size}px; transform: translate(-50%, -50%) translateZ(${z}px) rotateX(${tip}deg) scale(${1 + lift}) rotate(${spinAt(t)}deg)`;
-  });
+  const print = $derived(discPrint(game, version));
+  const glow = $derived(ACCENTS[game]?.["--glow"]);
+
+  let el = $state<HTMLElement | null>(null);
+  let ink = $state<HTMLElement | null>(null);
+  let light = $state<HTMLElement | null>(null);
+  let stage = $state<HTMLElement | null>(null);
+  let box = $state<HTMLElement | null>(null);
+  let discEl = $state<HTMLElement | null>(null);
+  let spinEl = $state<HTMLElement | null>(null);
+  let shadeEl = $state<HTMLElement | null>(null);
+  let lidEl = $state<HTMLElement | null>(null);
+  let litEl = $state<HTMLElement | null>(null);
+  let ledEl = $state<HTMLElement | null>(null);
+  let holeEl = $state<HTMLElement | null>(null);
+  let allEl = $state<HTMLElement | null>(null);
+  let blurEl = $state<HTMLElement | null>(null);
 
   // A disc at 15 turns a second jumps a quarter turn a frame and seems to shake; the eye sees it
   // smeared. Two pictures of the print, smeared once as the disc comes (a short arc, and all the way
   // round into rings), come over it as it speeds up: two layers a frame, not a copy per step.
-  const print = $derived(discPrint(game, version));
   let arc = $state<HTMLCanvasElement | null>(null);
-  /** The smeared pictures are drawn: until then (or without the print) a soft ring blurs it. */
-  let smeared = $state(false);
   let ring = $state<HTMLCanvasElement | null>(null);
-  /** How much the short smear shows, then the rings, 0 to 1. */
-  const arcIn = $derived(Math.min(1, (turnsAt(t) / 15) * 4));
-  const ringIn = $derived(Math.min(1, Math.max(0, (turnsAt(t) / 15 - 0.25) / 0.45)));
+  /** The smeared pictures are drawn: until then (or without the print) a soft ring blurs it. */
+  let smeared = false;
 
   /** Draws the print `steps` times over `degrees`, each fainter, so all weigh the same. */
   function smearInto(canvas: HTMLCanvasElement, img: HTMLImageElement, degrees: number, steps: number) {
@@ -96,27 +100,97 @@
     }
   }
 
-  /** Its shadow on the drive: it shows as the disc comes down, and spreads as it is lifted. */
-  const shade = $derived.by(() => {
-    const lift = liftAt(t);
-    const near = travelAt(t) ** 3;
-    return `opacity: ${near * Math.max(0, 0.75 - lift * 3)}; transform: translate(-50%, -50%) scale(${1 + lift * 1.6})`;
-  });
+  /** The black circle is drawn once at this size and scaled: a layer the size of the screen's
+   *  diagonal, several times over, is more than the GPU keeps in one piece, and it fell apart into
+   *  blocks in the last frames. */
+  const HOLE = 256;
+  let diagonal = 1;
 
-  /** The console gives a little as the lid shuts. */
-  const knock = $derived(Math.sin(Math.PI * Math.min(1, Math.max(0, (t - shutAt() + 0.04) / 0.2))) * 1.5);
-  const glow = $derived(ACCENTS[game]?.["--glow"]);
-  const black = $derived(blackAt(t));
-  const hole = $derived({ x: left + SX * fit, y: top + SY * fit, r: black * Math.hypot(screen.w, screen.h) });
+  function measure() {
+    screen = { w: innerWidth, h: innerHeight };
+    fit = Math.min((screen.w * 0.86) / W, (screen.h * 0.86) / H);
+    left = (screen.w - W * fit) / 2;
+    top = screen.h * 0.52 - (H * fit) / 2;
+    // The disc's path, in the console's own units: from where it stood on the shelf to the spindle.
+    fromX = (from.left + from.width / 2 - left) / fit;
+    fromY = (from.top + from.height / 2 - top) / fit;
+    fromScale = from.width / fit / SIZE;
+    diagonal = Math.hypot(screen.w, screen.h);
+    if (box) {
+      box.style.left = `${left}px`;
+      box.style.top = `${top}px`;
+    }
+    if (holeEl) {
+      holeEl.style.left = `${left + SX * fit}px`;
+      holeEl.style.top = `${top + SY * fit}px`;
+    }
+  }
+
+  const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+
+  /** Puts everything where it is at `t`. */
+  function paint() {
+    const into = consoleAt(t);
+    const go = travelAt(t);
+    const lift = liftAt(t);
+    const lid = lidAt(t);
+    const black = blackAt(t);
+    const over = t >= duration();
+
+    if (ink) ink.style.opacity = `${into}`;
+    if (light) light.style.opacity = `${into * 0.14}`;
+    if (stage) {
+      stage.style.opacity = `${into}`;
+      stage.style.visibility = over ? "hidden" : "";
+    }
+    // The console gives a little as the lid shuts.
+    const knock = Math.sin(Math.PI * clamp01((t - shutAt() + 0.04) / 0.2)) * 1.5;
+    if (box)
+      box.style.transform = `perspective(1600px) rotateX(14deg) translate3d(0, ${(1 - into) * 60 + knock}px, 0) scale(${fit})`;
+
+    if (discEl) {
+      const x = (fromX - SX) * (1 - go);
+      const y = (fromY - SY) * (1 - go);
+      const scale = (fromScale + (1 - fromScale) * go) * (1 + lift);
+      const z = 2 + lift * 600 + (1 - go) * 160;
+      // Taken in hand it tips towards the player a little.
+      discEl.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateX(${lift * -60}deg) scale(${scale})`;
+    }
+    if (spinEl) spinEl.style.transform = `rotate(${spinAt(t) % 360}deg)`;
+    const turns = turnsAt(t) / 15;
+    if (arc) arc.style.opacity = `${smeared ? Math.min(1, turns * 4) : 0}`;
+    if (ring) ring.style.opacity = `${smeared ? clamp01((turns - 0.25) / 0.45) : 0}`;
+    if (blurEl) blurEl.style.opacity = `${smeared ? 0 : speedAt(t) * 0.6}`;
+
+    // Its shadow on the drive: it shows as the disc comes down, and spreads as it is lifted.
+    if (shadeEl) {
+      shadeEl.style.opacity = `${go ** 3 * Math.max(0, 0.75 - lift * 3)}`;
+      shadeEl.style.transform = `scale(${1 + lift * 1.6})`;
+    }
+    if (lidEl) {
+      lidEl.style.transform = `translateZ(8px) rotateX(${104 * (1 - lid)}deg)`;
+    }
+    // Open, it catches the light.
+    if (litEl) litEl.style.opacity = `${1 - lid}`;
+    if (ledEl) ledEl.style.background = t >= shutAt() ? "rgb(93 255 122)" : "";
+
+    if (holeEl) {
+      holeEl.style.opacity = black > 0 && !over ? "1" : "0";
+      holeEl.style.transform = `scale(${Math.max(0.001, (black * diagonal * 2.6) / HOLE)})`;
+    }
+    // The last of the circle's growth hands over to plain black, which stays until the game covers
+    // the launcher: one flat layer, nothing to fall apart while Android takes the window away.
+    if (allEl) allEl.style.opacity = `${over ? 1 : clamp01((black - 0.7) / 0.3)}`;
+  }
 
   let done = false;
   let sounds: DriveSounds | null = null;
-  let el = $state<HTMLElement | null>(null);
 
   onMount(() => {
     // Over the whole window, rail too: a page that slides holds its fixed children inside it.
     if (el) document.body.appendChild(el);
-    screen = { w: innerWidth, h: innerHeight };
+    measure();
+    paint();
     el?.focus();
     if (print) {
       const img = new Image();
@@ -133,7 +207,8 @@
     const begun = performance.now();
     let frame = 0;
     const tick = (now: number) => {
-      t = (now - begun) / 1000;
+      t = Math.max(0, (now - begun) / 1000);
+      paint();
       if (t >= duration()) {
         if (!done) {
           done = true;
@@ -144,8 +219,14 @@
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
+    const resized = () => {
+      measure();
+      paint();
+    };
+    addEventListener("resize", resized);
     return () => {
       cancelAnimationFrame(frame);
+      removeEventListener("resize", resized);
       sounds?.stop(0.3);
       // Svelte no longer finds it once moved to <body>, so it goes from there by hand.
       // eslint-disable-next-line svelte/no-dom-manipulating
@@ -170,49 +251,43 @@
   aria-label={`Starting ${title}`}
   tabindex="-1"
   bind:this={el}
-  style={`--in: ${consoleAt(t)}${glow ? `; --glow: ${glow}` : ""}`}
+  style={glow ? `--glow: ${glow}` : ""}
   onclick={stop}
   onkeydown={(e) => {
     if (e.key === "Escape") stop();
   }}
 >
-  <div
-    class="console"
-    style={`left: ${left}px; top: ${top}px; transform: perspective(1600px) rotateX(14deg) translateY(${(1 - consoleAt(t)) * 60 + knock}px) scale(${fit})`}
-  >
-    <div class="body"></div>
-    <div class="strip"></div>
-    <div class="bay">
-      <div class="well">
-        <div class="laser"></div>
-        <div class="spindle"></div>
+  <div class="ink" bind:this={ink}></div>
+  <div class="light" bind:this={light}></div>
+  <!-- The fade sits outside the console's 3D: an opacity on it would flatten the lid and the disc
+       until it reached 1, and they would jump into depth as the console finished coming in. -->
+  <div class="stage" bind:this={stage}>
+    <div class="console" bind:this={box}>
+      <div class="body"></div>
+      <div class="strip"></div>
+      <div class="bay">
+        <div class="well">
+          <div class="laser"></div>
+          <div class="spindle"></div>
+        </div>
       </div>
+      <div class="shade" bind:this={shadeEl} style={`left: ${SX - SIZE / 2}px; top: ${SY - SIZE / 2}px`}></div>
+      <div class="disc" bind:this={discEl} style={`left: ${SX - SIZE / 2}px; top: ${SY - SIZE / 2}px`}>
+        <div class="spin" bind:this={spinEl}>
+          <Disc {game} {version} {title} />
+          {#if print}
+            <canvas class="smear" width="640" height="640" bind:this={arc}></canvas>
+            <canvas class="smear" width="640" height="640" bind:this={ring}></canvas>
+          {/if}
+          <span class="blur" bind:this={blurEl}></span>
+        </div>
+      </div>
+      <div class="lid" bind:this={lidEl}><span class="lit" bind:this={litEl}></span></div>
+      <div class="led" bind:this={ledEl}></div>
     </div>
-    <div class="shade" style={`left: ${SX}px; top: ${SY}px; width: ${SIZE}px; height: ${SIZE}px; ${shade}`}></div>
-    <div class="disc" style={disc}>
-      <Disc {game} {version} {title} />
-      {#if print}
-        <canvas class="smear" width="640" height="640" bind:this={arc} style={`opacity: ${smeared ? arcIn : 0}`}
-        ></canvas>
-        <canvas class="smear" width="640" height="640" bind:this={ring} style={`opacity: ${smeared ? ringIn : 0}`}
-        ></canvas>
-      {/if}
-      {#if !smeared}
-        <span class="blur" style={`opacity: ${speedAt(t) * 0.6}`}></span>
-      {/if}
-    </div>
-    <div
-      class="lid"
-      style={`transform: translateZ(8px) rotateX(${104 * (1 - lidAt(t))}deg); filter: brightness(${1.35 - 0.35 * lidAt(t)})`}
-    ></div>
-    <div class="led" class:on={t >= shutAt()}></div>
   </div>
-  {#if black > 0}
-    <div
-      class="black"
-      style={`left: ${hole.x}px; top: ${hole.y}px; width: ${hole.r * 2.6}px; height: ${hole.r * 2.6}px`}
-    ></div>
-  {/if}
+  <div class="hole" bind:this={holeEl} style={`width: ${HOLE}px; height: ${HOLE}px`}></div>
+  <div class="all" bind:this={allEl}></div>
 </div>
 
 <style>
@@ -220,15 +295,31 @@
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background:
-      radial-gradient(
-        50% 60% at 50% 54%,
-        color-mix(in srgb, var(--glow) calc(var(--in) * 14%), transparent),
-        transparent 75%
-      ),
-      color-mix(in srgb, var(--ink) calc(var(--in) * 100%), transparent);
     outline: none;
     overflow: hidden;
+    contain: strict;
+  }
+
+  .ink,
+  .light,
+  .stage,
+  .all {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    will-change: opacity;
+  }
+
+  .ink {
+    background: var(--ink);
+  }
+
+  .light {
+    background: radial-gradient(50% 60% at 50% 54%, var(--glow, transparent), transparent 75%);
+  }
+
+  .all {
+    background: rgb(0 0 0);
   }
 
   .console {
@@ -237,7 +328,7 @@
     height: 560px;
     transform-origin: 0 0;
     transform-style: preserve-3d;
-    opacity: var(--in);
+    will-change: transform;
   }
 
   .body {
@@ -317,12 +408,23 @@
     background: radial-gradient(circle, rgb(0 0 0) 0 18%, rgb(58 58 64) 20% 55%, rgb(27 27 31) 57%);
   }
 
-  .disc {
+  .disc,
+  .shade {
     position: absolute;
+    width: 420px;
+    height: 420px;
+    will-change: transform;
+  }
+
+  .spin {
+    position: absolute;
+    inset: 0;
+    will-change: transform;
   }
 
   .smear {
     position: absolute;
+    opacity: 0;
     inset: 0;
     width: 100%;
     height: 100%;
@@ -330,7 +432,7 @@
   }
 
   .shade {
-    position: absolute;
+    opacity: 0;
     border-radius: 50%;
     background: radial-gradient(circle closest-side, rgb(0 0 0 / 0.7) 60%, transparent);
     filter: blur(10px);
@@ -349,6 +451,7 @@
       rgb(200 200 210 / 0.25) 71% 99%,
       transparent 100%
     );
+    opacity: 0;
     pointer-events: none;
   }
 
@@ -366,6 +469,14 @@
     box-shadow:
       inset 0 0 0 1px rgb(255 255 255 / 0.06),
       0 10px 24px rgb(0 0 0 / 0.45);
+    will-change: transform;
+  }
+
+  .lit {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgb(255 255 255 / 0.1);
   }
 
   .led {
@@ -379,14 +490,13 @@
     transition: background 120ms;
   }
 
-  .led.on {
-    background: rgb(93 255 122);
-  }
-
-  .black {
-    position: fixed;
+  /* Drawn once at its small size and scaled up: its edge is soft anyway. */
+  .hole {
+    position: absolute;
+    margin: -128px 0 0 -128px;
     border-radius: 50%;
     background: radial-gradient(circle closest-side, rgb(0 0 0) 72%, transparent);
-    transform: translate(-50%, -50%);
+    opacity: 0;
+    will-change: transform;
   }
 </style>
