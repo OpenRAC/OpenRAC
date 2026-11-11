@@ -258,6 +258,9 @@ struct State {
     std::vector<renderer::ImageUpload> images;
     // The camera the game's world renderers drew with this frame (world_drawn), if they ran.
     std::optional<host::GameState> world_camera;
+    // ShrubProc's choice read with that camera ("Draw distance: Original"): the main menu's code
+    // puts a camera of its own in memory after the title world is drawn.
+    std::optional<std::vector<host::ShrubDraw>> world_shrubs;
     // The last camera a frame drew its world from that usable_camera and usable_view accepted
     // (scene_frame.cpp's set_camera), drawn again in place of one they refuse; how many frames in
     // a row were refused, and how many runs of them were logged.
