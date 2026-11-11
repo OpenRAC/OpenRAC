@@ -1,7 +1,7 @@
 <script module lang="ts">
   /** The last count read for each version: shown at once when the page comes back, which read it
    *  again and blinked "enabled" to "enabled: 3". */
-  const lastCount = new Map<string, number | null>();
+  const lastCount: Record<string, number | null> = {};
 </script>
 
 <script lang="ts">
@@ -23,11 +23,11 @@
   let count = $state<number | null>(null);
   $effect(() => {
     const shown = version;
-    count = lastCount.get(shown.key) ?? null;
+    count = lastCount[shown.key] ?? null;
     if (!setUp) return;
     let current = true;
     void modsOnCount(shown).then((n) => {
-      lastCount.set(shown.key, n);
+      lastCount[shown.key] = n;
       if (current) count = n;
     });
     return () => {
