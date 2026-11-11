@@ -134,6 +134,8 @@ struct DirectState {
     TextureHandle field = 0;  // its distance field, beside the texture itself
     // The whole target's on a target wider than the picture, as a fade is (kWholeMarker).
     bool whole = false;
+    // Cut at the picture's sides even with the HUD at the target's sides (kPictureMarker).
+    bool picture = false;
 
     bool operator==(const DirectState&) const = default;
 };
@@ -263,6 +265,11 @@ public:
     // there, the draws stretch to the whole target, as a fade does, instead of keeping their shape
     // in its middle. On a target of the picture's own shape it changes nothing.
     static constexpr std::uint64_t kWholeMarker = 0x5754;
+    // From a marker of the same form, kPictureMarker in the top 16 bits and 1 in the low bit, to one
+    // with 0 there, a scissor of the screen's whole width stays the picture's even with "HUD: Edges"
+    // (RenderTarget::wide_2d). A menu parks its hidden panels past the screen's sides; this keeps
+    // them out of sight, as on the television.
+    static constexpr std::uint64_t kPictureMarker = 0x5043;
 
     // A VIF1 stream carrying GIF data in DIRECT and DIRECTHL commands, with
     // the bookkeeping codes around them (NOP, FLUSH, STCYCL...). A command
@@ -342,7 +349,8 @@ private:
     int m_hud_side = 0;
     bool m_hud_stretch = false;
     std::uint32_t m_hud_side_first = 0;
-    bool m_whole = false;  // between kWholeMarker's two markers
+    bool m_whole = false;    // between kWholeMarker's two markers
+    bool m_picture = false;  // between kPictureMarker's two markers
     DirectVertex convert(const GsVertex& v) const;
     void screen_position(const GsVertex& v, float& x, float& y) const;
     void ensure_draw();

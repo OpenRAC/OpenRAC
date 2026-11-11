@@ -143,3 +143,49 @@ int func_L00_0023B140(gaddr element) {
     GREF(int, element + SLOT_X) += by;
     return result;
 }
+
+/*
+ * The menus' panels (draw_pause_menu_pages in a level, render_level_effects_and_screen_sprites
+ * between levels):
+ * the game parks the panels of the pages not shown past its screen's left side and still draws their
+ * dark fill. The television never showed them. With "HUD: Edges" the picture's sides are drawn, so a
+ * marker (renderer::GifInterpreter::kPictureMarker) keeps what the menu draws inside the picture.
+ */
+#define PICTURE_MARKER 0x5043ull
+
+/* A GS NOP carrying the marker, put in the 2D list as ui2d.c puts its quads' markers. */
+static void picture_marker(int on) {
+    const gaddr cursor = OPENRAC_DATA(RAC1_ADDR(0x00161000u));
+    const gaddr at = GREF(gaddr, cursor);
+    GREF(uint32_t, at + 0) = 0x10000002u;
+    GREF(uint32_t, at + 4) = 0;
+    GREF(uint32_t, at + 8) = 0;
+    GREF(uint32_t, at + 12) = 0x50000002u;
+    GREF(uint64_t, at + 16) = 1ull | (1ull << 15) | (1ull << 60);
+    GREF(uint64_t, at + 24) = 0xEull;
+    GREF(uint64_t, at + 32) = PICTURE_MARKER << 48 | (on ? 1u : 0u);
+    GREF(uint64_t, at + 40) = 0x7Full;
+    GREF(gaddr, cursor) = at + 48;
+}
+
+void func_0021A610(void) {
+    const int side = openrac_game_hud_side();
+    if (side != 0) {
+        picture_marker(1);
+    }
+    func_0021A610__game();
+    if (side != 0) {
+        picture_marker(0);
+    }
+}
+
+void func_L00_002781D8(int transfer_only) {
+    const int side = openrac_game_hud_side();
+    if (side != 0) {
+        picture_marker(1);
+    }
+    func_L00_002781D8__game(transfer_only);
+    if (side != 0) {
+        picture_marker(0);
+    }
+}
