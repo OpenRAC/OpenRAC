@@ -327,7 +327,8 @@ void drawer(const Shown& shown) {
                 ImFont* font = menu_fonts.strong;
                 const char* label = "Resume";
                 const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, label);
-                const ImVec2 pill_b(bottom.x - dp(12.0f), top.y + head * 0.5f + dp(18.0f));
+                // Its right edge lines up with the badge and the lit section under it.
+                const ImVec2 pill_b(bottom.x - dp(16.0f), top.y + head * 0.5f + dp(18.0f));
                 const ImVec2 pill_a(pill_b.x - size.x - dp(36.0f), pill_b.y - dp(36.0f));
                 front->AddRectFilled(pill_a, pill_b, ui_colors::fade(ui().amber, resume), dp(6.0f));
                 front->AddText(
