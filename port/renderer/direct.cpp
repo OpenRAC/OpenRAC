@@ -1369,8 +1369,9 @@ bool GifInterpreter::covers_no_pixel(std::initializer_list<const GsVertex*> corn
     // frontend::hud_side): an element the game slides off its edge goes past that edge as it went
     // past the television's, and the part of a pixel the target has beyond it shows no more of it.
     const std::int64_t width = 2 * (2048 - ofx / 16);
-    if (m_wide_2d && !m_picture && m_picture_scale_x > 0.0f && m_picture_scale_x < 1.0f && offscreen_target() == 0
-        && width >= 64 && width <= 1024 && sx0 <= 0 && sx1 + 1 >= width) {
+    if (m_wide_2d && !m_picture && m_picture_scale_x > 0.0f && m_picture_scale_x < 1.0f
+        && offscreen_target() == 0 && width >= 64 && width <= 1024 && sx0 <= 0
+        && sx1 + 1 >= width) {
         const auto extra = static_cast<std::int64_t>(
             (1.0f / m_picture_scale_x - 1.0f) * 0.5f * static_cast<float>(width));
         sx0 -= extra;
