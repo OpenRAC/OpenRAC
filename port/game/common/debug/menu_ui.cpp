@@ -378,8 +378,9 @@ float key_cap(ImDrawList* list, float x, float middle, const std::string& key, f
     const ImVec2 a(std::round(x), std::round(middle - h * 0.5f));
     const ImVec2 b(a.x + std::round(w), a.y + std::round(h));
     const ImVec2 centre((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
-    // A badge: on the darkest black, as the site's badges and key hints, 4 px corners, no border.
-    list->AddRectFilled(a, b, ui_colors::fade(ui().ink_deep, alpha), dp(4.0f));
+    // Filled as the launcher's pad glyphs and buttons (never black): the lighter control fill,
+    // which still shows on a card. 4 px corners, no border.
+    list->AddRectFilled(a, b, ui_colors::fade(ui().control_card_hi, alpha), dp(4.0f));
     const CapText t = cap_text(key);
     ImVec2 at = centred_text(t.font, t.size, key, centre);
     if (cap_sign(key)) {
