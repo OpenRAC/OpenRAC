@@ -98,9 +98,10 @@
     gap: 10px;
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
-    background: var(--card-hi);
-    --control: var(--control-card);
-    --control-hi: var(--control-card-hi);
+    /* Warm, as the Get mods card: a hint about the game, not a grey slab. */
+    background: color-mix(in srgb, var(--amber) 9%, var(--panel));
+    --control: color-mix(in srgb, var(--amber) 16%, var(--panel));
+    --control-hi: color-mix(in srgb, var(--amber) 24%, var(--panel));
     font-size: 0.8125rem;
     color: var(--body);
   }
