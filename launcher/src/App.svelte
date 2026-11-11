@@ -24,6 +24,7 @@
   import { followCodeLinks } from "$lib/modCodes.svelte";
   import { lookForModUpdates } from "$lib/modUpdates.svelte";
   import { preloadArt } from "$lib/media";
+  import { modNav } from "$lib/modNav.svelte";
   import { slide, slides } from "$lib/motion";
   import { applyPalette } from "$lib/palettes";
   import { applyAccent } from "$lib/themes";
@@ -66,13 +67,16 @@
   });
 
   // Android: the Games tab's pictures ready before it is first shown (media.ts).
-  if (onAndroid) preloadArt();
+  preloadArt();
 
   $effect(() => {
     // The launcher's accent is the picked game's own (themes.ts), the colour easing from one to the
     // next (app.css). main.ts put the last one on; it stays until the settings say which game shows,
     // and that first one goes on at once too (a first start, or another game than the kept one).
-    const game = app.version?.split("/")[0] ?? null;
+    // On Android's Games tab the disc picked brings its game's colours only when they are on
+    // (Settings, General); else the shelf stays in the launcher's own gold.
+    const shelf = onAndroid && app.page === "library" && !(app.config?.gameColors ?? true);
+    const game = shelf ? null : (app.version?.split("/")[0] ?? null);
     if (!app.config && !game) return;
     applyAccent(game, app.config?.gameColors ?? true);
     const root = document.documentElement;
@@ -83,11 +87,6 @@
   $effect(() => {
     // The theme (Settings → General); main.ts put the last one on before the settings loaded.
     if (app.config) applyPalette(app.config.theme);
-  });
-
-  $effect(() => {
-    // The layout (Settings → Appearance): src/layouts/compact.css applies only to "compact".
-    document.documentElement.dataset.layout = app.config?.layout ?? "compact";
   });
 
   // The page shown. One page gives way to the next in a slide (motion.ts, app.css): the one leaving
@@ -115,13 +114,24 @@
     if (slides) document.documentElement.dataset.motion = "slides";
   });
 
-  // Another page starts at its top, as it arrives (app.css: its sections rise in turn).
+  // Another page starts at its top, as it arrives (app.css: its sections rise in turn), and so does
+  // a page inside it: a mod's own page (Enhanced graphics' Settings), Develop's tabs. Back from a
+  // mod's page, the list is where it was left.
   let view = $state<HTMLElement | null>(null);
-  let shown: Page | null = null;
+  const place = $derived(
+    page === "mods" ? `mods:${modNav.mod ?? ""}` : page === "develop" ? `develop:${app.develop}` : page,
+  );
+  let shown: string | null = null;
+  let listAt = 0;
+  $effect.pre(() => {
+    // Before the new page replaces the list: where the list stood.
+    if (place !== shown && shown === "mods:") listAt = view?.scrollTop ?? 0;
+  });
   $effect(() => {
-    if (page === shown) return;
-    shown = page;
-    view?.scrollTo({ top: 0 });
+    if (place === shown) return;
+    const back = place === "mods:" && !!shown?.startsWith("mods:");
+    shown = place;
+    view?.scrollTo({ top: back ? listAt : 0 });
   });
 
   $effect(() => {
@@ -233,9 +243,17 @@
   }
 
   .shell {
+    position: relative;
     height: 100%;
     display: flex;
     flex-direction: column;
+  }
+
+  /* A desktop's header lies over the page (Header.svelte): the page starts at the window's top and
+     scrolls under it, its first line kept below it. A tab with a list takes the room back for its
+     two columns (SideFrame.svelte). */
+  :global(html:not([data-platform="android"])) main {
+    padding-top: var(--nav-top);
   }
 
   /* Android: the navigation rail beside the page, or its bar under it on a narrow window
@@ -249,6 +267,14 @@
   @media (max-width: 599px) {
     :global(html[data-platform="android"]) .shell {
       flex-direction: column-reverse;
+    }
+  }
+
+  /* The rail lies over the page's left edge (Header.svelte): the page's ground and Games' wave run
+     under it, its first column kept beside it. */
+  @media (min-width: 600px) {
+    :global(html[data-platform="android"]) main {
+      padding-left: var(--nav-left);
     }
   }
 

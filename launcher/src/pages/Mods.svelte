@@ -576,8 +576,8 @@
     font-size: 0.875rem;
   }
 
+  /* A plain panel: panels have no border, so a dashed style drew a thick one in the text's colour. */
   .sdk {
-    border-style: dashed;
     font-size: 0.8125rem;
   }
 

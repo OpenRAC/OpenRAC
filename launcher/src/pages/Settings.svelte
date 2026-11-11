@@ -48,7 +48,6 @@
     "discsDir",
     "installDir",
     "saveDir",
-    "layout",
     "theme",
     "gameColors",
     "discordRpc",
@@ -167,11 +166,14 @@
     });
   });
 
+  /** Android saves by itself, so a change still waiting when the page is left is saved then. */
+  const kept = () => onAndroid && !setup && (saving || (changed && !nameError));
+
   // A theme picked shows at once; left unsaved, the saved one comes back with the page's end.
   $effect(() => {
     applyPalette(draft.theme);
     return () => {
-      applyPalette(app.config?.theme);
+      if (!kept()) applyPalette(app.config?.theme);
     };
   });
 
@@ -180,7 +182,7 @@
     const game = app.version?.split("/")[0] ?? null;
     applyAccent(game, draft.gameColors);
     return () => {
-      applyAccent(game, app.config?.gameColors ?? true);
+      if (!kept()) applyAccent(game, app.config?.gameColors ?? true);
     };
   });
 
@@ -216,6 +218,10 @@
     return () => {
       clearTimeout(timer);
     };
+  });
+  // Left before the moment passed (a theme picked, then another tab at once): saved now.
+  $effect(() => () => {
+    if (kept() && !saving) void save(false);
   });
   const tool = (t: "python" | "godot" | "docker") => (path: string) => api.checkTool(t, path);
   const root = (path: string): Promise<Check> => api.checkRoot(path);
@@ -476,23 +482,10 @@
         </span>
         <input type="checkbox" role="switch" class="switch" bind:checked={draft.gameColors} />
       </label>
-      <!-- Android has neither: its games are tiles, and no Discord app on the device reads a
-           desktop's rich presence. -->
+      <!-- Android has neither: its Games tab is a shelf of discs, and no Discord app on the
+           device reads a desktop's rich presence. -->
       {#if !onAndroid}
         <AddToSteam />
-        <label class="setting">
-          <span class="text">
-            <strong>Compact layout</strong>
-            <small>A game's name and its Play button side by side.</small>
-          </span>
-          <input
-            type="checkbox"
-            role="switch"
-            class="switch"
-            checked={draft.layout !== "classic"}
-            onchange={(e) => (draft.layout = e.currentTarget.checked ? "compact" : "classic")}
-          />
-        </label>
         <label class="setting">
           <span class="text">
             <strong>Show in Discord</strong>

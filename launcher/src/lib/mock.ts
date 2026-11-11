@@ -258,7 +258,6 @@ let config: Config = {
   checkModUpdates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("modupdates"),
   updateChannel: null,
   updateBranch: null,
-  layout: "compact",
   theme: new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("theme") ?? "openrac",
   discordClientId: null,
   // ?gold: Game colours off, every game in the launcher's gold.
@@ -2570,9 +2569,13 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       });
     case "get_config":
       return delay<Config>({ ...config });
-    case "save_config":
+    case "save_config": {
       config = { ...(args.config as Config) };
+      // For the e2e tests: how many writes, and the last one (Games keeps a pick once it stops).
+      const seen = window as unknown as { __openracConfigWrites?: { count: number; last: Config } };
+      seen.__openracConfigWrites = { count: (seen.__openracConfigWrites?.count ?? 0) + 1, last: { ...config } };
       return delay<Config>({ ...config });
+    }
     case "adopt_godot":
       return delay<Config>({ ...config });
     case "detect":

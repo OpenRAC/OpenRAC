@@ -1,5 +1,5 @@
-// What a player can do with a game right now: one answer, used by the library's
-// tile and the game's page, so the main button says and does the same thing in both.
+// What a player can do with a game right now: one answer, used by Android's disc
+// shelf and the game's page, so the main button says and does the same thing in both.
 import type { ActionView, GameView, VersionView } from "./api";
 import type { IconName } from "$components/Icon.svelte";
 import { onAndroid, pickFolder, pickIso } from "./api";
@@ -597,4 +597,20 @@ async function play(v: VersionView): Promise<void> {
     return;
   }
   await run({ kind: "version", key: v.key }, start);
+}
+
+/** Whether a version has a port to play (its Play is not only planned). */
+export function hasPort(v: VersionView | null): boolean {
+  return v?.actions.some((a) => a.id === "play" && a.state !== "planned") ?? false;
+}
+
+/** What Play warns of before it starts (actions.json `warning`), on this platform; null for none. */
+export function playWarning(v: VersionView | null): string | null {
+  return v?.actions.find((a) => a.id === "play" && a.thisPlatform)?.warning ?? null;
+}
+
+/** Whether the next step can be taken from beside a disc: on Android the game's page has no
+ *  button for it, so every step shows there, a game not playable yet's set-up too. */
+export function offersStep(next: PlayerState | null): boolean {
+  return !!next && !next.disabled && next.kind !== "installing";
 }

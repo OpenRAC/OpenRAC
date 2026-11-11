@@ -208,13 +208,16 @@
   .fold {
     justify-content: flex-start;
     gap: 8px;
-    padding: 8px 0;
     border: 0;
     background: none;
     box-shadow: none;
     color: var(--text);
     font-weight: 600;
     text-align: left;
+    /* Room on both sides, so the triangle sits inside the fill a hover gives it; the negative
+     margin keeps the words in line with the text around. */
+    padding: 8px 12px;
+    margin-left: -12px;
   }
 
   .fold::before {

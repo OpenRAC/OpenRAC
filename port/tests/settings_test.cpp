@@ -86,6 +86,15 @@ void test_hdr_settings(const std::filesystem::path& file) {
     settings::load(file);
     CHECK(settings::get().hdr == hdr::Mode::Off);
     CHECK(settings::get().hdr_paper_white == 0 && settings::get().hdr_peak == 0);
+    // The menu's size: kept through a save, Auto (100) when out of range.
+    std::ofstream(file) << "menu_size = 125\n";
+    settings::load(file);
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().menu_size == 125);
+    std::ofstream(file) << "menu_size = 900\n";
+    settings::load(file);
+    CHECK(settings::get().menu_size == 100);
 }
 
 void test_reset_enhanced() {

@@ -46,75 +46,6 @@ ImU32 control_fill() {
     return ui().control_card;
 }
 
-namespace {
-
-// `in` cut by the line x + (y - top) * lean = at, keeping the side where that sum is above it
-// (`above`) or below: one step of clipping a convex shape to a band.
-void cut(
-    const ImVector<ImVec2>& in, ImVector<ImVec2>& out, float lean, float top, float at, bool above
-) {
-    out.resize(0);
-    const auto side = [&](ImVec2 p) {
-        const float v = p.x + (p.y - top) * lean - at;
-        return above ? v : -v;
-    };
-    for (int i = 0; i < in.Size; ++i) {
-        const ImVec2 p = in[i];
-        const ImVec2 q = in[(i + 1) % in.Size];
-        const float sp = side(p);
-        const float sq = side(q);
-        if (sp >= 0.0f) {
-            out.push_back(p);
-        }
-        if ((sp >= 0.0f) != (sq >= 0.0f)) {
-            const float k = sp / (sp - sq);
-            out.push_back(ImVec2(p.x + (q.x - p.x) * k, p.y + (q.y - p.y) * k));
-        }
-    }
-}
-
-}  // namespace
-
-void striped_rect(
-    ImDrawList* list,
-    ImVec2 a,
-    ImVec2 b,
-    float round,
-    ImU32 one,
-    ImU32 two,
-    ImVec2 origin,
-    float alpha
-) {
-    if (alpha <= 0.0f || b.x <= a.x || b.y <= a.y) {
-        return;
-    }
-    list->AddRectFilled(a, b, ui_colors::fade(one, alpha), round);
-    const float band = dp(20.0f);
-    const float period = band * 2.0f;
-    const float lean = std::tan(35.0f * 3.14159265f / 180.0f);
-    // The shape's outline, its corners rounded as the fill's; each band of `two` is cut from it.
-    list->PathRect(a, b, round);
-    ImVector<ImVec2> shape;
-    shape.swap(list->_Path);
-    list->PathClear();
-    const float low = a.x + (a.y - origin.y) * lean;
-    const float high = b.x + (b.y - origin.y) * lean;
-    ImVector<ImVec2> half;
-    ImVector<ImVec2> piece;
-    const ImU32 ink = ui_colors::fade(two, alpha);
-    for (float at = origin.x + std::floor((low - origin.x) / period) * period + band; at < high;
-         at += period) {
-        cut(shape, half, lean, origin.y, at, true);
-        if (half.Size < 3) {
-            continue;
-        }
-        cut(half, piece, lean, origin.y, at + band, false);
-        if (piece.Size >= 3) {
-            list->AddConvexPolyFilled(piece.Data, piece.Size, ink);
-        }
-    }
-}
-
 float tween(ImGuiID id, float target, float seconds) {
     auto [at, made] = s.tweens.try_emplace(id, target);
     float& v = at->second;
@@ -228,6 +159,35 @@ void focus_ring(ImDrawList* list, ImVec2 a, ImVec2 b, float round) {
     }
 }
 
+// Bands of `ink` at 35 degrees over [a, b], `strength` at its top left corner and fading out to
+// none down and to the right: stripes, barely there, in a corner (user decision: the
+// help pane's top left on a desktop, the drawer's top left on a phone).
+void faint_stripes(ImDrawList* list, ImVec2 a, ImVec2 b, ImU32 ink, float strength) {
+    const float band = dp(20.0f);
+    const float lean = (b.y - a.y) * std::tan(35.0f * 3.14159265f / 180.0f);
+    const ImU32 top = ui_colors::fade(ink, strength);
+    const ImU32 bottom = ui_colors::fade(ink, 0.0f);
+    list->PushClipRect(a, b, true);
+    for (float x = a.x - lean; x < b.x + lean; x += band * 2.0f) {
+        const int first = list->VtxBuffer.Size;
+        list->AddQuadFilled(
+            ImVec2(x + band, a.y),
+            ImVec2(x + band * 2.0f, a.y),
+            ImVec2(x + band * 2.0f - lean, b.y),
+            ImVec2(x + band - lean, b.y),
+            IM_COL32_WHITE
+        );
+        // Each corner's colour by its height: the top's, fading to none at the bottom.
+        for (int v = first; v < list->VtxBuffer.Size; ++v) {
+            ImDrawVert& vert = list->VtxBuffer[v];
+            const float down = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
+            const float across = std::clamp((vert.pos.x - a.x) / (b.x - a.x), 0.0f, 1.0f);
+            vert.col = ui_colors::mix(top, bottom, std::min(1.0f, down + across));
+        }
+    }
+    list->PopClipRect();
+}
+
 void panel_fill(
     ImDrawList* list,
     ImVec2 a,
@@ -293,20 +253,8 @@ ImU32 panel_glow() {
 }
 
 void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held) {
-    // The bar's own gold stripes (no edge): deeper than the bright accent, so a big button over the
-    // game does not glare; its stripes half as strong as the bar's; darker while held.
-    const float dark = 0.18f * held;
-    striped_rect(
-        list,
-        a,
-        b,
-        round,
-        ui_colors::mix(ui().bar_stripe, ui().ink_deep, dark),
-        ui_colors::mix(
-            ui_colors::mix(ui().bar_stripe, ui().bar_stripe_alt, 0.5f), ui().ink_deep, dark
-        ),
-        a
-    );
+    // The launcher's main button: a flat fill of the accent, no edge, no stripes; darker while held.
+    list->AddRectFilled(a, b, ui_colors::mix(ui().amber, ui().ink_deep, 0.18f * held), round);
 }
 
 void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink) {
@@ -459,8 +407,9 @@ float key_cap(ImDrawList* list, float x, float middle, const std::string& key, f
     const ImVec2 a(std::round(x), std::round(middle - h * 0.5f));
     const ImVec2 b(a.x + std::round(w), a.y + std::round(h));
     const ImVec2 centre((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
-    // A badge: on the darkest black, as the site's badges and key hints, 4 px corners, no border.
-    list->AddRectFilled(a, b, ui_colors::fade(ui().ink_deep, alpha), dp(4.0f));
+    // Filled as the launcher's pad glyphs and buttons (never black): the lighter control fill,
+    // which still shows on a card. 4 px corners, no border.
+    list->AddRectFilled(a, b, ui_colors::fade(ui().control_card_hi, alpha), dp(4.0f));
     const CapText t = cap_text(key);
     ImVec2 at = centred_text(t.font, t.size, key, centre);
     if (cap_sign(key)) {
@@ -781,13 +730,12 @@ bool menu_button(const char* label) {
         ImVec2(b.x + dp(3.0f), b.y + dp(3.0f)),
         round + dp(3.0f)
     );
+    // In SemiBold, as the launcher's main button.
+    ImFont* font = menu_fonts.strong;
     list->AddText(
-        centred_text(
-            ImGui::GetFont(),
-            ImGui::GetFontSize(),
-            label,
-            ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
-        ),
+        font,
+        font->FontSize,
+        centred_text(font, font->FontSize, label, ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)),
         ui().bar_ink,
         label
     );
@@ -804,6 +752,63 @@ void menu_note(const char* line, ImU32 ink) {
     ImGui::PopTextWrapPos();
     ImGui::PopStyleColor();
     ImGui::Dummy(ImVec2(0.0f, dp(10.0f)));
+    ++s.card.rows;
+}
+
+void menu_key_rows(const std::vector<KeyRow>& rows) {
+    const float gap = dp(4.0f);
+    ImFont* body = menu_fonts.body;
+    const auto caps_of = [&](const KeyRow& row) {
+        float w = 0.0f;
+        for (const std::string& key : row.keys) {
+            w += key_cap_width(key) + gap;
+        }
+        return w;
+    };
+    const auto words_of = [&](const KeyRow& row) {
+        return body->CalcTextSizeA(body->FontSize, FLT_MAX, 0.0f, row.does.c_str()).x;
+    };
+    // Two columns, filled row by row, when they fit side by side; each lines its words up after
+    // its own widest caps.
+    const float inner = ImGui::GetContentRegionAvail().x - dp(32.0f);
+    float caps[2] = {};
+    float words[2] = {};
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        caps[i % 2] = std::max(caps[i % 2], caps_of(rows[i]));
+        words[i % 2] = std::max(words[i % 2], words_of(rows[i]));
+    }
+    const float between = dp(32.0f);
+    const bool two =
+        rows.size() > 1 && caps[0] + words[0] + caps[1] + words[1] + dp(16.0f) + between <= inner;
+    if (!two) {
+        caps[0] = std::max(caps[0], caps[1]);
+    }
+    const int columns = two ? 2 : 1;
+    const float second = std::max(inner * 0.5f, caps[0] + dp(8.0f) + words[0] + between);
+    ImDrawList* list = ImGui::GetWindowDrawList();
+    const float line = dp(32.0f);
+    ImGui::Dummy(ImVec2(0.0f, dp(s.card.rows == 0 ? 8.0f : 4.0f)));
+    for (std::size_t i = 0; i < rows.size(); i += static_cast<std::size_t>(columns)) {
+        const ImVec2 at = ImGui::GetCursorScreenPos();
+        const float middle = at.y + line * 0.5f;
+        for (int c = 0; c < columns && i + static_cast<std::size_t>(c) < rows.size(); ++c) {
+            const KeyRow& row = rows[i + static_cast<std::size_t>(c)];
+            const float left = at.x + dp(16.0f) + (c == 0 ? 0.0f : second);
+            float x = left;
+            for (const std::string& key : row.keys) {
+                x += key_cap(list, x, middle, key, 1.0f) + gap;
+            }
+            list->AddText(
+                body,
+                body->FontSize,
+                ImVec2(std::round(left + caps[c] + dp(4.0f)), beside_caps(body, middle)),
+                ui().text,
+                row.does.c_str()
+            );
+        }
+        ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, line));
+    }
+    ImGui::Dummy(ImVec2(0.0f, dp(6.0f)));
     ++s.card.rows;
 }
 

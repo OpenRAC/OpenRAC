@@ -8,14 +8,14 @@
 
 :root {
   /* The site's @theme colours. */
-  --ink: #1c1a16;
-  --ink-deep: #14120e;
+  --ink: #191919;
+  --ink-deep: #121212;
   /* Cards and panels: a flat --panel (hover or open: --panel-hi), no border. */
   --panel: #24221e;
   --panel-hi: #2c2a26;
   /* The game list beside the page and Android's rail: darker than the page, but not black; a
      theme with a black of its own (OLED) sets its own. */
-  --rail: #161410;
+  --rail: #131313;
   /* Big surfaces are flat (stripes there tire the eyes; user decision): only the bar's buttons
      wear stripes. */
   --card: var(--panel);
@@ -47,7 +47,7 @@
   /* Kept for the themes (palettes.json); fields have no edge now, a fill sets them apart. */
   --line-field: rgb(255 255 255 / 0.3);
   /* Control fills (STYLE.md, "Control fills"): one step lighter than what is behind them, no navy and no edge.
-     On the page (#1c1a16) a control is #24221e; on a card (#24221e) it is #2e2c28. A card sets
+     On the page (#191919) a control is #24221e; on a card (#24221e) it is #2e2c28. A card sets
      --control from the card pair; a theme (palettes.json) sets both pairs. */
   --control: #24221e;
   --control-hi: #2e2c28;
@@ -67,9 +67,6 @@
   /* On or picked: a gold tint on the page's black, with gold text. */
   --on-fill: color-mix(in srgb, var(--amber) 22%, var(--ink));
   --on-fill-hi: color-mix(in srgb, var(--amber) 28%, var(--ink));
-  /* The bar's buttons: the bar's stripes continued in coal, laid on the window so they line up. */
-  --coal-stripes: repeating-linear-gradient(35deg, #181818 0 20px, #121212 20px 40px) fixed;
-  --coal-stripes-hi: repeating-linear-gradient(35deg, #252525 0 20px, #1f1f1f 20px 40px) fixed;
   /* States. The site has none; these sit with its palette. */
   --ok: #8fd694;
   /* Its own amber, not var(--amber), which a theme could one day change. */
@@ -180,7 +177,9 @@ html[data-game-colors][data-theme="openrac"] {
 body::after {
   content: "";
   position: fixed;
-  inset: var(--nav-top) 0 0 var(--nav-left);
+  /* The whole window: neither a desktop's header nor Android's rail has a ground of its own
+     (Header.svelte). */
+  inset: 0;
   z-index: -1;
   pointer-events: none;
   mix-blend-mode: screen;
@@ -405,7 +404,10 @@ button[data-on] {
 
 /* Under the pointer a button gets a little lighter; the main one lifts 2 px. */
 @media (hover: hover) {
-  html:where(:not([data-input="pad"])) button:hover:not(:disabled),
+  /* Not a dialog's backdrop, a button over the whole window that went grey under the pointer,
+     nor a link-like button (.link), which a touch screen left lit after a tap (:where keeps the
+     weight as it was). */
+  html:where(:not([data-input="pad"])) button:hover:not(:disabled):where(:not(.backdrop):not(.link)),
   html:where(:not([data-input="pad"])) .button:hover {
     background-color: var(--control-hi);
   }
@@ -474,14 +476,13 @@ html[data-platform="ios"][data-input="pad"] [data-pad-focus] {
   scroll-margin-bottom: calc(20px + var(--pad-aside, 0px));
 }
 
-/* A press dims the button and pushes it in a little (a controller's A too, pad.ts); on a touch
-   screen that is all it shows, as hover styles apply only where there is a pointer that hovers. */
-button:active:not(:disabled),
+/* A press dims the button (a controller's A too, pad.ts), and never shrinks it (user decision); on
+   a touch screen that is all it shows, as hover styles apply only where there is a pointer that hovers. */
+button:active:not(:disabled):where(:not(.backdrop)),
 .button:active,
 button.pad-press:not(:disabled),
 .button.pad-press {
   filter: brightness(0.88);
-  transform: scale(0.97);
 }
 
 /* The one main action of a page: a flat fill in the accent, dark text. */
@@ -950,7 +951,15 @@ main {
   animation: none;
 }
 
+/* The browser lays the old picture under the new one and adds them up (plus-lighter): with no
+   fade, both showed at once. The old bar and game list hide; the new ones are live. */
+::view-transition-old(root),
+::view-transition-old(side) {
+  opacity: 0;
+}
+
 ::view-transition-old(side):only-child {
+  opacity: 1;
   animation: page-fade 0.2s ease-in both;
 }
 
@@ -985,6 +994,26 @@ html[data-nav="up"] {
 html[data-nav="down"],
 html[data-nav="up"] {
   --page-in-time: 0.32s;
+}
+
+/* Android Games' wave (DiscShelf) only fades as its page comes or goes, under the page and the
+   rail, over the window's ground. */
+::view-transition-group(wave) {
+  animation: none;
+  z-index: 1;
+}
+
+::view-transition-group(page),
+::view-transition-group(side) {
+  z-index: 2;
+}
+
+::view-transition-old(wave):only-child {
+  animation: page-fade 0.2s ease-in both;
+}
+
+::view-transition-new(wave):only-child {
+  animation: page-fade 0.45s var(--ease) reverse both;
 }
 
 ::view-transition-old(page) {

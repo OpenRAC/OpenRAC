@@ -30,6 +30,9 @@ constexpr Entry kEntries[] = {
      "Windowed, or borderless full screen at the display's own resolution."},
     {Id::Monitor, Tab::Graphics, "Display", kChoice, D, "Monitor",
      "The display the game goes full screen on: the window's own, or a display by its number."},
+    {Id::MenuSize, Tab::Graphics, "Display", kChoice, A, "Menu size",
+     "How large this menu and its text are. Auto sizes it to the screen; the steps make it "
+     "smaller or larger from there."},
     {Id::Picture, Tab::Graphics, "Picture", kChoice, A, "Picture",
      "The picture's shape: the console's 4:3, a wide screen, or the whole window."},
     {Id::GameplayFov, Tab::Graphics, "Picture", Kind::Slider, A, "Field of View",
@@ -251,9 +254,7 @@ constexpr Entry kEntries[] = {
     {Id::FreecamExit, Tab::Developer, "Freecam", kAction, A, "Exit freecam",
      "Gives the view back to the game and puts the freecam's settings back as they came."},
     {Id::FreecamHelp, Tab::Developer, "Freecam", kNote, A, "Freecam controls",
-     "W/S follow the view, A/D strafe, E up, Q down, Shift faster, Ctrl slower. Hold Alt or "
-     "right-click to look. Gamepad: left stick moves, right stick looks, R2 up, L2 down, R1 "
-     "faster, L1 slower; L3+R3 turns freecam off (and on, in developer mode)."},
+     "How to move the freecam, with the keyboard or the controller, whichever was used last."},
 
     // ---- Program ----
     {Id::Quit, Tab::Program, "", kAction, A, "Quit game",

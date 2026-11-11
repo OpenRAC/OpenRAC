@@ -14,6 +14,9 @@
 #include <imgui.h>
 #include <string>
 #include <string_view>
+#include <vector>
+
+#include <SDL3/SDL_gamepad.h>
 
 #include "audio/ui_sounds.h"
 #include "debug/overlay.h"
@@ -32,20 +35,6 @@ ImU32 pressed_fill();
 // A plain button's fill in place of a border: the launcher's --control-card, as the menu's
 // controls sit on a panel.
 ImU32 control_fill();
-// The rounded rectangle [a, b] in the launcher's stripes: bands of `one` and `two`, 20 px each at
-// 35 degrees, a band of `one` starting at `origin` (the screen's corner for a card; the bar's own
-// for its buttons, so their stripes continue the bar's).
-void striped_rect(
-    ImDrawList* list,
-    ImVec2 a,
-    ImVec2 b,
-    float round,
-    ImU32 one,
-    ImU32 two,
-    ImVec2 origin,
-    float alpha = 1.0f
-);
-
 // The launcher's transitions: what changes eases to its new state over `seconds`; `id` is ImGui's.
 float tween(ImGuiID id, float target, float seconds);
 
@@ -86,7 +75,7 @@ void draw_logo(ImDrawList* list, ImVec2 left_middle, ImU32 mark, ImU32 name);
 // The focus ring a gamepad or the keyboard moves, around the item just drawn.
 void focus_ring(ImDrawList* list, ImVec2 a, ImVec2 b, float round);
 
-// The main button's fill: the bar's gold stripes; darker as `held`.
+// The main button's fill: the accent, flat; darker as `held`.
 void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held);
 // A panel's ground: a rounded rectangle from `top` at its top to `bottom` at its foot, with a glow
 // of `glow` along its top `glow_depth` pixels, rounded at `corners`.
@@ -101,6 +90,8 @@ void panel_fill(
     float round,
     ImDrawFlags corners = ImDrawFlags_None
 );
+// Bands of `ink` at 35 degrees over [a, b], `strength` at its top left, fading out down and right.
+void faint_stripes(ImDrawList* list, ImVec2 a, ImVec2 b, ImU32 ink, float strength);
 // The light along a panel's top: its card coal with 8 % of the game's colour (--glow), as the
 // launcher's page under its bar; more looks odd on the coal.
 ImU32 panel_glow();
@@ -130,6 +121,15 @@ float key_cap_height();
 // Keys pressed together as caps with a "+" between them ("Ctrl+F3"). Returns their width;
 // draws them only when `list` is set.
 float key_caps(ImDrawList* list, float x, float middle, std::string_view keys, float alpha);
+
+// The game under the menu blurred and dimmed (menu_window.cpp): the desktop window's and the
+// Android drawer's ground.
+void game_backdrop(const ImGuiViewport* viewport, const Shown& shown, float ease);
+
+// The make of the first controller connected, and a button's name as that make prints it
+// (A, Cross, LB, R1 ...).
+SDL_GamepadType pad_type();
+std::string pad_name(SDL_GamepadType type, SDL_GamepadButton button);
 
 // Where to draw `text` so its letters (not its line box) are centred on `centre`: across by the
 // ink, from the first letter's left edge to the last's right; down by a capital's height.
@@ -173,6 +173,15 @@ bool menu_button(const char* label);
 
 // A line of the card, in `ink` (the launcher's soft text by default): what is not pressed.
 void menu_note(const char* line, ImU32 ink = ui().soft);
+
+// A list of keys or buttons and what each does, one per line in a card, the caps on the left
+// and the words lined up after them.
+struct KeyRow {
+    std::vector<std::string> keys;
+    std::string does;
+};
+
+void menu_key_rows(const std::vector<KeyRow>& rows);
 
 // ---- The menu's entries ----
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { supports } from "$lib/capabilities";
   // A game's page. One main button, always in the same place,
   // says the next thing to do (set up from your disc, build, play); what is done
   // less often is in the menu beside it. Below: the saves and, beside them, Help
@@ -17,40 +16,24 @@
   import { toolFailure } from "$lib/toolErrors";
   import JobProgress from "$components/JobProgress.svelte";
   import ProgressBar from "$components/ProgressBar.svelte";
-  import Menu, { type MenuItem } from "$components/Menu.svelte";
+  import Menu from "$components/Menu.svelte";
+  import ModsSwitch from "$components/ModsSwitch.svelte";
   import ReportsBlock from "$components/ReportsBlock.svelte";
   import SaveManagerBlock from "$components/SaveManagerBlock.svelte";
-  import { api, ask, onAndroid, pickMemoryCard, type ActionView, type ReportEntry } from "$lib/api";
-  import {
-    app,
-    clock,
-    currentVersion,
-    gameWindow,
-    guard,
-    jobs,
-    openDevelop,
-    run,
-    saveConfig,
-    toast,
-    uninstallGame,
-  } from "$lib/app.svelte";
+  import { api, onAndroid, type ActionView, type ReportEntry } from "$lib/api";
+  import { app, clock, currentVersion, guard, jobs, openDevelop, run } from "$lib/app.svelte";
   import { choiceFor, programOf } from "$lib/discChoice";
+  import { gameMenu, pageAsks, startsPlay } from "$lib/gameMenu.svelte";
   import { pct } from "$lib/format";
   import { SITE_URL } from "$lib/links";
-  import { WITH_MODS } from "$lib/modsText";
+  import { titleLines } from "$lib/labels";
   import { gameArt, hideMissing } from "$lib/media";
-  import { arrive } from "$lib/motion";
+  import { arrive, reduced } from "$lib/motion";
+  import { cubicOut } from "svelte/easing";
   import { tick } from "svelte";
-  import { fly } from "svelte/transition";
+  import { fly, slide } from "svelte/transition";
   import { place, when } from "$lib/reports";
-  import {
-    isBuilt,
-    playerAct,
-    playerState,
-    playerVersion,
-    rebuild as rebuildGame,
-    rebuildSteps,
-  } from "$lib/player.svelte";
+  import { isBuilt, playerAct, playerState, playerVersion } from "$lib/player.svelte";
   import { themeStyle } from "$lib/themes";
 
   // One game, whatever the region: the page plays the version your disc is (playerVersion),
@@ -69,8 +52,6 @@
   const levelsCheck = $derived(action("port-levels-check"));
   /** The levels were read from the disc and, where the version has the check, the game read them all. */
   const levelsReady = $derived(levelsCheck ? levelsCheck.done : !!levels?.done);
-  const playGodot = $derived(action("editor-preview"));
-  const extract = $derived(action("editor-extract"));
 
   // Each game's still picture, under its band and behind the page.
   const art = $derived(v ? gameArt(v.game) : null);
@@ -87,15 +68,6 @@
   const built = $derived(!!v && !!game && isBuilt(game, v));
   /** The steps are shown while there is one left that the player can take. */
   const showSteps = $derived(!!next && next.kind !== "play" && next.kind !== "playing" && next.kind !== "return");
-
-  async function removeSetUp() {
-    if (!v) return;
-    const sure = await ask(
-      `Remove what was set up from your ${v.title} disc? Your disc image and your saves are kept; set it up again any time.`,
-      "Remove",
-    );
-    if (sure) await uninstallGame(v.game);
-  }
 
   /** The last step towards playing that stopped with an error (set-up, build, levels), while nothing
    *  runs: the page says so under the main button, with the way to what it printed. */
@@ -152,101 +124,22 @@
     logs?.focus({ preventScroll: true });
   }
 
-  /** The Mods switch under Play, kept in the settings (config.playWithMods): off, Play starts the game
-   *  without mods; on, with what the Mods tab switched on (player.svelte.ts, play). */
-  const withMods = $derived(app.config?.playWithMods ?? false);
-  const startsGame = $derived(next?.kind === "play" || next?.kind === "build" || next?.kind === "levels");
-
-  async function setWithMods(on: boolean) {
-    if (app.config) await saveConfig({ ...app.config, playWithMods: on });
-  }
-
-  /** How many mods the Mods tab has switched on for this game: its gameplay mods, its packs and
-   *  Enhanced graphics (which the switch turns off as well).
-   *  Read again when the game shown changes; null until read (or where they cannot be). */
-  let modsOn = $state<number | null>(null);
+  // Opened from Games' "..." menu on its logs. The ask is used once, so it never opens another
+  // game's logs later.
   $effect(() => {
-    const shown = v;
-    modsOn = null;
-    if (!shown || !setUp) return;
-    let current = true;
-    void Promise.all([
-      api.pluginsList(shown.game, shown.name).catch(() => []),
-      api.overridesList(shown.game).catch(() => []),
-      api.enhancedView(shown.game, shown.name).catch(() => null),
-    ]).then(([mods, packs, enhanced]) => {
-      if (current)
-        modsOn =
-          mods.filter((m) => m.enabled).length +
-          packs.filter((p) => p.enabled).length +
-          (enhanced?.mod.enabled ? 1 : 0);
-    });
-    return () => {
-      current = false;
-    };
+    if (!pageAsks.logs) return;
+    pageAsks.logs = false;
+    if (setUp) void showLogs();
   });
 
-  /** The game's saves from a PCSX2 memory card onto OpenRAC's card, after a backup of it. */
-  async function importPcsx2(serial: string) {
-    const dir = await api.pcsx2MemcardsDir().catch(() => null);
-    const source = await pickMemoryCard("Choose a PCSX2 memory card", dir);
-    if (!source) return;
-    const yes = await ask(
-      "Copy this game's saves from the PCSX2 memory card? The saves on OpenRAC's card are backed up first, then replaced.",
-      "Import saves",
-    );
-    if (!yes) return;
-    try {
-      const done = await api.importPcsx2Saves(serial, source);
-      app.savesChanged++; // the saves list reads the card again
-      const kept = done.backup ? " The saves that were there are in Backups." : "";
-      toast(`Imported the saves from PCSX2.${kept}`, "info");
-    } catch (e) {
-      toast(`Import failed: ${String(e)}`, "error");
-    }
-  }
+  /** How the lines under the main button open and close. */
+  const GROW = { duration: reduced ? 0 : 260, easing: cubicOut };
+
+  /** The Mods switch under Play while Play would start the game (ModsSwitch). */
+  const startsGame = $derived(startsPlay(next));
 
   /** What is done less often than playing, in the menu beside the main button. */
-  const menu = $derived.by<MenuItem[]>(() => {
-    if (!v) return [];
-    const dir = v.dir;
-    const items: MenuItem[] = [];
-    if (next?.kind === "return") {
-      items.push({ label: "Stop the game", icon: "x", danger: true, run: () => void gameWindow(true) });
-    }
-    // From scratch: everything built before is deleted first (tools/build_port.py --clean); on
-    // Android, the levels are read from the disc again (rebuildSteps).
-    if (built && (next?.kind === "play" || next?.kind === "levels") && rebuildSteps(v)) {
-      items.push({ label: "Rebuild the game", icon: "build", run: () => void rebuildGame(v) });
-    }
-    if (playGodot?.runnable) {
-      items.push({ label: "Preview a level in Godot", icon: "play", run: () => void run(scope, playGodot) });
-    }
-    if (extract && extract.state !== "planned" && !onAndroid && supports(app.info, "mods")) {
-      // Android has no Godot: its Mods tab has the mods and packs, not the level editor.
-      items.push({ label: "Edit its levels (Mods)", icon: "edit", run: () => (app.page = "mods") });
-    }
-    if (setUp) {
-      items.push({
-        label: "Logs and crash reports",
-        icon: "book",
-        run: () => void showLogs(),
-      });
-    }
-    // Android: the game's files are in the Files app (Settings, Your files), and the activity log
-    // is the rail's running job.
-    // Not on Android: its file picker hands over no path to read the card from.
-    const serial = v.serial;
-    if (setUp && serial && !onAndroid) {
-      items.push({ label: "Import saves from PCSX2", icon: "save", run: () => void importPcsx2(serial) });
-    }
-    if (!onAndroid) {
-      items.push({ label: "Open the game's folder", icon: "folder", run: () => void guard(api.openPath(dir)) });
-      items.push({ label: "Activity log", icon: "terminal", run: () => (app.page = "tasks") });
-    }
-    if (setUp) items.push({ label: "Remove the set-up", icon: "trash", danger: true, run: () => void removeSetUp() });
-    return items;
-  });
+  const menu = $derived(game && v ? gameMenu(game, v, next, () => void showLogs()) : []);
 </script>
 
 <GamesFrame>
@@ -309,55 +202,60 @@
             </div>
           {/if}
           <div class="title box">
-            {v.title}
+            {#if onAndroid}
+              <!-- As on Games' banner: the series, then the game's own name on its own line. -->
+              {@const name = titleLines(v.title)}
+              <span>{name.series}</span>{#if name.game}<span>{name.game}</span>{/if}
+            {:else}
+              {v.title}
+            {/if}
             {#if game.year}<small>{game.year}</small>{/if}
           </div>
 
-          <div class="go">
-            <div class="go-row">
-              <button
-                class="big"
-                class:primary={next.primary}
-                disabled={next.disabled}
-                onclick={() => void playerAct(v, next)}
-              >
-                {#if next.job}<span class="spinner"></span>{:else}<Icon name={next.icon} size={22} />{/if}{next.label}
-              </button>
-              <!-- An empty menu is not shown, but keeps its place: the button does not move when it fills. -->
-              {#if menu.length}<Menu items={menu} />{:else}<span class="menu-slot" aria-hidden="true"></span>{/if}
-            </div>
-            {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
-            {#if startsGame && !next.job}
-              <!-- Whether Play brings the mods: a switch, and what it means, the count a way to them. -->
-              <div class="with-mods">
-                <label title={WITH_MODS.hint}
-                  >{WITH_MODS.label}<input
-                    type="checkbox"
-                    role="switch"
-                    class="switch"
-                    checked={withMods}
-                    disabled={!supports(app.info, "mods")}
-                    onchange={(e) => void setWithMods(e.currentTarget.checked)}
-                  /></label
-                >
-                {#if withMods}
-                  <button class="link" onclick={() => (app.page = "mods")}
-                    >{WITH_MODS.count(modsOn)}<Icon name="next" size={12} /></button
-                  >
-                {:else}
-                  <span class="dim">{WITH_MODS.original}</span>
-                {/if}
-              </div>
-            {/if}
-            {#if next.hint && !next.job}<p class="line">{next.hint}</p>{/if}
-            {#if lastPlayed && next.kind === "play"}<p class="line last">{lastPlayed}</p>{/if}
+          {#if onAndroid}
+            <!-- Android: Play, the Mods switch and the menu are beside the disc on Games; the band only
+                 leads back there, and says what stopped. -->
+            <button class="back" onclick={() => (app.page = "library")}><Icon name="arrow" size={16} />Games</button>
             {#if stopped}
               <p class="stopped">
                 <Icon name="warn" size={14} />{stopped.title} stopped: {toolFailure(stopped.lines).title.toLowerCase()}.
                 <button class="link" onclick={() => (app.page = "tasks")}>See what it printed</button>
               </p>
             {/if}
-          </div>
+          {:else}
+            <div class="go">
+              <div class="go-row">
+                <button
+                  class="big"
+                  class:primary={next.primary}
+                  disabled={next.disabled}
+                  onclick={() => void playerAct(v, next)}
+                >
+                  {#if next.job}<span class="spinner"></span>{:else}<Icon name={next.icon} size={22} />{/if}{next.label}
+                </button>
+                <!-- An empty menu is not shown, but keeps its place: the button does not move when it fills. -->
+                {#if menu.length}<Menu items={menu} />{:else}<span class="menu-slot" aria-hidden="true"></span>{/if}
+              </div>
+              {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
+              <!-- What comes and goes under the button (a read that arrives late, a job's end)
+                   opens out, so the band grows smoothly rather than jumping. -->
+              {#if startsGame}
+                <div transition:slide={GROW}>
+                  <ModsSwitch version={v} setUp={!!setUp} onopen={() => (app.page = "mods")} />
+                </div>
+              {/if}
+              {#if next.hint && !next.job}<p class="line" transition:slide={GROW}>{next.hint}</p>{/if}
+              {#if lastPlayed && next.kind === "play"}<p class="line last" transition:slide={GROW}>{lastPlayed}</p>{/if}
+              {#if stopped}
+                <p class="stopped" transition:slide={GROW}>
+                  <Icon name="warn" size={14} />{stopped.title} stopped: {toolFailure(
+                    stopped.lines,
+                  ).title.toLowerCase()}.
+                  <button class="link" onclick={() => (app.page = "tasks")}>See what it printed</button>
+                </p>
+              {/if}
+            </div>
+          {/if}
 
           {#if next.job}<JobProgress job={next.job} now={clock.now} />{/if}
 
@@ -484,31 +382,31 @@
     gap: var(--page-gap, 20px);
   }
 
+  /* Up past the window's top, under a desktop's header (no bar there: its edge would show). */
   .page-ambient-bg {
     position: absolute;
-    top: -20px;
+    top: calc(-20px - var(--nav-top));
     left: 0;
     width: 100%;
-    height: 480px;
+    height: calc(480px + var(--nav-top));
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-    opacity: 0.18;
+    opacity: 0.2;
+    /* Screen: the picture only adds light, so the light under the bar (app.css body::after) still
+       shows through it. It fades out at its edges rather than under a coat of the page's colour,
+       which covered that light. */
+    mix-blend-mode: screen;
   }
 
-  .page-ambient-bg::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(ellipse 70% 60% at 50% 20%, transparent 20%, var(--ink) 80%),
-      linear-gradient(to bottom, transparent 60%, var(--ink) 100%);
-  }
-
+  /* Gone before the sides: the game list beside it has no panel of its own, so an edge left here
+     shows as a cut line along the list. The mask is on the picture, not on the screened box:
+     WebKit (Safari, the Linux app) left a box with both its edge. */
   .page-ambient-bg img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    mask-image: radial-gradient(ellipse 50% 80% at 50% 20%, black 20%, transparent 98%);
   }
 
   /* Over the game's picture the menu's button is a dark shade, so it shows on any picture. */
@@ -526,7 +424,9 @@
     border-radius: var(--radius);
     background:
       radial-gradient(90% 70% at 70% 0, var(--from), transparent 70%), linear-gradient(160deg, var(--from), var(--to));
-    box-shadow: var(--shadow);
+    /* Down more than out: the column beside the game list cuts what passes its edge, and the usual
+       shadow's sides showed there as a dark band along the list. This one ends inside the margin. */
+    box-shadow: 0 22px 36px -20px rgb(0 0 0 / 0.6);
     overflow: hidden;
   }
 
@@ -544,7 +444,9 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0.38;
+    /* Above the middle: the band is wider than the picture, and the faces are in its upper part. */
+    object-position: 50% 25%;
+    opacity: 0.6;
     /* The game's picture settles into the band as the page opens. */
     animation: settle 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
     will-change: transform, opacity;
@@ -642,32 +544,6 @@
     height: 44px;
   }
 
-  /* Mods under Play: a quiet pill, its switch, then the count or "original game". */
-  .with-mods {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 12px;
-    padding: 6px 14px;
-    border-radius: var(--radius-sm);
-    background: var(--ink-deep);
-    font-size: 0.875rem;
-    color: var(--soft);
-  }
-
-  .with-mods label {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-  }
-
-  .with-mods .link {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-  }
-
   .big {
     /* Play, Rebuild and Stop are one width: the button keeps its place from one to the next. */
     min-width: 13.5rem;
@@ -693,12 +569,74 @@
   }
 
   .big:active:not(:disabled) {
-    transform: translateY(0) scale(0.98);
+    transform: none;
     box-shadow: none;
   }
 
   .last {
     color: var(--lav);
+  }
+
+  /* ---- Android: the band in the look of the Games tab ----
+     The picture whole and bright, sinking into the page on the left and at its foot; the name
+     written on it in two lines, no box. Play and its menu are beside the disc on Games; the band
+     only leads back there. */
+  :global(html[data-platform="android"]) .hero {
+    min-height: 168px;
+    /* The name at the band's foot, level with the Games button (the band is a grid: compact.css). */
+    align-content: end;
+    padding: 20px 28px;
+    border-radius: var(--radius);
+    background: var(--ink);
+  }
+
+  :global(html[data-platform="android"]) .hero-bg {
+    opacity: 1;
+  }
+
+  :global(html[data-platform="android"]) .hero-overlay {
+    background:
+      linear-gradient(90deg, var(--ink) 0%, color-mix(in srgb, var(--ink) 80%, transparent) 26%, transparent 60%),
+      linear-gradient(0deg, color-mix(in srgb, var(--ink) 92%, transparent) 0%, transparent 55%),
+      linear-gradient(
+        270deg,
+        color-mix(in srgb, var(--ink) 88%, transparent) 0%,
+        color-mix(in srgb, var(--ink) 60%, transparent) 30%,
+        transparent 50%
+      );
+  }
+
+  :global(html[data-platform="android"]) .hero > .title.box {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    text-align: left;
+    font-size: 2rem;
+    line-height: 1.1;
+    color: var(--on-game);
+    text-shadow: 0 2px 18px rgb(0 0 0 / 0.45);
+  }
+
+  :global(html[data-platform="android"]) .hero > .title small {
+    order: -1;
+    margin: 0 0 6px;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--glow);
+    text-shadow: none;
+  }
+
+  /* Back to the shelf of discs: a plain button in the band's bottom right corner. */
+  .hero > .back {
+    position: absolute;
+    right: 24px;
+    bottom: 20px;
+    padding-left: 10px;
   }
 
   .notice {
