@@ -62,9 +62,9 @@
         "--line": "rgb(160 165 200 / 0.22)",
         "--line-strong": "rgb(160 165 200 / 0.36)",
         "--line-field": "rgb(160 165 200 / 0.6)",
-        "--control": "#121212",
+        "--control": "#000000",
         "--control-hi": "#1e1e1e",
-        "--control-card": "#161616",
+        "--control-card": "#000000",
         "--control-card-hi": "#202020"
       },
       "swatch": ["#000000", "#15151c", "#f4f6ff"]
