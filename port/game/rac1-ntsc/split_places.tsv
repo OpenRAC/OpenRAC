@@ -1,4 +1,4 @@
-# Places config/overlays/us/functions.tsv folds into a function by its fingerprint whose code differs
+# Places config/us/levels/functions.tsv folds into a function by its fingerprint whose code differs
 # from it in a constant, field offset, or call/global identity: each gets its own function.
 # Carried from port/game/rac1-pal/split_places.tsv through the version map (README.md): a row is here
 # when the NTSC decomp's catalogue folds the same places; where it names them apart, none is needed.

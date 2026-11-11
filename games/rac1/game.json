@@ -180,9 +180,9 @@
         "repo": "https://github.com/lombyte-project/Lombyte",
         "branch": "main",
         "license": "GPL-3.0 (GPL-2.0 and newlib parts keep theirs)",
-        "commit": "d29807486aeb11039de60a7c871553ce38318730",
-        "date": "2026-10-31",
-        "imported": "2026-10-31"
+        "commit": "5497cf4394bb60bac5d8a82504df76c04656c186",
+        "date": "2026-11-06",
+        "imported": "2026-11-08"
       },
       "build": {
         "host": "Linux or WSL; macOS through ./setup.sh --docker; toolchains downloaded and built by setup.sh",

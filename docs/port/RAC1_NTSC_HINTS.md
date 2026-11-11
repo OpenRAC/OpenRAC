@@ -14,7 +14,7 @@ the switches for looking inside a running game are [DEBUGGING.md](DEBUGGING.md).
 ## How addresses are given
 
 US addresses are those of the level overlays' shared engine code as the NTSC
-decomp lays it out for level 0 (`games/rac1/ntsc-decomp/config/overlays/us/`,
+decomp lays it out for level 0 (`games/rac1/ntsc-decomp/config/us/levels/`,
 `functions.tsv`: a row's places are `level:address`). The generated
 `functions.c` of the build (`port/build/release/games/rac1-ntsc/gen/`) lists
 the same address against the name hostgen gave it, so `0x1F9838` is
@@ -270,7 +270,7 @@ See 4.3.
   on a place it does not fit (a rail search, a hero routine, a Vendor update).
 - **Where.** `port/game/rac1-ntsc/split_places.tsv` (23 rows carried from
   PAL) and `host/variants.c`; the catalogue is
-  `games/rac1/ntsc-decomp/config/overlays/us/functions.tsv`.
+  `games/rac1/ntsc-decomp/config/us/levels/functions.tsv`.
 - **Port today.** Handled where PAL found it. Anything new needs the same
   treatment: list the place in `split_places.tsv`, write the variant.
 

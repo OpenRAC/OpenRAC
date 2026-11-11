@@ -56,10 +56,10 @@ Co-authored-by: Lynder063 <lynderjekokot@gmail.com>
  5 files changed, 14 insertions(+), 14 deletions(-)
 
 diff --git a/src/overlays/l08/hero/update_hero_motion_for_current_state.c b/src/overlays/l08/hero/update_hero_motion_for_current_state.c
-index 446be66..b456924 100644
+index fb1f0468..43902bec 100644
 --- a/src/overlays/l08/hero/update_hero_motion_for_current_state.c
 +++ b/src/overlays/l08/hero/update_hero_motion_for_current_state.c
-@@ -383,7 +383,6 @@ extern struct HeroAnimRow D_L00_00179AC0_t[] __asm__("D_L08_0017A2C0");
+@@ -320,7 +320,6 @@ extern struct HeroAnimRow D_L00_00179AC0_t[] __asm__("D_L08_0017A2C0");
  extern void spawn_random_alpha_rotated_particle(void *, void *, f32) __asm__("FUN_L00_00271b18");
  extern void update_hero_lean_and_sway_parameters(void) __asm__("FUN_L00_00215ef8");
  extern void turn_hero_toward_move_direction_with_stick_scale(void) __asm__("FUN_L00_00211f38");
@@ -67,7 +67,7 @@ index 446be66..b456924 100644
  extern void update_hero_target_speed_from_stick(void) __asm__("FUN_L00_00211be8");
  extern void initialize_moby_transform_history(void *, void *) __asm__("FUN_L00_00262500");
  extern void create_moby_transform_history_entry(void *, s32, s32) __asm__("FUN_L00_00262528");
-@@ -1809,7 +1808,7 @@ void update_hero_motion_for_current_state(void) {
+@@ -1758,7 +1757,7 @@ void update_hero_motion_for_current_state(void) {
              } else if (turn_response_level < 0.8f && r > 0.5235988f) {
                  k = 0.0f;
              }
@@ -77,10 +77,10 @@ index 446be66..b456924 100644
              } else {
                  f32 f = hero.stick_magnitude + 0.35f;
 diff --git a/src/overlays/l10/mobys/nanotech_upgrade_vendor.c b/src/overlays/l10/mobys/nanotech_upgrade_vendor.c
-index 3f61dd5..d720c54 100644
+index 6f21d883..19ccd645 100644
 --- a/src/overlays/l10/mobys/nanotech_upgrade_vendor.c
 +++ b/src/overlays/l10/mobys/nanotech_upgrade_vendor.c
-@@ -20,12 +20,11 @@ typedef struct Moby Moby;
+@@ -21,12 +21,11 @@ typedef struct Moby Moby;
     then saves the game and shows the purchase message. */
  extern void set_moby_dialogue_record_value(struct Moby *, int) __asm__("FUN_L00_00266858");
  extern void start_scene(int) __asm__("FUN_L00_00298840");
@@ -95,7 +95,7 @@ index 3f61dd5..d720c54 100644
  
  void nanotech_upgrade_vendor_update(struct Moby *moby) __asm__("FUN_L10_002e8358");
  
-@@ -60,8 +59,8 @@ void nanotech_upgrade_vendor_update(struct Moby *moby) {
+@@ -65,8 +64,8 @@ void nanotech_upgrade_vendor_update(struct Moby *moby) {
                      alternate_item_available[4] = 1;
                      upgrade_level = 5;
                      hero.health.hp = upgrade_level;
@@ -104,9 +104,9 @@ index 3f61dd5..d720c54 100644
 +                    current_bolt_count = current_bolt_count - 4000;
 +                    hero_max_health = upgrade_level;
                      start_scene(0);
-                     moby->state = 1;
+                     moby->state = NANOTECH_VENDOR_STATE_FINALIZE_PURCHASE;
                  } else {
-@@ -80,8 +79,8 @@ void nanotech_upgrade_vendor_update(struct Moby *moby) {
+@@ -85,8 +84,8 @@ void nanotech_upgrade_vendor_update(struct Moby *moby) {
                      alternate_item_available[5] = 1;
                      upgrade_level = 8;
                      hero.health.hp = upgrade_level;
@@ -115,19 +115,19 @@ index 3f61dd5..d720c54 100644
 +                    current_bolt_count = current_bolt_count - 30000;
 +                    hero_max_health = upgrade_level;
                      start_scene(1);
-                     moby->state = 1;
+                     moby->state = NANOTECH_VENDOR_STATE_FINALIZE_PURCHASE;
                  } else {
-@@ -107,7 +106,7 @@ state_one:
+@@ -112,7 +111,7 @@ state_one:
              break;
          }
          queue_dialogue_message(purchase, -1);
 -        D_L10_0013F640 = 0xb4;
 +        dialogue_message_duration = 0xb4;
          timer[1] = scale_game_frames(0xf0);
-         moby->state = 0;
+         moby->state = NANOTECH_VENDOR_STATE_READY;
      }
 diff --git a/src/overlays/shared/mobys/moby_draw_registration_update.c b/src/overlays/shared/mobys/moby_draw_registration_update.c
-index 5759394..cb99760 100644
+index 57593947..cb99760a 100644
 --- a/src/overlays/shared/mobys/moby_draw_registration_update.c
 +++ b/src/overlays/shared/mobys/moby_draw_registration_update.c
 @@ -5,7 +5,7 @@
@@ -140,10 +140,10 @@ index 5759394..cb99760 100644
  /* Ported from rac1-decomp (src/overlays/shared/vendor_002F9438.c: func_L07_002F9438), where it is exact; names translated to the US level program. */
  
 diff --git a/src/overlays/shared/ui/menus/initialize_pause_menu.c b/src/overlays/shared/ui/menus/initialize_pause_menu.c
-index f3b64b8..27f9d83 100644
+index 7a25fb3c..14a41fae 100644
 --- a/src/overlays/shared/ui/menus/initialize_pause_menu.c
 +++ b/src/overlays/shared/ui/menus/initialize_pause_menu.c
-@@ -188,7 +188,9 @@ extern s32  sce_gs_sync_v(s32) __asm__("FUN_00122298");
+@@ -206,7 +206,9 @@ extern s32  sce_gs_sync_v(s32) __asm__("FUN_00122298");
  extern void initialize_render_archive_transfer(void) __asm__("FUN_L00_002468b8");
  extern void decompress_and_relocate_selected_groups(s32) __asm__("FUN_L00_00234fd0");
  extern void transfer_draw_buffer_chunks(s32, s32, s32) __asm__("FUN_L00_002a0f18");
@@ -154,7 +154,7 @@ index f3b64b8..27f9d83 100644
  
  /* Ported from rac1-decomp (src/overlays/shared/pause_00277208.c: func_L00_00277208). */
  void initialize_pause_menu(void) {
-@@ -359,7 +361,7 @@ void initialize_pause_menu(void) {
+@@ -389,7 +391,7 @@ void initialize_pause_menu(void) {
              if (moby != 0) {
                  LevelCamera *camera;
                  moby->flags &= 0xFFFD;
@@ -164,7 +164,7 @@ index f3b64b8..27f9d83 100644
                  l00_pause_menu_page_mobys[i]->pos[0] = camera->pos.f[0];
                  l00_pause_menu_page_mobys[i]->pos[1] = camera->pos.f[1];
 diff --git a/src/ui/vendor/render_capture_effect_pass.c b/src/ui/vendor/render_capture_effect_pass.c
-index 6458837..d8bd2da 100644
+index 64588370..d8bd2da3 100644
 --- a/src/ui/vendor/render_capture_effect_pass.c
 +++ b/src/ui/vendor/render_capture_effect_pass.c
 @@ -8,7 +8,7 @@ void       render_capture_effect_pass(void) __asm__("FUN_00238630");
