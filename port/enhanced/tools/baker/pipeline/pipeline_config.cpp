@@ -172,6 +172,7 @@ void resolve_paths(Options& options) {
 
 Options arguments(std::span<const std::string> values) {
     Options options;
+    options.lz4_assets = bake_lz4_available();
 
     // Flags and path arguments are resolved once before cache ownership is acquired.
     for (std::size_t index = 0; index < values.size(); ++index) {
@@ -199,6 +200,10 @@ Options arguments(std::span<const std::string> values) {
                 throw std::runtime_error("--lz4-assets requires a build with OPENRAC_BAKE_LZ4");
             }
             options.lz4_assets = true;
+            continue;
+        }
+        if (key == "--no-lz4-assets") {
+            options.lz4_assets = false;
             continue;
         }
 

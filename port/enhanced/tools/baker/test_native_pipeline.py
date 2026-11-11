@@ -202,26 +202,26 @@ class NativePipeline(unittest.TestCase):
         self.assertEqual(json.loads(report.read_text())['source_sha256'],
                          hashlib.sha256(gameplay + collision).hexdigest())
 
-    def test_lz4_storage_is_opt_in_and_part_of_the_cache_identity(self):
+    def test_lz4_storage_defaults_on_and_is_part_of_the_cache_identity(self):
         check = subprocess.run(self.command('--lz4-assets', '--dry-run'),
                                capture_output=True, text=True, timeout=40)
         if '--lz4-assets requires a build with OPENRAC_BAKE_LZ4' in check.stdout + check.stderr:
             self.skipTest('baker was built without LZ4')
         self.assertEqual(check.returncode, 0, check.stdout + check.stderr)
 
-        self.run_bake('--compression', 'none')
+        self.run_bake('--compression', 'none', '--no-lz4-assets')
         path = self.cache/'level_00'/'sparse.orpg'
         raw = path.read_bytes()
         self.assertEqual(raw[:4], b'ORGP')
 
-        self.run_bake('--compression', 'none', '--lz4-assets')
+        self.run_bake('--compression', 'none')
         packed = path.read_bytes()
         self.assertEqual(packed[:4], bytes.fromhex('04 22 4d 18'))
         self.assertLess(len(packed), len(raw))
-        self.assertEqual(self.run_bake('--compression', 'none', '--lz4-assets')
+        self.assertEqual(self.run_bake('--compression', 'none')
                          .stdout.count('up to date'), 2)
 
-        self.run_bake('--compression', 'none')
+        self.run_bake('--compression', 'none', '--no-lz4-assets')
         self.assertEqual(path.read_bytes(), raw)
 
     def test_refreshes_shipped_lighting_profiles_without_replacing_local_edits(self):
@@ -384,19 +384,19 @@ class NativePipeline(unittest.TestCase):
         self.assertEqual(generated.read_bytes(), previous)
 
     def test_compression_is_stored_and_format_changes_invalidate_cache(self):
-        self.run_bake('--compression', 'bc6h')
+        self.run_bake('--compression', 'bc6h', '--no-lz4-assets')
         path = self.cache/'level_00'/'sparse.orpg'
         compressed = path.read_bytes()
         self.assertEqual(struct.unpack_from('<I', compressed, 4)[0], 8)
         # Identity has a variable byte length; depth and colour tags follow the fixed grid header.
         identity_bytes = struct.unpack_from('<I', compressed, 12)[0]
         self.assertEqual(struct.unpack_from('<II', compressed, 96 + identity_bytes), (3, 1))
-        self.run_bake('--compression', 'none')
+        self.run_bake('--compression', 'none', '--no-lz4-assets')
         raw = path.read_bytes()
         self.assertEqual(struct.unpack_from('<II', raw, 96 + identity_bytes), (3, 0))
         self.assertGreater(len(raw), len(compressed))
         self.assertNotEqual(compressed, raw)
-        result = self.run_bake('--compression', 'none')
+        result = self.run_bake('--compression', 'none', '--no-lz4-assets')
         self.assertEqual(result.stdout.count('up to date'), 2)
 
     def test_astc_bake_verifies_under_runtime_rounding(self):
@@ -415,7 +415,7 @@ class NativePipeline(unittest.TestCase):
         self.assertNotIn('cannot start', result.stdout)
 
     def test_native_assets_and_reports_match_the_python_reference_flow(self):
-        self.run_bake()
+        self.run_bake('--no-lz4-assets')
         for index, level in enumerate(self.levels):
             reference = self.root/f'reference-{index}'
             bake_level.bake_level(level,reference,BAKER,options=['--rays','16','--bounces','0','--threads','2'])

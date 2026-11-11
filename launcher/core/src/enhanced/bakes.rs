@@ -74,9 +74,9 @@ fn printed(mut command: std::process::Command) -> Option<String> {
 /// Current native bake stamps must match the resolved transport profile exactly.
 fn made_by(stamp: &Value, profile: &str) -> bool {
     let digest = crate::sha256_hex(profile.as_bytes());
-    // The launcher manages plain caches. Experimental wrapped bakes belong in a separate output.
+    let storage = serde_json::from_str::<Value>(profile).ok().and_then(|p| p.get("asset_storage").cloned());
     stamp["version"] == 5
-        && stamp.get("asset_storage").is_none()
+        && stamp.get("asset_storage") == storage.as_ref()
         && stamp["baker_profile_sha256"].as_str() == Some(digest.as_str())
 }
 
@@ -667,6 +667,15 @@ mod tests {
         wrapped_stamp["asset_storage"] = serde_json::json!("lz4-v1");
         std::fs::write(baked.join(STAMP), wrapped_stamp.to_string()).unwrap();
         assert_eq!(status().ready, 0);
+        let compressed_profile = r#"{"asset_storage":"lz4-v1"}"#;
+        wrapped_stamp["baker_profile_sha256"] = serde_json::json!(crate::sha256_hex(compressed_profile.as_bytes()));
+        std::fs::write(baked.join(STAMP), wrapped_stamp.to_string()).unwrap();
+        let compressed_status =
+            || bake_status_on(&levels, &probes, &baker, true, &|_, _| Some(compressed_profile.to_owned()));
+        assert_eq!(compressed_status().ready, 1);
+        wrapped_stamp.as_object_mut().unwrap().remove("asset_storage");
+        std::fs::write(baked.join(STAMP), wrapped_stamp.to_string()).unwrap();
+        assert_eq!(compressed_status().ready, 0);
         std::fs::write(baked.join(STAMP), stamp.to_string()).unwrap();
         let authoring = level.join("lighting-environments.json");
         std::fs::write(&authoring, "{}").unwrap();

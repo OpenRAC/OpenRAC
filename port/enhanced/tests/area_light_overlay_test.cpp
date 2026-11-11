@@ -13,6 +13,7 @@
 #include <limits>
 #include <string_view>
 
+#include "enhanced/lighting/bake_lz4.h"
 #include "enhanced/lighting/interior_lights.h"
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water_float.h"
@@ -339,9 +340,14 @@ void test_environment_previews(
                         / ("openrac-environment-preview-" + std::to_string(stamp));
     CHECK(std::filesystem::create_directory(folder));
     const auto write = [&](const char* name, const std::vector<std::uint8_t>& bytes) {
+        const auto frame = lighting::bake_lz4_available() ? lighting::compress_bake_asset(bytes)
+                                                          : std::vector<std::uint8_t>{};
+        const auto& stored = frame.empty() ? bytes : frame;
+        CHECK(!lighting::bake_lz4_available() || lighting::is_lz4_bake_asset(stored));
         std::ofstream file(folder / name, std::ios::binary);
         file.write(
-            reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size())
+            reinterpret_cast<const char*>(stored.data()),
+            static_cast<std::streamsize>(stored.size())
         );
         CHECK(bool(file));
     };

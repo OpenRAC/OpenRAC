@@ -362,7 +362,7 @@ endif()
 add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_depth.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
   enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp enhanced/lighting/bake_lz4.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
-option(OPENRAC_BAKE_LZ4 "Enable experimental LZ4 bake asset storage" OFF)
+option(OPENRAC_BAKE_LZ4 "Enable LZ4 bake asset storage" ON)
 if(OPENRAC_BAKE_LZ4)
   include(BakeLz4)
   target_link_libraries(openrac_lighting PRIVATE openrac_bake_lz4)
