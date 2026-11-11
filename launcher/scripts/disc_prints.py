@@ -11,8 +11,8 @@ come from archive.org, as no game database has them. Needs Pillow, NumPy and cur
 The Japanese prints are kept as they are (KEEP): Going Commando's and Deadlocked's come from the
 scans below, Ratchet & Clank's, Up Your Arsenal's and Size Matters' from photos (no scan exists),
 all straightened to a circle, with reflections painted out, the silver band redrawn grey and the
-light and colour evened to match the other prints; Ratchet & Clank's is the PBPX-95516 print, the
-same art as the retail disc. Korean discs show the Japanese print (user decision; no scan of one
+light and colour evened to match the other prints; Ratchet & Clank's is a PBPX-95516 disc (a
+Japanese bundle print). Korean discs show the Japanese print (user decision; no scan of one
 exists), and Secret Agent Clank had no PS2 release in Asia. A region without a print shows the
 North American one (src/lib/discArt.ts).
 
