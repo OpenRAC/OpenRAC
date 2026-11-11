@@ -500,6 +500,10 @@ void world_drawn(std::span<const std::uint8_t> ram) {
     }
     const int level = openrac_game_loaded_overlay();
     g->world_camera = g->profile->read_state(ram, level);
+    g->world_shrubs.reset();
+    if (settings::get().original_draw_distance()) {
+        g->world_shrubs = g->profile->shrub_draws(ram, level);
+    }
 }
 
 bool show_picture(const std::uint8_t* rgba, int width, int height, float black) {

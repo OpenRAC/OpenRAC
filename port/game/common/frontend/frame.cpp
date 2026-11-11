@@ -1213,8 +1213,10 @@ std::optional<std::array<float, 8>> moby_point_light(
 // drew into a texture.
 
 // "Draw distance: Original": ShrubProc's choice for the tick, from the camera the game's world
-// renderers left in memory (`world_ran`, not under a menu); none to keep the last tick's, empty
-// at any other step (the shrubs' distances alone, scaled: LevelScene::choose_scenery).
+// renderers drew with (`world_ran`, not under a menu; read then, State::world_shrubs); none to
+// keep the last tick's, empty at any other step (the shrubs' distances alone, scaled:
+// LevelScene::choose_scenery). Read at the end of the tick instead, the main menu's own camera
+// culled every shrub of the title world (the tanks and lights by the hangar).
 std::optional<std::vector<host::ShrubDraw>> shrub_draws(
     std::span<const std::uint8_t> ram, bool world_ran
 ) {
@@ -1223,6 +1225,9 @@ std::optional<std::vector<host::ShrubDraw>> shrub_draws(
     }
     if (!world_ran) {
         return std::nullopt;
+    }
+    if (g->world_shrubs) {
+        return g->world_shrubs;
     }
     const profiling::Zone trace("Shrub draws");
     return g->profile->shrub_draws(ram, openrac_game_loaded_overlay());
