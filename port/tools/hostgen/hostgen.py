@@ -751,6 +751,8 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         f"| Functions from candidates (C that is not the matched C) | {len(extra.get('candidates_used', []))} |",
         f"| Matched functions the port's own C overrides | {len(extra.get('overrides_used', []))} |",
         f"| Functions by code address | {extra.get('addresses', 0)} |",
+        f"| Catalogue places of functions with C that no address answers | "
+        f"{len(extra.get('places_without_function', []))} |",
         f"| Arguments passed through from the caller's registers | {summary['arguments_passed_through']} |",
         f"| Arguments a call leaves out, filled with 0 | "
         f"{sum(len(v) for v in summary['arguments_filled_with_zero'].values())} |",
@@ -776,6 +778,16 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
             "| Function | Instructions skipped |",
             "|---|---|",
             *[f"| {name} | {what} |" for name, what in sorted(summary["inline_assembly_skipped"].items())],
+            "",
+        ]
+    if extra.get("places_without_function"):
+        md += [
+            "## Places with no function by address",
+            "",
+            "The catalogue has these functions at these places, but `functions.c` gives the address no",
+            "function: a call through it stops the game. Each needs its C registered there.",
+            "",
+            *[f"- {place}" for place in extra["places_without_function"]],
             "",
         ]
     if stage.translated or stage.unsupported:
@@ -1352,12 +1364,9 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     """Every file after the units': the program's files, the libraries, the hooks, the assembly's,
     units.txt and the report. Returns the report's summary, or None when a hook point has no
     signature a hook can take (said)."""
-    program.level_relative = {f.name for r in reports for f in r.functions if f.level_relative}
     extra = write_program_files(program, out, cfg.get("title", cfg.get("name", args.game.parent.name)))
-    # Executable copies skipped because their code uses level data.
-    extra["boot_places_left_out"] = sorted(
-        f"{sym} boot:{addr:08X}" for sym, addrs in program.boot_places.items() for addr in addrs
-        if sym in program.level_relative)
+    # Places of functions with C that a call through their address does not reach (should be none).
+    extra["places_without_function"] = program.places_without_function()
     extra["roots"] = cfg.get("roots", [])
     extra["candidates_used"] = sorted(used)
     extra["overrides_used"] = sorted(overridden)
