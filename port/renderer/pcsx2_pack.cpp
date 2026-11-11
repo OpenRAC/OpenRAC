@@ -153,7 +153,7 @@ std::optional<Rgba8Image> load(const fs::path& path) {
 }
 
 const std::vector<Crop>* crops_for(const gs::Tex0& tex0, std::span<const std::uint32_t> palette) {
-    if (crops.empty() || tex0.psm != gs::kPsmt8 || palette.size() != 256) {
+    if (tex0.psm != gs::kPsmt8 || palette.size() != 256) {
         return nullptr;
     }
     const auto found =
@@ -231,22 +231,23 @@ bool replace(
         return false;
     }
     auto replacement = load(found->second);
-    if (replacement && !replacement->pixels.empty()) {
-        if (alpha == AlphaScale::Full) {
-            // PCSX2 replacements retain GS alpha (0x80 is opaque).
-            for (std::size_t a = 3; a < replacement->pixels.size(); a += 4) {
-                replacement->pixels[a] =
-                    static_cast<std::uint8_t>(std::min(255, replacement->pixels[a] * 2));
-            }
-        }
-        image = std::move(*replacement);
-        return true;
+    // Missing or invalid files leave the original texture intact.
+    if (!replacement || replacement->pixels.empty()) {
+        return false;
     }
-    return false;
+    if (alpha == AlphaScale::Full) {
+        // PCSX2 replacements retain GS alpha (0x80 is opaque).
+        for (std::size_t a = 3; a < replacement->pixels.size(); a += 4) {
+            replacement->pixels[a] =
+                static_cast<std::uint8_t>(std::min(255, replacement->pixels[a] * 2));
+        }
+    }
+    image = std::move(*replacement);
+    return true;
 }
 
 bool may_have_crops(const gs::Tex0& tex0) {
-    return !crop_formats.empty() && crop_formats.contains(texture_bits(tex0));
+    return crop_formats.contains(texture_bits(tex0));
 }
 
 std::array<int, 2> crop_extent(const gs::Tex0& tex0, std::span<const std::uint32_t> palette) {

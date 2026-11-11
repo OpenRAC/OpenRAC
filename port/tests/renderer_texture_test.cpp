@@ -7,10 +7,10 @@
 
 #include <algorithm>
 #include <array>
-#include <filesystem>
-#include <fstream>
 #include <cstdio>
+#include <filesystem>
 #include <format>
+#include <fstream>
 #include <set>
 #include <vector>
 

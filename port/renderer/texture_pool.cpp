@@ -21,8 +21,8 @@
 #include "common/parallel.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
-#include "renderer/shader.h"
 #include "renderer/pcsx2_pack.h"
+#include "renderer/shader.h"
 #include "renderer/texture_pack.h"
 
 namespace openrac::renderer {
@@ -423,7 +423,8 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
                       ? clut_csm1(clut->data, clut->cpsm, clut->width, entries, texa)
                       : std::vector<std::uint32_t>(static_cast<std::size_t>(entries), 0);
     }
-    const std::vector<std::uint8_t> raster = texture_raster(*stored, tex0, tex0.width(), tex0.height());
+    const std::vector<std::uint8_t> raster =
+        texture_raster(*stored, tex0, tex0.width(), tex0.height());
     Rgba8Image image =
         convert(raster, tex0.psm, tex0.width(), tex0.height(), colours, texa, AlphaScale::Gs);
     if (image.pixels.empty()) {
@@ -505,11 +506,12 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
         }
     }
     const TextureHandle h = add(std::move(image), AlphaScale::Gs, "upload");
-    m_entries[h - 1].cropped_replacement = cropped;
-    m_entries[h - 1].uv_scale = uv_scale;
-    m_entries[h - 1].from_upload = true;
-    m_entries[h - 1].key = key;
-    m_entries[h - 1].pack_hash = replaced.hash;
+    auto& entry = m_entries[h - 1];
+    entry.cropped_replacement = cropped;
+    entry.uv_scale = uv_scale;
+    entry.from_upload = true;
+    entry.key = key;
+    entry.pack_hash = replaced.hash;
     animate(h, std::move(replaced.animation));
     m_converted.emplace(key, h);
     return h;

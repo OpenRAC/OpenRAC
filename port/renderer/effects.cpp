@@ -396,10 +396,9 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                                  input.effects, [&](const EffectQuad& q) { return draws(q, input); }
                              )
                            : m_part != EffectPart::Liquids && !input.effects.empty();
-    bool any = quads;
-    for (const EffectStrip& strip : input.strips) {
-        any = any || draws(strip, input);
-    }
+    const bool any = quads || std::ranges::any_of(input.strips, [&](const EffectStrip& strip) {
+                         return draws(strip, input);
+                     });
     if (m_material) {
         const profiling::Zone prepare("Effects material prepare");
         const auto setup = run_surface_setup([this, &input] { m_material->prepare(input); });

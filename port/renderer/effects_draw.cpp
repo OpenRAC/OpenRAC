@@ -251,10 +251,9 @@ void EffectRenderer::draw_prepared(
 
     // Accepted strips retain authored draw and texture-upload order.
     for (const EffectStrip& strip : input.strips) {
-        const bool draw_strip = draws(strip, input);
         if (strip.count < 3
             || static_cast<std::size_t>(strip.first) + strip.count > input.strip_vertices.size()
-            || !draw_strip) {
+            || !draws(strip, input)) {
             continue;
         }
 
@@ -362,7 +361,8 @@ void EffectRenderer::draw_prepared(
     // keep their order. A field of quads paging two textures through one block in turn sent
     // (copied and hashed) one texture a quad, a thousand a frame.
     std::vector<std::size_t> quad_uploads;
-    for (const EffectQuad& q : quads && m_part != EffectPart::Opaque ? input.effects : std::span<const EffectQuad>{}) {
+    for (const EffectQuad& q :
+         quads&& m_part != EffectPart::Opaque ? input.effects : std::span<const EffectQuad>{}) {
         // A complete texture/palette pair must exist before either is uploaded.
         if (q.uploads >= 0
             && static_cast<std::size_t>(q.uploads) + 1 < input.effect_uploads.size()) {
