@@ -164,7 +164,8 @@ struct Settings {
     // Restore this window's preferences without changing general graphics/audio or startup enablement.
     void reset_enhanced();
     // Sets the options a preset covers (upscaling, shadow quality and filtering, occlusion
-    // quality, motion blur, texture upscaling) and leaves the rest alone; Custom changes nothing.
+    // quality, motion blur, texture upscaling, effects detail) and leaves the rest alone; Custom
+    // changes nothing.
     void apply_enhanced_preset(EnhancedPreset preset);
     // The preset those options match now, or Custom.
     EnhancedPreset enhanced_preset() const;

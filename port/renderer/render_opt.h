@@ -107,13 +107,13 @@ enum class Opt : std::uint8_t {
     VkProgramKeep,
     // vk-mode-constants: a program's mode uniforms are constants of its pipelines
     VkModeConstants,
-    // water-mesh-coarse: Enhanced water subdivided to one unit, not half a unit (lossy, Android)
+    // water-mesh-coarse: Enhanced water subdivided to one unit, not half a unit (lossy, Medium)
     WaterMeshCoarse,
     // water-strip-cull: an Enhanced water strip outside the view, waves included, is not drawn
     WaterStripCull,
-    // early-lighting-quarter: early GI and cascades once per 4x4 pixels, not 2x2 (lossy, Android)
+    // early-lighting-quarter: early GI and cascades once per 4x4 pixels, not 2x2 (lossy, Low)
     EarlyLightingQuarter,
-    // blended-early-light: static blended passes reuse the opaque passes' early lighting (lossy)
+    // blended-early-light: static blended passes reuse the opaque passes' early lighting (lossy, Low)
     BlendedEarlyLight,
     // shadow-far-quarter: one far sun cascade a frame, 2 and 3 every fourth frame (lossy, Low)
     ShadowFarQuarter,
@@ -171,8 +171,9 @@ struct OffList {
 [[nodiscard]] OffList parse_off_list(std::string_view text);
 
 // Returns whether `opt` is on: its default, unless OPENRAC_RENDER_OPT_OFF or set() switched it
-// off, and for a lossy entry only at its effects detail or below unless set() switched it on. The variable is read at the first call of this or set(), and an unknown name in it is
-// logged once as a warning and ignored.
+// off, and for a lossy entry only at its effects detail or below unless set() switched it on. The
+// variable is read at the first call of this or set(), and an unknown name in it is logged once as
+// a warning and ignored.
 //
 // Hot path: after the first call, one test of an initialised static and one relaxed atomic load
 // of an array element, so the draw path may ask it per draw. Any thread may call it.

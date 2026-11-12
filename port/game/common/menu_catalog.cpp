@@ -90,9 +90,9 @@ constexpr Entry kEntries[] = {
      "Bounced light, modern shadows and ambient occlusion over the original lighting. Off shows "
      "the game as the console drew it."},
     {Id::EnhancedPreset, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Preset",
-     "Sets upscaling, shadows, occlusion, motion blur and texture upscaling together. Low is for "
-     "weak phones and integrated graphics, Medium for handhelds, High for desktop graphics cards. "
-     "Custom is your own mix."},
+     "Sets upscaling, shadows, occlusion, motion blur, texture upscaling and effects detail "
+     "together. Low is for weak phones and integrated graphics, Medium for handhelds, High for "
+     "desktop graphics cards. Custom is your own mix."},
     {Id::ModernShadows, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Modern shadows",
      "Shadows cast by the level's sun on everything, in place of the game's round blobs."},
     {Id::ShadowQuality, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Shadow quality",

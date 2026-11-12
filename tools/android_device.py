@@ -200,7 +200,8 @@ def capture(device: Device, what: str, options: argparse.Namespace) -> None:
     if options.level is not None:
         args += ["--level", str(options.level), "--skip-movies"] + (["--no-card"] if options.no_card else [])
     start(device, env, args, options.lib)
-    length = 160 + 90 if what == "sweep" else float(options.seconds)
+    # A sweep: its steps (about 180 s, capture.cpp kSweep) and the most it waits for pipelines.
+    length = 180 + 90 if what == "sweep" else float(options.seconds)
     wait_and_pull(device, remote, Path(options.out), timeout=length + 240, shots=options.shots)
     device.shell(f"am force-stop {device.package}")
 

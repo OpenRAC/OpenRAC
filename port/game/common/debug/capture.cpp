@@ -109,7 +109,7 @@ void effects_off(settings::Settings& g) {
 
 // The steps measure Enhanced graphics as the player set it, one part at a time. The pairs at full
 // and half render scale tell a cost that follows the pixels (shading, bandwidth) from one that does
-// not (vertices, binning, fixed passes): on the Odin 3 most of the probe lighting's cost did not.
+// not (vertices, binning, fixed passes): on an Adreno 830 most of the probe lighting's cost did not.
 constexpr SweepStep kSweep[] = {
     {"as set", [](settings::Settings&) {}},
     {"enhanced graphics off", [](settings::Settings& g) { g.enhanced_graphics = false; }},
