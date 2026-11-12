@@ -269,6 +269,9 @@ pub struct Manifest {
     /// Its own page in the launcher (mod_tools.rs).
     #[serde(default)]
     pub tool: Option<crate::mod_tools::Tool>,
+    /// What it keeps beside each save, which the save editor shows (mod_save_data.rs).
+    #[serde(default)]
+    pub save_data: Option<crate::mod_save_data::SaveData>,
 }
 
 /// An id: lower-case letters and digits in words joined by hyphens, at most 64 characters.
@@ -352,6 +355,9 @@ impl Manifest {
         }
         if !valid_id(&self.id) {
             return Err(format!("its id {:?} is not lower-case words joined by hyphens", self.id));
+        }
+        if let Some(save_data) = &self.save_data {
+            save_data.validate()?;
         }
         if self.name.trim().is_empty() {
             return Err("it has no name".into());

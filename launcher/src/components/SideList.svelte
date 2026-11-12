@@ -11,9 +11,10 @@
   // where it stands. In a narrow window only the pictures show, the names in their tooltips. On
   // Android it is a row of pictures above the page (SideFrame), each named across its foot.
   import { onAndroid } from "$lib/api";
-  import { shortTitle, type SideEntry } from "$lib/labels";
+  import { shortTitle, titleLines, type SideEntry } from "$lib/labels";
   import { hideMissing } from "$lib/media";
   import { untrack } from "svelte";
+  import Disc from "./Disc.svelte";
   import Icon from "./Icon.svelte";
 
   let {
@@ -25,6 +26,18 @@
 
   const intro = !lists.introduced;
   lists.introduced = true;
+
+  /** Just shown (another tab's list, as Games and Mods each have their own): no transitions until
+   *  it has been drawn, so its discs show at once as they were, not growing or turning into place. */
+  let still = $state(true);
+  $effect(() => {
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => (still = false));
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  });
 
   // The open entry's highlight slides to the entry picked, as the bar's does from tab to tab. Placed
   // without a transition the first time, so that it does not fly in from the top.
@@ -54,7 +67,17 @@
   });
 </script>
 
-<nav class="list" aria-label={label} bind:this={list}>
+<!-- A disc that grows as its game is picked changes its entry's height: the highlight follows. -->
+<nav
+  class="list"
+  class:discs={entries.some((e) => e.disc)}
+  class:still
+  aria-label={label}
+  bind:this={list}
+  ontransitionend={(e) => {
+    if ((e.target as HTMLElement).classList.contains("disc")) place(selected);
+  }}
+>
   <span
     class="marker"
     class:shown={marker.shown}
@@ -76,15 +99,32 @@
         onpick(e.key);
       }}
     >
-      <span class="thumb" class:icon={!e.art}>
-        {#if e.art}<img src={e.art} alt="" decoding="async" onerror={hideMissing} />{:else if e.icon}<Icon
-            name={e.icon}
-            size={20}
-          />{/if}
-        {#if e.mark}<span class="mark" aria-hidden="true"></span>{/if}
-      </span>
+      {#if e.disc}
+        <span class="disc">
+          <Disc game={e.disc.game} version={e.disc.version} title={e.disc.title} small />
+          {#if e.mark}<span class="mark" aria-hidden="true"></span>{/if}
+        </span>
+      {:else}
+        <span class="thumb" class:icon={!e.art}>
+          {#if e.art}<img src={e.art} alt="" decoding="async" onerror={hideMissing} />{:else if e.icon}<Icon
+              name={e.icon}
+              size={20}
+            />{/if}
+          {#if e.mark}<span class="mark" aria-hidden="true"></span>{/if}
+        </span>
+      {/if}
       <span class="text">
-        <span class="name">{onAndroid ? shortTitle(e.name) : e.name}</span>
+        {#if onAndroid}
+          <span class="name">{shortTitle(e.name)}</span>
+        {:else}
+          <!-- The game's own name goes to a line of its own when the whole does not fit on one. -->
+          {@const lines = titleLines(e.name)}
+          <span class="name"
+            ><!-- The space stays in the name a screen reader says; the gap is padding. --><span class="part"
+              >{lines.game ? `${lines.series} ` : lines.series}</span
+            >{#if lines.game}<span class="part">{lines.game}</span>{/if}</span
+          >
+        {/if}
         {#if e.mark}<span class="sr-only">, crashed recently</span>{/if}
         {#if e.state}
           <span class={`state ${e.state.tone}`}>
@@ -109,6 +149,17 @@
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     min-height: 100%;
+  }
+
+  /* A list of discs sits on the page's own ground, no darker panel or edge (user decision). */
+  .list.discs {
+    background: none;
+    border-right: none;
+    --control: color-mix(in srgb, var(--text) 6%, transparent);
+  }
+
+  .list.discs .marker {
+    background: color-mix(in srgb, var(--amber) 10%, transparent);
   }
 
   .group {
@@ -185,10 +236,6 @@
     }
   }
 
-  .entry:active {
-    transform: scale(0.98);
-  }
-
   .entry.on .name {
     color: var(--amber);
   }
@@ -233,6 +280,96 @@
 
   .entry.on .thumb img {
     filter: none;
+  }
+
+  /* A game's disc in place of its picture (the desktop's game list): the open one a little larger
+     and turned, a disc under the pointer rolling a little to the right; none of them sways. */
+  .disc {
+    position: relative;
+    flex: none;
+    width: 58px;
+    height: 58px;
+    margin: -2px 0;
+    transition:
+      width var(--medium) var(--ease),
+      height var(--medium) var(--ease),
+      margin var(--medium) var(--ease),
+      translate 0.35s cubic-bezier(0.34, 1.45, 0.64, 1);
+  }
+
+  .entry.on .disc {
+    width: 64px;
+    height: 64px;
+    margin: -5px 0;
+  }
+
+  .still .disc,
+  .still .disc :global(.disc),
+  .still .entry,
+  .still .marker {
+    transition: none;
+  }
+
+  /* The disc turns, not its place: the crash dot stays where it is. */
+  .disc :global(.disc) {
+    transition:
+      rotate 0.5s cubic-bezier(0.34, 1.45, 0.64, 1),
+      opacity 0.2s ease;
+  }
+
+  .entry.on .disc :global(.disc) {
+    rotate: -8deg;
+  }
+
+  .entry:not(.on) .disc :global(.disc) {
+    opacity: 0.85;
+  }
+
+  @media (hover: hover) {
+    :global(html:where(:not([data-input="pad"]))) .entry:hover:not(.on) .disc {
+      translate: 2px 0;
+    }
+
+    :global(html:where(:not([data-input="pad"]))) .entry:hover:not(.on) .disc :global(.disc) {
+      rotate: 10deg;
+    }
+
+    :global(html:where(:not([data-input="pad"]))) .entry:hover .disc :global(.disc) {
+      opacity: 1;
+    }
+  }
+
+  /* The controller's focus on a disc rolls it as the pointer does. */
+  :global(html[data-input="pad"]) .entry:focus:not(.on) .disc {
+    translate: 2px 0;
+  }
+
+  :global(html[data-input="pad"]) .entry:focus:not(.on) .disc :global(.disc) {
+    rotate: 10deg;
+  }
+
+  /* Crashed recently: a dot at the disc's foot on the right, inside the row, ringed in the list's
+     ground so it reads as a badge and not a stain on the print. */
+  .disc .mark {
+    top: auto;
+    right: 1px;
+    bottom: 3px;
+    width: 12px;
+    height: 12px;
+    box-shadow: 0 0 0 2.5px var(--rail);
+  }
+
+  .entry.on .disc .mark {
+    box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--amber) 12%, var(--rail));
+  }
+
+  .part {
+    display: inline-block;
+  }
+
+  /* The gap trails the series, so a game name that wraps starts flush on its own line. */
+  .part:has(+ .part) {
+    padding-right: 0.28em;
   }
 
   .mark {
@@ -316,6 +453,13 @@
     .thumb {
       width: 52px;
       height: 40px;
+    }
+
+    .disc,
+    .entry.on .disc {
+      width: 48px;
+      height: 48px;
+      margin: -2px 0;
     }
   }
 

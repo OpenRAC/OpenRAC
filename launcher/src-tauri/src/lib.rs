@@ -1448,6 +1448,50 @@ async fn write_save_rac2(
     .map_err(|e| e.to_string())?
 }
 
+/// What the mods that are on keep beside a Going Commando save (core/src/mod_save_data.rs): their
+/// fields of its record, for the save editor.
+#[tauri::command]
+async fn read_mod_save_data_rac2(
+    state: State<'_, AppState>,
+    serial: String,
+    slot: usize,
+) -> Result<Vec<openrac_launcher_core::mod_save_data::ModSaveData>, String> {
+    use openrac_launcher_core::{mod_save_data, saves};
+    let dir = plugins_dir(&state, "rac2")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let clock = openrac_launcher_core::save_edit_rac2::save_clock(&saves::get_memcard_dir(&serial), &serial, slot)?;
+        mod_save_data::read_all(&dir, "rac2", "", &mod_save_data::mod_data_home(), &clock)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Writes a mod's fields of a Going Commando save's record: refused while the game runs (the mod
+/// keeps the record in memory and writes it at the next save).
+#[tauri::command]
+async fn write_mod_save_data_rac2(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    serial: String,
+    slot: usize,
+    id: String,
+    values: std::collections::BTreeMap<String, u8>,
+) -> Result<openrac_launcher_core::mod_save_data::ModSaveData, String> {
+    use openrac_launcher_core::{mod_save_data, saves};
+    let in_use = card_check(&app).await?;
+    let dir = plugins_dir(&state, "rac2")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = saves::get_memcard_dir(&serial);
+        if let Some(why) = in_use(&card, &serial)? {
+            return Err(why);
+        }
+        let clock = openrac_launcher_core::save_edit_rac2::save_clock(&card, &serial, slot)?;
+        mod_save_data::write_one(&dir, "rac2", "", &mod_save_data::mod_data_home(), &clock, &id, &values)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// The Going Commando save editor's advanced fields of a slot (core/src/save_edit_rac2_extra.rs).
 #[tauri::command]
 async fn read_save_rac2_extra(
@@ -2839,6 +2883,8 @@ pub fn run() {
             read_save_rac2,
             write_save_rac2,
             read_save_rac2_extra,
+            read_mod_save_data_rac2,
+            write_mod_save_data_rac2,
             write_save_rac2_extra,
             overrides_list,
             overrides_summary,

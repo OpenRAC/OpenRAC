@@ -55,13 +55,6 @@
     transition: border-color var(--fast) var(--ease);
   }
 
-  @media (hover: hover) {
-    :global(html:where(:not([data-input="pad"]))) .get.linked:hover {
-      background: var(--on-fill);
-      color: var(--amber);
-    }
-  }
-
   .get.linked:has(.hub:focus-visible) {
     background: var(--on-fill);
     color: var(--amber);

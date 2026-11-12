@@ -1,5 +1,5 @@
-// What a player can do with a game right now: one answer, used by the library's
-// tile and the game's page, so the main button says and does the same thing in both.
+// What a player can do with a game right now: one answer, used by Android's disc
+// shelf and the game's page, so the main button says and does the same thing in both.
 import type { ActionView, GameView, VersionView } from "./api";
 import type { IconName } from "$components/Icon.svelte";
 import { onAndroid, pickFolder, pickIso } from "./api";
@@ -183,6 +183,25 @@ export function rebuildSteps(v: VersionView): ActionView[] | null {
   const check = action(v, "port-levels-check");
   const part = action(v, "port-part");
   return levels?.runnable ? [...(part?.runnable ? [part] : []), levels, ...(check ? [check] : [])] : null;
+}
+
+/**
+ * What the "an update is ready" notice runs for a game built by an older OpenRAC: the build from
+ * scratch (port-rebuild), or with the Incremental builds setting (developers) the incremental one
+ * (port-build), unless the build folder is unusable (VersionView.portCleanReason: no stamp from
+ * OpenRAC's build, another OpenRAC version), when it is still from scratch and says why. Null when
+ * neither can run.
+ */
+export function updateStep(
+  v: VersionView,
+  incremental: boolean,
+): { action: ActionView; incremental: boolean; cleanBecause: string | null } | null {
+  const full = action(v, "port-rebuild");
+  const build = action(v, "port-build");
+  const usable = (a: ActionView | null): a is ActionView => !!a?.thisPlatform && a.runnable;
+  const cleanBecause = incremental && v.portCleanReason && usable(full) ? v.portCleanReason : null;
+  if (incremental && !cleanBecause && usable(build)) return { action: build, incremental: true, cleanBecause: null };
+  return usable(full) ? { action: full, incremental: false, cleanBecause } : null;
 }
 
 export function playerState(game: GameView, v: VersionView): PlayerState {
@@ -597,4 +616,20 @@ async function play(v: VersionView): Promise<void> {
     return;
   }
   await run({ kind: "version", key: v.key }, start);
+}
+
+/** Whether a version has a port to play (its Play is not only planned). */
+export function hasPort(v: VersionView | null): boolean {
+  return v?.actions.some((a) => a.id === "play" && a.state !== "planned") ?? false;
+}
+
+/** What Play warns of before it starts (actions.json `warning`), on this platform; null for none. */
+export function playWarning(v: VersionView | null): string | null {
+  return v?.actions.find((a) => a.id === "play" && a.thisPlatform)?.warning ?? null;
+}
+
+/** Whether the next step can be taken from beside a disc: on Android the game's page has no
+ *  button for it, so every step shows there, a game not playable yet's set-up too. */
+export function offersStep(next: PlayerState | null): boolean {
+  return !!next && !next.disabled && next.kind !== "installing";
 }

@@ -161,6 +161,39 @@
     color: var(--soft);
   }
 
+  /* The changelog's fold: a small line under the mod, its triangle on the left (as Differences'),
+     not the wide fold with a chevron at the far right. */
+  .more > summary {
+    display: inline-flex;
+    gap: 8px;
+    margin-top: 4px;
+    padding: 2px 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--lav);
+  }
+
+  .more > summary::before {
+    content: "";
+    border-left: 5px solid currentColor;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    transition: transform var(--fast) var(--ease);
+  }
+
+  .more[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .more > summary::after {
+    display: none;
+  }
+
+  li > :global(button) {
+    flex: none;
+    align-self: center;
+  }
+
   pre {
     white-space: pre-wrap;
     font-family: var(--font-sans);

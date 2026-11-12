@@ -80,6 +80,7 @@ sceCdGetError	cdvd	sceCdGetError	host	PAL func_00121930
 sceCdBreak	cdvd	sceCdBreak	host	PAL func_001219C8
 sceCdReadClock	cdvd	sceCdReadClock	host	PAL func_00121A80
 sceGsResetGraph	graph	sceGsResetGraph	host	the renderer's video mode; PAL func_00121B78
+_GetGsDxDyOffset	graph	_GetGsDxDyOffset	host	system call 0x80; PAL func_00121DB8
 sceGsSetDefDispEnv	graph	sceGsSetDefDispEnv	host	PAL func_00121DC8
 sceGsPutDispEnv	graph	sceGsPutDispEnv	host	the renderer's display state; PAL func_00122140, paired as called
 sceGsSetDefDrawEnv	graph	sceGsSetDefDrawEnv	game	PAL func_001222C8
@@ -285,6 +286,8 @@ func_L00_001FEF48	game	func_L00_001FEF48	host	a place the catalogue folds into a
 func_L00_001FEF58	game	func_L00_001FEF58	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c); PAL func_L00_001FEF08	float (float)
 FUN_001ff780	hud	func_001FFFB8	wrap	the level HUD's draw: with the player's "HUD: Edges" the elements anchored left or right are drawn out at the sides of a picture wider than the game's (rac1/host/hud.c); PAL func_001FFFB8
 FUN_L00_0023a7a8	hud	draw_weapon_ammo_hud_panel	wrap	the weapon's HUD panel: with the player's "HUD: Edges" it is drawn at its own place with the screen moved, as its strip's width counts its place (rac1/host/hud.c); PAL func_L00_0023B140	int (unsigned int)
+FUN_002196b8	hud	render_level_effects_and_screen_sprites	wrap	the menus' panels: with the player's "HUD: Edges" what they draw stays inside the picture, as the hidden pages' panels are parked past the screen's left side (rac1/host/hud.c); PAL func_0021A610
+FUN_L00_002772c0	hud	draw_pause_menu_pages	wrap	the pause menu's pages: with the player's "HUD: Edges" what they draw stays inside the picture, as the hidden pages' panels are parked past the screen's left side (rac1/host/hud.c); PAL func_L00_002781D8	void (int)
 FUN_001f4650	draw	dispatch_callback_list_1	wrap	a draw callback list's run: in a picture wider than the game's, the cull matrix and clip constants the callbacks test against (the liquid grid's seas, lava and sand; the overlay layers' bounding spheres) are opened by as much as the picture is wider for the run, and put back after it (rac1/host/wide_view.c); PAL func_001F4A00
 FUN_001f46c8	draw	dispatch_callback_list_2	wrap	a draw callback list's run: in a picture wider than the game's, the cull matrix and clip constants the callbacks test against (the liquid grid's seas, lava and sand; the overlay layers' bounding spheres) are opened by as much as the picture is wider for the run, and put back after it (rac1/host/wide_view.c); PAL func_001F4A78
 FUN_001f4740	draw	dispatch_callback_list_3	wrap	a draw callback list's run: in a picture wider than the game's, the cull matrix and clip constants the callbacks test against (the liquid grid's seas, lava and sand; the overlay layers' bounding spheres) are opened by as much as the picture is wider for the run, and put back after it (rac1/host/wide_view.c); PAL func_001F4AF0
@@ -319,7 +322,7 @@ InvokeKernelSyscall005A_Rfu	kernel	Copy	host	system call 0x5A; PAL func_0011D360
 Rfu091Early	kernel	GetEntryAddress	host	system call 0x5B; PAL func_0011D3A8
 Rfu116SetSyscallEarly	kernel	SetSyscall	host	system call 0x74; PAL func_0011D3B8
 func_0011D190	kernel	_SetTLBEntry	host	system call 0x56; PAL func_0011D490
-InvokeKernelSyscall0083_Rfu	kernel	FindAddress	host	system call 0x83; PAL func_0011DA80
+FindAddress	kernel	FindAddress	host	system call 0x83; PAL func_0011DA80
 Rfu116SetSyscallMid	kernel	SetSyscall	host	system call 0x74; PAL func_0011DB98
 Rfu116SetSyscallLate	kernel	SetSyscall	host	system call 0x74; PAL func_0011DBE8
 InvokeKernelSyscall005A_RfuWorker	kernel	Copy	host	system call 0x5A; PAL func_0011DBF8
@@ -353,6 +356,7 @@ FUN_L00_002607d0	items	Planet_Unlock	hook	unlocks a planet's coordinates (Unlock
 FUN_L00_0023d198	vendor	Vendor_InitLevelStock	hook	the vendor's stock at each level start (VendorStockLevelInit: the starting Bomb Glove, the level's new weapon): a hook point for mods (docs/port/MODS.md; the item-randomizer mod takes it); the game's C with none; PAL func_L00_0023DB30	void (void)
 FUN_L00_0029a400	vendor	Vendor_BuildItemList	hook	the vendor menu's list from the stock, each time it opens and after each purchase (VendorBuildItemList): a hook point for mods (docs/port/MODS.md; the item-randomizer mod takes it); the game's C with none; PAL func_L00_0029B770	void (int)
 FUN_00215290	items	GoldBolts_CountCollected	hook	the gold bolts collected, at most 40 (count_gold_bolts: the pause screen's count and the unspent ones): a hook point for mods (docs/port/MODS.md; the item-randomizer mod takes it); the game's C with none; PAL func_002160E0	int (void)
+FUN_00215248	items	GoldBolts_CountUnspent	hook	unspent gold bolts for currency checks and the pause menu; retail accounting with no mod	int (void)
 FUN_L00_002050c0	hero	Hero_TakeDamage	hook	takes hit points off the hero's health (one at most a call; 0 does nothing) and updates the HUD's health bank: every hit the hero takes but the instant kills: a hook point for mods (docs/port/MODS.md; the difficulty mod takes it); the game's C with none; PAL func_L00_002056D8	void (int)
 FUN_L00_0025a420	moby	Moby_GetHitMessage	hook	the hit pending on a moby (MobyGetHitMessage: the record of the last hit posted to it, its damage a float at +0x2C) when its flags match mask, else 0 (and the hit dropped unless keep): how the hero and every enemy read the hits they take: a hook point for mods (docs/port/MODS.md; the difficulty mod takes it); the game's C with none; PAL func_L00_0025B478	unsigned int (unsigned int, int, int)
 FUN_L00_00233db8	items	Weapon_TakeAmmo	hook	takes ammo from an item for a shot (TakeAmmo: -1 for the item in hand): 1, or 0 when there is too little; an item with no ammo limit takes none: a hook point for mods (docs/port/MODS.md; the difficulty mod takes it); the game's C with none; PAL func_L00_00234638	int (int, int)

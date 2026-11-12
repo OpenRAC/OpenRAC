@@ -39,6 +39,19 @@ void test_temporal_settings(const std::filesystem::path& file) {
     CHECK(settings::get().motion_blur_strength == .5f);
 }
 
+// Every Draw distance step survives a save and a load, Unlimited (0) too.
+void test_draw_distance(const std::filesystem::path& file) {
+    using namespace openrac;
+    for (const int value : settings::kDrawDistances) {
+        std::ofstream(file) << "draw_distance = " << value << "\n";
+        settings::load(file);
+        CHECK(settings::get().draw_distance == value);
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().draw_distance == value);
+    }
+}
+
 void test_lily_momentum(const std::filesystem::path& file) {
     using namespace openrac;
     for (const float value : {0.f, .25f, .65f, 1.f}) {
@@ -86,6 +99,32 @@ void test_hdr_settings(const std::filesystem::path& file) {
     settings::load(file);
     CHECK(settings::get().hdr == hdr::Mode::Off);
     CHECK(settings::get().hdr_paper_white == 0 && settings::get().hdr_peak == 0);
+    // The look's sliders: the plain HDR look by default, kept through a save, the default when
+    // out of range.
+    std::ofstream(file) << "vsync = on\n";
+    settings::load(file);
+    CHECK(settings::get().hdr_highlights == 100 && settings::get().hdr_sdr_hue == 0);
+    CHECK(settings::get().hdr_sdr_chroma == 0 && settings::get().hdr_blowout == 0);
+    std::ofstream(file) << "hdr_highlights = 40\nhdr_sdr_hue = 70\nhdr_sdr_chroma = 30\n"
+                        << "hdr_blowout = 100\n";
+    settings::load(file);
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().hdr_highlights == 40 && settings::get().hdr_sdr_hue == 70);
+    CHECK(settings::get().hdr_sdr_chroma == 30 && settings::get().hdr_blowout == 100);
+    std::ofstream(file) << "hdr_highlights = 120\nhdr_sdr_hue = -1\nhdr_blowout = soft\n";
+    settings::load(file);
+    CHECK(settings::get().hdr_highlights == 100 && settings::get().hdr_sdr_hue == 0);
+    CHECK(settings::get().hdr_blowout == 0);
+    // The menu's size: kept through a save, Auto (100) when out of range.
+    std::ofstream(file) << "menu_size = 125\n";
+    settings::load(file);
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().menu_size == 125);
+    std::ofstream(file) << "menu_size = 900\n";
+    settings::load(file);
+    CHECK(settings::get().menu_size == 100);
 }
 
 void test_reset_enhanced() {
@@ -460,6 +499,7 @@ int main() {
     test_bindings_survive_a_save(file);
     test_first_start_display(file);
     test_menu_bar_key(file);
+    test_draw_distance(file);
     CHECK(settings::get().texture_filter == renderer::TextureFilter::EdgeAware);
     CHECK(settings::get().anisotropy == 0);
     CHECK(settings::get().anisotropy_samples(true) == 4);

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { supports } from "$lib/capabilities";
-  // The website's sticky orange bar (openrac-site src/components/Header.tsx):
-  // the OpenRAC logo in the bar's ink, and round pills in a shade of it: the tabs, the site, Discord.
+  // A desktop's header: no bar of its own, over the page, the logo with its first letter in the
+  // game's colour and the theme's buttons: the tabs, the site, Discord.
   // On Android the same places are a navigation rail on the left, or a bar at the bottom when
   // the window is narrow, as Android's own apps have them (Material's navigation rail and bar).
   import { api, inTauri, onAndroid } from "$lib/api";
@@ -38,17 +38,23 @@
     return page === "game" ? "library" : page;
   });
 
-  // The bar's tabs share one highlight that slides to the tab opened. Placed without a
-  // transition the first time, so that it does not fly in from the left edge.
+  // The open tab's highlight: one layer over the whole row of tabs, clipped to the open tab. A
+  // move animates only the clip, so nothing is laid out again each frame. The first place is set without a transition.
   let nav = $state<HTMLElement | null>(null);
-  let slider = $state({ left: 0, width: 0, shown: false, moving: false });
+  let slider = $state({ left: 0, right: 0, shown: false, moving: false });
   /** Whether the highlight has a place yet: not state, as place() is run by an effect. */
   let placed = false;
   function place(page: Page) {
     const on = nav?.querySelector<HTMLElement>(`.tab[data-page="${page}"]`);
-    slider = on
-      ? { left: on.offsetLeft, width: on.offsetWidth, shown: true, moving: placed }
-      : { left: 0, width: 0, shown: false, moving: false };
+    slider =
+      on && nav
+        ? {
+            left: on.offsetLeft,
+            right: nav.clientWidth - on.offsetLeft - on.offsetWidth,
+            shown: true,
+            moving: placed,
+          }
+        : { left: 0, right: 0, shown: false, moving: false };
     placed = !!on;
   }
   $effect(() => {
@@ -65,9 +71,31 @@
       resized.disconnect();
     };
   });
+
+  /** Whether the page has scrolled under a desktop's header (its haze, below): the page, or a
+   *  column of a tab with a list (SideFrame.svelte), is not at its top. */
+  let under = $state(false);
+  const scrolled = () => [...document.querySelectorAll("main, main > .frame > *")].some((e) => e.scrollTop > 1);
+  $effect(() => {
+    if (onAndroid) return;
+    const look = () => {
+      under = scrolled();
+    };
+    document.addEventListener("scroll", look, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("scroll", look, { capture: true });
+    };
+  });
+  // Another page starts at its top.
+  let seen: Page | null = null;
+  $effect(() => {
+    if (current === seen) return;
+    seen = current;
+    under = false;
+  });
 </script>
 
-<header class="site-header">
+<header class="site-header" class:under>
   <!-- The first run: the name, not yet a way back to the games. -->
   {#if setup}
     <div class="brand" title={app.info?.version ? `OpenRAC Launcher ${app.info.version}` : undefined}>
@@ -96,7 +124,7 @@
         class="slider"
         class:shown={slider.shown}
         class:moving={slider.moving}
-        style={`transform: translateX(${slider.left}px); width: ${slider.width}px`}
+        style={`--l: ${slider.left}px; --r: ${slider.right}px`}
         aria-hidden="true"
       ></span>
       {#each tabs as tab (tab.page)}
@@ -185,13 +213,6 @@
 </header>
 
 <style>
-  /* On a desktop the bar writes in the theme's page colour, so the logo and the dark chips match
-     the window under them; Android keeps the picked game's own ink. */
-  :global(html:not([data-platform="android"])) .site-header {
-    --bar-ink-deep: var(--ink-deep);
-    --bar-name: var(--ink-deep);
-  }
-
   .site-header {
     position: relative;
     z-index: 20;
@@ -202,14 +223,74 @@
     height: var(--nav-top);
     width: 100%;
     padding: 0 18px;
-    /* Wide stripes of two close golds: the bar's colour, quieter than one bright yellow. */
-    background: repeating-linear-gradient(35deg, var(--bar-stripe) 0 20px, var(--bar-stripe-alt) 20px 40px);
-    border-bottom: 1px solid rgb(0 0 0 / 0.3);
+    /* No bar of its own anywhere (see below): it lies over the page. */
+    background: none;
     color: var(--bar-name);
-    /* A light shadow: a deep one read as a black band under the bar on the page. */
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.35),
-      0 1px 6px rgb(0 0 0 / 0.18);
+  }
+
+  /* A desktop has no bar of its own: the header lies over the page (App.svelte), on the page's own
+     ground, the logo's first letter in the game's colour as Android's rail has it, its buttons the
+     theme's. Once the page scrolls under it, a haze fades in behind it: blurred, barely darkened,
+     fading out below, so nothing runs into the buttons and neither an edge nor a shadow shows. */
+  :global(html:not([data-platform="android"])) .site-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    /* Android keeps the picked game's own ink. */
+    --bar-ink-deep: var(--ink-deep);
+    --bar-name: var(--text);
+  }
+
+  :global(html:not([data-platform="android"])) .site-header::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 -20px;
+    z-index: -1;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--ink) 30%, transparent);
+    backdrop-filter: blur(18px);
+    mask-image: linear-gradient(black 65%, transparent);
+    -webkit-mask-image: linear-gradient(black 65%, transparent);
+    /* Hidden, not only clear, at a page's top: WebKit can still draw a clear backdrop's filter. */
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      opacity var(--medium) var(--ease),
+      visibility var(--medium);
+  }
+
+  :global(html:not([data-platform="android"])) .site-header.under::before {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  :global(html:not([data-platform="android"])) .brand :global(.logo .first) {
+    fill: var(--amber);
+  }
+
+  :global(html:not([data-platform="android"])) .brand .ver {
+    background: var(--control);
+    color: var(--amber);
+  }
+
+  /* The open tab in the game's colour, its words in the page's dark ink. */
+  :global(html:not([data-platform="android"])) .slider {
+    background: var(--amber);
+  }
+
+  :global(html:not([data-platform="android"])) .tab.on {
+    color: var(--bar-ink-deep);
+  }
+
+  :global(html:not([data-platform="android"])) .tab.on .count {
+    background: var(--bar-ink-deep);
+    color: var(--amber);
+  }
+
+  :global(html:not([data-platform="android"])) .preview {
+    background: var(--control);
+    color: var(--soft);
   }
 
   button {
@@ -221,21 +302,24 @@
     min-height: 0;
   }
 
-  /* Amber on the orange bar would not show: the ring is the bar's ink there (not on Android's
-     dark rail, which keeps the amber). */
-  :global(html:not([data-platform="android"])) .site-header button:focus-visible,
-  :global(html[data-input="pad"]:not([data-platform="android"])) .site-header button:focus {
-    outline: 2px solid var(--bar-ink-deep);
-    outline-offset: 2px;
-  }
-
-  /* The logo in the bar's ink: the accent is the bar itself. */
+  /* The logo in the header's ink (a desktop's first letter: above). */
   .brand {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
     gap: 8px;
     color: var(--bar-name);
+  }
+
+  /* The logo is not a button to look at: no fill under the pointer and no dimming on a press. */
+  @media (hover: hover) {
+    :global(html:where(:not([data-input="pad"]))) button.brand:hover {
+      background-color: transparent;
+    }
+  }
+
+  button.brand:active {
+    filter: none;
   }
 
   /* Its mark alone, for a window too narrow for the name (below). */
@@ -285,14 +369,13 @@
     gap: 6px;
   }
 
-  /* The open tab's dark pill, sliding from tab to tab. */
+  /* The open tab's pill: one layer over the row, clipped to the open tab, the clip gliding from
+     tab to tab. */
   .slider {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    border-radius: var(--radius-sm);
-    background: var(--coal-stripes-hi);
+    inset: 0;
+    background: var(--control-hi);
+    clip-path: inset(0 var(--r) 0 var(--l) round var(--radius-sm));
     opacity: 0;
     /* Over every tab's fill (theirs is at -2), under their words. */
     z-index: -1;
@@ -303,9 +386,7 @@
   }
 
   .slider.moving {
-    transition:
-      transform var(--medium) var(--ease),
-      width var(--medium) var(--ease);
+    transition: clip-path 0.34s cubic-bezier(0.25, 1, 0.5, 1);
   }
 
   /* The open tab is a dark chip with gold text (the slider above, moving from tab to tab); the
@@ -322,8 +403,7 @@
     font-size: 0.9375rem;
     /* Medium, not bold: close to the logo's thin strokes beside it (user decision). */
     font-weight: 500;
-    /* A button of its own on the gold, as the site's bar has them: the bar's stripes continued in
-       coal, gold text, no edge (the gold bar is its edge). */
+    /* A button of its own: the theme's control fill (under it, ::before), gold text, no edge. */
     background: none;
     box-shadow: none;
     color: var(--amber);
@@ -338,7 +418,7 @@
     inset: 0;
     z-index: -2;
     border-radius: inherit;
-    background: var(--coal-stripes);
+    background: var(--control);
     transition: background var(--fast) var(--ease);
   }
 
@@ -349,11 +429,11 @@
     }
 
     :global(html:where(:not([data-input="pad"]))) .tab:hover:not(.on)::before {
-      background: var(--coal-stripes-hi);
+      background: var(--control-hi);
     }
   }
 
-  /* The open one: the lighter stripes (the slider), light gold text. */
+  /* The open one: the slider under it, its words lighter. */
   .tab.on {
     color: var(--gold);
   }
@@ -382,7 +462,7 @@
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--amber);
-    background: var(--coal-stripes);
+    background: var(--control);
     border-radius: var(--radius-sm);
     height: 32px;
     padding: 0 12px;
@@ -423,7 +503,7 @@
     width: 32px;
     height: 32px;
     border-radius: var(--radius-sm);
-    background: var(--coal-stripes);
+    background: var(--control);
     color: var(--amber);
     transition:
       background var(--fast) var(--ease),
@@ -437,7 +517,7 @@
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .site:hover,
     :global(html:where(:not([data-input="pad"]))) .discord:hover {
-      background: var(--coal-stripes-hi);
+      background: var(--control-hi);
       color: var(--gold);
     }
 
@@ -448,11 +528,11 @@
 
   .site:active,
   .discord:active {
-    background: var(--coal-stripes-hi);
+    background: var(--control-hi);
     color: var(--gold);
   }
 
-  /* An update: a bar button (coal stripes, gold text), with a dot that pulses. */
+  /* An update: a bar button (the control fill, gold text), with a dot that pulses. */
   .update {
     display: inline-flex;
     align-items: center;
@@ -460,7 +540,7 @@
     height: 32px;
     font-size: 0.8125rem;
     font-weight: 500;
-    background: var(--coal-stripes);
+    background: var(--control);
     color: var(--gold);
     border-radius: var(--radius-sm);
     padding: 4px 14px 4px 11px;
@@ -602,10 +682,12 @@
     height: auto;
     min-height: 0;
     padding: 16px 0 12px;
-    background: var(--rail);
-    border-bottom: 0;
-    border-right: 1px solid var(--line);
-    box-shadow: none;
+    /* No ground of its own: over the page's left edge (App.svelte), the page's ground under it,
+       Games' wave seen through it as through frosted glass (WaveBackdrop.svelte). */
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
     color: var(--text);
     /* It scrolls only up and down (no bar on Android: app.css): a tab one pixel wider than the
        rail inside its border made a sideways scroll bar along its foot. */
@@ -802,6 +884,9 @@
       width: 100%;
       height: var(--nav-bottom);
       padding: 12px 0 16px;
+      /* In the window's foot, below the page, on its own ground. */
+      position: static;
+      background: var(--rail);
       border-right: 0;
       border-top: 1px solid var(--line);
       overflow: visible;

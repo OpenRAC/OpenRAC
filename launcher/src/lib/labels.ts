@@ -17,6 +17,8 @@ export interface SideEntry {
   state?: EntryState | null;
   /** A picture, shown cropped. */
   art?: string | null;
+  /** A game's disc in place of the picture (the desktop's game list): its print, or its label. */
+  disc?: { game: string; version: string; title: string };
   /** Without a picture: an icon. */
   icon?: IconName;
   /** The game's colours (themeStyle) for the picture's frame. */
@@ -31,6 +33,13 @@ export interface SideEntry {
  *  -> "Going Commando", "Ratchet: Deadlocked" -> "Deadlocked"; the first game keeps its name. */
 export function shortTitle(title: string): string {
   return title.replace(/^Ratchet( & Clank)?: /, "");
+}
+
+/** A game's name in two lines, the series and the game ("Ratchet & Clank:", "Going Commando");
+ *  "Ratchet: Deadlocked" is one name and keeps one line (`game` empty). */
+export function titleLines(title: string): { series: string; game: string } {
+  const at = title.startsWith("Ratchet & Clank: ") ? title.indexOf(": ") : -1;
+  return at < 0 ? { series: title, game: "" } : { series: title.slice(0, at + 1), game: title.slice(at + 2) };
 }
 
 /** `pal` -> "PAL", `ntsc` -> "NTSC-U", `ntsc-j` -> "NTSC-J". */

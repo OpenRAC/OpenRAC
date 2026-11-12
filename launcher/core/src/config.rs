@@ -24,6 +24,10 @@ pub struct Config {
     /// The save editor shows every field of a save, raw bytes included (for debugging). Off, the
     /// player's safe set only.
     pub save_editor_advanced: bool,
+    /// For developers: after a change to OpenRAC, build the game again incrementally (`port-build`)
+    /// instead of from scratch (`port-rebuild`). A build folder that is unusable (no stamp from
+    /// OpenRAC's build, another OpenRAC version) is still built from scratch. Default off.
+    pub incremental_builds: bool,
     /// Where games are set up from the player's discs (OpenGOAL's install
     /// directory); unset: the launcher's per-user data folder.
     pub install_dir: Option<PathBuf>,
@@ -57,9 +61,6 @@ pub struct Config {
     pub update_branch: Option<String>,
     /// Custom Discord application ID (optional).
     pub discord_client_id: Option<String>,
-    /// The page layout: "compact" (default) or "classic", the original design (src/layouts/).
-    #[ts(type = "\"compact\" | \"classic\"")]
-    pub layout: String,
     /// The launcher's theme (src/lib/palettes.json): "openrac" (default), "oled", "nord"
     /// or "mocha". The accent is not a theme's: it is the picked game's.
     pub theme: String,
@@ -144,6 +145,7 @@ impl Default for Config {
             save_dir: None,
             developer: false,
             save_editor_advanced: false,
+            incremental_builds: false,
             setup_complete: false,
             last_version: None,
             discord_rpc: true,
@@ -152,7 +154,6 @@ impl Default for Config {
             update_channel: None,
             update_branch: None,
             discord_client_id: None,
-            layout: "compact".into(),
             theme: "openrac".into(),
             game_colors: true,
             detailed_game_log: false,

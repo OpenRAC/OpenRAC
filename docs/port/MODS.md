@@ -741,7 +741,11 @@ game's thread.
   launcher says so when one is installed and shows where it came from
   (`homepage`); OpenRAC does not sign or vet mods. On macOS the launcher
   takes the download quarantine off the libraries it installs, which the
-  system would otherwise refuse to open.
+  system would otherwise refuse to open. On Linux and macOS the port does not
+  load a library that another user of the computer could swap: the file, or a
+  folder above it without the sticky bit, writable by all, or owned by another
+  user than you and root (links are followed). Disks that keep no owners
+  (FAT, exFAT, NTFS, network and FUSE disks) are not checked.
 - **No mods**: the port reads nothing but the list's absence, binds no hook,
   runs no callback, and the game is the retail game (with the port's fixes).
 
@@ -895,6 +899,59 @@ Controller buttons go to the page as `{openrac: 1, event: "pad", button, down}`
 (`up`, `down`, `left`, `right`, `accept`, `back`, `prev`, `next`, `more`), and
 the page moves its own focus. Escape, the Back button or the `close` call
 return to the mod's page.
+
+### A mod's save data
+
+A native mod that keeps its own state per save (in its data folder, `openrac_api.data_dir`, never
+on the memory card) can describe that file under `save_data` in its manifest; the save editor then
+shows its fields for the save opened, while the mod is on, and saves a change into the file
+(launcher/core/src/mod_save_data.rs; Going Commando's editor so far). Saving there is refused while
+the game runs: the mod keeps the record in memory and writes it at the next save.
+
+```json
+"save_data": {
+  "file": "tiers.txt",
+  "records": "clock-hex",
+  "size": 56,
+  "title": "Weapon tiers",
+  "fields": [
+    {"key": "item_30", "name": "Lancer", "offset": 30, "mask": 127, "max": 8,
+     "choices": ["None", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Omega"]}
+  ]
+}
+```
+
+- `file`: a plain file name in the mod's data folder.
+- `records`: the file's layout. `clock-hex`: a line per save, the save's clock (the 8 bytes the game
+  stamps when it saves; Going Commando's chunk 4, `g_saveClock`) as 16 hex digits, a space, and the
+  record's `size` bytes (at most 4096) as hex; the last line of a clock is its record. A save the
+  file has no record of gets one, zeros but the fields set.
+- `fields`: one byte each at `offset`; `mask` (255 when absent) the bits the field owns, the others
+  kept; values `min` (0) to `max` (255), named by `choices` from 0 when it has them.
+- `attach` (optional): show the field beside one of the editor's own elements instead of in the
+  mod's section, `{"to": <kind>, "id": <number>, "as": <how>}`. Kinds so far: `item` (an item of the
+  game's list by its item number: Going Commando's Lancer is 30), shown `as` `version` (the item's
+  version picker goes on past the game's versions with the field's values above `min`, named by
+  `choices` and grouped under the mod's name) or `row` (a control of its own in the item's row).
+  A kind, item or way the editor does not know leaves the field in the mod's section, so a manifest
+  can name targets a later launcher adds (planets, levels, sections). Several mods may attach to one
+  item: their tiers stack in the picker, their row controls one after another, each tagged with its
+  mod; when two mods both have a tier set, both are shown as a conflict, and picking either puts
+  the other back to `min`.
+- `requires` (optional, on an `as: "version"` field): `{"version": "last"}` ties the field's values
+  above `min` to the game's last version of the item. Picking such a value also moves the item to its
+  last version (V4, or V2 for a weapon with two), with the ammo and experience the game's upgrade
+  leaves; picking a game version in the picker puts the field back to `min`.
+
+The editor's Save writes the card (its own checks, backup and refusal while the game runs) and
+then each mod's file by its own path; a mod's section keeps its own Save for the fields shown there.
+NG++ attaches its 24 tiers this way:
+
+```json
+{"key": "item_30", "name": "Lancer", "offset": 30, "mask": 127, "max": 8,
+ "choices": ["None", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Omega"],
+ "attach": {"to": "item", "id": 30, "as": "version"}, "requires": {"version": "last"}}
+```
 
 ## 10. Mods in a git repository
 

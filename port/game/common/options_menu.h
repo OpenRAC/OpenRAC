@@ -24,6 +24,7 @@ enum Row {
     kMsaa,
     kAnisotropy,
     kDrawDistance,
+    kActiveDistance,
     kVSync,
     kHdr,
     kFrameRate,

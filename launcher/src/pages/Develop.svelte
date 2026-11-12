@@ -39,6 +39,8 @@
         key: v.key,
         name: shortTitle(game.title),
         art: gameThumb(game.id),
+        // Each version its own disc: the NTSC-U or the PAL print (as Games' list).
+        disc: { game: game.id, version: v.name, title: game.title },
         style: themeStyle(game.id),
         group: gi === 0 && vi === 0 ? "Versions" : undefined,
         state: v.progress

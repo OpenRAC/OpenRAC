@@ -72,7 +72,7 @@ Three rules follow from how the projects work:
   ([RAC1 US overlays.md](../../games/rac1/ntsc-decomp/docs/build/overlays.md)).
 - A name moves to another game only when the code at the new address does
   the same thing. RAC2 tested eleven prototype symbol addresses this way and
-  one held ([ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/ENGINE-SYMBOL-NAMES.md)).
+  one held ([ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/game/engine-symbol-names.md)).
 - Some committed names and layouts come from prerelease builds; their status
   is undecided ([OPEN_QUESTIONS.md](../policy/OPEN_QUESTIONS.md), section 3).
 
@@ -83,7 +83,7 @@ Three rules follow from how the projects work:
 | RAC1 PAL | `SCES_509.16`, 1,388,100 bytes | 19, one in each level's data | `IOPRP243.IMG`, an IOP reboot image | boot and all 19 levels |
 | RAC1 US | `SCUS_971.99`, 1,383,028 bytes | 19 | | boot and all 19 levels |
 | RAC2 | `SCUS_972.68`, 2,618,684 bytes, two loadable segments | 27 | | boot and 27 overlays rebuilt from assembly; C replaces it function by function |
-| RAC3 | `SCUS_973.53`, 771,008 bytes | 51, single player and multiplayer | `frontbin.elf`, `boot_elf.elf`, `i5bootn.elf`, `ntgui.elf`, `sly2.elf` | `frontbin.elf`, `boot_elf.elf` (the main executable) and `i5bootn.elf` (the launcher), each rebuilt byte for byte ([targets.md](../../games/rac3/decomp/docs/targets.md)); levels and the other executables counted, not compiled |
+| RAC3 | `SCUS_973.53`, 771,008 bytes | 51, single player and multiplayer | `frontbin.elf`, `boot_elf.elf`, `i5bootn.elf`, `ntgui.elf`, `sly2.elf` | `frontbin.elf`, `boot_elf.elf` (the main executable) and `i5bootn.elf` (the launcher), each rebuilt byte for byte ([targets.md](../../games/rac3/decomp/docs/build/targets.md)); levels and the other executables counted, not compiled |
 | RAC4 | `SCUS_974.65`, 1,692,216 bytes: a 20 KB loader around one compressed image, which unpacks to 17 sections (5,157,636 bytes) | 47 (24 campaign, 23 multiplayer), each with its own overlay on the disc | the IOP image and the DNAS and network GUI files | the image's core, network and level code (8,027 functions) and the overlays, function by function; nothing is linked ([RESEARCH.md](../../games/rac4/decomp/docs/RESEARCH.md)) |
 
 Sizes are from each `game.json`. RAC2's level identifiers run 0–20, 22–26
@@ -113,10 +113,10 @@ RAC1 and RAC2 boot executables have the same sections in the same order
 - **RAC2**: a prototype's section table calls the two halves CORE and
   FRONTEND (**prerelease**). The retail boot keeps that shape; its frontend
   main loop is at 0x0026EDE8 (**retail**,
-  [ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/ENGINE-SYMBOL-NAMES.md)).
+  [ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/game/engine-symbol-names.md)).
 - **RAC3**: `frontbin.elf` is itself a level overlay, the "front end level",
   with `lit`, data and the three `lvl_*` tables. `SCUS_973.53` loads it at
-  0x1D5680 and calls 0x37D200 ([full_match_roadmap.md](../../games/rac3/decomp/docs/us/full_match_roadmap.md),
+  0x1D5680 and calls 0x37D200 ([full_match_roadmap.md](../../games/rac3/decomp/docs/research/us/full_match_roadmap.md),
   [Toolchain-and-Build.md](../../games/rac3/decomp/docs/wiki/Toolchain-and-Build.md)).
   Its `$gp` accesses resolve against 0x1DC8B0
   ([Matching-Patterns.md](../../games/rac3/decomp/docs/wiki/Matching-Patterns.md)).
@@ -148,7 +148,7 @@ RAC1 and RAC2 boot executables have the same sections in the same order
 | RAC1 PAL | Executable game code 348K; about 3.2 MB of distinct level code not in the executable; about 3.5 MB of distinct game code in all, ten times the executable's (3.7 MB with `core_text`) | [ASSETS.md](../../games/rac1/decomp/docs/ASSETS.md#code-overlays) |
 | RAC1 US | Level text records 1,065,136–1,200,936 bytes; distinct level code about 3.2 MB, nine times the executable's | [overlays.md](../../games/rac1/ntsc-decomp/docs/build/overlays.md) |
 | RAC2 | 48,788,176 executable and initialised-data bytes over 28 programs; code repeats about 1.23 times across them | [README](../../games/rac2/decomp/README.md), `SECOND-C-LOT.md` |
-| RAC3 | 51 overlays: about 100 MB of function bytes, 9.3–9.4 MB distinct; other executables about 3.0 MB of code in 15,146 functions | [Toolchain-and-Build.md](../../games/rac3/decomp/docs/wiki/Toolchain-and-Build.md), [shared_code_findings.md](../../games/rac3/decomp/docs/us/shared_code_findings.md) |
+| RAC3 | 51 overlays: about 100 MB of function bytes, 9.3–9.4 MB distinct; other executables about 3.0 MB of code in 15,146 functions | [Toolchain-and-Build.md](../../games/rac3/decomp/docs/wiki/Toolchain-and-Build.md), [shared_code_findings.md](../../games/rac3/decomp/docs/research/us/shared_code_findings.md) |
 
 ## 3. Mobys
 
@@ -162,7 +162,7 @@ The runtime moby record is 0x100 bytes: RAC1 PAL's `InitMobyInstance`
 offset in the moby array, shifted right by 8 (**retail**,
 [src/game/mobyfunc.c](../../games/rac1/decomp/src/game/mobyfunc.c)). RAC2's
 reference notes give the same size and leave RAC2's offsets to be measured
-([COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/COMMUNITY-ENGINE-REFERENCE.md)).
+([COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/game/community-engine-reference.md)).
 
 The field layout is still to be measured from retail code, game by game. A
 field list committed in RAC1 PAL's headers has an unresolved provenance and
@@ -203,7 +203,7 @@ placement format is documented for RAC1 US.
   ([ASSETS.md](../../games/rac1/decomp/docs/ASSETS.md#moby-classes)).
 - **RAC2, retail.** Wrench enumerates 1,476 classes; the dispatch tables use
   1,158 distinct identifiers, 1,119 of them in Wrench's list
-  ([MOBY-DISPATCH-TABLES.md](../../games/rac2/decomp/docs/MOBY-DISPATCH-TABLES.md)).
+  ([MOBY-DISPATCH-TABLES.md](../../games/rac2/decomp/docs/game/moby-dispatch-tables.md)).
 
 ### Update dispatch tables
 
@@ -219,7 +219,7 @@ records; RAC3's `frontbin.elf` and levels have the same three sections
 
 Sources: [OVERLAYS.md, "Roles"](../../games/rac1/decomp/docs/OVERLAYS.md#roles),
 [overlays.md](../../games/rac1/ntsc-decomp/docs/build/overlays.md),
-[MOBY-DISPATCH-TABLES.md](../../games/rac2/decomp/docs/MOBY-DISPATCH-TABLES.md).
+[MOBY-DISPATCH-TABLES.md](../../games/rac2/decomp/docs/game/moby-dispatch-tables.md).
 
 - An update function receives the moby in `$a0` (RAC1 PAL). PAL names 690
   functions by table role (`UpdateMoby_<oClass>`, `InitCamera_<id>`,
@@ -337,11 +337,11 @@ The RAC1 and RAC2 docs name the same four geometry kinds: terrain fragments
   `partproc`/`partupd`, `shadowproc`, `draw`, `vuchain`, `mobyproc` and
   others ([config/text.objects](../../games/rac1/decomp/config/text.objects)).
 - RAC2's reference notes name the four kinds from debug memory-map strings
-  ([COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/COMMUNITY-ENGINE-REFERENCE.md)).
+  ([COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/game/community-engine-reference.md)).
   In the retail RAC2 overlays, functions that carry diagnostic messages are
   labelled, among them `TfragTextureOverflow` (level 0) and the camera
   collision test's grid warning (25 overlays)
-  ([ASSERT-MESSAGE-NAMES.md](../../games/rac2/decomp/docs/ASSERT-MESSAGE-NAMES.md)).
+  ([ASSERT-MESSAGE-NAMES.md](../../games/rac2/decomp/docs/game/assert-message-names.md)).
   RAC1 PAL's retail strings name `MB_CheckCollPill` (used by `func_00214550`)
   and `Camera_CollPrimTest` ([config/strings.tsv](../../games/rac1/decomp/config/strings.tsv)).
 
@@ -357,7 +357,7 @@ sections 1 to 4, with a comparison across the sequels in its section 10.
   VU address}` into `.vutext`; the section names
   `.DVP.overlay..<vu_offset>.<program_id>.<line>.<chunk>` group them into 13
   programs. `.vutext` and the table hash the same on three 2003 prerelease
-  discs and on v1.01 ([VU-MICROPROGRAMS.md](../../games/rac2/decomp/docs/VU-MICROPROGRAMS.md)).
+  discs and on v1.01 ([VU-MICROPROGRAMS.md](../../games/rac2/decomp/docs/game/vu-microprograms.md)).
 - **RAC1 against RAC2.** The RAC1 boot compared has 43 chunks in 12 programs.
   All 12 ids recur in RAC2, which adds program 56883; 21 of 49 comparable
   chunks are byte-identical, including all 8 of program 55907. The `<line>`
@@ -379,7 +379,7 @@ sections 1 to 4, with a comparison across the sequels in its section 10.
 - **RAC3**: VU0 macro-mode code in 101 `frontbin` functions matches as inline
   assembly in C; a hand-written VU0 clipper spans 0x3CC880–0x3CD548.
   `frontbin` writes DMA and GS registers and the scratchpad directly
-  ([full_match_roadmap.md](../../games/rac3/decomp/docs/us/full_match_roadmap.md)).
+  ([full_match_roadmap.md](../../games/rac3/decomp/docs/research/us/full_match_roadmap.md)).
 - **Scratchpad.** RAC1 moby class hierarchies store parents as 0x70000000 +
   0x40 × parent (ReRAC, [ASSETS.md](../../games/rac1/decomp/docs/ASSETS.md#moby-skeletons-and-animations));
   Lombyte's data-flow note finds 0x40-byte scratch slots at 0x70000000 +
@@ -410,7 +410,7 @@ sections 1 to 4, with a comparison across the sequels in its section 10.
   prototype (**prerelease**, [OPEN_QUESTIONS.md](../policy/OPEN_QUESTIONS.md)).
   RAC2: strings of IOP-side libraries (989snd, libcdvd, libdma, libpad2,
   libdbc/libmc, SIF) sit in the boot's data with no code reference
-  ([ASSERT-MESSAGE-NAMES.md](../../games/rac2/decomp/docs/ASSERT-MESSAGE-NAMES.md)).
+  ([ASSERT-MESSAGE-NAMES.md](../../games/rac2/decomp/docs/game/assert-message-names.md)).
   RAC3: the other executables carry `.irx` sections.
 - **Input.** RAC1 PAL links `libpad2.o` (0x124B88) and a game `pad` object.
   RAC2 carries libpad2 identifiers; its reference notes say RAC3 and
@@ -437,8 +437,8 @@ reference ([SOURCING.md](../policy/SOURCING.md)).
 |---|---|
 | RAC1 PAL | 452 `core_text` functions match SDK archive members byte for byte: `libmc`, `libdbc`, `libpad2`, `libmpeg` (with `bit.o`), kernel and SIF calls. Also newlib (`mprec`, `dtoa`, `makebuf`, `strtol` follow its 2000-02-17 snapshot nearly line for line), libgcc built from GCC's source, `989snd`, `crt0` and libsn's `vu.o`. Version strings: libcdvd 2530, libdbc 2500, libkernl 2540, libpad2 2500. `core_text` is about 50 objects, split at the linker's `0xCDCDCDCD` fill; the linker dropped unreferenced functions, sometimes leaving their last word ([DECOMP_PROGRESS.md](../../games/rac1/decomp/docs/DECOMP_PROGRESS.md), [core_text.objects](../../games/rac1/decomp/config/core_text.objects)) |
 | RAC1 US | `src/sdk/` and `src/runtime/newlib/`, with newlib's licence under `licenses/` |
-| RAC2 | The IOP-library strings above; a `FlushCache` syscall stub (syscall 100) at 0x0011AEA0 (**retail**). SDK 2.5.5 and a libpad2 2500 string are **reference** claims ([COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/COMMUNITY-ENGINE-REFERENCE.md)); RAC1 PAL has the same libpad2 string |
-| RAC3 | The launcher `i5bootn.elf`: libgcc's soft-float, 64-bit division and `__main`, rebuilt from GCC 2.95.x source with Sony's no-denormals change, and small libc and SIO helpers, all Sony 2.9-ee-991111 builds; newlib's `exit()` from 2.96-ee-001003-1 ([compiler_matrix_i5bootn.md](../../games/rac3/decomp/docs/us/compiler_matrix_i5bootn.md)). 644 `boot_elf.elf` functions equal `frontbin` functions, "probably shared SDK/engine code" (**inferred**, [shared_code_findings.md](../../games/rac3/decomp/docs/us/shared_code_findings.md)) |
+| RAC2 | The IOP-library strings above; a `FlushCache` syscall stub (syscall 100) at 0x0011AEA0 (**retail**). SDK 2.5.5 and a libpad2 2500 string are **reference** claims ([COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/game/community-engine-reference.md)); RAC1 PAL has the same libpad2 string |
+| RAC3 | The launcher `i5bootn.elf`: libgcc's soft-float, 64-bit division and `__main`, rebuilt from GCC 2.95.x source with Sony's no-denormals change, and small libc and SIO helpers, all Sony 2.9-ee-991111 builds; newlib's `exit()` from 2.96-ee-001003-1 ([compiler_matrix_i5bootn.md](../../games/rac3/decomp/docs/research/us/compiler_matrix_i5bootn.md)). 644 `boot_elf.elf` functions equal `frontbin` functions, "probably shared SDK/engine code" (**inferred**, [shared_code_findings.md](../../games/rac3/decomp/docs/research/us/shared_code_findings.md)) |
 
 ## 8. Code shared between games and versions
 
@@ -480,8 +480,8 @@ reference ([SOURCING.md](../policy/SOURCING.md)).
 | Key | Finding |
 |---|---|
 | RAC1 PAL | 428 level functions have a relative at 75% similarity or more, nearly all in another level; 137 variants differ only in a constant, float or struct offset ([OVERLAYS.md](../../games/rac1/decomp/docs/OVERLAYS.md)) |
-| RAC2 | 13 of the first 17 boot bodies occur in all 27 levels; 82 boot bodies per level are placed (`LEVEL-INTEGRATION-PLAN.md`, [MOBY-DISPATCH-TABLES.md](../../games/rac2/decomp/docs/MOBY-DISPATCH-TABLES.md)) |
-| RAC3 | About 95% of overlay code is shared between overlays; 644 `boot_elf.elf` functions (about 30% of its code) equal `frontbin` functions; the 33 functions in `src/levels/common/` are mostly adapted `frontbin` C ([shared_code_findings.md](../../games/rac3/decomp/docs/us/shared_code_findings.md), [common_level_c.md](../../games/rac3/decomp/docs/common_level_c.md)) |
+| RAC2 | 13 of the first 17 boot bodies occur in all 27 levels; 82 boot bodies per level are placed (`LEVEL-INTEGRATION-PLAN.md`, [MOBY-DISPATCH-TABLES.md](../../games/rac2/decomp/docs/game/moby-dispatch-tables.md)) |
+| RAC3 | About 95% of overlay code is shared between overlays; 644 `boot_elf.elf` functions (about 30% of its code) equal `frontbin` functions; the 33 functions in `src/levels/common/` are mostly adapted `frontbin` C ([shared_code_findings.md](../../games/rac3/decomp/docs/research/us/shared_code_findings.md), [common_level_c.md](../../games/rac3/decomp/docs/common_level_c.md)) |
 
 ### Compilers differ, which limits reuse
 
@@ -492,7 +492,7 @@ What each project measured (details in [docs/decomp/TOOLCHAINS.md](../decomp/TOO
 |---|---|---|
 | RAC1 PAL | SN GCC 2.95.3 (build v1.14) for game code and 989snd; Sony 2.9-ee-991111 for SDK code and libgcc ([TOOLCHAIN.md](../../games/rac1/decomp/docs/TOOLCHAIN.md)) | `text`: `sq`, 16-byte slots; `core_text`: `sd` |
 | RAC1 US | GNU EE-GCC 2.9, assembled with Ps2EeAs; some units need a patched 2.9-ee-991111-01 ([patches/README.md](../../games/rac1/ntsc-decomp/patches/README.md), [overlays.md](../../games/rac1/ntsc-decomp/docs/build/overlays.md)) | the patch adds `sq`/`lq` saves |
-| RAC2 | GNU-EE 2.9-ee-991111b plus a patch stack, for the bodies integrated so far ([COMPILER-NOTES.md](../../games/rac2/decomp/docs/COMPILER-NOTES.md)) | `sd`, 8-byte slots |
+| RAC2 | GNU-EE 2.9-ee-991111b plus a patch stack, for the bodies integrated so far ([COMPILER-NOTES.md](../../games/rac2/decomp/docs/build/compiler-notes.md)) | `sd`, 8-byte slots |
 | RAC3 | SN ee-gcc 2.95.3 v1.36, `-O2 -G8 -fopt-stack -mno-check-zero-division`, per-file `-mno-split-addresses`, per-function Ps2EeAs ([Toolchain-and-Build.md](../../games/rac3/decomp/docs/wiki/Toolchain-and-Build.md)) | `sd`, 8-byte slots |
 
 The RAC1 bodies RAC2 reused make no calls; RAC2 notes that on leaf bodies
@@ -513,7 +513,7 @@ matched in identical code.
   changed functions by similarity only in the boot executables and frontend.
 - **RAC3's boot** is indexed by the map (Wrench's unpacked `boot_elf.elf`).
   The project split it on 2026-10-06 and seeded its front end from
-  frontbin's C ([boot_elf.md](../../games/rac3/decomp/docs/us/boot_elf.md)); the map has not been
+  frontbin's C ([boot_elf.md](../../games/rac3/decomp/docs/research/us/boot_elf.md)); the map has not been
   regenerated against those matches.
 - **Deadlocked.** Its image and overlays are split and catalogued
   ([RESEARCH.md](../../games/rac4/decomp/docs/RESEARCH.md), [OVERLAYS.md](../../games/rac4/decomp/docs/OVERLAYS.md)): the
@@ -525,11 +525,11 @@ matched in identical code.
 
 Stated as found; none is resolved here.
 
-1. **RAC2 prototype date.** [COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/COMMUNITY-ENGINE-REFERENCE.md),
+1. **RAC2 prototype date.** [COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/game/community-engine-reference.md),
    `include/flags.h` and `include/gadgets.h` say "Aug 8 2002 prototype";
-   [MOBY-DISPATCH-TABLES.md](../../games/rac2/decomp/docs/MOBY-DISPATCH-TABLES.md)
+   [MOBY-DISPATCH-TABLES.md](../../games/rac2/decomp/docs/game/moby-dispatch-tables.md)
    and [PROTOTYPE-BUILDS.md](../../games/rac2/decomp/docs/PROTOTYPE-BUILDS.md)
-   date the builds 2003, and [ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/ENGINE-SYMBOL-NAMES.md)
+   date the builds 2003, and [ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/game/engine-symbol-names.md)
    finds the "aug8" linker script matches the 6 August 2003 disc.
 2. **RAC2 target edition.** The reference doc's version table calls v2.00
    (Greatest Hits) the primary target; the project targets v1.01, as the
@@ -539,7 +539,7 @@ Stated as found; none is resolved here.
    `include/card.h` cites strings at 0x0015FE78 and 0x001E83F0. These are
    RAC1 PAL string addresses ([config/strings.tsv](../../games/rac1/decomp/config/strings.tsv)).
    In RAC2 v1.01 they fall in `core.bss` and frontend `.bss`
-   ([ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/ENGINE-SYMBOL-NAMES.md)).
+   ([ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/game/engine-symbol-names.md)).
 4. **Shared state machine.** [SIBLING_DECOMPS.md](../../games/rac1/decomp/docs/SIBLING_DECOMPS.md)
    calls RAC2's memory-card state machine identical to RAC1's; on the RAC2
    side that rests on item 3, not on RAC2 code.
@@ -552,11 +552,11 @@ Stated as found; none is resolved here.
    [overlays.md](../../games/rac1/ntsc-decomp/docs/build/overlays.md) and
    [progress-metrics.md](../../games/rac1/ntsc-decomp/docs/build/progress.md)
    count them in the goal.
-7. **Which RAC1 boot.** [VU-MICROPROGRAMS.md](../../games/rac2/decomp/docs/VU-MICROPROGRAMS.md)
+7. **Which RAC1 boot.** [VU-MICROPROGRAMS.md](../../games/rac2/decomp/docs/game/vu-microprograms.md)
    compares RAC2 with "the RAC1 boot we hold" without naming the region.
 8. **RAC2's compiler.** Its [README](../../games/rac2/decomp/README.md)
    describes the SN ProDG 3.01 `ee-gcc2953` profile and the reference doc
-   names SN GCC 2.95.3; [COMPILER-NOTES.md](../../games/rac2/decomp/docs/COMPILER-NOTES.md)
+   names SN GCC 2.95.3; [COMPILER-NOTES.md](../../games/rac2/decomp/docs/build/compiler-notes.md)
    moved to GNU-EE 2.9 because SN emits `sq` saves. RAC3 gets retail's `sd`
    saves from SN 2.95.3 with `-fopt-stack`; RAC2 does not record trying it.
 9. **Float divide padding.** [SIBLING_DECOMPS.md](../../games/rac1/decomp/docs/SIBLING_DECOMPS.md)

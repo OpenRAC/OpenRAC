@@ -205,10 +205,21 @@ void lists_each_entry_once_in_order() {
     }
 }
 
+// HDR's look sliders are on both kinds of screen (desktop menu and Android drawer), in HDR's
+// section, as sliders.
+void offers_hdr_look_everywhere() {
+    for (const Id id : {Id::HdrHighlights, Id::HdrSdrHue, Id::HdrSdrChroma, Id::HdrBlowout}) {
+        const Entry& e = entry(id);
+        CHECK(offered(e, kDesktop) && offered(e, kTouch));
+        CHECK(e.kind == Kind::Slider && std::string_view(e.section) == "HDR");
+    }
+}
+
 }  // namespace
 
 int main() {
     keeps_every_old_option();
+    offers_hdr_look_everywhere();
     lists_each_entry_once_in_order();
     return openrac::test::result();
 }

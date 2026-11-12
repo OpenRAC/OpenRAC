@@ -60,6 +60,9 @@ bool picker_enabled();
 // The isolated studio may still need displayed poses after click picking is turned off.
 bool picker_snapshot_needed();
 void set_picker_enabled(bool enabled);
+// Where the click picker writes moby-picker.json: the game's data folder (its logs' folder),
+// never the working directory, which can be a source checkout.
+void set_picker_report_folder(const std::string& folder);
 
 // Any desktop overlay window holding the mouse, including Enhanced Settings.
 bool visible();

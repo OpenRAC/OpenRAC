@@ -472,6 +472,17 @@ uint32_t openrac_game_effect_quad_marker(void) {
     });
 }
 
+float openrac_game_active_distance(void) {
+    return c_boundary::call("openrac_game_active_distance", 1.0f, [&]() -> float {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return settings::get().active_distance_scale();
+        }
+#endif
+        return 1.0f;
+    });
+}
+
 float openrac_game_draw_distance(void) {
     return c_boundary::call("openrac_game_draw_distance", 1.0f, [&]() -> float {
 #ifdef OPENRAC_FRONTEND

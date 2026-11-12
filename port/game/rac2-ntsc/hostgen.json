@@ -613,7 +613,6 @@
       "func_00283B98_10": "float (float, float)",
       "func_0028EA58": "int (int, int, int, int, int, void *)",
       "func_L04_0040AD28": "void (void)",
-      "func_L04_00411298": "void (void)",
       "func_L04_00417308": "void (void)",
       "func_L03_003C7018": "void (void)"
     },

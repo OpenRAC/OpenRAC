@@ -2,7 +2,7 @@
 
 The port builds a program for each release rac2-decomp builds, from the same C
 (`games/rac2/decomp`, the mirror of rac2-decomp: `src/`, and `src/pal/`, `src/us2/` for the
-releases' own functions; games/rac2/decomp/docs/VERSIONS.md):
+releases' own functions; games/rac2/decomp/docs/build/versions.md):
 
 | Program | Disc | Serial | Its folder |
 |---|---|---|---|

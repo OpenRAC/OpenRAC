@@ -54,10 +54,11 @@
     font-size: 0.75rem;
   }
 
+  /* The command and Copy on one middle line: a single line sits level with the button. */
   .box {
     align-self: stretch;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
     min-width: 0;
     padding: 8px 8px 8px 12px;
@@ -69,7 +70,7 @@
     flex: 1;
     min-width: 0;
     margin: 0;
-    padding: 3px 0;
+    padding: 0;
     overflow-x: auto;
     font-family: var(--font-mono);
     font-size: 0.75rem;

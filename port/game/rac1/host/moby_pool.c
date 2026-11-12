@@ -114,6 +114,27 @@ void game_rac1_warn_moby_grid_full(void) {
     }
 }
 
+/* Whether CreateMoby (func_0020D348) has `want` free slots left: the spawned slots from the first
+ * free (D_0016001C) to the pool's end (D_00160020); 0xFE and up are free, and from the 0xFF mark on
+ * none has been used yet. */
+int rac1_moby_pool_room(int want) {
+    gaddr slot = GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x0016001Cu)));
+    const gaddr end = GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x00160020u)));
+    int spare = 0;
+    while (slot != 0 && slot < end) {
+        const uint8_t state = GREF(uint8_t, slot + 0x20u);
+        if (state == 0xFF) {
+            return (int)((end - slot) / 0x100u) + spare >= want;
+        }
+        spare += state >= 0xFE;
+        if (spare >= want) {
+            return 1;
+        }
+        slot += 0x100u;
+    }
+    return 0;
+}
+
 /* The level's sim digest (sim_digest.h), read from its records as they come off the disc, and the
  * level it is of (-1 none). A respawn reads the same file again. */
 static uint32_t sim_digest;

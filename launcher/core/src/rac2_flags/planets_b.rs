@@ -47,6 +47,13 @@ const fn arena(id: &'static str, name: &'static str, offset: usize, confidence: 
     }
 }
 
+/// One of the hoverbike races: the byte counts the wins (`func_L04_0040A1D0` gives it,
+/// `func_L04_0040A220` adds 1 per win, the same code in Barlow and Joba). A race can be picked
+/// once the race before it is won; the prize is by this count.
+const fn race(id: &'static str, name: &'static str, offset: usize, description: &'static str) -> Flag {
+    Flag { id, level: Some(11), name, description, place: story(offset, 1), confidence: Confidence::FromCode }
+}
+
 pub const FLAGS: &[Flag] = &[
     // Dobbo (9)
     Flag {
@@ -111,6 +118,32 @@ pub const FLAGS: &[Flag] = &[
     arena("joba-arena-12", "Arena: Damage Avoidance: Don't Get Hit by Megapede!", 72, Confidence::FromCode),
     arena("joba-arena-13", "Arena: Timed Cage Match: Kill 100 Enemies in 100 Seconds", 75, Confidence::FromCode),
     // Todano (12)
+    // Joba's five hoverbike races (wins, chunk 5 0x57..0x5B).
+    race(
+        "joba-race-1",
+        "Hoverbike race 1 won",
+        0x57,
+        "Won at least once: race 2 can be picked, and the next visit gives the Charge Boots if they are not owned.",
+    ),
+    race(
+        "joba-race-2",
+        "Hoverbike race 2 won",
+        0x58,
+        "Won at least once: the next race can be picked and later wins pay the smaller prize.",
+    ),
+    race(
+        "joba-race-3",
+        "Hoverbike race 3 won",
+        0x59,
+        "Won at least once: the next race can be picked and later wins pay the smaller prize.",
+    ),
+    race(
+        "joba-race-4",
+        "Hoverbike race 4 won",
+        0x5A,
+        "Won at least once: the next race can be picked and later wins pay the smaller prize.",
+    ),
+    race("joba-race-5", "Hoverbike race 5 won", 0x5B, "Won at least once: later wins pay the smaller prize."),
     electrolyzer(
         "todano-electrolyzer",
         12,
@@ -121,6 +154,38 @@ pub const FLAGS: &[Flag] = &[
         Confidence::Proven,
     ),
     // Gorn (15)
+    // Aranos Prison (level 14): the prison controller, class 4351 (`func_L14_004265B8`, one in the
+    // level, moby 691), picks its start from four object groups of its pvars (read from the
+    // disc's gameplay file): 9 guard beaten (with story byte 0x29), 8 panel done, 7 exit reached,
+    // 3 switch thrown. With 3 done it gives the Heli-Pack and Thruster-Pack back and the hero is
+    // as usual; without it the level takes both packs away (Clank off Ratchet's back) and resumes
+    // at the step after the last group done.
+    Flag {
+        id: "aranos-prison-clank-section-done",
+        level: Some(14),
+        name: "Prison section done: Clank back with Ratchet",
+        description: "On, the level starts past the prison escape: object groups 9, 8, 7 and 3 done, story byte \
+                      0x29 set. Off, the escape is played again from the start. Items are left as they are (the \
+                      packs come from Endako).",
+        place: Place::All(&[
+            group_done(14, 3),
+            group_done(14, 7),
+            group_done(14, 8),
+            group_done(14, 9),
+            story(0x29, 1),
+        ]),
+        confidence: Confidence::FromCode,
+    },
+    Flag {
+        id: "aranos-prison-pad-reached",
+        level: Some(14),
+        name: "Prison pad reached",
+        description: "The pad class 4411 (moby 810) saves when the hero reaches it: story byte 0x2B and object \
+                      group 10. With 0x2B set, arriving on Aranos Prison skips its capture arrival scene; with \
+                      group 10 and the prison section done, the door (moby 812) starts open.",
+        place: Place::All(&[story(0x2B, 1), group_done(14, 10)]),
+        confidence: Confidence::FromCode,
+    },
     ship("gorn-challenge-1", 15, "Ship challenge 1 won", 0x6B, Confidence::Proven),
     ship("gorn-challenge-2", 15, "Ship challenge 2 won", 0x6C, Confidence::Proven),
     ship("gorn-challenge-3", 15, "Ship challenge 3 won", 0x6D, Confidence::FromCode),

@@ -110,6 +110,27 @@ static void draw_mod_texts(void) {
     }
 }
 
+/*
+ * Aridia's counters (draw_hud_counter, func_L02_0023D6E0: the bottom corners' sand sharks and
+ * the like) keep only the side of their place and are drawn at that side's fixed x instead
+ * (D_L02_0015FA1C left, D_L02_0015FA20 right), so moving the place did not move them. With
+ * "HUD: Edges" those two are moved out with the others while the HUD is drawn, and put back.
+ */
+#define CURRENT_LEVEL RAC1_ADDR(0x0015EE84u)
+#define ARIDIA 2
+
+static void aridia_counters_out(int by) {
+#if !RAC1_OMIT(func_L02_0023D6E0)
+    if (by == 0 || GREF(int, OPENRAC_DATA(CURRENT_LEVEL)) != ARIDIA) {
+        return;
+    }
+    GREF(int, OPENRAC_LDATA(2, RAC1_LADDR(02, 0x0015FA1Cu))) -= by;
+    GREF(int, OPENRAC_LDATA(2, RAC1_LADDR(02, 0x0015FA20u))) += by;
+#else
+    (void)by;
+#endif
+}
+
 void func_001FFFB8(void) {
     const int side = openrac_game_hud_side();
     const gaddr slots = OPENRAC_DATA(RAC1_ADDR(0x00199C60u));
@@ -119,7 +140,9 @@ void func_001FFFB8(void) {
         moved[i] = side == 0 ? 0 : (flags & ANCHOR_LEFT) != 0 ? -side : (flags & ANCHOR_RIGHT) != 0 ? side : 0;
         GREF(int, slot + SLOT_X) += moved[i];
     }
+    aridia_counters_out(side);
     func_001FFFB8__game();
+    aridia_counters_out(-side);
     for (int i = 0; i < SLOTS; i++) {
         GREF(int, slots + (gaddr)i * SLOT_BYTES + SLOT_X) -= moved[i];
         moved[i] = 0;
@@ -142,4 +165,50 @@ int func_L00_0023B140(gaddr element) {
     SCREEN_LEFT -= by * 16;
     GREF(int, element + SLOT_X) += by;
     return result;
+}
+
+/*
+ * The menus' panels (draw_pause_menu_pages in a level, render_level_effects_and_screen_sprites
+ * between levels):
+ * the game parks the panels of the pages not shown past its screen's left side and still draws their
+ * dark fill. The television never showed them. With "HUD: Edges" the picture's sides are drawn, so a
+ * marker (renderer::GifInterpreter::kPictureMarker) keeps what the menu draws inside the picture.
+ */
+#define PICTURE_MARKER 0x5043ull
+
+/* A GS NOP carrying the marker, put in the 2D list as ui2d.c puts its quads' markers. */
+static void picture_marker(int on) {
+    const gaddr cursor = OPENRAC_DATA(RAC1_ADDR(0x00161000u));
+    const gaddr at = GREF(gaddr, cursor);
+    GREF(uint32_t, at + 0) = 0x10000002u;
+    GREF(uint32_t, at + 4) = 0;
+    GREF(uint32_t, at + 8) = 0;
+    GREF(uint32_t, at + 12) = 0x50000002u;
+    GREF(uint64_t, at + 16) = 1ull | (1ull << 15) | (1ull << 60);
+    GREF(uint64_t, at + 24) = 0xEull;
+    GREF(uint64_t, at + 32) = PICTURE_MARKER << 48 | (on ? 1u : 0u);
+    GREF(uint64_t, at + 40) = 0x7Full;
+    GREF(gaddr, cursor) = at + 48;
+}
+
+void func_0021A610(void) {
+    const int side = openrac_game_hud_side();
+    if (side != 0) {
+        picture_marker(1);
+    }
+    func_0021A610__game();
+    if (side != 0) {
+        picture_marker(0);
+    }
+}
+
+void func_L00_002781D8(int transfer_only) {
+    const int side = openrac_game_hud_side();
+    if (side != 0) {
+        picture_marker(1);
+    }
+    func_L00_002781D8__game(transfer_only);
+    if (side != 0) {
+        picture_marker(0);
+    }
 }
