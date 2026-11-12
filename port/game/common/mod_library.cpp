@@ -10,10 +10,18 @@
 #define NOMINMAX
 #include <windows.h>
 #else
+#include <cstring>
 #include <dlfcn.h>
 #include <string>
+#include <unistd.h>
 
 #include <sys/stat.h>
+#if defined(__APPLE__)
+#include <sys/mount.h>
+#include <sys/param.h>
+#elif !defined(__ANDROID__)
+#include <sys/vfs.h>
+#endif
 #endif
 
 namespace openrac::mods::library {
@@ -61,21 +69,63 @@ const void* base_of(const void* address) {
 #else
 
 #if !defined(__ANDROID__)
-// Why a library any other user of this computer could swap is not loaded: the file writable by
-// all, or a folder above it that all may write and rename in (a sticky one, as /tmp, is safe).
-std::string writable_by_others(const std::filesystem::path& path) {
-    struct stat st{};
-    if (stat(path.c_str(), &st) == 0 && (st.st_mode & S_IWOTH) != 0) {
-        return "its library can be changed by any user of this computer (chmod o-w " + path.string()
-               + ")";
+// Whether a folder's disk keeps owners and modes at all: FAT, exFAT, NTFS, network and FUSE disks
+// show every file as writable by all, and refusing there would refuse every mod on them.
+bool keeps_modes(const std::filesystem::path& dir) {
+    struct statfs fs{};
+    if (statfs(dir.c_str(), &fs) != 0) {
+        return true;
     }
+#if defined(__APPLE__)
+    return (fs.f_flags & MNT_IGNORE_OWNERSHIP) == 0 && std::strcmp(fs.f_fstypename, "msdos") != 0
+           && std::strcmp(fs.f_fstypename, "exfat") != 0
+           && std::strcmp(fs.f_fstypename, "ntfs") != 0
+           && std::strcmp(fs.f_fstypename, "smbfs") != 0;
+#else
+    switch (static_cast<unsigned long>(fs.f_type)) {
+        case 0x4d44UL:      // FAT
+        case 0x2011BAB0UL:  // exFAT
+        case 0x5346544eUL:  // NTFS (ntfs3)
+        case 0x65735546UL:  // FUSE (ntfs-3g and others)
+        case 0x01021997UL:  // 9p (WSL's Windows drives)
+        case 0xFE534D42UL:  // SMB2
+        case 0xFF534D42UL:  // CIFS
+            return false;
+        default:
+            return true;
+    }
+#endif
+}
+
+// Why a library another user of this computer could swap is not loaded: the file, or a folder
+// above it, writable by all (a sticky folder, as /tmp, only keeps others from renaming what they
+// do not own) or owned by another user than this one and root. Links are followed to the file.
+std::string writable_by_others(const std::filesystem::path& path) {
     std::error_code ec;
-    std::filesystem::path dir = std::filesystem::absolute(path, ec).parent_path();
-    for (; !dir.empty(); dir = dir.parent_path()) {
-        if (stat(dir.c_str(), &st) == 0 && (st.st_mode & S_IWOTH) != 0
-            && (st.st_mode & S_ISVTX) == 0) {
-            return "its folder " + dir.string()
-                   + " can be changed by any user of this computer (chmod o-w)";
+    const std::filesystem::path file = std::filesystem::canonical(path, ec);
+    if (ec || !keeps_modes(file.parent_path())) {
+        return {};
+    }
+    const uid_t me = geteuid();
+    struct stat st{};
+    if (stat(file.c_str(), &st) == 0) {
+        if ((st.st_mode & S_IWOTH) != 0) {
+            return "its library can be changed by any user of this computer (chmod o-w "
+                   + file.string() + ")";
+        }
+        if (st.st_uid != me && st.st_uid != 0) {
+            return "its library " + file.string() + " belongs to another user of this computer";
+        }
+    }
+    for (std::filesystem::path dir = file.parent_path(); !dir.empty(); dir = dir.parent_path()) {
+        if (stat(dir.c_str(), &st) == 0) {
+            if ((st.st_mode & S_IWOTH) != 0 && (st.st_mode & S_ISVTX) == 0) {
+                return "its folder " + dir.string()
+                       + " can be changed by any user of this computer (chmod o-w)";
+            }
+            if (st.st_uid != me && st.st_uid != 0) {
+                return "its folder " + dir.string() + " belongs to another user of this computer";
+            }
         }
         if (dir == dir.root_path()) {
             break;

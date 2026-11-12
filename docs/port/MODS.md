@@ -743,7 +743,9 @@ game's thread.
   takes the download quarantine off the libraries it installs, which the
   system would otherwise refuse to open. On Linux and macOS the port does not
   load a library that another user of the computer could swap: the file, or a
-  folder above it without the sticky bit, writable by all.
+  folder above it without the sticky bit, writable by all, or owned by another
+  user than you and root (links are followed). Disks that keep no owners
+  (FAT, exFAT, NTFS, network and FUSE disks) are not checked.
 - **No mods**: the port reads nothing but the list's absence, binds no hook,
   runs no callback, and the game is the retail game (with the port's fixes).
 

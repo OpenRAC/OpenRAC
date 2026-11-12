@@ -20,6 +20,10 @@
 #include <tuple>
 #include <vector>
 
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
+
 #include "check.h"
 #include "common/json.h"
 #include "mod_manifest.h"
@@ -1341,6 +1345,29 @@ void a_library_others_can_change_is_refused(const fs::path& plugins) {
     CHECK(status_of(plugins, "test-a").first == "loaded");
     mods::reset();
     fs::permissions(folder, folder_was);
+    // A library another user owns could be changed by that user (checked where the test may chown).
+    if (geteuid() == 0) {
+        CHECK(chown(lib.c_str(), 4321, 4321) == 0);
+        mods::load(host(plugins));
+        std::tie(state, reason) = status_of(plugins, "test-a");
+        CHECK(state == "failed");
+        CHECK(reason.find("belongs to another user") != std::string::npos);
+        mods::reset();
+        CHECK(chown(lib.c_str(), 0, 0) == 0);
+    }
+    // A link is followed: the file it leads to is the one checked.
+    const fs::path elsewhere = plugins / "elsewhere";
+    fs::create_directories(elsewhere);
+    fs::rename(lib, elsewhere / library_name());
+    fs::create_symlink(elsewhere / library_name(), lib);
+    fs::permissions(elsewhere, fs::perms::others_all, fs::perm_options::add);
+    mods::load(host(plugins));
+    std::tie(state, reason) = status_of(plugins, "test-a");
+    CHECK(state == "failed");
+    CHECK(reason.find("elsewhere") != std::string::npos);
+    mods::reset();
+    fs::remove(lib);
+    fs::rename(elsewhere / library_name(), lib);
 #else
     (void)plugins;
 #endif
