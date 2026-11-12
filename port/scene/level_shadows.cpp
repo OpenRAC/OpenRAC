@@ -411,9 +411,19 @@ void LevelScene::keep_far_cascades(bool level_bounds) {
                    );
         };
 
-        // The far two together, or cascade 1 in the frames that draw them: each frame draws about
-        // as much, and the cascades a frame draws are neighbours in the atlas.
-        if (fits(2) && fits(3)) {
+        if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowFarQuarter)) {
+            // One far cascade a frame in turn, 1, 2, 1, 3: cascade 1 every other frame, 2 and 3
+            // every fourth. Any other that no longer fits is drawn too.
+            constexpr unsigned kTurns[4] = {1u << 1, 1u << 2, 1u << 1, 1u << 3};
+            const unsigned turn = kTurns[m_far_phase++ % 4];
+            for (unsigned i = 1; i < kSunCascades; ++i) {
+                if ((turn & (1u << i)) == 0 && fits(i)) {
+                    m_kept_cascades |= 1u << i;
+                }
+            }
+        } else if (fits(2) && fits(3)) {
+            // The far two together, or cascade 1 in the frames that draw them: each frame draws
+            // about as much, and the cascades a frame draws are neighbours in the atlas.
             m_kept_cascades = (1u << 2) | (1u << 3);
         } else if (fits(1)) {
             m_kept_cascades = 1u << 1;
@@ -433,7 +443,12 @@ void LevelScene::keep_far_cascades(bool level_bounds) {
         }
     }
 
-    drawn.fresh = m_shadow_atlas_active && !m_scroll_requested ? all & ~m_kept_cascades : 0u;
+    // A kept cascade stays in the atlas: with shadow-far-quarter it may be kept again.
+    const unsigned held =
+        renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowFarQuarter)
+            ? all
+            : all & ~m_kept_cascades;
+    drawn.fresh = m_shadow_atlas_active && !m_scroll_requested ? held : 0u;
     drawn.separate_hero = m_hero_ready;
     drawn.generation = m_static_generation;
     drawn.atlas_size = m_shadow_layout.size;

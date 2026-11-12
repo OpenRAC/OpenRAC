@@ -52,8 +52,8 @@ before and after, and how its frames are shown to be the same.
 
 A lossy entry also follows the Enhanced setting "Effects detail" (the presets set it): it is on
 only at its highest detail or below, so High draws every effect in full. `probe-fast-blended`,
-`shadow-far-alternate` and `water-mesh-coarse` are on at Medium and Low; `early-lighting-quarter`
-and `blended-early-light` only at Low. `set()` in the tests switches an entry on at any
+`shadow-far-alternate` and `water-mesh-coarse` are on at Medium and Low; `early-lighting-quarter`,
+`blended-early-light` and `shadow-far-quarter` only at Low. `set()` in the tests switches an entry on at any
 detail.
 
 | Name | Default | Tolerance | What it does |
@@ -109,6 +109,7 @@ detail.
 | `water-strip-cull` | on | none (exact) | Enhanced water: a strip whose box, grown by four units for the waves, lies outside the view is not drawn. The game sends water strips the camera cannot see, and each one costs its dense triangles' vertex work and binning. |
 | `early-lighting-quarter` | on at Low detail | 5% of pixels by at most 64 | Early lighting (GI and the near cascades' look-up) runs once per 4x4 pixels instead of 2x2, a quarter of the compute work; the colour passes pick the nearest of the cell's samples as before. Lighting edges are coarser. |
 | `blended-early-light` | on at Low detail | 25% of pixels, any value | The static blended passes (the soft fringes of leaves and bushes, glass) read the early lighting the opaque passes cached, from the cached surface they lie on, and that of the nearest cached surface where they lie on none (the original lighting only with no cached surface around). The fringes then match their opaque cores. Probe light per blended pixel costs about 2.5 ms at native 1080p on the Odin 3. |
+| `shadow-far-quarter` | on at Low detail | 25% of pixels, any value | With `shadow-far-alternate`, a frame draws one far sun cascade in turn (1, 2, 1, 3): cascade 1 every other frame, 2 and 3 every fourth, each kept while this frame's receivers fit inside it as drawn. On the Odin 3 at native 1080p cascades 2 and 3 together cost about 1.5 ms in the frames that draw them. |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the

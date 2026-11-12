@@ -861,7 +861,9 @@ private:
     // for. A frame after one that drew a cascade keeps it while its receivers fit inside it.
     struct DrawnCascades {
         SunCascades cascades;
-        unsigned fresh = 0;  // the cascades the last frame drew, one bit each
+        // The cascades the atlas holds as drawn, one bit each: the last frame's, or with
+        // shadow-far-quarter also older ones kept since.
+        unsigned fresh = 0;
         bool separate_hero = false;
         std::uint64_t generation = 0;
         int atlas_size = 0;
@@ -869,6 +871,7 @@ private:
 
     DrawnCascades m_drawn_cascades;
     unsigned m_kept_cascades = 0;  // the cascades this frame keeps from the last, one bit each
+    unsigned m_far_phase = 0;      // shadow-far-quarter: which far cascade this frame draws
     renderer::Camera m_sun_camera;        // View whose splits produced the current shadow maps.
     bool m_culling_lines_failed = false;  // Retry failed diagnostic shaders after scene release.
     std::unique_ptr<renderer::DebugLines>

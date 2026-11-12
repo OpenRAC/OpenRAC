@@ -234,6 +234,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::BlendedEarlyLight, "blended-early-light",
      "the static blended passes read the early lighting of the nearest cached opaque surface instead of probe GI",
      true, Tolerance{0.25, 255}, EffectsDetail::Low},
+    {Opt::ShadowFarQuarter, "shadow-far-quarter",
+     "with shadow-far-alternate, one far sun cascade a frame: 1 every other frame, 2 and 3 every fourth",
+     true, Tolerance{0.25, 255}, EffectsDetail::Low},
 }};
 // clang-format on
 

@@ -115,10 +115,12 @@ enum class Opt : std::uint8_t {
     EarlyLightingQuarter,
     // blended-early-light: static blended passes reuse the opaque passes' early lighting (lossy)
     BlendedEarlyLight,
+    // shadow-far-quarter: one far sun cascade a frame, 2 and 3 every fourth frame (lossy, Low)
+    ShadowFarQuarter,
 };
 
-// The number of entries: BlendedEarlyLight is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::BlendedEarlyLight) + 1;
+// The number of entries: ShadowFarQuarter is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::ShadowFarQuarter) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in
