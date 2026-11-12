@@ -328,6 +328,11 @@ void test_reuse_programs(bool on, bool borrow = true);
 // are never kept. Off (the default, and the tests'), a deleted program's objects are destroyed.
 void keep_programs(bool on);
 
+// While an upscaler draws the world at a smaller size, its mipmapped textures take this bias
+// (log2 of render over display width, below zero) so that they keep the display's detail; 0 for
+// everything else. Read when a draw binds its textures.
+void set_texture_lod_bias(float bias);
+
 // For the tests: draws the copy into the default framebuffer that waits for the present
 // (present-single-copy) into two stand-ins of the screen, B8G8R8A8 at the default framebuffer's
 // size: `single` the one blit the present makes, `two_step` the copy into the default

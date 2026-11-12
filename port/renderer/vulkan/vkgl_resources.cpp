@@ -6,6 +6,7 @@
 // views behind GL's buffers.
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -478,7 +479,9 @@ VkSampler sampler_for(const SamplerParams& p, bool integer) {
         | static_cast<std::uint64_t>(wrap_of(p.wrap_s)) << 16
         | static_cast<std::uint64_t>(wrap_of(p.wrap_t)) << 20
         | static_cast<std::uint64_t>(std::clamp(p.anisotropy, 1.0f, 64.0f) * 4.0f) << 24
-        | static_cast<std::uint64_t>(integer) << 40;
+        | static_cast<std::uint64_t>(integer) << 40
+        | static_cast<std::uint64_t>(std::lround(std::clamp(p.lod_bias, -8.0f, 8.0f) * 16) + 128)
+              << 41;
     for (const auto& [k, s] : g->vk_samplers) {
         if (k == key) {
             return s;
@@ -497,6 +500,8 @@ VkSampler sampler_for(const SamplerParams& p, bool integer) {
     info.addressModeV = wrap_of(p.wrap_t);
     info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     info.minLod = 0.0f;
+    const float max_bias = g->properties.limits.maxSamplerLodBias;
+    info.mipLodBias = std::clamp(p.lod_bias, -max_bias, max_bias);
     // GL's NEAREST and LINEAR minification read the base level only.
     info.maxLod = mipmapped ? VK_LOD_CLAMP_NONE : 0.25f;
     if (p.anisotropy > 1.0f && g->features.samplerAnisotropy && mipmapped && !integer) {

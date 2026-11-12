@@ -13,6 +13,7 @@
 #include "fsr3_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 
 #include <FidelityFX/host/ffx_fsr3upscaler.h>
@@ -290,6 +291,10 @@ void Fsr3::State::attach_frame(TemporalFrame frame, std::array<int, 2> size) {
     display = frame.target;
     has_opaque = false;
     finish_colour = std::move(frame.finish_colour);
+    // World textures keep the display's detail while the world is drawn smaller; resolve() ends it.
+    if (size[0] < display.width) {
+        vkgl::set_texture_lod_bias(std::log2(static_cast<float>(size[0]) / display.width));
+    }
     frame.target.framebuffer = world.id();
     frame.target.width = size[0];
     frame.target.height = size[1];
@@ -318,6 +323,7 @@ bool Fsr3::begin(
     TemporalFrame frame, renderer::TemporalQuality quality, float sharpness, std::string& error
 ) {
     State& state = *m_state;
+    vkgl::set_texture_lod_bias(0.0f);
 
     // Motion blur with temporal upscaling off: its motion is drawn, no upscaler runs.
     const bool blur_only = quality == renderer::TemporalQuality::Off && frame.motion_blur

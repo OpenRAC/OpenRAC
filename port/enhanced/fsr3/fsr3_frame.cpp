@@ -14,6 +14,7 @@
 #include "enhanced/fsr3/temporal_pass.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 
 namespace openrac::enhanced {
@@ -331,6 +332,7 @@ bool Fsr3::State::resolve_images() {
 }
 
 void Fsr3::State::resolve(renderer::RenderTarget& target) {
+    vkgl::set_texture_lod_bias(0.0f);
     bool resolved = false;
     // This synchronous scope finishes all queued draws before displayed-frame history is retained.
     const auto prepare = [this, &resolved] {

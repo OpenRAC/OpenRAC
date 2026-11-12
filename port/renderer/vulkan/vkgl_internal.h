@@ -356,6 +356,7 @@ struct SamplerParams {
     GLenum wrap_s = GL_REPEAT;
     GLenum wrap_t = GL_REPEAT;
     float anisotropy = 1.0f;
+    float lod_bias = 0.0f;  // set_texture_lod_bias's, on mipmapped textures only
     bool operator==(const SamplerParams&) const = default;
 };
 
@@ -1339,6 +1340,8 @@ struct Context {
     // VK_KHR_pipeline_executable_properties under OPENRAC_VK_PIPELINE_STATS: each new graphics
     // or compute pipeline logs the driver's statistics of its shaders (log_executable_statistics).
     bool pipeline_stats = false;
+    // The mip bias set_texture_lod_bias gives mipmapped textures while an upscaler draws the world.
+    float texture_lod_bias = 0.0f;
     // The device takes cull, front face, depth and stencil state as dynamic state (Vulkan 1.3's
     // core extended dynamic state), so pipelines need not bake them (R-11).
     bool extended_dynamic_state = false;

@@ -2141,6 +2141,10 @@ Sampled sampled(const Program& p, std::size_t i) {
     }
     const bool integer =
         image->format == VK_FORMAT_R32_UINT || image->format == VK_FORMAT_R32G32B32A32_UINT;
+    // Mipmapped textures take the upscaler's mip bias (set_texture_lod_bias).
+    if (params.min != GL_NEAREST && params.min != GL_LINEAR && !integer) {
+        params.lod_bias = g->texture_lod_bias;
+    }
     out.image = image;
     out.view =
         sample_view(*image, t != nullptr ? t->base_level : 0, t != nullptr ? t->max_level : 0);

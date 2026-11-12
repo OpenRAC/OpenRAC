@@ -160,4 +160,10 @@ void keep_programs(bool on) {
     }
 }
 
+void set_texture_lod_bias(float bias) {
+    if (detail::g) {
+        detail::g->texture_lod_bias = bias;
+    }
+}
+
 }  // namespace openrac::vkgl
