@@ -69,10 +69,12 @@ struct Capture {
     std::string path;                           // the report's file; empty: one of its own
     bool hid_panel = false;                     // the panel was hidden for the capture
     bool opened_dump = false;                   // the frame dump beside it is the capture's own
-    // OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]: a capture by script.
+    // OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]: a capture by script ("sweep" as the seconds:
+    // the settings sweep).
     std::uint64_t script_frame = 0;
     double script_seconds = 0.0;
     std::string script_path;
+    bool script_sweep = false;  // the settings sweep in place of a plain capture
     bool scripted = false;
     // What the device said when the capture started, said again at its end.
     std::string clocks_at_start, thermal_at_start;
@@ -117,6 +119,16 @@ constexpr SweepStep kSweep[] = {
          g.render_scale = 50;
      }},
     {"as set, render scale 50%", [](settings::Settings& g) { g.render_scale = 50; }},
+    // A sixteenth of the pixels: nearly all that is left does not follow the pixels.
+    {"as set, render scale 25%", [](settings::Settings& g) { g.render_scale = 25; }},
+    // The same draws with no triangles to speak of: what a draw costs by itself.
+    {"as set, every world draw cut to one triangle",
+     [](settings::Settings& g) { g.sweep_one_triangle = true; }},
+    // The prepass's draws with the general depth shader: whether a draw costs more with a larger
+    // shader.
+    {"as set, prepass with the general shader (prepass-rigid off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::PrepassRigid},
     {"as set, probe lighting off",
      [](settings::Settings& g) { g.sweep_probe_lighting_off = true; }},
     {"as set, probe lighting off, render scale 50%",
@@ -317,14 +329,23 @@ void configure_capture() {
         char* end = nullptr;
         c.script_frame = std::strtoull(text.c_str(), &end, 10);
         if (end != nullptr && *end == ':') {
-            c.script_seconds = std::strtod(end + 1, &end);
+            // "sweep" in place of the seconds: the graphics settings sweep, as long as it takes.
+            if (std::string_view(end + 1).starts_with("sweep")) {
+                c.script_sweep = true;
+                end += 1 + std::string_view("sweep").size();
+            } else {
+                c.script_seconds = std::strtod(end + 1, &end);
+            }
+
             if (end != nullptr && *end == ':') {
                 c.script_path = end + 1;
             }
         }
-        c.scripted = c.script_seconds > 0.0;
+
+        c.scripted = c.script_sweep || c.script_seconds > 0.0;
+
         if (!c.scripted) {
-            log::warn("OPENRAC_PERF_CAPTURE: expected FRAME:SECONDS[:FILE], got {}", text);
+            log::warn("OPENRAC_PERF_CAPTURE: expected FRAME:SECONDS|sweep[:FILE], got {}", text);
         }
     }
 }
@@ -795,11 +816,38 @@ std::string capture_badge() {
                         : std::format("REC {:.0f} s", elapsed);
 }
 
+namespace {
+
+// The graphics settings sweep: one capture as long as all its steps, the first step applied.
+void begin_sweep(const Shown& shown, const std::string& path) {
+    begin_capture(shown, settings_sweep_seconds(), path);
+
+    if (!perf_capture::active()) {
+        return;
+    }
+
+    sweep.running = true;
+    sweep.saved = settings::get();
+    sweep.step = -1;
+    sweep.starts.clear();
+    sweep.done_serial = 0;
+    sweep.picture_s.assign(kSweepSteps, {});
+    sweep.gpu_ms.assign(kSweepSteps, {});
+    sweep_apply(0);
+}
+
+}  // namespace
+
 void capture_frame(const Shown& shown) {
     configure_capture();
     if (c.scripted && s.tick >= c.script_frame && !perf_capture::active()) {
         c.scripted = false;
-        begin_capture(shown, c.script_seconds, c.script_path);
+
+        if (c.script_sweep) {
+            begin_sweep(shown, c.script_path);
+        } else {
+            begin_capture(shown, c.script_seconds, c.script_path);
+        }
     }
     if (c.start_at) {
         if (c.wait_for_drawer && (s.menu_open || s.menu_at > 0.0f)) {
@@ -810,17 +858,7 @@ void capture_frame(const Shown& shown) {
                 c.start_at.reset();
                 if (sweep.asked) {
                     sweep.asked = false;
-                    begin_capture(shown, settings_sweep_seconds(), {});
-                    if (perf_capture::active()) {
-                        sweep.running = true;
-                        sweep.saved = settings::get();
-                        sweep.step = -1;
-                        sweep.starts.clear();
-                        sweep.done_serial = 0;
-                        sweep.picture_s.assign(kSweepSteps, {});
-                        sweep.gpu_ms.assign(kSweepSteps, {});
-                        sweep_apply(0);
-                    }
+                    begin_sweep(shown, {});
                 } else {
                     begin_capture(shown, s.capture_seconds, {});
                 }

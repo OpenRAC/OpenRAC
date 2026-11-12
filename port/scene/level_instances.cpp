@@ -453,6 +453,10 @@ renderer::GpuInstanceBatch LevelScene::gpu_batch(
 void LevelScene::submit_instances(
     renderer::GpuInstanceBatch batch, unsigned first, unsigned count, int instances
 ) {
+    // The settings sweep's experiment: the draw is kept, its triangles are not.
+    if (m_sweep_one_triangle) {
+        count = std::min(count, 3u);
+    }
 #if defined(OPENRAC_VULKAN)
     if (batch) {
         if (!vkgl::draw_gpu_instances(batch, first, count)) {

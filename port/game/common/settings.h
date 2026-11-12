@@ -154,6 +154,7 @@ struct Settings {
     bool sweep_translucent_unlit = false;
     bool sweep_translucent_full = false;
     bool sweep_moby_blended_off = false;
+    bool sweep_one_triangle = false;
     float probe_normal_bias = 0.5f;  // receiver offsets in world units
     float probe_view_bias = 0.5f;
     bool sun_direction_override = false;
