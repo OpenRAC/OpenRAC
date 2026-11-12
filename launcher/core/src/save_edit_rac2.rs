@@ -1614,7 +1614,8 @@ mod tests {
         // The game's own writes on entering Maktar's arena the first time (format document, a0/a1).
         let before = oozla();
         let f = before.fields();
-        assert!(f.flags.iter().all(|x| !x.on));
+        // The fixture is on Oozla, past its first scenes: those are on, no story flag is.
+        assert!(f.flags.iter().filter(|x| !x.id.contains("-scene-")).all(|x| !x.on));
         const ARENA: [&str; 2] = ["maktar-arena-entered", "maktar-arena-intro-seen"];
         let mut want = f.clone();
         want.flags.iter_mut().filter(|x| ARENA.contains(&x.id.as_str())).for_each(|x| x.on = true);

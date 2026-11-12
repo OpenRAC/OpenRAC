@@ -47,6 +47,13 @@ const fn arena(id: &'static str, name: &'static str, offset: usize, confidence: 
     }
 }
 
+/// One of the hoverbike races: the byte counts the wins (`func_L04_0040A1D0` gives it,
+/// `func_L04_0040A220` adds 1 per win, the same code in Barlow and Joba). A race can be picked
+/// once the race before it is won; the prize is by this count.
+const fn race(id: &'static str, name: &'static str, offset: usize, description: &'static str) -> Flag {
+    Flag { id, level: Some(11), name, description, place: story(offset, 1), confidence: Confidence::FromCode }
+}
+
 pub const FLAGS: &[Flag] = &[
     // Dobbo (9)
     Flag {
@@ -111,6 +118,32 @@ pub const FLAGS: &[Flag] = &[
     arena("joba-arena-12", "Arena: Damage Avoidance: Don't Get Hit by Megapede!", 72, Confidence::FromCode),
     arena("joba-arena-13", "Arena: Timed Cage Match: Kill 100 Enemies in 100 Seconds", 75, Confidence::FromCode),
     // Todano (12)
+    // Joba's five hoverbike races (wins, chunk 5 0x57..0x5B).
+    race(
+        "joba-race-1",
+        "Hoverbike race 1 won",
+        0x57,
+        "Won at least once: race 2 can be picked, and the next visit gives the Charge Boots if they are not owned.",
+    ),
+    race(
+        "joba-race-2",
+        "Hoverbike race 2 won",
+        0x58,
+        "Won at least once: the next race can be picked and later wins pay the smaller prize.",
+    ),
+    race(
+        "joba-race-3",
+        "Hoverbike race 3 won",
+        0x59,
+        "Won at least once: the next race can be picked and later wins pay the smaller prize.",
+    ),
+    race(
+        "joba-race-4",
+        "Hoverbike race 4 won",
+        0x5A,
+        "Won at least once: the next race can be picked and later wins pay the smaller prize.",
+    ),
+    race("joba-race-5", "Hoverbike race 5 won", 0x5B, "Won at least once: later wins pay the smaller prize."),
     electrolyzer(
         "todano-electrolyzer",
         12,

@@ -14,16 +14,11 @@
 //! and object group (chunk 3004) in the level's section; they are in `RAC2_SAVE_FORMAT.md`,
 //! "Advanced: Electrolyzer puzzles (L-7)".
 
-use super::{count, electrolyzer, Confidence, Flag, Place};
+use super::{count, electrolyzer, scene, Confidence, Flag, Place};
 
 /// A story byte (chunk 5): set is 1, as the game writes it.
 const fn story(offset: usize) -> Place {
     Place::Byte { chunk: 5, level: None, offset, on: 1 }
-}
-
-/// Scene `id`'s seen bit (chunk 43).
-const fn scene(id: usize) -> Place {
-    Place::Bit { chunk: 43, level: None, offset: (id >> 2) * 4 + (id & 31) / 8, bit: (id & 7) as u8 }
 }
 
 pub const FLAGS: &[Flag] = &[
