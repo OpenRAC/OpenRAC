@@ -109,6 +109,7 @@ void SceneLighting::bind_surface_layer(const renderer::Shader& shader, int layer
 }
 
 void SceneLighting::bind_moby_model(const renderer::Shader& shader, std::uint32_t model) const {
+    m_wetness.bind_model(shader, model);
     m_fur.bind_model(shader, model, m_default_fur);
 }
 

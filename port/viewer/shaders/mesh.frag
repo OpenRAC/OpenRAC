@@ -67,6 +67,8 @@ uniform sampler2D gtao_visibility;
 
 #ifdef OPENRAC_HERO_WETNESS
 in float v_hero_wetness;
+// openrac_mode: hero_wetness_enabled
+uniform int hero_wetness_enabled; // Zero for every draw but the hero's: no wet coat code there.
 uniform int hero_wetness_debug;
 uniform vec4 hero_wetness_material; // wet diffuse, specular strength, dry/wet roughness
 uniform float hero_wetness_f0;
@@ -153,11 +155,11 @@ bool early_surface(
 #endif
 // This replaces RGB only. Alpha tests, fading and blend equations stay in
 // the existing path, as do explicitly unlit, additive, metal and glow passes.
-#ifdef OPENRAC_HERO_WETNESS
+#if defined(OPENRAC_HERO_WETNESS) && !defined(OPENRAC_STATIC_COLOUR)
 // A thin wet coat: diffuse darkening, direct GGX highlights and local environment reflections.
 vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) {
     float wet = clamp(v_hero_wetness, 0., 1.);
-    if (wet <= 0.) return linear_colour;
+    if (hero_wetness_enabled == 0 || wet <= 0.) return linear_colour;
     int a = (int(v_probe_selector.x + .5) & 15) * 4;
     int b = (int(v_probe_selector.y + .5) & 15) * 4;
     float blend = clamp(v_probe_selector.z, 0., 1.);
@@ -230,8 +232,8 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     const bool foliage = false;
 #endif
     if (probe_receiver == 0 && !foliage) return original;
-#ifdef OPENRAC_HERO_WETNESS
-    if (hero_wetness_debug != 0 && v_hero_wetness >= 0.) {
+#if defined(OPENRAC_HERO_WETNESS) && !defined(OPENRAC_STATIC_COLOUR)
+    if (hero_wetness_enabled != 0 && hero_wetness_debug != 0 && v_hero_wetness >= 0.) {
         return mix(vec3(.12), vec3(0., .65, 1.), clamp(v_hero_wetness, 0., 1.));
     }
 #endif
