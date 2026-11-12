@@ -15,6 +15,7 @@
 #include <cstring>
 #include <deque>
 #include <filesystem>
+#include <format>
 #include <mutex>
 #include <optional>
 #include <span>
@@ -611,6 +612,64 @@ bool plausible_key(const PipelineKey& key) {
            && key.mode_count <= static_cast<std::uint32_t>(kModeConstants);
 }
 
+// Logs the driver's statistics of each shader of `pipeline` (OPENRAC_VK_PIPELINE_STATS): one line
+// per stage with the program's serial and its mode constants, which a program's link line names.
+void log_pipeline_statistics(VkPipeline pipeline, const PipelineKey& k) {
+    VkPipelineInfoKHR asked{VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR};
+    asked.pipeline = pipeline;
+    std::uint32_t count = 0;
+    if (vkGetPipelineExecutablePropertiesKHR(g->device, &asked, &count, nullptr) != VK_SUCCESS) {
+        return;
+    }
+    std::vector<VkPipelineExecutablePropertiesKHR> stages(
+        count, {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_PROPERTIES_KHR}
+    );
+    vkGetPipelineExecutablePropertiesKHR(g->device, &asked, &count, stages.data());
+    std::string modes;
+    for (std::uint32_t n = 0; n < k.mode_count && n < kModeConstants; ++n) {
+        modes += k.mode[n] == kModeDynamic ? std::string("d") : std::to_string(k.mode[n]);
+        modes += n + 1 < k.mode_count ? "," : "";
+    }
+
+    for (std::uint32_t index = 0; index < count; ++index) {
+        VkPipelineExecutableInfoKHR which{VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_INFO_KHR};
+        which.pipeline = pipeline;
+        which.executableIndex = index;
+        std::uint32_t n = 0;
+        vkGetPipelineExecutableStatisticsKHR(g->device, &which, &n, nullptr);
+        std::vector<VkPipelineExecutableStatisticKHR> stats(
+            n, {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_STATISTIC_KHR}
+        );
+        vkGetPipelineExecutableStatisticsKHR(g->device, &which, &n, stats.data());
+        std::string line;
+        for (std::uint32_t s = 0; s < n; ++s) {
+            const auto& stat = stats[s];
+            line += std::format(" {}=", stat.name);
+            switch (stat.format) {
+                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_BOOL32_KHR:
+                    line += stat.value.b32 ? "1" : "0";
+                    break;
+                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_INT64_KHR:
+                    line += std::to_string(stat.value.i64);
+                    break;
+                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR:
+                    line += std::to_string(stat.value.u64);
+                    break;
+                default:
+                    line += std::format("{:.3f}", stat.value.f64);
+                    break;
+            }
+        }
+        log::info(
+            "vulkan: pipeline stats program {} modes [{}] {}:{}",
+            k.program,
+            modes,
+            stages[index].name,
+            line
+        );
+    }
+}
+
 // Makes the graphics pipeline of key `k` with the stages `vertex_module` and `fragment_module`
 // and `layout`, through the shared pipeline cache; null when the driver refuses it. It reads only
 // its arguments and the device, so the pre-warm workers call it as the thread that draws does:
@@ -786,6 +845,9 @@ VkPipeline create_graphics_pipeline(
     VkGraphicsPipelineLibraryCreateInfoEXT part{
         VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT
     };
+    if (g->pipeline_stats && library == 0) {
+        info.flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
+    }
 
     // A part: its own stage, if it has one, and the attachments' formats only where they belong.
     if (library != 0) {
@@ -854,6 +916,9 @@ VkPipeline create_graphics_pipeline(
         pipeline = VK_NULL_HANDLE;
     }
 
+    if (g->pipeline_stats && library == 0 && pipeline != VK_NULL_HANDLE) {
+        log_pipeline_statistics(pipeline, k);
+    }
     return pipeline;
 }
 

@@ -745,6 +745,22 @@ void VKGL link_program(GLuint name) {
         return;
     }
 
+    // Names the program for the pipeline statistics' lines (OPENRAC_VK_PIPELINE_STATS).
+    if (g->pipeline_stats && cs.empty()) {
+        std::string defines;
+        for (std::size_t at = fs.find("#define OPENRAC_"); at != std::string::npos;
+             at = fs.find("#define OPENRAC_", at + 1)) {
+            defines += ' ';
+            defines += fs.substr(at + 8, fs.find_first_of(" \n", at + 8) - (at + 8));
+        }
+        log::info(
+            "vulkan: pipeline stats program {} fragment {} bytes, defines:{}",
+            p->serial,
+            fs.size(),
+            defines
+        );
+    }
+
     // A test's retained objects already own the graphics pipelines; fresh links keep normal
     // prewarming, and the game's kept ones queue what they still miss.
     if (!reused || keeps_programs()) {

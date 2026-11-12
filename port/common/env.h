@@ -208,6 +208,7 @@ enum class Var : std::uint16_t {
     VkEffectUploadReuseOff,
     VkPalettePartialOff,
     VkParticleTextureReuseOff,
+    VkPipelineStats,
     VkRingTrimOff,
     VkSurfaceScratchOff,
     VkSurfaceScratchStats,

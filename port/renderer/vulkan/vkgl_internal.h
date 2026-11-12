@@ -1336,6 +1336,9 @@ struct Context {
     // VK_EXT/KHR_load_store_op_none: an attachment a pass leaves alone is neither loaded nor
     // stored (attachment-untouched).
     bool load_store_none = false;
+    // VK_KHR_pipeline_executable_properties under OPENRAC_VK_PIPELINE_STATS: each new graphics
+    // pipeline logs the driver's statistics of its shaders (log_pipeline_statistics).
+    bool pipeline_stats = false;
     // The device takes cull, front face, depth and stencil state as dynamic state (Vulkan 1.3's
     // core extended dynamic state), so pipelines need not bake them (R-11).
     bool extended_dynamic_state = false;
