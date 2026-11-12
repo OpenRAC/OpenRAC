@@ -164,7 +164,10 @@ bool parse_listed(const std::string& value, const int (&list)[N], int& out) {
     } else if (!parse_int(value, 0, 1000, number)) {
         return false;
     }
-    number = std::max(number, 1);  // 0 is "off" too
+    // 0 is "off" too, unless the list has it (Draw distance's Unlimited)
+    if (number == 0 && std::find(std::begin(list), std::end(list), 0) == std::end(list)) {
+        number = 1;
+    }
     if (std::find(std::begin(list), std::end(list), number) == std::end(list)) {
         return false;
     }
