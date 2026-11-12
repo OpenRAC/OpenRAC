@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Tests the Vulkan backend's SPIR-V cache (renderer/vulkan/spirv_cache_file.h, R-12): a program
+// Tests the Vulkan backend's SPIR-V cache (renderer/vulkan/cache/spirv_cache_file.h, R-12): a program
 // taken from the cache is the program glslang makes, word for word and field for field; the
 // cache's file reads back its entries; and a file cut short, with a byte changed, made by another
 // compiler, or an entry whose key matches but whose text does not, gives nothing, so the program
@@ -23,8 +23,8 @@
 #include <system_error>
 #include <vector>
 
-#include "renderer/vulkan/shader_compiler.h"
-#include "renderer/vulkan/spirv_cache_file.h"
+#include "renderer/vulkan/cache/spirv_cache_file.h"
+#include "renderer/vulkan/pipelines/shader_compiler.h"
 #include "tests/check.h"
 
 namespace {
@@ -65,12 +65,13 @@ void main() {
 }
 )";
 
-// A compute stage with a storage block.
+// A compute stage with writable and read-only storage blocks.
 constexpr std::string_view kCompute = R"(#version 430 core
 layout(local_size_x = 64) in;
 layout(std430, binding = 0) buffer Counts { uint counts[]; };
+layout(std430, binding = 1) readonly buffer Steps { uint steps[]; };
 uniform uint step_size;
-void main() { counts[gl_GlobalInvocationID.x] += step_size; }
+void main() { counts[gl_GlobalInvocationID.x] += step_size + steps[gl_GlobalInvocationID.x]; }
 )";
 
 // The compiler text the cache tests are made for, and another one.
@@ -113,7 +114,8 @@ bool same_program(const CompiledProgram& a, const CompiledProgram& b) {
     for (std::size_t n = 0; same && n < a.storage.size(); ++n) {
         same = a.storage[n].name == b.storage[n].name
                && a.storage[n].binding == b.storage[n].binding
-               && a.storage[n].size == b.storage[n].size;
+               && a.storage[n].size == b.storage[n].size
+               && a.storage[n].read_only == b.storage[n].read_only;
     }
 
     // Each vertex input.
@@ -154,6 +156,10 @@ void test_a_program_from_the_cache_is_the_program_compiled() {
     std::string log;
     CHECK(openrac::vkgl::compile_program({}, {}, compute, log, kCompute));
     CHECK(!compute.compute.empty() && !compute.storage.empty());
+    CHECK(compute.storage.size() == 2);
+    for (const auto& block : compute.storage) {
+        CHECK(block.read_only == (block.name == "Steps"));
+    }
     CHECK(openrac::vkgl::decode_program(openrac::vkgl::encode_program(compute), decoded));
     CHECK(same_program(compute, decoded));
 }

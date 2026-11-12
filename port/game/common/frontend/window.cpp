@@ -20,7 +20,7 @@
 #include "debug_overlay.h"
 #include "frontend.h"
 #include "game/common/frontend/state.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "settings.h"
 
 namespace openrac::frontend {

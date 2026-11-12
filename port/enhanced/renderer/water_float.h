@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -14,7 +13,7 @@ class LevelScene;
 }
 
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::enhanced {
 class WaterFloat {
@@ -49,6 +48,6 @@ private:
     double m_seconds = -1;
     bool m_requested = false;
     float m_momentum = -1;
-    mutable std::unordered_set<unsigned> m_bound_shaders;
+    mutable std::vector<unsigned> m_bound_shaders;
 };
 }  // namespace openrac::enhanced

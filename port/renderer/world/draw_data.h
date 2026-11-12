@@ -35,8 +35,8 @@
 #include <vector>
 
 #include "renderer/math.h"
-#include "renderer/texture.h"
-#include "renderer/texture_pool.h"
+#include "renderer/textures/texture.h"
+#include "renderer/textures/texture_pool.h"
 #include "renderer/world/gs_pass.h"
 
 namespace openrac::renderer::world {

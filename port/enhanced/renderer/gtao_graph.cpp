@@ -7,11 +7,11 @@
 
 #include "common/log.h"
 #include "enhanced/renderer/gtao.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/vulkan/graph_execution.h"
-#include "renderer/vulkan/surface_batch.h"
+#include "renderer/vulkan/graph/graph_execution.h"
+#include "renderer/vulkan/graph/surface_batch.h"
 #include "renderer/vulkan/vkgl.h"
 
 namespace openrac::renderer {
@@ -107,16 +107,14 @@ Result<Inputs> import_inputs(vkgl::GraphExecution& execution, const Resources& n
 }
 
 // Creates image reads for whichever shader stage consumes the prepass data.
-std::vector<graph::ImageUse> reads(const Inputs& inputs, graph::Stage stage) {
+void append_reads(graph::Pass& pass, const Inputs& inputs, graph::Stage stage) {
     const graph::State state{stage, graph::Access::Read, graph::Layout::Sampled};
-    std::vector<graph::ImageUse> result{{inputs.depth, {graph::Aspect::Depth}, state}};
+    pass.images.push_back({inputs.depth, {graph::Aspect::Depth}, state});
 
     // Only declare sampled resources actually present in this evaluation.
     if (inputs.normals) {
-        result.push_back({*inputs.normals, {}, state});
+        pass.images.push_back({*inputs.normals, {}, state});
     }
-
-    return result;
 }
 
 // Writes every hierarchy cell once and orders each reduction against its preceding mip's exact bytes.
@@ -126,14 +124,17 @@ void declare_hierarchy(
     // Every destination range is disjoint from the preceding level's source range.
     for (unsigned level = 0; level < levels.size(); ++level) {
         const auto& destination = levels[level];
-        graph::Pass pass{"GTAO depth mip " + std::to_string(level)};
-        pass.buffers.push_back(
-            {*inputs.hierarchy, {destination.offset, destination.bytes}, kWrite}
-        );
+        auto pass = execution.make_pass("GTAO depth mip ");
+        pass.name += std::to_string(level);
+        pass.cull_if_unused = true;
+        // The reduction indexes adjacent mip ranges relative to the allocation's start.
+        pass.compute_indexed_storage = level > 0;
+        pass.compute_metadata_only = level > 0;
+        pass.buffers.push_back({*inputs.hierarchy, {destination.offset, destination.bytes}, kWrite});
 
         // The first reduction reads full-resolution depth; later reductions read stored bounds.
         if (level == 0) {
-            pass.images = reads(inputs, graph::Stage::ComputeShader);
+            append_reads(pass, inputs, graph::Stage::ComputeShader);
         } else {
             const auto& source = levels[level - 1];
             pass.buffers.push_back({*inputs.hierarchy, {source.offset, source.bytes}, kRead});
@@ -147,13 +148,11 @@ void declare_hierarchy(
 void declare_ao(
     vkgl::GraphExecution& execution, const Inputs& inputs, bool blend, std::uint64_t depth_bytes
 ) {
-    graph::Pass evaluate{
-        "GTAO horizons",
-        reads(inputs, graph::Stage::ComputeShader),
-        {{inputs.ao, {0, inputs.ao_bytes}, kWrite}}
-    };
+    auto evaluate = execution.make_pass("GTAO horizons");
+    append_reads(evaluate, inputs, graph::Stage::ComputeShader);
+    evaluate.buffers.push_back({inputs.ao, {0, inputs.ao_bytes}, kWrite});
 
-    // Distant horizon taps can read any stored level, all of which have been produced above.
+    // Only the hierarchy prefix reachable by in-bounds horizon taps can contribute.
     if (inputs.hierarchy) {
         evaluate.buffers.push_back({*inputs.hierarchy, {0, depth_bytes}, kRead});
     }
@@ -162,13 +161,13 @@ void declare_ao(
 
     // Standalone filtering reads the horizon buffer without modifying it.
     if (inputs.output) {
-        graph::Pass filter{
-            "GTAO filter",
-            reads(inputs, graph::Stage::FragmentShader),
-            {{inputs.ao,
-              {0, inputs.ao_bytes},
-              {graph::Stage::FragmentShader, graph::Access::Read, graph::Layout::Buffer}}}
-        };
+        auto filter = execution.make_pass("GTAO filter");
+        append_reads(filter, inputs, graph::Stage::FragmentShader);
+        filter.buffers.push_back(
+            {inputs.ao,
+             {0, inputs.ao_bytes},
+             {graph::Stage::FragmentShader, graph::Access::Read, graph::Layout::Buffer}}
+        );
         filter.images.push_back(
             {*inputs.output,
              {},
@@ -180,12 +179,15 @@ void declare_ao(
         execution.add_pass(std::move(filter));
     }
 
-    graph::Pass boundary{
-        "GTAO consumers",
-        reads(inputs, kShaders),
-        {{inputs.ao, {0, inputs.ao_bytes}, {kShaders, graph::Access::Read, graph::Layout::Buffer}}},
-        graph::PassKind::Export
-    };
+    auto boundary = execution.make_pass("GTAO consumers");
+    append_reads(boundary, inputs, kShaders);
+    for (auto& image : boundary.images) {
+        image.continuation = true;
+    }
+    boundary.buffers.push_back(
+        {inputs.ao, {0, inputs.ao_bytes}, {kShaders, graph::Access::Read, graph::Layout::Buffer}}
+    );
+    boundary.kind = graph::PassKind::Export;
     execution.add_pass(std::move(boundary));
 }
 
@@ -196,32 +198,29 @@ void declare_prepass(
     graph::ImageHandle normal,
     bool multisample
 ) {
-    execution.add_pass(
-        {"depth/normal prepass",
-         {{depth,
-           {graph::Aspect::Depth},
-           {graph::Stage::DepthTests, graph::Access::Write, graph::Layout::DepthAttachment},
-           graph::Load::Clear},
-          {normal,
-           {},
-           {graph::Stage::ColourOutput, graph::Access::Write, graph::Layout::ColourAttachment},
-           graph::Load::Clear}}}
-    );
-    // Multisample normals feed a colour resolve; single-sample normals feed shaders directly.
-    execution.add_pass(
-        {"prepass consumers",
-         {{depth,
-           {graph::Aspect::Depth},
-           {graph::Stage::Transfer, graph::Access::Read, graph::Layout::TransferSource}},
-          {normal,
-           {},
-           {multisample ? graph::Stage::Transfer
-                        : graph::Stage::ComputeShader | graph::Stage::FragmentShader,
-            graph::Access::Read,
-            multisample ? graph::Layout::TransferSource : graph::Layout::Sampled}}},
-         {},
-         graph::PassKind::Export}
-    );
+    auto prepass = execution.make_pass("depth/normal prepass");
+    prepass.images =
+        {{depth,
+          {graph::Aspect::Depth | graph::Aspect::Stencil},
+          {graph::Stage::DepthTests, graph::Access::Write, graph::Layout::DepthAttachment},
+          graph::Load::Clear},
+         {normal,
+          {},
+          {graph::Stage::ColourOutput, graph::Access::Write, graph::Layout::ColourAttachment},
+          graph::Load::Clear}};
+    execution.add_pass(std::move(prepass));
+    // The copy and resolve paths declare their own transfer states. Single-sample normals
+    // also have a sampled handoff for consumers outside the collected section.
+    if (!multisample) {
+        auto consumers = execution.make_pass("prepass consumers");
+        consumers.images.push_back(
+            {normal, {}, {graph::Stage::ComputeShader | graph::Stage::FragmentShader,
+                          graph::Access::Read, graph::Layout::Sampled}}
+        );
+        consumers.images.back().continuation = true;
+        consumers.kind = graph::PassKind::Export;
+        execution.add_pass(std::move(consumers));
+    }
 }
 }  // namespace
 
@@ -253,7 +252,7 @@ void Gtao::render_prepass(unsigned framebuffer, const std::function<void()>& rec
     declare_prepass(execution, *depth, *normal, samples > 1);
     // A surface chain owns this callback until its enclosing preparation/execution call returns.
     if (vkgl::detail::collecting_surface_chain()) {
-        const auto result = execution.run_prepared([record](unsigned) { record(); });
+        const auto result = execution.run_prepared(record);
         // Do not publish a prepass whose deferred declaration was rejected.
         if (!result) {
             throw std::runtime_error(result.error().message);
@@ -306,7 +305,7 @@ bool Gtao::execute_graph(
 
     // The graph contains no hierarchy producers when full-resolution sampling is selected.
     if (hi_z) {
-        const auto& last = m_hi_z.levels().back();
+        const auto& last = m_hi_z.sampled_levels().back();
         depth_bytes = last.offset + last.bytes;
         declare_hierarchy(execution, imports, m_hi_z.levels());
     }

@@ -10,7 +10,7 @@
 #include "common/stats.h"
 #include "enhanced/renderer/compute_graph.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/world/gl_world.h"
 
 namespace openrac::enhanced {

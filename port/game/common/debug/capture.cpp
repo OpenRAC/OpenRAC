@@ -39,9 +39,9 @@
 #include "platform/performance_hint.h"
 #include "platform/show_folder.h"
 #include "program/options.h"
-#include "renderer/gl.h"
-#include "renderer/gl_stats.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gl_stats.h"
+#include "renderer/settings/render_opt.h"
 #include "scene/stb_extra.h"
 #include "settings.h"
 #if defined(OPENRAC_VULKAN)

@@ -3,7 +3,7 @@
 #include "enhanced/fsr3/object_history.h"
 
 #include "common/stats.h"
-#include "renderer/render_opt.h"
+#include "renderer/settings/render_opt.h"
 
 namespace openrac::enhanced::fsr3_detail {
 ObjectHistory::Changes ObjectHistory::update(

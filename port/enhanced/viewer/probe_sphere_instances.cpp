@@ -8,7 +8,7 @@
 
 #include "common/log.h"
 #include "enhanced/viewer/probe_lighting.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::lighting {
 using namespace openrac::gl;

@@ -5,7 +5,7 @@ memory (meshes, textures, placements, the baked camera visibility), the poses an
 mobys a running game holds in its memory, the level drawn as one renderer bucket per layer, and a
 frame written to a PNG. The viewer program (`viewer/`) and the game programs (`game/common`) draw
 with it. It is not the renderer: the level is drawn as buckets of `renderer/`'s frame, with the
-port's OpenGL calls (`renderer/gl.h`), which the Vulkan backend carries out in a Vulkan build. What
+port's OpenGL calls (`renderer/gl/gl.h`), which the Vulkan backend carries out in a Vulkan build. What
 the renderers read of a running game besides the mobys (the camera, which mobys are live) is the
 game state, which each game keeps in its own folder (rac1's `game/rac1/game_state.h`) and the game
 programs read through the game's profile (`game/common/profile.h`).
@@ -97,7 +97,7 @@ and `OPENRAC_SUN_TIMING_DETAIL`. [docs/port/DEBUGGING.md](../../docs/port/DEBUGG
 each one. The enhanced lighting and shadows follow the `enhanced_rendering` setting
 ([enhanced/lighting/README.md](../enhanced/lighting/README.md)).
 
-Its render optimisations are entries of the optimisation registry (`renderer/render_opt.h`,
+Its render optimisations are entries of the optimisation registry (`renderer/settings/render_opt.h`,
 switched off with `OPENRAC_RENDER_OPT_OFF`): `texture-prepare`, `gpu-resident-instances`,
 `shadow-static-cache` (off by default), `moby-pose-in-place` and `shadow-atlas-discard`
 ([docs/port/RENDER_PERF.md](../../docs/port/RENDER_PERF.md)).

@@ -4,7 +4,7 @@
 #include <cstring>
 
 #include "common/stats.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif

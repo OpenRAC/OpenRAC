@@ -4,7 +4,7 @@
 // renderer/metal/mtlgl.h without a window: the context says what it is, clears the default
 // framebuffer and reads it back with GL's pack alignment; textures, framebuffers, a multisample
 // resolve, copies and buffers; a program's indexed draw. Then cases the renderers need, drawn
-// through renderer/gl.h in a hidden window on OpenGL and on Metal, read back and compared.
+// through renderer/gl/gl.h in a hidden window on OpenGL and on Metal, read back and compared.
 // Skipped (exit 77) where there is no Metal device; the comparison where either window cannot open.
 
 #include <algorithm>
@@ -17,7 +17,7 @@
 
 #include "check.h"
 #include "platform/window.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/metal/mtlgl.h"
 
 namespace {
@@ -31,7 +31,7 @@ Fn proc(const char* name) {
     return reinterpret_cast<Fn>(p);
 }
 
-// ---- The same calls on OpenGL and on Metal, through renderer/gl.h in a hidden window ----
+// ---- The same calls on OpenGL and on Metal, through renderer/gl/gl.h in a hidden window ----
 
 constexpr int kSide = 16;
 constexpr GLenum kRgba32ui = 0x8D70, kRgbaInteger = 0x8D99, kUnsignedInt = 0x1405,

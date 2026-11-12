@@ -342,7 +342,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "log one diagnostic frame graph at the first nonempty Vulkan presentation"},
     {Var::RenderOptOff, "OPENRAC_RENDER_OPT_OFF",
      Kind::Text, Truth::NotAFlag, "none",
-     "NAME,NAME or all: render optimisations of renderer/render_opt.h switched off, for comparing"},
+     "NAME,NAME or all: render optimisations of renderer/settings/render_opt.h switched off, for comparing"},
     {Var::RenderThread, "OPENRAC_RENDER_THREAD",
      Kind::Flag, Truth::UnlessZero, "on (Vulkan)",
      "record the Vulkan world on a bounded render worker; 0 uses synchronous rendering"},

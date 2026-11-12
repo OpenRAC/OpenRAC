@@ -12,7 +12,7 @@
 
 #include "enhanced/tests/water_gpu_fixture.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/math.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
@@ -44,8 +44,9 @@ uniform int test_contacts;
 layout(location=0) out vec4 result;
 void main() {
     vec3 background;float thickness;
+    bool contact_only=test_contacts==13;
     bool valid=water_scene_sample(test_uv,test_surface.w,test_surface.xyz,test_offset,
-                                  test_contacts==11?.1:.5,.5,test_contacts!=0,background,thickness);
+                                  test_contacts==11?.1:.5,.5,test_contacts!=0,contact_only,background,thickness);
     int channel=int(gl_FragCoord.x)%5;
     float value=channel==0?float(valid):channel==1?thickness:background[channel-2];
     if(test_composite!=0) {
@@ -54,7 +55,8 @@ void main() {
         vec4 composite=effect_composite(vec3(.6),vec3(.1));
         value=channel<4?composite[channel]:float(effect_has_composite());
     }
-    if(test_contacts!=0) {
+    if(contact_only && channel==1) value=water_contact_coverage;
+    if(test_contacts!=0 && !contact_only) {
         water_background=background;water_background_weight=vec3(.5);
         water_radiance=vec3(.01,.02,.03);
         vec4 composite=effect_composite(vec3(1),vec3(0));
@@ -97,7 +99,7 @@ void main() {
     glUniform1i(shader.uniform("water_scene_depth"), 4);
     glUniform2f(shader.uniform("water_scene_extent"), kWidth, kWidth);
     const auto perspective = renderer::perspective_reversed(1, 1, .1f, 100);
-    for (unsigned test = 0; test < 27; ++test) {
+    for (unsigned test = 0; test < 28; ++test) {
         const bool ortho = test == 11 || test == 26;
         const std::array<float, 4> p =
             ortho ? std::array<float, 4>{.02f, 1, 0, 1}
@@ -206,6 +208,9 @@ void main() {
                     value <= .0031308 ? value * 12.92 : 1.055 * std::pow(value, 1. / 2.4) - .055;
             }
         }
+        if (test == 27) {
+            expected[2] = expected[3] = expected[4] = 0;
+        }
         for (unsigned x = 0; x < kWidth; ++x) {
             const auto at = x * 4;
             const auto bits = std::uint32_t(fixture.pixels[at])
@@ -231,7 +236,7 @@ void main() {
     glActiveTexture(GL_TEXTURE0);
     CHECK(glGetError() == GL_NO_ERROR);
     std::printf(
-        "Compared 27 scene transmission/refraction/contact/composition cases with CPU values\n"
+        "Compared 28 scene transmission/refraction/contact/composition cases with CPU values\n"
     );
 }
 }  // namespace openrac::test::water

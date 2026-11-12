@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-#include "renderer/shader.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::renderer {
 // One ceil-divided hierarchy level; min/max FP32 depths retain empty pixels and discontinuities.
@@ -41,6 +41,8 @@ public:
     unsigned buffer() const { return m_buffer; }
 
     std::span<const GtaoDepthLevel> levels() const { return m_levels; }
+    // Prefix the horizon shader can reach at this viewport size.
+    std::span<const GtaoDepthLevel> sampled_levels() const;
 
 private:
     bool m_failed = false;   // Suppresses retries after an unsupported kernel fails to compile.

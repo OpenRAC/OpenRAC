@@ -22,10 +22,10 @@
 #include <system_error>
 #include <vector>
 
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -49,6 +49,7 @@ constexpr std::string_view kFirstColour = "vec4(0.25, 0.5, 0.75, 1.0)";
 constexpr std::string_view kOtherColour = "vec4(0.75, 0.5, 0.25, 1.0)";
 // The colour of the program the pipeline-library tests build, which no other run builds.
 constexpr std::string_view kLinkedColour = "vec4(0.5, 0.25, 0.75, 0.5)";
+constexpr std::string_view kDeferredColour = "vec4(0.25, 0.75, 0.5, 0.5)";
 
 // What one run did: the pipelines the worker had made by the first draw, and those the drawing
 // thread made itself while drawing.
@@ -56,6 +57,7 @@ struct RunCounts {
     std::uint64_t made_ahead = 0;     // wait_for_pipeline_prewarm's count once its jobs are done.
     std::uint64_t made_by_draws = 0;  // pipelines_created over the draws.
     std::uint64_t linked = 0;         // pipelines_linked over the draws (vk-pipeline-library).
+    std::uint64_t made_during_draws = 0;
     std::vector<std::uint8_t> pixels;  // The picture the draws left.
     bool ran = false;                  // The context opened on Vulkan.
 };
@@ -94,7 +96,7 @@ void draw_states(const openrac::renderer::FrameBuffer& target) {
 
 // Runs one context: builds the program of colour `colour`, waits for the pre-warm, draws the
 // kStates states and closes. Not `ran` where Vulkan is not here.
-RunCounts run(std::string_view colour) {
+RunCounts run(std::string_view colour, bool finish_level_load = false) {
     RunCounts counts;
     openrac::test::GlContext context;
     std::string error;
@@ -129,12 +131,16 @@ RunCounts run(std::string_view colour) {
     glBindVertexArray(vao);
     shader.use();
     counts.made_ahead = vkgl::wait_for_pipeline_prewarm();
+    if (finish_level_load) {
+        vkgl::finish_pipelines();
+    }
     const std::uint64_t before = vkgl::submission_counters().pipelines_created;
     const std::uint64_t linked_before = vkgl::submission_counters().pipelines_linked;
     draw_states(target);
     counts.made_by_draws = vkgl::submission_counters().pipelines_created - before;
     counts.linked = vkgl::submission_counters().pipelines_linked - linked_before;
     counts.pixels = target.read_rgba();
+    counts.made_during_draws = vkgl::wait_for_pipeline_prewarm() - counts.made_ahead;
     CHECK(counts.pixels.size() == static_cast<std::size_t>(kSide * kSide * 4));
     CHECK(vkgl::submission_counters().validation_errors == 0);
     glDeleteVertexArrays(1, &vao);
@@ -347,6 +353,14 @@ int main() {
     test_a_damaged_manifest_is_ignored(fs::path(cache.string() + ".manifest"));
     test_new_pipelines_are_linked_from_parts();
     test_a_shared_part_keeps_only_its_own_state();
+    render_opt::set(render_opt::Opt::VkPipelineLibrary, true);
+    const RunCounts gameplay = run(kDeferredColour, true);
+    const RunCounts next_load = run(kDeferredColour, true);
+    CHECK(gameplay.made_during_draws == 0);
+    CHECK(next_load.made_ahead >= static_cast<std::uint64_t>(kStates));
+    CHECK(next_load.linked == 0);
+    CHECK(next_load.made_by_draws == 0);
+    CHECK(gameplay.pixels == next_load.pixels);
     fs::remove_all(folder, ec);
     return openrac::test::result();
 }

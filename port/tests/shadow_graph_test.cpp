@@ -11,12 +11,12 @@
 #include <stdexcept>
 #include <vector>
 
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
-#include "renderer/surface_chain.h"
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/shadow_graph.h"
 #include "tests/check.h"

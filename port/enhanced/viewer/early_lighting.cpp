@@ -5,8 +5,8 @@
 #include "enhanced/renderer/compute_graph.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 
@@ -100,7 +100,7 @@ bool EarlyLighting::render(
     );
     glUniformMatrix4fv(compute.uniform("early_view"), 1, GL_FALSE, input.camera.view.data());
     const std::array<enhanced::ComputeOutput, 2> outputs{
-        {{m_buffers[0], cells * 4}, {m_buffers[1], cells * 8}}
+        {{m_buffers[0], cells * 4, true}, {m_buffers[1], cells * 8, true}}
     };
     // Input capture follows lighting binding so probes, AO, tile masks and shadow maps match the dispatch.
     if (!enhanced::run_compute_graph(
@@ -114,7 +114,9 @@ bool EarlyLighting::render(
                     1
                 );
             },
-            error
+            error,
+            enhanced::ComputeInputs::All,
+            enhanced::SampledInputExports::Continuation
         )) {
         return false;
     }

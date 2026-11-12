@@ -77,9 +77,9 @@
 #include "platform/input.h"
 #include "platform/pump.h"
 #include "platform/window.h"
-#include "renderer/gl.h"
-#include "renderer/pcsx2_pack.h"
-#include "renderer/texture_pack.h"
+#include "renderer/gl/gl.h"
+#include "renderer/textures/pcsx2_pack.h"
+#include "renderer/textures/texture_pack.h"
 #include "scene/moby_pose.h"
 #include "settings.h"
 #endif
@@ -98,7 +98,7 @@
 #include <stb_image_write.h>
 
 namespace {
-// A texture pack's PNGs (renderer/texture_pack.h), read and written with stb.
+// A texture pack's PNGs (renderer/textures/texture_pack.h), read and written with stb.
 template <bool GsAlpha>
 std::optional<openrac::renderer::Rgba8Image> texture_pack_load(const std::filesystem::path& file) {
     int w = 0;
@@ -137,7 +137,7 @@ bool texture_pack_save(const std::filesystem::path& file, const openrac::rendere
            != 0;
 }
 
-// A level's planet name for the dump's folders (renderer/texture_pack.h): the game's own table, and
+// A level's planet name for the dump's folders (renderer/textures/texture_pack.h): the game's own table, and
 // the port's own worlds (frontend/world.cpp): the title screen's (99) and the flights between
 // planets (98, and Going Commando's 95 to 97).
 std::string texture_pack_level_name(int level) {
@@ -153,7 +153,7 @@ std::string texture_pack_level_name(int level) {
     return name != nullptr ? name : "";
 }
 
-// A texture pack's animated GIF (renderer/texture_pack.h): its frames and their delays, looped.
+// A texture pack's animated GIF (renderer/textures/texture_pack.h): its frames and their delays, looped.
 std::optional<openrac::renderer::texture_pack::Animation> texture_pack_load_gif(
     const std::filesystem::path& file
 ) {

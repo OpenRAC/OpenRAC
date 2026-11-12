@@ -11,8 +11,8 @@
 #include <string>
 
 #include "common/log.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::renderer::ui::backdrop_blur {
 namespace {

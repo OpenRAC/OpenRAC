@@ -3,7 +3,7 @@
 // Fixture uploads and exact reference comparisons for the motion blur GPU tests.
 #include "enhanced/tests/motion_blur_fixture.h"
 
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "tests/check.h"
 
 namespace openrac::test::motion_blur {

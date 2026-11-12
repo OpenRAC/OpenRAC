@@ -12,10 +12,10 @@
 
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/colour_graph.h"
-#include "renderer/gl.h"
-#include "renderer/precise_depth.h"
-#include "renderer/render_opt.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/precise_depth.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/fog.h"
 #include "renderer/world/gl_world.h"
 #include "renderer/world/gs_pass.h"
@@ -60,6 +60,31 @@ using renderer::Bucket;
 using namespace render_detail;
 
 namespace {
+
+struct LayerGaugeNames {
+    std::string camera_submitted, camera_culled;
+    std::string rigid_draws, empty_groups;
+    std::string pvs_instances, pvs_primitives;
+};
+
+const LayerGaugeNames& layer_gauge_names(Layer layer) {
+    static const auto names = [] {
+        std::array<LayerGaugeNames, kLayerCount> labels;
+        for (std::size_t index = 0; index < labels.size(); ++index) {
+            const std::string name = layer_name(static_cast<Layer>(index));
+            labels[index] = {
+                "camera " + name + " submitted",
+                "camera " + name + " culled",
+                "prepass rigid draws " + name,
+                "prepass empty groups " + name,
+                "pvs " + name + " instances culled",
+                "pvs " + name + " primitive passes culled"
+            };
+        }
+        return labels;
+    }();
+    return names[static_cast<std::size_t>(layer)];
+}
 
 Bucket bucket_of(Layer layer) {
     switch (layer) {
@@ -1112,14 +1137,14 @@ void LevelScene::draw_layer(
     visibility_scope.reset();
 
     if (stats::enabled()) {
-        const auto name = std::string("camera ") + layer_name(layer);
-        stats::gauge(name + " submitted", static_cast<double>(camera_counts.submitted));
-        stats::gauge(name + " culled", static_cast<double>(camera_counts.rejected));
+        const auto& names = layer_gauge_names(layer);
+        stats::gauge(names.camera_submitted, static_cast<double>(camera_counts.submitted));
+        stats::gauge(names.camera_culled, static_cast<double>(camera_counts.rejected));
     }
     // On a target wider than the game's picture, the 2D layer's mobys are cut at the picture's sides
     // (mesh.vert).
-    // An ES driver without GL_EXT_clip_cull_distance has no clip planes (renderer/shader.h,
-    // es_source), nor has Vulkan on Mali (renderer/vulkan/shader_compiler.cpp,
+    // An ES driver without GL_EXT_clip_cull_distance has no clip planes (renderer/gl/shader.h,
+    // es_source), nor has Vulkan on Mali (renderer/vulkan/pipelines/shader_compiler.cpp,
     // vertex_clip_distance).
     const bool cut = layer == Layer::Mobys && state.target.picture_scale_x < 1.0f
                      && (!gl::is_es() || gl::has_extension("GL_EXT_clip_cull_distance"));
@@ -1127,7 +1152,7 @@ void LevelScene::draw_layer(
         glEnable(GL_CLIP_DISTANCE0);
         glEnable(GL_CLIP_DISTANCE1);
     }
-    // Precise depth (renderer/precise_depth.h): the world's draws send clip-space z to the window as
+    // Precise depth (renderer/gl/precise_depth.h): the world's draws send clip-space z to the window as
     // it is, with the camera's projection in that form, so the same depth lands there with 32-bit
     // float precision; everything else keeps GL's form.
     const bool precise = renderer::precise_depth();
@@ -1758,20 +1783,13 @@ void LevelScene::draw_layer(
     glDepthFunc(GL_GEQUAL);
     glBindVertexArray(0);
     if (stats::enabled()) {
+        const auto& names = layer_gauge_names(layer);
         if (state.depth_prepass) {
-            stats::gauge(
-                std::string("prepass rigid draws ") + layer_name(layer), double(rigid_prepass_draws)
-            );
-            stats::gauge(
-                std::string("prepass empty groups ") + layer_name(layer),
-                double(empty_prepass_groups)
-            );
+            stats::gauge(names.rigid_draws, double(rigid_prepass_draws));
+            stats::gauge(names.empty_groups, double(empty_prepass_groups));
         }
-        const auto name = std::string("pvs ") + layer_name(layer);
-        stats::gauge(name + " instances culled", static_cast<double>(pvs_rejected));
-        stats::gauge(
-            name + " primitive passes culled", static_cast<double>(pvs_primitives_rejected)
-        );
+        stats::gauge(names.pvs_instances, static_cast<double>(pvs_rejected));
+        stats::gauge(names.pvs_primitives, static_cast<double>(pvs_primitives_rejected));
         stats::gauge("pvs enabled", !pvs_off && (!m_pvs.grid.empty() || m_pvs.game) ? 1 : 0);
     }
     if (cut) {

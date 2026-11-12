@@ -6,7 +6,7 @@
 #include <iostream>
 
 #include "enhanced/fsr3/sdk_shaders.h"
-#include "renderer/vulkan/spirv_precision.h"
+#include "renderer/vulkan/pipelines/spirv_precision.h"
 #include "tests/check.h"
 
 #include <FidelityFX/host/ffx_fsr3upscaler.h>

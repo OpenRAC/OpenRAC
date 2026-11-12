@@ -126,12 +126,12 @@ From the top of OpenRAC:
 
 ```sh
 # Layout: apply it to each file you change, then check it (prints nothing when clean).
-clang-format -i port/renderer/texture.cpp
-clang-format --dry-run -Werror port/renderer/texture.cpp
+clang-format -i port/renderer/textures/texture.cpp
+clang-format --dry-run -Werror port/renderer/textures/texture.cpp
 
 # Layout and the blank lines of 5.4 in one pass (--fix writes them; the bare form only checks).
-python3 tools/cpp_style.py --fix port/renderer/texture.cpp
-python3 tools/cpp_style.py port/renderer/texture.cpp
+python3 tools/cpp_style.py --fix port/renderer/textures/texture.cpp
+python3 tools/cpp_style.py port/renderer/textures/texture.cpp
 
 # The countable rules, on every file and on what you added since master.
 python3 port/tools/conventions/check_conventions.py --since origin/master --touched
@@ -140,7 +140,7 @@ python3 port/tools/conventions/check_conventions.py --since origin/master --touc
 python3 port/tools/layering/layering.py
 
 # Naming and ownership on the C++ you changed (needs port/build/release configured).
-clang-tidy -p port/build/release port/renderer/texture.cpp
+clang-tidy -p port/build/release port/renderer/textures/texture.cpp
 ```
 
 ---
@@ -763,7 +763,7 @@ They share a name.
 
 A subdirectory of a module may have a namespace of its own, named for the subdirectory
 (`openrac::assets::disc` for `assets/disc/`). A namespace that differs from its directory today
-(`openrac::gl` in `renderer/gl.h`, `openrac::lighting` in `enhanced/`) keeps its name until its
+(`openrac::gl` in `renderer/gl/gl.h`, `openrac::lighting` in `enhanced/`) keeps its name until its
 module's package renames it as a `refactor(port)` commit of its own; new code in such a directory
 uses the namespace the directory already uses.
 
@@ -841,7 +841,7 @@ line between each:
 1. The file's own header (a `.cpp` only).
 2. The standard library and the C library, in angle brackets: `<array>`, `<cstdint>`.
 3. SDL3: `<SDL3/SDL.h>`.
-4. The port's own headers, in double quotes, written from `port/`: `"renderer/gl.h"`,
+4. The port's own headers, in double quotes, written from `port/`: `"renderer/gl/gl.h"`,
    `"common/log.h"`. The C contracts as `"openrac/guest.h"`.
 5. Other third-party headers in angle brackets with a directory (`<vulkan/vulkan.h>`): the tool
    puts them last. One without a directory (`<imgui.h>`) looks like a standard header to the tool

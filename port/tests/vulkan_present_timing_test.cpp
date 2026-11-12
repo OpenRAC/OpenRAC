@@ -18,7 +18,7 @@
 #include <string>
 
 #include "common/log.h"
-#include "renderer/render_opt.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"

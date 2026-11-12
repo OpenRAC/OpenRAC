@@ -27,10 +27,10 @@
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "openrac/game_host.h"
-#include "renderer/direct.h"
-#include "renderer/gl.h"
-#include "renderer/precise_depth.h"
-#include "renderer/render_opt.h"
+#include "renderer/direct/direct.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/precise_depth.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif

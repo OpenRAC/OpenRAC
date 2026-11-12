@@ -8,8 +8,8 @@
 #include <span>
 
 #include "enhanced/lighting/probe_regions.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 
 namespace openrac::lighting {
 

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The shaders as OpenGL ES 3.2 reads them (renderer/shader.h, es_source): the translation itself,
+// The shaders as OpenGL ES 3.2 reads them (renderer/gl/shader.h, es_source): the translation itself,
 // without a context, and then every program whose sources stand alone (the direct renderer's, the
 // effect renderer's, the viewer's mesh and sky) built on whatever context the test gets: OpenGL
 // 4.1, or ES 3.2 under OPENRAC_GL_API=es (renderer_shader_es). The world's programs are built by
 // world_gl_smoke. Then a multisampled frame resolved and read back, as the frontend draws one (with
-// GL_EXT_multisampled_render_to_texture on an ES driver that has it, renderer/framebuffer.h).
+// GL_EXT_multisampled_render_to_texture on an ES driver that has it, renderer/gl/framebuffer.h).
 // Skipped (exit 77) where no context can be made.
 
 #include <algorithm>
@@ -19,17 +19,17 @@
 
 #include "check.h"
 #include "enhanced/viewer/probe_lighting.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer_gl_context.h"
 #include "renderer_shaders.h"
 #include "scene_shaders.h"
 #ifdef OPENRAC_VULKAN
 #include "enhanced_viewer_shaders.h"
-#include "renderer/vulkan/native_compute.h"
-#include "renderer/vulkan/shader_compiler.h"
+#include "renderer/vulkan/passes/native_compute.h"
+#include "renderer/vulkan/pipelines/shader_compiler.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 

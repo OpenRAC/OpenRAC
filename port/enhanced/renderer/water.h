@@ -4,8 +4,10 @@
 #include <array>
 #include <filesystem>
 #include <memory>
+#include <vector>
 
-#include "renderer/effects.h"
+#include "enhanced/renderer/water_graph.h"
+#include "renderer/effects/effects.h"
 
 namespace openrac::scene {
 class LevelScene;
@@ -62,7 +64,7 @@ bool water_available();
 bool ocean_replaces_horizon();
 
 // Render-thread-only binding of GPU water surfaces for wetness contact tests.
-bool bind_water_contact(const renderer::Shader& shader);
+bool bind_water_contact(const renderer::Shader& shader, std::vector<WaterBufferUse>& reads);
 
 // Render-thread attachment bindings use reserved texture units 18-20.
 void prepare_water_deformation(const renderer::FrameInput& input);

@@ -12,8 +12,8 @@
 
 #include "common/env.h"
 #include "common/log.h"
-#include "renderer/gl.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/gl/gl.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 
 #include <host/backends/vk/ffxm_vk.h>

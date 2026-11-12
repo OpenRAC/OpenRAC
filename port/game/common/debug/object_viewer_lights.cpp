@@ -5,7 +5,7 @@
 #include <cstdio>
 
 #include "debug/overlay.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 #ifdef OPENRAC_LIGHT_AUTHORING
 namespace openrac::frontend::debug_overlay {

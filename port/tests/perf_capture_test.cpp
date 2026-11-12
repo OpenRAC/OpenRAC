@@ -188,6 +188,35 @@ void through_stats() {
     CHECK(!stats::enabled());
 }
 
+void reused_history_slot() {
+    stats::set_enabled(stats::Client::Overlay, true);
+    stats::begin_frame(stats::FrameKind::Tick, 0);
+    {
+        const stats::Scope first("previous section");
+        const stats::Scope nested("previous nested section");
+        stats::gauge("previous gauge", 1);
+        stats::gauge("shared gauge", 2);
+    }
+    const auto serial = stats::gpu_frame_begin();
+    stats::gpu_result(serial, 0, 5.0);
+    for (std::size_t tick = 1; tick <= stats::kHistory; ++tick) {
+        stats::begin_frame(stats::FrameKind::Tick, tick);
+    }
+    stats::lap("replacement section");
+    stats::gpu_result(serial, 0, 6.0);
+    stats::gauge("shared gauge", 3);
+    stats::gauge("shared gauge", 4);
+    stats::begin_frame(stats::FrameKind::Tick, stats::kHistory + 1);
+    const auto* frame = stats::history(0);
+    CHECK(frame && frame->sections.size() == 1 && frame->gauges.size() == 1);
+    if (frame && !frame->sections.empty() && !frame->gauges.empty()) {
+        CHECK(frame->sections[0].name == "replacement section");
+        CHECK(frame->sections[0].depth == 0 && frame->sections[0].gpu_ms == -1);
+        CHECK(frame->gauges[0].first == "shared gauge" && frame->gauges[0].second == 4);
+    }
+    stats::set_enabled(stats::Client::Overlay, false);
+}
+
 }  // namespace
 
 int main() {
@@ -199,5 +228,6 @@ int main() {
     skips_paused_frames();
     empty_report();
     through_stats();
+    reused_history_slot();
     return openrac::test::result();
 }

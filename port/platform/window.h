@@ -110,7 +110,7 @@ void set_app_metadata(const char* name, const char* id);
 void install_app_menus(bool developer);
 
 // Which OpenGL the window's context is: the desktop's 4.1 core profile, OpenGL ES 3.2 (Android,
-// whose drivers have only ES; renderer/gl.h and renderer/shader.h adapt to it), or the renderer's
+// whose drivers have only ES; renderer/gl/gl.h and renderer/gl/shader.h adapt to it), or the renderer's
 // GL carried out with Vulkan (renderer/vulkan/vkgl.h) or with Metal (renderer/metal/mtlgl.h),
 // where the build has them; a window that cannot have Metal or Vulkan opens with the system's
 // OpenGL instead.
@@ -148,14 +148,14 @@ struct WindowConfig {
 };
 
 // The context's function loader, in SDL_GL_GetProcAddress's shape: what
-// renderer/gl.h's load() takes.
+// renderer/gl/gl.h's load() takes.
 using GlProc = void (*)();
 using GlLoader = GlProc (*)(const char* name);
 
 // The Metal renderer (renderer/metal/mtlgl.h) as a window opens and draws with it. The platform is
 // below the renderer, so it declares this and renderer/metal defines it, in a build with
 // OPENRAC_METAL. open presents to `window`, or to no screen when it is null, and fails when Metal
-// cannot open or lacks a function of renderer/gl.h.
+// cannot open or lacks a function of renderer/gl/gl.h.
 struct MetalBackend {
     bool (*open)(SDL_Window* window, int width, int height, bool vsync, std::string& error);
     void (*close)();
@@ -255,7 +255,7 @@ private:
 
     // Opens the window for GlApi::Vulkan; false (and nothing left open) when Vulkan cannot be had.
     bool open_vulkan(const WindowConfig& config, std::string& error);
-    // The same for GlApi::Metal, which must also carry out every function of renderer/gl.h.
+    // The same for GlApi::Metal, which must also carry out every function of renderer/gl/gl.h.
     bool open_metal(const WindowConfig& config, std::string& error);
 
     SDL_Window* m_window = nullptr;

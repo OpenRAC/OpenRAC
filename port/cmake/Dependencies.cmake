@@ -168,7 +168,7 @@ endif()
 # What OpenGOAL draws its debug windows with. The repository has no build of
 # its own: its four sources and the SDL3 and OpenGL 3 backends are compiled
 # here into one static library, without the port's warnings. The OpenGL
-# backend brings its own small loader, so it needs nothing of renderer/gl.h.
+# backend brings its own small loader, so it needs nothing of renderer/gl/gl.h.
 FetchContent_Declare(imgui
   GIT_REPOSITORY https://github.com/ocornut/imgui.git
   GIT_TAG v1.91.9b
@@ -260,6 +260,11 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
   set(BUILD_SHARED_LIBS ${openrac_shared_libs})
 
   add_library(openrac_vulkan STATIC "${volk_SOURCE_DIR}/volk.c")
+  target_sources(openrac_vulkan PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/commands/native_command_encoder.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/commands/graph_queue.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/graph/graph_state_translation.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/graph/graph_buffer_execution.cpp")
   target_include_directories(openrac_vulkan SYSTEM PUBLIC
     "${vulkan_headers_SOURCE_DIR}/include" "${volk_SOURCE_DIR}" "${vma_SOURCE_DIR}/include")
   target_compile_definitions(openrac_vulkan PUBLIC VK_NO_PROTOTYPES)

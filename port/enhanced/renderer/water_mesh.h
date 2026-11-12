@@ -9,7 +9,7 @@
 #include <span>
 #include <vector>
 
-#include "renderer/effects.h"
+#include "renderer/effects/effects.h"
 
 namespace openrac::enhanced {
 // Builds one resident vertex stream per strip from the baked subdivision.

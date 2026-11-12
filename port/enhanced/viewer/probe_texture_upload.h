@@ -6,7 +6,7 @@
 #include <stdexcept>
 
 #include "enhanced/lighting/probe_texture.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::lighting {
 // Returns the stored GPU format, or throws within the owning loader when a local rebake is needed.

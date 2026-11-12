@@ -12,8 +12,8 @@
 #include "common/stats.h"
 #include "enhanced/fsr3/fsr3_internal.h"
 #include "enhanced/fsr3/temporal_pass.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 

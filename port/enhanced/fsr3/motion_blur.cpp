@@ -11,8 +11,8 @@
 #include "common/log.h"
 #include "common/stats.h"
 #include "enhanced/fsr3/temporal_pass.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 
 namespace openrac::enhanced::fsr3_detail {
 using namespace openrac::gl;

@@ -9,7 +9,7 @@
 #include <cmath>
 
 #include "renderer/math.h"
-#include "renderer/temporal_settings.h"
+#include "renderer/settings/temporal_settings.h"
 
 namespace openrac::enhanced::fsr3_detail {
 // Returns AMD's preset render extent for a positive display extent, rounded down and clamped to one.

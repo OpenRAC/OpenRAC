@@ -6,7 +6,7 @@
 #include "enhanced/tests/gpu_probe_fixture.h"
 #include "enhanced/tests/probe_fixture.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "scene/hero_shadow.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"

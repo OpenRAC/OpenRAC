@@ -8,7 +8,7 @@
 #include <array>
 #include <cstddef>
 
-#include "renderer/shadow_settings.h"
+#include "renderer/settings/shadow_settings.h"
 
 namespace openrac::scene {
 inline constexpr int kShadowAtlasSize = 3072;

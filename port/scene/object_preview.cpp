@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "scene_shaders.h"
 
 namespace openrac::scene {

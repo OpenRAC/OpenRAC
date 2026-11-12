@@ -6,9 +6,9 @@
 #include <memory>
 
 #include "common/result.h"
-#include "renderer/framebuffer.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 #include "scene/object_picker.h"
 
 namespace openrac::scene {

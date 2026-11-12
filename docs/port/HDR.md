@@ -87,7 +87,7 @@ on every display, so the game goes by what the activity says, not by the formats
   `vkgl::clamp_colour_writes` makes each program use a fragment shader with a clamp at the end
   (`clamped_fragment`, built the first time it's needed). Copies into the game's 8-bit textures
   clamp as before, so the game reads back the same values.
-- `renderer/vulkan/surface_format.h` picks the swapchain format. SDR picks the same format as
+- `renderer/vulkan/presentation/surface_format.h` picks the swapchain format. SDR picks the same format as
   before. HDR picks HDR10 or scRGB if the device can write it, else falls back to SDR.
 - The Vulkan presentation graph encodes the frame with `shaders/hdr_encode.comp` and transitions
   the result for presentation. If encoder setup fails, the graph uses its SDR copy path.

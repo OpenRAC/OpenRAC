@@ -25,7 +25,7 @@
 #include "frontend.h"
 #include "mods.h"
 #include "options_menu.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "settings.h"
 
 #pragma clang diagnostic error "-Wswitch"

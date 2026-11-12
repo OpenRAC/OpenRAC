@@ -11,8 +11,8 @@
 #include "enhanced/fsr3/fsr3_internal.h"
 #include "enhanced/fsr3/temporal_math.h"
 #include "fsr3_shaders.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 
@@ -200,6 +200,11 @@ bool Fsr3::State::configure(
             || !opaque.create(size[0], size[1], GL_RGBA8, 0, error)) {
             return false;
         }
+        // The reactive mask fetches exact texels. Water can also use this snapshot with bilinear
+        // refraction, matching the filter on its standalone colour snapshot.
+        glBindTexture(GL_TEXTURE_2D, opaque.texture());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
 
     // The final colour target alone needs storage usage; the original renderer's images remain ordinary attachments.
@@ -304,6 +309,7 @@ void Fsr3::State::attach_frame(TemporalFrame frame, std::array<int, 2> size) {
     frame.input.on_before_particles = [this](const auto& target) {
         capture_opaque(target);
     };
+    frame.input.pre_particle_colour_texture = opaque.texture();
     frame.input.on_resolve_world = [this](auto& target) {
         resolve(target);
     };

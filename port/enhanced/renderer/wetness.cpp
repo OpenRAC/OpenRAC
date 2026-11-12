@@ -7,13 +7,14 @@
 #include <atomic>
 #include <cmath>
 #include <mutex>
+#include <stdexcept>
 #include <vector>
 
 #include "common/log.h"
 #include "common/stats.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/world/gl_world.h"
 
 namespace openrac::enhanced {
@@ -170,7 +171,12 @@ void HeroWetness::prepare(
     glBindTexture(GL_TEXTURE_2D, m_dummy);
     glActiveTexture(GL_TEXTURE0 + 14);
     glBindTexture(GL_TEXTURE_2D, m_dummy);
-    const bool water = bind_water_contact(m_update);
+    const std::uint64_t vertex_bytes = std::uint64_t{m_count} * sizeof(Vertex);
+    std::vector<WaterBufferUse> uses{
+        {m_vertices, vertex_bytes, renderer::graph::Access::Read},
+        {m_state, std::uint64_t{m_count} * sizeof(float), renderer::graph::Access::ReadWrite}
+    };
+    const bool water = bind_water_contact(m_update, uses);
     glUniform1i(m_update.uniform("contact_enabled"), water ? 1 : 0);
     glUniform1i(m_update.uniform("water_coast_map"), 12);
     glUniform1i(m_update.uniform("water_wave_map"), 14);
@@ -182,8 +188,13 @@ void HeroWetness::prepare(
     glUniform1i(m_update.uniform("reset_history"), reset ? 1 : 0);
     glUniform1f(m_update.uniform("dry_amount"), dt / 20.f);
     glUniformMatrix4fv(m_update.uniform("hero_model"), 1, GL_FALSE, hero->matrix.data());
-    glDispatchCompute((m_count + 63) / 64, 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    // Wetness can first update inside a depth or shadow callback, with preserved per-vertex history.
+    const auto recorded = water_compute_pass("Ratchet wetness", uses, [&] {
+        glDispatchCompute((m_count + 63) / 64, 1, 1);
+    });
+    if (!recorded) {
+        throw std::runtime_error(recorded.error().message);
+    }
     glActiveTexture(GL_TEXTURE0);
     m_frame = input.frame;
     m_identity = hero->temporal_id;

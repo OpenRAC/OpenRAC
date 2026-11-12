@@ -29,10 +29,13 @@ bool valid_state(State state, bool image) {
 
     // Vertex and indirect inputs are read-only; shader and transfer buffers can also be written.
     if (!image) {
-        const Stage allowed = kShaders | Stage::Transfer | Stage::VertexInput | Stage::DrawIndirect;
-        const bool input_only = !within(state.stages, kShaders | Stage::Transfer);
+        const Stage writable = kShaders | Stage::Transfer | Stage::Host | Stage::AccelerationBuild;
+        const Stage allowed = writable | Stage::VertexInput | Stage::DrawIndirect;
+        const auto writers = static_cast<unsigned>(state.stages) & static_cast<unsigned>(writable);
+        // A read/write scope can include read-only stages alongside its writers.
         return state.layout == Layout::Buffer && within(state.stages, allowed)
-               && (!input_only || !writes(state.access));
+               && (!writes(state.access)
+                   || (writers && (reads(state.access) || within(state.stages, writable))));
     }
 
     // Layouts restrict access types as well as the participating pipeline stages.
@@ -71,6 +74,14 @@ bool valid_aspects(Layout layout, Aspect aspects) {
     return !(depth && colour) && (!colour_only || aspects == Aspect::Colour);
 }
 
+bool valid_range(const ImageDesc& image, const ImageRange& range) {
+    const unsigned aspects = static_cast<unsigned>(range.aspects);
+    return range.mip_count && range.layer_count && aspects
+           && (aspects & ~static_cast<unsigned>(image.aspects)) == 0 && range.first_mip < image.mips
+           && range.mip_count <= image.mips - range.first_mip && range.first_layer < image.layers
+           && range.layer_count <= image.layers - range.first_layer;
+}
+
 namespace {
 // Checks attachment operations and exports before changing any tracked contents.
 bool valid_operations(const ImageUse& use, PassKind kind) {
@@ -92,6 +103,9 @@ bool valid_operations(const ImageUse& use, PassKind kind) {
     // Clear and discard change the contents and require an explicit write declaration.
     if ((use.load == Load::Clear || use.load == Load::Discard || use.store == Store::Discard)
         && !writes(use.state.access)) {
+        return false;
+    }
+    if (use.partial_write && !writes(use.state.access)) {
         return false;
     }
 
@@ -120,13 +134,7 @@ Result<void> image_uses(
 
     const auto* image = std::get_if<ImageDesc>(&resources[use.image.index].description);
     const auto& range = use.range;
-    const unsigned aspects = static_cast<unsigned>(range.aspects);
-
-    // Subtraction after checking the start prevents overflowing end coordinates.
-    if (!image || !range.mip_count || !range.layer_count || !aspects
-        || (aspects & ~static_cast<unsigned>(image->aspects)) != 0 || range.first_mip >= image->mips
-        || range.mip_count > image->mips - range.first_mip || range.first_layer >= image->layers
-        || range.layer_count > image->layers - range.first_layer) {
+    if (!image || !valid_range(*image, range)) {
         return unexpected(Error{"invalid image subresource range"});
     }
 
@@ -135,23 +143,11 @@ Result<void> image_uses(
         return unexpected(Error{"attachment layout does not match image aspects"});
     }
 
-    // Three aspect slots keep colour, depth and stencil contents independent.
-    for (unsigned aspect = 0; aspect < 3; ++aspect) {
-        // Only requested aspects contribute intervals or barriers.
-        if ((aspects & (1u << aspect)) == 0) {
-            continue;
-        }
-
-        // Each interval stays inside one layer, including when mip ranges are partial.
-        for (unsigned layer = range.first_layer; layer < range.first_layer + range.layer_count;
-             ++layer) {
-            const auto begin =
-                (std::uint64_t{aspect} * image->layers + layer) * image->mips + range.first_mip;
-            output.push_back(
-                {use.image.index, begin, begin + range.mip_count, use.state, use.load, use.store}
-            );
-        }
-    }
+    for_each_image_interval(*image, range, [&](std::uint64_t begin, std::uint64_t end) {
+        output.push_back(
+            {use.image.index, begin, end, use.state, use.load, use.store, use.partial_write}
+        );
+    });
 
     return {};
 }
@@ -189,9 +185,13 @@ std::uint64_t extent(const Resource& resource) {
     return std::get<BufferDesc>(resource.description).size;
 }
 
-Result<std::vector<Use>> normalise(const Pass& pass, std::span<const Resource> resources) {
-    std::vector<Use> result;
-    result.reserve(pass.images.size() + pass.buffers.size());
+Result<void> normalise(
+    const Pass& pass,
+    std::span<const Resource> resources,
+    std::vector<Use>& output,
+    std::vector<Use>& scratch
+) {
+    const auto first = output.size();
 
     // Validate operations before adding ranges to the compilation work list.
     for (const auto& use : pass.images) {
@@ -201,7 +201,7 @@ Result<std::vector<Use>> normalise(const Pass& pass, std::span<const Resource> r
         }
 
         // Keep an invalid subresource from reaching interval arithmetic.
-        if (auto added = image_uses(use, resources, result); !added) {
+        if (auto added = image_uses(use, resources, output); !added) {
             return unexpected(added.error());
         }
     }
@@ -219,16 +219,15 @@ Result<std::vector<Use>> normalise(const Pass& pass, std::span<const Resource> r
             return unexpected(Error{"invalid buffer range or access"});
         }
 
-        result.push_back(
+        output.push_back(
             {use.buffer.index, use.range.offset, use.range.offset + use.range.size, use.state}
         );
     }
 
     // Validate in range order without changing the order in which barriers are emitted.
-    std::span<const Use> sorted = result;
-    std::vector<Use> scratch;
-    if (!std::is_sorted(result.begin(), result.end(), range_order)) {
-        scratch = result;
+    std::span<const Use> sorted = std::span(output).subspan(first);
+    if (!std::is_sorted(sorted.begin(), sorted.end(), range_order)) {
+        scratch.assign(sorted.begin(), sorted.end());
         std::sort(scratch.begin(), scratch.end(), range_order);
         sorted = scratch;
     }
@@ -236,7 +235,7 @@ Result<std::vector<Use>> normalise(const Pass& pass, std::span<const Resource> r
         return unexpected(Error{"overlapping writes or incompatible reads within one pass"});
     }
 
-    return result;
+    return {};
 }
 
 Range public_range(const Resource& resource, std::uint64_t begin, std::uint64_t end) {

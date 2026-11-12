@@ -5,7 +5,7 @@
 #include <cmath>
 
 #include "debug/overlay.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::frontend::debug_overlay {
 namespace {

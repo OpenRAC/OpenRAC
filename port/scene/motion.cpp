@@ -7,8 +7,8 @@
 #include <stdexcept>
 
 #include "common/stats.h"
-#include "renderer/colour_graph.h"
-#include "renderer/gl.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/gl/gl.h"
 #include "scene/level_lighting.h"
 #include "scene/level_renderer.h"
 

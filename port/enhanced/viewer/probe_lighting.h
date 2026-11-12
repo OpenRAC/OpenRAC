@@ -17,8 +17,8 @@
 #include "enhanced/viewer/medial_axis_overlay.h"
 #include "enhanced/viewer/probe_selection.h"
 #include "enhanced/viewer/probe_sphere_culling.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 #include "scene/level.h"
 
 namespace openrac::lighting {

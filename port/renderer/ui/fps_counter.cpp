@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "common/stats.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/ui/fps_counter_sample.h"
 
 namespace openrac::renderer::ui::fps_counter {

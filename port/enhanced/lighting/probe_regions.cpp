@@ -62,8 +62,12 @@ void ProbeRegionSelector::update(
           && std::isfinite(seconds) && seconds >= 0)) {
         throw std::runtime_error("invalid probe region fade settings");
     }
-    std::vector<std::tuple<bool, float, int>> candidates;
-    std::vector<float> targets(regions.size());
+    struct Candidate {
+        std::tuple<bool, float, int> rank;
+        float target;
+    };
+    std::array<Candidate, kDenseProbeSlots> candidates{};
+    auto end = candidates.begin();
     for (std::size_t i = 0; i < regions.size(); ++i) {
         const float distance = probe_region_distance(regions[i], camera);
         if (distance >= fade_distance) {
@@ -71,38 +75,45 @@ void ProbeRegionSelector::update(
         }
         const float t =
             std::clamp((fade_distance - distance) / (fade_distance - full_distance), 0.0f, 1.0f);
-        targets[i] = t * t * (3 - 2 * t);
         const bool resident = std::any_of(slots.begin(), slots.end(), [&](const auto& s) {
             return s.region == static_cast<int>(i);
         });
         const bool offscreen =
             world_to_clip && !probe_region_in_frustum(regions[i], *world_to_clip);
-        candidates
-            .emplace_back(offscreen, distance - (resident ? hysteresis : 0), static_cast<int>(i));
+        const Candidate candidate{
+            {offscreen, distance - (resident ? hysteresis : 0), static_cast<int>(i)},
+            t * t * (3 - 2 * t)
+        };
+        // Keep only the best three regions in the same order as the full sort.
+        const auto position = std::lower_bound(
+            candidates.begin(), end, candidate,
+            [](const Candidate& a, const Candidate& b) { return a.rank < b.rank; }
+        );
+        if (position == candidates.end()) {
+            continue;
+        }
+        if (end != candidates.end()) {
+            ++end;
+        }
+        std::move_backward(position, end - 1, end);
+        *position = candidate;
     }
-    std::sort(candidates.begin(), candidates.end());
-    if (candidates.size() > kDenseProbeSlots) {
-        candidates.resize(kDenseProbeSlots);
-    }
-    const auto wanted = [&](int id) {
-        return std::any_of(candidates.begin(), candidates.end(), [&](const auto& c) {
-            return std::get<2>(c) == id;
-        });
-    };
     const float step = std::min(seconds / fade_seconds, 1.0f);
     for (auto& slot : slots) {
         if (slot.region < 0) {
             continue;
         }
-        const float target = wanted(slot.region) ? targets[slot.region] : 0;
+        const auto wanted = std::find_if(candidates.begin(), end, [&](const Candidate& candidate) {
+            return std::get<2>(candidate.rank) == slot.region;
+        });
+        const float target = wanted == end ? 0 : wanted->target;
         slot.weight += std::clamp(target - slot.weight, -step, step);
-        if (slot.weight <= 0 && !wanted(slot.region)) {
+        if (slot.weight <= 0 && wanted == end) {
             slot = {};
         }
     }
-    for (const auto& [offscreen, score, id] : candidates) {
-        (void)offscreen;
-        (void)score;
+    for (const auto& candidate : std::span(candidates.begin(), end)) {
+        const int id = std::get<2>(candidate.rank);
         if (std::any_of(slots.begin(), slots.end(), [&](const auto& s) {
                 return s.region == id;
             })) {
@@ -111,7 +122,7 @@ void ProbeRegionSelector::update(
         const auto empty =
             std::find_if(slots.begin(), slots.end(), [](const auto& s) { return s.region < 0; });
         if (empty != slots.end()) {
-            *empty = {id, std::min(targets[id], step)};
+            *empty = {id, std::min(candidate.target, step)};
         }
     }
 }

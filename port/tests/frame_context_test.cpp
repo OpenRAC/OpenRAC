@@ -210,6 +210,12 @@ void test_invalid_capture() {
     CHECK(duplicate.complete(source, 0, *second));
     CHECK(!duplicate.complete(source, 0, *second));
     CHECK(!duplicate.compile());
+
+    auto foreign = image_plan(true);
+    foreign.declarations.front().images.front().image = source.declarations.front().images.front().image;
+    graph::FrameContext invalid_owner;
+    CHECK(!invalid_owner.record(foreign, 0, graph::FrameEntry::Declared));
+    CHECK(!invalid_owner.compile());
 }
 }  // namespace
 

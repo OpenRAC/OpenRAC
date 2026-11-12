@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/vulkan/passes/native_compute.h"
 
 namespace openrac::enhanced::fsr3_detail {
 // Per-displayed-frame inputs; motion is unjittered, current-to-previous in render-pixel units.

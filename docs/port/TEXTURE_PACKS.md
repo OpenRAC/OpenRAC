@@ -3,7 +3,7 @@
 A texture pack replaces the game's textures with your own pictures, at any
 size: an upscaled or repainted set. It works for the levels' textures (the
 world, the models, the sky) and for the 2D layer (the HUD, the menus, the
-font). Code: [`port/renderer/texture_pack.cpp`](../../port/renderer/texture_pack.cpp);
+font). Code: [`port/renderer/textures/texture_pack.cpp`](../../port/renderer/textures/texture_pack.cpp);
 the launcher's side: [`launcher/core/src/texture_packs.rs`](../../launcher/core/src/texture_packs.rs).
 
 ## Where it goes

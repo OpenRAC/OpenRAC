@@ -11,9 +11,9 @@
 #include "common/log.h"
 #include "common/profiler.h"
 #include "enhanced/fsr3/sdk_shaders.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
 
 #include <FidelityFX/host/backends/vk/ffx_vk.h>
 #include <FidelityFX/host/ffx_fsr3upscaler.h>

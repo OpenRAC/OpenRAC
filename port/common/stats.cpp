@@ -55,6 +55,8 @@ struct State {
     std::vector<Frame> frames = std::vector<Frame>(kHistory);
     std::uint64_t next_serial = 0;  // the serial the next frame gets
     Frame* open = nullptr;
+    std::size_t section_count = 0;
+    std::size_t gauge_count = 0;
     Clock::time_point origin{};
     Clock::time_point open_started{};
     Clock::time_point top_ended{};  // where the last top-level section of the open frame ended
@@ -83,6 +85,27 @@ Frame* frame_of(std::uint64_t serial) {
     }
     Frame& f = s.frames[serial % kHistory];
     return f.serial == serial ? &f : nullptr;
+}
+
+// The open slot may still hold unused entries from its previous frame.
+std::size_t section_count(const Frame& frame) {
+    return frame.closed ? frame.sections.size() : state().section_count;
+}
+
+Section& append_section(State& s, std::string_view name) {
+    auto& sections = s.open->sections;
+    if (s.section_count == sections.size()) {
+        sections.emplace_back();
+    }
+    Section& section = sections[s.section_count];
+    section.name.assign(name);
+    section.depth = 0;
+    section.cpu_ms = 0.0;
+    section.gpu_ms = -1.0;
+    section.draw_calls = 0;
+    section.triangles = 0;
+    ++s.section_count;
+    return section;
 }
 
 void write_json_string(std::string& out, std::string_view text) {
@@ -203,6 +226,8 @@ void close_open(Clock::time_point now) {
     }
     s.open->interval_ms = ms_between(s.open_started, now);
     s.open->counters = g_counters;
+    s.open->sections.resize(s.section_count);
+    s.open->gauges.resize(s.gauge_count);
     s.open->closed = true;
     s.open = nullptr;
 }
@@ -257,7 +282,7 @@ void set_enabled(Client client, bool on) {
     g_enabled = enabled;
 }
 
-std::string open_section() {
+std::string_view open_section() {
     const State& s = state();
     if (!g_enabled || s.open == nullptr || s.stack.empty()) {
         return {};
@@ -270,10 +295,9 @@ void Scope::begin(std::string_view name, unsigned flags) {
     if (s.open == nullptr) {
         return;
     }
-    m_index = static_cast<int>(s.open->sections.size());
+    m_index = static_cast<int>(s.section_count);
     m_serial = s.open->serial;
-    Section& section = s.open->sections.emplace_back();
-    section.name.assign(name);
+    Section& section = append_section(s, name);
     section.depth = static_cast<int>(s.stack.size());
     s.stack.push_back({m_index, Clock::now(), g_counters[static_cast<std::size_t>(Counter::DrawCalls)],
                        g_counters[static_cast<std::size_t>(Counter::Triangles)]});
@@ -310,8 +334,7 @@ void lap(std::string_view name) {
         return;
     }
     const auto now = Clock::now();
-    Section& section = s.open->sections.emplace_back();
-    section.name.assign(name);
+    Section& section = append_section(s, name);
     section.cpu_ms = ms_between(s.top_ended, now);
     s.top_ended = now;
 }
@@ -321,13 +344,21 @@ void gauge(std::string_view name, double value) {
     if (!g_enabled || s.open == nullptr) {
         return;
     }
-    for (auto& [key, held] : s.open->gauges) {
+    auto& gauges = s.open->gauges;
+    for (std::size_t index = 0; index < s.gauge_count; ++index) {
+        auto& [key, held] = gauges[index];
         if (key == name) {
             held = value;
             return;
         }
     }
-    s.open->gauges.emplace_back(std::string(name), value);
+    if (s.gauge_count == gauges.size()) {
+        gauges.emplace_back();
+    }
+    auto& [key, held] = gauges[s.gauge_count];
+    key.assign(name);
+    held = value;
+    ++s.gauge_count;
 }
 
 double Frame::cpu_ms(std::string_view section) const {
@@ -388,8 +419,8 @@ void begin_frame(FrameKind kind, std::uint64_t tick, float alpha) {
     f.passes_sampled = g_pass_sampling.load(std::memory_order_relaxed) > 0;
     f.passes_split = false;
     f.counters.fill(0);
-    f.sections.clear();
-    f.gauges.clear();
+    s.section_count = 0;
+    s.gauge_count = 0;
     if (kind == FrameKind::Tick) {
         f.game_ms = s.game_ms;
         s.game_ms = 0.0;
@@ -455,7 +486,7 @@ bool gpu_timers() {
 #if defined(OPENRAC_GPU_MARKERS)
 std::string gpu_section_name(std::uint64_t serial, int section) {
     const auto* f = frame_of(serial);
-    return f && section >= 0 && std::size_t(section) < f->sections.size()
+    return f && section >= 0 && std::size_t(section) < section_count(*f)
         ? f->sections[std::size_t(section)].name : std::string{};
 }
 #endif
@@ -476,7 +507,7 @@ void gpu_passes_split(std::uint64_t serial) {
 
 void gpu_result(std::uint64_t serial, int section, double ms) {
     Frame* f = frame_of(serial);
-    if (f == nullptr || section < 0 || static_cast<std::size_t>(section) >= f->sections.size()) {
+    if (f == nullptr || section < 0 || static_cast<std::size_t>(section) >= section_count(*f)) {
         return;
     }
     f->sections[static_cast<std::size_t>(section)].gpu_ms = ms;

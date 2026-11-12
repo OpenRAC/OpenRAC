@@ -9,7 +9,7 @@
 //! ```text
 //! <data>/texture_packs/<id>/            the player's pack, which the game reads (id: rac2-ntsc)
 //! <data home>/texture_dumps/<id>/       the textures the game saved while dumping, sorted into
-//!     Interface/  Shared/  Planets/<planet>/    (port/renderer/texture_pack.cpp)
+//!     Interface/  Shared/  Planets/<planet>/    (port/renderer/textures/texture_pack.cpp)
 //! <data home>/texture_dumps/<id>.dumping   there while "Save the game's textures" is on
 //! ```
 //!

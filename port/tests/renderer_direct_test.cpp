@@ -16,8 +16,8 @@
 
 #include "check.h"
 #include "common/breadcrumbs.h"
-#include "renderer/direct.h"
-#include "renderer/framebuffer.h"
+#include "renderer/direct/direct.h"
+#include "renderer/gl/framebuffer.h"
 #include "renderer/renderer.h"
 #include "renderer_gif_builder.h"
 #include "renderer_gl_context.h"

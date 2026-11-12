@@ -7,7 +7,7 @@
 
 #include "enhanced/tests/water_gpu_fixture.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
 

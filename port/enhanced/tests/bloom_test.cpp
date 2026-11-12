@@ -11,8 +11,8 @@
 #include <vector>
 
 #include "enhanced/renderer/bloom.h"
-#include "renderer/gl.h"
-#include "renderer/surface_chain.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/gl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 #if defined(OPENRAC_VULKAN)

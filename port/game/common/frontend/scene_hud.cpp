@@ -16,8 +16,8 @@
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/scene_frame_internal.h"
-#include "renderer/direct.h"
-#include "renderer/gl.h"
+#include "renderer/direct/direct.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::frontend {
 namespace {

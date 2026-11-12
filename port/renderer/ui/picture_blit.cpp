@@ -5,7 +5,7 @@
 
 #include "renderer/ui/picture_blit.h"
 
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::renderer::ui {
 

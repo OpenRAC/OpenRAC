@@ -5,9 +5,9 @@
 #include <optional>
 
 #include "enhanced/fsr3/frame_target.h"
-#include "renderer/motion_blur_settings.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
+#include "renderer/settings/motion_blur_settings.h"
 
 namespace openrac::enhanced::fsr3_detail {
 // Tracking-focus translation is measured between displayed cameras, independently of the eye.

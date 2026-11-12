@@ -6,9 +6,9 @@
 #include "enhanced/fsr3/motion_blur.h"
 #include "enhanced/fsr3/temporal_pass.h"
 #include "fsr3_shaders.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/passes/native_compute.h"
 
 namespace openrac::enhanced::fsr3_detail {
 using namespace openrac::gl;

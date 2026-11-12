@@ -32,7 +32,7 @@ std::string stages_name(Stage stages) {
         return "all";
     }
 
-    constexpr std::array<std::string_view, 8> kNames{
+    constexpr std::array<std::string_view, 10> kNames{
         "transfer",
         "vertex-input",
         "vertex",
@@ -40,7 +40,9 @@ std::string stages_name(Stage stages) {
         "compute",
         "colour-output",
         "depth-tests",
-        "indirect"
+        "indirect",
+        "host",
+        "acceleration-build"
     };
     std::string result;
 
@@ -112,7 +114,8 @@ std::string Plan::describe() const {
     for (unsigned index = 0; index < passes.size(); ++index) {
         const auto& pass = passes[index];
         text += std::format(
-            "pass {} {} {}\n", index, pass.kind == PassKind::Export ? "export" : "work", pass.name
+            "pass {} {} {}\n", index,
+            pass.culled ? "culled" : pass.kind == PassKind::Export ? "export" : "work", pass.name
         );
 
         // Exact ranges explain which overlapping accesses caused the dependency.

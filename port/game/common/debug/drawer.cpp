@@ -20,7 +20,7 @@
 #include <SDL3/SDL.h>
 
 #include "debug/menu_ui.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "settings.h"
 
 namespace openrac::frontend::debug_overlay {

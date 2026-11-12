@@ -19,15 +19,15 @@
 #include <string_view>
 
 #include "common/hdr.h"
-#include "renderer/bloom_settings.h"
-#include "renderer/gtao_settings.h"
-#include "renderer/motion_blur_settings.h"
-#include "renderer/render_opt.h"
-#include "renderer/shadow_settings.h"
-#include "renderer/temporal_settings.h"
-#include "renderer/texture_filter.h"
+#include "renderer/settings/bloom_settings.h"
+#include "renderer/settings/gtao_settings.h"
+#include "renderer/settings/motion_blur_settings.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/settings/shadow_settings.h"
+#include "renderer/settings/temporal_settings.h"
+#include "renderer/settings/volumetric_settings.h"
+#include "renderer/textures/texture_filter.h"
 #include "renderer/ui/fps_counter.h"
-#include "renderer/volumetric_settings.h"
 
 namespace openrac::settings {
 

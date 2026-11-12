@@ -26,12 +26,12 @@
 #include <utility>
 #include <vector>
 
-#include "renderer/debug_lines.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gpu_draw.h"
-#include "renderer/render_opt.h"
+#include "renderer/debug/debug_lines.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gpu_draw.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gpu.h"
 #include "scene/level.h"
 #include "scene/level_lighting.h"

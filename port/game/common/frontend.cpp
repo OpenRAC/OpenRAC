@@ -26,6 +26,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "common/breadcrumbs.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/stats.h"
@@ -51,15 +52,15 @@
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "platform/window.h"
-#include "renderer/direct.h"
-#include "renderer/effects.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/gl_stats.h"
-#include "renderer/gl_warmup.h"
-#include "renderer/precise_depth.h"
+#include "renderer/direct/direct.h"
+#include "renderer/effects/effects.h"
+#include "renderer/effects/shadows.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gl_stats.h"
+#include "renderer/gl/gl_warmup.h"
+#include "renderer/gl/precise_depth.h"
 #include "renderer/renderer.h"
-#include "renderer/shadows.h"
 #include "renderer/ui/fps_counter.h"
 #include "renderer/ui/touch_overlay.h"
 #include "scene/hero_shadow.h"
@@ -448,9 +449,9 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
         error = "OpenGL functions missing: " + missing;
         return false;
     }
-    // [debug tools] The renderer's GL calls counted from here on (renderer/gl_stats.h).
+    // [debug tools] The renderer's GL calls counted from here on (renderer/gl/gl_stats.h).
     renderer::gl_stats::install(platform::Window::gl_loader());
-    // OpenGL's drawn states noted, to draw them again at each level's load (renderer/gl_warmup.h).
+    // OpenGL's drawn states noted, to draw them again at each level's load (renderer/gl/gl_warmup.h).
     renderer::gl_warmup::install(platform::Window::gl_loader());
 #if defined(OPENRAC_VULKAN)
     // A level's load deletes and links the same shader programs: their pipelines are kept
@@ -537,6 +538,8 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
     }
     apply_mouse_capture();
     g->input.update();
+    const crash::BreadcrumbScope breadcrumbs(static_cast<std::int64_t>(g->index));
+    crash::breadcrumb(black > 0.0f ? "picture fade frame" : "picture frame");
     stats::begin_frame(stats::FrameKind::Picture, g->index);  // [debug tools]
 
     // The fade, on the bytes as the chip's black quad blends them: C * (1 - coverage).

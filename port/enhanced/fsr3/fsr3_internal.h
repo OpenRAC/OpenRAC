@@ -14,9 +14,9 @@
 #include "enhanced/fsr3/object_history.h"
 #include "enhanced/fsr3/palette_history.h"
 #include "enhanced/fsr3/sdk_context.h"
-#include "renderer/framebuffer.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 #include "scene/level.h"
 #include "scene/motion.h"
 

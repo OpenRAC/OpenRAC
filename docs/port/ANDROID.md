@@ -60,9 +60,9 @@ offers *Return to game* and *Stop the game*.
 - **Graphics.** The renderer targets desktop OpenGL 4.1 and asks for an
   OpenGL ES 3.2 context on Android:
   - the two missing functions (`glClearDepth`, `glPolygonMode`) are replaced
-    in `renderer/gl.cpp`;
+    in `renderer/gl/gl.cpp`;
   - shaders are written in GLSL 4.10 and turned into GLSL ES 3.20
-    (`es_source` in `renderer/shader.cpp`);
+    (`es_source` in `renderer/gl/shader.cpp`);
   - without `GL_NV_shader_noperspective_interpolation` some values are
     interpolated with perspective, and without `GL_EXT_clip_cull_distance`
     the 2D layer's widescreen crop is skipped;
@@ -287,7 +287,7 @@ path has three parts:
    On Android 9 it writes the patched system libraries to the package's
    `patched/` folder, as memfds are not certain there.
 3. **The Vulkan renderer** (`port/renderer/vulkan/`) carries out the small
-   set of OpenGL calls the renderers use (`renderer/gl.h`,
+   set of OpenGL calls the renderers use (`renderer/gl/gl.h`,
    `renderer/world/gl_world.h`) on Vulkan 1.3: shaders through glslang,
    pipelines cached by state, buffers streamed through a per-frame ring.
    It is the default except on Mali GPUs, where OpenGL ES is until Vulkan

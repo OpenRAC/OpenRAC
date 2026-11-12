@@ -10,8 +10,8 @@
 
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "scene/hero_shadow.h"
@@ -90,14 +90,13 @@ void LevelScene::prepare_shadow_atlas_draws() {
 
 void LevelScene::clear_shadow_atlas(bool discard) {
     glClearDepth(0);
-    // Stencil and colour have no shadow consumers, so tiled GPUs need not retain them.
+    // Colour has no shadow consumers, so tiled GPUs need not load it.
     if (discard) {
         const GLenum unread = GL_COLOR_ATTACHMENT0;
         glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, &unread);
-        glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    } else {
-        glClear(GL_DEPTH_BUFFER_BIT);
     }
+    // Shadow casters have stencil testing disabled and only declare a depth write.
+    glClear(GL_DEPTH_BUFFER_BIT);
 }
 
 void LevelScene::record_shadow_atlas(

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// OpenGL's states warmed up at a level's load (renderer/gl_warmup.h): a program drawn in two blend
+// OpenGL's states warmed up at a level's load (renderer/gl/gl_warmup.h): a program drawn in two blend
 // states notes two states, drawing them again notes none, and warm() draws both once without
 // touching the game's target or leaving its state changed; the states' file is saved. The cache
 // folder is the test's own. Skipped (exit 77) where no OpenGL context can be made, or on the
@@ -19,10 +19,10 @@
 #include "check.h"
 #include "common/cache_folder.h"
 #include "platform/window.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/gl_warmup.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gl_warmup.h"
+#include "renderer/gl/shader.h"
 #include "renderer_gl_context.h"
 
 namespace {

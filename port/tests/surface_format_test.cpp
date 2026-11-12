@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The swapchain's format (renderer/vulkan/surface_format.h): SDR picks what the backend always
+// The swapchain's format (renderer/vulkan/presentation/surface_format.h): SDR picks what the backend always
 // picked, also when the surface lists HDR colour spaces first; HDR picks the asked kind, else the
 // other one, and SDR where the encode pass cannot write either.
 #include <vector>
 
-#include "renderer/vulkan/surface_format.h"
+#include "renderer/vulkan/presentation/surface_format.h"
 #include "tests/check.h"
 
 namespace {
