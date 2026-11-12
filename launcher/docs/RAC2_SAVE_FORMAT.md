@@ -414,9 +414,28 @@ formula is the one proven for scene 43. Scenes the planet files already name are
 trigger is not yet spent; setting one does not do the scene's event. All `FromCode`; the game's
 scene names were not read.
 
+**Aranos Prison's escape** (`planets_b.rs`). The level's prison controller is class 4351
+(`func_L14_004265B8`, one instance, moby 691). Its pvars (read from the NTSC-U disc's level 14
+gameplay file: pvar table at header +0x5C, data at +0x60) name the lift 63, the panel 381 (class
+2789), the beam 715, the guard 692, the switch 665, the door 812 and five object groups: 0x54 =
+9, 0x58 = 7, 0x5C = 3, 0x60 = 10, 0x64 = 8. Its state 0, at every level start, reads only those
+groups (chunk 3004 of level 14, bit 7): group 3 done, it gives back the Heli-Pack and
+Thruster-Pack (items 2, 3, owned and new; only when the hero starts in its entry volume), clears
+hero +0x247C and goes to its idle state 7, opening the door if group 10 is done too. Group 3 not
+done, it sets hero +0x247C, takes both packs away and resumes at the step after the last group
+done (7, then 8, then 9). During play the steps mark 9 (guard beaten, also story byte 0x29), 8
+(panel), 7 (exit volume) and 3 (switch). The switch "Prison section done" writes groups 3, 7, 8, 9,
+story 0x29 and the two packs (the packs only when set). The pad, class 4411 (moby 810,
+`func_L14_0042FB10`), sets story byte 0x2B, sets off mobys 499 and 812 and marks group 10 when
+the hero reaches it; with 0x2B clear an arrival on level 14 plays the transition's capture scene
+(`func_002EC408`, scene 3): the switch "Prison pad reached" writes 0x2B and group 10. Both
+`FromCode`, not tried in the game. Giant Clank on Dobbo Orbit saves no story byte from its own
+code (only object groups through `func_002A0430` with data-driven ids), so it is not offered;
+Damosel Orbit's is "Giant Clank battle won".
+
 **Still unknown** (place found, meaning not proven): Oozla's 0x75 bit 1, 0x7B, 0x9B; Notak 0x13 to
 0x18; Siberius 0x72 (skips scene 79 at the start of a ride); Tabora 0x19, 0x1A, 0x1C; Todano 0x22,
-0x23; Boldan 0x24 to 0x28; Aranos Prison 0x29, 0x2B, 0x78; Damosel 0x94, 0xA0; the
+0x23; Boldan 0x24 to 0x28; Aranos Prison 0x78; Damosel 0x94, 0xA0; the
 executable's 0x09, 0x2B, 0x3C, 0x3D, 0x8C, 0x8D (a bit per vendor entry);
 chunk 3004's object-group states and chunk 3005's moby counts other than the Electrolyzer boards'.
 

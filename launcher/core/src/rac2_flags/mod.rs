@@ -25,6 +25,9 @@ pub enum Place {
     /// Set when non-zero; setting writes 1 to a count of 0, clearing writes 0 (bit 3 of the nibble,
     /// not part of the count, is left as it is).
     Count { level: usize, uid: u16 },
+    /// A global byte written to `on` when the flag is set and left as it is when it is cleared:
+    /// what the game gives at the event (an item owned) but does not take back elsewhere.
+    SetOnly { chunk: i32, offset: usize, on: u8 },
     /// Several places written together, as the game writes them at one event; the first says
     /// whether the flag is on.
     All(&'static [Place]),
