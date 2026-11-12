@@ -27,6 +27,7 @@
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "openrac/game_host.h"
+#include "renderer/render_opt.h"
 #include "renderer/direct.h"
 #include "renderer/gl.h"
 #include "renderer/precise_depth.h"
@@ -201,6 +202,10 @@ void set_lighting(SceneFrame& frame) {
     }
     owner.scene.set_point_emitters(std::move(emitters));
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
+    // The lossy render shortcuts follow the setting; High (and the base game) draws in full.
+    renderer::render_opt::set_effects_detail(
+        enhanced ? graphics.effects_detail : renderer::render_opt::EffectsDetail::High
+    );
     if (auto* lighting = owner.scene.level_lighting()) {
         lighting->set_material_overrides(enhanced);
     }

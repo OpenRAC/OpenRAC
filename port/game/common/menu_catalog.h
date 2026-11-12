@@ -87,6 +87,7 @@ enum class Id : std::uint8_t {
     OcclusionQuality,
     OcclusionHiZ,
     TextureUpscaling,
+    EffectsDetail,
     Upscaling,
     Sharpening,
     MotionBlur,

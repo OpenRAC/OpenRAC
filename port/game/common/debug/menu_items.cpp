@@ -315,6 +315,15 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = filter < static_cast<int>(renderer::TextureFilter::Count) - 1;
             return it;
         }
+        case Id::EffectsDetail: {
+            it.shown = enhanced_on();
+            constexpr const char* kNames[] = {"Low", "Medium", "High"};
+            const int detail = static_cast<int>(set.effects_detail);
+            it.value = kNames[detail];
+            it.can_lower = detail > 0;
+            it.can_raise = detail < 2;
+            return it;
+        }
         case Id::Upscaling: {
             it.shown = enhanced_on() && enhanced::Fsr3::available();
             const std::string_view upscaler = it.shown ? enhanced::Fsr3::active_upscaler() : "none";
@@ -676,6 +685,12 @@ bool act(Id id, int by) {
         // Persist the hierarchy choice with the remaining ambient-occlusion options.
         case Id::OcclusionHiZ:
             set.gtao_settings.hi_z = !set.gtao_settings.hi_z;
+            changed();
+            return false;
+        case Id::EffectsDetail:
+            set.effects_detail = static_cast<renderer::render_opt::EffectsDetail>(
+                std::clamp(static_cast<int>(set.effects_detail) + by, 0, 2)
+            );
             changed();
             return false;
         case Id::TextureUpscaling: {

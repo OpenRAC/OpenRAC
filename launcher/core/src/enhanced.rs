@@ -155,6 +155,18 @@ pub fn settings() -> Vec<SettingSpec> {
         Choice { value: "balanced".into(), name: "Balanced".into() },
         Choice { value: "performance".into(), name: "Performance".into() },
     ];
+    let mut detail = spec(
+        "effects_detail",
+        "Effects detail",
+        "choice",
+        "high".into(),
+        "High draws every effect in full. Medium and Low take cheaper shortcuts that change the picture a little: coarser water, simpler leaf shadows, and on Low coarser lighting.",
+    );
+    detail.choices = vec![
+        Choice { value: "low".into(), name: "Low".into() },
+        Choice { value: "medium".into(), name: "Medium".into() },
+        Choice { value: "high".into(), name: "High".into() },
+    ];
     vec![
         shadows,
         shadow_filter,
@@ -162,6 +174,7 @@ pub fn settings() -> Vec<SettingSpec> {
         quality,
         texture_filter,
         temporal,
+        detail,
         spec(
             "agx_preview",
             "Color Correction",

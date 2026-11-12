@@ -50,6 +50,12 @@ A new entry is an enumerator of `render_opt::Opt` and a row of the table in `ren
 same place, and a section on this page: what it changes, the counter it lowers with its numbers
 before and after, and how its frames are shown to be the same.
 
+A lossy entry also follows the Enhanced setting "Effects detail" (the presets set it): it is on
+only at its highest detail or below, so High draws every effect in full. `probe-fast-blended`,
+`shadow-far-alternate` and `water-mesh-coarse` are on at Medium and Low; `early-lighting-quarter`
+and Arm ASR's balanced shaders only at Low. `set()` in the tests switches an entry on at any
+detail.
+
 | Name | Default | Tolerance | What it does |
 |---|---|---|---|
 | `registry-selftest` | on | none (exact) | Draws nothing. The entry the registry's own tests and the equivalence harness's switch. |
@@ -95,12 +101,13 @@ before and after, and how its frames are shown to be the same.
 | `gl-state-warmup` | on | none (exact) | OpenGL: saves each draw state per driver and draws it once into a private target at level load, so driver recompiles happen there ([OpenGL's states behind the loading screen](#opengls-states-behind-the-loading-screen)). |
 | `opaque-depth-gequal` | on | none (exact) | Opaque colour over the reused prepass depth tests GEQUAL instead of EQUAL. Every surface it draws is in the prepass, so the same fragments pass; Adreno keeps its low-resolution Z (LRZ) on for GEQUAL without depth writes and turns it off for EQUAL ([opaque-depth-gequal](#opaque-depth-gequal-lrz-over-the-reused-depth)). |
 | `vertex-position-stream` | on | none (exact) | A level's vertex positions sit in a tight buffer of their own, 12 bytes a vertex instead of 72. Shadow, depth and velocity passes, and a tile GPU's binning, read positions only ([vertex-position-stream](#vertex-position-stream-a-tight-buffer-for-positions)). |
-| `shadow-far-alternate` | on | 25% of pixels, any value (measured: see the section) | The sun's cascades 1 to 3 are drawn every other frame, 1 in turn with 2 and 3, while this frame's receivers fit the cascade as it was drawn. A kept cascade is sampled with the matrix it was drawn with ([shadow-far-alternate](#shadow-far-alternate-far-cascades-every-other-frame)). |
+| `shadow-far-alternate` | on at Medium and Low detail | 25% of pixels, any value (measured: see the section) | The sun's cascades 1 to 3 are drawn every other frame, 1 in turn with 2 and 3, while this frame's receivers fit the cascade as it was drawn. A kept cascade is sampled with the matrix it was drawn with ([shadow-far-alternate](#shadow-far-alternate-far-cascades-every-other-frame)). |
 | `motion-blur-half-flood` | on | 1% of pixels by at most 32 | Motion blur quality Performance: the blur's jump flood runs on a half-resolution seed grid, a quarter of its pixels in every pass. The first flood offers every render pixel of a cell, and the gather still tests each display pixel against the trail. |
 | `vk-program-keep` | on | none (exact) | Vulkan: a deleted program's shader modules, layouts and pipelines are kept, and the next link of the same shaders takes them. A level's load links the programs of the level before, so it makes no pipelines again ([vk-program-keep](#vk-program-keep-pipelines-kept-across-level-loads)). |
 | `vk-mode-constants` | on | none (exact) | Vulkan: the integer uniforms a shader names as modes (`// openrac_mode: name ...`) are specialisation constants of its pipelines. The driver compiles each pipeline for the modes it is drawn with and drops the code they leave out. A draw whose specialised pipeline is not made yet uses the one that reads the uniforms ([vk-mode-constants](#vk-mode-constants-modes-as-pipeline-constants)). |
-| `water-mesh-coarse` | on on Android, off elsewhere | 5% of pixels by at most 64 | Enhanced water: each baked shape is split again at load to one unit instead of half a unit, the same midpoints, about a quarter of the triangles. On the Odin 3 the water's 283k triangles a frame bound the effects pass (1.5 ms at any render scale). Waves keep their shading per pixel; only the surface's shape is coarser. |
+| `water-mesh-coarse` | on at Medium and Low detail | 5% of pixels by at most 64 | Enhanced water: each baked shape is split again at load to one unit instead of half a unit, the same midpoints, about a quarter of the triangles. On the Odin 3 the water's 283k triangles a frame bound the effects pass (1.5 ms at any render scale). Waves keep their shading per pixel; only the surface's shape is coarser. |
 | `water-strip-cull` | on | none (exact) | Enhanced water: a strip whose box, grown by four units for the waves, lies outside the view is not drawn. The game sends water strips the camera cannot see, and each one costs its dense triangles' vertex work and binning. |
+| `early-lighting-quarter` | on at Low detail | 5% of pixels by at most 64 | Early lighting (GI and the near cascades' look-up) runs once per 4x4 pixels instead of 2x2, a quarter of the compute work; the colour passes pick the nearest of the cell's samples as before. Lighting edges are coarser. |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the

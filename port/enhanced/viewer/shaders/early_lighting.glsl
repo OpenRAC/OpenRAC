@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // openrac_mode: early_lighting_enabled
 uniform int early_lighting_enabled;
+// openrac_mode: early_scale
+uniform int early_scale;  // Pixels a side of one cache cell: 2, or 4 (early-lighting-quarter).
 uniform samplerBuffer early_values;
 uniform usamplerBuffer early_guides;
 uniform mat4 early_projection;
@@ -58,8 +60,8 @@ bool early_surface(
     if (early_lighting_enabled == 0 || translucent_pass != 0 || effect_pass != 0) {
         return false;
     }
-    ivec2 half_extent = (ivec2(early_extent) + 1) / 2;
-    vec2 coordinate = gl_FragCoord.xy * 0.5 - 0.5;
+    ivec2 half_extent = (ivec2(early_extent) + early_scale - 1) / early_scale;
+    vec2 coordinate = gl_FragCoord.xy / float(early_scale) - 0.5;
     ivec2 begin = ivec2(floor(coordinate));
     vec2 fraction = fract(coordinate);
     // Two passes keep only the four scores live: the second fetches again what it weights,
@@ -69,7 +71,7 @@ bool early_surface(
     float best = 1e30;
     int best_coverage = 0;
     float footprint =
-        max(-eye_position.z, 0.0) * 2.0 / (abs(early_projection[1][1]) * early_extent.y);
+        max(-eye_position.z, 0.0) * float(early_scale) / (abs(early_projection[1][1]) * early_extent.y);
     // The GL-compatible vertex projection and D24 depth both contribute
     // reconstruction error. Compare candidates relatively, not to a hard cutoff.
     float tolerance = 0.002 + max(-eye_position.z, 0.0) * 0.0002 + footprint * 0.1;
@@ -83,8 +85,9 @@ bool early_surface(
             continue;
         }
         vec3 n = early_decode_normal(bits);
-        uint selected = (bits >> 16u) & 3u;
-        ivec2 pixel = cell * 2 + ivec2(selected & 1u, selected >> 1u);
+        uint selected = ((bits >> 16u) & 3u) | (((bits >> 28u) & 3u) << 2u);
+        ivec2 pixel = cell * early_scale
+                      + ivec2(selected % uint(early_scale), selected / uint(early_scale));
         float depth = uintBitsToFloat(texelFetch(early_guides, index * 2).r);
         float distance = early_projection[3][2] / (depth * 2.0 + (early_projection[2][2] - 1.0));
         vec2 ndc = (vec2(pixel) + 0.5) / early_extent * 2.0 - 1.0;

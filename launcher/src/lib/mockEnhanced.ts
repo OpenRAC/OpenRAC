@@ -90,6 +90,19 @@ export const mockEnhanced: EnhancedView = {
         ],
       },
       {
+        key: "effects_detail",
+        name: "Effects detail",
+        type: "choice",
+        default: "high",
+        value: "high",
+        description: "High draws every effect in full. Medium and Low take cheaper shortcuts.",
+        choices: [
+          { value: "low", name: "Low" },
+          { value: "medium", name: "Medium" },
+          { value: "high", name: "High" },
+        ],
+      },
+      {
         key: "agx_preview",
         name: "Color Correction",
         type: "bool",

@@ -41,6 +41,7 @@ public:
         unsigned buffer = 0;
         bool upload_needed = true;
         bool ocean = false;
+        bool coarse = false;  // Built from the one-unit templates (water-mesh-coarse).
         std::uint64_t last_use = 0;
 
         struct RestLookup {
@@ -100,6 +101,7 @@ private:
     std::vector<renderer::EffectVertex> m_rest_vertices;
     std::array<unsigned, 4> m_cache_counts{};         // Height lookups/hits, topology builds/hits.
     std::map<std::array<int, 4>, Shape> m_templates;  // Immutable shape-to-resident-range lookup.
+    std::map<std::array<int, 4>, Shape> m_coarse_templates;  // The same shapes at one unit.
     std::vector<std::array<float, 2>> m_weights;      // Baked dense coordinates; never regenerated.
     Shape m_ocean_shape{};                            // Optional shared ocean triangle template.
     Shape m_ocean_linear{};

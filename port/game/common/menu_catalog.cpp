@@ -115,6 +115,9 @@ constexpr Entry kEntries[] = {
     {Id::TextureUpscaling, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Texture upscaling",
      "Normal draws the world's textures as they are; Edge-aware enlarges them twice with sharp "
      "edges."},
+    {Id::EffectsDetail, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Effects detail",
+     "High draws every effect in full. Medium and Low take cheaper shortcuts that change the "
+     "picture a little: coarser water, simpler leaf shadows, and on Low coarser lighting."},
     {Id::Upscaling, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Upscaling",
      "Draws fewer pixels and builds the full picture from several frames. The named upscaler is "
      "the one this device uses."},

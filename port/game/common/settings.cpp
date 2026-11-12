@@ -52,6 +52,7 @@ void Settings::reset_enhanced() {
     lily_momentum = defaults.lily_momentum;
     temporal_sharpness = defaults.temporal_sharpness;
     texture_filter = defaults.texture_filter;
+    effects_detail = defaults.effects_detail;
 }
 
 namespace {
@@ -63,6 +64,7 @@ struct PresetValues {
     renderer::GtaoQuality occlusion;
     bool motion_blur;
     renderer::TextureFilter textures;
+    renderer::render_opt::EffectsDetail detail;
 };
 
 constexpr PresetValues kPresets[] = {
@@ -71,19 +73,22 @@ constexpr PresetValues kPresets[] = {
      renderer::ShadowFilter::Fast,
      renderer::GtaoQuality::Low,
      false,
-     renderer::TextureFilter::Normal},
+     renderer::TextureFilter::Normal,
+     renderer::render_opt::EffectsDetail::Low},
     {renderer::TemporalQuality::Balanced,
      renderer::ShadowQuality::Medium,
      renderer::ShadowFilter::Soft,
      renderer::GtaoQuality::Performance,
      true,
-     renderer::TextureFilter::EdgeAware},
+     renderer::TextureFilter::EdgeAware,
+     renderer::render_opt::EffectsDetail::Medium},
     {renderer::TemporalQuality::Quality,
      renderer::ShadowQuality::High,
      renderer::ShadowFilter::Soft,
      renderer::GtaoQuality::Performance,
      true,
-     renderer::TextureFilter::EdgeAware},
+     renderer::TextureFilter::EdgeAware,
+     renderer::render_opt::EffectsDetail::High},
 };
 }  // namespace
 
@@ -98,6 +103,7 @@ void Settings::apply_enhanced_preset(EnhancedPreset preset) {
     gtao_settings.quality = values.occlusion;
     motion_blur = values.motion_blur;
     texture_filter = values.textures;
+    effects_detail = values.detail;
 }
 
 EnhancedPreset Settings::enhanced_preset() const {
@@ -105,7 +111,8 @@ EnhancedPreset Settings::enhanced_preset() const {
         const PresetValues& values = kPresets[n];
         if (temporal_quality == values.temporal && shadow_quality == values.shadows
             && shadow_filter == values.shadow_filter && gtao_settings.quality == values.occlusion
-            && motion_blur == values.motion_blur && texture_filter == values.textures) {
+            && motion_blur == values.motion_blur && texture_filter == values.textures
+            && effects_detail == values.detail) {
             return static_cast<EnhancedPreset>(n);
         }
     }
@@ -145,6 +152,7 @@ constexpr const char* kHud[] = {"centre", "edges"};
 constexpr const char* kGtaoQuality[] = {"low", "performance", "quality"};
 constexpr const char* kBlurQuality[] = {"performance", "quality"};
 constexpr const char* kTextureFilter[] = {"normal", "edge-aware"};
+constexpr const char* kEffectsDetail[] = {"low", "medium", "high"};
 constexpr const char* kVSync[] = {"off", "on", "adaptive"};
 
 std::string trimmed(const std::string& s) {
@@ -474,6 +482,8 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 1.0f, s.temporal_sharpness);
         } else if (key == "texture_filter") {
             known = parse(value, kTextureFilter, s.texture_filter);
+        } else if (key == "effects_detail") {
+            known = parse(value, kEffectsDetail, s.effects_detail);
         } else if (key == "anisotropy") {
             if (value == "auto") {
                 s.anisotropy = 0;
@@ -700,6 +710,7 @@ void save() {
         << "gtao_radius = " << s.gtao_settings.radius << "\n"
         << "gtao_strength = " << s.gtao_settings.strength << "\n"
         << "texture_filter = " << kTextureFilter[static_cast<int>(s.texture_filter)] << "\n"
+        << "effects_detail = " << kEffectsDetail[static_cast<int>(s.effects_detail)] << "\n"
         << "temporal_quality = " << renderer::kTemporalKeys[static_cast<int>(s.temporal_quality)]
         << "\n"
         << "bloom_enabled = " << (s.bloom.enabled ? 1 : 0) << "\n"

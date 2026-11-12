@@ -18,12 +18,6 @@
 namespace openrac::renderer::render_opt {
 namespace {
 
-#ifdef __ANDROID__
-constexpr bool kAndroid = true;
-#else
-constexpr bool kAndroid = false;
-#endif
-
 // The word of OPENRAC_RENDER_OPT_OFF that switches every entry off.
 constexpr std::string_view kAll = "all";
 
@@ -203,7 +197,7 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     // Accepted Enhanced difference: on lavapipe at most 0.28% of a frame's pixels, by up to 26/255.
     {Opt::ProbeFastBlended, "probe-fast-blended",
      "blended passes (static and mobys) read the best probe volume without its depth test and filter shadows with four taps",
-     true, Tolerance{0.005, 32}},
+     true, Tolerance{0.005, 32}, EffectsDetail::Medium},
     {Opt::VkPipelineLibrary, "vk-pipeline-library",
      "a pipeline first needed mid-frame is linked from shader parts made on a worker, then replaced",
      true, Tolerance{}},
@@ -218,7 +212,7 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
      true, Tolerance{}},
     {Opt::ShadowFarAlternate, "shadow-far-alternate",
      "the sun's cascades 1 to 3 are drawn every other frame, 1 and the far two in turn, while their receivers fit",
-     true, Tolerance{0.25, 255}},
+     true, Tolerance{0.25, 255}, EffectsDetail::Medium},
     {Opt::MotionBlurHalfFlood, "motion-blur-half-flood",
      "the blur's jump flood runs on a half-resolution seed grid, a quarter of its pixels in every pass",
      true, Tolerance{0.01, 32}},
@@ -228,13 +222,15 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::VkModeConstants, "vk-mode-constants",
      "the integer uniforms a shader names as modes are constants of its pipelines, so the driver drops the code a mode leaves out",
      true, Tolerance{}},
-    // Enhanced only; on by default on Android, where the water's triangles bound the effects pass.
     {Opt::WaterMeshCoarse, "water-mesh-coarse",
      "Enhanced water is subdivided to one unit instead of half a unit, a quarter of the triangles",
-     kAndroid, Tolerance{0.05, 64}},
+     true, Tolerance{0.05, 64}, EffectsDetail::Medium},
     {Opt::WaterStripCull, "water-strip-cull",
      "an Enhanced water strip whose box, four units larger for the waves, is outside the view is not drawn",
      true, Tolerance{}},
+    {Opt::EarlyLightingQuarter, "early-lighting-quarter",
+     "early GI and cascade shadows are gathered once per 4x4 pixels instead of 2x2, a quarter of the work",
+     true, Tolerance{0.05, 64}, EffectsDetail::Low},
 }};
 // clang-format on
 
@@ -300,19 +296,30 @@ public:
     Registry(const Registry&) = delete;
     Registry& operator=(const Registry&) = delete;
 
-    // Returns whether `opt` is on.
+    // Returns whether `opt` is on: its switch, and for a lossy entry the effects detail.
     [[nodiscard]] bool enabled(Opt opt) const {
-        return m_on[index(opt)].load(std::memory_order_relaxed);
+        const std::size_t n = index(opt);
+        return m_on[n].load(std::memory_order_relaxed)
+               && (m_forced[n].load(std::memory_order_relaxed)
+                   || m_detail.load(std::memory_order_relaxed) <= kEntries[n].highest);
     }
 
-    // Switches `opt` on or off.
-    void set(Opt opt, bool on) { m_on[index(opt)].store(on, std::memory_order_relaxed); }
+    // Switches `opt` on or off; on, at any effects detail.
+    void set(Opt opt, bool on) {
+        m_on[index(opt)].store(on, std::memory_order_relaxed);
+        m_forced[index(opt)].store(on, std::memory_order_relaxed);
+    }
+
+    void set_detail(EffectsDetail detail) { m_detail.store(detail, std::memory_order_relaxed); }
+
+    [[nodiscard]] EffectsDetail detail() const { return m_detail.load(std::memory_order_relaxed); }
 
     // Sets every switch to its entry's default with the environment's list applied over it.
     void reset() {
         // Each entry as the table has it, unless the list said all.
         for (const Entry& row : kEntries) {
-            set(row.opt, row.default_on && !m_environment.all);
+            m_on[index(row.opt)].store(row.default_on && !m_environment.all);
+            m_forced[index(row.opt)].store(false);
         }
 
         // Then the entries the list named.
@@ -322,7 +329,9 @@ public:
     }
 
 private:
-    std::array<std::atomic<bool>, kOptCount> m_on{};  // Each entry's switch, by its place.
+    std::array<std::atomic<bool>, kOptCount> m_on{};      // Each entry's switch, by its place.
+    std::array<std::atomic<bool>, kOptCount> m_forced{};  // set() switched it on: any detail.
+    std::atomic<EffectsDetail> m_detail{EffectsDetail::High};
     OffList m_environment;                            // OPENRAC_RENDER_OPT_OFF, parsed.
 };
 
@@ -391,6 +400,14 @@ bool enabled(Opt opt) {
 
 void set(Opt opt, bool on) {
     registry().set(opt, on);
+}
+
+void set_effects_detail(EffectsDetail detail) {
+    registry().set_detail(detail);
+}
+
+EffectsDetail effects_detail() {
+    return registry().detail();
 }
 
 void reset() {

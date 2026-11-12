@@ -474,6 +474,12 @@ void enhanced_settings_window() {
             graphics.texture_filter = static_cast<renderer::TextureFilter>(texture_filter);
             changed = true;
         }
+        int effects_detail = static_cast<int>(graphics.effects_detail);
+        if (combo("Effects detail", &effects_detail, "Low\0Medium\0High\0")) {
+            graphics.effects_detail =
+                static_cast<renderer::render_opt::EffectsDetail>(effects_detail);
+            changed = true;
+        }
         ImGui::BeginDisabled(!enhanced::Fsr3::available());
         int temporal_quality = static_cast<int>(graphics.temporal_quality);
         if (combo(
@@ -500,6 +506,7 @@ void enhanced_settings_window() {
         if (ImGui::Button("Reset image quality")) {
             const settings::Settings defaults;
             graphics.texture_filter = defaults.texture_filter;
+            graphics.effects_detail = defaults.effects_detail;
             graphics.temporal_quality = defaults.temporal_quality;
             graphics.temporal_sharpness = defaults.temporal_sharpness;
             changed = true;

@@ -159,6 +159,7 @@ void test_enhanced_presets() {
     CHECK(s.shadow_filter == renderer::ShadowFilter::Fast);
     CHECK(s.gtao_settings.quality == renderer::GtaoQuality::Low);
     CHECK(!s.motion_blur);
+    CHECK(s.effects_detail == renderer::render_opt::EffectsDetail::Low);
 
     // What a preset does not cover stays as the player set it.
     CHECK(s.render_scale == 75 && s.gtao && s.enhanced_shadows && s.agx_preview);

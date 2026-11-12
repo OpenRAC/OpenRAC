@@ -755,8 +755,13 @@ void VKGL link_program(GLuint name) {
 
     // Names the program for the pipeline statistics' lines (OPENRAC_VK_PIPELINE_STATS).
     if (g->pipeline_stats && !cs.empty()) {
-        // A compute program by its first comment line, which names what it does.
-        const auto comment = cs.find("\n//");
+        // A compute program by its first comment line past the licence header.
+        auto comment = cs.find("\n//");
+        while (comment != std::string::npos
+               && (cs.compare(comment + 1, 7, "// SPDX") == 0
+                   || cs.compare(comment + 1, 12, "// Copyright") == 0)) {
+            comment = cs.find("\n//", comment + 1);
+        }
         const auto line_end = comment == std::string::npos ? comment : cs.find('\n', comment + 1);
         log::info(
             "vulkan: pipeline stats compute program {} {} bytes: {}",

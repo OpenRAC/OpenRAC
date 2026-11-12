@@ -168,12 +168,12 @@ int main() {
         CHECK(vertices[6].triangle == 1 && vertices[8].triangle == 1);
     }
     // At one unit the right triangle splits once, on its hypotenuse, from the shape alone.
-    renderer::render_opt::set(renderer::render_opt::Opt::WaterMeshCoarse, true);
     enhanced::WaterMesh coarse(data.folder / "water.bin", data.fingerprint);
-    renderer::render_opt::reset();
+    renderer::render_opt::set(renderer::render_opt::Opt::WaterMeshCoarse, true);
     strip.count = 3;
     coarse.begin_pass();
     const auto coarse_output = coarse.prepare(strip, source);
+    renderer::render_opt::reset();
     CHECK(coarse_output.vertices == 6);
     const auto& coarse_vertices = coarse.plan(coarse_output.handle).vertices;
     if (coarse_vertices.size() == 6) {
