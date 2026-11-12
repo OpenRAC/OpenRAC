@@ -74,7 +74,12 @@ PauseRows pause_rows(int index);
 // sideways or not (games/rac1 src/game/system/pad.c), so the stick pushed down onto a row a little
 // off straight is Left or Right as well: a direction counts from the d-pad, and from the stick only
 // while it leans more sideways than up or down.
-enum class RowPress { None, Cross, Left, Right };
+enum class RowPress {
+    None,
+    Cross,
+    Left,
+    Right
+};
 
 // The pad's words and stick as the game keeps them (PadState): `raw` the buttons newly down
 // without the stick's directions (+0x1B4), `all` with them (+0x1C4), `x` and `y` the left stick
