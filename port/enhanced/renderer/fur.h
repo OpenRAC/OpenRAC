@@ -120,14 +120,17 @@ public:
     void bind(const renderer::Shader& shader, const FurMaterialSettings& settings) const;
     // Updates optical uniforms without rebinding coverage maps or eligibility buffers.
     void bind_material(const renderer::Shader& shader, const FurMaterialSettings& settings) const;
+
     // True for the verified body's model, the only one whose vertices can carry fur.
     [[nodiscard]] bool hero_model(std::uint32_t model) const {
         return m_surface && m_palette >= 0 && model == m_surface->model;
     }
+
     // Any other model draws with every fur mode off, so its pipelines carry no fur code.
     void bind_model(
         const renderer::Shader& shader, std::uint32_t model, const FurMaterialSettings& settings
     ) const;
+
     // Only the current verified hero model can submit extra surface layers.
     [[nodiscard]] int shell_layers(
         std::uint32_t model, std::uint32_t first, std::uint32_t count

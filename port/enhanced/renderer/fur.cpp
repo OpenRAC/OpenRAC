@@ -203,8 +203,7 @@ void HeroFur::bind_model(
         gl::glUniform1i(shader.uniform("hero_fur_debug"), int(fur_debug_view()));
         bind_material(shader, settings);
         gl::glUniform1i(
-            shader.uniform("hero_fur_shell_enabled"),
-            fur_material_settings().shells_enabled ? 1 : 0
+            shader.uniform("hero_fur_shell_enabled"), fur_material_settings().shells_enabled ? 1 : 0
         );
         return;
     }

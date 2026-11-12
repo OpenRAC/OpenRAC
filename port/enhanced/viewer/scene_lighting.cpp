@@ -210,9 +210,7 @@ void SceneLighting::bind_surface_material(
         if (response) {
             // Inherited values reset the preceding material's overrides within the same shader run.
             if (m_fur.hero_model(model)) {
-                m_fur.bind_material(
-                    shader, response->fur_override ? response->fur : m_default_fur
-                );
+                m_fur.bind_material(shader, response->fur_override ? response->fur : m_default_fur);
             }
             m_wetness.bind_material(
                 shader, response->wetness_override ? response->wetness : m_default_wetness
