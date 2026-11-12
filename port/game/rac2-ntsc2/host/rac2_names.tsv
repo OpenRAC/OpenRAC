@@ -110,7 +110,6 @@ func_002FC8D0	func_002FD760
 func_002FC990	func_002FD820
 func_002FCB00	func_002FD990
 func_003136D0	func_003144C8
-func_003136D0__game	func_003144C8__game
 func_003136D0__hooked	func_003144C8__hooked
 func_00335E20	func_00336C28
 func_00335E38	func_00336C40

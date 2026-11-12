@@ -3,7 +3,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Another release of a game whose decompilation names everything by one release's addresses.
 
-Going Commando's decompilation builds three releases from one C (games/rac2/decomp/docs/VERSIONS.md):
+Going Commando's decompilation builds three releases from one C (games/rac2/decomp/docs/build/versions.md):
 USA v1.01, whose addresses every name states (`func_0027F538`, `D_001A7A18`, `func_L05_0041DF58`),
 and PAL and USA v2.00, whose programs hold the same code elsewhere. Its build reads each name's
 value in another release from that release's bytes, and the release's own functions are named
