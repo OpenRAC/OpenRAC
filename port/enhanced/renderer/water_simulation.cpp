@@ -28,6 +28,7 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
     m_mesh->begin_pass();
     m_ocean_drawn = false;
     m_ocean_eye = input.camera.position;
+    m_view_projection = renderer::multiply(input.camera.projection, input.camera.view);
     m_bound = false;
     m_effect_setups = 0;
     const auto options = water_debug_settings();

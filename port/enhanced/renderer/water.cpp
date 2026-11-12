@@ -19,6 +19,7 @@
 #include "enhanced/renderer/local_lights.h"
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water_internal.h"
+#include "enhanced/renderer/water_window.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/colour_graph.h"
 #include "renderer/gl.h"
@@ -125,6 +126,21 @@ std::optional<renderer::EffectMesh> Water::mesh(
                        || std::abs(y - std::round(y)) > .002f;
             })) {
             return std::nullopt;
+        }
+    }
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::WaterStripCull)) {
+        // Waves move the surface by far less than this; a strip outside the view draws nothing.
+        constexpr float kWaveMargin = 4;
+        renderer::Vec3 low{1e20f, 1e20f, 1e20f}, high{-1e20f, -1e20f, -1e20f};
+        for (const auto& v : vertices) {
+            const renderer::Vec3 p{v.x, v.y, v.z};
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                low[axis] = std::min(low[axis], p[axis] - kWaveMargin);
+                high[axis] = std::max(high[axis], p[axis] + kWaveMargin);
+            }
+        }
+        if (!water_window_visible(m_view_projection, low, high)) {
+            return renderer::EffectMesh{};
         }
     }
     return m_mesh->prepare(strip, vertices);

@@ -170,6 +170,7 @@ private:
     renderer::Shader m_ocean_fft;
     double m_ocean_fft_time = -1;
     renderer::Vec3 m_ocean_eye{};
+    renderer::Mat4 m_view_projection{};  // This pass's camera, for culling strips outside it.
     float m_ocean_horizon = 4096;
     float m_ocean_near = 32;
     float m_ocean_depth = 12;

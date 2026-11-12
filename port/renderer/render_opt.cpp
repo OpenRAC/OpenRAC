@@ -232,6 +232,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::WaterMeshCoarse, "water-mesh-coarse",
      "Enhanced water is subdivided to one unit instead of half a unit, a quarter of the triangles",
      kAndroid, Tolerance{0.05, 64}},
+    {Opt::WaterStripCull, "water-strip-cull",
+     "an Enhanced water strip whose box, four units larger for the waves, is outside the view is not drawn",
+     true, Tolerance{}},
 }};
 // clang-format on
 
