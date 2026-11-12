@@ -173,6 +173,17 @@ void test_enhanced_presets() {
     CHECK(s.shadow_quality == renderer::ShadowQuality::Low);
 }
 
+// A file from before effects detail takes the detail of the preset its other values match.
+void test_effects_detail_default(const std::filesystem::path& file) {
+    using namespace openrac;
+    std::ofstream(file) << "temporal_quality = performance\nshadow_quality = low\n"
+                        << "shadow_filter = fast\ngtao_quality = low\nmotion_blur = 0\n"
+                        << "texture_filter = normal\n";
+    settings::load(file);
+    CHECK(settings::get().effects_detail == renderer::render_opt::EffectsDetail::Low);
+    CHECK(settings::get().enhanced_preset() == settings::EnhancedPreset::Low);
+}
+
 void test_agx_preview(const std::filesystem::path& file) {
     using namespace openrac;
     CHECK(settings::Settings{}.agx_preview);
@@ -518,6 +529,7 @@ int main() {
     test_hdr_settings(file);
     test_reset_enhanced();
     test_enhanced_presets();
+    test_effects_detail_default(file);
     test_agx_preview(file);
     test_motion_blur_tuning(file);
     test_shadow_quality(file);

@@ -310,6 +310,7 @@ void load(const std::filesystem::path& file) {
     bool has_vsync = false;
     bool has_menu_button = false;  // menu_button read: an older menu_bar_button does not count
     bool has_frame_rate = false;
+    bool has_effects_detail = false;  // a file from before it follows the preset it matches
     // A file from before the strafe was a mod (2026-10-21): its `strafe` or `lock_strafe` is left
     // out, and said once.
     bool old_strafe = false;
@@ -483,6 +484,7 @@ void load(const std::filesystem::path& file) {
         } else if (key == "texture_filter") {
             known = parse(value, kTextureFilter, s.texture_filter);
         } else if (key == "effects_detail") {
+            has_effects_detail = true;
             known = parse(value, kEffectsDetail, s.effects_detail);
         } else if (key == "anisotropy") {
             if (value == "auto") {
@@ -590,6 +592,14 @@ void load(const std::filesystem::path& file) {
                 key,
                 value
             );
+        }
+    }
+    for (int n = 0; !has_effects_detail && n < static_cast<int>(EnhancedPreset::Custom); ++n) {
+        Settings preset = s;
+        preset.effects_detail = kPresets[n].detail;
+        if (preset.enhanced_preset() == static_cast<EnhancedPreset>(n)) {
+            s.effects_detail = preset.effects_detail;
+            break;
         }
     }
     if (has_frame_rate && !has_vsync) {
