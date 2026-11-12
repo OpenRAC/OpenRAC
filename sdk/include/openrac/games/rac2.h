@@ -40,6 +40,15 @@ typedef void (*openrac_rac2_Hero_TakeDamage)(int32_t amount);
 #define OPENRAC_RAC2_SIG_Moby_GetHitMessage "u32(u32,u32,i32)"
 typedef uint32_t (*openrac_rac2_Moby_GetHitMessage)(uint32_t moby, uint32_t mask, int32_t keep);
 
+/* Moby_PostHit (func_002A8E20, rac2.combat.post_hit): Posts a hit to moby victim from request, a
+ * game address (+0x10 the attacker, +0x14 the weapon or attack mask, +0x1C the damage, f32), into
+ * the hit ring Moby_GetHitMessage reads. The weapons' shots, explosions and tethers call it with
+ * their version's damage. A replacement can change the request's damage for the call; a caller may
+ * post the same request to several victims, so put it back after. */
+#define OPENRAC_RAC2_HOOK_Moby_PostHit "Moby_PostHit"
+#define OPENRAC_RAC2_SIG_Moby_PostHit "void(u32,u32)"
+typedef void (*openrac_rac2_Moby_PostHit)(uint32_t victim, uint32_t request);
+
 /* Weapon_TakeAmmo (func_L00_002D3F30, rac2.weapon.take_ammo): Takes rounds of a weapon's ammo
  * (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo. */
 #define OPENRAC_RAC2_HOOK_Weapon_TakeAmmo "Weapon_TakeAmmo"
@@ -87,6 +96,48 @@ typedef void (*openrac_rac2_Item_Give)(int32_t id);
 #define OPENRAC_RAC2_HOOK_Item_Equip "Item_Equip"
 #define OPENRAC_RAC2_SIG_Item_Equip "i32(i32)"
 typedef int32_t (*openrac_rac2_Item_Equip)(int32_t id);
+
+/* Weapon_LevelUp (func_00287EB0, rac2.weapon.level_up): Steps weapon id to its next version by
+ * experience: its record (the item's byte at 0x139568) moves to the next row of the item table
+ * (+0x4A), its experience is kept at least the step's, its ammo filled to the new row's (+0x8E);
+ * nothing at its last row. The hero's experience check calls it when a weapon's experience (the
+ * item's s32 at 0x139868, >> 5) reaches its row's step (+0x6C). A replacement that does not call
+ * the original blocks the step. */
+#define OPENRAC_RAC2_HOOK_Weapon_LevelUp "Weapon_LevelUp"
+#define OPENRAC_RAC2_SIG_Weapon_LevelUp "void(i32)"
+typedef void (*openrac_rac2_Weapon_LevelUp)(int32_t id);
+
+/* Item_Upgrade (func_002887B0, rac2.item.upgrade): The vendor's Mega purchase of item id: its
+ * record moves two rows on (one for the two-version weapons 12, 14, 17, 18 and 53) and its
+ * experience is cleared; 1 when it moved, 0 at its last row. The vendor calls it after a purchase
+ * of an upgrade entry, once the price is paid; a replacement can carry out its own upgrade. */
+#define OPENRAC_RAC2_HOOK_Item_Upgrade "Item_Upgrade"
+#define OPENRAC_RAC2_SIG_Item_Upgrade "i32(i32)"
+typedef int32_t (*openrac_rac2_Item_Upgrade)(int32_t id);
+
+/* Vendor_BuildList (func_002F6608, rac2.vendor.build_list): Fills the vendor's list (the vendor's
+ * state, 0x21F240 on NTSC-U v1.01: +0x140 64 entries of 0x18 bytes, each i32 item, kind (1 its
+ * ammo), marked, price text, class and upgrade (1 a Mega upgrade); the count at +0x740; the entry
+ * under the cursor at +0x80). The vendor calls it as it opens and after each purchase; a
+ * replacement can add entries after the original's. */
+#define OPENRAC_RAC2_HOOK_Vendor_BuildList "Vendor_BuildList"
+#define OPENRAC_RAC2_SIG_Vendor_BuildList "void(i32)"
+typedef void (*openrac_rac2_Vendor_BuildList)(int32_t hide_unowned);
+
+/* Vendor_Price (func_002F6510, rac2.vendor.price): The price in bolts of the vendor entry under the
+ * cursor: an upgrade's from the row it moves to, a weapon's from its record, 0 for ammo. The dialog
+ * and the purchase both ask it. */
+#define OPENRAC_RAC2_HOOK_Vendor_Price "Vendor_Price"
+#define OPENRAC_RAC2_SIG_Vendor_Price "i32()"
+typedef int32_t (*openrac_rac2_Vendor_Price)(void);
+
+/* Item_Colors (func_00336F20, rac2.item.colors): Writes item id's colours to three u32 at game
+ * addresses: its experience bar's two and its tint, its version's colour (0x00BBGGRR in the low
+ * bytes) that its icon and name are drawn in. The quick select and the weapons screen's grid call
+ * it for each item they show; a replacement can call the original, then write its own. */
+#define OPENRAC_RAC2_HOOK_Item_Colors "Item_Colors"
+#define OPENRAC_RAC2_SIG_Item_Colors "void(i32,u32,u32,u32)"
+typedef void (*openrac_rac2_Item_Colors)(int32_t id, uint32_t first, uint32_t second, uint32_t tint);
 
 /* Planet_Unlock (func_002AD7B8, rac2.planet.unlock): Puts a level on the ship's map
  * (MarkLevelAvailable); every level load calls it for the level loaded too. Rac1's UnlockPlanet. */

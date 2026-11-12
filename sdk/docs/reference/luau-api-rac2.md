@@ -73,6 +73,14 @@ rac2.combat.get_hit (Moby_GetHitMessage) u32(u32,u32,i32): The pending hit for a
 type Moby_GetHitMessageFn = (moby: number, mask: number, keep: number) -> number
 ```
 
+### `Moby_PostHitFn`
+
+rac2.combat.post_hit (Moby_PostHit) void(u32,u32): Posts a hit to moby victim from request (a game address: +0x00 the place, +0x10 the attacker, +0x14 the weapon or attack mask, +0x1C the damage, f32), into the hit ring Moby_GetHitMessage reads (0x1BF200, 64 entries of 0x40 bytes); a weaker hit on a moby with one pending only adds its mask. The weapons' shots, explosions and the tethers call it, each with the damage of its weapon's version. A replacement can change the request's damage for the call (the caller may post the same request to other victims: put it back after).
+
+```lua
+type Moby_PostHitFn = (victim: number, request: number) -> ()
+```
+
 ### `Weapon_TakeAmmoFn`
 
 rac2.weapon.take_ammo (Weapon_TakeAmmo) i32(i32,i32): Takes rounds of a weapon's ammo (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo.
@@ -127,6 +135,46 @@ rac2.item.equip (Item_Equip) i32(i32): Puts item id in the hero's hand, or on hi
 
 ```lua
 type Item_EquipFn = (id: number) -> number
+```
+
+### `Weapon_LevelUpFn`
+
+rac2.weapon.level_up (Weapon_LevelUp) void(i32): Steps weapon id to its next version by experience: its record (g_itemEquippedSlot) moves to the next row (+0x4A), its experience is kept at least the step's (+0x6C << 5), and its ammo filled to the new row's (+0x8E); nothing at its last row. The hero's experience check (func_L00_002D5EB8) calls it each tick a weapon's experience reaches its step, challenge mode's rows only past func_00288D58. A replacement that does not call the original blocks the step.
+
+```lua
+type Weapon_LevelUpFn = (id: number) -> ()
+```
+
+### `Item_UpgradeFn`
+
+rac2.item.upgrade (Item_Upgrade) i32(i32): The vendor's Mega purchase of item id: its record moves two rows on (one for the two-version weapons 12, 14, 17, 18 and 53) and its experience is cleared; 1 when it moved, 0 at its last row. The vendor calls it after a purchase of an upgrade entry (Vendor_BuildList's +0x14 set) and its price is paid; a replacement can carry out an upgrade of its own and return 1.
+
+```lua
+type Item_UpgradeFn = (id: number) -> number
+```
+
+### `Vendor_BuildListFn`
+
+rac2.vendor.build_list (Vendor_BuildList) void(i32): Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), marked, price text, class, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's.
+
+```lua
+type Vendor_BuildListFn = (hide_unowned: number) -> ()
+```
+
+### `Vendor_PriceFn`
+
+rac2.vendor.price (Vendor_Price) i32(): The price in bolts of the vendor entry under the cursor (g_vendorUi +0x80): an upgrade entry's from the row it moves to, a weapon's from its record (+0x80), 0 for ammo (priced per round). The vendor's dialog and its purchase both ask it, so a replacement prices an entry everywhere it shows.
+
+```lua
+type Vendor_PriceFn = () -> number
+```
+
+### `Item_ColorsFn`
+
+rac2.item.colors (Item_Colors) void(i32,u32,u32,u32): Writes item id's colours to three u32 the caller has (game addresses): the two of its experience bar and tint, its version's colour (0x00BBGGRR in the low bytes, from D_001ADAF8 or D_001ADB08 by version) that its icon and name are drawn in. The quick select (func_0033FB98) and the weapons screen's grid (func_00337210) call it for each item they show; a replacement can call the original and write its own.
+
+```lua
+type Item_ColorsFn = (id: number, first: number, second: number, tint: number) -> ()
 ```
 
 ### `Planet_UnlockFn`
