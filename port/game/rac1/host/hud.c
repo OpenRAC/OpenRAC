@@ -110,27 +110,6 @@ static void draw_mod_texts(void) {
     }
 }
 
-/*
- * Aridia's counters (draw_hud_counter, func_L02_0023D6E0: the bottom corners' sand sharks and
- * the like) keep only the side of their place and are drawn at that side's fixed x instead
- * (D_L02_0015FA1C left, D_L02_0015FA20 right), so moving the place did not move them. With
- * "HUD: Edges" those two are moved out with the others while the HUD is drawn, and put back.
- */
-#define CURRENT_LEVEL RAC1_ADDR(0x0015EE84u)
-#define ARIDIA 2
-
-static void aridia_counters_out(int by) {
-#if !RAC1_OMIT(func_L02_0023D6E0)
-    if (by == 0 || GREF(int, OPENRAC_DATA(CURRENT_LEVEL)) != ARIDIA) {
-        return;
-    }
-    GREF(int, OPENRAC_LDATA(2, RAC1_LADDR(02, 0x0015FA1Cu))) -= by;
-    GREF(int, OPENRAC_LDATA(2, RAC1_LADDR(02, 0x0015FA20u))) += by;
-#else
-    (void)by;
-#endif
-}
-
 void func_001FFFB8(void) {
     const int side = openrac_game_hud_side();
     const gaddr slots = OPENRAC_DATA(RAC1_ADDR(0x00199C60u));
@@ -140,9 +119,7 @@ void func_001FFFB8(void) {
         moved[i] = side == 0 ? 0 : (flags & ANCHOR_LEFT) != 0 ? -side : (flags & ANCHOR_RIGHT) != 0 ? side : 0;
         GREF(int, slot + SLOT_X) += moved[i];
     }
-    aridia_counters_out(side);
     func_001FFFB8__game();
-    aridia_counters_out(-side);
     for (int i = 0; i < SLOTS; i++) {
         GREF(int, slots + (gaddr)i * SLOT_BYTES + SLOT_X) -= moved[i];
         moved[i] = 0;
