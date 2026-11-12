@@ -306,6 +306,7 @@ void open_session(int argc, char** argv) {
         log::warn("the log cannot be written in {}", g_options.data.string());
     }
     crash::configure(g_options.data / "crashes", program_name(), started);
+    frontend::debug_overlay::set_picker_report_folder(g_options.data.string());
     crash::set_moby_source(updating_moby);
     const char* level = log::level() <= log::Level::Debug     ? "debug"
                         : log::level() <= log::Level::Verbose ? "verbose"
