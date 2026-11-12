@@ -113,17 +113,39 @@ void effects_off(settings::Settings& g) {
 constexpr SweepStep kSweep[] = {
     {"as set", [](settings::Settings&) {}},
     {"enhanced graphics off", [](settings::Settings& g) { g.enhanced_graphics = false; }},
+    // The same with every mode read from its uniform, as before vk-mode-constants: what the
+    // driver saves when it can drop the code a mode leaves out.
+    {"enhanced graphics off, mode constants off (vk-mode-constants off)",
+     [](settings::Settings& g) { g.enhanced_graphics = false; },
+     renderer::render_opt::Opt::VkModeConstants},
     {"enhanced off, render scale 50%",
      [](settings::Settings& g) {
          g.enhanced_graphics = false;
          g.render_scale = 50;
      }},
     {"as set, render scale 50%", [](settings::Settings& g) { g.render_scale = 50; }},
+    {"as set, mode constants off (vk-mode-constants off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::VkModeConstants},
     // A sixteenth of the pixels: nearly all that is left does not follow the pixels.
     {"as set, render scale 25%", [](settings::Settings& g) { g.render_scale = 25; }},
     // The same draws with no triangles to speak of: what a draw costs by itself.
     {"as set, every world draw cut to one triangle",
      [](settings::Settings& g) { g.sweep_one_triangle = true; }},
+    // What is left then, three ways: does it follow the shader's size, the pixels, the lighting.
+    {"as set, one triangle a draw, mode constants off (vk-mode-constants off)",
+     [](settings::Settings& g) { g.sweep_one_triangle = true; },
+     renderer::render_opt::Opt::VkModeConstants},
+    {"as set, one triangle a draw, render scale 25%",
+     [](settings::Settings& g) {
+         g.sweep_one_triangle = true;
+         g.render_scale = 25;
+     }},
+    {"as set, one triangle a draw, probe lighting off",
+     [](settings::Settings& g) {
+         g.sweep_one_triangle = true;
+         g.sweep_probe_lighting_off = true;
+     }},
     // The prepass's draws with the general depth shader: whether a draw costs more with a larger
     // shader.
     {"as set, prepass with the general shader (prepass-rigid off)",
@@ -131,6 +153,9 @@ constexpr SweepStep kSweep[] = {
      renderer::render_opt::Opt::PrepassRigid},
     {"as set, probe lighting off",
      [](settings::Settings& g) { g.sweep_probe_lighting_off = true; }},
+    {"as set, probe lighting off, mode constants off (vk-mode-constants off)",
+     [](settings::Settings& g) { g.sweep_probe_lighting_off = true; },
+     renderer::render_opt::Opt::VkModeConstants},
     {"as set, probe lighting off, render scale 50%",
      [](settings::Settings& g) {
          g.sweep_probe_lighting_off = true;
@@ -169,6 +194,7 @@ constexpr SweepStep kSweep[] = {
          g.temporal_quality = kept;
      }},
     {"as set, anisotropic filtering off", [](settings::Settings& g) { g.anisotropy = 1; }},
+    {"as set, anti-aliasing off", [](settings::Settings& g) { g.msaa = 1; }},
     {"as set, shadow filtering fast",
      [](settings::Settings& g) { g.shadow_filter = renderer::ShadowFilter::Fast; }},
     {"as set, occlusion quality low",
@@ -190,6 +216,11 @@ constexpr SweepStep kSweep[] = {
 constexpr int kSweepSteps = static_cast<int>(std::size(kSweep));
 constexpr double kSweepStepS = 4.0;    // each step's length
 constexpr double kSweepSettleS = 1.5;  // its first part not counted: targets and history renewed
+// Nor the frames up to this long after the workers made a pipeline: drawn with a stand-in.
+constexpr double kSweepCompiledS = 0.25;
+// The most the steps wait for the workers in all: a step's time stands still while they make its
+// pipelines, as in the first sweep of a build.
+constexpr double kSweepHoldS = 90.0;
 
 struct Sweep {
     bool asked = false;    // the next capture is a sweep
@@ -200,9 +231,15 @@ struct Sweep {
     struct Boundary {
         std::uint64_t serial;
         double start_s;
+        int step;  // which of kSweep: a step a long frame ran over is left out
     };
 
     std::vector<Boundary> starts;  // where each step's frames begin
+    // When the pre-warm workers last had a pipeline to make (stats' seconds): a step's frames
+    // count only after it, drawn with their own pipelines (vk-mode-constants).
+    double compiled_s = 0.0;
+    double held_s = 0.0;  // how long the steps have waited for the workers (kSweepHoldS)
+    double seen_s = 0.0;  // the capture's time at the frame before
     std::uint64_t done_serial = 0;
     // Each step's pictures: when each began, and its GPU time where measured. A tick the game
     // runs without drawing is a frame of its own in stats' history, and not counted.
@@ -242,8 +279,8 @@ void sweep_apply(int step) {
     const stats::Frame* last = stats::history(0);
     sweep.starts.push_back(
         last != nullptr
-            ? Sweep::Boundary{last->serial + 1, last->start_s + last->interval_ms / 1000.0}
-            : Sweep::Boundary{0, 0.0}
+            ? Sweep::Boundary{last->serial + 1, last->start_s + last->interval_ms / 1000.0, step}
+            : Sweep::Boundary{0, 0.0, step}
     );
 }
 
@@ -263,7 +300,8 @@ void sweep_collect() {
             }
         }
         const bool picture = f->gpu_frame_ms >= 0.0 || f->cpu_ms("render") > 0.0;
-        if (step < 0 || !picture || f->start_s < sweep.starts[step].start_s + kSweepSettleS) {
+        if (step < 0 || !picture || f->start_s < sweep.starts[step].start_s + kSweepSettleS
+            || f->start_s < sweep.compiled_s + kSweepCompiledS) {
             continue;
         }
         sweep.picture_s[step].push_back(f->start_s);
@@ -306,8 +344,8 @@ void sweep_end() {
             std::format(
                 "{:2} {:<58} {:6.2f} ms a picture ({:5.1f} fps), median {:6.2f}, p90 {:6.2f}; gpu "
                 "median {:6.2f}; {} pictures",
-                i,
-                kSweep[i].name,
+                sweep.starts[i].step,
+                kSweep[sweep.starts[i].step].name,
                 mean,
                 mean > 0.0 ? 1000.0 / mean : 0.0,
                 percentile(frames, 0.5),
@@ -805,11 +843,7 @@ std::string capture_badge() {
     }
     if (sweep.running && sweep.step >= 0) {
         return std::format(
-            "REC {:.0f} / {:.0f} s, step {} of {}: stand still",
-            elapsed,
-            length,
-            sweep.step + 1,
-            kSweepSteps
+            "REC {:.0f} s, step {} of {}: stand still", elapsed, sweep.step + 1, kSweepSteps
         );
     }
     return length > 0.0 ? std::format("REC {:.0f} / {:.0f} s", elapsed, length)
@@ -820,7 +854,7 @@ namespace {
 
 // The graphics settings sweep: one capture as long as all its steps, the first step applied.
 void begin_sweep(const Shown& shown, const std::string& path) {
-    begin_capture(shown, settings_sweep_seconds(), path);
+    begin_capture(shown, settings_sweep_seconds() + kSweepHoldS, path);
 
     if (!perf_capture::active()) {
         return;
@@ -830,6 +864,9 @@ void begin_sweep(const Shown& shown, const std::string& path) {
     sweep.saved = settings::get();
     sweep.step = -1;
     sweep.starts.clear();
+    sweep.compiled_s = 0.0;
+    sweep.held_s = 0.0;
+    sweep.seen_s = 0.0;
     sweep.done_serial = 0;
     sweep.picture_s.assign(kSweepSteps, {});
     sweep.gpu_ms.assign(kSweepSteps, {});
@@ -866,9 +903,26 @@ void capture_frame(const Shown& shown) {
         }
     }
     if (sweep.running && perf_capture::active()) {
+        const double now = perf_capture::elapsed_s();
+
+#if defined(OPENRAC_VULKAN)
+        if (const stats::Frame* last = stats::history(0);
+            last != nullptr && gl::is_vulkan() && vkgl::pipeline_prewarm_busy()) {
+            sweep.compiled_s = last->start_s + last->interval_ms / 1000.0;
+            sweep.held_s = std::min(kSweepHoldS, sweep.held_s + now - sweep.seen_s);
+        }
+#endif
+
+        sweep.seen_s = now;
         sweep_collect();
-        const int step =
-            std::min(static_cast<int>(perf_capture::elapsed_s() / kSweepStepS), kSweepSteps - 1);
+        const double at = now - sweep.held_s;
+
+        // Every step has had its time: the capture ends before the time kept for waiting.
+        if (at >= settings_sweep_seconds()) {
+            perf_capture::stop();
+        }
+
+        const int step = std::min(static_cast<int>(at / kSweepStepS), kSweepSteps - 1);
         if (step != sweep.step) {
             sweep_apply(step);
         }
