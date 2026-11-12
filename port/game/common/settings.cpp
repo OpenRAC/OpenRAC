@@ -469,6 +469,11 @@ void load(const std::filesystem::path& file) {
             // Old "Scenery detail", merged into draw_distance: dropped.
         } else if (key == "draw_distance") {
             known = parse_listed(value, kDrawDistances, s.draw_distance);
+        } else if (key == "active_distance") {
+            known = value == "match" || value == "original";
+            if (known) {
+                s.original_active_distance = value == "original";
+            }
         } else if (key == "responsive_controls") {
             known = parse_bool(value, s.responsive_controls);
         } else if (key == "low_latency_frames") {
@@ -670,6 +675,7 @@ void save() {
         << "menu_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"
         << "draw_distance = " << s.draw_distance << "\n"
+        << "active_distance = " << (s.original_active_distance ? "original" : "match") << "\n"
         << "responsive_controls = " << (s.responsive_controls ? 1 : 0) << "\n"
         << "low_latency_frames = " << (s.low_latency_frames ? 1 : 0) << "\n"
         << "skip_cutscenes = " << (s.skip_cutscenes ? 1 : 0) << "\n"
