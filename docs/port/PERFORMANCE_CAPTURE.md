@@ -70,7 +70,7 @@ graphics is on, because the sweep measures its parts.
   left out; draw distance Original; each `render_opt` speed-up switched off on its own;
   temporal off and Performance; each effect off; every effect off (at native size, and with
   your upscaler kept); anisotropic filtering off; anti-aliasing off; the cheap steps (shadow
-  filtering Fast, occlusion Low); the presets High, Medium and Low.
+  filtering Fast, occlusion Low); effects detail High and Low; the presets High, Medium and Low.
 - The report gives each step's time a picture and GPU time. The first 1.5 s of a step are left
   out, and so are the frames drawn while the driver still compiles a step's pipelines in the
   background. Each frame has a `settings sweep step` gauge.
