@@ -21,7 +21,7 @@ layout(push_constant) uniform Encode {
     float sdr_gamma;    // the picture's bytes to linear light (common/hdr.h, kSdrGamma)
     int same_size;      // 1: one texel a pixel, read as it is (the blit's NEAREST)
     float headroom;     // peak / paper white - 1: how far light above white rolls off to
-    // The look of light above white (common/hdr.h, Look); `plain` 1 when it is the defaults'.
+    // How light above white looks (common/hdr.h, Look); `plain` is 1 for the defaults.
     float highlights;
     float sdr_hue;
     float sdr_chroma;
@@ -37,14 +37,6 @@ vec3 pq(vec3 nits) {
     const float c3 = 2392.0 / 4096.0 * 32.0;
     vec3 y = pow(clamp(nits / 10000.0, 0.0, 1.0), vec3(m1));
     return pow((c1 + c2 * y) / (1.0 + c3 * y), vec3(m2));
-}
-
-// Linear BT.709 to BT.2020 (GLSL's mat3 takes columns: these are common/hdr.h's rows).
-vec3 to2020(vec3 c) {
-    return transpose(mat3(
-        0.627403896, 0.329283038, 0.043313066,
-        0.069097289, 0.919540395, 0.011362316,
-        0.016391439, 0.088013308, 0.895595253)) * c;
 }
 
 // Light above white rolled off towards the peak (common/hdr.h, roll_off_above_white).
@@ -83,7 +75,7 @@ vec3 from_oklab(vec3 lab) {
         -0.0041960863, -0.7034186147, 1.7076127119)) * lms;
 }
 
-// The look's SDR hue, SDR chroma and blowout on light above white (common/hdr.h, apply_look).
+// The look on light above white (common/hdr.h, apply_look).
 vec3 apply_look(vec3 hdr, vec3 sdr) {
     const float grey_chroma = 1e-4;
     vec3 lab = oklab(hdr);
@@ -109,13 +101,12 @@ vec3 apply_look(vec3 hdr, vec3 sdr) {
         c *= 1.0 + (1.0 / y - 1.0) * encode.blowout;
     }
     vec3 result = from_oklab(vec3(lab.x, dir * c));
-    // Inside BT.2020: towards grey of the same lightness.
+    // Inside BT.709: towards grey of the same lightness.
     float grey = lab.x * lab.x * lab.x;
-    vec3 wide = to2020(result);
     float keep = 1.0;
     for (int i = 0; i < 3; ++i) {
-        if (wide[i] < 0.0) {
-            keep = min(keep, grey / (grey - wide[i]));
+        if (result[i] < 0.0) {
+            keep = min(keep, grey / (grey - result[i]));
         }
     }
     result = max(vec3(grey) + (result - vec3(grey)) * keep, vec3(0.0));
@@ -144,13 +135,12 @@ void main() {
     }
     // Above 1 where the HDR frame's blending added up past white (common/hdr.h, to_light).
     vec3 linear = pow(max(sdr, vec3(0.0)), vec3(encode.sdr_gamma));
-    // The SDR range is left as it is; light above white is rolled off towards the peak, and
-    // given the player's look.
+    // The SDR range stays as it is; light above white is rolled off and given the look.
     if (max(linear.r, max(linear.g, linear.b)) > 1.0) {
         if (encode.plain != 0) {
             linear = roll_off(linear);
         } else {
-            // The pixel as SDR shows it: each channel stopped at white.
+            // The pixel as SDR shows it: each channel clipped at white.
             vec3 clipped = pow(clamp(sdr, 0.0, 1.0), vec3(encode.sdr_gamma));
             if (encode.highlights < 1.0) {
                 linear = clipped + (linear - clipped) * encode.highlights;
@@ -159,7 +149,12 @@ void main() {
         }
     }
 #ifdef OPENRAC_HDR_PQ
-    imageStore(screen, pixel, vec4(pq(to2020(linear) * encode.paper_white), 1.0));
+    // Linear BT.709 to BT.2020 (GLSL's mat3 takes columns: these are common/hdr.h's rows).
+    const mat3 to2020 = transpose(mat3(
+        0.627403896, 0.329283038, 0.043313066,
+        0.069097289, 0.919540395, 0.011362316,
+        0.016391439, 0.088013308, 0.895595253));
+    imageStore(screen, pixel, vec4(pq(to2020 * linear * encode.paper_white), 1.0));
 #else
     imageStore(screen, pixel, vec4(linear * (encode.paper_white / 80.0), 1.0));
 #endif

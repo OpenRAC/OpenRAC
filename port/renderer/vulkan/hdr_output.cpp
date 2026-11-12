@@ -369,8 +369,8 @@ void set_hdr(const HdrRequest& request) {
     if (same || !hdr.colour_spaces) {
         return;
     }
-    // A change of kind needs another swapchain; of levels only, new constants and metadata; of
-    // the look only, new constants.
+    // A new kind needs a new swapchain. New levels need new constants, and new metadata unless
+    // only the look changed.
     if (request.wanted != hdr.made_for) {
         g->swapchain_stale = true;
     } else if (!same_metadata) {
@@ -503,8 +503,8 @@ bool test_hdr_encode(
         return false;
     }
     end_rendering();
-    // Another framebuffer's picture stands in for the default one's while the pass runs (not
-    // owned: the framebuffer keeps it).
+    // Use `source`'s picture instead of the default one for this pass. Not owned: the
+    // framebuffer keeps it.
     Image* const picture = source != 0 ? target_of(source).colour : nullptr;
     if (source != 0 && picture == nullptr) {
         return false;

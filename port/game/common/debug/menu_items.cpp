@@ -113,7 +113,7 @@ int step_index(const std::array<int, N>& steps, int value) {
     return at;
 }
 
-// A slider's setting and range (percent).
+// A slider's setting and its range in percent.
 struct Slider {
     int* value;
     int minimum;
@@ -121,7 +121,7 @@ struct Slider {
     int step;
 };
 
-// The HDR look's sliders move in these steps; the settings file takes any percent.
+// The HDR look's slider step. The settings file takes any percent.
 constexpr int kHdrLookStep = 5;
 
 Slider slider_of(Id id) {

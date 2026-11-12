@@ -67,28 +67,25 @@ inline constexpr int kPeakMax = static_cast<int>(kPqMaxNits);
 // monitor's real response; the piecewise sRGB curve would lift the game's dark scenes).
 inline constexpr float kSdrGamma = 2.2f;
 
-// The HDR picture's brightness: the game's white at `paper_white` nits; what the frame holds above
-// white (blending's sums in the HDR frame, vkgl.h hdr_frame) rolls off towards `peak`, which also
-// goes into the screen's metadata.
-// The look of light above white (the HDR section's sliders, 0..1 each). In SDR each channel stops
-// at white on its own, so bright mixes of colour turn towards yellow and white (a red-orange fire
-// looks orange there); in HDR they keep their mix. These take back as much of the SDR look as the
-// player wants. Pixels at or below white are never changed. The defaults are the plain HDR look.
+// How light above white looks (the HDR menu's sliders, 0..1 each). SDR clips each channel at
+// white, so bright colours shift to yellow and white (fire looks orange). HDR keeps the mix (fire
+// looks red). These bring back as much of the SDR look as the player wants. Pixels at or below
+// white never change. The defaults are the plain HDR look.
 struct Look {
-    float highlights = 1.0f;  // how much light above white there is: 0 as in SDR, 1 all of it
-    float sdr_hue = 0.0f;     // the hue the SDR picture has there
-    float sdr_chroma = 0.0f;  // the saturation the SDR picture has there
-    float blowout = 0.0f;     // light far above white fades towards white
+    float highlights = 1.0f;  // light above white: 0 as in SDR, 1 all of it
+    float sdr_hue = 0.0f;     // take the SDR hue
+    float sdr_chroma = 0.0f;  // take the SDR saturation
+    float blowout = 0.0f;     // very bright light fades to white
 
     bool operator==(const Look&) const = default;
 
-    // True when only the defaults' arithmetic runs (the encode pass skips the rest).
+    // True for the defaults: the encode pass then skips the look.
     bool plain() const {
         return highlights >= 1.0f && sdr_hue <= 0.0f && sdr_chroma <= 0.0f && blowout <= 0.0f;
     }
 };
 
-// The settings' sliders (percent) as a Look; each clamped to 0..100.
+// The settings' percents as a Look, each clamped to 0..100.
 inline Look look_from_percent(int highlights, int sdr_hue, int sdr_chroma, int blowout) {
     const auto unit = [](int percent) {
         return static_cast<float>(std::clamp(percent, 0, 100)) / 100.0f;
@@ -96,6 +93,9 @@ inline Look look_from_percent(int highlights, int sdr_hue, int sdr_chroma, int b
     return {unit(highlights), unit(sdr_hue), unit(sdr_chroma), unit(blowout)};
 }
 
+// The HDR picture's brightness: the game's white at `paper_white` nits; what the frame holds above
+// white (blending's sums in the HDR frame, vkgl.h hdr_frame) rolls off towards `peak`, which also
+// goes into the screen's metadata. `look` shapes that light above white.
 struct Levels {
     float paper_white = kReferenceWhiteNits;
     float peak = kDefaultPeakNits;
@@ -212,8 +212,8 @@ inline Rgb roll_off_above_white(const Rgb& linear, const Levels& levels) {
     return {linear[0] * scale, linear[1] * scale, linear[2] * scale};
 }
 
-// OKLab (Björn Ottosson's, from linear BT.709): L is lightness, (a, b) the hue's direction and
-// its length the chroma. Used to take the SDR picture's hue and chroma over.
+// OKLab (Björn Ottosson's, from linear BT.709): L is lightness, (a, b) points to the hue and its
+// length is the chroma.
 inline Rgb linear_to_oklab(const Rgb& c) {
     const float l = std::cbrt(0.4122214708f * c[0] + 0.5363325363f * c[1] + 0.0514459929f * c[2]);
     const float m = std::cbrt(0.2119034982f * c[0] + 0.6806995451f * c[1] + 0.1073969566f * c[2]);
@@ -239,19 +239,19 @@ inline Rgb oklab_to_linear(const Rgb& lab) {
     };
 }
 
-// Below this an OKLab chroma counts as grey (no hue to take or keep).
+// An OKLab chroma below this is grey: it has no hue.
 inline constexpr float kGreyChroma = 1e-4f;
 
-// Light above white (`hdr`, rolled off) given the look's SDR hue, SDR chroma and blowout. `sdr` is
-// the same pixel as SDR shows it (each channel stopped at white). Lightness stays the HDR one; the
-// colour is then kept inside BT.2020 (a turned hue can leave it) and under the peak.
+// The look's SDR hue, SDR chroma and blowout on light above white. `hdr` is the rolled-off pixel,
+// `sdr` the same pixel clipped at white as SDR shows it. Lightness stays HDR's. The result stays
+// inside BT.709 and under the peak.
 inline Rgb apply_look(const Rgb& hdr, const Rgb& sdr, const Levels& levels) {
     const Look& look = levels.look;
     const Rgb lab = linear_to_oklab(hdr);
     const Rgb ref = linear_to_oklab(sdr);
     const float chroma = std::hypot(lab[1], lab[2]);
     const float ref_chroma = std::hypot(ref[1], ref[2]);
-    // The hue's direction: the HDR one turned towards the SDR one.
+    // The hue: HDR's, turned towards SDR's.
     float da = 0.0f;
     float db = 0.0f;
     if (chroma > kGreyChroma) {
@@ -268,7 +268,7 @@ inline Rgb apply_look(const Rgb& hdr, const Rgb& sdr, const Levels& levels) {
             const float ta = da + (ra - da) * look.sdr_hue;
             const float tb = db + (rb - db) * look.sdr_hue;
             const float length = std::hypot(ta, tb);
-            // Opposite hues halfway have no direction: the HDR one stays.
+            // Opposite hues at 50% cancel out: keep HDR's.
             if (length > kGreyChroma) {
                 da = ta / length;
                 db = tb / length;
@@ -276,26 +276,25 @@ inline Rgb apply_look(const Rgb& hdr, const Rgb& sdr, const Levels& levels) {
         }
     }
     float c = chroma + (ref_chroma - chroma) * look.sdr_chroma;
-    // Blowout: the chroma falls with brightness above white (BT.709 luminance, 1 = paper white).
+    // Blowout: less chroma the brighter above white (BT.709 luminance, 1 = paper white).
     const float y = 0.2126f * hdr[0] + 0.7152f * hdr[1] + 0.0722f * hdr[2];
     if (y > 1.0f) {
         c *= 1.0f + (1.0f / y - 1.0f) * look.blowout;
     }
     Rgb out = oklab_to_linear({lab[0], da * c, db * c});
-    // Inside BT.2020: towards grey of the same lightness until no channel there is below 0. The
-    // matrix keeps grey grey, so the same step works on the BT.709 values.
+    // A turned hue can leave BT.709 (a channel below 0): move towards grey of the same lightness
+    // until it fits. The game's colours are all BT.709, so this keeps both outputs alike.
     const float grey = lab[0] * lab[0] * lab[0];
     float keep = 1.0f;
-    for (const Rgb& row : kBt709ToBt2020) {
-        const float wide = row[0] * out[0] + row[1] * out[1] + row[2] * out[2];
-        if (wide < 0.0f) {
-            keep = std::min(keep, grey / (grey - wide));
+    for (const float v : out) {
+        if (v < 0.0f) {
+            keep = std::min(keep, grey / (grey - v));
         }
     }
     for (float& v : out) {
-        v = std::max(grey + (v - grey) * keep, 0.0f);
+        v = std::max(grey + (v - grey) * keep, 0.0f);  // max: float rounding only
     }
-    // Never past the peak the roll-off keeps to.
+    // Never past the peak.
     const float h = headroom(levels);
     const float top = h > 0.0f ? 1.0f + h : 1.0f;
     const float m = std::max({out[0], out[1], out[2]});
@@ -307,8 +306,9 @@ inline Rgb apply_look(const Rgb& hdr, const Rgb& sdr, const Levels& levels) {
     return out;
 }
 
-// One pixel of the picture (0..1 as stored, above 1 where blending added up past white) as linear
-// light, 1.0 being paper white: the SDR range as it is, light above white as the look says.
+// One pixel of the picture (0..1, above 1 where blending added up past white) as linear light,
+// 1.0 = paper white. The SDR range is kept as it is; light above white is rolled off and given the
+// look.
 inline Rgb to_light(const Rgb& rgb, const Levels& levels) {
     Rgb linear{sdr_to_linear(rgb[0]), sdr_to_linear(rgb[1]), sdr_to_linear(rgb[2])};
     if (std::max({linear[0], linear[1], linear[2]}) <= 1.0f) {
@@ -317,7 +317,7 @@ inline Rgb to_light(const Rgb& rgb, const Levels& levels) {
     if (levels.look.plain()) {
         return roll_off_above_white(linear, levels);
     }
-    // The pixel as SDR shows it: each channel stopped at white.
+    // The pixel as SDR shows it: each channel clipped at white.
     const Rgb sdr{
         sdr_to_linear(std::min(rgb[0], 1.0f)),
         sdr_to_linear(std::min(rgb[1], 1.0f)),
