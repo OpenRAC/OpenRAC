@@ -110,6 +110,11 @@ typedef void (*openrac_rac1_Vendor_BuildItemList)(int32_t skip_unflagged);
 #define OPENRAC_RAC1_SIG_GoldBolts_CountCollected "i32()"
 typedef int32_t (*openrac_rac1_GoldBolts_CountCollected)(void);
 
+/* GoldBolts_CountUnspent (rac1.gold_bolt.count_unspent): gold bolts available to spend. */
+#define OPENRAC_RAC1_HOOK_GoldBolts_CountUnspent "GoldBolts_CountUnspent"
+#define OPENRAC_RAC1_SIG_GoldBolts_CountUnspent "i32()"
+typedef int32_t (*openrac_rac1_GoldBolts_CountUnspent)(void);
+
 /* Hero_TakeDamage (func_L00_002056D8, rac1.player.take_damage): takes hit points off the hero's
  * health, at most one a call (none for 0), then the HUD's health bank. Every hit but the instant
  * kills. */

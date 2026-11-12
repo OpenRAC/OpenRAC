@@ -822,6 +822,7 @@ impl SaveFile {
         };
         match place {
             Place::Byte { chunk, level, offset, .. } => get(chunk, level, offset) != 0,
+            Place::SetOnly { chunk, offset, .. } => get(chunk, None, offset) != 0,
             Place::Bit { chunk, level, offset, bit } => get(chunk, level, offset) & (1 << bit) != 0,
             Place::Count { level, uid } => {
                 let (offset, shift) = count_at(uid);
@@ -835,6 +836,11 @@ impl SaveFile {
         match place {
             Place::Byte { chunk, level, offset, on: value } => {
                 *self.flag_byte(chunk, level, offset) = if on { value } else { 0 }
+            }
+            Place::SetOnly { chunk, offset, on: value } => {
+                if on {
+                    *self.flag_byte(chunk, None, offset) = value;
+                }
             }
             Place::Bit { chunk, level, offset, bit } => {
                 let byte = self.flag_byte(chunk, level, offset);
@@ -1614,7 +1620,8 @@ mod tests {
         // The game's own writes on entering Maktar's arena the first time (format document, a0/a1).
         let before = oozla();
         let f = before.fields();
-        assert!(f.flags.iter().all(|x| !x.on));
+        // The fixture is on Oozla, past its first scenes: those are on, no story flag is.
+        assert!(f.flags.iter().filter(|x| !x.id.contains("-scene-")).all(|x| !x.on));
         const ARENA: [&str; 2] = ["maktar-arena-entered", "maktar-arena-intro-seen"];
         let mut want = f.clone();
         want.flags.iter_mut().filter(|x| ARENA.contains(&x.id.as_str())).for_each(|x| x.on = true);
@@ -1656,6 +1663,10 @@ mod tests {
                 assert_ne!(on, 0, "{id}: a set byte is not 0");
                 (chunk, level, offset, 0)
             }
+            Place::SetOnly { chunk, offset, on } => {
+                assert_ne!(on, 0, "{id}: a set byte is not 0");
+                (chunk, None, offset, 0)
+            }
             Place::Bit { chunk, level, offset, bit } => (chunk, level, offset, bit),
             Place::Count { level, uid } => (rac2_flags::MOBY_COUNTS, Some(level), usize::from(uid >> 1), 0),
             Place::All(places) => {
@@ -1672,6 +1683,34 @@ mod tests {
         let size = layout.iter().find(|&&(c, _)| c == chunk).map(|&(_, n)| n);
         assert!(size.is_some_and(|n| offset < n), "{id}: chunk {chunk} offset {offset}");
         assert!(level.is_none_or(|l| l < LEVEL_SLOTS), "{id}");
+    }
+
+    #[test]
+    fn aranos_prisons_section_done_writes_the_controllers_groups_only() {
+        const ID: &str = "aranos-prison-clank-section-done";
+        let mut before = oozla();
+        before.global.get_mut(id::OWNED)[2] = 0;
+        before.global.get_mut(id::NEW)[2] = 0;
+        let f = before.fields();
+        assert!(!f.flags.iter().find(|x| x.id == ID).unwrap().on);
+        let mut want = f.clone();
+        want.flags.iter_mut().filter(|x| x.id == ID).for_each(|x| x.on = true);
+        let mut after = before.clone();
+        after.apply(&want).unwrap();
+        assert_eq!(after.levels[14].get(3004)[3] & 0x80, 0x80);
+        assert_eq!(after.levels[14].get(3004)[7] & 0x80, 0x80);
+        assert_eq!(after.levels[14].get(3004)[8] & 0x80, 0x80);
+        assert_eq!(after.levels[14].get(3004)[9] & 0x80, 0x80);
+        assert_eq!(after.global.get(5)[0x29], 1);
+        // The items are left alone (the packs come from Endako).
+        assert_eq!(after.global.get(id::OWNED)[2], 0);
+        // Cleared, the groups and the story byte go.
+        let mut off = after.fields();
+        off.flags.iter_mut().filter(|x| x.id == ID).for_each(|x| x.on = false);
+        after.apply(&off).unwrap();
+        assert_eq!(after.levels[14].get(3004)[3] & 0x80, 0);
+        assert_eq!(after.global.get(5)[0x29], 0);
+        assert_eq!(after.global.get(id::OWNED)[2], 0);
     }
 
     #[test]

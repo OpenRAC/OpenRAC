@@ -42,7 +42,7 @@ void test_pq_round_trip_and_order() {
 
 // The game's white is paper white in every output, and black is black.
 void test_white_at_paper_white() {
-    const hdr::Levels levels{250.0f, 1000.0f};
+    const hdr::Levels levels{250.0f, 1000.0f, {}};
     const hdr::Rgb white{1.0f, 1.0f, 1.0f};
     const hdr::Rgb pq = hdr::encode(white, Output::Hdr10, levels);
     for (float c : pq) {
@@ -64,7 +64,7 @@ void test_sdr_is_untouched() {
 
 // Mid grey through the 2.2 gamma, and a saturated BT.709 red stays inside BT.2020 (all positive).
 void test_gamma_and_gamut() {
-    const hdr::Levels levels{100.0f, 1000.0f};
+    const hdr::Levels levels{100.0f, 1000.0f, {}};
     const hdr::Rgb grey = hdr::encode({0.5f, 0.5f, 0.5f}, Output::ScRgb, levels);
     CHECK(near(grey[0] * hdr::kScRgbUnitNits, 100.0f * std::pow(0.5f, 2.2f), 1e-3f));
     const hdr::Rgb red = hdr::encode({1.0f, 0.0f, 0.0f}, Output::Hdr10, levels);
@@ -76,7 +76,7 @@ void test_gamma_and_gamut() {
 // Light above white rolls off towards the peak: the SDR range untouched, the slope 1 at white,
 // never past the peak, the hue kept; and a frame value above 1 goes on along the 2.2 curve.
 void test_roll_off() {
-    const hdr::Levels levels{200.0f, 1000.0f};
+    const hdr::Levels levels{200.0f, 1000.0f, {}};
     const hdr::Rgb sdr{1.0f, 0.5f, 0.25f};
     CHECK(hdr::roll_off_above_white(sdr, levels) == sdr);
     const hdr::Rgb just = hdr::roll_off_above_white({1.01f, 0.0f, 0.0f}, levels);
@@ -90,7 +90,7 @@ void test_roll_off() {
         last = out;
     }
     // No headroom: above white is held at white.
-    const hdr::Rgb flat = hdr::roll_off_above_white({2.0f, 1.0f, 0.5f}, {400.0f, 400.0f});
+    const hdr::Rgb flat = hdr::roll_off_above_white({2.0f, 1.0f, 0.5f}, {400.0f, 400.0f, {}});
     CHECK(near(flat[0], 1.0f, 1e-6f) && near(flat[1], 0.5f, 1e-6f));
     // The frame's 1.5 is 1.5^2.2 of white before the roll-off; below 0 is black.
     CHECK(near(hdr::sdr_to_linear(1.5f), std::pow(1.5f, 2.2f), 1e-5f));
@@ -160,6 +160,107 @@ void test_wanted_output() {
     CHECK(hdr::wanted_output(hdr::Mode::On, unknown, false) == Output::Hdr10);
 }
 
+// OKLab hue in degrees (0 red, about 110 yellow) and chroma of linear light.
+float hue_of(const hdr::Rgb& linear) {
+    const hdr::Rgb lab = hdr::linear_to_oklab(linear);
+    return std::atan2(lab[2], lab[1]) * 57.29578f;
+}
+
+float chroma_of(const hdr::Rgb& linear) {
+    const hdr::Rgb lab = hdr::linear_to_oklab(linear);
+    return std::hypot(lab[1], lab[2]);
+}
+
+// A red-orange fire sprite added up three times: SDR stops each channel at white, so it shows
+// yellow-orange; HDR keeps the mix, so it shows red. SDR hue takes the SDR hue back and keeps
+// HDR's lightness; SDR chroma takes its saturation too; blowout and highlights as named.
+void test_look_on_fire() {
+    const hdr::Rgb fire{3.0f, 1.35f, 0.3f};
+    const hdr::Rgb sdr{1.0f, 1.0f, std::pow(0.3f, 2.2f)};
+    hdr::Levels levels{203.0f, 1000.0f, {}};
+    const hdr::Rgb plain = hdr::to_light(fire, levels);
+    CHECK(hue_of(plain) < 60.0f && hue_of(sdr) > 100.0f);
+
+    levels.look.sdr_hue = 1.0f;
+    const hdr::Rgb hue = hdr::to_light(fire, levels);
+    CHECK(near(hue_of(hue), hue_of(sdr), 2.0f));
+    CHECK(hue[2] >= 0.0f);  // turned back inside the gamut
+    CHECK(near(hdr::linear_to_oklab(hue)[0], hdr::linear_to_oklab(plain)[0], 0.02f));
+    // Halfway: between the two.
+    levels.look.sdr_hue = 0.5f;
+    const float half = hue_of(hdr::to_light(fire, levels));
+    CHECK(half > hue_of(plain) + 10.0f && half < hue_of(sdr) - 10.0f);
+
+    levels.look.sdr_hue = 1.0f;
+    levels.look.sdr_chroma = 1.0f;
+    const hdr::Rgb both = hdr::to_light(fire, levels);
+    CHECK(near(chroma_of(both), chroma_of(sdr), 0.01f));
+    CHECK(near(hue_of(both), hue_of(sdr), 2.0f));
+
+    levels.look = {};
+    levels.look.blowout = 1.0f;
+    CHECK(chroma_of(hdr::to_light(fire, levels)) < chroma_of(plain) * 0.8f);
+
+    // Highlights 0: the pixel as SDR shows it.
+    levels.look = {};
+    levels.look.highlights = 0.0f;
+    const hdr::Rgb flat = hdr::to_light(fire, levels);
+    for (int c = 0; c < 3; ++c) {
+        CHECK(near(flat[c], sdr[c], 1e-3f));
+    }
+}
+
+// Whatever the look: the SDR range is never changed, nothing goes below 0 or past the peak, grey
+// stays grey, and the defaults are exactly the plain roll-off.
+void test_look_bounds() {
+    const hdr::Look looks[] = {
+        {},
+        {1.0f, 1.0f, 0.0f, 0.0f},
+        {1.0f, 0.0f, 1.0f, 0.0f},
+        {1.0f, 1.0f, 1.0f, 1.0f},
+        {0.5f, 0.5f, 0.5f, 0.5f},
+        {0.0f, 1.0f, 1.0f, 1.0f},
+        {1.0f, 0.0f, 0.0f, 1.0f},
+    };
+    const float values[] = {0.0f, 0.2f, 0.7f, 1.0f, 1.3f, 2.0f, 4.0f, 9.0f};
+    for (const float peak : {203.0f, 1000.0f, 10000.0f}) {
+        for (const hdr::Look& look : looks) {
+            hdr::Levels levels{203.0f, peak, look};
+            const float top = 1.0f + hdr::headroom(levels);
+            for (const float r : values) {
+                for (const float g : values) {
+                    for (const float b : values) {
+                        const hdr::Rgb rgb{r, g, b};
+                        const hdr::Rgb out = hdr::to_light(rgb, levels);
+                        const hdr::Rgb linear{
+                            hdr::sdr_to_linear(r), hdr::sdr_to_linear(g), hdr::sdr_to_linear(b)
+                        };
+                        if (r <= 1.0f && g <= 1.0f && b <= 1.0f) {
+                            CHECK(out == linear);
+                            continue;
+                        }
+                        if (look.plain()) {
+                            CHECK(out == hdr::roll_off_above_white(linear, levels));
+                        }
+                        for (int c = 0; c < 3; ++c) {
+                            CHECK(std::isfinite(out[c]) && out[c] >= 0.0f);
+                            CHECK(out[c] <= top * 1.0001f);
+                        }
+                        if (r == g && g == b) {
+                            CHECK(near(out[0], out[1], 1e-3f * out[0] + 1e-6f));
+                            CHECK(near(out[1], out[2], 1e-3f * out[1] + 1e-6f));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // The settings' percents, clamped.
+    const hdr::Look l = hdr::look_from_percent(150, -5, 50, 100);
+    CHECK(l.highlights == 1.0f && l.sdr_hue == 0.0f && l.sdr_chroma == 0.5f && l.blowout == 1.0f);
+    CHECK(hdr::look_from_percent(100, 0, 0, 0).plain());
+}
+
 }  // namespace
 
 int main() {
@@ -172,5 +273,7 @@ int main() {
     test_levels();
     test_relative_display();
     test_wanted_output();
+    test_look_on_fire();
+    test_look_bounds();
     return openrac::test::result();
 }

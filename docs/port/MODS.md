@@ -752,7 +752,11 @@ game's thread.
   launcher says so when one is installed and shows where it came from
   (`homepage`); OpenRAC does not sign or vet mods. On macOS the launcher
   takes the download quarantine off the libraries it installs, which the
-  system would otherwise refuse to open.
+  system would otherwise refuse to open. On Linux and macOS the port does not
+  load a library that another user of the computer could swap: the file, or a
+  folder above it without the sticky bit, writable by all, or owned by another
+  user than you and root (links are followed). Disks that keep no owners
+  (FAT, exFAT, NTFS, network and FUSE disks) are not checked.
 - **No mods**: the port reads nothing but the list's absence, binds no hook,
   runs no callback, and the game is the retail game (with the port's fixes).
 
@@ -935,6 +939,30 @@ the game runs: the mod keeps the record in memory and writes it at the next save
   file has no record of gets one, zeros but the fields set.
 - `fields`: one byte each at `offset`; `mask` (255 when absent) the bits the field owns, the others
   kept; values `min` (0) to `max` (255), named by `choices` from 0 when it has them.
+- `attach` (optional): show the field beside one of the editor's own elements instead of in the
+  mod's section, `{"to": <kind>, "id": <number>, "as": <how>}`. Kinds so far: `item` (an item of the
+  game's list by its item number: Going Commando's Lancer is 30), shown `as` `version` (the item's
+  version picker goes on past the game's versions with the field's values above `min`, named by
+  `choices` and grouped under the mod's name) or `row` (a control of its own in the item's row).
+  A kind, item or way the editor does not know leaves the field in the mod's section, so a manifest
+  can name targets a later launcher adds (planets, levels, sections). Several mods may attach to one
+  item: their tiers stack in the picker, their row controls one after another, each tagged with its
+  mod; when two mods both have a tier set, both are shown as a conflict, and picking either puts
+  the other back to `min`.
+- `requires` (optional, on an `as: "version"` field): `{"version": "last"}` ties the field's values
+  above `min` to the game's last version of the item. Picking such a value also moves the item to its
+  last version (V4, or V2 for a weapon with two), with the ammo and experience the game's upgrade
+  leaves; picking a game version in the picker puts the field back to `min`.
+
+The editor's Save writes the card (its own checks, backup and refusal while the game runs) and
+then each mod's file by its own path; a mod's section keeps its own Save for the fields shown there.
+NG++ attaches its 24 tiers this way:
+
+```json
+{"key": "item_30", "name": "Lancer", "offset": 30, "mask": 127, "max": 8,
+ "choices": ["None", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Omega"],
+ "attach": {"to": "item", "id": 30, "as": "version"}, "requires": {"version": "last"}}
+```
 
 ## 10. Mods in a git repository
 

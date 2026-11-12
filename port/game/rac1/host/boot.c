@@ -312,9 +312,30 @@ static int hero(float position[3], float rotation[3], int32_t *state) {
     return 1;
 }
 
+/*
+ * ShipTravelTo's first frame (state 3, timer 0) makes the two escort ships with CreateMoby when the
+ * flight has a path, and moves and updates them at once with no null check. With a full pool (a
+ * mod's extra enemies) one comes back 0 and the update reads a garbage moby. A documented
+ * divergence: without room for both, this flight drops its path, as a flight without one does.
+ */
+#define SHIP_TIMER (RAC1_ADDR(0x0013E130u) + 0x24u)
+#define SHIP_PATH (RAC1_ADDR(0x0013E130u) + 0x30u)
+#define SHIP_TRAVEL 3
+#define SHIP_ESCORTS 2
+
+static void escorts_need_room(void) {
+    if (GREF(int, SHIP_STATE) != SHIP_TRAVEL || GREF(short, SHIP_TIMER) != 0
+        || GREF(int, SHIP_PATH) < 0 || rac1_moby_pool_room(SHIP_ESCORTS)) {
+        return;
+    }
+    GREF(int, SHIP_PATH) = -1;
+    openrac_game_warn("ship escorts skipped: moby pool full (the flight plays without its path)");
+}
+
 /* The flight's update (func_00230A90), once a frame of the transition's flight loop (space.c). */
 void func_00230A90(void) {
     flight_frames = 2;
+    escorts_need_room();
     /* Hide missing scene actors so the update does not use a null moby (scene_actors.c). */
     rac1_scene_actors_pack();
     func_00230A90__game();
