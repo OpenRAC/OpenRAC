@@ -53,7 +53,7 @@ before and after, and how its frames are shown to be the same.
 A lossy entry also follows the Enhanced setting "Effects detail" (the presets set it): it is on
 only at its highest detail or below, so High draws every effect in full. `probe-fast-blended`,
 `shadow-far-alternate` and `water-mesh-coarse` are on at Medium and Low; `early-lighting-quarter`
-and Arm ASR's balanced shaders only at Low. `set()` in the tests switches an entry on at any
+only at Low. `set()` in the tests switches an entry on at any
 detail.
 
 | Name | Default | Tolerance | What it does |

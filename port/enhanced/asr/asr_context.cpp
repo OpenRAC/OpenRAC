@@ -13,7 +13,6 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "renderer/gl.h"
-#include "renderer/render_opt.h"
 #include "renderer/vulkan/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 
@@ -88,14 +87,11 @@ bool supports(std::array<int, 2> render_size) {
 }
 
 namespace {
-// The shaders follow the effects detail: Low takes the balanced ones (about 0.4 ms a frame on an
-// Adreno 830, a little more aliasing on fine moving edges). OPENRAC_ASR_QUALITY picks any.
+// The quality shaders at every detail: the balanced ones save about 0.4 ms a frame on an Adreno
+// 830 but leave a fine checker on edges and in the sky. OPENRAC_ASR_QUALITY picks another.
 std::string_view quality_name() {
-    if (const auto chosen = env::value(env::Var::AsrQuality)) {
-        return *chosen;
-    }
-    using renderer::render_opt::EffectsDetail;
-    return renderer::render_opt::effects_detail() == EffectsDetail::Low ? "balanced" : "quality";
+    const auto chosen = env::value(env::Var::AsrQuality);
+    return chosen ? *chosen : "quality";
 }
 
 arm::FfxmFsr2ShaderQualityMode shader_quality(std::string_view name) {
