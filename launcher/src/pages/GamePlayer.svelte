@@ -183,11 +183,11 @@
             <Icon name="warn" />
             <p class="grow">
               {#if update.incremental}
-                An update is ready. Build {v.title} again to play the latest version: only what changed is built (the
-                Incremental builds setting), and your saves and levels are kept.
+                An update is ready. Build {v.title} again to play the latest version: only what changed is built (the Incremental
+                builds setting), and your saves and levels are kept.
               {:else}
-                An update is ready. Rebuild {v.title} to play the latest version: it takes a few minutes, and your saves
-                and levels are kept.
+                An update is ready. Rebuild {v.title} to play the latest version: it takes a few minutes, and your saves and
+                levels are kept.
                 {#if update.cleanBecause}
                   From scratch even with Incremental builds on, because {update.cleanBecause}.
                 {/if}

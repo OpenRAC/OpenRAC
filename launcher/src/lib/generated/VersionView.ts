@@ -13,6 +13,12 @@ export type VersionView = { status: VersionStatus, actions: Array<ActionView>,
  */
 portOutdated: boolean, 
 /**
+ * Set when the game is outdated and only a build from scratch is safe, with why (a sentence
+ * that goes after "from scratch because it ..."-style text). The Incremental builds setting
+ * still cleans then. None: an incremental build can catch up (port_build::Why).
+ */
+portCleanReason: string | null, 
+/**
  * `rac1/pal`: the key used everywhere (progress, actions, commit scopes).
  */
 key: string, game: string, 

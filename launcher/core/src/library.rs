@@ -119,7 +119,8 @@ pub fn library(config: &Config) -> Result<Library, String> {
                     };
                     let actions = views(file.as_ref().and_then(|f| f.versions.get(&version.key)), &ctx);
                     let built = actions.iter().any(|a| a.id == "play" && a.this_platform && a.done);
-                    let why = if built { port_build::outdated_why(&root, &version.key.replace('/', "-")) } else { None };
+                    let why =
+                        if built { port_build::outdated_why(&root, &version.key.replace('/', "-")) } else { None };
                     let port_outdated = why.is_some();
                     let port_clean_reason = why.and_then(|w| w.clean_reason()).map(str::to_string);
                     VersionView { version, status, actions, port_outdated, port_clean_reason }
