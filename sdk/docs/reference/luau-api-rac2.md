@@ -73,6 +73,14 @@ rac2.combat.get_hit (Moby_GetHitMessage) u32(u32,u32,i32): The pending hit for a
 type Moby_GetHitMessageFn = (moby: number, mask: number, keep: number) -> number
 ```
 
+### `Moby_PostHitFn`
+
+rac2.combat.post_hit (Moby_PostHit) void(u32,u32): Posts a hit to moby victim from request (a game address: +0x00 the place, +0x10 the attacker, +0x14 the weapon or attack mask, +0x1C the damage, f32), into the hit ring Moby_GetHitMessage reads (0x1BF200, 64 entries of 0x40 bytes); a weaker hit on a moby with one pending only adds its mask. The weapons' shots, explosions and the tethers call it, each with the damage of its weapon's version. A replacement can change the request's damage for the call (the caller may post the same request to other victims: put it back after).
+
+```lua
+type Moby_PostHitFn = (victim: number, request: number) -> ()
+```
+
 ### `Weapon_TakeAmmoFn`
 
 rac2.weapon.take_ammo (Weapon_TakeAmmo) i32(i32,i32): Takes rounds of a weapon's ammo (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo.

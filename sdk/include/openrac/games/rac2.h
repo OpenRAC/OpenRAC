@@ -40,6 +40,15 @@ typedef void (*openrac_rac2_Hero_TakeDamage)(int32_t amount);
 #define OPENRAC_RAC2_SIG_Moby_GetHitMessage "u32(u32,u32,i32)"
 typedef uint32_t (*openrac_rac2_Moby_GetHitMessage)(uint32_t moby, uint32_t mask, int32_t keep);
 
+/* Moby_PostHit (func_002A8E20, rac2.combat.post_hit): Posts a hit to moby victim from request, a
+ * game address (+0x10 the attacker, +0x14 the weapon or attack mask, +0x1C the damage, f32), into
+ * the hit ring Moby_GetHitMessage reads. The weapons' shots, explosions and tethers call it with
+ * their version's damage. A replacement can change the request's damage for the call; a caller may
+ * post the same request to several victims, so put it back after. */
+#define OPENRAC_RAC2_HOOK_Moby_PostHit "Moby_PostHit"
+#define OPENRAC_RAC2_SIG_Moby_PostHit "void(u32,u32)"
+typedef void (*openrac_rac2_Moby_PostHit)(uint32_t victim, uint32_t request);
+
 /* Weapon_TakeAmmo (func_L00_002D3F30, rac2.weapon.take_ammo): Takes rounds of a weapon's ammo
  * (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo. */
 #define OPENRAC_RAC2_HOOK_Weapon_TakeAmmo "Weapon_TakeAmmo"

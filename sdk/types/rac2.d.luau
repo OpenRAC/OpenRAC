@@ -8,6 +8,7 @@
 type HookPoint =
       "rac2.player.take_damage"
     | "rac2.combat.get_hit"
+    | "rac2.combat.post_hit"
     | "rac2.weapon.take_ammo"
     | "rac2.moby.record_death"
     | "rac2.level.load"
@@ -51,6 +52,7 @@ type HookPoint =
     | "Moby_LevitatorSeller_Update"
     | "Moby_MapperReturn_Update"
     | "Moby_NanotechBall_Update"
+    | "Moby_PostHit"
     | "Moby_RaceController_Update"
     | "Moby_RecordDeath"
     | "Moby_SwingshotArea_Update"
@@ -71,6 +73,8 @@ type Fields = {
 type Hero_TakeDamageFn = (amount: number) -> ()
 -- rac2.combat.get_hit (Moby_GetHitMessage) u32(u32,u32,i32): The pending hit for a moby from the hit ring (the damage, f32 at +0x2C; its source at +0x38), or 0: what an enemy's damage path reads.
 type Moby_GetHitMessageFn = (moby: number, mask: number, keep: number) -> number
+-- rac2.combat.post_hit (Moby_PostHit) void(u32,u32): Posts a hit to moby victim from request (a game address: +0x00 the place, +0x10 the attacker, +0x14 the weapon or attack mask, +0x1C the damage, f32), into the hit ring Moby_GetHitMessage reads (0x1BF200, 64 entries of 0x40 bytes); a weaker hit on a moby with one pending only adds its mask. The weapons' shots, explosions and the tethers call it, each with the damage of its weapon's version. A replacement can change the request's damage for the call (the caller may post the same request to other victims: put it back after).
+type Moby_PostHitFn = (victim: number, request: number) -> ()
 -- rac2.weapon.take_ammo (Weapon_TakeAmmo) i32(i32,i32): Takes rounds of a weapon's ammo (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo.
 type Weapon_TakeAmmoFn = (item: number, amount: number) -> number
 -- rac2.moby.record_death (Moby_RecordDeath) void(u32,i32,i32): A moby's death recorded: its experience, the bestiary and its bolt drop (the moby's s16 at +0xB4); crates call it too.

@@ -39,6 +39,21 @@
       "about": "The pending hit for a moby from the hit ring (the damage, f32 at +0x2C; its source at +0x38), or 0: what an enemy's damage path reads."
     },
     {
+      "id": "rac2.combat.post_hit",
+      "name": "Moby_PostHit",
+      "signature": "void(u32,u32)",
+      "params": [
+        "victim",
+        "request"
+      ],
+      "symbols": {
+        "ntsc": "func_002A8E20",
+        "pal": "func_002A9838",
+        "ntsc2": "func_002A9C88"
+      },
+      "about": "Posts a hit to moby victim from request (a game address: +0x00 the place, +0x10 the attacker, +0x14 the weapon or attack mask, +0x1C the damage, f32), into the hit ring Moby_GetHitMessage reads (0x1BF200, 64 entries of 0x40 bytes); a weaker hit on a moby with one pending only adds its mask. The weapons' shots, explosions and the tethers call it, each with the damage of its weapon's version. A replacement can change the request's damage for the call (the caller may post the same request to other victims: put it back after)."
+    },
+    {
       "id": "rac2.weapon.take_ammo",
       "name": "Weapon_TakeAmmo",
       "signature": "i32(i32,i32)",

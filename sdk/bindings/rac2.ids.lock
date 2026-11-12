@@ -2,6 +2,7 @@
 # on the first disc) and every alias it has had. It only grows: an id is never removed or reused,
 # and an alias once given stays (docs/port/MODS.md, section 4). Regenerated, never edited.
 rac2.combat.get_hit	ntsc:002A9640	Moby_GetHitMessage,func_002A9640,func_002AA0A8,func_002AA4A8
+rac2.combat.post_hit	ntsc:002A8E20	Moby_PostHit,func_002A8E20,func_002A9838,func_002A9C88
 rac2.item.colors	ntsc:00336F20	Item_Colors,func_00336F20,func_00337DC8,func_00338C78
 rac2.item.equip	ntsc:002AD860	Item_Equip,func_002AD860,func_002AE3C0,func_002AE6C8
 rac2.item.give	ntsc:00288308	Item_Give,func_00288308,func_00288C20,func_00288D30
