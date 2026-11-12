@@ -153,6 +153,17 @@ void rac1_world_moby_hide(gaddr moby, int hidden);
 int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out);
 int rac1_world_camera_position(float out[3]);
 int rac1_level_line(const float from[3], const float to[3], int* blocked);
+int rac1_collision_line(
+    const float from[3],
+    const float to[3],
+    int level,
+    int mobys,
+    uint32_t ignore,
+    float point[3],
+    float normal[3],
+    int32_t* surface,
+    uint32_t* moby
+);
 int rac1_world_moby_run(int32_t slot, openrac_game_moby_run* out);
 /* moby_pool.c's last run list of the level's mobys: how it treated `slot` (OPENRAC_MOBY_RUN_*, -1
  * not looked at, or none built this level load), how many were built and its camera; world.c's

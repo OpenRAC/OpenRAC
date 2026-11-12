@@ -664,6 +664,9 @@ def luau_types(b: dict) -> str:
     out.append("    touch_icon: (name: string, svg: string) -> boolean,")
     out.append("    touch_push: (context: string?) -> (),")
     out.append("    touch_hint: (hint: string, on: boolean) -> (),")
+    out.append("    -- interface 1.15: the mod's own settings set (for the run and in the launcher's list), and its changes heard")
+    out.append("    set_setting: (key: string, value: any) -> boolean,")
+    out.append("    on_settings: (fn: () -> ()) -> (),")
     if b["moby"] is not None:
         out.append("    -- experimental: a moby's pvars by name, from the behaviour catalogue")
         out.append("    pvars: (moby: number) -> { [string]: number }?,")

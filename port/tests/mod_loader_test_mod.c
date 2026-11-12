@@ -489,6 +489,30 @@ static void on_pad(void* user, int port, uint8_t* report, int size) {
 /* The host's rules heard (interface 1.14): its bytes as a number, 0 for none any more. */
 static char s_big[OPENRAC_PARTY_RULES_MAX + 1];
 
+/* The launcher changed the mod's settings (interface 1.15): its tag as it reads now. */
+static void on_settings(void* user) {
+    (void)user;
+    s_record(12100 + (int)s_api->setting_int(s_mod, "tag"));
+}
+
+/* The game in progress changed (interface 1.16): its data's size, and its first byte. */
+static void on_save_data(void* user) {
+    unsigned char first = 0;
+    const uint32_t size = s_api->save_data_get(s_mod, NULL, 0);
+    (void)user;
+    if (size > 0) {
+        unsigned char bytes[16];
+        s_record(
+            13300
+            + (int)(size <= sizeof bytes
+                    && s_api->save_data_get(s_mod, bytes, sizeof bytes) == size)
+        );
+        first = bytes[0];
+    }
+    s_record(13100 + (int)size);
+    s_record(13200 + first);
+}
+
 static void on_party_rules(void* user, const void* data, uint32_t size) {
     (void)user;
     s_record(data == NULL ? 7000 : 7000 + (int)size * 10 + ((const char*)data)[0] - 'a');
@@ -608,6 +632,33 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->menu_entry(mod, "No page", NULL, NULL) != OPENRAC_HOOK_UNKNOWN) {
             return 9;
         }
+    }
+    if (behaviour[0] == 'k') { /* keep: sets its own settings, hears the launcher's (1.15) */
+        if (api->api_minor < 15 || s_record == NULL
+            || api->on_settings(mod, on_settings, NULL) != OPENRAC_HOOK_OK
+            || api->on_settings(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE) {
+            return 17;
+        }
+        s_record(12000 + -api->setting_set_int(mod, "tag", 42));
+        s_record(12010 + -api->setting_set_int(mod, "missing", 1));
+        s_record(12020 + -api->setting_set_bool(mod, "tag", 1));
+        s_record(12030 + -api->setting_set_string(mod, "behaviour", "nope"));
+        s_record(12040 + -api->setting_set_string(mod, "jump", "KeyW,ArrowUp"));
+        s_record(12050 + -api->setting_set_string(mod, "jump", "NoSuchKey"));
+        s_record(12060 + -api->setting_set_float(mod, "tag", 1.5));
+        s_record(12300 + (int)api->setting_int(mod, "tag"));
+        s_record(12200 + (strcmp(api->setting_string(mod, "jump"), "KeyW,ArrowUp") == 0));
+    }
+    if (behaviour[0] == 'j') { /* journal: its data kept with the saves (1.16) */
+        static unsigned char big[OPENRAC_SAVE_DATA_MAX + 1u];
+        if (api->api_minor < 16 || s_record == NULL
+            || api->on_save_data(mod, on_save_data, NULL) != OPENRAC_HOOK_OK
+            || api->on_save_data(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE) {
+            return 18;
+        }
+        s_record(13000 + -api->save_data_set(mod, "abc", 3));
+        s_record(13010 + -api->save_data_set(mod, big, sizeof big));
+        s_record(13020 + (int)api->save_data_get(mod, NULL, 0));
     }
     if (behaviour[0] == 'r') { /* rules */
         if (api->api_minor < 14 || s_record == NULL

@@ -107,6 +107,17 @@ extern const char* openrac_game_loaded_mods;
 extern int openrac_game_save_in_use;
 extern int32_t openrac_game_save_in_use_seconds;
 
+/* Set by the mods' loader (interface 1.16, the mods' data kept with the saves; game/common/mods.cpp,
+ * null until it loads), called by lib/mc.c: a save the game has just written at `path` (its mark set; `players` 0
+ * for one of the blank slots the game writes on a fresh card), and a save it has just read whole
+ * (Load Game) from `slot`. */
+extern void (*openrac_game_save_written)(const char* path, int players);
+extern void (*openrac_game_save_read)(const char* path, int slot);
+/* The same, called by a game's host when the game starts a new game (Ratchet & Clank: NewGameInit,
+ * rac1/host/boot.c), before the save it may write right after: the mods' data starts empty. A game
+ * without it is still seen starting one once it plays with no save of its own (save_slot_current). */
+extern void (*openrac_game_new_game)(void);
+
 /* The console's language setting (sceScfGetLanguage): 1 English, 2 French,
  * 3 Spanish, 4 German, 5 Italian. */
 extern int openrac_game_language;
@@ -691,6 +702,22 @@ typedef struct openrac_game_play {
     int (*mission_state_clear)(int level, const uint8_t* flags);
     /* Whether the destination is playing its landing scene. NULL when unsupported. */
     int (*landing)(int level);
+    /* The game's own segment query for a mod (openrac_api.collision_line): the nearest of the
+     * level's faces (with `level`) and the mobys' (with `mobys`, all but `ignore`) between two
+     * points, the game seeing nothing of it: 1 for a hit (its point, its face's normal, the face's
+     * surface type or -1 for a creature's joint shape, the moby or 0), 0 for none or outside a
+     * level. NULL for a game without it. */
+    int (*collision_line)(
+        const float from[3],
+        const float to[3],
+        int level,
+        int mobys,
+        uint32_t ignore,
+        float point[3],
+        float normal[3],
+        int32_t* surface,
+        uint32_t* moby
+    );
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)
