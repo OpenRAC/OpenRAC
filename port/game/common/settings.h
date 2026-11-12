@@ -170,6 +170,18 @@ struct Settings {
     // Original: the game's own distances, with its fades and billboards.
     bool original_draw_distance() const { return draw_distance == 100; }
 
+    // Active distance: how far the game updates its mobys (animation, AI) when its moby loop goes
+    // by what MobyProc drew (the +0x31 flag). Match (the default) takes Draw distance's reach, so
+    // whatever is drawn far away is live; Original keeps the game's own distances, so a moby past
+    // them is drawn standing in its pose, as before. The AI's own ranges (sight, aggro, attack)
+    // are the game's at either setting.
+    bool original_active_distance = false;
+
+    // The active distance's factor: Draw distance's at Match, 1 at Original.
+    float active_distance_scale() const {
+        return original_active_distance ? 1.0f : draw_distance_scale();
+    }
+
     int anisotropy_samples(bool enhanced) const {
         return anisotropy ? anisotropy : enhanced ? 4 : 1;
     }
@@ -180,6 +192,11 @@ struct Settings {
     hdr::Mode hdr = hdr::Mode::Off;
     int hdr_paper_white = 0;  // nits of the game's white; 0: the system's SDR white, else 203
     int hdr_peak = 0;         // nits the screen is told it may show; 0: the display's, else 1000
+    // How light above white looks, in percent (hdr::Look). The defaults are the plain HDR look.
+    int hdr_highlights = 100;  // light above white: 0 as in SDR
+    int hdr_sdr_hue = 0;       // take the SDR hue
+    int hdr_sdr_chroma = 0;    // take the SDR saturation
+    int hdr_blowout = 0;       // very bright light fades to white
 
     // The menu's size in percent of the one fitted to the screen (debug/ui_scale.h): 100 is Auto.
     int menu_size = 100;

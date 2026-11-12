@@ -3,16 +3,16 @@
  "counts": {
   "function: by hand": 12,
   "function: called": 22,
-  "function: changed": 102,
+  "function: changed": 107,
   "function: found": 2,
   "function: near": 54,
   "function: not found": 2,
-  "function: same": 1004,
+  "function: same": 1005,
   "global: aligned": 8,
-  "global: between": 18,
-  "global: exact": 103,
+  "global: between": 19,
+  "global: exact": 104,
   "global: the release's build": 109,
-  "signature: v1.01's": 11
+  "signature: v1.01's": 5
  },
  "functions": {
   "func_001158F8": [
@@ -155,6 +155,11 @@
    "near",
    "from_assembly"
   ],
+  "func_002D5748": [
+   "func_002D63B0",
+   "changed",
+   "RAC2_K MAIN_LIST_OFFSET"
+  ],
   "func_002D58A0": [
    "func_002D6508",
    "changed",
@@ -259,6 +264,11 @@
    "func_00342B30",
    "changed",
    "RAC2_K LIST_TITLE_TEXT"
+  ],
+  "func_00341EB0": [
+   "func_00342DC0",
+   "changed",
+   "host C"
   ],
   "func_00342380": [
    "func_00343290",
@@ -576,6 +586,11 @@
    "00152C68",
    "between",
    "host C 0x00152C68"
+  ],
+  "boot:00262262": [
+   "00262242",
+   "between",
+   "formed_as D_L00_00262260"
   ],
   "boot:002652B0": [
    "00265270",

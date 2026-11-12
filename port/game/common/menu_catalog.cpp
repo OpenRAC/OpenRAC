@@ -51,6 +51,10 @@ constexpr Entry kEntries[] = {
      "How far away things are still drawn. Original stops where the console did; the larger "
      "steps draw farther, and Unlimited draws everything in view. What the game hides from a "
      "place stays hidden."},
+    {Id::ActiveDistance, Tab::Graphics, "Picture", kChoice, A, "Active distance",
+     "How far away things still move and run their logic. Match keeps everything Draw distance "
+     "shows alive; Original stops where the console did, so far things stand still. Enemies "
+     "notice you from their usual ranges either way."},
     {Id::FrameRate, Tab::Graphics, "Frames", kChoice, A, "Frame rate",
      "Original keeps the console's rate. The others draw extra frames between the game's ticks: "
      "as fast as the display, up to a cap, or without a limit. The game itself runs at its own "
@@ -74,6 +78,16 @@ constexpr Entry kEntries[] = {
      "The brightest that glows and explosions may go in HDR, also told to the display. Display "
      "takes what the display reports. Where the system sets the brightness (Android, macOS), "
      "it can only go lower."},
+    {Id::HdrHighlights, Tab::Graphics, "HDR", Kind::Slider, A, "HDR highlights",
+     "How much brighter than white glows and explosions get. 0% is as in SDR."},
+    {Id::HdrSdrHue, Tab::Graphics, "HDR", Kind::Slider, A, "SDR hue",
+     "Gives very bright colours their SDR hue. In SDR, fire looks orange; in HDR, redder. 0% "
+     "keeps the HDR hue."},
+    {Id::HdrSdrChroma, Tab::Graphics, "HDR", Kind::Slider, A, "SDR chrominance",
+     "Gives very bright colours their SDR saturation, which fades them towards white. 0% "
+     "keeps the HDR saturation."},
+    {Id::HdrBlowout, Tab::Graphics, "HDR", Kind::Slider, A, "HDR blowout",
+     "Makes very bright light fade to white. 0% is off."},
     {Id::HdrStatus, Tab::Graphics, "HDR", kNote, A, "HDR status",
      "What the display and the system give the game for HDR now."},
     {Id::LowLatency, Tab::Graphics, "Latency", kSwitch, A, "Low-latency frames",

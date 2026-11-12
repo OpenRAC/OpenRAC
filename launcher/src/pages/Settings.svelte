@@ -60,6 +60,7 @@
     "safeRendering",
     "saveEditorAdvanced",
     "developer",
+    "incrementalBuilds",
     "discordClientId",
     "multiplayerName",
   ] as const satisfies (keyof Config)[];
@@ -748,6 +749,17 @@
         {#if draft.developer}
           <!-- What developer tools add: under the switch, set in from it. -->
           <div class="dev">
+            <label class="setting">
+              <span class="text">
+                <strong>Incremental builds (for developers)</strong>
+                <small
+                  >After a change to OpenRAC, build only what changed instead of the game from scratch. A build folder
+                  OpenRAC cannot vouch for (another OpenRAC version, no build stamp) is still built from scratch. The
+                  Rebuild from scratch action stays.</small
+                >
+              </span>
+              <input type="checkbox" role="switch" class="switch" bind:checked={draft.incrementalBuilds} />
+            </label>
             {#if !rootHere && !onAndroid}
               <PathField
                 label="OpenRAC folder"

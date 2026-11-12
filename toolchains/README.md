@@ -50,7 +50,7 @@ You supply an SN ProDG 2.0 EE toolchain (`Ps2EeAs.exe`, `ld.exe`) for the
 assembly rebuild, passed with `--toolchain` (`--c-toolchain` supplies only the
 linker for the C step). The C compiler is a patched GNU EE-GCC 2.9 built under
 WSL, which `scripts/wsl_chain.py` runs; see
-[docs/COMPILER-NOTES.md](../games/rac2/decomp/docs/COMPILER-NOTES.md). The
+[docs/COMPILER-NOTES.md](../games/rac2/decomp/docs/build/compiler-notes.md). The
 project's README still names SN ProDG 3.01 for the C
 ([docs/decomp/TOOLCHAINS.md](../docs/decomp/TOOLCHAINS.md#4-open-questions-and-contradictions)).
 

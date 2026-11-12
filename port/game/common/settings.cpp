@@ -164,7 +164,10 @@ bool parse_listed(const std::string& value, const int (&list)[N], int& out) {
     } else if (!parse_int(value, 0, 1000, number)) {
         return false;
     }
-    number = std::max(number, 1);  // 0 is "off" too
+    // 0 is "off" too, unless the list has it (Draw distance's Unlimited)
+    if (number == 0 && std::find(std::begin(list), std::end(list), 0) == std::end(list)) {
+        number = 1;
+    }
     if (std::find(std::begin(list), std::end(list), number) == std::end(list)) {
         return false;
     }
@@ -422,6 +425,14 @@ void load(const std::filesystem::path& file) {
             known = parse_int(value, 0, hdr::kPaperWhiteMax, s.hdr_paper_white);
         } else if (key == "hdr_peak") {
             known = parse_int(value, 0, hdr::kPeakMax, s.hdr_peak);
+        } else if (key == "hdr_highlights") {
+            known = parse_int(value, 0, 100, s.hdr_highlights);
+        } else if (key == "hdr_sdr_hue") {
+            known = parse_int(value, 0, 100, s.hdr_sdr_hue);
+        } else if (key == "hdr_sdr_chroma") {
+            known = parse_int(value, 0, 100, s.hdr_sdr_chroma);
+        } else if (key == "hdr_blowout") {
+            known = parse_int(value, 0, 100, s.hdr_blowout);
         } else if (key == "menu_size") {
             known = parse_int(value, kMenuSizeMin, kMenuSizeMax, s.menu_size);
         } else if (key == "vsync") {
@@ -469,6 +480,11 @@ void load(const std::filesystem::path& file) {
             // Old "Scenery detail", merged into draw_distance: dropped.
         } else if (key == "draw_distance") {
             known = parse_listed(value, kDrawDistances, s.draw_distance);
+        } else if (key == "active_distance") {
+            known = value == "match" || value == "original";
+            if (known) {
+                s.original_active_distance = value == "original";
+            }
         } else if (key == "responsive_controls") {
             known = parse_bool(value, s.responsive_controls);
         } else if (key == "low_latency_frames") {
@@ -661,6 +677,10 @@ void save() {
         << "hdr = " << hdr::kModeKeys[static_cast<int>(s.hdr)] << "\n"
         << "hdr_paper_white = " << s.hdr_paper_white << "\n"
         << "hdr_peak = " << s.hdr_peak << "\n"
+        << "hdr_highlights = " << s.hdr_highlights << "\n"
+        << "hdr_sdr_hue = " << s.hdr_sdr_hue << "\n"
+        << "hdr_sdr_chroma = " << s.hdr_sdr_chroma << "\n"
+        << "hdr_blowout = " << s.hdr_blowout << "\n"
         << "menu_size = " << s.menu_size << "\n"
         << "vsync = " << kVSync[static_cast<int>(s.vsync)] << "\n"
         << "frame_rate = " << frame_rate_value(s) << "\n"
@@ -670,6 +690,7 @@ void save() {
         << "menu_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"
         << "draw_distance = " << s.draw_distance << "\n"
+        << "active_distance = " << (s.original_active_distance ? "original" : "match") << "\n"
         << "responsive_controls = " << (s.responsive_controls ? 1 : 0) << "\n"
         << "low_latency_frames = " << (s.low_latency_frames ? 1 : 0) << "\n"
         << "skip_cutscenes = " << (s.skip_cutscenes ? 1 : 0) << "\n"

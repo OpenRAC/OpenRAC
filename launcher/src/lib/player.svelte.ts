@@ -185,6 +185,25 @@ export function rebuildSteps(v: VersionView): ActionView[] | null {
   return levels?.runnable ? [...(part?.runnable ? [part] : []), levels, ...(check ? [check] : [])] : null;
 }
 
+/**
+ * What the "an update is ready" notice runs for a game built by an older OpenRAC: the build from
+ * scratch (port-rebuild), or with the Incremental builds setting (developers) the incremental one
+ * (port-build), unless the build folder is unusable (VersionView.portCleanReason: no stamp from
+ * OpenRAC's build, another OpenRAC version), when it is still from scratch and says why. Null when
+ * neither can run.
+ */
+export function updateStep(
+  v: VersionView,
+  incremental: boolean,
+): { action: ActionView; incremental: boolean; cleanBecause: string | null } | null {
+  const full = action(v, "port-rebuild");
+  const build = action(v, "port-build");
+  const usable = (a: ActionView | null): a is ActionView => !!a?.thisPlatform && a.runnable;
+  const cleanBecause = incremental && v.portCleanReason && usable(full) ? v.portCleanReason : null;
+  if (incremental && !cleanBecause && usable(build)) return { action: build, incremental: true, cleanBecause: null };
+  return usable(full) ? { action: full, incremental: false, cleanBecause } : null;
+}
+
 export function playerState(game: GameView, v: VersionView): PlayerState {
   const play = action(v, "play");
   const build = action(v, "port-build");
