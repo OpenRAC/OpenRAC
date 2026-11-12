@@ -113,6 +113,39 @@ int step_index(const std::array<int, N>& steps, int value) {
     return at;
 }
 
+// A slider's setting and its range in percent.
+struct Slider {
+    int* value;
+    int minimum;
+    int maximum;
+    int step;
+};
+
+// The HDR look's slider step. The settings file takes any percent.
+constexpr int kHdrLookStep = 5;
+
+Slider slider_of(Id id) {
+    settings::Settings& set = settings::get();
+    switch (id) {
+        case Id::HdrHighlights:
+            return {&set.hdr_highlights, 0, 100, kHdrLookStep};
+        case Id::HdrSdrHue:
+            return {&set.hdr_sdr_hue, 0, 100, kHdrLookStep};
+        case Id::HdrSdrChroma:
+            return {&set.hdr_sdr_chroma, 0, 100, kHdrLookStep};
+        case Id::HdrBlowout:
+            return {&set.hdr_blowout, 0, 100, kHdrLookStep};
+        case Id::GameplayFov:
+        default:
+            return {
+                &set.gameplay_fov,
+                settings::kMinGameplayFov,
+                settings::kMaxGameplayFov,
+                settings::kGameplayFovStep
+            };
+    }
+}
+
 int white_index() {
     return step_index(kWhites, settings::get().hdr_paper_white);
 }
@@ -236,6 +269,12 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = at < static_cast<int>(kPeaks.size()) - 1;
             return it;
         }
+        case Id::HdrHighlights:
+        case Id::HdrSdrHue:
+        case Id::HdrSdrChroma:
+        case Id::HdrBlowout:
+            it.shown = set.hdr != hdr::Mode::Off;
+            return it;
         case Id::HdrStatus:
             it.shown = set.hdr != hdr::Mode::Off;
             it.value = frontend::hdr_status();
@@ -598,6 +637,11 @@ bool act(Id id, int by) {
             )];
             changed();
             return false;
+        case Id::HdrHighlights:
+        case Id::HdrSdrHue:
+        case Id::HdrSdrChroma:
+        case Id::HdrBlowout:
+            return false;  // sliders (draw_entry)
         case Id::HdrStatus:
             return false;
         case Id::LowLatency:
@@ -973,13 +1017,10 @@ void draw_entry(Id id, std::uint8_t where) {
             }
             break;
         case menu::Kind::Slider: {
-            int& value = settings::get().gameplay_fov;
+            const Slider slider = slider_of(id);
+            int& value = *slider.value;
             const int next = menu_percent_slider(
-                label.c_str(),
-                value,
-                settings::kMinGameplayFov,
-                settings::kMaxGameplayFov,
-                settings::kGameplayFovStep
+                label.c_str(), value, slider.minimum, slider.maximum, slider.step
             );
             // Apply live and save once the mouse drag ends, or immediately for a discrete step.
             const bool edited = next != value;
