@@ -289,14 +289,16 @@ void LevelScene::draw_shadow_atlas(renderer::RenderState& state) {
         glInvalidateFramebuffer != nullptr
         && renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowAtlasDiscard);
     // Kept far cascades (shadow-far-alternate) are neither cleared nor drawn: the nearest cascade
-    // with the hero's map, then the far cascades due this frame, each in a pass of its own.
+    // with the hero's map, then each adjacent run of far cascades due this frame in its own pass.
     const unsigned kept = m_sun_ready && !cache && !scrolling ? m_kept_cascades : 0;
     if (kept) {
-        const unsigned sun = (1u << kSunCascades) - 1;
-        const unsigned near = 1u | (m_hero_ready ? 1u << kSunCascades : 0u);
         rerendered = kSunCascades - static_cast<unsigned>(std::popcount(kept));
 
-        for (const unsigned views : {near, sun & ~kept & ~1u}) {
+        for (const unsigned views : shadow_atlas_redraw_groups(kept, m_hero_ready)) {
+            if (!views) {
+                continue;
+            }
+
             const auto drawn = shadow_depth_pass(
                 "dynamic shadow atlas",
                 m_shadow_atlas->id(),

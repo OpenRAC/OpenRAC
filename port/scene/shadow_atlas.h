@@ -6,6 +6,7 @@
 
 #pragma once
 #include <array>
+#include <cstddef>
 
 #include "renderer/shadow_settings.h"
 
@@ -32,12 +33,37 @@ constexpr ShadowAtlasLayout shadow_atlas_layout(renderer::ShadowQuality quality)
     ShadowAtlasLayout layout;
     const int divisor = renderer::shadow_resolution_divisor(quality);
     layout.size /= divisor;
+
     for (auto& rect : layout.rects) {
         for (auto& coordinate : rect) {
             coordinate /= divisor;
         }
     }
+
     layout.rects[4][2] = layout.rects[4][3] = renderer::hero_shadow_resolution(quality);
     return layout;
+}
+
+// Each group is cleared through its bounding rectangle. Far cascades may share a pass only
+// while they are adjacent, so the clear never crosses a retained cascade between them.
+constexpr std::array<unsigned, 4> shadow_atlas_redraw_groups(unsigned kept, bool hero) {
+    std::array<unsigned, 4> groups{1u | (hero ? 1u << 4 : 0u)};
+    std::size_t next = 1;
+    unsigned run = 0;
+
+    for (unsigned i = 1; i < 4; ++i) {
+        if (!(kept & (1u << i))) {
+            run |= 1u << i;
+        } else if (run) {
+            groups[next++] = run;
+            run = 0;
+        }
+    }
+
+    if (run) {
+        groups[next] = run;
+    }
+
+    return groups;
 }
 }  // namespace openrac::scene
