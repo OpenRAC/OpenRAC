@@ -725,7 +725,9 @@ void a_mods_data_goes_with_the_saves(const fs::path& plugins, const fs::path& di
     std::ifstream in(save2.string() + ".moddata", std::ios::binary);
     const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     in.close();
-    CHECK(text.find("\"test-a\": {\"version\": \"1.0.0\", \"data\": \"YWJj\"}") != std::string::npos);
+    CHECK(
+        text.find("\"test-a\": {\"version\": \"1.0.0\", \"data\": \"YWJj\"}") != std::string::npos
+    );
     CHECK(!fs::exists(card / ".save2.bin.moddata.tmp"));
     // A blank slot keeps none.
     openrac_game_save_written(save2.string().c_str(), 0);
@@ -735,8 +737,10 @@ void a_mods_data_goes_with_the_saves(const fs::path& plugins, const fs::path& di
     // 3 bytes), the mod told once.
     const fs::path save3 = card / "save3.bin";
     write(save3, "S3");
-    write(fs::path(save3.string() + ".moddata"),
-          R"({"format": 1, "mods": {"test-a": {"version": "0.9.0", "data": "eHl6"}, "gone": {"data": "AA=="}}})");
+    write(
+        fs::path(save3.string() + ".moddata"),
+        R"({"format": 1, "mods": {"test-a": {"version": "0.9.0", "data": "eHl6"}, "gone": {"data": "AA=="}}})"
+    );
     openrac_game_save_read(save3.string().c_str(), 3);
     g_records.clear();
     mods::frame();
