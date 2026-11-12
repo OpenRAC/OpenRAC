@@ -387,6 +387,39 @@ load the save (the save must not be on Dobbo while Dobbo is loaded in a running 
 plays again; the seller waits for it if his first scene was seen, and "Hrugis Cloud coordinates
 offered" (scene 96, chunk 43 bit 768) cleared too sends him back to before the offer.
 
+## Advanced: hoverbike races and cut scenes seen
+
+**Hoverbike races** (`planets_a.rs` Barlow, `planets_b.rs` Joba). The race code is one shared
+copy in both levels (`levels/shared/L04_*` of the decomp). Five races a planet, picked by
+`D_L04_001B090C`; per race two counts in chunk 5: wins at 0x4D + race on Barlow and 0x57 + race
+on Joba (`func_L04_0040A1D0` reads, `func_L04_0040A220` adds 1 at a first place), and finishes
+that were not a win at 0x52 + race and 0x5C + race (`func_L04_0040A268`, `func_L04_0040A2B8`;
+they only lower the racers' rank, so they are not offered). The race menu (`func_L04_0040BA68`)
+lets a race be picked when the one before it has a win; the prize is the race's reward by win
+count (capped at 3). At the race controller's start (`func_L04_00419918`) a race 1 win on Barlow
+puts Feltzin System on the map (`func_002AD7B8(5)`) and on Joba gives the Charge Boots (item 54)
+if they are not owned. Best times are kept at 0x1A7368 + race * 4 (+20 on Joba), outside the
+chunks the editor reads, and are not offered. All `FromCode`.
+
+**Cut scenes seen** (`scenes.rs`). Every planet's scene bits in chunk 43, numbered within the
+planet. A level's scenes are the ids from its entry of the table at 0x001AD030 to the next
+entry's (`func_002EF010`; read from the NTSC-U v1.01 executable): Aranos Tutorial 33-37, Oozla
+38-42, Maktar 43-48, Endako 49-54, Barlow 55-67, Feltzin 68-72, Notak 73-78, Siberius 79-82,
+Tabora 83-94, Dobbo 95-103, Hrugis 104-106, Joba 107-113, Todano 114-118, Boldan 119-121, Aranos
+Prison 122-128, Gorn 129-131, Snivelak 132-136, Smolg 137-142, Damosel 143-149, Grelbin 150-154,
+Yeedil 155-161, Dobbo Orbit 163, Damosel Orbit 164, Ship Shack 165, Wupash 166, Jamming Array 167
+(162 is level 21's, which has no planet; ids under 33 and from 168 belong to no planet). The bit
+formula is the one proven for scene 43. Scenes the planet files already name are not repeated
+(a test checks each bit is offered once). Clearing a bit lets a scene play again only where its
+trigger is not yet spent; setting one does not do the scene's event. All `FromCode`; the game's
+scene names were not read.
+
+**Still unknown** (place found, meaning not proven): Oozla's 0x75 bit 1, 0x7B, 0x9B; Notak 0x13 to
+0x18; Siberius 0x72 (skips scene 79 at the start of a ride); Tabora 0x19, 0x1A, 0x1C; Todano 0x22,
+0x23; Boldan 0x24 to 0x28; Aranos Prison 0x29, 0x2B, 0x78; Damosel 0x94, 0xA0; the
+executable's 0x09, 0x2B, 0x3C, 0x3D, 0x8C, 0x8D (a bit per vendor entry);
+chunk 3004's object-group states and chunk 3005's moby counts other than the Electrolyzer boards'.
+
 ## The advanced fields
 
 `core/src/save_edit_rac2_extra.rs` and `src/components/SaveEditorRac2Advanced2.svelte` (the "More"
