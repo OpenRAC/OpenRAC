@@ -99,6 +99,15 @@ struct AsrContext::State {
         scratch.resize(arm::ffxmGetScratchMemorySizeVK(device.physical, 1));
         arm::FfxmFsr2ContextDescription description{};
         description.qualityMode = arm::FFXM_FSR2_SHADER_QUALITY_MODE_QUALITY;
+        // A cheaper shader quality for profiling on a device (OPENRAC_ASR_QUALITY).
+        if (const auto chosen = env::value(env::Var::AsrQuality)) {
+            if (*chosen == "balanced") {
+                description.qualityMode = arm::FFXM_FSR2_SHADER_QUALITY_MODE_BALANCED;
+            } else if (*chosen == "performance") {
+                description.qualityMode = arm::FFXM_FSR2_SHADER_QUALITY_MODE_PERFORMANCE;
+            }
+            log::info("asr: shader quality {}", *chosen);
+        }
         description.flags = arm::FFXM_FSR2_ENABLE_DEPTH_INVERTED;
         description.maxRenderSize =
             {static_cast<unsigned>(render_size[0]), static_cast<unsigned>(render_size[1])};
