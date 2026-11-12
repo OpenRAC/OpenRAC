@@ -545,15 +545,51 @@ def find_visual_studio() -> Path:
 
 def msvc_environment(visual_studio: Path) -> dict[str, str]:
     """The environment vcvars64.bat sets up, read back with `set` (UTF-16, cmd's /u, so any
-    character in a path comes through)."""
+    character in a path comes through). Failures identify setup or readback and include the
+    script's output and toolchain availability, without dumping unrelated environment values."""
     bat = visual_studio / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
     if not bat.is_file():
         raise BuildError(f"{bat} is missing: repair Visual Studio's C++ tools, then build again.")
-    done = subprocess.run(f'cmd /u /s /c ""{bat}" >nul 2>&1 && set"', capture_output=True)
+    setup_complete = "OPENRAC_VCVARS_COMPLETE"
+    # Write the marker before starting the environment dump so its failure can be identified.
+    command = f'cmd /d /s /c "call "{bat}" 1>&2 && (1>&2 echo {setup_complete}& cmd /d /u /c set)"'
+    try:
+        done = subprocess.run(command, capture_output=True)
+    except OSError as error:
+        raise BuildError(f"Could not start cmd.exe to run {bat}\n{error}") from error
     env = parse_environment(done.stdout.decode("utf-16-le", errors="replace"))
-    if done.returncode != 0 or "INCLUDE" not in env:
-        raise BuildError(f"{bat} did not set up Visual Studio's environment.")
-    return env
+    if done.returncode == 0 and env.get("INCLUDE"):
+        return env
+
+    diagnostics = done.stderr.decode("oem" if WINDOWS else "utf-8", errors="replace")
+    setup_output, marker, dump_output = diagnostics.partition(setup_complete + "\r\n")
+    if not marker:
+        failure = "vcvars64.bat did not complete successfully"
+    elif done.returncode != 0 or not env:
+        failure = "cmd.exe could not read back the configured environment"
+    else:
+        failure = "INCLUDE is missing from the configured environment"
+
+    summary = [
+        f"Visual Studio environment setup failed: {failure}.",
+        f"Visual Studio: {visual_studio}",
+        f"Setup script: {bat}",
+        f"Exit code: {done.returncode}",
+    ]
+    if env:
+        summary.append(f"MSVC toolset: {env.get('VCTOOLSVERSION') or 'unset'}")
+        summary.append(f"Windows SDK: {env.get('WINDOWSSDKVERSION') or 'unset'}")
+        for name in ("INCLUDE", "LIB", "LIBPATH"):
+            summary.append(f"{name}: {'set' if env.get(name) else 'unset'}")
+        for tool in ("clang.exe", "cl.exe", "link.exe", "rc.exe", "llvm-rc.exe"):
+            path = find_program(tool, env.get("PATH"))
+            summary.append(f"{tool} on configured PATH: {path or 'not found'}")
+    else:
+        summary.append("Toolchain environment: unavailable")
+    summary.extend(("", "vcvars64.bat output:", setup_output.strip() or "(no output)"))
+    if dump_output.strip():
+        summary.extend(("", "Environment dump diagnostics:", dump_output.strip()))
+    raise BuildError("\n".join(summary))
 
 
 def clang_candidates(env: dict[str, str], visual_studio: Path | None) -> list[Path]:

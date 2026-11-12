@@ -718,6 +718,9 @@ jobs:
       - name: Build openrac-rac1-pal and the runtime and diagnostic tests
         run: python tools/build_port.py rac1-pal --target runtime_test --target log_test --target crash_symbols_test --target breadcrumbs_test --target breadcrumbs_no_alloc_test --target render_worker_test
 
+      - name: Windows build environment tests
+        run: python -m unittest discover -s tools -p test_build_port.py -v
+
       - name: The runtime and Windows diagnostic tests
         run: ctest --test-dir port/build/release -R "^(runtime|log|crash_symbols|crash_symbols_local|breadcrumbs|breadcrumbs_no_alloc|render_worker)$" --output-on-failure
 
