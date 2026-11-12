@@ -61,6 +61,7 @@ type HookPoint =
     | "rac1.save.update_state"
     | "rac1.text.msg_string"
     | "rac1.vendor.open_menu"
+    | "rac1.gold_bolt.count_unspent"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -702,6 +703,7 @@ type HookPoint =
     | "Ammo_SpawnDrop"
     | "FollowCamera_ApplyOverrides"
     | "GoldBolts_CountCollected"
+    | "GoldBolts_CountUnspent"
     | "Help_Request"
     | "Hero_AdvanceAnimation"
     | "Hero_ApproachSpeed"
@@ -1510,6 +1512,8 @@ type Save_UpdateStateFn = () -> ()
 type msg_stringFn = (id: number) -> number
 -- rac1.vendor.open_menu (Vendor_OpenMenu) void(u32): Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero.
 type Vendor_OpenMenuFn = (moby: number) -> ()
+-- rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership.
+type GoldBolts_CountUnspentFn = () -> number
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 
