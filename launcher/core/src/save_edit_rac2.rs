@@ -1221,6 +1221,13 @@ fn read_slot(card_dir: &Path, serial: &str, slot: usize) -> Result<(PathBuf, Vec
     Ok((path, bytes, file))
 }
 
+/// The clock slot `slot`'s save was stamped with (chunk 4, `g_saveClock`): what mods key the state
+/// they keep beside a save by (mod_save_data.rs).
+pub fn save_clock(card_dir: &Path, serial: &str, slot: usize) -> Result<[u8; 8], String> {
+    let (_, _, file) = read_slot(card_dir, serial, slot)?;
+    file.global.get(id::CLOCK).get(..8).and_then(|c| c.try_into().ok()).ok_or_else(|| "the save has no clock".into())
+}
+
 /// Reads slot `slot` of the card in `card_dir` for the editor.
 pub fn read_save(card_dir: &Path, serial: &str, slot: usize) -> Result<Rac2SaveView, String> {
     let (_, bytes, file) = read_slot(card_dir, serial, slot)?;

@@ -65,14 +65,14 @@ These come on top of [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 | Document | For |
 |---|---|
-| [README.md](../../games/rac2/decomp/README.md), [docs/BUILDING.md](../../games/rac2/decomp/docs/BUILDING.md), [CONTRIBUTING.md](../../games/rac2/decomp/CONTRIBUTING.md), [AGENTS.md](../../games/rac2/decomp/AGENTS.md) | The project, first steps, contribution rules, agent rules |
-| [docs/BUILDING.md](../../games/rac2/decomp/docs/BUILDING.md), [docs/LEVELS.md](../../games/rac2/decomp/docs/LEVELS.md), [docs/COMPILER-NOTES.md](../../games/rac2/decomp/docs/COMPILER-NOTES.md) | Building (Docker on any host), the level programs and the catalogue, the compiler |
+| [README.md](../../games/rac2/decomp/README.md), [docs/BUILDING.md](../../games/rac2/decomp/docs/build/building.md), [CONTRIBUTING.md](../../games/rac2/decomp/CONTRIBUTING.md), [AGENTS.md](../../games/rac2/decomp/AGENTS.md) | The project, first steps, contribution rules, agent rules |
+| [docs/BUILDING.md](../../games/rac2/decomp/docs/build/building.md), [docs/LEVELS.md](../../games/rac2/decomp/docs/build/levels.md), [docs/COMPILER-NOTES.md](../../games/rac2/decomp/docs/build/compiler-notes.md) | Building (Docker on any host), the level programs and the catalogue, the compiler |
 | [tools/compiler/README.md](../../games/rac2/decomp/tools/compiler/README.md) | The compilers rebuilt from source |
-| [docs/COMPILER-NOTES.md](../../games/rac2/decomp/docs/COMPILER-NOTES.md) | The C compiler profile and its patches |
-| [docs/MOBY-DISPATCH-TABLES.md](../../games/rac2/decomp/docs/MOBY-DISPATCH-TABLES.md), [docs/VU-MICROPROGRAMS.md](../../games/rac2/decomp/docs/VU-MICROPROGRAMS.md) | Class dispatch tables, VU microprograms |
-| [docs/COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/COMMUNITY-ENGINE-REFERENCE.md) | A reverse-engineering reference ("reference, never evidence") |
-| [docs/RAC1-TO-RAC2.md](../../games/rac2/decomp/docs/RAC1-TO-RAC2.md) | What carries over from RAC1 |
-| [docs/PROTOTYPE-BUILDS.md](../../games/rac2/decomp/docs/PROTOTYPE-BUILDS.md), [docs/AUG6-RETAIL-ANCHORS.md](../../games/rac2/decomp/docs/AUG6-RETAIL-ANCHORS.md), [docs/ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/ENGINE-SYMBOL-NAMES.md), [docs/ASSERT-MESSAGE-NAMES.md](../../games/rac2/decomp/docs/ASSERT-MESSAGE-NAMES.md) | Prerelease builds and the names drawn from them; names from retail assert messages |
+| [docs/COMPILER-NOTES.md](../../games/rac2/decomp/docs/build/compiler-notes.md) | The C compiler profile and its patches |
+| [docs/MOBY-DISPATCH-TABLES.md](../../games/rac2/decomp/docs/game/moby-dispatch-tables.md), [docs/VU-MICROPROGRAMS.md](../../games/rac2/decomp/docs/game/vu-microprograms.md) | Class dispatch tables, VU microprograms |
+| [docs/COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/game/community-engine-reference.md) | A reverse-engineering reference ("reference, never evidence") |
+| [docs/RAC1-TO-RAC2.md](../../games/rac2/decomp/docs/research/rac1-to-rac2.md) | What carries over from RAC1 |
+| [docs/PROTOTYPE-BUILDS.md](../../games/rac2/decomp/docs/research/prototype-builds.md), [docs/AUG6-RETAIL-ANCHORS.md](../../games/rac2/decomp/docs/research/aug6-retail-anchors.md), [docs/ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/game/engine-symbol-names.md), [docs/ASSERT-MESSAGE-NAMES.md](../../games/rac2/decomp/docs/game/assert-message-names.md) | Prerelease builds and the names drawn from them; names from retail assert messages |
 
 ### Ratchet & Clank: Up Your Arsenal ([games/rac3/decomp](../../games/rac3/decomp))
 
@@ -80,10 +80,10 @@ These come on top of [CONTRIBUTING.md](../../CONTRIBUTING.md).
 |---|---|
 | [README.md](../../games/rac3/decomp/README.md), [CONTRIBUTING.md](../../games/rac3/decomp/CONTRIBUTING.md) | The project, contribution rules |
 | [docs/wiki/Home.md](../../games/rac3/decomp/docs/wiki/Home.md) | The wiki's index: [Setup](../../games/rac3/decomp/docs/wiki/Setup.md), [Toolchain and build](../../games/rac3/decomp/docs/wiki/Toolchain-and-Build.md), [Workflow](../../games/rac3/decomp/docs/wiki/Workflow.md), [Matching patterns](../../games/rac3/decomp/docs/wiki/Matching-Patterns.md), [Pull requests](../../games/rac3/decomp/docs/wiki/Pull-Requests.md), [Tools](../../games/rac3/decomp/docs/wiki/Tools.md), [Cross-repository resources](../../games/rac3/decomp/docs/wiki/Cross-Repository-Resources.md) |
-| [docs/us/compiler_matrix_findings.md](../../games/rac3/decomp/docs/us/compiler_matrix_findings.md) | 15 compilers against 8 flag sets: what built the game |
-| [docs/us/source_files.md](../../games/rac3/decomp/docs/us/source_files.md), [docs/trailing_padding.md](../../games/rac3/decomp/docs/trailing_padding.md) | How the source files are laid out; trailing padding |
-| [docs/versions.md](../../games/rac3/decomp/docs/versions.md), [docs/levels.md](../../games/rac3/decomp/docs/levels.md), [docs/us/shared_code_findings.md](../../games/rac3/decomp/docs/us/shared_code_findings.md) | PAL and NTSC-U from one tree; the level programs; code shared between levels |
-| [docs/us/full_match_roadmap.md](../../games/rac3/decomp/docs/us/full_match_roadmap.md), [docs/permuter.md](../../games/rac3/decomp/docs/permuter.md), [docs/us/permuter_todo.md](../../games/rac3/decomp/docs/us/permuter_todo.md) | The plan to 100%; decomp-permuter and its worklist |
+| [docs/us/compiler_matrix_findings.md](../../games/rac3/decomp/docs/research/us/compiler_matrix_findings.md) | 15 compilers against 8 flag sets: what built the game |
+| [docs/us/source_files.md](../../games/rac3/decomp/docs/research/us/source_files.md), [docs/trailing_padding.md](../../games/rac3/decomp/docs/build/trailing-padding.md) | How the source files are laid out; trailing padding |
+| [docs/versions.md](../../games/rac3/decomp/docs/build/versions.md), [docs/levels.md](../../games/rac3/decomp/docs/build/levels.md), [docs/us/shared_code_findings.md](../../games/rac3/decomp/docs/research/us/shared_code_findings.md) | PAL and NTSC-U from one tree; the level programs; code shared between levels |
+| [docs/us/full_match_roadmap.md](../../games/rac3/decomp/docs/research/us/full_match_roadmap.md), [docs/permuter.md](../../games/rac3/decomp/docs/contributing/permuter.md), [docs/us/permuter_todo.md](../../games/rac3/decomp/docs/research/us/permuter_todo.md) | The plan to 100%; decomp-permuter and its worklist |
 
 ### Ratchet: Deadlocked ([games/rac4/decomp](../../games/rac4/decomp))
 

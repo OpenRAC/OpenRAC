@@ -377,6 +377,10 @@ class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
       .putExtra(GameActivity.EXTRA_LIBRARY, args.library)
       .putExtra(GameActivity.EXTRA_ARGUMENTS, args.args)
       .putExtra(GameActivity.EXTRA_ENVIRONMENT, environment.map { (k, v) -> "$k=$v" }.toTypedArray())
+    // Recents keeps a picture of the launcher as it leaves: taken mid-way through the Play
+    // animation, with the WebView's layers going away, it showed black blocks. Its card shows
+    // the window's coal and the icon instead, until the launcher is back (MainActivity.onResume).
+    if (Build.VERSION.SDK_INT >= 33) activity.setRecentsScreenshotEnabled(false)
     activity.startActivity(intent)
     invoke.resolve()
   }

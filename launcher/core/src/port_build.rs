@@ -130,23 +130,56 @@ fn inputs_changed(root: &Path, game: &str, from: &str, to: &str) -> bool {
 /// what the game is built from, or the game not among those it built. Only asked of a game that is
 /// built.
 pub fn outdated(root: &Path, game: &str) -> bool {
+    outdated_why(root, game).is_some()
+}
+
+/// Why a build is outdated (`outdated`): what an incremental build can and cannot catch up with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Why {
+    /// No readable stamp: the build folder was not left by build_port.py, so what is in it is unknown.
+    NoStamp,
+    /// Built with another OpenRAC version (a release update): its toolchain or build format may differ.
+    Version,
+    /// The game was not among those the build folder was configured for.
+    GameMissing,
+    /// A commit to what the game is built from: the usual change of a developer checkout.
+    Commit,
+}
+
+impl Why {
+    /// Whether only a build from scratch is safe (the Incremental builds setting still cleans).
+    /// The text says why, for the player.
+    pub fn clean_reason(self) -> Option<&'static str> {
+        match self {
+            Why::NoStamp => Some("its build folder was not left by OpenRAC's build, so what is in it is unknown"),
+            Why::Version => Some("it was built by another OpenRAC version, whose build format or toolchain may differ"),
+            Why::GameMissing | Why::Commit => None,
+        }
+    }
+}
+
+/// `outdated`, with the reason.
+pub fn outdated_why(root: &Path, game: &str) -> Option<Why> {
     // A copy that is not a checkout (the one an installed launcher carries) has no version to
     // compare the build with, and cannot be built again here: it is not outdated.
-    let Some(current) = checkout_version(root) else { return false };
+    let current = checkout_version(root)?;
     let stamp: Stamp = match std::fs::read_to_string(root.join(BUILD_DIR).join(STAMP)) {
-        Ok(text) => serde_json::from_str(&text).unwrap_or_default(),
-        Err(_) => return true,
+        Ok(text) => match serde_json::from_str(&text) {
+            Ok(stamp) => stamp,
+            Err(_) => return Some(Why::NoStamp),
+        },
+        Err(_) => return Some(Why::NoStamp),
     };
-    if !stamp.games.iter().any(|g| g == game) {
-        return true;
-    }
     if stamp.version != Some(current) {
-        return true;
+        return Some(Why::Version);
+    }
+    if !stamp.games.iter().any(|g| g == game) {
+        return Some(Why::GameMissing);
     }
     // A checkout whose commit cannot be read (an installer's copy) goes by the version alone.
     match (stamp.commit.as_deref(), checkout_commit(root)) {
-        (Some(built), Some(now)) => built != now && inputs_changed(root, game, built, &now),
-        _ => false,
+        (Some(built), Some(now)) if built != now && inputs_changed(root, game, built, &now) => Some(Why::Commit),
+        _ => None,
     }
 }
 
@@ -192,6 +225,26 @@ mod tests {
         let dir = checkout("0.8.0", SHA_B);
         stamp(dir.path(), "0.8.0", Some(SHA_A), &["rac1-pal"]);
         assert!(outdated(dir.path(), "rac1-pal"), "a pulled commit");
+    }
+
+    #[test]
+    fn only_some_reasons_force_a_clean_build() {
+        let dir = checkout("0.8.0", SHA_B);
+        stamp(dir.path(), "0.8.0", Some(SHA_A), &["rac1-pal"]);
+        assert_eq!(outdated_why(dir.path(), "rac1-ntsc"), Some(Why::GameMissing));
+        assert!(Why::GameMissing.clean_reason().is_none());
+        // A pulled commit (git cannot tell here: counted as changed): the developer's usual case.
+        assert_eq!(outdated_why(dir.path(), "rac1-pal"), Some(Why::Commit));
+        assert!(Why::Commit.clean_reason().is_none());
+        let dir = checkout("0.8.1", SHA_A);
+        stamp(dir.path(), "0.8.0", Some(SHA_A), &["rac1-pal"]);
+        assert_eq!(outdated_why(dir.path(), "rac1-pal"), Some(Why::Version));
+        assert!(Why::Version.clean_reason().is_some());
+        let dir = checkout("0.8.0", SHA_A);
+        assert_eq!(outdated_why(dir.path(), "rac1-pal"), Some(Why::NoStamp));
+        assert!(Why::NoStamp.clean_reason().is_some());
+        stamp(dir.path(), "0.8.0", Some(SHA_A), &["rac1-pal"]);
+        assert_eq!(outdated_why(dir.path(), "rac1-pal"), None);
     }
 
     #[test]

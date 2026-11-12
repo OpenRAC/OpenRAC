@@ -72,6 +72,8 @@
   let sources = $state<ModSources["mods"]>({});
   let updates = $state<Record<string, ModUpdate>>({});
   let checking = $state(false);
+  /** The quiet look on opening the tab, which the button does not show. */
+  let looking = $state(false);
   let updating = $state<string | null>(null);
 
   /** The built-in Enhanced graphics entry, for a version that has it. */
@@ -99,10 +101,15 @@
   const bakeAction = $derived(v.actions.find((a) => a.id === "probe-bake" && a.thisPlatform) ?? null);
 
   let enhancedRequest = 0;
+  /** Enhanced graphics' row was read once: the toolbar counts it from then on. */
+  let enhancedRead = $state(false);
   async function loadEnhanced() {
     const request = ++enhancedRequest;
     const view = await api.enhancedView(v.game, v.name).catch(() => null);
-    if (request === enhancedRequest) enhanced = view;
+    if (request === enhancedRequest) {
+      enhanced = view;
+      enhancedRead = true;
+    }
   }
 
   const lightingContext = $derived(`${v.key}:${reload}:${purist}:${isEnhanced(modNav.mod)}`);
@@ -187,7 +194,9 @@
   }
 
   async function checkUpdates(quiet = false) {
-    checking = true;
+    // The quiet look on opening the tab leaves the button as it is: it blinked to a spinner.
+    if (quiet) looking = true;
+    else checking = true;
     // Asked for: the mods the index lists are looked at too, from a fresh fetch of it (the
     // per-repository look below leaves them out). First, so that look knows which they are.
     let index: T.IndexFound | null = null;
@@ -213,7 +222,8 @@
     } catch (e) {
       if (!quiet) said = { text: message(e), failed: true };
     }
-    checking = false;
+    if (quiet) looking = false;
+    else checking = false;
   }
 
   async function runUpdate(id: string) {
@@ -269,7 +279,7 @@
       updates = Object.fromEntries(found.updates.map((u) => [u.id, u]));
       return;
     }
-    if (hasSources && !checking && checkDue(v.game)) void checkUpdates(true);
+    if (hasSources && !checking && !looking && checkDue(v.game)) void checkUpdates(true);
   });
 
   $effect(() => {
@@ -409,7 +419,9 @@
   const found = $derived(groups.reduce((n, g) => n + g.rows.length, 0) + (enhancedShown ? 1 : 0));
 
   // What the list holds, for the toolbar (counts, Mods off, a search that finds nothing).
+  // Once both are read: counted before, "All" went 10, then 11 as the page opened.
   $effect(() => {
+    if (!loaded || !enhancedRead) return;
     report("plugins", {
       counts: {
         gameplay: mods.filter((m) => groupOf(m.kind) === "gameplay").length,

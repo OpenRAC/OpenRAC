@@ -37,6 +37,7 @@ constexpr const char* kLabels[kRows] = {
     "Anti-aliasing",
     "Anisotropic filtering",
     "Draw distance",
+    "Active distance",
     "VSync",
     "HDR",
     "Frame rate",
@@ -80,6 +81,11 @@ constexpr Words kWords[] = {
       "Sichtweite",
       "Distancia de dibujado",
       "Distanza di visualizzazione"}},
+    {{"Active distance",
+      "Distance d'activité",
+      "Aktivreichweite",
+      "Distancia de actividad",
+      "Distanza di attività"}},
     {{"VSync", "Synchro verticale", "VSync", "Sincronía vertical", "Sincronia verticale"}},
     {{"HDR", "HDR", "HDR", "HDR", "HDR"}},
     {{"Frame rate", "Fréquence d'images", "Bildrate", "Fotogramas", "Frequenza fotogrammi"}},
@@ -161,6 +167,7 @@ constexpr Words kWords[] = {
     {{"Edges", "Bords", "Ränder", "Bordes", "Bordi"}},
     {{"Adaptive", "Adaptative", "Adaptiv", "Adaptativa", "Adattiva"}},
     {{"Auto", "Auto", "Auto", "Auto", "Auto"}},
+    {{"Match", "Identique", "Gleich", "Igual", "Uguale"}},
     {{"Unlimited", "Illimitée", "Unbegrenzt", "Ilimitada", "Illimitata"}},
     {{"Display", "Écran", "Bildschirm", "Pantalla", "Schermo"}},
     {{"Video", "Vidéo", "Video", "Vídeo", "Video"}},
@@ -332,6 +339,8 @@ std::string value_of(int row) {
             return s.draw_distance == 100 ? std::string("Original")
                    : s.draw_distance == 0 ? std::string("Unlimited")
                                           : std::format("{}%", s.draw_distance);
+        case kActiveDistance:
+            return s.original_active_distance ? "Original" : "Match";
         case kVSync:
             return settings::name(s.vsync);
         case kHdr:
@@ -401,6 +410,9 @@ void step_value(int row, int by) {
             break;
         case kDrawDistance:
             s.draw_distance = stepped(settings::kDrawDistances, s.draw_distance, by);
+            break;
+        case kActiveDistance:
+            s.original_active_distance = !s.original_active_distance;
             break;
         case kVSync:
             s.vsync = stepped_enum(s.vsync, by);

@@ -548,6 +548,7 @@ perf_capture::Context context(const Shown& shown) {
           kMsaa,
           kAnisotropy,
           kDrawDistance,
+          kActiveDistance,
           kFrameRate,
           kFrameCap,
           kLowLatency,

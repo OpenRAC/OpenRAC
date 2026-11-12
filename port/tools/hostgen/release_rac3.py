@@ -3,7 +3,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Up Your Arsenal's NTSC-U release view of rac3-decomp (release.py's table, for rac3-ntsc).
 
-rac3-decomp holds both discs in one tree (games/rac3/decomp/docs/versions.md): its C in src/ is
+rac3-decomp holds both discs in one tree (games/rac3/decomp/docs/build/versions.md): its C in src/ is
 named by PAL's addresses (`func_0039B470`, `D_001DBC58`), and NTSC-U's own C, where the code
 differs, is in src/us/ with names of its own (`func_U_0037D1A8`, `D_U_00227600`, NTSC-U
 addresses). Its tables say where every name is on NTSC-U, without building anything:

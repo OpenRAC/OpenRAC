@@ -16,12 +16,13 @@ follows the same rules.
 - No grey, no brown and no white mix as a fill (`rgb(255 255 255 / …)`). The
   only neutrals are the blacks and coals below; a thin `--line` only splits
   things (rows of a list, a bar from the page).
-- The page is a warm coal (`--ink` `#1c1a16`, `--ink-deep` `#14120e`), never
-  navy and never pure black: text on a black page glares and blurs for many
-  eyes (halation; user decision), so the launcher sits at a dimmed dark
-  theme's lightness, a little warmer than grey so it goes with the gold
-  (OKLCH chroma 0.008, the gold's hue). The game list beside it and Android's
-  rail are darker than the page: `--rail` `#161410`. Pure black is the OLED
+- The page is a neutral dark grey (`--ink` `#191919`, `--ink-deep` `#121212`;
+  user decision), never navy and never pure black: text on a black page glares
+  and blurs for many eyes (halation; user decision), so the launcher sits at a
+  dimmed dark theme's lightness. Panels and controls on it keep their warm coal
+  (below), which goes with the gold. The game list beside it (and Android's
+  bar at the foot of a narrow window) is darker than the page: `--rail` `#131313`.
+  Android's rail on the left has no ground of its own: the page's runs under it. Pure black is the OLED
   theme's alone.
 - The light under the bar: a soft glow of `--glow` (the picked game's colour,
   gold for Ratchet & Clank) laid over the window from the bar down
@@ -29,14 +30,14 @@ follows the same rules.
   blend, so it only lightens), fading out by about two thirds down. It eases
   from game to game, on every theme (OLED too, user decision). The game's menu window has the
   same light along its top (8 %, see below).
-- The bar's shadow is light (1 px down, 6 px blur, 18 %): a deeper one reads as
-  a black band under the bar.
 - Text is an off white (`--text` `#e6e6eb`, about 15:1 on the page), not a
   near white: more contrast than that only tires the eyes.
 - Cards and panels have no border and no stripes: a flat `#24221e`
   (`--panel`, `--card`), `#2c2a26` when hovered or open (`--panel-hi`,
-  `--card-hi`). Unlike the site, stripes on a big surface tire the eyes (user
-  decision): only the bar's buttons wear stripes.
+  `--card-hi`). A hint inside a page (Mods off, say) is warm, `--panel` mixed
+  9 % with `--amber`, as the Get mods card. Unlike the site, stripes on a big surface tire the eyes (user
+  decision). The one place left with stripes is the game menu's right side:
+  faint, only in its top left corner (user decision).
 - Controls (buttons, fields, chips, segmented choices, the search box) are
   filled with `--control` and have no edge or border (user decision: gold
   edges looked bad). The fill alone sets a control apart.
@@ -66,19 +67,21 @@ follows the same rules.
   (`button.primary`), lifting 2 px under the pointer.
 - Anything you can tap is at least 40 px tall (44 px on Android); fields on
   Android use 16 px text.
-- The header bar: gold stripes (35°, 20 px, `#c99222` then `#bd8619`), the
-  logo and the version badge dark, for every game. Its buttons (the tabs
+- The header on a desktop has no bar of its own (user decision): it lies over
+  the page, which starts at the window's top (the light under it too), so the
+  ground is one from top to bottom. The logo's name is in `--text`, its first
+  letter (the mark) in `--amber`, as on Android's rail. Its buttons (the tabs
   Games, Mods, Develop, Settings; the site and Discord icons at the right; a
-  job; an update) continue the bar's stripes in coal (`--coal-stripes`:
-  `#181818` on `#121212`, laid on the window so they line up with the bar's),
-  32 px tall, gold text in Inter Medium (500, as thin as the logo beside them),
-  no edge. Under the pointer and for the open tab, the
-  lighter `--coal-stripes-hi` (`#252525` on `#1f1f1f`); the open tab's text is
-  light gold, and its chip slides from tab to tab. The game's menu bar does the
-  same, without icons.
-- A big main button over the game (the drawer's Resume) wears the bar's own
-  gold stripes at half strength (`--bar-stripe`, then halfway to
-  `--bar-stripe-alt`), a shade deeper than `--amber`, so it does not glare.
+  job; an update; the version badge) are the theme's buttons (`--control`,
+  `--control-hi` under the pointer), 32 px tall, gold text in Inter Medium
+  (500, as thin as the logo beside them), no edge. The open tab is filled with
+  `--amber`, its words in `--ink-deep`, and its chip slides from tab to tab.
+  Once the page scrolls under the header, a haze fades in behind it: blurred,
+  darkened at the top and fading out below, with no edge (never shown at a
+  page's top). The game's menu bar on the desktop looks the same (see below),
+  without icons.
+- A main button (Play, the drawer's Resume over the game) is a flat
+  `--amber` fill with dark text, no stripes, no edge.
 - A game's title box on its page is the launcher's own: `--panel` at 92 % over
   the picture, the title in `--gold`, the year and the notes in `--amber`, and
   the shade over the picture is `--ink` (`themeStyle` in `src/lib/themes.ts`).
@@ -91,9 +94,9 @@ follows the same rules.
 
 | Token                                    | Value                                | Use                                                   |
 | ---------------------------------------- | ------------------------------------ | ----------------------------------------------------- |
-| `--ink`                                  | `#1c1a16`                            | the page                                              |
-| `--ink-deep`                             | `#14120e`                            | badges, tracks, job output, the darkest parts         |
-| `--rail`                                 | `#161410`                            | the game list beside the page, Android's rail         |
+| `--ink`                                  | `#191919`                            | the page                                              |
+| `--ink-deep`                             | `#121212`                            | badges, tracks, job output, the darkest parts         |
+| `--rail`                                 | `#131313`                            | the game list beside the page, Android's rail         |
 | `--panel`                                | `#24221e`                            | cards and panels (`--card`)                           |
 | `--panel-hi`                             | `#2c2a26`                            | a card under the pointer or open (`--card-hi`)        |
 | `--glow`                                 | `#f5c040` (a game's own: its accent) | the light under the bar and along the game menu's top |
@@ -106,7 +109,6 @@ follows the same rules.
 | `--control`, `--control-hi`              | `#24221e`, `#2e2c28`                 | plain controls on the page                            |
 | `--control-card`, `--control-card-hi`    | `#2e2c28`, `#363430`                 | plain controls on a card                              |
 | `--on-fill`, `--on-fill-hi`              | the accent at 22 % / 28 % on ink     | a control that is on or picked                        |
-| `--coal-stripes`, `--coal-stripes-hi`    | see the header bar above             | the bar's buttons                                     |
 | `--radius`, `--radius-sm`, `--radius-xs` | 12, 6, 4 px                          | cards; controls; badges                               |
 | `--bar-stripe`, `--bar-stripe-alt`       | `#c99222`, `#bd8619`                 | the header bar's stripes                              |
 | `--bar-ink`, `--bar-ink-deep`            | `#2a1800`, `#1b1206`                 | text on gold (desktop: `--ink-deep`)                  |
@@ -139,7 +141,7 @@ navy (user decision), no brown, no mid grey.
 
 | Surface                         | Fill      | Control on it        |
 | ------------------------------- | --------- | -------------------- |
-| page (`--ink`)                  | `#1c1a16` | `#24221e`, `#2e2c28` |
+| page (`--ink`)                  | `#191919` | `#24221e`, `#2e2c28` |
 | card, panel, drawer (`--panel`) | `#24221e` | `#2e2c28`, `#363430` |
 | card in the game (`--panel-hi`) | `#2c2a26` | `#2e2c28`, `#363430` |
 
@@ -158,14 +160,22 @@ window are coal sheets (`--panel`), its cards a flat `--panel-hi`, and the
 controls on them are `--control-card`, with no edge. A row under the
 pointer or the focus lifts to `--control-card-hi` with a short gold bar at its
 left (no gold tint, which reads brown on dark). Key hints and the "Paused while
-open" badge sit on `--ink-deep`. The bar's tabs and its Quit and Resume buttons are bar buttons:
-coal stripes continuing the bar's (which drift slowly), gold text, no edge.
+open" badge sit on `--control-card-hi` and `--control-card`, never black. Under
+the menu, on the desktop and in Android's drawer alike, the whole game is
+blurred and dimmed (`--ink-deep`, 45 % at the top to 82 % at the foot, darker
+at the sides); the window has no shadow over it (user decision). The desktop's
+menu bar is the launcher's desktop header over it: no bar of its own and no
+extra dim. The logo's name in
+`--text` and its mark in `--amber`, the tabs and the Quit and Resume buttons
+filled with `--panel` (`--control-card` under the pointer), `--amber` text, no
+edge. The open tab's pill is `--amber`, its words in `--bar-ink-deep`, and it
+slides from tab to tab.
 
 The game's window ground is the theme's coal with a glow of the game's colour
 along its top: `--panel-hi` mixed 8 % with `--glow`, more of which looks odd
 on the coal. Android's drawer and its controller settings panel have the same
-light along their top, under the header too. The window's right side has the bar's stripes, barely visible,
-in its top left corner only, fading out down and to the right.
+light along their top, under the header too. The window's right side is a
+darker plain ground, with faint stripes in its top left corner.
 
 ## Logo
 
@@ -175,7 +185,7 @@ alone (the "O" with the lombax's head) where the name does not fit. Its box is
 centred on the capitals of "RAC", so it lines up with text beside it; the
 ears stick out above.
 
-- Header bar: the whole logo in `--bar-name`, the version beside it.
+- Header: the logo's name in `--text`, its mark in `--amber`, the version beside it.
 - Header bar under 560 px: the mark.
 - Android's rail and the first run's welcome: the mark in `--amber`.
 
@@ -194,12 +204,12 @@ The fonts are bundled from npm (`@fontsource/audiowide`,
 
 ## Pieces taken from the site
 
-| Site                                                                                                                                                                                                                                         | Launcher                                                                                                                                           |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Header.tsx`: the sticky gold bar, the logo, the tabs in one darker capsule (selected: a dark chip with gold text), the site and Discord links                                                                                               | `src/components/Header.svelte`                                                                                                                     |
-| `Progress.tsx`: a game's card, a gradient from its `from` to its `to` colour, boxes with a thick border in its `border` colour, the "Progress / 59,32 %" pair, the bar with a light sweeping across it, the "… of … code bytes matched" line | `src/components/GameTile.svelte` (smaller), the band in `src/pages/GamePlayer.svelte`, `src/components/ProgressBar.svelte` and `.bar` in `app.css` |
-| `globals.css`: section numbers that count up (`01`, `02`, …), the `rise` and `sweep` animations, reduced motion                                                                                                                              | `.sec-num`, `.sections`, `.rise`, `.bar` in `app.css`                                                                                              |
-| Numbers: two decimals with a decimal comma (`59,32 %`), bytes grouped with narrow spaces                                                                                                                                                     | `src/lib/format.ts`                                                                                                                                |
+| Site                                                                                                                                                                                                                                         | Launcher                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `Header.tsx`: the sticky gold bar, the logo, the tabs in one darker capsule (selected: a dark chip with gold text), the site and Discord links                                                                                               | `src/components/Header.svelte`                                                                         |
+| `Progress.tsx`: a game's card, a gradient from its `from` to its `to` colour, boxes with a thick border in its `border` colour, the "Progress / 59,32 %" pair, the bar with a light sweeping across it, the "… of … code bytes matched" line | the band in `src/pages/GamePlayer.svelte`, `src/components/ProgressBar.svelte` and `.bar` in `app.css` |
+| `globals.css`: section numbers that count up (`01`, `02`, …), the `rise` and `sweep` animations, reduced motion                                                                                                                              | `.sec-num`, `.sections`, `.rise`, `.bar` in `app.css`                                                  |
+| Numbers: two decimals with a decimal comma (`59,32 %`), bytes grouped with narrow spaces                                                                                                                                                     | `src/lib/format.ts`                                                                                    |
 
 The launcher's own additions keep to the same palette: pills (a dot and a
 word on a tint of their state's colour, 4 px corners), buttons with 6 px
@@ -235,39 +245,88 @@ with `data-game-colors` on the page, and the core hands them to the game's menu
 (`ui_colors(theme, game, game_colors)`). The light under the bar stays as
 without it. Off, every game wears the gold.
 
+## The desktop's game list
+
+Each game in the list is its disc (`SideList.svelte`, `Disc.svelte`, user
+decision): its print, or the game's picture as a label. The list has no panel
+of its own, it sits on the page (user decision). The open game's disc is a bit
+larger and turned; the disc under the mouse or the pad's focus turns a little.
+A crash is a red dot at the disc's foot. A long name breaks before the game's
+own name ("Going Commando"). A narrow window shows the discs only.
+
+## Android's Games tab
+
+A shelf of discs (`DiscShelf.svelte`, user decision, after Hakimba's
+cartouche), landscape only. The rail stays on the left, over the wave, which
+shows through it soft, as through frosted glass.
+
+- Left: the wheel. Each game is a disc with its real print, shipped in
+  `public/img/discs/` (`scripts/disc_prints.py`, user decision), or the game's
+  picture as a label if it fails to load. Up, down, a drag or a tap on a neighbour turns it on a spring. The
+  disc's shadow follows the turn (`--shade`), so it never pops in. Behind it a
+  soft wave of light in the game's colour, no specks (user decision)
+  (`WaveBackdrop.svelte`, after the PSP and PS3 menus; still with reduced
+  motion). The GPU draws it (WebGL) at the screen's own pixels, each sheet one smooth band with soft edges (no threads), only in the band it can reach, at most 60 frames a
+  second. It follows the wheel, not its bounce. A finger held on the disc
+  turns it. The discs below fade out down to the screen's edge, under the foot.
+  Opening Games from another tab, the wave only fades in (it never slides with
+  the page under the rail) and gives a short push, as after one turn of the
+  wheel down.
+- Right: year and region, the name in the game's title font, its newest save
+  or progress, notes (crash, mods), then Play (A), Game page (Y) and "..."
+  (`src/lib/gameMenu.svelte.ts`), and the Mods switch under them, the same pill as on the desktop's game page (X turns it).
+  The buttons and the pad's glyphs are filled (`--control-card`), never see-through.
+  With game colours on, the disc picked brings its game's colours. Sizes scale with the window height (`clamp()`).
+- Top right: What's new chips, hidden when empty. Foot: the running job and
+  the pad hints.
+
+Play puts the disc into a console (`DiscLaunch.svelte`, our own drawing, no
+maker's marks; timings in `src/lib/insertion.ts`, after cartouche). B before
+the click puts it back. With reduced motion the game starts at once.
+
+On Android a game's page has no Play, Mods switch or menu (they are beside the
+disc); its band has a "‹ Games" button.
+
 ## A game's picture
 
-Each game has a picture (`public/img/<name>-bg.webp`, the site's backdrop
-under the site's name: `rac1`, `gc`, `uya`, `deadlocked`, `size-matters`, `sac`),
-listed in `src/lib/media.ts`. It shows in the game list, under the game's
-band and faintly behind its page. A file that is not there is left out: the
-game's colours show, as on the site.
+Each game has three pictures in `public/img/`, under the site's names (`rac1`,
+`gc`, `uya`, `deadlocked`, `size-matters`, `sac`), listed in `src/lib/media.ts`:
 
-The site serves its backdrops from its server, not its repository, so a new
-one is copied from there, and scaled to 1920 wide when it is wider: the band
-is never wider than that on screen, and a 3840 picture took long enough to
-decode that the page slid in without it and showed it a moment later.
-The game list shows each picture 64 × 44 from a thumbnail,
-`<name>-thumb.webp` (192 × 132, a few KB), so that it does not decode every
-game's full picture; Android's game tiles show `<name>-tile.webp`, the picture
-1280 wide, for the same reason. `python3 scripts/media.py thumbs` makes both
-again after a picture is added or replaced. `python3 scripts/media.py still RECORDING GAME
---at S` writes a picture and its thumbnail from a frame of a recording of
-your own play. `node scripts/steam_art.mjs` makes Steam's pictures of the launcher
-(`src-tauri/steam/`) again after `rac1-bg.webp` or the logo changes;
-`bash scripts/steam_game_art.sh` (ffmpeg) makes each game's own, for its entry
-from the game's page (`src-tauri/steam/games/<game>/`), from its picture and its
-name in Orbitron, after a game's picture changes.
+- `<name>-bg.webp`, 1920 × 620, no logo: under the game's band once its page is
+  open, and faintly behind the page;
+- `<name>-tile.webp`, 1280 × 569: a disc's label until its print is
+  downloaded, with the game's name at its foot in its title font, the game's
+  own name on the line under the series (user decision: no logos);
+- `<name>-thumb.webp`, 192 × 132: lists without discs, shown 64 × 44.
+
+`python3 scripts/game_art.py` makes all three from the game's SteamGridDB hero
+(links in the script), with one look for every game: shadows pulled toward the
+page's coal, a light from the top right in the game's accent, the foot sinking
+into the bar's ink (`--bar-ink`), a soft bloom on bright parts (user decision).
+The characters are not retouched. Each frame keeps the faces whole and clear of
+the name.
+
+The band shows the picture at 60 %, from its upper part
+(`object-position: 50% 25%`). Behind the page it is a screen blend at 20 % with
+faded edges, so it only adds light.
+
+`python3 scripts/media.py thumbs` makes the thumbnails again from the
+pictures; `python3 scripts/media.py still RECORDING GAME --at S` writes a
+picture, its tile (without a logo) and its thumbnail from a frame of a
+recording of your own play. `node scripts/steam_art.mjs` makes Steam's pictures
+of the launcher (`src-tauri/steam/`) again after `rac1-bg.webp` or the logo
+changes; `bash scripts/steam_game_art.sh` (ffmpeg) makes each game's own, for
+its entry from the game's page (`src-tauri/steam/games/<game>/`), from its
+picture and its name in Orbitron, after a game's picture changes.
 
 The band shows no moving clip: one was planned (an animated WebP under the
 picture), and taken out on 2026-10-20 with the old `*-gameplay.gif` files,
 which nothing showed. A still picture does the band's work without the
 download, and a page with a Play button in it needs nothing moving behind it.
 
-Where each picture comes from (who made it, from which disc, under what
-terms) is not recorded yet for the backdrops here since 2026-10-09. It
-belongs in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) before a
-release, and a new file adds its line there when it is added.
+Where each picture comes from is in
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md); a new file adds its line
+there when it is added.
 
 ## Structure
 
@@ -335,13 +394,16 @@ release, and a new file adds its line there when it is added.
   control the pad must reach that is out of Tab's order (a roving tab, radio
   or menu item) uses its role inside `tablist`, `radiogroup` or `menu`. What
   floats over the page and should be reached only past its end (the toasts)
-  carries `data-pad-aside`.
+  carries `data-pad-aside`. A container can steer the pad out of it with
+  `data-pad-up`/`-down`/`-left`/`-right`: a selector to land on, or `none` to
+  stay (`steer` in `pad.ts`). Going up into the bar lands on the open tab.
 - `src/lib/stylesheets.test.ts` holds `app.css` and every component's
   `<style>` to three of these rules: no hex colour outside `:root`, no hover
   style outside `@media (hover: hover)` or without the controller's guard. It
   names the file and line of what breaks one.
 - Android follows Android's own patterns, not the desktop's: a navigation rail
-  on the left (a bar at the bottom below 600 px wide) in place of the gold
+  on the left (a bar at the bottom below 600 px wide, no line beside it; the
+  controller never focuses it, LB and RB change tabs) in place of the gold
   bar, Material's 24/16 px margins, a ripple under the finger
   (`src/lib/ripple.ts`), snackbar-style toasts and no text selection on
   controls. The `--nav-*` tokens say what the navigation takes of the window.

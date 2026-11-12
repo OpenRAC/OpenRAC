@@ -242,6 +242,7 @@ let config: Config = {
   developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("developer"),
   // ?advanced switches the advanced save editor on.
   saveEditorAdvanced: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("advanced"),
+  incrementalBuilds: false,
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup"),
   installDir: "/home/you/.local/share/dev.openrac.launcher",
@@ -258,7 +259,6 @@ let config: Config = {
   checkModUpdates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("modupdates"),
   updateChannel: null,
   updateBranch: null,
-  layout: "compact",
   theme: new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("theme") ?? "openrac",
   discordClientId: null,
   // ?gold: Game colours off, every game in the launcher's gold.
@@ -561,6 +561,7 @@ function library(): Library {
           status: st,
           actions: (actions.versions[key] ?? []).filter(shown).map((a) => view(a, st, key)),
           portOutdated: false,
+          portCleanReason: null,
         };
       });
       return { id: g.id, title: g.title, year: g.year ?? null, install: installState(g.id), versions };
@@ -2570,9 +2571,13 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       });
     case "get_config":
       return delay<Config>({ ...config });
-    case "save_config":
+    case "save_config": {
       config = { ...(args.config as Config) };
+      // For the e2e tests: how many writes, and the last one (Games keeps a pick once it stops).
+      const seen = window as unknown as { __openracConfigWrites?: { count: number; last: Config } };
+      seen.__openracConfigWrites = { count: (seen.__openracConfigWrites?.count ?? 0) + 1, last: { ...config } };
       return delay<Config>({ ...config });
+    }
     case "adopt_godot":
       return delay<Config>({ ...config });
     case "detect":

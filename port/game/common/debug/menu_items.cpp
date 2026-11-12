@@ -121,6 +121,12 @@ int peak_index() {
     return step_index(kPeaks, settings::get().hdr_peak);
 }
 
+constexpr auto kSizes = std::to_array(settings::kMenuSizes);
+
+int size_index() {
+    return step_index(kSizes, settings::get().menu_size);
+}
+
 // An options row (options_menu.h) as a choice.
 Item row_choice(int row) {
     Item item;
@@ -166,6 +172,14 @@ Item item(Id id, std::uint8_t where) {
             return row_choice(kDisplayMode);
         case Id::Monitor:
             return row_choice(kMonitor);
+        case Id::MenuSize: {
+            const int at = size_index();
+            it.value =
+                set.menu_size == 100 ? std::string("Auto") : std::format("{}%", set.menu_size);
+            it.can_lower = at > 0;
+            it.can_raise = at < static_cast<int>(kSizes.size()) - 1;
+            return it;
+        }
         case Id::Picture:
             it = row_choice(kAspect);
             if (where == menu::kTouch && set.aspect == settings::Aspect::Window) {
@@ -186,6 +200,8 @@ Item item(Id id, std::uint8_t where) {
             return row_choice(kAnisotropy);
         case Id::DrawDistance:
             return row_choice(kDrawDistance);
+        case Id::ActiveDistance:
+            return row_choice(kActiveDistance);
         case Id::FrameRate:
             return row_choice(kFrameRate);
         case Id::FrameCap:
@@ -523,10 +539,11 @@ Item item(Id id, std::uint8_t where) {
         case Id::FreecamExit:
             return it;
         case Id::FreecamHelp:
-            it.value = menu::entry(id).help;
+            // The keys are drawn as a list (freecam_help); the words are only for culling.
+            it.value = "";
             if (s.camera_tools.mode == CameraDebugMode::CullingInspection) {
-                it.value += " Yellow: culling frustum. Shadow maps: red, green, blue, purple (near "
-                            "to far). Objects not submitted by the game cannot be revealed here.";
+                it.value = "Yellow: culling frustum. Shadow maps: red, green, blue, purple (near "
+                           "to far). Objects not submitted by the game cannot be revealed here.";
             }
             return it;
 
@@ -554,6 +571,12 @@ bool act(Id id, int by) {
         case Id::DisplayMode:
             change_setting(kDisplayMode, by);
             return false;
+        case Id::MenuSize:
+            set.menu_size = kSizes[static_cast<std::size_t>(
+                std::clamp(size_index() + by, 0, static_cast<int>(kSizes.size()) - 1)
+            )];
+            changed();
+            return false;
         case Id::Monitor:
             change_setting(kMonitor, by);
             return false;
@@ -576,6 +599,9 @@ bool act(Id id, int by) {
             return false;
         case Id::DrawDistance:
             change_setting(kDrawDistance, by);
+            return false;
+        case Id::ActiveDistance:
+            change_setting(kActiveDistance, by);
             return false;
         case Id::FrameRate:
             change_setting(kFrameRate, by);
@@ -950,6 +976,42 @@ void quit_confirm_rows(bool note) {
     }
 }
 
+namespace {
+
+// The freecam's keys, for the device in hand: the controller's (on Android always, it has no
+// keys of its own) or the keyboard and mouse.
+void freecam_help(std::uint8_t where) {
+    if (where == menu::kTouch || s.menu_motion.pad) {
+        const SDL_GamepadType type = pad_type();
+        const bool sony = type == SDL_GAMEPAD_TYPE_PS3 || type == SDL_GAMEPAD_TYPE_PS4
+                          || type == SDL_GAMEPAD_TYPE_PS5;
+        const bool nintendo = type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO
+                              || type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR;
+        const std::string l2 = sony ? "L2" : nintendo ? "ZL" : "LT";
+        const std::string r2 = sony ? "R2" : nintendo ? "ZR" : "RT";
+        const std::string l3 = sony ? "L3" : "LS";
+        const std::string r3 = sony ? "R3" : "RS";
+        menu_key_rows({
+            {{l3}, "Move"},
+            {{r3}, "Look"},
+            {{r2, l2}, "Up, down"},
+            {{pad_name(type, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER),
+              pad_name(type, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER)},
+             "Faster, slower"},
+            {{l3, r3}, s.developer ? "Both: freecam on and off" : "Both: freecam off"},
+        });
+    } else {
+        menu_key_rows({
+            {{"W", "A", "S", "D"}, "Move"},
+            {{"Alt"}, "Hold to look (or RMB)"},
+            {{"E", "Q"}, "Up, down"},
+            {{"Shift", "Ctrl"}, "Faster, slower"},
+        });
+    }
+}
+
+}  // namespace
+
 void draw_entry(Id id, std::uint8_t where) {
     const menu::Entry& e = menu::entry(id);
     if (!menu::offered(e, where)) {
@@ -1002,6 +1064,12 @@ void draw_entry(Id id, std::uint8_t where) {
             }
             break;
         case menu::Kind::Note:
+            if (id == Id::FreecamHelp) {
+                freecam_help(where);
+                if (it.value.empty()) {
+                    return;
+                }
+            }
             menu_note(it.value.c_str());
             return;
         case menu::Kind::Fixes:

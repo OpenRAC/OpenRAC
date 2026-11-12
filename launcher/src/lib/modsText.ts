@@ -316,9 +316,9 @@ export const WITH_MODS = {
   label: "Mods",
   hint: "Play with your gameplay mods, packs, packed levels and Enhanced graphics from the Mods tab.",
   /** Beside the switch when it is on: how many are switched on, a way to the Mods tab. */
-  count: (n: number | null) => (n === null ? "Mods tab" : n === 0 ? "none on yet" : `${n} on`),
+  count: (n: number | null) => (n === null || n === 0 ? "enabled" : `enabled: ${n}`),
   /** Beside the switch when it is off. */
-  original: "original game",
+  original: "disabled",
   offNotice: "Play starts the game without mods. Turn on Mods under Play to use them.",
   turnOn: "Turn on",
 } as const;

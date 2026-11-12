@@ -89,8 +89,11 @@
     border-top: 1px solid var(--line);
   }
 
-  /* The row's words are its own button: they open what is under it. */
+  /* The row's words are its own button: they open what is under it, the triangle on their left
+     turning as in Differences. Padding keeps the words inside the fill a hover gives it; the
+     negative margin keeps them in line with the rows' rules. */
   .what {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -100,10 +103,26 @@
     border-radius: var(--radius-sm);
     background: none;
     box-shadow: none;
-    padding: 0;
+    padding: 6px 10px 6px 28px;
+    margin-left: -10px;
     min-height: 0;
     text-align: left;
     font-weight: 400;
+  }
+
+  .what::before {
+    content: "";
+    position: absolute;
+    left: 11px;
+    top: 13px;
+    border-left: 5px solid var(--lav);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    transition: transform var(--fast) var(--ease);
+  }
+
+  .open .what::before {
+    transform: rotate(90deg);
   }
 
   .name {
@@ -146,7 +165,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
-    padding: 2px 0 4px;
+    padding: 2px 0 4px 18px;
     font-size: 0.8125rem;
     color: var(--dim);
   }

@@ -38,6 +38,7 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
             android:launchMode="singleTask"
             android:label="${appLabel}"
+            android:screenOrientation="sensorLandscape"
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>

@@ -43,7 +43,7 @@ constexpr Release kNtsc2{
     {},                                                // 29: no level
     {0x001B9E70, 0x001BE140, 0x001B2BA0, 0x001B2BA4},  // 30 (the release's build, versionmap: exact)
     },
-    0x001A7290,  // the release's build
+    0x001A7290,  // versionmap: exact
     {{{0x001A7A51, 6}, {0x001A7A4A, 8}, {0x001A7A53, 7}, {0x001A7A52, 5}}},  // versionmap: exact
     0x001A72C0,  // versionmap: exact
     0x00152C18,  // versionmap: between

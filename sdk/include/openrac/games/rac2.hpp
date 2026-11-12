@@ -27,6 +27,14 @@ struct Moby_GetHitMessage {
     using fn = uint32_t (*)(uint32_t, uint32_t, int32_t);
 };
 
+// Posts a hit to moby victim from request (a game address: +0x00 the place, +0x10 the attacker, +0x14 the weapon or attack mask, +0x1C the damage, f32), into the hit ring Moby_GetHitMessage reads (0x1BF200, 64 entries of 0x40 bytes); a weaker hit on a moby with one pending only adds its mask. The weapons' shots, explosions and the tethers call it, each with the damage of its weapon's version. A replacement can change the request's damage for the call (the caller may post the same request to other victims: put it back after).
+struct Moby_PostHit {
+    static constexpr const char* id = "rac2.combat.post_hit";
+    static constexpr const char* name = "Moby_PostHit";
+    static constexpr const char* signature = "void(u32,u32)";
+    using fn = void (*)(uint32_t, uint32_t);
+};
+
 // Takes rounds of a weapon's ammo (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo.
 struct Weapon_TakeAmmo {
     static constexpr const char* id = "rac2.weapon.take_ammo";
@@ -79,6 +87,70 @@ struct Item_Give {
 struct Item_Equip {
     static constexpr const char* id = "rac2.item.equip";
     static constexpr const char* name = "Item_Equip";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
+// Steps weapon id to its next version by experience: its record (g_itemEquippedSlot) moves to the next row (+0x4A), its experience is kept at least the step's (+0x6C << 5), and its ammo filled to the new row's (+0x8E); nothing at its last row. The hero's experience check (func_L00_002D5EB8) calls it each tick a weapon's experience reaches its step, challenge mode's rows only past func_00288D58. A replacement that does not call the original blocks the step.
+struct Weapon_LevelUp {
+    static constexpr const char* id = "rac2.weapon.level_up";
+    static constexpr const char* name = "Weapon_LevelUp";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// The vendor's Mega purchase of item id: its record moves two rows on (one for the two-version weapons 12, 14, 17, 18 and 53) and its experience is cleared; 1 when it moved, 0 at its last row. The vendor calls it after a purchase of an upgrade entry (Vendor_BuildList's +0x14 set) and its price is paid; a replacement can carry out an upgrade of its own and return 1.
+struct Item_Upgrade {
+    static constexpr const char* id = "rac2.item.upgrade";
+    static constexpr const char* name = "Item_Upgrade";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
+// Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), class (the preview model), price text, marked, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's.
+struct Vendor_BuildList {
+    static constexpr const char* id = "rac2.vendor.build_list";
+    static constexpr const char* name = "Vendor_BuildList";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// The price in bolts of the vendor entry under the cursor (g_vendorUi +0x80): an upgrade entry's from the row it moves to, a weapon's from its record (+0x80), 0 for ammo (priced per round). The vendor's dialog and its purchase both ask it, so a replacement prices an entry everywhere it shows.
+struct Vendor_Price {
+    static constexpr const char* id = "rac2.vendor.price";
+    static constexpr const char* name = "Vendor_Price";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
+// Writes item id's colours to three u32 the caller has (game addresses): the two of its experience bar and tint, its version's colour (0x00BBGGRR in the low bytes, from D_001ADAF8 or D_001ADB08 by version) that its icon and name are drawn in. The quick select (func_0033FB98) and the weapons screen's grid (func_00337210) call it for each item they show; a replacement can call the original and write its own.
+struct Item_Colors {
+    static constexpr const char* id = "rac2.item.colors";
+    static constexpr const char* name = "Item_Colors";
+    static constexpr const char* signature = "void(i32,u32,u32,u32)";
+    using fn = void (*)(int32_t, uint32_t, uint32_t, uint32_t);
+};
+
+// Draws the vendor's list (g_vendorUi +0x140, the entries Vendor_BuildList made): for each of the rows -5 to +6 around the cursor (+0x80) that is in the list (under the count, +0x740), in that order, its item's icon in Item_VersionColor's colour (an upgrade entry, +0x14 set, in its kind 2, the Mega gold), then its label. A replacement can call the original and know which entry each Item_VersionColor call is for.
+struct Vendor_DrawList {
+    static constexpr const char* id = "rac2.vendor.draw_list";
+    static constexpr const char* name = "Vendor_DrawList";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// The colour of an item version kind (0x00BBGGRR in the low bytes; 2 the Mega gold): the vendor's list (Vendor_DrawList) asks it for each icon it draws. A replacement can return its own.
+struct Item_VersionColor {
+    static constexpr const char* id = "rac2.item.version_color";
+    static constexpr const char* name = "Item_VersionColor";
+    static constexpr const char* signature = "u32(i32)";
+    using fn = uint32_t (*)(int32_t);
+};
+
+// The game's text of an id: the address of its string in game memory, which every label, name and description the game prints asks (the vendor's list its upgrade entries' label, 0x325F, "Mega"; its dialog the item's name). Under the port's own texts (host/options.c). For a text of its own a replacement writes into one of the port's eight slots, 96 bytes each with the ending 0, which this lookup gives for ids 0x7F10 to 0x7F17 (call the game function by name, not the original), and returns that address. A replacement that calls the original gets the game's.
+struct Text_ById {
+    static constexpr const char* id = "rac2.text.by_id";
+    static constexpr const char* name = "Text_ById";
     static constexpr const char* signature = "i32(i32)";
     using fn = int32_t (*)(int32_t);
 };
@@ -198,10 +270,14 @@ struct Moby_NanotechBall_Update {
 namespace hooks {
     namespace combat {
         using get_hit = rac2::Moby_GetHitMessage;
+        using post_hit = rac2::Moby_PostHit;
     }  // namespace combat
     namespace item {
+        using colors = rac2::Item_Colors;
         using equip = rac2::Item_Equip;
         using give = rac2::Item_Give;
+        using upgrade = rac2::Item_Upgrade;
+        using version_color = rac2::Item_VersionColor;
     }  // namespace item
     namespace level {
         using load = rac2::Level_Load;
@@ -256,7 +332,16 @@ namespace hooks {
         using nanotech_steps = rac2::Hero_NanotechSteps;
         using take_damage = rac2::Hero_TakeDamage;
     }  // namespace player
+    namespace text {
+        using by_id = rac2::Text_ById;
+    }  // namespace text
+    namespace vendor {
+        using build_list = rac2::Vendor_BuildList;
+        using draw_list = rac2::Vendor_DrawList;
+        using price = rac2::Vendor_Price;
+    }  // namespace vendor
     namespace weapon {
+        using level_up = rac2::Weapon_LevelUp;
         using take_ammo = rac2::Weapon_TakeAmmo;
     }  // namespace weapon
 }  // namespace hooks

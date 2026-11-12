@@ -48,6 +48,10 @@ pub struct VersionView {
     /// The game is built, but from an older OpenRAC than the checkout holds now (an update): it is
     /// built again from scratch before it is played (port_build.rs).
     pub port_outdated: bool,
+    /// Set when the game is outdated and only a build from scratch is safe, with why (a sentence
+    /// that goes after "from scratch because it ..."-style text). The Incremental builds setting
+    /// still cleans then. None: an incremental build can catch up (port_build::Why).
+    pub port_clean_reason: Option<String>,
 }
 
 /// A version's status, with the disc image a set-up from the player's disc
@@ -115,8 +119,11 @@ pub fn library(config: &Config) -> Result<Library, String> {
                     };
                     let actions = views(file.as_ref().and_then(|f| f.versions.get(&version.key)), &ctx);
                     let built = actions.iter().any(|a| a.id == "play" && a.this_platform && a.done);
-                    let port_outdated = built && port_build::outdated(&root, &version.key.replace('/', "-"));
-                    VersionView { version, status, actions, port_outdated }
+                    let why =
+                        if built { port_build::outdated_why(&root, &version.key.replace('/', "-")) } else { None };
+                    let port_outdated = why.is_some();
+                    let port_clean_reason = why.and_then(|w| w.clean_reason()).map(str::to_string);
+                    VersionView { version, status, actions, port_outdated, port_clean_reason }
                 })
                 .collect(),
             id: game.id,

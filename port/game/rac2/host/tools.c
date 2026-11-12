@@ -21,7 +21,7 @@ void func_00298E08(void);
 /* The on-screen pad's context (touch.c). */
 int rac2_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]);
 
-/* The levels, by the game's own numbers (games/rac2/decomp/docs/LEVELS.md): 21 and 27 to 29 have no
+/* The levels, by the game's own numbers (games/rac2/decomp/docs/build/levels.md): 21 and 27 to 29 have no
  * program on the disc. */
 #define LEVELS RAC2_LEVELS
 const char* const rac2_level_names[RAC2_LEVELS] = {

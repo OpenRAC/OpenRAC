@@ -98,9 +98,10 @@
     gap: 10px;
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
-    background: var(--card-hi);
-    --control: var(--control-card);
-    --control-hi: var(--control-card-hi);
+    /* Warm, as the Get mods card: a hint about the game, not a grey slab. */
+    background: color-mix(in srgb, var(--amber) 9%, var(--panel));
+    --control: color-mix(in srgb, var(--amber) 16%, var(--panel));
+    --control-hi: color-mix(in srgb, var(--amber) 24%, var(--panel));
     font-size: 0.8125rem;
     color: var(--body);
   }
@@ -135,9 +136,27 @@
     color: var(--soft);
   }
 
+  /* The whole bar is the field: the ring and the hover take all of it, icon too, not only the
+     input inside. */
   .find:focus-within {
     background: var(--on-fill);
     color: var(--amber);
+    box-shadow: inset 0 0 0 2px var(--amber);
+  }
+
+  @media (hover: hover) {
+    :global(html:where(:not([data-input="pad"]))) .find:hover:not(:focus-within) {
+      background: var(--control-hi);
+    }
+
+    :global(html:where(:not([data-input="pad"]))) .find input:hover:not(:disabled) {
+      background: none;
+    }
+  }
+
+  .find input:focus,
+  .find input:focus-visible {
+    box-shadow: none;
   }
 
   .find input {
