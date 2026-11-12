@@ -644,7 +644,7 @@ void log_pipeline_statistics(VkPipeline pipeline, const PipelineKey& k) {
         std::string line;
         for (std::uint32_t s = 0; s < n; ++s) {
             const auto& stat = stats[s];
-            line += std::format(" {}=", stat.name);
+            line += std::format(" {}=", std::string_view(stat.name));
             switch (stat.format) {
                 case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_BOOL32_KHR:
                     line += stat.value.b32 ? "1" : "0";
@@ -664,7 +664,7 @@ void log_pipeline_statistics(VkPipeline pipeline, const PipelineKey& k) {
             "vulkan: pipeline stats program {} modes [{}] {}:{}",
             k.program,
             modes,
-            stages[index].name,
+            std::string_view(stages[index].name),
             line
         );
     }

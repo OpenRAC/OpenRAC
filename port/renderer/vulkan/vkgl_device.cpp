@@ -998,7 +998,11 @@ void describe_device() {
     p2.pNext = &driver;
     vkGetPhysicalDeviceProperties2(g->physical, &p2);
     g->driver_version = driver.driverInfo[0] != '\0'
-                            ? std::format("{} {}", driver.driverName, driver.driverInfo)
+                            ? std::format(
+                                  "{} {}",
+                                  std::string_view(driver.driverName),
+                                  std::string_view(driver.driverInfo)
+                              )
                             : std::string(driver.driverName);
     g->software = p.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
     g->gl_renderer = std::format("{} (Vulkan)", g->device_name);
