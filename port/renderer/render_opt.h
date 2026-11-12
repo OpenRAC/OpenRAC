@@ -28,7 +28,11 @@ namespace openrac::renderer::render_opt {
 
 // The Enhanced graphics setting "Effects detail" (the presets set it): a lossy entry is on only
 // at its level or below, so High draws every effect in full.
-enum class EffectsDetail : std::uint8_t { Low, Medium, High };
+enum class EffectsDetail : std::uint8_t {
+    Low,
+    Medium,
+    High
+};
 
 // The optimisations, one per entry of the table, in its order.
 enum class Opt : std::uint8_t {

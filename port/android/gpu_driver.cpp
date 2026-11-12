@@ -79,9 +79,14 @@ std::string describe(PFN_vkGetInstanceProcAddr get) {
         enumerate(instance, &count, devices.data());
         VkPhysicalDeviceProperties p{};
         properties(devices[0], &p);
-        out = std::format("{}, driver {:#x}, Vulkan {}.{}.{}", std::string_view(p.deviceName), p.driverVersion,
-                          VK_API_VERSION_MAJOR(p.apiVersion), VK_API_VERSION_MINOR(p.apiVersion),
-                          VK_API_VERSION_PATCH(p.apiVersion));
+        out = std::format(
+            "{}, driver {:#x}, Vulkan {}.{}.{}",
+            std::string_view(p.deviceName),
+            p.driverVersion,
+            VK_API_VERSION_MAJOR(p.apiVersion),
+            VK_API_VERSION_MINOR(p.apiVersion),
+            VK_API_VERSION_PATCH(p.apiVersion)
+        );
     }
     if (destroy != nullptr) {
         destroy(instance, nullptr);

@@ -444,10 +444,9 @@ void LevelScene::keep_far_cascades(bool level_bounds) {
     }
 
     // A kept cascade stays in the atlas: with shadow-far-quarter it may be kept again.
-    const unsigned held =
-        renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowFarQuarter)
-            ? all
-            : all & ~m_kept_cascades;
+    const unsigned held = renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowFarQuarter)
+                              ? all
+                              : all & ~m_kept_cascades;
     drawn.fresh = m_shadow_atlas_active && !m_scroll_requested ? held : 0u;
     drawn.separate_hero = m_hero_ready;
     drawn.generation = m_static_generation;

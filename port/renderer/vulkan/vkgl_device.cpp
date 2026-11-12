@@ -997,13 +997,12 @@ void describe_device() {
     VkPhysicalDeviceProperties2 p2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
     p2.pNext = &driver;
     vkGetPhysicalDeviceProperties2(g->physical, &p2);
-    g->driver_version = driver.driverInfo[0] != '\0'
-                            ? std::format(
-                                  "{} {}",
-                                  std::string_view(driver.driverName),
-                                  std::string_view(driver.driverInfo)
-                              )
-                            : std::string(driver.driverName);
+    g->driver_version =
+        driver.driverInfo[0] != '\0'
+            ? std::format(
+                  "{} {}", std::string_view(driver.driverName), std::string_view(driver.driverInfo)
+              )
+            : std::string(driver.driverName);
     g->software = p.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
     g->gl_renderer = std::format("{} (Vulkan)", g->device_name);
     g->gl_version = std::format("4.1 OpenRAC on Vulkan {}, {}", g->api_version, g->driver_version);
