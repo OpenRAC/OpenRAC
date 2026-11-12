@@ -155,7 +155,7 @@ type Item_UpgradeFn = (id: number) -> number
 
 ### `Vendor_BuildListFn`
 
-rac2.vendor.build_list (Vendor_BuildList) void(i32): Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), marked, price text, class, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's.
+rac2.vendor.build_list (Vendor_BuildList) void(i32): Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), class (the preview model), price text, marked, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's.
 
 ```lua
 type Vendor_BuildListFn = (hide_unowned: number) -> ()
@@ -175,6 +175,30 @@ rac2.item.colors (Item_Colors) void(i32,u32,u32,u32): Writes item id's colours t
 
 ```lua
 type Item_ColorsFn = (id: number, first: number, second: number, tint: number) -> ()
+```
+
+### `Vendor_DrawListFn`
+
+rac2.vendor.draw_list (Vendor_DrawList) void(): Draws the vendor's list (g_vendorUi +0x140, the entries Vendor_BuildList made): for each of the rows -5 to +6 around the cursor (+0x80) that is in the list (under the count, +0x740), in that order, its item's icon in Item_VersionColor's colour (an upgrade entry, +0x14 set, in its kind 2, the Mega gold), then its label. A replacement can call the original and know which entry each Item_VersionColor call is for.
+
+```lua
+type Vendor_DrawListFn = () -> ()
+```
+
+### `Item_VersionColorFn`
+
+rac2.item.version_color (Item_VersionColor) u32(i32): The colour of an item version kind (0x00BBGGRR in the low bytes; 2 the Mega gold): the vendor's list (Vendor_DrawList) asks it for each icon it draws. A replacement can return its own.
+
+```lua
+type Item_VersionColorFn = (kind: number) -> number
+```
+
+### `Text_ByIdFn`
+
+rac2.text.by_id (Text_ById) i32(i32): The game's text of an id: the address of its string in game memory, which every label, name and description the game prints asks (the vendor's list its upgrade entries' label, 0x325F, "Mega"; its dialog the item's name). Under the port's own texts (host/options.c). For a text of its own a replacement writes into one of the port's eight slots, 96 bytes each with the ending 0, which this lookup gives for ids 0x7F10 to 0x7F17 (call the game function by name, not the original), and returns that address. A replacement that calls the original gets the game's.
+
+```lua
+type Text_ByIdFn = (id: number) -> number
 ```
 
 ### `Planet_UnlockFn`

@@ -107,7 +107,7 @@ struct Item_Upgrade {
     using fn = int32_t (*)(int32_t);
 };
 
-// Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), marked, price text, class, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's.
+// Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), class (the preview model), price text, marked, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's.
 struct Vendor_BuildList {
     static constexpr const char* id = "rac2.vendor.build_list";
     static constexpr const char* name = "Vendor_BuildList";
@@ -129,6 +129,30 @@ struct Item_Colors {
     static constexpr const char* name = "Item_Colors";
     static constexpr const char* signature = "void(i32,u32,u32,u32)";
     using fn = void (*)(int32_t, uint32_t, uint32_t, uint32_t);
+};
+
+// Draws the vendor's list (g_vendorUi +0x140, the entries Vendor_BuildList made): for each of the rows -5 to +6 around the cursor (+0x80) that is in the list (under the count, +0x740), in that order, its item's icon in Item_VersionColor's colour (an upgrade entry, +0x14 set, in its kind 2, the Mega gold), then its label. A replacement can call the original and know which entry each Item_VersionColor call is for.
+struct Vendor_DrawList {
+    static constexpr const char* id = "rac2.vendor.draw_list";
+    static constexpr const char* name = "Vendor_DrawList";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// The colour of an item version kind (0x00BBGGRR in the low bytes; 2 the Mega gold): the vendor's list (Vendor_DrawList) asks it for each icon it draws. A replacement can return its own.
+struct Item_VersionColor {
+    static constexpr const char* id = "rac2.item.version_color";
+    static constexpr const char* name = "Item_VersionColor";
+    static constexpr const char* signature = "u32(i32)";
+    using fn = uint32_t (*)(int32_t);
+};
+
+// The game's text of an id: the address of its string in game memory, which every label, name and description the game prints asks (the vendor's list its upgrade entries' label, 0x325F, "Mega"; its dialog the item's name). Under the port's own texts (host/options.c). For a text of its own a replacement writes into one of the port's eight slots, 96 bytes each with the ending 0, which this lookup gives for ids 0x7F10 to 0x7F17 (call the game function by name, not the original), and returns that address. A replacement that calls the original gets the game's.
+struct Text_ById {
+    static constexpr const char* id = "rac2.text.by_id";
+    static constexpr const char* name = "Text_ById";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
 };
 
 // Puts a level on the ship's map (MarkLevelAvailable): its byte at 0x1A7BC8 and its place in the map's order (0x139948, on NTSC-U v1.01). Coordinate sellers, story scenes and ship challenges call it, and every level load calls it for the level loaded. Rac1's UnlockPlanet.
@@ -253,6 +277,7 @@ namespace hooks {
         using equip = rac2::Item_Equip;
         using give = rac2::Item_Give;
         using upgrade = rac2::Item_Upgrade;
+        using version_color = rac2::Item_VersionColor;
     }  // namespace item
     namespace level {
         using load = rac2::Level_Load;
@@ -307,8 +332,12 @@ namespace hooks {
         using nanotech_steps = rac2::Hero_NanotechSteps;
         using take_damage = rac2::Hero_TakeDamage;
     }  // namespace player
+    namespace text {
+        using by_id = rac2::Text_ById;
+    }  // namespace text
     namespace vendor {
         using build_list = rac2::Vendor_BuildList;
+        using draw_list = rac2::Vendor_DrawList;
         using price = rac2::Vendor_Price;
     }  // namespace vendor
     namespace weapon {

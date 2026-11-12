@@ -198,7 +198,7 @@
         "pal": "func_002F7578",
         "ntsc2": "func_002F7488"
       },
-      "about": "Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), marked, price text, class, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's."
+      "about": "Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), class (the preview model), price text, marked, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's."
     },
     {
       "id": "rac2.vendor.price",
@@ -228,6 +228,44 @@
         "ntsc2": "func_00337DC8"
       },
       "about": "Writes item id's colours to three u32 the caller has (game addresses): the two of its experience bar and tint, its version's colour (0x00BBGGRR in the low bytes, from D_001ADAF8 or D_001ADB08 by version) that its icon and name are drawn in. The quick select (func_0033FB98) and the weapons screen's grid (func_00337210) call it for each item they show; a replacement can call the original and write its own."
+    },
+    {
+      "id": "rac2.vendor.draw_list",
+      "name": "Vendor_DrawList",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "ntsc": "func_002F9C80"
+      },
+      "about": "Draws the vendor's list (g_vendorUi +0x140, the entries Vendor_BuildList made): for each of the rows -5 to +6 around the cursor (+0x80) that is in the list (under the count, +0x740), in that order, its item's icon in Item_VersionColor's colour (an upgrade entry, +0x14 set, in its kind 2, the Mega gold), then its label. A replacement can call the original and know which entry each Item_VersionColor call is for."
+    },
+    {
+      "id": "rac2.item.version_color",
+      "name": "Item_VersionColor",
+      "signature": "u32(i32)",
+      "params": [
+        "kind"
+      ],
+      "symbols": {
+        "ntsc": "func_00336EF8",
+        "pal": "func_00338C50",
+        "ntsc2": "func_00337DA0"
+      },
+      "about": "The colour of an item version kind (0x00BBGGRR in the low bytes; 2 the Mega gold): the vendor's list (Vendor_DrawList) asks it for each icon it draws. A replacement can return its own."
+    },
+    {
+      "id": "rac2.text.by_id",
+      "name": "Text_ById",
+      "signature": "i32(i32)",
+      "params": [
+        "id"
+      ],
+      "symbols": {
+        "ntsc": "func_00288FB8",
+        "pal": "func_002898E8",
+        "ntsc2": "func_002899F8"
+      },
+      "about": "The game's text of an id: the address of its string in game memory, which every label, name and description the game prints asks (the vendor's list its upgrade entries' label, 0x325F, \"Mega\"; its dialog the item's name). Under the port's own texts (host/options.c). For a text of its own a replacement writes into one of the port's eight slots, 96 bytes each with the ending 0, which this lookup gives for ids 0x7F10 to 0x7F17 (call the game function by name, not the original), and returns that address. A replacement that calls the original gets the game's."
     },
     {
       "id": "rac2.planet.unlock",

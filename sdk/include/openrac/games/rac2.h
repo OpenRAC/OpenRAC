@@ -117,7 +117,7 @@ typedef int32_t (*openrac_rac2_Item_Upgrade)(int32_t id);
 
 /* Vendor_BuildList (func_002F6608, rac2.vendor.build_list): Fills the vendor's list (the vendor's
  * state, 0x21F240 on NTSC-U v1.01: +0x140 64 entries of 0x18 bytes, each i32 item, kind (1 its
- * ammo), marked, price text, class and upgrade (1 a Mega upgrade); the count at +0x740; the entry
+ * ammo), class (the preview model), price text, marked and upgrade (1 a Mega upgrade); the count at +0x740; the entry
  * under the cursor at +0x80). The vendor calls it as it opens and after each purchase; a
  * replacement can add entries after the original's. */
 #define OPENRAC_RAC2_HOOK_Vendor_BuildList "Vendor_BuildList"
@@ -138,6 +138,34 @@ typedef int32_t (*openrac_rac2_Vendor_Price)(void);
 #define OPENRAC_RAC2_HOOK_Item_Colors "Item_Colors"
 #define OPENRAC_RAC2_SIG_Item_Colors "void(i32,u32,u32,u32)"
 typedef void (*openrac_rac2_Item_Colors)(int32_t id, uint32_t first, uint32_t second, uint32_t tint);
+
+/* Vendor_DrawList (func_002F9C80, rac2.vendor.draw_list): Draws the vendor's list: for each row -5
+ * to +6 around the cursor that is in the list, in that order, its item's icon in
+ * Item_VersionColor's colour (an upgrade entry in kind 2, the Mega gold), then its label. A
+ * replacement can call the original and know which entry each Item_VersionColor call is for. */
+#define OPENRAC_RAC2_HOOK_Vendor_DrawList "Vendor_DrawList"
+#define OPENRAC_RAC2_SIG_Vendor_DrawList "void()"
+typedef void (*openrac_rac2_Vendor_DrawList)(void);
+
+/* Item_VersionColor (func_00336EF8, rac2.item.version_color): The colour of an item version kind
+ * (0x00BBGGRR in the low bytes; 2 the Mega gold): the vendor's list asks it for each icon it
+ * draws. A replacement can return its own. */
+#define OPENRAC_RAC2_HOOK_Item_VersionColor "Item_VersionColor"
+#define OPENRAC_RAC2_SIG_Item_VersionColor "u32(i32)"
+typedef uint32_t (*openrac_rac2_Item_VersionColor)(int32_t kind);
+
+/* Text_ById (func_00288FB8, rac2.text.by_id): The game's text of an id, the address of its string
+ * in game memory, under the port's own texts; the vendor's list asks it for its upgrade entries'
+ * label (0x325F, "Mega") and its dialog for the item's name. A replacement returns a game address:
+ * for a text of its own it writes into one of the port's slots, which this lookup (the game function
+ * by name, not the original) gives for ids OPENRAC_RAC2_TEXT_SLOT to + 7, 96 bytes each with the
+ * ending 0. */
+#define OPENRAC_RAC2_HOOK_Text_ById "Text_ById"
+#define OPENRAC_RAC2_SIG_Text_ById "i32(i32)"
+#define OPENRAC_RAC2_TEXT_SLOT 0x7F10
+#define OPENRAC_RAC2_TEXT_SLOTS 8
+#define OPENRAC_RAC2_TEXT_SLOT_BYTES 96
+typedef int32_t (*openrac_rac2_Text_ById)(int32_t id);
 
 /* Planet_Unlock (func_002AD7B8, rac2.planet.unlock): Puts a level on the ship's map
  * (MarkLevelAvailable); every level load calls it for the level loaded too. Rac1's UnlockPlanet. */

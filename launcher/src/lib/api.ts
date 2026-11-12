@@ -87,6 +87,8 @@ import type { SaveView } from "./generated/SaveView";
 import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
 import type { Rac2SaveView } from "./generated/Rac2SaveView";
 import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
+import type { ModSaveData } from "./generated/ModSaveData";
+import type { ModSaveField } from "./generated/ModSaveField";
 import type { Rac2ExtraFields } from "./generated/Rac2ExtraFields";
 import type { Rac2ExtraView } from "./generated/Rac2ExtraView";
 import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
@@ -198,6 +200,7 @@ export type {
   SaveSlotInfo,
 };
 export type { Rac2SaveFields, Rac2SaveView, Rac2WriteResult };
+export type { ModSaveData, ModSaveField };
 export type { Rac2ExtraFields, Rac2ExtraView, Rac2ExtraWriteResult };
 export type { Scope };
 export type { Started };
@@ -402,6 +405,12 @@ export const api = {
   /** Writes the Going Commando editor's fields, with write_save's guards and backup. */
   writeSaveRac2: (serial: string, slot: number, fingerprint: string, fields: Rac2SaveFields) =>
     call<Rac2WriteResult>("write_save_rac2", { serial, slot, fingerprint, fields }),
+  /** What the mods that are on keep beside a Going Commando save (core/src/mod_save_data.rs). */
+  readModSaveDataRac2: (serial: string, slot: number) =>
+    call<ModSaveData[]>("read_mod_save_data_rac2", { serial, slot }),
+  /** Writes one mod's fields of that save's record; refused while the game runs. */
+  writeModSaveDataRac2: (serial: string, slot: number, id: string, values: Record<string, number>) =>
+    call<ModSaveData>("write_mod_save_data_rac2", { serial, slot, id, values }),
   /** A Going Commando slot's advanced fields (core/src/save_edit_rac2_extra.rs). */
   readSaveRac2Extra: (serial: string, slot: number) => call<Rac2ExtraView>("read_save_rac2_extra", { serial, slot }),
   /** Writes them: refused while the game runs with the card or if the file changed; backed up first. */
