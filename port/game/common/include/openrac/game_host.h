@@ -702,6 +702,22 @@ typedef struct openrac_game_play {
     int (*mission_state_clear)(int level, const uint8_t* flags);
     /* Whether the destination is playing its landing scene. NULL when unsupported. */
     int (*landing)(int level);
+    /* The game's own segment query for a mod (openrac_api.collision_line): the nearest of the
+     * level's faces (with `level`) and the mobys' (with `mobys`, all but `ignore`) between two
+     * points, the game seeing nothing of it: 1 for a hit (its point, its face's normal, the face's
+     * surface type or -1 for a creature's joint shape, the moby or 0), 0 for none or outside a
+     * level. NULL for a game without it. */
+    int (*collision_line)(
+        const float from[3],
+        const float to[3],
+        int level,
+        int mobys,
+        uint32_t ignore,
+        float point[3],
+        float normal[3],
+        int32_t* surface,
+        uint32_t* moby
+    );
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)

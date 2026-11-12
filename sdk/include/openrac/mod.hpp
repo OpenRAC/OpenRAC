@@ -916,6 +916,31 @@ public:
         }
     }
 
+    // Since 1.17: whether the port asks the game's own collision query for the
+    // mod.
+    bool has_collision_line() const {
+      return m_api->api_minor >= 17 &&
+             m_api->size >=
+                 offsetof(openrac_api, collision_line) + sizeof(void *);
+    }
+
+    // Since 1.17: the game's own segment query from `from` to `to` (the game's
+    // units), as its shots ask it: `flags` OPENRAC_LINE_LEVEL and/or
+    // OPENRAC_LINE_MOBYS, the moby in slot `ignore` passed over (-1 none).
+    // Fills `out` (out.hit: something on the line, its point, normal, surface
+    // and moby's slot). Returns false outside a level or on a port without it.
+    bool collision_line(const float from[3], const float to[3],
+                        openrac_line_hit &out,
+                        std::uint32_t flags = OPENRAC_LINE_LEVEL |
+                                              OPENRAC_LINE_MOBYS,
+                        int ignore = -1) const {
+      out = openrac_line_hit{};
+      out.size = sizeof out;
+      return has_collision_line() &&
+             m_api->collision_line(from, to, flags, ignore, &out) ==
+                 OPENRAC_HOOK_OK;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

@@ -96,7 +96,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.16",
+    const std::string& api = "1.17",
     const std::string& extra = "",
     const std::string& games = R"({"test": ["one"]})",
     const std::string& hooks = R"(["Test_Add"])"
@@ -525,7 +525,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.16", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.17", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -788,6 +788,74 @@ void a_mods_data_goes_with_the_saves(const fs::path& plugins, const fs::path& di
     write(fs::path(save3.string() + ".moddata"), "{}");
     openrac_game_save_written(save3.string().c_str(), 1);
     CHECK(!fs::exists(save3.string() + ".moddata"));
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+    mods::reset();
+}
+
+// Interface 1.17: the game's own segment query, asked by a mod. The test's game has a wall at x = 10
+// and a moby (slot 7) at x = 5; the moby hit comes back by its slot, one passed over is not hit.
+void a_mod_asks_the_games_collision(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true}]})");
+    mods::Host h = host(plugins);
+    static openrac_game_play play = kPlay;
+    play.moby_at = [](std::int32_t slot) {
+        return slot == 7 ? gaddr{0x3000} : gaddr{0};
+    };
+    play.slot_of = [](gaddr moby) {
+        return moby == 0x3000 ? std::int32_t{7} : std::int32_t{-1};
+    };
+    play.collision_line = [](const float from[3],
+                             const float to[3],
+                             int level,
+                             int mobys,
+                             std::uint32_t ignore,
+                             float point[3],
+                             float normal[3],
+                             std::int32_t* surface,
+                             std::uint32_t* moby) {
+        const bool on_moby = mobys != 0 && ignore != 0x3000 && from[0] < 5.0f && to[0] >= 5.0f;
+        const bool on_wall = level != 0 && from[0] < 10.0f && to[0] >= 10.0f;
+        if (!on_moby && !on_wall) {
+            return 0;
+        }
+        point[0] = on_moby ? 5.0f : 10.0f;
+        point[1] = point[2] = 0.0f;
+        normal[0] = -1.0f;
+        normal[1] = normal[2] = 0.0f;
+        *surface = on_moby ? -1 : 3;
+        *moby = on_moby ? 0x3000u : 0u;
+        return 1;
+    };
+    h.play = &play;
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    const float from[3] = {0.0f, 0.0f, 0.0f}, to[3] = {20.0f, 0.0f, 0.0f};
+    const float short_to[3] = {3.0f, 0.0f, 0.0f};
+    openrac_line_hit hit{};
+    hit.size = sizeof hit;
+    CHECK(
+        api.collision_line(from, to, OPENRAC_LINE_LEVEL | OPENRAC_LINE_MOBYS, -1, &hit)
+        == OPENRAC_HOOK_OK
+    );
+    CHECK(hit.hit == 1 && hit.moby == 7 && hit.point[0] == 5.0f && hit.surface == -1);
+    CHECK(
+        api.collision_line(from, to, OPENRAC_LINE_LEVEL | OPENRAC_LINE_MOBYS, 7, &hit)
+        == OPENRAC_HOOK_OK
+    );
+    CHECK(hit.hit == 1 && hit.moby == -1 && hit.point[0] == 10.0f && hit.surface == 3);
+    CHECK(
+        api.collision_line(from, to, OPENRAC_LINE_MOBYS, 7, &hit) == OPENRAC_HOOK_OK && hit.hit == 0
+    );
+    CHECK(api.collision_line(from, short_to, OPENRAC_LINE_LEVEL, -1, &hit) == OPENRAC_HOOK_OK);
+    CHECK(hit.hit == 0 && hit.moby == -1);
+    // No flags, a size too small, a point that is not a number: refused.
+    CHECK(api.collision_line(from, to, 0, -1, &hit) == OPENRAC_HOOK_UNKNOWN);
+    const float nan_to[3] = {std::nanf(""), 0.0f, 0.0f};
+    CHECK(api.collision_line(from, nan_to, OPENRAC_LINE_LEVEL, -1, &hit) == OPENRAC_HOOK_UNKNOWN);
+    hit.size = 4;
+    CHECK(api.collision_line(from, to, OPENRAC_LINE_LEVEL, -1, &hit) == OPENRAC_HOOK_UNKNOWN);
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
     mods::reset();
 }
@@ -1406,7 +1474,7 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
 // RAC2 has no game hook catalogue or script binding yet, but a native mod that only uses
 // common callbacks still loads. A native mod that tries to take a game hook is refused cleanly.
 void rac2_callback_only_native_mod(const fs::path& plugins) {
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.16", "", R"({"rac2": ["ntsc"]})", "[]");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.17", "", R"({"rac2": ["ntsc"]})", "[]");
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true,
          "settings": {"tag": 4, "behaviour": "callback_only"}}]})");
@@ -1422,7 +1490,7 @@ void rac2_callback_only_native_mod(const fs::path& plugins) {
     mods::reset();
 
     install(
-        plugins, "a", OPENRAC_TEST_MOD_A, "1.16", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
+        plugins, "a", OPENRAC_TEST_MOD_A, "1.17", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
     );
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"tag": 1}}]})");
@@ -1562,7 +1630,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.16", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.17", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1847,6 +1915,7 @@ int main() {
     a_party_reads_the_mods(plugins);
     a_mod_sets_its_own_settings(plugins);
     a_mods_data_goes_with_the_saves(plugins, dir);
+    a_mod_asks_the_games_collision(plugins);
     the_1_14_calls_answer_unknown_without_a_game(plugins);
     a_party_reads_the_data_packs(plugins);
     a_mod_copies_and_knows_the_key(plugins);

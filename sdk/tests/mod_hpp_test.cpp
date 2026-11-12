@@ -889,6 +889,27 @@ void fill_16(openrac_api& api) {
     };
 }
 
+// The fake host's 1.17 collision query: a wall at x = 10 for the level, a moby
+// (slot 4) at x = 5.
+void fill_17(openrac_api &api) {
+  api.collision_line = [](const float from[3], const float to[3],
+                          std::uint32_t flags, std::int32_t ignore,
+                          openrac_line_hit *out) {
+    if (out == nullptr || out->size < sizeof *out || flags == 0) {
+      return OPENRAC_HOOK_UNKNOWN;
+    }
+    const bool moby = (flags & OPENRAC_LINE_MOBYS) != 0 && ignore != 4 &&
+                      from[0] < 5.0f && to[0] >= 5.0f;
+    const bool wall =
+        (flags & OPENRAC_LINE_LEVEL) != 0 && from[0] < 10.0f && to[0] >= 10.0f;
+    out->hit = moby || wall ? 1 : 0;
+    out->point[0] = moby ? 5.0f : 10.0f;
+    out->surface = moby ? -1 : 3;
+    out->moby = moby ? 4 : -1;
+    return OPENRAC_HOOK_OK;
+  };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -1856,6 +1877,29 @@ int main() {
         CHECK(!mod.has_save_data() && !mod.save_data_set(std::vector<std::uint8_t>{9}));
         CHECK(mod.save_data().empty() && g_16.size() == 3);
         api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.17: the game's collision query, both, the level's only, a
+    // moby passed over.
+    {
+      fill_17(api);
+      const float from[3] = {0.0f, 0.0f, 0.0f}, to[3] = {20.0f, 0.0f, 0.0f};
+      openrac_line_hit hit{};
+      CHECK(mod.has_collision_line() && mod.collision_line(from, to, hit));
+      CHECK(hit.hit == 1 && hit.moby == 4 && hit.point[0] == 5.0f &&
+            hit.surface == -1);
+      CHECK(mod.collision_line(from, to, hit, OPENRAC_LINE_LEVEL) &&
+            hit.moby == -1);
+      CHECK(hit.point[0] == 10.0f && hit.surface == 3);
+      CHECK(mod.collision_line(from, to, hit,
+                               OPENRAC_LINE_LEVEL | OPENRAC_LINE_MOBYS, 4));
+      CHECK(hit.moby == -1);
+      CHECK(!mod.collision_line(from, to, hit, 0));
+
+      // A port of 1.16 has none of it.
+      api.api_minor = 16;
+      CHECK(!mod.has_collision_line() && !mod.collision_line(from, to, hit) &&
+            hit.hit == 0);
+      api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);

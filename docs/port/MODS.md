@@ -632,6 +632,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `on_settings(mod, fn, user)` (1.15) | `fn(user)` after the tick in which the launcher changed the mod's settings while the game runs: the port looks at the list's time about once a second, and reads it again when it changed. Only a mod that asks is given the new values; the mod's own `setting_set_*` is not told |
 | `save_data_set(mod, bytes, size)`, `save_data_get(mod, out, size)` (1.16) | the mod's own data for the game in progress (at most `OPENRAC_SAVE_DATA_MAX`, 64 KiB), kept with the game's saves: written beside each save the game writes from then on (`<save>.moddata`: every mod's data by its id, with its version, as base64; the save file itself is never changed, and the game never lists the file), read back when the game plays a save it loaded (Load Game), none for a new game or a save made without the mod. The mod sets it whenever it changes: the port never asks. A blank slot keeps none |
 | `on_save_data(mod, fn, user)` (1.16) | `fn(user)` after the tick in which the game in progress changed: a save loaded and played (its data now `save_data_get`'s) or a new game started (none). Told only while a level plays; a level loading changes nothing |
+| `collision_line(from, to, flags, ignore, &hit)` (1.17) | the game's own segment query, the one its shots ask each tick (Ratchet & Clank: the port's `coll_line`, collision.c): the nearest of the level's walls and ground (`OPENRAC_LINE_LEVEL`) and of the mobys (`OPENRAC_LINE_MOBYS`: their collision meshes, doors and crates among them, and creatures' shapes on their joints), the moby in slot `ignore` passed over. `hit`: whether something is on the line, its point, the face's normal, its surface type (-1 for a creature's shape) and the moby's slot (-1 for the level). The game sees nothing of it: no hit is posted (a mod that wants damage posts it with `moby_hit`), so a mod's shot can ask it each tick. A line of any length is cut to the level's world box first. A line that starts inside a moby's shape hits it at once (distance 0): a shot passes over the hero who fires it, and a line from the camera's eye over the camera's own moby (rac1: `camera_object`, class 1007). `OPENRAC_HOOK_UNKNOWN` outside a level, for no flags or a game without it (rac1 has it) |
 
 A call answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) in a game that has not got it, and `play_scene_from` always; Ratchet \& Clank has the others on both discs. The C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them.
 
@@ -721,6 +722,9 @@ say (`hero_shots2`, `figure_shot2`), `moby_list2`, camera scripts, a slot kept f
 1.16 (SDK 1.16.0) a mod's own data kept with the game's saves (`save_data_set`, `save_data_get`,
 `on_save_data`; the C++ layer's `save_data_set()`, `save_data()`, `on_save_data()`,
 `has_save_data()`), so loading an older save brings back what the mod had then.
+1.17 (SDK 1.17.0) the game's own collision query asked by a mod (`collision_line`,
+`OPENRAC_LINE_LEVEL`, `OPENRAC_LINE_MOBYS`, `openrac_line_hit`; the C++ layer's `collision_line()`,
+`has_collision_line()`), so a mod's shots stop at walls, doors, crates and creatures as the game's do.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
