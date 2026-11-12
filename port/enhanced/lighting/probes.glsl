@@ -695,11 +695,14 @@ float sun_shadow_visibility(vec3 p, vec3 n, vec3 plane_normal) {
     return mix(visibility, next, blend);
 }
 
-vec3 probe_direct(vec3 p, vec3 n, vec4 selector, float visibility) {
+// The directional lights at full visibility and the local lights, apart: probe_direct is
+// `directional * mix(0.1, 1.0, visibility) + local`, so callers needing several visibilities loop once.
+void probe_direct_parts(vec3 p, vec3 n, vec4 selector, out vec3 directional, out vec3 local) {
     int a = (int(selector.x + 0.5) & 15) * 4;
     int b = (int(selector.y + 0.5) & 15) * 4;
     float blend = clamp(selector.z, 0.0, 1.0);
-    vec3 direct = vec3(0.0);
+    directional = vec3(0.0);
+    local = vec3(0.0);
     for (int light = 0; light < 2; ++light) {
         int offset = light * 2;
         vec4 colour = mix(light_sets[a + offset], light_sets[b + offset], blend);
@@ -716,8 +719,8 @@ vec3 probe_direct(vec3 p, vec3 n, vec4 selector, float visibility) {
         // Authored light colours are byte-scaled and sunlight correction is bounded to 0..4.
         // Keep the multi-light sum and all positions/distances/visibility decisions FP32.
         mp_vec3 contribution = max(mp_vec3(colour.rgb), mp_vec3(0)) * mp_vec3(correction)
-            * mp_float(response) * mp_float(mix(0.1, 1.0, visibility));
-        direct += vec3(contribution);
+            * mp_float(response);
+        directional += vec3(contribution);
     }
     LOCAL_LIGHT_LOOP(i) {
         vec3 delta = LOCAL_POSITION(i).xyz - p;
@@ -734,15 +737,20 @@ vec3 probe_direct(vec3 p, vec3 n, vec4 selector, float visibility) {
         if(i>=8) {
             mp_float weight=mp_float(response)*mp_float(LOCAL_ATTENUATION(distance,radius))
                             *mp_float(LOCAL_CONE(i,delta/distance));
-            direct+=max(LOCAL_COLOUR(i).rgb,vec3(0))*float(weight);
+            local+=max(LOCAL_COLOUR(i).rgb,vec3(0))*float(weight);
             continue;
         }
 #endif
         mp_vec3 contribution = max(mp_vec3(LOCAL_COLOUR(i).rgb), mp_vec3(0))
             * mp_float(response) * mp_float(LOCAL_ATTENUATION(distance,radius)) * mp_float(LOCAL_CONE(i,delta/distance));
-        direct += vec3(contribution);
+        local += vec3(contribution);
     }
-    return direct;
+}
+
+vec3 probe_direct(vec3 p, vec3 n, vec4 selector, float visibility) {
+    vec3 directional, local;
+    probe_direct_parts(p, n, selector, directional, local);
+    return directional * mix(0.1, 1.0, visibility) + local;
 }
 
 // Keep the display transfer curves FP32: chained half powers amplify byte-level banding.

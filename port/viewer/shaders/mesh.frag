@@ -398,7 +398,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     }
 #endif
     // Fine fur changes material response; shadow tests, probe lookup bias and cached GI keep smooth normals.
-    vec3 direct = probe_direct(v_world_position, surface_n, selector, visibility);
+    vec3 directional, local;
+    probe_direct_parts(v_world_position, surface_n, selector, directional, local);
+    vec3 direct = directional * mix(0.1, 1.0, visibility) + local;
     vec3 illumination = probe_mode == 2
                             ? indirect / 3.14159265359
                             : (probe_mode == 3 ? direct : direct + indirect / 3.14159265359);
@@ -410,9 +412,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     // brightness stays near the original's.
     if (probe_retail_anchor != 0 && probe_receiver == 1 && probe_terrain_albedo > 0.0
         && probe_mode == 1) {
-        vec3 open = probe_direct(v_world_position, surface_n, selector, 1.0)
-                    + open_indirect / 3.14159265359;
-        vec3 shaded = probe_direct(v_world_position, surface_n, selector, mix(0.28, 1.0, visibility))
+        // The same lights at two visibilities, from the one loop above.
+        vec3 open = directional + local + open_indirect / 3.14159265359;
+        vec3 shaded = directional * mix(0.1, 1.0, mix(0.28, 1.0, visibility)) + local
                       + indirect / 3.14159265359;
         illumination = (shaded + 0.02) / (open + 0.02);
     }
