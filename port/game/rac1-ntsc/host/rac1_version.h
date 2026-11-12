@@ -333,6 +333,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_001F7B40 game_FUN_001f7978
 #define func_001FA218 game_FUN_001fa050
 
+/* Aridia's counter anchors (hud.c): l02_hud_counter_left/right_anchor_x of the NTSC decomp
+ * (src/overlays/l02/hud_counter.c, read by draw_hud_counter FUN_L02_0023cda8). */
+#define RAC1_ADDR_L02_0x0015FA1Cu 0x0015F944u
+#define RAC1_ADDR_L02_0x0015FA20u 0x0015F948u
+
 /* ---- generated below ---- */
 
 /* Functions: games/rac1's name, this version's. */
