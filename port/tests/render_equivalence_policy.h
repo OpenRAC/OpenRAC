@@ -43,6 +43,7 @@ inline constexpr std::array kFocusedEquivalence{
     std::pair{renderer::render_opt::Opt::ShadowScrollReuse, "shadow_scroll_vulkan"},
     std::pair{renderer::render_opt::Opt::PipelinePrewarm, "vulkan_prewarm"},
     std::pair{renderer::render_opt::Opt::VkProgramKeep, "render_equivalence_support"},
+    std::pair{renderer::render_opt::Opt::VkModeConstants, "vulkan_uniform"},
 };
 
 // Returns the CTest owner, or empty when the generic scene retains the comparison.

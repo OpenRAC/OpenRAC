@@ -7,6 +7,10 @@ uniform sampler2D probe_moments;
 uniform sampler2D probe_spread;
 uniform sampler2D probe_depth_ranges;
 // Zero reads moments, one local ASTC, two linear RG8 and three curved RG16 UNORM.
+// The switches a pipeline may take as constants (vk-mode-constants).
+// openrac_mode: probe_depth_mode probe_retail_anchor probe_gpu_selection probe_mode probe_receiver
+// openrac_mode: probe_backlight sun_shadow_separate_maps shadow_atlas_enabled sun_shadow_enabled
+// openrac_mode: hero_shadow_enabled
 uniform int probe_depth_mode;
 uniform sampler2D probe_metadata;
 uniform vec3 probe_origin;

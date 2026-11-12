@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -151,6 +152,185 @@ VkShaderModule module_of(Program& program, const std::vector<std::uint32_t>& cod
         return VK_NULL_HANDLE;
     }
     return module;
+}
+
+// The marker of a shader's mode uniforms (vk-mode-constants): a comment line
+// "// openrac_mode: name name ...". A mode is a scalar `uniform int` that picks the code a draw
+// runs and keeps its value over many draws (a pass, a setting, a level).
+constexpr std::string_view kModeMarker = "// openrac_mode:";
+constexpr std::string_view kModeUniformPrefix = "openrac_u_";
+
+// Returns whether `c` may be part of a GLSL name.
+bool glsl_name_char(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+}
+
+// Adds the names `source` marks as modes to `names`, each once, in the order named.
+void mode_names(const std::string& source, std::vector<std::string>& names) {
+    for (std::size_t at = source.find(kModeMarker); at != std::string::npos;
+         at = source.find(kModeMarker, at + 1)) {
+        std::size_t i = at + kModeMarker.size();
+
+        // Each name up to the line's end, between spaces or commas.
+        while (i < source.size() && source[i] != '\n') {
+            if (!glsl_name_char(source[i])) {
+                ++i;
+                continue;
+            }
+
+            const std::size_t from = i;
+            while (i < source.size() && glsl_name_char(source[i])) {
+                ++i;
+            }
+
+            std::string name = source.substr(from, i - from);
+            if (std::find(names.begin(), names.end(), name) == names.end()) {
+                names.push_back(std::move(name));
+            }
+        }
+    }
+}
+
+// Finds the declaration `uniform int <name>;` in `source` (any whitespace between); its start
+// and the place past its semicolon, or npos twice.
+std::pair<std::size_t, std::size_t> mode_declaration(
+    const std::string& source, std::string_view name
+) {
+    constexpr std::string_view keyword = "uniform";
+    const auto space = [&](std::size_t i) {
+        return i < source.size() && std::isspace(static_cast<unsigned char>(source[i])) != 0;
+    };
+
+    for (std::size_t at = source.find(keyword); at != std::string::npos;
+         at = source.find(keyword, at + 1)) {
+        std::size_t i = at + keyword.size();
+        if ((at > 0 && glsl_name_char(source[at - 1])) || !space(i)) {
+            continue;
+        }
+        while (space(i)) {
+            ++i;
+        }
+        if (source.compare(i, 3, "int") != 0 || !space(i + 3)) {
+            continue;
+        }
+        i += 3;
+        while (space(i)) {
+            ++i;
+        }
+        if (source.compare(i, name.size(), name) != 0) {
+            continue;
+        }
+        i += name.size();
+        while (space(i)) {
+            ++i;
+        }
+        if (i < source.size() && source[i] == ';') {
+            return {at, i + 1};
+        }
+    }
+
+    return {std::string::npos, std::string::npos};
+}
+
+// A program's sources with its mode uniforms also readable as specialisation constants
+// (vk-mode-constants), and the modes' names by slot; no names when the sources mark none.
+struct ModeSources {
+    std::string vertex, fragment;
+    std::vector<std::string> names;
+};
+
+// Rewrites each marked `uniform int name;` so that a pipeline may fix its value: the uniform is
+// renamed, a specialisation constant is declared beside it, and `name` becomes the constant, or
+// the uniform while the constant has its default (kModeDynamic). A pipeline made with the value
+// lets the driver drop the code the mode leaves out; one made without reads the uniform as
+// before. A mode the material path reads per draw is left alone.
+ModeSources mode_sources(const std::string& vertex, const std::string& fragment) {
+    ModeSources out;
+    std::vector<std::string> marked;
+    mode_names(vertex, marked);
+    mode_names(fragment, marked);
+    if (marked.empty()) {
+        return out;
+    }
+
+    out.vertex = vertex;
+    out.fragment = fragment;
+    std::string macros;
+
+    for (const std::string& name : marked) {
+        if (out.names.size() == kModeConstants || material_takes(vertex, name)) {
+            continue;
+        }
+
+        const std::string id = std::to_string(kModeConstantBase + out.names.size());
+        const std::string dynamic = std::to_string(kModeDynamic);
+        const std::string uniform = std::string(kModeUniformPrefix) + name;
+        const std::string constant = "openrac_c_" + name;
+        bool declared = false;
+
+        for (std::string* source : {&out.vertex, &out.fragment}) {
+            const auto [from, to] = mode_declaration(*source, name);
+            if (from == std::string::npos) {
+                continue;
+            }
+            // On the declaration's own line, so that the lines after it keep their numbers.
+            source->replace(
+                from,
+                to - from,
+                "uniform int " + uniform + "; layout(constant_id = " + id + ") const int "
+                    + constant + " = " + dynamic + ";"
+            );
+            declared = true;
+        }
+
+        if (declared) {
+            macros += "#define " + name + " (" + constant + " != " + dynamic + " ? " + constant
+                      + " : " + uniform + ")\n";
+            out.names.push_back(name);
+        }
+    }
+
+    if (out.names.empty()) {
+        return out;
+    }
+
+    // After the #version line, which stays first.
+    for (std::string* source : {&out.vertex, &out.fragment}) {
+        const std::size_t line = source->find('\n');
+        if (line != std::string::npos) {
+            source->insert(line + 1, macros);
+        }
+    }
+
+    return out;
+}
+
+// Gives the mode uniforms of `compiled` their GL names back, as the program's users know them.
+void restore_mode_names(CompiledProgram& compiled) {
+    for (ProgramUniform& u : compiled.uniforms) {
+        if (u.name.starts_with(kModeUniformPrefix)) {
+            u.name.erase(0, kModeUniformPrefix.size());
+        }
+    }
+}
+
+// Records where each mode of `names` (by slot) has its value in the program's uniforms.
+void place_modes(Program& p, const std::vector<std::string>& names) {
+    p.modes.assign(names.size(), Program::Mode{});
+
+    for (std::size_t n = 0; n < names.size(); ++n) {
+        const auto found = std::find_if(
+            p.compiled.uniforms.begin(), p.compiled.uniforms.end(), [&](const ProgramUniform& u) {
+                return u.name == names[n];
+            }
+        );
+        // A mode no stage reads has no uniform, and its constant no reader.
+        if (found != p.compiled.uniforms.end() && !found->sampler && found->gl_type == GL_INT
+            && found->array_size == 1 && found->offset >= 0
+            && (!p.gpu_materials || static_cast<unsigned>(found->offset) < p.material_start)) {
+            p.modes[n].offset = found->offset;
+        }
+    }
 }
 
 // An explicit source marker opts one scalar int into the ordinary graphics draw's push constant.
@@ -484,6 +664,7 @@ VkShaderModule clamped_fragment(Program& p) {
         return VK_NULL_HANDLE;
     }
     separate_draw_uniform(variant, p.vertex_source, fs);
+    restore_mode_names(variant.compiled);
     if (!same_layout(variant, p)) {
         log::warn("vulkan: a program's clamped colour stage has another layout; drawn unclamped");
         return VK_NULL_HANDLE;
@@ -521,7 +702,24 @@ void VKGL link_program(GLuint name) {
     p->log.clear();
     p->linked = false;
     p->serial = ++g->program_serial;
-    if (!compile_program(vs, fs, p->compiled, p->log, cs)) {
+    p->modes.clear();
+    // A graphics program's marked modes become constants of its pipelines (vk-mode-constants).
+    // An optional optimisation never prevents the original program from linking.
+    std::vector<std::string> modes;
+    if (cs.empty()) {
+        ModeSources with_modes = mode_sources(vs, fs);
+        if (!with_modes.names.empty()) {
+            std::string error;
+            if (compile_program(with_modes.vertex, with_modes.fragment, p->compiled, error)) {
+                vs = std::move(with_modes.vertex);
+                fs = std::move(with_modes.fragment);
+                modes = std::move(with_modes.names);
+            } else {
+                log::warn("vulkan: a program's modes stay uniforms: {}", error);
+            }
+        }
+    }
+    if (modes.empty() && !compile_program(vs, fs, p->compiled, p->log, cs)) {
         return;
     }
     // Kept for the clamped fragment stage an HDR frame may ask for (clamped_fragment).
@@ -533,6 +731,9 @@ void VKGL link_program(GLuint name) {
         return;
     }
     separate_draw_uniform(*p, vs, fs);
+    restore_mode_names(p->compiled);
+    place_modes(*p, modes);
+    p->key_modes_stale = true;
     // Descriptor mode is part of compatibility even when the same SPIR-V is used.
     if (g->test_program_reuse || keeps_programs()) {
         (void)program_bindings(*p);
@@ -671,6 +872,8 @@ void write_uniform(std::uint8_t* destination, const void* source, std::size_t by
     }
     std::memcpy(destination, source, bytes);
     auto* p = g->programs.find(g->state.program);
+    // A mode is a scalar integer: its pipelines' keys are worked out again (vk-mode-constants).
+    p->key_modes_stale = p->key_modes_stale || bytes == sizeof(std::int32_t);
     const auto offset = static_cast<std::size_t>(destination - p->uniforms.data());
     if ((!p->gpu_materials || offset < p->material_start)
         && (p->draw_uniform_offset < 0 || offset < static_cast<unsigned>(p->draw_uniform_offset))) {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Rigid attachment pose in world space; keep wave slopes and transforms in FP32.
+// openrac_mode: water_float_enabled
 uniform int water_float_enabled;
 vec4 water_float_target(vec3 anchor, out bool matched) {
     vec3 centre=water_displaced_position(anchor,0,matched);

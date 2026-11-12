@@ -219,6 +219,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::VkProgramKeep, "vk-program-keep",
      "a deleted program's modules, layouts and pipelines are kept for the next link of the same shaders",
      true, Tolerance{}},
+    {Opt::VkModeConstants, "vk-mode-constants",
+     "the integer uniforms a shader names as modes are constants of its pipelines, so the driver drops the code a mode leaves out",
+     true, Tolerance{}},
 }};
 // clang-format on
 

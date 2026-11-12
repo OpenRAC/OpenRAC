@@ -61,6 +61,7 @@ struct Gauge {
 constexpr auto kGauges = std::to_array<Gauge>({
     {"vk_pipelines_created", &SubmissionCounters::pipelines_created, Span::Total},
     {"vk_pipelines_linked", &SubmissionCounters::pipelines_linked, Span::Total},
+    {"vk_mode_pipelines", &SubmissionCounters::mode_pipelines, Span::Total},
     {"vk_pipelines_created_after_warmup", &SubmissionCounters::pipelines_created_after_warmup,
      Span::Total},
     {"vk_descriptor_sets_allocated", &SubmissionCounters::descriptor_sets_allocated, Span::Frame},

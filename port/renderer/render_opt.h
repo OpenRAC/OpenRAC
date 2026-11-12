@@ -101,10 +101,12 @@ enum class Opt : std::uint8_t {
     MotionBlurHalfFlood,
     // vk-program-keep: a deleted program's shader modules and pipelines wait for its next link
     VkProgramKeep,
+    // vk-mode-constants: a program's mode uniforms are constants of its pipelines
+    VkModeConstants,
 };
 
-// The number of entries: VkProgramKeep is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::VkProgramKeep) + 1;
+// The number of entries: VkModeConstants is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::VkModeConstants) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in

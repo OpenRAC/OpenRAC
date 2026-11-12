@@ -8,6 +8,7 @@ uniform int environment_alignment;
 uniform samplerBuffer environment_metadata;
 uniform int environment_columns;
 vec4 environment_probe(int i) { return texelFetch(environment_metadata,i); }
+// openrac_mode: environment_tiled
 uniform int environment_tiled;
 uniform usamplerBuffer environment_tiles;
 uniform vec4 environment_tile_view; // Viewport origin and extent, in current render pixels.

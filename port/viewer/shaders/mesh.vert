@@ -61,6 +61,8 @@ vec3 vu_unit(vec3 v) {
 }
 // The game's eight point lights as it holds them (colour, falloff; position, reach), added to the
 // terrain's colours when terrain_point_lit is set (Going Commando).
+// openrac_mode: terrain_point_lit metal_pass probe_mode probe_receiver sun_shadow_enabled
+// openrac_mode: hero_shadow_enabled hero_wetness_enabled
 uniform int terrain_point_lit;
 uniform vec4 terrain_point_lights[16];
 // The metal ("shine") pass (MobyProc's metal packets): texture coordinates from the view-space
@@ -76,7 +78,8 @@ uniform int hero_shadow_enabled;
 
 #ifdef OPENRAC_HERO_WETNESS
 layout(std430,binding=9) readonly buffer HeroWetness { float hero_wetness[]; };
-uniform int hero_wetness_enabled, hero_wetness_first, hero_wetness_count, hero_wetness_palette;
+uniform int hero_wetness_enabled;
+uniform int hero_wetness_first, hero_wetness_count, hero_wetness_palette;
 out float v_hero_wetness;
 #endif
 

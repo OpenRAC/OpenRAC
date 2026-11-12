@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// openrac_mode: early_lighting_enabled
 uniform int early_lighting_enabled;
 uniform samplerBuffer early_values;
 uniform usamplerBuffer early_guides;

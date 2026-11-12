@@ -98,6 +98,7 @@ before and after, and how its frames are shown to be the same.
 | `shadow-far-alternate` | on | 25% of pixels, any value (measured: see the section) | The sun's cascades 1 to 3 are drawn every other frame, 1 in turn with 2 and 3, while this frame's receivers fit the cascade as it was drawn. A kept cascade is sampled with the matrix it was drawn with ([shadow-far-alternate](#shadow-far-alternate-far-cascades-every-other-frame)). |
 | `motion-blur-half-flood` | on | 1% of pixels by at most 32 | Motion blur quality Performance: the blur's jump flood runs on a half-resolution seed grid, a quarter of its pixels in every pass. The first flood offers every render pixel of a cell, and the gather still tests each display pixel against the trail. |
 | `vk-program-keep` | on | none (exact) | Vulkan: a deleted program's shader modules, layouts and pipelines are kept, and the next link of the same shaders takes them. A level's load links the programs of the level before, so it makes no pipelines again ([vk-program-keep](#vk-program-keep-pipelines-kept-across-level-loads)). |
+| `vk-mode-constants` | on | none (exact) | Vulkan: the integer uniforms a shader names as modes (`// openrac_mode: name ...`) are specialisation constants of its pipelines. The driver compiles each pipeline for the modes it is drawn with and drops the code they leave out. A draw whose specialised pipeline is not made yet uses the one that reads the uniforms ([vk-mode-constants](#vk-mode-constants-modes-as-pipeline-constants)). |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the
@@ -133,6 +134,7 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_pipelines_created` | total | Graphics and compute creations on the drawing thread; excludes prewarm workers | `vkgl_internal.h` | R-10, R-11 |
 | `vk_pipelines_created_after_warmup` | total | Of those, the ones made after the warm-up `vkgl::begin_pipeline_warmup(N)` started (N frames after the benchmark's level upload); 0 until it is called | the same | R-10 |
 | `vk_pipelines_linked` | total | Pipelines a draw linked from parts (vk-pipeline-library); not in `vk_pipelines_created` | `vkgl_pipelines.cpp` | vk-pipeline-library |
+| `vk_mode_pipelines` | total | Pipelines specialised with a program's modes: asked of the pre-warm workers, or made at their draw where there are none | `vkgl_pipelines.cpp` | vk-mode-constants |
 | `vk_descriptor_sets_allocated` | frame | Descriptor sets allocated, the material pages' included | `vkgl_pipelines.cpp`, `gpu_materials.inc` | R-14 |
 | `vk_descriptor_writes` | frame | `VkWriteDescriptorSet` entries written | `vkgl_pipelines.cpp`, `gpu_materials.inc`, `gpu_draw.inc` | R-14 |
 | `vk_render_passes` | frame | Render passes begun | `vkgl_commands.cpp`, `vkgl_gl.cpp` (a depth resolve) | R-06, R-07 |
@@ -2152,3 +2154,36 @@ at a level's load:
 
 The frames are the same bytes. The `vk_program_reuses` gauge counts the links that took kept
 objects. Its test is `render_equivalence_support`.
+
+## vk-mode-constants: modes as pipeline constants
+
+The world's shaders hold every Enhanced feature at once: probe lighting, early lighting, local
+lights, atmosphere, wetness, fur, foliage, water float and the passes of the mobys. A draw picks
+its path with integer uniforms (`probe_mode`, `effect_pass`, `atmosphere_enabled`, ...). A driver
+cannot drop code behind a uniform, so each pipeline carried all of it: the main opaque fragment
+shader is about 12,500 SPIR-V instructions after optimisation, and about 5,700 with its modes
+fixed by hand to the Low preset's values; its vertex shader goes from about 2,500 to about 500.
+
+A shader names its modes in a comment line, `// openrac_mode: name name ...`. A mode is a scalar
+`uniform int` that keeps its value over many draws (a pass, a setting, a level). At link, the
+Vulkan backend rewrites each named declaration (`gl_program.cpp`, `mode_sources`):
+
+```glsl
+uniform int openrac_u_probe_mode; layout(constant_id = 1003) const int openrac_c_probe_mode = 2147483647;
+#define probe_mode (openrac_c_probe_mode != 2147483647 ? openrac_c_probe_mode : openrac_u_probe_mode)
+```
+
+The uniform stays where it was, under its GL name. The pipeline key holds the modes' values
+(`PipelineKey::mode`), and the pipeline is made with them as specialisation constants. A
+pipeline made without them reads the uniforms, exactly as before.
+
+No draw waits for a specialised pipeline. The first draw of a new set of values asks the
+pre-warm workers for it and goes on with the plain pipeline, which gives the same picture. The
+key goes to the manifest, so the next run makes it behind the loading screen. Switched off while
+the game runs, it works the other way round: the specialised pipeline draws until the plain one
+is made. A mode that takes more than four values stays a uniform. A mode the material path
+reads per draw is left alone. OpenGL and Metal ignore the comment.
+
+The frames are the same bytes. `vk_mode_pipelines` counts the specialised pipelines. The
+Graphics sweep has four steps with the entry off, to measure it on a device. Its test is
+`vulkan_uniform`.

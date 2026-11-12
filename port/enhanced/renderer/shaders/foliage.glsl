@@ -9,6 +9,7 @@
 #define OPENRAC_FOLIAGE 1
 uniform int foliage_parameters0;
 uniform int foliage_parameters1;
+// openrac_mode: foliage_debug
 uniform int foliage_debug;
 uniform float foliage_reflectivity;
 

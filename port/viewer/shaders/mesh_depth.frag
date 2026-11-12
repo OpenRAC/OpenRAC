@@ -9,6 +9,7 @@ flat in int v_glow;
 uniform sampler2D tex_T0;
 uniform vec4 material_colour;
 uniform int cutout;
+// openrac_mode: glow_pass effect_pass opacity_split
 uniform int glow_pass;
 uniform int effect_pass;
 uniform int opacity_split;

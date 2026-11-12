@@ -3,7 +3,10 @@
 #define OPENRAC_FORWARD_PLUS 1
 uniform samplerBuffer forward_lights;
 uniform usamplerBuffer forward_masks;
-uniform int forward_count,forward_tiled,forward_transparent;
+// openrac_mode: forward_tiled forward_transparent
+uniform int forward_count;
+uniform int forward_tiled;
+uniform int forward_transparent;
 uniform vec4 forward_view;
 // Soft inverse-square shaping, normalized to the game's brightness at half range.
 // The fourth-power window reaches zero with zero slope at the original light radius.

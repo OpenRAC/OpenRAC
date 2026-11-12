@@ -28,6 +28,10 @@ uniform sampler2D tex_T0;
 uniform vec4 material_colour;
 uniform int cutout;
 uniform int lighting;
+// The pass and setting switches a pipeline may take as constants (vk-mode-constants).
+// openrac_mode: glow_pass glow_split opacity_split translucent_pass effect_pass effect_additive
+// openrac_mode: metal_pass gtao_enabled hero_wetness_debug object_reflection_enabled
+// openrac_mode: gameplay_rim_enabled
 uniform int glow_pass;  // mobys: 0 the solid faces, 1 the glow faces (blended)
 // The glow pass in two draws, as the GS's TEST 0x5360b splits it (alpha GEQUAL 0x60: Z written, else
 // colour only): 1 the texels at or above the reference, with depth; 2 the others, without; 0 all.

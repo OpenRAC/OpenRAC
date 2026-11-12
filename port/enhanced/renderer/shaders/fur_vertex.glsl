@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-uniform int hero_fur_debug, hero_fur_first, hero_fur_count, hero_fur_palette;
+// openrac_mode: hero_fur_debug hero_fur_detail_enabled hero_fur_lighting_enabled hero_fur_shell_enabled
+uniform int hero_fur_debug;
+uniform int hero_fur_first, hero_fur_count, hero_fur_palette;
 uniform int hero_fur_detail_enabled;
 uniform int hero_fur_lighting_enabled;
 uniform int hero_fur_shell_enabled;
