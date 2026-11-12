@@ -1490,16 +1490,18 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
         // ceil(x0) to ceil(x1) - 1) goes on to the screen's edge. The game's fills and fades run
         // from -0.5 to 511.5; drawn there, the last half pixel of the right and bottom was never
         // filled, and a fade left the old picture showing in a line along them (before the
-        // captions on black). Only those edges move, so nothing inside the screen shifts.
+        // captions on black). Only those edges move, so nothing inside the screen shifts. A fill
+        // wholly past the edge stays where it is: with "HUD: Edges" the Suck Cannon's tube is
+        // drawn there, and pulled to the edge its fill had no width.
         const std::int64_t ofx = context().xyoffset.ofx;
         const std::int64_t ofy = context().xyoffset.ofy;
         const std::int64_t width = 2 * (2048 - ofx / 16);
         const std::int64_t height = 2 * (2048 - ofy / 16);
         auto to_edge = [&](GsVertex v) {
-            if (ceil16(static_cast<std::int64_t>(v.x) - ofx) >= width) {
+            if (ceil16(static_cast<std::int64_t>(v.x) - ofx) == width) {
                 v.x = static_cast<decltype(v.x)>(ofx + width * 16);
             }
-            if (ceil16(static_cast<std::int64_t>(v.y) - ofy) >= height) {
+            if (ceil16(static_cast<std::int64_t>(v.y) - ofy) == height) {
                 v.y = static_cast<decltype(v.y)>(ofy + height * 16);
             }
             return convert(v);
