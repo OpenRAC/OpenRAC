@@ -1261,7 +1261,10 @@ pub fn write_save(
     file.apply(want)?;
     let out = file.to_bytes();
     let check = SaveFile::parse(&out)?;
-    if check.fields() != *want {
+    // What was asked, plus what a switch adds of its own when turned on (the Aranos Prison
+    // switch gives back the packs): the file as edited in memory, read back exactly.
+    let edited = file.fields();
+    if check.fields() != edited || edited.flags != want.flags {
         return Err("the edited save did not read back as asked; nothing was written".into());
     }
     let backup = saves::backup_card(card_dir, Some(&format!("before_edit_slot{}", slot + 1)))?;
