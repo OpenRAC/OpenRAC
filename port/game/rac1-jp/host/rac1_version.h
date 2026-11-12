@@ -90,6 +90,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* FontPrintWindow as NTSC-J's own C calls it: its font_print_window_regular (src/versions/jp/game/render/draw/func_001F7560.c) draws with func_J_001F81F8, its own routine, not PAL v2.00's func_001F7070. */
 #define RAC1_FONT_PRINT_WINDOW func_001F81F8
 
+/* Aridia's counters with "HUD: Edges" (hud.c): NTSC-J's anchors are not paired yet, so that part is left out. */
+#define RAC1_OMIT_func_L02_0023D6E0 1
+
 /* ---- generated below ---- */
 
 /* Addresses: games/rac1's, this version's (RAC1_LADDR: in level NN's program). */
