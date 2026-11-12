@@ -502,7 +502,11 @@ static void on_save_data(void* user) {
     (void)user;
     if (size > 0) {
         unsigned char bytes[16];
-        s_record(13300 + (int)(size <= sizeof bytes && s_api->save_data_get(s_mod, bytes, sizeof bytes) == size));
+        s_record(
+            13300
+            + (int)(size <= sizeof bytes
+                    && s_api->save_data_get(s_mod, bytes, sizeof bytes) == size)
+        );
         first = bytes[0];
     }
     s_record(13100 + (int)size);
