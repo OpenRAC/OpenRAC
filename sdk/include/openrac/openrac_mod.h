@@ -68,9 +68,13 @@ extern "C" {
  * camera scripts and metal detector digs seen, the data packs applied, the
  * clipboard and a link, and which world a game's disc belongs to, 1.15 a mod's
  * own settings changed from the game (written into the launcher's list of mods)
- * and told when the launcher changes them while the game runs.
+ * and told when the launcher changes them while the game runs, 1.16 a mod's own
+ * data kept with the game's saves.
  */
-#define OPENRAC_MOD_API_MINOR 15
+#define OPENRAC_MOD_API_MINOR 16
+
+/* The most bytes of a mod's data kept with a save (openrac_api.save_data_set). Since 1.16. */
+#define OPENRAC_SAVE_DATA_MAX 65536u
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -2100,6 +2104,26 @@ typedef struct openrac_api {
      * not told. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_TOO_LATE for no fn or
      * after openrac_mod_load. Since 1.15. */
     int (*on_settings)(openrac_mod *mod, openrac_frame_fn fn, void *user);
+
+    /* A mod's data kept with the game's saves (since 1.16): what a mod has to remember of a game
+     * (a weapon's experience, a new weapon owned, a counter) goes with the save it belongs to, so
+     * loading an older save brings back what the mod had then, and a new game starts with none.
+     *
+     * save_data_set: the mod's data for the game in progress, `size` bytes (at most
+     * OPENRAC_SAVE_DATA_MAX; 0 forgets it). The port keeps a copy and writes it beside each save
+     * the game writes from then on (`<save>.moddata`, with the other mods' data; the save file
+     * itself is never changed). Call it whenever the data changes: the port never asks. Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a size past the most or no bytes. */
+    int (*save_data_set)(openrac_mod *mod, const void *bytes, uint32_t size);
+    /* save_data_get: the mod's data for the game in progress (what the save it came from held, or
+     * what the mod set since): written to `out` when `size` is large enough. Returns its size in
+     * bytes (call with a null `out` to ask), 0 for none. */
+    uint32_t (*save_data_get)(openrac_mod *mod, void *out, uint32_t size);
+    /* on_save_data: calls `fn(user)` after the tick in which the game in progress changed: a save
+     * loaded (its data now save_data_get's, none when it was saved without the mod) or a new game
+     * started (none). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_TOO_LATE for no fn or after
+     * openrac_mod_load. */
+    int (*on_save_data)(openrac_mod *mod, openrac_frame_fn fn, void *user);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *
