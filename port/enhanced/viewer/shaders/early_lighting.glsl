@@ -57,9 +57,16 @@ bool early_surface(
     result = vec4(0, 0, 0, 1);
     covered = false;
     hero_visibility = 1.0;
+#ifdef OPENRAC_EARLY_TRANSLUCENT
+    // A blended fringe reads the lighting of the opaque surface it lies on (blended-early-light).
+    if (early_lighting_enabled == 0 || effect_pass != 0) {
+        return false;
+    }
+#else
     if (early_lighting_enabled == 0 || translucent_pass != 0 || effect_pass != 0) {
         return false;
     }
+#endif
     ivec2 half_extent = (ivec2(early_extent) + early_scale - 1) / early_scale;
     vec2 coordinate = gl_FragCoord.xy / float(early_scale) - 0.5;
     ivec2 begin = ivec2(floor(coordinate));
@@ -109,6 +116,12 @@ bool early_surface(
             best_coverage = covers;
         }
     }
+#ifdef OPENRAC_EARLY_TRANSLUCENT
+    // Off every cached surface (a fringe against the sky or far behind): the original lighting.
+    if (best > 4.0) {
+        return false;
+    }
+#endif
     result = vec4(0);
     hero_visibility = 0.0;
     float total = 0.0;

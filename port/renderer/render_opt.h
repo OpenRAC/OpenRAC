@@ -113,12 +113,12 @@ enum class Opt : std::uint8_t {
     WaterStripCull,
     // early-lighting-quarter: early GI and cascades once per 4x4 pixels, not 2x2 (lossy, Android)
     EarlyLightingQuarter,
-    // blended-flat-light: blended passes take the original lighting, not probe GI (lossy, Low)
-    BlendedFlatLight,
+    // blended-early-light: static blended passes reuse the opaque passes' early lighting (lossy)
+    BlendedEarlyLight,
 };
 
-// The number of entries: BlendedFlatLight is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::BlendedFlatLight) + 1;
+// The number of entries: BlendedEarlyLight is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::BlendedEarlyLight) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in

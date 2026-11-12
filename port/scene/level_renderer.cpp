@@ -248,6 +248,24 @@ bool LevelScene::upload(
         )) {
         return false;
     }
+    if (m_early_capable) {
+        // The same blended pass reading the early lighting (blended-early-light).
+        std::string early = m_lighting->early_fragment(shaders::mesh_frag);
+        for (const char* define :
+             {"#define OPENRAC_EARLY_TRANSLUCENT 1\n",
+              "#define OPENRAC_COLOUR_SPECIALISED 1\n",
+              "#define OPENRAC_STATIC_COLOUR 1\n"}) {
+            early.insert(early.find('\n') + 1, define);
+        }
+        for (const auto* name : {"metal_pass", "glow_pass", "effect_pass", "probe_effect"}) {
+            early = renderer::shader_constants(std::move(early), {{name, 0}});
+        }
+        early = renderer::shader_constants(std::move(early), {{"translucent_pass", 1}});
+        if (!m_static_translucent_early
+                 .build("static translucent colour, early lighting", static_vertex, early, error)) {
+            return false;
+        }
+    }
 
     const std::string depth_source = deformation_vertex(shaders::mesh_depth_vert);
     std::string depth_vertex(depth_source), depth_fragment(shaders::mesh_depth_frag);
@@ -744,6 +762,7 @@ void LevelScene::release() {
     m_mesh.release();
     m_static_translucent.release();
     m_static_translucent_full.release();
+    m_static_translucent_early.release();
     m_colour_opaque.release();
     m_early_colour_opaque.release();
     for (auto& shader : m_colour_specialised) {
@@ -1321,6 +1340,10 @@ void LevelScene::draw_layer(
             && renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeFastBlended);
         const bool static_translucent = !state.depth_prepass && !mobys && pass == 2
                                         && m_static_translucent.id() && !specialisation_off;
+        const bool early_blended =
+            static_translucent && !m_sweep_translucent_full && m_static_translucent_early.id()
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::BlendedEarlyLight)
+            && m_lighting && m_lighting->early_matches(input, state);
         const renderer::Shader* selected = &m_mesh;
         // Both depth variants retain identical positions and alpha coverage.
         if (state.depth_prepass) {
@@ -1337,6 +1360,9 @@ void LevelScene::draw_layer(
                    && (pass == kMobyGlow || pass == kMobyTranslucent || pass == kMobyEffects)) {
             // The mobys' blended passes read the cheaper probe light too (Enhanced, lossy).
             selected = &m_mesh_fast;
+        } else if (static_translucent && early_blended) {
+            // Low effects detail: the fringes read the early lighting of the surfaces they lie on.
+            selected = &m_static_translucent_early;
         } else if (static_translucent) {
             // Static blended packets omit moby-only vertex work.
             selected = fast_blended ? &m_static_translucent : &m_static_translucent_full;
@@ -1385,10 +1411,6 @@ void LevelScene::draw_layer(
             glUniform1i(program->uniform("probe_mode"), 0);
             glUniform1i(program->uniform("sun_shadow_enabled"), 0);
             glUniform1i(program->uniform("hero_shadow_enabled"), 0);
-        } else if (sweep_translucent
-                   && renderer::render_opt::enabled(renderer::render_opt::Opt::BlendedFlatLight)) {
-            // Low effects detail: the original lighting, sun shadows kept (blended-flat-light).
-            glUniform1i(program->uniform("probe_mode"), 0);
         }
         int cutout = program->uniform("cutout");
         int colour = program->uniform("material_colour");
