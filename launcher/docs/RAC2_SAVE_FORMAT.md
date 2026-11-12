@@ -425,7 +425,8 @@ hero +0x247C and goes to its idle state 7, opening the door if group 10 is done 
 done, it sets hero +0x247C, takes both packs away and resumes at the step after the last group
 done (7, then 8, then 9). During play the steps mark 9 (guard beaten, also story byte 0x29), 8
 (panel), 7 (exit volume) and 3 (switch). The switch "Prison section done" writes groups 3, 7, 8, 9,
-story 0x29 and the two packs (the packs only when set). The pad, class 4411 (moby 810,
+and story 0x29; it leaves the items alone (the packs come from Endako; the level hands them
+back itself). The pad, class 4411 (moby 810,
 `func_L14_0042FB10`), sets story byte 0x2B, sets off mobys 499 and 812 and marks group 10 when
 the hero reaches it; with 0x2B clear an arrival on level 14 plays the transition's capture scene
 (`func_002EC408`, scene 3): the switch "Prison pad reached" writes 0x2B and group 10. Both

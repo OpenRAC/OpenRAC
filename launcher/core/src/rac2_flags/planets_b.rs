@@ -165,19 +165,14 @@ pub const FLAGS: &[Flag] = &[
         level: Some(14),
         name: "Prison section done: Clank back with Ratchet",
         description: "On, the level starts past the prison escape: object groups 9, 8, 7 and 3 done, story byte \
-                      0x29 set, and the Heli-Pack and Thruster-Pack owned (as the game gives them back). Off, \
-                      the escape is played again from the start (the packs are left as they are; the level \
-                      itself takes them while the escape is not done).",
+                      0x29 set. Off, the escape is played again from the start. Items are left as they are (the \
+                      packs come from Endako).",
         place: Place::All(&[
             group_done(14, 3),
             group_done(14, 7),
             group_done(14, 8),
             group_done(14, 9),
             story(0x29, 1),
-            Place::SetOnly { chunk: 10, offset: 2, on: 1 },
-            Place::SetOnly { chunk: 11, offset: 2, on: 1 },
-            Place::SetOnly { chunk: 10, offset: 3, on: 1 },
-            Place::SetOnly { chunk: 11, offset: 3, on: 1 },
         ]),
         confidence: Confidence::FromCode,
     },

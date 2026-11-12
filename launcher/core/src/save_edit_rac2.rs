@@ -1261,10 +1261,7 @@ pub fn write_save(
     file.apply(want)?;
     let out = file.to_bytes();
     let check = SaveFile::parse(&out)?;
-    // What was asked, plus what a switch adds of its own when turned on (the Aranos Prison
-    // switch gives back the packs): the file as edited in memory, read back exactly.
-    let edited = file.fields();
-    if check.fields() != edited || edited.flags != want.flags {
+    if check.fields() != *want {
         return Err("the edited save did not read back as asked; nothing was written".into());
     }
     let backup = saves::backup_card(card_dir, Some(&format!("before_edit_slot{}", slot + 1)))?;
@@ -1689,7 +1686,7 @@ mod tests {
     }
 
     #[test]
-    fn aranos_prisons_section_done_writes_the_controllers_groups_and_the_packs() {
+    fn aranos_prisons_section_done_writes_the_controllers_groups_only() {
         const ID: &str = "aranos-prison-clank-section-done";
         let mut before = oozla();
         before.global.get_mut(id::OWNED)[2] = 0;
@@ -1705,17 +1702,15 @@ mod tests {
         assert_eq!(after.levels[14].get(3004)[8] & 0x80, 0x80);
         assert_eq!(after.levels[14].get(3004)[9] & 0x80, 0x80);
         assert_eq!(after.global.get(5)[0x29], 1);
-        for item in [2, 3] {
-            assert_eq!(after.global.get(id::OWNED)[item], 1);
-            assert_eq!(after.global.get(id::NEW)[item], 1);
-        }
-        // Cleared, the groups and the story byte go; the packs stay.
+        // The items are left alone (the packs come from Endako).
+        assert_eq!(after.global.get(id::OWNED)[2], 0);
+        // Cleared, the groups and the story byte go.
         let mut off = after.fields();
         off.flags.iter_mut().filter(|x| x.id == ID).for_each(|x| x.on = false);
         after.apply(&off).unwrap();
         assert_eq!(after.levels[14].get(3004)[3] & 0x80, 0);
         assert_eq!(after.global.get(5)[0x29], 0);
-        assert_eq!(after.global.get(id::OWNED)[2], 1);
+        assert_eq!(after.global.get(id::OWNED)[2], 0);
     }
 
     #[test]
