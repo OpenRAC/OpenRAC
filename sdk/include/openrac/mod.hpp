@@ -746,6 +746,47 @@ public:
         }
     }
 
+    // Since 1.15: whether the port lets the mod set its own settings
+    // (set_setting) and tells it of the launcher's changes (on_settings).
+    bool has_settings_set() const {
+      return m_api->api_minor >= 15 &&
+             m_api->size >= offsetof(openrac_api, on_settings) + sizeof(void *);
+    }
+
+    // Since 1.15: sets the manifest's setting `key` to `value` for this run and
+    // in the launcher's list of mods: bool for "bool"; an integer type for
+    // "int"; float or double for "float"; a string for "choice", "string" and
+    // "keybind". Returns false when the port refuses it (a key the manifest
+    // does not declare, a setting of another type, a value out of its limits)
+    // or has no such call.
+    template <class T> bool set_setting(const char *key, const T &value) const {
+      if (!has_settings_set()) {
+        return false;
+      }
+
+      // One branch per kind of setting, as setting<T>.
+      if constexpr (std::is_same_v<T, bool>) {
+        return m_api->setting_set_bool(m_handle, key, value ? 1 : 0) ==
+               OPENRAC_HOOK_OK;
+      } else if constexpr (std::is_integral_v<T>) {
+        return m_api->setting_set_int(m_handle, key,
+                                      static_cast<std::int64_t>(value)) ==
+               OPENRAC_HOOK_OK;
+      } else if constexpr (std::is_floating_point_v<T>) {
+        return m_api->setting_set_float(m_handle, key,
+                                        static_cast<double>(value)) ==
+               OPENRAC_HOOK_OK;
+      } else if constexpr (std::is_convertible_v<const T &, std::string_view>) {
+        const std::string text{std::string_view(value)};
+        return m_api->setting_set_string(m_handle, key, text.c_str()) ==
+               OPENRAC_HOOK_OK;
+      } else {
+        static_assert(
+            sizeof(T) == 0,
+            "set_setting<T>: bool, an integer, a floating type or a string");
+      }
+    }
+
     // Takes the hook point (a type of openrac/games/<game>.hpp) for `callable`, called as
     // callable(original, args...). Throws openrac::Error when the port has no such hook point, a
     // different signature, or the mod already took it. Only during load.
@@ -801,6 +842,77 @@ public:
         // The port refuses a callback once load is over.
         if (m_api->on_frame(m_handle, &detail::frame_thunk, &stored) != 0) {
             throw Error("on_frame: refused (only during load)");
+        }
+    }
+
+    // Since 1.15: calls `callable()` after the tick in which the launcher
+    // changed the mod's settings while the game runs; setting<T>() answers the
+    // new values then. Throws openrac::Error when refused or the port has no
+    // such call. Only during load.
+    template <class F> void on_settings(F &&callable) {
+      if (!has_settings_set()) {
+        throw Error("on_settings: requires interface 1.15");
+      }
+
+      // As in on_frame, the port holds the address of the stored callable.
+      auto &stored = m_frames.emplace_back(std::forward<F>(callable));
+
+      // The port refuses a callback once load is over.
+      if (m_api->on_settings(m_handle, &detail::frame_thunk, &stored) !=
+          OPENRAC_HOOK_OK) {
+        throw Error("on_settings: refused (only during load)");
+      }
+    }
+
+    // Since 1.16: whether the port keeps a mod's data with the game's saves (save_data_set,
+    // save_data, on_save_data).
+    bool has_save_data() const {
+        return m_api->api_minor >= 16
+               && m_api->size >= offsetof(openrac_api, on_save_data) + sizeof(void*);
+    }
+
+    // Since 1.16: the mod's data for the game in progress, kept with each save the game writes
+    // from now on (at most OPENRAC_SAVE_DATA_MAX bytes; none forgets it). Call it whenever the data
+    // changes. Returns false when the port refuses it (too many bytes) or has no such call.
+    bool save_data_set(const void* bytes, std::size_t size) const {
+        return has_save_data() && size <= OPENRAC_SAVE_DATA_MAX
+               && m_api->save_data_set(m_handle, bytes, static_cast<std::uint32_t>(size))
+                      == OPENRAC_HOOK_OK;
+    }
+
+    bool save_data_set(const std::vector<std::uint8_t>& bytes) const {
+        return save_data_set(bytes.data(), bytes.size());
+    }
+
+    // Since 1.16: the mod's data for the game in progress (what its save held, or what the mod set
+    // since); empty for none, or a port without it.
+    std::vector<std::uint8_t> save_data() const {
+        if (!has_save_data()) {
+            return {};
+        }
+        std::vector<std::uint8_t> bytes(m_api->save_data_get(m_handle, nullptr, 0));
+        // It changes only on the game thread, between the two calls never.
+        if (!bytes.empty()) {
+            m_api->save_data_get(m_handle, bytes.data(), static_cast<std::uint32_t>(bytes.size()));
+        }
+        return bytes;
+    }
+
+    // Since 1.16: calls `callable()` after the tick in which the game in progress changed (a save
+    // loaded, a new game started): save_data() answers its data then. Throws openrac::Error when
+    // refused or the port has no such call. Only during load.
+    template <class F>
+    void on_save_data(F&& callable) {
+        if (!has_save_data()) {
+            throw Error("on_save_data: requires interface 1.16");
+        }
+
+        // As in on_frame, the port holds the address of the stored callable.
+        auto& stored = m_frames.emplace_back(std::forward<F>(callable));
+
+        // The port refuses a callback once load is over.
+        if (m_api->on_save_data(m_handle, &detail::frame_thunk, &stored) != OPENRAC_HOOK_OK) {
+            throw Error("on_save_data: refused (only during load)");
         }
     }
 

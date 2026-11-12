@@ -9,6 +9,7 @@
 // both orders, before and after, the pad's report, the fields, require(), the installed launcher's
 // layout, and no Luau state while no script mod is on.
 
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -107,7 +108,7 @@ void install_native(const fs::path& plugins) {
     write(
         dir / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.14", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.16", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": "lib/)" + library_name() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0},
@@ -407,6 +408,53 @@ void refused_without_a_binding(const fs::path& plugins) {
 
 }  // namespace
 
+// A script's own settings (interface 1.15): openrac.set_setting sets one of the mod's for the run
+// and in the launcher's list, by its type, within its limits; openrac.on_settings hears the
+// launcher's change, the settings read again first.
+void a_script_sets_its_settings(const fs::path& plugins) {
+    install_script(
+        plugins,
+        "keep",
+        {{"main.luau", R"(
+assert(openrac.set_setting("volume", 7) == true, "an int within its limits")
+assert(openrac.setting("volume") == 7, "read back")
+assert(openrac.set_setting("volume", 11) == false, "past its max")
+assert(openrac.set_setting("volume", 2.5) == false, "not an integer")
+assert(openrac.set_setting("on", "yes") == false, "not a boolean")
+assert(openrac.set_setting("nothing", true) == false, "not the mod's")
+assert(openrac.set_setting("mode", "b") == true, "a choice's value")
+local heard = 0
+openrac.on_settings(function() heard = openrac.setting("volume") end)
+openrac.on_pad(function(port, report) buffer.writeu8(report, 1, heard) end)
+)"}},
+        R"({"key": "volume", "name": "Volume", "type": "int", "default": 3, "min": 0, "max": 10},
+                      {"key": "on", "name": "On", "type": "bool", "default": false},
+                      {"key": "mode", "name": "Mode", "type": "choice", "default": "a",
+                       "choices": [{"value": "a", "name": "A"}, {"value": "b", "name": "B"}]})"
+    );
+    list(plugins, R"({"id": "keep", "enabled": true})");
+    CHECK(mods::load(host(plugins)) == "keep 1.0.0");
+    const std::string text = read(plugins / "plugins.json");
+    CHECK(
+        text.find("\"volume\": 7") != std::string::npos
+        && text.find("\"mode\": \"b\"") != std::string::npos
+    );
+
+    // The launcher's change, heard after about a second of ticks.
+    list(plugins, R"({"id": "keep", "enabled": true, "settings": {"volume": 9}})");
+    fs::last_write_time(
+        plugins / "plugins.json",
+        fs::last_write_time(plugins / "plugins.json") + std::chrono::seconds(5)
+    );
+    for (int i = 0; i < 150; ++i) {
+        mods::frame();
+    }
+    unsigned char report[18] = {0};
+    g_pad_hook(0, report, 18);
+    CHECK(report[1] == 9);
+    mods::reset();
+}
+
 int main() {
     runtime::Memory::create();
     mods::scripts::set_budget_ms(kBudgetMs);
@@ -422,6 +470,7 @@ int main() {
     an_installed_launchers_layout(dir);
     ids_and_old_names(plugins);
     keyboard_and_mouse(plugins);
+    a_script_sets_its_settings(plugins);
     refused_without_a_binding(plugins);
     std::error_code e;
     fs::remove_all(dir, e);

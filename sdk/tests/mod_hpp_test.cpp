@@ -830,6 +830,65 @@ void fill_14(openrac_api& api) {
     };
 }
 
+// What the fake host's 1.15 calls were given, and the settings callback the mod
+// left.
+std::string g_15;
+openrac_frame_fn g_settings_fn = nullptr;
+void *g_settings_user = nullptr;
+
+void fill_15(openrac_api &api) {
+  api.setting_set_bool = [](openrac_mod *, const char *key, int value) {
+    g_15 = std::string(key) + " bool " + std::to_string(value);
+    return std::string(key) == "trace" ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.setting_set_int = [](openrac_mod *, const char *key, int64_t value) {
+    g_15 = std::string(key) + " int " + std::to_string(value);
+    return OPENRAC_HOOK_OK;
+  };
+  api.setting_set_float = [](openrac_mod *, const char *key, double value) {
+    g_15 = std::string(key) + " float " + std::to_string(value).substr(0, 4);
+    return OPENRAC_HOOK_OK;
+  };
+  api.setting_set_string = [](openrac_mod *, const char *key,
+                              const char *value) {
+    g_15 = std::string(key) + " string " + value;
+    return OPENRAC_HOOK_OK;
+  };
+  api.on_settings = [](openrac_mod *, openrac_frame_fn fn, void *user) {
+    g_settings_fn = fn;
+    g_settings_user = user;
+    return OPENRAC_HOOK_OK;
+  };
+}
+
+// The fake host's 1.16 data kept with the saves, and the callback the mod left.
+std::vector<std::uint8_t> g_16;
+openrac_frame_fn g_save_data_fn = nullptr;
+void* g_save_data_user = nullptr;
+
+void fill_16(openrac_api& api) {
+    api.save_data_set = [](openrac_mod*, const void* bytes, std::uint32_t size) {
+        if (size > OPENRAC_SAVE_DATA_MAX) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        const auto* b = static_cast<const std::uint8_t*>(bytes);
+        g_16.assign(b, b + size);
+        return OPENRAC_HOOK_OK;
+    };
+    api.save_data_get = [](openrac_mod*, void* out, std::uint32_t size) {
+        const auto length = static_cast<std::uint32_t>(g_16.size());
+        if (out != nullptr && size >= length) {
+            std::memcpy(out, g_16.data(), length);
+        }
+        return length;
+    };
+    api.on_save_data = [](openrac_mod*, openrac_frame_fn fn, void* user) {
+        g_save_data_fn = fn;
+        g_save_data_user = user;
+        return OPENRAC_HOOK_OK;
+    };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -1749,6 +1808,54 @@ int main() {
         api.size = static_cast<std::uint32_t>(offsetof(openrac_api, party_replaying) + sizeof(void*));
         CHECK(!mod.has_shared_progress() && !mod.identity_key().size() && !mod.open_link("openrac://x"));
         api.size = size;
+    }
+    // Interface 1.15: the mod's own settings, set by their type, and the
+    // launcher's changes heard.
+    {
+      fill_15(api);
+      CHECK(mod.has_settings_set());
+      CHECK(mod.set_setting("trace", true) && g_15 == "trace bool 1");
+      CHECK(!mod.set_setting("other", false));
+      CHECK(mod.set_setting("count", 7) && g_15 == "count int 7");
+      CHECK(mod.set_setting("count", int64_t{9}) && g_15 == "count int 9");
+      CHECK(mod.set_setting("scale", 2.5) && g_15 == "scale float 2.50");
+      CHECK(mod.set_setting("mode", "hold") && g_15 == "mode string hold");
+      CHECK(mod.set_setting("mode", std::string("lock")) &&
+            g_15 == "mode string lock");
+      int heard = 0;
+      mod.on_settings([&heard] { ++heard; });
+      CHECK(g_settings_fn != nullptr);
+      g_settings_fn(g_settings_user);
+      CHECK(heard == 1);
+
+      // A port of 1.14 has none of it: set_setting answers no and touches
+      // nothing.
+      g_15.clear();
+      api.api_minor = 14;
+      CHECK(!mod.has_settings_set() && !mod.set_setting("trace", true) &&
+            g_15.empty());
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.16: the mod's data kept with the saves, set, read back and the game in progress
+    // changing heard.
+    {
+        fill_16(api);
+        CHECK(mod.has_save_data() && mod.save_data().empty());
+        CHECK(mod.save_data_set(std::vector<std::uint8_t>{1, 2, 3}) && g_16.size() == 3);
+        CHECK((mod.save_data() == std::vector<std::uint8_t>{1, 2, 3}));
+        const std::vector<std::uint8_t> big(OPENRAC_SAVE_DATA_MAX + 1u, 7);
+        CHECK(!mod.save_data_set(big) && g_16.size() == 3);
+        int changed = 0;
+        mod.on_save_data([&changed] { ++changed; });
+        CHECK(g_save_data_fn != nullptr);
+        g_save_data_fn(g_save_data_user);
+        CHECK(changed == 1);
+
+        // A port of 1.15 has none of it: no data, and setting it answers no.
+        api.api_minor = 15;
+        CHECK(!mod.has_save_data() && !mod.save_data_set(std::vector<std::uint8_t>{9}));
+        CHECK(mod.save_data().empty() && g_16.size() == 3);
+        api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);

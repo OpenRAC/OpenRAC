@@ -107,6 +107,17 @@ extern const char* openrac_game_loaded_mods;
 extern int openrac_game_save_in_use;
 extern int32_t openrac_game_save_in_use_seconds;
 
+/* Set by the mods' loader (interface 1.16, the mods' data kept with the saves; game/common/mods.cpp,
+ * null until it loads), called by lib/mc.c: a save the game has just written at `path` (its mark set; `players` 0
+ * for one of the blank slots the game writes on a fresh card), and a save it has just read whole
+ * (Load Game) from `slot`. */
+extern void (*openrac_game_save_written)(const char* path, int players);
+extern void (*openrac_game_save_read)(const char* path, int slot);
+/* The same, called by a game's host when the game starts a new game (Ratchet & Clank: NewGameInit,
+ * rac1/host/boot.c), before the save it may write right after: the mods' data starts empty. A game
+ * without it is still seen starting one once it plays with no save of its own (save_slot_current). */
+extern void (*openrac_game_new_game)(void);
+
 /* The console's language setting (sceScfGetLanguage): 1 English, 2 French,
  * 3 Spanish, 4 German, 5 Italian. */
 extern int openrac_game_language;
