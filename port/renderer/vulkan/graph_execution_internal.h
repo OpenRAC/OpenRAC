@@ -27,14 +27,18 @@ struct GraphExecution::Recording {
     // True only during a synchronous work callback; typed transfer commands cannot escape its pass.
     bool recording = false;
     bool executed = false;  // A compiled entry state can be consumed only once.
+    // A read-only buffer import took the backend's word that every GPU write so far is visible
+    // (buffer_writes_visible), so it carries no barrier: each pass checks that this still holds.
+    bool trusted_reads = false;
     // Canonicalises a borrowed allocation after pending attachment work has finished.
     // `written`: the open pass drew into it, so it holds that even while it is marked let go.
     Result<graph::ImageHandle> import_image(
         std::string name, detail::ImagePtr image, bool defined, bool written = false
     );
     // Imports an allocation, preserving exact offsets for ring-backed read-only regions.
+    // `read_only`: the import is only read by shaders here, so it may enter as already visible.
     Result<renderer::graph::BufferHandle> import_buffer(
-        std::string name, detail::BufferRef region, bool defined
+        std::string name, detail::BufferRef region, bool defined, bool read_only = false
     );
     // Appends one sampled image read after checking the legacy whole-image layout constraint.
     Result<void> sampled_image(

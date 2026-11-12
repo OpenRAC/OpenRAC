@@ -12,9 +12,12 @@
 
 namespace openrac::scene {
 // Clear callbacks initialise the whole depth image; preserved callbacks may update only dirty rectangles.
+// PreserveSeparate is Preserve in a render pass of its own, so that the pass covers only the
+// rectangles this callback clears and draws.
 enum class ShadowDepthContents : std::uint8_t {
     Clear,
-    Preserve
+    Preserve,
+    PreserveSeparate
 };
 // The static cache is copied next; completed shadow maps are sampled by lighting and composition.
 enum class ShadowDepthConsumer : std::uint8_t {

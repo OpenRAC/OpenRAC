@@ -26,6 +26,14 @@
 
 namespace openrac::renderer::render_opt {
 
+// The Enhanced graphics setting "Effects detail" (the presets set it): a lossy entry is on only
+// at its level or below, so High draws every effect in full.
+enum class EffectsDetail : std::uint8_t {
+    Low,
+    Medium,
+    High
+};
+
 // The optimisations, one per entry of the table, in its order.
 enum class Opt : std::uint8_t {
     RegistrySelftest,  // registry-selftest: no drawing; the tests' own entry
@@ -88,14 +96,35 @@ enum class Opt : std::uint8_t {
     AttachmentUntouched,  // attachment-untouched: an attachment a pass leaves alone not loaded
     PassRenderArea,       // pass-render-area: a pass loads and stores only the rectangle it touched
     OverwriteDiscard,     // overwrite-discard: a target a full-screen pass overwrites is not loaded
-    ProbeFastBlended,     // probe-fast-blended: cheaper probe light on blended static passes
+    ProbeFastBlended,     // probe-fast-blended: cheaper probe light on blended passes
     // vk-pipeline-library: a new Vulkan pipeline linked from parts made ahead, the full one later
     VkPipelineLibrary,
     GlStateWarmup,  // gl-state-warmup: OpenGL's drawn states drawn once more at a level's load
+    // opaque-depth-gequal: opaque colour over the prepass depth tests GEQUAL, not EQUAL
+    OpaqueDepthGequal,
+    // vertex-position-stream: positions in a tight vertex buffer of their own
+    VertexPositionStream,
+    ShadowFarAlternate,  // shadow-far-alternate: the far sun cascades drawn every other frame
+    // motion-blur-half-flood: the blur's jump flood runs on a half-resolution seed grid (lossy)
+    MotionBlurHalfFlood,
+    // vk-program-keep: a deleted program's shader modules and pipelines wait for its next link
+    VkProgramKeep,
+    // vk-mode-constants: a program's mode uniforms are constants of its pipelines
+    VkModeConstants,
+    // water-mesh-coarse: Enhanced water subdivided to one unit, not half a unit (lossy, Medium)
+    WaterMeshCoarse,
+    // water-strip-cull: an Enhanced water strip outside the view, waves included, is not drawn
+    WaterStripCull,
+    // early-lighting-quarter: early GI and cascades once per 4x4 pixels, not 2x2 (lossy, Low)
+    EarlyLightingQuarter,
+    // blended-early-light: static blended passes reuse the opaque passes' early lighting (lossy, Low)
+    BlendedEarlyLight,
+    // shadow-far-quarter: one far sun cascade a frame, 2 and 3 every fourth frame (lossy, Low)
+    ShadowFarQuarter,
 };
 
-// The number of entries: GlStateWarmup is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::GlStateWarmup) + 1;
+// The number of entries: ShadowFarQuarter is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::ShadowFarQuarter) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in
@@ -119,6 +148,8 @@ struct Entry {
     std::string_view description;  // What it makes cheaper, in one line.
     bool default_on;               // Whether it is on when nothing switches it off.
     Tolerance tolerance;           // How far its frames may differ from the reference path's.
+    // The highest effects detail it is on at (lossy entries); High: at every detail.
+    EffectsDetail highest = EffectsDetail::High;
 };
 
 // What OPENRAC_RENDER_OPT_OFF's text names: the entries to switch off, whether it said all, and
@@ -144,8 +175,9 @@ struct OffList {
 [[nodiscard]] OffList parse_off_list(std::string_view text);
 
 // Returns whether `opt` is on: its default, unless OPENRAC_RENDER_OPT_OFF or set() switched it
-// off. The variable is read at the first call of this or set(), and an unknown name in it is
-// logged once as a warning and ignored.
+// off, and for a lossy entry only at its effects detail or below unless set() switched it on. The
+// variable is read at the first call of this or set(), and an unknown name in it is logged once as
+// a warning and ignored.
 //
 // Hot path: after the first call, one test of an initialised static and one relaxed atomic load
 // of an array element, so the draw path may ask it per draw. Any thread may call it.
@@ -154,6 +186,10 @@ struct OffList {
 // Switches `opt` on or off for the rest of the run, over its default and the variable. For the
 // tests and the benchmark, which call it between frames on the thread that draws.
 void set(Opt opt, bool on);
+
+// Sets the effects detail the lossy entries follow (each frame, from the settings); High at start.
+void set_effects_detail(EffectsDetail detail);
+[[nodiscard]] EffectsDetail effects_detail();
 
 // Puts every entry back to its default with OPENRAC_RENDER_OPT_OFF applied, as the run began.
 // For the tests and the benchmark, between frames.

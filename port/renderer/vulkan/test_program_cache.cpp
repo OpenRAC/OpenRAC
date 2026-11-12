@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Opt-in test retention of immutable modules, layouts and pipelines across fresh GL programs.
-// Exact bytecode and layout modes must match; uniforms and descriptor state are never reused.
+// Retention of immutable modules, layouts and pipelines across fresh GL programs: opted into by a
+// test, or the game's kept programs (vk-program-keep), which a level's load deletes and links
+// again. Exact bytecode and layout modes must match; uniforms and descriptor state are never
+// reused.
 
 #include <algorithm>
 #include <utility>
@@ -63,9 +65,15 @@ void move_objects(Program& to, Program& from) {
 
 }  // namespace
 
+bool keeps_programs() {
+    return g->keep_programs
+           && renderer::render_opt::enabled(renderer::render_opt::Opt::VkProgramKeep);
+}
+
 bool reuse_test_program(Program& program) {
-    // Normal player programs retain their existing lifetime and compilation behaviour.
-    if (!g->test_program_reuse || !g->test_program_borrow) {
+    const bool kept = keeps_programs();
+    // Without either retention a program has its usual lifetime and compilation.
+    if (!kept && (!g->test_program_reuse || !g->test_program_borrow)) {
         return false;
     }
     const auto found = std::find_if(g->test_programs.begin(), g->test_programs.end(), [&](auto& p) {
@@ -76,17 +84,22 @@ bool reuse_test_program(Program& program) {
         return false;
     }
     g->pipelines.rename_program(found->serial, program.serial);
+    // The game's programs link pipelines from parts, which a test's retention never does.
+    rename_program_libraries(found->serial, program.serial);
     move_objects(program, *found);
     g->test_programs.erase(found);
-    ++g->submission.test_program_reuses;
+    ++(kept ? g->submission.program_reuses : g->submission.test_program_reuses);
     return true;
 }
 
 bool retain_test_program(Program& program) {
     constexpr std::size_t kRetainedPrograms = 256;  // Bounds test-only shader permutations.
-    // Partial links and a full pool use the ordinary deferred destruction path.
-    if (!g->test_program_reuse || !program.linked || !program.layout
-        || g->test_programs.size() >= kRetainedPrograms) {
+    // The game's: more than two levels' programs, so a level's load finds the last level's.
+    constexpr std::size_t kKeptPrograms = 128;
+    const bool kept = keeps_programs();
+    // Partial links use the ordinary deferred destruction path, as does a test's full pool.
+    if ((!kept && !g->test_program_reuse) || !program.linked || !program.layout
+        || (!kept && g->test_programs.size() >= kRetainedPrograms)) {
         return false;
     }
     // A pool copy already owns these objects; normal retirement avoids duplicate retained entries.
@@ -110,12 +123,18 @@ bool retain_test_program(Program& program) {
     }
     move_objects(retained, program);
     g->test_programs.push_back(std::move(retained));
+    // The game's oldest kept programs go when the pool is full: variants no level links any more.
+    while (kept && g->test_programs.size() > kKeptPrograms) {
+        destroy_program(g->test_programs.front());
+        g->test_programs.erase(g->test_programs.begin());
+    }
     return true;
 }
 
 void clear_test_programs() {
     g->test_program_reuse = false;
     g->test_program_borrow = false;
+    g->keep_programs = false;
     for (auto& program : g->test_programs) {
         release_program(program);
     }
@@ -131,6 +150,19 @@ void test_reuse_programs(bool on, bool borrow) {
     if (detail::g) {
         detail::g->test_program_reuse = on;
         detail::g->test_program_borrow = on && borrow;
+    }
+}
+
+void keep_programs(bool on) {
+    // Nothing to keep without a context. Off, what is kept stays until the backend closes.
+    if (detail::g) {
+        detail::g->keep_programs = on;
+    }
+}
+
+void set_texture_lod_bias(float bias) {
+    if (detail::g) {
+        detail::g->texture_lod_bias = bias;
     }
 }
 

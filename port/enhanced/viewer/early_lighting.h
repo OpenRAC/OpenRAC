@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <array>
 #include <functional>
 #include <span>
 
@@ -37,7 +38,9 @@ public:
     void release();
 
 private:
-    renderer::Shader m_compute;
+    // Shadow filtering Soft's and Fast's, each for 2x2 and 4x4 cells (early-lighting-quarter).
+    std::array<renderer::Shader, 4> m_compute;
+    int m_scale = 2;  // Pixels a side of the cells the last render wrote.
     std::array<unsigned, 2> m_buffers{}, m_textures{};
     int m_width = 0, m_height = 0;
     unsigned m_target = 0;

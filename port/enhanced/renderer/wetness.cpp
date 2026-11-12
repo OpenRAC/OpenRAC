@@ -208,6 +208,10 @@ void HeroWetness::bind(
     }
 }
 
+void HeroWetness::bind_model(const renderer::Shader& shader, unsigned model) const {
+    glUniform1i(shader.uniform("hero_wetness_enabled"), m_active && model == m_model ? 1 : 0);
+}
+
 void HeroWetness::bind_material(
     const renderer::Shader& shader, const WetnessMaterialSettings& settings
 ) const {

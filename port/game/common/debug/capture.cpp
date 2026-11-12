@@ -41,6 +41,7 @@
 #include "program/options.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
+#include "renderer/render_opt.h"
 #include "scene/stb_extra.h"
 #include "settings.h"
 #if defined(OPENRAC_VULKAN)
@@ -68,10 +69,12 @@ struct Capture {
     std::string path;                           // the report's file; empty: one of its own
     bool hid_panel = false;                     // the panel was hidden for the capture
     bool opened_dump = false;                   // the frame dump beside it is the capture's own
-    // OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]: a capture by script.
+    // OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]: a capture by script ("sweep" as the seconds:
+    // the settings sweep).
     std::uint64_t script_frame = 0;
     double script_seconds = 0.0;
     std::string script_path;
+    bool script_sweep = false;  // the settings sweep in place of a plain capture
     bool scripted = false;
     // What the device said when the capture started, said again at its end.
     std::string clocks_at_start, thermal_at_start;
@@ -88,6 +91,9 @@ Capture c;
 struct SweepStep {
     const char* name;
     void (*apply)(settings::Settings&);
+    // A drawing optimisation (renderer/render_opt.h) switched off for the step alone, to measure
+    // what it saves; registry-selftest, which draws nothing, when the step switches none.
+    renderer::render_opt::Opt opt_off = renderer::render_opt::Opt::RegistrySelftest;
 };
 
 void effects_off(settings::Settings& g) {
@@ -101,67 +107,130 @@ void effects_off(settings::Settings& g) {
     g.texture_filter = renderer::TextureFilter::Normal;
 }
 
+// The steps measure Enhanced graphics as the player set it, one part at a time. The pairs at full
+// and half render scale tell a cost that follows the pixels (shading, bandwidth) from one that does
+// not (vertices, binning, fixed passes): on an Adreno 830 most of the probe lighting's cost did not.
 constexpr SweepStep kSweep[] = {
     {"as set", [](settings::Settings&) {}},
     {"enhanced graphics off", [](settings::Settings& g) { g.enhanced_graphics = false; }},
-    {"enhanced, every effect off", effects_off},
-    {"enhanced, every effect off, probe lighting off",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.sweep_probe_lighting_off = true;
-     }},
-    {"enhanced, every effect off, probe lighting off, scale 50%",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.sweep_probe_lighting_off = true;
-         g.render_scale = 50;
-     }},
-    {"enhanced, every effect off, render scale 50%",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.render_scale = 50;
-     }},
-    {"enhanced, every effect off, blended passes left out",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.sweep_translucent_off = true;
-     }},
-    {"enhanced, every effect off, blended passes without probes",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.sweep_translucent_unlit = true;
-     }},
-    {"enhanced, every effect off, blended passes with full probe light",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.sweep_translucent_full = true;
-     }},
-    {"enhanced off, blended passes left out",
-     [](settings::Settings& g) {
-         g.enhanced_graphics = false;
-         g.sweep_translucent_off = true;
-     }},
+    // The same with every mode read from its uniform, as before vk-mode-constants: what the
+    // driver saves when it can drop the code a mode leaves out.
+    {"enhanced graphics off, mode constants off (vk-mode-constants off)",
+     [](settings::Settings& g) { g.enhanced_graphics = false; },
+     renderer::render_opt::Opt::VkModeConstants},
     {"enhanced off, render scale 50%",
      [](settings::Settings& g) {
          g.enhanced_graphics = false;
          g.render_scale = 50;
      }},
+    {"as set, render scale 50%", [](settings::Settings& g) { g.render_scale = 50; }},
+    {"as set, mode constants off (vk-mode-constants off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::VkModeConstants},
+    // A sixteenth of the pixels: nearly all that is left does not follow the pixels.
+    {"as set, render scale 25%", [](settings::Settings& g) { g.render_scale = 25; }},
+    // The same draws with no triangles to speak of: what a draw costs by itself.
+    {"as set, every world draw cut to one triangle",
+     [](settings::Settings& g) { g.sweep_one_triangle = true; }},
+    // What is left then, three ways: does it follow the shader's size, the pixels, the lighting.
+    {"as set, one triangle a draw, mode constants off (vk-mode-constants off)",
+     [](settings::Settings& g) { g.sweep_one_triangle = true; },
+     renderer::render_opt::Opt::VkModeConstants},
+    {"as set, one triangle a draw, render scale 25%",
+     [](settings::Settings& g) {
+         g.sweep_one_triangle = true;
+         g.render_scale = 25;
+     }},
+    {"as set, one triangle a draw, probe lighting off",
+     [](settings::Settings& g) {
+         g.sweep_one_triangle = true;
+         g.sweep_probe_lighting_off = true;
+     }},
+    // The prepass's draws with the general depth shader: whether a draw costs more with a larger
+    // shader.
+    {"as set, prepass with the general shader (prepass-rigid off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::PrepassRigid},
+    {"as set, probe lighting off",
+     [](settings::Settings& g) { g.sweep_probe_lighting_off = true; }},
+    {"as set, probe lighting off, mode constants off (vk-mode-constants off)",
+     [](settings::Settings& g) { g.sweep_probe_lighting_off = true; },
+     renderer::render_opt::Opt::VkModeConstants},
+    {"as set, probe lighting off, render scale 50%",
+     [](settings::Settings& g) {
+         g.sweep_probe_lighting_off = true;
+         g.render_scale = 50;
+     }},
+    {"as set, blended passes left out",
+     [](settings::Settings& g) { g.sweep_translucent_off = true; }},
+    {"as set, blended passes without probes",
+     [](settings::Settings& g) { g.sweep_translucent_unlit = true; }},
+    {"as set, mobys' glow, blended and metal passes left out",
+     [](settings::Settings& g) { g.sweep_moby_blended_off = true; }},
+    {"as set, draw distance original (fewer far triangles)",
+     [](settings::Settings& g) { g.draw_distance = 100; }},
+    {"as set, opaque depth EQUAL (opaque-depth-gequal off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::OpaqueDepthGequal},
+    {"as set, positions in the wide vertex (vertex-position-stream off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::VertexPositionStream},
     {"as set, temporal off (native)",
      [](settings::Settings& g) { g.temporal_quality = renderer::TemporalQuality::Off; }},
+    {"as set, temporal performance (2x)",
+     [](settings::Settings& g) { g.temporal_quality = renderer::TemporalQuality::Performance; }},
     {"as set, motion blur off", [](settings::Settings& g) { g.motion_blur = false; }},
     {"as set, GTAO off", [](settings::Settings& g) { g.gtao = false; }},
     {"as set, modern shadows off", [](settings::Settings& g) { g.enhanced_shadows = false; }},
     {"as set, AgX off", [](settings::Settings& g) { g.agx_preview = false; }},
-    {"as set, edge-aware textures off",
-     [](settings::Settings& g) { g.texture_filter = renderer::TextureFilter::Normal; }},
     {"as set, rim light off", [](settings::Settings& g) { g.rim_light = false; }},
-    {"as set, probe lighting off",
-     [](settings::Settings& g) { g.sweep_probe_lighting_off = true; }},
+    {"enhanced, every effect off", effects_off},
+    // The same with the player's upscaler kept: at the render size of "as set", so the two differ
+    // by the effects alone.
+    {"enhanced, every effect off, upscaler as set",
+     [](settings::Settings& g) {
+         const renderer::TemporalQuality kept = g.temporal_quality;
+         effects_off(g);
+         g.temporal_quality = kept;
+     }},
+    {"as set, anisotropic filtering off", [](settings::Settings& g) { g.anisotropy = 1; }},
+    {"as set, anti-aliasing off", [](settings::Settings& g) { g.msaa = 1; }},
+    {"as set, shadow filtering fast",
+     [](settings::Settings& g) { g.shadow_filter = renderer::ShadowFilter::Fast; }},
+    {"as set, occlusion quality low",
+     [](settings::Settings& g) { g.gtao_settings.quality = renderer::GtaoQuality::Low; }},
+    {"as set, far sun cascades every frame (shadow-far-alternate off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::ShadowFarAlternate},
+    {"as set, far sun cascades every other frame (shadow-far-quarter off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::ShadowFarQuarter},
+    {"as set, blended passes with probe light (blended-early-light off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::BlendedEarlyLight},
+    {"as set, motion blur flood at full size (motion-blur-half-flood off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::MotionBlurHalfFlood},
+    {"as set, effects detail high",
+     [](settings::Settings& g) { g.effects_detail = renderer::render_opt::EffectsDetail::High; }},
+    {"as set, effects detail low",
+     [](settings::Settings& g) { g.effects_detail = renderer::render_opt::EffectsDetail::Low; }},
+    {"preset high",
+     [](settings::Settings& g) { g.apply_enhanced_preset(settings::EnhancedPreset::High); }},
+    {"preset medium",
+     [](settings::Settings& g) { g.apply_enhanced_preset(settings::EnhancedPreset::Medium); }},
+    {"preset low",
+     [](settings::Settings& g) { g.apply_enhanced_preset(settings::EnhancedPreset::Low); }},
     {"as set (again)", [](settings::Settings&) {}},
 };
 constexpr int kSweepSteps = static_cast<int>(std::size(kSweep));
 constexpr double kSweepStepS = 4.0;    // each step's length
 constexpr double kSweepSettleS = 1.5;  // its first part not counted: targets and history renewed
+// Nor the frames up to this long after the workers made a pipeline: drawn with a stand-in.
+constexpr double kSweepCompiledS = 0.25;
+// The most the steps wait for the workers in all: a step's time stands still while they make its
+// pipelines, as in the first sweep of a build.
+constexpr double kSweepHoldS = 90.0;
 
 struct Sweep {
     bool asked = false;    // the next capture is a sweep
@@ -172,17 +241,35 @@ struct Sweep {
     struct Boundary {
         std::uint64_t serial;
         double start_s;
+        int step;  // which of kSweep: a step a long frame ran over is left out
     };
 
     std::vector<Boundary> starts;  // where each step's frames begin
+    // When the pre-warm workers last had a pipeline to make (stats' seconds): a step's frames
+    // count only after it, drawn with their own pipelines (vk-mode-constants).
+    double compiled_s = 0.0;
+    double held_s = 0.0;  // how long the steps have waited for the workers (kSweepHoldS)
+    double seen_s = 0.0;  // the capture's time at the frame before
     std::uint64_t done_serial = 0;
     // Each step's pictures: when each began, and its GPU time where measured. A tick the game
     // runs without drawing is a frame of its own in stats' history, and not counted.
     std::vector<std::vector<double>> picture_s, gpu_ms;
     std::vector<std::string> results;  // the report's lines, once it ended
+    // The optimisation the step switched off, and whether it was on before.
+    renderer::render_opt::Opt opt_off = renderer::render_opt::Opt::RegistrySelftest;
+    bool opt_was_on = false;
 };
 
 Sweep sweep;
+
+// Gives back the optimisation the last step switched off. The switch is an atomic the render
+// thread reads per draw, so a frame may straddle the change; the step's settle time leaves it out.
+void sweep_restore_opt() {
+    if (sweep.opt_off != renderer::render_opt::Opt::RegistrySelftest) {
+        renderer::render_opt::set(sweep.opt_off, sweep.opt_was_on);
+        sweep.opt_off = renderer::render_opt::Opt::RegistrySelftest;
+    }
+}
 
 void sweep_apply(int step) {
     settings::Settings next = sweep.saved;
@@ -190,13 +277,20 @@ void sweep_apply(int step) {
     next.frame_rate = settings::FrameRate::Unlimited;
     kSweep[step].apply(next);
     settings::get() = next;
+    sweep_restore_opt();
+    const renderer::render_opt::Opt off = kSweep[step].opt_off;
+    if (off != renderer::render_opt::Opt::RegistrySelftest) {
+        sweep.opt_was_on = renderer::render_opt::enabled(off);
+        sweep.opt_off = off;
+        renderer::render_opt::set(off, false);
+    }
     s.settings_changed = true;
     sweep.step = step;
     const stats::Frame* last = stats::history(0);
     sweep.starts.push_back(
         last != nullptr
-            ? Sweep::Boundary{last->serial + 1, last->start_s + last->interval_ms / 1000.0}
-            : Sweep::Boundary{0, 0.0}
+            ? Sweep::Boundary{last->serial + 1, last->start_s + last->interval_ms / 1000.0, step}
+            : Sweep::Boundary{0, 0.0, step}
     );
 }
 
@@ -216,7 +310,8 @@ void sweep_collect() {
             }
         }
         const bool picture = f->gpu_frame_ms >= 0.0 || f->cpu_ms("render") > 0.0;
-        if (step < 0 || !picture || f->start_s < sweep.starts[step].start_s + kSweepSettleS) {
+        if (step < 0 || !picture || f->start_s < sweep.starts[step].start_s + kSweepSettleS
+            || f->start_s < sweep.compiled_s + kSweepCompiledS) {
             continue;
         }
         sweep.picture_s[step].push_back(f->start_s);
@@ -241,6 +336,7 @@ void sweep_end() {
     }
     sweep.running = false;
     settings::get() = sweep.saved;
+    sweep_restore_opt();
     s.settings_changed = true;
     sweep.results.clear();
     for (int i = 0; i < static_cast<int>(sweep.starts.size()); ++i) {
@@ -258,8 +354,8 @@ void sweep_end() {
             std::format(
                 "{:2} {:<58} {:6.2f} ms a picture ({:5.1f} fps), median {:6.2f}, p90 {:6.2f}; gpu "
                 "median {:6.2f}; {} pictures",
-                i,
-                kSweep[i].name,
+                sweep.starts[i].step,
+                kSweep[sweep.starts[i].step].name,
                 mean,
                 mean > 0.0 ? 1000.0 / mean : 0.0,
                 percentile(frames, 0.5),
@@ -281,14 +377,23 @@ void configure_capture() {
         char* end = nullptr;
         c.script_frame = std::strtoull(text.c_str(), &end, 10);
         if (end != nullptr && *end == ':') {
-            c.script_seconds = std::strtod(end + 1, &end);
+            // "sweep" in place of the seconds: the graphics settings sweep, as long as it takes.
+            if (std::string_view(end + 1).starts_with("sweep")) {
+                c.script_sweep = true;
+                end += 1 + std::string_view("sweep").size();
+            } else {
+                c.script_seconds = std::strtod(end + 1, &end);
+            }
+
             if (end != nullptr && *end == ':') {
                 c.script_path = end + 1;
             }
         }
-        c.scripted = c.script_seconds > 0.0;
+
+        c.scripted = c.script_sweep || c.script_seconds > 0.0;
+
         if (!c.scripted) {
-            log::warn("OPENRAC_PERF_CAPTURE: expected FRAME:SECONDS[:FILE], got {}", text);
+            log::warn("OPENRAC_PERF_CAPTURE: expected FRAME:SECONDS|sweep[:FILE], got {}", text);
         }
     }
 }
@@ -478,6 +583,8 @@ perf_capture::Context context(const Shown& shown) {
                                     "{} {}x{}{}",
                                     graphics.gtao_settings.quality == renderer::GtaoQuality::Quality
                                         ? "quality"
+                                    : graphics.gtao_settings.quality == renderer::GtaoQuality::Low
+                                        ? "low"
                                         : "performance",
                                     graphics.gtao_settings.slices,
                                     graphics.gtao_settings.steps,
@@ -747,22 +854,48 @@ std::string capture_badge() {
     }
     if (sweep.running && sweep.step >= 0) {
         return std::format(
-            "REC {:.0f} / {:.0f} s, step {} of {}: stand still",
-            elapsed,
-            length,
-            sweep.step + 1,
-            kSweepSteps
+            "REC {:.0f} s, step {} of {}: stand still", elapsed, sweep.step + 1, kSweepSteps
         );
     }
     return length > 0.0 ? std::format("REC {:.0f} / {:.0f} s", elapsed, length)
                         : std::format("REC {:.0f} s", elapsed);
 }
 
+namespace {
+
+// The graphics settings sweep: one capture as long as all its steps, the first step applied.
+void begin_sweep(const Shown& shown, const std::string& path) {
+    begin_capture(shown, settings_sweep_seconds() + kSweepHoldS, path);
+
+    if (!perf_capture::active()) {
+        return;
+    }
+
+    sweep.running = true;
+    sweep.saved = settings::get();
+    sweep.step = -1;
+    sweep.starts.clear();
+    sweep.compiled_s = 0.0;
+    sweep.held_s = 0.0;
+    sweep.seen_s = 0.0;
+    sweep.done_serial = 0;
+    sweep.picture_s.assign(kSweepSteps, {});
+    sweep.gpu_ms.assign(kSweepSteps, {});
+    sweep_apply(0);
+}
+
+}  // namespace
+
 void capture_frame(const Shown& shown) {
     configure_capture();
     if (c.scripted && s.tick >= c.script_frame && !perf_capture::active()) {
         c.scripted = false;
-        begin_capture(shown, c.script_seconds, c.script_path);
+
+        if (c.script_sweep) {
+            begin_sweep(shown, c.script_path);
+        } else {
+            begin_capture(shown, c.script_seconds, c.script_path);
+        }
     }
     if (c.start_at) {
         if (c.wait_for_drawer && (s.menu_open || s.menu_at > 0.0f)) {
@@ -773,17 +906,7 @@ void capture_frame(const Shown& shown) {
                 c.start_at.reset();
                 if (sweep.asked) {
                     sweep.asked = false;
-                    begin_capture(shown, settings_sweep_seconds(), {});
-                    if (perf_capture::active()) {
-                        sweep.running = true;
-                        sweep.saved = settings::get();
-                        sweep.step = -1;
-                        sweep.starts.clear();
-                        sweep.done_serial = 0;
-                        sweep.picture_s.assign(kSweepSteps, {});
-                        sweep.gpu_ms.assign(kSweepSteps, {});
-                        sweep_apply(0);
-                    }
+                    begin_sweep(shown, {});
                 } else {
                     begin_capture(shown, s.capture_seconds, {});
                 }
@@ -791,9 +914,26 @@ void capture_frame(const Shown& shown) {
         }
     }
     if (sweep.running && perf_capture::active()) {
+        const double now = perf_capture::elapsed_s();
+
+#if defined(OPENRAC_VULKAN)
+        if (const stats::Frame* last = stats::history(0);
+            last != nullptr && gl::is_vulkan() && vkgl::pipeline_prewarm_busy()) {
+            sweep.compiled_s = last->start_s + last->interval_ms / 1000.0;
+            sweep.held_s = std::min(kSweepHoldS, sweep.held_s + now - sweep.seen_s);
+        }
+#endif
+
+        sweep.seen_s = now;
         sweep_collect();
-        const int step =
-            std::min(static_cast<int>(perf_capture::elapsed_s() / kSweepStepS), kSweepSteps - 1);
+        const double at = now - sweep.held_s;
+
+        // Every step has had its time: the capture ends before the time kept for waiting.
+        if (at >= settings_sweep_seconds()) {
+            perf_capture::stop();
+        }
+
+        const int step = std::min(static_cast<int>(at / kSweepStepS), kSweepSteps - 1);
         if (step != sweep.step) {
             sweep_apply(step);
         }

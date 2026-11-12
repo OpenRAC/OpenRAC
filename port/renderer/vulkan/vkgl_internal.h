@@ -356,6 +356,7 @@ struct SamplerParams {
     GLenum wrap_s = GL_REPEAT;
     GLenum wrap_t = GL_REPEAT;
     float anisotropy = 1.0f;
+    float lod_bias = 0.0f;  // set_texture_lod_bias's, on mipmapped textures only
     bool operator==(const SamplerParams&) const = default;
 };
 
@@ -570,6 +571,13 @@ struct PersistentSets {
     std::vector<std::uint64_t> key;  // The key being looked up, kept for its capacity.
 };
 
+// A program's mode uniforms as specialisation constants (vk-mode-constants, gl_program.cpp
+// mode_sources): slot n's constant has the id kModeConstantBase + n, and kModeDynamic for its
+// value means "read the uniform", which is what a pipeline made without the constants does.
+inline constexpr std::uint32_t kModeConstantBase = 1000;
+inline constexpr std::size_t kModeConstants = 47;
+inline constexpr std::int32_t kModeDynamic = 2147483647;
+
 // A GL program: its shaders, the compiled SPIR-V and what it declares (shader_compiler.h), its
 // shader modules and layouts, the default uniform block, and the descriptor sets made this frame.
 struct Program {
@@ -584,7 +592,7 @@ struct Program {
     std::string last_pipeline_key;
     VkPipeline last_pipeline = VK_NULL_HANDLE;  // Cleared before the program's pipelines retire.
     CompiledProgram compiled;
-    // Test retention also compares every reflected descriptor binding, including inactive resources.
+    // Retention also compares every reflected descriptor binding, including inactive resources.
     std::vector<VkDescriptorSetLayoutBinding> test_layout_bindings;
     bool gpu_materials = false;
     unsigned material_start = 0;
@@ -603,6 +611,27 @@ struct Program {
     std::vector<std::uint8_t> uniforms;  // the default block, std140
     // One opted-in vertex draw integer, appended to the CPU shadow but excluded from its UBO.
     int draw_uniform_offset = -1;
+
+    // The mode uniforms its stages take as specialisation constants (vk-mode-constants), by slot:
+    // where each one's value is in `uniforms` (-1: no stage reads it), the values a draw has had
+    // it at, and whether it changed too often to be worth a pipeline for each value.
+    struct Mode {
+        int offset = -1;
+        std::array<std::int32_t, 4> seen{};
+        std::uint8_t seen_count = 0;
+        bool dynamic = false;
+    };
+
+    std::vector<Mode> modes;
+    // The modes of the program's keys as last worked out (key_modes), and whether an integer
+    // uniform was written since: draws between two such writes share them.
+    std::array<std::int32_t, kModeConstants> key_modes{};
+    std::uint32_t key_mode_count = 0;
+    bool key_modes_stale = true;
+    // The last key is drawn by a pipeline that reads its modes from the uniforms, while a worker
+    // makes the specialised one: the count of pipelines the workers had made when it was looked up.
+    bool last_pipeline_stands_in = false;
+    std::uint64_t last_pipeline_made = 0;
     std::vector<int> units;              // per entry of compiled.uniforms: a sampler's unit
     std::vector<GLuint> block_bindings;  // per entry of compiled.blocks: its GL binding point
     bool uniforms_dirty = true;
@@ -832,6 +861,11 @@ struct PipelineKey {
     std::uint32_t viewports;
     std::uint32_t dynamic_fixed;  // 1: `fixed` is dynamic state of the pipeline (R-11).
     std::uint32_t clamp_colour;   // 1: the fragment stage clamps its colour (Image::clamp_writes).
+    // The program's mode uniforms the shader stages are specialised with (vk-mode-constants):
+    // `mode_count` of them, each its uniform's value or kModeDynamic; 0 for a pipeline that reads
+    // every mode from its uniform.
+    std::uint32_t mode_count;
+    std::int32_t mode[kModeConstants];
     Input input[kAttributes];
 };
 
@@ -888,7 +922,7 @@ public:
         rebuild();
     }
 
-    // Moves test-retained immutable pipelines to a newly linked program serial.
+    // Moves retained immutable pipelines to a newly linked program serial.
     void rename_program(std::uint64_t from, std::uint64_t to);
 
     // The entries, for destroying every pipeline at close.
@@ -962,6 +996,10 @@ struct PipelinePrewarm {
     std::vector<std::pair<PipelineKey, PrewarmPart>> making;
     std::vector<PrewarmDone> ready;  // Made, not yet taken by the thread that draws.
     std::uint64_t made = 0;  // Pipelines and parts the workers have made since the backend opened.
+    // The same count for the thread that draws to read without the lock (vk-mode-constants).
+    std::atomic<std::uint64_t> made_count{0};
+    // The specialised keys asked of the workers, by hash: none is queued twice.
+    std::unordered_set<std::uint64_t> mode_keys;
     bool stop = false;       // Set at close: the workers return.
     bool started = false;    // The workers have been started.
     std::vector<JoiningThread> workers;  // Started with the first job.
@@ -1159,8 +1197,11 @@ struct Context {
 #ifdef OPENRAC_TRACY
     void* tracy_state = nullptr;
 #endif
-    bool test_program_borrow = false;    // Retain-only oracles create fresh driver objects.
-    bool test_program_reuse = false;     // Explicitly enabled only by rendering tests.
+    bool test_program_borrow = false;  // Retain-only oracles create fresh driver objects.
+    bool test_program_reuse = false;   // Explicitly enabled only by rendering tests.
+    // The game's (vkgl::keep_programs, vk-program-keep): a deleted program's objects wait in
+    // test_programs for the next link of the same shaders, oldest first.
+    bool keep_programs = false;
     std::vector<Program> test_programs;  // Retained immutable objects, without GL uniform state.
     std::atomic_uint64_t validation_errors = 0;
     bool device_fault_enabled = false;
@@ -1238,6 +1279,12 @@ struct Context {
     int default_width = 0, default_height = 0;
 
     bool rendering = false;
+    // GPU writes into buffers recorded so far (note_buffer_write), and the count at which a
+    // barrier last made them all visible to later reads (make_buffer_writes_visible). While the
+    // two are equal a graph's read-only buffer import needs no barrier of its own, so the pass
+    // that reads it goes on in the open render pass.
+    std::uint64_t buffer_writes = 1;
+    std::uint64_t buffer_writes_visible = 0;
     Target rendering_target;
     OpenPass pass;                 // The pass `main` renders in, while `rendering`.
     PendingPresent present_copy;   // The copy to the default framebuffer that waits, if any.
@@ -1290,6 +1337,11 @@ struct Context {
     // VK_EXT/KHR_load_store_op_none: an attachment a pass leaves alone is neither loaded nor
     // stored (attachment-untouched).
     bool load_store_none = false;
+    // VK_KHR_pipeline_executable_properties under OPENRAC_VK_PIPELINE_STATS: each new graphics
+    // or compute pipeline logs the driver's statistics of its shaders (log_executable_statistics).
+    bool pipeline_stats = false;
+    // The mip bias set_texture_lod_bias gives mipmapped textures while an upscaler draws the world.
+    float texture_lod_bias = 0.0f;
     // The device takes cull, front face, depth and stencil state as dynamic state (Vulkan 1.3's
     // core extended dynamic state), so pipelines need not bake them (R-11).
     bool extended_dynamic_state = false;
@@ -1311,12 +1363,18 @@ VkResult timed_pipeline_creation(Create&& create) {
     return result;
 }
 
-// Borrows exactly matching immutable driver objects from the test-only retention pool.
+// Whether the game keeps deleted programs' objects now (vkgl::keep_programs and vk-program-keep).
+bool keeps_programs();
+// Borrows exactly matching immutable driver objects from the retention pool (a test's, or the
+// game's kept programs).
 bool reuse_test_program(Program& program);
 // Retains a linked program's driver objects without retaining its uniform or descriptor state.
 bool retain_test_program(Program& program);
-// Releases all retained test objects with retention disabled, before device teardown.
+// Releases all retained objects with retention disabled, before device teardown.
 void clear_test_programs();
+// Destroys a program's driver objects, its pipelines and their parts once the frames that may
+// draw with them are done. For release_program, and for a retained program pushed out of the pool.
+void destroy_program(Program& p);
 
 // Releases the optional depth-composition pipeline after device idle at context teardown.
 void release_depth_combine();
@@ -1384,19 +1442,27 @@ inline void count_command(Command kind, std::uint64_t count = 1) {
     g->submission.commands[static_cast<std::size_t>(kind)] += count;
 }
 
-// Counts one vkCmdPipelineBarrier that waits on `source` stages for `destination` stages.
-inline void count_barrier(VkPipelineStageFlags source, VkPipelineStageFlags destination) {
+// Counts `event` in the section open now, as a gauge of this frame (published by present).
+void count_where(std::string_view event);
+
+// Counts one vkCmdPipelineBarrier that waits on `source` stages for `destination` stages; `site`
+// names the code that recorded it.
+inline void count_barrier(
+    VkPipelineStageFlags source, VkPipelineStageFlags destination, std::string_view site
+) {
     count_command(Command::Barrier);
     ++g->submission.barriers;
 
-    // A barrier on every stage, which waits for more than the work it orders needs.
+    // A barrier on every stage, which waits for more than the work it orders needs: counted by
+    // where it was recorded too (vk_barrier_all <site> in <section>).
     if (((source | destination) & VK_PIPELINE_STAGE_ALL_COMMANDS_BIT) != 0) {
         ++g->submission.barriers_all_commands;
+
+        if (stats::enabled()) {
+            count_where(std::string("vk_barrier_all ").append(site));
+        }
     }
 }
-
-// Counts `event` in the section open now, as a gauge of this frame (published by present).
-void count_where(std::string_view event);
 
 // Counts one copy, blit or resolve into a region `width` by `height` texels: a full-screen copy
 // as well when that is the default framebuffer's size or the screen's.
@@ -1421,6 +1487,10 @@ inline void count_render_pass() {
     count_command(Command::RenderPass);
     ++g->submission.render_passes;
 }
+
+// Logs the driver's statistics of each shader of `pipeline`, one line each after `what`
+// (OPENRAC_VK_PIPELINE_STATS; vkgl_pipelines.cpp).
+void log_executable_statistics(VkPipeline pipeline, std::string_view what);
 
 // Counts a graphics or compute pipeline just made, after the warm-up as well when it has passed.
 inline void count_pipeline() {
@@ -1500,12 +1570,45 @@ enum class PassEnd : std::uint8_t {
     Submit,
     Present,
     Timing,  // split pass timing (split_pass_timing, pass sampling)
+    Graph,   // a graph pass that could not go on in the open pass (GraphExecution enter)
+    Import,  // a graph import of an attachment of the open pass (end_rendering_for)
+    Replay,  // a prepared raster node exchanging its targets (PreparedRaster)
     Other
 };
 
 // Flushes the merged draws and ends the rendering pass `main` is in, if any, forgetting the
 // bound pipeline; `why` is counted when a pass was open.
 void end_rendering(PassEnd why = PassEnd::Other);
+
+// A GPU write into a buffer is being recorded: a compute dispatch, a staged copy, a graph pass that
+// writes one. Host writes (the ring, mapped buffers) need no barrier and are not counted.
+inline void note_buffer_write() {
+    ++g->buffer_writes;
+}
+
+// Whether every GPU buffer write recorded so far is visible to shader, vertex, indirect and
+// transfer reads without another barrier.
+inline bool buffer_writes_visible() {
+    return g->buffer_writes_visible == g->buffer_writes;
+}
+
+// The memory barrier that makes every GPU buffer write so far visible to those reads, with the
+// stages it waits on and for. A caller that records it with its own barriers in one command
+// calls note_buffer_writes_visible after.
+struct BufferWritesBarrier {
+    VkMemoryBarrier memory;
+    VkPipelineStageFlags source;
+    VkPipelineStageFlags destination;
+};
+
+BufferWritesBarrier buffer_writes_barrier();
+
+inline void note_buffer_writes_visible() {
+    g->buffer_writes_visible = g->buffer_writes;
+}
+
+// Records that barrier in a command of its own, outside a render pass.
+void make_buffer_writes_visible();
 
 // Ends the open pass only when `image` is one of its attachments, whose layout and contents are
 // settled as the pass ends. Any other image is untouched by it: the pass goes on.
@@ -1692,13 +1795,15 @@ std::vector<ManifestEntry> manifest_entries();
 void write_manifest(const std::filesystem::path& path, std::span<const ManifestEntry> entries);
 
 // Notes program `p`'s identity and queues the manifest's keys of that identity for the pre-warm
-// worker, which it starts if it is not running. For glLinkProgram, once `p` is linked.
+// worker, which it starts if it is not running. For glLinkProgram, once `p` is linked. A program
+// linked from kept objects (vk-program-keep) queues only what it does not have yet.
 void prewarm_program(Program& p);
 
 // Takes back the pre-warm's jobs of program `serial` and waits for the one being made, then
-// destroys what the worker made for it that no draw took. For a program's release, before its
-// modules and layout go.
-void prewarm_forget(std::uint64_t serial);
+// destroys what the worker made for it that no draw took; with `keep` that goes into the tables
+// instead, for a program whose objects are kept. For a program's release, before its modules and
+// layout go.
+void prewarm_forget(std::uint64_t serial, bool keep = false);
 
 // Stops the pre-warm workers and waits for them, and destroys the pipelines and parts they made
 // that no draw took. For the backend's close, before the programs are released.
@@ -1712,6 +1817,9 @@ void collect_prewarm();
 // Destroys the parts of pipelines program `serial` owns (vk-pipeline-library), once the frames
 // that may still draw with what was linked from them are done. For a program's release.
 void release_program_libraries(std::uint64_t serial);
+
+// Gives the parts of pipelines program `from` owns to program `to` (vk-program-keep).
+void rename_program_libraries(std::uint64_t from, std::uint64_t to);
 
 // Destroys every part of pipelines left. For the backend's close, after the device is idle.
 void destroy_pipeline_libraries();
@@ -1796,6 +1904,10 @@ void draw(
 // True when the native material path is on: the device can index its textures and
 // OPENRAC_GPU_MATERIALS_OFF is unset.
 bool material_enabled();
+
+// Whether the native material path would read uniform `name` of a program with vertex stage
+// `vertex` from its draw's record: such a uniform is no mode constant (vk-mode-constants).
+bool material_takes(const std::string& vertex, std::string_view name);
 
 // Prepares program `p` for the native material path when its shaders draw meshes (a model
 // matrix and material uniforms); true, with nothing done, for any other program. False when

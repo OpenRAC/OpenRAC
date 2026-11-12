@@ -41,6 +41,7 @@ void ggx_coat_reference() {
     fragment += R"(
 vec4 hero_wetness_material=vec4(.34,1.07,.51,.35);
 float hero_wetness_f0=.0633;
+const int hero_wetness_enabled=1;
 float v_hero_wetness;
 vec3 v_world_position=vec3(0);
 uniform int reflection_outside;

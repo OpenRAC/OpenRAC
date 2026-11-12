@@ -105,6 +105,7 @@ int run() {
     glDisable(GL_BLEND);
     shader.use();
     glUniform1i(shader.uniform("groom"), 0);
+    glUniform1i(shader.uniform("hero_fur_shell_enabled"), 1);
     glUniform4f(shader.uniform("hero_fur_shell_parameters"), .35f, 32, 12, 24);
     const auto draw = [&](int layers, float wetness, float distance, int eligible) {
         glClearColor(0, 0, 0, 1);

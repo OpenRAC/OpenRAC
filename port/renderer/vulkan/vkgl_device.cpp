@@ -727,6 +727,19 @@ bool make_device(std::string& error) {
                 g->load_store_none = true;
             }
         }
+
+        // Shader statistics for profiling on a device (OPENRAC_VK_PIPELINE_STATS).
+        g->pipeline_stats =
+            env::flag(env::Var::VkPipelineStats)
+            && std::ranges::any_of(offered, [](const VkExtensionProperties& e) {
+                   return std::strcmp(
+                              e.extensionName, VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME
+                          )
+                          == 0;
+               });
+        if (g->pipeline_stats) {
+            extensions.push_back(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME);
+        }
     }
 
     // Pipelines linked from parts at a draw (vk-pipeline-library), where the device links them
@@ -776,6 +789,15 @@ bool make_device(std::string& error) {
     log::info(
         "vulkan: pipelines linked from parts at a draw: {}", g->libraries.enabled ? "yes" : "no"
     );
+    VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR executables{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR
+    };
+    if (g->pipeline_stats) {
+        executables.pipelineExecutableInfo = VK_TRUE;
+        executables.pNext = f12.pNext;
+        f12.pNext = &executables;
+        log::info("vulkan: pipeline shader statistics are logged (OPENRAC_VK_PIPELINE_STATS)");
+    }
 
     VkPhysicalDevicePresentIdFeaturesKHR present_id{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR
@@ -975,9 +997,12 @@ void describe_device() {
     VkPhysicalDeviceProperties2 p2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
     p2.pNext = &driver;
     vkGetPhysicalDeviceProperties2(g->physical, &p2);
-    g->driver_version = driver.driverInfo[0] != '\0'
-                            ? std::format("{} {}", driver.driverName, driver.driverInfo)
-                            : std::string(driver.driverName);
+    g->driver_version =
+        driver.driverInfo[0] != '\0'
+            ? std::format(
+                  "{} {}", std::string_view(driver.driverName), std::string_view(driver.driverInfo)
+              )
+            : std::string(driver.driverName);
     g->software = p.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
     g->gl_renderer = std::format("{} (Vulkan)", g->device_name);
     g->gl_version = std::format("4.1 OpenRAC on Vulkan {}, {}", g->api_version, g->driver_version);

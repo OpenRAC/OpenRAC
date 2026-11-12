@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstring>
 #include <iterator>
@@ -154,6 +155,101 @@ void LevelScene::record_shadow_atlas(
 #endif
 }
 
+void LevelScene::record_shadow_atlas_views(
+    unsigned views, bool discard, renderer::RenderState& state
+) {
+#if defined(OPENRAC_VULKAN)
+    begin_shadow_target(m_shadow_atlas->id());
+    auto rects = m_shadow_layout.rects;
+    int first = -1, last = -1;
+    int low_x = 0, low_y = 0, high_x = 0, high_y = 0;
+
+    // The rectangle that holds these views.
+    for (int i = 0; i < static_cast<int>(rects.size()); ++i) {
+        if (!(views & (1u << i))) {
+            continue;
+        }
+
+        const auto& r = rects[static_cast<std::size_t>(i)];
+        if (first < 0) {
+            first = i;
+            low_x = r[0];
+            low_y = r[1];
+            high_x = r[0] + r[2];
+            high_y = r[1] + r[3];
+        }
+        low_x = std::min(low_x, r[0]);
+        low_y = std::min(low_y, r[1]);
+        high_x = std::max(high_x, r[0] + r[2]);
+        high_y = std::max(high_y, r[1] + r[3]);
+        last = i;
+    }
+
+    if (first < 0) {
+        return;
+    }
+
+    // A view the pass leaves alone takes a drawn one's rectangle: a draw counts as writing every
+    // indexed viewport, and the pass must cover no kept cascade.
+    for (std::size_t i = 0; i < rects.size(); ++i) {
+        if (!(views & (1u << i))) {
+            rects[i] = rects[static_cast<std::size_t>(first)];
+        }
+    }
+
+    // Cleared first and alone, the rectangle is all the pass covers: nothing of it is loaded, and
+    // the kept cascades beside it are neither loaded nor stored. The colour nothing reads is let
+    // go and the stencil cleared with the depth, or they would be loaded.
+    if (discard) {
+        const GLenum unread = GL_COLOR_ATTACHMENT0;
+        glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, &unread);
+    }
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(low_x, low_y, high_x - low_x, high_y - low_y);
+    glClearDepth(0);
+    glClear(discard ? GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT : GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_SCISSOR_TEST);
+    vkgl::indexed_viewports(rects);
+
+    // The pass's last view flushes the draw buckets its views share.
+    for (unsigned i = 0; i < kSunCascades; ++i) {
+        if (!(views & (1u << i))) {
+            continue;
+        }
+
+        draw_shadow_map(
+            m_shadow_atlas->id(),
+            m_shadow_layout.rects[i][2],
+            m_sun_cascades.matrices[i],
+            false,
+            m_hero_ready,
+            state,
+            i,
+            static_cast<int>(i),
+            static_cast<int>(i) == last
+        );
+    }
+
+    if (views & (1u << kSunCascades)) {
+        draw_shadow_map(
+            m_shadow_atlas->id(),
+            m_shadow_layout.rects[kSunCascades][2],
+            m_hero_matrix,
+            true,
+            false,
+            state,
+            kSunCascades,
+            static_cast<int>(kSunCascades),
+            true
+        );
+    }
+#else
+    (void)views;
+    (void)discard;
+    (void)state;
+#endif
+}
+
 void LevelScene::finish_shadow_atlas(bool discard, const renderer::RenderState& state) {
 #if defined(OPENRAC_VULKAN)
     vkgl::indexed_viewports({});
@@ -192,19 +288,44 @@ void LevelScene::draw_shadow_atlas(renderer::RenderState& state) {
     const bool discard =
         glInvalidateFramebuffer != nullptr
         && renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowAtlasDiscard);
-    // The scoped callback preserves bucket batching and its existing last-cascade flush.
-    const auto drawn = shadow_depth_pass(
-        "dynamic shadow atlas",
-        m_shadow_atlas->id(),
-        cache ? ShadowDepthContents::Preserve : ShadowDepthContents::Clear,
-        [this, &state, scrolling, cache, discard] {
-            record_shadow_atlas(scrolling, cache, discard, state);
+    // Kept far cascades (shadow-far-alternate) are neither cleared nor drawn: the nearest cascade
+    // with the hero's map, then each adjacent run of far cascades due this frame in its own pass.
+    const unsigned kept = m_sun_ready && !cache && !scrolling ? m_kept_cascades : 0;
+    if (kept) {
+        rerendered = kSunCascades - static_cast<unsigned>(std::popcount(kept));
+
+        for (const unsigned views : shadow_atlas_redraw_groups(kept, m_hero_ready)) {
+            if (!views) {
+                continue;
+            }
+
+            const auto drawn = shadow_depth_pass(
+                "dynamic shadow atlas",
+                m_shadow_atlas->id(),
+                ShadowDepthContents::PreserveSeparate,
+                [this, &state, views, discard] { record_shadow_atlas_views(views, discard, state); }
+            );
+            // A rejected graph must not advertise an atlas ready for lighting.
+            if (!drawn) {
+                throw std::runtime_error(drawn.error().message);
+            }
         }
-    );
-    // A rejected graph must not advertise an atlas ready for lighting.
-    if (!drawn) {
-        throw std::runtime_error(drawn.error().message);
+    } else {
+        // The scoped callback preserves bucket batching and its existing last-cascade flush.
+        const auto drawn = shadow_depth_pass(
+            "dynamic shadow atlas",
+            m_shadow_atlas->id(),
+            cache ? ShadowDepthContents::Preserve : ShadowDepthContents::Clear,
+            [this, &state, scrolling, cache, discard] {
+                record_shadow_atlas(scrolling, cache, discard, state);
+            }
+        );
+        // A rejected graph must not advertise an atlas ready for lighting.
+        if (!drawn) {
+            throw std::runtime_error(drawn.error().message);
+        }
     }
+    stats::gauge("shadow_far_kept", static_cast<double>(std::popcount(kept)));
     // Compute imports the actual sampled depth exported by the completed atlas phase.
     if (scrolling) {
         combine_scrolling_shadows(scrolling, state);

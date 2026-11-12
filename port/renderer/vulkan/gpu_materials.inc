@@ -76,6 +76,50 @@ bool material_sampler(std::string_view name) {
            != kMaterialSamplers.end();
 }
 
+// A material uniform a mesh program reads from its draw's record instead: its name, the GLSL
+// that reads it, and its place in the record.
+struct MaterialField {
+    const char* name;
+    const char* value;
+    unsigned offset;
+};
+
+constexpr MaterialField kMaterialFields[] =
+    {{"material_colour", "O_MATERIAL.colour", 0},
+     {"material_emission", "O_MATERIAL.emission_diffuse.xyz", 16},
+     {"material_diffuse_scale", "O_MATERIAL.emission_diffuse.w", 28},
+     // Spare material word: preserves batching and the existing 96-byte layout.
+     {"material_emission_contrast", "uintBitsToFloat(O_MATERIAL.texture_indices.y)", 84},
+     // Two bounded half pairs occupy the last spare words without changing material stride.
+     {"foliage_parameters0", "int(O_MATERIAL.texture_indices.z)", 88},
+     {"foliage_parameters1", "int(O_MATERIAL.texture_indices.w)", 92},
+     {"cutout", "int(O_MATERIAL.flags.x)", 32},
+     {"emission_mask", "int(O_MATERIAL.flags.y)", 36},
+     {"emission_vertex_colour", "int(O_MATERIAL.flags.z)", 40},
+     {"probe_effect", "int(O_MATERIAL.flags.w)", 44},
+     {"hero_shadow_receiver", "int(O_MATERIAL.resources.z)", 56},
+     // Depth programs use the spare resource word for their atlas view;
+     // colour programs use it for terrain albedo. They never coexist.
+     {"shadow_view", "int(O_MATERIAL.resources.w)", 60},
+     {"probe_terrain_albedo", "uintBitsToFloat(O_MATERIAL.resources.w)", 60},
+     {"skinning", "int(O_MATERIAL.draw_flags.x)", 64},
+     {"lighting", "int(O_MATERIAL.draw_flags.y)", 68},
+     {"probe_receiver", "int(O_MATERIAL.draw_flags.z)", 72},
+     {"probe_mode", "int(O_MATERIAL.draw_flags.w)", 76}};
+
+// Specialised colour programs already separate static and skinned work.
+// Receiver/mode are common to each run: retaining real uniforms allows
+// scalar branches instead of divergent per-draw buffer loads. Lighting
+// remains per draw so terrain and lit static layers can still batch.
+bool material_specialised(const std::string& vertex) {
+    return vertex.find("#define OPENRAC_COLOUR_SPECIALISED") != std::string::npos;
+}
+
+// Whether a material program reads field `name` per draw.
+bool material_per_draw(bool specialised, std::string_view name) {
+    return !specialised || (name != "probe_mode" && name != "probe_receiver" && name != "skinning");
+}
+
 }  // namespace
 
 bool material_enabled() {
@@ -120,6 +164,18 @@ bool material_layout() {
     );
 }
 
+bool material_takes(const std::string& vertex, std::string_view name) {
+    if (!material_enabled() || vertex.find("in mat4 model;") == std::string::npos) {
+        return false;
+    }
+    const bool field = std::any_of(
+        std::begin(kMaterialFields),
+        std::end(kMaterialFields),
+        [&](const MaterialField& f) { return name == f.name; }
+    );
+    return field && material_per_draw(material_specialised(vertex), name);
+}
+
 // Compiles mesh shaders with per-draw material fields and bindless texture selection.
 bool material_program(Program& p, const std::string& vertex, const std::string& fragment) {
     p.gpu_materials = false;
@@ -136,45 +192,12 @@ bool material_program(Program& p, const std::string& vertex, const std::string& 
         return false;
     }
 
-    struct Field {
-        const char* name;
-        const char* value;
-        unsigned offset;
-    };
-
-    constexpr Field fields[] =
-        {{"material_colour", "O_MATERIAL.colour", 0},
-         {"material_emission", "O_MATERIAL.emission_diffuse.xyz", 16},
-         {"material_diffuse_scale", "O_MATERIAL.emission_diffuse.w", 28},
-         // Spare material word: preserves batching and the existing 96-byte layout.
-         {"material_emission_contrast", "uintBitsToFloat(O_MATERIAL.texture_indices.y)", 84},
-         // Two bounded half pairs occupy the last spare words without changing material stride.
-         {"foliage_parameters0", "int(O_MATERIAL.texture_indices.z)", 88},
-         {"foliage_parameters1", "int(O_MATERIAL.texture_indices.w)", 92},
-         {"cutout", "int(O_MATERIAL.flags.x)", 32},
-         {"emission_mask", "int(O_MATERIAL.flags.y)", 36},
-         {"emission_vertex_colour", "int(O_MATERIAL.flags.z)", 40},
-         {"probe_effect", "int(O_MATERIAL.flags.w)", 44},
-         {"hero_shadow_receiver", "int(O_MATERIAL.resources.z)", 56},
-         // Depth programs use the spare resource word for their atlas view;
-         // colour programs use it for terrain albedo. They never coexist.
-         {"shadow_view", "int(O_MATERIAL.resources.w)", 60},
-         {"probe_terrain_albedo", "uintBitsToFloat(O_MATERIAL.resources.w)", 60},
-         {"skinning", "int(O_MATERIAL.draw_flags.x)", 64},
-         {"lighting", "int(O_MATERIAL.draw_flags.y)", 68},
-         {"probe_receiver", "int(O_MATERIAL.draw_flags.z)", 72},
-         {"probe_mode", "int(O_MATERIAL.draw_flags.w)", 76}};
-    // Specialised colour programs already separate static and skinned work.
-    // Receiver/mode are common to each run: retaining real uniforms allows
-    // scalar branches instead of divergent per-draw buffer loads. Lighting
-    // remains per draw so terrain and lit static layers can still batch.
-    const bool specialised = vertex.find("#define OPENRAC_COLOUR_SPECIALISED") != std::string::npos;
+    const bool specialised = material_specialised(vertex);
     const auto per_draw = [&](std::string_view name) {
-        return !specialised
-               || (name != "probe_mode" && name != "probe_receiver" && name != "skinning");
+        return material_per_draw(specialised, name);
     };
     std::string vs(vertex), fs(fragment), macros;
-    for (const auto& field : fields) {
+    for (const auto& field : kMaterialFields) {
         if (!per_draw(field.name)) {
             continue;
         }
@@ -270,7 +293,7 @@ layout(set=1,binding=0) uniform sampler2D openrac_textures[
             compiled.uniforms.push_back(std::move(u));
             continue;
         }
-        for (const auto& field : fields) {
+        for (const auto& field : kMaterialFields) {
             if (per_draw(field.name) && u.name == field.name) {
                 u.offset = static_cast<int>(p.material_start + field.offset);
                 compiled.uniforms.push_back(std::move(u));

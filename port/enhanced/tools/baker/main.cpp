@@ -7,6 +7,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -15,6 +16,13 @@
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+
+#if !defined(_WIN32)
+#include <dlfcn.h>
+#include <signal.h>
+#include <unistd.h>
+#include <unwind.h>
+#endif
 
 #include "common/json.h"
 #include "common/profiler.h"
@@ -215,12 +223,125 @@ void water_command(int argc, char** argv) {
     }
 }
 
+// ---- Crash report ----
+
+#if !defined(_WIN32)
+// Writes text to stderr from a signal handler (no allocation, no stdio).
+void crash_write(const char* text) {
+    std::size_t size = 0;
+
+    while (text[size]) {
+        ++size;
+    }
+
+    [[maybe_unused]] const auto written = ::write(STDERR_FILENO, text, size);
+}
+
+void crash_write_hex(std::uintptr_t value) {
+    char text[2 + 16 + 1] = {'0', 'x'};
+    int length = 2;
+
+    for (int shift = 60; shift >= 0; shift -= 4) {
+        const unsigned digit = (value >> shift) & 0xF;
+
+        if (digit || length > 2 || shift == 0) {
+            text[length++] = static_cast<char>(digit < 10 ? '0' + digit : 'a' + digit - 10);
+        }
+    }
+
+    text[length] = 0;
+    crash_write(text);
+}
+
+// One stack frame: the module it is in and the offset inside it, which a build's symbols name.
+_Unwind_Reason_Code crash_frame(_Unwind_Context* context, void* count) {
+    auto& frames = *static_cast<int*>(count);
+    const auto pc = static_cast<std::uintptr_t>(_Unwind_GetIP(context));
+
+    if (!pc || ++frames > 32) {
+        return frames > 32 ? _URC_END_OF_STACK : _URC_NO_REASON;
+    }
+
+    crash_write("  at ");
+    Dl_info info{};
+
+    if (dladdr(reinterpret_cast<void*>(pc), &info) && info.dli_fname) {
+        const char* name = info.dli_fname;
+
+        for (const char* c = name; *c; ++c) {
+            if (*c == '/') {
+                name = c + 1;
+            }
+        }
+
+        crash_write(name);
+        crash_write("+");
+        crash_write_hex(pc - reinterpret_cast<std::uintptr_t>(info.dli_fbase));
+
+        if (info.dli_sname) {
+            crash_write(" ");
+            crash_write(info.dli_sname);
+        }
+    } else {
+        crash_write_hex(pc);
+    }
+
+    crash_write("\n");
+    return _URC_NO_REASON;
+}
+
+// A crash ends the bake with its cause and stack on stderr, so the launcher shows them.
+void on_crash(int sig, siginfo_t* info, void*) {
+    const char* name = sig == SIGSEGV   ? "SIGSEGV (bad memory access)"
+                       : sig == SIGBUS  ? "SIGBUS (bad memory access)"
+                       : sig == SIGILL  ? "SIGILL (illegal instruction)"
+                       : sig == SIGFPE  ? "SIGFPE (arithmetic fault)"
+                       : sig == SIGABRT ? "SIGABRT (aborted)"
+                                        : "a fatal signal";
+    crash_write("\nprobe bake: crashed with ");
+    crash_write(name);
+
+    if (sig != SIGABRT) {
+        crash_write(" at address ");
+        crash_write_hex(reinterpret_cast<std::uintptr_t>(info->si_addr));
+    }
+
+    crash_write("\n");
+    int frames = 0;
+    _Unwind_Backtrace(crash_frame, &frames);
+    // SA_RESETHAND restored the default action: raising again ends the process as the crash would.
+    raise(sig);
+}
+
+void install_crash_report() {
+    // Its own stack, so a stack overflow on the main thread is still reported.
+    static char stack[64 * 1024];
+    stack_t alternate{};
+    alternate.ss_sp = stack;
+    alternate.ss_size = sizeof(stack);
+    sigaltstack(&alternate, nullptr);
+
+    struct sigaction action{};
+    action.sa_sigaction = on_crash;
+    action.sa_flags = SA_SIGINFO | SA_RESETHAND | SA_ONSTACK;
+    sigemptyset(&action.sa_mask);
+
+    for (const int sig : {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT}) {
+        sigaction(sig, &action, nullptr);
+    }
+}
+#else
+void install_crash_report() {}
+#endif
+
 }  // namespace
 
 // ---- Entry point ----
 
 // Dispatches native enhanced-baker stages and reports failures at the command-line boundary.
 int main(int argc, char** argv) {
+    install_crash_report();
+
     try {
         if (argc == 4 && std::string_view(argv[1]) == "--print-emission-fingerprint") {
             std::cout << emission_texture_fingerprint(argv[2], argv[3]) << '\n';

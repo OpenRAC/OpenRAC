@@ -61,6 +61,7 @@ struct Gauge {
 constexpr auto kGauges = std::to_array<Gauge>({
     {"vk_pipelines_created", &SubmissionCounters::pipelines_created, Span::Total},
     {"vk_pipelines_linked", &SubmissionCounters::pipelines_linked, Span::Total},
+    {"vk_mode_pipelines", &SubmissionCounters::mode_pipelines, Span::Total},
     {"vk_pipelines_created_after_warmup", &SubmissionCounters::pipelines_created_after_warmup,
      Span::Total},
     {"vk_descriptor_sets_allocated", &SubmissionCounters::descriptor_sets_allocated, Span::Frame},
@@ -84,6 +85,7 @@ constexpr auto kGauges = std::to_array<Gauge>({
     {"vk_shader_fp32_ops", &SubmissionCounters::shader_fp32_ops, Span::Total},
     {"vk_shader_fp16_modules", &SubmissionCounters::shader_fp16_modules, Span::Total},
     {"vk_shader_compiles", &SubmissionCounters::shader_compiles, Span::Total},
+    {"vk_program_reuses", &SubmissionCounters::program_reuses, Span::Total},
 });
 // clang-format on
 
@@ -145,7 +147,7 @@ void swapchain_barrier(VkCommandBuffer cmd, VkImage image, VkImageLayout from, V
     b.image = image;
     b.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     vkCmdPipelineBarrier(cmd, source, destination, 0, 0, nullptr, 0, nullptr, 1, &b);
-    count_barrier(source, destination);
+    count_barrier(source, destination, "present");
 }
 
 // The surface and swapchain made again: back from the background on Android, the window is a new

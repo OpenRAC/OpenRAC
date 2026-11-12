@@ -42,10 +42,10 @@ void EffectRenderer::record_colour(
                         && (!m_material || m_material->prepares_colour_chain());
     // The enclosing render call owns draw metadata and frame state through synchronous execution.
     const auto record = [this, &input, &state, prepared, shared] {
-        // A snapshot is needed only when an accepted strip owns a replacement mesh.
+        // A snapshot is needed only when an accepted strip draws a replacement mesh.
         if (m_material
             && std::any_of(prepared->meshes.begin(), prepared->meshes.end(), [](const auto& mesh) {
-                   return mesh.has_value();
+                   return mesh.has_value() && mesh->draws > 0;
                })) {
             m_material->prepare_scene(input, state.target);
         }

@@ -63,7 +63,7 @@ void PreparedRaster::exchange_targets() {
         }
     }
 
-    end_rendering();
+    end_rendering(PassEnd::Replay);
 
     // Every named target remains owned by its temporal pass through this scope.
     for (std::size_t n = 0; n < m_targets.size(); ++n) {

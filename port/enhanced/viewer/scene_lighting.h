@@ -73,6 +73,7 @@ public:
         std::uint32_t model, std::uint32_t first, std::uint32_t count
     ) const override;
     void bind_surface_layer(const renderer::Shader& shader, int layer) const override;
+    void bind_moby_model(const renderer::Shader& shader, std::uint32_t model) const override;
     std::string motion_fragment(std::string source) const override;
 
 #ifdef OPENRAC_LIGHT_AUTHORING
@@ -113,6 +114,8 @@ public:
     std::uint64_t material_variant(std::uint32_t model, int slot) const override;
     std::array<float, 3> sky_tint(std::uint32_t model, int slot) const override;
     std::string early_fragment(std::string source) const override;
+
+    bool coverage_view() const override { return m_probes.mode == 4; }
     // Resolves the primary sunlight override for direct lighting and shadows.
     renderer::Vec3 sunlight_direction(renderer::Vec3 authored) const override;
 

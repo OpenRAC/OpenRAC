@@ -6,6 +6,7 @@
 // views behind GL's buffers.
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -423,7 +424,7 @@ void generate_mipmaps(Image& image) {
             1,
             &b
         );
-        count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+        count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, "mip source");
         const int nw = std::max(w / 2, 1);
         const int nh = std::max(h / 2, 1);
         VkImageBlit blit{};
@@ -465,7 +466,7 @@ void generate_mipmaps(Image& image) {
     vkCmdPipelineBarrier(
         cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, next, 0, 0, nullptr, 0, nullptr, 1, &b
     );
-    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, next);
+    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, next, "mip levels");
     image.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier(cmd, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
@@ -478,7 +479,9 @@ VkSampler sampler_for(const SamplerParams& p, bool integer) {
         | static_cast<std::uint64_t>(wrap_of(p.wrap_s)) << 16
         | static_cast<std::uint64_t>(wrap_of(p.wrap_t)) << 20
         | static_cast<std::uint64_t>(std::clamp(p.anisotropy, 1.0f, 64.0f) * 4.0f) << 24
-        | static_cast<std::uint64_t>(integer) << 40;
+        | static_cast<std::uint64_t>(integer) << 40
+        | static_cast<std::uint64_t>(std::lround(std::clamp(p.lod_bias, -8.0f, 8.0f) * 16) + 128)
+              << 41;
     for (const auto& [k, s] : g->vk_samplers) {
         if (k == key) {
             return s;
@@ -497,6 +500,8 @@ VkSampler sampler_for(const SamplerParams& p, bool integer) {
     info.addressModeV = wrap_of(p.wrap_t);
     info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     info.minLod = 0.0f;
+    const float max_bias = g->properties.limits.maxSamplerLodBias;
+    info.mipLodBias = std::clamp(p.lod_bias, -max_bias, max_bias);
     // GL's NEAREST and LINEAR minification read the base level only.
     info.maxLod = mipmapped ? VK_LOD_CLAMP_NONE : 0.25f;
     if (p.anisotropy > 1.0f && g->features.samplerAnisotropy && mipmapped && !integer) {
@@ -674,6 +679,7 @@ bool make_resident(Buffer& b) {
         const VkBufferCopy region{0, 0, size};
         vkCmdCopyBuffer(upload_cmd(), staging.buffer, buffer, 1, &region);
         count_command(Command::Copy);
+        note_buffer_write();
         defer([staging] { vmaDestroyBuffer(g->allocator, staging.buffer, staging.allocation); });
         b.staged = staging.mapped;
         b.staged_recording = g->recording;
@@ -728,7 +734,7 @@ bool copy_read_back(
         0,
         nullptr
     );
-    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, "read back");
     const VkBufferCopy region{0, 0, buffer.size};
     vkCmdCopyBuffer(command, buffer.own, staging.buffer, 1, &region);
     count_command(Command::Copy);
@@ -1042,7 +1048,9 @@ bool copy_buffer_to_texture(
         0,
         nullptr
     );
-    count_barrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    count_barrier(
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, "buffer to texture"
+    );
     Image& image = *t->image;
     barrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     record_buffer_image_copy(src, image);
@@ -1060,7 +1068,11 @@ bool copy_buffer_to_texture(
             0,
             nullptr
         );
-        count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        count_barrier(
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            "buffer to texture done"
+        );
     }
     barrier(cmd, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     image.touched = g->recording;
@@ -1118,7 +1130,9 @@ bool copy_to_image(unsigned texture, void* image, std::uint32_t layout, int widt
         1,
         &into
     );
-    count_barrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    count_barrier(
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, "copy to image"
+    );
 
     // The bytes as they are: an sRGB image gets the picture as the window shows it.
     VkImageCopy copy{};
@@ -1153,7 +1167,9 @@ bool copy_to_image(unsigned texture, void* image, std::uint32_t layout, int widt
         1,
         &back
     );
-    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+    count_barrier(
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, "copy to image done"
+    );
     return true;
 }
 

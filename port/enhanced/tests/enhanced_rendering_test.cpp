@@ -289,6 +289,8 @@ int main(int argc, char** argv) {
         frame.hero_pixel_shadow = true;
         stats::set_enabled(stats::Client::Dump, true);
         stats::begin_frame(stats::FrameKind::Tick, 0);
+        // Each frame below is drawn more than once and its draws compared: no cascade is kept.
+        renderer::render_opt::set(renderer::render_opt::Opt::ShadowFarAlternate, false);
         for (unsigned tick = 0; tick < 6; ++tick) {
             frame.seconds = 20 + tick / 60.;
             scene::Instance hero;

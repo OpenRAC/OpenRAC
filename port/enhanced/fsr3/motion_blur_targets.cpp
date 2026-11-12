@@ -7,12 +7,13 @@
 #include "enhanced/fsr3/temporal_pass.h"
 #include "fsr3_shaders.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/vulkan/native_compute.h"
 
 namespace openrac::enhanced::fsr3_detail {
 using namespace openrac::gl;
 
-bool MotionBlur::prepare(int width, int height, int rw, int rh, std::string& error) {
+bool MotionBlur::prepare(int width, int height, int rw, int rh, bool quality, std::string& error) {
     if (!prepare_colour(width, height, error)) {
         return false;
     }
@@ -66,14 +67,21 @@ bool MotionBlur::prepare(int width, int height, int rw, int rh, std::string& err
             error.clear();
         }
     }
-    if (m_size != std::array{width, height, rw, rh}) {
+    // Performance (the default) searches trails on a half-resolution grid.
+    const int scale =
+        !quality && renderer::render_opt::enabled(renderer::render_opt::Opt::MotionBlurHalfFlood)
+            ? 2
+            : 1;
+    if (m_size != std::array{width, height, rw, rh} || m_seed_scale != scale) {
         m_size = {};
+        const int sw = (rw + scale - 1) / scale, sh = (rh + scale - 1) / scale;
         if (!m_velocity.create(rw, rh, 0x881A, 0, error)
-            || !m_seeds[0].create(rw, rh, 0x8236, 0, error)
-            || !m_seeds[1].create(rw, rh, 0x8236, 0, error)) {
+            || !m_seeds[0].create(sw, sh, 0x8236, 0, error)
+            || !m_seeds[1].create(sw, sh, 0x8236, 0, error)) {
             return false;
         }
         m_size = {width, height, rw, rh};
+        m_seed_scale = scale;
     }
     if (!m_vao) {
         glGenVertexArrays(1, &m_vao);

@@ -28,6 +28,10 @@ uniform sampler2D tex_T0;
 uniform vec4 material_colour;
 uniform int cutout;
 uniform int lighting;
+// The pass and setting switches a pipeline may take as constants (vk-mode-constants).
+// openrac_mode: glow_pass glow_split opacity_split translucent_pass effect_pass effect_additive
+// openrac_mode: metal_pass gtao_enabled hero_wetness_debug object_reflection_enabled
+// openrac_mode: gameplay_rim_enabled
 uniform int glow_pass;  // mobys: 0 the solid faces, 1 the glow faces (blended)
 // The glow pass in two draws, as the GS's TEST 0x5360b splits it (alpha GEQUAL 0x60: Z written, else
 // colour only): 1 the texels at or above the reference, with depth; 2 the others, without; 0 all.
@@ -63,6 +67,8 @@ uniform sampler2D gtao_visibility;
 
 #ifdef OPENRAC_HERO_WETNESS
 in float v_hero_wetness;
+// openrac_mode: hero_wetness_enabled
+uniform int hero_wetness_enabled; // Zero for every draw but the hero's: no wet coat code there.
 uniform int hero_wetness_debug;
 uniform vec4 hero_wetness_material; // wet diffuse, specular strength, dry/wet roughness
 uniform float hero_wetness_f0;
@@ -149,11 +155,11 @@ bool early_surface(
 #endif
 // This replaces RGB only. Alpha tests, fading and blend equations stay in
 // the existing path, as do explicitly unlit, additive, metal and glow passes.
-#ifdef OPENRAC_HERO_WETNESS
+#if defined(OPENRAC_HERO_WETNESS) && !defined(OPENRAC_STATIC_COLOUR)
 // A thin wet coat: diffuse darkening, direct GGX highlights and local environment reflections.
 vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) {
     float wet = clamp(v_hero_wetness, 0., 1.);
-    if (wet <= 0.) return linear_colour;
+    if (hero_wetness_enabled == 0 || wet <= 0.) return linear_colour;
     int a = (int(v_probe_selector.x + .5) & 15) * 4;
     int b = (int(v_probe_selector.y + .5) & 15) * 4;
     float blend = clamp(v_probe_selector.z, 0., 1.);
@@ -226,8 +232,8 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     const bool foliage = false;
 #endif
     if (probe_receiver == 0 && !foliage) return original;
-#ifdef OPENRAC_HERO_WETNESS
-    if (hero_wetness_debug != 0 && v_hero_wetness >= 0.) {
+#if defined(OPENRAC_HERO_WETNESS) && !defined(OPENRAC_STATIC_COLOUR)
+    if (hero_wetness_enabled != 0 && hero_wetness_debug != 0 && v_hero_wetness >= 0.) {
         return mix(vec3(.12), vec3(0., .65, 1.), clamp(v_hero_wetness, 0., 1.));
     }
 #endif
@@ -247,8 +253,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
     vec3 eye_normal = orient_shading_normal(mat3(view) * n, mat3(view) * geometric, -eye_position);
     n = transpose(mat3(view)) * eye_normal;
+#ifdef OPENRAC_PROBE_COVERAGE
+    // Only the coverage view's shaders carry this second probe lookup and its registers.
     if (probe_mode == 4) {
-        // Read the same grid blend directly, even when normal shading uses cached irradiance.
         vec3 ignored;
         float dense_weight;
         vec3 bias = probe_surface_bias(n, transpose(mat3(view)) * (-eye_position));
@@ -256,6 +263,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         return covered ? mix(vec3(0.0, 0.5, 1.0), vec3(0.0, 1.0, 0.0), dense_weight)
                        : vec3(1.0, 0.0, 1.0);
     }
+#endif
     vec3 surface_n = n;
     float fur_grain = 1.;
 #ifdef OPENRAC_HERO_FUR
@@ -282,7 +290,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     );
 #ifdef OPENRAC_HERO_FUR
     // Coat slices lie above the body prepass and require lighting at their displaced position.
-    if (hero_fur_shell > 0.) {
+    if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {
         cached_surface = false;
         cached_coverage = sample_probe_irradiance(v_world_position, n,
             probe_surface_bias(n, transpose(mat3(view)) * (-eye_position)), cached_lighting.rgb);
@@ -392,7 +400,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     }
 #endif
     // Fine fur changes material response; shadow tests, probe lookup bias and cached GI keep smooth normals.
-    vec3 direct = probe_direct(v_world_position, surface_n, selector, visibility);
+    vec3 directional, local;
+    probe_direct_parts(v_world_position, surface_n, selector, directional, local);
+    vec3 direct = directional * mix(0.1, 1.0, visibility) + local;
     vec3 illumination = probe_mode == 2
                             ? indirect / 3.14159265359
                             : (probe_mode == 3 ? direct : direct + indirect / 3.14159265359);
@@ -404,9 +414,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     // brightness stays near the original's.
     if (probe_retail_anchor != 0 && probe_receiver == 1 && probe_terrain_albedo > 0.0
         && probe_mode == 1) {
-        vec3 open = probe_direct(v_world_position, surface_n, selector, 1.0)
-                    + open_indirect / 3.14159265359;
-        vec3 shaded = probe_direct(v_world_position, surface_n, selector, mix(0.28, 1.0, visibility))
+        // The same lights at two visibilities, from the one loop above.
+        vec3 open = directional + local + open_indirect / 3.14159265359;
+        vec3 shaded = directional * mix(0.1, 1.0, mix(0.28, 1.0, visibility)) + local
                       + indirect / 3.14159265359;
         illumination = (shaded + 0.02) / (open + 0.02);
     }

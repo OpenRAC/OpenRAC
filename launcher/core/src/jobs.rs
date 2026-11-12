@@ -33,6 +33,38 @@ pub enum Event {
     },
 }
 
+/// A line saying which signal ended a program, or None when it exited by itself. It is the
+/// only trace of a program the system killed (Android ends one out of memory with SIGKILL).
+fn stopped_by_signal(status: &std::process::ExitStatus) -> Option<String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        let sig = status.signal()?;
+        // SIGBUS is 7 on Linux and Android, 10 on macOS; the others match.
+        const SIGBUS: i32 = if cfg!(target_vendor = "apple") { 10 } else { 7 };
+        let why = match sig {
+            9 => "SIGKILL: the system stopped it, most often because memory ran out",
+            6 => "SIGABRT: it aborted",
+            11 => "SIGSEGV: it crashed",
+            SIGBUS => "SIGBUS: it crashed",
+            4 => "SIGILL: it crashed",
+            8 => "SIGFPE: it crashed",
+            15 => "SIGTERM: something asked it to stop",
+            _ => "",
+        };
+        Some(if why.is_empty() {
+            format!("openrac-launcher: the program was stopped by signal {sig}")
+        } else {
+            format!("openrac-launcher: the program was stopped by signal {sig} ({why})")
+        })
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = status;
+        None
+    }
+}
+
 /// The start of a line on which a tool names a folder it wrote (editor/extract.py, assets.py).
 pub const OUTPUT_LINE: &str = "openrac-output: ";
 
@@ -185,6 +217,9 @@ impl Jobs {
             let mut outputs = named.lock().unwrap().clone();
             if outputs.is_empty() {
                 outputs.extend(declared);
+            }
+            if let Some(line) = status.as_ref().filter(|_| !cancelled).and_then(stopped_by_signal) {
+                sink(Event::Output { id, stream: Stream::Stderr, line });
             }
             sink(Event::Exit { id, code: status.and_then(|s| s.code()), cancelled, outputs });
         });
@@ -432,6 +467,27 @@ mod tests {
         assert_eq!(stdout, ["one", "a", "b"]);
         assert!(lines.contains(&(Stream::Stderr, "two".to_string())));
         assert!(jobs.running().is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_killed_program_says_which_signal() {
+        let jobs = Jobs::default();
+        let (tx, rx) = mpsc::channel();
+        let tx = Mutex::new(tx);
+        jobs.start(&sh("kill -9 $$"), None, move |e| {
+            tx.lock().unwrap().send(e).unwrap();
+        })
+        .unwrap();
+        let mut lines = Vec::new();
+        let code = loop {
+            match rx.recv_timeout(Duration::from_secs(10)).unwrap() {
+                Event::Output { line, .. } => lines.push(line),
+                Event::Exit { code, .. } => break code,
+            }
+        };
+        assert_eq!(code, None);
+        assert!(lines.iter().any(|l| l.contains("signal 9 (SIGKILL")), "{lines:?}");
     }
 
     #[cfg(unix)]

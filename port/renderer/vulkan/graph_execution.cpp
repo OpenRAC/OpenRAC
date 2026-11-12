@@ -6,8 +6,10 @@
 
 #include <algorithm>
 #include <bit>
+#include <cstdint>
 #include <exception>
 #include <utility>
+#include <vector>
 
 #include "common/breadcrumbs.h"
 #include "renderer/vulkan/graph_barriers.h"
@@ -166,7 +168,7 @@ Result<graph::BufferHandle> GraphExecution::import_buffer(
 }
 
 Result<graph::BufferHandle> GraphExecution::Recording::import_buffer(
-    std::string name, detail::BufferRef region, bool defined
+    std::string name, detail::BufferRef region, bool defined, bool read_only
 ) {
     using namespace detail;
     VkDeviceSize allocation_size = region.size;
@@ -182,13 +184,27 @@ Result<graph::BufferHandle> GraphExecution::Recording::import_buffer(
         return unexpected(Error{"graph buffer region exceeds its allocation"});
     }
     // Buffer keys use a separate generation namespace from image serials.
-    const auto handle = graph.import_buffer(
-        std::move(name),
-        {{std::bit_cast<std::uint64_t>(region.buffer), 1},
-         allocation_size,
-         {graph::Stage::All, graph::Access::ReadWrite, graph::Layout::Buffer},
-         defined}
-    );
+    const graph::ResourceKey key{std::bit_cast<std::uint64_t>(region.buffer), 1};
+    // What came before is not known: any stage may have written it. A buffer that is only read
+    // here, while every GPU buffer write so far is visible, enters as read instead: its barrier
+    // would end the open render pass, and a tiled GPU stores and loads the whole frame for that.
+    graph::State initial{graph::Stage::All, graph::Access::ReadWrite, graph::Layout::Buffer};
+    const bool trusted = read_only && defined && buffer_writes_visible();
+    if (trusted) {
+        initial.access = graph::Access::Read;
+    }
+    // One allocation has one entry state in a graph: its first import's.
+    bool known = false;
+    for (const auto& resource : graph.resources()) {
+        const auto* buffer = std::get_if<graph::BufferDesc>(&resource.description);
+        if (buffer && buffer->key == key) {
+            initial = buffer->initial;
+            known = true;
+        }
+    }
+    trusted_reads = trusted_reads || (trusted && !known);
+    const auto handle =
+        graph.import_buffer(std::move(name), {key, allocation_size, initial, defined});
 
     // Canonical allocation identity prevents aliases from receiving conflicting histories.
     if (!handle) {
@@ -328,11 +344,21 @@ void GraphExecution::Recording::enter(const graph::PlannedPass& pass) {
                && (image.get() == g->rendering_target.colour
                    || image.get() == g->rendering_target.depth);
     };
-    if (std::all_of(pass.barriers.begin(), pass.barriers.end(), continues)) {
+    // A buffer import that carries no barrier relied on every GPU buffer write being visible.
+    // One recorded since (a dispatch between this graph's passes, a staged copy) is made so here.
+    const bool stale = trusted_reads && !buffer_writes_visible();
+    // A separate pass starts a render pass of its own: its area is only what it touches.
+    if (!stale && !pass.separate
+        && std::all_of(pass.barriers.begin(), pass.barriers.end(), continues)) {
         return;
     }
-    end_rendering();
-    const auto command = frame().main;
+    end_rendering(PassEnd::Graph);
+    bool buffer_read = stale, buffer_write = false;
+    // The pass's transitions go into one barrier command: each command is a point where the GPU
+    // stops to sync, and a pass with eight buffers recorded eight.
+    std::vector<VkImageMemoryBarrier> images;
+    std::vector<VkBufferMemoryBarrier> buffers;
+    VkPipelineStageFlags source = 0, destination = 0;
 
     // Exact buffer ranges allow one allocation to hold several independent depth mips.
     for (const auto& transition : pass.barriers) {
@@ -340,10 +366,53 @@ void GraphExecution::Recording::enter(const graph::PlannedPass& pass) {
 
         // Images need layout transitions; buffers need only exact memory-range dependencies.
         if (binding.image) {
-            record_graph_image_barrier(command, transition, *binding.image);
+            const GraphImageBarrier one = graph_image_barrier(transition, *binding.image);
+            images.push_back(one.barrier);
+            source |= one.source;
+            destination |= one.destination;
         } else {
-            detail::record_graph_buffer_barrier(command, transition, binding.buffer);
+            buffers.push_back(graph_buffer_barrier(transition, binding.buffer));
+            const GraphStages stages = graph_buffer_stages(transition);
+            source |= stages.source;
+            destination |= stages.destination;
+            const bool writes = transition.after.access != graph::Access::Read;
+            buffer_write = buffer_write || writes;
+            buffer_read = buffer_read || !writes;
         }
+    }
+
+    // The pass is ended already: one memory barrier with them makes every buffer readable, so the
+    // passes after this one, with their own read-only imports, draw on in one render pass.
+    BufferWritesBarrier writes{};
+
+    if (buffer_read) {
+        writes = buffer_writes_barrier();
+        source |= writes.source;
+        destination |= writes.destination;
+    }
+
+    if (buffer_read || !images.empty() || !buffers.empty()) {
+        vkCmdPipelineBarrier(
+            frame().main,
+            source,
+            destination,
+            0,
+            buffer_read ? 1 : 0,
+            buffer_read ? &writes.memory : nullptr,
+            static_cast<std::uint32_t>(buffers.size()),
+            buffers.data(),
+            static_cast<std::uint32_t>(images.size()),
+            images.data()
+        );
+        count_barrier(source, destination, "graph pass");
+    }
+
+    if (buffer_read) {
+        note_buffer_writes_visible();
+    }
+
+    if (buffer_write) {
+        note_buffer_write();
     }
 }
 }  // namespace openrac::vkgl

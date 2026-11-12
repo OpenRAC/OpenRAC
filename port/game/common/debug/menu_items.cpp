@@ -301,10 +301,27 @@ Item item(Id id, std::uint8_t where) {
             it.shown = enhanced_ready();
             it.on = set.enhanced_graphics;
             return it;
+        case Id::EnhancedPreset: {
+            it.shown = enhanced_on();
+            const settings::EnhancedPreset preset = set.enhanced_preset();
+            it.value = settings::kEnhancedPresetNames[static_cast<int>(preset)];
+            // From Custom, left picks Low and right High.
+            it.can_lower = preset != settings::EnhancedPreset::Low;
+            it.can_raise = preset != settings::EnhancedPreset::High;
+            return it;
+        }
         case Id::ModernShadows:
             it.shown = enhanced_on();
             it.on = set.enhanced_shadows;
             return it;
+        case Id::ShadowFilter: {
+            it.shown = enhanced_on() && set.enhanced_shadows;
+            const int filter = static_cast<int>(set.shadow_filter);
+            it.value = renderer::kShadowFilterNames[filter];
+            it.can_lower = filter > 0;
+            it.can_raise = filter < static_cast<int>(renderer::ShadowFilter::Count) - 1;
+            return it;
+        }
         case Id::ShadowQuality: {
             it.shown = enhanced_on() && set.enhanced_shadows;
             const int quality = static_cast<int>(set.shadow_quality);
@@ -333,10 +350,11 @@ Item item(Id id, std::uint8_t where) {
             return it;
         case Id::OcclusionQuality: {
             it.shown = enhanced_on() && set.gtao;
-            const bool quality = set.gtao_settings.quality == renderer::GtaoQuality::Quality;
-            it.value = quality ? "Quality" : "Performance";
-            it.can_lower = quality;
-            it.can_raise = !quality;
+            constexpr const char* kNames[] = {"Low", "Performance", "Quality"};
+            const int quality = static_cast<int>(set.gtao_settings.quality);
+            it.value = kNames[quality];
+            it.can_lower = quality > 0;
+            it.can_raise = quality < static_cast<int>(renderer::GtaoQuality::Quality);
             return it;
         }
         // The hierarchy is relevant only while enhanced ambient occlusion is enabled.
@@ -350,6 +368,15 @@ Item item(Id id, std::uint8_t where) {
             it.value = settings::name(set.texture_filter);
             it.can_lower = filter > 0;
             it.can_raise = filter < static_cast<int>(renderer::TextureFilter::Count) - 1;
+            return it;
+        }
+        case Id::EffectsDetail: {
+            it.shown = enhanced_on();
+            constexpr const char* kNames[] = {"Low", "Medium", "High"};
+            const int detail = static_cast<int>(set.effects_detail);
+            it.value = kNames[detail];
+            it.can_lower = detail > 0;
+            it.can_raise = detail < 2;
             return it;
         }
         case Id::Upscaling: {
@@ -377,6 +404,14 @@ Item item(Id id, std::uint8_t where) {
             it.shown = enhanced_on() && enhanced::Fsr3::available();
             it.on = set.motion_blur;
             return it;
+        case Id::MotionBlurQuality: {
+            it.shown = enhanced_on() && enhanced::Fsr3::available() && set.motion_blur;
+            const bool quality = set.motion_blur_settings.quality;
+            it.value = quality ? "Quality" : "Performance";
+            it.can_lower = quality;
+            it.can_raise = !quality;
+            return it;
+        }
         case Id::ColorCorrection:
             it.shown = enhanced_on();
             it.on = set.agx_preview;
@@ -507,7 +542,8 @@ Item item(Id id, std::uint8_t where) {
             it.value = capture_length_name();
             return it;
         case Id::RecordSweep:
-            it.shown = !capture_pending();
+            // It measures the parts of Enhanced graphics, so it is offered only with them on.
+            it.shown = !capture_pending() && enhanced_on();
             it.label = std::format("Graphics sweep ({:.0f} s)", settings_sweep_seconds());
             return it;
         case Id::RecordFolder:
@@ -662,10 +698,28 @@ bool act(Id id, int by) {
             set.enhanced_graphics = !set.enhanced_graphics;
             changed();
             return false;
+        case Id::EnhancedPreset: {
+            const settings::EnhancedPreset preset = set.enhanced_preset();
+            const int last = static_cast<int>(settings::EnhancedPreset::High);
+            const int next = preset == settings::EnhancedPreset::Custom
+                                 ? (by < 0 ? 0 : last)
+                                 : std::clamp(static_cast<int>(preset) + by, 0, last);
+            set.apply_enhanced_preset(static_cast<settings::EnhancedPreset>(next));
+            changed();
+            return false;
+        }
         case Id::ModernShadows:
             set.enhanced_shadows = !set.enhanced_shadows;
             changed();
             return false;
+        case Id::ShadowFilter: {
+            const int last = static_cast<int>(renderer::ShadowFilter::Count) - 1;
+            set.shadow_filter = static_cast<renderer::ShadowFilter>(
+                std::clamp(static_cast<int>(set.shadow_filter) + by, 0, last)
+            );
+            changed();
+            return false;
+        }
         case Id::ShadowQuality: {
             const int last = static_cast<int>(renderer::ShadowQuality::Count) - 1;
             set.shadow_quality = static_cast<renderer::ShadowQuality>(
@@ -691,14 +745,22 @@ bool act(Id id, int by) {
             changed();
             return false;
         case Id::OcclusionQuality:
-            set.gtao_settings.quality = set.gtao_settings.quality == renderer::GtaoQuality::Quality
-                                            ? renderer::GtaoQuality::Performance
-                                            : renderer::GtaoQuality::Quality;
+            set.gtao_settings.quality = static_cast<renderer::GtaoQuality>(std::clamp(
+                static_cast<int>(set.gtao_settings.quality) + by,
+                0,
+                static_cast<int>(renderer::GtaoQuality::Quality)
+            ));
             changed();
             return false;
         // Persist the hierarchy choice with the remaining ambient-occlusion options.
         case Id::OcclusionHiZ:
             set.gtao_settings.hi_z = !set.gtao_settings.hi_z;
+            changed();
+            return false;
+        case Id::EffectsDetail:
+            set.effects_detail = static_cast<renderer::render_opt::EffectsDetail>(
+                std::clamp(static_cast<int>(set.effects_detail) + by, 0, 2)
+            );
             changed();
             return false;
         case Id::TextureUpscaling: {
@@ -723,6 +785,10 @@ bool act(Id id, int by) {
             return false;
         case Id::MotionBlur:
             set.motion_blur = !set.motion_blur;
+            changed();
+            return false;
+        case Id::MotionBlurQuality:
+            set.motion_blur_settings.quality = !set.motion_blur_settings.quality;
             changed();
             return false;
         case Id::ColorCorrection:

@@ -69,6 +69,9 @@
 #include "scene/moby_shadow.h"
 #include "scene/screenshot.h"
 #include "settings.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 extern "C" int openrac_game_loaded_overlay(void);
 
@@ -449,6 +452,13 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     renderer::gl_stats::install(platform::Window::gl_loader());
     // OpenGL's drawn states noted, to draw them again at each level's load (renderer/gl_warmup.h).
     renderer::gl_warmup::install(platform::Window::gl_loader());
+#if defined(OPENRAC_VULKAN)
+    // A level's load deletes and links the same shader programs: their pipelines are kept
+    // (vk-program-keep), so only a run's first level makes them.
+    if (gl::is_vulkan()) {
+        vkgl::keep_programs(true);
+    }
+#endif
     log::info("graphics: up to {} samples a pixel, anisotropy up to {:.0f}; the swap {}", 
               renderer::FrameBuffer::max_samples(), renderer::TexturePool::max_anisotropy(),
               g->swap == platform::SwapInterval::Immediate ? "does not wait"

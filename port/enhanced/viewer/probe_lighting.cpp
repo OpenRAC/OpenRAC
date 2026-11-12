@@ -163,6 +163,7 @@ std::string probe_early_fragment(std::string source) {
     source += std::string("\n#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
               + std::string(shaders::chrome_glsl) + "\n#endif\n";
     source.insert(source.find('\n') + 1, "#define OPENRAC_EARLY_LIGHTING 1\n");
+
     return probe_shader_source(std::move(source));
 }
 

@@ -737,7 +737,7 @@ void end_rendering(PassEnd why) {
     gpu_flush_draws();
     if (g->rendering) {
         if (stats::enabled()) {
-            constexpr std::array<std::string_view, 9> kWhy = {
+            constexpr std::array<std::string_view, 12> kWhy = {
                 "vk_pass_end target",
                 "vk_pass_end copy",
                 "vk_pass_end sample",
@@ -746,6 +746,9 @@ void end_rendering(PassEnd why) {
                 "vk_pass_end submit",
                 "vk_pass_end present",
                 "vk_pass_end timing",
+                "vk_pass_end graph",
+                "vk_pass_end import",
+                "vk_pass_end replay",
                 "vk_pass_end other",
             };
             count_where(kWhy[static_cast<std::size_t>(why)]);
@@ -767,10 +770,48 @@ void end_rendering(PassEnd why) {
     }
 }
 
+BufferWritesBarrier buffer_writes_barrier() {
+    constexpr VkPipelineStageFlags kReaders =
+        VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+        | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT
+        | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
+    // Buffers are written by compute shaders and copies alone (the R-08 table). The reference
+    // path: every stage.
+    const VkPipelineStageFlags writers =
+        render_opt::enabled(render_opt::Opt::VkTightSync)
+            ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT
+            : VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    VkMemoryBarrier writes{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+    writes.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+    writes.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT
+                           | VK_ACCESS_INDIRECT_COMMAND_READ_BIT
+                           | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT
+                           | VK_ACCESS_TRANSFER_READ_BIT;
+    return {writes, writers, kReaders};
+}
+
+void make_buffer_writes_visible() {
+    const BufferWritesBarrier writes = buffer_writes_barrier();
+    vkCmdPipelineBarrier(
+        frame().main,
+        writes.source,
+        writes.destination,
+        0,
+        1,
+        &writes.memory,
+        0,
+        nullptr,
+        0,
+        nullptr
+    );
+    count_barrier(writes.source, writes.destination, "buffer writes");
+    note_buffer_writes_visible();
+}
+
 void end_rendering_for(const Image* image) {
     if (g->rendering
         && (g->rendering_target.colour == image || g->rendering_target.depth == image)) {
-        end_rendering();
+        end_rendering(PassEnd::Import);
     }
 }
 
@@ -812,7 +853,7 @@ void barrier(VkCommandBuffer cmd, Image& image, VkImageLayout to) {
     b.image = image.image;
     b.subresourceRange = {image.aspect, 0, VK_REMAINING_MIP_LEVELS, 0, 1};
     vkCmdPipelineBarrier(cmd, from.stages, into.stages, 0, 0, nullptr, 0, nullptr, 1, &b);
-    count_barrier(from.stages, into.stages);
+    count_barrier(from.stages, into.stages, "image layout");
     image.layout = to;
 
     // A copy, blit or upload into the image comes next: what it writes is kept.
@@ -1039,7 +1080,8 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
     }
 
     vkCmdPipelineBarrier(f.upload, source, destination, 0, 1, &m, 0, nullptr, 0, nullptr);
-    count_barrier(source, destination);
+    count_barrier(source, destination, "upload order");
+
     // The frame's work ends here, outside any render pass (end_rendering above).
     if (f.frame_timing == Frame::FrameTiming::Started) {
         vkCmdWriteTimestamp(

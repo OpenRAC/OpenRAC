@@ -117,6 +117,15 @@ results. The drawing thread takes a finished key, waits for a queued one, and bu
 itself. A level load waits for the queue (`vkgl::finish_pipelines`). The backend's close joins
 the workers first.
 
+The game keeps a deleted program's modules, layouts and pipelines (`vkgl::keep_programs`, the
+registry's `vk-program-keep`, `test_program_cache.cpp`). The next link of the same SPIR-V and
+layout takes them under its new serial, so a level's load makes no pipelines again.
+
+A shader's mode uniforms (`// openrac_mode: ...`) are specialisation constants of its pipelines
+(`vk-mode-constants`, `mode_sources` in `gl_program.cpp`). The key holds their values. A draw
+whose specialised pipeline is not made yet asks the workers for it and uses the pipeline that
+reads the uniforms (`stand_in_pipeline`).
+
 With `vk-pipeline-library` (desktop), the workers also build each program's two shader parts. A
 draw with an unknown key links four parts (`PipelineLibraries`) at once; the whole pipeline is
 built on a worker and swapped in at a frame's start (`collect_prewarm`). The manifest and

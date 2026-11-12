@@ -12,6 +12,8 @@ uniform float depth_tolerance;
 // Nonzero: each trail takes two samples a display pixel of its length (at least 8), at most
 // sample_count (two thirds of it along the receiver's own trail); zero: always the full counts.
 uniform int adaptive_samples;
+// Render pixels per seed cell (1 or 2).
+uniform int seed_scale;
 layout(location=0) out vec4 result;
 vec4 velocity_at(vec2 uv) {
     vec2 size = vec2(textureSize(velocity_texture, 0));
@@ -25,7 +27,8 @@ void main() {
     vec4 centre = velocity_at(uv);
     vec2 render_size = vec2(textureSize(velocity_texture, 0));
     ivec2 receiver = clamp(ivec2(floor(uv * render_size + jitter)), ivec2(0), ivec2(render_size) - 1);
-    uint packed = texelFetch(seed_texture, receiver, 0).r;
+    ivec2 cell = min(receiver / seed_scale, textureSize(seed_texture, 0) - 1);
+    uint packed = texelFetch(seed_texture, cell, 0).r;
     vec2 seed = vec2(packed & 0xffffu, packed >> 16);
     bool has_seed = packed != 0xffffffffu && all(lessThan(seed, render_size));
     vec2 direction = has_seed ? texelFetch(velocity_texture, ivec2(seed), 0).xy : vec2(0);

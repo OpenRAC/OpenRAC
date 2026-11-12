@@ -461,6 +461,19 @@ void test_fixed_order() {
     CHECK(plan->dependencies.empty());
 }
 
+// A pass declared separate stays so in the plan, for the executor to start a render pass of its own.
+void test_separate_pass() {
+    graph::Graph builder;
+    const auto target = image(builder);
+    graph::Pass second{"second", {{target, {}, kWrite}}};
+    second.separate = true;
+    builder.add_pass({"first", {{target, {}, kWrite}}});
+    builder.add_pass(std::move(second));
+    const auto plan = builder.compile();
+    CHECK(plan.has_value());
+    CHECK(!plan->passes[0].separate && plan->passes[1].separate);
+}
+
 // Prints an entirely synthetic shadow-combination graph when explicitly requested by the developer.
 void dump_shadow_example() {
     graph::Graph builder;
@@ -508,6 +521,7 @@ int main(int argc, char** argv) {
         test_unused_and_owned_plan();
         test_export_and_dump();
         test_fixed_order();
+        test_separate_pass();
         if (argc == 2 && std::string_view(argv[1]) == "--dump") {
             dump_shadow_example();
         }

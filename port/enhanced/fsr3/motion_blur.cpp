@@ -72,7 +72,8 @@ bool MotionBlur::apply(const BlurFrame& frame) {
     const auto [rw, rh] = frame.render_size;
     std::string error;
     // Never record passes against incomplete or invalid render targets.
-    if (rw <= 0 || rh <= 0 || !prepare(display.width, display.height, rw, rh, error)) {
+    if (rw <= 0 || rh <= 0
+        || !prepare(display.width, display.height, rw, rh, frame.tuning.quality, error)) {
         log::warn("Motion blur disabled: {}", error);
         m_failed = true;
         glBindFramebuffer(GL_FRAMEBUFFER, display.framebuffer);
@@ -168,8 +169,10 @@ int MotionBlur::jump_flood(const Passes& passes) {
         int(std::ceil(float(max_radius) * float(rw) / float(display.width))),
         int(std::ceil(float(max_radius) * float(rh) / float(display.height)))
     );
+    // The flood steps in seed cells, which are m_seed_scale render pixels wide.
+    const int cells = (radius + m_seed_scale - 1) / m_seed_scale;
     int jump = 1;
-    while (jump < radius) {
+    while (jump < cells) {
         jump *= 2;
     }
     bind(1, m_velocity.texture());
@@ -186,6 +189,7 @@ int MotionBlur::jump_flood(const Passes& passes) {
         min_motion,
         std::clamp(tuning.spread, 0.f, 1.f),
         jump,
+        m_seed_scale,
         fast,
         unique
     };
@@ -197,6 +201,7 @@ int MotionBlur::jump_flood(const Passes& passes) {
         glUniform1f(program.uniform("min_motion"), min_motion);
         glUniform1f(program.uniform("side_spread"), setup.spread);
         glUniform2f(program.uniform("display_size"), float(display.width), float(display.height));
+        glUniform1i(program.uniform("seed_scale"), m_seed_scale);
         ++setups;
     };
     if (!reuse) {
@@ -205,6 +210,10 @@ int MotionBlur::jump_flood(const Passes& passes) {
             uniforms(*program);
         }
     }
+    // Seed targets are the render size divided by m_seed_scale, rounded up.
+    glViewport(
+        0, 0, (rw + m_seed_scale - 1) / m_seed_scale, (rh + m_seed_scale - 1) / m_seed_scale
+    );
     int pass_count = 0;
     for (; jump >= 1; jump /= 2) {
         const stats::Scope flood("Motion blur jump flood", stats::kGpu);
@@ -261,6 +270,7 @@ void MotionBlur::gather(const Passes& passes, int source) {
     );
     glUniform1i(resolve.uniform("velocity_texture"), 1);
     glUniform1i(resolve.uniform("seed_texture"), 2);
+    glUniform1i(resolve.uniform("seed_scale"), m_seed_scale);
     glUniform2f(resolve.uniform("jitter"), jitter[0], jitter[1]);
     glBindFramebuffer(GL_FRAMEBUFFER, display.framebuffer);
     glViewport(0, 0, display.width, display.height);

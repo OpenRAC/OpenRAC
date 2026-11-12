@@ -15,6 +15,7 @@
 #include <cstring>
 #include <deque>
 #include <filesystem>
+#include <format>
 #include <mutex>
 #include <optional>
 #include <span>
@@ -160,6 +161,7 @@ VkPrimitiveTopology topology_of(GLenum mode) {
 VkPipeline remember_pipeline(Program& program, std::string_view key, VkPipeline pipeline) {
     program.last_pipeline_key.assign(key);
     program.last_pipeline = pipeline;
+    program.last_pipeline_stands_in = false;
     return pipeline;
 }
 
@@ -571,6 +573,54 @@ int input_kind(std::uint32_t gl_type) {
 
 // ---- Pipelines made ahead (R-10) ----
 
+// One line per shader of `pipeline` with the driver's statistics, after `what` (a program and
+// its modes, or a compute program) (OPENRAC_VK_PIPELINE_STATS).
+void log_executable_statistics(VkPipeline pipeline, std::string_view what) {
+    VkPipelineInfoKHR asked{VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR};
+    asked.pipeline = pipeline;
+    std::uint32_t count = 0;
+    if (vkGetPipelineExecutablePropertiesKHR(g->device, &asked, &count, nullptr) != VK_SUCCESS) {
+        return;
+    }
+    std::vector<VkPipelineExecutablePropertiesKHR> stages(
+        count, {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_PROPERTIES_KHR}
+    );
+    vkGetPipelineExecutablePropertiesKHR(g->device, &asked, &count, stages.data());
+    for (std::uint32_t index = 0; index < count; ++index) {
+        VkPipelineExecutableInfoKHR which{VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_INFO_KHR};
+        which.pipeline = pipeline;
+        which.executableIndex = index;
+        std::uint32_t n = 0;
+        vkGetPipelineExecutableStatisticsKHR(g->device, &which, &n, nullptr);
+        std::vector<VkPipelineExecutableStatisticKHR> stats(
+            n, {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_STATISTIC_KHR}
+        );
+        vkGetPipelineExecutableStatisticsKHR(g->device, &which, &n, stats.data());
+        std::string line;
+        for (std::uint32_t s = 0; s < n; ++s) {
+            const auto& stat = stats[s];
+            line += std::format(" {}=", std::string_view(stat.name));
+            switch (stat.format) {
+                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_BOOL32_KHR:
+                    line += stat.value.b32 ? "1" : "0";
+                    break;
+                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_INT64_KHR:
+                    line += std::to_string(stat.value.i64);
+                    break;
+                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR:
+                    line += std::to_string(stat.value.u64);
+                    break;
+                default:
+                    line += std::format("{:.3f}", stat.value.f64);
+                    break;
+            }
+        }
+        log::info(
+            "vulkan: pipeline stats {} {}:{}", what, std::string_view(stages[index].name), line
+        );
+    }
+}
+
 namespace {
 
 // The keys the manifest holds at most; past it a new key is not added (assumed far above a run's
@@ -606,7 +656,19 @@ bool plausible_key(const PipelineKey& key) {
         key.samples != 0 && key.samples <= kMostSamples && (key.samples & (key.samples - 1)) == 0;
     return key.inputs <= static_cast<std::uint32_t>(kAttributes) && key.viewports >= 1
            && key.viewports <= g->properties.limits.maxViewports && samples
-           && key.topology <= VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+           && key.topology <= VK_PRIMITIVE_TOPOLOGY_PATCH_LIST
+           && key.mode_count <= static_cast<std::uint32_t>(kModeConstants);
+}
+
+// Logs the driver's statistics of each graphics shader of `pipeline` (OPENRAC_VK_PIPELINE_STATS):
+// the program's serial and its mode constants, which a program's link line names.
+void log_pipeline_statistics(VkPipeline pipeline, const PipelineKey& k) {
+    std::string modes;
+    for (std::uint32_t n = 0; n < k.mode_count && n < kModeConstants; ++n) {
+        modes += k.mode[n] == kModeDynamic ? std::string("d") : std::to_string(k.mode[n]);
+        modes += n + 1 < k.mode_count ? "," : "";
+    }
+    log_executable_statistics(pipeline, std::format("program {} modes [{}]", k.program, modes));
 }
 
 // Makes the graphics pipeline of key `k` with the stages `vertex_module` and `fragment_module`
@@ -626,10 +688,32 @@ VkPipeline create_graphics_pipeline(
     const bool colour = k.colour_format != VK_FORMAT_UNDEFINED;
     const auto depth_format = static_cast<VkFormat>(k.depth_format);
     // Whether the vertex stage's z is Vulkan's already (glClipControl GL_ZERO_TO_ONE).
-    const VkBool32 zero_to_one = (k.depth_mode & kClipZeroToOne) != 0 ? VK_TRUE : VK_FALSE;
-    const VkSpecializationMapEntry zero_to_one_entry{kClipZeroToOneConstant, 0, sizeof(VkBool32)};
-    const VkSpecializationInfo vertex_constants{
-        1, &zero_to_one_entry, sizeof zero_to_one, &zero_to_one
+    // And the program's modes the key gives a value (vk-mode-constants), for both stages; a mode
+    // left out keeps its constant's default, which reads the uniform.
+    struct Constants {
+        VkBool32 zero_to_one;
+        std::int32_t mode[kModeConstants];
+    };
+
+    Constants constants{};
+    constants.zero_to_one = (k.depth_mode & kClipZeroToOne) != 0 ? VK_TRUE : VK_FALSE;
+    VkSpecializationMapEntry entries[1 + kModeConstants];
+    entries[0] = {kClipZeroToOneConstant, offsetof(Constants, zero_to_one), sizeof(VkBool32)};
+    std::uint32_t entry_count = 1;
+
+    for (std::uint32_t n = 0; n < std::min<std::uint32_t>(k.mode_count, kModeConstants); ++n) {
+        if (k.mode[n] != kModeDynamic) {
+            constants.mode[n] = k.mode[n];
+            entries[entry_count++] =
+                {kModeConstantBase + n,
+                 static_cast<std::uint32_t>(offsetof(Constants, mode) + n * sizeof(std::int32_t)),
+                 sizeof(std::int32_t)};
+        }
+    }
+
+    const VkSpecializationInfo vertex_constants{entry_count, entries, sizeof constants, &constants};
+    const VkSpecializationInfo fragment_constants{
+        entry_count - 1, entries + 1, sizeof constants, &constants
     };
     VkPipelineShaderStageCreateInfo stages[2]{};
     stages[0] =
@@ -647,7 +731,7 @@ VkPipeline create_graphics_pipeline(
          VK_SHADER_STAGE_FRAGMENT_BIT,
          fragment_module,
          "main",
-         nullptr};
+         entry_count > 1 ? &fragment_constants : nullptr};
     VkVertexInputBindingDescription bindings[kAttributes]{};
     VkVertexInputAttributeDescription attributes[kAttributes]{};
     for (std::uint32_t i = 0; i < k.inputs; ++i) {
@@ -762,6 +846,9 @@ VkPipeline create_graphics_pipeline(
     VkGraphicsPipelineLibraryCreateInfoEXT part{
         VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT
     };
+    if (g->pipeline_stats && library == 0) {
+        info.flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
+    }
 
     // A part: its own stage, if it has one, and the attachments' formats only where they belong.
     if (library != 0) {
@@ -830,6 +917,9 @@ VkPipeline create_graphics_pipeline(
         pipeline = VK_NULL_HANDLE;
     }
 
+    if (g->pipeline_stats && library == 0 && pipeline != VK_NULL_HANDLE) {
+        log_pipeline_statistics(pipeline, k);
+    }
     return pipeline;
 }
 
@@ -888,10 +978,15 @@ PipelineKey library_key(const PipelineKey& k, LibraryPart part) {
             l.viewports = k.viewports;
             l.fixed.cull = k.fixed.cull;
             l.fixed.front = k.fixed.front;
+            // The stage's mode constants are the part's too (vk-mode-constants).
+            l.mode_count = k.mode_count;
+            std::memcpy(l.mode, k.mode, sizeof l.mode);
             break;
         case LibraryPart::Fragment:
             l.program = k.program;
             l.clamp_colour = k.clamp_colour;
+            l.mode_count = k.mode_count;
+            std::memcpy(l.mode, k.mode, sizeof l.mode);
             l.fixed = k.fixed;
             l.fixed.cull = 0;
             l.fixed.front = 0;
@@ -1273,6 +1368,7 @@ void run_prewarm_worker(PipelinePrewarm& w) {
 
         w.ready.push_back({job.key, job.part, pipeline});
         ++w.made;
+        w.made_count.store(w.made, std::memory_order_relaxed);
         const auto mine = std::ranges::find_if(w.making, [&job](const auto& made) {
             return made.second == job.part && same_key(made.first, job.key);
         });
@@ -1341,9 +1437,11 @@ void prewarm_program(Program& p) {
     PipelinePrewarm& w = g->prewarm;
     std::lock_guard lock(w.mutex);
     const std::size_t queued = w.queue.size();
+    PipelineLibraries& l = g->libraries;
 
     // The program's two shader parts as most of its draws take them (filled polygons, one
     // viewport, the fixed state dynamic), so that a pipeline first needed mid-frame is only linked.
+    // A program linked from kept objects has them already (vk-program-keep).
     if (libraries_enabled()) {
         PipelineKey part;
         std::memset(&part, 0, sizeof part);
@@ -1351,8 +1449,15 @@ void prewarm_program(Program& p) {
         part.polygon = 0;
         part.viewports = 1;
         part.dynamic_fixed = fixed_state_dynamic() ? 1 : 0;
-        w.queue.push_back({part, p.vertex, p.fragment, p.layout, PrewarmPart::PreRaster});
-        w.queue.push_back({part, p.vertex, p.fragment, p.layout, PrewarmPart::Fragment});
+        const std::string bytes = key_bytes(part);
+
+        if (!l.pre_raster.contains(bytes)) {
+            w.queue.push_back({part, p.vertex, p.fragment, p.layout, PrewarmPart::PreRaster});
+        }
+
+        if (!l.fragment.contains(bytes)) {
+            w.queue.push_back({part, p.vertex, p.fragment, p.layout, PrewarmPart::Fragment});
+        }
     }
 
     // Each key of this program in the manifest, as a job for this link's serial.
@@ -1364,8 +1469,36 @@ void prewarm_program(Program& p) {
 
         PrewarmJob job{entry.key, p.vertex, p.fragment, p.layout, PrewarmPart::Whole};
         job.key.program = p.serial;
-        w.queue.push_back(job);
         entry.age = 0;
+
+        // A kept program's pipeline, made whole before.
+        if (const VkPipeline* made = g->pipelines.find(job.key, hash_key(job.key));
+            made != nullptr && !l.linked.contains(*made)) {
+            continue;
+        }
+
+        w.queue.push_back(job);
+    }
+
+    // A kept program's pipelines still linked from parts, whose whole ones were queued when its
+    // last owner was deleted: queued again, as link_pipeline queued them.
+    for (const auto& [key, pipeline] : g->pipelines) {
+        // Another program's, one made whole, or one of the clamped stage, never made ahead.
+        if (key.program != p.serial || !l.linked.contains(pipeline) || key.clamp_colour != 0) {
+            continue;
+        }
+
+        const bool again = std::any_of(
+            w.queue.begin() + static_cast<std::ptrdiff_t>(queued),
+            w.queue.end(),
+            [&key](const PrewarmJob& job) {
+                return job.part == PrewarmPart::Whole && same_key(job.key, key);
+            }
+        );
+
+        if (!again) {
+            w.queue.push_back({key, p.vertex, p.fragment, p.layout, PrewarmPart::Whole});
+        }
     }
 
     // Nothing of this program to make ahead.
@@ -1377,7 +1510,7 @@ void prewarm_program(Program& p) {
     w.changed.notify_all();
 }
 
-void prewarm_forget(std::uint64_t serial) {
+void prewarm_forget(std::uint64_t serial, bool keep) {
     PipelinePrewarm& w = g->prewarm;
     std::unique_lock lock(w.mutex);
     std::erase_if(w.queue, [serial](const PrewarmJob& job) { return job.key.program == serial; });
@@ -1388,6 +1521,12 @@ void prewarm_forget(std::uint64_t serial) {
             return job.first.program == serial;
         });
     });
+
+    // A kept program's pipelines and parts stay with its objects (vk-program-keep).
+    if (keep) {
+        take_ready(w);
+        return;
+    }
 
     // What was made for it and never drawn with: no command buffer holds it.
     std::erase_if(w.ready, [serial](const PrewarmDone& done) {
@@ -1466,6 +1605,34 @@ void release_program_libraries(std::uint64_t serial) {
             defer([part = entry.second] { vkDestroyPipeline(g->device, part, nullptr); });
             return true;
         });
+    }
+}
+
+void rename_program_libraries(std::uint64_t from, std::uint64_t to) {
+    // The shader parts name their program; the others are any program's.
+    for (auto* table : {&g->libraries.pre_raster, &g->libraries.fragment}) {
+        std::vector<std::pair<std::string, VkPipeline>> moved;
+
+        // Each part of `from`, taken out under its old key.
+        for (auto at = table->begin(); at != table->end();) {
+            PipelineKey key;
+            std::memcpy(&key, at->first.data(), sizeof key);
+
+            // Another program's.
+            if (key.program != from) {
+                ++at;
+                continue;
+            }
+
+            key.program = to;
+            moved.emplace_back(key_bytes(key), at->second);
+            at = table->erase(at);
+        }
+
+        // And put back under its new one.
+        for (auto& part : moved) {
+            table->emplace(std::move(part));
+        }
     }
 }
 
@@ -1613,6 +1780,199 @@ FixedState fixed_state(const Target& t) {
     return f;
 }
 
+namespace {
+
+// Gives key `k` of program `p` its modes (vk-mode-constants): each mode uniform's value now, or
+// kModeDynamic for one no stage reads or one that has had more values than are worth a pipeline
+// each. A key whose modes are all dynamic is the plain key, with no modes. Worked out once for
+// the draws between two writes of an integer uniform.
+void key_modes(Program& p, PipelineKey& k) {
+    if (p.key_modes_stale) {
+        p.key_modes_stale = false;
+        p.key_modes.fill(0);
+        bool constant = false;
+
+        for (std::size_t n = 0; n < p.modes.size(); ++n) {
+            Program::Mode& m = p.modes[n];
+            std::int32_t value = kModeDynamic;
+
+            if (m.offset >= 0 && !m.dynamic) {
+                std::memcpy(&value, p.uniforms.data() + m.offset, sizeof value);
+                const auto seen_end = m.seen.begin() + m.seen_count;
+
+                // A value new to this mode: one more pipeline, or the uniform from now on.
+                if (std::find(m.seen.begin(), seen_end, value) == seen_end) {
+                    if (m.seen_count == m.seen.size()) {
+                        m.dynamic = true;
+                        value = kModeDynamic;
+                    } else {
+                        m.seen[m.seen_count++] = value;
+                    }
+                }
+            }
+
+            p.key_modes[n] = value;
+            constant = constant || value != kModeDynamic;
+        }
+
+        if (constant) {
+            p.key_mode_count = static_cast<std::uint32_t>(p.modes.size());
+        } else {
+            p.key_mode_count = 0;
+            p.key_modes.fill(0);
+        }
+    }
+
+    k.mode_count = p.key_mode_count;
+    std::memcpy(k.mode, p.key_modes.data(), sizeof k.mode);
+}
+
+// Returns whether the keys of program `p` take its modes: it has some and the entry is on.
+bool keys_take_modes(const Program& p) {
+    return !p.modes.empty()
+           && renderer::render_opt::enabled(renderer::render_opt::Opt::VkModeConstants);
+}
+
+// Returns the pipeline of key `k` (whose hash_key is `hash`) made before, or null: found by its
+// hash and a compare of the whole key (vk-draw-cache), or by its bytes as a string, which
+// allocates for every draw (the reference path).
+VkPipeline find_pipeline(const PipelineKey& k, std::uint64_t hash) {
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::VkDrawCache)) {
+        const VkPipeline* made = g->pipelines.find(k, hash);
+        return made != nullptr ? *made : VK_NULL_HANDLE;
+    }
+
+    const VkPipeline* made =
+        g->pipelines.find_reference(std::string(reinterpret_cast<const char*>(&k), sizeof k));
+    return made != nullptr ? *made : VK_NULL_HANDLE;
+}
+
+// Returns the fragment stage of key `k` of program `p`: into a float frame that stands in for an
+// 8-bit one, the stage that clamps its colour.
+VkShaderModule fragment_stage(Program& p, const PipelineKey& k) {
+    if (k.clamp_colour != 0) {
+        if (const VkShaderModule clamped = clamped_fragment(p); clamped != VK_NULL_HANDLE) {
+            return clamped;
+        }
+    }
+
+    return p.fragment;
+}
+
+// Returns the pipeline of key `k` (whose hash_key is `hash`) of program `p`, which no draw has
+// had: the one the pre-warm made or is making, one linked from parts, or one made here. With
+// `record`, the key goes to the manifest for the next run.
+VkPipeline make_pipeline(Program& p, const PipelineKey& k, std::uint64_t hash, bool record) {
+    // Made ahead by the pre-warm workers, or being made: taken from them rather than made again.
+    // A draw that can link its pipeline from parts waits for no whole one.
+    const bool link = libraries_enabled();
+    if (const std::optional<VkPipeline> warmed = prewarm_take(k, hash, !link)) {
+        return *warmed;
+    }
+
+    const VkShaderModule fragment = fragment_stage(p, k);
+
+    // Linked from parts at once, and made whole on a worker later (vk-pipeline-library): what
+    // would be a compile of the whole pipeline here, in the middle of a frame.
+    if (link) {
+        if (const VkPipeline linked = link_pipeline(p, k, fragment); linked != VK_NULL_HANDLE) {
+            if (record) {
+                record_manifest_key(p, k);
+            }
+            g->pipelines.insert(k, hash, linked);
+            return linked;
+        }
+    }
+    const VkPipeline pipeline = create_graphics_pipeline(k, p.vertex, fragment, p.layout);
+    ++g->measures.pipelines;
+    count_pipeline();
+    if (record) {
+        record_manifest_key(p, k);
+    }
+    g->pipelines.insert(k, hash, pipeline);
+    return pipeline;
+}
+
+// Returns the pipeline a draw of key `k` (its hash_key `hash`, its bytes `bytes`) of program `p`
+// uses while no pipeline of that key exists: the one of key `other`, which draws the same picture
+// (the same key with its modes read from the uniforms, or with them as constants), and the
+// pipeline of `k` is asked of the workers once. With `make_other`, the pipeline of `other` is
+// made here when there is none; without, null is returned and the caller makes `k` itself.
+VkPipeline stand_in_pipeline(
+    Program& p,
+    const PipelineKey& k,
+    std::uint64_t hash,
+    std::string_view bytes,
+    const PipelineKey& other,
+    bool make_other
+) {
+    PipelinePrewarm& w = g->prewarm;
+
+    // Read before the look below, so that a pipeline finished meanwhile is looked for again.
+    const std::uint64_t made = w.made_count.load(std::memory_order_relaxed);
+
+    // A worker has just made it.
+    if (const std::optional<VkPipeline> warmed = prewarm_take(k, hash, false)) {
+        return remember_pipeline(p, bytes, *warmed);
+    }
+
+    const std::uint64_t other_hash = hash_key(other);
+    VkPipeline stand_in = find_pipeline(other, other_hash);
+
+    if (stand_in == VK_NULL_HANDLE) {
+        if (!make_other) {
+            return VK_NULL_HANDLE;
+        }
+
+        // Where a pipeline cannot be linked from parts and the manifest queued this one, the
+        // draw waits for it instead of compiling a second pipeline here.
+        if (!libraries_enabled()) {
+            if (const std::optional<VkPipeline> warmed = prewarm_take(k, hash, true)) {
+                return remember_pipeline(p, bytes, *warmed);
+            }
+        }
+
+        // Not for the manifest: the next run makes the wanted one ahead.
+        stand_in = make_pipeline(p, other, other_hash, false);
+    }
+
+    bool ask = false;
+    const VkShaderModule fragment = fragment_stage(p, k);
+    {
+        std::lock_guard lock(w.mutex);
+
+        // Asked once: a pipeline the driver refused is not asked for at every draw.
+        if (w.mode_keys.insert(hash).second) {
+            const bool queued = std::ranges::any_of(w.queue, [&k](const PrewarmJob& job) {
+                return job.part == PrewarmPart::Whole && same_key(job.key, k);
+            });
+            ask = true;
+
+            if (!queued && !is_making(w, k, PrewarmPart::Whole)) {
+                w.queue.push_back({k, p.vertex, fragment, p.layout, PrewarmPart::Whole});
+                start_workers(w);
+                w.changed.notify_all();
+            }
+        }
+    }
+
+    if (ask) {
+        record_manifest_key(p, k);
+
+        if (k.mode_count != 0) {
+            ++g->submission.mode_pipelines;
+        }
+    }
+
+    p.last_pipeline_key.assign(bytes);
+    p.last_pipeline = stand_in;
+    p.last_pipeline_stands_in = true;
+    p.last_pipeline_made = made;
+    return stand_in;
+}
+
+}  // namespace
+
 VkPipeline pipeline_for(
     Program& p, GLenum mode, const Target& t, const Input* inputs, std::uint32_t count
 ) {
@@ -1657,59 +2017,57 @@ VkPipeline pipeline_for(
     k.inputs = count;
     k.viewports = static_cast<std::uint32_t>(std::max<std::size_t>(1, g->indexed_viewports.size()));
     std::memcpy(k.input, inputs, sizeof(Input) * count);
+    const bool modes = keys_take_modes(p);
+    if (modes) {
+        key_modes(p, k);
+    }
     // Repeated draws bypass hashing only when every baked graphics field matches
-    // (vk-last-pipeline); off, every draw looks its key up in the table.
+    // (vk-last-pipeline); off, every draw looks its key up in the table. A pipeline that stands
+    // in for a specialised one is looked up again once the workers have made something.
     const std::string_view bytes(reinterpret_cast<const char*>(&k), sizeof k);
     if (p.last_pipeline != VK_NULL_HANDLE && bytes == p.last_pipeline_key
+        && (!p.last_pipeline_stands_in
+            || p.last_pipeline_made == g->prewarm.made_count.load(std::memory_order_relaxed))
         && renderer::render_opt::enabled(renderer::render_opt::Opt::VkLastPipeline)) {
         return p.last_pipeline;
     }
     const std::uint64_t hash = hash_key(k);
 
-    // A key made before: by its hash and a compare of the whole key (vk-draw-cache), or by its
-    // bytes as a string, which allocates for every draw (the reference path).
-    if (renderer::render_opt::enabled(renderer::render_opt::Opt::VkDrawCache)) {
-        // Found by its hash.
-        if (const VkPipeline* made = g->pipelines.find(k, hash)) {
-            return remember_pipeline(p, bytes, *made);
-        }
-    } else if (const VkPipeline* made = g->pipelines.find_reference(
-                   std::string(reinterpret_cast<const char*>(&k), sizeof k)
-               )) {
-        // Found by its bytes.
-        return remember_pipeline(p, bytes, *made);
+    // A key made before.
+    if (const VkPipeline made = find_pipeline(k, hash); made != VK_NULL_HANDLE) {
+        return remember_pipeline(p, bytes, made);
     }
 
-    // Made ahead by the pre-warm workers, or being made: taken from them rather than made again.
-    // A draw that can link its pipeline from parts waits for no whole one.
-    const bool link = libraries_enabled();
-    if (const std::optional<VkPipeline> warmed = prewarm_take(k, hash, !link)) {
-        return remember_pipeline(p, bytes, *warmed);
+    // A specialised pipeline is made on a worker, and the draw goes on with the one that reads
+    // its modes from the uniforms: the same picture, without a compile in the middle of a frame.
+    if (k.mode_count != 0 && prewarm_enabled()) {
+        PipelineKey plain = k;
+        plain.mode_count = 0;
+        std::memset(plain.mode, 0, sizeof plain.mode);
+        return stand_in_pipeline(p, k, hash, bytes, plain, true);
     }
 
-    // Into a float frame that stands in for an 8-bit one: the stage that clamps its colour.
-    VkShaderModule fragment = p.fragment;
-    if (k.clamp_colour != 0) {
-        if (const VkShaderModule clamped = clamped_fragment(p); clamped != VK_NULL_HANDLE) {
-            fragment = clamped;
+    // The entry switched off while the game runs (a sweep step): the specialised pipeline of the
+    // same modes, if there is one, draws until a worker has made the plain one.
+    if (!modes && !p.modes.empty() && prewarm_enabled()) {
+        PipelineKey specialised = k;
+        key_modes(p, specialised);
+
+        if (specialised.mode_count != 0) {
+            const VkPipeline stand_in = stand_in_pipeline(p, k, hash, bytes, specialised, false);
+
+            if (stand_in != VK_NULL_HANDLE) {
+                return stand_in;
+            }
         }
     }
 
-    // Linked from parts at once, and made whole on a worker later (vk-pipeline-library): what
-    // would be a compile of the whole pipeline here, in the middle of a frame.
-    if (link) {
-        if (const VkPipeline linked = link_pipeline(p, k, fragment); linked != VK_NULL_HANDLE) {
-            record_manifest_key(p, k);
-            g->pipelines.insert(k, hash, linked);
-            return remember_pipeline(p, bytes, linked);
-        }
+    // Without the workers, the specialised pipeline is made here like any other.
+    if (k.mode_count != 0) {
+        ++g->submission.mode_pipelines;
     }
-    const VkPipeline pipeline = create_graphics_pipeline(k, p.vertex, fragment, p.layout);
-    ++g->measures.pipelines;
-    count_pipeline();
-    record_manifest_key(p, k);
-    g->pipelines.insert(k, hash, pipeline);
-    return remember_pipeline(p, bytes, pipeline);
+
+    return remember_pipeline(p, bytes, make_pipeline(p, k, hash, true));
 }
 
 // ---- Descriptors ----
@@ -1783,6 +2141,10 @@ Sampled sampled(const Program& p, std::size_t i) {
     }
     const bool integer =
         image->format == VK_FORMAT_R32_UINT || image->format == VK_FORMAT_R32G32B32A32_UINT;
+    // Mipmapped textures take the upscaler's mip bias (set_texture_lod_bias).
+    if (params.min != GL_NEAREST && params.min != GL_LINEAR && !integer) {
+        params.lod_bias = g->texture_lod_bias;
+    }
     out.image = image;
     out.view =
         sample_view(*image, t != nullptr ? t->base_level : 0, t != nullptr ? t->max_level : 0);
@@ -2372,6 +2734,7 @@ void record_prepared_dispatch(const PreparedDispatch& packet) {
     count_command(Command::BindDescriptors);
     vkCmdDispatch(frame().main, packet.groups[0], packet.groups[1], packet.groups[2]);
     count_command(Command::Dispatch);
+    note_buffer_write();  // its storage blocks
     g->bound_pipeline = VK_NULL_HANDLE;
 }
 
@@ -2439,7 +2802,7 @@ void OPENRAC_GLAPI memory_barrier(GLbitfield bits) {
         vkCmdPipelineBarrier(
             frame().main, kStages, kStages, 0, 1, &dependency, 0, nullptr, 0, nullptr
         );
-        count_barrier(kStages, kStages);
+        count_barrier(kStages, kStages, "compute dependency");
         return;
     }
 
@@ -2469,7 +2832,7 @@ void OPENRAC_GLAPI memory_barrier(GLbitfield bits) {
     }
 
     vkCmdPipelineBarrier(frame().main, source, destination, 0, 1, &b, 0, nullptr, 0, nullptr);
-    count_barrier(source, destination);
+    count_barrier(source, destination, "compute writes");
 }
 
 }  // namespace openrac::vkgl::detail
@@ -2495,6 +2858,17 @@ std::uint64_t wait_for_pipeline_prewarm() {
     std::unique_lock lock(w.mutex);
     w.changed.wait(lock, [&w] { return w.queue.empty() && w.making.empty(); });
     return w.made;
+}
+
+bool pipeline_prewarm_busy() {
+    // Closed: no worker.
+    if (detail::g == nullptr) {
+        return false;
+    }
+
+    detail::PipelinePrewarm& w = detail::g->prewarm;
+    std::lock_guard lock(w.mutex);
+    return !w.queue.empty() || !w.making.empty();
 }
 
 void finish_pipelines() {

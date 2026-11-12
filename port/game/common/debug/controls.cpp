@@ -115,6 +115,8 @@ bool motion_blur_controls(settings::Settings& graphics) {
         "Strength", &graphics.motion_blur_strength, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
     );
     control_tip("Exposure strength. 0.5 is a 1/120-second exposure; 1 is 1/60 second.");
+    changed |= checkbox("Quality##motion_blur", &blur.quality);
+    control_tip("Finds trails at full resolution; off (Performance) searches a half-size grid.");
     if (ImGui::TreeNode("Advanced##motion_blur")) {
         changed |= slider_float(
             "Cutscene multiplier",
@@ -472,6 +474,12 @@ void enhanced_settings_window() {
             graphics.texture_filter = static_cast<renderer::TextureFilter>(texture_filter);
             changed = true;
         }
+        int effects_detail = static_cast<int>(graphics.effects_detail);
+        if (combo("Effects detail", &effects_detail, "Low\0Medium\0High\0")) {
+            graphics.effects_detail =
+                static_cast<renderer::render_opt::EffectsDetail>(effects_detail);
+            changed = true;
+        }
         ImGui::BeginDisabled(!enhanced::Fsr3::available());
         int temporal_quality = static_cast<int>(graphics.temporal_quality);
         if (combo(
@@ -498,6 +506,7 @@ void enhanced_settings_window() {
         if (ImGui::Button("Reset image quality")) {
             const settings::Settings defaults;
             graphics.texture_filter = defaults.texture_filter;
+            graphics.effects_detail = defaults.effects_detail;
             graphics.temporal_quality = defaults.temporal_quality;
             graphics.temporal_sharpness = defaults.temporal_sharpness;
             changed = true;
@@ -516,11 +525,21 @@ void enhanced_settings_window() {
             graphics.shadow_quality = static_cast<renderer::ShadowQuality>(shadow_quality);
             changed = true;
         }
+        int shadow_filter = static_cast<int>(graphics.shadow_filter);
+        if (combo(
+                "Shadow filtering",
+                &shadow_filter,
+                renderer::kShadowFilterNames,
+                static_cast<int>(renderer::ShadowFilter::Count)
+            )) {
+            graphics.shadow_filter = static_cast<renderer::ShadowFilter>(shadow_filter);
+            changed = true;
+        }
         ImGui::EndDisabled();
         changed |= checkbox("Ambient occlusion", &graphics.gtao);
         ImGui::BeginDisabled(!graphics.gtao);
         int quality = static_cast<int>(graphics.gtao_settings.quality);
-        if (combo("Occlusion quality", &quality, "Performance\0Quality\0")) {
+        if (combo("Occlusion quality", &quality, "Low\0Performance\0Quality\0")) {
             graphics.gtao_settings.quality = static_cast<renderer::GtaoQuality>(quality);
             changed = true;
         }

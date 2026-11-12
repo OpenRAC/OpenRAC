@@ -50,6 +50,12 @@ A new entry is an enumerator of `render_opt::Opt` and a row of the table in `ren
 same place, and a section on this page: what it changes, the counter it lowers with its numbers
 before and after, and how its frames are shown to be the same.
 
+A lossy entry also follows the Enhanced setting "Effects detail" (the presets set it): it is on
+only at its highest detail or below, so High draws every effect in full. `probe-fast-blended`,
+`shadow-far-alternate` and `water-mesh-coarse` are on at Medium and Low; `early-lighting-quarter`,
+`blended-early-light` and `shadow-far-quarter` only at Low. `set()` in the tests switches an entry on at any
+detail.
+
 | Name | Default | Tolerance | What it does |
 |---|---|---|---|
 | `registry-selftest` | on | none (exact) | Draws nothing. The entry the registry's own tests and the equivalence harness's switch. |
@@ -93,6 +99,17 @@ before and after, and how its frames are shown to be the same.
 | `moby-glow-skip` | on | none (exact) | The mobys' two glow draws leave out the triangles with no glow packet vertex, whose every fragment they would discard ([moby-glow-skip](#moby-glow-skip-glow-draws-without-the-faces-they-discard)). |
 | `vk-pipeline-library` | on | none (exact) | A new pipeline is linked at once from parts built ahead; a worker builds the optimised one and swaps it in. Desktop only ([vk-pipeline-library](#vk-pipeline-library-pipelines-linked-from-parts)). |
 | `gl-state-warmup` | on | none (exact) | OpenGL: saves each draw state per driver and draws it once into a private target at level load, so driver recompiles happen there ([OpenGL's states behind the loading screen](#opengls-states-behind-the-loading-screen)). |
+| `opaque-depth-gequal` | on | none (exact) | Opaque colour over the reused prepass depth tests GEQUAL instead of EQUAL. Every surface it draws is in the prepass, so the same fragments pass; Adreno keeps its low-resolution Z (LRZ) on for GEQUAL without depth writes and turns it off for EQUAL ([opaque-depth-gequal](#opaque-depth-gequal-lrz-over-the-reused-depth)). |
+| `vertex-position-stream` | on | none (exact) | A level's vertex positions sit in a tight buffer of their own, 12 bytes a vertex instead of 72. Shadow, depth and velocity passes, and a tile GPU's binning, read positions only ([vertex-position-stream](#vertex-position-stream-a-tight-buffer-for-positions)). |
+| `shadow-far-alternate` | on at Medium and Low detail | 25% of pixels, any value (measured: see the section) | The sun's cascades 1 to 3 are drawn every other frame, 1 in turn with 2 and 3, while this frame's receivers fit the cascade as it was drawn. A kept cascade is sampled with the matrix it was drawn with ([shadow-far-alternate](#shadow-far-alternate-far-cascades-every-other-frame)). |
+| `motion-blur-half-flood` | on | 1% of pixels by at most 32 | Motion blur quality Performance: the blur's jump flood runs on a half-resolution seed grid, a quarter of its pixels in every pass. The first flood offers every render pixel of a cell, and the gather still tests each display pixel against the trail. |
+| `vk-program-keep` | on | none (exact) | Vulkan: a deleted program's shader modules, layouts and pipelines are kept, and the next link of the same shaders takes them. A level's load links the programs of the level before, so it makes no pipelines again ([vk-program-keep](#vk-program-keep-pipelines-kept-across-level-loads)). |
+| `vk-mode-constants` | on | none (exact) | Vulkan: the integer uniforms a shader names as modes (`// openrac_mode: name ...`) are specialisation constants of its pipelines. The driver compiles each pipeline for the modes it is drawn with and drops the code they leave out. A draw whose specialised pipeline is not made yet uses the one that reads the uniforms ([vk-mode-constants](#vk-mode-constants-modes-as-pipeline-constants)). |
+| `water-mesh-coarse` | on at Medium and Low detail | 5% of pixels by at most 64 | Enhanced water: each baked shape is split again at load to one unit instead of half a unit, the same midpoints, about a quarter of the triangles. On the Odin 3 the water's 283k triangles a frame bound the effects pass (1.5 ms at any render scale). Waves keep their shading per pixel; only the surface's shape is coarser. |
+| `water-strip-cull` | on | none (exact) | Enhanced water: a strip whose box, grown by four units for the waves, lies outside the view is not drawn. The game sends water strips the camera cannot see, and each one costs its dense triangles' vertex work and binning. |
+| `early-lighting-quarter` | on at Low detail | 5% of pixels by at most 64 | Early lighting (GI and the near cascades' look-up) runs once per 4x4 pixels instead of 2x2, a quarter of the compute work; the colour passes pick the nearest of the cell's samples as before. Lighting edges are coarser. |
+| `blended-early-light` | on at Low detail | 25% of pixels, any value | The static blended passes (the soft fringes of leaves and bushes, glass) read the early lighting the opaque passes cached, from the cached surface they lie on, and that of the nearest cached surface where they lie on none (the original lighting only with no cached surface around). The fringes then match their opaque cores. Probe light per blended pixel costs about 2.5 ms at native 1080p on the Odin 3. |
+| `shadow-far-quarter` | on at Low detail | 25% of pixels, any value | With `shadow-far-alternate`, a frame draws one far sun cascade in turn (1, 2, 1, 3): cascade 1 every other frame, 2 and 3 every fourth, each kept while this frame's receivers fit inside it as drawn. On the Odin 3 at native 1080p cascades 2 and 3 together cost about 1.5 ms in the frames that draw them. |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the
@@ -128,6 +145,7 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_pipelines_created` | total | Graphics and compute creations on the drawing thread; excludes prewarm workers | `vkgl_internal.h` | R-10, R-11 |
 | `vk_pipelines_created_after_warmup` | total | Of those, the ones made after the warm-up `vkgl::begin_pipeline_warmup(N)` started (N frames after the benchmark's level upload); 0 until it is called | the same | R-10 |
 | `vk_pipelines_linked` | total | Pipelines a draw linked from parts (vk-pipeline-library); not in `vk_pipelines_created` | `vkgl_pipelines.cpp` | vk-pipeline-library |
+| `vk_mode_pipelines` | total | Pipelines specialised with a program's modes: asked of the pre-warm workers, or made at their draw where there are none | `vkgl_pipelines.cpp` | vk-mode-constants |
 | `vk_descriptor_sets_allocated` | frame | Descriptor sets allocated, the material pages' included | `vkgl_pipelines.cpp`, `gpu_materials.inc` | R-14 |
 | `vk_descriptor_writes` | frame | `VkWriteDescriptorSet` entries written | `vkgl_pipelines.cpp`, `gpu_materials.inc`, `gpu_draw.inc` | R-14 |
 | `vk_render_passes` | frame | Render passes begun | `vkgl_commands.cpp`, `vkgl_gl.cpp` (a depth resolve) | R-06, R-07 |
@@ -138,6 +156,7 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_submits` | frame | `vkQueueSubmit`: one per frame, and one per read-back (`glReadPixels`, `glFinish`) | `vkgl_commands.cpp` | R-08 |
 | `vk_frames_presented` | total | Frames ended by `present()` | `vkgl_present.cpp` | |
 | `vk_fullscreen_copies` | frame | Copies, blits and resolves whose destination is the default framebuffer's size or the screen's | each copy | R-07 |
+| `vk_barrier_all <site> in <section>` | frame | The `ALL_COMMANDS` barriers by the code that recorded them (`graph pass`, `graph image`, `buffer writes`, `image layout`, ...) and the section open then | every barrier | R-08 |
 | `vk_pass_end <why> in <section>` | frame | Render passes ended before the frame's end, by what ended them (`target`, `copy`, `sample`, `compute`, `barrier`, `submit`, `present`, `other`: `PassEnd`) and the stats section open then; on a tiled GPU each one stores the attachments and the next pass loads them | `end_rendering` and its callers | R-06 |
 | `vk_fullscreen_copy in <section>` | frame | The full-screen copies above, by the section open then | `count_copy` | R-07 |
 | `vk_ring_bytes` | frame | Bytes taken from the frame's upload ring (vertices, indices, uniforms, texels); the older `vk_ring_kb` is the same in KiB | `vkgl_commands.cpp` | R-05, R-15 |
@@ -1476,11 +1495,15 @@ read and write, as before, but the mip chain's, which was transfer to `ALL_COMMA
 | `swapchain_barrier`, `TRANSFER_DST` to `PRESENT_SRC` | transfer; transfer write | bottom of pipe; nothing | the swapchain image | the copy before the present, which the batch's signal semaphore orders for the presentation engine |
 | `generate_mipmaps`' last barrier (`vkgl_resources.cpp`) | transfer; transfer read and write | transfer; transfer read and write | the levels above the last | the chain's blits before the `barrier()` that follows at once and moves every level to be sampled, out of `TRANSFER_DST` at the transfer stage |
 | `glMemoryBarrier` (`vkgl_pipelines.cpp`) | vertex, fragment and compute shaders; shader write | the same shaders, draw indirect, vertex input, transfer; shader and uniform reads, shader write, indirect, vertex attribute, index and transfer reads | memory | compute's writes before whatever reads them next: a shader, a draw's buffers, a copy into an image |
+| A graph pass's entry (`GraphExecution::Recording::enter`), one command for the whole pass | the union of its transitions' stages; a buffer whose earlier use is not known waits for compute shaders and transfer when it is only read, and for every stage that uses buffers when it is written | the pass's own stages | the pass's images and buffer ranges, and memory when it reads a buffer | every transition of the pass and the barrier that makes earlier buffer writes visible, in one `vkCmdPipelineBarrier` instead of one each |
+| `make_buffer_writes_visible` (`vkgl_commands.cpp`) | compute shader and transfer; shader and transfer writes | the shaders, draw indirect, vertex input, transfer; their reads | memory | every GPU buffer write so far before the read-only buffer imports that carry no barrier of their own |
 
 The other barriers were narrow already and are unchanged: the GPU-driven culling's
 (`gpu_draw.inc`), `copy_buffer_to_texture`'s and R-05's read-back. `grep ALL_COMMANDS
 port/renderer/vulkan/*.cpp` finds the reference paths only (`vk-tight-sync` off) and one
-case of `scope_of` that no layout the backend uses reaches.
+case of `scope_of` that no layout the backend uses reaches. An imported image in `GENERAL` whose
+earlier use is not known still waits on every stage (two a frame on Novalis with Enhanced
+graphics); `vk_barrier_all <site> in <section>` says where each such barrier was recorded.
 
 **The counters.** `openrac_render_bench --warmup 3 --frames 10` (1920x1080), per measured frame, off
 / on:
@@ -2021,11 +2044,13 @@ run the same paths. The capture report's `gpu passes` line records it.
   `OPENRAC_GPU_PASS_TIMING`): those frames give each section's own time, at the cost of extra
   loads and stores, and are left out of the frame's GPU time.
 
-- **`probe-fast-blended`.** Blended static passes (glass, water, foliage) read probe light from
+- **`probe-fast-blended`.** Blended static passes (glass, water, foliage) and the mobys' glow,
+  translucent and effect passes read probe light from
   the best volume alone, without each probe's depth test, and filter shadows with four taps.
   Not byte-identical (Enhanced may be lossy here): in the equivalence test at most 0.28% of a
   frame's pixels differ, by up to 26 of 255. The cheaper light exists only in the static
-  blended shader variant, which these passes use whenever the entry is on.
+  blended shader variant and a mesh variant for the mobys' blended passes, which these passes use
+  whenever the entry is on.
   `OPENRAC_PROBE_FAST_OFF` turns it off too.
 
 The registry entries above, except `motion-blur-adaptive-samples` and `probe-fast-blended`, are
@@ -2056,3 +2081,122 @@ The graph changes dependency planning, not shader algorithms or render resolutio
 Shader specialisation is unconditional: the former `shader-variants` registry switch and
 generic shader reference paths have been retired. Other optimisation switches retain their
 independent on/off comparisons.
+
+## opaque-depth-gequal: LRZ over the reused depth
+
+With a depth prepass, the opaque colour passes draw over its depth with writes off. They tested
+EQUAL. Qualcomm's driver turns Adreno's low-resolution Z (LRZ, the coarse early depth test before
+the fragment shader) off for EQUAL; Mesa's Turnip does the same, matching it
+([Turnip LRZ](https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/16014)). GEQUAL
+(reversed depth: nearer or equal) keeps LRZ valid when depth writes are off.
+
+The picture is the same: every surface the reused passes draw is in the prepass with the same
+positions, so no fragment is nearer than the depth there, and GEQUAL passes exactly the ones EQUAL
+does. Should a prepass vertex shader round a depth a little farther than the colour one, GEQUAL
+still draws that fragment where EQUAL would leave a hole. The passes that write depth (surface
+layers, blended passes) are unchanged. The Graphics sweep measures it on a device (its step with
+the entry off); the equivalence test compares frames with it on and off.
+
+## vertex-position-stream: a tight buffer for positions
+
+A level vertex is 72 bytes: position, normal, colour, texture coordinate and more, interleaved. The
+shadow, depth and velocity passes read the position alone, and so does the binning pass a tile GPU
+runs before every render pass. With the wide vertex each of them pulls 72 bytes through the cache
+for the 12 it uses. Arm's guide asks for a
+[position stream of its own](https://developer.arm.com/documentation/101897/latest/Vertex-shading/Attribute-layout)
+for this reason.
+
+With the entry on, the level upload writes the positions a second time into a tight buffer and
+attribute 0 reads from it. The other attributes stay where they were. The values are the same
+floats, so the picture is the same; the cost is 12 bytes of memory a vertex. The Graphics sweep has
+a step with the entry off.
+
+## shadow-far-alternate: far cascades every other frame
+
+The sun has four cascades. The nearest and Ratchet's map are drawn every frame. Cascades 1 to 3
+cover far ground where a shadow moves little between two frames, yet they are most of the atlas's
+vertex work. With the entry on, a frame keeps cascades 2 and 3 as the last frame drew them, and the
+next frame keeps cascade 1, so each frame draws about half of the far work. Insomniac's own engine,
+Cyberpunk 2077 and Unreal update far cascades at a lower rate for the same reason.
+
+A cascade is kept only when it is safe:
+
+- The last frame drew it into the atlas (never kept two frames running).
+- Every corner of this frame's slice lies inside the cascade as drawn, by the filter's margin. The
+  far cascades' caster volumes reach 1/16 of their radius further (`kFarCascadeSlack`) so that a
+  walking or turning camera still fits; a fast turn does not, and then the cascade is drawn.
+- The static layers, the hero's map and the atlas are what they were.
+- The static shadow cache and the scrolling caches are off (they fill the atlas their own way).
+
+A kept cascade is sampled with the matrix it was drawn with, so its shadows stay where they were
+drawn. What changes: a moving object's shadow in cascades 1 to 3 is one frame late.
+
+The atlas holds the nearest cascade and the hero's map at the top and cascades 1 to 3 in a row
+below. A frame that keeps some draws two passes, each cleared with a scissor first and covering only
+its own rectangles: on a tile GPU the kept rectangles are neither loaded nor stored. The
+`shadow_far_kept` gauge counts the kept cascades; the Graphics sweep has a step with the entry off.
+
+Measured on Novalis in the cloud container (software Vulkan, 480x270), walking: 4.3 million shadow
+triangles a frame with the entry off, 3.6 and 2.5 million in turn with it on; 47 MB of attachments
+stored a frame against 37 MB on average. The picture differs on 2 to 3% of the pixels, by at most
+12 of 255.
+
+## vk-program-keep: pipelines kept across level loads
+
+A level's load deletes the level renderer's shader programs and links them again. The shaders are
+the same text from level to level, but each link gave the program a new serial, and the pipelines
+are keyed by it. So every load made all pipelines again: on the title screen, on the flight to a
+planet and on the planet itself. With Enhanced graphics the shaders are large, and a phone's driver
+takes about 150 ms for each pipeline it has not cached.
+
+With the entry on, the game asks the backend to keep programs (`vkgl::keep_programs`). A deleted
+program's modules, layouts, pipelines and parts wait in a pool of up to 128. A link whose SPIR-V,
+layout and descriptor types match takes them and renames their keys to its serial. Uniform values
+and descriptor sets are never kept: the new program starts from zero, as OpenGL asks. The pre-warm
+then queues only what the program still misses. The oldest kept program is destroyed when the pool
+is full. The tests' own retention (`vkgl::test_reuse_programs`) shares the pool and is unchanged.
+
+Measured in the cloud container (software Vulkan, Enhanced graphics, Low), pipelines and parts made
+at a level's load:
+
+| Load | Entry off | Entry on |
+|---|---|---|
+| Title screen (first of the run) | 131 in 19.4 s | 131 in 19.3 s |
+| Flight to the planet | 131 in 19.1 s | 26 in 0.10 s |
+| Novalis | 135 in 18.6 s | 16 in 0.46 s |
+
+The frames are the same bytes. The `vk_program_reuses` gauge counts the links that took kept
+objects. Its test is `render_equivalence_support`.
+
+## vk-mode-constants: modes as pipeline constants
+
+The world's shaders hold every Enhanced feature at once: probe lighting, early lighting, local
+lights, atmosphere, wetness, fur, foliage, water float and the passes of the mobys. A draw picks
+its path with integer uniforms (`probe_mode`, `effect_pass`, `atmosphere_enabled`, ...). A driver
+cannot drop code behind a uniform, so each pipeline carried all of it: the main opaque fragment
+shader is about 12,500 SPIR-V instructions after optimisation, and about 5,700 with its modes
+fixed by hand to the Low preset's values; its vertex shader goes from about 2,500 to about 500.
+
+A shader names its modes in a comment line, `// openrac_mode: name name ...`. A mode is a scalar
+`uniform int` that keeps its value over many draws (a pass, a setting, a level). At link, the
+Vulkan backend rewrites each named declaration (`gl_program.cpp`, `mode_sources`):
+
+```glsl
+uniform int openrac_u_probe_mode; layout(constant_id = 1003) const int openrac_c_probe_mode = 2147483647;
+#define probe_mode (openrac_c_probe_mode != 2147483647 ? openrac_c_probe_mode : openrac_u_probe_mode)
+```
+
+The uniform stays where it was, under its GL name. The pipeline key holds the modes' values
+(`PipelineKey::mode`), and the pipeline is made with them as specialisation constants. A
+pipeline made without them reads the uniforms, exactly as before.
+
+No draw waits for a specialised pipeline. The first draw of a new set of values asks the
+pre-warm workers for it and goes on with the plain pipeline, which gives the same picture. The
+key goes to the manifest, so the next run makes it behind the loading screen. Switched off while
+the game runs, it works the other way round: the specialised pipeline draws until the plain one
+is made. A mode that takes more than four values stays a uniform. A mode the material path
+reads per draw is left alone. OpenGL and Metal ignore the comment.
+
+The frames are the same bytes. `vk_mode_pipelines` counts the specialised pipelines. The
+Graphics sweep has four steps with the entry off, to measure it on a device. Its test is
+`vulkan_uniform`.

@@ -247,6 +247,14 @@ public:
         m_sweep_translucent_full = full;
     }
 
+    // Another of the sweep's experiments: the mobys' glow, blended and metal passes left out (the
+    // late passes other than their translucent one), to time them on a device.
+    void set_sweep_moby_blended_off(bool off) { m_sweep_moby_blended_off = off; }
+
+    // And another: every draw of the world's layers cut to its first triangle, in the prepass and
+    // the colour passes alike. What is left is the cost of the draws themselves.
+    void set_sweep_one_triangle(bool on) { m_sweep_one_triangle = on; }
+
     // Controls the GI-coloured edge light on essential gameplay objects.
     void set_gameplay_rim(bool enabled, float strength, float falloff) {
         m_gameplay_rim = {enabled ? strength : 0.0f, falloff};
@@ -490,6 +498,12 @@ private:
     void record_shadow_atlas(
         unsigned scrolling, bool cache, bool discard, renderer::RenderState& state
     );
+    // Clears and draws only the atlas views of `views` (one bit each, the hero's after the sun's):
+    // one pass of a frame that keeps other cascades (shadow-far-alternate).
+    void record_shadow_atlas_views(unsigned views, bool discard, renderer::RenderState& state);
+    // Keeps the far cascades the last frame drew in place of this frame's while this frame's
+    // receivers fit inside them (shadow-far-alternate); sets m_kept_cascades.
+    void keep_far_cascades(bool level_bounds);
     // Restores the world target and releases attachment contents no lighting pass samples.
     void finish_shadow_atlas(bool discard, const renderer::RenderState& state);
     // Finishes unused attachment cleanup and publishes counters after every deferred shadow producer.
@@ -562,6 +576,8 @@ private:
     void combine_scrolling_shadows(unsigned mask, renderer::RenderState& state);
     void release_scrolling_shadows();
     Group make_group(std::uint32_t model);
+    void point_positions() const;
+    void sync_position_stream();
     void fill_group(Group& g, const std::vector<InstanceData>& list, unsigned usage);
     void build_groups(Layer layer, const std::vector<Instance>& instances, bool live);
     // build_groups' parts, also for set_instances' in-place path (level_renderer.cpp says more).
@@ -749,6 +765,8 @@ private:
     MobyLayout m_moby_layout;
     std::size_t m_palette_rows = 0;  // the palette texture's height now
     unsigned m_vertices = 0;
+    unsigned m_positions = 0;        // the vertices' positions alone (vertex-position-stream)
+    bool m_position_stream = false;  // the vertex arrays read positions from m_positions
     unsigned m_indices = 0;
     unsigned m_palette = 0;           // RGBA32F texture, four texels per matrix
     unsigned m_lights = 0;            // RGBA8 texture, the ties' lit colours
@@ -760,6 +778,8 @@ private:
     bool m_sweep_translucent_off = false;
     bool m_sweep_translucent_unlit = false;
     bool m_sweep_translucent_full = false;
+    bool m_sweep_moby_blended_off = false;
+    bool m_sweep_one_triangle = false;
     std::array<float, 2> m_gameplay_rim{0.30f, 6.46f};
     std::array<float, 2> m_gameplay_rim_lift{0.09f, 7.1f};
     std::unique_ptr<LevelLighting> m_lighting;  // The probe and early lighting; null: none.
@@ -773,11 +793,15 @@ private:
     renderer::Shader m_mesh;
     renderer::Shader m_early_mesh, m_early_solid;
     renderer::Shader m_colour_opaque, m_early_colour_opaque, m_static_translucent,
-        m_static_translucent_full;
+        m_static_translucent_full, m_static_translucent_early;
     // Static solid, static alpha-tested, then opaque mobys (optional skinning).
     std::array<renderer::Shader, 3> m_colour_specialised, m_early_colour_specialised;
     // mesh.frag's opaque path alone, without discard (the static layers' opaque pass; draw_layer).
     renderer::Shader m_solid;
+    // The probe coverage view's colour shaders (OPENRAC_PROBE_COVERAGE), alpha and solid.
+    renderer::Shader m_coverage, m_coverage_solid;
+    // The mobys' blended passes with the cheaper probe light (probe-fast-blended).
+    renderer::Shader m_mesh_fast;
     renderer::Shader m_depth, m_depth_solid;
     std::array<renderer::Shader, 2> m_rigid_depth, m_rigid_surface_depth;
     bool make_rigid_depth_programs(std::string& error);
@@ -832,6 +856,22 @@ private:
     std::optional<bool> m_hero_logged_airborne;
     std::array<std::unique_ptr<renderer::FrameBuffer>, kSunCascades> m_sun_maps;
     SunCascades m_sun_cascades;
+
+    // shadow-far-alternate: the far cascades as the atlas last drew them, and what they were drawn
+    // for. A frame after one that drew a cascade keeps it while its receivers fit inside it.
+    struct DrawnCascades {
+        SunCascades cascades;
+        // The cascades the atlas holds as drawn, one bit each: the last frame's, or with
+        // shadow-far-quarter also older ones kept since.
+        unsigned fresh = 0;
+        bool separate_hero = false;
+        std::uint64_t generation = 0;
+        int atlas_size = 0;
+    };
+
+    DrawnCascades m_drawn_cascades;
+    unsigned m_kept_cascades = 0;  // the cascades this frame keeps from the last, one bit each
+    unsigned m_far_phase = 0;      // shadow-far-quarter: which far cascade this frame draws
     renderer::Camera m_sun_camera;        // View whose splits produced the current shadow maps.
     bool m_culling_lines_failed = false;  // Retry failed diagnostic shaders after scene release.
     std::unique_ptr<renderer::DebugLines>

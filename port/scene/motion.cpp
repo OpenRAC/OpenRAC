@@ -184,6 +184,7 @@ void LevelScene::draw_motion_materials(
 ) {
     if (m_lighting) {
         m_lighting->bind_deformation(shader, floats_on_water);
+        m_lighting->bind_moby_model(shader, model);
     }
     // Material runs use their original alpha texture, matching world depth coverage.
     for (const auto& primitive : m_models[model].primitives) {

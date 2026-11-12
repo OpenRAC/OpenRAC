@@ -167,6 +167,7 @@ struct Pass {
     std::vector<ImageUse> images{};    // All image accesses, including attachments.
     std::vector<BufferUse> buffers{};  // All buffer accesses.
     PassKind kind = PassKind::Work;    // Exports follow all work passes.
+    bool separate = false;             // Never joins the open render pass on its attachments.
 };
 
 // Copies a pass's ranges into a read-only shader export, preserving its sampled input and output coverage.
@@ -204,6 +205,7 @@ struct PlannedPass {
     std::string name;                // Copied from its declaration.
     PassKind kind = PassKind::Work;  // Exports execute barriers only.
     std::vector<Barrier> barriers;   // Applied before this pass.
+    bool separate = false;           // Copied from its declaration.
 };
 
 // Optional source declarations are retained only for frame-wide diagnostic capture.

@@ -16,6 +16,53 @@
 #include "renderer/render_opt.h"
 
 namespace openrac::enhanced {
+namespace {
+using Barycentric = std::array<double, 3>;
+
+// The bake's dyadic longest-edge split (tools/water/water_mesh.cpp) of a template's own shape,
+// stopped at `limit` units: the same midpoints, so a coarse leaf covers whole fine leaves.
+void subdivide_shape(
+    const std::array<std::array<double, 2>, 3>& corners,
+    const std::array<Barycentric, 3>& weights,
+    double limit,
+    std::vector<std::array<float, 2>>& out,
+    unsigned depth
+) {
+    std::array<std::array<double, 2>, 3> points{};
+    for (unsigned vertex = 0; vertex < 3; ++vertex) {
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            for (unsigned component = 0; component < 3; ++component) {
+                points[vertex][axis] += corners[component][axis] * weights[vertex][component];
+            }
+        }
+    }
+    std::array<double, 3> lengths{};
+    for (unsigned edge = 0; edge < 3; ++edge) {
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            const double delta = points[edge][axis] - points[(edge + 1) % 3][axis];
+            lengths[edge] += delta * delta;
+        }
+    }
+    const auto edge =
+        static_cast<unsigned>(std::max_element(lengths.begin(), lengths.end()) - lengths.begin());
+    if (depth > 64 || lengths[edge] <= limit * limit + 1e-6) {
+        for (const auto& weight : weights) {
+            out.push_back({float(weight[1]), float(weight[2])});
+        }
+        return;
+    }
+    const auto& a = weights[edge];
+    const auto& b = weights[(edge + 1) % 3];
+    const auto& c = weights[(edge + 2) % 3];
+    Barycentric middle{};
+    for (unsigned component = 0; component < 3; ++component) {
+        middle[component] = (a[component] + b[component]) * .5;
+    }
+    subdivide_shape(corners, {a, middle, c}, limit, out, depth + 1);
+    subdivide_shape(corners, {middle, b, c}, limit, out, depth + 1);
+}
+}  // namespace
+
 WaterMesh::WaterMesh() {
     constexpr int kSteps = 32;  // Subdivide the original 50-unit ocean grid.
     const auto point = [](int x, int y) {
@@ -191,6 +238,23 @@ WaterMesh::WaterMesh(const std::filesystem::path& path, const std::array<char, 3
     if (!mesh_file || mesh_file.peek() != std::char_traits<char>::eof()) {
         throw std::runtime_error("invalid water rest mesh size");
     }
+    // Each shape again from its quantised edges, split to one unit instead of half a unit, after
+    // the baked ones in the same stream (water-mesh-coarse, below effects detail High).
+    const auto baked = m_weights.size();
+    for (const auto& [key, shape] : m_templates) {
+        const std::array<std::array<double, 2>, 3> corners{
+            {{0, 0}, {key[0] / 256., key[1] / 256.}, {key[2] / 256., key[3] / 256.}}
+        };
+        const auto first = static_cast<unsigned>(m_weights.size());
+        subdivide_shape(corners, {{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}}, 1., m_weights, 0);
+        const auto count = static_cast<unsigned>(m_weights.size()) - first;
+        m_coarse_templates.emplace(key, Shape{first, count});
+    }
+    log::info(
+        "water mesh: {} baked vertices, {} at one unit (water-mesh-coarse)",
+        baked,
+        m_weights.size() - baked
+    );
 }
 
 float WaterMesh::rest_height(
@@ -275,7 +339,8 @@ renderer::EffectMesh WaterMesh::prepare(
                     }
                 )
               : m_plans.end();
-    const bool topology_hit = match != m_plans.end();
+    const bool coarse = renderer::render_opt::enabled(renderer::render_opt::Opt::WaterMeshCoarse);
+    const bool topology_hit = match != m_plans.end() && match->coarse == coarse;
     constexpr std::size_t kRetainedPlans = 256;
     if (topology_hit) {
         // Only unclaimed slots can move. Draw handles issued earlier in the pass remain valid.
@@ -341,6 +406,8 @@ renderer::EffectMesh WaterMesh::prepare(
         plan.topology.clear();
         plan.vertices.clear();
         plan.ocean = false;
+        plan.coarse = coarse;
+        const auto& templates = coarse ? m_coarse_templates : m_templates;
         plan.upload_needed = true;
         for (std::size_t k = 0; k + 2 < rest.size(); ++k) {
             const auto& p = rest[k];
@@ -366,8 +433,8 @@ renderer::EffectMesh WaterMesh::prepare(
                     quantize(c.x - a.x),
                     quantize(c.y - a.y)
                 };
-                auto found = m_templates.find(key);
-                if (found != m_templates.end()) {
+                auto found = templates.find(key);
+                if (found != templates.end()) {
                     shape = found->second;
                     order = candidate;
                     matched = true;

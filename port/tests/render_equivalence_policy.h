@@ -21,6 +21,7 @@ inline constexpr std::array kFocusedEquivalence{
     std::pair{renderer::render_opt::Opt::MotionBlurUniqueSeeds, "motion_blur"},
     std::pair{renderer::render_opt::Opt::MotionBlurSetupReuse, "motion_blur"},
     std::pair{renderer::render_opt::Opt::MotionBlurAdaptiveSamples, "motion_blur"},
+    std::pair{renderer::render_opt::Opt::MotionBlurHalfFlood, "motion_blur"},
     std::pair{renderer::render_opt::Opt::FsrMotionBatch, "fsr3_motion"},
     std::pair{renderer::render_opt::Opt::FsrPaletteReuse, "fsr3_frame"},
     std::pair{renderer::render_opt::Opt::FsrObjectHistoryReuse, "fsr3_frame"},
@@ -41,6 +42,8 @@ inline constexpr std::array kFocusedEquivalence{
     std::pair{renderer::render_opt::Opt::PresentTiming, "vulkan_present_timing"},
     std::pair{renderer::render_opt::Opt::ShadowScrollReuse, "shadow_scroll_vulkan"},
     std::pair{renderer::render_opt::Opt::PipelinePrewarm, "vulkan_prewarm"},
+    std::pair{renderer::render_opt::Opt::VkProgramKeep, "render_equivalence_support"},
+    std::pair{renderer::render_opt::Opt::VkModeConstants, "vulkan_uniform"},
 };
 
 // Returns the CTest owner, or empty when the generic scene retains the comparison.

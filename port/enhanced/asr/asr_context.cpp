@@ -86,19 +86,39 @@ bool supports(std::array<int, 2> render_size) {
     return std::max(render_size[0], render_size[1]) >= 64;
 }
 
+namespace {
+// The quality shaders at every detail: the balanced ones save about 0.4 ms a frame on an Adreno
+// 830 but leave a fine checker on edges and in the sky. OPENRAC_ASR_QUALITY picks another.
+std::string_view quality_name() {
+    const auto chosen = env::value(env::Var::AsrQuality);
+    return chosen ? *chosen : "quality";
+}
+
+arm::FfxmFsr2ShaderQualityMode shader_quality(std::string_view name) {
+    if (name == "balanced") {
+        return arm::FFXM_FSR2_SHADER_QUALITY_MODE_BALANCED;
+    }
+    if (name == "performance") {
+        return arm::FFXM_FSR2_SHADER_QUALITY_MODE_PERFORMANCE;
+    }
+    return arm::FFXM_FSR2_SHADER_QUALITY_MODE_QUALITY;
+}
+}  // namespace
+
 // Library-owned histories and pipelines; the renderer owns all imported frame images.
 struct AsrContext::State {
     arm::FfxmFsr2Context context{};     // Live only after successful creation; about 200 KB.
     std::vector<std::byte> scratch;     // Backend bookkeeping kept at a stable address while live.
     std::array<int, 2> render_size{};   // Active render extent.
     std::array<int, 2> display_size{};  // Active display extent.
+    std::string_view quality;           // Shader quality the context was made with.
     bool live = false;                  // Whether the library context needs destruction.
 
     bool create(const vkgl::NativeDevice& device, std::string& error) {
         arm::VkDeviceContext native{device.device, device.physical, device.device_proc};
         scratch.resize(arm::ffxmGetScratchMemorySizeVK(device.physical, 1));
         arm::FfxmFsr2ContextDescription description{};
-        description.qualityMode = arm::FFXM_FSR2_SHADER_QUALITY_MODE_QUALITY;
+        description.qualityMode = shader_quality(quality);
         description.flags = arm::FFXM_FSR2_ENABLE_DEPTH_INVERTED;
         description.maxRenderSize =
             {static_cast<unsigned>(render_size[0]), static_cast<unsigned>(render_size[1])};
@@ -197,21 +217,23 @@ bool AsrContext::configure(
         return false;
     }
 
+    const std::string_view quality = quality_name();
     if (m_state->live && m_state->render_size == render_size
-        && m_state->display_size == display_size) {
+        && m_state->display_size == display_size && m_state->quality == quality) {
         return true;
     }
 
     release();
     m_state->render_size = render_size;
     m_state->display_size = display_size;
+    m_state->quality = quality;
 
     if (!m_state->create(device, error)) {
         release();
         return false;
     }
 
-    log::info("Arm ASR temporal upscaling: quality shaders, FP16");
+    log::info("Arm ASR temporal upscaling: {} shaders, FP16", quality);
     return true;
 }
 
