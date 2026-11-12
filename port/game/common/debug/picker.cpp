@@ -243,6 +243,7 @@ void picker_overlay(const Shown& shown) {
         s.picker_export_at = ImGui::GetTime();
     }
 }
+
 void set_picker_report_folder(const std::string& folder) {
     report_path = (std::filesystem::path(folder) / "moby-picker.json").string();
 }
