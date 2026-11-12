@@ -18,6 +18,12 @@
 namespace openrac::renderer::render_opt {
 namespace {
 
+#ifdef __ANDROID__
+constexpr bool kAndroid = true;
+#else
+constexpr bool kAndroid = false;
+#endif
+
 // The word of OPENRAC_RENDER_OPT_OFF that switches every entry off.
 constexpr std::string_view kAll = "all";
 
@@ -222,6 +228,10 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::VkModeConstants, "vk-mode-constants",
      "the integer uniforms a shader names as modes are constants of its pipelines, so the driver drops the code a mode leaves out",
      true, Tolerance{}},
+    // Enhanced only; on by default on Android, where the water's triangles bound the effects pass.
+    {Opt::WaterMeshCoarse, "water-mesh-coarse",
+     "Enhanced water is subdivided to one unit instead of half a unit, a quarter of the triangles",
+     kAndroid, Tolerance{0.05, 64}},
 }};
 // clang-format on
 

@@ -103,10 +103,12 @@ enum class Opt : std::uint8_t {
     VkProgramKeep,
     // vk-mode-constants: a program's mode uniforms are constants of its pipelines
     VkModeConstants,
+    // water-mesh-coarse: Enhanced water subdivided to one unit, not half a unit (lossy, Android)
+    WaterMeshCoarse,
 };
 
-// The number of entries: VkModeConstants is the last enumerator of Opt.
-inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::VkModeConstants) + 1;
+// The number of entries: WaterMeshCoarse is the last enumerator of Opt.
+inline constexpr std::size_t kOptCount = static_cast<std::size_t>(Opt::WaterMeshCoarse) + 1;
 
 // How far the frames an optimisation draws may differ from its reference path's. The default,
 // zero, is byte-identical frames; anything else is a tolerance the maintainers accepted, named in

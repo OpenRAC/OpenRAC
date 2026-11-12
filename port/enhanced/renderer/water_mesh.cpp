@@ -16,6 +16,53 @@
 #include "renderer/render_opt.h"
 
 namespace openrac::enhanced {
+namespace {
+using Barycentric = std::array<double, 3>;
+
+// The bake's dyadic longest-edge split (tools/water/water_mesh.cpp) of a template's own shape,
+// stopped at `limit` units: the same midpoints, so a coarse leaf covers whole fine leaves.
+void subdivide_shape(
+    const std::array<std::array<double, 2>, 3>& corners,
+    const std::array<Barycentric, 3>& weights,
+    double limit,
+    std::vector<std::array<float, 2>>& out,
+    unsigned depth
+) {
+    std::array<std::array<double, 2>, 3> points{};
+    for (unsigned vertex = 0; vertex < 3; ++vertex) {
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            for (unsigned component = 0; component < 3; ++component) {
+                points[vertex][axis] += corners[component][axis] * weights[vertex][component];
+            }
+        }
+    }
+    std::array<double, 3> lengths{};
+    for (unsigned edge = 0; edge < 3; ++edge) {
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            const double delta = points[edge][axis] - points[(edge + 1) % 3][axis];
+            lengths[edge] += delta * delta;
+        }
+    }
+    const auto edge =
+        static_cast<unsigned>(std::max_element(lengths.begin(), lengths.end()) - lengths.begin());
+    if (depth > 64 || lengths[edge] <= limit * limit + 1e-6) {
+        for (const auto& weight : weights) {
+            out.push_back({float(weight[1]), float(weight[2])});
+        }
+        return;
+    }
+    const auto& a = weights[edge];
+    const auto& b = weights[(edge + 1) % 3];
+    const auto& c = weights[(edge + 2) % 3];
+    Barycentric middle{};
+    for (unsigned component = 0; component < 3; ++component) {
+        middle[component] = (a[component] + b[component]) * .5;
+    }
+    subdivide_shape(corners, {a, middle, c}, limit, out, depth + 1);
+    subdivide_shape(corners, {middle, b, c}, limit, out, depth + 1);
+}
+}  // namespace
+
 WaterMesh::WaterMesh() {
     constexpr int kSteps = 32;  // Subdivide the original 50-unit ocean grid.
     const auto point = [](int x, int y) {
@@ -190,6 +237,24 @@ WaterMesh::WaterMesh(const std::filesystem::path& path, const std::array<char, 3
     }
     if (!mesh_file || mesh_file.peek() != std::char_traits<char>::eof()) {
         throw std::runtime_error("invalid water rest mesh size");
+    }
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::WaterMeshCoarse)) {
+        // Each shape again from its quantised edges, split to one unit instead of half a unit.
+        std::vector<std::array<float, 2>> coarse = {{{0, 0}}, {{1, 0}}, {{0, 1}}};
+        for (auto& [key, shape] : m_templates) {
+            const std::array<std::array<double, 2>, 3> corners{
+                {{0, 0}, {key[0] / 256., key[1] / 256.}, {key[2] / 256., key[3] / 256.}}
+            };
+            const auto first = static_cast<unsigned>(coarse.size());
+            subdivide_shape(corners, {{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}}, 1., coarse, 0);
+            shape = {first, static_cast<unsigned>(coarse.size()) - first};
+        }
+        log::info(
+            "water mesh: {} baked vertices, {} at one unit (water-mesh-coarse)",
+            m_weights.size(),
+            coarse.size()
+        );
+        m_weights = std::move(coarse);
     }
 }
 
