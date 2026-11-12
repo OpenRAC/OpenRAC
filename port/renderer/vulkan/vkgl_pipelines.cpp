@@ -2511,7 +2511,7 @@ void OPENRAC_GLAPI memory_barrier(GLbitfield bits) {
         vkCmdPipelineBarrier(
             frame().main, kStages, kStages, 0, 1, &dependency, 0, nullptr, 0, nullptr
         );
-        count_barrier(kStages, kStages);
+        count_barrier(kStages, kStages, "compute dependency");
         return;
     }
 
@@ -2541,7 +2541,7 @@ void OPENRAC_GLAPI memory_barrier(GLbitfield bits) {
     }
 
     vkCmdPipelineBarrier(frame().main, source, destination, 0, 1, &b, 0, nullptr, 0, nullptr);
-    count_barrier(source, destination);
+    count_barrier(source, destination, "compute writes");
 }
 
 }  // namespace openrac::vkgl::detail

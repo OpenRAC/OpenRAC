@@ -423,7 +423,7 @@ void generate_mipmaps(Image& image) {
             1,
             &b
         );
-        count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+        count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, "mip source");
         const int nw = std::max(w / 2, 1);
         const int nh = std::max(h / 2, 1);
         VkImageBlit blit{};
@@ -465,7 +465,7 @@ void generate_mipmaps(Image& image) {
     vkCmdPipelineBarrier(
         cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, next, 0, 0, nullptr, 0, nullptr, 1, &b
     );
-    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, next);
+    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, next, "mip levels");
     image.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier(cmd, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
@@ -729,7 +729,7 @@ bool copy_read_back(
         0,
         nullptr
     );
-    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, "read back");
     const VkBufferCopy region{0, 0, buffer.size};
     vkCmdCopyBuffer(command, buffer.own, staging.buffer, 1, &region);
     count_command(Command::Copy);
@@ -1043,7 +1043,9 @@ bool copy_buffer_to_texture(
         0,
         nullptr
     );
-    count_barrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    count_barrier(
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, "buffer to texture"
+    );
     Image& image = *t->image;
     barrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     record_buffer_image_copy(src, image);
@@ -1061,7 +1063,11 @@ bool copy_buffer_to_texture(
             0,
             nullptr
         );
-        count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        count_barrier(
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            "buffer to texture done"
+        );
     }
     barrier(cmd, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     image.touched = g->recording;
@@ -1119,7 +1125,9 @@ bool copy_to_image(unsigned texture, void* image, std::uint32_t layout, int widt
         1,
         &into
     );
-    count_barrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    count_barrier(
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, "copy to image"
+    );
 
     // The bytes as they are: an sRGB image gets the picture as the window shows it.
     VkImageCopy copy{};
@@ -1154,7 +1162,9 @@ bool copy_to_image(unsigned texture, void* image, std::uint32_t layout, int widt
         1,
         &back
     );
-    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+    count_barrier(
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, "copy to image done"
+    );
     return true;
 }
 

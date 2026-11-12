@@ -6,8 +6,10 @@
 
 #include <algorithm>
 #include <bit>
+#include <cstdint>
 #include <exception>
 #include <utility>
+#include <vector>
 
 #include "common/breadcrumbs.h"
 #include "renderer/vulkan/graph_barriers.h"
@@ -351,8 +353,12 @@ void GraphExecution::Recording::enter(const graph::PlannedPass& pass) {
         return;
     }
     end_rendering(PassEnd::Graph);
-    const auto command = frame().main;
     bool buffer_read = stale, buffer_write = false;
+    // The pass's transitions go into one barrier command: each command is a point where the GPU
+    // stops to sync, and a pass with eight buffers recorded eight.
+    std::vector<VkImageMemoryBarrier> images;
+    std::vector<VkBufferMemoryBarrier> buffers;
+    VkPipelineStageFlags source = 0, destination = 0;
 
     // Exact buffer ranges allow one allocation to hold several independent depth mips.
     for (const auto& transition : pass.barriers) {
@@ -360,19 +366,51 @@ void GraphExecution::Recording::enter(const graph::PlannedPass& pass) {
 
         // Images need layout transitions; buffers need only exact memory-range dependencies.
         if (binding.image) {
-            record_graph_image_barrier(command, transition, *binding.image);
+            const GraphImageBarrier one = graph_image_barrier(transition, *binding.image);
+            images.push_back(one.barrier);
+            source |= one.source;
+            destination |= one.destination;
         } else {
-            detail::record_graph_buffer_barrier(command, transition, binding.buffer);
+            buffers.push_back(graph_buffer_barrier(transition, binding.buffer));
+            const GraphStages stages = graph_buffer_stages(transition);
+            source |= stages.source;
+            destination |= stages.destination;
             const bool writes = transition.after.access != graph::Access::Read;
             buffer_write = buffer_write || writes;
             buffer_read = buffer_read || !writes;
         }
     }
-    // The pass is ended already: one barrier more makes every buffer readable, so the passes
-    // after this one, with their own read-only imports, draw on in one render pass.
+
+    // The pass is ended already: one memory barrier with them makes every buffer readable, so the
+    // passes after this one, with their own read-only imports, draw on in one render pass.
+    BufferWritesBarrier writes{};
+
     if (buffer_read) {
-        make_buffer_writes_visible();
+        writes = buffer_writes_barrier();
+        source |= writes.source;
+        destination |= writes.destination;
     }
+
+    if (buffer_read || !images.empty() || !buffers.empty()) {
+        vkCmdPipelineBarrier(
+            frame().main,
+            source,
+            destination,
+            0,
+            buffer_read ? 1 : 0,
+            buffer_read ? &writes.memory : nullptr,
+            static_cast<std::uint32_t>(buffers.size()),
+            buffers.data(),
+            static_cast<std::uint32_t>(images.size()),
+            images.data()
+        );
+        count_barrier(source, destination, "graph pass");
+    }
+
+    if (buffer_read) {
+        note_buffer_writes_visible();
+    }
+
     if (buffer_write) {
         note_buffer_write();
     }

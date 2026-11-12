@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "renderer/render_opt.h"
 #include "renderer/vulkan/graph_barriers.h"
 
 namespace openrac::vkgl::detail {
@@ -216,11 +217,8 @@ VkImageLayout layout_of(graph::Layout layout) {
     throw std::runtime_error("buffer layout in image graph");
 }
 
-void record_graph_image_barrier(
-    VkCommandBuffer command,
-    const graph::Barrier& transition,
-    Image& image,
-    VkPipelineStageFlags external_source
+GraphImageBarrier graph_image_barrier(
+    const graph::Barrier& transition, Image& image, VkPipelineStageFlags external_source
 ) {
     const auto& range = std::get<graph::ImageRange>(transition.range);
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -239,9 +237,21 @@ void record_graph_image_barrier(
     const VkPipelineStageFlags destination = transition.after.layout == graph::Layout::Present
                                                  ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
                                                  : stages_of(transition.after.stages);
-    vkCmdPipelineBarrier(command, source, destination, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-    count_barrier(source, destination);
     image.layout = barrier.newLayout;
+    return {barrier, source, destination};
+}
+
+void record_graph_image_barrier(
+    VkCommandBuffer command,
+    const graph::Barrier& transition,
+    Image& image,
+    VkPipelineStageFlags external_source
+) {
+    const GraphImageBarrier one = graph_image_barrier(transition, image, external_source);
+    vkCmdPipelineBarrier(
+        command, one.source, one.destination, 0, 0, nullptr, 0, nullptr, 1, &one.barrier
+    );
+    count_barrier(one.source, one.destination, "graph image");
 }
 
 VkBufferMemoryBarrier graph_buffer_barrier(
@@ -258,14 +268,25 @@ VkBufferMemoryBarrier graph_buffer_barrier(
     return barrier;
 }
 
-void record_graph_buffer_barrier(
-    VkCommandBuffer command, const graph::Barrier& transition, const BufferRef& buffer
-) {
-    const auto barrier = graph_buffer_barrier(transition, buffer);
-    const VkPipelineStageFlags source = stages_of(transition.before.stages);
-    const VkPipelineStageFlags destination = stages_of(transition.after.stages);
-    vkCmdPipelineBarrier(command, source, destination, 0, 0, nullptr, 1, &barrier, 0, nullptr);
-    count_barrier(source, destination);
+GraphStages graph_buffer_stages(const graph::Barrier& transition) {
+    constexpr VkPipelineStageFlags kWriters =
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
+    constexpr VkPipelineStageFlags kUsers =
+        kWriters | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+        | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+    const auto stages = [](graph::State state, bool waits_for_reads) {
+        // A buffer whose earlier use is not known: no attachment stage touches a buffer, and only
+        // compute shaders and copies write one (the R-08 table), so a read waits for those alone.
+        // The reference path: every stage.
+        if (state.stages == graph::Stage::All
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::VkTightSync)) {
+            return waits_for_reads ? kUsers : kWriters;
+        }
+
+        return stages_of(state.stages);
+    };
+    const bool writes = transition.after.access != graph::Access::Read;
+    return {stages(transition.before, writes), stages(transition.after, true)};
 }
 
 graph::State attachment_copy_state(bool depth_resolve, graph::Access access) {

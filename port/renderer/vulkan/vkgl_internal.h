@@ -1399,19 +1399,27 @@ inline void count_command(Command kind, std::uint64_t count = 1) {
     g->submission.commands[static_cast<std::size_t>(kind)] += count;
 }
 
-// Counts one vkCmdPipelineBarrier that waits on `source` stages for `destination` stages.
-inline void count_barrier(VkPipelineStageFlags source, VkPipelineStageFlags destination) {
+// Counts `event` in the section open now, as a gauge of this frame (published by present).
+void count_where(std::string_view event);
+
+// Counts one vkCmdPipelineBarrier that waits on `source` stages for `destination` stages; `site`
+// names the code that recorded it.
+inline void count_barrier(
+    VkPipelineStageFlags source, VkPipelineStageFlags destination, std::string_view site
+) {
     count_command(Command::Barrier);
     ++g->submission.barriers;
 
-    // A barrier on every stage, which waits for more than the work it orders needs.
+    // A barrier on every stage, which waits for more than the work it orders needs: counted by
+    // where it was recorded too (vk_barrier_all <site> in <section>).
     if (((source | destination) & VK_PIPELINE_STAGE_ALL_COMMANDS_BIT) != 0) {
         ++g->submission.barriers_all_commands;
+
+        if (stats::enabled()) {
+            count_where(std::string("vk_barrier_all ").append(site));
+        }
     }
 }
-
-// Counts `event` in the section open now, as a gauge of this frame (published by present).
-void count_where(std::string_view event);
 
 // Counts one copy, blit or resolve into a region `width` by `height` texels: a full-screen copy
 // as well when that is the default framebuffer's size or the screen's.
@@ -1537,8 +1545,22 @@ inline bool buffer_writes_visible() {
     return g->buffer_writes_visible == g->buffer_writes;
 }
 
-// Records one memory barrier, outside a render pass, that makes every GPU buffer write so far
-// visible to those reads.
+// The memory barrier that makes every GPU buffer write so far visible to those reads, with the
+// stages it waits on and for. A caller that records it with its own barriers in one command
+// calls note_buffer_writes_visible after.
+struct BufferWritesBarrier {
+    VkMemoryBarrier memory;
+    VkPipelineStageFlags source;
+    VkPipelineStageFlags destination;
+};
+
+BufferWritesBarrier buffer_writes_barrier();
+
+inline void note_buffer_writes_visible() {
+    g->buffer_writes_visible = g->buffer_writes;
+}
+
+// Records that barrier in a command of its own, outside a render pass.
 void make_buffer_writes_visible();
 
 // Ends the open pass only when `image` is one of its attachments, whose layout and contents are

@@ -411,7 +411,9 @@ bool gpu_resident_ready() {
             0,
             nullptr
         );
-        count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        count_barrier(
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, "cull inputs"
+        );
 
         // An older copy is read by frames still in flight: it goes when this slot retires.
         if (resident.buffer.buffer != VK_NULL_HANDLE) {
@@ -744,15 +746,16 @@ void gpu_page_barriers(VkCommandBuffer command, const renderer::graph::Plan& pla
         barriers[count++] = graph_buffer_barrier(
             transition, {std::bit_cast<VkBuffer>(resource.key.identity), 0, resource.size}
         );
-        source |= stages_of(transition.before.stages);
-        destination |= stages_of(transition.after.stages);
+        const GraphStages stages = graph_buffer_stages(transition);
+        source |= stages.source;
+        destination |= stages.destination;
     }
     // A page phase needs one barrier command even when it exports both output buffers.
     if (count != 0) {
         vkCmdPipelineBarrier(
             command, source, destination, 0, 0, nullptr, count, barriers.data(), 0, nullptr
         );
-        count_barrier(source, destination);
+        count_barrier(source, destination, "cull outputs");
     }
 }
 }  // namespace
@@ -881,7 +884,11 @@ void gpu_record() {
                     0,
                     nullptr
                 );
-                count_barrier(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+                count_barrier(
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    "cull counters"
+                );
                 const VkBufferCopy region{kGpuSummaryAt * 4, 0, kGpuSummaryWords * 4};
                 vkCmdCopyBuffer(cmd, page.arguments.buffer, page.readback.buffer, 1, &region);
                 count_command(Command::Copy);
@@ -901,7 +908,9 @@ void gpu_record() {
                     0,
                     nullptr
                 );
-                count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
+                count_barrier(
+                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, "cull read back"
+                );
                 ++g->submission.gpu_counter_dispatches;
                 ++g->submission.gpu_counter_copies;
             }

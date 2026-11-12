@@ -143,6 +143,7 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_submits` | frame | `vkQueueSubmit`: one per frame, and one per read-back (`glReadPixels`, `glFinish`) | `vkgl_commands.cpp` | R-08 |
 | `vk_frames_presented` | total | Frames ended by `present()` | `vkgl_present.cpp` | |
 | `vk_fullscreen_copies` | frame | Copies, blits and resolves whose destination is the default framebuffer's size or the screen's | each copy | R-07 |
+| `vk_barrier_all <site> in <section>` | frame | The `ALL_COMMANDS` barriers by the code that recorded them (`graph pass`, `graph image`, `buffer writes`, `image layout`, ...) and the section open then | every barrier | R-08 |
 | `vk_pass_end <why> in <section>` | frame | Render passes ended before the frame's end, by what ended them (`target`, `copy`, `sample`, `compute`, `barrier`, `submit`, `present`, `other`: `PassEnd`) and the stats section open then; on a tiled GPU each one stores the attachments and the next pass loads them | `end_rendering` and its callers | R-06 |
 | `vk_fullscreen_copy in <section>` | frame | The full-screen copies above, by the section open then | `count_copy` | R-07 |
 | `vk_ring_bytes` | frame | Bytes taken from the frame's upload ring (vertices, indices, uniforms, texels); the older `vk_ring_kb` is the same in KiB | `vkgl_commands.cpp` | R-05, R-15 |
@@ -1481,11 +1482,15 @@ read and write, as before, but the mip chain's, which was transfer to `ALL_COMMA
 | `swapchain_barrier`, `TRANSFER_DST` to `PRESENT_SRC` | transfer; transfer write | bottom of pipe; nothing | the swapchain image | the copy before the present, which the batch's signal semaphore orders for the presentation engine |
 | `generate_mipmaps`' last barrier (`vkgl_resources.cpp`) | transfer; transfer read and write | transfer; transfer read and write | the levels above the last | the chain's blits before the `barrier()` that follows at once and moves every level to be sampled, out of `TRANSFER_DST` at the transfer stage |
 | `glMemoryBarrier` (`vkgl_pipelines.cpp`) | vertex, fragment and compute shaders; shader write | the same shaders, draw indirect, vertex input, transfer; shader and uniform reads, shader write, indirect, vertex attribute, index and transfer reads | memory | compute's writes before whatever reads them next: a shader, a draw's buffers, a copy into an image |
+| A graph pass's entry (`GraphExecution::Recording::enter`), one command for the whole pass | the union of its transitions' stages; a buffer whose earlier use is not known waits for compute shaders and transfer when it is only read, and for every stage that uses buffers when it is written | the pass's own stages | the pass's images and buffer ranges, and memory when it reads a buffer | every transition of the pass and the barrier that makes earlier buffer writes visible, in one `vkCmdPipelineBarrier` instead of one each |
+| `make_buffer_writes_visible` (`vkgl_commands.cpp`) | compute shader and transfer; shader and transfer writes | the shaders, draw indirect, vertex input, transfer; their reads | memory | every GPU buffer write so far before the read-only buffer imports that carry no barrier of their own |
 
 The other barriers were narrow already and are unchanged: the GPU-driven culling's
 (`gpu_draw.inc`), `copy_buffer_to_texture`'s and R-05's read-back. `grep ALL_COMMANDS
 port/renderer/vulkan/*.cpp` finds the reference paths only (`vk-tight-sync` off) and one
-case of `scope_of` that no layout the backend uses reaches.
+case of `scope_of` that no layout the backend uses reaches. An imported image in `GENERAL` whose
+earlier use is not known still waits on every stage (two a frame on Novalis with Enhanced
+graphics); `vk_barrier_all <site> in <section>` says where each such barrier was recorded.
 
 **The counters.** `openrac_render_bench --warmup 3 --frames 10` (1920x1080), per measured frame, off
 / on:

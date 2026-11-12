@@ -146,7 +146,7 @@ void swapchain_barrier(VkCommandBuffer cmd, VkImage image, VkImageLayout from, V
     b.image = image;
     b.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     vkCmdPipelineBarrier(cmd, source, destination, 0, 0, nullptr, 0, nullptr, 1, &b);
-    count_barrier(source, destination);
+    count_barrier(source, destination, "present");
 }
 
 // The surface and swapchain made again: back from the background on Android, the window is a new
