@@ -90,6 +90,10 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | HDR output | `hdr` | `off` (default), `on` | Shows the game on an HDR screen without the dim, washed-out look, and lets glows and explosions go brighter than white ([HDR.md](HDR.md)). `on`: HDR when the system says the display is in HDR mode; where it can't say (X11), whenever the screen offers it. Vulkan only. Turning it on from `off` needs a restart. Off, the picture is exactly as before |
 | HDR paper white | `hdr_paper_white` | `0` (the system's SDR white, else 203), `80` to `1000` nits | How bright the game's white is in HDR. By default, the system's SDR brightness |
 | HDR peak | `hdr_peak` | `0` (the display's, else 1000), `400` to `10000` nits | The brightest that glows and explosions may go, also sent to the screen as HDR metadata |
+| HDR highlights | `hdr_highlights` | `0` to `100` percent (default `100`) | How much brighter than white glows get. `0` is as in SDR |
+| SDR hue | `hdr_sdr_hue` | `0` (default) to `100` percent | Very bright colours take their SDR hue (orange fire, not red) |
+| SDR chrominance | `hdr_sdr_chroma` | `0` (default) to `100` percent | Very bright colours take their SDR saturation |
+| HDR blowout | `hdr_blowout` | `0` (default) to `100` percent | Very bright light fades to white |
 | Menu size | `menu_size` | `100` (Auto, default); the menu offers `60` to `200` percent, a file may hold `50` to `250` | How large the in-game menu (desktop window and Android drawer) and its text are, in percent of the size fitted to the screen (its scale and, on a desktop, its height over 1080). Takes effect at once |
 | VSync | `vsync` | `on`, `off`, `adaptive` | Whether a frame waits for the display's refresh. `adaptive` waits, but shows a frame that comes late at once (it tears) rather than a refresh later; a driver without it gives `on` |
 | Frame rate | `frame_rate` | `display`, `original`, a number, `unlimited` | How many frames are drawn (section 2). The page offers 30, 60, 75, 90, 120, 144, 165, 240 and 360; a file may hold any number from 20 to 1000 |

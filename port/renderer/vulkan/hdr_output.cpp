@@ -30,6 +30,11 @@ struct EncodeConstants {
     float sdr_gamma;
     std::int32_t same_size;
     float headroom;
+    float highlights;
+    float sdr_hue;
+    float sdr_chroma;
+    float blowout;
+    std::int32_t plain;
 };
 
 // Whether the encode pass can write `format`: the device stores to it. Where the surface's images
@@ -177,6 +182,11 @@ void encode(
             ? 1
             : 0,
         hdr::headroom(levels),
+        levels.look.highlights,
+        levels.look.sdr_hue,
+        levels.look.sdr_chroma,
+        levels.look.blowout,
+        levels.look.plain() ? 1 : 0,
     };
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, g->hdr.pipeline);
     vkCmdBindDescriptorSets(
@@ -353,14 +363,17 @@ void set_hdr(const HdrRequest& request) {
     }
     auto& hdr = g->hdr;
     const bool same = hdr.asked == request;
+    const bool same_metadata = hdr.asked.levels.paper_white == request.levels.paper_white
+                               && hdr.asked.levels.peak == request.levels.peak;
     hdr.asked = request;
     if (same || !hdr.colour_spaces) {
         return;
     }
-    // A change of kind needs another swapchain; of levels only, new constants and metadata.
+    // A new kind needs a new swapchain. New levels need new constants, and new metadata unless
+    // only the look changed.
     if (request.wanted != hdr.made_for) {
         g->swapchain_stale = true;
-    } else {
+    } else if (!same_metadata) {
         set_metadata();
     }
 }
@@ -390,7 +403,10 @@ void clamp_colour_writes(unsigned framebuffer) {
     }
 }
 
-bool test_hdr_encode(
+namespace {
+
+// test_hdr_encode's pass on the default framebuffer's picture.
+bool test_encode_picture(
     hdr::Output output,
     const hdr::Levels& levels,
     int width,
@@ -400,10 +416,6 @@ bool test_hdr_encode(
 ) {
     using namespace detail;
     using hdr::Output;
-    if (!active() || output == Output::Sdr || !g->default_colour) {
-        return false;
-    }
-    end_rendering();
     const bool pq = output == Output::Hdr10;
     const Format format{
         pq ? VK_FORMAT_A2B10G10R10_UNORM_PACK32 : VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -471,6 +483,38 @@ bool test_hdr_encode(
     vmaDestroyBuffer(g->allocator, buffer, allocation);
     retire(staging);
     retire(screen);
+    return encoded;
+}
+
+}  // namespace
+
+bool test_hdr_encode(
+    hdr::Output output,
+    const hdr::Levels& levels,
+    int width,
+    int height,
+    std::vector<std::uint8_t>& out,
+    bool staged,
+    unsigned source
+) {
+    using namespace detail;
+    using hdr::Output;
+    if (!active() || output == Output::Sdr || !g->default_colour) {
+        return false;
+    }
+    end_rendering();
+    // Use `source`'s picture instead of the default one for this pass. Not owned: the
+    // framebuffer keeps it.
+    Image* const picture = source != 0 ? target_of(source).colour : nullptr;
+    if (source != 0 && picture == nullptr) {
+        return false;
+    }
+    ImagePtr default_colour = g->default_colour;
+    if (picture != nullptr) {
+        g->default_colour = ImagePtr(ImagePtr{}, picture);
+    }
+    const bool encoded = test_encode_picture(output, levels, width, height, out, staged);
+    g->default_colour = std::move(default_colour);
     return encoded;
 }
 

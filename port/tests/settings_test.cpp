@@ -99,6 +99,23 @@ void test_hdr_settings(const std::filesystem::path& file) {
     settings::load(file);
     CHECK(settings::get().hdr == hdr::Mode::Off);
     CHECK(settings::get().hdr_paper_white == 0 && settings::get().hdr_peak == 0);
+    // The look's sliders: the plain HDR look by default, kept through a save, the default when
+    // out of range.
+    std::ofstream(file) << "vsync = on\n";
+    settings::load(file);
+    CHECK(settings::get().hdr_highlights == 100 && settings::get().hdr_sdr_hue == 0);
+    CHECK(settings::get().hdr_sdr_chroma == 0 && settings::get().hdr_blowout == 0);
+    std::ofstream(file) << "hdr_highlights = 40\nhdr_sdr_hue = 70\nhdr_sdr_chroma = 30\n"
+                        << "hdr_blowout = 100\n";
+    settings::load(file);
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().hdr_highlights == 40 && settings::get().hdr_sdr_hue == 70);
+    CHECK(settings::get().hdr_sdr_chroma == 30 && settings::get().hdr_blowout == 100);
+    std::ofstream(file) << "hdr_highlights = 120\nhdr_sdr_hue = -1\nhdr_blowout = soft\n";
+    settings::load(file);
+    CHECK(settings::get().hdr_highlights == 100 && settings::get().hdr_sdr_hue == 0);
+    CHECK(settings::get().hdr_blowout == 0);
     // The menu's size: kept through a save, Auto (100) when out of range.
     std::ofstream(file) << "menu_size = 125\n";
     settings::load(file);

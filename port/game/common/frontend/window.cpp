@@ -129,7 +129,9 @@ void apply_hdr() {
     constexpr bool prefer_scrgb = false;
 #endif
     const hdr::Output wanted = hdr::wanted_output(s.hdr, display, prefer_scrgb);
-    const hdr::Levels levels = hdr::resolve_levels(s.hdr_paper_white, s.hdr_peak, display);
+    hdr::Levels levels = hdr::resolve_levels(s.hdr_paper_white, s.hdr_peak, display);
+    levels.look =
+        hdr::look_from_percent(s.hdr_highlights, s.hdr_sdr_hue, s.hdr_sdr_chroma, s.hdr_blowout);
     // Said once: HDR asked for where it cannot be had.
     static bool said = false;
     if (s.hdr != hdr::Mode::Off && !said) {

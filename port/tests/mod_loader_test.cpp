@@ -18,7 +18,12 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
+
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
 
 #include "check.h"
 #include "common/json.h"
@@ -121,6 +126,7 @@ void install(
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"},
+                                  {"value": "z_watchers_fail", "name": "Watchers fail"},
                                   {"value": "hoverboard", "name": "Hoverboard"},
                                   {"value": "callback_only", "name": "Callback only"},
                                   {"value": "keep", "name": "Keep"}]},
@@ -1361,6 +1367,65 @@ void a_mod_for_1_5_still_loads(const fs::path& plugins) {
     mods::reset();
 }
 
+// A library another user of the computer could swap is not loaded (POSIX desktops).
+void a_library_others_can_change_is_refused(const fs::path& plugins) {
+#if !defined(_WIN32) && !defined(__ANDROID__)
+    install(plugins, "a", OPENRAC_TEST_MOD_A);
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    const fs::path lib = plugins / "test-a" / "lib" / library_name();
+    const auto was = fs::status(lib).permissions();
+    fs::permissions(lib, fs::perms::others_write, fs::perm_options::add);
+    mods::load(host(plugins));
+    auto [state, reason] = status_of(plugins, "test-a");
+    CHECK(state == "failed");
+    CHECK(reason.find("any user of this computer") != std::string::npos);
+    mods::reset();
+    fs::permissions(lib, was);
+    // A folder above it that all may write in, without the sticky bit.
+    const fs::path folder = plugins / "test-a" / "lib";
+    const auto folder_was = fs::status(folder).permissions();
+    fs::permissions(folder, fs::perms::others_all, fs::perm_options::add);
+    mods::load(host(plugins));
+    std::tie(state, reason) = status_of(plugins, "test-a");
+    CHECK(state == "failed");
+    CHECK(reason.find("its folder") != std::string::npos);
+    mods::reset();
+    // With the sticky bit, as /tmp has, it loads.
+    fs::permissions(folder, fs::perms::sticky_bit, fs::perm_options::add);
+    mods::load(host(plugins));
+    CHECK(status_of(plugins, "test-a").first == "loaded");
+    mods::reset();
+    fs::permissions(folder, folder_was);
+    // A library another user owns could be changed by that user (checked where the test may chown).
+    if (geteuid() == 0) {
+        CHECK(chown(lib.c_str(), 4321, 4321) == 0);
+        mods::load(host(plugins));
+        std::tie(state, reason) = status_of(plugins, "test-a");
+        CHECK(state == "failed");
+        CHECK(reason.find("belongs to another user") != std::string::npos);
+        mods::reset();
+        CHECK(chown(lib.c_str(), 0, 0) == 0);
+    }
+    // A link is followed: the file it leads to is the one checked.
+    const fs::path elsewhere = plugins / "elsewhere";
+    fs::create_directories(elsewhere);
+    fs::rename(lib, elsewhere / library_name());
+    fs::create_symlink(elsewhere / library_name(), lib);
+    fs::permissions(elsewhere, fs::perms::others_all, fs::perm_options::add);
+    mods::load(host(plugins));
+    std::tie(state, reason) = status_of(plugins, "test-a");
+    CHECK(state == "failed");
+    CHECK(reason.find("elsewhere") != std::string::npos);
+    mods::reset();
+    fs::remove(lib);
+    fs::rename(elsewhere / library_name(), lib);
+#else
+    (void)plugins;
+#endif
+}
+
 void views_reach_the_host(const fs::path& plugins) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "views"}},
@@ -1657,6 +1722,65 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK((g_motion == std::vector<std::string>{"camera off"}));
 }
 
+// undo() drops these registrations before closing a refused mod's library.
+// Use resident callbacks here so a missed cleanup is reported instead of jumping
+// into unmapped DLL code when the next vendor camera event arrives.
+void dropped_mod_watchers_are_not_called() {
+    mods::reset_play();
+    openrac_api api{};
+    mods::fill_play_api(api, &kPlay, {});
+    int owner = 0, other = 0, camera_calls = 0, metal_calls = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    auto* another = reinterpret_cast<openrac_mod*>(&other);
+    auto camera = [](void* user, int, int) {
+        ++*static_cast<int*>(user);
+    };
+    auto metal = [](void* user, int, int) {
+        ++*static_cast<int*>(user);
+        return 0;
+    };
+    mods::play_loading(mod);
+    CHECK(api.on_camera_script(mod, camera, &camera_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.on_metal_detect(mod, metal, &metal_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.camera_script_play(mod, 737) == OPENRAC_HOOK_OK);
+    mods::play_loading(nullptr);
+    mods::drop_figures(another);
+    CHECK(api.camera_script_play(another, 737) == OPENRAC_HOOK_UNKNOWN);
+    g_script_events = 1;
+    mods::play_update();
+    CHECK(camera_calls == 1);
+    CHECK(openrac_game_metal_detect(1, 2) == 0 && metal_calls == 1);
+    mods::drop_figures(mod);
+    CHECK(api.camera_script_play(another, 737) == OPENRAC_HOOK_OK);
+    g_script_events = 1;
+    mods::play_update();
+    CHECK(camera_calls == 1);
+    CHECK(openrac_game_metal_detect == nullptr || openrac_game_metal_detect(1, 2) == 1);
+    CHECK(metal_calls == 1);
+    mods::play_loading(another);
+    CHECK(api.on_camera_script(another, camera, &camera_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.on_metal_detect(another, metal, &metal_calls) == OPENRAC_HOOK_OK);
+    mods::reset_play();
+}
+
+void refused_library_leaves_no_watchers(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "settings": {"behaviour": "world"}},
+        {"id": "test-b", "settings": {"behaviour": "z_watchers_fail"}}]})");
+    auto h = host(plugins);
+    h.play = &kPlay;
+    mods::load(h);
+    CHECK(status_of(plugins, "test-a").first == "loaded");
+    CHECK(status_of(plugins, "test-b").second == "the world gate is already taken");
+    g_records.clear();
+    g_script_events = 1;
+    // test-b's DLL has been closed. Neither event may enter its old code.
+    mods::play_update();
+    CHECK(openrac_game_metal_detect == nullptr || openrac_game_metal_detect(1, 2) == 1);
+    CHECK(g_records.empty());
+    mods::reset();
+}
+
 int main() {
     const fs::path dir = fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
@@ -1692,6 +1816,9 @@ int main() {
     the_world_reaches_the_game(plugins, dir);
     motion_reaches_the_game(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
+    a_library_others_can_change_is_refused(plugins);
+    dropped_mod_watchers_are_not_called();
+    refused_library_leaves_no_watchers(plugins);
     std::error_code e;
     fs::remove_all(dir, e);
     return test::result();
