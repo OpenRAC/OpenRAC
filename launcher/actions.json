@@ -320,7 +320,7 @@
       {
         "id": "port-rebuild",
         "label": "Rebuild the game from scratch",
-        "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher does this after an update, when the game was built by an older OpenRAC. A few minutes.",
+        "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher offers this after an update, when the game was built by an older OpenRAC (developers with Incremental builds on in Settings get the incremental Build the game instead, unless the build folder is unusable). A few minutes.",
         "kind": "build",
         "area": "port",
         "state": "unverified",
@@ -1062,7 +1062,7 @@
       {
         "id": "port-rebuild",
         "label": "Rebuild the game from scratch",
-        "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher does this after an update, when the game was built by an older OpenRAC. A few minutes.",
+        "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher offers this after an update, when the game was built by an older OpenRAC (developers with Incremental builds on in Settings get the incremental Build the game instead, unless the build folder is unusable). A few minutes.",
         "kind": "build",
         "area": "port",
         "state": "unverified",
@@ -1932,7 +1932,7 @@
       {
         "id": "port-rebuild",
         "label": "Rebuild the game from scratch",
-        "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher does this after an update, when the game was built by an older OpenRAC. A few minutes.",
+        "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher offers this after an update, when the game was built by an older OpenRAC (developers with Incremental builds on in Settings get the incremental Build the game instead, unless the build folder is unusable). A few minutes.",
         "kind": "build",
         "area": "port",
         "state": "unverified",
@@ -2451,7 +2451,7 @@
       {
         "id": "port-rebuild",
         "label": "Rebuild the game from scratch",
-        "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher does this after an update, when the game was built by an older OpenRAC. A few minutes.",
+        "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher offers this after an update, when the game was built by an older OpenRAC (developers with Incremental builds on in Settings get the incremental Build the game instead, unless the build folder is unusable). A few minutes.",
         "kind": "build",
         "area": "port",
         "state": "unverified",
