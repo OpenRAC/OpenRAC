@@ -16,7 +16,7 @@ namespace openrac::frontend::debug_overlay {
 namespace {
 std::atomic<bool> enabled{false};
 // The JSON snapshot is local diagnostics, never game assets or a network service.
-const char* report_path = "moby-picker.json";
+std::string report_path = "moby-picker.json";
 
 void write_report(bool active) {
     const auto& hit = s.picker_result.hit;
@@ -26,7 +26,7 @@ void write_report(bool active) {
         s.game,
         hit && hit->class_id >= 0 ? class_name(hit->class_id) : std::string{}
     );
-    std::ofstream file(report_path, std::ios::trunc);
+    std::ofstream file(report_path.c_str(), std::ios::trunc);
     file << report;
     file.flush();
     s.picker_error = file ? std::string{} : "Could not write moby-picker.json";
@@ -231,7 +231,7 @@ void picker_overlay(const Shown& shown) {
         if (ImGui::Button("Turn off click picker")) {
             set_picker_enabled(false);
         }
-        ImGui::TextDisabled("Selection report: moby-picker.json (game working folder)");
+        ImGui::TextDisabled("Selection report: %s", report_path.c_str());
         if (!s.picker_error.empty()) {
             ImGui::TextUnformatted(s.picker_error.c_str());
         }
@@ -243,4 +243,8 @@ void picker_overlay(const Shown& shown) {
         s.picker_export_at = ImGui::GetTime();
     }
 }
+void set_picker_report_folder(const std::string& folder) {
+    report_path = (std::filesystem::path(folder) / "moby-picker.json").string();
+}
+
 }  // namespace openrac::frontend::debug_overlay
