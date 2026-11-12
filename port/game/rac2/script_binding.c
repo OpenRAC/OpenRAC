@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[31];
+static const openrac_script_point k_points[32];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -356,22 +356,23 @@ S11_POINT(Vendor_Price, 13) /* rac2.vendor.price */
 S12_POINT(Item_Colors, 14) /* rac2.item.colors */
 S13_POINT(Vendor_DrawList, 15) /* rac2.vendor.draw_list */
 S14_POINT(Item_VersionColor, 16) /* rac2.item.version_color */
-S15_POINT(Planet_Unlock, 17) /* rac2.planet.unlock */
-S16_POINT(Moby_DynamoPickup_Update, 18) /* rac2.moby.dynamo_pickup.update */
-S16_POINT(Moby_TractorBeamSeller_Update, 19) /* rac2.moby.tractor_beam_seller.update */
-S16_POINT(Moby_BoxBreakerPickup_Update, 20) /* rac2.moby.box_breaker_pickup.update */
-S16_POINT(Moby_ThermanatorSeller_Update, 21) /* rac2.moby.thermanator_seller.update */
-S16_POINT(Moby_ThermanatorArea_Update, 22) /* rac2.moby.thermanator_area.update */
-S16_POINT(Moby_SwingshotArea_Update, 23) /* rac2.moby.swingshot_area.update */
-S16_POINT(Moby_GliderPickup_Update, 24) /* rac2.moby.glider_pickup.update */
-S16_POINT(Moby_LevitatorSeller_Update, 25) /* rac2.moby.levitator_seller.update */
-S16_POINT(Moby_ChargeBootsRider_Update, 26) /* rac2.moby.charge_boots_rider.update */
-S16_POINT(Moby_RaceController_Update, 27) /* rac2.moby.race_controller.update */
-S16_POINT(Moby_MapperReturn_Update, 28) /* rac2.moby.mapper_return.update */
-S16_POINT(Moby_HypnomaticMaker_Update, 29) /* rac2.moby.hypnomatic_maker.update */
-S16_POINT(Moby_NanotechBall_Update, 30) /* rac2.moby.nanotech_ball.update */
+S9_POINT(Text_ById, 17) /* rac2.text.by_id */
+S15_POINT(Planet_Unlock, 18) /* rac2.planet.unlock */
+S16_POINT(Moby_DynamoPickup_Update, 19) /* rac2.moby.dynamo_pickup.update */
+S16_POINT(Moby_TractorBeamSeller_Update, 20) /* rac2.moby.tractor_beam_seller.update */
+S16_POINT(Moby_BoxBreakerPickup_Update, 21) /* rac2.moby.box_breaker_pickup.update */
+S16_POINT(Moby_ThermanatorSeller_Update, 22) /* rac2.moby.thermanator_seller.update */
+S16_POINT(Moby_ThermanatorArea_Update, 23) /* rac2.moby.thermanator_area.update */
+S16_POINT(Moby_SwingshotArea_Update, 24) /* rac2.moby.swingshot_area.update */
+S16_POINT(Moby_GliderPickup_Update, 25) /* rac2.moby.glider_pickup.update */
+S16_POINT(Moby_LevitatorSeller_Update, 26) /* rac2.moby.levitator_seller.update */
+S16_POINT(Moby_ChargeBootsRider_Update, 27) /* rac2.moby.charge_boots_rider.update */
+S16_POINT(Moby_RaceController_Update, 28) /* rac2.moby.race_controller.update */
+S16_POINT(Moby_MapperReturn_Update, 29) /* rac2.moby.mapper_return.update */
+S16_POINT(Moby_HypnomaticMaker_Update, 30) /* rac2.moby.hypnomatic_maker.update */
+S16_POINT(Moby_NanotechBall_Update, 31) /* rac2.moby.nanotech_ball.update */
 
-static const openrac_script_point k_points[31] = {
+static const openrac_script_point k_points[32] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.combat.post_hit", "void(u32,u32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Moby_PostHit_links, k_Moby_PostHit_thunks, S2_call},
@@ -389,6 +390,7 @@ static const openrac_script_point k_points[31] = {
     {"rac2.item.colors", "void(i32,u32,u32,u32)", 4, k_S12_kinds, k_S12_names, OPENRAC_SV_VOID, k_Item_Colors_links, k_Item_Colors_thunks, S12_call},
     {"rac2.vendor.draw_list", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Vendor_DrawList_links, k_Vendor_DrawList_thunks, S13_call},
     {"rac2.item.version_color", "u32(i32)", 1, k_S14_kinds, k_S14_names, OPENRAC_SV_U32, k_Item_VersionColor_links, k_Item_VersionColor_thunks, S14_call},
+    {"rac2.text.by_id", "i32(i32)", 1, k_S9_kinds, k_S9_names, OPENRAC_SV_I32, k_Text_ById_links, k_Text_ById_thunks, S9_call},
     {"rac2.planet.unlock", "void(i32)", 1, k_S15_kinds, k_S15_names, OPENRAC_SV_VOID, k_Planet_Unlock_links, k_Planet_Unlock_thunks, S15_call},
     {"rac2.moby.dynamo_pickup.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_DynamoPickup_Update_links, k_Moby_DynamoPickup_Update_thunks, S16_call},
     {"rac2.moby.tractor_beam_seller.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_TractorBeamSeller_Update_links, k_Moby_TractorBeamSeller_Update_thunks, S16_call},
@@ -405,7 +407,7 @@ static const openrac_script_point k_points[31] = {
     {"rac2.moby.nanotech_ball.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_NanotechBall_Update_links, k_Moby_NanotechBall_Update_thunks, S16_call},
 };
 
-static const openrac_script_alias k_aliases[121] = {
+static const openrac_script_alias k_aliases[125] = {
     {"Hero_ApproachSpeed", "rac2.player.approach_speed"},
     {"Hero_NanotechSteps", "rac2.player.nanotech_steps"},
     {"Hero_TakeDamage", "rac2.player.take_damage"},
@@ -432,6 +434,7 @@ static const openrac_script_alias k_aliases[121] = {
     {"Moby_ThermanatorSeller_Update", "rac2.moby.thermanator_seller.update"},
     {"Moby_TractorBeamSeller_Update", "rac2.moby.tractor_beam_seller.update"},
     {"Planet_Unlock", "rac2.planet.unlock"},
+    {"Text_ById", "rac2.text.by_id"},
     {"Vendor_BuildList", "rac2.vendor.build_list"},
     {"Vendor_DrawList", "rac2.vendor.draw_list"},
     {"Vendor_Price", "rac2.vendor.price"},
@@ -444,8 +447,11 @@ static const openrac_script_alias k_aliases[121] = {
     {"func_002888D8", "rac2.weapon.level_up"},
     {"func_00288C20", "rac2.item.give"},
     {"func_00288D30", "rac2.item.give"},
+    {"func_00288FB8", "rac2.text.by_id"},
     {"func_002890C8", "rac2.item.upgrade"},
     {"func_002891D8", "rac2.item.upgrade"},
+    {"func_002898E8", "rac2.text.by_id"},
+    {"func_002899F8", "rac2.text.by_id"},
     {"func_002A6C58", "rac2.moby.record_death"},
     {"func_002A7650", "rac2.moby.record_death"},
     {"func_002A7AA8", "rac2.moby.record_death"},
@@ -535,8 +541,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 31, k_points, 0, k_fields, NULL,
-    121, k_aliases,
+    "rac2", 3, k_discs, 32, k_points, 0, k_fields, NULL,
+    125, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

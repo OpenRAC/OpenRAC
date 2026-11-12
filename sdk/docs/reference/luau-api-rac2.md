@@ -193,6 +193,14 @@ rac2.item.version_color (Item_VersionColor) u32(i32): The colour of an item vers
 type Item_VersionColorFn = (kind: number) -> number
 ```
 
+### `Text_ByIdFn`
+
+rac2.text.by_id (Text_ById) i32(i32): The game's text of an id: the address of its string in game memory, which every label, name and description the game prints asks (the vendor's list its upgrade entries' label, 0x325F, "Mega"; its dialog the item's name). Under the port's own texts (host/options.c). For a text of its own a replacement writes into one of the port's eight slots, 96 bytes each with the ending 0, which this lookup gives for ids 0x7F10 to 0x7F17 (call the game function by name, not the original), and returns that address. A replacement that calls the original gets the game's.
+
+```lua
+type Text_ByIdFn = (id: number) -> number
+```
+
 ### `Planet_UnlockFn`
 
 rac2.planet.unlock (Planet_Unlock) void(i32): Puts a level on the ship's map (MarkLevelAvailable): its byte at 0x1A7BC8 and its place in the map's order (0x139948, on NTSC-U v1.01). Coordinate sellers, story scenes and ship challenges call it, and every level load calls it for the level loaded. Rac1's UnlockPlanet.
