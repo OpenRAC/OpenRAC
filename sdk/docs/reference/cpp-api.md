@@ -193,6 +193,11 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `template <class HookPoint> typename HookPoint::fn original() const` | Returns what a hook point this mod took goes on to (as the callable's `original`), for calling it from elsewhere in the mod (another hook, a callback); nullptr before the hook is taken. |
 | `template <class F> void on_frame(F&& callable)` | Calls `callable()` after each game tick, in load order. Throws openrac::Error when refused. Only during load. |
 | `template <class F> void on_settings(F &&callable)` | Since 1.15: calls `callable()` after the tick in which the launcher changed the mod's settings while the game runs; setting<T>() answers the new values then. Throws openrac::Error when refused or the port has no such call. Only during load. |
+| `bool has_save_data() const` | Since 1.16: whether the port keeps a mod's data with the game's saves (save_data_set, save_data, on_save_data). |
+| `bool save_data_set(const void* bytes, std::size_t size) const` | Since 1.16: the mod's data for the game in progress, kept with each save the game writes from now on (at most OPENRAC_SAVE_DATA_MAX bytes; none forgets it). Call it whenever the data changes. Returns false when the port refuses it (too many bytes) or has no such call. |
+| `bool save_data_set(const std::vector<std::uint8_t>& bytes) const` |  |
+| `std::vector<std::uint8_t> save_data() const` | Since 1.16: the mod's data for the game in progress (what its save held, or what the mod set since); empty for none, or a port without it. |
+| `template <class F> void on_save_data(F&& callable)` | Since 1.16: calls `callable()` after the tick in which the game in progress changed (a save loaded, a new game started): save_data() answers its data then. Throws openrac::Error when refused or the port has no such call. Only during load. |
 | `template <class F> void on_tick_boundary(F&& callable)` | Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here. Since 1.6; only during load. |
 | `bool has_savestates() const` | Since 1.6: returns whether the port offers tick-boundary and warm-snapshot calls. |
 | `std::size_t savestate_size() const` | The exact size of this build's warm, same-process snapshot. Since 1.6. |

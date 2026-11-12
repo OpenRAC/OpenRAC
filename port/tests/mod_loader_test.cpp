@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -90,7 +91,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.15",
+    const std::string& api = "1.16",
     const std::string& extra = "",
     const std::string& games = R"({"test": ["one"]})",
     const std::string& hooks = R"(["Test_Add"])"
@@ -123,7 +124,8 @@ void install(
                                   {"value": "world", "name": "World"},
                                   {"value": "hoverboard", "name": "Hoverboard"},
                                   {"value": "callback_only", "name": "Callback only"},
-                                  {"value": "keep", "name": "Keep"}]},
+                                  {"value": "keep", "name": "Keep"},
+                                  {"value": "journal", "name": "Journal"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -518,7 +520,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.15", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.16", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -685,6 +687,102 @@ void a_party_reads_the_mods(const fs::path& plugins) {
 // every other mod and setting kept; a key the manifest does not declare, a setting of another type
 // and a value it refuses are refused. The launcher's change is heard once the list is read again
 // (about a second of ticks), the mod's own write is not.
+// Interface 1.16: a mod's data goes beside each save the game writes (none for a blank slot), comes
+// back when the game plays a save it read whole (the mod told), and a new game starts with none.
+int g_save_slot = -1;
+
+void a_mods_data_goes_with_the_saves(const fs::path& plugins, const fs::path& dir) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "journal"}}]})");
+    mods::Host h = host(plugins);
+    static openrac_game_play play = kPlay;
+    play.save_slot_current = [] {
+        return g_save_slot;
+    };
+    h.play = &play;
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    g_save_slot = -1;
+    g_records.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const auto seen = [](int record) {
+        return std::count(g_records.begin(), g_records.end(), record);
+    };
+    // Set; too big, refused; read back.
+    CHECK(seen(13000) == 1 && seen(13011) == 1 && seen(13023) == 1);
+    CHECK(openrac_game_save_written != nullptr && openrac_game_save_read != nullptr);
+
+    // A save written: the mod's data beside it, by its id and version, as base64 ("abc").
+    const fs::path card = dir / "card";
+    fs::create_directories(card);
+    const fs::path save2 = card / "save2.bin";
+    write(save2, "S2");
+    openrac_game_save_written(save2.string().c_str(), 1);
+    std::ifstream in(save2.string() + ".moddata", std::ios::binary);
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    in.close();
+    CHECK(text.find("\"test-a\": {\"version\": \"1.0.0\", \"data\": \"YWJj\"}") != std::string::npos);
+    CHECK(!fs::exists(card / ".save2.bin.moddata.tmp"));
+    // A blank slot keeps none.
+    openrac_game_save_written(save2.string().c_str(), 0);
+    CHECK(!fs::exists(save2.string() + ".moddata"));
+
+    // Another save read whole: its data kept aside until the game plays it, then the mod's ("xyz",
+    // 3 bytes), the mod told once.
+    const fs::path save3 = card / "save3.bin";
+    write(save3, "S3");
+    write(fs::path(save3.string() + ".moddata"),
+          R"({"format": 1, "mods": {"test-a": {"version": "0.9.0", "data": "eHl6"}, "gone": {"data": "AA=="}}})");
+    openrac_game_save_read(save3.string().c_str(), 3);
+    g_records.clear();
+    mods::frame();
+    CHECK(seen(13103) == 0);
+    g_save_slot = 3;
+    mods::frame();
+    mods::frame();
+    CHECK(seen(13103) == 1 && seen(13200 + 'x') == 1 && seen(13301) == 1);
+
+    // While the level loads nothing changes; a new game (no save for it) starts with none.
+    g_records.clear();
+    g_save_slot = -1;
+    g_phase = OPENRAC_GAME_PHASE_LOADING;
+    mods::frame();
+    CHECK(std::none_of(g_records.begin(), g_records.end(), [](int r) {
+        return r >= 13100 && r < 13400;
+    }));
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    mods::frame();
+    mods::frame();
+    CHECK(seen(13100) == 1 && seen(13200) == 1);
+
+    // A save played, then a new game the host announces (rac1: NewGameInit), which writes its first
+    // save at once into a slot the player chose: that save takes none of the old game's data, and
+    // the mod is told at the next tick, whatever the phase.
+    openrac_game_save_read(save3.string().c_str(), 3);
+    g_save_slot = 3;
+    mods::frame();
+    CHECK(openrac_game_new_game != nullptr);
+    openrac_game_new_game();
+    const fs::path save4 = card / "save4.bin";
+    write(save4, "S4");
+    openrac_game_save_written(save4.string().c_str(), 1);
+    CHECK(!fs::exists(save4.string() + ".moddata"));
+    g_records.clear();
+    g_save_slot = 4;
+    g_phase = OPENRAC_GAME_PHASE_LOADING;
+    mods::frame();
+    CHECK(seen(13100) == 1 && seen(13200) == 1);
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    mods::frame();
+    CHECK(seen(13100) == 1);
+
+    // Saved without the mod's data now: the save's file goes.
+    write(fs::path(save3.string() + ".moddata"), "{}");
+    openrac_game_save_written(save3.string().c_str(), 1);
+    CHECK(!fs::exists(save3.string() + ".moddata"));
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+    mods::reset();
+}
+
 void a_mod_sets_its_own_settings(const fs::path& plugins) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "keep"}},
@@ -1299,7 +1397,7 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
 // RAC2 has no game hook catalogue or script binding yet, but a native mod that only uses
 // common callbacks still loads. A native mod that tries to take a game hook is refused cleanly.
 void rac2_callback_only_native_mod(const fs::path& plugins) {
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.15", "", R"({"rac2": ["ntsc"]})", "[]");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.16", "", R"({"rac2": ["ntsc"]})", "[]");
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true,
          "settings": {"tag": 4, "behaviour": "callback_only"}}]})");
@@ -1315,7 +1413,7 @@ void rac2_callback_only_native_mod(const fs::path& plugins) {
     mods::reset();
 
     install(
-        plugins, "a", OPENRAC_TEST_MOD_A, "1.15", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
+        plugins, "a", OPENRAC_TEST_MOD_A, "1.16", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
     );
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"tag": 1}}]})");
@@ -1396,7 +1494,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.15", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.16", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1680,6 +1778,7 @@ int main() {
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
     a_mod_sets_its_own_settings(plugins);
+    a_mods_data_goes_with_the_saves(plugins, dir);
     the_1_14_calls_answer_unknown_without_a_game(plugins);
     a_party_reads_the_data_packs(plugins);
     a_mod_copies_and_knows_the_key(plugins);

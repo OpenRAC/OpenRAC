@@ -49,6 +49,8 @@ static void* test_guest(gaddr address) {
 
 const char* openrac_game_card_dir;
 const char* openrac_game_loaded_mods;
+void (*openrac_game_save_written)(const char* path, int players);
+void (*openrac_game_save_read)(const char* path, int slot);
 const openrac_game_play* openrac_game_play_host;
 int openrac_game_no_card;
 
@@ -139,7 +141,8 @@ int main(void) {
 
     /* What Finder, Explorer, the port and the launcher put beside them. */
     const char* clutter[] =
-        {".DS_Store", "._save0.bin", "Thumbs.db", "DESKTOP.INI", "save0.bin.mods"};
+        {".DS_Store", "._save0.bin", "Thumbs.db", "DESKTOP.INI", "save0.bin.mods",
+         "save0.bin.moddata", ".save1.bin.moddata.tmp"};
     for (size_t i = 0; i < sizeof clutter / sizeof clutter[0]; i++) {
         snprintf(path, sizeof path, "%s/BASCUS-97268RATCHET/%s", card, clutter[i]);
         FILE* f = fopen(path, "wb");

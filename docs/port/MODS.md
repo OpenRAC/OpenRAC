@@ -630,6 +630,8 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `packs_info(&out)`, `packs_entry(index, &out)`, `clipboard_set(text)`, `open_link(url)`, `world_family(out, size)`, `sim_digest(level, &out)`, `identity_key(out, size)`, `plugins_folder(out, size)` (1.14) | the data packs applied and their digest, the clipboard, a mod code's link handed to the system (only `openrac://modset/` and a code: the mod asks the player first, with a button of its own page), the world the disc belongs to (two discs with the same text are played together), a number for what a loaded level's games must agree on, and a key for the installation, and the folder the mods are in, where the launcher leaves `modset.json` for the game |
 | `setting_set_bool(mod, key, value)`, `setting_set_int`, `setting_set_float`, `setting_set_string` (1.15) | the mod's own setting set, as an options page of the mod's would: read back from then on, and written into the launcher's list (`plugins.json`, the whole file beside it then renamed, every other mod and member kept), so the launcher shows it and the next start has it. Checked as the list's values are (the type, range, choices, length, binds); `OPENRAC_HOOK_UNKNOWN` for a key the manifest does not declare, another type, or a value it refuses. Without a list (purist mode) the value is the run's, and the log says so once |
 | `on_settings(mod, fn, user)` (1.15) | `fn(user)` after the tick in which the launcher changed the mod's settings while the game runs: the port looks at the list's time about once a second, and reads it again when it changed. Only a mod that asks is given the new values; the mod's own `setting_set_*` is not told |
+| `save_data_set(mod, bytes, size)`, `save_data_get(mod, out, size)` (1.16) | the mod's own data for the game in progress (at most `OPENRAC_SAVE_DATA_MAX`, 64 KiB), kept with the game's saves: written beside each save the game writes from then on (`<save>.moddata`: every mod's data by its id, with its version, as base64; the save file itself is never changed, and the game never lists the file), read back when the game plays a save it loaded (Load Game), none for a new game or a save made without the mod. The mod sets it whenever it changes: the port never asks. A blank slot keeps none |
+| `on_save_data(mod, fn, user)` (1.16) | `fn(user)` after the tick in which the game in progress changed: a save loaded and played (its data now `save_data_get`'s) or a new game started (none). Told only while a level plays; a level loading changes nothing |
 
 A call answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) in a game that has not got it, and `play_scene_from` always; Ratchet \& Clank has the others on both discs. The C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them.
 
@@ -716,6 +718,9 @@ say (`hero_shots2`, `figure_shot2`), `moby_list2`, camera scripts, a slot kept f
 (`setting_set_bool`, `_int`, `_float`, `_string`; the C++ layer's `set_setting<T>()`, scripts'
 `openrac.set_setting`), and the launcher's changes while the game runs heard (`on_settings`,
 `openrac.on_settings`); `has_settings_set()`.
+1.16 (SDK 1.16.0) a mod's own data kept with the game's saves (`save_data_set`, `save_data_get`,
+`on_save_data`; the C++ layer's `save_data_set()`, `save_data()`, `on_save_data()`,
+`has_save_data()`), so loading an older save brings back what the mod had then.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's

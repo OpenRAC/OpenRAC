@@ -864,6 +864,58 @@ public:
       }
     }
 
+    // Since 1.16: whether the port keeps a mod's data with the game's saves (save_data_set,
+    // save_data, on_save_data).
+    bool has_save_data() const {
+        return m_api->api_minor >= 16
+               && m_api->size >= offsetof(openrac_api, on_save_data) + sizeof(void*);
+    }
+
+    // Since 1.16: the mod's data for the game in progress, kept with each save the game writes
+    // from now on (at most OPENRAC_SAVE_DATA_MAX bytes; none forgets it). Call it whenever the data
+    // changes. Returns false when the port refuses it (too many bytes) or has no such call.
+    bool save_data_set(const void* bytes, std::size_t size) const {
+        return has_save_data() && size <= OPENRAC_SAVE_DATA_MAX
+               && m_api->save_data_set(m_handle, bytes, static_cast<std::uint32_t>(size))
+                      == OPENRAC_HOOK_OK;
+    }
+
+    bool save_data_set(const std::vector<std::uint8_t>& bytes) const {
+        return save_data_set(bytes.data(), bytes.size());
+    }
+
+    // Since 1.16: the mod's data for the game in progress (what its save held, or what the mod set
+    // since); empty for none, or a port without it.
+    std::vector<std::uint8_t> save_data() const {
+        if (!has_save_data()) {
+            return {};
+        }
+        std::vector<std::uint8_t> bytes(m_api->save_data_get(m_handle, nullptr, 0));
+        // It changes only on the game thread, between the two calls never.
+        if (!bytes.empty()) {
+            m_api->save_data_get(m_handle, bytes.data(), static_cast<std::uint32_t>(bytes.size()));
+        }
+        return bytes;
+    }
+
+    // Since 1.16: calls `callable()` after the tick in which the game in progress changed (a save
+    // loaded, a new game started): save_data() answers its data then. Throws openrac::Error when
+    // refused or the port has no such call. Only during load.
+    template <class F>
+    void on_save_data(F&& callable) {
+        if (!has_save_data()) {
+            throw Error("on_save_data: requires interface 1.16");
+        }
+
+        // As in on_frame, the port holds the address of the stored callable.
+        auto& stored = m_frames.emplace_back(std::forward<F>(callable));
+
+        // The port refuses a callback once load is over.
+        if (m_api->on_save_data(m_handle, &detail::frame_thunk, &stored) != OPENRAC_HOOK_OK) {
+            throw Error("on_save_data: refused (only during load)");
+        }
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

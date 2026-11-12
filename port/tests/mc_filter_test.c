@@ -40,6 +40,8 @@ static int failures;
 const char* openrac_game_card_dir;
 int openrac_game_no_card;
 const char* openrac_game_loaded_mods = "[{\"id\": \"multiplayer\", \"version\": \"1\"}]";
+void (*openrac_game_save_written)(const char* path, int players);
+void (*openrac_game_save_read)(const char* path, int slot);
 static int host_save_info(
     const uint8_t* save, uint32_t size, int32_t* level, int32_t* bolts, int32_t* gold, int32_t* secs
 ) {
