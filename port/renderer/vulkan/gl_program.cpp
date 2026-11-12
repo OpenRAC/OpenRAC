@@ -753,10 +753,15 @@ void VKGL link_program(GLuint name) {
             defines += ' ';
             defines += fs.substr(at + 8, fs.find_first_of(" \n", at + 8) - (at + 8));
         }
+        std::string names;
+        for (const auto& name : modes) {
+            names += names.empty() ? name : "," + name;
+        }
         log::info(
-            "vulkan: pipeline stats program {} fragment {} bytes, defines:{}",
+            "vulkan: pipeline stats program {} fragment {} bytes, modes [{}], defines:{}",
             p->serial,
             fs.size(),
+            names,
             defines
         );
     }

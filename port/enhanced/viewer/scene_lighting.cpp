@@ -475,7 +475,8 @@ void SceneLighting::bind_early(
 bool SceneLighting::early_matches(
     const renderer::FrameInput& input, const renderer::RenderState& state
 ) const {
-    return m_early_lighting.matches(input, state);
+    // The coverage view draws with its own shaders (coverage_view).
+    return !coverage_view() && m_early_lighting.matches(input, state);
 }
 
 std::span<const unsigned> SceneLighting::early_buffers(

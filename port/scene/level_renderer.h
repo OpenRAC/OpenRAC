@@ -798,6 +798,8 @@ private:
     std::array<renderer::Shader, 3> m_colour_specialised, m_early_colour_specialised;
     // mesh.frag's opaque path alone, without discard (the static layers' opaque pass; draw_layer).
     renderer::Shader m_solid;
+    // The probe coverage view's colour shaders (OPENRAC_PROBE_COVERAGE), alpha and solid.
+    renderer::Shader m_coverage, m_coverage_solid;
     renderer::Shader m_depth, m_depth_solid;
     std::array<renderer::Shader, 2> m_rigid_depth, m_rigid_surface_depth;
     bool make_rigid_depth_programs(std::string& error);

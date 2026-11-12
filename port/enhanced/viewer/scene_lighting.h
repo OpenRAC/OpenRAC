@@ -113,6 +113,7 @@ public:
     std::uint64_t material_variant(std::uint32_t model, int slot) const override;
     std::array<float, 3> sky_tint(std::uint32_t model, int slot) const override;
     std::string early_fragment(std::string source) const override;
+    bool coverage_view() const override { return m_probes.mode == 4; }
     // Resolves the primary sunlight override for direct lighting and shadows.
     renderer::Vec3 sunlight_direction(renderer::Vec3 authored) const override;
 

@@ -137,6 +137,16 @@ bool LevelScene::upload(
         || !m_sky.build("sky", shaders::sky_vert, shaders::sky_frag, error)) {
         return false;
     }
+    if (m_lighting) {
+        std::string coverage(fragment), coverage_solid(solid);
+        coverage.insert(coverage.find('\n') + 1, "#define OPENRAC_PROBE_COVERAGE 1\n");
+        coverage_solid.insert(coverage_solid.find('\n') + 1, "#define OPENRAC_PROBE_COVERAGE 1\n");
+        if (!m_coverage.build("mesh (probe coverage)", mesh_vertex, coverage, error)
+            || !m_coverage_solid
+                    .build("mesh (solid, probe coverage)", mesh_vertex, coverage_solid, error)) {
+            return false;
+        }
+    }
     if (m_early_capable) {
         std::string early = m_lighting->early_fragment(shaders::mesh_frag), early_solid(early);
         early_solid.insert(early_solid.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
@@ -740,6 +750,8 @@ void LevelScene::release() {
         shader.release();
     }
     m_early_mesh.release();
+    m_coverage.release();
+    m_coverage_solid.release();
     m_early_solid.release();
     m_solid.release();
     m_depth.release();
@@ -1314,6 +1326,9 @@ void LevelScene::draw_layer(
             } else {
                 selected = solid ? &m_depth_solid : &m_depth;
             }
+        } else if (m_lighting && m_lighting->coverage_view() && m_coverage.id()) {
+            // The coverage view: the same alpha handling, with the coverage colours.
+            selected = solid ? &m_coverage_solid : &m_coverage;
         } else if (static_translucent) {
             // Static blended packets omit moby-only vertex work.
             selected = fast_blended ? &m_static_translucent : &m_static_translucent_full;

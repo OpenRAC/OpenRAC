@@ -125,6 +125,9 @@ public:
     // Returns whether this GPU and build can draw the early lighting at all.
     virtual bool early_supported() const = 0;
 
+    // Returns whether the probe coverage view is on: colour draws then take the coverage shaders.
+    virtual bool coverage_view() const { return false; }
+
     // ---- The level ----
 
     // Finds and uploads the lighting of `level` (its probe bake), once it is on the GPU.

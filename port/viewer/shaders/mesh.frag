@@ -251,8 +251,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
     vec3 eye_normal = orient_shading_normal(mat3(view) * n, mat3(view) * geometric, -eye_position);
     n = transpose(mat3(view)) * eye_normal;
+#ifdef OPENRAC_PROBE_COVERAGE
+    // Only the coverage view's shaders carry this second probe lookup and its registers.
     if (probe_mode == 4) {
-        // Read the same grid blend directly, even when normal shading uses cached irradiance.
         vec3 ignored;
         float dense_weight;
         vec3 bias = probe_surface_bias(n, transpose(mat3(view)) * (-eye_position));
@@ -260,6 +261,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         return covered ? mix(vec3(0.0, 0.5, 1.0), vec3(0.0, 1.0, 0.0), dense_weight)
                        : vec3(1.0, 0.0, 1.0);
     }
+#endif
     vec3 surface_n = n;
     float fur_grain = 1.;
 #ifdef OPENRAC_HERO_FUR
