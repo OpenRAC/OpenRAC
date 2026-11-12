@@ -203,7 +203,11 @@ static int run_length(gaddr first) {
 /* The room CreateMoby has left: free slots (0xFE) count, used ones do not, and the slots from the
  * 0xFF mark to the pool's end are all free. */
 static void check_pool_room(void) {
-    enum { FIRST = 0x300000u, POOL_END = FIRST + 4 * 0x100u };
+    enum {
+        FIRST = 0x300000u,
+        POOL_END = FIRST + 4 * 0x100u
+    };
+
     GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x0016001Cu))) = FIRST;
     GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x00160020u))) = POOL_END;
     for (int i = 0; i < 4; i++) {
