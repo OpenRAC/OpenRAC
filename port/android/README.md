@@ -75,6 +75,8 @@ python tools/android_device.py sweep --level 1        # the Graphics sweep by sc
 python tools/android_device.py record 20 --level 1    # a 20 second recording
 python tools/android_device.py start --env OPENRAC_RENDER_OPT_OFF=vk-mode-constants
 python tools/android_device.py gpu --seconds 30       # Adreno's clock, load and temperature
+python tools/android_device.py screen                 # what the device shows, as a PNG
+python tools/android_device.py press a                # a pad button (start, back, up...), or `tap X Y`
 python tools/android_device.py reset                  # the launcher starts the game as usual again
 ```
 

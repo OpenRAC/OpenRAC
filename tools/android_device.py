@@ -8,6 +8,9 @@ debugging), to measure it without touching the device (port/android/README.md).
   python tools/android_device.py sweep [--level N] [--at TICK] [--out DIR] [--env ...] [--lib FILE]
   python tools/android_device.py record SECONDS [--level N] [--at TICK] [--out DIR] [--env ...]
   python tools/android_device.py gpu [--seconds N]
+  python tools/android_device.py screen [--out FILE]
+  python tools/android_device.py press KEY [KEY ...]    (a b x y l1 r1 l2 r2 start select up down left right back)
+  python tools/android_device.py tap X Y
   python tools/android_device.py pull PATH [--out DIR]
   python tools/android_device.py log [--seconds N]
   python tools/android_device.py stop | reset
@@ -18,6 +21,11 @@ arguments, and a library file to load in place of the APK's (--lib, the game's
 libopenrac-GAME.so from port/build/android-arm64). `sweep` runs the Graphics
 sweep by script and copies its report here; `record` a recording of that many
 seconds. `gpu` prints the GPU's clock, load and temperature once a second.
+`screen` saves what the device shows as a PNG; `press` sends pad buttons and
+`tap` a touch, to get past a message on the screen without touching the device.
+A start refuses while another OpenRAC's game runs (it holds the sound device),
+wakes the screen first, and a recording saves a picture of the screen every
+--shots seconds beside the report and stops early when the game's process ends.
 `reset` removes what was added, so the launcher starts the game as usual again.
 
 -s SERIAL (or ANDROID_SERIAL) names the device, as for adb; --package the app
@@ -38,6 +46,13 @@ ALIAS = "dev.openrac.game.DebugStart"
 STAGING = "/data/local/tmp/openrac-debug"
 # Adreno's kernel driver, as far as the shell may read it.
 KGSL = "/sys/class/kgsl/kgsl-3d0"
+# Pad buttons for `press`, as Android's key codes (sent as a gamepad's).
+KEYS = {
+    "a": "BUTTON_A", "b": "BUTTON_B", "x": "BUTTON_X", "y": "BUTTON_Y",
+    "l1": "BUTTON_L1", "r1": "BUTTON_R1", "l2": "BUTTON_L2", "r2": "BUTTON_R2",
+    "start": "BUTTON_START", "select": "BUTTON_SELECT", "back": "BACK",
+    "up": "DPAD_UP", "down": "DPAD_DOWN", "left": "DPAD_LEFT", "right": "DPAD_RIGHT",
+}
 KGSL_FILES = ("gpuclk", "max_gpuclk", "gpu_busy_percentage", "temp", "devfreq/governor",
               "devfreq/min_freq", "devfreq/max_freq", "thermal_pwrlevel")
 
@@ -102,10 +117,38 @@ def find_adb() -> str:
     sys.exit("adb was not found: put Android's platform-tools on PATH or set ANDROID_HOME")
 
 
+def game_pid(device: Device, package: str) -> str:
+    return device.shell(f"pidof {package}:game", check=False).strip()
+
+
+def other_games(device: Device) -> list[str]:
+    """The other OpenRACs whose game runs now."""
+    listed = device.shell("pm list packages dev.openrac.launcher").splitlines()
+    packages = [line.split(":", 1)[1].strip() for line in listed if ":" in line]
+    return [p for p in packages if p != device.package and game_pid(device, p)]
+
+
+def screen(device: Device, out: Path) -> Path:
+    """Saves what the device shows now as the PNG `out`."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(device.run("exec-out", "screencap -p", timeout=60))
+    return out
+
+
+def press(device: Device, keys: list[str]) -> None:
+    for key in keys:
+        code = KEYS.get(key.lower(), key.upper())
+        device.shell(f"input gamepad keyevent KEYCODE_{code.removeprefix('KEYCODE_')}")
+        time.sleep(0.3)
+
+
 def start(device: Device, env: list[str], args: list[str], lib: str | None) -> None:
     """Starts the game as the launcher last did, with `env`, `args` and the library `lib` added."""
     if "last_launch" not in device.app("ls files/debug 2>/dev/null", check=False):
         sys.exit("the game has not been started from the launcher with this build yet: play once, quit, try again")
+    if others := other_games(device):
+        sys.exit("another OpenRAC's game runs and holds the sound device: close it first (" + ", ".join(others) + ")")
+    device.shell("input keyevent KEYCODE_WAKEUP", check=False)
     lines = [f"env {pair}" for pair in env] + [f"arg {arg}" for arg in args]
     if lib:
         local = Path(lib)
@@ -121,17 +164,23 @@ def start(device: Device, env: list[str], args: list[str], lib: str | None) -> N
     print(device.shell(f"am start -n {device.package}/{ALIAS}").strip())
 
 
-def wait_and_pull(device: Device, remote: str, out: Path, timeout: float) -> None:
-    """Waits for the report `remote` (the app's path) and copies it and its companions to `out`."""
+def wait_and_pull(device: Device, remote: str, out: Path, timeout: float, shots: float) -> None:
+    """Waits for the report `remote` (the app's path) and copies it and its companions to `out`,
+    with a picture of the screen every `shots` seconds (0: none)."""
     folder, name = remote.rsplit("/", 1)
     stem = name.rsplit(".", 1)[0]
     began = time.time()
+    last_shot = 0.0
     while name not in device.app(f"ls {shlex.quote(folder)} 2>/dev/null", check=False).split():
-        if time.time() - began > timeout:
-            sys.exit(f"no report after {timeout:.0f} s; see `log`")
-        if "RESUMED" not in device.shell(f"dumpsys activity activities | grep -i {device.package} | grep -i state",
-                                         check=False) and time.time() - began > 20:
-            print("the game is not in front (crashed or closed?); still waiting")
+        elapsed = time.time() - began
+        if elapsed > timeout:
+            sys.exit(f"no report after {timeout:.0f} s; see `log` and the pictures in {out}")
+        if elapsed > 15 and not game_pid(device, device.package):
+            screen(device, out / f"{stem}-ended.png")
+            sys.exit(f"the game's process ended before its report; see `log` and {out / (stem + '-ended.png')}")
+        if shots > 0 and elapsed - last_shot >= shots:
+            last_shot = elapsed
+            print(f"{elapsed:4.0f} s  {screen(device, out / f'{stem}-{elapsed:03.0f}s.png')}", flush=True)
         time.sleep(3)
     time.sleep(2)  # the frames file is closed after the report
     out.mkdir(parents=True, exist_ok=True)
@@ -149,10 +198,10 @@ def capture(device: Device, what: str, options: argparse.Namespace) -> None:
     env = [f"OPENRAC_PERF_CAPTURE={options.at}:{what if what == 'sweep' else options.seconds}:{remote}"] + options.env
     args = list(options.arg)
     if options.level is not None:
-        args += ["--level", str(options.level), "--skip-movies", "--no-card"]
+        args += ["--level", str(options.level), "--skip-movies"] + (["--no-card"] if options.no_card else [])
     start(device, env, args, options.lib)
     length = 160 + 90 if what == "sweep" else float(options.seconds)
-    wait_and_pull(device, remote, Path(options.out), timeout=length + 240)
+    wait_and_pull(device, remote, Path(options.out), timeout=length + 240, shots=options.shots)
     device.shell(f"am force-stop {device.package}")
 
 
@@ -193,6 +242,8 @@ def main() -> None:
         sub.add_argument("--level", type=int, help="start in this level, without the memory card")
         sub.add_argument("--at", type=int, default=900, help="the game tick the recording starts at")
         sub.add_argument("--out", default="android-captures")
+        sub.add_argument("--shots", type=float, default=15, help="a picture of the screen every N seconds (0: none)")
+        sub.add_argument("--no-card", action="store_true", help="start without the memory card")
 
     commands.add_parser("status")
     launch_options(commands.add_parser("start"))
@@ -205,6 +256,11 @@ def main() -> None:
     pull.add_argument("path")
     pull.add_argument("--out", default="android-captures")
     commands.add_parser("log").add_argument("--seconds", type=int, default=0)
+    commands.add_parser("screen").add_argument("--out", default="android-captures/screen.png")
+    commands.add_parser("press").add_argument("keys", nargs="+")
+    tap = commands.add_parser("tap")
+    tap.add_argument("x", type=int)
+    tap.add_argument("y", type=int)
     commands.add_parser("stop")
     commands.add_parser("reset")
     options = parser.parse_args()
@@ -230,6 +286,12 @@ def main() -> None:
             subprocess.run(command + (["-d"] if options.seconds == 0 else []), timeout=options.seconds or None)
         except subprocess.TimeoutExpired:
             pass
+    elif options.command == "screen":
+        print(screen(device, Path(options.out)))
+    elif options.command == "press":
+        press(device, options.keys)
+    elif options.command == "tap":
+        device.shell(f"input tap {options.x} {options.y}")
     elif options.command == "stop":
         device.shell(f"am force-stop {device.package}")
     elif options.command == "reset":
