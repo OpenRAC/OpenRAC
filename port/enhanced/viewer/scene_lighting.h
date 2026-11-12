@@ -73,6 +73,7 @@ public:
         std::uint32_t model, std::uint32_t first, std::uint32_t count
     ) const override;
     void bind_surface_layer(const renderer::Shader& shader, int layer) const override;
+    void bind_moby_model(const renderer::Shader& shader, std::uint32_t model) const override;
     std::string motion_fragment(std::string source) const override;
 
 #ifdef OPENRAC_LIGHT_AUTHORING

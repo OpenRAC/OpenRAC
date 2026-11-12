@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// openrac_mode: hero_fur_debug hero_fur_detail_enabled hero_fur_lighting_enabled hero_fur_shell_enabled
+// openrac_mode: hero_fur_debug hero_fur_detail_enabled hero_fur_lighting_enabled
 uniform int hero_fur_debug;
 uniform int hero_fur_first, hero_fur_count, hero_fur_palette;
 uniform int hero_fur_detail_enabled;
 uniform int hero_fur_lighting_enabled;
-uniform int hero_fur_shell_enabled;
 layout(std430,binding=10) readonly buffer HeroFurVertices { uint hero_fur_vertices[]; };
 
 int hero_fur_receiver(int vertex_id, float instance_palette, float instance_lighting) {

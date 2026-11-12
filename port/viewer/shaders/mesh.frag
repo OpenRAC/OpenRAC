@@ -288,7 +288,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     );
 #ifdef OPENRAC_HERO_FUR
     // Coat slices lie above the body prepass and require lighting at their displaced position.
-    if (hero_fur_shell > 0.) {
+    if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {
         cached_surface = false;
         cached_coverage = sample_probe_irradiance(v_world_position, n,
             probe_surface_bias(n, transpose(mat3(view)) * (-eye_position)), cached_lighting.rgb);

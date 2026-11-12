@@ -66,6 +66,9 @@ public:
     // Zero restores the original surface and supplies complete resources for temporal draws.
     virtual void bind_surface_layer(const renderer::Shader&, int) const {}
 
+    // Each moby group's model, before its draws: hero-only paths can be switched off.
+    virtual void bind_moby_model(const renderer::Shader&, std::uint32_t) const {}
+
     // Temporal coverage must use the same optional surface mask as colour rendering.
     virtual std::string motion_fragment(std::string source) const { return source; }
 

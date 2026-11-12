@@ -159,7 +159,8 @@ int test_gpu() {
     enhanced::set_fur_material_settings(settings);
     renderer::Shader shader;
     const std::string vertex =
-        std::string("#version 430 core\n") + lighting::shaders::fur_vertex_glsl + R"(
+        std::string("#version 430 core\n") + lighting::shaders::fur_shell_glsl
+        + lighting::shaders::fur_vertex_glsl + R"(
 uniform int test_id;
 uniform float test_palette, test_lighting;
 flat out int v_hero_fur;

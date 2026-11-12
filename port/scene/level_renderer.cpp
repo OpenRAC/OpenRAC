@@ -1475,6 +1475,9 @@ void LevelScene::draw_layer(
             }
             if (m_lighting) {
                 m_lighting->bind_deformation(*program, g.floats_on_water);
+                if (mobys) {
+                    m_lighting->bind_moby_model(*program, g.model);
+                }
             }
             if (effects && !opaque_fragment) {
                 // Additive: the shader writes Cs * As (mesh.frag, effect_additive).

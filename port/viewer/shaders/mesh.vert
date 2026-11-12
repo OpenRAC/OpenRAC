@@ -124,7 +124,7 @@ void main() {
     vec4 p = vec4(position, 1.0);
     vec3 n = normal;
 #ifdef OPENRAC_HERO_FUR
-    if (hero_fur_shell > 0.) {
+    if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {
         // Displace bind-pose vertices before skinning, so every shell follows the same joints.
         int shell_receiver = hero_fur_receiver(gl_VertexID, palette, moby_light.w);
         float shell_wetness = 0.;
