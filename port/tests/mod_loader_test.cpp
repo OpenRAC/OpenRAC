@@ -125,6 +125,7 @@ void install(
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"},
+                                  {"value": "z_watchers_fail", "name": "Watchers fail"},
                                   {"value": "hoverboard", "name": "Hoverboard"},
                                   {"value": "callback_only", "name": "Callback only"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
@@ -1669,6 +1670,65 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK((g_motion == std::vector<std::string>{"camera off"}));
 }
 
+// undo() drops these registrations before closing a refused mod's library.
+// Use resident callbacks here so a missed cleanup is reported instead of jumping
+// into unmapped DLL code when the next vendor camera event arrives.
+void dropped_mod_watchers_are_not_called() {
+    mods::reset_play();
+    openrac_api api{};
+    mods::fill_play_api(api, &kPlay, {});
+    int owner = 0, other = 0, camera_calls = 0, metal_calls = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    auto* another = reinterpret_cast<openrac_mod*>(&other);
+    auto camera = [](void* user, int, int) {
+        ++*static_cast<int*>(user);
+    };
+    auto metal = [](void* user, int, int) {
+        ++*static_cast<int*>(user);
+        return 0;
+    };
+    mods::play_loading(mod);
+    CHECK(api.on_camera_script(mod, camera, &camera_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.on_metal_detect(mod, metal, &metal_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.camera_script_play(mod, 737) == OPENRAC_HOOK_OK);
+    mods::play_loading(nullptr);
+    mods::drop_figures(another);
+    CHECK(api.camera_script_play(another, 737) == OPENRAC_HOOK_UNKNOWN);
+    g_script_events = 1;
+    mods::play_update();
+    CHECK(camera_calls == 1);
+    CHECK(openrac_game_metal_detect(1, 2) == 0 && metal_calls == 1);
+    mods::drop_figures(mod);
+    CHECK(api.camera_script_play(another, 737) == OPENRAC_HOOK_OK);
+    g_script_events = 1;
+    mods::play_update();
+    CHECK(camera_calls == 1);
+    CHECK(openrac_game_metal_detect == nullptr || openrac_game_metal_detect(1, 2) == 1);
+    CHECK(metal_calls == 1);
+    mods::play_loading(another);
+    CHECK(api.on_camera_script(another, camera, &camera_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.on_metal_detect(another, metal, &metal_calls) == OPENRAC_HOOK_OK);
+    mods::reset_play();
+}
+
+void refused_library_leaves_no_watchers(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "settings": {"behaviour": "world"}},
+        {"id": "test-b", "settings": {"behaviour": "z_watchers_fail"}}]})");
+    auto h = host(plugins);
+    h.play = &kPlay;
+    mods::load(h);
+    CHECK(status_of(plugins, "test-a").first == "loaded");
+    CHECK(status_of(plugins, "test-b").second == "the world gate is already taken");
+    g_records.clear();
+    g_script_events = 1;
+    // test-b's DLL has been closed. Neither event may enter its old code.
+    mods::play_update();
+    CHECK(openrac_game_metal_detect == nullptr || openrac_game_metal_detect(1, 2) == 1);
+    CHECK(g_records.empty());
+    mods::reset();
+}
+
 int main() {
     const fs::path dir = fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
@@ -1704,6 +1764,8 @@ int main() {
     motion_reaches_the_game(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
     a_library_others_can_change_is_refused(plugins);
+    dropped_mod_watchers_are_not_called();
+    refused_library_leaves_no_watchers(plugins);
     std::error_code e;
     fs::remove_all(dir, e);
     return test::result();
