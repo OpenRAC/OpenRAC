@@ -598,11 +598,36 @@ export async function saveConfig(config: Config): Promise<boolean> {
 export function openVersion(key: string) {
   app.version = key;
   app.page = "game";
-  if (app.config && app.config.lastVersion !== key) {
-    void guard(api.saveConfig({ ...app.config, lastVersion: key })).then((saved) => {
+  keepLastVersion(0);
+}
+
+/** How long the last game picked waits before it is written to the settings: the controller's
+ *  focus picks a game at each step along Games' shelf, and only where it stops is kept. */
+const KEEP_PICK_MS = 500;
+let keepTimer: ReturnType<typeof setTimeout> | undefined;
+/** The writes of lastVersion, one at a time, so that an older pick never lands after a newer one. */
+let keeping: Promise<unknown> = Promise.resolve();
+
+/** Makes `key` the version picked, the one Games shows and Mods works on, without leaving the page;
+ *  the settings keep it once the picking stops. */
+export function pickVersion(key: string) {
+  app.version = key;
+  keepLastVersion(KEEP_PICK_MS);
+}
+
+/** Writes the version picked (app.version) to the settings as lastVersion, after `delay` ms. */
+function keepLastVersion(delay: number) {
+  clearTimeout(keepTimer);
+  const write = () => {
+    keeping = keeping.then(async () => {
+      const key = app.version;
+      if (!key || !app.config || app.config.lastVersion === key) return;
+      const saved = await guard(api.saveConfig({ ...app.config, lastVersion: key }));
       if (saved) app.config = saved;
     });
-  }
+  };
+  if (delay === 0) write();
+  else keepTimer = setTimeout(write, delay);
 }
 
 /** Opens Develop on TARGET: "checkout", "console" or a version's key; by default the version

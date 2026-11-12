@@ -24,7 +24,7 @@
 #define EXE_BASE 0x00100000u
 #define EXE_SIZE RAC2_EXE_SIZE
 
-/* The levels, by the game's own numbers: 0 to 30, some unused (games/rac2/decomp/docs/LEVELS.md). */
+/* The levels, by the game's own numbers: 0 to 30, some unused (games/rac2/decomp/docs/build/levels.md). */
 #define LEVELS 31
 #define MUSEUM 21
 #define MUSEUM_PROGRAM 30

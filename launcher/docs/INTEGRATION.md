@@ -28,6 +28,8 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) first for how the parts fit.
 | `report-check` for rac1/pal and rac4                                                          | **connected**: the same command lines run from a shell on Linux (they need no disc)                                                                                                                                               |
 | Every other per-game action                                                                   | **unverified** or **planned**: the work below                                                                                                                                                                                     |
 
+After an update the game page offers to rebuild a game built by an older OpenRAC (`port-rebuild`, from scratch). With **Incremental builds (for developers)** on in Settings (`incrementalBuilds`, off by default, under Developer tools) it offers `port-build` instead, which builds only what changed; a build folder with no stamp from `tools/build_port.py` or one built by another OpenRAC version is still built from scratch, and the page says why (`port_build.rs`, `updateStep` in `player.svelte.ts`). The manual "Rebuild the game from scratch" action is unchanged.
+
 ## Action states
 
 Every action in `actions.json` has a `state`. Change it only when its

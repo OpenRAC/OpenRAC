@@ -22,9 +22,14 @@ const GAME_THUMB: Record<string, string> = {
 };
 
 /** Store bundles use original OpenRAC illustrations; desktop/dev keeps its existing artwork. */
-function storeArt(game: string): string | null {
+/** Whether the build shows the store's own drawings in place of the games' art. */
+export function storeArtwork(): boolean {
   const host = typeof window === "undefined" ? null : (window as Window & { __OPENRAC_STORE_ARTWORK__?: boolean });
-  return host?.__OPENRAC_STORE_ARTWORK__ && Object.hasOwn(GAME_ART, game) ? `/img/store/${game}.svg` : null;
+  return !!host?.__OPENRAC_STORE_ARTWORK__;
+}
+
+function storeArt(game: string): string | null {
+  return storeArtwork() && Object.hasOwn(GAME_ART, game) ? `/img/store/${game}.svg` : null;
 }
 
 /** A game's thumbnail, or null. */
@@ -32,31 +37,32 @@ export function gameThumb(game: string): string | null {
   return storeArt(game) ?? GAME_THUMB[game] ?? null;
 }
 
-/** A game's picture, or null for a game without one (its tile then shows its colours). */
+/** A game's picture, or null for a game without one (its colours show instead). */
 export function gameArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game] ?? null;
 }
 
-/** A game's picture as Android's Games tab shows it: 1280 wide (scripts/media.py thumbs), where
- *  the picture itself can be 3840 and take a moment to decode each time the tab opens. */
+/** A game's picture 1280 wide (scripts/game_art.py): a disc's label until its print is there. */
 export function gameTileArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game]?.replace(/-bg\.webp$/, "-tile.webp") ?? null;
 }
 
-// The tiles' pictures, decoded once and kept (Android's Games tab): a tile that mounts again finds
-// its picture ready, rather than showing its colours for a frame first.
-const kept: HTMLImageElement[] = [];
+// Disc pictures (labels and prints), decoded once and kept: a disc that mounts again (a tab
+// changed, the wheel turned) draws at once rather than blank for a frame.
+const kept = new Map<string, HTMLImageElement>();
 
-/** Decodes every game's tile picture ahead of its first showing; once. */
+/** Decodes `src` and keeps it decoded; once per picture. */
+export function keepDecoded(src: string): void {
+  if (kept.has(src) || typeof Image === "undefined") return;
+  const img = new Image();
+  img.src = src;
+  img.decode().catch(() => undefined); // a picture that is not there stays out
+  kept.set(src, img);
+}
+
+/** Decodes every game's label picture ahead of its first showing. */
 export function preloadArt(): void {
-  if (kept.length || typeof Image === "undefined") return;
-  for (const src of Object.keys(GAME_ART).map(gameTileArt)) {
-    if (!src) continue;
-    const img = new Image();
-    img.src = src;
-    img.decode().catch(() => undefined); // a picture that is not there stays out
-    kept.push(img);
-  }
+  for (const src of Object.keys(GAME_ART).map(gameTileArt)) if (src) keepDecoded(src);
 }
 
 /** For an <img onerror>: a picture that could not be loaded is hidden, so the colours show. */

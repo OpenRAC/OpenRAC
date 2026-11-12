@@ -154,7 +154,6 @@
     "func_002859C8": "names what this release does not have (D_V1_001A8A4C, D_V1_001A8A50, D_V1_001A8A54)",
     "func_0028D1E8": "names what this release does not have (D_V1_001A8E30, D_V1_001A8E70)",
     "func_002900B8": "names what this release does not have (D_V1_001A8D40)",
-    "func_00294F10": "not in this release",
     "func_0029D0E0": "names what this release does not have (D_V1_001AC710)",
     "func_002A0558": "names what this release does not have (func_V1_L00_00251468)",
     "func_002A0BE8": "names what this release does not have (func_V1_0020E9F0)",
@@ -162,7 +161,6 @@
     "func_002B9288": "names what this release does not have (func_V1_L00_002689B0)",
     "func_002B9390": "names what this release does not have (D_V1_001B1DA8, D_V1_001B1DB0)",
     "func_002CA070": "names what this release does not have (D_V1_001AA490, D_V1_001AA4A0, D_V1_001AA4B0)",
-    "func_002CBC58": "names what this release does not have (D_V1_001AA450, D_V1_001AB91C, D_V1_001AB92C)",
     "func_002CC6B0": "not in this release",
     "func_002E0088": "names what this release does not have (func_V1_00228D20)",
     "func_002E0408": "names what this release does not have (D_V1_00160470, D_V1_00160480, D_V1_00160490)",
@@ -184,21 +182,10 @@
     "func_003478F0": "not in this release",
     "func_0034B2C8": "not in this release",
     "func_0034CEA0": "names what this release does not have (D_V1_001AE6EC, D_V1_001AE6F0)",
-    "func_L00_002D5EB8": "not in this release",
-    "func_L01_003BCEC8": "names what this release does not have (D_V1_L01_001AFE30)",
     "func_L02_00364A18": "names what this release does not have (D_V1_L02_001AC130, D_V1_L02_001AC9C0, D_V1_L02_001AC9D0)",
-    "func_L02_003C43F0": "not in this release",
-    "func_L02_00412D50": "names what this release does not have (D_V1_L02_001B1C50, D_V1_L02_001B1C54, D_V1_L02_001B1C60)",
-    "func_L05_0041DF58": "not in this release",
-    "func_L05_0041EF00": "not in this release",
-    "func_L05_00444840": "names what this release does not have (D_V1_L05_001B1B18, D_V1_L05_001B1B18_gp)",
-    "func_L06_003E5D30": "names what this release does not have (D_V1_L06_001AF710, D_V1_L06_001AF718)",
-    "func_L10_004227A0": "not in this release",
     "func_L11_004580E8": "names what this release does not have (D_V1_L11_001B1F80, D_V1_L11_001B1F88, D_V1_L11_001B1F8C)",
-    "func_L15_0042EFE0": "not in this release",
     "func_L17_003E8A58": "names what this release does not have (D_V1_L17_001B0E40, D_V1_L17_001B0E48, D_V1_L17_001B0F38)",
-    "func_L22_0039D708": "not in this release",
-    "func_L22_003A5018": "names what this release does not have (D_V1_0018B694, D_V1_L22_001AF404, D_V1_L22_001AF408)"
+    "func_L22_003A5018": "names what this release does not have (D_V1_L22_001AF404, D_V1_L22_001AF408, D_V1_L22_001AF410)"
   },
   "derived": {
     "table": "release_names.json"
@@ -900,16 +887,10 @@
       "func_00284548_10": "float (float, float)",
       "func_0028F2C0": "int (int, int, int, int, int, void *)",
       "func_L04_0040C228": "void (void)",
-      "func_L04_004127A8": "void (void)",
       "func_L04_004188B8": "void (void)",
       "func_L03_003C8620": "void (void)",
-      "func_L05_0041F478": "int (void)",
-      "func_L10_00422CA8": "int (void)",
-      "func_L15_0042F6D0": "int (void)",
       "func_L22_003A6448": "int (void)",
-      "func_L23_0041EF48": "int (void)",
-      "func_00290920": "int (void)",
-      "func_003144C8": "void (void *)"
+      "func_00290920": "int (void)"
     },
     "results_before_calls": true,
     "vu0_programs": {

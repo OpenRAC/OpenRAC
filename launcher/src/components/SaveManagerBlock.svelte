@@ -349,19 +349,22 @@
     gap: 6px;
   }
 
-  /* A narrow panel: a slot's planet and Edit on the first line, its bolts, time and mods under. */
-  @container (max-width: 520px) {
-    .slots li {
-      grid-template-columns: 60px minmax(0, 1fr) auto;
+  /* A narrow panel: two lines a slot, the planet over its bolts, time and mods; Edit beside both. */
+  @container (max-width: 560px) {
+    /* .saves: over the wide row's columns, which come later in the file. */
+    .saves .slots li {
+      grid-template-columns: 52px auto minmax(0, 1fr) auto auto;
       grid-template-areas:
-        "slot planet edit"
-        ". bolts bolts"
-        ". when mods";
-      row-gap: 4px;
+        "slot planet planet planet edit"
+        "slot bolts when mods edit";
+      gap: 2px 12px;
+      padding: 10px 2px;
     }
 
     .slots li > :nth-child(1) {
       grid-area: slot;
+      align-self: start;
+      padding-top: 2px;
     }
 
     .slots li > :nth-child(2) {
@@ -383,6 +386,7 @@
 
     .slots li > :nth-child(6) {
       grid-area: edit;
+      justify-self: end;
     }
   }
 
@@ -477,12 +481,15 @@
   .fold {
     justify-content: flex-start;
     gap: 8px;
-    padding: 4px 0;
     border: 0;
     background: none;
     box-shadow: none;
     color: var(--lav);
     font-weight: 600;
+    /* Room on both sides, so the triangle sits inside the fill a hover gives it; the negative
+     margin keeps the words in line with the text around. */
+    padding: 8px 12px;
+    margin-left: -12px;
   }
 
   .fold::before {
@@ -536,27 +543,5 @@
 
   .small-text {
     font-size: 0.8125rem;
-  }
-
-  @media (max-width: 640px) {
-    .slots li {
-      grid-template-columns: 60px minmax(0, 1fr) auto;
-      row-gap: 6px;
-    }
-
-    /* The date on a line of its own under the planet, the mods badge beside it, Edit at its end. */
-    .slots .when {
-      grid-column: 2;
-    }
-
-    .slots .modded {
-      grid-column: 3;
-      justify-self: end;
-    }
-
-    .slots li > :last-child {
-      grid-column: 3;
-      justify-self: end;
-    }
   }
 </style>

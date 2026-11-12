@@ -170,6 +170,18 @@ struct Settings {
     // Original: the game's own distances, with its fades and billboards.
     bool original_draw_distance() const { return draw_distance == 100; }
 
+    // Active distance: how far the game updates its mobys (animation, AI) when its moby loop goes
+    // by what MobyProc drew (the +0x31 flag). Match (the default) takes Draw distance's reach, so
+    // whatever is drawn far away is live; Original keeps the game's own distances, so a moby past
+    // them is drawn standing in its pose, as before. The AI's own ranges (sight, aggro, attack)
+    // are the game's at either setting.
+    bool original_active_distance = false;
+
+    // The active distance's factor: Draw distance's at Match, 1 at Original.
+    float active_distance_scale() const {
+        return original_active_distance ? 1.0f : draw_distance_scale();
+    }
+
     int anisotropy_samples(bool enhanced) const {
         return anisotropy ? anisotropy : enhanced ? 4 : 1;
     }
@@ -180,6 +192,9 @@ struct Settings {
     hdr::Mode hdr = hdr::Mode::Off;
     int hdr_paper_white = 0;  // nits of the game's white; 0: the system's SDR white, else 203
     int hdr_peak = 0;         // nits the screen is told it may show; 0: the display's, else 1000
+
+    // The menu's size in percent of the one fitted to the screen (debug/ui_scale.h): 100 is Auto.
+    int menu_size = 100;
 
     VSync vsync = VSync::On;
     FrameRate frame_rate = FrameRate::Display;
@@ -274,6 +289,11 @@ float aspect_ratio(const Settings& settings, int window_width, int window_height
 inline constexpr int kFrameCaps[] = {30, 60, 75, 90, 120, 144, 165, 240, 360};
 inline constexpr int kFrameCapMin = 20;
 inline constexpr int kFrameCapMax = 1000;
+
+// The menu's sizes the menu offers, in percent of Auto (100), and the range a file may hold.
+inline constexpr int kMenuSizes[] = {60, 70, 80, 90, 100, 110, 125, 150, 175, 200};
+inline constexpr int kMenuSizeMin = 50;
+inline constexpr int kMenuSizeMax = 250;
 
 // The render scales, sample counts and anisotropies the options page offers.
 inline constexpr int kRenderScales[] = {50, 75, 100, 125, 150, 200};

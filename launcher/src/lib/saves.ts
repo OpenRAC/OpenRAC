@@ -1,6 +1,6 @@
 // How the game page talks about save files: the empty slots in one line, a slot's save time and a
 // backup's name in a player's words. No Svelte or Tauri here, so it can be tested.
-import type { SaveBackupInfo, SaveMod } from "./api";
+import type { SaveBackupInfo, SaveMod, SaveSlotInfo } from "./api";
 
 /** The slots' numbers as people count them (1 to 5), in a sentence: "Slots 3 to 5 are empty". */
 export function emptySlots(numbers: number[]): string {
@@ -33,4 +33,18 @@ export function savedWithMods(mods: SaveMod[] | null): string {
   if (!mods?.length) return "";
   const named = mods.map((m) => (m.version ? `${m.id} ${m.version}` : m.id));
   return `Played with ${named.join(", ")}`;
+}
+
+/** When a slot was saved, in seconds since 1970: the game's own clock, as the game page shows it,
+ *  else the file's time (a slot the core could not date). */
+export function savedSeconds(slot: Pick<SaveSlotInfo, "timestamp" | "modifiedMillis">): number | null {
+  return stampSeconds(slot.timestamp) ?? (slot.modifiedMillis === null ? null : Math.floor(slot.modifiedMillis / 1000));
+}
+
+/** The slot saved last, of those that hold a save; null when none does. */
+export function newestSave<T extends Pick<SaveSlotInfo, "exists" | "isEmpty" | "timestamp" | "modifiedMillis">>(
+  slots: T[],
+): T | null {
+  const used = slots.filter((s) => s.exists && !s.isEmpty);
+  return used.sort((a, b) => (savedSeconds(b) ?? 0) - (savedSeconds(a) ?? 0))[0] ?? null;
 }

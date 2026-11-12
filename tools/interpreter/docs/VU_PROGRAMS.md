@@ -8,7 +8,7 @@ interpreted ([DESIGN.md](DESIGN.md), section 4.4).
 The convention was first written down for the US disc of the first game by
 [ReRAC](https://github.com/re-rac/rerac) (`docs/formats/vu_microprograms.md`,
 ISC) and measured for Going Commando by rac2-decomp
-(`games/rac2/decomp/docs/VU-MICROPROGRAMS.md`). The numbers below were read
+(`games/rac2/decomp/docs/game/vu-microprograms.md`). The numbers below were read
 again from our own disc images on 2026-10-08, with a section reader of a few
 lines; no program bytes are here.
 

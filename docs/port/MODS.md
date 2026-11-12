@@ -902,6 +902,35 @@ Controller buttons go to the page as `{openrac: 1, event: "pad", button, down}`
 the page moves its own focus. Escape, the Back button or the `close` call
 return to the mod's page.
 
+### A mod's save data
+
+A native mod that keeps its own state per save (in its data folder, `openrac_api.data_dir`, never
+on the memory card) can describe that file under `save_data` in its manifest; the save editor then
+shows its fields for the save opened, while the mod is on, and saves a change into the file
+(launcher/core/src/mod_save_data.rs; Going Commando's editor so far). Saving there is refused while
+the game runs: the mod keeps the record in memory and writes it at the next save.
+
+```json
+"save_data": {
+  "file": "tiers.txt",
+  "records": "clock-hex",
+  "size": 56,
+  "title": "Weapon tiers",
+  "fields": [
+    {"key": "item_30", "name": "Lancer", "offset": 30, "mask": 127, "max": 8,
+     "choices": ["None", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Omega"]}
+  ]
+}
+```
+
+- `file`: a plain file name in the mod's data folder.
+- `records`: the file's layout. `clock-hex`: a line per save, the save's clock (the 8 bytes the game
+  stamps when it saves; Going Commando's chunk 4, `g_saveClock`) as 16 hex digits, a space, and the
+  record's `size` bytes (at most 4096) as hex; the last line of a clock is its record. A save the
+  file has no record of gets one, zeros but the fields set.
+- `fields`: one byte each at `offset`; `mask` (255 when absent) the bits the field owns, the others
+  kept; values `min` (0) to `max` (255), named by `choices` from 0 when it has them.
+
 ## 10. Mods in a git repository
 
 A player pastes a repository's address in the Mods tab (**Add from a

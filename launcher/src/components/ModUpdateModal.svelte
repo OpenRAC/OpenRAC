@@ -118,6 +118,8 @@
     z-index: 1;
     width: 100%;
     max-width: 480px;
+    /* Never taller than the window: the body scrolls (UpdateModal's too). */
+    max-height: 100%;
     background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
@@ -133,6 +135,7 @@
   }
 
   .header {
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -164,6 +167,7 @@
     flex-direction: column;
     gap: 12px;
     max-height: 360px;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -205,6 +209,7 @@
   }
 
   .actions {
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: flex-end;

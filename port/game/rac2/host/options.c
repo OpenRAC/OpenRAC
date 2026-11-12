@@ -132,6 +132,12 @@ static gaddr page_buffers(void) {
  * of eight, by the row (below). */
 static int video_text(int id);
 
+/* The mods' text slots (rac2.text.by_id, sdk/include/openrac/games/rac2.h): ids 0x7F10 to 0x7F17,
+ * TEXT_BYTES each, in game memory the port owns. */
+#define TEXT_MOD_SLOT 0x7F10
+#define TEXT_MOD_SLOTS 8
+static gaddr mod_slots;
+
 int func_00288FB8(int id) {
     /* The pause list's descriptions move with its extra rows (video_text): the mods' rows' are
      * mod_pages.c's texts, as their labels are. */
@@ -160,7 +166,17 @@ int func_00288FB8(int id) {
         openrac_game_option_word("Video", (char*)G(name), TEXT_BYTES);
         return (int)name;
     }
-    return func_00288FB8__game(id);
+    /* The port's slots for a mod's own texts (rac2.text.by_id): a mod writes its text into one and
+     * returns its address from its replacement. */
+    if (id >= TEXT_MOD_SLOT && id < TEXT_MOD_SLOT + TEXT_MOD_SLOTS) {
+        if (mod_slots == 0) {
+            mod_slots = openrac_guest_static(TEXT_MOD_SLOTS * TEXT_BYTES);
+            memset(G(mod_slots), 0, TEXT_MOD_SLOTS * TEXT_BYTES);
+        }
+        return (int)(mod_slots + (gaddr)(id - TEXT_MOD_SLOT) * TEXT_BYTES);
+    }
+    /* The mods' hook point, rac2.text.by_id: the game's text with none. */
+    return func_00288FB8__hooked(id);
 }
 
 /* The Video rows' cursor: Up and Down move it (wrapping), the window of PAGE_ROWS follows it, and when

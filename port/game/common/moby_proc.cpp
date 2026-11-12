@@ -20,6 +20,9 @@ namespace openrac::host {
 
 namespace {
 
+// How far Draw distance: Unlimited reaches, in units: farther than any level is wide.
+constexpr float kUnlimitedReach = 4096.0f;
+
 // MobyProc's distance tests and fade, instruction for instruction (Ratchet & Clank's NTSC-U boot
 // 0x211B60..0x211D20; each level's copy, level 1's at 0x26AAF8, is the same code), on the VU's own
 // arithmetic (common/ps2_float.h: every result cut toward zero). Its inputs, as it loads them: the camera's
@@ -57,6 +60,12 @@ std::optional<std::uint8_t> moby_proc_distance(
             return std::nullopt;
         }
         if (view.scale <= 0.0f) {
+            // Unlimited still stops at kUnlimitedReach, past any level: Pokitaru's class 1161
+            // mobys turned by -5 pi have spheres about 9000 units out, which the game's own draw
+            // distance culls; drawn, they covered the sky in cyan.
+            if (z - s[3] > kUnlimitedReach * 1024.0f) {
+                return std::nullopt;
+            }
             return std::uint8_t{0x80};
         }
         const float reach =

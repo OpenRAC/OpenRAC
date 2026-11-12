@@ -495,40 +495,7 @@
     "v": false
    }
   },
-  "FUN_002CCC18": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "FUN_002F2CE0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
-  "FUN_002FC008": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -575,32 +542,6 @@
        "b": "void",
        "q": []
       },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "FUN_00337A38": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -784,35 +725,6 @@
     "v": false
    }
   },
-  "FUN_003444C0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "char",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "char",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "FUN_003446B8": {
    "asm": true,
    "inherits": false,
@@ -820,102 +732,6 @@
    "sig": {
     "f": {
      "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "FUN_00348E50": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "FUN_00348E60": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "unsigned char",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "FUN_00348E68": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "FUN_0034DBD8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
      "q": []
     },
     "pr": true,
@@ -1044,50 +860,6 @@
     "v": false
    }
   },
-  "FUN_L02_003FF808": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "FUN_L02_00400E10": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "char",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "FUN_L03_003C8620": {
    "asm": true,
    "inherits": false,
@@ -1116,20 +888,6 @@
     "v": false
    }
   },
-  "FUN_L04_004127A8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
   "FUN_L04_004188B8": {
    "asm": true,
    "inherits": false,
@@ -1141,64 +899,6 @@
     },
     "pr": true,
     "ps": [],
-    "v": false
-   }
-  },
-  "FUN_L05_00421F80": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
-  "FUN_L11_004455E0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "FUN_L11_00445CB8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "u8",
-       "q": []
-      },
-      "q": []
-     }
-    ],
     "v": false
    }
   },
@@ -4012,20 +3712,6 @@
     "v": false
    }
   },
-  "func_0026EDE8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": false,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_0026F7A8": {
    "asm": true,
    "inherits": false,
@@ -6185,20 +5871,6 @@
     "v": false
    }
   },
-  "func_002957C0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_00296500": {
    "asm": false,
    "inherits": true,
@@ -6215,20 +5887,6 @@
       "q": []
      }
     ],
-    "v": false
-   }
-  },
-  "func_00299980": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
     "v": false
    }
   },
@@ -7205,25 +6863,6 @@
     "v": false
    }
   },
-  "func_002BC020": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_002BD430": {
    "asm": true,
    "inherits": false,
@@ -8038,39 +7677,6 @@
     "v": false
    }
   },
-  "func_002CCAA0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
-  "func_002CCC18": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_002CD670": {
    "asm": true,
    "inherits": false,
@@ -8091,20 +7697,6 @@
    }
   },
   "func_002D1F28": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
-  "func_002D3138": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -8229,25 +7821,6 @@
    }
   },
   "func_002D7BA0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_002D9D60": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -9114,20 +8687,6 @@
     "v": false
    }
   },
-  "func_002F6E10": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_002F95E8": {
    "asm": false,
    "inherits": true,
@@ -9157,20 +8716,6 @@
    }
   },
   "func_002FBCEC": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
-  "func_002FC008": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -9449,28 +8994,6 @@
     "v": false
    }
   },
-  "func_003144C8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_003266B8": {
    "asm": false,
    "inherits": true,
@@ -9505,28 +9028,6 @@
    }
   },
   "func_0032D108": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_003303C0": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -9883,32 +9384,6 @@
        "b": "u8",
        "q": []
       },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_00337A38": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -10684,28 +10159,6 @@
     "v": false
    }
   },
-  "func_00343AF8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_00343E80": {
    "asm": false,
    "inherits": true,
@@ -10788,54 +10241,6 @@
        "q": [
         "const"
        ]
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_003444C0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_003444C8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "p": {
-      "b": "char",
-      "q": []
-     },
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "char",
-       "q": []
       },
       "q": []
      }
@@ -10972,151 +10377,6 @@
     "v": false
    }
   },
-  "func_00348E50": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_00348E58": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "char",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_00348E60": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "unsigned char",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_00348E68": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_003492A8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "char",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_003492B0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "char",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_003493E0": {
    "asm": false,
    "inherits": true,
@@ -11172,28 +10432,6 @@
     "v": false
    }
   },
-  "func_00349C00": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_0034C008": {
    "asm": true,
    "inherits": false,
@@ -11224,29 +10462,6 @@
        "b": "void",
        "q": []
       },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_0034DBD8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -11725,20 +10940,6 @@
     "v": false
    }
   },
-  "func_L00_002A3B88": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": false,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_L00_002A5480": {
    "asm": true,
    "inherits": false,
@@ -11997,20 +11198,6 @@
       "q": []
      }
     ],
-    "v": false
-   }
-  },
-  "func_L00_002D6258": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
     "v": false
    }
   },
@@ -12812,25 +11999,6 @@
     "v": false
    }
   },
-  "func_L00_003012A0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L00_003053A0": {
    "asm": true,
    "inherits": false,
@@ -13614,20 +12782,6 @@
     "v": false
    }
   },
-  "func_L00_00377D08": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_L00_003788C8": {
    "asm": false,
    "inherits": true,
@@ -14003,42 +13157,6 @@
     "v": false
    }
   },
-  "func_L00_0038FC80": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L00_003907D8": {
    "asm": false,
    "inherits": true,
@@ -14238,35 +13356,6 @@
      {
       "p": {
        "b": "char",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L00_003AF118": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "void",
        "q": []
       },
       "q": []
@@ -14750,28 +13839,6 @@
    }
   },
   "func_L00_003E5DC8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "char",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L00_003E7058": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -16208,28 +15275,6 @@
     "v": false
    }
   },
-  "func_L01_00395620": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L01_00398E18": {
    "asm": true,
    "inherits": false,
@@ -16334,25 +15379,6 @@
        "b": "u8",
        "q": []
       },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L01_003BE2D0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -17468,89 +16494,6 @@
     "v": false
    }
   },
-  "func_L02_003FF388": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "char",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L02_003FF808": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L02_003FFEE0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L02_00400E10": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L02_004029E8": {
    "asm": true,
    "inherits": false,
@@ -17683,25 +16626,6 @@
        "b": "u8",
        "q": []
       },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L02_00414498": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -18240,25 +17164,6 @@
        "b": "u8",
        "q": []
       },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L03_00423008": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -19154,39 +18059,6 @@
     "v": false
    }
   },
-  "func_L04_0040DD90": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L04_004127A8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_L04_004143D0": {
    "asm": true,
    "inherits": false,
@@ -19246,8 +18118,8 @@
    }
   },
   "func_L04_004185D8": {
-   "asm": true,
-   "inherits": false,
+   "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20030,20 +18902,6 @@
     "v": false
    }
   },
-  "func_L05_0041F478": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_L05_00420238": {
    "asm": true,
    "inherits": false,
@@ -20059,20 +18917,6 @@
    }
   },
   "func_L05_00420420": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
-  "func_L05_00421F80": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -20373,45 +19217,6 @@
     "v": false
    }
   },
-  "func_L05_004465B8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "p": {
-      "b": "void",
-      "q": []
-     },
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L05_00448BA0": {
    "asm": true,
    "inherits": false,
@@ -20478,25 +19283,6 @@
        "b": "void",
        "q": []
       },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L06_003E7268": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -21170,25 +19956,6 @@
     "v": false
    }
   },
-  "func_L08_003CF3E8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L08_003D1468": {
    "asm": true,
    "inherits": false,
@@ -21264,20 +20031,6 @@
     "v": false
    }
   },
-  "func_L08_0041EDD0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_L08_0041FAD8": {
    "asm": true,
    "inherits": false,
@@ -21291,7 +20044,7 @@
     "ps": [
      {
       "p": {
-       "b": "void",
+       "b": "char",
        "q": []
       },
       "q": []
@@ -22230,20 +20983,6 @@
     "v": false
    }
   },
-  "func_L10_00422CA8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_L10_00423CB8": {
    "asm": true,
    "inherits": false,
@@ -22265,20 +21004,6 @@
    "sig": {
     "f": {
      "b": "unsigned char",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
-  "func_L10_004254C8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
      "q": []
     },
     "pr": true,
@@ -22687,70 +21412,6 @@
       },
       "q": []
      },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L11_00445190": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "char",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L11_004455E0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L11_00445CB8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
      {
       "b": "int",
       "q": []
@@ -23599,28 +22260,6 @@
     "v": false
    }
   },
-  "func_L13_0041C190": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L13_00424190": {
    "asm": true,
    "inherits": false,
@@ -23770,20 +22409,6 @@
     "v": false
    }
   },
-  "func_L15_0042F6D0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_L15_00430500": {
    "asm": true,
    "inherits": false,
@@ -23791,20 +22416,6 @@
    "sig": {
     "f": {
      "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
-  "func_L15_00431C88": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
      "q": []
     },
     "pr": true,
@@ -24687,62 +23298,6 @@
     "v": false
    }
   },
-  "func_L18_004414E8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "float",
-      "q": []
-     },
-     {
-      "b": "float",
-      "q": []
-     },
-     {
-      "b": "float",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L19_002EC100_local": {
    "asm": true,
    "inherits": false,
@@ -24762,20 +23317,6 @@
       "q": []
      }
     ],
-    "v": false
-   }
-  },
-  "func_L19_00413438": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
     "v": false
    }
   },
@@ -25191,25 +23732,6 @@
     "v": false
    }
   },
-  "func_L22_0039EB38": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L22_003A3DB8": {
    "asm": true,
    "inherits": false,
@@ -25364,7 +23886,7 @@
     "ps": [
      {
       "p": {
-       "b": "void",
+       "b": "s8",
        "q": []
       },
       "q": []
@@ -25400,7 +23922,7 @@
     "ps": [
      {
       "p": {
-       "b": "u8",
+       "b": "s8",
        "q": []
       },
       "q": []
@@ -26003,28 +24525,6 @@
     "v": false
    }
   },
-  "func_L23_00418CF8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "u8",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L23_0041DCD8": {
    "asm": false,
    "inherits": true,
@@ -26073,20 +24573,6 @@
     "v": false
    }
   },
-  "func_L23_0041EF48": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
-    "v": false
-   }
-  },
   "func_L24_003F0F38": {
    "asm": true,
    "inherits": false,
@@ -26106,39 +24592,6 @@
       "q": []
      }
     ],
-    "v": false
-   }
-  },
-  "func_L25_0040E340": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L25_0040E7A8": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
     "v": false
    }
   },
@@ -26238,25 +24691,6 @@
        "b": "void",
        "q": []
       },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_L30_0040C018": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -27565,6 +25999,28 @@
     "v": false
    }
   },
+  "func_V1_L02_003C43F0": {
+   "asm": false,
+   "inherits": true,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "func_V1_L02_003FCCA0": {
    "asm": false,
    "inherits": true,
@@ -27822,20 +26278,6 @@
       "q": []
      }
     ],
-    "v": false
-   }
-  },
-  "ref_00131D98_00": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
     "v": false
    }
   },
@@ -28878,42 +27320,6 @@
     "v": false
    }
   },
-  "ref_L08_0039E000_05": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "ref_L11_0043A810_09": {
    "asm": true,
    "inherits": false,
@@ -29427,20 +27833,6 @@
       "q": []
      }
     ],
-    "v": false
-   }
-  },
-  "ref_US2_L08_004201E0_00": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
     "v": false
    }
   }

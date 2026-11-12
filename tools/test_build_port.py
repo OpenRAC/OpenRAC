@@ -73,6 +73,97 @@ class Reading(unittest.TestCase):
         ])
 
 
+class MsvcEnvironment(unittest.TestCase):
+    """Setup failures retain their cause without printing the whole environment."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.visual_studio = Path(self.tmp.name) / "Visual Studio"
+        self.bat = self.visual_studio / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
+        self.bat.parent.mkdir(parents=True)
+        self.bat.write_text("@exit /b 0\n", encoding="ascii")
+
+    def result(self, environment="", diagnostics="", code=0):
+        return build_port.subprocess.CompletedProcess(
+            "cmd", code, environment.encode("utf-16-le"),
+            diagnostics.encode("oem" if os.name == "nt" else "utf-8"),
+        )
+
+    def failure(self, result):
+        with mock.patch.object(build_port.subprocess, "run", return_value=result), \
+                mock.patch.object(build_port, "find_program", return_value=None), \
+                self.assertRaises(build_port.BuildError) as caught:
+            build_port.msvc_environment(self.visual_studio)
+        return str(caught.exception)
+
+    def test_success_keeps_unicode_paths(self):
+        environment = "INCLUDE=C:\\include\\\u03bb\r\nPath=C:\\tools\r\n"
+        with mock.patch.object(build_port.subprocess, "run", return_value=self.result(environment)):
+            self.assertEqual(build_port.msvc_environment(self.visual_studio),
+                             {"INCLUDE": "C:\\include\\\u03bb", "PATH": "C:\\tools"})
+
+    def test_missing_setup_script_names_the_repair(self):
+        self.bat.unlink()
+        with self.assertRaisesRegex(build_port.BuildError, "repair Visual Studio"):
+            build_port.msvc_environment(self.visual_studio)
+
+    def test_cannot_start_cmd_preserves_the_cause(self):
+        with mock.patch.object(build_port.subprocess, "run", side_effect=OSError("access denied")), \
+                self.assertRaises(build_port.BuildError) as caught:
+            build_port.msvc_environment(self.visual_studio)
+        self.assertIn("Could not start cmd.exe", str(caught.exception))
+        self.assertIn("access denied", str(caught.exception))
+        self.assertIsInstance(caught.exception.__cause__, OSError)
+
+    def test_setup_failure_retains_script_output_and_exit_code(self):
+        message = self.failure(self.result(diagnostics="Windows SDK not found\r\n", code=7))
+        for expected in ("vcvars64.bat did not complete", "Windows SDK not found", "Exit code: 7",
+                         str(self.visual_studio), str(self.bat), "Toolchain environment: unavailable"):
+            self.assertIn(expected, message)
+
+    def test_environment_dump_failure_is_distinguished_from_setup_failure(self):
+        message = self.failure(self.result(
+            diagnostics="Setup succeeded\r\nOPENRAC_VCVARS_COMPLETE\r\nCannot start cmd\r\n", code=5))
+        self.assertIn("cmd.exe could not read back", message)
+        self.assertIn("vcvars64.bat output:\nSetup succeeded", message)
+        self.assertIn("Environment dump diagnostics:\nCannot start cmd", message)
+        self.assertNotIn("OPENRAC_VCVARS_COMPLETE", message)
+
+    def test_empty_environment_dump_is_reported(self):
+        message = self.failure(self.result(diagnostics="OPENRAC_VCVARS_COMPLETE\r\n"))
+        self.assertIn("cmd.exe could not read back", message)
+
+    def test_missing_include_lists_tools_without_dumping_secrets(self):
+        message = self.failure(self.result(
+            "PATH=C:\\tools\r\nLIB=C:\\lib\r\nVCToolsVersion=14.44\r\n"
+            "WindowsSDKVersion=10.0.26100.0\r\nPRIVATE_TOKEN=keep-secret\r\n",
+            "OPENRAC_VCVARS_COMPLETE\r\n"))
+        for expected in ("INCLUDE is missing", "INCLUDE: unset", "LIB: set", "LIBPATH: unset",
+                         "MSVC toolset: 14.44", "Windows SDK: 10.0.26100.0",
+                         "clang.exe on configured PATH: not found"):
+            self.assertIn(expected, message)
+        self.assertNotIn("keep-secret", message)
+        self.assertNotIn("PRIVATE_TOKEN", message)
+
+    @unittest.skipUnless(os.name == "nt", "requires Windows cmd.exe")
+    def test_real_batch_output_does_not_corrupt_unicode_environment(self):
+        self.bat.write_text('@echo off\necho Setup output\necho Setup warning 1>&2\n'
+                            'set "INCLUDE=%OPENRAC_TEST_INCLUDE%"\nexit /b 0\n', encoding="ascii")
+        with mock.patch.dict(os.environ, {"OPENRAC_TEST_INCLUDE": "C:\\include\\\u03bb"}):
+            environment = build_port.msvc_environment(self.visual_studio)
+        self.assertEqual(environment["INCLUDE"], "C:\\include\\\u03bb")
+
+    @unittest.skipUnless(os.name == "nt", "requires Windows cmd.exe")
+    def test_real_batch_failure_keeps_stdout_and_stderr(self):
+        self.bat.write_text("@echo off\necho Setup output\necho SDK missing 1>&2\nexit /b 7\n",
+                            encoding="ascii")
+        with self.assertRaises(build_port.BuildError) as caught:
+            build_port.msvc_environment(self.visual_studio)
+        for expected in ("Setup output", "SDK missing", "Exit code: 7", "did not complete"):
+            self.assertIn(expected, str(caught.exception))
+
+
 class Clean(unittest.TestCase):
     def test_a_read_only_file_is_deleted_too(self):
         # git's objects are read-only, and Windows will not delete those: --clean stopped at a

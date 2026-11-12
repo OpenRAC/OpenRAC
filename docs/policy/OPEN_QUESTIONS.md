@@ -60,7 +60,7 @@ rather than retail ([SOURCING.md](SOURCING.md#prerelease-builds)):
   original source file names and structures from 2002 development and demo builds.
 - rac2 [include/flags.h](../../games/rac2/decomp/include/flags.h) and
   [include/gadgets.h](../../games/rac2/decomp/include/gadgets.h) (prototype strings),
-  and the class names in [docs/moby-dispatch.tsv](../../games/rac2/decomp/docs/moby-dispatch.tsv)
+  and the class names in [docs/moby-dispatch.tsv](../../games/rac2/decomp/docs/game/moby-dispatch.tsv)
   (a prototype's extracted tables). No C file includes rac2's headers.
 
 - rac4 forbids any name not derived from the retail binary by the contributor
