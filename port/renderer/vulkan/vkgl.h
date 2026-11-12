@@ -380,10 +380,7 @@ struct HdrRequest {
     hdr::Output wanted = hdr::Output::Sdr;
     hdr::Levels levels;
 
-    bool operator==(const HdrRequest& other) const {
-        return wanted == other.wanted && levels.paper_white == other.levels.paper_white
-               && levels.peak == other.levels.peak;
-    }
+    bool operator==(const HdrRequest&) const = default;
 };
 
 void set_hdr(const HdrRequest& request);
@@ -404,16 +401,18 @@ bool hdr_frame();
 // blending: in a float frame only blending's sums go above 1. Until the image is made again.
 void clamp_colour_writes(unsigned framebuffer);
 
-// For the tests: the encode pass run on the default framebuffer into a stand-in of an HDR screen
-// (`output`'s format, `width` by `height`), read back as stored: one 32-bit word a texel for
-// Output::Hdr10 (A2B10G10R10) and four half floats for Output::ScRgb. False without a context.
+// For the tests: the encode pass run on the default framebuffer (or on framebuffer `source`'s
+// picture, such as a float one above white) into a stand-in of an HDR screen (`output`'s format,
+// `width` by `height`), read back as stored: one 32-bit word a texel for Output::Hdr10
+// (A2B10G10R10) and four half floats for Output::ScRgb. False without a context.
 bool test_hdr_encode(
     hdr::Output output,
     const hdr::Levels& levels,
     int width,
     int height,
     std::vector<std::uint8_t>& out,
-    bool staged = false
+    bool staged = false,
+    unsigned source = 0
 );
 
 // With low-latency frames, called by the window's thread before a frame begins, before it reads

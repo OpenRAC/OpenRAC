@@ -78,6 +78,18 @@ constexpr Entry kEntries[] = {
      "The brightest that glows and explosions may go in HDR, also told to the display. Display "
      "takes what the display reports. Where the system sets the brightness (Android, macOS), "
      "it can only go lower."},
+    {Id::HdrHighlights, Tab::Graphics, "HDR", Kind::Slider, A, "HDR highlights",
+     "How much brighter than white glows and explosions get. 0% shows them as in SDR, 100% "
+     "gives them all the light up to the peak."},
+    {Id::HdrSdrHue, Tab::Graphics, "HDR", Kind::Slider, A, "SDR hue",
+     "Bright colours keep the hue they have in SDR. There, very bright colours turn towards "
+     "yellow and white, so fire looks orange; in HDR it looks redder. 0% is HDR's hue, 100% "
+     "SDR's."},
+    {Id::HdrSdrChroma, Tab::Graphics, "HDR", Kind::Slider, A, "SDR chrominance",
+     "Bright colours keep the saturation they have in SDR, where they fade towards white. 0% "
+     "is HDR's, 100% SDR's."},
+    {Id::HdrBlowout, Tab::Graphics, "HDR", Kind::Slider, A, "HDR blowout",
+     "Very bright light fades towards white, more the brighter it is. 0% is off."},
     {Id::HdrStatus, Tab::Graphics, "HDR", kNote, A, "HDR status",
      "What the display and the system give the game for HDR now."},
     {Id::LowLatency, Tab::Graphics, "Latency", kSwitch, A, "Low-latency frames",

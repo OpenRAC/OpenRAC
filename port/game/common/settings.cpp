@@ -425,6 +425,14 @@ void load(const std::filesystem::path& file) {
             known = parse_int(value, 0, hdr::kPaperWhiteMax, s.hdr_paper_white);
         } else if (key == "hdr_peak") {
             known = parse_int(value, 0, hdr::kPeakMax, s.hdr_peak);
+        } else if (key == "hdr_highlights") {
+            known = parse_int(value, 0, 100, s.hdr_highlights);
+        } else if (key == "hdr_sdr_hue") {
+            known = parse_int(value, 0, 100, s.hdr_sdr_hue);
+        } else if (key == "hdr_sdr_chroma") {
+            known = parse_int(value, 0, 100, s.hdr_sdr_chroma);
+        } else if (key == "hdr_blowout") {
+            known = parse_int(value, 0, 100, s.hdr_blowout);
         } else if (key == "menu_size") {
             known = parse_int(value, kMenuSizeMin, kMenuSizeMax, s.menu_size);
         } else if (key == "vsync") {
@@ -669,6 +677,10 @@ void save() {
         << "hdr = " << hdr::kModeKeys[static_cast<int>(s.hdr)] << "\n"
         << "hdr_paper_white = " << s.hdr_paper_white << "\n"
         << "hdr_peak = " << s.hdr_peak << "\n"
+        << "hdr_highlights = " << s.hdr_highlights << "\n"
+        << "hdr_sdr_hue = " << s.hdr_sdr_hue << "\n"
+        << "hdr_sdr_chroma = " << s.hdr_sdr_chroma << "\n"
+        << "hdr_blowout = " << s.hdr_blowout << "\n"
         << "menu_size = " << s.menu_size << "\n"
         << "vsync = " << kVSync[static_cast<int>(s.vsync)] << "\n"
         << "frame_rate = " << frame_rate_value(s) << "\n"

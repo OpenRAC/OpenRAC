@@ -19,6 +19,10 @@ byte for byte.
 | `hdr` | `off` (default), `on` | `on`: HDR when the system says the display is in HDR mode. Where it can't say (X11), HDR whenever the screen offers it. |
 | `hdr_paper_white` | `0`, `80` to `1000` nits | How bright the game's white is. `0`: the system's SDR brightness, else 203 |
 | `hdr_peak` | `0`, `400` to `10000` nits | The brightest the effects may go. `0`: what the display reports, else 1000 |
+| `hdr_highlights` | `0` to `100` % (default `100`) | How much light above white the effects get. `0`: as in SDR |
+| `hdr_sdr_hue` | `0` (default) to `100` % | Light above white takes the hue it has in SDR |
+| `hdr_sdr_chroma` | `0` (default) to `100` % | Light above white takes the saturation it has in SDR |
+| `hdr_blowout` | `0` (default) to `100` % | Very bright light fades towards white |
 
 The ranges follow the brightest screens on sale in 2026. Mini-LED TVs (TCL X11L) and some phones
 (Honor X80 Pro Max, Samsung Display's M16 panel) are sold at 10000 nits in a small window, which is
@@ -29,10 +33,25 @@ Android's desired max luminance or HDR/SDR headroom) stays the default.
 
 You can set the mode in the Video options page, the options drawer, the settings file, or the
 launcher's Settings > HDR. The launcher's Off or On is given to every start it makes
-(`OPENRAC_HDR`), over the game's own. Paper white and peak are in the options drawer
-and the settings file.
+(`OPENRAC_HDR`), over the game's own. Paper white, peak and the look's sliders are in the in-game
+menu (desktop and Android) and the settings file.
 
 Turning HDR on from `off` needs a restart. Other changes apply at once.
+
+### The look of light above white
+
+In SDR each channel stops at white on its own. So bright colour mixes turn towards yellow and
+white: stacked fire sprites look orange. In HDR the mix is kept, so the same fire looks red. The
+sliders give back as much of the SDR look as you want, like RenoDX's "SDR Hue" and "SDR
+Chrominance". They only change pixels above white; the rest of the picture stays as it is.
+
+- **SDR hue**: the hue of the pixel as SDR shows it, mixed in OKLab. Lightness and saturation stay
+  HDR's.
+- **SDR chrominance**: the saturation of the pixel as SDR shows it.
+- **HDR highlights**: between the SDR pixel (`0`) and the full HDR light (`100`).
+- **HDR blowout**: saturation falls as brightness goes past white (a "path to white").
+
+The defaults (`100`, `0`, `0`, `0`) are the plain HDR look, bit for bit.
 
 ## Where it works
 
@@ -69,6 +88,10 @@ on every display, so the game goes by what the activity says, not by the formats
 - Above white, the 2.2 curve continues and then rolls off: `1 + h (1 - e^(-(m - 1) / h))` on the
   brightest channel `m`, where `h` is the headroom over paper white. All channels scale together,
   so colours keep their hue. Nothing at or below white changes.
+- The look (`to_light`, `apply_look`): only for pixels above white and only when a slider is not
+  at its default. The SDR pixel is the frame clamped to 0..1, as an 8-bit frame would hold it.
+  A turned hue can leave BT.2020; the colour then moves towards grey of the same lightness until
+  it fits. It never goes past the peak.
 - The HDR frame: the game's frame and the default framebuffer are RGBA16F while HDR is on.
   `vkgl::clamp_colour_writes` makes each program use a fragment shader with a clamp at the end
   (`clamped_fragment`, built the first time it's needed). Copies into the game's 8-bit textures
@@ -83,10 +106,12 @@ on every display, so the game goes by what the activity says, not by the formats
 
 ## Tests
 
-- `hdr`: PQ against the standard's values, paper white, the roll-off, and the settings logic.
+- `hdr`: PQ against the standard's values, paper white, the roll-off, the settings logic, and
+  the look (fire back to its SDR hue, nothing below 0 or past the peak, grey stays grey).
 - `surface_format`: SDR picks what it did before; HDR falls back correctly.
 - `vulkan_hdr`: the GPU pass against `common/hdr.h` on lavapipe, and the float frame (clamped
-  draws, blending above white, the 8-bit frame stopping at 1).
+  draws, blending above white, the 8-bit frame stopping at 1). Also a float picture above white
+  through the pass with several looks.
 
 `OPENRAC_HDR_FRAME=1` draws the float frame without an HDR screen and logs how much of it is above
 white every 60 frames. Use it to compare with the normal frame.
