@@ -52,6 +52,7 @@
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/state.h"
 #include "game/common/frontend/water_interactions.h"
+#include "game/common/moby_proc.h"
 #include "mod_menu.h"
 #include "mod_ui.h"
 #include "mods.h"
@@ -1600,6 +1601,7 @@ TickMobys pose_mobys(
         attached_catalog.reset();
     }
 #endif
+    const bool free_camera = debug_overlay::free_camera_enabled();
     for (std::size_t index = 0; index < state.mobys.size(); ++index) {
         bool light_only = false;
         const host::LiveMoby& m = state.mobys[index];
@@ -1629,7 +1631,12 @@ TickMobys pose_mobys(
             });
         std::optional<std::uint8_t> distance_fade = std::uint8_t{0x80};
         if (!extra && world_ran && m.address + 0x34 <= ram.size() && !own_camera) {
-            if (state.moby_view && g->profile->keeps_game_draw_distance(m.class_id)) {
+            // The freecam flies away from the game's camera, whose depth and sides it is not: a
+            // moby behind Ratchet is in its view. Kept by its draw distance from the game's camera
+            // in any direction, the window's own view of the freecam culls the rest.
+            if (free_camera) {
+                distance_fade = host::moby_free_camera_reach(ram.data() + m.address, state);
+            } else if (state.moby_view && g->profile->keeps_game_draw_distance(m.class_id)) {
                 host::GameState retail = state;
                 retail.moby_view->scale = 1.0f;
                 distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, retail);
