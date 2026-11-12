@@ -3,6 +3,23 @@
   "game": "rac1",
   "differences": [
     {
+      "id": "nanotech-hud-panel",
+      "kind": "fix",
+      "name": "Nanotech HUD panel",
+      "discs": [
+        "ntsc"
+      ],
+      "original": "The health HUD draws two partially overlapping background strips for five or eight nanotech orbs.",
+      "port": "Use one connected rounded background fitted to the four-, five- or eight-orb layout, with vertical padding around the orbs. Applies with either Original or Enhanced Graphics. Off restores the PS2 background.",
+      "setting": {
+        "key": "fix_nanotech_hud_panel",
+        "default": true
+      },
+      "refs": [
+        "port/game/rac1-ntsc/host/hud_panels.c"
+      ]
+    },
+    {
       "id": "wide-moby-effects",
       "kind": "fix",
       "name": "Wide-screen effects",
