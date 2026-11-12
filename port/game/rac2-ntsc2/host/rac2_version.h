@@ -91,7 +91,7 @@
 #define RAC2_ADDR_0x00263B50u 0x00263B10u /* the release's build */
 #define RAC2_ADDR_0x00263EF0u 0x00263EB0u /* the release's build */
 #define RAC2_ADDR_0x00264290u 0x00264250u /* the release's build */
-#define RAC2_ADDR_0x002652B0u 0x00265270u /* the help table of the RAC2_K HELP_ rows */
+#define RAC2_ADDR_0x002652B0u 0x00265270u /* versionmap: between */
 #define RAC2_ADDR_0x0026EDE8u 0x0026EDE8u /* code */
 #define RAC2_ADDR_0x002DC908u 0x002DD630u /* code */
 
@@ -120,7 +120,7 @@
 #define RAC2_K_LIST_SPRITE_2 0xE4 /* v1.01 0xE4; func_00341C20 as func_00342B30: 1 instructions */
 #define RAC2_K_LIST_TITLE_BAR 0x98 /* v1.01 0x98; func_00341C20 as func_00342B30: 1 instructions */
 #define RAC2_K_LIST_TITLE_TEXT 0x1D0 /* v1.01 0x1D0; func_00341C20 as func_00342B30: 1 instructions */
-#define RAC2_K_MAIN_LIST_OFFSET 0x3E9C8 /* v1.01 0x3E430; func_002D5748 as func_002D63B0: 2 instructions */
+#define RAC2_K_MAIN_LIST_OFFSET 0x3E9C8 /* v1.01 0x3E430; func_002D5748 as func_002D63B0: 1 instructions */
 #define RAC2_K_OPTIONS_LIST_OFFSET 0x3E760 /* v1.01 0x3E1D8; func_002D58A0 as func_002D6508: 1 instructions */
 #define RAC2_K_PAUSE_LIST_COUNT 0x1CC /* v1.01 0x1CC; func_00341610 as func_00342520: 1 instructions */
 #define RAC2_K_PAUSE_LIST_CURSORS 0x1B8 /* v1.01 0x1B8; func_00341610 as func_00342520: 1 instructions */
