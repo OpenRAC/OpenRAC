@@ -53,7 +53,7 @@ before and after, and how its frames are shown to be the same.
 A lossy entry also follows the Enhanced setting "Effects detail" (the presets set it): it is on
 only at its highest detail or below, so High draws every effect in full. `probe-fast-blended`,
 `shadow-far-alternate` and `water-mesh-coarse` are on at Medium and Low; `early-lighting-quarter`
-only at Low. `set()` in the tests switches an entry on at any
+and `blended-flat-light` only at Low. `set()` in the tests switches an entry on at any
 detail.
 
 | Name | Default | Tolerance | What it does |
@@ -108,6 +108,7 @@ detail.
 | `water-mesh-coarse` | on at Medium and Low detail | 5% of pixels by at most 64 | Enhanced water: each baked shape is split again at load to one unit instead of half a unit, the same midpoints, about a quarter of the triangles. On the Odin 3 the water's 283k triangles a frame bound the effects pass (1.5 ms at any render scale). Waves keep their shading per pixel; only the surface's shape is coarser. |
 | `water-strip-cull` | on | none (exact) | Enhanced water: a strip whose box, grown by four units for the waves, lies outside the view is not drawn. The game sends water strips the camera cannot see, and each one costs its dense triangles' vertex work and binning. |
 | `early-lighting-quarter` | on at Low detail | 5% of pixels by at most 64 | Early lighting (GI and the near cascades' look-up) runs once per 4x4 pixels instead of 2x2, a quarter of the compute work; the colour passes pick the nearest of the cell's samples as before. Lighting edges are coarser. |
+| `blended-flat-light` | on at Low detail | 25% of pixels, any value | The blended passes (leaves, glass, see-through models) take the original lighting instead of probe GI; sun shadows stay. On the Odin 3 at native 1080p the blended passes' probe light costs about 2 ms. |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the

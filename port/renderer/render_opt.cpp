@@ -231,6 +231,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::EarlyLightingQuarter, "early-lighting-quarter",
      "early GI and cascade shadows are gathered once per 4x4 pixels instead of 2x2, a quarter of the work",
      true, Tolerance{0.05, 64}, EffectsDetail::Low},
+    {Opt::BlendedFlatLight, "blended-flat-light",
+     "the blended passes (leaves, glass, see-through models) take the original lighting instead of probe GI",
+     true, Tolerance{0.25, 255}, EffectsDetail::Low},
 }};
 // clang-format on
 

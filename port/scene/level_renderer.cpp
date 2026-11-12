@@ -1385,6 +1385,10 @@ void LevelScene::draw_layer(
             glUniform1i(program->uniform("probe_mode"), 0);
             glUniform1i(program->uniform("sun_shadow_enabled"), 0);
             glUniform1i(program->uniform("hero_shadow_enabled"), 0);
+        } else if (sweep_translucent
+                   && renderer::render_opt::enabled(renderer::render_opt::Opt::BlendedFlatLight)) {
+            // Low effects detail: the original lighting, sun shadows kept (blended-flat-light).
+            glUniform1i(program->uniform("probe_mode"), 0);
         }
         int cutout = program->uniform("cutout");
         int colour = program->uniform("material_colour");
