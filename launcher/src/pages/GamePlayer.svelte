@@ -33,7 +33,7 @@
   import { tick } from "svelte";
   import { fly, slide } from "svelte/transition";
   import { place, when } from "$lib/reports";
-  import { isBuilt, playerAct, playerState, playerVersion } from "$lib/player.svelte";
+  import { isBuilt, playerAct, playerState, playerVersion, updateStep } from "$lib/player.svelte";
   import { themeStyle } from "$lib/themes";
 
   // One game, whatever the region: the page plays the version your disc is (playerVersion),
@@ -47,7 +47,6 @@
   const choice = $derived(developer && game ? choiceFor(app.discChoices, game.id) : null);
   const action = (id: string): ActionView | null => v?.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
 
-  const rebuild = $derived(action("port-rebuild"));
   const levels = $derived(action("port-levels"));
   const levelsCheck = $derived(action("port-levels-check"));
   /** The levels were read from the disc and, where the version has the check, the game read them all. */
@@ -63,7 +62,8 @@
 
   const next = $derived(v && game ? playerState(game, v) : null);
   /** Built by an OpenRAC from before an update that changed it (port_build.rs), and nothing runs. */
-  const updateReady = $derived(!!v?.portOutdated && !!rebuild?.runnable && next?.kind === "play");
+  const update = $derived(v ? updateStep(v, app.config?.incrementalBuilds ?? false) : null);
+  const updateReady = $derived(!!v?.portOutdated && !!update && next?.kind === "play");
   const setUp = $derived(game?.install?.extracted ?? null);
   const built = $derived(!!v && !!game && isBuilt(game, v));
   /** The steps are shown while there is one left that the player can take. */
@@ -177,15 +177,25 @@
             <p class="grow">{playWarning}</p>
           </div>
         {/if}
-        {#if updateReady && rebuild}
+        {#if updateReady && update}
           <!-- Recommended, never forced: Play still starts the build there is. -->
           <div class="panel notice" role="status">
             <Icon name="warn" />
             <p class="grow">
-              An update is ready. Rebuild {v.title} to play the latest version: it takes a few minutes, and your saves and
-              levels are kept.
+              {#if update.incremental}
+                An update is ready. Build {v.title} again to play the latest version: only what changed is built (the
+                Incremental builds setting), and your saves and levels are kept.
+              {:else}
+                An update is ready. Rebuild {v.title} to play the latest version: it takes a few minutes, and your saves
+                and levels are kept.
+                {#if update.cleanBecause}
+                  From scratch even with Incremental builds on, because {update.cleanBecause}.
+                {/if}
+              {/if}
             </p>
-            <button class="primary" onclick={() => void run(scope, rebuild)}>Rebuild now</button>
+            <button class="primary" onclick={() => void run(scope, update.action)}>
+              {update.incremental ? "Build now" : "Rebuild now"}
+            </button>
           </div>
         {/if}
         {#if app.stopped?.game === v.game}

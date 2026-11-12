@@ -242,6 +242,7 @@ let config: Config = {
   developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("developer"),
   // ?advanced switches the advanced save editor on.
   saveEditorAdvanced: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("advanced"),
+  incrementalBuilds: false,
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup"),
   installDir: "/home/you/.local/share/dev.openrac.launcher",
@@ -560,6 +561,7 @@ function library(): Library {
           status: st,
           actions: (actions.versions[key] ?? []).filter(shown).map((a) => view(a, st, key)),
           portOutdated: false,
+          portCleanReason: null,
         };
       });
       return { id: g.id, title: g.title, year: g.year ?? null, install: installState(g.id), versions };

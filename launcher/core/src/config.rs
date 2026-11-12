@@ -24,6 +24,10 @@ pub struct Config {
     /// The save editor shows every field of a save, raw bytes included (for debugging). Off, the
     /// player's safe set only.
     pub save_editor_advanced: bool,
+    /// For developers: after a change to OpenRAC, build the game again incrementally (`port-build`)
+    /// instead of from scratch (`port-rebuild`). A build folder that is unusable (no stamp from
+    /// OpenRAC's build, another OpenRAC version) is still built from scratch. Default off.
+    pub incremental_builds: bool,
     /// Where games are set up from the player's discs (OpenGOAL's install
     /// directory); unset: the launcher's per-user data folder.
     pub install_dir: Option<PathBuf>,
@@ -141,6 +145,7 @@ impl Default for Config {
             save_dir: None,
             developer: false,
             save_editor_advanced: false,
+            incremental_builds: false,
             setup_complete: false,
             last_version: None,
             discord_rpc: true,
