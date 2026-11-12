@@ -11,8 +11,8 @@
 #include <windows.h>
 #else
 #include <dlfcn.h>
-#endif
-#if defined(__ANDROID__)
+#include <string>
+
 #include <sys/stat.h>
 #endif
 
@@ -60,7 +60,38 @@ const void* base_of(const void* address) {
 
 #else
 
+#if !defined(__ANDROID__)
+// Why a library any other user of this computer could swap is not loaded: the file writable by
+// all, or a folder above it that all may write and rename in (a sticky one, as /tmp, is safe).
+std::string writable_by_others(const std::filesystem::path& path) {
+    struct stat st{};
+    if (stat(path.c_str(), &st) == 0 && (st.st_mode & S_IWOTH) != 0) {
+        return "its library can be changed by any user of this computer (chmod o-w " + path.string()
+               + ")";
+    }
+    std::error_code ec;
+    std::filesystem::path dir = std::filesystem::absolute(path, ec).parent_path();
+    for (; !dir.empty(); dir = dir.parent_path()) {
+        if (stat(dir.c_str(), &st) == 0 && (st.st_mode & S_IWOTH) != 0
+            && (st.st_mode & S_ISVTX) == 0) {
+            return "its folder " + dir.string()
+                   + " can be changed by any user of this computer (chmod o-w)";
+        }
+        if (dir == dir.root_path()) {
+            break;
+        }
+    }
+    return {};
+}
+#endif
+
 void* open(const std::filesystem::path& path, std::string& error) {
+#if !defined(__ANDROID__)
+    if (std::string why = writable_by_others(path); !why.empty()) {
+        error = why;
+        return nullptr;
+    }
+#endif
 #if defined(__ANDROID__)
     // Android 14 loads code from the app's own files only when they are read-only. The launcher
     // replaces a mod's folder whole when it updates it, so the library itself never changes.

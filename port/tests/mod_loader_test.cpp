@@ -17,6 +17,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "check.h"
@@ -1309,6 +1310,42 @@ void a_mod_for_1_5_still_loads(const fs::path& plugins) {
     mods::reset();
 }
 
+// A library another user of the computer could swap is not loaded (POSIX desktops).
+void a_library_others_can_change_is_refused(const fs::path& plugins) {
+#if !defined(_WIN32) && !defined(__ANDROID__)
+    install(plugins, "a", OPENRAC_TEST_MOD_A);
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    const fs::path lib = plugins / "test-a" / "lib" / library_name();
+    const auto was = fs::status(lib).permissions();
+    fs::permissions(lib, fs::perms::others_write, fs::perm_options::add);
+    mods::load(host(plugins));
+    auto [state, reason] = status_of(plugins, "test-a");
+    CHECK(state == "failed");
+    CHECK(reason.find("any user of this computer") != std::string::npos);
+    mods::reset();
+    fs::permissions(lib, was);
+    // A folder above it that all may write in, without the sticky bit.
+    const fs::path folder = plugins / "test-a" / "lib";
+    const auto folder_was = fs::status(folder).permissions();
+    fs::permissions(folder, fs::perms::others_all, fs::perm_options::add);
+    mods::load(host(plugins));
+    std::tie(state, reason) = status_of(plugins, "test-a");
+    CHECK(state == "failed");
+    CHECK(reason.find("its folder") != std::string::npos);
+    mods::reset();
+    // With the sticky bit, as /tmp has, it loads.
+    fs::permissions(folder, fs::perms::sticky_bit, fs::perm_options::add);
+    mods::load(host(plugins));
+    CHECK(status_of(plugins, "test-a").first == "loaded");
+    mods::reset();
+    fs::permissions(folder, folder_was);
+#else
+    (void)plugins;
+#endif
+}
+
 void views_reach_the_host(const fs::path& plugins) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "views"}},
@@ -1639,6 +1676,7 @@ int main() {
     the_world_reaches_the_game(plugins, dir);
     motion_reaches_the_game(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
+    a_library_others_can_change_is_refused(plugins);
     std::error_code e;
     fs::remove_all(dir, e);
     return test::result();

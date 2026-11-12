@@ -741,7 +741,9 @@ game's thread.
   launcher says so when one is installed and shows where it came from
   (`homepage`); OpenRAC does not sign or vet mods. On macOS the launcher
   takes the download quarantine off the libraries it installs, which the
-  system would otherwise refuse to open.
+  system would otherwise refuse to open. On Linux and macOS the port does not
+  load a library that another user of the computer could swap: the file, or a
+  folder above it without the sticky bit, writable by all.
 - **No mods**: the port reads nothing but the list's absence, binds no hook,
   runs no callback, and the game is the retail game (with the port's fixes).
 
