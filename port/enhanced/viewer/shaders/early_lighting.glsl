@@ -58,7 +58,8 @@ bool early_surface(
     covered = false;
     hero_visibility = 1.0;
 #ifdef OPENRAC_EARLY_TRANSLUCENT
-    // A blended fringe reads the lighting of the opaque surface it lies on (blended-early-light).
+    // A blended fringe reads the lighting of the cached surface nearest its own (blended-early-light):
+    // a hard cutoff to the original lighting showed as 4x4 bright blocks.
     if (early_lighting_enabled == 0 || effect_pass != 0) {
         return false;
     }
@@ -117,9 +118,9 @@ bool early_surface(
         }
     }
 #ifdef OPENRAC_EARLY_TRANSLUCENT
-    // Off every cached surface (a fringe against the sky or far behind): the original lighting.
-    if (best > 4.0) {
-        return false;
+    // A fringe takes probe-covered lighting whenever a neighbour has it, not the original's.
+    if (coverage != 0) {
+        best_coverage = 1;
     }
 #endif
     result = vec4(0);

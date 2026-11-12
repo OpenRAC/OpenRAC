@@ -232,7 +232,7 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
      "early GI and cascade shadows are gathered once per 4x4 pixels instead of 2x2, a quarter of the work",
      true, Tolerance{0.05, 64}, EffectsDetail::Low},
     {Opt::BlendedEarlyLight, "blended-early-light",
-     "the static blended passes read the opaque passes' early lighting where they lie on its surfaces, the original lighting elsewhere",
+     "the static blended passes read the early lighting of the nearest cached opaque surface instead of probe GI",
      true, Tolerance{0.25, 255}, EffectsDetail::Low},
 }};
 // clang-format on
