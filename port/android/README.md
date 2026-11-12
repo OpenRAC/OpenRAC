@@ -63,6 +63,28 @@ The game writes its log in its data folder
 (`files/games/active/<game>/data/`), and the launcher shows it with the crash
 reports on the game's page.
 
+## Driving a debug build over adb
+
+A debug build (CI's APK, or `tools/build_android.py` without `--release`) can be started and
+measured from a computer, over USB or wireless debugging. Play the game once from the launcher
+first: the game's activity writes that start to `files/debug/last_launch`.
+
+```sh
+python tools/android_device.py status                 # the device, the app, the GPU's clock
+python tools/android_device.py sweep --level 1        # the Graphics sweep by script, report copied here
+python tools/android_device.py record 20 --level 1    # a 20 second recording
+python tools/android_device.py start --env OPENRAC_RENDER_OPT_OFF=vk-mode-constants
+python tools/android_device.py gpu --seconds 30       # Adreno's clock, load and temperature
+python tools/android_device.py reset                  # the launcher starts the game as usual again
+```
+
+- `start` repeats the launcher's last start through the debug build's exported alias
+  (`dev.openrac.game.DebugStart`, off in a release), with `files/debug/extra` added: environment
+  variables, arguments, and with `--lib FILE` a library loaded in place of the APK's.
+- `--lib` takes `libopenrac-<id>.so` from `port/build/android-arm64`, so a change to the port
+  needs no new APK: build the one target and start it.
+- `GameActivity.debugLaunch` reads both files, on a debuggable build only.
+
 ## Testing on a device
 
 CI has no phone and no disc, so these steps are done by hand. When you report,

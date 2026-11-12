@@ -29,6 +29,8 @@ android {
     }
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
+        // The game's start from adb (the manifest's DebugStart): a debug build's alone.
+        manifestPlaceholders["debugStart"] = "false"
         // A fork's build is an app of its own (.github/workflows/launcher.yml sets these outside
         // OpenRAC/OpenRAC), installed beside the project's with its own name and data; the
         // project's own build keeps the defaults.
@@ -82,6 +84,7 @@ android {
         getByName("debug") {
             if (keystore != null) signingConfig = signingConfigs.getByName("openrac")
             manifestPlaceholders["usesCleartextTraffic"] = "true"
+            manifestPlaceholders["debugStart"] = "true"
             isDebuggable = true
             isJniDebuggable = true
             isMinifyEnabled = false
