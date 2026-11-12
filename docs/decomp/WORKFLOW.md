@@ -77,7 +77,7 @@ push, as rac1-decomp's own CI did ([CONTRIBUTING.md](../../CONTRIBUTING.md#commi
 
 **Matching rules stay per project.** Section 3 lists what each project accepts
 as proof. A match in one game proves nothing in another: rac2's
-[RAC1-TO-RAC2.md](../../games/rac2/decomp/docs/RAC1-TO-RAC2.md) does not accept
+[RAC1-TO-RAC2.md](../../games/rac2/decomp/docs/research/rac1-to-rac2.md) does not accept
 RAC1's compiler profile for RAC2 until it has been measured there.
 
 **Sourcing** ([docs/policy/SOURCING.md](../policy/SOURCING.md)). Never use
@@ -244,7 +244,7 @@ On hosts without the tools, prefix any step with `bash tools/docker/run.sh`.
 ### rac2: Going Commando NTSC-U v1.01 (from rac2-decomp)
 
 Since 2026-10-11 the project follows rac1/pal's structure ([AGENTS.md](../../games/rac2/decomp/AGENTS.md),
-[docs/BUILDING.md](../../games/rac2/decomp/docs/BUILDING.md), [docs/LEVELS.md](../../games/rac2/decomp/docs/LEVELS.md)).
+[docs/BUILDING.md](../../games/rac2/decomp/docs/build/building.md), [docs/LEVELS.md](../../games/rac2/decomp/docs/build/levels.md)).
 
 - **Setup.** The disc, SN ProDG 2.0's assembler and linker you supply, and the two compilers
   `tools/compiler/` rebuilds from public source; or the project's Docker image.
@@ -258,21 +258,21 @@ Since 2026-10-11 the project follows rac1/pal's structure ([AGENTS.md](../../gam
 
 ### rac3: Up Your Arsenal (rac3-decomp)
 
-- **Versions** ([docs/versions.md](../../games/rac3/decomp/docs/versions.md)). One repository,
+- **Versions** ([docs/versions.md](../../games/rac3/decomp/docs/build/versions.md)). One repository,
   two discs: PAL (`SCES-524.56`) is the primary target, and every C function in `src/` was
   matched against it; NTSC-U (`SCUS-973.53`) shares that C, with its own functions in `src/us/`
   and its tables in `config/us/`. Tools take `--version pal|us` and
   `--target frontbin|boot_elf|i5bootn|all`.
 - **Setup** ([docs/wiki/Setup.md](../../games/rac3/decomp/docs/wiki/Setup.md),
-  [targets.md](../../games/rac3/decomp/docs/targets.md)). It builds three core programs from
+  [targets.md](../../games/rac3/decomp/docs/build/targets.md)). It builds three core programs from
   your own disc, `frontbin`, `boot_elf` and `i5bootn`, and the level programs
-  ([levels.md](../../games/rac3/decomp/docs/levels.md)). It needs SN ee-gcc 2.95.3 v1.36, and for
+  ([levels.md](../../games/rac3/decomp/docs/build/levels.md)). It needs SN ee-gcc 2.95.3 v1.36, and for
   the library code marked `@ee29` also Sony's 2.9-ee-991111.
 - **Loop** ([Workflow.md](../../games/rac3/decomp/docs/wiki/Workflow.md),
   [Tools.md](../../games/rac3/decomp/docs/wiki/Tools.md)). `tools/check.py FILE.c` compiles one
   function with its file's flags and diffs it against retail; the full build has the last word.
 - **Flags** are per source file, never per function
-  ([BUILD_FIDELITY.md](../../games/rac3/decomp/docs/BUILD_FIDELITY.md),
+  ([BUILD_FIDELITY.md](../../games/rac3/decomp/docs/build/build-fidelity.md),
   [config/frontbin/text_parts.txt](../../games/rac3/decomp/config/frontbin/text_parts.txt)).
 - **Not C.** `ASM_FUNC(...)` (handwritten) and `LINKER_REMNANT(...)` entries count as finished
   ([Matching-Patterns.md](../../games/rac3/decomp/docs/wiki/Matching-Patterns.md#not-everything-is-c)).
@@ -373,7 +373,7 @@ For now, OpenRAC's [CONTRIBUTING.md](../../CONTRIBUTING.md#commits) asks for a
 `Co-Authored-By:` trailer naming the assistant, as OpenRAC's commits have
 carried so far, and leaves the rule open for the group to decide.
 
-**rac2's tiers** ([AGENT_WORKFLOW.md](../../games/rac2/decomp/docs/AGENT_WORKFLOW.md)).
+**rac2's tiers** ([AGENT_WORKFLOW.md](../../games/rac2/decomp/docs/agents/agent-workflow.md)).
 The same idea sorted by size with `tools/todo.py`: Haiku up to 400 bytes, Sonnet
 from 401 to 1,000, Opus only above that and on near misses. Each worker has its
 own worktree and branch; there is no queue or claim file.
@@ -434,7 +434,7 @@ RAC1 name, address or compiler profile is carried over by analogy
 gives every function's RAC1 origin, symbol and file, in a table
 (`THIRD-C-LOT.md`). Material that
 is not a byte proof goes in
-[COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/COMMUNITY-ENGINE-REFERENCE.md),
+[COMMUNITY-ENGINE-REFERENCE.md](../../games/rac2/decomp/docs/game/community-engine-reference.md),
 marked as reference, never evidence.
 
 ### RAC3 cross-references
@@ -446,7 +446,7 @@ sets out a relocation workflow (pin identities, select candidates by size and
 hash, resolve every relocation, compare linked bytes) and notes each
 project's license; rac3 itself has none. Within rac3, level code is adapted
 from frontbin "donor" functions with the donor's flags
-([levels.md](../../games/rac3/decomp/docs/levels.md)).
+([levels.md](../../games/rac3/decomp/docs/build/levels.md)).
 
 ### Where provenance is recorded
 
@@ -490,14 +490,14 @@ already does.
   for each of rac1/pal, rac2, rac3 PAL and US, and rac4 US and PAL, compiling a candidate the way
   that game's checker does, so that score 0 is the checker's EXACT; plus a queue runner for the
   build machines. The per-game glue stays in each project ([PERMUTER.md](../../games/rac1/decomp/docs/PERMUTER.md),
-  [permuter.md](../../games/rac3/decomp/docs/permuter.md)), as do rac1/pal's `tools/permute.py`
+  [permuter.md](../../games/rac3/decomp/docs/contributing/permuter.md)), as do rac1/pal's `tools/permute.py`
   (exhaustive reordering) and rac3's `regalloc.py` and `fence_search.py`. Lombyte lists "guided C
   mutation search" in its recovery ladder but has no public tool for it.
 - **Make flags and padding explicit.** rac3's `text_parts.txt` keeps every
   flag override single-function, Lombyte's `ROUTE_EXCEPTIONS` may only shrink,
   and rac1/pal has not mapped its per-file flags yet. rac3 also adds retail's
   trailing padding with `TEXT_PADDING(N)` before anyone converts a function
-  ([trailing_padding.md](../../games/rac3/decomp/docs/trailing_padding.md)),
+  ([trailing_padding.md](../../games/rac3/decomp/docs/build/trailing-padding.md)),
   which rac1/pal's SIBLING_DECOMPS.md calls worth copying.
 - **Compare percentages with care.** Handwritten code counts as finished in
   rac3 and rac1/pal but is left out of Lombyte's denominator.

@@ -27,7 +27,7 @@ Names used on this page:
 | RAC1 PAL `SCES_509.16` ([games/rac1/decomp](../../games/rac1/decomp/README.md)) | SN 2.95.3 v1.14 for game code in both segments; nothing edits its output ([BUILD_FIDELITY.md](../../games/rac1/decomp/docs/BUILD_FIDELITY.md)) | `-O2 -G2 -Iinclude -Wa,-I,.` ([Makefile.sn](../../games/rac1/decomp/Makefile.sn)), plus options for whole files only ([file_cflags.txt](../../games/rac1/decomp/config/file_cflags.txt): `-mno-split-addresses`, `-fno-force-mem`, `-fno-schedule-insns`, `-fno-sched-interblock`) | Sony 2.9-ee-991111 (`ee-gcc.exe`) for objects marked `ee29` ([core_text.objects](../../games/rac1/decomp/config/core_text.objects)) and for libgcc; a Linux 2.9-ee-991111-01 built from source for its last three modules | Whole image links at retail addresses. Container build reproduced the Windows report byte for byte ([TOOLCHAIN.md](../../games/rac1/decomp/docs/TOOLCHAIN.md)) |
 | RAC1 NTSC-U `SCUS_971.99` ([games/rac1/ntsc-decomp](../../games/rac1/ntsc-decomp/docs/build/building.md), Lombyte) | "Game compiler": GNU EE 2.9-ee-991111b rebuilt from source with the production patch stack `0000`..`0056` ([patches/sce-991111b](../../games/rac1/ntsc-decomp/patches/sce-991111b/README.md)) | `-O2`, no `-g`, no `-G` option; per-unit flags in `GAME_COMPILER_FLAG_UNITS` ([configure.py](../../games/rac1/ntsc-decomp/configure.py)) | EE-GCC 2.9-ee-991111-01 ("SDK compiler") for every unit below `GAME_TEXT_START = 0x12D8F8`, with `-DMATCHING_DECOMP -O2 -g2 -gstabs` ([configure.py](../../games/rac1/ntsc-decomp/configure.py)) | 1258 of 1331 C units byte-identical on their placement compiler (2026-09-27); 18 units in `ROUTE_EXCEPTIONS` still use another route |
 | RAC2 NTSC-U v1.01 `SCUS_972.68` ([games/rac2/decomp](../../games/rac2/decomp/README.md)) | Game code: 2.9-ee-991111b, the Lombyte stack minus its save widening, plus the measured transformers ([tools/compiler/](../../games/rac2/decomp/tools/compiler/README.md)); SDK units: Sony's 2.9-ee-991111-01, unmodified ([tools/compiler/sdk/](../../games/rac2/decomp/tools/compiler/sdk/build.py)) | Per file ([config/cflags.txt](../../games/rac2/decomp/config/cflags.txt)): `-O2 -G0 -ffunction-sections` by default | Checked by output | Every C function links into a program that equals retail (`tools/build.py all`) |
-| RAC3 NTSC-U `SCUS_973.53`, `frontbin.elf` ([games/rac3/decomp](../../games/rac3/decomp/docs/wiki/Toolchain-and-Build.md)) | SN 2.95.3 v1.36 | `-O2 -G8 -fopt-stack -mno-check-zero-division` on every range. `-mno-split-addresses` on 110 and `@ps2as` on 112 of the 358 lines of [text_parts.txt](../../games/rac3/decomp/config/frontbin/text_parts.txt) | Not measured | 2043/2043 text functions byte-identical in a full build (2026-09-25) ([compiler_matrix_findings.md](../../games/rac3/decomp/docs/us/compiler_matrix_findings.md)) |
+| RAC3 NTSC-U `SCUS_973.53`, `frontbin.elf` ([games/rac3/decomp](../../games/rac3/decomp/docs/wiki/Toolchain-and-Build.md)) | SN 2.95.3 v1.36 | `-O2 -G8 -fopt-stack -mno-check-zero-division` on every range. `-mno-split-addresses` on 110 and `@ps2as` on 112 of the 358 lines of [text_parts.txt](../../games/rac3/decomp/config/frontbin/text_parts.txt) | Not measured | 2043/2043 text functions byte-identical in a full build (2026-09-25) ([compiler_matrix_findings.md](../../games/rac3/decomp/docs/research/us/compiler_matrix_findings.md)) |
 | RAC4 Deadlocked `SCUS_974.65` ([games/rac4/decomp](../../games/rac4/decomp/docs/RESEARCH.md)) | SN 2.95.3 v1.36 | `-O2 -G8 -fopt-stack -mno-check-zero-division`; `-mno-split-addresses` per file, named in a `/* cflags: */` comment ([build.sh](../../games/rac4/decomp/tools/build.sh)) | Sony 2.9-ee-991111 with `-O2 -G2` for libgcc and libm | Per function only, with most immediates masked and no linked image. Chosen from five functions: v1.36 gave 4 of 5 exact, 2.9-ee 3, SN v1.14 and SN 2.74 one each ([RESEARCH.md](../../games/rac4/decomp/docs/RESEARCH.md#the-compiler)) |
 
 ### Assembler, linker, host, sources
@@ -171,7 +171,7 @@ Names used on this page:
   and on them "the 2.9 and 2.95 code generators emit the same instructions".
   It failed three families: `sd` saves in 8-byte slots, `jal` plus a full
   epilogue at the end of a function, and an `mtc1` nop in some cases only
-  ([COMPILER-NOTES.md](../../games/rac2/decomp/docs/COMPILER-NOTES.md)).
+  ([COMPILER-NOTES.md](../../games/rac2/decomp/docs/build/compiler-notes.md)).
 - **The current profile** is 2.9-ee-991111b with these changes to the stack:
   `sd` saves in 8-byte slots; GPR saves ascending, with the FPR block first;
   sibling calls inert; the `mtc1` hazard nop whenever the next instruction
@@ -194,14 +194,14 @@ Names used on this page:
   adjustments shipped as scripts that carry their exact replacement text, and
   the configure and build steps. A partial recipe yields a different
   `mips.c`, and the built hashes depend on the host distribution
-  ([COMPILER-NOTES.md](../../games/rac2/decomp/docs/COMPILER-NOTES.md), "Complete rebuild recipe").
+  ([COMPILER-NOTES.md](../../games/rac2/decomp/docs/build/compiler-notes.md), "Complete rebuild recipe").
 - **SDK and small data.** Exact SDK boot objects (CPR8, sysbit flush, IPU DMA
   restart) under a separately qualified SDK profile
   (`SDK-PROFILE-QUALIFICATION.md`); a
   separate small-data unit per overlay, and `$gp` facts proved per function
   (`SMALL-DATA-UNIT-EVIDENCE.md`,
   `LOCAL-GP-PROOF.md`). It also drew on rac1-decomp's
-  findings ([RAC1-DECOMP-FINDINGS.md](../../games/rac2/decomp/docs/RAC1-DECOMP-FINDINGS.md),
+  findings ([RAC1-DECOMP-FINDINGS.md](../../games/rac2/decomp/docs/research/rac1-decomp-findings.md),
   `RAC1-FP-BIT-EVIDENCE.md`).
 
 ### RAC3 (rac3-decomp)
@@ -210,7 +210,7 @@ Names used on this page:
   and 47 problem cases. SN v1.36 reproduces 270/271, Sony 2.95.3-136 gives
   identical output, and no other build tops 189 (Sony 2.9-990721). "the 2.9
   builds are not better than SN for any tested group"
-  ([compiler_matrix_findings.md](../../games/rac3/decomp/docs/us/compiler_matrix_findings.md)).
+  ([compiler_matrix_findings.md](../../games/rac3/decomp/docs/research/us/compiler_matrix_findings.md)).
 - **Three former ceilings turned out to be settings.** `-fopt-stack`, an
   SN-only `cc1` option, gives `$s` saves as `sd` in 8-byte slots.
   `-mno-check-zero-division` drops the `break 7` trap. The `mtc1` nop
@@ -238,11 +238,11 @@ Names used on this page:
   gives two level files.
 - **Three programs** (2026-10-07). `boot_elf.elf`, the main executable, and
   `i5bootn.elf`, the launcher, build byte for byte as well
-  ([targets.md](../../games/rac3/decomp/docs/targets.md)). The launcher was linked from three
+  ([targets.md](../../games/rac3/decomp/docs/build/targets.md)). The launcher was linked from three
   compilers' objects: Sony 2.9-ee-991111(-01) for libgcc and small libc
   helpers, 2.96-ee-001003-1 for newlib's `exit()`, and SN 2.95.3 for `main`
   (at `-O0`) and one dispatcher; 2.9-ee emits sibling calls, SN 2.95.3 never
-  does ([compiler_matrix_i5bootn.md](../../games/rac3/decomp/docs/us/compiler_matrix_i5bootn.md)).
+  does ([compiler_matrix_i5bootn.md](../../games/rac3/decomp/docs/research/us/compiler_matrix_i5bootn.md)).
 
 ### RAC4 (rac4-decomp)
 
@@ -268,10 +268,10 @@ Names used on this page:
 
 | Finding | RAC1 PAL | RAC1 NTSC-U | RAC2 | RAC3 | Status |
 |---|---|---|---|---|---|
-| SDK libraries built by a 2.9-ee-991111 variant, separately from game code | yes; SDK `.a` members match retail | yes; SDK compiler is 991111-01 | exact SDK boot objects under a separately qualified SDK profile (`SDK-PROFILE-QUALIFICATION.md`) | yes: `i5bootn`'s libgcc and libc helpers are 2.9-ee-991111(-01) ([compiler_matrix_i5bootn.md](../../games/rac3/decomp/docs/us/compiler_matrix_i5bootn.md)) | Every game measured |
+| SDK libraries built by a 2.9-ee-991111 variant, separately from game code | yes; SDK `.a` members match retail | yes; SDK compiler is 991111-01 | exact SDK boot objects under a separately qualified SDK profile (`SDK-PROFILE-QUALIFICATION.md`) | yes: `i5bootn`'s libgcc and libc helpers are 2.9-ee-991111(-01) ([compiler_matrix_i5bootn.md](../../games/rac3/decomp/docs/research/us/compiler_matrix_i5bootn.md)) | Every game measured |
 | The compiler switch sits at `boot.cpp` | `boot.cpp` at 0x12DA38, NTSC-to-PAL shift +0x140 there ([DECOMP_PROGRESS.md](../../games/rac1/decomp/docs/DECOMP_PROGRESS.md)) | `GAME_TEXT_START` 0x12D8F8 (+0x140 = 0x12DA38) | | | Agreed for RAC1 |
 | Callee-saved saves | `sq`, 16-byte slots, `$ra` too, in all game code; `sd` in the SDK objects of `core_text`, which 2.9-ee builds | `sq` saves (patch `0001`) | `sd`, 8-byte slots | `$s`: `sd`, 8-byte slots (`-fopt-stack`); 13 functions `sq $ra` | Differs per game. A signature, not a constant |
-| Bare tail jumps | only in 2.9-ee objects, where the compiler emits them; the rewrite for SN code is gone ([BUILD_FIDELITY.md](../../games/rac1/decomp/docs/BUILD_FIDELITY.md)) | sibling calls off, on per unit | none in the measured family | SN 2.95.3 never emits them; 2.9-ee-991111 does ([compiler_matrix_i5bootn.md](../../games/rac3/decomp/docs/us/compiler_matrix_i5bootn.md)) | A tail jump means "not SN 2.95.3" (RAC1 PAL, RAC3) |
+| Bare tail jumps | only in 2.9-ee objects, where the compiler emits them; the rewrite for SN code is gone ([BUILD_FIDELITY.md](../../games/rac1/decomp/docs/BUILD_FIDELITY.md)) | sibling calls off, on per unit | none in the measured family | SN 2.95.3 never emits them; 2.9-ee-991111 does ([compiler_matrix_i5bootn.md](../../games/rac3/decomp/docs/research/us/compiler_matrix_i5bootn.md)) | A tail jump means "not SN 2.95.3" (RAC1 PAL, RAC3) |
 | Short loops padded by the assembler | Ps2EeAs for `text`: six instructions, target through branch | Ps2EeAs; earlier `cc1` patches padded to "shorter than 7" | `cc1` hook, "measured minimum of seven" | Ps2EeAs pads; ee-as stubs need raw branches | Same rule in three games. Patch `0046`'s example (`jal; nop x4; bnez; nop`) is seven words counting the delay slot |
 | `nop`s before `div`/`div.s` | none among 1,671 divides | none among 346 + 26,539 | not documented | 0 to 3 before most `div.s`/`sqrt.s` | Differs between RAC1 and RAC3 |
 | `mtc1` hazard nop | handled in the build ([LEVERS.md](../../games/rac1/decomp/docs/LEVERS.md)) | patch `0051` | rule plus a narrow exemption | ee-as or Ps2EeAs per range | Present in three games; details differ |
@@ -281,7 +281,7 @@ Names used on this page:
 | `-G` | `-G2` | none passed | `-G0` | `-G8`; "-G2 fails every 4-byte `$gp` variable" | Not settled; see section 4 |
 | `-mno-split-addresses` | per file ([file_cflags.txt](../../games/rac1/decomp/config/file_cflags.txt)); `pause.c` whole breaks 81 of 124, so its function is assembly again | per unit | not documented | per file, 18 runs | Retail used it in RAC1 and RAC3 |
 | `-fno-force-mem` | per file: two level functions in files of their own ([BUILD_FIDELITY.md](../../games/rac1/decomp/docs/BUILD_FIDELITY.md)) | | | per file (`3958F0.c`) | Same option, per file, in RAC1 and RAC3 |
-| Steps that edit compiler output | none since 2026-10-07; `check_build_fidelity.py` enforces it ([BUILD_FIDELITY.md](../../games/rac1/decomp/docs/BUILD_FIDELITY.md)) | none: behaviours are compiler and assembler patches | none: behaviours are compiler source adjustments ([COMPILER-NOTES.md](../../games/rac2/decomp/docs/COMPILER-NOTES.md)) | `asm_filter.py`: `sq $ra` for 13 functions, `div.s` nops from a table | Differs; PAL models only the assembler and linker |
+| Steps that edit compiler output | none since 2026-10-07; `check_build_fidelity.py` enforces it ([BUILD_FIDELITY.md](../../games/rac1/decomp/docs/BUILD_FIDELITY.md)) | none: behaviours are compiler and assembler patches | none: behaviours are compiler source adjustments ([COMPILER-NOTES.md](../../games/rac2/decomp/docs/build/compiler-notes.md)) | `asm_filter.py`: `sq $ra` for 13 functions, `div.s` nops from a table | Differs; PAL models only the assembler and linker |
 | libgcc rebuilt from GCC's source | every module, the last three with a Linux 2.9-ee-991111-01 built from source | GPL-2.0 reconstruction | `fp-bit` unpacker from vendored source | 26 of `i5bootn`'s, from GCC 2.95.x `fp-bit.c` with Sony's no-denormals change | Sony's libgcc is reproducible from source in three games |
 | Zero-divide trap | present with default flags ([SIBLING_DECOMPS.md](../../games/rac1/decomp/docs/SIBLING_DECOMPS.md)); `-mno-check-zero-division` for a `div` without it ([LEVERS.md](../../games/rac1/decomp/docs/LEVERS.md)) | | present in some bodies (`TRAP_IF`) | absent: `-mno-check-zero-division` | Differs |
 | `sq $zero` | wall: C adds `por` | | compiler patch | wall under SN 3.01 and 2.0 | No stock compiler emits it from C |
@@ -343,7 +343,7 @@ RAC2).
    SN ProDG's 2.0 assembler and linker stay for the reconstructed assembly and the link.
 3. **Does SN 2.95.3 emit sibling calls?** Settled (2026-10-07): it does not.
    RAC3's launcher matrix found that no SN 2.95.3 build emits one, while
-   Sony's 2.9-ee-991111 does ([compiler_matrix_i5bootn.md](../../games/rac3/decomp/docs/us/compiler_matrix_i5bootn.md), "Correction"). PAL had measured that
+   Sony's 2.9-ee-991111 does ([compiler_matrix_i5bootn.md](../../games/rac3/decomp/docs/research/us/compiler_matrix_i5bootn.md), "Correction"). PAL had measured that
    `-foptimize-sibling-calls` is rejected by both SN sub-builds and that
    `return f(x);` compiles to a call and a return
    ([DECOMP_PROGRESS.md](../../games/rac1/decomp/docs/DECOMP_PROGRESS.md), "SOLVED:
@@ -432,7 +432,7 @@ games:
    PAL text) and SN ProDG 2.0 v2.73a (RAC3's 13 functions) to the candidates.
 4. **If SN fails on a family,** the patched 2.9-ee-991111b stacks of
    [Lombyte](../../games/rac1/ntsc-decomp/patches/sce-991111b/README.md) and
-   [RAC2](../../games/rac2/decomp/docs/COMPILER-NOTES.md) can be rebuilt from a
+   [RAC2](../../games/rac2/decomp/docs/build/compiler-notes.md) can be rebuilt from a
    pinned public source archive and are the next thing to try.
 5. **Expect SDK code to need its own compiler,** as in RAC1, and check it
    against the SDK library archives.
