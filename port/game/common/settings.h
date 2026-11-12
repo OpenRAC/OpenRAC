@@ -170,6 +170,18 @@ struct Settings {
     // Original: the game's own distances, with its fades and billboards.
     bool original_draw_distance() const { return draw_distance == 100; }
 
+    // Active distance: how far the game updates its mobys (animation, AI) when its moby loop goes
+    // by what MobyProc drew (the +0x31 flag). Match (the default) takes Draw distance's reach, so
+    // whatever is drawn far away is live; Original keeps the game's own distances, so a moby past
+    // them is drawn standing in its pose, as before. The AI's own ranges (sight, aggro, attack)
+    // are the game's at either setting.
+    bool original_active_distance = false;
+
+    // The active distance's factor: Draw distance's at Match, 1 at Original.
+    float active_distance_scale() const {
+        return original_active_distance ? 1.0f : draw_distance_scale();
+    }
+
     int anisotropy_samples(bool enhanced) const {
         return anisotropy ? anisotropy : enhanced ? 4 : 1;
     }

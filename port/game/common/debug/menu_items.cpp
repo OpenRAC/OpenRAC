@@ -200,6 +200,8 @@ Item item(Id id, std::uint8_t where) {
             return row_choice(kAnisotropy);
         case Id::DrawDistance:
             return row_choice(kDrawDistance);
+        case Id::ActiveDistance:
+            return row_choice(kActiveDistance);
         case Id::FrameRate:
             return row_choice(kFrameRate);
         case Id::FrameCap:
@@ -561,6 +563,9 @@ bool act(Id id, int by) {
             return false;
         case Id::DrawDistance:
             change_setting(kDrawDistance, by);
+            return false;
+        case Id::ActiveDistance:
+            change_setting(kActiveDistance, by);
             return false;
         case Id::FrameRate:
             change_setting(kFrameRate, by);

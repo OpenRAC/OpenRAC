@@ -51,6 +51,10 @@ constexpr Entry kEntries[] = {
      "How far away things are still drawn. Original stops where the console did; the larger "
      "steps draw farther, and Unlimited draws everything in view. What the game hides from a "
      "place stays hidden."},
+    {Id::ActiveDistance, Tab::Graphics, "Picture", kChoice, A, "Active distance",
+     "How far away things still move and run their logic. Match keeps everything Draw distance "
+     "shows alive; Original stops where the console did, so far things stand still. Enemies "
+     "notice you from their usual ranges either way."},
     {Id::FrameRate, Tab::Graphics, "Frames", kChoice, A, "Frame rate",
      "Original keeps the console's rate. The others draw extra frames between the game's ticks: "
      "as fast as the display, up to a cap, or without a limit. The game itself runs at its own "

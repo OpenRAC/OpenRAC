@@ -146,8 +146,9 @@ static void mark_drawn_mobys(gaddr first, int count) {
     ty *= opened;
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(RAC1_ADDR(0x00160030u)));
-    /* As far as the window draws mobys (openrac_game_draw_distance): a drawn moby stays active. */
-    const float scale = openrac_game_draw_distance();
+    /* As far as the window draws mobys (openrac_game_active_distance at Match): a drawn moby stays
+     * active. */
+    const float scale = openrac_game_active_distance();
     const uint8_t* groups = G(OPENRAC_DATA(RAC1_ADDR(0x001940C0u)));
     for (gaddr m = first; count < 0 || m != end; m += 0x100) {
         /* At most 4096 mobys in the console's arena, as before; an expanded one holds more. */
