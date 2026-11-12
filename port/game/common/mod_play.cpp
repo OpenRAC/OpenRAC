@@ -2180,6 +2180,20 @@ void drop_figures(const openrac_mod* mod) {
     if (g_hits.mod == mod) {
         g_hits = HitWatch{};
     }
+    // A refused mod's library is closed immediately after this cleanup. None of
+    // its observers may survive until a later camera event or metal-detector dig.
+    if (g_metal.mod == mod) {
+        g_metal = MetalWatch{};
+        openrac_game_metal_detect = nullptr;
+    }
+
+    if (g_camera_scripts.mod == mod) {
+        g_camera_scripts = {};
+    }
+
+    if (g_camera_shower == mod) {
+        g_camera_shower = nullptr;
+    }
 }
 
 }  // namespace openrac::mods

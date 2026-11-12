@@ -538,6 +538,21 @@ static void on_overlay(void* user, const openrac_overlay* overlay) {
     }
 }
 
+static void failed_camera(void* user, int id, int started) {
+    (void)user;
+    (void)id;
+    (void)started;
+    s_record(9901);
+}
+
+static int failed_metal(void* user, int slot, int key) {
+    (void)user;
+    (void)slot;
+    (void)key;
+    s_record(9902);
+    return 0;
+}
+
 OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod) {
     s_api = api;
     s_frames = 0;
@@ -556,6 +571,17 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     s_record = (void (*)(int))api->function("Test_Record");
     const char* behaviour = api->setting_string(mod, "behaviour");
     api->log(mod, OPENRAC_LOG_INFO, behaviour);
+    if (behaviour[0] == 'z') { /* watchers registered before an exclusive gate refuses */
+        if (api->on_camera_script(mod, failed_camera, NULL) != OPENRAC_HOOK_OK
+            || api->on_metal_detect(mod, failed_metal, NULL) != OPENRAC_HOOK_OK) {
+            return 20;
+        }
+        if (api->on_moby_update(mod, world_gate, NULL) == OPENRAC_HOOK_TAKEN) {
+            api->fail(mod, "the world gate is already taken");
+            return 21;
+        }
+        return 22;
+    }
     if (behaviour[0] == 'f') { /* fail */
         api->fail(mod, "this mod refuses on purpose");
         return 1;
