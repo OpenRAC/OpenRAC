@@ -83,6 +83,46 @@ struct Item_Equip {
     using fn = int32_t (*)(int32_t);
 };
 
+// Steps weapon id to its next version by experience: its record (g_itemEquippedSlot) moves to the next row (+0x4A), its experience is kept at least the step's (+0x6C << 5), and its ammo filled to the new row's (+0x8E); nothing at its last row. The hero's experience check (func_L00_002D5EB8) calls it each tick a weapon's experience reaches its step, challenge mode's rows only past func_00288D58. A replacement that does not call the original blocks the step.
+struct Weapon_LevelUp {
+    static constexpr const char* id = "rac2.weapon.level_up";
+    static constexpr const char* name = "Weapon_LevelUp";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// The vendor's Mega purchase of item id: its record moves two rows on (one for the two-version weapons 12, 14, 17, 18 and 53) and its experience is cleared; 1 when it moved, 0 at its last row. The vendor calls it after a purchase of an upgrade entry (Vendor_BuildList's +0x14 set) and its price is paid; a replacement can carry out an upgrade of its own and return 1.
+struct Item_Upgrade {
+    static constexpr const char* id = "rac2.item.upgrade";
+    static constexpr const char* name = "Item_Upgrade";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
+// Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), marked, price text, class, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's.
+struct Vendor_BuildList {
+    static constexpr const char* id = "rac2.vendor.build_list";
+    static constexpr const char* name = "Vendor_BuildList";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// The price in bolts of the vendor entry under the cursor (g_vendorUi +0x80): an upgrade entry's from the row it moves to, a weapon's from its record (+0x80), 0 for ammo (priced per round). The vendor's dialog and its purchase both ask it, so a replacement prices an entry everywhere it shows.
+struct Vendor_Price {
+    static constexpr const char* id = "rac2.vendor.price";
+    static constexpr const char* name = "Vendor_Price";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
+// Writes item id's colours to three u32 the caller has (game addresses): the two of its experience bar and tint, its version's colour (0x00BBGGRR in the low bytes, from D_001ADAF8 or D_001ADB08 by version) that its icon and name are drawn in. The quick select (func_0033FB98) and the weapons screen's grid (func_00337210) call it for each item they show; a replacement can call the original and write its own.
+struct Item_Colors {
+    static constexpr const char* id = "rac2.item.colors";
+    static constexpr const char* name = "Item_Colors";
+    static constexpr const char* signature = "void(i32,u32,u32,u32)";
+    using fn = void (*)(int32_t, uint32_t, uint32_t, uint32_t);
+};
+
 // Puts a level on the ship's map (MarkLevelAvailable): its byte at 0x1A7BC8 and its place in the map's order (0x139948, on NTSC-U v1.01). Coordinate sellers, story scenes and ship challenges call it, and every level load calls it for the level loaded. Rac1's UnlockPlanet.
 struct Planet_Unlock {
     static constexpr const char* id = "rac2.planet.unlock";
@@ -200,8 +240,10 @@ namespace hooks {
         using get_hit = rac2::Moby_GetHitMessage;
     }  // namespace combat
     namespace item {
+        using colors = rac2::Item_Colors;
         using equip = rac2::Item_Equip;
         using give = rac2::Item_Give;
+        using upgrade = rac2::Item_Upgrade;
     }  // namespace item
     namespace level {
         using load = rac2::Level_Load;
@@ -256,7 +298,12 @@ namespace hooks {
         using nanotech_steps = rac2::Hero_NanotechSteps;
         using take_damage = rac2::Hero_TakeDamage;
     }  // namespace player
+    namespace vendor {
+        using build_list = rac2::Vendor_BuildList;
+        using price = rac2::Vendor_Price;
+    }  // namespace vendor
     namespace weapon {
+        using level_up = rac2::Weapon_LevelUp;
         using take_ammo = rac2::Weapon_TakeAmmo;
     }  // namespace weapon
 }  // namespace hooks

@@ -2,8 +2,10 @@
 # on the first disc) and every alias it has had. It only grows: an id is never removed or reused,
 # and an alias once given stays (docs/port/MODS.md, section 4). Regenerated, never edited.
 rac2.combat.get_hit	ntsc:002A9640	Moby_GetHitMessage,func_002A9640,func_002AA0A8,func_002AA4A8
+rac2.item.colors	ntsc:00336F20	Item_Colors,func_00336F20,func_00337DC8,func_00338C78
 rac2.item.equip	ntsc:002AD860	Item_Equip,func_002AD860,func_002AE3C0,func_002AE6C8
 rac2.item.give	ntsc:00288308	Item_Give,func_00288308,func_00288C20,func_00288D30
+rac2.item.upgrade	ntsc:002887B0	Item_Upgrade,func_002887B0,func_002890C8,func_002891D8
 rac2.level.load	ntsc:L00:00303990	Level_Load,func_L00_00303990,func_L00_00304660,func_L00_00305570
 rac2.moby.box_breaker_pickup.update	ntsc:L01:00416440	Moby_BoxBreakerPickup_Update,func_L01_00416440,func_L01_004179C0,func_L01_0041B900
 rac2.moby.charge_boots_rider.update	ntsc:L11:003F8510	Moby_ChargeBootsRider_Update,func_L11_003F8510,func_L11_003F9A50,func_L11_003FCA30
@@ -23,4 +25,7 @@ rac2.planet.unlock	ntsc:002AD7B8	Planet_Unlock,func_002AD7B8,func_002AE318,func_
 rac2.player.approach_speed	ntsc:L00:002B41B8	Hero_ApproachSpeed,func_L00_002B40E0,func_L00_002B41B8,func_L00_002B42C0
 rac2.player.nanotech_steps	ntsc:L00:002D5E30	Hero_NanotechSteps,func_L00_002D5E30,func_L00_002D61D0,func_L00_002D6380
 rac2.player.take_damage	ntsc:L00:002A4EF8	Hero_TakeDamage,func_L00_002A4D58,func_L00_002A4EF8
+rac2.vendor.build_list	ntsc:002F6608	Vendor_BuildList,func_002F6608,func_002F7488,func_002F7578
+rac2.vendor.price	ntsc:002F6510	Vendor_Price,func_002F6510,func_002F7390,func_002F7480
+rac2.weapon.level_up	ntsc:00287EB0	Weapon_LevelUp,func_00287EB0,func_002887C8,func_002888D8
 rac2.weapon.take_ammo	ntsc:L00:002D3F30	Weapon_TakeAmmo,func_L00_002D3F30,func_L00_002D42D0,func_L00_002D4458

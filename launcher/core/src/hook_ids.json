@@ -698,8 +698,10 @@
    "Hero_ApproachSpeed": "rac2.player.approach_speed",
    "Hero_NanotechSteps": "rac2.player.nanotech_steps",
    "Hero_TakeDamage": "rac2.player.take_damage",
+   "Item_Colors": "rac2.item.colors",
    "Item_Equip": "rac2.item.equip",
    "Item_Give": "rac2.item.give",
+   "Item_Upgrade": "rac2.item.upgrade",
    "Level_Load": "rac2.level.load",
    "Moby_BoxBreakerPickup_Update": "rac2.moby.box_breaker_pickup.update",
    "Moby_ChargeBootsRider_Update": "rac2.moby.charge_boots_rider.update",
@@ -717,6 +719,9 @@
    "Moby_ThermanatorSeller_Update": "rac2.moby.thermanator_seller.update",
    "Moby_TractorBeamSeller_Update": "rac2.moby.tractor_beam_seller.update",
    "Planet_Unlock": "rac2.planet.unlock",
+   "Vendor_BuildList": "rac2.vendor.build_list",
+   "Vendor_Price": "rac2.vendor.price",
+   "Weapon_LevelUp": "rac2.weapon.level_up",
    "Weapon_TakeAmmo": "rac2.weapon.take_ammo"
   }
  }

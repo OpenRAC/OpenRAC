@@ -15,6 +15,11 @@ type HookPoint =
     | "rac2.player.nanotech_steps"
     | "rac2.item.give"
     | "rac2.item.equip"
+    | "rac2.weapon.level_up"
+    | "rac2.item.upgrade"
+    | "rac2.vendor.build_list"
+    | "rac2.vendor.price"
+    | "rac2.item.colors"
     | "rac2.planet.unlock"
     | "rac2.moby.dynamo_pickup.update"
     | "rac2.moby.tractor_beam_seller.update"
@@ -32,8 +37,10 @@ type HookPoint =
     | "Hero_ApproachSpeed"
     | "Hero_NanotechSteps"
     | "Hero_TakeDamage"
+    | "Item_Colors"
     | "Item_Equip"
     | "Item_Give"
+    | "Item_Upgrade"
     | "Level_Load"
     | "Moby_BoxBreakerPickup_Update"
     | "Moby_ChargeBootsRider_Update"
@@ -51,6 +58,9 @@ type HookPoint =
     | "Moby_ThermanatorSeller_Update"
     | "Moby_TractorBeamSeller_Update"
     | "Planet_Unlock"
+    | "Vendor_BuildList"
+    | "Vendor_Price"
+    | "Weapon_LevelUp"
     | "Weapon_TakeAmmo"
 type MemoryType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32"
 
@@ -75,6 +85,16 @@ type Hero_NanotechStepsFn = (a0: number, a1: number, count: number) -> number
 type Item_GiveFn = (id: number) -> ()
 -- rac2.item.equip (Item_Equip) i32(i32): Puts item id in the hero's hand, or on him for the boots, helmets and packs (by the state of its record in the item table): a request his update carries out; 1 when one was made. Most givers call it right after Item_Give with the same id (Todano's Sheepinator, the Tractor Beam, the Thermanator, the Swingshot, the Mapper, ...), the vendor after a purchase; a mod that gives another item in a giver's place hands it this one's too.
 type Item_EquipFn = (id: number) -> number
+-- rac2.weapon.level_up (Weapon_LevelUp) void(i32): Steps weapon id to its next version by experience: its record (g_itemEquippedSlot) moves to the next row (+0x4A), its experience is kept at least the step's (+0x6C << 5), and its ammo filled to the new row's (+0x8E); nothing at its last row. The hero's experience check (func_L00_002D5EB8) calls it each tick a weapon's experience reaches its step, challenge mode's rows only past func_00288D58. A replacement that does not call the original blocks the step.
+type Weapon_LevelUpFn = (id: number) -> ()
+-- rac2.item.upgrade (Item_Upgrade) i32(i32): The vendor's Mega purchase of item id: its record moves two rows on (one for the two-version weapons 12, 14, 17, 18 and 53) and its experience is cleared; 1 when it moved, 0 at its last row. The vendor calls it after a purchase of an upgrade entry (Vendor_BuildList's +0x14 set) and its price is paid; a replacement can carry out an upgrade of its own and return 1.
+type Item_UpgradeFn = (id: number) -> number
+-- rac2.vendor.build_list (Vendor_BuildList) void(i32): Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), marked, price text, class, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's.
+type Vendor_BuildListFn = (hide_unowned: number) -> ()
+-- rac2.vendor.price (Vendor_Price) i32(): The price in bolts of the vendor entry under the cursor (g_vendorUi +0x80): an upgrade entry's from the row it moves to, a weapon's from its record (+0x80), 0 for ammo (priced per round). The vendor's dialog and its purchase both ask it, so a replacement prices an entry everywhere it shows.
+type Vendor_PriceFn = () -> number
+-- rac2.item.colors (Item_Colors) void(i32,u32,u32,u32): Writes item id's colours to three u32 the caller has (game addresses): the two of its experience bar and tint, its version's colour (0x00BBGGRR in the low bytes, from D_001ADAF8 or D_001ADB08 by version) that its icon and name are drawn in. The quick select (func_0033FB98) and the weapons screen's grid (func_00337210) call it for each item they show; a replacement can call the original and write its own.
+type Item_ColorsFn = (id: number, first: number, second: number, tint: number) -> ()
 -- rac2.planet.unlock (Planet_Unlock) void(i32): Puts a level on the ship's map (MarkLevelAvailable): its byte at 0x1A7BC8 and its place in the map's order (0x139948, on NTSC-U v1.01). Coordinate sellers, story scenes and ship challenges call it, and every level load calls it for the level loaded. Rac1's UnlockPlanet.
 type Planet_UnlockFn = (level: number) -> ()
 -- rac2.moby.dynamo_pickup.update (Moby_DynamoPickup_Update) void(u32): Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte.

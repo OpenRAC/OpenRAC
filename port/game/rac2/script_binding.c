@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[23];
+static const openrac_script_point k_points[28];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -185,43 +185,102 @@ static void S8_call(void* original, const openrac_script_value* v, openrac_scrip
 }
 #define S8_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S8_THUNK(N, I, 0) S8_THUNK(N, I, 1) S8_THUNK(N, I, 2) S8_THUNK(N, I, 3) S8_THUNK(N, I, 4) S8_THUNK(N, I, 5) S8_THUNK(N, I, 6) S8_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S9: void(i32) (level). */
+/* Shape S9: void(i32) (hide_unowned). */
 typedef void (*S9_fn)(int32_t);
 static const uint8_t k_S9_kinds[] = {OPENRAC_SV_I32};
-static const char* const k_S9_names[] = {"level"};
+static const char* const k_S9_names[] = {"hide_unowned"};
 static void S9_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
     (void)r;
     ((S9_fn)original)((int32_t)v[0].i);
 }
-#define S9_THUNK(N, I, K) static void N##_##K(int32_t level) { \
+#define S9_THUNK(N, I, K) static void N##_##K(int32_t hide_unowned) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)level; \
+    v[0].i = (int64_t)hide_unowned; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S9_fn)k_##N##_links[K].original)(level); \
+        ((S9_fn)k_##N##_links[K].original)(hide_unowned); \
         return; \
     } \
 }
 #define S9_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S9_THUNK(N, I, 0) S9_THUNK(N, I, 1) S9_THUNK(N, I, 2) S9_THUNK(N, I, 3) S9_THUNK(N, I, 4) S9_THUNK(N, I, 5) S9_THUNK(N, I, 6) S9_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S10: void(u32) (moby). */
-typedef void (*S10_fn)(uint32_t);
-static const uint8_t k_S10_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S10_names[] = {"moby"};
+/* Shape S10: i32() (no parameters). */
+typedef int32_t (*S10_fn)(void);
+static const uint8_t k_S10_kinds[] = {OPENRAC_SV_VOID};
+static const char* const k_S10_names[] = {NULL};
 static void S10_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    (void)r;
-    ((S10_fn)original)((uint32_t)v[0].i);
+    (void)v;
+    r->i = ((S10_fn)original)();
 }
-#define S10_THUNK(N, I, K) static void N##_##K(uint32_t moby) { \
+#define S10_THUNK(N, I, K) static int32_t N##_##K(void) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        return ((S10_fn)k_##N##_links[K].original)(); \
+    } \
+    return (int32_t)r.i; \
+}
+#define S10_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S10_THUNK(N, I, 0) S10_THUNK(N, I, 1) S10_THUNK(N, I, 2) S10_THUNK(N, I, 3) S10_THUNK(N, I, 4) S10_THUNK(N, I, 5) S10_THUNK(N, I, 6) S10_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S11: void(i32,u32,u32,u32) (id, first, second, tint). */
+typedef void (*S11_fn)(int32_t, uint32_t, uint32_t, uint32_t);
+static const uint8_t k_S11_kinds[] = {OPENRAC_SV_I32, OPENRAC_SV_U32, OPENRAC_SV_U32, OPENRAC_SV_U32};
+static const char* const k_S11_names[] = {"id", "first", "second", "tint"};
+static void S11_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S11_fn)original)((int32_t)v[0].i, (uint32_t)v[1].i, (uint32_t)v[2].i, (uint32_t)v[3].i);
+}
+#define S11_THUNK(N, I, K) static void N##_##K(int32_t id, uint32_t first, uint32_t second, uint32_t tint) { \
+    openrac_script_value v[4] = {{0, 0.0}}; \
+    v[0].i = (int64_t)id; \
+    v[1].i = (int64_t)first; \
+    v[2].i = (int64_t)second; \
+    v[3].i = (int64_t)tint; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S11_fn)k_##N##_links[K].original)(id, first, second, tint); \
+        return; \
+    } \
+}
+#define S11_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S11_THUNK(N, I, 0) S11_THUNK(N, I, 1) S11_THUNK(N, I, 2) S11_THUNK(N, I, 3) S11_THUNK(N, I, 4) S11_THUNK(N, I, 5) S11_THUNK(N, I, 6) S11_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S12: void(i32) (level). */
+typedef void (*S12_fn)(int32_t);
+static const uint8_t k_S12_kinds[] = {OPENRAC_SV_I32};
+static const char* const k_S12_names[] = {"level"};
+static void S12_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S12_fn)original)((int32_t)v[0].i);
+}
+#define S12_THUNK(N, I, K) static void N##_##K(int32_t level) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)level; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S12_fn)k_##N##_links[K].original)(level); \
+        return; \
+    } \
+}
+#define S12_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S12_THUNK(N, I, 0) S12_THUNK(N, I, 1) S12_THUNK(N, I, 2) S12_THUNK(N, I, 3) S12_THUNK(N, I, 4) S12_THUNK(N, I, 5) S12_THUNK(N, I, 6) S12_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S13: void(u32) (moby). */
+typedef void (*S13_fn)(uint32_t);
+static const uint8_t k_S13_kinds[] = {OPENRAC_SV_U32};
+static const char* const k_S13_names[] = {"moby"};
+static void S13_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S13_fn)original)((uint32_t)v[0].i);
+}
+#define S13_THUNK(N, I, K) static void N##_##K(uint32_t moby) { \
     openrac_script_value v[1] = {{0, 0.0}}; \
     v[0].i = (int64_t)moby; \
     openrac_script_value r = {0, 0.0}; \
     if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        ((S10_fn)k_##N##_links[K].original)(moby); \
+        ((S13_fn)k_##N##_links[K].original)(moby); \
         return; \
     } \
 }
-#define S10_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S10_THUNK(N, I, 0) S10_THUNK(N, I, 1) S10_THUNK(N, I, 2) S10_THUNK(N, I, 3) S10_THUNK(N, I, 4) S10_THUNK(N, I, 5) S10_THUNK(N, I, 6) S10_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+#define S13_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S13_THUNK(N, I, 0) S13_THUNK(N, I, 1) S13_THUNK(N, I, 2) S13_THUNK(N, I, 3) S13_THUNK(N, I, 4) S13_THUNK(N, I, 5) S13_THUNK(N, I, 6) S13_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
 S0_POINT(Hero_TakeDamage, 0) /* rac2.player.take_damage */
 S1_POINT(Moby_GetHitMessage, 1) /* rac2.combat.get_hit */
@@ -232,22 +291,27 @@ S5_POINT(Hero_ApproachSpeed, 5) /* rac2.player.approach_speed */
 S6_POINT(Hero_NanotechSteps, 6) /* rac2.player.nanotech_steps */
 S7_POINT(Item_Give, 7) /* rac2.item.give */
 S8_POINT(Item_Equip, 8) /* rac2.item.equip */
-S9_POINT(Planet_Unlock, 9) /* rac2.planet.unlock */
-S10_POINT(Moby_DynamoPickup_Update, 10) /* rac2.moby.dynamo_pickup.update */
-S10_POINT(Moby_TractorBeamSeller_Update, 11) /* rac2.moby.tractor_beam_seller.update */
-S10_POINT(Moby_BoxBreakerPickup_Update, 12) /* rac2.moby.box_breaker_pickup.update */
-S10_POINT(Moby_ThermanatorSeller_Update, 13) /* rac2.moby.thermanator_seller.update */
-S10_POINT(Moby_ThermanatorArea_Update, 14) /* rac2.moby.thermanator_area.update */
-S10_POINT(Moby_SwingshotArea_Update, 15) /* rac2.moby.swingshot_area.update */
-S10_POINT(Moby_GliderPickup_Update, 16) /* rac2.moby.glider_pickup.update */
-S10_POINT(Moby_LevitatorSeller_Update, 17) /* rac2.moby.levitator_seller.update */
-S10_POINT(Moby_ChargeBootsRider_Update, 18) /* rac2.moby.charge_boots_rider.update */
-S10_POINT(Moby_RaceController_Update, 19) /* rac2.moby.race_controller.update */
-S10_POINT(Moby_MapperReturn_Update, 20) /* rac2.moby.mapper_return.update */
-S10_POINT(Moby_HypnomaticMaker_Update, 21) /* rac2.moby.hypnomatic_maker.update */
-S10_POINT(Moby_NanotechBall_Update, 22) /* rac2.moby.nanotech_ball.update */
+S7_POINT(Weapon_LevelUp, 9) /* rac2.weapon.level_up */
+S8_POINT(Item_Upgrade, 10) /* rac2.item.upgrade */
+S9_POINT(Vendor_BuildList, 11) /* rac2.vendor.build_list */
+S10_POINT(Vendor_Price, 12) /* rac2.vendor.price */
+S11_POINT(Item_Colors, 13) /* rac2.item.colors */
+S12_POINT(Planet_Unlock, 14) /* rac2.planet.unlock */
+S13_POINT(Moby_DynamoPickup_Update, 15) /* rac2.moby.dynamo_pickup.update */
+S13_POINT(Moby_TractorBeamSeller_Update, 16) /* rac2.moby.tractor_beam_seller.update */
+S13_POINT(Moby_BoxBreakerPickup_Update, 17) /* rac2.moby.box_breaker_pickup.update */
+S13_POINT(Moby_ThermanatorSeller_Update, 18) /* rac2.moby.thermanator_seller.update */
+S13_POINT(Moby_ThermanatorArea_Update, 19) /* rac2.moby.thermanator_area.update */
+S13_POINT(Moby_SwingshotArea_Update, 20) /* rac2.moby.swingshot_area.update */
+S13_POINT(Moby_GliderPickup_Update, 21) /* rac2.moby.glider_pickup.update */
+S13_POINT(Moby_LevitatorSeller_Update, 22) /* rac2.moby.levitator_seller.update */
+S13_POINT(Moby_ChargeBootsRider_Update, 23) /* rac2.moby.charge_boots_rider.update */
+S13_POINT(Moby_RaceController_Update, 24) /* rac2.moby.race_controller.update */
+S13_POINT(Moby_MapperReturn_Update, 25) /* rac2.moby.mapper_return.update */
+S13_POINT(Moby_HypnomaticMaker_Update, 26) /* rac2.moby.hypnomatic_maker.update */
+S13_POINT(Moby_NanotechBall_Update, 27) /* rac2.moby.nanotech_ball.update */
 
-static const openrac_script_point k_points[23] = {
+static const openrac_script_point k_points[28] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.weapon.take_ammo", "i32(i32,i32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_I32, k_Weapon_TakeAmmo_links, k_Weapon_TakeAmmo_thunks, S2_call},
@@ -257,28 +321,35 @@ static const openrac_script_point k_points[23] = {
     {"rac2.player.nanotech_steps", "i32(u32,u32,u32)", 3, k_S6_kinds, k_S6_names, OPENRAC_SV_I32, k_Hero_NanotechSteps_links, k_Hero_NanotechSteps_thunks, S6_call},
     {"rac2.item.give", "void(i32)", 1, k_S7_kinds, k_S7_names, OPENRAC_SV_VOID, k_Item_Give_links, k_Item_Give_thunks, S7_call},
     {"rac2.item.equip", "i32(i32)", 1, k_S8_kinds, k_S8_names, OPENRAC_SV_I32, k_Item_Equip_links, k_Item_Equip_thunks, S8_call},
-    {"rac2.planet.unlock", "void(i32)", 1, k_S9_kinds, k_S9_names, OPENRAC_SV_VOID, k_Planet_Unlock_links, k_Planet_Unlock_thunks, S9_call},
-    {"rac2.moby.dynamo_pickup.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_DynamoPickup_Update_links, k_Moby_DynamoPickup_Update_thunks, S10_call},
-    {"rac2.moby.tractor_beam_seller.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_TractorBeamSeller_Update_links, k_Moby_TractorBeamSeller_Update_thunks, S10_call},
-    {"rac2.moby.box_breaker_pickup.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_BoxBreakerPickup_Update_links, k_Moby_BoxBreakerPickup_Update_thunks, S10_call},
-    {"rac2.moby.thermanator_seller.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_ThermanatorSeller_Update_links, k_Moby_ThermanatorSeller_Update_thunks, S10_call},
-    {"rac2.moby.thermanator_area.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_ThermanatorArea_Update_links, k_Moby_ThermanatorArea_Update_thunks, S10_call},
-    {"rac2.moby.swingshot_area.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_SwingshotArea_Update_links, k_Moby_SwingshotArea_Update_thunks, S10_call},
-    {"rac2.moby.glider_pickup.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_GliderPickup_Update_links, k_Moby_GliderPickup_Update_thunks, S10_call},
-    {"rac2.moby.levitator_seller.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_LevitatorSeller_Update_links, k_Moby_LevitatorSeller_Update_thunks, S10_call},
-    {"rac2.moby.charge_boots_rider.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_ChargeBootsRider_Update_links, k_Moby_ChargeBootsRider_Update_thunks, S10_call},
-    {"rac2.moby.race_controller.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_RaceController_Update_links, k_Moby_RaceController_Update_thunks, S10_call},
-    {"rac2.moby.mapper_return.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_MapperReturn_Update_links, k_Moby_MapperReturn_Update_thunks, S10_call},
-    {"rac2.moby.hypnomatic_maker.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_HypnomaticMaker_Update_links, k_Moby_HypnomaticMaker_Update_thunks, S10_call},
-    {"rac2.moby.nanotech_ball.update", "void(u32)", 1, k_S10_kinds, k_S10_names, OPENRAC_SV_VOID, k_Moby_NanotechBall_Update_links, k_Moby_NanotechBall_Update_thunks, S10_call},
+    {"rac2.weapon.level_up", "void(i32)", 1, k_S7_kinds, k_S7_names, OPENRAC_SV_VOID, k_Weapon_LevelUp_links, k_Weapon_LevelUp_thunks, S7_call},
+    {"rac2.item.upgrade", "i32(i32)", 1, k_S8_kinds, k_S8_names, OPENRAC_SV_I32, k_Item_Upgrade_links, k_Item_Upgrade_thunks, S8_call},
+    {"rac2.vendor.build_list", "void(i32)", 1, k_S9_kinds, k_S9_names, OPENRAC_SV_VOID, k_Vendor_BuildList_links, k_Vendor_BuildList_thunks, S9_call},
+    {"rac2.vendor.price", "i32()", 0, k_S10_kinds, k_S10_names, OPENRAC_SV_I32, k_Vendor_Price_links, k_Vendor_Price_thunks, S10_call},
+    {"rac2.item.colors", "void(i32,u32,u32,u32)", 4, k_S11_kinds, k_S11_names, OPENRAC_SV_VOID, k_Item_Colors_links, k_Item_Colors_thunks, S11_call},
+    {"rac2.planet.unlock", "void(i32)", 1, k_S12_kinds, k_S12_names, OPENRAC_SV_VOID, k_Planet_Unlock_links, k_Planet_Unlock_thunks, S12_call},
+    {"rac2.moby.dynamo_pickup.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_DynamoPickup_Update_links, k_Moby_DynamoPickup_Update_thunks, S13_call},
+    {"rac2.moby.tractor_beam_seller.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_TractorBeamSeller_Update_links, k_Moby_TractorBeamSeller_Update_thunks, S13_call},
+    {"rac2.moby.box_breaker_pickup.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_BoxBreakerPickup_Update_links, k_Moby_BoxBreakerPickup_Update_thunks, S13_call},
+    {"rac2.moby.thermanator_seller.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_ThermanatorSeller_Update_links, k_Moby_ThermanatorSeller_Update_thunks, S13_call},
+    {"rac2.moby.thermanator_area.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_ThermanatorArea_Update_links, k_Moby_ThermanatorArea_Update_thunks, S13_call},
+    {"rac2.moby.swingshot_area.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_SwingshotArea_Update_links, k_Moby_SwingshotArea_Update_thunks, S13_call},
+    {"rac2.moby.glider_pickup.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_GliderPickup_Update_links, k_Moby_GliderPickup_Update_thunks, S13_call},
+    {"rac2.moby.levitator_seller.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_LevitatorSeller_Update_links, k_Moby_LevitatorSeller_Update_thunks, S13_call},
+    {"rac2.moby.charge_boots_rider.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_ChargeBootsRider_Update_links, k_Moby_ChargeBootsRider_Update_thunks, S13_call},
+    {"rac2.moby.race_controller.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_RaceController_Update_links, k_Moby_RaceController_Update_thunks, S13_call},
+    {"rac2.moby.mapper_return.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_MapperReturn_Update_links, k_Moby_MapperReturn_Update_thunks, S13_call},
+    {"rac2.moby.hypnomatic_maker.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_HypnomaticMaker_Update_links, k_Moby_HypnomaticMaker_Update_thunks, S13_call},
+    {"rac2.moby.nanotech_ball.update", "void(u32)", 1, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Moby_NanotechBall_Update_links, k_Moby_NanotechBall_Update_thunks, S13_call},
 };
 
-static const openrac_script_alias k_aliases[91] = {
+static const openrac_script_alias k_aliases[111] = {
     {"Hero_ApproachSpeed", "rac2.player.approach_speed"},
     {"Hero_NanotechSteps", "rac2.player.nanotech_steps"},
     {"Hero_TakeDamage", "rac2.player.take_damage"},
+    {"Item_Colors", "rac2.item.colors"},
     {"Item_Equip", "rac2.item.equip"},
     {"Item_Give", "rac2.item.give"},
+    {"Item_Upgrade", "rac2.item.upgrade"},
     {"Level_Load", "rac2.level.load"},
     {"Moby_BoxBreakerPickup_Update", "rac2.moby.box_breaker_pickup.update"},
     {"Moby_ChargeBootsRider_Update", "rac2.moby.charge_boots_rider.update"},
@@ -296,10 +367,19 @@ static const openrac_script_alias k_aliases[91] = {
     {"Moby_ThermanatorSeller_Update", "rac2.moby.thermanator_seller.update"},
     {"Moby_TractorBeamSeller_Update", "rac2.moby.tractor_beam_seller.update"},
     {"Planet_Unlock", "rac2.planet.unlock"},
+    {"Vendor_BuildList", "rac2.vendor.build_list"},
+    {"Vendor_Price", "rac2.vendor.price"},
+    {"Weapon_LevelUp", "rac2.weapon.level_up"},
     {"Weapon_TakeAmmo", "rac2.weapon.take_ammo"},
+    {"func_00287EB0", "rac2.weapon.level_up"},
     {"func_00288308", "rac2.item.give"},
+    {"func_002887B0", "rac2.item.upgrade"},
+    {"func_002887C8", "rac2.weapon.level_up"},
+    {"func_002888D8", "rac2.weapon.level_up"},
     {"func_00288C20", "rac2.item.give"},
     {"func_00288D30", "rac2.item.give"},
+    {"func_002890C8", "rac2.item.upgrade"},
+    {"func_002891D8", "rac2.item.upgrade"},
     {"func_002A6C58", "rac2.moby.record_death"},
     {"func_002A7650", "rac2.moby.record_death"},
     {"func_002A7AA8", "rac2.moby.record_death"},
@@ -312,9 +392,18 @@ static const openrac_script_alias k_aliases[91] = {
     {"func_002AE3C0", "rac2.item.equip"},
     {"func_002AE620", "rac2.planet.unlock"},
     {"func_002AE6C8", "rac2.item.equip"},
+    {"func_002F6510", "rac2.vendor.price"},
+    {"func_002F6608", "rac2.vendor.build_list"},
+    {"func_002F7390", "rac2.vendor.price"},
+    {"func_002F7480", "rac2.vendor.price"},
+    {"func_002F7488", "rac2.vendor.build_list"},
+    {"func_002F7578", "rac2.vendor.build_list"},
     {"func_003136D0", "rac2.moby.nanotech_ball.update"},
     {"func_003144C8", "rac2.moby.nanotech_ball.update"},
     {"func_00314B5C", "rac2.moby.nanotech_ball.update"},
+    {"func_00336F20", "rac2.item.colors"},
+    {"func_00337DC8", "rac2.item.colors"},
+    {"func_00338C78", "rac2.item.colors"},
     {"func_L00_002A4D58", "rac2.player.take_damage"},
     {"func_L00_002A4EF8", "rac2.player.take_damage"},
     {"func_L00_002B40E0", "rac2.player.approach_speed"},
@@ -373,8 +462,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 23, k_points, 0, k_fields, NULL,
-    91, k_aliases,
+    "rac2", 3, k_discs, 28, k_points, 0, k_fields, NULL,
+    111, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {
