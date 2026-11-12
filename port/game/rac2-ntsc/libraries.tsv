@@ -272,6 +272,8 @@ func_002887B0	item	Item_Upgrade	hook	The vendor's Mega purchase of item id: its 
 func_002F6608	vendor	Vendor_BuildList	hook	Fills the vendor's list (g_vendorUi +0x140, 0x18-byte entries, the count at +0x740): weapons, ammo, Mega upgrades. A hook point for mods; the game's C with none.
 func_002F6510	vendor	Vendor_Price	hook	The price in bolts of the vendor entry under the cursor (g_vendorUi +0x80); the dialog and the purchase ask it. A hook point for mods; the game's C with none.
 func_00336F20	item	Item_Colors	hook	Writes item id's experience bar colours and its version's tint to three u32 the caller has (the quick select, the weapons grid). A hook point for mods; the game's C with none.
+func_002F9C80	vendor	Vendor_DrawList	hook	Draws the vendor's list: each row around the cursor, its icon in Item_VersionColor's colour (an upgrade entry in the Mega gold), then its label. A hook point for mods; the game's C with none.
+func_00336EF8	item	Item_VersionColor	hook	The colour of an item version kind (2 the Mega gold); the vendor's list asks it for each icon. A hook point for mods; the game's C with none.
 func_002AD7B8	planet	Planet_Unlock	hook	Puts a level on the ship's map (MarkLevelAvailable); every level load calls it for its own level too. A hook point for mods; the game's C with none.
 func_L01_003CEDA0	moby	Moby_DynamoPickup_Update	hook	Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte. A hook point for mods; the game's C with none.
 func_L01_003D2E50	moby	Moby_TractorBeamSeller_Update	hook	Oozla's Megacorp scientist (class 2766): sells the Tractor Beam (item 46) for its record's price; tests item 46's owned byte. A hook point for mods; the game's C with none.

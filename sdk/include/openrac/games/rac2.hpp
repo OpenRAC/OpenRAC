@@ -107,7 +107,7 @@ struct Item_Upgrade {
     using fn = int32_t (*)(int32_t);
 };
 
-// Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), marked, price text, class, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's.
+// Fills the vendor's list (g_vendorUi +0x140, 64 entries of 0x18 bytes: i32 item, kind (1 ammo), class (the preview model), price text, marked, upgrade; the count at +0x740): the weapons for sale, their ammo and, in challenge mode, their Mega upgrades. The vendor calls it as it opens and after each purchase. A replacement can add entries after the original's.
 struct Vendor_BuildList {
     static constexpr const char* id = "rac2.vendor.build_list";
     static constexpr const char* name = "Vendor_BuildList";
@@ -129,6 +129,22 @@ struct Item_Colors {
     static constexpr const char* name = "Item_Colors";
     static constexpr const char* signature = "void(i32,u32,u32,u32)";
     using fn = void (*)(int32_t, uint32_t, uint32_t, uint32_t);
+};
+
+// Draws the vendor's list (g_vendorUi +0x140, the entries Vendor_BuildList made): for each of the rows -5 to +6 around the cursor (+0x80) that is in the list (under the count, +0x740), in that order, its item's icon in Item_VersionColor's colour (an upgrade entry, +0x14 set, in its kind 2, the Mega gold), then its label. A replacement can call the original and know which entry each Item_VersionColor call is for.
+struct Vendor_DrawList {
+    static constexpr const char* id = "rac2.vendor.draw_list";
+    static constexpr const char* name = "Vendor_DrawList";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// The colour of an item version kind (0x00BBGGRR in the low bytes; 2 the Mega gold): the vendor's list (Vendor_DrawList) asks it for each icon it draws. A replacement can return its own.
+struct Item_VersionColor {
+    static constexpr const char* id = "rac2.item.version_color";
+    static constexpr const char* name = "Item_VersionColor";
+    static constexpr const char* signature = "u32(i32)";
+    using fn = uint32_t (*)(int32_t);
 };
 
 // Puts a level on the ship's map (MarkLevelAvailable): its byte at 0x1A7BC8 and its place in the map's order (0x139948, on NTSC-U v1.01). Coordinate sellers, story scenes and ship challenges call it, and every level load calls it for the level loaded. Rac1's UnlockPlanet.
@@ -253,6 +269,7 @@ namespace hooks {
         using equip = rac2::Item_Equip;
         using give = rac2::Item_Give;
         using upgrade = rac2::Item_Upgrade;
+        using version_color = rac2::Item_VersionColor;
     }  // namespace item
     namespace level {
         using load = rac2::Level_Load;
@@ -309,6 +326,7 @@ namespace hooks {
     }  // namespace player
     namespace vendor {
         using build_list = rac2::Vendor_BuildList;
+        using draw_list = rac2::Vendor_DrawList;
         using price = rac2::Vendor_Price;
     }  // namespace vendor
     namespace weapon {

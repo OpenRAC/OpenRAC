@@ -702,6 +702,7 @@
    "Item_Equip": "rac2.item.equip",
    "Item_Give": "rac2.item.give",
    "Item_Upgrade": "rac2.item.upgrade",
+   "Item_VersionColor": "rac2.item.version_color",
    "Level_Load": "rac2.level.load",
    "Moby_BoxBreakerPickup_Update": "rac2.moby.box_breaker_pickup.update",
    "Moby_ChargeBootsRider_Update": "rac2.moby.charge_boots_rider.update",
@@ -721,6 +722,7 @@
    "Moby_TractorBeamSeller_Update": "rac2.moby.tractor_beam_seller.update",
    "Planet_Unlock": "rac2.planet.unlock",
    "Vendor_BuildList": "rac2.vendor.build_list",
+   "Vendor_DrawList": "rac2.vendor.draw_list",
    "Vendor_Price": "rac2.vendor.price",
    "Weapon_LevelUp": "rac2.weapon.level_up",
    "Weapon_TakeAmmo": "rac2.weapon.take_ammo"
