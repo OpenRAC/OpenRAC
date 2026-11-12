@@ -23,6 +23,11 @@
 //! space, and the record's `size` bytes as hex. The last line of a clock is its record. A field is
 //! one byte at `offset`; `mask` (255 when absent) the bits it owns, the others kept as they are;
 //! its value goes from `min` to `max`, named by `choices` from 0 when it has them.
+//!
+//! A field may sit beside one of the editor's own elements instead (`attach`, [`Attach`]):
+//! `{"to": "item", "id": 30, "as": "version"}` continues item 30's version picker with the
+//! field's values above `min`, `"as": "row"` adds a control in its row; `"requires": {"version":
+//! "last"}` ([`Requires`]) ties those values to the item's last game version.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -59,7 +64,46 @@ pub struct Field {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub choices: Vec<String>,
+    /// Where the editor shows the field: beside one of its own elements instead of the mod's
+    /// section. A target the launcher does not know leaves the field in the mod's section.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub attach: Option<Attach>,
+    /// What the field's values above `min` need of the native element it is attached to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub requires: Option<Requires>,
 }
+
+/// A field's place among the editor's own elements (`"attach"`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ts_rs::TS)]
+#[ts(rename = "ModSaveAttach")]
+pub struct Attach {
+    /// The kind of element: `item` (an item of the game's list, by the game's item number).
+    /// Other kinds are for later; the editor shows a field with one in the mod's section.
+    pub to: String,
+    /// The element's number (for `item`, the item id).
+    pub id: i64,
+    /// How it is shown: `version` continues the item's version picker with the field's values
+    /// above `min` (named by `choices`); `row` adds a control in the item's row.
+    #[serde(rename = "as")]
+    #[ts(rename = "as")]
+    pub role: String,
+}
+
+/// What a field's values above `min` need (`"requires"`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ts_rs::TS)]
+#[ts(rename = "ModSaveRequires")]
+pub struct Requires {
+    /// `last`: the item is at the game's last version. Picking such a value moves the item there;
+    /// picking a game version below it puts the field back to `min`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub version: Option<String>,
+}
+
+/// The kinds of element and ways of showing the launcher knows (see [`Attach`]).
+pub const ATTACH_ITEM_AS: &[&str] = &["version", "row"];
 
 /// The manifest's `save_data`.
 #[derive(Debug, Clone, Deserialize, PartialEq, Default)]
@@ -102,6 +146,31 @@ impl SaveData {
             }
             if f.min > f.max || f.max & !f.mask != 0 {
                 return Err(format!("save_data: field {}'s values do not fit its mask", f.key));
+            }
+            if let Some(a) = &f.attach {
+                if a.to.is_empty() {
+                    return Err(format!("save_data: field {}'s attach names no element", f.key));
+                }
+                if a.to == "item" && !ATTACH_ITEM_AS.contains(&a.role.as_str()) {
+                    return Err(format!(
+                        "save_data: field {} attaches to an item as {:?}, not version or row",
+                        f.key, a.role
+                    ));
+                }
+            }
+            if let Some(r) = &f.requires {
+                let on_version = f.attach.as_ref().is_some_and(|a| a.to == "item" && a.role == "version");
+                match r.version.as_deref() {
+                    Some("last") if on_version => {}
+                    Some("last") => {
+                        return Err(format!(
+                            "save_data: field {} requires a version but is not on a version picker",
+                            f.key
+                        ))
+                    }
+                    Some(v) => return Err(format!("save_data: field {} requires version {v:?}, not last", f.key)),
+                    None => {}
+                }
             }
         }
         Ok(())
@@ -290,6 +359,8 @@ mod tests {
                 min: 0,
                 max: 8,
                 choices: vec![],
+                attach: None,
+                requires: None,
             }],
         }
     }
@@ -325,6 +396,33 @@ mod tests {
 
         values.insert("a".to_string(), 9u8);
         assert!(write(dir.path(), "m", &spec(), &new, &values).is_err());
+    }
+
+    #[test]
+    fn reads_an_attached_field() {
+        let json = r#"{"file": "t.txt", "records": "clock-hex", "size": 56, "fields": [
+            {"key": "item_30", "name": "Lancer", "offset": 30, "mask": 127, "max": 8,
+             "choices": ["None", "Alpha"], "attach": {"to": "item", "id": 30, "as": "version"},
+             "requires": {"version": "last"}},
+            {"key": "later", "name": "L", "offset": 1, "attach": {"to": "planet", "id": 3, "as": "row"}}]}"#;
+        let s: SaveData = serde_json::from_str(json).unwrap();
+        s.validate().unwrap();
+        let a = s.fields[0].attach.as_ref().unwrap();
+        assert_eq!((a.to.as_str(), a.id, a.role.as_str()), ("item", 30, "version"));
+        assert_eq!(s.fields[0].requires.as_ref().unwrap().version.as_deref(), Some("last"));
+        let back = serde_json::to_value(&s.fields[0]).unwrap();
+        assert_eq!(back["attach"]["as"], "version");
+        assert!(serde_json::to_value(&s.fields[1]).unwrap().get("requires").is_none());
+
+        let mut bad = s.clone();
+        bad.fields[0].attach.as_mut().unwrap().role = "side".into();
+        assert!(bad.validate().is_err());
+        let mut bad = s.clone();
+        bad.fields[0].attach.as_mut().unwrap().role = "row".into();
+        assert!(bad.validate().is_err(), "requires a version off a version picker");
+        let mut bad = s;
+        bad.fields[0].requires.as_mut().unwrap().version = Some("first".into());
+        assert!(bad.validate().is_err());
     }
 
     #[test]
