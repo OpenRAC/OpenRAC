@@ -86,6 +86,28 @@ bool supports(std::array<int, 2> render_size) {
     return std::max(render_size[0], render_size[1]) >= 64;
 }
 
+namespace {
+#if defined(__ANDROID__)
+constexpr std::string_view kDefaultQuality = "balanced";
+#else
+constexpr std::string_view kDefaultQuality = "quality";
+#endif
+
+// Android takes the balanced shaders (user decision: about 0.4 ms a frame on an Adreno 830, a
+// little more aliasing on fine moving edges); OPENRAC_ASR_QUALITY picks another for profiling.
+arm::FfxmFsr2ShaderQualityMode shader_quality() {
+    const auto chosen = env::value(env::Var::AsrQuality);
+    const std::string_view name = chosen ? *chosen : kDefaultQuality;
+    if (name == "balanced") {
+        return arm::FFXM_FSR2_SHADER_QUALITY_MODE_BALANCED;
+    }
+    if (name == "performance") {
+        return arm::FFXM_FSR2_SHADER_QUALITY_MODE_PERFORMANCE;
+    }
+    return arm::FFXM_FSR2_SHADER_QUALITY_MODE_QUALITY;
+}
+}  // namespace
+
 // Library-owned histories and pipelines; the renderer owns all imported frame images.
 struct AsrContext::State {
     arm::FfxmFsr2Context context{};     // Live only after successful creation; about 200 KB.
@@ -98,16 +120,7 @@ struct AsrContext::State {
         arm::VkDeviceContext native{device.device, device.physical, device.device_proc};
         scratch.resize(arm::ffxmGetScratchMemorySizeVK(device.physical, 1));
         arm::FfxmFsr2ContextDescription description{};
-        description.qualityMode = arm::FFXM_FSR2_SHADER_QUALITY_MODE_QUALITY;
-        // A cheaper shader quality for profiling on a device (OPENRAC_ASR_QUALITY).
-        if (const auto chosen = env::value(env::Var::AsrQuality)) {
-            if (*chosen == "balanced") {
-                description.qualityMode = arm::FFXM_FSR2_SHADER_QUALITY_MODE_BALANCED;
-            } else if (*chosen == "performance") {
-                description.qualityMode = arm::FFXM_FSR2_SHADER_QUALITY_MODE_PERFORMANCE;
-            }
-            log::info("asr: shader quality {}", *chosen);
-        }
+        description.qualityMode = shader_quality();
         description.flags = arm::FFXM_FSR2_ENABLE_DEPTH_INVERTED;
         description.maxRenderSize =
             {static_cast<unsigned>(render_size[0]), static_cast<unsigned>(render_size[1])};
@@ -220,7 +233,8 @@ bool AsrContext::configure(
         return false;
     }
 
-    log::info("Arm ASR temporal upscaling: quality shaders, FP16");
+    const auto chosen = env::value(env::Var::AsrQuality);
+    log::info("Arm ASR temporal upscaling: {} shaders, FP16", chosen ? *chosen : kDefaultQuality);
     return true;
 }
 
