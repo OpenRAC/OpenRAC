@@ -233,7 +233,7 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
      true, Tolerance{0.05, 64}, EffectsDetail::Low},
     {Opt::BlendedFlatLight, "blended-flat-light",
      "the blended passes (leaves, glass, see-through models) take the original lighting instead of probe GI",
-     true, Tolerance{0.25, 255}, EffectsDetail::Low},
+     false, Tolerance{0.25, 255}, EffectsDetail::Low},
 }};
 // clang-format on
 
