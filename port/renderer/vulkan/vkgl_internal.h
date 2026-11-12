@@ -1337,7 +1337,7 @@ struct Context {
     // stored (attachment-untouched).
     bool load_store_none = false;
     // VK_KHR_pipeline_executable_properties under OPENRAC_VK_PIPELINE_STATS: each new graphics
-    // pipeline logs the driver's statistics of its shaders (log_pipeline_statistics).
+    // or compute pipeline logs the driver's statistics of its shaders (log_executable_statistics).
     bool pipeline_stats = false;
     // The device takes cull, front face, depth and stencil state as dynamic state (Vulkan 1.3's
     // core extended dynamic state), so pipelines need not bake them (R-11).
@@ -1484,6 +1484,10 @@ inline void count_render_pass() {
     count_command(Command::RenderPass);
     ++g->submission.render_passes;
 }
+
+// Logs the driver's statistics of each shader of `pipeline`, one line each after `what`
+// (OPENRAC_VK_PIPELINE_STATS; vkgl_pipelines.cpp).
+void log_executable_statistics(VkPipeline pipeline, std::string_view what);
 
 // Counts a graphics or compute pipeline just made, after the warm-up as well when it has passed.
 inline void count_pipeline() {

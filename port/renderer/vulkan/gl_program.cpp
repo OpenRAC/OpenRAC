@@ -569,6 +569,9 @@ bool finish_program_link(Program& program) {
         info.stage.module = program.compute;
         info.stage.pName = "main";
         info.layout = program.layout;
+        if (g->pipeline_stats) {
+            info.flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
+        }
         if (!link_step(
                 program,
                 timed_pipeline_creation([&] {
@@ -581,6 +584,11 @@ bool finish_program_link(Program& program) {
             return false;
         }
         count_pipeline();
+        if (g->pipeline_stats) {
+            log_executable_statistics(
+                program.compute_pipeline, std::format("compute program {}", program.serial)
+            );
+        }
     }
     program.linked =
         program.layout && ((program.vertex && program.fragment) || program.compute_pipeline);
@@ -746,6 +754,19 @@ void VKGL link_program(GLuint name) {
     }
 
     // Names the program for the pipeline statistics' lines (OPENRAC_VK_PIPELINE_STATS).
+    if (g->pipeline_stats && !cs.empty()) {
+        // A compute program by its first comment line, which names what it does.
+        const auto comment = cs.find("\n//");
+        const auto line_end = comment == std::string::npos ? comment : cs.find('\n', comment + 1);
+        log::info(
+            "vulkan: pipeline stats compute program {} {} bytes: {}",
+            p->serial,
+            cs.size(),
+            comment == std::string::npos
+                ? std::string_view()
+                : std::string_view(cs).substr(comment + 1, line_end - comment - 1)
+        );
+    }
     if (g->pipeline_stats && cs.empty()) {
         std::string defines;
         for (std::size_t at = fs.find("#define OPENRAC_"); at != std::string::npos;

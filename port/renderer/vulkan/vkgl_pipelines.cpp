@@ -573,6 +573,54 @@ int input_kind(std::uint32_t gl_type) {
 
 // ---- Pipelines made ahead (R-10) ----
 
+// One line per shader of `pipeline` with the driver's statistics, after `what` (a program and
+// its modes, or a compute program) (OPENRAC_VK_PIPELINE_STATS).
+void log_executable_statistics(VkPipeline pipeline, std::string_view what) {
+    VkPipelineInfoKHR asked{VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR};
+    asked.pipeline = pipeline;
+    std::uint32_t count = 0;
+    if (vkGetPipelineExecutablePropertiesKHR(g->device, &asked, &count, nullptr) != VK_SUCCESS) {
+        return;
+    }
+    std::vector<VkPipelineExecutablePropertiesKHR> stages(
+        count, {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_PROPERTIES_KHR}
+    );
+    vkGetPipelineExecutablePropertiesKHR(g->device, &asked, &count, stages.data());
+    for (std::uint32_t index = 0; index < count; ++index) {
+        VkPipelineExecutableInfoKHR which{VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_INFO_KHR};
+        which.pipeline = pipeline;
+        which.executableIndex = index;
+        std::uint32_t n = 0;
+        vkGetPipelineExecutableStatisticsKHR(g->device, &which, &n, nullptr);
+        std::vector<VkPipelineExecutableStatisticKHR> stats(
+            n, {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_STATISTIC_KHR}
+        );
+        vkGetPipelineExecutableStatisticsKHR(g->device, &which, &n, stats.data());
+        std::string line;
+        for (std::uint32_t s = 0; s < n; ++s) {
+            const auto& stat = stats[s];
+            line += std::format(" {}=", std::string_view(stat.name));
+            switch (stat.format) {
+                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_BOOL32_KHR:
+                    line += stat.value.b32 ? "1" : "0";
+                    break;
+                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_INT64_KHR:
+                    line += std::to_string(stat.value.i64);
+                    break;
+                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR:
+                    line += std::to_string(stat.value.u64);
+                    break;
+                default:
+                    line += std::format("{:.3f}", stat.value.f64);
+                    break;
+            }
+        }
+        log::info(
+            "vulkan: pipeline stats {} {}:{}", what, std::string_view(stages[index].name), line
+        );
+    }
+}
+
 namespace {
 
 // The keys the manifest holds at most; past it a new key is not added (assumed far above a run's
@@ -612,62 +660,15 @@ bool plausible_key(const PipelineKey& key) {
            && key.mode_count <= static_cast<std::uint32_t>(kModeConstants);
 }
 
-// Logs the driver's statistics of each shader of `pipeline` (OPENRAC_VK_PIPELINE_STATS): one line
-// per stage with the program's serial and its mode constants, which a program's link line names.
+// Logs the driver's statistics of each graphics shader of `pipeline` (OPENRAC_VK_PIPELINE_STATS):
+// the program's serial and its mode constants, which a program's link line names.
 void log_pipeline_statistics(VkPipeline pipeline, const PipelineKey& k) {
-    VkPipelineInfoKHR asked{VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR};
-    asked.pipeline = pipeline;
-    std::uint32_t count = 0;
-    if (vkGetPipelineExecutablePropertiesKHR(g->device, &asked, &count, nullptr) != VK_SUCCESS) {
-        return;
-    }
-    std::vector<VkPipelineExecutablePropertiesKHR> stages(
-        count, {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_PROPERTIES_KHR}
-    );
-    vkGetPipelineExecutablePropertiesKHR(g->device, &asked, &count, stages.data());
     std::string modes;
     for (std::uint32_t n = 0; n < k.mode_count && n < kModeConstants; ++n) {
         modes += k.mode[n] == kModeDynamic ? std::string("d") : std::to_string(k.mode[n]);
         modes += n + 1 < k.mode_count ? "," : "";
     }
-
-    for (std::uint32_t index = 0; index < count; ++index) {
-        VkPipelineExecutableInfoKHR which{VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_INFO_KHR};
-        which.pipeline = pipeline;
-        which.executableIndex = index;
-        std::uint32_t n = 0;
-        vkGetPipelineExecutableStatisticsKHR(g->device, &which, &n, nullptr);
-        std::vector<VkPipelineExecutableStatisticKHR> stats(
-            n, {VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_STATISTIC_KHR}
-        );
-        vkGetPipelineExecutableStatisticsKHR(g->device, &which, &n, stats.data());
-        std::string line;
-        for (std::uint32_t s = 0; s < n; ++s) {
-            const auto& stat = stats[s];
-            line += std::format(" {}=", std::string_view(stat.name));
-            switch (stat.format) {
-                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_BOOL32_KHR:
-                    line += stat.value.b32 ? "1" : "0";
-                    break;
-                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_INT64_KHR:
-                    line += std::to_string(stat.value.i64);
-                    break;
-                case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR:
-                    line += std::to_string(stat.value.u64);
-                    break;
-                default:
-                    line += std::format("{:.3f}", stat.value.f64);
-                    break;
-            }
-        }
-        log::info(
-            "vulkan: pipeline stats program {} modes [{}] {}:{}",
-            k.program,
-            modes,
-            std::string_view(stages[index].name),
-            line
-        );
-    }
+    log_executable_statistics(pipeline, std::format("program {} modes [{}]", k.program, modes));
 }
 
 // Makes the graphics pipeline of key `k` with the stages `vertex_module` and `fragment_module`
