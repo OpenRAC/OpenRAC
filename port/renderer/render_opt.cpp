@@ -196,7 +196,7 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
      true, Tolerance{}},
     // Accepted Enhanced difference: on lavapipe at most 0.28% of a frame's pixels, by up to 26/255.
     {Opt::ProbeFastBlended, "probe-fast-blended",
-     "blended static passes read the best probe volume without its depth test and filter shadows with four taps",
+     "blended passes (static and mobys) read the best probe volume without its depth test and filter shadows with four taps",
      true, Tolerance{0.005, 32}},
     {Opt::VkPipelineLibrary, "vk-pipeline-library",
      "a pipeline first needed mid-frame is linked from shader parts made on a worker, then replaced",

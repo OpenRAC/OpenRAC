@@ -800,6 +800,8 @@ private:
     renderer::Shader m_solid;
     // The probe coverage view's colour shaders (OPENRAC_PROBE_COVERAGE), alpha and solid.
     renderer::Shader m_coverage, m_coverage_solid;
+    // The mobys' blended passes with the cheaper probe light (probe-fast-blended).
+    renderer::Shader m_mesh_fast;
     renderer::Shader m_depth, m_depth_solid;
     std::array<renderer::Shader, 2> m_rigid_depth, m_rigid_surface_depth;
     bool make_rigid_depth_programs(std::string& error);

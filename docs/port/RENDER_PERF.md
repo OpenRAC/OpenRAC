@@ -2033,11 +2033,13 @@ run the same paths. The capture report's `gpu passes` line records it.
   `OPENRAC_GPU_PASS_TIMING`): those frames give each section's own time, at the cost of extra
   loads and stores, and are left out of the frame's GPU time.
 
-- **`probe-fast-blended`.** Blended static passes (glass, water, foliage) read probe light from
+- **`probe-fast-blended`.** Blended static passes (glass, water, foliage) and the mobys' glow,
+  translucent and effect passes read probe light from
   the best volume alone, without each probe's depth test, and filter shadows with four taps.
   Not byte-identical (Enhanced may be lossy here): in the equivalence test at most 0.28% of a
   frame's pixels differ, by up to 26 of 255. The cheaper light exists only in the static
-  blended shader variant, which these passes use whenever the entry is on.
+  blended shader variant and a mesh variant for the mobys' blended passes, which these passes use
+  whenever the entry is on.
   `OPENRAC_PROBE_FAST_OFF` turns it off too.
 
 The registry entries above, except `motion-blur-adaptive-samples` and `probe-fast-blended`, are

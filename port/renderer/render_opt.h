@@ -88,7 +88,7 @@ enum class Opt : std::uint8_t {
     AttachmentUntouched,  // attachment-untouched: an attachment a pass leaves alone not loaded
     PassRenderArea,       // pass-render-area: a pass loads and stores only the rectangle it touched
     OverwriteDiscard,     // overwrite-discard: a target a full-screen pass overwrites is not loaded
-    ProbeFastBlended,     // probe-fast-blended: cheaper probe light on blended static passes
+    ProbeFastBlended,     // probe-fast-blended: cheaper probe light on blended passes
     // vk-pipeline-library: a new Vulkan pipeline linked from parts made ahead, the full one later
     VkPipelineLibrary,
     GlStateWarmup,  // gl-state-warmup: OpenGL's drawn states drawn once more at a level's load
