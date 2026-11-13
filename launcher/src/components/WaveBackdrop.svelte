@@ -121,7 +121,10 @@ void main() {
     };
   }
 
-  let kept: { canvas: HTMLCanvasElement; g: Gl | null } | null = null;
+  /** `frozen`: a still copy of the wave shown while a page slides (motion.ts): Android's WebView
+   *  leaves a WebGL canvas out of the slide's pictures, so the wave vanished as the slide started
+   *  and popped back in one frame after it. A plain canvas is in them. */
+  let kept: { canvas: HTMLCanvasElement; frozen: HTMLCanvasElement; g: Gl | null } | null = null;
 </script>
 
 <script lang="ts">
@@ -177,10 +180,12 @@ void main() {
   $effect(() => {
     const holder = host;
     if (!holder) return;
-    kept ??= { canvas: document.createElement("canvas"), g: null };
+    kept ??= { canvas: document.createElement("canvas"), frozen: document.createElement("canvas"), g: null };
     const k = kept;
     const c = k.canvas;
-    holder.append(c);
+    c.className = "live";
+    k.frozen.className = "frozen";
+    holder.append(c, k.frozen);
     if (!k.g || k.g.gl.isContextLost()) k.g = setUp(c);
     let g = k.g;
     let dpr = 1,
@@ -195,7 +200,9 @@ void main() {
       // A slow GPU: drawn at the CSS pixels instead (see `pace`), for good.
       cap = 2,
       drawn = 0,
-      since = 0;
+      since = 0,
+      /** The time of the last frame drawn, for the still copy. */
+      at = 10;
     const size = () => {
       // Sharp at the screen's own pixels, up to twice the CSS ones (a 3x phone looks the same).
       dpr = Math.min(devicePixelRatio || 1, cap);
@@ -233,22 +240,53 @@ void main() {
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.disableVertexAttribArray(p);
     };
-    const start = performance.now();
+    let start = performance.now();
+    /** When the last tick ran, drawn or not. */
+    let seen = start;
     const tick = (now: number) => {
       frame = requestAnimationFrame(tick);
-      // Slow drift: 60 frames a second are plenty, also on a 120 Hz screen.
-      if (document.hidden || now - last < 15) return;
+      // While a page slides the still copy shows: the wave's clock and its push wait too, so the
+      // live wave goes on from the copy's very picture (it jumped up to 35 px in one frame).
+      if (sliding()) {
+        start += now - seen;
+        seen = last = now;
+        return;
+      }
+      seen = now;
+      // 60 frames a second while it follows the wheel or comes in with its push; the slow drift
+      // alone, 30 (user decision: half the GPU work on a shelf left alone, same picture).
+      const moving = Math.abs(shift - slide) > 0.002 || now - start < 2000;
+      if (document.hidden || now - last < (moving ? 15 : 31)) return;
+      const step = Math.min(now - last, 100) / (1000 / 60);
       last = now;
       // The colour follows the game's as it changes (a transition), read a few times a second.
       if (now - read > 120) {
         colour = rgb(c);
         read = now;
       }
-      slide += (shift - slide) * 0.08;
+      // After the wheel at the same pace whatever the frame rate: 8 % of the way each 60th of a second.
+      slide += (shift - slide) * (1 - Math.pow(0.92, step));
+      // The weak-GPU check counts 60-a-second frames only.
+      if (!moving) drawn = 0;
       // The push: about three times its pace at first, back to its own within a second or so.
       const rush = still ? 0 : 1.2 * (1 - Math.exp(-(now - start) / 600));
-      draw(10 + (now - start) / 1000 + rush);
+      at = 10 + (now - start) / 1000 + rush;
+      draw(at);
       pace(now);
+    };
+    const sliding = () => "sliding" in document.documentElement.dataset;
+    /** The wave as it is now, copied into the plain canvas the slide's pictures show. Drawn and
+     *  copied in one go: a WebGL canvas can be read only before its frame is shown. */
+    const freeze = () => {
+      if (!g) return;
+      const f = k.frozen;
+      if (f.width !== c.width) f.width = c.width;
+      if (f.height !== c.height) f.height = c.height;
+      draw(at);
+      const ctx = f.getContext("2d");
+      if (!ctx) return;
+      ctx.clearRect(0, 0, f.width, f.height);
+      ctx.drawImage(c, 0, 0);
     };
     // Every 90 frames drawn: if they came under 36 a second (a weak GPU, the shader at twice the
     // pixels too much for it), the cloth is drawn at the CSS pixels from then on, a quarter of the
@@ -271,6 +309,7 @@ void main() {
       if (still) draw(10);
       else frame = requestAnimationFrame(tick);
     };
+    document.addEventListener("slidestart", freeze);
     const observer = new ResizeObserver(() => {
       size();
       if (still) draw(10);
@@ -290,6 +329,8 @@ void main() {
     document.addEventListener("visibilitychange", shown);
     observer.observe(c);
     size();
+    // Coming in with a slide: the still copy for the slide's picture of this page.
+    if (sliding()) freeze();
     run();
     return () => {
       cancelAnimationFrame(frame);
@@ -297,8 +338,10 @@ void main() {
       c.removeEventListener("webglcontextlost", lost);
       c.removeEventListener("webglcontextrestored", restored);
       document.removeEventListener("visibilitychange", shown);
-      // The canvas, its context and its program stay for the next visit.
+      document.removeEventListener("slidestart", freeze);
+      // The canvases, the context and its program stay for the next visit.
       c.remove();
+      k.frozen.remove();
     };
   });
 </script>
@@ -306,7 +349,7 @@ void main() {
 <div class="wave" bind:this={host} aria-hidden="true"></div>
 
 <style>
-  /* The canvas is made in code (kept between visits), so it is styled through its holder. */
+  /* The canvases are made in code (kept between visits), so they are styled through their holder. */
   .wave,
   .wave :global(canvas) {
     position: absolute;
@@ -318,5 +361,15 @@ void main() {
     width: 100%;
     height: 100%;
     background: linear-gradient(transparent 45%, color-mix(in srgb, var(--glow) 13%, transparent));
+  }
+
+  /* While a page slides (motion.ts): the still copy in place of the live wave. */
+  .wave :global(canvas.frozen),
+  :global(html[data-sliding]) .wave :global(canvas.live) {
+    visibility: hidden;
+  }
+
+  :global(html[data-sliding]) .wave :global(canvas.frozen) {
+    visibility: visible;
   }
 </style>
