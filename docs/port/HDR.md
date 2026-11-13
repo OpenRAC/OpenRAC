@@ -96,7 +96,8 @@ on every display, so the game goes by what the activity says, not by the formats
   brightest channel `m`, where `h` is the headroom over paper white. All channels scale together,
   so colours keep their hue. Nothing at or below white changes.
 - Bright colours (`to_light`, `apply_look`): the SDR pixel is the frame clipped to 0..1. Hue and
-  saturation are mixed in OKLab; lightness stays HDR's. A colour outside BT.709 moves towards
+  saturation are mixed in OKLab; lightness stays HDR's. SDR's hue fades out where SDR is almost
+  white (a flame's core), since its hue there is mostly rounding. A colour outside BT.709 moves towards
   grey until it fits. It never goes past the peak.
 - The HDR frame: the game's frame and the default framebuffer are RGBA16F while HDR is on.
   `vkgl::clamp_colour_writes` makes each program use a fragment shader with a clamp at the end

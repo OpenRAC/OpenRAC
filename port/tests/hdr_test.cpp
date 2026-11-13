@@ -186,6 +186,19 @@ float chroma_of(const hdr::Rgb& linear) {
 // A red-orange fire sprite added up three times: SDR stops each channel at white, so it shows
 // yellow-orange; HDR keeps the mix, so it shows red. SDR hue takes the SDR hue back and keeps
 // HDR's lightness; SDR chroma takes its saturation too; blowout and highlights as named.
+// A flame's core: SDR shows it almost white, so its faint hue counts only in part and the HDR
+// red is not turned into a full yellow (a saturated blob at the brightest point).
+void test_sdr_hue_fades_near_white() {
+    const hdr::Rgb core{3.0f, 1.2f, 0.95f};
+    const hdr::Rgb sdr{1.0f, 1.0f, std::pow(0.95f, 2.2f)};
+    CHECK(chroma_of(sdr) < hdr::kSureHueChroma);
+    hdr::Levels levels{203.0f, 1000.0f, {}};
+    const float plain = hue_of(hdr::to_light(core, levels));
+    levels.look.sdr_hue = 1.0f;
+    const float turned = hue_of(hdr::to_light(core, levels));
+    CHECK(turned > plain + 2.0f && turned < hue_of(sdr) - 5.0f);
+}
+
 void test_look_on_fire() {
     const hdr::Rgb fire{3.0f, 1.35f, 0.3f};
     const hdr::Rgb sdr{1.0f, 1.0f, std::pow(0.3f, 2.2f)};
@@ -286,6 +299,7 @@ int main() {
     test_relative_display();
     test_wanted_output();
     test_look_on_fire();
+    test_sdr_hue_fades_near_white();
     test_look_bounds();
     return openrac::test::result();
 }

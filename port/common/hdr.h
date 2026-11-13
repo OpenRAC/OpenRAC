@@ -249,6 +249,9 @@ inline Rgb oklab_to_linear(const Rgb& lab) {
 
 // An OKLab chroma below this is grey: it has no hue.
 inline constexpr float kGreyChroma = 1e-4f;
+// SDR's hue counts fully from this OKLab chroma up and fades to nothing at grey: a pixel SDR shows
+// almost white (a flame's core) has a hue that is mostly rounding.
+inline constexpr float kSureHueChroma = 0.05f;
 
 // The look's SDR hue, SDR chroma and blowout on light above white. `hdr` is the rolled-off pixel,
 // `sdr` the same pixel clipped at white as SDR shows it. Lightness stays HDR's. The result stays
@@ -273,8 +276,9 @@ inline Rgb apply_look(const Rgb& hdr, const Rgb& sdr, const Levels& levels) {
             da = ra;
             db = rb;
         } else if (look.sdr_hue > 0.0f) {
-            const float ta = da + (ra - da) * look.sdr_hue;
-            const float tb = db + (rb - db) * look.sdr_hue;
+            const float amount = look.sdr_hue * std::min(ref_chroma / kSureHueChroma, 1.0f);
+            const float ta = da + (ra - da) * amount;
+            const float tb = db + (rb - db) * amount;
             const float length = std::hypot(ta, tb);
             // Opposite hues at 50% cancel out: keep HDR's.
             if (length > kGreyChroma) {

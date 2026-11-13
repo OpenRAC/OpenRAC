@@ -88,7 +88,9 @@ vec3 apply_look(vec3 hdr, vec3 sdr) {
         if (chroma <= grey_chroma) {
             dir = to;
         } else if (encode.sdr_hue > 0.0) {
-            vec2 turned = mix(dir, to, encode.sdr_hue);
+            // SDR's hue fades out towards grey (kSureHueChroma = 0.05).
+            float amount = encode.sdr_hue * min(ref_chroma / 0.05, 1.0);
+            vec2 turned = mix(dir, to, amount);
             float len = length(turned);
             if (len > grey_chroma) {
                 dir = turned / len;
