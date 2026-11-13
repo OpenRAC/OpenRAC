@@ -628,6 +628,8 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `on_camera_script(mod, fn, user)`, `camera_script_view(eye, rotation, where, &stand_in)`, `camera_script_play(mod, id)`, `camera_script_show(mod, eye, rotation)` (1.14) | the game's camera scripts: told as they start and end, `id` the class of the moby running one, the same on both discs (the game has no list of them), with the view of the one running; and another game's shown here, only the camera moving, `camera_script_show` giving each tick's view, `OPENRAC_CAMERA_SCRIPT_END` easing back and `OPENRAC_CAMERA_SCRIPT_CUT` going straight behind the hero. A script a stand-in sets off (`hero_stand_in`) leaves this game's camera and hero alone: its views are `camera_script_view`'s, `stand_in` set |
 | `play_scene_from(mod, scene, frame)`, `play_live_picture(mod, on)`, `on_metal_detect(mod, fn, user)` (1.14) | a slot kept for a scene started from a later frame, which no port does yet (it answers `OPENRAC_HOOK_UNKNOWN`: a scene is read from the disc as it plays), whether the world is drawn behind the pause menu while `play_overlay_pause` keeps it running (on until asked otherwise; off, the picture stands and the mobys go on), and the metal detector's finds |
 | `packs_info(&out)`, `packs_entry(index, &out)`, `clipboard_set(text)`, `open_link(url)`, `world_family(out, size)`, `sim_digest(level, &out)`, `identity_key(out, size)`, `plugins_folder(out, size)` (1.14) | the data packs applied and their digest, the clipboard, a mod code's link handed to the system (only `openrac://modset/` and a code: the mod asks the player first, with a button of its own page), the world the disc belongs to (two discs with the same text are played together), a number for what a loaded level's games must agree on, and a key for the installation, and the folder the mods are in, where the launcher leaves `modset.json` for the game |
+| `setting_set_bool(mod, key, value)`, `setting_set_int`, `setting_set_float`, `setting_set_string` (1.15) | the mod's own setting set, as an options page of the mod's would: read back from then on, and written into the launcher's list (`plugins.json`, the whole file beside it then renamed, every other mod and member kept), so the launcher shows it and the next start has it. Checked as the list's values are (the type, range, choices, length, binds); `OPENRAC_HOOK_UNKNOWN` for a key the manifest does not declare, another type, or a value it refuses. Without a list (purist mode) the value is the run's, and the log says so once |
+| `on_settings(mod, fn, user)` (1.15) | `fn(user)` after the tick in which the launcher changed the mod's settings while the game runs: the port looks at the list's time about once a second, and reads it again when it changed. Only a mod that asks is given the new values; the mod's own `setting_set_*` is not told |
 
 A call answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) in a game that has not got it, and `play_scene_from` always; Ratchet \& Clank has the others on both discs. The C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them.
 
@@ -710,6 +712,10 @@ the hero placed, held and revived, a picture drawn over the game (`on_overlay`),
 say (`hero_shots2`, `figure_shot2`), `moby_list2`, camera scripts, a slot kept for `play_scene_from`,
 `play_live_picture`, `on_metal_detect`, the data packs (`packs_info`, `packs_entry`), `clipboard_set`,
 `open_link`, `world_family`, `sim_digest` and `identity_key`.
+1.15 (SDK 1.15.0) a mod's own settings set from the game and written into the launcher's list
+(`setting_set_bool`, `_int`, `_float`, `_string`; the C++ layer's `set_setting<T>()`, scripts'
+`openrac.set_setting`), and the launcher's changes while the game runs heard (`on_settings`,
+`openrac.on_settings`); `has_settings_set()`.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
@@ -1349,10 +1355,11 @@ callback that swaps two buttons, chosen in its settings.
 ## 12. What is proposed or open
 
 - **Proposed: settings in the game.** The in-game drawer showing the loaded
-  mods and their settings, written back to `plugins.json`. A mod's own page
-  in the front-end menu is there since 1.5 (`menu_entry`, section 6), and
-  pages of the game's own menus, opened from the main menu, since 1.7
-  (`ui_page`, `ui_main_item`).
+  mods and their settings. A mod's own page in the front-end menu is there
+  since 1.5 (`menu_entry`, section 6), pages of the game's own menus, opened
+  from the main menu, since 1.7 (`ui_page`, `ui_main_item`), and a mod writes
+  its own settings back to `plugins.json` and hears the launcher's changes
+  since 1.15 (`setting_set_*`, `on_settings`).
 - **Proposed: more hook points** as mods ask for them, and a hook on the
   renderer's frame for mods that draw over the game in play. Simple drawing
   on a mod's own menu page (rectangles and text) is there since 1.5.

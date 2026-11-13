@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -94,7 +95,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.14",
+    const std::string& api = "1.15",
     const std::string& extra = "",
     const std::string& games = R"({"test": ["one"]})",
     const std::string& hooks = R"(["Test_Add"])"
@@ -127,7 +128,8 @@ void install(
                                   {"value": "world", "name": "World"},
                                   {"value": "z_watchers_fail", "name": "Watchers fail"},
                                   {"value": "hoverboard", "name": "Hoverboard"},
-                                  {"value": "callback_only", "name": "Callback only"}]},
+                                  {"value": "callback_only", "name": "Callback only"},
+                                  {"value": "keep", "name": "Keep"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -522,7 +524,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.14", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.15", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -682,6 +684,56 @@ void a_party_reads_the_mods(const fs::path& plugins) {
     api.party_replay(1);
     CHECK(api.party_replaying() == 1);
     api.party_replay(0);
+    mods::reset();
+}
+
+// A mod's own settings (interface 1.15): set for the run and written into the launcher's list,
+// every other mod and setting kept; a key the manifest does not declare, a setting of another type
+// and a value it refuses are refused. The launcher's change is heard once the list is read again
+// (about a second of ticks), the mod's own write is not.
+void a_mod_sets_its_own_settings(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "keep"}},
+        {"id": "test-b", "enabled": true, "settings": {"tag": 3}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
+    const auto seen = [](int record) {
+        return std::count(g_records.begin(), g_records.end(), record);
+    };
+    // Set; no such key; a bool for an int; not a choice; a keybind; no such key name; a float for
+    // an int; the tag read back; the keybind read back.
+    for (const int record : {12000, 12011, 12021, 12031, 12040, 12051, 12061, 12342, 12201}) {
+        CHECK(seen(record) == 1);
+    }
+    std::vector<mods::ListEntry> list;
+    std::string error;
+    CHECK(mods::parse_list(read(plugins / "plugins.json"), list, error) && list.size() == 2);
+    CHECK(list[0].id == "test-a" && list[0].settings["tag"].number() == 42);
+    CHECK(list[0].settings["behaviour"].string() == "keep");
+    CHECK(list[0].settings["jump"].string() == "KeyW,ArrowUp");
+    CHECK(list[1].id == "test-b" && list[1].settings["tag"].number() == 3 && list[1].enabled);
+    CHECK(!fs::exists(plugins / "plugins.json.port.tmp"));
+
+    // The mod's own write: not heard, however many ticks.
+    for (int i = 0; i < 150; ++i) {
+        mods::frame();
+    }
+    CHECK(std::none_of(g_records.begin(), g_records.end(), [](int r) {
+        return r >= 12100 && r < 12200;
+    }));
+
+    // The launcher's: heard once, the new value read.
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "keep", "tag": 7}},
+        {"id": "test-b", "enabled": true, "settings": {"tag": 3}}]})");
+    fs::last_write_time(
+        plugins / "plugins.json",
+        fs::last_write_time(plugins / "plugins.json") + std::chrono::seconds(5)
+    );
+    for (int i = 0; i < 150; ++i) {
+        mods::frame();
+    }
+    CHECK(seen(12107) == 1);
     mods::reset();
 }
 
@@ -1253,7 +1305,7 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
 // RAC2 has no game hook catalogue or script binding yet, but a native mod that only uses
 // common callbacks still loads. A native mod that tries to take a game hook is refused cleanly.
 void rac2_callback_only_native_mod(const fs::path& plugins) {
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.14", "", R"({"rac2": ["ntsc"]})", "[]");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.15", "", R"({"rac2": ["ntsc"]})", "[]");
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true,
          "settings": {"tag": 4, "behaviour": "callback_only"}}]})");
@@ -1269,7 +1321,7 @@ void rac2_callback_only_native_mod(const fs::path& plugins) {
     mods::reset();
 
     install(
-        plugins, "a", OPENRAC_TEST_MOD_A, "1.14", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
+        plugins, "a", OPENRAC_TEST_MOD_A, "1.15", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
     );
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"tag": 1}}]})");
@@ -1409,7 +1461,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.14", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.15", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1751,6 +1803,7 @@ int main() {
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
+    a_mod_sets_its_own_settings(plugins);
     the_1_14_calls_answer_unknown_without_a_game(plugins);
     a_party_reads_the_data_packs(plugins);
     a_mod_copies_and_knows_the_key(plugins);
