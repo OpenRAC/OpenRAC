@@ -211,8 +211,9 @@
     const opacity = far <= 1 ? 1 - 0.65 * far : Math.max(0, 0.35 - 0.35 * (far - 1));
     // The shadow follows the wheel too: full in the middle, gone one disc away.
     const shade = Math.max(0, 1 - far);
-    // Not seen at all (two discs away and more): not drawn either.
-    const hidden = opacity <= 0 ? "; visibility: hidden" : "";
+    // Not seen at all (two discs away and more): not drawn either. Never the picked disc's
+    // neighbours, which the controller's focus may be on its way to while the wheel turns.
+    const hidden = opacity <= 0 && Math.abs(i - at) >= 2 ? "; visibility: hidden" : "";
     return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; --shade: ${shade.toFixed(3)}; opacity: ${opacity}${hidden}`;
   }
 
