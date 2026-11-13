@@ -119,6 +119,11 @@ void test_levels() {
     CHECK(l.paper_white == 1000.0f && l.peak == 10000.0f);
     l = hdr::resolve_levels(0, 6000, bright);
     CHECK(l.peak == 6000.0f);
+    // A display that says it shows no HDR (Mode::On sends HDR anyway): the defaults, not its
+    // SDR white and its peak of 1x headroom.
+    const hdr::Display says_sdr{true, false, 80.0f, 203.0f};
+    l = hdr::resolve_levels(0, 0, says_sdr);
+    CHECK(l.paper_white == hdr::kReferenceWhiteNits && l.peak == hdr::kDefaultPeakNits);
     // A peak below paper white is raised to it.
     l = hdr::resolve_levels(600, 400, windows);
     CHECK(l.peak == 600.0f);
@@ -153,8 +158,15 @@ void test_wanted_output() {
     const hdr::Display hdr_display{true, true, 203.0f, 1000.0f};
     CHECK(hdr::wanted_output(hdr::Mode::Off, hdr_display, false) == Output::Sdr);
     CHECK(hdr::wanted_output(hdr::Mode::Off, unknown, false) == Output::Sdr);
-    // On follows the system where it says; where it cannot (X11), it tries HDR.
-    CHECK(hdr::wanted_output(hdr::Mode::On, sdr_display, false) == Output::Sdr);
+    // On tries HDR whatever the system says (a compositor can be wrong), except where the
+    // system decides (Android).
+    CHECK(hdr::wanted_output(hdr::Mode::On, sdr_display, false) == Output::Hdr10);
+    hdr::Display android_sdr = sdr_display;
+    android_sdr.system_decides = true;
+    CHECK(hdr::wanted_output(hdr::Mode::On, android_sdr, false) == Output::Sdr);
+    hdr::Display android_hdr = hdr_display;
+    android_hdr.system_decides = true;
+    CHECK(hdr::wanted_output(hdr::Mode::On, android_hdr, false) == Output::Hdr10);
     CHECK(hdr::wanted_output(hdr::Mode::On, hdr_display, false) == Output::Hdr10);
     CHECK(hdr::wanted_output(hdr::Mode::On, hdr_display, true) == Output::ScRgb);
     CHECK(hdr::wanted_output(hdr::Mode::On, unknown, false) == Output::Hdr10);

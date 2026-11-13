@@ -16,7 +16,7 @@ byte for byte.
 
 | Key | Values | Meaning |
 |---|---|---|
-| `hdr` | `off` (default), `on` | `on`: HDR when the system says the display is in HDR mode. Where it can't say (X11), HDR whenever the screen offers it. |
+| `hdr` | `off` (default), `on` | `on`: HDR whenever the screen offers it. On Android, only when the system says the display is in HDR mode. |
 | `hdr_paper_white` | `0`, `80` to `1000` nits | How bright the game's white is. `0`: the system's SDR brightness, else 203 |
 | `hdr_peak` | `0`, `400` to `10000` nits | The brightest the effects may go. `0`: what the display reports, else 1000 |
 | `hdr_highlights` | `0` to `100` % (default `100`) | Light above white. `0`: as in SDR |
@@ -31,10 +31,9 @@ brightness (203 by BT.2408); above 1000 the game's white reaches the peak and th
 standing out, so it stops at 1000. The display's own number (Windows' EDID peak,
 Android's desired max luminance or HDR/SDR headroom) stays the default.
 
-You can set the mode in the Video options page, the options drawer, the settings file, or the
-launcher's Settings > HDR. The launcher's Off or On is given to every start it makes
-(`OPENRAC_HDR`), over the game's own. The other keys are in the in-game menu (desktop and Android)
-and the settings file.
+You can set the mode in the Video options page, the in-game menu or the settings file. The other
+keys are in the in-game menu (desktop and Android) and the settings file. `OPENRAC_HDR=off|on`
+overrides the mode for one run.
 
 Turning HDR on from `off` needs a restart. Other changes apply at once.
 
@@ -49,14 +48,21 @@ plain HDR picture, bit for bit.
 
 HDR needs the Vulkan renderer. OpenGL always stays SDR.
 
-| Platform | Format | How `on` knows the display is in HDR |
+`on` sends HDR whenever the screen offers an HDR format, even if the system says the display is
+not in HDR mode. A compositor can get that wrong (Steam Deck's gamescope). Only Android follows
+the system, because its Vulkan offers HDR10 on every display.
+
+| Platform | Format | What the system tells the game |
 |---|---|---|
 | Windows | HDR10, else scRGB | SDL: HDR on, SDR brightness, peak |
 | Linux, Wayland | HDR10, else scRGB | SDL (needs a compositor with colour management) |
-| Linux, X11 | whatever the driver offers | it can't: HDR whenever the driver offers it |
+| Linux, X11 | whatever the driver offers | nothing |
 | macOS | scRGB (EDR), else HDR10 | SDL: EDR headroom |
-| Android 14+ with headroom | scRGB, white = the system's SDR white | `GameActivity.displayHdr` |
-| Other Android | HDR10, else scRGB | `GameActivity.displayHdr` |
+| Android 14+ with headroom | scRGB, white = the system's SDR white | `GameActivity.displayHdr` (decides) |
+| Other Android | HDR10, else scRGB | `GameActivity.displayHdr` (decides) |
+
+When the system says the display is not in HDR mode, its SDR white and peak are not used:
+paper white is 203 and the peak 1000 unless you set them.
 
 The options drawer shows what is sent and what the display reported. The log prints the same
 line (`HDR: ...`) when it changes.
