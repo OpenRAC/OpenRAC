@@ -35,6 +35,9 @@ claxon = { opt-level = 3 }
 miniz_oxide = { opt-level = 3 }
 crc = { opt-level = 3 }
 bitreader = { opt-level = 3 }
+# Hashes (mod downloads, Enhanced graphics' bake checks) of files tens of MB large.
+sha2 = { opt-level = 3 }
+digest = { opt-level = 3 }
 
 [patch.crates-io]
 zip = { git = "https://github.com/zip-rs/zip2", tag = "v4.6.1" }

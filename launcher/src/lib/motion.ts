@@ -3,6 +3,7 @@
 // transitions run outside CSS, so app.css's reduced-motion rule cannot reach them: with the
 // system's "reduce motion" on, every duration here is 0.
 import { tick } from "svelte";
+import { isKeptCopy } from "./media";
 import { cubicOut } from "svelte/easing";
 import type { FlyParams, SlideParams } from "svelte/transition";
 
@@ -86,8 +87,9 @@ export function slide(change: () => void, way: Way, code?: Promise<unknown>) {
 /** Waits, briefly, for the pictures of the page coming in: the slide shows the page as it is when
  *  this settles, and a picture still loading would pop in after the page had slid in without it. */
 function pictures(): Promise<void> {
+  // A kept copy (media.ts) is decoded already: waiting on it only held the slide up.
   const pending = [...document.querySelectorAll("main img")].filter(
-    (img): img is HTMLImageElement => img instanceof HTMLImageElement && !img.complete,
+    (img): img is HTMLImageElement => img instanceof HTMLImageElement && !img.complete && !isKeptCopy(img.src),
   );
   if (!pending.length) return Promise.resolve();
   const loaded = Promise.all(pending.map((img) => img.decode().catch(() => undefined)));

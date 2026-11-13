@@ -26,9 +26,29 @@ pub struct BakeStatus {
     pub partial: usize,
 }
 
+/// A file's SHA-256, kept while its size and change time stay the same. The bake status is asked
+/// each time a game's Mods switch or Mods tab shows (Android: every tab change), and hashing the
+/// water and ocean files again each time cost about half a second of CPU on a phone.
 fn sha256(path: &Path) -> Option<String> {
-    let bytes = std::fs::read(path).ok()?;
-    Some(crate::sha256_hex(&bytes))
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+    type Stamp = (u64, Option<std::time::SystemTime>);
+    static KNOWN: Mutex<Option<HashMap<PathBuf, (Stamp, String)>>> = Mutex::new(None);
+    let meta = std::fs::metadata(path).ok()?;
+    let stamp = (meta.len(), meta.modified().ok());
+    // No change time (a file system without one): always hashed.
+    if stamp.1.is_some() {
+        if let Some((seen, digest)) = KNOWN.lock().unwrap().get_or_insert_with(HashMap::new).get(path) {
+            if *seen == stamp {
+                return Some(digest.clone());
+            }
+        }
+    }
+    let digest = crate::sha256_hex(&std::fs::read(path).ok()?);
+    if stamp.1.is_some() {
+        KNOWN.lock().unwrap().get_or_insert_with(HashMap::new).insert(path.to_path_buf(), (stamp, digest.clone()));
+    }
+    Some(digest)
 }
 
 /// What `baker` makes of `level` (`--print-profile`):

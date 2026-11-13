@@ -243,15 +243,21 @@ void main() {
     const start = performance.now();
     const tick = (now: number) => {
       frame = requestAnimationFrame(tick);
-      // Slow drift: 60 frames a second are plenty, also on a 120 Hz screen.
-      if (document.hidden || now - last < 15) return;
+      // 60 frames a second while it follows the wheel or comes in with its push; the slow drift
+      // alone, 30 (user decision: half the GPU work on a shelf left alone, same picture).
+      const moving = Math.abs(shift - slide) > 0.002 || now - start < 2000;
+      if (document.hidden || now - last < (moving ? 15 : 31)) return;
+      const step = Math.min(now - last, 100) / (1000 / 60);
       last = now;
       // The colour follows the game's as it changes (a transition), read a few times a second.
       if (now - read > 120) {
         colour = rgb(c);
         read = now;
       }
-      slide += (shift - slide) * 0.08;
+      // After the wheel at the same pace whatever the frame rate: 8 % of the way each 60th of a second.
+      slide += (shift - slide) * (1 - Math.pow(0.92, step));
+      // The weak-GPU check counts 60-a-second frames only.
+      if (!moving) drawn = 0;
       // The push: about three times its pace at first, back to its own within a second or so.
       const rush = still ? 0 : 1.2 * (1 - Math.exp(-(now - start) / 600));
       at = 10 + (now - start) / 1000 + rush;
