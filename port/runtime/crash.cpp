@@ -8,6 +8,7 @@
 
 #include "common/crash.h"
 
+#include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -76,20 +77,33 @@ namespace {
 
 #if defined(_WIN32)
 
-// The program's own image (the .exe), set when the handler is installed.
-std::uintptr_t g_image_low = 0, g_image_high = 0;
+// The code the program never catches a fault in: its own image (the .exe) and the libraries it
+// loads itself (add_own_library). Read by the handler on any thread, so each range is atomic.
+struct CodeRange {
+    std::atomic<std::uintptr_t> low{0}, high{0};
+};
 
-void note_image() {
-    const auto* base = reinterpret_cast<const std::uint8_t*>(GetModuleHandleW(nullptr));
+constexpr int kOwnRanges = 128;
+CodeRange g_own[kOwnRanges];
+
+// The image's range from its PE headers: no call into the system in the handler.
+void image_range(const void* module, std::uintptr_t& low, std::uintptr_t& high) {
+    const auto* base = static_cast<const std::uint8_t*>(module);
     const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
     const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
-    g_image_low = reinterpret_cast<std::uintptr_t>(base);
-    g_image_high = g_image_low + nt->OptionalHeader.SizeOfImage;
+    low = reinterpret_cast<std::uintptr_t>(base);
+    high = low + nt->OptionalHeader.SizeOfImage;
 }
 
-bool in_image(const void* address) {
+bool in_own_code(const void* address) {
     const auto at = reinterpret_cast<std::uintptr_t>(address);
-    return at >= g_image_low && at < g_image_high;
+    for (const CodeRange& range : g_own) {
+        const std::uintptr_t low = range.low.load(std::memory_order_acquire);
+        if (low != 0 && at >= low && at < range.high.load(std::memory_order_acquire)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // Names the exception and writes the report; the program ends here.
@@ -157,13 +171,13 @@ bool is_fault(DWORD code) {
 }
 
 // A first look at every exception, before any handler. Only a hardware fault in the program's own
-// code is reported here: the program never catches one. A fault in another module (an overlay such
-// as Discord's or RivaTuner's, or a driver) is often probed and caught by that module itself, so it
-// goes on; if nothing catches it, on_unhandled reports it.
+// code is reported here: the program never catches one. A fault in another library (an overlay
+// such as RivaTuner's, which Discord's screen share wakes, or a driver) is often a probe that
+// library catches itself, so it goes on; if nothing catches it, on_unhandled reports it.
 LONG WINAPI on_exception(EXCEPTION_POINTERS* info) {
     const EXCEPTION_RECORD& record = *info->ExceptionRecord;
 
-    if (!is_fault(record.ExceptionCode) || !in_image(record.ExceptionAddress)) {
+    if (!is_fault(record.ExceptionCode) || !in_own_code(record.ExceptionAddress)) {
         return EXCEPTION_CONTINUE_SEARCH;
     }
 
@@ -404,10 +418,47 @@ void guard_writes(gaddr address, std::uint32_t bytes, std::uint32_t skip) {
 #endif
 }
 
+void add_own_library(const void* module) {
+#if defined(_WIN32)
+    if (module == nullptr) {
+        return;
+    }
+    std::uintptr_t low = 0, high = 0;
+    image_range(module, low, high);
+    for (CodeRange& range : g_own) {
+        std::uintptr_t free = 0;
+        if (range.low.load(std::memory_order_relaxed) == low) {
+            return;  // already in
+        }
+        if (range.low.compare_exchange_strong(free, low, std::memory_order_acq_rel)) {
+            range.high.store(high, std::memory_order_release);
+            return;
+        }
+    }
+    // All taken: its faults are still reported by on_unhandled.
+#else
+    (void)module;
+#endif
+}
+
+void remove_own_library(const void* module) {
+#if defined(_WIN32)
+    const auto low = reinterpret_cast<std::uintptr_t>(module);
+    for (CodeRange& range : g_own) {
+        if (low != 0 && range.low.load(std::memory_order_relaxed) == low) {
+            range.high.store(0, std::memory_order_release);
+            range.low.store(0, std::memory_order_release);
+        }
+    }
+#else
+    (void)module;
+#endif
+}
+
 void install_crash_handler() {
     std::set_terminate(on_terminate);
 #if defined(_WIN32)
-    note_image();
+    add_own_library(GetModuleHandleW(nullptr));
     AddVectoredExceptionHandler(1, on_exception);
     SetUnhandledExceptionFilter(on_unhandled);
     std::signal(SIGABRT, on_abort);
