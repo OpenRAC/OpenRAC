@@ -55,7 +55,11 @@ struct Binding {
     // Kind::PadAxis: the direction, -1 (left or up) or +1 (right or down).
     int sign = 0;
 
-    bool operator==(const Binding&) const = default;
+    // MSVC STL 14.51/14.52 tries to vectorize defaulted comparisons of these 12-byte objects
+    // with Clang (microsoft/STL#6294). Explicit equality also keeps PadChord out of that path.
+    constexpr bool operator==(const Binding& other) const noexcept {
+        return kind == other.kind && value == other.value && sign == other.sign;
+    }
 };
 
 // `name` as the settings file writes it ("KeyW", "PadSouth"); Kind::None for one no table has.
