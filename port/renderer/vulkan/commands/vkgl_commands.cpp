@@ -1229,7 +1229,7 @@ Target target_of(GLuint name) {
     Target t;
     if (name == 0) {
         t.colour = g->default_colour.get();
-        t.depth = g->default_depth.get();
+        t.depth = g->default_depth_detached ? nullptr : g->default_depth.get();
     } else if (Framebuffer* fb = g->framebuffers.find(name)) {
         t.colour = image_of(fb->colour_texture, fb->colour_renderbuffer);
         t.depth = image_of(fb->depth_texture, fb->depth_renderbuffer);
@@ -1453,6 +1453,12 @@ bool test_poison_discards(bool on) {
 
     detail::g->poison_discards = on;
     return true;
+}
+
+void default_framebuffer_depth(bool attached) {
+    if (detail::g != nullptr) {
+        detail::g->default_depth_detached = !attached;
+    }
 }
 
 }  // namespace openrac::vkgl

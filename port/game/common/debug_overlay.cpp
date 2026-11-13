@@ -45,6 +45,10 @@
 #include "scene/screenshot.h"
 #include "settings.h"
 
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
+
 namespace openrac::frontend::debug_overlay {
 
 namespace {
@@ -1079,11 +1083,23 @@ void draw(const Shown& shown) {
         draw_notifications();
     }
     ImGui::Render();
+#if defined(OPENRAC_VULKAN)
+    // The panel needs no depth. Drawn in a pass with the default depth image, Adreno broke it at
+    // 2x MSAA.
+    if (gl::is_vulkan()) {
+        vkgl::default_framebuffer_depth(false);
+    }
+#endif
     if (s.gl_subset) {
         renderer::ui::imgui_gl::render(ImGui::GetDrawData());
     } else {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan()) {
+        vkgl::default_framebuffer_depth(true);
+    }
+#endif
     renderer::gl_stats::reset_binds();
 
     if (!scripted_shot.empty()) {
