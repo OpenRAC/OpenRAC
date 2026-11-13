@@ -1,37 +1,8 @@
-<script lang="ts">
-  import { untrack } from "svelte";
-
-  // Behind Android's Games: a ribbon of light in the game's colour, like silk or a wave of water,
-  // folding and drifting slowly across the screen. It slides along
-  // as the wheel of discs turns (`shift`, in discs). One still frame when motion is reduced.
-  // Drawn by the GPU at the screen's own pixels (WebGL): each sheet of the cloth is worked out per
-  // pixel with its edges smoothed, so it stays sharp and free of jagged steps on any screen,
-  // and it costs the processor next to nothing. Where the rail lies over it (`--frost` from the
-  // left, CSS), the cloth is drawn soft, as through frosted glass.
-  let { shift = 0, still = false }: { shift?: number; still?: boolean } = $props();
-
-  let canvas = $state<HTMLCanvasElement | null>(null);
-
-  /** The ribbon's sheets, each a fold of the same cloth: where it lies (share of the height), how
-   *  far it rises and falls, how wide it is, its own pace and phase, and how bright it is. */
-  const SHEETS = [
-    { mid: 0.63, rise: 0.09, wide: 0.1, pace: 1, phase: 0, light: 1 },
-    { mid: 0.66, rise: 0.07, wide: 0.07, pace: 0.8, phase: 2.1, light: 0.7 },
-    { mid: 0.6, rise: 0.06, wide: 0.05, pace: 1.25, phase: 4.2, light: 0.55 },
-  ] as const;
-  const TAU = Math.PI * 2;
-
-  /** The three moving angles of sheet `s` at time `t`, wrapped, so the GPU's sines stay exact
-   *  however long the page is open. */
-  function angles(s: (typeof SHEETS)[number], t: number): [number, number, number] {
-    const q = t * s.pace;
-    const wrap = (a: number, p: number) => ((a % p) + p) % p;
-    return [
-      wrap(q * 0.21 + s.phase, TAU),
-      wrap(-q * 0.13 + s.phase * 1.7, TAU),
-      wrap(-q * 0.11 + s.phase * 0.6, Math.PI),
-    ];
-  }
+<script lang="ts" module>
+  // The wave's canvas and its WebGL context, made once and kept while the launcher runs. Games is
+  // built again each time its tab opens; a new context each time (made by the GPU process, its
+  // shader compiled and linked) held the tap up for tens of ms, and the old ones piled up until
+  // the browser dropped them.
 
   const QUAD_VS = `
 attribute vec2 p;
@@ -94,21 +65,6 @@ void main() {
   gl_FragColor = vec4(cloth, clamp(max(cloth.r, max(cloth.g, cloth.b)), 0.0, 1.0));
 }`;
 
-  /** The colour as numbers: --glow is a registered colour, so it reads back as rgb(). */
-  function rgb(el: Element): [number, number, number] {
-    const [r, g, b] = (
-      getComputedStyle(el)
-        .getPropertyValue("--glow")
-        .match(/[\d.]+/g) ?? []
-    ).map(Number);
-    return r === undefined || g === undefined || b === undefined ? [244, 190, 64] : [r, g, b];
-  }
-
-  /** How far from the left the rail lies over the cloth, in CSS pixels (--frost, 0 if none). */
-  function frostOf(el: Element): number {
-    return parseFloat(getComputedStyle(el).getPropertyValue("--frost")) || 0;
-  }
-
   interface Gl {
     gl: WebGLRenderingContext;
     cloth: WebGLProgram;
@@ -165,10 +121,68 @@ void main() {
     };
   }
 
+  let kept: { canvas: HTMLCanvasElement; g: Gl | null } | null = null;
+</script>
+
+<script lang="ts">
+  import { untrack } from "svelte";
+
+  // Behind Android's Games: a ribbon of light in the game's colour, like silk or a wave of water,
+  // folding and drifting slowly across the screen. It slides along
+  // as the wheel of discs turns (`shift`, in discs). One still frame when motion is reduced.
+  // Drawn by the GPU at the screen's own pixels (WebGL): each sheet of the cloth is worked out per
+  // pixel with its edges smoothed, so it stays sharp and free of jagged steps on any screen,
+  // and it costs the processor next to nothing. Where the rail lies over it (`--frost` from the
+  // left, CSS), the cloth is drawn soft, as through frosted glass.
+  let { shift = 0, still = false }: { shift?: number; still?: boolean } = $props();
+
+  let host = $state<HTMLElement | null>(null);
+
+  /** The ribbon's sheets, each a fold of the same cloth: where it lies (share of the height), how
+   *  far it rises and falls, how wide it is, its own pace and phase, and how bright it is. */
+  const SHEETS = [
+    { mid: 0.63, rise: 0.09, wide: 0.1, pace: 1, phase: 0, light: 1 },
+    { mid: 0.66, rise: 0.07, wide: 0.07, pace: 0.8, phase: 2.1, light: 0.7 },
+    { mid: 0.6, rise: 0.06, wide: 0.05, pace: 1.25, phase: 4.2, light: 0.55 },
+  ] as const;
+  const TAU = Math.PI * 2;
+
+  /** The three moving angles of sheet `s` at time `t`, wrapped, so the GPU's sines stay exact
+   *  however long the page is open. */
+  function angles(s: (typeof SHEETS)[number], t: number): [number, number, number] {
+    const q = t * s.pace;
+    const wrap = (a: number, p: number) => ((a % p) + p) % p;
+    return [
+      wrap(q * 0.21 + s.phase, TAU),
+      wrap(-q * 0.13 + s.phase * 1.7, TAU),
+      wrap(-q * 0.11 + s.phase * 0.6, Math.PI),
+    ];
+  }
+
+  /** The colour as numbers: --glow is a registered colour, so it reads back as rgb(). */
+  function rgb(el: Element): [number, number, number] {
+    const [r, g, b] = (
+      getComputedStyle(el)
+        .getPropertyValue("--glow")
+        .match(/[\d.]+/g) ?? []
+    ).map(Number);
+    return r === undefined || g === undefined || b === undefined ? [244, 190, 64] : [r, g, b];
+  }
+
+  /** How far from the left the rail lies over the cloth, in CSS pixels (--frost, 0 if none). */
+  function frostOf(el: Element): number {
+    return parseFloat(getComputedStyle(el).getPropertyValue("--frost")) || 0;
+  }
+
   $effect(() => {
-    const c = canvas;
-    if (!c) return;
-    let g = setUp(c);
+    const holder = host;
+    if (!holder) return;
+    kept ??= { canvas: document.createElement("canvas"), g: null };
+    const k = kept;
+    const c = k.canvas;
+    holder.append(c);
+    if (!k.g || k.g.gl.isContextLost()) k.g = setUp(c);
+    let g = k.g;
     let dpr = 1,
       frame = 0,
       last = 0,
@@ -185,8 +199,12 @@ void main() {
     const size = () => {
       // Sharp at the screen's own pixels, up to twice the CSS ones (a 3x phone looks the same).
       dpr = Math.min(devicePixelRatio || 1, cap);
-      c.width = Math.max(1, Math.round(c.clientWidth * dpr));
-      c.height = Math.max(1, Math.round(c.clientHeight * dpr));
+      // Only when it changed: setting either clears the picture, which a canvas kept from the last
+      // visit still shows until its first frame here.
+      const w = Math.max(1, Math.round(c.clientWidth * dpr)),
+        h = Math.max(1, Math.round(c.clientHeight * dpr));
+      if (c.width !== w) c.width = w;
+      if (c.height !== h) c.height = h;
       frost = frostOf(c);
     };
     const draw = (t: number) => {
@@ -261,10 +279,10 @@ void main() {
     const lost = (e: Event) => {
       e.preventDefault();
       cancelAnimationFrame(frame);
-      g = null;
+      g = k.g = null;
     };
     const restored = () => {
-      g = setUp(c);
+      g = k.g = setUp(c);
       run();
     };
     c.addEventListener("webglcontextlost", lost);
@@ -279,23 +297,24 @@ void main() {
       c.removeEventListener("webglcontextlost", lost);
       c.removeEventListener("webglcontextrestored", restored);
       document.removeEventListener("visibilitychange", shown);
-      // The canvas keeps its context for the next run (reduced motion turned on or off): its
-      // program and buffer go now, not with the page.
-      if (g) {
-        g.gl.deleteProgram(g.cloth);
-        g.gl.deleteBuffer(g.quad);
-      }
+      // The canvas, its context and its program stay for the next visit.
+      c.remove();
     };
   });
 </script>
 
-<canvas bind:this={canvas} aria-hidden="true"></canvas>
+<div class="wave" bind:this={host} aria-hidden="true"></div>
 
 <style>
-  /* The deep below the wave holds a little of its light. */
-  canvas {
+  /* The canvas is made in code (kept between visits), so it is styled through its holder. */
+  .wave,
+  .wave :global(canvas) {
     position: absolute;
     inset: 0;
+  }
+
+  /* The deep below the wave holds a little of its light. */
+  .wave :global(canvas) {
     width: 100%;
     height: 100%;
     background: linear-gradient(transparent 45%, color-mix(in srgb, var(--glow) 13%, transparent));
