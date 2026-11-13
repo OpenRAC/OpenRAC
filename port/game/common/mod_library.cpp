@@ -5,6 +5,8 @@
 
 #include "mod_library.h"
 
+#include "openrac/memory.h"
+
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -46,6 +48,7 @@ void* open(const std::filesystem::path& path, std::string& error) {
         }
         return nullptr;
     }
+    runtime::add_own_library(module);  // its faults are reported at once, like the program's
     return module;
 }
 
@@ -54,6 +57,7 @@ void* symbol(void* library, const char* name) {
 }
 
 void close(void* library) {
+    runtime::remove_own_library(library);
     FreeLibrary(static_cast<HMODULE>(library));
 }
 
