@@ -186,6 +186,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_00255B90 game_FUN_L00_00254b58
 #define func_L00_00255B90__game game_FUN_L00_00254b58__game
 #define func_L00_00232C10__game game_FUN_L00_002323b8__game
+/* Ratchet's held pieces a mod hid (world.c): PAL update_hero_item_moby_flags func_L00_00233950 is
+ * FUN_L00_002330d0 here. */
+#define func_L00_00233950 game_FUN_L00_002330d0
+#define func_L00_00233950__game game_FUN_L00_002330d0__game
 #define RAC1_ADDR_0x0015EEB4u 0x0015EDB4u
 #define RAC1_ADDR_0x0015EEE0u 0x0015EDE0u
 #define RAC1_ADDR_L00_0x0015F044u 0x0015EF44u

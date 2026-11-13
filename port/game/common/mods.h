@@ -190,6 +190,10 @@ struct PropDraw {
     std::array<float, 16> matrix{};
     std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
     int blend = 0;  // OPENRAC_PROP_OPAQUE, _ALPHA or _ADD
+    // Fixed to a moby's joint (interface 1.18, prop_attach): the moby (a game address, 0 for
+    // none), its joint, and `matrix` is then the offset in the joint's frame.
+    std::uint32_t attached_moby = 0;
+    int attached_joint = -1;
 };
 
 // The props shown in the level now (posed, not hidden, of this level load). From any thread.

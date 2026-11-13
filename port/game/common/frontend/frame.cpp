@@ -1904,7 +1904,61 @@ TickMobys pose_mobys(
             if (model == g->prop_models.end()) {
                 continue;
             }
-            scene::Instance instance{model->second, props[i].matrix, props[i].tint};
+            renderer::Mat4 place = props[i].matrix;
+            // Fixed to a moby's joint (interface 1.18, prop_attach): drawn only while that moby is,
+            // at the joint's frame as the moby is drawn now, times the prop's offset there.
+            if (props[i].attached_moby != 0) {
+                const auto moby =
+                    std::find_if(state.mobys.begin(), state.mobys.end(), [&](const auto& m) {
+                        return m.address == props[i].attached_moby;
+                    });
+                if (moby == state.mobys.end()
+                    || std::find(live_addresses.begin(), live_addresses.end(), moby->address)
+                           == live_addresses.end()) {
+                    continue;
+                }
+                const auto pose = scene::moby_pose_matrices(ram, moby->address);
+                if (props[i].attached_joint < 0
+                    || static_cast<std::size_t>(props[i].attached_joint) >= pose.size()) {
+                    continue;
+                }
+                // Its rows are the images of the joint's axes, then its place in packed units.
+                const auto& f = pose[static_cast<std::size_t>(props[i].attached_joint)];
+                const renderer::Mat4 joint{
+                    f[0][0],
+                    f[0][1],
+                    f[0][2],
+                    0.0f,
+                    f[1][0],
+                    f[1][1],
+                    f[1][2],
+                    0.0f,
+                    f[2][0],
+                    f[2][1],
+                    f[2][2],
+                    0.0f,
+                    f[3][0] / 1024.0f,
+                    f[3][1] / 1024.0f,
+                    f[3][2] / 1024.0f,
+                    1.0f,
+                };
+                // The joint's frame in the world, its axes made unit again: the moby's own scale
+                // (Ratchet's is about 0.15) stays out, so the offset and the prop's mesh are in the
+                // game's units.
+                renderer::Mat4 frame = renderer::multiply(moby->matrix, joint);
+                for (int c = 0; c < 3; ++c) {
+                    const float* axis = &frame[static_cast<std::size_t>(4 * c)];
+                    const float length =
+                        std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+                    if (length > 1e-6f) {
+                        for (int r = 0; r < 3; ++r) {
+                            frame[static_cast<std::size_t>(4 * c + r)] /= length;
+                        }
+                    }
+                }
+                place = renderer::multiply(frame, props[i].matrix);
+            }
+            scene::Instance instance{model->second, place, props[i].tint};
             instance.moby_light = {0.0f, 0.0f, 0.0f, 1.0f};
             instance.occlusion = scene::Pvs::always;
             instance.blend = props[i].blend;
@@ -1942,14 +1996,13 @@ TickMobys pose_mobys(
                 a[along] = mesh.min[along] + radius;
                 b[along] = mesh.max[along] - radius;
                 renderer::ShadowCapsule capsule;
-                capsule.a = renderer::transform_point(props[i].matrix, a);
-                capsule.b = renderer::transform_point(props[i].matrix, b);
+                capsule.a = renderer::transform_point(place, a);
+                capsule.b = renderer::transform_point(place, b);
                 // The matrix's scale along the side the radius was measured on.
-                const renderer::Vec3 o =
-                    renderer::transform_point(props[i].matrix, renderer::Vec3{});
+                const renderer::Vec3 o = renderer::transform_point(place, renderer::Vec3{});
                 renderer::Vec3 unit{};
                 unit[across] = 1.0f;
-                const renderer::Vec3 u = renderer::transform_point(props[i].matrix, unit);
+                const renderer::Vec3 u = renderer::transform_point(place, unit);
                 const float scale = std::sqrt(
                     (u[0] - o[0]) * (u[0] - o[0]) + (u[1] - o[1]) * (u[1] - o[1])
                     + (u[2] - o[2]) * (u[2] - o[2])

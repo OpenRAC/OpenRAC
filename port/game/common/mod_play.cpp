@@ -1272,6 +1272,9 @@ struct Prop {
     std::array<float, 16> matrix{};
     std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
     int blend = 0;
+    // Fixed to a moby's joint (1.18): the moby, its joint; `matrix` is the offset then.
+    gaddr attached_moby = 0;
+    int attached_joint = -1;
 };
 
 // A sound a mod loaded: whose, and the host's id of it.
@@ -1502,6 +1505,46 @@ int api_prop_pose(openrac_mod* mod, int id, const openrac_prop_pose* pose) {
         p->tint = {1.0f, 1.0f, 1.0f, 1.0f};
         p->blend = 0;
     }
+    p->posed = true;
+    p->attached_moby = 0;
+    p->attached_joint = -1;
+    return OPENRAC_HOOK_OK;
+}
+
+// A prop fixed to a moby's joint (interface 1.18): the renderer places it each frame
+// (frontend/frame.cpp), `matrix` kept as its offset in the joint's frame.
+int api_prop_attach(
+    openrac_mod* mod,
+    int id,
+    std::int32_t slot,
+    std::int32_t joint,
+    std::uint32_t flags,
+    const float offset[16]
+) {
+    const gaddr moby = slot >= 0 ? moby_address(slot) : 0;
+    // An attach point of the hero's (as hero_held names them): the game's own list says its joint.
+    if ((flags & OPENRAC_ATTACH_HELD) != 0) {
+        joint = g_play != nullptr && g_play->attach_point_joint != nullptr && joint >= 0
+                    ? g_play->attach_point_joint(moby, joint)
+                    : -1;
+    }
+    if (moby == 0 || joint < 0
+        || (offset != nullptr
+            && !std::all_of(offset, offset + 16, [](float f) { return std::isfinite(f); }))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (offset != nullptr) {
+        std::copy(offset, offset + 16, p->matrix.begin());
+    } else {
+        p->matrix = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    }
+    p->attached_moby = moby;
+    p->attached_joint = joint;
     p->posed = true;
     return OPENRAC_HOOK_OK;
 }
@@ -1911,6 +1954,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.collision_triangles = api_collision_triangles;
     api.prop_create = api_prop_create;
     api.prop_pose = api_prop_pose;
+    api.prop_attach = api_prop_attach;
     api.prop_hide = api_prop_hide;
     api.prop_remove = api_prop_remove;
     api.sound_load = api_sound_load;
@@ -1964,7 +2008,15 @@ std::vector<PropDraw> props_drawn() {
     for (std::size_t i = 0; i < g_props.size(); ++i) {
         const Prop& p = g_props[i];
         if (p.mod != nullptr && p.posed && !p.hidden && p.loads == loads) {
-            out.push_back({static_cast<int>(i), p.mesh, p.matrix, p.tint, p.blend});
+            out.push_back(
+                {static_cast<int>(i),
+                 p.mesh,
+                 p.matrix,
+                 p.tint,
+                 p.blend,
+                 p.attached_moby,
+                 p.attached_joint}
+            );
         }
     }
     return out;

@@ -96,7 +96,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.17",
+    const std::string& api = "1.18",
     const std::string& extra = "",
     const std::string& games = R"({"test": ["one"]})",
     const std::string& hooks = R"(["Test_Add"])"
@@ -526,7 +526,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.17", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.18", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -1475,7 +1475,7 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
 // RAC2 has no game hook catalogue or script binding yet, but a native mod that only uses
 // common callbacks still loads. A native mod that tries to take a game hook is refused cleanly.
 void rac2_callback_only_native_mod(const fs::path& plugins) {
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.17", "", R"({"rac2": ["ntsc"]})", "[]");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.18", "", R"({"rac2": ["ntsc"]})", "[]");
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true,
          "settings": {"tag": 4, "behaviour": "callback_only"}}]})");
@@ -1491,7 +1491,7 @@ void rac2_callback_only_native_mod(const fs::path& plugins) {
     mods::reset();
 
     install(
-        plugins, "a", OPENRAC_TEST_MOD_A, "1.17", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
+        plugins, "a", OPENRAC_TEST_MOD_A, "1.18", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
     );
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"tag": 1}}]})");
@@ -1624,7 +1624,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.17", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.18", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1765,6 +1765,13 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::Host h = host(plugins);
     static openrac_game_play play = kPlay;
     play.hero_update_hook = "Test_Add";
+    // The moby in slot 3, and the hero's attach point 1 on joint 12 (interface 1.18, prop_attach).
+    play.moby_at = [](std::int32_t slot) {
+        return slot == 3 ? gaddr{0x2000} : gaddr{0};
+    };
+    play.attach_point_joint = [](std::uint32_t moby, int point) {
+        return moby == 0x2000 && point == 1 ? 12 : -1;
+    };
     play.hero_set_pose = [](const openrac_game_pose* pose) {
         g_motion.push_back("hero " + std::to_string(static_cast<int>(pose->position[0])));
         return 1;
@@ -1837,9 +1844,11 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(mods::prop_meshes().empty());
     const unsigned generation = mods::prop_meshes_generation();
     mods::frame();
-    CHECK((g_records == std::vector<int>{9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9560,
-                                         9561, 9577,      9581, 9580, 9581, 9591, 9590, 9591,
-                                         9591, 9590,      9602, 9611, 9610, 9623, 9635}));
+    CHECK(
+        (g_records == std::vector<int>{9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9660, 9661,
+                                       9670, 9671,      9560, 9561, 9577, 9581, 9580, 9581, 9591,
+                                       9590, 9591,      9591, 9590, 9602, 9611, 9610, 9623, 9635})
+    );
     CHECK(
         (g_motion
          == std::vector<std::string>{
@@ -1856,10 +1865,17 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(mods::prop_meshes().size() == 1 && mods::prop_meshes()[0].filename() == "board.glb");
     CHECK(mods::prop_meshes_generation() == generation + 1);
     const std::vector<mods::PropDraw> drawn = mods::props_drawn();
-    CHECK(drawn.size() == 1);
+    CHECK(drawn.size() == 2);
     CHECK(
-        drawn.size() == 1 && drawn[0].matrix[0] == 2.0f && drawn[0].matrix[5] == 2.0f
+        drawn.size() == 2 && drawn[0].matrix[0] == 2.0f && drawn[0].matrix[5] == 2.0f
         && drawn[0].matrix[12] == 1.0f && drawn[0].matrix[13] == 2.0f && drawn[0].matrix[14] == 3.0f
+        && drawn[0].attached_moby == 0
+    );
+    // The second, fixed to the hero's attach point 1 (joint 12) of the moby in slot 3, its offset
+    // kept (the refused calls after it change nothing).
+    CHECK(
+        drawn.size() == 2 && drawn[1].attached_moby == 0x2000 && drawn[1].attached_joint == 12
+        && drawn[1].matrix[12] == 0.5f && drawn[1].matrix[0] == 1.0f
     );
     // The heat haze, drawn while its level is.
     const std::vector<mods::HazeDraw> haze = mods::haze_drawn();
