@@ -63,7 +63,12 @@ export function slide(change: () => void, way: Way, code?: Promise<unknown>) {
     change();
     return;
   }
-  document.documentElement.dataset.nav = way;
+  const root = document.documentElement;
+  root.dataset.nav = way;
+  // Before the browser takes its picture of the page leaving: what draws with WebGL (Games' wave)
+  // puts a still copy in its place, as Android's WebView leaves WebGL out of the pictures.
+  root.dataset.sliding = "";
+  document.dispatchEvent(new Event("slidestart"));
   const transition = document.startViewTransition(async () => {
     if (code) await Promise.race([code.catch(() => undefined), new Promise((done) => setTimeout(done, CODE_WAIT_MS))]);
     change();
@@ -72,7 +77,9 @@ export function slide(change: () => void, way: Way, code?: Promise<unknown>) {
   });
   sliding = transition;
   void transition.finished.finally(() => {
-    if (sliding === transition) sliding = null;
+    if (sliding !== transition) return;
+    sliding = null;
+    delete root.dataset.sliding;
   });
 }
 
