@@ -66,6 +66,14 @@ class Compare(unittest.TestCase):
         self.assertIsNone(first)
         self.assertEqual(note, "")
 
+    def test_a_kept_picture_is_not_compared(self):
+        # A frame that kept the last picture (k) repeats the last tick's values: left out.
+        a = trace(500, 50)
+        a.append(tick(550, 50, k=1, mb=7))
+        n, first, _ = compare.compare_ticks(a, trace(500, 51), list(compare.FIELDS), self.tol)
+        self.assertEqual(n, 50)
+        self.assertIsNone(first)
+
     def test_first_diverging_tick_and_field(self):
         def bend(c, t):
             if c >= 20:
@@ -434,6 +442,8 @@ class Outcome(unittest.TestCase):
         ticks = trace(10, 21)
         self.assertEqual(runner.classify(0, False, ticks, 20), "ok")
         self.assertEqual(runner.classify(0, False, ticks, 40), "exit")
+        # A run that ends on a kept picture still reaches its length (Gaspar).
+        self.assertEqual(runner.classify(0, False, trace(10, 19) + [tick(29, 19), tick(30, 20, k=1)], 20), "ok")
         self.assertEqual(runner.classify(0, False, [tick(1, None)], 20), "no-control")
         self.assertEqual(runner.classify(3, False, ticks, 20), "crash")
         self.assertEqual(runner.classify(-9, True, ticks, 20), "hang")
