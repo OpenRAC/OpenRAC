@@ -97,8 +97,11 @@ function pictures(): Promise<void> {
     pending.map(
       (img) =>
         new Promise<void>((done) => {
-          img.addEventListener("load", () => done(), { once: true });
-          img.addEventListener("error", () => done(), { once: true });
+          const settle = () => {
+            done();
+          };
+          img.addEventListener("load", settle, { once: true });
+          img.addEventListener("error", settle, { once: true });
         }),
     ),
   );
