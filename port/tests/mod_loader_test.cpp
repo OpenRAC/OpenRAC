@@ -1367,7 +1367,8 @@ void a_mod_for_1_5_still_loads(const fs::path& plugins) {
     mods::reset();
 }
 
-// A library another user of the computer could swap is not loaded (POSIX desktops).
+// A library another user of the computer could swap is not loaded (POSIX desktops); one of this
+// user's own that all may write in (Steam may start the launcher with umask 0) is closed and loads.
 void a_library_others_can_change_is_refused(const fs::path& plugins) {
 #if !defined(_WIN32) && !defined(__ANDROID__)
     install(plugins, "a", OPENRAC_TEST_MOD_A);
@@ -1375,52 +1376,44 @@ void a_library_others_can_change_is_refused(const fs::path& plugins) {
         plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
     );
     const fs::path lib = plugins / "test-a" / "lib" / library_name();
-    const auto was = fs::status(lib).permissions();
-    fs::permissions(lib, fs::perms::others_write, fs::perm_options::add);
-    mods::load(host(plugins));
-    auto [state, reason] = status_of(plugins, "test-a");
-    CHECK(state == "failed");
-    CHECK(reason.find("any user of this computer") != std::string::npos);
-    mods::reset();
-    fs::permissions(lib, was);
-    // A folder above it that all may write in, without the sticky bit.
     const fs::path folder = plugins / "test-a" / "lib";
-    const auto folder_was = fs::status(folder).permissions();
+    fs::permissions(lib, fs::perms::others_write, fs::perm_options::add);
     fs::permissions(folder, fs::perms::others_all, fs::perm_options::add);
     mods::load(host(plugins));
-    std::tie(state, reason) = status_of(plugins, "test-a");
-    CHECK(state == "failed");
-    CHECK(reason.find("its folder") != std::string::npos);
-    mods::reset();
-    // With the sticky bit, as /tmp has, it loads.
-    fs::permissions(folder, fs::perms::sticky_bit, fs::perm_options::add);
-    mods::load(host(plugins));
     CHECK(status_of(plugins, "test-a").first == "loaded");
+    CHECK((fs::status(lib).permissions() & fs::perms::others_write) == fs::perms::none);
+    CHECK((fs::status(folder).permissions() & fs::perms::others_write) == fs::perms::none);
     mods::reset();
-    fs::permissions(folder, folder_was);
-    // A library another user owns could be changed by that user (checked where the test may chown).
+    // Another user's library or folder is refused.
     if (geteuid() == 0) {
         CHECK(chown(lib.c_str(), 4321, 4321) == 0);
         mods::load(host(plugins));
-        std::tie(state, reason) = status_of(plugins, "test-a");
+        auto [state, reason] = status_of(plugins, "test-a");
         CHECK(state == "failed");
-        CHECK(reason.find("belongs to another user") != std::string::npos);
+        CHECK(reason.find("another user") != std::string::npos);
         mods::reset();
         CHECK(chown(lib.c_str(), 0, 0) == 0);
+        CHECK(chown(folder.c_str(), 4321, 4321) == 0);
+        mods::load(host(plugins));
+        std::tie(state, reason) = status_of(plugins, "test-a");
+        CHECK(state == "failed");
+        CHECK(reason.find("its folder") != std::string::npos);
+        mods::reset();
+        CHECK(chown(folder.c_str(), 0, 0) == 0);
+        // A link is followed: the file it leads to is the one checked.
+        const fs::path elsewhere = plugins / "elsewhere";
+        fs::create_directories(elsewhere);
+        fs::rename(lib, elsewhere / library_name());
+        fs::create_symlink(elsewhere / library_name(), lib);
+        CHECK(chown(elsewhere.c_str(), 4321, 4321) == 0);
+        mods::load(host(plugins));
+        std::tie(state, reason) = status_of(plugins, "test-a");
+        CHECK(state == "failed");
+        CHECK(reason.find("elsewhere") != std::string::npos);
+        mods::reset();
+        fs::remove(lib);
+        fs::rename(elsewhere / library_name(), lib);
     }
-    // A link is followed: the file it leads to is the one checked.
-    const fs::path elsewhere = plugins / "elsewhere";
-    fs::create_directories(elsewhere);
-    fs::rename(lib, elsewhere / library_name());
-    fs::create_symlink(elsewhere / library_name(), lib);
-    fs::permissions(elsewhere, fs::perms::others_all, fs::perm_options::add);
-    mods::load(host(plugins));
-    std::tie(state, reason) = status_of(plugins, "test-a");
-    CHECK(state == "failed");
-    CHECK(reason.find("elsewhere") != std::string::npos);
-    mods::reset();
-    fs::remove(lib);
-    fs::rename(elsewhere / library_name(), lib);
 #else
     (void)plugins;
 #endif
