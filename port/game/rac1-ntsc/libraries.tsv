@@ -164,6 +164,7 @@ FUN_0012f148	989snd	snd_UpdateMovieADPCM	host	PAL func_0012F288
 FUN_0012f178	989snd	snd_GetMovieNAX	host	PAL func_0012F2B8
 snd_get_doppler_pitch_mod	989snd	snd_GetDopplerPitchMod	host	PAL func_0012F2E0
 FUN_0012d8f8	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's functions; PAL func_0012DA38
+FUN_001e9ab8	draw	transition_draw_sky	wrap	on a level, the sky routine the level's copy of the frame draw calls (its own); the executable's runs the title's stars, which reseeded rand() and wrote 256 stars to address 0 (rac1/host/sky.c); PAL func_001E9E70	void (void)
 FUN_001f4280	draw	SetupGifPaging	wrap	sets the four draw flags at 0x18A3D0 retail has on before its first frame (nothing in the game's code stores them by name); PAL func_001F4630
 FUN_00209370	memcard	NewGameInit	wrap	a new game starts in level 0; with --level N it starts in level N instead (rac1/host/boot.c); PAL func_00209DC0, paired as near
 FUN_00209298	memcard	memcard_RestoreGame	wrap	a loaded save: the language and the Sound page stay the player's, which the port remembers between runs (rac1/host/options.c); PAL func_00209CE8

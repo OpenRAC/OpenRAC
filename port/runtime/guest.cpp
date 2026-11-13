@@ -2303,6 +2303,25 @@ gaddr openrac_data_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gad
     });
 }
 
+gaddr openrac_level_call(gaddr caller, uint32_t size, gaddr callee) {
+    thread_local AnswerCache<int, gaddr, std::uint32_t, gaddr> answers;
+    return answers.remember({current_overlay(), caller, size, callee}, [&] {
+        const gaddr copy = relocate_code(caller);
+        if (copy == caller) {
+            return callee;
+        }
+        const std::uint32_t call = 0x0C000000u | ((callee >> 2) & 0x03FFFFFFu);  // jal callee
+        for (std::uint32_t at = 0; at + 4 <= size; at += 4) {
+            if (exe_word(caller + at) != call) {
+                continue;
+            }
+            const std::uint32_t w = game_word(copy + at);
+            return (w >> 26) == 3 ? ((copy + at) & 0xF0000000u) | ((w & 0x03FFFFFFu) << 2) : callee;
+        }
+        return callee;
+    });
+}
+
 gaddr openrac_code_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target) {
     thread_local AnswerCache<int, int, gaddr, std::uint32_t, gaddr, gaddr> answers;
     return answers.remember({current_overlay(), from, canon, size, self, target}, [&] {

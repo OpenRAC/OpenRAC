@@ -410,6 +410,54 @@ void relocation_end_pointer_gives_way() {
     openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
 }
 
+int frame_draw(int a) {
+    return a;
+}
+
+int title_sky(int a) {
+    return a;
+}
+
+int level_sky(int a) {
+    return a;
+}
+
+// A level's copy of a function can call its own routine where the executable's calls another (rac1:
+// the frame draw calls the title's sky in the executable, each level's sky in that level's copy).
+// openrac_level_call finds it from the copy's own call.
+void level_call_follows_the_copy() {
+    // Executable: the draw at 0x10A000 calls the title's sky at 0x10A100.
+    std::vector<std::uint8_t> exe(0x200, 0);
+    const std::uint32_t draw[] = {0x0C042840u, 0, 0x03E00008u, 0};
+    std::memcpy(exe.data(), draw, sizeof draw);
+    // Level 9: the draw's copy at 0x1A0000 calls the level's sky at 0x1A0200.
+    const std::uint32_t copy[] = {0x0C068080u, 0, 0x03E00008u, 0};
+    std::memcpy(G(0x001A0000u), copy, sizeof copy);
+    const auto fn = [](auto f) {
+        return reinterpret_cast<openrac_host_fn>(f);
+    };
+    static const openrac_fn_entry exe_fns[] = {
+        {0x0010A000u, fn(frame_draw), "draw"},
+        {0x0010A100u, fn(title_sky), "title_sky"},
+    };
+    static const openrac_fn_entry level_fns[] = {
+        {0x001A0000u, fn(frame_draw), "draw"},
+        {0x001A0200u, fn(level_sky), "level_sky"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 2);
+    openrac_guest_register(9, level_fns, 2);
+    openrac_guest_set_relocation(
+        0x00140000u, 0x00170000u, 0, exe.data(), 0x0010A000u, static_cast<std::uint32_t>(exe.size())
+    );
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    CHECK(openrac_level_call(0x0010A000u, 0x10u, 0x0010A100u) == 0x0010A100u);
+    openrac_guest_set_overlay(9);
+    CHECK(openrac_level_call(0x0010A000u, 0x10u, 0x0010A100u) == 0x001A0200u);
+    CHECK(openrac_guest_function(0x001A0200u) == fn(level_sky));
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
+}
+
 void put32(std::vector<std::uint8_t>& f, std::size_t at, std::uint32_t v) {
     for (int i = 0; i < 4; i++) {
         f[at + i] = static_cast<std::uint8_t>(v >> (8 * i));
@@ -581,6 +629,7 @@ int main() {
     elf();
     reach_report_updates();
     host_stack();
+    level_call_follows_the_copy();
     relocation_end_pointer_gives_way();  // last: it turns on Going Commando's pairing rules
     return openrac::test::result();
 }
