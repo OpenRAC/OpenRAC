@@ -33,9 +33,10 @@ void drawer_ground(ImDrawList* list, ImVec2 a, ImVec2 b, ImDrawFlags corners) {
     list->AddRectFilled(a, b, ui_colors::fade(ui().ink_deep, 0.55f), dp(12.0f), corners);
 }
 
-// Where the drawer's faint stripes end: as the desktop help pane's, 300 by 170 dp at most.
-ImVec2 stripes_end(ImVec2 top, float width) {
-    return ImVec2(top.x + std::min(width - 1.0f, dp(300.0f)), top.y + dp(170.0f));
+// Where the drawer's faint stripes end: 300 dp across at most, and down to the header's foot, so
+// they fade out above the line under it (user).
+ImVec2 stripes_end(ImVec2 top, float width, float header) {
+    return ImVec2(top.x + std::min(width - 1.0f, dp(300.0f)), top.y + header);
 }
 
 // What the picture is drawn with: the launcher's renderer choice takes effect only when the game
@@ -377,7 +378,6 @@ void drawer(const Shown& shown) {
             back->PushClipRect(top, bottom, false);
             // The desktop help pane's ground: the panel darkened, no light from above.
             drawer_ground(back, top, bottom, ImDrawFlags_RoundCornersRight);
-            faint_stripes(back, top, stripes_end(top, width), ui().amber, 0.05f);
             back->PopClipRect();
         }
         {
@@ -387,11 +387,8 @@ void drawer(const Shown& shown) {
             const ImVec2 bottom(x + width, viewport->Pos.y + header);
             // The same ground as the panel under it, so the header does not cut it off.
             drawer_ground(front, top, bottom, ImDrawFlags_RoundCornersTopRight);
-            // The desktop help pane's faint stripes, in the drawer's top left; the header's part
-            // of them over it, so they run on unbroken into the panel below.
-            front->PushClipRect(top, bottom, true);
-            faint_stripes(front, top, stripes_end(top, width), ui().amber, 0.05f);
-            front->PopClipRect();
+            // The desktop help pane's faint stripes, in the drawer's top left, gone by its foot.
+            faint_stripes(front, top, stripes_end(top, width, header), ui().amber, 0.05f);
             // A hairline under it once rows have scrolled beneath, fading in as they do.
             const float under = std::min(ImGui::GetScrollY() / dp(24.0f), 1.0f);
             if (under > 0.0f) {
