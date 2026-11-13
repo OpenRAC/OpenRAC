@@ -10,7 +10,7 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(binding = 0) uniform sampler2D picture;  // row 0 at the bottom, as in GL
-#ifdef OPENRAC_HDR_PQ
+#if defined(OPENRAC_HDR_PQ) && !defined(OPENRAC_HDR_FLOAT_TARGET)
 layout(binding = 1, rgb10_a2) writeonly uniform image2D screen;
 #else
 layout(binding = 1, rgba16f) writeonly uniform image2D screen;

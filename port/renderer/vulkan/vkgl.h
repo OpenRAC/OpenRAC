@@ -425,7 +425,8 @@ void clamp_colour_writes(unsigned framebuffer);
 // For the tests: the encode pass run on the default framebuffer (or on framebuffer `source`'s
 // picture, such as a float one above white) into a stand-in of an HDR screen (`output`'s format,
 // `width` by `height`), read back as stored: one 32-bit word a texel for Output::Hdr10
-// (A2B10G10R10) and four half floats for Output::ScRgb. False without a context.
+// (A2B10G10R10) and four half floats for Output::ScRgb. `through_float`: as on a device that
+// can't store the screen's format (half floats, blitted). False without a context.
 bool test_hdr_encode(
     hdr::Output output,
     const hdr::Levels& levels,
@@ -433,7 +434,8 @@ bool test_hdr_encode(
     int height,
     std::vector<std::uint8_t>& out,
     bool staged = false,
-    unsigned source = 0
+    unsigned source = 0,
+    bool through_float = false
 );
 
 // With low-latency frames, called by the window's thread before a frame begins, before it reads

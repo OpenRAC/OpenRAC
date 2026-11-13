@@ -427,6 +427,14 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     config.hidden = env::flag(env::Var::Hidden);
     // HDR output may be turned on later only when it was not off at start (common/hdr.h).
     config.hdr = chosen.hdr != hdr::Mode::Off;
+#if defined(OPENRAC_VULKAN)
+    // Only the Vulkan renderer has HDR output: HDR on draws with it, whatever renderer was asked
+    // for (it falls back to OpenGL by itself where Vulkan cannot start).
+    if (config.hdr && config.gl_api != platform::GlApi::Vulkan) {
+        log::info("HDR output is on: drawing with Vulkan, the renderer that has it");
+        config.gl_api = platform::GlApi::Vulkan;
+    }
+#endif
     config.gpu_breadcrumbs = chosen.gpu_breadcrumbs;
     g->hdr_at_start = config.hdr;
     g->window = platform::Window::open(config, error);

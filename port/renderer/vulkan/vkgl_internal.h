@@ -1253,10 +1253,14 @@ struct Context {
         VkPipelineLayout layout = VK_NULL_HANDLE;
         VkPipeline pipeline = VK_NULL_HANDLE;
         hdr::Output pipeline_for = hdr::Output::Sdr;
+        bool pipeline_float = false;  // the pipeline writes `through_float`'s half floats
         bool failed = false;
         std::vector<VkImageView> views;  // per swapchain image, while HDR is shown
         // The swapchain's images can be storage images (else the pass writes `staging`, copied).
         bool direct = true;
+        // The screen's format can't be a storage image at all: the pass writes half floats into
+        // `staging`, blitted into the screen (the blit converts the format).
+        bool through_float = false;
         ImagePtr staging;
     } hdr;
 

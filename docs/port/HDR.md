@@ -46,7 +46,8 @@ plain HDR picture, bit for bit.
 
 ## Where it works
 
-HDR needs the Vulkan renderer. OpenGL always stays SDR.
+HDR needs the Vulkan renderer, so `on` starts the game with Vulkan even if OpenGL or Metal was
+picked. If Vulkan can't start, the game falls back to OpenGL in SDR.
 
 `on` sends HDR whenever the screen offers an HDR format, even if the system says the display is
 not in HDR mode. A compositor can get that wrong (Steam Deck's gamescope). Only Android follows
@@ -63,6 +64,14 @@ the system, because its Vulkan offers HDR10 on every display.
 
 When the system says the display is not in HDR mode, its SDR white and peak are not used:
 paper white is 203 and the peak 1000 unless you set them.
+
+`on` still gives SDR when:
+
+- the system offers no HDR format: Windows with HDR off, a Wayland compositor without colour
+  management, X11 without a driver that offers one, a Steam Deck LCD, or Android saying the
+  display is not in HDR mode;
+- HDR was `off` at start (restart once);
+- Vulkan can't start, or the encode pass can't be built.
 
 The options drawer shows what is sent and what the display reported. The log prints the same
 line (`HDR: ...`) when it changes.
@@ -94,12 +103,14 @@ on every display, so the game goes by what the activity says, not by the formats
   (`clamped_fragment`, built the first time it's needed). Copies into the game's 8-bit textures
   clamp as before, so the game reads back the same values.
 - `renderer/vulkan/presentation/surface_format.h` picks the swapchain format. SDR picks the same format as
-  before. HDR picks HDR10 or scRGB if the device can write it, else falls back to SDR.
+  before. HDR picks HDR10 or scRGB if the device can write it, directly or through a blit, else falls
+  back to SDR.
 - The Vulkan presentation graph encodes the frame with `shaders/hdr_encode.comp` and transitions
   the result for presentation. If encoder setup fails, the graph uses its SDR copy path.
   `hdr_output.cpp` also sends HDR metadata (peak, MaxCLL = peak,
   MaxFALL = paper white). If the swapchain images can't be written by a shader, the pass writes
-  its own image and copies it.
+  its own image and copies it. If the screen's format can't be stored at all (A2R10G10B10, or no
+  storage support), the pass writes half floats and blits them into it.
 
 ## Tests
 
@@ -107,7 +118,8 @@ on every display, so the game goes by what the activity says, not by the formats
   bright-colour keys.
 - `surface_format`: SDR picks what it did before; HDR falls back correctly.
 - `vulkan_hdr`: the GPU pass against `common/hdr.h` on lavapipe, and the float frame (clamped
-  draws, blending above white, the 8-bit frame stopping at 1), and the bright-colour keys.
+  draws, blending above white, the 8-bit frame stopping at 1), the bright-colour keys, and the
+  blit path matching the direct one.
 
 `OPENRAC_HDR_FRAME=1` draws the float frame without an HDR screen and logs how much of it is above
 white every 60 frames. Use it to compare with the normal frame.

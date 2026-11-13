@@ -20,8 +20,8 @@ struct SurfaceChoice {
     hdr::Output output = hdr::Output::Sdr;
 };
 
-// Whether the encode pass can write `format` (and the surface's images allow storage): the HDR
-// formats are only chosen when it can.
+// Whether the encode pass can write `format`, directly or through a blit: the HDR formats are
+// only chosen when it can.
 using StorageCheck = bool (*)(void* user, VkFormat format);
 
 namespace surface_format_detail {
@@ -38,7 +38,8 @@ inline bool is(const VkSurfaceFormatKHR& f, hdr::Output output) {
     switch (output) {
         case Output::Hdr10:
             return f.colorSpace == VK_COLOR_SPACE_HDR10_ST2084_EXT
-                   && f.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+                   && (f.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32
+                       || f.format == VK_FORMAT_A2R10G10B10_UNORM_PACK32);
         case Output::ScRgb:
             return f.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT
                    && f.format == VK_FORMAT_R16G16B16A16_SFLOAT;

@@ -3,7 +3,7 @@
 //
 // The swapchain's format (renderer/vulkan/presentation/surface_format.h): SDR picks what the backend always
 // picked, also when the surface lists HDR colour spaces first; HDR picks the asked kind, else the
-// other one, and SDR where the encode pass cannot write either.
+// other one, and SDR where the encode pass cannot write either (directly or through a blit).
 #include <vector>
 
 #include "renderer/vulkan/presentation/surface_format.h"
@@ -74,16 +74,19 @@ void test_hdr_kinds() {
     CHECK(same(c.format, kBgra) && c.output == Output::Sdr);
     c = choose_surface_format(windows, Output::Hdr10, nullptr, nullptr);
     CHECK(c.output == Output::Sdr);
-    // An HDR10 format the pass has no GLSL format for (A2R10G10B10) is not taken.
+    // A2R10G10B10 HDR10 is taken when the pass can write it (through a blit), else SDR.
     const std::vector<VkSurfaceFormatKHR> bgr_only{kBgra, kHdr10Bgr};
     c = choose_surface_format(bgr_only, Output::Hdr10, store_all, nullptr);
+    CHECK(same(c.format, kHdr10Bgr) && c.output == Output::Hdr10);
+    c = choose_surface_format(bgr_only, Output::Hdr10, store_none, nullptr);
     CHECK(same(c.format, kBgra) && c.output == Output::Sdr);
 }
 
 void test_offers() {
     CHECK(offers_hdr(std::vector<VkSurfaceFormatKHR>{kBgra, kHdr10}));
     CHECK(offers_hdr(std::vector<VkSurfaceFormatKHR>{kScRgb}));
-    CHECK(!offers_hdr(std::vector<VkSurfaceFormatKHR>{kBgra, kRgb10Sdr, kHdr10Bgr}));
+    CHECK(offers_hdr(std::vector<VkSurfaceFormatKHR>{kBgra, kHdr10Bgr}));
+    CHECK(!offers_hdr(std::vector<VkSurfaceFormatKHR>{kBgra, kRgb10Sdr}));
 }
 
 }  // namespace
