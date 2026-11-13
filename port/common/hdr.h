@@ -350,13 +350,13 @@ inline Rgb to_light(const Rgb& rgb, const Levels& levels) {
         sdr_to_linear(std::min(rgb[1], 1.0f)),
         sdr_to_linear(std::min(rgb[2], 1.0f)),
     };
-    const Rgb hue = sdr_hue_of(linear);
     if (levels.look.highlights < 1.0f) {
         for (int c = 0; c < 3; ++c) {
             linear[c] = sdr[c] + (linear[c] - sdr[c]) * levels.look.highlights;
         }
     }
-    return apply_look(roll_off_above_white(linear, levels), sdr, hue, levels);
+    // After highlights: at 0 the pixel is SDR's, and so is its hue.
+    return apply_look(roll_off_above_white(linear, levels), sdr, sdr_hue_of(linear), levels);
 }
 
 // The value the screen is sent for one pixel of the picture (`rgb`, 0..1 as stored): PQ signals

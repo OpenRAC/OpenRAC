@@ -150,11 +150,10 @@ void main() {
         } else {
             // The pixel as SDR shows it: each channel clipped at white.
             vec3 clipped = pow(clamp(sdr, 0.0, 1.0), vec3(encode.sdr_gamma));
-            vec3 hue = sdr_hue_of(linear);
             if (encode.highlights < 1.0) {
                 linear = clipped + (linear - clipped) * encode.highlights;
             }
-            linear = apply_look(roll_off(linear), clipped, hue);
+            linear = apply_look(roll_off(linear), clipped, sdr_hue_of(linear));
         }
     }
 #ifdef OPENRAC_HDR_PQ

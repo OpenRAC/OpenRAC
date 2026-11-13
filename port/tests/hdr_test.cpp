@@ -200,6 +200,13 @@ void test_sdr_hue_into_white() {
         last = hue;
     }
     CHECK(last > plain + 40.0f);  // all channels past white: still SDR's yellow
+    // Highlights at 0 still shows SDR's picture, also near white.
+    levels.look.highlights = 0.0f;
+    const hdr::Rgb near_white = hdr::to_light({2.8f, 1.0f, 0.95f}, levels);
+    const hdr::Rgb sdr{1.0f, 1.0f, std::pow(0.95f, 2.2f)};
+    for (int c = 0; c < 3; ++c) {
+        CHECK(near(near_white[c], sdr[c], 0.002f));
+    }
 }
 
 void test_look_on_fire() {
