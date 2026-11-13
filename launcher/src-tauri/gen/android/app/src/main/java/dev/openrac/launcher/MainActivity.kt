@@ -7,6 +7,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -35,6 +37,48 @@ class MainActivity : TauriActivity() {
   }
 
   private var webView: WebView? = null
+
+  // ---- a calm screen ----
+  // The page's slow idle motion (the picked disc floats, the wave drifts) kept a 120 Hz screen at
+  // 120 frames a second. A few seconds after the last touch or button the window asks for the
+  // screen's 60 Hz mode; any input gives the full rate back at once, before the page moves.
+
+  private val calmAfterMs = 3000L
+  private val clock = Handler(Looper.getMainLooper())
+  private val calmDown = Runnable { preferMode(calmMode()) }
+  private var calm = false
+
+  /** The screen's mode at its current size and closest to 60 Hz, if it is slower than the fastest. */
+  private fun calmMode(): Int {
+    @Suppress("DEPRECATION")
+    val screen = (if (Build.VERSION.SDK_INT >= 30) display else windowManager.defaultDisplay) ?: return 0
+    val now = screen.mode
+    val sizes = screen.supportedModes.filter {
+      it.physicalWidth == now.physicalWidth && it.physicalHeight == now.physicalHeight
+    }
+    val fastest = sizes.maxOfOrNull { it.refreshRate } ?: return 0
+    val slow = sizes.minByOrNull { kotlin.math.abs(it.refreshRate - 60f) } ?: return 0
+    return if (slow.refreshRate < fastest - 1f) slow.modeId else 0
+  }
+
+  /** 0 lets the system pick again (the full rate). */
+  private fun preferMode(id: Int) {
+    if (window.attributes.preferredDisplayModeId == id) return
+    calm = id != 0
+    window.attributes = window.attributes.also { it.preferredDisplayModeId = id }
+  }
+
+  /** Input came: the full rate now, the calm one a while after the last. */
+  private fun stir() {
+    clock.removeCallbacks(calmDown)
+    if (calm) preferMode(0)
+    clock.postDelayed(calmDown, calmAfterMs)
+  }
+
+  override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+    stir()
+    return super.dispatchTouchEvent(event)
+  }
 
   // The launcher's own Back, not Tauri's (which goes back in the page's history).
   override val handleBackNavigation: Boolean = false
@@ -90,10 +134,13 @@ class MainActivity : TauriActivity() {
     // Back in front: Recents may take its picture again (OpenracPlugin's play turned it off).
     if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(true)
     UpdateReceiver.showWaiting(this)
+    stir()
   }
 
   override fun onPause() {
     inFront = false
+    clock.removeCallbacks(calmDown)
+    preferMode(0)
     super.onPause()
   }
 
@@ -160,6 +207,7 @@ class MainActivity : TauriActivity() {
   }
 
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    stir()
     // Start does nothing in the launcher: as A it pressed the page's main button, which could
     // open the system's file picker (Set up from your disc).
     if (event.keyCode == KeyEvent.KEYCODE_BUTTON_START && fromController(event)) return true
@@ -187,12 +235,15 @@ class MainActivity : TauriActivity() {
   override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
     val joystick = event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
     if (!joystick || event.actionMasked != MotionEvent.ACTION_MOVE || webView == null) {
+      stir()
       return super.dispatchGenericMotionEvent(event)
     }
     val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
     val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
     val x = direction(if (hatX != 0f) hatX else event.getAxisValue(MotionEvent.AXIS_X), "left", "right")
     val y = direction(if (hatY != 0f) hatY else event.getAxisValue(MotionEvent.AXIS_Y), "up", "down")
+    // A stick resting near its middle still sends tiny moves: only a direction held stirs.
+    if (x != null || y != null || x != heldX || y != heldY) stir()
     if (x != heldX) {
       heldX?.let { send("up:$it") }
       x?.let { send("down:$it") }
