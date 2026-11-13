@@ -240,9 +240,19 @@ void main() {
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.disableVertexAttribArray(p);
     };
-    const start = performance.now();
+    let start = performance.now();
+    /** When the last tick ran, drawn or not. */
+    let seen = start;
     const tick = (now: number) => {
       frame = requestAnimationFrame(tick);
+      // While a page slides the still copy shows: the wave's clock and its push wait too, so the
+      // live wave goes on from the copy's very picture (it jumped up to 35 px in one frame).
+      if (sliding()) {
+        start += now - seen;
+        seen = last = now;
+        return;
+      }
+      seen = now;
       // 60 frames a second while it follows the wheel or comes in with its push; the slow drift
       // alone, 30 (user decision: half the GPU work on a shelf left alone, same picture).
       const moving = Math.abs(shift - slide) > 0.002 || now - start < 2000;
@@ -261,8 +271,6 @@ void main() {
       // The push: about three times its pace at first, back to its own within a second or so.
       const rush = still ? 0 : 1.2 * (1 - Math.exp(-(now - start) / 600));
       at = 10 + (now - start) / 1000 + rush;
-      // While a page slides the still copy shows: nothing to draw.
-      if (sliding()) return;
       draw(at);
       pace(now);
     };
