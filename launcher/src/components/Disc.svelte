@@ -4,7 +4,7 @@
   // `small` is the list's (a lighter shadow). The shadow's depth is --shade (0 to 1).
   import { discPrint } from "$lib/discArt";
   import { titleLines } from "$lib/labels";
-  import { gameTileArt, keepDecoded, keptSrc } from "$lib/media";
+  import { gameTileArt, keepDecoded } from "$lib/media";
   import { themeStyle } from "$lib/themes";
 
   let {
@@ -30,7 +30,7 @@
     {#if print && !failed}
       <img
         class="print"
-        src={keptSrc(print)}
+        src={print}
         alt=""
         draggable="false"
         onerror={() => {
