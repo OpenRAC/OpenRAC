@@ -276,21 +276,26 @@ void test_pass_breadcrumbs(Renderer& renderer, const FrameInput& input, FrameBuf
     const auto baseline = frame.read_rgba();
     for (const auto thread : {BreadcrumbThread::Main, BreadcrumbThread::Render}) {
         const std::int64_t frame_id = thread == BreadcrumbThread::Main ? 9001 : 9002;
+        bool clear = false, hud = false, correct_thread = true;
+        const auto inspect = [&] {
+            Breadcrumbs::Snapshot entries{};
+            const auto count = breadcrumbs().snapshot(entries);
+            for (std::size_t i = 0; i < count; ++i) {
+                if (entries[i].value == frame_id) {
+                    correct_thread &= entries[i].thread == thread;
+                    clear |= std::string_view(entries[i].message) == "frame clear";
+                    hud |= std::string_view(entries[i].message) == "hud";
+                }
+            }
+        };
+        FrameInput observed = input;
+        // A long HUD packet can wrap the bounded trail with its Vulkan graph scopes.
+        observed.before_hud = inspect;
         {
             const BreadcrumbScope context(thread, frame_id);
-            renderer.render(input, {frame.id(), kWidth, kHeight});
+            renderer.render(observed, {frame.id(), kWidth, kHeight});
         }
-        Breadcrumbs::Snapshot entries{};
-        const auto count = breadcrumbs().snapshot(entries);
-        bool clear = false, hud = false, correct_thread = true;
-        for (std::size_t i = 0; i < count; ++i) {
-            // Ignore earlier history; both passes here use unique captured frames.
-            if (entries[i].value == frame_id) {
-                correct_thread &= entries[i].thread == thread;
-                clear |= std::string_view(entries[i].message) == "frame clear";
-                hud |= std::string_view(entries[i].message) == "hud";
-            }
-        }
+        inspect();
         CHECK(clear && hud && correct_thread);
         CHECK(frame.read_rgba() == baseline);
     }
