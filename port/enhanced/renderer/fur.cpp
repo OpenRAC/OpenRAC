@@ -9,7 +9,7 @@
 #include <limits>
 
 #include "common/log.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::enhanced {
 namespace {

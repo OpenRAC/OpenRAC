@@ -47,16 +47,16 @@
 #include "openrac/guest.h"
 #include "options_menu.h"
 #include "program/program.h"
-#include "renderer/direct.h"
-#include "renderer/effects.h"
-#include "renderer/gl.h"
-#include "renderer/gl_warmup.h"
-#include "renderer/pcsx2_pack.h"
+#include "renderer/direct/direct.h"
+#include "renderer/effects/effects.h"
+#include "renderer/effects/shadows.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gl_warmup.h"
 #include "renderer/renderer.h"
-#include "renderer/shadows.h"
-#include "renderer/texture.h"
-#include "renderer/texture_pack.h"
-#include "renderer/texture_pool.h"
+#include "renderer/textures/pcsx2_pack.h"
+#include "renderer/textures/texture.h"
+#include "renderer/textures/texture_pack.h"
+#include "renderer/textures/texture_pool.h"
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "settings.h"
@@ -371,7 +371,7 @@ void use_level(int number) {
             }
         }
         // The liquids (the seas and lava the game draws solid) after the ties, where retail's draw
-        // callback list 3 draws them, before the shrubs and mobys (renderer/effects.h).
+        // callback list 3 draws them, before the shrubs and mobys (renderer/effects/effects.h).
         if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
             && g->renderer->add(
                    std::make_unique<renderer::EffectRenderer>(

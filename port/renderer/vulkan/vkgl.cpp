@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// renderer/gl.h and renderer/world/gl_world.h carried out with Vulkan (vkgl.h says how GL's model
+// renderer/gl/gl.h and renderer/world/gl_world.h carried out with Vulkan (vkgl.h says how GL's model
 // becomes Vulkan's). Two command buffers a frame: `upload`, where what changes a texture nothing
 // this frame has used yet goes (so it needs no pause of the drawing), run first, then `main`,
 // where everything else goes in GL's order. Every image keeps the layout it was last left in,
@@ -33,7 +33,7 @@
 #include "common/log.h"
 #include "common/precise_wait.h"
 #include "common/stats.h"
-#include "renderer/gpu_draw.h"
+#include "renderer/gl/gpu_draw.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
 namespace openrac::vkgl {
@@ -51,6 +51,27 @@ void diagnostic(std::string_view message) {
 
 namespace {
 
+std::string_view fault_address_type(VkDeviceFaultAddressTypeEXT type) {
+    switch (type) {
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_NONE_EXT:
+            return "unspecified";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_READ_INVALID_EXT:
+            return "invalid GPU memory read";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_WRITE_INVALID_EXT:
+            return "invalid GPU memory write";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_EXECUTE_INVALID_EXT:
+            return "invalid GPU instruction fetch";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_UNKNOWN_EXT:
+            return "instruction pointer (unknown relation to fault)";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_INVALID_EXT:
+            return "invalid instruction pointer";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_FAULT_EXT:
+            return "instruction pointer at fault";
+        default:
+            return "unrecognized address type";
+    }
+}
+
 // Only query a lost device once. Fixed storage bounds the report even if the driver has more data.
 void report_device_fault() {
     if (!g || g->device_fault_reported.test_and_set(std::memory_order_relaxed)) {
@@ -58,7 +79,7 @@ void report_device_fault() {
     }
     report_gpu_breadcrumbs();
     if (!g->device || !g->device_fault_enabled || !vkGetDeviceFaultInfoEXT) {
-        diagnostic("GPU fault: VK_EXT_device_fault unavailable");
+        diagnostic("GPU fault: cause unavailable (VK_EXT_device_fault unavailable)");
         return;
     }
     crash::failure_breadcrumb("Vulkan query device fault");
@@ -72,7 +93,9 @@ void report_device_fault() {
     info.pVendorInfos = vendor.data();
     const auto result = vkGetDeviceFaultInfoEXT(g->device, &counts, &info);
     if (result != VK_SUCCESS && result != VK_INCOMPLETE) {
-        diagnostic(std::format("GPU fault: driver query failed ({})", int(result)));
+        diagnostic(
+            std::format("GPU fault: cause unavailable (driver query failed: {})", int(result))
+        );
         return;
     }
     const auto description = [](const auto& field) {
@@ -82,8 +105,10 @@ void report_device_fault() {
     const auto summary = description(info.description);
     diagnostic(
         std::format(
-            "GPU fault: {}{}",
-            summary.empty() ? "driver supplied no description" : summary,
+            "GPU fault: driver description: {}; {} address record(s), {} vendor record(s){}",
+            summary.empty() ? "(none)" : summary,
+            counts.addressInfoCount,
+            counts.vendorInfoCount,
             result == VK_INCOMPLETE ? " (partial details)" : ""
         )
     );
@@ -92,7 +117,8 @@ void report_device_fault() {
         const auto& address = addresses[i];
         diagnostic(
             std::format(
-                "GPU fault address: type {}, reported {:#x}, precision {:#x}",
+                "GPU fault address: {} (type {}), reported {:#x}, precision {:#x}",
+                fault_address_type(address.addressType),
                 int(address.addressType),
                 address.reportedAddress,
                 address.addressPrecision

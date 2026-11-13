@@ -147,7 +147,7 @@ inline Levels resolve_levels(int paper_white, int peak, const Display& display) 
 
 // The output the player's mode asks for on `display`: SDR, or the HDR kind this platform prefers
 // (`prefer_scrgb`: macOS, whose EDR is linear). Whether the screen offers it is the swapchain's
-// to find out (renderer/vulkan/surface_format.h), which falls back to the other kind or to SDR.
+// to find out (renderer/vulkan/presentation/surface_format.h), which falls back to the other kind or to SDR.
 inline Output wanted_output(Mode mode, const Display& display, bool prefer_scrgb) {
     const bool hdr = mode == Mode::On && (!display.known || display.hdr_enabled);
     if (!hdr) {

@@ -19,9 +19,9 @@
 #include "openrac/guest.h"
 #include "pause_options.h"
 #include "platform/window.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/texture_pool.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/textures/texture_pool.h"
 #include "settings.h"
 
 namespace openrac::frontend::options_menu {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Dear ImGui's draw lists drawn with the renderer's own GL (renderer/gl.h), for a window whose GL is
+// Dear ImGui's draw lists drawn with the renderer's own GL (renderer/gl/gl.h), for a window whose GL is
 // the Vulkan renderer's (renderer/vulkan/vkgl.h): ImGui's OpenGL backend loads the system's GL
 // itself, which that window does not have. The debug overlay and the Android drawer
 // (debug_overlay.h) draw through this there; on an OpenGL window they keep ImGui's own backend.

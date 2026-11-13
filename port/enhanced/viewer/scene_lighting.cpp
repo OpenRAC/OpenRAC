@@ -15,7 +15,7 @@
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "scene/level_renderer.h"
 
 namespace openrac::lighting {

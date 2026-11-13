@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "game/common/debug_camera.h"
-#include "renderer/debug_lines.h"
+#include "renderer/debug/debug_lines.h"
 #include "scene/sun_shadow.h"
 #include "tests/check.h"
 

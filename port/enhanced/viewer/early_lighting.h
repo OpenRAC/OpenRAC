@@ -5,8 +5,8 @@
 #include <functional>
 #include <span>
 
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 
 namespace openrac::lighting {
 // One RGBA8 texel per 2x2 screen pixels: log-encoded irradiance RGB and

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The renderer's OpenGL (renderer/gl.h, renderer/world/gl_world.h, and the few calls gl_stats.h
+// The renderer's OpenGL (renderer/gl/gl.h, renderer/world/gl_world.h, and the few calls gl_stats.h
 // adds) carried out with Vulkan: the port's Vulkan renderer. Every renderer is written against
 // that short list of GL calls, so this is the one place that knows Vulkan; the renderers, their
 // shaders and the frontend run on it unchanged (docs/port/ANDROID.md, "A Vulkan renderer"). It is
@@ -37,7 +37,7 @@
 #include <vector>
 
 #include "common/hdr.h"
-#include "renderer/gpu_draw.h"
+#include "renderer/gl/gpu_draw.h"
 
 struct SDL_Window;
 
@@ -211,7 +211,7 @@ bool combine_shadow_depth(
     std::array<int, 4> dynamic_rect
 );
 
-// renderer/gl.h's loader: the GL functions by name, null for one this does not carry out.
+// renderer/gl/gl.h's loader: the GL functions by name, null for one this does not carry out.
 using Proc = void (*)();
 Proc get_proc(const char* name);
 
@@ -353,7 +353,8 @@ bool pipeline_prewarm_busy();
 // For a level's load, behind its loading screen: waits until the pre-warm workers have made every
 // pipeline and part queued when the level's programs linked (the pipelines earlier runs drew them
 // with), so that its first frames make none, and saves the pipeline caches on a thread of their
-// own if this run made new pipelines. Nothing while the backend is closed.
+// own if this run made new pipelines. Optional upgrades discovered during gameplay are recorded
+// in the manifest for a future load. Nothing while the backend is closed.
 void finish_pipelines();
 
 // When the presents have been seen to reach the screen (VK_KHR_present_wait, under the registry's

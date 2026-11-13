@@ -245,7 +245,7 @@ public:
     // bit 0 hidden, the point lights' list at +0x1E); 0 for none.
     virtual std::array<std::uint32_t, 4> scenery_matrices() const { return {0, 0, 0, 0}; }
 
-    // Whether the world's depth is precise (renderer/precise_depth.h): reversed Z in a 32-bit float
+    // Whether the world's depth is precise (renderer/gl/precise_depth.h): reversed Z in a 32-bit float
     // buffer, clip-space z to the window as it is, where the context has glClipControl (OpenGL 4.5,
     // ARB_clip_control, the Vulkan backend; not macOS's OpenGL 4.1). Going Commando's Maktar dome
     // carries light strips (tie class 2713) within a few centimetres of the band under them (class

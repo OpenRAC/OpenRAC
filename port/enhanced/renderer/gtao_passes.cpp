@@ -6,7 +6,7 @@
 
 #include "common/stats.h"
 #include "enhanced/renderer/gtao.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #include "renderer/world/gl_world.h"
 #if defined(OPENRAC_VULKAN)
@@ -25,7 +25,6 @@ bool Gtao::execute(
     const FrameInput& input, const RenderTarget& target, bool apply_to_colour, bool evaluate_only
 ) {
     const bool hi_z = input.gtao_settings.hi_z && m_hi_z.prepare(target.width, target.height);
-    const unsigned mip_count = hi_z ? static_cast<unsigned>(m_hi_z.levels().size()) : 0;
 #if defined(OPENRAC_VULKAN)
     // Vulkan plans all GTAO resource dependencies.
     if (vkgl::active()) {
@@ -33,6 +32,7 @@ bool Gtao::execute(
     }
 #endif
     // Reference barriers also order disjoint levels of the shared hierarchy allocation.
+    const auto mip_count = hi_z ? m_hi_z.sampled_levels().size() : 0;
     for (unsigned level = 0; level < mip_count; ++level) {
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
         m_hi_z.build_level(m_sampled_depth, level);

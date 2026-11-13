@@ -36,8 +36,8 @@
 #include <vector>
 
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level.h"
 #include "tests/gpu_draw_reference.h"

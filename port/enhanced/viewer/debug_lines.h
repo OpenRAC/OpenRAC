@@ -6,8 +6,8 @@
 
 #include <utility>
 
-#include "renderer/debug_lines.h"
-#include "renderer/gl.h"
+#include "renderer/debug/debug_lines.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::lighting {
 using renderer::append_debug_box;

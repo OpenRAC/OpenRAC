@@ -8,7 +8,7 @@
 #include <utility>
 
 #include "enhanced/viewer/object_preview_lighting.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/object_preview.h"
 #include "tests/check.h"

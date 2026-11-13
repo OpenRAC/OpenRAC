@@ -13,7 +13,7 @@
 #include "common/log.h"
 #include "common/profiler.h"
 #include "common/stats.h"
-#include "renderer/render_opt.h"
+#include "renderer/settings/render_opt.h"
 
 namespace openrac::enhanced {
 namespace {

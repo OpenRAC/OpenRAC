@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <optional>
 
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 #include "scene/level.h"
 
 namespace openrac::enhanced {

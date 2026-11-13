@@ -5,6 +5,7 @@
 #include "enhanced/lighting/gpu_transport.h"
 
 #include <algorithm>
+#include <bit>
 #include <chrono>
 #include <cstring>
 #include <functional>
@@ -16,6 +17,11 @@
 #include "common/log.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/gpu_probe_trace_source.h"
+#include "renderer/graph/command_buffer.h"
+#include "renderer/graph/recording_scope.h"
+#include "renderer/vulkan/commands/graph_queue.h"
+#include "renderer/vulkan/commands/native_command_encoder.h"
+#include "renderer/vulkan/graph/graph_buffer_execution.h"
 
 #include <SPIRV/GlslangToSpv.h>
 #include <glslang/Public/ResourceLimits.h>
@@ -23,10 +29,28 @@
 
 namespace openrac::lighting::bake_detail {
 namespace {
+namespace graph = renderer::graph;
 constexpr std::uint32_t kBindings = 20;
 constexpr std::uint32_t kMaxPairs = 64;  // placement direction pairs per query
 constexpr std::uint32_t kLocalSize = 32;
 constexpr std::uint32_t kChunk = 1024;  // probes per dispatch: bounded memory and GPU time
+
+// Shared submission ownership also cleans up partially constructed allocations.
+struct BufferAllocation {
+    VkDevice device;
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+
+    explicit BufferAllocation(VkDevice owner) : device(owner) {}
+
+    BufferAllocation(const BufferAllocation&) = delete;
+    BufferAllocation& operator=(const BufferAllocation&) = delete;
+
+    ~BufferAllocation() {
+        vkDestroyBuffer(device, buffer, nullptr);
+        vkFreeMemory(device, memory, nullptr);
+    }
+};
 
 void check(VkResult result, const char* what) {
     if (result != VK_SUCCESS) {
@@ -171,6 +195,8 @@ struct GpuTransport::Impl {
         VkDeviceSize size = 0;
         void* mapped = nullptr;
         VkDeviceAddress address = 0;
+        VkBufferUsageFlags usage = 0;
+        std::shared_ptr<void> lifetime;
     };
 
     const Scene& scene;
@@ -195,6 +221,7 @@ struct GpuTransport::Impl {
     VkDescriptorSet set = VK_NULL_HANDLE;
     VkAccelerationStructureKHR blas = VK_NULL_HANDLE, tlas = VK_NULL_HANDLE;
     std::vector<Buffer> owned;  // every buffer, released with the device
+    renderer::graph::SubmissionLifetime submission_lifetime;
     std::array<Buffer, kBindings> bound{};
     std::uint32_t emitter_count = 0;
 
@@ -204,17 +231,16 @@ struct GpuTransport::Impl {
         if (device) {
             vkDeviceWaitIdle(device);
 
-            for (auto& b : owned) {
-                vkDestroyBuffer(device, b.buffer, nullptr);
-                vkFreeMemory(device, b.memory, nullptr);
-            }
-
             if (blas) {
                 vkDestroyAccelerationStructureKHR(device, blas, nullptr);
             }
             if (tlas) {
                 vkDestroyAccelerationStructureKHR(device, tlas, nullptr);
             }
+            const auto completed = submission_lifetime.complete(true);
+            (void)completed;
+            bound = {};
+            owned.clear();
             vkDestroyDescriptorPool(device, descriptors, nullptr);
             vkDestroyPipeline(device, pipeline, nullptr);
             vkDestroyPipeline(device, placement, nullptr);
@@ -383,12 +409,15 @@ struct GpuTransport::Impl {
     // Host-visible buffers keep upload and readback to a memcpy; the bake reads each value once.
     Buffer make_buffer(VkDeviceSize size, VkBufferUsageFlags usage, bool host = true) {
         Buffer b;
+        auto allocation = std::make_shared<BufferAllocation>(device);
         b.size = std::max<VkDeviceSize>(size, 16);
+        b.usage = usage;
         VkBufferCreateInfo info{};
         info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         info.size = b.size;
         info.usage = usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-        check(vkCreateBuffer(device, &info, nullptr, &b.buffer), "buffer");
+        check(vkCreateBuffer(device, &info, nullptr, &allocation->buffer), "buffer");
+        b.buffer = allocation->buffer;
         VkMemoryRequirements requirements;
         vkGetBufferMemoryRequirements(device, b.buffer, &requirements);
         VkMemoryAllocateFlagsInfo flags{};
@@ -403,7 +432,8 @@ struct GpuTransport::Impl {
             host ? VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
                  : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
-        check(vkAllocateMemory(device, &allocate, nullptr, &b.memory), "memory");
+        check(vkAllocateMemory(device, &allocate, nullptr, &allocation->memory), "memory");
+        b.memory = allocation->memory;
         check(vkBindBufferMemory(device, b.buffer, b.memory, 0), "bind memory");
 
         if (host) {
@@ -415,6 +445,7 @@ struct GpuTransport::Impl {
         address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
         address.buffer = b.buffer;
         b.address = vkGetBufferDeviceAddress(device, &address);
+        b.lifetime = std::move(allocation);
         owned.push_back(b);
         return b;
     }
@@ -428,21 +459,59 @@ struct GpuTransport::Impl {
         return b;
     }
 
+    static graph::BufferHandle graph_buffer(
+        graph::Graph& builder,
+        const Buffer& buffer,
+        bool defined,
+        graph::State initial,
+        graph::BufferKind kind = graph::BufferKind::Data
+    ) {
+        if (buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR) {
+            kind = graph::BufferKind::AccelerationStructure;
+        }
+        const auto handle = builder.import_buffer(
+            "baker buffer",
+            {{std::bit_cast<std::uint64_t>(buffer.buffer), 1}, buffer.size, initial, defined, kind}
+        );
+        if (!handle) {
+            throw std::runtime_error(handle.error().message);
+        }
+        return *handle;
+    }
+
+    static graph::Plan compile_graph(const graph::Graph& builder) {
+        const auto plan = builder.compile(graph::DeclarationRetention::Retain);
+        if (!plan) {
+            throw std::runtime_error(plan.error().message);
+        }
+        return *plan;
+    }
+
     void submit(const std::function<void(VkCommandBuffer)>& record) {
         check(vkResetCommandBuffer(commands, 0), "reset commands");
         VkCommandBufferBeginInfo begin{};
         begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         check(vkBeginCommandBuffer(commands, &begin), "begin commands");
+        for (const auto& buffer : owned) {
+            submission_lifetime.retain(buffer.lifetime);
+        }
         record(commands);
         check(vkEndCommandBuffer(commands), "end commands");
-        VkSubmitInfo info{};
-        info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        info.commandBufferCount = 1;
-        info.pCommandBuffers = &commands;
+        renderer::graph::SubmissionGraph scheduler;
+        scheduler.add_stream({"probe bake", std::bit_cast<std::uint64_t>(commands)});
+        const auto schedule = scheduler.compile();
+        if (!schedule) {
+            throw std::runtime_error(schedule.error().message);
+        }
         check(vkResetFences(device, 1, &fence), "reset fence");
-        check(vkQueueSubmit(queue, 1, &info, fence), "submit");
+        check(vkgl::submit_graph_queue(queue, *schedule, fence), "submit");
+        submission_lifetime.submitted();
         check(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX), "wait");
+        const auto completed = submission_lifetime.complete(true);
+        if (!completed) {
+            throw std::runtime_error(completed.error().message);
+        }
     }
 
     // ---- Acceleration ----
@@ -479,12 +548,12 @@ struct GpuTransport::Impl {
         create.buffer = storage.buffer;
         create.size = sizes.accelerationStructureSize;
         create.type = type;
-        VkAccelerationStructureKHR handle;
+        VkAccelerationStructureKHR acceleration;
         check(
-            vkCreateAccelerationStructureKHR(device, &create, nullptr, &handle),
+            vkCreateAccelerationStructureKHR(device, &create, nullptr, &acceleration),
             "acceleration structure"
         );
-        info.dstAccelerationStructure = handle;
+        info.dstAccelerationStructure = acceleration;
         info.scratchData.deviceAddress = (scratch.address + 255) & ~VkDeviceAddress{255};
         std::vector<VkAccelerationStructureBuildRangeInfoKHR> ranges;
 
@@ -493,10 +562,51 @@ struct GpuTransport::Impl {
         }
 
         const auto* range = ranges.data();
+        graph::Graph builder;
+        graph::Pass pass{"build acceleration structure"};
+        pass.execution = graph::Stage::AccelerationBuild;
+        for (const auto& input : owned) {
+            if (input.buffer == storage.buffer || input.buffer == scratch.buffer
+                || !(
+                    input.usage
+                    & (VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
+                       | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR)
+                )) {
+                continue;
+            }
+            const auto stage = input.mapped ? graph::Stage::Host : graph::Stage::AccelerationBuild;
+            const auto handle = graph_buffer(
+                builder, input, true, {stage, graph::Access::Write, graph::Layout::Buffer}
+            );
+            pass.buffers.push_back(
+                {handle,
+                 {0, input.size},
+                 {graph::Stage::AccelerationBuild, graph::Access::Read, graph::Layout::Buffer}}
+            );
+        }
+        for (const auto& output : {storage, scratch}) {
+            const auto handle = graph_buffer(
+                builder,
+                output,
+                false,
+                {graph::Stage::None, graph::Access::None, graph::Layout::Buffer},
+                output.buffer == scratch.buffer ? graph::BufferKind::AccelerationScratch
+                                                : graph::BufferKind::AccelerationStructure
+            );
+            pass.buffers.push_back(
+                {handle,
+                 {0, output.size},
+                 {graph::Stage::AccelerationBuild, graph::Access::Write, graph::Layout::Buffer}}
+            );
+        }
+        builder.add_pass(std::move(pass));
+        const auto plan = compile_graph(builder);
         submit([&](VkCommandBuffer c) {
-            vkCmdBuildAccelerationStructuresKHR(c, 1, &info, &range);
+            vkgl::record_buffer_graph(c, plan, [&](unsigned) {
+                vkgl::NativeCommandEncoder{c}.build_acceleration_structures(1, &info, &range);
+            });
         });
-        return handle;
+        return acceleration;
     }
 
     void build_acceleration() {
@@ -798,29 +908,85 @@ struct GpuTransport::Impl {
 
     // Runs one bound kernel over count invocations and waits for its results on the host.
     void dispatch(VkPipeline kernel, const Push& push) {
+        graph::Graph builder;
+        graph::Pass pass{kernel == placement ? "probe placement" : "probe trace"};
+        pass.execution = graph::Stage::ComputeShader;
+        graph::Pass host{"baker host readback", {}, {}, graph::PassKind::Export};
+        for (unsigned index = 1; index < bound.size(); ++index) {
+            if ((index == 17 && (kernel == placement || !emitter_count))
+                || (index == 19 && kernel != placement)) {
+                continue;
+            }
+            const auto& buffer = bound[index];
+            const bool output = index == 16 || index == 17;
+            const auto handle = graph_buffer(
+                builder,
+                buffer,
+                !output,
+                {output ? graph::Stage::ComputeShader : graph::Stage::Host,
+                 graph::Access::Write,
+                 graph::Layout::Buffer}
+            );
+            auto size = buffer.size;
+            if (output) {
+                size = VkDeviceSize{push.count} * 2 * sizeof(Vec4)
+                       * (kernel == placement ? 1 : settings.rays_per_probe);
+            } else if (index == 15) {
+                size = VkDeviceSize{push.count} * sizeof(Vec4);
+            } else if (index == 19) {
+                size = VkDeviceSize{push.pair_count} * 2 * sizeof(Vec4);
+                if (!size) {
+                    continue;
+                }
+            }
+            pass.buffers.push_back(
+                {handle,
+                 {0, size},
+                 {graph::Stage::ComputeShader,
+                  output ? graph::Access::Write : graph::Access::Read,
+                  graph::Layout::Buffer}}
+            );
+            if (output) {
+                host.buffers.push_back(
+                    {handle,
+                     {0, size},
+                     {graph::Stage::Host, graph::Access::Read, graph::Layout::Buffer}}
+                );
+            }
+        }
+        for (const auto& buffer : owned) {
+            if (buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR) {
+                const auto handle = graph_buffer(
+                    builder,
+                    buffer,
+                    true,
+                    {graph::Stage::AccelerationBuild, graph::Access::Write, graph::Layout::Buffer}
+                );
+                pass.buffers.push_back(
+                    {handle,
+                     {0, buffer.size},
+                     {graph::Stage::ComputeShader, graph::Access::Read, graph::Layout::Buffer}}
+                );
+            }
+        }
+        builder.add_pass(std::move(pass));
+        builder.add_pass(std::move(host));
+        const auto plan = compile_graph(builder);
+        const graph::Dispatch dispatch{{(push.count + kLocalSize - 1) / kLocalSize, 1, 1}};
+        const auto valid = graph::validate_pipeline_command(plan.declarations[0], dispatch);
+        if (!valid) {
+            throw std::runtime_error(valid.error().message);
+        }
         submit([&](VkCommandBuffer c) {
-            vkCmdBindPipeline(c, VK_PIPELINE_BIND_POINT_COMPUTE, kernel);
-            vkCmdBindDescriptorSets(
-                c, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &set, 0, nullptr
-            );
-            vkCmdPushConstants(c, layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof push, &push);
-            vkCmdDispatch(c, (push.count + kLocalSize - 1) / kLocalSize, 1, 1);
-            VkMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-            barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
-            vkCmdPipelineBarrier(
-                c,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_PIPELINE_STAGE_HOST_BIT,
-                0,
-                1,
-                &barrier,
-                0,
-                nullptr,
-                0,
-                nullptr
-            );
+            vkgl::record_buffer_graph(c, plan, [&](unsigned) {
+                vkgl::NativeCommandEncoder encoder{c};
+                encoder.bind_pipeline(VK_PIPELINE_BIND_POINT_COMPUTE, kernel);
+                encoder.bind_descriptor_sets(
+                    VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &set, 0, nullptr
+                );
+                encoder.push_constants(layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof push, &push);
+                encoder.dispatch(dispatch.groups[0], dispatch.groups[1], dispatch.groups[2]);
+            });
         });
     }
 

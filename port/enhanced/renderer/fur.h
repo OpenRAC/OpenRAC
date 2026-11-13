@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-#include "renderer/shader.h"
+#include "renderer/gl/shader.h"
 #include "scene/level.h"
 
 namespace openrac::enhanced {

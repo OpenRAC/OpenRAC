@@ -9,10 +9,10 @@
 #include <vector>
 
 #include "common/stats.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/render_frame_batch.h"

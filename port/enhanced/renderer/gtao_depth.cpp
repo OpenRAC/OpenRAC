@@ -8,7 +8,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 
@@ -133,11 +133,30 @@ void GtaoDepth::build_level(unsigned depth, unsigned level) {
 
 void GtaoDepth::bind(const Shader& evaluate, bool enabled) const {
     using namespace gl;
-    glUniform1i(evaluate.uniform("hi_z_levels"), enabled ? static_cast<int>(m_levels.size()) : 0);
+    glUniform1i(
+        evaluate.uniform("hi_z_levels"), enabled ? static_cast<int>(sampled_levels().size()) : 0
+    );
     glUniform1i(evaluate.uniform("hi_z_depth"), kDepthUnit);
     glActiveTexture(GL_TEXTURE0 + kDepthUnit);
     glBindTexture(world::gl::GL_TEXTURE_BUFFER, enabled ? m_texture : 0);
     glActiveTexture(GL_TEXTURE0);
+}
+
+std::span<const GtaoDepthLevel> GtaoDepth::sampled_levels() const {
+    // An in-bounds tap cannot be farther than the viewport diagonal. Pad each axis for rounding
+    // the tap to a pixel. The horizon shader first reaches level n at a distance of 8 * 2^n.
+    const auto x = static_cast<std::uint64_t>(m_width) + 1;
+    const auto y = static_cast<std::uint64_t>(m_height) + 1;
+    const auto diagonal_squared = x * x + y * y;
+    std::size_t count = m_levels.size();
+    while (count > 1) {
+        const auto distance = std::uint64_t{8} << (count - 1);
+        if (distance * distance <= diagonal_squared) {
+            break;
+        }
+        --count;
+    }
+    return levels().first(count);
 }
 
 void GtaoDepth::release() {

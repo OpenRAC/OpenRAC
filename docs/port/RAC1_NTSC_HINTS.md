@@ -164,8 +164,8 @@ See 4.3.
   in the graphics chip's registers (ALPHA, TEST); a renderer that reads the
   texture's alpha but not the blend mode draws it opaque or black.
 - **Where.** The state arrives in the game's packets as the GS register
-  words `port/renderer/gs.h` decodes; the blend choice is in
-  `port/renderer/direct.cpp` and `port/renderer/shaders/direct.frag`.
+  words `port/renderer/direct/gs.h` decodes; the blend choice is in
+  `port/renderer/direct/direct.cpp` and `port/renderer/shaders/direct.frag`.
 - **Port today.** Partly: the direct renderer applies the GS blend modes for
   the 2D and for effects; whether the three level effects use only modes it
   knows has not been checked.
@@ -353,7 +353,7 @@ See 4.3.
 - **Cause.** Several effects (Aridia's sand sea is one) upload new texture
   pixels each frame. A host that keeps every upload it ever converted runs
   out of space on the card.
-- **Where.** `port/renderer/texture_pool.cpp` and `.h`: uploads are converted
+- **Where.** `port/renderer/textures/texture_pool.cpp` and `.h`: uploads are converted
   by base pointer in `m_uploads`.
 - **Port today.** Handled in design: conversions of game uploads that no
   draw has used are dropped once a frame (the "may be dropped" mark in the
@@ -363,7 +363,7 @@ See 4.3.
 ### 3.5 Particles and effects drawn in the wrong order or not at all
 
 See 1.3 and 1.6. The particle program and its packets go through the
-direct renderer's effect path (`port/renderer/effects.cpp`); the game's own
+direct renderer's effect path (`port/renderer/effects/effects.cpp`); the game's own
 particle code is `FUN_00217a30` (allocate) and `FUN_00217b88` (update),
 carried from PAL in `hand/`.
 

@@ -10,8 +10,8 @@
 
 #include "enhanced/renderer/fur.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 

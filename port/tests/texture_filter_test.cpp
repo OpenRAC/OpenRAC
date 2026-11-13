@@ -13,10 +13,12 @@
 #include "check.h"
 #include "enhanced/renderer/texture_upscale.h"
 #include "enhanced/viewer/probe_lighting.h"
-#include "renderer/framebuffer.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
-#include "renderer/texture_pool.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
+#include "renderer/renderer.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/textures/texture_pool.h"
 #include "renderer_gl_context.h"
 #include "renderer_shaders.h"
 #include "scene/level_renderer.h"
@@ -460,10 +462,20 @@ private:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         m_shader.use();
-        candidate.bind_upscaled_texture_colours(
-            handle, m_shader, renderer::TextureFilter::EdgeAware, false, false
+        // A fresh cache inside a graphics pass reproduces first-frame sky upscaling.
+        CHECK(
+            renderer::colour_pass(
+                "upscale cache miss in colour pass",
+                {m_frame.id(), 64, 64},
+                [&] {
+                    candidate.bind_upscaled_texture_colours(
+                        handle, m_shader, renderer::TextureFilter::EdgeAware, false, false
+                    );
+                    glDrawArrays(GL_TRIANGLES, 0, 3);
+                },
+                renderer::ColourAttachments::Colour
+            )
         );
-        glDrawArrays(GL_TRIANGLES, 0, 3);
         const auto output = m_frame.read_rgba();
         candidate.release_gl();
         return output;

@@ -9,7 +9,7 @@
 #include <limits>
 #include <string_view>
 
-#include "renderer/graph/frame_graph.h"
+#include "renderer/graph/command_buffer.h"
 #include "tests/check.h"
 
 namespace {
@@ -121,6 +121,46 @@ void test_partial_image_contents() {
     layers.add_pass({"first layer", {{array, {}, kWrite}}});
     layers.add_pass({"second layer", {{array, {graph::Aspect::Colour, 0, 1, 1, 1}, kRead}}});
     CHECK(!layers.compile());
+}
+
+void test_imported_subresource_states() {
+    constexpr graph::ImageRange base{graph::Aspect::Colour, 0, 1};
+    constexpr graph::ImageRange written{graph::Aspect::Colour, 1, 1, 1};
+    constexpr graph::ImageRange undefined{graph::Aspect::Colour, 2, 1, 1};
+    graph::ImageDesc desc{
+        {1, 0},
+        3,
+        2,
+        graph::Aspect::Colour,
+        {},
+        false,
+        {{base, {kSample, true}}, {written, {kWrite, true}}}
+    };
+    graph::PlanCache cache;
+    const auto compile = [&](const graph::ImageDesc& entry, graph::ImageRange read) {
+        graph::Graph builder;
+        const auto handle = builder.import_image("mip array", entry).value();
+        builder.add_pass({"sample", {{handle, read, kSample}}});
+        return cache.compile(builder);
+    };
+    CHECK(compile(desc, base).value()->passes.front().barriers.empty());
+    const auto plan = compile(desc, written).value();
+    const auto& barrier = plan->passes.front().barriers.at(0);
+    CHECK(std::get<graph::ImageRange>(barrier.range) == written && barrier.before == kWrite);
+    CHECK(!compile(desc, undefined));
+    auto discarded = desc;
+    discarded.initial_ranges.back().contents.defined = false;
+    CHECK(!compile(discarded, written));
+
+    graph::Graph builder;
+    const auto handle = builder.import_image("partial mip", desc).value();
+    builder.add_pass(
+        {"patch", {{handle, undefined, kWrite, graph::Load::None, graph::Store::Preserve, true}}}
+    );
+    builder.add_pass({"sample incomplete mip", {{handle, undefined, kSample}}});
+    CHECK(!builder.compile());
+    desc.initial_ranges.push_back({written, {kSample, true}});
+    CHECK(!builder.import_image("overlapping ranges", std::move(desc)));
 }
 
 // Partial buffer writes define no bytes outside their union, and overlap barriers retain exact bounds.
@@ -297,7 +337,7 @@ void test_invalid_ranges() {
     CHECK(!buffers.compile());
     graph::Graph typed;
     const auto wrong = typed.import_buffer("not an image", {{3, 0}, 64});
-    typed.add_pass({"wrong handle", {{{wrong->index}, {}, kWrite}}});
+    typed.add_pass({"wrong handle", {{{wrong->index, wrong->owner}, {}, kWrite}}});
     CHECK(!typed.compile());
     CHECK(!typed.import_image("empty", {{4, 0}, 0}));
 }
@@ -472,9 +512,309 @@ void test_separate_pass() {
     const auto plan = builder.compile();
     CHECK(plan.has_value());
     CHECK(!plan->passes[0].separate && plan->passes[1].separate);
+
+    graph::PlanCache cache(1);
+    CHECK(cache.compile(builder).value()->passes[1].separate);
+    builder.clear();
+    const auto reused = image(builder);
+    builder.add_pass({"first", {{reused, {}, kWrite}}});
+    builder.add_pass({"second", {{reused, {}, kWrite}}});
+    CHECK(!cache.compile(builder).value()->passes[1].separate);
 }
 
 // Prints an entirely synthetic shadow-combination graph when explicitly requested by the developer.
+void test_transfer_command_contract() {
+    constexpr graph::State source{Stage::Transfer, Access::Read, Layout::TransferSource};
+    constexpr graph::State destination{Stage::Transfer, Access::Write, Layout::TransferDestination};
+    graph::Graph builder;
+    const auto from = image(builder, 1), to = image(builder, 2);
+    const graph::Pass pass{"blit", {{from, {}, source}, {to, {}, destination}}};
+    graph::CommandBuffer commands;
+    commands.blit(from, to, {{0, 0}, {8, 8}, {0, 8}, {8, 0}});
+    CHECK(commands.validate(pass));
+
+    auto missing_write = pass;
+    missing_write.images.push_back({{2}, {}, destination});
+    CHECK(!commands.validate(missing_write));
+    auto wrong_read = pass;
+    wrong_read.images[0].state = kSample;
+    CHECK(!commands.validate(wrong_read));
+
+    graph::Graph target;
+    const auto target_to = image(target, 2), target_from = image(target, 1);
+    const unsigned mapping[]{target_from.index, target_to.index};
+    const auto remapped = commands.remap({mapping, builder.owner(), target.owner()});
+    CHECK(remapped);
+    const graph::Pass other{
+        "remapped blit", {{target_from, {}, source}, {target_to, {}, destination}}
+    };
+    CHECK(remapped->validate(other));
+    CHECK(!commands.remap({std::span{mapping}.first(1), builder.owner(), target.owner()}));
+    CHECK(!commands.remap({mapping, target.owner(), builder.owner()}));
+    auto foreign_read = pass;
+    foreign_read.images.front().image = target_to;
+    CHECK(!commands.validate(foreign_read));
+
+    commands.blit(from, to, {{0, 0}, {8, 8}, {0, 0}, {8, 8}});
+    CHECK(!commands.validate(pass));
+}
+
+void test_pipeline_command_contract() {
+    const graph::Dispatch dispatch{{2, 1, 1}};
+    const graph::Draw draw{3, 1, 0, 0};
+    graph::Pass compute{"compute", {}, {{{0}, {0, 4}, kBufferWrite}}};
+    const graph::Pass raster{
+        "raster", {{{0}, {}, {Stage::ColourOutput, Access::Write, Layout::ColourAttachment}}}
+    };
+    CHECK(graph::validate_pipeline_command(compute, dispatch));
+    CHECK(!graph::validate_pipeline_command(compute, draw));
+    CHECK(graph::validate_pipeline_command(raster, draw));
+    CHECK(!graph::validate_pipeline_command(raster, dispatch));
+    compute.kind = graph::PassKind::Export;
+    CHECK(!graph::validate_pipeline_command(compute, dispatch));
+    graph::Pass resource_free{"resource-free compute"};
+    resource_free.execution = Stage::ComputeShader;
+    CHECK(graph::validate_pipeline_command(resource_free, dispatch));
+    CHECK(!graph::validate_pipeline_command(resource_free, draw));
+}
+
+void test_buffer_copy_contract() {
+    graph::Graph builder;
+    const auto from = builder.import_buffer("from", {{1, 0}, 64}).value();
+    const auto to = builder.import_buffer("to", {{2, 0}, 64}).value();
+    graph::CommandBuffer commands;
+    commands.copy_buffer(from, {8, 16}, to, 32);
+    const auto pass = commands.declarations("buffer upload");
+    CHECK(commands.validate(pass));
+    auto wrong_range = pass;
+    wrong_range.buffers[1].range.offset = 0;
+    CHECK(!commands.validate(wrong_range));
+    auto unwritten = pass;
+    unwritten.buffers.push_back({{2}, {0, 16}, {Stage::Transfer, Access::Write, Layout::Buffer}});
+    CHECK(!commands.validate(unwritten));
+    graph::Graph target;
+    const auto target_from = target.import_buffer("from", {{1, 0}, 64}).value();
+    const auto target_to = target.import_buffer("to", {{2, 0}, 64}).value();
+    const unsigned mapping[]{target_from.index, target_to.index};
+    const auto remapped = commands.remap({mapping, builder.owner(), target.owner()});
+    CHECK(remapped);
+    graph::CommandBuffer expected;
+    expected.copy_buffer(target_from, {8, 16}, target_to, 32);
+    CHECK(remapped->validate(expected.declarations("remapped upload")));
+    CHECK(!commands.remap({std::span{mapping}.first(1), builder.owner(), target.owner()}));
+    commands.copy_buffer(from, {32, 16}, to, 40);
+    CHECK(!commands.validate(commands.declarations("overlapping destination")));
+    graph::CommandBuffer empty;
+    empty.copy_buffer({0}, {0, 0}, {1}, 0);
+    CHECK(!empty.validate(empty.declarations("zero-byte copy")));
+    graph::CommandBuffer alias;
+    alias.copy_buffer({0}, {0, 16}, {0}, 8);
+    CHECK(!alias.validate(alias.declarations("overlapping alias")));
+    graph::CommandBuffer disjoint;
+    disjoint.copy_buffer({0}, {0, 16}, {0}, 16);
+    CHECK(disjoint.validate(disjoint.declarations("disjoint alias")));
+}
+
+void test_handle_ownership() {
+    graph::Graph builder;
+    const auto texture = image(builder, 1);
+    const auto buffer = builder.import_buffer("buffer", {{2, 0}, 64}).value();
+    const graph::Pass pass{"write", {{texture, {}, kWrite}}, {{buffer, {0, 64}, kBufferWrite}}};
+    builder.add_pass(pass);
+    graph::PlanCache cache;
+    const auto plan = cache.compile(builder).value();
+
+    graph::Graph foreign;
+    const auto foreign_image = image(foreign, 1);
+    const auto foreign_buffer = foreign.import_buffer("buffer", {{2, 0}, 64}).value();
+    CHECK(foreign_image.index == texture.index && foreign_buffer.index == buffer.index);
+    auto invalid = pass;
+    invalid.buffers.front().buffer = foreign_buffer;
+    foreign.add_pass(std::move(invalid));
+    CHECK(!foreign.compile());
+    CHECK(!cache.compile(foreign));
+
+    graph::Graph moved(std::move(builder));
+    CHECK(cache.compile(moved).value() == plan);
+    const auto replacement = image(builder, 1);
+    CHECK(replacement.index == texture.index && replacement != texture);
+
+    moved.clear();
+    const auto current_image = image(moved, 1);
+    const auto current_buffer = moved.import_buffer("buffer", {{2, 0}, 64}).value();
+    invalid = pass;
+    invalid.images.front().image = current_image;
+    moved.add_pass(std::move(invalid));
+    CHECK(!moved.compile());
+    CHECK(!cache.compile(moved));
+
+    graph::Graph assigned;
+    const auto displaced = image(assigned, 1);
+    assigned = std::move(moved);
+    CHECK(!assigned.validate_handles({"displaced", {{displaced, {}, kWrite}}}));
+    CHECK(assigned.validate_handles(
+        {"transferred", {{current_image, {}, kWrite}}, {{current_buffer, {0, 64}, kBufferWrite}}}
+    ));
+}
+
+void test_cached_validation() {
+    graph::PlanCache cache;
+    const auto compile = [](graph::PlanCache& target,
+                            bool defined,
+                            std::uint64_t size,
+                            graph::BufferRange range,
+                            graph::State initial = {Stage::None, Access::None, Layout::Buffer}) {
+        graph::Graph builder;
+        const auto buffer = builder.import_buffer("input", {{1, 0}, size, initial, defined});
+        builder.add_pass({"read", {}, {{buffer.value(), range, kBufferRead}}});
+        return target.compile(builder);
+    };
+    const auto first = compile(cache, true, 64, {0, 32});
+    const auto& original = first.value();
+    const auto hit = compile(cache, true, 64, {0, 32});
+    CHECK(hit && *hit == original);
+    CHECK(!compile(cache, false, 64, {0, 32}));
+    CHECK(!compile(cache, true, 16, {0, 32}));
+    CHECK(!compile(cache, true, 64, {40, 32}));
+    const auto written = compile(cache, true, 64, {0, 32}, kBufferWrite);
+    CHECK(written && *written != original);
+    CHECK(written.value()->passes[0].barriers.at(0).before == kBufferWrite);
+    for (unsigned index = 1; index <= 32; ++index) {
+        CHECK(compile(cache, true, 64, {index, 32}));
+    }
+    const auto recompiled = compile(cache, true, 64, {0, 32});
+    CHECK(recompiled && *recompiled != original);
+    CHECK(original->describe() == recompiled.value()->describe());
+
+    graph::PlanCache single_entry(1);
+    auto retained = compile(single_entry, true, 64, {0, 32}).value();
+    CHECK(!compile(single_entry, false, 64, {0, 32}));
+    CHECK(compile(single_entry, true, 64, {0, 32}).value() == retained);
+
+    const std::weak_ptr<const graph::Plan> published = retained;
+    retained.reset();
+    graph::Graph replacement;
+    const auto buffer =
+        replacement
+            .import_buffer(
+                "other input", {{2, 0}, 64, {Stage::None, Access::None, Layout::Buffer}, true}
+            )
+            .value();
+    replacement.add_pass({"read", {}, {{buffer, {0, 64}, kBufferRead}}});
+    const auto borrowed = single_entry.compile_borrowed(replacement);
+    CHECK(borrowed && (*borrowed)->resources.front().name == "other input");
+    CHECK(published.expired());
+}
+
+void test_reused_builder() {
+    graph::Graph builder;
+    const auto original = builder.import_image("previous image label", {{1, 0}}).value();
+    auto write = builder.make_pass("previous pass label");
+    write.images.push_back({original, {}, kWrite});
+    auto export_pass = builder.make_pass("previous consumers");
+    graph::shader_read_export(export_pass, write, Stage::FragmentShader);
+    builder.add_pass(std::move(write));
+    builder.add_pass(std::move(export_pass));
+    const auto old_plan = builder.compile().value();
+    graph::Plan reused;
+    CHECK(builder.compile_into(reused, graph::DeclarationRetention::Retain));
+    CHECK(reused.declarations.size() == 2);
+    CHECK(reused.passes.back().barriers.size() == 1);
+
+    builder.clear();
+    CHECK(builder.resources().empty() && builder.passes().empty());
+    const auto next = builder.import_buffer("current buffer label", {{1, 0}, 64}).value();
+    auto pass = builder.make_pass("current pass label");
+    CHECK(pass.images.empty() && pass.buffers.empty());
+    pass.buffers.push_back({next, {0, 64}, kBufferWrite});
+    builder.add_pass(std::move(pass));
+    const auto second = builder.make_pass("current second pass");
+    CHECK(second.kind == graph::PassKind::Work);
+    CHECK(second.images.empty() && second.buffers.empty());
+
+    const auto plan = builder.compile().value();
+    CHECK(builder.compile_into(reused, graph::DeclarationRetention::Discard));
+    CHECK(reused.declarations.empty() && reused.dependencies.empty());
+    CHECK(reused.passes.size() == 1 && reused.passes.front().barriers.empty());
+    CHECK(plan.resources.size() == 1 && plan.resources.front().name == "current buffer label");
+    CHECK(plan.passes.size() == 1 && plan.passes.front().name == "current pass label");
+    CHECK(old_plan.resources.front().name == "previous image label");
+}
+
+void test_borrowed_import_name() {
+    graph::Graph builder;
+    CHECK(builder.import_image("depth", {{1, 0}}));
+    for (unsigned identity = 2; identity <= 32; ++identity) {
+        CHECK(builder.import_image(builder.resources().front().name, {{identity, 0}}));
+        CHECK(builder.resources().back().name == "depth");
+    }
+}
+
+void test_cull_unused_passes() {
+    graph::Graph builder;
+    const auto scratch = builder.import_buffer("scratch", {{1, 0}, 64}).value();
+    const auto output = builder.import_image("output", {{2, 0}}).value();
+    const auto unused = builder.import_image("unused", {{3, 0}}).value();
+    const auto optional = [&](graph::Pass pass) {
+        pass.cull_if_unused = true;
+        builder.add_pass(std::move(pass));
+    };
+    optional({"overwritten", {}, {{scratch, {0, 32}, kBufferWrite}}});
+    optional({"unused bytes", {}, {{scratch, {32, 32}, kBufferWrite}}});
+    optional({"producer", {}, {{scratch, {0, 32}, kBufferWrite}}});
+    optional({"unused reader", {{unused, {}, kWrite}}, {{scratch, {0, 32}, kBufferRead}}});
+    optional({"build output", {{output, {}, kWrite}}, {{scratch, {0, 32}, kBufferRead}}});
+    builder.add_pass({"history update"});
+    builder.add_pass({"present output", {{output, {}, kSample}}, {}, graph::PassKind::Export});
+
+    const auto plan = builder.compile().value();
+    CHECK(plan.culled_passes == 3);
+    CHECK(plan.passes[0].culled && plan.passes[1].culled && plan.passes[3].culled);
+    CHECK(!plan.passes[2].culled && !plan.passes[4].culled && !plan.passes[5].culled);
+    CHECK(!plan.passes[6].culled && plan.passes[0].barriers.empty());
+    CHECK(plan.resources[scratch.index].first == 2 && plan.resources[scratch.index].last == 4);
+    CHECK(!plan.resources[unused.index].first);
+    CHECK(plan.passes[2].barriers.empty() || plan.passes[2].barriers.front().from_import);
+    CHECK(std::ranges::none_of(plan.dependencies, [&](const auto& edge) {
+        return plan.passes[edge.source].culled || plan.passes[edge.destination].culled;
+    }));
+    CHECK(plan.describe().find("pass 0 culled overwritten") != std::string::npos);
+}
+
+void test_cull_partial_writes_and_validation() {
+    graph::Graph builder;
+    const auto image = builder.import_image("image", {{1, 0}}).value();
+    graph::Pass producer{"producer", {{image, {}, kWrite}}};
+    producer.cull_if_unused = true;
+    builder.add_pass(std::move(producer));
+    builder.add_pass(
+        {"patch", {{image, {}, kWrite, graph::Load::None, graph::Store::Preserve, true}}}
+    );
+    builder.add_pass({"read patched image", {{image, {}, kSample}}});
+    CHECK(builder.compile().value().culled_passes == 0);
+
+    const auto undefined = builder.import_image("unwritten", {{2, 0}}).value();
+    graph::Pass dead_read{"invalid optional pass", {{undefined, {}, kSample}}};
+    dead_read.cull_if_unused = true;
+    builder.add_pass(std::move(dead_read));
+    CHECK(!builder.compile());
+}
+
+void test_cached_cull_policy() {
+    graph::PlanCache cache;
+    const auto compile = [&](bool cull_if_unused) {
+        graph::Graph builder;
+        graph::Pass pass{"optional work"};
+        pass.cull_if_unused = cull_if_unused;
+        builder.add_pass(std::move(pass));
+        return cache.compile(builder).value();
+    };
+    const auto kept = compile(false);
+    const auto culled = compile(true);
+    CHECK(kept->culled_passes == 0 && culled->culled_passes == 1);
+    CHECK(compile(true) == culled);
+}
+
 void dump_shadow_example() {
     graph::Graph builder;
     const auto cached =
@@ -504,6 +844,7 @@ int main(int argc, char** argv) {
         test_unbound_handles();
         test_shader_read_export();
         test_partial_image_contents();
+        test_imported_subresource_states();
         test_buffer_intervals();
         test_read_write_hazards();
         test_all_readers_before_writer();
@@ -522,6 +863,16 @@ int main(int argc, char** argv) {
         test_export_and_dump();
         test_fixed_order();
         test_separate_pass();
+        test_transfer_command_contract();
+        test_pipeline_command_contract();
+        test_buffer_copy_contract();
+        test_cached_validation();
+        test_handle_ownership();
+        test_reused_builder();
+        test_borrowed_import_name();
+        test_cull_unused_passes();
+        test_cull_partial_writes_and_validation();
+        test_cached_cull_policy();
         if (argc == 2 && std::string_view(argv[1]) == "--dump") {
             dump_shadow_example();
         }

@@ -7,9 +7,11 @@
 
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -28,6 +30,8 @@ enum class Stage : std::uint32_t {
     ColourOutput = 32,
     DepthTests = 64,
     DrawIndirect = 128,
+    Host = 256,
+    AccelerationBuild = 512,
     All = 0xFFFFFFFFu
 };
 
@@ -102,13 +106,39 @@ struct ResourceKey {
     bool operator==(const ResourceKey&) const = default;
 };
 
-// Typed graph-local handles, valid only in the graph that returned them.
+// Typed handles are valid only for the recording that imported them.
 struct ImageHandle {
     unsigned index = std::numeric_limits<unsigned>::max();  // Unbound until imported.
+    std::uint64_t owner = 0;
+    bool operator==(const ImageHandle&) const = default;
 };
 
 struct BufferHandle {
     unsigned index = std::numeric_limits<unsigned>::max();  // Unbound until imported.
+    std::uint64_t owner = 0;
+    bool operator==(const BufferHandle&) const = default;
+};
+
+// Exact image subresources. Empty ranges are rejected.
+struct ImageRange {
+    Aspect aspects = Aspect::Colour;
+    unsigned first_mip = 0;
+    unsigned mip_count = 1;
+    unsigned first_layer = 0;
+    unsigned layer_count = 1;
+    bool operator==(const ImageRange&) const = default;
+};
+
+struct ImageContents {
+    State state{};
+    bool defined = false;
+    bool operator==(const ImageContents&) const = default;
+};
+
+struct ImageInitialRange {
+    ImageRange range;
+    ImageContents contents;
+    bool operator==(const ImageInitialRange&) const = default;
 };
 
 // Import descriptions borrow allocation identity and state; their owners retain the GPU lifetime.
@@ -118,8 +148,16 @@ struct ImageDesc {
     unsigned layers = 1;              // Number of array layers.
     Aspect aspects = Aspect::Colour;  // Aspects present in this allocation.
     State initial{};                  // Access completed or pending before graph recording.
-    bool defined = false;             // Whether every imported subresource contains valid data.
+    bool defined = false;             // Default contents for subresources outside initial_ranges.
+    std::vector<ImageInitialRange> initial_ranges{};  // Nonoverlapping overrides of the defaults.
     bool operator==(const ImageDesc&) const = default;
+};
+
+// Acceleration structures and build scratch use different access types from ordinary shader data.
+enum class BufferKind : std::uint8_t {
+    Data,
+    AccelerationStructure,
+    AccelerationScratch
 };
 
 struct BufferDesc {
@@ -127,19 +165,11 @@ struct BufferDesc {
     std::uint64_t size = 0;  // Allocation size in bytes.
     State initial{Stage::None, Access::None, Layout::Buffer};  // Prior GPU access.
     bool defined = false;  // Whether every byte contains valid data.
+    BufferKind kind = BufferKind::Data;  // Fixed allocation role, independent of execution stage.
     bool operator==(const BufferDesc&) const = default;
 };
 
-// Exact image subresources and buffer byte intervals; empty ranges are rejected.
-struct ImageRange {
-    Aspect aspects = Aspect::Colour;  // A subset of the image's aspects.
-    unsigned first_mip = 0;           // First included mip level.
-    unsigned mip_count = 1;           // Number of consecutive mip levels.
-    unsigned first_layer = 0;         // First included array layer.
-    unsigned layer_count = 1;         // Number of consecutive layers.
-    bool operator==(const ImageRange&) const = default;
-};
-
+// Exact buffer byte intervals; empty ranges are rejected.
 struct BufferRange {
     std::uint64_t offset = 0;  // First included byte.
     std::uint64_t size = 0;    // Number of included bytes.
@@ -153,12 +183,16 @@ struct ImageUse {
     State state;                    // Required execution, access and layout.
     Load load = Load::None;         // Attachment entry operation, otherwise None.
     Store store = Store::Preserve;  // Discard makes subsequent reads invalid.
+    bool partial_write = false;     // A write to only part of each selected subresource.
+    bool continuation = false;      // Later declared work may replace this export in a joined plan.
+    bool operator==(const ImageUse&) const = default;
 };
 
 struct BufferUse {
     BufferHandle buffer;  // Imported allocation.
     BufferRange range;    // Byte interval accessed by this pass.
     State state;          // Required execution and access with layout Buffer.
+    bool operator==(const BufferUse&) const = default;
 };
 
 // Owned pass declarations, executed in insertion order; no draw packets or resource owners are retained.
@@ -167,12 +201,39 @@ struct Pass {
     std::vector<ImageUse> images{};    // All image accesses, including attachments.
     std::vector<BufferUse> buffers{};  // All buffer accesses.
     PassKind kind = PassKind::Work;    // Exports follow all work passes.
+    Stage execution = Stage::None;     // Work with no resources still declares its pipeline class.
+    // Only opt in for work whose outputs and effects are fully visible to this graph.
+    bool cull_if_unused = false;
+    // Metadata kernels bind dummy samplers. Indexed kernels address explicit storage intervals.
+    bool compute_metadata_only = false;
+    bool compute_indexed_storage = false;
     bool separate = false;             // Never joins the open render pass on its attachments.
+    bool operator==(const Pass&) const = default;
+};
+
+// Changes ownership as well as indices when composing graph declarations.
+struct ResourceRemap {
+    std::span<const unsigned> indices;
+    std::uint64_t source_owner;
+    std::uint64_t destination_owner;
+
+    template <typename Handle>
+    [[nodiscard]] bool rebind(Handle& handle) const {
+        if (!source_owner || handle.owner != source_owner || handle.index >= indices.size()) {
+            return false;
+        }
+        handle = {indices[handle.index], destination_owner};
+        return true;
+    }
+
+    [[nodiscard]] Result<void> apply(Pass& pass) const;
 };
 
 // Copies a pass's ranges into a read-only shader export, preserving its sampled input and output coverage.
 // Images become sampled with no attachment operations; buffers retain their exact byte ranges.
 [[nodiscard]] Pass shader_read_export(std::string name, const Pass& source, Stage stages);
+// Fills a pass with the export contract, reusing its declaration storage.
+void shader_read_export(Pass& destination, const Pass& source, Stage stages);
 
 // A barrier covers one aspect/layer's mip interval, or one contiguous buffer interval.
 using Range = std::variant<ImageRange, BufferRange>;
@@ -182,6 +243,7 @@ struct Barrier {
     Range range;            // Exact overlapping subresources or bytes.
     State before;           // Includes all prior overlapping readers.
     State after;            // State required by the next use.
+    bool from_import = false;  // No earlier use in this plan touched the range.
 };
 
 // Ordering edges retain all readers before a writer, not only the most recent reader.
@@ -198,6 +260,7 @@ struct Resource {
     std::variant<ImageDesc, BufferDesc> description;  // Allocation metadata, never a GPU owner.
     std::optional<unsigned> first;                    // Empty for an unused import.
     std::optional<unsigned> last;                     // Final consuming or exporting pass.
+    [[nodiscard]] bool same_shape(const Resource& other) const;
 };
 
 // Entry barriers and kind for one pass; recording remains the executor's responsibility.
@@ -206,6 +269,7 @@ struct PlannedPass {
     PassKind kind = PassKind::Work;  // Exports execute barriers only.
     std::vector<Barrier> barriers;   // Applied before this pass.
     bool separate = false;           // Copied from its declaration.
+    bool culled = false;             // Keeps the declaration index for surviving callbacks.
 };
 
 // Optional source declarations are retained only for frame-wide diagnostic capture.
@@ -220,6 +284,8 @@ struct Plan {
     std::vector<PlannedPass> passes;       // In the original insertion order.
     std::vector<Dependency> dependencies;  // Unique allocation-specific ordering edges.
     std::vector<Pass> declarations;  // Empty unless diagnostic composition requested retention.
+    std::uint64_t owner = 0;         // Owner of the retained declarations' handles.
+    unsigned culled_passes = 0;
     // Returns a deterministic text dump; does no logging or file I/O.
     [[nodiscard]] std::string describe() const;
 };
@@ -227,25 +293,74 @@ struct Plan {
 // One frame's declarations. No sorting, allocation aliasing, queue submission or Vulkan dependency.
 class Graph {
 public:
+    Graph() = default;
+    Graph(const Graph&) = delete;
+    Graph& operator=(const Graph&) = delete;
+    Graph(Graph&& other) noexcept;
+    Graph& operator=(Graph&& other) noexcept;
+
     // Imports an image, coalescing compatible aliases of the same key; rejects inconsistent imports.
-    [[nodiscard]] Result<ImageHandle> import_image(std::string name, ImageDesc description);
+    [[nodiscard]] Result<ImageHandle> import_image(
+        std::string_view name, const ImageDesc& description
+    );
     // Imports a buffer, coalescing compatible aliases of the same key; rejects inconsistent imports.
-    [[nodiscard]] Result<BufferHandle> import_buffer(std::string name, BufferDesc description);
+    [[nodiscard]] Result<BufferHandle> import_buffer(std::string_view name, BufferDesc description);
     // Appends one owned pass; invalid accesses are reported together with its label by compile().
     void add_pass(Pass pass);
 
+    // Takes storage retained from a previous recording when available.
+    [[nodiscard]] Pass make_pass(std::string_view name);
+
+    // Releases all declarations while keeping capacity for the next recording.
+    void clear() noexcept;
+
     // Borrows immutable declarations while a scoped executor composes fixed-order subgraphs.
-    [[nodiscard]] std::span<const Resource> resources() const { return m_resources; }
+    [[nodiscard]] std::span<const Resource> resources() const {
+        return std::span(m_resources).first(m_resource_count);
+    }
 
     [[nodiscard]] std::span<const Pass> passes() const { return m_passes; }
+
+    [[nodiscard]] std::uint64_t owner() const { return m_owner; }
+
+    [[nodiscard]] Result<void> validate_handles(const Pass& pass) const;
 
     // Validates access, tracks partial initialisation and plans barriers without modifying imports.
     [[nodiscard]] Result<Plan> compile(
         DeclarationRetention retention = DeclarationRetention::Discard
     ) const;
+    // Reuses a plan's backing storage. The result must succeed before the plan is read.
+    [[nodiscard]] Result<void> compile_into(Plan& plan, DeclarationRetention retention) const;
 
 private:
     std::vector<Resource> m_resources;  // Canonical image and buffer declarations.
+    std::size_t m_resource_count = 0;
     std::vector<Pass> m_passes;         // Ordered work and export declarations.
+    std::vector<Pass> m_spare_passes;
+    std::uint64_t m_owner = 0;  // Assigned on the first import and reset when the graph is cleared.
+};
+
+// Per recording thread. Retaining a plan keeps it valid across nested recordings and eviction.
+class PlanCache {
+public:
+    explicit PlanCache(std::size_t capacity = 32);
+    PlanCache(const PlanCache&) = delete;
+    PlanCache& operator=(const PlanCache&) = delete;
+    [[nodiscard]] Result<std::shared_ptr<const Plan>> compile(const Graph& graph);
+    // The caller must finish recording before this cache is used again.
+    [[nodiscard]] Result<const Plan*> compile_borrowed(const Graph& graph);
+
+private:
+    struct Entry {
+        std::shared_ptr<Plan> plan;
+        std::uint64_t last_used = 0;
+        bool shared = false;
+    };
+
+    [[nodiscard]] Result<Entry*> find_or_compile(const Graph& graph);
+
+    std::vector<Entry> m_entries;
+    std::shared_ptr<Plan> m_scratch;
+    std::uint64_t m_clock = 0;
 };
 }  // namespace openrac::renderer::graph

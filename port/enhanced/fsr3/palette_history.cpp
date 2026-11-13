@@ -5,8 +5,8 @@
 #include <algorithm>
 #include <cstring>
 
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 
 namespace openrac::enhanced::fsr3_detail {
 using namespace gl;

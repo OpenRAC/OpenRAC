@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "enhanced/fsr3/motion_blur.h"
-#include "renderer/framebuffer.h"
+#include "renderer/gl/framebuffer.h"
 
 namespace openrac::test::motion_blur {
 // Small square fixtures keep exact full-frame comparisons inexpensive.

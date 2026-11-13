@@ -21,8 +21,8 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "common/profiler.h"
-#include "renderer/pcsx2_pack.h"
-#include "renderer/texture_pack.h"
+#include "renderer/textures/pcsx2_pack.h"
+#include "renderer/textures/texture_pack.h"
 #include "scene/material_overrides.h"
 
 namespace openrac::scene {

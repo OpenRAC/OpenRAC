@@ -28,16 +28,16 @@
 #include <vector>
 
 #include "common/result.h"
-#include "renderer/ambient_occlusion.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gtao_settings.h"
+#include "renderer/effects/ambient_occlusion.h"
+#include "renderer/effects/shadow_volume.h"
+#include "renderer/effects/water_impulse.h"
+#include "renderer/gl/framebuffer.h"
 #include "renderer/math.h"
-#include "renderer/shadow_settings.h"
-#include "renderer/shadow_volume.h"
-#include "renderer/texture_filter.h"
-#include "renderer/texture_pool.h"
-#include "renderer/volumetric_settings.h"
-#include "renderer/water_impulse.h"
+#include "renderer/settings/gtao_settings.h"
+#include "renderer/settings/shadow_settings.h"
+#include "renderer/settings/volumetric_settings.h"
+#include "renderer/textures/texture_filter.h"
+#include "renderer/textures/texture_pool.h"
 
 namespace openrac::renderer {
 
@@ -261,6 +261,8 @@ struct FrameInput {
     std::function<void()> before_hud;
     // Captures opaque world colour before particles change it, for temporal reactive masks.
     std::function<void(const RenderTarget&)> on_before_particles;
+    // Optional matching RGBA8 texture fully written by the hook for the first particle bucket.
+    unsigned pre_particle_colour_texture = 0;
     // Resolves the world before the HUD, replacing its target with a display-resolution target.
     std::function<void(RenderTarget&)> on_resolve_world;
     // Known temporal hooks declare their work and finish it before committing displayed history.
@@ -328,6 +330,7 @@ struct RenderState {
     bool atmosphere_prepared = false;
     int opaque_colour_phase = -1;
     bool opaque_colour_batched = false;
+    unsigned pre_particle_colour_texture = 0;  // Borrowed only before the first particle draw.
 };
 
 // Legacy has inseparable prelit colour; Indirect consumes a visibility texture;
@@ -444,7 +447,7 @@ public:
 
     std::span<const std::unique_ptr<BucketRenderer>> renderers() const { return m_renderers; }
 
-    // Registers the frame's ambient occlusion (renderer/ambient_occlusion.h), run when a frame asks
+    // Registers the frame's ambient occlusion (renderer/effects/ambient_occlusion.h), run when a frame asks
     // for it (FrameInput::gtao) and an enabled renderer has the enhanced lighting. Without one, a
     // frame that asks draws none. The game programs register the enhanced renderer's GTAO.
     void set_ambient_occlusion(std::unique_ptr<AmbientOcclusion> ambient_occlusion);
@@ -465,10 +468,11 @@ private:
     [[nodiscard]] bool can_prepare_surface_chain(const FrameInput&, const RenderState&) const;
     // Stops a contiguous opaque batch before the next layer's blended work.
     std::size_t opaque_colour_end(std::size_t first) const;
-    // Collects unique early cache reads; returns empty when any layer needs standalone colour.
-    std::vector<unsigned> opaque_colour_buffers(
+    // Borrows reusable storage until the next batch gathers its early cache reads.
+    // Returns empty when any layer needs standalone colour.
+    std::span<const unsigned> opaque_colour_buffers(
         std::size_t first, std::size_t end, const FrameInput& input, const RenderState& state
-    ) const;
+    );
     // Records the existing solid/cutout rounds without changing their order or culling.
     void draw_opaque_colour(
         std::size_t first, std::size_t end, const FrameInput& input, RenderState& state
@@ -491,7 +495,7 @@ private:
         std::size_t hud,
         const FrameInput& input,
         RenderState& state,
-        std::vector<bool>& opaque_prepared
+        std::span<std::uint8_t> opaque_prepared
     );
     // Queues ordered opaque and blended work while retaining the existing batch barriers.
     [[nodiscard]] Result<void> record_world_colour(
@@ -499,7 +503,7 @@ private:
         std::size_t end,
         const FrameInput& input,
         RenderState& state,
-        std::vector<bool>& opaque_prepared
+        std::span<std::uint8_t> opaque_prepared
     );
     // Records a bucket with its own captured opaque-batch flag and render-thread timing.
     [[nodiscard]] Result<void> record_bucket_colour(
@@ -511,6 +515,7 @@ private:
     bool m_surface_prepass_shared_depth = false;
     TexturePool m_textures;
     std::vector<std::unique_ptr<BucketRenderer>> m_renderers;
+    std::vector<unsigned> m_opaque_colour_buffers;
     FrameStats m_stats;
     bool m_initialised = false;
 };

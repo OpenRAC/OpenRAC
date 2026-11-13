@@ -7,8 +7,6 @@
 // program has its Metal slot, and the vertex stage flips its rows. Skipped (exit 77) where there
 // is no Metal device.
 
-#import <Metal/Metal.h>
-
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -16,12 +14,14 @@
 
 #include "check.h"
 #include "renderer/metal/shader_translate.h"
-#include "renderer/vulkan/shader_compiler.h"
+#include "renderer/vulkan/pipelines/shader_compiler.h"
 #include "renderer/vulkan/vkgl_internal.h"
 #include "renderer/world/gpu.h"
 #include "renderer_shaders.h"
 #include "scene_shaders.h"
 #include "world_shaders.h"
+
+#import <Metal/Metal.h>
 
 namespace {
 

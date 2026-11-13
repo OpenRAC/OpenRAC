@@ -9,10 +9,10 @@
 
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/surface_chain.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
 #endif
 #include "renderer_shaders.h"
 

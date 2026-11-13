@@ -18,7 +18,7 @@
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "renderer/render_opt.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -380,6 +380,9 @@ int main(int argc, char** argv) {
             auto observer = std::make_unique<test::PrepassCapture>();
             auto* capture = observer.get();
             CHECK(renderer.add(std::move(observer), error));
+            frame.on_before_particles = [capture](const renderer::RenderTarget& target) {
+                capture->capture(target);
+            };
             renderer::Shader read_depth;
             renderer::FrameBuffer depth_pixels;
             CHECK(depth_pixels.create(768, 768, error));

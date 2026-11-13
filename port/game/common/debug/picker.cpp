@@ -9,7 +9,7 @@
 #include <string>
 
 #include "debug/overlay.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "scene/object_picker.h"
 
 namespace openrac::frontend::debug_overlay {

@@ -538,7 +538,7 @@ class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
 
   // The player's choice, else OpenGL ES on Mali and Vulkan elsewhere: Vulkan on Mali is not yet
   // played on a device (its compiler crashed on clip distances; vertex_clip_distance in
-  // port/renderer/vulkan/shader_compiler.cpp), and its OpenGL ES runs the game.
+  // port/renderer/vulkan/pipelines/shader_compiler.cpp), and its OpenGL ES runs the game.
   private fun renderer(): String {
     val chosen = if (rendererFile.isFile) rendererFile.readText().trim() else ""
     if (chosen == "gles" || chosen == "vulkan") return chosen

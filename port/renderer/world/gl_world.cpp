@@ -15,7 +15,7 @@ bool g_loaded = false;
 
 bool load(GetProcAddress get, std::string& missing) {
     missing.clear();
-    // As renderer/gl.cpp: a void (*)() converts to any other function pointer.
+    // As renderer/gl/gl.cpp: a void (*)() converts to any other function pointer.
 #define OPENRAC_WORLD_GL_LOAD(ret, name, params)                                                   \
     name = reinterpret_cast<PFN_##name>(get(#name));                                               \
     if (name == nullptr) {                                                                         \

@@ -12,7 +12,7 @@
 #include "enhanced/lighting/probe_texture_encode.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
+#include "renderer/gl/framebuffer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 

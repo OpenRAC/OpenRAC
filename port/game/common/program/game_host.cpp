@@ -46,8 +46,8 @@
 #include "debug/overlay.h"
 #include "frontend.h"
 #include "options_menu.h"
-#include "renderer/direct.h"
-#include "renderer/texture.h"
+#include "renderer/direct/direct.h"
+#include "renderer/textures/texture.h"
 #include "scene/moby_pose.h"
 #include "settings.h"
 #endif

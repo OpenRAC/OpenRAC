@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// HDR output's encode pass (renderer/vulkan/hdr_output.cpp, shaders/hdr_encode.comp) against its
+// HDR output's encode pass (renderer/vulkan/presentation/hdr_output.cpp, shaders/hdr_encode.comp) against its
 // CPU arithmetic (common/hdr.h). A swapchain cannot be read back and the test machine has no HDR
 // screen, so vkgl::test_hdr_encode runs the pass on the default framebuffer into a stand-in of the
 // screen's image, HDR10 and scRGB, and the test compares every pixel, turned the right way up,
@@ -18,9 +18,9 @@
 #include <vector>
 
 #include "common/hdr.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"

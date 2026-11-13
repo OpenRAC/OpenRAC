@@ -8,9 +8,9 @@
 #include <string>
 #include <utility>
 
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/vulkan/graph_execution.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #endif
 
 namespace openrac::scene {
@@ -45,14 +45,17 @@ bool graph_enabled() {
 }
 
 // Declares depth testing against clear or retained contents, leaving physical clears to the callback.
-graph::Pass depth_write(std::string name, graph::ImageHandle depth, bool clear) {
-    return {
-        std::move(name),
-        {{depth,
-          {graph::Aspect::Depth},
-          {graph::Stage::DepthTests, graph::Access::ReadWrite, graph::Layout::DepthAttachment},
-          clear ? graph::Load::Clear : graph::Load::Preserve}}
-    };
+graph::Pass depth_write(
+    vkgl::GraphExecution& execution, std::string_view name, graph::ImageHandle depth, bool clear
+) {
+    auto pass = execution.make_pass(name);
+    pass.images.push_back(
+        {depth,
+         {graph::Aspect::Depth},
+         {graph::Stage::DepthTests, graph::Access::ReadWrite, graph::Layout::DepthAttachment},
+         clear ? graph::Load::Clear : graph::Load::Preserve}
+    );
+    return pass;
 }
 
 // Keeps cached copies transfer-ready and all lighting maps readable by every shader stage.
@@ -93,7 +96,7 @@ Result<void> shadow_depth_pass(
         const bool clear = contents == ShadowDepthContents::Clear;
         vkgl::GraphExecution execution;
         const auto depth = execution.import_attachment(
-            std::string(name),
+            name,
             framebuffer,
             graph::Aspect::Depth,
             clear ? vkgl::InitialContents::Discard : vkgl::InitialContents::Preserve
@@ -104,17 +107,16 @@ Result<void> shadow_depth_pass(
             return unexpected(depth.error());
         }
 
-        auto write = depth_write(std::string(name), *depth, clear);
+        auto write = depth_write(execution, name, *depth, clear);
         write.separate = contents == ShadowDepthContents::PreserveSeparate;
         execution.add_pass(std::move(write));
-        execution.add_pass(
-            {std::string(name) + " consumers",
-             {{*depth, {graph::Aspect::Depth}, consumer_state(consumer)}},
-             {},
-             graph::PassKind::Export}
-        );
+        auto boundary = execution.make_pass(name);
+        boundary.name.append(" consumers");
+        boundary.images.push_back({*depth, {graph::Aspect::Depth}, consumer_state(consumer)});
+        boundary.kind = graph::PassKind::Export;
+        execution.add_pass(std::move(boundary));
         // Copy the callback; its explicit captures survive through an enclosing shared plan.
-        return execution.run_prepared([record](unsigned) { record(); });
+        return execution.run_prepared(record);
     }
 #else
     // Non-Vulkan builds need neither native imports nor graph state.
@@ -157,7 +159,7 @@ Result<void> shadow_depth_copy(
              graph::PassKind::Export}
         );
         // The copied transfer callback records on the owning thread after its shared dependencies.
-        return execution.run_prepared([record](unsigned) { record(); });
+        return execution.run_prepared(record);
     }
 #else
     // Source and destination names are consumed only by the original callback on compatibility builds.
@@ -179,14 +181,15 @@ Result<void> shadow_depth_ready(unsigned framebuffer, const std::function<void()
         if (!depth) {
             return unexpected(depth.error());
         }
-        execution.add_pass(
-            {"shadow atlas completion",
-             {{*depth,
-               {graph::Aspect::Depth},
-               {kShaders, graph::Access::Read, graph::Layout::Sampled}}}}
+        auto completion = execution.make_pass("shadow atlas completion");
+        completion.images.push_back(
+            {*depth,
+             {graph::Aspect::Depth},
+             {kShaders, graph::Access::Read, graph::Layout::Sampled}}
         );
+        execution.add_pass(std::move(completion));
         // The copied callback owns its bookkeeping snapshots until the enclosing plan finishes.
-        return execution.run_prepared([record](unsigned) { record(); });
+        return execution.run_prepared(record);
     }
 #else
     (void)framebuffer;

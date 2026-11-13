@@ -12,8 +12,8 @@
 
 #include "enhanced/renderer/water.h"
 #include "enhanced/renderer/water_mesh.h"
-#include "renderer/framebuffer.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::enhanced::water_detail {
 using Texel = std::array<float, 4>;
@@ -85,13 +85,16 @@ public:
     void bind_quads(const renderer::Shader&, const renderer::FrameInput&) override {}
 
     bool plain_strips_supported() const override { return true; }
+
     std::optional<renderer::EffectMesh> mesh(
         const renderer::EffectStrip& strip, std::span<const renderer::EffectVertex> vertices
     ) override;
     void upload_meshes() override;
     // Captures opaque colour and reversed depth before enhanced water composites them.
     void prepare_scene(
-        const renderer::FrameInput& input, const renderer::RenderTarget& target
+        const renderer::FrameInput& input,
+        const renderer::RenderTarget& target,
+        unsigned pre_particle_colour
     ) override;
 
     bool prepares_colour_chain() const override { return true; }
@@ -109,7 +112,7 @@ public:
         const renderer::FrameInput& input,
         const renderer::EffectUvMotion& motion
     ) override;
-    void bind_contact(const renderer::Shader& shader) const;
+    void bind_contact(const renderer::Shader& shader, std::vector<WaterBufferUse>& reads) const;
     // Prepares displacement once, without restarting the liquid mesh collector.
     void prepare_deformation(const renderer::FrameInput& input);
     // Binds the same maps and timing used by the liquid vertex shader.

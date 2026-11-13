@@ -296,7 +296,7 @@ link it. Tracy is licensed under the 3-clause BSD license, Copyright (c)
 2017-2026 Bartosz Taudul. Its [license](https://github.com/wolfpld/tracy/blob/30997d5ca6bb632cc10807a1da8a6d3de0aeeb3c/LICENSE)
 applies to the client and Vulkan profiling headers. Binary redistributions of
 profiling builds must include that license. OpenRAC's integration is in
-`port/common/profiler.*` and `port/renderer/vulkan/tracy.cpp`.
+`port/common/profiler.*` and `port/renderer/vulkan/diagnostics/tracy.cpp`.
 
 ## SphynxMotionBlurToolkit jump-flood velocity dilation
 

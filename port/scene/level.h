@@ -26,8 +26,8 @@
 #include <vector>
 
 #include "renderer/math.h"
-#include "renderer/texture.h"
-#include "renderer/texture_pack.h"
+#include "renderer/textures/texture.h"
+#include "renderer/textures/texture_pack.h"
 #include "scene/pvs.h"
 #include "scene/tie_relight.h"
 

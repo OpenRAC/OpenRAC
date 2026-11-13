@@ -8,7 +8,7 @@
 #include <limits>
 
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::lighting {
 namespace {

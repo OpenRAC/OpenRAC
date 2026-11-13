@@ -19,8 +19,8 @@
 #include <string_view>
 #include <utility>
 
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 #include "scene/level.h"
 
 namespace openrac::scene {

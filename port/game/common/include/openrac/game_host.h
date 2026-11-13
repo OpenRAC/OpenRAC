@@ -825,7 +825,7 @@ int openrac_game_mobys_drawn(gaddr first, int count);
  * routine): its corners in world space (x, y, z, w), the strip 0 1 2, 1 2 3; RGBA bytes and
  * normalised ST per corner; the GS registers CLAMP_1, TEX0_1, TEX1_1 and ALPHA_1 it draws with;
  * and, for an effect texture, where its pixels are.
- * The window draws the frame's quads after the mobys (renderer/effects.h). */
+ * The window draws the frame's quads after the mobys (renderer/effects/effects.h). */
 typedef struct openrac_game_quad {
     float corner[4][4];
     uint32_t rgba[4];
@@ -957,7 +957,7 @@ const unsigned char* openrac_game_fix(const char* key);
  * line or ribbon; +0x10 position, +0x1C a ribbon's half width; +0x20 a line or ribbon's other end,
  * +0x2C its width factor) and where its texture is in the game's memory (PSMT8 pixels, 1 << log2_side a
  * side, 16 x 16 PSMCT32 CLUT; 0 for none). The window draws the frame's particles after the effect quads,
- * back to front (renderer/effects.h). `id`: what the particle is from one tick to the next (its slot,
+ * back to front (renderer/effects/effects.h). `id`: what the particle is from one tick to the next (its slot,
  * or for one the game makes anew each tick, what it is attached to), or 0 for none; with
  * GameProfile::interpolates_effect_quads a frame between ticks moves it from the last tick's. */
 void openrac_game_particle(

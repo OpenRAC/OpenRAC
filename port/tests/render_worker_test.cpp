@@ -16,7 +16,7 @@
 
 #include "common/breadcrumbs.h"
 #include "game/common/frontend/render_worker.h"
-#include "renderer/direct.h"
+#include "renderer/direct/direct.h"
 #include "tests/check.h"
 
 namespace {

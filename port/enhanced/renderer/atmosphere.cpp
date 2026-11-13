@@ -15,9 +15,9 @@
 #include "common/stats.h"
 #include "enhanced/renderer/compute_graph.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/colour_graph.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "scene/level_renderer.h"
@@ -441,10 +441,12 @@ public:
 
     // Preserve the child material's pre-effects scene snapshot.
     void prepare_scene(
-        const renderer::FrameInput& input, const renderer::RenderTarget& target
+        const renderer::FrameInput& input,
+        const renderer::RenderTarget& target,
+        unsigned pre_particle_colour
     ) override {
         if (m_material) {
-            m_material->prepare_scene(input, target);
+            m_material->prepare_scene(input, target, pre_particle_colour);
         }
     }
 

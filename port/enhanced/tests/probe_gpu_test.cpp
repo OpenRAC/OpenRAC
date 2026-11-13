@@ -15,9 +15,9 @@
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif

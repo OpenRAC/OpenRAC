@@ -7,9 +7,9 @@
 #include "common/log.h"
 #include "common/stats.h"
 #include "enhanced/viewer/probe_selection.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/vulkan/graph_execution.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #endif
 
 namespace openrac::lighting {
@@ -28,13 +28,12 @@ constexpr graph::Stage kShaders =
 
 // Declares the global shortlist prefix without the inactive combined shader's depth sampler.
 Result<graph::Pass> shortlist_pass(vkgl::GraphExecution& execution, graph::BufferHandle masks) {
-    graph::Pass shortlist{
-        "probe region shortlist",
-        {},
-        {{masks,
-          {0, kPrefix},
-          {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}}
-    };
+    auto shortlist = execution.make_pass("probe region shortlist");
+    shortlist.buffers.push_back(
+        {masks,
+         {0, kPrefix},
+         {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}
+    );
     const auto metadata =
         execution.capture_compute_reads(shortlist, vkgl::ComputeInputs::UniformBlocks);
 
@@ -53,16 +52,19 @@ Result<graph::Pass> tile_pass(
     std::uint64_t tile_bytes,
     bool translucent
 ) {
-    graph::Pass tiles{
-        "probe tile masks",
-        {},
-        {{masks,
-          {0, kPrefix},
-          {graph::Stage::ComputeShader, graph::Access::Read, graph::Layout::Buffer}},
-         {masks,
-          {kPrefix, tile_bytes * (translucent ? 2 : 1)},
-          {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}}
-    };
+    auto tiles = execution.make_pass("probe tile masks");
+    // One shader block reads the shortlist prefix and writes the tile mask tail.
+    tiles.compute_indexed_storage = true;
+    tiles.buffers.push_back(
+        {masks,
+         {0, kPrefix},
+         {graph::Stage::ComputeShader, graph::Access::Read, graph::Layout::Buffer}}
+    );
+    tiles.buffers.push_back(
+        {masks,
+         {kPrefix, tile_bytes * (translucent ? 2 : 1)},
+         {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}
+    );
     const auto inputs = execution.capture_compute_reads(tiles);
 
     // Depth and metadata must describe the same allocations as dispatch descriptors.
@@ -74,10 +76,21 @@ Result<graph::Pass> tile_pass(
 }
 
 // Exports both mask regions and descriptor inputs for later graphics and compute consumers.
-graph::Pass mask_consumers(const graph::Pass& shortlist, const graph::Pass& tiles) {
-    graph::Pass inputs = tiles;
-    inputs.buffers.insert(inputs.buffers.end(), shortlist.buffers.begin(), shortlist.buffers.end());
-    return graph::shader_read_export("probe mask consumers", inputs, kShaders);
+graph::Pass mask_consumers(
+    vkgl::GraphExecution& execution, const graph::Pass& shortlist, const graph::Pass& tiles
+) {
+    auto consumers = execution.make_pass("probe mask consumers");
+    consumers.buffers.reserve(tiles.buffers.size() + shortlist.buffers.size());
+    graph::shader_read_export(consumers, tiles, kShaders);
+    // The shortlist declares only buffer accesses, including reflected uniform blocks.
+    for (auto use : shortlist.buffers) {
+        use.state = {kShaders, graph::Access::Read, graph::Layout::Buffer};
+        consumers.buffers.push_back(use);
+    }
+    for (auto& image : consumers.images) {
+        image.continuation = true;
+    }
+    return consumers;
 }
 }  // namespace
 #endif
@@ -144,7 +157,7 @@ bool ProbeSelection::dispatch_mask_graph(
         return false;
     }
 
-    auto consumers = mask_consumers(*shortlist, *tiles);
+    auto consumers = mask_consumers(execution, *shortlist, *tiles);
     execution.add_pass(std::move(*shortlist));
     execution.add_pass(std::move(*tiles));
     execution.add_pass(std::move(consumers));

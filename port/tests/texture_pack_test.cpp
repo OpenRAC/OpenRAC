@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Texture packs (renderer/texture_pack.h): names by hash, replacement at any size, the dump,
+// Texture packs (renderer/textures/texture_pack.h): names by hash, replacement at any size, the dump,
 // animated replacements (frame by tick, the folder and GIF loaders) and the dump's cycle groups.
 #include <filesystem>
 #include <format>
@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "check.h"
-#include "renderer/texture_pack.h"
+#include "renderer/textures/texture_pack.h"
 
 using namespace openrac;
 using namespace openrac::renderer;

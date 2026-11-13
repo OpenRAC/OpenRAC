@@ -11,8 +11,8 @@
 #include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/surface_chain.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/gl.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "scene/hero_shadow.h"
@@ -170,6 +170,9 @@ void LevelScene::prepare_shadow_passes(
     if (m_shadow_atlas_active && (m_hero_ready || m_sun_ready)) {
         draw_shadow_atlas(state);
     }
+    // Allocating an atlas changes the framebuffer even before any shadow map is ready to draw.
+    glBindFramebuffer(GL_FRAMEBUFFER, state.target.framebuffer);
+    glViewport(0, 0, state.target.width, state.target.height);
     stats::gauge("shadow atlas", m_shadow_atlas_active ? 1 : 0);
     stats::gauge("shadow atlas size", m_shadow_layout.size);
     stats::gauge("sun shadow near size", m_shadow_layout.rects[0][2]);

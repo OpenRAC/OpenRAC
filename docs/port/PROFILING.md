@@ -52,6 +52,14 @@ and gives approximate timing. OpenGL and devices without GPU timestamps retain C
 Zones begin/end on their owning thread; snapshots never carry live zones. Worker overlap is
 independent of F3's frame handoff. Compare captures using the same build and settings.
 
+Vulkan render graph CPU zones cover compilation, access normalisation, plan and pass recording,
+barrier recording, surface-chain collection and execution, and immediate draws, dispatches
+and buffer transfers. `Record graph plan` includes the renderer callbacks and their nested zones.
+`Find validated graph plan` covers cache lookup and compilation on a miss. A
+`Reuse validated graph plan` zone marks a hit. The recording thread reuses plans for matching
+declarations, allocation identities, entry layouts and contents. Frame-wide graph dumps compile
+their declarations directly.
+
 With a capture client waiting, `tracy_vulkan_test --capture` checks nested GPU scopes through
 deferred draws, readback, resets and presentation with F3 off. Normal CTest also covers
 disconnected startup and Vulkan validation.

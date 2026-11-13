@@ -16,7 +16,7 @@ Two rules decide whether such a change pays:
 
 ## The optimisation registry
 
-[`port/renderer/render_opt.h`](../../port/renderer/render_opt.h) holds one table of every render
+[`port/renderer/settings/render_opt.h`](../../port/renderer/settings/render_opt.h) holds one table of every render
 optimisation: its name, what it makes cheaper, whether it is on by default, and its tolerance.
 
 - The draw code asks `render_opt::enabled(Opt::...)` and takes the reference path (the code as it
@@ -202,8 +202,8 @@ The sections, by where they are taken:
 | GTAO (`enhanced/renderer/gtao.cpp`) | `gtao`, `GTAO depth copy`, `GTAO horizons`, `GTAO filter` | yes, but `gtao` |
 | Early lighting (`enhanced/viewer/early_lighting.cpp`) | `early GI and cascades` | yes |
 | `LevelScene` (`scene/level_*`, `scene/shadow_*`) | `shadow atlas`, `sun0 map` to `sun3 map`, `Ratchet shadow`, `shadow clear`, `sky colour`, one per layer | yes, as `OPENRAC_SUN_TIMING_DETAIL` chooses for the cascades |
-| The GPU-driven culling (`renderer/vulkan/gpu_draw.inc`) | `GPU instance visibility` | yes |
-| The Vulkan present (`renderer/vulkan/vkgl_present.cpp`) | `vulkan present` (acquire, the copy to the screen, submit, present), `vulkan frame wait` (the fence of the frame two back) | no |
+| The GPU-driven culling (`renderer/vulkan/draw/gpu_draw.inc`) | `GPU instance visibility` | yes |
+| The Vulkan present (`renderer/vulkan/presentation/vkgl_present.cpp`) | `vulkan present` (acquire, the copy to the screen, submit, present), `vulkan frame wait` (the fence of the frame two back) | no |
 
 `frame clear`, `texture retire`, `vulkan present` and `vulkan frame wait` came with R-01; the rest
 were there. Not timed on their own yet, because their files belong to other packages:
@@ -216,7 +216,7 @@ packages.
 
 ## R-01: the counters, the timers and the registry
 
-**What changed.** The registry (`renderer/render_opt.h`, the entry `registry-selftest`), the
+**What changed.** The registry (`renderer/settings/render_opt.h`, the entry `registry-selftest`), the
 counters of `vkgl::SubmissionCounters` and their gauges, the four CPU sections above and the
 timestamp line. No draw, submit or image changes: every count is an add beside the call it counts,
 and the gauges are written only while the debug tools measure.
@@ -521,7 +521,7 @@ the game running, which the benchmark does not).
 
 ## R-03: no clock per draw, state and binds recorded when they change
 
-**What changed** (`renderer/vulkan/vkgl_draw.cpp`, `vkgl_internal.h`, `vkgl_commands.cpp`):
+**What changed** (`renderer/vulkan/draw/vkgl_draw.cpp`, `vkgl_internal.h`, `vkgl_commands.cpp`):
 
 - `vk-draw-clock`. Every draw read `Clock::now()` twice for `measures.draw_s`. Its only readers are
   the gauges `vk_draw_ms` and `vk_draw_us_each`, published only while `stats::enabled()`, so the
@@ -596,7 +596,7 @@ On real levels the maintainers' command is
 
 ## R-04: an allocation-free draw
 
-**What changed** (`renderer/vulkan/vkgl_pipelines.cpp`, `vkgl_draw.cpp`, `vkgl_internal.h`,
+**What changed** (`renderer/vulkan/pipelines/vkgl_pipelines.cpp`, `vkgl_draw.cpp`, `vkgl_internal.h`,
 `vkgl_gl.cpp`), all behind `vk-draw-cache`:
 
 - **The pipeline lookup.** `pipeline_for` turned its `PipelineKey` (376 bytes) into a
@@ -765,7 +765,7 @@ line's `warmup` counters.
 
 ## R-10: pipelines made ahead on a worker
 
-**What changed** (`renderer/vulkan/vkgl_pipelines.cpp`, `vkgl_internal.h`, `vkgl_device.cpp`,
+**What changed** (`renderer/vulkan/pipelines/vkgl_pipelines.cpp`, `vkgl_internal.h`, `vkgl_device.cpp`,
 `pipeline_cache_file.*`, the new `cache_file.*`), behind `pipeline-prewarm`:
 
 - **The manifest.** Every pipeline key the drawing thread makes is recorded with its program's
@@ -840,7 +840,7 @@ writes the manifest), or
 
 ## R-11: fixed state as dynamic state, shipped off
 
-**What changed** (`renderer/vulkan/vkgl_pipelines.cpp`, `vkgl_draw.cpp`, `vkgl_internal.h`,
+**What changed** (`renderer/vulkan/pipelines/vkgl_pipelines.cpp`, `vkgl_draw.cpp`, `vkgl_internal.h`,
 `vkgl_device.cpp`, `pipeline_cache_file.h`), behind `vk-extended-dynamic-state`, which ships
 **off**:
 
@@ -887,7 +887,7 @@ pixels and the ones each winding gives.
 
 ## R-12: SPIR-V kept between runs
 
-**What changed** (`renderer/vulkan/shader_compiler.cpp`, the new `spirv_cache_file.*`, two calls in
+**What changed** (`renderer/vulkan/pipelines/shader_compiler.cpp`, the new `spirv_cache_file.*`, two calls in
 `vkgl_device.cpp`), behind `spirv-disk-cache`:
 
 - The open backend keeps a `SpirvCache`: each program `compile_program` made (its SPIR-V and the
@@ -947,7 +947,7 @@ OPENRAC_VULKAN_PIPELINE_CACHE=/tmp/warm/pipelines.bin ctest --preset release -R 
 
 ## R-14: descriptor sets kept across frames
 
-**What changed** (`renderer/vulkan/vkgl_pipelines.cpp`, `vkgl_internal.h`, `vkgl_resources.cpp`,
+**What changed** (`renderer/vulkan/pipelines/vkgl_pipelines.cpp`, `vkgl_internal.h`, `vkgl_resources.cpp`,
 one loop in `vkgl_device.cpp`), behind `vk-persistent-descriptors`. Where the bindless material
 path is off (older GPUs, Intel Macs, some Android devices; here `--materials off`), every texture
 binding of every frame was a `vkAllocateDescriptorSets` and a `vkUpdateDescriptorSets`, because a
@@ -1108,9 +1108,9 @@ in the frame's command buffer when it ends, with its operations chosen then
 - a draw or a clear after the call makes the attachment live again in the same pass, and a copy,
   blit, upload or depth resolve into an image makes it whole, so new data is never dropped.
 
-`renderer/gl.cpp` loads OpenGL ES's optional functions on the Vulkan backend too, so the
+`renderer/gl/gl.cpp` loads OpenGL ES's optional functions on the Vulkan backend too, so the
 renderer's call at the end of the frame (`renderer.cpp`, the frame's depth and stencil) reaches the
-backend. `renderer/gl.h` does not change. Each pass records one command more
+backend. `renderer/gl/gl.h` does not change. Each pass records one command more
 (`vkCmdExecuteCommands`, counted as other).
 
 **What each pass reads and keeps.** The passes the synthetic scene's frame runs, from the
@@ -1169,7 +1169,7 @@ discarded contents with garbage so later reads change the output and fail the co
 The Vulkan image tests (`renderer_*_vulkan`, `gtao_vulkan`,
 `early_lighting_vulkan`, `enhanced_rendering_vulkan`, `sun_shadow_*`, `probe_gpu_vulkan`,
 `viewer_vulkan`) pass with the entry on and with `OPENRAC_RENDER_OPT_OFF=all`. On box1 the OpenGL
-tests ran too; R-06's one change in shared code (`renderer/gl.cpp`) loads nothing new on an OpenGL
+tests ran too; R-06's one change in shared code (`renderer/gl/gl.cpp`) loads nothing new on an OpenGL
 context.
 
 Commands:
@@ -1191,7 +1191,7 @@ store operations and the GPU's external write bandwidth.
 
 ## R-15: static instances resident on the GPU
 
-**What changed** (`renderer/vulkan/gpu_draw.inc`, `vkgl.h`, `vkgl.cpp`, `vkgl_internal.h`,
+**What changed** (`renderer/vulkan/draw/gpu_draw.inc`, `vkgl.h`, `vkgl.cpp`, `vkgl_internal.h`,
 `scene/level_instances.cpp`):
 
 - `gpu-resident-instances`. For every group of terrain, ties and shrubs and every view (the camera,
@@ -1550,7 +1550,7 @@ and viewport, the camera and shadow views filling them in, a registry entry
 (`~/RACSwarm/api-agents/restructure/R-19-zero-coverage-gpu.patch`, three commits on top of
 `ca9bf0d5`); the numbers below are that patch's.
 
-**What landed** (`renderer/gpu_draw.h`, `tests/cull_coverage_test.cpp`, `cmake/Render.cmake`):
+**What landed** (`renderer/gl/gpu_draw.h`, `tests/cull_coverage_test.cpp`, `cmake/Render.cmake`):
 
 - The argument. An instance's triangles lie inside its bounds. With all eight corners in front of
   the eye (clip w above 1e-6) the projection keeps them inside the convex hull of the projected
@@ -1650,7 +1650,7 @@ identical on the Mac and box1.
 `swapped`) would take the visible time as its display phase where it is known, in place of
 nothing (it keeps no phase on Vulkan today and paces by the shared deadline), with the cost EMA as
 before. `game/common` does not include or link the Vulkan backend: it sees the renderer only
-through `renderer/gl.h` and `platform/window.h`, so the time has to reach it through one of them
+through `renderer/gl/gl.h` and `platform/window.h`, so the time has to reach it through one of them
 (a `platform::Window` call that asks the backend, say), which is outside this package's paths.
 [PROGRESS.md](../restructure/PROGRESS.md)'s follow-ups record it with the pure function and test
 it needs.
@@ -1815,7 +1815,7 @@ A GL driver silently recompiles a program the first time it is drawn with new st
 its machine code: target formats and samples, blend, colour mask, vertex formats. Program
 binaries (`program_cache.h`) do not cover this.
 
-`renderer/gl_warmup.cpp` wraps the draw and state calls. A draw in a new state is saved with its
+`renderer/gl/gl_warmup.cpp` wraps the draw and state calls. A draw in a new state is saved with its
 program's sources (`program_cache::Key`) to `<cache>/gl_states/<driver>.bin`. A known state costs
 one compare. States not seen for eight runs are dropped.
 
@@ -2190,9 +2190,10 @@ The uniform stays where it was, under its GL name. The pipeline key holds the mo
 (`PipelineKey::mode`), and the pipeline is made with them as specialisation constants. A
 pipeline made without them reads the uniforms, exactly as before.
 
-No draw waits for a specialised pipeline. The first draw of a new set of values asks the
-pre-warm workers for it and goes on with the plain pipeline, which gives the same picture. The
-key goes to the manifest, so the next run makes it behind the loading screen. Switched off while
+No draw waits for a specialised pipeline. The first draw of a new set of values uses the plain
+pipeline, which gives the same picture, and records the key in the manifest. During level loading
+the workers can compile new variants. During gameplay the manifest keeps them for a future load
+so background compilation does not compete with rendering. Switched off while
 the game runs, it works the other way round: the specialised pipeline draws until the plain one
 is made. A mode that takes more than four values stays a uniform. A mode the material path
 reads per draw is left alone. OpenGL and Metal ignore the comment.

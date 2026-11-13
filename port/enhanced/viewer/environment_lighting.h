@@ -8,7 +8,7 @@
 #include "enhanced/lighting/environment.h"
 #include "enhanced/viewer/debug_lines.h"
 #include "enhanced/viewer/environment_selection.h"
-#include "renderer/shader.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::lighting {
 class EnvironmentLighting {

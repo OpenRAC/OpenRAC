@@ -22,8 +22,8 @@
 #include "enhanced/tests/prepass_capture.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -208,6 +208,9 @@ void check_normal_variant(NormalCase& fixture, float sign) {
     renderer::FrameInput input;
     input.camera.view = renderer::translation({0, 0, -8});
     input.camera.projection = renderer::perspective_reversed(1, 1, .1f, 100);
+    input.on_before_particles = [capture](const renderer::RenderTarget& target) {
+        capture->capture(target);
+    };
 
     for (const int mode : {2, 3}) {
         scene.set_probe_view(mode);
@@ -326,6 +329,9 @@ void test_depth_only() {
         input.camera.projection[8] = .13f;
         input.after_world_depth = [](unsigned depth, int, int) {
             CHECK(depth != 0);
+        };
+        input.on_before_particles = [capture](const renderer::RenderTarget& target) {
+            capture->capture(target);
         };
         std::vector<std::uint8_t> pixels, depths;
         for (bool rigid : {false, true}) {

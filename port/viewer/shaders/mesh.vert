@@ -69,7 +69,7 @@ uniform vec4 terrain_point_lights[16];
 // normal, a sphere map of the level's chrome or glass picture, the vertex colour 0x70 and the
 // alpha the moby's distance gives (ReRAC moby_skinning_lighting.md 6 and 9).
 uniform int metal_pass;
-// 1: clip-space z goes to the window as it is (renderer/precise_depth.h), 0: GL's (z + w) / 2.
+// 1: clip-space z goes to the window as it is (renderer/gl/precise_depth.h), 0: GL's (z + w) / 2.
 uniform int clip_zero_to_one;
 uniform int probe_mode;
 uniform int probe_receiver;

@@ -4,7 +4,7 @@
 // FrameTarget allocation uses the renderer's ordinary colour attachments for intermediate passes.
 #include "enhanced/fsr3/frame_target.h"
 
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::enhanced::fsr3_detail {
 using namespace openrac::gl;

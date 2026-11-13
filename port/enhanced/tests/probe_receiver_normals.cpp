@@ -14,7 +14,7 @@
 #include "enhanced/renderer/gtao.h"
 #include "enhanced/tests/gpu_probe_fixture.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"

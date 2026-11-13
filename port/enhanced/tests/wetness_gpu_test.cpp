@@ -15,9 +15,11 @@
 #include "enhanced/viewer/environment_selection.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/renderer.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 #include "scene_shaders.h"
@@ -436,7 +438,18 @@ result=vec4(b&255u,(b>>8)&255u,(b>>16)&255u,b>>24)/255.;})",
             CHECK(std::isfinite(result[i]) && std::abs(result[i] - expected[i]) < 2e-5f);
         }
     };
-    wet.prepare(input, palette, hero);
+    glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    // The game's first wetness update occurs inside its graphics prepass.
+    CHECK(
+        renderer::colour_pass(
+            "wetness inside graphics",
+            {target.id(), 5, 1},
+            [&] { wet.prepare(input, palette, hero); },
+            renderer::ColourAttachments::Colour
+        )
+    );
     expect({1, 0, 0, 0, 1});
     // Animation/world motion carries the original wet patch; it does not wet the whole body.
     hero.matrix[14] = 4;

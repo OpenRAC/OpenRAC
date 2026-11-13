@@ -12,7 +12,7 @@
 
 #include "enhanced/renderer/water_mesh.h"
 #include "enhanced/tests/water_test_bake.h"
-#include "renderer/render_opt.h"
+#include "renderer/settings/render_opt.h"
 #include "tests/check.h"
 using namespace openrac;
 

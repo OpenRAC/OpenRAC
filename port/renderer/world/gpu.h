@@ -12,7 +12,7 @@
 // parts (world_common.glsl, display_blend.glsl, world_lights.glsl) have no
 // version line and are inserted after it. Uniform blocks are bound by name to
 // fixed binding points (GLSL 4.10 has no binding qualifier), samplers by
-// renderer/shader.h's tex_T<n> rule.
+// renderer/gl/shader.h's tex_T<n> rule.
 
 #pragma once
 
@@ -23,7 +23,7 @@
 #include <string_view>
 #include <vector>
 
-#include "renderer/shader.h"
+#include "renderer/gl/shader.h"
 #include "renderer/world/draw_data.h"
 
 namespace openrac::renderer::world {

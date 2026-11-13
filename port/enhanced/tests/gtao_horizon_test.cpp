@@ -12,9 +12,9 @@
 
 #include "gtao_horizon_reference.h"
 #include "gtao_reference_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "tests/check.h"

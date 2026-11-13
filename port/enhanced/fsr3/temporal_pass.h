@@ -9,7 +9,7 @@
 #include <span>
 #include <string_view>
 
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
 
 namespace openrac::enhanced::fsr3_detail {
 // Records one existing draw after explicit temporal dependencies, reporting errors to the enclosing

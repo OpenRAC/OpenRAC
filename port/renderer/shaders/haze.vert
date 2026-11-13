@@ -2,7 +2,7 @@
 
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
-// One patch of heat haze (renderer/haze.h): a square around its centre, in clip space.
+// One patch of heat haze (renderer/effects/haze.h): a square around its centre, in clip space.
 uniform vec4 patch_place;  // its centre (x, y) and half size (x, y), in normalised device units
 out vec2 local;            // -1 to 1 across the square
 void main() {

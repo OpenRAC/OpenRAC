@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The low-latency frames' sleep (renderer/vulkan/latency_sleep.h): none until the times are
+// The low-latency frames' sleep (renderer/vulkan/presentation/latency_sleep.h): none until the times are
 // known, none when the processor is the slower, and otherwise one that lets a frame be queued just
 // as the graphics card is free, so that frames come as fast as two in flight would.
 #include <algorithm>
 #include <cmath>
 
-#include "renderer/vulkan/latency_sleep.h"
+#include "renderer/vulkan/presentation/latency_sleep.h"
 #include "tests/check.h"
 
 namespace {

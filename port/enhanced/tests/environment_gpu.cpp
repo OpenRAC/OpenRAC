@@ -11,7 +11,7 @@
 #include "enhanced/viewer/environment_selection.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "scene_shaders.h"
 #include "tests/check.h"
 

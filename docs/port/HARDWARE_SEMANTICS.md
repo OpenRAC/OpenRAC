@@ -36,7 +36,7 @@ otherwise.
 | 9 | VCLIP, MAC and STATUS flags via CFC2 | a (`b9046220`) | asmc.py `vu0`, `openrac_vu0_mac`, `openrac_vu0_set_mac`, `openrac_vu0_set_div`, `openrac_vu0_clip` (ee_ops.h) |
 | 10 | MMI semantics | b (most), a (the rest, `5b7f0765`) | `openrac_ee_mmi`, `openrac_ee_pmul`, `openrac_ee_pmfhl_*` (ee_ops.h); asmc.py `stmt` |
 | 11 | VIF UNPACK V4-5 | b (sizes), c (contents) | `direct_packets` ([frontend.cpp](../../port/game/common/frontend.cpp)) |
-| 12 | The GIF is a stream | b (`910fef95`) | `GifInterpreter::gif` ([direct.cpp](../../port/renderer/direct.cpp)), `direct_packets` |
+| 12 | The GIF is a stream | b (`910fef95`) | `GifInterpreter::gif` ([direct.cpp](../../port/renderer/direct/direct.cpp)), `direct_packets` |
 | 13 | Progressive XGKICK | c | no VU1 program runs |
 | 14 | Kernel thread priorities, no time-slicing | c | one thread: [kernel.c](../../port/game/common/lib/kernel.c) |
 | 15 | SetupHeap with an explicit size | b | `openrac_lib_EndOfHeap` (kernel.c), rac4's `rac4EndOfHeap` |

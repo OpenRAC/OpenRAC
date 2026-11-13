@@ -30,7 +30,8 @@ bool water_scene_behind(float depth,float surface_depth) {
 }
 // Returns normal thickness; water_transmittance applies Snell's refracted path length.
 bool water_scene_sample(vec2 uv,float surface_depth,vec3 view_position,vec2 normal_offset,float nv,
-                        float contact_nv,bool contact_blend,out vec3 background,out float thickness) {
+                        float contact_nv,bool contact_blend,bool contact_only,
+                        out vec3 background,out float thickness) {
     background=vec3(0);thickness=0.;
     water_contact_coverage=1.;
     water_contact_depth=0.;
@@ -46,6 +47,7 @@ bool water_scene_sample(vec2 uv,float surface_depth,vec3 view_position,vec2 norm
     // Contact uses the unshifted depth and base surface normal, never the refracted floor.
     water_contact_depth=path*clamp(contact_nv,0.,1.);
     if(contact_blend) water_contact_coverage=water_contact_blend(water_contact_depth);
+    if(contact_only) return true;
     // Six pixels maximum at the render resolution, fading smoothly to zero at contacts.
     vec2 offset=normal_offset*min(6.,path*2.);
     offset*=min(1.,6./max(length(offset),1e-5));

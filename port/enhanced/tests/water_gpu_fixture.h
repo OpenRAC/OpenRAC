@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "renderer/shader.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::test::water {
 using Cell = std::array<float, 4>;

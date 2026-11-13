@@ -10,8 +10,8 @@
 #include <utility>
 
 #include "check.h"
-#include "renderer/direct.h"
-#include "renderer/effects.h"
+#include "renderer/direct/direct.h"
+#include "renderer/effects/effects.h"
 #include "renderer_gif_builder.h"
 
 namespace {

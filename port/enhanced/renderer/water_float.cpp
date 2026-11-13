@@ -12,8 +12,8 @@
 #include "enhanced/renderer/water.h"
 #include "enhanced/renderer/water_graph.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 
@@ -229,7 +229,8 @@ void WaterFloat::bind(const renderer::Shader& shader, bool enabled) const {
         return;
     }
     // Shared maps and phase are constant within one displayed frame; only the group flag changes.
-    if (m_bound_shaders.insert(shader.id()).second) {
+    if (std::ranges::find(m_bound_shaders, shader.id()) == m_bound_shaders.end()) {
+        m_bound_shaders.push_back(shader.id());
         bind_maps(shader);
         glUniform1i(shader.uniform("water_float_poses"), kPoseUnit);
         glUniform1i(shader.uniform("water_float_count"), m_pose_count);

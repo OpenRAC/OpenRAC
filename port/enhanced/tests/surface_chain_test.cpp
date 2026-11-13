@@ -16,14 +16,14 @@
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced/viewer/probe_selection.h"
-#include "renderer/colour_graph.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
-#include "renderer/surface_chain.h"
-#include "renderer/vulkan/frame_capture.h"
-#include "renderer/vulkan/graph_execution.h"
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/diagnostics/frame_capture.h"
+#include "renderer/vulkan/graph/graph_execution.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "renderer/world/gpu.h"
@@ -463,6 +463,7 @@ struct RecordedFrame {
     std::uint64_t barriers = 0;  // Native barrier calls, without readback's later transitions.
     std::uint64_t chains = 0;    // Successfully executed shared plans.
     std::uint64_t draws = 0;     // Actual draw commands detect accidental batch replay.
+    std::uint64_t dispatches = 0;
 };
 
 // Runs one frame and reads its result after all declared work has executed.
@@ -483,7 +484,9 @@ RecordedFrame render_frame(Fixture& fixture, bool expose_depth = true) {
         after.barriers - before.barriers,
         after.surface_chains - before.surface_chains,
         after.commands[static_cast<unsigned>(vkgl::Command::Draw)]
-            - before.commands[static_cast<unsigned>(vkgl::Command::Draw)]
+            - before.commands[static_cast<unsigned>(vkgl::Command::Draw)],
+        after.commands[static_cast<unsigned>(vkgl::Command::Dispatch)]
+            - before.commands[static_cast<unsigned>(vkgl::Command::Dispatch)]
     };
 }
 
@@ -542,6 +545,7 @@ Result<void> validation_dispatch(
 // Compilation failure must occur after CPU preparation but before any GPU dispatch, then permit a
 // fresh chain.
 void test_failed_preparation(Fixture& fixture) {
+    namespace graph = renderer::graph;
     unsigned prepared = 0;
     const auto before = vkgl::submission_counters();
     const auto failed = validation_dispatch(fixture, renderer::graph::Access::ReadWrite, prepared);
@@ -558,6 +562,25 @@ void test_failed_preparation(Fixture& fixture) {
     CHECK(recovered.surface_chains == before.surface_chains + 1);
     const auto unrepresented = renderer::run_surface_chain([] { glClear(GL_COLOR_BUFFER_BIT); });
     CHECK(!unrepresented);
+
+    const auto foreign = renderer::run_surface_chain([&] {
+        vkgl::GraphExecution other;
+        vkgl::GraphExecution execution;
+        const auto wrong = other.import_buffer("foreign output", fixture.validation_buffer.id());
+        const auto local = execution.import_buffer("local output", fixture.validation_buffer.id());
+        CHECK(wrong && local && wrong->index == local->index);
+        execution.add_pass(
+            {"foreign dispatch",
+             {},
+             {{wrong.value(),
+               {0, sizeof(unsigned)},
+               {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}}}
+        );
+        CHECK(!execution.run([&](unsigned) { ++prepared; }));
+    });
+    CHECK(!foreign && foreign.error().message.find("foreign dispatch") != std::string::npos);
+    CHECK(prepared == 2);
+    CHECK(vkgl::submission_counters().surface_chains == recovered.surface_chains);
 }
 
 // Synchronous material setup flushes producers and restores collection after success or a setup exception.
@@ -591,6 +614,53 @@ void test_setup_boundary() {
     CHECK(recorded);
     CHECK(!renderer::collecting_surface_chain());
     CHECK(!renderer::run_surface_setup({}));
+}
+
+void test_sampled_handoff() {
+    namespace graph = renderer::graph;
+    renderer::FrameBuffer target;
+    std::string error;
+    CHECK(target.create_colour(4, 4, error));
+    const auto barriers = [&](bool continuation, bool later) {
+        glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glDisable(GL_SCISSOR_TEST);
+        glClear(GL_COLOR_BUFFER_BIT);
+        const auto before = vkgl::submission_counters().barriers;
+        CHECK(renderer::run_surface_chain([&] {
+            vkgl::GraphExecution producer;
+            const auto image =
+                producer.import_attachment("handoff image", target.id(), graph::Aspect::Colour);
+            CHECK(image);
+            graph::Pass handoff{
+                "sampled handoff",
+                {{image.value(),
+                  {},
+                  {graph::Stage::FragmentShader, graph::Access::Read, graph::Layout::Sampled}}},
+                {},
+                graph::PassKind::Export
+            };
+            handoff.images.front().continuation = continuation;
+            producer.add_pass(std::move(handoff));
+            CHECK(producer.run_prepared(std::function<void()>{}));
+            if (later) {
+                CHECK(
+                    renderer::colour_pass(
+                        "later colour access",
+                        {target.id(), 4, 4},
+                        [] { glClear(GL_COLOR_BUFFER_BIT); },
+                        renderer::ColourAttachments::Colour
+                    )
+                );
+            }
+        }));
+        return vkgl::submission_counters().barriers - before;
+    };
+    const auto external = barriers(false, true);
+    CHECK(barriers(true, true) + 1 == external);
+    const auto standalone = barriers(false, false);
+    CHECK(standalone == 1 && barriers(true, false) == standalone);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 // Checks colour formats and depth/stencil limits because supported MSAA counts need not be contiguous.
@@ -701,6 +771,37 @@ void test_multisample_chain() {
     // Returning to a single-sample depth texture must discard the old resolve allocations and imports.
     fixture.resize(21, 15, false);
     compare(fixture);
+}
+
+// Captures executed reductions for viewports on either side of the coarse mip thresholds.
+void test_hiz_culling(test::GlContext& context) {
+    Fixture fixture;
+    for (const int width : {19, 65}) {
+        fixture.resize(width, 17, true);
+        render_frame(fixture);
+        const auto without_hierarchy = render_frame(fixture);
+        fixture.input.gtao_settings.hi_z = true;
+        render_frame(fixture);
+        CHECK(vkgl::capture_frame_graph());
+        const auto hierarchy = render_frame(fixture);
+        CHECK(hierarchy.dispatches == without_hierarchy.dispatches + (width == 65 ? 4u : 2u));
+        fixture.target.blit_to(0, 64, 64);
+        context.window().swap();
+        const auto description = vkgl::frame_graph_description();
+        CHECK(description);
+        if (description) {
+            CHECK(description->find(" work GTAO depth mip 0\n") != std::string::npos);
+            CHECK(description->find(" work GTAO depth mip 1\n") != std::string::npos);
+            CHECK(
+                (description->find(" work GTAO depth mip 2\n") != std::string::npos)
+                == (width == 65)
+            );
+            CHECK(
+                (description->find(" work GTAO depth mip 3\n") != std::string::npos)
+                == (width == 65)
+            );
+        }
+    }
 }
 
 // Shared depth skips the copy; multisample resolves still precede their sampled consumers.
@@ -875,19 +976,22 @@ void test_blend_boundaries() {
 void test_world_colour() {
     Fixture fixture;
     fixture.resize(23, 17, true);
-    fixture.join_world_colour = true;
     std::string error;
     CHECK(fixture.renderer.add(std::make_unique<FollowingLayer>(fixture), error));
     // A blend boundary splits opaque rounds inside the shared sequence, without splitting draw order.
     for (bool boundary : {false, true}) {
         fixture.blend_boundary = boundary;
+        fixture.join_world_colour = false;
+        render_frame(fixture);
         const auto reference = render_frame(fixture);
         const auto expected_order = fixture.order;
+        fixture.join_world_colour = true;
         const auto shared = render_frame(fixture);
         CHECK(shared.pixels == reference.pixels);
         CHECK(shared.draws == reference.draws);
         CHECK(fixture.order == expected_order);
-        CHECK(shared.chains == 2);
+        CHECK(reference.chains == 2 && shared.chains == 1);
+        CHECK(shared.barriers <= reference.barriers);
     }
 }
 
@@ -903,19 +1007,24 @@ void test_world_hook_boundary() {
     class Particles final : public renderer::BucketRenderer {
     public:
         // Borrows the fixture through the synchronous test frame.
-        explicit Particles(Fixture& fixture)
+        Particles(Fixture& fixture, unsigned expected)
             : BucketRenderer("boundary particles", renderer::Bucket::Particles),
-              m_fixture(fixture) {}
+              m_fixture(fixture),
+              m_expected(expected) {}
 
-        void render(const renderer::FrameInput&, renderer::RenderState&) override {
+        void render(const renderer::FrameInput&, renderer::RenderState& state) override {
+            CHECK(state.pre_particle_colour_texture == m_expected);
             m_fixture.order.push_back(7);
         }
 
     private:
         Fixture& m_fixture;  // Fixture owns this bucket until the test ends.
+        unsigned m_expected;
     };
 
-    auto* particles = fixture.renderer.add(std::make_unique<Particles>(fixture), error);
+    constexpr unsigned kSnapshot = 19;
+    auto* particles = fixture.renderer.add(std::make_unique<Particles>(fixture, kSnapshot), error);
+    CHECK(fixture.renderer.add(std::make_unique<Particles>(fixture, 0), error));
     CHECK(particles);
     // Initialization failure must retain its original diagnostic instead of dereferencing null.
     if (!particles) {
@@ -926,12 +1035,13 @@ void test_world_hook_boundary() {
         CHECK(fixture.order == std::vector<unsigned>({0, 1, 2, 3, 4, 5}));
         fixture.order.push_back(6);
     };
+    fixture.input.pre_particle_colour_texture = kSnapshot;
     // Disabled particle renderers must not suppress the earlier opaque-colour hook.
     for (bool enabled : {true, false}) {
         particles->enabled = enabled;
         const auto frame = render_frame(fixture);
-        CHECK(frame.chains == 2);
-        CHECK(fixture.order.size() == (enabled ? 8u : 7u));
+        CHECK(frame.chains == 1);
+        CHECK(fixture.order.size() == (enabled ? 9u : 8u));
         CHECK(fixture.order[6] == 6);
     }
 }
@@ -974,6 +1084,7 @@ int main() {
             return test::kSkip;
         }
         test_chain();
+        test_hiz_culling(context);
         test_multisample_chain();
         test_depth_order(context, 1);
         if (const int samples = surface_multisamples(); samples > 1) {
@@ -987,6 +1098,7 @@ int main() {
         test_world_hook_boundary();
         test_invalid_colour_read();
         test_setup_boundary();
+        test_sampled_handoff();
         CHECK(vkgl::submission_counters().validation_errors == 0);
         opt::reset();
         return test::result();

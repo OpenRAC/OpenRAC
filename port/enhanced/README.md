@@ -18,8 +18,8 @@ Start with the [lighting guide](lighting/README.md) for builds, bakes and contro
 
 ## Integration
 
-GTAO (`renderer/gtao.h`) implements `port/renderer/ambient_occlusion.h`, registered in
-`game/common/frontend/world.cpp`. It uses `port/renderer/gtao_settings.h` and builds with its
+GTAO (`renderer/gtao.h`) implements `port/renderer/effects/ambient_occlusion.h`, registered in
+`game/common/frontend/world.cpp`. It uses `port/renderer/settings/gtao_settings.h` and builds with its
 shaders in `openrac_renderer`.
 
 The Enhanced menu's hierarchical-depth checkbox enables up to four min/max depth levels

@@ -358,7 +358,8 @@ vec3 effect_material(vec3 painted) {
     float thickness;
     bool scene_valid=water_scene_sample(gl_FragCoord.xy/water_scene_extent,gl_FragCoord.z,
                                        view_position,normal_offset,nv,abs(dot(plane.xyz,eye)),
-                                       water_debug_view!=17,water_background,thickness);
+                                       water_debug_view!=17,water_debug_view==14 || water_debug_view==16,
+                                       water_background,thickness);
     vec3 transmittance=scene_valid?water_transmittance(thickness,nv):vec3(0);
     // Original art contributes only the stylised medium tint and ripple detail, never a fake bed.
 #ifdef OPENRAC_OCEAN_SPECTRUM

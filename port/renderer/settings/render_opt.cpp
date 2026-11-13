@@ -1,0 +1,423 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// The optimisation registry (render_opt.h): the table of entries, the reading of
+// OPENRAC_RENDER_OPT_OFF, and the switches the draw code reads.
+
+#include "renderer/settings/render_opt.h"
+
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <string>
+#include <utility>
+
+#include "common/env.h"
+#include "common/log.h"
+
+namespace openrac::renderer::render_opt {
+namespace {
+
+// The word of OPENRAC_RENDER_OPT_OFF that switches every entry off.
+constexpr std::string_view kAll = "all";
+
+// Every optimisation, in the order of Opt. The descriptions are the short form of
+// docs/port/RENDER_PERF.md's sections, which say more.
+// clang-format off: one entry per row: its names, then its default and tolerance.
+constexpr std::array<Entry, kOptCount> kEntries = {{
+    {Opt::RegistrySelftest, "registry-selftest",
+     "draws nothing: the entry the registry's and the equivalence harness's tests switch",
+     true, Tolerance{}},
+    {Opt::VkDrawClock, "vk-draw-clock",
+     "the Vulkan draw takes its two clock reads only while the debug tools measure",
+     true, Tolerance{}},
+    {Opt::VkStateSkip, "vk-state-skip",
+     "Vulkan dynamic state and binds recorded only when they differ from the last recorded",
+     true, Tolerance{}},
+    {Opt::StaticBuffersDeviceLocal, "static-buffers-device-local",
+     "a static GL buffer of 64 KiB or more goes into device memory at once, and its CPU copy goes",
+     true, Tolerance{}},
+    {Opt::StaticBuffersForceStaging, "static-buffers-force-staging",
+     "with static-buffers-device-local: the staging copy into memory the CPU cannot see, always",
+     false, Tolerance{}},
+    {Opt::TexturePrepare, "texture-prepare",
+     "a level's textures created, uploaded and mipped at its load instead of at their first draw",
+     true, Tolerance{}},
+    {Opt::VkDrawCache, "vk-draw-cache",
+     "the Vulkan draw finds its pipeline and descriptor set by fixed keys, with no heap allocation",
+     true, Tolerance{}},
+    {Opt::GpuResidentInstances, "gpu-resident-instances",
+     "static instances kept in device memory: a view's GPU batch sends planes, PVS and a group",
+     true, Tolerance{}},
+    {Opt::ShadowStaticCache, "shadow-static-cache",
+     "a sun cascade's static casters drawn again only when its key changes, else copied",
+     false, Tolerance{}},
+    {Opt::PresentSingleCopy, "present-single-copy",
+     "the picture's copy into the window and the window's into the screen become one blit",
+     true, Tolerance{}},
+    {Opt::VkTightSync, "vk-tight-sync",
+     "Vulkan barriers name the stages they order, and only the copy to the screen waits for it",
+     true, Tolerance{}},
+    {Opt::PipelinePrewarm, "pipeline-prewarm",
+     "the pipelines of earlier runs made again on a worker once their program links, not at a draw",
+     true, Tolerance{}},
+    {Opt::PresentTiming, "present-timing",
+     "Vulkan presents numbered and waited on, latest-ready mode, the pacer told when they showed",
+     false, Tolerance{}},
+    {Opt::VkExtendedDynamicState, "vk-extended-dynamic-state",
+     "cull, front face, depth and stencil state recorded by the draw, not baked into the pipeline",
+     false, Tolerance{}},
+    {Opt::MobyPoseInPlace, "moby-pose-in-place",
+     "the mobys regrouped only when they change, their poses written in place between ticks",
+     true, Tolerance{}},
+    {Opt::ShadowAtlasDiscard, "shadow-atlas-discard",
+     "the shadow atlas pass neither loads nor stores its unsampled colour and its stencil",
+     true, Tolerance{}},
+    {Opt::SpirvDiskCache, "spirv-disk-cache",
+     "what glslang made of each program kept on disk, so a warm start and a level load compile none",
+     true, Tolerance{}},
+    {Opt::VkPersistentDescriptors, "vk-persistent-descriptors",
+     "descriptor sets of textures, samplers and the frame's ring kept across frames, not made anew",
+     true, Tolerance{}},
+    {Opt::VkLastPipeline, "vk-last-pipeline",
+     "a program's last pipeline taken again when its whole key is the same, before any hashing",
+     true, Tolerance{}},
+    {Opt::ShadowDrawCache, "shadow-draw-cache",
+     "static shadow geometry and material ranges prepared once, with live visibility and instances",
+     true, Tolerance{}},
+    {Opt::ShadowScrollReuse, "shadow-scroll-reuse",
+     "retain static cascade depth between frames when scrolling shadows are enabled",
+     true, Tolerance{}},
+    {Opt::MotionBlurFastPath, "motion-blur-fast-path",
+     "unrolled jump flood and direct reconstruction input, with identical output pixels",
+     true, Tolerance{}},
+    {Opt::FsrMotionBatch, "fsr-motion-batch",
+     "FSR's object motion drawn in batches from one pose buffer, not one draw per object",
+     true, Tolerance{}},
+    {Opt::MobyGlowSkip, "moby-glow-skip",
+     "the mobys' two glow draws leave out primitives with no glow packet vertex, all discarded",
+     true, Tolerance{}},
+    {Opt::GtaoDirectDepth, "gtao-direct-depth",
+     "GTAO's colour composite samples the prepass's own depth instead of a copy of it",
+     true, Tolerance{}},
+    {Opt::VkBufferDirectFill, "vk-buffer-direct-fill",
+     "supplied buffer bytes initialise the CPU mirror without a preceding zero fill",
+     true, Tolerance{}},
+    {Opt::FsrPaletteReuse, "fsr-palette-reuse",
+     "joint history keeps its allocation and skips unchanged palettes",
+     true, Tolerance{}},
+    {Opt::WaterStepBarriers, "water-step-barriers",
+     "adjacent water substeps share one dependency instead of recording duplicate barriers",
+     true, Tolerance{}},
+    {Opt::FsrObjectHistoryReuse, "fsr-object-history-reuse",
+     "surviving displayed objects retain their history nodes; vanished identities are erased",
+     true, Tolerance{}},
+    {Opt::FsrFloat16, "fsr-float16",
+       "vendor FP16 history filtering; incomplete pyramids and temporal state remain FP32",
+       true, Tolerance{1.0, 4}},
+    {Opt::ShadowFrameReuse, "shadow-frame-reuse",
+     "early lighting reuses the current frame's shadows already prepared for atmosphere",
+     true, Tolerance{}},
+    {Opt::ProbeTranslucentTiles, "probe-translucent-tiles",
+     "blended receivers search conservative tile frusta without opaque depth bounds",
+     true, Tolerance{}},
+    {Opt::ShadowDryShaders, "shadow-dry-shaders",
+     "dry shadow casters use vertex shaders without water deformation",
+     true, Tolerance{}},
+    {Opt::MotionBlurUniqueSeeds, "motion-blur-unique-seeds",
+     "motion blur tests each propagated source once per receiver",
+     true, Tolerance{}},
+    {Opt::MotionBlurSetupReuse, "motion-blur-setup-reuse",
+     "motion blur retains unchanged flood uniforms and avoids setup-only program switches",
+     true, Tolerance{}},
+    {Opt::ShadowGeometryCull, "shadow-geometry-cull",
+     "opaque terrain rejects conservative geometry bounds outside the shadow map",
+     true, Tolerance{}},
+    {Opt::EffectQuadShader, "effect-quad-shader",
+     "ordinary effect quads use a material-approved shader without water machinery",
+     true, Tolerance{}},
+    {Opt::EffectSetupReuse, "effect-setup-reuse",
+     "effect materials bind unchanged atmosphere and water state once per pass",
+     true, Tolerance{}},
+    {Opt::WaterMeshReuse, "water-mesh-reuse",
+     "water reuses rest-height candidates and unchanged subdivision topology", true, Tolerance{}},
+    {Opt::EffectStripShader, "effect-strip-shader",
+     "undeformed surface-zero strips use the material-approved plain shader", true, Tolerance{}},
+    {Opt::ShadowStaticGeometryCull, "shadow-static-geometry-cull",
+     "reject off-map ranges of single-instance rigid static shadow casters", true, Tolerance{}},
+    {Opt::AgxDirectOutput, "agx-direct-output",
+     "apply the unchanged per-pixel AgX curve directly to RGBA8 storage without a snapshot copy",
+     true, Tolerance{1.0, 1}},
+    {Opt::PrepassRigid, "prepass-rigid",
+     "specialise approved static dry prepass shaders and skip empty material groups",
+     true, Tolerance{}},
+    {Opt::EffectStaticControls, "effect-static-controls",
+     "compile effect-only texture/fog/coverage controls out of particle shaders",
+     true, Tolerance{}},
+    {Opt::WaterLocalShader, "water-local-shader",
+     "compile the legacy full-domain water sampler out of local-window runtime shaders",
+     false, Tolerance{}},
+    {Opt::ProbeSelectionVariants, "probe-selection-variants",
+     "keep shortlist sort scratch out of the tile-mask kernel without changing selection",
+     true, Tolerance{}},
+    {Opt::EarlyProbeSetup, "early-probe-setup",
+     "prepare invariant receiver normal and atlas extent outside the probe-corner loop",
+     true, Tolerance{}},
+    {Opt::VkDrawUniform, "vk-draw-uniform",
+     "carry an opted-in vertex draw integer without reuploading the default uniform block",
+     true, Tolerance{}},
+    {Opt::ShaderFloat16, "shader-float16",
+     "audited local FP16 arithmetic on enabled Vulkan devices; shader interfaces remain FP32",
+     true, Tolerance{1.0, 2}},
+    // Accepted Novalis difference: two pixels at 1280x720, at most 41/255 per channel.
+    {Opt::CameraVisibilityReuse, "camera-visibility-reuse",
+     "depth and colour share GPU visibility for unchanged instances in the same recording",
+     true, Tolerance{2.0 / (1280.0 * 720.0), 41}},
+    {Opt::ShadowDepthOnly, "shadow-depth-only",
+     "the shadow atlas and its caches are float depth alone, without a colour or stencil attachment",
+     true, Tolerance{}},
+    {Opt::FsrReactiveR8, "fsr-reactive-r8",
+     "FSR's reactive mask is a one-channel R8 image instead of RGBA8, a quarter of its bytes",
+     true, Tolerance{}},
+    {Opt::MsaaPassResolve, "msaa-pass-resolve",
+     "a blit resolving a whole multisampled colour is the pass's resolve attachment, not a copy reading the samples back",
+     true, Tolerance{}},
+    {Opt::MotionBlurAdaptiveSamples, "motion-blur-adaptive-samples",
+     "the blur's gather takes two samples a display pixel of trail (at least 8), at most its sample count",
+     true, Tolerance{0.25, 32}},
+    {Opt::AttachmentUntouched, "attachment-untouched",
+     "a colour or depth attachment no draw or clear of a pass touches is neither loaded nor stored (load/store op none)",
+     true, Tolerance{}},
+    {Opt::PassRenderArea, "pass-render-area",
+     "a Vulkan pass's render area is the rectangle its draws and clears touch, cleared rather than loaded when it began so",
+     true, Tolerance{}},
+    {Opt::OverwriteDiscard, "overwrite-discard",
+     "the temporal and blur targets a full-screen draw overwrites whole are let go before it, so not loaded",
+     true, Tolerance{}},
+    // Accepted Enhanced difference: on lavapipe at most 0.28% of a frame's pixels, by up to 26/255.
+    {Opt::ProbeFastBlended, "probe-fast-blended",
+     "blended passes (static and mobys) read the best probe volume without its depth test and filter shadows with four taps",
+     true, Tolerance{0.005, 32}, EffectsDetail::Medium},
+    {Opt::VkPipelineLibrary, "vk-pipeline-library",
+     "a pipeline first needed mid-frame is linked from shader parts made on a worker, then replaced",
+     true, Tolerance{}},
+    {Opt::GlStateWarmup, "gl-state-warmup",
+     "each OpenGL state a program was drawn in is drawn once into a private target at a level's load",
+     true, Tolerance{}},
+    {Opt::OpaqueDepthGequal, "opaque-depth-gequal",
+     "opaque colour over the reused prepass depth tests GEQUAL, which keeps Adreno's low-resolution Z on",
+     true, Tolerance{}},
+    {Opt::VertexPositionStream, "vertex-position-stream",
+     "a level's vertex positions are read from a tight buffer of their own, 12 bytes a vertex instead of 72",
+     true, Tolerance{}},
+    {Opt::ShadowFarAlternate, "shadow-far-alternate",
+     "the sun's cascades 1 to 3 are drawn every other frame, 1 and the far two in turn, while their receivers fit",
+     true, Tolerance{0.25, 255}, EffectsDetail::Medium},
+    {Opt::MotionBlurHalfFlood, "motion-blur-half-flood",
+     "the blur's jump flood runs on a half-resolution seed grid, a quarter of its pixels in every pass",
+     true, Tolerance{0.01, 32}},
+    {Opt::VkProgramKeep, "vk-program-keep",
+     "a deleted program's modules, layouts and pipelines are kept for the next link of the same shaders",
+     true, Tolerance{}},
+    {Opt::VkModeConstants, "vk-mode-constants",
+     "the integer uniforms a shader names as modes are constants of its pipelines, so the driver drops the code a mode leaves out",
+     true, Tolerance{}},
+    {Opt::WaterMeshCoarse, "water-mesh-coarse",
+     "Enhanced water is subdivided to one unit instead of half a unit, a quarter of the triangles",
+     true, Tolerance{0.05, 64}, EffectsDetail::Medium},
+    {Opt::WaterStripCull, "water-strip-cull",
+     "an Enhanced water strip whose box, four units larger for the waves, is outside the view is not drawn",
+     true, Tolerance{}},
+    {Opt::EarlyLightingQuarter, "early-lighting-quarter",
+     "early GI and cascade shadows are gathered once per 4x4 pixels instead of 2x2, a quarter of the work",
+     true, Tolerance{0.05, 64}, EffectsDetail::Low},
+    {Opt::BlendedEarlyLight, "blended-early-light",
+     "the static blended passes read the early lighting of the nearest cached opaque surface instead of probe GI",
+     true, Tolerance{0.25, 255}, EffectsDetail::Low},
+    {Opt::ShadowFarQuarter, "shadow-far-quarter",
+     "with shadow-far-alternate, one far sun cascade a frame: 1 every other frame, 2 and 3 every fourth",
+     true, Tolerance{0.25, 255}, EffectsDetail::Low},
+}};
+// clang-format on
+
+// Returns the place of `opt` in the table.
+constexpr std::size_t index(Opt opt) {
+    return static_cast<std::size_t>(opt);
+}
+
+// Returns whether every row of kEntries is at the place of its Opt.
+constexpr bool rows_in_order() {
+    // Each row against its place: the table is read by place, so a row out of order is another's.
+    for (std::size_t n = 0; n < kEntries.size(); ++n) {
+        // A row at another entry's place.
+        if (index(kEntries[n].opt) != n) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static_assert(rows_in_order(), "each row of kEntries is at the place of its Opt");
+
+// Returns `text` without the spaces and tabs at either end.
+std::string_view trimmed(std::string_view text) {
+    constexpr std::string_view kBlank = " \t";
+    const std::size_t first = text.find_first_not_of(kBlank);
+
+    // Nothing but blanks: an empty item.
+    if (first == std::string_view::npos) {
+        return {};
+    }
+
+    const std::size_t last = text.find_last_not_of(kBlank);
+    return text.substr(first, last - first + 1);
+}
+
+// Returns what OPENRAC_RENDER_OPT_OFF names, warning once of each name that is no entry's.
+OffList read_environment() {
+    const auto text = env::value(env::Var::RenderOptOff);
+    OffList off = parse_off_list(text.value_or(std::string_view{}));
+
+    // A misspelt name switches nothing; the log says which it was.
+    for (const std::string& name : off.unknown) {
+        log::warn("render_opt: OPENRAC_RENDER_OPT_OFF names {}, which is no optimisation", name);
+    }
+
+    return off;
+}
+
+// The switches of every entry, and what the environment said, read once.
+//
+// The registry is process-wide by design, like the environment it reads: the draw code of every
+// renderer asks it without being handed a context, so its state is the one function-local static
+// of registry() (section 11.4's rule bent for a hot read; render_opt.h's enabled says what it
+// costs). The switches are atomics so that a worker thread may read them while the drawing thread
+// sets them. Neither copied nor moved: there is one.
+class Registry {
+public:
+    // Makes the switches with `environment` applied over the defaults.
+    explicit Registry(OffList environment) : m_environment(std::move(environment)) { reset(); }
+
+    Registry(const Registry&) = delete;
+    Registry& operator=(const Registry&) = delete;
+
+    // Returns whether `opt` is on: its switch, and for a lossy entry the effects detail.
+    [[nodiscard]] bool enabled(Opt opt) const {
+        const std::size_t n = index(opt);
+        return m_on[n].load(std::memory_order_relaxed)
+               && (m_forced[n].load(std::memory_order_relaxed)
+                   || m_detail.load(std::memory_order_relaxed) <= kEntries[n].highest);
+    }
+
+    // Switches `opt` on or off; on, at any effects detail.
+    void set(Opt opt, bool on) {
+        m_on[index(opt)].store(on, std::memory_order_relaxed);
+        m_forced[index(opt)].store(on, std::memory_order_relaxed);
+    }
+
+    void set_detail(EffectsDetail detail) { m_detail.store(detail, std::memory_order_relaxed); }
+
+    [[nodiscard]] EffectsDetail detail() const { return m_detail.load(std::memory_order_relaxed); }
+
+    // Sets every switch to its entry's default with the environment's list applied over it.
+    void reset() {
+        // Each entry as the table has it, unless the list said all.
+        for (const Entry& row : kEntries) {
+            m_on[index(row.opt)].store(row.default_on && !m_environment.all);
+            m_forced[index(row.opt)].store(false);
+        }
+
+        // Then the entries the list named.
+        for (const Opt opt : m_environment.off) {
+            set(opt, false);
+        }
+    }
+
+private:
+    std::array<std::atomic<bool>, kOptCount> m_on{};      // Each entry's switch, by its place.
+    std::array<std::atomic<bool>, kOptCount> m_forced{};  // set() switched it on: any detail.
+    std::atomic<EffectsDetail> m_detail{EffectsDetail::High};
+    OffList m_environment;                            // OPENRAC_RENDER_OPT_OFF, parsed.
+};
+
+// Returns the registry, made at the first call with the environment read.
+Registry& registry() {
+    static Registry state(read_environment());
+    return state;
+}
+
+}  // namespace
+
+std::span<const Entry> entries() {
+    return kEntries;
+}
+
+const Entry& entry(Opt opt) {
+    return kEntries[index(opt)];
+}
+
+const Entry* find(std::string_view name) {
+    const auto found =
+        std::ranges::find_if(kEntries, [name](const Entry& row) { return row.name == name; });
+    return found != kEntries.end() ? &*found : nullptr;
+}
+
+OffList parse_off_list(std::string_view text) {
+    OffList list;
+
+    // One item at a time, up to the next comma, until the text is used up.
+    while (!text.empty()) {
+        const std::size_t comma = text.find(',');
+        const std::string_view item = trimmed(text.substr(0, comma));
+        text = comma == std::string_view::npos ? std::string_view{} : text.substr(comma + 1);
+
+        // Two commas in a row, or one at an end: nothing named.
+        if (item.empty()) {
+            continue;
+        }
+
+        // The word that names every entry.
+        if (item == kAll) {
+            list.all = true;
+            continue;
+        }
+
+        const Entry* row = find(item);
+
+        // A name no entry has: kept to be warned of, and switches nothing.
+        if (row == nullptr) {
+            list.unknown.emplace_back(item);
+            continue;
+        }
+
+        // An entry named twice is listed once.
+        if (std::ranges::find(list.off, row->opt) == list.off.end()) {
+            list.off.push_back(row->opt);
+        }
+    }
+
+    return list;
+}
+
+bool enabled(Opt opt) {
+    return registry().enabled(opt);
+}
+
+void set(Opt opt, bool on) {
+    registry().set(opt, on);
+}
+
+void set_effects_detail(EffectsDetail detail) {
+    registry().set_detail(detail);
+}
+
+EffectsDetail effects_detail() {
+    return registry().detail();
+}
+
+void reset() {
+    registry().reset();
+}
+
+}  // namespace openrac::renderer::render_opt

@@ -12,7 +12,7 @@
 #include <string_view>
 
 #include "common/log.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
