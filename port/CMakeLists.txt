@@ -86,6 +86,11 @@ endif()
 
 enable_testing()
 
+add_executable(rac1_hud_panels_test tests/rac1_hud_panels_test.c
+  game/rac1-ntsc/host/hud_panels.c)
+target_include_directories(rac1_hud_panels_test PRIVATE tests/hud_panels_stub)
+add_test(NAME rac1_hud_panels COMMAND rac1_hud_panels_test)
+
 # ---- common: the log, crash reports, JSON, PS2 float arithmetic, helpers; no dependencies ----
 # OpenRAC's version and the checkout's commit (common/build_info.h), written at every build and
 # replaced only when they change (cmake/BuildInfo.cmake).
