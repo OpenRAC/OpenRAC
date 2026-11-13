@@ -76,10 +76,16 @@ vec3 from_oklab(vec3 lab) {
 }
 
 // The look on light above white (common/hdr.h, apply_look).
-vec3 apply_look(vec3 hdr, vec3 sdr) {
+// The hue SDR gives light above white, also where it shows it white (common/hdr.h, sdr_hue_of).
+vec3 sdr_hue_of(vec3 linear) {
+    float scale = max(min(linear.r, min(linear.g, linear.b)) / 0.8, 1.0);
+    return min(linear / scale, vec3(1.0));
+}
+
+vec3 apply_look(vec3 hdr, vec3 sdr, vec3 sdr_hue) {
     const float grey_chroma = 1e-4;
     vec3 lab = oklab(hdr);
-    vec3 ref = oklab(sdr);
+    vec3 ref = oklab(sdr_hue);
     float chroma = length(lab.yz);
     float ref_chroma = length(ref.yz);
     vec2 dir = chroma > grey_chroma ? lab.yz / chroma : vec2(0.0);
@@ -88,8 +94,8 @@ vec3 apply_look(vec3 hdr, vec3 sdr) {
         if (chroma <= grey_chroma) {
             dir = to;
         } else if (encode.sdr_hue > 0.0) {
-            // SDR's hue fades out towards grey (kSureHueChroma = 0.05).
-            float amount = encode.sdr_hue * min(ref_chroma / 0.05, 1.0);
+            // SDR's hue fades out towards grey (kSureHueChroma = 0.02).
+            float amount = encode.sdr_hue * min(ref_chroma / 0.02, 1.0);
             vec2 turned = mix(dir, to, amount);
             float len = length(turned);
             if (len > grey_chroma) {
@@ -97,7 +103,7 @@ vec3 apply_look(vec3 hdr, vec3 sdr) {
             }
         }
     }
-    float c = mix(chroma, ref_chroma, encode.sdr_chroma);
+    float c = mix(chroma, length(oklab(sdr).yz), encode.sdr_chroma);
     float y = dot(hdr, vec3(0.2126, 0.7152, 0.0722));
     if (y > 1.0) {
         c *= 1.0 + (1.0 / y - 1.0) * encode.blowout;
@@ -147,7 +153,7 @@ void main() {
             if (encode.highlights < 1.0) {
                 linear = clipped + (linear - clipped) * encode.highlights;
             }
-            linear = apply_look(roll_off(linear), clipped);
+            linear = apply_look(roll_off(linear), clipped, sdr_hue_of(linear));
         }
     }
 #ifdef OPENRAC_HDR_PQ

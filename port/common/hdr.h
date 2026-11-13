@@ -249,17 +249,31 @@ inline Rgb oklab_to_linear(const Rgb& lab) {
 
 // An OKLab chroma below this is grey: it has no hue.
 inline constexpr float kGreyChroma = 1e-4f;
-// SDR's hue counts fully from this OKLab chroma up and fades to nothing at grey: a pixel SDR shows
-// almost white (a flame's core) has a hue that is mostly rounding.
-inline constexpr float kSureHueChroma = 0.05f;
+// SDR's hue counts fully from this OKLab chroma up and fades to nothing at grey.
+inline constexpr float kSureHueChroma = 0.02f;
+// sdr_hue_of: the lowest channel's place below white in the hue it takes.
+inline constexpr float kHueFloor = 0.8f;
+
+// The hue SDR gives `linear` (above white): its clip at white, or where SDR shows it white (all
+// channels past 1, a flame's core), the hue it had just before, from the pixel scaled down until
+// its lowest channel is at kHueFloor. So SDR hue has no cut-off where SDR turns white.
+inline Rgb sdr_hue_of(const Rgb& linear) {
+    const float scale = std::max(std::min({linear[0], linear[1], linear[2]}) / kHueFloor, 1.0f);
+    return {
+        std::min(linear[0] / scale, 1.0f),
+        std::min(linear[1] / scale, 1.0f),
+        std::min(linear[2] / scale, 1.0f),
+    };
+}
 
 // The look's SDR hue, SDR chroma and blowout on light above white. `hdr` is the rolled-off pixel,
-// `sdr` the same pixel clipped at white as SDR shows it. Lightness stays HDR's. The result stays
-// inside BT.709 and under the peak.
-inline Rgb apply_look(const Rgb& hdr, const Rgb& sdr, const Levels& levels) {
+// `sdr` the same pixel clipped at white as SDR shows it, `sdr_hue` sdr_hue_of it. Lightness stays
+// HDR's. The result stays inside BT.709 and under the peak.
+inline Rgb apply_look(const Rgb& hdr, const Rgb& sdr, const Rgb& sdr_hue, const Levels& levels) {
     const Look& look = levels.look;
     const Rgb lab = linear_to_oklab(hdr);
-    const Rgb ref = linear_to_oklab(sdr);
+    const Rgb ref = linear_to_oklab(sdr_hue);
+    const Rgb sdr_lab = linear_to_oklab(sdr);
     const float chroma = std::hypot(lab[1], lab[2]);
     const float ref_chroma = std::hypot(ref[1], ref[2]);
     // The hue: HDR's, turned towards SDR's.
@@ -287,7 +301,8 @@ inline Rgb apply_look(const Rgb& hdr, const Rgb& sdr, const Levels& levels) {
             }
         }
     }
-    float c = chroma + (ref_chroma - chroma) * look.sdr_chroma;
+    const float sdr_chroma = std::hypot(sdr_lab[1], sdr_lab[2]);
+    float c = chroma + (sdr_chroma - chroma) * look.sdr_chroma;
     // Blowout: less chroma the brighter above white (BT.709 luminance, 1 = paper white).
     const float y = 0.2126f * hdr[0] + 0.7152f * hdr[1] + 0.0722f * hdr[2];
     if (y > 1.0f) {
@@ -340,7 +355,8 @@ inline Rgb to_light(const Rgb& rgb, const Levels& levels) {
             linear[c] = sdr[c] + (linear[c] - sdr[c]) * levels.look.highlights;
         }
     }
-    return apply_look(roll_off_above_white(linear, levels), sdr, levels);
+    // After highlights: at 0 the pixel is SDR's, and so is its hue.
+    return apply_look(roll_off_above_white(linear, levels), sdr, sdr_hue_of(linear), levels);
 }
 
 // The value the screen is sent for one pixel of the picture (`rgb`, 0..1 as stored): PQ signals
