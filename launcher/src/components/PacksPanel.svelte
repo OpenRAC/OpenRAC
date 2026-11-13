@@ -22,6 +22,7 @@
   import { PACKS, TEXTURES, VIEW } from "$lib/modsText";
   import { forget, modsView, movable, report, searching, shows } from "$lib/modsView.svelte";
   import { isPlaying } from "$lib/player.svelte";
+  import { keepRead, lastRead } from "$lib/lastRead";
   import { grouped } from "$lib/format";
   import { packSummary, replaceSummary, textureCount } from "$lib/texturePacks";
   import CommandBox from "./CommandBox.svelte";
@@ -51,13 +52,25 @@
 
   const developer = $derived(app.config?.developer ?? false);
 
-  let packs = $state<PackView[]>([]);
+  // The lists as the page last showed them (lastRead.ts): shown at once as the tab opens, then read
+  // again.
+  interface Kept {
+    packs: PackView[];
+    pack: TexturePackView | null;
+  }
+  const keptKey = () => `packs:${v.key}`;
+  const kept = () => lastRead<Kept | null>(keptKey(), null);
+  /** The version whose lists `packs` and `pack` hold, once read or kept. */
+  let listFor = $state<string | null>(kept() ? keptKey() : null);
+
+  let packs = $state<PackView[]>(kept()?.packs ?? []);
   let packsError = $state<string | null>(null);
-  let pack = $state<TexturePackView | null>(null);
+  let pack = $state<TexturePackView | null>(kept()?.pack ?? null);
 
   /** Both read at once and shown together: one after the other, the texture pack's row (and the
    *  toolbar's count) came in a moment late and blinked. */
   async function load(withTextures: boolean) {
+    const key = keptKey();
     const [list, textures] = await Promise.all([
       api.overridesList(v.game).then(
         (l) => ({ l, e: null }),
@@ -68,7 +81,13 @@
     if (list.l) packs = list.l;
     packsError = list.e;
     pack = textures;
+    listFor = key;
   }
+
+  // Every change kept for the next time the page opens.
+  $effect(() => {
+    if (listFor === keptKey()) keepRead(listFor, { packs: $state.snapshot(packs), pack: $state.snapshot(pack) });
+  });
 
   // Read again when RELOAD is bumped, and when the game stops: it may have saved textures.
   const playing = $derived(isPlaying(v));
