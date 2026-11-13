@@ -4,6 +4,7 @@
 // The log's sessions and memory of last lines (common/log.h, common/line_ring.h) and the crash
 // report's pieces (common/crash.h).
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -185,8 +186,11 @@ void report_has_every_section(const fs::path& dir) {
     CHECK(text.find("test level load frame=") == std::string::npos);
     CHECK(text.find("us [main] test game tick tick=1236") != std::string::npos);
     CHECK(text.find("test game tick frame=") == std::string::npos);
-    // The full two-thread history adds under 8 KiB even with every message at its text cap.
-    CHECK(text.find("The log's last lines") - trail < 8192);
+    // Measure the two 64-entry trails separately from any Vulkan diagnostics.
+    const auto tail = text.find("The log's last lines", trail);
+    const auto vulkan = text.find("Vulkan diagnostics", trail);
+    CHECK(tail != std::string::npos);
+    CHECK(std::min(tail, vulkan) - trail < 16 * 1024);
 #if defined(_WIN32)
     CHECK(text.find("Symbols:  ") != std::string::npos);
     if (text.find("function and source-line lookup verified") != std::string::npos) {
