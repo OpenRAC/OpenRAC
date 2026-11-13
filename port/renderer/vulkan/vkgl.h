@@ -422,6 +422,11 @@ bool hdr_frame();
 // blending: in a float frame only blending's sums go above 1. Until the image is made again.
 void clamp_colour_writes(unsigned framebuffer);
 
+// Draws into the default framebuffer leave its depth and stencil image out of their pass while
+// `attached` is false. On Adreno with 2x MSAA, a pass that keeps that unused image broke the
+// overlay drawn in it.
+void default_framebuffer_depth(bool attached);
+
 // For the tests: the encode pass run on the default framebuffer (or on framebuffer `source`'s
 // picture, such as a float one above white) into a stand-in of an HDR screen (`output`'s format,
 // `width` by `height`), read back as stored: one 32-bit word a texel for Output::Hdr10

@@ -1380,6 +1380,7 @@ struct Context {
     bool bulk_texture_upload = false;
 
     ImagePtr default_colour, default_depth;
+    bool default_depth_detached = false;  // default_framebuffer_depth(false): passes leave it out
     int default_width = 0, default_height = 0;
 
     bool rendering = false;
