@@ -18,8 +18,8 @@ namespace openrac::hdr {
 // The player's setting (`hdr` in the settings file).
 enum class Mode {
     Off,  // SDR, as always (the default)
-    On,   // HDR when the system says the window's display shows HDR; where it cannot say (X11),
-          // whenever the screen offers it
+    On,   // HDR whenever the screen offers it, whatever the system says (Android: when the
+          // system says the display shows HDR, since its Vulkan offers HDR10 everywhere)
     Count,
 };
 
@@ -32,7 +32,8 @@ enum class Output {
 };
 
 // What the system says of the window's display (SDL's window properties; Android's activity).
-// `known` is false where nothing can tell (X11): Mode::On then tries HDR all the same.
+// `known` is false where nothing can tell (X11). It feeds the levels and the status line; only
+// where `system_decides` does it also decide whether Mode::On sends HDR.
 struct Display {
     bool known = false;
     bool hdr_enabled = false;
@@ -45,6 +46,10 @@ struct Display {
     // For the settings' status line: the most headroom the display gives over SDR white (0
     // unknown).
     float headroom = 0.0f;
+    // The system's word decides, because the screen's formats can't (Android lists HDR10 on
+    // every display). Elsewhere a compositor can say "no HDR" wrongly (Steam Deck's gamescope),
+    // so On tries HDR anyway.
+    bool system_decides = false;
 };
 
 // Nits of the SDR white an HDR picture of SDR content is usually given (ITU-R BT.2408), and of
@@ -125,10 +130,13 @@ inline Levels resolve_levels(int paper_white, int peak, const Display& display) 
         levels.peak = std::max(levels.peak, levels.paper_white);
         return levels;
     }
+    // A display that says it shows no HDR has no HDR white or peak to give (Mode::On may still
+    // send HDR): the defaults then.
+    const bool says_hdr = display.known && display.hdr_enabled;
     if (paper_white > 0) {
         levels.paper_white =
             static_cast<float>(std::clamp(paper_white, kPaperWhiteMin, kPaperWhiteMax));
-    } else if (display.sdr_white_nits > 0.0f) {
+    } else if (says_hdr && display.sdr_white_nits > 0.0f) {
         levels.paper_white = std::clamp(
             display.sdr_white_nits,
             static_cast<float>(kPaperWhiteMin),
@@ -137,7 +145,7 @@ inline Levels resolve_levels(int paper_white, int peak, const Display& display) 
     }
     if (peak > 0) {
         levels.peak = static_cast<float>(std::clamp(peak, kPeakMin, kPeakMax));
-    } else if (display.peak_nits > 0.0f) {
+    } else if (says_hdr && display.peak_nits > 0.0f) {
         levels.peak = std::min(display.peak_nits, kPqMaxNits);
     }
     // A peak below paper white would tell the screen the picture is dimmer than it is.
@@ -149,7 +157,7 @@ inline Levels resolve_levels(int paper_white, int peak, const Display& display) 
 // (`prefer_scrgb`: macOS, whose EDR is linear). Whether the screen offers it is the swapchain's
 // to find out (renderer/vulkan/presentation/surface_format.h), which falls back to the other kind or to SDR.
 inline Output wanted_output(Mode mode, const Display& display, bool prefer_scrgb) {
-    const bool hdr = mode == Mode::On && (!display.known || display.hdr_enabled);
+    const bool hdr = mode == Mode::On && (!display.system_decides || display.hdr_enabled);
     if (!hdr) {
         return Output::Sdr;
     }
@@ -241,6 +249,9 @@ inline Rgb oklab_to_linear(const Rgb& lab) {
 
 // An OKLab chroma below this is grey: it has no hue.
 inline constexpr float kGreyChroma = 1e-4f;
+// SDR's hue counts fully from this OKLab chroma up and fades to nothing at grey: a pixel SDR shows
+// almost white (a flame's core) has a hue that is mostly rounding.
+inline constexpr float kSureHueChroma = 0.05f;
 
 // The look's SDR hue, SDR chroma and blowout on light above white. `hdr` is the rolled-off pixel,
 // `sdr` the same pixel clipped at white as SDR shows it. Lightness stays HDR's. The result stays
@@ -265,8 +276,9 @@ inline Rgb apply_look(const Rgb& hdr, const Rgb& sdr, const Levels& levels) {
             da = ra;
             db = rb;
         } else if (look.sdr_hue > 0.0f) {
-            const float ta = da + (ra - da) * look.sdr_hue;
-            const float tb = db + (rb - db) * look.sdr_hue;
+            const float amount = look.sdr_hue * std::min(ref_chroma / kSureHueChroma, 1.0f);
+            const float ta = da + (ra - da) * amount;
+            const float tb = db + (rb - db) * amount;
             const float length = std::hypot(ta, tb);
             // Opposite hues at 50% cancel out: keep HDR's.
             if (length > kGreyChroma) {

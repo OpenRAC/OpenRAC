@@ -56,7 +56,6 @@
     "updateBranch",
     "detailedGameLog",
     "renderer",
-    "hdr",
     "safeRendering",
     "saveEditorAdvanced",
     "developer",
@@ -106,7 +105,6 @@
       saved().saveEditorAdvanced ||
       saved().renderer === "vulkan" ||
       saved().renderer === "metal" ||
-      saved().hdr === "on" ||
       saved().safeRendering,
   );
 
@@ -701,26 +699,6 @@
             </div>
           </div>
         {/if}
-        <!-- HDR output (OPENRAC_HDR, core/src/actions.rs; port docs/port/HDR.md): Off or On for
-             every start, over the game's own setting. -->
-        <div class="setting">
-          <span class="text">
-            <strong>HDR</strong>
-            <small>
-              {draft.hdr === "on" ? "On when your screen is in HDR mode." : "Off: the picture as always."}
-              Shows the game on an HDR screen as it looks in SDR. Needs the Vulkan renderer.
-            </small>
-          </span>
-          <div class="segmented" role="radiogroup" aria-label="HDR">
-            {#each [["off", "Off"], ["on", "On"]] as [value, label] (value)}
-              <button
-                role="radio"
-                aria-checked={draft.hdr === value}
-                onclick={() => (draft.hdr = value as Config["hdr"])}>{label}</button
-              >
-            {/each}
-          </div>
-        </div>
         {#if app.info?.platform === "linux"}
           <!-- The launcher's own window without WebKitGTK's accelerated compositing
                (core/src/webkit.rs); on by itself after a start that crashed. -->

@@ -10,7 +10,7 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(binding = 0) uniform sampler2D picture;  // row 0 at the bottom, as in GL
-#ifdef OPENRAC_HDR_PQ
+#if defined(OPENRAC_HDR_PQ) && !defined(OPENRAC_HDR_FLOAT_TARGET)
 layout(binding = 1, rgb10_a2) writeonly uniform image2D screen;
 #else
 layout(binding = 1, rgba16f) writeonly uniform image2D screen;
@@ -88,7 +88,9 @@ vec3 apply_look(vec3 hdr, vec3 sdr) {
         if (chroma <= grey_chroma) {
             dir = to;
         } else if (encode.sdr_hue > 0.0) {
-            vec2 turned = mix(dir, to, encode.sdr_hue);
+            // SDR's hue fades out towards grey (kSureHueChroma = 0.05).
+            float amount = encode.sdr_hue * min(ref_chroma / 0.05, 1.0);
+            vec2 turned = mix(dir, to, amount);
             float len = length(turned);
             if (len > grey_chroma) {
                 dir = turned / len;

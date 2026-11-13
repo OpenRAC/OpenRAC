@@ -39,12 +39,31 @@ struct EncodeConstants {
     std::int32_t plain;
 };
 
-// Whether the encode pass can write `format`: the device stores to it. Where the surface's images
-// cannot be storage images, the pass writes an image of the same format and that is copied 1:1.
-bool can_store(void*, VkFormat format) {
+VkFormatFeatureFlags features(VkFormat format) {
     VkFormatProperties props{};
     vkGetPhysicalDeviceFormatProperties(g->physical, format, &props);
-    return (props.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) != 0;
+    return props.optimalTilingFeatures;
+}
+
+// Whether the encode pass can store `format` itself: one of the shader's two formats, and a
+// storage image on this device. Where the surface's images can't be storage images, the pass
+// writes an image of the same format, copied 1:1.
+bool can_store(VkFormat format) {
+    return (format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 || format == VK_FORMAT_R16G16B16A16_SFLOAT)
+           && (features(format) & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) != 0;
+}
+
+// Else: half floats (a storage format every device has) blitted into `format`, which turns them
+// into it. Some devices can't store 10-bit formats; A2R10G10B10 has no shader format.
+bool can_blit_into(VkFormat format) {
+    return (features(format) & VK_FORMAT_FEATURE_BLIT_DST_BIT) != 0
+           && (features(VK_FORMAT_R16G16B16A16_SFLOAT)
+               & (VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT | VK_FORMAT_FEATURE_BLIT_SRC_BIT))
+                  == (VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT | VK_FORMAT_FEATURE_BLIT_SRC_BIT);
+}
+
+bool can_write(void*, VkFormat format) {
+    return can_store(format) || can_blit_into(format);
 }
 
 void release_pipeline() {
@@ -61,7 +80,8 @@ void release_pipeline() {
 // The encode pipeline for `output`, made the first time it is needed; one at a time.
 bool make_pipeline(Output output) {
     auto& hdr = g->hdr;
-    if (hdr.pipeline != VK_NULL_HANDLE && hdr.pipeline_for == output) {
+    if (hdr.pipeline != VK_NULL_HANDLE && hdr.pipeline_for == output
+        && hdr.pipeline_float == hdr.through_float) {
         return true;
     }
     if (hdr.failed) {
@@ -76,7 +96,9 @@ bool make_pipeline(Output output) {
     NativeComputeShader shader;
     std::string error;
     const std::string_view definitions =
-        output == Output::Hdr10 ? "#define OPENRAC_HDR_PQ 1\n" : "";
+        output != Output::Hdr10 ? ""
+        : hdr.through_float     ? "#define OPENRAC_HDR_PQ 1\n#define OPENRAC_HDR_FLOAT_TARGET 1\n"
+                                : "#define OPENRAC_HDR_PQ 1\n";
     if (!compile_native_compute(shaders::hdr_encode_comp, definitions, {}, shader, error)) {
         log::warn("vulkan: no HDR encode pass ({}); the picture goes out in SDR", error);
         return failed();
@@ -132,6 +154,7 @@ bool make_pipeline(Output output) {
         return failed();
     }
     hdr.pipeline_for = output;
+    hdr.pipeline_float = hdr.through_float;
     count_pipeline();
     return true;
 }
@@ -208,6 +231,26 @@ void encode(
 }
 
 void copy_encoded(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D extent) {
+    if (g->hdr.through_float) {
+        // Same size, so NEAREST: one texel a pixel, the format turned by the blit.
+        VkImageBlit blit{};
+        blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        blit.srcOffsets[1] = {static_cast<int>(extent.width), static_cast<int>(extent.height), 1};
+        blit.dstOffsets[1] = blit.srcOffsets[1];
+        NativeCommandEncoder{cmd}.blit_image(
+            source,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            destination,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &blit,
+            VK_FILTER_NEAREST
+        );
+        count_command(Command::Copy);
+        count_copy(extent.width, extent.height);
+        return;
+    }
     VkImageCopy copy{};
     copy.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     copy.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
@@ -252,8 +295,9 @@ VkSurfaceFormatKHR choose_hdr_format(
     auto& hdr = g->hdr;
     hdr.offered = hdr.colour_spaces && offers_hdr(formats);
     const Output wanted = hdr.colour_spaces ? hdr.asked.wanted : Output::Sdr;
-    const SurfaceChoice choice = choose_surface_format(formats, wanted, can_store, nullptr);
-    hdr.direct = (caps.supportedUsageFlags & VK_IMAGE_USAGE_STORAGE_BIT) != 0;
+    const SurfaceChoice choice = choose_surface_format(formats, wanted, can_write, nullptr);
+    hdr.through_float = choice.output != Output::Sdr && !can_store(choice.format.format);
+    hdr.direct = (caps.supportedUsageFlags & VK_IMAGE_USAGE_STORAGE_BIT) != 0 && !hdr.through_float;
     hdr.made_for = hdr.asked.wanted;
     hdr.shown = choice.output;
     if (wanted != Output::Sdr && choice.output == Output::Sdr) {
@@ -279,11 +323,15 @@ void hdr_swapchain_made(const VkSurfaceFormatKHR& format) {
     if (hdr.shown == Output::Sdr) {
         return;
     }
-    // Images that cannot be stored to: the pass writes one of its own, copied into each.
+    // Images that cannot be stored to: the pass writes one of its own, copied (or blitted) into
+    // each.
     if (!hdr.direct) {
-        const Format staging{
-            format.format, VK_IMAGE_ASPECT_COLOR_BIT, hdr.shown == Output::Hdr10 ? 4 : 8
-        };
+        const Format staging =
+            hdr.through_float
+                ? Format{VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8}
+                : Format{
+                      format.format, VK_IMAGE_ASPECT_COLOR_BIT, hdr.shown == Output::Hdr10 ? 4 : 8
+                  };
         hdr.staging = make_image(
             staging,
             static_cast<int>(g->swapchain_extent.width),
@@ -319,7 +367,9 @@ void hdr_swapchain_made(const VkSurfaceFormatKHR& format) {
         hdr::name(hdr.shown),
         hdr.asked.levels.paper_white,
         hdr.asked.levels.peak,
-        hdr.direct ? "" : ", through a copy"
+        hdr.direct          ? ""
+        : hdr.through_float ? ", through a blit"
+                            : ", through a copy"
     );
 }
 
@@ -420,6 +470,7 @@ bool test_encode_picture(
     using namespace detail;
     using hdr::Output;
     const bool pq = output == Output::Hdr10;
+    const bool blit = g->hdr.through_float;
     const Format format{
         pq ? VK_FORMAT_A2B10G10R10_UNORM_PACK32 : VK_FORMAT_R16G16B16A16_SFLOAT,
         VK_IMAGE_ASPECT_COLOR_BIT,
@@ -431,9 +482,12 @@ bool test_encode_picture(
         return false;
     }
     ImagePtr staging;
-    if (staged) {
-        staging =
-            make_image(format, width, height, 1, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_STORAGE_BIT);
+    if (staged || blit) {
+        const Format staging_format =
+            blit ? Format{VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 8} : format;
+        staging = make_image(
+            staging_format, width, height, 1, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_STORAGE_BIT
+        );
         if (!staging) {
             retire(screen);
             return false;
@@ -458,7 +512,7 @@ bool test_encode_picture(
     }
     VkCommandBuffer cmd = cmd_for(screen.get(), true);
     const VkExtent2D extent{static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
-    const auto set = prepare_encode(sample_view(staged ? *staging : *screen, 0, 0), output);
+    const auto set = prepare_encode(sample_view(staging ? *staging : *screen, 0, 0), output);
     const bool encoded = set
                          && record_presentation(
                              cmd,
@@ -496,7 +550,8 @@ bool test_hdr_encode(
     int height,
     std::vector<std::uint8_t>& out,
     bool staged,
-    unsigned source
+    unsigned source,
+    bool through_float
 ) {
     using namespace detail;
     using hdr::Output;
@@ -514,7 +569,10 @@ bool test_hdr_encode(
     if (picture != nullptr) {
         g->default_colour = ImagePtr(ImagePtr{}, picture);
     }
+    const bool was_float = g->hdr.through_float;
+    g->hdr.through_float = through_float;
     const bool encoded = test_encode_picture(output, levels, width, height, out, staged);
+    g->hdr.through_float = was_float;
     g->default_colour = std::move(default_colour);
     return encoded;
 }

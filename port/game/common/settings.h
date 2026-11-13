@@ -302,8 +302,8 @@ void save();
 // set_muted(true) holds the factor at 0 whatever the volume is (the window lost the keyboard).
 void set_volume(int volume);
 
-// HDR output's mode by its file name ("off", "on"), as the launcher's OPENRAC_HDR asks for
-// it over the file's: false, with nothing changed, for another word.
+// HDR output's mode by its file name ("off", "on"), as OPENRAC_HDR asks for it over the file's:
+// false, with nothing changed, for another word.
 bool set_hdr_mode(std::string_view name);
 void set_muted(bool muted);
 float output_gain();

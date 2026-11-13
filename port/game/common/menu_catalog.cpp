@@ -69,8 +69,8 @@ constexpr Entry kEntries[] = {
     {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, A, "Frame counter",
      "Shows the frames a second in a corner of the picture. F2 changes it too."},
     {Id::Hdr, Tab::Graphics, "HDR", kChoice, A, "HDR",
-     "High dynamic range output, when the system has the display in HDR mode. Turned on from "
-     "Off, it starts with the game's next start."},
+     "High dynamic range output, whenever the screen offers it. Turned on from Off, it starts "
+     "with the game's next start."},
     {Id::HdrPaperWhite, Tab::Graphics, "HDR", kChoice, A, "HDR paper white",
      "How bright the game's white is in HDR. System takes the brightness the system gives "
      "ordinary pictures."},
