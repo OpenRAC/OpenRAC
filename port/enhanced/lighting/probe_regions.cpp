@@ -62,10 +62,12 @@ void ProbeRegionSelector::update(
           && std::isfinite(seconds) && seconds >= 0)) {
         throw std::runtime_error("invalid probe region fade settings");
     }
+
     struct Candidate {
         std::tuple<bool, float, int> rank;
         float target;
     };
+
     std::array<Candidate, kDenseProbeSlots> candidates{};
     auto end = candidates.begin();
     for (std::size_t i = 0; i < regions.size(); ++i) {
@@ -86,8 +88,9 @@ void ProbeRegionSelector::update(
         };
         // Keep only the best three regions in the same order as the full sort.
         const auto position = std::lower_bound(
-            candidates.begin(), end, candidate,
-            [](const Candidate& a, const Candidate& b) { return a.rank < b.rank; }
+            candidates.begin(), end, candidate, [](const Candidate& a, const Candidate& b) {
+                return a.rank < b.rank;
+            }
         );
         if (position == candidates.end()) {
             continue;

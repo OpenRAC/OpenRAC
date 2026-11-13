@@ -68,8 +68,11 @@ bool valid_initial_ranges(const ImageDesc& image) {
 // Coalesces exact allocation aliases, rejecting incompatible descriptions or resource types.
 template <typename Description, typename Handle>
 Result<Handle> import_resource(
-    std::vector<Resource>& resources, std::size_t& count, std::string_view name,
-    const Description& description, std::uint64_t owner
+    std::vector<Resource>& resources,
+    std::size_t& count,
+    std::string_view name,
+    const Description& description,
+    std::uint64_t owner
 ) {
     // All views of one live allocation must share metadata and initial state.
     for (unsigned index = 0; index < count; ++index) {
@@ -167,12 +170,16 @@ Result<BufferHandle> Graph::import_buffer(std::string_view name, BufferDesc desc
 Result<void> Graph::validate_handles(const Pass& pass) const {
     for (const auto& use : pass.images) {
         if (!m_owner || use.image.owner != m_owner || use.image.index >= m_resource_count) {
-            return unexpected(Error{pass.name + ": image handle does not belong to this recording"});
+            return unexpected(
+                Error{pass.name + ": image handle does not belong to this recording"}
+            );
         }
     }
     for (const auto& use : pass.buffers) {
         if (!m_owner || use.buffer.owner != m_owner || use.buffer.index >= m_resource_count) {
-            return unexpected(Error{pass.name + ": buffer handle does not belong to this recording"});
+            return unexpected(
+                Error{pass.name + ": buffer handle does not belong to this recording"}
+            );
         }
     }
     return {};
@@ -181,12 +188,16 @@ Result<void> Graph::validate_handles(const Pass& pass) const {
 Result<void> ResourceRemap::apply(Pass& pass) const {
     for (auto& use : pass.images) {
         if (!rebind(use.image)) {
-            return unexpected(Error{pass.name + ": cannot remap image handle from another recording"});
+            return unexpected(
+                Error{pass.name + ": cannot remap image handle from another recording"}
+            );
         }
     }
     for (auto& use : pass.buffers) {
         if (!rebind(use.buffer)) {
-            return unexpected(Error{pass.name + ": cannot remap buffer handle from another recording"});
+            return unexpected(
+                Error{pass.name + ": cannot remap buffer handle from another recording"}
+            );
         }
     }
     return {};
@@ -200,7 +211,8 @@ bool Resource::same_shape(const Resource& other) const {
     }
     const auto& buffer = std::get<BufferDesc>(description);
     const auto* next = std::get_if<BufferDesc>(&other.description);
-    return next && buffer.key == next->key && buffer.size == next->size && buffer.kind == next->kind;
+    return next && buffer.key == next->key && buffer.size == next->size
+           && buffer.kind == next->kind;
 }
 
 Pass shader_read_export(std::string name, const Pass& source, Stage stages) {

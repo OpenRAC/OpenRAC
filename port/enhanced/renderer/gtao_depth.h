@@ -41,6 +41,7 @@ public:
     unsigned buffer() const { return m_buffer; }
 
     std::span<const GtaoDepthLevel> levels() const { return m_levels; }
+
     // Prefix the horizon shader can reach at this viewport size.
     std::span<const GtaoDepthLevel> sampled_levels() const;
 

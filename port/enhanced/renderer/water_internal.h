@@ -92,7 +92,8 @@ public:
     void upload_meshes() override;
     // Captures opaque colour and reversed depth before enhanced water composites them.
     void prepare_scene(
-        const renderer::FrameInput& input, const renderer::RenderTarget& target,
+        const renderer::FrameInput& input,
+        const renderer::RenderTarget& target,
         unsigned pre_particle_colour
     ) override;
 

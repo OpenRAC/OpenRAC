@@ -130,7 +130,9 @@ void declare_hierarchy(
         // The reduction indexes adjacent mip ranges relative to the allocation's start.
         pass.compute_indexed_storage = level > 0;
         pass.compute_metadata_only = level > 0;
-        pass.buffers.push_back({*inputs.hierarchy, {destination.offset, destination.bytes}, kWrite});
+        pass.buffers.push_back(
+            {*inputs.hierarchy, {destination.offset, destination.bytes}, kWrite}
+        );
 
         // The first reduction reads full-resolution depth; later reductions read stored bounds.
         if (level == 0) {
@@ -214,8 +216,11 @@ void declare_prepass(
     if (!multisample) {
         auto consumers = execution.make_pass("prepass consumers");
         consumers.images.push_back(
-            {normal, {}, {graph::Stage::ComputeShader | graph::Stage::FragmentShader,
-                          graph::Access::Read, graph::Layout::Sampled}}
+            {normal,
+             {},
+             {graph::Stage::ComputeShader | graph::Stage::FragmentShader,
+              graph::Access::Read,
+              graph::Layout::Sampled}}
         );
         consumers.images.back().continuation = true;
         consumers.kind = graph::PassKind::Export;

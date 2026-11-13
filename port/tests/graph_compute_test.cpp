@@ -149,16 +149,28 @@ void test_dispatch_resource_contract() {
     renderer::FrameBuffer output;
     std::string error;
     CHECK(output.create_colour(4, 1, error));
-    CHECK(shader.build_compute("storage contract", R"(#version 430 core
+    CHECK(shader.build_compute(
+        "storage contract",
+        R"(#version 430 core
 layout(local_size_x=1) in;
 uniform sampler2D tex_T0;
 layout(std430,binding=11) writeonly buffer Output { uint colour[4]; };
 void main(){colour[3]=packUnorm4x8(texelFetch(tex_T0,ivec2(0),0));}
-)", error));
+)",
+        error
+    ));
     shader.use();
-    enum class Contract { Complete, MissingSampler, ReadOnlyStorage, ShortStorage };
-    for (const auto contract : {Contract::Complete, Contract::MissingSampler,
-                                Contract::ReadOnlyStorage, Contract::ShortStorage}) {
+    enum class Contract {
+        Complete,
+        MissingSampler,
+        ReadOnlyStorage,
+        ShortStorage
+    };
+    for (const auto contract :
+         {Contract::Complete,
+          Contract::MissingSampler,
+          Contract::ReadOnlyStorage,
+          Contract::ShortStorage}) {
         glBindTexture(GL_TEXTURE_2D, texture);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, storage);
         constexpr std::array<unsigned, 4> empty{};
@@ -170,9 +182,13 @@ void main(){colour[3]=packUnorm4x8(texelFetch(tex_T0,ivec2(0),0));}
             CHECK(execution.capture_compute_reads(pass));
         }
         const auto buffer = execution.import_buffer("output", storage).value();
-        pass.buffers.push_back({buffer, {0, contract == Contract::ShortStorage ? sizeof(unsigned) : sizeof(empty)},
-            {graph::Stage::ComputeShader, contract == Contract::ReadOnlyStorage ? graph::Access::Read : graph::Access::Write,
-             graph::Layout::Buffer}});
+        pass.buffers.push_back(
+            {buffer,
+             {0, contract == Contract::ShortStorage ? sizeof(unsigned) : sizeof(empty)},
+             {graph::Stage::ComputeShader,
+              contract == Contract::ReadOnlyStorage ? graph::Access::Read : graph::Access::Write,
+              graph::Layout::Buffer}}
+        );
         execution.add_pass(std::move(pass));
         const auto result = execution.run([](unsigned) { glDispatchCompute(1, 1, 1); });
         CHECK(static_cast<bool>(result) == (contract == Contract::Complete));
@@ -180,23 +196,31 @@ void main(){colour[3]=packUnorm4x8(texelFetch(tex_T0,ivec2(0),0));}
         const auto pixels = output.read_rgba();
         CHECK(pixels.size() == 16);
         if (pixels.size() == 16) {
-            const auto expected = contract == Contract::Complete ? red : std::array<std::uint8_t, 4>{};
+            const auto expected =
+                contract == Contract::Complete ? red : std::array<std::uint8_t, 4>{};
             CHECK(std::equal(expected.begin(), expected.end(), pixels.begin() + 12));
         }
     }
 
-    CHECK(shader.build_compute("storage descriptor range", R"(#version 430 core
+    CHECK(shader.build_compute(
+        "storage descriptor range",
+        R"(#version 430 core
 layout(local_size_x=1) in;
 layout(std430,binding=11) writeonly buffer Output { uint words[]; };
 void main(){words[0]=uint(words.length());}
-)", error));
+)",
+        error
+    ));
     shader.use();
     vkgl::GraphExecution execution;
     const auto buffer = execution.import_buffer("output", storage).value();
-    execution.add_pass({"one-word descriptor",
-                        {},
-                        {{buffer, {0, sizeof(unsigned)},
-                          {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}}});
+    execution.add_pass(
+        {"one-word descriptor",
+         {},
+         {{buffer,
+           {0, sizeof(unsigned)},
+           {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}}}
+    );
     CHECK(execution.run([](unsigned) { glDispatchCompute(1, 1, 1); }));
     CHECK(vkgl::copy_buffer_to_texture(storage, output.colour_texture(), 4, 1));
     const auto pixels = output.read_rgba();
@@ -385,11 +409,15 @@ void test_buffer_visibility_across_scopes() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, name);
     renderer::Shader shader;
     std::string error;
-    CHECK(shader.build_compute("visibility writer", R"(#version 430 core
+    CHECK(shader.build_compute(
+        "visibility writer",
+        R"(#version 430 core
 layout(local_size_x=1) in;
 layout(std430,binding=11) writeonly buffer Output { uint words[3]; };
 void main(){words[gl_GlobalInvocationID.x]=1u;}
-)", error));
+)",
+        error
+    ));
     shader.use();
 
     const auto record_write = [&](graph::BufferRange bytes, bool dispatch) {
@@ -401,7 +429,9 @@ void main(){words[gl_GlobalInvocationID.x]=1u;}
             vkgl::BufferVisibility::TrackShaderReads
         );
         CHECK(target);
-        execution.add_pass({"write visibility bytes", {}, {{*target, bytes, {compute, write, layout}}}});
+        execution.add_pass(
+            {"write visibility bytes", {}, {{*target, bytes, {compute, write, layout}}}}
+        );
         if (dispatch) {
             execution.add_pass(
                 {"publish visibility bytes",

@@ -132,8 +132,11 @@ std::vector<std::uint8_t> Fixture::read_snapshot(
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, snapshot.id());
     // The graph keeps native colour resolve and sample-zero depth resolve as separate work phases.
     std::array<unsigned, 2> copies{};
-    const auto copied =
-        renderer::colour_snapshot(target, snapshot.id(), source.samples(), [&](bool depth_copy) {
+    const auto copied = renderer::colour_snapshot(
+        target,
+        snapshot.id(),
+        source.samples(),
+        [&](bool depth_copy) {
             ++copies[depth_copy];
             glBlitFramebuffer(
                 0,
@@ -147,7 +150,9 @@ std::vector<std::uint8_t> Fixture::read_snapshot(
                 depth_copy ? GL_DEPTH_BUFFER_BIT : GL_COLOR_BUFFER_BIT,
                 GL_NEAREST
             );
-        }, attachments);
+        },
+        attachments
+    );
     CHECK(copied);
     CHECK(copies[0] == unsigned(attachments != renderer::SnapshotAttachments::Depth));
     CHECK(copies[1] == unsigned(attachments != renderer::SnapshotAttachments::Colour));

@@ -114,8 +114,12 @@ std::string Plan::describe() const {
     for (unsigned index = 0; index < passes.size(); ++index) {
         const auto& pass = passes[index];
         text += std::format(
-            "pass {} {} {}\n", index,
-            pass.culled ? "culled" : pass.kind == PassKind::Export ? "export" : "work", pass.name
+            "pass {} {} {}\n",
+            index,
+            pass.culled                     ? "culled"
+            : pass.kind == PassKind::Export ? "export"
+                                            : "work",
+            pass.name
         );
 
         // Exact ranges explain which overlapping accesses caused the dependency.

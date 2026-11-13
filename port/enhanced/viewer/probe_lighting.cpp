@@ -365,7 +365,7 @@ bool ProbeLighting::upload_regions(
             const bool compressed_depth = m_depth_mode == 2 && (i == 1 || i == 3);
             const bool compressed_colour =
                 i == 0 && volume.colour_format != lighting::ProbeTextureFormat::R11G11B10;
-            const unsigned block = compressed_depth ? 4
+            const unsigned block = compressed_depth    ? 4
                                    : compressed_colour ? probe_texture_block(volume.colour_format)
                                                        : 1;
             const unsigned scale = i == 2 || i == 4 ? 1 : side;
@@ -381,13 +381,21 @@ bool ProbeLighting::upload_regions(
                     std::memcpy(pixels.data() + at, base_plane.data(), block_bytes);
                 }
             }
-            pack_probe_plane(pixels, base_plane, 0, volume.atlas_rows(), scale / block, m_atlas_tiles_x);
+            pack_probe_plane(
+                pixels, base_plane, 0, volume.atlas_rows(), scale / block, m_atlas_tiles_x
+            );
             if (m_full_residency) {
                 for (std::size_t region = 0; region < m_regions.size(); ++region) {
                     const auto& source = m_regions[region];
                     const auto plane = probe_plane(source, i, m_depth_mode, decoded);
-                    pack_probe_plane(pixels, plane, m_region_offsets[region], source.atlas_rows(),
-                                     scale / block, m_atlas_tiles_x);
+                    pack_probe_plane(
+                        pixels,
+                        plane,
+                        m_region_offsets[region],
+                        source.atlas_rows(),
+                        scale / block,
+                        m_atlas_tiles_x
+                    );
                 }
             }
 
@@ -1061,27 +1069,18 @@ void ProbeLighting::bind(
     for (unsigned slot = 0; slot < lighting::kDenseProbeSlots; ++slot) {
         const auto& selected = m_selector.slots[slot];
         glUniform1f(
-            shader.uniform(kDenseWeight[slot].data()),
-            selected.region >= 0 ? selected.weight : 0.0f
+            shader.uniform(kDenseWeight[slot].data()), selected.region >= 0 ? selected.weight : 0.0f
         );
         if (selected.region < 0) {
             continue;
         }
         const auto& g = m_region_grids[selected.region];
-        glUniform2f(
-            shader.uniform(kDenseFrame[slot].data()), g.frame.axis[0], g.frame.axis[1]
+        glUniform2f(shader.uniform(kDenseFrame[slot].data()), g.frame.axis[0], g.frame.axis[1]);
+        glUniform3f(
+            shader.uniform(kDenseOrigin[slot].data()), g.origin[0], g.origin[1], g.origin[2]
         );
         glUniform3f(
-            shader.uniform(kDenseOrigin[slot].data()),
-            g.origin[0],
-            g.origin[1],
-            g.origin[2]
-        );
-        glUniform3f(
-            shader.uniform(kDenseSpacing[slot].data()),
-            g.spacing[0],
-            g.spacing[1],
-            g.spacing[2]
+            shader.uniform(kDenseSpacing[slot].data()), g.spacing[0], g.spacing[1], g.spacing[2]
         );
         glUniform3f(
             shader.uniform(kDenseDimensions[slot].data()),

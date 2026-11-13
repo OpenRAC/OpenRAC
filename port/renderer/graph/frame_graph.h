@@ -183,8 +183,8 @@ struct ImageUse {
     State state;                    // Required execution, access and layout.
     Load load = Load::None;         // Attachment entry operation, otherwise None.
     Store store = Store::Preserve;  // Discard makes subsequent reads invalid.
-    bool partial_write = false;    // A write to only part of each selected subresource.
-    bool continuation = false;     // Later declared work may replace this export in a joined plan.
+    bool partial_write = false;     // A write to only part of each selected subresource.
+    bool continuation = false;      // Later declared work may replace this export in a joined plan.
     bool operator==(const ImageUse&) const = default;
 };
 
@@ -300,7 +300,9 @@ public:
     Graph& operator=(Graph&& other) noexcept;
 
     // Imports an image, coalescing compatible aliases of the same key; rejects inconsistent imports.
-    [[nodiscard]] Result<ImageHandle> import_image(std::string_view name, const ImageDesc& description);
+    [[nodiscard]] Result<ImageHandle> import_image(
+        std::string_view name, const ImageDesc& description
+    );
     // Imports a buffer, coalescing compatible aliases of the same key; rejects inconsistent imports.
     [[nodiscard]] Result<BufferHandle> import_buffer(std::string_view name, BufferDesc description);
     // Appends one owned pass; invalid accesses are reported together with its label by compile().
@@ -318,7 +320,9 @@ public:
     }
 
     [[nodiscard]] std::span<const Pass> passes() const { return m_passes; }
+
     [[nodiscard]] std::uint64_t owner() const { return m_owner; }
+
     [[nodiscard]] Result<void> validate_handles(const Pass& pass) const;
 
     // Validates access, tracks partial initialisation and plans barriers without modifying imports.
@@ -352,6 +356,7 @@ private:
         std::uint64_t last_used = 0;
         bool shared = false;
     };
+
     [[nodiscard]] Result<Entry*> find_or_compile(const Graph& graph);
 
     std::vector<Entry> m_entries;

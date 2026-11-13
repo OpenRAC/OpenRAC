@@ -187,7 +187,10 @@ void Water::prepare_scene(
     const int width = target.width;
     const int height = target.height;
     const auto copied = renderer::colour_snapshot(
-        target, destination, std::max(1, samples), [width, height](bool depth) {
+        target,
+        destination,
+        std::max(1, samples),
+        [width, height](bool depth) {
             glBlitFramebuffer(
                 0,
                 0,
@@ -206,7 +209,8 @@ void Water::prepare_scene(
                 double(width) * height * 4
             );
         },
-        copy_colour ? renderer::SnapshotAttachments::ColourDepth : renderer::SnapshotAttachments::Depth
+        copy_colour ? renderer::SnapshotAttachments::ColourDepth
+                    : renderer::SnapshotAttachments::Depth
     );
     if (!copied) {
         throw std::runtime_error(copied.error().message);

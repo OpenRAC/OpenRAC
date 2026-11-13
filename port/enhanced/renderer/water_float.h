@@ -12,8 +12,8 @@ namespace openrac::scene {
 class LevelScene;
 }
 
-#include "renderer/renderer.h"
 #include "renderer/gl/shader.h"
+#include "renderer/renderer.h"
 
 namespace openrac::enhanced {
 class WaterFloat {

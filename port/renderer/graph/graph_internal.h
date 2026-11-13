@@ -17,7 +17,7 @@ struct Use {
     Load load = Load::None;         // Attachment entry operation.
     Store store = Store::Preserve;  // Attachment exit operation.
     bool partial_write = false;
-    unsigned pass = 0;             // Index in the compilation's flat work list.
+    unsigned pass = 0;  // Index in the compilation's flat work list.
 };
 
 // Returns whether access consumes or changes contents.

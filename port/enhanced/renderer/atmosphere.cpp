@@ -441,7 +441,8 @@ public:
 
     // Preserve the child material's pre-effects scene snapshot.
     void prepare_scene(
-        const renderer::FrameInput& input, const renderer::RenderTarget& target,
+        const renderer::FrameInput& input,
+        const renderer::RenderTarget& target,
         unsigned pre_particle_colour
     ) override {
         if (m_material) {

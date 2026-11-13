@@ -629,12 +629,14 @@ void test_sampled_handoff() {
         const auto before = vkgl::submission_counters().barriers;
         CHECK(renderer::run_surface_chain([&] {
             vkgl::GraphExecution producer;
-            const auto image = producer.import_attachment("handoff image", target.id(), graph::Aspect::Colour);
+            const auto image =
+                producer.import_attachment("handoff image", target.id(), graph::Aspect::Colour);
             CHECK(image);
             graph::Pass handoff{
                 "sampled handoff",
-                {{image.value(), {}, {graph::Stage::FragmentShader, graph::Access::Read,
-                                     graph::Layout::Sampled}}},
+                {{image.value(),
+                  {},
+                  {graph::Stage::FragmentShader, graph::Access::Read, graph::Layout::Sampled}}},
                 {},
                 graph::PassKind::Export
             };
@@ -642,10 +644,14 @@ void test_sampled_handoff() {
             producer.add_pass(std::move(handoff));
             CHECK(producer.run_prepared(std::function<void()>{}));
             if (later) {
-                CHECK(renderer::colour_pass(
-                    "later colour access", {target.id(), 4, 4}, [] { glClear(GL_COLOR_BUFFER_BIT); },
-                    renderer::ColourAttachments::Colour
-                ));
+                CHECK(
+                    renderer::colour_pass(
+                        "later colour access",
+                        {target.id(), 4, 4},
+                        [] { glClear(GL_COLOR_BUFFER_BIT); },
+                        renderer::ColourAttachments::Colour
+                    )
+                );
             }
         }));
         return vkgl::submission_counters().barriers - before;
@@ -786,8 +792,14 @@ void test_hiz_culling(test::GlContext& context) {
         if (description) {
             CHECK(description->find(" work GTAO depth mip 0\n") != std::string::npos);
             CHECK(description->find(" work GTAO depth mip 1\n") != std::string::npos);
-            CHECK((description->find(" work GTAO depth mip 2\n") != std::string::npos) == (width == 65));
-            CHECK((description->find(" work GTAO depth mip 3\n") != std::string::npos) == (width == 65));
+            CHECK(
+                (description->find(" work GTAO depth mip 2\n") != std::string::npos)
+                == (width == 65)
+            );
+            CHECK(
+                (description->find(" work GTAO depth mip 3\n") != std::string::npos)
+                == (width == 65)
+            );
         }
     }
 }
@@ -997,7 +1009,8 @@ void test_world_hook_boundary() {
         // Borrows the fixture through the synchronous test frame.
         Particles(Fixture& fixture, unsigned expected)
             : BucketRenderer("boundary particles", renderer::Bucket::Particles),
-              m_fixture(fixture), m_expected(expected) {}
+              m_fixture(fixture),
+              m_expected(expected) {}
 
         void render(const renderer::FrameInput&, renderer::RenderState& state) override {
             CHECK(state.pre_particle_colour_texture == m_expected);

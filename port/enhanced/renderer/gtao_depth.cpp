@@ -133,7 +133,9 @@ void GtaoDepth::build_level(unsigned depth, unsigned level) {
 
 void GtaoDepth::bind(const Shader& evaluate, bool enabled) const {
     using namespace gl;
-    glUniform1i(evaluate.uniform("hi_z_levels"), enabled ? static_cast<int>(sampled_levels().size()) : 0);
+    glUniform1i(
+        evaluate.uniform("hi_z_levels"), enabled ? static_cast<int>(sampled_levels().size()) : 0
+    );
     glUniform1i(evaluate.uniform("hi_z_depth"), kDepthUnit);
     glActiveTexture(GL_TEXTURE0 + kDepthUnit);
     glBindTexture(world::gl::GL_TEXTURE_BUFFER, enabled ? m_texture : 0);

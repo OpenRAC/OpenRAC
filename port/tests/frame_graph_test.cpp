@@ -128,7 +128,12 @@ void test_imported_subresource_states() {
     constexpr graph::ImageRange written{graph::Aspect::Colour, 1, 1, 1};
     constexpr graph::ImageRange undefined{graph::Aspect::Colour, 2, 1, 1};
     graph::ImageDesc desc{
-        {1, 0}, 3, 2, graph::Aspect::Colour, {}, false,
+        {1, 0},
+        3,
+        2,
+        graph::Aspect::Colour,
+        {},
+        false,
         {{base, {kSample, true}}, {written, {kWrite, true}}}
     };
     graph::PlanCache cache;
@@ -149,8 +154,9 @@ void test_imported_subresource_states() {
 
     graph::Graph builder;
     const auto handle = builder.import_image("partial mip", desc).value();
-    builder.add_pass({"patch", {{handle, undefined, kWrite, graph::Load::None,
-                                graph::Store::Preserve, true}}});
+    builder.add_pass(
+        {"patch", {{handle, undefined, kWrite, graph::Load::None, graph::Store::Preserve, true}}}
+    );
     builder.add_pass({"sample incomplete mip", {{handle, undefined, kSample}}});
     CHECK(!builder.compile());
     desc.initial_ranges.push_back({written, {kSample, true}});
@@ -539,7 +545,9 @@ void test_transfer_command_contract() {
     const unsigned mapping[]{target_from.index, target_to.index};
     const auto remapped = commands.remap({mapping, builder.owner(), target.owner()});
     CHECK(remapped);
-    const graph::Pass other{"remapped blit", {{target_from, {}, source}, {target_to, {}, destination}}};
+    const graph::Pass other{
+        "remapped blit", {{target_from, {}, source}, {target_to, {}, destination}}
+    };
     CHECK(remapped->validate(other));
     CHECK(!commands.remap({std::span{mapping}.first(1), builder.owner(), target.owner()}));
     CHECK(!commands.remap({mapping, target.owner(), builder.owner()}));
@@ -651,7 +659,9 @@ void test_handle_ownership() {
 
 void test_cached_validation() {
     graph::PlanCache cache;
-    const auto compile = [](graph::PlanCache& target, bool defined, std::uint64_t size,
+    const auto compile = [](graph::PlanCache& target,
+                            bool defined,
+                            std::uint64_t size,
                             graph::BufferRange range,
                             graph::State initial = {Stage::None, Access::None, Layout::Buffer}) {
         graph::Graph builder;
@@ -684,9 +694,12 @@ void test_cached_validation() {
     const std::weak_ptr<const graph::Plan> published = retained;
     retained.reset();
     graph::Graph replacement;
-    const auto buffer = replacement.import_buffer(
-        "other input", {{2, 0}, 64, {Stage::None, Access::None, Layout::Buffer}, true}
-    ).value();
+    const auto buffer =
+        replacement
+            .import_buffer(
+                "other input", {{2, 0}, 64, {Stage::None, Access::None, Layout::Buffer}, true}
+            )
+            .value();
     replacement.add_pass({"read", {}, {{buffer, {0, 64}, kBufferRead}}});
     const auto borrowed = single_entry.compile_borrowed(replacement);
     CHECK(borrowed && (*borrowed)->resources.front().name == "other input");

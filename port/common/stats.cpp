@@ -487,7 +487,8 @@ bool gpu_timers() {
 std::string gpu_section_name(std::uint64_t serial, int section) {
     const auto* f = frame_of(serial);
     return f && section >= 0 && std::size_t(section) < section_count(*f)
-        ? f->sections[std::size_t(section)].name : std::string{};
+               ? f->sections[std::size_t(section)].name
+               : std::string{};
 }
 #endif
 

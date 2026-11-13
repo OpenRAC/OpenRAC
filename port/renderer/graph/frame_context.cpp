@@ -49,11 +49,14 @@ Result<unsigned> import_new(Graph& builder, const Resource& resource) {
 
 void append_opaque_image(Pass& pass, ImageHandle handle, const ImageDesc& image) {
     const auto append = [&](ImageRange range, bool defined) {
-        const auto discard = image.aspects == Aspect::Colour ? Layout::ColourAttachment
-                                                             : Layout::DepthAttachment;
+        const auto discard =
+            image.aspects == Aspect::Colour ? Layout::ColourAttachment : Layout::DepthAttachment;
         pass.images.push_back(
-            {handle, range, {Stage::All, Access::Write, defined ? Layout::General : discard},
-             Load::None, defined ? Store::Preserve : Store::Discard}
+            {handle,
+             range,
+             {Stage::All, Access::Write, defined ? Layout::General : discard},
+             Load::None,
+             defined ? Store::Preserve : Store::Discard}
         );
     };
     if (image.initial_ranges.empty()) {
@@ -67,14 +70,19 @@ void append_opaque_image(Pass& pass, ImageHandle handle, const ImageDesc& image)
         }
         for (unsigned layer = 0; layer < image.layers; ++layer) {
             for (unsigned mip = 0; mip < image.mips; ++mip) {
-                const auto initial = std::ranges::find_if(image.initial_ranges, [&](const auto& entry) {
-                    const auto& range = entry.range;
-                    return (static_cast<unsigned>(range.aspects) & bit) && mip >= range.first_mip
-                           && mip - range.first_mip < range.mip_count && layer >= range.first_layer
-                           && layer - range.first_layer < range.layer_count;
-                });
-                append({aspect, mip, 1, layer}, initial == image.initial_ranges.end()
-                                                   ? image.defined : initial->contents.defined);
+                const auto initial =
+                    std::ranges::find_if(image.initial_ranges, [&](const auto& entry) {
+                        const auto& range = entry.range;
+                        return (static_cast<unsigned>(range.aspects) & bit)
+                               && mip >= range.first_mip && mip - range.first_mip < range.mip_count
+                               && layer >= range.first_layer
+                               && layer - range.first_layer < range.layer_count;
+                    });
+                append(
+                    {aspect, mip, 1, layer},
+                    initial == image.initial_ranges.end() ? image.defined
+                                                          : initial->contents.defined
+                );
             }
         }
     }

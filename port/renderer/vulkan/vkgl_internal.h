@@ -244,8 +244,10 @@ struct GpuPage {
     VkDescriptorSet descriptors = VK_NULL_HANDLE;
 
     [[nodiscard]] renderer::graph::BufferRange indirect_range() const {
-        return {kGpuPageGroups * sizeof(std::uint32_t),
-                commands.size() * sizeof(VkDrawIndexedIndirectCommand)};
+        return {
+            kGpuPageGroups * sizeof(std::uint32_t),
+            commands.size() * sizeof(VkDrawIndexedIndirectCommand)
+        };
     }
 };
 
@@ -593,6 +595,7 @@ struct BufferReadVisibility {
         renderer::graph::BufferRange bytes;
         renderer::graph::Stage stages;
     };
+
     // Excess fragmentation can fall back to recording a barrier.
     std::array<Range, 8> ranges{};
     unsigned count = 0;

@@ -72,14 +72,13 @@ const LayerGaugeNames& layer_gauge_names(Layer layer) {
         std::array<LayerGaugeNames, kLayerCount> labels;
         for (std::size_t index = 0; index < labels.size(); ++index) {
             const std::string name = layer_name(static_cast<Layer>(index));
-            labels[index] = {
-                "camera " + name + " submitted",
-                "camera " + name + " culled",
-                "prepass rigid draws " + name,
-                "prepass empty groups " + name,
-                "pvs " + name + " instances culled",
-                "pvs " + name + " primitive passes culled"
-            };
+            labels[index] =
+                {"camera " + name + " submitted",
+                 "camera " + name + " culled",
+                 "prepass rigid draws " + name,
+                 "prepass empty groups " + name,
+                 "pvs " + name + " instances culled",
+                 "pvs " + name + " primitive passes culled"};
         }
         return labels;
     }();

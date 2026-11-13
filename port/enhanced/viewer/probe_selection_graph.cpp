@@ -30,7 +30,9 @@ constexpr graph::Stage kShaders =
 Result<graph::Pass> shortlist_pass(vkgl::GraphExecution& execution, graph::BufferHandle masks) {
     auto shortlist = execution.make_pass("probe region shortlist");
     shortlist.buffers.push_back(
-        {masks, {0, kPrefix}, {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}
+        {masks,
+         {0, kPrefix},
+         {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}
     );
     const auto metadata =
         execution.capture_compute_reads(shortlist, vkgl::ComputeInputs::UniformBlocks);
@@ -54,7 +56,9 @@ Result<graph::Pass> tile_pass(
     // One shader block reads the shortlist prefix and writes the tile mask tail.
     tiles.compute_indexed_storage = true;
     tiles.buffers.push_back(
-        {masks, {0, kPrefix}, {graph::Stage::ComputeShader, graph::Access::Read, graph::Layout::Buffer}}
+        {masks,
+         {0, kPrefix},
+         {graph::Stage::ComputeShader, graph::Access::Read, graph::Layout::Buffer}}
     );
     tiles.buffers.push_back(
         {masks,

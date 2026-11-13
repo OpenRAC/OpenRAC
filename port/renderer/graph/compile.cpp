@@ -78,7 +78,11 @@ void order(Plan& plan, const Span& span, const detail::Use& use, unsigned pass) 
 
 // Checks defined contents before emitting a barrier or changing the interval's history.
 Result<void> apply(
-    Plan& plan, Span& span, const detail::Use& use, unsigned pass, Stage reader_scope,
+    Plan& plan,
+    Span& span,
+    const detail::Use& use,
+    unsigned pass,
+    Stage reader_scope,
     Producers* producers
 ) {
     // A clear supplies defined attachment contents before a read/write operation.
@@ -89,8 +93,8 @@ Result<void> apply(
     }
 
     // Liveness follows contents, so a full overwrite and ordering-only edges keep no producer.
-    const bool preserves_partial = use.partial_write && use.load != Load::Discard
-                                   && use.store == Store::Preserve;
+    const bool preserves_partial =
+        use.partial_write && use.load != Load::Discard && use.store == Store::Preserve;
     if (producers && span.writer && *span.writer != pass && use.load != Load::Clear
         && (detail::reads(use.state.access) || preserves_partial)) {
         producers->emplace_back(*span.writer, pass);
@@ -151,7 +155,11 @@ std::size_t split_span(std::vector<Span>& spans, std::size_t index, std::uint64_
 
 // Updates touched intervals in place, copying history only when a boundary splits a span.
 Result<void> apply_range(
-    Plan& plan, std::vector<Span>& spans, const detail::Use& use, unsigned pass, Stage reader_scope,
+    Plan& plan,
+    std::vector<Span>& spans,
+    const detail::Use& use,
+    unsigned pass,
+    Stage reader_scope,
     Producers* producers
 ) {
     const auto first = std::upper_bound(
@@ -170,7 +178,8 @@ Result<void> apply_range(
         if (spans[index].end > use.end) {
             split_span(spans, index, use.end);
         }
-        if (auto applied = apply(plan, spans[index], use, pass, reader_scope, producers); !applied) {
+        if (auto applied = apply(plan, spans[index], use, pass, reader_scope, producers);
+            !applied) {
             return unexpected(applied.error());
         }
     }
@@ -224,9 +233,7 @@ Result<void> apply_use(
 }
 
 // Normalises all declarations before planning any barriers.
-Result<void> pass_uses(
-    const Graph& graph, const Plan& plan, CompileScratch& scratch
-) {
+Result<void> pass_uses(const Graph& graph, const Plan& plan, CompileScratch& scratch) {
     const profiling::Zone timing("Normalize graph uses");
     const auto passes = graph.passes();
     auto& result = scratch.uses;
@@ -297,7 +304,8 @@ Result<void> plan_barriers(Plan& plan, CompileScratch& scratch, Producers* produ
         if (pass.culled) {
             continue;
         }
-        if (auto applied = apply_use(plan, scratch.histories[use.resource], use, use.pass, producers);
+        if (auto applied =
+                apply_use(plan, scratch.histories[use.resource], use, use.pass, producers);
             !applied) {
             return unexpected(Error{pass.name + ": " + applied.error().message});
         }
@@ -328,14 +336,18 @@ void cull_unused(Plan& plan, std::span<const Pass> declarations, const Producers
 // A validated plan is reusable across recordings with the same declarations and entry states.
 bool same_pass(const Pass& cached, const Pass& current) {
     return cached.name == current.name && cached.kind == current.kind
-           && cached.separate == current.separate
-           && cached.execution == current.execution && cached.cull_if_unused == current.cull_if_unused
+           && cached.separate == current.separate && cached.execution == current.execution
+           && cached.cull_if_unused == current.cull_if_unused
            && cached.compute_metadata_only == current.compute_metadata_only
            && cached.compute_indexed_storage == current.compute_indexed_storage
-           && std::ranges::equal(cached.images, current.images, [](const auto& a, auto b) {
-                  b.image.owner = a.image.owner;
-                  return a == b;
-              })
+           && std::ranges::equal(
+               cached.images,
+               current.images,
+               [](const auto& a, auto b) {
+                   b.image.owner = a.image.owner;
+                   return a == b;
+               }
+           )
            && std::ranges::equal(cached.buffers, current.buffers, [](const auto& a, auto b) {
                   b.buffer.owner = a.buffer.owner;
                   return a == b;
