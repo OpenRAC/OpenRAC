@@ -370,6 +370,8 @@ void drawer(const Shown& shown) {
                 s_jump_to = -1.0f;
             }
         }
+        // How far rows have scrolled under the header: the hairline under it fades in with it.
+        const float under = std::min(ImGui::GetScrollY() / dp(24.0f), 1.0f);
         {
             ImDrawList* back = ImGui::GetWindowDrawList();
             const ImVec2 top(x, viewport->Pos.y);
@@ -377,7 +379,12 @@ void drawer(const Shown& shown) {
             back->PushClipRect(top, bottom, false);
             // The desktop help pane's ground: the panel darkened, no light from above.
             drawer_ground(back, top, bottom, ImDrawFlags_RoundCornersRight);
-            faint_stripes(back, top, stripes_end(top, width), ui().amber, 0.05f);
+            // Below the header the stripes fade out as the hairline fades in, so they end at it.
+            if (under < 1.0f) {
+                faint_stripes(
+                    back, top, stripes_end(top, width), ui().amber, 0.05f * (1.0f - under)
+                );
+            }
             back->PopClipRect();
         }
         {
@@ -393,7 +400,6 @@ void drawer(const Shown& shown) {
             faint_stripes(front, top, stripes_end(top, width), ui().amber, 0.05f);
             front->PopClipRect();
             // A hairline under it once rows have scrolled beneath, fading in as they do.
-            const float under = std::min(ImGui::GetScrollY() / dp(24.0f), 1.0f);
             if (under > 0.0f) {
                 front->AddLine(ImVec2(top.x, bottom.y), bottom, ui_colors::fade(ui().line, under));
             }
