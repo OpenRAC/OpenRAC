@@ -76,15 +76,30 @@ namespace {
 
 #if defined(_WIN32)
 
-// A first look at every exception, before any handler of the program's: only the hardware's faults
-// are reported here (C++ exceptions pass through it too, and are caught where they are meant to be).
-LONG WINAPI on_exception(EXCEPTION_POINTERS* info) {
-    const DWORD code = info->ExceptionRecord->ExceptionCode;
+// The program's own image (the .exe), set when the handler is installed.
+std::uintptr_t g_image_low = 0, g_image_high = 0;
 
-    if (code == EXCEPTION_ACCESS_VIOLATION || code == EXCEPTION_IN_PAGE_ERROR) {
-        const auto kind = info->ExceptionRecord->ExceptionInformation[0];
-        const auto* host =
-            reinterpret_cast<const void*>(info->ExceptionRecord->ExceptionInformation[1]);
+void note_image() {
+    const auto* base = reinterpret_cast<const std::uint8_t*>(GetModuleHandleW(nullptr));
+    const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+    const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+    g_image_low = reinterpret_cast<std::uintptr_t>(base);
+    g_image_high = g_image_low + nt->OptionalHeader.SizeOfImage;
+}
+
+bool in_image(const void* address) {
+    const auto at = reinterpret_cast<std::uintptr_t>(address);
+    return at >= g_image_low && at < g_image_high;
+}
+
+// Names the exception and writes the report; the program ends here.
+[[noreturn]] void report_exception(const EXCEPTION_RECORD& record) {
+    const DWORD code = record.ExceptionCode;
+
+    if ((code == EXCEPTION_ACCESS_VIOLATION || code == EXCEPTION_IN_PAGE_ERROR)
+        && record.NumberParameters >= 2) {
+        const auto kind = record.ExceptionInformation[0];
+        const auto* host = reinterpret_cast<const void*>(record.ExceptionInformation[1]);
         report(
             host,
             kind == 1   ? "write"
@@ -115,18 +130,49 @@ LONG WINAPI on_exception(EXCEPTION_POINTERS* info) {
         case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
             what = "array bounds exceeded";
             break;
-        default:
-            return EXCEPTION_CONTINUE_SEARCH;
+        default: {
+            crash::Text text;
+            text.str("an unhandled exception, code ").hex(code, 8);
+            report(record.ExceptionAddress, text.c_str(), crash::Kind::Exception);
+        }
     }
 
-    report(info->ExceptionRecord->ExceptionAddress, what, crash::Kind::Exception);
+    report(record.ExceptionAddress, what, crash::Kind::Exception);
 }
 
-// Any other exception nothing handled.
+bool is_fault(DWORD code) {
+    switch (code) {
+        case EXCEPTION_ACCESS_VIOLATION:
+        case EXCEPTION_IN_PAGE_ERROR:
+        case EXCEPTION_ILLEGAL_INSTRUCTION:
+        case EXCEPTION_PRIV_INSTRUCTION:
+        case EXCEPTION_INT_DIVIDE_BY_ZERO:
+        case EXCEPTION_STACK_OVERFLOW:
+        case EXCEPTION_DATATYPE_MISALIGNMENT:
+        case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// A first look at every exception, before any handler. Only a hardware fault in the program's own
+// code is reported here: the program never catches one. A fault in another module (an overlay such
+// as Discord's or RivaTuner's, or a driver) is often probed and caught by that module itself, so it
+// goes on; if nothing catches it, on_unhandled reports it.
+LONG WINAPI on_exception(EXCEPTION_POINTERS* info) {
+    const EXCEPTION_RECORD& record = *info->ExceptionRecord;
+
+    if (!is_fault(record.ExceptionCode) || !in_image(record.ExceptionAddress)) {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+
+    report_exception(record);
+}
+
+// Any exception nothing handled.
 LONG WINAPI on_unhandled(EXCEPTION_POINTERS* info) {
-    crash::Text what;
-    what.str("an unhandled exception, code ").hex(info->ExceptionRecord->ExceptionCode, 8);
-    report(info->ExceptionRecord->ExceptionAddress, what.c_str(), crash::Kind::Exception);
+    report_exception(*info->ExceptionRecord);
 }
 
 void on_abort(int) {
@@ -361,6 +407,7 @@ void guard_writes(gaddr address, std::uint32_t bytes, std::uint32_t skip) {
 void install_crash_handler() {
     std::set_terminate(on_terminate);
 #if defined(_WIN32)
+    note_image();
     AddVectoredExceptionHandler(1, on_exception);
     SetUnhandledExceptionFilter(on_unhandled);
     std::signal(SIGABRT, on_abort);
