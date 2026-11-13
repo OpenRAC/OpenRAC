@@ -360,8 +360,10 @@ function(openrac_add_game config)
                                        "${OPENRAC_GAME_DIR}/common/ui_colors.cpp"
                                        ${frontend_sources} ${debug_sources})
       # The scene draws the level and the live mobys.
+      # frame.cpp's freecam check (game/common/moby_proc.cpp) is every game's, not only a profile's.
       target_link_libraries(${target} PRIVATE openrac_scene_renderer openrac_viewer_lib
-                                              openrac_renderer_ui openrac_platform openrac_imgui openrac_fsr3)
+                                              openrac_renderer_ui openrac_platform openrac_imgui openrac_fsr3
+                                              openrac_game_moby_proc)
       # What the window reads of the game's memory: the game's profile (game/common/profile.h), the
       # version's own (port/game/<id>/profile.cpp), else the game's, openrac_game_<game>_profile
       # from port/game/<game>/profile.cpp, else the one that reports no game state.
