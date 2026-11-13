@@ -46,6 +46,70 @@ void require(Result<void> result) {
         throw std::runtime_error(result.error().message);
     }
 }
+
+// Lavapipe can overwrite the sibling aspect of a packed attachment during copies
+// and resolves. Save just the affected destination region on the same command stream.
+void preserve_packed_aspect(
+    VkCommandBuffer command,
+    Image& destination,
+    VkBufferImageCopy region,
+    const std::function<void()>& record
+) {
+    const auto other = destination.aspect & ~region.imageSubresource.aspectMask;
+    if (!g->lavapipe || !has_stencil(destination.format) || other == 0
+        || (destination.discarded & other) != 0) {
+        record();
+        return;
+    }
+
+    region.imageSubresource.aspectMask = other;
+    // A depth texel occupies at most four bytes in a buffer, and stencil occupies one.
+    VkBufferCreateInfo info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    info.size = VkDeviceSize{region.imageExtent.width} * region.imageExtent.height
+                * region.imageExtent.depth * region.imageSubresource.layerCount * 4;
+    info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    VmaAllocationCreateInfo memory{};
+    memory.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    VkBuffer scratch = VK_NULL_HANDLE;
+    VmaAllocation allocation = nullptr;
+    require_success(
+        vmaCreateBuffer(g->allocator, &info, &memory, &scratch, &allocation, nullptr),
+        "allocate packed attachment transfer scratch"
+    );
+    defer([scratch, allocation] { vmaDestroyBuffer(g->allocator, scratch, allocation); });
+
+    const auto layout = destination.layout;
+    NativeCommandEncoder encoder(command);
+    barrier(command, destination, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    encoder.copy_image_to_buffer(
+        destination.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, scratch, 1, &region
+    );
+    barrier(command, destination, layout);
+    record();
+    barrier(command, destination, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    VkBufferMemoryBarrier saved{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+    saved.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    saved.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    saved.srcQueueFamilyIndex = saved.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    saved.buffer = scratch;
+    saved.size = VK_WHOLE_SIZE;
+    encoder.pipeline_barrier(
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0,
+        nullptr,
+        1,
+        &saved,
+        0,
+        nullptr
+    );
+    count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    encoder.copy_buffer_to_image(
+        scratch, destination.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region
+    );
+    barrier(command, destination, layout);
+}
 }  // namespace
 
 void GraphImmediateWork::transfer(
@@ -140,6 +204,25 @@ void GraphImmediateWork::copy_image(
              )};
     }
     transfer("image copy", command, uses, {}, [&] {
+        if (g->lavapipe && destination.samples == VK_SAMPLE_COUNT_1_BIT
+            && has_stencil(destination.format) && regions.size() == 1) {
+            const auto& copy = regions.front();
+            VkBufferImageCopy region{};
+            region.imageSubresource = copy.dstSubresource;
+            region.imageOffset = copy.dstOffset;
+            region.imageExtent = copy.extent;
+            preserve_packed_aspect(command, destination, region, [&] {
+                NativeCommandEncoder{command}.copy_image(
+                    source.image,
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    destination.image,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    1,
+                    &copy
+                );
+            });
+            return;
+        }
         NativeCommandEncoder{command}.copy_image(
             source.image,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -369,7 +452,7 @@ void GraphImmediateWork::resolve_depth(
     };
     const auto source_view = attachment_view(source),
                destination_view = attachment_view(destination);
-    transfer("depth resolve", command, uses, {}, [&] {
+    const auto resolve = [&] {
         NativeCommandEncoder::note_image_work();
         VkRenderingAttachmentInfo depth{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
         depth.imageView = source_view;
@@ -390,6 +473,13 @@ void GraphImmediateWork::resolve_depth(
         }
         NativeCommandEncoder{command}.begin_rendering(&rendering);
         NativeCommandEncoder{command}.end_rendering();
+    };
+    transfer("depth resolve", command, uses, {}, [&] {
+        VkBufferImageCopy region{};
+        region.imageSubresource = {aspects, 0, 0, 1};
+        region.imageOffset = {area.offset.x, area.offset.y, 0};
+        region.imageExtent = {area.extent.width, area.extent.height, 1};
+        preserve_packed_aspect(command, destination, region, resolve);
     });
     if (!uses[1].partial_write) {
         destination.discarded &= ~aspects;

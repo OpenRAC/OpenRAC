@@ -1009,6 +1009,7 @@ void describe_device() {
               )
             : std::string(driver.driverName);
     g->software = p.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
+    g->lavapipe = driver.driverID == VK_DRIVER_ID_MESA_LLVMPIPE;
     g->gl_renderer = std::format("{} (Vulkan)", g->device_name);
     g->gl_version = std::format("4.1 OpenRAC on Vulkan {}, {}", g->api_version, g->driver_version);
 }

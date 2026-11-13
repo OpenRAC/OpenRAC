@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdio>
 #include <exception>
+#include <source_location>
 #include <utility>
 #include <vector>
 #include <volk.h>
@@ -37,11 +38,33 @@ void clear_target(const renderer::FrameBuffer& target, std::array<float, 4> colo
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void check_pixels(const renderer::FrameBuffer& target, std::array<std::uint8_t, 4> colour) {
+void check_pixels(
+    const renderer::FrameBuffer& target,
+    std::array<std::uint8_t, 4> colour,
+    std::source_location caller = std::source_location::current()
+) {
     const auto pixels = target.read_rgba();
     CHECK(pixels.size() == static_cast<std::size_t>(target.width() * target.height()) * 4);
     for (std::size_t offset = 0; offset + 4 <= pixels.size(); offset += 4) {
-        CHECK(std::equal(colour.begin(), colour.end(), pixels.begin() + offset));
+        if (!std::equal(colour.begin(), colour.end(), pixels.begin() + offset)) {
+            std::fprintf(
+                stderr,
+                "%s:%u: pixel %zu was (%u, %u, %u, %u), expected (%u, %u, %u, %u)\n",
+                caller.function_name(),
+                caller.line(),
+                offset / 4,
+                pixels[offset],
+                pixels[offset + 1],
+                pixels[offset + 2],
+                pixels[offset + 3],
+                colour[0],
+                colour[1],
+                colour[2],
+                colour[3]
+            );
+            CHECK(false);
+            return;
+        }
     }
 }
 

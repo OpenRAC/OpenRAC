@@ -1436,6 +1436,7 @@ struct Context {
 
     std::string device_name, driver_version, api_version, gl_renderer, gl_version;
     bool software = false;
+    bool lavapipe = false;
     bool viewport_index_supported = false;
     // VK_EXT/KHR_load_store_op_none: an attachment a pass leaves alone is neither loaded nor
     // stored (attachment-untouched).
