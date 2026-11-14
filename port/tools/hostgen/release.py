@@ -946,6 +946,11 @@ def derived_values(parts: dict, release: Release, level_base: int, primary: dict
                     own = re.match(r"(?:ref|r1_func)_L(\d\d)_", name)
                     if name not in levels or (own is not None and int(own.group(1)) == lv):
                         levels[name] = [lv, f"{v:#010x}"]
+                    if name.startswith("ref_"):
+                        # A derived datum each level's build places on its own (ref_L00_00410D20_01, a particle
+                        # table: 0x00257960 in PAL's level 1, 0x0025AF70 in its level 3): each level's own
+                        # value, which a function shared by the levels reads there (lower.py, level_data).
+                        moved[name] = f"{v:#010x}"
                 continue
             m = NAME.match(name)
             if m and m.group(1) == "D":

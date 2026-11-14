@@ -170,6 +170,17 @@ std::vector<std::uint8_t> direct_packets(
         }
     };
     for (int steps = 0; tag_at != 0 && steps < 20000; ++steps) {
+        // A list holds no more data than game memory does: a chain that runs past that loops (a tag
+        // that points back, from a bad pointer) and would grow `vif` by up to 1 MB a tag, 20 GB over
+        // the steps, which takes the computer's memory with it. It is cut there, once noted.
+        if (vif.size() > ram.size()) {
+            static bool noted = false;
+            if (!noted) {
+                noted = true;
+                log::warn("display list from {:#x} runs past {} bytes: a looping chain, cut", chain, ram.size());
+            }
+            break;
+        }
         const std::uint32_t lo = word_at(ram, tag_at);
         const std::uint32_t raw_addr = word_at(ram, tag_at + 4);
         const bool from_spr = (raw_addr & 0x80000000u) != 0;

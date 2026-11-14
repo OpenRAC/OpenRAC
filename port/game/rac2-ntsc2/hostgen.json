@@ -494,6 +494,7 @@
       "void *"
     ]
   },
+  "tick_rate": 60,
   "release": {
     "version": "us2",
     "table": "release_names.json"
