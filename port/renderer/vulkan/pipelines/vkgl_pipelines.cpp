@@ -2918,7 +2918,7 @@ bool pipeline_prewarm_busy() {
     return !w.queue.empty() || !w.making.empty();
 }
 
-void finish_pipelines() {
+void finish_pipelines(void (*pump_events)()) {
     // Closed: nothing made or kept.
     if (detail::g == nullptr) {
         return;
@@ -2928,7 +2928,17 @@ void finish_pipelines() {
     auto& prewarm = detail::g->prewarm;
     std::unique_lock lock(prewarm.mutex);
     const auto before = prewarm.made;
-    prewarm.changed.wait(lock, [&] { return prewarm.queue.empty() && prewarm.making.empty(); });
+    const auto finished = [&] { return prewarm.queue.empty() && prewarm.making.empty(); };
+    if (pump_events != nullptr) {
+        using namespace std::chrono_literals;
+        while (!prewarm.changed.wait_for(lock, 50ms, finished)) {
+            lock.unlock();
+            pump_events();
+            lock.lock();
+        }
+    } else {
+        prewarm.changed.wait(lock, finished);
+    }
     prewarm.level_loaded = true;
     const auto made = prewarm.made - before;
     lock.unlock();

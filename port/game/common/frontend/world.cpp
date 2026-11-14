@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -47,6 +48,7 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
+#include "platform/pump.h"
 #include "program/program.h"
 #include "renderer/direct/direct.h"
 #include "renderer/effects/effects.h"
@@ -131,6 +133,9 @@ bool read_level(int wanted, const LevelSources& sources, std::string& error) {
     if (g_preload.read.valid() && g_preload.level == wanted
         && g_preload.generation == openrac_game_mods_generation) {
         crash::level_breadcrumb("level data wait", wanted);
+        while (g_preload.read.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout) {
+            platform::pump_events();
+        }
         Preload::Read read = g_preload.read.get();
         g_preload.level = -1;
         if (read.level.dir == sources.dir) {
@@ -429,7 +434,7 @@ void use_level(int number) {
     crash::level_breadcrumb("level pipelines", wanted);
 #if defined(OPENRAC_VULKAN)
     if (gl::is_vulkan()) {
-        vkgl::finish_pipelines();
+        vkgl::finish_pipelines(platform::pump_events);
     }
 #endif
     renderer::gl_warmup::warm();
