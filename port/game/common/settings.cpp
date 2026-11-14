@@ -374,9 +374,9 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, s.enhanced_shadows);
         } else if (key == "texture_pack") {
             known = parse_bool(value, s.texture_pack);
-        } else if (key == "rim_light" || key == "rim_shadow_lift"
-                   || key == "rim_lift_exponent" || key == "rim_lift_max_gain"
-                   || key == "rim_light_strength" || key == "rim_light_falloff") {
+        } else if (key == "rim_light" || key == "rim_shadow_lift" || key == "rim_lift_exponent"
+                   || key == "rim_lift_max_gain" || key == "rim_light_strength"
+                   || key == "rim_light_falloff") {
             // Legacy preferences: enhanced mode uses the built-in rim lighting.
             known = true;
         } else if (key == "probe_lighting") {

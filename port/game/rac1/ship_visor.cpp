@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Builds a pane from the exported canopy ribs so it follows the original joint animation.
-#include "enhanced/viewer/ship_visor.h"
+#include "game/rac1/ship_visor.h"
 
 #include <algorithm>
 #include <array>
@@ -12,7 +12,7 @@
 #include "enhanced/renderer/reflection_material.h"
 #include "scene/level.h"
 
-namespace openrac::lighting {
+namespace openrac::game::rac1 {
 namespace {
 // Three ribs sampled across the Veldin ship's canopy joint, in the base primitive's index order.
 constexpr std::array kVeldinRibs{
@@ -80,48 +80,13 @@ struct ShipLayout {
 constexpr ShipLayout kVeldinShip{530, 12306, 6, 0x0e2369860a69769full};
 constexpr ShipLayout kGreenShip{531, 15042, 18, 0x30a33792a887a3cdull};
 
-// Fits a pane only when the selected offsets still describe the reviewed frame.
+// Writes an already verified pane with the original canopy joint and a separate glass slot.
 template <std::size_t Rows, std::size_t Columns>
-void fit_pane(
+void append_pane(
     scene::LevelData& level,
-    const ShipLayout& layout,
-    const std::array<std::array<int, Columns>, Rows>& ribs
+    scene::Model& model,
+    const std::array<std::array<scene::Vertex, Columns>, Rows>& pane
 ) {
-    // Other regional exports and replacement models need their own verified fit.
-    const auto ship = level.moby_classes.find(layout.class_id);
-    if (ship == level.moby_classes.end() || ship->second.second) {
-        return;
-    }
-    auto& model = level.models[ship->second.first];
-    if (model.primitives.size() != 1
-        || model.primitives.front().index_count != layout.index_count) {
-        return;
-    }
-    const auto start = model.primitives.front().first_index;
-    std::array<std::array<scene::Vertex, Columns>, Rows> pane;
-    // Fold FP32 words in row order with the 64-bit FNV offset and prime.
-    std::uint64_t signature = 14695981039346656037ull;
-    constexpr std::uint64_t kFnvPrime = 1099511628211ull;
-    for (std::size_t r = 0; r < pane.size(); ++r) {
-        for (std::size_t c = 0; c < Columns; ++c) {
-            const auto& anchor = level.vertices[level.indices[start + unsigned(ribs[r][c])]];
-            // All anchors must belong entirely to the moving canopy joint.
-            if (anchor.joints[0] != layout.joint || anchor.weights[0] != 1.f) {
-                return;
-            }
-            for (const float coordinate : anchor.position) {
-                // Treat signed zero equally across exporters and host transforms.
-                const auto bits = coordinate == 0 ? 0u : std::bit_cast<std::uint32_t>(coordinate);
-                signature = (signature ^ bits) * kFnvPrime;
-            }
-            pane[r][c] = anchor;
-        }
-    }
-    // Matching counts and skin weights alone do not establish the frame geometry.
-    if (signature != layout.signature) {
-        return;
-    }
-
     const auto vertex_start = static_cast<std::uint32_t>(level.vertices.size());
     for (std::size_t r = 0; r < pane.size(); ++r) {
         for (std::size_t c = 0; c < Columns; ++c) {
@@ -155,6 +120,60 @@ void fit_pane(
     level.materials.push_back(std::move(material));
     model.primitives.push_back(primitive);
 }
+
+// Fits a pane only when the selected offsets still describe the reviewed frame.
+template <std::size_t Rows, std::size_t Columns>
+void fit_pane(
+    scene::LevelData& level,
+    const ShipLayout& layout,
+    const std::array<std::array<int, Columns>, Rows>& ribs
+) {
+    // Other regional exports and replacement models need their own verified fit.
+    const auto ship = level.moby_classes.find(layout.class_id);
+    if (ship == level.moby_classes.end() || ship->second.second
+        || ship->second.first >= level.models.size()) {
+        return;
+    }
+    auto& model = level.models[ship->second.first];
+    if (model.primitives.size() != 1
+        || model.primitives.front().index_count != layout.index_count) {
+        return;
+    }
+    const auto start = model.primitives.front().first_index;
+    // Replacement models may retain retail counts while carrying an incomplete index array.
+    if (start > level.indices.size() || layout.index_count > level.indices.size() - start) {
+        return;
+    }
+    std::array<std::array<scene::Vertex, Columns>, Rows> pane;
+    // Fold FP32 words in row order with the 64-bit FNV offset and prime.
+    std::uint64_t signature = 14695981039346656037ull;
+    constexpr std::uint64_t kFnvPrime = 1099511628211ull;
+    for (std::size_t r = 0; r < pane.size(); ++r) {
+        for (std::size_t c = 0; c < Columns; ++c) {
+            const auto index = level.indices[start + unsigned(ribs[r][c])];
+            if (index >= level.vertices.size()) {
+                return;
+            }
+            const auto& anchor = level.vertices[index];
+            // All anchors must belong entirely to the moving canopy joint.
+            if (anchor.joints[0] != layout.joint || anchor.weights[0] != 1.f) {
+                return;
+            }
+            for (const float coordinate : anchor.position) {
+                // Treat signed zero equally across exporters and host transforms.
+                const auto bits = coordinate == 0 ? 0u : std::bit_cast<std::uint32_t>(coordinate);
+                signature = (signature ^ bits) * kFnvPrime;
+            }
+            pane[r][c] = anchor;
+        }
+    }
+    // Matching counts and skin weights alone do not establish the frame geometry.
+    if (signature != layout.signature) {
+        return;
+    }
+
+    append_pane(level, model, pane);
+}
 }  // namespace
 
 void add_ship_visor(scene::LevelData& level) {
@@ -165,4 +184,4 @@ void add_ship_visor(scene::LevelData& level) {
     fit_pane(level, kVeldinShip, kVeldinRibs);
     fit_pane(level, kGreenShip, kGreenShipRails);
 }
-}  // namespace openrac::lighting
+}  // namespace openrac::game::rac1

@@ -559,7 +559,9 @@ bool finish_render() try {
         return !g || !g->render_failed;
     }
     const auto started = std::chrono::steady_clock::now();
-    while (!g->render_worker->ready_until(std::chrono::steady_clock::now() + std::chrono::milliseconds(50))) {
+    while (!g->render_worker->ready_until(
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(50)
+    )) {
         platform::pump_events();
     }
     std::string error;

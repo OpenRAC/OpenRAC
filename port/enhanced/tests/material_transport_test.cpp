@@ -63,7 +63,8 @@ void test_glass_preparation_identity(const std::filesystem::path& directory) {
     CHECK(materials::write_catalog(directory / "material-overrides.json", glass));
     const auto glass_hash = lighting::probe_input_hash(directory);
     CHECK(glass_hash != baseline);
-    const auto tuned = catalog(R"({"type":"glass-lit","glass":{"transmission":0.5},"surface":{"roughness":0.7}})");
+    const auto tuned =
+        catalog(R"({"type":"glass-lit","glass":{"transmission":0.5},"surface":{"roughness":0.7}})");
     CHECK(materials::write_catalog(directory / "material-overrides.json", tuned));
     CHECK(lighting::probe_input_hash(directory) == glass_hash);
     const auto lit = catalog(R"({"type":"lit"})");
@@ -78,9 +79,11 @@ void test_glass_preparation_identity(const std::filesystem::path& directory) {
 
 // Original suppresses later sparse contributions, so it must survive transport projection.
 void test_original_preparation_identity(const std::filesystem::path& directory) {
-    auto lit = materials::parse_catalog(R"({"version":1,"presets":{"paint":{"type":"lit"}},
+    auto lit = materials::parse_catalog(
+        R"({"version":1,"presets":{"paint":{"type":"lit"}},
       "overrides":[{"id":"assign","match":{"layer":"shrub"},"material":"paint"},
-      {"id":"tint","match":{"layer":"shrub","class_id":7},"set":{"surface":{"tint":[0.5,1,1]}}}]})");
+      {"id":"tint","match":{"layer":"shrub","class_id":7},"set":{"surface":{"tint":[0.5,1,1]}}}]})"
+    );
     CHECK(lit);
     const auto source = assets();
     source->sources[0].identity.class_id = 7;
@@ -101,10 +104,15 @@ void test_original_preparation_identity(const std::filesystem::path& directory) 
     CHECK(materials::write_catalog(directory / "material-overrides.json", original));
     const auto original_input = lighting::probe_input_hash(directory);
     CHECK(original_input != lit_input);
-    const auto projected = materials::parse_catalog(materials::transport_catalog_stamp(original).value());
+    const auto projected =
+        materials::parse_catalog(materials::transport_catalog_stamp(original).value());
     CHECK(projected);
-    CHECK(materials::text_value(materials::resolve(*projected, source->sources[0].identity)->properties,
-                                "type") == "original");
+    CHECK(
+        materials::text_value(
+            materials::resolve(*projected, source->sources[0].identity)->properties, "type"
+        )
+        == "original"
+    );
     original.presets["paint"]["surface.roughness"] = .7;
     CHECK(materials::write_catalog(directory / "material-overrides.json", original));
     CHECK(lighting::probe_input_hash(directory) == original_input);

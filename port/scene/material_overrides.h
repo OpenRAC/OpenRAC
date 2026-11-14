@@ -39,7 +39,9 @@ struct MaterialRecord {
 struct MaterialBinding {
     std::shared_ptr<const MaterialRecord> record;
     materials::Resolved values;  // Effective shading properties and inspector provenance.
+
     const Material& surface() const { return record->surface; }
+
     std::uint64_t variant() const { return record->variant; }
 };
 
@@ -49,7 +51,7 @@ struct MaterialBindings {
     materials::Catalog catalog;  // Resolved source layers used by the material inspector.
     std::shared_ptr<const MaterialAssets> assets;  // Immutable original identities and surfaces.
     std::vector<MaterialBinding> bindings;         // Parallel to assets->sources.
-    std::vector<std::shared_ptr<const MaterialRecord>> records;  // Unique render records.
+    std::vector<std::shared_ptr<const MaterialRecord>> records;   // Unique render records.
     std::map<std::pair<std::uint32_t, int>, std::size_t> lookup;  // Model/slot to cached binding.
     std::string transport_stamp;  // Empty if effective static transport equals original inputs.
     // Returns the resolved binding, or null for geometry not present in the loaded catalog.

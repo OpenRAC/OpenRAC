@@ -28,6 +28,7 @@
 #include "game/rac1/host/collision_notes.h"
 #include "game/rac1/profile_rac1-jp.h"
 #include "game/rac1/profile_rac1-pal1.h"
+#include "game/rac1/ship_visor.h"
 #include "game/rac1/shrub_proc.h"
 #include "openrac/guest.h"
 #include "renderer/math.h"
@@ -302,6 +303,11 @@ public:
             default:
                 return std::nullopt;
         }
+    }
+
+    // Only NTSC-U's canopy layouts have verified anchor signatures; other discs retain retail geometry.
+    LevelGeometryPreparer level_geometry_preparer() const override {
+        return &m_boot == &kRac1Ntsc ? add_ship_visor : nullptr;
     }
 
     // The water lily class is shared by PAL and NTSC (editor/moby_classes.tsv).

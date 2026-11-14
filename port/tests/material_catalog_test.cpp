@@ -203,6 +203,7 @@ void test_round_trip_and_bake_projection() {
     const auto transport = materials::transport_properties(properties);
     CHECK(transport.size() == 1 && std::get<double>(transport.at("emission.bake_intensity")) == 2);
 }
+
 // A shared assignment replaces old finishes, survives serialization, and keeps bake reset boundaries.
 void test_shared_assignments() {
     auto source = catalog(R"({"version":1,"presets":{
@@ -220,7 +221,10 @@ void test_shared_assignments() {
     const auto projection = materials::transport_catalog_stamp(source);
     CHECK(projection && !projection->empty());
     const auto projected = materials::parse_catalog(*projection);
-    CHECK(projected && !materials::resolve(*projected, identity)->properties.contains("surface.diffuse_scale"));
+    CHECK(
+        projected
+        && !materials::resolve(*projected, identity)->properties.contains("surface.diffuse_scale")
+    );
     source.rules.erase("old");
     CHECK(materials::transport_catalog_stamp(source)->empty());
     auto conflicting = source.rules.at("slot");
@@ -231,6 +235,7 @@ void test_shared_assignments() {
     CHECK(!materials::parse_catalog(R"({"version":1,"overrides":[
       {"id":"invalid","match":{"layer":"moby"},"preset":"paint","material":"paint"}]})"));
 }
+
 void test_material_type_migration() {
     for (const auto& type : materials::kMaterialTypes) {
         const auto definition = materials::material_definition({{"type", std::string(type.id)}});
@@ -254,7 +259,7 @@ void test_material_type_migration() {
     const auto saved = materials::catalog_text(*source);
     CHECK(saved && materials::parse_catalog(*saved));
     const auto profile_path = std::filesystem::path(__FILE__).parent_path().parent_path()
-        / "enhanced/lighting/profiles/rac1/material-overrides.json";
+                              / "enhanced/lighting/profiles/rac1/material-overrides.json";
     const auto profile = materials::read_catalog(profile_path);
     CHECK(profile && !profile->presets.empty());
     for (const auto& [id, rule] : profile->rules) {

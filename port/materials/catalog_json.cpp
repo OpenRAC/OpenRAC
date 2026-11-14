@@ -288,7 +288,8 @@ Rule rule(const json::Value& object, const std::string& context, const std::stri
             identifier(text(object["preset"], context + ".preset"), context + ".preset");
     }
     if (!object["material"].is_null()) {
-        result.material = identifier(text(object["material"], context + ".material"), context + ".material");
+        result.material =
+            identifier(text(object["material"], context + ".material"), context + ".material");
         if (!result.preset.empty()) {
             fail(context, "choose either a material assignment or a preset contribution");
         }
@@ -335,9 +336,10 @@ Catalog document(const json::Value& root, const std::string& source) {
         }
     }
     // Removed finish names remain readable, but never reappear as separate material families.
-    for (const auto& [old_name, new_name] : {
-            std::pair{"chrome", "lit-metal"}, std::pair{"stylised", "lit-reflective"},
-            std::pair{"library.glossy-plastic", "lit-smooth"}}) {
+    for (const auto& [old_name, new_name] :
+         {std::pair{"chrome", "lit-metal"},
+          std::pair{"stylised", "lit-reflective"},
+          std::pair{"library.glossy-plastic", "lit-smooth"}}) {
         const auto old = result.presets.find(old_name);
         const std::string replacement = new_name;
         if (old != result.presets.end()) {
@@ -350,8 +352,12 @@ Catalog document(const json::Value& root, const std::string& source) {
             result.preset_sources.erase(old_name);
         }
         for (auto& [id, rule] : result.rules) {
-            if (rule.preset == old_name) rule.preset = replacement;
-            if (rule.material == old_name) rule.material = replacement;
+            if (rule.preset == old_name) {
+                rule.preset = replacement;
+            }
+            if (rule.material == old_name) {
+                rule.material = replacement;
+            }
         }
     }
     return result;

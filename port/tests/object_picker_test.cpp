@@ -3,8 +3,8 @@
 #include <cmath>
 
 #include "common/json.h"
-#include "scene/object_picker.h"
 #include "scene/material_overrides.h"
+#include "scene/object_picker.h"
 #include "tests/check.h"
 using namespace openrac;
 
@@ -34,7 +34,10 @@ static void check_chrome_replacement(
     const auto& replacement = primitives.back();
     CHECK(replacement.enhanced_only && replacement.index_count == 3);
     CHECK(level.indices[replacement.first_index] == 6);
-    CHECK(!level.materials[replacement.material].metal && level.materials[replacement.material].image == -1);
+    CHECK(
+        !level.materials[replacement.material].metal
+        && level.materials[replacement.material].image == -1
+    );
     scene::ObjectPicker picker;
     constexpr auto mobys = 1u << unsigned(scene::Layer::Mobys);
     moby.matrix = renderer::translation({0, 0, -5});
@@ -57,16 +60,25 @@ static void check_chrome_replacement(
     catalog.rules.emplace(rule.id, rule);
     const auto bindings = scene::resolve_materials(*assets, catalog);
     CHECK(bindings);
-    if (!bindings) return;
+    if (!bindings) {
+        return;
+    }
     const auto restored = picker.cast(level, live, {}, camera, mobys, ndc, true, bindings->get());
     CHECK(restored && restored->material == replacement.material);
     CHECK(restored && level.models[0].primitives[restored->primitive].material == 1);
     const auto kept = picker.cast(level, live, {}, camera, mobys, {}, true, bindings->get());
     CHECK(kept && level.models[0].primitives[kept->primitive].material == 0);
-    CHECK(!scene::material_pass_visible(replacement, level.materials[replacement.material], true, true));
-    CHECK(scene::material_pass_visible(replacement, level.materials[replacement.material], true, false));
+    CHECK(!scene::material_pass_visible(
+        replacement, level.materials[replacement.material], true, true
+    ));
+    CHECK(
+        scene::material_pass_visible(
+            replacement, level.materials[replacement.material], true, false
+        )
+    );
     // The snapshot used for live picking must not change the classic selection.
-    const auto still_classic = picker.cast(level, live, {}, camera, mobys, ndc, false, bindings->get());
+    const auto still_classic =
+        picker.cast(level, live, {}, camera, mobys, ndc, false, bindings->get());
     CHECK(still_classic && still_classic->material == 1);
 }
 

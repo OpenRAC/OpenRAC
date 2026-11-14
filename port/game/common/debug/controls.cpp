@@ -494,7 +494,8 @@ void enhanced_settings_window() {
         ImGui::EndDisabled();
 
         ImGui::BeginDisabled(
-            !enhanced::Fsr3::available() || graphics.temporal_quality == renderer::TemporalQuality::Off
+            !enhanced::Fsr3::available()
+            || graphics.temporal_quality == renderer::TemporalQuality::Off
         );
         changed |= slider_float(
             "Upscaling sharpening",

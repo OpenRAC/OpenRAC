@@ -95,15 +95,14 @@ MaterialResponse material_response(
     result.glass.tint = materials::colour_value(properties, "glass.tint", result.glass.tint);
     const auto reflection = properties.lower_bound("reflection.");
     result.metallic = number(properties, "surface.metallic", -1.f);
-    const bool optical_override = result.metallic >= 0.f || properties.contains("surface.roughness")
-                                  || properties.contains("surface.reflectivity")
-                                  || (reflection != properties.end()
-                                      && reflection->first.starts_with("reflection."));
+    const bool optical_override =
+        result.metallic >= 0.f || properties.contains("surface.roughness")
+        || properties.contains("surface.reflectivity")
+        || (reflection != properties.end() && reflection->first.starts_with("reflection."));
     result.reflection_override = result.family_override || optical_override;
     const auto family = materials::text_value(properties, "shading");
-    result.dielectric_specular =
-        !source.identity.metal
-        && optical_override && (family.empty() || family == "standard" || family == "foliage");
+    result.dielectric_specular = !source.identity.metal && optical_override
+                                 && (family.empty() || family == "standard" || family == "foliage");
     result.fur = fur_response(properties);
     const auto fur = properties.lower_bound("fur.");
     result.fur_override = fur != properties.end() && fur->first.starts_with("fur.");

@@ -12,7 +12,6 @@
 
 #include "common/log.h"
 #include "common/stats.h"
-#include "enhanced/renderer/reflection_material.h"
 #include "renderer/frame/colour_graph.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/precise_depth.h"
@@ -1651,8 +1650,9 @@ void LevelScene::draw_layer(
                 if (metal && enhanced_material) {
                     const bool glass = m_lighting->material_glass(g.model, run_material);
                     if (glass != premultiplied) {
-                        glBlendFuncSeparate(glass ? GL_ONE : GL_SRC_ALPHA,
-                                            GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+                        glBlendFuncSeparate(
+                            glass ? GL_ONE : GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE
+                        );
                         premultiplied = glass;
                     }
                 }
@@ -1743,12 +1743,14 @@ void LevelScene::draw_layer(
             }
             for (const Primitive& p : *primitives) {
                 const auto& material = m_materials[static_cast<std::size_t>(p.material)];
-                const bool glass = enhanced_materials && m_lighting->material_glass(g.model, p.material);
+                const bool glass =
+                    enhanced_materials && m_lighting->material_glass(g.model, p.material);
                 if (glass ? (state.depth_prepass || (mobys ? pass != kMobyMetal : pass != 2))
                           : material.metal != metal) {
                     continue;
                 }
-                const bool original = enhanced_materials
+                const bool original =
+                    enhanced_materials
                     && m_lighting->material_original(g.model, p.appearance_slot());
                 if (!material_pass_visible(p, material, enhanced_materials, original)) {
                     continue;

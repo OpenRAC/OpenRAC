@@ -46,8 +46,9 @@ The enhanced module documents material consumers and its authoring UI.
 ```
 
 The scene owns immutable original materials and resolved model/slot bindings. Enhanced colour draws
-use cached surface records and typed optical controls. Classic rendering, alpha, depth passes and
-simulation state retain their original inputs. Baking reads the same resolved surface records.
+use cached surface records and typed optical controls. Textures, cutout masks and simulation state
+remain with their mesh slots. Glass Lit selects a transparent pass; Original restores retail coverage.
+Baking reads the same resolved surface records.
 Runtime-only fields are excluded from bake fingerprints. Effective static emission or diffuse changes
 require a rebake. Materials can set `emission.bake_mode` to `"texture"` to sample their emission
 texture and vertex colours, or to `"mesh"` to use a constant linear HDR `emission.bake_mesh_rgb`
@@ -81,8 +82,8 @@ those settings into `materials/level`; local Studio saves continue to override t
 Legacy emission sidecars remain readable; unchanged generated defaults are not imported as local edits.
 Fur coverage, water boundaries/simulation, bake geometry and authored lights keep their own formats.
 
-Graphics > Enhanced Settings > Materials & water > Material inspector edits one object type and slot
-or a shared preset. The click picker's Edit material selects the exact binding. Saved slot selectors
+Developer settings > Material Studio edits reusable definitions and their mesh-slot assignments.
+The click picker's Edit material selects the exact binding. Saved slot selectors
 use the exported `model` name and zero-based `material_slot` (`-1` for implicit material). Hover a control to
 see its source; edits preview live, Save writes a sparse overlay atomically, and Discard restores the
 last loaded/saved values. Saving refuses external file changes. Importing new image references and
@@ -91,6 +92,7 @@ changing verified fur coverage require editing the JSON and reloading the level.
 Material Studio separates the **Materials** library from the **Surfaces** browser. Each surface shows
 its shared material name. Untouched surfaces and legacy overrides are imported into shared definitions;
 equivalent appearances share one definition, while textures and geometry remain with their surfaces.
+Tint, brightness and emission controls show inherited defaults until edited; opening Studio does not save them.
 The surface browser shows every editable surface; **Local changes only** filters assignments and
 imported local edits. Pick a surface, then
 choose a shared material, **Create shared material**, or **Choose a finish**. Library finishes create
@@ -102,11 +104,11 @@ response. Water is a Lit option for the level's water binding. Fur and wet fur r
 and the existing wetness simulation. Glass Lit moves assigned geometry into the transparent pass;
 switching between opaque and glass materials invalidates static GI, while reflection and transmission
 tuning stays runtime-only. The original texture cutout mask remains in effect for Glass Lit.
+Original participates in preparation fingerprints because it can suppress inherited tint and emission edits.
 Original retains the original appearance without enhanced material lighting. On chrome surfaces it
 restores the retail reflective geometry and texture; Lit uses the colour/replacement geometry instead.
 Each surface controls its own chrome coverage, including when several surfaces share a retail packet.
-Legacy chrome and stylised
-families migrate to Lit metallic properties; the glossy-plastic library entry is removed.
+Legacy chrome and stylised families migrate to Lit metallic properties; the glossy-plastic library entry is removed.
 **Restore level material** clears saved and unsaved exact-slot
 overrides and assignments for the selection, retaining inherited defaults, shared definitions and
 other users. The reset previews immediately and persists with **Save changes**. Field **Revert** only

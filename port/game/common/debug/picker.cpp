@@ -40,8 +40,7 @@ struct Picture {
 
     std::array<float, 2> ndc(ImVec2 at) const {
         return {
-            2 * (at.x - low.x) / (high.x - low.x) - 1,
-            1 - 2 * (at.y - low.y) / (high.y - low.y)
+            2 * (at.x - low.x) / (high.x - low.x) - 1, 1 - 2 * (at.y - low.y) / (high.y - low.y)
         };
     }
 
@@ -193,10 +192,7 @@ void picker_overlay(const Shown& shown) {
             const auto layer = scene::layer_name(hit->layer);
             ImGui::TextWrapped("%s", name.empty() ? hit->name.c_str() : name.c_str());
             ImGui::TextDisabled(
-                "%s  /  Model %u  /  Material %d",
-                layer,
-                hit->model,
-                hit->material
+                "%s  /  Model %u  /  Material %d", layer, hit->model, hit->material
             );
             if (!hit->texture.empty()) {
                 ImGui::TextWrapped("Texture %s", hit->texture.c_str());
@@ -225,20 +221,25 @@ void picker_overlay(const Shown& shown) {
             if (s.developer) {
                 if (ImGui::Button("Edit material")) {
                     const auto& level = *shown.picker_level;
-                    const auto* material = hit->material >= 0
-                                                   && std::size_t(hit->material) < level.materials.size()
-                                               ? &level.materials[hit->material]
-                                               : nullptr;
+                    const auto* material =
+                        hit->material >= 0 && std::size_t(hit->material) < level.materials.size()
+                            ? &level.materials[hit->material]
+                            : nullptr;
                     if (material && scene::is_retail_chrome(material->metal, material->name)) {
                         const auto editor = frontend::material_editor();
                         ImVec2 at;
                         auto visible = picture.project(hit->position, at)
-                            ? shown.picker->cast(
-                                  level, shown.picker_live, shown.picker_palette, *shown.camera,
-                                  1u << unsigned(hit->layer), picture.ndc(at), true,
-                                  editor ? editor->bindings.get() : nullptr
-                              )
-                            : std::nullopt;
+                                           ? shown.picker->cast(
+                                                 level,
+                                                 shown.picker_live,
+                                                 shown.picker_palette,
+                                                 *shown.camera,
+                                                 1u << unsigned(hit->layer),
+                                                 picture.ndc(at),
+                                                 true,
+                                                 editor ? editor->bindings.get() : nullptr
+                                             )
+                                           : std::nullopt;
                         if (visible && visible->model == hit->model
                             && visible->instance == hit->instance) {
                             s.picker_result.hit = std::move(visible);

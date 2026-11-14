@@ -710,7 +710,13 @@ bool act(Id id, int by) {
             return false;
         }
         case Id::OcclusionQuality:
-            set.set_occlusion_quality_choice(std::clamp(set.occlusion_quality_choice() + by, 0, static_cast<int>(renderer::GtaoQuality::Quality) + 1));
+            set.set_occlusion_quality_choice(
+                std::clamp(
+                    set.occlusion_quality_choice() + by,
+                    0,
+                    static_cast<int>(renderer::GtaoQuality::Quality) + 1
+                )
+            );
             changed();
             return false;
         // Persist the hierarchy choice with the remaining ambient-occlusion options.

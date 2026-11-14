@@ -2928,7 +2928,9 @@ void finish_pipelines(void (*pump_events)()) {
     auto& prewarm = detail::g->prewarm;
     std::unique_lock lock(prewarm.mutex);
     const auto before = prewarm.made;
-    const auto finished = [&] { return prewarm.queue.empty() && prewarm.making.empty(); };
+    const auto finished = [&] {
+        return prewarm.queue.empty() && prewarm.making.empty();
+    };
     if (pump_events != nullptr) {
         using namespace std::chrono_literals;
         while (!prewarm.changed.wait_for(lock, 50ms, finished)) {

@@ -250,12 +250,18 @@ void main() {
     CHECK(draw_chrome(true, 0, 2) == no_capture);
 
     auto solid_source = std::string(scene::shaders::mesh_frag);
-    solid_source.insert(solid_source.find('\n') + 1,
-                        "#define OPENRAC_SOLID 1\n#define OPENRAC_COLOUR_SPECIALISED 1\n"
-                        "#define OPENRAC_STATIC_COLOUR 1\n");
+    solid_source.insert(
+        solid_source.find('\n') + 1,
+        "#define OPENRAC_SOLID 1\n#define OPENRAC_COLOUR_SPECIALISED 1\n"
+        "#define OPENRAC_STATIC_COLOUR 1\n"
+    );
     renderer::Shader solid;
-    CHECK(solid.build("solid static dielectric", metal_vertex,
-                      lighting::probe_mesh_fragment(std::move(solid_source)), fixture.error));
+    CHECK(solid.build(
+        "solid static dielectric",
+        metal_vertex,
+        lighting::probe_mesh_fragment(std::move(solid_source)),
+        fixture.error
+    ));
     solid.use();
     probes.bind(solid, scene::Layer::Terrain, false);
     reference_selection.bind(solid);

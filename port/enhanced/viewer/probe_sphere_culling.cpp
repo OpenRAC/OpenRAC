@@ -115,7 +115,8 @@ void ProbeSphereCulling::dispatch(
     if (is_vulkan()) {
         namespace graph = renderer::graph;
         vkgl::GraphExecution execution;
-        const auto source = execution.read_buffer("probe sphere source", m_buffers[0], graph::Stage::ComputeShader);
+        const auto source =
+            execution.read_buffer("probe sphere source", m_buffers[0], graph::Stage::ComputeShader);
         const auto output = execution.import_buffer("probe sphere vertices", m_buffers[1]);
         const auto arguments = execution.import_buffer("probe sphere arguments", m_buffers[2]);
         if (!source || !output || !arguments) {
@@ -125,22 +126,36 @@ void ProbeSphereCulling::dispatch(
         constexpr auto argument_bytes = (kCommandWords + kRegionCapacity) * sizeof(unsigned);
         auto pass = execution.make_pass("probe sphere compaction");
         pass.buffers.push_back(*source);
-        pass.buffers.push_back({*output, {0, vertex_bytes},
-            {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}});
-        pass.buffers.push_back({*arguments, {0, argument_bytes},
-            {graph::Stage::ComputeShader, graph::Access::ReadWrite, graph::Layout::Buffer}});
+        pass.buffers.push_back(
+            {*output,
+             {0, vertex_bytes},
+             {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}
+        );
+        pass.buffers.push_back(
+            {*arguments,
+             {0, argument_bytes},
+             {graph::Stage::ComputeShader, graph::Access::ReadWrite, graph::Layout::Buffer}}
+        );
         // The CPU-selected branch never samples a mask; unit zero may hold an unrelated buffer view.
-        const auto inputs = execution.capture_compute_reads(pass, gpu_selection
-            ? vkgl::ComputeInputs::All : vkgl::ComputeInputs::UniformBlocks);
+        const auto inputs = execution.capture_compute_reads(
+            pass, gpu_selection ? vkgl::ComputeInputs::All : vkgl::ComputeInputs::UniformBlocks
+        );
         if (!inputs) {
             throw std::runtime_error(inputs.error().message);
         }
         auto consumers = execution.make_pass("probe sphere draw inputs");
-        graph::shader_read_export(consumers, pass,
-            graph::Stage::VertexShader | graph::Stage::FragmentShader | graph::Stage::ComputeShader);
+        graph::shader_read_export(
+            consumers,
+            pass,
+            graph::Stage::VertexShader | graph::Stage::FragmentShader | graph::Stage::ComputeShader
+        );
         for (auto& use : consumers.buffers) {
-            if (use.buffer == *output) use.state.stages = use.state.stages | graph::Stage::VertexInput;
-            if (use.buffer == *arguments) use.state.stages = use.state.stages | graph::Stage::DrawIndirect;
+            if (use.buffer == *output) {
+                use.state.stages = use.state.stages | graph::Stage::VertexInput;
+            }
+            if (use.buffer == *arguments) {
+                use.state.stages = use.state.stages | graph::Stage::DrawIndirect;
+            }
         }
         execution.add_pass(std::move(pass));
         execution.add_pass(std::move(consumers));

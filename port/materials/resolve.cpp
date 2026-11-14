@@ -218,7 +218,8 @@ Result<std::string> transport_catalog_stamp(const Catalog& catalog) {
         if (!rule.material.empty()) {
             // Keep assignment boundaries: they can remove earlier diffuse/emission overrides.
             item.material = rule.material;
-            projected.presets[rule.material] = transport_properties(catalog.presets.at(rule.material));
+            projected.presets[rule.material] =
+                transport_properties(catalog.presets.at(rule.material));
             item.properties = transport_properties(rule.properties);
         }
         item.name.clear();
@@ -232,7 +233,8 @@ Result<std::string> transport_catalog_stamp(const Catalog& catalog) {
     // Include their transport contribution so preparation cannot reuse a bake with stale geometry.
     for (const auto& [name, definition] : catalog.presets) {
         const bool referenced = std::ranges::any_of(catalog.rules, [&](const auto& item) {
-            return item.second.enabled && (item.second.material == name || item.second.preset == name);
+            return item.second.enabled
+                   && (item.second.material == name || item.second.preset == name);
         });
         if (!referenced) {
             auto properties = transport_properties(definition);

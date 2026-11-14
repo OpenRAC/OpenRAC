@@ -119,9 +119,12 @@ struct Primitive {
     // A count of 0 draws the whole primitive there.
     std::uint32_t glow_first = 0;
     std::uint32_t glow_count = 0;
-    bool enhanced_only = false;  // Standard replacement for geometry found only in a retail pass.
+    bool enhanced_only = false;    // Standard replacement for geometry found only in a retail pass.
     int appearance_material = -1;  // Chrome coverage follows this editable colour/replacement slot.
-    int appearance_slot() const { return appearance_material >= 0 ? appearance_material : material; }
+
+    int appearance_slot() const {
+        return appearance_material >= 0 ? appearance_material : material;
+    }
 };
 
 inline bool material_pass_visible(

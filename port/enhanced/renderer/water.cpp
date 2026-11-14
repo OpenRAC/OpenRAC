@@ -528,7 +528,8 @@ void set_ocean_optics_defaults(std::optional<float> roughness, std::optional<flo
     }
     if (reflectivity != ocean_authored_reflectivity) {
         ocean_authored_reflectivity = reflectivity;
-        ocean_live_material.reflectivity = reflectivity.value_or(ocean_profile_material.reflectivity);
+        ocean_live_material.reflectivity =
+            reflectivity.value_or(ocean_profile_material.reflectivity);
     }
 }
 

@@ -263,8 +263,10 @@ bool patch_material(
     std::span<const std::size_t> bindings, materials::Properties properties, std::string& error
 );
 bool assign_material(
-    std::span<const std::size_t> bindings, const std::string& material,
-    materials::Properties definition, std::string& error
+    std::span<const std::size_t> bindings,
+    const std::string& material,
+    materials::Properties definition,
+    std::string& error
 );
 bool make_material_unique(std::span<const std::size_t> bindings, std::string& error);
 bool clear_material_slots(std::span<const std::size_t> bindings, std::string& error);

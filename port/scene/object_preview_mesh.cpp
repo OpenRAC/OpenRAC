@@ -4,11 +4,10 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
-
-#include "scene/object_preview.h"
-#include "scene/material_overrides.h"
-
 #include <numbers>
+
+#include "scene/material_overrides.h"
+#include "scene/object_preview.h"
 
 namespace openrac::scene {
 namespace {
@@ -247,7 +246,8 @@ Result<PreviewMesh> preview_mesh(
         const auto* binding = materials ? materials->find(hit.model, p.material) : nullptr;
         PreviewPart part;
         part.material = binding && !is_retail_chrome(original.metal, original.name)
-            ? binding->surface() : original;
+                            ? binding->surface()
+                            : original;
         part.first = unsigned(mesh.source.size());
         part.count = p.index_count;
         part.source_material = p.material;
@@ -288,7 +288,9 @@ Result<PreviewMesh> preview_mesh(
     return mesh;
 }
 
-PreviewMesh preview_uv_sphere(const LevelData& level, int source_material, const Material& material) {
+PreviewMesh preview_uv_sphere(
+    const LevelData& level, int source_material, const Material& material
+) {
     constexpr int rings = 24, segments = 48;
     const auto vertex = [](int ring, int segment) {
         const float u = float(segment) / segments;

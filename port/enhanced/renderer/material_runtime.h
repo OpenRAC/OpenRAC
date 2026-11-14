@@ -72,7 +72,8 @@ public:
     [[nodiscard]] Result<void> patch(std::size_t binding, materials::Properties properties);
     // Links slots to one named material; supplied properties create it only when absent.
     [[nodiscard]] Result<void> assign(
-        std::span<const std::size_t> bindings, const std::string& material,
+        std::span<const std::size_t> bindings,
+        const std::string& material,
         materials::Properties definition = {}
     );
     [[nodiscard]] Result<std::string> make_unique(std::span<const std::size_t> bindings);
@@ -88,9 +89,7 @@ public:
     [[nodiscard]] Result<void> clear_slots(std::span<const std::size_t> bindings);
     // Removes one unsaved field, inheriting its last loaded/saved source again.
     [[nodiscard]] Result<void> undo(std::size_t binding, const std::string& key);
-    [[nodiscard]] Result<void> undo(
-        std::span<const std::size_t> bindings, const std::string& key
-    );
+    [[nodiscard]] Result<void> undo(std::span<const std::size_t> bindings, const std::string& key);
     // Removes one unsaved shared-preset field without affecting other edited fields.
     [[nodiscard]] Result<void> undo_preset(const std::string& preset, const std::string& key);
     // Restores loaded values and discards unsaved edits without changing any JSON files.
@@ -113,7 +112,8 @@ private:
     std::shared_ptr<const MaterialEditor> m_editor;             // Current immutable UI snapshot.
     materials::Catalog m_author;                                // Existing local file plus edits.
     materials::Catalog m_edits;                                 // Sparse unsaved session rules.
-    std::map<std::string, materials::Properties> m_created_materials;  // Initial values for field Revert.
+    std::map<std::string, materials::Properties>
+        m_created_materials;         // Initial values for field Revert.
     materials::Catalog m_inherited;  // Layers below the current save file.
     std::set<std::string> m_deleted;
     std::string

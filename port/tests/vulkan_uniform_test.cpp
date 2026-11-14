@@ -138,7 +138,9 @@ void test_material_optical_records(unsigned vertex_array, bool reference) {
     renderer::FrameBuffer target;
     std::string error;
     CHECK(target.create(4, 1, error));
-    CHECK(shader.build("material optical records", R"(#version 410 core
+    CHECK(shader.build(
+        "material optical records",
+        R"(#version 410 core
 in mat4 model;
 void main() {
     const vec2 corners[6]=vec2[6](vec2(-1,-1),vec2(1,-1),vec2(1,1),
@@ -146,7 +148,8 @@ void main() {
     vec2 p=corners[gl_VertexID%6];
     p.x=p.x*.25-.75+float(gl_VertexID/6)*.5;
     gl_Position=vec4(p,0,1)+vec4(model[0].xyz,0);
-})", R"(#version 410 core
+})",
+        R"(#version 410 core
 uniform vec4 material_colour;
 uniform vec3 material_dielectric;
 uniform vec3 material_dielectric_tint;
@@ -158,7 +161,9 @@ void main() {
     result=material_colour*vec4((material_dielectric.x+material_dielectric.y+foliage_reflectivity)*.25,
         material_dielectric_tint.y,material_metallic*.25+material_dielectric.z*.1,
         float(material_fallback)*.25);
-})", error));
+})",
+        error
+    ));
     glBindFramebuffer(GL_FRAMEBUFFER, target.id());
     glBindVertexArray(vertex_array);
     glViewport(0, 0, 4, 1);

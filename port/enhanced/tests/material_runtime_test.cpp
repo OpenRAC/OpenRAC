@@ -88,9 +88,11 @@ void test_shared_materials(const std::filesystem::path& directory) {
     const std::array<std::size_t, 1> first{0};
     CHECK(runtime.patch(0, "surface.roughness", .9));
     CHECK(runtime.save());
-    CHECK(runtime.assign(both, "paint", {
-        {"shading", std::string("standard")}, {"surface.roughness", .3}, {"surface.metallic", 0.}
-    }));
+    CHECK(runtime.assign(
+        both,
+        "paint",
+        {{"shading", std::string("standard")}, {"surface.roughness", .3}, {"surface.metallic", 0.}}
+    ));
     CHECK(runtime.find(0, 0)->values.material == "paint");
     CHECK(runtime.find(1, 0)->values.material == "paint");
     CHECK(runtime.find(0, 0)->record == runtime.find(1, 0)->record);
@@ -118,7 +120,8 @@ void test_shared_materials(const std::filesystem::path& directory) {
     auto baseline = level(path);
     auto catalog = baseline.material_bindings->source_catalog;
     materials::merge_catalog(catalog, *author, std::numeric_limits<int>::max());
-    baseline.material_bindings = scene::resolve_materials(baseline.material_assets, catalog).value();
+    baseline.material_bindings =
+        scene::resolve_materials(baseline.material_assets, catalog).value();
     CHECK(next.load(baseline));
     CHECK(next.response(0, 0)->reflection.roughness == .2f);
     CHECK(next.response(1, 0)->reflection.roughness == .6f);
@@ -161,7 +164,7 @@ void test_clear_saved_slots(const std::filesystem::path& directory) {
     CHECK(runtime.save());
     CHECK(runtime.patch(0, "surface.roughness", .6));
     CHECK(runtime.undo(0, "surface.roughness"));
-    CHECK(runtime.response(0, 0)->reflection.roughness == .22f); // Undo retains saved values.
+    CHECK(runtime.response(0, 0)->reflection.roughness == .22f);  // Undo retains saved values.
     const auto previous = runtime.editor();
     CHECK(!runtime.clear_slots(invalid));
     CHECK(runtime.editor() == previous);
@@ -246,8 +249,9 @@ void test_ocean_preset(const std::filesystem::path& directory) {
     enhanced::reset_ocean_material();
     live = enhanced::ocean_material();
     CHECK(live.roughness == .21f && live.reflectivity == .020f && live.colour == profile.colour);
-    CHECK(enhanced::reflection_material_settings(enhanced::ReflectionSurface::Water).roughness
-          == .22f);
+    CHECK(
+        enhanced::reflection_material_settings(enhanced::ReflectionSurface::Water).roughness == .22f
+    );
     CHECK(!runtime.editor()->transport_dirty);
     runtime.reset();
     live = enhanced::ocean_material();
@@ -415,10 +419,12 @@ void test_family_defaults() {
     const auto metallic = enhanced::material_response(source, {{"surface.metallic", .5}});
     CHECK(metallic.dielectric_specular && metallic.metallic == .5f);
     CHECK(chrome.metallic < 0.f);
-    const auto leaf = enhanced::material_response(source, {
-        {"shading", std::string("foliage")}, {"reflection.strength", 0.},
-        {"reflection.tint", std::array<double, 3>{.5, .25, 1.}}
-    });
+    const auto leaf = enhanced::material_response(
+        source,
+        {{"shading", std::string("foliage")},
+         {"reflection.strength", 0.},
+         {"reflection.tint", std::array<double, 3>{.5, .25, 1.}}}
+    );
     CHECK(leaf.dielectric_specular && leaf.reflection.strength == 0.f);
     CHECK(leaf.reflection.tint == (std::array<float, 3>{.5f, .25f, 1.f}));
     CHECK(!materials::validate({{"surface.metallic", 1.01}}));
@@ -442,20 +448,24 @@ void test_all_material_types(const std::filesystem::path& directory) {
         CHECK(runtime.find(0, 0)->values.material == name);
         CHECK(runtime.response(0, 0)->original == (type.id == "original"));
         CHECK(runtime.response(0, 0)->glass_surface == (type.id == "glass-lit"));
-        CHECK(runtime.response(0, 0)->fur.enabled == (type.id == "lit-fur" || type.id == "lit-wet-fur"));
+        CHECK(
+            runtime.response(0, 0)->fur.enabled
+            == (type.id == "lit-fur" || type.id == "lit-wet-fur")
+        );
         CHECK(runtime.response(0, 0)->wet_fur == (type.id == "lit-wet-fur"));
         CHECK((runtime.response(0, 0)->foliage[1] != 0) == (type.id == "foliage"));
     }
     CHECK(runtime.patch_preset(name, "surface.diffuse_scale", .1));
     CHECK(runtime.find(0, 0)->surface().diffuse_scale == 1.f);
-    CHECK(!runtime.editor()->transport_dirty); // Original ignores retained enhanced properties.
+    CHECK(!runtime.editor()->transport_dirty);  // Original ignores retained enhanced properties.
     CHECK(runtime.save());
     auto next_level = level(path);
     auto catalog = next_level.material_bindings->source_catalog;
     const auto saved = materials::read_catalog(path / "material-overrides.json");
     CHECK(saved && saved->presets.contains(name));
     materials::merge_catalog(catalog, *saved, 1);
-    next_level.material_bindings = scene::resolve_materials(next_level.material_assets, catalog).value();
+    next_level.material_bindings =
+        scene::resolve_materials(next_level.material_assets, catalog).value();
     enhanced::MaterialRuntime next;
     CHECK(next.load(next_level));
     CHECK(next.response(0, 0)->original && next.response(1, 0)->original);
@@ -475,7 +485,9 @@ void test_revert_created_material(const std::filesystem::path& directory) {
     enhanced::MaterialRuntime runtime;
     CHECK(runtime.load(level(directory)));
     const std::array<std::size_t, 1> first{0};
-    CHECK(runtime.assign(first, "revert-created", {{"type", std::string("lit")}, {"surface.roughness", .27}}));
+    CHECK(runtime.assign(
+        first, "revert-created", {{"type", std::string("lit")}, {"surface.roughness", .27}}
+    ));
     for (double roughness : {.88, .66}) {
         CHECK(runtime.patch_preset("revert-created", "surface.roughness", roughness));
         CHECK(runtime.undo_preset("revert-created", "surface.roughness"));
@@ -510,8 +522,11 @@ void test_material_control_defaults(const std::filesystem::path& directory) {
     CHECK(materials::number_value(controls, "surface.diffuse_scale", 0) == .25f);
     CHECK(materials::number_value(controls, "emission.runtime_intensity", 0) == 2.f);
     CHECK(materials::number_value(controls, "emission.bake_intensity", 0) == 4.f);
-    CHECK(!definition.contains("surface.tint") && !definition.contains("emission.runtime_intensity"));
-    const auto explicit_controls = material_control_properties({{"surface.diffuse_scale", .6}}, inherited);
+    CHECK(
+        !definition.contains("surface.tint") && !definition.contains("emission.runtime_intensity")
+    );
+    const auto explicit_controls =
+        material_control_properties({{"surface.diffuse_scale", .6}}, inherited);
     CHECK(materials::number_value(explicit_controls, "surface.diffuse_scale", 0) == .6f);
     enhanced::MaterialRuntime runtime;
     CHECK(runtime.load(level(directory)));
@@ -522,7 +537,9 @@ void test_material_control_defaults(const std::filesystem::path& directory) {
     CHECK(runtime.undo_preset(shared, "surface.tint"));
     CHECK(runtime.find(0, 0)->surface().colour[0] == 1.f);
     CHECK(!runtime.editor()->bindings->catalog.presets.at(shared).contains("surface.tint"));
-    CHECK(!runtime.editor()->bindings->catalog.presets.at(shared).contains("emission.bake_intensity"));
+    CHECK(
+        !runtime.editor()->bindings->catalog.presets.at(shared).contains("emission.bake_intensity")
+    );
 }
 
 void test_glass_transport_dirty(const std::filesystem::path& directory) {

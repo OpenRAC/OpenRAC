@@ -134,10 +134,12 @@ struct Settings {
         float brightness = 1.20f;
         float range = 2.22f;
     } nanotech_light;
+
     // The menu puts Off before the renderer's quality levels.
     int shadow_quality_choice() const {
         return enhanced_shadows ? static_cast<int>(shadow_quality) + 1 : 0;
     }
+
     void set_shadow_quality_choice(int choice) {
         enhanced_shadows = choice > 0;
         if (enhanced_shadows) {
@@ -175,9 +177,11 @@ struct Settings {
     // The preset those options match now, or Custom.
     EnhancedPreset enhanced_preset() const;
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
+
     int occlusion_quality_choice() const {
         return gtao ? static_cast<int>(gtao_settings.quality) + 1 : 0;
     }
+
     void set_occlusion_quality_choice(int choice) {
         gtao = choice > 0;
         if (gtao) {

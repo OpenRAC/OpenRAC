@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+//
+// Reusable material finishes and display-only defaults for Material Studio's schema controls.
 #pragma once
 
 #include <algorithm>
@@ -21,14 +23,26 @@ inline materials::Properties material_control_properties(
     properties.try_emplace("surface.diffuse_scale", double(inherited.diffuse_scale));
     const auto emission = *std::max_element(inherited.emission.begin(), inherited.emission.end());
     properties.try_emplace("emission.runtime_intensity", double(emission));
-    properties.try_emplace("emission.bake_intensity", double(inherited.bake_intensity.value_or(emission)));
+    properties.try_emplace(
+        "emission.bake_intensity", double(inherited.bake_intensity.value_or(emission))
+    );
     properties.try_emplace("emission.contrast", double(inherited.emission_contrast));
     properties.try_emplace("emission.vertex_colour", inherited.emission_vertex_colour);
-    properties.try_emplace("emission.use_base_texture", inherited.emission_image == inherited.image);
+    properties
+        .try_emplace("emission.use_base_texture", inherited.emission_image == inherited.image);
     return properties;
 }
 
-enum class PresetSurface { Opaque, Metal, Glass, Water, Ocean, Foliage, DryFur, WetFur };
+enum class PresetSurface {
+    Opaque,
+    Metal,
+    Glass,
+    Water,
+    Ocean,
+    Foliage,
+    DryFur,
+    WetFur
+};
 
 struct MaterialPreset {
     PresetSurface surface;
@@ -41,6 +55,7 @@ struct MaterialPreset {
 };
 
 // Roughness is a suggested finish. Metal F0 uses Epic's measured-material reference values.
+// clang-format off: one finish per row for comparing library values.
 inline constexpr MaterialPreset kMaterialPresets[] = {
     {PresetSurface::Opaque, "Satin plastic", "Soft highlights for robot trim and weapon grips.", .40},
     {PresetSurface::Opaque, "Matte rubber", "Broad highlights for tyres, seals and boot soles.", .78},
@@ -99,35 +114,57 @@ inline constexpr MaterialPreset kMaterialPresets[] = {
     {PresetSurface::DryFur, "Dry fur", "Directional strand detail and subtle scattering on Ratchet's verified coat."},
     {PresetSurface::WetFur, "Wet fur", "Darkens the verified coat and tightens highlights when wet."},
 };
+// clang-format on
+
 // Complete optical finishes reset metallic when switching back to a dielectric.
 inline materials::Properties preset_properties(const MaterialPreset& preset) {
     using Colour = std::array<double, 3>;
     if (preset.surface == PresetSurface::Ocean) {
-        return {{"type", std::string("lit")}, {"shading", std::string("water")},
-                {"ocean.roughness", preset.roughness}, {"ocean.reflectivity", preset.reflectivity}};
+        return {
+            {"type", std::string("lit")},
+            {"shading", std::string("water")},
+            {"ocean.roughness", preset.roughness},
+            {"ocean.reflectivity", preset.reflectivity}
+        };
     }
     if (preset.surface == PresetSurface::DryFur) {
         const enhanced::FurMaterialSettings fur;
-        return {{"type", std::string("lit-fur")}, {"fur.enabled", fur.enabled}, {"fur.strength", double(fur.strength)},
-                {"fur.contrast", double(fur.contrast)}, {"fur.fade_distance", double(fur.fade_distance)},
-                {"fur.lighting_enabled", fur.lighting_enabled}, {"fur.highlight", double(fur.highlight)},
-                {"fur.softness", double(fur.softness)}, {"fur.directionality", double(fur.directionality)},
-                {"fur.scattering", double(fur.scattering)},
-                {"fur.environment_strength", double(fur.environment_strength)}};
+        return {
+            {"type", std::string("lit-fur")},
+            {"fur.enabled", fur.enabled},
+            {"fur.strength", double(fur.strength)},
+            {"fur.contrast", double(fur.contrast)},
+            {"fur.fade_distance", double(fur.fade_distance)},
+            {"fur.lighting_enabled", fur.lighting_enabled},
+            {"fur.highlight", double(fur.highlight)},
+            {"fur.softness", double(fur.softness)},
+            {"fur.directionality", double(fur.directionality)},
+            {"fur.scattering", double(fur.scattering)},
+            {"fur.environment_strength", double(fur.environment_strength)}
+        };
     }
     if (preset.surface == PresetSurface::WetFur) {
         const enhanced::WetnessMaterialSettings wet;
-        return {{"type", std::string("lit-wet-fur")}, {"wetness.diffuse_scale", double(wet.diffuse_scale)},
-                {"wetness.specular_strength", double(wet.specular_strength)},
-                {"wetness.dry_roughness", double(wet.dry_roughness)},
-                {"wetness.wet_roughness", double(wet.wet_roughness)},
-                {"wetness.reflectivity", double(wet.reflectivity)}};
+        return {
+            {"type", std::string("lit-wet-fur")},
+            {"wetness.diffuse_scale", double(wet.diffuse_scale)},
+            {"wetness.specular_strength", double(wet.specular_strength)},
+            {"wetness.dry_roughness", double(wet.dry_roughness)},
+            {"wetness.wet_roughness", double(wet.wet_roughness)},
+            {"wetness.reflectivity", double(wet.reflectivity)}
+        };
     }
     materials::Properties properties{
-        {"type", std::string(preset.surface == PresetSurface::Glass ? "glass-lit"
-                            : preset.surface == PresetSurface::Foliage ? "foliage" : "lit")},
-        {"surface.roughness", preset.roughness}, {"surface.reflectivity", preset.reflectivity},
-        {"reflection.strength", 1.}, {"reflection.tint", Colour{1, 1, 1}},
+        {"type",
+         std::string(
+             preset.surface == PresetSurface::Glass     ? "glass-lit"
+             : preset.surface == PresetSurface::Foliage ? "foliage"
+                                                        : "lit"
+         )},
+        {"surface.roughness", preset.roughness},
+        {"surface.reflectivity", preset.reflectivity},
+        {"reflection.strength", 1.},
+        {"reflection.tint", Colour{1, 1, 1}},
     };
     switch (preset.surface) {
         case PresetSurface::Opaque:

@@ -6,8 +6,8 @@
 #include <cmath>
 #include <stdexcept>
 
-#include "scene/material_overrides.h"
 #include "assets/disc/checksum.h"
+#include "scene/material_overrides.h"
 
 namespace openrac::scene {
 namespace {
@@ -178,7 +178,8 @@ Result<std::string> transport_stamp(
     }
     std::string stamp = source.model_name + ":" + std::to_string(source.material) + ":" + *text;
     // A referenced mod texture can change transport without changing its authored filename.
-    if (!binding.surface().bake_mesh_rgb && binding.values.properties.contains("emission.texture")) {
+    if (!binding.surface().bake_mesh_rgb
+        && binding.values.properties.contains("emission.texture")) {
         const auto image = assets.image_hashes.find(binding.surface().emission_image);
         if (image != assets.image_hashes.end()) {
             stamp += image->second;
@@ -199,7 +200,8 @@ Result<std::shared_ptr<const MaterialBindings>> resolve_materials(
         result->assets = std::move(assets);
         result->source_catalog = catalog;
         result->catalog = catalog;
-        std::map<std::pair<int, materials::Properties>, std::shared_ptr<const MaterialRecord>> records;
+        std::map<std::pair<int, materials::Properties>, std::shared_ptr<const MaterialRecord>>
+            records;
         for (const auto& source : result->assets->sources) {
             auto properties = materials::resolve(catalog, source.identity);
             if (!properties) {
@@ -231,17 +233,22 @@ Result<std::shared_ptr<const MaterialBindings>> resolve_materials(
                     return unexpected(text.error());
                 }
                 assets::disc::Sha256 digest;
-                digest.update(std::span(reinterpret_cast<const std::uint8_t*>(text->data()), text->size()));
-                const auto name = definition == materials::material_definition({}) ? std::string("lit-default")
-                    : std::string(materials::text_value(definition, "type")) + "-"
-                        + assets::disc::to_hex(digest.finish()).substr(0, 12);
+                digest.update(
+                    std::span(reinterpret_cast<const std::uint8_t*>(text->data()), text->size())
+                );
+                const auto name = definition == materials::material_definition({})
+                                      ? std::string("lit-default")
+                                      : std::string(materials::text_value(definition, "type")) + "-"
+                                            + assets::disc::to_hex(digest.finish()).substr(0, 12);
                 properties->material = name;
                 // A saved edit to a generated shared definition keeps its stable assignment.
-                if (const auto edited = catalog.presets.find(name); edited != catalog.presets.end()) {
+                if (const auto edited = catalog.presets.find(name);
+                    edited != catalog.presets.end()) {
                     for (const auto& [key, value] : edited->second) {
                         definition[key] = value;
                         const auto origins = catalog.preset_sources.find(name);
-                        if (origins != catalog.preset_sources.end() && origins->second.contains(key)) {
+                        if (origins != catalog.preset_sources.end()
+                            && origins->second.contains(key)) {
                             properties->sources[key] = origins->second.at(key);
                         }
                     }
@@ -249,17 +256,17 @@ Result<std::shared_ptr<const MaterialBindings>> resolve_materials(
                 }
             }
             properties->properties = std::move(definition);
-            result->catalog.presets[properties->material] = generated ? properties->properties
-                : materials::material_definition(catalog.presets.at(properties->material));
+            result->catalog.presets[properties->material] =
+                generated
+                    ? properties->properties
+                    : materials::material_definition(catalog.presets.at(properties->material));
             if (generated) {
                 result->catalog.preset_sources[properties->material] = properties->sources;
             }
             const auto family = materials::text_value(properties->properties, "shading");
             if (family == "water" && source.identity.material_name != "@water") {
                 return unexpected(
-                    Error{
-                        "the Lit water option requires the level's water geometry"
-                    }
+                    Error{"the Lit water option requires the level's water geometry"}
                 );
             }
             const auto coverage = materials::text_value(properties->properties, "fur.profile");
@@ -270,7 +277,9 @@ Result<std::shared_ptr<const MaterialBindings>> resolve_materials(
                 result->assets->originals.at(static_cast<std::size_t>(source.material));
             if (family == "foliage" && original.metal) {
                 return unexpected(
-                    Error{"foliage shading requires a colour surface rather than a reflective overlay"}
+                    Error{
+                        "foliage shading requires a colour surface rather than a reflective overlay"
+                    }
                 );
             }
             const auto key = std::pair(source.material, properties->properties);

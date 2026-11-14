@@ -82,7 +82,9 @@ bool valid_reference(std::string_view text) {
 // Text properties are deliberately bounded to supported shader families and local asset references.
 bool valid_text(std::string_view key, const std::string& value) {
     if (key == "type") {
-        return std::ranges::any_of(kMaterialTypes, [&](const auto& type) { return type.id == value; });
+        return std::ranges::any_of(kMaterialTypes, [&](const auto& type) {
+            return type.id == value;
+        });
     }
     if (key == "emission.bake_mode") {
         return value == "texture" || value == "mesh";
@@ -191,7 +193,7 @@ Result<void> validate(const Properties& properties) {
     const auto shading = properties.find("shading");
     const auto roughness = properties.find("surface.roughness");
     // Thin-leaf curvature was reviewed for broad GGX lobes; preserve its existing roughness floor.
-    if (((shading != properties.end() && shading->second == Value{std::string("foliage")} )
+    if (((shading != properties.end() && shading->second == Value{std::string("foliage")})
          || text_value(properties, "type") == "foliage")
         && roughness != properties.end() && std::get<double>(roughness->second) < .35) {
         return unexpected(Error{"foliage roughness must be at least 0.35"});
@@ -229,22 +231,30 @@ Properties material_definition(Properties properties) {
     if (!properties.contains("type")) {
         const auto fur = properties.lower_bound("fur.");
         const auto wet = properties.lower_bound("wetness.");
-        properties["type"] = std::string(family == "glass" ? "glass-lit"
-            : family == "foliage" ? "foliage"
+        properties["type"] = std::string(
+            family == "glass"                                               ? "glass-lit"
+            : family == "foliage"                                           ? "foliage"
             : wet != properties.end() && wet->first.starts_with("wetness.") ? "lit-wet-fur"
-            : fur != properties.end() && fur->first.starts_with("fur.") ? "lit-fur" : "lit");
+            : fur != properties.end() && fur->first.starts_with("fur.")     ? "lit-fur"
+                                                                            : "lit"
+        );
     }
     const auto type = std::string(text_value(properties, "type"));
-    properties["shading"] = std::string(type == "foliage" ? "foliage"
-        : type == "lit" && family == "water" ? "water" : "standard");
+    properties["shading"] = std::string(
+        type == "foliage"                    ? "foliage"
+        : type == "lit" && family == "water" ? "water"
+                                             : "standard"
+    );
     const bool glass = type == "glass-lit", leaf = type == "foliage";
     const bool lit = type == "lit" && family != "water";
     properties.try_emplace("surface.roughness", leaf ? .65 : glass ? .08 : lit ? 1. : .5);
     if (leaf) {
-        properties["surface.roughness"] = std::max(.35, std::get<double>(properties.at("surface.roughness")));
+        properties["surface.roughness"] =
+            std::max(.35, std::get<double>(properties.at("surface.roughness")));
     }
     properties.try_emplace("surface.reflectivity", lit ? .012 : .04);
-    properties.try_emplace("surface.metallic", family == "chrome" || family == "stylised" ? 1. : 0.);
+    properties
+        .try_emplace("surface.metallic", family == "chrome" || family == "stylised" ? 1. : 0.);
     properties.try_emplace("reflection.strength", lit ? .103 : 1.);
     properties.try_emplace("reflection.tint", std::array<double, 3>{1, 1, 1});
     if (glass) {

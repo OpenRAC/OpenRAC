@@ -8,7 +8,7 @@ namespace openrac::scene {
 struct LevelData;
 }
 
-namespace openrac::lighting {
+namespace openrac::game::rac1 {
 // Adds the pane when the verified NTSC-U frame is present.
 void add_ship_visor(scene::LevelData& level);
-}  // namespace openrac::lighting
+}  // namespace openrac::game::rac1

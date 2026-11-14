@@ -391,6 +391,7 @@ openrac_add_test(material_catalog SOURCES tests/material_catalog_test.cpp LIBS o
 add_library(openrac_scene STATIC
   scene/hero_shadow.cpp
   scene/level.cpp
+  scene/chrome_geometry.cpp
   scene/tie_relight.cpp
   scene/material_overrides.cpp
   scene/material_resolve.cpp
@@ -503,7 +504,6 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/viewer/probe_sphere_instances.cpp
   enhanced/renderer/local_lights.cpp
   enhanced/viewer/scene_lighting.cpp
-  enhanced/viewer/ship_visor.cpp
 )
 if(OPENRAC_LIGHT_AUTHORING)
   target_sources(openrac_enhanced_viewer PRIVATE
@@ -699,6 +699,7 @@ add_library(openrac_game_rac1_profile STATIC
   game/rac1/game_state.cpp
   game/rac1/profile.cpp
   game/rac1/shrub_proc.cpp
+  game/rac1/ship_visor.cpp
 )
 target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include)
 target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
@@ -774,6 +775,7 @@ if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   set_tests_properties(early_lighting_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
+target_sources(probe_gpu_test PRIVATE enhanced/tests/material_surface_gpu.cpp)
 target_link_libraries(probe_gpu_test PRIVATE openrac_viewer_lib openrac_platform)
 target_include_directories(probe_gpu_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 openrac_warnings(probe_gpu_test)

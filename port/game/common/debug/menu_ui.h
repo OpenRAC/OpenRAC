@@ -153,7 +153,10 @@ void menu_heading(const char* title);
 // `right_width` > 0: what `right` draws takes that much, and a longer label ends in "...".
 using RowRight = std::function<void(ImDrawList* list, ImVec2 right)>;
 bool menu_row(
-    const char* label, ImU32 ink, const RowRight& right, float right_width = 0.0f,
+    const char* label,
+    ImU32 ink,
+    const RowRight& right,
+    float right_width = 0.0f,
     const char* stable_id = nullptr
 );
 bool menu_row(const char* label, ImU32 ink = ui().text);

@@ -22,7 +22,8 @@ namespace openrac::lighting {
 
 namespace {
 const enhanced::MaterialResponse* retail_response(const scene::Material& source) {
-    static const auto response = enhanced::material_response({}, {{"type", std::string("original")}});
+    static const auto response =
+        enhanced::material_response({}, {{"type", std::string("original")}});
     return scene::is_retail_chrome(source.metal, source.name) ? &response : nullptr;
 }
 
@@ -196,7 +197,9 @@ void SceneLighting::bind_surface_material(
     if (gl::enhanced_rendering_available()) {
         m_foliage.bind(shader, source, m_material_overrides);
         const auto* response = retail_response(source);
-        if (!response && m_material_overrides) response = m_materials.response(model, slot);
+        if (!response && m_material_overrides) {
+            response = m_materials.response(model, slot);
+        }
         gl::glUniform1i(
             shader.uniform("material_fallback"), response ? response->fallback_channels : 0
         );
@@ -206,13 +209,19 @@ void SceneLighting::bind_surface_material(
         );
         if (dielectric >= 0) {
             const bool enabled = response && response->dielectric_specular;
-            gl::glUniform3f(dielectric, enabled ? response->reflection.roughness : 0.f,
-                            enabled ? response->reflection.reflectivity : 0.f,
-                            enabled ? response->reflection.strength : 0.f);
+            gl::glUniform3f(
+                dielectric,
+                enabled ? response->reflection.roughness : 0.f,
+                enabled ? response->reflection.reflectivity : 0.f,
+                enabled ? response->reflection.strength : 0.f
+            );
             if (enabled) {
-                gl::glUniform3f(shader.uniform("material_dielectric_tint"),
-                                response->reflection.tint[0], response->reflection.tint[1],
-                                response->reflection.tint[2]);
+                gl::glUniform3f(
+                    shader.uniform("material_dielectric_tint"),
+                    response->reflection.tint[0],
+                    response->reflection.tint[1],
+                    response->reflection.tint[2]
+                );
             }
         }
         // Catalog families override the legacy foliage adapter only when explicitly authored.
@@ -231,8 +240,12 @@ void SceneLighting::bind_surface_material(
         }
         if (response) {
             m_wetness.bind_model(shader, model);
-            if (response->original || (!response->wet_fur && !materials::text_value(
-                    m_materials.find(model, slot)->values.properties, "type").empty())) {
+            if (response->original
+                || (!response->wet_fur
+                    && !materials::text_value(
+                            m_materials.find(model, slot)->values.properties, "type"
+                    )
+                            .empty())) {
                 gl::glUniform1i(shader.uniform("hero_wetness_enabled"), 0);
             }
             // Inherited values reset the preceding material's overrides within the same shader run.
@@ -251,7 +264,8 @@ bool SceneLighting::enhanced_materials_enabled() const {
 }
 
 bool SceneLighting::material_original(std::uint32_t model, int slot) const {
-    const auto* response = enhanced_materials_enabled() ? m_materials.response(model, slot) : nullptr;
+    const auto* response =
+        enhanced_materials_enabled() ? m_materials.response(model, slot) : nullptr;
     return response && response->original;
 }
 
@@ -260,21 +274,20 @@ void SceneLighting::bind_material(
 ) const {
     bind_surface_material(shader, model, slot, source);
     const auto* response = retail_response(source);
-    if (!response && m_material_overrides) response = m_materials.response(model, slot);
+    if (!response && m_material_overrides) {
+        response = m_materials.response(model, slot);
+    }
     const bool visor = source.name == enhanced::kShipVisorMaterial;
     const bool glass_surface = response && response->glass_surface;
     // The generated pane has no original-mode draw.
-    gl::glUniform1i(
-        shader.uniform("object_thin_glass"), glass_surface ? 1 : visor ? 2 : 0
-    );
+    gl::glUniform1i(shader.uniform("object_thin_glass"), glass_surface ? 1 : visor ? 2 : 0);
     const auto location = shader.uniform("object_reflection_enabled");
     // Static glass variants omit the retail reflection gate but still need their optics.
     // Explicit optics can use the original reflective colour when no probes are available.
     constexpr int kAuthoredReflection = 2;
     const int reflection = response && response->reflection_override ? kAuthoredReflection : 1;
-    const bool enabled =
-        m_material_overrides && source.metal && !(response && response->original)
-        && (active() || reflection == kAuthoredReflection);
+    const bool enabled = m_material_overrides && source.metal && !(response && response->original)
+                         && (active() || reflection == kAuthoredReflection);
     gl::glUniform1i(location, enabled ? reflection : 0);
     // Only reflective packets consume these uniforms.
     if (!source.metal && !glass_surface) {
@@ -313,7 +326,9 @@ void SceneLighting::bind_material(
 const scene::Material& SceneLighting::resolve_material(
     std::uint32_t model, int slot, const scene::Material& original
 ) const {
-    if (scene::is_retail_chrome(original.metal, original.name)) return original;
+    if (scene::is_retail_chrome(original.metal, original.name)) {
+        return original;
+    }
     const auto* binding = m_material_overrides && gl::enhanced_rendering_available()
                               ? m_materials.find(model, slot)
                               : nullptr;
@@ -328,8 +343,11 @@ std::uint64_t SceneLighting::material_variant(std::uint32_t model, int slot) con
 }
 
 bool SceneLighting::material_glass(std::uint32_t model, int slot) const {
-    const auto* response = enhanced_materials_enabled() ? m_materials.response(model, slot) : nullptr;
-    if (!response || !response->glass_surface) return false;
+    const auto* response =
+        enhanced_materials_enabled() ? m_materials.response(model, slot) : nullptr;
+    if (!response || !response->glass_surface) {
+        return false;
+    }
     const auto* binding = m_materials.find(model, slot);
     // Restored retail chrome always uses its original reflective packet, even if its hidden
     // catalog entry was edited. The visible colour/replacement slot owns the material choice.

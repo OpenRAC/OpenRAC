@@ -184,11 +184,17 @@ void ObjectPreview::draw_parts(bool transparent) {
         if (part.optics) {
             const auto& optics = *part.optics;
             glUniform3f(
-                m_shader.uniform("studio_optics"), optics.roughness, optics.reflectivity, optics.metallic
+                m_shader.uniform("studio_optics"),
+                optics.roughness,
+                optics.reflectivity,
+                optics.metallic
             );
             glUniform4f(
-                m_shader.uniform("studio_reflection"), optics.tint[0], optics.tint[1],
-                optics.tint[2], optics.strength
+                m_shader.uniform("studio_reflection"),
+                optics.tint[0],
+                optics.tint[1],
+                optics.tint[2],
+                optics.strength
             );
         }
         glDrawArrays(GL_TRIANGLES, GLint(part.first), GLsizei(part.count));

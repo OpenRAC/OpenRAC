@@ -37,7 +37,6 @@
 #include "enhanced/renderer/texture_upscale.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "enhanced/viewer/ship_visor.h"
 #include "frontend.h"
 #include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
@@ -112,8 +111,8 @@ struct LevelSources {
 LevelSources level_sources(int wanted) {
     LevelSources sources;
     sources.dir = g->levels / std::format("level_{:02d}", wanted);
-    if (gl::enhanced_rendering_available() && g->game == "rac1-ntsc") {
-        sources.prepare_geometry = lighting::add_ship_visor;
+    if (gl::enhanced_rendering_available()) {
+        sources.prepare_geometry = g->profile->level_geometry_preparer();
     }
     // An edited level's scenery (--mods): the editor's pack writes it beside its gameplay file.
     if (openrac_game_mods_dir != nullptr) {
@@ -133,7 +132,8 @@ bool read_level(int wanted, const LevelSources& sources, std::string& error) {
     if (g_preload.read.valid() && g_preload.level == wanted
         && g_preload.generation == openrac_game_mods_generation) {
         crash::level_breadcrumb("level data wait", wanted);
-        while (g_preload.read.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout) {
+        while (g_preload.read.wait_for(std::chrono::milliseconds(50))
+               == std::future_status::timeout) {
             platform::pump_events();
         }
         Preload::Read read = g_preload.read.get();
@@ -201,7 +201,11 @@ void preload_level(int number) {
     g_preload.read = std::async(std::launch::async, [sources = level_sources(number)] {
         Preload::Read read;
         read.ok = scene::load_level(
-            sources.dir, read.level, read.error, sources.edited, sources.mod_roots,
+            sources.dir,
+            read.level,
+            read.error,
+            sources.edited,
+            sources.mod_roots,
             sources.prepare_geometry
         );
         return read;
@@ -1269,11 +1273,16 @@ bool patch_material(
 }
 
 bool assign_material(
-    std::span<const std::size_t> bindings, const std::string& material,
-    materials::Properties definition, std::string& error
+    std::span<const std::size_t> bindings,
+    const std::string& material,
+    materials::Properties definition,
+    std::string& error
 ) {
     auto* editor = editable_materials(error);
-    return editor && material_edit_result(editor->assign(bindings, material, std::move(definition)), error);
+    return editor
+           && material_edit_result(
+               editor->assign(bindings, material, std::move(definition)), error
+           );
 }
 
 bool make_material_unique(std::span<const std::size_t> bindings, std::string& error) {

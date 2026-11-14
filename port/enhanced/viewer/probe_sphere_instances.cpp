@@ -58,29 +58,53 @@ bool ProbeLighting::draw_gpu_spheres(renderer::RenderState& state) const {
     vkgl::GraphExecution execution;
     auto pass = execution.make_pass("probe sphere draw");
     const auto inputs = execution.capture_graphics_reads(pass);
-    if (!inputs) throw std::runtime_error(inputs.error().message);
+    if (!inputs) {
+        throw std::runtime_error(inputs.error().message);
+    }
     const std::array buffers{
-        execution.read_buffer("probe sphere vertices", m_sphere_culling.output(), graph::Stage::VertexInput),
+        execution.read_buffer(
+            "probe sphere vertices", m_sphere_culling.output(), graph::Stage::VertexInput
+        ),
         execution.read_buffer("probe sphere indices", m_sphere_indices, graph::Stage::VertexInput),
-        execution.read_buffer("probe sphere arguments", m_sphere_culling.arguments(), graph::Stage::DrawIndirect),
+        execution.read_buffer(
+            "probe sphere arguments", m_sphere_culling.arguments(), graph::Stage::DrawIndirect
+        ),
     };
     for (const auto& buffer : buffers) {
-        if (!buffer) throw std::runtime_error(buffer.error().message);
+        if (!buffer) {
+            throw std::runtime_error(buffer.error().message);
+        }
         pass.buffers.push_back(*buffer);
     }
-    const auto colour = execution.import_attachment("probe sphere colour", state.target.framebuffer, graph::Aspect::Colour);
-    const auto depth = execution.import_attachment("probe sphere depth", state.target.framebuffer, graph::Aspect::Depth);
-    if (!colour || !depth) throw std::runtime_error("cannot import probe sphere draw attachments");
-    pass.images.push_back({*colour, {graph::Aspect::Colour},
-        {graph::Stage::ColourOutput, graph::Access::ReadWrite, graph::Layout::ColourAttachment}, graph::Load::Preserve});
-    pass.images.push_back({*depth, {graph::Aspect::Depth},
-        {graph::Stage::DepthTests, graph::Access::Read, graph::Layout::DepthAttachment}, graph::Load::Preserve});
+    const auto colour = execution.import_attachment(
+        "probe sphere colour", state.target.framebuffer, graph::Aspect::Colour
+    );
+    const auto depth = execution.import_attachment(
+        "probe sphere depth", state.target.framebuffer, graph::Aspect::Depth
+    );
+    if (!colour || !depth) {
+        throw std::runtime_error("cannot import probe sphere draw attachments");
+    }
+    pass.images.push_back(
+        {*colour,
+         {graph::Aspect::Colour},
+         {graph::Stage::ColourOutput, graph::Access::ReadWrite, graph::Layout::ColourAttachment},
+         graph::Load::Preserve}
+    );
+    pass.images.push_back(
+        {*depth,
+         {graph::Aspect::Depth},
+         {graph::Stage::DepthTests, graph::Access::Read, graph::Layout::DepthAttachment},
+         graph::Load::Preserve}
+    );
     execution.add_pass(std::move(pass));
     bool drawn = false;
     const auto result = execution.run([&](unsigned) {
         drawn = vkgl::draw_indexed_indirect(m_sphere_culling.arguments(), kProbeSphereVertices);
     });
-    if (!result) throw std::runtime_error(result.error().message);
+    if (!result) {
+        throw std::runtime_error(result.error().message);
+    }
     return drawn;
 #else
     (void)state;

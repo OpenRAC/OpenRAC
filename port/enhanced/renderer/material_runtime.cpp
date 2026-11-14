@@ -95,8 +95,8 @@ Result<void> MaterialRuntime::load(const scene::LevelData& level) {
             auto editor = std::make_shared<MaterialEditor>();
             editor->path = m_path;
             editor->error = !bindings ? bindings.error().message
-                            : !author  ? author.error().message
-                                       : inherited.error().message;
+                            : !author ? author.error().message
+                                      : inherited.error().message;
             m_editor = std::move(editor);
             return unexpected(Error{m_editor->error});
         }
@@ -232,7 +232,8 @@ Result<void> MaterialRuntime::patch(
 }
 
 Result<void> MaterialRuntime::assign(
-    std::span<const std::size_t> bindings, const std::string& material,
+    std::span<const std::size_t> bindings,
+    const std::string& material,
     materials::Properties definition
 ) {
     try {
@@ -292,7 +293,8 @@ Result<std::string> MaterialRuntime::make_unique(std::span<const std::size_t> bi
         definition.try_emplace("surface.roughness", double(response.reflection.roughness));
         definition.try_emplace("surface.reflectivity", double(response.reflection.reflectivity));
         definition.try_emplace("reflection.strength", double(response.reflection.strength));
-        const std::string prefix = binding.values.material.empty() ? "material" : binding.values.material;
+        const std::string prefix =
+            binding.values.material.empty() ? "material" : binding.values.material;
         std::string name;
         for (unsigned suffix = 1;; ++suffix) {
             name = prefix.substr(0, 110) + "-copy-" + std::to_string(suffix);
@@ -314,8 +316,9 @@ Result<void> MaterialRuntime::patch_preset(
     const std::string& preset, std::string key, materials::Value value
 ) {
     try {
-        if (!m_editor || !m_editor->bindings || (!m_editor->bindings->catalog.presets.contains(preset)
-            && !m_baseline->source_catalog.presets.contains(preset))) {
+        if (!m_editor || !m_editor->bindings
+            || (!m_editor->bindings->catalog.presets.contains(preset)
+                && !m_baseline->source_catalog.presets.contains(preset))) {
             return unexpected(Error{"material preset is unavailable"});
         }
         const auto valid = materials::validate({{key, value}});
@@ -328,8 +331,12 @@ Result<void> MaterialRuntime::patch_preset(
         }
         edits.presets[preset][key] = std::move(value);
         if (key == "type" && materials::text_value(edits.presets[preset], "type") == "foliage") {
-            edits.presets[preset]["surface.roughness"] = std::max(.35,
-                double(materials::number_value(m_editor->bindings->catalog.presets.at(preset), "surface.roughness", .65f)));
+            edits.presets[preset]["surface.roughness"] = std::max(
+                .35,
+                double(materials::number_value(
+                    m_editor->bindings->catalog.presets.at(preset), "surface.roughness", .65f
+                ))
+            );
         }
         edits.preset_sources[preset][key] = "Unsaved material edit";
         return preview(std::move(edits), m_deleted);
@@ -374,7 +381,8 @@ Result<void> MaterialRuntime::clear_slots(std::span<const std::size_t> bindings)
                 const auto& rule = current.catalog.rules.at(id);
                 // A broad rule may affect unrelated slots; only an exact slot is removed here.
                 const bool exact = rule.match.model == source.identity.model
-                    && rule.match.material_slot && rule.match.material_slot == source.identity.material_slot;
+                                   && rule.match.material_slot
+                                   && rule.match.material_slot == source.identity.material_slot;
                 if (id != own_rule && !exact) {
                     continue;
                 }
@@ -410,9 +418,7 @@ Result<void> MaterialRuntime::undo(std::size_t binding, const std::string& key) 
     return undo(std::span(&binding, 1), key);
 }
 
-Result<void> MaterialRuntime::undo(
-    std::span<const std::size_t> bindings, const std::string& key
-) {
+Result<void> MaterialRuntime::undo(std::span<const std::size_t> bindings, const std::string& key) {
     try {
         if (!m_editor || !m_editor->bindings || bindings.empty()) {
             return unexpected(Error{"material selection is unavailable"});
@@ -445,7 +451,8 @@ Result<std::shared_ptr<const scene::MaterialBindings>> MaterialRuntime::resolve_
     auto catalog = m_baseline->source_catalog;
     for (const auto& id : deleted) {
         catalog.rules.erase(id);
-        if (const auto inherited = m_inherited.rules.find(id); inherited != m_inherited.rules.end()) {
+        if (const auto inherited = m_inherited.rules.find(id);
+            inherited != m_inherited.rules.end()) {
             catalog.rules.insert(*inherited);
         }
     }

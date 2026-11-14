@@ -193,8 +193,8 @@ std::string probe_mesh_fragment(std::string source) {
         return source;
     }
     source.insert(source.find('\n') + 1, shaders::environment_glsl);
-    source += std::string("\n#if !defined(OPENRAC_SOLID)\n")
-              + std::string(shaders::thin_glass_glsl) + "\n#endif\n";
+    source += std::string("\n#if !defined(OPENRAC_SOLID)\n") + std::string(shaders::thin_glass_glsl)
+              + "\n#endif\n";
     return probe_shader_source(std::move(source));
 }
 
@@ -204,8 +204,8 @@ std::string probe_early_fragment(std::string source) {
     }
     source += shaders::early_lighting_glsl;
     source.insert(source.find('\n') + 1, shaders::environment_glsl);
-    source += std::string("\n#if !defined(OPENRAC_SOLID)\n")
-              + std::string(shaders::thin_glass_glsl) + "\n#endif\n";
+    source += std::string("\n#if !defined(OPENRAC_SOLID)\n") + std::string(shaders::thin_glass_glsl)
+              + "\n#endif\n";
     source.insert(source.find('\n') + 1, "#define OPENRAC_EARLY_LIGHTING 1\n");
 
     return probe_shader_source(std::move(source));

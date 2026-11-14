@@ -48,7 +48,8 @@ void test_isolation_and_original_coverage() {
     CHECK(selected && ordinary);
     CHECK(selected->surface().colour[0] == .4f && ordinary->surface().colour[0] == .8f);
     CHECK(
-        selected->surface().colour[3] == .75f && selected->surface().cutout && !selected->surface().blend
+        selected->surface().colour[3] == .75f && selected->surface().cutout
+        && !selected->surface().blend
     );
     CHECK(source->originals[0].diffuse_scale == 1 && selected->surface().diffuse_scale == .25f);
     CHECK(selected->variant() != ordinary->variant());
@@ -101,12 +102,18 @@ void test_identical_variants_share_bindings() {
     CHECK((*compiled)->find(0, 0)->record == (*compiled)->find(1, 0)->record);
     CHECK((*compiled)->find(2, 0) == nullptr);
 }
+
 void test_legacy_sky_tint() {
     auto source = assets();
     source->sources[0].identity.layer = "sky";
     source->sources[1].identity.layer = "sky";
-    const auto tinted = scene::resolve_materials(source, catalog(R"({"version":1,"overrides":[
-      {"id":"sky-tint","match":{"layer":"sky","class_id":7},"set":{"surface":{"tint":[0.5,1,1]}}}]})"));
+    const auto tinted = scene::resolve_materials(
+        source,
+        catalog(
+            R"({"version":1,"overrides":[
+      {"id":"sky-tint","match":{"layer":"sky","class_id":7},"set":{"surface":{"tint":[0.5,1,1]}}}]})"
+        )
+    );
     CHECK(tinted);
     CHECK((*tinted)->find(0, 0)->surface().colour[0] == .4f);
     CHECK(materials::text_value((*tinted)->find(0, 0)->values.properties, "type") == "lit");
