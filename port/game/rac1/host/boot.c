@@ -177,6 +177,15 @@ void func_001F4630(int arg0) {
     func_001F4630__game(arg0);
 }
 
+/* The startup loop only displays a notice when this check returns nonzero.
+ * Bypass that loop without changing the memory card service used by saves. */
+int func_00209BB8(void) {
+    if (openrac_env_string("OPENRAC_DIRECT") != NULL) {
+        return 0;
+    }
+    return func_00209BB8__game();
+}
+
 /* NewGameInit: a new game's state is a fresh save restored from the disc, with the level set to 0
  * (Veldin); the level's files are read right after. With --level N the new game starts in level N
  * instead, the way the behaviour checker reaches a level with its level write. The mods' hook point
