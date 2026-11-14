@@ -11,7 +11,7 @@ import {
   onDiscCopy,
   onAndroid,
   errorText,
-  onJobEvent,
+  onJobEvents,
   type ActionView,
   type DiscCopy,
   type AppInfo,
@@ -296,12 +296,11 @@ export async function start() {
   app.startError = null;
   try {
     if (!listening) {
-      await onJobEvent((event) => {
-        queue.apply(event);
+      await onJobEvents((events) => {
+        queue.applyAll(events);
         // A job that ended: the exit event, whether it came before the start call
         // returned (the queue kept it until the id was known) or after it.
-        const ended = queue.takeEnded();
-        if (ended) handleExit(ended);
+        for (let ended = queue.takeEnded(); ended; ended = queue.takeEnded()) handleExit(ended);
       });
       listening = true;
       // The time, once a second: what a running job's elapsed time is counted against.

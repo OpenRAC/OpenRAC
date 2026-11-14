@@ -145,6 +145,34 @@ export class Queue {
     job.endedAt = now;
   }
 
+  /** Applies a batch of events (one job's, from core jobs.rs `batched`). A job's lines are added
+   *  in one go and the oldest dropped once, so a batch is one change to the page, not one per line. */
+  applyAll(events: JobEvent[], now = Date.now()) {
+    let job: Job | undefined;
+    let lines: Line[] = [];
+    const addLines = () => {
+      if (!job || !lines.length) return;
+      job.lines.push(...lines.slice(-MAX_LINES));
+      if (job.lines.length > MAX_LINES) job.lines.splice(0, job.lines.length - MAX_LINES);
+      lines = [];
+    };
+    for (const event of events) {
+      if (event.type === "output") {
+        if (job?.id !== event.id) {
+          addLines();
+          job = this.jobs.find((j) => j.id === event.id);
+        }
+        // Lines of a job whose start has not returned yet: kept until it has (apply).
+        if (job) lines.push({ stream: event.stream, line: event.line });
+        else this.apply(event, now);
+        continue;
+      }
+      addLines();
+      this.apply(event, now);
+    }
+    addLines();
+  }
+
   apply(event: JobEvent, now = Date.now()) {
     const job = this.jobs.find((j) => j.id === event.id);
     if (!job) {

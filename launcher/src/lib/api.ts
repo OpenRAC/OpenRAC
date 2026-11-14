@@ -855,17 +855,20 @@ export async function onUpdateProgress(
   });
 }
 
-/** Job output and exits, from `job-output` and `job-exit` events. */
-export async function onJobEvent(handler: (event: JobEvent) => void): Promise<UnlistenFn> {
+/** Job output and exits, from `job-output` events (a few times a second, each a list of lines)
+ *  and `job-exit` events (one job's end, after its last lines). */
+export async function onJobEvents(handler: (events: JobEvent[]) => void): Promise<UnlistenFn> {
   if (!inTauri) {
     const { mockListen } = await import("./mock");
-    return mockListen(handler);
+    return mockListen((event) => {
+      handler([event]);
+    });
   }
-  const offOutput = await listen<JobEvent>("job-output", (e) => {
+  const offOutput = await listen<JobEvent[]>("job-output", (e) => {
     handler(e.payload);
   });
   const offExit = await listen<JobEvent>("job-exit", (e) => {
-    handler(e.payload);
+    handler([e.payload]);
   });
   return () => {
     offOutput();

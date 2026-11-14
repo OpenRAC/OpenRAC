@@ -397,10 +397,11 @@ async fn run_action(
     let app_handle = app.clone();
     let title = plan.title.clone();
     launcher_log::line(&format!("run: {}", openrac_launcher_core::jobs::command_line(&plan)));
+    let emit = emit_job_events(app);
     let started = state.jobs.start(&plan, config.root.as_deref(), move |event| {
         // Keep the assembled files alive through native baking, including cancellation.
         let _snapshot = &bake_mods;
-        let _ = match &event {
+        match &event {
             Event::Output { line, .. } => {
                 // The planet and bolts the game logs.
                 if let Some(log) =
@@ -415,7 +416,6 @@ async fn run_action(
                         }
                     }
                 }
-                app.emit("job-output", &event)
             }
             Event::Exit { code, cancelled, .. } => {
                 launcher_log::line(&format!(
@@ -439,9 +439,9 @@ async fn run_action(
                         }
                     }
                 }
-                app.emit("job-exit", &event)
             }
-        };
+        }
+        emit(event);
     });
     if let Err(e) = &started {
         launcher_log::line(&format!("could not start: {e}"));
@@ -991,9 +991,27 @@ fn set_discord_status(
     Ok(())
 }
 
+/// A job's events to the page: its output lines in batches (`job-output`, a list), a few times a
+/// second, then its end (`job-exit`). See core jobs.rs, `batched`.
+fn emit_job_events(app: AppHandle) -> impl Fn(Event) + Send + Sync + 'static {
+    openrac_launcher_core::jobs::batched(move |batch| {
+        let (lines, ends): (Vec<Event>, Vec<Event>) =
+            batch.into_iter().partition(|e| matches!(e, Event::Output { .. }));
+        if !lines.is_empty() {
+            let _ = app.emit("job-output", &lines);
+        }
+        for end in ends {
+            let _ = app.emit("job-exit", &end);
+        }
+    })
+}
+
+/// Async, so it does not run on the main thread: stopping a job's whole tree (Windows' taskkill)
+/// can take seconds, and the window would freeze meanwhile.
 #[tauri::command]
-fn cancel_job(state: State<'_, AppState>, id: u32) -> Result<(), String> {
-    state.jobs.cancel(id)
+async fn cancel_job(state: State<'_, AppState>, id: u32) -> Result<(), String> {
+    let jobs = state.jobs.clone();
+    tauri::async_runtime::spawn_blocking(move || jobs.cancel(id)).await.map_err(|e| e.to_string())?
 }
 
 /// Opens a file or folder of the checkout (a README, baserom/) with the
@@ -1057,12 +1075,7 @@ fn install_game(app: AppHandle, state: State<'_, AppState>, game: String, image:
             config::save(file, &current)?;
         }
     }
-    state.jobs.start(&plan, config.root.as_deref(), move |event| {
-        let _ = match &event {
-            Event::Output { .. } => app.emit("job-output", &event),
-            Event::Exit { .. } => app.emit("job-exit", &event),
-        };
-    })
+    state.jobs.start(&plan, config.root.as_deref(), emit_job_events(app))
 }
 
 /// The plain image setting a game up reads: an .iso as it is; a CHD unpacked once into
