@@ -98,7 +98,8 @@ on every display, so the game goes by what the activity says, not by the formats
 - Bright colours (`to_light`, `apply_look`): the SDR pixel is the frame clipped to 0..1. Hue and
   saturation are mixed in OKLab; lightness stays HDR's. Where SDR shows a pixel white (a
   flame's core), SDR hue uses the hue SDR gave it just before, so there is no cut-off there. A
-  colour outside BT.709 moves towards grey until it fits. It never goes past the peak.
+  pale SDR colour turns a much stronger HDR colour only in part, since its hue swings with each
+  8-bit step and would show as bands. A colour outside BT.709 moves towards grey until it fits. It never goes past the peak.
 - The HDR frame: the game's frame and the default framebuffer are RGBA16F while HDR is on.
   `vkgl::clamp_colour_writes` makes each program use a fragment shader with a clamp at the end
   (`clamped_fragment`, built the first time it's needed). Copies into the game's 8-bit textures
