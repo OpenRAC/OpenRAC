@@ -10,13 +10,15 @@ v1.02) into a Godot 4 project.
 Godot is the map editor: open a level, move, add or delete objects, and save.
 For RAC1 PAL v2.00 and NTSC-U, `extract.py pack` turns supported scene edits back
 into mod files without writing to the disc. The launcher's Mods page can
-extract, open, pack, and run those edits. Later games are still early access:
-their levels can be exported for inspection, but packing edits back into those
-games is not supported yet.
+extract, open, pack, and run those edits. For the later games (Going Commando,
+which plays, and Up Your Arsenal and Deadlocked, in early access) the levels can
+be exported for inspection, but packing edits back into those games is not
+supported yet.
 
 It sits at the top of OpenRAC because it serves all four games. It reads
 Ratchet & Clank's four discs in full, and Going Commando's three
-discs and Up Your Arsenal's and Deadlocked's NTSC-U discs in early access: their levels,
+discs (playable; level edits not packed back yet) and Up Your Arsenal's and
+Deadlocked's NTSC-U discs in early access: their levels,
 textures and models, to look at and to make texture and model packs from
 ([The later games](#the-later-games-early-access)).
 
@@ -927,7 +929,8 @@ format with a few differences, read by the same readers through a table of
 what each game changes ([games.py](games.py); the formats, and what was
 checked on each disc, are in
 [docs/engine/formats/LATER_GAMES.md](../docs/engine/formats/LATER_GAMES.md)).
-None of these games is playable in OpenRAC yet: this is for modders to get
+Going Commando is playable; Up Your Arsenal and Deadlocked are not yet. For all
+three, packing level edits back is not supported yet: this is for modders to get
 ready, looking at the levels and making texture and model packs that will
 apply once they are.
 

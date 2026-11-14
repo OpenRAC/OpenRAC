@@ -306,7 +306,8 @@ class LevelWriter:
             # A later game's level: shown and exported, not packed back yet (pack.py).
             self.scene.node(f"Level_{level.id:02}", kind="Node3D", script=script, metadata__rc1_level=level.id,
                             metadata__rc1_game=fmt.game, metadata__rc1_packable=False,
-                            editor_description=f"{fmt.title}, level {level.id} (early access).\n"
+                            editor_description=f"{fmt.title}, level {level.id}"
+                            f"{'' if fmt.game == 'rac2' else ' (early access)'}.\n"
                             "Static scenery, mobys and textures to look at and to make texture and model "
                             "packs from. Edits here are not packed back into the game yet: the level "
                             "packer reads Ratchet & Clank's levels only.")
@@ -607,8 +608,10 @@ def write_project(project: Path, levels: list[int], region: str = "PAL", game: s
                 else f"Ratchet & Clank levels ({region})")
     else:
         fmt = games.FORMATS[game]
-        name = (f"{fmt.title}: {fmt.level_name(levels[0])} ({region}, early access)" if len(levels) == 1
-                else f"{fmt.title} levels ({region}, early access)")
+        # Going Commando plays; its edits are only not packed back yet. The other later games are early access.
+        tag = "" if game == "rac2" else ", early access"
+        name = (f"{fmt.title}: {fmt.level_name(levels[0])} ({region}{tag})" if len(levels) == 1
+                else f"{fmt.title} levels ({region}{tag})")
     (project / "project.godot").write_text(PROJECT.format(main=main, name=name, addon=ADDON_CFG))
     shutil.copytree(SCRIPTS, project / "rc1")
     install_addon(project)

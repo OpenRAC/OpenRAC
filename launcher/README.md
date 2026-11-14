@@ -207,10 +207,10 @@ the packs: on or off, order, remove, add a `.zip` or folder, or drop one on
 the page. With the **Mods** switch under Play on, Play first combines the packed
 levels with the packs that are on ([editor/MODDING.md](../editor/MODDING.md)).
 
-Going Commando (any of its three discs: USA v1.01, USA v2.00 and Europe's),
-Up Your Arsenal and Deadlocked (NTSC-U) are early access.
-Their levels open in Godot and **Models and textures** works, but edits are
-not packed back. Their packs wait in Your mods
+Going Commando (any of its three discs: USA v1.01, USA v2.00 and Europe's) is
+playable; Up Your Arsenal and Deadlocked (NTSC-U) are early access. Their
+levels open in Godot and **Models and textures** works, but level edits are
+not packed back yet. Their packs wait in Your mods
 ([editor/README.md](../editor/README.md#the-later-games-early-access)). Up
 Your Arsenal and Deadlocked are not playable yet. Going Commando's decompilation
 is whole, so every installer carries its three programs built as Ratchet &

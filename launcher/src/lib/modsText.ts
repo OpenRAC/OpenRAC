@@ -68,6 +68,8 @@ export const PAGE = {
   earlyTitle: "Early access",
   earlyLine:
     "Its levels open in Godot and you can make texture and model packs. Packing level edits and playing come later.",
+  packLaterLine:
+    "Its levels open in Godot and you can make texture and model packs. Packing level edits back into the game comes later.",
   noneTitle: "No mods for this game yet",
   noneLine: "Mods arrive once the level editor can read its levels.",
   noneLink: "Follow the progress on openrac.dev",
