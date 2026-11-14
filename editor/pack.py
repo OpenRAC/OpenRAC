@@ -291,6 +291,7 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
     added: list[tuple[dict, int | None]] = []          # the new moby's fields, the moby it takes after
     added_names: list[str] = []                         # their nodes' names
     brought: list[tuple[dict, object]] = []             # mobys an imported moby brings along
+    moved: dict[int, object] = {}                       # id of an imported copy's record -> its Move
     instances: list[list[tuple[dict, object]]] = []     # each imported moby and what it brings
     reclassed: dict[int, dict] = {}                     # kept mobys whose class changed: their fields
     for node in nodes:
@@ -348,12 +349,14 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
                 copies = [(record, donor)]
                 import foreign_classes
                 move = foreign_classes.Move.between(donor.record, record)
+                moved[id(record)] = move
                 for member in group[1:]:
                     extra = dict(member.record, group=-1)
                     extra["x"], extra["y"], extra["z"] = move.point(member.record["x"], member.record["y"],
                                                                     member.record["z"])
                     extra["rz"] = math.remainder(member.record["rz"] + move.turn, math.tau)
                     brought.append((extra, member))
+                    moved[id(extra)] = move
                     copies.append((extra, member))
                 instances.append(copies)
                 if foreign_placed is not None:
@@ -469,12 +472,13 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
         source = record["pvar_index"]
         if not isinstance(model, (int, type(None))):
             # Another level's moby: its own pvar block, its moby links naming none (foreign_classes.py).
+            import foreign_classes
             record["pvar_index"] = -1
             if model.pvar is not None:
                 data += bytes(-len(data) % 16)
                 new = len(pvars)
                 pvars.append((len(data), len(model.pvar)))
-                data += model.pvar
+                data += foreign_classes.moved_pvar(model, moved.get(id(record)))
                 links += [(new, where) for where in model.links]
                 pointers += [(new, where) for where in model.pointers]
                 for where, piece in model.shared:

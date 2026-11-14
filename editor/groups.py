@@ -143,8 +143,6 @@ def assigned(body: str, name: str) -> list[str]:
 
 def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
     found = spawns.functions(gen)
-    # Pvar reads, as (function, expression with its pvars base named PVARS_BASE, its C file).
-    reads: dict[str, set[str]] = {}
     sinks: list[tuple[str, str]] = []
     # The group tables (one a level): a table whose entry, read into a local, is walked as a
     # group's members there; then every read of those tables is a group's number.
@@ -161,10 +159,36 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
         for m in TABLE_AT.finditer(f.body):
             if m.group(1) in tables:
                 sinks.append((name, index_at(f.body, m.end())))
-    callers: dict[str, list[str]] = {}
+    reads = trace(found, sinks)
+    offsets = measure(gen, found, reads)
+    rows: dict[tuple[int, int], set[tuple[int, int]]] = {}
+    for function, level, class_id in spawns.hooks(libraries):
+        words = set()
+        for f in spawns.closure(found, function):
+            words |= offsets.get(f, set())
+        if words:
+            rows.setdefault((class_id, level), set()).update(words)
+    lines = ["# class\tlevel (-1: every level's)\tits pvar words that hold a moby group, offset:size "
+             "(editor/groups.py, from the game's code)"]
+    lines += [f"{c}\t{lv}\t{','.join(f'{o}:{s}' for o, s in sorted(w))}" for (c, lv), w in sorted(rows.items())]
+    path.write_text("\n".join(lines) + "\n")
+    return len(rows)
+
+
+def callers_of(found: dict) -> dict[str, list[str]]:
+    """Each function's callers."""
+    out: dict[str, list[str]] = {}
     for name, f in found.items():
         for callee in f.calls:
-            callers.setdefault(callee, []).append(name)
+            out.setdefault(callee, []).append(name)
+    return out
+
+
+def trace(found: dict, sinks: list[tuple[str, str]]) -> dict[str, set[str]]:
+    """The pvar reads each SINK (function, expression) comes from, followed back through locals
+    and through the arguments callers pass: function -> reads, the pvars base named PVARS_BASE."""
+    reads: dict[str, set[str]] = {}
+    callers = callers_of(found)
     group_params: set[tuple[str, int]] = set()
     memo: dict = {}
     todo = [(name, text, 0) for name, text in sinks]
@@ -204,19 +228,7 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
             reads.setdefault(name, set()).add(expr)
         elif DEBUG:
             print(f"untraced {name}: {core[:160]}", file=sys.stderr)
-    offsets = measure(gen, found, reads)
-    rows: dict[tuple[int, int], set[tuple[int, int]]] = {}
-    for function, level, class_id in spawns.hooks(libraries):
-        words = set()
-        for f in spawns.closure(found, function):
-            words |= offsets.get(f, set())
-        if words:
-            rows.setdefault((class_id, level), set()).update(words)
-    lines = ["# class\tlevel (-1: every level's)\tits pvar words that hold a moby group, offset:size "
-             "(editor/groups.py, from the game's code)"]
-    lines += [f"{c}\t{lv}\t{','.join(f'{o}:{s}' for o, s in sorted(w))}" for (c, lv), w in sorted(rows.items())]
-    path.write_text("\n".join(lines) + "\n")
-    return len(rows)
+    return reads
 
 
 def measure(gen: Path, found: dict, reads: dict[str, set[str]]) -> dict[str, set[tuple[int, int]]]:

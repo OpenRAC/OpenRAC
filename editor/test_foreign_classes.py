@@ -19,6 +19,26 @@ FOREIGN = ('[ext_resource type="PackedScene" path="res://library/rac1/ntsc/level
 
 
 class ForeignClasses(unittest.TestCase):
+    def test_a_place_in_its_pvars_moves_with_it(self):
+        donor = foreign_classes.Donor(18, 1402, {}, pvar=struct.pack("<4f", 10.0, 20.0, 1.0, 2.0))
+        move = foreign_classes.Move(0.0, 5.0, 6.0, -3.0)
+        known = {(1402, 18): [(0, "z"), (4, "z")], (7, 1): [(0, "x"), (4, "y"), (8, "z")]}
+        import positions
+        saved = dict(positions._known)
+        positions._known.clear()
+        positions._known.update(known)
+        try:
+            self.assertEqual(struct.unpack("<4f", foreign_classes.moved_pvar(donor, move)), (7.0, 17.0, 1.0, 2.0))
+            point = foreign_classes.Donor(1, 7, {}, pvar=struct.pack("<3f", 1.0, 0.0, 4.0))
+            turned = foreign_classes.Move(3.141592653589793 / 2, 10.0, 0.0, 1.0)
+            x, y, z = struct.unpack("<3f", foreign_classes.moved_pvar(point, turned))
+            self.assertAlmostEqual(x, 10.0, places=5)
+            self.assertAlmostEqual(y, 1.0, places=5)
+            self.assertEqual(z, 5.0)
+        finally:
+            positions._known.clear()
+            positions._known.update(saved)
+
     def test_the_scenes_imported_classes(self):
         self.assertEqual(foreign_classes.wanted(FOREIGN), ({909: 3}, []))
         self.assertEqual(foreign_classes.wanted(FOREIGN.replace("metadata/rc1_foreign_level = 3\n", "")), ({}, []))

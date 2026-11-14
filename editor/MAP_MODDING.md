@@ -101,6 +101,9 @@ moby needs in its level comes with it:
   volumes), paths, rails and cameras its pvars name by number, moved and turned
   as the moby was, in `worlds.bin`. A guard that waits for the hero in a zone
   of its level waits in that zone, moved to where you placed it.
+- **The places in its pvars**: a word the game sets a moby's position from (a
+  lift's floors, a turret's rest height), from `editor/rac1_position_fields.tsv`
+  (`editor/positions.py` writes it from the game's code), moved the same way.
 - **The mobys its links name** there (Qwark's lift, a plasmabot's hatch), placed
   beside it as they stood there; a class this level lacks comes too.
 - **Its groups**: a group its pvars name (a trooper's alert groups, a spawner's

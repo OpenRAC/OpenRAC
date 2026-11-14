@@ -226,6 +226,33 @@ class Move:
         return x + self.dx, y + self.dy, z + self.dz
 
 
+def moved_pvar(donor: "Donor", move: "Move | None") -> bytes:
+    """DONOR's pvar block with the words that hold a place in the world (positions.py) moved by
+    MOVE, as its paths are: a lift's floors stay where they were around it."""
+    import positions
+    block = bytearray(donor.pvar)
+    words = dict(positions.fields(donor.class_id, donor.level)) if move is not None else {}
+    done = set()
+    for at, axis in sorted(words.items()):
+        if at in done or at + 4 > len(block):
+            continue
+        if axis == "x" and words.get(at + 4) == "y" and at + 8 <= len(block):
+            # A point: turned with the moby, its z too when it follows.
+            has_z = words.get(at + 8) == "z" and at + 12 <= len(block)
+            x, y = struct.unpack_from("<2f", block, at)
+            z = struct.unpack_from("<f", block, at + 8)[0] if has_z else 0.0
+            nx, ny, nz = move.point(x, y, z)
+            struct.pack_into("<2f", block, at, nx, ny)
+            if has_z:
+                struct.pack_into("<f", block, at + 8, nz)
+            done |= {at, at + 4} | ({at + 8} if has_z else set())
+            continue
+        value, = struct.unpack_from("<f", block, at)
+        struct.pack_into("<f", block, at, value + {"x": move.dx, "y": move.dy, "z": move.dz}[axis])
+        done.add(at)
+    return bytes(block)
+
+
 def moved_shape(entry: bytes, move: Move) -> bytes:
     """A volume (its axes at +0, its place at +0x30, the axes' inverse at +0x40, its angles at
     +0x70) where MOVE puts it: the axes turned, the inverse turned with them."""
