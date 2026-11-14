@@ -126,13 +126,7 @@ void WorldContext::bind_texture(
     const bool fresh = known == m_uploaded.end() || known->gl != id;
     // A texture pack KTX2's blocks come with their own levels, in their format: the game's are
     // not put over them.
-    if (fresh && pool.has_blocks(handle)) {
-        if (known == m_uploaded.end()) {
-            m_uploaded.push_back({id, handle});
-        } else {
-            known->gl = id;
-        }
-    } else if (fresh) {
+    if (fresh && !pool.has_blocks(handle)) {
         // The game's own mip chain (levels 1..MXL; the pool holds level 0).
         // A level of the wrong size ends the chain there.
         const Rgba8Image& base = pool.image(handle);
@@ -164,11 +158,11 @@ void WorldContext::bind_texture(
         }
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels);
-        if (known == m_uploaded.end()) {
-            m_uploaded.push_back({id, handle});
-        } else {
-            known->gl = id;
-        }
+    }
+    if (known == m_uploaded.end()) {
+        m_uploaded.push_back({id, handle});
+    } else if (fresh) {
+        known->gl = id;
     }
     SamplerState s = sampler;
     if (texture.mip_levels.empty()) {

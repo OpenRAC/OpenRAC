@@ -4,8 +4,8 @@
 // Texture packs (docs/port/TEXTURE_PACKS.md): a folder of pictures (PNG, KTX2 or SVG), each named
 // by the hash of the texture it replaces (its size and RGBA texels as the port converted them), at
 // any size. When one texture has several, the SVG wins, then the KTX2, then the PNG; one that
-// cannot be read gives way to the next. The
-// level's textures (scene/level.cpp) and the 2D layer's uploads (texture_pool.cpp) both ask here.
+// cannot be read gives way to the next. The level's textures (scene/level.cpp) and the 2D layer's
+// uploads (texture_pool.cpp) both ask here.
 // With a dump folder, every texture is written there once, by the same name, for pack makers,
 // sorted into folders a player can find their way in: Interface/ (the 2D layer: HUD, menus, font),
 // Planets/<planet>/ (a level's own textures) and Shared/ (those met on more than one planet).
@@ -126,10 +126,9 @@ struct Replacement {
     std::shared_ptr<const CompressedImage> blocks;  // the picture in blocks, from a KTX2
 };
 
-// The block format a KTX2 is transcoded to (the texture pool picks the one the GPU reads when it
-// starts); None, the default: RGBA8 only. Any thread.
+// The block format a KTX2 is transcoded to (the window sets the one the GPU reads, from
+// TexturePool::gpu_block_format); None, the default: RGBA8 only. Any thread.
 void set_block_format(BlockFormat format);
-BlockFormat block_format();
 
 // `image` replaced by the pack's picture of it, when the pack has one (true); dumped first when
 // dumping, into the folder of `origin`. A level's texture already dumped under another planet

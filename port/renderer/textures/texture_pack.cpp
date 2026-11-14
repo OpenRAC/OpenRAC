@@ -547,10 +547,6 @@ void set_block_format(BlockFormat format) {
     g_block_format.store(format);
 }
 
-BlockFormat block_format() {
-    return g_block_format.load();
-}
-
 bool dumping() {
     State& s = state();
     const std::lock_guard guard(s.lock);
