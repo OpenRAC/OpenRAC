@@ -391,6 +391,7 @@ openrac_add_test(material_catalog SOURCES tests/material_catalog_test.cpp LIBS o
 add_library(openrac_scene STATIC
   scene/hero_shadow.cpp
   scene/level.cpp
+  scene/chrome_geometry.cpp
   scene/tie_relight.cpp
   scene/material_overrides.cpp
   scene/material_resolve.cpp
@@ -516,7 +517,7 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_preview.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_preview.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_selection.comp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/chrome.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/thin_glass.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/wetness.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/foliage.glsl"
@@ -698,6 +699,7 @@ add_library(openrac_game_rac1_profile STATIC
   game/rac1/game_state.cpp
   game/rac1/profile.cpp
   game/rac1/shrub_proc.cpp
+  game/rac1/ship_visor.cpp
 )
 target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include)
 target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
@@ -773,13 +775,17 @@ if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   set_tests_properties(early_lighting_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
+target_sources(probe_gpu_test PRIVATE enhanced/tests/material_surface_gpu.cpp)
 target_link_libraries(probe_gpu_test PRIVATE openrac_viewer_lib openrac_platform)
 target_include_directories(probe_gpu_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 openrac_warnings(probe_gpu_test)
 if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   add_test(NAME probe_gpu_vulkan COMMAND probe_gpu_test)
+  add_test(NAME probe_sphere_overlay_vulkan COMMAND probe_gpu_test --sphere-overlays)
+  add_test(NAME probe_glass_cutout_vulkan COMMAND probe_gpu_test --glass-cutouts)
+  add_test(NAME probe_chrome_original_vulkan COMMAND probe_gpu_test --chrome-original)
   target_compile_definitions(probe_gpu_test PRIVATE OPENRAC_VULKAN=1)
-  set_tests_properties(probe_gpu_vulkan PROPERTIES SKIP_RETURN_CODE 77
+  set_tests_properties(probe_gpu_vulkan probe_sphere_overlay_vulkan probe_glass_cutout_vulkan probe_chrome_original_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
 

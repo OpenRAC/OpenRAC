@@ -51,8 +51,9 @@ are retired. Only the enhanced texture library depends on the Vulkan copy helper
 
 Enhanced graphics > Diagnostics > Ratchet fur view shows the authored coverage mask or
 UV growth directions with arrows. Detail normals shows the shaded surface orientation.
-Graphics > Enhanced Settings > Materials & water > Material inspector controls fur appearance
-through the shared `ratchet-fur` preset or a selected object material. Save writes the local JSON
+Developer settings > Material Studio controls shared material
+definitions. Choose Lit, Glass Lit, Lit Fur Surface, Lit Wet Fur Surface, Lit Foliage, or Original.
+The `ratchet-coat` material uses Lit Wet Fur Surface. Save writes the local JSON
 overlay; coverage and groom assets remain separate. See [Materials](../materials/README.md).
 
 The optional Geometry (prototype) controls add a short shell coat to the verified player fur
@@ -104,12 +105,20 @@ spilling onto equipment. Shared vertices between fur and excluded islands are re
 and live-palette checks exclude attachments, other materials and UI copies. Diagnostics are
 session-only and default off.
 
+## Thin glass
+
+In enhanced mode, the verified NTSC-U Veldin and green ships have panes fitted to their animated canopies.
+Select the canopy surface in Material Studio to edit reflections, clear transmission and its linear RGB tint.
+The RAC1 game profile owns the verified fits. PAL retains retail geometry; NTSC replacement meshes
+receive panes only when their complete layout matches.
+See [materials](../materials/README.md) for shared editing and saved overrides.
+
 ## Foliage
 
 Enhanced Vulkan supports reviewed thin-leaf materials through `material-overrides.json`. Texture-content hashes select materials; ordinary cutouts,
 trunks, metal and blended effects retain their existing response. The initial shared rac1
 profile covers nine Novalis leaf/fern textures. Fresh PAL and NTSC exports copy that profile;
-existing exports need the metadata copied in or a fresh export. Replacement artwork opts out
+automatic bake preparation refreshes existing exported profiles. Replacement artwork opts out
 unless explicitly reviewed.
 
 Thin-sheet diffuse transmission shares energy with surface diffuse reflection. The original
@@ -118,7 +127,8 @@ Rough GGX supplies dielectric highlights (F0 0.04, 25% wax coverage to preserve 
 use the existing light bank. Backlit leaves use light-facing primary-shadow bias while keeping
 external blockers. Local lights retain their existing unshadowed policy. Alpha, depth, mesh
 positions and the original texture are unchanged. No extra render target or texture is added;
-four bounded controls occupy the last two spare words of the 96-byte GPU material record.
+four bounded controls occupy two packed words in the GPU material record. The 144-byte record
+also carries shared optical controls so changes in finish do not split compatible draw batches.
 
 Rules match `texture_rgba_sha256` and original cutout eligibility. Optical properties are
 `foliage.transmission` (0-1), `foliage.thickness` (0-4), `foliage.normal_bend` (0-1) and

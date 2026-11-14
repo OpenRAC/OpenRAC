@@ -129,6 +129,76 @@ void test_bindless_upscaled_colours(unsigned vertex_array, bool reference) {
     glDeleteTextures(static_cast<int>(textures.size()), textures.data());
 }
 
+// Optical settings belong to immutable material records, rather than draw-wide uniform snapshots.
+void test_material_optical_records(unsigned vertex_array, bool reference) {
+    if (!vkgl::gpu_materials_active()) {
+        return;
+    }
+    renderer::Shader shader;
+    renderer::FrameBuffer target;
+    std::string error;
+    CHECK(target.create(4, 1, error));
+    CHECK(shader.build(
+        "material optical records",
+        R"(#version 410 core
+in mat4 model;
+void main() {
+    const vec2 corners[6]=vec2[6](vec2(-1,-1),vec2(1,-1),vec2(1,1),
+                                vec2(-1,-1),vec2(1,1),vec2(-1,1));
+    vec2 p=corners[gl_VertexID%6];
+    p.x=p.x*.25-.75+float(gl_VertexID/6)*.5;
+    gl_Position=vec4(p,0,1)+vec4(model[0].xyz,0);
+})",
+        R"(#version 410 core
+uniform vec4 material_colour;
+uniform vec3 material_dielectric;
+uniform vec3 material_dielectric_tint;
+uniform float material_metallic;
+uniform float foliage_reflectivity;
+uniform int material_fallback;
+layout(location=0) out vec4 result;
+void main() {
+    result=material_colour*vec4((material_dielectric.x+material_dielectric.y+foliage_reflectivity)*.25,
+        material_dielectric_tint.y,material_metallic*.25+material_dielectric.z*.1,
+        float(material_fallback)*.25);
+})",
+        error
+    ));
+    glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+    glBindVertexArray(vertex_array);
+    glViewport(0, 0, 4, 1);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_SCISSOR_TEST);
+    shader.use();
+    glUniform4f(shader.uniform("material_colour"), 1, 1, 1, 1);
+    const auto before = vkgl::submission_counters();
+    const auto records_before = vkgl::gpu_material_counters().records;
+    for (int draw = 0; draw < 4; ++draw) {
+        const float value = float(draw % 3 + 1) / 4;
+        glUniform3f(shader.uniform("material_dielectric"), value, value, value);
+        glUniform3f(shader.uniform("material_dielectric_tint"), 1, value, 1);
+        glUniform1f(shader.uniform("material_metallic"), value);
+        glUniform1f(shader.uniform("foliage_reflectivity"), value);
+        glUniform1i(shader.uniform("material_fallback"), draw % 3 + 1);
+        glDrawArrays(GL_TRIANGLES, draw * 6, 6);
+    }
+    const auto after = vkgl::submission_counters();
+    if (!reference) {
+        CHECK(after.uniform_uploads - before.uniform_uploads <= 1);
+    }
+    CHECK(vkgl::gpu_material_counters().records - records_before == 3);
+    const auto pixels = target.read_rgba();
+    CHECK(pixels.size() == 16);
+    for (unsigned draw = 0; draw < 4 && pixels.size() == 16; ++draw) {
+        const float value = float(draw % 3 + 1) / 4;
+        const std::array expected{.75f * value, value, .35f * value, value};
+        for (unsigned channel = 0; channel < 4; ++channel) {
+            CHECK(std::abs(float(pixels[draw * 4 + channel]) / 255 - expected[channel]) < .006f);
+        }
+    }
+}
+
 // Checks that changing the depth comparison cannot reuse the preceding draw's pipeline.
 // The caller owns the bound full-screen shader, vertex array and target for this test.
 void test_pipeline_depth_state(const renderer::FrameBuffer& target) {
@@ -1258,6 +1328,7 @@ void main() {
     CHECK(glGetError() == GL_NO_ERROR);
     test_pipeline_state_changes(vao);
     test_bindless_upscaled_colours(vao, reference);
+    test_material_optical_records(vao, reference);
     test_separate_draw_uniform(vao);
     test_draw_uniform_layouts(vao);
     test_mode_constants(vao);

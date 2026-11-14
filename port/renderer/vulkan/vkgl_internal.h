@@ -139,8 +139,8 @@ inline constexpr unsigned kGpuInputBytes = 8u << 20;
 // The native material path's pages: the draws one page holds, and the words and bytes of one
 // material record.
 inline constexpr unsigned kMaterialDraws = 32768;
-// Six GLSL vec4 fields, including the upscaled texture index.
-inline constexpr unsigned kMaterialWords = 24;
+// Nine GLSL vec4 fields, including per-material optics and the upscaled texture index.
+inline constexpr unsigned kMaterialWords = 36;
 inline constexpr unsigned kMaterialBytes = kMaterialWords * sizeof(std::uint32_t);
 
 // A material page assigns indices in first-seen order. Dense entries and a separate probe

@@ -73,7 +73,7 @@ void remove_mesh_emission(materials::Properties& properties) {
 
 // Resolve the source emission again without using the previously calculated values.
 void restore_source_emission(scene::LevelData& level) {
-    auto catalog = level.material_bindings->catalog;
+    auto catalog = level.material_bindings->source_catalog;
     for (auto& [id, properties] : catalog.presets) {
         remove_mesh_emission(properties);
     }

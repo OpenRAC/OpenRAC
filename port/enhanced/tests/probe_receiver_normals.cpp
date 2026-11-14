@@ -53,6 +53,7 @@ scene::LevelData camera_normal_level() {
                 level.indices.push_back(first_vertex + index);
             }
             scene::Model model;
+            model.name = "terrain.glb";
             model.primitives.push_back({first_index, 3, 0});
             level.models.push_back(model);
         }

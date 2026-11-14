@@ -483,6 +483,8 @@ void gpu() {
     level.indices = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
     level.materials.push_back({});
     scene::Model plane, block;
+    plane.name = "terrain.glb";
+    block.name = "tie_7.glb";
     plane.primitives.push_back({0, 6, 0});
     plane.min = {-300, -300, 0};
     plane.max = {300, 300, 0};

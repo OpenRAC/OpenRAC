@@ -102,6 +102,8 @@ public:
     void draw_atmosphere_sky(const renderer::RenderTarget&) override;
     std::string atmosphere_source() const override;
     void bind_atmosphere(const renderer::Shader&) const override;
+    bool enhanced_materials_enabled() const override;
+    bool material_original(std::uint32_t model, int slot) const override;
     void bind_material(
         const renderer::Shader& shader,
         std::uint32_t model,
@@ -112,6 +114,7 @@ public:
         std::uint32_t model, int slot, const scene::Material& original
     ) const override;
     std::uint64_t material_variant(std::uint32_t model, int slot) const override;
+    bool material_glass(std::uint32_t model, int slot) const override;
     std::array<float, 3> sky_tint(std::uint32_t model, int slot) const override;
     std::string early_fragment(std::string source) const override;
 

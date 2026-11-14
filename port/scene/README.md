@@ -43,6 +43,9 @@ palettes; `level_lighting_pass.cpp` owns early lighting. Shadows split into setu
 and persistent caches (`shadow_scroll_renderer.cpp`). `level_renderer_internal.h` shares private
 utilities; the public `LevelScene` interface is unchanged.
 
+`chrome_geometry.cpp` links retail chrome packets to editable colour slots and creates Lit
+replacements for chrome-only faces. Original restores the linked retail packet and its texture.
+
 ## Depends on
 
 - `renderer` (math, textures, buckets, framebuffers, shaders, the GPU draw interface, shadow

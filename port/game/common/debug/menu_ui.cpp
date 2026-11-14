@@ -464,7 +464,9 @@ void menu_heading(const char* title) {
     ImGui::Dummy(ImVec2(0.0f, size + dp(8.0f)));
 }
 
-bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_width) {
+bool menu_row(
+    const char* label, ImU32 ink, const RowRight& right, float right_width, const char* stable_id
+) {
     const float height = dp(s.menu_row_height);
     const ImVec2 at = ImGui::GetCursorScreenPos();
     const float width = ImGui::GetContentRegionAvail().x;
@@ -474,7 +476,7 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_w
             ImVec2(at.x + dp(16.0f), at.y), ImVec2(at.x + width - dp(16.0f), at.y), ui().line
         );
     }
-    ImGui::PushID(label);
+    ImGui::PushID(stable_id ? stable_id : label);
     const bool pressed =
         ImGui::InvisibleButton("row", ImVec2(width, height), ImGuiButtonFlags_EnableNav);
     ImGui::PopID();
@@ -483,7 +485,10 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_w
     }
     // The menu just opened or changed tab: its first row takes the focus, so that the arrows and a
     // controller start there and the desktop's side says what it does.
-    if (s.menu_focus_first) {
+    // On reopening a scrolled page, focus a row in view without scrolling back to the top.
+    const auto& clip = ImGui::GetCurrentWindow()->ClipRect;
+    if (s.menu_focus_first && at.y >= clip.Min.y && at.y + height <= clip.Max.y
+        && !(ImGui::GetCurrentContext()->CurrentItemFlags & ImGuiItemFlags_Disabled)) {
         s.menu_focus_first = false;
         ImGui::FocusItem();
     }
@@ -544,25 +549,39 @@ bool menu_row(const char* label, ImU32 ink) {
     return menu_row(label, ink, RowRight());
 }
 
-bool menu_switch(const char* label, bool on) {
-    return menu_row(label, ui().text, [on](ImDrawList* list, ImVec2 right) {
-        const float k = tween(item_part("switch"), on ? 1.0f : 0.0f, kMedium);
-        const float h = dp(26.0f);
-        const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);
-        const ImVec2 b(right.x, right.y + h * 0.5f);
-        // The launcher's switch: a track in the darkest black, no edge; when on, the
-        // gold tint of a control that is on and a gold knob (no wall of solid gold).
-        list->AddRectFilled(a, b, ui_colors::mix(ui().ink_deep, ui().amber, 0.22f * k), h * 0.5f);
-        const float knob = h * 0.5f - dp(4.0f);
-        const float from = a.x + h * 0.5f;
-        const float to = b.x - h * 0.5f;
-        list->AddCircleFilled(
-            ImVec2(from + (to - from) * k, right.y), knob, ui_colors::mix(ui().dim, ui().amber, k)
-        );
-    });
+bool menu_switch(const char* label, bool on, bool enabled) {
+    ImGui::BeginDisabled(!enabled);
+    const bool pressed = menu_row(
+        label, enabled ? ui().text : ui().dim, [on, enabled](ImDrawList* list, ImVec2 right) {
+            const float k = tween(item_part("switch"), on ? 1.0f : 0.0f, kMedium);
+            const float h = dp(26.0f);
+            const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);
+            const ImVec2 b(right.x, right.y + h * 0.5f);
+            const ImU32 active = enabled ? ui().brand : ui().line_strong;
+            list->AddRectFilled(a, b, ui_colors::mix(ui().ink_deep, active, k), h * 0.5f);
+            list->AddRect(a, b, ui_colors::mix(ui().line_strong, active, k), h * 0.5f);
+            const float knob = h * 0.5f - dp(4.0f);
+            const float from = a.x + h * 0.5f;
+            const float to = b.x - h * 0.5f;
+            list->AddCircleFilled(
+                ImVec2(from + (to - from) * k, right.y),
+                knob,
+                enabled ? ui_colors::mix(ui().dim, ui().text, k) : ui().dim
+            );
+        }
+    );
+    ImGui::EndDisabled();
+    return pressed;
 }
 
-int menu_choice(const char* label, const std::string& value, bool can_lower, bool can_raise) {
+int menu_choice(
+    const char* label,
+    const std::string& value,
+    bool can_lower,
+    bool can_raise,
+    bool enabled,
+    const char* stable_id
+) {
     float back_until = 0.0f;  // a press left of this moves the value back
     // The values of every row in one column, centred between its arrows; a label too long for
     // what is left of the row ends in "..." (the drawer's "Anisotropic filtering").
@@ -570,19 +589,25 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
     const auto draw = [&](ImDrawList* list, ImVec2 right) {
         const float left = right.x - column;
         const ImU32 off = ui_colors::fade(ui().dim, 0.35f);
-        arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, can_lower ? ui().amber : off);
-        arrow(list, ImVec2(right.x, right.y), 1.0f, 0.0f, can_raise ? ui().amber : off);
+        arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, enabled && can_lower ? ui().amber : off);
+        arrow(list, ImVec2(right.x, right.y), 1.0f, 0.0f, enabled && can_raise ? ui().amber : off);
         ImFont* font = ImGui::GetFont();
         list->AddText(
             centred_text(font, ImGui::GetFontSize(), value, ImVec2(left + column * 0.5f, right.y)),
-            ui().gold,
+            enabled ? ui().gold : ui().dim,
             value.c_str()
         );
         back_until = left + column * 0.35f;
     };
     g_quiet_row = true;  // the row's sound is the value's (below)
-    const bool pressed = menu_row(label, ui().text, draw, column + dp(8.0f));
+    ImGui::BeginDisabled(!enabled);
+    const bool pressed =
+        menu_row(label, enabled ? ui().text : ui().dim, draw, column + dp(8.0f), stable_id);
+    ImGui::EndDisabled();
     g_quiet_row = false;
+    if (!enabled) {
+        return 0;
+    }
     int by = 0;
     if (pressed) {
         by = ImGui::IsMouseReleased(0) && ImGui::GetIO().MousePos.x < back_until ? -1 : 1;
@@ -827,6 +852,7 @@ void set_menu(bool open) {
         s.menu_scroll.velocity = 0.0f;  // a flick from the last time does not glide on
         dismiss("menu.hint");           // the hint at the start has done its work
     } else {
+        s.menu_motion.scroll_target = s.menu_motion.scroll_shown;
         s.paused = s.keep_paused;
     }
 }

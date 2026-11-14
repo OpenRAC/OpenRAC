@@ -48,7 +48,9 @@ public:
         std::span<const Mat4> palette,
         const renderer::Camera& camera,
         unsigned layers = 0x1e,
-        std::array<float, 2> ndc = {0, 0}
+        std::array<float, 2> ndc = {0, 0},
+        bool enhanced = false,
+        const MaterialBindings* materials = nullptr
     );
     bool refresh(
         const LevelData& level,

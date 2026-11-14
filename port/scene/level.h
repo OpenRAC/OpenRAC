@@ -23,6 +23,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "renderer/math.h"
@@ -95,6 +96,11 @@ struct Material {
     std::string name;  // Authored material identity, including distinct chrome and glass maps.
 };
 
+// Retail sphere maps are separate from the textured colour pass.
+inline bool is_retail_chrome(bool metal, std::string_view name) {
+    return metal && name == "metal_chrome";
+}
+
 struct Primitive {
     std::uint32_t first_index = 0;
     std::uint32_t index_count = 0;
@@ -113,7 +119,20 @@ struct Primitive {
     // A count of 0 draws the whole primitive there.
     std::uint32_t glow_first = 0;
     std::uint32_t glow_count = 0;
+    bool enhanced_only = false;    // Standard replacement for geometry found only in a retail pass.
+    int appearance_material = -1;  // Chrome coverage follows this editable colour/replacement slot.
+
+    int appearance_slot() const {
+        return appearance_material >= 0 ? appearance_material : material;
+    }
 };
+
+inline bool material_pass_visible(
+    const Primitive& primitive, const Material& material, bool enhanced, bool original = false
+) {
+    return enhanced && !original ? !is_retail_chrome(material.metal, material.name)
+                                 : !primitive.enhanced_only;
+}
 
 // Original joint identity and bind frame, retained for bone attachments and viewer diagnostics.
 struct ModelJoint {
@@ -287,6 +306,9 @@ struct LevelData {
 // The world centre of `model`'s bounds drawn at `matrix`.
 Vec3 bounds_centre(const Model& model, const Mat4& matrix);
 
+// Keeps the classic chrome packets and adds standard geometry for their uncovered triangles.
+void prepare_chrome_geometry(LevelData& level);
+
 // Load a level directory. Returns false with a reason if the manifest or a
 // mesh cannot be read; a missing texture only counts in missing_images.
 // `edited`, when it names a file, is a placements file from a mod (the editor's
@@ -294,12 +316,14 @@ Vec3 bounds_centre(const Model& model, const Mat4& matrix);
 // folder it is in is the mod's folder for the level (LevelData::overrides): its
 // meshes and textures are read in place of the level's own of the same path,
 // whether or not the placements file itself is there.
+// prepare_geometry can add runtime geometry before material overrides are resolved.
 bool load_level(
     const std::filesystem::path& dir,
     LevelData& out,
     std::string& error,
     const std::filesystem::path& edited = {},
-    const std::vector<std::filesystem::path>& mod_roots = {}
+    const std::vector<std::filesystem::path>& mod_roots = {},
+    void (*prepare_geometry)(LevelData&) = nullptr
 );
 
 // The level's sky textures (textures/sky_NNNN.png, by the sky's own texture numbers), including the

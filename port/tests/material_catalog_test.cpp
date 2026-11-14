@@ -203,12 +203,79 @@ void test_round_trip_and_bake_projection() {
     const auto transport = materials::transport_properties(properties);
     CHECK(transport.size() == 1 && std::get<double>(transport.at("emission.bake_intensity")) == 2);
 }
+
+// A shared assignment replaces old finishes, survives serialization, and keeps bake reset boundaries.
+void test_shared_assignments() {
+    auto source = catalog(R"({"version":1,"presets":{
+      "paint":{"surface":{"roughness":0.3}},"other":{"surface":{"roughness":0.7}}},
+      "overrides":[{"id":"old","match":{"layer":"moby"},"set":{"surface":{"diffuse_scale":0.2}}},
+      {"id":"slot","match":{"layer":"moby","class_id":7},"material":"paint"}]})");
+    materials::Identity identity;
+    identity.layer = "moby";
+    identity.class_id = 7;
+    const auto selected = materials::resolve(source, identity);
+    CHECK(selected && selected->material == "paint");
+    CHECK(!selected->properties.contains("surface.diffuse_scale"));
+    const auto text = materials::catalog_text(source);
+    CHECK(text && materials::parse_catalog(*text)->rules.at("slot").material == "paint");
+    const auto projection = materials::transport_catalog_stamp(source);
+    CHECK(projection && !projection->empty());
+    const auto projected = materials::parse_catalog(*projection);
+    CHECK(
+        projected
+        && !materials::resolve(*projected, identity)->properties.contains("surface.diffuse_scale")
+    );
+    source.rules.erase("old");
+    CHECK(materials::transport_catalog_stamp(source)->empty());
+    auto conflicting = source.rules.at("slot");
+    conflicting.id = "same-slot";
+    conflicting.material = "other";
+    source.rules.emplace(conflicting.id, conflicting);
+    CHECK(!materials::resolve(source, identity));
+    CHECK(!materials::parse_catalog(R"({"version":1,"overrides":[
+      {"id":"invalid","match":{"layer":"moby"},"preset":"paint","material":"paint"}]})"));
+}
+
+void test_material_type_migration() {
+    for (const auto& type : materials::kMaterialTypes) {
+        const auto definition = materials::material_definition({{"type", std::string(type.id)}});
+        CHECK(materials::validate(definition));
+        CHECK(materials::text_value(definition, "type") == type.id);
+    }
+    CHECK(!materials::validate({{"type", std::string("chrome")}}));
+    CHECK(!materials::validate({{"shading", std::string("chrome")}}));
+    CHECK(!materials::validate({{"shading", std::string("stylised")}}));
+    const auto source = materials::parse_catalog(R"({"version":1,"presets":{
+      "chrome":{"shading":"chrome","surface":{"roughness":0.25}},
+      "stylised":{"shading":"stylised"},"library.glossy-plastic":{"surface":{"roughness":0.22}}},
+      "overrides":[{"id":"surface","match":{"layer":"moby"},"preset":"chrome"}]})");
+    CHECK(source && !source->presets.contains("chrome") && !source->presets.contains("stylised"));
+    CHECK(!source->presets.contains("library.glossy-plastic"));
+    CHECK(materials::text_value(source->presets.at("lit-metal"), "type") == "lit");
+    CHECK(materials::number_value(source->presets.at("lit-metal"), "surface.metallic", 0) == 1);
+    const auto overlay = materials::parse_catalog(R"({"version":1,"overrides":[
+      {"id":"surface","match":{"layer":"moby"},"preset":"chrome"}]})");
+    CHECK(overlay && overlay->rules.at("surface").preset == "lit-metal");
+    const auto saved = materials::catalog_text(*source);
+    CHECK(saved && materials::parse_catalog(*saved));
+    const auto profile_path = std::filesystem::path(__FILE__).parent_path().parent_path()
+                              / "enhanced/lighting/profiles/rac1/material-overrides.json";
+    const auto profile = materials::read_catalog(profile_path);
+    CHECK(profile && !profile->presets.empty());
+    for (const auto& [id, rule] : profile->rules) {
+        CHECK(rule.preset.empty() && !rule.material.empty());
+        CHECK(profile->presets.contains(rule.material));
+        CHECK(profile->presets.at(rule.material).contains("type"));
+    }
+}
 }  // namespace
 
 // Synthetic catalog fixtures need neither a disc, a window nor a GPU.
 int main() {
     try {
         test_validation();
+        test_material_type_migration();
+        test_shared_assignments();
         test_rounding_independence();
         test_preset_field_precedence();
         test_json_reader_compatibility();

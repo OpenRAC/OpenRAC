@@ -411,7 +411,7 @@ void test_environment_previews(
     captures.release();
 }
 
-// The live model hook must select Clank/wrench independently and clear the override for other draws.
+// Original chrome bypasses enhanced optics while legacy glass and stylised packets retain theirs.
 void test_reflection_model_selection(const openrac::renderer::FrameBuffer& target) {
     using namespace openrac;
     using namespace gl;
@@ -442,30 +442,32 @@ void main() { colour=vec4(float(object_reflection_enabled),object_reflection_mat
     scene::Material source;
     source.metal = true;
     source.name = "metal_chrome";
+    CHECK(!scene::material_pass_visible({}, source, materials.enhanced_materials_enabled()));
+    materials.set_material_overrides(false);
+    CHECK(scene::material_pass_visible({}, source, materials.enhanced_materials_enabled()));
+    materials.set_material_overrides(true);
     const auto draw = [&](unsigned model) {
         materials.bind_material(shader, model, -1, source);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         return target.read_rgba();
     };
     const auto clank = draw(4);
-    CHECK(
-        clank[0] == 255 && std::abs(int(clank[1]) - 66) <= 1 && std::abs(int(clank[2]) - 166) <= 1
-    );
+    CHECK(clank[0] == 0);
     const auto wrench = draw(5);
-    CHECK(
-        wrench[0] == 255 && std::abs(int(wrench[1]) - 46) <= 1
-        && std::abs(int(wrench[2]) - 191) <= 1
-    );
+    CHECK(wrench == clank);
     const auto other = draw(6);
-    CHECK(other[0] == 255 && std::abs(int(other[1]) - 64) <= 1);
-    CHECK(draw(~0u)[0] == 255);  // Authored chrome needs no gameplay class whitelist.
+    CHECK(other == clank);
+    CHECK(draw(~0u) == clank);  // Retail chrome is independent of the gameplay class.
     source.name = "metal_glass";
+    CHECK(scene::material_pass_visible({}, source, materials.enhanced_materials_enabled()));
     const auto glass = draw(4);
     CHECK(std::abs(int(glass[1]) - 20) <= 1 && std::abs(int(glass[2]) - 10) <= 1);
     source.name = "metal_stylised";
+    CHECK(scene::material_pass_visible({}, source, materials.enhanced_materials_enabled()));
     const auto stylised = draw(4);
     CHECK(std::abs(int(stylised[1]) - 89) <= 1 && std::abs(int(stylised[2]) - 31) <= 1);
     enhanced::set_reflection_override(87, enhanced::ReflectionSurface::Wrench);
+    source.name = "metal_chrome";
     CHECK(draw(4) == wrench);
     enhanced::clear_reflection_overrides();
     source.metal = false;

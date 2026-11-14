@@ -26,6 +26,22 @@ namespace openrac::materials {
 using Value = std::variant<bool, double, std::string, std::array<double, 3>>;
 using Properties = std::map<std::string, Value, std::less<>>;
 
+struct MaterialType {
+    std::string_view id;
+    std::string_view label;
+};
+
+inline constexpr MaterialType kMaterialTypes[] = {
+    {"lit", "Lit"},
+    {"glass-lit", "Glass Lit"},
+    {"lit-fur", "Lit Fur Surface"},
+    {"lit-wet-fur", "Lit Wet Fur Surface"},
+    {"foliage", "Lit Foliage"},
+    {"original", "Original"},
+};
+// Expands a named definition with type-specific defaults; mesh textures and coverage stay separate.
+[[nodiscard]] Properties material_definition(Properties properties);
+
 // The editor widget and parser representation of a supported property.
 enum class Kind {
     Boolean,
@@ -80,6 +96,7 @@ struct Rule {
     std::string name;       // Human-readable label, falling back to id.
     Selector match;         // Every specified condition must match.
     std::string preset;     // Optional reusable property set.
+    std::string material;   // Shared material assignment, replacing earlier shading properties.
     Properties properties;  // Field overrides applied after the preset.
     bool enabled = true;    // A higher-layer false disables a rule with the same id.
     std::string source;     // File responsible for this rule.
@@ -100,6 +117,7 @@ struct Catalog {
 
 // Fully resolved values and their provenance, compiled once per model/material/layer binding.
 struct Resolved {
+    std::string material;                        // Explicit shared material assigned to this slot.
     Properties properties;                       // Effective supported fields.
     std::map<std::string, std::string> sources;  // Effective field's source file.
     std::vector<std::string> rules;              // Matching enabled rule ids in precedence order.

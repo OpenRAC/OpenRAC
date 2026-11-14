@@ -6,9 +6,13 @@
 #include "enhanced/viewer/probe_sphere_culling.h"
 
 #include <limits>
+#include <stdexcept>
 
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl/gl.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/graph/graph_execution.h"
+#endif
 
 namespace openrac::lighting {
 namespace {
@@ -72,7 +76,8 @@ bool ProbeSphereCulling::prepare(std::span<const ProbeSphere> spheres, std::stri
 void ProbeSphereCulling::dispatch(
     const renderer::Camera& camera,
     float range,
-    const std::array<ProbeRegionSlot, kDenseProbeSlots>& slots
+    const std::array<ProbeRegionSlot, kDenseProbeSlots>& slots,
+    bool gpu_selection
 ) {
     const unsigned bindings[] = {kSourceBinding, kOutputBinding, kCommandBinding};
 
@@ -99,13 +104,72 @@ void ProbeSphereCulling::dispatch(
         glUniform1f(m_shader.uniform(("cpu_weights" + suffix).c_str()), slots[slot].weight);
     }
 
-    // Previous vertex/argument reads finish before the next reset reuses the same resident buffers.
+    const auto compact = [&] {
+        glUniform1i(m_shader.uniform("reset_command"), 1);
+        glDispatchCompute(1, 1, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        glUniform1i(m_shader.uniform("reset_command"), 0);
+        glDispatchCompute((m_count + kWorkgroupSize - 1) / kWorkgroupSize, 1, 1);
+    };
+#if defined(OPENRAC_VULKAN)
+    if (is_vulkan()) {
+        namespace graph = renderer::graph;
+        vkgl::GraphExecution execution;
+        const auto source =
+            execution.read_buffer("probe sphere source", m_buffers[0], graph::Stage::ComputeShader);
+        const auto output = execution.import_buffer("probe sphere vertices", m_buffers[1]);
+        const auto arguments = execution.import_buffer("probe sphere arguments", m_buffers[2]);
+        if (!source || !output || !arguments) {
+            throw std::runtime_error("cannot import probe sphere compute buffers");
+        }
+        const auto vertex_bytes = std::uint64_t{m_count} * sizeof(ProbeSphere);
+        constexpr auto argument_bytes = (kCommandWords + kRegionCapacity) * sizeof(unsigned);
+        auto pass = execution.make_pass("probe sphere compaction");
+        pass.buffers.push_back(*source);
+        pass.buffers.push_back(
+            {*output,
+             {0, vertex_bytes},
+             {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}
+        );
+        pass.buffers.push_back(
+            {*arguments,
+             {0, argument_bytes},
+             {graph::Stage::ComputeShader, graph::Access::ReadWrite, graph::Layout::Buffer}}
+        );
+        // The CPU-selected branch never samples a mask; unit zero may hold an unrelated buffer view.
+        const auto inputs = execution.capture_compute_reads(
+            pass, gpu_selection ? vkgl::ComputeInputs::All : vkgl::ComputeInputs::UniformBlocks
+        );
+        if (!inputs) {
+            throw std::runtime_error(inputs.error().message);
+        }
+        auto consumers = execution.make_pass("probe sphere draw inputs");
+        graph::shader_read_export(
+            consumers,
+            pass,
+            graph::Stage::VertexShader | graph::Stage::FragmentShader | graph::Stage::ComputeShader
+        );
+        for (auto& use : consumers.buffers) {
+            if (use.buffer == *output) {
+                use.state.stages = use.state.stages | graph::Stage::VertexInput;
+            }
+            if (use.buffer == *arguments) {
+                use.state.stages = use.state.stages | graph::Stage::DrawIndirect;
+            }
+        }
+        execution.add_pass(std::move(pass));
+        execution.add_pass(std::move(consumers));
+        const auto result = execution.run([&](unsigned) { compact(); });
+        if (!result) {
+            throw std::runtime_error(result.error().message);
+        }
+        return;
+    }
+#endif
+    // Compatibility barriers retain ordering outside Vulkan's declared pass graph.
+    (void)gpu_selection;
     glMemoryBarrier(kDrawBarrier);
-    glUniform1i(m_shader.uniform("reset_command"), 1);
-    glDispatchCompute(1, 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    glUniform1i(m_shader.uniform("reset_command"), 0);
-    glDispatchCompute((m_count + kWorkgroupSize - 1) / kWorkgroupSize, 1, 1);
+    compact();
     glMemoryBarrier(kDrawBarrier);
 }
 

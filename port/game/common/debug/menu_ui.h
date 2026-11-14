@@ -152,16 +152,27 @@ void menu_heading(const char* title);
 // rows along presses none). As high as a thumb on a touch screen, a little lower on a desktop.
 // `right_width` > 0: what `right` draws takes that much, and a longer label ends in "...".
 using RowRight = std::function<void(ImDrawList* list, ImVec2 right)>;
-bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_width = 0.0f);
+bool menu_row(
+    const char* label,
+    ImU32 ink,
+    const RowRight& right,
+    float right_width = 0.0f,
+    const char* stable_id = nullptr
+);
 bool menu_row(const char* label, ImU32 ink = ui().text);
 
 // A row that turns something on and off: true when pressed.
-bool menu_switch(const char* label, bool on);
+bool menu_switch(const char* label, bool on, bool enabled = true);
 
 // A row with its value between two arrows: -1 or 1 when it was moved back or on (a press on the
 // value's left part moves it back, anywhere else on; left and right while it has the focus).
 int menu_choice(
-    const char* label, const std::string& value, bool can_lower = true, bool can_raise = true
+    const char* label,
+    const std::string& value,
+    bool can_lower = true,
+    bool can_raise = true,
+    bool enabled = true,
+    const char* stable_id = nullptr
 );
 
 // A percentage slider in a menu row, between two arrows: the new value after a drag, a tap on the

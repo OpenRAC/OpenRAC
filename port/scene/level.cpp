@@ -664,7 +664,8 @@ bool load_level(
     LevelData& out,
     std::string& error,
     const fs::path& edited,
-    const std::vector<fs::path>& mod_roots
+    const std::vector<fs::path>& mod_roots,
+    void (*prepare_geometry)(LevelData&)
 ) {
     const profiling::Zone trace("Load level assets");
 
@@ -1429,6 +1430,10 @@ bool load_level(
         out.pvs.grid.empty() ? "unavailable" : "loaded",
         out.pvs.grid.size()
     );
+    if (prepare_geometry) {
+        prepare_geometry(out);
+    }
+    prepare_chrome_geometry(out);
     prepare_material_overrides(out);
     return true;
 }

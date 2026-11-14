@@ -10,18 +10,18 @@ namespace openrac::renderer {
 // Render-to-display ratios follow AMD's temporal-upscaler quality presets.
 enum class TemporalQuality : std::uint8_t {
     Off,
-    NativeAA,
-    Quality,
-    Balanced,
     Performance,
+    Balanced,
+    Quality,
+    NativeAA,
     Count,
 };
 // Persistent keys shared by the settings file and launcher.
 inline constexpr const char* kTemporalKeys[]{
-    "off", "native-aa", "quality", "balanced", "performance"
+    "off", "performance", "balanced", "quality", "native-aa"
 };
 // Menu labels in the same order as TemporalQuality.
 inline constexpr const char* kTemporalNames[]{
-    "Off", "Native AA", "Quality", "Balanced", "Performance"
+    "Off", "Performance", "Balanced", "Quality", "Native AA"
 };
 }  // namespace openrac::renderer

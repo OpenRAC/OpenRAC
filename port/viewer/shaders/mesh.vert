@@ -69,6 +69,7 @@ uniform vec4 terrain_point_lights[16];
 // normal, a sphere map of the level's chrome or glass picture, the vertex colour 0x70 and the
 // alpha the moby's distance gives (ReRAC moby_skinning_lighting.md 6 and 9).
 uniform int metal_pass;
+uniform int object_thin_glass;
 // 1: clip-space z goes to the window as it is (renderer/gl/precise_depth.h), 0: GL's (z + w) / 2.
 uniform int clip_zero_to_one;
 uniform int probe_mode;
@@ -272,6 +273,11 @@ void main() {
 #endif
 #ifndef OPENRAC_COLOUR_SPECIALISED
     if (metal_pass != 0) {
+        // A separate pane uses its actual depth and only the instance's fade.
+        if (object_thin_glass != 0) {
+            v_colour = vec4(1.0, 1.0, 1.0, tint.a);
+            return;
+        }
         // st = (e.xy + 1) / 2, e the normal in camera space (x right, y down: t grows downward).
         vec3 e = normalize(mat3(view) * normalize(normal_model * n));
         v_uv = vec2(e.x * 0.5 + 0.5, 0.5 - e.y * 0.5);

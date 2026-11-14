@@ -4,7 +4,9 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <numbers>
 
+#include "scene/material_overrides.h"
 #include "scene/object_preview.h"
 
 namespace openrac::scene {
@@ -211,7 +213,8 @@ Result<PreviewMesh> preview_mesh(
     const scene::LevelData& level,
     const scene::PickHit& hit,
     const scene::Instance& instance,
-    std::span<const renderer::Mat4> palette
+    std::span<const renderer::Mat4> palette,
+    const MaterialBindings* materials
 ) {
     if (hit.model >= level.models.size() || instance.model != hit.model) {
         return unexpected(Error{"selected object no longer has a valid model"});
@@ -235,9 +238,21 @@ Result<PreviewMesh> preview_mesh(
             return unexpected(Error{"selected model has an invalid material or index range"});
         }
 
-        PreviewPart part{
-            level.materials[std::size_t(p.material)], unsigned(mesh.source.size()), p.index_count
-        };
+        const auto& original = level.materials[std::size_t(p.material)];
+        const bool original_type = materials && materials->original(hit.model, p.appearance_slot());
+        if (!material_pass_visible(p, original, materials != nullptr, original_type)) {
+            continue;
+        }
+        const auto* binding = materials ? materials->find(hit.model, p.material) : nullptr;
+        PreviewPart part;
+        part.material = binding && !is_retail_chrome(original.metal, original.name)
+                            ? binding->surface()
+                            : original;
+        part.first = unsigned(mesh.source.size());
+        part.count = p.index_count;
+        part.source_material = p.material;
+        part.source_image = part.material.image;
+        part.source_emission = part.material.emission_image;
         copy_image(part.material.image, level, mesh, images);
         copy_image(part.material.emission_image, level, mesh, images);
         mesh.parts.push_back(part);
@@ -270,6 +285,48 @@ Result<PreviewMesh> preview_mesh(
         return unexpected(posed.error());
     }
 
+    return mesh;
+}
+
+PreviewMesh preview_uv_sphere(
+    const LevelData& level, int source_material, const Material& material
+) {
+    constexpr int rings = 24, segments = 48;
+    const auto vertex = [](int ring, int segment) {
+        const float u = float(segment) / segments;
+        const float v = float(ring) / rings;
+        const float latitude = v * std::numbers::pi_v<float>;
+        const float longitude = u * (2 * std::numbers::pi_v<float>);
+        const float radial = std::sin(latitude);
+        Vertex out{};
+        out.position[0] = radial * std::cos(longitude);
+        out.position[1] = radial * std::sin(longitude);
+        out.position[2] = std::cos(latitude);
+        std::copy_n(out.position, 3, out.normal);
+        std::fill_n(out.colour, 4, 1.f);
+        out.uv[0] = u;
+        out.uv[1] = v;
+        return out;
+    };
+    PreviewMesh mesh;
+    mesh.vertices.reserve(rings * segments * 6);
+    for (int ring = 0; ring < rings; ++ring) {
+        for (int segment = 0; segment < segments; ++segment) {
+            const auto a = vertex(ring, segment), b = vertex(ring + 1, segment);
+            const auto c = vertex(ring + 1, segment + 1), d = vertex(ring, segment + 1);
+            mesh.vertices.insert(mesh.vertices.end(), {a, b, c, a, c, d});
+        }
+    }
+    PreviewPart part;
+    part.material = material;
+    part.count = unsigned(mesh.vertices.size());
+    part.source_material = source_material;
+    part.source_image = material.image;
+    part.source_emission = material.emission_image;
+    std::map<int, int> images;
+    copy_image(part.material.image, level, mesh, images);
+    copy_image(part.material.emission_image, level, mesh, images);
+    mesh.parts.push_back(std::move(part));
     return mesh;
 }
 
