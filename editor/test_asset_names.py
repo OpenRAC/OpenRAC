@@ -12,6 +12,18 @@ NAMES = Path(__file__).parent / "addons" / "openrac_library" / "names"
 KINDS = ("mobys", "ties", "shrubs")
 
 
+def wrapped(name: str, line: int = 17) -> list[str]:
+    """NAME broken between words as the dock shows it (dock.gd wrapped())."""
+    lines = [""]
+    for word in name.split(" "):
+        joined = (lines[-1] + " " + word).strip()
+        if len(joined) <= line or not lines[-1]:
+            lines[-1] = joined
+        else:
+            lines.append(word)
+    return lines
+
+
 class AssetNames(unittest.TestCase):
     def test_each_class_has_one_readable_name(self):
         for path in sorted(NAMES.glob("*.tsv")):
@@ -28,6 +40,10 @@ class AssetNames(unittest.TestCase):
                 seen.add((kind, number))
                 self.assertEqual(name, name.strip(), line)
                 self.assertTrue(name[:1].isupper(), line)
+                # Fits the dock's two lines under the picture.
+                lines = wrapped(name)
+                self.assertLessEqual(len(lines), 2, line)
+                self.assertLessEqual(max(map(len, lines)), 17, line)
                 # No "moby 12", "prop 10", "UNKNOWN" or code names.
                 self.assertIsNone(re.search(r"(?i)\b(moby|tie|shrub|prop|class)\s*\d|unknown|_", name), line)
 

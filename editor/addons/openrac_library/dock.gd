@@ -131,6 +131,7 @@ func _init() -> void:
 	list.same_column_width = true
 	list.fixed_column_width = 96
 	list.fixed_icon_size = Vector2i(80, 80)
+	list.max_text_lines = 2
 	list.item_activated.connect(func(index: int) -> void: add(index))
 	list.item_selected.connect(func(_index: int) -> void: show_selected())
 	split.add_child(list)
@@ -392,7 +393,7 @@ func refill() -> void:
 			continue
 
 		seen[key] = true
-		var index: int = list.add_item(String(asset["name"]))
+		var index: int = list.add_item(wrapped(String(asset["name"])))
 
 		if status == Library.FULL:
 			list.set_item_custom_fg_color(index, FULL_COLOUR)
@@ -540,3 +541,19 @@ func cached_preview(model: String) -> Texture2D:
 func cache_path(model: String) -> String:
 	var key: String = "%s:%d" % [model, FileAccess.get_modified_time(model)]
 	return PREVIEW_CACHE.path_join(key.md5_text() + ".png")
+
+
+## NAME broken into lines of at most LINE characters between words, as the list shows it: the list
+## itself breaks inside words.
+static func wrapped(name: String, line: int = 17) -> String:
+	var lines: PackedStringArray = [""]
+
+	for word in name.split(" "):
+		var joined: String = (lines[lines.size() - 1] + " " + word).strip_edges()
+
+		if joined.length() <= line or lines[lines.size() - 1].is_empty():
+			lines[lines.size() - 1] = joined
+		else:
+			lines.append(word)
+
+	return "\n".join(lines)

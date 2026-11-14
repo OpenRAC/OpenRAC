@@ -499,7 +499,7 @@ mobys	794	Upright glow sprite
 mobys	795	Blimp
 mobys	799	Green energy ring with core
 mobys	800	Green energy orb
-mobys	803	Swingshot swinging versatarget
+mobys	803	Swingshot target
 mobys	804	White splash ring
 mobys	810	Floating platform
 mobys	811	Mayor (novalis)
@@ -537,7 +537,7 @@ mobys	863	Test dummy bomb glove
 mobys	865	Medium amoeboid
 mobys	866	Small amoeboid
 mobys	868	Moving platform small
-mobys	871	Boltcrate possibly for metal detector
+mobys	871	Metal detector bolt crate
 mobys	872	Battery pack with cells
 mobys	873	Battery pack
 mobys	876	Test dummy pyrocitor
@@ -989,7 +989,7 @@ mobys	1619	Green robot arm with tool
 mobys	1620	Green and black wheel claw
 mobys	1621	Robot arm with red tip
 mobys	1622	Hazard striped bomb shell
-mobys	1623	Hazard striped bomb with red caps
+mobys	1623	Hazard bomb with red caps
 mobys	1624	Green robot claw arm
 mobys	1630	Thruster pack (backpack)
 mobys	1632	Glow sprite quad
@@ -1277,7 +1277,7 @@ ties	147	Snowy dark rock spire
 ties	149	Light blue pipe
 ties	150	Curved grey hull wall
 ties	151	Green fern bush
-ties	152	Tall grey building with blue stripe
+ties	152	Grey tower, blue stripe
 ties	153	Blue ice rock
 ties	154	Blue ice rock
 ties	155	Blue ice rock pillar
@@ -1407,7 +1407,7 @@ ties	317	Yellow and grey wall block
 ties	318	Dark metal rail
 ties	319	Dark metal rail
 ties	320	Curved hull with gold trim
-ties	321	Dark grated machine with purple top
+ties	321	Grated machine, purple top
 ties	322	White stacked beams
 ties	323	White wall pieces
 ties	324	Yellow wall with rock slope
@@ -1500,7 +1500,7 @@ ties	436	Mossy white boulder
 ties	437	White wall corner
 ties	438	Mountain wall
 ties	439	Bridge tower
-ties	441	Gold and grey pillar with lights
+ties	441	Gold and grey lit pillar
 ties	448	Tree top
 ties	449	Tree root
 ties	450	Tree trunk (bent)
@@ -1599,7 +1599,7 @@ ties	565	White rock wall (mossy 2)
 ties	566	Silver bent pipe with gold rings
 ties	567	Copper striped dome
 ties	568	Cream drum with copper rims
-ties	569	Silver curved pipe with gold rings
+ties	569	Silver curved pipe, gold rings
 ties	572	Silver metal blocks
 ties	573	Silver and copper beam frame
 ties	574	Metal floor frame with copper edge
@@ -1999,7 +1999,7 @@ ties	1184	Cream round hatch
 ties	1185	Dark barrel with green lid
 ties	1186	Tan block with black clamps
 ties	1187	Pipe with tan end
-ties	1188	Dark and tan machine with pipes
+ties	1188	Dark and tan pipe machine
 ties	1189	Dark cables
 ties	1190	Tan tank block
 ties	1193	White pipe with dark rings
@@ -2254,7 +2254,7 @@ ties	1508	Rod with yellow clamp
 ties	1509	Mossy rock slab
 ties	1510	Dark ribbed rod
 ties	1511	Blue drill tower
-ties	1512	Blue stacked frames with spikes
+ties	1512	Blue spiked frames
 ties	1513	Mossy dark boulder
 ties	1514	Dark stone boulder
 ties	1515	Mossy dark rock pillar
@@ -2354,7 +2354,7 @@ ties	1631	Blue block
 ties	1632	Blue C shaped frame
 ties	1633	Blue C shaped frame
 ties	1634	Blue C shaped wall
-ties	1635	Blue C shaped frame with copper top
+ties	1635	Blue C frame, copper top
 ties	1636	Grey wheel valve
 ties	1637	Dark ring with gold band
 ties	1638	Gold C shaped drum
@@ -2430,15 +2430,15 @@ ties	1763	Dark rail with brackets
 ties	1764	Round gold lamp in clamp
 ties	1765	Dark drum with gold band
 ties	1766	Dark curved slats
-ties	1768	Dark stacked blocks with screen
+ties	1768	Dark blocks with screen
 ties	1769	White curved beam
 ties	1770	White U shaped wall
 ties	1771	Gold U shaped bar
 ties	1772	Silver wall block
 ties	1773	Silver wall with windows
 ties	1774	Silver wall with windows
-ties	1775	Silver wall corner with windows
-ties	1776	Silver wall corner with windows
+ties	1775	Silver corner with windows
+ties	1776	Silver corner with windows
 ties	1778	Grey riveted panel
 ties	1779	Grey riveted corner panel
 ties	1780	Grey riveted wall block
@@ -2589,7 +2589,7 @@ ties	1975	Thin silver rail
 ties	1976	Dark oval track
 ties	1977	White beam
 ties	1978	Dark curled pipe
-ties	1979	Dark spiked machine with lights
+ties	1979	Dark spiked lit machine
 ties	1980	Dark curved ledge
 ties	1981	White ribbed wall
 ties	1982	Dark grated beam
@@ -2707,7 +2707,7 @@ ties	2116	Grey and copper drum
 ties	2117	Blue round vent
 ties	2119	Pale blue faceted rock
 ties	2122	Curved blue rail
-ties	2123	Dark round porthole with copper rim
+ties	2123	Porthole with copper rim
 ties	2124	Blue pipe with copper ring
 ties	2125	Blue ribbed drum
 ties	2126	Dark floor strip with pad
@@ -2774,7 +2774,7 @@ ties	2198	Round gadget with red tip
 ties	2199	Dark ribbed hose with yellow ring
 ties	2200	Dark cable with plugs
 ties	2201	Pipe with purple bands
-ties	2202	Dark ring machine with yellow lights
+ties	2202	Ring machine, yellow lights
 ties	2203	Brown rock spikes
 ties	2206	Dark ore stone
 ties	2207	Thin dark rod with clamp
@@ -2840,7 +2840,7 @@ ties	2268	Dark floor plate
 ties	2269	Green tub with silver rim
 ties	2270	Tall dark panel
 ties	2271	Wooden block
-ties	2272	Curved silver rail with green strip
+ties	2272	Curved rail, green strip
 ties	2273	Small curved hook
 ties	2274	White ribbed arch
 ties	2275	Grey bracket corner
@@ -2890,7 +2890,7 @@ ties	2333	Gold curved rail
 ties	2334	Dark beam with lights
 ties	2335	Dark wall with windows
 ties	2336	Copper and dark wall lamp
-ties	2337	Green round window with copper rim
+ties	2337	Green window, copper rim
 ties	2338	Curved console with buttons
 ties	2339	Dark curved frame
 ties	2340	Green lit coil tube
@@ -3248,7 +3248,7 @@ shrubs	381	Glowing green ball
 shrubs	382	Glowing green egg
 shrubs	390	Glass tube light
 shrubs	391	Floor rail grid
-shrubs	392	Round machine with orange lights
+shrubs	392	Round machine, orange lights
 shrubs	394	Teal hose
 shrubs	395	Purple coral clump
 shrubs	396	Teal coral bush
