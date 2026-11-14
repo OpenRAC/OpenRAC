@@ -1344,8 +1344,14 @@ std::atomic<std::uint32_t> g_camera_fov_loads{0};
 // The mods that hide the game's HUD (hud_hide), each with its level load, behind g_hud_lock.
 std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_hud_hidden;
 
-// Each mod's gain on the game's music (music_volume): the quietest applies.
-std::vector<std::pair<const openrac_mod*, float>> g_music_gains;
+// Each mod's gain on the game's music (music_volume) and the level load it was set in: the
+// quietest of this load's applies.
+struct MusicGain {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    float gain = 1.0f;
+};
+std::vector<MusicGain> g_music_gains;
 void (*g_music_gain)(int, float) = nullptr;
 int (*g_joint_frame)(std::uint32_t, int, float*) = nullptr;
 
@@ -1358,8 +1364,8 @@ void apply_music_gain() {
         return;
     }
     float gain = 1.0f;
-    for (const auto& g : g_music_gains) {
-        gain = std::min(gain, g.second);
+    for (const MusicGain& g : g_music_gains) {
+        gain = std::min(gain, g.gain);
     }
     g_music_gain(group, gain);
 }
@@ -1498,9 +1504,10 @@ int api_music_volume(openrac_mod* mod, float gain) {
         || g_play->music_group() < 0) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    std::erase_if(g_music_gains, [&](const auto& g) { return g.first == mod; });
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_music_gains, [&](const MusicGain& g) { return g.mod == mod || g.loads != loads; });
     if (gain < 1.0f) {
-        g_music_gains.emplace_back(mod, gain);
+        g_music_gains.push_back({mod, loads, gain});
     }
     apply_music_gain();
     return OPENRAC_HOOK_OK;
@@ -2317,6 +2324,11 @@ void play_loading(const openrac_mod* mod) {
 
 void play_update() {
     drop_stale_joint_sets();
+    // The music's gains went with their level: back at full.
+    const std::uint32_t loads = loads_now();
+    if (std::erase_if(g_music_gains, [&](const MusicGain& g) { return g.loads != loads; }) != 0) {
+        apply_music_gain();
+    }
     // The game's camera scripts, as they went.
     if (has_camera_scripts()) {
         std::int32_t id = 0;
@@ -2484,7 +2496,7 @@ void drop_figures(const openrac_mod* mod) {
         std::erase_if(g_hud, [&](const HudTexts& h) { return h.mod == mod; });
         std::erase_if(g_hud_hidden, [&](const auto& h) { return h.first == mod; });
     }
-    if (std::erase_if(g_music_gains, [&](const auto& g) { return g.first == mod; }) != 0) {
+    if (std::erase_if(g_music_gains, [&](const MusicGain& g) { return g.mod == mod; }) != 0) {
         apply_music_gain();
     }
     std::vector<std::uint32_t> turned;
