@@ -580,13 +580,17 @@ int openrac_guest_overlay(void) {
     return g_overlay;
 }
 
+std::uint32_t code_word(gaddr at);
+
 openrac_host_fn openrac_guest_function(gaddr address) {
     if (const Entry* e = find(address)) {
         // A folded wrapper (addiu sp, -16; sq ra; jal T; nop; lq ra; jr ra; addiu sp, 16): this
-        // place's own target, read from the program in memory.
+        // place's own target, read from the program's code (another level's in a foreign run).
         for (int depth = 0; depth < 4 && g_ambiguous.count(e->fn) != 0; ++depth) {
             std::uint32_t w[7];
-            std::memcpy(w, G(address), sizeof(w));
+            for (int i = 0; i < 7; ++i) {
+                w[i] = code_word(address + static_cast<gaddr>(i) * 4u);
+            }
             if (w[0] != 0x27BDFFF0u || w[1] != 0x7FBF0000u || (w[2] >> 26) != 3 || w[3] != 0
                 || w[4] != 0x7BBF0000u || w[5] != 0x03E00008u || w[6] != 0x27BD0010u) {
                 break;
