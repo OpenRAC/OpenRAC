@@ -19,6 +19,17 @@ FOREIGN = ('[ext_resource type="PackedScene" path="res://library/rac1/ntsc/level
 
 
 class ForeignClasses(unittest.TestCase):
+    def test_the_partial_switch_is_read_from_the_scene(self):
+        text = ('[gd_scene format=3]\n\n[node name="Game" type="Node3D"]\n\n'
+                '[node name="Mobys" type="Node3D" parent="Game"]\n\n'
+                '[node name="A" parent="Game/Mobys" instance=ExtResource("a")]\n'
+                'metadata/rc1_foreign_level = 8\nmetadata/rc1_foreign_partial = true\n')
+        import unittest.mock as mock
+        with mock.patch.object(foreign_classes, "scene_mobys", return_value=[
+                {"class_id": 440, "meta": {"foreign_level": 8, "foreign_partial": True}},
+                {"class_id": 347, "meta": {"foreign_level": 17}}]):
+            self.assertEqual(foreign_classes.partial(text), {440})
+
     def test_a_place_in_its_pvars_moves_with_it(self):
         donor = foreign_classes.Donor(18, 1402, {}, pvar=struct.pack("<4f", 10.0, 20.0, 1.0, 2.0))
         move = foreign_classes.Move(0.0, 5.0, 6.0, -3.0)

@@ -43,5 +43,29 @@ func section(node: Node3D) -> Control:
 		+ "[color=#9aa4b2]Pack, then play. Its level's paths, zones and cameras come with it, "
 		+ "moved to where it stands, and the mobys it needs there with them; its sounds and texts "
 		+ "are this level's. Each costs about half a millisecond a frame.[/color]") % [level, "" if name.is_empty() else " (%s)" % name]
-	panel.add_child(text)
+	var box := VBoxContainer.new()
+	box.add_child(text)
+	box.add_child(partial_toggle(node))
+	panel.add_child(box)
 	return panel
+
+
+## The switch for a level short of class slots (rc1_foreign_partial): by default the pack refuses a
+## class whose classes do not all fit, and names the levels where they do; switched on, the class
+## comes without the ones it makes that do not fit (shots, effects, parts it adds), which then do
+## not appear.
+func partial_toggle(node: Node) -> Control:
+	var check := CheckBox.new()
+	check.text = "Import without what does not fit"
+	check.tooltip_text = ("A level has room for a limited number of moby classes. When this class "
+		+ "and what it makes do not all fit, the pack refuses it and names the levels where they "
+		+ "do. Switched on, it comes anyway: the classes it makes that do not fit (shots, effects, "
+		+ "parts it adds) do not appear, so it may not look or act fully as it does in its level.")
+	check.button_pressed = bool(node.get_meta("rc1_foreign_partial", false))
+	check.toggled.connect(func(on: bool) -> void:
+		if on:
+			node.set_meta("rc1_foreign_partial", true)
+		elif node.has_meta("rc1_foreign_partial"):
+			node.remove_meta("rc1_foreign_partial")
+		EditorInterface.mark_scene_as_unsaved())
+	return check

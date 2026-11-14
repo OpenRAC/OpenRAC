@@ -230,7 +230,8 @@ def apply(node: dict, record: dict, original: dict | None, whole: bool, problems
         record["class_id"] = node["class_id"]
     # Godot may save inherited class metadata on every instance. These facts describe
     # the class; they are not editable gameplay fields and must not become false edits.
-    descriptive = ("index", "class", "class_name", "source", "update", "foreign_level", "foreign_class_scale")
+    descriptive = ("index", "class", "class_name", "source", "update", "foreign_level", "foreign_class_scale",
+                   "foreign_partial")
     # Skins and behaviours are packed beside the placements (skins.py, behaviours.py).
     beside = ("skin", "behaviour")
     meta = {k: v for k, v in node["meta"].items()
@@ -364,6 +365,8 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
                 changes.append(f"{node['name']}: added, class {node['class_id']} from level {donor.level:02}"
                                + (f", with {len(group) - 1} moby(s) it names there" if len(group) > 1 else ""))
                 continue
+            if model is None and node["meta"].get("foreign_level") is not None:
+                continue    # an imported class not packed: the pack has said why (foreign_problems)
             if model is None:
                 record = dict.fromkeys(FIELDS, 0)
                 record.update(USUAL, size=SIZE, class_id=node["class_id"], scale=1.0, group=-1, pvar_index=-1,
@@ -941,32 +944,64 @@ def pack(disc, survey: dict, project: Path, out: Path,
         # And the classes its update can make that this level lacks (spawns.py: a turret's shots).
         import spawns
         made = spawns.table()
+        spawned: set[int] = set()      # classes brought only because something makes them
         for class_id, group in list(donors.items()):
             there = group[0].level
             _, source_level = sources[there]
-            for member_class in sorted({member.class_id for member in group}):
-                for cid in sorted(spawns.made_by(member_class, there, made)):
+            # Nearest first (what its parts make, then what that makes), so what is left out when
+            # the slots run short is the farthest.
+            todo = sorted({member.class_id for member in group})
+            seen = set(todo)
+            while todo:
+                one = todo.pop(0)
+                for cid in sorted(made.get((one, there), made.get((one, -1), set()))):
+                    if cid in seen:
+                        continue
+                    seen.add(cid)
+                    todo.append(cid)
                     if cid in own or cid in blobs or wanted.get(cid, there) != there:
                         continue
                     try:
                         blobs[cid] = (there, foreign_classes.class_blob(source_level, cid))
                         owner[cid] = class_id
+                        spawned.add(cid)
                     except ValueError:
                         pass
         # The level has 224 class slots; what its own classes leave is all the imports get. A
-        # placed class whose classes (its own, its links', what it makes) do not all fit is not
-        # imported: without its parts or shots it would not run as it does there.
+        # placed class whose classes (it, its links' and what it makes) do not all fit is not
+        # imported, unless the scene lets it come without what does not fit (rc1_foreign_partial):
+        # then its own and its links' must fit, and what it makes fills what is left, nearest
+        # first; a class left out is not made (the game's path for a class with no slot).
         room = max(foreign_classes.CLASS_SLOTS - len(own), 0) if blobs else 0
         taken: set[int] = set()
+        foreign_notes: list[str] = []
+        lenient = foreign_classes.partial(text)
         for class_id in list(donors):
-            needs = {c for c in blobs if owner.get(c) == class_id} - taken
+            needs = [c for c in blobs if owner.get(c) == class_id and c not in taken]
+            parts = [c for c in needs if c not in spawned]
             if len(taken) + len(needs) <= room:
-                taken |= needs
+                taken |= set(needs)
+                continue
+            if class_id in lenient and len(taken) + len(parts) <= room:
+                taken |= set(parts)
                 continue
             del donors[class_id]
+            elsewhere = foreign_classes.levels_with_room(disc, survey, set(needs) | {class_id}, info["id"])
             foreign_problems.append(
                 f"imported class {class_id} needs {len(needs)} more moby classes and only "
-                f"{room - len(taken)} fit in this level; its mobys are not packed")
+                f"{room - len(taken)} fit in this level; its mobys are not packed"
+                + (f". They fit in level(s) {', '.join(f'{lv:02}' for lv in elsewhere)}" if elsewhere else "")
+                + ("" if class_id in lenient else
+                   "; or switch on \"Import without what does not fit\" (rc1_foreign_partial)"))
+        for class_id in [c for c in donors if c in lenient]:
+            makes = [c for c in blobs if owner.get(c) == class_id and c in spawned and c not in taken]
+            fit = makes[:max(room - len(taken), 0)]
+            taken |= set(fit)
+            if len(fit) < len(makes):
+                left = makes[len(fit):]
+                foreign_notes.append(
+                    f"imported class {class_id}: {len(left)} classes it can make do not fit in this "
+                    f"level's class slots and will not appear: {', '.join(map(str, left))}")
         for cid in [c for c in blobs if c not in taken]:
             del blobs[cid]
         names: list[str] = []
@@ -975,7 +1010,7 @@ def pack(disc, survey: dict, project: Path, out: Path,
         edited, changes, problems = pack_level(info["id"], gameplay, text, available_classes, names, moby_spawn_ids,
                                                donors, placed)
         problems += foreign_problems
-        changes += foreign_classes.write(out / name, blobs) if donors else []
+        changes += foreign_classes.write(out / name, blobs) + foreign_notes if donors else []
 
         if not donors:
             foreign_classes.write(out / name, {})

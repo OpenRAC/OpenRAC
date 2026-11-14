@@ -118,7 +118,12 @@ moby needs in its level comes with it:
   code). The level has 224 class slots, two of them kept for the hero's armor,
   which loads after the level: a class whose classes (its own, its links',
   what it makes) do not all fit in what the level leaves is not
-  imported, and the pack says so (a gunship's 22 classes do not fit Kerwan).
+  imported, and the pack says so and names the levels where they fit (a
+  gunship's 22 classes do not fit Kerwan). The Inspector's "Import without
+  what does not fit" (`rc1_foreign_partial`) lets it come anyway: its own and
+  its links' classes must fit, and of what it makes, the nearest fit first; a
+  class left out is not made, so its shots, effects or added parts do not
+  appear.
 
 The port registers the class when the level loads, draws it with its level's
 model, and runs its update in its own level's program: its level's data is

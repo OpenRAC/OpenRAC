@@ -78,6 +78,36 @@ def wanted(text: str) -> tuple[dict[int, int], list[str]]:
     return out, problems
 
 
+_class_tables: dict = {}
+
+
+def levels_with_room(disc, survey: dict, classes: set[int], here: int) -> list[int]:
+    """The levels (not HERE) whose free class slots hold all of CLASSES they lack."""
+    from level import load_level
+    out = []
+    for info in survey["levels"]:
+        if info["id"] == here:
+            continue
+        key = (id(disc), info["id"])
+        if key not in _class_tables:
+            try:
+                _class_tables[key] = {struct.unpack_from("<i", e, 4)[0] for e in load_level(disc, info).table(0x18, 32)}
+            except Exception:   # a level that cannot be read is just not named
+                _class_tables[key] = None
+        own = _class_tables[key]
+        if own is not None and len(classes - own) <= CLASS_SLOTS - len(own):
+            out.append(info["id"])
+    return out
+
+
+def partial(text: str) -> set[int]:
+    """The imported classes the scene lets come without what does not fit in the level's class
+    slots (rc1_foreign_partial on one of their mobys, the Inspector's switch)."""
+    return {node["class_id"] for node in scene_mobys(text)
+            if node["meta"].get("foreign_level") is not None
+            and str(node["meta"].get("foreign_partial", "")).strip().lower() in ("true", "1")}
+
+
 def donor(level: int, gameplay: bytes, class_id: int) -> Donor | None:
     """The first moby of CLASS_ID in LEVEL's gameplay file, or None."""
     first = next((m for m in moby_instances(gameplay) if m["class_id"] == class_id), None)
