@@ -197,6 +197,7 @@ private:
     bool m_sphere_indirect = false;       // Current draw uses the generated command.
     // Prepares the GPU candidate list; false selects the CPU reference/fallback path.
     bool prepare_gpu_spheres(const renderer::FrameInput& input, float range);
+    bool draw_gpu_spheres(renderer::RenderState& state) const;
     // Filters and uploads the reference list when GPU compaction is unavailable.
     void prepare_cpu_spheres(const renderer::FrameInput& input, float range);
     // Binds the packed record layout for either CPU or compute output.

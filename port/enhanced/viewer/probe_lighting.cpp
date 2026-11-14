@@ -1189,7 +1189,7 @@ void ProbeLighting::draw_spheres(
 #if defined(OPENRAC_VULKAN)
         // The device-generated count remains on the GPU, including empty draws.
         if (m_sphere_indirect) {
-            if (vkgl::draw_indexed_indirect(m_sphere_culling.arguments(), kProbeSphereVertices)) {
+            if (draw_gpu_spheres(state)) {
                 ++state.stats.draw_calls;
             }
             return;

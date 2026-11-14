@@ -11,6 +11,7 @@
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
 #include "renderer/vulkan/vkgl.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -92,7 +93,14 @@ void test_resident_compaction_and_uploads() {
     CHECK(readback.open(error));
     renderer::Camera camera;
     const std::array<lighting::ProbeRegionSlot, lighting::kDenseProbeSlots> slots{};
-    culling.dispatch(camera, 10, slots);
+    // The live overlay runs inside the moby render bucket, which enforces resource declarations.
+    openrac::vkgl::GraphExecution bucket;
+    bucket.add_pass(bucket.make_pass("mobys"));
+    const auto compacted = bucket.run([&](unsigned) { culling.dispatch(camera, 10, slots); });
+    CHECK(compacted);
+    if (!compacted) {
+        throw std::runtime_error(compacted.error().message);
+    }
     CHECK(readback.count(culling.arguments()) == 2);
     const auto before = openrac::vkgl::submission_counters();
     camera.position = {5000, 0, 0};
