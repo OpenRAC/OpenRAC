@@ -4,7 +4,9 @@
 // HDR output's arithmetic and choices (common/hdr.h): PQ against ST 2084's published points, the
 // game's white at paper white whatever the output, the levels the settings and the display give,
 // and the output each mode asks for (Off is SDR, whatever the display says).
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 #include "common/hdr.h"
 #include "tests/check.h"
@@ -209,6 +211,32 @@ void test_sdr_hue_into_white() {
     }
 }
 
+// Neighbouring pixels one 8-bit step apart stay close with SDR hue up: a pale SDR colour's hue
+// swings with each step, and given a strong HDR colour's chroma it showed as bands (the metal
+// detector's rings). Plain HDR moves by at most about 0.003 a step.
+void test_sdr_hue_no_bands() {
+    hdr::Levels levels{203.0f, 1000.0f, {}};
+    levels.look.sdr_hue = 1.0f;
+    std::uint32_t seed = 12345;
+    auto next = [&seed] {
+        seed = seed * 1664525u + 1013904223u;
+        return static_cast<float>(seed >> 8) / static_cast<float>(1u << 24);
+    };
+    float worst = 0.0f;
+    for (int i = 0; i < 100000; ++i) {
+        const hdr::Rgb p{next() * 4.0f, next() * 4.0f, next() * 4.0f};
+        if (std::max({p[0], p[1], p[2]}) <= 1.02f) {
+            continue;
+        }
+        hdr::Rgb q = p;
+        q[i % 3] += 1.0f / 255.0f;
+        const hdr::Rgb a = hdr::linear_to_oklab(hdr::to_light(p, levels));
+        const hdr::Rgb b = hdr::linear_to_oklab(hdr::to_light(q, levels));
+        worst = std::max(worst, std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]));
+    }
+    CHECK(worst < 0.02f);
+}
+
 void test_look_on_fire() {
     const hdr::Rgb fire{3.0f, 1.35f, 0.3f};
     const hdr::Rgb sdr{1.0f, 1.0f, std::pow(0.3f, 2.2f)};
@@ -310,6 +338,7 @@ int main() {
     test_wanted_output();
     test_look_on_fire();
     test_sdr_hue_into_white();
+    test_sdr_hue_no_bands();
     test_look_bounds();
     return openrac::test::result();
 }
