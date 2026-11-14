@@ -701,6 +701,9 @@ bool load_run(const fs::path& file, const std::string& game, Loaded& into, std::
 void start_interface_run(const fs::path& file) {
     g_run_file = file;
     run::start();
+    // Made before main registers the handler that writes the run at exit, so it outlives it. Made
+    // at the first disc read, it was destroyed first, and the run found no read (Windows).
+    reads();
     g_noting = true;
     openrac_cdvd_read_hook = note_disc_read;
     log::info("interface run: noting the interface textures into {}", utf8(file));
