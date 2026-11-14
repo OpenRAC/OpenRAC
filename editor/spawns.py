@@ -7,7 +7,8 @@ new level lacks (pack.py, foreign_classes.py), as a turret brings its shots.
 
 The table is read from the game's code, so it is the same for every disc: each class's update
 and every function it calls, and theirs, and each CreateMoby call there with a class number
-written in the code (and each class whose sound it plays, which must be in the level too). A class an update takes from its data (a spawner's pvars) is not found.
+written in the code (and each class whose sound it plays, or that it turns a moby into, which must be in the level
+too). A class an update takes from its data (a spawner's pvars) is not found.
 Standard library only.
 """
 
@@ -161,6 +162,11 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
                         more = True
         if not more:
             break
+    # A moby an update turns into another class (a purple ship into class 533): that class's slot
+    # is looked up as for one it makes.
+    becomes = re.compile(r"->oclass\) = \(s16\)\(\(\(s16\)\((\d+)\)\)\)")
+    for name, text in bodies.items():
+        makes[name].update(int(n) for n in becomes.findall(text))
     rows: dict[tuple[int, int], set[int]] = {}
     for function, level, class_id in hooks(libraries):
         made = set().union(*(makes.get(f, set()) for f in closure(found, function))) - {class_id}
