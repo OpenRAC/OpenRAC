@@ -242,8 +242,9 @@ def copy_games(build: Path, dest: Path, extra: tuple[str, ...] = ()) -> list[str
             shutil.copytree(apps, dest / "apps" / game, symlinks=True, dirs_exist_ok=True)
             carried.append(f"apps/{game}")
             continue
-        for path in sorted(build.glob(f"{game}*")):
-            if path.is_file() and path.suffix in ("", ".exe"):
+        # The program itself, not another one its name begins (openrac-rac2-ntsc2 for rac2-ntsc).
+        for path in (build / game, build / f"{game}.exe"):
+            if path.is_file():
                 shutil.copy2(path, dest / path.name)
                 strip_debug(dest / path.name)
                 carried.append(path.name)
