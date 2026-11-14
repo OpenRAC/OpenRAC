@@ -350,6 +350,31 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
             was = primary.get("values", {}).get(name) or (primary.get("levels", {}).get(name) or [None, None])[1]
             mine = p.table.table.get("values", {}).get(name) or (p.table.table.get("levels", {}).get(name) or [None, None])[1]
             new = None
+            level = re.fullmatch(r"D_L(\d\d)_([0-9A-F]{8})", name)
+            if level is not None:
+                # A level's datum (func_L00_002D5E30's D_L00_00262260, formed as the table + 2): where
+                # the release's level has the name (its level data, or the name its build gave it),
+                # plus what the C adds to the name's own place. Not the executable's map: the
+                # level's data moves with the level, not with the executable's (PAL kept 0x00262260
+                # where the executable's neighbours moved 0x280 down).
+                spelled = int(level.group(2), 16)
+                lv = str(int(level.group(1)))
+                own = (primary.get("level_data", {}).get(lv) or {}).get(name)
+                was = int(own, 16) if own else spelled
+                placed = (p.table.table.get("level_data", {}).get(lv) or {}).get(name)
+                renamed = p.table.names.get(name)
+                if placed is not None:
+                    mine = placed
+                elif renamed and "_V1_" not in renamed:
+                    mine = f"0x{renamed[-8:]}"
+                else:
+                    mine = None
+                if mine is not None:
+                    new = int(mine, 16) + int(address, 16) - was
+                    p.report.setdefault("globals", {})[name] = [
+                        f"{new:08X}", "its level's place plus what the C adds", "formed_as"]
+                    formed[name] = f"0x{new:08X}"
+                    continue
             if was is not None and mine is not None:
                 new = int(mine, 16) + int(address, 16) - int(was, 16)
                 p.report.setdefault("globals", {})[name] = [f"{new:08X}", "its value plus what the C adds", "formed_as"]

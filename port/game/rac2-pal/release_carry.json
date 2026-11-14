@@ -8,7 +8,7 @@
   "function: not found": 2,
   "function: same": 644,
   "global: aligned": 5,
-  "global: between": 17,
+  "global: between": 16,
   "global: exact": 144,
   "global: the release's build": 73
  },
@@ -500,6 +500,11 @@
    "its value plus what the C adds",
    "formed_as"
   ],
+  "D_L00_00262260": [
+   "00262262",
+   "its level's place plus what the C adds",
+   "formed_as"
+  ],
   "boot:00146B44": [
    "00146BC4",
    "between",
@@ -529,11 +534,6 @@
    "00152CE8",
    "between",
    "host C 0x00152C68"
-  ],
-  "boot:00262262": [
-   "00261FE2",
-   "between",
-   "formed_as D_L00_00262260"
   ],
   "boot:002652B0": [
    "00265030",
