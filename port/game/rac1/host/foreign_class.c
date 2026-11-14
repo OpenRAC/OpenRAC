@@ -35,7 +35,9 @@
  * its last material run's flag only ends the list when that address is below 0x80000000. */
 #define FOREIGN_BLOBS GUEST_PORT_LOW
 #define FOREIGN_BLOBS_SIZE GUEST_PORT_LOW_SIZE
-#define MOBY_CLASS_SLOTS 224u
+/* The engine's 224 class slots less two: once the level's classes and the imports are in, the
+ * texture bank registers the hero's two armor classes (load_level_texture_bank), unchecked. */
+#define MOBY_CLASS_SLOTS (224u - 2u)
 
 typedef struct {
     int oclass;
@@ -411,6 +413,10 @@ void rac1_foreign_classes_load(int level) {
             {RAC1_ADDR(0x001B3C80u), 0x1C0u},   /* resident_class_id_by_slot */
             {RAC1_ADDR(0x001B3E40u), 0x800u},   /* resident_class_slot_by_id */
         };
+
+        /* The level's moby groups, in level 0's program: an imported moby's groups are past the
+         * first 64 (pack.py), which a run of carried globals does not reach. */
+        openrac_guest_foreign_carry_whole(0, RAC1_LADDR(00, 0x001ABBC0u), 0x1C0u);
 
         for (size_t i = 0; i < sizeof(k_whole) / sizeof(k_whole[0]); ++i) {
             openrac_guest_foreign_carry_whole(

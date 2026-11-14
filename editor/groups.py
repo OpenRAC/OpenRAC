@@ -270,10 +270,10 @@ def place(expr: str) -> tuple[str | None, str]:
     m = re.fullmatch(r"GREF\(([\w\s\*]+?), (.*)\)", expr, re.S)
     if m and balanced(m.group(2)):
         return m.group(2), f"sizeof({m.group(1)})"
-    m = re.fullmatch(r"\(\(((?:struct )?\w+) \*\)G\(\(?PVARS_BASE\)?\)\)->(\w+)", expr)
+    m = re.fullmatch(r"\(\(((?:struct )?\w+) \*\)G\(\(*PVARS_BASE\)*\)\)->(\w+)", expr)
     if m:
         return f"offsetof({m.group(1)}, {m.group(2)})", f"sizeof((({m.group(1)} *)0)->{m.group(2)})"
-    m = re.fullmatch(r"\(\(((?:struct )?\w+) \*\)G\(\(?PVARS_BASE\)?\)\)->(\w+)\[(\d+)\]", expr)
+    m = re.fullmatch(r"\(\(((?:struct )?\w+) \*\)G\(\(*PVARS_BASE\)*\)\)->(\w+)\[(\d+)\]", expr)
     if m:
         t, f, i = m.groups()
         return f"offsetof({t}, {f}) + {i} * sizeof((({t} *)0)->{f}[0])", f"sizeof((({t} *)0)->{f}[0])"

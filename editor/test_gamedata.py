@@ -27,7 +27,7 @@ def shape(matrix_rows: list[tuple], euler=(0.0, 0.0, 0.0)) -> bytes:
     return out + struct.pack("<3f", *euler) + bytes(4)
 
 
-def build() -> bytes:
+def build(groups=([0, 1], None, [2])) -> bytes:
     """A gameplay file with every section gamedata.py reads, and three mobys."""
     sections = {}
     sections[0x00] = gd.write_settings({"background": [10, 20, 30], "fog_colour": [40, 50, 60], "fog_near": 100.0,
@@ -46,7 +46,7 @@ def build() -> bytes:
                   "ry": 0.0, "rz": 0.0, "r": 128, "g": 128, "b": 128, **fields}
         records.append(RECORD.pack(*(record[f] for f in FIELDS)))
     sections[0x44] = struct.pack("<2i8x", 3, 4) + b"".join(records)
-    sections[0x48] = gp.write_groups([[0, 1], None, [2]])
+    sections[0x48] = gp.write_groups(list(groups))
     sections[0x4C] = gp.write_shared(bytes(range(16)), [(1, 8, 0)])
     sections[0x50] = gp.write_fixups([(0, 0x20)])
     blocks = [struct.pack("<4f", 1.0, 2.5, -3.0, 0.0) + struct.pack("<fh2x4B", 7.5, 3, 1, 2, 3, 4) + bytes(4)
@@ -310,6 +310,12 @@ class GameData(unittest.TestCase):
         out, changes, problems = self.pack(edit(self.text, "BoltCrate_0000", "metadata/rc1_group", "2"))
         self.assertEqual(problems, [])
         self.assertEqual(gp.groups(out), [[1], None, [2, 0]])
+
+    def test_a_group_no_record_names_keeps_its_list(self):
+        self.g = build(([0, 1], [2, 0], [2]))   # group 1: named only by a pvar, as pack.py's imports
+        out, changes, problems = self.pack(edit(scene_text(self.g), "BoltCrate_0000", "metadata/rc1_group", "2"))
+        self.assertEqual(problems, [])
+        self.assertEqual(gp.groups(out), [[1], [2, 0], [2, 0]])
 
     # --- volumes, paths, cameras, sounds, settings ---
 

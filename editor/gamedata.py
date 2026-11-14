@@ -1115,8 +1115,8 @@ def pack_groups(original: bytes, out: bytearray, nodes: dict, numbering: dict[st
                 changes: list[str], problems: list[str]) -> None:
     """The moby groups, in a scene that has Game/MobyGroups (an older one's groups stay as pack.py
     leaves them): a name added to or removed from a group's list there sets that moby's group (its
-    record's +0x48, rc1_group), and then each group lists the mobys whose record names it, those it
-    had in their order first."""
+    record's +0x48, rc1_group), and then each group a record names lists the mobys whose record names
+    it, those it had in their order first."""
     node = nodes.get("Game/MobyGroups")
     table_at = start(bytes(out), gp.MOBYS)
     if node is None or start(bytes(out), gp.GROUPS) <= 0 or table_at <= 0:
@@ -1145,13 +1145,20 @@ def pack_groups(original: bytes, out: bytearray, nodes: dict, numbering: dict[st
     for key in meta:
         if not re.fullmatch(r"group_\d+", key) or int(key[6:]) >= len(lists):
             problems.append(f"MobyGroups: no such group: rc1_{key}")
+    # A group no record names, before or after, keeps its list: pack.py's groups of an import's
+    # copies are named only by pvars.
+    named = {g for g in groups} | {struct.unpack_from("<i", r, 0x48)[0] for r in gp.records(original)}
     for m, group in sorted(moved.items()):
         if groups[m] != group:
             groups[m] = group
             struct.pack_into("<i", out, group_at[m], group)
             changes.append(f"moby {m}: group {group}" + (" (from Game/MobyGroups)" if group >= 0 else ", none"))
+    named |= set(groups)
     wanted: list[list[int] | None] = []
     for i, members in enumerate(lists):
+        if i not in named:
+            wanted.append(members or None)
+            continue
         kept = [m for m in members or [] if m < count and groups[m] == i]
         wanted.append((kept + [m for m in range(count) if groups[m] == i and m not in kept]) or None)
     for m in range(count):

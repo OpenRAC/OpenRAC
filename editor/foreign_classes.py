@@ -18,6 +18,7 @@ below every level's program end.
 """
 
 from dataclasses import dataclass, field
+import os
 import struct
 from pathlib import Path
 
@@ -47,15 +48,13 @@ class Donor:
 # Classes that run only inside their level's own set piece: what drives them there does not come
 # along, and without it the game stops (found by placing every class in another level).
 SET_PIECES = {
-    (347, 17): "Drek's fleet turret aims at the fleet's ships, which the fleet battle steers",
-    (1843, 17): "a ship of Drek's fleet follows the path the fleet battle gives it",
-    (1319, 11): "a Blarg ship of Gorda's fleet follows the path its fleet gives it",
-    (1264, 11): "the oil tanker's front runs with the rest of the tanker",
-    (1267, 12): "the Hoven turret runs with its 23 linked parts of the gorge",
-    (1402, 18): "it is a part of the Drek fight",
+    (1843, 17): "a ship of Drek's fleet gets its path from Drek's fleet turret (class 347): place the turret, which brings its ships",
+    (1319, 11): "a Blarg ship gets its path from the oil tanker's front (class 1264): place the tanker, which brings its ships",
 }
 
-CLASS_SLOTS = 224    # the engine's moby class slots (resident_class_id_by_slot)
+# The engine's 224 moby class slots (resident_class_id_by_slot) less two: after the level's classes
+# and the imports, the texture bank registers the hero's two armor classes, with no check.
+CLASS_SLOTS = 224 - 2
 
 
 def wanted(text: str) -> tuple[dict[int, int], list[str]]:
@@ -159,7 +158,7 @@ def class_blob(level, class_id: int) -> bytes:
 
 def check(here: int, there: int, class_id: int) -> None:
     """ValueError when CLASS_ID cannot come from level THERE into level HERE."""
-    if (class_id, there) in SET_PIECES:
+    if (class_id, there) in SET_PIECES and not os.environ.get("OPENRAC_PACK_SET_PIECES"):   # (testing them)
         raise ValueError(f"class {class_id} runs only in level {there:02}: {SET_PIECES[(class_id, there)]}")
     if not 0 <= there < LEVELS:
         raise ValueError(f"class {class_id}: there is no level {there}")

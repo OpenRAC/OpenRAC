@@ -119,6 +119,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x001601C4u 0x001601C4u
 #define RAC1_ADDR_L00_0x001601C8u 0x001601C8u
 #define RAC1_ADDR_L00_0x001B0830u 0x001B0630u
+#define RAC1_ADDR_L00_0x001ABBC0u 0x001AB9C0u /* level_moby_groups */
 
 /* ---- generated below ---- */
 
