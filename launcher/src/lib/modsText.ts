@@ -498,7 +498,9 @@ export const INTERFACE = {
   effects: "Effects",
   official: (made: string, n: number) => `Official run${made ? ` of ${made}` : ""} · ${n} textures`,
   yours: (made: string, n: number) => `Your run${made ? ` of ${made}` : ""} · ${n} textures`,
-  noneRun: "No run yet: make one below",
+  yoursPartly: (made: string, n: number) =>
+    `Your run${made ? ` of ${made}` : ""} · ${n} textures so far: make a run of it to finish it`,
+  noneRun: "No run yet: tick it and make a run below",
   noneYet: "Not available for this version yet",
   outOfDate: "Your run was made by an older version of OpenRAC: make it again to use it.",
   unreadable: (why: string) => `Left out: ${why}.`,
@@ -511,16 +513,17 @@ export const INTERFACE = {
   notReady: "Build the game and set it up from your disc first, on the game's page.",
   nothingYet: "No run has these textures for this version yet.",
   nothingYetRun: "No run has these textures yet: make a run first.",
-  run: "Make a run",
-  runAgain: "Make the run again",
+  run: "Make a run of the ticked",
+  runAll: "Make a run of all",
   runAsk:
-    "The game plays its test routes hidden (every level, the pause pages, the vendor, the title) and notes the interface textures it draws. It takes about half an hour; you can use the computer meanwhile, and stop it any time.",
+    "The game plays the test routes the ticked kinds need, hidden (levels, the pause pages, the vendor, the title), and notes the interface textures it draws. Routes your run has played already are not played again: a later run adds to it. All three take about half an hour; you can use the computer meanwhile, and stop it any time.",
   runYes: "Start the run",
   starting: "Starting the game…",
   routeOf: (done: number, of: number) => `Route ${done} of ${of}`,
-  runLong: "about half an hour",
+  runLong: "about half an hour for all",
   stop: "Stop",
   runDone: "The run is done: its textures can be exported.",
+  runNothing: "Tick at least one kind to make a run of it.",
   runPartly: "The run is done, but some routes did not play to their end: the textures they reached are in.",
   runStopped: "The run stopped. The activity log has what it said.",
   shareLead:
@@ -528,7 +531,7 @@ export const INTERFACE = {
   share: "Share the run",
   uploadUrl: (id: string) => `https://github.com/OpenRAC/OpenRAC/upload/develop/port/game/${id}`,
   developer: (id: string) =>
-    `python3 port/tools/interface_runs/run.py run --game ${id} --out <file> · openrac-${id} --interface-export <dir> --interface-runs <file>`,
+    `python3 port/tools/interface_runs/run.py run --game ${id} --out <file> [--kinds font,interface,effects] · openrac-${id} --interface-export <dir> --interface-runs <file>`,
 } as const;
 
 /** Mod codes (ModSetShare.svelte, ModSetReview.svelte, ModSetSaved.svelte, core/src/modset.rs): friends

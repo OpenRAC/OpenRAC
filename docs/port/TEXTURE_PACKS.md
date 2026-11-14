@@ -75,6 +75,10 @@ name: a different disc or version makes nothing wrong, only less.
   New Game on an empty card, then every slot prepared from it), never yours. It needs the game set up and its levels ready,
   for the versions that have routes (Ratchet & Clank NTSC-U and PAL, Going
   Commando NTSC-U). The run is `<data>/interface_runs/<id>.json`.
+- A run can be made a kind at a time (Font, HUD and menus, Effects): it plays
+  only the routes that kind needs (run.py `KIND_ROUTES`), and a later run adds
+  to the file, never playing a route it already has. A run of a newer
+  conversion than the file's makes it again.
 - When your run played every route and has textures the official one lacks,
   the panel offers **Share the run**: it opens the file's folder and GitHub's
   upload page for `port/game/<id>/`, to propose it in a pull request.
@@ -87,7 +91,7 @@ disc (a fade, a screen it draws into) have no place on the disc; the run
 counts them as missing. From the command line:
 
 ```
-python3 port/tools/interface_runs/run.py run --game rac1-ntsc --out run.json --exe <program> --data <data> --levels <levels>
+python3 port/tools/interface_runs/run.py run --game rac1-ntsc --out run.json --exe <program> --data <data> --levels <levels> [--kinds font,interface,effects] [--fresh]
 openrac-rac1-ntsc --data <data> --interface-export <folder> --interface-runs run.json [--only font,interface,effects]
 ```
 

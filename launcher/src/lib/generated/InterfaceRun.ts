@@ -13,9 +13,18 @@ made: string | null,
  */
 counts: [number, number, number], 
 /**
- * Every route played to its end.
+ * No route it played failed.
  */
 clean: boolean, 
+/**
+ * For each kind (CATEGORIES' order): every route that kind needs has played. A run can be
+ * made a kind at a time (run.py --kinds); a file made before that is complete when clean.
+ */
+complete: [boolean, boolean, boolean], 
+/**
+ * For each kind: when it was last made, if it says.
+ */
+kindMade: [string | null, string | null, string | null], 
 /**
  * Made by this launcher's port (CONVERTER); one that is not cannot be exported from.
  */

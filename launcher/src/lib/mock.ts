@@ -29,6 +29,7 @@ import {
   mockControlsView,
 } from "./mockControls";
 import type { ActionView } from "./generated/ActionView";
+import type { InterfaceRun } from "./generated/InterfaceRun";
 import type { InterfaceRunsView } from "./generated/InterfaceRunsView";
 import type { Applied } from "./generated/Applied";
 import type { ModProfile } from "./generated/ModProfile";
@@ -779,7 +780,24 @@ function lastLines(id: string, args: Record<string, unknown>, scope?: Scope): st
       ];
     case "interface-run": {
       const key = scope?.kind === "version" ? scope.key.replace("/", "-") : "";
-      mockInterfaceRun[key] = { made: "2026-11-14", counts: [96, 430, 61], clean: true, current: true };
+      // The kinds asked for are added to the earlier run (run.py --kinds).
+      const kinds = (typeof args.option === "string" ? args.option : "font,interface,effects").split(",");
+      const earlier = mockInterfaceRun[key];
+      const full = [96, 430, 61];
+      const has = (at: number) => kinds.includes(["font", "interface", "effects"][at] ?? "");
+      const pick = <T>(at: number, now: T, then: T): T => (has(at) ? now : then);
+      mockInterfaceRun[key] = {
+        made: "2026-11-14",
+        counts: [0, 1, 2].map((at) => pick(at, full[at] ?? 0, earlier?.counts[at] ?? 0)) as [number, number, number],
+        clean: true,
+        current: true,
+        complete: [0, 1, 2].map((at) => pick(at, true, earlier?.complete[at] ?? false)) as [boolean, boolean, boolean],
+        kindMade: [0, 1, 2].map((at) => pick<string | null>(at, "2026-11-14", earlier?.kindMade[at] ?? null)) as [
+          string | null,
+          string | null,
+          string | null,
+        ],
+      };
       return [
         '{"event": "start", "game": "' + key + '", "routes": 3, "skipped": []}',
         '{"event": "route", "key": "00-long", "name": "Veldin", "status": "ok", "done": 1, "of": 3}',
@@ -1946,10 +1964,7 @@ function samplePack(name: string): PackView {
 
 /** A game's texture pack and saved textures, as the preview pretends (`?notextures`: none yet). */
 /** The player's own interface runs, by version id, once "Make an interface run" ran. */
-const mockInterfaceRun: Record<
-  string,
-  { made: string; counts: [number, number, number]; clean: boolean; current: boolean }
-> = {};
+const mockInterfaceRun: Record<string, InterfaceRun> = {};
 const mockTextures: TexturePackView = query.has("notextures")
   ? {
       id: "",
@@ -2786,10 +2801,17 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       // the player's own once "Make an interface run" ran.
       const id = `${String(args.game)}-${String(args.version)}`;
       const official = ["rac1-ntsc", "rac1-pal"].includes(id)
-        ? { made: "2026-11-14", counts: [96, 412, 57] as [number, number, number], clean: true, current: true }
+        ? ({
+            made: "2026-11-14",
+            counts: [96, 412, 57],
+            clean: true,
+            current: true,
+            complete: [true, true, true],
+            kindMade: ["2026-11-14", "2026-11-14", "2026-11-14"],
+          } as InterfaceRun)
         : null;
       const local = mockInterfaceRun[id] ?? null;
-      const usable = (run: typeof official, at: number) => !!run && run.current && (run.counts[at] ?? 0) > 0;
+      const usable = (run: InterfaceRun | null, at: number) => !!run && run.current && (run.counts[at] ?? 0) > 0;
       return delay<InterfaceRunsView>({
         id,
         official,
@@ -2802,7 +2824,9 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         ],
         runnable: ["rac1-ntsc", "rac1-pal", "rac2-ntsc"].includes(id),
         suggestSharing:
-          !!local && local.clean && [0, 1, 2].some((at) => (local.counts[at] ?? 0) > (official?.counts[at] ?? 0)),
+          !!local &&
+          local.clean &&
+          [0, 1, 2].some((at) => local.complete[at] && (local.counts[at] ?? 0) > (official?.counts[at] ?? 0)),
         localFile: `/home/you/.local/share/openrac/interface_runs/${id}.json`,
         shareFile: `/home/you/.local/share/openrac/interface_runs/share/${id}/interface-run.json`,
       });

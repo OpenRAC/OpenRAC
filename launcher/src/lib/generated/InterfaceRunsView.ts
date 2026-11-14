@@ -32,8 +32,8 @@ sources: [string, string, string],
  */
 runnable: boolean, 
 /**
- * The player's own run is clean and current and has textures the official one lacks: the panel
- * suggests offering it to the project.
+ * The player's own run is clean and current and has, in a kind it made whole, textures the
+ * official one lacks: the panel suggests offering it to the project.
  */
 suggestSharing: boolean, 
 /**

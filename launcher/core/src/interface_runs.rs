@@ -42,8 +42,13 @@ pub struct Run {
     pub made: Option<String>,
     /// The textures it holds, by kind (CATEGORIES' order).
     pub counts: [u32; 3],
-    /// Every route played to its end.
+    /// No route it played failed.
     pub clean: bool,
+    /// For each kind (CATEGORIES' order): every route that kind needs has played. A run can be
+    /// made a kind at a time (run.py --kinds); a file made before that is complete when clean.
+    pub complete: [bool; 3],
+    /// For each kind: when it was last made, if it says.
+    pub kind_made: [Option<String>; 3],
     /// Made by this launcher's port (CONVERTER); one that is not cannot be exported from.
     pub current: bool,
 }
@@ -67,8 +72,8 @@ pub struct View {
     pub sources: [String; 3],
     /// Whether this version's routes can be played here (a run can be made).
     pub runnable: bool,
-    /// The player's own run is clean and current and has textures the official one lacks: the panel
-    /// suggests offering it to the project.
+    /// The player's own run is clean and current and has, in a kind it made whole, textures the
+    /// official one lacks: the panel suggests offering it to the project.
     pub suggest_sharing: bool,
     /// The player's own run file.
     pub local_file: String,
@@ -86,6 +91,25 @@ struct File {
     clean: Option<bool>,
     #[serde(default)]
     textures: Vec<Texture>,
+    kinds: Option<std::collections::BTreeMap<String, Kind>>,
+    routes: Option<Routes>,
+}
+
+#[derive(Deserialize)]
+struct Kind {
+    complete: Option<bool>,
+    made: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Routes {
+    #[serde(default)]
+    skipped: Vec<serde_json::Value>,
+}
+
+/// A date as run.py writes it (`2026-11-14`), or None.
+fn date(text: Option<String>) -> Option<String> {
+    text.filter(|m| m.len() == 10 && m.chars().all(|c| c.is_ascii_digit() || c == '-'))
 }
 
 #[derive(Deserialize)]
@@ -133,8 +157,27 @@ fn read(path: &Path, id: &str) -> Result<Option<Run>, String> {
             counts[at] += 1;
         }
     }
-    let made = file.made.filter(|m| m.len() == 10 && m.chars().all(|c| c.is_ascii_digit() || c == '-'));
-    Ok(Some(Run { made, counts, clean: file.clean.unwrap_or(false), current: file.converter == Some(CONVERTER) }))
+    let made = date(file.made);
+    let clean = file.clean.unwrap_or(false);
+    let (complete, kind_made) = match file.kinds {
+        Some(mut kinds) => {
+            let mut complete = [false; 3];
+            let mut kind_made: [Option<String>; 3] = Default::default();
+            for (at, c) in CATEGORIES.iter().enumerate() {
+                if let Some(k) = kinds.remove(*c) {
+                    complete[at] = k.complete.unwrap_or(false);
+                    kind_made[at] = date(k.made);
+                }
+            }
+            (complete, kind_made)
+        }
+        // Made before kinds: all of it, when no route failed or was left out.
+        None => {
+            let whole = clean && file.routes.is_none_or(|r| r.skipped.is_empty());
+            ([whole; 3], [made.clone(), made.clone(), made.clone()])
+        }
+    };
+    Ok(Some(Run { made, counts, clean, complete, kind_made, current: file.converter == Some(CONVERTER) }))
 }
 
 /// What the panel shows for `game` `version`: `root` is the OpenRAC copy (a checkout or the
@@ -168,7 +211,9 @@ pub fn view(root: Option<&Path>, data: &Path, game: &str, version: &str) -> Resu
     let suggest_sharing = local.as_ref().is_some_and(|l| {
         l.clean
             && l.current
-            && (0..3).any(|at| l.counts[at] > official.as_ref().filter(|o| o.current).map_or(0, |o| o.counts[at]))
+            && (0..3).any(|at| {
+                l.complete[at] && l.counts[at] > official.as_ref().filter(|o| o.current).map_or(0, |o| o.counts[at])
+            })
     });
     Ok(View {
         runnable: RUNNABLE.contains(&id.as_str()),
@@ -266,6 +311,41 @@ mod tests {
     }
 
     #[test]
+    fn a_run_made_a_kind_at_a_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let (root, data) = (dir.path().join("root"), dir.path().join("data"));
+        let text = run("rac1-pal", CONVERTER, true, &["font", "interface"]).replacen(
+            r#""blobs""#,
+            r#""kinds": {"font": {"complete": true, "made": "2026-11-13"}, "interface": {"complete": false, "made": "2026-11-14"},
+                "effects": {"complete": false, "made": null}}, "blobs""#,
+            1,
+        );
+        write(&local_file(&data, "rac1-pal"), &text);
+        let v = view(Some(&root), &data, "rac1", "pal").unwrap();
+        let local = v.local.unwrap();
+        assert_eq!(local.complete, [true, false, false]);
+        assert_eq!(local.kind_made, [Some("2026-11-13".into()), Some("2026-11-14".into()), None]);
+        // Font is whole and new to the project: worth offering. A HUD part way is not.
+        assert!(v.suggest_sharing);
+        write(&official_file(&root, "rac1-pal"), &run("rac1-pal", CONVERTER, true, &["font"]));
+        assert!(!view(Some(&root), &data, "rac1", "pal").unwrap().suggest_sharing);
+    }
+
+    #[test]
+    fn a_run_from_before_kinds_is_whole_when_clean() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path();
+        write(&local_file(data, "rac1-pal"), &run("rac1-pal", CONVERTER, true, &["font"]));
+        let local = view(None, data, "rac1", "pal").unwrap().local.unwrap();
+        assert_eq!(local.complete, [true; 3]);
+        assert_eq!(local.kind_made[2].as_deref(), Some("2026-11-14"));
+        let skipped = run("rac1-pal", CONVERTER, true, &["font"])
+            .replacen(r#""blobs""#, r#""routes": {"done": [], "skipped": ["title-load-0"]}, "blobs""#, 1);
+        write(&local_file(data, "rac1-pal"), &skipped);
+        assert_eq!(view(None, data, "rac1", "pal").unwrap().local.unwrap().complete, [false; 3]);
+    }
+
+    #[test]
     fn the_export_option_is_in_the_order_the_actions_list_it() {
         let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
         assert_eq!(option(&s(&["effects", "font"])).as_deref(), Some("font,effects"));
@@ -291,7 +371,7 @@ mod tests {
             if has("interface-run") {
                 assert!(has("interface-export"), "{key}");
             }
-            for a in list.as_array().unwrap().iter().filter(|a| a["id"] == "interface-export") {
+            for a in list.as_array().unwrap().iter().filter(|a| a["id"] == "interface-export" || a["id"] == "interface-run") {
                 let options: Vec<String> =
                     a["options"].as_array().unwrap().iter().map(|o| o.as_str().unwrap().to_string()).collect();
                 // Every choice of kinds the panel can make is one of the action's options.

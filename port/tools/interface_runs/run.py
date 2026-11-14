@@ -3,10 +3,13 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Interface texture runs (docs/port/TEXTURE_PACKS.md, "Export without playing").
 
-  run.py run --game rac1-ntsc --out FILE [--exe P --data D --levels L] [--jobs N] [--official]
+  run.py run --game rac1-ntsc --out FILE [--kinds font,interface] [--exe P --data D --levels L]
+             [--jobs N] [--official] [--fresh]
       Plays the game's routes hidden (the regress tool's: every level, the pause pages, the vendor,
       the title), each with --interface-run, and joins their parts into FILE: the run file the
-      launcher's export reads. Prints one JSON object a line ("event": start, route, done).
+      launcher's export reads. Only the routes the kinds asked for need (KIND_ROUTES), and of those
+      only the ones FILE has not played yet: a run made for the font can be given the HUD later.
+      Prints one JSON object a line ("event": start, route, done).
   run.py join FILE PART... [--official]
       Joins parts (or runs) into FILE.
   run.py info FILE
@@ -40,6 +43,21 @@ CATEGORIES = ("font", "interface", "effects")
 WORLD_PASSES = "sky,terrain,ties,shrubs,mobys,ratchet shadows"
 # Each game's route set: the most of its interface the routes show.
 ROUTE_SETS = {"rac1-pal": "wide", "rac1-ntsc": "wide", "rac2-ntsc": "rac2-tour"}
+# For each kind, the routes that draw all of it (found by a run that kept each route's part: every
+# texture of the kind is in one of them). A game not listed, or a kind, plays every route.
+# Both rac1 versions play the same routes; the table is from a PAL run (each texture drawn in a
+# route listed), the font with a second route to spare.
+_RAC1_KINDS = {
+    "font": ["00-long", "title-new"],
+    "interface": ["00-clank", "00-long", "01-long", "01-pause-2", "01-pause-4", "01-pause-5", "03-long",
+                  "03-ship", "04-long", "05-long", "06-clank", "07-long", "08-long", "10-clank", "11-long",
+                  "11-swim", "12-long", "13-long", "14-long", "16-long", "17-turret", "18-giant-clank",
+                  "title-load-0", "title-load-1", "title-load-2", "title-load-3", "title-load-4", "title-new",
+                  "title-options"],
+    "effects": ["01-long", "06-clank", "07-snagglebeast", "08-long", "10-clank", "11-jet-fighter", "12-long",
+                "13-long", "14-long", "15-long", "17-turret", "18-long"],
+}
+KIND_ROUTES: dict[str, dict[str, list[str]]] = {"rac1-pal": _RAC1_KINDS, "rac1-ntsc": _RAC1_KINDS}
 # The routes that load a saved game play on a card of the run's own, never the player's: a New Game
 # on an empty card (the title, New Game, Yes to the save prompt; the same presses on both
 # versions) saves the first game, and card.py prepares the five slots from it.
@@ -113,7 +131,8 @@ def info(doc: dict) -> dict:
     return {"game": doc.get("game"), "converter": doc.get("converter"), "made": doc.get("made"),
             "official": bool(doc.get("official")), "clean": bool(doc.get("clean")), "counts": counts,
             "missing": {c: len(v) for c, v in (doc.get("missing") or {}).items()},
-            "routes": {k: len(v) for k, v in (doc.get("routes") or {}).items()}}
+            "routes": {k: len(v) for k, v in (doc.get("routes") or {}).items()},
+            "kinds": {k: bool(v.get("complete")) for k, v in kinds_of(doc).items()}}
 
 
 def run(args) -> int:
@@ -132,14 +151,28 @@ def run(args) -> int:
             say("error", message=f"{path} is missing: {what} must be set up first")
             return 1
     spec = routes_mod.load()
-    chosen = routes_mod.set_routes(ROUTE_SETS[game], game, spec)
+    every = routes_mod.set_routes(ROUTE_SETS[game], game, spec)
+    kinds = args.kinds or list(CATEGORIES)
+    needs = kind_routes(game, [r.key for r in every])
+    wanted = set().union(*(needs[k] for k in kinds))
     if args.only:
-        chosen = [r for r in chosen if r.key in args.only]
-    for r in chosen:
-        r.timeout *= args.timeout_scale
-    if not chosen:
+        wanted = set(args.only) & {r.key for r in every}
+    if not wanted:
         say("error", message="no route to play: no route of that name")
         return 1
+    # The run file there already, of this game: its routes are not played again, and what they gave
+    # is kept (--fresh starts over).
+    earlier = None if args.fresh else read_part(args.out)
+    if earlier is not None and earlier.get("game") != game:
+        earlier = None
+    before = routes_of(earlier)
+    todo = [r for r in every if r.key in wanted and r.key not in before["done"]]
+    if earlier is not None and not todo:
+        # All played: one short route still is, to see the port names its textures as the earlier
+        # run's did (a newer port's conversion makes the earlier run of no use: it is made again).
+        todo = [min((r for r in every if r.key in wanted), key=lambda r: (bool(r.card), r.timeout))]
+    for r in every:
+        r.timeout *= args.timeout_scale
     # The routes' folders go beside the run file unless asked elsewhere: a run the system ended
     # hard (Windows' taskkill) leaves its folder there, and the next run clears it.
     parent = args.work or args.out.resolve().parent / "work"
@@ -148,7 +181,7 @@ def run(args) -> int:
         for stale in parent.glob("interface-run-*"):
             shutil.rmtree(stale, ignore_errors=True)
     work = Path(tempfile.mkdtemp(prefix="interface-run-", dir=parent))
-    done, failed, skipped = [], [], []
+    done, failed, skipped, parts = [], [], [], []
     # A small window: the HUD's textures are the game's whatever the window's size, and drawing on
     # the CPU (no graphics card) costs by the pixel.
     settings = {"render_scale": 25, "window_size": "320x240"}
@@ -156,6 +189,7 @@ def run(args) -> int:
     # route's time without a graphics card. The HUD and the effects are drawn as in the game.
     env = {"OPENRAC_HIDE_PASSES": WORLD_PASSES, **dict(args.env)}
     cards = args.cards
+    card_tried = False
 
     def one(r: routes_mod.Route) -> tuple[routes_mod.Route, str]:
         out = work / r.key
@@ -169,21 +203,23 @@ def run(args) -> int:
             return r, "error"
         return r, res["status"]
 
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    parts = []
-    keep = args.keep
-    try:
-        if any(r.card for r in chosen) and cards is None:
+    def play(chosen: list[routes_mod.Route], count: int, total: int) -> int:
+        """Plays CHOSEN (the routes after COUNT of TOTAL); returns the count after them."""
+        nonlocal cards, card_tried
+        if any(r.card for r in chosen) and cards is None and not card_tried:
+            card_tried = True
             cards = make_card(game, base_route(game), exe, data, levels, work, env, settings)
-            if cards is None:
-                # Without a card of its own, those routes are left out (not failed).
-                skipped = [r.key for r in chosen if r.card]
-                chosen = [r for r in chosen if not r.card]
-        say("start", game=game, routes=len(chosen), skipped=skipped, work=str(work))
+        if cards is None:
+            # Without a card of its own, those routes are left out (not failed).
+            left = [r.key for r in chosen if r.card]
+            skipped.extend(left)
+            chosen = [r for r in chosen if not r.card]
+            count += len(left)
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
             futures = [pool.submit(one, r) for r in chosen]
             # In the order they end, so the launcher's count moves as routes finish.
-            for i, future in enumerate(as_completed(futures), 1):
+            for future in as_completed(futures):
                 r, status = future.result()
                 part = read_part(work / r.key / "part.json")
                 # A route that did not play to its end still gave what it drew, if its part was written.
@@ -191,8 +227,22 @@ def run(args) -> int:
                 (done if ok else failed).append(r.key)
                 if part is not None:
                     parts.append(part)
+                count += 1
                 say("route", key=r.key, name=r.name, status=status if part is not None else "no-part",
-                    done=i, of=len(chosen))
+                    done=count, of=total)
+        return count
+
+    keep = args.keep
+    try:
+        say("start", game=game, kinds=kinds, routes=len(todo), earlier=len(before["done"]), work=str(work))
+        count = play(todo, 0, len(todo))
+        if earlier is not None and parts and earlier.get("converter") != parts[0].get("converter"):
+            # The earlier run is of another conversion: none of its textures is this port's. Its
+            # routes are played again; the file is made anew.
+            earlier, before = None, routes_of(None)
+            rest = [r for r in every if r.key in wanted and r.key not in done + failed + skipped]
+            say("earlier", message="the earlier run is out of date: its routes are played again", routes=len(rest))
+            play(rest, count, count + len(rest))
         if not parts:
             keep = True  # the routes' logs, to see why
             say("error", message="no route wrote its part: see " + str(work))
@@ -202,14 +252,25 @@ def run(args) -> int:
         if not keep:
             shutil.rmtree(work, ignore_errors=True)
     try:
-        doc = join(parts, game)
+        doc = join(parts + ([earlier] if earlier is not None else []), game)
     except ValueError as e:
         say("error", message=str(e))
         return 1
-    doc["made"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    played = set(before["done"]) | set(done)
+    routes = {"done": sorted(played),
+              "failed": sorted((set(before["failed"]) | set(failed)) - played),
+              "skipped": sorted((set(before["skipped"]) | set(skipped)) - played)}
+    earlier_kinds = kinds_of(earlier)
+    doc["made"] = today
     doc["official"] = bool(args.official)
-    doc["clean"] = not failed  # the routes that need the prepared card are left out, not failed
-    doc["routes"] = {"done": sorted(done), "failed": sorted(failed), "skipped": sorted(skipped)}
+    # Clean: no route it played failed (the routes that need the prepared card are left out, not
+    # failed). Each kind is complete when every route it needs has played.
+    doc["clean"] = not routes["failed"]
+    doc["routes"] = routes
+    doc["kinds"] = {k: {"complete": needs[k] <= played,
+                        "made": today if k in kinds else earlier_kinds.get(k, {}).get("made")}
+                    for k in CATEGORIES}
     write(doc, args.out)
     # The file as the project keeps it (port/game/<id>/interface-run.json), ready to offer in a
     # pull request: the launcher opens its folder and GitHub's upload page. Only a clean run's: an
@@ -224,6 +285,30 @@ def run(args) -> int:
     # Written, clean or not: the launcher shows which routes did not play to their end.
     return 0
 
+
+def kind_routes(game: str, keys: list[str]) -> dict[str, set[str]]:
+    """For each kind, the routes of KEYS a run of it plays (KIND_ROUTES; every route when unlisted)."""
+    table = KIND_ROUTES.get(game, {})
+    return {k: set(table[k]) & set(keys) if k in table else set(keys) for k in CATEGORIES}
+
+
+def routes_of(doc: dict | None) -> dict[str, list[str]]:
+    """A run file's routes by how they ended (none for no file)."""
+    routes = (doc or {}).get("routes")
+    routes = routes if isinstance(routes, dict) else {}
+    return {k: [x for x in routes.get(k) or [] if isinstance(x, str)] for k in ("done", "failed", "skipped")}
+
+
+def kinds_of(doc: dict | None) -> dict[str, dict]:
+    """A run file's kinds (complete, made); a file made before kinds had them: the file's date, complete
+    when it was clean and nothing was left out."""
+    if doc is None:
+        return {}
+    kinds = doc.get("kinds")
+    if isinstance(kinds, dict):
+        return {k: v for k, v in kinds.items() if k in CATEGORIES and isinstance(v, dict)}
+    whole = bool(doc.get("clean")) and not routes_of(doc)["skipped"]
+    return {k: {"complete": whole, "made": doc.get("made")} for k in CATEGORIES}
 
 def base_route(game: str) -> routes_mod.Route | None:
     """The route the run's card is made with: the set's New Game, on an empty card, with CARD_BOOT."""
@@ -256,6 +341,13 @@ def make_card(game: str, route: routes_mod.Route | None, exe: Path, data: Path, 
     return work / "prepared"
 
 
+def kinds_arg(text: str) -> list[str]:
+    kinds = [k for k in CATEGORIES if k in text.split(",")]
+    if not kinds or any(k not in CATEGORIES for k in text.split(",")):
+        raise argparse.ArgumentTypeError(f"{text!r} is not kinds of {','.join(CATEGORIES)}")
+    return kinds
+
+
 def env_pair(text: str) -> tuple[str, str]:
     key, sep, value = text.partition("=")
     if not sep or not key:
@@ -284,6 +376,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--data", type=Path, help="the game's data folder")
     r.add_argument("--levels", type=Path, help="the extracted levels")
     r.add_argument("--jobs", type=int, default=max(1, min(4, (os.cpu_count() or 2) // 2)))
+    r.add_argument("--kinds", type=kinds_arg, help="the kinds to make, by commas (font,interface,effects; default all)")
+    r.add_argument("--fresh", action="store_true", help="start over: the run file there is not added to")
     r.add_argument("--only", action="append", help="only this route (repeatable; for testing)")
     r.add_argument("--env", action="append", default=[], type=env_pair,
                    help="KEY=VALUE for every route (OPENRAC_SOFTWARE_GL=1)")
@@ -322,6 +416,14 @@ def main(argv: list[str] | None = None) -> int:
         routes["failed"] = sorted(set(routes["failed"]) - set(routes["done"]))
         routes["skipped"] = sorted(set(routes["skipped"]) - set(routes["done"]))
         doc["routes"] = routes
+        game = doc.get("game")
+        if game in ROUTE_SETS:
+            keys = [r.key for r in routes_mod.set_routes(ROUTE_SETS[game], game, routes_mod.load())]
+            needs = kind_routes(game, keys)
+            dates = {k: max((kinds_of(p).get(k, {}).get("made") or "" for p in parts), default="") or None
+                     for k in CATEGORIES}
+            doc["kinds"] = {k: {"complete": needs[k] <= set(routes["done"]), "made": dates[k] or doc["made"]}
+                            for k in CATEGORIES}
         write(doc, args.out)
         say("done", file=str(args.out.resolve()), **info(doc))
         return 0

@@ -626,7 +626,7 @@
       {
         "id": "interface-run",
         "label": "Make an interface run",
-        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About half an hour; the computer can be used meanwhile.",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. A kind at a time or all; a later run adds to the earlier one. About half an hour for all; the computer can be used meanwhile.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -643,7 +643,18 @@
           "--levels",
           "{root}/assets/port/rac1/pal",
           "--out",
-          "{data}/interface_runs/rac1-pal.json"
+          "{data}/interface_runs/rac1-pal.json",
+          "--kinds",
+          "{option}"
+        ],
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects"
         ],
         "output": "{data}/interface_runs",
         "cwd": ".",
@@ -1463,7 +1474,7 @@
       {
         "id": "interface-run",
         "label": "Make an interface run",
-        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About half an hour; the computer can be used meanwhile.",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. A kind at a time or all; a later run adds to the earlier one. About half an hour for all; the computer can be used meanwhile.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -1480,7 +1491,18 @@
           "--levels",
           "{root}/assets/port/rac1/ntsc",
           "--out",
-          "{data}/interface_runs/rac1-ntsc.json"
+          "{data}/interface_runs/rac1-ntsc.json",
+          "--kinds",
+          "{option}"
+        ],
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects"
         ],
         "output": "{data}/interface_runs",
         "cwd": ".",
@@ -3091,7 +3113,7 @@
       {
         "id": "interface-run",
         "label": "Make an interface run",
-        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About half an hour; the computer can be used meanwhile.",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. A kind at a time or all; a later run adds to the earlier one. About half an hour for all; the computer can be used meanwhile.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -3108,7 +3130,18 @@
           "--levels",
           "{root}/assets/port/rac2/ntsc",
           "--out",
-          "{data}/interface_runs/rac2-ntsc.json"
+          "{data}/interface_runs/rac2-ntsc.json",
+          "--kinds",
+          "{option}"
+        ],
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects"
         ],
         "output": "{data}/interface_runs",
         "cwd": ".",

@@ -25,7 +25,7 @@
 
   let view = $state<InterfaceRunsView | null>(null);
   let failed = $state<string | null>(null);
-  /** The kinds ticked; all that can be exported at first. */
+  /** The kinds ticked: for the export (those a run has) and for a run (any). */
   let chosen = $state<Record<string, boolean>>({ font: true, interface: true, effects: true });
   /** What this panel started, and for which version (another version shown meanwhile is not busy). */
   let busy = $state<{ kind: "export" | "run"; key: string } | null>(null);
@@ -70,9 +70,16 @@
   });
 
   const available = (at: number) => view?.sources[at] !== undefined && view.sources[at] !== "none";
+  const canRun = $derived(Boolean(runner && view?.runnable));
   /** The export action's option: the kinds ticked that a run has, in its order (core option()). */
   const option = $derived(
     CATEGORIES.filter((c, at) => chosen[c.id] && available(at))
+      .map((c) => c.id)
+      .join(","),
+  );
+  /** The run action's option (run.py --kinds): the kinds ticked, whether a run has them or not. */
+  const runOption = $derived(
+    CATEGORIES.filter((c) => chosen[c.id])
       .map((c) => c.id)
       .join(","),
   );
@@ -89,7 +96,10 @@
       return { text: INTERFACE.official(date(view.official.made), view.official.counts[at] ?? 0), tone: "ok" };
     }
     if (source === "local" && view?.local) {
-      return { text: INTERFACE.yours(date(view.local.made), view.local.counts[at] ?? 0), tone: "own" };
+      const l = view.local;
+      const made = date(l.kindMade[at] ?? l.made);
+      const n = l.counts[at] ?? 0;
+      return { text: l.complete[at] ? INTERFACE.yours(made, n) : INTERFACE.yoursPartly(made, n), tone: "own" };
     }
     return { text: view?.runnable && runner ? INTERFACE.noneRun : INTERFACE.noneYet, tone: "none" };
   }
@@ -149,11 +159,16 @@
 
   async function makeRun() {
     if (!runner) return;
+    if (!runOption) {
+      said = { text: INTERFACE.runNothing, failed: true };
+      return;
+    }
+    const kinds = runOption;
     if (!(await ask(INTERFACE.runAsk, INTERFACE.runYes))) return;
     const key = v.key;
     busy = { kind: "run", key };
     said = null;
-    const ok = await runChain(scope, [runner]);
+    const ok = await runChain(scope, [runner], { option: kinds });
     busy = null;
     if (key !== v.key) return;
     await refresh();
@@ -193,7 +208,11 @@
         {@const s = status(at)}
         <li>
           <label class:off={!available(at)}>
-            <input type="checkbox" bind:checked={chosen[c.id]} disabled={!available(at) || working !== null} />
+            <input
+              type="checkbox"
+              bind:checked={chosen[c.id]}
+              disabled={(!available(at) && !canRun) || working !== null}
+            />
             {c.label}
           </label>
           <span class="chip {s.tone}">
@@ -219,8 +238,13 @@
         {#if working === "run"}
           <button class="ghost" onclick={() => void stopRun()}><Icon name="x" size={16} />{INTERFACE.stop}</button>
         {:else}
-          <button class="ghost" disabled={!runner.runnable || working !== null} onclick={() => void makeRun()}
-            ><Icon name="build" size={16} />{view.local ? INTERFACE.runAgain : INTERFACE.run}</button
+          <button
+            class="ghost"
+            disabled={!runner.runnable || !runOption || working !== null}
+            onclick={() => void makeRun()}
+            ><Icon name="build" size={16} />{runOption === "font,interface,effects"
+              ? INTERFACE.runAll
+              : INTERFACE.run}</button
           >
         {/if}
       {/if}
