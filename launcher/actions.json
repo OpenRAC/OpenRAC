@@ -654,7 +654,8 @@
           "font,interface",
           "font,effects",
           "interface,effects",
-          "font,interface,effects"
+          "font,interface,effects",
+          "fresh"
         ],
         "output": "{data}/interface_runs",
         "cwd": ".",
@@ -1502,7 +1503,8 @@
           "font,interface",
           "font,effects",
           "interface,effects",
-          "font,interface,effects"
+          "font,interface,effects",
+          "fresh"
         ],
         "output": "{data}/interface_runs",
         "cwd": ".",
@@ -3141,7 +3143,8 @@
           "font,interface",
           "font,effects",
           "interface,effects",
-          "font,interface,effects"
+          "font,interface,effects",
+          "fresh"
         ],
         "output": "{data}/interface_runs",
         "cwd": ".",

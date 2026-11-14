@@ -6,6 +6,7 @@
   // and the player's own, which "Make a run" plays here (core/src/interface_runs.rs,
   // port/tools/interface_runs/run.py).
   import Icon from "$components/Icon.svelte";
+  import Menu from "$components/Menu.svelte";
   import { api, ask, type ActionView, type InterfaceRunsView, type VersionView } from "$lib/api";
   import { app, cancel, guardShown, jobs, runChain, toast } from "$lib/app.svelte";
   import { INTERFACE } from "$lib/modsText";
@@ -25,10 +26,10 @@
 
   let view = $state<InterfaceRunsView | null>(null);
   let failed = $state<string | null>(null);
-  /** The kinds ticked: for the export (those a run has) and for a run (any). */
-  let chosen = $state<Record<string, boolean>>({ font: true, interface: true, effects: true });
   /** What this panel started, and for which version (another version shown meanwhile is not busy). */
   let busy = $state<{ kind: "export" | "run"; key: string } | null>(null);
+  /** The kinds the export takes: each one a run has, unless switched off. */
+  let chosen = $state<Record<string, boolean>>({ font: true, interface: true, effects: true });
   let said = $state<{ text: string; failed: boolean } | null>(null);
 
   async function refresh() {
@@ -69,39 +70,43 @@
     if (v.key) said = null;
   });
 
-  const available = (at: number) => view?.sources[at] !== undefined && view.sources[at] !== "none";
   const canRun = $derived(Boolean(runner && view?.runnable));
-  /** The export action's option: the kinds ticked that a run has, in its order (core option()). */
+  const available = (at: number) => view?.sources[at] !== undefined && view.sources[at] !== "none";
+  /** The export action's option: the kinds switched on that a run has, in their order (core option()). */
   const option = $derived(
     CATEGORIES.filter((c, at) => chosen[c.id] && available(at))
       .map((c) => c.id)
       .join(","),
   );
-  /** The run action's option (run.py --kinds): the kinds ticked, whether a run has them or not. */
-  const runOption = $derived(
-    CATEGORIES.filter((c) => chosen[c.id])
-      .map((c) => c.id)
-      .join(","),
-  );
+  /** A kind a run here would make: no official run has it, and the player's own is not whole and current. */
+  function makeable(at: number): boolean {
+    if (!canRun || view?.sources[at] === "official") return false;
+    const l = view?.local;
+    return !(l && l.current && l.complete[at]);
+  }
+  const missing = $derived(CATEGORIES.filter((_, at) => makeable(at)).map((c) => c.id));
 
   function date(made: string | null | undefined): string {
     if (!made) return "";
     const day = new Date(`${made}T12:00:00Z`);
-    return Number.isNaN(day.getTime()) ? made : day.toLocaleDateString(undefined, { dateStyle: "medium" });
+    return Number.isNaN(day.getTime()) ? made : day.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
 
+  /** Where a kind's textures come from, in a few words. */
   function status(at: number): { text: string; tone: "ok" | "own" | "none" } {
     const source = view?.sources[at];
     if (source === "official" && view?.official) {
       return { text: INTERFACE.official(date(view.official.made), view.official.counts[at] ?? 0), tone: "ok" };
     }
-    if (source === "local" && view?.local) {
-      const l = view.local;
-      const made = date(l.kindMade[at] ?? l.made);
+    const l = view?.local;
+    if (l && !l.current) return { text: INTERFACE.outOfDate, tone: "none" };
+    if (source === "local" && l) {
       const n = l.counts[at] ?? 0;
-      return { text: l.complete[at] ? INTERFACE.yours(made, n) : INTERFACE.yoursPartly(made, n), tone: "own" };
+      return l.complete[at]
+        ? { text: INTERFACE.yours(date(l.kindMade[at] ?? l.made), n), tone: "own" }
+        : { text: INTERFACE.partly(n), tone: "own" };
     }
-    return { text: view?.runnable && runner ? INTERFACE.noneRun : INTERFACE.noneYet, tone: "none" };
+    return { text: INTERFACE.none, tone: "none" };
   }
 
   /** The newest job of an action here. */
@@ -157,18 +162,20 @@
     }
   }
 
-  async function makeRun() {
-    if (!runner) return;
-    if (!runOption) {
-      said = { text: INTERFACE.runNothing, failed: true };
-      return;
-    }
-    const kinds = runOption;
+  /** Plays the routes KINDS need (run.py --kinds), added to the player's run; ["fresh"] makes it all anew. */
+  async function makeRun(kinds: string[]) {
+    if (!runner || kinds.length === 0) return;
+    const value =
+      kinds[0] === "fresh"
+        ? "fresh"
+        : CATEGORIES.filter((c) => kinds.includes(c.id))
+            .map((c) => c.id)
+            .join(",");
     if (!(await ask(INTERFACE.runAsk, INTERFACE.runYes))) return;
     const key = v.key;
     busy = { kind: "run", key };
     said = null;
-    const ok = await runChain(scope, [runner], { option: kinds });
+    const ok = await runChain(scope, [runner], { option: value });
     busy = null;
     if (key !== v.key) return;
     await refresh();
@@ -207,26 +214,27 @@
       {#each CATEGORIES as c, at (c.id)}
         {@const s = status(at)}
         <li>
-          <label class:off={!available(at)}>
-            <input
-              type="checkbox"
-              bind:checked={chosen[c.id]}
-              disabled={(!available(at) && !canRun) || working !== null}
-            />
-            {c.label}
-          </label>
-          <span class="chip {s.tone}">
-            {#if s.tone === "ok"}<Icon name="check" size={14} />{/if}{s.text}
+          <input
+            type="checkbox"
+            role="switch"
+            class="switch"
+            aria-label={INTERFACE.exportKind(c.label)}
+            checked={chosen[c.id] && available(at)}
+            onchange={(e) => (chosen[c.id] = e.currentTarget.checked)}
+            disabled={!available(at) || working !== null}
+          />
+          <span class="name" class:off={!available(at)}>{c.label}</span>
+          <span class="state {s.tone}">
+            {#if s.tone === "ok"}<Icon name="check" size={14} />{:else}<span class="dot"></span>{/if}{s.text}
           </span>
+          {#if makeable(at) && working !== "run"}
+            <button class="small" disabled={!runner?.runnable || working !== null} onclick={() => void makeRun([c.id])}
+              >{view?.local?.counts[at] ? INTERFACE.finish : INTERFACE.make}</button
+            >
+          {/if}
         </li>
       {/each}
     </ul>
-    {#if view?.local && !view.local.current}
-      <p class="muted">{INTERFACE.outOfDate}</p>
-    {/if}
-    {#each view?.unreadable ?? [] as why (why)}
-      <p class="muted">{INTERFACE.unreadable(why)}</p>
-    {/each}
     <div class="controls">
       <button disabled={!exporter.runnable || !option || working !== null} onclick={() => void exportTextures()}>
         {#if working === "export"}<span class="spinner"></span>{:else}<Icon
@@ -234,22 +242,18 @@
             size={16}
           />{/if}{INTERFACE.export}
       </button>
-      {#if runner && view?.runnable}
-        {#if working === "run"}
-          <button class="ghost" onclick={() => void stopRun()}><Icon name="x" size={16} />{INTERFACE.stop}</button>
-        {:else}
-          <button
-            class="ghost"
-            disabled={!runner.runnable || !runOption || working !== null}
-            onclick={() => void makeRun()}
-            ><Icon name="build" size={16} />{runOption === "font,interface,effects"
-              ? INTERFACE.runAll
-              : INTERFACE.run}</button
-          >
-        {/if}
+      {#if working === "run"}
+        <button class="ghost" onclick={() => void stopRun()}><Icon name="x" size={16} />{INTERFACE.stop}</button>
+      {:else if missing.length > 1}
+        <button class="ghost" disabled={!runner?.runnable || working !== null} onclick={() => void makeRun(missing)}
+          ><Icon name="build" size={16} />{INTERFACE.makeMissing(missing.length)}</button
+        >
+      {/if}
+      {#if canRun && view?.local && working === null && runner?.runnable}
+        <Menu items={[{ label: INTERFACE.makeAgain, icon: "build", run: () => void makeRun(["fresh"]) }]} />
       {/if}
     </div>
-    <p class="muted" class:failed={said?.failed} class:done={said && !said.failed}>
+    <p class="muted line" class:failed={said?.failed} class:done={said && !said.failed}>
       {#if working === "export"}
         {INTERFACE.exporting}
       {:else if working === "run"}
@@ -259,7 +263,7 @@
       {:else if !exporter.runnable}
         {INTERFACE.notReady}
       {:else if !option}
-        {view?.runnable && runner ? INTERFACE.nothingYetRun : INTERFACE.nothingYet}
+        {canRun ? INTERFACE.nothingYetRun : INTERFACE.nothingYet}
       {:else}
         {INTERFACE.exportLine}
       {/if}
@@ -292,79 +296,87 @@
   }
 
   .lead,
+  .line,
   .small {
     font-size: 0.875rem;
   }
 
+  /* Rows with a rule between them, as every list in a panel (STYLE.md). */
   .kinds {
     list-style: none;
     margin: 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
   }
 
   .kinds li {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 6px 12px;
+    gap: 12px;
+    min-height: 40px;
+    padding: 4px 0;
   }
 
-  label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  .kinds li + li {
+    border-top: 1px solid var(--line);
   }
 
-  label.off {
-    opacity: 0.6;
+  .kinds li:not(:has(button)) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  .chip {
+  .name.off {
+    color: var(--dim);
+  }
+
+  /* A state is a dot (or a tick) and a few words. */
+  .state {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 0.8125rem;
-    padding: 2px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
+    gap: 6px;
+    font-size: 0.875rem;
+    white-space: nowrap;
   }
 
-  .chip.ok {
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .state.ok {
     color: var(--ok);
-    border-color: var(--ok);
   }
 
-  .chip.own {
+  .state.own {
     color: var(--amber);
-    border-color: var(--amber);
   }
 
-  .chip.none {
+  .state.none {
     color: var(--dim);
   }
 
   .controls {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
 
+  /* A hint inside a page: the panel warmed with the gold, no edge. */
   .share {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px 12px;
     padding: 10px 12px;
-    border: 1px solid var(--ok);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--panel) 91%, var(--amber));
   }
 
   .share p {
     flex: 1 1 240px;
+    font-size: 0.875rem;
   }
 
   .failed {

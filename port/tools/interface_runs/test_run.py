@@ -170,6 +170,14 @@ class KindsTests(unittest.TestCase):
         self.assertEqual([t["name"] for t in doc["textures"]], sorted(["00-long", "title-load-0"]))
         self.assertFalse(doc["kinds"]["font"]["complete"])
 
+    def test_fresh_option_makes_every_kind_anew(self):
+        self.make("--kinds", "font")
+        doc = self.make("--kinds", "fresh")
+        # Effects is not in the table: every route, the earlier ones too.
+        self.assertIn("title-new", self.played)
+        self.assertGreater(len(self.played), 3)
+        self.assertTrue(all(v["complete"] for v in doc["kinds"].values()))
+
     def test_kinds_must_be_known(self):
         with self.assertRaises(Exception):
             run.kinds_arg("font,hud")

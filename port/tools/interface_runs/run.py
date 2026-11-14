@@ -45,17 +45,18 @@ WORLD_PASSES = "sky,terrain,ties,shrubs,mobys,ratchet shadows"
 ROUTE_SETS = {"rac1-pal": "wide", "rac1-ntsc": "wide", "rac2-ntsc": "rac2-tour"}
 # For each kind, the routes that draw all of it (found by a run that kept each route's part: every
 # texture of the kind is in one of them). A game not listed, or a kind, plays every route.
-# Both rac1 versions play the same routes; the table is from a PAL run (each texture drawn in a
-# route listed), the font with a second route to spare.
+# Both rac1 versions play the same routes. Each kind's routes are the union of what draws all of
+# it on NTSC-U and on PAL (a run of each that kept every route's part), the font with a route to spare.
 _RAC1_KINDS = {
     "font": ["00-long", "title-new"],
-    "interface": ["00-clank", "00-long", "01-long", "01-pause-2", "01-pause-4", "01-pause-5", "03-long",
-                  "03-ship", "04-long", "05-long", "06-clank", "07-long", "08-long", "10-clank", "11-long",
-                  "11-swim", "12-long", "13-long", "14-long", "16-long", "17-turret", "18-giant-clank",
-                  "title-load-0", "title-load-1", "title-load-2", "title-load-3", "title-load-4", "title-new",
-                  "title-options"],
-    "effects": ["01-long", "06-clank", "07-snagglebeast", "08-long", "10-clank", "11-jet-fighter", "12-long",
-                "13-long", "14-long", "15-long", "17-turret", "18-long"],
+    "interface": ["00-clank", "00-long", "01-long", "01-pause-2", "01-pause-4", "01-pause-5", "03-long", "03-ship",
+                  "04-long", "05-long", "06-clank", "07-long", "07-snagglebeast", "08-long", "10-clank", "11-long",
+                  "11-swim", "12-long", "13-long", "14-long", "15-giant-clank", "16-hoverboard", "16-long",
+                  "17-turret", "18-giant-clank", "title-load-0", "title-load-1", "title-load-2", "title-load-3",
+                  "title-load-4", "title-new", "title-options"],
+    "effects": ["01-long", "06-clank", "07-snagglebeast", "08-long", "10-clank", "11-jet-fighter", "11-swim",
+                "12-long", "13-long", "13-qwark", "14-long", "15-giant-clank", "15-long", "17-turret", "18-drek",
+                "18-long"],
 }
 KIND_ROUTES: dict[str, dict[str, list[str]]] = {"rac1-pal": _RAC1_KINDS, "rac1-ntsc": _RAC1_KINDS}
 # The routes that load a saved game play on a card of the run's own, never the player's: a New Game
@@ -153,6 +154,8 @@ def run(args) -> int:
     spec = routes_mod.load()
     every = routes_mod.set_routes(ROUTE_SETS[game], game, spec)
     kinds = args.kinds or list(CATEGORIES)
+    if kinds == ["fresh"]:
+        kinds, args.fresh = list(CATEGORIES), True
     needs = kind_routes(game, [r.key for r in every])
     wanted = set().union(*(needs[k] for k in kinds))
     if args.only:
@@ -342,6 +345,9 @@ def make_card(game: str, route: routes_mod.Route | None, exe: Path, data: Path, 
 
 
 def kinds_arg(text: str) -> list[str]:
+    """Kinds by commas; "fresh" (the launcher's Make the run again) is every kind, started over."""
+    if text == "fresh":
+        return ["fresh"]
     kinds = [k for k in CATEGORIES if k in text.split(",")]
     if not kinds or any(k not in CATEGORIES for k in text.split(",")):
         raise argparse.ArgumentTypeError(f"{text!r} is not kinds of {','.join(CATEGORIES)}")
