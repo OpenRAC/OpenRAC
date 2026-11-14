@@ -194,7 +194,7 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 
 | Event         | Payload                                                                   |
 | ------------- | ------------------------------------------------------------------------- |
-| `job-output`  | `{type: "output", id, stream: "stdout" \| "stderr", line}`                |
+| `job-output`  | `[{type: "output", id, stream: "stdout" \| "stderr", line}, ...]` (batched) |
 | `job-exit`    | `{type: "exit", id, code, cancelled}`                                     |
 | `disc-copy`   | `{name, copied, total}` (Android: a picked disc's copy)                   |
 | `index-apply` | `{id, step, at, total}`: each mod of a change set being installed         |
