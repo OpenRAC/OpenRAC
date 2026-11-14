@@ -184,6 +184,13 @@ in editor/games.py and launcher/src/lib/labels.ts are those of its
 `data/underlay/{gc,uya,dl}_levels.asset`. Wrench is GPL-3.0-or-later, as
 OpenRAC's top level is.
 
+The Assets dock's names (editor/addons/openrac_library/names/rac1.tsv) take
+the moby class names Lombyte lacks from Wrench's
+`data/underlay/rac_moby_classes.asset` (commit `46e8043`), then from
+Replanetizer's `LibReplanetizer/ModelLists/MobyModelsRC1.txt` and
+`TieModelsRC1.txt` (commit `2fbcaf6`, GPL-3.0). The rest were named for
+OpenRAC by hand.
+
 ## The native port's libraries
 
 The port ([port/](port/README.md)) builds with these libraries. CMake fetches

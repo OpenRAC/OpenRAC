@@ -1,0 +1,3405 @@
+# Readable names of Ratchet & Clank's (2002) assets, for the editor's Assets dock: kind, class, name.
+# Names come, in this order, from: Lombyte's moby class names (editor/moby_classes.tsv, MIT);
+# Wrench's data/underlay/rac_moby_classes.asset (github.com/chaoticgd/wrench, GPL-3.0-or-later);
+# Replanetizer's LibReplanetizer/ModelLists/{Moby,Tie}ModelsRC1.txt (github.com/RatchetModding/Replanetizer,
+# GPL-3.0); the rest were named by hand for OpenRAC from each model's look.
+mobys	0	Ratchet
+mobys	8	Blarg heavy interceptor
+mobys	9	Glowing green panel
+mobys	10	Clank
+mobys	11	Vendor
+mobys	12	Vendor guy
+mobys	13	Bolt
+mobys	14	Bolt hexnut
+mobys	15	Bolt starnut
+mobys	16	Bolt circlenut
+mobys	18	Magnetboots
+mobys	19	Blank sprite quad
+mobys	21	Elevator
+mobys	23	Grey boulder
+mobys	26	Teal energy ring
+mobys	28	Plasmabot
+mobys	29	Blarg turret
+mobys	30	Machinegun turret
+mobys	31	Minibomber
+mobys	32	Teal glass panel
+mobys	35	Sharkigator
+mobys	36	Blarg gunner
+mobys	37	Purple crystal rock
+mobys	38	Taxi platform
+mobys	39	Metal detector
+mobys	41	Rocket
+mobys	43	Platform
+mobys	44	Sentrybot
+mobys	49	Rocket
+mobys	50	Rocket
+mobys	52	Seeker
+mobys	54	Suckcannon
+mobys	55	Hangar door
+mobys	56	Black block
+mobys	63	Robosquawker
+mobys	65	Metal door frame
+mobys	66	Fan
+mobys	67	Lit floor panel
+mobys	68	Suckcannon
+mobys	69	Fighter jet
+mobys	70	White pipe section
+mobys	71	Wrench
+mobys	72	Stone log
+mobys	74	Mine
+mobys	75	Red ship 1
+mobys	77	Mine
+mobys	78	Spikeball
+mobys	79	Scenery ship
+mobys	80	Trespasser
+mobys	81	Yellow speaker pod
+mobys	82	Rocket
+mobys	83	Mine
+mobys	84	Hoverboard
+mobys	85	Butterfly
+mobys	87	Clank
+mobys	90	Bob
+mobys	91	Curved green energy panel
+mobys	92	Gate
+mobys	93	Gate
+mobys	99	Thruster nozzle
+mobys	101	Blarg space fighter
+mobys	102	Turbine wheel
+mobys	103	Steel block
+mobys	104	Bridge
+mobys	106	Bridge
+mobys	110	Wrench
+mobys	111	Blarg space fighter
+mobys	112	Explosion
+mobys	114	Resort owner
+mobys	115	White ship
+mobys	116	Red ship 2
+mobys	117	Yellow ship
+mobys	118	Truck ship
+mobys	119	Green ship
+mobys	120	Beige ship
+mobys	121	Blue and white ball
+mobys	122	Grey shard
+mobys	123	Spiderbot
+mobys	127	Curved metal rail
+mobys	128	Metal ramp piece
+mobys	129	Curved metal track
+mobys	130	Curved metal track
+mobys	132	Purple ship
+mobys	133	Amoeboid
+mobys	138	Green energy loop
+mobys	142	Green energy loop
+mobys	143	Green energy blob
+mobys	144	Green energy panel
+mobys	146	Metal ring gate
+mobys	148	Ship engine cluster
+mobys	149	Grey bent beam
+mobys	150	Grey wedge
+mobys	151	Grey wedge
+mobys	152	Red cloth
+mobys	153	Gold devastator missile
+mobys	154	Triple engine pods
+mobys	156	Grey flat panel
+mobys	157	Devastator
+mobys	159	Curved hull plate
+mobys	161	Black pod with red lights
+mobys	163	Visibomb
+mobys	164	Drill
+mobys	166	Grey cube
+mobys	168	Blaster
+mobys	169	Curved hull plate with lights
+mobys	170	Forcefield tower
+mobys	172	Visibomb missile
+mobys	173	Magnetboots
+mobys	175	Taunter
+mobys	176	Pyrocitor
+mobys	177	Tesla claw
+mobys	178	Grey ring
+mobys	179	Fire column
+mobys	180	Walloper
+mobys	182	Door
+mobys	183	Door
+mobys	184	Grey spike
+mobys	185	Morphoray
+mobys	186	Doom bot
+mobys	187	Blarg ship
+mobys	188	Trespasser
+mobys	190	Mine glove
+mobys	192	Bomb glove
+mobys	193	Chomper
+mobys	195	Grindboot
+mobys	196	Door
+mobys	197	Door
+mobys	200	Dark capsule
+mobys	201	Engine nozzle ring
+mobys	203	Decoy
+mobys	204	Devestator ammo
+mobys	205	Steel canister
+mobys	206	Metal rod
+mobys	207	Engine cylinder
+mobys	208	Swingshot
+mobys	209	Swingshot hook
+mobys	210	Blue canister
+mobys	211	Plasmabot
+mobys	212	Asteroid
+mobys	213	Tesla claw ammo
+mobys	214	Pyrocitor ammo
+mobys	217	Big axebot
+mobys	221	Construction arm
+mobys	222	Visibomb ammo
+mobys	223	Glove of doom ammo
+mobys	224	Ammocrate
+mobys	225	Mine glove ammo
+mobys	226	Bomb glove ammo
+mobys	228	Jet fighter health crate
+mobys	229	Glove of doom
+mobys	230	Bomb
+mobys	231	Red and white target
+mobys	233	Helicopter
+mobys	235	Grey hexagon frame
+mobys	238	Grey robot critter
+mobys	240	Platform
+mobys	244	Elevator
+mobys	248	Bomb
+mobys	250	Plasmabot hatch
+mobys	252	Scoutbot
+mobys	253	Bomber tank
+mobys	255	Engine cylinder
+mobys	256	Rocket
+mobys	257	Silver hover pod
+mobys	263	Asteroid
+mobys	264	Asteroid
+mobys	265	Asteroid
+mobys	266	Asteroid
+mobys	267	Asteroid
+mobys	268	Green energy ripple
+mobys	269	Green energy pad
+mobys	270	Morphoray chicken
+mobys	272	Turret
+mobys	273	Green energy hoop
+mobys	274	Antenna
+mobys	275	Metal tower with antennas
+mobys	276	Display
+mobys	279	Red crate with gem
+mobys	280	Bolt crank
+mobys	281	Bomb
+mobys	282	Miner
+mobys	283	Green exhaust flame
+mobys	284	Open red crate
+mobys	287	Drill
+mobys	294	Blarg trooper
+mobys	295	Rocket
+mobys	296	Conveyor belt
+mobys	298	Fred Pokitaru
+mobys	302	Gadgebot spawn container
+mobys	303	Gadgebot spawn pad
+mobys	304	Gold weapon case
+mobys	309	Platform
+mobys	310	Fan shroud
+mobys	313	Grey rock shard
+mobys	315	Metal clamp arm
+mobys	318	Teleporter
+mobys	320	Hazard-striped machine block
+mobys	321	Metal machine block
+mobys	324	Stone wheel
+mobys	325	Orange rocket
+mobys	326	Blarg helicopter
+mobys	328	Edwina
+mobys	331	Trackdrive left
+mobys	332	Trackdrive right
+mobys	333	Blarg bombthrower
+mobys	336	Helicopter
+mobys	339	Crane arm
+mobys	340	Circular saw enemy
+mobys	341	Hydrodisplacer faucet
+mobys	344	Blarg gun
+mobys	347	Dreks fleet turret
+mobys	348	Nanotech crate fragment
+mobys	349	Nanotech crate fragment
+mobys	351	Gadgebot telepot pad
+mobys	352	Green slime egg
+mobys	353	Gate
+mobys	354	Metal crate fragment
+mobys	355	Metal crate fragment
+mobys	356	Metal crate fragment
+mobys	357	Crate fragment
+mobys	358	Crate fragment
+mobys	359	Crate fragment
+mobys	360	Hangar door
+mobys	363	Explosive crate fragment
+mobys	364	Explosive crate fragment
+mobys	367	Glowing cell door
+mobys	383	Green energy arc
+mobys	384	Water reservoir
+mobys	385	Green energy arch
+mobys	388	Qwarks starfighter part
+mobys	389	Qwarks starfighter part
+mobys	390	Qwarks starfighter part
+mobys	391	Qwarks starfighter part
+mobys	392	Qwarks starfighter part
+mobys	393	Qwarks starfighter part
+mobys	394	Qwarks starfighter part
+mobys	395	Qwarks starfighter part
+mobys	396	Qwarks starfighter part
+mobys	399	Qwarks starfighter part
+mobys	400	Qwarks starfighter part
+mobys	401	Grey flat panel
+mobys	403	Orange robot torso
+mobys	404	Forcefield
+mobys	405	Forcefield
+mobys	406	Edwina's welding shield
+mobys	407	Persuader
+mobys	408	Sentrybot alarm
+mobys	409	Rocket
+mobys	417	Purple sparkle cloud
+mobys	419	Giant Clank
+mobys	424	Shuttle
+mobys	425	Bomb
+mobys	427	Blarg trooper
+mobys	428	Feather
+mobys	432	Eudora bridge
+mobys	433	Sonic summoner
+mobys	434	Platform booster
+mobys	435	Rocket
+mobys	437	Sand mouse
+mobys	438	Orange fighter ship
+mobys	439	Hoverboard
+mobys	440	Gunship
+mobys	441	Gunship cannon
+mobys	442	Gunship pod with green lights
+mobys	443	Gunship thruster
+mobys	444	Gunship armor pod
+mobys	445	Gunship fin
+mobys	446	Helipack
+mobys	447	Qwark Umbris
+mobys	448	Gunship engine drum
+mobys	449	Gunship cannon
+mobys	450	Gunship wing
+mobys	451	Gunship wing
+mobys	452	Bolt thief
+mobys	454	Ryno
+mobys	455	Spawner
+mobys	457	Rocket
+mobys	458	Rocket
+mobys	459	Birdbot
+mobys	461	Qwark's starfighter
+mobys	462	Shrub
+mobys	463	Gunship armor pod
+mobys	464	Gunship wing
+mobys	465	Gunship cannon arm
+mobys	466	Snow plow
+mobys	467	Purple metal slab
+mobys	468	Window panel
+mobys	469	Window panel
+mobys	470	Rocket
+mobys	471	Conveyor belt
+mobys	472	Purple lit panel
+mobys	473	Round hatch
+mobys	476	Short log
+mobys	477	Long log
+mobys	478	Thin log
+mobys	479	Drone
+mobys	480	Grab helicopter
+mobys	481	Floating platform
+mobys	482	Green glass wedge
+mobys	483	Hologuise
+mobys	484	Transport ship
+mobys	485	Ball ship 1
+mobys	486	Ball ship 2
+mobys	488	Circular saw ship
+mobys	490	Chainsaw ship
+mobys	491	Ultramech unlimited
+mobys	492	Bombthrower grass
+mobys	493	Tank ship
+mobys	494	Log ship 1
+mobys	495	Log ship 2
+mobys	498	Log ship carrier
+mobys	499	Gun
+mobys	500	Bolt crate
+mobys	501	Nanotech crate
+mobys	502	Metal crate
+mobys	505	Oom oom box
+mobys	511	Ammo crate
+mobys	529	Purple ship
+mobys	530	Veldin ship
+mobys	531	Green ship
+mobys	532	Red ship
+mobys	533	Purple ship
+mobys	537	Dark tower with lights
+mobys	541	Test dummy
+mobys	545	Bomb
+mobys	546	Wall button
+mobys	547	White wall panel
+mobys	548	White vent block
+mobys	549	White vent block
+mobys	550	Purple cannon block
+mobys	551	Purple pillar
+mobys	552	Lit metal rod
+mobys	555	Log ship end
+mobys	556	Test dummy on hoverboard
+mobys	557	Shuttle
+mobys	560	Green energy sparks
+mobys	562	Decoy glove
+mobys	563	Woodcut bot
+mobys	564	Rocket
+mobys	565	Metal hatch door
+mobys	566	Cable connector
+mobys	567	Rocket
+mobys	568	Mine
+mobys	570	Axe
+mobys	572	Large amoeboid
+mobys	573	Robot dog
+mobys	574	Blarg commander
+mobys	577	Peckbot
+mobys	578	Mine layer
+mobys	579	Round fan vent
+mobys	580	Sand shark
+mobys	581	Coiled pipes
+mobys	583	Thruster pack lock green
+mobys	584	Yellow platform
+mobys	585	Metal detector
+mobys	586	Thruster pack lock red
+mobys	587	Floating platform
+mobys	588	Grey stone block
+mobys	589	Grey stone block
+mobys	590	Yellow and blue crate
+mobys	591	Blue block with lights
+mobys	592	Blue metal block
+mobys	593	Blue metal block
+mobys	594	Blue metal block
+mobys	595	Blue metal block
+mobys	596	Grey stone block
+mobys	597	Yellow-topped blue block
+mobys	598	Blue metal block
+mobys	601	Clank (backpack)
+mobys	604	Sandmouse house
+mobys	606	Green energy ribbon
+mobys	607	Helipack
+mobys	608	Thrusterpack
+mobys	609	Hyropack
+mobys	612	Constructorbot
+mobys	614	Mapper
+mobys	615	Trespasser pad
+mobys	618	Armor magnetizer
+mobys	619	PDA
+mobys	621	Spiked mine
+mobys	623	Extermibot
+mobys	624	Blue and white ball
+mobys	625	Extermitank
+mobys	627	Mine
+mobys	631	Blarg helicopter
+mobys	634	Hologuise
+mobys	638	Blarg elite commando
+mobys	639	Ground glow decal
+mobys	641	Cave door
+mobys	642	Leaf
+mobys	643	Mine
+mobys	645	Nanotech upgrade can
+mobys	647	Door
+mobys	650	Test dummy door
+mobys	651	Elevator
+mobys	652	Escalator
+mobys	653	Escalator end
+mobys	654	Green energy strip
+mobys	655	Ice panel
+mobys	656	Bulldozer
+mobys	657	Bomb
+mobys	660	Fighter jet
+mobys	662	Dump truck
+mobys	664	Platform
+mobys	665	Door half
+mobys	666	Stationary ship
+mobys	668	Sand shark nest
+mobys	669	Scattered debris
+mobys	671	Ground glow decal
+mobys	674	Green water patch
+mobys	675	Grab crane
+mobys	677	Green water patch
+mobys	680	Green water patch
+mobys	681	Laser streak
+mobys	682	Sandshark
+mobys	685	Elevator
+mobys	686	Grey spike
+mobys	687	Bridge
+mobys	688	Bomber jet
+mobys	690	Liftcar
+mobys	692	Persuader
+mobys	693	Purple crystal rock
+mobys	695	Water lily
+mobys	696	Rock
+mobys	697	Rock
+mobys	698	Rock
+mobys	701	Falling rock
+mobys	703	Piston platform
+mobys	704	Rock formation
+mobys	705	Fan
+mobys	706	Fan platform
+mobys	707	Platform
+mobys	709	Bridge piece 1
+mobys	710	Bridge piece 2
+mobys	711	Bridge piece 3
+mobys	712	Taxi
+mobys	713	Transport pod
+mobys	715	Piston platform 2
+mobys	717	Skid mcmarx
+mobys	718	Elevator frame
+mobys	719	Light
+mobys	720	Ship wreck
+mobys	722	Red eyeball pod
+mobys	724	Green leaves
+mobys	725	Blue leaves
+mobys	726	Novalis elevator
+mobys	727	Pod platform right
+mobys	728	Pod platform left
+mobys	729	Destroyable cave wall
+mobys	730	Agnogg ship front
+mobys	731	Agnogg ship back
+mobys	732	Crane
+mobys	733	Rocket launcher
+mobys	734	Platform
+mobys	735	Rocket door 1
+mobys	736	Rocket door 2
+mobys	742	Door frame
+mobys	743	Trespasser door 1
+mobys	744	Trespasser door 2
+mobys	746	Bridge half
+mobys	747	Inner support
+mobys	748	Metal shutter
+mobys	749	Horny toad
+mobys	750	Infobot
+mobys	753	Gadgetron stand
+mobys	754	Green mushroom
+mobys	755	Sandshark egg
+mobys	758	Swingshot versatarget
+mobys	762	Rocks
+mobys	764	Gadgetron sign
+mobys	765	Statue
+mobys	766	Plant
+mobys	767	Plant
+mobys	768	Door left
+mobys	769	Door right
+mobys	770	Helipack
+mobys	774	The plumber
+mobys	775	Splash effect
+mobys	778	Pipe
+mobys	779	Broken pipe
+mobys	780	Bridge platform
+mobys	781	Crane top
+mobys	782	Rusty door panel
+mobys	783	Orange pod with blue eye
+mobys	784	White rock chunk
+mobys	785	White rock chunk
+mobys	786	Skids agent
+mobys	787	Orange fruit
+mobys	788	Skid mcmarx
+mobys	789	Liftcar pole
+mobys	790	Ship rear
+mobys	792	Liftcar platform
+mobys	794	Upright glow sprite
+mobys	795	Blimp
+mobys	799	Green energy ring with core
+mobys	800	Green energy orb
+mobys	803	Swingshot swinging versatarget
+mobys	804	White splash ring
+mobys	810	Floating platform
+mobys	811	Mayor (novalis)
+mobys	812	Box
+mobys	814	Green energy panel
+mobys	815	Beehive
+mobys	816	Taxi
+mobys	817	Statue
+mobys	819	Rocket
+mobys	822	Metropolis train locomotive
+mobys	823	Lamp
+mobys	825	Robo shack sign
+mobys	827	Frog
+mobys	830	Floor button
+mobys	831	Water
+mobys	833	Rocket
+mobys	834	Clank cutscene trigger
+mobys	835	Mine
+mobys	836	Metal double ring
+mobys	838	Electric gate
+mobys	839	Green energy band
+mobys	842	Broken floor button
+mobys	843	Door
+mobys	844	Drain cover
+mobys	846	Pipe mounted grating
+mobys	849	Suckcannon
+mobys	850	Green energy sheet
+mobys	851	Qwark Oltanis
+mobys	852	Bridge part
+mobys	853	Bridge pile
+mobys	855	Sewer pipe with sludge
+mobys	857	Gadgebot
+mobys	859	Grey teardrop
+mobys	863	Test dummy bomb glove
+mobys	865	Medium amoeboid
+mobys	866	Small amoeboid
+mobys	868	Moving platform small
+mobys	871	Boltcrate possibly for metal detector
+mobys	872	Battery pack with cells
+mobys	873	Battery pack
+mobys	876	Test dummy pyrocitor
+mobys	877	Elevator with button
+mobys	878	Wooden plank
+mobys	880	Laser streak
+mobys	882	Bomb
+mobys	883	Train carriage
+mobys	884	Test dummy walloper
+mobys	885	Round lit turbine
+mobys	886	Timed activation pads
+mobys	888	Gun barrel cluster
+mobys	890	Helga
+mobys	891	Silver barrel
+mobys	892	Tan canister
+mobys	893	Hydrodisplacer puzzle door
+mobys	894	Barrel launcher
+mobys	895	Grill door
+mobys	898	Ceiling
+mobys	900	Blue flex hose
+mobys	901	Twin pipe arm
+mobys	902	Water
+mobys	903	Platform
+mobys	904	Untextured flat pane
+mobys	905	Moving platform medium
+mobys	908	Jet
+mobys	909	Big Al
+mobys	911	Toxic gas vent
+mobys	913	Purple ship
+mobys	914	Robot Qwark
+mobys	915	Fred 1
+mobys	916	Fred 2
+mobys	917	Fred 3
+mobys	918	Hoverboard girl
+mobys	919	Qwarks bouncer
+mobys	920	Qwark Rilgar
+mobys	921	Jet
+mobys	922	Rocket
+mobys	923	Bolt thief
+mobys	924	Sam
+mobys	925	Shady salesman
+mobys	928	Moving platform large
+mobys	933	Mine
+mobys	934	Blue gem
+mobys	936	Metal rack
+mobys	937	Round engine
+mobys	938	Bomb
+mobys	939	Bombthrower grass
+mobys	941	Water
+mobys	943	Water
+mobys	944	Water
+mobys	948	Water
+mobys	949	Water
+mobys	950	Water
+mobys	951	Water surface pane
+mobys	952	Water
+mobys	953	Water surface pane
+mobys	954	Water
+mobys	955	Water
+mobys	958	Water
+mobys	961	Water surface pane
+mobys	962	Water surface pane
+mobys	967	Water surface pane
+mobys	968	Water surface pane
+mobys	969	Water surface pane
+mobys	970	Water surface pane
+mobys	971	Water surface pane
+mobys	980	Purple crystal branch
+mobys	981	Purple crystal branch
+mobys	982	Blank sprite quad
+mobys	984	Television
+mobys	992	Swingshot
+mobys	993	R.Y.N.O.
+mobys	997	Garage door
+mobys	998	Taxi
+mobys	1002	Platinum zoomerator
+mobys	1005	Trespasser
+mobys	1006	Blaster ammo
+mobys	1007	Camera object
+mobys	1009	Laser streak
+mobys	1012	Taxi
+mobys	1013	Dark metal shield wall
+mobys	1014	Dark metal bin
+mobys	1015	Lab door
+mobys	1016	Hydrodisplacer
+mobys	1017	Cyan energy bolt
+mobys	1021	Circular door part
+mobys	1023	Blarg paratrooper
+mobys	1025	Blarg gun
+mobys	1028	Platform
+mobys	1029	Metal drum barrel
+mobys	1030	Metal grate arm
+mobys	1031	Button
+mobys	1033	Platform
+mobys	1034	Rocket
+mobys	1035	Circular electric gate
+mobys	1037	Orange miner helmet
+mobys	1038	Energy sphere holder
+mobys	1040	Energy sphere
+mobys	1041	Bombomatic
+mobys	1042	Mushroom underside
+mobys	1046	Ground glow decal
+mobys	1047	Metal machine housing
+mobys	1048	Alien snapper
+mobys	1049	Blue energy orb
+mobys	1051	Alien queen
+mobys	1052	Bridge
+mobys	1054	Warship door (high part)
+mobys	1055	Warship door (low part)
+mobys	1056	Transport pod ring
+mobys	1057	Teleport tube
+mobys	1058	Teleport tube
+mobys	1059	Sharkigator
+mobys	1060	Red orb
+mobys	1061	Circular elevator with button
+mobys	1063	Dark door frame
+mobys	1064	Dark curved panel with symbol
+mobys	1065	Dark curved panel with symbol
+mobys	1066	Frog spawner
+mobys	1067	Grey block
+mobys	1068	Blarg space commando
+mobys	1069	Dark grated door
+mobys	1071	Qwark statue
+mobys	1075	Pokitaru boat
+mobys	1076	Blue engine machine
+mobys	1078	Floor hatch plate
+mobys	1079	Floor hatch plate
+mobys	1080	Dark grated door
+mobys	1083	Alien snapper cage
+mobys	1084	Alien snapper cage (damaged)
+mobys	1085	Teal water shard
+mobys	1086	Teal water shard
+mobys	1087	Teal water shard
+mobys	1088	Teal water shard
+mobys	1089	Teal water shard
+mobys	1090	White snowball
+mobys	1091	Warship (top)
+mobys	1092	Warship (wing)
+mobys	1093	Warship (gunner)
+mobys	1094	Warship (gunner)
+mobys	1095	Warship (base)
+mobys	1096	Warship (thing)
+mobys	1097	Warship (front)
+mobys	1098	Warship (wing)
+mobys	1099	Qwarks trailer
+mobys	1100	Block cave
+mobys	1101	Upper door
+mobys	1102	Lower door
+mobys	1103	Destroyable ship (left wing)
+mobys	1104	Dark grated door
+mobys	1105	Fred
+mobys	1106	Snagglebeast
+mobys	1109	Shuttle
+mobys	1110	Homing mine
+mobys	1112	Mine
+mobys	1113	Grey rock slab
+mobys	1114	Grey rock slab
+mobys	1115	Grey rock slab
+mobys	1116	Grey rock slab
+mobys	1117	Platform
+mobys	1118	Red button
+mobys	1120	Suck cannon
+mobys	1122	Grey stone statue
+mobys	1123	Electric gate poles
+mobys	1125	Glass
+mobys	1126	Machinegun turret
+mobys	1128	Blue glass window panel
+mobys	1129	Triple vent grille
+mobys	1130	Commando
+mobys	1131	Dark ribbed shutter
+mobys	1133	Round vault hatch
+mobys	1134	Gold bolt
+mobys	1135	Teleporter
+mobys	1137	Untextured flat pane
+mobys	1138	Frame
+mobys	1139	Hoverboard ring
+mobys	1140	Hoverboard boost pad
+mobys	1141	Elevator
+mobys	1143	Vendor orb
+mobys	1144	Batalia deserter
+mobys	1145	Button cover
+mobys	1146	Helipack
+mobys	1147	Gold ring hatch
+mobys	1148	Taunter
+mobys	1150	Elevator
+mobys	1151	Elevator
+mobys	1152	Curved metal pipe
+mobys	1153	Short metal bar
+mobys	1154	Metal lever arm
+mobys	1155	Riveted blue plate
+mobys	1156	Untextured flat pane
+mobys	1157	Round riveted plate
+mobys	1158	Untextured flat pane
+mobys	1159	Folding blue door
+mobys	1161	Robot dog
+mobys	1162	Gears
+mobys	1163	Robot hand
+mobys	1164	Robot torso
+mobys	1165	Wheel
+mobys	1166	Robot foot
+mobys	1172	Refueling station
+mobys	1173	Cannonball tank
+mobys	1175	Grey hollow rock
+mobys	1176	Copper clamp block
+mobys	1178	Seesaw platform
+mobys	1179	Thruster pack lock
+mobys	1180	Curved blue sheet
+mobys	1181	Airship part
+mobys	1182	Airship part
+mobys	1183	Airship part
+mobys	1184	Airship part
+mobys	1185	Airship part
+mobys	1186	Airship part
+mobys	1187	Airship part
+mobys	1188	Airship part
+mobys	1189	Airship part
+mobys	1190	Lieutenant
+mobys	1192	Explosion
+mobys	1193	Blue and white ball
+mobys	1195	Robot face
+mobys	1196	Screamer
+mobys	1199	Darter
+mobys	1200	Fighter jet (damaged)
+mobys	1201	Turret
+mobys	1202	Toxic crab
+mobys	1204	Grey ball
+mobys	1205	Robot statue
+mobys	1206	Untextured flat pane
+mobys	1207	Curved riveted shutter
+mobys	1208	Constructorbot
+mobys	1209	Underwater ring
+mobys	1210	Metropolis train carriage
+mobys	1212	Background ship 1
+mobys	1213	Background ship 2
+mobys	1217	White robot pod
+mobys	1218	Ammocrate
+mobys	1219	Striped sail
+mobys	1220	Jet fighter health crate
+mobys	1221	Black spike post
+mobys	1222	Propeller
+mobys	1229	Blarg ship
+mobys	1231	Psytcopus
+mobys	1233	Rocket
+mobys	1238	Fire streak
+mobys	1239	Antenna
+mobys	1242	Jet fighter
+mobys	1245	Microphone
+mobys	1246	Puffoid
+mobys	1247	Metal plank
+mobys	1248	Brass rod
+mobys	1249	Drek
+mobys	1250	Conveyor belt
+mobys	1251	Hydrodisplacer
+mobys	1257	Poison vessel
+mobys	1258	Cyan crystal shard
+mobys	1259	Grey bulb with gold rings
+mobys	1261	Poison vessel
+mobys	1262	Blarg space commando
+mobys	1263	Blank sprite quad
+mobys	1264	Oil tanker front
+mobys	1265	Oil tanker part
+mobys	1267	Hoven turret
+mobys	1269	Mine
+mobys	1270	Elevator
+mobys	1272	PlanetBuster maximus (part)
+mobys	1273	PlanetBuster maximus (part)
+mobys	1274	Planetbuster maximus part
+mobys	1275	PlanetBuster maximus (part)
+mobys	1276	PlanetBuster maximus (part)
+mobys	1277	PlanetBuster maximus (part)
+mobys	1278	Planetbuster maximus part
+mobys	1279	PlanetBuster maximus (part)
+mobys	1280	PlanetBuster maximus (part)
+mobys	1281	Homing mine spawner
+mobys	1282	Flame door
+mobys	1283	The plumber Batalia
+mobys	1285	Barrier
+mobys	1286	Barrier
+mobys	1287	Barrier
+mobys	1288	Barrier
+mobys	1289	O2 mask
+mobys	1290	Pilots helmet
+mobys	1292	Red rocket
+mobys	1293	Curved metal hull piece
+mobys	1297	Energy sphere
+mobys	1298	Display damaged
+mobys	1299	Display damaged
+mobys	1300	Display damaged
+mobys	1301	Bot elevator
+mobys	1302	Bot door lock
+mobys	1305	Red ring socket
+mobys	1318	Grey wrench shape
+mobys	1319	Blarg ship
+mobys	1320	Rusty machine block
+mobys	1322	Ice cube
+mobys	1326	Nanotech upgrade vendor
+mobys	1345	Untextured flat pane
+mobys	1346	Gun
+mobys	1354	Morphoray
+mobys	1355	Drek fight missile
+mobys	1356	Armed transport
+mobys	1359	Door
+mobys	1360	Door
+mobys	1361	Door
+mobys	1362	Door
+mobys	1363	Door
+mobys	1364	Door
+mobys	1365	Clank
+mobys	1367	Door
+mobys	1369	Door
+mobys	1371	Blarg commander
+mobys	1372	Door
+mobys	1373	Door
+mobys	1374	Green energy dome
+mobys	1376	Green dotted energy ring
+mobys	1377	Help desk lady
+mobys	1378	Untextured flat pane
+mobys	1379	Fighter jet
+mobys	1380	Magnet elevator
+mobys	1382	Robot dog
+mobys	1383	Gun
+mobys	1384	Green energy ring
+mobys	1386	Hydrodisplacer
+mobys	1387	Untextured flat pane
+mobys	1388	Bolt grabber
+mobys	1391	Black spiked control box
+mobys	1392	Thin wire frame
+mobys	1393	Blank sprite quad
+mobys	1395	Small wall clamps
+mobys	1396	Metal bars pair
+mobys	1397	Tall metal pillar
+mobys	1401	Bolt thief
+mobys	1402	Blank sprite quad
+mobys	1405	Light blue disc
+mobys	1406	Red dotted half dome
+mobys	1407	Light blue ice pane
+mobys	1408	Untextured flat pane
+mobys	1409	Teal pyramid shard
+mobys	1410	Taxi
+mobys	1412	Asteroid
+mobys	1415	Dark gadget with red tip
+mobys	1416	Button
+mobys	1417	Blarg heavy interceptor
+mobys	1421	Gate 1
+mobys	1422	Drek final boss robot
+mobys	1423	Hanging turret mount
+mobys	1424	Gate 2
+mobys	1426	Light blue ice pane
+mobys	1427	Glowing yellow ring
+mobys	1428	Codebot
+mobys	1430	Codebot slot
+mobys	1431	Green glow strip
+mobys	1432	Untextured flat pane
+mobys	1433	Nanotech can
+mobys	1434	Deplanetizer gun
+mobys	1435	Tall control panel
+mobys	1438	Ryno ammo
+mobys	1439	Grindrail gate
+mobys	1440	Veldin robot enemy
+mobys	1441	Grindrail gate
+mobys	1442	Grindrail button
+mobys	1443	Grindrail barrier
+mobys	1445	Chomper
+mobys	1446	Ultramech scientist
+mobys	1447	Drone device ammo
+mobys	1448	Shuttle
+mobys	1449	Decoy ammo
+mobys	1451	Giant Clank pad
+mobys	1452	Purple glass tube rack
+mobys	1454	Rocket tank
+mobys	1455	Gadgetron ceo
+mobys	1456	Gold bomb glove
+mobys	1457	Gold pyrocitor
+mobys	1458	Gold blaster
+mobys	1459	Gold glove of doom
+mobys	1460	Gold mine glove
+mobys	1461	Gold devastator
+mobys	1462	Gold decoy glove
+mobys	1463	Gold tesla claw
+mobys	1464	Gold suck cannon
+mobys	1465	Gold morphoray
+mobys	1467	Yellow striped arch
+mobys	1468	Morph-o-Ray
+mobys	1474	Taxi platform
+mobys	1475	Rocket
+mobys	1478	Camera
+mobys	1505	Grey mech arm
+mobys	1506	Grey blaster
+mobys	1509	Hologuise
+mobys	1510	Dark ship nose
+mobys	1511	Lamp
+mobys	1514	Lamp destroyed
+mobys	1515	Clank's ship
+mobys	1516	Sand pyramid
+mobys	1517	Grey stone ball
+mobys	1518	Grey claw branch
+mobys	1520	Clank's ship (crashed)
+mobys	1522	Dark capsule with red light
+mobys	1524	Green mossy ball
+mobys	1525	Blue hull capsule
+mobys	1526	Copper engine housing
+mobys	1528	Copper engine housing
+mobys	1529	Yellow ship fin piece
+mobys	1531	Lower door
+mobys	1532	Upper door
+mobys	1533	Grey armour plates
+mobys	1534	Robot arm with red claw
+mobys	1537	Dark creature head
+mobys	1538	Metal arm with round pad
+mobys	1539	Green missile pod
+mobys	1540	Mesh cage tube
+mobys	1564	Pterodactyl
+mobys	1567	Red dotted strip
+mobys	1568	Deplanetizer gun
+mobys	1569	Robot claw with gold ring
+mobys	1570	Black armour pod
+mobys	1571	Glowing fire chunk
+mobys	1572	Dark wedge piece
+mobys	1577	Glow sprite quad
+mobys	1584	Brown rock chunk
+mobys	1588	Square ceiling light
+mobys	1589	Purple and green armour shell
+mobys	1590	Dark block with yellow stripes
+mobys	1591	Thin robot leg
+mobys	1592	Twin barrel turret part
+mobys	1593	Yellow robot claw
+mobys	1594	Long metal barrel
+mobys	1595	Grey shell with cables
+mobys	1599	Orange gadget arm
+mobys	1601	Wheel with orange hub
+mobys	1602	Orange blaster nozzle
+mobys	1603	Orange tube gadget
+mobys	1604	Half wheel with orange hub
+mobys	1605	Gold pod with coiled tail
+mobys	1606	White wing pod
+mobys	1607	Red drill head
+mobys	1608	Red blade arm
+mobys	1609	Grey wheel
+mobys	1610	Red spiked shell
+mobys	1611	Green spiked mine
+mobys	1612	Gold bomb pod with red eye
+mobys	1613	Three blade rotor
+mobys	1614	Orange flashlight gadget
+mobys	1615	Broken purple log
+mobys	1616	Purple log
+mobys	1617	Green robot claw arm
+mobys	1618	Green robot arm with cable
+mobys	1619	Green robot arm with tool
+mobys	1620	Green and black wheel claw
+mobys	1621	Robot arm with red tip
+mobys	1622	Hazard striped bomb shell
+mobys	1623	Hazard striped bomb with red caps
+mobys	1624	Green robot claw arm
+mobys	1630	Thruster pack (backpack)
+mobys	1632	Glow sprite quad
+mobys	1633	Fire streak
+mobys	1634	Grey shard pane
+mobys	1635	Fake boltcrate
+mobys	1638	Dark smoke trail
+mobys	1650	Mushroom
+mobys	1651	Black tentacle
+mobys	1652	Brown rock lump
+mobys	1653	Brown rock lump
+mobys	1654	Brown rock with root
+mobys	1655	Computer with dan johnson
+mobys	1656	Computer (damaged)
+mobys	1657	Computer part (damaged)
+mobys	1658	Computer part (damaged)
+mobys	1659	Computer part (damaged)
+mobys	1660	Orange light
+mobys	1661	Orange light (damaged)
+mobys	1662	Orange light (damaged)
+mobys	1663	Robot head
+mobys	1664	Green light
+mobys	1665	Green light
+mobys	1666	Teal curved trough
+mobys	1667	Red ship hull piece
+mobys	1668	White ship hull piece
+mobys	1669	Red ship wing piece
+mobys	1670	Yellow fighter ship
+mobys	1671	Green and red ship
+mobys	1672	Power unit
+mobys	1673	Power unit (damaged)
+mobys	1674	Power unit (damaged)
+mobys	1675	Power unit (damaged)
+mobys	1676	Power unit (damaged)
+mobys	1677	Red bowl with stalk
+mobys	1678	Clay pot
+mobys	1679	Brown seed on stalk
+mobys	1680	Black twin blades
+mobys	1686	Seashell
+mobys	1688	White shell shard
+mobys	1689	Pearl shell shard
+mobys	1690	Pearl shell piece
+mobys	1692	Silver pod hull
+mobys	1693	Yellow robot arm
+mobys	1694	Yellow drill nose
+mobys	1695	Creature leg piece
+mobys	1696	Bone horn
+mobys	1697	Toothed creature jaw
+mobys	1698	Orange creature body piece
+mobys	1699	Dark creature tail tip
+mobys	1700	Orange creature body
+mobys	1701	White creature foot
+mobys	1702	Green and yellow leaf ring
+mobys	1703	Grey cannon barrel
+mobys	1704	Yellow and grey blaster
+mobys	1705	White and black hull block
+mobys	1706	Tan hull with windows
+mobys	1707	White hull plate
+mobys	1708	Red helmet hull
+mobys	1709	Red cockpit frame
+mobys	1710	Red hull plate
+mobys	1711	Yellow and purple ship piece
+mobys	1712	Yellow cockpit pod
+mobys	1713	Yellow hull wedge
+mobys	1714	Green wing plate
+mobys	1715	Red ship tail with fan
+mobys	1716	Red cockpit hull
+mobys	1717	Red and green ship piece
+mobys	1718	Green ship cockpit
+mobys	1719	Green fin plate
+mobys	1720	Tan missile
+mobys	1721	Tan ship piece with fins
+mobys	1722	Purple grey wing
+mobys	1724	Purple box pod
+mobys	1726	Purple shell with yellow stripes
+mobys	1727	Purple pod with yellow stripes
+mobys	1728	Olive missile tube
+mobys	1729	Olive metal sheet
+mobys	1730	Tiny winged bug
+mobys	1731	Olive drum with cable
+mobys	1732	Glowing yellow lamp cap
+mobys	1733	Spawner leg (damaged)
+mobys	1734	Spawner leg (damaged)
+mobys	1735	Spawner top (damaged)
+mobys	1736	Yellow robot head with green eye
+mobys	1737	Yellow robot body
+mobys	1738	Yellow robot arm
+mobys	1739	Grey robot head
+mobys	1740	Blue robot leg
+mobys	1741	Blue robot head with green eye
+mobys	1742	Robot dog jaw (damaged)
+mobys	1743	Robot dog head (damaged)
+mobys	1744	Blarg commander weapon (damaged)
+mobys	1745	Olive canister
+mobys	1746	Blarg commander shoe (damaged)
+mobys	1747	Yellow goggles with green lenses
+mobys	1748	White and yellow pot
+mobys	1749	Yellow lightning bolt
+mobys	1751	Orange drill bit
+mobys	1752	Black dial gauge
+mobys	1753	Yellow robot helmet
+mobys	1754	Yellow pod with green eye
+mobys	1755	Orange and tan rocket post
+mobys	1756	Olive spiked gadget
+mobys	1757	Olive missile tube
+mobys	1759	Olive metal sheet
+mobys	1760	Tiny winged bug
+mobys	1761	Grey pod lander
+mobys	1762	Black and red cannon
+mobys	1763	Black beetle shell
+mobys	1764	Orange spotted plant
+mobys	1765	Red toothed plant pod
+mobys	1766	Shuttle
+mobys	1769	Grey hut piece
+mobys	1770	Bone spike tube
+mobys	1771	Blue ring
+mobys	1776	Silver curved plate
+mobys	1781	Red plant
+mobys	1782	Green plant
+mobys	1786	Hoverboard
+mobys	1787	Silver chain links
+mobys	1790	Yellow round platform
+mobys	1791	Black metal panel
+mobys	1792	Purple missile tube
+mobys	1793	Purple metal sheet
+mobys	1794	Glowing gold lamp cap
+mobys	1796	Tiny dark winged bug
+mobys	1801	Black drone with cables
+mobys	1802	Striped cannon barrel
+mobys	1803	Grey metal canister
+mobys	1804	Orange flat shard
+mobys	1805	Blarg ship
+mobys	1806	Grey stone pillar piece
+mobys	1807	Grey stone block
+mobys	1808	White robot head shell
+mobys	1813	Tall shroom
+mobys	1814	Pale bone piece
+mobys	1815	Pink bone piece
+mobys	1816	Green coral branch
+mobys	1817	Green coral shell
+mobys	1818	Sandmouse
+mobys	1819	White flower
+mobys	1820	White flower
+mobys	1821	Green moss lump
+mobys	1825	Metal mesh sheet
+mobys	1826	Elevator
+mobys	1827	Lightpost
+mobys	1828	Lightpost bottom (damaged)
+mobys	1829	Lightpost top (damaged)
+mobys	1830	Lightpost sphere (damaged)
+mobys	1831	Brown wing blade
+mobys	1832	Brown rock husk
+mobys	1833	Brown spear head
+mobys	1834	Pipe
+mobys	1835	Broken pipe
+mobys	1836	Pale stone cylinder
+mobys	1838	Blue box with antennas
+mobys	1840	Fireplug
+mobys	1843	Blarg ship
+mobys	1844	Curved silver pipe
+mobys	1845	Curved silver pipe
+mobys	1846	Silver ring
+mobys	1847	Silver pipe joint
+mobys	1849	Lamp
+mobys	1850	Lamp damaged
+mobys	1851	Cyan ice shard
+mobys	1855	Green slime tube
+mobys	1856	Dark piston mount
+mobys	1857	Dark piston mount
+mobys	1858	Green slime sheet
+mobys	1859	Lamp
+mobys	1860	Lamp damaged
+mobys	1861	Pale ice shard
+mobys	1862	Lamp
+mobys	1863	Lamp damaged
+mobys	1864	Sand cloth sheet
+mobys	1867	Yellow robot pod
+mobys	1868	Silver claw on gold joint
+mobys	1869	Coiled spring with cable
+mobys	1870	Teal folded plate
+mobys	1871	Gadgetron sign
+mobys	1872	Black curved shell
+mobys	1873	Grey hover pad
+mobys	1874	Grey hover pad
+mobys	1875	Cyan folded plate
+mobys	1876	Grey hover sled
+mobys	1877	Grey hover sled with gold ring
+mobys	1878	Grey stone shard
+mobys	1885	Spawner
+mobys	1886	Spawner egg
+mobys	1887	Dark rock slab
+mobys	1890	Silver ring with cyan glow
+mobys	1891	Gadgetron sign
+mobys	1892	Red fur arch
+mobys	1899	Giant Clank pad
+mobys	1900	Gold decoy
+mobys	1906	Gadgebot
+mobys	1909	Red spiked creature claw
+mobys	1914	Red spiked creature claw
+mobys	1915	Dark creature head with fangs
+mobys	1916	Dark red creature wing
+mobys	1917	Grey rock with stand
+mobys	1921	Grey stone rubble
+mobys	1922	Red kite with valve
+mobys	1924	Black bent pipe
+mobys	1925	Black clamp with blue light
+mobys	1926	Blue lamp on legs
+mobys	1927	Green curved blade
+mobys	1933	Robot arm
+mobys	1934	Robot arm
+mobys	1935	Black pod with red face
+mobys	1936	Blue hull capsule
+mobys	1939	Wheel with blue hub
+mobys	1940	White bench with two lamps
+mobys	1941	Red panel
+mobys	1942	Red bent panel
+mobys	1944	Black robot face with green eyes
+mobys	1945	Red robot leg
+mobys	1946	Red robot torso with pipe
+mobys	1957	Helpdesk lady (credits)
+mobys	1958	Underwater door
+mobys	1961	Tan cloth panel
+mobys	1962	Tan crate side
+mobys	1963	Teal triangle shard
+mobys	1964	Veldin barrier
+mobys	1973	Ship
+ties	9	White pipe with rings
+ties	10	Grey metal wall panel
+ties	11	Grey metal cage block
+ties	13	Spiral turbine fan
+ties	14	White pipe
+ties	16	White machine block
+ties	22	Purple rock pillar
+ties	24	Purple rock wall
+ties	28	Orange gear flower
+ties	29	Purple spiky creature plant
+ties	35	Grey curved hull
+ties	38	Thin blue pylon frame
+ties	44	Green striped rock
+ties	45	Ice blue rock
+ties	46	Ice blue rock
+ties	49	Black tar puddle
+ties	60	Grey girder cube
+ties	61	Dark mesh grate tube
+ties	63	Curved grey beam
+ties	66	Pipe with gold rings
+ties	67	Glass ring
+ties	70	Round grate pipe end
+ties	72	Dark metal block with gold trim
+ties	74	Dark metal machine wall
+ties	75	Round landing pad
+ties	76	Bent hose with hazard stripes
+ties	81	Orange dome with window
+ties	83	White pipe with teal joint
+ties	84	White pipe with teal joint
+ties	85	White pipe with teal fins
+ties	86	White pipe end
+ties	88	White machine with teal pipes
+ties	107	White pipe frame
+ties	116	White pipe elbow with gold tube
+ties	117	White and teal wall section
+ties	118	Curved pipe with blue bands
+ties	119	Red ribbed pipe
+ties	120	Brown rock boulder
+ties	121	Purple rock chunk
+ties	123	Dark thorny vine
+ties	124	Purple rock wall
+ties	128	Purple rock wall
+ties	129	Purple rock ledge
+ties	132	Grey metal steps
+ties	133	Dark grated machine
+ties	134	Dark rock spire
+ties	135	Dark rock spire
+ties	136	Dark rock spire
+ties	137	Grey pipe with cyan lights
+ties	138	Dark metal wall grid
+ties	139	Dark metal machine block
+ties	140	Grey turbine drum
+ties	141	Thin white wires
+ties	142	Blue spiral turbine fan
+ties	144	Snowy dark rock pillar
+ties	145	Snowy dark rock slab
+ties	146	Snowy dark boulder
+ties	147	Snowy dark rock spire
+ties	149	Light blue pipe
+ties	150	Curved grey hull wall
+ties	151	Green fern bush
+ties	152	Tall grey building with blue stripe
+ties	153	Blue ice rock
+ties	154	Blue ice rock
+ties	155	Blue ice rock pillar
+ties	156	Blue ice rock
+ties	157	Flat blue ice rock
+ties	159	Purple framed wall sign
+ties	162	Snowy rock pillar
+ties	163	Snowy rock ledge
+ties	164	Snowy dark rock
+ties	166	Dark pipe with cyan lights
+ties	167	Spiked ring with teal glow
+ties	168	Pipe with cyan joint
+ties	170	White wall with tank
+ties	171	Pipe with gold coils
+ties	172	Layered orange and blue rock
+ties	173	Grey metal ring frame
+ties	174	Thin white pipe
+ties	175	Grey pipe with valves
+ties	176	Blue wall with control panel
+ties	177	Teal metal wall strip
+ties	179	Teal floor with pit
+ties	180	Blue floor plate
+ties	181	Blue machine block
+ties	182	Blue machine block
+ties	183	Grey metal tub
+ties	186	Teal star plant
+ties	187	Teal star plant
+ties	188	Ice block with round edge
+ties	189	Round ice block
+ties	190	Teal pole
+ties	192	Thin teal pole
+ties	194	Grey pipe section
+ties	196	White fence wall
+ties	199	Teal bent pipe
+ties	200	Thin teal pole
+ties	201	Teal beam
+ties	203	Purple crystal spikes
+ties	204	Purple crystal spikes
+ties	206	Light strip with cyan lamps
+ties	208	Ribbed metal pipe end
+ties	209	Grey wall with blue vents
+ties	211	Snowy dark rock spire
+ties	212	Snowy rock pillar
+ties	213	Snowy dark rock spire
+ties	214	Snowy rock slab
+ties	215	White machine with pipe
+ties	216	Blue and orange tower block
+ties	218	Orange ring with glass dome
+ties	219	Dark boulder
+ties	220	Snowy dark rock
+ties	221	White pipe rings
+ties	222	Grey machine housing
+ties	224	Blue and orange tower block
+ties	225	Teal stone disc
+ties	226	Blue rock
+ties	227	Blue rock spire
+ties	228	Grey and orange wall bracket
+ties	229	Metal grid with lights
+ties	237	Pink starfish rock
+ties	238	Mossy white log
+ties	239	Pale curved plank
+ties	240	Mossy curved plank
+ties	241	Mossy broken planks
+ties	243	Orange and black control box
+ties	244	Orange spotlight
+ties	245	Black box with pipes
+ties	246	Cream capsule tank
+ties	247	Grey pipe with coil
+ties	248	Dark coiled pipe
+ties	256	Mossy log end with spikes
+ties	257	Pink spiked log
+ties	258	Pink log
+ties	259	Mossy log end
+ties	260	Brown carved stone ball
+ties	261	Mossy stone disc
+ties	264	Teal round window
+ties	265	Yellow pipe ends with cable
+ties	267	Dark pipe with teal light
+ties	268	Yellow and black wedge block
+ties	269	Pipe with grey cap
+ties	270	Orange and black dome lamp
+ties	271	White and orange lamp
+ties	272	Cream pipe with orange rings
+ties	273	Cream stair steps
+ties	274	Cream tank with spikes
+ties	275	Round blue and orange hatch
+ties	276	Orange wall plate with valve
+ties	277	Tall orange and black pylon
+ties	278	Orange pipe clamp
+ties	279	Dark pipes with orange clamp
+ties	280	Thin dark pole with orange bands
+ties	281	Orange sphere with cyan lights
+ties	282	Orange spotlight on bracket
+ties	283	Dark lit wall light
+ties	284	Cream pipe with orange end
+ties	285	Orange sphere machine
+ties	287	Orange lever with teal knob
+ties	288	Cream pillar
+ties	289	Blue and grey drum
+ties	290	Curved beam with orange clamp
+ties	291	Grey drum with green lights
+ties	292	Curved beam with orange top
+ties	293	Orange and black round hatch
+ties	294	Blue and grey machine frame
+ties	295	White pipe end
+ties	296	Grey curved trough
+ties	297	Purple floor trough
+ties	298	Silver bent pipe
+ties	299	Thin dark rail
+ties	300	Silver pipe with rings
+ties	301	Grey grated engine pod
+ties	302	Purple roof section
+ties	303	Tall purple doorway
+ties	304	Dark grated machine
+ties	305	Dark vent strip
+ties	306	Dark purple wall with vent
+ties	307	Grey wedge with vents
+ties	308	Purple and grey drum
+ties	309	Green coil engine
+ties	310	Cream tank drum
+ties	311	Cream tank drum
+ties	312	Cream tank drum
+ties	313	Yellow curved wall
+ties	314	Yellow curved wall with gap
+ties	316	Yellow and grey wall block
+ties	317	Yellow and grey wall block
+ties	318	Dark metal rail
+ties	319	Dark metal rail
+ties	320	Curved hull with gold trim
+ties	321	Dark grated machine with purple top
+ties	322	White stacked beams
+ties	323	White wall pieces
+ties	324	Yellow wall with rock slope
+ties	325	Yellow and grey wall block
+ties	326	Yellow wall with rock slope
+ties	327	Yellow and grey wall block
+ties	328	Cream pipe end
+ties	329	Flat gold trimmed ledge
+ties	330	Grey quarter disc
+ties	331	Grey quarter disc
+ties	332	Yellow and grey wall block
+ties	333	Grey wall with yellow door
+ties	335	Grey crater bowl
+ties	336	Grey metal ring
+ties	337	Thin purple pole
+ties	338	Pipe with purple lights
+ties	339	Grey wall slab
+ties	340	Grey wall slab
+ties	341	Dark rock slab
+ties	343	Dark rock ledge
+ties	344	Dark rock ledge
+ties	345	Dark rock ledge
+ties	346	Mossy rock ledge
+ties	347	Orange bolted post
+ties	348	Round orange target plate
+ties	349	Orange pipe end
+ties	350	Machine with orange glow
+ties	353	Yellow leaf pod
+ties	354	Green moss clump
+ties	356	Yellow block stack
+ties	357	Yellow tank
+ties	358	Mossy rock ledge
+ties	359	Mossy rock ledge
+ties	360	Mossy rock ledge
+ties	361	Mossy rock ledge
+ties	362	Mossy rock slope
+ties	363	Mossy rock corner
+ties	364	Mossy rock ledge
+ties	365	Mossy rock lip
+ties	366	Mossy rock slope
+ties	367	Mossy rock mound
+ties	368	Curved mossy ridge
+ties	369	Curved mossy ridge
+ties	372	Grey striped stone
+ties	374	Purple fern with skull pod
+ties	375	Grey wall with yellow door
+ties	376	Curved blue window wall
+ties	377	White and purple building block
+ties	378	White and purple building block
+ties	379	Green moss sheet
+ties	380	Bent pipe with grey cap
+ties	384	Orange and blue round hatch
+ties	385	Mossy white planks
+ties	386	Mossy white planks
+ties	387	Blue box with orange straps
+ties	389	Lit cylinder lamp
+ties	390	Dark rock ledge
+ties	391	Grey wall with vents
+ties	392	Grey wall with vent
+ties	393	White and purple building block
+ties	395	Green leaf spray
+ties	396	Purple fern with flowers
+ties	397	Red fern with purple bud
+ties	401	Thin pale ring
+ties	402	Green palm leaves
+ties	404	Silver rail
+ties	407	Brown nut shell
+ties	409	Cream striped ball
+ties	410	Grey round porthole
+ties	411	Brown curved beam
+ties	412	Grey ring
+ties	413	Grey thick ring
+ties	414	Purple ring on post
+ties	415	Mossy white rock slab
+ties	416	Mossy white rock slab
+ties	417	Purple lily
+ties	418	Gold and dark rock block
+ties	419	Gold rock pillar
+ties	421	Grey pipe opening
+ties	422	Pink log pile
+ties	423	Cut log end
+ties	424	Mossy white boulder
+ties	425	Green moss boulder
+ties	426	Brown wooden ramp
+ties	427	Brown wooden doorway
+ties	429	Torch handle with hook
+ties	431	Cracked glass dome
+ties	435	Orange and grey machine block
+ties	436	Mossy white boulder
+ties	437	White wall corner
+ties	438	Mountain wall
+ties	439	Bridge tower
+ties	441	Gold and grey pillar with lights
+ties	448	Tree top
+ties	449	Tree root
+ties	450	Tree trunk (bent)
+ties	451	Tree trunk (straight)
+ties	452	Tree branch (45° bend)
+ties	453	Tree branch (90° bend)
+ties	454	Lime moss boulder
+ties	455	Purple crystal ridge
+ties	458	River wall
+ties	460	Lime moss boulder
+ties	462	Green striped boulder
+ties	464	Crater wall
+ties	465	Brown rock pile
+ties	466	Brown rock pile
+ties	467	Crossed glass beams
+ties	468	Glass beam frame
+ties	469	Glass beam
+ties	470	Riveted octagon base
+ties	471	Riveted octagon ring
+ties	473	Glass block with vents
+ties	474	Glass block
+ties	475	Grey machine block
+ties	476	Grey machine block
+ties	477	Blue and grey block cluster
+ties	478	Brown rock pile
+ties	479	Grey machine block
+ties	480	White riveted machine
+ties	481	Grey wall with pink top
+ties	482	Dark machine with purple top
+ties	483	Brown rock pile
+ties	484	Brown rock ridge
+ties	485	Curved brown rock ridge
+ties	488	Brown boulder
+ties	489	Blue machine with copper bowl
+ties	490	Copper and glass wall corner
+ties	491	Copper and glass wall
+ties	492	Copper riveted wedge
+ties	493	Glass tube
+ties	494	Silver engine with copper rings
+ties	495	Glass roof with copper ends
+ties	496	Blue metal wall panel
+ties	497	Copper framed glass panel
+ties	498	Blue and grey pipe junction
+ties	499	Mountain
+ties	500	Stone
+ties	501	Brown rock pile
+ties	502	Purple pipe arch
+ties	503	White rock group
+ties	504	Blue pipe with gold ring
+ties	505	Blue tiled tray
+ties	506	Blue tiled tray
+ties	508	Silver bent pipe with gold rings
+ties	509	Blue tiled floor
+ties	513	Blue tiled ledge with vents
+ties	514	Grey floor with slots
+ties	515	White rock 1
+ties	516	White rock 2
+ties	518	Thin rod with spike
+ties	519	White rock 3
+ties	525	Bolt crank door
+ties	526	White rock group 2
+ties	527	Square building
+ties	528	Rock wall
+ties	529	Rock
+ties	530	Stone pillar
+ties	531	Stalactite
+ties	532	Grey floor tiles
+ties	533	Red brick floor strip
+ties	534	Red brick corner wall
+ties	535	Red brick corner wall
+ties	536	Flat rocks
+ties	537	Square building dome
+ties	538	Square building spire
+ties	539	Rusty building
+ties	540	Rusty building top
+ties	541	Antenna 1
+ties	542	Antennas
+ties	543	Novalis town hall
+ties	544	Blue dome
+ties	545	Antennas 2
+ties	546	Antennas 3
+ties	547	Rusty building bottom
+ties	548	Pipe
+ties	549	Frame
+ties	552	Grey floor slab
+ties	553	Curved blue rail
+ties	554	White panels with wire
+ties	555	Electrical device
+ties	557	Purple and grey dome
+ties	558	Purple and grey ring
+ties	559	Purple curved pipe section
+ties	561	Tower
+ties	562	Parabolic antenna
+ties	563	Cream pillar with copper bands
+ties	565	White rock wall (mossy 2)
+ties	566	Silver bent pipe with gold rings
+ties	567	Copper striped dome
+ties	568	Cream drum with copper rims
+ties	569	Silver curved pipe with gold rings
+ties	572	Silver metal blocks
+ties	573	Silver and copper beam frame
+ties	574	Metal floor frame with copper edge
+ties	576	Glass mesh roof
+ties	577	Grey metal wall with window
+ties	578	Grey metal wall corner
+ties	579	Pipe with gold rings
+ties	580	Bridge house 1
+ties	581	Bridge cables
+ties	582	Bridge house 2
+ties	584	Red topped floor slab
+ties	585	Square building base
+ties	586	Green palm with purple flower
+ties	587	Window
+ties	588	Piston base
+ties	590	Blue grey floor
+ties	592	Grey floor with cyan strip
+ties	594	Glass box corner
+ties	596	Curved roof with cyan dome
+ties	597	Curved roof with cyan dome
+ties	598	Metal frame with cyan lights
+ties	600	Grey drum ring
+ties	601	Purple round hatch
+ties	602	Dark drum with cyan lights
+ties	603	Dark drum with blue glass
+ties	604	Blue wall panel with grate
+ties	607	Metal lattice beam
+ties	608	Blue metal beam
+ties	609	Broken dome
+ties	610	Stump
+ties	612	Blue tree trunk
+ties	613	Blue tree root
+ties	614	Blue tree branch (45° bend)
+ties	615	Blue tree branch (90° bend)
+ties	616	Blue tree trunk (bent)
+ties	617	Pink coral branch
+ties	624	Dark drum with glass dome
+ties	626	Metal framed grate
+ties	627	Grey curved wall strip
+ties	628	Curved blue roof with light
+ties	629	White curved wall corner
+ties	631	Brick wall
+ties	632	Brick wall (broken)
+ties	633	Tree
+ties	634	Mountain
+ties	635	Blue ribbed curved wall
+ties	636	Brown rock ridge
+ties	637	Brown rock pile
+ties	638	Branch (cut)
+ties	639	Brown rock ridge
+ties	641	Grate (machine)
+ties	642	Brown rock spire
+ties	643	Brown rock block
+ties	644	Curved brown rock ridge
+ties	645	Brown boulders
+ties	647	Pad
+ties	648	Pink coral strand
+ties	649	Pipe
+ties	650	Pipe (bent)
+ties	651	Gauge
+ties	652	Machine (yellow)
+ties	653	Machine (gray)
+ties	654	Metal frame
+ties	655	Bolt crank base
+ties	656	Wooden beam with bolts
+ties	657	Metal support
+ties	658	Pink twisted horn
+ties	659	Blue glass dome
+ties	660	Copper crate
+ties	661	Blue checked block
+ties	662	Blue curved bracket
+ties	663	Copper chain coupling
+ties	664	Copper bent pipe
+ties	665	Copper pipe into box
+ties	666	Thin blue rod
+ties	668	Dark curved hull with lights
+ties	669	Blue domed machine row
+ties	670	Grey pipe with orange lights
+ties	671	Silver ribbed pipe arc
+ties	672	Blue beam with rivets
+ties	682	Gold dome on stone base
+ties	690	Dark pipe
+ties	696	Pink coral branch
+ties	710	Green striped seed pod
+ties	711	Green striped pod
+ties	712	Green striped egg
+ties	713	Green striped seed pod
+ties	716	Purple door frame
+ties	717	Purple round hatch
+ties	718	Purple pipe
+ties	719	Purple pipe clamp
+ties	720	Purple drum
+ties	721	Purple drum end
+ties	722	Purple curved hull trough
+ties	724	Purple metal bracket
+ties	726	Thin purple pipe
+ties	727	Dark pipe with teal glass
+ties	728	Purple framed screen
+ties	729	White coiled tube
+ties	734	Thin grey pipe
+ties	735	Wood and glass building block
+ties	737	Gold block with copper trim
+ties	738	Gold spiked gadget
+ties	740	Brown rock spikes
+ties	742	Purple metal frame
+ties	743	Purple framed screen
+ties	751	Gold arch
+ties	755	Purple curved hull trough
+ties	756	Purple metal bracket
+ties	757	Copper and grey floor ramp
+ties	762	Brown stone ball
+ties	764	Copper ring with grey band
+ties	765	Thin pipe with red lights
+ties	767	Blue round window
+ties	770	Green leaf spray
+ties	771	Green grass blades
+ties	776	Scattered pink flowers
+ties	777	Pale flower bud
+ties	781	Tall dark metal slab
+ties	782	Copper ring
+ties	783	Copper ribbed drum
+ties	784	Copper ring with fan
+ties	785	Thin dark spike rod
+ties	786	Dark spike rod with rings
+ties	787	Grey curved ledge
+ties	788	Dark tube with end caps
+ties	792	Brown rock pile
+ties	793	Metal catwalk
+ties	794	Dark metal catwalk
+ties	795	Grey machine block with gap
+ties	796	Dark pipe with clamp
+ties	797	Grey engine pod
+ties	798	Grey ledge with bracket
+ties	801	Grey dome with green lights
+ties	802	Pink bent pipes
+ties	805	Brown stone dish
+ties	806	Blue curved arch
+ties	807	Blue curved arch
+ties	809	Grey machine with vents
+ties	810	Green and black crate
+ties	811	Green round grate
+ties	812	Pipe with round ends
+ties	813	Dark pipe with grey end
+ties	814	Green zigzag truss
+ties	815	Green zigzag truss
+ties	817	White tower with pipes
+ties	818	Grey C shaped wall
+ties	821	Grey grated wall
+ties	822	Bolt with spacers
+ties	823	Grey wall corner
+ties	825	Purple machine block
+ties	826	Grey block with antenna
+ties	828	Dark machine with vents
+ties	830	Mossy vine
+ties	832	Grey wall panel
+ties	833	Mossy hanging vine
+ties	836	Grey hollow frame block
+ties	838	Mossy looped vine
+ties	839	Brown stone egg
+ties	840	Grey curved ledge
+ties	841	Grey C shaped wall
+ties	842	Grey tower with pipes
+ties	844	Grey hollow frame block
+ties	845	Grey frame block
+ties	846	Grey frame block
+ties	847	Gold tower with spire
+ties	848	Green and copper building block
+ties	849	White window block
+ties	850	Brown wooden building block
+ties	851	Grey framed wooden block
+ties	852	Grey framed wooden block
+ties	853	Grey framed wooden block
+ties	854	Gold tower with spire
+ties	855	Grey grated block
+ties	856	Blue tank with spike
+ties	857	Blue block with pipes
+ties	858	Gold framed blue block
+ties	859	Gold framed blue block
+ties	860	Gold trimmed blue block
+ties	861	Blue spire with gold ring
+ties	864	White pipe tank
+ties	865	White engine with teal light
+ties	866	Copper spire with fins
+ties	869	Blue spire tower
+ties	870	White spire tower
+ties	871	Copper spire tower
+ties	877	Green striped pod on stalk
+ties	878	Green striped seed pod
+ties	880	Green leafy sprig
+ties	881	Grey pipe opening
+ties	882	Gold curved rail
+ties	883	Grey stone arch
+ties	884	Gold and silver pillar
+ties	885	Gold trough with cyan water
+ties	889	Green metal beam
+ties	890	Pipe with gold clamp
+ties	891	Grey block with gold face
+ties	892	Curved gold rail
+ties	893	Gold beam
+ties	895	Curved brown mesh frame
+ties	901	Silver beam
+ties	902	Gold U shaped rail
+ties	904	Dark curved bracket
+ties	906	Pink coral bush
+ties	907	Yellow round light on stalk
+ties	908	Brown stone bowl
+ties	909	Yellow rimmed round hatch
+ties	910	Blue machine block
+ties	911	Dark blue tank
+ties	912	Blue box with dark lens
+ties	913	Pipe with blue rings
+ties	914	Blue post with chain
+ties	915	Wall bracket with chain
+ties	917	Blue machine with blue lights
+ties	918	Dark drum with blue band
+ties	920	Dark rods with clamp
+ties	921	Dark U shaped rail
+ties	923	Thin dark beam
+ties	924	Grey pipe with joint
+ties	925	Grey pipe with valve
+ties	926	Grey bent pipe
+ties	927	Dark tube with blue lights
+ties	928	Grey tank with blue bands
+ties	930	Grey door frame
+ties	931	Grey stepped wall block
+ties	933	Black vent box with gold trim
+ties	934	Dark metal trough
+ties	935	Dark grated wall corner
+ties	936	Grey machine with lights
+ties	937	Grey tank with cables
+ties	938	Blue tank on stand
+ties	939	Grey square frame
+ties	940	Grey and purple pillar
+ties	941	Dark metal frame tower
+ties	945	Grey C shaped block
+ties	946	White wing blades
+ties	947	Grey pipe end
+ties	948	Wooden crate with copper trim
+ties	949	Riveted metal crate
+ties	950	Red wooden crate
+ties	951	Metal crate with wood panels
+ties	952	Crate with stickers
+ties	953	Pink drum
+ties	954	Brown chest with gold corners
+ties	955	Dark box with glass dome
+ties	957	Dark square frame
+ties	958	Dark square frame
+ties	960	Dark box with round window
+ties	961	Purple block
+ties	962	Black metal bracket
+ties	963	Round robot pod with red eyes
+ties	964	Grey trough with blue light
+ties	969	Grey tank with gold coil
+ties	970	Grey block with green end
+ties	971	Curved walkway with posts
+ties	972	Blue metal ring
+ties	973	Copper ring
+ties	976	Wooden plank on posts
+ties	977	Red plank on posts
+ties	979	Pink rock slabs
+ties	980	Pink rock slabs
+ties	981	Black wall with yellow stripe
+ties	982	Black wall with yellow stripe
+ties	983	Grey curved ledges
+ties	985	Blue box with grey panel
+ties	986	Red and copper chest
+ties	987	Green leaf spray
+ties	988	Brown curved pipe
+ties	989	Blue round grate with yellow rim
+ties	991	Yellow spiral pipe end
+ties	992	Round dark porthole
+ties	993	Blue curved hull with lights
+ties	995	Dark square frame
+ties	999	Blue curved ramp
+ties	1000	Orange tank with grill
+ties	1001	Dark box with round window
+ties	1002	Yellow and blue pipe joint
+ties	1003	Clear pipe with rings
+ties	1004	Yellow grated lamp
+ties	1005	Yellow grated lamp with pipe
+ties	1007	Brown hanging roots
+ties	1009	Copper pipe opening
+ties	1010	Bent pipe frame
+ties	1011	Grey stone fence
+ties	1013	Blue and purple pipes
+ties	1015	Mossy grey wall strip
+ties	1016	Purple and white pipe joint
+ties	1017	Mossy pink rock
+ties	1018	Mossy pink rock slabs
+ties	1019	Mossy pink rock slabs
+ties	1020	Mossy pink rock ledge
+ties	1021	Gold slab
+ties	1022	Grey metal brackets
+ties	1023	Gold beam slab
+ties	1024	Gold C shaped wall
+ties	1025	Mossy pink boulders
+ties	1026	Yellow round hatch
+ties	1027	Dark purple building corner
+ties	1028	Pink dome with grill
+ties	1029	Gold curved sheet
+ties	1031	Blue tank on base
+ties	1032	Blue tube tunnel on base
+ties	1033	Glass wall panel
+ties	1034	Lamp post on base
+ties	1036	Dark round porthole
+ties	1037	Grey bent pipe
+ties	1038	Dark grated machine block
+ties	1039	Dark wall with yellow trim
+ties	1040	Dark wall with yellow trim
+ties	1042	Dark grated floor
+ties	1043	Ball with green lights
+ties	1044	Dark metal tub
+ties	1045	Grey metal rail
+ties	1048	Dark curved dome
+ties	1049	Green octagon block
+ties	1050	Dark green ring
+ties	1051	Green block with spikes
+ties	1052	Dark green curved beam
+ties	1053	Arc of small stones
+ties	1054	Pale green glowing arc
+ties	1055	Dark curved panel
+ties	1056	Dark pod with green beam
+ties	1057	Curved brown rail
+ties	1058	Copper engine
+ties	1059	Grey rock
+ties	1060	White ring
+ties	1061	Dead tree roots
+ties	1062	Dark machine block with lights
+ties	1064	Dark round tub
+ties	1065	Small dark bits
+ties	1066	Grey drum with orange glow
+ties	1067	Dark pipe with white bands
+ties	1068	Yellow striped rod
+ties	1069	Dark metal truss
+ties	1071	Curved silver rail
+ties	1072	Tall thin spire
+ties	1075	White round hatch
+ties	1076	Blue tank tube
+ties	1077	Blue tank with green lens
+ties	1079	White and dark block
+ties	1080	Dark curved wall section
+ties	1081	Dark pipe with rings
+ties	1082	Dark pipe with clamps
+ties	1084	Green glass tray
+ties	1088	Dark green curved door
+ties	1090	Copper wind chimes
+ties	1092	Orange carved ledge
+ties	1093	Grey rock
+ties	1094	Grey rock arch
+ties	1095	Grey rock
+ties	1096	Grey rock spire
+ties	1100	White round porthole
+ties	1110	Tan pipe with antenna
+ties	1111	Copper ring with dark rim
+ties	1113	Purple coral cluster
+ties	1114	Blue grid panel with chains
+ties	1117	Copper and black drum
+ties	1120	Yellow fruit cluster
+ties	1121	Wooden barrel
+ties	1124	Orange seed husks
+ties	1125	Metal grate gate
+ties	1126	Thin bent pole
+ties	1127	Copper ring
+ties	1129	Glass pipe with drill end
+ties	1131	Grey pipe opening
+ties	1132	Brown wooden pillar
+ties	1133	Brown wooden wall block
+ties	1134	Brown curved trough
+ties	1137	Dark ring with rails
+ties	1141	Dark perforated strip
+ties	1142	Dark U shaped rail
+ties	1144	Dark U shaped rail
+ties	1145	Grey pipe ring
+ties	1146	Grey flat ring
+ties	1147	Blue C shaped clamp
+ties	1148	Dark drum with silver rings
+ties	1149	Dark dome
+ties	1150	Dark dome with purple ring
+ties	1152	Purple coiled ring
+ties	1153	Blue pipe with gold rings
+ties	1157	Purple ribbed hose
+ties	1158	White spike with blue tip
+ties	1167	Dark brick gateway
+ties	1170	Cream stone block stack
+ties	1171	Purple striped stone
+ties	1172	Purple striped egg rock
+ties	1173	Purple pitted rock
+ties	1174	Orange brick stack
+ties	1175	Grey octagon slab
+ties	1177	Grey pipe with cone end
+ties	1178	Grey carved machine block
+ties	1180	Brown root
+ties	1181	Dark stone steps
+ties	1182	Dark stone block
+ties	1183	Black slab with orange base
+ties	1184	Cream round hatch
+ties	1185	Dark barrel with green lid
+ties	1186	Tan block with black clamps
+ties	1187	Pipe with tan end
+ties	1188	Dark and tan machine with pipes
+ties	1189	Dark cables
+ties	1190	Tan tank block
+ties	1193	White pipe with dark rings
+ties	1194	Pipe on tall stand
+ties	1197	Grey broken trough
+ties	1198	Grey pipe with valves
+ties	1199	Grey ribbed pipe bundle
+ties	1204	Grey thick ring
+ties	1208	Pipe with grey clamp
+ties	1209	Grey U shaped pipe
+ties	1210	Wooden rope bridge piece
+ties	1211	Dark wedge with green light
+ties	1212	Dark machine with purple lights
+ties	1213	Machine row with purple lights
+ties	1217	Dark gear ring
+ties	1218	Grey rocket with orange light
+ties	1219	White pod with yellow springs
+ties	1222	Grey round hatch with blue lens
+ties	1223	Grey twin rail
+ties	1224	Grey and purple pipe bend
+ties	1225	Dark round grate
+ties	1226	Curved dark rail
+ties	1227	Grey twin pipes
+ties	1228	Dark post with green light
+ties	1231	Curved dark beam
+ties	1233	Purple stone ledge
+ties	1234	Dark bent pole
+ties	1235	Brown pole with green top
+ties	1237	Dark log bundle
+ties	1238	Mossy U shaped log
+ties	1241	Thin wire
+ties	1242	Wooden drum with gold face
+ties	1243	Black octagon drum
+ties	1244	Purple ribbed ring
+ties	1245	Grey machine with spokes
+ties	1246	Dark platform with antennas
+ties	1248	Purple rock cluster
+ties	1249	Purple rock cluster
+ties	1250	Purple rock cluster
+ties	1251	Purple rock cluster
+ties	1252	Brown boulder
+ties	1254	Purple striped boulder
+ties	1256	Purple rock stack
+ties	1259	Dark floor with cyan glow
+ties	1260	Purple striped boulder
+ties	1261	Purple rock arm
+ties	1263	Grey machine claw
+ties	1264	Dark drum with cyan lights
+ties	1265	Dark pipe with clamp
+ties	1266	Dark cone engine
+ties	1267	Blue hose with silver ends
+ties	1268	Dark ring base with lights
+ties	1270	Thin purple ring
+ties	1271	Grey round base
+ties	1272	Dark bent pipe
+ties	1275	Purple toothed rock mouth
+ties	1276	Purple toothed rock mouth
+ties	1277	Tray with green glow
+ties	1278	Copper cables with plug
+ties	1279	Purple rock wall with gold trim
+ties	1280	Dark panel with silver frame
+ties	1281	Black octagon with silver rim
+ties	1282	Purple rock chunk
+ties	1283	Purple rock ledge
+ties	1284	Dark ring wall with lights
+ties	1286	Purple rock slabs
+ties	1287	Brown branch claw
+ties	1288	Dead branches
+ties	1289	Green round light
+ties	1290	Silver ring
+ties	1293	Brown twisted root
+ties	1294	Coiled pipes on yellow base
+ties	1295	Red and white curved roof
+ties	1296	Dark round hatch with lights
+ties	1297	Wooden wedge with blades
+ties	1298	Dark clamp with blue pipe
+ties	1302	Coiled pipe with ends
+ties	1303	Grey ribbed bent pipe
+ties	1304	Grey tank on stand
+ties	1305	Grey metal beam
+ties	1306	Grey pipe junction
+ties	1307	Copper rods with blue joint
+ties	1308	Brown striped rock
+ties	1309	Brown striped rock
+ties	1310	Purple bone shaped rock
+ties	1311	Round lamp with cyan lights
+ties	1312	Dark hanging post with drum
+ties	1313	Dark hanging post
+ties	1314	Grey dome with pipe
+ties	1316	Dark tub with lights
+ties	1317	Grey and blue wall block
+ties	1318	Grey and blue wall block
+ties	1319	Dark cage dome
+ties	1321	Grey clamp with orange lights
+ties	1322	Grey C wall with cyan edge
+ties	1323	Grey curved beam
+ties	1324	Dark metal bracket
+ties	1325	Grey spiral cone
+ties	1327	Dark pipe with grey ends
+ties	1328	Thin dark rods
+ties	1329	Thin dark rail
+ties	1330	Grey and blue sphere
+ties	1332	Grey ribbed pipe
+ties	1334	Blue hose
+ties	1335	Grey ribbed pipe
+ties	1337	Purple coiled pipe
+ties	1338	Dark mushroom shaped post
+ties	1339	Dark zigzag bracket
+ties	1342	Teal hook vine
+ties	1344	Teal cracked ball
+ties	1345	Teal curved vine
+ties	1346	Grey cone funnel
+ties	1347	Grey round lid
+ties	1348	Purple C shaped coral
+ties	1349	Grey and green rock
+ties	1350	Teal coiled vine
+ties	1351	Copper drum with silver rims
+ties	1352	Dark bent bar
+ties	1353	Dark ring
+ties	1354	Dark thin ring
+ties	1355	Round dark lamp with white light
+ties	1356	Dark bar
+ties	1357	Dark curved block
+ties	1358	Grey rock with green tip
+ties	1359	Grey rock
+ties	1360	Brown U shaped pipe
+ties	1366	Grey oval tank
+ties	1368	Grey oval tank on side
+ties	1369	Dark pipe with clamps
+ties	1370	Dark pipe junction
+ties	1371	Blue pipe bundle
+ties	1372	Blue pipe bundle
+ties	1374	Silver pitted disc
+ties	1375	Silver leaf blades
+ties	1376	Striped hose with white ends
+ties	1377	Red net with gold hooks
+ties	1378	Purple ribbed hose
+ties	1379	Dark tyre ring
+ties	1382	Blue pipe section
+ties	1383	Grey L shaped beam
+ties	1384	Blue bent pipe
+ties	1385	Blue pipe with grate end
+ties	1386	Curved mesh panel
+ties	1389	Thin purple chain
+ties	1390	Purple ribbed bent pipe
+ties	1391	Thin blue pole
+ties	1392	Grey pump with blue hose
+ties	1394	Grey and blue pipe joint
+ties	1395	Pipe with blue joint
+ties	1396	Dark machine with spring
+ties	1398	Dark machine frame
+ties	1399	Blue wall vent
+ties	1400	White drum with yellow clamps
+ties	1401	Copper dome with crate
+ties	1402	White curved strip
+ties	1403	Grey bent support
+ties	1404	Dark wall with posts
+ties	1405	Grey wall with control screens
+ties	1406	Grey wall with control screens
+ties	1407	Grey square pipe
+ties	1411	Gold arch strip
+ties	1412	Cyan glass arches
+ties	1413	White and gold arch pieces
+ties	1414	Cyan glass rings
+ties	1415	Cyan striped ring
+ties	1416	Dark striped ring
+ties	1417	Cyan light strip
+ties	1418	Grey floor plate
+ties	1419	Curved dark pole
+ties	1420	Curved dark pipe
+ties	1421	Dark thin ring
+ties	1422	Robot leg stand
+ties	1423	White capsule with green door
+ties	1424	Grey bent pipe with white joint
+ties	1425	Brown rock chunk
+ties	1426	Brown boulder
+ties	1427	Brown rock pile
+ties	1428	Brown rock ledge
+ties	1429	Grey tank drum
+ties	1430	Brown rock arch
+ties	1431	Grey coil machine
+ties	1432	Blue machine with black handle
+ties	1433	Blue clamp with grey pipe
+ties	1435	Dark round grate
+ties	1436	Grey spiral hatch
+ties	1439	Brown rock chunk
+ties	1440	Dark blue bowl
+ties	1441	Dark grated pod
+ties	1442	Tall grey wall strip
+ties	1444	Dark blue ring
+ties	1445	Robot arm joints
+ties	1446	Pilot seat with green levers
+ties	1447	Grey square frames
+ties	1448	Copper vent with pipes
+ties	1449	Copper wall lamp
+ties	1450	Grey pole with clamp
+ties	1452	Green leaf pod
+ties	1453	Dark ring with lights
+ties	1454	Thin green ring
+ties	1455	Green glow ring
+ties	1456	Green circuit dome
+ties	1457	Orange and black crate stack
+ties	1458	Blue crate with orange top
+ties	1460	Orange and grey blocks
+ties	1462	Orange arm with teal lamp
+ties	1463	Grey ring with cyan mark
+ties	1464	Cyan and grey rings
+ties	1465	Cyan ring with grey piece
+ties	1466	Cyan curved track
+ties	1467	Cyan glowing strip
+ties	1468	Cyan arch track
+ties	1469	Grey rail bend with cyan marks
+ties	1470	Grey rail bend with cyan marks
+ties	1471	Cyan ring
+ties	1472	Cyan ring
+ties	1473	Cyan ring
+ties	1474	Cyan glowing strip with mark
+ties	1475	Grey rail bend with cyan marks
+ties	1476	Small cyan marks
+ties	1477	Small cyan marks
+ties	1478	Cyan ring
+ties	1479	Dark arc with cyan marks
+ties	1480	Grey blade with orange dome
+ties	1481	Spiral drum with red rim
+ties	1482	Purple crystal cluster
+ties	1483	Purple crystal shards
+ties	1484	Cream spiral drum
+ties	1485	Grey spiral drum with red rim
+ties	1486	Copper spiral drum
+ties	1487	Copper fan drum
+ties	1488	Copper striped drum
+ties	1489	Copper drum with fins
+ties	1490	Grey pipe with drill end
+ties	1491	Gold spiral drum
+ties	1492	Grey fan drum
+ties	1493	Grey spiral drum with gold ring
+ties	1494	Silver pitted disc
+ties	1495	Red rimmed round hatch
+ties	1496	White and red pipe joint
+ties	1497	Grey pipes with red valve
+ties	1498	Grey and purple pipe bracket
+ties	1499	Red and grey machine arm
+ties	1500	Silver machine box
+ties	1501	Yellow trimmed blue platform
+ties	1502	Grey engine with spikes
+ties	1503	Grey twin pipe tower
+ties	1504	Thin pipe with fan end
+ties	1505	Copper beam with bolts
+ties	1506	Grey ribbed bent pipe
+ties	1507	Grey ribbed pipe bend
+ties	1508	Rod with yellow clamp
+ties	1509	Mossy rock slab
+ties	1510	Dark ribbed rod
+ties	1511	Blue drill tower
+ties	1512	Blue stacked frames with spikes
+ties	1513	Mossy dark boulder
+ties	1514	Dark stone boulder
+ties	1515	Mossy dark rock pillar
+ties	1516	Sand egg stone
+ties	1518	Bone rib cage
+ties	1519	Mossy dark rock
+ties	1520	Thin rod with copper rings
+ties	1521	Cyan glass ball in cage
+ties	1522	Metal grid fence
+ties	1523	Dark round base
+ties	1524	Dark pillar with blue lights
+ties	1525	Robot arm with gold disc
+ties	1526	Red log
+ties	1527	Grey pipe opening
+ties	1528	Grey grill with hazard stripes
+ties	1529	Blue metal walkway
+ties	1530	Red rock pile
+ties	1531	Grey ribbed pipe bend
+ties	1533	Dark red rock mound
+ties	1534	Gold cage frame
+ties	1535	Red rock slabs
+ties	1536	Red rock block
+ties	1537	Curved teal hook post
+ties	1538	Grey curved hull plate
+ties	1539	Thin grey beam
+ties	1540	Red rock slabs
+ties	1542	White ribbed dome
+ties	1543	Red rock slabs
+ties	1545	Black ring lamp with teal light
+ties	1546	Blue bent pipe
+ties	1547	Orange arm with teal ring
+ties	1548	Black grated bracket
+ties	1549	White hatch with orange glow
+ties	1551	Green framed wooden cage
+ties	1552	Glass frame outline
+ties	1553	Dark purple square frame
+ties	1554	White pipe ring
+ties	1555	Blue glass square frame
+ties	1556	Blue and orange machine
+ties	1557	Dark hose with white ends
+ties	1558	Yellow spiked roller
+ties	1559	Glass ring dish
+ties	1560	Round base with cyan grate
+ties	1561	Pipe with blue rings
+ties	1562	Orange and grey pipe joint
+ties	1563	Teal bar between posts
+ties	1564	Red rock boulder
+ties	1565	Red rock boulder
+ties	1566	Red rock pillar
+ties	1567	Red striped rock
+ties	1568	Red rock pebbles
+ties	1569	Grey wall with three windows
+ties	1570	Grey helmet pod with cyan light
+ties	1571	Dark blue drum with grate
+ties	1574	Olive box with clamp
+ties	1575	White faceted ball
+ties	1576	Purple and red spiky plant
+ties	1577	Grey dome with lights
+ties	1578	Dark pipe with bolts
+ties	1581	Copper pipes with dark clamps
+ties	1583	Dark star frame
+ties	1584	Dark spiked pipe
+ties	1585	Copper hoses with dark ends
+ties	1587	Silver curved roof plates
+ties	1588	Silver roof with machine
+ties	1590	Copper chain hoses
+ties	1591	Grey dome pod
+ties	1593	Grey bent bracket
+ties	1594	Curved glass rail
+ties	1595	Dark grey tank pod
+ties	1596	Olive metal wall block
+ties	1598	Grey ribbed pipe bundle
+ties	1599	Copper ribbed pipes
+ties	1600	Mossy island patch
+ties	1601	Blue pipe rack
+ties	1602	Rod with copper rings
+ties	1603	Dark pipes with clamps
+ties	1604	Blue pipe with grey bands
+ties	1605	Dark curved hull with gear
+ties	1606	Red glowing floor light
+ties	1607	Thin dark rod
+ties	1609	Grey vented triangle wall
+ties	1610	Grey machine arm with orange joint
+ties	1611	Grey curved hull plates
+ties	1612	Dark machine floor
+ties	1617	Dark bent bracket
+ties	1618	Dark curved strip
+ties	1621	Dark red coral
+ties	1622	Dark grey rocks
+ties	1623	Sack with hanging pipes
+ties	1624	Dark green dome
+ties	1625	Grey pod with dark face
+ties	1628	Pink drums with dark coil
+ties	1629	Grey square frame
+ties	1630	Blue block with copper stripes
+ties	1631	Blue block
+ties	1632	Blue C shaped frame
+ties	1633	Blue C shaped frame
+ties	1634	Blue C shaped wall
+ties	1635	Blue C shaped frame with copper top
+ties	1636	Grey wheel valve
+ties	1637	Dark ring with gold band
+ties	1638	Gold C shaped drum
+ties	1641	Pale blue ring
+ties	1642	Bent copper and grey rail
+ties	1648	Dark lattice beam
+ties	1649	Thin dark pole
+ties	1651	Dark cone with gold ring
+ties	1652	White drum with dark rails
+ties	1654	White pipe opening
+ties	1656	Dark teal rock slab
+ties	1657	Dark teal rock pile
+ties	1662	Dark teal rock ledge
+ties	1663	Dark teal rock spire
+ties	1670	Thin grey rod
+ties	1671	Dark wavy pole
+ties	1672	Grey beam with bracket
+ties	1676	Blue and gold ribbed panel
+ties	1678	Grey machine with fan
+ties	1680	Round grey base with grate
+ties	1681	Curved grey ribs
+ties	1683	Grey metal beam
+ties	1684	Thin antenna rod
+ties	1685	Olive canvas sheet
+ties	1687	Dark broken ring
+ties	1688	Dark ring with clamps
+ties	1690	Grey bracket with pads
+ties	1691	Grey pod with green light
+ties	1692	Pink ball with green light
+ties	1693	Pink ball with clamp
+ties	1694	Pink and grey machine nose
+ties	1695	Grey pipe with valve
+ties	1696	Dark clamp with pink joint
+ties	1697	Dark grey folded block
+ties	1698	Grey hanging hose
+ties	1699	Pink framed screen
+ties	1701	Dark purple panel
+ties	1702	Grey robot arm frame
+ties	1703	Grey bent pipe
+ties	1704	Grey stone rings
+ties	1705	Grey ribbed dome
+ties	1708	Grey faceted drum
+ties	1710	Silver ring
+ties	1711	Grey wall with blue lights
+ties	1712	Scattered bolts
+ties	1717	Dark teal rock slab
+ties	1718	Copper striped pipe
+ties	1719	Grey tank with copper band
+ties	1721	Grey drum with gold gear
+ties	1723	Copper hose
+ties	1724	Copper hose
+ties	1725	Blue drums with gold ring
+ties	1727	Thin dark rods
+ties	1728	Grey ribbed capsule
+ties	1729	Lime green moss lump
+ties	1735	Sand boulders
+ties	1736	Grey and cream tank
+ties	1737	Pipe with cream bands
+ties	1738	Copper hook hose
+ties	1739	Dark tank with orange lights
+ties	1743	Tall thin grey post
+ties	1744	Dark pipe with gold wheel
+ties	1745	Dark post with ring top
+ties	1747	Copper roof gutter
+ties	1748	Blue pipe sections
+ties	1749	White bent duct
+ties	1756	Green glowing ring arc
+ties	1757	Dark rail with foot
+ties	1760	Dark slotted beam
+ties	1761	Pipe with copper fans
+ties	1762	Red rock slab
+ties	1763	Dark rail with brackets
+ties	1764	Round gold lamp in clamp
+ties	1765	Dark drum with gold band
+ties	1766	Dark curved slats
+ties	1768	Dark stacked blocks with screen
+ties	1769	White curved beam
+ties	1770	White U shaped wall
+ties	1771	Gold U shaped bar
+ties	1772	Silver wall block
+ties	1773	Silver wall with windows
+ties	1774	Silver wall with windows
+ties	1775	Silver wall corner with windows
+ties	1776	Silver wall corner with windows
+ties	1778	Grey riveted panel
+ties	1779	Grey riveted corner panel
+ties	1780	Grey riveted wall block
+ties	1781	Dark round hatch on pipe
+ties	1782	Copper hose with grey plug
+ties	1783	Dark pipe with copper bands
+ties	1784	Pipe with cream joints
+ties	1786	Dark ring base
+ties	1787	Ring base with copper parts
+ties	1788	Grey riveted wall block
+ties	1789	Silver ribbed bowl
+ties	1792	Dark slatted strip
+ties	1793	Dark round base with spikes
+ties	1794	Dark bowl with green glow
+ties	1795	Dark pipe with clamps
+ties	1796	Dark pole with gold rings
+ties	1797	Gold gears on chain
+ties	1798	Pipe with tan joints
+ties	1799	Dark bent bar with bolts
+ties	1800	Dark wire net
+ties	1801	Grey ring
+ties	1802	Grey machine with dish
+ties	1803	Dark rail with blue lights
+ties	1804	Dark C shaped frame
+ties	1805	Grey floor with dark rails
+ties	1807	Blue and gold C frame
+ties	1808	Twin engines with gold rings
+ties	1810	Blue glass cone
+ties	1811	Dark rubble
+ties	1812	Dark teal rock
+ties	1813	Dark teal rock spire
+ties	1815	Dark pole with clamps
+ties	1816	Dark door with copper slats
+ties	1817	Dark tray with orange lights
+ties	1818	Hanging rope ring
+ties	1819	Gold round lamp
+ties	1824	Grey faceted dome
+ties	1853	Silver ring rail
+ties	1854	Dark oval track
+ties	1855	Silver oval track
+ties	1856	Oval track with cyan glow
+ties	1857	Grey ribbed roof
+ties	1858	Silver curved wall
+ties	1859	Grey round fan grate
+ties	1860	Pale blue round shield
+ties	1861	Gold bent rail
+ties	1862	Thin antenna with spokes
+ties	1863	Gold drum with dark ore
+ties	1864	Copper pipe end
+ties	1865	Blue pipe with cut end
+ties	1866	Dark curved hook rail
+ties	1867	Silver curved sheet
+ties	1868	Silver crossed blades
+ties	1869	Copper curved hull
+ties	1870	Blue curved trough
+ties	1871	White stepped ledge
+ties	1872	Grey vent with pipe
+ties	1873	Blue segmented ring
+ties	1874	Blue grid tower
+ties	1875	Dark pipe with claw end
+ties	1876	Pipe frame with cork ends
+ties	1877	Pipe frame with cork ends
+ties	1879	Blue mesh rod with gold tip
+ties	1882	Gold dish on silver base
+ties	1883	Olive striped egg rock
+ties	1884	Dark red egg rock
+ties	1885	Teal hook vine
+ties	1886	Dark grey rock
+ties	1887	Purple framed window
+ties	1888	Dark block on bracket
+ties	1890	Grey ledge with cyan lights
+ties	1892	Dark grated door
+ties	1893	Grey bent bracket
+ties	1894	Blue ribbed rod
+ties	1895	Dark grated wall
+ties	1898	Grey ribbed bent pipe
+ties	1899	Grey box with green lenses
+ties	1900	Green dome with bolts
+ties	1901	Teal round window with cross
+ties	1902	Copper ring
+ties	1903	Rod with orange tip
+ties	1904	Copper coil drum
+ties	1905	Dark grated wall panel
+ties	1906	Copper round plate
+ties	1907	Dark rod with cyan lights
+ties	1908	Grey beam with blocks
+ties	1909	Grey pipe with cyan lights
+ties	1910	Grey rails with yellow tips
+ties	1912	Grey metal trough
+ties	1915	Grey box with windows
+ties	1917	Dark bent pipe
+ties	1919	Teal drum with dark frame
+ties	1920	Dark machine arm
+ties	1922	White machine tray
+ties	1923	Grey curved bracket
+ties	1924	Grey hook bracket
+ties	1925	Grey ball with antennas
+ties	1926	Thin grey beam
+ties	1927	Grey curved rails
+ties	1928	Dark tall spike
+ties	1929	Grey riveted wall corner
+ties	1930	Dark flat ramp
+ties	1931	Grey door with window
+ties	1932	Dark curved pipe
+ties	1933	Pipe with cork end
+ties	1934	Blue lattice beam
+ties	1935	Dark mesh ring
+ties	1936	Dark ring with blue lights
+ties	1937	Blue stone dish
+ties	1938	Dark machine with yellow glow
+ties	1939	Purple rounded frame
+ties	1940	Gold tray
+ties	1941	Blue metal block
+ties	1942	Blue octagon frame
+ties	1943	Dark broken octagon frame
+ties	1944	Dark broken octagon frame
+ties	1945	Gold and blue machine rod
+ties	1946	Dark blue grated machine
+ties	1947	Dark rod with copper rings
+ties	1948	Dark rubble slabs
+ties	1949	Dark cracks
+ties	1950	Thin dark pipe
+ties	1951	Yellow curved bench
+ties	1952	Grey bent trough
+ties	1953	Tall post with red lights
+ties	1954	Grey panels with pipes
+ties	1955	Grey machine arm
+ties	1956	Yellow lit pod lamp
+ties	1957	Grey curved ribs
+ties	1958	Grey beam with cyan end
+ties	1959	Dark hatch with copper bits
+ties	1960	Grey panels with pipes
+ties	1961	White and dark ring frame
+ties	1962	Dark machine base
+ties	1963	White curved hull panel
+ties	1964	Blue grid shield
+ties	1965	Dark console with screens
+ties	1966	Sand rubble
+ties	1967	Copper tall panels
+ties	1968	Dark curved rail
+ties	1969	Dark ribbed hose with plug
+ties	1970	Grey frame with antennas
+ties	1971	Dark robot arm stand
+ties	1972	Grey curved beam
+ties	1973	Thin dark rod
+ties	1974	Grey rounded board
+ties	1975	Thin silver rail
+ties	1976	Dark oval track
+ties	1977	White beam
+ties	1978	Dark curled pipe
+ties	1979	Dark spiked machine with lights
+ties	1980	Dark curved ledge
+ties	1981	White ribbed wall
+ties	1982	Dark grated beam
+ties	1983	Thin dark pole
+ties	1984	Blue cables with purple boxes
+ties	1985	Grey walls with brackets
+ties	1986	Teal drum with dark cover
+ties	1987	Dark curved frame with green light
+ties	1988	Grey bent wall with sign
+ties	1989	Copper and blue building block
+ties	1990	Dark round hatch
+ties	1991	White wall with purple trim
+ties	1992	Grey L shaped bracket
+ties	1993	Green glass sheet
+ties	1994	Blue engine thruster
+ties	1995	Blue engine thruster
+ties	1996	Blue grid machine block
+ties	1997	White wall panel
+ties	1998	Blue grid machine block
+ties	2000	White bent pipe
+ties	2001	Grey zigzag rail
+ties	2002	Grey pipe
+ties	2003	Grey hose with copper end
+ties	2005	Grey curved rail
+ties	2006	Grey beam with cyan end
+ties	2008	Grey wall with copper base
+ties	2009	Dark grated wall pieces
+ties	2010	Dark machine with purple pipes
+ties	2011	Dark tiled wall with pipes
+ties	2012	Dark tiled wall with pipes
+ties	2014	Grey U shaped pipe
+ties	2015	Dark panel with blue spikes
+ties	2016	Pink and grey curved hull
+ties	2017	White ring with teal edge
+ties	2018	Silver frame drum
+ties	2019	White drum with copper bolts
+ties	2020	Grey branching root
+ties	2021	Grey log with orange spikes
+ties	2022	Grey bent root
+ties	2024	Round pod with teal lights
+ties	2026	Blue pod with rods
+ties	2027	Dark rod with disc
+ties	2029	Copper ring on rods
+ties	2030	Copper clamp on rods
+ties	2031	Blue tank capsule
+ties	2032	Blue and dark machine pod
+ties	2033	Dark round porthole
+ties	2034	Dark rod with lights
+ties	2037	Copper ring with grey hub
+ties	2038	Round pod with teal ring
+ties	2039	Grey pod with cyan lights
+ties	2041	Dark rods row
+ties	2044	Dark spike bracket
+ties	2045	Grey rock pile
+ties	2046	Brown round slab
+ties	2047	Dark brown rock block
+ties	2048	Brown rock arm
+ties	2049	Brown rock pile
+ties	2050	Brown rock chunk
+ties	2051	Brown dome rock
+ties	2052	Brown dome rock
+ties	2054	White drum with teal rings
+ties	2055	Dark rails with crossbar
+ties	2057	Grey hatch with gold coils
+ties	2058	Grey wall fin with gold edge
+ties	2059	Grey round hatch with gold bolts
+ties	2060	Grey dome with orange light
+ties	2061	Grey bowl with gold pipes
+ties	2062	Dark round tub
+ties	2063	Curved dark blade with gold tip
+ties	2064	Dark mesh ring
+ties	2067	Dark bracket rail
+ties	2068	Dark green trough
+ties	2069	Dark green ring
+ties	2071	Blue and copper tower
+ties	2072	Dark grey ring
+ties	2073	Grey ribbed pipe
+ties	2074	Grey dome with hole
+ties	2075	Gold disc in dark rim
+ties	2076	Dark steps
+ties	2077	Grey ribbed drum
+ties	2078	Grey beam
+ties	2079	Dark brick drum
+ties	2080	Dark box stack with screens
+ties	2081	Grey curved pipe
+ties	2083	Dark post with copper top
+ties	2085	Dark tall spike
+ties	2086	Dark post with copper cap
+ties	2089	Brown brick bowl
+ties	2090	Tall dark pillar
+ties	2091	Gold and grey dome pod
+ties	2092	Grey clamp with gold fins
+ties	2093	Gold oval pad
+ties	2094	Olive rock block
+ties	2095	Grey lamp with green beam
+ties	2097	Blue hull piece with spikes
+ties	2098	Dark pipe with gold disc
+ties	2099	Blue mech part
+ties	2100	Silver claws with gold ends
+ties	2101	Dark arch pipe
+ties	2103	Dark blue dish
+ties	2104	Dark blue egg stone
+ties	2105	Dark blue rock stack
+ties	2106	Dark blue egg rock
+ties	2107	Olive rock slab
+ties	2108	Olive rock pile
+ties	2109	Pink gems
+ties	2110	Olive rock pile
+ties	2111	Olive boulder
+ties	2112	Copper fan wing
+ties	2113	Silver hooks with blue rings
+ties	2114	Blue rail with copper inset
+ties	2115	Silver star clamp
+ties	2116	Grey and copper drum
+ties	2117	Blue round vent
+ties	2119	Pale blue faceted rock
+ties	2122	Curved blue rail
+ties	2123	Dark round porthole with copper rim
+ties	2124	Blue pipe with copper ring
+ties	2125	Blue ribbed drum
+ties	2126	Dark floor strip with pad
+ties	2127	Blue and copper hoses
+ties	2128	Dark pipe with cream bands
+ties	2129	Pipe with cream band and bracket
+ties	2130	Copper and blue ring
+ties	2132	Round base with cyan light
+ties	2133	White drum with dark grate
+ties	2134	Grey wing beam
+ties	2135	Curved blue beam
+ties	2137	Dark drum with cyan light
+ties	2138	Blue ring on posts
+ties	2139	Dark posts with ring
+ties	2141	Dark drum with orange lights
+ties	2142	Grey pole with white rocket
+ties	2144	Blue and dark wall fin
+ties	2145	Dark drum with orange top
+ties	2146	Thin dark pole
+ties	2148	Grey crane arm
+ties	2150	Tall blue pillar with cyan base
+ties	2151	Blue lamp post
+ties	2152	Curved wall with green windows
+ties	2153	Floor with green grid
+ties	2154	Orange curved rail
+ties	2155	Copper floor plate
+ties	2156	Grey wall with window
+ties	2157	Grey wall corner with green light
+ties	2158	Grey wall corner
+ties	2159	Blue glass tub
+ties	2160	Grey and copper bracket
+ties	2161	Thin dark rod with tip
+ties	2162	White curved rail
+ties	2163	Yellow and black curved block
+ties	2164	Yellow curved block
+ties	2166	Grey drum with yellow lights
+ties	2167	Thin green pipe
+ties	2168	Dark green machine block
+ties	2169	Green and grey machine
+ties	2170	Dark coil pipe
+ties	2171	Dark coil pipe
+ties	2172	Grey pipe with dark coil
+ties	2173	Dark floor panel
+ties	2174	Thin coiled rod
+ties	2175	Green gun turret base
+ties	2176	Dark rod with clamps
+ties	2178	Dark machine with pipe
+ties	2179	Grey ring wall with doors
+ties	2180	Dark pipe with clamp ends
+ties	2181	Purple machine block
+ties	2182	Copper ring
+ties	2183	Grey thin ring
+ties	2184	Dark box blocks
+ties	2186	Dark beam
+ties	2187	Grey drum with spikes
+ties	2188	Copper ring with dark rim
+ties	2190	Copper disc in grey rim
+ties	2191	Grey ring
+ties	2192	Copper ring
+ties	2194	Grey bent bracket
+ties	2195	Dark chain ring
+ties	2196	Dark spiked rod
+ties	2198	Round gadget with red tip
+ties	2199	Dark ribbed hose with yellow ring
+ties	2200	Dark cable with plugs
+ties	2201	Pipe with purple bands
+ties	2202	Dark ring machine with yellow lights
+ties	2203	Brown rock spikes
+ties	2206	Dark ore stone
+ties	2207	Thin dark rod with clamp
+ties	2208	Blue curved panel
+ties	2209	Dark metal tray
+ties	2210	Grey round base
+ties	2211	White bent wall
+ties	2212	Dark curved rail
+ties	2213	Copper curved wall strip
+ties	2214	Dark curved rail
+ties	2215	Glass drum with copper ring
+ties	2216	Cream drum with blue hub
+ties	2217	Blue pipe bundle
+ties	2218	Small cyan rings
+ties	2219	Small purple rings
+ties	2220	Cyan glowing rings
+ties	2221	Cyan glowing ring stack
+ties	2222	Cyan glowing pieces
+ties	2223	Cyan hexagon rings
+ties	2224	Purple glowing gems
+ties	2225	Purple and cyan rings
+ties	2226	Purple and cyan rings
+ties	2227	Cyan glowing octagon ring
+ties	2228	Small purple rings
+ties	2229	Olive horn rock
+ties	2230	Copper curved wall
+ties	2231	White U wall with green strip
+ties	2232	Brown stone disc
+ties	2233	Copper and grey curved wall
+ties	2234	Blue glass beam with clamp
+ties	2235	Tall dark pillar
+ties	2236	Dark metal tunnel piece
+ties	2237	Copper crate and wall
+ties	2238	Grey curved wall with port
+ties	2239	Tall grey post
+ties	2240	Dark twisted horn
+ties	2241	Olive horn rock
+ties	2242	Dark brown boulder
+ties	2243	Cyan glowing rings
+ties	2244	Curved white rail with green strip
+ties	2246	Copper pole with white ends
+ties	2247	Thin rod with blue joint
+ties	2248	Dark hook pipe
+ties	2249	Brown curved blade
+ties	2250	Orange dome lamp with legs
+ties	2251	Purple pipe with grey ends
+ties	2252	Grey bent beam
+ties	2253	Grey and dark box beam
+ties	2254	Dark dome with copper bracket
+ties	2256	White curved rail
+ties	2257	Dark claw spike
+ties	2258	Blue curved wall
+ties	2259	Blue U shaped pipe
+ties	2260	Brown stone disc
+ties	2261	Blue curved roof panel
+ties	2262	Dark beam with lights
+ties	2263	Purple wedge ledge
+ties	2264	White pipe with tan ends
+ties	2265	Tan octagon pipe joint
+ties	2266	White pipe with tan end
+ties	2267	Blue dome base with green lights
+ties	2268	Dark floor plate
+ties	2269	Green tub with silver rim
+ties	2270	Tall dark panel
+ties	2271	Wooden block
+ties	2272	Curved silver rail with green strip
+ties	2273	Small curved hook
+ties	2274	White ribbed arch
+ties	2275	Grey bracket corner
+ties	2276	Curved blue fin
+ties	2277	Dark coiled ring with lights
+ties	2278	White curved rail
+ties	2279	Dark ring with gold bolts
+ties	2280	Copper wall bracket
+ties	2281	Dark spike post with gold rings
+ties	2282	Blue and copper block
+ties	2283	Small copper hooks
+ties	2284	Small dark blocks
+ties	2285	Gold oval panel
+ties	2286	Grey bent post
+ties	2287	Thin copper pole
+ties	2288	Blue curved roof
+ties	2289	White faceted dome
+ties	2290	Blue tunnel tube
+ties	2292	Camo rock
+ties	2293	Purple door with white arch
+ties	2294	White pillar slab
+ties	2297	Grey pole with clamp
+ties	2298	Grey bent pipe
+ties	2299	Blue rounded frame
+ties	2300	Dark S bracket
+ties	2301	Dark tall tank
+ties	2302	Grey ribbed hose
+ties	2303	Grey ribbed hose
+ties	2304	Grey ribbed hook pipe
+ties	2305	Dark pipe with gold disc
+ties	2306	White drum with red rim
+ties	2309	Green octagon hatch
+ties	2310	Brown stone ring
+ties	2311	Brown stone ring
+ties	2312	Brown stone ring
+ties	2313	White dome with red band
+ties	2316	Dark rail
+ties	2317	Silver rail
+ties	2326	Dark round tub
+ties	2327	Dark door with orange trim
+ties	2328	Dark bench with gold trim
+ties	2329	Dark rail barrier
+ties	2330	Cyan lit barrier
+ties	2331	Dark grated barrier
+ties	2332	Dark ramp with yellow stripes
+ties	2333	Gold curved rail
+ties	2334	Dark beam with lights
+ties	2335	Dark wall with windows
+ties	2336	Copper and dark wall lamp
+ties	2337	Green round window with copper rim
+ties	2338	Curved console with buttons
+ties	2339	Dark curved frame
+ties	2340	Green lit coil tube
+ties	2341	Dark curved slats with red tip
+ties	2342	Gold rimmed white light
+ties	2343	Grey hull tub with gold bits
+ties	2344	Grey hull tub
+ties	2345	Dark seat frame
+ties	2346	White tub with blue screen
+ties	2347	Grey ribbed duct
+ties	2348	Dark pillar with green lights
+ties	2349	Blue curved wall with posts
+ties	2350	Dark curved rail
+ties	2351	Grey pod with orange lights
+ties	2352	Thin grey rail
+ties	2353	Dark round window with cross
+ties	2354	Copper and blue tank
+ties	2355	Grey oval frame with bars
+ties	2356	Dark stone disc
+ties	2357	Dark ring base with yellow bits
+ties	2359	Red cratered rock
+ties	2360	Dark curved bowl
+ties	2361	White U wall with green trim
+ties	2362	Grey beam with blocks
+ties	2363	Grey hose with dark end
+ties	2364	Grey box with yellow top
+ties	2368	Grey ramp beam
+ties	2370	Dark stone trough
+ties	2372	Dark ring dish
+ties	2373	Dark curved rail
+ties	2374	Grey hull floor
+ties	2376	Gold vine branch
+ties	2377	Gold vine branch
+ties	2378	Gold vine branch
+ties	2379	Gold vine branch
+ties	2383	Grey pod with rods
+ties	2384	Pale blue crystal rock
+ties	2385	Pale blue crystal rock
+ties	2386	Silver thick ring
+ties	2387	Brown stone disc
+ties	2388	Brown rock wedge
+ties	2390	Teal leaf
+ties	2392	Pink spiky shell
+ties	2393	Grey machine arm with orange light
+ties	2395	Grey rock slab
+ties	2396	Green glowing tray
+ties	2397	Green glowing egg
+ties	2398	Dark brown rock
+ties	2399	Dark ring drum
+ties	2400	Tan rock spire
+ties	2405	Dark brown log
+ties	2408	Grey drum
+shrubs	3	Green plant with pink bud
+shrubs	4	Scattered sand pebbles
+shrubs	5	Orange and pink spiky plant
+shrubs	6	Rainbow grass tuft
+shrubs	8	Orange and green spiky plant
+shrubs	9	Curled brown root
+shrubs	10	Scattered red pebbles
+shrubs	14	Twin pipes with orange caps
+shrubs	15	Pipe with orange joints
+shrubs	16	Blue hose
+shrubs	17	White crystal spike
+shrubs	18	White crystal spikes
+shrubs	19	Dark green spiky bush
+shrubs	20	Yellow spiky plant
+shrubs	21	Green grass tuft
+shrubs	23	Blue wall light
+shrubs	24	Cream wall light
+shrubs	25	Grey bent pipe
+shrubs	26	Grey pipe
+shrubs	27	Snowy rock
+shrubs	28	Snowy rocks
+shrubs	29	Grey rock pieces
+shrubs	30	Grey rocks
+shrubs	35	Purple ribbed hose
+shrubs	36	Pipe with orange ends
+shrubs	37	Thin antenna with wheel
+shrubs	38	Thin twin antenna
+shrubs	39	Thin antenna
+shrubs	40	Orange flowers
+shrubs	41	Teal spiky plant
+shrubs	42	Brown dirt patch
+shrubs	43	Bush with yellow flowers
+shrubs	44	Bush with red berries
+shrubs	45	Three leaf sprout
+shrubs	47	Green leafy plant
+shrubs	48	Tiny grass specks
+shrubs	49	Small green leaves
+shrubs	51	Pink swirl ball
+shrubs	52	Purple trumpet flower
+shrubs	53	Orange mushrooms on stalks
+shrubs	54	Scattered white stones
+shrubs	55	Scattered brown pebbles
+shrubs	56	Pink hollow log
+shrubs	57	Green moss patch
+shrubs	58	Green moss lump
+shrubs	59	Orange fern
+shrubs	60	Dark fern
+shrubs	61	Fluffy white flowers
+shrubs	62	Green leaf bush
+shrubs	63	Pine cone plant
+shrubs	65	Bamboo leaves
+shrubs	66	Bamboo leaf spray
+shrubs	67	Pipe end with cable
+shrubs	68	Cream pipe with orange rings
+shrubs	69	Light green grass tuft
+shrubs	70	Wall vent with lit slats
+shrubs	71	Orange wall lamp
+shrubs	73	Scattered sand pebbles
+shrubs	74	Two pipe ends with cable
+shrubs	75	Curved wall sign
+shrubs	76	Sand stain
+shrubs	78	Green moss ring
+shrubs	79	Brown dirt ring
+shrubs	80	Green moss edge
+shrubs	81	Brown dirt frame
+shrubs	82	Branch with leaves
+shrubs	83	Pink root
+shrubs	84	Pink log stump
+shrubs	85	Pink hooked root
+shrubs	86	Blue fern
+shrubs	87	Red fern with white buds
+shrubs	88	Teal fern
+shrubs	89	White and pink flowers
+shrubs	90	White and pink flower
+shrubs	91	Light green moss patch
+shrubs	92	Mossy dirt patch
+shrubs	93	Dark green moss patch
+shrubs	94	Dark spots
+shrubs	95	Dark spot
+shrubs	96	Dark spot
+shrubs	97	Purple pebble patch
+shrubs	102	Stone patch with moss rim
+shrubs	104	Green leaf ring
+shrubs	105	Small blue flowers
+shrubs	106	Scattered purple pebbles
+shrubs	107	Green spiky plant
+shrubs	108	Pipe end with cable
+shrubs	110	Green moss ring
+shrubs	113	Pink thistle flower
+shrubs	114	Pale green coral weed
+shrubs	115	Yellow and red flowers
+shrubs	116	Red flower vine
+shrubs	118	Branch with orange pods
+shrubs	119	Dry grass tufts
+shrubs	121	Blue green round bush
+shrubs	122	Pink and green spiky plant
+shrubs	123	Ice block
+shrubs	124	Scattered dark rocks
+shrubs	125	Scattered sand stones
+shrubs	126	Red lamp post
+shrubs	127	Green vine
+shrubs	128	Wooden plank fan
+shrubs	130	Sand boulders
+shrubs	131	Scattered sand pebbles
+shrubs	132	Green fern bush
+shrubs	133	Teal crystal plant
+shrubs	134	Row of small leaves
+shrubs	135	Green seed pods
+shrubs	136	Scattered orange lights
+shrubs	137	Line of small leaves
+shrubs	138	Mossy log
+shrubs	139	Tall mossy bush
+shrubs	141	Yellow pipe with bolts
+shrubs	142	Two yellow pipes
+shrubs	143	Cyan crystal tubes
+shrubs	145	Green moss outline
+shrubs	147	Green leafy bush
+shrubs	148	Cyan crystal cluster
+shrubs	149	Tall cyan crystal cluster
+shrubs	150	Orange spotted mushroom rock
+shrubs	151	Orange spotted mushrooms
+shrubs	152	Orange spotted rock ridge
+shrubs	153	Coloured pebbles
+shrubs	155	Green plant with pink bud
+shrubs	156	Orange spotted rock
+shrubs	157	Green glowing pod plant
+shrubs	158	Dark wall cables
+shrubs	159	Tiny red speck
+shrubs	160	Round blue window
+shrubs	161	Green moss ring
+shrubs	162	Dry grass tuft
+shrubs	163	Hanging wire
+shrubs	164	Ring of small lights
+shrubs	165	Round floor hatch
+shrubs	166	Green leaf clump
+shrubs	167	Tall purple pillar
+shrubs	168	Sand streak
+shrubs	169	Red spiky flower
+shrubs	170	Purple pipe valve
+shrubs	171	Teal sparkle plant
+shrubs	172	Wall control panel
+shrubs	173	Wall panel with red light
+shrubs	174	Wall panel with dial
+shrubs	175	Wall panel with gauges
+shrubs	176	Dry grass tuft
+shrubs	179	Wooden ring
+shrubs	180	Green moss strip
+shrubs	181	Grey twisted rope
+shrubs	182	Grey chain
+shrubs	183	Purple spiked coral ball
+shrubs	184	Blue starfish
+shrubs	185	Brown rock pile
+shrubs	186	Orange rimmed blue shell
+shrubs	187	Brown boulder
+shrubs	188	Purple veined rock
+shrubs	189	Purple brain coral
+shrubs	191	Yellow pipe valve
+shrubs	192	Red floor writing
+shrubs	193	White floor writing
+shrubs	194	Yellow and green leafy plant
+shrubs	195	Olive leafy plant
+shrubs	196	Green fern
+shrubs	197	Orange bulb with leaves
+shrubs	198	Orange and teal fern
+shrubs	202	Green pebbles
+shrubs	203	Green boulder
+shrubs	207	Green leaf spray
+shrubs	208	Blue padded ring
+shrubs	209	Green curly vine
+shrubs	210	Orange spiky leaves
+shrubs	211	Pink flower on vine
+shrubs	212	Gold mesh drum
+shrubs	214	Gold block
+shrubs	215	Rope with knots
+shrubs	217	Curved gold lattice
+shrubs	218	Metal mesh fence
+shrubs	219	Scattered grey stones
+shrubs	221	Blue rock with cross
+shrubs	222	Scattered pink flowers
+shrubs	223	Metal ring frame
+shrubs	224	Blue machine strip
+shrubs	227	Brown wire with beads
+shrubs	228	Gold block
+shrubs	229	Purple rail track
+shrubs	231	Red gem
+shrubs	232	Grey stone
+shrubs	233	Lit floor tile
+shrubs	234	Blue gem
+shrubs	235	Lit floor tiles
+shrubs	236	Rod with copper rings
+shrubs	237	Thin cracks
+shrubs	238	Yellow handrail
+shrubs	239	Round vent hatch
+shrubs	240	Glass tank with yellow base
+shrubs	241	Scattered weeds
+shrubs	242	Wooden barrel with brass bands
+shrubs	243	Scattered dark stones
+shrubs	245	Scattered floor bolts
+shrubs	246	Brown curled root
+shrubs	247	Green glowing round pad
+shrubs	249	Green glowing floor pad
+shrubs	250	Floor pad with green dots
+shrubs	251	Long green glowing pad
+shrubs	255	Dark grass tuft
+shrubs	256	Ribbed green pod
+shrubs	262	Bent duct pipe
+shrubs	265	Small wall pipe with cable
+shrubs	267	Green coral plant
+shrubs	268	Curved row of wall lights
+shrubs	269	Wall panel with slots
+shrubs	270	Wall panel with button grid
+shrubs	271	Square wall panel with lights
+shrubs	272	Two dark cables
+shrubs	273	White wall light strip
+shrubs	274	Striped cable bundle
+shrubs	275	Grey machine box
+shrubs	276	Tangled copper wires
+shrubs	277	Bone horn
+shrubs	278	Copper cable with plugs
+shrubs	279	Dark teal cloth
+shrubs	280	Dark teal branches
+shrubs	281	Target sign
+shrubs	282	White strip light
+shrubs	283	Snow lump
+shrubs	284	Gold mesh egg
+shrubs	287	Pink tentacle plant
+shrubs	288	Ring of orange specks
+shrubs	289	Orange specks
+shrubs	290	Line of orange specks
+shrubs	291	Scattered grey rocks
+shrubs	292	Black coils on a base
+shrubs	294	Blue coiled pipe joint
+shrubs	295	Orange wall lamp
+shrubs	296	Copper cables
+shrubs	297	Light blue gem
+shrubs	298	Dark pipe valve
+shrubs	301	Green glowing cable
+shrubs	302	Metal bolt cap
+shrubs	303	Pink anemone
+shrubs	304	Dark teal egg
+shrubs	305	Purple veined stone
+shrubs	306	Red fruit with leaves
+shrubs	307	Green leafy plant
+shrubs	308	White lily
+shrubs	309	Cracked pale stone
+shrubs	310	Scattered sand stones
+shrubs	311	Purple anemone
+shrubs	312	Lime green anemone
+shrubs	313	Brown seed shells
+shrubs	314	Lime green weed
+shrubs	315	Purple barnacle patch
+shrubs	316	Orange clamp with pipe
+shrubs	317	Weeds and stones
+shrubs	318	Blue spiky plant
+shrubs	319	Pale green weed
+shrubs	320	Olive bush
+shrubs	321	White frost patch
+shrubs	322	Green ribbed hose
+shrubs	323	Blue hose with bolts
+shrubs	324	Blue barnacle patch
+shrubs	325	Red ribbed hose
+shrubs	326	Blue and white crystal shard
+shrubs	327	Dark round plate with cross
+shrubs	328	Ribbed pipe with orange rings
+shrubs	329	Two ribbed pipes with orange rings
+shrubs	330	Purple stone cluster
+shrubs	331	Grey boulder
+shrubs	332	Yellow leaf
+shrubs	333	Red berry cluster
+shrubs	334	Wall ladder bars
+shrubs	335	White crystal spikes
+shrubs	336	White crystal spikes
+shrubs	337	Green moss lump
+shrubs	339	Red gem
+shrubs	341	Green leaf strip
+shrubs	342	Gravel pile
+shrubs	343	Pale yellow weed
+shrubs	344	Scattered red pebbles
+shrubs	345	Scattered grey pebbles
+shrubs	346	Blue lit pipe joint
+shrubs	347	Scattered dark specks
+shrubs	348	Grey stone ring
+shrubs	349	Round metal porthole
+shrubs	351	Blue floor ring
+shrubs	353	Blue round plate with cross
+shrubs	356	Yellow pipe valve
+shrubs	357	Thin rod with disc
+shrubs	358	Blue wall light
+shrubs	359	Caged glowing lamp
+shrubs	364	Scattered bone spikes
+shrubs	365	Red crystal spikes
+shrubs	366	Orange crystal spikes
+shrubs	367	Scattered dark stones
+shrubs	368	Dark rock
+shrubs	369	Green grass bush
+shrubs	371	Sand coral rings
+shrubs	372	Yellow green fern
+shrubs	373	Brown starfish
+shrubs	378	Glowing green pod pieces
+shrubs	379	Glowing green egg
+shrubs	380	Glowing green ball
+shrubs	381	Glowing green ball
+shrubs	382	Glowing green egg
+shrubs	390	Glass tube light
+shrubs	391	Floor rail grid
+shrubs	392	Round machine with orange lights
+shrubs	394	Teal hose
+shrubs	395	Purple coral clump
+shrubs	396	Teal coral bush
+shrubs	397	Green coral bush
+shrubs	398	Green coral fan
+shrubs	399	Orange and teal coral
+shrubs	405	Dark ribbed cable
+shrubs	407	Forked dark cables
+shrubs	408	Dark pipe with stripes
+shrubs	409	White bent pipe joint
+shrubs	410	Dark rope coil
+shrubs	411	Dark ribbed sheet
+shrubs	412	Grey metal crate
+shrubs	413	Grey metal ring
+shrubs	414	Wall plate with bolt
+shrubs	415	Thin dark pole
+shrubs	416	White rails
+shrubs	417	Dark bent pipe
+shrubs	418	Dark machine base
+shrubs	419	White machine block
+shrubs	420	White machine block
+shrubs	421	Grey ribbed rock
+shrubs	422	Dark pipe pieces
+shrubs	423	Cut tree stump
+shrubs	424	White tank with pipes
+shrubs	426	Grey cables with plugs
+shrubs	427	Thin tube with orange ends
+shrubs	428	White bolt
+shrubs	430	Dark blue wall lamp
+shrubs	431	Copper hose
+shrubs	435	Green glass panel
+shrubs	437	Pale blue rock stack
+shrubs	438	Pale blue rock pile
+shrubs	439	Thin wires with yellow tips
+shrubs	440	Orange plate with cross
+shrubs	441	Grey crater stone
+shrubs	442	Dark specks
+shrubs	443	Thin purple wire
+shrubs	444	Grey upright pipe
+shrubs	446	Dark bulb lamp
+shrubs	447	Grey metal ring frame
+shrubs	448	Grey bent pipe
+shrubs	449	Purple wall hatch
+shrubs	450	Pale lilac stone
+shrubs	451	White pipe with red bands
+shrubs	452	Grey machine plates
+shrubs	453	Cable with white clamp
+shrubs	454	Grey metal blocks
+shrubs	457	Round cobble hatch
+shrubs	461	Wooden block
+shrubs	463	White bent pipe
+shrubs	465	Teal leaf sprig
+shrubs	466	Copper leaves
+shrubs	467	Red petal flower
+shrubs	468	Wall panel with cyan lights
+shrubs	469	White pipe with yellow light
+shrubs	470	Green target sign
+shrubs	471	Green glow line
+shrubs	472	Green glow dashes
+shrubs	473	Green glow corner line
+shrubs	474	Grey ribbed rails
+shrubs	475	Grey rock clump
+shrubs	476	Brown rock
+shrubs	477	Scattered brown stones
+shrubs	478	Tan rock with groove
+shrubs	480	White oval light
+shrubs	481	Thin bent rod
+shrubs	484	Dark curved strip
+shrubs	485	Pink and gold flower pods
+shrubs	486	Blue stone frame
+shrubs	487	Green sprout
+shrubs	488	Green plant with purple buds
+shrubs	489	Wooden door panel
+shrubs	490	Green stem
+shrubs	492	Glowing green ring
+shrubs	493	Cyan glowing eggs
+shrubs	494	Glowing green egg
+shrubs	495	Glowing green egg
+shrubs	496	Glowing yellow egg
+shrubs	497	Glowing yellow green egg
+shrubs	498	Dark grey stone
+shrubs	499	Scattered brown pebbles
+shrubs	500	Brown dirt patch
+shrubs	501	Brown dirt ring
+shrubs	502	Green spiky fern
+shrubs	503	Orange spiky fern
+shrubs	504	Dark star flower
+shrubs	505	Olive dirt patch
+shrubs	506	Grey metal frame
+shrubs	507	Blue metal tray
+shrubs	508	Tan dirt patch
+shrubs	509	Drill with teal rings
+shrubs	510	Teal spiky plant
+shrubs	511	Purple bent pipes
+shrubs	512	Silver robot frame
+shrubs	513	Silver robot frame
+shrubs	514	Hanging cable with lamps
+shrubs	515	Thin dirt outline
+shrubs	518	Grey stone
+shrubs	520	Grey stone block
+shrubs	524	Blue round light
+shrubs	525	Red oval light
+shrubs	526	Green round light
+shrubs	527	Red lamp in dark case
+shrubs	528	Silver bent pipe
+shrubs	529	Yellow round light
+shrubs	540	Grey metal beam
+shrubs	541	Green leaf with ribs
+shrubs	542	Purple wall gadget
+shrubs	543	Yellow capsule light
+shrubs	544	Yellow battery pack
+shrubs	545	White rod
+shrubs	546	Brown hooked pipe
+shrubs	547	Yellow floor lines
+shrubs	548	Blue wall bracket
+shrubs	549	Teal lit pipe sections
+shrubs	550	White metal bracket
+shrubs	551	Gold faceted orb
+shrubs	552	Cyan capsule light
+shrubs	554	Round mesh grate
+shrubs	555	Curved metal rails
+shrubs	556	Thin antenna gadget
+shrubs	557	Thin antenna with blue tip
+shrubs	558	Thin rods with ring
+shrubs	560	Curved rail with bolts
+shrubs	561	Glass tube with blue lights
+shrubs	562	Glass tube with blue lights
+shrubs	563	Map poster
+shrubs	564	Dark ribbed pipe
+shrubs	565	Metal box with green lights
+shrubs	566	Wire coil stand
+shrubs	569	Cyan ball light
+shrubs	570	Grey barrel lamp
+shrubs	571	Red ball light
+shrubs	572	Dark tyre
+shrubs	573	Orange mesh egg
+shrubs	574	Cyan wall screen
+shrubs	575	Dark wall slab
+shrubs	576	Scattered small bolts
+shrubs	577	Scattered orange specks
+shrubs	578	Lamp cluster on panel
+shrubs	579	Scattered metal parts
+shrubs	580	Scattered metal rings
+shrubs	581	Ring of small bolts
+shrubs	582	Metal blades with bolts
+shrubs	583	Cyan lights
+shrubs	585	Red curled leaves
+shrubs	586	Bone spike
+shrubs	587	Blue striped cable
+shrubs	588	Thin cable with plug
+shrubs	589	Blue thruster rod
+shrubs	590	Blue thruster rod
+shrubs	591	Square wall vent
+shrubs	592	Dark red stain

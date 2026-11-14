@@ -129,7 +129,8 @@ class LibraryOnProjects(unittest.TestCase):
                                                 "rac1/pal/ties/1000": "full", "rac1/pal/ties/682": "look",
                                                 "rac3/ntsc/mobys/10": "look", "rac1/ntsc/mobys/10": "full",
                                                 "rac1/ntsc/ties/1000": "full"})
-            self.assertEqual(result["names"]["rac1/pal/mobys/75"], ["red_ship", 0.5])
+            # names/rac1.tsv's readable name wins over the class scene's code name.
+            self.assertEqual(result["names"]["rac1/pal/mobys/75"], ["Red ship 1", 0.5])
             self.assertEqual(result["full_path"], "res://levels/level_05/mobys/moby_10.tscn")
             self.assertEqual(result["look_path"], "res://library/rac1/pal/level_03/mobys/moby_75.glb")
 

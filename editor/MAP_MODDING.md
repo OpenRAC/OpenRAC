@@ -55,6 +55,8 @@ level you have read, from every disc and game. It looks beside this project
 (`assets/levels/<game>/<disc>/`, or `active/<game>/data/levels/<disc>` in an
 installed copy) and in the folders of the project setting
 `openrac/library/folders`. Browse the tree, or search by name or class number.
+Names come from `addons/openrac_library/names/<game>.tsv` (Ratchet & Clank
+has one for every asset); an asset not in it shows its class number.
 
 Pick an asset to see what it is and which buttons work. A greyed button's
 tooltip says why. Drag the asset into the 3D view or the Scene dock, or
