@@ -653,7 +653,7 @@ int openrac_game_option_rows(void) {
     return c_boundary::call("openrac_game_option_rows", 0, [&]() -> int {
 #ifdef OPENRAC_FRONTEND
         if (g_window) {
-            return frontend::options_menu::row_count();
+            return frontend::options_menu::page_rows();
         }
 #endif
         return 0;
@@ -665,12 +665,12 @@ void openrac_game_option_row_text(int row, char* label, char* value, int size) {
         put_option_text("", label, size);
         put_option_text("", value, size);
 #ifdef OPENRAC_FRONTEND
-        if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
+        if (g_window && row >= 0 && row < frontend::options_menu::page_rows()) {
             put_option_text(
-                frontend::options_menu::shown(frontend::options_menu::label(row)), label, size
+                frontend::options_menu::shown(frontend::options_menu::page_label(row)), label, size
             );
             put_option_text(
-                frontend::options_menu::shown(frontend::options_menu::value(row)), value, size
+                frontend::options_menu::shown(frontend::options_menu::page_value(row)), value, size
             );
         }
 #endif
@@ -681,8 +681,8 @@ void openrac_game_option_row_text(int row, char* label, char* value, int size) {
 void openrac_game_option_step(int row, int by) {
     c_boundary::call("openrac_game_option_step", [&] {
 #ifdef OPENRAC_FRONTEND
-        if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
-            frontend::debug_overlay::change_setting(row, by);
+        if (g_window && row >= 0 && row < frontend::options_menu::page_rows()) {
+            frontend::options_menu::page_step(row, by);
         }
 #endif
         (void)row;
