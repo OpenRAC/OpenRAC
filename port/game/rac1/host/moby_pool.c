@@ -366,6 +366,7 @@ gaddr func_0020E6B8(void) {
     const gaddr cam = OPENRAC_DATA(CAMERA_BLOCK) + 0x140;
     gaddr tgt = TARGET_LIST;
     const int expanded = openrac_guest_ram_size > GUEST_RAM_SIZE;
+    const int imports = rac1_foreign_class_count() > 0;
     const gaddr expanded_targets = expanded ? OPENRAC_TARGET_TABLE(OPENRAC_DATA(TARGETS)) : 0;
     unsigned expanded_target_count = 0;
     if (expanded) {
@@ -386,10 +387,10 @@ gaddr func_0020E6B8(void) {
         }
         const gaddr m = cur;
         const unsigned mode = GREF(unsigned short, m + MOBY_MODE);
-        /* Mode 2: the moby is not run. Nor is one with no class slot (0xFF): only a moby of a
-         * class another level's imported moby made, which this level has no slot for, has one
-         * (foreign_class.c), and its slot's list is past the ones the pass clears. */
-        if ((mode & 2) || GREF(unsigned char, m + MOBY_SLOT) >= CLASS_SLOTS) {
+        /* Mode 2: the moby is not run. Nor, on a level that imports classes, is one with no
+         * class slot (0xFF): a moby of a class an imported moby made, which this level has no
+         * slot for (foreign_class.c), its slot's list past the ones the pass clears. */
+        if ((mode & 2) || (imports && GREF(unsigned char, m + MOBY_SLOT) >= CLASS_SLOTS)) {
             continue;
         }
         const unsigned drawn = GREF(unsigned char, m + MOBY_DRAWN);
@@ -446,7 +447,7 @@ gaddr func_0020E6B8(void) {
                 }
                 continue;
             }
-            if (GREF(unsigned char, m + MOBY_SLOT) >= CLASS_SLOTS) {
+            if (imports && GREF(unsigned char, m + MOBY_SLOT) >= CLASS_SLOTS) {
                 continue; /* no class slot: see the first pass */
             }
             tgt = target_add(tgt, member, mode, base, expanded_targets, &expanded_target_count);

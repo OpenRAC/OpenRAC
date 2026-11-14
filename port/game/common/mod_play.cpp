@@ -1275,16 +1275,18 @@ void apply_joint_sets(std::uint32_t moby) {
 
 std::uint32_t loads_now();
 
-// One mod's offsets on one moby set (count 0: taken off), and all of that moby's handed to it:
-// OPENRAC_HOOK_UNKNOWN, with the mod's last ones kept, past OPENRAC_JOINT_OFFSETS_MAX in all.
-int set_joint_set(
-    const openrac_mod* mod, std::uint32_t moby, const openrac_joint_offset* joints, int count
-) {
-    // Offsets of an earlier level's mobies (not the hero's) are gone with that level: the address
-    // may hold another moby now.
+// Offsets of an earlier level's mobies (not the hero's) are gone with that level: the address
+// may hold another moby now. Run each frame (play_update) and before each set.
+void drop_stale_joint_sets() {
+    if (g_joint_sets.empty() || g_joint_offsets == nullptr) {
+        return;
+    }
     const std::uint32_t loads = loads_now();
     const std::uint32_t hero =
         g_play != nullptr && g_play->hero_moby != nullptr ? g_play->hero_moby() : 0;
+    if (hero == 0) {
+        return;  // still loading: the hero's own offsets are kept for the next level
+    }
     std::vector<std::uint32_t> stale;
     std::erase_if(g_joint_sets, [&](const JointSet& s) {
         if (s.loads == loads || s.moby == hero) {
@@ -1298,6 +1300,15 @@ int set_joint_set(
     for (const std::uint32_t old : stale) {
         apply_joint_sets(old);
     }
+}
+
+// One mod's offsets on one moby set (count 0: taken off), and all of that moby's handed to it:
+// OPENRAC_HOOK_UNKNOWN, with the mod's last ones kept, past OPENRAC_JOINT_OFFSETS_MAX in all.
+int set_joint_set(
+    const openrac_mod* mod, std::uint32_t moby, const openrac_joint_offset* joints, int count
+) {
+    drop_stale_joint_sets();
+    const std::uint32_t loads = loads_now();
     auto it = std::find_if(g_joint_sets.begin(), g_joint_sets.end(), [&](const JointSet& s) {
         return s.mod == mod && s.moby == moby;
     });
@@ -1827,10 +1838,10 @@ void api_moby_sound_stop(openrac_mod* mod, int voice) {
         return;
     }
     const auto it = std::find_if(g_hero_voices.begin(), g_hero_voices.end(), [&](const HeroVoice& v) {
-        return v.voice == voice && v.moby != 0;
+        return v.mod == mod && v.voice == voice && v.moby != 0;
     });
     if (it == g_hero_voices.end()) {
-        return;  // not a looping voice of a moby: a sound played once ends by itself
+        return;  // not a looping voice of this mod's: a sound played once ends by itself
     }
     const gaddr moby = it->moby;
     g_hero_voices.erase(it);
@@ -2305,6 +2316,7 @@ void play_loading(const openrac_mod* mod) {
 }
 
 void play_update() {
+    drop_stale_joint_sets();
     // The game's camera scripts, as they went.
     if (has_camera_scripts()) {
         std::int32_t id = 0;

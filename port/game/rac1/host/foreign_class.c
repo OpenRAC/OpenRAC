@@ -217,6 +217,10 @@ void func_0020D440(gaddr moby, int oclass) {
     GREF(uint32_t, update) = was_update;
 }
 
+int rac1_foreign_class_count(void) {
+    return s_foreign_count;
+}
+
 static void foreign_run(int k, gaddr moby) {
     Foreign* f = &s_foreign[k];
     const int loaded = openrac_game_loaded_overlay();

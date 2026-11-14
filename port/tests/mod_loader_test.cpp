@@ -1858,6 +1858,15 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     CHECK(!mods::scene_air());
     CHECK(mods::time_stretch() == 1.0f);
     CHECK(mods::hidden_ties().empty());
+    // The moby's joints went with the level too, at the next frame: its address may hold another
+    // moby now. Not while the hero is still loading.
+    g_cutscene_calls.clear();
+    mods::play_update();
+    CHECK(g_cutscene_calls.empty());
+    play.hero_moby = [] { return std::uint32_t{0x1000}; };
+    mods::play_update();
+    CHECK((g_cutscene_calls == std::vector<std::string>{"joints 12544 0"}));
+    play.hero_moby = nullptr;
     // The mods go: the music back at full, the joints and the camera let go.
     g_cutscene_calls.clear();
     mods::reset();

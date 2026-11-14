@@ -39,6 +39,8 @@ void rac1_foreign_worlds_load(void);
 int rac1_foreign_host_world_enter(gaddr moby);
 void rac1_foreign_host_world_leave(int world);
 gaddr rac1_foreign_class_update(int oclass);
+/* How many classes this level imports (0 on a level that imports none). */
+int rac1_foreign_class_count(void);
 
 /* boot.c: a new game straight in `level` from the title, as --level N with OPENRAC_DIRECT. */
 void rac1_start_level(int level);
