@@ -15,7 +15,8 @@ mod scenes;
 /// `level` is set: that level's section).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Place {
-    /// A byte: set when non-zero; setting writes `on`, clearing writes 0.
+    /// A byte: set when it is at least `on` (for a win count, `on` is 1: any win); setting writes
+    /// `on`, clearing writes 0.
     Byte { chunk: i32, level: Option<usize>, offset: usize, on: u8 },
     /// One bit of a byte.
     Bit { chunk: i32, level: Option<usize>, offset: usize, bit: u8 },
