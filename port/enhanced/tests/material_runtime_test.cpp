@@ -496,6 +496,35 @@ void test_revert_created_material(const std::filesystem::path& directory) {
     CHECK(runtime.response(0, 0)->reflection.roughness == .43f);
 }
 
+void test_material_control_defaults(const std::filesystem::path& directory) {
+    using frontend::debug_overlay::material_control_properties;
+    const auto definition = materials::material_definition({});
+    scene::Material inherited;
+    inherited.diffuse_scale = .25f;
+    inherited.emission = {2, 1, 0};
+    inherited.bake_intensity = 4;
+    inherited.emission_contrast = 1.5f;
+    const auto controls = material_control_properties(definition, inherited);
+    CHECK(materials::validate(controls));
+    CHECK(materials::colour_value(controls, "surface.tint", {}) == (std::array<float, 3>{1, 1, 1}));
+    CHECK(materials::number_value(controls, "surface.diffuse_scale", 0) == .25f);
+    CHECK(materials::number_value(controls, "emission.runtime_intensity", 0) == 2.f);
+    CHECK(materials::number_value(controls, "emission.bake_intensity", 0) == 4.f);
+    CHECK(!definition.contains("surface.tint") && !definition.contains("emission.runtime_intensity"));
+    const auto explicit_controls = material_control_properties({{"surface.diffuse_scale", .6}}, inherited);
+    CHECK(materials::number_value(explicit_controls, "surface.diffuse_scale", 0) == .6f);
+    enhanced::MaterialRuntime runtime;
+    CHECK(runtime.load(level(directory)));
+    const auto shared = runtime.find(0, 0)->values.material;
+    CHECK(runtime.patch_preset(shared, "surface.tint", std::array<double, 3>{.5, 1, 1}));
+    CHECK(runtime.find(0, 0)->surface().colour[0] == .5f);
+    CHECK(runtime.find(1, 0)->surface().colour[0] == .5f);
+    CHECK(runtime.undo_preset(shared, "surface.tint"));
+    CHECK(runtime.find(0, 0)->surface().colour[0] == 1.f);
+    CHECK(!runtime.editor()->bindings->catalog.presets.at(shared).contains("surface.tint"));
+    CHECK(!runtime.editor()->bindings->catalog.presets.at(shared).contains("emission.bake_intensity"));
+}
+
 void test_glass_transport_dirty(const std::filesystem::path& directory) {
     enhanced::MaterialRuntime runtime;
     CHECK(runtime.load(level(directory)));
@@ -545,6 +574,7 @@ int main() {
         test_all_material_types(directory);
         test_revert_created_material(directory);
         test_glass_transport_dirty(directory);
+        test_material_control_defaults(directory);
         test_clear_saved_slots(directory);
         test_library_finishes(directory);
         test_exact_slots(directory);

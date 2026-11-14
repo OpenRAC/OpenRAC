@@ -20,29 +20,7 @@ namespace openrac::frontend::debug_overlay {
 namespace {
 // Retains inherited values until a widget changes; displayed defaults never become authored overrides implicitly.
 materials::Properties displayed_properties(const scene::MaterialBinding& binding) {
-    auto properties = binding.values.properties;
-    properties.try_emplace("surface.tint", std::array<double, 3>{1, 1, 1});
-    properties
-        .try_emplace("surface.diffuse_scale", static_cast<double>(binding.surface().diffuse_scale));
-    properties.try_emplace(
-        "emission.runtime_intensity",
-        static_cast<double>(
-            *std::max_element(binding.surface().emission.begin(), binding.surface().emission.end())
-        )
-    );
-    properties.try_emplace(
-        "emission.bake_intensity",
-        static_cast<double>(binding.surface().bake_intensity.value_or(
-            *std::max_element(binding.surface().emission.begin(), binding.surface().emission.end())
-        ))
-    );
-    properties
-        .try_emplace("emission.contrast", static_cast<double>(binding.surface().emission_contrast));
-    properties.try_emplace("emission.vertex_colour", binding.surface().emission_vertex_colour);
-    properties.try_emplace(
-        "emission.use_base_texture", binding.surface().emission_image == binding.surface().image
-    );
-    return properties;
+    return material_control_properties(binding.values.properties, binding.surface());
 }
 
 bool type_widget(std::string& value, const char* label) {
@@ -772,7 +750,15 @@ void preset_controls(const std::string& material, const materials::Properties& p
     ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthStretch, 1.f);
     ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, 1.35f);
     ImGui::TableSetupColumn("Revert", ImGuiTableColumnFlags_WidthFixed, dp(48.f));
-    for (const auto& [key, current] : properties) {
+    scene::Material inherited;
+    for (const auto& binding : editor->bindings->bindings) {
+        if (binding.values.material == material) {
+            inherited = binding.surface();
+            break;
+        }
+    }
+    const auto controls = material_control_properties(properties, inherited);
+    for (const auto& [key, current] : controls) {
         if (key == "type" || (key == "shading" && type != "lit")
             || ((key.starts_with("glass.") || key == "reflection.opacity") && type != "glass-lit")
             || (key.starts_with("foliage.") && type != "foliage")

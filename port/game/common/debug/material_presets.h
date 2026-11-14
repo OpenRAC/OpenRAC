@@ -8,8 +8,25 @@
 #include "enhanced/renderer/fur.h"
 #include "enhanced/renderer/wetness.h"
 #include "materials/catalog.h"
+#include "scene/level.h"
 
 namespace openrac::frontend::debug_overlay {
+
+// Display inherited controls without making them authored overrides until the user edits one.
+inline materials::Properties material_control_properties(
+    materials::Properties properties, const scene::Material& inherited = {}
+) {
+    properties = materials::material_definition(std::move(properties));
+    properties.try_emplace("surface.tint", std::array<double, 3>{1, 1, 1});
+    properties.try_emplace("surface.diffuse_scale", double(inherited.diffuse_scale));
+    const auto emission = *std::max_element(inherited.emission.begin(), inherited.emission.end());
+    properties.try_emplace("emission.runtime_intensity", double(emission));
+    properties.try_emplace("emission.bake_intensity", double(inherited.bake_intensity.value_or(emission)));
+    properties.try_emplace("emission.contrast", double(inherited.emission_contrast));
+    properties.try_emplace("emission.vertex_colour", inherited.emission_vertex_colour);
+    properties.try_emplace("emission.use_base_texture", inherited.emission_image == inherited.image);
+    return properties;
+}
 
 enum class PresetSurface { Opaque, Metal, Glass, Water, Ocean, Foliage, DryFur, WetFur };
 
