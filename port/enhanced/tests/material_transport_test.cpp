@@ -76,6 +76,41 @@ void test_glass_preparation_identity(const std::filesystem::path& directory) {
     std::filesystem::remove(directory / "material-overrides.json");
 }
 
+// Original suppresses later sparse contributions, so it must survive transport projection.
+void test_original_preparation_identity(const std::filesystem::path& directory) {
+    auto lit = materials::parse_catalog(R"({"version":1,"presets":{"paint":{"type":"lit"}},
+      "overrides":[{"id":"assign","match":{"layer":"shrub"},"material":"paint"},
+      {"id":"tint","match":{"layer":"shrub","class_id":7},"set":{"surface":{"tint":[0.5,1,1]}}}]})");
+    CHECK(lit);
+    const auto source = assets();
+    source->sources[0].identity.class_id = 7;
+    scene::LevelData level;
+    level.dir = directory;
+    level.materials = source->originals;
+    const lighting::BakeSceneExport scene;
+    level.material_bindings = scene::resolve_materials(source, *lit).value();
+    CHECK(level.material_bindings->bindings[0].surface().colour[0] == .5f);
+    const auto lit_activation = lighting::probe_scene_hash(level, scene, 0, false);
+    CHECK(materials::write_catalog(directory / "material-overrides.json", *lit));
+    const auto lit_input = lighting::probe_input_hash(directory);
+    auto original = *lit;
+    original.presets["paint"]["type"] = std::string("original");
+    level.material_bindings = scene::resolve_materials(source, original).value();
+    CHECK(level.material_bindings->bindings[0].surface().colour[0] == 1.f);
+    CHECK(lighting::probe_scene_hash(level, scene, 0, false) != lit_activation);
+    CHECK(materials::write_catalog(directory / "material-overrides.json", original));
+    const auto original_input = lighting::probe_input_hash(directory);
+    CHECK(original_input != lit_input);
+    const auto projected = materials::parse_catalog(materials::transport_catalog_stamp(original).value());
+    CHECK(projected);
+    CHECK(materials::text_value(materials::resolve(*projected, source->sources[0].identity)->properties,
+                                "type") == "original");
+    original.presets["paint"]["surface.roughness"] = .7;
+    CHECK(materials::write_catalog(directory / "material-overrides.json", original));
+    CHECK(lighting::probe_input_hash(directory) == original_input);
+    std::filesystem::remove(directory / "material-overrides.json");
+}
+
 // Migrated identical values and visible glow edits preserve existing bakes when baked intensity remains fixed.
 void test_activation_identity(const std::filesystem::path& directory) {
     scene::LevelData level;
@@ -142,6 +177,7 @@ int main() {
         CHECK(!error);
         test_preparation_identity(directory);
         test_glass_preparation_identity(directory);
+        test_original_preparation_identity(directory);
         test_activation_identity(directory);
         std::filesystem::remove(directory, error);
         CHECK(!error);

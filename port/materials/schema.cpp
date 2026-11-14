@@ -202,7 +202,9 @@ Result<void> validate(const Properties& properties) {
 Properties transport_properties(const Properties& properties) {
     Properties result;
     if (text_value(properties, "type") == "original") {
-        return result;
+        // Original suppresses even later tint/emission contributions. Keep that boundary in
+        // preparation fingerprints so switching types cannot reuse the previous transport.
+        return {{"type", std::string("original")}};
     }
     // Glass removes opaque geometry from static transport; its optical tuning stays runtime-only.
     if (text_value(properties, "type") == "glass-lit") {
