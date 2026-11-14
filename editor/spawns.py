@@ -7,7 +7,7 @@ new level lacks (pack.py, foreign_classes.py), as a turret brings its shots.
 
 The table is read from the game's code, so it is the same for every disc: each class's update
 and every function it calls, and theirs, and each CreateMoby call there with a class number
-written in the code. A class an update takes from its data (a spawner's pvars) is not found.
+written in the code (and each class whose sound it plays, which must be in the level too). A class an update takes from its data (a spawner's pvars) is not found.
 Standard library only.
 """
 
@@ -17,6 +17,9 @@ from pathlib import Path
 
 TABLE = Path(__file__).with_name("rac1_spawns.tsv")
 CREATE = "game_FUN_0020c4f8"     # CreateMoby (rac1-ntsc's name)
+# Plays a sound of a class's (its 4th argument): the class's sounds are found through its slot, so
+# a class whose sounds an update plays must be in the level as one it makes.
+SOUND = "game_FUN_L00_0028dc90"
 
 
 def table(path: Path = TABLE) -> dict[tuple[int, int], set[int]]:
@@ -135,7 +138,7 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
     makes: dict[str, set[int]] = {name: set() for name in found}
     # The class each call makes: a number written in the call (CreateMoby((int)(29))), or one passed
     # to a function that hands that argument on to CreateMoby (a gunship's part maker, any depth).
-    makers: dict[str, int] = {CREATE: 0}
+    makers: dict[str, int] = {CREATE: 0, SOUND: 3}
     while True:
         more = False
         for name, text in bodies.items():

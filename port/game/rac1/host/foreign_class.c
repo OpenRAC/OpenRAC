@@ -505,7 +505,8 @@ void func_L00_00242120(unsigned int record, int count) {
         fseek(file, 0, SEEK_END);
         const long size = ftell(file);
         fseek(file, 0, SEEK_SET);
-        if (size < 0x50 || (gaddr)size > FOREIGN_BLOBS + FOREIGN_BLOBS_SIZE - at) {
+        /* An empty blob: a class its level registers with no data (a controller with no model). */
+        if ((size != 0 && size < 0x50) || (gaddr)size > FOREIGN_BLOBS + FOREIGN_BLOBS_SIZE - at) {
             fclose(file);
             char message[1100];
             snprintf(
@@ -526,7 +527,7 @@ void func_L00_00242120(unsigned int record, int count) {
             continue;
         }
         s_registering = k;
-        GFN(void (*)(gaddr, gaddr, gaddr, int), register_class)(at, 0, slots, f->oclass);
+        GFN(void (*)(gaddr, gaddr, gaddr, int), register_class)(size ? at : 0, 0, slots, f->oclass);
         s_registering = -1;
         at = (at + (gaddr)size + 15u) & ~15u;
         ++registered;

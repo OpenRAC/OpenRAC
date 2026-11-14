@@ -146,13 +146,12 @@ def linked(level: int, gameplay: bytes, first: Donor) -> list[Donor]:
 
 
 def class_blob(level, class_id: int) -> bytes:
-    """CLASS_ID's data in LEVEL's core (a level.Level), as the level's loader registers it."""
+    """CLASS_ID's data in LEVEL's core (a level.Level), as the level's loader registers it: empty
+    for a class with none (a controller or trigger with no model), which the game registers so."""
     for entry in level.table(0x18, 32):
         offset, number = struct.unpack_from("<Ii", entry, 0)
         if number == class_id:
-            if offset == 0:
-                raise ValueError(f"class {class_id} has no data in level {level.id:02}")
-            return level.block(offset)
+            return level.block(offset) if offset else b""
     raise ValueError(f"level {level.id:02} has no class {class_id}")
 
 
