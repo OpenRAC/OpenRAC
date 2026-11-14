@@ -70,7 +70,9 @@ name: a different disc or version makes nothing wrong, only less.
   PAL (v2.00).
 - Without one, **Make a run** plays the routes on your computer, hidden, with
   the 3D world not drawn and in a small window: only the HUD and the effects
-  matter, and it makes the same textures (about half an hour; **Stop** ends it). It needs the game set up and its levels ready,
+  matter, and it makes the same textures (about half an hour; **Stop** ends it).
+  The routes that load a saved game play on a memory card of the run's own (a
+  New Game on an empty card, then every slot prepared from it), never yours. It needs the game set up and its levels ready,
   for the versions that have routes (Ratchet & Clank NTSC-U and PAL, Going
   Commando NTSC-U). The run is `<data>/interface_runs/<id>.json`.
 - When your run played every route and has textures the official one lacks,

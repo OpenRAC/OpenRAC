@@ -97,6 +97,12 @@ class JoinTests(unittest.TestCase):
             self.assertEqual(lines[-1][0], "error")
             self.assertFalse(out.exists())
 
+    def test_card_route_plays_new_game_on_an_empty_card(self):
+        route = run.base_route("rac1-ntsc")
+        self.assertEqual((route.card, route.start, route.key), ("empty", "title", "card"))
+        self.assertTrue(route.press().startswith("100:"))  # the first press is at the title
+        self.assertIsNone(run.base_route("rac2-ntsc"))  # no card can be made there yet
+
 
 if __name__ == "__main__":
     unittest.main()

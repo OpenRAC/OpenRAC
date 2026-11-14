@@ -403,7 +403,7 @@ def main() -> int:
     files.copy_tree(ROOT / "port/tools/interface_runs", out / "port/tools/interface_runs",
                     lambda rel: rel.suffix == ".py" and not rel.name.startswith("test_"))
     files.copy_tree(ROOT / "port/tools/regress", out / "port/tools/regress",
-                    lambda rel: rel.name in {"routes.py", "runner.py", "routes.json", "routes_rac2.json"})
+                    lambda rel: rel.name in {"card.py", "routes.py", "runner.py", "routes.json", "routes_rac2.json"})
     for run in sorted((ROOT / "port/game").glob("*/interface-run.json")):
         dest = out / run.relative_to(ROOT)
         dest.parent.mkdir(parents=True, exist_ok=True)

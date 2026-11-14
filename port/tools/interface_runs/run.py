@@ -30,6 +30,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "regress"))
 
+import card as card_mod  # noqa: E402
 import routes as routes_mod  # noqa: E402
 import runner  # noqa: E402
 
@@ -39,6 +40,12 @@ CATEGORIES = ("font", "interface", "effects")
 WORLD_PASSES = "sky,terrain,ties,shrubs,mobys,ratchet shadows"
 # Each game's route set: the most of its interface the routes show.
 ROUTE_SETS = {"rac1-pal": "wide", "rac1-ntsc": "wide", "rac2-ntsc": "rac2-tour"}
+# The routes that load a saved game play on a card of the run's own, never the player's: a New Game
+# on an empty card (the title, New Game, Yes to the save prompt; the same presses on both
+# versions) saves the first game, and card.py prepares the five slots from it.
+CARD_BOOT = [{"at": 100, "buttons": "cross"}, {"at": 600, "buttons": "start"}, {"at": 700, "buttons": "cross"},
+             {"at": 800, "buttons": "circle"}, {"at": 900, "buttons": "circle"},
+             *({"at": at, "buttons": "cross"} for at in range(1100, 1600, 100))]
 
 
 def say(event: str, **fields) -> None:
@@ -130,14 +137,8 @@ def run(args) -> int:
         chosen = [r for r in chosen if r.key in args.only]
     for r in chosen:
         r.timeout *= args.timeout_scale
-    skipped = []
-    if not (runner.cards_dir() / game / "card").is_dir():
-        # A route that needs the prepared card cannot run without it; the player's own is never used.
-        skipped = [r.key for r in chosen if r.card]
-        chosen = [r for r in chosen if not r.card]
     if not chosen:
-        say("error", message="no route to play: " + ("no route of that name" if args.only
-                                                     else "every route needs the prepared memory card"))
+        say("error", message="no route to play: no route of that name")
         return 1
     # The routes' folders go beside the run file unless asked elsewhere: a run the system ended
     # hard (Windows' taskkill) leaves its folder there, and the next run clears it.
@@ -147,20 +148,20 @@ def run(args) -> int:
         for stale in parent.glob("interface-run-*"):
             shutil.rmtree(stale, ignore_errors=True)
     work = Path(tempfile.mkdtemp(prefix="interface-run-", dir=parent))
-    say("start", game=game, routes=len(chosen), skipped=skipped, work=str(work))
-    done, failed = [], []
+    done, failed, skipped = [], [], []
     # A small window: the HUD's textures are the game's whatever the window's size, and drawing on
     # the CPU (no graphics card) costs by the pixel.
     settings = {"render_scale": 25, "window_size": "320x240"}
     # The 3D world is not drawn: its textures are not the interface's, and drawing it was most of a
     # route's time without a graphics card. The HUD and the effects are drawn as in the game.
     env = {"OPENRAC_HIDE_PASSES": WORLD_PASSES, **dict(args.env)}
+    cards = args.cards
 
     def one(r: routes_mod.Route) -> tuple[routes_mod.Route, str]:
         out = work / r.key
         try:
             res = runner.run_level(game, r, exe, data, levels, out, env, settings,
-                                   ["--no-mods", "--interface-run", str(out / "part.json")])
+                                   ["--no-mods", "--interface-run", str(out / "part.json")], cards)
         except (OSError, SystemExit, subprocess.SubprocessError) as e:
             # One route that cannot start (a folder not writable, the program gone) is one failed
             # route, not the end of the run.
@@ -172,6 +173,13 @@ def run(args) -> int:
     parts = []
     keep = args.keep
     try:
+        if any(r.card for r in chosen) and cards is None:
+            cards = make_card(game, base_route(game), exe, data, levels, work, env, settings)
+            if cards is None:
+                # Without a card of its own, those routes are left out (not failed).
+                skipped = [r.key for r in chosen if r.card]
+                chosen = [r for r in chosen if not r.card]
+        say("start", game=game, routes=len(chosen), skipped=skipped, work=str(work))
         with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
             futures = [pool.submit(one, r) for r in chosen]
             # In the order they end, so the launcher's count moves as routes finish.
@@ -217,6 +225,37 @@ def run(args) -> int:
     return 0
 
 
+def base_route(game: str) -> routes_mod.Route | None:
+    """The route the run's card is made with: the set's New Game, on an empty card, with CARD_BOOT."""
+    if game not in card_mod.SERIALS:
+        return None
+    new = next((r for r in routes_mod.set_routes(ROUTE_SETS[game], game, routes_mod.load()) if r.key == "title-new"),
+               None)
+    if new is None:
+        return None
+    return routes_mod.Route(level=new.level, name="New Game on an empty card", game=game, boot=CARD_BOOT,
+                            skip=None, steps=[], length=300, max_frames=new.max_frames, timeout=new.timeout * 4,
+                            key="card", start="title", card="empty")
+
+
+def make_card(game: str, route: routes_mod.Route | None, exe: Path, data: Path, levels: Path, work: Path,
+              env: dict, settings: dict) -> Path | None:
+    """The prepared card (a folder holding `card`) the routes that load a game play on, made in WORK;
+    None (said) when it cannot be made."""
+    if route is None:
+        say("card", made=False, message=f"no card can be made for {game} yet")
+        return None
+    out = work / route.key
+    try:
+        runner.run_level(game, route, exe, data, levels, out, env, settings, ["--no-mods"])
+        card_mod.prepare(game, out / "card", work / "prepared")
+    except (OSError, SystemExit, ValueError, subprocess.SubprocessError) as e:
+        say("card", made=False, message=f"the memory card could not be made: {e}")
+        return None
+    say("card", made=True)
+    return work / "prepared"
+
+
 def env_pair(text: str) -> tuple[str, str]:
     key, sep, value = text.partition("=")
     if not sep or not key:
@@ -251,6 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--timeout-scale", type=float, default=1.0,
                    help="give each route this many times its time (a slow computer, software drawing)")
     r.add_argument("--official", action="store_true", help="mark it as the project's own run")
+    r.add_argument("--cards", type=Path, help="a prepared card's folder (regress.py card) instead of the run's own")
     r.add_argument("--work", type=Path, help="where the routes' folders go (a new folder in it)")
     r.add_argument("--keep", action="store_true", help="keep the routes' folders")
     j = commands.add_parser("join", help="join parts or runs into one run file")

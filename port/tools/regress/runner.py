@@ -95,8 +95,11 @@ def classify(rc: int | None, timed_out: bool, ticks: list[dict], length: int, fr
 
 
 def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels: Path, out: Path,
-              extra_env: dict | None = None, settings: dict | None = None, extra_args: list[str] | None = None) -> dict:
-    """extra_args: more of the program's options (an interface run's --interface-run FILE)."""
+              extra_env: dict | None = None, settings: dict | None = None, extra_args: list[str] | None = None,
+              cards: Path | None = None) -> dict:
+    """extra_args: more of the program's options (an interface run's --interface-run FILE). cards: the
+    folder holding the prepared card (`card`), if not cards_dir()'s. A route whose card is "empty"
+    plays on an empty card, left in OUT/card for what the game saved on it."""
     out.mkdir(parents=True, exist_ok=True)
     for name in ("trace.jsonl", "reach.json", "coverage.json", "state.json"):
         (out / name).unlink(missing_ok=True)
@@ -113,9 +116,14 @@ def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels:
            "--settings", str(out / "settings.ini"), "--frames", str(route.max_frames)]
     if route.start == "direct":
         cmd += ["--level", str(route.level)]
-    if route.card:
+    if route.card == "empty":
+        if (out / "card").exists():
+            shutil.rmtree(out / "card")
+        (out / "card").mkdir()
+        cmd += ["--cards", str(out / "card")]
+    elif route.card:
         # A fresh copy of the prepared card each run (the game writes to it); never the player's.
-        source = cards_dir() / game
+        source = cards or cards_dir() / game
         if not (source / "card").is_dir():
             raise SystemExit(f"{route.key}: no prepared card in {source} (regress.py card --game {game})")
         if (out / "card").exists():
