@@ -371,7 +371,9 @@
     gap: 8px 12px;
     padding: 10px 12px;
     border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--panel) 91%, var(--amber));
+    background: color-mix(in srgb, var(--amber) 9%, var(--panel));
+    --control: color-mix(in srgb, var(--amber) 16%, var(--panel));
+    --control-hi: color-mix(in srgb, var(--amber) 24%, var(--panel));
   }
 
   .share p {
