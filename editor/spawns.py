@@ -45,13 +45,33 @@ def made_by(class_id: int, level: int, known: dict[tuple[int, int], set[int]] | 
     return out
 
 
+def arguments(text: str, start: int) -> list[str]:
+    """The arguments of the call whose '(' is at START in TEXT, as written."""
+    out, depth, at = [], 0, start + 1
+    for i in range(start, len(text)):
+        c = text[i]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                out.append(text[at:i].strip())
+                return out
+        elif c == "," and depth == 1:
+            out.append(text[at:i].strip())
+            at = i + 1
+    return out
+
+
 def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
     """The table from GEN and LIBRARIES; returns its rows."""
-    head = re.compile(r"^(?:static\s+)?[A-Za-z_][\w\s\*]*?\b(game_\w+)\s*\([^;{]*\)\s*$")
+    head = re.compile(r"^(?:static\s+)?[A-Za-z_][\w\s\*]*?\b(game_\w+)\s*\(([^;{]*)\)\s*$")
     call = re.compile(r"\b(game_\w+)\s*\(")
-    create = re.compile(CREATE + r"\(\(int\)\((\d+)\)\)")
+    literal = re.compile(r"^\(int\)\((\d+)\)$")
     calls: dict[str, set[str]] = {}
     makes: dict[str, set[int]] = {}
+    params: dict[str, list[str]] = {}
+    bodies: dict[str, str] = {}
     for file in sorted(gen.rglob("*.c")):
         if "prep" in file.relative_to(gen).parts:
             continue
@@ -70,10 +90,38 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
                 text = "\n".join(body)
                 name = found.group(1)
                 calls[name] = set(call.findall(text)) - {name}
-                makes[name] = {int(c) for c in create.findall(text)}
+                makes[name] = set()
+                params[name] = [p.split()[-1].lstrip("*") if p.strip() not in ("", "void") else ""
+                                for p in found.group(2).split(",")]
+                bodies[name] = text
                 i = j
                 continue
             i += 1
+    # The class each call makes: a number written in the call (CreateMoby((int)(29))), or one passed
+    # to a function that hands that argument on to CreateMoby (a gunship's part maker, any depth).
+    makers: dict[str, int] = {CREATE: 0}
+    while True:
+        more = False
+        for name, text in bodies.items():
+            for m in re.finditer(r"\b(game_\w+)\s*\(", text):
+                callee = m.group(1)
+                if callee not in makers:
+                    continue
+                args = arguments(text, m.end() - 1)
+                if makers[callee] >= len(args):
+                    continue
+                arg = args[makers[callee]]
+                number = literal.match(arg)
+                if number:
+                    makes[name].add(int(number.group(1)))
+                elif name not in makers:
+                    passed = re.fullmatch(r"\(int\)\((\w+)\)|(\w+)", arg)
+                    word = passed and (passed.group(1) or passed.group(2))
+                    if word in params.get(name, []):
+                        makers[name] = params[name].index(word)
+                        more = True
+        if not more:
+            break
     hook = re.compile(r"^(FUN_(?:L(\d\d)_)?[0-9a-f]{8})\t\S+\t\S+\thook\tThe update of class (?:[a-z_0-9]+ \()?(\d+)")
     rows: dict[tuple[int, int], set[int]] = {}
     for line in libraries.read_text().splitlines():

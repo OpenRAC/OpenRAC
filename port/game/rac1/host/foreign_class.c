@@ -61,6 +61,7 @@ enum {
     WORLD_SETS_MAX = 16384,
     BINDING_MAX = 1024,
     HOST_SAVED_MAX = 1024,
+    WORLD_LEAD = 0x10000, /* before the first world: 512 records of 0x80 */
 };
 
 static const gaddr k_world_globals[WORLD_GLOBALS] = {
@@ -605,7 +606,11 @@ void rac1_foreign_worlds_load(void) {
         openrac_game_warn("imported moby classes: worlds.bin is not one this port reads");
         return;
     }
-    gaddr at = GUEST_PORT_WORLDS;
+    /* The worlds start past a cleared lead: a table read at index -1 (Fred's sentry with no
+     * cuboid reads the one before the table, as on the console) reads zeros, not unmapped
+     * memory before the region. */
+    memset(G(GUEST_PORT_WORLDS), 0, WORLD_LEAD);
+    gaddr at = GUEST_PORT_WORLDS + WORLD_LEAD;
     int bad = 0;
     for (uint32_t w = 0; w < worlds; ++w) {
         const unsigned char* head = bytes + 16u + w * 16u;
@@ -684,7 +689,7 @@ void rac1_foreign_worlds_load(void) {
         "found, %d left out)",
         level,
         s_world_count,
-        (unsigned)((at - GUEST_PORT_WORLDS) >> 10),
+        (unsigned)((at - GUEST_PORT_WORLDS - WORLD_LEAD) >> 10),
         s_binding_count - unbound,
         unbound,
         bad
