@@ -78,6 +78,16 @@ def moby_class_names() -> dict[int, str]:
     return {int(number): name for number, name in rows}
 
 
+ASSET_NAMES = Path(__file__).parent / "addons" / "openrac_library" / "names" / "rac1.tsv"
+
+
+def readable_names(kind: str = "mobys") -> dict[int, str]:
+    """Class number -> readable name of KIND, from the Assets dock's names/rac1.tsv (see its header)."""
+    rows = (line.split("\t") for line in ASSET_NAMES.read_text(encoding="utf-8").splitlines()
+            if line and not line.startswith("#"))
+    return {int(number): name for row_kind, number, name in rows if row_kind == kind}
+
+
 LEVEL_NAMES = ("Veldin", "Novalis", "Aridia", "Kerwan", "Eudora", "Rilgar", "Blarg Station", "Umbris", "Batalia",
                "Gaspar", "Orxon", "Pokitaru", "Hoven", "Gemlik Base", "Oltanis", "Quartu", "Kalebo III",
                "Drek's Fleet", "Veldin (the return)")

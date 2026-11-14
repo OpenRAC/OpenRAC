@@ -1,5 +1,5 @@
 # Readable names of Ratchet & Clank's (2002) assets, for the editor's Assets dock: kind, class, name.
-# Names come, in this order, from: Lombyte's moby class names (editor/moby_classes.tsv, MIT);
+# Names come, in this order, from: Lombyte's moby class names (editor/moby_classes.tsv);
 # Wrench's data/underlay/rac_moby_classes.asset (github.com/chaoticgd/wrench, GPL-3.0-or-later);
 # Replanetizer's LibReplanetizer/ModelLists/{Moby,Tie}ModelsRC1.txt (github.com/RatchetModding/Replanetizer,
 # GPL-3.0); the rest were named by hand for OpenRAC from each model's look.

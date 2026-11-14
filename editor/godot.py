@@ -42,7 +42,7 @@ from level import Level
 from mesh import Mesh
 from moby_class import GREY, METAL_CHROME, METAL_GLASS, UNTEXTURED, MobyClass, moby_classes
 import moby_collision_scene
-from mobys import LEVEL_NAMES, moby_logic, node_name, moby_class_names, moby_instances
+from mobys import LEVEL_NAMES, moby_logic, node_name, moby_class_names, moby_instances, readable_names
 from shrubs import shrub_class_normals, shrub_classes, shrub_instances
 from sky import level_sky, panorama
 from terrain import terrain
@@ -508,6 +508,7 @@ class LevelWriter:
         # The class names and update functions are Ratchet & Clank's (moby_classes.tsv, games/rac1/decomp):
         # another game's class numbers mean other classes.
         names = moby_class_names() if self.fmt.class_names else {}
+        readable = readable_names() if self.fmt.class_names else {}
         logic = moby_logic(self.level.id) if self.fmt.class_names else {}
         placed = {p["class_id"] for p in placements}
         scenes, models = {}, {}
@@ -524,7 +525,8 @@ class LevelWriter:
                 model = (self.moby_glb(f"mobys/moby_{class_id}.glb", moby), moby.scale,
                          moby.mesh.bounds()[1][2] * moby.scale)
             path = f"mobys/moby_{class_id}.tscn"
-            write_marker(self.dir / path, class_id, f"{class_id} {names[class_id]}" if class_id in names else str(class_id),
+            label = readable.get(class_id) or names.get(class_id)
+            write_marker(self.dir / path, class_id, f"{class_id} {label}" if label else str(class_id),
                          model, names.get(class_id), logic.get(class_id),
                          self.class_collision(starts.get(class_id, 0), class_id, collision, files))
             # Every class scene, with class data or not: an untouched project is then seen as one

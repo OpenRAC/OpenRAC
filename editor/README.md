@@ -1102,7 +1102,9 @@ The decoders accept only the layouts found on these discs and raise
   block and the meaning of its surface bytes
   ([ASSETS.md](../games/rac1/decomp/docs/ASSETS.md#collision)).
 - **[Lombyte](https://github.com/lombyte-project/Lombyte)** (GPL-3.0): the moby
-  class names on the labels (`moby_classes.tsv`, see its header).
+  class names (`moby_classes.tsv`, see its header). The labels and the Assets
+  dock use the readable names of `addons/openrac_library/names/rac1.tsv`, which
+  add Wrench's and Replanetizer's names and hand-made ones.
 - **[OpenGOAL's jak-project](https://github.com/open-goal/jak-project)**,
   whose extractor was the model for extracting from your own disc.
 - **[Godot Engine](https://godotengine.org)** and the Khronos Group's
