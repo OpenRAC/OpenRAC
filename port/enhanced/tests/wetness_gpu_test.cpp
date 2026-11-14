@@ -22,6 +22,7 @@
 #include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
+#include "scene/material_overrides.h"
 #include "scene_shaders.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -218,6 +219,7 @@ void rendered_surface() {
             data.vertices.push_back(vertex);
         }
         data.models.emplace_back();
+        data.models.back().name = model == 0 ? "moby_0.glb" : "moby_1.glb";
         data.models.back().primitives.push_back({unsigned(model * 3), 3});
     }
     data.materials.resize(1);
@@ -227,6 +229,14 @@ void rendered_surface() {
     scene::LevelScene scene;
     lighting::use_scene_lighting(scene);
     std::string error;
+    // Wet coating is selected by material type; keep this fixture's dry diffuse reference neutral.
+    const auto catalog = materials::parse_catalog(
+        R"({"version":1,"overrides":[{"id":"wet-hero","match":{"model":"moby_0.glb"},"set":{"type":"lit-wet-fur","surface":{"reflectivity":0},"reflection":{"strength":0}}}]})"
+    );
+    CHECK(catalog);
+    const auto assets = scene::identify_materials(data, *catalog);
+    CHECK(assets);
+    data.material_bindings = scene::resolve_materials(*assets, *catalog).value();
     const bool uploaded = scene.upload(data, renderer.textures(), error);
     if (!uploaded) {
         std::printf("rendered wetness: %s\n", error.c_str());
@@ -281,13 +291,11 @@ void rendered_surface() {
     auto dry = draw();
     CHECK(wet[at] > 0 && wet[at] < dry[at]);
     CHECK(wet[at + 3] == dry[at + 3]);  // RGB-only coating; alpha is unchanged.
-    auto material = enhanced::WetnessMaterialSettings{};
-    material.diffuse_scale = 1;
-    material.specular_strength = 0;
-    enhanced::set_wetness_material_settings(material);
+    auto& materials = lighting::scene_lighting(scene)->materials();
+    CHECK(materials.patch(0, {{"wetness.diffuse_scale", 1.}, {"wetness.specular_strength", 0.}}));
     input.enhanced_water = true;
     CHECK(draw() == dry);
-    enhanced::set_wetness_material_settings({});
+    materials.reset();
     // A different model with the same palette must never inherit the blue debug mask.
     input.enhanced_water = true;
     ++input.frame;
