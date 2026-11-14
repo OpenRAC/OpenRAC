@@ -80,53 +80,39 @@ useful.
 
 ## Picture formats
 
-A pack holds only formats that work the same on every computer, phone and GPU.
+Use only formats that work on every GPU:
 
-| Format | Use it for | Notes |
-|---|---|---|
-| `.png` | anything | Works in every version of the port. |
-| `.ktx2` | large packs (upscaled worlds) | Basis Universal, UASTC or ETC1S, with or without Zstandard: a quarter of the graphics memory. Plain RGBA8 works too. |
-| `.svg` | sharp, simple art: HUD icons, text, logos, menu parts | Drawn when the texture loads. |
+| Format | Use it for |
+|---|---|
+| `.png` | Anything. Works in every version of the port. |
+| `.ktx2` | Big packs. Basis Universal (UASTC or ETC1S), or plain RGBA8. |
+| `.svg` | Sharp, simple art: HUD icons, text, logos, menu parts. |
 
-**KTX2.** A Basis Universal KTX2 (UASTC or ETC1S) is turned, when it loads,
-into the compressed format the GPU reads: BC7 on most desktop GPUs, else ASTC
-4x4 (phones, Apple). That takes a quarter of the graphics memory of a PNG.
-Where the GPU reads neither (and for now on the Metal renderer), or the picture's
-sides are not multiples of 4, it is turned into RGBA8 instead, as a PNG is; the
-log's `graphics: texture pack KTX2 pictures kept as` line says which. Plain
-RGBA8 KTX2 files are always RGBA8.
+**KTX2.** The game turns a Basis KTX2 into what the GPU reads: BC7, else
+ASTC 4x4, else RGBA8. BC7 and ASTC use a quarter of the GPU memory of a PNG.
+Metal uses RGBA8 for now. The log line `texture pack KTX2 pictures kept as`
+tells you which one is used.
 
-World and model textures are drawn with mip levels, and a GPU cannot make
-those from compressed data. So make their files with mip levels (`-mipmap`
-below): one without them is kept as RGBA8, and the log says so once. HUD and
-menu textures need no mip levels.
-
-Formats that only some GPUs read are refused: BC1 to BC7 (desktops), ASTC and
-ETC2 (phones). Use UASTC for the best picture and ETC1S for the smallest file.
-A KTX2 may be up to 8192 texels a side and 4096 x 4096 in all. Make one with
-Basis Universal's `basisu` tool, for example:
+World and model textures need mip levels in the file, or they stay RGBA8.
+Make files like this:
 
 ```
 basisu -ktx2 -uastc -mipmap 0123456789abcdef.png
 ```
 
-**SVG.** The game draws it at four times the texture's size (the longest side
-at most 4096) and stretches it to the texture's shape. Give it the texture's
-shape (a `viewBox` with the same width to height ratio) to keep it sharp. Only
-shapes, fills, strokes and gradients are drawn. Turn text into paths (in
-Inkscape: Path, Object to Path). Images, fonts, links to other files and
-scripts are not read, and the launcher refuses an SVG that has them. An SVG may
-be up to 4 MB. It does not suit photos or painted textures: use a PNG or KTX2.
+UASTC looks best; ETC1S makes the smallest file. A KTX2 may be up to 8192
+texels a side and 4096 x 4096 in all. BC1-BC7, ASTC and ETC2 files are refused
+because only some GPUs read them.
 
-**One texture, several formats.** A pack may have a `.svg`, a `.ktx2` and a
-`.png` for one texture, in any folders. The game uses the SVG first, then the
-KTX2, then the PNG. When one cannot be read, the log says so and the next is
-used. Older versions of the port read only PNGs, so a PNG beside an SVG or KTX2
-keeps a pack working there too.
+**SVG.** The game draws it at four times the texture's size (at most 4096 a
+side). Give it the texture's shape (the same `viewBox` ratio). Only shapes,
+fills, strokes and gradients are drawn, so turn text into paths. Images,
+fonts, links and scripts are not read, and the launcher refuses an SVG with
+them. Up to 4 MB. Not for photos or painted textures.
 
-What to ship: PNG or KTX2 (UASTC) for world and model textures, SVG for sharp
-2D art you drew yourself, and a PNG beside each SVG or KTX2 if players may
-still have an older version.
+**Several formats for one texture.** The game tries SVG, then KTX2, then PNG.
+If one cannot be read, it uses the next. Keep a PNG beside an SVG or KTX2 so
+older versions of the port still work.
 
 ## A pack's .zip
 
@@ -142,10 +128,9 @@ sit in a single folder of their own. It refuses one whose manifest names
 another game, a file outside the `.zip`'s folder, a link, a picture not named
 by a texture (except an animation's frames, in a folder named by a texture),
 two pictures of one format for one texture, an animation and a still picture
-for one texture, a file that is not the picture its name says, a KTX2 in a
-format only some GPUs read, and an SVG with a script or a link to another file.
-Other files (a readme) are left out. Adding a texture to your pack replaces all
-of its pictures there.
+for one texture, a file that is not the picture its name says, a KTX2 that only
+some GPUs read, and an SVG with a script or a link. Other files (a readme) are
+left out. Adding a texture replaces all of its pictures in your pack.
 
 ## PCSX2 packs
 
