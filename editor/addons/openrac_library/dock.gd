@@ -23,8 +23,11 @@ const IMPORT_COLOUR: Color = Color(0.55, 0.78, 1.0)
 ## The rest: its look only.
 const LOOK_COLOUR: Color = Color(0.92, 0.92, 0.92)
 
-## Previews made at most this many at once, the rest as the list is scrolled to.
+## Previews made at most this many a frame, the rest in later frames.
 const PREVIEWS_PER_FRAME: int = 2
+
+## Previews kept on disk, so the dock shows them at once next time.
+const PREVIEW_CACHE: String = "user://asset_previews"
 
 var plugin: EditorPlugin
 
@@ -48,6 +51,9 @@ var preview_queue: Array = []
 
 ## Set by plugin.gd while it brings files in.
 var importing: bool = false
+
+## Shown until an asset's preview is made, so the list is a grid of pictures from the start.
+var placeholder: Texture2D
 
 var search: LineEdit
 var filter: OptionButton
@@ -186,6 +192,7 @@ func _notification(what: int) -> void:
 	add_button.icon = get_theme_icon("Add", "EditorIcons")
 	own_button.icon = get_theme_icon("Script", "EditorIcons")
 	as_button.icon = get_theme_icon("Skeleton3D", "EditorIcons")
+	placeholder = get_theme_icon("MeshInstance3D", "EditorIcons")
 
 
 ## Shows what the selected asset is and which ways of adding it work here, and why not the others.
@@ -396,10 +403,15 @@ func refill() -> void:
 		list.set_item_metadata(index, shown.size())
 		shown.append(asset)
 
-		if previews.has(asset["model"]):
-			list.set_item_icon(index, previews[asset["model"]])
-		elif preview_queue.size() < 200:
-			preview_queue.append(asset["model"])
+		var cached: Texture2D = cached_preview(asset["model"])
+
+		if cached != null:
+			list.set_item_icon(index, cached)
+		else:
+			list.set_item_icon(index, placeholder)
+
+			if not preview_queue.has(asset["model"]):
+				preview_queue.append(asset["model"])
 
 
 func is_here(level: Dictionary) -> bool:
@@ -464,7 +476,7 @@ func add(index: int) -> void:
 ## A preview of the model: its first mesh, read straight from its file (it need not be in this
 ## project), drawn by the editor's mesh previewer.
 func make_preview(model: String) -> void:
-	if previews.has(model):
+	if cached_preview(model) != null:
 		return
 
 	# Its textures go in as data, so the editor does not try to import files outside the project.
@@ -494,9 +506,37 @@ func handle_preview(_path: String, preview: Texture2D, _thumbnail: Texture2D, mo
 		return
 
 	previews[model] = preview
+	DirAccess.make_dir_recursive_absolute(PREVIEW_CACHE)
+	preview.get_image().save_png(cache_path(model))
 
 	for index in range(list.item_count):
 		var asset: Dictionary = asset_at(index)
 
 		if not asset.is_empty() and asset["model"] == model:
 			list.set_item_icon(index, preview)
+
+
+## The preview of MODEL made before, in memory or on disk, or null.
+func cached_preview(model: String) -> Texture2D:
+	if previews.has(model):
+		return previews[model]
+
+	var path: String = cache_path(model)
+
+	if not FileAccess.file_exists(path):
+		return null
+
+	var image := Image.load_from_file(path)
+
+	if image == null or image.is_empty():
+		return null
+
+	previews[model] = ImageTexture.create_from_image(image)
+	return previews[model]
+
+
+## The cache file of MODEL's preview: named by its path and when it last changed, so a model
+## extracted again gets a new one.
+func cache_path(model: String) -> String:
+	var key: String = "%s:%d" % [model, FileAccess.get_modified_time(model)]
+	return PREVIEW_CACHE.path_join(key.md5_text() + ".png")

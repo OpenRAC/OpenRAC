@@ -18,11 +18,14 @@ below every level's program end.
 """
 
 from dataclasses import dataclass, field
+import math
 import os
 import struct
 from pathlib import Path
 
 import gameplay as gp
+import groups as group_words
+import positions
 from mobys import FIELDS, RECORD, moby_instances
 from pack import scene_mobys
 
@@ -55,6 +58,13 @@ SET_PIECES = {
 # The engine's 224 moby class slots (resident_class_id_by_slot) less two: after the level's classes
 # and the imports, the texture bank registers the hero's two armor classes, with no check.
 CLASS_SLOTS = 224 - 2
+# The imported classes the port registers in one level at most (FOREIGN_MAX in foreign_class.c).
+FOREIGN_MAX = 48
+
+
+def room(own: int) -> int:
+    """The classes a level with OWN classes of its own can import."""
+    return max(min(CLASS_SLOTS - own, FOREIGN_MAX), 0)
 
 
 def wanted(text: str) -> tuple[dict[int, int], list[str]]:
@@ -109,7 +119,7 @@ def levels_with_room(disc, survey: dict, classes: set[int], here: int) -> list[i
             except Exception:   # a level that cannot be read is just not named
                 _class_tables[key] = None
         own = _class_tables[key]
-        if own is not None and len(classes - own) <= CLASS_SLOTS - len(own):
+        if own is not None and len(classes - own) <= room(len(own)):
             out.append(info["id"])
     return out
 
@@ -150,7 +160,6 @@ def donor_at(level: int, gameplay: bytes, index: int) -> Donor:
                 struct.pack_into("<i", block, where, -1)
         # The words that hold a moby group's number (groups.py, from the game's code): the group's
         # mobys come with it, and pack.py gives the copy a group of its own of their copies.
-        import groups as group_words
         words = group_words.fields(record["class_id"], level)
         groups = gp.groups(gameplay) if words else []
         for where, size in words:
@@ -253,14 +262,12 @@ class Move:
     @staticmethod
     def between(there: dict, here: dict) -> "Move":
         """From the moby THERE (a record of its own level) to HERE (its record in this level)."""
-        import math
         turn = here["rz"] - there["rz"]
         c, s = math.cos(turn), math.sin(turn)
         x, y = there["x"] * c - there["y"] * s, there["x"] * s + there["y"] * c
         return Move(turn, here["x"] - x, here["y"] - y, here["z"] - there["z"])
 
     def vector(self, x: float, y: float, z: float) -> tuple[float, float, float]:
-        import math
         c, s = math.cos(self.turn), math.sin(self.turn)
         return x * c - y * s, x * s + y * c, z
 
@@ -272,7 +279,6 @@ class Move:
 def moved_pvar(donor: "Donor", move: "Move | None") -> bytes:
     """DONOR's pvar block with the words that hold a place in the world (positions.py) moved by
     MOVE, as its paths are: a lift's floors stay where they were around it."""
-    import positions
     block = bytearray(donor.pvar)
     words = dict(positions.fields(donor.class_id, donor.level)) if move is not None else {}
     done = set()
@@ -299,7 +305,6 @@ def moved_pvar(donor: "Donor", move: "Move | None") -> bytes:
 def moved_shape(entry: bytes, move: Move) -> bytes:
     """A volume (its axes at +0, its place at +0x30, the axes' inverse at +0x40, its angles at
     +0x70) where MOVE puts it: the axes turned, the inverse turned with them."""
-    import math
     out = bytearray(entry)
     f = list(struct.unpack_from("<32f", entry, 0))
     for row in range(3):

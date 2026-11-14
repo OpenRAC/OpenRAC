@@ -19,6 +19,14 @@ FOREIGN = ('[ext_resource type="PackedScene" path="res://library/rac1/ntsc/level
 
 
 class ForeignClasses(unittest.TestCase):
+    def test_room_is_the_free_slots_up_to_what_the_port_takes(self):
+        self.assertEqual(foreign_classes.room(125), foreign_classes.FOREIGN_MAX)   # Veldin: 97 free
+        self.assertEqual(foreign_classes.room(220), 2)                              # Gemlik
+        self.assertEqual(foreign_classes.room(230), 0)
+
+    def test_level_list_joins_runs(self):
+        self.assertEqual(foreign_classes.level_list([0, 2, 4, 5, 6, 8, 9]), "00, 02, 04-06, 08, 09")
+
     def test_the_partial_switch_is_read_from_the_scene(self):
         text = ('[gd_scene format=3]\n\n[node name="Game" type="Node3D"]\n\n'
                 '[node name="Mobys" type="Node3D" parent="Game"]\n\n'

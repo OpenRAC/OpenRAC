@@ -967,12 +967,13 @@ def pack(disc, survey: dict, project: Path, out: Path,
                         spawned.add(cid)
                     except ValueError:
                         pass
-        # The level has 224 class slots; what its own classes leave is all the imports get. A
+        # The level has 224 class slots; what its own classes leave is all the imports get (and
+        # the port takes 48 at most). A
         # placed class whose classes (it, its links' and what it makes) do not all fit is not
         # imported, unless the scene lets it come without what does not fit (rc1_foreign_partial):
         # then its own and its links' must fit, and what it makes fills what is left, nearest
         # first; a class left out is not made (the game's path for a class with no slot).
-        room = max(foreign_classes.CLASS_SLOTS - len(own), 0) if blobs else 0
+        room = foreign_classes.room(len(own)) if blobs else 0
         taken: set[int] = set()
         foreign_notes: list[str] = []
         lenient = foreign_classes.partial(text)
