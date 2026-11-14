@@ -95,9 +95,9 @@ func _init() -> void:
 	# What each colour means, one line each.
 	var legend := VBoxContainer.new()
 	legend.add_theme_constant_override("separation", 0)
-	for entry in [[FULL_COLOUR, "This level has it: the game's own, with its logic."],
-			[IMPORT_COLOUR, "Another level's: can come with its own logic."],
-			[LOOK_COLOUR, "Its look only (static scenery), or on a class's logic."]]:
+	for entry in [[FULL_COLOUR, "In this level: works as in the game."],
+			[IMPORT_COLOUR, "From another level: can bring its logic."],
+			[LOOK_COLOUR, "Look only, or on another class's logic."]]:
 		var line := Label.new()
 		line.text = "\u25A0 " + entry[1]
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -194,7 +194,7 @@ func show_selected() -> void:
 	var asset: Dictionary = asset_at(selected[0]) if not selected.is_empty() else {}
 
 	if asset.is_empty():
-		details.text = "[color=#%s]Pick an asset to see what it becomes here.[/color]" % LOOK_COLOUR.darkened(0.3).to_html(false)
+		details.text = "[color=#%s]Pick an asset.[/color]" % LOOK_COLOUR.darkened(0.3).to_html(false)
 		for button in [add_button, own_button, as_button]:
 			button.disabled = true
 			button.tooltip_text = "Pick an asset first."
@@ -212,14 +212,14 @@ func show_selected() -> void:
 	add_button.text = "Add in front of the camera" + (" (with its logic)" if status == Library.FULL else " (look only)")
 	add_button.tooltip_text = ("Open a level scene first." if here.is_empty() else
 		"The game's own %s of this level, with its logic." % asset["kind"].trim_suffix("s") if status == Library.FULL else
-		"Static scenery under Game/StaticAssets: its look, no logic. Drag it into the 3D view to place it where you drop it.")
+		"Static scenery: look only, no logic. Or drag it into the 3D view.")
 	own_button.disabled = not refusal.is_empty()
 	own_button.tooltip_text = (refusal if not refusal.is_empty() else
-		"Its own class and logic, run from its level's program, with its level's paths, zones and the "
-		+ "mobys it needs. Pack, then play. Each costs about half a millisecond a frame.")
+		"Brings its class and logic from its level, with the paths, zones and mobys it needs. "
+		+ "Pack, then play. Costs about 0.5 ms a frame each.")
 	as_button.disabled = not can_add_as(asset)
-	as_button.tooltip_text = ("Pick a class of this level: the game runs that class's logic and draws this model, animated."
-		if can_add_as(asset) else "Only for a moby this level does not have, in a level with mobys.")
+	as_button.tooltip_text = ("Pick a class of this level: it runs that class's logic and looks like this model."
+		if can_add_as(asset) else "Only for a moby this level lacks, in a level with mobys.")
 
 
 func _ready() -> void:
@@ -410,13 +410,13 @@ func is_here(level: Dictionary) -> bool:
 func tooltip(asset: Dictionary, status: String) -> String:
 	var where: String = "%s %s, level %02d%s" % [asset["game"], asset["disc"], int(asset["level"]),
 		"" if String(asset["level_name"]).is_empty() else " (%s)" % asset["level_name"]]
-	var does: String = ("This level has the class: it is placed as the game's own %s, with its logic." % asset["kind"].trim_suffix("s")
+	var does: String = ("In this level: placed as the game's own %s, with its logic." % asset["kind"].trim_suffix("s")
 		if status == Library.FULL else
-		"Placed as static scenery (Game/StaticAssets): its look, no logic; collision with rc1_static_collision."
-		+ ("\nOr \"Add with its own logic\": its class comes too, and runs as in its level."
+		"Placed as static scenery: look only, no logic."
+		+ ("\nOr \"Add with its own logic\": brings its class from its level."
 			if Library.import_refusal(asset, here).is_empty() else "")
-		+ ("\nOr \"Add on a class's logic\": animated, it behaves as a class of this level." if asset["kind"] == "mobys" else ""))
-	return "%s, class %d\nFrom %s\n%s\nDrag it into the 3D view, or double-click to add it in front of the camera." % [
+		+ ("\nOr \"Add on a class's logic\": acts as a class of this level." if asset["kind"] == "mobys" else ""))
+	return "%s, class %d\nFrom %s\n%s\nDrag it into the 3D view, or double-click to add it." % [
 		asset["name"], int(asset["class"]), where, does]
 
 

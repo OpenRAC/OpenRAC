@@ -362,8 +362,8 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
                 instances.append(copies)
                 if foreign_placed is not None:
                     foreign_placed.append(copies)
-                changes.append(f"{node['name']}: added, class {node['class_id']} from level {donor.level:02}"
-                               + (f", with {len(group) - 1} moby(s) it names there" if len(group) > 1 else ""))
+                changes.append(f"{node['name']}: added class {node['class_id']} from level {donor.level:02}"
+                               + (f", with {len(group) - 1} linked moby" + "s" * (len(group) > 2) if len(group) > 1 else ""))
                 continue
             if model is None and node["meta"].get("foreign_level") is not None:
                 continue    # an imported class not packed: the pack has said why (foreign_problems)
@@ -540,7 +540,7 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
             number = free.pop()
             group_lists[number] = members
             return number
-        problems.append(f"no moby group left (the game has {GROUPS_MAX}): an imported moby's group is left out")
+        problems.append(f"no free moby group (the game has {GROUPS_MAX}); an imported moby gets none")
         return -1
 
     # An imported moby's links name the mobys it brought along (foreign_classes.linked).
@@ -698,10 +698,10 @@ def check_cutscene(doc: dict, source: Path, level_id: int | None = None, spawn_i
         """An id, a class or a moby as a set can hold it (anything else names nothing)."""
         return value if isinstance(value, (int, str)) and not isinstance(value, bool) else None
     if level_id is not None and isinstance(doc.get("level"), int) and doc["level"] != level_id:
-        errors.append(f"it is for level {doc['level']}, not this level {level_id}")
+        errors.append(f"made for level {doc['level']}, not level {level_id}")
     length = doc.get("length")
     if not isinstance(length, int) or isinstance(length, bool) or not 1 <= length <= CUTSCENE_MAX_TICKS:
-        errors.append(f"its length {length!r} is not 1 to {CUTSCENE_MAX_TICKS} ticks")
+        errors.append(f"length {length!r} must be 1 to {CUTSCENE_MAX_TICKS} ticks")
     actors = [a for a in items(doc.get("actors")) if isinstance(a, dict)]
     ids = [name_of(a.get("id")) for a in actors]
     for actor_id in sorted({i for i in ids if ids.count(i) > 1}, key=str):
@@ -717,7 +717,7 @@ def check_cutscene(doc: dict, source: Path, level_id: int | None = None, spawn_i
         except (OSError, ValueError):   # a NUL in it, a name too long
             there = False
         if not there:
-            warnings.append(f"{what}: {path} is not beside it")
+            warnings.append(f"{what}: {path} not found next to it")
             return None
         return found
 
@@ -733,9 +733,9 @@ def check_cutscene(doc: dict, source: Path, level_id: int | None = None, spawn_i
         if "class" in src:
             have = classes() if callable(classes) else classes
             if have is not None and name_of(src["class"]) not in have:
-                errors.append(f"actor {name!r} is a moby of class {src['class']}, which this level does not load")
+                errors.append(f"actor {name!r}: this level does not load class {src['class']}")
         if "spawn_id" in src and spawn_ids is not None and name_of(src["spawn_id"]) not in spawn_ids and "class" not in src:
-            warnings.append(f"actor {name!r} is the moby {src['spawn_id']}, which is not in this level")
+            warnings.append(f"actor {name!r}: moby {src['spawn_id']} is not in this level")
         joints = set()
         for layer in items(a.get("layers")):
             if not isinstance(layer, dict):
@@ -744,10 +744,10 @@ def check_cutscene(doc: dict, source: Path, level_id: int | None = None, spawn_i
             joints.update(listed)
             frames = file_there(layer.get("frames"), f"actor {name!r}'s layer {layer.get('name')!r}")
             if frames is not None and listed and frames.stat().st_size % (16 * len(listed)) != 0:
-                warnings.append(f"actor {name!r}'s layer {layer.get('name')!r}: its frames are not "
-                                f"{len(listed)} turns a tick")
+                warnings.append(f"actor {name!r}'s layer {layer.get('name')!r}: frames are not "
+                                f"{len(listed)} rotations per tick")
         if len(joints) > CUTSCENE_MAX_JOINTS:
-            errors.append(f"actor {name!r} turns {len(joints)} joints, more than {CUTSCENE_MAX_JOINTS}")
+            errors.append(f"actor {name!r} moves {len(joints)} joints; the limit is {CUTSCENE_MAX_JOINTS}")
         pose = a.get("pose")
         if isinstance(pose, dict):
             count = pose.get("joints")
@@ -755,43 +755,43 @@ def check_cutscene(doc: dict, source: Path, level_id: int | None = None, spawn_i
             if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
                 warnings.append(f"actor {name!r}'s pose has no joint count")
             elif frames is not None and frames.stat().st_size % (20 * count) != 0:
-                warnings.append(f"actor {name!r}'s pose: its frames are not {count} joints a frame")
+                warnings.append(f"actor {name!r}'s pose: frames are not {count} joints per frame")
         for ride in items(a.get("ride")):
             if isinstance(ride, dict) and "actor" in ride and name_of(ride["actor"]) not in known:
-                warnings.append(f"actor {name!r} rides on {ride['actor']!r}, who is not an actor")
+                warnings.append(f"actor {name!r} rides on unknown actor {ride['actor']!r}")
         for key in items(a.get("look_at")):
             target = key.get("target") if isinstance(key, dict) else None
             if isinstance(target, dict) and "actor" in target and name_of(target["actor"]) not in known:
-                warnings.append(f"actor {name!r} looks at {target['actor']!r}, who is not an actor")
+                warnings.append(f"actor {name!r} looks at unknown actor {target['actor']!r}")
     if figures > CUTSCENE_MAX_FIGURES:
-        errors.append(f"{figures} figures, more than the port's {CUTSCENE_MAX_FIGURES}")
+        errors.append(f"{figures} figures; the limit is {CUTSCENE_MAX_FIGURES}")
     if props > CUTSCENE_MAX_PROPS:
-        errors.append(f"{props} meshes, more than the port's {CUTSCENE_MAX_PROPS}")
+        errors.append(f"{props} meshes; the limit is {CUTSCENE_MAX_PROPS}")
     for key in items(part(doc.get("camera")).get("keys")):
         for end in ("eye", "look_at"):
             point = key.get(end) if isinstance(key, dict) else None
             if isinstance(point, dict) and "actor" in point and name_of(point["actor"]) not in known:
-                warnings.append(f"the camera's {end} at tick {key.get('t')} is on {point['actor']!r}, who is not an actor")
+                warnings.append(f"camera {end} at tick {key.get('t')}: unknown actor {point['actor']!r}")
     sound_bytes = 0
     for sound in items(doc.get("sounds")):
         if not isinstance(sound, dict):
             continue
         if sound.get("actor") not in (None, "hero") and name_of(sound["actor"]) not in known:
-            warnings.append(f"a sound at tick {sound.get('t')} is on {sound['actor']!r}, who is not an actor")
+            warnings.append(f"sound at tick {sound.get('t')}: unknown actor {sound['actor']!r}")
         files = sound.get("file")
         for path in files.values() if isinstance(files, dict) else [files]:
             found = file_there(path, f"the sound at tick {sound.get('t')}")
             sound_bytes += found.stat().st_size if found is not None else 0
     if sound_bytes > CUTSCENE_MAX_SOUND_BYTES:
-        errors.append(f"its sounds are {sound_bytes >> 20} MiB, more than {CUTSCENE_MAX_SOUND_BYTES >> 20} MiB")
+        errors.append(f"sounds take {sound_bytes >> 20} MiB; the limit is {CUTSCENE_MAX_SOUND_BYTES >> 20} MiB")
     trigger = part(doc.get("trigger"))
     if trigger.get("kind") in ("talk", "pickup") and spawn_ids is not None and name_of(trigger.get("spawn_id")) not in spawn_ids:
-        warnings.append(f"its {trigger['kind']} trigger is the moby {trigger.get('spawn_id')}, which is not in this level")
+        warnings.append(f"{trigger['kind']} trigger: moby {trigger.get('spawn_id')} is not in this level")
     for event in items(doc.get("events")):
         if (isinstance(event, dict) and event.get("do") in ("moby_hide", "moby_kill") and spawn_ids is not None
                 and name_of(event.get("spawn_id")) not in spawn_ids):
-            warnings.append(f"the {event['do']} at tick {event.get('t')} is the moby {event.get('spawn_id')}, "
-                            "which is not in this level")
+            warnings.append(f"{event['do']} at tick {event.get('t')}: moby {event.get('spawn_id')} "
+                            "is not in this level")
     return errors, warnings
 
 
@@ -900,26 +900,26 @@ def pack(disc, survey: dict, project: Path, out: Path,
         for class_id, there in wanted.items():
             try:
                 if available_classes is not None and class_id in available_classes:
-                    raise ValueError(f"class {class_id} is this level's own; it needs no rc1_foreign_level")
+                    raise ValueError(f"class {class_id}: this level has it already; remove rc1_foreign_level")
                 if disc.version.key not in foreign_classes.DISCS:
-                    raise ValueError(f"class {class_id}: imported classes run on Ratchet & Clank's discs only")
+                    raise ValueError(f"class {class_id}: imports need a Ratchet & Clank 1 disc")
                 foreign_classes.check(info["id"], there, class_id)
                 if there not in sources:     # each level read once, for all its classes
                     source = next((i for i in survey["levels"] if i["id"] == there), None)
                     if source is None:
-                        raise ValueError(f"class {class_id}: this disc has no level {there:02}")
+                        raise ValueError(f"class {class_id}: the disc has no level {there:02}")
                     source_place = source["ranges"][disc.version.gameplay]
                     sources[there] = (decoded(disc.sectors(source_place["lba"], source_place["sectors"])),
                                       load_level(disc, source))
                 source_gameplay, source_level = sources[there]
                 found = foreign_classes.donor(there, source_gameplay, class_id)
                 if found is None:
-                    raise ValueError(f"class {class_id}: level {there:02} places no moby of it to copy")
+                    raise ValueError(f"class {class_id}: level {there:02} has no moby of it to copy")
                 blobs[class_id] = (there, foreign_classes.class_blob(source_level, class_id))
                 donors[class_id] = [found]
                 owner[class_id] = class_id
             except (ValueError, FormatError) as error:
-                foreign_problems.append(f"imported {error}; its mobys are not packed")
+                foreign_problems.append(str(error))
         # What each one's links name in its level comes with it: a class this level has runs as
         # its own, one it lacks is imported from that level too (none the scene imports elsewhere).
         own = available_classes if available_classes is not None else \
@@ -988,11 +988,9 @@ def pack(disc, survey: dict, project: Path, out: Path,
             del donors[class_id]
             elsewhere = foreign_classes.levels_with_room(disc, survey, set(needs) | {class_id}, info["id"])
             foreign_problems.append(
-                f"imported class {class_id} needs {len(needs)} more moby classes and only "
-                f"{room - len(taken)} fit in this level; its mobys are not packed"
-                + (f". They fit in level(s) {', '.join(f'{lv:02}' for lv in elsewhere)}" if elsewhere else "")
-                + ("" if class_id in lenient else
-                   "; or switch on \"Import without what does not fit\" (rc1_foreign_partial)"))
+                f"class {class_id}: needs {len(needs)} class slots, this level has {room - len(taken)} free."
+                + (f" It fits in levels {foreign_classes.level_list(elsewhere)}." if elsewhere else "")
+                + ("" if class_id in lenient else " Or turn on \"Import without what does not fit\"."))
         for class_id in [c for c in donors if c in lenient]:
             makes = [c for c in blobs if owner.get(c) == class_id and c in spawned and c not in taken]
             fit = makes[:max(room - len(taken), 0)]
@@ -1000,8 +998,8 @@ def pack(disc, survey: dict, project: Path, out: Path,
             if len(fit) < len(makes):
                 left = makes[len(fit):]
                 foreign_notes.append(
-                    f"imported class {class_id}: {len(left)} classes it can make do not fit in this "
-                    f"level's class slots and will not appear: {', '.join(map(str, left))}")
+                    f"class {class_id}: {len(left)} classes it makes do not fit and will not appear "
+                    f"({', '.join(map(str, left))})")
         for cid in [c for c in blobs if c not in taken]:
             del blobs[cid]
         names: list[str] = []

@@ -74,12 +74,12 @@ def write_behaviours(text_of_scene: str, out: Path, spawn_ids: dict[str, int]) -
         name = node["name"]
         spawn_id = spawn_ids.get(name, -1)
         if not 0 <= spawn_id < 0xFFFF:
-            problems.append(f"{name}: has no spawn id, so the mod cannot find it; it keeps its own logic")
+            problems.append(f"{name}: no spawn id, so its behaviour is not used")
             continue
         try:
             entries.append({"spawn_id": spawn_id, **entry(node)})
         except ValueError as error:
-            problems.append(f"{name}: its behaviour: {error}; it keeps its own logic")
+            problems.append(f"{name}: behaviour not used: {error}")
             continue
         changes.append(f"{name}: behaviour {entries[-1]['preset']}")
     if entries:

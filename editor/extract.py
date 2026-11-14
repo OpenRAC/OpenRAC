@@ -603,8 +603,8 @@ def main() -> None:
     packing.add_argument("--anywhere", action="store_true",
                          help="OUT may be outside this repository (the installed launcher's data folder)")
     packing.add_argument("--states", type=Path, metavar="FILE",
-                         help="the port's states program: the packed levels' moby start states are worked "
-                              "out again for the editor (moby_states.py), with --data and --levels")
+                         help="the port's states program: refresh the packed levels' moby start states "
+                              "(moby_states.py); needs --data and --levels")
     packing.add_argument("--data", type=Path, help="the port's game data, for --states")
     packing.add_argument("--levels", type=Path, help="the port's levels, for --states")
     dump = commands.add_parser("raw")
@@ -699,7 +699,7 @@ def main() -> None:
                     for line in moby_states.after_pack(program, args.data, args.levels, dest, args.project, moby_names):
                         print(line)
                 elif program is not None:
-                    print(f"moby start states not worked out: no states program at {args.states}, or no --data and --levels")
+                    print(f"moby start states skipped: no states program at {args.states}, or no --data and --levels")
                 say_output(dest)
             else:
                 dest = publish(args.out, lambda out: raw(disc, survey, args.level[0], out))

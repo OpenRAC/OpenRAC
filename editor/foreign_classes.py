@@ -48,8 +48,8 @@ class Donor:
 # Classes that run only inside their level's own set piece: what drives them there does not come
 # along, and without it the game stops (found by placing every class in another level).
 SET_PIECES = {
-    (1843, 17): "a ship of Drek's fleet gets its path from Drek's fleet turret (class 347): place the turret, which brings its ships",
-    (1319, 11): "a Blarg ship gets its path from the oil tanker's front (class 1264): place the tanker, which brings its ships",
+    (1843, 17): "this ship gets its path from the fleet turret (class 347); place the turret, it brings its ships",
+    (1319, 11): "this ship gets its path from the oil tanker (class 1264); place the tanker, it brings its ships",
 }
 
 # The engine's 224 moby class slots (resident_class_id_by_slot) less two: after the level's classes
@@ -65,7 +65,7 @@ def wanted(text: str) -> tuple[dict[int, int], list[str]]:
         if level is None:
             continue
         if node["class_id"] is None:
-            problems.append(f"{node['name']}: rc1_foreign_level on a moby with no class scene; not imported")
+            problems.append(f"{node['name']}: has rc1_foreign_level but no class scene")
             continue
         try:
             level = int(str(level).strip().strip('"'))
@@ -73,12 +73,26 @@ def wanted(text: str) -> tuple[dict[int, int], list[str]]:
             problems.append(f"{node['name']}: rc1_foreign_level must be a level number, not {level!r}")
             continue
         if out.setdefault(node["class_id"], level) != level:
-            problems.append(f"{node['name']}: class {node['class_id']} is already imported from level "
-                            f"{out[node['class_id']]:02}; a class comes from one level, so it is too")
+            problems.append(f"{node['name']}: class {node['class_id']} already comes from level "
+                            f"{out[node['class_id']]:02}; a class can come from one level only")
     return out, problems
 
 
 _class_tables: dict = {}
+
+
+def level_list(levels: list[int]) -> str:
+    """LEVELS short, with runs joined: [0, 2, 4, 5, 6] -> "00, 02, 04-06"."""
+    out, i = [], 0
+    while i < len(levels):
+        j = i
+        while j + 1 < len(levels) and levels[j + 1] == levels[j] + 1:
+            j += 1
+        out.append(f"{levels[i]:02}" if j - i < 2 else f"{levels[i]:02}-{levels[j]:02}")
+        if j - i == 1:
+            out.append(f"{levels[j]:02}")
+        i = j + 1
+    return ", ".join(out)
 
 
 def levels_with_room(disc, survey: dict, classes: set[int], here: int) -> list[int]:
@@ -188,11 +202,11 @@ def class_blob(level, class_id: int) -> bytes:
 def check(here: int, there: int, class_id: int) -> None:
     """ValueError when CLASS_ID cannot come from level THERE into level HERE."""
     if (class_id, there) in SET_PIECES and not os.environ.get("OPENRAC_PACK_SET_PIECES"):   # (testing them)
-        raise ValueError(f"class {class_id} runs only in level {there:02}: {SET_PIECES[(class_id, there)]}")
+        raise ValueError(f"class {class_id}: {SET_PIECES[(class_id, there)]}")
     if not 0 <= there < LEVELS:
         raise ValueError(f"class {class_id}: there is no level {there}")
     if there == here:
-        raise ValueError(f"class {class_id}: rc1_foreign_level is this level")
+        raise ValueError(f"class {class_id}: it is already from this level")
 
 
 def write(out: Path, blobs: dict[int, tuple[int, bytes]]) -> list[str]:
@@ -424,4 +438,4 @@ def write_worlds(out: Path, placed: list[tuple[list[tuple[dict, Donor]], bytes]]
     out.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"ORWD" + struct.pack("<III", 1, len(placed), len(bindings))
                      + b"".join(heads) + b"".join(bindings) + b"".join(sections))
-    return [f"{len(placed)} imported moby(s): their own levels' tables, {total >> 10} KB"]
+    return [f"{len(placed)} imported mobys bring {total >> 10} KB of their levels' data"]

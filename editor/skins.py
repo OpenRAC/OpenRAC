@@ -63,7 +63,7 @@ def write_skins(project: Path, text: str, out: Path, spawn_ids: dict[str, int]) 
         name = node["name"]
         spawn_id = spawn_ids.get(name, -1)
         if not 0 <= spawn_id < 0xFFFF:
-            problems.append(f"{name}: has no spawn id, so the game cannot tell it apart; drawn as its class")
+            problems.append(f"{name}: no spawn id, so its skin is not used")
             continue
         try:
             source = res_path(project, node["meta"]["skin"])
@@ -85,13 +85,13 @@ def write_skins(project: Path, text: str, out: Path, spawn_ids: dict[str, int]) 
                 written[source] = f"skins/{asset_id}/model.glb"
             scale = float(node["meta"].get("skin_scale", 1.0))
             if not 0.0 < scale < 1000.0:
-                raise ValueError(f"rc1_skin_scale {scale} is not a usable scale")
+                raise ValueError(f"rc1_skin_scale {scale} must be above 0 and below 1000")
             entries.append({"spawn_id": spawn_id, "model": written[source], "scale": scale,
                             "animations": numbers(node["meta"].get("skin_animations"))})
             origin = str(node["meta"].get("skin_asset", source.name)).strip('"')
             changes.append(f"{name}: drawn as {origin}")
         except (OSError, ValueError, KeyError, IndexError) as error:
-            problems.append(f"{name}: its skin: {error}; drawn as its class")
+            problems.append(f"{name}: skin not used: {error}")
     if entries:
         out.mkdir(parents=True, exist_ok=True)
         (out / "skins.json").write_text(json.dumps({"format": 1, "skins": entries}, indent=1) + "\n")

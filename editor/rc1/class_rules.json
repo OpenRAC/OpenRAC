@@ -9,7 +9,7 @@
         "0x258"
       ],
       "trigger_volume_pvar": "0x25C",
-      "progress": "Far from the camera the run may leave it as it spawned: the game updates a moby only within its update distance of the camera."
+      "progress": "Far from the camera it may stay as it spawned: the game updates a moby only near the camera."
     },
     "865": {
       "name": "medium_amoeboid",
@@ -37,20 +37,20 @@
         "whole",
         "broken"
       ],
-      "progress": "Once Ratchet breaks it, its nanotech ball stays where it was until he picks it up, which he does only below full health."
+      "progress": "Once broken, its nanotech ball stays until Ratchet picks it up (only below full health)."
     },
     "0": {
       "name": "ratchet",
-      "game_hidden": "The hero: the level's arrival scene hides him until it ends (space.c), so the editor shows him."
+      "game_hidden": "The hero: the arrival scene hides him until it ends (space.c), so the editor shows him."
     },
     "831": {
       "name": "water",
-      "drawn_by_code": "Its model is not drawn: its class's code draws a rippling water patch (render_water_grids) at the height the game's run gives, where the editor shows the model's square instead.",
+      "drawn_by_code": "Its model is not drawn: its code draws a water patch (render_water_grids). The editor shows the model's square instead.",
       "effect": "game_height"
     },
     "838": {
       "name": "electric_gate",
-      "drawn_by_code": "Its model is not drawn: while shut (state 1) its class's code draws five beams across it (draw_electric_gate_beams), which the editor draws too.",
+      "drawn_by_code": "Its model is not drawn: while shut (state 1) its code draws five beams (draw_electric_gate_beams). The editor draws them too.",
       "effect": "electric_gate",
       "effect_states": [
         1
@@ -59,7 +59,7 @@
     "44": {
       "name": "sentrybot",
       "source": "sentrybot_update (games/rac1/decomp/src/overlays/shared/sentrybot.c)",
-      "game_hidden": "Hidden in the run only far from the camera: the game updates a moby only within its update distance of the camera, and sentrybot_update shows it on every update outside a cutscene (it spawns hidden, and a cutscene hides it), so the editor shows it.",
+      "game_hidden": "Hidden in the run only far from the camera, where the game does not update it; sentrybot_update shows it outside cutscenes, so the editor shows it.",
       "camera_volumes": {
         "show": "0x2D0",
         "hide": "0x2D8"
@@ -68,14 +68,14 @@
     "577": {
       "name": "peckbot",
       "source": "peckbot_update (games/rac1/decomp/src/overlays/l01_novalis/elevator_and_birdbot.c)",
-      "game_hidden": "Hidden in the run only far from the camera: the game updates a moby only within its update distance of the camera, and peckbot_update shows it on every update outside a cutscene (a cutscene, as the level's arrival, hides it), so the editor shows it."
+      "game_hidden": "Hidden in the run only far from the camera, where the game does not update it; peckbot_update shows it outside cutscenes, so the editor shows it."
     },
     "623": {
       "name": "extermibot",
       "source": "extermibot_update (games/rac1/decomp/src/overlays/l05_rilgar/sharkigator_and_faucet.c), state 0",
-      "game_hidden": "Hidden in the run only far from the camera: the game updates a moby only within its update distance of the camera, and extermibot_update shows it again on its first update after a cutscene (the level's arrival hides it), so the editor shows it.",
+      "game_hidden": "Hidden in the run only far from the camera, where the game does not update it; extermibot_update shows it after a cutscene, so the editor shows it.",
       "hidden_if_pvar": "0x2B4",
-      "hidden_if_pvar_reason": "Hidden until woken (pvar 0x2B4): its code puts it 20 below its place with a draw distance of 0, which the run does not count as hidden; a moby's command or Ratchet entering a volume wakes it (pvars 0x2B8, 0x2BC)."
+      "hidden_if_pvar_reason": "Hidden until woken (pvar 0x2B4): its code moves it 20 down and stops drawing it. A moby's command or Ratchet entering a volume wakes it (pvars 0x2B8, 0x2BC)."
     },
     "625": {
       "name": "extermitank",

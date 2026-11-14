@@ -474,7 +474,7 @@ class PackCutscenes(unittest.TestCase):
             (scene_dir / "cutscenes" / "wrong.cutscene").write_text(json.dumps(good | {"level": 5}))
             changes, problems = pack_cutscenes(scene_dir, out, 3, {7}, {500})
             self.assertEqual(changes, ["cutscene fine"])
-            self.assertTrue(any(p.startswith("cutscene wrong: it is for level 5") and p.endswith("left out")
+            self.assertTrue(any(p.startswith("cutscene wrong: made for level 5") and p.endswith("left out")
                                 for p in problems), problems)
             self.assertFalse((out / "cutscenes" / "wrong.cutscene").exists())
 

@@ -42,7 +42,7 @@ class AfterPack(unittest.TestCase):
             (untouched / "moby_states.json").write_text(json.dumps({"packed": True, "mobys": []}))
             lines = moby_states.after_pack(program, temp, temp, temp / "packed", project,
                                            {5: (packed, ["Vendor_0001", "Crate"])})
-            self.assertEqual(lines, ["level 05: moby start states worked out from the packed level"])
+            self.assertEqual(lines, ["level 05: moby start states updated"])
             result = json.loads((packed / "moby_states.json").read_text())
             self.assertTrue(result["packed"])
             self.assertEqual(result["names"], ["Vendor_0001", "Crate"])
@@ -59,7 +59,7 @@ class AfterPack(unittest.TestCase):
             lines = moby_states.after_pack(program, temp, temp, temp / "packed", temp / "project",
                                            {5: (folder, ["Vendor_0001"])})
             self.assertEqual(len(lines), 1)
-            self.assertIn("not worked out", lines[0])
+            self.assertIn("moby start states failed", lines[0])
             self.assertIn("broken", lines[0])
             self.assertFalse((folder / "moby_states.json").exists())
 

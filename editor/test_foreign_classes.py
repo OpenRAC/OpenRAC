@@ -58,7 +58,7 @@ class ForeignClasses(unittest.TestCase):
         second = FOREIGN.split("\n\n", 1)[1].replace("BigAl_rac1_ntsc_L03", "BigAl_2").replace("= 3", "= 4")
         found, problems = foreign_classes.wanted(FOREIGN + "\n" + second)
         self.assertEqual(found, {909: 3})
-        self.assertIn("BigAl_2: class 909 is already imported from level 03", problems[0])
+        self.assertIn("BigAl_2: class 909 already comes from level 03", problems[0])
         found, problems = foreign_classes.wanted(FOREIGN.replace("= 3", '= "Kerwan"'))
         self.assertEqual(found, {})
         self.assertIn("must be a level number", problems[0])
@@ -77,7 +77,7 @@ class ForeignClasses(unittest.TestCase):
         donor = Donor(3, 909, record, bytes(range(16)) + b"\x05\x00\x00\x00", [], [16], [(4, b"shared!")])
         out, changes, problems = pack_level(5, data, scene(data) + "\n" + FOREIGN, None, None, None, {909: [donor]})
         self.assertEqual(problems, [])
-        self.assertIn("BigAl_rac1_ntsc_L03: added, class 909 from level 03", changes)
+        self.assertIn("BigAl_rac1_ntsc_L03: added class 909 from level 03", changes)
         added = moby_instances(out)[-1]
         self.assertEqual(added["class_id"], 909)
         # Its group there (4) becomes a group of its own here, of its copy.
@@ -119,7 +119,7 @@ class ForeignClasses(unittest.TestCase):
         group = [qwark, Donor(3, 685, lift, bytes(16), index=7)]
         out, changes, problems = pack_level(5, data, scene(data) + "\n" + FOREIGN, None, None, None, {909: group})
         self.assertEqual(problems, [])
-        self.assertIn("BigAl_rac1_ntsc_L03: added, class 909 from level 03, with 1 moby(s) it names there", changes)
+        self.assertIn("BigAl_rac1_ntsc_L03: added class 909 from level 03, with 1 linked moby", changes)
         mobys = moby_instances(out)
         self.assertEqual([m["class_id"] for m in mobys[-2:]], [909, 685])
         # Placed at (4, 5, 6) with no turn: the lift keeps its place beside it.

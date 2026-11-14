@@ -218,8 +218,8 @@ func _get_configuration_warnings() -> PackedStringArray:
 	if not may_change:
 		return []
 
-	return ["What the player did before decides whether it shows: " + "; ".join(start_reasons)
-		+ " Give the cutscene a Show or Hide event for spawn id %d to be sure." % int(get_meta("rc1_spawn_id", -1))]
+	return ["Shown or not depending on the save: " + "; ".join(start_reasons)
+		+ " Add a Show or Hide event for spawn id %d to be sure." % int(get_meta("rc1_spawn_id", -1))]
 
 
 ## Sets the moby's ambient and light word on every mesh of its model.
@@ -372,7 +372,7 @@ func add_scene_event(action: int) -> void:
 	var scene: Node = find_cutscene()
 
 	if scene == null:
-		push_warning("There is no cutscene in this scene to add the event to.")
+		push_warning("This scene has no cutscene.")
 		return
 
 	var event: Node = ClassDB.instantiate("CutsceneEvent")
@@ -442,15 +442,15 @@ func decide_start() -> void:
 		hidden_at_start = true
 		depends_on_game = true
 		may_change = true
-		start_reasons.append("Spawned only once mission %d of this planet is done (spawn flags %d): not in a new game." % [mission, flags])
+		start_reasons.append("Appears after mission %d of this planet (spawn flags %d); not in a new game." % [mission, flags])
 	elif flags & (SPAWN_BEFORE | SPAWN_AFTER) == SPAWN_BEFORE:
 		depends_on_game = true
 		may_change = true
-		start_reasons.append("Gone once mission %d of this planet is done (spawn flags %d)." % [mission, flags])
+		start_reasons.append("Gone after mission %d of this planet (spawn flags %d)." % [mission, flags])
 
 	if flags & SPAWN_ONCE or flags & (SPAWN_SAVED | SPAWN_ONCE) == SPAWN_SAVED:
 		depends_on_game = true
-		start_reasons.append("Gone for good once Ratchet kills, breaks or picks it up: the save keeps it.")
+		start_reasons.append("Gone for good once killed, broken or picked up (the save keeps it).")
 
 	var rule: Dictionary = class_rules().get(str(int(get_meta("rc1_class", -1))), {})
 
@@ -628,10 +628,10 @@ func decide_by_game(states: Dictionary, rule: Dictionary) -> void:
 
 	if game_state.is_empty():
 		hidden_at_start = true
-		start_reasons.append("Not in the level %.0f s after it starts (the game's run, moby_states.json)." % seconds)
+		start_reasons.append("Gone %.0f s after the level starts (moby_states.json)." % seconds)
 	elif int(game_state["dead"]) != 0:
 		hidden_at_start = true
-		start_reasons.append("Dead %.0f s after the level starts (the game's run, moby_states.json)." % seconds)
+		start_reasons.append("Dead %.0f s after the level starts (moby_states.json)." % seconds)
 	elif int(game_state["hidden"]) != 0 and rule.has("game_hidden"):
 		start_reasons.append(String(rule["game_hidden"]))
 	elif int(game_state["hidden"]) != 0 and rule.has("drawn_by_code"):
@@ -639,7 +639,7 @@ func decide_by_game(states: Dictionary, rule: Dictionary) -> void:
 		start_reasons.append(String(rule["drawn_by_code"]))
 	elif int(game_state["hidden"]) != 0:
 		hidden_at_start = true
-		start_reasons.append("Not drawn %.0f s after the level starts (the game's run, moby_states.json)." % seconds)
+		start_reasons.append("Not drawn %.0f s after the level starts (moby_states.json)." % seconds)
 
 
 ## A copy of the model where the game's run puts the moby (class_rules.json effect "game_height":
@@ -704,7 +704,7 @@ func decide_by_pvars(rule: Dictionary) -> void:
 	var volume: int = int(pvar_word(String(rule["trigger_volume_pvar"]).hex_to_int()))
 
 	if volume == -1:
-		start_reasons.append("Hidden by its class's code, and nothing in its data brings it out.")
+		start_reasons.append("Hidden by its class's code, and nothing shows it.")
 	else:
 		depends_on_game = true
 		may_change = true

@@ -39,10 +39,9 @@ func section(node: Node3D) -> Control:
 	text.custom_minimum_size = Vector2(160, 0)
 	var level: int = int(node.get_meta("rc1_foreign_level", -1))
 	var name: String = String(level_name.call(level))
-	text.text = ("[b]Imported class[/b]\nIts own logic runs from level %02d%s, as it does there. "
-		+ "[color=#9aa4b2]Pack, then play. Its level's paths, zones and cameras come with it, "
-		+ "moved to where it stands, and the mobys it needs there with them; its sounds and texts "
-		+ "are this level's. Each costs about half a millisecond a frame.[/color]") % [level, "" if name.is_empty() else " (%s)" % name]
+	text.text = ("[b]Imported class[/b]\nRuns its own logic from level %02d%s. "
+		+ "[color=#9aa4b2]Its paths, zones, cameras and needed mobys come with it. "
+		+ "Sounds and texts are this level's. Costs about 0.5 ms a frame. Pack, then play.[/color]") % [level, "" if name.is_empty() else " (%s)" % name]
 	var box := VBoxContainer.new()
 	box.add_child(text)
 	box.add_child(partial_toggle(node))
@@ -57,10 +56,9 @@ func section(node: Node3D) -> Control:
 func partial_toggle(node: Node) -> Control:
 	var check := CheckBox.new()
 	check.text = "Import without what does not fit"
-	check.tooltip_text = ("A level has room for a limited number of moby classes. When this class "
-		+ "and what it makes do not all fit, the pack refuses it and names the levels where they "
-		+ "do. Switched on, it comes anyway: the classes it makes that do not fit (shots, effects, "
-		+ "parts it adds) do not appear, so it may not look or act fully as it does in its level.")
+	check.tooltip_text = ("A level has room for only so many classes. If this class and what it makes do not fit, "
+		+ "the pack refuses it. Turn this on to import it anyway: the extra classes it makes "
+		+ "(shots, effects, parts) will be missing.")
 	check.button_pressed = bool(node.get_meta("rc1_foreign_partial", false))
 	check.toggled.connect(func(on: bool) -> void:
 		if on:

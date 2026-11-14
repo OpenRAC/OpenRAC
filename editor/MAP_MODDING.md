@@ -50,104 +50,81 @@ keeping them visible at runtime.
 
 ### The Assets dock
 
-The **Assets** dock (bottom left) lists the mobys, ties and shrubs of every level
-you have read, from every disc and game: the levels beside this project
+The **Assets** dock (bottom left) lists the mobys, ties and shrubs of every
+level you have read, from every disc and game. It looks beside this project
 (`assets/levels/<game>/<disc>/`, or `active/<game>/data/levels/<disc>` in an
-installed copy) and any folder named in the project setting
-`openrac/library/folders`. Pick a game, disc, level or kind in the tree, or
-search by name or class number. Each asset has a preview and a tooltip.
+installed copy) and in the folders of the project setting
+`openrac/library/folders`. Browse the tree, or search by name or class number.
 
-Pick one to see under the list what it is and which buttons work here (a
-greyed button's tooltip says why not). Drag one into the 3D view or onto the
-Scene dock, or double-click it to add it in front of the camera. What it
-becomes depends on the level you edit:
+Pick an asset to see what it is and which buttons work. A greyed button's
+tooltip says why. Drag the asset into the 3D view or the Scene dock, or
+double-click it to add it in front of the camera. What you get depends on the
+level you edit:
 
-- **Green**: this level has the class. It goes under **Game/Mobys**, **Ties** or
-  **Shrubs** as the game's own, with its logic, as if you duplicated one.
-- **Blue**: a moby of another level of this disc that can come with its own
-  logic (**Add with its own logic** below); added as it is, it is white's.
-  The filter **From other levels, with their own logic** lists only those.
-- **White**: any other class, level or game. It goes under **Game/StaticAssets**
-  as static scenery: its look only, no logic yet. A moby is copied as a still
-  model (no skin or animation) into `res://library/<game>/<disc>/level_NN/`, with
-  its textures and a `.source.json` saying where it came from. It gets the class
-  scale its own scene gives it, and collision on (`rc1_static_collision`) for
-  mobys and ties, off for shrubs. Pack bakes it into the level as below.
+- **Green**: this level has the class. It is added under **Game/Mobys**,
+  **Ties** or **Shrubs** with the game's logic, like a duplicate.
+- **Blue**: a moby from another level of the same disc. It can bring its own
+  logic (**Add with its own logic**, below). The filter **From other levels,
+  with their own logic** shows only these.
+- **White**: anything else. It is added under **Game/StaticAssets** as static
+  scenery: look only, no logic. A moby becomes a still model in
+  `res://library/<game>/<disc>/level_NN/`, with its textures and a
+  `.source.json` that says where it came from. Collision is on for mobys and
+  ties, off for shrubs (`rc1_static_collision`). Pack bakes it into the level.
 
-**Add on a class's logic...** (for a white moby) puts it on a class this level
-has: pick the class, and the game runs that class's logic (a vendor's menu, an
-enemy's attack) while it draws the other model, animated. In the scene it is a
-moby of that class with `rc1_skin` metadata, showing the other model. Its
-`rc1_skin_animations` list says which of the model's animations plays for each
-of the class's sequences (entry N for sequence N; -1 or none: the same number
-if the model has it, else its first). Pack writes `skins.json` and the model
-beside the level's placements (`editor/skins.py`); the port draws it
-(`port/scene/moby_skin.h`). Only the look changes: collision and logic stay the
-class's own. The model is copied under `res://library/skins`, which Godot does
-not import.
+**Add on a class's logic...** (white mobys) puts the model on a class this
+level has. The game runs that class's logic (a vendor's menu, an enemy's
+attack) and draws your model, animated. In the scene it is a moby of that class
+with `rc1_skin` metadata. `rc1_skin_animations` picks the model's animation for
+each of the class's sequences (entry N for sequence N; -1 or empty: the same
+number, else the first). Pack writes `skins.json` and the model
+(`editor/skins.py`); the port draws it (`port/scene/moby_skin.h`). Collision
+and logic stay the class's own.
 
-**Add with its own logic** (for a white moby of another level of the same
-Ratchet & Clank disc) brings its class too: the game runs its own logic,
-as it does in its level. In the scene it is a moby of that class under
-**Game/Mobys** with `rc1_foreign_level` metadata (its level), drawn at its
-class's size (`rc1_foreign_class_scale`); its Inspector's **Imported class**
-section says where its logic runs from. Pack copies its
-class's data from that level's core into `classes/<class>.bin`, lists it in
-`classes.tsv`, and places the moby with a copy of the first moby of that class
-in its level: its values and its pvars (`editor/foreign_classes.py`). What that
-moby needs in its level comes with it:
+**Add with its own logic** (blue mobys) brings the moby's class from its level,
+so it acts as it does there. In the scene it is a moby under **Game/Mobys**
+with `rc1_foreign_level` metadata (its level). Its Inspector has an **Imported
+class** section. Pack copies the class into `classes/<class>.bin`, lists it in
+`classes.tsv`, and copies the first moby of that class in its level
+(`editor/foreign_classes.py`). What the moby needs comes with it:
 
-- **Its level's tables**: the zones (cuboids, spheres, cylinders, clip
-  volumes), paths, rails and cameras its pvars name by number, moved and turned
-  as the moby was, in `worlds.bin`. A guard that waits for the hero in a zone
-  of its level waits in that zone, moved to where you placed it.
-- **The places in its pvars**: a word the game sets a moby's position from (a
-  lift's floors, a turret's rest height), from `editor/rac1_position_fields.tsv`
-  (`editor/positions.py` writes it from the game's code), moved the same way.
-- **The mobys its links name** there (Qwark's lift, a plasmabot's hatch), placed
-  beside it as they stood there; a class this level lacks comes too.
-- **Its groups**: a group its pvars name (a trooper's alert groups, a spawner's
-  wave) becomes a new group here of the copies of that group's mobys, which
-  come along like links; the group it is in itself becomes one of the copies
-  that were in it with it. Which pvar words are groups comes from
-  `editor/rac1_group_fields.tsv` (`editor/groups.py` writes it from the game's
-  code). Every level has the game's 112 groups; the new ones take its unused
-  ones.
-- **The classes its update can make** that this level lacks (a turret's shots),
-  from `editor/rac1_spawns.tsv` (`editor/spawns.py` writes it from the game's
-  code). The level has 224 class slots, two of them kept for the hero's armor,
-  which loads after the level: a class whose classes (its own, its links',
-  what it makes) do not all fit in what the level leaves is not
-  imported, and the pack says so and names the levels where they fit (a
-  gunship's 22 classes do not fit Kerwan). The Inspector's "Import without
-  what does not fit" (`rc1_foreign_partial`) lets it come anyway: its own and
-  its links' classes must fit, and of what it makes, the nearest fit first; a
-  class left out is not made, so its shots, effects or added parts do not
-  appear.
+- **Zones, paths, rails and cameras** its pvars use, moved to where you placed
+  it (`worlds.bin`).
+- **Positions in its pvars**, such as a lift's floors, moved the same way
+  (`editor/rac1_position_fields.tsv`, written by `editor/positions.py`).
+- **Linked mobys**, such as Qwark's lift or a plasmabot's hatch, with their
+  classes if this level lacks them.
+- **Groups** its pvars use, such as a trooper's alert group, as new groups of
+  the copies (`editor/rac1_group_fields.tsv`, written by `editor/groups.py`).
+  Every level has 112 groups; new ones take the unused ones.
+- **Classes it makes**, such as a turret's shots
+  (`editor/rac1_spawns.tsv`, written by `editor/spawns.py`).
 
-The port registers the class when the level loads, draws it with its level's
-model, and runs its update in its own level's program: its level's data is
-swapped in for the call, its tables put in place of this level's, and its code
-is read from a copy (`port/game/rac1/host/foreign_class.c`). No mod is needed,
-and any level's class can come into any other. Limits: a place its code or its
-pvars hold as numbers (not by a table) stays where it was in its level; its
-sounds and texts are this level's; each such moby costs about half a
-millisecond a frame on a desktop.
+A level has 224 class slots, and 2 are kept for the hero's armor. If the class
+and everything it needs do not fit, the pack refuses it and lists the levels
+where it fits (a gunship needs 22 slots; Kerwan has 14 free). Turn on **Import
+without what does not fit** (`rc1_foreign_partial`) to import it anyway: its
+own and its links' classes must fit, and the classes it makes fill the rest,
+nearest first. The ones left out are missing in the game (shots, effects or
+parts).
 
-**Behaviour** (at the top of a moby's Inspector) gives a moby a simple movement
-instead of its own logic: spin, bob, patrol (out along the way it faces and
-back), orbit, face the hero, or follow the hero, each with its numbers (speed,
-height, distance...) and the class's animation it plays. It works on any moby,
-a skinned one too: an asset from another game added on a class's logic can then
-walk a round or follow Ratchet. It is kept as `rc1_behaviour` metadata; Pack
-writes `behaviours.json` beside the placements (`editor/behaviours.py`) and the
-editor-runtime mod (`mods/editor-runtime` in the editor's repository) plays
-it: a level made in the editor needs that mod on. The moby moves from where it
-is placed, through walls (no collision of its own), and its own update stops.
+The port loads the class with the level and runs its code with its own level's
+data (`port/game/rac1/host/foreign_class.c`). No mod is needed. Limits: a
+position held only in its code stays where it was in its level; sounds and
+texts are this level's; each such moby costs about 0.5 ms a frame on a
+desktop.
 
-Every placement is one undoable edit. The copies under `library/` are made from
-your own disc's files: do not share them; a shared project refers to an asset by
-its `rc1_asset` metadata (game/disc/level/kind/class).
+**Behaviour** (top of a moby's Inspector) replaces a moby's logic with a simple
+move: spin, bob, patrol, orbit, face the hero or follow the hero, with its
+numbers and the animation to play. It works on any moby, skinned ones too. It is
+stored as `rc1_behaviour` metadata; Pack writes `behaviours.json`
+(`editor/behaviours.py`) and the editor-runtime mod (`mods/editor-runtime` in
+the editor's repository) plays it, so a level made in the editor needs that mod
+on. The moby moves through walls, and its own update stops.
+
+Every placement can be undone. The copies under `library/` come from your own
+disc: do not share them. A shared project names each asset by its `rc1_asset`
+metadata (game/disc/level/kind/class).
 
 ### Import static scenery from another level or your own model
 

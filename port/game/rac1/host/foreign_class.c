@@ -230,8 +230,7 @@ static void foreign_run(int k, gaddr moby) {
             snprintf(
                 message,
                 sizeof(message),
-                "imported moby class %d does not run: level %d's program is missing or bigger "
-                "than this level's",
+                "imported moby class %d does not run: level %d's code is missing or too big",
                 f->oclass,
                 f->level
             );
@@ -389,8 +388,7 @@ void rac1_foreign_classes_load(int level) {
         snprintf(
             message,
             sizeof(message),
-            "level %d: %d line(s) of classes.tsv left out (a bad or repeated class, its own level, "
-            "or more than %d classes)",
+            "level %d: skipped %d line(s) of classes.tsv (bad, repeated, own class, or over %d)",
             level,
             skipped,
             FOREIGN_MAX
@@ -461,7 +459,7 @@ void func_L00_00242120(unsigned int record, int count) {
         const uint32_t used = GREF(uint32_t, slot_count);
         if (used >= MOBY_CLASS_SLOTS) {
             char message[400];
-            int n = snprintf(message, sizeof(message), "no moby class slot left: not imported");
+            int n = snprintf(message, sizeof(message), "no free class slot; not imported:");
             for (int left = k; left < s_foreign_count && n > 0 && n < (int)sizeof(message) - 8;
                  ++left) {
                 n += snprintf(
@@ -619,7 +617,7 @@ void rac1_foreign_worlds_load(void) {
     if (!read || memcmp(bytes, "ORWD", 4) != 0 || read_u32(bytes + 4) != 1u || worlds > WORLD_MAX
         || bindings > BINDING_MAX || 16u + (uint64_t)(worlds + bindings) * 16u > (uint64_t)size) {
         free(bytes);
-        openrac_game_warn("imported moby classes: worlds.bin is not one this port reads");
+        openrac_game_warn("imported moby classes: cannot read worlds.bin");
         return;
     }
     /* The worlds start past a cleared lead: a table read at index -1 (Fred's sentry with no
@@ -701,8 +699,7 @@ void rac1_foreign_worlds_load(void) {
     snprintf(
         message,
         sizeof(message),
-        "level %d: %d imported moby world(s) of their own levels, %u KB, %d moby(s) bound (%d not "
-        "found, %d left out)",
+        "level %d: %d imported moby world(s), %u KB, %d moby(s) bound (%d not found, %d skipped)",
         level,
         s_world_count,
         (unsigned)((at - GUEST_PORT_WORLDS - WORLD_LEAD) >> 10),

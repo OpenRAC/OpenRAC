@@ -79,7 +79,7 @@ func ready_to_place(path: String, again: Callable) -> bool:
 		return true
 
 	waiting_for_import = true
-	dock.show_report("Bringing %s in: it is placed as soon as the editor has imported it..." % path.get_file())
+	dock.show_report("Importing %s; it is placed when ready..." % path.get_file())
 	wait_for_import(path, again)
 	return false
 
@@ -302,9 +302,8 @@ func add_as(asset: Dictionary, host_class: int) -> void:
 	undo_redo.commit_action()
 	EditorInterface.get_selection().clear()
 	EditorInterface.get_selection().add_node(node)
-	dock.show_report(("Added %s: a %s of this level (its logic) that the game draws as %s from %s. "
-		+ "Its animations: rc1_skin_animations in the Inspector (entry N is the skin's animation for the "
-		+ "class's sequence N; -1 or none: the same number, else the first). Pack, then play.") % [node.name,
+	dock.show_report(("Added %s: a %s of this level that looks like %s from %s. "
+		+ "Set its animations in the Inspector (rc1_skin_animations). Pack, then play.") % [node.name,
 		host["name"], asset["name"], asset["level_name"] if not String(asset["level_name"]).is_empty() else "its level"])
 
 
@@ -375,7 +374,7 @@ func add_foreign(asset: Dictionary) -> void:
 	undo_redo.commit_action()
 	EditorInterface.get_selection().clear()
 	EditorInterface.get_selection().add_node(node)
-	dock.show_report("Added %s with its own logic from %s. Pack, then play; the Inspector says what to expect." % [
+	dock.show_report("Added %s with its own logic from %s. Pack, then play." % [
 		node.name, asset["level_name"] if not String(asset["level_name"]).is_empty() else "level %02d" % int(asset["level"])])
 
 
@@ -428,10 +427,10 @@ func add_metadata(undo_redo: EditorUndoRedoManager, node: Node3D, asset: Diction
 
 func placed_report(asset: Dictionary, node: Node) -> String:
 	if Library.status(asset, here()) == Library.FULL:
-		return "Added %s, the game's own %s of this level. Move it, then Pack the level." % [node.name, asset["kind"].trim_suffix("s")]
+		return "Added %s, a %s of this level. Move it, then pack." % [node.name, asset["kind"].trim_suffix("s")]
 
-	return ("Added %s as static scenery (Game/StaticAssets): it looks as it does in %s, with no logic yet. "
-		+ "Collision is %s (rc1_static_collision in the Inspector). Pack bakes it into the level.") % [node.name,
+	return ("Added %s as static scenery from %s, no logic. "
+		+ "Collision is %s (rc1_static_collision). Pack bakes it in.") % [node.name,
 		asset["level_name"] if not String(asset["level_name"]).is_empty() else "its level",
 		"on" if asset["kind"] != "shrubs" else "off"]
 

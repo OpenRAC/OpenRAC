@@ -922,53 +922,42 @@ Approximations:
   every moby on, looping; in the editor it follows the cutscene preview's
   time. What its update function plays later is not known to the editor.
 - A placed moby starts as the game starts it (`rc1/moby.gd`, Ratchet &
-  Clank): the Inspector's Start state says whether the game shows it and
-  why. The game's own code decides it: on opening a level the editor
-  runs the port's states program once if the level has no
-  `moby_states.json` yet. It needs the program, the port's levels and
-  the game's data: the launcher passes them after `--` as
-  `--openrac-states FILE --openrac-levels DIR --openrac-data DIR`
-  (`tools/build_port.py` builds `openrac-rac1-<version>-states` beside
-  each game and an installed launcher carries it); without them the
-  editor looks for `port/build/release/openrac-rac1-<version>-states`
-  and `assets/port/rac1/<version>` in the checkout and the data in
-  `OPENRAC_DATA`. From a shell,
-  `moby_states.py PROJECT --data
-  DIR --levels DIR` runs the same program (under a second a level)
-  and writes
-  `moby_states.json` beside `level.json`: a moby missing from it is not
-  there, one marked hidden is not drawn (unless its class rule's
-  `game_hidden` says why the editor draws it anyway). Packing with
-  `extract.py pack ... --states FILE --data DIR --levels DIR` (as the
-  launcher packs) works the packed levels' mobys out again from the
-  packed level, by node name, since adding or deleting mobys moves
-  the others in the table; a moby added or renamed since goes by its
-  rules alone until the next pack. Of Godot's copies of a moby, the
-  one still named after its record (`_NNNN`) is that moby, as pack
-  takes it. The reasons
-  shown come from the moby's spawn flags (spawned only before, or only
-  after, a mission of the planet is done; gone once killed or picked up)
-  and its class's rule in `rc1/class_rules.json`, taken from the class's
-  code (an amoeboid hides itself unless its pvars say otherwise). A moby
-  the game hides is not drawn; the project setting
-  `openrac/editor/show_hidden_mobys` draws it faint (it applies at
-  once). "Depends on the game" marks what the player's save or
-  progress decides; one that a mission or a volume can change carries
-  a warning in the scene tree. In a cutscene, the moby's Inspector
-  buttons "Show/Hide in the cutscene from now" add a hide or show
-  event at the preview's time, which the preview follows and the game
-  plays whatever the player did before; exporting a cutscene lists
-  such mobys the camera sees without one. The Inspector's Class Rule
-  edits the class's entry in `rc1/class_rules.json`. The nanotech
-  crate's ball, which the game's code draws (`effects.py`,
-  `rc1/nanotech.gd`), is drawn inside the crate, or alone with Preview
-  Look set to broken, with its sparks. Rilgar's electric gates hide
-  their model and draw five pulsing beams while shut
-  (`rc1/electric_gate.gd`, read from the level's program for the NTSC
-  and PAL discs; on PAL v1 and Japanese ones no beams are drawn yet),
-  and its water patches are drawn as their model's square at the
-  height the game's run gives (`moby_states.json` keeps
-  each moby's place); the game's ripples are not drawn.
+  Clank). The Inspector's **Start state** says whether the game shows it,
+  and why.
+  - The game's own code decides. When you open a level with no
+    `moby_states.json`, the editor runs the port's states program once.
+    It needs the program, the port's levels and the game's data. The
+    launcher passes them after `--` as `--openrac-states FILE
+    --openrac-levels DIR --openrac-data DIR`. Without them the editor
+    looks in the checkout (`port/build/release/openrac-rac1-<version>-states`,
+    `assets/port/rac1/<version>`) and in `OPENRAC_DATA`.
+    `tools/build_port.py` builds the program next to each game.
+  - From a shell, `moby_states.py PROJECT --data DIR --levels DIR` does
+    the same (under a second a level) and writes `moby_states.json` next
+    to `level.json`. A moby missing from it is not there; one marked
+    hidden is not drawn, unless its class rule's `game_hidden` says why
+    the editor draws it anyway.
+  - `extract.py pack ... --states FILE --data DIR --levels DIR` (as the
+    launcher packs) updates the states from the packed level, by node
+    name. A moby added or renamed since then uses its rules only, until
+    the next pack. Of Godot's copies of a moby, the one still named after
+    its record (`_NNNN`) is that moby.
+  - The reasons come from the moby's spawn flags (before or after a
+    mission, gone once killed or picked up) and its class's rule in
+    `rc1/class_rules.json`. **Class Rule** in the Inspector edits it.
+  - A hidden moby is not drawn. The project setting
+    `openrac/editor/show_hidden_mobys` draws it faint. "Depends on the
+    game" marks what the player's save decides; a moby that a mission or
+    a volume can change gets a warning in the scene tree.
+  - In a cutscene, the Inspector buttons "Show/Hide in the cutscene from
+    now" add a show or hide event at the preview's time. Exporting a
+    cutscene lists the mobys the camera sees without one.
+  - Some classes are drawn by code. The nanotech crate's ball
+    (`effects.py`, `rc1/nanotech.gd`) is drawn inside the crate, or alone
+    with its sparks when Preview Look is broken. Rilgar's electric gates
+    draw five beams while shut (`rc1/electric_gate.gd`; NTSC and PAL
+    discs only). Water patches are drawn as their model's square at the
+    game's height; the ripples are not drawn.
 - Moby animations run at the game's 60 Hz tick, as ReRAC infers it. Godot
   interpolates rotation keys spherically where the game lerps, and a joint
   channel that stays within 1e-5 of the bind pose (1e-4 for rotations) is

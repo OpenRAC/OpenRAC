@@ -65,7 +65,7 @@ class Skins(unittest.TestCase):
         self.assertEqual(changes, [])
         self.assertIn("no skeleton or animations", problems[0])
         changes, problems = skins.write_skins(self.project, text, self.out, {})
-        self.assertIn("has no spawn id", problems[0])
+        self.assertIn("no spawn id", problems[0])
         self.assertFalse((self.out / "skins.json").exists())
         text = scene("res://../outside.glb")
         _, problems = skins.write_skins(self.project, text, self.out, {"Vendor_as_RedShip": 1})

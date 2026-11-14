@@ -74,14 +74,14 @@ def after_pack(program: Path, data: Path, levels: Path, packed: Path, project: P
         try:
             result = states(program, data, levels, number, ticks, packed)
         except (OSError, RuntimeError, subprocess.TimeoutExpired, ValueError) as error:
-            lines.append(f"level {number:02}: moby start states not worked out ({error})")
+            lines.append(f"level {number:02}: moby start states failed ({error})")
             continue
         for moby in result["mobys"]:
             key = moby["key"]
             moby["name"] = names[key] if 0 <= key < len(names) else None
         result["packed"], result["names"] = True, names
         (folder / "moby_states.json").write_text(json.dumps(result, separators=(",", ":")) + "\n")
-        lines.append(f"level {number:02}: moby start states worked out from the packed level")
+        lines.append(f"level {number:02}: moby start states updated")
     return lines
 
 
@@ -97,7 +97,7 @@ def main() -> None:
     args = parser.parse_args()
     folders = level_folders(args.project, args.level)
     if not folders:
-        sys.exit(f"{args.project} has no levels to work out")
+        sys.exit(f"{args.project} has no levels")
     for number, folder in folders.items():
         version = json.loads((folder / "level.json").read_text()).get("version", "pal")
         program = Path(args.program) if args.program else ROOT / PROGRAM.format(version=version)

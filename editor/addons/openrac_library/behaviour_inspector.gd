@@ -43,8 +43,8 @@ func section(node: Node3D) -> Control:
 	var box := VBoxContainer.new()
 	var title := Label.new()
 	title.text = "Behaviour"
-	title.tooltip_text = ("A simple movement the editor-runtime mod plays in the game, from where the moby is placed. "
-		+ "Its own logic stops while it moves. Pack, then play with the mod on.")
+	title.tooltip_text = ("A simple move the editor mod plays in the game. The moby's own logic stops while it runs. "
+		+ "Pack, then play with the mod on.")
 	title.mouse_filter = Control.MOUSE_FILTER_PASS
 	box.add_child(title)
 
