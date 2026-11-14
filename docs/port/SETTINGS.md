@@ -29,11 +29,20 @@ game copies that folder's cards and settings over once and renames it
 install folder; the launcher moves those to `<data home>/openrac/migrated/`,
 beside the ones in use.
 
-In Ratchet & Clank (PAL) every setting but the last two is a row of the title
-menu's **Options, Video** page. The page shows four rows at a time and moves
-with the cursor. **Cross** or **Right** moves a row to its next value,
-**Left** to the one before. A change is applied and saved at once: no setting
-needs the game started again.
+Every setting is in the in-game menu (the desktop's menu window, the drawer on
+a touch screen). The game's own **Options, Video** page (Ratchet & Clank and
+Going Commando, title and pause menu) shows a short list of the same entries,
+like a console's: Display mode (desktop only), Picture, Field of View, HUD
+(with a picture wider than 4:3), Render scale, Anti-aliasing, Anisotropic
+filtering, Draw distance, Frame rate, VSync, Frame counter, HDR and Enhanced
+graphics (when it can be used). The game fixes are in the in-game menu only.
+Both read one list ([menu_catalog.cpp](../../port/game/common/menu_catalog.cpp),
+the entries marked `kGamePage`), so a row shows the same value and steps the
+same way in both. The page scrolls with the cursor. **Cross** or **Right**
+moves a row to its next value, **Left** to the one before. A change is applied
+and saved at once: no setting needs the game started again. Anti-aliasing says
+"(upscaler)" while the upscaler draws one sample a pixel and keeps the choice
+for later.
 
 Probe lighting is required by enhanced graphics and follows its master switch.
 The legacy `probe_lighting` key is accepted but ignored and is omitted when saving.
@@ -66,12 +75,6 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Main directional light override | `sun_direction_override` | `0` (default), `1` | Advanced in Graphics > Enhanced Settings. Overrides primary direct light and its shadows; baked bounce lighting retains its baked direction. Off restores the verified profile or authored direction |
 | Light azimuth | `sun_azimuth` | `-180` to `180` degrees (default `0`) | Source direction around world Z: 0 is +X, 90 is +Y |
 | Light elevation | `sun_elevation` | `-90` to `90` degrees (default `45`) | Source height above the horizon; 90 shines straight downward |
-| Gameplay rim light | `rim_light` | `0`, `1` (default `1`) | GI-coloured edge light on essential gameplay objects; requires enhanced probe lighting |
-| Rim shadow lift | `rim_shadow_lift` | `0`, `1` (default `1`) | Lifts the rim in dim surroundings without changing GI itself |
-| Rim lift exponent | `rim_lift_exponent` | `0.01` to `1.0` (default `0.09`) | Lower values brighten dim GI; `1` leaves the rim unchanged |
-| Maximum rim lift gain | `rim_lift_max_gain` | `1.0` to `16.0` (default `7.10`) | Caps the linear RGB gain before the rim's brightness limit |
-| Rim strength | `rim_light_strength` | `0.0` to `1.0` (default `0.30`) | Strength of the edge light |
-| Rim falloff | `rim_light_falloff` | `1.0` to `8.0` (default `6.46`) | Higher values narrow the edge |
 | Probe GI multiplier | `probe_gi_multiplier` | `0.0` to `5.0` (default `1.0`) | Scales baked indirect irradiance only; direct lights are unchanged |
 | Nanotech orb lights | `nanotech_light` | `1` (default), `0` | Adds one point light that bobs with each nanotech cluster in Ratchet & Clank 1's Enhanced graphics |
 | Orb light colour | `nanotech_light_red`, `nanotech_light_green`, `nanotech_light_blue` | Linear RGB, `0.0` to `1.0` per channel | Sets the light cast by the orbs |
@@ -85,7 +88,7 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | GTAO radius | `gtao_radius` | `0.05` to `8.0` (default `1.25`) | Occlusion radius in scene units |
 | GTAO strength | `gtao_strength` | `0.0` to `3.0` (default `1.0`) | Multiplies indirect-light occlusion; zero leaves the picture unchanged |
 | Texture filtering | `texture_filter` | `normal`, `edge-aware` (default with Enhanced Graphics) | In Graphics > Enhanced Settings, enabled by the Enhanced graphics master switch. Enlarged world textures (meshes, reflections, sky and world effects): original sampling or cached 2x edge-aware colour reconstruction with directional debanding (Vulkan compute only; OpenGL supports Normal only; other saved values use Normal there). The cache is limited to 64 MiB per texture pool and falls back to Normal when full. Alpha/cutout coverage, shadow/depth sampling, HUD text and distant mip/anisotropic filtering are unchanged |
-| Anisotropic filtering | `anisotropy` | `auto` (default), `1` (`off`: trilinear), `2`, `4`, `8`, `16` | Auto uses 4x with Enhanced Graphics and Off with OpenGL or original graphics. Explicit choices are preserved across modes. The anisotropic filter of the world's textures is held to what the driver offers |
+| Anisotropic filtering | `anisotropy` | `auto` (default), `1` (`off`: trilinear), `2`, `4`, `8`, `16` | Auto uses 4x with Enhanced Graphics and Off with OpenGL or original graphics. Explicit choices are preserved across modes; the menus offer Auto first. The anisotropic filter of the world's textures is held to what the driver offers |
 | Texture pack | `texture_pack` | `0`, `1` (default `1`) | Reads a texture pack from `<data>/texture_packs/<game id>/` (`rac1-pal`, `rac1-ntsc`, `rac2-ntsc`), PNGs named by the textures they replace, at any size ([TEXTURE_PACKS.md](TEXTURE_PACKS.md)). No folder, no change. Off with `--no-mods` too. Counts from the next start |
 | Draw distance | `draw_distance` | `100` (Original), `150`, `200`, `400` (default), `0` (Unlimited) | How far things are drawn, in percent of the game's own distances (400% by default), the same in every game. It covers the mobys, ties (scenery models) and shrubs, and in Going Commando also the terrain's far cull. Original stops where the console did: each moby's draw distance (at most the level's cap, 960 units in Going Commando), each tie's own distance (at most 720 units in Ratchet & Clank, 960 in Going Commando) and each shrub's (in Ratchet & Clank at least 16, a billboard class's at least its fade distance + 24, at most 500), with the game's fades and shrub billboards. Some objects fade out close by at Original, as on the console: Kalebo III's dome glass ends at 64 units. The larger steps draw that much farther, without the shrub fades and billboards. Unlimited draws everything in view. Ties and shrubs are always drawn at full detail; the game's lower tie LODs are not used. How far drawn mobys are also updated is Active distance's. What the game hides from where the camera is (its occlusion mask), by a bit of its records, or because it belongs to a streamed chunk of the level other than the one loaded stays hidden at every step. Replaces the old Scenery detail setting (`original_lod`, now ignored). Ratchet & Clank's shrub limits need levels exported again (the launcher's level export) |
 | Active distance | `active_distance` | `match` (default), `original` | How far the game updates its mobys (their animation and logic). Match takes Draw distance's reach: a moby drawn far away moves and patrols, and stops where the window stops drawing it, instead of standing in its spawn pose until the hero comes near. Original keeps the console's distances: a moby past them is drawn but not updated. The enemies' own ranges (sight, aggro, attack) are the game's at either setting, though an enemy kept live far away can notice the hero from its usual range where the console would have frozen it. More live mobys cost CPU; Original is the lighter choice. Going Commando's Electrolyzer boards keep the game's distance |
@@ -101,8 +104,8 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Frame rate | `frame_rate` | `display`, `original`, a number, `unlimited` | How many frames are drawn (section 2). The page offers 30, 60, 75, 90, 120, 144, 165, 240 and 360; a file may hold any number from 20 to 1000 |
 | Frame cap | `frame_rate` | | The same key from another side: turns the cap on and moves it five frames a second at a time, for a rate the list does not have |
 | Frame counter (F2) | `show_fps` | `0` (off), `1` (FPS and whole-frame time), `2` (FPS, CPU and GPU milliseconds) | F2 cycles all three modes. Whole-frame time measures completed presentation intervals, including swap and pacing waits, and agrees with FPS. CPU uses those same intervals with swap-call time removed: all intervening simulation ticks, preparation, rendering and other waits count, even when rendering is skipped. This is elapsed CPU-side time, not processor utilisation. GPU remains the sum of asynchronously measured passes; missing samples show `--`. Updates four times a second, in the game's accent colour, as the launcher and the options menu wear it |
-| Low-latency frames | `low_latency_frames` | `0` (default), `1` | Draws the frames between game ticks sooner and keeps fewer finished frames waiting for the display, so the picture reacts faster. Only the timing of the picture changes, never the game's ticks. On OpenGL it can cost frames on a slow graphics card. Off by default. Drawer: Latency; the game's Video options page |
-| Responsive controls | `responsive_controls` | `0` (default), `1` | Reads the pads again just before each tick, so a press reaches the game up to a tick sooner. Also turns the camera in the frames between ticks with the right stick as it is now, so a turn shows at once (see "The camera between ticks"; not at the `original` frame rate). The game's logic is unchanged, but a trick timed by feel lands about a frame earlier, so it is off by default. Replaces Responsive pad (`fresh_input`) and Responsive camera (`camera_latch`); those keys are ignored, so it starts off. Drawer: Latency; the game's Video options page |
+| Low-latency frames | `low_latency_frames` | `0` (default), `1` | Draws the frames between game ticks sooner and keeps fewer finished frames waiting for the display, so the picture reacts faster. Only the timing of the picture changes, never the game's ticks. On OpenGL it can cost frames on a slow graphics card. Off by default. Drawer: Latency |
+| Responsive controls | `responsive_controls` | `0` (default), `1` | Reads the pads again just before each tick, so a press reaches the game up to a tick sooner. Also turns the camera in the frames between ticks with the right stick as it is now, so a turn shows at once (see "The camera between ticks"; not at the `original` frame rate). The game's logic is unchanged, but a trick timed by feel lands about a frame earlier, so it is off by default. Replaces Responsive pad (`fresh_input`) and Responsive camera (`camera_latch`); those keys are ignored, so it starts off. Drawer: Latency |
 | (Controls tab, Menu) | `menu_bar_key` | `` ` ``, `Alt`, any SDL scancode name (`F4`, `M`) | The key that opens and closes the menu, by its place on the keyboard (`` ` `` is the key under Escape on any layout); the menu says it at its foot. `Alt` counts pressed by itself (Alt+Return stays fullscreen; an Alt held through Alt+Tab does not count) |
 | (Controls tab, Menu) | `menu_button` | `start+back` (Start and Select together), `paddle1`, `none`, any SDL gamepad button name (`misc1`) | The controller button that opens and closes it. Start+Select never reaches the game. An old `menu_bar_button = leftstick` (L3) becomes Start+Select. `paddle1` is the Steam Controller's R4 |
 | Mute in background | `mute_unfocused` | `0`, `1` | Silence while another window has the keyboard |
@@ -507,9 +510,7 @@ Write only what the code or a commit shows. A fix is:
 
 - **a setting**: `fix_... = 1` or `0` in the settings file (section 1),
   written with the others, read at start;
-- **a row** of the Options page (title and pause menu), after the port's own
-  under a **Game fixes** heading: On, or Original. The page scrolls, four or
-  five rows at a time. The in-game drawer has a **Game fixes** card too;
+- **a row** of the in-game menu's **Game fixes** card: On, or Original;
 - **a switch** in the launcher, under the game's **Differences from the
   original**, which edits that one line of the file (it counts from the
   game's next start);

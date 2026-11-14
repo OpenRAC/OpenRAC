@@ -710,7 +710,7 @@ void menu_window(const Shown& shown) {
         if (ImGuiWindow* rows =
                 m.rows_window != 0 ? ImGui::FindWindowByID(m.rows_window) : nullptr) {
             const float most = rows->ScrollMax.y;
-            if (rows->ScrollTarget.y != FLT_MAX) {
+            if (s.menu_open && rows->ScrollTarget.y != FLT_MAX) {
                 // ImGui brings the focus just inside the edge; a little further, so it stands
                 // clear of the edge's fade.
                 const float to =
@@ -719,7 +719,7 @@ void menu_window(const Shown& shown) {
                 m.scroll_target = to + (std::abs(to - m.scroll_shown) > 0.5f ? clear : 0.0f);
             }
             const ImVec2 mouse = io.MousePos;
-            if (io.MouseWheel != 0.0f && mouse.x >= at.x && mouse.x < at.x + rows_w
+            if (s.menu_open && io.MouseWheel != 0.0f && mouse.x >= at.x && mouse.x < at.x + rows_w
                 && mouse.y >= at.y && mouse.y < b.y) {
                 m.scroll_target -= io.MouseWheel * dp(120.0f);
             }

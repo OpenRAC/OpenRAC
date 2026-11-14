@@ -559,6 +559,11 @@ bool finish_render() try {
         return !g || !g->render_failed;
     }
     const auto started = std::chrono::steady_clock::now();
+    while (!g->render_worker->ready_until(
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(50)
+    )) {
+        platform::pump_events();
+    }
     std::string error;
     const bool complete = g->render_worker->finish(error);
     auto output = std::move(g->pending_frame);

@@ -11,6 +11,7 @@
 #include "enhanced/lighting/probes.h"
 #include "enhanced/renderer/gtao.h"
 #include "enhanced/tests/gpu_probe_fixture.h"
+#include "enhanced/tests/material_surface_gpu.h"
 #include "enhanced/tests/probe_receiver_normals.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
@@ -19,9 +20,11 @@
 #include "renderer/gl/gl.h"
 #include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 #include "scene/level_renderer.h"
+#include "scene/object_preview.h"
 #include "tests/check.h"
 #include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
@@ -310,7 +313,8 @@ void material_path(
 ) {
     scene::LevelData level;
     level.light_sets.resize(256);
-    const Float3 triangle_positions[] = {{-1, -1, 0}, {1, -1, 0}, {0, 1, 0}};
+    // Keep the receiver in front of the camera; a coplanar eye makes Fresnel fully grazing.
+    const Float3 triangle_positions[] = {{-1, -1, -.5f}, {1, -1, -.5f}, {0, 1, -.5f}};
 
     for (const auto& p : triangle_positions) {
         scene::Vertex vtx{};
@@ -377,8 +381,28 @@ void material_path(
 
     level.materials.back().emission_contrast = emission_contrast;
     scene::Model model;
+    // Material inference uses exported model names; an unnamed mesh denotes the sky.
+    model.name = layer == scene::Layer::Mobys    ? "moby_7.glb"
+                 : layer == scene::Layer::Ties   ? "tie_7.glb"
+                 : layer == scene::Layer::Shrubs ? "shrub_7.glb"
+                                                 : "terrain.glb";
     model.primitives.push_back({0, 3, 0});
     level.models.push_back(model);
+    {
+        // This matrix measures diffuse GI, direct light and emission. Use a neutral Lit
+        // material so changing the default optical finish cannot contaminate those signals.
+        // The environment GPU tests exercise the production specular response separately.
+        const auto catalog = materials::parse_catalog(
+            R"({"version":1,"overrides":[
+          {"id":"diffuse-receiver","match":{"model":")"
+            + model.name
+            + R"("},"set":{"type":"lit","surface":{"reflectivity":0},"reflection":{"strength":0}}}]})"
+        );
+        CHECK(catalog);
+        const auto assets = scene::identify_materials(level, *catalog);
+        CHECK(assets);
+        level.material_bindings = scene::resolve_materials(*assets, *catalog).value();
+    }
     scene::Instance instance;
 
     // The packed slot supplies the same artistic tint as the moby fixture through a different path.
@@ -608,7 +632,7 @@ void material_path(
         );
         std::array<float, 64> points{};
         points[0] = points[1] = points[2] = 1;
-        points[6] = 1;
+        points[6] = .5f;  // One unit above the receiver, halfway through the light's radius.
         points[7] = 2;
         scene.set_point_lights(points);
         renderer.render(input, {frame.id(), 32, 32});
@@ -1366,7 +1390,18 @@ void dense_sphere_fade() {
         glDepthMask(GL_TRUE);
         glClearDepth(0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        probes.draw_spheres(input, state);
+        // The live diagnostic draws inside a declared world bucket, not an unscoped GL callback.
+#if defined(OPENRAC_VULKAN)
+        if (is_vulkan()) {
+            vkgl::GraphExecution bucket;
+            bucket.add_pass(bucket.make_pass("mobys"));
+            const auto result = bucket.run([&](unsigned) { probes.draw_spheres(input, state); });
+            CHECK(result);
+        } else
+#endif
+        {
+            probes.draw_spheres(input, state);
+        }
         return frame.read_rgba()[(16 * 32 + 16) * 4 + 1];
     };
     probes.update_regions({0, 0, 0}, 0.125f);
@@ -1677,9 +1712,16 @@ void test_wide_probe_atlas(renderer::Shader& shader, renderer::FrameBuffer& fram
 // Runs the complete sampling/material matrix with optional cold native-object lifetimes.
 int main(int argc, char** argv) {
     const bool fresh_programs = argc == 2 && std::string_view(argv[1]) == "--fresh-programs";
+    const bool sphere_overlays = argc == 2 && std::string_view(argv[1]) == "--sphere-overlays";
+    const bool glass_cutouts = argc == 2 && std::string_view(argv[1]) == "--glass-cutouts";
+    const bool chrome_original = argc == 2 && std::string_view(argv[1]) == "--chrome-original";
     // A cold-object run remains available to validate the same complete matrix.
-    if (argc > 1 && !fresh_programs) {
-        std::fprintf(stderr, "usage: probe_gpu_test [--fresh-programs]\n");
+    if (argc > 1 && !fresh_programs && !sphere_overlays && !glass_cutouts && !chrome_original) {
+        std::fprintf(
+            stderr,
+            "usage: probe_gpu_test [--fresh-programs | --sphere-overlays | --glass-cutouts | "
+            "--chrome-original]\n"
+        );
         return 1;
     }
     test::GlContext context;
@@ -1695,6 +1737,22 @@ int main(int argc, char** argv) {
     }
 #endif
 
+    if (sphere_overlays || glass_cutouts || chrome_original) {
+        if (chrome_original) {
+            test::test_original_chrome_coverage();
+        } else if (sphere_overlays) {
+            sphere_overlay();
+            dense_sphere_fade();
+        } else {
+            test::test_glass_cutout_coverage();
+        }
+#if defined(OPENRAC_VULKAN)
+        if (gl::is_vulkan()) {
+            CHECK(vkgl::submission_counters().validation_errors == 0);
+        }
+#endif
+        return test::result();
+    }
     test::RenderTestTiming timing("probes");
     compact_texture_uploads();
     std::string fragment = "#version 410 core\n";
@@ -1964,6 +2022,8 @@ void main() {
     material_path(scene::Layer::Ties, 0, false, true);
     material_path(scene::Layer::Shrubs, 0, false, true);
     sphere_overlay();
+    test::test_glass_cutout_coverage();
+    test::test_original_chrome_coverage();
     dense_sphere_fade();
     test::test_probe_receiver_normals();
     rejected_bake_message();

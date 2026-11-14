@@ -17,7 +17,7 @@ inline std::array<int, 2> render_extent(
     std::array<int, 2> display, renderer::TemporalQuality quality
 ) {
     // Off and native AA retain display resolution; remaining ratios are AMD's published presets.
-    constexpr std::array<float, 5> kRatios{1, 1, 1.5f, 1.7f, 2};
+    constexpr std::array<float, 5> kRatios{1, 2, 1.7f, 1.5f, 1};
     const auto index = std::min(static_cast<std::size_t>(quality), kRatios.size() - 1);
     return {
         std::max(1, static_cast<int>(static_cast<float>(display[0]) / kRatios[index])),

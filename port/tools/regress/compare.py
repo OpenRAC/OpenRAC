@@ -85,7 +85,8 @@ def differs(kind: str, a, b, tol: float) -> bool:
 
 
 def by_control(ticks: list[dict]) -> dict[int, dict]:
-    return {t["c"]: t for t in ticks if t.get("c") is not None}
+    """Ticks by frames since control; a frame that only kept the last picture (k) is left out."""
+    return {t["c"]: t for t in ticks if t.get("c") is not None and not t.get("k")}
 
 
 def gap(kind: str, a, b) -> float:
@@ -119,7 +120,7 @@ def version_differences(level: int | str, data: dict | None = None, route_set: s
 
 def by_frame(ticks: list[dict]) -> dict[int, dict]:
     """A route without control (the title's), read by window frame, with "c" the frame."""
-    return {t["f"]: dict(t, c=t["f"]) for t in ticks}
+    return {t["f"]: dict(t, c=t["f"]) for t in ticks if not t.get("k")}
 
 
 def compare_ticks(a: list[dict], b: list[dict], fields: list[str], tolerance: dict,

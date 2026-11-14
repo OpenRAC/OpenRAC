@@ -134,15 +134,21 @@ struct Settings {
         float brightness = 1.20f;
         float range = 2.22f;
     } nanotech_light;
-    bool rim_light = true;
+
+    // The menu puts Off before the renderer's quality levels.
+    int shadow_quality_choice() const {
+        return enhanced_shadows ? static_cast<int>(shadow_quality) + 1 : 0;
+    }
+
+    void set_shadow_quality_choice(int choice) {
+        enhanced_shadows = choice > 0;
+        if (enhanced_shadows) {
+            shadow_quality = static_cast<renderer::ShadowQuality>(choice - 1);
+        }
+    }
     // A texture pack from <data>/texture_packs/<game id>/ (docs/port/TEXTURE_PACKS.md); takes
     // effect at the next start.
     bool texture_pack = true;
-    bool rim_shadow_lift = true;
-    float rim_lift_exponent = 0.09f;
-    float rim_lift_max_gain = 7.1f;
-    float rim_light_strength = 0.30f;
-    float rim_light_falloff = 6.46f;   // Higher values narrow the lit edge.
     bool probe_spheres = false;        // diagnostic placement/fade overlay
     bool medial_axis_debug = false;    // Baked centre paths and junctions.
     bool ceiling_area_lights = false;  // Baked source rectangles and emitting-direction arrows.
@@ -150,6 +156,7 @@ struct Settings {
         false;  // Baked reflection capture positions and influence boxes.
     float probe_gi_multiplier = 1.0f;
     // The settings sweep's experiments alone (debug/capture.cpp); never saved.
+    bool sweep_rim_light_off = false;
     bool sweep_probe_lighting_off = false;
     bool sweep_translucent_off = false;
     bool sweep_translucent_unlit = false;
@@ -170,6 +177,17 @@ struct Settings {
     // The preset those options match now, or Custom.
     EnhancedPreset enhanced_preset() const;
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
+
+    int occlusion_quality_choice() const {
+        return gtao ? static_cast<int>(gtao_settings.quality) + 1 : 0;
+    }
+
+    void set_occlusion_quality_choice(int choice) {
+        gtao = choice > 0;
+        if (gtao) {
+            gtao_settings.quality = static_cast<renderer::GtaoQuality>(choice - 1);
+        }
+    }
     renderer::TemporalQuality temporal_quality =  // Enhanced Vulkan only.
         kHandheldDefaults ? renderer::TemporalQuality::Balanced
                           : renderer::TemporalQuality::Quality;

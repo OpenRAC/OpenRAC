@@ -44,6 +44,7 @@ void check_rim(bool skinned, float albedo, bool chrome = false) {
     level.materials.emplace_back();
     level.materials.back().colour = {albedo, albedo, albedo, 1};
     scene::Model model;
+    model.name = "moby_7.glb";
     model.min = {-.6f, -.6f, 0};
     model.max = {.6f, .6f, 0};
     model.primitives.push_back({0, 6, 0});

@@ -299,7 +299,7 @@ fresh copy of it in its run folder: the player's card is never touched.
 
 | Switch | |
 |---|---|
-| `OPENRAC_TRACE=FILE` | one JSON line a tick: `f` window frame, `c` frames since control (null before), `lv`, `m`, `cam`, `fw`, `hp`, `hr`, `hs`, `mb`, `dr` (the table above). The addresses are each version's: the camera and mobys from `viewer::rac1_addresses`, the game mode the loaded level's copy (`openrac_game_mode`) or the boot program's (`openrac_front_end`), the hero from `RAC1_ADDR(0x0013F450)` in rac1's `boot.c` (US position 0x13F3D0) |
+| `OPENRAC_TRACE=FILE` | one JSON line a window frame: `f` window frame, `c` frames since control (null before), `lv`, `m`, `cam`, `fw`, `hp`, `hr`, `hs`, `mb`, `dr` (the table above). A frame where the game sent nothing new and the last picture stays gets the last tick's values again with `k: 1`; comparisons skip it. The addresses are each version's: the camera and mobys from `viewer::rac1_addresses`, the game mode the loaded level's copy (`openrac_game_mode`) or the boot program's (`openrac_front_end`), the hero from `RAC1_ADDR(0x0013F450)` in rac1's `boot.c` (US position 0x13F3D0) |
 | `OPENRAC_REACH=FILE` | the reached sites as JSON, at exit and every 600 frames |
 | `OPENRAC_PRESS` `cF:...`, `kP:...`, `sP:...`, `SP:...` | a press F frames from control; a press held the first frames of every P while Start can skip what plays, until control: `k` on window frames, `s` from the frame what plays became skippable (the same tick of a scene in PAL and US, where window frames fall at other ticks of it); `S` as `s`, after control too |
 | `OPENRAC_WRITE` `cF:ADDR:VALUE:N` | a word written F frames from control, for N frames |

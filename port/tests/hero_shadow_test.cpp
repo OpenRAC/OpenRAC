@@ -121,6 +121,8 @@ void gpu(bool perspective = false) {
     level.indices = {0, 1, 2, 0, 2, 3, 4, 5, 6};
     level.materials.push_back({});
     scene::Model plane, hero_model;
+    plane.name = "terrain.glb";
+    hero_model.name = "moby_7.glb";
     plane.primitives.push_back({0, 6, 0});
     hero_model.primitives.push_back({6, 3, 0});
     hero_model.joints = 1;

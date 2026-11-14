@@ -96,6 +96,7 @@ inline constexpr std::uint32_t kFrameTimestamp = kTimestamps - 2;
 inline constexpr GLenum kGlActiveUniforms = 0x8B86;
 inline constexpr GLenum kGlInvalidEnum = 0x0500;
 inline constexpr GLenum kGlInvalidValue = 0x0501;
+inline constexpr GLenum kGlInvalidOperation = 0x0502;
 inline constexpr GLenum kGlUniformBufferOffsetAlignment = 0x8A34;
 inline constexpr GLenum kGlMaxCombinedTextureUnits = 0x8B4D;
 inline constexpr GLenum kGlMaxTextureBufferSize = 0x8C2B;
@@ -139,8 +140,8 @@ inline constexpr unsigned kGpuInputBytes = 8u << 20;
 // The native material path's pages: the draws one page holds, and the words and bytes of one
 // material record.
 inline constexpr unsigned kMaterialDraws = 32768;
-// Six GLSL vec4 fields, including the upscaled texture index.
-inline constexpr unsigned kMaterialWords = 24;
+// Nine GLSL vec4 fields, including per-material optics and the upscaled texture index.
+inline constexpr unsigned kMaterialWords = 36;
 inline constexpr unsigned kMaterialBytes = kMaterialWords * sizeof(std::uint32_t);
 
 // A material page assigns indices in first-seen order. Dense entries and a separate probe

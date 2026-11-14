@@ -64,6 +64,7 @@ scene::LevelData corner(bool wall) {
     }
     data.indices = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
     scene::Model model;
+    model.name = "terrain.glb";
     model.min = {-4, -4, 0};
     model.max = {4, 4, 3};
     model.primitives.push_back({0, wall ? 12u : 6u, 0});

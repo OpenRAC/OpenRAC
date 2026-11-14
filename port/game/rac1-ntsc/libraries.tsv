@@ -166,6 +166,7 @@ snd_get_doppler_pitch_mod	989snd	snd_GetDopplerPitchMod	host	PAL func_0012F2E0
 FUN_0012d8f8	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's functions; PAL func_0012DA38
 FUN_001e9ab8	draw	transition_draw_sky	wrap	on a level, the sky routine the level's copy of the frame draw calls (its own); the executable's runs the title's stars, which reseeded rand() and wrote 256 stars to address 0 (rac1/host/sky.c); PAL func_001E9E70	void (void)
 FUN_001f4280	draw	SetupGifPaging	wrap	sets the four draw flags at 0x18A3D0 retail has on before its first frame (nothing in the game's code stores them by name); PAL func_001F4630
+FUN_00209168	memcard	CheckBootMemoryCard	wrap	skip the startup memory card notice with OPENRAC_DIRECT (rac1/host/boot.c); PAL func_00209BB8
 FUN_00209370	memcard	NewGameInit	wrap	a new game starts in level 0; with --level N it starts in level N instead (rac1/host/boot.c); PAL func_00209DC0, paired as near
 FUN_00209298	memcard	memcard_RestoreGame	wrap	a loaded save: the language and the Sound page stay the player's, which the port remembers between runs (rac1/host/options.c); PAL func_00209CE8
 FUN_0022c8d0	sound	initialize_gameplay_sound_system	wrap	the sound's start: the Sound page the port remembers goes in first (rac1/host/options.c); PAL func_0022DBE8
@@ -1099,5 +1100,5 @@ FUN_L00_00254b58	draw	MobyAnimDecodeLocalPose	wrap	the local pose decoder: a mod
 FUN_L00_0029a6b0	vendor	Vendor_OpenMenu	hook	opens the vendor purchase menu, including the Gadgetron PDA remote vendor; a hook point for mods to prevent opening an empty vendor; PAL func_L00_0029BA20	void (unsigned int)
 
 FUN_L00_00239810	hud	draw_health_hud_panel	wrap	optional connected health background sized for 4/5/8 orbs; off preserves PS2 layout (host/hud_panels.c)	int (unsigned int)
-FUN_L00_00241788	world	print_moby_class_sizes	wrap	after a level registers its moby classes: the classes it imports from other levels' programs register too (rac1/host/foreign_class.c); PAL func_L00_00242120	void (unsigned int, int)
-FUN_0020c5f0	game	InitMobyInstance	wrap	a moby's defaults, set by CreateMoby: in an imported class's call (another level's program), a class this level does not have takes the game's own path for a class with no data, a dead moby, instead of reading past the class tables (rac1/host/foreign_class.c); PAL func_0020D440	void (gaddr, int)
+FUN_L00_00241788	world	print_moby_class_sizes	wrap	after a level registers its moby classes, register its imported classes too (rac1/host/foreign_class.c); PAL func_L00_00242120	void (unsigned int, int)
+FUN_0020c5f0	game	InitMobyInstance	wrap	sets a new moby's defaults; in an imported class's call, a class this level lacks becomes an inert moby, as the game does for a class with no data (rac1/host/foreign_class.c); PAL func_0020D440	void (gaddr, int)

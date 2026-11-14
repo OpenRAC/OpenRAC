@@ -251,8 +251,10 @@ inline Rgb oklab_to_linear(const Rgb& lab) {
 inline constexpr float kGreyChroma = 1e-4f;
 // SDR's hue counts fully from this OKLab chroma up and fades to nothing at grey.
 inline constexpr float kSureHueChroma = 0.02f;
+// ...and from this share of the HDR colour's chroma up.
+inline constexpr float kSureHueShare = 0.25f;
 // sdr_hue_of: the lowest channel's place below white in the hue it takes.
-inline constexpr float kHueFloor = 0.8f;
+inline constexpr float kHueFloor = 0.4f;
 
 // The hue SDR gives `linear` (above white): its clip at white, or where SDR shows it white (all
 // channels past 1, a flame's core), the hue it had just before, from the pixel scaled down until
@@ -290,7 +292,10 @@ inline Rgb apply_look(const Rgb& hdr, const Rgb& sdr, const Rgb& sdr_hue, const 
             da = ra;
             db = rb;
         } else if (look.sdr_hue > 0.0f) {
-            const float amount = look.sdr_hue * std::min(ref_chroma / kSureHueChroma, 1.0f);
+            // A pale SDR colour's hue moves a lot with each step of the picture: it turns a much
+            // stronger HDR colour only in part, else smooth gradients show bands.
+            const float sure = std::max(kSureHueChroma, kSureHueShare * chroma);
+            const float amount = look.sdr_hue * std::min(ref_chroma / sure, 1.0f);
             const float ta = da + (ra - da) * amount;
             const float tb = db + (rb - db) * amount;
             const float length = std::hypot(ta, tb);

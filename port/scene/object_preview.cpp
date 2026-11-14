@@ -129,6 +129,21 @@ Result<void> ObjectPreview::bind_pose() {
     return pose(instance, {});
 }
 
+bool ObjectPreview::update_material(
+    std::size_t index, const Material& material, const PreviewOptics& optics
+) {
+    auto& part = m_mesh.parts[index];
+    if (part.source_image != material.image || part.source_emission != material.emission_image) {
+        return false;
+    }
+    const int image = part.material.image, emission = part.material.emission_image;
+    part.material = material;
+    part.material.image = image;
+    part.material.emission_image = emission;
+    part.optics = optics;
+    return true;
+}
+
 void ObjectPreview::draw_parts(bool transparent) {
     glUniform1i(m_shader.uniform("material_transparent"), transparent);
 
@@ -165,6 +180,23 @@ void ObjectPreview::draw_parts(bool transparent) {
             m_shader.uniform("material_emission_vertex_colour"), material.emission_vertex_colour
         );
         glUniform1i(m_shader.uniform("material_cutout"), material.cutout);
+        glUniform1i(m_shader.uniform("studio_material"), part.optics.has_value());
+        if (part.optics) {
+            const auto& optics = *part.optics;
+            glUniform3f(
+                m_shader.uniform("studio_optics"),
+                optics.roughness,
+                optics.reflectivity,
+                optics.metallic
+            );
+            glUniform4f(
+                m_shader.uniform("studio_reflection"),
+                optics.tint[0],
+                optics.tint[1],
+                optics.tint[2],
+                optics.strength
+            );
+        }
         glDrawArrays(GL_TRIANGLES, GLint(part.first), GLsizei(part.count));
     }
 }

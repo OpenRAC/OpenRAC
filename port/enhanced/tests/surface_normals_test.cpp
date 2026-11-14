@@ -76,6 +76,7 @@ scene::LevelData smooth_level(float sign, bool skinned, bool cutout) {
         level.materials[0].image = 0;
     }
     scene::Model model;
+    model.name = skinned ? "moby_7.glb" : "terrain.glb";
     model.primitives.push_back({0, 6, 0});
     model.min = {-4, -4, 0};
     model.max = {4, 4, 0};

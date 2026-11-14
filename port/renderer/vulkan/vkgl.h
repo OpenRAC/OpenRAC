@@ -354,8 +354,9 @@ bool pipeline_prewarm_busy();
 // pipeline and part queued when the level's programs linked (the pipelines earlier runs drew them
 // with), so that its first frames make none, and saves the pipeline caches on a thread of their
 // own if this run made new pipelines. Optional upgrades discovered during gameplay are recorded
-// in the manifest for a future load. Nothing while the backend is closed.
-void finish_pipelines();
+// in the manifest for a future load. While waiting, pump_events can keep the window responsive.
+// Nothing while the backend is closed.
+void finish_pipelines(void (*pump_events)() = nullptr);
 
 // When the presents have been seen to reach the screen (VK_KHR_present_wait, under the registry's
 // present-timing). `visible` is the moment the backend saw present `id` finished, on the steady

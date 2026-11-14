@@ -37,6 +37,8 @@ int probe_mode=1;
 float test_shadow=1.;
 uniform float material_diffuse_scale;
 uniform vec4 material_colour;
+float material_metallic=0.;
+vec3 material_dielectric=vec3(0.),material_dielectric_tint=vec3(1.);
 float sun_shadow_visibility(vec3 p,vec3 n,vec3 g){return test_shadow;}
 float hero_shadow_visibility(vec3 p,vec3 n){return 1.;}
 vec3 probe_unit(vec3 v){return v*inversesqrt(max(dot(v,v),1e-12));}
@@ -94,6 +96,17 @@ void main() {
     } else if(test==25) value=shaped.z;
     else if(test==26) value=dot(shaped,shaped);
     else if(test==27) value=foliage_normal(n,vec3(gl_FragCoord.xy*.1,0),gl_FragCoord.xy*.01,0.).z;
+    else if(test>=28 && test<=39) {
+        material.x=test==29?1.:0.;
+        albedo=vec3(.5,.25,.125);
+        material_metallic=test==34?1.5:2.;
+        material_dielectric=vec3(1.,.04,test==30 || test==37?0.:(test==33 || test==38?2.:1.));
+        if(test==31 || test==39) material_dielectric_tint=vec3(.5,1.,1.);
+        FoliageSurfaceData surface=prepare_foliage(n,eye,albedo,material);
+        vec3 response=foliage_response(surface,test==29?-n:n);
+        if(test==32 || test>=37) response=foliage_surface(vec3(0),n,eye,albedo,vec3(1),vec4(0),1.,material,vec2(.5));
+        value=test==35?response.g:(test==36?response.b:response.r);
+    }
     uint bits=floatBitsToUint(value*material_colour.r);
     result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;
 })";
@@ -116,7 +129,7 @@ void test_lighting(const std::vector<std::uint8_t>& pixels) {
         CHECK(std::abs(scalar(pixels, pixel) - expected) < kTolerance);
     };
     // Every diagnostic must remain finite and nonnegative, including opposing and grazing directions.
-    for (unsigned x = 0; x < 28; ++x) {
+    for (unsigned x = 0; x < 40; ++x) {
         CHECK(std::isfinite(scalar(pixels, x)) && scalar(pixels, x) >= 0);
     }
     near(0, .5f * .99f + .0025f);
@@ -146,6 +159,20 @@ void test_lighting(const std::vector<std::uint8_t>& pixels) {
     CHECK(scalar(pixels, 25) > .5f && scalar(pixels, 25) < 1);
     near(26, 1);
     near(27, 1);
+    // Measured F0 modulates the artwork, metallic removes transmission/diffuse,
+    // and tint/strength affect both directional reflection and broad GI reflection.
+    near(28, .00125f);
+    near(29, 0);
+    near(30, 0);
+    near(31, .000625f);
+    near(32, .005f / 3.14159265f);
+    near(33, .0025f);
+    near(34, .25f);
+    near(35, .000625f);
+    near(36, .0003125f);
+    near(37, 0);
+    near(38, .01f / 3.14159265f);
+    near(39, .0025f / 3.14159265f);
 }
 
 // Owns the fullscreen fixture while its graphics context remains current.
@@ -220,7 +247,7 @@ int test_gpu() {
     if (!build_shader(fixture, error)) {
         return test::result();
     }
-    const bool created = fixture.frame.create(32, 1, error);
+    const bool created = fixture.frame.create(64, 1, error);
     CHECK(created);
     if (!created) {
         std::printf("%s\n", error.c_str());
@@ -228,7 +255,7 @@ int test_gpu() {
     }
     bind_inputs(fixture);
     glBindFramebuffer(GL_FRAMEBUFFER, fixture.frame.id());
-    glViewport(0, 0, 32, 1);
+    glViewport(0, 0, 64, 1);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
     fixture.shader.use();
@@ -244,9 +271,9 @@ int test_gpu() {
     );
     glDrawArrays(GL_TRIANGLES, 0, 3);
     const auto pixels = fixture.frame.read_rgba();
-    CHECK(pixels.size() == 128u);
+    CHECK(pixels.size() == 256u);
     // A failed readback is reported without accessing an incomplete image.
-    if (pixels.size() == 128u) {
+    if (pixels.size() == 256u) {
         test_lighting(pixels);
     }
     CHECK(glGetError() == GL_NO_ERROR);

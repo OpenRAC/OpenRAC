@@ -381,6 +381,42 @@ void check_many_lights(
     CHECK(preview.target().width() == 1024 && preview.target().height() == 512);
 }
 
+void check_material_preview(const scene::LevelData& level) {
+    scene::ObjectPreview preview;
+    auto material = level.materials[0];
+    CHECK(preview.select(scene::preview_uv_sphere(level, 0, material)));
+    CHECK(preview.update_material(0, material, {}));
+    CHECK(preview.draw(128, 128, {}));
+    const auto textured = preview.target().read_rgba();
+    const auto lit = brightness(preview);
+    material.diffuse_scale = 0;
+    CHECK(preview.update_material(0, material, {}));
+    CHECK(preview.draw(128, 128, {}));
+    CHECK(brightness(preview) < lit);
+    material.diffuse_scale = 1;
+    CHECK(preview.update_material(0, material, {}));
+    CHECK(preview.draw(128, 128, {}));
+    CHECK(preview.target().read_rgba() == textured);
+    material.image = -1;
+    CHECK(!preview.update_material(0, material, {}));
+    CHECK(preview.select(scene::preview_uv_sphere(level, 0, material)));
+    CHECK(preview.update_material(0, material, {}));
+    CHECK(preview.draw(128, 128, {}));
+    CHECK(preview.target().read_rgba() != textured);
+    // A white metal keeps the selected F0 magnitude in the studio as well as the world shader.
+    scene::PreviewOptics optics;
+    optics.roughness = .5f;
+    optics.reflectivity = .4f;
+    optics.strength = optics.metallic = 1.f;
+    CHECK(preview.update_material(0, material, optics));
+    CHECK(preview.draw(128, 128, {}));
+    const auto darker_metal = brightness(preview);
+    optics.reflectivity = .8f;
+    CHECK(preview.update_material(0, material, optics));
+    CHECK(preview.draw(128, 128, {}));
+    CHECK(brightness(preview) > darker_metal);
+}
+
 // The context outlives every preview object, matching the frontend's explicit release ordering.
 int run() {
     auto level = fixture();
@@ -405,6 +441,7 @@ int run() {
     check_gpu(level, hit, instance, palette);
     check_cutout(level, hit, instance, palette);
     check_many_lights(level, hit, instance, palette);
+    check_material_preview(level);
     CHECK(vkgl::submission_counters().validation_errors == 0);
     CHECK(gl::glGetError() == gl::GL_NO_ERROR);
     return test::result();

@@ -52,6 +52,19 @@ if (slides) {
 /** How long a slide waits for the code of the page coming in, with the window standing still. */
 const CODE_WAIT_MS = 1000;
 
+/** How long a slide waits for what the page coming in reads as it opens (holdSlide). */
+const READ_WAIT_MS = 300;
+
+/** What the page coming in is still reading, held by holdSlide while its slide starts. */
+let reads: Promise<unknown>[] = [];
+
+/** Lets the slide under way wait, briefly, for READ: a list the page reads as it opens. The browser
+ *  takes its picture of the page then, so the list comes in with the page instead of popping in
+ *  after it. Outside a slide it does nothing. */
+export function holdSlide(read: Promise<unknown>): void {
+  if (sliding) reads.push(read.catch(() => undefined));
+}
+
 /** Makes CHANGE (a page or a game opened) as one slide, going WAY; at once where slides are off.
  *  A change while a slide is still under way goes into that slide's page as it is: a second slide
  *  would cut the first short and start again from a picture of the page it was leaving, which
@@ -71,7 +84,12 @@ export function slide(change: () => void, way: Way, code?: Promise<unknown>) {
   document.dispatchEvent(new Event("slidestart"));
   const transition = document.startViewTransition(async () => {
     if (code) await Promise.race([code.catch(() => undefined), new Promise((done) => setTimeout(done, CODE_WAIT_MS))]);
+    reads = [];
     change();
+    await tick();
+    const held = reads;
+    reads = [];
+    if (held.length) await Promise.race([Promise.all(held), new Promise((done) => setTimeout(done, READ_WAIT_MS))]);
     await tick();
     await pictures();
   });

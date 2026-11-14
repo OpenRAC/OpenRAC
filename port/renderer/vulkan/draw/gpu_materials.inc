@@ -88,11 +88,16 @@ constexpr MaterialField kMaterialFields[] =
     {{"material_colour", "O_MATERIAL.colour", 0},
      {"material_emission", "O_MATERIAL.emission_diffuse.xyz", 16},
      {"material_diffuse_scale", "O_MATERIAL.emission_diffuse.w", 28},
-     // Spare material word: preserves batching and the existing 96-byte layout.
+     // Original packed words retain their offsets as the record grows to include optics.
      {"material_emission_contrast", "uintBitsToFloat(O_MATERIAL.texture_indices.y)", 84},
-     // Two bounded half pairs occupy the last spare words without changing material stride.
+     // Two bounded half pairs retain the foliage coverage and finish parameters.
      {"foliage_parameters0", "int(O_MATERIAL.texture_indices.z)", 88},
      {"foliage_parameters1", "int(O_MATERIAL.texture_indices.w)", 92},
+     {"material_dielectric", "O_MATERIAL.optics.xyz", 96},
+     {"material_metallic", "O_MATERIAL.optics.w", 108},
+     {"material_dielectric_tint", "O_MATERIAL.reflection_tint.xyz", 112},
+     {"foliage_reflectivity", "O_MATERIAL.reflection_tint.w", 124},
+     {"material_fallback", "int(O_MATERIAL.optical_flags.x)", 128},
      {"cutout", "int(O_MATERIAL.flags.x)", 32},
      {"emission_mask", "int(O_MATERIAL.flags.y)", 36},
      {"emission_vertex_colour", "int(O_MATERIAL.flags.z)", 40},
@@ -236,6 +241,9 @@ struct OpenracMaterial {
     uvec4 resources;
     uvec4 draw_flags;
     uvec4 texture_indices;
+    vec4 optics;
+    vec4 reflection_tint;
+    uvec4 optical_flags;
 };
 
 layout(std430, set = 1, binding = 1) readonly buffer OpenracMaterials {

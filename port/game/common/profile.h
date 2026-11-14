@@ -26,6 +26,10 @@
 #include "renderer/math.h"
 #include "scene/shrub_draw.h"
 
+namespace openrac::scene {
+struct LevelData;
+}
+
 namespace openrac::host {
 
 // What the game's shrub renderer draws of one shrub instance in a frame.
@@ -127,6 +131,12 @@ struct DiagnosticsInput {
 class GameProfile {
 public:
     virtual ~GameProfile() = default;
+
+    // A verified asset-layout preparation callback, called by a level-loading worker.
+    using LevelGeometryPreparer = void (*)(scene::LevelData&);
+
+    // Returns immutable preparation for supported exports; no callback keeps retail geometry.
+    virtual LevelGeometryPreparer level_geometry_preparer() const { return nullptr; }
 
     // Reads the camera and the live mobys from the game's active main memory, `ram`. `level` is
     // the level program loaded now (-1 for the boot program, the title and the menus): each has its

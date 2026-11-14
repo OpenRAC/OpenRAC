@@ -38,7 +38,8 @@ public:
     void dispatch(
         const renderer::Camera& camera,
         float range,
-        const std::array<ProbeRegionSlot, kDenseProbeSlots>& slots
+        const std::array<ProbeRegionSlot, kDenseProbeSlots>& slots,
+        bool gpu_selection = false
     );
 
     // Returns the program whose selection uniforms must be bound before dispatch.
