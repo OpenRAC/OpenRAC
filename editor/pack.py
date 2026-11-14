@@ -889,6 +889,7 @@ def pack(disc, survey: dict, project: Path, out: Path,
         import foreign_classes
         wanted, foreign_problems = foreign_classes.wanted(text)
         donors, blobs, sources = {}, {}, {}
+        owner: dict[int, int] = {}     # each imported class: the placed class it came with
         for class_id, there in wanted.items():
             try:
                 if available_classes is not None and class_id in available_classes:
@@ -909,6 +910,7 @@ def pack(disc, survey: dict, project: Path, out: Path,
                     raise ValueError(f"class {class_id}: level {there:02} places no moby of it to copy")
                 blobs[class_id] = (there, foreign_classes.class_blob(source_level, class_id))
                 donors[class_id] = [found]
+                owner[class_id] = class_id
             except (ValueError, FormatError) as error:
                 foreign_problems.append(f"imported {error}; its mobys are not packed")
         # What each one's links name in its level comes with it: a class this level has runs as
@@ -926,6 +928,7 @@ def pack(disc, survey: dict, project: Path, out: Path,
                         continue
                     try:
                         blobs[cid] = (there, foreign_classes.class_blob(source_level, cid))
+                        owner[cid] = class_id
                     except ValueError:
                         continue
                 if cid in blobs and blobs[cid][0] != there:
@@ -943,13 +946,24 @@ def pack(disc, survey: dict, project: Path, out: Path,
                         continue
                     try:
                         blobs[cid] = (there, foreign_classes.class_blob(source_level, cid))
+                        owner[cid] = class_id
                     except ValueError:
                         pass
-        # The level has 224 class slots; what its own classes leave is all the imports get (the
-        # port registers them in this order, so the spawned ones are left out first).
+        # The level has 224 class slots; what its own classes leave is all the imports get. A
+        # placed class whose classes (its own, its links', what it makes) do not all fit is not
+        # imported: without its parts or shots it would not run as it does there.
         room = max(foreign_classes.CLASS_SLOTS - len(own), 0) if blobs else 0
-        left_out = list(blobs)[room:]
-        for cid in left_out:
+        taken: set[int] = set()
+        for class_id in list(donors):
+            needs = {c for c in blobs if owner.get(c) == class_id} - taken
+            if len(taken) + len(needs) <= room:
+                taken |= needs
+                continue
+            del donors[class_id]
+            foreign_problems.append(
+                f"imported class {class_id} needs {len(needs)} more moby classes and only "
+                f"{room - len(taken)} fit in this level; its mobys are not packed")
+        for cid in [c for c in blobs if c not in taken]:
             del blobs[cid]
         names: list[str] = []
         moby_spawn_ids: dict[str, int] = {}
@@ -958,10 +972,7 @@ def pack(disc, survey: dict, project: Path, out: Path,
                                                donors, placed)
         problems += foreign_problems
         changes += foreign_classes.write(out / name, blobs) if donors else []
-        if left_out:
-            changes.append(f"only {room} more moby classes fit in this level: classes "
-                           f"{', '.join(map(str, left_out))} are not imported, and what makes them makes "
-                           "nothing")
+
         if not donors:
             foreign_classes.write(out / name, {})
         # Each imported moby's own level's tables, moved to where it stands (foreign_classes.world).

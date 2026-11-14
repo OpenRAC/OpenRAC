@@ -112,8 +112,9 @@ moby needs in its level comes with it:
   ones.
 - **The classes its update can make** that this level lacks (a turret's shots),
   from `editor/rac1_spawns.tsv` (`editor/spawns.py` writes it from the game's
-  code). The level has 224 class slots: when they run out the classes it makes
-  are left out first, and the pack says which.
+  code). The level has 224 class slots: a class whose classes (its own, its
+  links', what it makes) do not all fit in what the level leaves is not
+  imported, and the pack says so (a gunship's 22 classes do not fit Kerwan).
 
 The port registers the class when the level loads, draws it with its level's
 model, and runs its update in its own level's program: its level's data is
