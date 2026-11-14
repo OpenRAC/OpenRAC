@@ -107,7 +107,8 @@ def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels:
     for k in list(env):
         if k.startswith("OPENRAC_"):
             del env[k]  # the caller's own switches would change the run
-    env.update({"OPENRAC_HIDDEN": "1", "SDL_AUDIODRIVER": "dummy", "OPENRAC_UNCAPPED": "1", "OPENRAC_AUDIO_TICKED": "1",
+    # No sound out of a hidden run: SDL 3's name (SDL 2's SDL_AUDIODRIVER is not read).
+    env.update({"OPENRAC_HIDDEN": "1", "SDL_AUDIO_DRIVER": "dummy", "OPENRAC_UNCAPPED": "1", "OPENRAC_AUDIO_TICKED": "1",
                 "OPENRAC_TRACE": str(out / "trace.jsonl"), "OPENRAC_REACH": str(out / "reach.json"),
                 "OPENRAC_DRAW_COVERAGE": str(out / "coverage.json"), "OPENRAC_STATE_DUMP": str(out / "state.json")})
     env.update(route.env())
