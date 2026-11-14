@@ -112,7 +112,9 @@ def run(args) -> int:
         return 1
     exe = args.exe or runner.REPO / "port" / "build" / "release" / f"openrac-{game}{'.exe' if os.name == 'nt' else ''}"
     data, levels = runner.default_inputs(game)
-    data, levels = args.data or data, args.levels or levels
+    # Absolute: each route's game runs in a folder of its own.
+    exe = Path(exe).resolve()
+    data, levels = Path(args.data or data).resolve(), Path(args.levels or levels).resolve()
     for path, what in ((exe, "the game"), (data, "the game's data"), (levels, "the levels")):
         if not path.exists():
             say("error", message=f"{path} is missing: {what} must be set up first")

@@ -39,6 +39,8 @@ namespace fs = std::filesystem;
 namespace {
 
 constexpr std::uint64_t kSector = 2048;
+// How much of the disc is read at once while looking for blobs.
+constexpr std::uint64_t kPart = std::uint64_t{32} << 20;
 
 // The sectors the game read during the run, as cdvd.c reported them.
 struct Reads {
@@ -60,6 +62,11 @@ void note_disc_read(unsigned int sector, unsigned int count) {
     }
     Reads& r = reads();
     const std::lock_guard guard(r.lock);
+    // A streamed file reads on where it stopped: one range grows rather than thousands.
+    if (!r.ranges.empty() && r.ranges.back().first + r.ranges.back().second == sector) {
+        r.ranges.back().second += count;
+        return;
+    }
     r.ranges.emplace_back(sector, count);
 }
 
@@ -191,6 +198,7 @@ public:
                 continue;
             }
             m_needles[key.anchor].push_back({hash, key});
+            m_longest = std::max<std::uint64_t>(m_longest, key.size);
             m_filter[filter_bit(key.anchor) / 64] |= std::uint64_t{1}
                                                      << (filter_bit(key.anchor) % 64);
             ++m_left;
@@ -234,6 +242,9 @@ public:
 
     bool done() const { return m_left == 0; }
 
+    // The longest blob looked for: how far a piece read in parts must reach into the next one.
+    std::uint64_t longest() const { return m_longest; }
+
     const std::map<std::uint64_t, Place>& found() const { return m_found; }
 
 private:
@@ -249,6 +260,7 @@ private:
     std::vector<std::uint64_t> m_filter = std::vector<std::uint64_t>(kFilterBits / 64);
     std::map<std::uint64_t, Place> m_found;
     std::size_t m_left = 0;
+    std::uint64_t m_longest = 0;
 };
 
 // Where each blob is on the disc, from the sectors the game read: as they are, then inside each
@@ -277,24 +289,35 @@ std::map<std::uint64_t, Place> locate(
             joined.emplace_back(first, count);
         }
     }
+    // Read in parts (a long route reads hundreds of megabytes), each reaching past its end by the
+    // longest blob so that one lying across the cut is still whole in one part.
+    disc.seekg(0, std::ios::end);
+    const std::uint64_t disc_size =
+        static_cast<std::uint64_t>(std::max<std::streamoff>(0, disc.tellg()));
+    const std::uint64_t reach = std::max<std::uint64_t>(finder.longest(), wad::kHeaderBytes);
     std::set<std::uint64_t> streams;
     for (const auto& [first, count] : joined) {
-        const std::uint64_t base = first * kSector;
-        const std::vector<std::uint8_t> bytes = read_at(disc, base, count * kSector);
-        if (bytes.empty()) {
-            continue;
-        }
-        finder.search(bytes, [&](std::uint64_t at, std::uint64_t size) {
-            return Place{size, base + at, std::nullopt};
-        });
-        // The WAD streams that start here (the magic and a size that is plausible).
-        for (std::size_t i = 0; i + wad::kHeaderBytes <= bytes.size(); ++i) {
-            if (bytes[i] != 'W' || bytes[i + 1] != 'A' || bytes[i + 2] != 'D') {
+        const std::uint64_t begin = std::min(first * kSector, disc_size);
+        const std::uint64_t end = std::min((first + count) * kSector, disc_size);
+        for (std::uint64_t base = begin; base < end; base += kPart) {
+            const std::uint64_t own = std::min(kPart, end - base);
+            const std::vector<std::uint8_t> bytes =
+                read_at(disc, base, std::min(own + reach, disc_size - base));
+            if (bytes.empty()) {
                 continue;
             }
-            const auto size = wad::stream_size(std::span(bytes).subspan(i));
-            if (size && *size <= wad::kDefaultLimit) {
-                streams.insert(base + i);
+            finder.search(bytes, [&](std::uint64_t at, std::uint64_t size) {
+                return Place{size, base + at, std::nullopt};
+            });
+            // The WAD streams that start here (the magic and a size that is plausible).
+            for (std::size_t i = 0; i < own && i + wad::kHeaderBytes <= bytes.size(); ++i) {
+                if (bytes[i] != 'W' || bytes[i + 1] != 'A' || bytes[i + 2] != 'D') {
+                    continue;
+                }
+                const auto size = wad::stream_size(std::span(bytes).subspan(i));
+                if (size && *size <= wad::kDefaultLimit) {
+                    streams.insert(base + i);
+                }
             }
         }
     }
@@ -569,7 +592,12 @@ void finish_interface_run(const fs::path& disc) {
     }
     g_noting = false;
     openrac_cdvd_read_hook = nullptr;
-    write_run(g_run_file, disc);
+    // Called at the exit: nothing may leave it (an exception would unwind into the game's tick).
+    try {
+        write_run(g_run_file, disc);
+    } catch (const std::exception& e) {
+        log::error("interface run: {} not written: {}", g_run_file.string(), e.what());
+    }
     g_run_file.clear();
 }
 

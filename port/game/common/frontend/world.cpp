@@ -898,7 +898,9 @@ std::uint32_t particle_texture(
     renderer::Rgba8Image image =
         renderer::convert_t8(indices, kSide, kSide, palette, renderer::AlphaScale::Gs);
     // An interface texture run notes how it was made (renderer/textures/interface_run.h).
-    renderer::interface_run::note_indexed8(image, indices, colours, kSide, kSide, texa);
+    renderer::interface_run::note_indexed8(
+        image, indices, colours, static_cast<int>(kSide), static_cast<int>(kSide), texa
+    );
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
     renderer::texture_pack::Replacement replaced;
     if (!renderer::texture_pack::replace(image, {}, &replaced)) {
