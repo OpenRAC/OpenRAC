@@ -1,5 +1,5 @@
 # Moby class names, for the editor's labels: class number, name.
-# From Lombyte (MIT, (c) 2026 Mateusz Klysz), config/overlays/us/names/level-NN.json at be2d870:
+# From Lombyte (GPL-3.0), config/overlays/us/names/level-NN.json at be2d870:
 # its "moby-class-record" evidence, which joins each level's class dispatch table with the class
 # names of Wrench's moby_classes unpack (github.com/chaoticgd/wrench). Classes without an update
 # function in any level have no name here and show their number.
