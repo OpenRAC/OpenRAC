@@ -966,11 +966,11 @@ launcher's Mods page lists them by name.
 | Chrome map for metal parts | not found: grey | not found: grey | not found: grey |
 | Sky | yes | yes | yes |
 | Collision layer | yes | yes | yes |
-| Lighting baked as the game does it | not yet | not yet | not yet |
+| Lighting baked as the game does it | terrain and shrubs, not ties | not yet | not yet |
 | Moby class names and update functions | not yet | not yet | not yet |
 | Deadlocked's mission instances and classes | | | not yet |
 | Packing edits back into the game | not yet | not yet | not yet |
-| Playing | not yet | not yet | not yet |
+| Playing | yes | not yet | not yet |
 
 What does not decode yet is left out rather than stopping the level, and
 each level says what: `level.json`'s `problems` in a Godot project,
@@ -992,8 +992,9 @@ pack for that game (`"game": "rac2"`, `"rac3"` or `"rac4"`, `"version":
 "ntsc"`), and `overrides.py` stacks a pack only for levels of its own game.
 Such a pack holds textures and models; a level edit in it is ignored and
 said so. The launcher's Mods page has all of it: **Read the levels**, then
-**Models and textures**, and the level editor; its Pack and Play steps say
-they are not there yet for these games.
+**Models and textures**, and the level editor; its Pack step says it is not
+there yet for these games (Going Commando plays from the Play tab, without
+level edits).
 
 ## Code
 

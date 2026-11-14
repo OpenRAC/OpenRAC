@@ -762,6 +762,24 @@ mod tests {
     use super::*;
     use crate::testing::checkout;
 
+    /// Going Commando plays (prebuilt, like rac1): none of its actions call it early access or
+    /// say the game is not playable. Its level edits are not packed back, and the text says so.
+    #[test]
+    fn going_commando_is_not_early_access() {
+        let file = load(&checkout()).unwrap();
+        for key in ["rac2/ntsc", "rac2/pal", "rac2/ntsc2"] {
+            let list = &file.versions[key];
+            let play = list.iter().find(|a| a.id == "play").unwrap_or_else(|| panic!("{key} has no play"));
+            assert_ne!(play.state, State::Planned, "{key} play");
+            assert!(list.iter().all(|a| a.id != "editor-pack"), "{key} packs levels: update Mods.svelte early()");
+            for a in list {
+                let text = a.description.to_lowercase();
+                assert!(!text.contains("early access"), "{key} {}: {}", a.id, a.description);
+                assert!(!text.contains("not playable"), "{key} {}", a.id);
+            }
+        }
+    }
+
     #[test]
     fn the_checkouts_actions_json_is_valid() {
         let root = checkout();
