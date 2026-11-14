@@ -36,6 +36,9 @@ import runner  # noqa: E402
 FORMAT = 1
 CATEGORIES = ("font", "interface", "effects")
 # Each game's route set: the most of its interface the routes show.
+# The renderer's passes of the 3D world (OPENRAC_HIDE_PASSES); its picture plays no part in the game.
+WORLD_PASSES = "sky,terrain,ties,shrubs,mobys,ratchet shadows"
+
 ROUTE_SETS = {"rac1-pal": "wide", "rac1-ntsc": "wide", "rac2-ntsc": "rac2-tour"}
 
 
@@ -136,8 +139,12 @@ def run(args) -> int:
         Path(tempfile.mkdtemp(prefix="openrac-interface-run-"))
     say("start", game=game, routes=len(chosen), skipped=skipped, work=str(work))
     done, failed = [], []
-    settings = {"render_scale": 25} if args.fast else None
-    env = dict(kv.split("=", 1) for kv in args.env)
+    # A small window: the HUD's textures are the game's whatever the window's size, and drawing on
+    # the CPU (no graphics card) costs by the pixel.
+    settings = {"render_scale": 25, "window_size": "320x240"}
+    # The 3D world is not drawn: its textures are not the interface's, and drawing it was most of a
+    # route's time without a graphics card. The HUD and the effects are drawn as in the game.
+    env = {"OPENRAC_HIDE_PASSES": WORLD_PASSES, **dict(kv.split("=", 1) for kv in args.env)}
 
     def one(r: routes_mod.Route) -> tuple[routes_mod.Route, dict]:
         out = work / r.key
@@ -194,7 +201,6 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--jobs", type=int, default=max(1, min(4, (os.cpu_count() or 2) // 2)))
     r.add_argument("--only", action="append", help="only this route (repeatable; for testing)")
     r.add_argument("--env", action="append", default=[], help="KEY=VALUE for every route (OPENRAC_SOFTWARE_GL=1)")
-    r.add_argument("--fast", action="store_true", help="draw the 3D at a quarter of the size (textures are the same)")
     r.add_argument("--timeout-scale", type=float, default=1.0,
                    help="give each route this many times its time (a slow computer, software drawing)")
     r.add_argument("--official", action="store_true", help="mark it as the project's own run")

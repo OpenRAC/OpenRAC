@@ -17,6 +17,7 @@
 // A level's own textures are not: the editor exports those from the disc already.
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -142,7 +143,16 @@ struct BlobKey {
     std::uint64_t size = 0;
     std::uint64_t anchor_at = 0;
     std::uint64_t anchor = 0;
+    // Windows spread over the blob up to its end (probe_at), checked before the whole blob is
+    // hashed: an anchor can be found in many places where the rest differs.
+    static constexpr std::size_t kProbes = 16;
+    std::array<std::uint64_t, kProbes> probes{};
 };
+
+// Where probe `n` of a blob of `size` bytes (8 or more) starts.
+constexpr std::uint64_t probe_at(std::uint64_t size, std::size_t n) {
+    return (size - 8) * (n + 1) / BlobKey::kProbes;
+}
 
 BlobKey blob_key(std::span<const std::uint8_t> bytes);
 

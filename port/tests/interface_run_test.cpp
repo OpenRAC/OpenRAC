@@ -206,6 +206,11 @@ void blob_keys() {
     std::uint64_t window = 0;
     std::memcpy(&window, bytes.data() + 99, 8);
     CHECK(key.anchor == window);
+    // The windows checked before a hash, spread up to the end.
+    bytes[4095] = 9;
+    const interface_run::BlobKey probed = interface_run::blob_key(bytes);
+    CHECK(interface_run::probe_at(4096, interface_run::BlobKey::kProbes - 1) == 4088);
+    CHECK(probed.probes.back() == std::uint64_t{9} << 56);
     CHECK(interface_run::blob_key(std::vector<std::uint8_t>(4)).size == 4);
 }
 

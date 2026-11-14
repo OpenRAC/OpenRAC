@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -230,8 +231,9 @@ public:
                     continue;
                 }
                 const std::size_t start = i - needle.key.anchor_at;
-                if (start + needle.key.size > haystack.size()
-                    || run::blob_hash(haystack.subspan(start, needle.key.size)) != needle.hash) {
+                const std::size_t size = needle.key.size;
+                if (start + size > haystack.size() || !probes_match(data + start, needle.key)
+                    || run::blob_hash(haystack.subspan(start, size)) != needle.hash) {
                     continue;
                 }
                 m_found.emplace(needle.hash, place(start, needle.key.size));
@@ -251,6 +253,21 @@ private:
     // Blobs shorter than this are not looked for: their bytes are found everywhere.
     static constexpr std::size_t kMinBlob = 32;
     static constexpr std::uint32_t kFilterBits = 1u << 20;
+
+    static std::uint64_t window_at(const std::uint8_t* at) {
+        std::uint64_t window = 0;
+        std::memcpy(&window, at, sizeof window);
+        return window;
+    }
+
+    static bool probes_match(const std::uint8_t* blob, const run::BlobKey& key) {
+        for (std::size_t n = 0; n < run::BlobKey::kProbes; ++n) {
+            if (window_at(blob + run::probe_at(key.size, n)) != key.probes[n]) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     static std::uint32_t filter_bit(std::uint64_t key) {
         return static_cast<std::uint32_t>((key * 0x9E3779B97F4A7C15ull) >> 44);
@@ -344,7 +361,16 @@ void write_run(const fs::path& file, const fs::path& disc) {
         const std::lock_guard guard(r.lock);
         ranges = r.ranges;
     }
+    const auto located_from = std::chrono::steady_clock::now();
     const std::map<std::uint64_t, Place> places = locate(disc, noted.blobs, std::move(ranges));
+    log::info(
+        "interface run: {} blobs looked for on the disc in {} ms",
+        noted.blobs.size(),
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - located_from
+        )
+            .count()
+    );
     // The textures whose bytes were not all found on the disc, by name: run.py drops those another
     // part has.
     std::map<std::string, std::string> missing{{"font", ""}, {"interface", ""}, {"effects", ""}};

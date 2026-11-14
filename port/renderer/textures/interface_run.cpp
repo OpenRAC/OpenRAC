@@ -107,6 +107,9 @@ BlobKey blob_key(std::span<const std::uint8_t> bytes) {
         }
     }
     std::memcpy(&key.anchor, bytes.data() + key.anchor_at, sizeof key.anchor);
+    for (std::size_t n = 0; n < BlobKey::kProbes; ++n) {
+        std::memcpy(&key.probes[n], bytes.data() + probe_at(bytes.size(), n), sizeof key.probes[n]);
+    }
     return key;
 }
 

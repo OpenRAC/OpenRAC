@@ -638,8 +638,7 @@
           "--levels",
           "{root}/assets/port/rac1/pal",
           "--out",
-          "{data}/interface_runs/rac1-pal.json",
-          "--fast"
+          "{data}/interface_runs/rac1-pal.json"
         ],
         "output": "{data}/interface_runs",
         "cwd": ".",
@@ -1467,8 +1466,7 @@
           "--levels",
           "{root}/assets/port/rac1/ntsc",
           "--out",
-          "{data}/interface_runs/rac1-ntsc.json",
-          "--fast"
+          "{data}/interface_runs/rac1-ntsc.json"
         ],
         "output": "{data}/interface_runs",
         "cwd": ".",
@@ -3092,8 +3090,7 @@
           "--levels",
           "{root}/assets/port/rac2/ntsc",
           "--out",
-          "{data}/interface_runs/rac2-ntsc.json",
-          "--fast"
+          "{data}/interface_runs/rac2-ntsc.json"
         ],
         "output": "{data}/interface_runs",
         "cwd": ".",
