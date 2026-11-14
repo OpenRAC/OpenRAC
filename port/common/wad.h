@@ -30,9 +30,12 @@ bool looks_like_stream(std::span<const std::uint8_t> data);
 std::optional<std::size_t> stream_size(std::span<const std::uint8_t> data);
 
 // `data` (a stream from its header on; bytes after its size are not read) decompressed, or nothing
-// when it is not a valid stream or would pass `limit` bytes.
+// when it is not a valid stream or would pass `limit` bytes. With `enough`, it stops once that many
+// bytes are out: the stream's start (maybe a little more), its rest not read nor checked.
 std::optional<std::vector<std::uint8_t>> decompress(
-    std::span<const std::uint8_t> data, std::size_t limit = kDefaultLimit
+    std::span<const std::uint8_t> data,
+    std::size_t limit = kDefaultLimit,
+    std::size_t enough = SIZE_MAX
 );
 
 }  // namespace openrac::wad

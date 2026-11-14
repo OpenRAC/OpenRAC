@@ -238,6 +238,10 @@ Options parse(int argc, char** argv) {
             o.interface_run = value();
         } else if (a == "--interface-export") {
             o.interface_export = value();
+            if (o.interface_export.empty()) {
+                // An empty folder would start the game instead of exporting.
+                usage("--interface-export needs a folder");
+            }
         } else if (a == "--interface-runs") {
             o.interface_runs.emplace_back(value());
         } else if (a == "--only") {

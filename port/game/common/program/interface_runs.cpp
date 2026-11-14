@@ -20,6 +20,7 @@
 #include <sstream>
 #include <string_view>
 #include <system_error>
+#include <thread>
 #include <unordered_map>
 
 #include "common/json.h"
@@ -43,6 +44,8 @@ namespace {
 constexpr std::uint64_t kSector = 2048;
 // How much of the disc is read at once while looking for blobs.
 constexpr std::uint64_t kPart = std::uint64_t{32} << 20;
+// The most WAD streams an export decompresses at once (a level's is some 30 MB out).
+constexpr unsigned kMostThreads = 4;
 
 // The sectors the game read during the run, as cdvd.c reported them.
 struct Reads {
@@ -194,8 +197,11 @@ std::vector<std::uint8_t> read_at(Disc& disc, std::uint64_t at, std::uint64_t si
     return out;
 }
 
-// The decompressed WAD stream that starts at byte `at` of the disc, or nothing.
-std::optional<std::vector<std::uint8_t>> read_wad(Disc& disc, std::uint64_t at) {
+// The decompressed WAD stream that starts at byte `at` of the disc (with `enough`, only that many
+// bytes of it or a few more), or nothing.
+std::optional<std::vector<std::uint8_t>> read_wad(
+    Disc& disc, std::uint64_t at, std::size_t enough = SIZE_MAX
+) {
     const std::vector<std::uint8_t> header = read_at(disc, at, wad::kHeaderBytes);
     const auto size = wad::stream_size(header);
     if (!size || *size > wad::kDefaultLimit) {
@@ -205,7 +211,7 @@ std::optional<std::vector<std::uint8_t>> read_wad(Disc& disc, std::uint64_t at) 
     if (stream.empty()) {
         return std::nullopt;
     }
-    return wad::decompress(stream);
+    return wad::decompress(stream, wad::kDefaultLimit, enough);
 }
 
 // ---- Finding the blobs on the disc ----
@@ -548,7 +554,10 @@ bool write_png(const fs::path& file, const renderer::Rgba8Image& image) {
 struct Loaded {
     // Every place a run gave for a blob: one that does not hold it on this disc is passed over.
     std::map<std::uint64_t, std::vector<Place>> blobs;
-    std::map<std::uint64_t, run::Recipe> recipes;
+    // Every recipe the runs give for a texture, in the order of the files: the first one whose
+    // blobs this disc holds makes it (an official run made from another printing of the disc may
+    // name blobs the player's own run has elsewhere).
+    std::map<std::uint64_t, std::vector<run::Recipe>> recipes;
 };
 
 // A whole number from 0 to `most` in a run file, or nothing (a file is not trusted to be sane).
@@ -618,7 +627,7 @@ bool load_run(const fs::path& file, const std::string& game, Loaded& into, std::
     for (const json::Value& t : doc["textures"].items()) {
         const auto name = parse_hex(t["name"].string());
         const auto category = run::parse_category(t["category"].string());
-        if (!name || !category || into.recipes.contains(*name)) {
+        if (!name || !category) {
             continue;
         }
         run::Recipe r;
@@ -691,7 +700,10 @@ bool load_run(const fs::path& file, const std::string& game, Loaded& into, std::
         } else {
             continue;
         }
-        into.recipes.emplace(*name, std::move(r));
+        std::vector<run::Recipe>& known = into.recipes[*name];
+        if (std::find(known.begin(), known.end(), r) == known.end()) {
+            known.push_back(std::move(r));
+        }
     }
     return true;
 }
@@ -777,10 +789,17 @@ int export_interface(
         ));
         return 1;
     }
-    std::vector<const run::Recipe*> todo;
-    for (const auto& [name, r] : loaded.recipes) {
-        if (wanted.contains(r.category)) {
-            todo.push_back(&r);
+    // The textures asked for, each with its recipes of the categories asked for.
+    std::vector<std::vector<const run::Recipe*>> todo;
+    for (const auto& [name, recipes] : loaded.recipes) {
+        std::vector<const run::Recipe*> of_name;
+        for (const run::Recipe& r : recipes) {
+            if (wanted.contains(r.category)) {
+                of_name.push_back(&r);
+            }
+        }
+        if (!of_name.empty()) {
+            todo.push_back(std::move(of_name));
         }
     }
     // A new folder each time: an earlier export (maybe edited since) is never written over.
@@ -794,18 +813,26 @@ int export_interface(
     }
     say(std::format(R"({{"event": "start", "total": {}}})", todo.size()));
 
+    // The blobs each recipe needs.
+    const auto blobs_of = [](const run::Recipe& r) {
+        std::vector<std::uint64_t> needs;
+        if (r.kind == run::Kind::Pool) {
+            for (const auto& u : r.uploads) {
+                needs.push_back(u.blob);
+            }
+        } else {
+            needs = {r.indices, r.palette};
+        }
+        return needs;
+    };
     // The blobs, read from the disc stream by stream, each checked against its hash: the first
     // place that holds it wins.
     std::map<std::uint64_t, std::vector<std::uint8_t>> blobs;
     std::set<std::uint64_t> needed;
-    for (const run::Recipe* r : todo) {
-        if (r->kind == run::Kind::Pool) {
-            for (const auto& u : r->uploads) {
-                needed.insert(u.blob);
-            }
-        } else {
-            needed.insert(r->indices);
-            needed.insert(r->palette);
+    for (const auto& recipes : todo) {
+        for (const run::Recipe* r : recipes) {
+            const std::vector<std::uint64_t> needs = blobs_of(*r);
+            needed.insert(needs.begin(), needs.end());
         }
     }
     // The blobs in each WAD stream, with where in it.
@@ -829,26 +856,73 @@ int export_interface(
             }
         }
     }
+
+    // The streams that hold a blob not read yet, each decompressed only as far as its blobs reach
+    // (the level streams hold the HUD near their start), several at once.
+    struct Stream {
+        std::uint64_t at = 0;
+        std::uint64_t reach = 0;
+        std::vector<std::pair<std::uint64_t, Place>> places;
+    };
+
+    std::vector<Stream> streams;
     for (const auto& [at, places] : by_stream) {
-        if (std::all_of(places.begin(), places.end(), [&](const auto& hp) {
-                return blobs.contains(hp.first);
-            })) {
-            continue;
-        }
-        const auto stream = read_wad(disc, at);
-        if (!stream) {
-            continue;
-        }
+        Stream stream{at, 0, {}};
         for (const auto& [hash, p] : places) {
-            if (blobs.contains(hash) || p.at > stream->size() || p.size > stream->size() - p.at) {
-                continue;
+            if (!blobs.contains(hash)) {
+                stream.reach = std::max(stream.reach, p.at + p.size);
+                stream.places.emplace_back(hash, p);
             }
-            const std::span<const std::uint8_t> bytes = std::span(*stream).subspan(
-                static_cast<std::size_t>(p.at), static_cast<std::size_t>(p.size)
-            );
-            if (run::blob_hash(bytes) == hash) {
-                blobs.emplace(hash, std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
+        }
+        if (!stream.places.empty()) {
+            streams.push_back(std::move(stream));
+        }
+    }
+    std::mutex blobs_lock;
+    std::atomic<std::size_t> next_stream{0};
+    const auto read_streams = [&] {
+        // Each with a disc of its own: a stream's seek and read are not shared.
+        Disc own(disc_path);
+        if (!own) {
+            return;
+        }
+        try {
+            for (std::size_t i = next_stream++; i < streams.size(); i = next_stream++) {
+                const Stream& s = streams[i];
+                const auto bytes = read_wad(own, s.at, static_cast<std::size_t>(s.reach));
+                if (!bytes) {
+                    continue;
+                }
+                for (const auto& [hash, p] : s.places) {
+                    if (p.at > bytes->size() || p.size > bytes->size() - p.at) {
+                        continue;
+                    }
+                    const std::span<const std::uint8_t> blob = std::span(*bytes).subspan(
+                        static_cast<std::size_t>(p.at), static_cast<std::size_t>(p.size)
+                    );
+                    if (run::blob_hash(blob) == hash) {
+                        const std::lock_guard guard(blobs_lock);
+                        blobs.try_emplace(hash, blob.begin(), blob.end());
+                    }
+                }
             }
+        } catch (const std::exception& error) {
+            // Out of memory: the streams not read leave their textures out, counted as not on the
+            // disc.
+            log::warn("interface export: a WAD stream could not be read: {}", error.what());
+        }
+    };
+    {
+        const std::size_t threads = std::min<std::size_t>(
+            streams.size(), std::clamp(std::thread::hardware_concurrency(), 1u, kMostThreads)
+        );
+        std::vector<std::thread> helpers;
+        for (std::size_t n = 1; n < threads; ++n) {
+            helpers.emplace_back(read_streams);
+        }
+        read_streams();
+        for (std::thread& helper : helpers) {
+            helper.join();
         }
     }
     const run::BlobSource source = [&](std::uint64_t hash) -> const std::vector<std::uint8_t>* {
@@ -861,52 +935,51 @@ int export_interface(
     int mismatched = 0;
     int unwritable = 0;
     std::size_t done = 0;
-    for (const run::Recipe* r : todo) {
+    for (const auto& recipes : todo) {
         ++done;
         if (done % 50 == 0) {
             say(std::format(
                 R"({{"event": "progress", "done": {}, "total": {}}})", done, todo.size()
             ));
         }
-        const auto image = run::rebuild(*r, source);
-        if (!image) {
-            // A blob that is not on this disc as the run found it, or (all there) a conversion
-            // that makes no picture of them.
-            const bool all_read =
-                r->kind == run::Kind::Pool
-                    ? std::all_of(
-                          r->uploads.begin(),
-                          r->uploads.end(),
-                          [&](const run::Upload& u) { return blobs.contains(u.blob); }
-                      )
-                    : blobs.contains(r->indices) && blobs.contains(r->palette);
+        // The first recipe whose blobs were all read and that makes the very picture.
+        const run::Recipe* made_by = nullptr;
+        std::optional<renderer::Rgba8Image> image;
+        bool all_read = false;
+        for (const run::Recipe* r : recipes) {
+            const std::vector<std::uint64_t> needs = blobs_of(*r);
+            if (!std::all_of(needs.begin(), needs.end(), [&](std::uint64_t b) {
+                    return blobs.contains(b);
+                })) {
+                continue;
+            }
+            all_read = true;
+            auto picture = run::rebuild(*r, source);
+            if (picture && renderer::texture_pack::image_hash(*picture) == r->name) {
+                image = std::move(picture);
+                made_by = r;
+                break;
+            }
+        }
+        if (made_by == nullptr) {
+            // A blob that is not on this disc as the runs found it, or (all there) a conversion
+            // that makes another picture of them, or none.
             ++(all_read ? mismatched : from_other_disc);
             log::verbose(
                 "interface export: {} made no picture ({})",
-                hex(r->name),
+                hex(recipes.front()->name),
                 all_read ? "its blobs were read" : "a blob is not on the disc"
             );
             continue;
         }
-        if (renderer::texture_pack::image_hash(*image) != r->name) {
-            ++mismatched;
-            log::verbose("interface export: {} came out as another picture", hex(r->name));
-            continue;
-        }
-        const fs::path folder = out / folder_of(r->category);
+        const fs::path folder = out / folder_of(made_by->category);
         fs::create_directories(folder, e);
-        const fs::path file = folder / renderer::texture_pack::file_name(r->name);
+        const fs::path file = folder / renderer::texture_pack::file_name(made_by->name);
         if (!write_png(file, *image)) {
             ++unwritable;
-            if (unwritable == 1) {
-                say(std::format(
-                    R"({{"event": "error", "message": {}}})",
-                    json_quote(utf8(file) + " could not be written (is the disk full?)")
-                ));
-            }
             continue;
         }
-        ++written[std::string(run::category_id(r->category))];
+        ++written[std::string(run::category_id(made_by->category))];
     }
     say(std::format(
         R"({{"event": "done", "folder": {}, "written": {{"font": {}, "interface": {}, "effects": {}}}, "skipped": {{"disc": {}, "different": {}, "unwritable": {}}}}})",
@@ -923,9 +996,12 @@ int export_interface(
         say(std::format(
             R"({{"event": "error", "message": {}}})",
             json_quote(
-                todo.empty() ? "the runs hold no texture of the kinds asked for"
-                             : "no texture came out as the run says: is the disc set up "
-                               "the same version as the run's?"
+                todo.empty()     ? std::string("the runs hold no texture of the kinds asked for")
+                : unwritable > 0 ? utf8(out) + " could not be written (is the disk full?)"
+                                 : std::string(
+                                       "no texture came out as the run says: is the disc set "
+                                       "up the same version as the run's?"
+                                   )
             )
         ));
         return 1;

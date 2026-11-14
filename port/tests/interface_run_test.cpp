@@ -52,6 +52,21 @@ void wad_streams() {
     CHECK(!wad::decompress(wad_stream({0x11 + 1, 'A', 0x5c, 0x00})));
     CHECK(!wad::decompress(stream, 5));
     CHECK(!wad::stream_size(std::vector<std::uint8_t>{'W', 'A', 'X', 0, 0, 0, 0}));
+
+    // A repeat: a match of 7 bytes 2 back goes on copying the bytes it makes.
+    const auto repeat = wad::decompress(wad_stream({0x11 + 2, 'A', 'B', 0x25, 0x04, 0x00}));
+    CHECK(
+        repeat
+        && *repeat == std::vector<std::uint8_t>({'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A'})
+    );
+
+    // Enough: the stream's start only (here its first packet), the rest not read.
+    const auto start = wad::decompress(stream, wad::kDefaultLimit, 2);
+    CHECK(start && *start == std::vector<std::uint8_t>({'A', 'B', 'C', 'D'}));
+    auto bad_tail = stream;
+    bad_tail.back() = 0xff;
+    CHECK(!wad::decompress(bad_tail));
+    CHECK(wad::decompress(bad_tail, wad::kDefaultLimit, 4));
 }
 
 std::vector<std::uint8_t> clut() {

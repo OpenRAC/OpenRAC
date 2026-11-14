@@ -71,6 +71,8 @@ struct Upload {
     std::uint32_t width = 0;
     std::uint32_t height = 0;
     std::uint64_t blob = 0;
+
+    bool operator==(const Upload&) const = default;
 };
 
 // How to make one texture again.
@@ -90,6 +92,8 @@ struct Recipe {
     std::uint64_t palette = 0;
     int width = 0;
     int height = 0;
+
+    bool operator==(const Recipe&) const = default;
 };
 
 // The registers as the chip takes them (gs.h's decode() turned round).

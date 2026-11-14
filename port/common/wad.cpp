@@ -3,6 +3,9 @@
 
 #include "common/wad.h"
 
+#include <algorithm>
+#include <cstring>
+
 namespace openrac::wad {
 
 namespace {
@@ -32,7 +35,7 @@ bool looks_like_stream(std::span<const std::uint8_t> data) {
 }
 
 std::optional<std::vector<std::uint8_t>> decompress(
-    std::span<const std::uint8_t> data, std::size_t limit
+    std::span<const std::uint8_t> data, std::size_t limit, std::size_t enough
 ) {
     const auto size = stream_size(data);
     if (!size || *size > data.size()) {
@@ -41,6 +44,8 @@ std::optional<std::vector<std::uint8_t>> decompress(
     const std::size_t end = *size;
     std::size_t pos = kHeaderBytes;
     std::vector<std::uint8_t> out;
+    // Most streams grow to two or three times their size: fewer moves of a large stream.
+    out.reserve(std::min({limit, enough, end * 3}));
     bool bad = false;
 
     const auto byte = [&]() -> std::uint32_t {
@@ -68,7 +73,7 @@ std::optional<std::vector<std::uint8_t>> decompress(
     }
     // The game traps on a literal run that follows literals.
     bool needs_match = !out.empty();
-    while (pos < end && !bad) {
+    while (pos < end && !bad && out.size() < enough) {
         const std::uint32_t tag = byte();
         std::size_t distance = 0;
         std::size_t count = 0;
@@ -111,8 +116,18 @@ std::optional<std::vector<std::uint8_t>> decompress(
         if (bad || distance > out.size() || out.size() + count > limit) {
             return std::nullopt;
         }
-        for (std::size_t i = 0; i < count; ++i) {
-            out.push_back(out[out.size() - distance]);
+        // A copy from bytes already out, which may overlap the bytes it makes (a repeat).
+        const std::size_t from = out.size() - distance;
+        out.resize(out.size() + count);
+        std::uint8_t* const to = out.data() + from + distance;
+        const std::uint8_t* const source = out.data() + from;
+        if (distance >= count) {
+            std::memcpy(to, source, count);
+        } else {
+            // A repeat: the bytes go out `distance` at a time, each from the ones before it.
+            for (std::size_t done = 0; done < count; done += distance) {
+                std::memcpy(to + done, source + done, std::min(distance, count - done));
+            }
         }
         const std::size_t trailing = data[pos - 2] & 3;
         literal(trailing);
