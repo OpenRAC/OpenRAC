@@ -19,8 +19,9 @@ gives the game (`--data`) and the game id is the port's:
 | Going Commando (USA v2.00) | `rac2-ntsc2` |
 | Going Commando (Europe) | `rac2-pal` |
 
-Every `.png` in it or in its sub-folders whose name is a texture's hash is
-used; other files are left alone, and the folders are only for you. The
+Every picture in it or in its sub-folders whose name is a texture's hash is
+used: a `.png`, `.ktx2` or `.svg` (see [Picture formats](#picture-formats)).
+Other files are left alone, and the folders are only for you. The
 setting `texture_pack` (on by default, [SETTINGS.md](SETTINGS.md)) turns it
 off. It is a mod like the others: `--no-mods` (the launcher's Mods switch
 under Play off) leaves it out too. The log says how many textures the pack
@@ -77,6 +78,42 @@ Textures the game makes while it runs (a fade, an animated screen) change from
 frame to frame, so each frame is a texture of its own; replacing those is not
 useful.
 
+## Picture formats
+
+Use only formats that work on every GPU:
+
+| Format | Use it for |
+|---|---|
+| `.png` | Anything. Works in every version of the port. |
+| `.ktx2` | Big packs. Basis Universal (UASTC or ETC1S), or plain RGBA8. |
+| `.svg` | Sharp, simple art: HUD icons, text, logos, menu parts. |
+
+**KTX2.** The game turns a Basis KTX2 into what the GPU reads: BC7, else
+ASTC 4x4, else RGBA8. BC7 and ASTC use a quarter of the GPU memory of a PNG.
+Metal uses RGBA8 for now. The log line `texture pack KTX2 pictures kept as`
+tells you which one is used.
+
+World and model textures need mip levels in the file, or they stay RGBA8.
+Make files like this:
+
+```
+basisu -ktx2 -uastc -mipmap 0123456789abcdef.png
+```
+
+UASTC looks best; ETC1S makes the smallest file. A KTX2 may be up to 8192
+texels a side and 4096 x 4096 in all. BC1-BC7, ASTC and ETC2 files are refused
+because only some GPUs read them.
+
+**SVG.** The game draws it at four times the texture's size (at most 4096 a
+side). Give it the texture's shape (the same `viewBox` ratio). Only shapes,
+fills, strokes and gradients are drawn, so turn text into paths. Images,
+fonts, links and scripts are not read, and the launcher refuses an SVG with
+them. Up to 4 MB. Not for photos or painted textures.
+
+**Several formats for one texture.** The game tries SVG, then KTX2, then PNG.
+If one cannot be read, it uses the next. Keep a PNG beside an SVG or KTX2 so
+older versions of the port still work.
+
 ## A pack's .zip
 
 A shared pack is a `.zip` of the pack folder's contents, folders kept, with
@@ -88,10 +125,12 @@ A shared pack is a `.zip` of the pack folder's contents, folders kept, with
 
 The launcher accepts a `.zip` without the manifest, and one whose contents
 sit in a single folder of their own. It refuses one whose manifest names
-another game, a file outside the `.zip`'s folder, a link, a `.png` not named
+another game, a file outside the `.zip`'s folder, a link, a picture not named
 by a texture (except an animation's frames, in a folder named by a texture),
-two pictures for one texture, and a file that is not the picture its name
-says. Other files (a readme) are left out.
+two pictures of one format for one texture, an animation and a still picture
+for one texture, a file that is not the picture its name says, a KTX2 that only
+some GPUs read, and an SVG with a script or a link. Other files (a readme) are
+left out. Adding a texture replaces all of its pictures in your pack.
 
 ## PCSX2 packs
 

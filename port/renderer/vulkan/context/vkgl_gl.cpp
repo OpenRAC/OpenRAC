@@ -564,7 +564,8 @@ std::size_t compressed_bytes(GLenum format, int width, int height) {
     return std::size_t((width + side - 1) / side) * ((height + side - 1) / side) * 16;
 }
 
-// Allocates complete single-level compressed colour or scalar depth atlases.
+// Allocates compressed colour textures: probe atlases (one level) and texture pack pictures
+// (level 0 first, then each smaller level of its chain, as GL takes them).
 void VKGL compressed_tex_image_2d(
     GLenum target,
     GLint level,
@@ -582,20 +583,37 @@ void VKGL compressed_tex_image_2d(
         fail(kGlInvalidValue);
         return;
     }
-    // This path carries complete probe atlases, not generated GL mip chains.
-    if (!texture || level != 0 || border != 0 || width <= 0 || height <= 0
+    if (!texture || level < 0 || level >= std::numeric_limits<unsigned>::digits || border != 0
+        || width <= 0 || height <= 0
         || (internal != GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
             && internal != GL_COMPRESSED_RGBA_ASTC_8x8_KHR
-            && internal != GL_COMPRESSED_RGBA_ASTC_4x4_KHR)
+            && internal != GL_COMPRESSED_RGBA_ASTC_4x4_KHR
+            && internal != GL_COMPRESSED_RGBA_BPTC_UNORM)
         || format.vk == VK_FORMAT_UNDEFINED || size < 0
         || static_cast<std::size_t>(size) != compressed_bytes(internal, width, height)) {
         fail(kGlInvalidEnum);
         return;
     }
     prepare_frame();
-    retire(std::move(texture->image));
-    texture->image = make_image(format, width, height, 1, VK_SAMPLE_COUNT_1_BIT);
-    texture->internal = internal;
+    if (level == 0) {
+        retire(std::move(texture->image));
+        texture->image = make_image(format, width, height, 1, VK_SAMPLE_COUNT_1_BIT);
+        texture->internal = internal;
+    } else {
+        // A smaller level belongs to the chain of the level 0 given before, in its format.
+        if (!texture->image || texture->internal != internal
+            || std::max(texture->image->width >> level, 1) != width
+            || std::max(texture->image->height >> level, 1) != height) {
+            fail(kGlInvalidOperation);
+            return;
+        }
+        if (texture->image->levels <= level) {
+            texture->image = with_chain(texture->image);
+        }
+        if (texture->image->levels <= level) {
+            return;
+        }
+    }
     if (!texture->image || !pixels) {
         return;
     }
@@ -605,7 +623,7 @@ void VKGL compressed_tex_image_2d(
     }
     auto& image = *texture->image;
     const auto command = cmd_for(&image);
-    copy_to_image(command, image, staged, 0, 0, 0, width, height);
+    copy_to_image(command, image, staged, level, 0, 0, width, height);
     barrier(command, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     g->submission.texture_upload_bytes += static_cast<std::uint64_t>(size);
 }

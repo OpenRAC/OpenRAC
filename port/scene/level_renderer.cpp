@@ -422,6 +422,11 @@ bool LevelScene::upload(
             && level.images[i].width > 0) {
             textures.animate(m_textures.back(), level.image_animations[i]);
         }
+        // A texture pack KTX2's picture is kept on the GPU in blocks.
+        if (i < level.image_blocks.size() && level.image_blocks[i] != nullptr
+            && level.images[i].width > 0) {
+            textures.set_blocks(m_textures.back(), level.image_blocks[i]);
+        }
     }
     m_variant_image = -1;
     m_variants.clear();

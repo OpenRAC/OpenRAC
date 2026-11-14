@@ -245,6 +245,8 @@ struct LevelData {
     std::vector<renderer::Rgba8Image> images;
     // Parallel to images (or shorter): a texture pack's animated replacement of each, or null.
     std::vector<std::shared_ptr<const renderer::texture_pack::Animation>> image_animations;
+    // Parallel to images (or shorter): a texture pack KTX2's picture of each in GPU blocks, or null.
+    std::vector<std::shared_ptr<const renderer::CompressedImage>> image_blocks;
     std::vector<std::string> image_paths;
     // Parallel to images: whether some texel is below full alpha (under the chip's 0x80), which
     // the GS blends however the export's alpha mode reads (material_index).
