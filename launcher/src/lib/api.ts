@@ -98,6 +98,8 @@ import type { TextureFolder } from "./generated/TextureFolder";
 import type { TexturePackImportMode } from "./generated/TexturePackImportMode";
 import type { TexturePackPreview } from "./generated/TexturePackPreview";
 import type { TexturePackView } from "./generated/TexturePackView";
+import type { InterfaceRun } from "./generated/InterfaceRun";
+import type { InterfaceRunsView } from "./generated/InterfaceRunsView";
 import type { ExportedTexturePack } from "./generated/ExportedTexturePack";
 import type { ImportedTexturePack } from "./generated/ImportedTexturePack";
 import type { Tool } from "./generated/Tool";
@@ -146,6 +148,7 @@ export const onAndroid =
     : typeof location !== "undefined" && new URLSearchParams(location.search).has("android"));
 
 export type { TextureFolder, TexturePackImportMode, TexturePackPreview, TexturePackView };
+export type { InterfaceRun, InterfaceRunsView };
 export type { ExportedTexturePack, ImportedTexturePack };
 export type { ToolFile, ToolRoot };
 export type { ActionArea };
@@ -442,6 +445,8 @@ export const api = {
   pluginsSetSetting: (game: string, version: string, id: string, key: string, value: unknown) =>
     call<PluginView[]>("plugins_set_setting", { game, version, id, key, value }),
   /** The built-in Enhanced graphics entry of a version (core/src/enhanced.rs); null where it has none. */
+  /** What a version's interface textures can be exported from (core interface_runs.rs). */
+  interfaceRuns: (game: string, version: string) => call<InterfaceRunsView>("interface_runs_view", { game, version }),
   /** A version's texture pack and the textures the game saved (core texture_packs.rs). */
   texturePacks: (game: string, version: string) => call<TexturePackView>("texture_packs_view", { game, version }),
   /** Switches the pack on or off, or saving the textures at the next Play. */

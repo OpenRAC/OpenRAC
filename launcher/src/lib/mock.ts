@@ -29,6 +29,7 @@ import {
   mockControlsView,
 } from "./mockControls";
 import type { ActionView } from "./generated/ActionView";
+import type { InterfaceRunsView } from "./generated/InterfaceRunsView";
 import type { Applied } from "./generated/Applied";
 import type { ModProfile } from "./generated/ModProfile";
 import type { Review } from "./generated/Review";
@@ -760,7 +761,7 @@ function mockEditorState(): EditorState {
   }
 }
 
-function lastLines(id: string, args: Record<string, unknown>): string[] {
+function lastLines(id: string, args: Record<string, unknown>, scope?: Scope): string[] {
   const data = `${config.installDir ?? ""}/active/rac1/data`;
   const level = String(typeof args.level === "number" ? args.level : 0).padStart(2, "0");
   const path = typeof args.path === "string" ? args.path : "";
@@ -770,6 +771,23 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
       .at(-1)
       ?.replace(/\.zip$/i, "") ?? "pack";
   switch (id) {
+    case "interface-export":
+      return [
+        '{"event": "start", "total": 565}',
+        `{"event": "done", "folder": "${data}/exports/interface-${String(args.option)}", "written": {"font": 96, "interface": 412, "effects": 57}, "skipped": {"disc": 0, "different": 0, "unwritable": 0}}`,
+        `openrac-output: ${data}/exports/interface-${String(args.option)}`,
+      ];
+    case "interface-run": {
+      const key = scope?.kind === "version" ? scope.key.replace("/", "-") : "";
+      mockInterfaceRun[key] = { made: "2026-11-14", counts: [96, 430, 61], clean: true, current: true };
+      return [
+        '{"event": "start", "game": "' + key + '", "routes": 3, "skipped": []}',
+        '{"event": "route", "key": "00-long", "name": "Veldin", "status": "ok", "done": 1, "of": 3}',
+        '{"event": "route", "key": "01-pause-0", "name": "Pause", "status": "ok", "done": 2, "of": 3}',
+        '{"event": "route", "key": "title-new", "name": "Title", "status": "ok", "done": 3, "of": 3}',
+        `openrac-output: ${data}/interface_runs/${key}.json`,
+      ];
+    }
     case "assets-export":
       return [
         `level ${level}: 215 models, 414 textures`,
@@ -1927,6 +1945,11 @@ function samplePack(name: string): PackView {
 }
 
 /** A game's texture pack and saved textures, as the preview pretends (`?notextures`: none yet). */
+/** The player's own interface runs, by version id, once "Make an interface run" ran. */
+const mockInterfaceRun: Record<
+  string,
+  { made: string; counts: [number, number, number]; clean: boolean; current: boolean }
+> = {};
 const mockTextures: TexturePackView = query.has("notextures")
   ? {
       id: "",
@@ -2017,7 +2040,7 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
   const command = [action.program ?? "?", ...(action.args ?? [])].join(" ");
   if (action.detached) return { id: 0, title: action.label, command, detached: true, output: null };
 
-  const lines = [`$ ${command}`, "(browser preview: nothing really runs)", "working…", ...lastLines(id, args)];
+  const lines = [`$ ${command}`, "(browser preview: nothing really runs)", "working…", ...lastLines(id, args, scope)];
   // The build prints ninja's counter and long paths, as the real one does: to try the progress strip.
   if (id === "port-build") {
     const total = 60;
@@ -2086,11 +2109,13 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       ? [`/home/you/OpenRAC/assets/packed/${scope.kind === "version" ? scope.key : ""}`]
       : id === "audio-export" || id === "audio-export-all"
         ? [`/home/you/exports/audio-${String(args.option)}-20261101T0900`]
-        : id === "assets-export"
-          ? [
-              `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
-            ]
-          : [];
+        : id === "interface-export"
+          ? [`/home/you/exports/interface-${String(args.option)}`]
+          : id === "assets-export"
+            ? [
+                `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
+              ]
+            : [];
   const moved = () => {
     if (id === "editor-extract") mockEditor = ["outdated", "broken"].includes(mockEditor) ? "carried" : "ready";
     if (id === "editor-reexport") mockEditor = "carried";
@@ -2755,6 +2780,32 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         mockPacks.splice(Math.max(0, Math.min(mockPacks.length, at + (args.up ? -1 : 1))), 0, pack);
       }
       return delay<PackView[]>([...mockPacks]);
+    }
+    case "interface_runs_view": {
+      // The preview: an official run for Ratchet & Clank's NTSC-U and PAL, none elsewhere; a run of
+      // the player's own once "Make an interface run" ran.
+      const id = `${String(args.game)}-${String(args.version)}`;
+      const official = ["rac1-ntsc", "rac1-pal"].includes(id)
+        ? { made: "2026-11-14", counts: [96, 412, 57] as [number, number, number], clean: true, current: true }
+        : null;
+      const local = mockInterfaceRun[id] ?? null;
+      const usable = (run: typeof official, at: number) => !!run && run.current && (run.counts[at] ?? 0) > 0;
+      return delay<InterfaceRunsView>({
+        id,
+        official,
+        local,
+        unreadable: [],
+        sources: [0, 1, 2].map((at) => (usable(official, at) ? "official" : usable(local, at) ? "local" : "none")) as [
+          string,
+          string,
+          string,
+        ],
+        runnable: ["rac1-ntsc", "rac1-pal", "rac2-ntsc"].includes(id),
+        suggestSharing:
+          !!local && local.clean && [0, 1, 2].some((at) => (local.counts[at] ?? 0) > (official?.counts[at] ?? 0)),
+        localFile: `/home/you/.local/share/openrac/interface_runs/${id}.json`,
+        shareFile: `/home/you/.local/share/openrac/interface_runs/share/${id}/interface-run.json`,
+      });
     }
     case "texture_packs_view":
       return delay<TexturePackView>({ ...mockTextures, id: `${String(args.game)}-${String(args.version)}` });

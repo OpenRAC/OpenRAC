@@ -91,9 +91,23 @@ from util import sha256  # noqa: E402
 ASSET_FORMAT = 1
 GAME = "rac1"  # the game of levels whose manifests do not say (those written before they did)
 ROOT = Path(__file__).resolve().parents[1]
-WHAT = ("mobys", "textures", "scenery", "terrain", "sky", "all")
-FAMILIES = {"mobys": ("moby",), "scenery": ("tie", "shrub"), "textures": (), "terrain": (), "sky": (),
-            "all": ("moby", "tie", "shrub")}
+WHAT = ("mobys", "weapons", "textures", "scenery", "terrain", "sky", "all")
+FAMILIES = {"mobys": ("moby",), "weapons": ("moby",), "scenery": ("tie", "shrub"), "textures": (), "terrain": (),
+            "sky": (), "all": ("moby", "tie", "shrub")}
+# "weapons": the classes Ratchet holds or wears, each from the first level that has its model (any
+# --level is ignored: they are in many levels). Ratchet & Clank's are its levels' gadget table
+# (index +0x80, the same in every version) and the gold weapons and worn gadgets beside it; Going
+# Commando's the item banks his weapons and gadgets load from (wads.WadDisc.item_banks).
+HELD_ITEMS = {
+    "rac1": (71, 157, 163, 168, 175, 176, 177, 180, 185, 188, 190, 192, 208, 229, 454, 483, 562, 585, 619, 849,
+             1251,  # the gadget table
+             439, 607, 618, 1289, 1290,  # the hoverboard, Helipack, armour magnetizer, O2 mask, pilot's helmet
+             *range(1456, 1466)),  # the gold weapons
+    "rac2": (71, 6021, 6022,  # the wrench and its later forms (moby_class.WRENCH_FORM_CLASSES)
+             163, 177, 180, 188, 192, 208, 229, 562, 1481, 1482, 1483, 1485, 1486, 1487, 1489, 1490, 2078, 2085,
+             2160, 2169, 2311, 2650, 2651, 2653, 2661, 2663, 2801, 2806, 3076, 3077, 3146, 3161, 3162, 3299, 3310,
+             3604, 3631, 3655, 3706, 3757, 4016, 4100),  # the item banks
+}
 # The sky's model is exported to look at and plan edits with (not with "all": it cannot come back
 # yet, ~/RACSwarm/plans/skybox/FEASIBILITY.md); its textures import like any other.
 WITH_SKY = ("sky",)
@@ -496,10 +510,36 @@ def unique(path: Path) -> Path:
     return candidate
 
 
+def held_items(levels: Path, classes: list[int] | None) -> dict[int, int]:
+    """The levels a "weapons" export reads and the classes it writes: each item class (HELD_ITEMS,
+    narrowed by CLASSES) from the first level whose manifest has its model."""
+    found = sorted(int(p.name[6:]) for p in levels.glob("level_[0-9][0-9]") if (p / "manifest.json").is_file())
+    if not found:
+        raise AssetError(f"{levels} has no level: get the levels ready first")
+    game = levels_game(level_manifest(levels, found[0]))
+    items = [c for c in HELD_ITEMS.get(game, ()) if classes is None or c in classes]
+    if not items:
+        raise AssetError(f"weapons: not known for {game} yet" if game not in HELD_ITEMS
+                         else "weapons: none of the chosen classes is one Ratchet holds")
+    first: dict[int, int] = {}
+    for level in found:
+        mobys = level_manifest(levels, level)["classes"].get("moby", {})
+        for c in items:
+            if c not in first and (mobys.get(str(c)) or {}).get("mesh"):
+                first[c] = level
+    if not first:
+        raise AssetError("nothing to export: no level has a weapon's model")
+    return first
+
+
 def export(levels: Path, out: Path, level_ids: list[int], what: str, classes: list[int] | None = None) -> dict:
     """Write the export (see the module's docstring) into the new folder OUT."""
     if what not in WHAT:
         raise AssetError(f"--what is one of {', '.join(WHAT)}")
+    weapon_levels: dict[int, int] = {}
+    if what == "weapons":
+        weapon_levels = held_items(levels, classes)
+        level_ids, classes = sorted(set(weapon_levels.values())), sorted(weapon_levels)
     out = output_dir(out)
     manifests = {level: level_manifest(levels, level) for level in level_ids}
     versions = {(levels_game(m), levels_version(m)) for m in manifests.values()}
@@ -514,7 +554,8 @@ def export(levels: Path, out: Path, level_ids: list[int], what: str, classes: li
             export_level.dir.mkdir(parents=True)
             for family in FAMILIES[what]:
                 for key, entry in sorted(manifest["classes"].get(family, {}).items(), key=lambda kv: int(kv[0])):
-                    if entry.get("mesh") and (classes is None or int(key) in classes):
+                    if entry.get("mesh") and (classes is None or int(key) in classes) \
+                            and (what != "weapons" or weapon_levels.get(int(key)) == level):
                         export_model(export_level, family, int(key), entry)
                         counts["models"] += 1
             if what in WITH_TERRAIN and classes is None and export_terrain(export_level, manifest) is not None:
@@ -1508,7 +1549,8 @@ def main(argv: list[str] | None = None) -> int:
     out.add_argument("out", type=Path, help="a new folder for the export")
     out.add_argument("--level", type=int, action="append", required=True, help="a level (repeatable)")
     out.add_argument("--what", choices=WHAT, default="mobys",
-                     help="mobys (characters, enemies, items), textures (every texture), scenery (ties and "
+                     help="mobys (characters, enemies, items), weapons (every weapon and gadget Ratchet holds or wears, "
+                          "from whichever level has it), textures (every texture), scenery (ties and "
                           "shrubs), terrain (the level's ground and walls) or all (default: mobys)")
     out.add_argument("--class", dest="classes", type=int, action="append", help="only this class (repeatable)")
     out.add_argument("--unique", action="store_true",

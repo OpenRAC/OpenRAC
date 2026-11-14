@@ -525,6 +525,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -573,6 +574,92 @@
         ],
         "docs": "editor/MODDING.md",
         "todo": "Run it from the desktop app. From a shell on macOS: an export with Ratchet's mesh edited in Blender and his textures upscaled 4x became a pack the port drew on level 0."
+      },
+      {
+        "id": "interface-export",
+        "label": "Export interface textures",
+        "description": "Rebuilds the textures of the HUD, the menus, the font and the effects from your disc, as the game makes them, into a folder named the way texture packs name them (Font, HUD and menus, Effects). Reads the project's run and your own. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--interface-export",
+          "{data}/exports/interface-{option}",
+          "--interface-runs",
+          "{root}/port/game/rac1-pal/interface-run.json",
+          "--interface-runs",
+          "{data}/interface_runs/rac1-pal.json",
+          "--only",
+          "{option}"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-pal.exe",
+        "needs": [],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
+      },
+      {
+        "id": "interface-run",
+        "label": "Make an interface run",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About an hour; the computer can be used meanwhile.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "port/tools/interface_runs/run.py",
+          "run",
+          "--game",
+          "rac1-pal",
+          "--exe",
+          "{artifact}",
+          "--data",
+          "{data}",
+          "--levels",
+          "{root}/assets/port/rac1/pal",
+          "--out",
+          "{data}/interface_runs/rac1-pal.json",
+          "--fast"
+        ],
+        "output": "{data}/interface_runs",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python",
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-pal.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
       },
       {
         "id": "audio-export",
@@ -1267,6 +1354,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -1315,6 +1403,92 @@
         ],
         "docs": "editor/MODDING.md",
         "todo": "Run it from the desktop app. The same command as PAL's, with the NTSC-U levels; an export is imported with the levels of the disc it was made from."
+      },
+      {
+        "id": "interface-export",
+        "label": "Export interface textures",
+        "description": "Rebuilds the textures of the HUD, the menus, the font and the effects from your disc, as the game makes them, into a folder named the way texture packs name them (Font, HUD and menus, Effects). Reads the project's run and your own. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--interface-export",
+          "{data}/exports/interface-{option}",
+          "--interface-runs",
+          "{root}/port/game/rac1-ntsc/interface-run.json",
+          "--interface-runs",
+          "{data}/interface_runs/rac1-ntsc.json",
+          "--only",
+          "{option}"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-ntsc.exe",
+        "needs": [],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
+      },
+      {
+        "id": "interface-run",
+        "label": "Make an interface run",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About an hour; the computer can be used meanwhile.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "port/tools/interface_runs/run.py",
+          "run",
+          "--game",
+          "rac1-ntsc",
+          "--exe",
+          "{artifact}",
+          "--data",
+          "{data}",
+          "--levels",
+          "{root}/assets/port/rac1/ntsc",
+          "--out",
+          "{data}/interface_runs/rac1-ntsc.json",
+          "--fast"
+        ],
+        "output": "{data}/interface_runs",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python",
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-ntsc.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/ntsc/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
       },
       {
         "id": "audio-export",
@@ -1764,6 +1938,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -2283,6 +2458,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -2798,6 +2974,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -2846,6 +3023,101 @@
         ],
         "docs": "editor/MODDING.md",
         "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "interface-export",
+        "label": "Export interface textures",
+        "description": "Rebuilds the textures of the HUD, the menus, the font and the effects from your disc, as the game makes them, into a folder named the way texture packs name them (Font, HUD and menus, Effects). Reads the project's run and your own. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--interface-export",
+          "{data}/exports/interface-{option}",
+          "--interface-runs",
+          "{root}/port/game/rac2-ntsc/interface-run.json",
+          "--interface-runs",
+          "{data}/interface_runs/rac2-ntsc.json",
+          "--only",
+          "{option}"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          }
+        ],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
+      },
+      {
+        "id": "interface-run",
+        "label": "Make an interface run",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About an hour; the computer can be used meanwhile.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "port/tools/interface_runs/run.py",
+          "run",
+          "--game",
+          "rac2-ntsc",
+          "--exe",
+          "{artifact}",
+          "--data",
+          "{data}",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc",
+          "--out",
+          "{data}/interface_runs/rac2-ntsc.json",
+          "--fast"
+        ],
+        "output": "{data}/interface_runs",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python",
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
       },
       {
         "id": "overrides-add",
@@ -3297,6 +3569,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -3796,6 +4069,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",

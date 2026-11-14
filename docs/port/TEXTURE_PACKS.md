@@ -50,6 +50,44 @@ another game's pack is refused, and its pictures are added to yours.
 Saved pictures go to `texture_dumps/<game id>/` in the launcher's data folder,
 not into your pack.
 
+## Export without playing
+
+**Make your own → Models and textures → Interface textures** writes the HUD,
+the menus, the font and the effects straight from your disc, without playing:
+`Font/`, `HUD and menus/` and `Effects/` in a new folder under
+`<data>/exports/`, each file named as a dump names it. Tick the kinds you want.
+
+The export reads a *run*: a list of the interface textures the game made while
+its test routes played (every level, the pause pages, the vendor, the title),
+and where the bytes each one was made from are on the disc. It holds no byte
+of the game, only hashes, registers and places on the disc, so the project
+can ship it. The export reads those bytes from your disc, makes each picture
+through the port's own conversion, and keeps it only if it comes out under its
+name: a different disc or version makes nothing wrong, only less.
+
+- A green **Official run of <date>** is the project's, carried by the
+  launcher (`port/game/<id>/interface-run.json`): Ratchet & Clank NTSC-U and
+  PAL (v2.00).
+- Without one, **Make a run** plays the routes on your computer, hidden (about
+  an hour; **Stop** ends it). It needs the game set up and its levels ready,
+  for the versions that have routes (Ratchet & Clank NTSC-U and PAL, Going
+  Commando NTSC-U). The run is `<data>/interface_runs/<id>.json`.
+- When your run played every route and has textures the official one lacks,
+  the panel offers **Share the run**: it opens the file's folder and GitHub's
+  upload page for `port/game/<id>/`, to propose it in a pull request.
+
+A run is tied to the conversion it was made with
+(`renderer/textures/interface_run.h` `kConverter`): a change to the
+conversion that changes a texture's picture or name raises it, and older runs
+show as out of date. Textures the game makes from code rather than from the
+disc (a fade, a screen it draws into) have no place on the disc; the run
+counts them as missing. From the command line:
+
+```
+python3 port/tools/interface_runs/run.py run --game rac1-ntsc --out run.json --exe <program> --data <data> --levels <levels>
+openrac-rac1-ntsc --data <data> --interface-export <folder> --interface-runs run.json [--only font,interface,effects]
+```
+
 ## Making one by hand
 
 1. Dump the textures: start the game with

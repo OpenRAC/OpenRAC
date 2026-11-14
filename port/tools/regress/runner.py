@@ -95,7 +95,8 @@ def classify(rc: int | None, timed_out: bool, ticks: list[dict], length: int, fr
 
 
 def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels: Path, out: Path,
-              extra_env: dict | None = None, settings: dict | None = None) -> dict:
+              extra_env: dict | None = None, settings: dict | None = None, extra_args: list[str] | None = None) -> dict:
+    """extra_args: more of the program's options (an interface run's --interface-run FILE)."""
     out.mkdir(parents=True, exist_ok=True)
     for name in ("trace.jsonl", "reach.json", "coverage.json", "state.json"):
         (out / name).unlink(missing_ok=True)
@@ -123,6 +124,7 @@ def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels:
         cmd += ["--cards", str(out / "card")]
     else:
         cmd.append("--no-card")
+    cmd += extra_args or []
     (out / "settings.ini").unlink(missing_ok=True)  # the defaults, whatever the player chose
     if settings:
         # Settings every run starts from (render_scale = 25 for a quick survey), the rest default.

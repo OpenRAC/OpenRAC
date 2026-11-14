@@ -11,6 +11,7 @@
 #include <cstring>
 #include <format>
 #include <functional>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -22,6 +23,7 @@
 #include "common/stats.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
+#include "renderer/textures/interface_run.h"
 #include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture_pack.h"
 
@@ -471,6 +473,36 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
         if (rgb != nullptr) std::fclose(rgb);
         if (a != nullptr) std::fclose(a);
     }
+    // An interface texture run (interface_run.h): what the picture was made from, for an export
+    // that rebuilds it from the player's disc.
+    std::uint64_t noted = 0;
+    if (m_noting && interface_run::recording()) {
+        std::vector<interface_run::PoolUpload> used{{&stored->upload, stored->sequence}};
+        for (const auto& block : border) {
+            if (block.upload != nullptr) {
+                used.push_back({&block.upload->upload, block.upload->sequence});
+            }
+        }
+        std::optional<ImageUpload> clut_upload;
+        if (clut != nullptr && clut->width > 0) {
+            // The CLUT as the conversion read it, as an upload of its own at its block.
+            const std::size_t row = static_cast<std::size_t>(clut->width)
+                                    * static_cast<std::size_t>(gs::bits_per_pixel(clut->cpsm)) / 8;
+            const auto rows = static_cast<std::uint32_t>(row == 0 ? 0 : clut->data.size() / row);
+            clut_upload = ImageUpload{
+                tex0.cbp,
+                1,
+                clut->cpsm,
+                0,
+                0,
+                static_cast<std::uint32_t>(clut->width),
+                rows,
+                clut->data
+            };
+        }
+        interface_run::note_pool(image, tex0, texa, used, clut_upload ? &*clut_upload : nullptr);
+        noted = texture_pack::image_hash(image);
+    }
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size: the 2D layer's
     // texture coordinates are fractions of the chip's size, not of the picture's.
     // An animated one gives its frames as well.
@@ -525,7 +557,7 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     entry.uv_scale = uv_scale;
     entry.from_upload = true;
     entry.key = key;
-    entry.pack_hash = replaced.hash;
+    entry.pack_hash = replaced.hash != 0 ? replaced.hash : noted;
     animate(h, std::move(replaced.animation));
     set_blocks(h, std::move(replaced.blocks));
     m_converted.emplace(key, h);

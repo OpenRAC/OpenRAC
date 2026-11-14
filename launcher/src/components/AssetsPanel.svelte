@@ -13,6 +13,7 @@
   import type { Job } from "$lib/queue";
   import { toolFailure } from "$lib/toolErrors";
   import CommandBox from "./CommandBox.svelte";
+  import InterfaceTextures from "./InterfaceTextures.svelte";
 
   let { version: v, onimported }: { version: VersionView; onimported?: () => void } = $props();
 
@@ -27,11 +28,15 @@
 
   const WHAT = [
     { id: "mobys", label: "Characters and objects" },
+    { id: "weapons", label: "Weapons and gadgets" },
     { id: "textures", label: "Textures" },
     { id: "scenery", label: "Scenery (ties and shrubs)" },
     { id: "terrain", label: "Terrain (the ground and walls)" },
     { id: "all", label: "Everything" },
   ];
+
+  /** The games whose weapons and gadgets the export knows (editor/assets.py HELD_ITEMS). */
+  const WEAPONS = ["rac1", "rac2"];
 
   // svelte-ignore state_referenced_locally
   let level = $state(levelsOf(v.game)[0]?.number ?? 0);
@@ -131,6 +136,8 @@
           <p class="muted">
             {#if busy === "export"}
               {ASSETS.exporting}
+            {:else if exporter.runnable && what === "weapons"}
+              {ASSETS.weaponsNote}
             {:else if exporter.runnable}
               {ASSETS.exportLine}
             {:else if reader && !reader.done && !playable}
@@ -145,7 +152,9 @@
             {#each levelsOf(v.game) as l (l.number)}<option value={l.number}>{l.name}</option>{/each}
           </select>
           <select aria-label={ASSETS.whatLabel} bind:value={what} disabled={!exporter.runnable}>
-            {#each WHAT as w (w.id)}<option value={w.id}>{w.label}</option>{/each}
+            {#each WHAT.filter((w) => w.id !== "weapons" || WEAPONS.includes(v.game)) as w (w.id)}<option value={w.id}
+                >{w.label}</option
+              >{/each}
           </select>
           {#if reader && !reader.done && !playable}
             <button disabled={!reader.runnable || busy !== null} onclick={() => void readLevels()}>
@@ -198,6 +207,7 @@
         {/if}
       </li>
     </ol>
+    <InterfaceTextures version={v} />
   </div>
 {/if}
 

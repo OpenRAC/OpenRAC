@@ -165,6 +165,12 @@ public:
 
     TextureHandle placeholder() const { return m_placeholder; }
 
+    // The name a texture pack knows `texture` by (texture_pack.h), when the pool worked it out (a
+    // pack, a dump or an interface run is on); 0 otherwise.
+    std::uint64_t pack_hash(TextureHandle texture) const {
+        return m_entries[texture - 1].pack_hash;
+    }
+
     // A distance field of `source` for drawing text sharp at any size, four times its size: in
     // alpha the signed distance to the glyphs' edge (0.5 on the edge, 1/8 per source texel), in red
     // the glyphs' own opacity (0..1) held up to that edge; made once per content of the source.
@@ -234,7 +240,12 @@ public:
     // Live textures, the placeholder included.
     std::size_t size() const;
 
+    // Whether an interface run notes this pool's textures (renderer/textures/interface_run.h): not
+    // a pool that rebuilds them.
+    void set_noting(bool noting) { m_noting = noting; }
+
 private:
+    bool m_noting = true;
     struct Key {
         std::uint32_t tbp, tbw, tw, th, cbp;
         std::uint8_t psm, cpsm;

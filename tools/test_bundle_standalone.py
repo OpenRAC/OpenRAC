@@ -137,6 +137,15 @@ class PlayerActions(unittest.TestCase):
         # NTSC-U's editor folders are its own.
         self.assertEqual(self.ntsc["editor-extract"]["args"][-3], "{data}/levels/ntsc")
 
+    def test_interface_runs_read_the_data_folders_levels_and_the_copys_runs(self):
+        for name, actions in (("pal", self.pal), ("ntsc", self.ntsc)):
+            run = actions["interface-run"]["args"]
+            self.assertEqual(run[run.index("--levels") + 1], f"{{data}}/port/{name}")
+            self.assertEqual(run[run.index("--out") + 1], f"{{data}}/interface_runs/rac1-{name}.json")
+            export = actions["interface-export"]["args"]
+            self.assertIn(f"{{root}}/port/game/rac1-{name}/interface-run.json", export)
+            self.assertIn(f"{{data}}/interface_runs/rac1-{name}.json", export)
+
     def test_no_mod_action_names_the_checkout(self):
         for action in [*self.pal.values(), *self.ntsc.values()]:
             text = json.dumps({k: action.get(k) for k in ("args", "artifact", "needs", "makes")})
@@ -308,6 +317,11 @@ class Bundle(unittest.TestCase):
             json.loads((out / "launcher/actions.json").read_text())
             # The copy's tools run from it: their helpers are carried, and find the copy's root.
             self.assertTrue((out / "tools/openrac_common/__init__.py").is_file())
+            # An interface run's tool and the routes it plays.
+            done = subprocess.run([sys.executable, str(out / "port/tools/interface_runs/run.py"), "--help"], cwd=tmp,
+                                  capture_output=True, text=True)
+            self.assertNotIn("Traceback", done.stderr)
+            self.assertTrue((out / "port/tools/regress/routes.json").is_file())
             for tool in ("openrac.py", "extractor.py"):
                 done = subprocess.run([sys.executable, str(out / "tools" / tool), "--help"], cwd=tmp,
                                       capture_output=True, text=True)

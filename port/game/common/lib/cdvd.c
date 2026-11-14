@@ -273,9 +273,15 @@ int openrac_lib_sceCdMmode(int media) {
     return 1;
 }
 
+/* Told of every read when set (program/interface_runs.cpp, during an interface run). */
+void (*openrac_cdvd_read_hook)(unsigned int sector, unsigned int count) = NULL;
+
 /* sceCdRead(sector, count, buffer, mode) */
 int openrac_lib_sceCdRead(unsigned int sector, unsigned int count, gaddr buffer, gaddr mode) {
     (void)mode;
+    if (openrac_cdvd_read_hook != NULL) {
+        openrac_cdvd_read_hook(sector, count);
+    }
     FILE* f = open_disc();
     /* OPENRAC_TRACE_CD=1: each read, to see where the game's data lands. */
     if (openrac_env_string("OPENRAC_TRACE_CD") != NULL) {

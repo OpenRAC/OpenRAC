@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "custom_map.h"
 
@@ -47,6 +48,11 @@ struct Options {
     bool debug_overlay = false;  // the debug overlay shown from the start (F3 shows and hides it)
     bool check_levels =
         false;  // read every extracted level as the window would, say what is wrong, and stop
+    fs::path
+        interface_run;  // --interface-run: note the interface textures, write a run file at exit
+    fs::path interface_export;  // --interface-export: rebuild the run files' textures here, and end
+    std::vector<fs::path> interface_runs;  // --interface-runs (repeatable): the run files to export
+    std::string interface_only;  // --only: the categories to export ("font,interface,effects")
     fs::path asm_part;  // the part of the game built from the disc (program/asm_part.cpp), if not
                         // in its place in the data folder
 };

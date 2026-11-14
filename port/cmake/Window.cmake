@@ -277,6 +277,7 @@ add_library(openrac_renderer STATIC
   renderer/textures/pcsx2_pack.cpp
   renderer/textures/pcsx2_dds.cpp
   renderer/textures/texture_pool.cpp
+  renderer/textures/interface_run.cpp
 )
 
 # A texture pack's KTX2 and SVG pictures (renderer/textures/pack_pictures.h): their own library, so
@@ -882,6 +883,7 @@ openrac_add_test(overlay_draw LIBS openrac_renderer_ui openrac_platform)
 set_tests_properties(overlay_draw PROPERTIES SKIP_RETURN_CODE 77)
 
 openrac_add_test(renderer_texture LIBS openrac_renderer)
+openrac_add_test(interface_run LIBS openrac_renderer)
 # Texture packs' KTX2 and SVG pictures, from small files made for the test (tests/data/pack_pictures).
 openrac_add_test(pack_pictures LIBS openrac_pack_pictures
   DEFINITIONS "PACK_PICTURES_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/data/pack_pictures\"")

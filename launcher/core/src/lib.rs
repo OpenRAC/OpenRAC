@@ -55,6 +55,7 @@ pub mod discs;
 pub mod editor_state;
 pub mod enhanced;
 pub mod hook_ids;
+pub mod interface_runs;
 pub mod index;
 pub mod index_apply;
 pub mod install;

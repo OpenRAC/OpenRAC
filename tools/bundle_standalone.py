@@ -77,7 +77,7 @@ PLAY = ("port-levels", "port-levels-check", "port-part", "probe-bake", "play")
 # carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS).
 MODS = ("editor-extract", "editor-preview", "editor-import", "editor-open", "editor-pack",
         "assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "overrides-add", "overrides-stack", "editor-show-packs",
-        "editor-hide-packs", "play-edited")
+        "editor-hide-packs", "play-edited", "interface-export", "interface-run")
 KEEP = PLAY + MODS
 # The versions whose program still needs code from the player's disc, so no installer can carry it:
 # the player builds it, with tools/build_game.py. Version -> port game.
@@ -398,6 +398,16 @@ def main() -> int:
         for kit in args.asm_part_kit:
             game = json.loads((kit / "kit.json").read_text())["game"]
             shutil.copytree(kit, out / "port/asm-part" / game)
+    # Interface texture runs (docs/port/TEXTURE_PACKS.md): the tool that makes one, the routes it
+    # plays, and the project's runs the export reads.
+    files.copy_tree(ROOT / "port/tools/interface_runs", out / "port/tools/interface_runs",
+                    lambda rel: rel.suffix == ".py" and not rel.name.startswith("test_"))
+    files.copy_tree(ROOT / "port/tools/regress", out / "port/tools/regress",
+                    lambda rel: rel.name in {"routes.py", "runner.py", "routes.json", "routes_rac2.json"})
+    for run in sorted((ROOT / "port/game").glob("*/interface-run.json")):
+        dest = out / run.relative_to(ROOT)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(run, dest)
     # Players have no decompilation headers. Carry the same validated typed fields the
     # checkout uses, or edits such as Novalis's moveSpeed would be ignored when packed.
     proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",

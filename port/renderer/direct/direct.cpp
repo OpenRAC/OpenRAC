@@ -17,6 +17,7 @@
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl/gl.h"
+#include "renderer/textures/interface_run.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
@@ -1244,6 +1245,10 @@ void GifInterpreter::ensure_draw() {
             s.clamp_t = true;
         } else if (s.textured) {
             s.texture = m_textures.resolve(c.tex0, m_texa);
+            // An interface texture run (interface_run.h) files a texture drawn as text as the font.
+            if (m_glyph && interface_run::recording() && s.texture != m_textures.placeholder()) {
+                interface_run::mark_font(m_textures.pack_hash(s.texture));
+            }
             if (m_glyph && s.texture != m_textures.placeholder()
                 && !m_textures.has_cropped_replacement(s.texture)) {
                 s.field = m_textures.distance_field(s.texture);
