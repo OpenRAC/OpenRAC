@@ -581,6 +581,7 @@ int openrac_guest_overlay(void) {
 }
 
 std::uint32_t code_word(gaddr at);
+gaddr foreign_code_of(gaddr address);
 
 openrac_host_fn openrac_guest_function(gaddr address) {
     if (const Entry* e = find(address)) {
@@ -606,6 +607,12 @@ openrac_host_fn openrac_guest_function(gaddr address) {
         openrac_guest_last_entry = address;
         openrac_guest_last_fn = e->fn;
         return e->fn;
+    }
+    // In another level's update (openrac_guest_foreign_enter), a callback the loaded program set
+    // (its sound stream's, its interrupt's) still names the loaded program's place: that
+    // function's copy in the program swapped in runs instead.
+    if (const gaddr there = foreign_code_of(address); there != 0 && there != address && find(there) != nullptr) {
+        return openrac_guest_function(there);
     }
     // A leaf that only returns (jr ra; and in its delay slot nothing, or v0 = 0): the tail of
     // another function, which the game points at as a callback that does nothing.
@@ -2759,6 +2766,17 @@ void openrac_guest_foreign_set(gaddr address, uint32_t value) {
     if (n < f.entered.size()) {
         f.entered[n] = value;
     }
+}
+
+gaddr foreign_code_of(gaddr address) {
+    if (g_foreign_frames.empty()) {
+        return 0;
+    }
+    const ForeignFrame& f = g_foreign_frames.back();
+    std::scoped_lock hold(g_relocate_lock);
+    const LevelMap& map = level_pair_map(f.loaded, f.from);
+    const auto found = map.code.find(address);
+    return found != map.code.end() ? found->second : 0;
 }
 
 uint32_t openrac_guest_level_word(int level, gaddr address) {
