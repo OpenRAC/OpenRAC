@@ -17,6 +17,7 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <sstream>
 #include <string_view>
 #include <system_error>
 #include <unordered_map>
@@ -115,6 +116,13 @@ std::string json_quote(std::string_view text) {
     return out;
 }
 
+// A path as UTF-8 text, for messages and JSON (path::string() is the system's code page on
+// Windows, and throws for a name outside it).
+std::string utf8(const fs::path& path) {
+    const std::u8string text = path.u8string();
+    return {text.begin(), text.end()};
+}
+
 std::string hex(std::uint64_t value) {
     return std::format("{:016x}", value);
 }
@@ -157,20 +165,37 @@ struct Place {
     std::optional<std::uint64_t> wad;
 };
 
-// Reads `size` bytes at byte `at` of the disc; empty when the disc is shorter.
-std::vector<std::uint8_t> read_at(std::ifstream& disc, std::uint64_t at, std::uint64_t size) {
+// The disc image, and its size: nothing is read past its end.
+struct Disc {
+    std::ifstream file;
+    std::uint64_t size = 0;
+
+    explicit Disc(const fs::path& path) : file(path, std::ios::binary) {
+        std::error_code e;
+        const auto bytes = fs::file_size(path, e);
+        size = e ? 0 : static_cast<std::uint64_t>(bytes);
+    }
+
+    explicit operator bool() const { return static_cast<bool>(file) && size > 0; }
+};
+
+// Reads `size` bytes at byte `at` of the disc; empty when they are not all on it.
+std::vector<std::uint8_t> read_at(Disc& disc, std::uint64_t at, std::uint64_t size) {
+    if (size == 0 || at > disc.size || size > disc.size - at) {
+        return {};
+    }
     std::vector<std::uint8_t> out(size);
-    disc.clear();
-    disc.seekg(static_cast<std::streamoff>(at));
-    disc.read(reinterpret_cast<char*>(out.data()), static_cast<std::streamsize>(size));
-    if (static_cast<std::uint64_t>(disc.gcount()) != size) {
+    disc.file.clear();
+    disc.file.seekg(static_cast<std::streamoff>(at));
+    disc.file.read(reinterpret_cast<char*>(out.data()), static_cast<std::streamsize>(size));
+    if (static_cast<std::uint64_t>(disc.file.gcount()) != size) {
         return {};
     }
     return out;
 }
 
 // The decompressed WAD stream that starts at byte `at` of the disc, or nothing.
-std::optional<std::vector<std::uint8_t>> read_wad(std::ifstream& disc, std::uint64_t at) {
+std::optional<std::vector<std::uint8_t>> read_wad(Disc& disc, std::uint64_t at) {
     const std::vector<std::uint8_t> header = read_at(disc, at, wad::kHeaderBytes);
     const auto size = wad::stream_size(header);
     if (!size || *size > wad::kDefaultLimit) {
@@ -288,10 +313,10 @@ std::map<std::uint64_t, Place> locate(
     std::vector<std::pair<std::uint64_t, std::uint64_t>> ranges
 ) {
     Finder finder(blobs);
-    std::ifstream disc(disc_path, std::ios::binary);
+    Disc disc(disc_path);
     if (!disc) {
         log::warn(
-            "interface run: {} cannot be read: no texture is placed on the disc", disc_path.string()
+            "interface run: {} cannot be read: no texture is placed on the disc", utf8(disc_path)
         );
         return {};
     }
@@ -308,9 +333,7 @@ std::map<std::uint64_t, Place> locate(
     }
     // Read in parts (a long route reads hundreds of megabytes), each reaching past its end by the
     // longest blob so that one lying across the cut is still whole in one part.
-    disc.seekg(0, std::ios::end);
-    const std::uint64_t disc_size =
-        static_cast<std::uint64_t>(std::max<std::streamoff>(0, disc.tellg()));
+    const std::uint64_t disc_size = disc.size;
     const std::uint64_t reach = std::max<std::uint64_t>(finder.longest(), wad::kHeaderBytes);
     std::set<std::uint64_t> streams;
     for (const auto& [first, count] : joined) {
@@ -469,53 +492,108 @@ void write_run(const fs::path& file, const fs::path& disc) {
     if (file.has_parent_path()) {
         fs::create_directories(file.parent_path(), e);
     }
-    const fs::path partial = file.string() + ".partial";
+    fs::path partial = file;
+    partial += ".partial";
     {
         std::ofstream out(partial, std::ios::binary);
         out << text;
         if (!out) {
-            log::warn("interface run: {} could not be written", file.string());
+            log::warn("interface run: {} could not be written", utf8(file));
+            out.close();
+            fs::remove(partial, e);
             return;
         }
     }
     fs::rename(partial, file, e);
     if (e) {
-        log::warn("interface run: {} could not be written: {}", file.string(), e.message());
+        fs::remove(partial, e);
+        log::warn("interface run: {} could not be written: {}", utf8(file), e.message());
         return;
     }
     log::info(
         "interface run: {} textures written to {} ({} not found on the disc)",
         noted.recipes.size() - missed,
-        file.string(),
+        utf8(file),
         missed
     );
 }
 
 // ---- Exporting ----
 
+// Writes `image` as a PNG at `file` (through the path itself: a Windows user name outside the
+// system's code page is still a path).
+bool write_png(const fs::path& file, const renderer::Rgba8Image& image) {
+    std::string bytes;
+    const auto append = [](void* to, void* data, int size) {
+        static_cast<std::string*>(to)
+            ->append(static_cast<const char*>(data), static_cast<std::size_t>(size));
+    };
+    if (stbi_write_png_to_func(
+            append, &bytes, image.width, image.height, 4, image.pixels.data(), image.width * 4
+        )
+        == 0) {
+        return false;
+    }
+    std::ofstream out(file, std::ios::binary);
+    out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    out.close();
+    if (!out) {
+        std::error_code e;
+        fs::remove(file, e);
+        return false;
+    }
+    return true;
+}
+
 struct Loaded {
-    std::map<std::uint64_t, Place> blobs;
+    // Every place a run gave for a blob: one that does not hold it on this disc is passed over.
+    std::map<std::uint64_t, std::vector<Place>> blobs;
     std::map<std::uint64_t, run::Recipe> recipes;
 };
+
+// A whole number from 0 to `most` in a run file, or nothing (a file is not trusted to be sane).
+std::optional<std::uint64_t> whole(const json::Value& value, std::uint64_t most) {
+    if (!value.is_number()) {
+        return std::nullopt;
+    }
+    const double v = value.number();
+    if (!(v >= 0.0) || v > static_cast<double>(most)
+        || v != static_cast<double>(static_cast<std::uint64_t>(v))) {
+        return std::nullopt;
+    }
+    return static_cast<std::uint64_t>(v);
+}
+
+// The most a run file may say: a blob is at most a WAD stream's size, a place is on a DVD.
+constexpr std::uint64_t kMostBlob = wad::kDefaultLimit;
+constexpr std::uint64_t kMostAt = std::uint64_t{1} << 40;
 
 // Reads one run file into `into`; false (with `why`) when it is not one this program can use.
 bool load_run(const fs::path& file, const std::string& game, Loaded& into, std::string& why) {
     json::Value doc;
-    if (!json::parse_file(file.string(), doc, why)) {
+    std::ifstream in(file, std::ios::binary);
+    if (!in) {
+        why = std::format("{}: cannot be read", utf8(file));
+        return false;
+    }
+    std::ostringstream text;
+    text << in.rdbuf();
+    if (!json::parse(text.str(), doc, why)) {
+        why = std::format("{}: {}", utf8(file), why);
         return false;
     }
     if (doc["format"].number(-1) != kInterfaceRunFormat) {
-        why = std::format("{}: a run file of another format", file.string());
+        why = std::format("{}: a run file of another format", utf8(file));
         return false;
     }
     if (doc["game"].string() != game) {
-        why = std::format("{}: a run of {}, not {}", file.string(), doc["game"].string(), game);
+        why = std::format("{}: a run of {}, not {}", utf8(file), doc["game"].string(), game);
         return false;
     }
     if (doc["converter"].number(-1) != run::kConverter) {
         why = std::format(
             "{}: made by another version of the port (converter {}, this one {})",
-            file.string(),
+            utf8(file),
             doc["converter"].number(-1),
             run::kConverter
         );
@@ -523,18 +601,19 @@ bool load_run(const fs::path& file, const std::string& game, Loaded& into, std::
     }
     for (const auto& [key, value] : doc["blobs"].members()) {
         const auto hash = parse_hex(key);
-        if (!hash || !value["size"].is_number() || !value["at"].is_number()) {
+        const auto size = whole(value["size"], kMostBlob);
+        const auto at = whole(value["at"], kMostAt);
+        if (!hash || !size || *size == 0 || !at) {
             continue;
         }
-        Place p{
-            static_cast<std::uint64_t>(value["size"].number()),
-            static_cast<std::uint64_t>(value["at"].number()),
-            std::nullopt
-        };
+        Place p{*size, *at, std::nullopt};
         if (value["wad"].is_number()) {
-            p.wad = static_cast<std::uint64_t>(value["wad"].number());
+            p.wad = whole(value["wad"], kMostAt);
+            if (!p.wad) {
+                continue;
+            }
         }
-        into.blobs.emplace(*hash, p);
+        into.blobs[*hash].push_back(p);
     }
     for (const json::Value& t : doc["textures"].items()) {
         const auto name = parse_hex(t["name"].string());
@@ -545,16 +624,22 @@ bool load_run(const fs::path& file, const std::string& game, Loaded& into, std::
         run::Recipe r;
         r.name = *name;
         r.category = *category;
-        r.texa = parse_hex(t["texa"].string()).value_or(0);
+        const auto texa = parse_hex(t["texa"].string());
+        if (!texa) {
+            continue;
+        }
+        r.texa = *texa;
         if (t["kind"].string() == "indexed8") {
             r.kind = run::Kind::Indexed8;
-            r.width = static_cast<int>(t["w"].number());
-            r.height = static_cast<int>(t["h"].number());
+            const auto width = whole(t["w"], renderer::kMaxTextureSide);
+            const auto height = whole(t["h"], renderer::kMaxTextureSide);
             const auto indices = parse_hex(t["indices"].string());
             const auto palette = parse_hex(t["palette"].string());
-            if (!indices || !palette) {
+            if (!width || !height || !indices || !palette) {
                 continue;
             }
+            r.width = static_cast<int>(*width);
+            r.height = static_cast<int>(*height);
             r.indices = *indices;
             r.palette = *palette;
         } else if (t["kind"].string() == "pool") {
@@ -565,28 +650,37 @@ bool load_run(const fs::path& file, const std::string& game, Loaded& into, std::
             }
             r.tex0 = *tex0;
             if (t["tbp"].is_number()) {
-                const double tbp = t["tbp"].number();
-                if (tbp < 0x4000 || tbp >= 0x20000) {
+                const auto tbp = whole(t["tbp"], 0x1ffff);
+                if (!tbp || *tbp < 0x4000) {
                     continue;
                 }
-                r.tbp = static_cast<std::uint32_t>(tbp);
+                r.tbp = static_cast<std::uint32_t>(*tbp);
             }
             bool good = true;
             for (const json::Value& u : t["uploads"].items()) {
+                // The GS's own limits: block pointers to 0x20000 (a transfer drawn as itself is
+                // keyed past the 14 bits), 64-pixel buffer widths to 63, coordinates to 2047.
                 const auto blob = parse_hex(u["blob"].string());
-                if (!blob) {
+                const auto dbp = whole(u["dbp"], 0x1ffff);
+                const auto dbw = whole(u["dbw"], 63);
+                const auto dpsm = whole(u["dpsm"], 0x3f);
+                const auto x = whole(u["x"], 2047);
+                const auto y = whole(u["y"], 2047);
+                const auto w = whole(u["w"], 2048);
+                const auto h = whole(u["h"], 2048);
+                if (!blob || !dbp || !dbw || !dpsm || !x || !y || !w || !h) {
                     good = false;
                     break;
                 }
                 r.uploads.push_back(
                     run::Upload{
-                        static_cast<std::uint32_t>(u["dbp"].number()),
-                        static_cast<std::uint32_t>(u["dbw"].number()),
-                        static_cast<std::uint8_t>(u["dpsm"].number()),
-                        static_cast<std::uint32_t>(u["x"].number()),
-                        static_cast<std::uint32_t>(u["y"].number()),
-                        static_cast<std::uint32_t>(u["w"].number()),
-                        static_cast<std::uint32_t>(u["h"].number()),
+                        static_cast<std::uint32_t>(*dbp),
+                        static_cast<std::uint32_t>(*dbw),
+                        static_cast<std::uint8_t>(*dpsm),
+                        static_cast<std::uint32_t>(*x),
+                        static_cast<std::uint32_t>(*y),
+                        static_cast<std::uint32_t>(*w),
+                        static_cast<std::uint32_t>(*h),
                         *blob
                     }
                 );
@@ -609,7 +703,7 @@ void start_interface_run(const fs::path& file) {
     run::start();
     g_noting = true;
     openrac_cdvd_read_hook = note_disc_read;
-    log::info("interface run: noting the interface textures into {}", file.string());
+    log::info("interface run: noting the interface textures into {}", utf8(file));
 }
 
 void finish_interface_run(const fs::path& disc) {
@@ -622,7 +716,7 @@ void finish_interface_run(const fs::path& disc) {
     try {
         write_run(g_run_file, disc);
     } catch (const std::exception& e) {
-        log::error("interface run: {} not written: {}", g_run_file.string(), e.what());
+        log::error("interface run: {} not written: {}", utf8(g_run_file), e.what());
     }
     g_run_file.clear();
 }
@@ -656,6 +750,11 @@ int export_interface(
     Loaded loaded;
     int usable = 0;
     for (const fs::path& file : runs) {
+        // The launcher names the project's run and the player's own; either may not be there.
+        std::error_code missing;
+        if (!fs::exists(file, missing)) {
+            continue;
+        }
         std::string why;
         if (load_run(file, game, loaded, why)) {
             ++usable;
@@ -667,11 +766,11 @@ int export_interface(
         say(R"({"event": "error", "message": "no run file this version of the port can use"})");
         return 1;
     }
-    std::ifstream disc(disc_path, std::ios::binary);
+    Disc disc(disc_path);
     if (!disc) {
         say(std::format(
             R"({{"event": "error", "message": {}}})",
-            json_quote(disc_path.string() + " cannot be read: set the game up from your disc first")
+            json_quote(utf8(disc_path) + " cannot be read: set the game up from your disc first")
         ));
         return 1;
     }
@@ -682,17 +781,19 @@ int export_interface(
         }
     }
     // A new folder each time: an earlier export (maybe edited since) is never written over.
-    fs::path out = asked;
+    // ("out/" is the folder "out".)
+    const fs::path base = asked.has_filename() ? asked : asked.parent_path();
+    fs::path out = base;
     std::error_code e;
     for (int n = 2; fs::exists(out, e); ++n) {
-        out = asked.parent_path() / std::format("{}-{}", asked.filename().string(), n);
+        out = base;
+        out += std::format("-{}", n);
     }
     say(std::format(R"({{"event": "start", "total": {}}})", todo.size()));
 
-    // The blobs, read from the disc stream by stream, each checked against its hash.
+    // The blobs, read from the disc stream by stream, each checked against its hash: the first
+    // place that holds it wins.
     std::map<std::uint64_t, std::vector<std::uint8_t>> blobs;
-    std::set<std::uint64_t> bad;
-    std::map<std::uint64_t, std::vector<std::uint64_t>> by_stream;
     std::set<std::uint64_t> needed;
     for (const run::Recipe* r : todo) {
         if (r->kind == run::Kind::Pool) {
@@ -704,41 +805,47 @@ int export_interface(
             needed.insert(r->palette);
         }
     }
+    // The blobs in each WAD stream, with where in it.
+    std::map<std::uint64_t, std::vector<std::pair<std::uint64_t, Place>>> by_stream;
     for (const std::uint64_t hash : needed) {
         const auto found = loaded.blobs.find(hash);
         if (found == loaded.blobs.end()) {
-            bad.insert(hash);
             continue;
         }
-        const Place& p = found->second;
-        if (p.wad) {
-            by_stream[*p.wad].push_back(hash);
-            continue;
+        for (const Place& p : found->second) {
+            if (p.wad) {
+                by_stream[*p.wad].emplace_back(hash, p);
+                continue;
+            }
+            if (blobs.contains(hash)) {
+                break;
+            }
+            std::vector<std::uint8_t> bytes = read_at(disc, p.at, p.size);
+            if (bytes.size() == p.size && run::blob_hash(bytes) == hash) {
+                blobs.emplace(hash, std::move(bytes));
+            }
         }
-        std::vector<std::uint8_t> bytes = read_at(disc, p.at, p.size);
-        if (bytes.size() != p.size || run::blob_hash(bytes) != hash) {
-            bad.insert(hash);
-            continue;
-        }
-        blobs.emplace(hash, std::move(bytes));
     }
-    for (const auto& [at, hashes] : by_stream) {
+    for (const auto& [at, places] : by_stream) {
+        if (std::all_of(places.begin(), places.end(), [&](const auto& hp) {
+                return blobs.contains(hp.first);
+            })) {
+            continue;
+        }
         const auto stream = read_wad(disc, at);
-        for (const std::uint64_t hash : hashes) {
-            const Place& p = loaded.blobs.at(hash);
-            if (!stream || p.at + p.size > stream->size()) {
-                bad.insert(hash);
+        if (!stream) {
+            continue;
+        }
+        for (const auto& [hash, p] : places) {
+            if (blobs.contains(hash) || p.at > stream->size() || p.size > stream->size() - p.at) {
                 continue;
             }
-            std::vector<std::uint8_t> bytes(
-                stream->begin() + static_cast<std::ptrdiff_t>(p.at),
-                stream->begin() + static_cast<std::ptrdiff_t>(p.at + p.size)
+            const std::span<const std::uint8_t> bytes = std::span(*stream).subspan(
+                static_cast<std::size_t>(p.at), static_cast<std::size_t>(p.size)
             );
-            if (run::blob_hash(bytes) != hash) {
-                bad.insert(hash);
-                continue;
+            if (run::blob_hash(bytes) == hash) {
+                blobs.emplace(hash, std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
             }
-            blobs.emplace(hash, std::move(bytes));
         }
     }
     const run::BlobSource source = [&](std::uint64_t hash) -> const std::vector<std::uint8_t>* {
@@ -786,20 +893,12 @@ int export_interface(
         const fs::path folder = out / folder_of(r->category);
         fs::create_directories(folder, e);
         const fs::path file = folder / renderer::texture_pack::file_name(r->name);
-        if (stbi_write_png(
-                file.string().c_str(),
-                image->width,
-                image->height,
-                4,
-                image->pixels.data(),
-                image->width * 4
-            )
-            == 0) {
+        if (!write_png(file, *image)) {
             ++unwritable;
             if (unwritable == 1) {
                 say(std::format(
                     R"({{"event": "error", "message": {}}})",
-                    json_quote(file.string() + " could not be written (is the disk full?)")
+                    json_quote(utf8(file) + " could not be written (is the disk full?)")
                 ));
             }
             continue;
@@ -808,7 +907,7 @@ int export_interface(
     }
     say(std::format(
         R"({{"event": "done", "folder": {}, "written": {{"font": {}, "interface": {}, "effects": {}}}, "skipped": {{"disc": {}, "different": {}, "unwritable": {}}}}})",
-        json_quote(out.string()),
+        json_quote(utf8(out)),
         written["font"],
         written["interface"],
         written["effects"],
@@ -829,7 +928,7 @@ int export_interface(
         return 1;
     }
     // The folder, for the launcher (launcher/core/src/jobs.rs).
-    say(std::format("openrac-output: {}", out.string()));
+    say(std::format("openrac-output: {}", utf8(out)));
     return 0;
 }
 

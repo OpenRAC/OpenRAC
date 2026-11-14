@@ -7,6 +7,7 @@ import json
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -69,6 +70,32 @@ class JoinTests(unittest.TestCase):
             doc = json.loads(out.read_text())
             self.assertTrue(doc["official"])
             self.assertFalse((Path(tmp) / "run.json.partial").exists())
+
+    def test_broken_textures_are_left_out(self):
+        good = pool("01", "font", "a1")
+        doc = run.join([part([good, {"name": "02", "category": "hud", "kind": "pool", "uploads": []},
+                              {"name": "03", "category": "font", "kind": "pool", "uploads": []},
+                              "not a texture"], {"a1": {"size": 64, "at": 0}})], "rac1-ntsc")
+        self.assertEqual([t["name"] for t in doc["textures"]], ["01"])
+
+    def test_env_must_be_key_value(self):
+        self.assertEqual(run.env_pair("A=b=c"), ("A", "b=c"))
+        for bad in ("A", "=b"):
+            with self.assertRaises(Exception):
+                run.env_pair(bad)
+
+    def test_no_route_to_play_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "game"
+            exe.write_text("")
+            out = Path(tmp) / "run.json"
+            lines = []
+            with unittest.mock.patch.object(run, "say", lambda e, **f: lines.append((e, f))):
+                code = run.main(["run", "--game", "rac1-ntsc", "--out", str(out), "--exe", str(exe),
+                                 "--data", tmp, "--levels", tmp, "--only", "no-such-route"])
+            self.assertEqual(code, 1)
+            self.assertEqual(lines[-1][0], "error")
+            self.assertFalse(out.exists())
 
 
 if __name__ == "__main__":

@@ -113,7 +113,8 @@ struct PoolUpload {
     std::uint64_t sequence = 0;
 };
 
-void note_pool(
+// Returns the texture's name (texture_pack::image_hash), 0 when not noting.
+std::uint64_t note_pool(
     const Rgba8Image& image,
     const gs::Tex0& tex0,
     const gs::Texa& texa,

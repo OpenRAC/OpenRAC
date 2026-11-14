@@ -500,8 +500,9 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
                 clut->data
             };
         }
-        interface_run::note_pool(image, tex0, texa, used, clut_upload ? &*clut_upload : nullptr);
-        noted = texture_pack::image_hash(image);
+        noted = interface_run::note_pool(
+            image, tex0, texa, used, clut_upload ? &*clut_upload : nullptr
+        );
     }
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size: the 2D layer's
     // texture coordinates are fractions of the chip's size, not of the picture's.

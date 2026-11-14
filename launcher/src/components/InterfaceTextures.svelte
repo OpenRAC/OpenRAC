@@ -27,21 +27,46 @@
   let failed = $state<string | null>(null);
   /** The kinds ticked; all that can be exported at first. */
   let chosen = $state<Record<string, boolean>>({ font: true, interface: true, effects: true });
-  let busy = $state<"export" | "run" | null>(null);
+  /** What this panel started, and for which version (another version shown meanwhile is not busy). */
+  let busy = $state<{ kind: "export" | "run"; key: string } | null>(null);
   let said = $state<{ text: string; failed: boolean } | null>(null);
 
   async function refresh() {
+    // Another version may be chosen while this one is read: its answer is not this one's.
+    const key = v.key;
     try {
-      view = await api.interfaceRuns(v.game, v.name);
+      const read = await api.interfaceRuns(v.game, v.name);
+      if (key !== v.key) return;
+      view = read;
       failed = null;
     } catch (e) {
-      failed = String(e);
+      if (key === v.key) failed = String(e);
     }
   }
 
+  /** A job of an action here that is queued or running: one started before this panel was shown
+   *  (another tab, the panel closed and opened) counts too. */
+  const active = (id: string) =>
+    jobs.list.some(
+      (j) =>
+        j.scope.kind === "version" &&
+        j.scope.key === v.key &&
+        j.actionId === id &&
+        (j.state === "queued" || j.state === "running"),
+    );
+  const working = $derived<"export" | "run" | null>(
+    (busy?.key === v.key ? busy.kind : null) ??
+      (active("interface-run") ? "run" : active("interface-export") ? "export" : null),
+  );
+
   // Again for another version, and when a run or an export ends (a new run file).
   $effect(() => {
-    if (v.key && busy === null) void refresh();
+    if (v.key && working === null) void refresh();
+  });
+
+  // Another version: what was said of the last one goes.
+  $effect(() => {
+    if (v.key) said = null;
   });
 
   const available = (at: number) => view?.sources[at] !== undefined && view.sources[at] !== "none";
@@ -70,13 +95,13 @@
   }
 
   /** The newest job of an action here. */
-  const last = (id: string) =>
-    jobs.list.filter((j) => j.scope.kind === "version" && j.scope.key === v.key && j.actionId === id).at(-1);
+  const last = (id: string, key = v.key) =>
+    jobs.list.filter((j) => j.scope.kind === "version" && j.scope.key === key && j.actionId === id).at(-1);
 
   /** The JSON events a job printed, newest last. */
-  function events(id: string): Record<string, unknown>[] {
+  function events(id: string, key = v.key): Record<string, unknown>[] {
     const out: Record<string, unknown>[] = [];
-    for (const l of last(id)?.lines ?? []) {
+    for (const l of last(id, key)?.lines ?? []) {
       if (!l.line.startsWith("{")) continue;
       try {
         out.push(JSON.parse(l.line) as Record<string, unknown>);
@@ -89,7 +114,7 @@
 
   /** "Route 12 of 54", while a run plays. */
   const progress = $derived.by(() => {
-    if (busy !== "run") return null;
+    if (working !== "run") return null;
     const route = events("interface-run").findLast((e) => e.event === "route");
     const start = events("interface-run").findLast((e) => e.event === "start");
     const of = Number(route?.of ?? start?.routes ?? 0);
@@ -98,14 +123,20 @@
 
   async function exportTextures() {
     if (!exporter || !option) return;
-    busy = "export";
+    const key = v.key;
+    busy = { kind: "export", key };
     said = null;
     const ok = await runChain(scope, [exporter], { option });
     busy = null;
-    const done = events("interface-export").findLast((e) => e.event === "done") as
+    const done = events("interface-export", key).findLast((e) => e.event === "done") as
       { written?: Record<string, number>; skipped?: Record<string, number> } | undefined;
-    const error = events("interface-export").findLast((e) => e.event === "error");
-    const folder = last("interface-export")?.outputs[0] ?? null;
+    const error = events("interface-export", key).findLast((e) => e.event === "error");
+    const folder = last("interface-export", key)?.outputs[0] ?? null;
+    if (key !== v.key) {
+      // Another version is shown now: the folder still opens, nothing is said of it here.
+      if (ok && done && folder) await guardShown(api.openOutput(folder));
+      return;
+    }
     if (ok && done && folder) {
       const written = Object.values(done.written ?? {}).reduce((a, b) => a + b, 0);
       const skipped = Object.values(done.skipped ?? {}).reduce((a, b) => a + b, 0);
@@ -119,14 +150,18 @@
   async function makeRun() {
     if (!runner) return;
     if (!(await ask(INTERFACE.runAsk, INTERFACE.runYes))) return;
-    busy = "run";
+    const key = v.key;
+    busy = { kind: "run", key };
     said = null;
     const ok = await runChain(scope, [runner]);
     busy = null;
+    if (key !== v.key) return;
     await refresh();
     if (!ok) {
-      const error = events("interface-run").findLast((e) => e.event === "error");
-      said = { text: typeof error?.message === "string" ? error.message : INTERFACE.runStopped, failed: true };
+      // Stopped by the player, or ended by an error run.py named.
+      const error = events("interface-run", key).findLast((e) => e.event === "error");
+      const message = typeof error?.message === "string" && error.message !== "stopped" ? error.message : null;
+      said = { text: message ?? INTERFACE.runStopped, failed: true };
     } else {
       const failedRoutes = view?.local && !view.local.clean;
       said = { text: failedRoutes ? INTERFACE.runPartly : INTERFACE.runDone, failed: false };
@@ -158,7 +193,7 @@
         {@const s = status(at)}
         <li>
           <label class:off={!available(at)}>
-            <input type="checkbox" bind:checked={chosen[c.id]} disabled={!available(at) || busy !== null} />
+            <input type="checkbox" bind:checked={chosen[c.id]} disabled={!available(at) || working !== null} />
             {c.label}
           </label>
           <span class="chip {s.tone}">
@@ -174,26 +209,26 @@
       <p class="muted">{INTERFACE.unreadable(why)}</p>
     {/each}
     <div class="controls">
-      <button disabled={!exporter.runnable || !option || busy !== null} onclick={() => void exportTextures()}>
-        {#if busy === "export"}<span class="spinner"></span>{:else}<Icon
+      <button disabled={!exporter.runnable || !option || working !== null} onclick={() => void exportTextures()}>
+        {#if working === "export"}<span class="spinner"></span>{:else}<Icon
             name="external"
             size={16}
           />{/if}{INTERFACE.export}
       </button>
       {#if runner && view?.runnable}
-        {#if busy === "run"}
+        {#if working === "run"}
           <button class="ghost" onclick={() => void stopRun()}><Icon name="x" size={16} />{INTERFACE.stop}</button>
         {:else}
-          <button class="ghost" disabled={!runner.runnable || busy !== null} onclick={() => void makeRun()}
+          <button class="ghost" disabled={!runner.runnable || working !== null} onclick={() => void makeRun()}
             ><Icon name="build" size={16} />{view.local ? INTERFACE.runAgain : INTERFACE.run}</button
           >
         {/if}
       {/if}
     </div>
     <p class="muted" class:failed={said?.failed} class:done={said && !said.failed}>
-      {#if busy === "export"}
+      {#if working === "export"}
         {INTERFACE.exporting}
-      {:else if busy === "run"}
+      {:else if working === "run"}
         {progress} · {INTERFACE.runLong}
       {:else if said}
         {said.text}
@@ -205,7 +240,7 @@
         {INTERFACE.exportLine}
       {/if}
     </p>
-    {#if view?.suggestSharing && busy === null}
+    {#if view?.suggestSharing && working === null}
       <div class="share">
         <p>{INTERFACE.shareLead}</p>
         <button onclick={() => void share()}><Icon name="upload" size={16} />{INTERFACE.share}</button>

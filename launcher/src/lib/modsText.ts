@@ -514,11 +514,11 @@ export const INTERFACE = {
   run: "Make a run",
   runAgain: "Make the run again",
   runAsk:
-    "The game plays its test routes hidden (every level, the pause pages, the vendor, the title) and notes the interface textures it draws. It takes about an hour; you can use the computer meanwhile, and stop it any time.",
+    "The game plays its test routes hidden (every level, the pause pages, the vendor, the title) and notes the interface textures it draws. It takes about half an hour; you can use the computer meanwhile, and stop it any time.",
   runYes: "Start the run",
   starting: "Starting the game…",
   routeOf: (done: number, of: number) => `Route ${done} of ${of}`,
-  runLong: "about an hour",
+  runLong: "about half an hour",
   stop: "Stop",
   runDone: "The run is done: its textures can be exported.",
   runPartly: "The run is done, but some routes did not play to their end: the textures they reached are in.",

@@ -128,7 +128,7 @@ bool recording() {
     return g_recording.load(std::memory_order_relaxed);
 }
 
-void note_pool(
+std::uint64_t note_pool(
     const Rgba8Image& image,
     const gs::Tex0& tex0,
     const gs::Texa& texa,
@@ -136,13 +136,13 @@ void note_pool(
     const ImageUpload* clut
 ) {
     if (!recording() || image.pixels.empty()) {
-        return;
+        return 0;
     }
     const std::uint64_t name = texture_pack::image_hash(image);
     State& s = state();
     const std::lock_guard guard(s.lock);
     if (s.recipes.contains(name)) {
-        return;
+        return name;
     }
     Recipe recipe;
     recipe.name = name;
@@ -175,6 +175,7 @@ void note_pool(
         }
     }
     s.recipes.emplace(name, std::move(recipe));
+    return name;
 }
 
 void note_indexed8(

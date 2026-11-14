@@ -35,10 +35,9 @@ import runner  # noqa: E402
 
 FORMAT = 1
 CATEGORIES = ("font", "interface", "effects")
-# Each game's route set: the most of its interface the routes show.
 # The renderer's passes of the 3D world (OPENRAC_HIDE_PASSES); its picture plays no part in the game.
 WORLD_PASSES = "sky,terrain,ties,shrubs,mobys,ratchet shadows"
-
+# Each game's route set: the most of its interface the routes show.
 ROUTE_SETS = {"rac1-pal": "wide", "rac1-ntsc": "wide", "rac2-ntsc": "rac2-tour"}
 
 
@@ -71,10 +70,13 @@ def join(parts: list[dict], game: str | None = None) -> dict:
         if part.get("game") != first.get("game") or part.get("converter") != first.get("converter"):
             continue
         for t in part["textures"]:
+            if not isinstance(t, dict) or t.get("category") not in CATEGORIES \
+                    or t.get("kind") not in ("pool", "indexed8"):
+                continue
             name = t.get("name")
-            needs = [u.get("blob") for u in t.get("uploads", [])] if t.get("kind") == "pool" \
-                else [t.get("indices"), t.get("palette")]
-            if not name or name in textures or any(b not in part.get("blobs", {}) for b in needs):
+            needs = [u.get("blob") for u in t.get("uploads") or [] if isinstance(u, dict)] \
+                if t.get("kind") == "pool" else [t.get("indices"), t.get("palette")]
+            if not name or not needs or name in textures or any(b not in part.get("blobs", {}) for b in needs):
                 continue
             textures[name] = t
             for b in needs:
@@ -85,8 +87,7 @@ def join(parts: list[dict], game: str | None = None) -> dict:
     for names in missing.values():
         names.difference_update(textures)
     counts = {c: sum(1 for t in textures.values() if t.get("category") == c) for c in CATEGORIES}
-    ordered = sorted(textures.values(), key=lambda t: (CATEGORIES.index(t["category"])
-                                                       if t.get("category") in CATEGORIES else 9, t["name"]))
+    ordered = sorted(textures.values(), key=lambda t: (CATEGORIES.index(t["category"]), t["name"]))
     return {"format": FORMAT, "game": first.get("game"), "converter": first.get("converter"),
             "counts": counts, "missing": {c: sorted(n) for c, n in missing.items()},
             "blobs": dict(sorted(blobs.items())), "textures": ordered}
@@ -114,7 +115,8 @@ def run(args) -> int:
         say("error", message=f"{game} has no routes to run yet (known: {', '.join(ROUTE_SETS)})")
         return 1
     exe = args.exe or runner.REPO / "port" / "build" / "release" / f"openrac-{game}{'.exe' if os.name == 'nt' else ''}"
-    data, levels = runner.default_inputs(game)
+    # The checkout's own data unless named (the launcher names both: no git is asked then).
+    data, levels = (args.data, args.levels) if args.data and args.levels else runner.default_inputs(game)
     # Absolute: each route's game runs in a folder of its own.
     exe = Path(exe).resolve()
     data, levels = Path(args.data or data).resolve(), Path(args.levels or levels).resolve()
@@ -133,10 +135,18 @@ def run(args) -> int:
         # A route that needs the prepared card cannot run without it; the player's own is never used.
         skipped = [r.key for r in chosen if r.card]
         chosen = [r for r in chosen if not r.card]
-    if args.work:
-        args.work.mkdir(parents=True, exist_ok=True)
-    work = Path(tempfile.mkdtemp(prefix="interface-run-", dir=args.work)) if args.work else \
-        Path(tempfile.mkdtemp(prefix="openrac-interface-run-"))
+    if not chosen:
+        say("error", message="no route to play: " + ("no route of that name" if args.only
+                                                     else "every route needs the prepared memory card"))
+        return 1
+    # The routes' folders go beside the run file unless asked elsewhere: a run the system ended
+    # hard (Windows' taskkill) leaves its folder there, and the next run clears it.
+    parent = args.work or args.out.resolve().parent / "work"
+    parent.mkdir(parents=True, exist_ok=True)
+    if not args.work:
+        for stale in parent.glob("interface-run-*"):
+            shutil.rmtree(stale, ignore_errors=True)
+    work = Path(tempfile.mkdtemp(prefix="interface-run-", dir=parent))
     say("start", game=game, routes=len(chosen), skipped=skipped, work=str(work))
     done, failed = [], []
     # A small window: the HUD's textures are the game's whatever the window's size, and drawing on
@@ -144,29 +154,45 @@ def run(args) -> int:
     settings = {"render_scale": 25, "window_size": "320x240"}
     # The 3D world is not drawn: its textures are not the interface's, and drawing it was most of a
     # route's time without a graphics card. The HUD and the effects are drawn as in the game.
-    env = {"OPENRAC_HIDE_PASSES": WORLD_PASSES, **dict(kv.split("=", 1) for kv in args.env)}
+    env = {"OPENRAC_HIDE_PASSES": WORLD_PASSES, **dict(args.env)}
 
-    def one(r: routes_mod.Route) -> tuple[routes_mod.Route, dict]:
+    def one(r: routes_mod.Route) -> tuple[routes_mod.Route, str]:
         out = work / r.key
-        res = runner.run_level(game, r, exe, data, levels, out, env, settings,
-                               ["--no-mods", "--interface-run", str(out / "part.json")])
-        return r, res
+        try:
+            res = runner.run_level(game, r, exe, data, levels, out, env, settings,
+                                   ["--no-mods", "--interface-run", str(out / "part.json")])
+        except (OSError, SystemExit, subprocess.SubprocessError) as e:
+            # One route that cannot start (a folder not writable, the program gone) is one failed
+            # route, not the end of the run.
+            print(f"{r.key}: {e}", file=sys.stderr, flush=True)
+            return r, "error"
+        return r, res["status"]
 
-    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     parts = []
-    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        for i, (r, res) in enumerate(pool.map(one, chosen), 1):
-            part = read_part(work / r.key / "part.json")
-            # A route that did not play to its end still gave what it drew, if its part was written.
-            ok = res["status"] == "ok" and part is not None
-            (done if ok else failed).append(r.key)
-            if part is not None:
-                parts.append(part)
-            say("route", key=r.key, name=r.name, status=res["status"] if part is not None else "no-part",
-                done=i, of=len(chosen))
-    if not parts:
-        say("error", message="no route wrote its part: see " + str(work))
-        return 1
+    keep = args.keep
+    try:
+        with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+            futures = [pool.submit(one, r) for r in chosen]
+            # In the order they end, so the launcher's count moves as routes finish.
+            for i, future in enumerate(as_completed(futures), 1):
+                r, status = future.result()
+                part = read_part(work / r.key / "part.json")
+                # A route that did not play to its end still gave what it drew, if its part was written.
+                ok = status == "ok" and part is not None
+                (done if ok else failed).append(r.key)
+                if part is not None:
+                    parts.append(part)
+                say("route", key=r.key, name=r.name, status=status if part is not None else "no-part",
+                    done=i, of=len(chosen))
+        if not parts:
+            keep = True  # the routes' logs, to see why
+            say("error", message="no route wrote its part: see " + str(work))
+            return 1
+    finally:
+        # Stopped (the launcher's Stop ends the run with SIGTERM) or done: the routes' folders go.
+        if not keep:
+            shutil.rmtree(work, ignore_errors=True)
     try:
         doc = join(parts, game)
     except ValueError as e:
@@ -177,16 +203,36 @@ def run(args) -> int:
     doc["clean"] = not failed  # the routes that need the prepared card are left out, not failed
     doc["routes"] = {"done": sorted(done), "failed": sorted(failed), "skipped": sorted(skipped)}
     write(doc, args.out)
+    # The file as the project keeps it (port/game/<id>/interface-run.json), ready to offer in a
+    # pull request: the launcher opens its folder and GitHub's upload page. Only a clean run's: an
+    # earlier clean one is not offered for a later run that is not.
+    shared = args.out.parent / "share" / game / "interface-run.json"
     if doc["clean"]:
-        # The file as the project keeps it (port/game/<id>/interface-run.json), ready to offer in a
-        # pull request: the launcher opens its folder and GitHub's upload page.
-        write(doc, args.out.parent / "share" / game / "interface-run.json")
-    if not args.keep:
-        shutil.rmtree(work, ignore_errors=True)
+        write(doc, shared)
+    else:
+        shared.unlink(missing_ok=True)
     say("done", file=str(args.out.resolve()), **info(doc))
     print(f"openrac-output: {args.out.resolve()}", flush=True)
     # Written, clean or not: the launcher shows which routes did not play to their end.
     return 0
+
+
+def env_pair(text: str) -> tuple[str, str]:
+    key, sep, value = text.partition("=")
+    if not sep or not key:
+        raise argparse.ArgumentTypeError(f"{text!r} is not KEY=VALUE")
+    return key, value
+
+
+def stop_on_sigterm() -> None:
+    """SIGTERM (the launcher's Stop) ends the run as Ctrl+C does, so its folders are removed."""
+    import signal
+    def stop(*_):
+        raise KeyboardInterrupt
+    try:
+        signal.signal(signal.SIGTERM, stop)
+    except (ValueError, OSError):
+        pass  # not the main thread (a test)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -200,7 +246,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--levels", type=Path, help="the extracted levels")
     r.add_argument("--jobs", type=int, default=max(1, min(4, (os.cpu_count() or 2) // 2)))
     r.add_argument("--only", action="append", help="only this route (repeatable; for testing)")
-    r.add_argument("--env", action="append", default=[], help="KEY=VALUE for every route (OPENRAC_SOFTWARE_GL=1)")
+    r.add_argument("--env", action="append", default=[], type=env_pair,
+                   help="KEY=VALUE for every route (OPENRAC_SOFTWARE_GL=1)")
     r.add_argument("--timeout-scale", type=float, default=1.0,
                    help="give each route this many times its time (a slow computer, software drawing)")
     r.add_argument("--official", action="store_true", help="mark it as the project's own run")
@@ -214,7 +261,12 @@ def main(argv: list[str] | None = None) -> int:
     i.add_argument("file", type=Path)
     args = parser.parse_args(argv)
     if args.command == "run":
-        return run(args)
+        stop_on_sigterm()
+        try:
+            return run(args)
+        except KeyboardInterrupt:
+            say("error", message="stopped")
+            return 130
     if args.command == "join":
         parts = [p for p in (read_part(f) for f in args.parts) if p is not None]
         if not parts:

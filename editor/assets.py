@@ -523,7 +523,7 @@ def held_items(levels: Path, classes: list[int] | None) -> dict[int, int]:
                          else "weapons: none of the chosen classes is one Ratchet holds")
     first: dict[int, int] = {}
     for level in found:
-        mobys = level_manifest(levels, level)["classes"].get("moby", {})
+        mobys = (level_manifest(levels, level).get("classes") or {}).get("moby") or {}
         for c in items:
             if c not in first and (mobys.get(str(c)) or {}).get("mesh"):
                 first[c] = level

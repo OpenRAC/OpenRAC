@@ -615,13 +615,18 @@
           "artifact"
         ],
         "artifact": "port/build/release/openrac-rac1-pal.exe",
-        "needs": [],
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac1/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          }
+        ],
         "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
       },
       {
         "id": "interface-run",
         "label": "Make an interface run",
-        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About an hour; the computer can be used meanwhile.",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About half an hour; the computer can be used meanwhile.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -653,6 +658,10 @@
         ],
         "artifact": "port/build/release/openrac-rac1-pal.exe",
         "needs": [
+          {
+            "path": "{data}/iso_data/rac1/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
           {
             "path": "assets/port/rac1/pal/verified-4.json",
             "from": "a check of the levels (Check the levels)"
@@ -1443,13 +1452,18 @@
           "artifact"
         ],
         "artifact": "port/build/release/openrac-rac1-ntsc.exe",
-        "needs": [],
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac1/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          }
+        ],
         "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
       },
       {
         "id": "interface-run",
         "label": "Make an interface run",
-        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About an hour; the computer can be used meanwhile.",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About half an hour; the computer can be used meanwhile.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -1481,6 +1495,10 @@
         ],
         "artifact": "port/build/release/openrac-rac1-ntsc.exe",
         "needs": [
+          {
+            "path": "{data}/iso_data/rac1/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
           {
             "path": "assets/port/rac1/ntsc/verified-4.json",
             "from": "a check of the levels (Check the levels)"
@@ -3073,7 +3091,7 @@
       {
         "id": "interface-run",
         "label": "Make an interface run",
-        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About an hour; the computer can be used meanwhile.",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. About half an hour; the computer can be used meanwhile.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
