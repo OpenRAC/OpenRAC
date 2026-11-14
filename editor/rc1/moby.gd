@@ -398,7 +398,12 @@ func set_class_rule(text: String) -> bool:
 		return false
 
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(RULES_PATH)) if FileAccess.file_exists(RULES_PATH) else {}
-	var file: Dictionary = parsed if parsed is Dictionary else {}
+	# A file that does not read as JSON is left as it is: writing over it would lose its other rules.
+	if not parsed is Dictionary or not parsed.get("classes", {}) is Dictionary:
+		push_warning(RULES_PATH + " is not a JSON object with \"classes\"; nothing was saved.")
+		return false
+
+	var file: Dictionary = parsed
 	var classes: Dictionary = file.get_or_add("classes", {})
 	var key: String = str(int(get_meta("rc1_class", -1)))
 
