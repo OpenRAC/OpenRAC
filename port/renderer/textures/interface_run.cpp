@@ -4,7 +4,9 @@
 #include "renderer/textures/interface_run.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <cstring>
 #include <mutex>
 
 #include "renderer/textures/texture_pack.h"
@@ -17,7 +19,7 @@ namespace {
 struct State {
     std::mutex lock;
     std::map<std::uint64_t, Recipe> recipes;
-    std::map<std::uint64_t, std::vector<std::uint8_t>> blobs;
+    std::map<std::uint64_t, BlobKey> blobs;
 };
 
 State& state() {
@@ -31,11 +33,11 @@ std::uint64_t field(std::uint64_t value, int at) {
     return value << at;
 }
 
-// Keeps a copy of `bytes` under its hash; returns the hash.
+// Notes the blob `bytes` (its key, not its bytes); returns its hash.
 std::uint64_t keep(State& s, std::span<const std::uint8_t> bytes) {
     const std::uint64_t hash = blob_hash(bytes);
     if (!s.blobs.contains(hash)) {
-        s.blobs.emplace(hash, std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
+        s.blobs.emplace(hash, blob_key(bytes));
     }
     return hash;
 }
@@ -79,6 +81,33 @@ std::uint64_t encode(const gs::Tex0& t) {
 
 std::uint64_t encode(const gs::Texa& t) {
     return field(t.ta0, 0) | field(t.aem ? 1 : 0, 15) | field(t.ta1, 32);
+}
+
+BlobKey blob_key(std::span<const std::uint8_t> bytes) {
+    BlobKey key;
+    key.size = bytes.size();
+    if (bytes.size() < 8) {
+        return key;
+    }
+    // The first window with the most different bytes: a run of one byte would match everywhere.
+    int best = 0;
+    const std::size_t last = std::min<std::size_t>(bytes.size() - 8, 4096);
+    for (std::size_t at = 0; at <= last; ++at) {
+        std::array<std::uint8_t, 8> window{};
+        std::copy_n(bytes.begin() + static_cast<std::ptrdiff_t>(at), 8, window.begin());
+        std::sort(window.begin(), window.end());
+        const int distinct =
+            static_cast<int>(std::unique(window.begin(), window.end()) - window.begin());
+        if (distinct > best) {
+            best = distinct;
+            key.anchor_at = at;
+            if (distinct == 8) {
+                break;
+            }
+        }
+    }
+    std::memcpy(&key.anchor, bytes.data() + key.anchor_at, sizeof key.anchor);
+    return key;
 }
 
 std::uint64_t blob_hash(std::span<const std::uint8_t> bytes) {

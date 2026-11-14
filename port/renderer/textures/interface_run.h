@@ -134,10 +134,22 @@ void note_indexed8(
 // The texture named `name` was drawn as text: it is a font texture.
 void mark_font(std::uint64_t name);
 
-// What was noted: the recipes, by name, and the bytes of every blob they name.
+// What a blob is known by while a run looks for it on the disc, without its bytes (a run can see
+// thousands of transfers, a full-screen picture each frame the game pauses): its size and one
+// 8-byte window of it (`anchor`, at `anchor_at`), the most varied among its first 4 KB. A place
+// where the window matches is then checked by the hash of `size` bytes from there.
+struct BlobKey {
+    std::uint64_t size = 0;
+    std::uint64_t anchor_at = 0;
+    std::uint64_t anchor = 0;
+};
+
+BlobKey blob_key(std::span<const std::uint8_t> bytes);
+
+// What was noted: the recipes, by name, and every blob they name.
 struct Noted {
     std::map<std::uint64_t, Recipe> recipes;
-    std::map<std::uint64_t, std::vector<std::uint8_t>> blobs;
+    std::map<std::uint64_t, BlobKey> blobs;
 };
 
 Noted take();

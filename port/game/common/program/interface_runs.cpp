@@ -177,24 +177,22 @@ std::optional<std::vector<std::uint8_t>> read_wad(std::ifstream& disc, std::uint
 
 // ---- Finding the blobs on the disc ----
 
-// One blob to find: an 8-byte window of it (its anchor) at `offset` in it.
+// One blob to find: its hash and key.
 struct Needle {
     std::uint64_t hash;
-    std::uint64_t offset;
+    run::BlobKey key;
 };
 
 class Finder {
 public:
-    explicit Finder(const std::map<std::uint64_t, std::vector<std::uint8_t>>& blobs)
-        : m_blobs(blobs) {
-        for (const auto& [hash, bytes] : blobs) {
-            if (bytes.size() < kMinBlob) {
+    explicit Finder(const std::map<std::uint64_t, run::BlobKey>& blobs) {
+        for (const auto& [hash, key] : blobs) {
+            if (key.size < kMinBlob) {
                 continue;
             }
-            const std::uint64_t offset = anchor(bytes);
-            const std::uint64_t key = load(bytes.data() + offset);
-            m_needles[key].push_back({hash, offset});
-            m_filter[filter_bit(key) / 64] |= std::uint64_t{1} << (filter_bit(key) % 64);
+            m_needles[key.anchor].push_back({hash, key});
+            m_filter[filter_bit(key.anchor) / 64] |= std::uint64_t{1}
+                                                     << (filter_bit(key.anchor) % 64);
             ++m_left;
         }
     }
@@ -209,26 +207,26 @@ public:
         const std::uint8_t* data = haystack.data();
         const std::size_t end = haystack.size() - 7;
         for (std::size_t i = 0; i < end && m_left > 0; ++i) {
-            const std::uint64_t key = load(data + i);
-            const std::uint32_t bit = filter_bit(key);
+            std::uint64_t window = 0;
+            std::memcpy(&window, data + i, sizeof window);
+            const std::uint32_t bit = filter_bit(window);
             if ((m_filter[bit / 64] & (std::uint64_t{1} << (bit % 64))) == 0) {
                 continue;
             }
-            const auto found = m_needles.find(key);
+            const auto found = m_needles.find(window);
             if (found == m_needles.end()) {
                 continue;
             }
             for (const Needle& needle : found->second) {
-                if (m_found.contains(needle.hash) || i < needle.offset) {
+                if (m_found.contains(needle.hash) || i < needle.key.anchor_at) {
                     continue;
                 }
-                const std::vector<std::uint8_t>& bytes = m_blobs.at(needle.hash);
-                const std::size_t start = i - needle.offset;
-                if (start + bytes.size() > haystack.size()
-                    || std::memcmp(data + start, bytes.data(), bytes.size()) != 0) {
+                const std::size_t start = i - needle.key.anchor_at;
+                if (start + needle.key.size > haystack.size()
+                    || run::blob_hash(haystack.subspan(start, needle.key.size)) != needle.hash) {
                     continue;
                 }
-                m_found.emplace(needle.hash, place(start, bytes.size()));
+                m_found.emplace(needle.hash, place(start, needle.key.size));
                 --m_left;
             }
         }
@@ -243,40 +241,10 @@ private:
     static constexpr std::size_t kMinBlob = 32;
     static constexpr std::uint32_t kFilterBits = 1u << 20;
 
-    static std::uint64_t load(const std::uint8_t* p) {
-        std::uint64_t v = 0;
-        std::memcpy(&v, p, sizeof v);
-        return v;
-    }
-
     static std::uint32_t filter_bit(std::uint64_t key) {
         return static_cast<std::uint32_t>((key * 0x9E3779B97F4A7C15ull) >> 44);
     }
 
-    // The first 8-byte window with the most different bytes (a run of one byte would match
-    // everywhere and each match would be compared in full), among the first 4 KB.
-    static std::uint64_t anchor(const std::vector<std::uint8_t>& bytes) {
-        std::uint64_t best = 0;
-        int best_distinct = 0;
-        const std::size_t last = std::min<std::size_t>(bytes.size() - 8, 4096);
-        for (std::size_t at = 0; at <= last; ++at) {
-            std::array<std::uint8_t, 8> window{};
-            std::copy_n(bytes.begin() + static_cast<std::ptrdiff_t>(at), 8, window.begin());
-            std::sort(window.begin(), window.end());
-            const int distinct =
-                static_cast<int>(std::unique(window.begin(), window.end()) - window.begin());
-            if (distinct > best_distinct) {
-                best_distinct = distinct;
-                best = at;
-                if (distinct == 8) {
-                    break;
-                }
-            }
-        }
-        return best;
-    }
-
-    const std::map<std::uint64_t, std::vector<std::uint8_t>>& m_blobs;
     std::unordered_map<std::uint64_t, std::vector<Needle>> m_needles;
     std::vector<std::uint64_t> m_filter = std::vector<std::uint64_t>(kFilterBits / 64);
     std::map<std::uint64_t, Place> m_found;
@@ -287,7 +255,7 @@ private:
 // WAD stream that starts in them.
 std::map<std::uint64_t, Place> locate(
     const fs::path& disc_path,
-    const std::map<std::uint64_t, std::vector<std::uint8_t>>& blobs,
+    const std::map<std::uint64_t, run::BlobKey>& blobs,
     std::vector<std::pair<std::uint64_t, std::uint64_t>> ranges
 ) {
     Finder finder(blobs);

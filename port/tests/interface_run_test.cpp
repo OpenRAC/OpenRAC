@@ -7,6 +7,8 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <map>
 #include <vector>
 
 #include "check.h"
@@ -102,16 +104,25 @@ void pool_round_trip() {
     CHECK(recipe.kind == interface_run::Kind::Pool);
     CHECK(recipe.uploads.size() == 2);
 
+    // The run keeps no bytes, only each blob's key; an export reads them back (here, the uploads').
+    std::map<std::uint64_t, std::vector<std::uint8_t>> bytes;
+    for (const auto& b : {clut(), pixels}) {
+        bytes[interface_run::blob_hash(b)] = b;
+    }
+    for (const auto& u : recipe.uploads) {
+        CHECK(bytes.contains(u.blob));
+        CHECK(noted.blobs.contains(u.blob) && noted.blobs[u.blob].size == bytes[u.blob].size());
+    }
     const auto source = [&](std::uint64_t blob) -> const std::vector<std::uint8_t>* {
-        const auto found = noted.blobs.find(blob);
-        return found == noted.blobs.end() ? nullptr : &found->second;
+        const auto found = bytes.find(blob);
+        return found == bytes.end() ? nullptr : &found->second;
     };
     const auto rebuilt = interface_run::rebuild(recipe, source);
     CHECK(rebuilt && texture_pack::image_hash(*rebuilt) == name);
 
     // A blob that cannot be read: nothing. One that changed: another picture (the caller's check).
     CHECK(!interface_run::rebuild(recipe, [](std::uint64_t) { return nullptr; }));
-    auto changed = noted.blobs;
+    auto changed = bytes;
     for (auto& [hash, bytes] : changed) {
         if (bytes.size() == pixels.size()) {
             bytes[5] ^= 0x55;
@@ -144,8 +155,9 @@ void past_fourteen_bits() {
     CHECK(noted.recipes.size() == 1);
     const interface_run::Recipe& recipe = noted.recipes.begin()->second;
     CHECK(recipe.tbp == 0x11a00);
-    const auto rebuilt =
-        interface_run::rebuild(recipe, [&](std::uint64_t blob) { return &noted.blobs[blob]; });
+    const auto rebuilt = interface_run::rebuild(recipe, [&](std::uint64_t blob) {
+        return blob == interface_run::blob_hash(pixels) ? &pixels : nullptr;
+    });
     CHECK(rebuilt && texture_pack::image_hash(*rebuilt) == recipe.name);
 }
 
@@ -165,16 +177,36 @@ void indexed8_round_trip() {
     const std::uint64_t name = texture_pack::image_hash(image);
     CHECK(noted.recipes.contains(name));
     CHECK(noted.recipes[name].category == interface_run::Category::Effects);
-    const auto rebuilt = interface_run::rebuild(noted.recipes[name], [&](std::uint64_t blob) {
-        const auto found = noted.blobs.find(blob);
-        return found == noted.blobs.end() ? nullptr : &found->second;
-    });
+    std::map<std::uint64_t, std::vector<std::uint8_t>> bytes{
+        {interface_run::blob_hash(indices), indices}, {interface_run::blob_hash(palette), palette}
+    };
+    const auto read = [&](std::uint64_t blob) -> const std::vector<std::uint8_t>* {
+        const auto found = bytes.find(blob);
+        return found == bytes.end() ? nullptr : &found->second;
+    };
+    const auto rebuilt = interface_run::rebuild(noted.recipes[name], read);
     CHECK(rebuilt && texture_pack::image_hash(*rebuilt) == name);
 
     // A short palette or absurd size: nothing.
     interface_run::Recipe bad = noted.recipes[name];
     bad.width = 1 << 20;
-    CHECK(!interface_run::rebuild(bad, [&](std::uint64_t blob) { return &noted.blobs[blob]; }));
+    CHECK(!interface_run::rebuild(bad, read));
+}
+
+void blob_keys() {
+    // The anchor is a varied window, not a run of one byte.
+    std::vector<std::uint8_t> bytes(4096, 0);
+    for (std::size_t i = 100; i < 108; ++i) {
+        bytes[i] = static_cast<std::uint8_t>(i);
+    }
+    const interface_run::BlobKey key = interface_run::blob_key(bytes);
+    CHECK(
+        key.size == 4096 && key.anchor_at == 99
+    );  // the first window of 8 different bytes: 0, 100..106
+    std::uint64_t window = 0;
+    std::memcpy(&window, bytes.data() + 99, 8);
+    CHECK(key.anchor == window);
+    CHECK(interface_run::blob_key(std::vector<std::uint8_t>(4)).size == 4);
 }
 
 void categories() {
@@ -195,6 +227,7 @@ int main() {
     pool_round_trip();
     past_fourteen_bits();
     indexed8_round_trip();
+    blob_keys();
     categories();
     return openrac::test::result();
 }
