@@ -26,6 +26,16 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
+  "func_00209BB8": {
+   "as": "func_0020AAE0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_00209BB8__game": {
+   "as": "func_0020AAE0__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
   "func_00209E68": {
    "as": "func_0020AD90",
    "how": "function: carried (the release's own C for it)",
@@ -453,7 +463,7 @@
   "func_00201AF0__game": "shared host C: not in the release"
  },
  "counts": {
-  "functions": 48,
+  "functions": 50,
   "addresses": 37,
   "dropped": 21
  }

@@ -80,6 +80,8 @@ func_00204FC0	func_00205EE8
 func_00204FC0__game	func_00205EE8__game
 func_00205270	func_00206198
 func_00205270__game	func_00206198__game
+func_00209BB8	func_0020AAE0
+func_00209BB8__game	func_0020AAE0__game
 func_00209CE8	func_0020AC10
 func_00209CE8__hooked	func_0020AC10__hooked
 func_00209DC0	func_0020ACE8

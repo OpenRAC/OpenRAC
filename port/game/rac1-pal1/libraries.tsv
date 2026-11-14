@@ -166,6 +166,7 @@ func_0012D728	game	_start	host	crt0, the program's entry point: the port starts 
 func_0012D8F0	kernel	ExitThread	host	system call 0x23: crt0's return address for the main thread, which never returns; the program ends
 func_0012D8F8	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's functions
 func_001F4180	draw	SetupGifPaging	wrap	sets the four draw flags at 0x18A3D0 retail has on before its first frame (nothing in the game's code stores them by name)
+func_00208C38	memcard	CheckBootMemoryCard	wrap	skip the startup memory card notice with OPENRAC_DIRECT (rac1/host/boot.c)
 func_00208E40	memcard	NewGameInit	wrap	a new game starts in level 0; with --level N it starts in level N instead (rac1/host/boot.c)
 func_00208D68	memcard	memcard_RestoreGame	wrap	a loaded save: the language and the Sound page stay the player's, which the port remembers between runs (rac1/host/options.c)
 func_002234E0	memcard	Pause_DrawSaveSlots	wrap	the memory card page's five slots: a slot whose save was written with mods loaded gets a MODS badge after the game's own draw (rac1/host/save_marks.c)

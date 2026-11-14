@@ -41,6 +41,16 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
+  "func_00209BB8": {
+   "as": "func_00208C38",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_00209BB8__game": {
+   "as": "func_00208C38__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
   "func_00209DC0": {
    "as": "func_00208E40",
    "how": "function: carried (the release's own C for it)",
@@ -852,7 +862,7 @@
   "func_00116948": "libraries.tsv func_00116948: not in the release"
  },
  "counts": {
-  "functions": 125,
+  "functions": 127,
   "addresses": 40,
   "dropped": 20
  }
