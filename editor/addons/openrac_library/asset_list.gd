@@ -8,7 +8,10 @@ var dock: Control
 
 
 func _get_drag_data(at_position: Vector2) -> Variant:
-	var index: int = get_item_at_position(at_position, true)
+	# The item the press selected: Godot works the drag's start point out from the mouse's moves,
+	# which can land on the next row when the editor is slow.
+	var selected := get_selected_items()
+	var index: int = selected[0] if not selected.is_empty() else get_item_at_position(at_position, true)
 
 	if index < 0:
 		return null

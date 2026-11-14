@@ -194,12 +194,13 @@ void func_0020D440__game(gaddr moby, int oclass);
 
 /* InitMobyInstance (libraries.tsv, wrap). An imported class's update can make a class this level
  * does not have (one its code takes from a table, as Qwark's starfighter takes its parts): its
- * slot is 0xFF, past the class tables' 224 entries. The game's own path for a class with no data
- * (no update, no record: a dead moby) is taken instead, by those two entries reading 0 for the
- * call. Any other call is the game's, unchanged. */
+ * slot is 0xFF, past the class tables' 224 entries. So is an imported class the level had no slot
+ * left for, wherever its mobys are made. The game's own path for a class with no data (no update,
+ * no record: a dead moby) is taken instead, by those two entries reading 0 for the call. On a
+ * level with no imported classes every call is the game's, unchanged. */
 void func_0020D440(gaddr moby, int oclass) {
     const gaddr slots = OPENRAC_DATA(RAC1_ADDR(0x001B3E40u));
-    if (s_foreign_depth == 0 || oclass < 0 || oclass >= 0x800
+    if ((s_foreign_depth == 0 && s_foreign_count == 0) || oclass < 0 || oclass >= 0x800
         || GREF(uint8_t, slots + (gaddr)oclass) != 0xFF) {
         func_0020D440__game(moby, oclass);
         return;
@@ -453,7 +454,15 @@ void func_L00_00242120(unsigned int record, int count) {
         const Foreign* f = &s_foreign[k];
         const uint32_t used = GREF(uint32_t, slot_count);
         if (used >= MOBY_CLASS_SLOTS) {
-            openrac_game_warn("no moby class slot left for the imported classes");
+            char message[400];
+            int n = snprintf(message, sizeof(message), "no moby class slot left: not imported");
+            for (int left = k; left < s_foreign_count && n > 0 && n < (int)sizeof(message) - 8;
+                 ++left) {
+                n += snprintf(
+                    message + n, sizeof(message) - (size_t)n, " %d", s_foreign[left].oclass
+                );
+            }
+            openrac_game_warn(message);
             break;
         }
         int own = 0;

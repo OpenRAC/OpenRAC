@@ -218,6 +218,7 @@ gaddr func_L00_002422D8(int skip_read) {
 enum {
     SLOTS = 0x70000000u,              /* class slots: {head, tail} */
     SLOTS_END = 0x70000700u,          /* retail clears and chains 224 slots */
+    CLASS_SLOTS = 224,
     EXPANDED_SLOTS_END = 0x70000800u, /* expanded RAM: all 256 byte-indexed slots */
     TARGET_LIST = 0x70000800u,
     TARGET_LIST_END = 0x70000C00u,
@@ -385,8 +386,10 @@ gaddr func_0020E6B8(void) {
         }
         const gaddr m = cur;
         const unsigned mode = GREF(unsigned short, m + MOBY_MODE);
-        /* Mode 2: the moby is not run. */
-        if (mode & 2) {
+        /* Mode 2: the moby is not run. Nor is one with no class slot (0xFF): only a moby of a
+         * class another level's imported moby made, which this level has no slot for, has one
+         * (foreign_class.c), and its slot's list is past the ones the pass clears. */
+        if ((mode & 2) || GREF(unsigned char, m + MOBY_SLOT) >= CLASS_SLOTS) {
             continue;
         }
         const unsigned drawn = GREF(unsigned char, m + MOBY_DRAWN);
@@ -442,6 +445,9 @@ gaddr func_0020E6B8(void) {
                     GREF(short, tgt) = (short)member;
                 }
                 continue;
+            }
+            if (GREF(unsigned char, m + MOBY_SLOT) >= CLASS_SLOTS) {
+                continue; /* no class slot: see the first pass */
             }
             tgt = target_add(tgt, member, mode, base, expanded_targets, &expanded_target_count);
             run_list_append(m);

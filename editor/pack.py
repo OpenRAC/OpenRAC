@@ -66,6 +66,7 @@ IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
 # The Godot `Game` node turns the editor's Y-up coordinates into RAC1's Z-up game space. Packers
 # convert child transforms with scene_transform and therefore require this extracted frame intact.
 GAME_FRAME = (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0)
+GROUPS_MAX = 112   # the moby groups the game loads (D_L00_001AB840, 0x1C0 bytes)
 PACKED_VISIBILITY_GROUPS = (
     "Game/Ties",
     "Game/Shrubs",
@@ -510,6 +511,31 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
         moby, = struct.unpack_from("<i", data, at)
         if 0 <= moby < len(originals):
             struct.pack_into("<i", data, at, place.get(moby, -1))
+    # Every level has the 112 groups the game loads (load_level_gameplay clears 0x1C0 bytes of
+    # pointers), many empty: a new group takes an empty one past the last the level uses, from the
+    # top, and a group with none of its mobys here is one empty group they all share.
+    free: list[int] = []
+    empty_group: list[int] = []
+    started: list[bool] = []
+
+    def new_group(members: list[int]) -> int:
+        if not started:
+            started.append(True)
+            last_used = max((i for i, g in enumerate(group_lists) if g), default=-1)
+            group_lists.extend([None] * (GROUPS_MAX - len(group_lists)))
+            free.extend(i for i in range(last_used + 1, GROUPS_MAX) if not group_lists[i])
+        if not members:
+            if not empty_group and free:
+                empty_group.append(free.pop(0))
+            if empty_group:
+                return empty_group[0]
+        elif free:
+            number = free.pop()
+            group_lists[number] = members
+            return number
+        problems.append(f"no moby group left (the game has {GROUPS_MAX}): an imported moby's group is left out")
+        return -1
+
     # An imported moby's links name the mobys it brought along (foreign_classes.linked).
     for copies in instances:
         by_index = {member.index: record for record, member in copies}
@@ -521,6 +547,22 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
                 target = by_index.get(named)
                 if target is not None and id(target) in placed_at and base + where + 4 <= len(data):
                     struct.pack_into("<i", data, base + where, placed_at[id(target)])
+            # Its groups (groups.py): a new group of the copies of their mobys, or an empty one.
+            for where, form, members in member.grouped:
+                inside = [placed_at[id(by_index[m])] for m in members
+                          if m in by_index and id(by_index[m]) in placed_at]
+                if base + where + struct.calcsize(form) <= len(data):
+                    struct.pack_into(form, data, base + where, new_group(inside))
+        # The group a copy is in, in its own level: one of the copies that were in it with it.
+        own_groups: dict[int, list[dict]] = {}
+        for record, member in copies:
+            if 0 <= member.record["group"] < 0xFF and id(record) in placed_at:
+                own_groups.setdefault(member.record["group"], []).append(record)
+        for together in own_groups.values():
+            number = new_group([placed_at[id(r)] for r in together])
+            for record in together:
+                record["group"] = number if number >= 0 else -1
+                table[placed_at[id(record)]] = RECORD.pack(*(record[f] for f in FIELDS))
 
     imported = any(not isinstance(model, (int, type(None))) for _, model in added)
     sections = {gp.MOBYS: gp.write_records(gameplay, table)}
@@ -903,6 +945,12 @@ def pack(disc, survey: dict, project: Path, out: Path,
                         blobs[cid] = (there, foreign_classes.class_blob(source_level, cid))
                     except ValueError:
                         pass
+        # The level has 224 class slots; what its own classes leave is all the imports get (the
+        # port registers them in this order, so the spawned ones are left out first).
+        room = max(foreign_classes.CLASS_SLOTS - len(own), 0) if blobs else 0
+        left_out = list(blobs)[room:]
+        for cid in left_out:
+            del blobs[cid]
         names: list[str] = []
         moby_spawn_ids: dict[str, int] = {}
         placed: list = []
@@ -910,6 +958,10 @@ def pack(disc, survey: dict, project: Path, out: Path,
                                                donors, placed)
         problems += foreign_problems
         changes += foreign_classes.write(out / name, blobs) if donors else []
+        if left_out:
+            changes.append(f"only {room} more moby classes fit in this level: classes "
+                           f"{', '.join(map(str, left_out))} are not imported, and what makes them makes "
+                           "nothing")
         if not donors:
             foreign_classes.write(out / name, {})
         # Each imported moby's own level's tables, moved to where it stands (foreign_classes.world).

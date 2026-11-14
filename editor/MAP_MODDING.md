@@ -103,9 +103,17 @@ moby needs in its level comes with it:
   of its level waits in that zone, moved to where you placed it.
 - **The mobys its links name** there (Qwark's lift, a plasmabot's hatch), placed
   beside it as they stood there; a class this level lacks comes too.
+- **Its groups**: a group its pvars name (a trooper's alert groups, a spawner's
+  wave) becomes a new group here of the copies of that group's mobys, which
+  come along like links; the group it is in itself becomes one of the copies
+  that were in it with it. Which pvar words are groups comes from
+  `editor/rac1_group_fields.tsv` (`editor/groups.py` writes it from the game's
+  code). Every level has the game's 112 groups; the new ones take its unused
+  ones.
 - **The classes its update can make** that this level lacks (a turret's shots),
   from `editor/rac1_spawns.tsv` (`editor/spawns.py` writes it from the game's
-  code).
+  code). The level has 224 class slots: when they run out the classes it makes
+  are left out first, and the pack says which.
 
 The port registers the class when the level loads, draws it with its level's
 model, and runs its update in its own level's program: its level's data is

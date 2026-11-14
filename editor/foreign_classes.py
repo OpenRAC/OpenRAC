@@ -41,6 +41,10 @@ class Donor:
     shared: list[tuple[int, bytes]] = field(default_factory=list)   # (offset in the block, its shared data)
     index: int = -1                                      # its place in its level's table
     linked: list[tuple[int, int]] = field(default_factory=list)     # (offset, the moby it names there)
+    grouped: list[tuple[int, str, list[int]]] = field(default_factory=list)  # (offset, format, its group's mobys)
+
+
+CLASS_SLOTS = 224    # the engine's moby class slots (resident_class_id_by_slot)
 
 
 def wanted(text: str) -> tuple[dict[int, int], list[str]]:
@@ -90,6 +94,18 @@ def donor_at(level: int, gameplay: bytes, index: int) -> Donor:
                 if named >= 0:
                     out.linked.append((where, named))
                 struct.pack_into("<i", block, where, -1)
+        # The words that hold a moby group's number (groups.py, from the game's code): the group's
+        # mobys come with it, and pack.py gives the copy a group of its own of their copies.
+        import groups as group_words
+        words = group_words.fields(record["class_id"], level)
+        groups = gp.groups(gameplay) if words else []
+        for where, size in words:
+            form = {1: "<b", 2: "<h", 4: "<i"}[size]
+            if where + struct.calcsize(form) <= len(block):
+                number, = struct.unpack_from(form, block, where)
+                if 0 <= number < len(groups) and groups[number]:
+                    out.grouped.append((where, form, list(groups[number])))
+                struct.pack_into(form, block, where, -1)
         out.pvar = bytes(block)
         # Its shared data (a part of the file's blob that its block points at): each piece runs to
         # the next piece any block points at, or the blob's end.
@@ -106,12 +122,12 @@ LINKED_MAX = 24   # the mobys a moby brings along with it, at most
 
 
 def linked(level: int, gameplay: bytes, first: Donor) -> list[Donor]:
-    """FIRST and the mobys its moby links name in its level, and theirs, ..., FIRST first (at most
-    LINKED_MAX more): what it needs to run as it does there (Qwark's lift, a turret's hatch)."""
+    """FIRST and the mobys its moby links and groups name in its level, and theirs, ..., FIRST first
+    (at most LINKED_MAX more): what it needs to run as it does there (Qwark's lift, a turret's hatch)."""
     out, seen, count = [first], {first.index: first}, len(gp.records(gameplay))
     i = 0
     while i < len(out):
-        for _, named in out[i].linked:
+        for named in [n for _, n in out[i].linked] + [n for _, _, ns in out[i].grouped for n in ns]:
             if named not in seen and 0 <= named < count and len(out) <= LINKED_MAX:
                 seen[named] = donor_at(level, gameplay, named)
                 out.append(seen[named])
@@ -149,12 +165,14 @@ def write(out: Path, blobs: dict[int, tuple[int, bytes]]) -> list[str]:
             (out / "classes.tsv").unlink()
         return []
     folder.mkdir(parents=True, exist_ok=True)
+    # In BLOBS' order: the port registers them so, and when the level's class slots run out the
+    # last ones (spawned shots and parts) are the ones left out, not the placed class.
     lines = ["# class\tlevel (editor/foreign_classes.py)"]
-    for class_id, (level, blob) in sorted(blobs.items()):
+    for class_id, (level, blob) in blobs.items():
         (folder / f"{class_id}.bin").write_bytes(blob)
         lines.append(f"{class_id}\t{level}")
     (out / "classes.tsv").write_text("\n".join(lines) + "\n")
-    return [f"class {c}: imported from level {lvl:02}" for c, (lvl, _) in sorted(blobs.items())]
+    return [f"class {c}: imported from level {lvl:02}" for c, (lvl, _) in blobs.items()]
 
 
 # Its own level's tables (worlds.bin): what the port puts in place of this level's for its update

@@ -63,15 +63,17 @@ def arguments(text: str, start: int) -> list[str]:
     return out
 
 
-def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
-    """The table from GEN and LIBRARIES; returns its rows."""
+class Function:
+    """A function of the generated C: its file, parameter names and body."""
+    def __init__(self, file: Path, params: list[str], body: str):
+        self.file, self.params, self.body = file, params, body
+        self.calls = set(re.findall(r"\b(game_\w+)\s*\(", body))
+
+
+def functions(gen: Path) -> dict[str, Function]:
+    """Every function of GEN's C (not prep/, the decomp's input), by name."""
     head = re.compile(r"^(?:static\s+)?[A-Za-z_][\w\s\*]*?\b(game_\w+)\s*\(([^;{]*)\)\s*$")
-    call = re.compile(r"\b(game_\w+)\s*\(")
-    literal = re.compile(r"^\(int\)\((\d+)\)$")
-    calls: dict[str, set[str]] = {}
-    makes: dict[str, set[int]] = {}
-    params: dict[str, list[str]] = {}
-    bodies: dict[str, str] = {}
+    out: dict[str, Function] = {}
     for file in sorted(gen.rglob("*.c")):
         if "prep" in file.relative_to(gen).parts:
             continue
@@ -87,16 +89,50 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
                     j += 1
                     if depth == 0:
                         break
-                text = "\n".join(body)
                 name = found.group(1)
-                calls[name] = set(call.findall(text)) - {name}
-                makes[name] = set()
-                params[name] = [p.split()[-1].lstrip("*") if p.strip() not in ("", "void") else ""
-                                for p in found.group(2).split(",")]
-                bodies[name] = text
+                params = [p.split()[-1].lstrip("*") if p.strip() not in ("", "void") else ""
+                          for p in found.group(2).split(",")]
+                out[name] = Function(file, params, "\n".join(body))
+                out[name].calls.discard(name)
                 i = j
                 continue
             i += 1
+    return out
+
+
+def hooks(libraries: Path) -> list[tuple[str, int, int]]:
+    """(function, level or -1 for every level's, class) of each "The update of class N" hook."""
+    hook = re.compile(r"^(FUN_(?:L(\d\d)_)?[0-9a-f]{8})\t\S+\t\S+\thook\tThe update of class (?:[a-z_0-9]+ \()?(\d+)")
+    out = []
+    for line in libraries.read_text().splitlines():
+        found = hook.match(line)
+        if found:
+            level = found.group(2)
+            out.append((found.group(1), int(level) if level not in (None, "00") else -1, int(found.group(3))))
+    return out
+
+
+def closure(found: dict[str, Function], function: str) -> set[str]:
+    """FUNCTION's host C (its __game body when wrapped) and every function it calls, and theirs."""
+    start = next((n for n in (f"game_{function}__game", f"game_{function}") if n in found), None)
+    if start is None:
+        return set()
+    seen, todo = {start}, [start]
+    while todo:
+        for callee in found[todo.pop()].calls:
+            if callee in found and callee not in seen:
+                seen.add(callee)
+                todo.append(callee)
+    return seen
+
+
+def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
+    """The table from GEN and LIBRARIES; returns its rows."""
+    literal = re.compile(r"^\(int\)\((\d+)\)$")
+    found = functions(gen)
+    params = {name: f.params for name, f in found.items()}
+    bodies = {name: f.body for name, f in found.items()}
+    makes: dict[str, set[int]] = {name: set() for name in found}
     # The class each call makes: a number written in the call (CreateMoby((int)(29))), or one passed
     # to a function that hands that argument on to CreateMoby (a gunship's part maker, any depth).
     makers: dict[str, int] = {CREATE: 0}
@@ -122,25 +158,11 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
                         more = True
         if not more:
             break
-    hook = re.compile(r"^(FUN_(?:L(\d\d)_)?[0-9a-f]{8})\t\S+\t\S+\thook\tThe update of class (?:[a-z_0-9]+ \()?(\d+)")
     rows: dict[tuple[int, int], set[int]] = {}
-    for line in libraries.read_text().splitlines():
-        found = hook.match(line)
-        if not found:
-            continue
-        function, level, class_id = found.group(1), found.group(2), int(found.group(3))
-        start = next((n for n in (f"game_{function}__game", f"game_{function}") if n in calls), None)
-        if start is None:
-            continue
-        seen, todo = {start}, [start]
-        while todo:
-            for callee in calls.get(todo.pop(), ()):
-                if callee not in seen:
-                    seen.add(callee)
-                    todo.append(callee)
-        made = set().union(*(makes.get(f, set()) for f in seen)) - {class_id}
+    for function, level, class_id in hooks(libraries):
+        made = set().union(*(makes.get(f, set()) for f in closure(found, function))) - {class_id}
         if made:   # level -1: the update every level shares (level 0's code)
-            rows.setdefault((class_id, int(level) if level not in (None, "00") else -1), set()).update(made)
+            rows.setdefault((class_id, level), set()).update(made)
     lines = ["# class\tlevel (-1: every level's)\tthe classes its update can make (editor/spawns.py, from the game's code)"]
     lines += [f"{c}\t{lv}\t{','.join(str(m) for m in sorted(made))}" for (c, lv), made in sorted(rows.items())]
     path.write_text("\n".join(lines) + "\n")

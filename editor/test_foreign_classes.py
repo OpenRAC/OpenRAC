@@ -1,5 +1,6 @@
 """foreign_classes.py: a moby of another level's class, placed with its own logic."""
 
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -48,13 +49,26 @@ class ForeignClasses(unittest.TestCase):
         self.assertIn("BigAl_rac1_ntsc_L03: added, class 909 from level 03", changes)
         added = moby_instances(out)[-1]
         self.assertEqual(added["class_id"], 909)
-        self.assertEqual(added["fields"]["group"], -1)
+        # Its group there (4) becomes a group of its own here, of its copy.
+        self.assertEqual(gp.groups(out)[added["fields"]["group"]], [added["index"]])
         self.assertNotEqual(added["fields"]["pvar_index"], -1)
         self.assertEqual(added["matrix"][12:15], [4.0, 5.0, 6.0])
         self.assertEqual(added["scale"], 1.0)
         blob, records = gp.shared(out)
         self.assertEqual(records, [(added["fields"]["pvar_index"], 4, 0)])
         self.assertEqual(blob[:7], b"shared!")
+
+    def test_a_group_its_pvars_name_becomes_a_group_of_the_copies(self):
+        data = gameplay([{"x": 1.0}])
+        record = dict(zip(FIELDS, RECORD.unpack(gameplay([{"class_id": 909}])[0x110:0x110 + 0x78])))
+        donor = Donor(3, 909, record, bytes(20), index=7, grouped=[(16, "<i", [7, 8])])
+        out, _, problems = pack_level(5, data, scene(data) + "\n" + FOREIGN, None, None, None, {909: [donor]})
+        self.assertEqual(problems, [])
+        added = moby_instances(out)[-1]
+        at, _ = gp.pvar_table(out, added["fields"]["pvar_index"] + 1)[added["fields"]["pvar_index"]]
+        start, _ = gp.extent(out, gp.DATA)
+        number, = struct.unpack_from("<i", out, start + at + 16)
+        self.assertEqual(gp.groups(out)[number], [added["index"]])   # 8 did not come: left out
 
     def test_its_scale_is_the_nodes_over_its_class_scale(self):
         data = gameplay([{"x": 1.0}])
