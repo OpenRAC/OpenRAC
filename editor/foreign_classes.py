@@ -44,6 +44,17 @@ class Donor:
     grouped: list[tuple[int, str, list[int]]] = field(default_factory=list)  # (offset, format, its group's mobys)
 
 
+# Classes that run only inside their level's own set piece: what drives them there does not come
+# along, and without it the game stops (found by placing every class in another level).
+SET_PIECES = {
+    (347, 17): "Drek's fleet turret aims at the fleet's ships, which the fleet battle steers",
+    (1843, 17): "a ship of Drek's fleet follows the path the fleet battle gives it",
+    (1319, 11): "a Blarg ship of Gorda's fleet follows the path its fleet gives it",
+    (1264, 11): "the oil tanker's front runs with the rest of the tanker",
+    (1267, 12): "the Hoven turret runs with its 23 linked parts of the gorge",
+    (1402, 18): "it is a part of the Drek fight",
+}
+
 CLASS_SLOTS = 224    # the engine's moby class slots (resident_class_id_by_slot)
 
 
@@ -148,6 +159,8 @@ def class_blob(level, class_id: int) -> bytes:
 
 def check(here: int, there: int, class_id: int) -> None:
     """ValueError when CLASS_ID cannot come from level THERE into level HERE."""
+    if (class_id, there) in SET_PIECES:
+        raise ValueError(f"class {class_id} runs only in level {there:02}: {SET_PIECES[(class_id, there)]}")
     if not 0 <= there < LEVELS:
         raise ValueError(f"class {class_id}: there is no level {there}")
     if there == here:
