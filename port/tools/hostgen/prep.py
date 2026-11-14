@@ -815,6 +815,28 @@ def apply_decomp_workarounds(rel: str, text: str) -> str:
     This is a temporary workaround so that the native port builds cleanly without
     modifying the decompilation repository. Once fixed upstream, this function should be removed.
     """
+    if rel.endswith("src/pal/game/00280218.c"):
+        # Going Commando PAL's func_00280A30 is func_002804A8 at scale 1: on the disc it leaves the
+        # caller's six arguments in a0..a5 and only sets the scale. Written with no parameters, it
+        # drew the text at address 0 with length 0, a run of quads past the end of its heap (PAL
+        # Endako, Joba and the Insomniac Museum crashed at frame 1281).
+        text = re.sub(
+            r"extern void (func_(?:PAL_)?002804A8)\(float\);",
+            r"extern void \1(int, unsigned long long, int, int, unsigned long long, int, float);",
+            text,
+        )
+        text = re.sub(
+            r"void (func_(?:PAL_)?00280A30)\(void\) \{\s*(func_(?:PAL_)?002804A8)\(1\.0f\);",
+            r"void \1(int a0, unsigned long long a1, int a2, int a3, unsigned long long a4, int a5) {\n"
+            r"    \2(a0, a1, a2, a3, a4, a5, 1.0f);",
+            text,
+        )
+    if re.search(r"src/pal/levels/[^/]+/L\d\d_[0-9A-F]+-hero\.c$", rel):
+        # Going Commando PAL's hero update (each level's copy): for each moby near the hero, the cases
+        # 0x1366 and 0x1367 call their functions with no argument, the moby `m` left in $a0 by the loop
+        # (the disc's code: lw $a0, 0($s1) before both). Without it they work on address 0 and corrupt
+        # the game's memory (the collision crash of PAL Endako and Joba at frame 1281).
+        text = re.sub(r"(case 0x136[67]:\s*\n\s*\w+)\(\);", r"\1(m);", text)
     if rel.endswith("include/asm_functions/executable.h"):
         # A candidate defines func_0020E3D0 with a Moby *: its prototype replaces this header's line
         # (clangast._supersede), so the type must be known here. Same line, so no line moves.
