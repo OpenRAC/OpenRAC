@@ -53,6 +53,20 @@ std::size_t chain_bytes(int width, int height) {
     return bytes;
 }
 
+// The levels of `blocks` a texture uploads: its chain when it has one, else the first.
+std::size_t block_levels(const CompressedImage& blocks, bool mipmaps) {
+    return mipmaps ? blocks.levels.size() : std::min<std::size_t>(blocks.levels.size(), 1);
+}
+
+// Their bytes.
+std::size_t uploaded_block_bytes(const CompressedImage& blocks, bool mipmaps) {
+    std::size_t bytes = 0;
+    for (std::size_t level = 0; level < block_levels(blocks, mipmaps); ++level) {
+        bytes += blocks.levels[level].size();
+    }
+    return bytes;
+}
+
 }  // namespace
 
 std::uint64_t hash_bytes(const std::uint8_t* data, std::size_t size) {
@@ -513,6 +527,7 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     entry.key = key;
     entry.pack_hash = replaced.hash;
     animate(h, std::move(replaced.animation));
+    set_blocks(h, std::move(replaced.blocks));
     m_converted.emplace(key, h);
     return h;
 }
@@ -616,6 +631,50 @@ void TexturePool::set_replacement(
         e.key.clut_hash = palette_hash;
     }
     animate(texture, std::move(replacement.animation));
+    set_blocks(texture, std::move(replacement.blocks));
+}
+
+void TexturePool::set_blocks(TextureHandle texture, std::shared_ptr<const CompressedImage> blocks) {
+    Entry& e = m_entries[texture - 1];
+    if (blocks != nullptr
+        && (blocks->format == BlockFormat::None || blocks->levels.empty()
+            || blocks->width != e.image.width || blocks->height != e.image.height)) {
+        blocks = nullptr;
+    }
+    // A chain cannot be made from blocks on the GPU (glGenerateMipmap takes no compressed
+    // texture): a world texture whose file has one level is RGBA8, with the chain made from it.
+    if (blocks != nullptr && e.mipmaps && blocks->levels.size() == 1
+        && (blocks->width > 1 || blocks->height > 1)) {
+        static bool told = false;
+        if (!told) {
+            told = true;
+            log::info(
+                "texture pack: a KTX2 without mip levels replaces a world texture, so it is kept "
+                "as RGBA8 (four times the GPU memory); make such files with basisu -mipmap"
+            );
+        }
+        blocks = nullptr;
+    }
+    e.blocks = std::move(blocks);
+    // A texture already on the GPU is made again, of what it now holds.
+    if (e.gl != 0 && gl::loaded()) {
+        delete_gl(e);
+    }
+}
+
+BlockFormat TexturePool::gpu_block_format() {
+    // The Metal backend is left to RGBA8 until its BC7 and ASTC uploads of mip levels are tried.
+    if (!gl::loaded() || gl::is_metal()) {
+        return BlockFormat::None;
+    }
+    if (gl::has_extension("GL_ARB_texture_compression_bptc")
+        || gl::has_extension("GL_EXT_texture_compression_bptc")) {
+        return BlockFormat::Bc7;
+    }
+    if (gl::has_extension("GL_KHR_texture_compression_astc_ldr")) {
+        return BlockFormat::Astc4x4;
+    }
+    return BlockFormat::None;
 }
 
 void TexturePool::watch(std::uint64_t slot, TextureHandle texture) {
@@ -749,8 +808,16 @@ PreparedTextures TexturePool::prepare(std::span<const TextureHandle> textures) {
         }
 
         create_gl(e);
-        batch_bytes += bytes;
         ++made.textures;
+        // A pack KTX2's blocks are all its levels, as they lie on the GPU.
+        if (e.gl_blocks) {
+            const std::size_t block_bytes = uploaded_block_bytes(*e.blocks, e.mipmaps);
+            batch_bytes += block_bytes;
+            made.staged_bytes += block_bytes;
+            made.resident_bytes += block_bytes;
+            continue;
+        }
+        batch_bytes += bytes;
         made.staged_bytes += bytes;
         made.resident_bytes += e.mipmaps ? chain_bytes(e.image.width, e.image.height) : bytes;
     }
@@ -760,7 +827,27 @@ PreparedTextures TexturePool::prepare(std::span<const TextureHandle> textures) {
 }
 
 void TexturePool::create_gl(Entry& e) {
-    e.gl = upload_gl(e, e.image);
+    e.gl = 0;
+    e.gl_blocks = false;
+    // A pack KTX2's blocks, when this GPU takes their format (the context may not be the one the
+    // file was transcoded for); else, or when the upload fails, RGBA8 as any other texture.
+    if (e.blocks != nullptr) {
+        if (e.blocks->format == gpu_block_format()) {
+            e.gl = upload_blocks(e);
+        }
+        e.gl_blocks = e.gl != 0;
+        if (!e.gl_blocks) {
+            static bool told = false;
+            if (!told) {
+                told = true;
+                log::warn("texture pack: the GPU did not take a KTX2's blocks; RGBA8 is used");
+            }
+            e.blocks = nullptr;
+        }
+    }
+    if (e.gl == 0) {
+        e.gl = upload_gl(e, e.image);
+    }
     e.wrap = 0;  // a new texture repeats (set_wrap)
 }
 
@@ -781,9 +868,53 @@ unsigned TexturePool::upload_gl(const Entry& e, const Rgba8Image& image) {
         image.pixels.data()
     );
 
-    // 3D geometry's: a mip chain, sampled trilinear and repeated (add()).
+    // 3D geometry's: a mip chain made from the first level (add()).
     if (e.mipmaps) {
         glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    set_filters(e, 0);
+    return gl;
+}
+
+unsigned TexturePool::upload_blocks(const Entry& e) {
+    const CompressedImage& blocks = *e.blocks;
+    const GLenum internal = blocks.format == BlockFormat::Bc7 ? GL_COMPRESSED_RGBA_BPTC_UNORM
+                                                              : GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
+    const std::size_t levels = block_levels(blocks, e.mipmaps);
+    // Errors left by other code are not this upload's.
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    unsigned gl = 0;
+    glGenTextures(1, &gl);
+    glBindTexture(GL_TEXTURE_2D, gl);
+    for (std::size_t level = 0; level < levels; ++level) {
+        const int shift = static_cast<int>(level);
+        glCompressedTexImage2D(
+            GL_TEXTURE_2D,
+            static_cast<GLint>(level),
+            internal,
+            std::max(blocks.width >> shift, 1),
+            std::max(blocks.height >> shift, 1),
+            0,
+            static_cast<GLsizei>(blocks.levels[level].size()),
+            blocks.levels[level].data()
+        );
+    }
+    if (glGetError() != GL_NO_ERROR) {
+        glDeleteTextures(1, &gl);
+        return 0;
+    }
+    set_filters(e, static_cast<int>(levels));
+    return gl;
+}
+
+void TexturePool::set_filters(const Entry& e, int levels) {
+    // 3D geometry's: a mip chain, sampled trilinear and repeated (add()).
+    if (e.mipmaps) {
+        // A KTX2's chain ends where its file's does (the GPU made none of it).
+        if (levels > 0) {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels - 1);
+        }
         glTexParameteri(
             GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(GL_LINEAR_MIPMAP_LINEAR)
         );
@@ -802,7 +933,6 @@ unsigned TexturePool::upload_gl(const Entry& e, const Rgba8Image& image) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
     }
-    return gl;
 }
 
 void TexturePool::delete_gl(Entry& e) {

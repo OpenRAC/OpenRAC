@@ -59,14 +59,23 @@ inline constexpr std::size_t kMaxAnimationBytes = std::size_t{256} << 20;
 // The frame `animation` shows `ticks` game ticks after it started.
 std::size_t frame_at(const Animation& animation, std::uint64_t ticks);
 
+// A still picture of the pack: its texels and, for a KTX2 transcoded to the GPU's block format,
+// the same picture in blocks with its mip levels (the GPU keeps those, the CPU reads `image`).
+struct Picture {
+    Rgba8Image image;
+    std::shared_ptr<const CompressedImage> blocks;
+};
+
 // Reading and writing pictures, from the program (the renderer itself links no image library).
 struct Io {
     std::optional<Rgba8Image> (*load)(const std::filesystem::path& file) = nullptr;
     bool (*save)(const std::filesystem::path& file, const Rgba8Image& image) = nullptr;
     // A GIF's frames and their delays (mode Loop); null: GIFs are not read.
     std::optional<Animation> (*load_gif)(const std::filesystem::path& file) = nullptr;
-    // A KTX2 picture (renderer/textures/pack_pictures.h); null: KTX2 files are not read.
-    std::optional<Rgba8Image> (*load_ktx2)(const std::filesystem::path& file) = nullptr;
+    // A KTX2 picture, in blocks of `blocks` too when it can be (renderer/textures/pack_pictures.h);
+    // null: KTX2 files are not read.
+    std::optional<Picture> (*load_ktx2)(const std::filesystem::path& file, BlockFormat blocks) =
+        nullptr;
     // An SVG drawn for a texture of width x height (pack_pictures.h); null: SVGs are not read.
     std::optional<Rgba8Image> (*load_svg)(
         const std::filesystem::path& file, int width, int height
@@ -114,7 +123,13 @@ std::string file_name(std::uint64_t hash);
 struct Replacement {
     std::uint64_t hash = 0;                      // the original's hash; 0 with no pack and no dump
     std::shared_ptr<const Animation> animation;  // its frames, when the replacement is animated
+    std::shared_ptr<const CompressedImage> blocks;  // the picture in blocks, from a KTX2
 };
+
+// The block format a KTX2 is transcoded to (the texture pool picks the one the GPU reads when it
+// starts); None, the default: RGBA8 only. Any thread.
+void set_block_format(BlockFormat format);
+BlockFormat block_format();
 
 // `image` replaced by the pack's picture of it, when the pack has one (true); dumped first when
 // dumping, into the folder of `origin`. A level's texture already dumped under another planet

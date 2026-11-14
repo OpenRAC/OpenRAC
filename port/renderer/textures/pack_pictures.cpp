@@ -72,9 +72,47 @@ constexpr std::uint64_t kVkFormatRgba8Srgb = 43;
 constexpr std::uint64_t kSupercompressionNone = 0;
 constexpr std::uint64_t kSupercompressionZstd = 2;
 
-// A Basis Universal KTX2 (UASTC or ETC1S) turned into RGBA8 by its transcoder.
-std::optional<Rgba8Image> transcode_basis(
-    std::span<const std::uint8_t> bytes, std::uint32_t width, std::uint32_t height, std::string& why
+// The levels of a Basis Universal KTX2 (UASTC or ETC1S) in block format `format`, every level the
+// file has; null when any level cannot be transcoded.
+std::shared_ptr<const CompressedImage> transcode_blocks(
+    basist::ktx2_transcoder& transcoder, BlockFormat format
+) {
+    const auto target = format == BlockFormat::Bc7
+                            ? basist::transcoder_texture_format::cTFBC7_RGBA
+                            : basist::transcoder_texture_format::cTFASTC_LDR_4x4_RGBA;
+    auto blocks = std::make_shared<CompressedImage>();
+    blocks->format = format;
+    blocks->width = static_cast<int>(transcoder.get_width());
+    blocks->height = static_cast<int>(transcoder.get_height());
+    for (std::uint32_t level = 0; level < transcoder.get_levels(); ++level) {
+        basist::ktx2_image_level_info info{};
+        // Each level is half the one before, as KTX2 lays a chain out; one that is not ends it.
+        const int width = std::max(blocks->width >> level, 1);
+        const int height = std::max(blocks->height >> level, 1);
+        if (!transcoder.get_image_level_info(info, level, 0, 0)
+            || info.m_orig_width != static_cast<std::uint32_t>(width)
+            || info.m_orig_height != static_cast<std::uint32_t>(height)) {
+            return nullptr;
+        }
+        std::vector<std::uint8_t> bytes(block_bytes(width, height));
+        const auto count = static_cast<std::uint32_t>(bytes.size() / 16);
+        if (!transcoder.transcode_image_level(level, 0, 0, bytes.data(), count, target)) {
+            return nullptr;
+        }
+        blocks->levels.push_back(std::move(bytes));
+    }
+    return blocks->levels.empty() ? nullptr : blocks;
+}
+
+// A Basis Universal KTX2 (UASTC or ETC1S) turned into RGBA8 by its transcoder, and into `blocks`
+// as well when a block format is asked and the picture can be one (UASTC or ETC1S, its sides
+// multiples of 4).
+std::optional<Picture> transcode_basis(
+    std::span<const std::uint8_t> bytes,
+    std::uint32_t width,
+    std::uint32_t height,
+    BlockFormat blocks,
+    std::string& why
 ) {
     static std::once_flag tables;
     std::call_once(tables, [] { basist::basisu_transcoder_init(); });
@@ -92,24 +130,33 @@ std::optional<Rgba8Image> transcode_basis(
         why = "its Basis Universal data cannot be read";
         return std::nullopt;
     }
-    Rgba8Image image(static_cast<int>(width), static_cast<int>(height));
+    Picture picture;
+    picture.image = Rgba8Image(static_cast<int>(width), static_cast<int>(height));
     if (!transcoder.transcode_image_level(
             0,
             0,
             0,
-            image.pixels.data(),
+            picture.image.pixels.data(),
             width * height,
             basist::transcoder_texture_format::cTFRGBA32
         )) {
         why = "its Basis Universal data cannot be transcoded";
         return std::nullopt;
     }
-    return image;
+    // Whole blocks only: the GPU formats are 4x4, and a game texture is a power of two.
+    constexpr std::uint32_t kBlockSide = 4;
+    if (blocks != BlockFormat::None && (transcoder.is_uastc() || transcoder.is_etc1s())
+        && width % kBlockSide == 0 && height % kBlockSide == 0) {
+        picture.blocks = transcode_blocks(transcoder, blocks);
+    }
+    return picture;
 }
 
 }  // namespace
 
-std::optional<Rgba8Image> decode_ktx2(std::span<const std::uint8_t> bytes, std::string& why) {
+std::optional<Picture> decode_ktx2(
+    std::span<const std::uint8_t> bytes, BlockFormat blocks, std::string& why
+) {
     if (bytes.size() < kKtx2HeaderBytes + kKtx2LevelBytes
         || !std::equal(kKtx2Identifier.begin(), kKtx2Identifier.end(), bytes.begin())) {
         why = "it is not a KTX2 file";
@@ -140,7 +187,7 @@ std::optional<Rgba8Image> decode_ktx2(std::span<const std::uint8_t> bytes, std::
     const auto w = static_cast<std::uint32_t>(width);
     const auto h = static_cast<std::uint32_t>(height);
     if (format == kVkFormatUndefined) {
-        return transcode_basis(bytes, w, h, why);
+        return transcode_basis(bytes, w, h, blocks, why);
     }
     // Formats only some GPUs read (BC1-BC7 on desktops, ASTC and ETC2 on phones) would make a
     // pack that works on one device and not another.
@@ -181,7 +228,8 @@ std::optional<Rgba8Image> decode_ktx2(std::span<const std::uint8_t> bytes, std::
         }
         std::memcpy(image.pixels.data(), data.data(), static_cast<std::size_t>(texel_bytes));
     }
-    return image;
+    // Plain texels are uploaded as they are: no blocks.
+    return Picture{std::move(image), nullptr};
 }
 
 std::pair<int, int> svg_size(int width, int height) {
@@ -276,16 +324,16 @@ std::optional<Rgba8Image> rasterize_svg(std::string text, int width, int height,
     return image;
 }
 
-std::optional<Rgba8Image> load_ktx2(const fs::path& file) {
+std::optional<Picture> load_ktx2(const fs::path& file, BlockFormat blocks) {
     std::string why;
-    std::optional<Rgba8Image> image;
+    std::optional<Picture> picture;
     if (const auto bytes = read_file(file, kMaxKtx2Bytes, why)) {
-        image = decode_ktx2(*bytes, why);
+        picture = decode_ktx2(*bytes, blocks, why);
     }
-    if (!image) {
+    if (!picture) {
         log::warn("texture pack: {}: {}", file.string(), why);
     }
-    return image;
+    return picture;
 }
 
 std::optional<Rgba8Image> load_svg(const fs::path& file, int width, int height) {

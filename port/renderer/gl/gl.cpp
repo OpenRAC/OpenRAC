@@ -28,6 +28,7 @@ namespace {
 bool g_loaded = false;
 Api g_api = Api::Desktop;
 bool g_vulkan = false;
+bool g_metal = false;
 bool g_parallel_compile = false;
 std::set<std::string, std::less<>> g_extensions;
 
@@ -81,6 +82,8 @@ bool load(GetProcAddress get, std::string& missing) {
     g_vulkan =
         version != nullptr
         && std::strstr(reinterpret_cast<const char*>(version), "OpenRAC on Vulkan") != nullptr;
+    g_metal = version != nullptr
+              && std::strstr(reinterpret_cast<const char*>(version), "OpenRAC on Metal") != nullptr;
     g_api = version != nullptr
                     && std::strncmp(reinterpret_cast<const char*>(version), "OpenGL ES", 9) == 0
                 ? Api::ES
@@ -188,6 +191,10 @@ Api api() {
 
 bool is_vulkan() {
     return g_vulkan;
+}
+
+bool is_metal() {
+    return g_metal;
 }
 
 bool parallel_shader_compile() {

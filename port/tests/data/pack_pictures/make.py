@@ -46,6 +46,7 @@ def main() -> None:
         "quadrants-uastc.ktx2": ["-uastc", "-ktx2_no_zstandard"],
         "quadrants-uastc-zstd.ktx2": ["-uastc", "-ktx2_zstandard_level", "9"],
         "quadrants-etc1s.ktx2": [],
+        "quadrants-uastc-mips.ktx2": ["-uastc", "-mipmap", "-mip_filter", "box"],
     }
     for name, options in runs.items():
         subprocess.run(

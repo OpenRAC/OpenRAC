@@ -88,32 +88,64 @@ std::vector<std::uint8_t> ktx2(
 void check_ktx2() {
     std::string why;
     // Basis Universal, both kinds: UASTC is close to the source, ETC1S rougher.
-    const auto uastc = pack_pictures::decode_ktx2(read(kData / "quadrants-uastc.ktx2"), why);
-    CHECK(uastc && quadrants(*uastc, 8));
-    const auto zstd = pack_pictures::decode_ktx2(read(kData / "quadrants-uastc-zstd.ktx2"), why);
-    CHECK(zstd && quadrants(*zstd, 8));
-    const auto etc1s = pack_pictures::decode_ktx2(read(kData / "quadrants-etc1s.ktx2"), why);
-    CHECK(etc1s && quadrants(*etc1s, 40));
+    const auto uastc =
+        pack_pictures::decode_ktx2(read(kData / "quadrants-uastc.ktx2"), BlockFormat::None, why);
+    CHECK(uastc && quadrants(uastc->image, 8));
+    const auto zstd = pack_pictures::decode_ktx2(
+        read(kData / "quadrants-uastc-zstd.ktx2"), BlockFormat::None, why
+    );
+    CHECK(zstd && quadrants(zstd->image, 8));
+    const auto etc1s =
+        pack_pictures::decode_ktx2(read(kData / "quadrants-etc1s.ktx2"), BlockFormat::None, why);
+    CHECK(etc1s && quadrants(etc1s->image, 40));
     // Plain RGBA8, Zstandard-compressed by a tool and stored as it is.
-    const auto packed = pack_pictures::decode_ktx2(read(kData / "quadrants-rgba8-zstd.ktx2"), why);
-    CHECK(packed && quadrants(*packed, 0));
+    const auto packed = pack_pictures::decode_ktx2(
+        read(kData / "quadrants-rgba8-zstd.ktx2"), BlockFormat::None, why
+    );
+    CHECK(packed && quadrants(packed->image, 0));
     const std::vector<std::uint8_t> texels{1, 2, 3, 4, 5, 6, 7, 8};
-    const auto plain = pack_pictures::decode_ktx2(ktx2(37, 2, 1, texels), why);
-    CHECK(plain && plain->width == 2 && plain->pixels == texels);
+    const auto plain = pack_pictures::decode_ktx2(ktx2(37, 2, 1, texels), BlockFormat::None, why);
+    CHECK(plain && plain->image.width == 2 && plain->image.pixels == texels);
+    // No blocks unless asked for.
+    CHECK(uastc && !uastc->blocks && etc1s && !etc1s->blocks);
+
+    // Blocks for the GPU: each level of the file, 16 bytes a 4x4 block, beside the RGBA8 picture.
+    for (const BlockFormat format : {BlockFormat::Bc7, BlockFormat::Astc4x4}) {
+        for (const char* name : {"quadrants-uastc.ktx2", "quadrants-etc1s.ktx2"}) {
+            const auto picture = pack_pictures::decode_ktx2(read(kData / name), format, why);
+            CHECK(
+                picture && quadrants(picture->image, 40) && picture->blocks
+                && picture->blocks->format == format && picture->blocks->width == 8
+                && picture->blocks->levels.size() == 1 && picture->blocks->bytes() == 64
+            );
+        }
+        // A chain made by basisu -mipmap: 8x8, 4x4, 2x2 and 1x1, a block each below 8x8.
+        const auto mips =
+            pack_pictures::decode_ktx2(read(kData / "quadrants-uastc-mips.ktx2"), format, why);
+        CHECK(
+            mips && quadrants(mips->image, 8) && mips->blocks && mips->blocks->levels.size() == 4
+            && mips->blocks->bytes() == 64 + 3 * 16
+        );
+        // Plain texels are never blocks, nor a picture whose sides are not whole blocks.
+        const auto texels_only = pack_pictures::decode_ktx2(ktx2(37, 2, 1, texels), format, why);
+        CHECK(texels_only && !texels_only->blocks);
+    }
 
     // Refused: formats only some GPUs read, a cube map, a short file, a size past the caps, a file
     // that is not KTX2.
     why.clear();
-    CHECK(!pack_pictures::decode_ktx2(ktx2(145, 4, 4, std::vector<std::uint8_t>(16)), why));
+    CHECK(!pack_pictures::decode_ktx2(
+        ktx2(145, 4, 4, std::vector<std::uint8_t>(16)), BlockFormat::None, why
+    ));
     CHECK(why.find("some GPUs only") != std::string::npos);
-    CHECK(!pack_pictures::decode_ktx2(ktx2(37, 2, 1, texels, 6), why));
-    CHECK(!pack_pictures::decode_ktx2(ktx2(37, 4, 4, texels), why));
-    CHECK(!pack_pictures::decode_ktx2(ktx2(37, 9000, 1, texels), why));
-    CHECK(!pack_pictures::decode_ktx2(ktx2(37, 4096, 4097, texels), why));
-    CHECK(!pack_pictures::decode_ktx2(read(kData / "quadrants.png"), why));
+    CHECK(!pack_pictures::decode_ktx2(ktx2(37, 2, 1, texels, 6), BlockFormat::None, why));
+    CHECK(!pack_pictures::decode_ktx2(ktx2(37, 4, 4, texels), BlockFormat::None, why));
+    CHECK(!pack_pictures::decode_ktx2(ktx2(37, 9000, 1, texels), BlockFormat::None, why));
+    CHECK(!pack_pictures::decode_ktx2(ktx2(37, 4096, 4097, texels), BlockFormat::None, why));
+    CHECK(!pack_pictures::decode_ktx2(read(kData / "quadrants.png"), BlockFormat::None, why));
     auto damaged = read(kData / "quadrants-uastc-zstd.ktx2");
     damaged.resize(damaged.size() - 8);
-    CHECK(!pack_pictures::decode_ktx2(damaged, why));
+    CHECK(!pack_pictures::decode_ktx2(damaged, BlockFormat::None, why));
 }
 
 void check_svg() {
@@ -149,7 +181,7 @@ void check_svg() {
     CHECK(loaded && loaded->width == 32 && loaded->height == 16);
     std::ofstream(folder / "big.svg") << half << std::string(pack_pictures::kMaxSvgBytes, ' ');
     CHECK(!pack_pictures::load_svg(folder / "big.svg", 8, 4));
-    CHECK(!pack_pictures::load_ktx2(folder / "missing.ktx2"));
+    CHECK(!pack_pictures::load_ktx2(folder / "missing.ktx2", BlockFormat::None));
     fs::remove_all(folder);
 }
 

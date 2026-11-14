@@ -98,6 +98,21 @@ public:
     // none. Each frame's GL texture is made at its first use and freed with the texture.
     void animate(TextureHandle texture, std::shared_ptr<const texture_pack::Animation> animation);
 
+    // Gives `texture` a texture pack KTX2's picture in GPU blocks (texture_pack.h): its GL texture
+    // holds those, and its mip levels, instead of RGBA8 (a quarter of the memory); its image stays
+    // for what the CPU reads. Null, blocks of another size than the image, or a texture with a
+    // mip chain whose blocks have one level only (the GPU cannot make the chain from blocks):
+    // RGBA8 as before.
+    void set_blocks(TextureHandle texture, std::shared_ptr<const CompressedImage> blocks);
+
+    // Whether `texture`'s GL texture holds blocks (set_blocks): its levels are its own, so the
+    // game's mip levels are not put over them.
+    bool has_blocks(TextureHandle texture) const { return m_entries[texture - 1].gl_blocks; }
+
+    // The block format a pack's KTX2 is transcoded to on this GPU: BC7, else ASTC 4x4, else None
+    // (RGBA8). OPENRAC_GL_HIDE_EXTENSIONS hides one to try the next. The context must be current.
+    static BlockFormat gpu_block_format();
+
     // What texture_pack::replace() found for `texture`, a texture added by its owner (an effect's,
     // a particle's): its pack hash, for watch(), and its frames when animated (animate()); with
     // hashes of the texels and the palette it was made from, so that the dump can tell a palette
@@ -286,6 +301,9 @@ private:
         // An animated replacement's frames (animate()): GL textures of frames past the first
         // (frame_gl[i - 1] is frame i; 0 until drawn) and the tick its clock started at.
         std::shared_ptr<const texture_pack::Animation> animation;
+        // A pack KTX2's blocks (set_blocks), and whether the GL texture was made from them.
+        std::shared_ptr<const CompressedImage> blocks;
+        bool gl_blocks = false;
         std::vector<unsigned> frame_gl;
         std::uint64_t animation_start = 0;
         bool animation_started = false;
@@ -297,6 +315,11 @@ private:
     void create_gl(Entry& e);
     // A GL texture of `image` as entry `e`'s would be made (its mip chain and filters).
     unsigned upload_gl(const Entry& e, const Rgba8Image& image);
+    // Entry `e`'s GL texture made from its blocks, or 0 when the GPU cannot take them (then it is
+    // made of RGBA8). Sets the filters upload_gl would.
+    unsigned upload_blocks(const Entry& e);
+    // The GL texture's sampler parameters, as upload_gl sets them, for a texture of `levels`.
+    void set_filters(const Entry& e, int levels);
     // The GL textures entry `e` holds (its own and its frames'), deleted.
     void delete_gl(Entry& e);
     // For the dump (texture_pack::CycleWatch): `texture` drawn from the upload at `tex0`.

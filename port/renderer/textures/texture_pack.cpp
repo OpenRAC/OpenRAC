@@ -3,6 +3,7 @@
 #include "renderer/textures/texture_pack.h"
 
 #include <algorithm>
+#include <atomic>
 #include <charconv>
 #include <format>
 #include <fstream>
@@ -107,16 +108,24 @@ std::unordered_map<std::uint64_t, std::vector<fs::path>> pictures_under(const fs
     return pictures;
 }
 
+std::atomic<BlockFormat> g_block_format{BlockFormat::None};
+
 // A still picture of the pack for a texture of width x height, read by its kind.
-std::optional<Rgba8Image> load_still(const Io& io, const fs::path& file, int width, int height) {
+std::optional<Picture> load_still(const Io& io, const fs::path& file, int width, int height) {
     const fs::path extension = file.extension();
+    const auto plain = [](std::optional<Rgba8Image> image) -> std::optional<Picture> {
+        if (!image) {
+            return std::nullopt;
+        }
+        return Picture{std::move(*image), nullptr};
+    };
     if (extension == ".svg") {
-        return io.load_svg != nullptr ? io.load_svg(file, width, height) : std::nullopt;
+        return io.load_svg != nullptr ? plain(io.load_svg(file, width, height)) : std::nullopt;
     }
     if (extension == ".ktx2") {
-        return io.load_ktx2 != nullptr ? io.load_ktx2(file) : std::nullopt;
+        return io.load_ktx2 != nullptr ? io.load_ktx2(file, g_block_format.load()) : std::nullopt;
     }
-    return io.load != nullptr ? io.load(file) : std::nullopt;
+    return io.load != nullptr ? plain(io.load(file)) : std::nullopt;
 }
 
 // A frame's number from its file name (0001.png is 1), or nothing when it is not a frame.
@@ -488,7 +497,7 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
     const std::uint64_t hash = image_hash(image);
     // The caller keeps the hash, to recognise the texture again (CycleWatch).
     if (found_out != nullptr) {
-        *found_out = Replacement{hash, nullptr};
+        *found_out = Replacement{hash, nullptr, nullptr};
     }
     if (!s.dump.empty() && s.io.save != nullptr) {
         dump(s, hash, image, origin);
@@ -514,9 +523,12 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
     std::vector<fs::path>& candidates = found->second;
     while (!candidates.empty()) {
         auto picture = load_still(s.io, candidates.front(), image.width, image.height);
-        if (picture && !picture->pixels.empty()) {
-            image = std::move(*picture);
+        if (picture && !picture->image.pixels.empty()) {
+            image = std::move(picture->image);
             ++s.replaced;
+            if (found_out != nullptr) {
+                found_out->blocks = std::move(picture->blocks);
+            }
             return true;
         }
         // A file that cannot be read is not tried again; the next picture of the texture is.
@@ -529,6 +541,14 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
     }
     s.files.erase(found);
     return false;
+}
+
+void set_block_format(BlockFormat format) {
+    g_block_format.store(format);
+}
+
+BlockFormat block_format() {
+    return g_block_format.load();
 }
 
 bool dumping() {

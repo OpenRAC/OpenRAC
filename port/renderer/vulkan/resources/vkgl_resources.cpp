@@ -114,6 +114,11 @@ Format format_of(GLenum internal) {
             return g->features.textureCompressionBC
                        ? Format{VK_FORMAT_BC6H_UFLOAT_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}
                        : Format{};
+        // A texture pack's KTX2, transcoded to BC7 (texture_pool.cpp).
+        case gl::GL_COMPRESSED_RGBA_BPTC_UNORM:
+            return g->features.textureCompressionBC
+                       ? Format{VK_FORMAT_BC7_UNORM_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}
+                       : Format{};
         case gl::GL_COMPRESSED_RGBA_ASTC_4x4_KHR:
             return g->features.textureCompressionASTC_LDR
                        ? Format{VK_FORMAT_ASTC_4x4_UNORM_BLOCK, VK_IMAGE_ASPECT_COLOR_BIT, 16}

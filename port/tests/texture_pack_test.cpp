@@ -273,11 +273,22 @@ void check_cycles(const fs::path& root) {
 
 }  // namespace
 
-// Fake KTX2 and SVG readers: a KTX2 is red 100, an SVG red 50 at the size asked; a file whose name
-// holds "bad" cannot be read.
-std::optional<Rgba8Image> load_ktx2(const fs::path& file) {
-    return file.string().find("bad") != std::string::npos ? std::nullopt
-                                                          : std::optional(solid(4, 4, 100));
+// Fake KTX2 and SVG readers: a KTX2 is red 100, with one level of blocks in the format asked, an
+// SVG red 50 at the size asked; a file whose name holds "bad" cannot be read.
+std::optional<texture_pack::Picture> load_ktx2(const fs::path& file, BlockFormat blocks) {
+    if (file.string().find("bad") != std::string::npos) {
+        return std::nullopt;
+    }
+    texture_pack::Picture picture{solid(4, 4, 100), nullptr};
+    if (blocks != BlockFormat::None) {
+        auto compressed = std::make_shared<CompressedImage>();
+        compressed->format = blocks;
+        compressed->width = 4;
+        compressed->height = 4;
+        compressed->levels.emplace_back(block_bytes(4, 4));
+        picture.blocks = std::move(compressed);
+    }
+    return picture;
 }
 
 std::optional<Rgba8Image> load_svg(const fs::path& file, int width, int height) {
@@ -312,6 +323,17 @@ void check_still_kinds(const fs::path& root) {
     fs::remove(root / "good" / (hash + ".svg"));
     texture_pack::configure(root, {}, io);
     CHECK(replaced(100, 4));  // the KTX2
+    // Its blocks, in the format the GPU was found to read, come with it; none by default.
+    texture_pack::Replacement found;
+    auto image = texture;
+    CHECK(texture_pack::replace(image, {}, &found) && found.blocks == nullptr);
+    texture_pack::set_block_format(BlockFormat::Bc7);
+    image = texture;
+    CHECK(
+        texture_pack::replace(image, {}, &found) && found.blocks != nullptr
+        && found.blocks->format == BlockFormat::Bc7 && found.blocks->bytes() == 16
+    );
+    texture_pack::set_block_format(BlockFormat::None);
 
     // An SVG and a KTX2 that cannot be read, in another folder: the PNG is used, every time.
     fs::remove(root / "good" / (hash + ".ktx2"));
@@ -326,7 +348,7 @@ void check_still_kinds(const fs::path& root) {
     CHECK(replaced(200, 8));
     fs::remove(root / "good" / (hash + ".png"));
     texture_pack::configure(root, {}, {load, save});
-    auto image = texture;
+    image = texture;
     CHECK(!texture_pack::replace(image) && image.width == 2);
 
     // Upper-case or other extensions are not pictures of a pack.

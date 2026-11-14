@@ -85,19 +85,29 @@ A pack holds only formats that work the same on every computer, phone and GPU.
 | Format | Use it for | Notes |
 |---|---|---|
 | `.png` | anything | Works in every version of the port. |
-| `.ktx2` | large packs (upscaled worlds) | Basis Universal, UASTC or ETC1S, with or without Zstandard. Plain RGBA8 works too. |
+| `.ktx2` | large packs (upscaled worlds) | Basis Universal, UASTC or ETC1S, with or without Zstandard: a quarter of the graphics memory. Plain RGBA8 works too. |
 | `.svg` | sharp, simple art: HUD icons, text, logos, menu parts | Drawn when the texture loads. |
 
-**KTX2.** The game turns the picture into RGBA8 when it loads, on every
-platform. So a KTX2 pack is smaller on disk and to download, but it uses as
-much graphics memory as PNGs. Only the first mip level is read; the game makes
-the smaller ones itself. Formats that only some GPUs read are refused: BC1 to
-BC7 (desktops), ASTC and ETC2 (phones). Use UASTC for the best picture and
-ETC1S for the smallest file. A KTX2 may be up to 8192 texels a side and 4096 x
-4096 in all. Make one with Basis Universal's `basisu` tool, for example:
+**KTX2.** A Basis Universal KTX2 (UASTC or ETC1S) is turned, when it loads,
+into the compressed format the GPU reads: BC7 on most desktop GPUs, else ASTC
+4x4 (phones, Apple). That takes a quarter of the graphics memory of a PNG.
+Where the GPU reads neither (and for now on the Metal renderer), or the picture's
+sides are not multiples of 4, it is turned into RGBA8 instead, as a PNG is; the
+log's `graphics: texture pack KTX2 pictures kept as` line says which. Plain
+RGBA8 KTX2 files are always RGBA8.
+
+World and model textures are drawn with mip levels, and a GPU cannot make
+those from compressed data. So make their files with mip levels (`-mipmap`
+below): one without them is kept as RGBA8, and the log says so once. HUD and
+menu textures need no mip levels.
+
+Formats that only some GPUs read are refused: BC1 to BC7 (desktops), ASTC and
+ETC2 (phones). Use UASTC for the best picture and ETC1S for the smallest file.
+A KTX2 may be up to 8192 texels a side and 4096 x 4096 in all. Make one with
+Basis Universal's `basisu` tool, for example:
 
 ```
-basisu -ktx2 -uastc 0123456789abcdef.png
+basisu -ktx2 -uastc -mipmap 0123456789abcdef.png
 ```
 
 **SVG.** The game draws it at four times the texture's size (the longest side

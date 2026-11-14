@@ -17,6 +17,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -190,5 +191,42 @@ int raster_bits(std::uint8_t psm);
 
 // Bytes of a width x height rectangle in a format (rounded up for 4-bit).
 std::size_t image_bytes(std::uint8_t psm, int width, int height);
+
+// ---- Block-compressed pictures (a texture pack's KTX2, docs/port/TEXTURE_PACKS.md) ----
+
+// The GPU block formats a pack's Basis Universal KTX2 is transcoded to: 16 bytes a 4x4 block,
+// UNORM (the bytes as they are), alpha included. None: the texture is uploaded as RGBA8.
+enum class BlockFormat : std::uint8_t {
+    None,
+    Bc7,      // GL_COMPRESSED_RGBA_BPTC_UNORM: desktop GPUs, some phones
+    Astc4x4,  // GL_COMPRESSED_RGBA_ASTC_4x4_KHR: phones, Apple
+};
+
+// The bytes of one level of `width` x `height` texels in a 4x4 block format.
+inline std::size_t block_bytes(int width, int height) {
+    constexpr std::size_t kBlockBytes = 16;
+    const auto blocks = [](int side) {
+        return (static_cast<std::size_t>(std::max(side, 1)) + 3) / 4;
+    };
+    return blocks(width) * blocks(height) * kBlockBytes;
+}
+
+// A picture in a block format: its mip levels, the first at width x height, each next one half
+// the one before (at least a texel), as many as the file had.
+struct CompressedImage {
+    BlockFormat format = BlockFormat::None;
+    int width = 0;
+    int height = 0;
+    std::vector<std::vector<std::uint8_t>> levels;
+
+    // The bytes of all its levels.
+    std::size_t bytes() const {
+        std::size_t total = 0;
+        for (const auto& level : levels) {
+            total += level.size();
+        }
+        return total;
+    }
+};
 
 }  // namespace openrac::renderer
