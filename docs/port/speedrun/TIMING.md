@@ -184,7 +184,7 @@ the same data can be produced from the debug overlay's "dump frames" checkbox,
 which writes `openrac_frames.jsonl` in the working directory.
 
 A second, coarser stream exists for the regression harness:
-`OPENRAC_TRACE=FILE` writes one JSON line a tick with the frame, the frames
+`OPENRAC_TRACE=FILE` writes one JSON line a window frame with the frame, the frames
 since the player got control, the level, the game mode, the camera, the hero
 and the live moby count (`port/game/common/frontend.cpp:2280-2308`).
 
