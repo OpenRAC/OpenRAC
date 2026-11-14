@@ -13,7 +13,9 @@
   "save_folder": "BISCPS-15037RATCHET",
   "omit": {
     "func_00201AF0": "draw_bootImage: NTSC-J's catalogue (config/versions/jp/functions.tsv) has no counterpart of it, so the shared C's wrapper of it is left out.",
-    "func_001F75D0": "FontPrintWindow in the small font: NTSC-J has no counterpart of it (its catalogue's func_J_001F8688 is a second copy of the large font's), so the shared C's replacement is left out."
+    "func_001F75D0": "FontPrintWindow in the small font: NTSC-J has no counterpart of it (its catalogue's func_J_001F8688 is a second copy of the large font's), so the shared C's replacement is left out.",
+    "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here).",
+    "func_L02_0023D6E0": "Aridia's counters with \"HUD: Edges\" (hud.c): NTSC-J's anchors are not paired yet, so that part is left out."
   },
   "defines_extra": {
     "RAC1_FONT_PRINT_WINDOW": [

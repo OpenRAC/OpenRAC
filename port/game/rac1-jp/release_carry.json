@@ -458,6 +458,7 @@
   "16:001FD638": "split_places func_001F9878: no place in the release",
   "17:001FBF38": "split_places func_001F9878: no place in the release",
   "18:00207BB8": "split_places func_001F9878: no place in the release",
+  "func_001E9E70": "libraries.tsv func_001E9E70: the shared host C leaves it out here",
   "func_001F75D0": "libraries.tsv func_001F75D0: not in the release (its callers reach FUN_001F86F8)",
   "func_00201AF0": "shared host C: not in the release",
   "func_00201AF0__game": "shared host C: not in the release"
@@ -465,6 +466,6 @@
  "counts": {
   "functions": 50,
   "addresses": 37,
-  "dropped": 21
+  "dropped": 22
  }
 }

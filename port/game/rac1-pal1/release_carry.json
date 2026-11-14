@@ -196,6 +196,11 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
+  "func_L00_0029BA20": {
+   "as": "func_L00_0029A058",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_0029BA20"
+  },
   "func_L00_0029CDE0": {
    "as": "func_L00_0029B420",
    "how": "function: carried (the release's own C for it)",
@@ -354,7 +359,12 @@
   "func_L05_0030DED8": {
    "as": "func_L05_0030C410",
    "how": "function: carried (the release's own C for it)",
-   "for": "libraries.tsv func_L05_0030DED8"
+   "for": "shared host C"
+  },
+  "func_L05_0030DED8__hooked": {
+   "as": "func_L05_0030C410__hooked",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
   },
   "func_L05_00317F80": {
    "as": "func_L05_00316448",
@@ -449,7 +459,12 @@
   "func_L11_0030F4F8": {
    "as": "func_L11_0030D9B8",
    "how": "function: carried (the release's own C for it)",
-   "for": "libraries.tsv func_L11_0030F4F8"
+   "for": "shared host C"
+  },
+  "func_L11_0030F4F8__hooked": {
+   "as": "func_L11_0030D9B8__hooked",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
   },
   "func_L11_003146E0": {
    "as": "func_L11_00312BC0",
@@ -859,11 +874,12 @@
   "17:001FBF38": "split_places func_001F9878: no place in the release",
   "18:00207BB8": "split_places func_001F9878: no place in the release",
   "func_001165B8": "libraries.tsv func_001165B8: not in the release",
-  "func_00116948": "libraries.tsv func_00116948: not in the release"
+  "func_00116948": "libraries.tsv func_00116948: not in the release",
+  "func_001E9E70": "libraries.tsv func_001E9E70: the shared host C leaves it out here"
  },
  "counts": {
-  "functions": 127,
+  "functions": 130,
   "addresses": 40,
-  "dropped": 20
+  "dropped": 21
  }
 }
