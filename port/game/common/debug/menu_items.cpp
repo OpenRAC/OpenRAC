@@ -1043,10 +1043,6 @@ void game_page_step(Id id, int by) {
     act(id, by);
 }
 
-void game_page_fix(int fix) {
-    change_setting(options_menu::kRows + 1 + fix, 1);
-}
-
 void quit_game() {
     // As the window's close button: the frame loop ends the program normally, so the launcher
     // sees an ordinary exit.

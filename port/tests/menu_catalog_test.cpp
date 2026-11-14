@@ -223,8 +223,11 @@ void keeps_game_pages_short() {
         Id::Hud,
         Id::RenderScale,
         Id::Msaa,
+        Id::Anisotropy,
+        Id::DrawDistance,
         Id::FrameRate,
         Id::VSync,
+        Id::FrameCounter,
         Id::Hdr,
         Id::EnhancedGraphics,
     };

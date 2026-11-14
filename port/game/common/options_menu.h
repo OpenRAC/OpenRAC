@@ -50,8 +50,8 @@ std::string value(int row);
 void step(int row, int by);
 
 // The rows of the game's own Video pages: the in-game menu's entries marked for them
-// (menu::kGamePage) that this screen offers and that do something now, then a "Game fixes" heading
-// and a row for each fix. The same entries, values and steps as the in-game menu, in English
+// (menu::kGamePage) that this screen offers and that do something now. Game fixes stay in the
+// in-game menu. The same entries, values and steps as the in-game menu, in English
 // (shown() puts them in the game's language). A step is saved and applied at once.
 int page_rows();
 std::string page_label(int row);

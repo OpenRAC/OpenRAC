@@ -48,9 +48,9 @@ constexpr Entry kEntries[] = {
      "device; raise it for a sharper picture."},
     {Id::Msaa, Tab::Graphics, "Picture", kChoice, AG, "Anti-aliasing",
      "Smooths the edges of the world's shapes. Each step costs the graphics card more."},
-    {Id::Anisotropy, Tab::Graphics, "Picture", kChoice, A, "Anisotropic filtering",
+    {Id::Anisotropy, Tab::Graphics, "Picture", kChoice, AG, "Anisotropic filtering",
      "Keeps floors and walls sharp when seen at a slant. Cheap on most graphics cards."},
-    {Id::DrawDistance, Tab::Graphics, "Picture", kChoice, A, "Draw distance",
+    {Id::DrawDistance, Tab::Graphics, "Picture", kChoice, AG, "Draw distance",
      "How far away things are still drawn. Original stops where the console did; the larger "
      "steps draw farther, and Unlimited draws everything in view. What the game hides from a "
      "place stays hidden."},
@@ -69,7 +69,7 @@ constexpr Entry kEntries[] = {
     {Id::VSync, Tab::Graphics, "Frames", kChoice, AG, "VSync",
      "Waits for the display before showing a frame, which stops tearing. Off shows frames as "
      "soon as they are drawn."},
-    {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, A, "Frame counter",
+    {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, AG, "Frame counter",
      "Shows the frames a second in a corner of the picture. F2 changes it too."},
     {Id::Hdr, Tab::Graphics, "HDR", kChoice, AG, "HDR",
      "High dynamic range output, whenever the screen offers it. Turned on from Off, it starts "

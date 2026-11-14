@@ -209,7 +209,5 @@ std::vector<menu::Id> game_page_entries();
 std::string game_page_label(menu::Id id);
 std::string game_page_value(menu::Id id);
 void game_page_step(menu::Id id, int by);
-// Switches fix `fix` (fixes.h) over, saved and applied.
-void game_page_fix(int fix);
 
 }  // namespace openrac::frontend::debug_overlay

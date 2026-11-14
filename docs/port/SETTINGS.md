@@ -33,8 +33,9 @@ Every setting is in the in-game menu (the desktop's menu window, the drawer on
 a touch screen). The game's own **Options, Video** page (Ratchet & Clank and
 Going Commando, title and pause menu) shows a short list of the same entries,
 like a console's: Display mode (desktop only), Picture, Field of View, HUD
-(with a picture wider than 4:3), Render scale, Anti-aliasing, Frame rate,
-VSync, HDR and Enhanced graphics (when it can be used), then the game fixes.
+(with a picture wider than 4:3), Render scale, Anti-aliasing, Anisotropic
+filtering, Draw distance, Frame rate, VSync, Frame counter, HDR and Enhanced
+graphics (when it can be used). The game fixes are in the in-game menu only.
 Both read one list ([menu_catalog.cpp](../../port/game/common/menu_catalog.cpp),
 the entries marked `kGamePage`), so a row shows the same value and steps the
 same way in both. The page scrolls with the cursor. **Cross** or **Right**
@@ -509,9 +510,7 @@ Write only what the code or a commit shows. A fix is:
 
 - **a setting**: `fix_... = 1` or `0` in the settings file (section 1),
   written with the others, read at start;
-- **a row** of the Options page (title and pause menu), after the port's own
-  under a **Game fixes** heading: On, or Original. The page scrolls, four or
-  five rows at a time. The in-game drawer has a **Game fixes** card too;
+- **a row** of the in-game menu's **Game fixes** card: On, or Original;
 - **a switch** in the launcher, under the game's **Differences from the
   original**, which edits that one line of the file (it counts from the
   game's next start);

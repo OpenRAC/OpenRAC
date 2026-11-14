@@ -55,7 +55,6 @@ constexpr const char* kLabels[kRows] = {
 
 // The "Game fixes" group, after the settings' own rows: its heading, then a row a fix.
 constexpr int kFixesHeading = kRows;
-constexpr const char* kFixesLabel = "Game fixes";
 
 // The page's texts in the game's other languages: English, then French, German, Spanish and
 // Italian, the PAL disc's five. Draft translations, to be checked by native speakers.
@@ -1076,28 +1075,9 @@ void step(int row, int by) {
 
 namespace {
 
-// The game pages' rows: the entries, then, with fixes, their heading and a row a fix.
-struct PageRow {
-    menu::Id id = menu::Id::Count;  // Count: the heading or a fix
-    int fix = -1;
-};
-
-std::vector<PageRow> page_list() {
-    std::vector<PageRow> rows;
-    for (const menu::Id id : debug_overlay::game_page_entries()) {
-        rows.push_back({id, -1});
-    }
-    if (fixes::count() > 0) {
-        rows.push_back({});
-        for (int fix = 0; fix < fixes::count(); ++fix) {
-            rows.push_back({menu::Id::Count, fix});
-        }
-    }
-    return rows;
-}
-
-std::optional<PageRow> page_row(int row) {
-    const std::vector<PageRow> rows = page_list();
+// The game pages' rows: the in-game menu's entries marked for them.
+std::optional<menu::Id> page_row(int row) {
+    const std::vector<menu::Id> rows = debug_overlay::game_page_entries();
     if (row < 0 || row >= static_cast<int>(rows.size())) {
         return std::nullopt;
     }
@@ -1107,40 +1087,22 @@ std::optional<PageRow> page_row(int row) {
 }  // namespace
 
 int page_rows() {
-    return static_cast<int>(page_list().size());
+    return static_cast<int>(debug_overlay::game_page_entries().size());
 }
 
 std::string page_label(int row) {
-    const auto r = page_row(row);
-    if (!r) {
-        return {};
-    }
-    if (r->id != menu::Id::Count) {
-        return debug_overlay::game_page_label(r->id);
-    }
-    return r->fix >= 0 ? fixes::fix(r->fix).name : kFixesLabel;
+    const auto id = page_row(row);
+    return id ? debug_overlay::game_page_label(*id) : std::string();
 }
 
 std::string page_value(int row) {
-    const auto r = page_row(row);
-    if (!r) {
-        return {};
-    }
-    if (r->id != menu::Id::Count) {
-        return debug_overlay::game_page_value(r->id);
-    }
-    return r->fix >= 0 ? value_of(kFixesHeading + 1 + r->fix) : std::string();
+    const auto id = page_row(row);
+    return id ? debug_overlay::game_page_value(*id) : std::string();
 }
 
 void page_step(int row, int by) {
-    const auto r = page_row(row);
-    if (!r) {
-        return;
-    }
-    if (r->id != menu::Id::Count) {
-        debug_overlay::game_page_step(r->id, by);
-    } else if (r->fix >= 0) {
-        debug_overlay::game_page_fix(r->fix);
+    if (const auto id = page_row(row)) {
+        debug_overlay::game_page_step(*id, by);
     }
 }
 
