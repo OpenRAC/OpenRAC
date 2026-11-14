@@ -3,11 +3,11 @@
 //! `job-exit`); a detached launch (the game, Godot) is started and left
 //! alone.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{BufRead, BufReader, Read};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -274,13 +274,23 @@ const BATCH_MOST: usize = 1000;
 /// second: the output lines so far, and the exit last, after the lines before it. Lines that come
 /// after the exit (from a process the job left behind) are dropped, as the job has ended.
 pub fn batched(deliver: impl Fn(Vec<Event>) + Send + Sync + 'static) -> impl Fn(Event) + Send + Sync + 'static {
-    let shared =
-        Arc::new(Batch { pending: Mutex::default(), wake: std::sync::Condvar::new(), deliver: Box::new(deliver) });
+    batched_every(BATCH_EVERY, deliver)
+}
+
+/// [`batched`] with its batch time, so the tests can choose one.
+fn batched_every(
+    every: Duration,
+    deliver: impl Fn(Vec<Event>) + Send + Sync + 'static,
+) -> impl Fn(Event) + Send + Sync + 'static {
+    let shared = Arc::new(Batch { pending: Mutex::default(), wake: Condvar::new(), deliver: Box::new(deliver) });
     let flusher = shared.clone();
     std::thread::spawn(move || loop {
         let ended = {
+            // Asleep while the job writes nothing (a game that logs little), then a batch's time
+            // to gather more lines once one came.
             let pending = flusher.pending.lock().unwrap();
-            let (pending, _) = flusher.wake.wait_timeout_while(pending, BATCH_EVERY, |p| !p.ended).unwrap();
+            let pending = flusher.wake.wait_while(pending, |p| p.lines.is_empty() && !p.ended).unwrap();
+            let (pending, _) = flusher.wake.wait_timeout_while(pending, every, |p| !p.ended).unwrap();
             pending.ended
         };
         flusher.flush(None);
@@ -294,13 +304,14 @@ pub fn batched(deliver: impl Fn(Vec<Event>) + Send + Sync + 'static) -> impl Fn(
 
 struct Batch {
     pending: Mutex<Pending>,
-    wake: std::sync::Condvar,
+    /// Woken by a job's first line after a batch, by its exit and by the sink's end.
+    wake: Condvar,
     deliver: Box<dyn Fn(Vec<Event>) + Send + Sync>,
 }
 
 #[derive(Default)]
 struct Pending {
-    lines: std::collections::VecDeque<Event>,
+    lines: VecDeque<Event>,
     /// Lines dropped since the last batch, as more came than one batch carries.
     dropped: usize,
     /// The exit was delivered (or the sink is gone): nothing more is.
@@ -311,6 +322,7 @@ impl Batch {
     /// Delivers the lines so far, then `exit`. One delivery at a time, so the order holds.
     fn flush(&self, exit: Option<Event>) {
         let mut pending = self.pending.lock().unwrap();
+        // A job ends once: an exit after the end (or after the sink is gone) is not delivered.
         if pending.ended && exit.is_some() {
             return;
         }
@@ -351,6 +363,9 @@ impl BatchSink {
                     pending.dropped += 1;
                 }
                 pending.lines.push_back(event);
+                if pending.lines.len() == 1 {
+                    self.0.wake.notify_all();
+                }
             }
             exit @ Event::Exit { .. } => self.0.flush(Some(exit)),
         }
@@ -669,7 +684,8 @@ mod tests {
     fn batches_lines_then_the_exit() {
         let (tx, rx) = std::sync::mpsc::channel();
         let tx = Mutex::new(tx);
-        let sink = batched(move |batch| tx.lock().unwrap().send(batch).unwrap());
+        // A batch time far longer than the test: the lines and the exit arrive as one batch.
+        let sink = batched_every(Duration::from_secs(3600), move |batch| tx.lock().unwrap().send(batch).unwrap());
         let line = |n: usize| Event::Output { id: 1, stream: Stream::Stdout, line: n.to_string() };
         for n in 0..BATCH_MOST + 5 {
             sink(line(n));
@@ -681,8 +697,7 @@ mod tests {
         drop(sink);
         let batches: Vec<Vec<Event>> = rx.iter().collect();
         let events: Vec<Event> = batches.iter().flatten().cloned().collect();
-        // One batch, maybe two if the flusher woke in between: never one event per line.
-        assert!(batches.len() <= 2, "{} batches", batches.len());
+        assert_eq!(batches.len(), 1);
         assert_eq!(events.last(), Some(&exit));
         // The oldest lines past the batch's size are dropped, and a note says so.
         let Event::Output { line: note, .. } = &events[0] else { panic!("{:?}", events[0]) };
@@ -701,6 +716,41 @@ mod tests {
         let batch = rx.recv_timeout(Duration::from_secs(5)).unwrap();
         assert_eq!(batch, [Event::Output { id: 2, stream: Stream::Stderr, line: "working".into() }]);
         drop(sink);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_chatty_job_comes_in_few_batches() {
+        let jobs = Jobs::default();
+        let (tx, rx) = mpsc::channel();
+        let tx = Mutex::new(tx);
+        let started = jobs
+            .start(
+                &sh("i=0; while [ $i -lt 3000 ]; do echo $i; i=$((i+1)); done"),
+                None,
+                batched(move |batch| {
+                    tx.lock().unwrap().send(batch).unwrap();
+                }),
+            )
+            .unwrap();
+        let mut batches = 0;
+        let mut lines = Vec::new();
+        let exit = 'job: loop {
+            batches += 1;
+            for event in rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+                match event {
+                    Event::Output { line, .. } => lines.push(line),
+                    exit @ Event::Exit { .. } => break 'job exit,
+                }
+            }
+        };
+        assert_eq!(exit, Event::Exit { id: started.id, code: Some(0), cancelled: false, outputs: vec![] });
+        // Far fewer events than lines, and every line there, in order (none was dropped at this pace
+        // unless a batch overflowed, which the note would say).
+        assert!(batches < 3000 / 10, "{batches} batches");
+        if !lines.iter().any(|l| l.contains("lines left out")) {
+            assert_eq!(lines, (0..3000).map(|n| n.to_string()).collect::<Vec<_>>());
+        }
     }
 
     /// The AppImage is given as an argument, not set in this process's environment: the tests

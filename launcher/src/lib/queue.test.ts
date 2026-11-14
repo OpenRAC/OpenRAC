@@ -125,6 +125,18 @@ describe("queue", () => {
     expect(q.takeEnded()).toBe(a);
   });
 
+  it("keeps a batch's early lines until the job's start returns", () => {
+    const q = new Queue();
+    const a = q.add(repo, "a", "A");
+    q.applyAll([
+      { type: "output", id: 4, stream: "stdout", line: "first" },
+      { type: "output", id: 4, stream: "stderr", line: "second" },
+    ]);
+    expect(a.lines).toEqual([]);
+    q.started(a, 4, "cmd");
+    expect(a.lines.map((l) => l.line)).toEqual(["first", "second"]);
+  });
+
   it("finds the live job a second request would repeat", () => {
     const q = new Queue();
     const pal = { kind: "version", key: "rac1/pal" } as const;
