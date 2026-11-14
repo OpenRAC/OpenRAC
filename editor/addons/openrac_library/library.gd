@@ -385,6 +385,18 @@ static func copy_in(asset: Dictionary, name: String, still_model: bool, error: A
 
 	copied.append(target)
 
+	# Imported at its class's size, so what Godot shows while it is dragged in (and where it rests
+	# it on the ground) is the size it is placed at (plugin.gd add_metadata()).
+	var scale: float = float(asset.get("scale", 1.0))
+
+	if root != SKINS_DIR and not is_equal_approx(scale, 1.0):
+		var settings := ConfigFile.new()
+		settings.set_value("remap", "importer", "scene")
+		settings.set_value("remap", "type", "PackedScene")
+		settings.set_value("params", "nodes/root_scale", scale)
+		settings.set_value("params", "nodes/apply_root_scale", false)  # on the root, as placed
+		settings.save(target + ".import")
+
 	if root != SKINS_DIR:
 		import_files(copied)
 

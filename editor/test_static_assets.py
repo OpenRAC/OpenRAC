@@ -108,6 +108,24 @@ class StaticAssets(unittest.TestCase):
             self.assertIn((expected, 0x1f), physical['triangles'])
             self.assertEqual(set(visible[0]), {(80, 260, 30), (76, 260, 30), (80, 266, 30)})
 
+    def test_a_copy_imported_at_its_class_scale_keeps_it_with_no_transform_saved(self):
+        # The Assets dock imports its copy with the root at the class scale (library.gd copy_in):
+        # dropped at the origin, Godot saves no transform, and the pack takes the root's.
+        with tempfile.TemporaryDirectory() as tmp:
+            project, level, scene, source = fixture(Path(tmp))
+            added = static_assets.import_asset(source, project, 2, 'Bridge', [0, 0, 0])
+            copied = project / added['model'][6:]
+            text = re.sub(r'(\[node name="Bridge"[^\n]*\n)transform = [^\n]*\n', r'\1', scene.read_text())
+            self.assertNotIn('transform', text.split('[node name="Bridge"')[1])
+            copied.with_name(copied.name + '.import').write_text(
+                '[params]\n\nnodes/apply_root_scale=false\nnodes/root_scale=0.5\n')
+            (path, _, matrix, _), = static_assets.placements(project, text)
+            self.assertEqual(path, 'Game/StaticAssets/Bridge')
+            self.assertAlmostEqual(matrix[0], 0.5)
+            copied.with_name(copied.name + '.import').write_text('[params]\n\nnodes/root_scale=0.5\n')
+            (_, _, matrix, _), = static_assets.placements(project, text)
+            self.assertAlmostEqual(matrix[0], 1.0)  # scale baked into the meshes: the root is plain
+
     def test_export_requires_repack_after_moving_or_changing_collision(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

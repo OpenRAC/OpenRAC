@@ -23,6 +23,9 @@ const IMPORT_COLOUR: Color = Color(0.55, 0.78, 1.0)
 ## The rest: its look only.
 const LOOK_COLOUR: Color = Color(0.92, 0.92, 0.92)
 
+## Rows the level tree grows to before it scrolls (fit_tree()).
+const TREE_ROWS: int = 8
+
 ## Previews made at most this many a frame, the rest in later frames.
 const PREVIEWS_PER_FRAME: int = 2
 
@@ -118,8 +121,8 @@ func _init() -> void:
 	box.add_child(split)
 	tree = Tree.new()
 	tree.hide_root = true
-	tree.custom_minimum_size = Vector2(0, 120)
 	tree.item_selected.connect(refill)
+	tree.item_collapsed.connect(func(_item: TreeItem) -> void: fit_tree())
 	split.add_child(tree)
 
 	list = AssetList.new()
@@ -133,7 +136,13 @@ func _init() -> void:
 	list.fixed_icon_size = Vector2i(80, 80)
 	list.max_text_lines = 2
 	list.item_activated.connect(func(index: int) -> void: add(index))
-	list.item_selected.connect(func(_index: int) -> void: show_selected())
+	list.item_selected.connect(func(index: int) -> void:
+		show_selected()
+		# Brought into the project as soon as it is picked: Godot imports it in the background,
+		# so a drag right after finds it ready instead of being lost to the import.
+		var asset: Dictionary = asset_at(index)
+		if not asset.is_empty() and not here.is_empty() and plugin != null:
+			plugin.prepare.call_deferred(asset))
 	split.add_child(list)
 
 	# The selected asset: what it is and what each way of adding it does.
@@ -310,6 +319,7 @@ func rescan() -> void:
 
 		level_item.collapsed = true
 
+	fit_tree()
 	show_report("Levels found: %d, in games: %d." % [levels.size(), folders.size()] if not levels.is_empty()
 		else "No levels found. Read a disc's levels from the launcher's Level editor tab first.")
 	refill()
@@ -557,3 +567,26 @@ static func wrapped(name: String, line: int = 17) -> String:
 			lines.append(word)
 
 	return "\n".join(lines)
+
+
+## Sizes the tree to its open rows (at most TREE_ROWS; it scrolls past them), so no empty band
+## sits between it and the assets.
+func fit_tree() -> void:
+	var first: TreeItem = tree.get_root().get_first_child() if tree.get_root() != null else null
+	var rows: int = 0
+	var item: TreeItem = first
+
+	while item != null:
+		rows += 1
+		item = item.get_next_visible()
+
+	# A row's height as the tree draws it, once it has; else the font's line and the gap.
+	var gap: float = tree.get_theme_constant("v_separation")
+	var row: float = tree.get_item_area_rect(first).size.y if first != null else 0.0
+
+	if row <= 0.0:
+		row = tree.get_theme_font("font").get_height(tree.get_theme_font_size("font_size")) + 4.0
+
+	var panel: StyleBox = tree.get_theme_stylebox("panel")
+	var margins: float = panel.get_minimum_size().y if panel != null else 0.0
+	tree.custom_minimum_size.y = ceilf(clampi(rows, 1, TREE_ROWS) * (row + gap) + margins + 4.0)

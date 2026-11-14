@@ -503,16 +503,21 @@ func settle() -> void:
 
 		if old_parent != group:
 			var name: String = free_name(group, base_name(asset))
+			# Renamed only inside the tree: the editor follows a rename by the node's path.
 			undo_redo.add_do_method(old_parent, "remove_child", node)
-			undo_redo.add_do_property(node, "name", name)
 			undo_redo.add_do_method(group, "add_child", node)
+			undo_redo.add_do_property(node, "name", name)
 			undo_redo.add_do_property(node, "owner", root)
 			undo_redo.add_do_property(node, "global_transform", at)
 			undo_redo.add_undo_method(group, "remove_child", node)
-			undo_redo.add_undo_property(node, "name", node.name)
 			undo_redo.add_undo_method(old_parent, "add_child", node)
+			undo_redo.add_undo_property(node, "name", node.name)
 			undo_redo.add_undo_property(node, "owner", root)
 			undo_redo.add_undo_property(node, "global_transform", at)
+		elif not String(node.name).begins_with(base_name(asset)):
+			# Dropped next to a selected asset, so already in its group: only its name is Godot's.
+			undo_redo.add_do_property(node, "name", free_name(group, base_name(asset)))
+			undo_redo.add_undo_property(node, "name", node.name)
 
 		add_metadata(undo_redo, node, asset, node.scene_file_path)
 		moved.append(node)

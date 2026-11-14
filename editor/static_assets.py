@@ -107,6 +107,29 @@ def images(document):
     return result
 
 
+def imported_root(source: Path) -> tuple | None:
+    """The root transform Godot gives SOURCE's scene when its import scales the root (the Assets
+    dock imports a copy at its class's size); None when it does not."""
+    try:
+        settings = (source.parent / (source.name + '.import')).read_text(encoding='utf-8')
+    except OSError:
+        return None
+    scale = re.search(r'^nodes/root_scale=([-0-9.e]+)$', settings, re.M)
+    applied = re.search(r'^nodes/apply_root_scale=(\w+)$', settings, re.M)
+    if not scale or not applied or applied.group(1) != 'false':
+        return None
+    s = float(scale.group(1))
+    return (s, 0.0, 0.0, 0.0, s, 0.0, 0.0, 0.0, s, 0.0, 0.0, 0.0)
+
+
+def own_placed(nodes: dict, node: dict, source: Path) -> tuple:
+    """NODE's transform in game space; with none saved, its scene root's (imported_root())."""
+    if 'transform' in node['props']:
+        return gamedata.placed(nodes, node)
+    root = imported_root(source)
+    return gamedata.placed(nodes, node) if root is None else gamedata.compose(gamedata.placed(nodes, node), root)
+
+
 def placements(project: Path, text: str):
     """Resolve instance transforms below Game, including user-created grouping nodes."""
     if GROUP not in text:
@@ -125,7 +148,7 @@ def placements(project: Path, text: str):
         source = (project / uri[6:]).resolve()
         if not source.is_relative_to(project.resolve()) or source.suffix.lower() not in ('.glb', '.gltf'):
             raise ValueError(f'{path}: static assets must be GLB/glTF files inside the project')
-        matrix = matrix_of(gamedata.placed(nodes, node))
+        matrix = matrix_of(own_placed(nodes, node, source))
         if not all(math.isfinite(v) for v in matrix):
             raise ValueError(f'{path}: its transform is not finite')
         gltf_read.invert(matrix)  # refuse zero scale before generating any partial output
@@ -154,7 +177,7 @@ def animated_placements(project: Path, text: str):
         source = (project / uri[6:]).resolve()
         if not source.is_relative_to(project.resolve()) or source.suffix.lower() not in ('.glb', '.gltf'):
             raise ValueError(f'{path}: animated props must use project-local GLB/glTF files')
-        matrix = matrix_of(gamedata.placed(nodes, node))
+        matrix = matrix_of(own_placed(nodes, node, source))
         if len(matrix) != 16 or not all(math.isfinite(v) for v in matrix):
             raise ValueError(f'{path}: its transform is not finite')
         gltf_read.invert(matrix)  # refuse a zero scale before generating partial output
