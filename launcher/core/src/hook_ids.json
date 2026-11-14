@@ -692,6 +692,10 @@
    "Vendor_InitializeSelected": "rac1.vendor.initialize_selected",
    "Vendor_MenuUpdate": "rac1.vendor.menu_update",
    "Vendor_OpenMenu": "rac1.vendor.open_menu",
+   "Weapon_Blaster_PickTarget": "rac1.weapon.blaster.pick_target",
+   "Weapon_Drone_PickTarget": "rac1.weapon.drone.pick_target",
+   "Weapon_GoldDevastator_PickTarget": "rac1.weapon.gold_devastator.pick_target",
+   "Weapon_Ryno_PickTarget": "rac1.weapon.ryno.pick_target",
    "Weapon_TakeAmmo": "rac1.weapon.take_ammo",
    "msg_string": "rac1.text.msg_string"
   },
