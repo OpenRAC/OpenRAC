@@ -34,6 +34,11 @@ const SKINS_DIR: String = "res://library/skins"
 ## The project setting that lists more folders of projects.
 const FOLDERS_SETTING: String = "openrac/library/folders"
 
+## Readable names of each game's assets, by kind and class: names/<game>.tsv beside this script
+## ("kind<TAB>class<TAB>name"), read once.
+const NAMES_DIR: String = "res://addons/openrac_library/names"
+static var names_by_game: Dictionary = {}
+
 
 # =============================================================================
 # WHERE THINGS ARE
@@ -185,6 +190,11 @@ static func assets_of(level: Dictionary) -> Array:
 				if FileAccess.file_exists(scene):
 					asset["scene"] = scene
 					read_class_scene(asset, FileAccess.get_file_as_string(scene))
+
+			var known: String = asset_name(String(level["game"]), kind, number)
+
+			if not known.is_empty():
+				asset["name"] = known
 
 			assets.append(asset)
 
@@ -545,3 +555,21 @@ static func write_glb(json: Dictionary, bin: PackedByteArray) -> PackedByteArray
 		out.append_array(body)
 
 	return out
+
+
+## The readable name of class NUMBER of KIND ("mobys", "ties", "shrubs") in GAME, or "".
+static func asset_name(game: String, kind: String, number: int) -> String:
+	if not names_by_game.has(game):
+		var table: Dictionary = {}
+		var path: String = NAMES_DIR.path_join(game + ".tsv")
+		var text: String = FileAccess.get_file_as_string(path) if FileAccess.file_exists(path) else ""
+
+		for line in text.split("\n"):
+			var parts: PackedStringArray = line.split("\t")
+
+			if parts.size() >= 3 and not line.begins_with("#") and parts[1].is_valid_int():
+				table["%s/%d" % [parts[0], parts[1].to_int()]] = parts[2]
+
+		names_by_game[game] = table
+
+	return String(names_by_game[game].get("%s/%d" % [kind, number], ""))

@@ -19,6 +19,7 @@ list of animation numbers) and rc1_skin_asset (game/disc/level_NN/mobys/class, w
 
 import json
 import re
+import shutil
 from pathlib import Path
 
 import static_assets
@@ -59,6 +60,8 @@ def write_skins(project: Path, text: str, out: Path, spawn_ids: dict[str, int]) 
     """Writes the scene's skins into OUT (the packed level's folder): what was done and what not."""
     nodes = skinned(text)
     changes, problems, entries, written = [], [], [], {}
+    if (out / "skins").is_dir():
+        shutil.rmtree(out / "skins")    # the last pack's models, so none is left behind
     for node in nodes:
         name = node["name"]
         spawn_id = spawn_ids.get(name, -1)

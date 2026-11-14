@@ -40,6 +40,7 @@ write the table again, and with it what names mobys by their place in it
 import json
 import math
 import re
+import shutil
 import struct
 from pathlib import Path
 
@@ -803,6 +804,9 @@ def pack_cutscenes(scene_dir: Path, out_dir: Path, level_id: int | None = None, 
     (check_cutscene). Returns (changes, problems) in words; a .cutscene that is not one, or has an
     error, is left out."""
     source = scene_dir / "cutscenes"
+    target = out_dir / "cutscenes"
+    if target.is_dir():
+        shutil.rmtree(target)    # the last pack's, so a deleted or now broken cutscene is gone
     if not source.is_dir():
         return [], []
     changes, problems, files = [], [], []
@@ -826,8 +830,6 @@ def pack_cutscenes(scene_dir: Path, out_dir: Path, level_id: int | None = None, 
         files.append(file)
     if not changes:
         return [], problems
-    import shutil
-    target = out_dir / "cutscenes"
     for file in files:
         copy = target / file.relative_to(source)
         copy.parent.mkdir(parents=True, exist_ok=True)

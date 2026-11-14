@@ -94,6 +94,10 @@ func wait_for_import(path: String, again: Callable) -> void:
 	for _i in range(240):
 		await get_tree().create_timer(0.25).timeout
 
+		if dock == null:    # the plugin was switched off meanwhile
+			waiting_for_import = false
+			return
+
 		if ResourceLoader.exists(path) and not filesystem.is_scanning():
 			waiting_for_import = false
 			again.call()

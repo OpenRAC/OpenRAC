@@ -26,7 +26,20 @@ func _get_drag_data(at_position: Vector2) -> Variant:
 	if path.is_empty():
 		return null
 
-	var preview := Label.new()
-	preview.text = String(asset["name"])
+	# Its picture and name under the pointer, as the list shows it.
+	var preview := VBoxContainer.new()
+	var icon: Texture2D = get_item_icon(index)
+
+	if icon != null:
+		var picture := TextureRect.new()
+		picture.texture = icon
+		picture.custom_minimum_size = Vector2(64, 64)
+		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		preview.add_child(picture)
+
+	var label := Label.new()
+	label.text = String(asset["name"])
+	preview.add_child(label)
 	set_drag_preview(preview)
 	return {"type": "files", "files": PackedStringArray([path]), "from": self}

@@ -952,7 +952,13 @@ bool load_level(
             }
             const json::Value& cls = other_manifest["classes"]["moby"][std::to_string(id)];
             if (!cls["mesh"].is_string()) {
-                log::warn("imported moby class {}: level {} has no model of it", id, from);
+                // A class with no data (a controller or trigger) has no model, and says so by its
+                // empty blob; any other is worth a warning.
+                std::error_code e;
+                const auto blob = out.overrides / "classes" / std::format("{}.bin", id);
+                if (fs::file_size(blob, e) != 0 || e) {
+                    log::warn("imported moby class {}: level {} has no model of it", id, from);
+                }
                 continue;
             }
             std::string model_error;
