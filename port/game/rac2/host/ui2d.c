@@ -277,8 +277,8 @@ static void corners_from_xyz(openrac_game_ui_rect* q, const gaddr xyz) {
 }
 
 /* A HUD texture as a sprite with a colour for each corner (colours: four RGBA words), shaded
- * between them: the HUD's gradient bars. Returns the display list's cursor, as the game's does. */
-int func_0028EA58(int tex, int x, int y, int w, int h, gaddr colours) {
+ * between them: the HUD's gradient bars. */
+void func_0028EA58(int tex, int x, int y, int w, int h, gaddr colours) {
     int tw, th;
     openrac_game_ui_rect q;
     hud_size(tex, &tw, &th);
@@ -289,9 +289,8 @@ int func_0028EA58(int tex, int x, int y, int w, int h, gaddr colours) {
         q.corners[i] = GREF(uint32_t, colours + 4u * (gaddr)i);
     }
     if (!openrac_ui_send(&q, LIST_CURSOR)) {
-        return func_0028EA58__game(tex, x, y, w, h, colours);
+        func_0028EA58__game(tex, x, y, w, h, colours);
     }
-    return (int)GREF(gaddr, LIST_CURSOR);
 }
 
 /* A quad of tex0 centred on (cx, cy), w by h, turned by angle about the pivot (pu, pv: 0 to 1 of

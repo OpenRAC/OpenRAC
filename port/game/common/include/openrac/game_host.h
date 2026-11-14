@@ -32,6 +32,8 @@ typedef struct openrac_game_info {
     const char* serial; /* "SCES_509.16": its executable on the disc */
     int frame_rate;     /* 50 (PAL) or 60 */
     const char* entry;  /* the game's main, or NULL while it is not known */
+    int tick_rate;      /* the ticks a second the port runs it at: 60, or 50 for a disc whose code has
+                           50 Hz built in (hostgen.json "tick_rate"; Going Commando's PAL) */
 } openrac_game_info;
 
 extern const openrac_game_info openrac_game;

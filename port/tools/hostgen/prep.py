@@ -220,6 +220,29 @@ _CAST_RECORD = re.compile(r"\(\s*(struct|union)\s*\{([^{}]*)\}")
 _FUNCTION_START = re.compile(r"^(?:static\s+|extern\s+)?[A-Za-z_][\w\s\*]*\b\w+\s*\(")
 
 
+_CODE_NOISE = re.compile(r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|/\*.*?\*/|//[^\n]*', re.S)
+
+
+def _function_of_lines(lines: list[str]) -> list[int | None]:
+    """For each line, the first line of the function definition it is inside (by brace depth, so a
+    `}` in column 0 that closes a block of a case is not taken for the function's end), else None."""
+    text = _CODE_NOISE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), "\n".join(lines))
+    depth, start, out = 0, None, []
+    for i, line in enumerate(text.split("\n")):
+        if depth == 0 and _FUNCTION_START.match(lines[i]) and not lines[i].rstrip().endswith(";") \
+                and not lines[i].lstrip().startswith("#"):
+            start = i
+        out.append(start if depth > 0 else None)
+        for c in line:
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth = max(0, depth - 1)
+        if depth > 0 and start is not None:
+            out[i] = start
+    return out
+
+
 def name_cast_records(text: str) -> str:
     """A record defined inside a cast gets a name (openrac_cast_LINE_N) and its definition goes
     to the start of the first line of the function around it; every line stays where it was."""
@@ -229,15 +252,10 @@ def name_cast_records(text: str) -> str:
     out = []
     last = 0
     definitions: dict[int, list[str]] = {}
+    owner = _function_of_lines(lines)
     for m in _CAST_RECORD.finditer(text):
         line = text.count("\n", 0, m.start())
-        start = None
-        for i in range(line, -1, -1):
-            if i != line and lines[i].startswith("}"):
-                break  # the end of the function before: this cast is in none
-            if _FUNCTION_START.match(lines[i]) and not lines[i].rstrip().endswith(";"):
-                start = i
-                break
+        start = owner[line]
         if start is None:
             continue  # not in a function (a macro in a header): left as it is
         name = f"openrac_cast_{line + 1}_{len(definitions.get(start, []))}"
@@ -320,8 +338,8 @@ def expand_cast_macros(text: str) -> str:
     """A one-line macro of the unit whose body defines a record inside a cast is written out where
     it is used, so name_cast_records finds the record in each function (Clang's JSON leaves a
     record out that a macro defined: rac1/pal's `#define S_I(p, o) (((struct { char _p[o]; int v;
-    } *)(p))->v)`). Uses on preprocessor lines, and after an #undef, stay as they are; every line
-    stays where it was."""
+    } *)(p))->v)`). Uses in other macros' bodies are written out too; on other preprocessor lines,
+    and after an #undef, they stay as they are; every line stays where it was."""
     if not _CAST_RECORD.search(text) or "define" not in text:
         return text
     lines = _join_cast_macros(text.split("\n"))
@@ -337,8 +355,15 @@ def expand_cast_macros(text: str) -> str:
             u = _UNDEF.match(lines[j])
             if u and u.group(1) == name:
                 break
-            if lines[j].lstrip().startswith("#") or name not in lines[j]:
+            if name not in lines[j]:
                 continue
+            if lines[j].lstrip().startswith("#"):
+                # Another macro written with this one (`#define HERO(T, o) F(D_00189E20, T, o)`) gets it
+                # written out in its body, so that it is a cast macro too and its own uses are written
+                # out in turn; other preprocessor lines stay as they are.
+                d = _DEFINE.match(lines[j])
+                if d is None or lines[j].endswith("\\") or d.group(1) == name:
+                    continue
             # Again for a use in another's arguments: FLD(FLD(p, char *, 8), int, 4).
             for _ in range(_MACRO_NESTING):
                 written = _expand_line(lines[j], name, params, body)

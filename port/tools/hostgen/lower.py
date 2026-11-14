@@ -111,6 +111,9 @@ class FnReport:
     reason: str = ""
     passthrough: int = 0         # arguments passed through from the caller's registers
     zero_args: list = field(default_factory=list)  # calls short of arguments the caller had none for
+    # Computed gotos through a table hostgen.json "jump_tables" does not name yet (jumptables.py reads them):
+    # {"table", "labels": [[label, what follows it first], ...]} in the function's source order.
+    computed_gotos: list = field(default_factory=list)
     hw: int = 0                  # accesses to hardware register addresses
     # Literal addresses cast to pointers (`*(s32 *)0x1610A8`) and what each became: "0x... -> C".
     literals: list = field(default_factory=list)
@@ -146,6 +149,7 @@ class _Fn:
     report: FnReport | None = None
     tail_id: str | None = None                       # the last statement, a call whose result is returned
     labels: dict = field(default_factory=dict)       # label decl id -> name
+    label_arrays: dict = field(default_factory=dict)  # decl id of a local array of &&labels -> label names
     int_params: list = field(default_factory=list)   # host names, in register order
     record_params: set = field(default_factory=set)  # host names of parameters passed as records
     float_params: list = field(default_factory=list)
@@ -185,6 +189,16 @@ def _strip_parens(n: dict) -> dict:
     return n
 
 
+def _strip_casts(n: dict) -> dict:
+    """N without the parentheses and casts around it."""
+    while n.get("kind") in ("ParenExpr", "ImplicitCastExpr", "CStyleCastExpr"):
+        kids = _inner(n)
+        if not kids:
+            break
+        n = kids[0]
+    return n
+
+
 def _in(address: int, rng) -> bool:
     return bool(rng) and rng[0] <= address < rng[1]
 
@@ -212,6 +226,11 @@ def _constant(n: dict) -> int | None:
 
 def hexaddr(a: int) -> str:
     return f"0x{a:08X}u"
+
+
+def _offset(d: int) -> str:
+    """ + D or - |D|, for an address written as another one and the distance to it."""
+    return f" + {hexaddr(d)}" if d >= 0 else f" - {hexaddr(-d)}"
 
 
 class Unit:
@@ -277,10 +296,42 @@ class Unit:
 
     def ty(self, n: dict) -> ctype.Type:
         """The node's type as written (typedef names kept)."""
+        written = n["type"]["qualType"]
         try:
-            return ctype.parse(n["type"]["qualType"])
+            return ctype.parse(written)
         except ctype.TypeError_ as e:
+            # GNU C's typeof (`typeof (p->motion) *`): Clang's desugared type says what it is.
+            plain = n["type"].get("desugaredQualType")
+            if plain and "typeof" in written:
+                try:
+                    return ctype.parse(plain)
+                except ctype.TypeError_:
+                    pass
+            m = re.fullmatch(r"typeof \((\w+)->(\w+)\)((?: \*)*)", written)
+            if m and self.fn is not None:
+                # `typeof (p->motion) *`, a pointer to an unnamed struct member: the field's type in p's record.
+                var = self._local_named(m.group(1))
+                if var is not None:
+                    base = self.resolve(self.ty(var))
+                    if isinstance(base, ctype.Ptr):
+                        ft = self._field_type(self.resolve(base.to), m.group(2))
+                        for _ in range(m.group(3).count("*")):
+                            ft = ctype.Ptr(ft, frozenset())
+                        return ft
             raise Unsupported(str(e)) from e
+
+    def _local_named(self, name: str) -> dict | None:
+        """The parameter or local of the function being translated called NAME."""
+        for p in getattr(self.fn, "params", ()) or ():
+            if p.get("name") == name:
+                return p
+        stack = [getattr(self.fn, "body_node", None) or {}]
+        while stack:
+            n = stack.pop()
+            if n.get("kind") == "VarDecl" and n.get("name") == name:
+                return n
+            stack.extend(_inner(n))
+        return None
 
     def resolve(self, t: ctype.Type) -> ctype.Type:
         seen = 0
@@ -655,6 +706,13 @@ class Unit:
             # EE's register reaches the callee with all its bits.
             sig_t = ctype.Func(sig_t.ret, tuple(ctype.Base(widened[i]) if i in widened else t
                                                for i, t in enumerate(sig_t.params)), sig_t.variadic, sig_t.prototyped)
+        extra = tuple(getattr(known, "extra", ()) or ()) if known is not None and not static and inline is None else ()
+        if extra and not sig_t.variadic:
+            # Parameters its callers pass that the C leaves out and hands on (program.py params_from_declarations).
+            sig_t = ctype.Func(sig_t.ret, tuple(sig_t.params) + extra, False, True)
+            names = names + [f"pass_{len(params) + i}" for i in range(len(extra))]
+        else:
+            extra = ()
         inherits = known is not None and getattr(known, "inherits", False) and self.cls(sig_t.ret) == "void"
         if inherits:
             sig_t = ctype.Func(known.sig.ret, sig_t.params, sig_t.variadic, sig_t.prototyped)
@@ -667,6 +725,7 @@ class Unit:
         proto = self.signature(own, sig_t, names, static)
         report = FnReport(own, "translated")
         self.fn = _Fn(own, sig_t, params, report=report, static=static)
+        self.fn.extra_params = [(t_, n) for t_, n in zip(extra, names[len(params):])]
         if inline is not None:
             # The caller's code: its address, size and level, and its counts of the calls to each folded
             # function (shared: the copy's calls are the caller's next ones, as the jals in its code are).
@@ -679,6 +738,7 @@ class Unit:
         self.fn.wide_params = {params[i].get("id") for i in widened if i < len(params)}
         self.fn.wide_result = wide_result
         body = next(c for c in _inner(decl) if c.get("kind") == "CompoundStmt")
+        self.fn.body_node = body
         self.fn.sibling_named = self._sibling_named(body)
         if inherits:
             self.fn.tail_id = [s for s in _inner(body) if s.get("kind")][-1].get("id")
@@ -746,7 +806,11 @@ class Unit:
             (fn.float_params if c == "float" else fn.int_params).append(n)
             if c == "rec":
                 fn.record_params.add(n)
+        for t_, n in getattr(fn, "extra_params", ()):
+            (fn.float_params if self.cls(t_) == "float" else fn.int_params).append(n)
         self._collect_labels(body)
+        self._collect_label_arrays(body)
+        memory_ids -= set(fn.label_arrays)
         prologue = []
         for p, n in zip(params, names):
             if p["id"] in memory_ids:
@@ -853,12 +917,28 @@ class Unit:
         length = self._vla_length(d)
         ids = [i for i, h in fn.host.items() if self.decls.get(i, {}).get("name") == length]
         ids += [i for i in fn.memory if fn.memory[i] is not None and self.decls.get(i, {}).get("name") == length]
-        if len(set(ids)) != 1:
-            raise Unsupported(f"variable-length array {d.get('name')}")
-        vid = ids[0]
-        n = self._mem_text(vid) if vid in fn.memory else fn.host[vid]
+        if len(set(ids)) == 1:
+            vid = ids[0]
+            n = self._mem_text(vid) if vid in fn.memory else fn.host[vid]
+        else:
+            # A length that is a global (`f32 extra[D_L11_001B0634][4]`): read where the program has it.
+            n = self._global_length(length) if not ids else None
+            if n is None:
+                raise Unsupported(f"variable-length array {d.get('name')}")
         of = self.resolve(self.ty(d)).of
         return f"GFRAME({fn.vla[d['id']]}, (uint32_t)({n}) * (uint32_t)sizeof({self.host(of)}));"
+
+    def _global_length(self, name: str) -> str | None:
+        """A global int named NAME, read as a variable-length array's length; None where it has no address."""
+        level = None
+        address = self.program.data_address(name)
+        if address is None:
+            level, address = self._level_only_data(name) or (None, None)
+        if address is None:
+            return None
+        if level is None and hasattr(self.program, "data_level"):
+            level = self.program.data_level(name)
+        return f"GREF(int32_t, {self.global_address(address, False, level, name)})"
 
     def _mem_text(self, vid: str) -> str:
         d = self.decls[vid]
@@ -922,6 +1002,130 @@ class Unit:
             if n.get("kind") == "LabelStmt":
                 self.fn.labels[n.get("declId", n.get("id"))] = n["name"]
             stack.extend(_inner(n))
+
+    def _collect_label_arrays(self, body: dict) -> None:
+        """Local arrays of label addresses (`static void *arms[] = {&&a, &&b}`): GNU C's computed goto's tables.
+        They are not written (the host's goto takes no guest address); a `goto *arms[i]` becomes a switch
+        over their labels (_indirect_goto)."""
+        stack = [body]
+        while stack:
+            n = stack.pop()
+            if n.get("kind") == "VarDecl":
+                inits = [c for c in _inner(n) if c.get("kind") == "InitListExpr"]
+                if inits:
+                    names = []
+                    for e in _inner(inits[0]):
+                        e = _strip_casts(e)
+                        if e.get("kind") != "AddrLabelExpr":
+                            names = None
+                            break
+                        names.append(self.fn.labels.get(e.get("labelDeclId")))
+                    if names and None not in names:
+                        self.fn.label_arrays[n["id"]] = names
+                        continue
+            stack.extend(_inner(n))
+
+    def _label_leads(self) -> list:
+        """Each label of the function being translated, in source order, with what its code does first of a call
+        (["call", callee]), a goto (["goto"]) or a return (["return"]): what jumptables.py matches with the
+        instructions at each address of a table."""
+        events = []
+        stack = [self.fn.body_node]
+        while stack:
+            n = stack.pop()
+            k = n.get("kind")
+            if k == "LabelStmt":
+                events.append(("label", n["name"]))
+            elif k == "CallExpr":
+                callee = _strip_casts(_inner(n)[0]) if _inner(n) else {}
+                name = callee.get("referencedDecl", {}).get("name") if callee.get("kind") == "DeclRefExpr" else None
+                events.append(("call", name))
+            elif k == "GotoStmt":
+                events.append(("goto", self.fn.labels.get(n.get("targetLabelDeclId"))))
+            elif k == "IndirectGotoStmt":
+                events.append(("goto", None))
+            elif k == "ReturnStmt":
+                # `return f(x)` calls first: the return follows what its value does.
+                stack.append({"kind": "openrac_return"})
+            elif k == "openrac_return":
+                events.append(("return", None))
+            if k == "CallExpr":
+                # Its arguments run first, but a call inside them is rare: the call itself leads.
+                continue
+            stack.extend(reversed(_inner(n)))
+        at = {name: i for i, (k, name) in enumerate(events) if k == "label"}
+
+        def lead(i: int, seen: frozenset) -> list:
+            # A goto leads where its label does (the compiler's code is followed through its branches too).
+            for kk, nn in events[i + 1:]:
+                if kk == "label":
+                    continue
+                if kk == "call":
+                    return ["call", nn]
+                if kk == "goto" and nn in at and nn not in seen:
+                    return lead(at[nn], seen | {nn})
+                return ["return"]
+            return ["return"]
+        return [[name, lead(i, frozenset({name}))] for i, (k, name) in enumerate(events) if k == "label"]
+
+    def _table_of(self, base: dict) -> dict:
+        """The table a local pointer was set to from (`s8 *tb = D_0026C550;`): its declaration's
+        reference, else BASE as it is."""
+        if base.get("kind") == "DeclRefExpr":
+            var = self._local_named(base.get("referencedDecl", {}).get("name", ""))
+            inits = [c for c in _inner(var or {}) if c.get("kind") not in ("AlignedAttr",)]
+            if var is not None and var.get("init") and inits:
+                ref = _strip_casts(inits[0])
+                if ref.get("kind") == "DeclRefExpr":
+                    return ref
+        return base
+
+    def _indirect_goto(self, n: dict, pad: str) -> list[str]:
+        """`goto *table[i]`: a switch on i over the labels the table holds, in its order. A local array of
+        &&labels says them itself (_collect_label_arrays); a table in the game's data holds code addresses,
+        which hostgen.json "jump_tables" names, by table, as the labels at those addresses."""
+        e = _strip_casts(_inner(n)[0]) if _inner(n) else {}
+        if e.get("kind") == "UnaryOperator" and e.get("opcode") == "*":
+            e = _strip_casts(_inner(e)[0])
+        if e.get("kind") == "BinaryOperator" and e.get("opcode") == "+":
+            # `*(s32 *)(tb + sel * 4)`: a word table through a pointer, its index scaled by hand.
+            base, scaled = (_strip_casts(x) for x in _inner(e))
+            if base.get("kind") == "BinaryOperator":
+                base, scaled = scaled, base
+            index = None
+            if scaled.get("kind") == "BinaryOperator" and scaled.get("opcode") == "*":
+                a, b = (_strip_casts(x) for x in _inner(scaled))
+                if _constant(b) == 4:
+                    index = a
+                elif _constant(a) == 4:
+                    index = b
+            if index is None:
+                raise Unsupported("computed goto that is not through a table")
+            e = {"kind": "ArraySubscriptExpr", "inner": [self._table_of(base), index]}
+        if e.get("kind") != "ArraySubscriptExpr":
+            raise Unsupported("computed goto that is not through a table")
+        base, index = _inner(e)
+        base = _strip_casts(base)
+        ref = base.get("referencedDecl", {}) if base.get("kind") == "DeclRefExpr" else {}
+        labels = self.fn.label_arrays.get(ref.get("id"))
+        name = ref.get("name")
+        if labels is None:
+            tables = getattr(self.program, "jump_tables", {}) or {}
+            labels = tables.get(name)
+            if labels is None:
+                self.fn.report.computed_gotos.append({"table": name, "labels": self._label_leads()})
+                raise Unsupported(f"computed goto through {name}, which hostgen.json jump_tables does not name")
+            known = set(self.fn.labels.values())
+            if any(l not in known for l in labels if l):
+                raise Unsupported(f"jump_tables {name} names a label {self.fn.name} does not have")
+        out = [pad + f"switch ((int)({self.rv(index)})) {{"]
+        for i, label in enumerate(labels):
+            if label:
+                out.append(pad + f"case {i}: goto {label};")
+        out.append(pad + f"default: {{ static openrac_reach_site site_ = {{\"{self.fn.name}\", \"jump-table\", "
+                         f"\"{name} index out of its table\", 0, 0}}; openrac_guest_reach(&site_); }} break;")
+        out.append(pad + "}")
+        return out
 
     # ---- Statements ----
 
@@ -1036,6 +1240,8 @@ class Unit:
             if name is None:
                 raise Unsupported("goto to an unknown label")
             return [pad + f"goto {name};"]
+        if k == "IndirectGotoStmt":
+            return self._indirect_goto(n, pad)
         if k == "LabelStmt":
             kids = _inner(n)
             return [f"{n['name']}:", *(self.stmt(kids[0], depth) if kids else [pad + ";"])]
@@ -1284,6 +1490,8 @@ class Unit:
         init = init[0] if (d.get("init") and init) else None
         if d.get("storageClass") == "extern":
             return []
+        if d["id"] in fn.label_arrays:
+            return []  # a computed goto's table: its gotos are switches (_indirect_goto)
         if d["id"] in fn.statics:
             return []  # set up in the prologue
         if d["id"] in fn.vla:
@@ -1870,7 +2078,22 @@ class Unit:
             return self._ps2_binary(op, self.rv(a), self.rv(b))
         if op == "/" and self.cls(self.ty(n)) == "float":
             return f"openrac_fdiv({self.rv(a)}, {self.rv(b)})"  # the EE's divide (guest.h)
+        helper = self._int_divide(op, self.ty(n), b)
+        if helper:
+            return f"{helper}({self.rv(a)}, {self.rv(b)})"
         return f"({self.rv(a)} {op} {self.rv(b)})"
+
+    def _int_divide(self, op: str, t: ctype.Type, divisor: dict) -> str | None:
+        """The EE's divide for a 32-bit int's / or % by a divisor that is not a constant (guest.h, openrac_sdiv):
+        it does not trap on zero, where the host's would."""
+        if op not in ("/", "%") or _constant(_strip_casts(divisor)) is not None:
+            return None
+        c = self.canon(ctype.strip_quals(t))
+        if c in ("int", "signed int", "s32"):
+            return "openrac_sdiv" if op == "/" else "openrac_smod"
+        if c in ("unsigned int", "u32"):
+            return "openrac_udiv" if op == "/" else "openrac_umod"
+        return None
 
     def rv_CompoundAssignOperator(self, n: dict) -> str:
         op = n["opcode"]
@@ -1887,6 +2110,9 @@ class Unit:
             return f"({lv.text} = {PS2_ARITH[op[:-1]]}({lv.text}, {self.rv(b)}))"
         if op == "/=" and self.cls(ta) == "float" and self.cls(self.ty(b)) == "float":
             return f"({lv.text} = openrac_fdiv({lv.text}, {self.rv(b)}))"
+        helper = self._int_divide(op[:-1], ta, b) if self.cls(self.ty(b)) != "float" else None
+        if helper and lv.addr is None:
+            return f"({lv.text} = {helper}({lv.text}, {self.rv(b)}))"
         return f"({lv.text} {op} {self.rv(b)})"
 
     def rv_ConditionalOperator(self, n: dict) -> str:
@@ -2000,9 +2226,17 @@ class Unit:
         if ref.get("kind") == "FunctionDecl":
             raise Unsupported(f"function {sym} as an lvalue")
         address = self.program.data_address(sym)
+        only_level = None
         if address is None:
+            only_level, address = self._level_only_data(sym) or (None, None)
+        if address is None:
+            value = self._static_constant(d)
+            if value is not None:
+                return LV(value)
             raise Unsupported(f"global {sym} has no known address")
         named_level = self.program.data_level(sym) if hasattr(self.program, "data_level") else None
+        if only_level is not None:
+            named_level = only_level
         addr = self.global_address(address, self._code_symbol(sym) is not None, named_level, sym)
         return LV(self.gref(t, addr), addr)
 
@@ -2028,7 +2262,7 @@ class Unit:
             # A level's datum the code only forms with something added (hostgen.json "formed_as",
             # func_L00_002D5E30's D_L00_00262260, formed as the table + 2): the sum, as that level
             # has it, less what was added.
-            return f"(OPENRAC_LDATA({int(named.group(1))}, {hexaddr(formed_level)}) - {hexaddr(formed_level - address)})"
+            return f"(OPENRAC_LDATA({int(named.group(1))}, {hexaddr(formed_level)}){_offset(address - formed_level)})"
         if (named and not code and int(named.group(2), 16) != address
                 and (self._shared_level() is not None or UNIT_LEVEL.search(self.unit))):
             return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
@@ -2053,7 +2287,7 @@ class Unit:
         if formed is not None:
             # An address the code only forms with something added (hostgen.json "formed_as"): pairing
             # the programs finds the sum, so the name is that, relocated, less what was added.
-            return f"(OPENRAC_DATA({hexaddr(formed)}) - {hexaddr(formed - address)})"
+            return f"(OPENRAC_DATA({hexaddr(formed)}){_offset(address - formed)})"
         # A level function written with another level's name for the datum (func_L16_00435CE8 was
         # matched from level 23's copy and says D_L23_001B2144, which level 16 has at 0x001B24C4;
         # func_L00_002A53B8 says D_L24_0025B710): the name's level's address, as the level loaded
@@ -2177,6 +2411,48 @@ class Unit:
         home = level if level is not None else places[0][0]
         canon = next((a for o, a in places if o == home), places[0][1])
         return home, canon, getattr(self.program, "sizes", {}).get(fn.code) or 0x400
+
+    def _static_constant(self, d: dict) -> str | None:
+        """A file's `static const double huge = 1.0e300;` (fdlibm's): a scalar constant with no address of its
+        own in the program (a static is in no symbol table), read as its value."""
+        if d.get("kind") != "VarDecl" or d.get("storageClass") != "static":
+            return None
+        written = d.get("type", {}).get("qualType", "")
+        if not written.startswith("const ") and " const" not in written:
+            return None
+        if self.cls(self.ty(d)) not in ("int", "float", "double", "i64", "u64", "uint", "long"):
+            if self.cls(self.ty(d)) in ("rec", "arr", "ptr", "valist", "void"):
+                return None
+        inits = [c for c in _inner(d) if c.get("kind") not in ("AlignedAttr", "SectionAttr", "UsedAttr")]
+        if not d.get("init") or not inits:
+            return None
+        saved, self.fn_static_init = getattr(self, "fn_static_init", False), True
+        try:
+            return f"(({self.host(ctype.strip_quals(self.ty(d)))})({self.rv(inits[0])}))"
+        except Unsupported:
+            return None
+        finally:
+            self.fn_static_init = saved
+
+    def _level_only_data(self, sym: str) -> tuple[int, int] | None:
+        """A datum only the levels' builds place (derived.py level_data: D_len, g_001B2B0C), for the function
+        being translated: its address in the levels that carry the function, when they agree."""
+        fn = self.fn
+        if fn is None or not sym:
+            return None
+        levels = {o for o, _ in self.program.code_places(fn.code) if o >= 0}
+        m = LEVEL_NAME.match(fn.code)
+        if not levels and m:
+            levels = {int(m.group(1))}
+        found = {level: self.program.level_data.get(level, {}).get(sym) for level in sorted(levels)}
+        found = {level: a for level, a in found.items() if a is not None}
+        if not found:
+            return None
+        # Levels that disagree: one level's address, which the run time moves to the level loaded
+        # (OPENRAC_LDATA, by the two levels' programs), as it does for the function's other globals.
+        own = int(m.group(1)) if m else None
+        level = own if own in found else min(found)
+        return level, found[level]
 
     def _shared_level(self) -> int | None:
         """For a function several levels' programs carry (func_LNN_..., placed in more than one
@@ -3018,6 +3294,10 @@ class Unit:
                                f"sizeof {regs[k]} : 8); ({canon_p})bits_; }})")
                 else:
                     out.append(self._cast_to(regs[k], p))
+            elif len(out) >= len(sig.params) - len(getattr(self.program.lookup(self.unit, sym), "extra", ()) or ()):
+                # A parameter the callee's C leaves out that this call does not pass either
+                # (params_from_declarations): 0, as the callee's short definition passed on before.
+                out.append(self._cast_to("0", p))
             else:
                 # Nothing of the caller's own in that register either: on the console it held
                 # whatever the caller last put there, which C does not say (hostgen's report).

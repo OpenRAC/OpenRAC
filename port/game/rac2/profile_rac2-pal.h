@@ -48,7 +48,7 @@ constexpr Release kPal{
     0x001A7340,  // the release's build
     0x00152C98,  // versionmap: between
     0x00152CB0,  // versionmap: between
-    {0x001B21BCu, 0x001B20A0u, 0x001B21B4u, 0x001B2098u},  // the same instruction of the paired function, versionmap: exact
+    {0x001B21BCu, 0x001B20A0u, 0x001B21B4u, 0x001B2098u},  // versionmap: exact
     0x001B1B90u,  // versionmap: exact
     0x00189EA0u,  // the release's build
 };

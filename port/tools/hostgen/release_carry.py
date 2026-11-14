@@ -329,6 +329,8 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     out["title"] = f"Ratchet & Clank: Going Commando ({names[version]})"
     out["serial"] = {"pal": "SCES_516.07", "us2": "SCUS_972.68"}[version]
     out["frame_rate"] = 50 if version == "pal" else 60
+    # PAL's code counts in fiftieths (its own constants, no 60 Hz mode): the port ticks it 50 times a second.
+    out["tick_rate"] = 50 if version == "pal" else 60
     out["entry"] = p.function(cfg["entry"], "entry")
     out["ps2_float"] = carry_list(p, cfg.get("ps2_float", []), "ps2_float")
     other = {"pal": "src/us2", "us2": "src/pal"}[version]
@@ -400,6 +402,17 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
         if row:
             units[unit] = row
     out["unit_aliases"] = units
+    # hostgen.json "extra_params": the same functions by the release's names.
+    if cfg.get("extra_params"):
+        out["extra_params"] = {k2: v for k, v in cfg["extra_params"].items()
+                               if (k2 := (k if k.startswith("#") else p.function(k, "extra_params")))}
+    # "jump_tables": the release's own file beside its hostgen.json, which jumptables.py writes from the
+    # release's disc (its tables hold the release's addresses; the labels are the C's).
+    if cfg.get("jump_tables"):
+        out["jump_tables"] = "jump_tables.json"
+    # "hand": the release's own C for its own hand-written assembly (func_PAL_...), beside its hostgen.json.
+    if (p.out_dir / "hand/hand.tsv").is_file():
+        out["hand"] = "hand/hand.tsv"
     out["relocate"] = [info["level_base"], cfg["relocate"][1]]
     out["level_hooks"] = level_hooks(p, carry_list(p, cfg.get("level_hooks", []), "level_hooks"),
                                      cfg.get("level_hooks", []))
@@ -762,6 +775,80 @@ def profile_table(p: Pairing, profile: str, version: str) -> str:
     ])
 
 
+def _definition(text: str, name: str) -> tuple[int, int] | None:
+    """Where TEXT defines NAME: from its first line to its closing brace, or None."""
+    m = re.search(r"^[A-Za-z][^\n;]*\b" + re.escape(name) + r"\s*\([^;{]*$", text, re.M)
+    if m is None:
+        return None
+    end = text.find("\n}", m.start())
+    return (m.start(), end + 2) if end >= 0 else None
+
+
+def _release_definition(p: Pairing, new: str) -> tuple[str, str] | None:
+    """The release's own C of its function NEW (src/pal, src/us2: func_PAL_..., func_US2_L01_...):
+    (the file's text, the name it is defined by), or None where it shares v1.01's C."""
+    m = FUNC.fullmatch(new)
+    if m is None:
+        return None
+    tag = rel.RELEASES[p.version]["tag"]
+    own = f"func_{tag}_" + (f"L{m.group(1)}_" if m.group(1) else "") + m.group(2)
+    for path in sorted((p.source / "src" / p.version).rglob("*.c")):
+        text = path.read_text(errors="replace")
+        if own in text and _definition(text, own):
+            return text, own
+    return None
+
+
+def carry_overrides(p: Pairing, table: Path, out: Path) -> None:
+    """hostgen.json "overrides": the port's own C for matched functions goes in after the release's
+    names are written (prep.copy_tree), so each file is written again in them (release.py's text),
+    under the release's name of its function. Where the release has C of its own for the function
+    (a 50 Hz constant), the override's change to v1.01's C is made to the release's C instead."""
+    import difflib
+    out.parent.mkdir(parents=True, exist_ok=True)
+    rows = ["# Written by port/tools/hostgen/release_carry.py from the primary release's overrides; do not edit.",
+            "# name\tfile (relative to this table)"]
+    v1_texts = {path: path.read_text(errors="replace") for path in (p.source / "src").rglob("*.c")
+                if path.relative_to(p.source / "src").parts[0] not in ("pal", "us2", "jp", "kr")}
+    for line in table.read_text().splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        name, _, rel_path = line.partition("\t")
+        name = name.strip()
+        new = p.function(name, "overrides")
+        if new is None or new.startswith("func_V1_"):
+            p.report.setdefault("overrides_not_carried", []).append(name)
+            continue
+        override = (table.parent / rel_path.strip()).read_text()
+        at = _definition(override, name)
+        own = _release_definition(p, new)
+        original = next((tx[s:e] for tx in v1_texts.values() if (se := _definition(tx, name)) for s, e in [se]), None)
+        if own is not None and at is not None and original is not None:
+            text, own_name = own
+            s, e = _definition(text, own_name)
+            mine, theirs, base = override[at[0]:at[1]].split("\n"), text[s:e].split("\n"), original.split("\n")
+            patched = list(theirs)
+            for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, base, mine).get_opcodes():
+                if tag == "equal":
+                    continue
+                if tag != "replace" or i2 - i1 != j2 - j1:
+                    raise SystemExit(f"overrides: {name}: only line-for-line changes are carried")
+                for k in range(i2 - i1):
+                    if theirs[i1 + k].strip() == base[i1 + k].strip():
+                        patched[i1 + k] = mine[j1 + k]
+                    else:
+                        raise SystemExit(f"overrides: {name}: the release's line differs where the override changes it")
+            body = "\n".join(patched).replace(own_name, name, 1)
+            override = override[:at[0]] + body + override[at[1]:]
+        written = p.table.text(override)
+        # The definition goes by the release's name of the function, which the release view may spell
+        # otherwise (a v1.01 definition the release replaces with its own is func_V1_ there).
+        written = re.sub(r"\b" + re.escape(p.table.name(name)) + r"\b", new, written)
+        (out.parent / f"{new}.c").write_text(written)
+        rows.append(f"{new}\t{new}.c")
+    out.write_text("\n".join(rows) + "\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--game", type=Path, required=True, help="the release's hostgen.json (its directory is written)")
@@ -785,12 +872,25 @@ def main(argv: list[str] | None = None) -> int:
     p.out_dir = out_dir
     new_cfg = carry_config(p, cfg, args.version)
     primary = args.primary.parent
-    (out_dir / "libraries.tsv").write_text(carry_libraries(p, (primary / "libraries.tsv").read_text()))
+    libraries = carry_libraries(p, (primary / "libraries.tsv").read_text())
     extra = out_dir / "release_extra.json"
+    if extra.is_file() and json.loads(extra.read_text()).get("libraries"):
+        # Rows of the release's own (release_extra.json "libraries"): a level copy its catalogue names apart.
+        libraries += "# This release's own rows (release_extra.json).\n" + "".join(
+            row + "\n" for row in json.loads(extra.read_text())["libraries"])
+    (out_dir / "libraries.tsv").write_text(libraries)
     if extra.is_file():
         for key, rows in json.loads(extra.read_text()).items():
             if key == "from_assembly":
                 new_cfg["from_assembly"] = list(dict.fromkeys(new_cfg.get("from_assembly", []) + list(rows)))
+            elif key == "libraries":
+                pass                    # written into libraries.tsv above
+            elif key == "more_places":
+                # More places of a function the release's catalogue names apart (a level copy).
+                more = new_cfg.setdefault("more_places", {})
+                for name, places in rows.items():
+                    if not name.startswith("#"):
+                        more[name] = ",".join(x for x in (more.get(name, ""), places) if x)
             elif key == "unit_aliases":
                 # unit -> {the name its C calls, in the release's names: {"is": the release's
                 # function, "why": the evidence}}: a v1.01 function the release table could not
@@ -802,6 +902,8 @@ def main(argv: list[str] | None = None) -> int:
         add_signatures(p, new_cfg, cfg, (primary / "libraries.tsv").read_text(), args.primary_protos.read_text())
     args.game.write_text(json.dumps(new_cfg, indent=2) + "\n")
     (out_dir / "split_places.tsv").write_text(carry_split_places(p, (primary / "split_places.tsv").read_text()))
+    if cfg.get("overrides"):
+        carry_overrides(p, primary / cfg["overrides"], out_dir / cfg["overrides"])
     host = out_dir / "host"
     host.mkdir(exist_ok=True)
     shared = primary.parent / "rac2" / "host"
