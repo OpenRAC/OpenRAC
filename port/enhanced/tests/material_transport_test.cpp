@@ -57,6 +57,25 @@ void test_preparation_identity(const std::filesystem::path& directory) {
     CHECK(!error);
 }
 
+void test_glass_preparation_identity(const std::filesystem::path& directory) {
+    const auto baseline = lighting::probe_input_hash(directory);
+    const auto glass = catalog(R"({"type":"glass-lit"})");
+    CHECK(materials::write_catalog(directory / "material-overrides.json", glass));
+    const auto glass_hash = lighting::probe_input_hash(directory);
+    CHECK(glass_hash != baseline);
+    const auto tuned = catalog(R"({"type":"glass-lit","glass":{"transmission":0.5},"surface":{"roughness":0.7}})");
+    CHECK(materials::write_catalog(directory / "material-overrides.json", tuned));
+    CHECK(lighting::probe_input_hash(directory) == glass_hash);
+    const auto lit = catalog(R"({"type":"lit"})");
+    CHECK(materials::write_catalog(directory / "material-overrides.json", lit));
+    CHECK(lighting::probe_input_hash(directory) == baseline);
+    materials::Catalog generated;
+    generated.presets["lit-default"] = {{"type", std::string("glass-lit")}};
+    CHECK(materials::write_catalog(directory / "material-overrides.json", generated));
+    CHECK(lighting::probe_input_hash(directory) != baseline);
+    std::filesystem::remove(directory / "material-overrides.json");
+}
+
 // Migrated identical values and visible glow edits preserve existing bakes when baked intensity remains fixed.
 void test_activation_identity(const std::filesystem::path& directory) {
     scene::LevelData level;
@@ -84,14 +103,14 @@ void test_activation_identity(const std::filesystem::path& directory) {
 
     const auto texture = catalog(R"({"emission":{"bake_mode":"texture","average_for_bake":true}})");
     const auto texture_surface =
-        scene::resolve_materials(source, texture).value()->bindings[0].surface;
+        scene::resolve_materials(source, texture).value()->bindings[0].surface();
     CHECK(!texture_surface.bake_mesh_rgb);
     CHECK(texture_surface.bake_use_cutout);
     CHECK(!texture_surface.average_emission_for_bake);
 
     const auto mesh = catalog(R"({"emission":{"bake_mode":"mesh","bake_mesh_rgb":[2,4,8]}})");
     level.material_bindings = scene::resolve_materials(source, mesh).value();
-    const auto& mesh_surface = level.material_bindings->bindings[0].surface;
+    const auto& mesh_surface = level.material_bindings->bindings[0].surface();
     CHECK(mesh_surface.bake_mesh_rgb.value() == (scene::Vec3{2, 4, 8}));
     CHECK(!mesh_surface.bake_use_cutout);
     const auto mesh_hash = lighting::probe_scene_hash(level, scene, 0, false);
@@ -100,7 +119,7 @@ void test_activation_identity(const std::filesystem::path& directory) {
         R"({"emission":{"bake_mode":"mesh","bake_mesh_rgb":[2,4,8],"bake_use_cutout":true}})"
     );
     level.material_bindings = scene::resolve_materials(source, masked).value();
-    CHECK(level.material_bindings->bindings[0].surface.bake_use_cutout);
+    CHECK(level.material_bindings->bindings[0].surface().bake_use_cutout);
     CHECK(lighting::probe_scene_hash(level, scene, 0, false) != mesh_hash);
     const auto incomplete = catalog(R"({"emission":{"bake_mode":"mesh"}})");
     CHECK(!scene::resolve_materials(source, incomplete));
@@ -122,6 +141,7 @@ int main() {
         CHECK(std::filesystem::create_directory(directory, error));
         CHECK(!error);
         test_preparation_identity(directory);
+        test_glass_preparation_identity(directory);
         test_activation_identity(directory);
         std::filesystem::remove(directory, error);
         CHECK(!error);

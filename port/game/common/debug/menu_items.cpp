@@ -39,12 +39,20 @@ using menu::Id;
 // What an entry shows now.
 struct Item {
     bool shown = true;
+    bool enabled = true;
     std::string label;      // empty: the catalog's
     bool on = false;        // a switch
+    bool selected = false;  // an action whose settings match
     std::string value;      // a choice's value, a note's line
     bool can_lower = true;  // a choice: whether it can be moved back and on
     bool can_raise = true;
 };
+
+settings::EnhancedPreset enhanced_preset(Id id) {
+    return static_cast<settings::EnhancedPreset>(
+        static_cast<int>(id) - static_cast<int>(Id::EnhancedLow)
+    );
+}
 
 constexpr bool kEnhancedBuilt =
 #if defined(OPENRAC_ENHANCED_RENDERING) && OPENRAC_ENHANCED_RENDERING
@@ -301,19 +309,6 @@ Item item(Id id, std::uint8_t where) {
             it.shown = enhanced_ready();
             it.on = set.enhanced_graphics;
             return it;
-        case Id::EnhancedPreset: {
-            it.shown = enhanced_on();
-            const settings::EnhancedPreset preset = set.enhanced_preset();
-            it.value = settings::kEnhancedPresetNames[static_cast<int>(preset)];
-            // From Custom, left picks Low and right High.
-            it.can_lower = preset != settings::EnhancedPreset::Low;
-            it.can_raise = preset != settings::EnhancedPreset::High;
-            return it;
-        }
-        case Id::ModernShadows:
-            it.shown = enhanced_on();
-            it.on = set.enhanced_shadows;
-            return it;
         case Id::ShadowFilter: {
             it.shown = enhanced_on() && set.enhanced_shadows;
             const int filter = static_cast<int>(set.shadow_filter);
@@ -322,44 +317,35 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = filter < static_cast<int>(renderer::ShadowFilter::Count) - 1;
             return it;
         }
-        case Id::ShadowQuality: {
-            it.shown = enhanced_on() && set.enhanced_shadows;
-            const int quality = static_cast<int>(set.shadow_quality);
-            it.value = renderer::kShadowQualityNames[quality];
-            it.can_lower = quality > 0;
-            it.can_raise = quality < static_cast<int>(renderer::ShadowQuality::Count) - 1;
+        case Id::EnhancedLow:
+        case Id::EnhancedMedium:
+        case Id::EnhancedHigh: {
+            const auto preset = enhanced_preset(id);
+            it.shown = enhanced_on();
+            it.selected = set.enhanced_preset() == preset;
             return it;
         }
-        case Id::RimLight:
+        case Id::ShadowQuality: {
             it.shown = enhanced_on();
-            it.on = set.rim_light;
-            return it;
-        case Id::RimShadowLift:
-            it.shown = enhanced_on() && set.rim_light;
-            it.on = set.rim_shadow_lift;
-            return it;
-        case Id::BounceStrength:
-            it.shown = enhanced_on();
-            it.value = std::format("{:g}x", set.probe_gi_multiplier);
-            it.can_lower = set.probe_gi_multiplier > 0.05f;
-            it.can_raise = set.probe_gi_multiplier < 4.95f;
-            return it;
-        case Id::AmbientOcclusion:
-            it.shown = enhanced_on();
-            it.on = set.gtao;
-            return it;
-        case Id::OcclusionQuality: {
-            it.shown = enhanced_on() && set.gtao;
-            constexpr const char* kNames[] = {"Low", "Performance", "Quality"};
-            const int quality = static_cast<int>(set.gtao_settings.quality);
-            it.value = kNames[quality];
+            const int quality = set.shadow_quality_choice();
+            it.value = quality == 0 ? "Off" : renderer::kShadowQualityNames[quality - 1];
             it.can_lower = quality > 0;
-            it.can_raise = quality < static_cast<int>(renderer::GtaoQuality::Quality);
+            it.can_raise = quality < static_cast<int>(renderer::ShadowQuality::Count);
+            return it;
+        }
+        case Id::OcclusionQuality: {
+            it.shown = enhanced_on();
+            const int quality = set.occlusion_quality_choice();
+            constexpr const char* names[] = {"Off", "Low", "Performance", "Quality"};
+            it.value = names[quality];
+            it.can_lower = quality > 0;
+            it.can_raise = quality < static_cast<int>(renderer::GtaoQuality::Quality) + 1;
             return it;
         }
         // The hierarchy is relevant only while enhanced ambient occlusion is enabled.
         case Id::OcclusionHiZ:
-            it.shown = enhanced_on() && set.gtao;
+            it.shown = enhanced_on();
+            it.enabled = set.gtao;
             it.on = set.gtao_settings.hi_z;
             return it;
         case Id::TextureUpscaling: {
@@ -393,8 +379,8 @@ Item item(Id id, std::uint8_t where) {
             return it;
         }
         case Id::Sharpening:
-            it.shown = enhanced_on() && enhanced::Fsr3::available()
-                       && set.temporal_quality != renderer::TemporalQuality::Off;
+            it.shown = enhanced_on() && enhanced::Fsr3::available();
+            it.enabled = set.temporal_quality != renderer::TemporalQuality::Off;
             it.value = percent(set.temporal_sharpness);
             it.can_lower = set.temporal_sharpness > 0.025f;
             it.can_raise = set.temporal_sharpness < 0.975f;
@@ -431,6 +417,10 @@ Item item(Id id, std::uint8_t where) {
         case Id::EnhancedAdvanced:
             it.shown = gl::enhanced_rendering_available();
             it.on = s.enhanced_settings;
+            return it;
+        case Id::EnhancedMaterials:
+            it.shown = gl::enhanced_rendering_available();
+            it.on = s.material_settings;
             return it;
 
         // ---- Game ----
@@ -698,20 +688,6 @@ bool act(Id id, int by) {
             set.enhanced_graphics = !set.enhanced_graphics;
             changed();
             return false;
-        case Id::EnhancedPreset: {
-            const settings::EnhancedPreset preset = set.enhanced_preset();
-            const int last = static_cast<int>(settings::EnhancedPreset::High);
-            const int next = preset == settings::EnhancedPreset::Custom
-                                 ? (by < 0 ? 0 : last)
-                                 : std::clamp(static_cast<int>(preset) + by, 0, last);
-            set.apply_enhanced_preset(static_cast<settings::EnhancedPreset>(next));
-            changed();
-            return false;
-        }
-        case Id::ModernShadows:
-            set.enhanced_shadows = !set.enhanced_shadows;
-            changed();
-            return false;
         case Id::ShadowFilter: {
             const int last = static_cast<int>(renderer::ShadowFilter::Count) - 1;
             set.shadow_filter = static_cast<renderer::ShadowFilter>(
@@ -720,36 +696,21 @@ bool act(Id id, int by) {
             changed();
             return false;
         }
-        case Id::ShadowQuality: {
-            const int last = static_cast<int>(renderer::ShadowQuality::Count) - 1;
-            set.shadow_quality = static_cast<renderer::ShadowQuality>(
-                std::clamp(static_cast<int>(set.shadow_quality) + by, 0, last)
-            );
+        case Id::EnhancedLow:
+        case Id::EnhancedMedium:
+        case Id::EnhancedHigh: {
+            set.apply_enhanced_preset(enhanced_preset(id));
             changed();
             return false;
         }
-        case Id::RimLight:
-            set.rim_light = !set.rim_light;
+        case Id::ShadowQuality: {
+            const int last = static_cast<int>(renderer::ShadowQuality::Count);
+            set.set_shadow_quality_choice(std::clamp(set.shadow_quality_choice() + by, 0, last));
             changed();
             return false;
-        case Id::RimShadowLift:
-            set.rim_shadow_lift = !set.rim_shadow_lift;
-            changed();
-            return false;
-        case Id::BounceStrength:
-            set.probe_gi_multiplier = stepped(set.probe_gi_multiplier, 0.25f, by, 0.0f, 5.0f);
-            changed();
-            return false;
-        case Id::AmbientOcclusion:
-            set.gtao = !set.gtao;
-            changed();
-            return false;
+        }
         case Id::OcclusionQuality:
-            set.gtao_settings.quality = static_cast<renderer::GtaoQuality>(std::clamp(
-                static_cast<int>(set.gtao_settings.quality) + by,
-                0,
-                static_cast<int>(renderer::GtaoQuality::Quality)
-            ));
+            set.set_occlusion_quality_choice(std::clamp(set.occlusion_quality_choice() + by, 0, static_cast<int>(renderer::GtaoQuality::Quality) + 1));
             changed();
             return false;
         // Persist the hierarchy choice with the remaining ambient-occlusion options.
@@ -810,6 +771,9 @@ bool act(Id id, int by) {
         case Id::EnhancedAdvanced:
             s.enhanced_settings = !s.enhanced_settings;
             return s.enhanced_settings;
+        case Id::EnhancedMaterials:
+            s.material_settings = !s.material_settings;
+            return s.material_settings;
 
         // ---- Game ----
         case Id::Volume:
@@ -1073,12 +1037,15 @@ void draw_entry(Id id, std::uint8_t where) {
     bool close = false;
     switch (e.kind) {
         case menu::Kind::Switch:
-            if (menu_switch(label.c_str(), it.on)) {
+            if (menu_switch(label.c_str(), it.on, it.enabled)) {
                 close = act(id, 1);
             }
             break;
         case menu::Kind::Choice:
-            if (const int by = menu_choice(label.c_str(), it.value, it.can_lower, it.can_raise)) {
+            // The upscaler name can change as it starts. Keep focus tied to the catalog entry.
+            if (const int by = menu_choice(
+                    label.c_str(), it.value, it.can_lower, it.can_raise, it.enabled, e.label
+                )) {
                 close = act(id, by);
             }
             break;
@@ -1099,11 +1066,13 @@ void draw_entry(Id id, std::uint8_t where) {
             }
             break;
         }
-        case menu::Kind::Action:
-            if (menu_row(label.c_str(), id == Id::Quit ? ui().err : ui().text)) {
+        case menu::Kind::Action: {
+            const auto ink = it.selected ? ui().gold : id == Id::Quit ? ui().err : ui().text;
+            if (menu_row(label.c_str(), ink)) {
                 close = act(id, 1);
             }
             break;
+        }
         case menu::Kind::Note:
             if (id == Id::FreecamHelp) {
                 freecam_help(where);

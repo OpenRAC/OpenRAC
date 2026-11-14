@@ -8,6 +8,9 @@
 #include <vector>
 
 namespace openrac::enhanced {
+// Material identity shared by the generated pane and the unified material catalog.
+inline constexpr std::string_view kShipVisorMaterial = "metal_glass_ship_visor";
+
 enum class ReflectionSurface {
     Water,
     Clank,

@@ -21,6 +21,12 @@ Rules use stable ids and explicit layer, class, material-slot, packet-pass or co
 Fields merge independently. More specific matching rules win within a source layer; equally ranked
 conflicting assignments are errors. Missing fields inherit. A disabled rule is an explicit tombstone.
 
+Named definitions remain in `presets` for compatibility. A rule with `"material": "paint"` assigns
+one complete shared definition to its matching mesh slots, replacing earlier finish properties.
+The older `"preset"` spelling continues to contribute sparse inherited properties. A rule cannot
+use both references. Textures, coverage and geometry remain properties of the original mesh slots.
+Equivalent resolved render records are stored once and referenced by multiple bindings.
+
 ## Tests
 `material_catalog` checks strict syntax/types/ranges, selector isolation, ambiguity, sparse source
 priority, provenance, save/read stability and separation of runtime controls from transport inputs.
@@ -32,7 +38,10 @@ The enhanced module documents material consumers and its authoring UI.
 {
   "version": 1,
   "presets": {"leaf": {"shading": "foliage", "foliage": {"transmission": 0.35}}},
-  "overrides": [{"id": "plant-body", "match": {"layer": "shrub", "class_id": 7}, "preset": "leaf"}]
+  "overrides": [
+    {"id": "plant-body", "match": {"layer": "shrub", "class_id": 7}, "material": "leaf"},
+    {"id": "fern-body", "match": {"layer": "shrub", "class_id": 8}, "material": "leaf"}
+  ]
 }
 ```
 
@@ -66,6 +75,9 @@ Tracked profiles live in `enhanced/lighting/profiles/<game[-version]>/[level_NN/
 Export/bake preparation writes separate `materials/shared`, `materials/version` and `materials/level`
 catalogs inside each level. User edits save to the highest-priority mod/override/level root catalog;
 export never overwrites that file. A parent-folder catalog supplies user defaults across levels.
+To ship Studio edits, merge the saved root catalog into the matching tracked level profile,
+preserving its existing rules and shared definitions. New exports and bake preparation then publish
+those settings into `materials/level`; local Studio saves continue to override the tracked defaults.
 Legacy emission sidecars remain readable; unchanged generated defaults are not imported as local edits.
 Fur coverage, water boundaries/simulation, bake geometry and authored lights keep their own formats.
 
@@ -75,3 +87,42 @@ use the exported `model` name and zero-based `material_slot` (`-1` for implicit 
 see its source; edits preview live, Save writes a sparse overlay atomically, and Discard restores the
 last loaded/saved values. Saving refuses external file changes. Importing new image references and
 changing verified fur coverage require editing the JSON and reloading the level.
+
+Material Studio separates the **Materials** library from the **Surfaces** browser. Each surface shows
+its shared material name. Untouched surfaces and legacy overrides are imported into shared definitions;
+equivalent appearances share one definition, while textures and geometry remain with their surfaces.
+The surface browser shows every editable surface; **Local changes only** filters assignments and
+imported local edits. Pick a surface, then
+choose a shared material, **Create shared material**, or **Choose a finish**. Library finishes create
+reusable definitions instead of copying values into each surface. Editing a linked material updates
+every user; **Make independent copy** creates a separate material for the selected surfaces.
+Every definition has a **Material type** selector: **Lit**, **Glass Lit**, **Lit Fur Surface**,
+**Lit Wet Fur Surface**, **Lit Foliage**, or **Original**. Types select the active controls and shader
+response. Water is a Lit option for the level's water binding. Fur and wet fur retain verified coverage
+and the existing wetness simulation. Glass Lit moves assigned geometry into the transparent pass;
+switching between opaque and glass materials invalidates static GI, while reflection and transmission
+tuning stays runtime-only. The original texture cutout mask remains in effect for Glass Lit.
+Original retains the original appearance without enhanced material lighting. On chrome surfaces it
+restores the retail reflective geometry and texture; Lit uses the colour/replacement geometry instead.
+Each surface controls its own chrome coverage, including when several surfaces share a retail packet.
+Legacy chrome and stylised
+families migrate to Lit metallic properties; the glossy-plastic library entry is removed.
+**Restore level material** clears saved and unsaved exact-slot
+overrides and assignments for the selection, retaining inherited defaults, shared definitions and
+other users. The reset previews immediately and persists with **Save changes**. Field **Revert** only
+discards unsaved field edits, restoring a new material's initial definition before its first Save.
+**Discard unsaved changes** restores the saved definitions and assignments
+together. **Details > Material sources** shows the underlying rules and files for the selected surface.
+Shared optical controls live in the Vulkan material table, preserving compatible batches.
+
+The serialized `type` ids are `lit`, `glass-lit`, `lit-fur`, `lit-wet-fur`, `foliage`, and `original`.
+Generated definitions use stable content-derived ids, so shared edits persist across reloads without
+writing one assignment per untouched mesh. The source catalog remains separate from the expanded
+editor definitions; legacy sparse rules are import inputs and no longer form a second editing workflow.
+
+Metal finishes retain their measured F0 magnitude in `surface.reflectivity`; the base artwork
+modulates the metallic colour and `reflection.tint` supplies the finish's hue. Switching to an
+opaque or foliage library finish resets `surface.metallic` to zero. Foliage also supports metallic,
+reflection strength and reflection tint for its direct highlights and broad indirect reflection.
+Increasing metallic reduces both reflected and transmitted diffuse light while retaining the
+leaf shader's partial wax coverage.

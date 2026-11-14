@@ -24,7 +24,7 @@ std::map<int, ReflectionSurface> overrides;
 
 // Authored glass wins over object defaults; unusual chrome effects require an explicit override.
 ReflectionSurface automatic_surface(std::string_view name, int class_id) {
-    if (name == "metal_glass") {
+    if (name == "metal_glass" || name == kShipVisorMaterial) {
         return ReflectionSurface::Glass;
     }
     if (name == "metal_stylised" || name == "metal_stylized") {

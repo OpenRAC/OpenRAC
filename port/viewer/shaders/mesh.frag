@@ -52,6 +52,7 @@ uniform int effect_additive;
 // The metal pass: the chrome or glass texel times the vertex colour, its alpha the texel's times the
 // shine, blended over the moby (mesh.vert; ALPHA 0x44 as the moby's own).
 uniform int metal_pass;
+uniform int object_thin_glass;
 uniform vec4 fog_colour;  // FOGCOL; w = 1: fog on
 uniform mat4 view;
 #ifdef OPENRAC_ENHANCED_RENDERING
@@ -139,7 +140,11 @@ vec3 apply_probe_look(vec3 diffuse, vec3 emitted) {
 uniform int object_reflection_enabled;
 uniform vec3 object_reflection_material; // Perceptual roughness, F0, reflection strength.
 uniform vec4 object_reflection_tint; // Linear tint and authored-opacity multiplier.
-vec4 chrome_surface(vec3 original);
+uniform vec3 material_dielectric; // Roughness (zero disables), F0, specular strength.
+uniform vec3 material_dielectric_tint;
+uniform float material_metallic; // Zero inherits original optics; authored metallic is stored plus one.
+vec4 thin_glass_surface();
+float thin_glass_coverage();
 
 // probes.glsl is inserted after the version line by probe_mesh_fragment().
 #ifdef OPENRAC_EARLY_LIGHTING
@@ -209,17 +214,46 @@ vec3 retail_ambient_floor(vec3 indirect, vec3 ambient) {
     return indirect + floor_linear * (deficit / wanted) * 3.14159265359;
 }
 
+vec3 standard_surface(vec3 diffuse, vec3 albedo, vec3 indirect, vec3 n, vec3 toward_camera,
+                      vec4 selector, float visibility) {
+    bool metal_packet = metal_pass != 0;
+    vec3 optics = metal_packet ? object_reflection_material : material_dielectric;
+    if ((!metal_packet && probe_mode != 1) || translucent_pass != 0 || effect_pass != 0
+        || optics.x <= 0.) {
+        return diffuse;
+    }
+    vec3 eye = probe_unit(toward_camera);
+    float metallic = max(material_metallic - 1., 0.);
+    // Reflectivity supplies the measured F0 magnitude; artwork modulates the metal's hue.
+    vec3 f0 = optics.y * mix(vec3(1.), clamp(albedo, 0., 1.), metallic);
+    float roughness = optics.x;
+    float nv = dot(n, eye);
+    vec3 base = diffuse * (1. - metallic) * (vec3(1.) - surface_fresnel(nv, f0));
+    if (optics.z <= 0.) {
+        return base;
+    }
+    vec3 broad = max(indirect, vec3(0.)) / 3.14159265359 * surface_fresnel(nv, f0);
+    vec3 specular = environment_specular(v_world_position, n, eye, roughness, f0, broad)
+        + surface_specular_direct(v_world_position, n, eye, selector, visibility, roughness, f0);
+    float grazing_tint = .5 * dielectric_fresnel(nv, 0.)
+        * smoothstep(.35, .65, roughness) * (1. - metallic);
+    vec3 reflection_colour = mix(vec3(1.), clamp(albedo, 0., 1.), grazing_tint);
+    vec3 tint = metal_packet ? object_reflection_tint.rgb : material_dielectric_tint;
+    return base + specular * reflection_colour * tint * optics.z;
+}
+
 vec3 probe_surface(vec4 texel, vec3 original) {
 #ifdef OPENRAC_HERO_FUR
     if (hero_fur_debug > 0 && hero_fur_debug < 3 && v_hero_fur != 0 && v_glow == 0 && probe_effect == 0 && metal_pass == 0) {
         return fur_diagnostic(v_uv);
     }
 #endif
-    if (v_glow != 0 || probe_effect != 0 || metal_pass != 0
+    if (v_glow != 0 || probe_effect != 0
         || (probe_receiver == 2 && v_probe_selector.w > 1.5)) {
         return original;
     }
     // Apply authored appearance over retail lighting when there is no probe receiver.
+    if ((material_fallback & 4) != 0) return original;
     if ((probe_mode == 0 || probe_receiver == 0) && material_fallback != 0) {
         vec3 diffuse = probe_linear(original);
         if ((material_fallback & 1) != 0) diffuse *= material_diffuse_scale;
@@ -237,7 +271,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         return mix(vec3(.12), vec3(0., .65, 1.), clamp(v_hero_wetness, 0., 1.));
     }
 #endif
-    if (probe_mode == 0 && !foliage && sun_shadow_enabled == 0 && hero_shadow_enabled == 0
+    if (probe_mode == 0 && metal_pass == 0 && !foliage && sun_shadow_enabled == 0 && hero_shadow_enabled == 0
 #ifdef OPENRAC_HERO_FUR
         && !(v_hero_fur != 0 && (hero_fur_debug == 3 || hero_fur_lighting_enabled != 0))
 #endif
@@ -331,16 +365,24 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     // the same shadow floor. This also covers holes in probe coverage.
     // Legacy prelighting may already contain authored brightness. Preserve that
     // component while shadowing the remaining diffuse, without adding it twice.
-    vec3 fallback = wet_coat(
-        max(probe_linear(original) - emitted, vec3(0.0)) * fur_grain * mix(0.1, 1.0, visibility) * hero_cue,
-        surface_n, transpose(mat3(view)) * (-eye_position), visibility
-    ) + fur_direct + emitted;
+    vec3 fallback_diffuse = max(probe_linear(original) - emitted, vec3(0.0))
+        * fur_grain * mix(0.1, 1.0, visibility) * hero_cue;
+    vec3 metal_ambient = probe_linear(clamp(v_probe_ambient, 0., 1.));
+    vec3 toward_camera = transpose(mat3(view)) * (-eye_position);
+    vec4 selector = probe_receiver == 1 ? vec4(0.) : v_probe_selector;
     if (probe_mode == 0) {
+        if (metal_pass != 0) {
+            return probe_display(standard_surface(
+                fallback_diffuse, albedo, metal_ambient * 3.14159265359,
+                surface_n, toward_camera, selector, visibility) + emitted);
+        }
+        vec3 fallback = wet_coat(fallback_diffuse, surface_n, toward_camera, visibility)
+            + fur_direct + emitted;
 #ifdef OPENRAC_FOLIAGE
         if (foliage) {
-            vec4 selector = probe_receiver == 2 ? v_probe_selector : vec4(0.);
-            vec3 direct = foliage_surface(v_world_position, n, transpose(mat3(view)) * (-eye_position),
-                albedo, vec3(0.), selector, visibility, leaf, v_uv);
+            vec4 foliage_selector = probe_receiver == 2 ? v_probe_selector : vec4(0.);
+            vec3 direct = foliage_surface(v_world_position, n, toward_camera,
+                albedo, vec3(0.), foliage_selector, visibility, leaf, v_uv);
             return probe_display(foliage_debug != 0 ? direct : max(fallback, direct + emitted));
         }
 #endif
@@ -353,7 +395,6 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     }
     vec3 indirect;
     // Use the same smooth receiver normal as the depth/normal prepass and early lighting.
-    vec3 toward_camera = transpose(mat3(view)) * (-eye_position);
     vec3 surface_bias = probe_surface_bias(n, toward_camera);
 #ifdef OPENRAC_EARLY_LIGHTING
     indirect = cached_lighting.rgb;
@@ -367,6 +408,11 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         return vec3(0.0);
     }
     if (!covered && probe_mode != 3) {
+        // Direct lights and reflection captures have their own coverage. Only the broad
+        // irradiance-based reflection fallback is unavailable here.
+        vec3 surface = standard_surface(fallback_diffuse, albedo, vec3(0.), surface_n, toward_camera,
+                                        selector, visibility);
+        vec3 fallback = wet_coat(surface, surface_n, toward_camera, visibility) + fur_direct + emitted;
 #ifdef OPENRAC_HERO_FUR
         // A local capture can illuminate the fur even where diffuse probe coverage is absent.
         if (v_hero_fur != 0 && hero_fur_lighting_enabled != 0) {
@@ -390,7 +436,6 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         indirect *= texelFetch(gtao_visibility, pixel, 0).r;
     }
 #endif
-    vec4 selector = probe_receiver == 1 ? vec4(0.0) : v_probe_selector;
 #ifdef OPENRAC_FOLIAGE
     if (foliage) {
         vec3 colour = foliage_surface(v_world_position, n, toward_camera, albedo, indirect,
@@ -439,10 +484,12 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         rim = gameplay_rim(indirect, eye_normal, -eye_position);
     }
 #endif
+    vec3 diffuse = albedo * illumination * material_diffuse_scale;
+    vec3 surface = standard_surface(diffuse, albedo, indirect, surface_n, toward_camera, selector, visibility);
     // Emission is independent of GI exposure, AO and shadow visibility.
-    vec3 diffuse = wet_coat(albedo * illumination * material_diffuse_scale + rim,
-                            surface_n, toward_camera, visibility) + fur_direct + fur_indirect;
-    return probe_display(probe_mode == 1 ? apply_probe_look(diffuse, emitted) : diffuse);
+    vec3 lit = wet_coat(surface + rim, surface_n, toward_camera, visibility)
+        + fur_direct + fur_indirect;
+    return probe_display(probe_mode == 1 ? apply_probe_look(lit, emitted) : lit);
 }
 
 #else
@@ -481,34 +528,56 @@ void main() {
     out_colour = vec4(rgb, 1.0);
 #endif
 #ifndef OPENRAC_SOLID
+#ifdef OPENRAC_ENHANCED_RENDERING
+    if (object_thin_glass == 1 && metal_pass == 0) {
+        out_colour = thin_glass_surface();
+        out_colour.a *= thin_glass_coverage();
+        return;
+    }
+#endif
 #ifndef OPENRAC_COLOUR_SPECIALISED
     if (metal_pass != 0) {
-        vec4 metal = sample_upscaled_texture_colours(v_uv);
-        vec4 m = vec4(vec3(mp_vec3(metal.rgb) * mp_vec3(v_colour.rgb)), metal.a * v_colour.a);
-        vec3 mrgb = min(m.rgb, vec3(1.0));
+        vec4 m;
+        vec3 mrgb;
+#ifdef OPENRAC_ENHANCED_RENDERING
+        if (object_thin_glass == 2) discard;
+        if (object_thin_glass == 1) {
+            m = thin_glass_surface();
+            mrgb = m.rgb;
+            m.a *= thin_glass_coverage();
+        } else
+#endif
+        {
+            vec4 metal = sample_upscaled_texture_colours(v_uv);
+            m = vec4(vec3(mp_vec3(metal.rgb) * mp_vec3(v_colour.rgb)), metal.a * v_colour.a);
+            mrgb = min(m.rgb, vec3(1.0));
 #if defined(OPENRAC_ENHANCED_RENDERING) && !defined(OPENRAC_COLOUR_SPECIALISED)
-        vec4 reflected = chrome_surface(mrgb);
-        mrgb = reflected.rgb;
-        m.a *= reflected.a;
+            bool standard_metal = probe_receiver == 2 && v_probe_selector.w < 1.5
+                && object_reflection_enabled != 0
+                && (probe_mode == 1 || (probe_mode == 0 && object_reflection_enabled == 2));
+            if (standard_metal) {
+                mrgb = probe_surface(metal, mrgb);
+            }
 #endif
 #ifdef OPENRAC_EARLY_LIGHTING
-        // Chrome blends over the diffuse pass: give both layers the edge reflection so the
-        // overlay's opacity cannot erase it. Use cached GI without another probe lookup.
-        if (gameplay_rim_enabled != 0 && probe_receiver == 2 && probe_mode == 1
-            && v_probe_selector.w < 1.5) {
-            vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
-            vec3 geometric = cross(dFdx(eye_position), dFdy(eye_position));
-            vec3 normal_view = orient_shading_normal(mat3(view) * v_normal, geometric, -eye_position);
-            vec4 cached;
-            bool covered;
-            float hero_visibility;
-            if (early_surface(eye_position, normal_view, cached, covered, hero_visibility) && covered) {
-                vec3 rim = gameplay_rim(cached.rgb * probe_gi_multiplier, normal_view, -eye_position);
-                mrgb = probe_display(probe_linear(mrgb) + rim);
+            // Chrome blends over the diffuse pass: give both layers the edge reflection so the
+            // overlay's opacity cannot erase it. Use cached GI without another probe lookup.
+            if (!standard_metal && gameplay_rim_enabled != 0 && probe_receiver == 2 && probe_mode == 1
+                && v_probe_selector.w < 1.5) {
+                vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
+                vec3 geometric = cross(dFdx(eye_position), dFdy(eye_position));
+                vec3 normal_view = orient_shading_normal(mat3(view) * v_normal, geometric, -eye_position);
+                vec4 cached;
+                bool covered;
+                float hero_visibility;
+                if (early_surface(eye_position, normal_view, cached, covered, hero_visibility) && covered) {
+                    vec3 rim = gameplay_rim(cached.rgb * probe_gi_multiplier, normal_view, -eye_position);
+                    mrgb = probe_display(probe_linear(mrgb) + rim);
+                }
             }
-        }
 #endif
-    #ifdef OPENRAC_ATMOSPHERE
+        }
+#ifdef OPENRAC_ATMOSPHERE
         if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
             mrgb = atmosphere_apply(mrgb, v_world_position, true);
         } else
@@ -517,6 +586,9 @@ void main() {
             mrgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(mrgb), mp_float(v_fog)));
         }
         out_colour = vec4(mrgb, clamp(m.a, 0.0, 1.0));
+#ifdef OPENRAC_ENHANCED_RENDERING
+        if (object_thin_glass == 1) out_colour.rgb *= out_colour.a;
+#endif
         return;
     }
 #endif

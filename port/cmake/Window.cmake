@@ -503,6 +503,7 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/viewer/probe_sphere_instances.cpp
   enhanced/renderer/local_lights.cpp
   enhanced/viewer/scene_lighting.cpp
+  enhanced/viewer/ship_visor.cpp
 )
 if(OPENRAC_LIGHT_AUTHORING)
   target_sources(openrac_enhanced_viewer PRIVATE
@@ -516,7 +517,7 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_preview.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_preview.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_selection.comp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/chrome.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/thin_glass.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/wetness.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/foliage.glsl"
@@ -778,8 +779,11 @@ target_include_directories(probe_gpu_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/g
 openrac_warnings(probe_gpu_test)
 if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   add_test(NAME probe_gpu_vulkan COMMAND probe_gpu_test)
+  add_test(NAME probe_sphere_overlay_vulkan COMMAND probe_gpu_test --sphere-overlays)
+  add_test(NAME probe_glass_cutout_vulkan COMMAND probe_gpu_test --glass-cutouts)
+  add_test(NAME probe_chrome_original_vulkan COMMAND probe_gpu_test --chrome-original)
   target_compile_definitions(probe_gpu_test PRIVATE OPENRAC_VULKAN=1)
-  set_tests_properties(probe_gpu_vulkan PROPERTIES SKIP_RETURN_CODE 77
+  set_tests_properties(probe_gpu_vulkan probe_sphere_overlay_vulkan probe_glass_cutout_vulkan probe_chrome_original_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
 

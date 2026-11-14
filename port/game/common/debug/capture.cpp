@@ -102,7 +102,7 @@ void effects_off(settings::Settings& g) {
     g.agx_preview = false;
     g.gtao = false;
     g.enhanced_shadows = false;
-    g.rim_light = false;
+    g.sweep_rim_light_off = true;
     g.probe_gi_multiplier = 0.0f;
     g.texture_filter = renderer::TextureFilter::Normal;
 }
@@ -183,7 +183,7 @@ constexpr SweepStep kSweep[] = {
     {"as set, GTAO off", [](settings::Settings& g) { g.gtao = false; }},
     {"as set, modern shadows off", [](settings::Settings& g) { g.enhanced_shadows = false; }},
     {"as set, AgX off", [](settings::Settings& g) { g.agx_preview = false; }},
-    {"as set, rim light off", [](settings::Settings& g) { g.rim_light = false; }},
+    {"as set, rim light off", [](settings::Settings& g) { g.sweep_rim_light_off = true; }},
     {"enhanced, every effect off", effects_off},
     // The same with the player's upscaler kept: at the render size of "as set", so the two differ
     // by the effects alone.
@@ -593,7 +593,7 @@ perf_capture::Context context(const Shown& shown) {
                               : std::string("off"),
                 graphics.motion_blur ? "on" : "off",
                 graphics.agx_preview ? "on" : "off",
-                graphics.rim_light ? "on" : "off"
+                graphics.sweep_rim_light_off ? "off" : "on"
             ));
     }
 #if defined(OPENRAC_VULKAN)

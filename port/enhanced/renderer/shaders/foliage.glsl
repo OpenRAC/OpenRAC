@@ -54,13 +54,21 @@ struct FoliageSurfaceData {
     vec3 albedo;
     vec3 transmitted;
     vec4 material;
-    float diffuse_energy;
+    vec3 diffuse_energy;
+    vec3 f0;
+    vec3 reflection_gain;
 };
 
 FoliageSurfaceData prepare_foliage(vec3 normal, vec3 eye, vec3 albedo, vec4 material) {
-    float energy = 1. - kFoliageWaxCoverage * dielectric_fresnel(max(dot(normal, eye), 0.), foliage_reflectivity);
+    float metallic = max(material_metallic - 1., 0.);
+    vec3 f0 = foliage_reflectivity * mix(vec3(1.), clamp(albedo, 0., 1.), metallic);
+    // Unauthored leaves keep the established wax response. Authored optics use the shared controls.
+    vec3 gain = material_dielectric.x > 0.
+        ? material_dielectric_tint * material_dielectric.z : vec3(1.);
+    vec3 energy = (1. - metallic)
+        * (vec3(1.) - kFoliageWaxCoverage * surface_fresnel(max(dot(normal, eye), 0.), f0));
     return FoliageSurfaceData(normal, eye, albedo * material_diffuse_scale,
-        foliage_transmittance(albedo, material) * material_diffuse_scale, material, energy);
+        foliage_transmittance(albedo, material) * material_diffuse_scale, material, energy, f0, gain);
 }
 
 // Keeps reflected diffuse, transmitted diffuse and sharp surface reflection on separate energy paths.
@@ -70,8 +78,9 @@ vec3 foliage_response(FoliageSurfaceData surface, vec3 light) {
     vec3 transmitted = surface.transmitted * max(-cosine, 0.);
     if (foliage_debug == 2) return surface.diffuse_energy * transmitted;
     // Match the unit-albedo Lambert NoL convention of the existing direct-light shader.
-    float specular = kFoliageWaxCoverage * 3.14159265 * ggx_specular_fp32(surface.normal, surface.eye, light, surface.material.w, foliage_reflectivity);
-    return surface.diffuse_energy * (diffuse + transmitted) + vec3(specular);
+    vec3 specular = kFoliageWaxCoverage * 3.14159265
+        * ggx_specular(surface.normal, surface.eye, light, surface.material.w, surface.f0);
+    return surface.diffuse_energy * (diffuse + transmitted) + specular * surface.reflection_gain;
 }
 
 #ifdef OPENRAC_EARLY_LIGHTING
@@ -135,7 +144,8 @@ vec3 foliage_surface(vec3 position, vec3 normal, vec3 eye, vec3 albedo, vec3 ind
     eye = probe_unit(eye);
     FoliageSurfaceData surface = prepare_foliage(shaped, eye, albedo, material);
     vec3 reflected = surface.albedo * ((1. - material.x) * surface.diffuse_energy) * indirect / 3.14159265;
-    reflected += kFoliageWaxCoverage * gi_specular_fallback(indirect, max(dot(shaped, eye), 0.), foliage_reflectivity);
+    reflected += kFoliageWaxCoverage * max(indirect, vec3(0.)) / 3.14159265
+        * surface_fresnel(max(dot(shaped, eye), 0.), surface.f0) * surface.reflection_gain;
     vec3 direct = vec3(0.);
     if (probe_mode != 2) {
         direct = foliage_direct(position, normal, selector, visibility, surface);

@@ -148,6 +148,12 @@ Properties properties(const json::Value& object, const std::string& context) {
             result.emplace(key, property(item, *spec, std::format("{}.{}", context, key)));
         }
     }
+    const auto family = text_value(result, "shading");
+    if (family == "chrome" || family == "stylised" || family == "glass") {
+        result.try_emplace("type", std::string(family == "glass" ? "glass-lit" : "lit"));
+        result.try_emplace("surface.metallic", family == "glass" ? 0. : 1.);
+        result["shading"] = std::string("standard");
+    }
     const auto valid = validate(result);
     if (!valid) {
         fail(context, valid.error().message);
@@ -263,7 +269,7 @@ Selector selector(const json::Value& object, const std::string& context) {
 
 // Parses one stable rule; disabled tombstones may omit match/preset/properties.
 Rule rule(const json::Value& object, const std::string& context, const std::string& source) {
-    keys(object, {"id", "name", "match", "preset", "set", "enabled"}, context);
+    keys(object, {"id", "name", "match", "preset", "material", "set", "enabled"}, context);
     Rule result;
     result.id = identifier(text(object["id"], context + ".id"), context + ".id");
     result.name = object["name"].is_null() ? result.id : text(object["name"], context + ".name");
@@ -280,6 +286,12 @@ Rule rule(const json::Value& object, const std::string& context, const std::stri
     if (!object["preset"].is_null()) {
         result.preset =
             identifier(text(object["preset"], context + ".preset"), context + ".preset");
+    }
+    if (!object["material"].is_null()) {
+        result.material = identifier(text(object["material"], context + ".material"), context + ".material");
+        if (!result.preset.empty()) {
+            fail(context, "choose either a material assignment or a preset contribution");
+        }
     }
     if (!object["set"].is_null()) {
         result.properties = properties(object["set"], context + ".set");
@@ -320,6 +332,26 @@ Catalog document(const json::Value& root, const std::string& source) {
             if (!result.rules.emplace(entry.id, entry).second) {
                 fail("$.overrides", "duplicate rule id " + entry.id);
             }
+        }
+    }
+    // Removed finish names remain readable, but never reappear as separate material families.
+    for (const auto& [old_name, new_name] : {
+            std::pair{"chrome", "lit-metal"}, std::pair{"stylised", "lit-reflective"},
+            std::pair{"library.glossy-plastic", "lit-smooth"}}) {
+        const auto old = result.presets.find(old_name);
+        const std::string replacement = new_name;
+        if (old != result.presets.end()) {
+            if (result.presets.contains(replacement)) {
+                fail("$.presets", "legacy material name conflicts with " + replacement);
+            }
+            result.presets[replacement] = std::move(old->second);
+            result.presets.erase(old);
+            result.preset_sources[replacement] = std::move(result.preset_sources[old_name]);
+            result.preset_sources.erase(old_name);
+        }
+        for (auto& [id, rule] : result.rules) {
+            if (rule.preset == old_name) rule.preset = replacement;
+            if (rule.material == old_name) rule.material = replacement;
         }
     }
     return result;

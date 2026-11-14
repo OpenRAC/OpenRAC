@@ -36,6 +36,7 @@
 #include "enhanced/renderer/texture_upscale.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced/viewer/scene_lighting.h"
+#include "enhanced/viewer/ship_visor.h"
 #include "frontend.h"
 #include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
@@ -103,11 +104,15 @@ struct LevelSources {
     std::filesystem::path dir;
     std::filesystem::path edited;
     std::vector<std::filesystem::path> mod_roots;
+    void (*prepare_geometry)(scene::LevelData&) = nullptr;
 };
 
 LevelSources level_sources(int wanted) {
     LevelSources sources;
     sources.dir = g->levels / std::format("level_{:02d}", wanted);
+    if (gl::enhanced_rendering_available() && g->game == "rac1-ntsc") {
+        sources.prepare_geometry = lighting::add_ship_visor;
+    }
     // An edited level's scenery (--mods): the editor's pack writes it beside its gameplay file.
     if (openrac_game_mods_dir != nullptr) {
         sources.edited = std::filesystem::path(openrac_game_mods_dir)
@@ -136,8 +141,9 @@ bool read_level(int wanted, const LevelSources& sources, std::string& error) {
         }
     }
     crash::level_breadcrumb("level data read", wanted);
-    const bool read =
-        scene::load_level(sources.dir, g->level, error, sources.edited, sources.mod_roots);
+    const bool read = scene::load_level(
+        sources.dir, g->level, error, sources.edited, sources.mod_roots, sources.prepare_geometry
+    );
     crash::level_breadcrumb(read ? "level data ready" : "level data failed", wanted);
     return read;
 }
@@ -190,7 +196,8 @@ void preload_level(int number) {
     g_preload.read = std::async(std::launch::async, [sources = level_sources(number)] {
         Preload::Read read;
         read.ok = scene::load_level(
-            sources.dir, read.level, read.error, sources.edited, sources.mod_roots
+            sources.dir, read.level, read.error, sources.edited, sources.mod_roots,
+            sources.prepare_geometry
         );
         return read;
     });
@@ -1250,11 +1257,37 @@ std::shared_ptr<const enhanced::MaterialEditor> material_editor() {
 }
 
 bool patch_material(
-    std::size_t binding, std::string key, materials::Value value, std::string& error
+    std::span<const std::size_t> bindings, materials::Properties properties, std::string& error
 ) {
     auto* editor = editable_materials(error);
-    return editor
-           && material_edit_result(editor->patch(binding, std::move(key), std::move(value)), error);
+    return editor && material_edit_result(editor->patch(bindings, std::move(properties)), error);
+}
+
+bool assign_material(
+    std::span<const std::size_t> bindings, const std::string& material,
+    materials::Properties definition, std::string& error
+) {
+    auto* editor = editable_materials(error);
+    return editor && material_edit_result(editor->assign(bindings, material, std::move(definition)), error);
+}
+
+bool make_material_unique(std::span<const std::size_t> bindings, std::string& error) {
+    auto* editor = editable_materials(error);
+    if (!editor) {
+        return false;
+    }
+    const auto result = editor->make_unique(bindings);
+    if (!result) {
+        error = result.error().message;
+        return false;
+    }
+    error.clear();
+    return true;
+}
+
+bool clear_material_slots(std::span<const std::size_t> bindings, std::string& error) {
+    auto* editor = editable_materials(error);
+    return editor && material_edit_result(editor->clear_slots(bindings), error);
 }
 
 bool patch_material_preset(
@@ -1267,9 +1300,16 @@ bool patch_material_preset(
            );
 }
 
-bool undo_material(std::size_t binding, const std::string& key, std::string& error) {
+bool delete_material_override(const std::string& id, std::string& error) {
     auto* editor = editable_materials(error);
-    return editor && material_edit_result(editor->undo(binding, key), error);
+    return editor && material_edit_result(editor->delete_override(id), error);
+}
+
+bool undo_material(
+    std::span<const std::size_t> bindings, const std::string& key, std::string& error
+) {
+    auto* editor = editable_materials(error);
+    return editor && material_edit_result(editor->undo(bindings, key), error);
 }
 
 bool undo_material_preset(const std::string& preset, const std::string& key, std::string& error) {

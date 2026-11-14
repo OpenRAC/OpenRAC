@@ -20,8 +20,10 @@
 #include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #endif
 #include "scene/level_renderer.h"
+#include "scene/object_preview.h"
 #include "tests/check.h"
 #include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
@@ -295,6 +297,160 @@ void coverage_seam(
     }
 }
 
+// Both the ordinary transparent pass and the moby metal pass retain authored cutout coverage.
+void glass_cutout_coverage() {
+    for (const auto layer : {scene::Layer::Ties, scene::Layer::Mobys}) {
+        scene::LevelData level;
+        level.light_sets.resize(256);
+        const std::array<Float3, 4> quad_positions{{{-1, -1, .5f}, {1, -1, .5f},
+                                            {1, 1, .5f}, {-1, 1, .5f}}};
+        for (const auto& p : quad_positions) {
+            scene::Vertex corner{};
+            std::copy(p.begin(), p.end(), corner.position);
+            corner.normal[2] = 1;
+            std::fill_n(corner.colour, 4, 1.f);
+            corner.uv[0] = (p[0] + 1) * .5f;
+            corner.uv[1] = (p[1] + 1) * .5f;
+            corner.light_slot = -1;
+            level.vertices.push_back(corner);
+        }
+        level.indices = {0, 1, 2, 0, 2, 3};
+        level.images.emplace_back(3, 1);
+        level.image_paths.push_back("/textures/moby_glass_cutout.png");
+        level.images.back().pixels = {255,255,255,0, 255,255,255,128, 255,255,255,255};
+        level.materials.emplace_back();
+        level.materials[0].image = 0;
+        level.materials[0].cutout = true;
+        level.materials[0].clamp_s = level.materials[0].clamp_t = true;
+        scene::Model model;
+        model.name = layer == scene::Layer::Ties ? "tie_7.glb" : "moby_7.glb";
+        model.min = {-1, -1, .5f};
+        model.max = {1, 1, .5f};
+        model.primitives.push_back({0, 6, 0});
+        level.models.push_back(model);
+        level.instances[static_cast<std::size_t>(layer)].emplace_back();
+        const auto catalog = materials::parse_catalog(R"({"version":1,"presets":{
+          "glass":{"type":"glass-lit","glass":{"transmission":0,"tint":[1,1,1]},
+                   "reflection":{"strength":0}}},"overrides":[
+          {"id":"glass","match":{"class_id":7},"material":"glass"}]})");
+        CHECK(catalog);
+        if (!catalog) return;
+        const auto assets = scene::identify_materials(level, *catalog);
+        CHECK(assets);
+        level.material_bindings = scene::resolve_materials(*assets, *catalog).value();
+        renderer::Renderer renderer;
+        renderer.set_ambient_occlusion(std::make_unique<renderer::Gtao>());
+        scene::LevelScene scene;
+        lighting::use_scene_lighting(scene);
+        std::string error;
+        CHECK(scene.upload(level, renderer.textures(), error));
+        CHECK(renderer.add(std::make_unique<scene::LayerRenderer>(scene, layer), error));
+        CHECK(renderer.init(error));
+        renderer::FrameBuffer frame;
+        CHECK(frame.create(32, 16, error));
+        renderer::FrameInput input;
+        input.camera.view = input.camera.projection = renderer::identity();
+        input.clear_colour = {0, 0, 0, 1};
+        renderer.render(input, {frame.id(), 32, 16});
+        const auto pixels = frame.read_rgba();
+        const auto green = [&](unsigned x) { return pixels[(8 * 32 + x) * 4 + 1]; };
+        std::printf("Glass cutout layer %d: %u %u %u\n", int(layer), green(2), green(16), green(29));
+        CHECK(green(2) == 0);
+        CHECK(green(16) > 40 && green(16) < 200);
+        CHECK(green(29) > 230);
+        CHECK(glGetError() == GL_NO_ERROR);
+    }
+}
+
+// Original restores the retail texture only on the selected part of a shared chrome packet.
+void chrome_original_coverage() {
+    scene::LevelData level;
+    level.light_sets.resize(256);
+    level.models.emplace_back();
+    auto& model = level.models.back();
+    model.name = "moby_7.glb";
+    model.min = {-1, -1, .5f};
+    model.max = {1, 1, .5f};
+    for (int half = 0; half < 2; ++half) {
+        const float low = float(half) - 1, high = float(half);
+        const std::array<Float3, 4> corners{{{low, -1, .5f}, {high, -1, .5f},
+                                           {high, 1, .5f}, {low, 1, .5f}}};
+        for (const auto& p : corners) {
+            scene::Vertex v{};
+            std::copy(p.begin(), p.end(), v.position);
+            v.normal[2] = 1;
+            std::fill_n(v.colour, 4, 1.f);
+            v.light_slot = -1;
+            level.vertices.push_back(v);
+        }
+        const auto base = static_cast<std::uint32_t>(half * 4);
+        for (const auto index : {0u, 1u, 2u, 0u, 2u, 3u}) level.indices.push_back(base + index);
+    }
+    level.materials.emplace_back();
+    level.materials[0].colour = {0, 1, 0, 1};
+    scene::Material chrome;
+    chrome.name = "metal_chrome";
+    chrome.metal = true;
+    chrome.image = 0;
+    level.materials.push_back(chrome);
+    level.images.emplace_back(1, 1);
+    level.images.back().pixels = {255, 0, 0, 255};
+    level.image_paths.push_back("/textures/moby_chrome.png");
+    model.primitives.push_back({0, 6, 0});
+    model.primitives.push_back({0, 12, 1});
+    level.instances[static_cast<std::size_t>(scene::Layer::Mobys)].emplace_back();
+    scene::prepare_chrome_geometry(level);
+    const auto& replacement = model.primitives.back();
+    const int replacement_slot = replacement.material;
+    CHECK(replacement.enhanced_only);
+    const auto assets = scene::identify_materials(level, {});
+    CHECK(assets);
+    level.material_bindings = scene::resolve_materials(*assets, {}).value();
+    renderer::Renderer renderer;
+    renderer.set_ambient_occlusion(std::make_unique<renderer::Gtao>());
+    scene::LevelScene scene;
+    lighting::use_scene_lighting(scene);
+    std::string error;
+    CHECK(scene.upload(level, renderer.textures(), error));
+    CHECK(renderer.add(std::make_unique<scene::LayerRenderer>(scene, scene::Layer::Mobys), error));
+    CHECK(renderer.init(error));
+    renderer::FrameBuffer frame;
+    CHECK(frame.create(32, 16, error));
+    renderer::FrameInput input;
+    input.camera.view = input.camera.projection = renderer::identity();
+    input.clear_colour = {0, 0, 0, 1};
+    auto draw = [&] {
+        renderer.render(input, {frame.id(), 32, 16});
+        return frame.read_rgba();
+    };
+    const auto lit = draw();
+    const auto left = (8 * 32 + 8) * 4, right = (8 * 32 + 24) * 4;
+    CHECK(lit[left] == 0 && lit[left + 1] > 100);
+    CHECK(lit[right] > 100 && lit[right + 1] > 100);
+    auto& runtime = lighting::scene_lighting(scene)->materials();
+    const auto index = runtime.editor()->bindings->lookup.at({0, replacement_slot});
+    const std::array selection{index};
+    CHECK(runtime.assign(selection, "original-chrome", {{"type", std::string("original")}}));
+    const auto original = draw();
+    CHECK(original[right] > 100 && original[right + 1] == 0 && original[right + 2] == 0);
+    CHECK(original[left] == lit[left] && original[left + 1] == lit[left + 1]);
+    scene::PickHit hit;
+    hit.layer = scene::Layer::Mobys;
+    scene::Instance instance;
+    const auto preview = scene::preview_mesh(level, hit, instance, {}, runtime.editor()->bindings.get());
+    CHECK(preview && preview->parts.size() == 2);
+    CHECK(preview && std::ranges::any_of(preview->parts, [](const auto& part) {
+        return part.material.metal && part.material.image >= 0;
+    }));
+    lighting::scene_lighting(scene)->set_material_overrides(false);
+    const auto classic = draw();
+    CHECK(classic[right] == original[right] && classic[right + 1] == original[right + 1]);
+    lighting::scene_lighting(scene)->set_material_overrides(true);
+    runtime.reset();
+    CHECK(draw() == lit);
+    CHECK(glGetError() == GL_NO_ERROR);
+}
+
 void material_path(
     scene::Layer layer,
     int blend,
@@ -310,7 +466,8 @@ void material_path(
 ) {
     scene::LevelData level;
     level.light_sets.resize(256);
-    const Float3 triangle_positions[] = {{-1, -1, 0}, {1, -1, 0}, {0, 1, 0}};
+    // Keep the receiver in front of the camera; a coplanar eye makes Fresnel fully grazing.
+    const Float3 triangle_positions[] = {{-1, -1, -.5f}, {1, -1, -.5f}, {0, 1, -.5f}};
 
     for (const auto& p : triangle_positions) {
         scene::Vertex vtx{};
@@ -377,8 +534,24 @@ void material_path(
 
     level.materials.back().emission_contrast = emission_contrast;
     scene::Model model;
+    // Material inference uses exported model names; an unnamed mesh denotes the sky.
+    model.name = layer == scene::Layer::Mobys ? "moby_7.glb"
+        : layer == scene::Layer::Ties ? "tie_7.glb"
+        : layer == scene::Layer::Shrubs ? "shrub_7.glb" : "terrain.glb";
     model.primitives.push_back({0, 3, 0});
     level.models.push_back(model);
+    {
+        // This matrix measures diffuse GI, direct light and emission. Use a neutral Lit
+        // material so changing the default optical finish cannot contaminate those signals.
+        // The environment GPU tests exercise the production specular response separately.
+        const auto catalog = materials::parse_catalog(R"({"version":1,"overrides":[
+          {"id":"diffuse-receiver","match":{"model":")" + model.name
+          + R"("},"set":{"type":"lit","surface":{"reflectivity":0},"reflection":{"strength":0}}}]})");
+        CHECK(catalog);
+        const auto assets = scene::identify_materials(level, *catalog);
+        CHECK(assets);
+        level.material_bindings = scene::resolve_materials(*assets, *catalog).value();
+    }
     scene::Instance instance;
 
     // The packed slot supplies the same artistic tint as the moby fixture through a different path.
@@ -608,7 +781,7 @@ void material_path(
         );
         std::array<float, 64> points{};
         points[0] = points[1] = points[2] = 1;
-        points[6] = 1;
+        points[6] = .5f;  // One unit above the receiver, halfway through the light's radius.
         points[7] = 2;
         scene.set_point_lights(points);
         renderer.render(input, {frame.id(), 32, 32});
@@ -1366,7 +1539,18 @@ void dense_sphere_fade() {
         glDepthMask(GL_TRUE);
         glClearDepth(0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        probes.draw_spheres(input, state);
+        // The live diagnostic draws inside a declared world bucket, not an unscoped GL callback.
+#if defined(OPENRAC_VULKAN)
+        if (is_vulkan()) {
+            vkgl::GraphExecution bucket;
+            bucket.add_pass(bucket.make_pass("mobys"));
+            const auto result = bucket.run([&](unsigned) { probes.draw_spheres(input, state); });
+            CHECK(result);
+        } else
+#endif
+        {
+            probes.draw_spheres(input, state);
+        }
         return frame.read_rgba()[(16 * 32 + 16) * 4 + 1];
     };
     probes.update_regions({0, 0, 0}, 0.125f);
@@ -1677,9 +1861,12 @@ void test_wide_probe_atlas(renderer::Shader& shader, renderer::FrameBuffer& fram
 // Runs the complete sampling/material matrix with optional cold native-object lifetimes.
 int main(int argc, char** argv) {
     const bool fresh_programs = argc == 2 && std::string_view(argv[1]) == "--fresh-programs";
+    const bool sphere_overlays = argc == 2 && std::string_view(argv[1]) == "--sphere-overlays";
+    const bool glass_cutouts = argc == 2 && std::string_view(argv[1]) == "--glass-cutouts";
+    const bool chrome_original = argc == 2 && std::string_view(argv[1]) == "--chrome-original";
     // A cold-object run remains available to validate the same complete matrix.
-    if (argc > 1 && !fresh_programs) {
-        std::fprintf(stderr, "usage: probe_gpu_test [--fresh-programs]\n");
+    if (argc > 1 && !fresh_programs && !sphere_overlays && !glass_cutouts && !chrome_original) {
+        std::fprintf(stderr, "usage: probe_gpu_test [--fresh-programs | --sphere-overlays | --glass-cutouts | --chrome-original]\n");
         return 1;
     }
     test::GlContext context;
@@ -1695,6 +1882,22 @@ int main(int argc, char** argv) {
     }
 #endif
 
+    if (sphere_overlays || glass_cutouts || chrome_original) {
+        if (chrome_original) {
+            chrome_original_coverage();
+        } else if (sphere_overlays) {
+            sphere_overlay();
+            dense_sphere_fade();
+        } else {
+            glass_cutout_coverage();
+        }
+#if defined(OPENRAC_VULKAN)
+        if (gl::is_vulkan()) {
+            CHECK(vkgl::submission_counters().validation_errors == 0);
+        }
+#endif
+        return test::result();
+    }
     test::RenderTestTiming timing("probes");
     compact_texture_uploads();
     std::string fragment = "#version 410 core\n";
@@ -1964,6 +2167,8 @@ void main() {
     material_path(scene::Layer::Ties, 0, false, true);
     material_path(scene::Layer::Shrubs, 0, false, true);
     sphere_overlay();
+    glass_cutout_coverage();
+    chrome_original_coverage();
     dense_sphere_fade();
     test::test_probe_receiver_normals();
     rejected_bake_message();

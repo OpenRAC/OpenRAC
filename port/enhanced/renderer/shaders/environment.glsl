@@ -77,7 +77,7 @@ vec3 environment_project(int probe,vec3 p,vec3 direction) {
 // A bounded receiver offset selects the reflection medium at an interface. Parallax stays at p.
 // Keep the bound in sync with the conservative expansion in environment_selection.comp.
 // Separate lookup orientation from the shading cosine for anisotropic reflection approximations.
-vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 n,vec3 view,float nv,float roughness,float f0,vec3 fallback) {
+vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 n,vec3 view,float nv,float roughness,vec3 f0,vec3 fallback) {
     vec3 offset=receiver-p;
     receiver=p+offset*min(1.,.5/max(length(offset),1e-6));
     if(environment_count==0) return fallback;
@@ -122,6 +122,10 @@ vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 n,vec3 view,fl
     return mix(fallback,radiance*(f0*brdf.x+brdf.y),coverage);
 }
 
+vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 n,vec3 view,float nv,float roughness,float f0,vec3 fallback) {
+    return environment_specular_surface_frame(p,receiver,n,view,nv,roughness,vec3(f0),fallback);
+}
+
 vec3 environment_specular_surface(vec3 p,vec3 receiver,vec3 n,vec3 view,float roughness,float f0,vec3 fallback) {
     return environment_specular_surface_frame(p,receiver,n,view,dot(n,view),roughness,f0,fallback);
 }
@@ -133,4 +137,8 @@ vec3 environment_specular_frame(vec3 p,vec3 n,vec3 view,float nv,float roughness
 // Opaque materials retain their exact original selection point, weights and reflection rays.
 vec3 environment_specular(vec3 p,vec3 n,vec3 view,float roughness,float f0,vec3 fallback) {
     return environment_specular_surface(p,p,n,view,roughness,f0,fallback);
+}
+
+vec3 environment_specular(vec3 p,vec3 n,vec3 view,float roughness,vec3 f0,vec3 fallback) {
+    return environment_specular_surface_frame(p,p,n,view,dot(n,view),roughness,f0,fallback);
 }

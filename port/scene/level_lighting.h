@@ -104,6 +104,9 @@ public:
 
     virtual void bind_atmosphere(const renderer::Shader&) const {}
 
+    virtual bool enhanced_materials_enabled() const { return false; }
+    virtual bool material_original(std::uint32_t, int) const { return false; }
+
     // Optional shading of the authored material on the current model.
     virtual void bind_material(const renderer::Shader&, std::uint32_t, int, const Material&) const {
     }
@@ -115,6 +118,8 @@ public:
 
     // Separates cached state when different object types share the same original texture material.
     virtual std::uint64_t material_variant(std::uint32_t, int) const { return 0; }
+    // Glass assignments move ordinary geometry into the existing transparent colour pass.
+    virtual bool material_glass(std::uint32_t, int) const { return false; }
 
     // Returns the authored RGB multiplier for a sky shell, white for original rendering.
     virtual std::array<float, 3> sky_tint(std::uint32_t, int) const { return {1, 1, 1}; }

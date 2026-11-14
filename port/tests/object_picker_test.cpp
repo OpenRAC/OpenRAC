@@ -4,8 +4,71 @@
 
 #include "common/json.h"
 #include "scene/object_picker.h"
+#include "scene/material_overrides.h"
 #include "tests/check.h"
 using namespace openrac;
+
+static void check_chrome_replacement(
+    scene::LevelData level, const renderer::Camera& camera, scene::Instance moby
+) {
+    // The chrome packet repeats the colour face with different indices and adds a face to its right.
+    const auto body = level.vertices;
+    level.vertices.insert(level.vertices.end(), body.begin(), body.end());
+    for (auto vertex : body) {
+        vertex.position[0] += 2;
+        level.vertices.push_back(vertex);
+    }
+    level.indices = {0, 1, 2, 5, 4, 3, 6, 7, 8};
+    scene::Material chrome;
+    chrome.name = "metal_chrome";
+    chrome.metal = true;
+    chrome.image = 0;
+    level.materials.push_back(chrome);
+    auto& primitives = level.models[0].primitives;
+    primitives.push_back({3, 6, 1});
+    scene::prepare_chrome_geometry(level);
+    CHECK(primitives.size() == 4);
+    if (primitives.size() != 4) {
+        return;
+    }
+    const auto& replacement = primitives.back();
+    CHECK(replacement.enhanced_only && replacement.index_count == 3);
+    CHECK(level.indices[replacement.first_index] == 6);
+    CHECK(!level.materials[replacement.material].metal && level.materials[replacement.material].image == -1);
+    scene::ObjectPicker picker;
+    constexpr auto mobys = 1u << unsigned(scene::Layer::Mobys);
+    moby.matrix = renderer::translation({0, 0, -5});
+    const std::array live{moby};
+    const auto base = picker.cast(level, live, {}, camera, mobys, {}, true);
+    CHECK(base && base->material == 0);
+    const std::array ndc{2.f / (5.f * std::tan(.5f)), 0.f};
+    const auto classic = picker.cast(level, live, {}, camera, mobys, ndc);
+    CHECK(classic && classic->material == 1);
+    const auto enhanced = picker.cast(level, live, {}, camera, mobys, ndc, true);
+    CHECK(enhanced && enhanced->material == replacement.material);
+    const auto assets = scene::identify_materials(level, {});
+    CHECK(assets);
+    materials::Catalog catalog;
+    materials::Rule rule;
+    rule.id = "restore";
+    rule.match.model = level.models[0].name;
+    rule.match.material_slot = replacement.material;
+    rule.properties["type"] = std::string("original");
+    catalog.rules.emplace(rule.id, rule);
+    const auto bindings = scene::resolve_materials(*assets, catalog);
+    CHECK(bindings);
+    if (!bindings) return;
+    const auto restored = picker.cast(level, live, {}, camera, mobys, ndc, true, bindings->get());
+    CHECK(restored && restored->material == replacement.material);
+    CHECK(restored && level.models[0].primitives[restored->primitive].material == 1);
+    const auto kept = picker.cast(level, live, {}, camera, mobys, {}, true, bindings->get());
+    CHECK(kept && level.models[0].primitives[kept->primitive].material == 0);
+    CHECK(!scene::material_pass_visible(replacement, level.materials[replacement.material], true, true));
+    CHECK(scene::material_pass_visible(replacement, level.materials[replacement.material], true, false));
+    // The snapshot used for live picking must not change the classic selection.
+    const auto still_classic = picker.cast(level, live, {}, camera, mobys, ndc, false, bindings->get());
+    CHECK(still_classic && still_classic->material == 1);
+}
 
 int main() {
     scene::LevelData level;
@@ -32,6 +95,7 @@ int main() {
     renderer::Camera camera;
     camera.view = renderer::identity();
     camera.projection = renderer::perspective_reversed(1, 1, .05f, 2000);
+    check_chrome_replacement(level, camera, tie);
     scene::ObjectPicker picker;
     auto hit = picker.cast(level, {}, {}, camera);
     CHECK(hit && hit->layer == scene::Layer::Ties && std::abs(hit->distance - 5) < 1e-5);

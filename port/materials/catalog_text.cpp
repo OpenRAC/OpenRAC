@@ -138,6 +138,9 @@ std::string rule_text(const Rule& rule) {
     if (!rule.preset.empty()) {
         member(out, "preset", json_quote(rule.preset));
     }
+    if (!rule.material.empty()) {
+        member(out, "material", json_quote(rule.material));
+    }
     if (!rule.properties.empty()) {
         member(out, "set", properties_text(rule.properties));
     }

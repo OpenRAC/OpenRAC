@@ -12,6 +12,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/reflection_material.h"
 #include "renderer/frame/colour_graph.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/precise_depth.h"
@@ -863,7 +864,8 @@ bool LevelScene::colour_blend_barrier(Layer layer) const {
         }
         for (const auto& primitive : m_models[group.model].primitives) {
             const auto& material = m_materials[static_cast<std::size_t>(primitive.material)];
-            if (material.cutout || material.metal || group.blend) {
+            if (material.cutout || material.metal || group.blend
+                || (m_lighting && m_lighting->material_glass(group.model, primitive.material))) {
                 return true;
             }
         }
@@ -924,6 +926,7 @@ void LevelScene::draw_layer(
     Layer layer, const renderer::FrameInput& input, renderer::RenderState& state
 ) {
     sync_position_stream();
+    const bool enhanced_materials = m_lighting && m_lighting->enhanced_materials_enabled();
     if (m_lighting) {
         m_lighting->prepare_deformation(input, *this);
     }
@@ -1467,6 +1470,7 @@ void LevelScene::draw_layer(
             glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
             glDepthMask(mobys && moby_step.depth_write ? GL_TRUE : GL_FALSE);
         }
+        bool premultiplied = false;
         glUniform2f(
             program->uniform("gameplay_rim_lift"), m_gameplay_rim_lift[0], m_gameplay_rim_lift[1]
         );
@@ -1644,6 +1648,14 @@ void LevelScene::draw_layer(
                     set_material = run_material;
                     set_variant = variant;
                 }
+                if (metal && enhanced_material) {
+                    const bool glass = m_lighting->material_glass(g.model, run_material);
+                    if (glass != premultiplied) {
+                        glBlendFuncSeparate(glass ? GL_ONE : GL_SRC_ALPHA,
+                                            GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+                        premultiplied = glass;
+                    }
+                }
                 submit_instances(batch, run_first, run_count, instances);
                 rigid_prepass_draws += group_rigid ? 1u : 0u;
                 ++state.stats.draw_calls;
@@ -1730,8 +1742,15 @@ void LevelScene::draw_layer(
                 }
             }
             for (const Primitive& p : *primitives) {
-                const bool is_metal = m_materials[static_cast<std::size_t>(p.material)].metal;
-                if (is_metal != metal) {
+                const auto& material = m_materials[static_cast<std::size_t>(p.material)];
+                const bool glass = enhanced_materials && m_lighting->material_glass(g.model, p.material);
+                if (glass ? (state.depth_prepass || (mobys ? pass != kMobyMetal : pass != 2))
+                          : material.metal != metal) {
+                    continue;
+                }
+                const bool original = enhanced_materials
+                    && m_lighting->material_original(g.model, p.appearance_slot());
+                if (!material_pass_visible(p, material, enhanced_materials, original)) {
                     continue;
                 }
                 // The glow pass draws a glow packet's faces only: the rest would be discarded.
@@ -1743,7 +1762,7 @@ void LevelScene::draw_layer(
                     continue;
                 }
                 const bool is_cutout = m_materials[static_cast<std::size_t>(p.material)].cutout;
-                if ((translucent || cutouts) && !is_cutout) {
+                if (!glass && (translucent || cutouts) && !is_cutout) {
                     continue;
                 }
                 if (solid && is_cutout) {

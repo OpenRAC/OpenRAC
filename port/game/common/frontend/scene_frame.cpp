@@ -219,12 +219,8 @@ void set_lighting(SceneFrame& frame) {
     );
     owner.scene.set_sweep_moby_blended_off(graphics.sweep_moby_blended_off);
     owner.scene.set_sweep_one_triangle(graphics.sweep_one_triangle);
-    owner.scene.set_gameplay_rim(
-        enhanced && graphics.rim_light, graphics.rim_light_strength, graphics.rim_light_falloff
-    );
-    owner.scene.set_gameplay_rim_lift(
-        graphics.rim_shadow_lift, graphics.rim_lift_exponent, graphics.rim_lift_max_gain
-    );
+    owner.scene.set_gameplay_rim(enhanced && !graphics.sweep_rim_light_off, 0.30f, 6.46f);
+    owner.scene.set_gameplay_rim_lift(enhanced, 0.09f, 7.1f);
     owner.scene.set_probe_bias(graphics.probe_normal_bias, graphics.probe_view_bias);
     if (auto* lighting = owner.scene.level_lighting()) {
         lighting->set_sunlight_direction(enhanced ? graphics.sunlight_direction() : std::nullopt);

@@ -235,10 +235,10 @@ void upload_instances(SceneFrame& frame) {
     const auto& drawn = more ? with_shrubs : live;
     frame.owner.scene.set_variant(frame.scene.texture_variant);
     frame.owner.scene.set_instances(scene::Layer::Mobys, drawn);
+    frame.output.picker_level = frame.scene.level;
     if (debug_overlay::picker_snapshot_needed()) {
         frame.output.picker_live = live;
         frame.output.picker_palette = palette;
-        frame.output.picker_level = frame.scene.level;
         frame.output.picker_layers = frame.scene.draws;
     }
 }

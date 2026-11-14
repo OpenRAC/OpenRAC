@@ -24,13 +24,7 @@ void Settings::reset_enhanced() {
     shadow_quality = defaults.shadow_quality;
     shadow_filter = defaults.shadow_filter;
     volumetric_quality = defaults.volumetric_quality;
-    rim_light = defaults.rim_light;
     nanotech_light = defaults.nanotech_light;
-    rim_shadow_lift = defaults.rim_shadow_lift;
-    rim_lift_exponent = defaults.rim_lift_exponent;
-    rim_lift_max_gain = defaults.rim_lift_max_gain;
-    rim_light_strength = defaults.rim_light_strength;
-    rim_light_falloff = defaults.rim_light_falloff;
     probe_spheres = defaults.probe_spheres;
     ceiling_area_lights = defaults.ceiling_area_lights;
     probe_gi_multiplier = defaults.probe_gi_multiplier;
@@ -378,20 +372,13 @@ void load(const std::filesystem::path& file) {
             known = parse(value, renderer::kShadowFilterKeys, s.shadow_filter);
         } else if (key == "enhanced_shadows") {
             known = parse_bool(value, s.enhanced_shadows);
-        } else if (key == "rim_light") {
-            known = parse_bool(value, s.rim_light);
         } else if (key == "texture_pack") {
             known = parse_bool(value, s.texture_pack);
-        } else if (key == "rim_shadow_lift") {
-            known = parse_bool(value, s.rim_shadow_lift);
-        } else if (key == "rim_lift_exponent") {
-            known = parse_float(value, 0.01f, 1.0f, s.rim_lift_exponent);
-        } else if (key == "rim_lift_max_gain") {
-            known = parse_float(value, 1.0f, 16.0f, s.rim_lift_max_gain);
-        } else if (key == "rim_light_strength") {
-            known = parse_float(value, 0.0f, 1.0f, s.rim_light_strength);
-        } else if (key == "rim_light_falloff") {
-            known = parse_float(value, 1.0f, 8.0f, s.rim_light_falloff);
+        } else if (key == "rim_light" || key == "rim_shadow_lift"
+                   || key == "rim_lift_exponent" || key == "rim_lift_max_gain"
+                   || key == "rim_light_strength" || key == "rim_light_falloff") {
+            // Legacy preferences: enhanced mode uses the built-in rim lighting.
+            known = true;
         } else if (key == "probe_lighting") {
             // Legacy preference: probe lighting now follows enhanced graphics.
             bool ignored = true;
@@ -706,13 +693,7 @@ void save() {
         << "shadow_filter = " << renderer::kShadowFilterKeys[static_cast<int>(s.shadow_filter)]
         << "\n"
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
-        << "rim_light = " << (s.rim_light ? 1 : 0) << "\n"
         << "texture_pack = " << (s.texture_pack ? 1 : 0) << "\n"
-        << "rim_shadow_lift = " << (s.rim_shadow_lift ? 1 : 0) << "\n"
-        << "rim_lift_exponent = " << s.rim_lift_exponent << "\n"
-        << "rim_lift_max_gain = " << s.rim_lift_max_gain << "\n"
-        << "rim_light_strength = " << s.rim_light_strength << "\n"
-        << "rim_light_falloff = " << s.rim_light_falloff << "\n"
         << "probe_spheres = " << (s.probe_spheres ? 1 : 0) << "\n"
         << "medial_axis_debug = " << (s.medial_axis_debug ? 1 : 0) << "\n"
         << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"

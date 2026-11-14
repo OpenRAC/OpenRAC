@@ -52,20 +52,21 @@ struct Contribution {
 Result<Contribution> contribution(const Catalog& catalog, const Rule& rule) {
     Contribution result;
     // Rules without a preset can supply an ordinary sparse property override.
-    if (!rule.preset.empty()) {
-        const auto preset = catalog.presets.find(rule.preset);
+    const auto& reference = rule.material.empty() ? rule.preset : rule.material;
+    if (!reference.empty()) {
+        const auto preset = catalog.presets.find(reference);
         if (preset == catalog.presets.end()) {
-            return unexpected(Error{rule.source + ": unknown material preset " + rule.preset});
+            return unexpected(Error{rule.source + ": unknown material preset " + reference});
         }
         result.properties = preset->second;
         for (const auto& [key, value] : preset->second) {
-            const auto layers = catalog.preset_layers.find(rule.preset);
+            const auto layers = catalog.preset_layers.find(reference);
             const int origin = layers != catalog.preset_layers.end() && layers->second.contains(key)
                                    ? layers->second.at(key)
                                    : 0;
             result.layers[key] = std::max(rule.preset_layer, origin);
         }
-        const auto sources = catalog.preset_sources.find(rule.preset);
+        const auto sources = catalog.preset_sources.find(reference);
         if (sources != catalog.preset_sources.end()) {
             result.sources = sources->second;
         }
@@ -102,7 +103,7 @@ void merge_catalog(Catalog& target, const Catalog& overlay, int layer) {
             replacement.property_sources[key] = source.source;
         }
         const auto previous = target.rules.find(id);
-        if (previous != target.rules.end()) {
+        if (previous != target.rules.end() && source.material.empty()) {
             // A disabled tombstone retains the selector needed to display or re-enable the original rule.
             if (!source.enabled && specificity(source.match) == 0) {
                 replacement.match = previous->second.match;
@@ -122,6 +123,7 @@ void merge_catalog(Catalog& target, const Catalog& overlay, int layer) {
                 replacement.preset = previous->second.preset;
                 replacement.preset_layer = previous->second.preset_layer;
             }
+            replacement.material = previous->second.material;
         }
         replacement.layer = layer;
         target.rules[id] = std::move(replacement);
@@ -142,11 +144,23 @@ Result<Resolved> resolve(const Catalog& catalog, const Identity& identity) {
     });
     Resolved result;
     std::map<std::string, std::tuple<int, int, std::string>> writers;
+    std::optional<std::pair<int, int>> assignment_rank;
     // Equal-precedence conflicting writes are authoring errors, never JSON-order-dependent choices.
     for (const Rule* rule : selected) {
         const auto expanded = contribution(catalog, *rule);
         if (!expanded) {
             return unexpected(expanded.error());
+        }
+        if (!rule->material.empty()) {
+            const auto rank = std::pair(rule->layer, specificity(rule->match));
+            if (assignment_rank == rank && result.material != rule->material) {
+                return unexpected(Error{"ambiguous material assignment: " + rule->id});
+            }
+            // Assignments select one complete material instead of retaining a previous finish.
+            result = {};
+            result.material = rule->material;
+            assignment_rank = rank;
+            writers.clear();
         }
         for (const auto& [key, value] : expanded->properties) {
             const auto rank = std::pair(expanded->layers.at(key), specificity(rule->match));
@@ -182,6 +196,7 @@ Result<Resolved> resolve(const Catalog& catalog, const Identity& identity) {
 
 Result<std::string> transport_catalog_stamp(const Catalog& catalog) {
     Catalog projected;
+    bool projects_transport = false;
     // Runtime-only catalog edits must not enter offline preparation fingerprints.
     for (const auto& [id, rule] : catalog.rules) {
         if (!rule.enabled) {
@@ -192,20 +207,42 @@ Result<std::string> transport_catalog_stamp(const Catalog& catalog) {
             return unexpected(expanded.error());
         }
         auto properties = transport_properties(expanded->properties);
-        if (properties.empty()) {
+        projects_transport |= !properties.empty();
+        if (properties.empty() && rule.material.empty()) {
             continue;
         }
         Rule item = rule;
         item.preset.clear();
+        item.material.clear();
         item.properties = std::move(properties);
+        if (!rule.material.empty()) {
+            // Keep assignment boundaries: they can remove earlier diffuse/emission overrides.
+            item.material = rule.material;
+            projected.presets[rule.material] = transport_properties(catalog.presets.at(rule.material));
+            item.properties = transport_properties(rule.properties);
+        }
         item.name.clear();
         // Priority changes can change transport even when selectors and numeric values are unchanged.
-        for (const auto& [key, value] : item.properties) {
+        for (const auto& [key, value] : transport_properties(expanded->properties)) {
             item.name += key + "=" + std::to_string(expanded->layers.at(key)) + ";";
         }
         projected.rules.emplace(id, std::move(item));
     }
-    if (projected.rules.empty()) {
+    // Generated surface materials can be saved as shared definitions without explicit slot rules.
+    // Include their transport contribution so preparation cannot reuse a bake with stale geometry.
+    for (const auto& [name, definition] : catalog.presets) {
+        const bool referenced = std::ranges::any_of(catalog.rules, [&](const auto& item) {
+            return item.second.enabled && (item.second.material == name || item.second.preset == name);
+        });
+        if (!referenced) {
+            auto properties = transport_properties(definition);
+            if (!properties.empty()) {
+                projects_transport = true;
+                projected.presets[name] = std::move(properties);
+            }
+        }
+    }
+    if (!projects_transport) {
         return std::string{};
     }
     return catalog_text(projected);

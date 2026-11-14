@@ -66,12 +66,6 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Main directional light override | `sun_direction_override` | `0` (default), `1` | Advanced in Graphics > Enhanced Settings. Overrides primary direct light and its shadows; baked bounce lighting retains its baked direction. Off restores the verified profile or authored direction |
 | Light azimuth | `sun_azimuth` | `-180` to `180` degrees (default `0`) | Source direction around world Z: 0 is +X, 90 is +Y |
 | Light elevation | `sun_elevation` | `-90` to `90` degrees (default `45`) | Source height above the horizon; 90 shines straight downward |
-| Gameplay rim light | `rim_light` | `0`, `1` (default `1`) | GI-coloured edge light on essential gameplay objects; requires enhanced probe lighting |
-| Rim shadow lift | `rim_shadow_lift` | `0`, `1` (default `1`) | Lifts the rim in dim surroundings without changing GI itself |
-| Rim lift exponent | `rim_lift_exponent` | `0.01` to `1.0` (default `0.09`) | Lower values brighten dim GI; `1` leaves the rim unchanged |
-| Maximum rim lift gain | `rim_lift_max_gain` | `1.0` to `16.0` (default `7.10`) | Caps the linear RGB gain before the rim's brightness limit |
-| Rim strength | `rim_light_strength` | `0.0` to `1.0` (default `0.30`) | Strength of the edge light |
-| Rim falloff | `rim_light_falloff` | `1.0` to `8.0` (default `6.46`) | Higher values narrow the edge |
 | Probe GI multiplier | `probe_gi_multiplier` | `0.0` to `5.0` (default `1.0`) | Scales baked indirect irradiance only; direct lights are unchanged |
 | Nanotech orb lights | `nanotech_light` | `1` (default), `0` | Adds one point light that bobs with each nanotech cluster in Ratchet & Clank 1's Enhanced graphics |
 | Orb light colour | `nanotech_light_red`, `nanotech_light_green`, `nanotech_light_blue` | Linear RGB, `0.0` to `1.0` per channel | Sets the light cast by the orbs |

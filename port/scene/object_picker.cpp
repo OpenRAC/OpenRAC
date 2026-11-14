@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 #include "scene/object_picker.h"
+#include "scene/material_overrides.h"
 
 #include <algorithm>
 #include <cmath>
@@ -286,7 +287,9 @@ std::optional<PickHit> ObjectPicker::cast(
     std::span<const Mat4> palette,
     const renderer::Camera& camera,
     unsigned layers,
-    std::array<float, 2> ndc
+    std::array<float, 2> ndc,
+    bool enhanced,
+    const MaterialBindings* materials
 ) {
     if (m_meshes.empty()) {
         load(level);
@@ -389,6 +392,15 @@ std::optional<PickHit> ObjectPicker::cast(
                 }
             }
             auto test = [&](const Triangle& t) {
+                const auto& primitive = level.models[instance.model].primitives[t.primitive];
+                const int material = primitive.material;
+                const auto* bindings = materials ? materials : level.material_bindings.get();
+                const bool original = bindings
+                    && bindings->original(instance.model, primitive.appearance_slot());
+                if (material >= 0 && std::size_t(material) < level.materials.size()
+                    && !material_pass_visible(primitive, level.materials[material], enhanced, original)) {
+                    return;
+                }
                 std::array<Vec3, 3> face{
                     vertex(t.vertices[0]), vertex(t.vertices[1]), vertex(t.vertices[2])
                 };
@@ -405,7 +417,8 @@ std::optional<PickHit> ObjectPicker::cast(
                 hit.model = instance.model;
                 hit.primitive = t.primitive;
                 hit.triangle = t.number;
-                hit.material = level.models[instance.model].primitives[t.primitive].material;
+                hit.material = enhanced && primitive.appearance_material >= 0
+                    ? primitive.appearance_material : material;
                 hit.identity = instance.temporal_id;
                 hit.distance = nearest;
                 hit.name = level.models[instance.model].name;
