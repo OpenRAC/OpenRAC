@@ -155,6 +155,10 @@
             in your pack, in any folder.
           </p>
           <p class="muted">
+            PNG works everywhere. For sharp icons, text and logos an SVG works too; for a smaller pack, KTX2 in Basis
+            Universal (UASTC or ETC1S).
+          </p>
+          <p class="muted">
             Animated: put numbered pictures (0001.png, 0002.png…) in a folder named like the saved picture, without
             .png.
           </p>

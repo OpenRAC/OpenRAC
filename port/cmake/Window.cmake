@@ -278,6 +278,13 @@ add_library(openrac_renderer STATIC
   renderer/textures/pcsx2_dds.cpp
   renderer/textures/texture_pool.cpp
 )
+
+# A texture pack's KTX2 and SVG pictures (renderer/textures/pack_pictures.h): their own library, so
+# that the renderer links neither decoder and the test needs no window.
+add_library(openrac_pack_pictures STATIC renderer/textures/pack_pictures.cpp)
+target_include_directories(openrac_pack_pictures PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(openrac_pack_pictures PUBLIC openrac_common PRIVATE openrac_basisu openrac_nanosvg)
+openrac_warnings(openrac_pack_pictures)
 openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/debug_lines.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/debug_lines.frag"
@@ -875,6 +882,9 @@ openrac_add_test(overlay_draw LIBS openrac_renderer_ui openrac_platform)
 set_tests_properties(overlay_draw PROPERTIES SKIP_RETURN_CODE 77)
 
 openrac_add_test(renderer_texture LIBS openrac_renderer)
+# Texture packs' KTX2 and SVG pictures, from small files made for the test (tests/data/pack_pictures).
+openrac_add_test(pack_pictures LIBS openrac_pack_pictures
+  DEFINITIONS "PACK_PICTURES_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/data/pack_pictures\"")
 # The view math of a mod's views (renderer/math.h): header only.
 openrac_add_test(renderer_math INCLUDES .)
 

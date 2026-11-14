@@ -22,7 +22,8 @@ namespace fs = std::filesystem;
 struct State {
     std::mutex lock;  // levels load on another thread than the 2D layer converts on
     Io io;
-    std::unordered_map<std::uint64_t, fs::path> files;  // the pack's pictures by hash
+    // The pack's still pictures by hash, the one to use first at the front (still_rank).
+    std::unordered_map<std::uint64_t, std::vector<fs::path>> files;
     // The pack's animations by hash: a folder of frames or a GIF, and those read so far.
     std::unordered_map<std::uint64_t, fs::path> animated;
     std::unordered_map<std::uint64_t, std::shared_ptr<const Animation>> animations;
@@ -66,6 +67,56 @@ std::optional<std::uint64_t> hash_of(const fs::path& file) {
         return {};
     }
     return parse_hash(file.stem().string());
+}
+
+// Where a still picture of a pack stands when a texture has several: an SVG first (made for the
+// sharpest picture), then a KTX2, then a PNG (what a pack keeps for older versions of the port,
+// which read only PNGs). Nothing for a file that is not a still picture.
+std::optional<int> still_rank(const fs::path& file) {
+    const fs::path extension = file.extension();
+    if (extension == ".svg") {
+        return 0;
+    }
+    if (extension == ".ktx2") {
+        return 1;
+    }
+    if (extension == ".png") {
+        return 2;
+    }
+    return std::nullopt;
+}
+
+// The pack's still pictures under a folder, by hash, each texture's in the order they are tried.
+std::unordered_map<std::uint64_t, std::vector<fs::path>> pictures_under(const fs::path& root) {
+    std::unordered_map<std::uint64_t, std::vector<fs::path>> pictures;
+    std::error_code e;
+    for (const auto& entry : fs::recursive_directory_iterator(root, e)) {
+        if (!entry.is_regular_file(e) || !still_rank(entry.path())) {
+            continue;
+        }
+        if (const auto hash = parse_hash(entry.path().stem().string())) {
+            pictures[*hash].push_back(entry.path());
+        }
+    }
+    // Two of one kind: the first met wins, as before there were several kinds.
+    for (auto& [hash, files] : pictures) {
+        std::stable_sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) {
+            return *still_rank(a) < *still_rank(b);
+        });
+    }
+    return pictures;
+}
+
+// A still picture of the pack for a texture of width x height, read by its kind.
+std::optional<Rgba8Image> load_still(const Io& io, const fs::path& file, int width, int height) {
+    const fs::path extension = file.extension();
+    if (extension == ".svg") {
+        return io.load_svg != nullptr ? io.load_svg(file, width, height) : std::nullopt;
+    }
+    if (extension == ".ktx2") {
+        return io.load_ktx2 != nullptr ? io.load_ktx2(file) : std::nullopt;
+    }
+    return io.load != nullptr ? io.load(file) : std::nullopt;
 }
 
 // A frame's number from its file name (0001.png is 1), or nothing when it is not a frame.
@@ -378,7 +429,7 @@ void configure(const fs::path& pack, const fs::path& dump, Io io, LevelNamer lev
     s.dump = dump;
     std::error_code e;
     if (!pack.empty() && fs::is_directory(pack, e)) {
-        s.files = files_under(pack);
+        s.files = pictures_under(pack);
         for (auto it = fs::recursive_directory_iterator(pack, e);
              it != fs::recursive_directory_iterator();
              it.increment(e)) {
@@ -457,18 +508,27 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
         s.animated.erase(animated);
     }
     const auto found = s.files.find(hash);
-    if (found == s.files.end() || s.io.load == nullptr) {
+    if (found == s.files.end()) {
         return false;
     }
-    auto picture = s.io.load(found->second);
-    if (!picture || picture->pixels.empty()) {
-        log::warn("texture pack: {} cannot be read; the original is kept", found->second.string());
-        s.files.erase(found);
-        return false;
+    std::vector<fs::path>& candidates = found->second;
+    while (!candidates.empty()) {
+        auto picture = load_still(s.io, candidates.front(), image.width, image.height);
+        if (picture && !picture->pixels.empty()) {
+            image = std::move(*picture);
+            ++s.replaced;
+            return true;
+        }
+        // A file that cannot be read is not tried again; the next picture of the texture is.
+        log::warn(
+            "texture pack: {} cannot be read; {}",
+            candidates.front().string(),
+            candidates.size() > 1 ? "the next picture of it is used" : "the original is kept"
+        );
+        candidates.erase(candidates.begin());
     }
-    image = std::move(*picture);
-    ++s.replaced;
-    return true;
+    s.files.erase(found);
+    return false;
 }
 
 bool dumping() {

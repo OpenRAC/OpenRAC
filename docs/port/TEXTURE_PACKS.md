@@ -19,8 +19,9 @@ gives the game (`--data`) and the game id is the port's:
 | Going Commando (USA v2.00) | `rac2-ntsc2` |
 | Going Commando (Europe) | `rac2-pal` |
 
-Every `.png` in it or in its sub-folders whose name is a texture's hash is
-used; other files are left alone, and the folders are only for you. The
+Every picture in it or in its sub-folders whose name is a texture's hash is
+used: a `.png`, `.ktx2` or `.svg` (see [Picture formats](#picture-formats)).
+Other files are left alone, and the folders are only for you. The
 setting `texture_pack` (on by default, [SETTINGS.md](SETTINGS.md)) turns it
 off. It is a mod like the others: `--no-mods` (the launcher's Mods switch
 under Play off) leaves it out too. The log says how many textures the pack
@@ -77,6 +78,46 @@ Textures the game makes while it runs (a fade, an animated screen) change from
 frame to frame, so each frame is a texture of its own; replacing those is not
 useful.
 
+## Picture formats
+
+A pack holds only formats that work the same on every computer, phone and GPU.
+
+| Format | Use it for | Notes |
+|---|---|---|
+| `.png` | anything | Works in every version of the port. |
+| `.ktx2` | large packs (upscaled worlds) | Basis Universal, UASTC or ETC1S, with or without Zstandard. Plain RGBA8 works too. |
+| `.svg` | sharp, simple art: HUD icons, text, logos, menu parts | Drawn when the texture loads. |
+
+**KTX2.** The game turns the picture into RGBA8 when it loads, on every
+platform. So a KTX2 pack is smaller on disk and to download, but it uses as
+much graphics memory as PNGs. Only the first mip level is read; the game makes
+the smaller ones itself. Formats that only some GPUs read are refused: BC1 to
+BC7 (desktops), ASTC and ETC2 (phones). Use UASTC for the best picture and
+ETC1S for the smallest file. A KTX2 may be up to 8192 texels a side and 4096 x
+4096 in all. Make one with Basis Universal's `basisu` tool, for example:
+
+```
+basisu -ktx2 -uastc 0123456789abcdef.png
+```
+
+**SVG.** The game draws it at four times the texture's size (the longest side
+at most 4096) and stretches it to the texture's shape. Give it the texture's
+shape (a `viewBox` with the same width to height ratio) to keep it sharp. Only
+shapes, fills, strokes and gradients are drawn. Turn text into paths (in
+Inkscape: Path, Object to Path). Images, fonts, links to other files and
+scripts are not read, and the launcher refuses an SVG that has them. An SVG may
+be up to 4 MB. It does not suit photos or painted textures: use a PNG or KTX2.
+
+**One texture, several formats.** A pack may have a `.svg`, a `.ktx2` and a
+`.png` for one texture, in any folders. The game uses the SVG first, then the
+KTX2, then the PNG. When one cannot be read, the log says so and the next is
+used. Older versions of the port read only PNGs, so a PNG beside an SVG or KTX2
+keeps a pack working there too.
+
+What to ship: PNG or KTX2 (UASTC) for world and model textures, SVG for sharp
+2D art you drew yourself, and a PNG beside each SVG or KTX2 if players may
+still have an older version.
+
 ## A pack's .zip
 
 A shared pack is a `.zip` of the pack folder's contents, folders kept, with
@@ -88,10 +129,13 @@ A shared pack is a `.zip` of the pack folder's contents, folders kept, with
 
 The launcher accepts a `.zip` without the manifest, and one whose contents
 sit in a single folder of their own. It refuses one whose manifest names
-another game, a file outside the `.zip`'s folder, a link, a `.png` not named
+another game, a file outside the `.zip`'s folder, a link, a picture not named
 by a texture (except an animation's frames, in a folder named by a texture),
-two pictures for one texture, and a file that is not the picture its name
-says. Other files (a readme) are left out.
+two pictures of one format for one texture, an animation and a still picture
+for one texture, a file that is not the picture its name says, a KTX2 in a
+format only some GPUs read, and an SVG with a script or a link to another file.
+Other files (a readme) are left out. Adding a texture to your pack replaces all
+of its pictures there.
 
 ## PCSX2 packs
 

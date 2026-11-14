@@ -2,9 +2,10 @@
 // Copyright (c) 2026 the OpenRAC contributors
 
 //! A game's texture pack (docs/port/TEXTURE_PACKS.md): pictures that replace the game's
-//! textures, each a PNG named by the 16 hex digits of the texture it replaces, in any folders; an
-//! animated one is a folder named so, holding numbered frames and an optional `animation.json`,
-//! or a GIF named so.
+//! textures, each a PNG, KTX2 or SVG named by the 16 hex digits of the texture it replaces, in any
+//! folders; an animated one is a folder named so, holding numbered frames and an optional
+//! `animation.json`, or a GIF named so. One texture may have a picture of each kind (the game
+//! takes the SVG, then the KTX2, then the PNG, which older versions read).
 //!
 //! ```text
 //! <data>/texture_packs/<id>/            the player's pack, which the game reads (id: rac2-ntsc)
@@ -41,6 +42,14 @@ const MAX_BYTES: u64 = 16 * 1024 * 1024 * 1024;
 /// The largest single picture: a 4096 x 4096 RGBA PNG stored without compression is 64 MB.
 const MAX_PICTURE: u64 = 128 * 1024 * 1024;
 const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
+/// The kinds of still picture a pack holds, by file extension.
+const STILL_KINDS: &[&str] = &["png", "ktx2", "svg"];
+/// The largest SVG (port/renderer/textures/pack_pictures.h, kMaxSvgBytes).
+const MAX_SVG: usize = 4 * 1024 * 1024;
+const KTX2_MAGIC: &[u8] = &[0xAB, b'K', b'T', b'X', b' ', b'2', b'0', 0xBB, b'\r', b'\n', 0x1A, b'\n'];
+/// The largest picture side and texel count the game reads (pack_pictures.h).
+const MAX_SIDE: u64 = 8192;
+const MAX_TEXELS: u64 = 4096 * 4096;
 
 /// A folder of a pack or a dump and how many textures it holds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, ts_rs::TS)]
@@ -187,6 +196,17 @@ pub fn texture_name(file_name: &str) -> Option<String> {
     hash_named(file_name, "png")
 }
 
+/// A texture's hash and the picture's kind from a still picture's file name (`<hash>.png`,
+/// `.ktx2` or `.svg`, either case), both lowercase.
+fn still_name(file_name: &str) -> Option<(String, &'static str)> {
+    STILL_KINDS.iter().find_map(|ext| hash_named(file_name, ext).map(|hash| (hash, *ext)))
+}
+
+/// How many textures items are for: a texture with pictures of several kinds counts once.
+fn texture_count<'a>(items: impl IntoIterator<Item = &'a Item>) -> u32 {
+    items.into_iter().map(|i| &i.hash).collect::<std::collections::HashSet<_>>().len() as u32
+}
+
 fn has_ext(file_name: &str, ext: &str) -> bool {
     file_name.rsplit_once('.').is_some_and(|(_, e)| e.eq_ignore_ascii_case(ext))
 }
@@ -232,7 +252,7 @@ fn items_under(root: &Path) -> Vec<Item> {
                 // Its pictures named by a hash are textures all the same.
                 stack.push(rel.join(&name));
             } else if kind.is_file() {
-                if let Some(hash) = texture_name(&name) {
+                if let Some((hash, _)) = still_name(&name) {
                     out.push(Item { hash, rel: rel.join(&name), animated: false });
                 } else if let Some(hash) = hash_named(&name, "gif") {
                     out.push(Item { hash, rel: rel.join(&name), animated: true });
@@ -263,8 +283,13 @@ const FOLDER_ORDER: &[&str] = &["Interface", "Shared", "Animated"];
 /// Counts by folder, in the page's order.
 fn count_folders(items: &[Item]) -> Vec<Folder> {
     let mut counts: BTreeMap<String, u32> = BTreeMap::new();
+    let mut seen = std::collections::HashSet::new();
     for item in items {
-        *counts.entry(group_of(&item.rel)).or_default() += 1;
+        let group = group_of(&item.rel);
+        // A texture's pictures of several kinds in one folder count once.
+        if seen.insert((group.clone(), item.hash.clone())) {
+            *counts.entry(group).or_default() += 1;
+        }
     }
     let rank = |path: &str| match FOLDER_ORDER.iter().position(|f| *f == path) {
         Some(i) => i,
@@ -297,10 +322,10 @@ pub fn view(data_home: &Path, data: &Path, game: &str, version: &str) -> Result<
         enabled: read_switch(&settings, SWITCH).unwrap_or(true),
         pcsx2_path: pcsx2::selected(data_home, game, version)?.map(|path| path.display().to_string()),
         dumping: dump_flag(data_home, &id).is_file(),
-        pack_count: pack.len() as u32,
+        pack_count: texture_count(&pack),
         pack_animated: pack.iter().filter(|i| i.animated).count() as u32,
         pack: count_folders(&pack),
-        dump_count: dump.len() as u32,
+        dump_count: texture_count(&dump),
         dump: count_folders(&dump),
         id,
     })
@@ -446,8 +471,8 @@ fn scan(archive: &mut zip::ZipArchive<std::fs::File>, id: &str) -> Result<Scanne
             continue;
         }
         let parent = folder.rsplit('/').next().unwrap_or_default();
-        let (item, file) = if let Some(hash) = texture_name(file_name) {
-            let path = Path::new(folder).join(format!("{hash}.png"));
+        let (item, file) = if let Some((hash, ext)) = still_name(file_name) {
+            let path = Path::new(folder).join(format!("{hash}.{ext}"));
             (Item { hash, rel: path.clone(), animated: false }, path)
         } else if let Some(hash) = hash_named(file_name, "gif") {
             let path = Path::new(folder).join(format!("{hash}.gif"));
@@ -458,14 +483,32 @@ fn scan(archive: &mut zip::ZipArchive<std::fs::File>, id: &str) -> Result<Scanne
             let above = folder.rsplit_once('/').map(|(a, _)| a).unwrap_or("");
             let dir = Path::new(above).join(&hash);
             (Item { hash, rel: dir.clone(), animated: true }, dir.join(file_name))
-        } else if has_ext(file_name, "png") {
+        } else if STILL_KINDS.iter().any(|ext| has_ext(file_name, ext)) {
             bad.push(rel.clone());
             continue;
         } else {
             skipped += 1;
             continue;
         };
-        match items.get_mut(&item.hash) {
+        // A texture has one animation or one still picture of each kind (the game picks among
+        // the kinds); an animation and a still picture of one texture are two pictures for it.
+        let key = match item.rel.extension() {
+            Some(ext) if !item.animated => format!("{}.{}", item.hash, ext.to_string_lossy()),
+            _ => item.hash.clone(),
+        };
+        let other_kind = if item.animated {
+            STILL_KINDS.iter().find_map(|ext| items.get(&format!("{}.{ext}", item.hash)))
+        } else {
+            items.get(&item.hash)
+        };
+        if let Some((known, _)) = other_kind {
+            return Err(format!(
+                "The pack has two pictures for the same texture ({} and {}).",
+                known.rel.display(),
+                item.rel.display()
+            ));
+        }
+        match items.get_mut(&key) {
             Some((known, files)) if known.rel == item.rel && known.animated && !has_ext(file_name, "gif") => {
                 files.push((i, file));
             }
@@ -477,7 +520,7 @@ fn scan(archive: &mut zip::ZipArchive<std::fs::File>, id: &str) -> Result<Scanne
                 ));
             }
             None => {
-                items.insert(item.hash.clone(), (item, vec![(i, file)]));
+                items.insert(key, (item, vec![(i, file)]));
             }
         }
     }
@@ -519,12 +562,12 @@ pub fn preview_import(data: &Path, game: &str, version: &str, source: &Path) -> 
         items_under(&pack_dir(data, &id)).into_iter().map(|i| i.hash).collect();
     let items: Vec<Item> = scanned.items.iter().map(|(i, _)| i.clone()).collect();
     Ok(Preview {
-        textures: items.len() as u32,
+        textures: texture_count(&items),
         animated: items.iter().filter(|i| i.animated).count() as u32,
         folders: count_folders(&items),
         name: scanned.manifest.name,
         current: current.len() as u32,
-        replacing: items.iter().filter(|i| current.contains(&i.hash)).count() as u32,
+        replacing: texture_count(items.iter().filter(|i| current.contains(&i.hash))),
         skipped: scanned.skipped,
     })
 }
@@ -540,22 +583,83 @@ pub enum ImportMode {
     Merge,
 }
 
-/// Checks a file's bytes are what its name says: a PNG, a GIF, or JSON.
+/// Why a KTX2 file is not one the game reads on every GPU, if it is not: one flat picture within
+/// the size caps, in Basis Universal (UASTC or ETC1S) or plain RGBA8 (pack_pictures.cpp).
+fn ktx2_problem(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.len() < 104 || !bytes.starts_with(KTX2_MAGIC) {
+        return Some("is not a KTX2 picture");
+    }
+    let at = |offset: usize| u64::from(u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap_or_default()));
+    let (format, width, height) = (at(12), at(20), at(24));
+    let (depth, layers, faces, scheme) = (at(28), at(32), at(36), at(44));
+    if depth > 1 || layers > 1 || faces != 1 {
+        return Some("is not one flat picture (a cube map, an array or a volume)");
+    }
+    if width == 0 || height == 0 || width > MAX_SIDE || height > MAX_SIDE || width * height > MAX_TEXELS {
+        return Some("is too large: up to 8192 texels a side and 4096 x 4096 in all");
+    }
+    match (format, scheme) {
+        // Basis Universal: ETC1S (BasisLZ) or UASTC, with Zstandard or not.
+        (0, 0..=2) => None,
+        // R8G8B8A8, UNORM or SRGB, with Zstandard or not.
+        (37 | 43, 0 | 2) => None,
+        (37 | 43, _) => Some("uses a compression the game does not read (use Zstandard or none)"),
+        _ => Some("is in a format only some GPUs read: use Basis Universal (UASTC or ETC1S) or RGBA8"),
+    }
+}
+
+/// Why an SVG is not a plain drawing, if it is not: a pack's SVG reaches nothing outside its file
+/// and runs nothing. The game draws only shapes from it (nanosvg); this keeps the file safe for
+/// other programs a player opens it in, too.
+fn svg_problem(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.len() > MAX_SVG {
+        return Some("is larger than 4 MB");
+    }
+    let Ok(text) = std::str::from_utf8(bytes) else { return Some("is not an SVG (not UTF-8 text)") };
+    let lower = text.to_ascii_lowercase();
+    if !lower.contains("<svg") {
+        return Some("is not an SVG");
+    }
+    for banned in ["<script", "<!entity", "<foreignobject", "<image", "<iframe", "@import", "javascript:"] {
+        if lower.contains(banned) {
+            return Some("holds a script, an embedded document or a link to another file");
+        }
+    }
+    // Every link stays in the file: href="#id" and url(#id) only.
+    let local = |rest: &str| rest.trim_start_matches([' ', '\t', '\n', '\r', '=', '"', '\'']).starts_with('#');
+    if lower.match_indices("href").any(|(i, _)| !local(&lower[i + 4..]))
+        || lower.match_indices("url(").any(|(i, _)| !local(&lower[i + 4..]))
+    {
+        return Some("links to another file");
+    }
+    // Event attributes (onload= and the like) are scripts.
+    let event = lower.as_bytes().windows(3).enumerate().any(|(i, w)| {
+        w[0].is_ascii_whitespace() && w[1] == b'o' && w[2] == b'n' && {
+            let name: String = lower[i + 1..].chars().take_while(|c| c.is_ascii_alphabetic()).collect();
+            name.len() > 2 && lower[i + 1 + name.len()..].trim_start().starts_with('=')
+        }
+    });
+    event.then_some("holds a script")
+}
+
+/// Checks a file's bytes are what its name says: a PNG, a KTX2 or SVG the game reads everywhere, a
+/// GIF, or JSON.
 fn check_bytes(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let ok = if has_ext(&name, "png") {
-        bytes.starts_with(PNG_MAGIC)
+    let problem = if has_ext(&name, "png") {
+        (!bytes.starts_with(PNG_MAGIC)).then_some("is not a PNG picture")
+    } else if has_ext(&name, "ktx2") {
+        ktx2_problem(bytes)
+    } else if has_ext(&name, "svg") {
+        svg_problem(bytes)
     } else if has_ext(&name, "gif") {
-        bytes.starts_with(b"GIF8")
+        (!bytes.starts_with(b"GIF8")).then_some("is not a GIF picture")
     } else {
-        serde_json::from_slice::<serde_json::Value>(bytes).is_ok()
+        serde_json::from_slice::<serde_json::Value>(bytes).is_err().then_some("cannot be read")
     };
-    if ok {
-        Ok(())
-    } else if has_ext(&name, "json") {
-        Err(format!("{} cannot be read.", path.display()))
-    } else {
-        Err(format!("{} is not a {} picture.", path.display(), if has_ext(&name, "gif") { "GIF" } else { "PNG" }))
+    match problem {
+        None => Ok(()),
+        Some(why) => Err(format!("{} {why}.", path.display())),
     }
 }
 
@@ -597,7 +701,7 @@ pub fn import(
         let _ = std::fs::remove_dir_all(&staging);
         return Err(e);
     }
-    let count = scanned.items.len() as u32;
+    let count = texture_count(scanned.items.iter().map(|(item, _)| item));
     let result = match mode {
         ImportMode::Replace => replace_with(&pack, &staging, &id),
         ImportMode::Merge => merge_into(&pack, &staging, &scanned.items).map(|()| None),
@@ -629,11 +733,16 @@ fn remove_item(pack: &Path, item: &Item) {
 }
 
 fn merge_into(pack: &Path, staging: &Path, items: &[(Item, Vec<ZipFile>)]) -> Result<(), String> {
-    let current: HashMap<String, Item> = items_under(pack).into_iter().map(|i| (i.hash.clone(), i)).collect();
+    let mut current: HashMap<String, Vec<Item>> = HashMap::new();
+    for item in items_under(pack) {
+        current.entry(item.hash.clone()).or_default().push(item);
+    }
     for (item, files) in items {
-        // One picture a texture: the pack's own gives way, and an animation is replaced whole.
-        if let Some(old) = current.get(&item.hash) {
-            remove_item(pack, old);
+        // The imported pictures of a texture take its place: the pack's own of every kind give
+        // way (once, so a second kind imported does not remove the first), and an animation is
+        // replaced whole.
+        for old in current.remove(&item.hash).unwrap_or_default() {
+            remove_item(pack, &old);
         }
         for (_, rel) in files {
             let target = pack.join(rel);
@@ -688,7 +797,7 @@ pub fn export(
     let dumped: HashMap<String, PathBuf> =
         items_under(&dump).into_iter().filter(|i| !i.animated).map(|i| (i.hash, i.rel)).collect();
     let mut mine: Vec<(PathBuf, Vec<u8>)> = Vec::new();
-    let mut textures = 0;
+    let mut shared = std::collections::HashSet::new();
     let mut left_out = 0;
     for item in items_under(&pack) {
         let mut files = Vec::new();
@@ -703,10 +812,11 @@ pub fn export(
         if unchanged {
             left_out += 1;
         } else {
-            textures += 1;
+            shared.insert(item.hash.clone());
             mine.extend(files);
         }
     }
+    let textures = shared.len() as u32;
     if textures == 0 {
         return Err(if left_out > 0 {
             "Every picture in your pack is still the game's own: edit some before sharing it.".into()
@@ -724,14 +834,16 @@ pub fn export(
     let write = || -> Result<(), String> {
         let file = std::fs::File::create(out).map_err(|e| format!("{}: {e}", out.display()))?;
         let mut zip = zip::ZipWriter::new(file);
-        // PNGs are compressed already.
+        // PNGs are compressed already; SVGs are text and a KTX2 may be plain texels.
         let stored = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        let deflated = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
         let json = serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())?;
         zip.start_file(MANIFEST, stored).map_err(|e| e.to_string())?;
         zip.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
         for (rel, bytes) in &mine {
             let name = rel.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>().join("/");
-            zip.start_file(name, stored).map_err(|e| e.to_string())?;
+            let squeeze = has_ext(&name, "svg") || has_ext(&name, "ktx2");
+            zip.start_file(name, if squeeze { deflated } else { stored }).map_err(|e| e.to_string())?;
             zip.write_all(bytes).map_err(|e| e.to_string())?;
         }
         zip.finish().map_err(|e| e.to_string())?;
@@ -1025,5 +1137,101 @@ mod tests {
         let gif = t.path().join("gif.zip");
         make_zip(&gif, &[(&format!("{HASH_A}.gif"), png(1))]);
         assert!(import(&data, "rac2", "ntsc", &gif, ImportMode::Merge).unwrap_err().contains("not a GIF"));
+    }
+    /// A KTX2 file's first 104 bytes: header and one level, of `format` (a Vulkan format).
+    fn ktx2(format: u32, scheme: u32, faces: u32) -> Vec<u8> {
+        let mut bytes = KTX2_MAGIC.to_vec();
+        for value in [format, 1, 8, 8, 0, 0, faces, 1, scheme] {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        bytes.resize(104, 0);
+        bytes
+    }
+
+    const SVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><defs><linearGradient id="g"/></defs><rect width="8" height="8" fill="url(#g)"/><use href="#g"/></svg>"##;
+
+    #[test]
+    fn ktx2_and_svg_pictures_import_beside_a_png() {
+        let t = tempfile::tempdir().unwrap();
+        let (data, home) = (t.path().join("data"), t.path().join("home"));
+        let zip = t.path().join("pack.zip");
+        make_zip(
+            &zip,
+            &[
+                ("Interface/0123456789abcdef.png", png(1)),
+                ("Interface/0123456789ABCDEF.SVG", SVG.as_bytes().to_vec()),
+                ("Shared/0123456789abcdef.ktx2", ktx2(0, 1, 1)),
+                ("fedcba9876543210.ktx2", ktx2(37, 2, 1)),
+            ],
+        );
+        // One texture with three kinds of picture counts once.
+        let preview = preview_import(&data, "rac2", "ntsc", &zip).unwrap();
+        assert_eq!((preview.textures, preview.animated), (2, 0));
+        assert_eq!(import(&data, "rac2", "ntsc", &zip, ImportMode::Replace).unwrap().0, 2);
+        let pack = pack_dir(&data, "rac2-ntsc");
+        assert!(pack.join(format!("Interface/{HASH_A}.svg")).is_file());
+        assert!(pack.join(format!("Shared/{HASH_A}.ktx2")).is_file());
+        let v = view(&home, &data, "rac2", "ntsc").unwrap();
+        assert_eq!(v.pack_count, 2);
+        assert_eq!(v.pack.iter().find(|f| f.path == "Interface").map(|f| f.count), Some(1));
+        // A merged SVG takes the texture's place: its other pictures go.
+        let svg = t.path().join("svg.zip");
+        make_zip(&svg, &[(&format!("{HASH_A}.svg"), SVG.as_bytes().to_vec())]);
+        import(&data, "rac2", "ntsc", &svg, ImportMode::Merge).unwrap();
+        assert!(pack.join(format!("{HASH_A}.svg")).is_file());
+        assert!(!pack.join(format!("Interface/{HASH_A}.png")).exists());
+        assert!(!pack.join(format!("Shared/{HASH_A}.ktx2")).exists());
+        assert!(pack.join(format!("{HASH_B}.ktx2")).is_file());
+        // Exported, compressed, with the texture counted once.
+        let out = t.path().join("out.zip");
+        assert_eq!(export(&home, &data, "rac2", "ntsc", "1", &out).unwrap(), (2, 0));
+        // Two pictures of one kind, or a still picture beside an animation, are refused.
+        let twice = t.path().join("twice.zip");
+        make_zip(&twice, &[(&format!("a/{HASH_A}.svg"), SVG.into()), (&format!("b/{HASH_A}.svg"), SVG.into())]);
+        assert!(preview_import(&data, "rac2", "ntsc", &twice).unwrap_err().contains("two pictures"));
+        let both = t.path().join("both.zip");
+        make_zip(&both, &[(&format!("{HASH_A}.ktx2"), ktx2(0, 1, 1)), (&format!("{HASH_A}/0001.png"), png(1))]);
+        assert!(preview_import(&data, "rac2", "ntsc", &both).unwrap_err().contains("two pictures"));
+        let named = t.path().join("named.zip");
+        make_zip(&named, &[("logo.svg", SVG.into())]);
+        assert!(preview_import(&data, "rac2", "ntsc", &named).unwrap_err().contains("logo.svg"));
+    }
+
+    #[test]
+    fn only_pictures_every_gpu_reads_are_imported() {
+        // KTX2: Basis Universal or RGBA8, one flat picture.
+        assert_eq!(ktx2_problem(&ktx2(0, 1, 1)), None);
+        assert_eq!(ktx2_problem(&ktx2(0, 2, 1)), None);
+        assert_eq!(ktx2_problem(&ktx2(43, 0, 1)), None);
+        for (format, scheme, faces) in [(145, 0, 1), (131, 0, 1), (157, 0, 1), (147, 0, 1), (0, 1, 6), (37, 3, 1)] {
+            assert!(ktx2_problem(&ktx2(format, scheme, faces)).is_some(), "{format} {scheme} {faces}");
+        }
+        assert!(ktx2_problem(b"DDS ").is_some());
+        let mut big = ktx2(0, 1, 1);
+        big[20..24].copy_from_slice(&9000u32.to_le_bytes());
+        assert!(ktx2_problem(&big).is_some());
+        assert!(ktx2_problem(&ktx2(145, 0, 1)).unwrap().contains("some GPUs"));
+        // SVG: shapes only, links inside the file only.
+        assert_eq!(svg_problem(SVG.as_bytes()), None);
+        assert_eq!(svg_problem(br#"<svg width="8" height="8"><rect width="8" height="8"/></svg>"#), None);
+        for bad in [
+            r#"<svg><script>alert(1)</script></svg>"#,
+            r#"<svg onload="alert(1)"><rect/></svg>"#,
+            r#"<svg><image href="photo.png"/></svg>"#,
+            r#"<svg><use xlink:href="other.svg#a"/></svg>"#,
+            r#"<svg><rect fill="url(http://example.com/a)"/></svg>"#,
+            r#"<svg><style>@import "x.css";</style></svg>"#,
+            r#"<!DOCTYPE svg [<!ENTITY a "aaaa">]><svg>&a;</svg>"#,
+            r#"<svg><foreignObject><div/></foreignObject></svg>"#,
+            "not an svg",
+        ] {
+            assert!(svg_problem(bad.as_bytes()).is_some(), "{bad}");
+        }
+        assert!(svg_problem(&vec![b' '; MAX_SVG + 1]).is_some());
+        assert!(svg_problem(&[0xff, 0xfe, b'<']).is_some());
+        // Checked on import, by the file's kind.
+        assert!(check_bytes(Path::new("a/0123456789abcdef.ktx2"), &ktx2(145, 0, 1)).unwrap_err().contains("some GPUs"));
+        assert!(check_bytes(Path::new("0123456789abcdef.svg"), b"<svg><script/></svg>").is_err());
+        assert!(check_bytes(Path::new("0123456789abcdef.png"), b"nope").unwrap_err().contains("not a PNG"));
     }
 }

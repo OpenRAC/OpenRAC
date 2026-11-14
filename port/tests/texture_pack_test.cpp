@@ -273,6 +273,72 @@ void check_cycles(const fs::path& root) {
 
 }  // namespace
 
+// Fake KTX2 and SVG readers: a KTX2 is red 100, an SVG red 50 at the size asked; a file whose name
+// holds "bad" cannot be read.
+std::optional<Rgba8Image> load_ktx2(const fs::path& file) {
+    return file.string().find("bad") != std::string::npos ? std::nullopt
+                                                          : std::optional(solid(4, 4, 100));
+}
+
+std::optional<Rgba8Image> load_svg(const fs::path& file, int width, int height) {
+    return file.string().find("bad") != std::string::npos
+               ? std::nullopt
+               : std::optional(solid(width * 4, height * 4, 50));
+}
+
+// One texture with several pictures: the SVG wins, then the KTX2, then the PNG; one that cannot be
+// read gives way to the next, and a pack of PNGs alone is read as before.
+void check_still_kinds(const fs::path& root) {
+    fs::remove_all(root);
+    fs::create_directories(root / "good");
+    fs::create_directories(root / "bad");
+    const auto texture = solid(2, 2, 7);
+    const std::string hash =
+        texture_pack::file_name(texture_pack::image_hash(texture)).substr(0, 16);
+    disk().clear();
+    disk()[hash + ".png"] = solid(8, 8, 200);
+    const texture_pack::Io io{load, save, nullptr, load_ktx2, load_svg};
+    const auto replaced = [&](std::uint8_t red, int width) {
+        auto image = texture;
+        return texture_pack::replace(image) && image.pixels[0] == red && image.width == width;
+    };
+
+    std::ofstream(root / "good" / (hash + ".png")) << "png";
+    std::ofstream(root / "good" / (hash + ".ktx2")) << "ktx2";
+    std::ofstream(root / "good" / (hash + ".svg")) << "svg";
+    texture_pack::configure(root, {}, io);
+    CHECK(replaced(50, 8));  // the SVG, drawn for the 2x2 texture
+
+    fs::remove(root / "good" / (hash + ".svg"));
+    texture_pack::configure(root, {}, io);
+    CHECK(replaced(100, 4));  // the KTX2
+
+    // An SVG and a KTX2 that cannot be read, in another folder: the PNG is used, every time.
+    fs::remove(root / "good" / (hash + ".ktx2"));
+    std::ofstream(root / "bad" / (hash + ".svg")) << "svg";
+    std::ofstream(root / "bad" / (hash + ".ktx2")) << "ktx2";
+    texture_pack::configure(root, {}, io);
+    CHECK(replaced(200, 8));
+    CHECK(replaced(200, 8));
+
+    // A port without the readers (null) uses the PNG; other kinds alone replace nothing.
+    texture_pack::configure(root, {}, {load, save});
+    CHECK(replaced(200, 8));
+    fs::remove(root / "good" / (hash + ".png"));
+    texture_pack::configure(root, {}, {load, save});
+    auto image = texture;
+    CHECK(!texture_pack::replace(image) && image.width == 2);
+
+    // Upper-case or other extensions are not pictures of a pack.
+    fs::remove_all(root / "bad");
+    std::ofstream(root / "good" / (hash + ".SVG")) << "svg";
+    std::ofstream(root / "good" / (hash + ".dds")) << "dds";
+    texture_pack::configure(root, {}, io);
+    image = texture;
+    CHECK(!texture_pack::replace(image));
+    fs::remove_all(root);
+}
+
 int main() {
     const auto small = solid(2, 2, 10);
     // The hash takes the size and every texel; the name is 16 hex digits.
@@ -350,6 +416,7 @@ int main() {
     CHECK(!texture_pack::dumping());
 
     check_frame_at();
+    check_still_kinds(pack / "kinds");
     check_folders(pack / "folders");
     check_animated_pack(pack);
     check_cycles(pack);
