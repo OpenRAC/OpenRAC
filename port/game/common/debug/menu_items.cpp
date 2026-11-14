@@ -1014,7 +1014,8 @@ std::string game_page_value(Id id) {
             if (id == Id::GameplayFov && value == settings::kDefaultGameplayFov) {
                 return "Original";
             }
-            return std::format("{}x", static_cast<float>(value) / 100.0f);
+            return value % 100 == 0 ? std::format("{}x", value / 100)
+                                    : std::format("{:.2f}x", static_cast<float>(value) / 100.0f);
         }
         default:
             return it.value;

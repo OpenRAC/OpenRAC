@@ -31,6 +31,28 @@ namespace openrac::frontend::options_menu {
 
 namespace {
 
+constexpr const char* kLabels[kRows] = {
+    "Display mode",
+    "Monitor",
+    "Picture",
+    "HUD",
+    "Render scale",
+    "Anti-aliasing",
+    "Anisotropic filtering",
+    "Draw distance",
+    "Active distance",
+    "VSync",
+    "HDR",
+    "Frame rate",
+    "Frame cap",
+    "Low-latency frames",
+    "Frame counter",
+    "Mute in background",
+    "Skip cutscenes",
+    "Responsive controls",
+
+};
+
 // The "Game fixes" group, after the settings' own rows: its heading, then a row a fix.
 constexpr int kFixesHeading = kRows;
 constexpr const char* kFixesLabel = "Game fixes";
@@ -334,7 +356,7 @@ std::string value_of(int row) {
             return s.draw_distance == 100 ? std::string("Original")
                    : s.draw_distance == 0
                        ? std::string("Unlimited")
-                       : std::format("{}x", static_cast<float>(s.draw_distance) / 100.0f);
+                       : std::format("{:g}x", static_cast<float>(s.draw_distance) / 100.0f);
         case kActiveDistance:
             return s.original_active_distance ? "Original" : "Match";
         case kVSync:
@@ -1038,6 +1060,10 @@ void savestate_restored() {
 int fix_of_row(int row) {
     const int fix = row - kFixesHeading - 1;
     return fix >= 0 && fix < fixes::count() ? fix : -1;
+}
+
+const char* label(int row) {
+    return row >= 0 && row < kRows ? kLabels[row] : "";
 }
 
 std::string value(int row) {

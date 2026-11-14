@@ -41,7 +41,8 @@ enum Row {
 // port's fix) or Original (the console's behaviour), at kRows + 1 + its index.
 int fix_of_row(int row);  // the fix's index (fixes.h), or -1 for any other row
 
-// A setting's value now, as the player reads it.
+// A setting's name and its value now, as the player reads them.
+const char* label(int row);
 std::string value(int row);
 
 // A row moved to its next value (by = 1) or the one before (by = -1), within what the graphics
