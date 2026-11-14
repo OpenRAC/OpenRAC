@@ -1275,6 +1275,9 @@ struct Prop {
     // Fixed to a moby's joint (1.18): the moby, its joint; `matrix` is the offset then.
     gaddr attached_moby = 0;
     int attached_joint = -1;
+    // Where the renderer drew it on that joint last (prop_frame), once it has.
+    std::array<float, 16> placed{};
+    bool was_placed = false;
 };
 
 // A sound a mod loaded: whose, and the host's id of it.
@@ -1543,9 +1546,28 @@ int api_prop_attach(
     } else {
         p->matrix = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     }
+    if (p->attached_moby != moby || p->attached_joint != joint) {
+        p->was_placed = false;  // not drawn on this joint yet
+    }
     p->attached_moby = moby;
     p->attached_joint = joint;
     p->posed = true;
+    return OPENRAC_HOOK_OK;
+}
+
+// Where a prop was drawn last (interface 1.18): its pose, or, fixed to a joint, the matrix the
+// renderer drew it with (prop_placed).
+int api_prop_frame(openrac_mod* mod, int id, float out[16]) {
+    if (out == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const Prop* p = own_prop(mod, id);
+    if (p == nullptr || !p->posed || (p->attached_moby != 0 && !p->was_placed)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::array<float, 16>& m = p->attached_moby != 0 ? p->placed : p->matrix;
+    std::copy(m.begin(), m.end(), out);
     return OPENRAC_HOOK_OK;
 }
 
@@ -1955,6 +1977,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.prop_create = api_prop_create;
     api.prop_pose = api_prop_pose;
     api.prop_attach = api_prop_attach;
+    api.prop_frame = api_prop_frame;
     api.prop_hide = api_prop_hide;
     api.prop_remove = api_prop_remove;
     api.sound_load = api_sound_load;
@@ -2020,6 +2043,18 @@ std::vector<PropDraw> props_drawn() {
         }
     }
     return out;
+}
+
+void prop_placed(int id, const std::array<float, 16>& matrix) {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    if (id < 0 || static_cast<std::size_t>(id) >= g_props.size()) {
+        return;
+    }
+    Prop& p = g_props[static_cast<std::size_t>(id)];
+    if (p.mod != nullptr && p.attached_moby != 0) {
+        p.placed = matrix;
+        p.was_placed = true;
+    }
 }
 
 std::vector<std::filesystem::path> prop_meshes() {

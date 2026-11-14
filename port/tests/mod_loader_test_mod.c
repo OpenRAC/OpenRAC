@@ -326,6 +326,15 @@ static void motion_frame(void) {
             s_record(9660 + -s_api->prop_attach(s_mod, held, 4, 5, 0, NULL));
             s_record(9670 + -s_api->prop_attach(s_mod, held, 3, 1, OPENRAC_ATTACH_HELD, offset));
             s_record(9670 + -s_api->prop_attach(s_mod, held, 3, 2, OPENRAC_ATTACH_HELD, NULL));
+            {
+                /* Where they were drawn: the posed one at its pose; the fixed one not drawn on
+                 * its joint yet; another mod's not ours. */
+                float at[16];
+                memset(at, 0, sizeof at);
+                s_record(9680 + -s_api->prop_frame(s_mod, s_prop, at) + (at[12] == 1.0f ? 0 : 5));
+                s_record(9680 + -s_api->prop_frame(s_mod, held, at));
+                s_record(9680 + -s_api->prop_frame(s_mod, s_prop + 2, at));
+            }
         }
         sound = s_api->sound_load(s_mod, "beep.wav");
         s_record(9560 + sound);

@@ -1957,6 +1957,7 @@ TickMobys pose_mobys(
                     }
                 }
                 place = renderer::multiply(frame, props[i].matrix);
+                mods::prop_placed(props[i].id, place);  // where the mod's prop_frame finds it
             }
             scene::Instance instance{model->second, place, props[i].tint};
             instance.moby_light = {0.0f, 0.0f, 0.0f, 1.0f};

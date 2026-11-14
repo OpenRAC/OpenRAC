@@ -922,6 +922,15 @@ void fill_18(openrac_api &api) {
            (offset != nullptr ? " offset" : "");
     return slot >= 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
   };
+  api.prop_frame = [](openrac_mod *, int id, float out[16]) {
+    if (id != 2) {
+      return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (int i = 0; i < 16; ++i) {
+      out[i] = static_cast<float>(i);
+    }
+    return OPENRAC_HOOK_OK;
+  };
 }
 
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
@@ -1924,12 +1933,15 @@ int main() {
       CHECK(mod.prop_attach(2, 3, 1, OPENRAC_ATTACH_HELD, offset) &&
             g_18 == "2 3 1 1 offset");
       CHECK(!mod.prop_attach(2, -1, 5));
+      float frame[16] = {};
+      CHECK(mod.prop_frame(2, frame) && frame[12] == 12.0f);
+      CHECK(!mod.prop_frame(3, frame));
 
       // A port of 1.17 has none of it.
       g_18.clear();
       api.api_minor = 17;
       CHECK(!mod.has_prop_attach() && !mod.prop_attach(2, 3, 5) &&
-            g_18.empty());
+            g_18.empty() && !mod.prop_frame(2, frame));
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);

@@ -199,6 +199,10 @@ struct PropDraw {
 // The props shown in the level now (posed, not hidden, of this level load). From any thread.
 std::vector<PropDraw> props_drawn();
 
+// The renderer drew prop `id`, fixed to a joint, with `matrix` this frame (interface 1.18,
+// prop_frame tells the mod). From any thread.
+void prop_placed(int id, const std::array<float, 16>& matrix);
+
 // Every mesh a prop was made of in this run, in the order first asked for, and a count that grows
 // when one is added: the front end reads them with each level's scenery, and reads the level's
 // again when the count has grown. From any thread.

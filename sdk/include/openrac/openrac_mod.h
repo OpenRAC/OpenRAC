@@ -2193,6 +2193,17 @@ typedef struct openrac_api {
      * offset that is not numbers. */
     int (*prop_attach)(openrac_mod *mod, int id, int32_t slot, int32_t joint,
                        uint32_t flags, const float offset[16]);
+
+    /* Where a prop of the mod's was drawn last (since 1.18): into `out` the 4
+     * by 4 matrix, column-major, that took its mesh's coordinates to the
+     * world's in the last frame drawn. For a prop fixed to a joint
+     * (prop_attach) that is the joint's frame then times its offset: the way
+     * a weapon in the hero's hand points, and where its muzzle is (a point of
+     * its mesh carried by the matrix), through a somersault as through a
+     * walk. For a posed one, its pose. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for a prop that is not the mod's, not posed, or not
+     * drawn on its joint since it was fixed there. */
+    int (*prop_frame)(openrac_mod *mod, int id, float out[16]);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

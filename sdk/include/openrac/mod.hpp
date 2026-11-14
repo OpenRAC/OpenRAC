@@ -959,6 +959,17 @@ public:
                  OPENRAC_HOOK_OK;
     }
 
+    // Since 1.18: where the mod's prop `id` was drawn last, into `out`
+    // (column-major, its mesh's coordinates to the world's; for a prop fixed
+    // to a joint, the joint's frame then times its offset). Returns false for
+    // a prop not posed or not drawn on its joint yet, or a port without it.
+    bool prop_frame(int id, float out[16]) const {
+      return m_api->api_minor >= 18 &&
+             m_api->size >=
+                 offsetof(openrac_api, prop_frame) + sizeof(void *) &&
+             m_api->prop_frame(m_handle, id, out) == OPENRAC_HOOK_OK;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

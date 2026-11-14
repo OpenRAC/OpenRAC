@@ -1844,11 +1844,10 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(mods::prop_meshes().empty());
     const unsigned generation = mods::prop_meshes_generation();
     mods::frame();
-    CHECK(
-        (g_records == std::vector<int>{9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9660, 9661,
-                                       9670, 9671,      9560, 9561, 9577, 9581, 9580, 9581, 9591,
-                                       9590, 9591,      9591, 9590, 9602, 9611, 9610, 9623, 9635})
-    );
+    CHECK((g_records == std::vector<int>{9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9660,
+                                         9661, 9670,      9671, 9680, 9681, 9681, 9560, 9561,
+                                         9577, 9581,      9580, 9581, 9591, 9590, 9591, 9591,
+                                         9590, 9602,      9611, 9610, 9623, 9635}));
     CHECK(
         (g_motion
          == std::vector<std::string>{
@@ -1877,6 +1876,16 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         drawn.size() == 2 && drawn[1].attached_moby == 0x2000 && drawn[1].attached_joint == 12
         && drawn[1].matrix[12] == 0.5f && drawn[1].matrix[0] == 1.0f
     );
+    // The renderer tells where it drew the fixed one (prop_frame answers it from then on); a prop
+    // that is not fixed keeps its pose.
+    {
+        std::array<float, 16> placed{};
+        placed[12] = 7.0f;
+        mods::prop_placed(drawn.size() == 2 ? drawn[1].id : -1, placed);
+        mods::prop_placed(drawn.size() == 2 ? drawn[0].id : -1, placed);
+        mods::prop_placed(99999, placed);
+        CHECK(mods::props_drawn().size() == 2 && mods::props_drawn()[0].matrix[12] == 1.0f);
+    }
     // The heat haze, drawn while its level is.
     const std::vector<mods::HazeDraw> haze = mods::haze_drawn();
     CHECK(haze.size() == 2 && haze[0].position[0] == 4.0f && haze[0].radius == 1.0f);
