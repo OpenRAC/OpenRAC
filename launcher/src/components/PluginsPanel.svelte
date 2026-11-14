@@ -36,6 +36,7 @@
   import Reason from "./Reason.svelte";
   import { hidePaths } from "$lib/paths";
   import { hasRead, keepRead, lastRead } from "$lib/lastRead";
+  import { holdSlide } from "$lib/motion";
   import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
   import { checkIndex } from "$lib/modAutoUpdate.svelte";
   import { modCode } from "$lib/modCodes.svelte";
@@ -69,6 +70,7 @@
   interface Kept {
     mods: PluginView[];
     sources: ModSources["mods"];
+    updates: Record<string, ModUpdate>;
   }
   const keptKey = () => `plugins:${v.key}`;
   const enhancedKey = () => `enhanced:${v.key}`;
@@ -85,7 +87,7 @@
 
   /** Where each installed mod came from (sources.json), and the updates the last check found. */
   let sources = $state<ModSources["mods"]>(kept()?.sources ?? {});
-  let updates = $state<Record<string, ModUpdate>>({});
+  let updates = $state<Record<string, ModUpdate>>(kept()?.updates ?? {});
   let checking = $state(false);
   /** The quiet look on opening the tab, which the button does not show. */
   let looking = $state(false);
@@ -214,7 +216,12 @@
 
   // Every change (a read, a switch, a move) kept for the next time the page opens.
   $effect(() => {
-    if (listFor === keptKey()) keepRead(listFor, { mods: $state.snapshot(mods), sources: $state.snapshot(sources) });
+    if (listFor === keptKey())
+      keepRead(listFor, {
+        mods: $state.snapshot(mods),
+        sources: $state.snapshot(sources),
+        updates: $state.snapshot(updates),
+      });
   });
   $effect(() => {
     if (enhancedFor === enhancedKey()) keepRead(enhancedFor, $state.snapshot(enhanced));
@@ -310,8 +317,12 @@
   });
 
   $effect(() => {
-    // Again whenever RELOAD is bumped, and for another game.
-    if (reload >= 0 && v.key) void load();
+    // Again whenever RELOAD is bumped, and for another game. With nothing kept from a last visit,
+    // the tab's slide waits a moment for the list, so it comes in with the page.
+    if (reload >= 0 && v.key) {
+      const read = load();
+      if (!listFor) holdSlide(read);
+    }
   });
 
   /** The Share window is open. */
@@ -577,8 +588,8 @@
 
       {#if listError}
         <Reason text={listError} tone="err" />
-      {:else if !loaded}
-        <!-- Still reading the list: nothing yet, rather than "no mods" for a moment. -->
+      {:else if !loaded && !listFor}
+        <!-- Still reading the list and nothing kept: nothing yet, rather than "no mods" for a moment. -->
       {:else if mods.length === 0}
         {#if shows("gameplay")}<p class="empty">{T.PANEL.empty}</p>{/if}
       {:else}

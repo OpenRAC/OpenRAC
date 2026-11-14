@@ -14,13 +14,17 @@
   import { fold } from "$lib/motion";
   import { tick } from "svelte";
   import { slide } from "svelte/transition";
+  import { hasRead, keepRead, lastRead } from "$lib/lastRead";
+  import { holdSlide } from "$lib/motion";
 
   let { version }: { version: VersionView } = $props();
 
   const developer = $derived(app.config?.developer ?? false);
 
   let loading = $state(true);
-  let status = $state<GameSaveStatus | null>(null);
+  // The card as the page last read it (lastRead.ts), shown at once as the tab opens, then read again.
+  const savesKey = () => `saves:${version.serial}`;
+  let status = $state<GameSaveStatus | null>(lastRead<GameSaveStatus | null>(savesKey(), null));
   let backupNote = $state("");
   let creatingBackup = $state(false);
   let restoringBackupName = $state<string | null>(null);
@@ -48,6 +52,7 @@
     loading = true;
     try {
       status = await api.inspectSaves(version.serial);
+      keepRead(savesKey(), $state.snapshot(status));
     } catch (e) {
       toast(`Failed to inspect saves: ${String(e)}`, "error");
     } finally {
@@ -119,7 +124,11 @@
 
   $effect(() => {
     // Again whenever the card changed elsewhere (app.savesChanged: an import, the game ending).
-    if (app.savesChanged >= 0) void loadStatus();
+    // With nothing kept, the tab's slide waits a moment for the card, so the saves come in with the page.
+    if (app.savesChanged >= 0) {
+      const read = loadStatus();
+      if (!hasRead(savesKey())) holdSlide(read);
+    }
   });
 </script>
 
