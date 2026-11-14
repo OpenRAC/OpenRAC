@@ -145,6 +145,32 @@ export class Queue {
     job.endedAt = now;
   }
 
+  /** Applies a batch of events. A job's lines are added in one go and the oldest dropped once,
+   *  so a batch costs one change to the page, not one per line. */
+  applyAll(events: JobEvent[], now = Date.now()) {
+    let run: Line[] = [];
+    let runJob: Job | undefined;
+    const flush = () => {
+      if (!runJob || !run.length) return;
+      runJob.lines.push(...run.slice(-MAX_LINES));
+      if (runJob.lines.length > MAX_LINES) runJob.lines.splice(0, runJob.lines.length - MAX_LINES);
+      run = [];
+    };
+    for (const event of events) {
+      const job = event.type === "output" ? this.jobs.find((j) => j.id === event.id) : undefined;
+      if (event.type === "output" && job) {
+        if (job !== runJob) flush();
+        runJob = job;
+        run.push({ stream: event.stream, line: event.line });
+        continue;
+      }
+      flush();
+      runJob = undefined;
+      this.apply(event, now);
+    }
+    flush();
+  }
+
   apply(event: JobEvent, now = Date.now()) {
     const job = this.jobs.find((j) => j.id === event.id);
     if (!job) {

@@ -107,6 +107,24 @@ describe("queue", () => {
     expect(a.lines[0]?.line).toBe("10");
   });
 
+  it("applies a batch of lines and an exit in order", () => {
+    const q = new Queue();
+    const a = q.add(repo, "a", "A");
+    q.started(a, 1, "cmd");
+    const lines = Array.from({ length: MAX_LINES + 10 }, (_, i) => ({
+      type: "output" as const,
+      id: 1,
+      stream: "stdout" as const,
+      line: String(i),
+    }));
+    q.applyAll([...lines, { type: "exit", id: 1, code: 0, cancelled: false, outputs: [] }]);
+    expect(a.lines.length).toBe(MAX_LINES);
+    expect(a.lines[0]?.line).toBe("10");
+    expect(a.lines.at(-1)?.line).toBe(String(MAX_LINES + 9));
+    expect(a.state).toBe("succeeded");
+    expect(q.takeEnded()).toBe(a);
+  });
+
   it("finds the live job a second request would repeat", () => {
     const q = new Queue();
     const pal = { kind: "version", key: "rac1/pal" } as const;

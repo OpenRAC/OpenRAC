@@ -261,6 +261,109 @@ impl Jobs {
     }
 }
 
+/// How often a job's output goes to the page. One event per line floods the window: each event
+/// is a call into the web view on the launcher's main thread, so a chatty program (the game, the
+/// baker) froze the window and its lines kept coming long after the program had ended.
+const BATCH_EVERY: Duration = Duration::from_millis(100);
+
+/// The most lines one batch carries. A program that writes more in [`BATCH_EVERY`] loses its
+/// older lines (a note says how many); the page keeps only its last lines anyway.
+const BATCH_MOST: usize = 1000;
+
+/// A sink for [`Jobs::start`] that hands `deliver` the job's events in batches, a few times a
+/// second: the output lines so far, and the exit last, after the lines before it. Lines that come
+/// after the exit (from a process the job left behind) are dropped, as the job has ended.
+pub fn batched(deliver: impl Fn(Vec<Event>) + Send + Sync + 'static) -> impl Fn(Event) + Send + Sync + 'static {
+    let shared =
+        Arc::new(Batch { pending: Mutex::default(), wake: std::sync::Condvar::new(), deliver: Box::new(deliver) });
+    let flusher = shared.clone();
+    std::thread::spawn(move || loop {
+        let ended = {
+            let pending = flusher.pending.lock().unwrap();
+            let (pending, _) = flusher.wake.wait_timeout_while(pending, BATCH_EVERY, |p| !p.ended).unwrap();
+            pending.ended
+        };
+        flusher.flush(None);
+        if ended {
+            break;
+        }
+    });
+    let sink = BatchSink(shared);
+    move |event| sink.push(event)
+}
+
+struct Batch {
+    pending: Mutex<Pending>,
+    wake: std::sync::Condvar,
+    deliver: Box<dyn Fn(Vec<Event>) + Send + Sync>,
+}
+
+#[derive(Default)]
+struct Pending {
+    lines: std::collections::VecDeque<Event>,
+    /// Lines dropped since the last batch, as more came than one batch carries.
+    dropped: usize,
+    /// The exit was delivered (or the sink is gone): nothing more is.
+    ended: bool,
+}
+
+impl Batch {
+    /// Delivers the lines so far, then `exit`. One delivery at a time, so the order holds.
+    fn flush(&self, exit: Option<Event>) {
+        let mut pending = self.pending.lock().unwrap();
+        if pending.ended && exit.is_some() {
+            return;
+        }
+        let mut events: Vec<Event> = pending.lines.drain(..).collect();
+        if pending.dropped > 0 {
+            if let Some(Event::Output { id, .. }) = events.first() {
+                let line = format!("openrac-launcher: {} lines left out (written faster than shown)", pending.dropped);
+                events.insert(0, Event::Output { id: *id, stream: Stream::Stderr, line });
+            }
+            pending.dropped = 0;
+        }
+        if let Some(exit) = exit {
+            pending.ended = true;
+            events.push(exit);
+            self.wake.notify_all();
+        }
+        // Delivered under the lock: the flusher and the exit cannot overtake each other.
+        if !events.is_empty() {
+            (self.deliver)(events);
+        }
+    }
+}
+
+/// The sink's end of a [`batched`] sink: when it is dropped (the job ended, or never started) the
+/// flusher thread ends too.
+struct BatchSink(Arc<Batch>);
+
+impl BatchSink {
+    fn push(&self, event: Event) {
+        match event {
+            Event::Output { .. } => {
+                let mut pending = self.0.pending.lock().unwrap();
+                if pending.ended {
+                    return;
+                }
+                if pending.lines.len() == BATCH_MOST {
+                    pending.lines.pop_front();
+                    pending.dropped += 1;
+                }
+                pending.lines.push_back(event);
+            }
+            exit @ Event::Exit { .. } => self.0.flush(Some(exit)),
+        }
+    }
+}
+
+impl Drop for BatchSink {
+    fn drop(&mut self) {
+        self.0.pending.lock().unwrap().ended = true;
+        self.0.wake.notify_all();
+    }
+}
+
 /// Starts `plan` on its own: its output is not read and the launcher does
 /// not wait for it.
 pub fn launch(plan: &Plan, root: Option<&std::path::Path>) -> Result<Started, String> {
@@ -560,6 +663,44 @@ mod tests {
         };
         assert_eq!(exit, Event::Exit { id: started.id, code: Some(0), cancelled: false, outputs: vec![] });
         assert!(lines.contains(&"started".to_string()), "{lines:?}");
+    }
+
+    #[test]
+    fn batches_lines_then_the_exit() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let tx = Mutex::new(tx);
+        let sink = batched(move |batch| tx.lock().unwrap().send(batch).unwrap());
+        let line = |n: usize| Event::Output { id: 1, stream: Stream::Stdout, line: n.to_string() };
+        for n in 0..BATCH_MOST + 5 {
+            sink(line(n));
+        }
+        let exit = Event::Exit { id: 1, code: Some(0), cancelled: false, outputs: vec![] };
+        sink(exit.clone());
+        // Lines after the end are from something the job left behind: not shown.
+        sink(line(9999));
+        drop(sink);
+        let batches: Vec<Vec<Event>> = rx.iter().collect();
+        let events: Vec<Event> = batches.iter().flatten().cloned().collect();
+        // One batch, maybe two if the flusher woke in between: never one event per line.
+        assert!(batches.len() <= 2, "{} batches", batches.len());
+        assert_eq!(events.last(), Some(&exit));
+        // The oldest lines past the batch's size are dropped, and a note says so.
+        let Event::Output { line: note, .. } = &events[0] else { panic!("{:?}", events[0]) };
+        assert_eq!(note, "openrac-launcher: 5 lines left out (written faster than shown)");
+        assert_eq!(events[1], line(5));
+        assert_eq!(events.len(), BATCH_MOST + 2);
+    }
+
+    #[test]
+    fn batches_lines_while_the_job_runs() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let tx = Mutex::new(tx);
+        let sink = batched(move |batch| tx.lock().unwrap().send(batch).unwrap());
+        sink(Event::Output { id: 2, stream: Stream::Stderr, line: "working".into() });
+        // No exit yet: the line still comes, within a batch's time.
+        let batch = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert_eq!(batch, [Event::Output { id: 2, stream: Stream::Stderr, line: "working".into() }]);
+        drop(sink);
     }
 
     /// The AppImage is given as an argument, not set in this process's environment: the tests
