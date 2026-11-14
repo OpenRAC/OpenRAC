@@ -328,6 +328,13 @@ class Rac1Carry(unittest.TestCase):
         self.assertEqual(out, "# head\nfunc_001FFF00\tgame\tX\thost\n")
         self.assertEqual(len(self.c.report["dropped"]), 2)
 
+    def test_a_row_of_omitted_host_c_is_left_out(self):
+        # release.json "omit": no host function of that name is built, so no row may wrap it.
+        self.c.omit = {"func_00200000"}
+        out = self.mod.carry_libraries(self.c, "func_00200000\tdraw\tX\twrap\n")
+        self.assertEqual(out, "\n")
+        self.assertIn("func_00200000", self.c.report["dropped"])
+
     def test_c_literals(self):
         text = "x = GREF(int, 0x00150000u); /* 0x00150000 */ y = RAC1_ADDR(0x00150000u);"
         self.assertEqual(self.mod.carry_c(self.c, text, "t"),

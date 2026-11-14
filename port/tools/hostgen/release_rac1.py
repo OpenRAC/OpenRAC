@@ -60,6 +60,9 @@ class Carry:
         self.table, self.raw, self.map = table, raw, vmap
         self.how: dict[str, str] = raw.get("how", {})
         self.report: dict[str, dict] = {"functions": {}, "addresses": {}, "dropped": {}}
+        # The shared host C the release leaves out (release.json "omit", RAC1_OMIT): no host
+        # function of that name is built, so no table row may wrap or replace it.
+        self.omit: set[str] = set()
         # PAL v2.00's places and the release's, by name (the k-th of a program is the k-th).
         self.p_places = {r["name"]: r["places"] for r in primary_rows}
         self.r_places = {r["name"]: r["places"] for r in rows}
@@ -211,6 +214,10 @@ def carry_libraries(c: Carry, text: str) -> str:
             continue
         new = c.function(cols[0], f"libraries.tsv {cols[0]}")
         if new is None:
+            continue
+        if cols[0] in c.omit:
+            c.report["functions"].pop(cols[0], None)
+            c.report["dropped"][cols[0]] = f"libraries.tsv {cols[0]}: the shared host C leaves it out here"
             continue
         out.append("\t".join([new] + cols[1:]))
     return "\n".join(out) + "\n"
@@ -403,6 +410,7 @@ def main(argv: list[str] | None = None) -> int:
     vmap = Map(args.map)
     c = Carry(table, raw, vmap, rel.read_rows(source / "config/versions/pal/functions.tsv"),
               rel.read_rows(source / "config/versions" / version / "functions.tsv"))
+    c.omit = set(settings.get("omit", {}))
     # hostgen.json
     new_cfg = carry_config(c, cfg, version, settings["id"], settings["title"], settings["serial"],
                            settings["frame_rate"], int(settings["gp"], 16), int(settings["main"], 16),
