@@ -245,6 +245,16 @@ pub fn install(fetch: &dyn Fetch, hosts: &Hosts, root: Option<&Path>) -> Result<
 /// Unpacks the archive `bytes` next to `dir` and swaps it in; the old editor goes only once the
 /// new one reads.
 fn put_in_place(bytes: &[u8], dir: &Path) -> Result<(), String> {
+    put_in_place_with(bytes, dir, &|from, to| std::fs::rename(from, to))
+}
+
+/// [`put_in_place`] with its folder moves done by `rename` (a test's to fail them, as Windows does
+/// while the editor runs from the folder). A move that fails leaves the old editor as it was.
+fn put_in_place_with(
+    bytes: &[u8],
+    dir: &Path,
+    rename: &dyn Fn(&Path, &Path) -> std::io::Result<()>,
+) -> Result<(), String> {
     let parent = dir.parent().ok_or("the editor's folder has no parent")?;
     std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
     let fresh = dir.with_extension("new");
@@ -254,13 +264,31 @@ fn put_in_place(bytes: &[u8], dir: &Path) -> Result<(), String> {
             std::fs::remove_dir_all(leftover).map_err(|e| format!("{}: {e}", leftover.display()))?;
         }
     }
-    unpack(bytes, &fresh)?;
-    let editor = read(&fresh).map_err(|e| format!("the download is not OpenRAC Editor ({e})"))?;
+    let unpacked = unpack(bytes, &fresh)
+        .and_then(|()| read(&fresh).map_err(|e| format!("the download is not OpenRAC Editor ({e})")));
+    let editor = match unpacked {
+        Ok(editor) => editor,
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&fresh);
+            return Err(e);
+        }
+    };
     make_runnable(&editor);
-    if dir.exists() {
-        std::fs::rename(dir, &old).map_err(|e| format!("{}: {e} (close OpenRAC Editor first)", dir.display()))?;
+    let had_one = dir.exists();
+    if had_one {
+        if let Err(e) = rename(dir, &old) {
+            let _ = std::fs::remove_dir_all(&fresh);
+            return Err(format!("{}: {e} (close OpenRAC Editor first)", dir.display()));
+        }
     }
-    std::fs::rename(&fresh, dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    if let Err(e) = rename(&fresh, dir) {
+        // The old editor goes back, so the player still has one.
+        if had_one {
+            let _ = rename(&old, dir);
+        }
+        let _ = std::fs::remove_dir_all(&fresh);
+        return Err(format!("{}: {e} (close OpenRAC Editor first)", dir.display()));
+    }
     if old.exists() {
         let _ = std::fs::remove_dir_all(&old);
     }
@@ -536,5 +564,49 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let archive = zip_of(&[("openrac\\editor.json", MANIFEST_TEXT.as_bytes(), 0o644)]);
         assert!(unpack(&archive, &home.path().join("x")).unwrap_err().contains("in place of /"));
+    }
+
+    #[test]
+    fn an_update_that_cannot_move_the_folder_keeps_the_old_editor() {
+        // Windows will not move a folder while a program in it runs (the editor left open).
+        let home = tempfile::tempdir().unwrap();
+        let dir = home.path().join("editor");
+        let old = zip_of(&[(MANIFEST, MANIFEST_TEXT.as_bytes(), 0o644), (program_key(), b"old", 0o755)]);
+        put_in_place(&old, &dir).unwrap();
+        let new_text = MANIFEST_TEXT.replace("v1.0.0", "v2.0.0");
+        let new = zip_of(&[(MANIFEST, new_text.as_bytes(), 0o644), (program_key(), b"new", 0o755)]);
+        let in_use = || std::io::Error::new(std::io::ErrorKind::PermissionDenied, "in use");
+        // Which move fails: the old folder aside, or the new one into its place.
+        for failing in [0, 1] {
+            let count = std::cell::Cell::new(0);
+            let rename = |from: &Path, to: &Path| {
+                let n = count.get();
+                count.set(n + 1);
+                if n == failing {
+                    Err(in_use())
+                } else {
+                    std::fs::rename(from, to)
+                }
+            };
+            let error = put_in_place_with(&new, &dir, &rename).unwrap_err();
+            assert!(error.contains("close OpenRAC Editor first"), "{failing}: {error}");
+            assert_eq!(read(&dir).unwrap().manifest.version, "v1.0.0", "{failing}: the old editor is still there");
+            assert_eq!(std::fs::read(read(&dir).unwrap().program().unwrap()).unwrap(), b"old");
+            let left: Vec<_> = std::fs::read_dir(home.path()).unwrap().map(|e| e.unwrap().file_name()).collect();
+            assert_eq!(left, vec![std::ffi::OsString::from("editor")], "{failing}: nothing left beside it");
+        }
+        // Once the editor is closed the update goes through.
+        put_in_place(&new, &dir).unwrap();
+        assert_eq!(read(&dir).unwrap().manifest.version, "v2.0.0");
+    }
+
+    #[test]
+    fn a_broken_download_leaves_nothing_behind() {
+        let home = tempfile::tempdir().unwrap();
+        let dir = home.path().join("editor");
+        assert!(put_in_place(b"not a zip", &dir).is_err());
+        let not_editor = zip_of(&[("readme.txt", b"hi", 0o644)]);
+        assert!(put_in_place(&not_editor, &dir).unwrap_err().contains("not OpenRAC Editor"));
+        assert_eq!(std::fs::read_dir(home.path()).unwrap().count(), 0);
     }
 }

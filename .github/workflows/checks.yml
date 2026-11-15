@@ -126,6 +126,17 @@ jobs:
       - name: Extractor (synthetic data only)
         run: python -m unittest discover -s extractor -v
 
+      # Again on the oldest Python the launcher accepts (config.rs), which players may have.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        id: python310
+        with:
+          python-version: "3.10"
+          update-environment: false
+      - name: Extractor on Python 3.10
+        env:
+          PYTHON310: ${{ steps.python310.outputs.python-path }}
+        run: '"$PYTHON310" -m unittest discover -s extractor'
+
       - name: Probe bake planning (synthetic data only)
         run: python -m unittest discover -s port/enhanced/tools/baker -v
 
