@@ -89,6 +89,8 @@ void func_002E3940(int shell) {
  * the port's renderer culls the mobys it draws itself (host::moby_proc_distance_fade) and animates
  * the far ones the game leaves asleep (frontend/sleeping_mobys.h). Updated early, Aranos' hatch
  * (2759) put Ratchet out of the hatch during the launch's path camera and the view held still.
+ * The game fix fix_wide_moby_effects (differences.json) opens the view as the port's picture and
+ * the player's Field of View open it, as before.
  */
 static void mark_drawn_mobys(gaddr first, int count) {
     float eye[3], block[12], rows[12], tx, ty;
@@ -107,6 +109,14 @@ static void mark_drawn_mobys(gaddr first, int count) {
     if (!(ty > 0.05f && ty < 10.0f)) {
         ty = tx * 0.756f;
     }
+    static const unsigned char* fix;
+    if (!fix) {
+        fix = openrac_game_fix("fix_wide_moby_effects");
+    }
+    /* Both tangents opened as the player's Field of View opens them too. */
+    const float opened = *fix ? openrac_game_view_opened() : 1.0f;
+    tx *= *fix ? openrac_game_picture_wider() * opened : 1.0f;
+    ty *= opened;
     const float kx = sqrtf(1.0f + tx * tx), ky = sqrtf(1.0f + ty * ty);
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(MOBY_MAX_DISTANCE));

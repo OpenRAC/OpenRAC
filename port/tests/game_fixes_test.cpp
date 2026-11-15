@@ -47,9 +47,13 @@ void write(const fs::path& path, const std::string& text) {
 
 int main() {
     // The table: rac1's wide-screen fixes, all on by default (on is the port's fix).
-    CHECK(fixes::count() >= 4);
+    CHECK(fixes::count() >= 5);
     for (const char* key :
-         {"fix_wide_nanotech_orbs", "fix_wide_liquids", "fix_wide_air_traffic", "fix_wide_fires"}) {
+         {"fix_wide_moby_effects",
+          "fix_wide_nanotech_orbs",
+          "fix_wide_liquids",
+          "fix_wide_air_traffic",
+          "fix_wide_fires"}) {
         const int i = fixes::find(key);
         CHECK(i >= 0);
         CHECK(fixes::fix(i).on);
@@ -75,6 +79,7 @@ int main() {
             }
         }
     }
+    CHECK(asked.count("fix_wide_moby_effects") == 1);
     CHECK(asked.count("fix_wide_liquids") == 1);
     CHECK(asked.count("fix_wide_nanotech_orbs") == 1);
     CHECK(asked.count("fix_wide_air_traffic") == 1);
@@ -105,7 +110,7 @@ int main() {
     // Saved: every fix is written with its value.
     settings::save();
     const std::string saved = read(file);
-    CHECK(saved.find("fix_wide_fires = 1") != std::string::npos);
+    CHECK(saved.find("fix_wide_moby_effects = 1") != std::string::npos);
     CHECK(saved.find("fix_wide_liquids = 1") != std::string::npos);
 
     // Switched off in the file (as the launcher writes it): the console's behaviour, through the
@@ -114,13 +119,13 @@ int main() {
     settings::load(file);
     CHECK(*liquids == 0);
     CHECK(!fixes::on(fixes::find("fix_wide_liquids")));
-    CHECK(fixes::on(fixes::find("fix_wide_fires")));
+    CHECK(fixes::on(fixes::find("fix_wide_moby_effects")));
     CHECK(settings::summary().find("as the console: fix_wide_liquids") != std::string::npos);
 
     // A value the port does not know: the default.
-    write(file, "fix_wide_fires = maybe\n");
+    write(file, "fix_wide_moby_effects = maybe\n");
     settings::load(file);
-    CHECK(fixes::on(fixes::find("fix_wide_fires")));
+    CHECK(fixes::on(fixes::find("fix_wide_moby_effects")));
 
     // Off, saved and read again: still off.
     fixes::set(fixes::find("fix_wide_nanotech_orbs"), false);

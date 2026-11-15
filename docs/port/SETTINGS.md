@@ -109,7 +109,7 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | (Controls tab, Menu) | `menu_bar_key` | `` ` ``, `Alt`, any SDL scancode name (`F4`, `M`) | The key that opens and closes the menu, by its place on the keyboard (`` ` `` is the key under Escape on any layout); the menu says it at its foot. `Alt` counts pressed by itself (Alt+Return stays fullscreen; an Alt held through Alt+Tab does not count) |
 | (Controls tab, Menu) | `menu_button` | `start+back` (Start and Select together), `paddle1`, `none`, any SDL gamepad button name (`misc1`) | The controller button that opens and closes it. Start+Select never reaches the game. An old `menu_bar_button = leftstick` (L3) becomes Start+Select. `paddle1` is the Steam Controller's R4 |
 | Mute in background | `mute_unfocused` | `0`, `1` | Silence while another window has the keyboard |
-| Game fixes: one row each | `fix_...` | `1` (the port's fix), `0` (the console's behaviour) | What the port changes from the console that a player may switch back (section 8). Ratchet & Clank: `fix_wide_nanotech_orbs`, `fix_wide_liquids` |
+| Game fixes: one row each | `fix_...` | `1` (the port's fix), `0` (the console's behaviour) | What the port changes from the console that a player may switch back (section 8). Ratchet & Clank: `fix_wide_moby_effects`, `fix_wide_nanotech_orbs`, `fix_wide_liquids` |
 | (F9, F10) | `volume` | `100`, `0` to `100` | How loud everything the port plays is |
 | Touch controls: Action buttons | `touch_style` | `0` (on), `1` (off) | On: the touch pad shows action buttons with icons that follow what the game is doing (on foot, Clank, swimming, a menu; [touch_controls.h](../../port/game/common/frontend/touch_controls.h)). Off: the DualShock's buttons |
 | Touch controls: Button size | `touch_scale` | `75`, `50` to `150` (percent) | The on-screen pad's size against its own ([touch_pad.h](../../port/platform/touch_pad.h)). Smaller controls sit nearer the screen's edges as well |
@@ -536,6 +536,7 @@ Ratchet & Clank's fixes now, all on by default and all for both discs:
 
 | Key | Off |
 |---|---|
+| `fix_wide_moby_effects` | MobyProc's "drawn" test ([render_native.c](../../port/game/rac1/host/render_native.c), [moby_view.h](../../port/game/rac1/host/moby_view.h)) against the 4:3 view: mobys near the sides of a wide picture lose their effects |
 | `fix_wide_nanotech_orbs` | the nanotech cluster's sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: crates near the sides lose their orb |
 | `fix_wide_liquids` | the draw callback lists and the liquid grid's cull ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: seas, lava and sand are missing near the sides |
 | `fix_wide_air_traffic` | Kerwan's air traffic's sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: the traffic stops near the sides, in view |

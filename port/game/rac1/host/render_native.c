@@ -114,7 +114,9 @@ void func_00212578(int a0, int a1) {
  * the scratchpad, at +0x37), a hidden one (mode +0x34 bits 0x81), and, as ReRAC's moby_lod.rs
  * replays the culls, a bounding sphere (+0x00, x y z r in units of 1/1024) beyond the draw distance
  * (+0x32, s16 units, at most the global one at D_00160030), wholly in front of the near plane, or
- * wholly outside a side plane of the game's 4:3 view (moby_view.h).
+ * wholly outside a side plane of the game's 4:3 view (moby_view.h). The game fix
+ * fix_wide_moby_effects (differences.json) opens the side planes as the port's picture and the
+ * player's Field of View open them (moby_view.h).
  */
 static void mark_drawn_mobys(gaddr first, int count) {
     float cam[3], rows[12], view[12];
@@ -139,6 +141,13 @@ static void mark_drawn_mobys(gaddr first, int count) {
     if (!(ty > 0.05f && ty < 10.0f)) {
         ty = tx * 0.756f;
     }
+    static const unsigned char* fix;
+    if (!fix) {
+        fix = openrac_game_fix("fix_wide_moby_effects");
+    }
+    const float opened = *fix ? openrac_game_view_opened() : 1.0f;
+    const float wider = *fix ? openrac_game_picture_wider() * opened : 1.0f;
+    ty *= opened;
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(RAC1_ADDR(0x00160030u)));
     const uint8_t* groups = G(OPENRAC_DATA(RAC1_ADDR(0x001940C0u)));
@@ -169,7 +178,7 @@ static void mark_drawn_mobys(gaddr first, int count) {
             if (distance > max_distance) {
                 distance = max_distance;  // pminw with the global draw distance
             }
-            drawn = moby_in_view(d, rows, r, (float)distance, tx, ty);
+            drawn = moby_in_view(d, rows, r, (float)distance, tx, ty, wider);
         }
         b[0x31] = (uint8_t)(drawn ? 1 : 0);
     }
