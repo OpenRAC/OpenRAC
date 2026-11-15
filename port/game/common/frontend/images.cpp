@@ -95,7 +95,9 @@ void forget_picture(std::uint32_t base) {
     if (!g || !finish_render()) {
         return;
     }
-    const auto at = [base](const renderer::ImageUpload& image) { return image.dbp == base; };
+    const auto at = [base](const renderer::ImageUpload& image) {
+        return image.dbp == base;
+    };
     std::erase_if(g->images, at);
     std::erase_if(g->pending_images, at);
     std::erase_if(g->images_after_list, at);

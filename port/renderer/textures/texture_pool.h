@@ -86,7 +86,9 @@ public:
     // `block`): drawn from there as a texture, not as the frame, until it is forgotten (its
     // transfer with it).
     void mark_picture(std::uint32_t block) { m_pictures.insert(block); }
+
     bool picture_at(std::uint32_t block) const { return m_pictures.contains(block); }
+
     void forget_picture(std::uint32_t block) {
         m_pictures.erase(block);
         m_uploads.erase(block);
