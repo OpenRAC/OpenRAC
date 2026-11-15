@@ -66,12 +66,18 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual(set(self.ntsc), set(bundle.KEEP))
 
     def test_the_later_games_levels_are_read_for_packs_in_the_data_folder(self):
-        # Going Commando, Up Your Arsenal and Deadlocked: early access, so no play and no packing
-        # back; their levels are read into the data folder for texture and model packs.
+        # Going Commando, Up Your Arsenal and Deadlocked: their levels are read into the data
+        # folder for texture and model packs. Going Commando's are packed back there too, the
+        # early access games' not.
         for key, stamp in (("rac2/ntsc", going_commando_format()), ("rac3/ntsc", 4), ("rac4/ntsc", 4)):
             with self.subTest(key):
                 actions = {a["id"]: a for a in self.actions["versions"][key]}
-                self.assertNotIn("editor-pack", actions)
+                if key == "rac2/ntsc":
+                    self.assertEqual(actions["editor-pack"]["args"][-3:],
+                                     ["{data}/levels/ntsc", "{data}/packed/ntsc", "--anywhere"])
+                    self.assertEqual(actions["play-edited"]["args"][-2:], ["--mods", "{data}/mods/ntsc"])
+                else:
+                    self.assertNotIn("editor-pack", actions)
                 levels = actions["port-levels"]
                 self.assertEqual(levels["args"][-3:], ["{data}/port/ntsc", "--anywhere", "--replace"])
                 self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/levels-{stamp}.json")

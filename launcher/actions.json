@@ -2628,7 +2628,7 @@
       {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "Turns the 27 levels on your disc into Godot 4 projects, one per level, in assets/levels/rac2/ntsc. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. The levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "description": "Turns the 27 levels on your disc into Godot 4 projects, one per level, in assets/levels/rac2/ntsc. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Objects you move, turn, scale or change there are packed back into the game (Pack your edited levels).",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -2724,7 +2724,7 @@
       {
         "id": "editor-open",
         "label": "Open a level in Godot",
-        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Edits are not packed back into Going Commando yet.",
+        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Objects you move, turn, scale or change are packed back with Pack your edited levels.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -2876,7 +2876,7 @@
       {
         "id": "overrides-add",
         "label": "Add an overrides pack",
-        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are used when you play with your mods.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -3159,7 +3159,7 @@
       {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "Turns the 27 levels on your disc into Godot 4 projects, one per level, in assets/levels/rac2/pal. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. The levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "description": "Turns the 27 levels on your disc into Godot 4 projects, one per level, in assets/levels/rac2/pal. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Objects you move, turn, scale or change there are packed back into the game (Pack your edited levels).",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -3255,7 +3255,7 @@
       {
         "id": "editor-open",
         "label": "Open a level in Godot",
-        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Edits are not packed back into Going Commando yet.",
+        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Objects you move, turn, scale or change are packed back with Pack your edited levels.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -3407,7 +3407,7 @@
       {
         "id": "overrides-add",
         "label": "Add an overrides pack",
-        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are used when you play with your mods.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -3690,7 +3690,7 @@
       {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "Turns the 27 levels on your disc into Godot 4 projects, one per level, in assets/levels/rac2/ntsc2. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. The levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "description": "Turns the 27 levels on your disc into Godot 4 projects, one per level, in assets/levels/rac2/ntsc2. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Objects you move, turn, scale or change there are packed back into the game (Pack your edited levels).",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -3786,7 +3786,7 @@
       {
         "id": "editor-open",
         "label": "Open a level in Godot",
-        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Edits are not packed back into Going Commando yet.",
+        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Objects you move, turn, scale or change are packed back with Pack your edited levels.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -3938,7 +3938,7 @@
       {
         "id": "overrides-add",
         "label": "Add an overrides pack",
-        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are used when you play with your mods.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
