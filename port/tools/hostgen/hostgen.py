@@ -753,8 +753,11 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         # declaration of it reads: the decompilation matches each file alone, so nothing there sees
         # it (func_002E46C0 defined float, declared int where StartSoundEmitter calls it).
         "extern_result_mismatch": extern_result_mismatch(fns),
+        # Not a function another release's view marks as one this release does not have
+        # (func_V1_...): nothing runs it.
         "results_zeroed": {f.name: sorted(f.zeroed_results) for f in fns
-                           if f.status == "translated" and getattr(f, "zeroed_results", None)},
+                           if f.status == "translated" and getattr(f, "zeroed_results", None)
+                           and f"_{release.DEAD}_" not in f.name},
         "call_graph": {f.name: sorted(f.calls) for f in fns if f.status == "translated" and f.calls},
         "hardware_accesses": sum(f.hw for f in fns),
         "functions_touching_hardware": sorted(f.name for f in fns if f.hw),

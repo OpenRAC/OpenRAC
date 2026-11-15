@@ -1,0 +1,24 @@
+# Calls whose C reads a result the callee's definition does not return in that register, which the
+# translation takes as 0 (hostgen.json "result_allow", hostgen.py result_guard). Each row says why 0
+# is right here: the value goes nowhere, or the port has nothing the retail value would mean.
+# A call whose value nothing reads (an expression statement) is not listed. Retail checked from the
+# disc's assembly.
+# PAL names; the reasons are rac2-ntsc's for the same functions.
+# caller	callee	reason
+func_0012672C	func_0011AF60	GsPutIMR (syscall 0x71) returns the old mask, which sceGsExecStoreImage puts back; the port has no GS interrupts and its GsPutIMR ignores the mask
+func_00132878	func_00132E50	rc2 command wrapper passing the result on; no caller reads it
+func_00132B00	func_00132E50	rc2 command wrapper passing the result on; no caller reads it
+func_00133360	func_00132E50	rc2 command wrapper passing the result on; no caller reads it
+func_00285740	func_00125D98	wrapper passing the result on; its one caller (the loader) does not read it
+func_0029CF68	func_003457F0	wrapper passing the result on; every caller calls it for its effect only
+func_002A0D40	func_002A0A08	returns func_002A0048's result when D_001B1B80 is set; both callers call it for its effect only
+func_002A9AE0	func_002A9988	wrapper passing the result on; every caller calls it for its effect only
+func_002D4D00	func_0028F2D8	draws a bar through func_0028EA58 (a void draw) and passes the result on; no caller reads it
+func_L00_002F8C28	func_0028C318	setup wrapper passing the result on; no caller reads it
+func_L00_0030F4F8	func_003457F0	level copy of func_0029C5D0's wrapper; every caller calls it for its effect only
+func_L00_0030FBC0	func_0033A528	HUD message wrapper; every caller calls it for its effect only
+func_L00_0030FC00	func_00339DC8	HUD message wrapper passing the result on; no caller reads it
+func_L00_004397D0	func_0033CE70	wrapper passing the result on; no caller reads it
+func_L00_00449870	func_0033A938	wrapper passing the result on; no caller reads it
+func_L00_00449890	func_0033AE48	wrapper passing the result on; no caller reads it
+func_L13_0040EDF0	func_L13_0040ED20	the call goes through an unprototyped (int) FUN_ name to a float function, as the last call of a function that inherits a float result from it; every caller of func_L13_0040EDF0 calls it for its effect only

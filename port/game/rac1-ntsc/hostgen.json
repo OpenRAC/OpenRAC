@@ -163,6 +163,7 @@
   "hand": "hand/hand.tsv",
   "overrides": "hand/overrides.tsv",
   "assembly_allow": "checks/assembly_allow.tsv",
+  "result_allow": "checks/result_allow.tsv",
   "drafts": {
     "guard": "NON_MATCHING",
     "units": "tables/drafts.tsv"
