@@ -27,3 +27,20 @@ FRAGMENT(func_002F3C40, "func_002F35B0")
 FRAGMENT(func_002F3D20, "func_002F35B0")
 FRAGMENT(func_002F3E40, "func_002F35B0")
 FRAGMENT(func_002F4F78, "func_002F3E78")
+
+/* The render routines themselves: whole hand-written VU0 kernels that build the frame's draw packets.
+ * Their only callers are routines the port replaces with its own renderer (host_functions:
+ * func_002EF3B0 for func_002EF480, func_002F0EF8 for the other three), so the port never runs them.
+ * They are not written in C. Like the fragments, they report if anything ever reaches them. */
+#define REPLACED(name, caller)                                                                       \
+    void name(void) {                                                                                \
+        static openrac_reach_site site = {#name, "unreachable",                                      \
+                                          "a renderer only " caller " calls, which the port replaces", \
+                                          0, 0};                                                     \
+        openrac_guest_reach(&site);                                                                  \
+    }
+
+REPLACED(func_002EF480, "func_002EF3B0")
+REPLACED(func_002F1010, "func_002F0EF8")
+REPLACED(func_002F1E88, "func_002F0EF8")
+REPLACED(func_002F2A38, "func_002F0EF8")

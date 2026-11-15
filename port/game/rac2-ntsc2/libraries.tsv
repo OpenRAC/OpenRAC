@@ -328,3 +328,7 @@ func_L22_002F49A8	render	rac2Fragment002F3C40	host	a fragment of func_002F35B0: 
 func_002F4B78	render	rac2Fragment002F3D20	host	a fragment of func_002F35B0: reports a reach (host/handasm_vu0.c)	void (void)
 func_002F4C98	render	rac2Fragment002F3E40	host	a fragment of func_002F35B0: reports a reach (host/handasm_vu0.c)	void (void)
 func_002F5DD0	render	rac2Fragment002F4F78	host	a fragment of func_002F3E78: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F02D8	render	rac2Renderer002EF480	host	a renderer only func_002F0208 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F1E68	render	rac2Renderer002F1010	host	a renderer only func_002F1D50 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+FUN_002F2CE0	render	rac2Renderer002F1E88	host	a renderer only func_002F1D50 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F3890	render	rac2Renderer002F2A38	host	a renderer only func_002F1D50 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
