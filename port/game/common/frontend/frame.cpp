@@ -177,7 +177,11 @@ std::vector<std::uint8_t> direct_packets(
             static bool noted = false;
             if (!noted) {
                 noted = true;
-                log::warn("display list from {:#x} runs past {} bytes: a looping chain, cut", chain, ram.size());
+                log::warn(
+                    "display list from {:#x} runs past {} bytes: a looping chain, cut",
+                    chain,
+                    ram.size()
+                );
             }
             break;
         }

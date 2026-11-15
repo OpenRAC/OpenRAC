@@ -14,6 +14,6 @@ typedef __PTRDIFF_TYPE__ ptrdiff_t;
 #endif
 /* The classic form, not __builtin_offsetof: Clang's JSON writes an OffsetOfExpr without its member,
    and the lowering reads a member access through a null pointer as the offset it is. */
-#define offsetof(type, member) ((size_t)&((type *)0)->member)
+#define offsetof(type, member) ((size_t)&((type*)0)->member)
 
 #endif

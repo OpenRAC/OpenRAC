@@ -444,6 +444,7 @@ gaddr openrac_hook_in_copy(gaddr exe_fn, uint32_t size, int home, gaddr home_fn,
 static inline int32_t openrac_sdiv(int32_t a, int32_t b) {
     return b == 0 ? (a < 0 ? 1 : -1) : (a == INT32_MIN && b == -1) ? a : a / b;
 }
+
 static inline int32_t openrac_smod(int32_t a, int32_t b) {
     return b == 0 ? a : b == -1 ? 0 : a % b;
 }

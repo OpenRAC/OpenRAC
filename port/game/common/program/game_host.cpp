@@ -296,7 +296,9 @@ void openrac_game_set_video_mode(int interlace, int mode, int field_mode) {
             mode,
             interlace,
             field_mode,
-            mode != 3 ? "" : tick_rate() == 50 ? " (PAL 50 Hz)" : " (PAL 50 Hz: the port keeps 60)"
+            mode != 3           ? ""
+            : tick_rate() == 50 ? " (PAL 50 Hz)"
+                                : " (PAL 50 Hz: the port keeps 60)"
         );
     });
 }
