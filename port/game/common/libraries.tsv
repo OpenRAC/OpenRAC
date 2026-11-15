@@ -7,6 +7,7 @@
 memcmp	libc	int (void *, void *, unsigned int)
 memcpy	libc	void *(void *, void *, unsigned int)
 memset	libc	void *(void *, int, unsigned int)
+memchr	libc	void *(void *, int, unsigned int)
 strchr	libc	char *(char *, int)
 strcmp	libc	int (char *, char *)
 strcpy	libc	char *(char *, char *)

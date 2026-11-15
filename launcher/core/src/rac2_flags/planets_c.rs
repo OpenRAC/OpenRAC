@@ -29,7 +29,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Hypnomatic part found",
         description: "The Smolg part of the three the Hypnomatic maker on Damosel asks for; the inventory and the maker count it.",
         place: story(0x84),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "smolg-coordinates-trader-met",
@@ -37,7 +37,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Damosel coordinates seller met",
         description: "Off, the trader who sells Damosel's coordinates plays his introduction again before he sells them.",
         place: scene(137),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     electrolyzer(
         "smolg-electrolyzer",
@@ -55,7 +55,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Hypnomatic part found",
         description: "The Damosel part of the three; off, its pickup sparkles and can be taken again.",
         place: story(0x86),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "damosel-hypnomatic-maker-met",
@@ -63,7 +63,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Hypnomatic maker met",
         description: "Off, the Hypnomatic maker plays his introduction again before he asks for the parts.",
         place: scene(144),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "damosel-giant-clank-return",
@@ -71,7 +71,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Coming back from Giant Clank",
         description: "On, the next arrival on Damosel starts at Giant Clank's launch pad and plays the return scene; the game clears it then.",
         place: story(0x9F),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     // Grelbin (19)
     Flag {
@@ -80,7 +80,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Hypnomatic part traded",
         description: "The Grelbin part of the three; on, the moonstone trader only buys moonstones for bolts.",
         place: story(0x89),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "grelbin-moonstone-trader-met",
@@ -88,7 +88,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Moonstone trader met",
         description: "Off (with no trade made), the moonstone trader waits for his introduction scene before he trades.",
         place: scene(152),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "grelbin-first-moonstone-trade",
@@ -96,7 +96,7 @@ pub const FLAGS: &[Flag] = &[
         name: "First moonstone trade made",
         description: "The scene of the first trade; on, the trader offers the Hypnomatic part for more moonstones.",
         place: scene(154),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     // Yeedil (20)
     electrolyzer(
@@ -115,7 +115,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Giant Clank battle won",
         description: "With Coming back from Giant Clank on, the return to Damosel gives the Mapper if it is not owned yet.",
         place: story(0xA1),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
 ];
 

@@ -286,16 +286,19 @@ void openrac_game_set_display(const openrac_game_display* d) {
 // The video mode the game asks the console for (sceGsResetGraph, SetGsCrt): 2 is NTSC, 60 fields a
 // second, 3 is PAL, 50. The game's tick is one field: a PAL game that changes to its 60 Hz mode
 // counts its time in sixtieths from then on (rac1/pal: func_002157C0 sets the time base when a
-// level starts). The port keeps the PAL game in that mode and ticks every game 60 times a second.
+// level starts). The port keeps such a game in that mode and ticks it 60 times a second; a disc
+// whose code is written for 50 (Going Commando's PAL) ticks 50 (openrac_game.tick_rate).
 void openrac_game_set_video_mode(int interlace, int mode, int field_mode) {
     c_boundary::call("openrac_game_set_video_mode", [&] {
-        // Logged only: the port paces every game at 60 Hz whatever the mode (tick_rate()).
+        // Logged only: the port paces the game at tick_rate() whatever the mode.
         log::info(
             "video mode {:#x} (interlace {}, field mode {}){}",
             mode,
             interlace,
             field_mode,
-            mode == 3 ? " (PAL 50 Hz: the port keeps 60)" : ""
+            mode != 3           ? ""
+            : tick_rate() == 50 ? " (PAL 50 Hz)"
+                                : " (PAL 50 Hz: the port keeps 60)"
         );
     });
 }

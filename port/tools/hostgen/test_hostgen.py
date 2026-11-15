@@ -1546,8 +1546,19 @@ class Translate(unittest.TestCase):
         out = prep.expand_cast_macros(src).split("\n")
         self.assertEqual(len(out), len(src.split("\n")))
         self.assertEqual(out[1], "int f(char *s) { return (((struct { char _p[8]; int v; } *)(s))->v) + AT(s,")
-        self.assertEqual(out[3], "#define B AT(x, 4)")
+        # A macro written with it gets it written out (and is then one itself); #undef and what
+        # follows it stay as they are.
+        self.assertEqual(out[3], "#define B (((struct { char _p[4]; int v; } *)(x))->v)")
+        self.assertEqual(out[4], "#undef AT")
         self.assertEqual(out[5], "int g(char *s) { return AT(s, 4); }")
+
+    def test_a_macro_written_with_a_cast_macro_is_written_out_where_it_is_used(self):
+        # Going Commando's L00_002A7E60.c: HERO(T, o) is F(D_00189E20, T, o).
+        src = ("#define F(b, T, o) (((struct { char pad[o]; T v; } *)(b))->v)\n"
+               "#define HERO(T, o) F(hero, T, o)\n"
+               "int f(void) { return HERO(int, 8); }\n")
+        out = prep.expand_cast_macros(src).split("\n")
+        self.assertEqual(out[2], "int f(void) { return (((struct { char pad[8]; int v; } *)(hero))->v); }")
 
     def test_a_cast_macro_over_several_lines_is_written_out_too(self):
         src = ("#define AT(p, o)    \\\n"

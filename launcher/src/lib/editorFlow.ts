@@ -45,7 +45,7 @@ export interface FlowInput {
   state: EditorState | null;
   discFound: boolean;
   lacksGodot: boolean;
-  /** The game's levels are not packed back yet (early access): no pack or play steps. */
+  /** The game's levels are not packed back yet: no pack step, so no play-with-edits step (the game itself may still play). */
   early: boolean;
   extracting: Job | null;
   packing: Job | null;

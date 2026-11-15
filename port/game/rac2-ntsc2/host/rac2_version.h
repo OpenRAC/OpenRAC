@@ -40,7 +40,7 @@
 #define RAC2_ADDR_0x001A8C60u 0x001A8C60u /* versionmap: exact */
 #define RAC2_ADDR_0x001A8C64u 0x001A8C64u /* versionmap: exact */
 #define RAC2_ADDR_0x001A8CFCu 0x001A8D04u /* the release's build */
-#define RAC2_ADDR_0x001AA0F8u 0x001AA0F8u /* the same instruction of the paired function */
+#define RAC2_ADDR_0x001AA0F8u 0x001AA0F8u /* versionmap: exact */
 #define RAC2_ADDR_0x001ADE00u 0x001ADDD8u /* the release's build */
 #define RAC2_ADDR_0x001ADE20u 0x001ADDF8u /* the release's build */
 #define RAC2_ADDR_0x001ADE28u 0x001ADE00u /* the release's build */

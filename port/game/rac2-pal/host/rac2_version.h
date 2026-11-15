@@ -62,10 +62,10 @@
 #define RAC2_ADDR_0x001B187Cu 0x001B187Cu /* versionmap: exact */
 #define RAC2_ADDR_0x001B1890u 0x001B1890u /* versionmap: exact */
 #define RAC2_ADDR_0x001B1894u 0x001B1894u /* versionmap: exact */
-#define RAC2_ADDR_0x001B1B74u 0x001B1B74u /* the same instruction of the paired function */
+#define RAC2_ADDR_0x001B1B74u 0x001B1B74u /* versionmap: exact */
 #define RAC2_ADDR_0x001B1D48u 0x001B1D48u /* versionmap: exact */
-#define RAC2_ADDR_0x001B1D90u 0x001B1D90u /* the same instruction of the paired function */
-#define RAC2_ADDR_0x001B1D98u 0x001B1D98u /* the same instruction of the paired function */
+#define RAC2_ADDR_0x001B1D90u 0x001B1D90u /* versionmap: exact */
+#define RAC2_ADDR_0x001B1D98u 0x001B1D98u /* versionmap: exact */
 #define RAC2_ADDR_0x001B20F0u 0x001B20F0u /* versionmap: exact */
 #define RAC2_ADDR_0x001B22A8u 0x001B22A8u /* versionmap: exact */
 #define RAC2_ADDR_0x001B5200u 0x001B5200u /* versionmap: exact */

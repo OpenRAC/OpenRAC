@@ -821,7 +821,9 @@ impl SaveFile {
             None => self.global.get(chunk)[offset],
         };
         match place {
-            Place::Byte { chunk, level, offset, .. } => get(chunk, level, offset) != 0,
+            // On from the value the flag writes: a byte with more states (Snivelak's boss: 1 is the fight
+            // under way, 2 beaten) is not on at its lower ones. A win count has `on` 1: any win.
+            Place::Byte { chunk, level, offset, on } => get(chunk, level, offset) >= on,
             Place::SetOnly { chunk, offset, .. } => get(chunk, None, offset) != 0,
             Place::Bit { chunk, level, offset, bit } => get(chunk, level, offset) & (1 << bit) != 0,
             Place::Count { level, uid } => {
@@ -1683,6 +1685,137 @@ mod tests {
         let size = layout.iter().find(|&&(c, _)| c == chunk).map(|&(_, n)| n);
         assert!(size.is_some_and(|n| offset < n), "{id}: chunk {chunk} offset {offset}");
         assert!(level.is_none_or(|l| l < LEVEL_SLOTS), "{id}");
+    }
+
+    /// The bytes a flag's places name, as `changed` reports them: (level, chunk, offset).
+    fn flag_bytes(place: Place, out: &mut Vec<(Option<usize>, i32, usize)>) {
+        match place {
+            Place::Byte { chunk, level, offset, .. } | Place::Bit { chunk, level, offset, .. } => {
+                out.push((level, chunk, offset))
+            }
+            Place::SetOnly { chunk, offset, .. } => out.push((None, chunk, offset)),
+            Place::Count { level, uid } => out.push((Some(level), rac2_flags::MOBY_COUNTS, usize::from(uid >> 1))),
+            Place::All(ps) => ps.iter().for_each(|&p| flag_bytes(p, out)),
+        }
+    }
+
+    #[test]
+    fn every_flag_round_trips_and_writes_only_its_places() {
+        let base = oozla();
+        for (i, d) in rac2_flags::all().enumerate() {
+            let mut off = base.clone();
+            let mut w = off.fields();
+            w.flags[i].on = false;
+            off.apply(&w).unwrap();
+            assert!(!off.fields().flags[i].on, "{} cleared reads off", d.id);
+
+            let mut want = off.fields();
+            want.flags[i].on = true;
+            let mut on = off.clone();
+            on.apply(&want).unwrap();
+            let mut mine = Vec::new();
+            flag_bytes(d.place, &mut mine);
+            for c in changed(&off, &on) {
+                assert!(mine.contains(&c), "{} wrote {c:?}, not one of its places", d.id);
+            }
+            let back = SaveFile::parse(&on.to_bytes()).unwrap().fields();
+            assert!(back.flags[i].on, "{} set reads on after a save and load", d.id);
+
+            let mut clear = back.clone();
+            clear.flags[i].on = false;
+            on.apply(&clear).unwrap();
+            assert!(!on.fields().flags[i].on, "{} clears again", d.id);
+        }
+    }
+
+    #[test]
+    fn no_two_flags_are_the_same_place() {
+        let mut seen = std::collections::HashMap::new();
+        for d in rac2_flags::all() {
+            let first = match d.place {
+                Place::All(ps) => ps[0],
+                p => p,
+            };
+            let key = match first {
+                Place::Byte { chunk, level, offset, .. } => (chunk, level, offset, 8),
+                Place::SetOnly { chunk, offset, .. } => (chunk, None, offset, 8),
+                Place::Bit { chunk, level, offset, bit } => (chunk, level, offset, bit),
+                Place::Count { level, uid } => (rac2_flags::MOBY_COUNTS, Some(level), usize::from(uid), 9),
+                Place::All(_) => unreachable!(),
+            };
+            if let Some(other) = seen.insert(key, d.id) {
+                panic!("{} and {other} are the same place", d.id);
+            }
+        }
+    }
+
+    #[test]
+    fn story_bytes_are_the_ones_the_levels_code_uses() {
+        // Chunk 5 (0x001395B8) offsets, read against the decompiled level code of v1.01 (PAL and
+        // v2.00 use the same indices).
+        const BYTES: &[(&str, usize, u8)] = &[
+            ("maktar-arena-entered", 0x05, 1),
+            ("maktar-arena-first-challenge-won", 0x31, 1),
+            ("maktar-arena-9", 0x91, 1),
+            ("maktar-arena-13", 0x92, 1),
+            ("maktar-arena-14", 0x93, 1),
+            ("endako-swingshot-start-passed", 0x0D, 1),
+            ("barlow-thermanator-start-passed", 0x12, 1),
+            ("barlow-race-1", 0x4D, 1),
+            ("barlow-race-5", 0x51, 1),
+            ("feltzin-mission-1-won", 0x61, 1),
+            ("feltzin-mission-4-won", 0x64, 1),
+            ("dobbo-joba-task-given", 0x1D, 1),
+            ("dobbo-joba-task-done", 0x2E, 1),
+            ("hrugis-challenge-1", 0x66, 1),
+            ("hrugis-challenge-4", 0x69, 1),
+            ("joba-arena-entered", 0x4A, 1),
+            ("joba-arena-1", 61, 1),
+            ("joba-arena-8", 68, 1),
+            ("joba-arena-9", 71, 1),
+            ("joba-arena-10", 69, 1),
+            ("joba-arena-11", 70, 1),
+            ("joba-arena-12", 72, 1),
+            ("joba-arena-13", 75, 1),
+            ("joba-race-1", 0x57, 1),
+            ("joba-race-5", 0x5B, 1),
+            ("gorn-challenge-1", 0x6B, 1),
+            ("gorn-challenge-4", 0x6E, 1),
+            ("snivelak-boss-beaten", 0x83, 2),
+            ("smolg-hypnomatic-part", 0x84, 1),
+            ("damosel-hypnomatic-part", 0x86, 1),
+            ("damosel-giant-clank-return", 0x9F, 1),
+            ("grelbin-hypnomatic-part", 0x89, 1),
+            ("damosel-orbit-battle-won", 0xA1, 1),
+        ];
+        for &(id, at, value) in BYTES {
+            let d = rac2_flags::all().find(|f| f.id == id).unwrap_or_else(|| panic!("{id}"));
+            assert_eq!(d.place, Place::Byte { chunk: 5, level: None, offset: at, on: value }, "{id}");
+        }
+        // The prison's controller reads 0x29 (with its groups) and the pad sets 0x2B.
+        let place = |id: &str| rac2_flags::all().find(|f| f.id == id).unwrap().place;
+        let Place::All(ps) = place("aranos-prison-clank-section-done") else { panic!() };
+        assert!(ps.contains(&Place::Byte { chunk: 5, level: None, offset: 0x29, on: 1 }));
+        let Place::All(ps) = place("aranos-prison-pad-reached") else { panic!() };
+        assert_eq!(ps[0], Place::Byte { chunk: 5, level: None, offset: 0x2B, on: 1 });
+    }
+
+    #[test]
+    fn snivelaks_boss_is_beaten_only_at_2() {
+        // 1 is the fight under way (`func_L16_00403900`): not beaten.
+        const ID: &str = "snivelak-boss-beaten";
+        let mut f = oozla();
+        f.global.get_mut(5)[0x83] = 1;
+        let i = f.fields().flags.iter().position(|x| x.id == ID).unwrap();
+        assert!(!f.fields().flags[i].on);
+        let mut want = f.fields();
+        want.flags[i].on = true;
+        f.apply(&want).unwrap();
+        assert_eq!(f.global.get(5)[0x83], 2);
+        assert!(f.fields().flags[i].on);
+        want.flags[i].on = false;
+        f.apply(&want).unwrap();
+        assert_eq!(f.global.get(5)[0x83], 0);
     }
 
     #[test]

@@ -1,0 +1,4 @@
+# The port's own C for PAL's hand-written assembly (hostgen.json "hand"), in this release's names.
+# name	file (relative to this table)
+func_002A0F68	func_002A0F68.c
+func_002A2E30	func_002A2E30.c

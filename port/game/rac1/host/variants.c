@@ -147,9 +147,13 @@ gaddr func_L16_002E6048(gaddr moby, int id) { return moby_with_id(moby, id, 0xAC
 #endif
 
 #if !RAC1_OMIT(func_L12_002C08A0)
-/* func_L11_0030FB58's level 12 copy: the record index at +0xC of the variables, not +0x4. */
+/* func_L11_0030FB58's level 12 copy: the record index at +0xC of the variables, not +0x4.
+ * Hoven has its own ripple table: relocating Pokitaru's table leaves the drawn water at its
+ * initial height while the Hydrodisplacer raises the mobys and the swimming surface. */
 void func_L12_002C08A0(gaddr moby) {
-    gaddr p = GREF(gaddr, OPENRAC_LDATA(11, RAC1_LADDR(11, 0x001AC540u)) + 4u * GREF(uint8_t, moby + 0x21));
+    gaddr p = GREF(
+        gaddr, OPENRAC_LDATA(11, RAC1_LADDR(11, 0x001AC540u)) + 4u * GREF(uint8_t, moby + 0x21)
+    );
     const gaddr base = GREF(gaddr, OPENRAC_LDATA(11, RAC1_LADDR(11, 0x00160058u)));
     int16_t w;
     do {
@@ -157,7 +161,8 @@ void func_L12_002C08A0(gaddr moby) {
         p += 2;
         const gaddr e = base + (gaddr)(w & 0x7FFF) * 256u;
         GREF(float, e + 0x18) = GREF(float, moby + 0x18);
-        const gaddr s = OPENRAC_LDATA(11, RAC1_LADDR(11, 0x001DAB40u)) + (gaddr)(GREF(int, GREF(gaddr, e + 0x78) + 0xC) * 0x1190);
+        const gaddr s = OPENRAC_LDATA(12, RAC1_LADDR(12, 0x001CC1C0u))
+                        + (gaddr)(GREF(int, GREF(gaddr, e + 0x78) + 0xC) * 0x1190);
         GREF(float, s + 8) = GREF(float, moby + 0x18);
     } while (w >= 0);
 }

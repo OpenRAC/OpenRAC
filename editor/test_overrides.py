@@ -238,6 +238,16 @@ class PackTests(unittest.TestCase):
         self.assertEqual(ignored, ["level_01/placements.json"])
         self.assertTrue(any("not packed back yet" in p for p in problems))
 
+    def test_going_commando_packs_for_every_disc(self):
+        red = rgb_png(2, 2, (255, 0, 0))
+        for version in ("ntsc", "pal", "ntsc2"):
+            into = self.root / f"into-{version}"
+            overrides.add(write_pack(self.root / f"gc-{version}", "Going", {"level_00/textures/x.png": red},
+                                     game="rac2", version=version), into)
+            summary = overrides.stack(into, self.root / f"mods-{version}", None,
+                                      levels(self.root / f"gc-levels-{version}", version, "rac2"))
+            self.assertEqual(summary["files"], {"level_00/textures/x.png": "going"}, version)
+
     def test_a_pack_goes_to_its_own_game_s_levels_only(self):
         red = rgb_png(2, 2, (255, 0, 0))
         overrides.add(write_pack(self.root / "gc", "Going", {"level_00/textures/x.png": red},

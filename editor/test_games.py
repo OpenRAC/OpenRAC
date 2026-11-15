@@ -75,6 +75,7 @@ class TableTests(unittest.TestCase):
         self.assertEqual(RAC4.level_name(42), "Catacrom Graveyard (multiplayer)")
         self.assertEqual(RAC4.level_name(99), "Level 99")
         self.assertTrue(games.known("rac1", "pal") and games.known("rac3", "ntsc") and games.known("rac3", "pal"))
+        self.assertTrue(all(games.known("rac2", v) for v in ("ntsc", "pal", "ntsc2")))
         self.assertFalse(games.known("rac4", "pal") or games.known("rac9", "ntsc"))
         self.assertEqual(games.title("rac4"), "Ratchet: Deadlocked")
         self.assertEqual(games.of(object()), RAC1)
@@ -225,7 +226,7 @@ class WriterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             write_project(Path(temp) / "one", [30], "NTSC-U", "rac2")
             write_project(Path(temp) / "all", [1, 2], "NTSC-U", "rac4")
-            self.assertIn('config/name="Ratchet & Clank: Going Commando: Insomniac Museum (NTSC-U, early access)"',
+            self.assertIn('config/name="Ratchet & Clank: Going Commando: Insomniac Museum (NTSC-U)"',
                           (Path(temp) / "one/project.godot").read_text())
             self.assertIn('config/name="Ratchet: Deadlocked levels (NTSC-U, early access)"',
                           (Path(temp) / "all/project.godot").read_text())

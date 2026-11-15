@@ -107,11 +107,12 @@ void WaterFloat::prepare(const renderer::FrameInput& input, const scene::LevelSc
         && m_momentum == momentum) {
         return;
     }
-    // Follow the water simulation's 60 Hz game clock, including pauses and slow motion.
+    // Follow the water simulation's game clock (its ticks), including pauses and slow motion.
     const bool reset =
         m_seconds < 0 || input.frame < m_frame || input.frame - m_frame > 15 || !m_requested;
-    const double dt =
-        reset || water_debug_settings().paused ? 0. : double(input.frame - m_frame) / 60.;
+    const double dt = reset || water_debug_settings().paused
+                          ? 0.
+                          : double(input.frame - m_frame) / input.tick_rate;
     m_frame = input.frame;
     m_seconds = input.seconds;
     m_requested = input.enhanced_water;

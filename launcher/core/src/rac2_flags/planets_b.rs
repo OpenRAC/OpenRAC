@@ -51,7 +51,7 @@ const fn arena(id: &'static str, name: &'static str, offset: usize, confidence: 
 /// `func_L04_0040A220` adds 1 per win, the same code in Barlow and Joba). A race can be picked
 /// once the race before it is won; the prize is by this count.
 const fn race(id: &'static str, name: &'static str, offset: usize, description: &'static str) -> Flag {
-    Flag { id, level: Some(11), name, description, place: story(offset, 1), confidence: Confidence::FromCode }
+    Flag { id, level: Some(11), name, description, place: story(offset, 1), confidence: Confidence::Proven }
 }
 
 pub const FLAGS: &[Flag] = &[
@@ -70,7 +70,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Joba coordinates: task done",
         description: "Talking to him next plays the hand-over scene and puts Joba on the ship's map.",
         place: story(0x2E, 1),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "dobbo-hrugis-offer-seen",
@@ -94,7 +94,7 @@ pub const FLAGS: &[Flag] = &[
     ship("hrugis-challenge-1", 10, "Ship challenge 1 won", 0x66, Confidence::Proven),
     ship("hrugis-challenge-2", 10, "Ship challenge 2 won", 0x67, Confidence::Proven),
     ship("hrugis-challenge-3", 10, "Ship challenge 3 won", 0x68, Confidence::Proven),
-    ship("hrugis-challenge-4", 10, "Ship challenge 4 won", 0x69, Confidence::FromCode),
+    ship("hrugis-challenge-4", 10, "Ship challenge 4 won", 0x69, Confidence::Proven),
     // Joba (11)
     Flag {
         id: "joba-arena-entered",
@@ -105,18 +105,18 @@ pub const FLAGS: &[Flag] = &[
         confidence: Confidence::Proven,
     },
     arena("joba-arena-1", "Arena: Battle for the Gravity Boots", 61, Confidence::Proven),
-    arena("joba-arena-2", "Arena: Cage Match for the Infiltrator", 62, Confidence::FromCode),
-    arena("joba-arena-3", "Arena: Arachnoid Battle", 63, Confidence::FromCode),
-    arena("joba-arena-4", "Arena: Damage Avoidance: Don't Take A Hit!", 64, Confidence::FromCode),
-    arena("joba-arena-5", "Arena: Hazard Cage Match: Look Out Below!", 65, Confidence::FromCode),
-    arena("joba-arena-6", "Arena: Time Challenge: Kill 90 Enemies in 90 Seconds", 66, Confidence::FromCode),
-    arena("joba-arena-7", "Arena: Megapede Battle", 67, Confidence::FromCode),
-    arena("joba-arena-8", "Arena: Limited Weapon: Use Only The Wrench", 68, Confidence::FromCode),
-    arena("joba-arena-9", "Arena: Timed Limited Weapon: Lancer All Enemies in 60 Seconds", 71, Confidence::FromCode),
-    arena("joba-arena-10", "Arena: Time Challenge: Kill Megapede in 3 Minutes", 69, Confidence::FromCode),
-    arena("joba-arena-11", "Arena: The Impossible Challenge!", 70, Confidence::FromCode),
-    arena("joba-arena-12", "Arena: Damage Avoidance: Don't Get Hit by Megapede!", 72, Confidence::FromCode),
-    arena("joba-arena-13", "Arena: Timed Cage Match: Kill 100 Enemies in 100 Seconds", 75, Confidence::FromCode),
+    arena("joba-arena-2", "Arena: Cage Match for the Infiltrator", 62, Confidence::Proven),
+    arena("joba-arena-3", "Arena: Arachnoid Battle", 63, Confidence::Proven),
+    arena("joba-arena-4", "Arena: Damage Avoidance: Don't Take A Hit!", 64, Confidence::Proven),
+    arena("joba-arena-5", "Arena: Hazard Cage Match: Look Out Below!", 65, Confidence::Proven),
+    arena("joba-arena-6", "Arena: Time Challenge: Kill 90 Enemies in 90 Seconds", 66, Confidence::Proven),
+    arena("joba-arena-7", "Arena: Megapede Battle", 67, Confidence::Proven),
+    arena("joba-arena-8", "Arena: Limited Weapon: Use Only The Wrench", 68, Confidence::Proven),
+    arena("joba-arena-9", "Arena: Timed Limited Weapon: Lancer All Enemies in 60 Seconds", 71, Confidence::Proven),
+    arena("joba-arena-10", "Arena: Time Challenge: Kill Megapede in 3 Minutes", 69, Confidence::Proven),
+    arena("joba-arena-11", "Arena: The Impossible Challenge!", 70, Confidence::Proven),
+    arena("joba-arena-12", "Arena: Damage Avoidance: Don't Get Hit by Megapede!", 72, Confidence::Proven),
+    arena("joba-arena-13", "Arena: Timed Cage Match: Kill 100 Enemies in 100 Seconds", 75, Confidence::Proven),
     // Todano (12)
     // Joba's five hoverbike races (wins, chunk 5 0x57..0x5B).
     race(
@@ -174,7 +174,7 @@ pub const FLAGS: &[Flag] = &[
             group_done(14, 9),
             story(0x29, 1),
         ]),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "aranos-prison-pad-reached",
@@ -184,12 +184,12 @@ pub const FLAGS: &[Flag] = &[
                       group 10. With 0x2B set, arriving on Aranos Prison skips its capture arrival scene; with \
                       group 10 and the prison section done, the door (moby 812) starts open.",
         place: Place::All(&[story(0x2B, 1), group_done(14, 10)]),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     ship("gorn-challenge-1", 15, "Ship challenge 1 won", 0x6B, Confidence::Proven),
     ship("gorn-challenge-2", 15, "Ship challenge 2 won", 0x6C, Confidence::Proven),
-    ship("gorn-challenge-3", 15, "Ship challenge 3 won", 0x6D, Confidence::FromCode),
-    ship("gorn-challenge-4", 15, "Ship challenge 4 won", 0x6E, Confidence::FromCode),
+    ship("gorn-challenge-3", 15, "Ship challenge 3 won", 0x6D, Confidence::Proven),
+    ship("gorn-challenge-4", 15, "Ship challenge 4 won", 0x6E, Confidence::Proven),
     // Snivelak (16)
     Flag {
         id: "snivelak-boss-beaten",
