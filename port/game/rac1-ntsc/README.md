@@ -29,7 +29,7 @@ give (`OPENRAC_PRESS`, [port/README.md](../../README.md)).
 | Veldin (0) | plays: Ratchet walks, swings and throws the wrench, the follow camera frames him, the HelpDesk speaks; Start skips the opening scene |
 | Novalis (1), Kerwan (3) | direct start (`OPENRAC_DIRECT=1 --level N`): the flight between planets (Start skips it), the arrival scene, then play. On Kerwan a particle callback (level 0's 0x267BE8) is called with no function |
 | Other levels | not tried |
-| Levels to draw from | its own, from the NTSC-U disc: the launcher's rac1/ntsc "Get the levels ready" writes `assets/port/rac1/ntsc` (`<data>/port/ntsc` in an installer); without `--levels` the program reads `<data>/port/ntsc`. The tests here passed `--levels ../../build/ntsc-levels`. Same format as PAL's; the manifests say `"version": "ntsc"` ([editor/README.md](../../../editor/README.md#the-two-discs) says how the two discs' levels differ) |
+| Levels to draw from | its own, from the NTSC-U disc: the launcher's rac1/ntsc "Get the levels ready" writes `assets/port/rac1/ntsc` (`<data>/port/ntsc` in an installer); without `--levels` the program reads `<data>/port/ntsc`. The tests here passed `--levels ../../build/ntsc-levels`. Same format as PAL's; the manifests say `"version": "ntsc"` ([OpenRAC Editor's guide](https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md#the-four-discs) says how the discs' levels differ) |
 
 It is not offered by the launcher yet (`play` is `planned` in
 [launcher/actions.json](../../../launcher/actions.json)).

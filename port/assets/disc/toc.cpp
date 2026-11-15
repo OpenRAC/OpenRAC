@@ -23,7 +23,7 @@ constexpr FieldKind kSector = FieldKind::Sector;
 
 // The RAC1 global header in table order, without the level table. The names
 // are the extracted file names (global/<name>...); they follow Wrench's
-// RacWadInfo, as ReRAC's and editor/disc.py's do, with the epilogue split by
+// RacWadInfo, as ReRAC's and extractor/disc.py's do, with the epilogue split by
 // language as ReRAC splits it.
 constexpr GlobalField kRac1GlobalFields[] = {
     {"debug_font", 0x0008, 1, kRange},
@@ -86,7 +86,7 @@ constexpr DiscLayout kRac1 = {
     19,
     kRac1LevelHeaderSize,
     kRac1GlobalFields,
-    "NTSC-U: ReRAC's docs/formats/disc_layout.md; PAL: OpenRAC's editor/disc.py",
+    "NTSC-U: ReRAC's docs/formats/disc_layout.md; PAL: OpenRAC's extractor/disc.py",
 };
 
 // No table of contents is read for these yet. games/rac4/decomp/docs/RESEARCH.md

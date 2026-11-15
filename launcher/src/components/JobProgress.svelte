@@ -3,7 +3,7 @@
   // when the output says how far along it is, an animated bar when it does not) and, behind
   // "Details", the last lines it printed. A strip of fixed layout across the hero card: nothing
   // here changes the width of the button above it, and no line of output can push it wider.
-  // An editor tool says its step and count itself (editor/progress_line.py): then the step is in
+  // An editor tool says its step and count itself (extractor/progress_line.py): then the step is in
   // its words, the count names the level ("Kerwan, 3 of 18"), and once a few levels are done, how
   // long is left. Only a change of step is read out; the count is in the bar's value. `plain`: in
   // a panel of its own (the level editor's), without the strip's box.

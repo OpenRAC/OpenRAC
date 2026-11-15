@@ -1410,7 +1410,7 @@ These come from [CONTRIBUTING.md](../../CONTRIBUTING.md), [SOURCING.md](../../do
    is credited in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). A Python file of
    `port/tools/` has the same two lines as `#` comments, after its `#!` line when it has one. The
    editor's files, Python included, carry no licence lines: the editor's own MIT
-   [LICENSE](../../editor/LICENSE) covers them ([editor/README.md](../../editor/README.md)).
+   [LICENSE](../../extractor/LICENSE) covers them ([extractor/README.md](../../extractor/README.md)).
 2. **No game content.** No game code, data or bytes in a source, a test, a log or a comment. A tool
    that reads a game file prints counts, never the content.
 3. **No Sony SDK.** Nothing written from Sony's SDK source, samples or headers, or from leaked or NDA

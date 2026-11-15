@@ -51,7 +51,7 @@ export function gameMenu(
   const action = (id: string) => v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
   const scope = { kind: "version" as const, key: v.key };
   const setUp = !!game.install?.extracted;
-  const playGodot = action("editor-preview");
+  const preview = action("editor-preview");
   const extract = action("editor-extract");
   const items: MenuItem[] = [];
   if (next?.kind === "return") {
@@ -62,11 +62,11 @@ export function gameMenu(
   if (isBuilt(game, v) && (next?.kind === "play" || next?.kind === "levels") && rebuildSteps(v)) {
     items.push({ label: "Rebuild the game", icon: "build", run: () => void rebuild(v) });
   }
-  if (playGodot?.runnable) {
-    items.push({ label: "Preview a level in Godot", icon: "play", run: () => void run(scope, playGodot) });
+  if (preview?.runnable) {
+    items.push({ label: "Preview a level in OpenRAC Editor", icon: "play", run: () => void run(scope, preview) });
   }
   if (extract && extract.state !== "planned" && !onAndroid && supports(app.info, "mods")) {
-    // Android has no Godot: its Mods tab has the mods and packs, not the level editor.
+    // Android has no level editor: its Mods tab has the mods and packs, not the level editor.
     items.push({ label: "Edit its levels (Mods)", icon: "edit", run: () => (app.page = "mods") });
   }
   if (setUp) items.push({ label: "Logs and crash reports", icon: "book", run: showLogs });

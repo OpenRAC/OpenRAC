@@ -140,7 +140,7 @@ class BakerCli(unittest.TestCase):
 
     def test_native_emission_preparation_matches_reference_updates_and_overrides(self):
         """Catalog refreshes, removals and local edits retain the Python profile's meaning."""
-        sys.path.insert(0,str(Path(__file__).resolve().parents[4]/'editor'))
+        sys.path.insert(0,str(Path(__file__).resolve().parents[4]/'extractor'))
         from enhanced.emission import apply_materials
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary); catalog=root/'catalog.json'; defaults=root/'defaults.json'

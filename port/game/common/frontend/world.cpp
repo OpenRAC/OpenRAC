@@ -75,9 +75,9 @@ bool supports_enhanced_water(std::string_view game, int level) {
            || (game == "rac1-ntsc" && (level == 11 || level == 17));
 }
 
-// The extracted level the title world is written as (editor/level.py load_title).
+// The extracted level the title world is written as (extractor/level.py load_title).
 constexpr int kTitleWorld = 99;
-// The flight between planets' sky, written as a level of its own (editor/level.py load_flight).
+// The flight between planets' sky, written as a level of its own (extractor/level.py load_flight).
 constexpr int kFlightWorld = 98;
 // Where the sky's textures are placed in the texture pool, past the GS's 14-bit blocks.
 constexpr std::uint32_t kSkyTextureKey = 0x20000;
@@ -305,7 +305,7 @@ void use_level(int number) {
     }
     if (has_levels && !read) {
         crash::level_breadcrumb("level load failed", wanted);
-        log::warn("level {}: {} (extract it with editor/extract.py port)", wanted, error);
+        log::warn("level {}: {} (extract it with extractor/extract.py port)", wanted, error);
         // Said in the picture: the game goes on, its HUD over a black world, and a player takes
         // that for the game being broken.
         debug_overlay::notify({
@@ -346,7 +346,7 @@ void use_level(int number) {
             log::warn("mods: prop mesh {}: {}", mesh.string(), why);
         }
     }
-    // The edited level's skins (editor/skins.py), beside its placements: a broken file leaves
+    // The edited level's skins (OpenRAC Editor's openrac/tools/skins.py), beside its placements: a broken file leaves
     // every moby drawn as its class.
     if (!sources.edited.empty()) {
         const std::filesystem::path skins = sources.edited.parent_path() / "skins.json";

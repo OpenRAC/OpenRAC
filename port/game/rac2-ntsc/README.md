@@ -46,9 +46,9 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10 \
 From a checkout's launcher (no Developer tools needed): set the game up from
 your disc, then Play (`launcher/actions.json`, rac2/ntsc's `play`:
 `--data {data} --window --levels {root}/assets/port/rac2/ntsc`, after a warning
-to accept). Play first reads the levels (Get the levels ready, `editor/extract.py
+to accept). Play first reads the levels (Get the levels ready, `extractor/extract.py
 port`) when their stamp, `levels-<format>.json` with the format of
-`editor/port.py` `GAME_FORMATS`, is not there, so a format bump reads them again;
+`extractor/port.py` `GAME_FORMATS`, is not there, so a format bump reads them again;
 the game has no `--check-levels` yet, so that stamp is all Play waits for. An
 installed launcher reads and passes `<data>/port/ntsc` instead. Its Build the game runs
 `tools/build_port.py rac2-ntsc --disc {disc}`. Play is a player's, with a warning first, and so
@@ -86,7 +86,7 @@ the part newly needs stops the part's).
 
 For Going Commando `OPENRAC_RAC2_NTSC_RETAIL_IMAGE` gives only the boot
 executable: hostgen's `retail.read_image` uses the editor's reader
-(`editor/disc.py`, Ratchet & Clank's discs) when the image is one and otherwise
+(`extractor/disc.py`, Ratchet & Clank's discs) when the image is one and otherwise
 reads SYSTEM.CNF's BOOT2 file through `tools/openrac_common/iso9660.py`, with no
 level programs.
 
@@ -176,7 +176,7 @@ many bytes can be another field in another level: it reads what the running copy
 
 - Ratchet's class has no packets in a level: the game loads his mesh and textures from a pack of
   RC2.HDR (`packs[]` at +0x4F08, by armour) over the class at run time. The export reads pack 0
-  (`editor/wads.py`, `hero_pack`) as `mobys/moby_0.glb`, textures `moby_1000.png` on. Packs 1 to 8, his
+  (`extractor/wads.py`, `hero_pack`) as `mobys/moby_0.glb`, textures `moby_1000.png` on. Packs 1 to 8, his
   other looks, are classes 6001 to 6008 of the export, textures 16 places on for each; `port/game/rac2/profile.cpp`
   has the window draw the one the game has (armour `0x001A7A18`, or the four flags before it), through
   `LiveMoby::model_class`, so class 0 stays the hero everywhere else. His sequences are compressed on
@@ -193,7 +193,7 @@ many bytes can be another field in another level: it reads what the running copy
   level's load and every flight's loads it over the class (`func_002925F0`, by the low bits of
   `0x001A7AF0`), and most levels' tables have no class 3412 of their own, so parked ships drew their
   wings and canopy only. The export has hull 0 as class 3412 in every level, hulls 1 and 2 as 6031 and
-  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 20 (`editor/port.py`, `GAME_FORMATS`; 17 adds the shrub classes' normals, 18 the gameplay copy the probe baker reads, 19 the emission catalog and the levels' sky and sun profiles, 20 the liquid surfaces).
+  6032, and the profile draws the one loaded (`0x00152C18`); format 13. Levels of this game are format 20 (`extractor/port.py`, `GAME_FORMATS`; 17 adds the shrub classes' normals, 18 the gameplay copy the probe baker reads, 19 the emission catalog and the levels' sky and sun profiles, 20 the liquid surfaces).
 - Chrome and glass: the core index's +0x90 to +0x9C hold 0, 0, 0x4000, 0x400 in every level. The
   pixels are offsets into the stash: the GS RAM table's entries past its count, whose first is the
   128 x 128 chrome at stash offset 0 and the next the 64 x 64 glass at 0x4000 (the stashed moby
@@ -211,7 +211,7 @@ many bytes can be another field in another level: it reads what the running copy
 - Tie colours: no 64 slot colours in the instance record. The gameplay file's header word 0x94
   holds one entry per instance (a base colour and shift, then 5:5:5:1 slot colours); the game lights
   the slots with the instance's directional set and spreads them over the vertices through the
-  class's remap table (PatchTieVertexLighting, 0x2F3E78). `editor/gc_tie_colours.py` does the same,
+  class's remap table (PatchTieVertexLighting, 0x2F3E78). `extractor/gc_tie_colours.py` does the same,
   byte for byte against retail's vertex colour cache in level 3 (point lights left out), and each
   placement's `colours` is one per vertex, a vertex's light slot its place in that list
   (`tie_vertex_colours` in the manifest); format 10.
@@ -221,7 +221,7 @@ many bytes can be another field in another level: it reads what the running copy
   the bangles of the bits set; set, those bangles alone (bangle 0 for none). The pieces of a broken
   crate or a destroyed enemy are mobys of the class with one bit each (func_00273978 writes
   `0x8000 | 1 << n`), which the port drew as the whole mesh. The export writes each bangle as class
-  `100000 + class * 16 + bangle` (`Format.moby_bangles`, `editor/moby_class.py`), and the profile adds a
+  `100000 + class * 16 + bangle` (`Format.moby_bangles`, `extractor/moby_class.py`), and the profile adds a
   `LiveMoby` per part drawn (`model_only`: that class or nothing); format 11.
 - Terrain and shrub colours: the game lights them at level load as Ratchet & Clank does.
   PatchTfragVertexLighting (0x2F0468, called for every terrain piece by the level's loader with the
@@ -278,7 +278,7 @@ islands of his body atlas (the same mesh in every level). From format 20 the lav
 19 is a bake input as Gaspar's is: its surfaces (class 4959, drawn by `func_00303070` from the third
 draw callback list over the corners `func_00303210` takes from four class 0x1130 markers) go to
 `bake-inputs/liquids.json` with their effect texture, and the ones
-`profiles/rac2-ntsc/liquids.json` reviews emit (`editor/enhanced/liquids.py`, the baker's
+`profiles/rac2-ntsc/liquids.json` reviews emit (`extractor/enhanced/liquids.py`, the baker's
 `rac2_liquid_triangles`). Not carried yet: the enhanced water (Novalis's tables and hooks; this
 game's water is a camera-following sheet at one height, `func_L06_00402570` in levels 6, 8, 11, 13,
 16 and 18, and other routines in 1, 9 and 20) and the hands' water ripples.

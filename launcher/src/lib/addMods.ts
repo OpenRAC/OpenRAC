@@ -1,6 +1,6 @@
 // Adding what the player chose or dropped on the Mods tab: a texture pack's .zip goes into the
 // player's own texture pack (core/src/texture_packs.rs, added to it), a native mod to the game's mods
-// (src-tauri/src/lib.rs, plugins_install), a data pack to its overrides packs (editor/overrides.py,
+// (src-tauri/src/lib.rs, plugins_install), a data pack to its overrides packs (extractor/overrides.py,
 // the version's overrides-add action). The player never has to know which is which.
 import { api, type VersionView } from "./api";
 import { jobs, runChain } from "./app.svelte";

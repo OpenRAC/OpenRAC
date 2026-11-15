@@ -80,17 +80,17 @@ Ratchet & Clank (PAL):
 
 ```sh
 # Turn the 19 levels on your disc into Godot projects (about 20 seconds).
-python3 editor/extract.py godot baserom/SCES_509.16.iso assets/levels/rac1/pal --split
+python3 extractor/extract.py godot baserom/SCES_509.16.iso assets/levels/rac1/pal --split
 
 # Open one in the Godot 4 editor (level_00 is Veldin).
 godot --path assets/levels/rac1/pal/level_00 -e
 
 # Pack your edits into game data. Your disc is not changed.
-python3 editor/extract.py pack baserom/SCES_509.16.iso assets/levels/rac1/pal assets/packed/rac1/pal
+python3 extractor/extract.py pack baserom/SCES_509.16.iso assets/levels/rac1/pal assets/packed/rac1/pal
 ```
 
 The port plays the packed levels with `--mods assets/packed/rac1/pal`. More in
-[editor/README.md](../editor/README.md); to change how things behave, use the
+[extractor/README.md](../extractor/README.md); to change how things behave, use the
 mod SDK ([docs/port/MODS.md](port/MODS.md)).
 
 ## The decompilations

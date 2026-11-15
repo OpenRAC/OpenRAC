@@ -599,7 +599,7 @@ fn describe(
     let format = raw.get("format").and_then(Value::as_u64).unwrap_or(0);
     let folder = folder_of(path);
     if format == 1 {
-        // A data pack (editor/MODDING.md): named after its folder, or the repository.
+        // A data pack (extractor/MODDING.md): named after its folder, or the repository.
         let id = if folder.is_empty() { repo.to_ascii_lowercase() } else { folder.clone() };
         let pack_game = text("game");
         let (compatible, why) = if pack_game == game {

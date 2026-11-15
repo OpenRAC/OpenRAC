@@ -1,4 +1,4 @@
-// What the Audio tab says after an import (AudioPanel.svelte), from what editor/audio.py printed: no
+// What the Audio tab says after an import (AudioPanel.svelte), from what extractor/audio.py printed: no
 // Svelte here, so it can be tested.
 import { AUDIO } from "./modsText";
 import { toolFailure } from "./toolErrors";

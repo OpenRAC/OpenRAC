@@ -141,7 +141,7 @@ API validation, in hidden Cocoa windows: SDL's offscreen driver has no Metal.
 3. Set the game up once, into a folder of your choice:
    `./build/release/openrac-extractor ~/discs/rac1.iso --game rac1 --proj-path ~/OpenRAC/active/rac1/data`,
    then its levels, from the top of OpenRAC (about a quarter of an hour):
-   `python3 editor/extract.py port ~/discs/rac1.iso ~/OpenRAC/active/rac1/data/port/ntsc --anywhere`.
+   `python3 extractor/extract.py port ~/discs/rac1.iso ~/OpenRAC/active/rac1/data/port/ntsc --anywhere`.
    A folder the launcher has already set up (`<install>/active/rac1/data`) has both.
 4. Play on Metal:
    `OPENRAC_GL_API=metal ./build/release/openrac-rac1-ntsc --data ~/OpenRAC/active/rac1/data --window`.

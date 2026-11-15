@@ -1220,7 +1220,7 @@ pub fn remove(dir: &Path, game: &str, version: &str, id: &str) -> Result<Vec<Plu
 pub enum Installed {
     /// A native mod, now in the store (`replaced`: an older install of it was there).
     Plugin { id: String, name: String, version: String, replaced: bool, enabled: bool },
-    /// A data pack (format 1): the overrides' to add (editor/overrides.py, actions.json `overrides-add`).
+    /// A data pack (format 1): the overrides' to add (extractor/overrides.py, actions.json `overrides-add`).
     Pack,
 }
 

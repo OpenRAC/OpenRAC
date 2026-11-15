@@ -56,7 +56,7 @@ zero-padded to its quadword count); the mesh is zero-padded to 0x40, and the
 hero section after it pads the block to 0x40. The tables and leaves are not in
 coordinate order but in the build tool's own (the slabs of level 0 run Z 8, 9,
 7, 5, ...), so a writer that keeps that order reproduces the block byte for
-byte; OpenRAC's editor does ([collision.py](../../../editor/collision.py)), and
+byte; OpenRAC's editor does ([collision.py](../../../extractor/collision.py)), and
 edits only the cells an edit touches. Leaves with no faces occur (level 15).
 
 ## 3. Leaf

@@ -3,7 +3,7 @@
 //
 // Skins: a moby of the level drawn as another model (from another level or game) while the game
 // runs its own class's logic. The editor's pack writes them beside the level's placements
-// (editor/skins.py): skins.json names each moby by its spawn id, the model (a skinned .glb with its
+// (OpenRAC Editor's openrac/tools/skins.py): skins.json names each moby by its spawn id, the model (a skinned .glb with its
 // own animations, read as a prop's is: load_model and load_prop_rig), the scale its own is
 // multiplied by, and which of the model's animations plays for each of the class's sequences.
 // Only what is drawn changes: the game, its collision and its logic never see a skin.

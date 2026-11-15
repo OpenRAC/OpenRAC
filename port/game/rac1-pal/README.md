@@ -21,9 +21,9 @@ The first memory card is the folder the launcher's save manager shows
 `--cards` says otherwise; the game's save folder and files are ordinary files
 in it. `--frames N` stops after N frames; `--keep-going` logs a
 function without C and carries on instead of stopping at it. `--mods DIR`
-plays levels edited in Godot: DIR is what `editor/extract.py pack` wrote, a
+plays levels edited in Godot: DIR is what `extractor/extract.py pack` wrote, a
 list of disc sectors (`patches.tsv`) and the files read in their place
-([editor/README.md](../../../editor/README.md#pack-your-edits)).
+([OpenRAC Editor's guide](https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md#pack-your-edits)).
 
 To build another copy of the decompilation (your own checkout, further
 along than OpenRAC's), configure with `-DOPENRAC_RAC1_PAL_SOURCE=<its directory>`.

@@ -132,7 +132,7 @@ describe("backgroundStatus", () => {
   });
 });
 
-describe("the editor tools' progress lines (editor/progress_line.py)", () => {
+describe("the editor tools' progress lines (extractor/progress_line.py)", () => {
   it("reads a step, its count and its level", () => {
     expect(parseProgress(`${PROGRESS_LINE}read 3/18 4`)).toEqual({
       step: "read",

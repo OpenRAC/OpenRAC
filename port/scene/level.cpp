@@ -299,7 +299,7 @@ int material_index(
     // static layers' and mobys' alpha test, GEQUAL 0x80 for the static layers and TEST 0x5360b for
     // mobys: texels at 0x80 written with depth, the others blended, colour only), whatever the
     // export's alpha mode says: the export marks a texture MASK only when it has fully clear texels
-    // (editor/formats.py, Texture.cutout), so a sheet of glass, part-clear all over, came out
+    // (extractor/formats.py, Texture.cutout), so a sheet of glass, part-clear all over, came out
     // opaque. Kalebo III's glass sheets (moby class 800, alpha 0x32..0x53) were solid teal walls,
     // Novalis's windows by the plumber (a tie, glass at alpha 0x1F in an opaque frame) solid
     // blue-grey panes; part-clear terrain, tie and shrub textures of other levels (Veldin's,
@@ -557,7 +557,7 @@ std::optional<std::uint32_t> load_model(
                 out.shell = std::atoi(node.name + 4);
             }
             if (node.name != nullptr && std::strncmp(node.name, "Terrain_", 8) == 0) {
-                // Terrain_MMM, or Terrain_cN_MMM for a streamed chunk's (editor/godot.py
+                // Terrain_MMM, or Terrain_cN_MMM for a streamed chunk's (OpenRAC Editor's openrac/tools/godot.py
                 // chunk_terrain).
                 const char* at = node.name + 8;
                 long chunk = 0;

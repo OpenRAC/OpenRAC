@@ -25,15 +25,15 @@ nonmatching/functional.tsv for candidate C, include/moby.h for the moby record,
 include/moby_pvars.h for the typed pvars), the port's tables for the PAL and NTSC-U discs
 (port/game/rac1-pal: libraries.tsv for hook and wrap rows, split_places.tsv, hand/hand.tsv,
 no_c.tsv; port/game/rac1-ntsc/libraries.tsv), the SDK's game header
-(sdk/include/openrac/games/rac1.h), editor/moby_classes.tsv and editor/engine_helpers.tsv.
+(sdk/include/openrac/games/rac1.h), extractor/moby_classes.tsv and extractor/engine_helpers.tsv.
 
 It lives with the SDK because it writes the SDK's files, but it reads the decompilation's C and
 the class table through the level editor's modules: cparse (Types, strip) and mobys (CLASS_NAMES,
 DECOMPILATION, LEVEL_NAMES, c_definitions, names_h_symbols, update_roles). So sdk/tools depends on
-editor/, in this one direction and in this module only: the rest of sdk/tools stands alone, and
-nothing in editor/ imports from sdk/. The repository's root is found through openrac_common's
-bootstrap (tools/openrac_common/paths.py), and editor/ goes on the import path ahead of tools/, as
-it is when the editor's own scripts run (tools/port.py would otherwise shadow editor/port.py).
+extractor/, in this one direction and in this module only: the rest of sdk/tools stands alone, and
+nothing in extractor/ imports from sdk/. The repository's root is found through openrac_common's
+bootstrap (tools/openrac_common/paths.py), and extractor/ goes on the import path ahead of tools/, as
+it is when the editor's own scripts run (tools/port.py would otherwise shadow extractor/port.py).
 
 classes.json, format 1, the stable contract. Fields are only added within a format; one that
 changes meaning or goes raises the format. One class per line:
@@ -43,7 +43,7 @@ changes meaning or goes raises the format. One class per line:
               "class_field": {"name": "oclass", "offset": 166, "type": "s16"},   # filter a shared hook on it
               "update_field": {...}, "pvars_field": {...}},                     # +0x74, +0x78
      "classes": [{
-         "id": 500, "name": "bolt_crate" or null,     # editor/moby_classes.tsv
+         "id": 500, "name": "bolt_crate" or null,     # extractor/moby_classes.tsv
          "levels": [level numbers it is updated in],
          "updates": [{                                # usually one; a class updated by another function
              "function": "func_L00_002D06C8",         #   in some levels has one entry per function
@@ -108,7 +108,7 @@ from openrac_common import paths  # noqa: E402
 
 REPO = paths.repo_root(__file__)
 # The level editor's folder: its cparse and mobys modules, and its moby_classes.tsv and engine_helpers.tsv.
-EDITOR = REPO / "editor"
+EDITOR = REPO / "extractor"
 sys.path.insert(1, str(EDITOR))
 
 from cparse import Types, strip  # noqa: E402
@@ -782,7 +782,7 @@ def render_md(cat: dict) -> str:
                      key=lambda x: (-x[1]["called_by"], x[0]))[:60]
     out += ["", "## Hook-after candidates", "",
             "The game functions update functions call most, engine maths helpers left out",
-            "([editor/engine_helpers.tsv](../../../editor/engine_helpers.tsv) lists those): a hook on one runs",
+            "([extractor/engine_helpers.tsv](../../../extractor/engine_helpers.tsv) lists those): a hook on one runs",
             "for every update function that calls it.", "",
             "| Function | Name | Called by | C | Signature | Hook point |", "|---|---|---|---|---|---|"]
     for s, h in helpers:
@@ -806,7 +806,7 @@ def render_md(cat: dict) -> str:
         out.append("")
 
     out += ["## Classes", "",
-            "Every class with an update function, by number: its name (editor/moby_classes.tsv), the levels it is",
+            "Every class with an update function, by number: its name (extractor/moby_classes.tsv), the levels it is",
             "updated in and the function.", "", "| Class | Name | Levels | Update function | Shares it with |",
             "|---|---|---|---|---|"]
     for c in cat["classes"]:

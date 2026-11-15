@@ -31,7 +31,7 @@ add, the adder's pre-truncation), in the game's order.
 | `lighting.h` | what the lighting passes share: the light bank, point lights, the normal table (read from the player's boot executable), the instance light registers |
 
 Addresses in the comments are NTSC-U (SCUS_971.99) unless they say PAL.
-OpenRAC's Python readers in [editor/](../../../editor) (terrain, ties,
+OpenRAC's Python readers in [extractor/](../../../extractor) (terrain, ties,
 shrubs, sky, moby classes and animation) read the same formats from the PAL
 disc for the editor.
 

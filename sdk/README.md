@@ -9,7 +9,7 @@ Clank's mods are in [OpenRAC/openrac-mods](https://github.com/OpenRAC/openrac-mo
 starting with the lock-strafe.
 
 A mod of textures, models or level edits needs none of this: that is a data
-pack, made with the level editor ([editor/MODDING.md](https://github.com/OpenRAC/OpenRAC/blob/master/editor/MODDING.md)).
+pack, made with the level editor ([extractor/MODDING.md](https://github.com/OpenRAC/OpenRAC/blob/master/extractor/MODDING.md)).
 
 **New to modding OpenRAC? Start with [the guides](docs/README.md)**:
 [getting started](docs/getting-started.md) takes you from the template to a mod
@@ -215,7 +215,7 @@ the template already follows:
   mod at the top, each with its `openrac-mod.json` (several; an
   `openrac-mods.json` at the top, `{"format": 1, "mods": ["a", "b"]}`, may
   list them). Sources beside each manifest: `CMakeLists.txt`, `src/`,
-  `tests/`; a data pack's files as [editor/MODDING.md](https://github.com/OpenRAC/OpenRAC/blob/master/editor/MODDING.md)
+  `tests/`; a data pack's files as [extractor/MODDING.md](https://github.com/OpenRAC/OpenRAC/blob/master/extractor/MODDING.md)
   lays them out. The top `CMakeLists.txt` builds every mod.
 - **The SDK pinned**: `sdk.lock` (version, url, SHA-256) and
   `tools/fetch_sdk.py`, which downloads it into `.sdk/`. The template's lock

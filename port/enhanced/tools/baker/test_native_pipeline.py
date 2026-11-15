@@ -109,7 +109,7 @@ class NativePipeline(unittest.TestCase):
         def save_edit():
             (packed_level/'placements.json').write_text(json.dumps(placements))
             stacked = subprocess.run(
-                [sys.executable, str(ROOT/'editor/overrides.py'), 'stack', '--into', str(self.root/'packs'),
+                [sys.executable, str(ROOT/'extractor/overrides.py'), 'stack', '--into', str(self.root/'packs'),
                  '--levels', str(self.exports), '--packed', str(packed), '--out', str(mods)],
                 capture_output=True, text=True, timeout=20)
             self.assertEqual(stacked.returncode, 0, stacked.stdout + stacked.stderr)

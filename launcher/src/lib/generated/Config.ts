@@ -11,10 +11,6 @@ root: string | null,
  */
 python: string | null, 
 /**
- * Godot 4 (4.7+), for the level editor.
- */
-godot: string | null, 
-/**
  * Docker, which rac1/pal's and rac4's builds run in.
  */
 docker: string | null, 

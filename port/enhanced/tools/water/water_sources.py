@@ -8,8 +8,8 @@ from pathlib import Path
 import struct
 import sys
 
-ROOT = next(p for p in Path(__file__).resolve().parents if (p/'editor/formats.py').is_file())
-sys.path.insert(1, str(ROOT/'editor'))
+ROOT = next(p for p in Path(__file__).resolve().parents if (p/'extractor/formats.py').is_file())
+sys.path.insert(1, str(ROOT/'extractor'))
 from formats import overlay_sections, wad
 
 VERSION = 3

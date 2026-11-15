@@ -528,10 +528,10 @@ function(openrac_add_games)
   endforeach()
 endfunction()
 
-# The editor's moby class names (editor/moby_classes.tsv: class number, name, with its notice in
+# The editor's moby class names (extractor/moby_classes.tsv: class number, name, with its notice in
 # its first lines) as one string, openrac_moby_class_names, for the debug overlay's moby list.
 function(openrac_moby_class_names out)
-  set(tsv "${PROJECT_SOURCE_DIR}/../editor/moby_classes.tsv")
+  set(tsv "${PROJECT_SOURCE_DIR}/../extractor/moby_classes.tsv")
   set(cpp "${CMAKE_BINARY_DIR}/generated/openrac_moby_class_names.cpp")
   if(EXISTS "${tsv}")
     file(READ "${tsv}" text)
@@ -539,7 +539,7 @@ function(openrac_moby_class_names out)
   else()
     set(text "")
   endif()
-  file(CONFIGURE OUTPUT "${cpp}" CONTENT "// Generated from editor/moby_classes.tsv by cmake/Games.cmake.
+  file(CONFIGURE OUTPUT "${cpp}" CONTENT "// Generated from extractor/moby_classes.tsv by cmake/Games.cmake.
 extern const char *const openrac_moby_class_names;
 const char *const openrac_moby_class_names = R\"tsv(${text})tsv\";
 " @ONLY)

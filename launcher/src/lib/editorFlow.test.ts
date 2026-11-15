@@ -26,7 +26,7 @@ const input = (over: Partial<FlowInput> = {}): FlowInput => ({
   game: "rac1",
   state: state(),
   discFound: true,
-  lacksGodot: false,
+  lacksEditor: null,
   early: false,
   extracting: null,
   packing: null,
@@ -36,7 +36,7 @@ const input = (over: Partial<FlowInput> = {}): FlowInput => ({
 describe("editorStage", () => {
   it("walks a new player from the disc to playing", () => {
     expect(editorStage(input({ discFound: false })).primary).toBe("set-up");
-    expect(editorStage(input({ state: state({ levels: [] }), lacksGodot: true })).primary).toBe("get-godot");
+    expect(editorStage(input({ state: state({ levels: [] }), lacksEditor: "" })).primary).toBe("get-editor");
     expect(editorStage(input({ state: state({ levels: [] }) })).kind).toBe("no-levels");
     expect(editorStage(input({ state: state({ levels: [] }) })).primary).toBe("prepare");
     expect(editorStage(input({ extracting: job("editor-extract") })).kind).toBe("extracting");
@@ -74,9 +74,12 @@ describe("editorStage", () => {
     expect(some.line.startsWith("Novalis")).toBe(true);
   });
 
-  it("an update without Godot still offers the update", () => {
-    const s = editorStage(input({ lacksGodot: true, state: state({ outdated: [{ level: 0, reason: "schema" }] }) }));
-    expect([s.primary, s.secondary]).toEqual(["update", ["get-godot"]]);
+  it("without OpenRAC Editor the panel offers its download first, with why when it does not fit", () => {
+    const s = editorStage(input({ lacksEditor: "", state: state({ outdated: [{ level: 0, reason: "schema" }] }) }));
+    expect([s.kind, s.primary, s.secondary]).toEqual(["no-editor", "get-editor", []]);
+    const old = editorStage(input({ lacksEditor: "OpenRAC Editor v1 is older than this OpenRAC: update the editor." }));
+    expect(old.line).toMatch(/update the editor/);
+    expect(editorStage(input({ unsupported: true })).kind).toBe("not-yet");
   });
 
   it("missing files offer Repair; packed for another disc offers packing again", () => {
@@ -114,7 +117,7 @@ describe("the update's note", () => {
     expect(note.carried).toBe(2);
     expect(note.redo).toEqual(["Veldin: Camera_0001: moved"]);
     expect(updateNoteLine(note)).toBe(
-      "2 levels updated, with 2 changes of yours carried over. 1 change could not be carried: redo it in Godot. Your old levels are in the backup folder.",
+      "2 levels updated, with 2 changes of yours carried over. 1 change could not be carried: redo it in OpenRAC Editor. Your old levels are in the backup folder.",
     );
     expect(updateNote("rac1", [])).toBeNull();
   });

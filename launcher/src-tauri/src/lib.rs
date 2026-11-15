@@ -311,29 +311,44 @@ async fn check_tool(tool: Tool, path: PathBuf) -> Result<Check, String> {
     tauri::async_runtime::spawn_blocking(move || detect::check_tool(tool, &path)).await.map_err(|e| e.to_string())
 }
 
-/// Takes a Godot that works when none is set, or the one set is gone: the first run looks only
-/// once, and a player often gets Godot later, from the Mods page's link. The config as it is.
+/// OpenRAC Editor as downloaded (core editor_install.rs): its version, and why it cannot be used
+/// with this OpenRAC when it cannot.
 #[tauri::command]
-async fn adopt_godot(state: State<'_, AppState>) -> Result<Config, String> {
-    if state.config.lock().unwrap().godot.as_deref().is_some_and(Path::is_file) {
-        return Ok(state.config.lock().unwrap().clone());
-    }
-    let found = tauri::async_runtime::spawn_blocking(|| {
-        let first = detect::tool_candidates(Tool::Godot).into_iter().next()?;
-        detect::check_tool(Tool::Godot, &first.path).ok.then_some(first.path)
+fn editor_install_status(state: State<'_, AppState>) -> openrac_launcher_core::editor_install::Status {
+    let root = state.config.lock().unwrap().root.clone();
+    openrac_launcher_core::editor_install::status(root.as_deref())
+}
+
+/// The newest OpenRAC Editor's version, from its releases.
+#[tauri::command]
+async fn editor_newest() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        use openrac_launcher_core::remote::{Cached, Curl, Hosts};
+        openrac_launcher_core::editor_install::newest(&Cached::shared(Curl), &Hosts::default())
     })
     .await
-    .map_err(|e| e.to_string())?;
-    let mut config = state.config.lock().unwrap();
-    if let (Some(godot), Some(file)) = (found, state.config_file.as_deref()) {
-        if !config.godot.as_deref().is_some_and(Path::is_file) {
-            let mut next = config.clone();
-            next.godot = Some(godot);
-            config::save(file, &next)?;
-            *config = next;
-        }
-    }
-    Ok(config.clone())
+    .map_err(|e| e.to_string())?
+}
+
+/// Downloads the newest OpenRAC Editor in place of the one there, checked against its release.
+#[tauri::command]
+async fn install_editor(state: State<'_, AppState>) -> Result<openrac_launcher_core::editor_install::Status, String> {
+    let root = state.config.lock().unwrap().root.clone();
+    launcher_log::line("editor: downloading OpenRAC Editor");
+    tauri::async_runtime::spawn_blocking(move || {
+        use openrac_launcher_core::remote::{Cached, Curl, Hosts};
+        openrac_launcher_core::editor_install::install(&Cached::shared(Curl), &Hosts::default(), root.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Removes the downloaded OpenRAC Editor (the level projects stay).
+#[tauri::command]
+fn remove_editor(state: State<'_, AppState>) -> Result<openrac_launcher_core::editor_install::Status, String> {
+    openrac_launcher_core::editor_install::remove()?;
+    let root = state.config.lock().unwrap().root.clone();
+    Ok(openrac_launcher_core::editor_install::status(root.as_deref()))
 }
 
 #[tauri::command]
@@ -1643,9 +1658,8 @@ async fn reset_apply(
 #[tauri::command]
 async fn editor_state(state: State<'_, AppState>, version: String) -> Result<editor_state::EditorState, String> {
     let layout = reset_layout(&state, &version)?;
-    let root = state.config.lock().unwrap().root()?.to_path_buf();
     tauri::async_runtime::spawn_blocking(move || {
-        let format = editor_state::ProjectFormat::load(&root);
+        let format = editor_state::ProjectFormat::installed();
         editor_state::inspect(&layout, format.as_ref())
     })
     .await
@@ -2676,10 +2690,10 @@ fn open_bake_log(app: AppHandle, state: State<'_, AppState>, version: String, pa
     open_path_with_system(&app, &log.to_string_lossy())
 }
 
-/// Opens one level's Godot project in the Godot editor (the version's `editor-open` action, with
-/// its checks: Godot set up, the level extracted), for a job's result or a level's row.
+/// Opens one level's project in OpenRAC Editor (the version's `editor-open` action, with its
+/// checks: the editor downloaded, the level extracted), for a job's result or a level's row.
 #[tauri::command]
-fn open_level_in_godot(state: State<'_, AppState>, version: String, level: u32) -> Result<Started, String> {
+fn open_level_in_editor(state: State<'_, AppState>, version: String, level: u32) -> Result<Started, String> {
     let config = state.config.lock().unwrap().clone();
     let inputs = openrac_launcher_core::actions::Inputs { level: Some(level), path: None, option: None };
     let plan = library::plan(&config, &Scope::Version(version), "editor-open", &inputs)?;
@@ -2868,7 +2882,10 @@ pub fn run() {
             detect,
             check_root,
             check_tool,
-            adopt_godot,
+            editor_install_status,
+            editor_newest,
+            install_editor,
+            remove_editor,
             library,
             run_action,
             cancel_job,
@@ -2968,7 +2985,7 @@ pub fn run() {
             open_game_folder,
             open_output,
             open_bake_log,
-            open_level_in_godot,
+            open_level_in_editor,
             reports_list,
             latest_crash,
             report_text,

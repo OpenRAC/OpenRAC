@@ -26,7 +26,7 @@ renderer::Mat4 sky_shell_matrix(const renderer::FrameInput& input, int shell) {
         return result;
     }
     // The shell's matrix as the game drew it this tick; its translation is in the game's
-    // sky units, the vertices were exported in 1/1024ths of them (editor/sky.py).
+    // sky units, the vertices were exported in 1/1024ths of them (extractor/sky.py).
     result = input.sky_shells[static_cast<std::size_t>(shell)];
     result[3] = result[7] = result[11] = 0.0f;
     result[12] /= 1024.0f;

@@ -1,17 +1,17 @@
 // What a player reads when one of the editor's tools stops: every failed job of the level editor,
 // the asset export and the packs goes through `toolFailure`, and nothing else on the page shows a
 // tool's own words. The tools say why they stopped as a code on a line of its own
-// (`openrac-error: project-outdated-gameplay`, editor/errors.py); each code has a sentence here in
+// (`openrac-error: project-outdated-gameplay`, extractor/errors.py); each code has a sentence here in
 // a player's words and the one step that helps. A job without a code, or with one this launcher
 // does not know, gets the generic sentence. What the tool printed stays in the job's log (Activity)
 // and behind "Show details", its folders cut to their names (lib/paths.ts).
 //
-// editor/test_errors.py fails when a tool raises a code that is not in TOOL_ERRORS.
+// extractor/test_errors.py fails when a tool raises a code that is not in TOOL_ERRORS.
 import { hidePaths } from "./paths";
 import { PROGRESS_LINE } from "./progress";
 import type { Line } from "./queue";
 
-/** The line a tool says its code on (editor/errors.py LINE). */
+/** The line a tool says its code on (extractor/errors.py LINE). */
 export const ERROR_LINE = "openrac-error: ";
 
 /** The one thing that helps, offered as the error's button. */
@@ -20,7 +20,7 @@ export type NextStep =
   | "retry" // the same step again, once the player fixed what is said
   | "start-over" // the Your levels section: export again, delete
   | "set-up" // set the disc up again
-  | "open" // open a level in Godot (it reads the levels first)
+  | "open" // open a level in OpenRAC Editor (it reads the levels first)
   | "settings" // the install folder, in Settings
   | "report" // something OpenRAC should hear about: Activity has what to send
   | "none";
@@ -44,12 +44,12 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
   },
   "static-import": {
     title: "An imported model could not be packed",
-    line: "Check where the models you imported into this level sit and their collision, save in Godot, then pack again.",
+    line: "Check where the models you imported into this level sit and their collision, save in OpenRAC Editor, then pack again.",
     next: "retry",
   },
   "level-too-big": {
     title: "This level has grown too big",
-    line: "Its objects no longer fit in the space the game keeps for them. Remove some of the objects you added, save in Godot, then pack again.",
+    line: "Its objects no longer fit in the space the game keeps for them. Remove some of the objects you added, save in OpenRAC Editor, then pack again.",
     next: "retry",
   },
   "pack-internal": {
@@ -59,7 +59,7 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
   },
   "pack-incomplete": {
     title: "Some level edits could not be packed",
-    line: "Some changes in your Godot scenes could not be used in the game. Show details lists them; correct or remove those edits, then pack again.",
+    line: "Some changes in your levels could not be used in the game. Show details lists them; correct or remove those edits, then pack again.",
     next: "retry",
   },
   "pack-folder-not-ours": {
@@ -84,12 +84,12 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
   },
   "no-project": {
     title: "There are no levels to pack yet",
-    line: "Open a level in Godot first: that reads the levels from your disc.",
+    line: "Open a level in OpenRAC Editor first: that reads the levels from your disc.",
     next: "open",
   },
   "game-not-packable": {
     title: "Packing is not ready for this game yet",
-    line: "You can open its levels in Godot and make texture and model packs.",
+    line: "You can open its levels in OpenRAC Editor and make texture and model packs.",
     next: "none",
   },
   "no-such-level": {
@@ -109,7 +109,7 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
   },
   "file-locked": {
     title: "A file is in use",
-    line: "Close Godot and any window showing the level files, then try again.",
+    line: "Close OpenRAC Editor and any window showing the level files, then try again.",
     next: "retry",
   },
   "file-missing": {

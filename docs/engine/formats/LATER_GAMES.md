@@ -1,8 +1,8 @@
 # Going Commando, Up Your Arsenal and Deadlocked levels
 
 What the three later games' level data shares with Ratchet & Clank's and
-what each changes, as the editor reads it ([editor/games.py](../../../editor/games.py),
-[editor/wads.py](../../../editor/wads.py)). The layouts are Wrench's
+what each changes, as the editor reads it ([extractor/games.py](../../../extractor/games.py),
+[extractor/wads.py](../../../extractor/wads.py)). The layouts are Wrench's
 (https://github.com/chaoticgd/wrench, GPL-3.0-or-later; read and
 re-implemented, no code copied); each was checked on the retail disc named
 below by reading every level with the editor's readers (2026-10-20).
@@ -95,7 +95,7 @@ range (+0x58).
   first such entry's address, not in the core data.
 - **Swizzle (RAC4).** An 8-bit texture's pixels are stored in the GS's
   PSMT8 block order. Wrench's `map_pixel_index_rac4` turns them back
-  (written out in [level.py](../../../editor/level.py) `unswizzle`); its sky
+  (written out in [level.py](../../../extractor/level.py) `unswizzle`); its sky
   textures are turned the other way, as Wrench reads them. The level
   texture direction was checked by eye on one RAC4 terrain texture; the sky
   direction is Wrench's and not checked.
@@ -167,7 +167,7 @@ those faces are drawn untextured.
 | Mobys | +0x44, 0x78 bytes | +0x4C, 0x88 bytes | gameplay +0x30, 0x70 bytes |
 
 Each table is a count, 12 bytes of padding, then the records. The moby
-records ([games.py](../../../editor/games.py) has every field):
+records ([games.py](../../../extractor/games.py) has every field):
 
 | Field | RAC1 | RAC2, RAC3 | RAC4 |
 |---|---|---|---|
@@ -194,7 +194,7 @@ angular velocity (three s16 each; not read).
 
 ## 3. What the editor reads, per game
 
-Counts are from reading every level of each disc (`editor/extract.py port`,
+Counts are from reading every level of each disc (`extractor/extract.py port`,
 2026-10-20): RAC2 27 levels, 9,442 textures, 4,444 moby models of 5,796
 classes, 1,864 tie and 358 shrub classes, 17,422 mobys, 42,671 ties and
 28,901 shrubs placed; RAC3 51 levels, 17,534 textures, 6,996 moby models of

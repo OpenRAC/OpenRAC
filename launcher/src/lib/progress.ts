@@ -44,21 +44,21 @@ export interface JobProgress {
 
 const NINJA = /^\s*\[\s*(\d+)\s*\/\s*(\d+)\s*\]/; // "[1351/2273] Building C object ..."
 const PERCENT = /(?:^|[\s[(])(\d{1,3}(?:\.\d+)?)\s?%/; // "[ 45%] Building ...", "copying 62 %"
-const LEVEL = /^level \d+:/; // editor/extract.py, one line for each level it finished
+const LEVEL = /^level \d+:/; // extractor/extract.py, one line for each level it finished
 // "Lighting 42.5% (about 12 minutes left)": the probe bake (bake_all.py, show_progress).
 const LEFT = /\(((?:about|less than) [^)]* left)\)\s*$/;
 
 const clamp = (n: number) => Math.min(100, Math.max(0, n));
 
-// ---- The editor's tools: one line per step of work (editor/progress_line.py) ----
+// ---- The editor's tools: one line per step of work (extractor/progress_line.py) ----
 
-/** The line a tool says how far along it is on (editor/progress_line.py LINE). */
+/** The line a tool says how far along it is on (extractor/progress_line.py LINE). */
 export const PROGRESS_LINE = "openrac-progress: ";
 
-/** Each step a tool counts, in a player's words (editor/test_progress_line.py checks the list). */
+/** Each step a tool counts, in a player's words (extractor/test_progress_line.py checks the list). */
 export const STEP_WORDS: Record<string, string> = {
   read: "Reading levels",
-  project: "Making the Godot project",
+  project: "Making the level's project",
   carry: "Carrying your changes over",
   pack: "Packing",
   visibility: "Adding what the game can see",

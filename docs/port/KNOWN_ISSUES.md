@@ -102,7 +102,7 @@ discs. The pool size is data, not a fixed array:
 - **Rejected approaches:** moving the array after load (placed mobys, groups
   and the grid hold its addresses and indices), and a second overflow pool
   (`(m - base) >> 8` indices break outside the array).
-- **The level packer:** `editor/gameplay.py` keeps the spare count in the
+- **The level packer:** `OpenRAC Editor's openrac/tools/gameplay.py` keeps the spare count in the
   header, so it could raise it for mods too.
 - **Left:** Rilgar, Blarg Station and Quartu still have 255 slots, so a heavy
   spawner there can still fill the pool and reach the guard. A full pool at a

@@ -296,7 +296,7 @@ public:
     // updates off the ground, 0 on landing), which the hero's shadow map tilts down by.
     virtual std::uint32_t hero_air_frames() const { return 0x30E; }
 
-    // Whether the port has the game's levels extracted (editor/port.py), so that a level whose
+    // Whether the port has the game's levels extracted (extractor/port.py), so that a level whose
     // scenery cannot be read is something missing, not a game with no scenery yet.
     virtual bool has_levels() const { return false; }
 

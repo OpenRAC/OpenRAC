@@ -12,7 +12,8 @@
 //!   `launcher/actions.json`, and how an action becomes a command line.
 //! - [`status`]: what is in place for a version (disc, inputs, build output).
 //! - [`config`]: the launcher's own settings file.
-//! - [`detect`]: finding the checkout, Python, Godot and Docker.
+//! - [`detect`]: finding the checkout, Python and Docker.
+//! - [`editor_install`]: OpenRAC Editor, the level editor, downloaded from its releases.
 //! - [`desktop`]: the Linux desktop's menu entries and icons for the launcher and the games.
 //! - [`install`]: setting a game up from the player's disc, OpenGOAL's way.
 //! - [`disc_choice`]: for developers with two discs of a game, which one is played.
@@ -52,6 +53,7 @@ pub mod differences;
 pub mod disc_choice;
 pub mod discord;
 pub mod discs;
+pub mod editor_install;
 pub mod editor_state;
 pub mod enhanced;
 pub mod hook_ids;

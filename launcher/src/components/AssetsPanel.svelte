@@ -1,9 +1,9 @@
 <script lang="ts">
   // Make your own → Models and textures: export a level's assets to edit them in Blender or an
   // image editor, and import the edits back as an overrides pack (it joins My mods). The
-  // Python side does the work (editor/assets.py, through actions.json). The packs are the game's,
+  // Python side does the work (extractor/assets.py, through actions.json). The packs are the game's,
   // shared by its discs; the version (the one the game page plays) only picks the levels exported
-  // from. editor/MODDING.md is the modder's guide.
+  // from. extractor/MODDING.md is the modder's guide.
   import Icon from "$components/Icon.svelte";
   import { api, inTauri, pickFolder, type ActionView, type VersionView } from "$lib/api";
   import { app, guardShown, jobs, runChain, toast } from "$lib/app.svelte";
@@ -120,7 +120,7 @@
   <div class="assets">
     <p class="muted intro">
       {ASSETS.lead}
-      <button class="link" onclick={() => void guardShown(api.openPath("editor/MODDING.md"))}
+      <button class="link" onclick={() => void guardShown(api.openPath("extractor/MODDING.md"))}
         >{ASSETS.howItWorks}</button
       >
     </p>
@@ -166,7 +166,9 @@
         </div>
         {#if developer}
           <div class="span">
-            <CommandBox lines={[`python3 editor/assets.py export ${levels} <out> --level ${level} --what ${what}`]} />
+            <CommandBox
+              lines={[`python3 extractor/assets.py export ${levels} <out> --level ${level} --what ${what}`]}
+            />
           </div>
         {/if}
       </li>
@@ -193,7 +195,9 @@
         </div>
         {#if developer}
           <div class="span">
-            <CommandBox lines={[`python3 editor/assets.py import <out> --levels ${levels} --into <data>/overrides`]} />
+            <CommandBox
+              lines={[`python3 extractor/assets.py import <out> --levels ${levels} --into <data>/overrides`]}
+            />
           </div>
         {/if}
       </li>

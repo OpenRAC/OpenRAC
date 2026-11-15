@@ -193,7 +193,7 @@ int main() {
             std::fclose(again);
         }
 
-        // As editor/audio.py works it out, from the stream's own bytes.
+        // As extractor/audio.py works it out, from the stream's own bytes.
         const std::string key = std::format(
             "{:016x}",
             openrac::audio::stream_key(

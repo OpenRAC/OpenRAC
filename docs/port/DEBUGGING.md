@@ -150,7 +150,7 @@ The game's own heaps are not shown: their headers are not identified yet.
 The live mobys, nearest the hero first, within a radius or all of them:
 address, class number and name, state, mode bits, animation sequence and
 frame, position, distance and update function by name. The names are the
-editor's ([editor/moby_classes.tsv](../../editor/moby_classes.tsv)), built
+editor's ([extractor/moby_classes.tsv](../../extractor/moby_classes.tsv)), built
 into the program.
 
 - A click on a row selects the moby: a ring marks it in the picture and
@@ -648,7 +648,7 @@ Vulkan and OpenGL/ES both use it: it is part of the picture, not only a speed-up
 add them to an existing export with:
 
 ```sh
-python editor/occlusion.py <owned-disc.iso> <port-levels-directory>
+python extractor/occlusion.py <owned-disc.iso> <port-levels-directory>
 ```
 
 Terrain mappings check counts/triangle keys for staleness. Ties use placement

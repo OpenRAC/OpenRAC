@@ -7,8 +7,8 @@ packs; a map session uses a fresh game with campaign saves disabled.
 How a mod changes what the native port does without being built into it: a
 **native mod** is a shared library the port loads at start, through a small
 versioned C interface; a **data mod** is a pack of textures, models, level
-edits or sound, which the level editor and the overrides packs already cover ([editor/MODDING.md](../../editor/MODDING.md),
-[editor/AUDIO_MODDING.md](../../editor/AUDIO_MODDING.md)). The launcher installs both,
+edits or sound, which the level editor and the overrides packs already cover ([extractor/MODDING.md](../../extractor/MODDING.md),
+[extractor/AUDIO_MODDING.md](../../extractor/AUDIO_MODDING.md)). The launcher installs both,
 switches them on and off, orders them and shows why one was not loaded. A
 player who wants the game as the console plays it leaves the **Mods** switch
 under Play off (the default) and nothing is loaded (Purist mode).
@@ -97,7 +97,7 @@ OpenRAC
 │   └── <id>/                          one native mod, as installed
 │       ├── openrac-mod.json
 │       └── lib/<platform>/<library>
-├── overrides/                         the data packs (unchanged: editor/overrides.py)
+├── overrides/                         the data packs (unchanged: extractor/overrides.py)
 └── mods/<version>/                    the packs stacked for one disc (unchanged)
 ```
 
@@ -143,7 +143,7 @@ files. Script mods and data packs work there as elsewhere.
 
 ```jsonc
 {
-  "format": 2,                           // 1 is a data pack (editor/MODDING.md)
+  "format": 2,                           // 1 is a data pack (extractor/MODDING.md)
   "id": "lock-strafe",                   // lower case, digits and hyphens; the folder's name
   "name": "Lock-strafe",
   "version": "1.0.0",                    // semantic version
@@ -980,7 +980,7 @@ openrac-mod.json        the manifest (section 3)
 README.md, LICENSE      shown to players before they install
 CMakeLists.txt, src/    a native mod's sources (built by the workflow, never by the launcher)
 tests/                  its tests
-level_NN/, ...          a data pack's files, as editor/MODDING.md lays them out (format 1)
+level_NN/, ...          a data pack's files, as extractor/MODDING.md lays them out (format 1)
 ```
 
 **Releases carry the built mods.** A tag `v<version>` (or, in a repository

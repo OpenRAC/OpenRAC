@@ -59,13 +59,13 @@ class PlanTest(unittest.TestCase):
 
     def test_markdown_anywhere_runs_no_build(self):
         for path in ("port/docs/CODING_CONVENTIONS.md", "port/enhanced/lighting/README.md",
-                     "sdk/docs/hooks.md", "launcher/release-notes/1.0.0.md", "editor/MODDING.md"):
+                     "sdk/docs/hooks.md", "launcher/release-notes/1.0.0.md", "extractor/MODDING.md"):
             self.check([path], launcher=False, pages=False, port=False, enhanced=False,
                        port_parts=[])
 
     def test_a_removed_page_checks_as_before(self):
         # The launcher's test wants every page actions.json links to exist.
-        result = plan(["editor/MODDING.md"], PROGRAMS, removed={"editor/MODDING.md"})
+        result = plan(["extractor/MODDING.md"], PROGRAMS, removed={"extractor/MODDING.md"})
         self.assertTrue(result["launcher"])
         result = plan(["port/renderer/README.md"], PROGRAMS, removed={"port/renderer/README.md"})
         self.assertEqual(result["port_parts"], SHARED)
@@ -87,7 +87,7 @@ class PlanTest(unittest.TestCase):
 
     def test_shared_code_builds_every_program_but_the_carried_releases(self):
         for path in ("port/renderer/frame.cpp", "port/game/common/main.cpp", "tools/build_port.py",
-                     "editor/mobys.py"):
+                     "extractor/mobys.py"):
             self.check([path], port=True, enhanced=True, port_parts=SHARED)
 
     def test_a_game_folder_the_shared_tests_compile_also_runs_them(self):
@@ -123,7 +123,7 @@ class IosPlanTest(unittest.TestCase):
 
     def test_unrelated_files_run_neither(self):
         for path in ("launcher/src/App.svelte", "port/game/rac2-ntsc/host/x.c", "port/android/x.cpp",
-                     "port/tools/hostgen/hostgen.py", "port/renderer/README.md", "editor/mobys.py",
+                     "port/tools/hostgen/hostgen.py", "port/renderer/README.md", "extractor/mobys.py",
                      "docs/port/IOS.md", ".github/workflows/checks.yml"):
             self.check([path], False, False)
 

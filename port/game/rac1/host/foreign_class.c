@@ -3,7 +3,7 @@
 
 /*
  * Imported moby classes: a class of another level's program placed in this level by OpenRAC
- * Editor (editor/foreign_classes.py packs it). Its data is in this level's core like the level's
+ * Editor (OpenRAC Editor's openrac/tools/foreign_classes.py packs it). Its data is in this level's core like the level's
  * own classes; its update is its own level's code, which reads that level's addresses, so it runs
  * in its own program for the call: that level's data is swapped in over this one's, and its code
  * is read from a copy (openrac_guest_foreign_enter, openrac/foreign.h). Every level's data ends
@@ -53,7 +53,7 @@ static int s_registered;
  * the level's own that has no update. */
 static int s_registering = -1;
 
-/* worlds.bin (editor/foreign_classes.py, write_worlds): "ORWD", 1, worlds, bindings; each world
+/* worlds.bin (OpenRAC Editor's openrac/tools/foreign_classes.py, write_worlds): "ORWD", 1, worlds, bindings; each world
  * {at, size, relocs, sets}; each binding {class, world, x, y}; at a world's `at` its relocs
  * (offsets in its data of words its address is added to), its sets {global, index, value, value
  * is an offset}, its data. The globals, as games/rac1 names them in level 0's program. */
@@ -440,7 +440,7 @@ void rac1_foreign_classes_load(int level) {
 #ifdef RAC1_FOREIGN_CLASSES
 /* print_moby_class_sizes, which the level's loader calls once it has registered its own classes:
  * the imported ones register after them, each from its blob <mods>/level_NN/classes/<class>.bin
- * (its data as its own level's core has it, editor/foreign_classes.py). Drawn without the level's
+ * (its data as its own level's core has it, OpenRAC Editor's openrac/tools/foreign_classes.py). Drawn without the level's
  * textures (the port draws its level's model); its update binds through assign_moby_class_data as any class. */
 void func_L00_00242120(unsigned int record, int count) {
     func_L00_00242120__game(record, count);

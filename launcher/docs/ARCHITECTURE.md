@@ -22,7 +22,7 @@
  └──────────────────────────────┬──────────────────────────────────────┘
                                 ▼
        the checkout's own tools: tools/extractor.py, tools/openrac.py,
-       each game's build, editor/extract.py, Godot (never through a shell)
+       each game's build, extractor/extract.py, OpenRAC Editor (never through a shell)
 ```
 
 ## The rules it keeps
@@ -68,7 +68,7 @@ gets focus, and when settings change.
 
 **Running an action.** `run(scope, action)` in `lib/app.svelte.ts`:
 
-- A _detached_ action (the game, Godot) is started at once through
+- A _detached_ action (the game, OpenRAC Editor) is started at once through
   `run_action`, which returns id 0. The launcher does not follow it.
 - Anything else joins the queue (`lib/queue.ts`). Jobs run one at a time in
   order, so two builds never share the build container or a folder. When it
@@ -120,10 +120,11 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `relaunch_app`                                                                                     |                                                                                    | restarts the launcher (after an update installed)                                                                                                                           |
 | `launcher_update_check`                                                                            | `{channel}`                                                                        | a newer launcher on that channel, from Tauri's updater (desktop), or null                                                                                                   |
 | `get_config` / `save_config`                                                                       | `{config}`                                                                         | `Config` (`core/src/config.rs`)                                                                                                                                             |
-| `detect`                                                                                           |                                                                                    | candidates for the checkout, Python, Godot, Docker                                                                                                                          |
+| `detect`                                                                                           |                                                                                    | candidates for the checkout, Python, Docker                                                                                                                                  |
 | `check_root`                                                                                       | `{path}`                                                                           | `{ok, version, message}`: is it an OpenRAC checkout                                                                                                                         |
 | `check_tool`                                                                                       | `{tool, path}`                                                                     | the same, after running the tool's version flag                                                                                                                             |
-| `adopt_godot`                                                                                      |                                                                                    | `Config`, with a Godot that works when none was set or the one set is gone (run at each start)                                                                              |
+| `editor_install_status`                                                                            |                                                                                    | `EditorInstall`: OpenRAC Editor as downloaded (core `editor_install.rs`): its version, and why it cannot be used here                                                       |
+| `editor_newest` / `install_editor` / `remove_editor`                                               |                                                                                    | the newest release's version; downloads it (checked) in place of the one there; removes it                                                                                  |
 | `library`                                                                                          |                                                                                    | `Library` (`core/src/library.rs`)                                                                                                                                           |
 | `install_game`                                                                                     | `{game, image}`                                                                    | the extractor's job, `{id, title, command, detached}`                                                                                                                       |
 | `prepare_disc`                                                                                     | `{image}`                                                                          | the plain image set-up reads: an .iso as it is, a CHD unpacked once into `<install>/discs/<name>.iso` (`core/src/chd.rs`, `disc-copy` events)                               |
@@ -131,7 +132,7 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `scan_discs`                                                                                       |                                                                                    | `{found, choices}`: the games folder's discs, and (developers) the games with two to choose from                                                                            |
 | `choose_disc`                                                                                      | `{version}`                                                                        | `Config`, after putting that disc's set-up in place (developers only; below)                                                                                                |
 | `run_action`                                                                                       | `{scope, id, level, path, option}`                                                 | `{id, title, command, detached}`; `level`, `path`, `option` fill `{level}`, `{path}`, `{option}`                                                                            |
-| `open_level_in_godot`                                                                              | `{version, level}`                                                                 | the version's `editor-open` action for that level, started as a job                                                                                                         |
+| `open_level_in_editor`                                                                              | `{version, level}`                                                                 | the version's `editor-open` action for that level, started as a job                                                                                                         |
 | `open_output`                                                                                      | `{path}`                                                                           | opens a folder a job wrote (a file: its folder); only the checkout's `assets/` and `build/` and the install folder                                                          |
 | `overrides_list`                                                                                   | `{game}`                                                                           | the game's overrides packs (`core/src/overrides.rs`), in order                                                                                                              |
 | `overrides_set_enabled` / `overrides_move` / `overrides_remove`                                    | `{game, id, enabled}` / `{game, id, up}` / `{game, id}`                            | the packs again, changed                                                                                                                                                    |
@@ -495,7 +496,7 @@ Tauri builds for Linux (AppImage, deb, rpm), macOS (app, dmg) and Windows
 equally portable: each action lists the platforms it runs on, and the game
 page tucks the others away ("N more for other platforms"). The platform the
 launcher runs on comes from `Platform::current()` in `core/src/actions.rs`.
-Android has no shell, Python, Godot or compiler: there an action that names no
+Android has no shell, Python, editor or compiler: there an action that names no
 platform runs only if it is a `play` action (`runs_on`), and the others are not
 listed.
 

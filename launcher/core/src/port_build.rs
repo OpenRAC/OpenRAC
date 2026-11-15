@@ -96,7 +96,7 @@ fn is_sha(text: &str) -> bool {
 const BUILT_FROM: &[&str] = &[
     "port",
     "tools/build_port.py",
-    "editor/moby_classes.tsv",
+    "extractor/moby_classes.tsv",
     "launcher/src-tauri/icons",
     "launcher/src-tauri/tauri.conf.json",
 ];

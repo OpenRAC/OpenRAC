@@ -1,14 +1,14 @@
 <script lang="ts">
   // The Level editor tab's one panel: where the player is with this disc's levels, in a sentence,
-  // and the step that comes next as the main button (Open in Godot beside it where it applies), how
+  // and the step that comes next as the main button (Open in OpenRAC Editor beside it where it applies), how
   // far along a running step is, and under it Your levels, always in view: pack again, export the
   // levels again, read the game's levels again and delete the level project. The state is the core's look at the editor's folders
   // (core/src/editor_state.rs), asked again when the tab opens, when the window comes back into
-  // focus (the player saved in Godot) and when one of the editor's jobs ends; the words and the
+  // focus (the player saved in the editor) and when one of the editor's jobs ends; the words and the
   // order of the states are lib/editorFlow.ts's. A failed step is said in a player's words
   // (lib/toolErrors.ts), never in the tool's: what it printed is behind "Show details".
-  import { api, pickFile, type EditorState, type GameView, type VersionView } from "$lib/api";
-  import { app, guardShown, jobs, run, runChain, saveConfig, toast } from "$lib/app.svelte";
+  import { api, type EditorState, type GameView, type VersionView } from "$lib/api";
+  import { app, guardShown, installEditor, jobs, run, runChain, saveConfig, toast } from "$lib/app.svelte";
   import {
     LEVEL_TOOL_TEXT,
     LEVELS_SECTION,
@@ -22,9 +22,7 @@
     type Step,
   } from "$lib/editorFlow";
   import { levelName, levelsOf } from "$lib/labels";
-  import { GODOT_URL } from "$lib/links";
   import { EDITOR } from "$lib/modsText";
-  import { hidePaths } from "$lib/paths";
   import { foundDisc, setUp } from "$lib/player.svelte";
   import type { Job } from "$lib/queue";
   import { toolFailure, type NextStep } from "$lib/toolErrors";
@@ -42,7 +40,13 @@
   const edit = $derived(action("editor-open"));
   const pack = $derived(action("editor-pack"));
   const early = $derived(!pack);
-  const lacksGodot = $derived((edit?.blockers ?? []).some((b) => b.replace(/^needs /, "").startsWith("Godot")));
+  /** Null when OpenRAC Editor is downloaded and fits this OpenRAC; else why not ("" when it is not
+   *  downloaded): the panel then offers the download. */
+  const lacksEditor = $derived(
+    app.editor === null ? null : !app.editor.version ? "" : app.editor.problem ? `${app.editor.problem}.` : null,
+  );
+  /** The editor is there and fits, but brings no steps for this version. */
+  const unsupported = $derived(lacksEditor === null && app.editor !== null && !extract);
   const discFound = $derived(version.status.disc.state === "found");
 
   const live = (j: Job) => j.state === "queued" || j.state === "running";
@@ -73,7 +77,7 @@
   }
 
   onMount(() => {
-    // Back from Godot: what was saved there is seen without a click.
+    // Back from the editor: what was saved there is seen without a click.
     const focused = () => void look();
     const shown = () => {
       if (document.visibilityState === "visible") void look();
@@ -114,7 +118,8 @@
       game: version.game,
       state: unreadable ? emptyState() : found,
       discFound,
-      lacksGodot,
+      lacksEditor,
+      unsupported,
       early,
       extracting,
       packing,
@@ -147,21 +152,6 @@
   let picked = $state<number | null>(null);
   const level = $derived(picked ?? levelsOf(version.game)[0]?.number ?? 0);
   let busy = $state<Step | null>(null);
-  let pickingGodot = false;
-
-  async function chooseGodot() {
-    if (!app.config || pickingGodot) return;
-    pickingGodot = true;
-    const picked = await pickFile(EDITOR.pickGodot).finally(() => (pickingGodot = false));
-    if (!picked) return;
-    const check = await guardShown(api.checkTool("godot", picked));
-    if (!check) return;
-    if (!check.ok) {
-      toast(hidePaths(EDITOR.notGodot(check.message)).text, "error");
-      return;
-    }
-    await saveConfig({ ...app.config, godot: picked });
-  }
 
   async function take(step: Step | NextStep) {
     if (busy) return;
@@ -169,18 +159,23 @@
       case "set-up":
         await setUp(game.id, game.title, foundDisc(game.id)?.path);
         return;
-      case "get-godot":
-        await guardShown(api.openUrl(GODOT_URL));
+      case "get-editor":
+        busy = step;
+        try {
+          if (await installEditor()) await look();
+        } finally {
+          busy = null;
+        }
         return;
       case "prepare":
       case "open":
         if (!edit) return;
         busy = step;
         try {
-          // The first time (or a level not read yet), the levels are read before Godot opens.
+          // The first time (or a level not read yet), the levels are read before the editor opens.
           const done =
             edit.runnable && found?.levels.includes(level) !== false
-              ? (await guardShown(api.openLevelInGodot(version.key, level))) !== undefined
+              ? (await guardShown(api.openLevelInEditor(version.key, level))) !== undefined
               : await runChain(scope, extract ? [extract, edit] : [edit], level);
           if (done) toast(EDITOR.opening(levelName(version.game, level)));
         } finally {
@@ -247,13 +242,14 @@
     if (busy || extracting || packing) return true;
     if (step === "pack") return !pack?.runnable;
     if (step === "update" || step === "repair") return !extract?.runnable;
-    if (step === "open" || step === "prepare") return !edit || lacksGodot;
+    if (step === "open" || step === "prepare") return !edit || lacksEditor !== null;
+    if (step === "get-editor") return app.editorDownloading;
     return false;
   };
 
-  const ICON: Record<Step, "disc" | "external" | "edit" | "refresh" | "save" | "play"> = {
+  const ICON: Record<Step, "disc" | "download" | "edit" | "refresh" | "save" | "play"> = {
     "set-up": "disc",
-    "get-godot": "external",
+    "get-editor": "download",
     prepare: "edit",
     open: "edit",
     update: "refresh",
@@ -265,7 +261,7 @@
   const picksLevel = (step: Step) => step === "open" || step === "prepare";
   const steps = $derived([...(stage.primary ? [stage.primary] : []), ...stage.secondary]);
   /** The level picker sits right before the button it is for. */
-  const pickerBefore = $derived(lacksGodot ? null : (steps.find(picksLevel) ?? null));
+  const pickerBefore = $derived(lacksEditor !== null ? null : (steps.find(picksLevel) ?? null));
   const label = (step: Step) => (step === "open" && stage.kind === "needs-update" ? OPEN_ANYWAY : STEP_LABEL[step]);
 
   const backup = $derived(found?.backups[0] ?? null);
@@ -356,9 +352,6 @@
             {#if busy === step}<span class="spinner"></span>{:else}<Icon name={ICON[step]} size={16} />{/if}
             {label(step)}
           </button>
-          {#if step === "get-godot"}
-            <button onclick={() => void chooseGodot()}><Icon name="folder" size={16} />{EDITOR.chooseGodot}</button>
-          {/if}
         {/each}
       </div>
       {#if stage.kind === "needs-update" && stage.secondary.includes("open")}

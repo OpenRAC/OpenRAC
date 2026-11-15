@@ -24,7 +24,7 @@
     { page: "library", label: "Games", icon: "library" },
     // Every launcher, installed or on a checkout (an installed one mods in its data folder,
     // tools/bundle_standalone.py). Android's has the mods, Enhanced graphics and the packs, without
-    // the level editor (no Godot there: Mods.svelte).
+    // the level editor (no OpenRAC Editor there: Mods.svelte).
     { page: "mods", label: "Mods", icon: "edit" },
     ...(app.config?.developer ? [{ page: "develop" as Page, label: "Develop", icon: "terminal" as IconName }] : []),
     { page: "settings", label: "Settings", icon: "gear" },

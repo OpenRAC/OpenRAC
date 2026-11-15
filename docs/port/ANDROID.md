@@ -135,7 +135,7 @@ picker may drop the name's extension, and one the picker streams rather than
 opens is copied first and unpacked from the copy. A failure is shown with its
 reason, as is the extractor's when it refuses a disc.
 
-**The setup** is the desktop's: `tools/extractor.py`, `editor/extract.py port`
+**The setup** is the desktop's: `tools/extractor.py`, `extractor/extract.py port`
 for the levels, then the game's `--check-levels`, with their output in the
 launcher. These steps name Android in `launcher/actions.json`; building the
 game does not, as the APK carries it. Going Commando adds one: the part of its
@@ -162,7 +162,7 @@ so if it takes more than a second.
 - the image is copied by the kernel (`copy_file_range` or `sendfile`);
 - the extractor writes only `SYSTEM.CNF` and the boot executable
   (`--boot-only`), though it still checks every file;
-- Android's Python has no process pools (no `sem_open`), so `editor/extract.py`
+- Android's Python has no process pools (no `sem_open`), so `extractor/extract.py`
   runs up to four levels in separate processes (`SubprocessPool`);
 - `openrac-enhanced-baker` schedules the largest lighting levels first and shares a bounded
   tracing pool across them. Water decoding runs in the same native

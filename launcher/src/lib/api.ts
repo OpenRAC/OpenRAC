@@ -65,6 +65,7 @@ import type { RemoteInstalled } from "./generated/RemoteInstalled";
 import type { RemoteMod } from "./generated/RemoteMod";
 import type { RemotePreview } from "./generated/RemotePreview";
 import type { ReportEntry } from "./generated/ReportEntry";
+import type { EditorInstall } from "./generated/EditorInstall";
 import type { EditorState } from "./generated/EditorState";
 import type { ExportedSaves } from "./generated/ExportedSaves";
 import type { Carried } from "./generated/Carried";
@@ -177,7 +178,7 @@ export type { ModUpdate };
 export type { Nanotech };
 export type { PackView };
 export type { ResetDone, ResetKind, ResetPart, ResetPartView, ResetPreview };
-export type { Carried, EditorState, OutdatedReason };
+export type { Carried, EditorInstall, EditorState, OutdatedReason };
 export type { PluginPreset };
 export type { PluginSetting };
 export type { PluginView };
@@ -308,8 +309,14 @@ export const api = {
   detect: () => call<Detected>("detect"),
   checkRoot: (path: string) => call<Check>("check_root", { path }),
   checkTool: (tool: Tool, path: string) => call<Check>("check_tool", { tool, path }),
-  /** Takes a Godot that works when none is set or the one set is gone; the config as it is then. */
-  adoptGodot: () => call<Config>("adopt_godot"),
+  /** OpenRAC Editor as downloaded (core editor_install.rs). */
+  editorInstall: () => call<EditorInstall>("editor_install_status"),
+  /** The newest OpenRAC Editor's version, from its releases. */
+  editorNewest: () => call<string>("editor_newest"),
+  /** Downloads the newest OpenRAC Editor, checked against its release, in place of the one there. */
+  installEditor: () => call<EditorInstall>("install_editor"),
+  /** Removes the downloaded OpenRAC Editor; the level projects stay. */
+  removeEditor: () => call<EditorInstall>("remove_editor"),
   library: () => call<Library>("library"),
   /** `inputs`: which level a per-level action is for (the level editor's projects, one each), a
    *  file or folder the player chose (`{path}`), one of the action's options (`{option}`). */
@@ -576,8 +583,8 @@ export const api = {
   /** A folder a job wrote (a job exit's `outputs`), opened with the system; a file opens its folder. */
   openOutput: (path: string) => call<null>("open_output", { path }),
   openBakeLog: (version: string, path: string) => call<null>("open_bake_log", { version, path }),
-  /** One level's Godot project in the Godot editor (the version's editor-open action). */
-  openLevelInGodot: (version: string, level: number) => call<Started>("open_level_in_godot", { version, level }),
+  /** One level's project in OpenRAC Editor (the version's editor-open action). */
+  openLevelInEditor: (version: string, level: number) => call<Started>("open_level_in_editor", { version, level }),
   /** Android: the player's GPU driver packages (src-tauri/src/android.rs). */
   gpuDrivers: () => call<GpuDrivers>("gpu_drivers"),
   /** Android: the player picks a package's zip; null when they cancelled. */

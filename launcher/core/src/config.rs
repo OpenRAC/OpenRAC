@@ -14,8 +14,6 @@ pub struct Config {
     pub root: Option<PathBuf>,
     /// Python 3.10+, for tools/openrac.py, the editor and the games' Python tools.
     pub python: Option<PathBuf>,
-    /// Godot 4 (4.7+), for the level editor.
-    pub godot: Option<PathBuf>,
     /// Docker, which rac1/pal's and rac4's builds run in.
     pub docker: Option<PathBuf>,
     /// Show what contributors use: builds, checks, toolchains, progress.
@@ -133,7 +131,6 @@ impl Default for Config {
         Self {
             root: None,
             python: None,
-            godot: None,
             docker: None,
             install_dir: None,
             discs_dir: None,

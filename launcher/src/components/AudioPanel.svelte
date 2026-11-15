@@ -1,9 +1,9 @@
 <script lang="ts">
   // Mods → Audio: export the game's sounds as WAV files to edit in an audio editor, and import the
   // edits back as an overrides pack (it joins My mods), as AssetsPanel does for models and textures.
-  // The Python side does the work (editor/audio.py, through actions.json). The packs are the game's,
+  // The Python side does the work (extractor/audio.py, through actions.json). The packs are the game's,
   // shared by its discs; the version (the one the game page plays) only picks the disc exported from.
-  // editor/AUDIO_MODDING.md is the modder's guide.
+  // extractor/AUDIO_MODDING.md is the modder's guide.
   import Icon from "$components/Icon.svelte";
   import { api, inTauri, pickFolder, type ActionView, type VersionView } from "$lib/api";
   import { app, guardShown, jobs, runChain, toast } from "$lib/app.svelte";
@@ -79,7 +79,7 @@
   <div class="audio">
     <p class="muted intro">
       {AUDIO.lead}
-      <button class="link" onclick={() => void guardShown(api.openPath("editor/AUDIO_MODDING.md"))}
+      <button class="link" onclick={() => void guardShown(api.openPath("extractor/AUDIO_MODDING.md"))}
         >{AUDIO.howItWorks}</button
       >
     </p>
@@ -124,7 +124,7 @@
           <div class="span">
             <CommandBox
               lines={[
-                `python3 editor/audio.py export <disc.iso> <out> --what ${what}${level === WHOLE_GAME ? "" : ` --level ${level}`}`,
+                `python3 extractor/audio.py export <disc.iso> <out> --what ${what}${level === WHOLE_GAME ? "" : ` --level ${level}`}`,
               ]}
             />
           </div>
@@ -165,7 +165,7 @@
         </div>
         {#if developer}
           <div class="span">
-            <CommandBox lines={[`python3 editor/audio.py import <out> --into <data>/overrides`]} />
+            <CommandBox lines={[`python3 extractor/audio.py import <out> --into <data>/overrides`]} />
           </div>
         {/if}
       </li>

@@ -7,7 +7,9 @@ const lines = (...l: string[]) => l.map((line) => ({ line }));
 
 describe("toolFailure", () => {
   it("says a known code in a player's words, with the step that helps", () => {
-    const f = toolFailure(lines("$ python3 editor/extract.py pack …", `${ERROR_LINE}project-outdated-gameplay`, RAW));
+    const f = toolFailure(
+      lines("$ python3 extractor/extract.py pack …", `${ERROR_LINE}project-outdated-gameplay`, RAW),
+    );
     expect(f.code).toBe("project-outdated-gameplay");
     expect(f.title).toBe(TOOL_ERRORS["project-outdated-gameplay"]?.title);
     expect(f.next).toBe("update");

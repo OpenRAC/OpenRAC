@@ -38,6 +38,7 @@ import type { TexturePackView } from "./generated/TexturePackView";
 import type { BuildInfo } from "./generated/BuildInfo";
 import type { Check } from "./generated/Check";
 import type { Config } from "./generated/Config";
+import type { EditorInstall } from "./generated/EditorInstall";
 import type { ControlsScope } from "./generated/ControlsScope";
 import type { ControlsView } from "./generated/ControlsView";
 import type { Detected } from "./generated/Detected";
@@ -180,6 +181,74 @@ function mockDifferences(game: string, version: string): Differences {
   };
 }
 const actions = actionsFile as { repository: RawAction[]; versions: Record<string, RawAction[] | undefined> };
+
+/** OpenRAC Editor in the preview: downloaded unless ?noeditor (core/src/editor_install.rs). */
+let editorInstalled = !(typeof location !== "undefined" && new URLSearchParams(location.search).has("noeditor"));
+
+/** The steps OpenRAC Editor's manifest (openrac/editor.json, in its own repository) brings a
+ *  version, as the preview has them: the levels read, opened and, for Ratchet & Clank's two main
+ *  discs, packed back. */
+function editorActions(key: string): RawAction[] {
+  if (!editorInstalled || !actions.versions[key]?.some((a) => a.id === "assets-export")) return [];
+  const projects = `assets/levels/${key}`;
+  const base = { kind: "edit" as const, area: "editor" as const, state: "unverified" as const };
+  const list: RawAction[] = [
+    {
+      ...base,
+      id: "editor-extract",
+      label: "Extract the levels",
+      program: "{python}",
+      requires: ["disc", "python", "editor"],
+    },
+    {
+      ...base,
+      id: "editor-reexport",
+      label: "Export the levels again",
+      program: "{python}",
+      requires: ["disc", "python", "editor"],
+    },
+    {
+      ...base,
+      id: "editor-preview",
+      label: "Preview a level in OpenRAC Editor",
+      program: "{editor}",
+      detached: true,
+      requires: ["editor", "artifact"],
+      artifact: `${projects}/level_{level}/project.godot`,
+    },
+    {
+      ...base,
+      id: "editor-import",
+      label: "Import a level into OpenRAC Editor",
+      program: "{editor}",
+      requires: ["editor", "artifact"],
+      artifact: `${projects}/level_{level}/project.godot`,
+    },
+    {
+      ...base,
+      id: "editor-open",
+      label: "Open a level in OpenRAC Editor",
+      program: "{editor}",
+      detached: true,
+      requires: ["editor", "artifact"],
+      artifact: `${projects}/level_{level}/project.godot`,
+    },
+  ];
+  if (key === "rac1/pal" || key === "rac1/ntsc") {
+    list.push({
+      ...base,
+      id: "editor-pack",
+      label: "Pack your edited levels",
+      program: "{python}",
+      requires: ["disc", "python", "artifact"],
+      artifact: `${projects}/level_00/project.godot`,
+    });
+  }
+  return list;
+}
+
+/** A version's actions: its own and OpenRAC Editor's. */
+const versionActions = (key: string): RawAction[] => [...(actions.versions[key] ?? []), ...editorActions(key)];
 const summary = summaryFile as RawSummary;
 
 // ---- made-up state -------------------------------------------------------------------
@@ -233,10 +302,6 @@ let config: Config = {
     ? null
     : "/home/you/OpenRAC",
   python: "/usr/bin/python3",
-  // ?godot: Godot is chosen, so the Mods tab's level editor can open a level.
-  godot: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("godot")
-    ? "/usr/bin/godot"
-    : null,
   docker: "/usr/bin/docker",
   // ?developer shows the contributor's pages.
   developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("developer"),
@@ -451,7 +516,7 @@ function view(action: RawAction, st: VersionStatus | null, version?: string): Ac
         inputs: !st?.inputsReady,
         toolchains: !toolchains,
         python: !config.python,
-        godot: !config.godot,
+        editor: !editorInstalled,
         docker: !config.docker,
         artifact: artifactMissing,
       };
@@ -460,7 +525,7 @@ function view(action: RawAction, st: VersionStatus | null, version?: string): Ac
         inputs: "the inputs Place inputs puts in the game",
         toolchains: "the compilers in toolchains/",
         python: "Python (Settings)",
-        godot: "Godot (Settings)",
+        editor: "OpenRAC Editor (Mods, Level editor: Download)",
         docker: "Docker",
         artifact: `${action.artifact ?? "its artifact"}, which an earlier step makes`,
       };
@@ -558,7 +623,9 @@ function library(): Library {
             : null,
           progress: progress(key),
           status: st,
-          actions: (actions.versions[key] ?? []).filter(shown).map((a) => view(a, st, key)),
+          actions: versionActions(key)
+            .filter(shown)
+            .map((a) => view(a, st, key)),
           portOutdated: false,
           portCleanReason: null,
         };
@@ -572,6 +639,15 @@ function library(): Library {
     repository: actions.repository.filter(shown).map((a) => view(a, null)),
     games,
     actionsError: null,
+  };
+}
+
+function mockEditorInstall(): EditorInstall {
+  return {
+    folder: "/home/you/.local/share/openrac/editor",
+    version: editorInstalled ? "v1.0.0" : null,
+    problem: null,
+    repository: "https://github.com/nickyyOO/OpenRAC-Editor",
   };
 }
 
@@ -593,7 +669,7 @@ function emit(event: JobEvent) {
 }
 
 function findAction(scope: Scope, id: string): RawAction | undefined {
-  const list = scope.kind === "repository" ? actions.repository : (actions.versions[scope.key] ?? []);
+  const list = scope.kind === "repository" ? actions.repository : versionActions(scope.key);
   return list.find((a) => a.id === id);
 }
 
@@ -697,7 +773,7 @@ function mockReview(text: string): Review {
 let mockEditor = query.get("editor") ?? "ready";
 const mockHold = /^([a-z]+):(\d+)\/(\d+)(?::(\d+))?$/.exec(query.get("progress") ?? "");
 
-/** What the editor's tools print as they go (editor/progress_line.py), a few counts of each step. */
+/** What the editor's tools print as they go (extractor/progress_line.py), a few counts of each step. */
 function progressLines(step: string, total: number, levels: (n: number) => number = (n) => n - 1): string[] {
   const counts = [0, ...[0.25, 0.5, 0.75].map((f) => Math.round(total * f)), total].filter(
     (n, i, all) => all.indexOf(n) === i,
@@ -801,12 +877,12 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
       mockPacks.push({ ...samplePack(name), id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") });
       return [`Added ${name} as ${name.toLowerCase()}, on, last in the order.`];
     case "editor-extract":
-      return ["openrac-progress: project", ...progressLines("read", 19), "Godot projects, one per level: done"];
+      return ["openrac-progress: project", ...progressLines("read", 19), "Level projects, one per level: done"];
     case "editor-reexport":
       return [
         ...progressLines("read", 19),
         ...progressLines("carry", 19),
-        "Godot projects: 19 written again; the old ones, with any edits, are in the backups folder.",
+        "Level projects: 19 written again; the old ones, with any edits, are in the backups folder.",
       ];
     case "editor-pack":
       return [...progressLines("pack", 2, (n) => (n === 1 ? 0 : 3)), "Packed 2 level(s), 3 moby edit(s)"];
@@ -2577,13 +2653,20 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       seen.__openracConfigWrites = { count: (seen.__openracConfigWrites?.count ?? 0) + 1, last: { ...config } };
       return delay<Config>({ ...config });
     }
-    case "adopt_godot":
-      return delay<Config>({ ...config });
+    case "editor_install_status":
+      return delay<EditorInstall>(mockEditorInstall());
+    case "editor_newest":
+      return delay<string>("v1.0.0");
+    case "install_editor":
+      editorInstalled = true;
+      return delay<EditorInstall>(mockEditorInstall());
+    case "remove_editor":
+      editorInstalled = false;
+      return delay<EditorInstall>(mockEditorInstall());
     case "detect":
       return delay<Detected>({
         roots: query.has("setup") ? [] : [{ path: "/home/you/OpenRAC", source: "next to the launcher" }],
         pythons: [{ path: "/usr/bin/python3", source: "PATH" }],
-        godots: [],
         dockers: [{ path: "/usr/bin/docker", source: "PATH" }],
       });
     case "check_root":
@@ -2596,7 +2679,6 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       // What each program says about itself, as core/src/detect.rs reads it.
       const versions: Record<string, string> = {
         python: "Python 3.12.4",
-        godot: "Godot 4.7.stable",
         docker: "Docker version 28.3.2",
       };
       const version = versions[String(args.tool)] ?? null;
@@ -3020,7 +3102,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<PluginInstalled>({ kind: "plugin", id, name, version: "1.0.0", replaced, enabled: true });
     }
     case "open_output":
-    case "open_level_in_godot":
+    case "open_level_in_editor":
     case "open_game_folder":
       console.info(`[preview] ${command}`, args);
       return delay(null);
