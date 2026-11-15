@@ -688,6 +688,7 @@
    "Ship_InitTransition": "rac1.ship.init_transition",
    "Ship_TravelTo": "rac1.ship.travel_to",
    "Vendor_BuildItemList": "rac1.vendor.build_item_list",
+   "Vendor_DrawIconStrip": "rac1.vendor.icon_strip.draw",
    "Vendor_InitLevelStock": "rac1.vendor.init_level_stock",
    "Vendor_InitializeSelected": "rac1.vendor.initialize_selected",
    "Vendor_MenuUpdate": "rac1.vendor.menu_update",
