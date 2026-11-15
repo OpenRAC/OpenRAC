@@ -7,7 +7,6 @@
 #include "game_protos.h"
 #include "openrac/game_host.h"
 
-
 #define RAC1_ADDR(a) RAC1_ADDR_##a
 #define RAC1_LADDR(n, a) RAC1_ADDR_L##n##_##a
 #define RAC1_ADDR_0x0013F450u 0x0013F350u
