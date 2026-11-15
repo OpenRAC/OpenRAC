@@ -863,6 +863,8 @@ openrac_add_test(camera_debug SOURCES tests/camera_debug_test.cpp
 # programs compile them through cmake/Games.cmake's glob.
 openrac_add_test(frontend_geometry SOURCES tests/frontend_geometry_test.cpp
                  game/common/frontend/geometry.cpp INCLUDES .)
+openrac_add_test(scenery_capture SOURCES tests/scenery_capture_test.cpp
+                 game/common/frontend/scenery_capture.cpp INCLUDES . runtime/include)
 openrac_add_test(frontend_pacing SOURCES tests/frontend_pacing_test.cpp
                  game/common/frontend/pacing.cpp INCLUDES .)
 openrac_add_test(frame_limiter SOURCES tests/frame_limiter_test.cpp
