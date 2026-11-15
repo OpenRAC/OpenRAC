@@ -104,6 +104,10 @@ struct Origin {
     bool interface = false;   // the 2D layer's uploads (texture_pool.cpp)
     int level = -1;           // a level's own texture (scene/level.cpp): the game's level number
     std::uint64_t cycle = 0;  // a frame of a texture the game cycles: the cycle's first hash
+    // A picture not read yet is read in the background, first of all, and the original is kept
+    // for now (replace() gives false); the caller converts the texture again once it is
+    // (kept_version()). For a caller that can, so that no frame waits for the disk.
+    bool later = false;
 };
 
 // A level's name for its dump folder (the game's planet table); nullptr or an empty name gives
@@ -148,6 +152,11 @@ void preload();
 // yet stay on disk even in a pack without Planets/ folders. Empty: nothing is learnt. Call it
 // after configure().
 void set_play_list(const std::filesystem::path& file);
+
+// Changes whenever a picture is newly kept in memory: a caller of replace() with `later` then
+// converts again the textures whose picture is_kept().
+std::uint64_t kept_version();
+bool is_kept(std::uint64_t hash);
 
 // Waits until the reading preload() started has ended (tests).
 void finish_preload();

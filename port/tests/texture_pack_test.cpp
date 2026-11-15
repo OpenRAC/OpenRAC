@@ -457,6 +457,22 @@ void check_kept_pictures(const fs::path& root) {
     CHECK(reads() == 1);
     image = hud;
     CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 1);
+
+    // Later: the first ask keeps the original and reads the picture in the background; once kept,
+    // the next ask gets it without reading.
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    const std::uint64_t version = texture_pack::kept_version();
+    image = hud;
+    CHECK(!texture_pack::replace(image, {.interface = true, .later = true}) && image.width == 2);
+    texture_pack::finish_preload();
+    // (The reader then goes on with the pack's other pictures.)
+    CHECK(reads() >= 1 && texture_pack::kept_version() != version);
+    const int after_reader = reads();
+    CHECK(texture_pack::is_kept(texture_pack::image_hash(hud)));
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true, .later = true}) && image.width == 16);
+    CHECK(reads() == after_reader);
     fs::remove_all(root);
 }
 

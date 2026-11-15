@@ -8,6 +8,7 @@
 #include <format>
 #include <fstream>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <string_view>
 #include <thread>
@@ -43,6 +44,9 @@ struct State {
     std::unordered_map<std::uint64_t, Kept> kept;
     std::size_t kept_bytes = 0;
     std::uint64_t uses = 0;
+    std::uint64_t kept_version = 0;  // one more each picture kept
+    // Pictures a texture waits for, read before the rest (Origin::later).
+    std::vector<TextureId> urgent;
     // A loading level's pictures, read ahead together (read_level_pictures()).
     std::unordered_map<std::uint64_t, Picture> level_ahead;
     // Pictures met while playing, and the file that keeps them for the next run (set_play_list()).
@@ -69,6 +73,9 @@ State& state() {
     static State s;
     return s;
 }
+
+// Starts the reader thread, or has the one under way read again when it ends; the lock is held.
+void start_reader(State& s);
 
 constexpr std::uint64_t kMicrosecondsPerSecond = 1000000;
 constexpr std::size_t kHashDigits = 16;  // a hash's name: 64 bits in hex
@@ -280,6 +287,7 @@ void keep(State& s, std::uint64_t hash, std::shared_ptr<const Picture> picture) 
         s.kept.erase(oldest);
     }
     s.kept_bytes += bytes;
+    ++s.kept_version;
     s.kept.emplace(hash, State::Kept{std::move(picture), bytes, ++s.uses, g_block_format.load()});
 }
 
@@ -508,6 +516,7 @@ void configure(const fs::path& pack, const fs::path& dump, Io io, LevelNamer lev
     s.animation_bytes = 0;
     s.kept.clear();
     s.kept_bytes = 0;
+    s.urgent.clear();
     s.level_pictures.clear();
     s.level_ahead.clear();
     s.play_pictures.clear();
@@ -636,6 +645,18 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
         ++s.replaced;
         return true;
     }
+    // Read in the background, first of all; the original is drawn until then.
+    if (origin.later && origin.level < 0) {
+        learn_play_picture(s, hash);
+        const bool queued = std::any_of(s.urgent.begin(), s.urgent.end(), [&](const TextureId& t) {
+            return t.hash == hash;
+        });
+        if (!queued) {
+            s.urgent.push_back({hash, image.width, image.height});
+        }
+        start_reader(s);
+        return false;
+    }
     // The files are read without the lock: a level loading on another thread must not stop the
     // 2D layer's conversions while it reads its pictures.
     const Io io = s.io;
@@ -694,8 +715,58 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
 
 namespace {
 
-// One pass of preload(): the pack's pictures for textures met while playing, smallest first, read
-// without the lock so that the game goes on meanwhile.
+// Reads one picture without the lock and keeps it, unless another pack was configured meanwhile
+// or (with `budget`) it would pass the budget. False when the pass should stop.
+bool read_and_keep(
+    State& s,
+    const Io& io,
+    unsigned generation,
+    const TextureId& texture,
+    const fs::path& file,
+    bool budget,
+    std::size_t& read,
+    std::size_t& bytes
+) {
+    // One that cannot be read is left to replace(), which says why and tries the next picture.
+    auto picture = load_still(io, file, texture.width, texture.height);
+    if (!picture || picture->image.pixels.empty()) {
+        return true;
+    }
+    auto shared = std::make_shared<const Picture>(std::move(*picture));
+    const std::size_t size = picture_bytes(*shared);
+    const std::lock_guard guard(s.lock);
+    if (s.generation != generation) {
+        return false;
+    }
+    // Pictures already kept are not pushed out by guesses (a picture waited for may).
+    if (budget && s.kept_bytes + size > kMaxKeptPictureBytes) {
+        return false;
+    }
+    if (!s.kept.contains(texture.hash) && !s.level_pictures.contains(texture.hash)) {
+        keep(s, texture.hash, std::move(shared));
+        bytes += size;
+        ++read;
+    }
+    return true;
+}
+
+// The next picture a texture waits for (Origin::later), taken from the queue; nothing when none
+// waits.
+std::optional<std::pair<TextureId, fs::path>> next_urgent(State& s) {
+    const std::lock_guard guard(s.lock);
+    while (!s.urgent.empty()) {
+        const TextureId t = s.urgent.front();
+        s.urgent.erase(s.urgent.begin());
+        const auto files = s.files.find(t.hash);
+        if (files != s.files.end() && !files->second.empty() && !s.kept.contains(t.hash)) {
+            return std::pair{t, files->second.front()};
+        }
+    }
+    return std::nullopt;
+}
+
+// One pass of the reader: the pictures textures wait for first, then the pack's pictures for
+// textures met while playing, smallest first, all read without the lock so that the game goes on.
 void read_ahead(const std::stop_token& stop) {
     State& s = state();
     std::vector<std::tuple<std::uintmax_t, std::uint64_t, fs::path>> wanted;
@@ -728,43 +799,30 @@ void read_ahead(const std::stop_token& stop) {
     std::sort(wanted.begin(), wanted.end());
     std::size_t read = 0;
     std::size_t bytes = 0;
-    for (const auto& [file_bytes, hash, file] : wanted) {
-        if (stop.stop_requested()) {
-            return;
-        }
-        // One that cannot be read is left to replace(), which says why and tries the next picture.
-        auto picture = load_still(io, file, 0, 0);
-        if (!picture || picture->image.pixels.empty()) {
+    std::size_t next = 0;
+    bool full = false;
+    while (!stop.stop_requested()) {
+        // A picture a texture waits for comes before the next guess.
+        if (const auto urgent = next_urgent(s)) {
+            if (!read_and_keep(
+                    s, io, generation, urgent->first, urgent->second, false, read, bytes
+                )) {
+                break;
+            }
             continue;
         }
-        auto shared = std::make_shared<const Picture>(std::move(*picture));
-        const std::size_t size = picture_bytes(*shared);
-        const std::lock_guard guard(s.lock);
-        // Another pack was configured meanwhile, or the budget is full: pictures already kept are
-        // not pushed out by guesses.
-        if (s.generation != generation || s.kept_bytes + size > kMaxKeptPictureBytes) {
+        if (full || next == wanted.size()) {
             break;
         }
-        if (!s.kept.contains(hash) && !s.level_pictures.contains(hash)) {
-            keep(s, hash, std::move(shared));
-            bytes += size;
-            ++read;
-        }
+        const auto& [file_bytes, hash, file] = wanted[next++];
+        full = !read_and_keep(s, io, generation, {hash, 0, 0}, file, true, read, bytes);
     }
     if (read > 0) {
         log::info("texture pack: {} picture(s) read ahead ({} MB)", read, bytes >> 20);
     }
 }
 
-}  // namespace
-
-void preload() {
-    State& s = state();
-    const std::lock_guard guard(s.lock);
-    if (s.files.empty()) {
-        return;
-    }
-    // A pass under way reads again when it ends: a level just loaded may have taken some.
+void start_reader(State& s) {
     if (s.reading) {
         s.read_again = true;
         return;
@@ -780,13 +838,35 @@ void preload() {
             read_ahead(stop);
             const std::lock_guard guard(st.lock);
             // The thread takes the lock no more once it is not reading.
-            if (!st.read_again || stop.stop_requested()) {
+            if ((!st.read_again && st.urgent.empty()) || stop.stop_requested()) {
                 st.reading = false;
                 return;
             }
             st.read_again = false;
         }
     });
+}
+
+}  // namespace
+
+void preload() {
+    State& s = state();
+    const std::lock_guard guard(s.lock);
+    if (!s.files.empty()) {
+        start_reader(s);
+    }
+}
+
+std::uint64_t kept_version() {
+    State& s = state();
+    const std::lock_guard guard(s.lock);
+    return s.kept_version;
+}
+
+bool is_kept(std::uint64_t hash) {
+    State& s = state();
+    const std::lock_guard guard(s.lock);
+    return s.kept.contains(hash);
 }
 
 void finish_preload() {

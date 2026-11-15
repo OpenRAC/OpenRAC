@@ -113,8 +113,9 @@ them. Up to 4 MB. Not for photos or painted textures.
 **Size and speed.** The game reads each picture from disk once. A level's
 pictures are read while it loads, several at a time. HUD, menu and effect
 pictures are read in the background from the start, smallest first, and kept
-in memory (up to 1 GB, 512 MB on Android). A picture past that is read the
-first time it shows, which takes a moment for a big one. The game remembers
+in memory (up to 1 GB, 512 MB on Android). A HUD or menu picture past that is
+read the first time it shows, in the background: the original shows for a few
+frames until it is ready, so the game never waits for it. The game remembers
 which pictures were HUD, menus or effects (in its cache folder), and from the
 next run reads ahead only those. Keep HUD pictures no bigger than they need to
 be, and keep level pictures in a `Planets/` folder (as the dump does), so the
