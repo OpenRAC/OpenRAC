@@ -88,6 +88,23 @@ unsigned long long openrac_lib___umoddi3(unsigned long long a, unsigned long lon
     return b ? a % b : a;
 }
 
+/* __divdi3, __moddi3: 64-bit signed division (libgcc's: the magnitudes divided as
+ * __udivdi3 does, the quotient negated when the signs differ, the remainder given
+ * the dividend's sign; -2^63 / -1 is -2^63). A zero divisor goes as in __udivdi3. */
+long long openrac_lib___divdi3(long long a, long long b) {
+    unsigned long long u = a < 0 ? 0ull - (unsigned long long)a : (unsigned long long)a;
+    unsigned long long v = b < 0 ? 0ull - (unsigned long long)b : (unsigned long long)b;
+    unsigned long long w = openrac_lib___udivdi3(u, v);
+    return (long long)((a < 0) != (b < 0) ? 0ull - w : w);
+}
+
+long long openrac_lib___moddi3(long long a, long long b) {
+    unsigned long long u = a < 0 ? 0ull - (unsigned long long)a : (unsigned long long)a;
+    unsigned long long v = b < 0 ? 0ull - (unsigned long long)b : (unsigned long long)b;
+    unsigned long long w = openrac_lib___umoddi3(u, v);
+    return (long long)(a < 0 ? 0ull - w : w);
+}
+
 /* __fixunsdfdi: a double to an unsigned 64-bit integer (libgcc's soft-float
  * one: negative gives 0). Past 2^64 the console's result is not defined; this
  * saturates rather than leaving it to the host's conversion. */

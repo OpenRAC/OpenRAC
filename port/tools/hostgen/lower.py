@@ -121,6 +121,9 @@ class FnReport:
     # Direct calls whose call site disagrees with the callee's definition (arity, kinds, result):
     # "callee: what differs", for port/tools/hostgen/priority.py.
     mismatches: list = field(default_factory=list)
+    # Callees of calls whose result it reads from a register the callee does not set (a void, or a
+    # result of the other kind), which the translation takes as 0 (result_guard).
+    zeroed_results: set = field(default_factory=set)
     # Instructions of its asm statements that the host does not run (asm_stmt): what they compute is
     # missing from the translation.
     asm_skipped: list = field(default_factory=list)
@@ -257,6 +260,10 @@ class Unit:
         self.inline_copies: list[tuple[str, str]] = []
         self._inline_count: dict[str, int] = {}
         self._inlining: set[str] = set()
+        # The call an expression statement makes, whose result nothing reads (result_guard), and
+        # for each call being lowered, whether it is that one.
+        self._discarded_id = None
+        self._discarded_calls: list[bool] = []
         self._helpers: dict[str, dict] | None = None
         self._index(ast)
         for name in list(self.typedefs):
@@ -1178,7 +1185,7 @@ class Unit:
                     return [pad + "return 0;"]
                 return [pad + "return;"]
             if self.cls(self.fn.sig.ret) == "void":
-                return [pad + f"{self.rv(kids[0])};", pad + "return;"]
+                return [pad + f"{self._discarded_rv(kids[0])};", pad + "return;"]
             value = (self._wide_value(kids[0], self.fn.sig.ret) if self.fn.wide_result
                      else self.convert(kids[0], self.fn.sig.ret))
             return [pad + f"return {value};"]
@@ -1252,7 +1259,19 @@ class Unit:
         if k in ("AttributedStmt",):
             return self.stmt(_inner(n)[-1], depth)
         # An expression statement.
-        return [pad + self.rv(n) + ";"]
+        return [pad + self._discarded_rv(n) + ";"]
+
+    def _discarded_rv(self, n: dict) -> str:
+        """rv of an expression whose value nothing reads: a call there that reads a result its
+        callee does not set reads nothing (result_guard)."""
+        e = _strip_parens(n)
+        while e.get("kind") in ("CStyleCastExpr", "ImplicitCastExpr") and _inner(e):
+            e = _strip_parens(_inner(e)[0])
+        saved, self._discarded_id = self._discarded_id, e.get("id")
+        try:
+            return self.rv(n)
+        finally:
+            self._discarded_id = saved
 
     def asm_stmt(self, n: dict) -> str:
         """An asm statement (its instructions from clangast.asm_strings): an ordering barrier or a
@@ -1737,6 +1756,10 @@ class Unit:
         r = self.resolve(t)
         pointee = self.resolve(ctype.strip_quals(r.to)) if isinstance(r, ctype.Ptr) else None
         if isinstance(pointee, ctype.Func):
+            # A function's address as a number is a reference to it like its name (assembly_guard).
+            named = getattr(self.program, "by_place", {}).get((-1, address))
+            if named is not None and self.fn.report is not None:
+                self.fn.report.calls.add(named)
             if self._relocated(address):
                 text = f"OPENRAC_CODE({hexaddr(address)})"
             elif (level := self._shared_level()) is not None and _in(address, self.program.relocate):
@@ -2299,7 +2322,11 @@ class Unit:
                 return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
         addr = hexaddr(address)
         if self._relocated(address) and code:
-            # A function's code declared as data: where that code is in the program loaded.
+            # A function's code declared as data: where that code is in the program loaded. A
+            # reference to the function like its name (assembly_guard).
+            named_fn = getattr(self.program, "by_place", {}).get((-1, address))
+            if named_fn is not None and self.fn is not None and self.fn.report is not None:
+                self.fn.report.calls.add(named_fn)
             addr = f"OPENRAC_CODE({addr})"
         elif (self._relocated(address) and named_level is not None and self._named_at(symbol, address)
               and self._in_a_level_file()):
@@ -2338,17 +2365,17 @@ class Unit:
             elif level is not None and low <= address < high and (self.fn.code, address) in getattr(self.program, "data_copies", ()):
                 # A global that does not pair between levels (data_copies.tsv): what the running
                 # copy forms itself (guest.h).
-                canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
+                home, canon = self._copy_named_in(symbol, level)
                 size = getattr(self.program, "sizes", {}).get(self.fn.code) or 0x400
                 self.fn.uses_self = True
-                addr = f"openrac_data_in_copy({level}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
+                addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif (level is not None and low <= address < high and (size := self._small_copy_size()) is not None):
                 # A leaf the catalogue fingerprints without its operands may be another field in
                 # another level (Going Commando's func_L00_00367720 reads word 15 of the ship
                 # mission in level 0 and word 9 in level 25): what the running copy forms itself.
                 self.fn.uses_self = True
-                canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
-                addr = f"openrac_data_in_copy({level}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
+                home, canon = self._copy_named_in(symbol, level)
+                addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif level is not None and low <= address < high:
                 addr = f"OPENRAC_LDATA({level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
@@ -2396,6 +2423,27 @@ class Unit:
         limit = getattr(self.program, "small_copies_own_data", 0)
         size = getattr(self.program, "sizes", {}).get(self.fn.code) if self.fn is not None else None
         return size if size and size <= limit else None
+
+    def _copy_named_in(self, symbol: str | None, level: int) -> tuple[int, int]:
+        """The level copy of this function whose instructions form the address a datum's name
+        gives, and that copy's place: the level the name was derived in when it is another
+        (Going Commando's func_L00_0032B270, the pause's lock, says ref_L01_00320AE8_00, which is
+        0x001AA3F0 in level 1, where level 0's copy reads 0x001AA430 and has a float of 30 at
+        0x001AA3F0, so Start never paused), else the function's own level's."""
+        places: dict[int, int] = {}
+        for o, a in self.program.code_places(self.fn.code):
+            places.setdefault(o, a)
+        named = self.program.data_level(symbol) if symbol else None
+        if named is not None and named != level and named in places:
+            return named, places[named]
+        if named is not None and named != level and symbol not in getattr(self.program, "cross_level_data", {}):
+            # Level `level`'s copy would be searched for level `named`'s address and fall back to
+            # it: another datum of the level loaded, read silently. Fail instead (hostgen.json
+            # "cross_level_data" lists one known to be right, with its reason).
+            raise ValueError(f"{self.fn.code}: {symbol} is level {named}'s datum and no copy of the "
+                             f"function in level {named} forms it; add it to \"cross_level_data\" with a reason "
+                             f"if level {level}'s copy reads that address too")
+        return level, places[level]
 
     def _copies_in_one_program(self) -> tuple[int, int, int] | None:
         """For a level function the catalogue places more than once in one program (the same code
@@ -2559,6 +2607,19 @@ class Unit:
     # ---- Calls ----
 
     def call(self, n: dict) -> str:
+        self._discarded_calls.append(n.get("id") is not None and n.get("id") == self._discarded_id)
+        try:
+            return self._call(n)
+        finally:
+            self._discarded_calls.pop()
+
+    def _zeroed_result(self, sym: str) -> None:
+        """A call that reads a result its callee does not set, which the translation takes as 0:
+        for result_guard, unless nothing reads it (an expression statement)."""
+        if not (self._discarded_calls and self._discarded_calls[-1]):
+            self.fn.report.zeroed_results.add(sym)
+
+    def _call(self, n: dict) -> str:
         kids = _inner(n)
         callee, args = kids[0], kids[1:]
         result_t = self.ty(n)
@@ -2878,6 +2939,7 @@ class Unit:
             return text
         if ret_cls == "void" or self._reg_class(ret_cls) != self._reg_class(result_cls):
             # On the console the caller read a register the callee did not set.
+            self._zeroed_result(sym)
             return f"({text}, ({self.host(ctype.strip_quals(result_t))})0)"
         if result_cls == "ptr":
             return f"(gaddr)({text})"
@@ -3202,6 +3264,7 @@ class Unit:
             return text
         if ret_cls == "void" or self._reg_class(ret_cls) != self._reg_class(result_cls) or ret_cls == "rec" != result_cls:
             # On the console the caller read a register the callee did not set.
+            self._zeroed_result(sym)
             return f"({text}, ({self.host(ctype.strip_quals(result_t))})0)"
         if result_cls == "ptr":
             return f"(gaddr)({text})"

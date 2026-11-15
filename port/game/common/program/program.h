@@ -55,7 +55,16 @@ int vsync();
 // `lsn` from the player's disc image in the window, with the ADPCM channel `channel`, blocking as
 // the game's own player does; Start skips it when `start_skips`. Returns 1 if skipped (and with
 // --skip-movies), 0 if played to the end or when there is no window or no movie support to play it.
-int play_movie(std::uint32_t lsn, std::uint32_t bytes, int channel, int start_skips);
+// With an `overlay` (openrac_game_play_movie_over), each blank is a tick of the game instead: the
+// overlay is handed the picture and sends the game's list that draws it, and vsync draws and
+// paces it.
+int play_movie(
+    std::uint32_t lsn,
+    std::uint32_t bytes,
+    int channel,
+    int start_skips,
+    void (*overlay)(const std::uint8_t* rgba, int width, int height) = nullptr
+);
 
 // The command line, read by main before anything else runs (program/options.h).
 extern Options g_options;

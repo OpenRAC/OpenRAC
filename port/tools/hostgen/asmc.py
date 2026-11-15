@@ -1870,7 +1870,12 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     apply_signatures(program, a, discovered=True)
     # A stub whose place has C under another spelling (func_0020C828 for FUN_0020c828) is that C
     # already: calls to it go there (Program.canonical).
-    stubs = [f for f in program.stubs() if f.symbol not in program.host and program.canonical(f.symbol) == f.symbol]
+    # "leave": routines kept as their stubs on purpose, each with why (a fragment of another routine
+    # that reads its caller's registers, which a C signature cannot give it): their translation would
+    # run on registers it does not have. The stub says so if anything ever reaches it.
+    leave = set(a.get("leave", {}))
+    stubs = [f for f in program.stubs() if f.symbol not in program.host and program.canonical(f.symbol) == f.symbol
+             and f.symbol not in leave]
     found = {}
     for k, f in enumerate(stubs):
         if PROGRESS is not None:

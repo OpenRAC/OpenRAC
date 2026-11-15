@@ -992,6 +992,30 @@ void openrac_game_sky_sprite(const uint8_t* record, uint64_t tex0);
  * Returns 1 if skipped, 0 if played to the end or when there is no window to play it in. */
 int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips);
 
+/* openrac_game_play_movie as a game whose player draws each movie frame with a display list of its
+ * own: on each of the movie's vertical blanks `overlay` gets the picture (RGBA, rows top to
+ * bottom), puts it where the console's decoder leaves it in the GS's memory
+ * (openrac_game_load_picture) and sends the list the console's player sends then, which the window
+ * draws as a tick of the game (Going Commando's: the picture, then its title's "Press START" or the
+ * movie's subtitles). NULL shows the picture alone. */
+int openrac_game_play_movie_over(
+    uint32_t lsn,
+    uint32_t bytes,
+    int channel,
+    int start_skips,
+    void (*overlay)(const uint8_t* rgba, int width, int height)
+);
+
+/* A picture the game's decoder leaves in a frame buffer's memory (a movie's frame), PSMCT32 at
+ * image's base and width (x, y, psm and pixels are not read), its RGBA rows in the port's memory
+ * (the native player decodes outside the game's). The list's draws from that block read it as a
+ * texture, not as the frame drawn, until openrac_game_forget_picture. */
+void openrac_game_load_picture(const openrac_game_image* image, const uint8_t* pixels);
+
+/* Forgets the pictures openrac_game_load_picture put at block `base`: the GS's memory there is
+ * what the game draws again (a movie's frames in the displayed buffer, once it is over). */
+void openrac_game_forget_picture(int base);
+
 /* The buttons of a pad, in the console's bit order (active low, as the pad
  * library reports them) and its analog values; false if none is connected. */
 /* Ratchet & Clank's blend snapshot: moby `moby`'s current pose (its keys A and B and the blend

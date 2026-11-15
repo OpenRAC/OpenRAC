@@ -12,3 +12,14 @@ func_0012B138	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a function the catalogue does no
 func_0026F7A8	row	rac2-ntsc2	rac2ReturnZero: v2.00's copy of the return-zero stub, which its catalogue does not list (host/handasm.c)
 func_0026F610	row	rac2-pal	rac2ReturnZero: PAL's copy of the return-zero stub, which its catalogue does not list (host/handasm.c)
 func_002FAB0C	row	rac2-ntsc2	the row names v2.00's own C (func_US2_002FAB0C, from the nop before it); hostgen binds it at the catalogue's place 0x002FAB10, versionmap's pair of v1.01's func_002F9C80
+func_002F3C40	row	rac2-ntsc	a fragment inside func_002F35B0 (v1.01's catalogue lists it as an entry, the decomp's as part of func_002F35B0): host/handasm_vu0.c reports a reach there; PAL's and v2.00's catalogues have no such entry, and the release view's func_L22_ name for it is another function
+func_002E182C	row	rac2-ntsc	a resume point inside func_002E1228 (its own code jumps back to it through a scratchpad word): host/handasm_render_big.c reports a reach there; PAL's and v2.00's catalogues have no such entry
+func_002E25C0	row	rac2-ntsc	a resume point inside func_002E1228, as func_002E182C: host/handasm_render_big.c reports a reach there; PAL's and v2.00's catalogues have no such entry
+boot:00137EA0	data	rac2-ntsc2,rac2-pal	the sine kernel's constant pool (func_001291A0, host/handasm.c), which no named datum covers in the release view: release/data_moves.tsv's boot run 0x00133B80-0x001A7900 moved +0x80 in PAL (528 pairs), and 0x00000000-0x001A7900 does not move in v2.00 (638 pairs)
+func_001205E0	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_00120528 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_00120528 is unchanged
+func_00120748	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_00120528 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_00120528 is unchanged
+func_00120FA4	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_00120F00 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_00120F00 is unchanged
+func_0012118C	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_001210E0 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_001210E0 is unchanged
+func_00130004	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_0012FEC0 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_0012FEC0 is unchanged
+boot:001A72DC	data	rac2-ntsc2	the movie list's draw buffer word (host/movie.c): release/data_moves.tsv's boot run 0x00000000-0x001A7900 does not move in v2.00 (638 pairs)
+boot:001B23C8	data	rac2-pal	the movie player's GS base (host/movie.c): release/data_moves.tsv's boot run 0x001B1390-0x001F2A30 does not move in PAL (400 pairs)

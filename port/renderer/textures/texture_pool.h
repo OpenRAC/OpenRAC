@@ -30,6 +30,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "renderer/direct/gs.h"
@@ -80,6 +81,18 @@ public:
     // An image transfer. It replaces whatever was last uploaded at the same
     // base pointer.
     void upload(ImageUpload upload);
+
+    // A picture put in a frame buffer's memory outside the display list (a movie's frame, at
+    // `block`): drawn from there as a texture, not as the frame, until it is forgotten (its
+    // transfer with it).
+    void mark_picture(std::uint32_t block) { m_pictures.insert(block); }
+
+    bool picture_at(std::uint32_t block) const { return m_pictures.contains(block); }
+
+    void forget_picture(std::uint32_t block) {
+        m_pictures.erase(block);
+        m_uploads.erase(block);
+    }
 
     // Same ordering/replacement semantics as upload(). For repeated immutable
     // frame inputs, reuse identical stored bytes without copying or rehashing.
@@ -355,6 +368,7 @@ private:
     float m_anisotropy = 1.0f;
     std::vector<TextureHandle> m_free;
     std::unordered_map<std::uint32_t, Stored> m_uploads;        // by base pointer
+    std::unordered_set<std::uint32_t> m_pictures;               // mark_picture's blocks
     std::uint64_t m_sequence = 0;
     std::unordered_map<std::uint32_t, Clut> m_cluts;            // loaded, by CBP (load_clut)
     std::unordered_map<std::uint32_t, TextureHandle> m_placed;  // by base pointer

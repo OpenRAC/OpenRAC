@@ -334,6 +334,39 @@ void openrac_game_load_image(const openrac_game_image* image) {
     });
 }
 
+void openrac_game_load_picture(const openrac_game_image* image, const uint8_t* pixels) {
+    c_boundary::call("openrac_game_load_picture", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && image->width > 0 && image->height > 0) {
+            frontend::upload_picture(
+                static_cast<std::uint32_t>(image->base),
+                static_cast<std::uint32_t>(image->width_units),
+                static_cast<std::uint32_t>(image->width),
+                static_cast<std::uint32_t>(image->height),
+                std::span<const std::uint8_t>(
+                    pixels, static_cast<std::size_t>(image->width) * image->height * 4
+                )
+            );
+        }
+#else
+        (void)image;
+        (void)pixels;
+#endif
+    });
+}
+
+void openrac_game_forget_picture(int base) {
+    c_boundary::call("openrac_game_forget_picture", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            frontend::forget_picture(static_cast<std::uint32_t>(base));
+        }
+#else
+        (void)base;
+#endif
+    });
+}
+
 void openrac_game_store_image(const openrac_game_image* image) {
     c_boundary::call("openrac_game_store_image", [&] {
         if (image->width <= 0 || image->height <= 0) {
@@ -368,6 +401,18 @@ void openrac_game_store_image(const openrac_game_image* image) {
 int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
     return c_boundary::call("openrac_game_play_movie", 0, [&]() -> int {
         return play_movie(lsn, bytes, channel, start_skips);
+    });
+}
+
+int openrac_game_play_movie_over(
+    uint32_t lsn,
+    uint32_t bytes,
+    int channel,
+    int start_skips,
+    void (*overlay)(const uint8_t* rgba, int width, int height)
+) {
+    return c_boundary::call("openrac_game_play_movie_over", 0, [&]() -> int {
+        return play_movie(lsn, bytes, channel, start_skips, overlay);
     });
 }
 

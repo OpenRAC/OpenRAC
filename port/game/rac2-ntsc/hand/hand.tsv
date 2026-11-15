@@ -1,0 +1,45 @@
+# The port's own C for Going Commando's hand-written assembly (hostgen.json "hand"), in v1.01's names.
+# PAL and USA v2.00 read this table too, renamed through their release view ("primary_hand").
+# Each function is checked against hostgen's translation of the retail routine (port/tools/hostgen/handdiff.py).
+# name	file (relative to this table)
+# fastfunc
+func_00282848	fastfunc.c
+func_00282890	fastfunc.c
+func_002828B8	fastfunc.c
+func_002828C8	fastfunc.c
+func_002828F0	fastfunc.c
+func_00282900	fastfunc.c
+func_00282928	fastfunc.c
+func_00282938	fastfunc.c
+func_00282C58	fastfunc.c
+func_L00_002EDC90	fastfunc_level.c
+func_L00_002EDCB8	fastfunc_level.c
+func_L00_002EDCC8	fastfunc_level.c
+func_L00_002EDD00	fastfunc_level.c
+func_L00_002EDD28	fastfunc_level.c
+func_L00_002EDD38	fastfunc_level.c
+# core_misc
+func_0011B0B0	core_misc.c
+func_00124540	core_misc.c
+func_0011CDA0	core_misc.c
+# mpeg
+func_0012A3E8	mpeg.c
+func_0012A460	mpeg.c
+func_0012A4F8	mpeg.c
+func_0012A5B0	mpeg.c
+func_0012A680	mpeg.c
+func_0012A730	mpeg.c
+func_0012A7E8	mpeg.c
+func_0012A8E0	mpeg.c
+func_0012A9E0	mpeg.c
+func_0012AA80	mpeg.c
+func_0012AB30	mpeg.c
+func_0012AC10	mpeg.c
+func_0012ACF8	mpeg.c
+func_0012ADD0	mpeg.c
+func_0012AEA0	mpeg.c
+func_0012AFC0	mpeg.c
+func_0012B180	mpeg.c
+func_0012DF18	mpeg_spr.c
+func_0012E238	mpeg_csc.c
+func_0012E538	mpeg_csc.c
