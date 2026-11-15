@@ -113,11 +113,11 @@ them. Up to 4 MB. Not for photos or painted textures.
 **Size and speed.** The game reads each picture from disk once. A level's
 pictures are read while it loads, several at a time. HUD, menu and effect
 pictures are read in the background from the start, smallest first, and kept
-in memory (up to 1 GB, 512 MB on Android). A replaced font is drawn as the
-picture is, without the sharpening the game gives the original font. A picture past that is read the first time it shows, which takes a
-moment for a big one. Keep HUD pictures no bigger than they need to be, and
-keep level pictures in a `Planets/` folder (as the dump does) so they are not
-read twice.
+in memory (up to 1 GB, 512 MB on Android). A picture past that is read the
+first time it shows, which takes a moment for a big one. Keep HUD pictures no
+bigger than they need to be, and keep level pictures in a `Planets/` folder
+(as the dump does) so they are not read twice. A replaced font is drawn as
+the picture is, without the sharpening the game gives the original font.
 
 **Several formats for one texture.** The game tries SVG, then KTX2, then PNG.
 If one cannot be read, it uses the next. Keep a PNG beside an SVG or KTX2 so
