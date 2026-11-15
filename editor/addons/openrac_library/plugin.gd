@@ -38,6 +38,12 @@ var waiting_for_import: bool = false
 ## Nodes added this frame, to put where they belong once the drop has finished.
 var arrived: Array[Node] = []
 
+## Set while Add commits its own edit: what it adds is placed already, no drop to settle.
+var placing: bool = false
+
+## Nodes settle() moves, by instance id: moving one adds it to the tree again, which is no drop.
+var settling: Dictionary = {}
+
 
 func _enter_tree() -> void:
 	dock = Dock.new()
@@ -48,6 +54,7 @@ func _enter_tree() -> void:
 	add_inspector_plugin(behaviour_inspector)
 	foreign_inspector = ForeignInspector.new()
 	foreign_inspector.level_name = level_name
+	foreign_inspector.undo_redo = get_undo_redo()
 	add_inspector_plugin(foreign_inspector)
 	scene_changed.connect(handle_scene_changed)
 	get_tree().node_added.connect(handle_node_added)
@@ -75,13 +82,22 @@ func ready_to_place(path: String, again: Callable) -> bool:
 		dock.show_report("Still bringing the last asset in; try again in a moment.")
 		return false
 
-	if ResourceLoader.exists(path) or not FileAccess.file_exists(path):
+	if Library.imported(path) or not FileAccess.file_exists(path):
 		return true
 
 	waiting_for_import = true
 	dock.show_report("Importing %s; it is placed when ready..." % path.get_file())
 	wait_for_import(path, again)
 	return false
+
+
+## Has the editor import PATH, a file just brought in for a drag, and says when it can be dragged.
+func wait_until_imported(path: String, name: String) -> void:
+	if waiting_for_import:
+		return
+
+	waiting_for_import = true
+	wait_for_import(path, func() -> void: dock.show_report("%s is ready: drag it in." % name))
 
 
 ## Waits for PATH's import, then calls AGAIN (ready_to_place()).
@@ -98,7 +114,7 @@ func wait_for_import(path: String, again: Callable) -> void:
 			waiting_for_import = false
 			return
 
-		if ResourceLoader.exists(path) and not filesystem.is_scanning():
+		if Library.imported(path) and not filesystem.is_scanning():
 			waiting_for_import = false
 			again.call()
 			return
@@ -124,6 +140,71 @@ func handle_scene_changed(root: Node) -> void:
 
 	if root != null:
 		show_skins(root)
+		stand_up_lying.call_deferred(root)
+
+
+## Set on a scene whose lying assets were stood up (stand_up_lying()), so it is done once.
+const STOOD_UP: StringName = &"openrac_stood_up"
+
+
+## Assets dragged in before drops stood up were saved as Godot dropped them: lying on their side,
+## their up on the game's y. Stands each one up once, keeping where its front points and its size,
+## as one undoable edit. Only the editor's own nodes (the extracted ones carry rc1_index).
+func stand_up_lying(root: Node) -> void:
+	if not is_instance_valid(root) or root != EditorInterface.get_edited_scene_root() or root.has_meta(STOOD_UP):
+		return
+
+	var game: Node3D = root.get_node_or_null("Game") as Node3D
+
+	if game == null:
+		return
+
+	var nodes: Array[Node3D] = []
+	var bases: Array[Basis] = []
+
+	for group_name in GROUPS.values() + [STATIC_GROUP]:
+		var group: Node = game.get_node_or_null(NodePath(group_name))
+
+		for node in group.get_children() if group != null else []:
+			if not node is Node3D or node.has_meta("rc1_index"):
+				continue
+
+			var upright: Variant = stood_up(game.global_basis, (node as Node3D).global_basis)
+
+			if upright != null:
+				nodes.append(node)
+				bases.append(upright)
+
+	if nodes.is_empty():
+		return
+
+	root.set_meta(STOOD_UP, true)
+	var undo_redo := get_undo_redo()
+	undo_redo.create_action("Stand up assets placed lying down", UndoRedo.MERGE_DISABLE, root)
+
+	for i in range(nodes.size()):
+		undo_redo.add_do_property(nodes[i], "global_basis", bases[i])
+		undo_redo.add_undo_property(nodes[i], "global_basis", nodes[i].global_basis)
+
+	undo_redo.commit_action()
+
+	if dock != null:
+		dock.show_report("Stood up %d asset%s placed lying down by an older editor. Ctrl+Z puts them back." % [
+			nodes.size(), "" if nodes.size() == 1 else "s"])
+
+
+## The world basis WORLD (of a node under Game, whose world basis is GAME) stood up, when it lies
+## as Godot's drop left it (its y on the game's up, its z level); else null.
+static func stood_up(game: Basis, world: Basis) -> Variant:
+	var local: Basis = game.inverse() * world
+	var up := Vector3(0, 0, 1)
+
+	if local.y.normalized().dot(up) < 0.99 or absf(local.z.normalized().dot(up)) > 0.05:
+		return null
+
+	var side: Vector3 = local.x.normalized()
+	var upright := Basis(side * local.x.length(), up.cross(side) * local.y.length(), up * local.z.length())
+	return game * upright
 
 
 ## Each moby with a skin shows the skin, not its class's own model (which the game does not draw):
@@ -222,7 +303,7 @@ func add_in_view(asset: Dictionary) -> void:
 	undo_redo.add_do_property(node, "global_position", at)
 	if camera != null:
 		undo_redo.add_do_property(node, "global_basis", facing(game.global_basis, at, camera.global_position,
-			Library.front_of(String(asset["model"]))) * node.basis)
+			Library.front_for(asset)) * node.basis)
 	add_metadata(undo_redo, node, asset, path)
 	undo_redo.add_do_reference(node)
 	undo_redo.add_undo_method(group, "remove_child", node)
@@ -230,7 +311,9 @@ func add_in_view(asset: Dictionary) -> void:
 	if make_group:
 		undo_redo.add_undo_method(game, "remove_child", group)
 
+	placing = true
 	undo_redo.commit_action()
+	placing = false
 	pending.erase(path)
 	EditorInterface.get_selection().clear()
 	EditorInterface.get_selection().add_node(node)
@@ -294,7 +377,7 @@ func add_as(asset: Dictionary, host_class: int) -> void:
 	undo_redo.add_do_property(node, "global_position", at)
 	if camera != null:
 		undo_redo.add_do_property(node, "global_basis", facing(game.global_basis, at, camera.global_position,
-			Library.front_of(String(asset["model"]))) * node.basis)
+			Library.front_for(asset)) * node.basis)
 	undo_redo.add_do_method(node, "set_meta", "rc1_skin", skin_path)
 	undo_redo.add_do_method(node, "set_meta", "rc1_skin_asset", "%s/%s/level_%02d/%s/%d" % [asset["game"],
 		asset["disc"], int(asset["level"]), asset["kind"], int(asset["class"])])
@@ -309,7 +392,9 @@ func add_as(asset: Dictionary, host_class: int) -> void:
 	if make_group:
 		undo_redo.add_undo_method(game, "remove_child", group)
 
+	placing = true
 	undo_redo.commit_action()
+	placing = false
 	EditorInterface.get_selection().clear()
 	EditorInterface.get_selection().add_node(node)
 	dock.show_report(("Added %s: a %s of this level that looks like %s from %s. "
@@ -372,7 +457,7 @@ func add_foreign(asset: Dictionary) -> void:
 	undo_redo.add_do_property(node, "global_position", at)
 	if camera != null:
 		undo_redo.add_do_property(node, "global_basis", facing(game.global_basis, at, camera.global_position,
-			Library.front_of(String(asset["model"]))) * node.basis)
+			Library.front_for(asset)) * node.basis)
 	# Drawn at its class's size, as in the game: the packed moby's own scale is this over that.
 	var scale: float = float(asset["scale"])
 	undo_redo.add_do_property(node, "scale", Vector3(scale, scale, scale))
@@ -384,7 +469,9 @@ func add_foreign(asset: Dictionary) -> void:
 	if make_group:
 		undo_redo.add_undo_method(game, "remove_child", group)
 
+	placing = true
 	undo_redo.commit_action()
+	placing = false
 	EditorInterface.get_selection().clear()
 	EditorInterface.get_selection().add_node(node)
 	dock.show_report("Added %s with its own logic from %s. Pack, then play." % [
@@ -455,7 +542,7 @@ func placed_report(asset: Dictionary, node: Node) -> String:
 ## The EditorInterface meta the editor's 3D view reads while one of the dock's assets is dragged in: the
 ## model's axes in the world, so the drop stands up as in the game, its front to the camera.
 const DROP_BASIS: StringName = &"openrac_drop_basis"
-## And the model's front in its own axes (Library.front_of()).
+## And the model's front in its own axes (Library.front_for()).
 const DROP_FRONT: StringName = &"openrac_drop_front"
 
 
@@ -477,7 +564,7 @@ func stop_turning_drops() -> void:
 
 
 ## The world basis of a model at AT under Game (whose world basis is GAME), standing up, turned
-## about the game's up so its SIDE (in its own axes: Library.front_of()) faces a camera at EYE.
+## about the game's up so its SIDE (in its own axes: Library.front_for()) faces a camera at EYE.
 static func facing(game: Basis, at: Vector3, eye: Vector3, side: Vector3 = Vector3(1, 0, 0)) -> Basis:
 	var model: Basis = game.orthonormalized()
 	var world_front: Vector3 = model * side
@@ -489,9 +576,21 @@ static func facing(game: Basis, at: Vector3, eye: Vector3, side: Vector3 = Vecto
 
 	return Basis(Vector3.UP, front.normalized().signed_angle_to(to_eye.normalized(), Vector3.UP)) * model
 
+## Where Add puts ASSET: ADD_DISTANCE in front of the 3D view's camera, standing, its front to the
+## camera, at SIZE; at Game's origin when there is no camera.
+func in_view(game: Node3D, asset: Dictionary, size: Vector3 = Vector3.ONE) -> Transform3D:
+	var camera: Camera3D = EditorInterface.get_editor_viewport_3d(0).get_camera_3d()
+
+	if camera == null:
+		return Transform3D(game.global_basis.orthonormalized().scaled_local(size), game.global_position)
+
+	var at: Vector3 = camera.global_position - camera.global_basis.z * ADD_DISTANCE
+	return Transform3D(facing(game.global_basis, at, camera.global_position, Library.front_for(asset)).scaled_local(size), at)
+
+
 ## A node of a file the dock prepared: put it where it belongs once the drop has finished.
 func handle_node_added(node: Node) -> void:
-	if pending.is_empty() or not node.scene_file_path in pending:
+	if placing or pending.is_empty() or not node.scene_file_path in pending or settling.has(node.get_instance_id()):
 		return
 
 	var root: Node = EditorInterface.get_edited_scene_root()
@@ -499,10 +598,34 @@ func handle_node_added(node: Node) -> void:
 	if root == null or not root.is_ancestor_of(node):
 		return
 
+	# Only a new edit (Godot's drop): an undo or a redo puts back what was.
+	var history: UndoRedo = get_undo_redo().get_history_undo_redo(get_undo_redo().get_object_history_id(root))
+
+	if not history.is_committing_action():
+		return
+
 	arrived.append(node)
 
 	if arrived.size() == 1:
 		settle.call_deferred()
+
+
+## Whether NODE, added while the edited scene took an edit, is a drop settle() has work on: not
+## in its group yet, at its parent's origin or without its metadata. A copy of a placed asset
+## (duplicate, paste) is left as Godot made it.
+func needs_settling(node: Node, game: Node3D) -> bool:
+	if not is_instance_valid(node) or not node is Node3D or not node.is_inside_tree() or node.has_meta("rc1_index"):
+		return false
+
+	var asset: Dictionary = pending.get(node.scene_file_path, {})
+
+	if asset.is_empty():
+		return false
+
+	var full: bool = Library.status(asset, here()) == Library.FULL
+	var group: Node = game.get_node_or_null(NodePath(GROUPS[asset["kind"]] if full else STATIC_GROUP))
+	return node.get_parent() != group or (node as Node3D).position.is_zero_approx() \
+		or (node.scene_file_path.begins_with(Library.LIBRARY_DIR + "/") and not node.has_meta("rc1_asset"))
 
 
 ## Moves each dropped node to its group under Game, keeping where it was dropped, as one undoable
@@ -516,19 +639,18 @@ func settle() -> void:
 	if game == null:
 		return
 
+	nodes = nodes.filter(func(node: Node) -> bool: return needs_settling(node, game))
+
+	if nodes.is_empty():
+		return
+
 	var undo_redo := get_undo_redo()
 	undo_redo.create_action("Place assets from the Assets dock", UndoRedo.MERGE_DISABLE, root)
 	var made: Dictionary = {}
 	var moved: Array[Node] = []
 
 	for node in nodes:
-		if not is_instance_valid(node) or not node is Node3D or not node.is_inside_tree():
-			continue
-
 		var asset: Dictionary = pending.get(node.scene_file_path, {})
-
-		if asset.is_empty():
-			continue
 
 		var group: Node3D = made.get(GROUPS.get(asset["kind"], "") if Library.status(asset, here()) == Library.FULL
 			else STATIC_GROUP, null)
@@ -545,7 +667,13 @@ func settle() -> void:
 			made[String(group.name)] = group
 
 		var old_parent: Node = node.get_parent()
-		var at: Transform3D = (node as Node3D).global_transform
+		var was: Transform3D = (node as Node3D).global_transform
+		var at: Transform3D = was
+
+		# Dropped on the Scene dock, not the 3D view: Godot leaves it at its parent's origin (far off,
+		# and lying when that parent is not under Game). Put in front of the camera, standing.
+		if (node as Node3D).position.is_zero_approx():
+			at = in_view(game, asset, at.basis.get_scale())
 
 		if old_parent != group:
 			var name: String = free_name(group, base_name(asset))
@@ -559,16 +687,23 @@ func settle() -> void:
 			undo_redo.add_undo_method(old_parent, "add_child", node)
 			undo_redo.add_undo_property(node, "name", node.name)
 			undo_redo.add_undo_property(node, "owner", root)
-			undo_redo.add_undo_property(node, "global_transform", at)
-		elif not String(node.name).begins_with(base_name(asset)):
-			# Dropped next to a selected asset, so already in its group: only its name is Godot's.
-			undo_redo.add_do_property(node, "name", free_name(group, base_name(asset)))
-			undo_redo.add_undo_property(node, "name", node.name)
+			undo_redo.add_undo_property(node, "global_transform", was)
+		else:
+			if not String(node.name).begins_with(base_name(asset)):
+				# Dropped next to a selected asset, so already in its group: only its name is Godot's.
+				undo_redo.add_do_property(node, "name", free_name(group, base_name(asset)))
+				undo_redo.add_undo_property(node, "name", node.name)
+
+			if at != was:
+				undo_redo.add_do_property(node, "global_transform", at)
+				undo_redo.add_undo_property(node, "global_transform", was)
 
 		add_metadata(undo_redo, node, asset, node.scene_file_path)
 		moved.append(node)
+		settling[node.get_instance_id()] = true
 
 	undo_redo.commit_action()
+	settling.clear()
 
 	if not moved.is_empty():
 		var asset: Dictionary = pending.get(moved[0].scene_file_path, {})

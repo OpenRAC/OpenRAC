@@ -35,7 +35,8 @@ const SKINS_DIR: String = "res://library/skins"
 const FOLDERS_SETTING: String = "openrac/library/folders"
 
 ## Readable names of each game's assets, by kind and class: names/<game>.tsv beside this script
-## ("kind<TAB>class<TAB>name"), read once.
+## ("kind<TAB>class<TAB>name", then the model's front when front_of() guesses it wrong: x, -x, y
+## or -y), read once.
 const NAMES_DIR: String = "res://addons/openrac_library/names"
 static var names_by_game: Dictionary = {}
 
@@ -488,6 +489,18 @@ static func class_label(scene_path: String, number: int) -> String:
 	return String(asset["name"])
 
 
+## Whether the editor has imported PATH and can load it: a copy's .import file (copy_in()) is
+## there before the import is done.
+static func imported(path: String) -> bool:
+	if not ResourceLoader.exists(path):
+		return false
+
+	if not Engine.is_editor_hint():
+		return true
+
+	return not EditorInterface.get_resource_filesystem().get_file_type(path).is_empty()
+
+
 ## Has the editor import new files now, the textures before the model that names them.
 static func import_files(files: PackedStringArray) -> void:
 	if not Engine.is_editor_hint():
@@ -615,8 +628,27 @@ static func asset_name(game: String, kind: String, number: int) -> String:
 			var parts: PackedStringArray = line.split("\t")
 
 			if parts.size() >= 3 and not line.begins_with("#") and parts[1].is_valid_int():
-				table["%s/%d" % [parts[0], parts[1].to_int()]] = parts[2]
+				table["%s/%d" % [parts[0], parts[1].to_int()]] = parts.slice(2)
 
 		names_by_game[game] = table
 
-	return String(names_by_game[game].get("%s/%d" % [kind, number], ""))
+	return String(names_by_game[game].get("%s/%d" % [kind, number], [""])[0])
+
+
+## The front names/<game>.tsv gives class NUMBER of KIND in GAME ("x", "-x", "y", "-y"), or "".
+static func named_front(game: String, kind: String, number: int) -> String:
+	asset_name(game, kind, number)
+	var parts: PackedStringArray = names_by_game[game].get("%s/%d" % [kind, number], [])
+	return parts[1].strip_edges() if parts.size() > 1 else ""
+
+
+## The side of ASSET's model to show and turn to the camera, in its own axes: the names table's
+## when it gives one, else front_of()'s guess.
+static func front_for(asset: Dictionary) -> Vector3:
+	var named: String = named_front(String(asset.get("game", "")), String(asset.get("kind", "")), int(asset.get("class", -1)))
+	var sides: Dictionary = {"x": Vector3(1, 0, 0), "-x": Vector3(-1, 0, 0), "y": Vector3(0, 1, 0), "-y": Vector3(0, -1, 0)}
+
+	if sides.has(named):
+		return sides[named]
+
+	return front_of(String(asset.get("model", "")))

@@ -6,6 +6,9 @@ extends EditorInspectorPlugin
 
 const BehaviourInspector = preload("behaviour_inspector.gd")
 
+## Where the switch's changes go, so Ctrl+Z takes them back (plugin.gd sets it).
+var undo_redo: EditorUndoRedoManager
+
 ## A level's name by its number, or "" (the dock knows the levels read).
 var level_name: Callable = func(_level: int) -> String: return ""
 
@@ -61,9 +64,17 @@ func partial_toggle(node: Node) -> Control:
 		+ "(shots, effects, parts) will be missing.")
 	check.button_pressed = bool(node.get_meta("rc1_foreign_partial", false))
 	check.toggled.connect(func(on: bool) -> void:
+		if undo_redo == null:
+			return
+		undo_redo.create_action("Import %s %s" % [node.name, "without what does not fit" if on else "whole"])
 		if on:
-			node.set_meta("rc1_foreign_partial", true)
-		elif node.has_meta("rc1_foreign_partial"):
-			node.remove_meta("rc1_foreign_partial")
-		EditorInterface.mark_scene_as_unsaved())
+			undo_redo.add_do_method(node, "set_meta", "rc1_foreign_partial", true)
+			undo_redo.add_undo_method(node, "remove_meta", "rc1_foreign_partial")
+		else:
+			undo_redo.add_do_method(node, "remove_meta", "rc1_foreign_partial")
+			undo_redo.add_undo_method(node, "set_meta", "rc1_foreign_partial", true)
+		# The Inspector draws the switch again, as it now is.
+		undo_redo.add_do_method(node, "notify_property_list_changed")
+		undo_redo.add_undo_method(node, "notify_property_list_changed")
+		undo_redo.commit_action())
 	return check

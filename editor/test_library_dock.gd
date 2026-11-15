@@ -63,6 +63,22 @@ func turns() -> Dictionary:
 	var game := Basis(Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(0, 1, 0))
 	var placed: Basis = Plugin.facing(game, Vector3.ZERO, Vector3(-10, 5, 0))
 	var placed_flat: Basis = Plugin.facing(game, Vector3.ZERO, Vector3(-10, 5, 0), Vector3(0, 1, 0))
+	var back: PackedVector3Array = Dock.standing(mesh, Vector3(0, -1, 0)).surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	# As Godot's old drop left a model (no turn in the world, twice its size), stood up again; one
+	# already standing is left alone.
+	var stood: Variant = Plugin.stood_up(game, Basis.from_scale(Vector3(2, 2, 2)))
 	return {"front": [front[0], front[1], front[2]], "flat": [flat[0], flat[1], flat[2]],
+		"back": [clean(back[0]), clean(back[1]), clean(back[2])],
 		"up": placed * Vector3(0, 0, 1), "faces": placed * Vector3(1, 0, 0),
-		"flat_faces": placed_flat * Vector3(0, 1, 0)}
+		"flat_faces": placed_flat * Vector3(0, 1, 0),
+		"stood_up": clean(stood * Vector3(0, 0, 1)) if stood != null else null,
+		"stood_side": clean(stood * Vector3(1, 0, 0)) if stood != null else null,
+		"standing_left": Plugin.stood_up(game, game) == null,
+		# names/rac1.tsv turns codebot_slot (a flat moby) to its face on -y.
+		"named_front": Library.front_for({"game": "rac1", "kind": "mobys", "class": 1430, "model": ""}),
+		"guessed_front": Library.front_for({"game": "rac1", "kind": "mobys", "class": 0, "model": ""})}
+
+
+## V without -0.0, so it prints as the test reads it.
+func clean(v: Vector3) -> Vector3:
+	return v + Vector3.ZERO

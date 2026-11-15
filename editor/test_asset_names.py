@@ -35,7 +35,11 @@ class AssetNames(unittest.TestCase):
                 if line.startswith("#") or not line:
                     continue
 
-                kind, number, name = line.split("\t")
+                kind, number, name, *front = line.split("\t")
+                # A front only where the dock's guess is wrong, as one of the model's sides.
+                self.assertLessEqual(len(front), 1, line)
+                if front:
+                    self.assertIn(front[0], ("x", "-x", "y", "-y"), line)
                 self.assertIn(kind, KINDS, line)
                 self.assertTrue(number.isdigit(), line)
                 self.assertNotIn((kind, number), seen, line)

@@ -49,8 +49,11 @@ var shown: Array = []
 ## Previews already made, by model file.
 var previews: Dictionary = {}
 
-## Models still to preview: [model file].
+## Assets whose model is still to preview, one each.
 var preview_queue: Array = []
+
+## The models in preview_queue, to find one at once.
+var queued: Dictionary = {}
 
 ## Set by plugin.gd while it brings files in.
 var importing: bool = false
@@ -60,6 +63,7 @@ var placeholder: Texture2D
 
 var search: LineEdit
 var filter: OptionButton
+var planet: OptionButton
 var tree: Tree
 var list: AssetList
 var report: Label
@@ -84,7 +88,16 @@ func _init() -> void:
 	search.placeholder_text = "Search: name or class number"
 	search.clear_button_enabled = true
 	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	search.text_changed.connect(func(_text: String) -> void: refill())
+	# Refilled once typing pauses: a list of every level takes a moment to fill.
+	var typing := Timer.new()
+	typing.one_shot = true
+	typing.wait_time = 0.2
+	typing.timeout.connect(refill)
+	add_child(typing)
+	search.text_changed.connect(func(_text: String) -> void: typing.start())
+	search.text_submitted.connect(func(_text: String) -> void:
+		typing.stop()
+		refill())
 	row.add_child(search)
 	refresh_button = Button.new()
 	refresh_button.tooltip_text = "Look for levels again (after reading another disc)."
@@ -100,6 +113,16 @@ func _init() -> void:
 	filter.add_item("Other games", SHOW_OTHER_GAMES)
 	filter.item_selected.connect(func(_index: int) -> void: refill())
 	box.add_child(filter)
+	planet = OptionButton.new()
+	planet.tooltip_text = "Only the assets of one planet (each level's name)."
+	planet.fit_to_longest_item = false
+	planet.item_selected.connect(func(_index: int) -> void:
+		# A level picked in the tree is another planet's: the planet wins.
+		var picked: TreeItem = tree.get_selected()
+		if picked != null and picked.get_metadata(0).has("level"):
+			tree.deselect_all()
+		refill())
+	box.add_child(planet)
 
 	# What each colour means, one line each.
 	var legend := VBoxContainer.new()
@@ -121,14 +144,18 @@ func _init() -> void:
 	box.add_child(split)
 	tree = Tree.new()
 	tree.hide_root = true
-	tree.item_selected.connect(refill)
+	tree.item_selected.connect(func() -> void:
+		# A level picked here is its own planet.
+		if tree.get_selected().get_metadata(0).has("level"):
+			planet.select(0)
+		refill())
 	tree.item_collapsed.connect(func(_item: TreeItem) -> void: fit_tree())
 	split.add_child(tree)
 
 	list = AssetList.new()
 	list.dock = self
 	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list.custom_minimum_size = Vector2(0, 200)
+	list.custom_minimum_size = Vector2(0, 120)
 	list.icon_mode = ItemList.ICON_MODE_TOP
 	list.max_columns = 0
 	list.same_column_width = true
@@ -319,6 +346,7 @@ func rescan() -> void:
 
 		level_item.collapsed = true
 
+	fill_planets()
 	fit_tree()
 	show_report("Levels found: %d, in games: %d." % [levels.size(), folders.size()] if not levels.is_empty()
 		else "No levels found. Read a disc's levels from the launcher's Level editor tab first.")
@@ -348,10 +376,12 @@ func refill() -> void:
 	list.clear()
 	shown.clear()
 	preview_queue.clear()
+	queued.clear()
 	show_selected()
 	var selected: TreeItem = tree.get_selected()
 	var scope: Dictionary = selected.get_metadata(0) if selected != null else {}
 	var words: String = search.text.strip_edges().to_lower()
+	var planet_name: String = chosen_planet()
 	var candidates: Array = []
 
 	for level in levels:
@@ -364,8 +394,12 @@ func refill() -> void:
 		if scope.has("disc") and level["disc"] != scope["disc"]:
 			continue
 
-		# Nothing chosen and no search: this level's own.
-		if scope.is_empty() and words.is_empty() and not is_here(level):
+		if not planet_name.is_empty() and String(level["name"]) != planet_name:
+			continue
+
+		# Nothing chosen, no search and a filter that this level's own can pass: those.
+		if scope.is_empty() and words.is_empty() and planet_name.is_empty() and not is_here(level) \
+				and filter.get_selected_id() in [SHOW_ALL, SHOW_HERE, SHOW_THIS_GAME]:
 			continue
 
 		for asset in assets_of(level):
@@ -377,9 +411,7 @@ func refill() -> void:
 	var seen: Dictionary = {}
 
 	for asset in candidates:
-		# "small turret" finds small_turret.
-		if not words.is_empty() and not String(asset["name"]).to_lower().contains(words.replace(" ", "_")) \
-				and str(asset["class"]) != words:
+		if not matches(asset, words):
 			continue
 
 		var status: String = Library.status(asset, here)
@@ -416,15 +448,68 @@ func refill() -> void:
 		list.set_item_metadata(index, shown.size())
 		shown.append(asset)
 
-		var cached: Texture2D = cached_preview(asset["model"])
+		var cached: Texture2D = cached_preview(asset)
 
 		if cached != null:
 			list.set_item_icon(index, cached)
 		else:
 			list.set_item_icon(index, placeholder)
 
-			if not preview_queue.has(asset["model"]):
-				preview_queue.append(asset["model"])
+			if not queued.has(asset["model"]):
+				queued[asset["model"]] = true
+				preview_queue.append(asset)
+
+	# Says so instead of an empty grid; not an asset (asset_at() gives nothing).
+	if shown.is_empty():
+		var looked: bool = not words.is_empty() or filter.selected > 0 or not planet_name.is_empty() or selected != null
+		var index: int = list.add_item("No assets match." if looked else "No assets here." if not here.is_empty()
+			else "Open a level scene, search, or pick a level above.", null, false)
+		list.set_item_disabled(index, true)
+		list.set_item_tooltip_enabled(index, false)
+
+
+## The planet filter's choices: every level's name once, in the order of the levels, keeping the
+## one chosen when it is still there.
+func fill_planets() -> void:
+	var was: String = chosen_planet()
+	planet.clear()
+	planet.add_item("Every planet")
+	var names: PackedStringArray = []
+
+	for level in levels:
+		var name: String = String(level["name"])
+
+		if not name.is_empty() and not names.has(name):
+			names.append(name)
+
+	for name in names:
+		planet.add_item(name)
+
+		if name == was:
+			planet.select(planet.item_count - 1)
+
+	planet.visible = not names.is_empty()
+
+
+## The planet the filter shows, or "" for every one.
+func chosen_planet() -> String:
+	return planet.get_item_text(planet.selected) if planet != null and planet.selected > 0 else ""
+
+
+## Whether ASSET is what WORDS look for: its class number, or each word in its name or its
+## planet's, in any order ("turret gaspar", "gaspar turret" and "turret_gaspar" find turret_gaspar_1).
+static func matches(asset: Dictionary, words: String) -> bool:
+	if words.is_empty() or str(asset["class"]) == words:
+		return true
+
+	var name: String = String(asset["name"]).to_lower()
+	var where: String = String(asset["level_name"]).to_lower()
+
+	for word in words.replace("_", " ").split(" ", false):
+		if not name.contains(word) and not where.contains(word):
+			return false
+
+	return true
 
 
 func is_here(level: Dictionary) -> bool:
@@ -463,12 +548,15 @@ func show_classes() -> void:
 	var entries: Array = []
 
 	for number in here["classes"]["mobys"]:
-		entries.append([Library.class_label(here["classes"]["mobys"][number], number), int(number)])
+		# The dock's own name, as the list shows it, else the class scene's.
+		var label: String = Library.asset_name(String(here["game"]), "mobys", int(number))
+		entries.append([label if not label.is_empty() else Library.class_label(here["classes"]["mobys"][number], number),
+			int(number)])
 
 	entries.sort_custom(func(a: Array, b: Array) -> bool: return a[0].naturalnocasecmp_to(b[0]) < 0)
 
 	for entry in entries:
-		classes_menu.add_item("%s (class %d)" % entry, entry[1])
+		classes_menu.add_item("%s (class %d)" % entry if entry[0] != "Class %d" % entry[1] else entry[0], entry[1])
 
 	classes_menu.position = Vector2i(as_button.get_screen_position() + Vector2(0, as_button.size.y))
 	classes_menu.max_size = Vector2i(400, 500)
@@ -523,11 +611,13 @@ static func waiting_picture(colour: Color, size: int = 80) -> Texture2D:
 	return ImageTexture.create_from_image(image)
 
 
-## A preview of the model: its first mesh, read straight from its file (it need not be in this
+## A preview of ASSET's model: its first mesh, read straight from its file (it need not be in this
 ## project), drawn by the editor's mesh previewer.
-func make_preview(model: String) -> void:
-	if cached_preview(model) != null:
+func make_preview(asset: Dictionary) -> void:
+	if cached_preview(asset) != null:
 		return
+
+	var model: String = String(asset["model"])
 
 	# Its textures go in as data, so the editor does not try to import files outside the project.
 	var data: PackedByteArray = Library.self_contained(model)
@@ -548,18 +638,19 @@ func make_preview(model: String) -> void:
 	if mesh == null:
 		return
 
-	EditorInterface.get_resource_previewer().queue_edited_resource_preview(standing(mesh, Library.front_of(model)), self,
-		"handle_preview", model)
+	EditorInterface.get_resource_previewer().queue_edited_resource_preview(standing(mesh, Library.front_for(asset)),
+		self, "handle_preview", asset)
 
 
-## MESH turned from the game's axes (z up, FRONT on x or y: Library.front_of()) to the
+## MESH turned from the game's axes (z up, FRONT on a side: Library.front_for()) to the
 ## previewer's (y up, front to the camera on z), so the picture shows the asset standing, from the
 ## front. Unskinned: the previewer draws the vertices as they are.
 static func standing(mesh: Mesh, front: Vector3 = Vector3(1, 0, 0)) -> ArrayMesh:
 	var turned := ArrayMesh.new()
-	# Columns: where the game's x, y and z go.
-	var axes := Basis(Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 1, 0)) if front.x != 0 \
-		else Basis(Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 1, 0))
+	# The front goes to z (to the camera), the game's up to y and the side between them to x.
+	var ahead: Vector3 = Vector3(front.x, front.y, 0).normalized() if not Vector3(front.x, front.y, 0).is_zero_approx() \
+		else Vector3(1, 0, 0)
+	var axes: Basis = Basis(Vector3(0, 0, 1).cross(ahead), Vector3(0, 0, 1), ahead).transposed()
 
 	for surface in range(mesh.get_surface_count()):
 		var arrays: Array = mesh.surface_get_arrays(surface)
@@ -587,27 +678,30 @@ static func standing(mesh: Mesh, front: Vector3 = Vector3(1, 0, 0)) -> ArrayMesh
 	return turned
 
 
-func handle_preview(_path: String, preview: Texture2D, _thumbnail: Texture2D, model: Variant) -> void:
-	if preview == null:
+func handle_preview(_path: String, preview: Texture2D, _thumbnail: Texture2D, asset: Variant) -> void:
+	if preview == null or not asset is Dictionary:
 		return
 
+	var model: String = String(asset["model"])
 	previews[model] = preview
 	DirAccess.make_dir_recursive_absolute(PREVIEW_CACHE)
-	preview.get_image().save_png(cache_path(model))
+	preview.get_image().save_png(cache_path(asset))
 
 	for index in range(list.item_count):
-		var asset: Dictionary = asset_at(index)
+		var shown_asset: Dictionary = asset_at(index)
 
-		if not asset.is_empty() and asset["model"] == model:
+		if not shown_asset.is_empty() and shown_asset["model"] == model:
 			list.set_item_icon(index, preview)
 
 
-## The preview of MODEL made before, in memory or on disk, or null.
-func cached_preview(model: String) -> Texture2D:
+## The preview of ASSET's model made before, in memory or on disk, or null.
+func cached_preview(asset: Dictionary) -> Texture2D:
+	var model: String = String(asset["model"])
+
 	if previews.has(model):
 		return previews[model]
 
-	var path: String = cache_path(model)
+	var path: String = cache_path(asset)
 
 	if not FileAccess.file_exists(path):
 		return null
@@ -621,10 +715,16 @@ func cached_preview(model: String) -> Texture2D:
 	return previews[model]
 
 
-## The cache file of MODEL's preview: named by its path and when it last changed, so a model
-## extracted again gets a new one.
-func cache_path(model: String) -> String:
+## The cache file of ASSET's preview: named by its model's path, when that last changed and the
+## front the names table gives, so a model extracted again or turned gets a new one.
+func cache_path(asset: Dictionary) -> String:
+	var model: String = String(asset["model"])
 	var key: String = "standing:%s:%d" % [model, FileAccess.get_modified_time(model)]
+	var front: String = Library.named_front(String(asset["game"]), String(asset["kind"]), int(asset["class"]))
+
+	if not front.is_empty():
+		key += ":" + front
+
 	return PREVIEW_CACHE.path_join(key.md5_text() + ".png")
 
 

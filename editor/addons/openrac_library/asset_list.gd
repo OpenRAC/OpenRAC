@@ -23,12 +23,23 @@ func _get_drag_data(at_position: Vector2) -> Variant:
 	if asset.is_empty():
 		return null
 
+	# Nothing is brought into the project for a scene it cannot go in.
+	if dock.here.is_empty():
+		dock.show_report("Open a level scene first.", true)
+		return null
+
 	var path: String = dock.plugin.prepare(asset)
 
 	if path.is_empty():
 		return null
 
-	dock.plugin.turn_drops_upright(Library.front_of(String(asset["model"])))
+	# The 3D view takes only an imported file: say so instead of a drop that does nothing.
+	if not Library.imported(path):
+		dock.show_report("Bringing %s in; drag it again in a moment." % asset["name"])
+		dock.plugin.wait_until_imported(path, String(asset["name"]))
+		return null
+
+	dock.plugin.turn_drops_upright(Library.front_for(asset))
 
 	# Its picture and name under the pointer, as the list shows it.
 	var preview := VBoxContainer.new()

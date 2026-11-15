@@ -130,7 +130,7 @@ class LibraryOnProjects(unittest.TestCase):
                                                 "rac3/ntsc/mobys/10": "look", "rac1/ntsc/mobys/10": "full",
                                                 "rac1/ntsc/ties/1000": "full"})
             # names/rac1.tsv's readable name wins over the class scene's code name.
-            self.assertEqual(result["names"]["rac1/pal/mobys/75"], ["Red ship 1", 0.5])
+            self.assertEqual(result["names"]["rac1/pal/mobys/75"], ["red_ship_1", 0.5])
             self.assertEqual(result["full_path"], "res://levels/level_05/mobys/moby_10.tscn")
             self.assertEqual(result["look_path"], "res://library/rac1/pal/level_03/mobys/moby_75.glb")
 
@@ -165,6 +165,14 @@ class LibraryOnProjects(unittest.TestCase):
             self.assertEqual(turns["up"], "(0.0, 1.0, 0.0)")
             self.assertEqual(turns["faces"], "(-1.0, 0.0, 0.0)")
             self.assertEqual(turns["flat_faces"], "(-1.0, 0.0, 0.0)")
+            # A flat model whose face is on -y (names table) shows that face.
+            self.assertEqual(turns["back"], ["(1.0, 0.0, 0.0)", "(0.0, 0.0, -1.0)", "(0.0, 1.0, 0.0)"])
+            # A model left lying by the old drop stands up at its size, its side kept.
+            self.assertEqual(turns["stood_up"], "(0.0, 2.0, 0.0)")
+            self.assertEqual(turns["stood_side"], "(2.0, 0.0, 0.0)")
+            self.assertTrue(turns["standing_left"])
+            self.assertEqual(turns["named_front"], "(0.0, -1.0, 0.0)")
+            self.assertEqual(turns["guessed_front"], "(1.0, 0.0, 0.0)")
 
 
 if __name__ == "__main__":

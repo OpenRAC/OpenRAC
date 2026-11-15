@@ -4,7 +4,8 @@
 # Replanetizer's LibReplanetizer/ModelLists/{Moby,Tie}ModelsRC1.txt (github.com/RatchetModding/Replanetizer,
 # GPL-3.0); the rest were named by hand for OpenRAC from each model's look.
 # Written short in snake_case (small_turret); each name is its own, so a model that looks like
-# another ends in the planet it comes from and a number (pipe_kerwan_2).
+# another ends in the planet it comes from and a number (pipe_kerwan_2). A fourth column, -y,
+# names the face of a flat model (a door, a panel) when it is not on +y, as the dock guesses.
 mobys	0	ratchet
 mobys	8	interceptor_oltanis_1
 mobys	9	glowing_green_panel
@@ -42,7 +43,7 @@ mobys	56	black_block
 mobys	63	robosquawker
 mobys	65	metal_door_frame
 mobys	66	fan_novalis_1
-mobys	67	lit_floor_panel
+mobys	67	lit_floor_panel	-y
 mobys	68	suckcannon_blarg
 mobys	69	fighter_jet_gemlik
 mobys	70	white_pipe_section
@@ -290,7 +291,7 @@ mobys	463	gunship_armor_pod_batalia_2
 mobys	464	gunship_wing_batalia_3
 mobys	465	gunship_cannon_arm
 mobys	466	snow_plow
-mobys	467	purple_metal_slab
+mobys	467	purple_metal_slab	-y
 mobys	468	window_panel_batalia_1
 mobys	469	window_panel_batalia_2
 mobys	470	rocket_kalebo_2
@@ -890,7 +891,7 @@ mobys	1424	gate_2
 mobys	1426	blue_ice_pane_fleet_2
 mobys	1427	glowing_yellow_ring
 mobys	1428	codebot
-mobys	1430	codebot_slot
+mobys	1430	codebot_slot	-y
 mobys	1431	green_glow_strip
 mobys	1432	grey_pane_veldin_2
 mobys	1433	nanotech_can
@@ -943,7 +944,7 @@ mobys	1525	blue_hull_capsule_aridia_1
 mobys	1526	copper_engine_housing_aridia_1
 mobys	1528	copper_engine_housing_aridia_2
 mobys	1529	ship_fin_piece
-mobys	1531	lower_door_eudora_2
+mobys	1531	lower_door_eudora_2	-y
 mobys	1532	upper_door_eudora_2
 mobys	1533	grey_armour_plates
 mobys	1534	robot_arm_orxon
@@ -1021,7 +1022,7 @@ mobys	1668	ship_hull_piece_kalebo_2
 mobys	1669	ship_wing_piece
 mobys	1670	yellow_fighter_ship
 mobys	1671	green_red_ship
-mobys	1672	power_unit
+mobys	1672	power_unit	-y
 mobys	1673	power_unit_damaged_blarg_1
 mobys	1674	power_unit_damaged_blarg_2
 mobys	1675	power_unit_damaged_blarg_3
@@ -1233,7 +1234,7 @@ ties	38	blue_pylon_frame
 ties	44	green_striped_rock
 ties	45	ice_blue_rock_hoven_1
 ties	46	ice_blue_rock_hoven_2
-ties	49	black_tar_puddle
+ties	49	black_tar_puddle	-y
 ties	60	grey_girder_cube
 ties	61	mesh_grate_tube
 ties	63	curved_grey_beam
@@ -1552,10 +1553,10 @@ ties	501	brown_rock_pile_aridia_5
 ties	502	purple_pipe_arch
 ties	503	white_rock_group
 ties	504	blue_pipe_aridia
-ties	505	blue_tiled_tray_aridia_1
-ties	506	blue_tiled_tray_aridia_2
+ties	505	blue_tiled_tray_aridia_1	-y
+ties	506	blue_tiled_tray_aridia_2	-y
 ties	508	silver_bent_pipe_aridia_1
-ties	509	blue_tiled_floor
+ties	509	blue_tiled_floor	-y
 ties	513	blue_tiled_ledge
 ties	514	grey_floor_aridia_1
 ties	515	white_rock_1
@@ -1586,7 +1587,7 @@ ties	545	antennas_2
 ties	546	antennas_3
 ties	547	rusty_building_bottom
 ties	548	pipe_novalis_2
-ties	549	frame_novalis
+ties	549	frame_novalis	-y
 ties	552	grey_floor_slab
 ties	553	curved_blue_rail_aridia
 ties	554	white_panels
@@ -1612,7 +1613,7 @@ ties	579	pipe_aridia
 ties	580	bridge_house_1
 ties	581	bridge_cables
 ties	582	bridge_house_2
-ties	584	topped_floor_slab
+ties	584	topped_floor_slab	-y
 ties	585	square_building_base
 ties	586	green_palm
 ties	587	window
@@ -2299,7 +2300,7 @@ ties	1556	blue_orange_machine
 ties	1557	dark_hose
 ties	1558	yellow_spiked_roller
 ties	1559	glass_ring_dish
-ties	1560	round_base_gaspar
+ties	1560	round_base_gaspar	-y
 ties	1561	pipe_gaspar_3
 ties	1562	grey_pipe_joint
 ties	1563	bar_between_posts
@@ -2534,7 +2535,7 @@ ties	1915	grey_box_gemlik_2
 ties	1917	dark_bent_pipe_kalebo
 ties	1919	teal_drum_gemlik_1
 ties	1920	dark_machine_arm
-ties	1922	white_machine_tray
+ties	1922	white_machine_tray	-y
 ties	1923	grey_curved_bracket
 ties	1924	grey_hook_bracket
 ties	1925	grey_ball_gemlik
@@ -2619,7 +2620,7 @@ ties	2005	grey_curved_rail
 ties	2006	grey_beam_kalebo_2
 ties	2008	grey_wall_kalebo
 ties	2009	grated_wall_pieces
-ties	2010	dark_machine_gemlik_2
+ties	2010	dark_machine_gemlik_2	-y
 ties	2011	dark_tiled_wall_gemlik_1
 ties	2012	dark_tiled_wall_gemlik_2
 ties	2014	u_shaped_pipe_gemlik
@@ -2838,7 +2839,7 @@ ties	2264	white_pipe_kalebo_1
 ties	2265	octagon_pipe_joint
 ties	2266	white_pipe_kalebo_2
 ties	2267	blue_dome_base
-ties	2268	dark_floor_plate
+ties	2268	dark_floor_plate	-y
 ties	2269	green_tub
 ties	2270	tall_dark_panel
 ties	2271	wooden_block_kalebo_1

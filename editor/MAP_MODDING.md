@@ -55,8 +55,17 @@ level you have read, from every disc and game. It looks beside this project
 (`assets/levels/<game>/<disc>/`, or `active/<game>/data/levels/<disc>` in an
 installed copy) and in the folders of the project setting
 `openrac/library/folders`. Browse the tree, or search by name or class number.
-Names come from `addons/openrac_library/names/<game>.tsv` (Ratchet & Clank
-has one for every asset); an asset not in it shows its class number.
+Search words match in any order and also match the planet, so `turret gaspar`
+finds `turret_gaspar_1` and `kalebo` lists what Kalebo III has. The planet list
+under the filter shows one planet's assets. Names come from
+`addons/openrac_library/names/<game>.tsv` (Ratchet & Clank has one for every
+asset); an asset not in it shows its class number.
+
+A placed asset stands up as in the game, its front to the camera. A flat model
+(a door, a panel) shows its face; a fourth column in the names file (`-y`) says
+when the face is on its other side. A scene saved by an older editor, with
+dragged assets lying on their side, stands them up once when opened (Ctrl+Z
+puts them back).
 
 Pick an asset to see what it is and which buttons work. A greyed button's
 tooltip says why. Drag the asset into the 3D view or the Scene dock, or
