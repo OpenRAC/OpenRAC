@@ -21,3 +21,5 @@ func_00120748	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_0012
 func_00120FA4	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_00120F00 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_00120F00 is unchanged
 func_0012118C	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_001210E0 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_001210E0 is unchanged
 func_00130004	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_0012FEC0 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_0012FEC0 is unchanged
+boot:001A72DC	data	rac2-ntsc2	the movie list's draw buffer word (host/movie.c): release/data_moves.tsv's boot run 0x00000000-0x001A7900 does not move in v2.00 (638 pairs)
+boot:001B23C8	data	rac2-pal	the movie player's GS base (host/movie.c): release/data_moves.tsv's boot run 0x001B1390-0x001F2A30 does not move in PAL (400 pairs)
