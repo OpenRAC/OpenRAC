@@ -223,6 +223,8 @@ func_L04_0040C228	hud	RaceHudStart	wrap	the hoverbike race's own HUD (Barlow and
 func_L04_004127A8	hud	RaceHud	wrap	the hoverbike race's own HUD (Barlow and Joba), a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
 func_L04_004188B8	hud	RaceHudEnd	wrap	the hoverbike race's own HUD (Barlow and Joba), a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
 func_L03_003C8620	hud	CraneHud	wrap	the crane's own HUD on Endako, a callback of func_0029B7C0: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
+func_L08_0041EDD0	hud	StatusHud8	wrap	Tabora's own status HUD (its bar, labels and counters), drawn from a callback: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)	int (void)
+func_L08_003DC980	hud	MeterHud8	wrap	the meter Tabora and Grelbin draw at the bottom (its labels, icon and counter), from a callback: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)	int (void)
 func_00290920	hud	MeterHud	wrap	the meter func_00290010 shows for a while (the Thermanator's), a callback of func_0029B7C0: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
 func_0028ECC0	hud	UpdateHud	wrap	the level HUD's slots: with the player's "HUD: Edges" the elements anchored left or right are drawn out at the sides of a picture wider than the game's (host/hud.c)
 func_0028F0D0	hud	HudSprite	wrap	a HUD texture as a sprite: drawn natively (host/ui2d.c)
