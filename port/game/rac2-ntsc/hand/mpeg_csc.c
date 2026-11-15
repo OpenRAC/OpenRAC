@@ -9,14 +9,13 @@
 #include "common.h"
 
 /* DMA hardware registers. */
-#define MPEG_HW(addr) (*(volatile u32 *)(addr))
+#define MPEG_HW(addr) (*(volatile u32*)(addr))
 
 /* _doCSC2's channel 3 (IPU out) interrupt handler: counts the finished chunk, and while the IPU is
  * idle starts the next 0x3FF-macroblock chunk (or the last, shorter one) of the colour conversion.
  * rec: chunks done, a busy flag, macroblocks left, the next destination, the number of chunks;
  * volatile: the thread that started the transfer waits on it (func_0012E378). */
-int func_0012E238(int channel, volatile s32 *rec)
-{
+int func_0012E238(int channel, volatile s32* rec) {
     MPEG_HW(0x1000E010) = 8;
     rec[0] = rec[0] + 1;
     if (MPEG_HW(0x1000B020) != 0 || (MPEG_HW(0x1000B000) & 0x100) != 0) {
@@ -43,8 +42,7 @@ int func_0012E238(int channel, volatile s32 *rec)
 
 /* Channel 4 (IPU in) interrupt handler: feeds the bitstream to the IPU 0xFFFF quadwords at a time.
  * rec: quadwords left, the next source; volatile, a record the interrupted thread reads. */
-void func_0012E538(int channel, volatile s32 *rec)
-{
+void func_0012E538(int channel, volatile s32* rec) {
     MPEG_HW(0x1000E010) = 0x10;
     if (rec[0] == 0) {
         return;

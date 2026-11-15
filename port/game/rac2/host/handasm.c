@@ -257,8 +257,8 @@ int func_001291A0(int a0, int a1, int a2, int a3) {
     for (int i = 0; i < 4; ++i) {
         vf[5][i] = k[i];
     }
-    vf[6][3] = vf[6][0];                    /* vmr: x kept in w */
-    vf[4][0] = vu_flush(0.0f + vf[6][0]);   /* vaddx.x vf4, vf0, vf6 */
+    vf[6][3] = vf[6][0];                      /* vmr: x kept in w */
+    vf[4][0] = vu_flush(0.0f + vf[6][0]);     /* vaddx.x vf4, vf0, vf6 */
     vf[6][0] = vu_flush(vf[6][0] * vf[6][0]); /* x^2 */
     for (int i = 1; i < 4; ++i) {
         vf[4][i] = vu_flush(vf[4][i] * 0.0f); /* vmulx.yzw vf4, vf4, vf0 */

@@ -35,32 +35,30 @@ typedef struct {
 
 /* lq: the 16 bytes of the quadword s1 lies in, then those of s2's (the low four address bits are
  * ignored). */
-static void mc_load16(u8 *c, u32 s1, u32 s2)
-{
+static void mc_load16(u8* c, u32 s1, u32 s2) {
     int i;
     s1 &= ~15u;
     s2 &= ~15u;
     for (i = 0; i < 16; i++) {
-        c[i] = *(u8 *)(s1 + i);
+        c[i] = *(u8*)(s1 + i);
     }
     for (i = 0; i < 16; i++) {
-        c[16 + i] = *(u8 *)(s2 + i);
+        c[16 + i] = *(u8*)(s2 + i);
     }
 }
 
 /* ld of both sources (low three address bits ignored), joined into 16 bytes (pcpyld) and turned
  * right by the block's offset (qfsrv of the register with itself): c[i] is byte (shift + i) & 15. */
-static void mc_load8(u8 *c, u32 s1, u32 s2, int sh)
-{
+static void mc_load8(u8* c, u32 s1, u32 s2, int sh) {
     u8 t[16];
     int i;
     s1 &= ~7u;
     s2 &= ~7u;
     for (i = 0; i < 8; i++) {
-        t[i] = *(u8 *)(s1 + i);
+        t[i] = *(u8*)(s1 + i);
     }
     for (i = 0; i < 8; i++) {
-        t[8 + i] = *(u8 *)(s2 + i);
+        t[8 + i] = *(u8*)(s2 + i);
     }
     for (i = 0; i < 16; i++) {
         c[i] = t[(sh + i) & 15];
@@ -68,40 +66,35 @@ static void mc_load8(u8 *c, u32 s1, u32 s2, int sh)
 }
 
 /* A row of n halfwords from the prediction (lq) and to it (sq). */
-static void mc_get(u16 *v, u32 d, int n)
-{
+static void mc_get(u16* v, u32 d, int n) {
     int i;
     d &= ~15u;
     for (i = 0; i < n; i++) {
-        v[i] = *(u16 *)(d + i * 2);
+        v[i] = *(u16*)(d + i * 2);
     }
 }
 
-static void mc_put(u32 d, u16 *v, int n)
-{
+static void mc_put(u32 d, u16* v, int n) {
     int i;
     d &= ~15u;
     for (i = 0; i < n; i++) {
-        *(u16 *)(d + i * 2) = v[i];
+        *(u16*)(d + i * 2) = v[i];
     }
 }
 
 /* The halfword lanes' rounding: (x + k) >> s, logical, with the add wrapping at 16 bits (paddh,
  * psrlh); and the averaging with the prediction that adds 1 only to a lane that is above zero as a
  * signed halfword (pcgth, psrlh 15, paddh, psrlh 1). */
-static u16 mc_round(u16 x, u16 k, int s)
-{
+static u16 mc_round(u16 x, u16 k, int s) {
     return (u16)(x + k) >> s;
 }
 
-static u16 mc_half_pos(u16 x)
-{
+static u16 mc_half_pos(u16 x) {
     return (u16)(x + ((s16)x > 0 ? 1 : 0)) >> 1;
 }
 
 /* Luma, copy: each row's 16 bytes widened to halfwords. */
-int func_0012A3E8(McArg *a)
-{
+int func_0012A3E8(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     s32 n = a->rows;
     u32 d = a->dst;
@@ -138,8 +131,7 @@ loop:
 }
 
 /* Chroma, copy: each row's 8 bytes widened, for Cb then Cr. */
-int func_0012A460(McArg *a)
-{
+int func_0012A460(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     u32 d = a->dst;
     int sh = a->shift & 15;
@@ -185,8 +177,7 @@ loop:
 }
 
 /* Luma, half a pixel down: each row the rounded mean of it and the row above. */
-int func_0012A4F8(McArg *a)
-{
+int func_0012A4F8(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     s32 n = a->rows;
     u32 d = a->dst;
@@ -238,8 +229,7 @@ next:
 
 /* Chroma, half a pixel down. The second part is taken when the low 16 bits of its row count are not
  * zero: the routine keeps its two loop flags in one halfword (psrah). */
-int func_0012A5B0(McArg *a)
-{
+int func_0012A5B0(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     u32 d = a->dst;
     int sh = a->shift & 15;
@@ -299,8 +289,7 @@ next:
 }
 
 /* Luma, half a pixel right: the rounded mean of each pixel and the next. */
-int func_0012A680(McArg *a)
-{
+int func_0012A680(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     s32 n = a->rows;
     u32 d = a->dst;
@@ -339,8 +328,7 @@ loop:
 }
 
 /* Chroma, half a pixel right. */
-int func_0012A730(McArg *a)
-{
+int func_0012A730(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     u32 d = a->dst;
     int sh = a->shift & 15;
@@ -386,8 +374,7 @@ loop:
 }
 
 /* Luma, half a pixel right and down: the rounded mean of four. */
-int func_0012A7E8(McArg *a)
-{
+int func_0012A7E8(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     s32 n = a->rows;
     u32 d = a->dst;
@@ -438,8 +425,7 @@ next:
 /* Chroma, half a pixel right and down. The routine moves src1 on a row before src2 (the first row
  * reads both, then src1 steps; each later row steps src2, reads both, steps src1), so after a part
  * src1 is a row ahead: the second part reads src1 one row further down than src2. */
-int func_0012A8E0(McArg *a)
-{
+int func_0012A8E0(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     u32 d = a->dst;
     int sh = a->shift & 15;
@@ -498,8 +484,7 @@ next:
 }
 
 /* Luma, copy, averaged with the prediction already there (a B block's second direction). */
-int func_0012A9E0(McArg *a)
-{
+int func_0012A9E0(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     s32 n = a->rows;
     u32 d = a->dst;
@@ -540,8 +525,7 @@ loop:
 }
 
 /* Chroma, copy, averaged with the prediction. */
-int func_0012AA80(McArg *a)
-{
+int func_0012AA80(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     u32 d = a->dst;
     int sh = a->shift & 15;
@@ -589,8 +573,7 @@ loop:
 
 /* Luma, half a pixel down, averaged with the prediction. The routine averages the left eight
  * pixels with +1 and the right eight with +1 only where the sum is above zero. */
-int func_0012AB30(McArg *a)
-{
+int func_0012AB30(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     s32 n = a->rows;
     u32 d = a->dst;
@@ -649,8 +632,7 @@ next:
 }
 
 /* Chroma, half a pixel down, averaged with the prediction. */
-int func_0012AC10(McArg *a)
-{
+int func_0012AC10(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     u32 d = a->dst;
     int sh = a->shift & 15;
@@ -715,8 +697,7 @@ next:
 
 /* Luma, half a pixel right, averaged with the prediction (left eight +1, right eight +1 above
  * zero, as func_0012AB30). */
-int func_0012ACF8(McArg *a)
-{
+int func_0012ACF8(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     s32 n = a->rows;
     u32 d = a->dst;
@@ -763,8 +744,7 @@ loop:
 }
 
 /* Chroma, half a pixel right, averaged with the prediction. */
-int func_0012ADD0(McArg *a)
-{
+int func_0012ADD0(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     u32 d = a->dst;
     int sh = a->shift & 15;
@@ -817,8 +797,7 @@ loop:
  * four-pixel mean is 2 for the first row only: the routine reuses that register for the 1 of the
  * averaging and does not set it back, so every later row (and the second part) adds 1 before the
  * shift by two. */
-int func_0012AEA0(McArg *a)
-{
+int func_0012AEA0(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     s32 n = a->rows;
     u32 d = a->dst;
@@ -875,8 +854,7 @@ next:
 
 /* Chroma, half a pixel right and down, averaged with the prediction (src1 a row ahead in the
  * second part, as func_0012A8E0). */
-int func_0012AFC0(McArg *a)
-{
+int func_0012AFC0(McArg* a) {
     u32 s1 = a->src1, s2 = a->src2;
     u32 d = a->dst;
     int sh = a->shift & 15;
@@ -939,7 +917,6 @@ next:
 }
 
 /* An empty routine (jr $ra) the decoder calls as a hook; $v0 as for the rest above. */
-int func_0012B180(void)
-{
+int func_0012B180(void) {
     return 0;
 }

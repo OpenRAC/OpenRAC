@@ -9,19 +9,18 @@
 #include "common.h"
 
 /* DMA hardware registers. */
-#define MPEG_HW(addr) (*(volatile u32 *)(addr))
+#define MPEG_HW(addr) (*(volatile u32*)(addr))
 
-extern int func_0011F5E0(void); /* DI: interrupts off, the previous state */
+extern int func_0011F5E0(void);  /* DI: interrupts off, the previous state */
 extern void func_0011F628(void); /* EI */
-extern u8 D_00146940[];         /* the scratchpad transfer's chain of DMA tags */
+extern u8 D_00146940[];          /* the scratchpad transfer's chain of DMA tags */
 
 /* Sends a picture's slices to the scratchpad: one pair of reference tags per slice in the chain at
  * D_00146940 (written through the uncached mirror), the last pair ending the chain, then the
  * toSPR channel (9) started on it with interrupts off. */
-void func_0012DF18(u8 *p)
-{
-    s32 idx = *(s32 *)(p + 0x810);
-    s32 count = *(s32 *)(p + idx * 0x140 + 0x6BC);
+void func_0012DF18(u8* p) {
+    s32 idx = *(s32*)(p + 0x810);
+    s32 count = *(s32*)(p + idx * 0x140 + 0x6BC);
     u32 tag = ((u32)D_00146940 & 0x0FFFFFFF) | 0x20000000;
     s32 i = 0;
     int intr;
@@ -32,16 +31,16 @@ void func_0012DF18(u8 *p)
             u64 last = (i ^ (count - 1)) == 0 ? 0 : 3;
             u64 a, b;
             i++;
-            a = *(u32 *)(p + 0x5A8 + off) & 0x0FFFFFFF;
-            b = *(u32 *)(p + 0x598 + off) & 0x0FFFFFFF;
-            *(u64 *)tag = (b << 32) | 0x30000030;
-            *(u64 *)(tag + 16) = (a << 32) | (last << 28) | 0x30;
+            a = *(u32*)(p + 0x5A8 + off) & 0x0FFFFFFF;
+            b = *(u32*)(p + 0x598 + off) & 0x0FFFFFFF;
+            *(u64*)tag = (b << 32) | 0x30000030;
+            *(u64*)(tag + 16) = (a << 32) | (last << 28) | 0x30;
             tag += 32;
         } while (i < count);
     }
     intr = func_0011F5E0();
-    idx = *(s32 *)(p + 0x810);
-    MPEG_HW(0x1000D480) = *(u32 *)(p + idx * 0x140 + 0x590);
+    idx = *(s32*)(p + 0x810);
+    MPEG_HW(0x1000D480) = *(u32*)(p + idx * 0x140 + 0x590);
     MPEG_HW(0x1000D430) = (u32)D_00146940;
     MPEG_HW(0x1000D420) = 0;
     MPEG_HW(0x1000D400) = 0x105;

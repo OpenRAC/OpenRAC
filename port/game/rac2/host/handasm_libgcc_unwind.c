@@ -14,42 +14,66 @@
  * contains it. */
 #include "openrac/guest.h"
 
-static void reached(openrac_reach_site *site) {
+static void reached(openrac_reach_site* site) {
     openrac_guest_reach(site);
 }
 
 void func_00120528(void) {
-    static openrac_reach_site site = {"func_00120528", "unreachable",
-                                      "__sjthrow: a C++ exception throw, which longjmps to a guest handler", 0, 0};
+    static openrac_reach_site site =
+        {"func_00120528",
+         "unreachable",
+         "__sjthrow: a C++ exception throw, which longjmps to a guest handler",
+         0,
+         0};
     reached(&site);
 }
 
 void func_001205E0(void) {
-    static openrac_reach_site site = {"func_001205E0", "unreachable",
-                                      "a fragment of func_00120528, entered only from its assembly", 0, 0};
+    static openrac_reach_site site =
+        {"func_001205E0",
+         "unreachable",
+         "a fragment of func_00120528, entered only from its assembly",
+         0,
+         0};
     reached(&site);
 }
 
 void func_00120748(void) {
-    static openrac_reach_site site = {"func_00120748", "unreachable",
-                                      "a fragment of __sjpopnthrow, entered only from its assembly", 0, 0};
+    static openrac_reach_site site =
+        {"func_00120748",
+         "unreachable",
+         "a fragment of __sjpopnthrow, entered only from its assembly",
+         0,
+         0};
     reached(&site);
 }
 
 void func_00120FA4(void) {
-    static openrac_reach_site site = {"func_00120FA4", "unreachable",
-                                      "a fragment of __throw, entered only from its assembly", 0, 0};
+    static openrac_reach_site site =
+        {"func_00120FA4",
+         "unreachable",
+         "a fragment of __throw, entered only from its assembly",
+         0,
+         0};
     reached(&site);
 }
 
 void func_0012118C(void) {
-    static openrac_reach_site site = {"func_0012118C", "unreachable",
-                                      "a fragment of __rethrow, entered only from its assembly", 0, 0};
+    static openrac_reach_site site =
+        {"func_0012118C",
+         "unreachable",
+         "a fragment of __rethrow, entered only from its assembly",
+         0,
+         0};
     reached(&site);
 }
 
 void func_00130004(void) {
-    static openrac_reach_site site = {"func_00130004", "unreachable",
-                                      "a fragment of func_0012FEC0, entered only from its assembly", 0, 0};
+    static openrac_reach_site site =
+        {"func_00130004",
+         "unreachable",
+         "a fragment of func_0012FEC0, entered only from its assembly",
+         0,
+         0};
     reached(&site);
 }

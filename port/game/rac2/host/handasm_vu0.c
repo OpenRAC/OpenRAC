@@ -10,12 +10,12 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 
-#define FRAGMENT(name, parent)                                                                         \
-    void name(void) {                                                                                  \
-        static openrac_reach_site site = {#name, "unreachable",                                        \
-                                          "a fragment of " parent ", entered only from its assembly", \
-                                          0, 0};                                                       \
-        openrac_guest_reach(&site);                                                                    \
+#define FRAGMENT(name, parent)                                                                     \
+    void name(void) {                                                                              \
+        static openrac_reach_site site = {                                                         \
+            #name, "unreachable", "a fragment of " parent ", entered only from its assembly", 0, 0 \
+        };                                                                                         \
+        openrac_guest_reach(&site);                                                                \
     }
 
 FRAGMENT(func_002F1E60, "func_002F1010")
@@ -32,12 +32,15 @@ FRAGMENT(func_002F4F78, "func_002F3E78")
  * Their only callers are routines the port replaces with its own renderer (host_functions:
  * func_002EF3B0 for func_002EF480, func_002F0EF8 for the other three), so the port never runs them.
  * They are not written in C. Like the fragments, they report if anything ever reaches them. */
-#define REPLACED(name, caller)                                                                       \
-    void name(void) {                                                                                \
-        static openrac_reach_site site = {#name, "unreachable",                                      \
-                                          "a renderer only " caller " calls, which the port replaces", \
-                                          0, 0};                                                     \
-        openrac_guest_reach(&site);                                                                  \
+#define REPLACED(name, caller)                                                                     \
+    void name(void) {                                                                              \
+        static openrac_reach_site site =                                                           \
+            {#name,                                                                                \
+             "unreachable",                                                                        \
+             "a renderer only " caller " calls, which the port replaces",                          \
+             0,                                                                                    \
+             0};                                                                                   \
+        openrac_guest_reach(&site);                                                                \
     }
 
 REPLACED(func_002EF480, "func_002EF3B0")

@@ -11,12 +11,13 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 
-#define REACHED(name, why)                                                       \
-    static openrac_reach_site site = {name, "unreachable", why, 0, 0};          \
+#define REACHED(name, why)                                                                         \
+    static openrac_reach_site site = {name, "unreachable", why, 0, 0};                             \
     openrac_guest_reach(&site)
 
 #define REPLACED "host-replaced renderer: the port never calls it"
-#define FRAGMENT "a fragment of func_002E1228, entered only from its assembly; host-replaced renderer"
+#define FRAGMENT                                                                                   \
+    "a fragment of func_002E1228, entered only from its assembly; host-replaced renderer"
 
 int func_002A1738(int a0, int a1) {
     (void)a0;

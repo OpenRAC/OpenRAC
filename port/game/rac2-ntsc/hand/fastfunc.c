@@ -19,51 +19,42 @@ extern float D_001A7914;
 extern float D_001A7918;
 extern float D_001A791C;
 
-float func_00282848(float x)
-{
+float func_00282848(float x) {
     return D_001A790C * x;
 }
 
-int func_00282890(int x)
-{
+int func_00282890(int x) {
     return (int)((float)x * D_001A790C + 0.5f);
 }
 
 /* multiply_global_factor */
-float func_002828B8(float x)
-{
+float func_002828B8(float x) {
     return D_001A7910 * x;
 }
 
-int func_002828C8(int x)
-{
+int func_002828C8(int x) {
     return (int)((float)x * D_001A7910 + 0.5f);
 }
 
-float func_002828F0(float x)
-{
+float func_002828F0(float x) {
     return D_001A7914 * x;
 }
 
-int func_00282900(int x)
-{
+int func_00282900(int x) {
     return (int)((float)x * D_001A7914 + 0.5f);
 }
 
 /* scale_by_frame_time */
-float func_00282928(float x)
-{
+float func_00282928(float x) {
     return D_001A7918 * x;
 }
 
-float func_00282938(float x)
-{
+float func_00282938(float x) {
     return D_001A791C * x;
 }
 
 /* The least of three words (pminw, twice; the low word's sign extended). */
-int func_00282C58(int a, int b, int c)
-{
+int func_00282C58(int a, int b, int c) {
     int m = b < a ? b : a;
     return c < m ? c : m;
 }

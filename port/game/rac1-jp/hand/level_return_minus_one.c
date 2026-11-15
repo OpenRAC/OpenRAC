@@ -5,7 +5,6 @@
  * it by a tail call for their -1 result. The decompilation keeps it as hand-written assembly. Its
  * candidate C passed fcheck (port/game/rac1-pal/checks/fcheck.tsv, 2026-10-18) and then left functional.tsv, so the
  * port ran a stub that returned 0 there. hostgen's assembly guard found it. */
-int func_L00_001F3D08(void)
-{
+int func_L00_001F3D08(void) {
     return -1;
 }

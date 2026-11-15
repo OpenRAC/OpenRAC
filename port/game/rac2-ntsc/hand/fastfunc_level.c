@@ -14,12 +14,12 @@ extern float D_001A791C;
 
 /* cvt.w.s: truncated, saturated by sign. A NaN can only come from a factor whose bits the EE reads
  * as a huge number (it has no NaN), and it saturates to that number's sign as the EE's would. */
-static int cvt_w_s(float f)
-{
+static int cvt_w_s(float f) {
     union {
         float f;
         int i;
     } u;
+
     if (f == f) {
         return (int)f;
     }
@@ -27,32 +27,26 @@ static int cvt_w_s(float f)
     return u.i < 0 ? (int)0x80000000 : 0x7FFFFFFF;
 }
 
-int func_L00_002EDC90(int x)
-{
+int func_L00_002EDC90(int x) {
     return cvt_w_s((float)x * D_001A790C + 0.5f);
 }
 
-float func_L00_002EDCB8(float x)
-{
+float func_L00_002EDCB8(float x) {
     return D_001A7910 * x;
 }
 
-int func_L00_002EDCC8(int x)
-{
+int func_L00_002EDCC8(int x) {
     return cvt_w_s((float)x * D_001A7910 + 0.5f);
 }
 
-int func_L00_002EDD00(int x)
-{
+int func_L00_002EDD00(int x) {
     return cvt_w_s((float)x * D_001A7914 + 0.5f);
 }
 
-float func_L00_002EDD28(float x)
-{
+float func_L00_002EDD28(float x) {
     return D_001A7918 * x;
 }
 
-float func_L00_002EDD38(float x)
-{
+float func_L00_002EDD38(float x) {
     return D_001A791C * x;
 }
