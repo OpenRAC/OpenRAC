@@ -2346,17 +2346,17 @@ class Unit:
             elif level is not None and low <= address < high and (self.fn.code, address) in getattr(self.program, "data_copies", ()):
                 # A global that does not pair between levels (data_copies.tsv): what the running
                 # copy forms itself (guest.h).
-                canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
+                home, canon = self._copy_named_in(symbol, level)
                 size = getattr(self.program, "sizes", {}).get(self.fn.code) or 0x400
                 self.fn.uses_self = True
-                addr = f"openrac_data_in_copy({level}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
+                addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif (level is not None and low <= address < high and (size := self._small_copy_size()) is not None):
                 # A leaf the catalogue fingerprints without its operands may be another field in
                 # another level (Going Commando's func_L00_00367720 reads word 15 of the ship
                 # mission in level 0 and word 9 in level 25): what the running copy forms itself.
                 self.fn.uses_self = True
-                canon = next(a for o, a in self.program.code_places(self.fn.code) if o == level)
-                addr = f"openrac_data_in_copy({level}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
+                home, canon = self._copy_named_in(symbol, level)
+                addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif level is not None and low <= address < high:
                 addr = f"OPENRAC_LDATA({level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
@@ -2404,6 +2404,27 @@ class Unit:
         limit = getattr(self.program, "small_copies_own_data", 0)
         size = getattr(self.program, "sizes", {}).get(self.fn.code) if self.fn is not None else None
         return size if size and size <= limit else None
+
+    def _copy_named_in(self, symbol: str | None, level: int) -> tuple[int, int]:
+        """The level copy of this function whose instructions form the address a datum's name
+        gives, and that copy's place: the level the name was derived in when it is another
+        (Going Commando's func_L00_0032B270, the pause's lock, says ref_L01_00320AE8_00, which is
+        0x001AA3F0 in level 1, where level 0's copy reads 0x001AA430 and has a float of 30 at
+        0x001AA3F0, so Start never paused), else the function's own level's."""
+        places: dict[int, int] = {}
+        for o, a in self.program.code_places(self.fn.code):
+            places.setdefault(o, a)
+        named = self.program.data_level(symbol) if symbol else None
+        if named is not None and named != level and named in places:
+            return named, places[named]
+        if named is not None and named != level and symbol not in getattr(self.program, "cross_level_data", {}):
+            # Level `level`'s copy would be searched for level `named`'s address and fall back to
+            # it: another datum of the level loaded, read silently. Fail instead (hostgen.json
+            # "cross_level_data" lists one known to be right, with its reason).
+            raise ValueError(f"{self.fn.code}: {symbol} is level {named}'s datum and no copy of the "
+                             f"function in level {named} forms it; add it to \"cross_level_data\" with a reason "
+                             f"if level {level}'s copy reads that address too")
+        return level, places[level]
 
     def _copies_in_one_program(self) -> tuple[int, int, int] | None:
         """For a level function the catalogue places more than once in one program (the same code

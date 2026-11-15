@@ -1252,6 +1252,9 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
                             for name, symbol in names.items()})
     program.global_views = bool(cfg.get("global_views", False))
     program.formed_as = {name: int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
+    # hostgen.json "cross_level_data": {name: reason} — a datum a level function may name by another
+    # level's address with no copy of the function there to find its own from (lower.py _copy_named_in).
+    program.cross_level_data = dict(cfg.get("cross_level_data", {}))
     program.returns_64 = set(cfg.get("returns_64", []))
     # hostgen.json "jump_tables": the labels a computed goto's table in the game's data holds, by table and index
     # (lower.py _indirect_goto); a file beside hostgen.json when it is a name (jumptables.py writes it).
