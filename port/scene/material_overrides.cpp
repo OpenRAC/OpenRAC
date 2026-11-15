@@ -163,8 +163,12 @@ Result<std::vector<materials::Identity>> image_identities(
         });
     for (std::size_t image = 0; image < level.images.size(); ++image) {
         const auto& pixels = level.images[image];
+        // A texture pack's picture is known by the original it replaced (and hashing a big one
+        // took a quarter second).
         result[image].texture_hash =
-            materials::texture_identity(pixels.width, pixels.height, pixels.pixels);
+            image < level.image_identities.size() && !level.image_identities[image].empty()
+                ? level.image_identities[image]
+                : materials::texture_identity(pixels.width, pixels.height, pixels.pixels);
         // Procedural images can be identified by decoded content without an exported file.
         if (image >= level.image_paths.size()) {
             continue;
@@ -210,9 +214,12 @@ Result<std::shared_ptr<const MaterialAssets>> emission_images(
             extended = std::make_shared<MaterialAssets>(*assets);
         }
         extended->images[std::string(texture)] = *image;
-        const auto& pixels = level.images[static_cast<std::size_t>(*image)];
+        const auto at = static_cast<std::size_t>(*image);
+        const auto& pixels = level.images[at];
         extended->image_hashes[*image] =
-            materials::texture_identity(pixels.width, pixels.height, pixels.pixels);
+            at < level.image_identities.size() && !level.image_identities[at].empty()
+                ? level.image_identities[at]
+                : materials::texture_identity(pixels.width, pixels.height, pixels.pixels);
     }
     return extended ? std::shared_ptr<const MaterialAssets>(std::move(extended))
                     : std::move(assets);

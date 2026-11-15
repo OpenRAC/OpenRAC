@@ -421,6 +421,21 @@ void check_kept_pictures(const fs::path& root) {
     texture_pack::preload();  // nothing left to read
     texture_pack::finish_preload();
     CHECK(reads() == 2);
+
+    // A level's pictures read together ahead: its texture then reads nothing, and what it did not
+    // ask for is freed.
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    const std::vector<texture_pack::TextureId> level{
+        {texture_pack::image_hash(wall), 2, 2}, {texture_pack::image_hash(hud), 2, 2}
+    };
+    texture_pack::read_level_pictures(level);
+    CHECK(reads() == 2);
+    image = wall;
+    CHECK(texture_pack::replace(image, {.level = 1}) && image.width == 16 && reads() == 2);
+    texture_pack::drop_level_pictures();
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 3);
     fs::remove_all(root);
 }
 

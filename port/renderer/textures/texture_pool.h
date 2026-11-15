@@ -181,6 +181,8 @@ public:
 
     const Rgba8Image& image(TextureHandle texture) const;
     bool has_cropped_replacement(TextureHandle texture) const;
+    // Whether a texture pack's picture replaced `texture` (an upload's conversion).
+    bool has_pack_replacement(TextureHandle texture) const;
     std::array<float, 2> uv_scale(TextureHandle texture) const;
 
     // Whether `texture` has an animated replacement's frames (animate()).
@@ -291,6 +293,7 @@ private:
         std::uint8_t wrap = 0;  // the GL texture's clamp: bit 0 across, bit 1 down (0: repeats)
         Rgba8Image image;
         bool cropped_replacement = false;
+        bool pack_replacement = false;
         std::array<float, 2> uv_scale{1.0f, 1.0f};
         AlphaScale scale = AlphaScale::Gs;
         std::string name;

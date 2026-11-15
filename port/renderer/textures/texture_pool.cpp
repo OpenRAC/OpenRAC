@@ -477,7 +477,8 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     texture_pack::Replacement replaced;
     bool cropped = false;
     std::array<float, 2> uv_scale{1.0f, 1.0f};
-    if (!texture_pack::replace(image, {.interface = true}, &replaced) && clut != nullptr) {
+    const bool packed = texture_pack::replace(image, {.interface = true}, &replaced);
+    if (!packed && clut != nullptr) {
         pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs);
         if (extent[0] != 0) {
             auto extended = border.empty() ? std::vector<std::uint8_t>{}
@@ -522,6 +523,7 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     const TextureHandle h = add(std::move(image), AlphaScale::Gs, "upload");
     auto& entry = m_entries[h - 1];
     entry.cropped_replacement = cropped;
+    entry.pack_replacement = packed;
     entry.uv_scale = uv_scale;
     entry.from_upload = true;
     entry.key = key;
@@ -556,6 +558,10 @@ const Rgba8Image& TexturePool::image(TextureHandle texture) const {
 
 bool TexturePool::has_cropped_replacement(TextureHandle texture) const {
     return m_entries[texture - 1].cropped_replacement;
+}
+
+bool TexturePool::has_pack_replacement(TextureHandle texture) const {
+    return m_entries[texture - 1].pack_replacement;
 }
 
 std::array<float, 2> TexturePool::uv_scale(TextureHandle texture) const {

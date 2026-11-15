@@ -59,7 +59,12 @@ inline constexpr std::size_t kMaxAnimationBytes = std::size_t{256} << 20;
 // The bytes of still pictures kept after they are read, for textures met while playing (the 2D
 // layer, effects, particles). The game converts those again each time they come back on screen;
 // reading a big PNG or KTX2 again each time stalls the frame. The least recently used go first.
-inline constexpr std::size_t kMaxKeptPictureBytes = std::size_t{256} << 20;
+// Less on Android, where phones have less memory.
+#if defined(__ANDROID__)
+inline constexpr std::size_t kMaxKeptPictureBytes = std::size_t{512} << 20;
+#else
+inline constexpr std::size_t kMaxKeptPictureBytes = std::size_t{1024} << 20;
+#endif
 
 // The frame `animation` shows `ticks` game ticks after it started.
 std::size_t frame_at(const Animation& animation, std::uint64_t ticks);
@@ -133,12 +138,29 @@ struct Replacement {
 
 // Starts reading the pack's pictures for textures met while playing (not a level's, not SVGs)
 // on a thread of its own, smallest first, so that their first showing does not wait for the disk.
-// Called when a level has loaded. It never pushes a kept picture out (kMaxKeptPictureBytes).
+// Called at the start and when a level has loaded. It never pushes a kept picture out
+// (kMaxKeptPictureBytes).
 // Any thread.
 void preload();
 
 // Waits until the reading preload() started has ended (tests).
 void finish_preload();
+
+// A texture by its hash (image_hash()) and size.
+struct TextureId {
+    std::uint64_t hash = 0;
+    int width = 0;
+    int height = 0;
+};
+
+// Whether the pack has any picture (a level then looks for its textures in it ahead).
+bool has_pictures();
+
+// Reads the pack's still pictures of a level's textures on several threads at once, before the
+// level asks for them one by one (replace() with a level's origin takes them from here). Those it
+// does not ask for are freed by drop_level_pictures(). Any thread.
+void read_level_pictures(std::span<const TextureId> textures);
+void drop_level_pictures();
 
 // The block format a KTX2 is transcoded to (the window sets the one the GPU reads, from
 // TexturePool::gpu_block_format); None, the default: RGBA8 only. Any thread.

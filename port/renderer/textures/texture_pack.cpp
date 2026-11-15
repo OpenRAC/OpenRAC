@@ -43,6 +43,8 @@ struct State {
     std::unordered_map<std::uint64_t, Kept> kept;
     std::size_t kept_bytes = 0;
     std::uint64_t uses = 0;
+    // A loading level's pictures, read ahead together (read_level_pictures()).
+    std::unordered_map<std::uint64_t, Picture> level_ahead;
     // Pictures met as a level's texture: not read ahead (preload()).
     std::set<std::uint64_t> level_pictures;
     fs::path pack;
@@ -493,6 +495,7 @@ void configure(const fs::path& pack, const fs::path& dump, Io io, LevelNamer lev
     s.kept.clear();
     s.kept_bytes = 0;
     s.level_pictures.clear();
+    s.level_ahead.clear();
     s.pack = pack;
     ++s.generation;
     s.dumped.clear();
@@ -598,6 +601,19 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
             s.kept_bytes -= kept->second.bytes;
             s.kept.erase(kept);
         }
+        return true;
+    }
+    // A level's picture read ahead with the others of its level.
+    if (const auto ahead = s.level_ahead.find(hash); ahead != s.level_ahead.end()) {
+        if (origin.level >= 0) {
+            s.level_pictures.insert(hash);
+        }
+        image = std::move(ahead->second.image);
+        if (found_out != nullptr) {
+            found_out->blocks = std::move(ahead->second.blocks);
+        }
+        s.level_ahead.erase(ahead);
+        ++s.replaced;
         return true;
     }
     // The files are read without the lock: a level loading on another thread must not stop the
@@ -758,6 +774,92 @@ void finish_preload() {
     if (reader.joinable()) {
         reader.join();
     }
+}
+
+bool has_pictures() {
+    State& s = state();
+    const std::lock_guard guard(s.lock);
+    return !s.files.empty();
+}
+
+void read_level_pictures(std::span<const TextureId> textures) {
+    State& s = state();
+
+    struct Wanted {
+        std::uint64_t hash;
+        fs::path file;
+        int width;
+        int height;
+        std::optional<Picture> picture;
+    };
+
+    std::vector<Wanted> wanted;
+    Io io;
+    unsigned generation = 0;
+    {
+        const std::lock_guard guard(s.lock);
+        io = s.io;
+        generation = s.generation;
+        for (const TextureId& t : textures) {
+            const auto files = s.files.find(t.hash);
+            // An animation comes first (replace()); a picture kept or read ahead is there already.
+            if (files == s.files.end() || files->second.empty() || s.animated.contains(t.hash)
+                || s.kept.contains(t.hash) || s.level_ahead.contains(t.hash)) {
+                continue;
+            }
+            wanted.push_back({t.hash, files->second.front(), t.width, t.height, std::nullopt});
+        }
+    }
+    std::sort(wanted.begin(), wanted.end(), [](const Wanted& a, const Wanted& b) {
+        return a.hash < b.hash;
+    });
+    wanted.erase(
+        std::unique(
+            wanted.begin(),
+            wanted.end(),
+            [](const Wanted& a, const Wanted& b) { return a.hash == b.hash; }
+        ),
+        wanted.end()
+    );
+    if (wanted.empty()) {
+        return;
+    }
+    // A few threads: decoding is the cost, the disk is rarely the limit.
+    constexpr unsigned kMostThreads = 8;
+    const unsigned count = std::clamp(
+        std::thread::hardware_concurrency(),
+        1u,
+        static_cast<unsigned>(std::min<std::size_t>(kMostThreads, wanted.size()))
+    );
+    std::atomic<std::size_t> next{0};
+    {
+        std::vector<std::jthread> workers;
+        for (unsigned i = 0; i < count; ++i) {
+            workers.emplace_back([&] {
+                for (std::size_t at = next++; at < wanted.size(); at = next++) {
+                    Wanted& w = wanted[at];
+                    w.picture = load_still(io, w.file, w.width, w.height);
+                }
+            });
+        }
+    }
+    const std::lock_guard guard(s.lock);
+    // Another pack was configured meanwhile.
+    if (s.generation != generation) {
+        return;
+    }
+    // One that cannot be read is left to replace(), which says why and tries the next picture.
+    for (Wanted& w : wanted) {
+        if (w.picture && !w.picture->image.pixels.empty()) {
+            s.level_ahead.insert_or_assign(w.hash, std::move(*w.picture));
+        }
+    }
+}
+
+void drop_level_pictures() {
+    State& s = state();
+    const std::lock_guard guard(s.lock);
+    s.level_ahead.clear();
 }
 
 void set_block_format(BlockFormat format) {

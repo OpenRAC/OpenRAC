@@ -1244,8 +1244,11 @@ void GifInterpreter::ensure_draw() {
             s.clamp_t = true;
         } else if (s.textured) {
             s.texture = m_textures.resolve(c.tex0, m_texa);
+            // A pack's picture is drawn as its maker made it: a field of a big one would also
+            // take seconds of CPU (four times its size).
             if (m_glyph && s.texture != m_textures.placeholder()
-                && !m_textures.has_cropped_replacement(s.texture)) {
+                && !m_textures.has_cropped_replacement(s.texture)
+                && !m_textures.has_pack_replacement(s.texture)) {
                 s.field = m_textures.distance_field(s.texture);
                 s.distance_field = s.field != s.texture;
             }
