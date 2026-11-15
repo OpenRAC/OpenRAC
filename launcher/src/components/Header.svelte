@@ -523,11 +523,16 @@
     gap: inherit;
     --fade-start: 0px;
     --fade-end: 0px;
+    /* Eased ends: a straight ramp showed a button's dark left end as a hard half circle. */
     mask-image: linear-gradient(
       to right,
       transparent,
+      rgb(0 0 0 / 0.35) calc(var(--fade-start) * 0.35),
+      rgb(0 0 0 / 0.8) calc(var(--fade-start) * 0.7),
       black var(--fade-start),
       black calc(100% - var(--fade-end)),
+      rgb(0 0 0 / 0.8) calc(100% - var(--fade-end) * 0.7),
+      rgb(0 0 0 / 0.35) calc(100% - var(--fade-end) * 0.35),
       transparent
     );
     transition:
@@ -540,11 +545,11 @@
   }
 
   .strip.more-start {
-    --fade-start: 40px;
+    --fade-start: 56px;
   }
 
   .strip.more-end {
-    --fade-end: 56px;
+    --fade-end: 80px;
   }
 
   .strip-row {
@@ -686,54 +691,11 @@
     margin-left: -4px;
   }
 
+  /* The preview's badge gives way first. The rest keeps its size and room at any width: the row
+     scrolls when it does not fit (.strip). */
   @media (max-width: 1240px) {
-    header,
-    .site-header {
-      gap: 18px;
-    }
-
     .preview {
       display: none;
-    }
-  }
-
-  /* Down to the window's smallest (960 px), with developer tools, a job and an update all showing:
-     the update keeps its word, the job less of its name. */
-  @media (max-width: 1180px) {
-    header,
-    .site-header {
-      gap: 14px;
-    }
-
-    .update .label {
-      display: none;
-    }
-
-    .job {
-      max-width: 150px;
-    }
-  }
-
-  /* Where room runs short (developer tools, a job and an update all showing), the tabs keep their
-     words and drop their icons first. */
-  @media (max-width: 1100px) {
-    :global(html:not([data-platform="android"])) .tab .icon {
-      display: none;
-    }
-
-    :global(html:not([data-platform="android"])) .tab {
-      padding: 0 12px;
-    }
-  }
-
-  /* A narrow window keeps the tabs. */
-  @media (max-width: 900px) {
-    .site-header {
-      gap: 12px;
-    }
-
-    .job {
-      max-width: 160px;
     }
   }
 
