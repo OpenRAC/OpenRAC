@@ -240,6 +240,8 @@ int image_index(const fs::path& requested, LevelData& level) {
     }
     level.image_animations.resize(level.images.size());
     level.image_animations.push_back(std::move(replaced.animation));
+    level.image_blocks.resize(level.images.size());
+    level.image_blocks.push_back(std::move(replaced.blocks));
     bool translucent = false;
     for (std::size_t i = 3; i < image.pixels.size(); i += 4) {
         if (image.pixels[i] < 250) {

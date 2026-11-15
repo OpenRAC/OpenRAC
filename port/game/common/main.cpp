@@ -78,6 +78,7 @@
 #include "platform/pump.h"
 #include "platform/window.h"
 #include "renderer/gl/gl.h"
+#include "renderer/textures/pack_pictures.h"
 #include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture_pack.h"
 #include "scene/moby_pose.h"
@@ -750,7 +751,11 @@ int main(int argc, char** argv) {
             renderer::texture_pack::configure(
                 use_packs ? g_options.data / "texture_packs" / openrac_game.id : fs::path{},
                 dump ? fs::path(std::string(*dump)) : fs::path{},
-                {texture_pack_load<false>, texture_pack_save, texture_pack_load_gif},
+                {texture_pack_load<false>,
+                 texture_pack_save,
+                 texture_pack_load_gif,
+                 renderer::pack_pictures::load_ktx2,
+                 renderer::pack_pictures::load_svg},
                 texture_pack_level_name
             );
         }

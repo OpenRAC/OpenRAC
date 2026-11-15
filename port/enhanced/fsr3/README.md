@@ -51,8 +51,10 @@ targets, SDK histories and previous displayed camera/object poses.
 The renderer lends its existing command buffer and images. There are no per-frame CPU readbacks,
 extra queue submissions or GPU waits. Reconfiguration and destruction wait before freeing SDK data.
 
-Static geometry and sky use depth-derived camera motion. Opaque live mobys overwrite it using
-current and previous rigid transforms and skinned joints. Material alpha determines coverage.
+Static geometry uses depth-derived clip-to-clip motion, composed in double precision to avoid
+false velocity at distant world coordinates. Sky motion excludes camera translation. Opaque live
+mobys and moved ties/shrubs overwrite the field using their displayed rigid transforms and skinned
+joints. Material alpha determines coverage.
 A preparticle colour snapshot supplies reactivity for blended and additive effects.
 
 History resets after resolution or level changes, skipped world frames, large camera changes and

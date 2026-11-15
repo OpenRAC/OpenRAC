@@ -96,6 +96,7 @@ inline constexpr std::uint32_t kFrameTimestamp = kTimestamps - 2;
 inline constexpr GLenum kGlActiveUniforms = 0x8B86;
 inline constexpr GLenum kGlInvalidEnum = 0x0500;
 inline constexpr GLenum kGlInvalidValue = 0x0501;
+inline constexpr GLenum kGlInvalidOperation = 0x0502;
 inline constexpr GLenum kGlUniformBufferOffsetAlignment = 0x8A34;
 inline constexpr GLenum kGlMaxCombinedTextureUnits = 0x8B4D;
 inline constexpr GLenum kGlMaxTextureBufferSize = 0x8C2B;

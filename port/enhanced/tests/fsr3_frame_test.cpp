@@ -283,7 +283,23 @@ void test_temporal_math() {
         CHECK(std::abs(product[n] - renderer::identity()[n]) < .001f);
     }
 
+    const auto shift = renderer::translation({.125f, -.25f, 0});
+    renderer::Mat4 reprojection;
+    renderer::Mat4 camera_inverse;
+    CHECK(
+        enhanced::fsr3_detail::camera_transforms(
+            matrix, renderer::multiply(shift, matrix), camera_inverse, reprojection
+        )
+    );
+
+    // Clip-to-clip composition preserves the endpoint order and cancels the shared perspective.
+    for (std::size_t n = 0; n < reprojection.size(); ++n) {
+        CHECK(std::abs(reprojection[n] - shift[n]) < .001f);
+        CHECK(camera_inverse[n] == inverse[n]);
+    }
+
     CHECK(!enhanced::fsr3_detail::invert({}, inverse));
+    CHECK(!enhanced::fsr3_detail::camera_transforms({}, matrix, camera_inverse, reprojection));
 }
 
 // Starts one representative complete graph capture after temporal history has warmed up.

@@ -78,7 +78,7 @@ vec3 from_oklab(vec3 lab) {
 // The look on light above white (common/hdr.h, apply_look).
 // The hue SDR gives light above white, also where it shows it white (common/hdr.h, sdr_hue_of).
 vec3 sdr_hue_of(vec3 linear) {
-    float scale = max(min(linear.r, min(linear.g, linear.b)) / 0.8, 1.0);
+    float scale = max(min(linear.r, min(linear.g, linear.b)) / 0.4, 1.0);
     return min(linear / scale, vec3(1.0));
 }
 
@@ -94,8 +94,9 @@ vec3 apply_look(vec3 hdr, vec3 sdr, vec3 sdr_hue) {
         if (chroma <= grey_chroma) {
             dir = to;
         } else if (encode.sdr_hue > 0.0) {
-            // SDR's hue fades out towards grey (kSureHueChroma = 0.02).
-            float amount = encode.sdr_hue * min(ref_chroma / 0.02, 1.0);
+            // SDR's hue fades out towards grey and where it is pale next to HDR's colour
+            // (kSureHueChroma = 0.02, kSureHueShare = 0.25).
+            float amount = encode.sdr_hue * min(ref_chroma / max(0.02, 0.25 * chroma), 1.0);
             vec2 turned = mix(dir, to, amount);
             float len = length(turned);
             if (len > grey_chroma) {

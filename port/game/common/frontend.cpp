@@ -61,6 +61,8 @@
 #include "renderer/gl/gl_warmup.h"
 #include "renderer/gl/precise_depth.h"
 #include "renderer/renderer.h"
+#include "renderer/textures/texture_pack.h"
+#include "renderer/textures/texture_pool.h"
 #include "renderer/ui/fps_counter.h"
 #include "renderer/ui/touch_overlay.h"
 #include "scene/hero_shadow.h"
@@ -468,6 +470,15 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
         vkgl::keep_programs(true);
     }
 #endif
+    // A texture pack's KTX2 pictures are transcoded, as they load, to the blocks this GPU reads.
+    const renderer::BlockFormat blocks = renderer::TexturePool::gpu_block_format();
+    renderer::texture_pack::set_block_format(blocks);
+    log::info(
+        "graphics: texture pack KTX2 pictures kept as {}",
+        blocks == renderer::BlockFormat::Bc7       ? "BC7"
+        : blocks == renderer::BlockFormat::Astc4x4 ? "ASTC 4x4"
+                                                   : "RGBA8"
+    );
     log::info("graphics: up to {} samples a pixel, anisotropy up to {:.0f}; the swap {}", 
               renderer::FrameBuffer::max_samples(), renderer::TexturePool::max_anisotropy(),
               g->swap == platform::SwapInterval::Immediate ? "does not wait"

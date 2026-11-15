@@ -197,7 +197,8 @@ each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencie
 | [stb_image](https://github.com/nothings/stb) | commit 2c980bb | MIT or public domain | the level viewer: reading textures (PNG) |
 | [xxHash](https://github.com/Cyan4973/xxHash) | 0.8.2 | BSD-2-Clause | PCSX2 texture replacement keys |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 1.91.9b | MIT | the games' debug overlay ([docs/port/DEBUGGING.md](docs/port/DEBUGGING.md)) |
-| [nanosvg](https://github.com/memononen/nanosvg) | commit 239e102 | zlib | the on-screen pad's action icons: reading and drawing their SVGs ([port/renderer/ui/touch_icons.h](port/renderer/ui/touch_icons.h)) |
+| [nanosvg](https://github.com/memononen/nanosvg) | commit 239e102 | zlib | the on-screen pad's action icons and texture packs' SVG pictures: reading and drawing them ([port/renderer/ui/touch_icons.h](port/renderer/ui/touch_icons.h), [port/renderer/textures/pack_pictures.h](port/renderer/textures/pack_pictures.h)) |
+| [Basis Universal](https://github.com/BinomialLLC/basis_universal) | 2.50 (commit 9bebe16) | Apache-2.0; its Zstandard decoder BSD-3-Clause | texture packs' KTX2 pictures: the transcoder and Zstandard decoder ([port/renderer/textures/pack_pictures.h](port/renderer/textures/pack_pictures.h)) |
 | [Luau](https://github.com/luau-lang/luau) | 0.741 (commit 2d88f9b) | MIT | script mods: its virtual machine and compiler ([docs/port/MODS.md](docs/port/MODS.md), section 11; [port/cmake/Luau.cmake](port/cmake/Luau.cmake)) |
 | [Vulkan-Headers](https://github.com/KhronosGroup/Vulkan-Headers) | vulkan-sdk-1.4.350.1 | Apache-2.0 or MIT | the Vulkan renderer |
 | [volk](https://github.com/zeux/volk) | vulkan-sdk-1.4.350.1 | MIT | the Vulkan renderer: the Vulkan loader, opened at run time |

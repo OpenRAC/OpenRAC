@@ -14,6 +14,9 @@ namespace {
 constexpr std::uint8_t D = kDesktop;
 constexpr std::uint8_t T = kTouch;
 constexpr std::uint8_t A = kEverywhere;
+// Also on the game's own Video pages.
+constexpr std::uint8_t DG = kDesktop | kGamePage;
+constexpr std::uint8_t AG = kEverywhere | kGamePage;
 
 constexpr Kind kSwitch = Kind::Switch;
 constexpr Kind kChoice = Kind::Choice;
@@ -26,28 +29,28 @@ constexpr Entry kEntries[] = {
     // ---- Graphics ----
     {Id::FullScreen, Tab::Graphics, "Display", kSwitch, D, "Full screen",
      "Fills the screen with the game's window, or gives the window back. F11 does the same."},
-    {Id::DisplayMode, Tab::Graphics, "Display", kChoice, D, "Display mode",
+    {Id::DisplayMode, Tab::Graphics, "Display", kChoice, DG, "Display mode",
      "Windowed, or borderless full screen at the display's own resolution."},
     {Id::Monitor, Tab::Graphics, "Display", kChoice, D, "Monitor",
      "The display the game goes full screen on: the window's own, or a display by its number."},
     {Id::MenuSize, Tab::Graphics, "Display", kChoice, A, "Menu size",
      "How large this menu and its text are. Auto sizes it to the screen; the steps make it "
      "smaller or larger from there."},
-    {Id::Picture, Tab::Graphics, "Picture", kChoice, A, "Picture",
+    {Id::Picture, Tab::Graphics, "Picture", kChoice, AG, "Picture",
      "The picture's shape: the console's 4:3, a wide screen, or the whole window."},
-    {Id::GameplayFov, Tab::Graphics, "Picture", Kind::Slider, A, "Field of View",
+    {Id::GameplayFov, Tab::Graphics, "Picture", Kind::Slider, AG, "Field of View",
      "Adjusts how much of the world you see during gameplay. 100% is the original camera view."},
-    {Id::Hud, Tab::Graphics, "Picture", kChoice, A, "HUD",
+    {Id::Hud, Tab::Graphics, "Picture", kChoice, AG, "HUD",
      "Where the HUD sits on a wide picture: in the 4:3 middle, as on a console, or out at the "
      "screen's edges."},
-    {Id::RenderScale, Tab::Graphics, "Picture", kChoice, A, "Render scale",
+    {Id::RenderScale, Tab::Graphics, "Picture", kChoice, AG, "Render scale",
      "How many pixels the 3D world is drawn with, against the window's. Lower it on a slow "
      "device; raise it for a sharper picture."},
-    {Id::Msaa, Tab::Graphics, "Picture", kChoice, A, "Anti-aliasing",
+    {Id::Msaa, Tab::Graphics, "Picture", kChoice, AG, "Anti-aliasing",
      "Smooths the edges of the world's shapes. Each step costs the graphics card more."},
-    {Id::Anisotropy, Tab::Graphics, "Picture", kChoice, A, "Anisotropic filtering",
+    {Id::Anisotropy, Tab::Graphics, "Picture", kChoice, AG, "Anisotropic filtering",
      "Keeps floors and walls sharp when seen at a slant. Cheap on most graphics cards."},
-    {Id::DrawDistance, Tab::Graphics, "Picture", kChoice, A, "Draw distance",
+    {Id::DrawDistance, Tab::Graphics, "Picture", kChoice, AG, "Draw distance",
      "How far away things are still drawn. Original stops where the console did; the larger "
      "steps draw farther, and Unlimited draws everything in view. What the game hides from a "
      "place stays hidden."},
@@ -55,7 +58,7 @@ constexpr Entry kEntries[] = {
      "How far away things still move and run their logic. Match keeps everything Draw distance "
      "shows alive; Original stops where the console did, so far things stand still. Enemies "
      "notice you from their usual ranges either way."},
-    {Id::FrameRate, Tab::Graphics, "Frames", kChoice, A, "Frame rate",
+    {Id::FrameRate, Tab::Graphics, "Frames", kChoice, AG, "Frame rate",
      "Original keeps the console's rate. The others draw extra frames between the game's ticks: "
      "as fast as the display, up to a cap, or without a limit. The game itself runs at its own "
      "speed either way."},
@@ -63,12 +66,12 @@ constexpr Entry kEntries[] = {
     // is enough there.
     {Id::FrameCap, Tab::Graphics, "Frames", kChoice, D, "Frame cap",
      "The most frames a second, in steps of 5, while Frame rate is capped."},
-    {Id::VSync, Tab::Graphics, "Frames", kChoice, A, "VSync",
+    {Id::VSync, Tab::Graphics, "Frames", kChoice, AG, "VSync",
      "Waits for the display before showing a frame, which stops tearing. Off shows frames as "
      "soon as they are drawn."},
-    {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, A, "Frame counter",
+    {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, AG, "Frame counter",
      "Shows the frames a second in a corner of the picture. F2 changes it too."},
-    {Id::Hdr, Tab::Graphics, "HDR", kChoice, A, "HDR",
+    {Id::Hdr, Tab::Graphics, "HDR", kChoice, AG, "HDR",
      "High dynamic range output, whenever the screen offers it. Turned on from Off, it starts "
      "with the game's next start."},
     {Id::HdrPaperWhite, Tab::Graphics, "HDR", kChoice, A, "HDR paper white",
@@ -103,7 +106,7 @@ constexpr Entry kEntries[] = {
     // ---- Enhanced ----
     {Id::EnhancedStatus, Tab::Enhanced, "Enhanced graphics", kNote, A, "Enhanced graphics",
      "Why the enhanced graphics cannot be changed now, and what to do about it."},
-    {Id::EnhancedGraphics, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Enable enhanced mode",
+    {Id::EnhancedGraphics, Tab::Enhanced, "Enhanced graphics", kSwitch, AG, "Enable enhanced mode",
      "Bounced light, modern shadows and ambient occlusion over the original lighting. Off shows "
      "the game as the console drew it."},
     {Id::EnhancedLow, Tab::Enhanced, "Presets", kAction, A, "Low",

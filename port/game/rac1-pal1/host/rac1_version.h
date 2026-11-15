@@ -56,9 +56,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_CARD_SAVING 0xFC
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
-/* The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are
- * not checked here). */
-#define RAC1_OMIT_func_001E9E70 1
 /* The pause menu mobys' update at 0x0023B578: the decompilation has C for it (func_0023B578) since the
  * remnant in front of it was split off. */
 #define RAC1_OMIT_game_D_0023B578 1
@@ -86,9 +83,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* Where UpdateWorldObjectAnimation keeps the model record's word at +8 in the transfer state
  * D_0018CC20 (scene_actors.c). */
 #define RAC1_TRANSFER_PAD08 0x46
-
-/* Aridia's counter anchors (hud.c): release_names.json pairs them, D_L02_0015F91C and D_L02_0015F920. */
+/* The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here). */
+#define RAC1_OMIT_func_001E9E70 1
+/* Aridia's counter anchor (hud.c): release_names.json pairs it, D_L02_0015F91C. */
 #define RAC1_ADDR_L02_0x0015FA1Cu 0x0015F91Cu
+/* Aridia's counter anchor (hud.c): release_names.json pairs it, D_L02_0015F920. */
 #define RAC1_ADDR_L02_0x0015FA20u 0x0015F920u
 
 /* ---- generated below ---- */
