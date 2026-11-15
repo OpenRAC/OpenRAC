@@ -21,6 +21,7 @@
 
 /* Addresses of the executable's memory. */
 #define RAC2_ADDR_0x0010E9F0u 0x0010E9F0u /* the same microcode at the same place */
+#define RAC2_ADDR_0x00137EA0u 0x00137EA0u /* data_moves: the boot run 0x00000000-0x001A7900 stays */
 #define RAC2_ADDR_0x00138180u 0x00138180u /* versionmap: exact */
 #define RAC2_ADDR_0x00138280u 0x00138280u /* versionmap: between */
 #define RAC2_ADDR_0x00146B40u 0x00146B40u /* the same instruction of the paired function */

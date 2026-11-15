@@ -253,7 +253,7 @@ int func_001291A0(int a0, int a1, int a2, int a3) {
     (void)a2;
     openrac_vu0_state* vu = OPENRAC_VU0;
     float(*vf)[4] = vu->vf;
-    const float* k = quad(0x00137EA0u);
+    const float* k = quad(RAC2_ADDR(0x00137EA0u));
     for (int i = 0; i < 4; ++i) {
         vf[5][i] = k[i];
     }
