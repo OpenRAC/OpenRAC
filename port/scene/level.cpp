@@ -1437,6 +1437,8 @@ bool load_level(
     }
     prepare_chrome_geometry(out);
     prepare_material_overrides(out);
+    // The pack's HUD and effect pictures, read now behind the loading screen, not while playing.
+    renderer::texture_pack::preload();
     return true;
 }
 

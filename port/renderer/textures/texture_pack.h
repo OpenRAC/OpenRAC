@@ -131,6 +131,15 @@ struct Replacement {
     std::shared_ptr<const CompressedImage> blocks;  // the picture in blocks, from a KTX2
 };
 
+// Starts reading the pack's pictures for textures met while playing (not a level's, not SVGs)
+// on a thread of its own, smallest first, so that their first showing does not wait for the disk.
+// Called when a level has loaded. It never pushes a kept picture out (kMaxKeptPictureBytes).
+// Any thread.
+void preload();
+
+// Waits until the reading preload() started has ended (tests).
+void finish_preload();
+
 // The block format a KTX2 is transcoded to (the window sets the one the GPU reads, from
 // TexturePool::gpu_block_format); None, the default: RGBA8 only. Any thread.
 void set_block_format(BlockFormat format);

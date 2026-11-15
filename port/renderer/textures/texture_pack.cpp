@@ -10,6 +10,8 @@
 #include <mutex>
 #include <set>
 #include <string_view>
+#include <thread>
+#include <tuple>
 #include <unordered_map>
 
 #include "common/json.h"
@@ -41,11 +43,20 @@ struct State {
     std::unordered_map<std::uint64_t, Kept> kept;
     std::size_t kept_bytes = 0;
     std::uint64_t uses = 0;
+    // Pictures met as a level's texture: not read ahead (preload()).
+    std::set<std::uint64_t> level_pictures;
+    fs::path pack;
+    // One more each configure(), so that a read ahead of an old pack is dropped.
+    unsigned generation = 0;
     fs::path dump;
     LevelNamer level_name = nullptr;
     std::unordered_map<std::uint64_t, fs::path> dumped;  // where each dumped texture lies, by hash
     std::set<std::uint64_t> grouped;  // first hashes of the cycles written under Animated/
     unsigned replaced = 0;
+    // preload()'s thread, last so that it stops before the rest goes; `reading` while it works.
+    bool reading = false;
+    bool read_again = false;
+    std::jthread reader;
 };
 
 State& state() {
@@ -481,6 +492,9 @@ void configure(const fs::path& pack, const fs::path& dump, Io io, LevelNamer lev
     s.animation_bytes = 0;
     s.kept.clear();
     s.kept_bytes = 0;
+    s.level_pictures.clear();
+    s.pack = pack;
+    ++s.generation;
     s.dumped.clear();
     s.grouped.clear();
     s.replaced = 0;
@@ -539,7 +553,7 @@ std::string file_name(std::uint64_t hash) {
 
 bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
     State& s = state();
-    const std::lock_guard guard(s.lock);
+    std::unique_lock guard(s.lock);
     if ((s.files.empty() && s.animated.empty() && s.dump.empty()) || image.pixels.empty()) {
         return false;
     }
@@ -578,39 +592,172 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
         if (found_out != nullptr) {
             found_out->blocks = kept->second.picture->blocks;
         }
+        // A level's texture, read ahead before it was known as one: the level keeps its own copy.
+        if (origin.level >= 0) {
+            s.level_pictures.insert(hash);
+            s.kept_bytes -= kept->second.bytes;
+            s.kept.erase(kept);
+        }
         return true;
     }
-    std::vector<fs::path>& candidates = found->second;
-    while (!candidates.empty()) {
-        auto picture = load_still(s.io, candidates.front(), image.width, image.height);
+    // The files are read without the lock: a level loading on another thread must not stop the
+    // 2D layer's conversions while it reads its pictures.
+    const Io io = s.io;
+    const unsigned generation = s.generation;
+    for (;;) {
+        const auto files = s.files.find(hash);
+        if (files == s.files.end()) {
+            return false;
+        }
+        if (files->second.empty()) {
+            s.files.erase(files);
+            return false;
+        }
+        const fs::path file = files->second.front();
+        guard.unlock();
+        auto picture = load_still(io, file, image.width, image.height);
+        guard.lock();
+        // Another pack was configured meanwhile: this one's picture is not used.
+        if (s.generation != generation) {
+            return false;
+        }
         if (picture && !picture->image.pixels.empty()) {
             // A level's textures are read once, as it loads; the rest come back while playing.
-            if (origin.level < 0) {
+            if (origin.level >= 0) {
+                s.level_pictures.insert(hash);
+                image = std::move(picture->image);
+                if (found_out != nullptr) {
+                    found_out->blocks = std::move(picture->blocks);
+                }
+            } else {
                 auto shared = std::make_shared<const Picture>(std::move(*picture));
                 keep(s, hash, shared);
                 image = shared->image;
                 if (found_out != nullptr) {
                     found_out->blocks = shared->blocks;
                 }
-            } else {
-                image = std::move(picture->image);
-                if (found_out != nullptr) {
-                    found_out->blocks = std::move(picture->blocks);
-                }
             }
             ++s.replaced;
             return true;
         }
         // A file that cannot be read is not tried again; the next picture of the texture is.
+        const auto again = s.files.find(hash);
+        if (again == s.files.end()) {
+            return false;
+        }
+        std::vector<fs::path>& candidates = again->second;
         log::warn(
             "texture pack: {} cannot be read; {}",
-            candidates.front().string(),
+            file.string(),
             candidates.size() > 1 ? "the next picture of it is used" : "the original is kept"
         );
-        candidates.erase(candidates.begin());
+        std::erase(candidates, file);
     }
-    s.files.erase(found);
-    return false;
+}
+
+namespace {
+
+// One pass of preload(): the pack's pictures for textures met while playing, smallest first, read
+// without the lock so that the game goes on meanwhile.
+void read_ahead(const std::stop_token& stop) {
+    State& s = state();
+    std::vector<std::tuple<std::uintmax_t, std::uint64_t, fs::path>> wanted;
+    Io io;
+    unsigned generation = 0;
+    {
+        const std::lock_guard guard(s.lock);
+        io = s.io;
+        generation = s.generation;
+        for (const auto& [hash, candidates] : s.files) {
+            // Read already, a level's own, or an SVG (drawn at the size of a texture not met yet).
+            if (candidates.empty() || s.kept.contains(hash) || s.level_pictures.contains(hash)
+                || candidates.front().extension() == ".svg") {
+                continue;
+            }
+            // A dump's Planets/ folder holds levels' textures (dump_folder()).
+            const fs::path where = candidates.front().lexically_relative(s.pack);
+            if (!where.empty() && *where.begin() == "Planets") {
+                continue;
+            }
+            std::error_code e;
+            wanted.emplace_back(fs::file_size(candidates.front(), e), hash, candidates.front());
+        }
+    }
+    // Small pictures first: HUD icons and effects are mostly small, and many fit the budget.
+    std::sort(wanted.begin(), wanted.end());
+    std::size_t read = 0;
+    std::size_t bytes = 0;
+    for (const auto& [file_bytes, hash, file] : wanted) {
+        if (stop.stop_requested()) {
+            return;
+        }
+        // One that cannot be read is left to replace(), which says why and tries the next picture.
+        auto picture = load_still(io, file, 0, 0);
+        if (!picture || picture->image.pixels.empty()) {
+            continue;
+        }
+        auto shared = std::make_shared<const Picture>(std::move(*picture));
+        const std::size_t size = picture_bytes(*shared);
+        const std::lock_guard guard(s.lock);
+        // Another pack was configured meanwhile, or the budget is full: pictures already kept are
+        // not pushed out by guesses.
+        if (s.generation != generation || s.kept_bytes + size > kMaxKeptPictureBytes) {
+            break;
+        }
+        if (!s.kept.contains(hash) && !s.level_pictures.contains(hash)) {
+            keep(s, hash, std::move(shared));
+            bytes += size;
+            ++read;
+        }
+    }
+    if (read > 0) {
+        log::info("texture pack: {} picture(s) read ahead ({} MB)", read, bytes >> 20);
+    }
+}
+
+}  // namespace
+
+void preload() {
+    State& s = state();
+    const std::lock_guard guard(s.lock);
+    if (s.files.empty()) {
+        return;
+    }
+    // A pass under way reads again when it ends: a level just loaded may have taken some.
+    if (s.reading) {
+        s.read_again = true;
+        return;
+    }
+    // The last pass has ended (reading is false), so its thread only has to leave.
+    if (s.reader.joinable()) {
+        s.reader.join();
+    }
+    s.reading = true;
+    s.reader = std::jthread([](const std::stop_token& stop) {
+        State& st = state();
+        for (;;) {
+            read_ahead(stop);
+            const std::lock_guard guard(st.lock);
+            // The thread takes the lock no more once it is not reading.
+            if (!st.read_again || stop.stop_requested()) {
+                st.reading = false;
+                return;
+            }
+            st.read_again = false;
+        }
+    });
+}
+
+void finish_preload() {
+    State& s = state();
+    std::jthread reader;
+    {
+        const std::lock_guard guard(s.lock);
+        reader = std::move(s.reader);
+    }
+    if (reader.joinable()) {
+        reader.join();
+    }
 }
 
 void set_block_format(BlockFormat format) {

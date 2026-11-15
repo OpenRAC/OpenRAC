@@ -401,6 +401,26 @@ void check_kept_pictures(const fs::path& root) {
     texture_pack::configure(root, {}, {counted_load, save});
     auto image = hud;
     CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 4);
+
+    // Read ahead while a level loads: the HUD's picture, not a dump's Planets/ folder; its first
+    // showing then reads nothing.
+    fs::create_directories(root / "Planets" / "Oozla");
+    fs::rename(
+        root / texture_pack::file_name(texture_pack::image_hash(wall)),
+        root / "Planets" / "Oozla" / texture_pack::file_name(texture_pack::image_hash(wall))
+    );
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    texture_pack::preload();
+    texture_pack::finish_preload();
+    CHECK(reads() == 1);
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && image.width == 16 && reads() == 1);
+    image = wall;
+    CHECK(texture_pack::replace(image, {.level = 1}) && reads() == 2);
+    texture_pack::preload();  // nothing left to read
+    texture_pack::finish_preload();
+    CHECK(reads() == 2);
     fs::remove_all(root);
 }
 
