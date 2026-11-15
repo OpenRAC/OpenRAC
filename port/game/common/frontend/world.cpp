@@ -71,8 +71,8 @@ namespace openrac::frontend {
 namespace {
 
 bool supports_enhanced_water(std::string_view game, int level) {
-    return (level == 1 && game.starts_with("rac1-"))
-           || (game == "rac1-ntsc" && (level == 11 || level == 17));
+    // Novalis, Pokitaru's ocean and Fleet's pools: every rac1 disc tags them (rac1 host C).
+    return game.starts_with("rac1-") && (level == 1 || level == 11 || level == 17);
 }
 
 // The extracted level the title world is written as (editor/level.py load_title).
