@@ -503,6 +503,7 @@ if(OPENRAC_PORT_GAMES)
   set_tests_properties(rac1-ntsc_hand_xcheck PROPERTIES SKIP_RETURN_CODE 77 LABELS game-rac1-ntsc)
   add_test(NAME xcheck_tool
            COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_xcheck.py")
-  add_test(NAME ntsc_twins_tool
-           COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_ntsc_twins.py")
+  # Every rac1 version binds each function, its C type and its data alike, or parity.tsv says why.
+  add_test(NAME parity_tool
+           COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_parity.py")
 endif()

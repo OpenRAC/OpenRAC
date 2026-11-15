@@ -18,6 +18,17 @@ there, by its PAL v2.00 name, so the four rac1 programs can be read side by side
   another, with no reason in port/game/<game>/parity.tsv. A version whose host/rac1_version.h
   leaves the shared host C out (RAC1_OMIT, with its reason) is not compared there.
 
+Two more, the same way:
+
+- a function bound in several versions with a different C type in its row (the last column):
+  the shared host C is then compiled against another declaration; a reason in parity.tsv says
+  how the version's header takes it ("sig" for the place);
+- an address of the game's data in a carried release's host/rac1_version.h (RAC1_ADDR,
+  RAC1_LADDR) that neither its release_names.json names nor follows the nearest named data before
+  and after it (both moved alike, and by as much): it is a guess with nothing behind it ("data",
+  with the address as the name: L17:00161240 or boot:0013D618). release_carry.json's addresses
+  (versionmap's pairs) count as named; its exact data matches are not recorded there.
+
 A row naming a variant of the program's split_places.tsv binds it by name (a carried release
 keeps PAL v2.00's name there, with its own places): it is read at the variant's first place.
 
@@ -136,11 +147,79 @@ def omits(header: Path) -> dict[str, str]:
     return out
 
 
+TYPE_WORDS = {"gaddr": "u32", "unsigned": "u32", "uint32_t": "u32", "u32": "u32", "s32": "int",
+              "int32_t": "int"}
+
+
+def signature(text: str) -> str:
+    """A row's C type in one spelling: gaddr and unsigned int alike, parameter names left out."""
+    m = re.fullmatch(r"\s*(.*?)\s*\((.*)\)\s*", text)
+    if not m:
+        return text.strip()
+
+    def one(part: str) -> str:
+        words = re.sub(r"\bunsigned\s+int\b", "unsigned", part).split()
+        if len(words) > 1 and words[-1] not in TYPE_WORDS and words[-1] not in (
+                "int", "float", "void", "char", "short", "long") and "*" not in words[-1]:
+            words = words[:-1]  # a parameter's name
+        return " ".join(TYPE_WORDS.get(w, w) for w in words)
+
+    args = [one(a) for a in m.group(2).split(",")] if m.group(2).strip() else []
+    return f"{one(m.group(1))} ({', '.join(args) or 'void'})"
+
+
+DEFINE = re.compile(r"^#define RAC1_ADDR_(?:L(\d\d)_)?0x([0-9A-Fa-f]{8})u\s+0x([0-9A-Fa-f]{8})u")
+SYMBOL = re.compile(r"^(?:D|func)_(?:V2_)?(?:L(\d\d)_)?([0-9A-F]{8})$")
+
+
+def data_addresses(program_dir: Path) -> list[tuple[str, str]]:
+    """The addresses in a carried release's rac1_version.h with nothing behind them: (name, why)."""
+    names_path, header = program_dir / "release_names.json", program_dir / "host/rac1_version.h"
+    if not names_path.is_file() or not header.is_file():
+        return []
+    table = json.loads(names_path.read_text())
+    known: dict[str, dict[int, int]] = defaultdict(dict)
+    for name in table.get("how", {}):  # every name the release's check or versionmap placed
+        m = SYMBOL.match(name)
+        if not m:
+            continue
+        mine = table.get("names", {}).get(name, name)
+        moved = SYMBOL.match(mine)
+        if moved:
+            known[m.group(1) or "boot"][int(m.group(2), 16)] = int(moved.group(2), 16)
+    carry = program_dir / "release_carry.json"  # versionmap's pairs a full run recorded
+    if carry.is_file():
+        for key, hit in json.loads(carry.read_text()).get("addresses", {}).items():
+            level, _, address = key.rpartition(":")
+            known[level or "boot"][int(address, 16)] = int(hit["as"], 16)
+    out = []
+    for line in header.read_text().splitlines():
+        m = DEFINE.match(line)
+        if not m:
+            continue
+        place, address, theirs = m.group(1) or "boot", int(m.group(2), 16), int(m.group(3), 16)
+        name = f"{'boot' if place == 'boot' else 'L' + place}:{address:08X}"
+        here = known.get(place, {})
+        if address in here:
+            if here[address] != theirs:
+                out.append((name, f"release_names.json places it at {here[address]:08X}, the header at {theirs:08X}"))
+            continue
+        below = max((a for a in here if a < address), default=None)
+        above = min((a for a in here if a > address), default=None)
+        moves = {here[a] - a for a in (below, above) if a is not None}
+        if below is None or above is None or moves != {theirs - address}:
+            out.append((name, f"no name there, and it does not move as the named data around it "
+                              f"({theirs - address:+#x}; " + ", ".join(
+                                  f"{a:08X} {here[a] - a:+#x}" for a in (below, above) if a is not None) + ")"))
+    return out
+
+
 def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
     spec = GAMES[game]
     source = root / spec["source"]
     errors: list[str] = []
     bound: dict[tuple[str, str], dict[str, str]] = defaultdict(dict)
+    typed: dict[str, dict[str, str]] = defaultdict(dict)
     cats: dict[str, Catalogue] = {}
     reasons = read_reasons(root / "port/game" / game / "parity.tsv")
     used = set()
@@ -192,6 +271,8 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
                               f"wrong address, and the function it is for runs its console C")
                 continue
             kinds[(name, at[0])].add(cols[3])
+            if len(cols) > 5 and cols[5].strip():
+                typed[name][program] = signature(cols[5])
         for key, k in kinds.items():
             bound[key][program] = ",".join(sorted(k))
     lines = []
@@ -217,6 +298,28 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
         errors.append(f"{game}: {name} ({place}) runs differently: "
                       + ", ".join(f"{p} {v}" for p, v in seen.items())
                       + f"; give the reason in port/game/{game}/parity.tsv ({','.join(sorted(odd))}) or fix the tables")
+    for name, by in sorted(typed.items()):
+        if len(set(by.values())) <= 1:
+            continue
+        why = reasons.get((name, "sig"))
+        counts = list(by.values())
+        common = next(v for v in by.values() if counts.count(v) == max(map(counts.count, counts)))
+        odd = {p for p, v in by.items() if v != common}
+        if why is not None:
+            used.add((name, "sig"))
+            if why[0] == odd:
+                continue
+        errors.append(f"{game}: {name}'s row has another C type in " + ", ".join(
+            f"{p} {v}" for p, v in by.items() if p in odd) + f" than in the others ({common}); give the "
+            f"reason in port/game/{game}/parity.tsv ({name}, sig, {','.join(sorted(odd))}) or fix the row")
+    for program in spec["programs"]:
+        for name, what in data_addresses(root / "port/game" / program):
+            why = reasons.get((name, "data"))
+            if why is not None and program in why[0]:
+                used.add((name, "data"))
+                continue
+            errors.append(f"{program}: host/rac1_version.h's address {name}: {what}; give the reason in "
+                          f"port/game/{game}/parity.tsv ({name}, data, {program}) or fix the address")
     for key in sorted(set(reasons) - used):
         errors.append(f"{game}: parity.tsv lists {key[0]} ({key[1]}), whose versions no longer differ: remove the row")
     if table:

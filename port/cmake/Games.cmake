@@ -203,9 +203,13 @@ function(openrac_add_game config)
   # Handwritten replacements can live below hand/functional and other subfolders.
   # Track their contents, not only the immediate directory entry, on edits.
   file(GLOB_RECURSE hand_inputs CONFIGURE_DEPENDS "${config_dir}/hand/*")
-  # The parity check reads the tables of the game's programs and the game's reasons.
+  # The parity check reads the tables, headers and release names of the game's programs and the
+  # game's reasons.
   string(REGEX REPLACE "-.*" "" parity_game "${id}")
   file(GLOB parity_inputs CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/${parity_game}-*/libraries.tsv"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/host/${parity_game}_version.h"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/release_names.json"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/release_carry.json"
        "${OPENRAC_GAME_DIR}/${parity_game}/parity.tsv")
   list(APPEND parity_inputs "${OPENRAC_PARITY}")
   # A game whose assembly a build without the disc calls through slots (hostgen.json "asm"

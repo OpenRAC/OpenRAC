@@ -84,5 +84,35 @@ class Parity(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIn("func_00100100 (03) runs differently", errors[0])
 
+    def test_a_row_with_another_c_type(self):
+        a = "func_00100000\tx\tf1\twrap\tnote\tint (gaddr menu)\n"
+        self.assertEqual(self.tables(a, "func_00100F00\tx\tf1\twrap\tnote\tint (unsigned int)\n"), [])
+        b = "func_00100F00\tx\tf1\twrap\tnote\tvoid (gaddr, int)\n"
+        errors = self.tables(a, b)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("another C type in toy-b void (u32, int)", errors[0])
+        self.assertEqual(self.tables(a, b, "func_00100000\tsig\ttoy-b\tb's decomp declares it so\n"), [])
+
+    def test_a_data_address_with_nothing_behind_it(self):
+        b = self.root / "port/game/toy-b"
+        (b / "host").mkdir()
+        (b / "release_names.json").write_text(json.dumps({
+            "how": {"D_L17_00160000": "x", "D_L17_00160100": "x", "D_00130000": "x"},
+            "names": {"D_L17_00160000": "D_L17_0015FF00", "D_L17_00160100": "D_L17_00160000"}}))
+        header = b / "host/rac1_version.h"
+        # Named, between neighbours that moved alike, and unchanged in the executable: all fine.
+        header.write_text("#define RAC1_ADDR_L17_0x00160000u 0x0015FF00u\n"
+                          "#define RAC1_ADDR_L17_0x00160080u 0x0015FF80u\n"
+                          "#define RAC1_ADDR_0x00130000u 0x00130000u\n")
+        self.assertEqual(self.tables("", ""), [])
+        header.write_text("#define RAC1_ADDR_L17_0x00160080u 0x0015FF90u\n#define RAC1_ADDR_0x00130000u 0x00130010u\n")
+        errors = self.tables("", "")
+        self.assertEqual(len(errors), 2, errors)
+        self.assertIn("L17:00160080: no name there", errors[0] + errors[1])
+        self.assertIn("boot:00130000: release_names.json places it at 00130000", errors[0] + errors[1])
+        why = "L17:00160080\tdata\ttoy-b\tchecked by hand\nboot:00130000\tdata\ttoy-b\tchecked by hand\n"
+        self.assertEqual(self.tables("", "", why), [])
+
+
 if __name__ == "__main__":
     unittest.main()
