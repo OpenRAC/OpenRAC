@@ -10,6 +10,7 @@ capturing a tick; rendering consumes the captured scene and does not read live g
 - `render_worker.h`: persistent worker with one accepted job, including the running job.
 - `scene_frame.cpp`: world target setup, lighting and temporal reconstruction.
 - `scene_interpolation.cpp`: camera, object, joint and shadow interpolation.
+- `scenery_capture.h`: owned scenery records; camera visibility leaves shadow casters resident.
 - `scene_hud.cpp`: captured HUD data, offscreen menu objects and retained backgrounds.
 
 ## Depends on
@@ -61,7 +62,8 @@ See [debugging](../../../../docs/port/DEBUGGING.md) for run and capture switches
 
 `render_worker` checks owned input, slot reuse, publication, captured-owner release, exception
 reporting, inherited rounding and joining at destruction. `stats`, `frame_counter`, `settings`
-and `env` cover profiling and configuration. Game integration checks need locally extracted data:
+and `env` cover profiling and configuration. `scenery_capture` covers offscreen caster residency,
+persistent hiding, draw-distance limits and owned matrix capture. Game integration checks need locally extracted data:
 compare matching views with Vulkan validation, including menu readbacks, render-size changes
 and quitting with a frame pending.
 

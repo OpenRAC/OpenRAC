@@ -59,9 +59,8 @@ struct GameScenery {
     // Per tie and per shrub, nonzero where the game has hidden it in its record: a tie's +0x1E bit
     // 2, a shrub's +0x16 bit 0, which Going Commando's TieProc (0x2F133C) and ShrubProc
     // (0x2E15B0) test to leave it undrawn. Empty: none hidden.
-    // Going Commando's frontend also leaves out the ones its culls leave undrawn this tick: a tie
-    // whose occlusion bit the frame's mask clears, and a tie or shrub past its draw distance (at
-    // most the level's cap; at "Draw distance: Unlimited" the cap alone).
+    // The frontend also applies the scaled draw-distance limits.
+    // Camera PVS and near-plane culls leave shadow casters resident; the visible pass applies them.
     std::vector<std::uint8_t> tie_hidden;
     std::vector<std::uint8_t> shrub_hidden;
     // Each terrain fragment's occlusion word, in the game's fragment order (its tfrag records'
