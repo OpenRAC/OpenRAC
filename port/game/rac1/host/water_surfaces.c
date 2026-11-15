@@ -2,15 +2,52 @@
 /* Copyright (c) 2026 the OpenRAC contributors */
 /* Enhanced water on Pokitaru's ocean and Fleet's pools: tags in the level's draw chain that the
  * renderer reads, and nothing else. The game's own draws run unchanged. */
-#include "rac1.h"
-
 #include <stdint.h>
+#include <stdio.h>
+
+#include "rac1.h"
 
 /* The level's VIF chain cursor (l11_gif_packet_cursor, D_L11_00161240; the same in level 17). */
 #define L11_PACKET OPENRAC_LDATA(11, RAC1_LADDR(11, 0x00161240u))
 #define L17_PACKET OPENRAC_LDATA(17, RAC1_LADDR(17, 0x00161240u))
 
 void openrac_skip_ocean_quad(int skip);
+
+/* The cursor's address comes from each version's rac1_version.h; PAL v1 and NTSC-J level 17's is
+ * inferred from its neighbours. A tag is written only once the game's own draw is seen moving
+ * the cursor forward through aligned packets, so a wrong address never gets a write. */
+enum {
+    CURSOR_UNKNOWN,
+    CURSOR_GOOD,
+    CURSOR_BAD
+};
+
+static int cursor_state[2];
+
+static int packet_address(gaddr at) {
+    return at != 0 && (at & 15u) == 0 && at < openrac_guest_ram_size - 64u;
+}
+
+static void cursor_seen(int which, int level, gaddr before, gaddr after) {
+    if (cursor_state[which] != CURSOR_UNKNOWN || before == after) {
+        return;
+    }
+    const int good = packet_address(before) && packet_address(after) && after > before
+                     && after - before < 0x100000u;
+    cursor_state[which] = good ? CURSOR_GOOD : CURSOR_BAD;
+    if (good) {
+        fprintf(stderr, "[info] enhanced water: level %d's packet cursor checked\n", level);
+    } else {
+        fprintf(
+            stderr,
+            "[warning] enhanced water: level %d's packet cursor is not where this version's "
+            "table says (0x%08X moved to 0x%08X); its water stays plain\n",
+            level,
+            (unsigned)before,
+            (unsigned)after
+        );
+    }
+}
 
 /* A harmless GS NOP that names the water surface the following packets draw (0 ends it). It
  * travels with the level's chain, including the one-tick display delay. */
@@ -31,9 +68,13 @@ static void water_level_marker(gaddr cursor, unsigned surface) {
  * composes transmission itself, so submit each physical strip only once. */
 static int fleet_water_strips = -1;
 
-static void fleet_water_draw(void (*draw)(unsigned int), unsigned int moby, unsigned surface, int strips) {
-    if (!openrac_game_enhanced_water()) {
+static void fleet_water_draw(
+    void (*draw)(unsigned int), unsigned int moby, unsigned surface, int strips
+) {
+    const gaddr before = GREF(gaddr, L17_PACKET);
+    if (!openrac_game_enhanced_water() || cursor_state[1] != CURSOR_GOOD) {
         draw(moby);
+        cursor_seen(1, 17, before, GREF(gaddr, L17_PACKET));
         return;
     }
     water_level_marker(L17_PACKET, surface);
@@ -59,7 +100,9 @@ void func_L17_002F2BD8(unsigned int moby) {
 }
 
 /* draw_env_overlay_mesh: inside a Fleet pool's draw, only the first scroll pass. */
-void func_L00_001FDE48(int count, unsigned int vertices, unsigned int colours, unsigned int uv, int mode) {
+void func_L00_001FDE48(
+    int count, unsigned int vertices, unsigned int colours, unsigned int uv, int mode
+) {
     if (fleet_water_strips == 0) {
         return;
     }
@@ -71,7 +114,8 @@ void func_L00_001FDE48(int count, unsigned int vertices, unsigned int colours, u
 
 /* draw_pokitaru_ocean: the original draw packets stay, the tag is local to the callback. */
 void func_L11_0030BCD8(unsigned int moby) {
-    const int enhanced = openrac_game_enhanced_water();
+    const gaddr before = GREF(gaddr, L11_PACKET);
+    const int enhanced = cursor_state[0] == CURSOR_GOOD ? openrac_game_enhanced_water() : 0;
     if (enhanced) {
         water_level_marker(L11_PACKET, 1);
     }
@@ -79,6 +123,7 @@ void func_L11_0030BCD8(unsigned int moby) {
         openrac_skip_ocean_quad(1);
     }
     func_L11_0030BCD8__game(moby);
+    cursor_seen(0, 11, before, GREF(gaddr, L11_PACKET));
     if (enhanced == 2) {
         openrac_skip_ocean_quad(0);
     }
