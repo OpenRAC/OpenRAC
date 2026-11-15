@@ -488,6 +488,11 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     # "hand": the release's own C for its own hand-written assembly (func_PAL_...), beside its hostgen.json.
     if (p.out_dir / "hand/hand.tsv").is_file():
         out["hand"] = "hand/hand.tsv"
+    else:
+        out.pop("hand", None)
+    # The primary's hand C, in its names: hostgen renames it through the release view.
+    if cfg.get("hand"):
+        out["primary_hand"] = f"../{p.primary_dir.name}/{cfg['hand']}"
     out["relocate"] = [info["level_base"], cfg["relocate"][1]]
     out["level_hooks"] = level_hooks(p, carry_list(p, cfg.get("level_hooks", []), "level_hooks"),
                                      cfg.get("level_hooks", []))

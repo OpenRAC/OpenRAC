@@ -477,6 +477,7 @@
   "params_from_declarations": true,
   "jump_tables": "tables/jump_tables.json",
   "overrides": "hand/overrides.tsv",
+  "hand": "hand/hand.tsv",
   "extra_params": {
     "#": "Arguments a function's matching C leaves in their registers for a call it makes; each checked against the retail assembly (the register is the function's own argument).",
     "func_00335918": [

@@ -141,6 +141,24 @@ def read_hand(config_dir: Path, cfg: dict) -> dict[str, str]:
     return read_table_of_c(config_dir / table)
 
 
+def read_primary_hand(config_dir: Path, cfg: dict) -> dict[str, str]:
+    """The primary release's hand C, for another release (hostgen.json "primary_hand": the primary's
+    hand table, relative to this configuration): written in the primary's names, so each text and
+    each name is renamed through the release view, as the decompilation's own candidates are. One
+    file of C then serves every release of the game (rac2's hand-written assembly: port/game/rac2-ntsc/
+    hand). A release's own "hand" row for the same function wins."""
+    table = cfg.get("primary_hand")
+    if not table or RELEASE is None or not (config_dir / table).is_file():
+        return {}
+    texts: dict[int, str] = {}
+    out: dict[str, str] = {}
+    for name, c in read_table_of_c(config_dir / table).items():
+        if id(c) not in texts:
+            texts[id(c)] = RELEASE.text(c)
+        out[RELEASE.name(name)] = texts[id(c)]
+    return out
+
+
 def read_overrides(config_dir: Path, cfg: dict) -> dict[str, str]:
     """The port's own C for functions the decompilation has as matching C (hostgen.json
     "overrides": a table beside the game's configuration, files relative to it, as "hand"): what
@@ -904,13 +922,13 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
                     if p.is_file() and p.suffix in (".json", ".tsv", ".c", ".h", ".txt", ".inc"))
     paths += [config.parent / cfg.get("library_api", "../common/libraries.tsv"), HERE / "include"]
     paths += sorted((config.parent.parent / str(cfg.get("game", "")) / "host").glob("*.c"))
-    for key in ("libraries", "hand", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
+    for key in ("libraries", "hand", "primary_hand", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
     if cfg.get("drafts"):
         paths.append(config.parent / cfg["drafts"]["units"])
     # Hand/override tables may name C outside the configuration's own directory.
-    for key in ("hand", "overrides"):
+    for key in ("hand", "primary_hand", "overrides"):
         if cfg.get(key):
             table = config.parent / cfg[key]
             if table.is_file():
@@ -1102,7 +1120,7 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
         # end, a program of its own) are its file's.
         texts = {id(c): RELEASE.text(c, files.get(name)) for name, c in decomp.items()}
         decomp = {RELEASE.text(name, files.get(name)): texts[id(c)] for name, c in decomp.items()}
-    candidates = {**decomp, **read_hand(args.game.parent, cfg)}
+    candidates = {**decomp, **read_primary_hand(args.game.parent, cfg), **read_hand(args.game.parent, cfg)}
     # A candidate for a function the port writes itself (libraries.tsv host rows, "host_functions")
     # is not read: the port's version replaces the function, and what the candidate's file defines
     # besides is dead (rac1/pal's DIntr, func_0011D960, keeps the interrupt enable bit in a global
