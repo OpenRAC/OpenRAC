@@ -238,9 +238,11 @@ mod tests {
         assert!(!v.local.as_ref().unwrap().current);
         assert!(!v.available[0]);
         // Cut short, another game's, another format: said, not used.
-        for text in [&run("rac2-ntsc", CONVERTER, true, &["font"])[..40], &run("rac1-pal", CONVERTER, true, &["font"]),
-            r#"{"format": 2, "game": "rac2-ntsc"}"#]
-        {
+        for text in [
+            &run("rac2-ntsc", CONVERTER, true, &["font"])[..40],
+            &run("rac1-pal", CONVERTER, true, &["font"]),
+            r#"{"format": 2, "game": "rac2-ntsc"}"#,
+        ] {
             write(&local_file(data, "rac2-ntsc"), text);
             let v = view(data, "rac2", "ntsc").unwrap();
             assert_eq!((v.local, v.unreadable.len()), (None, 1));
@@ -271,8 +273,11 @@ mod tests {
         let local = view(data, "rac1", "pal").unwrap().local.unwrap();
         assert_eq!(local.complete, [true; 3]);
         assert_eq!(local.kind_made[2].as_deref(), Some("2026-11-14"));
-        let skipped = run("rac1-pal", CONVERTER, true, &["font"])
-            .replacen(r#""blobs""#, r#""routes": {"done": [], "skipped": ["title-load-0"]}, "blobs""#, 1);
+        let skipped = run("rac1-pal", CONVERTER, true, &["font"]).replacen(
+            r#""blobs""#,
+            r#""routes": {"done": [], "skipped": ["title-load-0"]}, "blobs""#,
+            1,
+        );
         write(&local_file(data, "rac1-pal"), &skipped);
         assert_eq!(view(data, "rac1", "pal").unwrap().local.unwrap().complete, [false; 3]);
     }
@@ -303,7 +308,9 @@ mod tests {
             if has("interface-run") {
                 assert!(has("interface-export"), "{key}");
             }
-            for a in list.as_array().unwrap().iter().filter(|a| a["id"] == "interface-export" || a["id"] == "interface-run") {
+            for a in
+                list.as_array().unwrap().iter().filter(|a| a["id"] == "interface-export" || a["id"] == "interface-run")
+            {
                 let options: Vec<String> =
                     a["options"].as_array().unwrap().iter().map(|o| o.as_str().unwrap().to_string()).collect();
                 // Every choice of kinds the panel can make is one of the action's options.

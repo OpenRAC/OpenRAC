@@ -507,8 +507,8 @@ async fn interface_runs_view(
 ) -> Result<openrac_launcher_core::interface_runs::View, String> {
     let data = game_data_dir(&state, &game)?;
     tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::interface_runs::view(&data, &game, &version))
-    .await
-    .map_err(|e| e.to_string())?
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// A game version's Texture packs section.
