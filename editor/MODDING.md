@@ -217,9 +217,9 @@ are the same for either. `stack --levels` names the levels the game will
 play, and its `--out` is that disc's folder: `stack --into build/overrides
 --out build/mods/ntsc --levels assets/port/rac1/ntsc` puts the same packs
 together for the other disc. `--what` is `mobys`, `weapons`, `textures`,
-`scenery` (ties and shrubs), `terrain` or `all`. `weapons` is every weapon and
-gadget Ratchet holds or wears (Ratchet & Clank and Going Commando), each from
-the first level that has it, whatever `--level` says. Inside this repository, output goes under
+`scenery` (ties and shrubs), `terrain` or `all`. `weapons` exports every weapon
+and gadget Ratchet uses (Ratchet & Clank and Going Commando) and ignores
+`--level`. Inside this repository, output goes under
 `assets/` or `build/` only.
 
 ## The pack format

@@ -52,37 +52,27 @@ not into your pack.
 
 ## Export without playing
 
-**Make your own → Models and textures → Interface textures** writes the HUD,
-the menus, the font and the effects straight from your disc, without playing:
-`Font/`, `HUD and menus/` and `Effects/` in a new folder under
-`<data>/exports/`, each file named as a dump names it. Tick the kinds you want.
+**Make your own → Models and textures → Interface textures** saves the HUD,
+menu, font and effect textures from your disc, with no need to play. They go
+into a new folder under `<data>/exports/`, sorted into `Font/`,
+`HUD and menus/` and `Effects/`, with the same file names a dump uses.
 
-The export reads a *run*: a list of the interface textures the game made while
-its test routes played (every level, the pause pages, the vendor, the title),
-and where the bytes each one was made from are on the disc. It holds no byte
-of the game, only hashes, registers and places on the disc. The export reads those bytes from your disc, makes each picture
-through the port's own conversion, and keeps it only if it comes out under its
-name: a different disc or version makes nothing wrong, only less.
+It works in two steps:
 
-- **Make** plays the routes on your computer, hidden, with the 3D world not
-  drawn and in a small window: only the HUD and the effects matter, and it
-  makes the same textures (a few minutes to a quarter of an hour; **Stop** ends
-  it). The project ships no run: each player makes their own once.
-  The routes that load a saved game play on a memory card of the run's own (a
-  New Game on an empty card, then every slot prepared from it), never yours. It needs the game set up and its levels ready,
-  for the versions that have routes (Ratchet & Clank NTSC-U and PAL, Going
-  Commando NTSC-U). The run is `<data>/interface_runs/<id>.json`.
-- A run can be made a kind at a time (Font, HUD and menus, Effects): it plays
-  only the routes that kind needs (run.py `KIND_ROUTES`), and a later run adds
-  to the file, never playing a route it already has. A run of a newer
-  conversion than the file's makes it again.
+1. **Make** plays the game's test routes once, hidden, and notes which
+   textures it draws and where they come from on the disc. This takes a few
+   minutes, and **Stop** ends it. You can make one kind at a time; a later run
+   adds to the first. The result is `<data>/interface_runs/<id>.json`. It holds
+   no game data, only hashes and disc positions.
+2. **Export** rebuilds each texture from your disc and keeps it only if it
+   matches. This takes about a second.
 
-A run is tied to the conversion it was made with
-(`renderer/textures/interface_run.h` `kConverter`): a change to the
-conversion that changes a texture's picture or name raises it, and older runs
-show as out of date. Textures the game makes from code rather than from the
-disc (a fade, a screen it draws into) have no place on the disc; the run
-counts them as missing. From the command line:
+Available for Ratchet & Clank NTSC-U and PAL, and Going Commando NTSC-U. The
+game must be set up and its levels ready. A run made by an older port shows as
+out of date: make it again. Textures the game draws from code (a fade, a
+screen effect) are not on the disc, so they can't be exported.
+
+From the command line:
 
 ```
 python3 port/tools/interface_runs/run.py run --game rac1-ntsc --out run.json --exe <program> --data <data> --levels <levels> [--kinds font,interface,effects] [--fresh]
