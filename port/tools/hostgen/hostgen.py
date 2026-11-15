@@ -1510,9 +1510,20 @@ def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
     the table (rac1, rac2: their release builds run without the disc's assembly)."""
     asm = {n for n, p in summary["without_c_places"].items() if p.get("kind") == "asm" and "other_spelling" not in p}
     asm |= set(summary.get("from_assembly", {}))
+    # A call by another spelling of the function (a derived r1_ name for the same place) is a call of it.
+    # So is a name at the same place (r1_func_0012A418, the address the decompilation's derived names
+    # give func_0012E238).
+    spelling = {n: p["other_spelling"] for n, p in summary["without_c_places"].items() if "other_spelling" in p}
+    at = {tuple(pl): n for n in asm for pl in summary["without_c_places"].get(n, {}).get("places", [])}
+    for n, p in summary["without_c_places"].items():
+        if n not in asm and n not in spelling:
+            for pl in p.get("places", []):
+                if tuple(pl) in at:
+                    spelling[n] = at[tuple(pl)]
     reached: dict[str, set[str]] = {}
     for caller, callees in summary["call_graph"].items():
         for c in callees:
+            c = spelling.get(c, c)
             if c in asm and c != caller:
                 reached.setdefault(c, set()).add(caller)
     # A function translated from assembly is its assembly, reached or not: the disc's part.

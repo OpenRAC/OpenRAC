@@ -65,8 +65,9 @@ int func_0011CDA0(void)
     }
     quads = (size + 15) >> 4;
     from[0] = 0;
+    /* lq ignores the address's low four bits: whole quadwords from the one the header is in. */
     for (i = 0; i < quads * 4; i++) {
-        packet[i] = ((u32 *)from)[i];
+        packet[i] = ((u32 *)((u32)from & ~15))[i];
     }
     func_0011B010();
     id = (int)packet[2];
