@@ -16,6 +16,7 @@
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/scene_frame_internal.h"
+#include "program/program.h"
 #include "renderer/direct/direct.h"
 #include "renderer/gl/gl.h"
 
@@ -239,6 +240,7 @@ void set_packets(SceneFrame& frame) {
     // Mesh shaders apply AO to indirect lighting before direct light is added.
     input.gtao = enhanced && graphics.gtao && has_camera && (scene.draws & 0x1Fu) != 0;
     input.frame = scene.frame;
+    input.tick_rate = program::tick_rate();
     input.enhanced_water = enhanced;
     input.lily_momentum = graphics.lily_momentum;
     input.water_hands = scene.water_hands;
