@@ -269,6 +269,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L09_0x001FCA00u 0x001FC640u
 #define RAC1_ADDR_L09_0x002F0AA0u 0x002EF078u
 #define RAC1_ADDR_L11_0x00160058u 0x0015FF58u
+#define RAC1_ADDR_L11_0x00161240u 0x00161140u
+/* Level 17's chain cursor (water_surfaces.c): release_names.json has no name there; its neighbours
+ * D_L17_0016016C and D_L17_00161350 move alike, so it does too. */
+#define RAC1_ADDR_L17_0x00161240u 0x00161140u
 #define RAC1_ADDR_L11_0x001AC540u 0x001AC1C0u
 #define RAC1_ADDR_L11_0x001DAB40u 0x001DA780u
 #define RAC1_ADDR_L13_0x00161F18u 0x00161E08u

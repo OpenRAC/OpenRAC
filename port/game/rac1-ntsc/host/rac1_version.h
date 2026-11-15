@@ -722,5 +722,18 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L14_0x001E9FA0u 0x001E9C60u
 #define RAC1_ADDR_L18_0x001DFED0u 0x001DFC10u
 #define RAC1_ADDR_0x00160020u 0x0015FF20u
+/* Pokitaru's ocean and Fleet's pools (rac1/host/water_surfaces.c): the level chain's cursor. */
+#define RAC1_ADDR_L11_0x00161240u 0x001611C0u
+#define RAC1_ADDR_L17_0x00161240u 0x001611C0u
+#define func_L17_002F1FE0 game_FUN_L17_002f04d0
+#define func_L17_002F1FE0__game game_FUN_L17_002f04d0__game
+#define func_L17_002F2458 game_FUN_L17_002f0948
+#define func_L17_002F2458__game game_FUN_L17_002f0948__game
+#define func_L17_002F2BD8 game_FUN_L17_002f10c8
+#define func_L17_002F2BD8__game game_FUN_L17_002f10c8__game
+#define func_L00_001FDE48 game_FUN_L00_001fde98
+#define func_L00_001FDE48__game game_FUN_L00_001fde98__game
+#define func_L11_0030BCD8 game_FUN_L11_0030a908
+#define func_L11_0030BCD8__game game_FUN_L11_0030a908__game
 
 #endif /* OPENRAC_RAC1_VERSION_H */
