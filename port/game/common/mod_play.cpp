@@ -604,6 +604,59 @@ int api_play_overlay_pause(openrac_mod* mod, int on) {
     return OPENRAC_HOOK_OK;
 }
 
+int api_moby_slot_of(openrac_gaddr moby);
+
+// The game's own segment query for a mod (interface 1.17): the host's, the moby hit named by its
+// slot.
+int api_collision_line(
+    const float from[3],
+    const float to[3],
+    std::uint32_t flags,
+    std::int32_t ignore,
+    openrac_line_hit* out
+) {
+    if (g_play == nullptr || g_play->collision_line == nullptr || from == nullptr || to == nullptr
+        || out == nullptr || out->size < sizeof(openrac_line_hit)
+        || (flags & (OPENRAC_LINE_LEVEL | OPENRAC_LINE_MOBYS)) == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (int k = 0; k < 3; ++k) {
+        if (!std::isfinite(from[k]) || !std::isfinite(to[k])) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+    }
+    const gaddr skip = ignore >= 0 ? moby_address(ignore) : 0;
+    float point[3] = {}, normal[3] = {};
+    std::int32_t surface = -1;
+    std::uint32_t moby = 0;
+    const int hit = g_play->collision_line(
+        from,
+        to,
+        (flags & OPENRAC_LINE_LEVEL) != 0,
+        (flags & OPENRAC_LINE_MOBYS) != 0,
+        skip,
+        point,
+        normal,
+        &surface,
+        &moby
+    );
+    const std::uint32_t size = out->size;
+    *out = openrac_line_hit{};
+    out->size = size;
+    out->hit = hit != 0;
+    out->surface = -1;
+    out->moby = -1;
+    if (hit != 0) {
+        for (int k = 0; k < 3; ++k) {
+            out->point[k] = point[k];
+            out->normal[k] = normal[k];
+        }
+        out->surface = surface;
+        out->moby = moby != 0 ? api_moby_slot_of(moby) : -1;
+    }
+    return OPENRAC_HOOK_OK;
+}
+
 int api_moby_slot_of(openrac_gaddr moby) {
     return g_play != nullptr && g_play->slot_of != nullptr
                    && moby_address(g_play->slot_of(moby)) == moby
@@ -1838,6 +1891,7 @@ void fill_play_api(
     api.camera_script_view = api_camera_script_view;
     api.camera_script_show = api_camera_script_show;
     api.level_line = api_level_line;
+    api.collision_line = api_collision_line;
     api.play_scene_from = api_play_scene_from;
     api.play_live_picture = api_play_live_picture;
     api.on_metal_detect = api_on_metal_detect;

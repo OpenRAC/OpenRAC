@@ -2,11 +2,12 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Check the conservative pull request build gate."""
 
+from pathlib import Path
 import subprocess
 import unittest
 from unittest.mock import patch
 
-from ci_scope import docs_only, ios_plan, plan, pushed_paths
+from ci_scope import docs_only, ios_plan, plan, programs, pushed_paths
 
 
 class CiScopeTest(unittest.TestCase):
@@ -89,6 +90,13 @@ class PlanTest(unittest.TestCase):
         self.check(["port/game/rac1/host/hand.c"], port=True, enhanced=False,
                    port_parts=["rac1-ntsc", "rac1-pal", "rac1-pal1"])
         self.check(["games/rac2/game.json"], launcher=True, port=False, port_parts=["rac2-ntsc", "rac2-pal"])
+
+    def test_going_commandos_pal_and_v2_are_built_as_their_own_programs(self):
+        known = programs(Path(__file__).resolve().parents[1])
+        self.assertEqual((known["rac2-pal"], known["rac2-ntsc2"], known["rac1-pal1"]), (False, False, True))
+        parts = plan(["port/runtime/guest.cpp"], known)["port_parts"]
+        self.assertTrue({"rac2-ntsc", "rac2-pal", "rac2-ntsc2"} <= set(parts))
+        self.assertEqual(plan(["games/rac2/game.json"], known)["port_parts"], ["rac2-ntsc", "rac2-ntsc2", "rac2-pal"])
 
     def test_shared_code_builds_every_program_but_the_carried_releases(self):
         for path in ("port/renderer/frame.cpp", "port/game/common/main.cpp", "tools/build_port.py",

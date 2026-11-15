@@ -6,9 +6,11 @@
  *
  * Outside a level the title and its menus ("front_end"). In a level by its game state
  * (g_nGameState, as rac1's game mode): 0 play, 3 the pause menu ("menu", or "map" on the Galactic
- * Map), 4 a dialog ("dialog"; quick select keeps play's), 5 a vendor ("vendor"), anything else a
- * movie, a scene or a load ("cutscene"). In play the space combat levels are the ship's, Giant
- * Clank his own, then swimming, grinding and on foot. Hints: a "press triangle" prompt.
+ * Map), 4 a dialog ("dialog"; quick select keeps play's), 5 a vendor ("vendor"), 7 a minigame that
+ * hides the level, such as a hacking board ("minigame": Circle tries again, Triangle quits),
+ * anything else a movie, a scene or a load ("cutscene"). In play the space combat levels are the
+ * ship's, Giant Clank his own, then swimming, grinding and on foot. Hints: a "press triangle"
+ * prompt.
  * Installed with the tools (tools.c, rac2_install_tools).
  */
 #include "openrac/game_host.h"
@@ -105,6 +107,9 @@ int rac2_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX])
             return 0;
         case 5:
             *context = "vendor";
+            return 0;
+        case 7:
+            *context = "minigame";
             return 0;
         default:
             *context = "cutscene";

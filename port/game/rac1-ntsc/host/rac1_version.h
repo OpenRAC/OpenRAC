@@ -354,6 +354,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
         return;                                                                                    \
     } while (0)
 
+/* draw_visibomb_outside_zone_overlay in the NTSC decomp's visibomb_zone_timer.c:
+ * PAL's DrawTiledScreenOverlay (func_L01_00303810), including the retail call under the wrap. */
+#define func_L01_00303810 game_FUN_L01_00302438
+#define func_L01_00303810__game game_FUN_L01_00302438__game
+
 /* ---- generated below ---- */
 
 /* Functions: games/rac1's name, this version's. */
