@@ -713,6 +713,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         reasons[key] = reasons.get(key, 0) + 1
     no_c = [f for f in program.stubs()]
     stage = extra.pop("asm", None) or asmc.Stage()
+    allow = extra.pop("assembly_allow", {})
     asm_reasons: dict[str, int] = {}
     for why in stage.unsupported.values():
         key = re.sub(r",? at [0-9A-F]{8}\b| \([0-9A-F]{8}\)", "", why)
@@ -763,6 +764,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
                                   if r.report is not None and r.report.calls})
     frontier = boot_frontier(fns_and_asm, program, extra.get("roots", []))
     summary["frontier"] = frontier
+    summary.update(assembly_guard(summary, allow))
     (out / "report.json").write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
     md = [
         f"# hostgen report: {game}",
@@ -922,7 +924,7 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
                     if p.is_file() and p.suffix in (".json", ".tsv", ".c", ".h", ".txt", ".inc"))
     paths += [config.parent / cfg.get("library_api", "../common/libraries.tsv"), HERE / "include"]
     paths += sorted((config.parent.parent / str(cfg.get("game", "")) / "host").glob("*.c"))
-    for key in ("libraries", "hand", "primary_hand", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
+    for key in ("libraries", "hand", "primary_hand", "assembly_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
     if cfg.get("drafts"):
@@ -1460,9 +1462,50 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
                   "--disc <image> --kit <Windows kit> --out <dir>", file=sys.stderr)
             return None
     extra["asm"] = asm_stage
+    extra["assembly_allow"] = read_assembly_allow(args.game.parent, cfg)
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))
     return write_report(out, reports, program, extra, cfg.get("title", cfg.get("name", "")))
+
+
+def read_assembly_allow(config_dir: Path, cfg: dict) -> dict[str, str]:
+    """hostgen.json "assembly_allow": a table of name<TAB>reason, the functions the program may leave to
+    their assembly although translated code reaches them (assembly_guard)."""
+    table = cfg.get("assembly_allow")
+    if not table:
+        return {}
+    out = {}
+    for line in (config_dir / table).read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            name, _, reason = line.partition("\t")
+            if not reason.strip():
+                raise SystemExit(f"hostgen: {table}: {name.strip()} has no reason")
+            out[name.strip()] = reason.strip()
+    return out
+
+
+def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
+    """The functions the port runs as their retail assembly, or as a stub in its place, although
+    translated code reaches them: a call, or its address taken (in code or as a literal). Without the
+    disc such a function is a stub that returns 0, and the game goes wrong quietly (Going Commando's
+    72 routines in a release build without the disc's part); with it, it runs the assembly's
+    translation, which nothing but play checks. Each needs C of the port's own (hand/hand.tsv, a host
+    row) or a row of "assembly_allow" saying why not. main() fails the run on any other; the report
+    keeps them all ("assembly_reached": name -> the functions that reach it). A game opts in by having
+    the table (rac1, rac2: their release builds run without the disc's assembly)."""
+    asm = {n for n, p in summary["without_c_places"].items() if p.get("kind") == "asm" and "other_spelling" not in p}
+    asm |= set(summary.get("from_assembly", {}))
+    reached: dict[str, set[str]] = {}
+    for caller, callees in summary["call_graph"].items():
+        for c in callees:
+            if c in asm and c != caller:
+                reached.setdefault(c, set()).add(caller)
+    # A function translated from assembly is its assembly, reached or not: the disc's part.
+    for name in summary.get("from_assembly", {}):
+        reached.setdefault(name, set())
+    return {"assembly_reached": {n: sorted(v) for n, v in sorted(reached.items())},
+            "assembly_unallowed": sorted(n for n in reached if n not in allow),
+            "assembly_allow_unused": sorted(n for n in allow if n not in reached)}
 
 
 def stop_for_unreadable_units(reports: list[UnitReport], allow_unreadable: bool) -> bool:
@@ -1574,6 +1617,15 @@ def main(argv: list[str] | None = None) -> int:
     summary = write_outputs(out, args, cfg, program, units, reports, problems, host_rows, used, overridden,
                             inherited, asm_stage, asm_results)
     if summary is None:
+        return 1
+    if cfg.get("assembly_allow") and summary["assembly_unallowed"]:
+        # assembly_guard: before the stamp, so the next build says it again.
+        for name in summary["assembly_unallowed"]:
+            by = summary["assembly_reached"][name]
+            print(f"hostgen: error: {name} runs as its assembly ({'translated from it' if name in summary['from_assembly'] else 'a stub without the disc'}), "
+                  f"and {', '.join(by[:3]) or 'the program'}{' and more' if len(by) > 3 else ''} reach it: give it C "
+                  "(hand/hand.tsv, or a host row) or a row with the reason in hostgen.json \"assembly_allow\"",
+                  file=sys.stderr)
         return 1
     if not args.quiet:
         print(f"hostgen: {summary['units']} units, {summary['functions_translated']} functions translated, "

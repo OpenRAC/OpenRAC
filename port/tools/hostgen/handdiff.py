@@ -104,6 +104,11 @@ HARNESS = r"""
 #include <string.h>
 #include <sys/mman.h>
 
+/* The vector unit's registers (runtime/ee.cpp): both sides share them, so they are set alike before
+ * each call, filled with random floats, and compared after. */
+extern unsigned char openrac_vu0[];
+#define VU0_SIZE @VU0SIZE@
+
 typedef uint32_t gaddr;
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = 0x02000000u;
@@ -182,6 +187,7 @@ static float pick_float(void) {
 }
 
 #define RAM 0x02000000u
+#define STACK_LOW 0x01EF0000u
 #define SPR 0x70000000u
 static uint8_t *ram0, *ram1, *spr1;
 
@@ -220,18 +226,27 @@ int main(int argc, char** argv) {
         fill();
         memcpy(ram0, openrac_guest_base, RAM);
         uint8_t spr0[0x4000]; memcpy(spr0, openrac_guest_base + SPR, 0x4000);
+        uint8_t vu0[VU0_SIZE], vu1[VU0_SIZE];
+        for (int i = 0; i < VU0_SIZE / 4; ++i) { float f = pick_float(); memcpy(openrac_vu0 + 4 * i, &f, 4); }
+        { const float one[4] = {0.0f, 0.0f, 0.0f, 1.0f}; memcpy(openrac_vu0, one, 16); } /* vf0 */
+        memcpy(vu0, openrac_vu0, VU0_SIZE);
 @ARGS@
         side = 0; nlog[0] = nlog[1] = 0; openrac_guest_sp = 0x01F00000u;
         memset(openrac_guest_base + 0x10000000u, 0, 0x10000u);
 @CALLREF@
         memcpy(ram1, openrac_guest_base, RAM); memcpy(spr1, openrac_guest_base + SPR, 0x4000);
+        memcpy(vu1, openrac_vu0, VU0_SIZE); memcpy(openrac_vu0, vu0, VU0_SIZE);
         memcpy(openrac_guest_base, ram0, RAM); memcpy(openrac_guest_base + SPR, spr0, 0x4000);
         memset(openrac_guest_base + 0x10000000u, 0, 0x10000u);
         side = 1; openrac_guest_sp = 0x01F00000u;
 @CALLCAND@
         int bad = 0;
 @CMPRES@
+        /* The stack below the caller's is dead once the call returns: each side's frame is its own. */
+        memset(ram1 + STACK_LOW, 0, 0x01F00000u - STACK_LOW);
+        memset(openrac_guest_base + STACK_LOW, 0, 0x01F00000u - STACK_LOW);
         bad |= differs("RAM", ram1, openrac_guest_base, 0, RAM);
+        bad |= differs("VU0", vu1, openrac_vu0, 0, VU0_SIZE);
         bad |= differs("scratchpad", spr1, openrac_guest_base + SPR, SPR, 0x4000);
         if (nlog[0] != nlog[1]) { printf("  %d side effects against %d\n", nlog[0], nlog[1]); bad = 1; }
         for (int i = 0; i < nlog[0] && i < nlog[1]; ++i)
@@ -248,6 +263,7 @@ int main(int argc, char** argv) {
 }
 """
 
+VU0_SIZE = 636  # sizeof(openrac_vu0_state) (runtime/include/openrac/ee_ops.h)
 ARG_C = {"w": "uint32_t", "q": "uint64_t", "f": "float", "d": "double"}
 
 
@@ -278,7 +294,7 @@ def harness_text(name: str, ret: str, kinds: list[str], specs: list[str]) -> str
                if rk in "fd" else
                "        if ((uint32_t)r0 != (uint32_t)r1) { printf(\"  the results differ: %llx, %llx\\n\", "
                "(unsigned long long)r0, (unsigned long long)r1); bad = 1; }")
-    return (HARNESS.replace("@DECLS@", decls).replace("@ARGS@", "\n".join(args))
+    return (HARNESS.replace("@VU0SIZE@", str(VU0_SIZE)).replace("@DECLS@", decls).replace("@ARGS@", "\n".join(args))
             .replace("@CALLREF@", cref).replace("@CALLCAND@", ccand).replace("@CMPRES@", cmp)
             .replace("@PRINTARGS@", "\n".join(prints)).replace("@NAME@", name))
 
