@@ -1805,7 +1805,12 @@ TickMobys pose_mobys(
                     ? scene::moby_shadow_state_on_axis(ram, m.address, directions, state.view())
                     : scene::moby_shadow_state(ram, m.address, directions, state.view());
             if (cast.enabled) {
-                auto capsules = scene::moby_shadows(ram, m.address, m.matrix, cast.scale);
+                // A sleeping moby's shadow takes the pose it is drawn in.
+                const auto keys =
+                    animate_sleeping ? g->sleeping_mobys.keys(ram, m.address) : std::nullopt;
+                auto capsules = scene::moby_shadows(
+                    ram, m.address, m.matrix, cast.scale, keys ? &*keys : nullptr
+                );
                 if (debug && g->index % 100 == 0) {
                     log::info(
                         "Moby shadow {:#x} class {}: {} proxies, slot {}, extrusion {:.2f} {:.2f} "
@@ -1956,9 +1961,7 @@ TickMobys pose_mobys(
     std::vector<std::optional<scene::AnimKeys>> sleeping_keys(pose_jobs.size());
     if (animate_sleeping) {
         for (std::size_t i = 0; i < pose_jobs.size(); ++i) {
-            if (const auto k = g->sleeping_mobys.keys(ram, pose_jobs[i].address)) {
-                sleeping_keys[i] = scene::AnimKeys{k->a, k->b, k->t, k->plain};
-            }
+            sleeping_keys[i] = g->sleeping_mobys.keys(ram, pose_jobs[i].address);
         }
     }
     std::vector<std::vector<assets::rac1::JointMatrix>> poses(pose_jobs.size());

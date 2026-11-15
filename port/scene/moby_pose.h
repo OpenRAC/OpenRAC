@@ -83,6 +83,11 @@ std::vector<assets::rac1::JointMatrix> moby_pose_matrices(
     std::span<const std::uint8_t> ram, std::uint32_t moby
 );
 
+/** The same pose matrices posed by `keys`, as moby_palette with keys. */
+std::vector<assets::rac1::JointMatrix> moby_pose_matrices(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, const AnimKeys& keys
+);
+
 /**
  * Joint modifiers of the port's own for one moby (a mod's, openrac_api.hero_set_joints), applied
  * after the moby's own list wherever its pose is evaluated (drawing, shadows, attachments).

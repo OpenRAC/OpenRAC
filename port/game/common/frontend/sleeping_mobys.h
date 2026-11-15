@@ -34,15 +34,9 @@
 #include <unordered_set>
 #include <vector>
 
-namespace openrac::frontend {
+#include "scene/moby_pose.h"
 
-// Two keys of a moby's class and the blend between them (scene::AnimKeys).
-struct SleepingKeys {
-    std::uint32_t a = 0;
-    std::uint32_t b = 0;
-    float t = 0.0f;
-    bool plain = true;
-};
+namespace openrac::frontend {
 
 class SleepingMobys {
 public:
@@ -109,7 +103,9 @@ public:
     }
 
     // The keys to pose `moby` with: none for a moby that is not asleep or cannot loop.
-    std::optional<SleepingKeys> keys(std::span<const std::uint8_t> ram, std::uint32_t moby) const {
+    std::optional<scene::AnimKeys> keys(
+        std::span<const std::uint8_t> ram, std::uint32_t moby
+    ) const {
         const auto it = clocks_.find(moby);
         if (it == clocks_.end() || !it->second.asleep) {
             return std::nullopt;
@@ -120,7 +116,7 @@ public:
             return std::nullopt;
         }
         const std::uint32_t next = (clock.frame + 1u) % frames->count;
-        SleepingKeys k;
+        scene::AnimKeys k;
         k.a = read<std::uint32_t>(ram, frames->table + 4u * clock.frame);
         k.b = read<std::uint32_t>(ram, frames->table + 4u * next);
         k.t = clock.t;

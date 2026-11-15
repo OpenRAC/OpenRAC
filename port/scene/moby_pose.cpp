@@ -108,6 +108,12 @@ std::vector<rac1::JointMatrix> moby_pose_matrices(std::span<const std::uint8_t> 
     return evaluate_moby(ram, moby, false, nullptr);
 }
 
+std::vector<rac1::JointMatrix> moby_pose_matrices(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, const AnimKeys& keys
+) {
+    return evaluate_moby(ram, moby, false, &keys);
+}
+
 namespace {
 
 std::vector<rac1::JointMatrix> evaluate_moby(
