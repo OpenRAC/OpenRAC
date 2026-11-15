@@ -361,6 +361,49 @@ void check_still_kinds(const fs::path& root) {
     fs::remove_all(root);
 }
 
+// Counts the reads, to see which replacements read their file again.
+int& reads() {
+    static int count = 0;
+    return count;
+}
+
+std::optional<Rgba8Image> counted_load(const fs::path& file) {
+    ++reads();
+    return load(file);
+}
+
+// A picture met again while playing is read once; a level's texture is read each time it loads.
+void check_kept_pictures(const fs::path& root) {
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const auto hud = solid(2, 2, 40);
+    const auto wall = solid(2, 2, 41);
+    disk().clear();
+    for (const auto& texture : {hud, wall}) {
+        const std::string name = texture_pack::file_name(texture_pack::image_hash(texture));
+        std::ofstream(root / name) << "png";
+        disk()[name] = solid(16, 16, 250);
+    }
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    for (int i = 0; i < 3; ++i) {
+        auto image = hud;
+        CHECK(texture_pack::replace(image, {.interface = true}) && image.width == 16);
+        CHECK(image.pixels[0] == 250);
+    }
+    CHECK(reads() == 1);
+    for (int i = 0; i < 2; ++i) {
+        auto image = wall;
+        CHECK(texture_pack::replace(image, {.level = 1}) && image.width == 16);
+    }
+    CHECK(reads() == 3);
+    // A new pack reads its files again.
+    texture_pack::configure(root, {}, {counted_load, save});
+    auto image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 4);
+    fs::remove_all(root);
+}
+
 int main() {
     const auto small = solid(2, 2, 10);
     // The hash takes the size and every texel; the name is 16 hex digits.
@@ -438,6 +481,7 @@ int main() {
     CHECK(!texture_pack::dumping());
 
     check_frame_at();
+    check_kept_pictures(pack / "kept");
     check_still_kinds(pack / "kinds");
     check_folders(pack / "folders");
     check_animated_pack(pack);

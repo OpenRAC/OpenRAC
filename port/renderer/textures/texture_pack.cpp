@@ -29,6 +29,18 @@ struct State {
     std::unordered_map<std::uint64_t, fs::path> animated;
     std::unordered_map<std::uint64_t, std::shared_ptr<const Animation>> animations;
     std::size_t animation_bytes = 0;
+
+    // Still pictures already read, by hash (kMaxKeptPictureBytes); `used` orders them by last use.
+    struct Kept {
+        std::shared_ptr<const Picture> picture;
+        std::size_t bytes = 0;
+        std::uint64_t used = 0;
+        BlockFormat blocks = BlockFormat::None;  // the block format a KTX2 was read for
+    };
+
+    std::unordered_map<std::uint64_t, Kept> kept;
+    std::size_t kept_bytes = 0;
+    std::uint64_t uses = 0;
     fs::path dump;
     LevelNamer level_name = nullptr;
     std::unordered_map<std::uint64_t, fs::path> dumped;  // where each dumped texture lies, by hash
@@ -217,6 +229,41 @@ void dump(State& s, std::uint64_t hash, const Rgba8Image& image, const Origin& o
         return;
     }
     found->second = shared;
+}
+
+// The bytes a picture holds: its texels and its blocks.
+std::size_t picture_bytes(const Picture& picture) {
+    std::size_t bytes = picture.image.pixels.size();
+    if (picture.blocks != nullptr) {
+        for (const auto& level : picture.blocks->levels) {
+            bytes += level.size();
+        }
+    }
+    return bytes;
+}
+
+// Keeps a picture just read for the next time its texture is met; the lock is held. The least
+// recently used make room. One larger than the whole budget is not kept.
+void keep(State& s, std::uint64_t hash, std::shared_ptr<const Picture> picture) {
+    // One kept for another block format gives way.
+    if (const auto old = s.kept.find(hash); old != s.kept.end()) {
+        s.kept_bytes -= old->second.bytes;
+        s.kept.erase(old);
+    }
+    const std::size_t bytes = picture_bytes(*picture);
+    if (bytes > kMaxKeptPictureBytes) {
+        return;
+    }
+    while (s.kept_bytes + bytes > kMaxKeptPictureBytes && !s.kept.empty()) {
+        const auto oldest =
+            std::min_element(s.kept.begin(), s.kept.end(), [](const auto& a, const auto& b) {
+                return a.second.used < b.second.used;
+            });
+        s.kept_bytes -= oldest->second.bytes;
+        s.kept.erase(oldest);
+    }
+    s.kept_bytes += bytes;
+    s.kept.emplace(hash, State::Kept{std::move(picture), bytes, ++s.uses, g_block_format.load()});
 }
 
 // The animation of hash `hash` from `source` (a folder or a GIF), read on first use and kept.
@@ -432,6 +479,8 @@ void configure(const fs::path& pack, const fs::path& dump, Io io, LevelNamer lev
     s.animated.clear();
     s.animations.clear();
     s.animation_bytes = 0;
+    s.kept.clear();
+    s.kept_bytes = 0;
     s.dumped.clear();
     s.grouped.clear();
     s.replaced = 0;
@@ -520,15 +569,36 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
     if (found == s.files.end()) {
         return false;
     }
+    // Read before, for the GPU's block format: no file is read again.
+    if (const auto kept = s.kept.find(hash);
+        kept != s.kept.end() && kept->second.blocks == g_block_format.load()) {
+        kept->second.used = ++s.uses;
+        image = kept->second.picture->image;
+        ++s.replaced;
+        if (found_out != nullptr) {
+            found_out->blocks = kept->second.picture->blocks;
+        }
+        return true;
+    }
     std::vector<fs::path>& candidates = found->second;
     while (!candidates.empty()) {
         auto picture = load_still(s.io, candidates.front(), image.width, image.height);
         if (picture && !picture->image.pixels.empty()) {
-            image = std::move(picture->image);
-            ++s.replaced;
-            if (found_out != nullptr) {
-                found_out->blocks = std::move(picture->blocks);
+            // A level's textures are read once, as it loads; the rest come back while playing.
+            if (origin.level < 0) {
+                auto shared = std::make_shared<const Picture>(std::move(*picture));
+                keep(s, hash, shared);
+                image = shared->image;
+                if (found_out != nullptr) {
+                    found_out->blocks = shared->blocks;
+                }
+            } else {
+                image = std::move(picture->image);
+                if (found_out != nullptr) {
+                    found_out->blocks = std::move(picture->blocks);
+                }
             }
+            ++s.replaced;
             return true;
         }
         // A file that cannot be read is not tried again; the next picture of the texture is.

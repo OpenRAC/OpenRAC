@@ -56,6 +56,11 @@ inline constexpr double kDefaultFps = 10.0;
 // used as a still picture), so a pack cannot fill the memory.
 inline constexpr std::size_t kMaxAnimationBytes = std::size_t{256} << 20;
 
+// The bytes of still pictures kept after they are read, for textures met while playing (the 2D
+// layer, effects, particles). The game converts those again each time they come back on screen;
+// reading a big PNG or KTX2 again each time stalls the frame. The least recently used go first.
+inline constexpr std::size_t kMaxKeptPictureBytes = std::size_t{256} << 20;
+
 // The frame `animation` shows `ticks` game ticks after it started.
 std::size_t frame_at(const Animation& animation, std::uint64_t ticks);
 

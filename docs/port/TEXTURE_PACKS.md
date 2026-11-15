@@ -110,6 +110,11 @@ fills, strokes and gradients are drawn, so turn text into paths. Images,
 fonts, links and scripts are not read, and the launcher refuses an SVG with
 them. Up to 4 MB. Not for photos or painted textures.
 
+**Size and speed.** The game reads each picture from disk once. A level's
+pictures are read while it loads. HUD, menu and effect pictures are read the
+first time they show, which takes a moment for a big one, and then kept in
+memory (up to 256 MB). Keep HUD pictures no bigger than they need to be.
+
 **Several formats for one texture.** The game tries SVG, then KTX2, then PNG.
 If one cannot be read, it uses the next. Keep a PNG beside an SVG or KTX2 so
 older versions of the port still work.
