@@ -69,9 +69,35 @@ extern "C" {
  * clipboard and a link, and which world a game's disc belongs to, 1.15 a mod's
  * own settings changed from the game (written into the launcher's list of mods)
  * and told when the launcher changes them while the game runs, 1.16 a mod's own
- * data kept with the game's saves.
+ * data kept with the game's saves, 1.17 the game's own collision query asked by
+ * a mod (collision_line).
  */
-#define OPENRAC_MOD_API_MINOR 16
+#define OPENRAC_MOD_API_MINOR 17
+
+/* What collision_line tests (openrac_api.collision_line): the level's walls and
+ * ground, the mobys (their collision meshes, and creatures' shapes on their
+ * joints), or both. Since 1.17. */
+#define OPENRAC_LINE_LEVEL 0x1u
+#define OPENRAC_LINE_MOBYS 0x2u
+
+/* What collision_line found on its line. Since 1.17. */
+typedef struct openrac_line_hit {
+  /* sizeof(openrac_line_hit), set by the mod. */
+  uint32_t size;
+  /* 1 for a hit, 0 for a clear line. */
+  int32_t hit;
+  /* The nearest hit's point (the game's units) and the normal of the face it
+   * hit (a unit vector; for a creature's joint shape, the shape's at that
+   * point). */
+  float point[3];
+  float normal[3];
+  /* The face's surface type (the game's own numbers: Ratchet & Clank's
+   * CollType), -1 for a creature's joint shape. */
+  int32_t surface;
+  /* The moby hit, by its slot (as moby_list names it), -1 for the level's own
+   * faces. */
+  int32_t moby;
+} openrac_line_hit;
 
 /* The most bytes of a mod's data kept with a save (openrac_api.save_data_set). Since 1.16. */
 #define OPENRAC_SAVE_DATA_MAX 65536u
@@ -2124,6 +2150,21 @@ typedef struct openrac_api {
      * started (none). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_TOO_LATE for no fn or after
      * openrac_mod_load. */
     int (*on_save_data)(openrac_mod *mod, openrac_frame_fn fn, void *user);
+
+    /* The game's own segment query, as its shots ask it each tick (since 1.17):
+     * the nearest of what `flags` says (OPENRAC_LINE_LEVEL, OPENRAC_LINE_MOBYS)
+     * on the straight line from `from` to `to` (the game's units), the moby in
+     * slot `ignore` passed over (-1 for none: the mod's own shot needs none,
+     * the hero's slot for one he fires). Fills `out` (its size set by the mod):
+     * a hit's point, normal, surface and moby. The game sees nothing of it (no
+     * hit posted: a mod that wants damage posts it with moby_hit), so it may be
+     * asked at any time in a level, as often as a mod's shots move. Returns
+     * OPENRAC_HOOK_OK (out->hit says whether something is on the line), or
+     * OPENRAC_HOOK_UNKNOWN outside a level, for no flags or a port without it.
+     */
+    int (*collision_line)(const float from[3], const float to[3],
+                          uint32_t flags, int32_t ignore,
+                          openrac_line_hit *out);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

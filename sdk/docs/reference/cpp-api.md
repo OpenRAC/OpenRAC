@@ -198,6 +198,8 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool save_data_set(const std::vector<std::uint8_t>& bytes) const` |  |
 | `std::vector<std::uint8_t> save_data() const` | Since 1.16: the mod's data for the game in progress (what its save held, or what the mod set since); empty for none, or a port without it. |
 | `template <class F> void on_save_data(F&& callable)` | Since 1.16: calls `callable()` after the tick in which the game in progress changed (a save loaded, a new game started): save_data() answers its data then. Throws openrac::Error when refused or the port has no such call. Only during load. |
+| `bool has_collision_line() const` | Since 1.17: whether the port asks the game's own collision query for the mod. |
+| `bool collision_line(const float from[3], const float to[3], openrac_line_hit &out, std::uint32_t flags = OPENRAC_LINE_LEVEL \| OPENRAC_LINE_MOBYS, int ignore = -1) const` | Since 1.17: the game's own segment query from `from` to `to` (the game's units), as its shots ask it: `flags` OPENRAC_LINE_LEVEL and/or OPENRAC_LINE_MOBYS, the moby in slot `ignore` passed over (-1 none). Fills `out` (out.hit: something on the line, its point, normal, surface and moby's slot). Returns false outside a level or on a port without it. |
 | `template <class F> void on_tick_boundary(F&& callable)` | Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here. Since 1.6; only during load. |
 | `bool has_savestates() const` | Since 1.6: returns whether the port offers tick-boundary and warm-snapshot calls. |
 | `std::size_t savestate_size() const` | The exact size of this build's warm, same-process snapshot. Since 1.6. |
