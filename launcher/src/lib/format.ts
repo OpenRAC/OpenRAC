@@ -45,3 +45,11 @@ export function elapsed(ms: number): string {
 export function matchedLine(matched: number, total: number): string {
   return `${grouped(matched)} of ${grouped(total)} code bytes matched`;
 }
+
+/** A path split for a one-line label that cuts its middle: the folders (`head`, which may be cut)
+ *  and the file or last folder (`tail`, always shown). A tail too long to keep stays in the head. */
+export function splitPath(path: string): { head: string; tail: string } {
+  const cut = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  if (cut <= 0 || path.length - cut > 48) return { head: path, tail: "" };
+  return { head: path.slice(0, cut), tail: path.slice(cut) };
+}

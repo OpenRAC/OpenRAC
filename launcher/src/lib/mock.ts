@@ -227,6 +227,12 @@ const DEV = {
 /** A fork's branches with development builds, as the preview has them (updates.ts, devBranches). */
 export const MOCK_DEV_BRANCHES = ["develop", "feature-launcher-logo", "fix-pad-navigation"];
 
+/** Long Godot paths for ?longpaths: Settings must keep them inside the window. */
+const LONG_GODOTS: [string, string] = [
+  "C:\\Users\\someone\\Downloads\\Godot_v4.7.2-stable_win64.exe\\Godot_v4.7.2-stable_win64\\Godot_v4.7.2-stable_win64.exe",
+  "C:\\Users\\someone\\AppData\\Local\\Programs\\OpenRAC Editor\\nightly-2026-11-14\\openrac-editor.windows.editor.x86_64.exe",
+];
+
 let config: Config = {
   // ?setup: a first start where no OpenRAC folder was found, so the welcome screen asks for one.
   root: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup")
@@ -234,9 +240,12 @@ let config: Config = {
     : "/home/you/OpenRAC",
   python: "/usr/bin/python3",
   // ?godot: Godot is chosen, so the Mods tab's level editor can open a level.
-  godot: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("godot")
-    ? "/usr/bin/godot"
-    : null,
+  // ?longpaths: a Godot deep in a Windows user folder, as a download leaves it (PathField.svelte).
+  godot: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("longpaths")
+    ? LONG_GODOTS[0]
+    : new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("godot")
+      ? "/usr/bin/godot"
+      : null,
   docker: "/usr/bin/docker",
   // ?developer shows the contributor's pages.
   developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("developer"),
@@ -2583,7 +2592,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<Detected>({
         roots: query.has("setup") ? [] : [{ path: "/home/you/OpenRAC", source: "next to the launcher" }],
         pythons: [{ path: "/usr/bin/python3", source: "PATH" }],
-        godots: [],
+        godots: query.has("longpaths") ? LONG_GODOTS.map((path) => ({ path, source: "Downloads" })) : [],
         dockers: [{ path: "/usr/bin/docker", source: "PATH" }],
       });
     case "check_root":
