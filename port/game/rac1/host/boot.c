@@ -192,6 +192,11 @@ int func_00209BB8(void) {
  * (rac1.save.new_game) sits under this, as func_00209DC0__hooked. */
 void func_00209DC0(void) {
     func_00209DC0__hooked();
+    /* A new game (also the one that keeps the progress): the mods' data starts empty (interface
+     * 1.16), before the save the game writes right after it into the slot the player chose. */
+    if (openrac_game_new_game != NULL) {
+        openrac_game_new_game();
+    }
     if (openrac_game_start_level >= 0 && openrac_game_start_level < LEVELS) {
         GREF(int, CURRENT_LEVEL) = openrac_game_start_level;
     }

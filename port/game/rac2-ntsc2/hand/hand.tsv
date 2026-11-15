@@ -1,0 +1,3 @@
+# The port's own C for USA v2.00's hand-written assembly (hostgen.json "hand"), in this release's names.
+# name	file (relative to this table)
+func_002A3288	func_002A3288.c

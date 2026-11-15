@@ -159,7 +159,9 @@ void HeroWetness::prepare(
     const bool reset =
         m_reset || m_frame == ~0ull || input.frame < m_frame || m_identity != hero->temporal_id;
     const float dt =
-        reset ? 0.f : float(std::min<std::uint64_t>(input.frame - m_frame, 3600)) / 60.f;
+        reset
+            ? 0.f
+            : float(double(std::min<std::uint64_t>(input.frame - m_frame, 3600)) / input.tick_rate);
     const stats::Scope timing("Ratchet wetness", stats::kGpu);
     m_update.use();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_vertices);

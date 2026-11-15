@@ -15,7 +15,8 @@ mod scenes;
 /// `level` is set: that level's section).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Place {
-    /// A byte: set when non-zero; setting writes `on`, clearing writes 0.
+    /// A byte: set when it is at least `on` (for a win count, `on` is 1: any win); setting writes
+    /// `on`, clearing writes 0.
     Byte { chunk: i32, level: Option<usize>, offset: usize, on: u8 },
     /// One bit of a byte.
     Bit { chunk: i32, level: Option<usize>, offset: usize, bit: u8 },
@@ -80,6 +81,8 @@ pub enum Confidence {
     /// Seen set by the game and, edited in a save, honoured by the game at load.
     Proven,
     /// Read from the decompiled code, with a sample of its group proven; not tried one by one.
+    /// None now: every flag was set and cleared in a save, loaded by the game and kept by its own
+    /// autosave (2026-11-15, USA v1.01).
     FromCode,
 }
 

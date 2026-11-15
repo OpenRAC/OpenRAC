@@ -235,7 +235,9 @@
       "signature": "void()",
       "params": [],
       "symbols": {
-        "ntsc": "func_002F9C80"
+        "ntsc": "func_002F9C80",
+        "pal": "func_002FACD0",
+        "ntsc2": "func_002FAB0C"
       },
       "about": "Draws the vendor's list (g_vendorUi +0x140, the entries Vendor_BuildList made): for each of the rows -5 to +6 around the cursor (+0x80) that is in the list (under the count, +0x740), in that order, its item's icon in Item_VersionColor's colour (an upgrade entry, +0x14 set, in its kind 2, the Mega gold), then its label. A replacement can call the original and know which entry each Item_VersionColor call is for."
     },

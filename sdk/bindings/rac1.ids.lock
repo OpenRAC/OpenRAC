@@ -691,4 +691,8 @@ rac1.vendor.init_level_stock	pal:L00:0023DB30	FUN_L00_0023d198,Vendor_InitLevelS
 rac1.vendor.initialize_selected	pal:L00:0029C9E8	FUN_L00_0029b680,Vendor_InitializeSelected,func_L00_0029C9E8
 rac1.vendor.menu_update	pal:L00:0029CDE0	FUN_L00_0029ba78,Vendor_MenuUpdate,func_L00_0029CDE0
 rac1.vendor.open_menu	pal:L00:0029BA20	FUN_L00_0029a6b0,Vendor_OpenMenu,func_L00_0029BA20
+rac1.weapon.blaster.pick_target	pal:L00:002B5998	FUN_L00_002b46a8,Weapon_Blaster_PickTarget,func_L00_002B5998
+rac1.weapon.drone.pick_target	pal:L00:002CF3D8	FUN_L00_002cdf28,Weapon_Drone_PickTarget,func_L00_002CF3D8
+rac1.weapon.gold_devastator.pick_target	pal:L00:002B1290	FUN_L00_002affa8,Weapon_GoldDevastator_PickTarget,func_L00_002B1290
+rac1.weapon.ryno.pick_target	pal:L00:002CD7B0	FUN_L00_002cc360,Weapon_Ryno_PickTarget,func_L00_002CD7B0
 rac1.weapon.take_ammo	pal:L00:00234638	FUN_L00_00233db8,Weapon_TakeAmmo,func_L00_00234638

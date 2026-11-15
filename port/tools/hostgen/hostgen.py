@@ -47,7 +47,7 @@ import release  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PROGRAM_FILES = ["stubs.c", "functions.c", "hooks.c", "libraries.c", "game_info.c", "game_protos.h"]
@@ -656,6 +656,9 @@ def write_game_info(program: Program, out: Path, cfg: dict) -> None:
              "const openrac_game_info openrac_game = {",
              f"    {_c_string(cfg.get('id'))}, {_c_string(cfg.get('title'))}, {_c_string(cfg.get('game'))},",
              f"    {_c_string(cfg.get('serial'))}, {int(cfg.get('frame_rate', 60))}, {_c_string(entry)},",
+             # hostgen.json "tick_rate": the ticks a second the port runs the game at (vsync.cpp tick_rate): 60,
+             # unless the disc's code has its own rate built in (Going Commando's PAL: 50).
+             f"    {int(cfg.get('tick_rate', 60))},",
              "};", "", "int openrac_game_run(void) {"]
     f = program.functions.get(entry) if entry else None
     if f is None:
@@ -711,6 +714,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         "functions_without_c_other_spelling": sum(1 for f in no_c if program.canonical(f.symbol) != f.symbol),
         "arguments_passed_through": sum(f.passthrough for f in fns),
         "arguments_filled_with_zero": {f.name: f.zero_args for f in fns if f.zero_args},
+        "computed_gotos": {f.name: f.computed_gotos for f in fns if getattr(f, "computed_gotos", None)},
         "call_site_mismatches": {f.name: sorted(set(f.mismatches)) for f in fns if f.mismatches},
         "call_graph": {f.name: sorted(f.calls) for f in fns if f.status == "translated" and f.calls},
         "hardware_accesses": sum(f.hw for f in fns),
@@ -1214,6 +1218,13 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.global_views = bool(cfg.get("global_views", False))
     program.formed_as = {name: int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
     program.returns_64 = set(cfg.get("returns_64", []))
+    # hostgen.json "jump_tables": the labels a computed goto's table in the game's data holds, by table and index
+    # (lower.py _indirect_goto); a file beside hostgen.json when it is a name (jumptables.py writes it).
+    jump_tables = cfg.get("jump_tables", {})
+    if isinstance(jump_tables, str):
+        jump_path = args.game.parent / jump_tables
+        jump_tables = json.loads(jump_path.read_text()) if jump_path.is_file() else {}
+    program.jump_tables = {k: v for k, v in jump_tables.items() if not k.startswith("#")}
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
     if cfg.get("executable_functions"):
         rows = [row for row in tables.read_tsv(source / cfg["executable_functions"], strip=True) if len(row) >= 2]
@@ -1227,8 +1238,13 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         # its build's values (below) cover the shared names its C uses.
         own = re.compile(r"(?:func|FUN)_([0-9A-Fa-f]{8})" if RELEASE is None
                          else r"(?:func|FUN)_(?!L\d\d_)[A-Z][A-Z0-9]*_([0-9A-Fa-f]{8})")
+        shared = re.compile(r"(?:func|FUN)_([0-9A-Fa-f]{8})")
         for row in rows:
             m = own.fullmatch(row[0])
+            if m is None and RELEASE is not None:
+                # A shared row, in the release's name: v2.00's func_002C00F0 (its func_002C1010, named after
+                # the fill word in front) is entered at 0x002C1018, which its callers' func_002C1018 spells.
+                m = shared.fullmatch(RELEASE.name(row[0]))
             if m is not None and int(m.group(1), 16) != int(row[1], 16):
                 program.executable_entry_at[int(m.group(1), 16)] = int(row[1], 16)
     table = derived.resolve(source, args.game.parent, cfg)
@@ -1316,6 +1332,13 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     program.unresolved_derived = users_of_unresolved_derived(program)
     # A parameter the C only passes on to 64-bit parameters is 64-bit itself (program.py widen_forwarded): the EE's
     # register carries all its bits through (FontPrintCenter's colour to FontPrint's u64).
+    # A definition that names fewer parameters than its callers pass, which it hands on in their registers (program.py
+    # params_from_declarations): the callers' extra parameters are its own too.
+    if cfg.get("params_from_declarations"):
+        # hostgen.json "extra_params": {function: [type, ...]}, the parameters its callers pass in registers it
+        # hands on, where no declaration says so (the retail assembly shows them).
+        program.extra_params = {k: v for k, v in cfg.get("extra_params", {}).items() if not k.startswith("#")}
+        program.params_added = params_from_declarations(program)
     program.widened = widen_forwarded(program)
     program.index_places()
     # A 32-bit result that is a "returns_64" function's result, returned as it is, is 64-bit itself (program.py
@@ -1380,6 +1403,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     extra["overrides_used"] = sorted(overridden)
     extra["results_inherited"] = sorted(inherited)
     extra["params_widened"] = sorted(getattr(program, "widened", []))
+    extra["params_from_declarations"] = sorted(getattr(program, "params_added", []))
     extra["results_widened"] = sorted(getattr(program, "results_widened", []))
     extra["unprototyped_callers"] = sorted(getattr(program, "unprototyped_callers", []))
     extra["unresolved_derived"] = dict(sorted(getattr(program, "unresolved_derived", {}).items()))
@@ -1507,6 +1531,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     problems += index_units(program, state, units, args.jobs)
     host_sigs = {sym: sig for sym, (_name, sig) in host_rows.items()}
+    if cfg.get("params_from_declarations"):
+        # What the port's own C calls keeps the signature it calls it by (params_from_declarations leaves it).
+        program.host_called = set(re.findall(r"\b(?:func|FUN)_\w+", port_host_text(args, cfg)))
     problems += settle_signatures(program, cfg, source, host_sigs)
     warn_of_unresolved_derived(derived_table, source, cfg, args, program)
     if args.program_out:

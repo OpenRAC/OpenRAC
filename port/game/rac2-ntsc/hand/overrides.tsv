@@ -1,0 +1,7 @@
+# The port's own C for Going Commando (NTSC-U v1.01) matching C that leans on a register its C
+# never names (hostgen.json "overrides"): one function a file.
+# name	file (relative to this table)
+func_00293CA8	func_00293CA8.c
+func_L00_003046D0	func_L00_003046D0.c
+func_L00_00364EE8	func_L00_00364EE8.c
+func_L01_003C9D00	func_L01_003C9D00.c

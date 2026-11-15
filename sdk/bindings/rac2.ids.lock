@@ -29,7 +29,7 @@ rac2.player.nanotech_steps	ntsc:L00:002D5E30	Hero_NanotechSteps,func_L00_002D5E3
 rac2.player.take_damage	ntsc:L00:002A4EF8	Hero_TakeDamage,func_L00_002A4D58,func_L00_002A4EF8
 rac2.text.by_id	ntsc:00288FB8	Text_ById,func_00288FB8,func_002898E8,func_002899F8
 rac2.vendor.build_list	ntsc:002F6608	Vendor_BuildList,func_002F6608,func_002F7488,func_002F7578
-rac2.vendor.draw_list	ntsc:002F9C80	Vendor_DrawList,func_002F9C80
+rac2.vendor.draw_list	ntsc:002F9C80	Vendor_DrawList,func_002F9C80,func_002FAB0C,func_002FACD0
 rac2.vendor.price	ntsc:002F6510	Vendor_Price,func_002F6510,func_002F7390,func_002F7480
 rac2.weapon.level_up	ntsc:00287EB0	Weapon_LevelUp,func_00287EB0,func_002887C8,func_002888D8
 rac2.weapon.take_ammo	ntsc:L00:002D3F30	Weapon_TakeAmmo,func_L00_002D3F30,func_L00_002D42D0,func_L00_002D4458

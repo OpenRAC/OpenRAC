@@ -275,17 +275,19 @@ bool Fsr3::State::prepare_camera(TemporalFrame frame, float sharpness, std::stri
     offset[13] = 2 * dispatch.jitter[1] / static_cast<float>(size[1]);
     frame.input.camera.projection = renderer::multiply(offset, camera.projection);
     view.raster = renderer::multiply(frame.input.camera.projection, camera.view);
+    view.current = renderer::multiply(camera.projection, camera.view);
+    view.previous =
+        dispatch.reset ? view.current : renderer::multiply(old_camera.projection, old_camera.view);
 
     // Restore the original camera if its projection cannot be inverted.
-    if (!fsr3_detail::invert(view.raster, inverse_raster)) {
+    if (!fsr3_detail::camera_transforms(
+            view.raster, view.previous, inverse_raster, previous_clip
+        )) {
         frame.input.camera = camera;
         error = "invalid temporal camera projection";
         return false;
     }
 
-    view.current = renderer::multiply(camera.projection, camera.view);
-    view.previous =
-        dispatch.reset ? view.current : renderer::multiply(old_camera.projection, old_camera.view);
     view.size = size;
     return true;
 }

@@ -23,7 +23,7 @@ const fn scene_seen(id: &'static str, level: usize, name: &'static str, scene_id
             "Off, the scene plays again where the level still has a trigger for it; on, its trigger skips it. \
                       It does not do what the scene's event does.",
         place: scene(scene_id),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     }
 }
 

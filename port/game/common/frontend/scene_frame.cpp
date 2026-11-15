@@ -27,6 +27,7 @@
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "openrac/game_host.h"
+#include "program/program.h"
 #include "renderer/direct/direct.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/precise_depth.h"
@@ -153,9 +154,13 @@ float prepare_target(SceneFrame& frame) {
 
     auto& output = frame.output;
     const auto& graphics = frame.graphics;
-    frame_size(
-        output.box.width, output.box.height, graphics.render_scale, output.width, output.height
-    );
+    constexpr int kNativeRenderScale = 100;  // Percent of the output picture.
+    int render_scale = graphics.render_scale;
+    // Cap the enhanced render target while preserving the player's scale setting.
+    if (graphics.enhanced_graphics && enhanced_graphics_available()) {
+        render_scale = std::min(render_scale, kNativeRenderScale);
+    }
+    frame_size(output.box.width, output.box.height, render_scale, output.width, output.height);
     // Temporal reconstruction supplies antialiasing; native rendering keeps the saved MSAA preference.
     const int samples =
         frame.temporal ? 1 : std::clamp(graphics.msaa, 1, renderer::FrameBuffer::max_samples());
@@ -514,7 +519,7 @@ bool draw_world(SceneFrame& frame) {
                     owner.frame,
                     view_projection,
                     scene.haze,
-                    static_cast<float>(scene.frame) / 60.0f
+                    static_cast<float>(static_cast<double>(scene.frame) / program::tick_rate())
                 );
                 if (before_hud) {
                     before_hud();

@@ -11,3 +11,5 @@ func_L11_004618C0	func_L11_004676D0	rac2-decomp's func_PAL_L11_004676D0 (src/pal
 func_L11_003F8510	func_L11_003FCA30	rac2-decomp's func_PAL_L11_003FCA30 (src/pal/levels/11_joba/L11_003FCA30-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
 func_L18_003F90A0	func_L18_003FD180	rac2-decomp's func_PAL_L18_003FD180 (src/pal/levels/18_damosel/L18_003FD180-sw-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
 func_L18_00440718	func_L18_00445BB0	rac2-decomp's func_PAL_L18_00445BB0 (src/pal/levels/18_damosel/L18_00445BB0-cc-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_001158F8	func_001158F8	strncmp: the same bytes at the same address (the catalogue names it func_001158F4, entered after its fill word at 0x001158F8)
+func_0026F7A0	func_0026F610	returns 0 (jr $ra; daddu $v0, $zero, $zero) at 0x0026F610, after the same two empty stubs as in v1.01; the catalogue does not list it

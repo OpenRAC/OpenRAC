@@ -251,6 +251,11 @@
    "how": "function: carried (the release's own C for it)",
    "for": "libraries.tsv func_L00_002CABC0"
   },
+  "func_L00_002CD7B0": {
+   "as": "func_L00_002CBD08",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002CD7B0"
+  },
   "func_L01_0023D688": {
    "as": "func_L01_0023CB00",
    "how": "function: carried (the release's own C for it)",
@@ -870,7 +875,7 @@
   "func_001E9E70": "libraries.tsv func_001E9E70: the shared host C leaves it out here"
  },
  "counts": {
-  "functions": 131,
+  "functions": 132,
   "addresses": 41,
   "dropped": 3
  }

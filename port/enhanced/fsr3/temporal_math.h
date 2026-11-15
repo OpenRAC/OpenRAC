@@ -45,9 +45,9 @@ inline AugmentedMatrix augmented(const renderer::Mat4& source) {
     return rows;
 }
 
-// Inverts a finite nonsingular matrix once per displayed frame; false rejects an invalid camera.
-inline bool invert(const renderer::Mat4& source, renderer::Mat4& inverse) {
-    AugmentedMatrix rows = augmented(source);
+// Retains the inverse in double precision until the caller has composed its camera transform.
+inline bool inverse_rows(const renderer::Mat4& source, AugmentedMatrix& rows) {
+    rows = augmented(source);
 
     // Partial pivoting avoids dividing by a small diagonal when another row has a stronger coefficient.
     for (std::size_t column = 0; column < rows.size(); ++column) {
@@ -83,12 +83,58 @@ inline bool invert(const renderer::Mat4& source, renderer::Mat4& inverse) {
         }
     }
 
+    return true;
+}
+
+// Inverts a finite nonsingular matrix once per displayed frame; false rejects an invalid camera.
+inline bool invert(const renderer::Mat4& source, renderer::Mat4& inverse) {
+    AugmentedMatrix rows;
+
+    // An invalid camera has no usable clip-to-world transform.
+    if (!inverse_rows(source, rows)) {
+        return false;
+    }
+
     // The right-hand block is the inverse, returned in the renderer's column-major order.
     for (std::size_t column = 0; column < rows.size(); ++column) {
         // Converting storage order leaves the mathematical matrix unchanged.
         for (std::size_t row = 0; row < rows.size(); ++row) {
             inverse[column * rows.size() + row] =
                 static_cast<float>(rows[row][column + rows.size()]);
+        }
+    }
+
+    return true;
+}
+
+// Composes clip-to-clip motion before rounding: a float world-space round trip invents velocity
+// for stationary distant scenery, especially with the small near plane used by reversed depth.
+inline bool camera_transforms(
+    const renderer::Mat4& current,
+    const renderer::Mat4& previous,
+    renderer::Mat4& inverse,
+    renderer::Mat4& transform
+) {
+    AugmentedMatrix rows;
+
+    // A singular current projection cannot map a depth sample into the previous frame.
+    if (!inverse_rows(current, rows)) {
+        return false;
+    }
+
+    // Share one inversion between clip-to-world consumers and the precise velocity transform.
+    for (std::size_t column = 0; column < rows.size(); ++column) {
+        for (std::size_t row = 0; row < rows.size(); ++row) {
+            inverse[column * rows.size() + row] =
+                static_cast<float>(rows[row][column + rows.size()]);
+            double value = 0;
+
+            for (std::size_t k = 0; k < rows.size(); ++k) {
+                value += static_cast<double>(previous[k * rows.size() + row])
+                         * rows[k][column + rows.size()];
+            }
+
+            transform[column * rows.size() + row] = static_cast<float>(value);
         }
     }
 

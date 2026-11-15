@@ -18,6 +18,13 @@ gaddr openrac_lib_memcpy(gaddr dst, gaddr src, unsigned int n) {
     return dst;
 }
 
+/* memchr */
+gaddr openrac_lib_memchr(gaddr s, int c, unsigned int n) {
+    const unsigned char* host = (const unsigned char*)G(s);
+    const void* at = memchr(host, c & 0xFF, n);
+    return at == NULL ? 0 : s + (gaddr)((const unsigned char*)at - host);
+}
+
 /* memset */
 gaddr openrac_lib_memset(gaddr dst, int c, unsigned int n) {
     memset(G(dst), c, n);

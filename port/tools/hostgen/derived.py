@@ -81,6 +81,7 @@ def used_names(source: Path, cfg: dict) -> set[str]:
 def uncovered(source: Path, cfg: dict, table: dict) -> list[str]:
     """The derived names the C uses that TABLE neither values nor lists as unresolved."""
     known = set(table.get("values", {})) | set(table.get("levels", {})) | set(table.get("unresolved", []))
+    known |= {name for names in table.get("level_data", {}).values() for name in names}
     return sorted(used_names(source, cfg) - known)
 
 
@@ -97,7 +98,7 @@ def source_commit(source: Path) -> str | None:
 # The names of level code a level's build derives: `ref_L00_0036ADB0_00` states neither the function
 # nor its address (level 0 has that one at 0x002EE918). A short `func_2EDE88` is left out: it is
 # an address in the level of the file that says it, so one name is many functions.
-LEVEL_CODE_NAME = re.compile(r"(?:ref_\w+|r1_func_(?:L\d\d_)?[0-9A-Fa-f]{8}|F[0-9a-f]{8}_(?:FUN|func)_[0-9A-Fa-f]{8})")
+LEVEL_CODE_NAME = re.compile(r"(?:ref_\w+|r1_func_(?:L\d\d_)?[0-9A-Fa-f]{8}(?:_[0-9A-Fa-f]{8})?|F[0-9a-f]{8}_(?:FUN|func)_[0-9A-Fa-f]{8})")
 
 
 def level_values(source: Path, boot: dict) -> dict[str, list]:
@@ -120,6 +121,11 @@ LEVEL_DATA_NAME = re.compile(r"D_([0-9A-Fa-f]{8})")
 # Other spellings of a datum: a level's build gives each its own value, which the name's D_ form
 # need not share (r1_D_0019E7D8 and D_001B19C8_1 are 0x001B2688 in level 6, D_001B19C8 0x001B2348).
 OTHER_DATA_NAME = re.compile(r"(?:r1_)?D_\w+")
+# A datum's name that spells an executable address (D_001B19C8, r1_D_00110000): measured against it above
+# when it is the executable's. A level's spelling (r1_D_L00_001C47B8, rac1's level address) is a level's own.
+SPELLED_DATA_NAME = re.compile(r"(?:r1_)?D_[0-9A-Fa-f]{8}")
+# Function names, which a level's table also values (code is read from the catalogues, not from here).
+FUNCTION_NAME = re.compile(r"(?:r1_)?(?:func|FUN|F[0-9a-f]{8})_|ref_")
 
 
 def level_data(source: Path, boot: dict | None = None) -> dict[str, dict[str, str]]:
@@ -139,6 +145,10 @@ def level_data(source: Path, boot: dict | None = None) -> dict[str, dict[str, st
                     moved[name] = value
             elif OTHER_DATA_NAME.fullmatch(name) and name in boot and int(value, 0) != int(boot[name], 0):
                 moved[name] = value
+            elif name not in boot and not FUNCTION_NAME.match(name) and not SPELLED_DATA_NAME.fullmatch(name):
+                # A datum only the level's build places (a small-data name such as D_len or g_001B2B0C,
+                # read through $gp): the executable's build has no value for it.
+                moved[name] = value
         if moved:
             out[str(int(path.parent.name[:2]))] = dict(sorted(moved.items()))
     return out
@@ -149,14 +159,16 @@ def make_table(source: Path, cfg: dict, build: dict, commit: str | None) -> dict
     the C uses that it has no value for."""
     values = {k: v for k, v in sorted(build.get("values", {}).items()) if isinstance(v, str)}
     levels = level_values(source, values)
+    placed = level_data(source, build.get("values", {}))
     return {
         "about": "Names and the addresses the decompilation's own build derived for them from the "
                  "retail bytes. Written by port/tools/hostgen/derived.py; do not edit.",
         "source": {"commit": commit, "program": build.get("program"), "table": cfg["derived"]["build"]},
         "values": values,
         "levels": levels,
-        "level_data": level_data(source, build.get("values", {})),
-        "unresolved": sorted(used_names(source, cfg) - set(values) - set(levels)),
+        "level_data": placed,
+        "unresolved": sorted(used_names(source, cfg) - set(values) - set(levels)
+                             - {name for names in placed.values() for name in names}),
     }
 
 

@@ -1,0 +1,6 @@
+# Written by port/tools/hostgen/release_carry.py from the primary release's overrides; do not edit.
+# name	file (relative to this table)
+func_002945B8	func_002945B8.c
+func_L00_003062B0	func_L00_003062B0.c
+func_L00_003676D8	func_L00_003676D8.c
+func_L01_003CDDC8	func_L01_003CDDC8.c

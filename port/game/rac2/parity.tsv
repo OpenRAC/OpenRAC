@@ -5,3 +5,10 @@
 func_00124418	row	rac2-ntsc,rac2-ntsc2,rac2-pal	the entry after a fill word (0xCDCDCDCD at 0x00124414, the catalogue's start): every jal to sceGsResetPath on the v1.01 disc targets 0x00124418
 func_00126288	row	rac2-ntsc,rac2-ntsc2,rac2-pal	the entry after a fill word (0xCDCDCDCD at 0x00126284, the catalogue's start): all 676 jal to sceGsSetDefLoadImage on the v1.01 disc target 0x00126288
 func_00314B5C	row	rac2-pal	the row names the decomp's C (func_PAL_00314B5C, from the nop before it); hostgen binds it at the catalogue's places, 0x00314B60 and each level's copy, which is where every level's class 0x326 update pointer on the PAL disc points (the prologue)
+func_001290E0	row	rac2-ntsc,rac2-ntsc2,rac2-pal	sceVu0Normalize, the second entry of func_001290BC: host/handasm.c answers it there
+func_00129148	row	rac2-ntsc,rac2-ntsc2,rac2-pal	sceVu0ScaleVector, the second entry of func_00129120: host/handasm.c answers it there
+func_00129178	row	rac2-ntsc,rac2-ntsc2,rac2-pal	sceVu0UnitMatrix, the second entry of func_00129160: host/handasm.c answers it there
+func_0012B138	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a function the catalogue does not list (between func_0012B0D8 and func_0012B198): host/handasm.c answers it
+func_0026F7A8	row	rac2-ntsc2	rac2ReturnZero: v2.00's copy of the return-zero stub, which its catalogue does not list (host/handasm.c)
+func_0026F610	row	rac2-pal	rac2ReturnZero: PAL's copy of the return-zero stub, which its catalogue does not list (host/handasm.c)
+func_002FAB0C	row	rac2-ntsc2	the row names v2.00's own C (func_US2_002FAB0C, from the nop before it); hostgen binds it at the catalogue's place 0x002FAB10, versionmap's pair of v1.01's func_002F9C80

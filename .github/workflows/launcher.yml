@@ -333,42 +333,16 @@ jobs:
       - name: Build the game
         if: matrix.name != 'android'
         run: |
-          # Windows also carries Going Commando built without the disc, as the APK does: the player's
-          # computer builds what is missing with the Zig it carries (the next step, tools/asm_part.py).
+          # Going Commando's three discs are built here too, whole: their code is all C, so the copy
+          # carries them as it carries Ratchet & Clank's and the player needs only the disc.
           # --require-baker: a baker that cannot be built (Embree) fails here with its reason, not
           # later as a copy without openrac-enhanced-baker.
-          games="rac1-pal rac1-ntsc rac1-pal1 rac1-jp"
-          if [ "$NAME" = windows ]; then games="$games rac2-ntsc rac2-pal rac2-ntsc2"; fi
+          games="rac1-pal rac1-ntsc rac1-pal1 rac1-jp rac2-ntsc rac2-pal rac2-ntsc2"
           python tools/build_port.py $games --preset standalone --require-baker || {
             echo "::warning::building again with a fresh configuration"
             rm -rf port/build/standalone/CMakeCache.txt port/build/standalone/CMakeFiles
             python tools/build_port.py $games --preset standalone --require-baker
           }
-
-      - name: Zig and the kit for Going Commando's part (Windows)
-        if: matrix.name == 'windows'
-        env:
-          # Zig's own release, the one the APK carries for Android (tools/build_android.py ZIG_VERSION).
-          ZIG_VERSION: "0.14.1"
-          ZIG_SHA256: 554f5378228923ffd558eac35e21af020c73789d87afeabf4bfd16f2e6feed2c
-        run: |
-          name="zig-x86_64-windows-$ZIG_VERSION"
-          curl -sSfL --retry 5 -o "$RUNNER_TEMP/zig.zip" "https://ziglang.org/download/$ZIG_VERSION/$name.zip"
-          python - "$RUNNER_TEMP/zig.zip" "$ZIG_SHA256" "$RUNNER_TEMP/zig" <<'PY'
-          import hashlib, sys, zipfile
-          got = hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()
-          if got != sys.argv[2]:
-              sys.exit(f"Zig's SHA-256 is {got}")
-          zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[3])
-          PY
-          echo "PART_ZIG=$RUNNER_TEMP/zig/$name" >> "$GITHUB_ENV"
-          # Going Commando's three discs, each its own program and kit.
-          for game in rac2-ntsc rac2-pal rac2-ntsc2; do
-            python tools/asm_part.py kit $game --build port/build/standalone --out "$RUNNER_TEMP/kit-$game" \
-              --windows-zig "$RUNNER_TEMP/zig/$name"
-            OPENRAC_PART_ZIG="$RUNNER_TEMP/zig/$name/zig.exe" python tools/asm_part.py check $game \
-              --kit "$RUNNER_TEMP/kit-$game" --out "$RUNNER_TEMP/kit-check-$game"
-          done
 
       - name: A Python for the tools
         if: matrix.name != 'android'
@@ -387,13 +361,8 @@ jobs:
       - name: Put the copy together and try it
         if: matrix.name != 'android'
         run: |
-          part=()
-          if [ "$NAME" = windows ]; then
-            part=(--part-zig "$PART_ZIG")
-            for game in rac2-ntsc rac2-pal rac2-ntsc2; do part+=(--asm-part-kit "$RUNNER_TEMP/kit-$game"); done
-          fi
           python tools/bundle_standalone.py "$COPY" --game-build port/build/standalone \
-            --python "$RUNNER_TEMP/python/python" "${part[@]}"
+            --python "$RUNNER_TEMP/python/python"
           # Its own Python runs its own tools, and the game starts far enough to say what it is.
           py=$COPY/python/bin/python3; [ -x "$py" ] || py=$COPY/python/python.exe
           "$py" "$COPY/tools/extractor.py" --help > /dev/null
@@ -410,21 +379,19 @@ jobs:
           us=$(program "$COPY/port/build/release/openrac-rac1-ntsc")
           [ -f "$us" ] || { echo "the copy carries no openrac-rac1-ntsc"; exit 1; }
           "$us" --help || true
+          for id in rac2-ntsc rac2-pal rac2-ntsc2; do
+            rac2=$(program "$COPY/port/build/release/openrac-$id")
+            [ -f "$rac2" ] || { echo "the copy carries no openrac-$id"; exit 1; }
+            "$rac2" --help || true
+          done
           # The unified native baker carries all enhanced preparation stages.
           baker=$COPY/port/build/release/openrac-enhanced-baker; [ -f "$baker" ] || baker=$baker.exe
           [ -f "$baker" ] || { echo "the copy carries no openrac-enhanced-baker"; exit 1; }
           "$baker" --help > /dev/null || { echo "openrac-enhanced-baker does not start"; exit 1; }
           "$baker" --print-interior-profile > /dev/null || { echo "interior inference does not start"; exit 1; }
           "$baker" --print-water-profile > /dev/null || { echo "water baking does not start"; exit 1; }
-          # On Windows each program has Microsoft's C++ runtime beside it: a new Windows has none. And
-          # Going Commando is carried, with what builds its part from the player's disc: the copy's
-          # own tools run the kit's check with the copy's own Zig.
+          # On Windows each program has Microsoft's C++ runtime beside it: a new Windows has none.
           if [ "$NAME" = windows ]; then
-            for game in rac2-ntsc rac2-pal rac2-ntsc2; do
-              "$COPY/port/build/release/openrac-$game.exe" --help || true
-              "$py" "$COPY/tools/asm_part.py" check $game --kit "$COPY/port/asm-part/$game" \
-                --out "$RUNNER_TEMP/copy-check-$game"
-            done
             for dll in msvcp140.dll msvcp140_2.dll vcruntime140.dll vcruntime140_1.dll; do
               [ -f "$COPY/port/build/release/$dll" ] || { echo "the copy carries no $dll"; exit 1; }
             done
@@ -447,15 +414,6 @@ jobs:
           if [ "$NAME" = linux ]; then
             case "$need" in GLIBC_2.3[6-9]|GLIBC_2.[4-9]*) echo "the game needs a newer glibc than 2.35"; exit 1;; esac
           fi
-
-      # Zig's releases (tools/build_android.py ZIG_FILES), whose Clang and lld the APK carries to build
-      # Going Commando's part from the player's disc: downloaded once, not from ziglang.org each run.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: matrix.name == 'android'
-        with:
-          path: build/android/downloads/zig-*.tar.xz
-          key: zig-${{ hashFiles('tools/build_android.py') }}
-          restore-keys: zig-
 
       # The libraries, SDL's Java and the carried copy, in the launcher's Android project.
       - name: Build the game, the libraries and the copy (Android)
@@ -622,7 +580,7 @@ jobs:
                      libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
                      libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
                      libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
-                     libopenrac-zig.so libSDL3.so libc++_shared.so libopenrac-python.so \
+                     libSDL3.so libc++_shared.so libopenrac-python.so \
                      libpython3.13.so libhook_impl.so libmain_hook.so libfile_redirect_hook.so \
                      libgsl_alloc_hook.so libopenrac_launcher_lib.so; do
             unzip -l "$apk" "lib/arm64-v8a/$lib" > /dev/null || { echo "the APK has no $lib"; exit 1; }

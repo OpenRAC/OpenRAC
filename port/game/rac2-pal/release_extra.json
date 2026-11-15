@@ -1,16 +1,56 @@
 {
-  "about": "This release's own additions to the carried hostgen.json (release_carry.py merges them): each with why.",
-  "from_assembly": {
-    "func_0034A870": "src/pal/game/0034A870-cc.c declares its last callee, func_PAL_0034ABB0, void where its definition returns int: the inherited result does not compile",
-    "func_002CBD80": "src/pal/game/002CBD80-g8.c declares func_PAL_0034ABB0 void too (as above)",
-    "func_L00_0037BEC8": "src/pal/levels/shared/L00_0037BEC8-g8.c dispatches through a computed goto (goto *D_0026DBE0[...]), which hostgen does not translate"
+ "about": "This release's own additions to the carried hostgen.json (release_carry.py merges them): each with why.",
+ "from_assembly": {},
+ "unit_aliases": {
+  "src/levels/shared/L00_002B5A88-qcopy.c": {
+   "func_V1_L00_002B55F0_1": {
+    "is": "func_L00_002B5518",
+    "why": "rac2-decomp's func_PAL_L00_002B5518 (src/pal/levels/shared/L00_002B5518-cc.c) is its PAL copy of func_L00_002B55F0, which the release table could not pair (the C calls it by its _1 spelling, which the release's build gave no value); call_copies.tsv pairs this caller's call with it in every level (func_L00_002B59B0 -> func_L00_002B5518 at level 0). Without it the hero's position history copies a stale ring entry over his position every tick and he falls to 0,0,0"
+   }
   },
-  "unit_aliases": {
-    "src/levels/shared/L00_002B5A88-qcopy.c": {
-      "func_V1_L00_002B55F0_1": {
-        "is": "func_L00_002B5518",
-        "why": "rac2-decomp's func_PAL_L00_002B5518 (src/pal/levels/shared/L00_002B5518-cc.c) is its PAL copy of func_L00_002B55F0, which the release table could not pair (the C calls it by its _1 spelling, which the release's build gave no value); call_copies.tsv pairs this caller's call with it in every level (func_L00_002B59B0 -> func_L00_002B5518 at level 0). Without it the hero's position history copies a stale ring entry over his position every tick and he falls to 0,0,0"
-      }
-    }
+  "src/pal/levels/shared/L00_003BEE68-cc.c": {
+   "func_V1_802EE138_1": {
+    "is": "func_002835B0",
+    "why": "the file's own note: func_802EE138_1 becomes func_00282CF0 (v1.01), PAL's func_002835B0, as in L00_003B9CB8.c's aliases"
+   },
+   "func_V1_802EE3D0_1": {
+    "is": "func_002837E0",
+    "why": "the file's own note: func_802EE3D0_1 becomes func_00282F20 (v1.01), PAL's func_002837E0, as in L00_003B9CB8.c's aliases"
+   }
+  },
+  "src/pal/levels/shared/L13_002C56D8-deck.c": {
+   "func_L00_002BDB68": {
+    "is": "func_L00_002B2BE0",
+    "why": "the file calls func_US2_L00_002B2DD0, USA v2.00's name; PAL's copy of that function (the same catalogue row, 1052 bytes) is func_PAL_L00_002B2BE0"
+   }
+  },
+  "src/pal/levels/shared/L02_003E2FB0.c": {
+   "func_V1_L00_0037E5F0": {
+    "is": "func_L00_00381328",
+    "why": "v1.01's func_L00_0037E5F0, which PAL has as its own func_PAL_L00_00381328 (versionmap: same code, level 0; 76 bytes)"
+   }
+  },
+  "src/levels/shared/L00_003EE100.c": {
+   "func_V1_L00_003F0198_2": {
+    "is": "func_L00_003F4518",
+    "why": "v1.01's func_L00_003F0198 (its _2 spelling), PAL's own func_PAL_L00_003F4518 (versionmap: near, level 0; 1252 bytes both)"
+   }
+  },
+  "src/pal/levels/10_hrugis_cloud/L10_00318BA0.c": {
+   "func_V1_L05_00419CC8": {
+    "is": "func_L05_0041EA08",
+    "why": "rac2-decomp's func_PAL_L05_0041EA08 (src/pal/levels/shared/L05_0041EA08-cc-g8.c) is its PAL copy of func_L05_00419CC8 (the same C at 50 Hz), which the release table could not pair; this PAL file calls it by the v1.01 name. Without it levels 10 and 15 run v1.01's copy, which takes level 5's address of its callback (an unknown call, 0x0041EF88) and steps at 60 Hz"
+   }
+  },
+  "src/pal/levels/15_gorn/L15_00316F78-effects-g8.c": {
+   "func_V1_L05_00419CC8": {
+    "is": "func_L05_0041EA08",
+    "why": "rac2-decomp's func_PAL_L05_0041EA08 (src/pal/levels/shared/L05_0041EA08-cc-g8.c) is its PAL copy of func_L05_00419CC8 (the same C at 50 Hz), which the release table could not pair; this PAL file calls it by the v1.01 name. Without it levels 10 and 15 run v1.01's copy, which takes level 5's address of its callback (an unknown call, 0x0041EF88) and steps at 60 Hz"
+   }
   }
+ },
+ "more_places": {
+  "func_0029DE68": "01:00305C50,04:00330D70,06:0034F968,08:0031C9F8,18:0032A980,20:00324A58",
+  "#": "the WAD decompressor's level copies, which this release's catalogue names apart (func_PAL_/func_US2_L01_...): the same 720 bytes as func_0029D4D0's, and a tail"
+ }
 }

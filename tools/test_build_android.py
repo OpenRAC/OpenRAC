@@ -54,8 +54,8 @@ class BuildAndroidTests(unittest.TestCase):
                 for target in ("openrac-enhanced-baker",):
                     self.assertEqual(target in command, enabled)
 
-    def test_a_game_partly_in_assembly_has_a_part_and_is_built_without_its_disc(self):
-        self.assertTrue(build_android.has_part("rac2-ntsc"))
+    def test_a_game_wholly_in_c_has_no_part_and_is_built_without_its_disc(self):
+        self.assertFalse(build_android.has_part("rac2-ntsc"))
         self.assertFalse(build_android.has_part("rac1-ntsc"))
         with mock.patch.object(build_android.proc, "run") as run:
             build_android.build_port(["rac2-ntsc"], self.dir, self.dir, baker=False)
