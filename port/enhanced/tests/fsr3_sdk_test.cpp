@@ -7,12 +7,12 @@
 #include <vector>
 
 #include "enhanced/fsr3/sdk_context.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/vulkan/graph_execution.h"
-#include "renderer/vulkan/native_compute.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/graph/graph_execution.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"

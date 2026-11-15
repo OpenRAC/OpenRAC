@@ -16,9 +16,9 @@
 
 #include "check.h"
 #include "game/common/particle_texture_cache.h"
-#include "renderer/pcsx2_pack.h"
-#include "renderer/texture.h"
-#include "renderer/texture_pool.h"
+#include "renderer/textures/pcsx2_pack.h"
+#include "renderer/textures/texture.h"
+#include "renderer/textures/texture_pool.h"
 
 namespace {
 

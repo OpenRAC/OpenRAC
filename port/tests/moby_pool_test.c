@@ -200,9 +200,32 @@ static int run_length(gaddr first) {
     return n;
 }
 
+/* The room CreateMoby has left: free slots (0xFE) count, used ones do not, and the slots from the
+ * 0xFF mark to the pool's end are all free. */
+static void check_pool_room(void) {
+    enum {
+        FIRST = 0x300000u,
+        POOL_END = FIRST + 4 * 0x100u
+    };
+
+    GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x0016001Cu))) = FIRST;
+    GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x00160020u))) = POOL_END;
+    for (int i = 0; i < 4; i++) {
+        GREF(uint8_t, FIRST + i * 0x100u + 0x20u) = 0x01; /* all in use */
+    }
+    CHECK(!rac1_moby_pool_room(1));
+    GREF(uint8_t, FIRST + 0x100u + 0x20u) = 0xFE;
+    CHECK(rac1_moby_pool_room(1) && !rac1_moby_pool_room(2));
+    GREF(uint8_t, FIRST + 0x300u + 0x20u) = 0xFF; /* never used from here: one more */
+    CHECK(rac1_moby_pool_room(2) && !rac1_moby_pool_room(3));
+    GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x0016001Cu))) = 0; /* no level */
+    CHECK(!rac1_moby_pool_room(1));
+}
+
 int main(void) {
     map_guest();
     check_map_spawn();
+    check_pool_room();
     GREF(int, 0x0015EE84u) = 9; /* Gaspar */
     GREF(gaddr, LOAD_STATE + 4) = HEADER;
 

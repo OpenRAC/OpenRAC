@@ -7,9 +7,9 @@
 #include <vector>
 
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -105,6 +105,7 @@ int run() {
     glDisable(GL_BLEND);
     shader.use();
     glUniform1i(shader.uniform("groom"), 0);
+    glUniform1i(shader.uniform("hero_fur_shell_enabled"), 1);
     glUniform4f(shader.uniform("hero_fur_shell_parameters"), .35f, 32, 12, 24);
     const auto draw = [&](int layers, float wetness, float distance, int eligible) {
         glClearColor(0, 0, 0, 1);

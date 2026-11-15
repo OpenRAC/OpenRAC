@@ -12,7 +12,7 @@ It works the same on desktop and Android. Nothing runs until you start one.
 |---|---|
 | Android | Drawer > Developer tools > **Record diagnostics**: pick a **Recording length**, then **Gameplay recording**. Recording starts 3 s after the drawer closes. Opening the drawer stops it. |
 | Desktop | Developer menu > **Record diagnostics**: pick a **Recording length**, then **Gameplay recording**, or **Ctrl+F3** to start and stop. |
-| Script | `OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]` starts one at that frame. Combine it with `OPENRAC_PRESS` and `--frames` to get repeatable runs. |
+| Script | `OPENRAC_PERF_CAPTURE=FRAME:SECONDS[:FILE]` starts one at that frame; `sweep` in place of the seconds runs the settings sweep. Combine it with `OPENRAC_PRESS` and `--frames` to get repeatable runs. |
 
 While it records, a red `REC` line shows at the top and the debug panel is hidden.
 Paused frames and movies are not counted.
@@ -55,14 +55,26 @@ time; the other nine give the frame's true GPU time. Nothing needs switching on.
 
 ### What each graphics setting costs (settings sweep)
 
-Developer tools > **Record diagnostics** > **Graphics sweep** records 80 seconds and
-changes the graphics settings every 4 seconds: Enhanced graphics off, every Enhanced effect off,
-probe lighting off, the blended passes left out, drawn without probe light or with full probe
-light, render scale 50%, then each effect off on its own. VSync is off while it runs, so a step's time is the device's own
-and not a multiple of the display's refresh. Stand still for the whole recording. The report
-lists each step's time a picture (ticks the game runs without drawing are not counted) and GPU
-time (frames split to time their passes left out); the first 1.5 s of each step are left out,
-and each frame carries a `settings sweep step` gauge. The settings are given back when it ends.
+Developer tools > **Record diagnostics** > **Graphics sweep**. The row shows only while Enhanced
+graphics is on, because the sweep measures its parts.
+
+- It runs 160 seconds and changes one setting every 4 seconds. Stand still the whole time.
+  A step waits while the driver compiles its pipelines in the background (up to 90 seconds in
+  all), so the first sweep of a build runs longer.
+- VSync is off, so each step shows the device's real time, not a step of the display's rate.
+- Steps: Enhanced off; render scale 50% and 25%; every world draw cut to one triangle (what
+  the draws themselves cost), and that again with `vk-mode-constants` off, at render scale 25%
+  and with probe lighting off; the prepass with the general shader; probe lighting off; three
+  steps again with `vk-mode-constants` off (as set, Enhanced off, probe lighting off); the
+  blended passes left out or without probe light; the mobys' glow, blended and metal passes
+  left out; draw distance Original; each `render_opt` speed-up switched off on its own;
+  temporal off and Performance; each effect off; every effect off (at native size, and with
+  your upscaler kept); anisotropic filtering off; anti-aliasing off; the cheap steps (shadow
+  filtering Fast, occlusion Low); effects detail High and Low; the presets High, Medium and Low.
+- The report gives each step's time a picture and GPU time. The first 1.5 s of a step are left
+  out, and so are the frames drawn while the driver still compiles a step's pipelines in the
+  background. Each frame has a `settings sweep step` gauge.
+- Your settings come back when it ends.
 
 ## What the report contains
 

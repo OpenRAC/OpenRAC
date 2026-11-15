@@ -26,6 +26,10 @@
 #include "renderer/math.h"
 #include "scene/shrub_draw.h"
 
+namespace openrac::scene {
+struct LevelData;
+}
+
 namespace openrac::host {
 
 // What the game's shrub renderer draws of one shrub instance in a frame.
@@ -127,6 +131,12 @@ struct DiagnosticsInput {
 class GameProfile {
 public:
     virtual ~GameProfile() = default;
+
+    // A verified asset-layout preparation callback, called by a level-loading worker.
+    using LevelGeometryPreparer = void (*)(scene::LevelData&);
+
+    // Returns immutable preparation for supported exports; no callback keeps retail geometry.
+    virtual LevelGeometryPreparer level_geometry_preparer() const { return nullptr; }
 
     // Reads the camera and the live mobys from the game's active main memory, `ram`. `level` is
     // the level program loaded now (-1 for the boot program, the title and the menus): each has its
@@ -245,7 +255,7 @@ public:
     // bit 0 hidden, the point lights' list at +0x1E); 0 for none.
     virtual std::array<std::uint32_t, 4> scenery_matrices() const { return {0, 0, 0, 0}; }
 
-    // Whether the world's depth is precise (renderer/precise_depth.h): reversed Z in a 32-bit float
+    // Whether the world's depth is precise (renderer/gl/precise_depth.h): reversed Z in a 32-bit float
     // buffer, clip-space z to the window as it is, where the context has glClipControl (OpenGL 4.5,
     // ARB_clip_control, the Vulkan backend; not macOS's OpenGL 4.1). Going Commando's Maktar dome
     // carries light strips (tie class 2713) within a few centimetres of the band under them (class

@@ -12,6 +12,7 @@
   import { supports } from "$lib/capabilities";
   import { gameMenu, setWithMods, startsPlay } from "$lib/gameMenu.svelte";
   import { grouped, pct } from "$lib/format";
+  import { keepRead, lastRead } from "$lib/lastRead";
   import { regionLabel, titleLines } from "$lib/labels";
   import { reduced } from "$lib/motion";
   import { modUpdates } from "$lib/modUpdates.svelte";
@@ -79,8 +80,12 @@
 
   // ---- the last save: where the player left off ----
 
-  /** The newest save of each version read, by serial; a read that failed is tried again later. */
-  const saves = $state<Record<string, SaveSlotInfo | null>>({});
+  /** The newest save of each version read, by serial; a read that failed is tried again later. Kept
+   *  from the tab's last visit (lastRead.ts): read anew each time, the line under the title and Play's
+   *  "Continue" came in a moment after the shelf, mid-slide. */
+  const saves = $state<Record<string, SaveSlotInfo | null>>(
+    lastRead<Record<string, SaveSlotInfo | null>>("shelf-saves", {}),
+  );
   const set = $derived(!!next && !["set-up", "installing", "other-disc"].includes(next.kind));
   $effect(() => {
     const serial = v?.serial;
@@ -90,6 +95,7 @@
       .inspectSaves(serial)
       .then((status) => {
         saves[serial] = newestSave(status.slots);
+        keepRead("shelf-saves", $state.snapshot(saves));
       })
       .catch(() => undefined);
   });
@@ -205,7 +211,10 @@
     const opacity = far <= 1 ? 1 - 0.65 * far : Math.max(0, 0.35 - 0.35 * (far - 1));
     // The shadow follows the wheel too: full in the middle, gone one disc away.
     const shade = Math.max(0, 1 - far);
-    return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; --shade: ${shade.toFixed(3)}; opacity: ${opacity}`;
+    // Not seen at all (two discs away and more): not drawn either. Never the picked disc's
+    // neighbours, which the controller's focus may be on its way to while the wheel turns.
+    const hidden = opacity <= 0 && Math.abs(i - at) >= 2 ? "; visibility: hidden" : "";
+    return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; --shade: ${shade.toFixed(3)}; opacity: ${opacity}${hidden}`;
   }
 
   // A finger anywhere on the stage turns the wheel (the rail beside it is not the stage). Let go, it
@@ -503,6 +512,7 @@
           <button
             class="slot"
             class:on={i === at}
+            class:far={Math.abs(i - at) >= 2}
             class:away={i === at && !!launching}
             aria-current={i === at ? "true" : undefined}
             style={place(i)}
@@ -656,6 +666,12 @@
     display: flex;
     flex-direction: column;
     --foot-h: 44px;
+  }
+
+  /* A disc two away cannot be seen: its sway and float wait where they are (no work each frame) and
+     go on from there as the wheel brings it near. */
+  .slot.far :global(:is(.disc, .face, .sheen)) {
+    animation-play-state: paused;
   }
 
   /* clip, not hidden: a disc taking the focus must not scroll the stage under the wheel. */

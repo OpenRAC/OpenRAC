@@ -4,13 +4,13 @@
 
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "scene/level_renderer.h"
 #include "scene/level_renderer_internal.h"
 #include "scene/shadow_graph.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 

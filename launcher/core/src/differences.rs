@@ -411,6 +411,25 @@ mod tests {
     }
 
     #[test]
+    fn nanotech_panel_defaults_on_and_switches_independently_of_enhanced_graphics() {
+        let home = tempfile::tempdir().unwrap();
+        let root = Some(checkout());
+        let file = settings_file(home.path(), "rac1", "ntsc");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        for enhanced in [0, 1] {
+            let kept = format!("aspect = 16:9\nenhanced_graphics = {enhanced}\n");
+            std::fs::write(&file, &kept).unwrap();
+            let initial = view(root.as_deref(), home.path(), "rac1", "ntsc").unwrap();
+            assert_eq!(initial.entries.iter().find(|e| e.id == "nanotech-hud-panel").unwrap().on, Some(true));
+            for on in [false, true] {
+                let result = set_fix(root.as_deref(), home.path(), "rac1", "ntsc", "nanotech-hud-panel", on).unwrap();
+                assert_eq!(result.entries.iter().find(|e| e.id == "nanotech-hud-panel").unwrap().on, Some(on));
+                assert!(std::fs::read_to_string(&file).unwrap().starts_with(&kept));
+            }
+        }
+    }
+
+    #[test]
     fn switches_read_as_the_port_reads_them() {
         assert_eq!(read_switch("fix_a = on\n", "fix_a"), Some(true));
         assert_eq!(read_switch("fix_a=0", "fix_a"), Some(false));

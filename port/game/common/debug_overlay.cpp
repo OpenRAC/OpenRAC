@@ -37,13 +37,17 @@
 #include "frontend.h"
 #include "mods.h"
 #include "openrac/game_host.h"
-#include "renderer/gl.h"
-#include "renderer/gl_stats.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gl_stats.h"
 #include "renderer/ui/backdrop_blur.h"
 #include "renderer/ui/imgui_gl.h"
 #include "renderer/ui/logo.h"
 #include "scene/screenshot.h"
 #include "settings.h"
+
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace openrac::frontend::debug_overlay {
 
@@ -215,23 +219,25 @@ void launcher_style(ImGuiStyle& style) {
         return v;
     };
     const ui_colors::Colors& u = ui();
-    // Plain controls sit on a panel: the launcher's --control-card (launcher/docs/STYLE.md).
-    const ui_colors::Color control = u.control_card;
-    const ui_colors::Color control_hi = u.control_card_hi;
+    // Keep developer windows darker and their controls distinct from the surrounding panels.
+    const auto panel = ui_colors::mix(u.panel, u.ink_deep, 0.3f);
+    const auto panel_hi = ui_colors::mix(u.panel_hi, u.ink_deep, 0.35f);
+    const auto control = ui_colors::mix(u.control_card, u.text, 0.07f);
+    const auto control_hi = ui_colors::mix(u.control_card_hi, u.text, 0.12f);
     ImVec4* colors = style.Colors;
     colors[ImGuiCol_Text] = c(u.text);
     colors[ImGuiCol_TextDisabled] = c(u.dim);
-    colors[ImGuiCol_WindowBg] = c(u.panel, 0.94f);
+    colors[ImGuiCol_WindowBg] = c(panel, 0.98f);
     colors[ImGuiCol_ChildBg] = ImVec4(0, 0, 0, 0);
-    colors[ImGuiCol_PopupBg] = c(u.panel, 0.98f);
+    colors[ImGuiCol_PopupBg] = c(panel, 0.99f);
     colors[ImGuiCol_Border] = c(u.line);
     colors[ImGuiCol_FrameBg] = c(control);
     colors[ImGuiCol_FrameBgHovered] = c(control_hi);
     colors[ImGuiCol_FrameBgActive] = c(ui_colors::mix(u.panel, u.amber, 0.18f));
     colors[ImGuiCol_TitleBg] = c(u.ink_deep);
-    colors[ImGuiCol_TitleBgActive] = c(u.panel_hi);
+    colors[ImGuiCol_TitleBgActive] = c(panel_hi);
     colors[ImGuiCol_TitleBgCollapsed] = c(u.ink_deep, 0.8f);
-    colors[ImGuiCol_MenuBarBg] = c(u.panel_hi);
+    colors[ImGuiCol_MenuBarBg] = c(panel_hi);
     colors[ImGuiCol_ScrollbarBg] = ImVec4(0, 0, 0, 0);
     colors[ImGuiCol_ScrollbarGrab] = c(u.line_strong);
     colors[ImGuiCol_ScrollbarGrabHovered] = c(u.dim);
@@ -239,9 +245,9 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_CheckMark] = c(u.amber);
     colors[ImGuiCol_SliderGrab] = c(u.amber);
     colors[ImGuiCol_SliderGrabActive] = c(u.gold);
-    colors[ImGuiCol_Button] = c(control);
+    colors[ImGuiCol_Button] = c(ui_colors::mix(u.control_card, u.text, 0.1f));
     colors[ImGuiCol_ButtonHovered] = c(control_hi);
-    colors[ImGuiCol_ButtonActive] = c(ui_colors::mix(u.panel, u.amber, 0.22f));
+    colors[ImGuiCol_ButtonActive] = c(ui_colors::mix(control, u.amber, 0.3f));
     colors[ImGuiCol_Header] = c(ui_colors::mix(u.panel_hi, u.amber, 0.14f));
     colors[ImGuiCol_HeaderHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.26f));
     colors[ImGuiCol_HeaderActive] = c(ui_colors::mix(u.panel_hi, u.amber, 0.38f));
@@ -261,7 +267,7 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_PlotLinesHovered] = c(u.amber);
     colors[ImGuiCol_PlotHistogram] = c(u.brand);
     colors[ImGuiCol_PlotHistogramHovered] = c(u.amber);
-    colors[ImGuiCol_TableHeaderBg] = c(u.panel_hi);
+    colors[ImGuiCol_TableHeaderBg] = c(panel_hi);
     colors[ImGuiCol_TableBorderStrong] = c(u.line_strong);
     colors[ImGuiCol_TableBorderLight] = c(u.line);
     colors[ImGuiCol_TableRowBgAlt] = c(u.text, 0.03f);
@@ -679,7 +685,7 @@ void toggle_drawer() {
 }
 
 bool visible() {
-    return s.visible || s.enhanced_settings || s.meat_proxy_review;
+    return s.visible || s.enhanced_settings || s.meat_proxy_review || s.material_settings;
 }
 
 bool wants_cursor() {
@@ -1034,7 +1040,7 @@ void draw(const Shown& shown) {
     ImGui::NewFrame();
     enhanced_settings_window();
     meat_proxy_review_window(shown);
-    material_settings_window();
+    material_settings_window(shown);
     controls_frame();
     if (s.visible) {
         panel(shown);
@@ -1079,11 +1085,23 @@ void draw(const Shown& shown) {
         draw_notifications();
     }
     ImGui::Render();
+#if defined(OPENRAC_VULKAN)
+    // The panel needs no depth. Drawn in a pass with the default depth image, Adreno broke it at
+    // 2x MSAA.
+    if (gl::is_vulkan()) {
+        vkgl::default_framebuffer_depth(false);
+    }
+#endif
     if (s.gl_subset) {
         renderer::ui::imgui_gl::render(ImGui::GetDrawData());
     } else {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan()) {
+        vkgl::default_framebuffer_depth(true);
+    }
+#endif
     renderer::gl_stats::reset_binds();
 
     if (!scripted_shot.empty()) {
@@ -1143,6 +1161,7 @@ bool take_settings_changed() {
 void release() {
     release_object_viewer();
     renderer::ui::backdrop_blur::release();
+    release_material_preview();
     if (s.initialised) {
         if (s.gl_subset) {
             renderer::ui::imgui_gl::shutdown();

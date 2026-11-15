@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The swapchain's image count (renderer/vulkan/swapchain_images.h): low-latency frames take the
+// The swapchain's image count (renderer/vulkan/presentation/swapchain_images.h): low-latency frames take the
 // fewest images, except where the compositor holds one a refresh longer (Android), where two
 // images would halve the frame rate.
-#include "renderer/vulkan/swapchain_images.h"
+#include "renderer/vulkan/presentation/swapchain_images.h"
 #include "tests/check.h"
 
 namespace {

@@ -30,6 +30,13 @@ const fn arena(id: &'static str, name: &'static str, offset: usize) -> Flag {
     }
 }
 
+/// One of the hoverbike races: the byte counts the wins (`func_L04_0040A1D0` gives it,
+/// `func_L04_0040A220` adds 1 per win, the same code in Barlow and Joba). A race can be picked
+/// once the race before it is won; the prize is by this count.
+const fn race(id: &'static str, name: &'static str, offset: usize, description: &'static str) -> Flag {
+    Flag { id, level: Some(4), name, description, place: story(offset, 1), confidence: Confidence::FromCode }
+}
+
 pub const FLAGS: &[Flag] = &[
     // Maktar Nebula (level 2).
     Flag {
@@ -155,6 +162,32 @@ pub const FLAGS: &[Flag] = &[
         &[count(4, 561), story(0x0F, 1), group_done(4, 7), Place::Bit { chunk: 43, level: None, offset: 0x3B, bit: 0 }],
         Confidence::Proven,
     ),
+    // Barlow's five hoverbike races (wins, chunk 5 0x4D..0x51).
+    race(
+        "barlow-race-1",
+        "Hoverbike race 1 won",
+        0x4D,
+        "Won at least once: race 2 can be picked, and from the next visit Feltzin System is on the ship's map.",
+    ),
+    race(
+        "barlow-race-2",
+        "Hoverbike race 2 won",
+        0x4E,
+        "Won at least once: the next race can be picked and later wins pay the smaller prize.",
+    ),
+    race(
+        "barlow-race-3",
+        "Hoverbike race 3 won",
+        0x4F,
+        "Won at least once: the next race can be picked and later wins pay the smaller prize.",
+    ),
+    race(
+        "barlow-race-4",
+        "Hoverbike race 4 won",
+        0x50,
+        "Won at least once: the next race can be picked and later wins pay the smaller prize.",
+    ),
+    race("barlow-race-5", "Hoverbike race 5 won", 0x51, "Won at least once: later wins pay the smaller prize."),
     // Feltzin System (level 5): the four space combat missions, a count of wins each (the game
     // keeps up to 127 and lowers the bolt prize after the second win).
     Flag {

@@ -5,7 +5,7 @@
 #include <span>
 #include <vector>
 
-#include "renderer/shadow_volume.h"
+#include "renderer/effects/shadow_volume.h"
 
 namespace openrac::scene {
 struct MobyShadowState {

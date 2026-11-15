@@ -13,6 +13,8 @@ uniform vec2 display_size;
 uniform int jump_pixels;
 uniform float min_motion;
 uniform float side_spread;
+// Render pixels per seed cell: 2 floods a half-resolution grid (lossy, a quarter of the pixels).
+uniform int seed_scale;
 layout(location=0) out uint chosen_seed;
 const uint invalid_seed = 0xffffffffu;
 #ifdef FAST_FLOOD
@@ -21,7 +23,8 @@ uint last_seed;
 uint seed_at(ivec2 pixel) {
     // The first flood reads implicit per-pixel seeds, avoiding a separate initialization pass.
 #ifdef INITIALIZE_SEEDS
-    return uint(pixel.x) | (uint(pixel.y) << 16);
+    ivec2 source = pixel * seed_scale;
+    return uint(source.x) | (uint(source.y) << 16);
 #else
     return texelFetch(seed_texture, pixel, 0).r;
 #endif
@@ -57,7 +60,10 @@ void consider(uint packed, vec2 receiver, inout float best_depth, inout float be
     float absolute_velocity_space_distance = abs(velocity_space_distance - 0.5);
     float side_offset = abs(dot(vec2(uv_offset.y, -uv_offset.x), sample_velocity)) / speed2;
     // User-controlled side allowance (upstream default 0.5); gather checks actual coverage.
-    if (absolute_velocity_space_distance > 0.5001 || side_offset > side_spread + 1.0 / sqrt(speed2)) return;
+    // A coarse cell also accepts sources that reach any of its pixels, not only its centre.
+    float cell_reach = 0.7072 * float(seed_scale - 1) / sqrt(speed2);
+    if (absolute_velocity_space_distance > 0.5001 + cell_reach
+        || side_offset > side_spread + (1.0 + 0.7072 * float(seed_scale - 1)) / sqrt(speed2)) return;
     // Reversed depth makes a foreground source win over background regardless of speed.
     if (motion.z > best_depth
         || (motion.z == best_depth && absolute_velocity_space_distance < best_fitness)) {
@@ -67,14 +73,16 @@ void consider(uint packed, vec2 receiver, inout float best_depth, inout float be
     }
 }
 #if defined(FAST_FLOOD) && defined(INITIALIZE_SEEDS)
-void consider_at(ivec2 at, ivec2 pixel, ivec2 size, inout float best_depth, inout float best_fitness) {
+void consider_at(ivec2 at, vec2 receiver, ivec2 size, inout float best_depth, inout float best_fitness) {
     if (any(lessThan(at, ivec2(0))) || any(greaterThanEqual(at, size))) return;
-    consider(seed_at(at), vec2(pixel), best_depth, best_fitness);
+    consider(seed_at(at), receiver, best_depth, best_fitness);
 }
 #endif
 void main() {
     ivec2 pixel = ivec2(gl_FragCoord.xy);
     ivec2 size = textureSize(seed_texture, 0);
+    // The cell's centre in render pixels; candidates and velocities stay in render pixels.
+    vec2 receiver = vec2(pixel * seed_scale) + 0.5 * float(seed_scale - 1);
     chosen_seed = invalid_seed;
 #ifdef FAST_FLOOD
     last_seed = invalid_seed;
@@ -82,20 +90,42 @@ void main() {
     float best_depth = -1.0, best_fitness = 1e20;
     // Preserve a candidate across iterations, including isolated thin features at the image edge.
 #ifndef FAST_FLOOD
-    consider(seed_at(pixel), vec2(pixel), best_depth, best_fitness);
+    consider(seed_at(pixel), receiver, best_depth, best_fitness);
+#ifdef INITIALIZE_SEEDS
+    // A half-resolution cell also offers its other render pixels, so thin movers still seed.
+    if (seed_scale == 2) {
+        ivec2 velocity_size = textureSize(velocity_texture, 0);
+        for (int i = 1; i < 4; ++i) {
+            ivec2 at = pixel * 2 + ivec2(i & 1, i >> 1);
+            if (all(lessThan(at, velocity_size))) {
+                consider(uint(at.x) | (uint(at.y) << 16), receiver, best_depth, best_fitness);
+            }
+        }
+    }
+#endif
 #endif
 #ifdef FAST_FLOOD
 #ifdef INITIALIZE_SEEDS
     // Initial sources are implicit coordinates, so there are no seed reads to prefetch.
-    consider(seed_at(pixel), vec2(pixel), best_depth, best_fitness);
-    consider_at(pixel + ivec2(-1,0) * jump_pixels, pixel, size, best_depth, best_fitness);
-    consider_at(pixel + ivec2(1,0) * jump_pixels, pixel, size, best_depth, best_fitness);
-    consider_at(pixel + ivec2(0,-1) * jump_pixels, pixel, size, best_depth, best_fitness);
-    consider_at(pixel + ivec2(0,1) * jump_pixels, pixel, size, best_depth, best_fitness);
-    consider_at(pixel + ivec2(-1,1) * jump_pixels, pixel, size, best_depth, best_fitness);
-    consider_at(pixel + ivec2(1,-1) * jump_pixels, pixel, size, best_depth, best_fitness);
-    consider_at(pixel + ivec2(1,1) * jump_pixels, pixel, size, best_depth, best_fitness);
-    consider_at(pixel + ivec2(-1,-1) * jump_pixels, pixel, size, best_depth, best_fitness);
+    consider(seed_at(pixel), receiver, best_depth, best_fitness);
+    // A half-resolution cell also offers its other render pixels, so thin movers still seed.
+    if (seed_scale == 2) {
+        ivec2 velocity_size = textureSize(velocity_texture, 0);
+        for (int i = 1; i < 4; ++i) {
+            ivec2 at = pixel * 2 + ivec2(i & 1, i >> 1);
+            if (all(lessThan(at, velocity_size))) {
+                consider(uint(at.x) | (uint(at.y) << 16), receiver, best_depth, best_fitness);
+            }
+        }
+    }
+    consider_at(pixel + ivec2(-1,0) * jump_pixels, receiver, size, best_depth, best_fitness);
+    consider_at(pixel + ivec2(1,0) * jump_pixels, receiver, size, best_depth, best_fitness);
+    consider_at(pixel + ivec2(0,-1) * jump_pixels, receiver, size, best_depth, best_fitness);
+    consider_at(pixel + ivec2(0,1) * jump_pixels, receiver, size, best_depth, best_fitness);
+    consider_at(pixel + ivec2(-1,1) * jump_pixels, receiver, size, best_depth, best_fitness);
+    consider_at(pixel + ivec2(1,-1) * jump_pixels, receiver, size, best_depth, best_fitness);
+    consider_at(pixel + ivec2(1,1) * jump_pixels, receiver, size, best_depth, best_fitness);
+    consider_at(pixel + ivec2(-1,-1) * jump_pixels, receiver, size, best_depth, best_fitness);
 #else
     // Issue independent source-coordinate reads before the dependent velocity lookups.
     // This preserves candidate order while hiding texture latency between neighbours.
@@ -135,7 +165,7 @@ void main() {
     if(centre_seed==invalid_seed && all(equal(first,uvec4(invalid_seed)))
         && all(equal(uvec4(upper_left,lower_right,upper_right,lower_left),uvec4(invalid_seed)))) return;
 #endif
-    consider(centre_seed, vec2(pixel), best_depth, best_fitness);
+    consider(centre_seed, receiver, best_depth, best_fitness);
 #ifdef UNIQUE_SEEDS
     // Sources have immutable fitness at this receiver, and the best depth/fitness only improves.
     // Once tested, a duplicate cannot win later; preserve the first occurrence and its tie order.
@@ -149,20 +179,20 @@ void main() {
     if(upper_right==centre_seed || upper_right==upper_left || upper_right==lower_right || any(equal(uvec4(upper_right),first))) upper_right=invalid_seed;
     if(lower_left==centre_seed || lower_left==upper_left || lower_left==lower_right || lower_left==upper_right || any(equal(uvec4(lower_left),first))) lower_left=invalid_seed;
 #endif
-    consider(left, vec2(pixel), best_depth, best_fitness);
-    consider(right, vec2(pixel), best_depth, best_fitness);
-    consider(down, vec2(pixel), best_depth, best_fitness);
-    consider(up, vec2(pixel), best_depth, best_fitness);
-    consider(upper_left, vec2(pixel), best_depth, best_fitness);
-    consider(lower_right, vec2(pixel), best_depth, best_fitness);
-    consider(upper_right, vec2(pixel), best_depth, best_fitness);
-    consider(lower_left, vec2(pixel), best_depth, best_fitness);
+    consider(left, receiver, best_depth, best_fitness);
+    consider(right, receiver, best_depth, best_fitness);
+    consider(down, receiver, best_depth, best_fitness);
+    consider(up, receiver, best_depth, best_fitness);
+    consider(upper_left, receiver, best_depth, best_fitness);
+    consider(lower_right, receiver, best_depth, best_fitness);
+    consider(upper_right, receiver, best_depth, best_fitness);
+    consider(lower_left, receiver, best_depth, best_fitness);
 #endif
 #else
     for (int i = 0; i < 8; ++i) {
         ivec2 at = pixel + neighbours[i] * jump_pixels;
         if (any(lessThan(at, ivec2(0))) || any(greaterThanEqual(at, size))) continue;
-        consider(seed_at(at), vec2(pixel), best_depth, best_fitness);
+        consider(seed_at(at), receiver, best_depth, best_fitness);
     }
 #endif
 }

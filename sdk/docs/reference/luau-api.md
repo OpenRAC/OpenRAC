@@ -35,6 +35,8 @@ language server at the SDK's `types/rac1.d.luau` for autocomplete. How to use it
 | `openrac.touch_icon` | `(name: string, svg: string) -> boolean` |
 | `openrac.touch_push` | `(context: string?) -> ()` |
 | `openrac.touch_hint` | `(hint: string, on: boolean) -> ()` |
+| `openrac.set_setting` | `(key: string, value: any) -> boolean` |
+| `openrac.on_settings` | `(fn: () -> ()) -> ()` |
 | `openrac.pvars` | `(moby: number) -> { [string]: number }?` |
 
 ## Types
@@ -491,6 +493,14 @@ rac1.vendor.open_menu (Vendor_OpenMenu) void(u32): Opens the vendor purchase men
 
 ```lua
 type Vendor_OpenMenuFn = (moby: number) -> ()
+```
+
+### `GoldBolts_CountUnspentFn`
+
+rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership.
+
+```lua
+type GoldBolts_CountUnspentFn = () -> number
 ```
 
 ### `MobyUpdateFn`

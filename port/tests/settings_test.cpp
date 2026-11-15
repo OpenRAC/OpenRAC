@@ -33,10 +33,20 @@ void test_temporal_settings(const std::filesystem::path& file) {
     std::ofstream(file) << "temporal_quality = unsupported\ntemporal_sharpness = nan\nmotion_blur "
                            "= invalid\nmotion_blur_strength = nan\n";
     settings::load(file);
-    CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
+    CHECK(settings::get().temporal_quality == settings::Settings{}.temporal_quality);
     CHECK(settings::get().temporal_sharpness == .2f);
     CHECK(settings::get().motion_blur);
     CHECK(settings::get().motion_blur_strength == .5f);
+    CHECK(!settings::get().motion_blur_settings.quality);
+    for (const bool quality : {true, false}) {
+        std::ofstream(file) << "motion_blur_quality = " << (quality ? "quality" : "performance")
+                            << "\n";
+        settings::load(file);
+        CHECK(settings::get().motion_blur_settings.quality == quality);
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().motion_blur_settings.quality == quality);
+    }
 }
 
 // Every Draw distance step survives a save and a load, Unlimited (0) too.
@@ -87,7 +97,7 @@ void test_hdr_settings(const std::filesystem::path& file) {
         CHECK(settings::get().hdr == static_cast<hdr::Mode>(n));
         CHECK(settings::get().hdr_paper_white == 250 && settings::get().hdr_peak == 1400);
     }
-    // The launcher's word over the file's, and another word changes nothing.
+    // OPENRAC_HDR's word over the file's, and another word changes nothing.
     CHECK(settings::set_hdr_mode("off") && settings::get().hdr == hdr::Mode::Off);
     CHECK(settings::set_hdr_mode("on") && settings::get().hdr == hdr::Mode::On);
     CHECK(!settings::set_hdr_mode("bright") && settings::get().hdr == hdr::Mode::On);
@@ -99,6 +109,23 @@ void test_hdr_settings(const std::filesystem::path& file) {
     settings::load(file);
     CHECK(settings::get().hdr == hdr::Mode::Off);
     CHECK(settings::get().hdr_paper_white == 0 && settings::get().hdr_peak == 0);
+    // The look's sliders: the plain HDR look by default, kept through a save, the default when
+    // out of range.
+    std::ofstream(file) << "vsync = on\n";
+    settings::load(file);
+    CHECK(settings::get().hdr_highlights == 100 && settings::get().hdr_sdr_hue == 0);
+    CHECK(settings::get().hdr_sdr_chroma == 0 && settings::get().hdr_blowout == 0);
+    std::ofstream(file) << "hdr_highlights = 40\nhdr_sdr_hue = 70\nhdr_sdr_chroma = 30\n"
+                        << "hdr_blowout = 100\n";
+    settings::load(file);
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().hdr_highlights == 40 && settings::get().hdr_sdr_hue == 70);
+    CHECK(settings::get().hdr_sdr_chroma == 30 && settings::get().hdr_blowout == 100);
+    std::ofstream(file) << "hdr_highlights = 120\nhdr_sdr_hue = -1\nhdr_blowout = soft\n";
+    settings::load(file);
+    CHECK(settings::get().hdr_highlights == 100 && settings::get().hdr_sdr_hue == 0);
+    CHECK(settings::get().hdr_blowout == 0);
     // The menu's size: kept through a save, Auto (100) when out of range.
     std::ofstream(file) << "menu_size = 125\n";
     settings::load(file);
@@ -133,12 +160,67 @@ void test_reset_enhanced() {
     CHECK(s.enhanced_rendering && s.enhanced_graphics);
     CHECK(s.volume == 37 && s.render_scale == 75 && s.frame_cap == 144);
     CHECK(s.texture_filter == renderer::TextureFilter::EdgeAware);
-    CHECK(s.shadow_quality == renderer::ShadowQuality::High);
+    CHECK(s.shadow_quality == settings::Settings{}.shadow_quality);
     CHECK(s.volumetric_quality == renderer::VolumetricQuality::Off);
     CHECK(s.agx_preview && s.agx_exposure == .25f && s.agx_brightness == .5f);
     CHECK(!s.sun_direction_override && !s.probe_spheres);
     CHECK(s.motion_blur && s.motion_blur_settings.samples == 16);
     CHECK(s.lily_momentum == .25f);
+}
+
+// The presets set the costly options together and leave the other settings alone.
+void test_enhanced_presets() {
+    using namespace openrac;
+    settings::Settings s;
+    s.render_scale = 75;
+    s.gtao_settings.half_resolution = false;
+    s.volumetric_quality = renderer::VolumetricQuality::High;
+
+    // A new file starts at a preset: Medium where the GPU is a low-power one, High elsewhere.
+    CHECK(
+        settings::Settings{}.enhanced_preset()
+        == (settings::kHandheldDefaults ? settings::EnhancedPreset::Medium
+                                        : settings::EnhancedPreset::High)
+    );
+
+    // Each preset sets its options and is then the one the settings match.
+    for (const auto preset :
+         {settings::EnhancedPreset::Low,
+          settings::EnhancedPreset::Medium,
+          settings::EnhancedPreset::High}) {
+        s.apply_enhanced_preset(preset);
+        CHECK(s.enhanced_preset() == preset);
+    }
+
+    s.apply_enhanced_preset(settings::EnhancedPreset::Low);
+    CHECK(s.temporal_quality == renderer::TemporalQuality::Performance);
+    CHECK(s.shadow_quality == renderer::ShadowQuality::Low);
+    CHECK(s.shadow_filter == renderer::ShadowFilter::Fast);
+    CHECK(s.gtao_settings.quality == renderer::GtaoQuality::Low);
+    CHECK(!s.motion_blur);
+    CHECK(s.effects_detail == renderer::render_opt::EffectsDetail::Low);
+
+    // What a preset does not cover stays as the player set it.
+    CHECK(s.render_scale == 75 && s.gtao && s.enhanced_shadows && s.agx_preview);
+    CHECK(!s.gtao_settings.half_resolution);
+    CHECK(s.volumetric_quality == renderer::VolumetricQuality::High);
+
+    // Any other mix is Custom, and applying Custom changes nothing.
+    s.shadow_filter = renderer::ShadowFilter::Soft;
+    CHECK(s.enhanced_preset() == settings::EnhancedPreset::Custom);
+    s.apply_enhanced_preset(settings::EnhancedPreset::Custom);
+    CHECK(s.shadow_quality == renderer::ShadowQuality::Low);
+}
+
+// A file from before effects detail takes the detail of the preset its other values match.
+void test_effects_detail_default(const std::filesystem::path& file) {
+    using namespace openrac;
+    std::ofstream(file) << "temporal_quality = performance\nshadow_quality = low\n"
+                        << "shadow_filter = fast\ngtao_quality = low\nmotion_blur = 0\n"
+                        << "texture_filter = normal\n";
+    settings::load(file);
+    CHECK(settings::get().effects_detail == renderer::render_opt::EffectsDetail::Low);
+    CHECK(settings::get().enhanced_preset() == settings::EnhancedPreset::Low);
 }
 
 void test_agx_preview(const std::filesystem::path& file) {
@@ -229,7 +311,22 @@ void test_volumetric_quality(const std::filesystem::path& file) {
 
 void test_shadow_quality(const std::filesystem::path& file) {
     using namespace openrac;
-    CHECK(settings::Settings{}.shadow_quality == renderer::ShadowQuality::High);
+    // Low-power GPUs (Android, Apple Silicon) start at Medium.
+    CHECK(
+        settings::Settings{}.shadow_quality
+        == (settings::kHandheldDefaults ? renderer::ShadowQuality::Medium
+                                        : renderer::ShadowQuality::High)
+    );
+    for (const auto filter : {renderer::ShadowFilter::Fast, renderer::ShadowFilter::Soft}) {
+        std::ofstream(file) << "shadow_filter = "
+                            << renderer::kShadowFilterKeys[static_cast<int>(filter)] << "\n";
+        settings::load(file);
+        CHECK(settings::get().shadow_filter == filter);
+        settings::save();
+        settings::load(file);
+        CHECK(settings::get().shadow_filter == filter);
+    }
+    settings::get().shadow_filter = renderer::ShadowFilter::Soft;
     for (std::size_t n = 0; n < std::size(renderer::kShadowQualityKeys); ++n) {
         std::ofstream(file) << "shadow_quality = " << renderer::kShadowQualityKeys[n] << "\n";
         settings::load(file);
@@ -240,7 +337,7 @@ void test_shadow_quality(const std::filesystem::path& file) {
     }
     std::ofstream(file) << "shadow_quality = invalid\n";
     settings::load(file);
-    CHECK(settings::get().shadow_quality == renderer::ShadowQuality::High);
+    CHECK(settings::get().shadow_quality == settings::Settings{}.shadow_quality);
 }
 
 void test_sunlight_settings(const std::filesystem::path& file) {
@@ -465,11 +562,13 @@ int main() {
     settings::load(file);
     CHECK(settings::get().ceiling_area_lights);
     CHECK(settings::get().medial_axis_debug);
-    CHECK(settings::get().temporal_quality == renderer::TemporalQuality::Quality);
+    CHECK(settings::get().temporal_quality == settings::Settings{}.temporal_quality);
     test_temporal_settings(file);
     test_lily_momentum(file);
     test_hdr_settings(file);
     test_reset_enhanced();
+    test_enhanced_presets();
+    test_effects_detail_default(file);
     test_agx_preview(file);
     test_motion_blur_tuning(file);
     test_shadow_quality(file);
@@ -530,12 +629,6 @@ int main() {
     CHECK(settings::get().enhanced_graphics);
     CHECK(settings::get().enhanced_shadows);
     CHECK(!settings::get().probe_spheres);
-    CHECK(settings::get().rim_shadow_lift);
-    CHECK(settings::get().rim_lift_exponent == 0.09f);
-    CHECK(settings::get().rim_lift_max_gain == 7.1f);
-    CHECK(settings::get().rim_light);
-    CHECK(settings::get().rim_light_strength == 0.30f);
-    CHECK(settings::get().rim_light_falloff == 6.46f);
     CHECK(settings::get().probe_gi_multiplier == 1.0f);
     CHECK(settings::get().probe_normal_bias == 0.5f);
     CHECK(settings::get().probe_view_bias == 0.5f);
@@ -564,12 +657,6 @@ int main() {
     options.probe_spheres = true;
     options.environment_probe_debug = true;
     CHECK(options.probe_normal_bias == 0.5f && options.probe_view_bias == 0.5f);
-    options.rim_shadow_lift = false;
-    options.rim_lift_exponent = 0.09f;
-    options.rim_lift_max_gain = 8.0f;
-    options.rim_light = false;
-    options.rim_light_strength = 0.4f;
-    options.rim_light_falloff = 6.0f;
     options.probe_gi_multiplier = 2.5f;
     options.probe_normal_bias = 0.25f;
     options.probe_view_bias = 1.25f;
@@ -581,12 +668,6 @@ int main() {
     CHECK(options.probe_spheres);
     CHECK(options.environment_probe_debug);
     CHECK(!options.enhanced_shadows);
-    CHECK(!options.rim_shadow_lift);
-    CHECK(options.rim_lift_exponent == 0.09f);
-    CHECK(options.rim_lift_max_gain == 8.0f);
-    CHECK(!options.rim_light);
-    CHECK(options.rim_light_strength == 0.4f);
-    CHECK(options.rim_light_falloff == 6.0f);
     CHECK(options.probe_gi_multiplier == 2.5f);
     CHECK(options.probe_normal_bias == 0.25f);
     CHECK(options.probe_view_bias == 1.25f);
@@ -601,20 +682,6 @@ int main() {
     settings::save();
     settings::load(file);
     CHECK(options.enhanced_shadows);
-    std::ofstream(file) << "rim_light = bad\nrim_light_strength = nan\n"
-                           "rim_light_strength = -1\nrim_light_strength = 2\n"
-                           "rim_light_falloff = inf\nrim_light_falloff = 0\n"
-                           "rim_light_falloff = 9\nrim_shadow_lift = bad\n"
-                           "rim_lift_exponent = nan\nrim_lift_exponent = 0\n"
-                           "rim_lift_exponent = 2\nrim_lift_max_gain = inf\n"
-                           "rim_lift_max_gain = 0\nrim_lift_max_gain = 17\n";
-    settings::load(file);
-    CHECK(options.rim_shadow_lift);
-    CHECK(options.rim_lift_exponent == 0.09f);
-    CHECK(options.rim_lift_max_gain == 7.1f);
-    CHECK(options.rim_light);
-    CHECK(options.rim_light_strength == 0.30f);
-    CHECK(options.rim_light_falloff == 6.46f);
     std::ofstream(file) << "probe_gi_multiplier = nan\nprobe_gi_multiplier = 6\n"
                            "probe_gi_multiplier = -1\n";
     settings::load(file);
@@ -638,7 +705,10 @@ int main() {
         CHECK(options.probe_normal_bias == bias);
         CHECK(options.probe_view_bias == 2.0f - bias);
     }
-    for (auto quality : {renderer::GtaoQuality::Quality, renderer::GtaoQuality::Performance}) {
+    for (auto quality :
+         {renderer::GtaoQuality::Quality,
+          renderer::GtaoQuality::Low,
+          renderer::GtaoQuality::Performance}) {
         options.gtao_settings.quality = quality;
         settings::save();
         settings::load(file);

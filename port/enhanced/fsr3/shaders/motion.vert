@@ -84,7 +84,7 @@ void main() {
     vec3 bind_position = position;
 #ifdef OPENRAC_HERO_FUR
     v_hero_fur = hero_fur_receiver(gl_VertexID, joints_at.x, 0.);
-    if (hero_fur_shell > 0.) {
+    if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {
         float shell_wetness = 0.;
         int wet_index = gl_VertexID - hero_wetness_first;
         if (hero_wetness_enabled != 0 && int(joints_at.x + .5) == hero_wetness_palette

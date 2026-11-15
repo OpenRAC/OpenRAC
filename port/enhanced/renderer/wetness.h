@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <optional>
 
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 #include "scene/level.h"
 
 namespace openrac::enhanced {
@@ -38,6 +38,9 @@ public:
     void bind(const renderer::Shader& shader) const;
     // Binds cached material response without changing the GPU wetness history.
     void bind(const renderer::Shader& shader, const WetnessMaterialSettings& settings) const;
+
+    // Any model but the hero's draws with wetness off, so its pipelines carry no wet coat.
+    void bind_model(const renderer::Shader& shader, unsigned model) const;
 
     // Updates optical uniforms without changing wetness history or rebinding its storage.
     void bind_material(

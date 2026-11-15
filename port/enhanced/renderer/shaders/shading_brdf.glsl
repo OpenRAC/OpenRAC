@@ -9,6 +9,10 @@ float dielectric_fresnel(float cosine, float f0) {
     return float(base + (mp_float(1) - base) * f * f * f * f * f);
 }
 
+vec3 surface_fresnel(float cosine, vec3 f0) {
+    return mix(f0, vec3(1.), dielectric_fresnel(cosine, 0.));
+}
+
 // Broad indirect reflection when no local radiance capture covers the receiver.
 // Irradiance is already cosine-filtered: E/pi supplies local colour, not sharp reflected detail.
 vec3 gi_specular_fallback(vec3 irradiance,float cosine,float f0) {
@@ -18,11 +22,11 @@ vec3 gi_specular_fallback(vec3 irradiance,float cosine,float f0) {
 
 // GGX distribution and height-correlated Smith visibility, multiplied by NoL.
 // Directions and the normal are unit vectors; roughness is perceptual roughness.
-float ggx_specular_fp32(vec3 n, vec3 eye, vec3 light, float roughness, float f0) {
+vec2 ggx_lobe_fp32(vec3 n, vec3 eye, vec3 light, float roughness) {
     float nv = max(dot(n, eye), 0.), nl = max(dot(n, light), 0.);
     vec3 sum = eye + light;
     if (nv <= 0. || nl <= 0. || dot(sum, sum) < 1e-8) {
-        return 0.;
+        return vec2(0.);
     }
     vec3 half_direction = normalize(sum);
     float nh = max(dot(n, half_direction), 0.);
@@ -32,9 +36,19 @@ float ggx_specular_fp32(vec3 n, vec3 eye, vec3 light, float roughness, float f0)
     // Includes 1/(4 NoV NoL).
     float visibility =
         .5 / max(nl * sqrt(nv * nv * (1. - a2) + a2) + nv * sqrt(nl * nl * (1. - a2) + a2), 1e-6);
-    float f = 1. - clamp(dot(eye, half_direction), 0., 1.);
+    return vec2(distribution * visibility * nl, dot(eye, half_direction));
+}
+
+float ggx_specular_fp32(vec3 n, vec3 eye, vec3 light, float roughness, float f0) {
+    vec2 lobe = ggx_lobe_fp32(n, eye, light, roughness);
+    float f = 1. - clamp(lobe.y, 0., 1.);
     float fresnel = f0 + (1. - f0) * f * f * f * f * f;
-    return distribution * visibility * fresnel * nl;
+    return lobe.x * fresnel;
+}
+
+vec3 ggx_specular(vec3 n, vec3 eye, vec3 light, float roughness, vec3 f0) {
+    vec2 lobe = ggx_lobe_fp32(n, eye, light, roughness);
+    return lobe.x * surface_fresnel(lobe.y, f0);
 }
 
 // GGX distribution and height-correlated Smith visibility, multiplied by NoL.

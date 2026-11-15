@@ -87,6 +87,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_OMIT_func_00201AF0 1
 /* FontPrintWindow in the small font: NTSC-J has no counterpart of it (its catalogue's func_J_001F8688 is a second copy of the large font's), so the shared C's replacement is left out. */
 #define RAC1_OMIT_func_001F75D0 1
+/* The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here). */
+#define RAC1_OMIT_func_001E9E70 1
+/* Aridia's counters with "HUD: Edges" (hud.c): NTSC-J's anchors are not paired yet, so that part is left out. */
+#define RAC1_OMIT_func_L02_0023D6E0 1
 /* FontPrintWindow as NTSC-J's own C calls it: its font_print_window_regular (src/versions/jp/game/render/draw/func_001F7560.c) draws with func_J_001F81F8, its own routine, not PAL v2.00's func_001F7070. */
 #define RAC1_FONT_PRINT_WINDOW func_001F81F8
 

@@ -11,7 +11,7 @@
 #include <string>
 
 #include "check.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/ui/imgui_gl.h"
 #include "renderer_gl_context.h"
 

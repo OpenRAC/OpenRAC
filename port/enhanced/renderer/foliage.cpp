@@ -14,8 +14,8 @@
 #include "common/float_encoding.h"
 #include "common/json.h"
 #include "materials/catalog.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::enhanced {
 namespace {

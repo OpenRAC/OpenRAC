@@ -1,0 +1,311 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+
+#include "renderer/gl/shader.h"
+
+#include <algorithm>
+#include <format>
+#include <utility>
+
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gl_warmup.h"
+#include "renderer/gl/program_cache.h"
+#include "renderer/gl/shader_precision.h"
+#include "renderer/textures/texture_filter.h"
+#include "renderer_shaders.h"
+
+namespace openrac::renderer {
+
+using namespace openrac::gl;
+
+namespace {
+
+constexpr int kSamplerUnits = 8;
+
+}  // namespace
+
+std::string shader_constants(std::string source, std::initializer_list<ShaderIntConstant> values) {
+    for (const auto& [name, value] : values) {
+        const std::string declaration = "uniform int " + std::string(name) + ";";
+        const std::string constant =
+            "const int " + std::string(name) + " = " + std::to_string(value) + ";";
+        for (auto at = source.find(declaration); at != std::string::npos;
+             at = source.find(declaration, at + constant.size())) {
+            source.replace(at, declaration.size(), constant);
+        }
+    }
+    return source;
+}
+
+std::string es_source(std::string_view source, bool noperspective, bool clip_distance) {
+    // The version line, and the first line after it that is not a comment, are where the ES
+    // preamble goes; a source without "#version 410 core" first is given as it is.
+    constexpr std::string_view kDesktop = "#version 410 core";
+    if (source.substr(0, kDesktop.size()) != kDesktop) {
+        return std::string(source);
+    }
+    std::string body(source.substr(kDesktop.size()));
+    const auto replace_all = [&body](std::string_view from, std::string_view to) {
+        for (std::size_t at = body.find(from); at != std::string::npos;
+             at = body.find(from, at + to.size())) {
+            body.replace(at, from.size(), to);
+        }
+    };
+    std::string out = "#version 320 es\n";
+    if (noperspective) {
+        out += "#extension GL_NV_shader_noperspective_interpolation : require\n";
+    } else {
+        // Interpolated with perspective instead: Gouraud colours and fog differ a little across a
+        // large triangle seen at an angle, and nothing else.
+        replace_all("noperspective ", "");
+    }
+    if (body.find("gl_ClipDistance") != std::string::npos) {
+        if (clip_distance) {
+            out += "#extension GL_EXT_clip_cull_distance : require\n";
+        } else {
+            // No user clip planes: the distances are written to a variable nobody reads, and the
+            // renderer leaves the planes off (gl::has_extension).
+            replace_all("gl_ClipDistance", "openrac_clip_distance");
+            out += "float openrac_clip_distance[8];\n";
+        }
+    }
+    // ES has no default precision for floats in a fragment shader or for the sampler types beyond
+    // sampler2D and samplerCube; the desktop's is high everywhere.
+    out += "precision highp float;\nprecision highp int;\nprecision highp sampler2D;\n"
+           "precision highp sampler2DArray;\nprecision highp usampler2D;\nprecision highp "
+           "isampler2D;\n"
+           "precision highp samplerBuffer;\nprecision highp usamplerBuffer;\nprecision highp "
+           "isamplerBuffer;\n";
+    // Keep the source's own line numbers in compiler logs.
+    out += "#line 1\n";
+    out += body;
+    return out;
+}
+
+namespace {
+
+// The source handed to the driver for a stage written for the desktop's GL: in ES's words on an ES
+// context, with the enhanced rendering's switch, and the precision aliases.
+std::string stage_source(std::string_view desktop_source) {
+    std::string translated;
+    std::string_view source = desktop_source;
+    if (is_es()) {
+        translated = es_source(
+            desktop_source,
+            has_extension("GL_NV_shader_noperspective_interpolation"),
+            has_extension("GL_EXT_clip_cull_distance")
+        );
+        source = translated;
+    }
+    // Give shader stages the same single opt-in as the C++ resource gates.
+    if (enhanced_rendering_available()) {
+        translated = source;
+        translated.insert(translated.find('\n') + 1, "#define OPENRAC_ENHANCED_RENDERING 1\n");
+        source = translated;
+    }
+    // Desktop GL and ES retain the same arithmetic sources with ordinary FP32 aliases.
+    if (!is_vulkan()) {
+        return renderer::shader_precision_source(source, false);
+    }
+    return std::string(source);
+}
+
+// Hands a stage to the driver to compile. Its status is not asked yet: with parallel compiles
+// (gl::parallel_shader_compile) the driver works on it while the next stage is handed over.
+GLuint start_compile(GLenum type, const std::string& source) {
+    const GLuint shader = glCreateShader(type);
+    const GLchar* text = source.data();
+    const auto length = static_cast<GLint>(source.size());
+    glShaderSource(shader, 1, &text, &length);
+    glCompileShader(shader);
+    return shader;
+}
+
+// Waits for the stage's compile: the shader, or 0 (deleted) with the compiler's log.
+GLuint finish_compile(GLuint shader, std::string& log) {
+    GLint ok = 0;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+    if (ok == 0) {
+        GLint size = 0;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &size);
+        log.assign(static_cast<std::size_t>(size > 0 ? size : 1), '\0');
+        glGetShaderInfoLog(shader, size, nullptr, log.data());
+        glDeleteShader(shader);
+        return 0;
+    }
+    return shader;
+}
+
+GLuint compile(GLenum type, std::string_view desktop_source, std::string& log) {
+    return finish_compile(start_compile(type, stage_source(desktop_source)), log);
+}
+
+// Compiles and links a program from final stage sources: the program, or 0 with `error`.
+GLuint compile_program(
+    std::string_view name,
+    const std::string& vertex,
+    const std::string& fragment,
+    std::string& error
+) {
+    // Both stages handed over before either is waited for.
+    const GLuint vs_started = start_compile(GL_VERTEX_SHADER, vertex);
+    const GLuint fs_started = start_compile(GL_FRAGMENT_SHADER, fragment);
+    std::string log;
+    const GLuint vs = finish_compile(vs_started, log);
+    if (vs == 0) {
+        glDeleteShader(fs_started);
+        error = std::format("{}: vertex shader: {}", name, log);
+        return 0;
+    }
+    const GLuint fs = finish_compile(fs_started, log);
+    if (fs == 0) {
+        glDeleteShader(vs);
+        error = std::format("{}: fragment shader: {}", name, log);
+        return 0;
+    }
+    const GLuint program = glCreateProgram();
+    program_cache::prepare(program);
+    glAttachShader(program, vs);
+    glAttachShader(program, fs);
+    glLinkProgram(program);
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+    GLint ok = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &ok);
+    if (ok == 0) {
+        GLint size = 0;
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
+        log.assign(static_cast<std::size_t>(size > 0 ? size : 1), '\0');
+        glGetProgramInfoLog(program, size, nullptr, log.data());
+        glDeleteProgram(program);
+        error = std::format("{}: link: {}", name, log);
+        return 0;
+    }
+    return program;
+}
+
+}  // namespace
+
+Shader::~Shader() {
+    // The program belongs to a context that may be gone by now; release()
+    // frees it while the context is current.
+}
+
+Shader::Shader(Shader&& other) noexcept
+    : m_program(std::exchange(other.m_program, 0)),
+      m_locations(std::move(other.m_locations)) {}
+
+Shader& Shader::operator=(Shader&& other) noexcept {
+    if (this != &other) {
+        m_program = std::exchange(other.m_program, 0);
+        m_locations = std::move(other.m_locations);
+        other.m_locations.clear();
+    }
+    return *this;
+}
+
+bool Shader::build(
+    std::string_view name, std::string_view vertex, std::string_view fragment, std::string& error
+) {
+    // Share exactly the same RGB-only reconstruction across world shader paths.
+    constexpr std::string_view marker = "// OPENRAC_UPSCALED_TEXTURE_COLOURS_SOURCE";
+    std::string assembled;
+    if (const auto at = fragment.find(marker); at != std::string_view::npos) {
+        assembled = fragment;
+        assembled.replace(
+            at,
+            marker.size(),
+            enhanced_rendering_available()
+                ? shaders::upscaled_texture_colours_glsl
+                : "vec4 sample_upscaled_texture_colours(vec2 uv) { return texture(tex_T0, uv); }\n"
+        );
+        fragment = assembled;
+    }
+    // The same sources as a program built before (this run, or an earlier one): the driver's
+    // binary of it, without a compile (renderer/gl/program_cache.h).
+    const std::string vertex_source = stage_source(vertex);
+    const std::string fragment_source = stage_source(fragment);
+    const program_cache::Key key = program_cache::key(vertex_source, fragment_source);
+    GLuint program = program_cache::load(key);
+    if (program == 0) {
+        program = compile_program(name, vertex_source, fragment_source, error);
+        if (program == 0) {
+            return false;
+        }
+        program_cache::store(key, program);
+    }
+    gl_warmup::note_program(program, key);
+    release();
+    m_program = program;
+    m_locations.clear();
+    glUseProgram(m_program);
+    for (int unit = 0; unit < kSamplerUnits; ++unit) {
+        const std::string sampler = std::format("tex_T{}", unit);
+        const GLint location = glGetUniformLocation(m_program, sampler.c_str());
+        if (location >= 0) {
+            glUniform1i(location, unit);
+        }
+    }
+    glUniform1i(
+        glGetUniformLocation(m_program, "upscaled_texture_colours"), kUpscaledTextureColoursUnit
+    );
+    return true;
+}
+
+bool Shader::build_compute(std::string_view name, std::string_view source, std::string& error) {
+    std::string log;
+    std::string es;
+    if (is_es()) {
+        const auto line = source.find('\n');
+        es = "#version 310 es\nprecision highp float;\nprecision highp int;\nprecision highp "
+             "sampler2D;\n";
+        es += source.substr(line + 1);
+        source = es;
+    }
+    const GLuint shader = compile(GL_COMPUTE_SHADER, source, log);
+    if (!shader) {
+        error = std::format("{}: {}", name, log);
+        return false;
+    }
+    release();
+    m_program = glCreateProgram();
+    glAttachShader(m_program, shader);
+    glLinkProgram(m_program);
+    glDeleteShader(shader);
+    GLint ok = 0;
+    glGetProgramiv(m_program, GL_LINK_STATUS, &ok);
+    if (!ok) {
+        GLint size = 0;
+        glGetProgramiv(m_program, GL_INFO_LOG_LENGTH, &size);
+        log.resize(static_cast<std::size_t>(std::max(size, 1)));
+        glGetProgramInfoLog(m_program, size, nullptr, log.data());
+        error = std::format("{}: {}", name, log);
+        release();
+        return false;
+    }
+    return true;
+}
+
+void Shader::use() const {
+    glUseProgram(m_program);
+}
+
+int Shader::uniform(const char* name) const {
+    const auto found = m_locations.find(name);
+    if (found != m_locations.end() && found->second.name == name) {
+        return found->second.location;
+    }
+    const int location = glGetUniformLocation(m_program, name);
+    m_locations[name] = Location{name, location};
+    return location;
+}
+
+void Shader::release() {
+    if (m_program != 0) {
+        glDeleteProgram(m_program);
+        m_program = 0;
+    }
+    m_locations.clear();
+}
+
+}  // namespace openrac::renderer

@@ -6,7 +6,7 @@
 
 #include "common/stats.h"
 #include "enhanced/renderer/gtao.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #include "renderer/world/gl_world.h"
 #if defined(OPENRAC_VULKAN)
@@ -25,7 +25,6 @@ bool Gtao::execute(
     const FrameInput& input, const RenderTarget& target, bool apply_to_colour, bool evaluate_only
 ) {
     const bool hi_z = input.gtao_settings.hi_z && m_hi_z.prepare(target.width, target.height);
-    const unsigned mip_count = hi_z ? static_cast<unsigned>(m_hi_z.levels().size()) : 0;
 #if defined(OPENRAC_VULKAN)
     // Vulkan plans all GTAO resource dependencies.
     if (vkgl::active()) {
@@ -33,6 +32,7 @@ bool Gtao::execute(
     }
 #endif
     // Reference barriers also order disjoint levels of the shared hierarchy allocation.
+    const auto mip_count = hi_z ? m_hi_z.sampled_levels().size() : 0;
     for (unsigned level = 0; level < mip_count; ++level) {
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
         m_hi_z.build_level(m_sampled_depth, level);
@@ -56,8 +56,9 @@ void Gtao::evaluate(const FrameInput& input, const RenderTarget& target, bool hi
     const int scale = options.half_resolution ? 2 : 1;
     const stats::Scope horizons("GTAO horizons", stats::kGpu);
     const unsigned variant = m_program + (options.hi_z ? kProgramVariants : 0u);
-    Shader& evaluate = options.quality == GtaoQuality::Performance ? m_evaluate_performance[variant]
-                                                                   : m_evaluate[variant];
+    const bool low = options.quality == GtaoQuality::Low;
+    Shader& evaluate = options.quality == GtaoQuality::Quality ? m_evaluate[variant]
+                                                               : m_evaluate_performance[variant];
     evaluate.use();
     m_hi_z.bind(evaluate, hi_z);
     glUniform1i(evaluate.uniform("surface_normals"), 2);
@@ -66,8 +67,14 @@ void Gtao::evaluate(const FrameInput& input, const RenderTarget& target, bool hi
     glUniformMatrix4fv(evaluate.uniform("projection"), 1, GL_FALSE, p.data());
     glUniform1f(evaluate.uniform("radius"), std::clamp(options.radius, 0.05f, 8.0f));
     glUniform1i(evaluate.uniform("evaluation_scale"), scale);
-    glUniform1i(evaluate.uniform("slice_count"), std::clamp(options.slices, 1, 12));
-    glUniform1i(evaluate.uniform("step_count"), std::clamp(options.steps, 4, 24));
+    // Low searches fewer directions with fewer samples, whatever the advanced sliders say.
+    glUniform1i(
+        evaluate.uniform("slice_count"),
+        low ? std::min(options.slices, kGtaoLowSlices) : std::clamp(options.slices, 1, 12)
+    );
+    glUniform1i(
+        evaluate.uniform("step_count"), low ? kGtaoLowSteps : std::clamp(options.steps, 4, 24)
+    );
     glDispatchCompute(unsigned((m_ao_width + 7) / 8), unsigned((m_ao_height + 7) / 8), 1);
 }
 

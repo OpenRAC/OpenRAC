@@ -4,8 +4,11 @@
 #include <array>
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <vector>
 
-#include "renderer/effects.h"
+#include "enhanced/renderer/water_graph.h"
+#include "renderer/effects/effects.h"
 
 namespace openrac::scene {
 class LevelScene;
@@ -25,7 +28,11 @@ struct OceanMaterial {
 OceanMaterial ocean_material();
 // Apply a live edit for the loaded level.
 void set_ocean_material(OceanMaterial material);
-// Restore the loaded level profile.
+// Updates authored defaults, retaining live edits to fields whose defaults did not change.
+void set_ocean_optics_defaults(std::optional<float> roughness, std::optional<float> reflectivity);
+// Restore only the fields explicitly applied in the material inspector.
+void reset_ocean_optics(bool roughness, bool reflectivity);
+// Restore the loaded level profile with any authored material overrides.
 void reset_ocean_material();
 
 // Session-only controls, copied safely between the debug UI and render worker.
@@ -62,7 +69,7 @@ bool water_available();
 bool ocean_replaces_horizon();
 
 // Render-thread-only binding of GPU water surfaces for wetness contact tests.
-bool bind_water_contact(const renderer::Shader& shader);
+bool bind_water_contact(const renderer::Shader& shader, std::vector<WaterBufferUse>& reads);
 
 // Render-thread attachment bindings use reserved texture units 18-20.
 void prepare_water_deformation(const renderer::FrameInput& input);

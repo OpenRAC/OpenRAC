@@ -4,8 +4,8 @@
 #include <span>
 #include <string>
 
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 
 namespace openrac::lighting {
 // Conservative candidate masks for up to 512 captures per 16x16 tile; transparent receivers need no depth bound.

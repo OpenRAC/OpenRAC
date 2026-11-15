@@ -62,6 +62,10 @@ struct Setting {
 // Whether a setting is for this game (its "games" empty or naming it).
 bool setting_for_game(const Setting& s, std::string_view game);
 
+// A value of the setting's type from JSON, within its limits, as the list's are checked (a
+// keybind's names normalized): false when it is not one.
+bool setting_value(const Setting& s, const json::Value& v, SettingValue& out);
+
 // A keybind's text as names of openrac/keys.h, split at commas or spaces: false when one is no
 // name, one is there twice or there are more than `most`; else `normalized` is them comma-joined.
 bool parse_binds(std::string_view text, int most, std::string& normalized);

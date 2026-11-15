@@ -15,13 +15,13 @@
 #include <utility>
 
 #include "common/breadcrumbs.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
-#include "renderer/vulkan/graph_execution.h"
-#include "renderer/vulkan/native_compute.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/graph/graph_execution.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl_internal.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
@@ -369,6 +369,9 @@ void test_failed_submit_never_waits() {
     CHECK(std::any_of(breadcrumbs.begin(), breadcrumbs.begin() + count, [](const auto& entry) {
         return entry.value == 42
                && std::string_view(entry.message).starts_with("Vulkan submit frame:");
+    }));
+    CHECK(std::any_of(breadcrumbs.begin(), breadcrumbs.begin() + count, [](const auto& entry) {
+        return entry.value == 42 && std::string_view(entry.message) == "failed graph queue submit";
     }));
 }
 

@@ -8,12 +8,13 @@
 #include <cmath>
 #include <exception>
 
+#include "common/breadcrumbs.h"
 #include "enhanced/renderer/compute_graph.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
-#include "renderer/vulkan/graph_execution.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
@@ -95,6 +96,139 @@ void test_graph_rejects_invalid_output(Fixture& fixture) {
     CHECK(!error.empty());
 }
 
+// A bound output cannot escape dependency tracking by omitting its declaration.
+void test_dispatch_rejects_undeclared_output(Fixture& fixture) {
+    fixture.shader.use();
+    vkgl::GraphExecution execution;
+    graph::Pass pass{"undeclared dispatch output"};
+    pass.execution = graph::Stage::ComputeShader;
+    CHECK(execution.capture_compute_reads(pass));
+    execution.add_pass(std::move(pass));
+    const auto result = execution.run([](unsigned) { glDispatchCompute(1, 1, 1); });
+    CHECK(!result);
+    if (!result) {
+        CHECK(result.error().message.find("undeclared storage buffer") != std::string::npos);
+    }
+}
+
+// Rebinding a declared output must fail before the dispatch is encoded.
+void test_dispatch_rejects_rebound_output(Fixture& fixture) {
+    unsigned other = 0;
+    glGenBuffers(1, &other);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, other);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned), nullptr, GL_DYNAMIC_DRAW);
+
+    fixture.shader.use();
+    const std::array outputs{enhanced::ComputeOutput{fixture.buffers[2], sizeof(unsigned)}};
+    std::string error;
+    CHECK(!enhanced::run_compute_graph(
+        "changed output binding",
+        outputs,
+        [&] {
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, other);
+            glDispatchCompute(1, 1, 1);
+        },
+        error
+    ));
+    CHECK(error.find("declared storage output") != std::string::npos);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, fixture.buffers[2]);
+    glDeleteBuffers(1, &other);
+}
+
+void test_dispatch_resource_contract() {
+    unsigned storage = 0, texture = 0;
+    glGenBuffers(1, &storage);
+    glGenTextures(1, &texture);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, storage);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, storage);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    constexpr std::array<std::uint8_t, 4> red{255, 0, 0, 255};
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, red.data());
+    renderer::Shader shader;
+    renderer::FrameBuffer output;
+    std::string error;
+    CHECK(output.create_colour(4, 1, error));
+    CHECK(shader.build_compute(
+        "storage contract",
+        R"(#version 430 core
+layout(local_size_x=1) in;
+uniform sampler2D tex_T0;
+layout(std430,binding=11) writeonly buffer Output { uint colour[4]; };
+void main(){colour[3]=packUnorm4x8(texelFetch(tex_T0,ivec2(0),0));}
+)",
+        error
+    ));
+    shader.use();
+    enum class Contract {
+        Complete,
+        MissingSampler,
+        ReadOnlyStorage,
+        ShortStorage
+    };
+    for (const auto contract :
+         {Contract::Complete,
+          Contract::MissingSampler,
+          Contract::ReadOnlyStorage,
+          Contract::ShortStorage}) {
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, storage);
+        constexpr std::array<unsigned, 4> empty{};
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(empty), empty.data(), GL_DYNAMIC_DRAW);
+        vkgl::GraphExecution execution;
+        graph::Pass pass{"dispatch contract"};
+        pass.execution = graph::Stage::ComputeShader;
+        if (contract != Contract::MissingSampler) {
+            CHECK(execution.capture_compute_reads(pass));
+        }
+        const auto buffer = execution.import_buffer("output", storage).value();
+        pass.buffers.push_back(
+            {buffer,
+             {0, contract == Contract::ShortStorage ? sizeof(unsigned) : sizeof(empty)},
+             {graph::Stage::ComputeShader,
+              contract == Contract::ReadOnlyStorage ? graph::Access::Read : graph::Access::Write,
+              graph::Layout::Buffer}}
+        );
+        execution.add_pass(std::move(pass));
+        const auto result = execution.run([](unsigned) { glDispatchCompute(1, 1, 1); });
+        CHECK(static_cast<bool>(result) == (contract == Contract::Complete));
+        CHECK(vkgl::copy_buffer_to_texture(storage, output.colour_texture(), 4, 1));
+        const auto pixels = output.read_rgba();
+        CHECK(pixels.size() == 16);
+        if (pixels.size() == 16) {
+            const auto expected =
+                contract == Contract::Complete ? red : std::array<std::uint8_t, 4>{};
+            CHECK(std::equal(expected.begin(), expected.end(), pixels.begin() + 12));
+        }
+    }
+
+    CHECK(shader.build_compute(
+        "storage descriptor range",
+        R"(#version 430 core
+layout(local_size_x=1) in;
+layout(std430,binding=11) writeonly buffer Output { uint words[]; };
+void main(){words[0]=uint(words.length());}
+)",
+        error
+    ));
+    shader.use();
+    vkgl::GraphExecution execution;
+    const auto buffer = execution.import_buffer("output", storage).value();
+    execution.add_pass(
+        {"one-word descriptor",
+         {},
+         {{buffer,
+           {0, sizeof(unsigned)},
+           {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}}}
+    );
+    CHECK(execution.run([](unsigned) { glDispatchCompute(1, 1, 1); }));
+    CHECK(vkgl::copy_buffer_to_texture(storage, output.colour_texture(), 4, 1));
+    const auto pixels = output.read_rgba();
+    CHECK(pixels.size() == 16 && pixels[0] == 1);
+    glDeleteBuffers(1, &storage);
+    glDeleteTextures(1, &texture);
+}
+
 // A failed sampler capture must not append its previously valid uniform reads to the caller's pass.
 void test_input_capture_is_atomic(Fixture& fixture) {
     constexpr auto kImageKernel = R"(#version 430 core
@@ -113,18 +247,18 @@ void main(){colour=packUnorm4x8(parameters+texelFetch(tex_T0,ivec2(0),0));}
     glGenTextures(1, &texture);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
-    // Two mip levels exceed this executor's whole-single-level import contract.
+    // A preserving sampler import conflicts with this graph's discarded entry contract.
     const std::array<float, 16> pixels{};
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 2, 2, 0, GL_RGBA, GL_FLOAT, pixels.data());
-    glTexImage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_FLOAT, pixels.data());
     vkgl::GraphExecution execution;
+    CHECK(execution.import_image("discarded sampler", texture, vkgl::InitialContents::Discard));
     const auto existing =
         execution.read_buffer("existing", fixture.buffers[0], graph::Stage::ComputeShader);
     CHECK(existing);
     graph::Pass pass{"unchanged", {}, {*existing}};
     const auto failed = execution.capture_compute_reads(pass);
     CHECK(!failed);
-    CHECK(failed.error().message.find("multiple mip levels") != std::string::npos);
+    CHECK(failed.error().message.find("inconsistent alias import") != std::string::npos);
     CHECK(pass.name == "unchanged" && pass.images.empty() && pass.buffers.size() == 1);
     CHECK(pass.buffers[0].buffer.index == existing->buffer.index);
     CHECK(pass.buffers[0].range == existing->range);
@@ -150,6 +284,8 @@ void test_attachment_aspects() {
 
 // Callback failures consume the recording and return an error rather than escaping the render thread.
 void test_callback_failure() {
+    constexpr std::int64_t kFrame = 4;  // Isolates the callback failure's captured history.
+    const crash::BreadcrumbScope context{crash::BreadcrumbThread::Render, kFrame};
     vkgl::GraphExecution execution;
     execution.add_pass({"throwing callback"});
     unsigned calls = 0;
@@ -163,6 +299,16 @@ void test_callback_failure() {
     CHECK(calls == 1);
     CHECK(!execution.run([&](unsigned) { ++calls; }));
     CHECK(calls == 1);
+    crash::Breadcrumbs::Snapshot history{};
+    const auto count = crash::breadcrumbs().snapshot(history);
+    CHECK(std::any_of(history.begin(), history.begin() + count, [](const auto& entry) {
+        return entry.value == kFrame
+               && std::string_view(entry.message) == "failed graph pass: throwing callback";
+    }));
+    CHECK(std::none_of(history.begin(), history.begin() + count, [](const auto& entry) {
+        return entry.value == kFrame
+               && std::string_view(entry.message) == "complete graph pass: throwing callback";
+    }));
 }
 
 // Reads a packed colour whose arithmetic is independent of either synchronisation path.
@@ -208,14 +354,29 @@ void test_graph_copy_range() {
     CHECK(source && image);
     source->range.offset += sizeof(std::uint32_t);
     source->range.size = sizeof(std::uint32_t);
-    CHECK(!execution.copy_buffer_to_image(*source, *image));
-    execution.add_pass(
-        {"copy exact word",
-         {{*image,
-           {},
-           {graph::Stage::Transfer, graph::Access::Write, graph::Layout::TransferDestination}}},
-         {*source}}
+    graph::CommandBuffer commands;
+    commands.copy_buffer_to_image(source->buffer, source->range, *image);
+    const graph::Pass pass{
+        "copy exact word",
+        {{*image,
+          {},
+          {graph::Stage::Transfer, graph::Access::Write, graph::Layout::TransferDestination}}},
+        {*source}
+    };
+    graph::CommandBuffer invalid;
+    invalid.copy_buffer_to_image(
+        source->buffer, {source->range.offset, source->range.size - 1}, *image
     );
+    CHECK(!execution.add_pass(pass, invalid));  // Wrong declaration.
+    auto short_pass = pass;
+    --short_pass.buffers.front().range.size;
+    CHECK(!execution.add_pass(short_pass, std::move(invalid)));  // Declared but too small.
+    graph::CommandBuffer misaligned;
+    misaligned.copy_buffer_to_image(
+        source->buffer, {source->range.offset + 1, source->range.size}, *image
+    );
+    CHECK(!execution.add_pass(pass, std::move(misaligned)));
+    CHECK(execution.add_pass(pass, std::move(commands)));
     execution.add_pass(
         {"sample copied word",
          {{*image,
@@ -224,23 +385,94 @@ void test_graph_copy_range() {
          {},
          graph::PassKind::Export}
     );
-    // The callback tries a short range first, then records the exact aligned source word.
-    const auto copied = execution.run([&](unsigned) {
-        auto short_read = *source;
-        short_read.range.size -= 1;
-        CHECK(!execution.copy_buffer_to_image(short_read, *image));
-        auto misaligned = *source;
-        ++misaligned.range.offset;
-        CHECK(!execution.copy_buffer_to_image(misaligned, *image));
-        CHECK(execution.copy_buffer_to_image(*source, *image));
-    });
+    const auto copied = execution.run();
     CHECK(copied);
-    CHECK(!execution.copy_buffer_to_image(*source, *image));
     const auto pixels = target.read_rgba();
     const auto expected = std::bit_cast<std::array<std::uint8_t, 4>>(kSource[1]);
     CHECK(std::equal(pixels.begin(), pixels.end(), expected.begin(), expected.end()));
     target.release();
     glDeleteBuffers(1, &buffer);
+}
+
+void test_buffer_visibility_across_scopes() {
+    constexpr auto fragment = graph::Stage::FragmentShader;
+    constexpr auto compute = graph::Stage::ComputeShader;
+    constexpr auto read = graph::Access::Read;
+    constexpr auto write = graph::Access::Write;
+    constexpr auto layout = graph::Layout::Buffer;
+    constexpr graph::BufferRange whole{0, 12};
+    constexpr graph::BufferRange middle{4, 4};
+    unsigned name = 0;
+    glGenBuffers(1, &name);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, name);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, whole.size, nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, name);
+    renderer::Shader shader;
+    std::string error;
+    CHECK(shader.build_compute(
+        "visibility writer",
+        R"(#version 430 core
+layout(local_size_x=1) in;
+layout(std430,binding=11) writeonly buffer Output { uint words[3]; };
+void main(){words[gl_GlobalInvocationID.x]=1u;}
+)",
+        error
+    ));
+    shader.use();
+
+    const auto record_write = [&](graph::BufferRange bytes, bool dispatch) {
+        vkgl::GraphExecution execution;
+        const auto target = execution.import_buffer(
+            "visibility destination",
+            name,
+            vkgl::InitialContents::Discard,
+            vkgl::BufferVisibility::TrackShaderReads
+        );
+        CHECK(target);
+        execution.add_pass(
+            {"write visibility bytes", {}, {{*target, bytes, {compute, write, layout}}}}
+        );
+        if (dispatch) {
+            execution.add_pass(
+                {"publish visibility bytes",
+                 {},
+                 {{*target, bytes, {fragment, read, layout}}},
+                 graph::PassKind::Export}
+            );
+        }
+        CHECK(execution.run([&](unsigned) {
+            if (dispatch) {
+                glDispatchCompute(3, 1, 1);
+            }
+        }));
+    };
+    const auto barriers_for = [&](graph::BufferRange bytes, graph::Stage stages) {
+        vkgl::GraphExecution execution;
+        const auto target = execution.import_buffer("visibility read", name);
+        CHECK(target);
+        execution.add_pass(
+            {"read visibility bytes",
+             {},
+             {{*target, bytes, {stages, read, layout}}},
+             graph::PassKind::Export}
+        );
+        const auto before = vkgl::submission_counters().barriers;
+        CHECK(execution.run());
+        return vkgl::submission_counters().barriers - before;
+    };
+
+    record_write(whole, true);
+    CHECK(barriers_for(whole, fragment) == 0);
+    CHECK(barriers_for(whole, compute) == 1);
+    CHECK(barriers_for(whole, compute | fragment) == 0);
+
+    // Even a callback that records no work invalidates its declared write range conservatively.
+    record_write(middle, false);
+    CHECK(barriers_for({0, 4}, fragment) == 0);
+    CHECK(barriers_for({8, 4}, fragment) == 0);
+    CHECK(barriers_for(middle, fragment) == 1);
+    CHECK(barriers_for(middle, fragment) == 0);
+    glDeleteBuffers(1, &name);
 }
 
 // Shared upload allocations retain disjoint graph ranges and produce the expected GPU arithmetic.
@@ -298,12 +530,16 @@ int main() {
 
         Fixture fixture;
         test_graph_rejects_invalid_output(fixture);
+        test_dispatch_rejects_undeclared_output(fixture);
+        test_dispatch_rejects_rebound_output(fixture);
         test_reflected_reads(fixture);
         test_input_capture_is_atomic(fixture);
         test_attachment_aspects();
         test_callback_failure();
         test_storage_promotion(fixture);
         test_graph_copy_range();
+        test_buffer_visibility_across_scopes();
+        test_dispatch_resource_contract();
         CHECK(vkgl::submission_counters().validation_errors == 0);
         return test::result();
     } catch (const std::exception& failure) {

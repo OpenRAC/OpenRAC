@@ -13,7 +13,7 @@
 #include <string>
 #include <string_view>
 
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::renderer::ui::touch_icons {
 

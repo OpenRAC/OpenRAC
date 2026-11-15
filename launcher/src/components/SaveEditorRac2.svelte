@@ -30,6 +30,18 @@
     versionName,
     type Rac2Section,
   } from "$lib/saveEditRac2";
+  import {
+    activeTiers,
+    attachments,
+    choiceName,
+    pickVersion,
+    pickedValue,
+    tierOptions,
+    valueOf,
+    type Attached,
+    type ItemAttachments,
+  } from "$lib/modSaveAttach";
+  import { ModSaveStore } from "$lib/modSaveStore.svelte";
   import { onMount } from "svelte";
   import { slide } from "svelte/transition";
 
@@ -56,9 +68,25 @@
   let touchedCard = false;
 
   const errors = $derived(view && fields ? fieldErrors(view, fields) : {});
-  const dirty = $derived(!!view && !!fields && changed(view, fields));
+  /** The mods' records of this save; their attached fields show in the weapon rows. */
+  // svelte-ignore state_referenced_locally
+  const mods = new ModSaveStore(serial, slot);
+  const itemIds = $derived(new Set(view?.items.map((i) => i.id) ?? []));
+  const attached = $derived(mods.mods ? attachments(mods.mods, itemIds) : new Map<number, ItemAttachments>());
+  const modEdits = $derived(
+    (mods.mods ?? []).flatMap((m) =>
+      m.fields
+        .filter((f) => mods.get(m.id, f.key) !== f.value)
+        .map((f): { section: Rac2Section; text: string } => ({
+          section: "weapons",
+          text: `${m.name}: ${f.name} ${choiceName(f, f.value)} → ${choiceName(f, mods.get(m.id, f.key))}`,
+        })),
+    ),
+  );
+  const cardDirty = $derived(!!view && !!fields && changed(view, fields));
+  const dirty = $derived(cardDirty || modEdits.length > 0);
   const canSave = $derived(dirty && !busy && !playing && Object.keys(errors).length === 0);
-  const edits = $derived(view && fields ? editList(view, fields) : []);
+  const edits = $derived([...(view && fields ? editList(view, fields) : []), ...modEdits]);
   const editedSections = $derived(new Set(edits.map((e) => e.section)));
   const changeCount = $derived(Math.max(edits.length, dirty ? 1 : 0));
   let asking = $state(false);
@@ -84,11 +112,15 @@
     busy = true;
     saveError = null;
     try {
-      const result = await api.writeSaveRac2(serial, slot, view.fingerprint, $state.snapshot(fields));
-      view = result.view;
-      fields = structuredClone(result.view.fields);
-      saved = result.backup;
-      touchedCard = true;
+      if (cardDirty) {
+        const result = await api.writeSaveRac2(serial, slot, view.fingerprint, $state.snapshot(fields));
+        view = result.view;
+        fields = structuredClone(result.view.fields);
+        saved = result.backup;
+        touchedCard = true;
+      }
+      // Each mod's record by its own path, after the card.
+      await mods.saveAll();
     } catch (e) {
       saveError = String(e);
     } finally {
@@ -125,6 +157,7 @@
   function reset() {
     if (!view) return;
     fields = $state.snapshot(view.fields);
+    mods.resetAll();
     reviewing = false;
   }
 
@@ -141,7 +174,18 @@
   function itemEdited(id: number): boolean {
     const a = view?.fields.items.find((i) => i.id === id);
     const b = item(id);
-    return !!a && !!b && (a.owned !== b.owned || a.ammo !== b.ammo || a.xp !== b.xp || a.version !== b.version);
+    const modChanged = [...(attached.get(id)?.version ?? []), ...(attached.get(id)?.row ?? [])].some(
+      (x) => valueOf(mods.values, x) !== x.field.value,
+    );
+    return (
+      modChanged ||
+      (!!a && !!b && (a.owned !== b.owned || a.ammo !== b.ammo || a.xp !== b.xp || a.version !== b.version))
+    );
+  }
+
+  /** The mods' names for a stacked list of attached fields, for the mod tag. */
+  function modNames(list: Attached[]): string {
+    return [...new Set(list.map((x) => x.mod.name))].join(", ");
   }
 
   function planetEdited(id: number): boolean {
@@ -215,6 +259,7 @@
     const release = inertPage();
     modalEl?.focus();
     void load();
+    void mods.load();
     return () => {
       release();
       back?.focus();
@@ -402,6 +447,7 @@
             {#each weapons as w (w.id)}
               {@const s = item(w.id)}
               {#if s}
+                {@const at = attached.get(w.id)}
                 <li>
                   <label class="own" title={w.worn ? "In Ratchet's hand: it stays" : undefined}>
                     <input
@@ -418,7 +464,55 @@
                         aria-label="changed"
                       ></span>{/if}
                   </label>
-                  {#if w.versions.length > 1 && s.version !== null}
+                  {#if (at?.version.length ?? 0) > 0 && at}
+                    {@const v = selectedVersion(view, fields, w.id)}
+                    {@const tiers = activeTiers(mods.values, at.version)}
+                    <span class="version-stack">
+                      <select
+                        class="version"
+                        class:mega={v?.challengeOnly}
+                        class:modded={tiers.length > 0}
+                        class:off={!s.owned}
+                        aria-label={`${w.name} version`}
+                        title={w.worn
+                          ? "In Ratchet's hand: switch weapons in the game and save to change its version"
+                          : tiers.length > 0
+                            ? `From ${tiers[0]?.attached.mod.name ?? "a mod"}: saved in the mod's own file`
+                            : v
+                              ? versionHow(v)
+                              : undefined}
+                        value={pickedValue(mods.values, at.version, s.version)}
+                        disabled={!s.owned || w.worn}
+                        aria-invalid={!!errors[`version-${String(w.id)}`]}
+                        onchange={(e) => {
+                          if (view && fields)
+                            pickVersion(view, fields, mods.values, w.id, at.version, e.currentTarget.value);
+                        }}
+                      >
+                        {#if w.versions.length === 0}<option value="g:0">{w.name}</option>{/if}
+                        {#each w.versions as option, k (k)}
+                          <option value={`g:${String(k)}`}
+                            >{versionLabel(option)}{option.name !== w.name ? ` ${option.name}` : ""}</option
+                          >
+                        {/each}
+                        {#each at.version as a (`${a.mod.id}:${a.field.key}`)}
+                          <optgroup label={a.mod.name}>
+                            {#each tierOptions([a]) as o (o.value)}
+                              {#if o.kind === "mod"}<option value={o.value}>{o.name}</option>{/if}
+                            {/each}
+                          </optgroup>
+                        {/each}
+                      </select>
+                      <span class="mod-tag" title={`Tiers from ${modNames(at.version)}`}>{modNames(at.version)}</span>
+                      {#if tiers.length > 1}
+                        <span class="err-text small"
+                          >Mods disagree: {tiers
+                            .map((t) => `${t.attached.mod.name} ${choiceName(t.attached.field, t.tier)}`)
+                            .join(", ")}</span
+                        >
+                      {/if}
+                    </span>
+                  {:else if w.versions.length > 1 && s.version !== null}
                     {@const v = selectedVersion(view, fields, w.id)}
                     <select
                       class="version"
@@ -490,6 +584,37 @@
                   {:else}
                     <span></span>
                   {/if}
+                  {#each attached.get(w.id)?.row ?? [] as a (`${a.mod.id}:${a.field.key}`)}
+                    <span class="mod-row">
+                      <span class="mod-tag">{a.mod.name}</span>
+                      {#if a.field.choices && a.field.choices.length > a.field.max - a.field.min}
+                        <select
+                          aria-label={`${w.name}: ${a.field.name}`}
+                          value={mods.get(a.mod.id, a.field.key)}
+                          onchange={(e) => {
+                            mods.set(a.mod.id, a.field.key, Number(e.currentTarget.value));
+                          }}
+                        >
+                          {#each a.field.choices as c, i (i)}
+                            {#if i >= a.field.min && i <= a.field.max}<option value={i}>{a.field.name}: {c}</option
+                              >{/if}
+                          {/each}
+                        </select>
+                      {:else}
+                        <input
+                          type="number"
+                          min={a.field.min}
+                          max={a.field.max}
+                          step="1"
+                          aria-label={`${w.name}: ${a.field.name}`}
+                          value={mods.get(a.mod.id, a.field.key)}
+                          onchange={(e) => {
+                            mods.set(a.mod.id, a.field.key, Number(e.currentTarget.value));
+                          }}
+                        />
+                      {/if}
+                    </span>
+                  {/each}
                 </li>
               {/if}
             {/each}
@@ -616,7 +741,7 @@
           <p class="note">Numbered in the order the game keeps them.</p>
         </section>
 
-        <ModSaveData {serial} {slot} {playing} />
+        <ModSaveData store={mods} {itemIds} {playing} />
 
         <section id="se2-advanced-switch" aria-label="Advanced editing">
           <label class="own switch">
@@ -1155,6 +1280,40 @@
   /* Weapons: name, version, ammo, experience. */
   .rows.weapons {
     grid-template-columns: minmax(0, 1fr) auto auto auto;
+  }
+
+  .version-stack {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .version.modded {
+    border: 1px solid var(--lav);
+  }
+
+  .mod-tag {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 999px;
+    color: var(--lav);
+    border: 1px solid var(--lav);
+    white-space: nowrap;
+  }
+
+  .mod-row {
+    grid-column: 1 / -1;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 28px;
+  }
+
+  .err-text.small {
+    font-size: 0.75rem;
   }
 
   .version {

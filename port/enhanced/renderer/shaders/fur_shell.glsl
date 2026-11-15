@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 // Short shell slices share deterministic strand coverage between colour and motion passes.
+// openrac_mode: hero_fur_shell_enabled
+uniform int hero_fur_shell_enabled; // Zero compiles the coat out of every draw.
 uniform float hero_fur_shell;
 uniform float hero_fur_shell_distance;
 uniform vec4 hero_fur_shell_parameters; // Length, UV density, fade start/end in scene units.
@@ -15,7 +17,7 @@ float fur_shell_extent(float wetness) {
 bool fur_shell_reject(sampler2D groom, vec2 uv, int eligible) {
     // Derivatives precede coverage decisions, including the verified atlas boundary.
     vec2 dx = dFdx(uv), dy = dFdy(uv);
-    if (hero_fur_shell <= 0.) return false;
+    if (hero_fur_shell_enabled == 0 || hero_fur_shell <= 0.) return false;
     vec3 map = textureGrad(groom, uv, dx, dy).rgb;
     if (eligible == 0 || map.r < .98) return true;
     vec2 flow = map.gb * 2. - 1.;

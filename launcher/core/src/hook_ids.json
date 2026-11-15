@@ -7,6 +7,7 @@
    "Ammo_SpawnDrop": "rac1.ammo.spawn_drop",
    "FollowCamera_ApplyOverrides": "rac1.camera.follow.apply_overrides",
    "GoldBolts_CountCollected": "rac1.gold_bolt.count_collected",
+   "GoldBolts_CountUnspent": "rac1.gold_bolt.count_unspent",
    "Help_Request": "rac1.help.request",
    "Hero_AdvanceAnimation": "rac1.player.advance_animation",
    "Hero_ApproachSpeed": "rac1.player.approach_speed",

@@ -314,6 +314,507 @@
           "bake_mode": "mesh"
         }
       }
+    },
+    {
+      "id": "object-04979f7abe71685965c3068c388664bac40dcbe629c870e65dc7f10caf33663d",
+      "name": "moby_459.glb / moby_0077",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_459.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.185,
+          "roughness": 0.46199999999999997
+        }
+      }
+    },
+    {
+      "id": "object-080a80fbd5e0e6dd8e18a7d3141bc353c498da589035b52a3fc58d1c3509ba1e",
+      "name": "moby_704.glb / moby_0137",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_704.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.16999999999999998,
+          "roughness": 0.19299999999999998
+        }
+      }
+    },
+    {
+      "id": "object-12276577363700f3c96f6f9976794c2c71b071ae7a068e703065ff6f7d07ce13",
+      "name": "tie_531.glb / tie_0063",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_531.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.16499999999999998,
+          "roughness": 0.33799999999999997
+        }
+      }
+    },
+    {
+      "id": "object-24b544fdb1ef836cec1b13bfe7fa9386a5e21e960b760d39628423e75aa796f3",
+      "name": "moby_729.glb / moby_0162",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_729.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.19299999999999998,
+          "roughness": 0.26399999999999996
+        }
+      }
+    },
+    {
+      "id": "object-27282374f7de7cd7cce45373c3b488931612a8aefcccbe512e2b88110e4001be",
+      "name": "moby_729.glb / moby_0161",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_729.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.19299999999999998,
+          "roughness": 0.26399999999999996
+        }
+      }
+    },
+    {
+      "id": "object-28df6408f539ef3d1923581e79df56838d40e805412e09236b4f47aea8b43df9",
+      "name": "moby_704.glb / moby_0135",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_704.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.16999999999999998,
+          "roughness": 0.19299999999999998
+        }
+      }
+    },
+    {
+      "id": "object-30a6f3853c165d6ceef9a5330de64388e68ffe0ba80ba909b563af34ec729cd9",
+      "name": "moby_750.glb / moby_0171",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_750.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.291,
+          "roughness": 0.152
+        }
+      }
+    },
+    {
+      "id": "object-433d7fb5767682c74acc61fa352abd54a705921daf3b2c73eca17bedfd16dd45",
+      "name": "tie_525.glb / tie_0050",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_525.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "set": {
+        "reflection": {
+          "strength": 2.155
+        },
+        "surface": {
+          "metallic": 0.725,
+          "roughness": 0.25499999999999995
+        }
+      }
+    },
+    {
+      "id": "object-6106cb6ce638c14596523cf8958fa9109c61df9ce3b152bc77fce4bb833fa4c2",
+      "name": "moby_14.glb / moby_0013",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_14.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "set": {
+        "reflection": {
+          "strength": 1.4869999999999999
+        },
+        "surface": {
+          "metallic": 0.705,
+          "reflectivity": 0.03999999910593033,
+          "roughness": 0.246
+        }
+      }
+    },
+    {
+      "id": "object-910bf1e9e39b211e2efe60dbca77022232d092cac77ae0ef2436eb93c87b6aff",
+      "name": "tie_525.glb / tie_0049",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_525.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "set": {
+        "reflection": {
+          "strength": 2.155
+        },
+        "surface": {
+          "metallic": 0.725,
+          "roughness": 0.25499999999999995
+        }
+      }
+    },
+    {
+      "id": "object-a418a685297da7375fc3218c564545ef189462e1abb548424036f9cc4d4a41ec",
+      "name": "tie_525.glb / tie_0048",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_525.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "set": {
+        "reflection": {
+          "strength": 2.155
+        },
+        "surface": {
+          "metallic": 0.725,
+          "roughness": 0.25499999999999995
+        }
+      }
+    },
+    {
+      "id": "object-a78af97b73791042b7a13dcae762a57d54295cd38dfaa34551ba88216d97df0b",
+      "name": "tie_531.glb / tie_0061",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_531.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.16499999999999998,
+          "roughness": 0.33799999999999997
+        }
+      }
+    },
+    {
+      "id": "object-abd7b879d18e6975276a7d6c448cb3f27c445de3d319a4faf50fad5415c2aeaa",
+      "name": "moby_572.glb / moby_0093",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_572.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "roughness": 0.187
+        }
+      }
+    },
+    {
+      "id": "object-adb0dff0a67106593a8ba868242cf5907fbdb5aaf0195a8346bf347c7079e83f",
+      "name": "moby_729.glb / moby_0163",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_729.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.19299999999999998,
+          "roughness": 0.26399999999999996
+        }
+      }
+    },
+    {
+      "id": "object-b40cb9e0f8fc55c21f5c6f41eb81cae65c4889d75757d7a7528bb4853920c03b",
+      "name": "moby_1143.glb / moby_0209",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_1143.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "set": {
+        "reflection": {
+          "strength": 2.0439999999999996
+        },
+        "surface": {
+          "metallic": 0.291,
+          "roughness": 0.22999999999999998
+        }
+      }
+    },
+    {
+      "id": "object-bc66aa73f76d7726437f33ae254a16b617e73c7a2996725818bd2c8b30714c31",
+      "name": "moby_1143.glb / moby_0208",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_1143.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "set": {
+        "reflection": {
+          "strength": 2.0439999999999996
+        },
+        "surface": {
+          "metallic": 0.291,
+          "roughness": 0.22999999999999998
+        }
+      }
+    },
+    {
+      "id": "object-c301c0eb04b0d5efb6b80b26d400fc94a9a0c54f317fcecf8f26d1b87dc11b7c",
+      "name": "moby_14.glb / metal_glass",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_14.glb",
+        "material_slot": 1,
+        "pass": "metal"
+      },
+      "set": {
+        "reflection": {
+          "strength": 1.4869999999999999
+        },
+        "surface": {
+          "metallic": 0.705,
+          "reflectivity": 0.03999999910593033,
+          "roughness": 0.246
+        }
+      }
+    },
+    {
+      "id": "object-c5082596e25c3a61a5a20eb95c266d95b75185cf263f7fbd0a3ea002fb8e08f7",
+      "name": "tie_531.glb / tie_0062",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_531.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.16499999999999998,
+          "roughness": 0.33799999999999997
+        }
+      }
+    },
+    {
+      "id": "object-cb795fc1ff6bd16fd4f2b4d9461967feca86bc7b15d042ff7cf363dfc58544c2",
+      "name": "terrain.glb / terrain_0013",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.15999999999999998,
+          "roughness": 0.473
+        }
+      }
+    },
+    {
+      "id": "object-ce0b188844c65d65321d32ae00cb22298fab15a4fafa72a4eac38ac2949ad335",
+      "name": "moby_704.glb / moby_0136",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_704.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "metallic": 0.16999999999999998,
+          "roughness": 0.19299999999999998
+        }
+      }
+    },
+    {
+      "id": "object-d0555b344bee60d5bf358de6c135e1c97dbe74f54d67cf8823139017cb17569a",
+      "name": "moby_13.glb / moby_0012",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_13.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "set": {
+        "reflection": {
+          "strength": 1.5019999999999998
+        },
+        "surface": {
+          "metallic": 0.9339999999999999,
+          "reflectivity": 0.04,
+          "roughness": 0.33099999999999996
+        }
+      }
+    },
+    {
+      "id": "object-d591aaf40ad829e52ebafe15acfebd0b49c703d653c1df19aa52c88d268208af",
+      "name": "moby_572.glb / moby_0092",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_572.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "set": {
+        "surface": {
+          "roughness": 0.187
+        }
+      }
+    },
+    {
+      "id": "object-fae1b4608d874aeeecd62c4e2d5a6cfb20feb11aaffe1c70c852626d9c734282",
+      "name": "moby_13.glb / metal_glass",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_13.glb",
+        "material_slot": 2,
+        "pass": "metal"
+      },
+      "set": {
+        "reflection": {
+          "strength": 1.5019999999999998
+        },
+        "surface": {
+          "metallic": 0.9339999999999999,
+          "reflectivity": 0.04,
+          "roughness": 0.33099999999999996
+        }
+      }
+    },
+    {
+      "id": "object-fbd142e744e54e5f545f5d8d5a160efe08eab3cb0c892fd67819a297e416ccf0",
+      "name": "moby_13.glb / moby_0011",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_13.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "set": {
+        "reflection": {
+          "strength": 1.5019999999999998
+        },
+        "surface": {
+          "metallic": 0.9339999999999999,
+          "reflectivity": 0.04,
+          "roughness": 0.33099999999999996
+        }
+      }
     }
-  ]
+  ],
+  "presets": {
+    "lit-default": {
+      "shading": "standard",
+      "type": "lit",
+      "reflection": {
+        "tint": [
+          0.07006371021270752,
+          0.07006371021270752,
+          0.07006371021270752
+        ]
+      },
+      "surface": {
+        "metallic": 0,
+        "reflectivity": 0.04,
+        "roughness": 1
+      }
+    },
+    "lit-smooth": {
+      "surface": {
+        "roughness": 0.22
+      }
+    },
+    "lit-wet-fur-ccc48d9a1ab4": {
+      "shading": "standard",
+      "type": "lit-wet-fur",
+      "fur": {
+        "contrast": 0.036,
+        "directionality": 0.8999999999999999,
+        "enabled": true,
+        "environment_strength": 1.85,
+        "fade_distance": 103,
+        "highlight": 0.352,
+        "lighting_enabled": true,
+        "profile": "ratchet-original",
+        "scattering": 0.33,
+        "softness": 0.53,
+        "strength": 0.21
+      },
+      "reflection": {
+        "strength": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      },
+      "surface": {
+        "metallic": 0,
+        "reflectivity": 0.016999999999999998,
+        "roughness": 0.5
+      },
+      "wetness": {
+        "diffuse_scale": 0.43899999999999995,
+        "dry_roughness": 0.5,
+        "reflectivity": 0.039999999999999994,
+        "specular_strength": 1,
+        "wet_roughness": 0.241
+      }
+    }
+  }
 }

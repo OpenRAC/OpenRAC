@@ -714,12 +714,25 @@
       "id": "rac1.vendor.open_menu",
       "name": "Vendor_OpenMenu",
       "signature": "void(u32)",
-      "params": ["moby"],
+      "params": [
+        "moby"
+      ],
       "symbols": {
         "pal": "func_L00_0029BA20",
         "ntsc": "FUN_L00_0029a6b0"
       },
       "about": "Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero."
+    },
+    {
+      "id": "rac1.gold_bolt.count_unspent",
+      "name": "GoldBolts_CountUnspent",
+      "signature": "i32()",
+      "params": [],
+      "symbols": {
+        "pal": "func_00216098",
+        "ntsc": "FUN_00215248"
+      },
+      "about": "Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership."
     }
   ],
   "bases": {

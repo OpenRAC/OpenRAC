@@ -19,6 +19,1832 @@
           "bake_mode": "mesh"
         }
       }
+    },
+    {
+      "id": "object-006ccbf1453bc1830807e2cceb6beacb20652af1c4534df64a6e7ab182214cdb",
+      "name": "tie_865.glb / tie_0054",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_865.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-0259c51b64c20ccb5980fb23d6927531d2aa0493412c22f76b84e2ff86c94c2d",
+      "name": "tie_854.glb / tie_0012",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_854.glb",
+        "material_slot": 5,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-08bd8cd92e3fcb103592defc4a7d9d9e958e446cbb7b83c9abfca1e973e5cd58",
+      "name": "tie_847.glb / tie_0006",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_847.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-09d74dc3586868341896c3163435a826b2a79260bcd77501775d02b056714421",
+      "name": "tie_859.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_859.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-09f8adb2fed5bad9a733b02888136c58defd7df6c92fec48e551f27b44d6735b",
+      "name": "tie_738.glb / tie_0010",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_738.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-0ea2ecc0a0821ab8e81c51ef0d52b855bec6f72f8457de6c4ad213fabe535683",
+      "name": "tie_864.glb / tie_0003",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_864.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-108dea10f594596d283988b648e7c850f12640f31a6854ac4101724db336b035",
+      "name": "tie_842.glb / tie_0037",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_842.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-12aee7eb1c0ca220d63772b4b182ae0847235168301fcb8a055c95791c57706e",
+      "name": "tie_865.glb / tie_0005",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_865.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-12e7477514afc2c77e59ebb75043082652fa8523a4c6c23a596e05c85373ecf3",
+      "name": "tie_865.glb / tie_0004",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_865.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-172e584466d7adbd30d90d9c7e2f6ebc0d0024ee5872237b4eceac9388d8ba6b",
+      "name": "tie_902.glb / tie_0013",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_902.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-195f5493e4f1f1e8f728815d704c9cf7406419b2a57adfbd8e33071f5fbd0d72",
+      "name": "tie_861.glb / tie_0013",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_861.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-1a1d3cebec514f1c7f38e7a266a5b0678f5e8b2eae738ea468a3966694d5a09d",
+      "name": "terrain.glb / terrain_0042",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 18,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-1cec6f2e4e1eec040d0c608cfcb0afd1c6822ab6cd598f4c1ed94b53ebaec847",
+      "name": "tie_884.glb / tie_0060",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_884.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-1d7697c1546b0bd8ffba5b6fa46b02a1e0864b7a2ee75cfb7757474e71146e0e",
+      "name": "tie_854.glb / tie_0045",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_854.glb",
+        "material_slot": 6,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-1ead13ec6300c17df98a9b59808f56a323455afbaa9ec6c6038491c3735c4406",
+      "name": "tie_858.glb / tie_0050",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_858.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-1f80582c09713b298245665a63652f86632392760864c06c1b5d35780b3396d2",
+      "name": "tie_851.glb / tie_0015",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_851.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-1ff3efea4f6616a656141368c85cef55260952e3eebfa6e4aa067a9e976dc14f",
+      "name": "tie_864.glb / tie_0002",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_864.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-2045d8715e9f8ee45b91623bb443aea075ed0a634335edaedd3255b5b95533ba",
+      "name": "tie_737.glb / tie_0009",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_737.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-2304cd6184bc106d596acab04680e04f04d413ecdde94caf9b080c3c275b4fe1",
+      "name": "tie_846.glb / tie_0032",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_846.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-23c6a5cc3e9d9c5caea496309367303e2592005bb17583eb1d991a2c85e115d3",
+      "name": "tie_846.glb / tie_0030",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_846.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-24bfba6daa5aae939246e681142aadb10089b18505e4a6ff99d0d85fdcf032da",
+      "name": "tie_860.glb / tie_0052",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_860.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-2672757d47b251b39d5a2ddc290f83b043bc1efc10857b405f0db72196bff04e",
+      "name": "tie_738.glb / tie_0011",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_738.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-28d0c7bf75077ad355968fbc07258b6a99bf5100aba13bacabb767e4f39e76cb",
+      "name": "tie_866.glb / tie_0009",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_866.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-2929c56ba175d3976f875c7d417874c68c19a1c2e1f0c7073a904c2eca185f7c",
+      "name": "tie_851.glb / tie_0032",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_851.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-298c238973cb3e81495c42ea16c0e0b3b41e7cd3dbd79c18deaec2cbfeec66e4",
+      "name": "tie_860.glb / tie_0013",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_860.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-2c082e4b5e476617fd3f33f6fd668b681b44f1a0666c71840ad5365e4fdbe151",
+      "name": "tie_860.glb / tie_0053",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_860.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-2c8ccdbd15819a98a0cabea901cbea000054892f408e5ee97241f78dca0cacf0",
+      "name": "tie_848.glb / tie_0007",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_848.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-2d76cb626dcaa1a49d2b08a56927a2b5c8394d2e4b7dc036962b68ff0f2292f3",
+      "name": "tie_817.glb / tie_0011",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_817.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-2f7149f486b846f5d9198fbbd69f431ed0cec8435ec83fd127794c18a5081871",
+      "name": "tie_882.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_882.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-30a7033d00caf2418aa61397eb4f24719b05a8efdf5a87d993b969eaee707c21",
+      "name": "tie_1024.glb / tie_0013",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_1024.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-30dc5b536996ede8cfbe444756249c7ae411ddc846929274f3b1cb0fa50d9162",
+      "name": "tie_848.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_848.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-30e7532219b8723e01b1d8d1e19c8223dc63042f486ec34189f4d50f20f38f6a",
+      "name": "tie_852.glb / tie_0045",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_852.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-315de33ac022f8f2c24d301292c0e91822d84c707fd72543b90af06ac730eafd",
+      "name": "tie_854.glb / tie_0030",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_854.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-32966467dace845b039e03966c67c6c3f2894d6a986ca8e43570a6c3e6545b53",
+      "name": "tie_793.glb / tie_0002",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_793.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-356788eadcc264308d7c060d162f1b000e506de7293ba3303c5420510d18f27d",
+      "name": "tie_735.glb / tie_0008",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_735.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-38338d94e3bfcd81a136b9c9c219677ace7d36d854332c0c3c063fdc57d385e9",
+      "name": "tie_885.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_885.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-3925daeca7ef58e7e93f4b1a42233173c4e0dc9397cc77b4cc5d8c6b1e684b9a",
+      "name": "tie_853.glb / tie_0032",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_853.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-3978c34104f96f74d07617c2042844bcdf158252eb2405137ecfb4206425382c",
+      "name": "tie_866.glb / tie_0036",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_866.glb",
+        "material_slot": 6,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-3bcf0a8b9c4a3a87ae5aef909ec39d29f45f59ba22e56ed112608c4a5118d66e",
+      "name": "tie_793.glb / tie_0027",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_793.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-41487e86b7e96640a42bdfb04078b6493f4540f551be16de7d5d8d9d0f3d3177",
+      "name": "tie_735.glb / tie_0009",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_735.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-419afb897e90c58fd4f1036b31780a552143a456a7eca8020b7a0dc2e3309fd2",
+      "name": "tie_902.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_902.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-41df382b6b9bd151f103f207f80cd50216d82cbcf2d7670d2dca2e705403f94d",
+      "name": "tie_866.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_866.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-43fe9c6b565928250842375e16012d19c974dd759f8700ee8177ed1c1b08005a",
+      "name": "tie_853.glb / tie_0029",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_853.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-4759b5a3d17d967eba2f3c0c512622cfd04665ae052c12c8739f30bd8439e623",
+      "name": "tie_861.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_861.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-4b07a9834f1b86e7c1ff92ec92bed6e7da696af754857e7755396aa53f9aef11",
+      "name": "tie_971.glb / tie_0031",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_971.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-4ea31a28beb29b565afe31b169fde9c1109a598a3314653df63886ef3621913f",
+      "name": "tie_682.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_682.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-4ecb41abb31579624f27890abc36f1c62dab39d98f46f0b8f44c9dcf1eb5ecf5",
+      "name": "tie_854.glb / tie_0046",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_854.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-54b25eeec513a8629db98e724a8dd8ade38ee72a7f6cb30971789ae159365f0e",
+      "name": "tie_851.glb / tie_0047",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_851.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-556d0c412be1db2b1be839af811fbd6c56ab361c4e9fcbbd6b40eb7e6f9396a7",
+      "name": "tie_859.glb / tie_0053",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_859.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-56edbd5e31d8c86ac5431d96832bbff1641909d5b00322a031888b7e78e0e4f5",
+      "name": "tie_848.glb / tie_0010",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_848.glb",
+        "material_slot": 6,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-59a478bf89e3cd56d3cd45dba37961d3c66cfec8e67e6f6e14a1118e1552bf3e",
+      "name": "tie_860.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_860.glb",
+        "material_slot": 5,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-5afca0db4464e615248259d50d5a1f834008333c415899036e86a71b6a4f2da7",
+      "name": "tie_854.glb / tie_0027",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_854.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-5d368117a278570a9e39642d22c8e32b8a7851fce2aff2ec8f7e5278fdc51372",
+      "name": "tie_852.glb / tie_0047",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_852.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-5d40d7981ebce382c2a37db9c5e7b62603afb017f90f540af499ac414a178c5b",
+      "name": "tie_841.glb / tie_0032",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_841.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-605ce895f93e7d610fe2b1ac0b54f8623e0875933733d0f0f5fd70ce32a72c50",
+      "name": "tie_848.glb / tie_0011",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_848.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-6144a59464f46ca52f152aa39d0bed3fb9469335ee662898277a4a7b76276db9",
+      "name": "terrain.glb / terrain_0030",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 19,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-61be4d4b4122add9d9230996ddb907f7f2961b6c5f4346e2bedccef864e80a9f",
+      "name": "tie_846.glb / tie_0025",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_846.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-61dd773844a52d1107b3d1633f197f2f365e03bb220df6056117e2b54420f490",
+      "name": "tie_869.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_869.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-62e35a121b03e8495bb7023e4ee8a02f192cd10b6b6d387fd7f4613d69ec2225",
+      "name": "tie_854.glb / tie_0015",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_854.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-63a54a9c9dc7ca41f667f9d1d783d8a1ea103707b721a30c454a087a8c8f0704",
+      "name": "tie_845.glb / tie_0036",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_845.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-6654882e1be90ab5ef1ae670820d8c148ba924422fa164140f5b2a69d6fa4653",
+      "name": "tie_970.glb / tie_0002",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_970.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-671a708f3cecd76e23d2de19924dd2ee37b59cdd52f980018708d136319d4f96",
+      "name": "tie_846.glb / tie_0036",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_846.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-6f37750798fde14069a977b8236da092ef7042656a66a08625bda1ea1c37789a",
+      "name": "tie_847.glb / tie_0035",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_847.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-764e2c271a95c20f61af8b31e5005e15602823a2687b83baa20e934eba5b816b",
+      "name": "tie_847.glb / tie_0025",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_847.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-782cd868a071b3076d488e273a34e24933ae86562f6f00ec0b995c1289ceeb94",
+      "name": "tie_850.glb / tie_0015",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_850.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-7dc227bfee529455e050931be5364166981ecf0a09c67c9c6f96ad03c2e4e26d",
+      "name": "tie_857.glb / tie_0050",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_857.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-8185f3f1ababe229b6e1417a64c6f233c0192aa49d8199875806a55d1e771e6c",
+      "name": "tie_858.glb / tie_0051",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_858.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-844afa55ddb5770089f6c8bc205d59e3c455f4a1414bd2ee009fe5e7a138fb68",
+      "name": "tie_847.glb / tie_0036",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_847.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-8506fc5dd0ae8744b12b42d2dad15a069a19e44958b9851156778c42faad6a5d",
+      "name": "tie_845.glb / tie_0028",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_845.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-857856a3a75927b882cca77e08604f43263c85e9b0f5d20e9c51b63b56d39952",
+      "name": "tie_793.glb / tie_0025",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_793.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-8579af81a51c6c291ac1713658539070c73b994c430c75a5b252e77de14ed7c5",
+      "name": "tie_851.glb / tie_0045",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_851.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-857dc7796972147eb984ed5d3370f598d986dc23b751605f22e2c7ba1e5348dd",
+      "name": "terrain.glb / terrain_0045",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 58,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-881a9450adebe96a73c3841ef23a9cfed55645452557c4ea3a15fa099650d5c8",
+      "name": "tie_737.glb / tie_0006",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_737.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-8852190f18c1b86b9da775ad71b865ae02c00f06094fe2d28f1bbe83e207a105",
+      "name": "tie_885.glb / tie_0001",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_885.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-89e9d7f18f7b0ff511841f5f2db721347a7d0d51738f1f068a80559c24a8d2f8",
+      "name": "tie_858.glb / tie_0049",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_858.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-8e49493e732e4a32566bd2e1b933ec55928401fd47d078528e9e894c8f5b5e28",
+      "name": "tie_884.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_884.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-930de54e6f736a1c2a3974591c38da057fdb89950ecfcfc159b9239ae96f76c9",
+      "name": "tie_892.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_892.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-94924e3b6e905f0901c87b476fa11f3cf2a11d9ff97e1d0c605b61f159a07ae1",
+      "name": "tie_848.glb / tie_0008",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_848.glb",
+        "material_slot": 5,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-962938e070300fbd6a316e041675317ce98c58754cff4a3298b6056667ca5b0a",
+      "name": "tie_1029.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_1029.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-968017f9b7601c5865dd73858bef63662e711052d9f94287f73bea2598cfe680",
+      "name": "tie_871.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_871.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-98b9143a1681d2ff212f0fee45702dd1292e67a33bbdba078885496e5977df6c",
+      "name": "terrain.glb / terrain_0021",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 12,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-99addbaa034ce780945274cc872a5264e6466165950c65b50133917c158e94c7",
+      "name": "terrain.glb / terrain_0008",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-9a2ade66f7ee680ec90b9f5ac99214d2b62ac891effc79180adb1ba87fc83a57",
+      "name": "tie_859.glb / tie_0052",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_859.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-9b729f2b60e410b45aeaffe175d664dde1600cbdec53267ead3fac58481e5085",
+      "name": "terrain.glb / terrain_0032",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 13,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-9e606e8e48c04fc20e968678191c5a447663a4f9c52515e8cf6f1041994a3157",
+      "name": "tie_735.glb / tie_0007",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_735.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-9f284facaf4537db4f3fc2dac3aa14ff0d510bdca14e051d97f1e795ce2f8037",
+      "name": "tie_865.glb / tie_0003",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_865.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-a114aa6fd5535e9bf61be5a884b6aeb99f867b03680c8d113a201488be740a73",
+      "name": "tie_859.glb / tie_0013",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_859.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-a388f2c0a2c6d1a6ee05863bbc2e7452cede089f336b2193e1e2a7550164e840",
+      "name": "tie_884.glb / tie_0013",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_884.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-a4851b88efdefc6d8e8aadd5f6cc3f7aa87673d56e70707a79079703ee6d2213",
+      "name": "tie_845.glb / tie_0032",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_845.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-a4d815bdca1df1fe396efd0a97a4ad6e92eab79737dfba5521796b11576a97ba",
+      "name": "tie_870.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_870.glb",
+        "material_slot": 5,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-a790f796451323d03c667c500d9227be1d000e95e9b9f214184e151c233ce494",
+      "name": "tie_853.glb / tie_0047",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_853.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-a7e624bc22ef3c3c638cfa1b1449f2e1766b582cc106245cb9fd03115d4f9c61",
+      "name": "tie_864.glb / tie_0005",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_864.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-a8ce7763740742c164a1848959cce8f031d0611ad62cc9a97623d13b88c699d1",
+      "name": "tie_864.glb / tie_0004",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_864.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-aaad6ee277641b3608494edbe0599ecdbba04b34592ef6f0e6df1f68888919cd",
+      "name": "tie_1024.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_1024.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-aad9ff312b1a8b88108539479f859f1f176a24ef9ea4d27f16c96f7a427ed6da",
+      "name": "tie_866.glb / tie_0055",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_866.glb",
+        "material_slot": 5,
+        "pass": "colour"
+      },
+      "material": "ketwan-building-metal"
+    },
+    {
+      "id": "object-aaefe190ce2587889fba1ffdc8241eec6e6d185176db635b06a7459d64363481",
+      "name": "terrain.glb / terrain_0043",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 47,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-ae76e3e3054bdce754bf0619f021e7788a8ad2553511f502e0ab1192517cafba",
+      "name": "tie_859.glb / tie_0051",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_859.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-b310b75293c294fd414922a511287e2ed6cf97ed24e56fa35ec7af15b73a68fc",
+      "name": "tie_851.glb / tie_0029",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_851.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-b318ed3906330f93e07c5fa77d5d3082a2ebc5d545a61d7909bd47b1d6a324e6",
+      "name": "tie_852.glb / tie_0032",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_852.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-b7b24e8faab0dbd732c1b49591a085c802878733a2dc5e588fa735a9907fd289",
+      "name": "tie_817.glb / tie_0001",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_817.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-b89ceb7681367cb50c124248545e080f491952ee8db421329212d257b105a047",
+      "name": "tie_848.glb / tie_0006",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_848.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-b9f14d3312fd89caa8dc0ba4e4218ce323a3b2c0a5d28e5ecd991b6f36c001ae",
+      "name": "tie_751.glb / tie_0013",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_751.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-bb38f90bbcbb44f725e8aa927a796bf56588585b52e71a6b100826e2379529ff",
+      "name": "tie_793.glb / tie_0026",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_793.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-bb74a9f81dd0aba555b9150b8a446985656b6ed90ae2480c52ad65326d964f2a",
+      "name": "tie_857.glb / tie_0049",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_857.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-bc66aa73f76d7726437f33ae254a16b617e73c7a2996725818bd2c8b30714c31",
+      "name": "moby_1143.glb / moby_0159",
+      "enabled": true,
+      "match": {
+        "layer": "moby",
+        "model": "moby_1143.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "gadgetron-vendor-orb"
+    },
+    {
+      "id": "object-bec54d51d6c73cd02cff4de4b02401f9ad816e2dd574c2e177a211a5a6f8ded7",
+      "name": "tie_850.glb / tie_0047",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_850.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-c114b1d28ce5ca12a1e1d8bdc50a3c49444bf12b2d17ee22349c16d5848c7fbd",
+      "name": "tie_853.glb / tie_0045",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_853.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-c144fa2d999682407a301a9d0094646de816c550383409b68ba526679592fe84",
+      "name": "tie_865.glb / tie_0002",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_865.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-c1ad94c7130f84ee455071edbf68ab0a08a8a50c9fac9c76710249fbee681063",
+      "name": "tie_857.glb / tie_0051",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_857.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-c26327d5d50ee2df9131f8c181c9b7d5c747dbd6954d7fdac33ead9aa94f6ff8",
+      "name": "tie_735.glb / tie_0006",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_735.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-c397884e8fe75126ea7eafb28f919082880a5f3928ef2723221eeb4534a46347",
+      "name": "tie_893.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_893.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-c4f6c4b0b61a5f14ac34054744400f7edd0a0d72d10c32a5ef2773421c03301a",
+      "name": "tie_1021.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_1021.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-ccc746096d301f0f75d4ff92306b4e9b3ae059eaca84f7820feafc8663f8e818",
+      "name": "terrain.glb / terrain_0044",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 17,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-ce87b4e6c602346f86397336a7c19a73e266fcf43606314de1e438fb58815aaa",
+      "name": "tie_852.glb / tie_0015",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_852.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-cea5374cb3949aaaa3ddef151a170c1f652ebdb273abb362bf157846c9aeac37",
+      "name": "tie_848.glb / tie_0009",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_848.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-cf83c05904a75d19a058660dd687474d3c3052434057c027d2d080da36c94a0f",
+      "name": "tie_738.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_738.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-cfb1d4bfe1be118af533bc297a710c3fe14c95fe155f5060f37dae0e9e5f7e26",
+      "name": "tie_845.glb / tie_0025",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_845.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-d0cc530826d2cb4f2ffd1bc565cae6dcd8e57775ee69a07821164e7cd0ce7a69",
+      "name": "tie_858.glb / tie_0027",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_858.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-d0fd56c79cc87d0171fd98797c669e3153dee4f9025f152b678a7af22285c0f8",
+      "name": "tie_845.glb / tie_0030",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_845.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-d16d8231eaaf8eff730c33cd1c960e725d2103d8f91d6f16fd0c625e3b286902",
+      "name": "tie_1023.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_1023.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-d623dc20b02412fb0af70a8cdbca10d640ddceda1b6cd597a7cfef61769cf043",
+      "name": "tie_847.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_847.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-d70bec464666bc035c22a50a5348f21057de4aba6ee49589d5cf5db2ac9d9c83",
+      "name": "tie_1029.glb / tie_0060",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_1029.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-d86334e4bc78800c9bbe997f8bd735dca1c9b1ce98320ef66bb80910a154201c",
+      "name": "tie_971.glb / tie_0030",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_971.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-d8d5e69b89a0906716c428ef5a19e5dc22ae03ce4cc99d50bfd6a4af1a4d08d0",
+      "name": "terrain.glb / terrain_0031",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 14,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-dc6c74b28fda931ba5458a710568e81ff4d37586dfdf1ead5fba803b9e6d309e",
+      "name": "tie_737.glb / tie_0000",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_737.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-e4da7e9865815dd08193f29b516736a8c2ccfa5164610b2969c75ed0aa4da52c",
+      "name": "tie_852.glb / tie_0029",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_852.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-ea198296d0e057feabbc2e389a64abc84c824ef88f5d36fdfacd5d2a82226e55",
+      "name": "terrain.glb / terrain_0027",
+      "enabled": true,
+      "match": {
+        "layer": "terrain",
+        "model": "terrain.glb",
+        "material_slot": 22,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-eb5ec7d49a021315fe7b008faed4a28f5a0b79d85ee866212bbfe546649f643b",
+      "name": "tie_860.glb / tie_0049",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_860.glb",
+        "material_slot": 4,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-ecd4b88171b4c932807187b57de2799d7d061d4c65a0bd04e46c273c282c863b",
+      "name": "tie_853.glb / tie_0015",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_853.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-f08288d80a310f76516f073cdf6f1e0209ca10eead8e82efdabd8fe0dea9a690",
+      "name": "tie_866.glb / tie_0002",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_866.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-f1017415feb355020a80205ffbbb1765eeffca6507537c4cc302b76860ffb15b",
+      "name": "tie_866.glb / tie_0025",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_866.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-f34632c26ee767c048bf6e0dc6d1e0dd60120e5554fedbd531ac3138d2039f6a",
+      "name": "tie_860.glb / tie_0050",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_860.glb",
+        "material_slot": 3,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-f3ace8110e6cbdbb075e8216657383c1c33b995a7b366fa958febeffc19a9218",
+      "name": "tie_854.glb / tie_0036",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_854.glb",
+        "material_slot": 1,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-f40f8e5d06324968914066bd9a6d97bf9ec50e52cf247dc22d1e4a10f4578212",
+      "name": "tie_858.glb / tie_0024",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_858.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building-gold"
+    },
+    {
+      "id": "object-f548ebefc7c33267a5b0fa30ab0ae41e8179b3a9b0beb3635d085990568d0518",
+      "name": "tie_866.glb / tie_0003",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_866.glb",
+        "material_slot": 2,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-f7ff0e57e31ac7f99715807416eaae5e1f63f56749011f264254c607be740a5c",
+      "name": "tie_846.glb / tie_0028",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_846.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-fab4f9fe9bf35b7fa9b98ceeb427d1733988ff4f58ad1e012dc548e64bcb241d",
+      "name": "tie_793.glb / tie_0024",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_793.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
+    },
+    {
+      "id": "object-fff299817608bfebf7df2ee4bb9c9ff7794badbd1ec89a7a0c284d6ed9b296ae",
+      "name": "tie_861.glb / tie_0050",
+      "enabled": true,
+      "match": {
+        "layer": "tie",
+        "model": "tie_861.glb",
+        "material_slot": 0,
+        "pass": "colour"
+      },
+      "material": "kerwan-building"
     }
-  ]
+  ],
+  "presets": {
+    "gadgetron-vendor-orb": {
+      "shading": "standard",
+      "type": "lit",
+      "emission": {
+        "bake_intensity": 0,
+        "contrast": 1,
+        "runtime_intensity": 0,
+        "use_base_texture": false,
+        "vertex_colour": false
+      },
+      "reflection": {
+        "strength": 0.985,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      },
+      "surface": {
+        "diffuse_scale": 1,
+        "metallic": 0.486,
+        "reflectivity": 0.26799999999999996,
+        "roughness": 0.245,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "kerwan-building": {
+      "shading": "standard",
+      "type": "lit",
+      "emission": {
+        "bake_intensity": 0,
+        "contrast": 1,
+        "runtime_intensity": 0,
+        "use_base_texture": false,
+        "vertex_colour": false
+      },
+      "reflection": {
+        "strength": 0.7509999999999999,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      },
+      "surface": {
+        "diffuse_scale": 1,
+        "metallic": 0.122,
+        "reflectivity": 0.027999999999999997,
+        "roughness": 0.822,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "kerwan-building-gold": {
+      "shading": "standard",
+      "type": "lit",
+      "emission": {
+        "bake_intensity": 0,
+        "contrast": 1,
+        "runtime_intensity": 0,
+        "use_base_texture": false,
+        "vertex_colour": false
+      },
+      "reflection": {
+        "strength": 0.982,
+        "tint": [
+          0.9851379990577698,
+          0.8136809468269348,
+          0.2949139177799225
+        ]
+      },
+      "surface": {
+        "diffuse_scale": 1,
+        "metallic": 0.6759999999999999,
+        "reflectivity": 0.371,
+        "roughness": 0.218,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "ketwan-building-metal": {
+      "shading": "standard",
+      "type": "lit",
+      "emission": {
+        "bake_intensity": 0,
+        "contrast": 1,
+        "runtime_intensity": 0,
+        "use_base_texture": false,
+        "vertex_colour": false
+      },
+      "reflection": {
+        "strength": 0.7509999999999999,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      },
+      "surface": {
+        "diffuse_scale": 1,
+        "metallic": 1,
+        "reflectivity": 0.9259999999999999,
+        "roughness": 0.26699999999999996,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "lit-default-copy-1": {
+      "shading": "standard",
+      "type": "lit",
+      "reflection": {
+        "strength": 0.103,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      },
+      "surface": {
+        "metallic": 0,
+        "reflectivity": 0.012,
+        "roughness": 1
+      }
+    },
+    "lit-e831dd9d18dd": {
+      "shading": "standard",
+      "type": "lit",
+      "emission": {
+        "bake_mesh_rgb": [
+          3.96440887,
+          3.46088433,
+          1.9759078
+        ],
+        "bake_mode": "mesh",
+        "runtime_intensity": 0
+      },
+      "reflection": {
+        "strength": 0.286,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      },
+      "surface": {
+        "metallic": 0.431,
+        "reflectivity": 0.39099999999999996,
+        "roughness": 0.29
+      }
+    },
+    "ratchet-coat": {
+      "fur": {
+        "environment_strength": 1.0079999999999998
+      }
+    }
+  }
 }

@@ -12,8 +12,9 @@
 #include "common/stats.h"
 #include "enhanced/fsr3/fsr3_internal.h"
 #include "enhanced/fsr3/temporal_pass.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 
 namespace openrac::enhanced {
@@ -107,6 +108,7 @@ void Fsr3::State::draw_camera_motion() {
     camera_motion.use();
     glUniformMatrix4fv(camera_motion.uniform("inverse_raster"), 1, GL_FALSE, inverse_raster.data());
     glUniformMatrix4fv(camera_motion.uniform("previous_view"), 1, GL_FALSE, view.previous.data());
+    glUniformMatrix4fv(camera_motion.uniform("previous_clip"), 1, GL_FALSE, previous_clip.data());
     glUniform3f(
         camera_motion.uniform("camera_position"),
         camera.position[0],
@@ -331,6 +333,7 @@ bool Fsr3::State::resolve_images() {
 }
 
 void Fsr3::State::resolve(renderer::RenderTarget& target) {
+    vkgl::set_texture_lod_bias(0.0f);
     bool resolved = false;
     // This synchronous scope finishes all queued draws before displayed-frame history is retained.
     const auto prepare = [this, &resolved] {

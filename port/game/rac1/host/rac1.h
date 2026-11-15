@@ -158,6 +158,8 @@ int rac1_world_moby_run(int32_t slot, openrac_game_moby_run* out);
  * not looked at, or none built this level load), how many were built and its camera; world.c's
  * whether the level's mobys are the current context (not the pause menu's). */
 int rac1_moby_run(int32_t slot, uint32_t* runs, float camera[3]);
+/* moby_pool.c: whether CreateMoby has `want` free slots left in the level's pool. */
+int rac1_moby_pool_room(int want);
 int rac1_level_mobys_current(void);
 int32_t rac1_world_moby_spawn(int32_t oclass);
 int32_t rac1_world_hero_slot(void);

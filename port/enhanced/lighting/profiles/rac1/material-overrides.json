@@ -9,58 +9,11 @@
       },
       "reflection": {
         "strength": 1
-      }
-    },
-    "clank": {
-      "shading": "chrome",
-      "surface": {
-        "roughness": 0.26,
-        "reflectivity": 0.65
       },
-      "reflection": {
-        "strength": 1,
-        "tint": [
-          1,
-          1,
-          1
-        ],
-        "opacity": 1
-      }
-    },
-    "wrench": {
-      "shading": "chrome",
-      "surface": {
-        "roughness": 0.18,
-        "reflectivity": 0.75
-      },
-      "reflection": {
-        "strength": 1,
-        "tint": [
-          1,
-          1,
-          1
-        ],
-        "opacity": 1
-      }
-    },
-    "chrome": {
-      "shading": "chrome",
-      "surface": {
-        "roughness": 0.25,
-        "reflectivity": 0.65
-      },
-      "reflection": {
-        "strength": 1,
-        "tint": [
-          1,
-          1,
-          1
-        ],
-        "opacity": 1
-      }
+      "type": "lit"
     },
     "glass": {
-      "shading": "glass",
+      "shading": "standard",
       "surface": {
         "roughness": 0.08,
         "reflectivity": 0.04
@@ -73,25 +26,10 @@
           1
         ],
         "opacity": 1
-      }
-    },
-    "stylised": {
-      "shading": "stylised",
-      "surface": {
-        "roughness": 0.35,
-        "reflectivity": 0.12
       },
-      "reflection": {
-        "strength": 0.65,
-        "tint": [
-          1,
-          1,
-          1
-        ],
-        "opacity": 1
-      }
+      "type": "glass-lit"
     },
-    "ratchet-fur": {
+    "ratchet-coat": {
       "fur": {
         "profile": "ratchet-original",
         "enabled": true,
@@ -104,9 +42,8 @@
         "directionality": 0.88,
         "scattering": 0.33,
         "environment_strength": 1.85
-      }
-    },
-    "ratchet-wetness": {
+      },
+      "type": "lit-wet-fur",
       "wetness": {
         "diffuse_scale": 0.28,
         "specular_strength": 1,
@@ -114,6 +51,148 @@
         "wet_roughness": 0.34,
         "reflectivity": 0.0632
       }
+    },
+    "ship-visor": {
+      "type": "glass-lit",
+      "shading": "standard",
+      "surface": {
+        "roughness": 0.08,
+        "reflectivity": 0.04
+      },
+      "reflection": {
+        "strength": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "opacity": 1
+      },
+      "glass": {
+        "transmission": 0.9,
+        "tint": [
+          0.05,
+          0.15,
+          0.22
+        ]
+      }
+    },
+    "leaf-00": {
+      "shading": "foliage",
+      "surface": {
+        "roughness": 0.85,
+        "reflectivity": 0.04
+      },
+      "foliage": {
+        "transmission": 0.3,
+        "thickness": 0.8,
+        "normal_bend": 0.0
+      },
+      "type": "foliage"
+    },
+    "leaf-01": {
+      "shading": "foliage",
+      "surface": {
+        "roughness": 0.85,
+        "reflectivity": 0.04
+      },
+      "foliage": {
+        "transmission": 0.3,
+        "thickness": 0.8,
+        "normal_bend": 0.0
+      },
+      "type": "foliage"
+    },
+    "leaf-02": {
+      "shading": "foliage",
+      "surface": {
+        "roughness": 0.65,
+        "reflectivity": 0.04
+      },
+      "foliage": {
+        "transmission": 0.35,
+        "thickness": 0.7,
+        "normal_bend": 0.2
+      },
+      "type": "foliage"
+    },
+    "leaf-03": {
+      "shading": "foliage",
+      "surface": {
+        "roughness": 0.65,
+        "reflectivity": 0.04
+      },
+      "foliage": {
+        "transmission": 0.35,
+        "thickness": 0.7,
+        "normal_bend": 0.2
+      },
+      "type": "foliage"
+    },
+    "leaf-04": {
+      "shading": "foliage",
+      "surface": {
+        "roughness": 0.7,
+        "reflectivity": 0.04
+      },
+      "foliage": {
+        "transmission": 0.3,
+        "thickness": 0.8,
+        "normal_bend": 0.16
+      },
+      "type": "foliage"
+    },
+    "leaf-05": {
+      "shading": "foliage",
+      "surface": {
+        "roughness": 0.7,
+        "reflectivity": 0.04
+      },
+      "foliage": {
+        "transmission": 0.3,
+        "thickness": 0.9,
+        "normal_bend": 0.18
+      },
+      "type": "foliage"
+    },
+    "leaf-06": {
+      "shading": "foliage",
+      "surface": {
+        "roughness": 0.7,
+        "reflectivity": 0.04
+      },
+      "foliage": {
+        "transmission": 0.3,
+        "thickness": 0.9,
+        "normal_bend": 0.18
+      },
+      "type": "foliage"
+    },
+    "leaf-07": {
+      "shading": "foliage",
+      "surface": {
+        "roughness": 0.85,
+        "reflectivity": 0.04
+      },
+      "foliage": {
+        "transmission": 0.3,
+        "thickness": 0.8,
+        "normal_bend": 0.0
+      },
+      "type": "foliage"
+    },
+    "leaf-08": {
+      "shading": "foliage",
+      "surface": {
+        "roughness": 0.7,
+        "reflectivity": 0.04
+      },
+      "foliage": {
+        "transmission": 0.3,
+        "thickness": 0.9,
+        "normal_bend": 0.18
+      },
+      "type": "foliage"
     }
   },
   "overrides": [
@@ -122,32 +201,7 @@
       "match": {
         "material_name": "@water"
       },
-      "preset": "water"
-    },
-    {
-      "id": "chrome",
-      "match": {
-        "pass": "metal"
-      },
-      "preset": "chrome"
-    },
-    {
-      "id": "clank",
-      "match": {
-        "layer": "moby",
-        "class_id": 87,
-        "pass": "metal"
-      },
-      "preset": "clank"
-    },
-    {
-      "id": "wrench",
-      "match": {
-        "layer": "moby",
-        "class_id": 71,
-        "pass": "metal"
-      },
-      "preset": "wrench"
+      "material": "water"
     },
     {
       "id": "glass",
@@ -155,23 +209,17 @@
         "material_name": "metal_glass",
         "pass": "metal"
       },
-      "preset": "glass"
+      "material": "glass"
     },
     {
-      "id": "stylised",
+      "id": "ship-visor",
+      "name": "Ship visor",
       "match": {
-        "material_name": "metal_stylised",
+        "layer": "moby",
+        "material_name": "metal_glass_ship_visor",
         "pass": "metal"
       },
-      "preset": "stylised"
-    },
-    {
-      "id": "stylized",
-      "match": {
-        "material_name": "metal_stylized",
-        "pass": "metal"
-      },
-      "preset": "stylised"
+      "material": "ship-visor"
     },
     {
       "id": "ratchet-fur",
@@ -180,15 +228,7 @@
         "class_id": 0,
         "material_name": "moby_0000"
       },
-      "preset": "ratchet-fur"
-    },
-    {
-      "id": "ratchet-wetness",
-      "match": {
-        "layer": "moby",
-        "class_id": 0
-      },
-      "preset": "ratchet-wetness"
+      "material": "ratchet-coat"
     },
     {
       "id": "foliage-00",
@@ -198,18 +238,7 @@
         "cutout_only": true,
         "pass": "colour"
       },
-      "set": {
-        "shading": "foliage",
-        "surface": {
-          "roughness": 0.85,
-          "reflectivity": 0.04
-        },
-        "foliage": {
-          "transmission": 0.3,
-          "thickness": 0.8,
-          "normal_bend": 0.0
-        }
-      }
+      "material": "leaf-00"
     },
     {
       "id": "foliage-01",
@@ -219,18 +248,7 @@
         "cutout_only": true,
         "pass": "colour"
       },
-      "set": {
-        "shading": "foliage",
-        "surface": {
-          "roughness": 0.85,
-          "reflectivity": 0.04
-        },
-        "foliage": {
-          "transmission": 0.3,
-          "thickness": 0.8,
-          "normal_bend": 0.0
-        }
-      }
+      "material": "leaf-01"
     },
     {
       "id": "foliage-02",
@@ -240,18 +258,7 @@
         "cutout_only": true,
         "pass": "colour"
       },
-      "set": {
-        "shading": "foliage",
-        "surface": {
-          "roughness": 0.65,
-          "reflectivity": 0.04
-        },
-        "foliage": {
-          "transmission": 0.35,
-          "thickness": 0.7,
-          "normal_bend": 0.2
-        }
-      }
+      "material": "leaf-02"
     },
     {
       "id": "foliage-03",
@@ -261,18 +268,7 @@
         "cutout_only": true,
         "pass": "colour"
       },
-      "set": {
-        "shading": "foliage",
-        "surface": {
-          "roughness": 0.65,
-          "reflectivity": 0.04
-        },
-        "foliage": {
-          "transmission": 0.35,
-          "thickness": 0.7,
-          "normal_bend": 0.2
-        }
-      }
+      "material": "leaf-03"
     },
     {
       "id": "foliage-04",
@@ -282,18 +278,7 @@
         "cutout_only": true,
         "pass": "colour"
       },
-      "set": {
-        "shading": "foliage",
-        "surface": {
-          "roughness": 0.7,
-          "reflectivity": 0.04
-        },
-        "foliage": {
-          "transmission": 0.3,
-          "thickness": 0.8,
-          "normal_bend": 0.16
-        }
-      }
+      "material": "leaf-04"
     },
     {
       "id": "foliage-05",
@@ -303,18 +288,7 @@
         "cutout_only": true,
         "pass": "colour"
       },
-      "set": {
-        "shading": "foliage",
-        "surface": {
-          "roughness": 0.7,
-          "reflectivity": 0.04
-        },
-        "foliage": {
-          "transmission": 0.3,
-          "thickness": 0.9,
-          "normal_bend": 0.18
-        }
-      }
+      "material": "leaf-05"
     },
     {
       "id": "foliage-06",
@@ -324,18 +298,7 @@
         "cutout_only": true,
         "pass": "colour"
       },
-      "set": {
-        "shading": "foliage",
-        "surface": {
-          "roughness": 0.7,
-          "reflectivity": 0.04
-        },
-        "foliage": {
-          "transmission": 0.3,
-          "thickness": 0.9,
-          "normal_bend": 0.18
-        }
-      }
+      "material": "leaf-06"
     },
     {
       "id": "foliage-07",
@@ -345,18 +308,7 @@
         "cutout_only": true,
         "pass": "colour"
       },
-      "set": {
-        "shading": "foliage",
-        "surface": {
-          "roughness": 0.85,
-          "reflectivity": 0.04
-        },
-        "foliage": {
-          "transmission": 0.3,
-          "thickness": 0.8,
-          "normal_bend": 0.0
-        }
-      }
+      "material": "leaf-07"
     },
     {
       "id": "foliage-08",
@@ -366,18 +318,7 @@
         "cutout_only": true,
         "pass": "colour"
       },
-      "set": {
-        "shading": "foliage",
-        "surface": {
-          "roughness": 0.7,
-          "reflectivity": 0.04
-        },
-        "foliage": {
-          "transmission": 0.3,
-          "thickness": 0.9,
-          "normal_bend": 0.18
-        }
-      }
+      "material": "leaf-08"
     }
   ]
 }

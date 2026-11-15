@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 uniform samplerBuffer atmosphere_volume;
+// openrac_mode: atmosphere_enabled
 uniform int atmosphere_enabled;
 uniform vec2 atmosphere_grid_size;
 #define atmosphere_grid ivec2(atmosphere_grid_size)

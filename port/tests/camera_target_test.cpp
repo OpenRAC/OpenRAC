@@ -6,6 +6,7 @@
 
 #include "game/common/profile.h"
 #include "game/rac1/game_state.h"
+#include "scene/level.h"
 #include "tests/check.h"
 
 namespace {
@@ -51,6 +52,21 @@ void test_focus(const openrac::game::rac1::GameAddresses& addresses) {
 int main() {
     for (const auto version : {"rac1-pal", "rac1-ntsc"}) {
         const auto& profile = openrac::host::game_profile(version);
+        CHECK(
+            bool(profile.level_geometry_preparer()) == (std::string_view(version) == "rac1-ntsc")
+        );
+        if (const auto prepare = profile.level_geometry_preparer()) {
+            openrac::scene::LevelData level;
+            level.game = "rac1";
+            // Missing and truncated replacement meshes retain their original geometry.
+            prepare(level);
+            level.moby_classes[530] = {1, false};
+            prepare(level);
+            level.models.resize(2);
+            level.models[1].primitives.push_back({0, 12306, 0});
+            prepare(level);
+            CHECK(level.vertices.empty() && level.indices.empty() && level.materials.empty());
+        }
         CHECK(profile.floats_on_water(695));
         CHECK(!profile.floats_on_water(0));
         CHECK(!profile.floats_on_water(694));
