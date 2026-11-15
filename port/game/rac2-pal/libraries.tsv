@@ -328,3 +328,5 @@ func_L22_002F5148	render	rac2Fragment002F3C40	host	a fragment of func_002F35B0: 
 func_002F4C70	render	rac2Fragment002F3D20	host	a fragment of func_002F35B0: reports a reach (host/handasm_vu0.c)	void (void)
 func_002F4D90	render	rac2Fragment002F3E40	host	a fragment of func_002F35B0: reports a reach (host/handasm_vu0.c)	void (void)
 func_002F5EC8	render	rac2Fragment002F4F78	host	a fragment of func_002F3E78: reports a reach (host/handasm_vu0.c)	void (void)
+func_002A2118	render	rac2MobyAnimPose	host	host-replaced renderer: the port never calls it; reports a reach (host/handasm_render_big.c)	int (int, int)
+func_002E1FF8	render	rac2CullAndEmitShrubs	host	host-replaced renderer: the port never calls it; reports a reach (host/handasm_render_big.c)	void (void)
