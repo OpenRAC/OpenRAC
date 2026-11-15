@@ -141,6 +141,25 @@ class KindsTests(unittest.TestCase):
         self.assertEqual(code, 0)
         return json.loads(self.out.read_text())
 
+    def test_a_stopped_run_plays_no_more_routes(self):
+        # Stop (SIGTERM, raised as KeyboardInterrupt in the main thread) once the first route ended:
+        # the routes waiting are not played (one may have started meanwhile), the run file is not
+        # written, and the routes' folder goes.
+        def say(event, **fields):
+            if event == "route":
+                raise KeyboardInterrupt
+
+        with unittest.mock.patch.object(run, "KIND_ROUTES", {}), \
+                unittest.mock.patch.object(run.runner, "run_level", self.fake_level), \
+                unittest.mock.patch.object(run, "make_card", lambda *a: Path(self.tmp.name)), \
+                unittest.mock.patch.object(run, "say", say):
+            code = run.main(["run", "--game", "rac1-ntsc", "--out", str(self.out), "--exe", str(self.exe),
+                             "--data", self.tmp.name, "--levels", self.tmp.name, "--jobs", "1"])
+        self.assertEqual(code, 130)
+        self.assertIn(len(self.played), (1, 2))
+        self.assertFalse(self.out.exists())
+        self.assertEqual(list((self.out.parent / "work").iterdir()), [])
+
     def test_a_kind_then_another_adds_to_the_run(self):
         doc = self.make("--kinds", "font")
         self.assertEqual(self.played, ["title-new"])

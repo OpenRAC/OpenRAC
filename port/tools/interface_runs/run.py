@@ -27,6 +27,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -181,9 +182,10 @@ def run(args) -> int:
     parent = args.work or args.out.resolve().parent / "work"
     parent.mkdir(parents=True, exist_ok=True)
     if not args.work:
-        for stale in parent.glob("interface-run-*"):
+        # Only this version's: another version's run (same data folder) may be playing.
+        for stale in parent.glob(f"interface-run-{game}-*"):
             shutil.rmtree(stale, ignore_errors=True)
-    work = Path(tempfile.mkdtemp(prefix="interface-run-", dir=parent))
+    work = Path(tempfile.mkdtemp(prefix=f"interface-run-{game}-", dir=parent))
     done, failed, skipped, parts = [], [], [], []
     # A small window: the HUD's textures are the game's whatever the window's size, and drawing on
     # the CPU (no graphics card) costs by the pixel.
@@ -193,8 +195,12 @@ def run(args) -> int:
     env = {"OPENRAC_HIDE_PASSES": WORLD_PASSES, **dict(args.env)}
     cards = args.cards
     card_tried = False
+    # Set when the run is stopped: a route not started yet is not.
+    stopping = threading.Event()
 
     def one(r: routes_mod.Route) -> tuple[routes_mod.Route, str]:
+        if stopping.is_set():
+            return r, "stopped"
         out = work / r.key
         try:
             res = runner.run_level(game, r, exe, data, levels, out, env, settings,
@@ -218,8 +224,10 @@ def run(args) -> int:
             skipped.extend(left)
             chosen = [r for r in chosen if not r.card]
             count += len(left)
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-        with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        from concurrent.futures import ThreadPoolExecutor, as_completed, wait
+        pool = ThreadPoolExecutor(max_workers=max(1, args.jobs))
+        futures = []
+        try:
             futures = [pool.submit(one, r) for r in chosen]
             # In the order they end, so the launcher's count moves as routes finish.
             for future in as_completed(futures):
@@ -233,6 +241,16 @@ def run(args) -> int:
                 count += 1
                 say("route", key=r.key, name=r.name, status=status if part is not None else "no-part",
                     done=count, of=total)
+        except BaseException:
+            # Stopped (SIGTERM, Ctrl+C): the routes waiting are not started, and those playing were
+            # sent the same signal. Waiting for the pool here would play every route left.
+            stopping.set()
+            pool.shutdown(wait=False, cancel_futures=True)
+            # A few seconds for those to end, so their folders are not written after they are removed
+            # (only those: a cancelled future never counts as done for wait()).
+            wait([f for f in futures if not f.cancelled()], timeout=15)
+            raise
+        pool.shutdown()
         return count
 
     keep = args.keep

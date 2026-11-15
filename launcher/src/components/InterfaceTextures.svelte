@@ -199,6 +199,10 @@
     {#if failed}
       <p class="failed">{failed}</p>
     {/if}
+    {#each view?.unreadable ?? [] as why (why)}
+      <!-- A run file that cannot be read (cut short, another format): a new run writes it anew. -->
+      <p class="failed small">{why}</p>
+    {/each}
     <ul class="kinds">
       {#each CATEGORIES as c, at (c.id)}
         {@const s = status(at)}

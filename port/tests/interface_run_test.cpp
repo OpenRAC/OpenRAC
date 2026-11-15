@@ -138,9 +138,9 @@ void pool_round_trip() {
     // A blob that cannot be read: nothing. One that changed: another picture (the caller's check).
     CHECK(!interface_run::rebuild(recipe, [](std::uint64_t) { return nullptr; }));
     auto changed = bytes;
-    for (auto& [hash, bytes] : changed) {
-        if (bytes.size() == pixels.size()) {
-            bytes[5] ^= 0x55;
+    for (auto& [hash, blob] : changed) {
+        if (blob.size() == pixels.size()) {
+            blob[5] ^= 0x55;
         }
     }
     const auto other =
