@@ -956,16 +956,9 @@ float openrac_game_picture_wider(void);
 float openrac_game_view_opened(void);
 
 /* The player's Draw distance as a factor of the game's (settings.h draw_distance): 1 at Original,
- * 4 at 400%, 0 Unlimited; 1 without a window. The moby renderers' drawn flag (+0x31) takes it, so
- * that a moby the window draws farther away is drawn to the game too, which keeps it active (the
- * moby loop updates a drawn moby whatever its update distance). */
+ * 4 at 400%, 0 Unlimited; 1 without a window. Only for what the window draws: the game's own
+ * drawn flag (+0x31) is game logic and keeps the console's distances. */
 float openrac_game_draw_distance(void);
-
-/* The player's Active distance as a factor of the game's (settings.h active_distance_scale): Draw
- * distance's at Match (the default), 1 at Original; 1 without a window. The moby renderers' drawn
- * flag (+0x31) takes it, so that a moby the window draws farther away is drawn to the game too,
- * which keeps it active (the moby loop updates a drawn moby whatever its update distance). */
-float openrac_game_active_distance(void);
 
 /* A game fix's flag, by its setting key (port/game/<game>/differences.json, kind "fix";
  * game/common/fixes.h): nonzero while the port's fix is on, 0 for the console's behaviour. The

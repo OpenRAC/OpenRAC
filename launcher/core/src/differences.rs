@@ -331,7 +331,7 @@ mod tests {
         assert_eq!(source(None, "rac1").unwrap(), text, "the built-in copy is the checkout's");
         let keys: Vec<&str> =
             list.differences.iter().filter_map(|d| d.setting.as_ref()).map(|s| s.key.as_str()).collect();
-        assert!(keys.contains(&"fix_wide_moby_effects"), "{keys:?}");
+        assert!(keys.contains(&"fix_wide_fires"), "{keys:?}");
         assert!(keys.contains(&"fix_wide_nanotech_orbs"), "{keys:?}");
         assert!(keys.contains(&"fix_wide_liquids"), "{keys:?}");
     }
@@ -345,7 +345,7 @@ mod tests {
         assert_eq!(source(None, "rac2").unwrap(), text, "the built-in copy is the checkout's");
         let keys: Vec<&str> =
             list.differences.iter().filter_map(|d| d.setting.as_ref()).map(|s| s.key.as_str()).collect();
-        assert!(keys.contains(&"fix_wide_moby_effects"), "{keys:?}");
+        assert!(keys.contains(&"fix_wide_nanotech_orbs"), "{keys:?}");
         assert!(keys.contains(&"fix_wide_liquids"), "{keys:?}");
     }
 
@@ -403,8 +403,8 @@ mod tests {
         let text = std::fs::read_to_string(&file).unwrap();
         assert_eq!(text, "# OpenRAC\naspect = 16:9\nfix_wide_liquids = 0\nvolume = 80\n");
         // A key that is not there yet is added.
-        set_fix(root.as_deref(), home.path(), "rac1", "pal", "wide-moby-effects", false).unwrap();
-        assert!(std::fs::read_to_string(&file).unwrap().ends_with("fix_wide_moby_effects = 0\n"));
+        set_fix(root.as_deref(), home.path(), "rac1", "pal", "wide-fires", false).unwrap();
+        assert!(std::fs::read_to_string(&file).unwrap().ends_with("fix_wide_fires = 0\n"));
         // A guard is never switched.
         assert!(set_fix(root.as_deref(), home.path(), "rac1", "pal", "full-moby-pool-scene", false).is_err());
         assert!(view(root.as_deref(), home.path(), "../x", "pal").is_err());

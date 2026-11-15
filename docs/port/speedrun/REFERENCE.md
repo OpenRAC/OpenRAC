@@ -172,11 +172,10 @@ unknown *value* warns in the log and falls back to the default; an unknown
 | `low_latency_frames` | `0`/`1` | `0` | Frames between ticks are not held half a tick back, and fewer frames wait for the display. Changes only the picture's timing; may cost frames on a slow GPU with OpenGL. |
 | `volume` | 0–100 | `100` | |
 | `verbose_log` | `0`/`1` | `0` | |
-| `fix_wide_moby_effects` | `0`/`1` | `1` | A port fix; `0` restores the console's behaviour. |
-| `fix_wide_nanotech_orbs` | `0`/`1` | `1` | |
+| `fix_wide_nanotech_orbs` | `0`/`1` | `1` | A port fix; `0` restores the console's behaviour. |
 | `fix_wide_liquids` | `0`/`1` | `1` | |
 
-Every one of these except `volume`, `verbose_log` and the three
+Every one of these except `volume`, `verbose_log` and the two
 fixes is a row of the game's own **Options → Video** page, drawn by the game's
 widgets, and saved as it is changed
 (`port/game/common/options_menu.cpp`, the rows enum at `options_menu.h:17-33`).

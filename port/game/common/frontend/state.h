@@ -32,6 +32,7 @@
 #include "game/common/debug_camera.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/render_worker.h"
+#include "game/common/frontend/sleeping_mobys.h"
 #include "game/common/frontend/tick_picture.h"
 #include "game/common/profile.h"
 #include "openrac/guest.h"
@@ -220,6 +221,10 @@ struct State {
     // program's, never null while the window is open.
     const host::GameProfile* profile = nullptr;
     ScriptedMobyColours scripted_moby_colours;
+    // Far mobys the game leaves asleep, posed in the picture only (Active distance: Match), and
+    // the level their clocks belong to.
+    SleepingMobys sleeping_mobys;
+    int sleeping_level = -100;
     std::filesystem::path levels;
     std::unique_ptr<platform::Platform> sdl;
     std::unique_ptr<platform::Window> window;

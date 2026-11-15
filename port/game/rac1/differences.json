@@ -21,16 +21,6 @@
       ]
     },
     {
-      "id": "wide-moby-effects",
-      "kind": "fix",
-      "name": "Wide-screen effects",
-      "discs": ["pal", "ntsc"],
-      "original": "The game marks a moby drawn only when it is inside its 4:3 picture, and many mobys make their glows, sparkles and particles only while drawn.",
-      "port": "In a picture wider than 4:3 the port draws the world out to the picture's sides, so mobys there count as drawn too and keep their effects. Off: the console's 4:3 test, and crates, bolts and other mobys near the sides of a wide picture lose their effects.",
-      "setting": { "key": "fix_wide_moby_effects", "default": true },
-      "refs": ["commit 018d8387", "port/game/rac1/host/moby_view.h", "port/game/rac1/host/render_native.c"]
-    },
-    {
       "id": "wide-nanotech-orbs",
       "kind": "fix",
       "name": "Wide-screen crate orbs",
@@ -142,6 +132,15 @@
       "original": "The language comes from the console's own setting, and the Sound page (playback mode, music and sound volume) resets at power off; loading a save takes the options stored in it.",
       "port": "The port keeps the language and the Sound page in its settings file and puts them back at every start. Loading a save keeps the player's options instead of the save's.",
       "refs": ["commit 09248d29", "port/game/rac1/host/options.c"]
+    },
+    {
+      "id": "active-distance",
+      "kind": "port",
+      "name": "Far mobys animate",
+      "discs": ["pal", "ntsc"],
+      "original": "A moby runs only near the camera (inside its draw distance or its own update range). Past that it stands still in its spawn pose.",
+      "port": "The game runs its mobys exactly as on the console. With a Draw distance past Original, the far mobys the game leaves asleep are drawn and, by default, animated in the picture only: the game never sees it. Active distance: Original draws them standing still.",
+      "refs": ["port/game/common/frontend/sleeping_mobys.h", "port/game/rac1/host/render_native.c", "docs/port/SETTINGS.md"]
     }
   ]
 }

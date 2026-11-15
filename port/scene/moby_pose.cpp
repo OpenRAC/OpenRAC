@@ -80,7 +80,9 @@ bool g_layer_records = false;
 
 namespace {
 
-std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind);
+std::vector<rac1::JointMatrix> evaluate_moby(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind, const AnimKeys* keys
+);
 
 }  // namespace
 
@@ -93,16 +95,24 @@ void set_moby_layer_records(bool records) {
 }
 
 std::vector<rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, std::uint32_t moby) {
-    return evaluate_moby(ram, moby, true);
+    return evaluate_moby(ram, moby, true, nullptr);
+}
+
+std::vector<rac1::JointMatrix> moby_palette(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, const AnimKeys& keys
+) {
+    return evaluate_moby(ram, moby, true, &keys);
 }
 
 std::vector<rac1::JointMatrix> moby_pose_matrices(std::span<const std::uint8_t> ram, std::uint32_t moby) {
-    return evaluate_moby(ram, moby, false);
+    return evaluate_moby(ram, moby, false, nullptr);
 }
 
 namespace {
 
-std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind) {
+std::vector<rac1::JointMatrix> evaluate_moby(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind, const AnimKeys* keys
+) {
     const auto cls = at<std::uint32_t>(ram, moby + 0x24);
     if (!inside(ram, cls, 0x48)) {
         return {};
@@ -122,9 +132,14 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
     const auto seq_a = at<std::uint8_t>(ram, fields + 2);
     const auto seq_b = at<std::uint8_t>(ram, fields + 3);
     float t = at<float>(ram, fields + 4);
-    std::optional<rac1::MobyFrame> a = key_at(ram, at<std::uint32_t>(ram, fields + 0x18), joints);
-    std::optional<rac1::MobyFrame> b = key_at(ram, at<std::uint32_t>(ram, fields + 0x1C), joints);
-    bool plain = seq_a == seq_b && frame_b == frame_a + 1;
+    std::optional<rac1::MobyFrame> a =
+        key_at(ram, keys ? keys->a : at<std::uint32_t>(ram, fields + 0x18), joints);
+    std::optional<rac1::MobyFrame> b =
+        key_at(ram, keys ? keys->b : at<std::uint32_t>(ram, fields + 0x1C), joints);
+    bool plain = keys ? keys->plain : seq_a == seq_b && frame_b == frame_a + 1;
+    if (keys) {
+        t = keys->t;
+    }
     if (!a && b) {
         // Key A missing (a snapshot the port has not written): the target key alone.
         a = std::move(b);

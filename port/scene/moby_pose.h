@@ -45,12 +45,33 @@ void set_moby_anim_fields(std::uint32_t first);
 void set_moby_layer_records(bool records);
 
 /**
+ * Keys and blend to pose a moby with in place of its own animation fields: a pose the port gives a
+ * moby the game leaves asleep (game/common/frontend/sleeping_mobys.h). `a` and `b` are game
+ * addresses of two frames of its class, `t` the blend, `plain` whether they are consecutive keys
+ * of one sequence (the game's plain lerp).
+ */
+struct AnimKeys {
+    std::uint32_t a = 0;
+    std::uint32_t b = 0;
+    float t = 0.0f;
+    bool plain = true;
+};
+
+/**
  * The joint palette of the moby at `moby` (a game address): one matrix per joint of the class's
  * high LOD, F_j = P_j S_j in packed model units (rows: the images of the axes, then the
  * translation). Empty when the moby has no class, no joints or no readable key: draw it as stored.
  */
 std::vector<assets::rac1::JointMatrix> moby_palette(
     std::span<const std::uint8_t> ram, std::uint32_t moby
+);
+
+/**
+ * The same palette posed by `keys` instead of the moby's own keys and blend; its joint modifiers
+ * and pose layers are still its own. Reads the game's memory only.
+ */
+std::vector<assets::rac1::JointMatrix> moby_palette(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, const AnimKeys& keys
 );
 
 /**

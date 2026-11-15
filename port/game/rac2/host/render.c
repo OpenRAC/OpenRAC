@@ -82,30 +82,14 @@ void func_002E3940(int shell) {
 
 /*
  * MobyProc's drawn flag (+0x31), as the console sets it: group mask, mode bits 0x81, alpha below 8,
- * draw distance (+0x32, capped) and the view. The game updates every moby with this flag set
- * (func_002A08A0), so the distance is scaled by Active distance (openrac_game_active_distance):
- * at Match, Draw distance's reach, so a moby the window draws far away animates and runs its logic
- * instead of standing in its spawn pose, and stops only where the window stops drawing it. The AI's
- * own ranges (sight, aggro, attack: each class's distance checks against the hero) are not
- * touched. Original keeps the console's distances.
+ * draw distance (+0x32, capped) and the game's 4:3 view. It is game logic, not only drawing: the
+ * moby loop updates a drawn moby and its whole chunk (func_002A08A0) and lists it as a target, the
+ * lock-on drops a target that is not drawn (func_L00_003B3158), and classes act on it (their
+ * effects take random numbers). So it is always the console's test, whatever the window draws:
+ * the port's renderer culls the mobys it draws itself (host::moby_proc_distance_fade) and animates
+ * the far ones the game leaves asleep (frontend/sleeping_mobys.h). Updated early, Aranos' hatch
+ * (2759) put Ratchet out of the hatch during the launch's path camera and the view held still.
  */
-/* Classes that keep the game's own distance:
- * - the Electrolyzer boards (game/rac2/profile.cpp kBoardMobys): the game parks the boards out of
- *   sight within reach of a longer distance;
- * - 2759, Aranos' hatch (func_L00_003CF610): its first update puts Ratchet out of the hatch and the
- *   camera behind him. On the console it is out of reach while the launch's path camera
- *   (func_L00_00429568) flies past the ship, so it runs when that shot ends. Updated early, it cut
- *   the shot, the path camera came back with no speed, and the view held still on the ship. */
-static int game_distance_moby(int class_id) {
-    static const int kBoard[] = {2163, 2198, 2596, 2645, 2759, 2809, 2810, 2811, 2812, 2813, 2819, 2894};
-    for (size_t i = 0; i < sizeof(kBoard) / sizeof(kBoard[0]); ++i) {
-        if (kBoard[i] == class_id) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
 static void mark_drawn_mobys(gaddr first, int count) {
     float eye[3], block[12], rows[12], tx, ty;
     memcpy(eye, G(OPENRAC_DATA(CAMERA_EYE)), sizeof(eye));
@@ -123,20 +107,9 @@ static void mark_drawn_mobys(gaddr first, int count) {
     if (!(ty > 0.05f && ty < 10.0f)) {
         ty = tx * 0.756f;
     }
-    /* The game fix (differences.json): off, the console's 4:3 view. */
-    static const unsigned char* fix;
-    if (!fix) {
-        fix = openrac_game_fix("fix_wide_moby_effects");
-    }
-    /* Both tangents opened as the player's Field of View opens them too. */
-    const float opened = *fix ? openrac_game_view_opened() : 1.0f;
-    tx *= *fix ? openrac_game_picture_wider() * opened : 1.0f;
-    ty *= opened;
     const float kx = sqrtf(1.0f + tx * tx), ky = sqrtf(1.0f + ty * ty);
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(MOBY_MAX_DISTANCE));
-    /* 1 the game's, 0 no limit (Unlimited at Match). */
-    const float scale = openrac_game_active_distance();
     const uint8_t* groups = G(OPENRAC_DATA(MOBY_GROUPS));
     for (gaddr m = first; (count < 0 || m != end) && m - first < 0x100u * 4096u; m += 0x100) {
         uint8_t* b = G(m);
@@ -164,10 +137,7 @@ static void mark_drawn_mobys(gaddr first, int count) {
             const float z = d[0] * rows[0] + d[1] * rows[1] + d[2] * rows[2];
             const float x = d[0] * rows[4] + d[1] * rows[5] + d[2] * rows[6];
             const float y = d[0] * rows[8] + d[1] * rows[9] + d[2] * rows[10];
-            const float own = game_distance_moby(*(int16_t*)(b + 0xAA)) ? 1.0f : scale;
-            /* A moby with no draw distance stays undrawn at every setting. */
-            const int reached = own > 0.0f ? z <= (float)distance * own : distance > 0;
-            drawn = reached && z + r > 32.0f / 1024.0f && fabsf(x) - r * kx <= tx * z
+            drawn = z <= (float)distance && z + r > 32.0f / 1024.0f && fabsf(x) - r * kx <= tx * z
                     && fabsf(y) - r * ky <= ty * z;
         }
         b[0x31] = (uint8_t)(drawn ? 1 : 0);

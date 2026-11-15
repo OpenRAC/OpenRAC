@@ -3,16 +3,6 @@
   "game": "rac2",
   "differences": [
     {
-      "id": "wide-moby-effects",
-      "kind": "fix",
-      "name": "Wide-screen effects",
-      "discs": ["ntsc", "pal", "ntsc2"],
-      "original": "A moby near the side of a picture wider than 4:3 counts as out of view for its effects.",
-      "port": "MobyProc's drawn test runs against the wider picture. The game then runs differently with the picture's shape (a moby drawn makes its effects, which take random numbers and spawn), as it would on a wider console picture; it is the only thing that does: off, the game's memory at 16:9 and 21:9 is the same for 4,000 ticks of level 3, as at 4:3. Off, it runs against the 4:3 view, and mobys near the sides lose their effects.",
-      "setting": {"key": "fix_wide_moby_effects", "default": true},
-      "refs": ["port/game/rac2/host/render.c"]
-    },
-    {
       "id": "wide-nanotech-orbs",
       "kind": "fix",
       "name": "Wide-screen crate orbs",
@@ -98,11 +88,11 @@
     {
       "id": "active-distance",
       "kind": "port",
-      "name": "Far mobys keep running",
+      "name": "Far mobys animate",
       "discs": ["ntsc", "pal", "ntsc2"],
-      "original": "A moby updates only inside the console's draw distance (at most 960 units).",
-      "port": "By default a moby updates out to the Draw distance setting, so far mobys animate and patrol where they are drawn. Active distance: Original keeps the console's distance.",
-      "refs": ["port/game/rac2/host/render.c", "docs/port/SETTINGS.md"]
+      "original": "A moby runs only near the camera (inside its draw distance, at most 960 units, or its own update range). Past that it stands still in its spawn pose.",
+      "port": "The game runs its mobys exactly as on the console. With a Draw distance past Original, the far mobys the game leaves asleep are drawn and, by default, animated in the picture only: the game never sees it. Active distance: Original draws them standing still.",
+      "refs": ["port/game/common/frontend/sleeping_mobys.h", "port/game/rac2/host/render.c", "docs/port/SETTINGS.md"]
     },
     {
       "id": "background-play",
