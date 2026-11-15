@@ -396,6 +396,51 @@ int main() {
         big.release();
     }
 
+    // A full-screen effect made of textured tiles must cover widescreen sides.
+    // Unmarked HUD textures retain the original picture's width.
+    for (float picture : {1.0f, 5.0f / 6.0f, 0.75f, 0.5f}) {
+        for (bool whole : {false, true}) {
+            FrameBuffer wide;
+            constexpr int width = 768;
+            CHECK(wide.create(width, kHeight, error));
+            GifBuilder tiles;
+            tiles.image(0x1000, 1, gs::kPsmct32, 1, 1, {0xFF, 0, 0, 0x80});
+            tiles.ad(
+                {{gs::kTest1,
+                  openrac::test::test_reg(
+                      false, gs::AlphaTest::Always, 0, gs::AlphaFail::Keep, gs::DepthTest::Always
+                  )},
+                 {gs::kScissor1, openrac::test::scissor(0, 511, 0, 447)},
+                 {gs::kTex0_1, openrac::test::tex0(0x1000, 1, gs::kPsmct32, 0, 0, true)},
+                 {gs::kTex1_1, 0},
+                 {0x7F, (GifInterpreter::kWholeMarker << 48) | (whole ? 1u : 0u)}}
+            );
+            for (int y = 0; y < kHeight; y += 32) {
+                for (int x = 0; x < kWidth; x += 32) {
+                    tiles.ad(
+                        {{gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+                         {gs::kRgbaq, rgbaq(0x80, 0x80, 0x80, 0x80)},
+                         {gs::kUv, openrac::test::uv(0, 0)},
+                         {gs::kXyz2, xyz2(x, y, 0)},
+                         {gs::kUv, openrac::test::uv(1, 1)},
+                         {gs::kXyz2, xyz2(x + 32, y + 32, 0)}}
+                    );
+                }
+            }
+            tiles.ad({{0x7F, GifInterpreter::kWholeMarker << 48}}, true);
+            FrameInput tiled;
+            tiled.packets[static_cast<std::size_t>(Bucket::Hud)] = tiles.bytes;
+            renderer.render(tiled, {wide.id(), width, kHeight, picture});
+            const auto pixels = wide.read_rgba();
+            auto red = [&](int x) {
+                return pixels[static_cast<std::size_t>((200 * width + x) * 4)];
+            };
+            CHECK(red(width / 2) > 250);
+            CHECK((red(4) > 250) == (whole || picture == 1.0f));
+            CHECK((red(width - 5) > 250) == (whole || picture == 1.0f));
+        }
+    }
+
     test_pass_breadcrumbs(renderer, input, frame);
     frame.release();
     renderer.release();
