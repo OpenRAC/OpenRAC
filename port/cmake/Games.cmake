@@ -62,6 +62,66 @@ target_link_libraries(sound_engine_test PRIVATE openrac_game_common)
 openrac_warnings(sound_engine_test)
 add_test(NAME sound_engine COMMAND sound_engine_test)
 
+# The decomps are git submodules (docs/SOURCES.md). A build folder made before that keeps its old
+# cached OPENRAC_<ID>_SOURCE; a submodule is empty until it is checked out, and upstream's own
+# until OpenRAC's patches go on. hostgen then fails far from the cause (no units read: every
+# libraries.tsv row "no function of this program"). Each is put right here: the path reset to the
+# default, and the one tree checked out and patched as tools/sources.py init does (init itself
+# also unapplies every other tree, which would undo work in progress in them).
+function(openrac_fix_source id ID default)
+  # OPENRAC_REPO_DIR ends in "/../..": compare normalized paths.
+  cmake_path(SET default NORMALIZE "${default}")
+  cmake_path(SET actual NORMALIZE "${OPENRAC_${ID}_SOURCE}")
+  cmake_path(SET games NORMALIZE "${OPENRAC_REPO_DIR}/games")
+  if(NOT EXISTS "${actual}/src" AND NOT actual STREQUAL default)
+    message(STATUS "openrac-${id}: OPENRAC_${ID}_SOURCE was ${actual}, a path from before the decomps "
+                   "became submodules: now ${default}")
+    set(OPENRAC_${ID}_SOURCE "${default}" CACHE PATH "The decompilation openrac-${id} is built from" FORCE)
+    set(actual "${default}")
+  endif()
+  file(RELATIVE_PATH rel "${games}" "${actual}")
+  if(rel MATCHES "^\\.\\.")
+    return()  # a decomp outside the checkout: the player's own, set up their way
+  endif()
+  cmake_path(GET games PARENT_PATH repo)
+  if(NOT EXISTS "${actual}/.git")
+    message(STATUS "openrac-${id}: checking out games/${rel}")
+    execute_process(COMMAND git -c core.autocrlf=false submodule update --init --depth 1 -- "games/${rel}"
+                    WORKING_DIRECTORY "${repo}" RESULT_VARIABLE failed OUTPUT_QUIET ERROR_VARIABLE err)
+    if(failed)
+      message(WARNING "openrac-${id}: could not check out games/${rel} (python3 tools/sources.py init): ${err}")
+      return()
+    endif()
+  endif()
+  file(GLOB patches "${actual}-patches/*.patch")
+  if(NOT patches AND NOT IS_DIRECTORY "${actual}-patches/files")
+    return()
+  endif()
+  # tools/sources.py apply records what it changed in the submodule's git folder.
+  set(git_dir "${actual}/.git")
+  if(NOT IS_DIRECTORY "${git_dir}")
+    file(READ "${git_dir}" git_file)
+    string(REGEX REPLACE "^gitdir: *([^\n]*).*" "\\1" git_dir "${git_file}")
+    if(NOT IS_ABSOLUTE "${git_dir}")
+      set(git_dir "${actual}/${git_dir}")
+    endif()
+  endif()
+  if(EXISTS "${git_dir}/openrac-patches.json")
+    file(READ "${git_dir}/openrac-patches.json" state)
+    string(JSON files ERROR_VARIABLE no_files TYPE "${state}" files)
+    string(JSON edit ERROR_VARIABLE no_edit GET "${state}" edit)
+    if((NOT no_files AND files STREQUAL "ARRAY") OR (NOT no_edit AND edit))
+      return()
+    endif()
+  endif()
+  message(STATUS "openrac-${id}: applying OpenRAC's patches to games/${rel}")
+  execute_process(COMMAND "${Python3_EXECUTABLE}" tools/sources.py apply "${rel}"
+                  WORKING_DIRECTORY "${repo}" RESULT_VARIABLE failed OUTPUT_QUIET ERROR_VARIABLE err)
+  if(failed)
+    message(WARNING "openrac-${id}: could not apply the patches to games/${rel}: ${err}")
+  endif()
+endfunction()
+
 function(openrac_add_game config)
   file(READ "${config}" json)
   string(JSON id GET "${json}" id)
@@ -72,6 +132,7 @@ function(openrac_add_game config)
   string(REPLACE "-" "_" target_id "${id}")
   set(OPENRAC_${ID}_SOURCE "${OPENRAC_REPO_DIR}/${source}" CACHE PATH
       "The decompilation openrac-${id} is built from")
+  openrac_fix_source("${id}" "${ID}" "${OPENRAC_REPO_DIR}/${source}")
   set(game_source "${OPENRAC_${ID}_SOURCE}")
   # Where the game's setup wrote the assembly, if not in that decompilation (another copy of it).
   set(OPENRAC_${ID}_ASM_SOURCE "" CACHE PATH "Where openrac-${id}'s assembly is, if not in its decompilation")
