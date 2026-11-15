@@ -1166,6 +1166,12 @@ void GifInterpreter::note_texture_kind(std::uint32_t tbp, std::uint8_t psm, Text
 }
 
 bool GifInterpreter::frame_source(std::uint32_t tbp, int& x, int& y) const {
+    // A picture put in a frame buffer outside the list (a movie's frame where the console's
+    // decoder leaves it, frontend::upload_picture) is what that memory holds: the list's sprites
+    // draw it as a texture.
+    if (m_textures.picture_at(tbp)) {
+        return false;
+    }
     for (const FrameCopy& f : m_frame_copies) {
         if (f.dbp == tbp) {
             x = f.x;
