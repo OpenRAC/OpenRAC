@@ -436,6 +436,27 @@ void check_kept_pictures(const fs::path& root) {
     texture_pack::drop_level_pictures();
     image = hud;
     CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 3);
+
+    // The play list: a run learns the HUD's picture; the next reads ahead only that one, even
+    // with a level's picture lying beside it outside Planets/.
+    const fs::path list = root / "list" / "play.txt";
+    fs::rename(
+        root / "Planets" / "Oozla" / texture_pack::file_name(texture_pack::image_hash(wall)),
+        root / texture_pack::file_name(texture_pack::image_hash(wall))
+    );
+    texture_pack::configure(root, {}, {counted_load, save});
+    texture_pack::set_play_list(list);
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}));
+    CHECK(fs::exists(list));
+    texture_pack::configure(root, {}, {counted_load, save});
+    texture_pack::set_play_list(list);
+    reads() = 0;
+    texture_pack::preload();
+    texture_pack::finish_preload();
+    CHECK(reads() == 1);
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 1);
     fs::remove_all(root);
 }
 

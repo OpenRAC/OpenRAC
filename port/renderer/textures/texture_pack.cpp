@@ -45,6 +45,10 @@ struct State {
     std::uint64_t uses = 0;
     // A loading level's pictures, read ahead together (read_level_pictures()).
     std::unordered_map<std::uint64_t, Picture> level_ahead;
+    // Pictures met while playing, and the file that keeps them for the next run (set_play_list()).
+    std::set<std::uint64_t> play_pictures;
+    bool play_list_known = false;  // the file listed some when it was read
+    fs::path play_list;
     // Pictures met as a level's texture: not read ahead (preload()).
     std::set<std::uint64_t> level_pictures;
     fs::path pack;
@@ -279,6 +283,16 @@ void keep(State& s, std::uint64_t hash, std::shared_ptr<const Picture> picture) 
     s.kept.emplace(hash, State::Kept{std::move(picture), bytes, ++s.uses, g_block_format.load()});
 }
 
+// Notes a pack picture met while playing in the play list; the lock is held.
+void learn_play_picture(State& s, std::uint64_t hash) {
+    if (s.play_list.empty() || !s.play_pictures.insert(hash).second) {
+        return;
+    }
+    std::error_code e;
+    fs::create_directories(s.play_list.parent_path(), e);
+    std::ofstream(s.play_list, std::ios::app) << file_name(hash).substr(0, kHashDigits) << '\n';
+}
+
 // The animation of hash `hash` from `source` (a folder or a GIF), read on first use and kept.
 // Null when it cannot be used: the log says why, and it is not tried again.
 std::shared_ptr<const Animation> animation_of(
@@ -496,6 +510,9 @@ void configure(const fs::path& pack, const fs::path& dump, Io io, LevelNamer lev
     s.kept_bytes = 0;
     s.level_pictures.clear();
     s.level_ahead.clear();
+    s.play_pictures.clear();
+    s.play_list_known = false;
+    s.play_list.clear();
     s.pack = pack;
     ++s.generation;
     s.dumped.clear();
@@ -595,6 +612,9 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
         if (found_out != nullptr) {
             found_out->blocks = kept->second.picture->blocks;
         }
+        if (origin.level < 0) {
+            learn_play_picture(s, hash);
+        }
         // A level's texture, read ahead before it was known as one: the level keeps its own copy.
         if (origin.level >= 0) {
             s.level_pictures.insert(hash);
@@ -646,6 +666,7 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
                     found_out->blocks = std::move(picture->blocks);
                 }
             } else {
+                learn_play_picture(s, hash);
                 auto shared = std::make_shared<const Picture>(std::move(*picture));
                 keep(s, hash, shared);
                 image = shared->image;
@@ -688,6 +709,10 @@ void read_ahead(const std::stop_token& stop) {
             // Read already, a level's own, or an SVG (drawn at the size of a texture not met yet).
             if (candidates.empty() || s.kept.contains(hash) || s.level_pictures.contains(hash)
                 || candidates.front().extension() == ".svg") {
+                continue;
+            }
+            // Once the play list knows some, only those: the rest are levels' textures.
+            if (s.play_list_known && !s.play_pictures.contains(hash)) {
                 continue;
             }
             // A dump's Planets/ folder holds levels' textures (dump_folder()).
@@ -774,6 +799,20 @@ void finish_preload() {
     if (reader.joinable()) {
         reader.join();
     }
+}
+
+void set_play_list(const fs::path& file) {
+    State& s = state();
+    const std::lock_guard guard(s.lock);
+    s.play_list = file;
+    s.play_pictures.clear();
+    std::ifstream in(file);
+    for (std::string line; std::getline(in, line);) {
+        if (const auto hash = parse_hash(line)) {
+            s.play_pictures.insert(*hash);
+        }
+    }
+    s.play_list_known = !s.play_pictures.empty();
 }
 
 bool has_pictures() {

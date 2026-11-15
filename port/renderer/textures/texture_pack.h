@@ -143,6 +143,12 @@ struct Replacement {
 // Any thread.
 void preload();
 
+// The file that lists the pack's pictures met while playing (HUD, menus, effects), learnt as they
+// show. Once it lists some, preload() reads only those, so the textures of planets not loaded
+// yet stay on disk even in a pack without Planets/ folders. Empty: nothing is learnt. Call it
+// after configure().
+void set_play_list(const std::filesystem::path& file);
+
 // Waits until the reading preload() started has ended (tests).
 void finish_preload();
 
