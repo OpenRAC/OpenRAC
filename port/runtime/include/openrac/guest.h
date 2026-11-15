@@ -448,9 +448,11 @@ static inline int32_t openrac_sdiv(int32_t a, int32_t b) {
 static inline int32_t openrac_smod(int32_t a, int32_t b) {
     return b == 0 ? a : b == -1 ? 0 : a % b;
 }
+
 static inline uint32_t openrac_udiv(uint32_t a, uint32_t b) {
     return b == 0 ? 0xFFFFFFFFu : a / b;
 }
+
 static inline uint32_t openrac_umod(uint32_t a, uint32_t b) {
     return b == 0 ? a : a % b;
 }
