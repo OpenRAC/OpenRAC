@@ -17,7 +17,10 @@ const SCENARIOS: PackedStringArray = ["stand_up", "dock_lists", "search", "typin
 	"details", "add_full", "add_look", "own_logic_after_pick", "class_logic", "drag_to_view", "drag_to_scene_dock",
 	"drag_onto_a_selected_node", "drag_cancelled", "copies_left_alone", "foreign_switch", "previews",
 	"class_menu_names", "keyboard", "many_adds", "new_group", "broken_assets", "odd_clicks", "refresh_click",
-	"no_level", "closed_while_importing", "plugin_off_and_on", "speed"]
+	"layout", "looks", "no_level", "closed_while_importing", "plugin_off_and_on", "speed"]
+
+## The dock's narrowest sensible width: a dock column a person has not widened.
+const NARROW: float = 280.0
 
 ## test_editor_e2e.py's STRESS_MOBYS: each of its many levels has the same classes.
 const STRESS_MOBYS: int = 40
@@ -28,6 +31,10 @@ var checks: Array = []
 var times: Dictionary = {}
 var scenario: String = ""
 var out_path: String = ""
+## Only these scenarios when the runner was given a list (after the output path), all otherwise.
+var only: PackedStringArray = []
+## Where looks() saves the dock's pictures, when the editor draws.
+var shots: String = OS.get_environment("OPENRAC_E2E_SHOTS")
 var started: int = 0
 var finished: bool = false
 
@@ -35,6 +42,7 @@ var finished: bool = false
 func _enter_tree() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	out_path = args[0] if not args.is_empty() else ""
+	only = args[1].split(",") if args.size() > 1 else PackedStringArray()
 	get_tree().create_timer(MOST_SECONDS).timeout.connect(finish)
 	run.call_deferred()
 
@@ -64,6 +72,8 @@ func run() -> void:
 		await frames(2)
 
 		for name in SCENARIOS:
+			if not only.is_empty() and not only.has(name):
+				continue
 			scenario = name
 			var began: int = Time.get_ticks_msec()
 			await call(name)
@@ -343,12 +353,13 @@ func search() -> void:
 	for words in ["zzz", "[b]x[/b]", "%s %d", "ząb", "_", "__", "-1", "a".repeat(400)]:
 		dock.search.text = words
 		dock.refill()
-		var ok: bool = dock.list.item_count > 0 and (not dock.shown.is_empty() or dock.list.is_item_disabled(0))
-		check("'%s' lists or says none" % words.left(12), ok, [dock.list.item_count, dock.list.get_item_text(0) if dock.list.item_count > 0 else ""])
+		var ok: bool = (dock.list.item_count > 0 and not dock.note.visible) or (dock.shown.is_empty() and dock.note.visible)
+		check("'%s' lists or says none" % words.left(12), ok, [dock.list.item_count, dock.note.text])
 
 	dock.search.text = "zzz"
 	dock.refill()
-	check("the empty line is no asset", dock.asset_at(0).is_empty() and dock.list.get_item_text(0) == "No assets match.")
+	check("nothing to pick, and it says so", dock.list.item_count == 0 and dock.asset_at(0).is_empty() and dock.note.visible
+		and dock.note.text == "No assets match.")
 	reset_dock()
 
 
@@ -390,7 +401,7 @@ func filters() -> void:
 	check("other games: every other game's", not dock.shown.is_empty() and dock.shown.all(func(asset: Dictionary) -> bool: return asset["game"] != "rac1"), names().slice(0, 5))
 	dock.search.text = "zzz"
 	dock.refill()
-	check("a filter that hides all says so", dock.list.item_count == 1 and dock.list.get_item_text(0) == "No assets match.")
+	check("a filter that hides all says so", dock.list.item_count == 0 and dock.note.visible and dock.note.text == "No assets match.")
 	reset_dock()
 
 
@@ -734,7 +745,7 @@ func no_level() -> void:
 	await frames(2)
 	reset_dock()
 	check("no level here", dock.here.is_empty())
-	check("the list says what to do", dock.list.get_item_text(0) == "Open a level scene, search, or pick a level above.", dock.list.get_item_text(0))
+	check("the list says what to do", dock.note.visible and dock.note.text == "Open a level scene, search, or pick a level above.", dock.note.text)
 	await pick("red_ship_1")
 	check("no button works", dock.add_button.disabled and dock.own_button.disabled and dock.as_button.disabled)
 	var files: int = DirAccess.get_files_at("res://library/rac1/ntsc/level_03/ties").size() if DirAccess.dir_exists_absolute("res://library/rac1/ntsc/level_03/ties") else 0
@@ -746,7 +757,7 @@ func no_level() -> void:
 	while scene() != null:
 		EditorInterface.close_scene()
 		await frames(2)
-	check("no scene: the dock still lists", dock.here.is_empty() and dock.list.item_count > 0, dock.list.get_item_text(0))
+	check("no scene: the dock still lists", dock.here.is_empty() and (dock.list.item_count > 0 or dock.note.visible), dock.note.text)
 	check("no files copied meanwhile", (DirAccess.get_files_at("res://library/rac1/ntsc/level_03/ties").size() if DirAccess.dir_exists_absolute("res://library/rac1/ntsc/level_03/ties") else 0) == files)
 	EditorInterface.open_scene_from_path("res://levels/level_05/level_05.tscn")
 	await until(func() -> bool: return scene() != null and not dock.here.is_empty(), 300)
@@ -897,13 +908,13 @@ func broken_assets() -> void:
 	check("own logic: refused too", children_of("Mobys").all(func(node: Node) -> bool: return not String(node.name).begins_with("MachinegunTurret")))
 
 
-## Clicks that do nothing must break nothing: the "none match" line, a right-click, empty space.
+## Clicks that do nothing must break nothing: the "none match" note, a right-click, empty space.
 func odd_clicks() -> void:
 	dock.search.text = "zzz"
 	dock.refill()
 	var steps: int = history().size()
-	await click(item_centre(0), true)
-	check("the none-match line adds nothing", history().size() == steps)
+	await click(dock.note.get_global_rect().get_center(), true)
+	check("the none-match note adds nothing", history().size() == steps)
 	reset_dock()
 	var at: Vector2 = item_centre(0)
 	move(at, Vector2.ZERO, false)
@@ -925,7 +936,7 @@ func refresh_click() -> void:
 	var levels: int = dock.levels.size()
 	await press(dock.refresh_button)
 	check("levels read again", dock.levels.size() == levels and dock.report.text.begins_with("Levels found: %d" % levels), dock.report.text)
-	check("search and filter kept", dock.search.text == "red" and dock.filter.get_selected_id() == Dock.SHOW_IMPORTS and names() == ["red_ship_1"], names())
+	check("search and filter kept", dock.search.text == "red" and dock.filter.get_selected_id() == Dock.SHOW_IMPORTS and names() == ["red_ship_1"], [names(), dock.search.text, dock.filter.get_selected_id()])
 	reset_dock()
 
 
@@ -946,3 +957,124 @@ func closed_while_importing() -> void:
 	EditorInterface.open_scene_from_path("res://levels/level_05/level_05.tscn")
 	await until(func() -> bool: return scene() != null and not dock.here.is_empty(), 300)
 	check("back on the level", int(dock.here.get("level", -1)) == 5)
+
+
+## Nothing spills out of a narrow dock: names fit their two lines, and every control fits.
+func layout() -> void:
+	reset_dock()
+	dock.filter.select(dock.filter.get_item_index(Dock.SHOW_ALL))
+	dock.refill()
+	var font: Font = dock.list.get_theme_font("font")
+	var size: int = dock.list.get_theme_font_size("font_size")
+	var long: Array = []
+
+	for asset in dock.shown:
+		var text := TextParagraph.new()
+		text.width = dock.list.fixed_column_width
+		text.break_flags = TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND | TextServer.BREAK_GRAPHEME_BOUND
+		text.add_string(String(asset["name"]), font, size)
+		if text.get_line_count() > dock.list.max_text_lines:
+			long.append(asset["name"])
+
+	check("every name fits two lines", not dock.shown.is_empty() and long.is_empty(), long)
+	var wide: Array = []
+
+	for i in range(dock.planet.item_count):
+		dock.planet.select(i)
+		dock.planet.item_selected.emit(i)
+		await frame()
+		if dock.get_combined_minimum_size().x > NARROW:
+			wide.append([dock.planet.get_item_text(i), dock.get_combined_minimum_size().x])
+
+	for i in range(dock.filter.item_count):
+		dock.filter.select(i)
+		dock.filter.item_selected.emit(i)
+		await frame()
+		if dock.get_combined_minimum_size().x > NARROW:
+			wide.append([dock.filter.get_item_text(i), dock.get_combined_minimum_size().x])
+
+	dock.filter.select(dock.filter.get_item_index(Dock.SHOW_ALL))
+	check("every planet and filter fits a narrow dock", wide.is_empty(), wide)
+	dock.planet.select(0)
+	var longest: String = ""
+
+	for asset in dock.shown:
+		if String(asset["name"]).length() > longest.length():
+			longest = asset["name"]
+
+	await pick(longest)
+	await frames(2)
+	check("a long name's details fit a narrow dock", dock.get_combined_minimum_size().x <= NARROW, [longest, dock.get_combined_minimum_size().x])
+	dock.report.text = "Could not bring this asset in: its model failed to import. Pick it again after the import ends."
+	await frame()
+	check("a long report fits a narrow dock", dock.get_combined_minimum_size().x <= NARROW, dock.get_combined_minimum_size().x)
+	var hidden: Array = []
+
+	for button in [dock.add_button, dock.own_button, dock.as_button]:
+		if not dock.get_global_rect().grow(1).encloses(button.get_global_rect()) or button.size.x < 1:
+			hidden.append(button.text)
+
+	check("every button shows in the dock", hidden.is_empty(), hidden)
+	check("one whole row of assets shows", dock.list.item_count > 0
+		and dock.list.size.y >= dock.list.get_item_rect(0).size.y, [dock.list.size, dock.list.get_item_rect(0)])
+	var hint: String = dock.search.placeholder_text
+	check("the search hint fits", dock.search.get_theme_font("font").get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1,
+		dock.search.get_theme_font_size("font_size")).x <= dock.search.size.x - 40, [hint, dock.search.size.x])
+	var outside: Array = []
+	var area: Rect2 = dock.get_global_rect().grow(1)
+
+	for control in dock.find_children("*", "Control", true, false):
+		if control.is_visible_in_tree() and not (control is Window) and control.get_parent() is Control \
+				and not area.encloses(control.get_global_rect()):
+			outside.append([control.get_class(), control.get_global_rect()])
+
+	check("nothing outside the dock", outside.is_empty(), [dock.get_global_rect(), outside])
+	dock.report.text = ""
+	reset_dock()
+
+
+## The dock as drawn (only when the editor draws, under a display): something is on screen in each
+## state, and each picture is saved for a person to look at when OPENRAC_E2E_SHOTS names a folder.
+func looks() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+
+	var states: Dictionary = {
+		"this_level": func() -> void: reset_dock(),
+		"picked": func() -> void:
+			dock.filter.select(dock.filter.get_item_index(Dock.SHOW_ALL))
+			# Picked by code: a window without a window manager gets no clicks, and the clicks are
+			# the headless run's to check.
+			dock.search.text = "red_ship_1"
+			dock.refill()
+			dock.list.select(0)
+			dock.list.item_selected.emit(0)
+			check("picked: shown in the details", dock.details.text.contains("red_ship_1"), dock.details.text),
+		"no_match": func() -> void:
+			dock.search.text = "zzz nothing"
+			dock.search.text_submitted.emit(dock.search.text),
+	}
+
+	for state in states:
+		reset_dock()
+		await states[state].call()
+		# Previews are made in the background: wait for this view's.
+		await until(func() -> bool: return dock.preview_queue.is_empty(), 300)
+		await frames(4)
+		var picture: Image = dock.get_viewport().get_texture().get_image()
+		var rect := Rect2i(dock.get_global_rect()).intersection(Rect2i(Vector2i.ZERO, picture.get_size()))
+		var part: Image = picture.get_region(rect)
+		var colours: Dictionary = {}
+
+		for y in range(0, part.get_height(), 2):
+			for x in range(0, part.get_width(), 2):
+				colours[part.get_pixel(x, y).to_rgba32()] = true
+
+		check("%s: the dock is drawn" % state, colours.size() > 64, colours.size())
+		check("%s: the list's note breaks between words" % state, not dock.note.visible
+			or dock.note.get_line_count() <= dock.note.text.split(" ").size(), [dock.note.text, dock.note.get_line_count()])
+		if not shots.is_empty():
+			DirAccess.make_dir_recursive_absolute(shots)
+			part.save_png(shots.path_join("dock_%s.png" % state))
+
+	reset_dock()

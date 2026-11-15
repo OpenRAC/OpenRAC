@@ -72,12 +72,17 @@ var as_button: Button
 var own_button: Button
 var refresh_button: Button
 var details: RichTextLabel
+## What the list says when it has no assets to show.
+var note: Label
 var classes_menu: PopupMenu
 
 
 func _init() -> void:
 	title = "Assets"
 	default_slot = EditorDock.DOCK_SLOT_LEFT_BR
+	# Wide enough for two columns of assets and a button's label on one line or two, never wider:
+	# the dock's long labels wrap instead.
+	custom_minimum_size.x = 250.0 * EditorInterface.get_editor_scale()
 	var box := VBoxContainer.new()
 	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(box)
@@ -85,7 +90,7 @@ func _init() -> void:
 	var row := HBoxContainer.new()
 	box.add_child(row)
 	search = LineEdit.new()
-	search.placeholder_text = "Search: name or class number"
+	search.placeholder_text = "Name or class number"
 	search.clear_button_enabled = true
 	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Refilled once typing pauses: a list of every level takes a moment to fill.
@@ -106,6 +111,10 @@ func _init() -> void:
 	row.add_child(refresh_button)
 
 	filter = OptionButton.new()
+	# A long choice is cut short rather than making the whole dock that wide.
+	filter.fit_to_longest_item = false
+	filter.clip_text = true
+	filter.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	filter.add_item("Everything", SHOW_ALL)
 	filter.add_item("In this level (with the game's logic)", SHOW_HERE)
 	filter.add_item("From other levels, with their own logic", SHOW_IMPORTS)
@@ -116,6 +125,8 @@ func _init() -> void:
 	planet = OptionButton.new()
 	planet.tooltip_text = "Only the assets of one planet (each level's name)."
 	planet.fit_to_longest_item = false
+	planet.clip_text = true
+	planet.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	planet.item_selected.connect(func(_index: int) -> void:
 		# A level picked in the tree is another planet's: the planet wins.
 		var picked: TreeItem = tree.get_selected()
@@ -155,7 +166,6 @@ func _init() -> void:
 	list = AssetList.new()
 	list.dock = self
 	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	list.custom_minimum_size = Vector2(0, 120)
 	list.icon_mode = ItemList.ICON_MODE_TOP
 	list.max_columns = 0
 	list.same_column_width = true
@@ -171,6 +181,14 @@ func _init() -> void:
 		if not asset.is_empty() and not here.is_empty() and plugin != null:
 			plugin.prepare.call_deferred(asset))
 	split.add_child(list)
+	note = Label.new()
+	note.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	note.visible = false
+	list.add_child(note)
 
 	# The selected asset: what it is and what each way of adding it does.
 	details = RichTextLabel.new()
@@ -206,6 +224,8 @@ func action_button(parent: Control, text: String, pressed: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	# A long label wraps instead of widening the dock.
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	button.disabled = true
 	button.pressed.connect(pressed)
 	parent.add_child(button)
@@ -230,6 +250,13 @@ func _notification(what: int) -> void:
 	own_button.icon = get_theme_icon("Script", "EditorIcons")
 	as_button.icon = get_theme_icon("Skeleton3D", "EditorIcons")
 	placeholder = waiting_picture(get_theme_color("font_disabled_color", "Editor"))
+	note.add_theme_color_override("font_color", get_theme_color("font_disabled_color", "Editor"))
+	# Room for one whole row of assets, however small the dock: a cut-off row is hard to pick.
+	var font: Font = list.get_theme_font("font")
+	var line: float = font.get_height(list.get_theme_font_size("font_size")) + list.get_theme_constant("line_separation")
+	list.custom_minimum_size.y = ceilf(list.fixed_icon_size.y + list.get_theme_constant("icon_margin")
+		+ list.max_text_lines * line + list.get_theme_constant("v_separation")
+		+ list.get_theme_stylebox("panel").get_minimum_size().y)
 
 
 ## Shows what the selected asset is and which ways of adding it work here, and why not the others.
@@ -459,13 +486,12 @@ func refill() -> void:
 				queued[asset["model"]] = true
 				preview_queue.append(asset)
 
-	# Says so instead of an empty grid; not an asset (asset_at() gives nothing).
+	# Says so instead of an empty grid, across the whole list (a grid cell would break its words).
 	if shown.is_empty():
 		var looked: bool = not words.is_empty() or filter.selected > 0 or not planet_name.is_empty() or selected != null
-		var index: int = list.add_item("No assets match." if looked else "No assets here." if not here.is_empty()
-			else "Open a level scene, search, or pick a level above.", null, false)
-		list.set_item_disabled(index, true)
-		list.set_item_tooltip_enabled(index, false)
+		note.text = ("No assets match." if looked else "No assets here." if not here.is_empty()
+			else "Open a level scene, search, or pick a level above.")
+	note.visible = shown.is_empty()
 
 
 ## The planet filter's choices: every level's name once, in the order of the levels, keeping the
@@ -532,6 +558,9 @@ func tooltip(asset: Dictionary, status: String) -> String:
 
 ## The asset of the list's item INDEX.
 func asset_at(index: int) -> Dictionary:
+	if index < 0 or index >= list.item_count:
+		return {}
+
 	var at: Variant = list.get_item_metadata(index)
 	return shown[int(at)] if at != null and int(at) < shown.size() else {}
 

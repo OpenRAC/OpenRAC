@@ -149,7 +149,15 @@ jobs:
           unzip -qo "$archive" -d "$RUNNER_TEMP/godot"
           echo "OPENRAC_GODOT=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
 
+      # A virtual display and Mesa's software Vulkan, so the Assets dock is also checked as drawn.
+      - name: Display for the level editor's drawn test
+        uses: ./.github/actions/apt-install
+        with:
+          packages: xvfb mesa-vulkan-drivers
+
       - name: Level editor (synthetic data only)
+        env:
+          OPENRAC_E2E_DRAWN: "1"
         run: python -m unittest discover -s editor -v
 
       - name: Probe bake planning (synthetic data only)
