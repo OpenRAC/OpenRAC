@@ -23,7 +23,7 @@
   "global: the release's own, spelled apart from a PAL v2.00 name of it": 36,
   "global: versionmap (between)": 178,
   "global: versionmap (exact)": 149,
-  "global: versionmap (exact; the check's name is another datum's)": 1,
+  "global: versionmap (exact; the check had another datum's address)": 1,
   "global: versionmap (same)": 9
  },
  "names": {
@@ -18117,7 +18117,7 @@
   "D_L07_001DD100": "global: the release's check",
   "D_L07_00204940": "global: the release's check",
   "D_L07_002049C0": "global: the release's check",
-  "D_L07_00208820": "global: versionmap (exact; the check's name is another datum's)",
+  "D_L07_00208820": "global: versionmap (exact; the check had another datum's address)",
   "D_L07_0020C8C0": "global: versionmap (between)",
   "D_L07_0020C980": "global: the release's check",
   "D_L07_0020C9C0": "global: the release's check",

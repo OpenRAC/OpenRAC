@@ -19,7 +19,7 @@
       "mc",
       "sceMcChdir",
       "host",
-      "PAL v1.00's own: its memory card state machine enters the save folder with it (PAL v2.00 reads the folder with sceMcGetDir); with its console C it waited for an IOP forever on Reading Memory Card"
+      "PAL v1.00's own: its memory card code enters the save folder with it (PAL v2.00 uses sceMcGetDir); without this row the game waits forever on Reading Memory Card"
     ]
   }
 }

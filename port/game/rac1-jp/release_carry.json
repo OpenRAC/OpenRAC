@@ -275,7 +275,7 @@
   },
   "07:0x00208820": {
    "as": "0x00208C20",
-   "how": "global: versionmap (exact; the check's name is another datum's)",
+   "how": "global: versionmap (exact; the check had another datum's address)",
    "for": "shared host C RAC1_ADDR_L07_0x00208820u"
   },
   "0x0013E610": {

@@ -1,7 +1,7 @@
 # Functions the rac2 programs bind differently, on purpose or known (port/tools/versionmap/parity.py).
 # Every other difference fails the build. Remove a row when the versions agree again.
 # v1.01 name	place (boot or level), or "row"	the programs that differ	why
-# Also: a name, "sig" (its row's C type differs); an address (L13:001D9E40), "data" (no evidence for it).
+# Also: a name, "sig" (its row's C type differs); an address (L08:002F3618), "data" (no evidence for it).
 func_00124418	row	rac2-ntsc,rac2-ntsc2,rac2-pal	the entry after a fill word (0xCDCDCDCD at 0x00124414, the catalogue's start): every jal to sceGsResetPath on the v1.01 disc targets 0x00124418
 func_00126288	row	rac2-ntsc,rac2-ntsc2,rac2-pal	the entry after a fill word (0xCDCDCDCD at 0x00126284, the catalogue's start): all 676 jal to sceGsSetDefLoadImage on the v1.01 disc target 0x00126288
 func_00314B5C	row	rac2-pal	the row names the decomp's C (func_PAL_00314B5C, from the nop before it); hostgen binds it at the catalogue's places, 0x00314B60 and each level's copy, which is where every level's class 0x326 update pointer on the PAL disc points (the prologue)

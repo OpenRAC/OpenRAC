@@ -314,7 +314,7 @@ class Rac1Release(unittest.TestCase):
         uses = Counter({"D_00150000": 1, "D_00160000": 1})
         parts = release.build_rac1(self.source, "pal_v1", self.relocs, vmap, uses)
         self.assertEqual(parts["names"]["D_00150000"], "D_0014FF00")
-        self.assertIn("another datum's", parts["how"]["D_00150000"])
+        self.assertIn("another datum's address", parts["how"]["D_00150000"])
         # A value the map gives no other address stays the check's.
         self.assertEqual(parts["names"]["D_00160000"], "D_0015FF00")
 

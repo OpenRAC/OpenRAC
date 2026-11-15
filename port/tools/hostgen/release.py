@@ -793,7 +793,7 @@ def build_rac1(source: Path, version: str, relocs: Path, versionmap: Path | None
                 and value in data_paired_to.setdefault(home, paired_values(home)):
             # The check reached this name through a symbol rac1-decomp names wrongly: the value is
             # versionmap's pair of another address, and the same instruction pairs this one elsewhere.
-            value, why = pair, f"{what}: versionmap (exact; the check's name is another datum's)"
+            value, why = pair, f"{what}: versionmap (exact; the check had another datum's address)"
         if value is None and (value := mapped(home, address, "D" if kind == "D" else "func")) is not None:
             why = f"{what}: versionmap ({'exact' if kind == 'D' else 'same'})"
         if value is None:
