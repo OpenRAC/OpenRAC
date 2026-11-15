@@ -210,8 +210,10 @@ function(openrac_add_game config)
        "${OPENRAC_GAME_DIR}/${parity_game}-*/host/${parity_game}_version.h"
        "${OPENRAC_GAME_DIR}/${parity_game}-*/release_names.json"
        "${OPENRAC_GAME_DIR}/${parity_game}-*/release_carry.json"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/data_moves.tsv"
        "${OPENRAC_GAME_DIR}/${parity_game}/parity.tsv")
-  list(APPEND parity_inputs "${OPENRAC_PARITY}")
+  get_filename_component(parity_dir "${OPENRAC_PARITY}" DIRECTORY)
+  list(APPEND parity_inputs "${OPENRAC_PARITY}" "${parity_dir}/data_moves.py")
   # A game whose assembly a build without the disc calls through slots (hostgen.json "asm"
   # "interface", tools/hostgen/asmext.py): its program, for the part built from the disc later
   # (asmdev.py), and its symbols exported to that part.

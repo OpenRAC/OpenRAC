@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import data_moves  # noqa: E402
 import parity  # noqa: E402
 
 HEAD = "# name\tkind\tsize\tfp\tcounterpart\tmethod\tsimilarity\tsame\tplaces\n"
@@ -112,6 +113,38 @@ class Parity(unittest.TestCase):
         self.assertIn("boot:00130000: release_names.json places it at 00130000", errors[0] + errors[1])
         why = "L17:00160080\tdata\ttoy-b\tchecked by hand\nboot:00130000\tdata\ttoy-b\tchecked by hand\n"
         self.assertEqual(self.tables("", "", why), [])
+
+    def test_the_map_checks_named_data_too(self):
+        b = self.root / "port/game/toy-b"
+        (b / "host").mkdir()
+        # rac1-decomp named the wrong datum: the check gave L07:00208820 its neighbour's place.
+        (b / "release_names.json").write_text(json.dumps({
+            "how": {"D_L07_00208820": "x"}, "names": {"D_L07_00208820": "D_L07_001D3300"}}))
+        vmap = {"programs": {"level:07": {"data": {"001D36C0": "001D3300", "00208820": "00208460",
+                                                   "00208830": "00208470"}}}}
+        (b / "data_moves.tsv").write_text(data_moves.write(vmap, "toy-b"))
+        header = b / "host/rac1_version.h"
+        header.write_text("#define RAC1_ADDR_L07_0x00208820u 0x001D3300u\n")
+        errors = self.tables("", "")
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("data_moves.tsv) places it at 00208460", errors[0])
+        # The map alone vouches for an unnamed address inside one of its runs.
+        (b / "release_names.json").write_text(json.dumps({"how": {}, "names": {}}))
+        header.write_text("#define RAC1_ADDR_L07_0x00208828u 0x00208468u\n")
+        self.assertEqual(self.tables("", ""), [])
+
+    def test_data_moves_runs(self):
+        vmap = {"programs": {"boot": {"data": {"00100000": "00100100", "00100010": "00100110",
+                                               "00100020": "00100000"}}}}
+        self.assertEqual(data_moves.runs(vmap), [("boot", 0x100000, 0x100010, 0x100, 2),
+                                                 ("boot", 0x100020, 0x100020, -0x20, 1)])
+        path = self.root / "moves.tsv"
+        path.write_text(data_moves.write(vmap, "toy"))
+        table = data_moves.read(path)
+        self.assertEqual(data_moves.moved(table, "boot", 0x100008), 0x100108)
+        self.assertEqual(data_moves.moved(table, "boot", 0x100020), 0x100000)
+        self.assertIsNone(data_moves.moved(table, "boot", 0x100018))
+        self.assertIsNone(data_moves.moved(table, "level:03", 0x100008))
 
     def test_a_catalogue_of_an_executable_and_levels(self):
         # rac2-decomp's form: the executable's (name, address, size) and the levels' places.

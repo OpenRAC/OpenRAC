@@ -66,5 +66,3 @@ func_L01_002F74D0	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws
 func_L01_002F7528	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
 func_L01_002FFF00	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
 func_L01_0030AFD0	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
-L13:001D9E40	data	rac1-pal1	the quad UVs of func_L13_0030AD88 (variants.c), placed by versionmap's exact data match in the run with the disc; the data before it moves as much, the water grids after it 0x10 less
-L00:001C3280	data	rac1-jp	the packet of func_L00_002A2020 (variants.c), placed by versionmap's exact data match in the run with the disc; the data before it moves as much, the font metrics after it otherwise

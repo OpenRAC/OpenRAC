@@ -764,6 +764,13 @@ def build_rac1(source: Path, version: str, relocs: Path, versionmap: Path | None
 
     # Every other address name the C uses or the check placed: globals, entries inside functions,
     # the release's own data (D_E1_...): the check's value, else versionmap's exact pair.
+    def paired_values(program: str) -> set[int]:
+        if vmap is None:
+            return set()
+        data = vmap["programs"].get("boot" if program == "boot" else f"level:{program}", {}).get("data", {})
+        return {int(v, 16) for v in data.values() if isinstance(v, str)}
+
+    data_paired_to: dict[str, set[int]] = {}
     cores: set[str] = set()
     for values in r_values.values():
         cores.update(values)
@@ -782,6 +789,11 @@ def build_rac1(source: Path, version: str, relocs: Path, versionmap: Path | None
         level, address = (int(m.group(3)) if m.group(3) else None), int(m.group(4), 16)
         home = f"{level:02d}" if level is not None else "boot"
         value, why, at = r_values.get(home, {}).get(sym), f"{what}: the release's check", level
+        if value is not None and kind == "D" and (pair := mapped(home, address, "D")) not in (None, value) \
+                and value in data_paired_to.setdefault(home, paired_values(home)):
+            # The check reached this name through a symbol rac1-decomp names wrongly: the value is
+            # versionmap's pair of another address, and the same instruction pairs this one elsewhere.
+            value, why = pair, f"{what}: versionmap (exact; the check's name is another datum's)"
         if value is None and (value := mapped(home, address, "D" if kind == "D" else "func")) is not None:
             why = f"{what}: versionmap ({'exact' if kind == 'D' else 'same'})"
         if value is None:

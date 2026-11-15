@@ -45,6 +45,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import data_moves  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[3]
 NAME = re.compile(r"^(?:FUN|func)_(?:L(\d\d)_)?([0-9A-Fa-f]{8})(?:_\w*)?$")
 # The programs of each game the check reads (the primary first), and each one's catalogue: the
@@ -212,8 +215,17 @@ def rac2_addresses(program_dir: Path) -> list[tuple[str, str]]:
     header = program_dir / "host/rac2_version.h"
     if not (program_dir / "release_names.json").is_file() or not header.is_file():
         return []
+    moves = data_moves.read(program_dir / "data_moves.tsv")  # versionmap's runs, from the discs
     out = []
     for line in header.read_text().splitlines():
+        full = re.match(r"^#define RAC2_(?:LADDR_(\d\d)_|ADDR_)0x([0-9A-Fa-f]{8})u\s+0x([0-9A-Fa-f]{8})u", line)
+        if full:
+            level, address, theirs = full.group(1), int(full.group(2), 16), int(full.group(3), 16)
+            mapped = data_moves.moved(moves, f"level:{level}" if level else "boot", address)
+            if mapped is not None and mapped != theirs:
+                out.append((f"{'L' + level if level else 'boot'}:{address:08X}",
+                            f"versionmap's map (data_moves.tsv) places it at {mapped:08X}, the header at {theirs:08X}"))
+                continue
         if re.match(r"/\* RAC2_L?ADDR_\S+: not found \*/", line):
             name = line.split()[1].rstrip(":")
             out.append((name, "release_carry.py found it nowhere in this release"))
@@ -247,6 +259,7 @@ def data_addresses(program_dir: Path) -> list[tuple[str, str]]:
         for key, hit in json.loads(carry.read_text()).get("addresses", {}).items():
             level, _, address = key.rpartition(":")
             known[level or "boot"][int(address, 16)] = int(hit["as"], 16)
+    moves = data_moves.read(program_dir / "data_moves.tsv")  # versionmap's runs, from the discs
     out = []
     for line in header.read_text().splitlines():
         m = DEFINE.match(line)
@@ -255,14 +268,18 @@ def data_addresses(program_dir: Path) -> list[tuple[str, str]]:
         place, address, theirs = m.group(1) or "boot", int(m.group(2), 16), int(m.group(3), 16)
         name = f"{'boot' if place == 'boot' else 'L' + place}:{address:08X}"
         here = known.get(place, {})
-        if address in here:
-            if here[address] != theirs:
-                out.append((name, f"release_names.json places it at {here[address]:08X}, the header at {theirs:08X}"))
+        mapped = data_moves.moved(moves, "boot" if place == "boot" else f"level:{place}", address)
+        # Each source on its own: a name rac1-decomp gives the wrong datum still disagrees with the map.
+        if address in here and here[address] != theirs:
+            out.append((name, f"release_names.json places it at {here[address]:08X}, the header at {theirs:08X}"))
+        if mapped is not None and mapped != theirs:
+            out.append((name, f"versionmap's map (data_moves.tsv) places it at {mapped:08X}, the header at {theirs:08X}"))
+        if address in here or mapped is not None:
             continue
         below = max((a for a in here if a < address), default=None)
         above = min((a for a in here if a > address), default=None)
-        moves = {here[a] - a for a in (below, above) if a is not None}
-        if below is None or above is None or moves != {theirs - address}:
+        steps = {here[a] - a for a in (below, above) if a is not None}
+        if below is None or above is None or steps != {theirs - address}:
             out.append((name, f"no name there, and it does not move as the named data around it "
                               f"({theirs - address:+#x}; " + ", ".join(
                                   f"{a:08X} {here[a] - a:+#x}" for a in (below, above) if a is not None) + ")"))

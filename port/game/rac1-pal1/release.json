@@ -14,16 +14,6 @@
   "omit": {
     "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here)."
   },
-  "defines_extra": {
-    "RAC1_ADDR_L02_0x0015FA1Cu": [
-      "0x0015F91Cu",
-      "Aridia's counter anchor (hud.c): release_names.json pairs it, D_L02_0015F91C."
-    ],
-    "RAC1_ADDR_L02_0x0015FA20u": [
-      "0x0015F920u",
-      "Aridia's counter anchor (hud.c): release_names.json pairs it, D_L02_0015F920."
-    ]
-  },
   "libraries": {
     "func_E1_001240C0": [
       "mc",

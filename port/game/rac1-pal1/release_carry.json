@@ -89,7 +89,12 @@
   "func_0021BB90": {
    "as": "func_0021A6F0",
    "how": "function: carried (the release's own C for it)",
-   "for": "libraries.tsv func_0021BB90"
+   "for": "shared host C"
+  },
+  "func_0021BB90__game": {
+   "as": "func_0021A6F0__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
   },
   "func_0021C840": {
    "as": "func_0021B350",
@@ -668,6 +673,11 @@
    "how": "global: versionmap (exact)",
    "for": "shared host C RAC1_ADDR_L07_0x001D36C0u"
   },
+  "07:0x00208820": {
+   "as": "0x00208460",
+   "how": "global: versionmap (exact; the check's name is another datum's)",
+   "for": "shared host C RAC1_ADDR_L07_0x00208820u"
+  },
   "0x001300E8": {
    "as": "0x0012FFE8",
    "how": "versionmap (between)",
@@ -860,8 +870,8 @@
   "func_001E9E70": "libraries.tsv func_001E9E70: the shared host C leaves it out here"
  },
  "counts": {
-  "functions": 130,
-  "addresses": 40,
-  "dropped": 21
+  "functions": 131,
+  "addresses": 41,
+  "dropped": 3
  }
 }

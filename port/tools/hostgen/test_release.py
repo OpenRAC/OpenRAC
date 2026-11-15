@@ -302,6 +302,22 @@ class Rac1Release(unittest.TestCase):
         self.assertEqual(names["D_E1_00150100"], "D_00150100")
         self.assertEqual(parts["how"]["func_L00_00300000"], "function: carried (the release's own C for it)")
 
+    def test_a_check_value_of_another_datum(self):
+        # rac1-decomp's name for 0x00150000 is the datum at 0x00140000's: the check gave it that
+        # datum's place, and versionmap pairs both apart.
+        (self.relocs / "boot/placed.json").write_text(json.dumps(
+            {"values": {"D_00150000": "0x0013FF00", "D_00160000": "0x0015FF00"}}))
+        vmap = self.relocs.parent / "map.json"
+        vmap.write_text(json.dumps({"from": "a", "to": "b", "gp": [None, None], "programs": {"boot": {
+            "data": {"00140000": "0013FF00", "00150000": "0014FF00", "00160000": "0015FE00"},
+            "functions": {}, "sections": {}, "to_sections": {}, "unpaired": []}}}))
+        uses = Counter({"D_00150000": 1, "D_00160000": 1})
+        parts = release.build_rac1(self.source, "pal_v1", self.relocs, vmap, uses)
+        self.assertEqual(parts["names"]["D_00150000"], "D_0014FF00")
+        self.assertIn("another datum's", parts["how"]["D_00150000"])
+        # A value the map gives no other address stays the check's.
+        self.assertEqual(parts["names"]["D_00160000"], "D_0015FF00")
+
     def test_one_letter_tag(self):
         m = release.NAME.fullmatch("func_J_001F6B60")
         self.assertEqual((m.group(2), m.group(4)), ("J", "001F6B60"))
