@@ -61,7 +61,8 @@ GAMES = {
 
 
 def catalogue(spec: dict, source: Path, version: str) -> "Catalogue":
-    return Catalogue([source / f.format(v=version) for f in spec["catalogue"]])
+    files = spec.get("catalogue", ["config/versions/{v}/functions.tsv"])
+    return Catalogue([source / f.format(v=version) for f in files])
 
 
 class Catalogue:
@@ -393,7 +394,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.program is None:
             ap.error("give a game or --program")
         return 0
-    source = ROOT / GAMES[game]["source"] / GAMES[game]["catalogue"][0].format(v=next(iter(GAMES[game]["programs"].values())))
+    first = GAMES[game].get("catalogue", ["config/versions/{v}/functions.tsv"])[0]
+    source = ROOT / GAMES[game]["source"] / first.format(v=next(iter(GAMES[game]["programs"].values())))
     if args.program and not source.is_file():
         # A build from a checkout without rac1-decomp (the NTSC decomp alone): CI checks it.
         print(f"parity: {game}: no {source.relative_to(ROOT)} here, not checked", file=sys.stderr)

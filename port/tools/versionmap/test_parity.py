@@ -68,10 +68,10 @@ class Parity(unittest.TestCase):
 
     def test_an_omit_covers_every_place(self):
         # b leaves the shared host C of f2 out (RAC1_OMIT): none of f2's places is compared there.
-        header = self.root / "port/game/toy-b/host/rac1_version.h"
+        header = self.root / "port/game/toy-b/host/toy_version.h"
         header.parent.mkdir()
-        header.write_text("/* b runs its own C */\n#define RAC1_OMIT_func_00100100 1\n")
-        self.assertEqual(parity.omits(header), {"func_00100100": "b runs its own C"})
+        header.write_text("/* b runs its own C */\n#define TOY_OMIT_func_00100100 1\n")
+        self.assertEqual(parity.omits(header, "toy"), {"func_00100100": "b runs its own C"})
         self.assertEqual(self.tables("func_00100100\tx\tf2\thost\nfunc_L03_00300000\tx\tf2c\thost\n", ""), [])
 
     def test_a_split_variant_is_read_at_its_own_places(self):
@@ -112,6 +112,17 @@ class Parity(unittest.TestCase):
         self.assertIn("boot:00130000: release_names.json places it at 00130000", errors[0] + errors[1])
         why = "L17:00160080\tdata\ttoy-b\tchecked by hand\nboot:00130000\tdata\ttoy-b\tchecked by hand\n"
         self.assertEqual(self.tables("", "", why), [])
+
+    def test_a_catalogue_of_an_executable_and_levels(self):
+        # rac2-decomp's form: the executable's (name, address, size) and the levels' places.
+        boot, levels = self.root / "boot.tsv", self.root / "levels.tsv"
+        boot.write_text("# name\taddress\tsize\nfunc_00100000\t00100F00\t64\n")
+        levels.write_text("# name\tkind\tsize\tfingerprint\tlevels\tplaces (level:address)\n"
+                          "func_L03_00300000\tshared\t32\t0\t2\t03:00300100,04:00400100\n")
+        cat = parity.Catalogue([boot, levels])
+        self.assertEqual(cat.at[("boot", 0x00100F00)], "func_00100000")
+        self.assertEqual(cat.at[("04", 0x00400100)], "func_L03_00300000")
+        self.assertEqual(cat.inside("04", 0x00400110), "func_L03_00300000")
 
 
 if __name__ == "__main__":
