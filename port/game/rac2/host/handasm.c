@@ -235,3 +235,70 @@ void func_00129178(gaddr m) {
         r[i] = (i % 5 == 0) ? 1.0f : 0.0f;
     }
 }
+
+/* The vector unit's sine kernel (0x001291A0), called by sceVu0's rotation helpers (func_00129218,
+ * func_001292C0, func_00129368) with its argument and result in the unit's registers: the angle in
+ * vf6.x, the result in vf4.x. A polynomial in x^2 with the four coefficients at 0x00137EA0 (vf5),
+ * summed from the highest term down in vf4.x, then cos from it as +/- sqrt(1 - s^2) by a3 (zero:
+ * plus). Each step is a macro instruction of the routine, in its order, with what the unit does to
+ * a denormal result (flushed to a signed zero); the registers it leaves are part of its result
+ * (vf4, vf5, vf6, vf7, vf8, Q). Not "ps2_float": host floats, as hostgen's translation of it. */
+static float vu_flush(float x) {
+    return openrac_ee_vu_flush(x);
+}
+
+int func_001291A0(int a0, int a1, int a2, int a3) {
+    (void)a0;
+    (void)a1;
+    (void)a2;
+    openrac_vu0_state* vu = OPENRAC_VU0;
+    float(*vf)[4] = vu->vf;
+    const float* k = quad(RAC2_ADDR(0x00137EA0u));
+    for (int i = 0; i < 4; ++i) {
+        vf[5][i] = k[i];
+    }
+    vf[6][3] = vf[6][0];                      /* vmr: x kept in w */
+    vf[4][0] = vu_flush(0.0f + vf[6][0]);     /* vaddx.x vf4, vf0, vf6 */
+    vf[6][0] = vu_flush(vf[6][0] * vf[6][0]); /* x^2 */
+    for (int i = 1; i < 4; ++i) {
+        vf[4][i] = vu_flush(vf[4][i] * 0.0f); /* vmulx.yzw vf4, vf4, vf0 */
+    }
+    float t[4];
+    for (int i = 0; i < 4; ++i) {
+        t[i] = vf[5][i] * vf[6][3]; /* coefficients times x */
+    }
+    for (int i = 0; i < 4; ++i) {
+        vf[8][i] = vu_flush(t[i]);
+    }
+    for (int i = 0; i < 3; ++i) {
+        vf[5][i] = vu_flush(0.0f - 0.0f); /* vsub vf5, vf0, vf0 */
+    }
+    vf[5][3] = vu_flush(1.0f - 1.0f);
+    /* Each term gets one more x^2 per step down, and is added to the sum as it is finished. */
+    for (int i = 0; i < 4; ++i) {
+        t[i] = vf[8][i] * vf[6][0];
+    }
+    for (int i = 0; i < 4; ++i) {
+        vf[8][i] = vu_flush(t[i]);
+    }
+    for (int n = 3; n >= 1; --n) {
+        for (int i = 0; i < n; ++i) {
+            t[i] = vf[8][i] * vf[6][0];
+        }
+        for (int i = 0; i < n; ++i) {
+            vf[8][i] = vu_flush(t[i]);
+        }
+        vf[4][0] = vu_flush(vf[4][0] + vf[8][n]);
+    }
+    vf[4][0] = vu_flush(vf[4][0] + vf[8][0]);
+    t[0] = vf[5][0] + vf[4][0];
+    t[1] = vf[5][1] + vf[4][0];
+    vf[4][0] = vu_flush(t[0]);
+    vf[4][1] = vu_flush(t[1]);
+    vf[7][0] = vu_flush(vf[4][0] * vf[4][0]);
+    vf[7][3] = vu_flush(1.0f - vf[7][0]);
+    vu->q = openrac_ee_sqrt(vf[7][3]);
+    vf[7][0] = vu_flush(0.0f + vu->q);
+    vf[4][0] = vu_flush(a3 != 0 ? vf[5][0] - vf[7][0] : vf[5][0] + vf[7][0]);
+    return 0;
+}

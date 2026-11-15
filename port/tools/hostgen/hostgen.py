@@ -141,6 +141,37 @@ def read_hand(config_dir: Path, cfg: dict) -> dict[str, str]:
     return read_table_of_c(config_dir / table)
 
 
+def read_primary_hand(config_dir: Path, cfg: dict) -> dict[str, str]:
+    """The primary release's hand C, for another release (hostgen.json "primary_hand": the primary's
+    hand table, relative to this configuration): written in the primary's names, so each text and
+    each name is renamed through the release view, as the decompilation's own candidates are. One
+    file of C then serves every release of the game (rac2's hand-written assembly: port/game/rac2-ntsc/
+    hand). A release's own "hand" row for the same function wins."""
+    table = cfg.get("primary_hand")
+    if not table or RELEASE is None or not (config_dir / table).is_file():
+        return {}
+    # Names the release view has no value for (a global no placed C uses), paired by hand:
+    # release/hand_names.tsv beside the configuration, "v1.01 name<TAB>release name<TAB>evidence".
+    extra: dict[str, str] = {}
+    pairs = config_dir / "release" / "hand_names.tsv"
+    if pairs.is_file():
+        for line in pairs.read_text().splitlines():
+            row = line.split("\t")
+            if line.strip() and not line.startswith("#") and len(row) >= 3 and row[2].strip():
+                extra[row[0].strip()] = row[1].strip()
+    word = re.compile(r"\b(" + "|".join(map(re.escape, extra)) + r")\b") if extra else None
+    texts: dict[int, str] = {}
+    out: dict[str, str] = {}
+    for name, c in read_table_of_c(config_dir / table).items():
+        if id(c) not in texts:
+            # The view leaves a name it has no value for as it is; the hand pairs then rename it
+            # (after the view, which would take the release's name for a v1.01 one).
+            text = RELEASE.text(c)
+            texts[id(c)] = word.sub(lambda m: extra[m.group(1)], text) if word else text
+        out[RELEASE.name(name)] = texts[id(c)]
+    return out
+
+
 def read_overrides(config_dir: Path, cfg: dict) -> dict[str, str]:
     """The port's own C for functions the decompilation has as matching C (hostgen.json
     "overrides": a table beside the game's configuration, files relative to it, as "hand"): what
@@ -695,6 +726,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         reasons[key] = reasons.get(key, 0) + 1
     no_c = [f for f in program.stubs()]
     stage = extra.pop("asm", None) or asmc.Stage()
+    allow = extra.pop("assembly_allow", {})
     asm_reasons: dict[str, int] = {}
     for why in stage.unsupported.values():
         key = re.sub(r",? at [0-9A-F]{8}\b| \([0-9A-F]{8}\)", "", why)
@@ -745,6 +777,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
                                   if r.report is not None and r.report.calls})
     frontier = boot_frontier(fns_and_asm, program, extra.get("roots", []))
     summary["frontier"] = frontier
+    summary.update(assembly_guard(summary, allow))
     (out / "report.json").write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
     md = [
         f"# hostgen report: {game}",
@@ -904,13 +937,15 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
                     if p.is_file() and p.suffix in (".json", ".tsv", ".c", ".h", ".txt", ".inc"))
     paths += [config.parent / cfg.get("library_api", "../common/libraries.tsv"), HERE / "include"]
     paths += sorted((config.parent.parent / str(cfg.get("game", "")) / "host").glob("*.c"))
-    for key in ("libraries", "hand", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
+    for key in ("libraries", "hand", "primary_hand", "assembly_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
+    if cfg.get("primary_hand") and (config.parent / "release" / "hand_names.tsv").is_file():
+        paths.append(config.parent / "release" / "hand_names.tsv")
     if cfg.get("drafts"):
         paths.append(config.parent / cfg["drafts"]["units"])
     # Hand/override tables may name C outside the configuration's own directory.
-    for key in ("hand", "overrides"):
+    for key in ("hand", "primary_hand", "overrides"):
         if cfg.get(key):
             table = config.parent / cfg[key]
             if table.is_file():
@@ -1102,7 +1137,7 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
         # end, a program of its own) are its file's.
         texts = {id(c): RELEASE.text(c, files.get(name)) for name, c in decomp.items()}
         decomp = {RELEASE.text(name, files.get(name)): texts[id(c)] for name, c in decomp.items()}
-    candidates = {**decomp, **read_hand(args.game.parent, cfg)}
+    candidates = {**decomp, **read_primary_hand(args.game.parent, cfg), **read_hand(args.game.parent, cfg)}
     # A candidate for a function the port writes itself (libraries.tsv host rows, "host_functions")
     # is not read: the port's version replaces the function, and what the candidate's file defines
     # besides is dead (rac1/pal's DIntr, func_0011D960, keeps the interrupt enable bit in a global
@@ -1442,9 +1477,61 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
                   "--disc <image> --kit <Windows kit> --out <dir>", file=sys.stderr)
             return None
     extra["asm"] = asm_stage
+    extra["assembly_allow"] = read_assembly_allow(args.game.parent, cfg)
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))
     return write_report(out, reports, program, extra, cfg.get("title", cfg.get("name", "")))
+
+
+def read_assembly_allow(config_dir: Path, cfg: dict) -> dict[str, str]:
+    """hostgen.json "assembly_allow": a table of name<TAB>reason, the functions the program may leave to
+    their assembly although translated code reaches them (assembly_guard)."""
+    table = cfg.get("assembly_allow")
+    if not table:
+        return {}
+    out = {}
+    for line in (config_dir / table).read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            name, _, reason = line.partition("\t")
+            if not reason.strip():
+                raise SystemExit(f"hostgen: {table}: {name.strip()} has no reason")
+            out[name.strip()] = reason.strip()
+    return out
+
+
+def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
+    """The functions the port runs as their retail assembly, or as a stub in its place, although
+    translated code reaches them: a call, or its address taken (in code or as a literal). Without the
+    disc such a function is a stub that returns 0, and the game goes wrong quietly (Going Commando's
+    72 routines in a release build without the disc's part); with it, it runs the assembly's
+    translation, which nothing but play checks. Each needs C of the port's own (hand/hand.tsv, a host
+    row) or a row of "assembly_allow" saying why not. main() fails the run on any other; the report
+    keeps them all ("assembly_reached": name -> the functions that reach it). A game opts in by having
+    the table (rac1, rac2: their release builds run without the disc's assembly)."""
+    asm = {n for n, p in summary["without_c_places"].items() if p.get("kind") == "asm" and "other_spelling" not in p}
+    asm |= set(summary.get("from_assembly", {}))
+    # A call by another spelling of the function (a derived r1_ name for the same place) is a call of it.
+    # So is a name at the same place (r1_func_0012A418, the address the decompilation's derived names
+    # give func_0012E238).
+    spelling = {n: p["other_spelling"] for n, p in summary["without_c_places"].items() if "other_spelling" in p}
+    at = {tuple(pl): n for n in asm for pl in summary["without_c_places"].get(n, {}).get("places", [])}
+    for n, p in summary["without_c_places"].items():
+        if n not in asm and n not in spelling:
+            for pl in p.get("places", []):
+                if tuple(pl) in at:
+                    spelling[n] = at[tuple(pl)]
+    reached: dict[str, set[str]] = {}
+    for caller, callees in summary["call_graph"].items():
+        for c in callees:
+            c = spelling.get(c, c)
+            if c in asm and c != caller:
+                reached.setdefault(c, set()).add(caller)
+    # A function translated from assembly is its assembly, reached or not: the disc's part.
+    for name in summary.get("from_assembly", {}):
+        reached.setdefault(name, set())
+    return {"assembly_reached": {n: sorted(v) for n, v in sorted(reached.items())},
+            "assembly_unallowed": sorted(n for n in reached if n not in allow),
+            "assembly_allow_unused": sorted(n for n in allow if n not in reached)}
 
 
 def stop_for_unreadable_units(reports: list[UnitReport], allow_unreadable: bool) -> bool:
@@ -1556,6 +1643,21 @@ def main(argv: list[str] | None = None) -> int:
     summary = write_outputs(out, args, cfg, program, units, reports, problems, host_rows, used, overridden,
                             inherited, asm_stage, asm_results)
     if summary is None:
+        return 1
+    if cfg.get("assembly_allow") and summary["assembly_allow_unused"]:
+        # A row that allows nothing any more: the table stays true, so it goes with the change.
+        for name in summary["assembly_allow_unused"]:
+            print(f"hostgen: error: {cfg['assembly_allow']} allows {name}, which is no longer left to its "
+                  "assembly where translated code reaches it: remove the row", file=sys.stderr)
+        return 1
+    if cfg.get("assembly_allow") and summary["assembly_unallowed"]:
+        # assembly_guard: before the stamp, so the next build says it again.
+        for name in summary["assembly_unallowed"]:
+            by = summary["assembly_reached"][name]
+            print(f"hostgen: error: {name} runs as its assembly ({'translated from it' if name in summary['from_assembly'] else 'a stub without the disc'}), "
+                  f"and {', '.join(by[:3]) or 'the program'}{' and more' if len(by) > 3 else ''} reach it: give it C "
+                  "(hand/hand.tsv, or a host row) or a row with the reason in hostgen.json \"assembly_allow\"",
+                  file=sys.stderr)
         return 1
     if not args.quiet:
         print(f"hostgen: {summary['units']} units, {summary['functions_translated']} functions translated, "

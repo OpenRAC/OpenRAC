@@ -425,6 +425,13 @@
     "func_00131DF8"
   ],
   "asm": {
+    "leave": {
+      "func_00129120": "not a routine of its own: the catalogue's entry is the end of the routine before it (stores of vf4 and vf6 through registers that routine set), followed by sceVu0ScaleVector, whose own entry func_00129148 host/handasm.c answers",
+      "func_00129160": "not a routine of its own: the end of the routine before it, followed by sceVu0UnitMatrix, whose own entry func_00129178 host/handasm.c answers",
+      "func_002BAC00": "a piece of func_002B9FD8's loop, entered by a branch: it reads that routine's $s0-$s2 (a packet cursor, a count, a record) and its vf20; func_002B9FD8 is the port's own (host_functions)",
+      "func_00281A14": "a step of func_00281450's packet builder: it takes the packet cursor in $at and the source in $s2 from it; func_00281450 is the port's own (host_functions)",
+      "func_00281A94": "a step of func_00281450's packet builder: the packet cursor in $at, which it advances; func_00281450 is the port's own (host_functions)"
+    },
     "signatures": {
       "F391de845_FUN_002E45C8": "int (void *, float, float, float)",
       "func_00284458_10": "float (float, float)",
@@ -464,6 +471,8 @@
   "params_from_declarations": true,
   "jump_tables": "tables/jump_tables.json",
   "overrides": "hand/overrides.tsv",
+  "assembly_allow": "checks/assembly_allow.tsv",
+  "primary_hand": "../rac2-ntsc/hand/hand.tsv",
   "extra_params": {
     "#": "Arguments a function's matching C leaves in their registers for a call it makes; each checked against the retail assembly (the register is the function's own argument).",
     "func_003375F8": [

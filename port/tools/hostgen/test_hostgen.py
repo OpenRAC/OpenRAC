@@ -4276,6 +4276,26 @@ class StaleExports(unittest.TestCase):
                          ["openrac_asmx_func_00100010: the part fills it, the list leaves it out"])
 
 
+
+class AssemblyGuard(unittest.TestCase):
+    """hostgen.json "assembly_allow": a function left to its assembly that translated code reaches."""
+
+    def summary(self):
+        return {"without_c_places": {"func_A": {"kind": "asm"}, "func_B": {"kind": "asm"},
+                                     "func_C": {"kind": "asm", "other_spelling": "func_C2"},
+                                     "func_D": {"kind": "no-c"}},
+                "from_assembly": {"func_E": "<disc>"},
+                "call_graph": {"func_X": ["func_A", "func_C", "func_D"], "func_B": ["func_B"]}}
+
+    def test_a_reached_stub_and_every_translation_are_listed(self):
+        got = hostgen.assembly_guard(self.summary(), {})
+        self.assertEqual(got["assembly_reached"], {"func_A": ["func_X"], "func_E": []})
+        self.assertEqual(got["assembly_unallowed"], ["func_A", "func_E"])
+
+    def test_an_allowed_row_stands_and_an_unused_one_is_said(self):
+        got = hostgen.assembly_guard(self.summary(), {"func_A": "why", "func_Z": "why"})
+        self.assertEqual(got["assembly_unallowed"], ["func_E"])
+        self.assertEqual(got["assembly_allow_unused"], ["func_Z"])
+
 if __name__ == "__main__":
     unittest.main()
-

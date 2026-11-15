@@ -1737,6 +1737,10 @@ class Unit:
         r = self.resolve(t)
         pointee = self.resolve(ctype.strip_quals(r.to)) if isinstance(r, ctype.Ptr) else None
         if isinstance(pointee, ctype.Func):
+            # A function's address as a number is a reference to it like its name (assembly_guard).
+            named = getattr(self.program, "by_place", {}).get((-1, address))
+            if named is not None and self.fn.report is not None:
+                self.fn.report.calls.add(named)
             if self._relocated(address):
                 text = f"OPENRAC_CODE({hexaddr(address)})"
             elif (level := self._shared_level()) is not None and _in(address, self.program.relocate):
@@ -2299,7 +2303,11 @@ class Unit:
                 return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
         addr = hexaddr(address)
         if self._relocated(address) and code:
-            # A function's code declared as data: where that code is in the program loaded.
+            # A function's code declared as data: where that code is in the program loaded. A
+            # reference to the function like its name (assembly_guard).
+            named_fn = getattr(self.program, "by_place", {}).get((-1, address))
+            if named_fn is not None and self.fn is not None and self.fn.report is not None:
+                self.fn.report.calls.add(named_fn)
             addr = f"OPENRAC_CODE({addr})"
         elif (self._relocated(address) and named_level is not None and self._named_at(symbol, address)
               and self._in_a_level_file()):
