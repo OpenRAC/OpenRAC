@@ -45,7 +45,7 @@ struct Fixture {
         put(kWords[3], kShrubRecords);
         put(kWords[2] + 0x48, std::uint32_t{96});  // Six 16-unit distance steps.
         put(kWords[3] + 0x10, 96.0f);
-        state.moby_view.emplace();
+        state.moby_view.emplace(openrac::host::GameState::MobyView{});
         state.moby_view->depth_axis = {1, 0, 0};
         state.moby_view->near_plane = 1024;  // One world unit in the game's view units.
         constexpr std::array<float, 3> kDepths{-10, 20, 200};
@@ -77,7 +77,7 @@ void test_camera_independent_residency() {
     const auto forward = fixture.capture();
     CHECK(forward.scenery.tie_hidden == std::vector<std::uint8_t>({0, 1, 1}));
     CHECK(forward.scenery.shrub_hidden == std::vector<std::uint8_t>({0, 1, 1}));
-    auto& view = fixture.state.moby_view.emplace();
+    auto& view = fixture.state.moby_view.emplace(openrac::host::GameState::MobyView{});
     view.depth_axis = {-1, 0, 0};
     view.near_plane = 100 * 1024;  // Must not affect caster residency.
     fixture.state.camera_position = {1, 0, 0};
