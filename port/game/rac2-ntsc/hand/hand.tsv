@@ -4,3 +4,24 @@
 # name	file (relative to this table)
 func_002828B8	fastfunc.c
 func_00282928	fastfunc.c
+# mpeg
+func_0012A3E8	mpeg.c
+func_0012A460	mpeg.c
+func_0012A4F8	mpeg.c
+func_0012A5B0	mpeg.c
+func_0012A680	mpeg.c
+func_0012A730	mpeg.c
+func_0012A7E8	mpeg.c
+func_0012A8E0	mpeg.c
+func_0012A9E0	mpeg.c
+func_0012AA80	mpeg.c
+func_0012AB30	mpeg.c
+func_0012AC10	mpeg.c
+func_0012ACF8	mpeg.c
+func_0012ADD0	mpeg.c
+func_0012AEA0	mpeg.c
+func_0012AFC0	mpeg.c
+func_0012B180	mpeg.c
+func_0012DF18	mpeg_spr.c
+func_0012E238	mpeg_csc.c
+func_0012E538	mpeg_csc.c

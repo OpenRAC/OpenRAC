@@ -99,6 +99,8 @@ func_0011FAA8	kernel	GetEntryAddress	host	syscall wrapper 0x5b
 func_00121AB8	libgcc	__muldi3	host	symbol_addrs.txt name
 func_00121B20	libgcc	__udivdi3	host	symbol_addrs.txt name
 func_001220F0	libgcc	__umoddi3	host	symbol_addrs.txt name
+func_0011FC68	libgcc	__divdi3	host	src/core/0011FC68.c, which hostgen.json skips (libgcc)
+func_00121450	libgcc	__moddi3	host	src/core/00121450.c, which hostgen.json skips (libgcc)
 func_00124E08	cdvd	sceCdInit	host	symbol_addrs.txt name
 func_001250E8	cdvd	sceCdDiskReady	host	symbol_addrs.txt name
 func_001252E0	cdvd	sceCdMmode	host	symbol_addrs.txt name
@@ -315,3 +317,9 @@ func_L04_0030EDE0	fastfunc	rac2VecSubInPlace	host	vsub.xyz into the second argum
 func_L01_003042AC	texture	rac2OozlaBlend	host	two frames of a palette texture blended (host/handasm.c)	void (void *, void *, void *, void *, void *, int, float)
 func_00117848	libm	rac2Fmod	host	fdlibm __ieee754_fmod: exact, as the host's fmod (host/handasm.c)	double (double, double)
 func_0026F7A0	game	rac2ReturnZero	host	returns 0; a release's catalogue may not list its copy (host/handasm.c)	unsigned int (void)
+func_00120528	libgcc	__sjthrow	host	not reached: C++ exception throw (longjmp to a guest handler); nothing in the game throws (host/handasm_libgcc_unwind.c)	void (void)
+func_001205E0	libgcc	rac2SjthrowLanding	host	a fragment of func_00120528 (its setjmp landing), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_00120748	libgcc	rac2SjpopnthrowTail	host	a fragment of __sjpopnthrow, entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_00120FA4	libgcc	rac2ThrowLanding	host	a fragment of __throw (00120F00-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_0012118C	libgcc	rac2RethrowLanding	host	a fragment of __rethrow (001210E0-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_00130004	mpeg	rac2DecodeFrameTail	host	a fragment of func_0012FEC0 (its epilogue), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
