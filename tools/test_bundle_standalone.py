@@ -137,13 +137,13 @@ class PlayerActions(unittest.TestCase):
         # NTSC-U's editor folders are its own.
         self.assertEqual(self.ntsc["editor-extract"]["args"][-3], "{data}/levels/ntsc")
 
-    def test_interface_runs_read_the_data_folders_levels_and_the_copys_runs(self):
+    def test_interface_runs_read_the_data_folders_levels_and_the_players_run(self):
         for name, actions in (("pal", self.pal), ("ntsc", self.ntsc)):
             run = actions["interface-run"]["args"]
             self.assertEqual(run[run.index("--levels") + 1], f"{{data}}/port/{name}")
             self.assertEqual(run[run.index("--out") + 1], f"{{data}}/interface_runs/rac1-{name}.json")
             export = actions["interface-export"]["args"]
-            self.assertIn(f"{{root}}/port/game/rac1-{name}/interface-run.json", export)
+            self.assertFalse(any("port/game/" in arg for arg in export))
             self.assertIn(f"{{data}}/interface_runs/rac1-{name}.json", export)
 
     def test_no_mod_action_names_the_checkout(self):

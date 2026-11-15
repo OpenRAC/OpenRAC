@@ -496,8 +496,7 @@ export const INTERFACE = {
   font: "Font",
   hud: "HUD and menus",
   effects: "Effects",
-  official: (made: string, n: number) => `Official${made ? ` · ${made}` : ""} · ${n}`,
-  yours: (made: string, n: number) => `Yours${made ? ` · ${made}` : ""} · ${n}`,
+  made: (made: string, n: number) => `${made ? `${made} · ` : ""}${n}`,
   partly: (n: number) => `Part way · ${n}`,
   none: "None yet",
   outOfDate: "Out of date",
@@ -516,7 +515,7 @@ export const INTERFACE = {
   nothingYet: "Not available for this version yet.",
   nothingYetRun: "Make one first: the game plays a few routes hidden.",
   runAsk:
-    "The game plays the routes these textures need, hidden, and notes what it draws. Up to half an hour; you can use the computer meanwhile and stop it any time.",
+    "The game plays the routes these textures need, hidden, and notes what it draws. A few minutes to a quarter of an hour; you can use the computer meanwhile and stop it any time.",
   runYes: "Start",
   starting: "Starting the game…",
   routeOf: (done: number, of: number) => `Route ${done} of ${of}`,
@@ -525,9 +524,6 @@ export const INTERFACE = {
   runDone: "Done: they can be exported.",
   runPartly: "Done, but some routes ended early.",
   runStopped: "Stopped. The activity log says why.",
-  shareLead: "Your run has textures the project's lacks. Share it so others can export them too.",
-  share: "Share",
-  uploadUrl: (id: string) => `https://github.com/OpenRAC/OpenRAC/upload/develop/port/game/${id}`,
   developer: (id: string) =>
     `python3 port/tools/interface_runs/run.py run --game ${id} --out <file> [--kinds font,interface,effects] · openrac-${id} --interface-export <dir> --interface-runs <file>`,
 } as const;

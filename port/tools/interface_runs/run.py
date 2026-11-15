@@ -4,13 +4,13 @@
 """Interface texture runs (docs/port/TEXTURE_PACKS.md, "Export without playing").
 
   run.py run --game rac1-ntsc --out FILE [--kinds font,interface] [--exe P --data D --levels L]
-             [--jobs N] [--official] [--fresh]
+             [--jobs N] [--fresh]
       Plays the game's routes hidden (the regress tool's: every level, the pause pages, the vendor,
       the title), each with --interface-run, and joins their parts into FILE: the run file the
       launcher's export reads. Only the routes the kinds asked for need (KIND_ROUTES), and of those
       only the ones FILE has not played yet: a run made for the font can be given the HUD later.
       Prints one JSON object a line ("event": start, route, done).
-  run.py join FILE PART... [--official]
+  run.py join FILE PART...
       Joins parts (or runs) into FILE.
   run.py info FILE
       What a run file holds, as one JSON object.
@@ -130,7 +130,7 @@ def write(doc: dict, out: Path) -> None:
 def info(doc: dict) -> dict:
     counts = doc.get("counts") or {c: sum(1 for t in doc["textures"] if t.get("category") == c) for c in CATEGORIES}
     return {"game": doc.get("game"), "converter": doc.get("converter"), "made": doc.get("made"),
-            "official": bool(doc.get("official")), "clean": bool(doc.get("clean")), "counts": counts,
+            "clean": bool(doc.get("clean")), "counts": counts,
             "missing": {c: len(v) for c, v in (doc.get("missing") or {}).items()},
             "routes": {k: len(v) for k, v in (doc.get("routes") or {}).items()},
             "kinds": {k: bool(v.get("complete")) for k, v in kinds_of(doc).items()}}
@@ -266,7 +266,6 @@ def run(args) -> int:
               "skipped": sorted((set(before["skipped"]) | set(skipped)) - played)}
     earlier_kinds = kinds_of(earlier)
     doc["made"] = today
-    doc["official"] = bool(args.official)
     # Clean: no route it played failed (the routes that need the prepared card are left out, not
     # failed). Each kind is complete when every route it needs has played.
     doc["clean"] = not routes["failed"]
@@ -275,14 +274,6 @@ def run(args) -> int:
                         "made": today if k in kinds else earlier_kinds.get(k, {}).get("made")}
                     for k in CATEGORIES}
     write(doc, args.out)
-    # The file as the project keeps it (port/game/<id>/interface-run.json), ready to offer in a
-    # pull request: the launcher opens its folder and GitHub's upload page. Only a clean run's: an
-    # earlier clean one is not offered for a later run that is not.
-    shared = args.out.parent / "share" / game / "interface-run.json"
-    if doc["clean"]:
-        write(doc, shared)
-    else:
-        shared.unlink(missing_ok=True)
     say("done", file=str(args.out.resolve()), **info(doc))
     print(f"openrac-output: {args.out.resolve()}", flush=True)
     # Written, clean or not: the launcher shows which routes did not play to their end.
@@ -389,14 +380,12 @@ def main(argv: list[str] | None = None) -> int:
                    help="KEY=VALUE for every route (OPENRAC_SOFTWARE_GL=1)")
     r.add_argument("--timeout-scale", type=float, default=1.0,
                    help="give each route this many times its time (a slow computer, software drawing)")
-    r.add_argument("--official", action="store_true", help="mark it as the project's own run")
     r.add_argument("--cards", type=Path, help="a prepared card's folder (regress.py card) instead of the run's own")
     r.add_argument("--work", type=Path, help="where the routes' folders go (a new folder in it)")
     r.add_argument("--keep", action="store_true", help="keep the routes' folders")
     j = commands.add_parser("join", help="join parts or runs into one run file")
     j.add_argument("out", type=Path)
     j.add_argument("parts", type=Path, nargs="+")
-    j.add_argument("--official", action="store_true")
     i = commands.add_parser("info", help="what a run file holds")
     i.add_argument("file", type=Path)
     args = parser.parse_args(argv)
@@ -415,7 +404,6 @@ def main(argv: list[str] | None = None) -> int:
         doc = join(parts, parts[0].get("game"))
         doc["made"] = max((p.get("made") or "" for p in parts), default="") or \
             datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        doc["official"] = bool(args.official)
         doc["clean"] = all(p.get("clean", True) for p in parts)
         routes = {k: sorted({x for p in parts for x in (p.get("routes") or {}).get(k, [])})
                   for k in ("done", "failed", "skipped")}

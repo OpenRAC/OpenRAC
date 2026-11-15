@@ -2797,38 +2797,20 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<PackView[]>([...mockPacks]);
     }
     case "interface_runs_view": {
-      // The preview: an official run for Ratchet & Clank's NTSC-U and PAL, none elsewhere; a run of
-      // the player's own once "Make an interface run" ran.
+      // The preview: no run until "Make a run" ran (the player makes their own).
       const id = `${String(args.game)}-${String(args.version)}`;
-      const official = ["rac1-ntsc", "rac1-pal"].includes(id)
-        ? ({
-            made: "2026-11-14",
-            counts: [96, 412, 57],
-            clean: true,
-            current: true,
-            complete: [true, true, true],
-            kindMade: ["2026-11-14", "2026-11-14", "2026-11-14"],
-          } as InterfaceRun)
-        : null;
       const local = mockInterfaceRun[id] ?? null;
-      const usable = (run: InterfaceRun | null, at: number) => !!run && run.current && (run.counts[at] ?? 0) > 0;
       return delay<InterfaceRunsView>({
         id,
-        official,
         local,
         unreadable: [],
-        sources: [0, 1, 2].map((at) => (usable(official, at) ? "official" : usable(local, at) ? "local" : "none")) as [
-          string,
-          string,
-          string,
+        available: [0, 1, 2].map((at) => !!local && local.current && (local.counts[at] ?? 0) > 0) as [
+          boolean,
+          boolean,
+          boolean,
         ],
         runnable: ["rac1-ntsc", "rac1-pal", "rac2-ntsc"].includes(id),
-        suggestSharing:
-          !!local &&
-          local.clean &&
-          [0, 1, 2].some((at) => local.complete[at] && (local.counts[at] ?? 0) > (official?.counts[at] ?? 0)),
         localFile: `/home/you/.local/share/openrac/interface_runs/${id}.json`,
-        shareFile: `/home/you/.local/share/openrac/interface_runs/share/${id}/interface-run.json`,
       });
     }
     case "texture_packs_view":

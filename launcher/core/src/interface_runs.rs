@@ -5,11 +5,10 @@
 //! and textures panel says of a version's runs before its export.
 //!
 //! A run file (port/game/common/program/interface_runs.h) lists the interface textures a run of the
-//! game made and where their bytes are on the disc. The project ships an official one for some
-//! versions (`<root>/port/game/<id>/interface-run.json`); a player can make their own
-//! (`<data>/interface_runs/<id>.json`, port/tools/interface_runs/run.py). The export reads both.
-//! This module reads only what the panel shows: for each kind of texture, whether a run has it and
-//! which; and whether the player's own run is worth offering to the project.
+//! game made and where their bytes are on the disc. The player makes it on their own computer
+//! (`<data>/interface_runs/<id>.json`, port/tools/interface_runs/run.py, a few minutes) and the export
+//! reads it. This module reads only what the panel shows: for each kind of texture, whether the run
+//! has it.
 
 use std::path::{Path, PathBuf};
 
@@ -60,26 +59,17 @@ pub struct Run {
 pub struct View {
     /// The port's id of the version: `rac1-ntsc`.
     pub id: String,
-    /// The project's run, if this copy carries one.
-    pub official: Option<Run>,
-    /// The player's own, if they made one.
+    /// The player's run, if they made one.
     pub local: Option<Run>,
     /// A run file that is there but cannot be read (cut short, another format, another game):
     /// which, in words.
     pub unreadable: Vec<String>,
-    /// For each kind (CATEGORIES' order): "official", "local" or "none": the run the export takes it
-    /// from.
-    pub sources: [String; 3],
+    /// For each kind (CATEGORIES' order): the run is current and has textures of it to export.
+    pub available: [bool; 3],
     /// Whether this version's routes can be played here (a run can be made).
     pub runnable: bool,
-    /// The player's own run is clean and current and has, in a kind it made whole, textures the
-    /// official one lacks: the panel suggests offering it to the project.
-    pub suggest_sharing: bool,
-    /// The player's own run file.
+    /// The player's run file.
     pub local_file: String,
-    /// Its copy named as the project keeps it (`share/<id>/interface-run.json` beside it), which
-    /// run.py writes after a clean run: the file a pull request adds.
-    pub share_file: String,
 }
 
 #[derive(Deserialize)]
@@ -117,19 +107,9 @@ struct Texture {
     category: Option<String>,
 }
 
-/// The project's run for version `id` in the copy at `root`.
-pub fn official_file(root: &Path, id: &str) -> PathBuf {
-    root.join("port").join("game").join(id).join("interface-run.json")
-}
-
 /// The player's own run for version `id`: `<data>/interface_runs/<id>.json`.
 pub fn local_file(data: &Path, id: &str) -> PathBuf {
     data.join("interface_runs").join(format!("{id}.json"))
-}
-
-/// The copy of the player's clean run that a pull request adds: `<data>/interface_runs/share/<id>/interface-run.json`.
-pub fn share_file(data: &Path, id: &str) -> PathBuf {
-    data.join("interface_runs").join("share").join(id).join("interface-run.json")
 }
 
 /// Reads one run file: None when it is not there, Err (in words) when it cannot be used.
@@ -180,51 +160,22 @@ fn read(path: &Path, id: &str) -> Result<Option<Run>, String> {
     Ok(Some(Run { made, counts, clean, complete, kind_made, current: file.converter == Some(CONVERTER) }))
 }
 
-/// What the panel shows for `game` `version`: `root` is the OpenRAC copy (a checkout or the
-/// carried one), `data` the game's data folder.
-pub fn view(root: Option<&Path>, data: &Path, game: &str, version: &str) -> Result<View, String> {
+/// What the panel shows for `game` `version`: `data` is the game's data folder.
+pub fn view(data: &Path, game: &str, version: &str) -> Result<View, String> {
     let id = texture_packs::id(game, version)?;
-    let mut unreadable = Vec::new();
-    let mut take = |path: Option<PathBuf>| match path.map(|p| read(&p, &id)) {
-        Some(Ok(run)) => run,
-        Some(Err(why)) => {
-            unreadable.push(why);
-            None
-        }
-        None => None,
-    };
-    let official = take(root.map(|r| official_file(r, &id)));
     let local_path = local_file(data, &id);
-    let share = share_file(data, &id);
-    let local = take(Some(local_path.clone()));
-    let usable = |run: &Option<Run>, at: usize| run.as_ref().is_some_and(|r| r.current && r.counts[at] > 0);
-    let sources = std::array::from_fn(|at| {
-        if usable(&official, at) {
-            "official"
-        } else if usable(&local, at) {
-            "local"
-        } else {
-            "none"
-        }
-        .to_string()
-    });
-    let suggest_sharing = local.as_ref().is_some_and(|l| {
-        l.clean
-            && l.current
-            && (0..3).any(|at| {
-                l.complete[at] && l.counts[at] > official.as_ref().filter(|o| o.current).map_or(0, |o| o.counts[at])
-            })
-    });
+    let (local, unreadable) = match read(&local_path, &id) {
+        Ok(run) => (run, Vec::new()),
+        Err(why) => (None, vec![why]),
+    };
+    let available = std::array::from_fn(|at| local.as_ref().is_some_and(|r| r.current && r.counts[at] > 0));
     Ok(View {
         runnable: RUNNABLE.contains(&id.as_str()),
         id,
-        official,
         local,
         unreadable,
-        sources,
-        suggest_sharing,
+        available,
         local_file: local_path.display().to_string(),
-        share_file: share.display().to_string(),
     })
 }
 
@@ -260,35 +211,22 @@ mod tests {
     #[test]
     fn nothing_when_no_run_is_there() {
         let dir = tempfile::tempdir().unwrap();
-        let v = view(Some(dir.path()), dir.path(), "rac1", "ntsc").unwrap();
-        assert_eq!((v.official, v.local), (None, None));
-        assert_eq!(v.sources, ["none", "none", "none"].map(String::from));
-        assert!(v.runnable && !v.suggest_sharing && v.unreadable.is_empty());
-        assert!(!view(None, dir.path(), "rac3", "ntsc").unwrap().runnable);
+        let v = view(dir.path(), "rac1", "ntsc").unwrap();
+        assert_eq!(v.local, None);
+        assert_eq!(v.available, [false; 3]);
+        assert!(v.runnable && v.unreadable.is_empty());
+        assert!(!view(dir.path(), "rac3", "ntsc").unwrap().runnable);
     }
 
     #[test]
-    fn each_kind_from_the_official_run_first_then_the_players() {
+    fn each_kind_the_players_run_has() {
         let dir = tempfile::tempdir().unwrap();
-        let (root, data) = (dir.path().join("root"), dir.path().join("data"));
-        write(&official_file(&root, "rac1-ntsc"), &run("rac1-ntsc", CONVERTER, true, &["font", "interface"]));
-        write(&local_file(&data, "rac1-ntsc"), &run("rac1-ntsc", CONVERTER, true, &["interface", "effects"]));
-        let v = view(Some(&root), &data, "rac1", "ntsc").unwrap();
-        assert_eq!(v.sources, ["official", "official", "local"].map(String::from));
-        assert_eq!(v.official.as_ref().unwrap().made.as_deref(), Some("2026-11-14"));
-        // The player's run has effects the official one lacks: worth offering.
-        assert!(v.suggest_sharing);
-    }
-
-    #[test]
-    fn no_suggestion_for_a_run_with_failures_or_nothing_new() {
-        let dir = tempfile::tempdir().unwrap();
-        let (root, data) = (dir.path().join("root"), dir.path().join("data"));
-        write(&official_file(&root, "rac1-pal"), &run("rac1-pal", CONVERTER, true, &["font", "effects"]));
-        write(&local_file(&data, "rac1-pal"), &run("rac1-pal", CONVERTER, true, &["font"]));
-        assert!(!view(Some(&root), &data, "rac1", "pal").unwrap().suggest_sharing);
-        write(&local_file(&data, "rac1-pal"), &run("rac1-pal", CONVERTER, false, &["interface"]));
-        assert!(!view(Some(&root), &data, "rac1", "pal").unwrap().suggest_sharing);
+        let data = dir.path();
+        write(&local_file(data, "rac1-ntsc"), &run("rac1-ntsc", CONVERTER, true, &["interface", "effects"]));
+        let v = view(data, "rac1", "ntsc").unwrap();
+        assert_eq!(v.available, [false, true, true]);
+        assert_eq!(v.local.as_ref().unwrap().made.as_deref(), Some("2026-11-14"));
+        assert_eq!(v.local.unwrap().counts, [0, 1, 1]);
     }
 
     #[test]
@@ -296,16 +234,15 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let data = dir.path();
         write(&local_file(data, "rac2-ntsc"), &run("rac2-ntsc", CONVERTER + 1, true, &["font"]));
-        let v = view(None, data, "rac2", "ntsc").unwrap();
+        let v = view(data, "rac2", "ntsc").unwrap();
         assert!(!v.local.as_ref().unwrap().current);
-        assert_eq!(v.sources[0], "none");
-        assert!(!v.suggest_sharing);
+        assert!(!v.available[0]);
         // Cut short, another game's, another format: said, not used.
         for text in [&run("rac2-ntsc", CONVERTER, true, &["font"])[..40], &run("rac1-pal", CONVERTER, true, &["font"]),
             r#"{"format": 2, "game": "rac2-ntsc"}"#]
         {
             write(&local_file(data, "rac2-ntsc"), text);
-            let v = view(None, data, "rac2", "ntsc").unwrap();
+            let v = view(data, "rac2", "ntsc").unwrap();
             assert_eq!((v.local, v.unreadable.len()), (None, 1));
         }
     }
@@ -313,22 +250,17 @@ mod tests {
     #[test]
     fn a_run_made_a_kind_at_a_time() {
         let dir = tempfile::tempdir().unwrap();
-        let (root, data) = (dir.path().join("root"), dir.path().join("data"));
+        let data = dir.path();
         let text = run("rac1-pal", CONVERTER, true, &["font", "interface"]).replacen(
             r#""blobs""#,
             r#""kinds": {"font": {"complete": true, "made": "2026-11-13"}, "interface": {"complete": false, "made": "2026-11-14"},
                 "effects": {"complete": false, "made": null}}, "blobs""#,
             1,
         );
-        write(&local_file(&data, "rac1-pal"), &text);
-        let v = view(Some(&root), &data, "rac1", "pal").unwrap();
-        let local = v.local.unwrap();
+        write(&local_file(data, "rac1-pal"), &text);
+        let local = view(data, "rac1", "pal").unwrap().local.unwrap();
         assert_eq!(local.complete, [true, false, false]);
         assert_eq!(local.kind_made, [Some("2026-11-13".into()), Some("2026-11-14".into()), None]);
-        // Font is whole and new to the project: worth offering. A HUD part way is not.
-        assert!(v.suggest_sharing);
-        write(&official_file(&root, "rac1-pal"), &run("rac1-pal", CONVERTER, true, &["font"]));
-        assert!(!view(Some(&root), &data, "rac1", "pal").unwrap().suggest_sharing);
     }
 
     #[test]
@@ -336,13 +268,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let data = dir.path();
         write(&local_file(data, "rac1-pal"), &run("rac1-pal", CONVERTER, true, &["font"]));
-        let local = view(None, data, "rac1", "pal").unwrap().local.unwrap();
+        let local = view(data, "rac1", "pal").unwrap().local.unwrap();
         assert_eq!(local.complete, [true; 3]);
         assert_eq!(local.kind_made[2].as_deref(), Some("2026-11-14"));
         let skipped = run("rac1-pal", CONVERTER, true, &["font"])
             .replacen(r#""blobs""#, r#""routes": {"done": [], "skipped": ["title-load-0"]}, "blobs""#, 1);
         write(&local_file(data, "rac1-pal"), &skipped);
-        assert_eq!(view(None, data, "rac1", "pal").unwrap().local.unwrap().complete, [false; 3]);
+        assert_eq!(view(data, "rac1", "pal").unwrap().local.unwrap().complete, [false; 3]);
     }
 
     #[test]
@@ -382,11 +314,9 @@ mod tests {
                 }
             }
         }
-        // Each official run in the checkout is one of its version's, current, and clean.
+        // Runs are the player's own: the checkout carries none.
         for id in RUNNABLE {
-            if let Some(run) = read(&official_file(&root, id), id).unwrap() {
-                assert!(run.current && run.clean, "{id}'s official run");
-            }
+            assert!(!root.join("port/game").join(id).join("interface-run.json").exists(), "{id}");
         }
     }
 }

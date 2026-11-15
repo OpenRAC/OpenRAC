@@ -60,17 +60,14 @@ the menus, the font and the effects straight from your disc, without playing:
 The export reads a *run*: a list of the interface textures the game made while
 its test routes played (every level, the pause pages, the vendor, the title),
 and where the bytes each one was made from are on the disc. It holds no byte
-of the game, only hashes, registers and places on the disc, so the project
-can ship it. The export reads those bytes from your disc, makes each picture
+of the game, only hashes, registers and places on the disc. The export reads those bytes from your disc, makes each picture
 through the port's own conversion, and keeps it only if it comes out under its
 name: a different disc or version makes nothing wrong, only less.
 
-- A green **Official run of <date>** is the project's, carried by the
-  launcher (`port/game/<id>/interface-run.json`): Ratchet & Clank NTSC-U and
-  PAL (v2.00).
-- Without one, **Make a run** plays the routes on your computer, hidden, with
-  the 3D world not drawn and in a small window: only the HUD and the effects
-  matter, and it makes the same textures (about half an hour; **Stop** ends it).
+- **Make** plays the routes on your computer, hidden, with the 3D world not
+  drawn and in a small window: only the HUD and the effects matter, and it
+  makes the same textures (a few minutes to a quarter of an hour; **Stop** ends
+  it). The project ships no run: each player makes their own once.
   The routes that load a saved game play on a memory card of the run's own (a
   New Game on an empty card, then every slot prepared from it), never yours. It needs the game set up and its levels ready,
   for the versions that have routes (Ratchet & Clank NTSC-U and PAL, Going
@@ -79,9 +76,6 @@ name: a different disc or version makes nothing wrong, only less.
   only the routes that kind needs (run.py `KIND_ROUTES`), and a later run adds
   to the file, never playing a route it already has. A run of a newer
   conversion than the file's makes it again.
-- When your run played every route and has textures the official one lacks,
-  the panel offers **Share the run**: it opens the file's folder and GitHub's
-  upload page for `port/game/<id>/`, to propose it in a pull request.
 
 A run is tied to the conversion it was made with
 (`renderer/textures/interface_run.h` `kConverter`): a change to the

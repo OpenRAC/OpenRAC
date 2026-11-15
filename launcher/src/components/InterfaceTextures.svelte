@@ -1,10 +1,9 @@
 <script lang="ts">
   // Make your own → Models and textures → Interface textures: the HUD, the menus, the font and the
   // effects, rebuilt from the player's disc as the game makes them and named as texture packs name
-  // them (docs/port/TEXTURE_PACKS.md, "Export without playing"). The export reads a run (which
-  // textures the game draws and where their bytes are on the disc): the project's, shown in green,
-  // and the player's own, which "Make a run" plays here (core/src/interface_runs.rs,
-  // port/tools/interface_runs/run.py).
+  // them (docs/port/TEXTURE_PACKS.md, "Export without playing"). The export reads the player's run
+  // (which textures the game draws and where their bytes are on the disc), which "Make" plays here in
+  // a few minutes (core/src/interface_runs.rs, port/tools/interface_runs/run.py).
   import Icon from "$components/Icon.svelte";
   import Menu from "$components/Menu.svelte";
   import { api, ask, type ActionView, type InterfaceRunsView, type VersionView } from "$lib/api";
@@ -71,16 +70,16 @@
   });
 
   const canRun = $derived(Boolean(runner && view?.runnable));
-  const available = (at: number) => view?.sources[at] !== undefined && view.sources[at] !== "none";
+  const available = (at: number) => view?.available[at] === true;
   /** The export action's option: the kinds switched on that a run has, in their order (core option()). */
   const option = $derived(
     CATEGORIES.filter((c, at) => chosen[c.id] && available(at))
       .map((c) => c.id)
       .join(","),
   );
-  /** A kind a run here would make: no official run has it, and the player's own is not whole and current. */
+  /** A kind a run here would make: the player's run is not whole and current in it. */
   function makeable(at: number): boolean {
-    if (!canRun || view?.sources[at] === "official") return false;
+    if (!canRun) return false;
     const l = view?.local;
     return !(l && l.current && l.complete[at]);
   }
@@ -92,18 +91,14 @@
     return Number.isNaN(day.getTime()) ? made : day.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
 
-  /** Where a kind's textures come from, in a few words. */
+  /** What the run holds of a kind, in a few words: whole (a tick), part way, or none. */
   function status(at: number): { text: string; tone: "ok" | "own" | "none" } {
-    const source = view?.sources[at];
-    if (source === "official" && view?.official) {
-      return { text: INTERFACE.official(date(view.official.made), view.official.counts[at] ?? 0), tone: "ok" };
-    }
     const l = view?.local;
     if (l && !l.current) return { text: INTERFACE.outOfDate, tone: "none" };
-    if (source === "local" && l) {
+    if (available(at) && l) {
       const n = l.counts[at] ?? 0;
       return l.complete[at]
-        ? { text: INTERFACE.yours(date(l.kindMade[at] ?? l.made), n), tone: "own" }
+        ? { text: INTERFACE.made(date(l.kindMade[at] ?? l.made), n), tone: "ok" }
         : { text: INTERFACE.partly(n), tone: "own" };
     }
     return { text: INTERFACE.none, tone: "none" };
@@ -195,12 +190,6 @@
     const job = last("interface-run");
     if (job) await cancel(job);
   }
-
-  async function share() {
-    if (!view) return;
-    await guardShown(api.openOutput(view.shareFile));
-    await guardShown(api.openUrl(INTERFACE.uploadUrl(view.id)));
-  }
 </script>
 
 {#if exporter}
@@ -268,12 +257,6 @@
         {INTERFACE.exportLine}
       {/if}
     </p>
-    {#if view?.suggestSharing && working === null}
-      <div class="share">
-        <p>{INTERFACE.shareLead}</p>
-        <button onclick={() => void share()}><Icon name="upload" size={16} />{INTERFACE.share}</button>
-      </div>
-    {/if}
     {#if app.config?.developer}
       <p class="muted small">{INTERFACE.developer(v.key.replace("/", "-"))}</p>
     {/if}
@@ -361,24 +344,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-  }
-
-  /* A hint inside a page: the panel warmed with the gold, no edge. */
-  .share {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 12px;
-    padding: 10px 12px;
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--amber) 9%, var(--panel));
-    --control: color-mix(in srgb, var(--amber) 16%, var(--panel));
-    --control-hi: color-mix(in srgb, var(--amber) 24%, var(--panel));
-  }
-
-  .share p {
-    flex: 1 1 240px;
-    font-size: 0.875rem;
   }
 
   .failed {

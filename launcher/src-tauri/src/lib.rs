@@ -506,10 +506,7 @@ async fn interface_runs_view(
     version: String,
 ) -> Result<openrac_launcher_core::interface_runs::View, String> {
     let data = game_data_dir(&state, &game)?;
-    let root = differences_root(&state);
-    tauri::async_runtime::spawn_blocking(move || {
-        openrac_launcher_core::interface_runs::view(root.as_deref(), &data, &game, &version)
-    })
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::interface_runs::view(&data, &game, &version))
     .await
     .map_err(|e| e.to_string())?
 }

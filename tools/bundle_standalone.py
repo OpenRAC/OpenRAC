@@ -398,16 +398,12 @@ def main() -> int:
         for kit in args.asm_part_kit:
             game = json.loads((kit / "kit.json").read_text())["game"]
             shutil.copytree(kit, out / "port/asm-part" / game)
-    # Interface texture runs (docs/port/TEXTURE_PACKS.md): the tool that makes one, the routes it
-    # plays, and the project's runs the export reads.
+    # Interface texture runs (docs/port/TEXTURE_PACKS.md): the tool that makes one and the routes it
+    # plays (the player makes their own run; the copy carries none).
     files.copy_tree(ROOT / "port/tools/interface_runs", out / "port/tools/interface_runs",
                     lambda rel: rel.suffix == ".py" and not rel.name.startswith("test_"))
     files.copy_tree(ROOT / "port/tools/regress", out / "port/tools/regress",
                     lambda rel: rel.name in {"card.py", "routes.py", "runner.py", "routes.json", "routes_rac2.json"})
-    for run in sorted((ROOT / "port/game").glob("*/interface-run.json")):
-        dest = out / run.relative_to(ROOT)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(run, dest)
     # Players have no decompilation headers. Carry the same validated typed fields the
     # checkout uses, or edits such as Novalis's moveSpeed would be ignored when packed.
     proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",

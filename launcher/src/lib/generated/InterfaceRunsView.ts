@@ -10,11 +10,7 @@ export type InterfaceRunsView = {
  */
 id: string, 
 /**
- * The project's run, if this copy carries one.
- */
-official: InterfaceRun | null, 
-/**
- * The player's own, if they made one.
+ * The player's run, if they made one.
  */
 local: InterfaceRun | null, 
 /**
@@ -23,25 +19,14 @@ local: InterfaceRun | null,
  */
 unreadable: Array<string>, 
 /**
- * For each kind (CATEGORIES' order): "official", "local" or "none": the run the export takes it
- * from.
+ * For each kind (CATEGORIES' order): the run is current and has textures of it to export.
  */
-sources: [string, string, string], 
+available: [boolean, boolean, boolean], 
 /**
  * Whether this version's routes can be played here (a run can be made).
  */
 runnable: boolean, 
 /**
- * The player's own run is clean and current and has, in a kind it made whole, textures the
- * official one lacks: the panel suggests offering it to the project.
+ * The player's run file.
  */
-suggestSharing: boolean, 
-/**
- * The player's own run file.
- */
-localFile: string, 
-/**
- * Its copy named as the project keeps it (`share/<id>/interface-run.json` beside it), which
- * run.py writes after a clean run: the file a pull request adds.
- */
-shareFile: string, };
+localFile: string, };

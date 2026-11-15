@@ -66,9 +66,9 @@ class JoinTests(unittest.TestCase):
             p = Path(tmp) / "p.json"
             p.write_text(json.dumps(part([pool("01", "effects", "a1")], {"a1": {"size": 64, "at": 0}})))
             out = Path(tmp) / "run.json"
-            self.assertEqual(run.main(["join", str(out), str(p), "--official"]), 0)
+            self.assertEqual(run.main(["join", str(out), str(p)]), 0)
             doc = json.loads(out.read_text())
-            self.assertTrue(doc["official"])
+            self.assertEqual(len(doc["textures"]), 1)
             self.assertFalse((Path(tmp) / "run.json.partial").exists())
 
     def test_broken_textures_are_left_out(self):
