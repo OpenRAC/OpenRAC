@@ -13,8 +13,8 @@
 #include "enhanced/tests/gpu_probe_fixture.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "renderer/framebuffer.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/settings/render_opt.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -44,6 +44,7 @@ void check_rim(bool skinned, float albedo, bool chrome = false) {
     level.materials.emplace_back();
     level.materials.back().colour = {albedo, albedo, albedo, 1};
     scene::Model model;
+    model.name = "moby_7.glb";
     model.min = {-.6f, -.6f, 0};
     model.max = {.6f, .6f, 0};
     model.primitives.push_back({0, 6, 0});

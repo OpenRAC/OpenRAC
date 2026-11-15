@@ -18,10 +18,10 @@
 #include "common/log.h"
 #include "frontend.h"
 #include "game/common/frontend/state.h"
-#include "renderer/direct.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/texture_pool.h"
+#include "renderer/direct/direct.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/textures/texture_pool.h"
 #include "scene/screenshot.h"
 
 namespace openrac::frontend {

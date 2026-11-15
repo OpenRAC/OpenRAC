@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The renderer's GLSL as Metal's shading language: glslang makes SPIR-V of it exactly as for
-// Vulkan (renderer/vulkan/shader_compiler.h, which also answers what an OpenGL program would about
+// Vulkan (renderer/vulkan/pipelines/shader_compiler.h, which also answers what an OpenGL program would about
 // its uniforms), and SPIRV-Cross writes that SPIR-V as MSL. One source for every API, so a shader
 // is never written twice and cannot drift from its other forms.
 //
@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-#include "renderer/vulkan/shader_compiler.h"
+#include "renderer/vulkan/pipelines/shader_compiler.h"
 
 namespace openrac::mtlgl {
 

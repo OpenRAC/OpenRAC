@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Pins what the Vulkan backend does with a GL buffer that a renderer fills once and draws for
-// many frames (renderer/vulkan/vkgl_resources.cpp, resolve; vkgl_gl.cpp, the buffer functions),
+// many frames (renderer/vulkan/resources/vkgl_resources.cpp, resolve; vkgl_gl.cpp, the buffer functions),
 // for the change that moves such buffers into device memory and frees their CPU copy
 // (docs/port/RENDER_PERF.md, "R-05"). Its pixel checks passed before that change and pass after.
 //
@@ -26,9 +26,9 @@
 #include <string>
 #include <vector>
 
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"

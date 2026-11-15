@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "check.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/ui/touch_icons.h"
 #include "renderer/ui/touch_overlay.h"
 #include "renderer_gl_context.h"

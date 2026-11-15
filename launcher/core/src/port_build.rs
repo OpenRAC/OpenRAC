@@ -96,6 +96,7 @@ fn is_sha(text: &str) -> bool {
 const BUILT_FROM: &[&str] = &[
     "port",
     "tools/build_port.py",
+    "tools/build_port_tools.py",
     "editor/moby_classes.tsv",
     "launcher/src-tauri/icons",
     "launcher/src-tauri/tauri.conf.json",
@@ -311,6 +312,10 @@ mod tests {
         assert!(!outdated(root, "rac1-pal"));
         commit("port/runtime/b.c", "int b = 1;");
         assert!(outdated(root, "rac1-pal"), "the port");
+        stamp(root, "0.8.0", Some(&commit("tools/build_port.py", "# build")), &["rac1-pal"]);
+        assert!(!outdated(root, "rac1-pal"));
+        commit("tools/build_port_tools.py", "# tool setup");
+        assert!(outdated(root, "rac1-pal"), "build tool discovery and setup");
     }
 
     #[test]

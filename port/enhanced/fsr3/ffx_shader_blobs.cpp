@@ -13,7 +13,7 @@
 
 #include "enhanced/fsr3/sdk_shaders.h"
 #include "fsr3_sources.h"
-#include "renderer/vulkan/shader_compiler.h"
+#include "renderer/vulkan/pipelines/shader_compiler.h"
 
 #include <FidelityFX/host/ffx_fsr3upscaler.h>
 

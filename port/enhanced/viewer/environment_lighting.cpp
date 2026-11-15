@@ -11,7 +11,7 @@
 #include "enhanced/viewer/environment_overlay.h"
 #include "enhanced/viewer/probe_texture_upload.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"

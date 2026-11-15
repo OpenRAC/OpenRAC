@@ -258,16 +258,27 @@ std::string enhanced_graphics_error();
 
 // Shares immutable material inspector data only while the render worker is idle.
 std::shared_ptr<const enhanced::MaterialEditor> material_editor();
-// Applies one validated sparse property edit with exclusive scene ownership.
+// Applies one validated batch of sparse property edits with exclusive scene ownership.
 bool patch_material(
-    std::size_t binding, std::string key, materials::Value value, std::string& error
+    std::span<const std::size_t> bindings, materials::Properties properties, std::string& error
 );
+bool assign_material(
+    std::span<const std::size_t> bindings,
+    const std::string& material,
+    materials::Properties definition,
+    std::string& error
+);
+bool make_material_unique(std::span<const std::size_t> bindings, std::string& error);
+bool clear_material_slots(std::span<const std::size_t> bindings, std::string& error);
 // Applies one shared preset field with the same scene ownership and validation as object edits.
 bool patch_material_preset(
     const std::string& preset, std::string key, materials::Value value, std::string& error
 );
-// Removes one unsaved object field so it inherits the last loaded/saved value.
-bool undo_material(std::size_t binding, const std::string& key, std::string& error);
+bool delete_material_override(const std::string& id, std::string& error);
+// Removes an unsaved field on each selected slot.
+bool undo_material(
+    std::span<const std::size_t> bindings, const std::string& key, std::string& error
+);
 // Removes one unsaved shared preset field while retaining other edits.
 bool undo_material_preset(const std::string& preset, const std::string& key, std::string& error);
 // Saves the local JSON overlay, preserving the old file on failure.

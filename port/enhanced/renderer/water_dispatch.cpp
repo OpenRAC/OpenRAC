@@ -9,7 +9,7 @@
 #include "common/stats.h"
 #include "enhanced/renderer/water_graph.h"
 #include "enhanced/renderer/water_internal.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 

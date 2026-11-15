@@ -21,8 +21,8 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "common/profiler.h"
-#include "renderer/pcsx2_pack.h"
-#include "renderer/texture_pack.h"
+#include "renderer/textures/pcsx2_pack.h"
+#include "renderer/textures/texture_pack.h"
 #include "scene/material_overrides.h"
 
 namespace openrac::scene {
@@ -240,6 +240,8 @@ int image_index(const fs::path& requested, LevelData& level) {
     }
     level.image_animations.resize(level.images.size());
     level.image_animations.push_back(std::move(replaced.animation));
+    level.image_blocks.resize(level.images.size());
+    level.image_blocks.push_back(std::move(replaced.blocks));
     bool translucent = false;
     for (std::size_t i = 3; i < image.pixels.size(); i += 4) {
         if (image.pixels[i] < 250) {
@@ -664,7 +666,8 @@ bool load_level(
     LevelData& out,
     std::string& error,
     const fs::path& edited,
-    const std::vector<fs::path>& mod_roots
+    const std::vector<fs::path>& mod_roots,
+    void (*prepare_geometry)(LevelData&)
 ) {
     const profiling::Zone trace("Load level assets");
 
@@ -1429,6 +1432,10 @@ bool load_level(
         out.pvs.grid.empty() ? "unavailable" : "loaded",
         out.pvs.grid.size()
     );
+    if (prepare_geometry) {
+        prepare_geometry(out);
+    }
+    prepare_chrome_geometry(out);
     prepare_material_overrides(out);
     return true;
 }

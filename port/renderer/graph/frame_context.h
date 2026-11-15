@@ -41,8 +41,6 @@ private:
     // Canonicalises physical identities while checking allocation shape independently of entry
     // state.
     [[nodiscard]] Result<std::vector<unsigned>> import(const Plan& source);
-    // Remaps one source pass into frame-local handles; validates every source index first.
-    [[nodiscard]] Result<Pass> remap(const Pass& pass, const std::vector<unsigned>& handles) const;
     // Adds a conservative producer for imported contents touched by intervening untracked
     // recording.
     void opaque_boundary(const Plan& source, const std::vector<unsigned>& handles);

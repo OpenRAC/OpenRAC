@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Precise world depth (renderer/precise_depth.h): two walls facing the camera, the nearer one
+// Precise world depth (renderer/gl/precise_depth.h): two walls facing the camera, the nearer one
 // 1 cm in front, drawn nearer first with the reversed test (GEQUAL, cleared to 0). Wherever the
 // depth cannot part them the farther one wins the tie and shows. GL's form keeps 2^-24 of the
 // range after (z + w) / 2, so from about 150 units on (near 0.05) it cannot; precise depth (a
@@ -14,11 +14,11 @@
 #include <vector>
 
 #include "check.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/precise_depth.h"
+#include "renderer/gl/shader.h"
 #include "renderer/math.h"
-#include "renderer/precise_depth.h"
-#include "renderer/shader.h"
 #include "tests/renderer_gl_context.h"
 
 using namespace openrac;

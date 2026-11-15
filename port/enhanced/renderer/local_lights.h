@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "common/result.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 
 namespace openrac::enhanced {
 // Shared probe/direct-light source for mesh and water materials, including the light iterator.

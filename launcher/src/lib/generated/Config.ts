@@ -114,12 +114,6 @@ detailedGameLog: boolean,
  */
 renderer: "opengl" | "vulkan" | "metal", 
 /**
- * HDR output (port docs/port/HDR.md): "off" (default) or "on", given to each game's start
- * (OPENRAC_HDR) over the game's own setting. On: HDR when the system has the display in HDR
- * mode. On every system; it needs the Vulkan renderer. Anything else reads as "off" (load).
- */
-hdr: "off" | "on", 
-/**
  * Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
  * (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
  * a start whose window crashed before it drew a click; the player may turn it off again.

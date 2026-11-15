@@ -12,8 +12,8 @@
 #include <string>
 
 #include "check.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/ui/overlay_draw.h"
 #include "renderer/ui/overlay_list.h"
 #include "renderer_gl_context.h"

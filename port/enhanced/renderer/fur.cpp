@@ -9,7 +9,7 @@
 #include <limits>
 
 #include "common/log.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::enhanced {
 namespace {
@@ -191,6 +191,26 @@ void HeroFur::bind_material(
         settings.directionality,
         settings.scattering
     );
+}
+
+void HeroFur::bind_model(
+    const renderer::Shader& shader, std::uint32_t model, const FurMaterialSettings& settings
+) const {
+    if (shader.uniform("hero_fur_palette") < 0) {
+        return;
+    }
+    if (hero_model(model)) {
+        gl::glUniform1i(shader.uniform("hero_fur_debug"), int(fur_debug_view()));
+        bind_material(shader, settings);
+        gl::glUniform1i(
+            shader.uniform("hero_fur_shell_enabled"), fur_material_settings().shells_enabled ? 1 : 0
+        );
+        return;
+    }
+    gl::glUniform1i(shader.uniform("hero_fur_debug"), 0);
+    gl::glUniform1i(shader.uniform("hero_fur_detail_enabled"), 0);
+    gl::glUniform1i(shader.uniform("hero_fur_lighting_enabled"), 0);
+    gl::glUniform1i(shader.uniform("hero_fur_shell_enabled"), 0);
 }
 
 int HeroFur::shell_layers(std::uint32_t model, std::uint32_t first, std::uint32_t count) const {

@@ -16,16 +16,16 @@
 #include "enhanced/tests/probe_fixture.h"
 #include "enhanced/tests/water_test_bake.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "renderer/effects.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/surface_chain.h"
+#include "renderer/effects/effects.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 
@@ -762,6 +762,10 @@ int main(int argc, char** argv) {
         for (const int samples : {1, 4}) {
             CHECK(target.create(samples == 1 ? 64 : 79, samples == 1 ? 64 : 53, error, samples));
             state.target = {target.id(), target.width(), target.height()};
+            renderer::FrameBuffer opaque;
+            if (samples == 1) {
+                CHECK(opaque.create_colour(target.width(), target.height(), error));
+            }
             lighting::scene_lighting(scene)
                 ->prepare_atmosphere(scene, input, state.target, {.1f, .2f, .3f, 1}, {0, 0, 10, 1});
             std::array<double, 2> transmitted_difference{};
@@ -790,7 +794,13 @@ int main(int argc, char** argv) {
                     glClearColor(colour == 0 ? .6f : .05f, .1f, colour == 0 ? .05f : .6f, .3f);
                     glClearDepth(screen_depth);
                     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                    if (samples == 1) {
+                        // A pre-particle RGBA8 snapshot must produce the same transmission.
+                        target.blit_to(opaque.id(), target.width(), target.height());
+                        state.pre_particle_colour_texture = opaque.colour_texture();
+                    }
                     effects.render(input, state);
+                    state.pre_particle_colour_texture = 0;
                     CHECK(images[colour] == target.read_rgba());
 
                     if (depth < 2) {

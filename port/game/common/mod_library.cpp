@@ -5,6 +5,8 @@
 
 #include "mod_library.h"
 
+#include "openrac/memory.h"
+
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -46,6 +48,7 @@ void* open(const std::filesystem::path& path, std::string& error) {
         }
         return nullptr;
     }
+    runtime::add_own_library(module);  // its faults are reported at once, like the program's
     return module;
 }
 
@@ -54,6 +57,7 @@ void* symbol(void* library, const char* name) {
 }
 
 void close(void* library) {
+    runtime::remove_own_library(library);
     FreeLibrary(static_cast<HMODULE>(library));
 }
 
@@ -97,35 +101,40 @@ bool keeps_modes(const std::filesystem::path& dir) {
 #endif
 }
 
+// Whether the file or folder at `at` may be changed by another user of this computer. One of this
+// user's own that all may write in is closed to others (chmod o-w): a program started from Steam
+// may run with umask 0, and every folder it makes is then writable by all.
+bool open_to_others(const std::filesystem::path& at, bool folder) {
+    struct stat st{};
+    if (stat(at.c_str(), &st) != 0) {
+        return false;
+    }
+    const uid_t me = geteuid();
+    if (st.st_uid != me && st.st_uid != 0) {
+        return true;
+    }
+    // A sticky folder (as /tmp) keeps others from renaming what they do not own.
+    if ((st.st_mode & S_IWOTH) == 0 || (folder && (st.st_mode & S_ISVTX) != 0)) {
+        return false;
+    }
+    return st.st_uid != me || chmod(at.c_str(), (st.st_mode & 07777) & ~S_IWOTH) != 0;
+}
+
 // Why a library another user of this computer could swap is not loaded: the file, or a folder
-// above it, writable by all (a sticky folder, as /tmp, only keeps others from renaming what they
-// do not own) or owned by another user than this one and root. Links are followed to the file.
+// above it, owned by another user than this one and root, or writable by all and not this user's
+// to close. Links are followed to the file.
 std::string writable_by_others(const std::filesystem::path& path) {
     std::error_code ec;
     const std::filesystem::path file = std::filesystem::canonical(path, ec);
     if (ec || !keeps_modes(file.parent_path())) {
         return {};
     }
-    const uid_t me = geteuid();
-    struct stat st{};
-    if (stat(file.c_str(), &st) == 0) {
-        if ((st.st_mode & S_IWOTH) != 0) {
-            return "its library can be changed by any user of this computer (chmod o-w "
-                   + file.string() + ")";
-        }
-        if (st.st_uid != me && st.st_uid != 0) {
-            return "its library " + file.string() + " belongs to another user of this computer";
-        }
+    if (open_to_others(file, false)) {
+        return "its library " + file.string() + " can be changed by another user of this computer";
     }
     for (std::filesystem::path dir = file.parent_path(); !dir.empty(); dir = dir.parent_path()) {
-        if (stat(dir.c_str(), &st) == 0) {
-            if ((st.st_mode & S_IWOTH) != 0 && (st.st_mode & S_ISVTX) == 0) {
-                return "its folder " + dir.string()
-                       + " can be changed by any user of this computer (chmod o-w)";
-            }
-            if (st.st_uid != me && st.st_uid != 0) {
-                return "its folder " + dir.string() + " belongs to another user of this computer";
-            }
+        if (open_to_others(dir, true)) {
+            return "its folder " + dir.string() + " can be changed by another user of this computer";
         }
         if (dir == dir.root_path()) {
             break;

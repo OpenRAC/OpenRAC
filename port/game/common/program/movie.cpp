@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/precise_wait.h"
 #include "openrac/game_host.h"
@@ -175,6 +176,7 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         previous = buttons;
 
         if (start_skips && start_now && !start_before) {
+            crash::breadcrumb(crash::BreadcrumbThread::Main, "movie skip requested");
             log::info("movie at sector {}: Start pressed (pad {:#06x})", lsn, buttons);
             skipped = 1;
             break;
@@ -184,6 +186,9 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
     }
 
     // FadeToBlack(4) over the last picture, then its closing black blank.
+    if (shown) {
+        crash::breadcrumb(crash::BreadcrumbThread::Main, "movie fade-out started");
+    }
     for (int step = 0; step <= 4 && shown; ++step) {
         frontend::show_picture(
             rgba.data(),
@@ -198,6 +203,7 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         output->pause(true);
     }
 
+    crash::breadcrumb(crash::BreadcrumbThread::Main, "movie returning to game");
     log::info("movie at sector {}: {}", lsn, skipped ? "skipped" : "played");
     return skipped;
 #else

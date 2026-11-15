@@ -8,16 +8,16 @@
 #include <string>
 
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
-#include "renderer/shader_precision.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/gl/shader_precision.h"
 #include "renderer_shaders.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
-#include "renderer/vulkan/shader_compiler.h"
-#include "renderer/vulkan/spirv_precision.h"
+#include "renderer/vulkan/pipelines/shader_compiler.h"
+#include "renderer/vulkan/pipelines/spirv_precision.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 using namespace openrac;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The renderer's OpenGL (renderer/gl.h, renderer/world/gl_world.h, and the few calls gl_stats.h
+// The renderer's OpenGL (renderer/gl/gl.h, renderer/world/gl_world.h, and the few calls gl_stats.h
 // adds) carried out with Vulkan: the port's Vulkan renderer. Every renderer is written against
 // that short list of GL calls, so this is the one place that knows Vulkan; the renderers, their
 // shaders and the frontend run on it unchanged (docs/port/ANDROID.md, "A Vulkan renderer"). It is
@@ -37,7 +37,7 @@
 #include <vector>
 
 #include "common/hdr.h"
-#include "renderer/gpu_draw.h"
+#include "renderer/gl/gpu_draw.h"
 
 struct SDL_Window;
 
@@ -211,7 +211,7 @@ bool combine_shadow_depth(
     std::array<int, 4> dynamic_rect
 );
 
-// renderer/gl.h's loader: the GL functions by name, null for one this does not carry out.
+// renderer/gl/gl.h's loader: the GL functions by name, null for one this does not carry out.
 using Proc = void (*)();
 Proc get_proc(const char* name);
 
@@ -255,6 +255,9 @@ struct SubmissionCounters {
     std::uint64_t pipelines_created = 0;  // Draw-thread creations; excludes prewarm worker calls.
     // Pipelines a draw linked from parts (vk-pipeline-library), not counted in pipelines_created.
     std::uint64_t pipelines_linked = 0;
+    // Pipelines specialised with a program's modes (vk-mode-constants): asked of the workers, or
+    // made at their draw where there are none.
+    std::uint64_t mode_pipelines = 0;
     // Pipelines made once the warm-up begin_pipeline_warmup started had passed.
     std::uint64_t pipelines_created_after_warmup = 0;
     std::uint64_t descriptor_sets_allocated = 0;  // Every vkAllocateDescriptorSets set.
@@ -287,6 +290,7 @@ struct SubmissionCounters {
     std::uint64_t shader_compiles = 0;  // glslang runs: shaders checked, programs compiled.
     double shader_compile_s = 0.0;      // The seconds those compiles took.
     std::uint64_t test_program_reuses = 0;  // Immutable driver object reuse in an opted-in test.
+    std::uint64_t program_reuses = 0;       // Links that took a kept program's objects.
     double pipeline_compile_s = 0.0;    // Driver pipeline creation, including prewarm workers.
     std::uint64_t pipeline_creation_calls =
         0;  // Driver calls, including speculative and failed ones.
@@ -318,6 +322,17 @@ bool test_poison_discards(bool on);
 // borrow=false retains objects after an independent fresh-driver oracle without reusing them.
 void test_reuse_programs(bool on, bool borrow = true);
 
+// For the game: with `on`, a deleted program's shader modules, layouts and pipelines are kept, and
+// the next link of the same shaders takes them (vk-program-keep, docs/port/RENDER_PERF.md). A
+// level's load deletes and links the same programs, so it makes no pipelines again. Uniform values
+// are never kept. Off (the default, and the tests'), a deleted program's objects are destroyed.
+void keep_programs(bool on);
+
+// While an upscaler draws the world at a smaller size, its mipmapped textures take this bias
+// (log2 of render over display width, below zero) so that they keep the display's detail; 0 for
+// everything else. Read when a draw binds its textures.
+void set_texture_lod_bias(float bias);
+
 // For the tests: draws the copy into the default framebuffer that waits for the present
 // (present-single-copy) into two stand-ins of the screen, B8G8R8A8 at the default framebuffer's
 // size: `single` the one blit the present makes, `two_step` the copy into the default
@@ -330,11 +345,18 @@ bool test_present_paths(std::vector<std::uint8_t>& single, std::vector<std::uint
 // the tests, which then draw and count the pipelines the drawing thread had to make itself.
 std::uint64_t wait_for_pipeline_prewarm();
 
+// Whether the pre-warm workers still have a pipeline to make; false while the backend is closed.
+// A draw whose specialised pipeline they have not made yet uses one that reads its modes from the
+// uniforms (vk-mode-constants), so a measurement waits for this to be false.
+bool pipeline_prewarm_busy();
+
 // For a level's load, behind its loading screen: waits until the pre-warm workers have made every
 // pipeline and part queued when the level's programs linked (the pipelines earlier runs drew them
 // with), so that its first frames make none, and saves the pipeline caches on a thread of their
-// own if this run made new pipelines. Nothing while the backend is closed.
-void finish_pipelines();
+// own if this run made new pipelines. Optional upgrades discovered during gameplay are recorded
+// in the manifest for a future load. While waiting, pump_events can keep the window responsive.
+// Nothing while the backend is closed.
+void finish_pipelines(void (*pump_events)() = nullptr);
 
 // When the presents have been seen to reach the screen (VK_KHR_present_wait, under the registry's
 // present-timing). `visible` is the moment the backend saw present `id` finished, on the steady
@@ -401,10 +423,16 @@ bool hdr_frame();
 // blending: in a float frame only blending's sums go above 1. Until the image is made again.
 void clamp_colour_writes(unsigned framebuffer);
 
+// Draws into the default framebuffer leave its depth and stencil image out of their pass while
+// `attached` is false. On Adreno with 2x MSAA, a pass that keeps that unused image broke the
+// overlay drawn in it.
+void default_framebuffer_depth(bool attached);
+
 // For the tests: the encode pass run on the default framebuffer (or on framebuffer `source`'s
 // picture, such as a float one above white) into a stand-in of an HDR screen (`output`'s format,
 // `width` by `height`), read back as stored: one 32-bit word a texel for Output::Hdr10
-// (A2B10G10R10) and four half floats for Output::ScRgb. False without a context.
+// (A2B10G10R10) and four half floats for Output::ScRgb. `through_float`: as on a device that
+// can't store the screen's format (half floats, blitted). False without a context.
 bool test_hdr_encode(
     hdr::Output output,
     const hdr::Levels& levels,
@@ -412,7 +440,8 @@ bool test_hdr_encode(
     int height,
     std::vector<std::uint8_t>& out,
     bool staged = false,
-    unsigned source = 0
+    unsigned source = 0,
+    bool through_float = false
 );
 
 // With low-latency frames, called by the window's thread before a frame begins, before it reads

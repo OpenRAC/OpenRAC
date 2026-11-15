@@ -52,6 +52,7 @@
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/state.h"
 #include "game/common/frontend/water_interactions.h"
+#include "game/common/moby_proc.h"
 #include "mod_menu.h"
 #include "mod_ui.h"
 #include "mods.h"
@@ -60,9 +61,9 @@
 #include "options_menu.h"
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
-#include "renderer/direct.h"
+#include "renderer/direct/direct.h"
+#include "renderer/effects/shadows.h"
 #include "renderer/renderer.h"
-#include "renderer/shadows.h"
 #include "renderer/world/fog.h"
 #include "scene/hero_shadow.h"
 #include "scene/level_renderer.h"
@@ -843,12 +844,8 @@ void follow_route(std::span<const std::uint8_t> ram, int level) {
     }
 }
 
-// Writes this tick's line of OPENRAC_TRACE. `draws`: the layers the game drew (frame()).
-void trace_tick(const host::GameState& state, std::uint32_t draws) {
-    // OPENRAC_TRACE=FILE: one JSON line a tick, for port/tools/regress (docs/port/REGRESSION.md):
-    // f the window frame, c frames since control (null before), lv the level (-1 the boot
-    // program), m the game mode, cam/fw the camera's position and forward row, hp/hr/hs the hero's
-    // position, rotation and state, mb the live mobys, dr the layers the game drew.
+// The OPENRAC_TRACE file, opened on first use (nullptr: no trace).
+std::FILE* trace_file() {
     static std::FILE* trace = [] {
         const std::optional<std::string> path = env_string(env::Var::Trace);
         std::FILE* f = path && !path->empty() ? std::fopen(path->c_str(), "w") : nullptr;
@@ -857,7 +854,34 @@ void trace_tick(const host::GameState& state, std::uint32_t draws) {
         }
         return f;
     }();
-    if (trace != nullptr) {
+    return trace;
+}
+
+// The part of the last tick's trace line after "c" (the level onwards), which a kept picture
+// repeats.
+std::string g_trace_rest;
+
+// Writes one line of OPENRAC_TRACE: the window frame and the frames since control, then `rest`.
+void write_trace_line(std::FILE* trace, const std::string& rest) {
+    std::string line = std::format(
+        "{{\"f\":{},\"c\":{}",
+        g->index,
+        g_route.control < 0 ? std::string("null")
+                            : std::to_string(static_cast<std::int64_t>(g->index) - g_route.control)
+    );
+    line += rest;
+    std::fwrite(line.data(), 1, line.size(), trace);
+    std::fflush(trace);  // a crash keeps every tick before it
+}
+
+// Writes this tick's line of OPENRAC_TRACE. `draws`: the layers the game drew (frame()).
+void trace_tick(const host::GameState& state, std::uint32_t draws) {
+    // OPENRAC_TRACE=FILE: one JSON line a window frame, for port/tools/regress
+    // (docs/port/REGRESSION.md): f the window frame, c frames since control (null before), lv the
+    // level (-1 the boot program), m the game mode, cam/fw the camera's position and forward row,
+    // hp/hr/hs the hero's position, rotation and state, mb the live mobys, dr the layers the game
+    // drew, k 1 on a frame that kept the last picture (trace_kept).
+    if (std::FILE* trace = trace_file()) {
         const auto num = [](float v) {
             return std::isfinite(v) ? std::format("{:.4f}", v) : std::string("null");
         };
@@ -865,11 +889,7 @@ void trace_tick(const host::GameState& state, std::uint32_t draws) {
             return std::format("[{},{},{}]", num(v[0]), num(v[1]), num(v[2]));
         };
         std::string line = std::format(
-            "{{\"f\":{},\"c\":{},\"lv\":{},\"m\":{},\"cam\":{},\"fw\":{}",
-            g->index,
-            g_route.control < 0
-                ? std::string("null")
-                : std::to_string(static_cast<std::int64_t>(g->index) - g_route.control),
+            ",\"lv\":{},\"m\":{},\"cam\":{},\"fw\":{}",
             g_route.level,
             g_route.mode,
             vec(state.camera_position.data()),
@@ -880,9 +900,18 @@ void trace_tick(const host::GameState& state, std::uint32_t draws) {
         if (openrac_game_hero != nullptr && openrac_game_hero(hp, hr, &hs) != 0) {
             line += std::format(",\"hp\":{},\"hr\":{},\"hs\":{}", vec(hp), vec(hr), hs);
         }
-        line += std::format(",\"mb\":{},\"dr\":{}}}\n", state.mobys.size(), draws);
-        std::fwrite(line.data(), 1, line.size(), trace);
-        std::fflush(trace);  // a crash keeps every tick before it
+        line += std::format(",\"mb\":{},\"dr\":{}", state.mobys.size(), draws);
+        g_trace_rest = line;
+        write_trace_line(trace, line + "}\n");
+    }
+}
+
+// The trace line of a frame that kept the last picture (keep_picture): the last tick's values
+// again, marked k. Without it a run ending on such a frame looked to the regress runner as if it
+// stopped short of its route (Gaspar).
+void trace_kept() {
+    if (std::FILE* trace = trace_file(); trace != nullptr && !g_trace_rest.empty()) {
+        write_trace_line(trace, g_trace_rest + ",\"k\":1}\n");
     }
 }
 
@@ -1600,6 +1629,7 @@ TickMobys pose_mobys(
         attached_catalog.reset();
     }
 #endif
+    const bool free_camera = debug_overlay::free_camera_enabled();
     for (std::size_t index = 0; index < state.mobys.size(); ++index) {
         bool light_only = false;
         const host::LiveMoby& m = state.mobys[index];
@@ -1629,7 +1659,12 @@ TickMobys pose_mobys(
             });
         std::optional<std::uint8_t> distance_fade = std::uint8_t{0x80};
         if (!extra && world_ran && m.address + 0x34 <= ram.size() && !own_camera) {
-            if (state.moby_view && g->profile->keeps_game_draw_distance(m.class_id)) {
+            // The freecam flies away from the game's camera, whose depth and sides it is not: a
+            // moby behind Ratchet is in its view. Kept by its draw distance from the game's camera
+            // in any direction, the window's own view of the freecam culls the rest.
+            if (free_camera) {
+                distance_fade = host::moby_free_camera_reach(ram.data() + m.address, state);
+            } else if (state.moby_view && g->profile->keeps_game_draw_distance(m.class_id)) {
                 host::GameState retail = state;
                 retail.moby_view->scale = 1.0f;
                 distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, retail);
@@ -2865,6 +2900,7 @@ bool keep_picture() {
     // shots and the run's end count them. Not counted, a script waiting on a frame number during
     // such a wait (the boot's) waited for ever.
     ++g->index;
+    trace_kept();
     if (run_over()) {
         return false;
     }

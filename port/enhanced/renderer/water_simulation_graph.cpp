@@ -10,10 +10,10 @@
 
 #include "enhanced/renderer/water_graph.h"
 #include "enhanced/renderer/water_internal.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/vulkan/graph_execution.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 
@@ -136,19 +136,25 @@ graph::Pass step_pass(const Imports& imports, unsigned current, unsigned step) {
 }
 
 // Transfers exactly the produced pixels and exports the image to all deformation and shading consumers.
-graph::BufferUse declare_copy(vkgl::GraphExecution& execution, const Imports& imports) {
+Result<void> declare_copy(vkgl::GraphExecution& execution, const Imports& imports) {
     const graph::BufferUse pixels{
         imports.buffers[kRenderPixels],
         {0, imports.bytes[kRenderPixels]},
         {graph::Stage::Transfer, graph::Access::Read, graph::Layout::Buffer}
     };
-    execution.add_pass(
+    graph::CommandBuffer commands;
+    commands.copy_buffer_to_image(pixels.buffer, pixels.range, imports.map);
+    const auto added = execution.add_pass(
         {"water wave-map copy",
          {{imports.map,
            {},
            {graph::Stage::Transfer, graph::Access::Write, graph::Layout::TransferDestination}}},
-         {pixels}}
+         {pixels}},
+        std::move(commands)
     );
+    if (!added) {
+        return added;
+    }
     graph::Pass consumers{
         "water simulation consumers",
         {{imports.map, {}, {kShaders, graph::Access::Read, graph::Layout::Sampled}}},
@@ -162,7 +168,7 @@ graph::BufferUse declare_copy(vkgl::GraphExecution& execution, const Imports& im
     }
 
     execution.add_pass(std::move(consumers));
-    return pixels;
+    return {};
 }
 
 // Compiles the whole chain before callbacks mutate ping-pong ownership or metadata cache keys.
@@ -189,22 +195,18 @@ Result<void> graph_simulation(
         execution.add_pass(step_pass(*imports, (plan.current + step) % 2, step));
     }
 
-    const auto pixels = declare_copy(execution, *imports);
+    const auto copied = declare_copy(execution, *imports);
+    if (!copied) {
+        return copied;
+    }
     const unsigned first_step = plan.prepare_window ? 1 : 0;
     // The executor invokes each callback synchronously on the render thread, after its entry barriers.
     return execution.run([&](unsigned index) {
         // Only the optional first work pass prepares history and metadata.
         if (index < first_step) {
             record(SimulationPhase::Window, 0);
-        } else if (index < first_step + plan.substeps) {
-            record(SimulationPhase::Step, index - first_step);
         } else {
-            const auto copied = execution.copy_buffer_to_image(pixels, imports->map);
-
-            // Stop recording before consumers can sample an incomplete copied wave map.
-            if (!copied) {
-                throw std::runtime_error(copied.error().message);
-            }
+            record(SimulationPhase::Step, index - first_step);
         }
     });
 }

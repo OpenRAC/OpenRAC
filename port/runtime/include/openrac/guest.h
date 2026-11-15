@@ -398,6 +398,11 @@ static inline gaddr openrac_guest_entry(openrac_host_fn self) {
     return openrac_guest_last_fn == self ? openrac_guest_last_entry : 0;
 }
 gaddr openrac_code_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gaddr target);
+/* Where the loaded level's copy of the executable's function `caller` calls, at the call the
+ * executable's makes to `callee`: the level's own routine when the copy calls one of its own there
+ * (a copy can differ in its calls, not only in its addresses). `callee` in the executable, where the
+ * copy has no call there, or where `caller` has no copy. Looks at the first `size` bytes of `caller`. */
+gaddr openrac_level_call(gaddr caller, uint32_t size, gaddr callee);
 /* The address of a function taken by name in code written for a level, where the name may stand for
  * several places of that level (a function the catalogue folded: one name for the same small code at
  * several places, each a routine of its own, rac1's `return 0` leaf func_001E97C8): the place of it the

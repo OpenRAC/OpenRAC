@@ -9,13 +9,86 @@
 
 #include "common/log.h"
 #include "enhanced_texture_shaders.h"
-#include "renderer/gl.h"
-#include "renderer/texture_pool.h"
+#include "renderer/gl/gl.h"
+#include "renderer/textures/texture_pool.h"
 #if defined(OPENRAC_VULKAN) && OPENRAC_VULKAN
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 namespace openrac::enhanced {
 using namespace openrac::gl;
+
+#if defined(OPENRAC_VULKAN) && OPENRAC_VULKAN
+namespace {
+// Allocates one complete RGBA8 cache entry with the requested wrap behaviour.
+unsigned allocate_upscaled_texture(int width, int height, unsigned wrap) {
+    unsigned result = 0;
+    glGenTextures(1, &result);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, result);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_RGBA8, width * 2, height * 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
+    );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (wrap & 1) ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (wrap & 2) ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+    return result;
+}
+
+// Cache misses inside graphics callbacks own their compute, transfer and sampling dependencies.
+Result<void> record_upscale(
+    unsigned buffer, unsigned texture, std::size_t bytes, int width, int height
+) {
+    namespace graph = renderer::graph;
+    vkgl::GraphExecution execution;
+    const auto output =
+        execution.import_buffer("upscale scratch", buffer, vkgl::InitialContents::Discard);
+    if (!output) {
+        return unexpected(output.error());
+    }
+    const auto image =
+        execution.import_image("upscaled texture", texture, vkgl::InitialContents::Discard);
+    if (!image) {
+        return unexpected(image.error());
+    }
+    graph::Pass compute{
+        "texture upscale",
+        {},
+        {{*output,
+          {0, bytes},
+          {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}}
+    };
+    const auto captured = execution.capture_compute_reads(compute);
+    if (!captured) {
+        return unexpected(captured.error());
+    }
+    execution.add_pass(std::move(compute));
+    graph::CommandBuffer commands;
+    commands.copy_buffer_to_image(*output, {0, bytes}, *image);
+    const auto copy = commands.declarations("upscale texture copy");
+    const auto added = execution.add_pass(copy, std::move(commands));
+    if (!added) {
+        return unexpected(added.error());
+    }
+    execution.add_pass(
+        graph::shader_read_export(
+            "upscaled texture consumers",
+            copy,
+            graph::Stage::VertexShader | graph::Stage::FragmentShader | graph::Stage::ComputeShader
+        )
+    );
+    return execution.run([width, height](unsigned) {
+        glDispatchCompute(
+            static_cast<unsigned>((width * 2 + 7) / 8),
+            static_cast<unsigned>((height * 2 + 7) / 8),
+            1
+        );
+    });
+}
+}  // namespace
+#endif
 
 void install_texture_upscaler(renderer::TexturePool& textures) {
     // Applications register enhanced providers; the scene depends only on the pool's interface.
@@ -135,18 +208,7 @@ unsigned TextureUpscaler::create(
         }
     }
 
-    unsigned result = 0;
-    glGenTextures(1, &result);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, result);
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_RGBA8, width * 2, height * 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
-    );
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (wrap & 1) ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (wrap & 2) ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+    const unsigned result = allocate_upscaled_texture(width, height, wrap);
     shader.use();
     glUniform1i(shader.uniform("tex_T0"), 0);
     glUniform1i(shader.uniform("wrap_mode"), static_cast<int>(wrap));
@@ -161,17 +223,12 @@ unsigned TextureUpscaler::create(
         m_buffer_capacity = bytes;
     }
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffer);
-    glDispatchCompute(
-        static_cast<unsigned>((width * 2 + 7) / 8), static_cast<unsigned>((height * 2 + 7) / 8), 1
-    );
-    const bool ok = vkgl::copy_buffer_to_texture(
-        m_buffer, result, width * 2, height * 2, /*reuse_source=*/true
-    );
+    const auto recorded = record_upscale(m_buffer, result, bytes, width, height);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
 
-    if (!ok) {
+    if (!recorded) {
         glDeleteTextures(1, &result);
-        error = "texture upscale output failed";
+        error = recorded.error().message;
         return 0;
     }
 

@@ -11,7 +11,7 @@ MoltenVK under the Vulkan renderer stays as it is.
 ## Shaders
 
 The renderers' GLSL is not rewritten for Metal. glslang makes SPIR-V of it exactly as for Vulkan
-([../vulkan/shader_compiler.h](../vulkan/shader_compiler.h)), and SPIRV-Cross (fetched by
+([../vulkan/shader_compiler.h](../vulkan/pipelines/shader_compiler.h)), and SPIRV-Cross (fetched by
 `cmake/Dependencies.cmake`) writes that SPIR-V as MSL. A shader therefore has one source for every
 API, and its forms cannot drift apart.
 
@@ -60,7 +60,7 @@ Metal device.
 
 ## GL
 
-[mtlgl.h](mtlgl.h): the GL calls of `renderer/gl.h` carried out with Metal, as `../vulkan` does
+[mtlgl.h](mtlgl.h): the GL calls of `renderer/gl/gl.h` carried out with Metal, as `../vulkan` does
 with Vulkan. The header gives the conventions.
 
 - [mtlgl_internal.h](mtlgl_internal.h): what the files share, and the command stream: one command

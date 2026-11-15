@@ -11,8 +11,8 @@
 #include <string>
 #include <vector>
 
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::test {
 
@@ -34,10 +34,20 @@ public:
         if (m_atlas.id() && width == m_width && height == m_height && count == m_count) {
             return true;
         }
+        if (!m_atlas.create(width, height * count, error)) {
+            return false;
+        }
         m_width = width;
         m_height = height;
         m_count = count;
-        return m_atlas.create(width, height * count, error);
+        // Each snapshot writes only one stripe. Define the whole attachment once
+        // so the graph can validate the final readback across all stripes.
+        gl::glBindFramebuffer(gl::GL_DRAW_FRAMEBUFFER, m_atlas.id());
+        gl::glDisable(gl::GL_SCISSOR_TEST);
+        gl::glColorMask(gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE);
+        gl::glClear(gl::GL_COLOR_BUFFER_BIT);
+        gl::glBindFramebuffer(gl::GL_DRAW_FRAMEBUFFER, 0);
+        return true;
     }
 
     // Releases GPU storage before the current context closes.

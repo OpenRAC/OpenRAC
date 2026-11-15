@@ -38,6 +38,10 @@ endif()
 string(REPLACE "${_bc6_before}" "${_bc6_after}" _bc6_source "${_bc6_source}")
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/bc6_encode_kernel.cpp" CONTENT "${_bc6_source}")
 add_library(openrac_bc6 STATIC "${CMAKE_CURRENT_BINARY_DIR}/generated/bc6_encode_kernel.cpp")
+# The kernel keeps "no partition" as -1 in a plain char. On ARM char is unsigned, so the -1 became
+# 255 and indexed a 32-entry table: a crash on Android. Signed char and no fused multiply-add give
+# every platform the same blocks.
+target_compile_options(openrac_bc6 PRIVATE -fsigned-char -ffp-contract=off)
 target_include_directories(openrac_bc6 SYSTEM PUBLIC
   "${openrac_compressonator_SOURCE_DIR}/cmp_core/shaders"
   "${openrac_compressonator_SOURCE_DIR}/cmp_core/source")
