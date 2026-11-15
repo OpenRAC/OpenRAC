@@ -181,6 +181,8 @@ public:
 
     const Rgba8Image& image(TextureHandle texture) const;
     bool has_cropped_replacement(TextureHandle texture) const;
+    // Whether a texture pack's picture replaced `texture` (an upload's conversion).
+    bool has_pack_replacement(TextureHandle texture) const;
     std::array<float, 2> uv_scale(TextureHandle texture) const;
 
     // Whether `texture` has an animated replacement's frames (animate()).
@@ -291,6 +293,7 @@ private:
         std::uint8_t wrap = 0;  // the GL texture's clamp: bit 0 across, bit 1 down (0: repeats)
         Rgba8Image image;
         bool cropped_replacement = false;
+        bool pack_replacement = false;
         std::array<float, 2> uv_scale{1.0f, 1.0f};
         AlphaScale scale = AlphaScale::Gs;
         std::string name;
@@ -358,6 +361,8 @@ private:
     std::unordered_map<Key, TextureHandle, KeyHash> m_converted;
     TextureHandle m_placeholder = 0;
     std::uint64_t m_frame = 0;
+    // texture_pack::kept_version() when the conversions were last checked against it.
+    std::uint64_t m_pack_version = 0;
     std::uint64_t m_tick = 0;  // set_tick
     // Textures drawn at each base pointer this frame, in order, and the cycles found among them:
     // only while textures are dumped (texture_pack::dumping).

@@ -477,7 +477,10 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     texture_pack::Replacement replaced;
     bool cropped = false;
     std::array<float, 2> uv_scale{1.0f, 1.0f};
-    if (!texture_pack::replace(image, {.interface = true}, &replaced) && clut != nullptr) {
+    // A pack picture not read yet is read in the background: the original is drawn until then,
+    // and end_frame() has the texture converted again (no frame waits for the disk).
+    const bool packed = texture_pack::replace(image, {.interface = true, .later = true}, &replaced);
+    if (!packed && clut != nullptr) {
         pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs);
         if (extent[0] != 0) {
             auto extended = border.empty() ? std::vector<std::uint8_t>{}
@@ -522,6 +525,7 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     const TextureHandle h = add(std::move(image), AlphaScale::Gs, "upload");
     auto& entry = m_entries[h - 1];
     entry.cropped_replacement = cropped;
+    entry.pack_replacement = packed;
     entry.uv_scale = uv_scale;
     entry.from_upload = true;
     entry.key = key;
@@ -556,6 +560,10 @@ const Rgba8Image& TexturePool::image(TextureHandle texture) const {
 
 bool TexturePool::has_cropped_replacement(TextureHandle texture) const {
     return m_entries[texture - 1].cropped_replacement;
+}
+
+bool TexturePool::has_pack_replacement(TextureHandle texture) const {
+    return m_entries[texture - 1].pack_replacement;
 }
 
 std::array<float, 2> TexturePool::uv_scale(TextureHandle texture) const {
@@ -1066,6 +1074,22 @@ void TexturePool::release_gl() {
 void TexturePool::end_frame() {
     ++m_frame;
     m_slot_turns.clear();
+    // Pack pictures read in the background since: the uploads drawn as their originals meanwhile
+    // are converted again at their next use.
+    if (const std::uint64_t version = texture_pack::kept_version(); version != m_pack_version) {
+        m_pack_version = version;
+        for (std::size_t i = 0; i < m_entries.size(); ++i) {
+            const Entry& e = m_entries[i];
+            if (e.live && e.from_upload && !e.pack_replacement && e.pack_hash != 0
+                && texture_pack::is_kept(e.pack_hash)) {
+                if (const auto found = m_converted.find(e.key);
+                    found != m_converted.end()
+                    && found->second == static_cast<TextureHandle>(i + 1)) {
+                    m_converted.erase(found);
+                }
+            }
+        }
+    }
     for (std::size_t i = 0; i < m_entries.size(); ++i) {
         Entry& e = m_entries[i];
         if (!e.live || !(e.from_upload || e.field) || m_frame - e.last_used < kKeepFrames) {
@@ -1075,8 +1099,10 @@ void TexturePool::end_frame() {
             delete_gl(e);
         }
         const auto handle = static_cast<TextureHandle>(i + 1);
-        if (e.from_upload) {
-            m_converted.erase(e.key);
+        // Only its own: a conversion made again since (end_frame()) has the same key.
+        if (const auto found = m_converted.find(e.key);
+            e.from_upload && found != m_converted.end() && found->second == handle) {
+            m_converted.erase(found);
         }
         if (e.field) {
             // A field nobody drew with for a while: made again if its glyphs come back. Kept for

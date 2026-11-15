@@ -49,6 +49,7 @@
 #include <vector>
 
 #include "common/build_info.h"
+#include "common/cache_folder.h"
 #include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
@@ -758,6 +759,14 @@ int main(int argc, char** argv) {
                  renderer::pack_pictures::load_svg},
                 texture_pack_level_name
             );
+            // The HUD's and effects' pictures, read in the background from the start (those the
+            // last runs showed, once it knows them).
+            if (use_packs) {
+                renderer::texture_pack::set_play_list(
+                    cache_folder() / "texture_packs" / (std::string(openrac_game.id) + ".txt")
+                );
+            }
+            renderer::texture_pack::preload();
         }
         fs::path levels = g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels);
         // A mod that makes the Vulkan device with the port (a VR headset's) is loaded before the

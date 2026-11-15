@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bit>
 #include <cgltf.h>
 #include <cmath>
@@ -16,11 +17,13 @@
 #include <map>
 #include <stb_image.h>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #include "common/json.h"
 #include "common/log.h"
 #include "common/profiler.h"
+#include "materials/catalog.h"
 #include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture_pack.h"
 #include "scene/material_overrides.h"
@@ -208,6 +211,55 @@ void replace_pcsx2(const fs::path& path, renderer::Rgba8Image& image) {
     renderer::pcsx2_pack::replace_indexed8(image, raster, palette);
 }
 
+// With a texture pack: the level's textures looked up in it all at once, on several threads, so
+// that its big pictures are decoded side by side, not one after another while the level loads.
+void read_pack_pictures_ahead(const fs::path& dir) {
+    if (!renderer::texture_pack::has_pictures()) {
+        return;
+    }
+    std::vector<fs::path> files;
+    std::error_code e;
+    for (auto it = fs::recursive_directory_iterator(dir, e);
+         it != fs::recursive_directory_iterator();
+         it.increment(e)) {
+        if (it->is_regular_file(e) && it->path().extension() == ".png") {
+            files.push_back(it->path());
+        }
+    }
+    std::vector<renderer::texture_pack::TextureId> ids(files.size());
+    std::atomic<std::size_t> next{0};
+    {
+        constexpr unsigned kMostThreads = 8;
+        const unsigned count = std::clamp(std::thread::hardware_concurrency(), 1u, kMostThreads);
+        std::vector<std::jthread> workers;
+        for (unsigned i = 0; i < count; ++i) {
+            workers.emplace_back([&] {
+                for (std::size_t at = next++; at < files.size(); at = next++) {
+                    // Read as image_index() reads it, so that the hash is the same.
+                    int w = 0;
+                    int h = 0;
+                    int channels = 0;
+                    unsigned char* pixels =
+                        stbi_load(files[at].string().c_str(), &w, &h, &channels, 4);
+                    if (pixels == nullptr) {
+                        continue;
+                    }
+                    renderer::Rgba8Image image(w, h);
+                    std::copy(
+                        pixels,
+                        pixels + static_cast<std::ptrdiff_t>(w) * h * 4,
+                        image.pixels.begin()
+                    );
+                    stbi_image_free(pixels);
+                    ids[at] = {renderer::texture_pack::image_hash(image), w, h};
+                }
+            });
+        }
+    }
+    std::erase_if(ids, [](const renderer::texture_pack::TextureId& id) { return id.hash == 0; });
+    renderer::texture_pack::read_level_pictures(ids);
+}
+
 int image_index(const fs::path& requested, LevelData& level) {
     int overridden = 0;
     const std::string key =
@@ -235,9 +287,19 @@ int image_index(const fs::path& requested, LevelData& level) {
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size, and its frames
     // when it is animated.
     renderer::texture_pack::Replacement replaced;
-    if (!renderer::texture_pack::replace(image, {.level = level.level}, &replaced)) {
+    // The original's texels, while a pack may replace them: its material identity is the original's.
+    renderer::Rgba8Image original;
+    if (renderer::texture_pack::has_pictures()) {
+        original = image;
+    }
+    std::string identity;
+    if (renderer::texture_pack::replace(image, {.level = level.level}, &replaced)) {
+        identity = materials::texture_identity(original.width, original.height, original.pixels);
+    } else {
         replace_pcsx2(key, image);
     }
+    level.image_identities.resize(level.images.size());
+    level.image_identities.push_back(std::move(identity));
     level.image_animations.resize(level.images.size());
     level.image_animations.push_back(std::move(replaced.animation));
     level.image_blocks.resize(level.images.size());
@@ -670,6 +732,13 @@ bool load_level(
     void (*prepare_geometry)(LevelData&)
 ) {
     const profiling::Zone trace("Load level assets");
+
+    // The pack's pictures read ahead for this level and not used are freed, whatever the outcome.
+    struct DropPictures {
+        ~DropPictures() { renderer::texture_pack::drop_level_pictures(); }
+    } drop_pictures;
+
+    read_pack_pictures_ahead(dir);
 
     out = LevelData{};
     out.dir = dir;
@@ -1437,6 +1506,8 @@ bool load_level(
     }
     prepare_chrome_geometry(out);
     prepare_material_overrides(out);
+    // The pack's HUD and effect pictures, read now behind the loading screen, not while playing.
+    renderer::texture_pack::preload();
     return true;
 }
 

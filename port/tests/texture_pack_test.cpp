@@ -361,6 +361,121 @@ void check_still_kinds(const fs::path& root) {
     fs::remove_all(root);
 }
 
+// Counts the reads, to see which replacements read their file again.
+int& reads() {
+    static int count = 0;
+    return count;
+}
+
+std::optional<Rgba8Image> counted_load(const fs::path& file) {
+    ++reads();
+    return load(file);
+}
+
+// A picture met again while playing is read once; a level's texture is read each time it loads.
+void check_kept_pictures(const fs::path& root) {
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const auto hud = solid(2, 2, 40);
+    const auto wall = solid(2, 2, 41);
+    disk().clear();
+    for (const auto& texture : {hud, wall}) {
+        const std::string name = texture_pack::file_name(texture_pack::image_hash(texture));
+        std::ofstream(root / name) << "png";
+        disk()[name] = solid(16, 16, 250);
+    }
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    for (int i = 0; i < 3; ++i) {
+        auto image = hud;
+        CHECK(texture_pack::replace(image, {.interface = true}) && image.width == 16);
+        CHECK(image.pixels[0] == 250);
+    }
+    CHECK(reads() == 1);
+    for (int i = 0; i < 2; ++i) {
+        auto image = wall;
+        CHECK(texture_pack::replace(image, {.level = 1}) && image.width == 16);
+    }
+    CHECK(reads() == 3);
+    // A new pack reads its files again.
+    texture_pack::configure(root, {}, {counted_load, save});
+    auto image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 4);
+
+    // Read ahead while a level loads: the HUD's picture, not a dump's Planets/ folder; its first
+    // showing then reads nothing.
+    fs::create_directories(root / "Planets" / "Oozla");
+    fs::rename(
+        root / texture_pack::file_name(texture_pack::image_hash(wall)),
+        root / "Planets" / "Oozla" / texture_pack::file_name(texture_pack::image_hash(wall))
+    );
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    texture_pack::preload();
+    texture_pack::finish_preload();
+    CHECK(reads() == 1);
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && image.width == 16 && reads() == 1);
+    image = wall;
+    CHECK(texture_pack::replace(image, {.level = 1}) && reads() == 2);
+    texture_pack::preload();  // nothing left to read
+    texture_pack::finish_preload();
+    CHECK(reads() == 2);
+
+    // A level's pictures read together ahead: its texture then reads nothing, and what it did not
+    // ask for is freed.
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    const std::vector<texture_pack::TextureId> level{
+        {texture_pack::image_hash(wall), 2, 2}, {texture_pack::image_hash(hud), 2, 2}
+    };
+    texture_pack::read_level_pictures(level);
+    CHECK(reads() == 2);
+    image = wall;
+    CHECK(texture_pack::replace(image, {.level = 1}) && image.width == 16 && reads() == 2);
+    texture_pack::drop_level_pictures();
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 3);
+
+    // The play list: a run learns the HUD's picture; the next reads ahead only that one, even
+    // with a level's picture lying beside it outside Planets/.
+    const fs::path list = root / "list" / "play.txt";
+    fs::rename(
+        root / "Planets" / "Oozla" / texture_pack::file_name(texture_pack::image_hash(wall)),
+        root / texture_pack::file_name(texture_pack::image_hash(wall))
+    );
+    texture_pack::configure(root, {}, {counted_load, save});
+    texture_pack::set_play_list(list);
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}));
+    CHECK(fs::exists(list));
+    texture_pack::configure(root, {}, {counted_load, save});
+    texture_pack::set_play_list(list);
+    reads() = 0;
+    texture_pack::preload();
+    texture_pack::finish_preload();
+    CHECK(reads() == 1);
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 1);
+
+    // Later: the first ask keeps the original and reads the picture in the background; once kept,
+    // the next ask gets it without reading.
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    const std::uint64_t version = texture_pack::kept_version();
+    image = hud;
+    CHECK(!texture_pack::replace(image, {.interface = true, .later = true}) && image.width == 2);
+    texture_pack::finish_preload();
+    // (The reader then goes on with the pack's other pictures.)
+    CHECK(reads() >= 1 && texture_pack::kept_version() != version);
+    const int after_reader = reads();
+    CHECK(texture_pack::is_kept(texture_pack::image_hash(hud)));
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true, .later = true}) && image.width == 16);
+    CHECK(reads() == after_reader);
+    fs::remove_all(root);
+}
+
 int main() {
     const auto small = solid(2, 2, 10);
     // The hash takes the size and every texel; the name is 16 hex digits.
@@ -438,6 +553,7 @@ int main() {
     CHECK(!texture_pack::dumping());
 
     check_frame_at();
+    check_kept_pictures(pack / "kept");
     check_still_kinds(pack / "kinds");
     check_folders(pack / "folders");
     check_animated_pack(pack);
