@@ -343,6 +343,12 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L02_0x0015FA1Cu 0x0015F944u
 #define RAC1_ADDR_L02_0x0015FA20u 0x0015F948u
 
+/* The ship computer's list (rac1/host/destinations.c): the NTSC decomp declares FUN_00221800 (the same bytes as PAL's) as void (menu, s32). */
+#define RAC1_SHIP_MENU_RESULT void
+#define RAC1_SHIP_MENU_PARAMS gaddr menu, int unused
+#define RAC1_SHIP_MENU_CALL(menu) (func_00222848__game(menu, unused), 0)
+#define RAC1_SHIP_MENU_RETURN(result) do { (void)(result); return; } while (0)
+
 /* ---- generated below ---- */
 
 /* Functions: games/rac1's name, this version's. */
@@ -735,5 +741,17 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_001FDE48__game game_FUN_L00_001fde98__game
 #define func_L11_0030BCD8 game_FUN_L11_0030a908
 #define func_L11_0030BCD8__game game_FUN_L11_0030a908__game
+
+/* The ship computer's destinations (rac1/host/destinations.c). */
+#define RAC1_ADDR_0x001602E0u 0x001601E0u
+#define RAC1_ADDR_0x0013D618u 0x0013D510u
+#define RAC1_ADDR_0x001DE0C0u 0x001DDD40u
+#define RAC1_ADDR_0x0013CC04u 0x0013CB04u
+#define func_0021BB90 game_FUN_0021abf8
+#define func_0021BB90__game game_FUN_0021abf8__game
+#define func_00222848 game_FUN_00221800
+#define func_00222848__game game_FUN_00221800__game
+#define func_L00_00290030 game_FUN_L00_0028ed58
+#define func_L00_00290030__game game_FUN_L00_0028ed58__game
 
 #endif /* OPENRAC_RAC1_VERSION_H */

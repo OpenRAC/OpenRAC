@@ -387,9 +387,7 @@ def version_header(c: Carry, primary_header: str, shared: list[Path], label: str
                         " * rac1.h) in this release, carried from rac1-pal's table by port/tools/hostgen/release_rac1.py\n"
                         " * (release_carry.json says what rests on less than the release's check). The function names are\n"
                         " * host/rac1_names.tsv's (release_host.py).")
-    out = [head.rstrip("\n"), "",
-           "gaddr rac1_ship_destination_text(int id);",
-           "#define RAC1_DESTINATION_TEXT(id) rac1_ship_destination_text(id)", ""]
+    out = [head.rstrip("\n"), ""]
 
     def fix(m: re.Match) -> str:
         address = int(m.group(1), 16)

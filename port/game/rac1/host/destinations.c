@@ -8,17 +8,26 @@
 #include "rac1.h"
 
 #define DATA(a) OPENRAC_DATA(a)
-#define MENU_INDICES DATA(0x001601A0u)
+#define MENU_INDICES DATA(RAC1_ADDR(0x001602E0u)) /* menu_level_indices */
 #define CUSTOM_TEXT 0x7B00
 
 static gaddr items, indices, choices, widget, previous_indices, labels;
 static int rows, pending_destination = -1, pending;
 
+/* How a version declares the menu's builder (rac1_version.h can say otherwise): PAL's C takes the
+ * menu and returns an int. */
+#ifndef RAC1_SHIP_MENU_PARAMS
+#define RAC1_SHIP_MENU_RESULT int
+#define RAC1_SHIP_MENU_PARAMS gaddr menu
+#define RAC1_SHIP_MENU_CALL(menu) func_00222848__game(menu)
+#define RAC1_SHIP_MENU_RETURN(result) return result
+#endif
+
 /* The ship's list is rebuilt on each opening; no retail array is extended in place. */
-int func_00221300(gaddr menu) {
-    const int result = func_00221300__game(menu);
+RAC1_SHIP_MENU_RESULT func_00222848(RAC1_SHIP_MENU_PARAMS) {
+    const int result = RAC1_SHIP_MENU_CALL(menu);
     if (openrac_game_destination_count == 0) {
-        return result;
+        RAC1_SHIP_MENU_RETURN(result);
     }
     const int count = openrac_game_front_end->levels;
     if (items == 0) {
@@ -31,16 +40,16 @@ int func_00221300(gaddr menu) {
     rows = 0;
     memset(G(choices), 0xFF, (count + (int)openrac_game_destination_count + 1) * 4);
     for (int i = 0; i < count; ++i) {
-        const int level = GREF(int, 0x0013D510u + 4u * i);
+        const int level = GREF(int, RAC1_ADDR(0x0013D618u) + 4u * i); /* gGalaxyList */
         if (level == 0) {
             break;
         }
         if (level < 0 || level >= count) {
             continue;
         }
-        GREF(short, items + rows * 12) = GREF(short, DATA(0x001DDCC0u) + level * 12);
+        GREF(short, items + rows * 12) = GREF(short, DATA(RAC1_ADDR(0x001DE0C0u)) + level * 12);
         GREF(short, items + rows * 12 + 2) = 1;
-        GREF(short, items + rows * 12 + 8) = GREF(short, DATA(0x001DDCC0u) + level * 12 + 4);
+        GREF(short, items + rows * 12 + 8) = GREF(short, DATA(RAC1_ADDR(0x001DE0C0u)) + level * 12 + 4);
         GREF(int, indices + rows * 4) = level;
         ++rows;
     }
@@ -52,9 +61,9 @@ int func_00221300(gaddr menu) {
             found |= GREF(int, indices + i * 4) == level;
         }
         if (!found) {
-            GREF(short, items + rows * 12) = GREF(short, DATA(0x001DDCC0u) + level * 12);
+            GREF(short, items + rows * 12) = GREF(short, DATA(RAC1_ADDR(0x001DE0C0u)) + level * 12);
             GREF(short, items + rows * 12 + 2) = 1;
-            GREF(short, items + rows * 12 + 8) = GREF(short, DATA(0x001DDCC0u) + level * 12 + 4);
+            GREF(short, items + rows * 12 + 8) = GREF(short, DATA(RAC1_ADDR(0x001DE0C0u)) + level * 12 + 4);
             GREF(int, indices + rows * 4) = level;
             ++rows;
         }
@@ -84,23 +93,23 @@ int func_00221300(gaddr menu) {
         count,
         rows
     );
-    return result;
+    RAC1_SHIP_MENU_RETURN(result);
 }
 
 /* Remember the logical selection before the ordinary menu converts it to a template ID. */
-int func_0021A6F0(gaddr menu) {
+int func_0021BB90(gaddr menu) {
     const int ours =
         openrac_game_destination_count != 0 && menu == widget && GREF(gaddr, menu + 0x34) == items;
-    const gaddr page = GREF(gaddr, DATA(0x001D5B70u) + 4);
+    const gaddr page = GREF(gaddr, DATA(RAC1_ADDR(0x001D5F70u)) + 4);
     if (ours && page != 0 && GREF(gaddr, page + 0x40) == menu
-        && (GREF(int, 0x0013CB04u) & 0x40) != 0) {
+        && (GREF(int, RAC1_ADDR(0x0013CC04u)) & 0x40) != 0) {
         const int row = GREF(int, menu + 0x40);
         if (row >= 0 && row < rows) {
             pending_destination = GREF(int, choices + row * 4);
             pending = 1;
         }
     }
-    const int result = func_0021A6F0__game(menu);
+    const int result = func_0021BB90__game(menu);
     if (ours && result < 0) {
         pending = 0;
         GREF(gaddr, MENU_INDICES) = previous_indices;
@@ -110,9 +119,9 @@ int func_0021A6F0(gaddr menu) {
 
 /* The game has already closed the ship computer. Request a real level load even when two
  * destinations share a template; retail's same-planet branch would only land in the old world. */
-void func_L00_0028E700(int target) {
+void func_L00_00290030(int target) {
     if (openrac_game_destination_count == 0) {
-        func_L00_0028E700__game(target);
+        func_L00_00290030__game(target);
         return;
     }
     const int destination = pending ? pending_destination : -1;
@@ -126,7 +135,7 @@ void func_L00_0028E700(int target) {
     pending = 0;
     GREF(gaddr, MENU_INDICES) = previous_indices;
     if (!custom && !leaving_map) {
-        func_L00_0028E700__game(target);
+        func_L00_00290030__game(target);
         return;
     }
     openrac_game_select_destination(custom ? destination : -1);
@@ -137,7 +146,7 @@ void func_L00_0028E700(int target) {
         program,
         custom ? "on" : "off"
     );
-    func_0022DC98(program);
+    func_0022F4A0(program);
 }
 
 /* A separate text ID keeps the original planet's label intact. */

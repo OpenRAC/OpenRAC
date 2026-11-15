@@ -252,7 +252,7 @@ openrac_add_c_test(level_descriptor
   INCLUDES game/common/include runtime/include)
 
 openrac_add_test(ship_destination
-  SOURCES tests/ship_destination_test.cpp game/rac1-pal/host/destinations.c
+  SOURCES tests/ship_destination_test.cpp tests/ship_destination_unit.c
   INCLUDES tests/ship_destination_stubs game/common/include
   LIBS openrac_runtime)
 

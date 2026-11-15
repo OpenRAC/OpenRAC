@@ -12,8 +12,6 @@
 /* The capsule query's last argument, as this version's C declares it (host/collision.c). */
 #define RAC1_COLL_CAPSULE_IGNORE gaddr
 
-gaddr rac1_ship_destination_text(int id);
-#define RAC1_DESTINATION_TEXT(id) rac1_ship_destination_text(id)
 
 /* Level vtbl records carry moby update functions; the executable's vtbl is an empty sentinel. */
 #define RAC1_MOBY_VTBL(level) rac1_moby_vtbl_address(level)
@@ -288,5 +286,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L13_0x001D9E40u 0x001D9A70u
 #define RAC1_ADDR_L14_0x001E9FA0u 0x001E9BE0u
 #define RAC1_ADDR_L18_0x001DFED0u 0x001DFB10u
+
+#define RAC1_ADDR_0x001602E0u 0x001601A0u
+#define RAC1_ADDR_0x0013D618u 0x0013D510u
+#define RAC1_ADDR_0x001DE0C0u 0x001DDCC0u
+#define RAC1_ADDR_0x0013CC04u 0x0013CB04u
 
 #endif /* OPENRAC_RAC1_VERSION_H */

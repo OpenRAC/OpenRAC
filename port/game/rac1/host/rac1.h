@@ -27,6 +27,10 @@
  * own for the function, or its catalogue places something else there, or its game never calls it). */
 #define RAC1_OMIT(f) RAC1_OMIT_##f
 
+/* A ship destination's label (destinations.c): the text of an added destination's id, else 0. */
+gaddr rac1_ship_destination_text(int id);
+#define RAC1_DESTINATION_TEXT(id) rac1_ship_destination_text(id)
+
 /* A function's name in this version, as a string (for logs and switches that name functions). */
 #define RAC1_NAME_(f) #f
 #define RAC1_NAME(f) RAC1_NAME_(f)

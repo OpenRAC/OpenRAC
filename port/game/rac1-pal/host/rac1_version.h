@@ -12,8 +12,6 @@
 #define RAC1_COLL_CAPSULE_IGNORE gaddr
 
 #define RAC1_ADDR(a) a
-gaddr rac1_ship_destination_text(int id);
-#define RAC1_DESTINATION_TEXT(id) rac1_ship_destination_text(id)
 #define RAC1_LADDR(n, a) a
 
 /* Level vtbl records carry moby update functions; the executable's vtbl is an empty sentinel. */
