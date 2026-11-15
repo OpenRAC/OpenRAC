@@ -35,7 +35,16 @@ read the decompilation) and Python 3.
   OpenRAC, builds one game without the steps above. The launcher's "Build the
   game" runs it. It configures `build/release` once, then builds only what
   changed. On Windows it sets up Visual Studio's x64 environment and finds
-  Clang and Ninja. `--source` builds from your own copy of the decompilation
+  Clang and Ninja. Missing Windows tools (Visual Studio Build Tools with C++
+  and the Windows SDK, Git, LLVM, Ninja and CMake) are installed with WinGet,
+  then the build continues. An existing Visual Studio 2022 Build Tools
+  installation gets its missing C++ workload through the Visual Studio Installer.
+  Windows may ask for administrator permission;
+  installing the C++ tools can take several gigabytes. If WinGet is unavailable,
+  setup tries registering App Installer, then installing or repairing WinGet
+  for your account through Microsoft's PowerShell module. `--no-install-deps`
+  disables tool installation and WinGet repair. Python 3 must already be installed.
+  `--source` builds from your own copy of the decompilation
   and is remembered.
 
 ## Enhanced rendering
