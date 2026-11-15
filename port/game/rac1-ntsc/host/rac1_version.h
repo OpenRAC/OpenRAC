@@ -98,10 +98,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_CARD_PENDING 0xDC
 #define RAC1_CARD_PENDING_CARD 0xE0
 #define RAC1_CARD_SAVING 0xF4
-/* The moby update loop (crash_state.c): PAL func_00213C78 is FUN_00212e28 here (its hand C,
- * hand/functional/FUN_00212e28.c, checked against the US assembly), with the list's head
- * (FUN_0020d868, kept in D_0015FF24) and the steps before and after each update (FUN_0020d580,
- * FUN_0020def8). */
+/* The moby update loop (crash_state.c): PAL func_00213C78 is FUN_00212e28 here (the NTSC
+ * decomp's C), with the list's head (FUN_0020d868, kept in D_0015FF24) and the steps before and
+ * after each update (FUN_0020d580, FUN_0020def8). */
 #define func_00213C78 game_FUN_00212e28
 #define func_0020E6B8 game_FUN_0020d868
 #define func_0020E3D0 game_FUN_0020d580
