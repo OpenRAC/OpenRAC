@@ -62,6 +62,59 @@ target_link_libraries(sound_engine_test PRIVATE openrac_game_common)
 openrac_warnings(sound_engine_test)
 add_test(NAME sound_engine COMMAND sound_engine_test)
 
+# The decomps are git submodules (docs/SOURCES.md). A build folder made before that keeps its old
+# cached OPENRAC_<ID>_SOURCE; a submodule is empty until it is checked out, and upstream's own
+# until OpenRAC's patches go on. hostgen then fails far from the cause (no units read: every
+# libraries.tsv row "no function of this program"), so each case is said here, with its fix.
+function(openrac_check_source id ID default actual)
+  # OPENRAC_REPO_DIR ends in "/../..": compare normalized paths.
+  cmake_path(SET default NORMALIZE "${default}")
+  cmake_path(SET actual NORMALIZE "${actual}")
+  cmake_path(SET games NORMALIZE "${OPENRAC_REPO_DIR}/games")
+  if(NOT EXISTS "${actual}/src" AND NOT actual STREQUAL default)
+    message(WARNING "openrac-${id}: OPENRAC_${ID}_SOURCE is ${actual}, which has no src/ (a path from "
+                    "before the decomps became submodules?). The default is ${default}: reconfigure with "
+                    "-DOPENRAC_${ID}_SOURCE=${default}")
+    return()
+  endif()
+  file(RELATIVE_PATH rel "${games}" "${actual}")
+  if(rel MATCHES "^\\.\\.")
+    return()  # a decomp outside the checkout: the player's own, set up their way
+  endif()
+  if(NOT EXISTS "${actual}/.git")
+    # Normal for a game not built here (rac3 and later), so not a warning.
+    message(STATUS "openrac-${id}: games/${rel} is not checked out "
+                   "(git submodule update --init games/${rel} && python3 tools/sources.py apply ${rel})")
+    return()
+  endif()
+  file(GLOB patches "${actual}-patches/*.patch")
+  if(NOT patches AND NOT IS_DIRECTORY "${actual}-patches/files")
+    return()
+  endif()
+  # tools/sources.py apply records what it changed in the submodule's git folder.
+  set(git_dir "${actual}/.git")
+  if(NOT IS_DIRECTORY "${git_dir}")
+    file(READ "${git_dir}" git_file)
+    string(REGEX REPLACE "^gitdir: *([^\n]*).*" "\\1" git_dir "${git_file}")
+    if(NOT IS_ABSOLUTE "${git_dir}")
+      set(git_dir "${actual}/${git_dir}")
+    endif()
+  endif()
+  set(applied OFF)
+  if(EXISTS "${git_dir}/openrac-patches.json")
+    file(READ "${git_dir}/openrac-patches.json" state)
+    string(JSON files ERROR_VARIABLE no_files TYPE "${state}" files)
+    string(JSON edit ERROR_VARIABLE no_edit GET "${state}" edit)
+    if((NOT no_files AND files STREQUAL "ARRAY") OR (NOT no_edit AND edit))
+      set(applied ON)
+    endif()
+  endif()
+  if(NOT applied)
+    message(WARNING "openrac-${id}: OpenRAC's patches to games/${rel} are not applied: "
+                    "run python3 tools/sources.py apply ${rel}")
+  endif()
+endfunction()
+
 function(openrac_add_game config)
   file(READ "${config}" json)
   string(JSON id GET "${json}" id)
@@ -73,6 +126,7 @@ function(openrac_add_game config)
   set(OPENRAC_${ID}_SOURCE "${OPENRAC_REPO_DIR}/${source}" CACHE PATH
       "The decompilation openrac-${id} is built from")
   set(game_source "${OPENRAC_${ID}_SOURCE}")
+  openrac_check_source("${id}" "${ID}" "${OPENRAC_REPO_DIR}/${source}" "${game_source}")
   # Where the game's setup wrote the assembly, if not in that decompilation (another copy of it).
   set(OPENRAC_${ID}_ASM_SOURCE "" CACHE PATH "Where openrac-${id}'s assembly is, if not in its decompilation")
   # The player's disc image, read for the instructions of the functions with no C (retail.py).
