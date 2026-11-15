@@ -418,6 +418,10 @@ static func scene_of(path: String) -> Node3D:
 	return document.generate_scene(state) as Node3D
 
 
+## A 1x1 white PNG, in base64.
+const WHITE_PNG: String = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC"
+
+
 ## The .glb at PATH with its textures inside it as data, so that reading it never asks the editor
 ## to import a file (outside the project, or under SKINS_DIR); empty when it cannot be read.
 static func self_contained(path: String) -> PackedByteArray:
@@ -431,7 +435,8 @@ static func self_contained(path: String) -> PackedByteArray:
 
 		if not uri.is_empty() and not uri.begins_with("data:"):
 			var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path.get_base_dir().path_join(uri).simplify_path())
-			image["uri"] = "data:image/png;base64," + Marshalls.raw_to_base64(bytes)
+			# A texture that is gone is drawn white, so the model still shows.
+			image["uri"] = "data:image/png;base64," + (Marshalls.raw_to_base64(bytes) if not bytes.is_empty() else WHITE_PNG)
 
 	return write_glb(glb["json"], glb["bin"])
 

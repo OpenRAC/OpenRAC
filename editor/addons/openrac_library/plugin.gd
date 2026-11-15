@@ -140,7 +140,7 @@ func handle_scene_changed(root: Node) -> void:
 
 	if root != null:
 		show_skins(root)
-		stand_up_lying.call_deferred(root)
+		stand_up_lying.call_deferred()
 
 
 ## Set on a scene whose lying assets were stood up (stand_up_lying()), so it is done once.
@@ -150,8 +150,12 @@ const STOOD_UP: StringName = &"openrac_stood_up"
 ## Assets dragged in before drops stood up were saved as Godot dropped them: lying on their side,
 ## their up on the game's y. Stands each one up once, keeping where its front points and its size,
 ## as one undoable edit. Only the editor's own nodes (the extracted ones carry rc1_index).
-func stand_up_lying(root: Node) -> void:
-	if not is_instance_valid(root) or root != EditorInterface.get_edited_scene_root() or root.has_meta(STOOD_UP):
+func stand_up_lying(root: Node = null) -> void:
+	# Deferred, so the scene may be closed by then: the edited one, whatever it is now.
+	if root == null:
+		root = EditorInterface.get_edited_scene_root()
+
+	if root == null or root != EditorInterface.get_edited_scene_root() or root.has_meta(STOOD_UP):
 		return
 
 	var game: Node3D = root.get_node_or_null("Game") as Node3D
@@ -576,15 +580,17 @@ static func facing(game: Basis, at: Vector3, eye: Vector3, side: Vector3 = Vecto
 
 	return Basis(Vector3.UP, front.normalized().signed_angle_to(to_eye.normalized(), Vector3.UP)) * model
 
-## Where Add puts ASSET: ADD_DISTANCE in front of the 3D view's camera, standing, its front to the
-## camera, at SIZE; at Game's origin when there is no camera.
-func in_view(game: Node3D, asset: Dictionary, size: Vector3 = Vector3.ONE) -> Transform3D:
+## Where Add puts ASSET: ADD_DISTANCE in front of the 3D view's camera (or AT), standing, its
+## front to the camera, at SIZE; at Game's origin when there is no camera.
+func in_view(game: Node3D, asset: Dictionary, size: Vector3 = Vector3.ONE, at: Variant = null) -> Transform3D:
 	var camera: Camera3D = EditorInterface.get_editor_viewport_3d(0).get_camera_3d()
 
 	if camera == null:
-		return Transform3D(game.global_basis.orthonormalized().scaled_local(size), game.global_position)
+		return Transform3D(game.global_basis.orthonormalized().scaled_local(size), game.global_position if at == null else at)
 
-	var at: Vector3 = camera.global_position - camera.global_basis.z * ADD_DISTANCE
+	if at == null:
+		at = camera.global_position - camera.global_basis.z * ADD_DISTANCE
+
 	return Transform3D(facing(game.global_basis, at, camera.global_position, Library.front_for(asset)).scaled_local(size), at)
 
 
@@ -611,7 +617,7 @@ func handle_node_added(node: Node) -> void:
 
 
 ## Whether NODE, added while the edited scene took an edit, is a drop settle() has work on: not
-## in its group yet, at its parent's origin or without its metadata. A copy of a placed asset
+## in its group yet, at its parent's origin, lying or without its metadata. A copy of a placed asset
 ## (duplicate, paste) is left as Godot made it.
 func needs_settling(node: Node, game: Node3D) -> bool:
 	if not is_instance_valid(node) or not node is Node3D or not node.is_inside_tree() or node.has_meta("rc1_index"):
@@ -625,6 +631,7 @@ func needs_settling(node: Node, game: Node3D) -> bool:
 	var full: bool = Library.status(asset, here()) == Library.FULL
 	var group: Node = game.get_node_or_null(NodePath(GROUPS[asset["kind"]] if full else STATIC_GROUP))
 	return node.get_parent() != group or (node as Node3D).position.is_zero_approx() \
+		or stood_up(game.global_basis, (node as Node3D).global_basis) != null \
 		or (node.scene_file_path.begins_with(Library.LIBRARY_DIR + "/") and not node.has_meta("rc1_asset"))
 
 
@@ -674,6 +681,9 @@ func settle() -> void:
 		# and lying when that parent is not under Game). Put in front of the camera, standing.
 		if (node as Node3D).position.is_zero_approx():
 			at = in_view(game, asset, at.basis.get_scale())
+		elif stood_up(game.global_basis, at.basis) != null:
+			# A Godot without the fork's drop turn lays it on its side: stand it where it was dropped.
+			at = Transform3D(in_view(game, asset, at.basis.get_scale(), at.origin).basis, at.origin)
 
 		if old_parent != group:
 			var name: String = free_name(group, base_name(asset))
