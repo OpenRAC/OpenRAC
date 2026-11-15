@@ -147,6 +147,38 @@ struct Weapon_TakeAmmo {
     using fn = int32_t (*)(int32_t, int32_t);
 };
 
+// Chooses the Blaster's auto-aim target for a shot from from (select_blaster_auto_aim_target; from a Vec4, yaw and pitch f32s, all addresses): the nearest targetable creature (Moby flags 0x1000) within 20 units whose aim point is within about 9 degrees of the heading yaw/pitch and in sight from the camera and from from (ignore: the moby the sight test passes over). Writes the pitch toward it, and the yaw when within 10 degrees, and returns it; 0 for none.
+struct Weapon_Blaster_PickTarget {
+    static constexpr const char* id = "rac1.weapon.blaster.pick_target";
+    static constexpr const char* name = "Weapon_Blaster_PickTarget";
+    static constexpr const char* signature = "u32(i32,u32,u32,u32)";
+    using fn = uint32_t (*)(int32_t, uint32_t, uint32_t, uint32_t);
+};
+
+// Chooses a R.Y.N.O. missile's target (select_ryno_target): the creature with a target record, of class type 5, within max_distance across of pos (a Vec4 address) and max_yaw / max_pitch of the aim angles (aim, f32s at +4 pitch and +8 yaw), the best by angle and distance, in sight; skip is the seven mobys the salvo has already (0: only the ones drawn last frame). Returns the moby, 0 for none.
+struct Weapon_Ryno_PickTarget {
+    static constexpr const char* id = "rac1.weapon.ryno.pick_target";
+    static constexpr const char* name = "Weapon_Ryno_PickTarget";
+    static constexpr const char* signature = "u32(u32,u32,u32,f32,f32,f32)";
+    using fn = uint32_t (*)(uint32_t, uint32_t, uint32_t, float, float, float);
+};
+
+// Chooses the gold Devastator missile's target (select_gold_devastator_missile_target): the creature within 40 units of the missile nearest its heading, in a cone that widens with the weapon's level, in sight, not skip; writes it into the missile's data (data, its pvars).
+struct Weapon_GoldDevastator_PickTarget {
+    static constexpr const char* id = "rac1.weapon.gold_devastator.pick_target";
+    static constexpr const char* name = "Weapon_GoldDevastator_PickTarget";
+    static constexpr const char* signature = "void(u32,u32,u32)";
+    using fn = void (*)(uint32_t, uint32_t, uint32_t);
+};
+
+// Chooses a drone's target (select_nearest_drone_target): the nearest moby of class type 5, 7 or 8 to from (a Vec4 address), within 4, 5.3 or 6 units by type, not one of the nine in skip, not held by the Suck Cannon. Returns the moby, 0 for none.
+struct Weapon_Drone_PickTarget {
+    static constexpr const char* id = "rac1.weapon.drone.pick_target";
+    static constexpr const char* name = "Weapon_Drone_PickTarget";
+    static constexpr const char* signature = "u32(u32,u32)";
+    using fn = uint32_t (*)(uint32_t, uint32_t);
+};
+
 // Records a placed moby's death or a crate's break (SetDeathBits): its save id's killed bits (none for a save id below 0), its mission, then drops its bolts: about the s16 at +0xB4 (or what a tallied source has left of +0xB6), which it then clears.
 struct Moby_RecordDeath {
     static constexpr const char* id = "rac1.moby.record_death";
@@ -7557,6 +7589,18 @@ namespace hooks {
         using open_menu = rac1::Vendor_OpenMenu;
     }  // namespace vendor
     namespace weapon {
+        namespace blaster {
+            using pick_target = rac1::Weapon_Blaster_PickTarget;
+        }  // namespace blaster
+        namespace drone {
+            using pick_target = rac1::Weapon_Drone_PickTarget;
+        }  // namespace drone
+        namespace gold_devastator {
+            using pick_target = rac1::Weapon_GoldDevastator_PickTarget;
+        }  // namespace gold_devastator
+        namespace ryno {
+            using pick_target = rac1::Weapon_Ryno_PickTarget;
+        }  // namespace ryno
         using take_ammo = rac1::Weapon_TakeAmmo;
     }  // namespace weapon
 }  // namespace hooks

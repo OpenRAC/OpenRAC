@@ -253,6 +253,69 @@
       "about": "Takes amount of ammo from item for a shot (TakeAmmo; -1 is the item in hand): 1 when taken, 0 when there is too little. An item with no ammo limit takes none and gives 1."
     },
     {
+      "id": "rac1.weapon.blaster.pick_target",
+      "name": "Weapon_Blaster_PickTarget",
+      "signature": "u32(i32,u32,u32,u32)",
+      "params": [
+        "ignore",
+        "from",
+        "yaw",
+        "pitch"
+      ],
+      "symbols": {
+        "pal": "func_L00_002B5998",
+        "ntsc": "FUN_L00_002b46a8"
+      },
+      "about": "Chooses the Blaster's auto-aim target for a shot from from (select_blaster_auto_aim_target; from a Vec4, yaw and pitch f32s, all addresses): the nearest targetable creature (Moby flags 0x1000) within 20 units whose aim point is within about 9 degrees of the heading yaw/pitch and in sight from the camera and from from (ignore: the moby the sight test passes over). Writes the pitch toward it, and the yaw when within 10 degrees, and returns it; 0 for none."
+    },
+    {
+      "id": "rac1.weapon.ryno.pick_target",
+      "name": "Weapon_Ryno_PickTarget",
+      "signature": "u32(u32,u32,u32,f32,f32,f32)",
+      "params": [
+        "pos",
+        "aim",
+        "skip",
+        "max_yaw",
+        "max_pitch",
+        "max_distance"
+      ],
+      "symbols": {
+        "pal": "func_L00_002CD7B0",
+        "ntsc": "FUN_L00_002cc360"
+      },
+      "about": "Chooses a R.Y.N.O. missile's target (select_ryno_target): the creature with a target record, of class type 5, within max_distance across of pos (a Vec4 address) and max_yaw / max_pitch of the aim angles (aim, f32s at +4 pitch and +8 yaw), the best by angle and distance, in sight; skip is the seven mobys the salvo has already (0: only the ones drawn last frame). Returns the moby, 0 for none."
+    },
+    {
+      "id": "rac1.weapon.gold_devastator.pick_target",
+      "name": "Weapon_GoldDevastator_PickTarget",
+      "signature": "void(u32,u32,u32)",
+      "params": [
+        "missile",
+        "data",
+        "skip"
+      ],
+      "symbols": {
+        "pal": "func_L00_002B1290",
+        "ntsc": "FUN_L00_002affa8"
+      },
+      "about": "Chooses the gold Devastator missile's target (select_gold_devastator_missile_target): the creature within 40 units of the missile nearest its heading, in a cone that widens with the weapon's level, in sight, not skip; writes it into the missile's data (data, its pvars)."
+    },
+    {
+      "id": "rac1.weapon.drone.pick_target",
+      "name": "Weapon_Drone_PickTarget",
+      "signature": "u32(u32,u32)",
+      "params": [
+        "from",
+        "skip"
+      ],
+      "symbols": {
+        "pal": "func_L00_002CF3D8",
+        "ntsc": "FUN_L00_002cdf28"
+      },
+      "about": "Chooses a drone's target (select_nearest_drone_target): the nearest moby of class type 5, 7 or 8 to from (a Vec4 address), within 4, 5.3 or 6 units by type, not one of the nine in skip, not held by the Suck Cannon. Returns the moby, 0 for none."
+    },
+    {
       "id": "rac1.moby.record_death",
       "name": "Moby_RecordDeath",
       "signature": "void(u32,i32,i32)",
