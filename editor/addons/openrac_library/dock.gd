@@ -202,7 +202,7 @@ func _notification(what: int) -> void:
 	add_button.icon = get_theme_icon("Add", "EditorIcons")
 	own_button.icon = get_theme_icon("Script", "EditorIcons")
 	as_button.icon = get_theme_icon("Skeleton3D", "EditorIcons")
-	placeholder = get_theme_icon("MeshInstance3D", "EditorIcons")
+	placeholder = waiting_picture(get_theme_color("font_disabled_color", "Editor"))
 
 
 ## Shows what the selected asset is and which ways of adding it work here, and why not the others.
@@ -377,7 +377,9 @@ func refill() -> void:
 	var seen: Dictionary = {}
 
 	for asset in candidates:
-		if not words.is_empty() and not String(asset["name"]).to_lower().contains(words) and str(asset["class"]) != words:
+		# "small turret" finds small_turret.
+		if not words.is_empty() and not String(asset["name"]).to_lower().contains(words.replace(" ", "_")) \
+				and str(asset["class"]) != words:
 			continue
 
 		var status: String = Library.status(asset, here)
@@ -484,6 +486,43 @@ func add(index: int) -> void:
 # PREVIEWS
 # =============================================================================
 
+## Shown until an asset's picture is made: a plain cube outline in COLOUR, drawn at the list's own
+## size so it stays sharp (the editor's 16 px icons blur when scaled up).
+static func waiting_picture(colour: Color, size: int = 80) -> Texture2D:
+	var image := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
+	var c: float = size * 0.5
+	var r: float = size * 0.3
+	# An upright cube seen from a corner: its outline and the three edges from the near corner.
+	var top := Vector2(c, c - r)
+	var corners: Array[Vector2] = [top, Vector2(c + r * 0.87, c - r * 0.5), Vector2(c + r * 0.87, c + r * 0.5),
+		Vector2(c, c + r), Vector2(c - r * 0.87, c + r * 0.5), Vector2(c - r * 0.87, c - r * 0.5)]
+	var near := Vector2(c, c)
+	var edges: Array = []
+
+	for i in range(6):
+		edges.append([corners[i], corners[(i + 1) % 6]])
+
+	for i in [1, 3, 5]:
+		edges.append([near, corners[i]])
+
+	var width: float = maxf(size / 40.0, 1.5)
+
+	for y in range(size):
+		for x in range(size):
+			var p := Vector2(x + 0.5, y + 0.5)
+			var distance: float = INF
+
+			for edge in edges:
+				distance = minf(distance, Geometry2D.get_closest_point_to_segment(p, edge[0], edge[1]).distance_to(p))
+
+			var alpha: float = clampf(width - distance + 0.5, 0.0, 1.0)
+
+			if alpha > 0.0:
+				image.set_pixel(x, y, Color(colour, colour.a * alpha))
+
+	return ImageTexture.create_from_image(image)
+
+
 ## A preview of the model: its first mesh, read straight from its file (it need not be in this
 ## project), drawn by the editor's mesh previewer.
 func make_preview(model: String) -> void:
@@ -589,16 +628,18 @@ func cache_path(model: String) -> String:
 	return PREVIEW_CACHE.path_join(key.md5_text() + ".png")
 
 
-## NAME broken into lines of at most LINE characters between words, as the list shows it: the list
-## itself breaks inside words.
+## NAME (small_turret) broken into lines of at most LINE characters after an underscore, as the
+## list shows it: the list itself breaks inside words.
 static func wrapped(name: String, line: int = 17) -> String:
 	var lines: PackedStringArray = [""]
+	var words: PackedStringArray = name.split("_")
 
-	for word in name.split(" "):
-		var joined: String = (lines[lines.size() - 1] + " " + word).strip_edges()
+	for i in range(words.size()):
+		var word: String = words[i] + ("_" if i < words.size() - 1 else "")
+		var last: String = lines[lines.size() - 1]
 
-		if joined.length() <= line or lines[lines.size() - 1].is_empty():
-			lines[lines.size() - 1] = joined
+		if (last + word).length() <= line or last.is_empty():
+			lines[lines.size() - 1] = last + word
 		else:
 			lines.append(word)
 
