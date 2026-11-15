@@ -24,8 +24,8 @@ include(Differences)
 # hostgen uses every core itself: one game's translation at a time (Ninja).
 set_property(GLOBAL APPEND PROPERTY JOB_POOLS openrac_hostgen=1)
 
-set(OPENRAC_HOSTGEN "${CMAKE_CURRENT_LIST_DIR}/../tools/hostgen/hostgen.py")
-set(OPENRAC_PARITY "${CMAKE_CURRENT_LIST_DIR}/../tools/versionmap/parity.py")
+set(OPENRAC_HOSTGEN  "${CMAKE_CURRENT_LIST_DIR}/../tools/hostgen/hostgen.py")
+set(OPENRAC_PARITY   "${CMAKE_CURRENT_LIST_DIR}/../tools/versionmap/parity.py")
 set(OPENRAC_GAME_DIR "${CMAKE_CURRENT_LIST_DIR}/../game")
 set(OPENRAC_REPO_DIR "${CMAKE_CURRENT_LIST_DIR}/../..")
 
