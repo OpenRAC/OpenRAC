@@ -509,7 +509,43 @@ func make_preview(model: String) -> void:
 	if mesh == null:
 		return
 
-	EditorInterface.get_resource_previewer().queue_edited_resource_preview(mesh, self, "handle_preview", model)
+	EditorInterface.get_resource_previewer().queue_edited_resource_preview(standing(mesh, Library.front_of(model)), self,
+		"handle_preview", model)
+
+
+## MESH turned from the game's axes (z up, FRONT on x or y: Library.front_of()) to the
+## previewer's (y up, front to the camera on z), so the picture shows the asset standing, from the
+## front. Unskinned: the previewer draws the vertices as they are.
+static func standing(mesh: Mesh, front: Vector3 = Vector3(1, 0, 0)) -> ArrayMesh:
+	var turned := ArrayMesh.new()
+	# Columns: where the game's x, y and z go.
+	var axes := Basis(Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 1, 0)) if front.x != 0 \
+		else Basis(Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 1, 0))
+
+	for surface in range(mesh.get_surface_count()):
+		var arrays: Array = mesh.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+
+		for i in range(vertices.size()):
+			vertices[i] = axes * vertices[i]
+
+		arrays[Mesh.ARRAY_VERTEX] = vertices
+
+		if arrays[Mesh.ARRAY_NORMAL] != null:
+			var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+
+			for i in range(normals.size()):
+				normals[i] = axes * normals[i]
+
+			arrays[Mesh.ARRAY_NORMAL] = normals
+
+		arrays[Mesh.ARRAY_TANGENT] = null
+		arrays[Mesh.ARRAY_BONES] = null
+		arrays[Mesh.ARRAY_WEIGHTS] = null
+		turned.add_surface_from_arrays(mesh.surface_get_primitive_type(surface), arrays)
+		turned.surface_set_material(turned.get_surface_count() - 1, mesh.surface_get_material(surface))
+
+	return turned
 
 
 func handle_preview(_path: String, preview: Texture2D, _thumbnail: Texture2D, model: Variant) -> void:
@@ -549,7 +585,7 @@ func cached_preview(model: String) -> Texture2D:
 ## The cache file of MODEL's preview: named by its path and when it last changed, so a model
 ## extracted again gets a new one.
 func cache_path(model: String) -> String:
-	var key: String = "%s:%d" % [model, FileAccess.get_modified_time(model)]
+	var key: String = "standing:%s:%d" % [model, FileAccess.get_modified_time(model)]
 	return PREVIEW_CACHE.path_join(key.md5_text() + ".png")
 
 

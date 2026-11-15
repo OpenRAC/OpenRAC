@@ -220,6 +220,9 @@ func add_in_view(asset: Dictionary) -> void:
 	undo_redo.add_do_method(group, "add_child", node)
 	undo_redo.add_do_property(node, "owner", root)
 	undo_redo.add_do_property(node, "global_position", at)
+	if camera != null:
+		undo_redo.add_do_property(node, "global_basis", facing(game.global_basis, at, camera.global_position,
+			Library.front_of(String(asset["model"]))) * node.basis)
 	add_metadata(undo_redo, node, asset, path)
 	undo_redo.add_do_reference(node)
 	undo_redo.add_undo_method(group, "remove_child", node)
@@ -289,6 +292,9 @@ func add_as(asset: Dictionary, host_class: int) -> void:
 	undo_redo.add_do_method(group, "add_child", node)
 	undo_redo.add_do_property(node, "owner", root)
 	undo_redo.add_do_property(node, "global_position", at)
+	if camera != null:
+		undo_redo.add_do_property(node, "global_basis", facing(game.global_basis, at, camera.global_position,
+			Library.front_of(String(asset["model"]))) * node.basis)
 	undo_redo.add_do_method(node, "set_meta", "rc1_skin", skin_path)
 	undo_redo.add_do_method(node, "set_meta", "rc1_skin_asset", "%s/%s/level_%02d/%s/%d" % [asset["game"],
 		asset["disc"], int(asset["level"]), asset["kind"], int(asset["class"])])
@@ -364,6 +370,9 @@ func add_foreign(asset: Dictionary) -> void:
 	undo_redo.add_do_method(group, "add_child", node)
 	undo_redo.add_do_property(node, "owner", root)
 	undo_redo.add_do_property(node, "global_position", at)
+	if camera != null:
+		undo_redo.add_do_property(node, "global_basis", facing(game.global_basis, at, camera.global_position,
+			Library.front_of(String(asset["model"]))) * node.basis)
 	# Drawn at its class's size, as in the game: the packed moby's own scale is this over that.
 	var scale: float = float(asset["scale"])
 	undo_redo.add_do_property(node, "scale", Vector3(scale, scale, scale))
@@ -442,6 +451,43 @@ func placed_report(asset: Dictionary, node: Node) -> String:
 # =============================================================================
 # GODOT'S DROP
 # =============================================================================
+
+## The EditorInterface meta the editor's 3D view reads while one of the dock's assets is dragged in: the
+## model's axes in the world, so the drop stands up as in the game, its front to the camera.
+const DROP_BASIS: StringName = &"openrac_drop_basis"
+## And the model's front in its own axes (Library.front_of()).
+const DROP_FRONT: StringName = &"openrac_drop_front"
+
+
+## The game's models are z-up with their front on x, under Game's turn to Godot's y-up: a drop
+## stands up as in the game, facing the camera (Godot's own drop would lie it on its side).
+func turn_drops_upright(front: Vector3 = Vector3(1, 0, 0)) -> void:
+	var root: Node = EditorInterface.get_edited_scene_root()
+	var game: Node3D = root.get_node_or_null("Game") as Node3D if root != null else null
+
+	if game != null:
+		EditorInterface.set_meta(DROP_BASIS, game.global_basis.orthonormalized())
+		EditorInterface.set_meta(DROP_FRONT, front)
+
+
+func stop_turning_drops() -> void:
+	for meta in [DROP_BASIS, DROP_FRONT]:
+		if EditorInterface.has_meta(meta):
+			EditorInterface.remove_meta(meta)
+
+
+## The world basis of a model at AT under Game (whose world basis is GAME), standing up, turned
+## about the game's up so its SIDE (in its own axes: Library.front_of()) faces a camera at EYE.
+static func facing(game: Basis, at: Vector3, eye: Vector3, side: Vector3 = Vector3(1, 0, 0)) -> Basis:
+	var model: Basis = game.orthonormalized()
+	var world_front: Vector3 = model * side
+	var front: Vector3 = Vector3(world_front.x, 0, world_front.z)
+	var to_eye: Vector3 = Vector3(eye.x - at.x, 0, eye.z - at.z)
+
+	if front.is_zero_approx() or to_eye.is_zero_approx():
+		return model
+
+	return Basis(Vector3.UP, front.normalized().signed_angle_to(to_eye.normalized(), Vector3.UP)) * model
 
 ## A node of a file the dock prepared: put it where it belongs once the drop has finished.
 func handle_node_added(node: Node) -> void:

@@ -4,6 +4,8 @@ extends ItemList
 ## prepare()) and hands Godot the file to drop, as the FileSystem dock does, so the 3D view and
 ## the Scene dock place it.
 
+const Library = preload("library.gd")
+
 var dock: Control
 
 
@@ -26,6 +28,8 @@ func _get_drag_data(at_position: Vector2) -> Variant:
 	if path.is_empty():
 		return null
 
+	dock.plugin.turn_drops_upright(Library.front_of(String(asset["model"])))
+
 	# Its picture and name under the pointer, as the list shows it.
 	var preview := VBoxContainer.new()
 	var icon: Texture2D = get_item_icon(index)
@@ -43,3 +47,8 @@ func _get_drag_data(at_position: Vector2) -> Variant:
 	preview.add_child(label)
 	set_drag_preview(preview)
 	return {"type": "files", "files": PackedStringArray([path]), "from": self}
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_END and dock != null and dock.plugin != null:
+		dock.plugin.stop_turning_drops()

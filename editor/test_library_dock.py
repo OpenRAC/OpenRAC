@@ -157,6 +157,15 @@ class LibraryOnProjects(unittest.TestCase):
             self.assertTrue((skins_dir / "rac1" / "pal" / "level_03" / "textures" / "t.png").is_file())
             self.assertFalse((skins_dir / "rac1" / "pal" / "level_03" / "textures" / "t.png.import").exists())
 
+            # The game's models stand on z with their front on x: the preview shows them standing,
+            # from the front, and a placed one stands up and turns its front to the camera.
+            turns = result["turns"]
+            self.assertEqual(turns["front"], ["(0.0, 0.0, 1.0)", "(1.0, 0.0, 0.0)", "(0.0, 1.0, 0.0)"])
+            self.assertEqual(turns["flat"], ["(-1.0, 0.0, 0.0)", "(0.0, 0.0, 1.0)", "(0.0, 1.0, 0.0)"])
+            self.assertEqual(turns["up"], "(0.0, 1.0, 0.0)")
+            self.assertEqual(turns["faces"], "(-1.0, 0.0, 0.0)")
+            self.assertEqual(turns["flat_faces"], "(-1.0, 0.0, 0.0)")
+
 
 if __name__ == "__main__":
     unittest.main()

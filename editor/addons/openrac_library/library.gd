@@ -435,6 +435,41 @@ static func self_contained(path: String) -> PackedByteArray:
 	return write_glb(glb["json"], glb["bin"])
 
 
+## The game's models stand on z with their front on x; a flat one (a door, a sign, a panel) that
+## is thin on y shows its face on y instead. The side of the model at PATH to show and turn to the
+## camera, in its own axes.
+static func front_of(path: String) -> Vector3:
+	var json: Dictionary = read_glb(FileAccess.get_file_as_bytes(path)).get("json", {})
+	var accessors: Array = json.get("accessors", [])
+	var low := Vector3(INF, INF, INF)
+	var high := Vector3(-INF, -INF, -INF)
+
+	for mesh in json.get("meshes", []):
+		for primitive in mesh.get("primitives", []):
+			var index: int = int(primitive.get("attributes", {}).get("POSITION", -1))
+
+			if index < 0 or index >= accessors.size():
+				continue
+
+			var least: Array = accessors[index].get("min", [])
+			var most: Array = accessors[index].get("max", [])
+
+			if least.size() == 3 and most.size() == 3:
+				low = low.min(Vector3(least[0], least[1], least[2]))
+				high = high.max(Vector3(most[0], most[1], most[2]))
+
+	var size: Vector3 = high - low
+
+	if size.x > 0 and size.z > 0 and size.y < FLAT * minf(size.x, size.z):
+		return Vector3(0, 1, 0)
+
+	return Vector3(1, 0, 0)
+
+
+## How thin a model is on y, against its other sides, to count as flat (front_of()).
+const FLAT: float = 0.35
+
+
 ## The animations' names of the model at PATH, in order (a skin's: "seq_00"...).
 static func animation_names(path: String) -> PackedStringArray:
 	var names := PackedStringArray()
