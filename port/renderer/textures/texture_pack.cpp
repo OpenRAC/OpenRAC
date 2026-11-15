@@ -15,6 +15,7 @@
 #include <tuple>
 #include <unordered_map>
 
+#include "common/joining_thread.h"
 #include "common/json.h"
 #include "common/log.h"
 
@@ -66,7 +67,10 @@ struct State {
     // preload()'s thread, last so that it stops before the rest goes; `reading` while it works.
     bool reading = false;
     bool read_again = false;
-    std::jthread reader;
+    std::atomic<bool> stop_reading{false};
+    JoiningThread reader;
+
+    ~State() { stop_reading = true; }
 };
 
 State& state() {
@@ -767,7 +771,7 @@ std::optional<std::pair<TextureId, fs::path>> next_urgent(State& s) {
 
 // One pass of the reader: the pictures textures wait for first, then the pack's pictures for
 // textures met while playing, smallest first, all read without the lock so that the game goes on.
-void read_ahead(const std::stop_token& stop) {
+void read_ahead(const std::atomic<bool>& stop) {
     State& s = state();
     std::vector<std::tuple<std::uintmax_t, std::uint64_t, fs::path>> wanted;
     Io io;
@@ -801,7 +805,7 @@ void read_ahead(const std::stop_token& stop) {
     std::size_t bytes = 0;
     std::size_t next = 0;
     bool full = false;
-    while (!stop.stop_requested()) {
+    while (!stop) {
         // A picture a texture waits for comes before the next guess.
         if (const auto urgent = next_urgent(s)) {
             if (!read_and_keep(
@@ -828,17 +832,15 @@ void start_reader(State& s) {
         return;
     }
     // The last pass has ended (reading is false), so its thread only has to leave.
-    if (s.reader.joinable()) {
-        s.reader.join();
-    }
+    s.reader.join();
     s.reading = true;
-    s.reader = std::jthread([](const std::stop_token& stop) {
+    s.reader = JoiningThread([] {
         State& st = state();
         for (;;) {
-            read_ahead(stop);
+            read_ahead(st.stop_reading);
             const std::lock_guard guard(st.lock);
             // The thread takes the lock no more once it is not reading.
-            if ((!st.read_again && st.urgent.empty()) || stop.stop_requested()) {
+            if ((!st.read_again && st.urgent.empty()) || st.stop_reading) {
                 st.reading = false;
                 return;
             }
@@ -871,14 +873,12 @@ bool is_kept(std::uint64_t hash) {
 
 void finish_preload() {
     State& s = state();
-    std::jthread reader;
+    JoiningThread reader;
     {
         const std::lock_guard guard(s.lock);
         reader = std::move(s.reader);
     }
-    if (reader.joinable()) {
-        reader.join();
-    }
+    reader.join();
 }
 
 void set_play_list(const fs::path& file) {
@@ -952,7 +952,7 @@ void read_level_pictures(std::span<const TextureId> textures) {
     );
     std::atomic<std::size_t> next{0};
     {
-        std::vector<std::jthread> workers;
+        std::vector<JoiningThread> workers;
         for (unsigned i = 0; i < count; ++i) {
             workers.emplace_back([&] {
                 for (std::size_t at = next++; at < wanted.size(); at = next++) {

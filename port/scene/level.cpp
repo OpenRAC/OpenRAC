@@ -20,6 +20,7 @@
 #include <thread>
 #include <vector>
 
+#include "common/joining_thread.h"
 #include "common/json.h"
 #include "common/log.h"
 #include "common/profiler.h"
@@ -231,7 +232,7 @@ void read_pack_pictures_ahead(const fs::path& dir) {
     {
         constexpr unsigned kMostThreads = 8;
         const unsigned count = std::clamp(std::thread::hardware_concurrency(), 1u, kMostThreads);
-        std::vector<std::jthread> workers;
+        std::vector<JoiningThread> workers;
         for (unsigned i = 0; i < count; ++i) {
             workers.emplace_back([&] {
                 for (std::size_t at = next++; at < files.size(); at = next++) {
