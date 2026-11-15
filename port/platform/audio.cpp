@@ -125,35 +125,56 @@ std::size_t AudioOutput::unheard_frames() const {
 AudioOutput::Health AudioOutput::take_health() {
     Health h;
     h.requests = m_requests.exchange(0, std::memory_order_relaxed);
+    h.reopens = m_reopens.exchange(0, std::memory_order_relaxed);
     h.short_frames = m_short_frames.exchange(0, std::memory_order_relaxed);
     h.worst_gap_ms = milliseconds(m_worst_gap_ns.exchange(0, std::memory_order_relaxed));
     h.worst_render_ms = milliseconds(m_worst_render_ns.exchange(0, std::memory_order_relaxed));
     return h;
 }
 
-bool AudioOutput::start(std::string& error) {
+SDL_AudioStream* AudioOutput::open_stream(std::string& error) {
     const SDL_AudioSpec spec{SDL_AUDIO_S16, kAudioChannels, kAudioRate};
     // SDL converts to whatever the device really runs at; the game always
     // sees 48 kHz stereo.
-    m_stream = SDL_OpenAudioDeviceStream(
+    SDL_AudioStream* stream = SDL_OpenAudioDeviceStream(
         SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
         &spec,
         m_callback ? &AudioOutput::feed : nullptr,
         m_callback ? this : nullptr
     );
-    m_started_ms = SDL_GetTicks();
-    m_last_request_ns.store(0, std::memory_order_relaxed);
-    if (m_stream == nullptr) {
+    if (stream == nullptr) {
         error = std::format("could not open the audio device: {}", SDL_GetError());
+    }
+    return stream;
+}
+
+void AudioOutput::install(SDL_AudioStream* stream, std::string error) {
+    const std::lock_guard lock(m_stream_mutex);
+    m_stream = stream;
+    m_open_error = std::move(error);
+    if (stream == nullptr) {
+        return;
+    }
+    SDL_SetAudioStreamGain(stream, m_gain);
+    // Opened paused; start it unless the game paused it.
+    if (!m_paused) {
+        SDL_ResumeAudioStreamDevice(stream);
+    }
+}
+
+bool AudioOutput::start(std::string& error) {
+    m_started_ms.store(SDL_GetTicks(), std::memory_order_relaxed);
+    m_last_request_ns.store(0, std::memory_order_relaxed);
+    SDL_AudioStream* stream = open_stream(error);
+    if (stream == nullptr) {
         return false;
     }
-    SDL_SetAudioStreamGain(m_stream, m_gain);
     // The mixer starts with the first device, sized for its requests; a device opened again later
     // keeps it, and the frames ahead play on it.
     if (m_ahead > 0 && !m_ring) {
         SDL_AudioSpec device{};
         int device_frames = 0;
-        if (!SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(m_stream), &device, &device_frames)
+        if (!SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(stream), &device, &device_frames)
             || device_frames <= 0) {
             device_frames = 1024;  // SDL's own default at 48 kHz
             device.freq = kAudioRate;
@@ -161,38 +182,73 @@ bool AudioOutput::start(std::string& error) {
         m_device_rate = device.freq;
         start_mixer(device_frames);
     }
-    // Opened paused; start it unless the game paused it.
-    if (!m_paused) {
-        SDL_ResumeAudioStreamDevice(m_stream);
-    }
+    install(stream, {});
     return true;
+}
+
+void AudioOutput::reopen() {
+    SDL_AudioStream* old = nullptr;
+    {
+        const std::lock_guard lock(m_stream_mutex);
+        old = std::exchange(m_stream, nullptr);
+    }
+    if (old != nullptr) {
+        SDL_DestroyAudioStream(old);
+    }
+    m_last_request_ns.store(0, std::memory_order_relaxed);
+    std::string error;
+    SDL_AudioStream* stream = open_stream(error);
+    install(stream, std::move(error));
+    // Counted from here: the device has the whole wait to ask for sound.
+    m_started_ms.store(SDL_GetTicks(), std::memory_order_relaxed);
+    m_reopens.fetch_add(1, std::memory_order_relaxed);
+    m_reopening.store(false, std::memory_order_release);
 }
 
 bool AudioOutput::watch(std::string& error) {
     const std::uint64_t now = SDL_GetTicks();
     const bool steady = m_watched_ms != 0 && now - m_watched_ms < kStallMs;
     m_watched_ms = now;
+    // Being opened again: there is nothing to judge until that is done.
+    if (m_reopening.load(std::memory_order_acquire)) {
+        return true;
+    }
     if (!steady) {
         // The game stood still (in the background, or loading): the device may well have too.
         // Count from now.
-        m_started_ms = now;
+        m_started_ms.store(now, std::memory_order_relaxed);
         return true;
     }
-    if (!m_callback || m_paused) {
-        return true;
+    bool open = false;
+    {
+        const std::lock_guard lock(m_stream_mutex);
+        if (!m_callback || m_paused) {
+            return true;
+        }
+        open = m_stream != nullptr;
+        if (!open) {
+            error = m_open_error;
+        }
     }
-    const std::uint64_t last = std::max(m_fed_ms.load(std::memory_order_relaxed), m_started_ms);
-    if (now - last < kStallMs) {
-        return true;
+    const std::uint64_t fed = m_fed_ms.load(std::memory_order_relaxed);
+    const std::uint64_t started = m_started_ms.load(std::memory_order_relaxed);
+    // A device that asks well after it was opened plays: the next silence waits kStallMs again.
+    // (One that will not play still asks once or twice as it opens.)
+    if (fed >= started + kStallMs / 2) {
+        m_stall_ms = kStallMs;
     }
-    if (m_stream != nullptr) {
-        SDL_DestroyAudioStream(m_stream);
-        m_stream = nullptr;
+    if (now - std::max(fed, started) < m_stall_ms) {
+        return open;
     }
-    return start(error);
+    m_stall_ms = std::min(m_stall_ms * 2, kStallMaxMs);
+    m_reopening.store(true, std::memory_order_release);
+    // The last reopen() has ended (m_reopening was false): taking its thread's place does not wait.
+    m_reopener = JoiningThread([this] { reopen(); });
+    return open;
 }
 
 AudioOutput::~AudioOutput() {
+    m_reopener.join();  // the stream is this thread's alone from here
     // After SDL_Quit (or SDL_QuitSubSystem) the stream is already gone with the audio
     // subsystem: destroying it again touches SDL's freed state and faults. That is what an exit
     // handler or static owner outliving the Platform sees, so leave the stream alone then.
@@ -227,6 +283,7 @@ void AudioOutput::feed(void* self, SDL_AudioStream* stream, int additional, int 
 }
 
 bool AudioOutput::queue(std::span<const std::int16_t> samples) {
+    const std::lock_guard lock(m_stream_mutex);
     if (samples.empty() || m_stream == nullptr) {
         return true;
     }
@@ -234,6 +291,7 @@ bool AudioOutput::queue(std::span<const std::int16_t> samples) {
 }
 
 int AudioOutput::queued_frames() const {
+    const std::lock_guard lock(m_stream_mutex);
     if (m_stream == nullptr) {
         return 0;
     }
@@ -242,6 +300,7 @@ int AudioOutput::queued_frames() const {
 }
 
 void AudioOutput::pause(bool paused) {
+    const std::lock_guard lock(m_stream_mutex);
     m_paused = paused;
     // A pause is not a late request.
     m_last_request_ns.store(0, std::memory_order_relaxed);
@@ -256,6 +315,7 @@ void AudioOutput::pause(bool paused) {
 }
 
 void AudioOutput::set_gain(float gain) {
+    const std::lock_guard lock(m_stream_mutex);
     m_gain = gain;
     if (m_stream == nullptr) {
         return;

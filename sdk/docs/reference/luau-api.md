@@ -35,6 +35,8 @@ language server at the SDK's `types/rac1.d.luau` for autocomplete. How to use it
 | `openrac.touch_icon` | `(name: string, svg: string) -> boolean` |
 | `openrac.touch_push` | `(context: string?) -> ()` |
 | `openrac.touch_hint` | `(hint: string, on: boolean) -> ()` |
+| `openrac.set_setting` | `(key: string, value: any) -> boolean` |
+| `openrac.on_settings` | `(fn: () -> ()) -> ()` |
 | `openrac.pvars` | `(moby: number) -> { [string]: number }?` |
 
 ## Types

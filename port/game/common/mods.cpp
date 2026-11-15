@@ -8,11 +8,13 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <format>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -1270,6 +1272,323 @@ int api_identity_key(char* out, std::uint32_t size) {
     return static_cast<int>(length);
 }
 
+// ---- A mod's settings set from the game, and the launcher's changes (interface 1.15) ----
+
+struct SettingsCallback {
+    openrac_frame_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+std::vector<SettingsCallback> g_settings_callbacks;
+// The list's time when the port last read or wrote it, and the ticks until it looks again (about a
+// second at 60 ticks a second).
+std::optional<fs::file_time_type> g_list_seen;
+int g_list_wait = 0;
+constexpr int kListTicks = 60;
+bool g_list_unwritten_said = false;
+
+std::string quoted(std::string_view s);
+bool read_text(const fs::path& path, std::string& out);
+
+// A JSON number as text: an integer without a fraction, else the shortest text that reads back.
+std::string number_text(double d) {
+    if (std::isfinite(d) && std::floor(d) == d && std::fabs(d) < 1e15) {
+        return std::format("{}", static_cast<std::int64_t>(d));
+    }
+    return std::format("{}", d);
+}
+
+// `v` as JSON text, two spaces a level from `depth`; `replace` (a value inside `v`) written as
+// `replacement` instead.
+void write_json(
+    std::string& out,
+    const json::Value& v,
+    int depth,
+    const json::Value* replace,
+    const std::string& replacement
+) {
+    if (&v == replace) {
+        out += replacement;
+        return;
+    }
+    const std::string in(static_cast<std::size_t>(2 * (depth + 1)), ' ');
+    const std::string at(static_cast<std::size_t>(2 * depth), ' ');
+    switch (v.type()) {
+        case json::Value::Type::Null:
+            out += "null";
+            break;
+        case json::Value::Type::Bool:
+            out += v.boolean() ? "true" : "false";
+            break;
+        case json::Value::Type::Number:
+            out += number_text(v.number());
+            break;
+        case json::Value::Type::String:
+            out += mods::quoted(v.string());
+            break;
+        case json::Value::Type::Array: {
+            if (v.items().empty()) {
+                out += "[]";
+                break;
+            }
+            out += "[\n";
+            for (std::size_t i = 0; i < v.items().size(); ++i) {
+                out += in;
+                write_json(out, v.items()[i], depth + 1, replace, replacement);
+                out += i + 1 < v.items().size() ? ",\n" : "\n";
+            }
+            out += at + "]";
+            break;
+        }
+        case json::Value::Type::Object: {
+            if (v.members().empty()) {
+                out += "{}";
+                break;
+            }
+            out += "{\n";
+            std::size_t i = 0;
+            for (const auto& [key, member] : v.members()) {
+                out += in + mods::quoted(key) + ": ";
+                write_json(out, member, depth + 1, replace, replacement);
+                out += ++i < v.members().size() ? ",\n" : "\n";
+            }
+            out += at + "}";
+            break;
+        }
+    }
+}
+
+// The list's text with mod `id`'s setting `key` set to `literal` (JSON text), every other mod,
+// setting and member as it was (an object's members in the order the reader keeps them); empty
+// when the list has no entry for the mod.
+std::string list_with(
+    const json::Value& list, std::string_view id, const std::string& key, const std::string& literal
+) {
+    const json::Value* entry = nullptr;
+    for (const json::Value& m : list["mods"].items()) {
+        if (m["id"].is_string() && m["id"].string() == id) {
+            entry = &m;  // the first place counts, as parse_list has it
+            break;
+        }
+    }
+    if (entry == nullptr || !entry->is_object()) {
+        return {};
+    }
+    // The entry written again at its place (two levels down: the list, "mods"), its settings with
+    // the key set, added when it has none.
+    std::map<std::string, std::string, std::less<>> settings;
+    if (const json::Value& had = (*entry)["settings"]; had.is_object()) {
+        for (const auto& [name, member] : had.members()) {
+            std::string value;
+            write_json(value, member, 4, nullptr, {});
+            settings[name] = value;
+        }
+    }
+    settings[key] = literal;
+    std::map<std::string, std::string, std::less<>> members;
+    for (const auto& [name, member] : entry->members()) {
+        std::string value;
+        write_json(value, member, 3, nullptr, {});
+        members[name] = value;
+    }
+    std::string settings_text = "{\n";
+    std::size_t i = 0;
+    for (const auto& [name, value] : settings) {
+        settings_text +=
+            "        " + mods::quoted(name) + ": " + value + (++i < settings.size() ? ",\n" : "\n");
+    }
+    members["settings"] = settings_text + "      }";
+    std::string entry_text = "{\n";
+    i = 0;
+    for (const auto& [name, value] : members) {
+        entry_text +=
+            "      " + mods::quoted(name) + ": " + value + (++i < members.size() ? ",\n" : "\n");
+    }
+    entry_text += "    }";
+    std::string out;
+    write_json(out, list, 0, entry, entry_text);
+    return out + "\n";
+}
+
+// Writes the mod's setting into the launcher's list; false, and why, when it cannot.
+bool write_setting(
+    const openrac_mod& mod, const std::string& key, const std::string& literal, std::string& why
+) {
+    if (g_host == nullptr || g_host->purist || g_host->list.empty()) {
+        why = "no list of mods in this run";
+        return false;
+    }
+    const fs::path& path = g_host->list;
+    std::string text;
+    json::Value list;
+    std::string error;
+    if (!read_text(path, text) || !json::parse(text, list, error) || !list["mods"].is_array()) {
+        why = log::tidy(path.string()) + " cannot be read";
+        return false;
+    }
+    const std::string next = list_with(list, mod.id, key, literal);
+    if (next.empty()) {
+        why = log::tidy(path.string()) + " has no entry for it";
+        return false;
+    }
+    // Written beside and moved into place, as the launcher writes it, so neither reads half.
+    fs::path temporary = path;
+    temporary += ".port.tmp";
+    {
+        std::ofstream f(temporary, std::ios::binary | std::ios::trunc);
+        f << next;
+        if (!f) {
+            why = log::tidy(temporary.string()) + " cannot be written";
+            return false;
+        }
+    }
+    std::error_code e;
+    fs::rename(temporary, path, e);
+    if (e) {
+        fs::remove(temporary, e);
+        why = log::tidy(path.string()) + " cannot be replaced";
+        return false;
+    }
+    // The port's own write is not a change of the launcher's to tell.
+    g_list_seen = fs::last_write_time(path, e);
+    if (e) {
+        g_list_seen.reset();
+    }
+    return true;
+}
+
+// Sets setting `key`, of type `a` or `b`, from `literal` (JSON text) for this run and in the list.
+int set_setting(
+    openrac_mod* mod, const char* key, SettingType a, SettingType b, const std::string& literal
+) {
+    if (mod == nullptr || key == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::vector<Setting>& declared = mod->manifest.settings;
+    const auto it = std::find_if(declared.begin(), declared.end(), [&](const Setting& d) {
+        return d.key == key;
+    });
+    if (it == declared.end() || (it->type != a && it->type != b)
+        || (g_host != nullptr && !setting_for_game(*it, g_host->game))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    json::Value v;
+    std::string error;
+    SettingValue value;
+    if (!json::parse(literal, v, error) || !setting_value(*it, v, value)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    mod->settings[key] = value;
+    std::string why;
+    if (!write_setting(*mod, key, literal, why) && !g_list_unwritten_said) {
+        log::warn("mod {}: setting \"{}\" kept for this run only: {}", mod->id, key, why);
+        g_list_unwritten_said = true;
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_setting_set_bool(openrac_mod* mod, const char* key, int value) {
+    return set_setting(
+        mod, key, SettingType::Bool, SettingType::Bool, value != 0 ? "true" : "false"
+    );
+}
+
+int api_setting_set_int(openrac_mod* mod, const char* key, int64_t value) {
+    return set_setting(mod, key, SettingType::Int, SettingType::Int, std::format("{}", value));
+}
+
+int api_setting_set_float(openrac_mod* mod, const char* key, double value) {
+    if (!std::isfinite(value)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return set_setting(mod, key, SettingType::Float, SettingType::Float, number_text(value));
+}
+
+int api_setting_set_string(openrac_mod* mod, const char* key, const char* value) {
+    if (value == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    // A choice, a string or a keybind: whichever the manifest declares.
+    if (setting(mod, key, SettingType::Keybind, SettingType::Keybind) != nullptr) {
+        return set_setting(
+            mod, key, SettingType::Keybind, SettingType::Keybind, mods::quoted(value)
+        );
+    }
+    return set_setting(mod, key, SettingType::String, SettingType::Choice, mods::quoted(value));
+}
+
+int api_on_settings(openrac_mod* mod, openrac_frame_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading || fn == nullptr) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    g_settings_callbacks.push_back({fn, user, mod});
+    return OPENRAC_HOOK_OK;
+}
+
+const std::map<std::string, SettingValue>* settings_of(openrac_mod* mod) {
+    return mod != nullptr ? &mod->settings : nullptr;
+}
+
+bool same(const SettingValue& x, const SettingValue& y) {
+    return x.type == y.type && x.b == y.b && x.i == y.i && x.f == y.f && x.s == y.s;
+}
+
+// About once a second while a mod asked to be told: the list read again when it changed, and each
+// such mod whose settings it now gives other values told, after they are its.
+void follow_list() {
+    if (g_settings_callbacks.empty() || g_host == nullptr || g_host->purist || g_host->list.empty()
+        || --g_list_wait > 0) {
+        return;
+    }
+    g_list_wait = kListTicks;
+    std::error_code e;
+    const fs::file_time_type stamp = fs::last_write_time(g_host->list, e);
+    if (e || (g_list_seen && *g_list_seen == stamp)) {
+        return;
+    }
+    std::string text;
+    std::vector<ListEntry> list;
+    std::string error;
+    if (!read_text(g_host->list, text) || !parse_list(text, list, error)) {
+        return;  // half written by the launcher: read again when it changes
+    }
+    g_list_seen = stamp;
+    for (const auto& loaded : g_loaded) {
+        openrac_mod* mod = loaded.get();
+        const bool told = std::any_of(
+            g_settings_callbacks.begin(),
+            g_settings_callbacks.end(),
+            [&](const SettingsCallback& c) { return c.mod == mod; }
+        );
+        const auto entry = std::find_if(list.begin(), list.end(), [&](const ListEntry& l) {
+            return l.id == mod->id;
+        });
+        if (!told || entry == list.end()) {
+            continue;
+        }
+        std::vector<std::string> notes;
+        auto now = resolve_settings(mod->manifest, entry->settings, notes, g_host->game);
+        const bool changed =
+            now.size() != mod->settings.size()
+            || !std::equal(
+                now.begin(), now.end(), mod->settings.begin(), [](const auto& x, const auto& y) {
+                    return x.first == y.first && same(x.second, y.second);
+                }
+            );
+        if (!changed) {
+            continue;
+        }
+        mod->settings = std::move(now);
+        log::info("mod {}: its settings changed in the launcher's list", mod->id);
+        for (const SettingsCallback& c : g_settings_callbacks) {
+            if (c.mod == mod) {
+                c.fn(c.user);
+            }
+        }
+    }
+}
+
 void fill_api(const Host& host) {
     static std::string game, version, openrac_version;
     game = host.game;
@@ -1344,6 +1663,11 @@ void fill_api(const Host& host) {
     g_api.identity_key = api_identity_key;
     fill_play_api(g_api, host.play, host.cards);
     fill_motion_api(g_api, host);
+    g_api.setting_set_bool = api_setting_set_bool;
+    g_api.setting_set_int = api_setting_set_int;
+    g_api.setting_set_float = api_setting_set_float;
+    g_api.setting_set_string = api_setting_set_string;
+    g_api.on_settings = api_on_settings;
 }
 
 // ---- status.json ----
@@ -1495,6 +1819,7 @@ void undo(openrac_mod* mod) {
     mod->taken.clear();
     mod->hooks.clear();
     std::erase_if(g_frames, [&](const FrameCallback& c) { return c.mod == mod; });
+    std::erase_if(g_settings_callbacks, [&](const SettingsCallback& c) { return c.mod == mod; });
     std::erase_if(g_pads, [&](const PadCallback& c) { return c.mod == mod; });
     std::erase_if(g_menus, [&](const MenuCallback& c) { return c.mod == mod; });
     std::erase_if(g_overlays, [&](const OverlayCallback& c) { return c.mod == mod; });
@@ -1543,8 +1868,22 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
         s.version = g_host->version;
         s.platform = platform_key();
         s.api = std::format("{}.{}", OPENRAC_MOD_API_MAJOR, OPENRAC_MOD_API_MINOR);
-        const scripts::Services services{api_hook,  api_on_frame,  api_on_pad,        api_log,
-                                         script_stopped, api_input, api_take_input, api_capture_mouse};
+        const scripts::Services services{
+            api_hook,
+            api_on_frame,
+            api_on_pad,
+            api_log,
+            script_stopped,
+            api_input,
+            api_take_input,
+            api_capture_mouse,
+            api_setting_set_bool,
+            api_setting_set_int,
+            api_setting_set_float,
+            api_setting_set_string,
+            api_on_settings,
+            settings_of
+        };
         std::string why;
         g_loading = mod.get();
         const bool loaded = scripts::load(s, g_host->scripts, services, why);
@@ -1728,7 +2067,7 @@ std::string load(const Host& host) {
         }
         outcomes.push_back(std::move(o));
     }
-    g_frame_callbacks = !g_frames.empty();
+    g_frame_callbacks = !g_frames.empty() || !g_settings_callbacks.empty();
     if (host.pad_hook != nullptr) {
         *host.pad_hook = g_pads.empty() ? nullptr : run_pads;
     }
@@ -1793,6 +2132,7 @@ void run_frame_callbacks() {
     for (const FrameCallback& c : g_frames) {
         c.fn(c.user);
     }
+    follow_list();
 }
 
 int menu_entry_count() {
@@ -2017,6 +2357,10 @@ void reset() {
     g_loaded.clear();
     g_asset_roots.clear();
     g_frames.clear();
+    g_settings_callbacks.clear();
+    g_list_seen.reset();
+    g_list_wait = 0;
+    g_list_unwritten_said = false;
     g_pads.clear();
     g_menus.clear();
     g_overlays.clear();

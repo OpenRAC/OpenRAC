@@ -4,10 +4,12 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <random>
 #include <vector>
 
+#include "game/common/moby_proc.h"
 #include "game/common/profile.h"
 #include "game/rac1/game_state.h"
 #include "openrac/ps2float.h"
@@ -214,9 +216,36 @@ void test_nanotech_orb_without_mesh(const game::rac1::GameAddresses& addresses) 
 }
 }  // namespace
 
+// The freecam (issue #366): a moby behind the game's camera is kept by its draw distance in any
+// direction; past it, with no draw distance, or with a sphere that is not a number, it is not.
+void the_free_camera_reaches_behind() {
+    host::GameState state;
+    state.camera_position = {100.0f, 0.0f, 0.0f};
+    state.forward = {1.0f, 0.0f, 0.0f};
+    state.moby_view = host::GameState::MobyView{{1.0f, 0.0f, 0.0f}, 0x7FFF, 0.1f * 1024.0f};
+    std::uint8_t moby[0x100] = {};
+    const auto at = [&](float x, float r, std::int16_t dd) {
+        const float sphere[4] = {x * 1024.0f, 0.0f, 0.0f, r * 1024.0f};
+        place(moby, sphere, dd);
+        return host::moby_free_camera_reach(moby, state);
+    };
+    CHECK(at(80.0f, 1.0f, 64) == std::uint8_t{0x80});     // 20 units behind: kept ...
+    CHECK(!game::rac1::moby_distance_fade(moby, state));  // ... where the game's view culls it
+    CHECK(!at(30.0f, 1.0f, 64));                          // 69 units behind, past its 64
+    CHECK(!at(80.0f, 1.0f, 0));                           // no draw distance
+    state.moby_view->draw_cap = 16;                       // the cap still wins
+    CHECK(!at(80.0f, 1.0f, 64));
+    state.moby_view->scale = 0.0f;  // Unlimited
+    CHECK(at(-2000.0f, 1.0f, 64) == std::uint8_t{0x80});
+    CHECK(!at(-9000.0f, 1.0f, 64));  // Pokitaru's class 1161, far out
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    CHECK(!at(nan, 1.0f, 64));
+}
+
 int main() {
     matches_the_asm();
     the_last_16_units();
+    the_free_camera_reaches_behind();
     test_nanotech_orb_without_mesh(game::rac1::kRac1PalLevels[0]);
     test_nanotech_orb_without_mesh(game::rac1::kRac1NtscLevels[0]);
     return openrac::test::result();

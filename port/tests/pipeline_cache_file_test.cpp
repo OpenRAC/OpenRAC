@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The Vulkan pipeline cache's files (renderer/vulkan/pipeline_cache_file.h, in cache_file.h's
+// The Vulkan pipeline cache's files (renderer/vulkan/cache/pipeline_cache_file.h, in cache_file.h's
 // envelope): a save reads back whole, a damaged file is dropped, and writers saving the same file
 // at once, as threads and as processes, leave a whole save of one of them and nothing else; the
 // pipeline manifest reads back its entries, and one of another key size, cut short or holding a
@@ -32,7 +32,7 @@
 
 #include "check.h"
 #include "common/joining_thread.h"
-#include "renderer/vulkan/pipeline_cache_file.h"
+#include "renderer/vulkan/cache/pipeline_cache_file.h"
 
 namespace {
 

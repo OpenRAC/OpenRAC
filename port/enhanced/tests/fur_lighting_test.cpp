@@ -7,13 +7,13 @@
 #include <exception>
 
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 

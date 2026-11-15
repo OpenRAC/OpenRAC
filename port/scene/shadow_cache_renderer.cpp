@@ -8,7 +8,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "scene/level_renderer.h"
 #include "scene/level_renderer_internal.h"
 #include "scene/shadow_graph.h"

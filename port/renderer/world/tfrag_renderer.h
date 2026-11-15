@@ -5,7 +5,7 @@
 // tfrag_lod.rs and tfrag_light.rs: ISC License, Copyright (c) 2026 ReRAC contributors.
 //
 // The terrain (tfrag) renderer, replacing the placeholder of
-// renderer/subsystems.h: DrawTfrag and TfragProc (PAL func_002346C0,
+// renderer/frame/subsystems.h: DrawTfrag and TfragProc (PAL func_002346C0,
 // func_002352C8), VU1 programs 55907 and 903379 (RENDERER.md section 2).
 //
 // Every triangle of all three strip lists is uploaded once per level

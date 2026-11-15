@@ -9,11 +9,6 @@
 
 #pragma once
 
-#import <Metal/Metal.h>
-#import <QuartzCore/CAMetalLayer.h>
-
-#include <SDL3/SDL_metal.h>
-
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -21,10 +16,15 @@
 #include <unordered_map>
 #include <vector>
 
-#include "renderer/gl.h"
+#include <SDL3/SDL_metal.h>
+
+#include "renderer/gl/gl.h"
 #include "renderer/metal/mtlgl.h"
 #include "renderer/metal/shader_translate.h"
 #include "renderer/world/gl_world.h"
+
+#import <Metal/Metal.h>
+#import <QuartzCore/CAMetalLayer.h>
 
 namespace openrac::mtlgl::detail {
 

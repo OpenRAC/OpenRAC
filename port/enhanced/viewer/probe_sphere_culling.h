@@ -8,8 +8,8 @@
 #include <span>
 
 #include "enhanced/lighting/probe_regions.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 
 namespace openrac::lighting {
 
@@ -38,7 +38,8 @@ public:
     void dispatch(
         const renderer::Camera& camera,
         float range,
-        const std::array<ProbeRegionSlot, kDenseProbeSlots>& slots
+        const std::array<ProbeRegionSlot, kDenseProbeSlots>& slots,
+        bool gpu_selection = false
     );
 
     // Returns the program whose selection uniforms must be bound before dispatch.

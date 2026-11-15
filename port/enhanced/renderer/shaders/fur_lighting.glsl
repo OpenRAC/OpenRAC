@@ -2,6 +2,7 @@
 // Soft anisotropic GGX sheen and a bounded forward/wrap scattering approximation for short fur.
 // Microfacet equations: https://google.github.io/filament/Filament.html#materialsystem/anisotropicmodel
 // Original implementation; the denominators, directions and multi-light sum remain FP32.
+// openrac_mode: hero_fur_lighting_enabled
 uniform int hero_fur_lighting_enabled;
 uniform vec4 hero_fur_lighting_parameters; // Highlight strength, softness, directionality, scattering.
 uniform float hero_fur_environment_strength;

@@ -19,11 +19,12 @@
 #include "enhanced/renderer/local_lights.h"
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water_internal.h"
+#include "enhanced/renderer/water_window.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/colour_graph.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/surface_chain.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 
@@ -37,12 +38,21 @@ WaterDebugSettings water_debug;
 // Profile and live values share the existing water controls mutex.
 OceanMaterial ocean_profile_material;
 OceanMaterial ocean_live_material;
+std::optional<float> ocean_authored_roughness;
+std::optional<float> ocean_authored_reflectivity;
 std::atomic<std::uint64_t> water_reset_epoch{0};
+
+OceanMaterial ocean_defaults() {
+    auto material = ocean_profile_material;
+    material.roughness = ocean_authored_roughness.value_or(material.roughness);
+    material.reflectivity = ocean_authored_reflectivity.value_or(material.reflectivity);
+    return material;
+}
 
 void begin_ocean_material(const OceanMaterial& material) {
     const std::lock_guard lock(water_debug_mutex);
     ocean_profile_material = material;
-    ocean_live_material = material;
+    ocean_live_material = ocean_defaults();
 }
 
 bool water_disabled() {
@@ -127,6 +137,21 @@ std::optional<renderer::EffectMesh> Water::mesh(
             return std::nullopt;
         }
     }
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::WaterStripCull)) {
+        // Waves move the surface by far less than this; a strip outside the view draws nothing.
+        constexpr float kWaveMargin = 4;
+        renderer::Vec3 low{1e20f, 1e20f, 1e20f}, high{-1e20f, -1e20f, -1e20f};
+        for (const auto& v : vertices) {
+            const renderer::Vec3 p{v.x, v.y, v.z};
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                low[axis] = std::min(low[axis], p[axis] - kWaveMargin);
+                high[axis] = std::max(high[axis], p[axis] + kWaveMargin);
+            }
+        }
+        if (!water_window_visible(m_view_projection, low, high)) {
+            return renderer::EffectMesh{};
+        }
+    }
     return m_mesh->prepare(strip, vertices);
 }
 
@@ -135,12 +160,23 @@ void Water::upload_meshes() {
 }
 
 // Copy once per visible water pass; source and sampled images never alias.
-void Water::prepare_scene(const renderer::FrameInput&, const renderer::RenderTarget& target) {
+void Water::prepare_scene(
+    const renderer::FrameInput&, const renderer::RenderTarget& target, unsigned pre_particle_colour
+) {
     if (!m_enabled || target.width <= 0 || target.height <= 0) {
         return;
     }
-    const auto scratch =
-        renderer::lease_surface_refraction(target.framebuffer, {target.width, target.height});
+    // Simulation and lighting views have no transmission. The foam mask needs scene depth only
+    // for ocean shoaling, and the shoreline mask uses it for contact coverage.
+    const bool foam_mask = m_debug.view == 14;
+    if ((m_debug.view >= 1 && m_debug.view <= 11) || (foam_mask && !m_ocean_spectra[0])) {
+        return;
+    }
+    const bool needs_colour = !foam_mask && m_debug.view != 16;
+    const bool copy_colour = needs_colour && pre_particle_colour == 0;
+    const auto scratch = renderer::lease_surface_refraction(
+        target.framebuffer, {target.width, target.height}, copy_colour
+    );
     if (!scratch
         && (m_background.width() != target.width || m_background.height() != target.height)) {
         std::string error;
@@ -156,11 +192,14 @@ void Water::prepare_scene(const renderer::FrameInput&, const renderer::RenderTar
     glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
     const unsigned destination = scratch ? scratch.framebuffer : m_background.id();
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination);
-    // Copy dimensions survive preparation until the enclosing colour scope executes both native blits.
+    // Copy dimensions survive preparation until the enclosing colour scope executes the blits.
     const int width = target.width;
     const int height = target.height;
     const auto copied = renderer::colour_snapshot(
-        target, destination, std::max(1, samples), [width, height](bool depth) {
+        target,
+        destination,
+        std::max(1, samples),
+        [width, height](bool depth) {
             glBlitFramebuffer(
                 0,
                 0,
@@ -173,7 +212,14 @@ void Water::prepare_scene(const renderer::FrameInput&, const renderer::RenderTar
                 depth ? GL_DEPTH_BUFFER_BIT : GL_COLOR_BUFFER_BIT,
                 GL_NEAREST
             );
-        }
+            // Logical output payload. This excludes reads, MSAA samples and packed stencil.
+            stats::gauge(
+                depth ? "refraction depth snapshot bytes" : "refraction colour snapshot bytes",
+                double(width) * height * 4
+            );
+        },
+        copy_colour ? renderer::SnapshotAttachments::ColourDepth
+                    : renderer::SnapshotAttachments::Depth
     );
     if (!copied) {
         throw std::runtime_error(copied.error().message);
@@ -182,6 +228,9 @@ void Water::prepare_scene(const renderer::FrameInput&, const renderer::RenderTar
     m_background_textures =
         scratch ? scratch.textures
                 : std::array{m_background.colour_texture(), m_background.depth_texture()};
+    if (!copy_colour) {
+        m_background_textures[0] = needs_colour ? pre_particle_colour : 0;
+    }
     m_background_extent = {width, height};
 }
 
@@ -243,7 +292,7 @@ void Water::bind(
         return;
     }
     m_bound = true;
-    glUniform1i(shader.uniform("water_scene_ready"), m_background_textures[0] ? 1 : 0);
+    glUniform1i(shader.uniform("water_scene_ready"), m_background_textures[1] ? 1 : 0);
     glUniform2f(
         shader.uniform("water_scene_extent"),
         float(std::max(1, m_background_extent[0])),
@@ -413,7 +462,13 @@ void Water::bind_deformation(const renderer::Shader& shader) const {
     glActiveTexture(GL_TEXTURE0);
 }
 
-void Water::bind_contact(const renderer::Shader& shader) const {
+void Water::bind_contact(const renderer::Shader& shader, std::vector<WaterBufferUse>& reads) const {
+    reads.push_back(
+        {m_buffers[kCoast], m_coast.size() * sizeof(Texel), renderer::graph::Access::Read}
+    );
+    reads.push_back(
+        {m_buffers[kBodies], m_bodies.size() * sizeof(Texel), renderer::graph::Access::Read}
+    );
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, m_buffers[kCoast]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, m_buffers[kBodies]);
     glActiveTexture(GL_TEXTURE0 + 12);
@@ -465,9 +520,33 @@ void set_ocean_material(OceanMaterial material) {
     ocean_live_material = material;
 }
 
+void set_ocean_optics_defaults(std::optional<float> roughness, std::optional<float> reflectivity) {
+    const std::lock_guard lock(water_debug_mutex);
+    if (roughness != ocean_authored_roughness) {
+        ocean_authored_roughness = roughness;
+        ocean_live_material.roughness = roughness.value_or(ocean_profile_material.roughness);
+    }
+    if (reflectivity != ocean_authored_reflectivity) {
+        ocean_authored_reflectivity = reflectivity;
+        ocean_live_material.reflectivity =
+            reflectivity.value_or(ocean_profile_material.reflectivity);
+    }
+}
+
+void reset_ocean_optics(bool roughness, bool reflectivity) {
+    const std::lock_guard lock(water_debug_mutex);
+    const auto defaults = ocean_defaults();
+    if (roughness) {
+        ocean_live_material.roughness = defaults.roughness;
+    }
+    if (reflectivity) {
+        ocean_live_material.reflectivity = defaults.reflectivity;
+    }
+}
+
 void reset_ocean_material() {
     const std::lock_guard lock(water_debug_mutex);
-    ocean_live_material = ocean_profile_material;
+    ocean_live_material = ocean_defaults();
 }
 
 WaterDebugSettings water_debug_settings() {
@@ -514,11 +593,11 @@ bool ocean_replaces_horizon() {
     return water_ready.load() && ocean_ready.load();
 }
 
-bool bind_water_contact(const renderer::Shader& shader) {
+bool bind_water_contact(const renderer::Shader& shader, std::vector<WaterBufferUse>& reads) {
     if (!contact_source || !water_ready.load()) {
         return false;
     }
-    contact_source->bind_contact(shader);
+    contact_source->bind_contact(shader, reads);
     return true;
 }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Tests the optimisation registry (renderer/render_opt.h) and the Vulkan backend's render counters
+// Tests the optimisation registry (renderer/settings/render_opt.h) and the Vulkan backend's render counters
 // (renderer/vulkan/vkgl.h, SubmissionCounters). One program, three ctest tests:
 //
 //   render_opt              the table and the parsing of OPENRAC_RENDER_OPT_OFF, no GPU; it runs in
@@ -22,12 +22,12 @@
 #include <utility>
 
 #include "common/log.h"
-#include "renderer/render_opt.h"
+#include "renderer/settings/render_opt.h"
 #include "tests/check.h"
 
 #if defined(OPENRAC_RENDER_OPT_TEST_VULKAN)
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/renderer_gl_context.h"
 #endif

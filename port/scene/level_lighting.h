@@ -19,8 +19,8 @@
 #include <string_view>
 #include <utility>
 
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 #include "scene/level.h"
 
 namespace openrac::scene {
@@ -66,6 +66,9 @@ public:
     // Zero restores the original surface and supplies complete resources for temporal draws.
     virtual void bind_surface_layer(const renderer::Shader&, int) const {}
 
+    // Each moby group's model, before its draws: hero-only paths can be switched off.
+    virtual void bind_moby_model(const renderer::Shader&, std::uint32_t) const {}
+
     // Temporal coverage must use the same optional surface mask as colour rendering.
     virtual std::string motion_fragment(std::string source) const { return source; }
 
@@ -101,6 +104,10 @@ public:
 
     virtual void bind_atmosphere(const renderer::Shader&) const {}
 
+    virtual bool enhanced_materials_enabled() const { return false; }
+
+    virtual bool material_original(std::uint32_t, int) const { return false; }
+
     // Optional shading of the authored material on the current model.
     virtual void bind_material(const renderer::Shader&, std::uint32_t, int, const Material&) const {
     }
@@ -113,6 +120,9 @@ public:
     // Separates cached state when different object types share the same original texture material.
     virtual std::uint64_t material_variant(std::uint32_t, int) const { return 0; }
 
+    // Glass assignments move ordinary geometry into the existing transparent colour pass.
+    virtual bool material_glass(std::uint32_t, int) const { return false; }
+
     // Returns the authored RGB multiplier for a sky shell, white for original rendering.
     virtual std::array<float, 3> sky_tint(std::uint32_t, int) const { return {1, 1, 1}; }
 
@@ -124,6 +134,9 @@ public:
 
     // Returns whether this GPU and build can draw the early lighting at all.
     virtual bool early_supported() const = 0;
+
+    // Returns whether the probe coverage view is on: colour draws then take the coverage shaders.
+    virtual bool coverage_view() const { return false; }
 
     // ---- The level ----
 

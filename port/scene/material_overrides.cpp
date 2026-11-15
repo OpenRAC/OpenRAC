@@ -220,7 +220,9 @@ Result<std::shared_ptr<const MaterialAssets>> emission_images(
 
 }  // namespace
 
-Result<materials::Catalog> load_material_catalog(const LevelData& level) {
+Result<materials::Catalog> load_material_catalog(
+    const LevelData& level, const std::filesystem::path& excluded
+) {
     try {
         const auto name = "material-overrides.json";
         std::vector<std::filesystem::path> paths{
@@ -246,6 +248,9 @@ Result<materials::Catalog> load_material_catalog(const LevelData& level) {
             // Imported legacy edits sit above tracked defaults and below explicit material authoring.
             if (path == level.dir.parent_path() / name) {
                 materials::merge_catalog(result, *legacy, layer++);
+            }
+            if (path == excluded) {
+                continue;
             }
             const auto source = materials::read_catalog(path);
             if (!source) {
@@ -338,9 +343,14 @@ const Material& resolved_material(const LevelData& level, std::uint32_t model, i
     if (level.material_bindings) {
         const auto* binding = level.material_bindings->find(model, material);
         if (binding) {
-            return binding->surface;
+            return binding->surface();
         }
     }
     return level.materials.at(static_cast<std::size_t>(material));
+}
+
+bool MaterialBindings::original(std::uint32_t model, int material) const {
+    const auto* binding = find(model, material);
+    return binding && materials::text_value(binding->values.properties, "type") == "original";
 }
 }  // namespace openrac::scene

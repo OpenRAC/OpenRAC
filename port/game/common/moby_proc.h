@@ -27,4 +27,14 @@ std::optional<std::uint8_t> moby_proc_distance_fade(
     const std::uint8_t* moby, const GameState& state
 );
 
+/**
+ * The same test for the freecam, which flies away from the game's camera: whether the moby is
+ * within its draw distance (and the cap, scaled as Draw distance scales it) of `state`'s camera
+ * in any direction, the near plane and the sides left to the window's own view of the freecam.
+ * None, as above, when it is not, or when its draw distance is 0 or its sphere is not a number.
+ */
+std::optional<std::uint8_t> moby_free_camera_reach(
+    const std::uint8_t* moby, const GameState& state
+);
+
 }  // namespace openrac::host

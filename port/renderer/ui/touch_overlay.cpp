@@ -11,8 +11,8 @@
 #include <vector>
 
 #include "common/log.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "renderer/ui/logo.h"
 #include "renderer/ui/touch_icons.h"
 

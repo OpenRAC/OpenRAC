@@ -9,10 +9,10 @@
 #include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
-#include "renderer/surface_chain.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 
@@ -141,10 +141,7 @@ bool Gtao::render(
             !direct_depth && !scratch
         )
         || !prepare_program(
-            scale,
-            target.normal_texture != 0,
-            options.quality == GtaoQuality::Performance,
-            options.hi_z
+            scale, target.normal_texture != 0, options.quality != GtaoQuality::Quality, options.hi_z
         )) {
         glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
         glViewport(0, 0, target.width, target.height);

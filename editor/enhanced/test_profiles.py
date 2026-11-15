@@ -77,6 +77,27 @@ class ProfileTests(unittest.TestCase):
                 settings = json.loads((directory/'probe-bake.json').read_text())
                 self.assertEqual(settings['strategy'], 'scene')
 
+    def test_authored_level_materials_survive_export_and_refresh(self):
+        """Saved Studio definitions and assignments ship with their exact level, below local edits."""
+        for number, material in ((1, 'lit-default'), (3, 'kerwan-building'), (4, 'ratchet-coat')):
+            with self.subTest(level=number), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary)
+                source = profiles.PROFILE_ROOT / f'rac1-ntsc/level_{number:02}/material-overrides.json'
+                authored = json.loads(source.read_text())
+                self.assertIn(material, authored['presets'])
+                local = output / 'material-overrides.json'
+                local_text = '{"version":1,"presets":{"my-material":{"type":"original"}}}'
+                local.write_text(local_text)
+                level = SimpleNamespace(game='rac1', version='ntsc', id=number)
+                profiles.write_bake_profile(level, output)
+                target = output / 'materials/level/material-overrides.json'
+                self.assertEqual(json.loads(target.read_text()), authored)
+                self.assertEqual(local.read_text(), local_text)
+                target.write_text('{"version":1,"overrides":[]}')
+                profiles.write_bake_profile(level, output)
+                self.assertEqual(json.loads(target.read_text()), authored)
+                self.assertEqual(local.read_text(), local_text)
+
     def test_generated_material_layer_waits_for_the_baker(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

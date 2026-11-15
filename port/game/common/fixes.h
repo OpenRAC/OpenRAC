@@ -3,8 +3,8 @@
 //
 // The game fixes: what the port changes from the console's behaviour that a player may switch back.
 // Each is an entry of kind "fix" in the game's list of differences (port/game/<game>/differences.json),
-// a setting of its own in the settings file (`fix_... = 1`, settings.cpp), a row of the Options
-// page's "Game fixes" group (options_menu.cpp) and a switch on the launcher's page for the game.
+// a setting of its own in the settings file (`fix_... = 1`, settings.cpp), a row of the in-game
+// menu's "Game fixes" card and a switch on the launcher's page for the game.
 // docs/port/SETTINGS.md section 8 says how one is added.
 //
 // The table is the program's disc's fixes, written at configure time from that file

@@ -7,10 +7,10 @@
 #include <memory>
 #include <string>
 
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/math.h"
-#include "renderer/render_opt.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif

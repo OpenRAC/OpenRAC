@@ -5,7 +5,7 @@
  * here with warnings off (port/cmake/Window.cmake): cgltf (MIT, Johannes
  * Kuhlmann) reads glTF; stb_image and stb_image_write (MIT or public domain,
  * Sean Barrett) read and write PNG (stb_image also reads a texture pack's animated
- * GIFs, renderer/texture_pack.h), and stb_vorbis (the same) decodes the mods'
+ * GIFs, renderer/textures/texture_pack.h), and stb_vorbis (the same) decodes the mods'
  * .ogg sounds (game/common/frontend/mod_media.cpp). Both are fetched by CMake at pinned
  * versions (port/cmake/Dependencies.cmake); neither is in the repository. */
 

@@ -22,14 +22,9 @@ void Settings::reset_enhanced() {
     enhanced_graphics = defaults.enhanced_graphics;
     enhanced_shadows = defaults.enhanced_shadows;
     shadow_quality = defaults.shadow_quality;
+    shadow_filter = defaults.shadow_filter;
     volumetric_quality = defaults.volumetric_quality;
-    rim_light = defaults.rim_light;
     nanotech_light = defaults.nanotech_light;
-    rim_shadow_lift = defaults.rim_shadow_lift;
-    rim_lift_exponent = defaults.rim_lift_exponent;
-    rim_lift_max_gain = defaults.rim_lift_max_gain;
-    rim_light_strength = defaults.rim_light_strength;
-    rim_light_falloff = defaults.rim_light_falloff;
     probe_spheres = defaults.probe_spheres;
     ceiling_area_lights = defaults.ceiling_area_lights;
     probe_gi_multiplier = defaults.probe_gi_multiplier;
@@ -51,6 +46,71 @@ void Settings::reset_enhanced() {
     lily_momentum = defaults.lily_momentum;
     temporal_sharpness = defaults.temporal_sharpness;
     texture_filter = defaults.texture_filter;
+    effects_detail = defaults.effects_detail;
+}
+
+namespace {
+// What a preset sets. The rest of Enhanced graphics costs little or is a matter of taste.
+struct PresetValues {
+    renderer::TemporalQuality temporal;
+    renderer::ShadowQuality shadows;
+    renderer::ShadowFilter shadow_filter;
+    renderer::GtaoQuality occlusion;
+    bool motion_blur;
+    renderer::TextureFilter textures;
+    renderer::render_opt::EffectsDetail detail;
+};
+
+constexpr PresetValues kPresets[] = {
+    {renderer::TemporalQuality::Performance,
+     renderer::ShadowQuality::Low,
+     renderer::ShadowFilter::Fast,
+     renderer::GtaoQuality::Low,
+     false,
+     renderer::TextureFilter::Normal,
+     renderer::render_opt::EffectsDetail::Low},
+    {renderer::TemporalQuality::Balanced,
+     renderer::ShadowQuality::Medium,
+     renderer::ShadowFilter::Soft,
+     renderer::GtaoQuality::Performance,
+     true,
+     renderer::TextureFilter::EdgeAware,
+     renderer::render_opt::EffectsDetail::Medium},
+    {renderer::TemporalQuality::Quality,
+     renderer::ShadowQuality::High,
+     renderer::ShadowFilter::Soft,
+     renderer::GtaoQuality::Performance,
+     true,
+     renderer::TextureFilter::EdgeAware,
+     renderer::render_opt::EffectsDetail::High},
+};
+}  // namespace
+
+void Settings::apply_enhanced_preset(EnhancedPreset preset) {
+    if (preset == EnhancedPreset::Custom) {
+        return;
+    }
+    const PresetValues& values = kPresets[static_cast<int>(preset)];
+    temporal_quality = values.temporal;
+    shadow_quality = values.shadows;
+    shadow_filter = values.shadow_filter;
+    gtao_settings.quality = values.occlusion;
+    motion_blur = values.motion_blur;
+    texture_filter = values.textures;
+    effects_detail = values.detail;
+}
+
+EnhancedPreset Settings::enhanced_preset() const {
+    for (int n = 0; n < static_cast<int>(EnhancedPreset::Custom); ++n) {
+        const PresetValues& values = kPresets[n];
+        if (temporal_quality == values.temporal && shadow_quality == values.shadows
+            && shadow_filter == values.shadow_filter && gtao_settings.quality == values.occlusion
+            && motion_blur == values.motion_blur && texture_filter == values.textures
+            && effects_detail == values.detail) {
+            return static_cast<EnhancedPreset>(n);
+        }
+    }
+    return EnhancedPreset::Custom;
 }
 
 std::optional<std::array<float, 3>> Settings::sunlight_direction() const {
@@ -83,8 +143,10 @@ constexpr int kGameOptionLimit = 1'000'000;
 constexpr const char* kDisplayMode[] = {"windowed", "borderless"};
 constexpr const char* kAspect[] = {"4:3", "16:10", "16:9", "21:9", "32:9", "window", "custom"};
 constexpr const char* kHud[] = {"centre", "edges"};
-constexpr const char* kGtaoQuality[] = {"performance", "quality"};
+constexpr const char* kGtaoQuality[] = {"low", "performance", "quality"};
+constexpr const char* kBlurQuality[] = {"performance", "quality"};
 constexpr const char* kTextureFilter[] = {"normal", "edge-aware"};
+constexpr const char* kEffectsDetail[] = {"low", "medium", "high"};
 constexpr const char* kVSync[] = {"off", "on", "adaptive"};
 
 std::string trimmed(const std::string& s) {
@@ -245,6 +307,7 @@ void load(const std::filesystem::path& file) {
     bool has_vsync = false;
     bool has_menu_button = false;  // menu_button read: an older menu_bar_button does not count
     bool has_frame_rate = false;
+    bool has_effects_detail = false;  // a file from before it follows the preset it matches
     // A file from before the strafe was a mod (2026-10-21): its `strafe` or `lock_strafe` is left
     // out, and said once.
     bool old_strafe = false;
@@ -305,22 +368,17 @@ void load(const std::filesystem::path& file) {
             known = parse(value, renderer::kVolumetricQualityKeys, s.volumetric_quality);
         } else if (key == "shadow_quality") {
             known = parse(value, renderer::kShadowQualityKeys, s.shadow_quality);
+        } else if (key == "shadow_filter") {
+            known = parse(value, renderer::kShadowFilterKeys, s.shadow_filter);
         } else if (key == "enhanced_shadows") {
             known = parse_bool(value, s.enhanced_shadows);
-        } else if (key == "rim_light") {
-            known = parse_bool(value, s.rim_light);
         } else if (key == "texture_pack") {
             known = parse_bool(value, s.texture_pack);
-        } else if (key == "rim_shadow_lift") {
-            known = parse_bool(value, s.rim_shadow_lift);
-        } else if (key == "rim_lift_exponent") {
-            known = parse_float(value, 0.01f, 1.0f, s.rim_lift_exponent);
-        } else if (key == "rim_lift_max_gain") {
-            known = parse_float(value, 1.0f, 16.0f, s.rim_lift_max_gain);
-        } else if (key == "rim_light_strength") {
-            known = parse_float(value, 0.0f, 1.0f, s.rim_light_strength);
-        } else if (key == "rim_light_falloff") {
-            known = parse_float(value, 1.0f, 8.0f, s.rim_light_falloff);
+        } else if (key == "rim_light" || key == "rim_shadow_lift" || key == "rim_lift_exponent"
+                   || key == "rim_lift_max_gain" || key == "rim_light_strength"
+                   || key == "rim_light_falloff") {
+            // Legacy preferences: enhanced mode uses the built-in rim lighting.
+            known = true;
         } else if (key == "probe_lighting") {
             // Legacy preference: probe lighting now follows enhanced graphics.
             bool ignored = true;
@@ -397,6 +455,8 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 1.0f, s.lily_momentum);
         } else if (key == "motion_blur_strength") {
             known = parse_float(value, 0.0f, 1.0f, s.motion_blur_strength);
+        } else if (key == "motion_blur_quality") {
+            known = parse(value, kBlurQuality, s.motion_blur_settings.quality);
         } else if (key == "motion_blur_radius") {
             known = parse_int(value, 1, 128, s.motion_blur_settings.max_radius);
         } else if (key == "motion_blur_samples") {
@@ -413,6 +473,9 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 1.0f, s.temporal_sharpness);
         } else if (key == "texture_filter") {
             known = parse(value, kTextureFilter, s.texture_filter);
+        } else if (key == "effects_detail") {
+            has_effects_detail = true;
+            known = parse(value, kEffectsDetail, s.effects_detail);
         } else if (key == "anisotropy") {
             if (value == "auto") {
                 s.anisotropy = 0;
@@ -536,6 +599,14 @@ void load(const std::filesystem::path& file) {
             );
         }
     }
+    for (int n = 0; !has_effects_detail && n < static_cast<int>(EnhancedPreset::Custom); ++n) {
+        Settings preset = s;
+        preset.effects_detail = kPresets[n].detail;
+        if (preset.enhanced_preset() == static_cast<EnhancedPreset>(n)) {
+            s.effects_detail = preset.effects_detail;
+            break;
+        }
+    }
     if (has_frame_rate && !has_vsync) {
         s.vsync = s.frame_rate == FrameRate::Display ? VSync::On : VSync::Off;
     }
@@ -619,14 +690,10 @@ void save() {
         << renderer::kVolumetricQualityKeys[static_cast<int>(s.volumetric_quality)] << "\n"
         << "shadow_quality = " << renderer::kShadowQualityKeys[static_cast<int>(s.shadow_quality)]
         << "\n"
+        << "shadow_filter = " << renderer::kShadowFilterKeys[static_cast<int>(s.shadow_filter)]
+        << "\n"
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
-        << "rim_light = " << (s.rim_light ? 1 : 0) << "\n"
         << "texture_pack = " << (s.texture_pack ? 1 : 0) << "\n"
-        << "rim_shadow_lift = " << (s.rim_shadow_lift ? 1 : 0) << "\n"
-        << "rim_lift_exponent = " << s.rim_lift_exponent << "\n"
-        << "rim_lift_max_gain = " << s.rim_lift_max_gain << "\n"
-        << "rim_light_strength = " << s.rim_light_strength << "\n"
-        << "rim_light_falloff = " << s.rim_light_falloff << "\n"
         << "probe_spheres = " << (s.probe_spheres ? 1 : 0) << "\n"
         << "medial_axis_debug = " << (s.medial_axis_debug ? 1 : 0) << "\n"
         << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"
@@ -652,6 +719,7 @@ void save() {
         << "gtao_radius = " << s.gtao_settings.radius << "\n"
         << "gtao_strength = " << s.gtao_settings.strength << "\n"
         << "texture_filter = " << kTextureFilter[static_cast<int>(s.texture_filter)] << "\n"
+        << "effects_detail = " << kEffectsDetail[static_cast<int>(s.effects_detail)] << "\n"
         << "temporal_quality = " << renderer::kTemporalKeys[static_cast<int>(s.temporal_quality)]
         << "\n"
         << "bloom_enabled = " << (s.bloom.enabled ? 1 : 0) << "\n"
@@ -665,6 +733,7 @@ void save() {
         << "motion_blur = " << (s.motion_blur ? 1 : 0) << "\n"
         << "lily_momentum = " << s.lily_momentum << "\n"
         << "motion_blur_strength = " << s.motion_blur_strength << "\n"
+        << "motion_blur_quality = " << kBlurQuality[s.motion_blur_settings.quality ? 1 : 0] << "\n"
         << "motion_blur_radius = " << s.motion_blur_settings.max_radius << "\n"
         << "motion_blur_samples = " << s.motion_blur_settings.samples << "\n"
         << "motion_blur_min_motion = " << s.motion_blur_settings.min_motion << "\n"

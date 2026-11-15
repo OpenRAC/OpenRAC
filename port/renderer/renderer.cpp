@@ -4,6 +4,7 @@
 #include "renderer/renderer.h"
 
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -11,11 +12,11 @@
 #include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/colour_graph.h"
-#include "renderer/direct.h"
-#include "renderer/gl.h"
-#include "renderer/subsystems.h"
-#include "renderer/surface_chain.h"
+#include "renderer/direct/direct.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/frame/subsystems.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::renderer {
 
@@ -355,42 +356,75 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
     bool prepass_done = false;
     bool particles_started = false;
     bool world_resolved = false;
-    std::vector<bool> opaque_prepared(m_renderers.size());
+    std::array<std::uint8_t, 32> local_flags{};
+    std::vector<std::uint8_t> extra_flags;
+    std::span<std::uint8_t> opaque_prepared;
+    if (m_renderers.size() <= local_flags.size()) {
+        opaque_prepared = std::span(local_flags).first(m_renderers.size());
+    } else {
+        extra_flags.resize(m_renderers.size());
+        opaque_prepared = extra_flags;
+    }
     for (std::size_t i = 0; i < m_renderers.size(); ++i) {
         const auto bucket = m_renderers[i]->bucket();
-        if (prepass_needed && !prepass_done && m_renderers[i]->enabled && bucket >= Bucket::Terrain
-            && bucket <= Bucket::Mobys) {
+        const bool world_bucket =
+            m_renderers[i]->enabled && bucket >= Bucket::Terrain && bucket <= Bucket::Mobys;
+        const bool colour_chain = world_bucket && surface_chain_enabled() && colour_graph_enabled()
+                                  && (scoped_ao || !gtao)
+                                  && m_renderers[i]->prepares_colour_chain();
+        const bool needs_prepass = prepass_needed && !prepass_done && world_bucket;
+        const bool shared_prepass = needs_prepass && early_lighting && gtao && needs_indirect_ao
+                                    && input.gtao_settings.strength > 0 && !discard_prepass
+                                    && can_prepare_surface_chain(input, state);
+        std::size_t colour_end = i;
+        bool resolves_world = false;
+        const auto prepare_colour = [&] {
+            resolves_world = can_prepare_world_tail(i, hud, input);
+            colour_end = resolves_world ? hud : world_colour_end(i);
+            const auto recorded =
+                resolves_world ? record_world_tail(i, hud, input, state, opaque_prepared)
+                               : record_world_colour(i, colour_end, input, state, opaque_prepared);
+            if (!recorded) {
+                throw std::runtime_error(recorded.error().message);
+            }
+        };
+        if (needs_prepass) {
             // Compose supported fused lighting, including explicit multisample resolves.
-            if (early_lighting && gtao && needs_indirect_ao && input.gtao_settings.strength > 0
-                && !discard_prepass && can_prepare_surface_chain(input, state)) {
+            if (shared_prepass) {
                 // The scope prepares on this thread and executes before these frame locals expire.
-                const auto result =
-                    run_surface_chain([this, &world_prepass, &input, &state, &opaque_prepared, i] {
-                        world_prepass();
+                const auto prepare = [&] {
+                    world_prepass();
 
-                        // Unsupported colour paths retain the original batch boundary.
-                        if (!colour_graph_enabled() || !state.reuse_prepass_depth
-                            || !m_renderers[i]->batches_opaque_colour()) {
-                            return;
-                        }
+                    // Unsupported colour paths retain the original batch boundary.
+                    if (!colour_graph_enabled() || !state.reuse_prepass_depth
+                        || !m_renderers[i]->batches_opaque_colour()) {
+                        return;
+                    }
 
-                        const std::size_t end = opaque_colour_end(i);
-                        const auto buffers = opaque_colour_buffers(i, end, input, state);
+                    const std::size_t end = opaque_colour_end(i);
+                    const auto buffers = opaque_colour_buffers(i, end, input, state);
 
-                        // Every participating layer must identify its current lighting inputs.
-                        if (buffers.empty()) {
-                            return;
-                        }
+                    // Every participating layer must identify its current lighting inputs.
+                    if (buffers.empty()) {
+                        return;
+                    }
 
-                        const auto recorded = record_opaque_colour(i, end, input, state, buffers);
+                    const auto recorded = record_opaque_colour(i, end, input, state, buffers);
 
-                        // Invalid cache reads reject the plan before deferred writers.
-                        if (!recorded) {
-                            throw std::runtime_error(recorded.error().message);
-                        }
+                    // Invalid cache reads reject the plan before deferred writers.
+                    if (!recorded) {
+                        throw std::runtime_error(recorded.error().message);
+                    }
 
-                        std::fill(opaque_prepared.begin() + i, opaque_prepared.begin() + end, true);
-                    });
+                    std::fill(opaque_prepared.begin() + i, opaque_prepared.begin() + end, true);
+
+                    // The early-lighting inputs and the following colour providers are all
+                    // declared. Compile them in order before publishing either section.
+                    if (colour_chain) {
+                        prepare_colour();
+                    }
+                };
+                const auto result = run_surface_chain(std::cref(prepare));
                 // An invalid plan cannot supply world depth or lighting to colour draws.
                 if (!result) {
                     throw std::runtime_error(result.error().message);
@@ -400,51 +434,20 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
             }
             prepass_done = true;
         }
-        // Known colour providers share ordered work; unsupported hooks retain their scope boundaries.
-        if (surface_chain_enabled() && colour_graph_enabled() && (scoped_ao || !gtao)
-            && bucket >= Bucket::Terrain && bucket <= Bucket::Mobys && m_renderers[i]->enabled
-            && m_renderers[i]->prepares_colour_chain()) {
-            // Known late providers can share their final colour dependencies with reconstruction.
-            if (can_prepare_world_tail(i, hud, input)) {
-                const auto recorded =
-                    run_surface_chain([this, i, hud, &input, &state, &opaque_prepared] {
-                        const auto result =
-                            record_world_tail(i, hud, input, state, opaque_prepared);
-
-                        // A rejected section cannot advance into native HUD drawing.
-                        if (!result) {
-                            throw std::runtime_error(result.error().message);
-                        }
-                    });
-
-                // Structural failures retain the existing frame-boundary error handling.
-                if (!recorded) {
-                    throw std::runtime_error(recorded.error().message);
-                }
-
-                target = state.target;
-                world_resolved = true;
-                ao_applied = true;
-                i = hud - 1;
-                continue;
-            }
-
-            const std::size_t end = world_colour_end(i);
-            // This render-thread scope finishes before any following effects or external callback runs.
-            const auto recorded =
-                run_surface_chain([this, i, end, &input, &state, &opaque_prepared] {
-                    const auto prepared =
-                        record_world_colour(i, end, input, state, opaque_prepared);
-                    // Reject invalid inputs before recording any of this colour sequence.
-                    if (!prepared) {
-                        throw std::runtime_error(prepared.error().message);
-                    }
-                });
-            // A partial sequence cannot be repeated after execution has started.
+        // A provider without declared early inputs still starts colour after the prepass finishes.
+        if (colour_chain && colour_end == i) {
+            const auto recorded = run_surface_chain(std::cref(prepare_colour));
             if (!recorded) {
                 throw std::runtime_error(recorded.error().message);
             }
-            i = end - 1;
+        }
+        if (colour_end != i) {
+            if (resolves_world) {
+                target = state.target;
+                world_resolved = true;
+                ao_applied = true;
+            }
+            i = colour_end - 1;
             continue;
         }
         if (!opaque_prepared[i] && state.reuse_prepass_depth && m_renderers[i]->enabled
@@ -468,6 +471,8 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
         // Opaque colour is retained once, even when the particle bucket is empty or disabled.
         if (!particles_started && bucket == Bucket::Particles && input.on_before_particles) {
             input.on_before_particles(target);
+            state.pre_particle_colour_texture =
+                m_renderers[i]->enabled ? input.pre_particle_colour_texture : 0;
             particles_started = true;
             glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
             glViewport(0, 0, target.width, target.height);
@@ -512,6 +517,9 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
                 }
             } else {
                 r->render(input, state);
+            }
+            if (bucket == Bucket::Particles) {
+                state.pre_particle_colour_texture = 0;
             }
         }
     }

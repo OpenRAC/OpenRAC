@@ -299,6 +299,46 @@ void audio_ahead() {
     out.reset();
 }
 
+// A device that stops asking for sound is opened again without holding the caller up, however long
+// closing it takes (here for as long as the callback hangs).
+void audio_stall() {
+    Platform sdl(kAudio);
+    if (!sdl.ok()) {
+        std::printf("audio stall skipped: %s\n", sdl.error().c_str());
+        return;
+    }
+    std::string error;
+    std::atomic<bool> hang{true};
+    auto out = AudioOutput::open(error, [&](std::span<std::int16_t>) {
+        while (hang) {
+            SDL_Delay(2);
+        }
+    });
+    if (!out) {
+        std::printf("audio stall skipped: %s\n", error.c_str());
+        return;
+    }
+    std::uint64_t longest = 0;
+    const std::uint64_t from = SDL_GetTicks();
+    // Past the first wait: by then the output is opening the device again.
+    while (SDL_GetTicks() - from < AudioOutput::kStallMs + 700) {
+        const std::uint64_t began = SDL_GetTicks();
+        CHECK(out->watch(error));
+        longest = std::max(longest, SDL_GetTicks() - began);
+        SDL_Delay(10);
+    }
+    CHECK(longest < 100);
+    CHECK(out->take_health().reopens == 0);  // still closing: the callback has not returned
+    hang = false;
+    std::uint32_t reopens = 0;
+    for (int i = 0; i < 200 && reopens == 0; ++i) {
+        SDL_Delay(10);
+        CHECK(out->watch(error));
+        reopens += out->take_health().reopens;
+    }
+    CHECK(reopens == 1);
+}
+
 void audio_outlives_sdl() {
     // An output destroyed after SDL quit (a static or an exit handler outliving the Platform)
     // must not destroy its stream into SDL's freed state.
@@ -387,6 +427,7 @@ int main() {
     audio();
     audio_ring();
     audio_ahead();
+    audio_stall();
     audio_outlives_sdl();
     return openrac::test::result();
 }

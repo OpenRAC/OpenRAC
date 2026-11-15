@@ -467,12 +467,13 @@
     box-shadow: 0 4px 12px rgba(229, 160, 19, 0.25);
     transition:
       transform 0.1s,
-      filter 0.15s;
+      background-color 0.15s;
   }
 
   @media (hover: hover) {
+    /* Gold like every main button (app.css), or the shared hover's dark control fill wins. */
     :global(html:where(:not([data-input="pad"]))) .btn-primary:hover {
-      filter: brightness(1.1);
+      background-color: var(--gold);
     }
   }
 

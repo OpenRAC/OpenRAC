@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// HDR output's encode pass (renderer/vulkan/hdr_output.cpp, shaders/hdr_encode.comp) against its
+// HDR output's encode pass (renderer/vulkan/presentation/hdr_output.cpp, shaders/hdr_encode.comp) against its
 // CPU arithmetic (common/hdr.h). A swapchain cannot be read back and the test machine has no HDR
 // screen, so vkgl::test_hdr_encode runs the pass on the default framebuffer into a stand-in of the
 // screen's image, HDR10 and scRGB, and the test compares every pixel, turned the right way up,
@@ -13,14 +13,15 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
 
 #include "common/hdr.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -72,6 +73,29 @@ float half_to_float(std::uint16_t h) {
     return sign * std::ldexp(1.0f + static_cast<float>(mantissa) / 1024.0f, exponent - 15);
 }
 
+// Whether two read-backs differ by at most one 10-bit step (HDR10) or not at all (scRGB).
+bool within_a_step(
+    const std::vector<std::uint8_t>& a, const std::vector<std::uint8_t>& b, hdr::Output output
+) {
+    if (output != hdr::Output::Hdr10) {
+        return a == b;
+    }
+    for (std::size_t i = 0; i + 4 <= a.size(); i += 4) {
+        std::uint32_t pa = 0;
+        std::uint32_t pb = 0;
+        std::memcpy(&pa, &a[i], 4);
+        std::memcpy(&pb, &b[i], 4);
+        for (int shift = 0; shift < 30; shift += 10) {
+            const int ca = static_cast<int>((pa >> shift) & 0x3FF);
+            const int cb = static_cast<int>((pb >> shift) & 0x3FF);
+            if (std::abs(ca - cb) > 1) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 // The pass's pixels against the CPU's, for `output` at `levels`: a 10-bit step for HDR10 (the
 // GPU's pow and the rounding), a half float's precision for scRGB. `picture` is the pass's input
 // as RGBA floats, row 0 at the bottom: the window's, or framebuffer `source`'s.
@@ -86,6 +110,18 @@ void test_encode(
     std::vector<std::uint8_t> staged;
     CHECK(openrac::vkgl::test_hdr_encode(output, levels, g_width, g_height, staged, true, source));
     CHECK(screen == staged);
+    // Through a half-float image and a blit (a screen format the pass cannot store): the same
+    // picture, to one 10-bit step.
+    std::vector<std::uint8_t> blitted;
+    CHECK(
+        openrac::vkgl::test_hdr_encode(
+            output, levels, g_width, g_height, blitted, false, source, true
+        )
+    );
+    CHECK(blitted.size() == screen.size());
+    if (blitted.size() == screen.size()) {
+        CHECK(within_a_step(screen, blitted, output));
+    }
     const std::size_t texel = output == hdr::Output::Hdr10 ? 4 : 8;
     CHECK(screen.size() == static_cast<std::size_t>(g_width * g_height) * texel);
     if (screen.size() != static_cast<std::size_t>(g_width * g_height) * texel) {

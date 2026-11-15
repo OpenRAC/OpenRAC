@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Coverage and groom diagnostics share the same eligibility as the short-fur material.
+// openrac_mode: hero_fur_debug
 uniform int hero_fur_debug;
 uniform sampler2D hero_fur_map;
 flat in int v_hero_fur;

@@ -31,6 +31,9 @@ int run_pumped(int (*program)(void* argument), void* argument);
 // events read into it first when it is empty. False when there is none.
 bool poll_event(SDL_Event& event);
 
+// Read system events without taking any events out of SDL's queue.
+void pump_events();
+
 #if defined(OPENRAC_IOS)
 // UIKit must receive a drained GPU before it finishes moving the scene to the background.
 void set_background_handler(void (*handler)());

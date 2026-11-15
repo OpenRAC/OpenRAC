@@ -24,8 +24,10 @@
   } = $props();
 
   const games = $derived(app.library?.games ?? []);
+  // Another tab pressed: this list stays on screen while that tab's page loads and slides in, so
+  // it keeps its game marked. Unmarked then, its disc shrank and turned back during the slide.
   const opened = $derived(
-    selected !== undefined ? selected : app.page === "game" ? (app.version?.split("/")[0] ?? null) : null,
+    selected !== undefined ? selected : app.page !== "library" ? (app.version?.split("/")[0] ?? null) : null,
   );
 
   /** What the entry says under the name: the page's own words, else the game's state for playing. */

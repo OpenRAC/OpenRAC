@@ -35,6 +35,8 @@
   import ModTool from "./ModTool.svelte";
   import Reason from "./Reason.svelte";
   import { hidePaths } from "$lib/paths";
+  import { hasRead, keepRead, lastRead } from "$lib/lastRead";
+  import { holdSlide } from "$lib/motion";
   import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
   import { checkIndex } from "$lib/modAutoUpdate.svelte";
   import { modCode } from "$lib/modCodes.svelte";
@@ -63,21 +65,36 @@
   /** The Mods switch under Play is off (the default): Play starts the game without these. */
   const purist = $derived(!(app.config?.playWithMods ?? false));
 
-  let mods = $state<PluginView[]>([]);
+  // What this version's lists were when the page last showed them (lastRead.ts): shown at once as
+  // the tab opens, then read again.
+  interface Kept {
+    mods: PluginView[];
+    sources: ModSources["mods"];
+    updates: Record<string, ModUpdate>;
+  }
+  const keptKey = () => `plugins:${v.key}`;
+  const enhancedKey = () => `enhanced:${v.key}`;
+  const kept = () => lastRead<Kept | null>(keptKey(), null);
+  /** The version whose lists `mods` and `sources` hold, once read or kept. */
+  let listFor = $state<string | null>(kept() ? keptKey() : null);
+  /** The version whose Enhanced graphics row `enhanced` holds. */
+  let enhancedFor = $state<string | null>(hasRead(enhancedKey()) ? enhancedKey() : null);
+
+  let mods = $state<PluginView[]>(kept()?.mods ?? []);
   let listError = $state<string | null>(null);
   /** What the last add or change said, in a sentence. */
   let said = $state<{ text: string; failed: boolean } | null>(null);
 
   /** Where each installed mod came from (sources.json), and the updates the last check found. */
-  let sources = $state<ModSources["mods"]>({});
-  let updates = $state<Record<string, ModUpdate>>({});
+  let sources = $state<ModSources["mods"]>(kept()?.sources ?? {});
+  let updates = $state<Record<string, ModUpdate>>(kept()?.updates ?? {});
   let checking = $state(false);
   /** The quiet look on opening the tab, which the button does not show. */
   let looking = $state(false);
   let updating = $state<string | null>(null);
 
   /** The built-in Enhanced graphics entry, for a version that has it. */
-  let enhanced = $state<EnhancedView | null>(null);
+  let enhanced = $state<EnhancedView | null>(lastRead<EnhancedView | null>(enhancedKey(), null));
   const isEnhanced = (id: string | null) => id === T.ENHANCED.id;
 
   /** The mod whose own page (ModTool.svelte) is shown over its page, if one is. */
@@ -102,13 +119,15 @@
 
   let enhancedRequest = 0;
   /** Enhanced graphics' row was read once: the toolbar counts it from then on. */
-  let enhancedRead = $state(false);
+  let enhancedRead = $state(hasRead(enhancedKey()));
   async function loadEnhanced() {
     const request = ++enhancedRequest;
+    const key = enhancedKey();
     const view = await api.enhancedView(v.game, v.name).catch(() => null);
     if (request === enhancedRequest) {
       enhanced = view;
       enhancedRead = true;
+      enhancedFor = key;
     }
   }
 
@@ -179,6 +198,7 @@
   const message = (e: unknown) => (typeof e === "string" ? e : String(e));
 
   async function load() {
+    const key = keptKey();
     try {
       mods = await api.pluginsList(v.game, v.name);
       listError = null;
@@ -191,7 +211,21 @@
     } catch {
       sources = {};
     }
+    listFor = key;
   }
+
+  // Every change (a read, a switch, a move) kept for the next time the page opens.
+  $effect(() => {
+    if (listFor === keptKey())
+      keepRead(listFor, {
+        mods: $state.snapshot(mods),
+        sources: $state.snapshot(sources),
+        updates: $state.snapshot(updates),
+      });
+  });
+  $effect(() => {
+    if (enhancedFor === enhancedKey()) keepRead(enhancedFor, $state.snapshot(enhanced));
+  });
 
   async function checkUpdates(quiet = false) {
     // The quiet look on opening the tab leaves the button as it is: it blinked to a spinner.
@@ -283,8 +317,12 @@
   });
 
   $effect(() => {
-    // Again whenever RELOAD is bumped, and for another game.
-    if (reload >= 0 && v.key) void load();
+    // Again whenever RELOAD is bumped, and for another game. With nothing kept from a last visit,
+    // the tab's slide waits a moment for the list, so it comes in with the page.
+    if (reload >= 0 && v.key) {
+      const read = load();
+      if (!listFor) holdSlide(read);
+    }
   });
 
   /** The Share window is open. */
@@ -419,9 +457,10 @@
   const found = $derived(groups.reduce((n, g) => n + g.rows.length, 0) + (enhancedShown ? 1 : 0));
 
   // What the list holds, for the toolbar (counts, Mods off, a search that finds nothing).
-  // Once both are read: counted before, "All" went 10, then 11 as the page opened.
+  // Once both are read (or kept from the last visit): counted before, "All" went 10, then 11 as the
+  // page opened.
   $effect(() => {
-    if (!loaded || !enhancedRead) return;
+    if (!(loaded || listFor) || !enhancedRead) return;
     report("plugins", {
       counts: {
         gameplay: mods.filter((m) => groupOf(m.kind) === "gameplay").length,
@@ -549,8 +588,8 @@
 
       {#if listError}
         <Reason text={listError} tone="err" />
-      {:else if !loaded}
-        <!-- Still reading the list: nothing yet, rather than "no mods" for a moment. -->
+      {:else if !loaded && !listFor}
+        <!-- Still reading the list and nothing kept: nothing yet, rather than "no mods" for a moment. -->
       {:else if mods.length === 0}
         {#if shows("gameplay")}<p class="empty">{T.PANEL.empty}</p>{/if}
       {:else}

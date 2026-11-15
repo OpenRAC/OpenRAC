@@ -610,7 +610,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `prop_create(mod, mesh_path)`, `prop_pose(mod, id, &pose)`, `prop_hide(mod, id, hidden)`, `prop_remove(mod, id)` (1.12) | a prop: a `.glb` of the mod's folder, read as an assets `classes.json` mesh is (`scene::load_model`), drawn by the renderer each frame among the level's mobys (OpenGL and Vulkan alike), lit as a moby, at a pose of a 4 by 4 matrix (`OPENRAC_PROP_MATRIX`) or a place, unit quaternion and scale, tinted and blended (alpha or added) with `OPENRAC_PROP_TINT`; not a moby: the game never sees it. At most `OPENRAC_PROPS_MAX` (256) for all mods, hidden until posed, gone with its level (`prop_pose` then answers `OPENRAC_HOOK_UNKNOWN`). The first prop of a mesh the level was read without has the front end read the level's scenery again with it (a hitch, once); the meshes asked for are read with every level after |
 | `sound_load(mod, path)`, `sound_play(mod, sound, volume, pitch, loop)`, `sound_set(mod, voice, volume, pitch)`, `sound_stop(mod, voice)` (1.12) | a `.wav` (PCM 8 to 32 bits or float, mono or stereo, read by the port) or `.ogg` (Vorbis, through stb_vorbis, which the port already has with stb_image) of the mod's folder, decoded whole (`OPENRAC_SOUNDS_MAX`, 64, a mod); a voice of it (`OPENRAC_SOUND_VOICES_MAX`, 16, for all mods; 0 for none) mixed after the game's sounds and streams at the sound effects' master volume (group 0: the Options page's Sound volume, as the game lowers it under its menus), its volume and pitch (its speed: 2 an octave up) changed while it plays, looped or once, stopped (only the mod that played it can change or stop a voice). No sound output (no window): `sound_load` answers `OPENRAC_HOOK_UNKNOWN` |
 | `camera_view(&out)`, `camera_set(mod, &camera)` (1.12) | the camera the game made itself for its last view in the level (`openrac_camera`: the eye, and the forward, left and up rows), kept just before its view build (`BuildViewMatrices`, port/game/rac1/host/camera_override.c); and a mod's camera written there in its place from the next build on, as `OPENRAC_CAMERA` is: the picture, the sky and what the game's logic reads of the camera all see it, while the game's own camera goes on underneath. Kept until the mod passes null or the level goes; not under the pause menu (its camera is its own). One mod at a time (`OPENRAC_HOOK_TAKEN`); rows that are not unit vectors: `OPENRAC_HOOK_UNKNOWN` |
-| `haze_set(mod, patches, count)` (1.12) | heat haze over the picture, under the HUD (`openrac_haze`: a ball's place, radius and strength): the front end copies the world's picture and redraws each ball's square on the screen from the copy, read a few pixels aside by a wave that moves with the ticks and fades to the ball's edge (port/renderer/haze.cpp, OpenGL and Vulkan alike). The list replaces the mod's last one and goes with the level; at most `OPENRAC_HAZE_MAX` (64) for all mods |
+| `haze_set(mod, patches, count)` (1.12) | heat haze over the picture, under the HUD (`openrac_haze`: a ball's place, radius and strength): the front end copies the world's picture and redraws each ball's square on the screen from the copy, read a few pixels aside by a wave that moves with the ticks and fades to the ball's edge (port/renderer/effects/haze.cpp, OpenGL and Vulkan alike). The list replaces the mod's last one and goes with the level; at most `OPENRAC_HAZE_MAX` (64) for all mods |
 | `hud_text_set(mod, lines, count)` (1.12) | lines of text in the game's own HUD (`openrac_hud_text`: up to 63 characters, the line's centre on the 4:3 screen from 0 to 1, a size, a colour and flags for the small font and a shadow), drawn glyph by glyph from the game's font after its HUD's elements and hidden with them (Ratchet & Clank: port/game/rac1/host/hud.c). The list replaces the mod's last one and goes with the level; at most `OPENRAC_HUD_TEXTS_MAX` (16) for all mods |
 | `hero_sound_play(mod, sound, loop)`, `hero_sound_stop(mod, voice)` (1.12) | one of the hero's own sounds, the game's, played on him: Ratchet & Clank's entry `sound` of Ratchet's class sound table, through Moby_PlaySound (26 his jump, 36 his double jump, 27 and 53 his wrench swing, 13 landing on a rail, 0 the grind's loop; port/game/rac1/host/play.c). A looping one plays until stopped, or until the level or the mod goes; a voice is stopped only while it still plays on him |
 | `hero_hurt(mod, damage)` (1.12) | hit points taken from the hero as a hit of the game's does, his health shown on the HUD (Ratchet & Clank: `hero_change_health`, at most 1 a hit). Not below 0, and his death is not started (his own update does that), so a mod that has taken that update hands a last hit to the game. His health after, or -1 outside a level |
@@ -628,6 +628,8 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `on_camera_script(mod, fn, user)`, `camera_script_view(eye, rotation, where, &stand_in)`, `camera_script_play(mod, id)`, `camera_script_show(mod, eye, rotation)` (1.14) | the game's camera scripts: told as they start and end, `id` the class of the moby running one, the same on both discs (the game has no list of them), with the view of the one running; and another game's shown here, only the camera moving, `camera_script_show` giving each tick's view, `OPENRAC_CAMERA_SCRIPT_END` easing back and `OPENRAC_CAMERA_SCRIPT_CUT` going straight behind the hero. A script a stand-in sets off (`hero_stand_in`) leaves this game's camera and hero alone: its views are `camera_script_view`'s, `stand_in` set |
 | `play_scene_from(mod, scene, frame)`, `play_live_picture(mod, on)`, `on_metal_detect(mod, fn, user)` (1.14) | a slot kept for a scene started from a later frame, which no port does yet (it answers `OPENRAC_HOOK_UNKNOWN`: a scene is read from the disc as it plays), whether the world is drawn behind the pause menu while `play_overlay_pause` keeps it running (on until asked otherwise; off, the picture stands and the mobys go on), and the metal detector's finds |
 | `packs_info(&out)`, `packs_entry(index, &out)`, `clipboard_set(text)`, `open_link(url)`, `world_family(out, size)`, `sim_digest(level, &out)`, `identity_key(out, size)`, `plugins_folder(out, size)` (1.14) | the data packs applied and their digest, the clipboard, a mod code's link handed to the system (only `openrac://modset/` and a code: the mod asks the player first, with a button of its own page), the world the disc belongs to (two discs with the same text are played together), a number for what a loaded level's games must agree on, and a key for the installation, and the folder the mods are in, where the launcher leaves `modset.json` for the game |
+| `setting_set_bool(mod, key, value)`, `setting_set_int`, `setting_set_float`, `setting_set_string` (1.15) | the mod's own setting set, as an options page of the mod's would: read back from then on, and written into the launcher's list (`plugins.json`, the whole file beside it then renamed, every other mod and member kept), so the launcher shows it and the next start has it. Checked as the list's values are (the type, range, choices, length, binds); `OPENRAC_HOOK_UNKNOWN` for a key the manifest does not declare, another type, or a value it refuses. Without a list (purist mode) the value is the run's, and the log says so once |
+| `on_settings(mod, fn, user)` (1.15) | `fn(user)` after the tick in which the launcher changed the mod's settings while the game runs: the port looks at the list's time about once a second, and reads it again when it changed. Only a mod that asks is given the new values; the mod's own `setting_set_*` is not told |
 
 A call answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) in a game that has not got it, and `play_scene_from` always; Ratchet \& Clank has the others on both discs. The C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them.
 
@@ -710,6 +712,10 @@ the hero placed, held and revived, a picture drawn over the game (`on_overlay`),
 say (`hero_shots2`, `figure_shot2`), `moby_list2`, camera scripts, a slot kept for `play_scene_from`,
 `play_live_picture`, `on_metal_detect`, the data packs (`packs_info`, `packs_entry`), `clipboard_set`,
 `open_link`, `world_family`, `sim_digest` and `identity_key`.
+1.15 (SDK 1.15.0) a mod's own settings set from the game and written into the launcher's list
+(`setting_set_bool`, `_int`, `_float`, `_string`; the C++ layer's `set_setting<T>()`, scripts'
+`openrac.set_setting`), and the launcher's changes while the game runs heard (`on_settings`,
+`openrac.on_settings`); `has_settings_set()`.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
@@ -743,9 +749,10 @@ game's thread.
   takes the download quarantine off the libraries it installs, which the
   system would otherwise refuse to open. On Linux and macOS the port does not
   load a library that another user of the computer could swap: the file, or a
-  folder above it without the sticky bit, writable by all, or owned by another
-  user than you and root (links are followed). Disks that keep no owners
-  (FAT, exFAT, NTFS, network and FUSE disks) are not checked.
+  folder above it, owned by another user than you and root (links are
+  followed). Your own that all may write in (a program started from Steam
+  may run with umask 0) are closed to others (`chmod o-w`) and load. Disks that keep no
+  owners (FAT, exFAT, NTFS, network and FUSE disks) are not checked.
 - **No mods**: the port reads nothing but the list's absence, binds no hook,
   runs no callback, and the game is the retail game (with the port's fixes).
 
@@ -1349,10 +1356,11 @@ callback that swaps two buttons, chosen in its settings.
 ## 12. What is proposed or open
 
 - **Proposed: settings in the game.** The in-game drawer showing the loaded
-  mods and their settings, written back to `plugins.json`. A mod's own page
-  in the front-end menu is there since 1.5 (`menu_entry`, section 6), and
-  pages of the game's own menus, opened from the main menu, since 1.7
-  (`ui_page`, `ui_main_item`).
+  mods and their settings. A mod's own page in the front-end menu is there
+  since 1.5 (`menu_entry`, section 6), pages of the game's own menus, opened
+  from the main menu, since 1.7 (`ui_page`, `ui_main_item`), and a mod writes
+  its own settings back to `plugins.json` and hears the launcher's changes
+  since 1.15 (`setting_set_*`, `on_settings`).
 - **Proposed: more hook points** as mods ask for them, and a hook on the
   renderer's frame for mods that draw over the game in play. Simple drawing
   on a mod's own menu page (rectangles and text) is there since 1.5.

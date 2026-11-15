@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <utility>
 
-#include "renderer/render_opt.h"
+#include "renderer/settings/render_opt.h"
 
 namespace openrac::test {
 
