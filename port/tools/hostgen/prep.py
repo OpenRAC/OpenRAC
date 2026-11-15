@@ -815,20 +815,33 @@ def apply_decomp_workarounds(rel: str, text: str) -> str:
     This is a temporary workaround so that the native port builds cleanly without
     modifying the decompilation repository. Once fixed upstream, this function should be removed.
     """
-    if rel.endswith("src/pal/game/00280218.c"):
-        # Going Commando PAL's func_00280A30 is func_002804A8 at scale 1: on the disc it leaves the
-        # caller's six arguments in a0..a5 and only sets the scale. Written with no parameters, it
-        # drew the text at address 0 with length 0, a run of quads past the end of its heap (PAL
-        # Endako, Joba and the Insomniac Museum crashed at frame 1281).
+    if rel.endswith(("src/pal/game/00280218.c", "src/us2/game/00280380.c")):
+        # Going Commando PAL's func_00280A30 (v2.00's func_00280B20) is func_002804A8 (00280550) at
+        # scale 1: on the disc it leaves the caller's six arguments in a0..a5 and only sets the
+        # scale. Written with no parameters, it drew the text at address 0 with length 0.
         text = re.sub(
-            r"extern void (func_(?:PAL_)?002804A8)\(float\);",
+            r"extern void (func_(?:PAL_|US2_)?002(?:804A8|80550))\(float\);",
             r"extern void \1(int, unsigned long long, int, int, unsigned long long, int, float);",
             text,
         )
         text = re.sub(
-            r"void (func_(?:PAL_)?00280A30)\(void\) \{\s*(func_(?:PAL_)?002804A8)\(1\.0f\);",
+            r"void (func_(?:PAL_|US2_)?00280(?:A30|B20))\(void\) \{\s*(func_(?:PAL_|US2_)?002(?:804A8|80550))\(1\.0f\);",
             r"void \1(int a0, unsigned long long a1, int a2, int a3, unsigned long long a4, int a5) {\n"
             r"    \2(a0, a1, a2, a3, a4, a5, 1.0f);",
+            text,
+        )
+    if rel.endswith("src/us2/levels/shared/L18_00304470-cc.c"):
+        # Going Commando v2.00's func_L18_00304470 hands func_0027F1D8 (the release's name by now)
+        # its caller's scale, left in $f12 (the disc's code sets only a2); written with two
+        # parameters, the scale was lost.
+        text = re.sub(
+            r"extern void (func_\w+)\(void \*a0, void \*a1, const char \*a2\);",
+            r"extern void \1(void *a0, void *a1, const char *a2, float a3);",
+            text,
+        )
+        text = re.sub(
+            r"void (func_(?:US2_)?L18_00304470)\(void \*a0, void \*a1\) \{\s*(func_\w+)\(a0, a1, (D_\w+)\);",
+            r"void \1(void *a0, void *a1, float scale) {\n    \2(a0, a1, \3, scale);",
             text,
         )
     if re.search(r"src/pal/levels/[^/]+/L\d\d_[0-9A-F]+-hero\.c$", rel):

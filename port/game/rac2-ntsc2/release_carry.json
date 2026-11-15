@@ -3,9 +3,9 @@
  "counts": {
   "function: by hand": 16,
   "function: called": 30,
-  "function: near": 106,
+  "function: near": 109,
   "function: not found": 2,
-  "function: same": 692,
+  "function: same": 698,
   "global: aligned": 4,
   "global: between": 18,
   "global: exact": 107,
@@ -266,6 +266,11 @@
    "func_L08_0040FF80",
    "by hand",
    "libraries.tsv Moby_GliderPickup_Update"
+  ],
+  "func_L08_0041D808": [
+   "func_L08_0041EDD0",
+   "near",
+   "host C"
   ],
   "func_L10_00421790": [
    "func_L10_00422CA8",

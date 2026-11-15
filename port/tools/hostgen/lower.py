@@ -2857,7 +2857,18 @@ class Unit:
         # s32, and on Linux the texture lost TH's high bits and CBP (64x4, no palette).
         narrowed = any(pc == "i" and self._wide(p) and not self._wide(self.ty(a))
                        for a, p, pc in zip(args, sig.params, pcls))
-        if classes[:common] == pcls[:common] and same_ret and not narrowed:
+        # A parameter the definition takes past the call site's arguments, held on the console by
+        # the caller's own argument in that register (a wrapper that hands its object on to a
+        # level's copy: func_L00_003827C0's moby to func_0029F338's delete): passed on, as a direct
+        # call does (_match_args). Through the call site's shorter type the callee read a register
+        # the host had not set: Linux kept the caller's value by chance, AArch64 had a host address
+        # there, and Windows' thunk nothing (Going Commando's New Game, PR #511's reports).
+        passes_on = any(
+            k < len(regs)
+            for kind, regs in (("i", self.fn.int_params), ("f", self.fn.float_params))
+            for k in range(classes.count(kind), pcls.count(kind))
+        ) if self.fn is not None else False
+        if classes[:common] == pcls[:common] and same_ret and not narrowed and not passes_on:
             return None  # the call site's own type passes them alike
         self.fn.report.calls.add(sym)
         self._note_mismatch(sym, sig, args, result_cls, ret_cls)

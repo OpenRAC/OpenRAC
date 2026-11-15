@@ -509,6 +509,18 @@
     ],
     "func_L07_0037BE20": [
       "void *"
+    ],
+    "func_L00_003855C0": [
+      "void *"
+    ],
+    "func_L16_0043BEF0": [
+      "void *"
+    ],
+    "func_L00_00430168": [
+      "int"
+    ],
+    "func_L00_00430BF8": [
+      "int"
     ]
   },
   "tick_rate": 50,

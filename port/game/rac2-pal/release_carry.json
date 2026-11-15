@@ -3,10 +3,10 @@
  "counts": {
   "function: by hand": 20,
   "function: called": 28,
-  "function: changed": 68,
-  "function: near": 90,
+  "function: changed": 69,
+  "function: near": 96,
   "function: not found": 2,
-  "function: same": 644,
+  "function: same": 647,
   "global: aligned": 5,
   "global: between": 16,
   "global: exact": 144,
@@ -413,10 +413,20 @@
    "near",
    "calls_as"
   ],
+  "func_L08_003DB518": [
+   "func_L08_003DF830",
+   "near",
+   "host C"
+  ],
   "func_L08_0040E9B8": [
    "func_L08_004137E8",
    "by hand",
    "libraries.tsv Moby_GliderPickup_Update"
+  ],
+  "func_L08_0041D808": [
+   "func_L08_00422A30",
+   "near",
+   "host C"
   ],
   "func_L09_00404B90": [
    "func_L09_00409AC8",
@@ -467,6 +477,11 @@
    "func_L15_004334B0",
    "near",
    "host C"
+  ],
+  "func_L16_004364B0": [
+   "func_L16_0043BEF0",
+   "changed",
+   "extra_params"
   ],
   "func_L18_003F90A0": [
    "func_L18_003FD180",
