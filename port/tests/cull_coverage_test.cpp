@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Tests the zero-coverage cull's CPU reference (renderer/gpu_draw.h, covers_a_sample; ctest
+// Tests the zero-coverage cull's CPU reference (renderer/gl/gpu_draw.h, covers_a_sample; ctest
 // cull_coverage): bounds over a pixel centre are kept, bounds between centres are dropped, bounds
 // that reach behind the eye and multisampled views are always kept, and no bounds it drops hold a
 // triangle that a software rasteriser (pixel centres, edges included) lights. The cull shader of
-// renderer/vulkan/gpu_draw.inc computes the same; render_equivalence_vulkan compares its frames.
+// renderer/vulkan/draw/gpu_draw.inc computes the same; render_equivalence_vulkan compares its frames.
 
 #include <array>
 #include <cmath>
@@ -13,7 +13,7 @@
 #include <cstdio>
 #include <numbers>
 
-#include "renderer/gpu_draw.h"
+#include "renderer/gl/gpu_draw.h"
 #include "renderer/math.h"
 #include "tests/check.h"
 

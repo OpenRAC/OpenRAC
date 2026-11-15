@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// openrac_mode: early_lighting_enabled
 uniform int early_lighting_enabled;
+// openrac_mode: early_scale
+uniform int early_scale;  // Pixels a side of one cache cell: 2, or 4 (early-lighting-quarter).
 uniform samplerBuffer early_values;
 uniform usamplerBuffer early_guides;
 uniform mat4 early_projection;
@@ -54,20 +57,29 @@ bool early_surface(
     result = vec4(0, 0, 0, 1);
     covered = false;
     hero_visibility = 1.0;
+#ifdef OPENRAC_EARLY_TRANSLUCENT
+    // A blended fringe reads the lighting of the cached surface nearest its own (blended-early-light):
+    // a hard cutoff to the original lighting showed as 4x4 bright blocks.
+    if (early_lighting_enabled == 0 || effect_pass != 0) {
+        return false;
+    }
+#else
     if (early_lighting_enabled == 0 || translucent_pass != 0 || effect_pass != 0) {
         return false;
     }
-    ivec2 half_extent = (ivec2(early_extent) + 1) / 2;
-    vec2 coordinate = gl_FragCoord.xy * 0.5 - 0.5;
+#endif
+    ivec2 half_extent = (ivec2(early_extent) + early_scale - 1) / early_scale;
+    vec2 coordinate = gl_FragCoord.xy / float(early_scale) - 0.5;
     ivec2 begin = ivec2(floor(coordinate));
     vec2 fraction = fract(coordinate);
-    vec4 samples[4];
-    float scores[4], spatial[4], hero[4];
-    int coverage[4];
+    // Two passes keep only the four scores live: the second fetches again what it weights,
+    // instead of holding four samples in registers (fewer registers, more pixels in flight).
+    float scores[4];
+    int present = 0, coverage = 0;
     float best = 1e30;
     int best_coverage = 0;
     float footprint =
-        max(-eye_position.z, 0.0) * 2.0 / (abs(early_projection[1][1]) * early_extent.y);
+        max(-eye_position.z, 0.0) * float(early_scale) / (abs(early_projection[1][1]) * early_extent.y);
     // The GL-compatible vertex projection and D24 depth both contribute
     // reconstruction error. Compare candidates relatively, not to a hard cutoff.
     float tolerance = 0.002 + max(-eye_position.z, 0.0) * 0.0002 + footprint * 0.1;
@@ -77,16 +89,13 @@ bool early_surface(
         int index = cell.y * half_extent.x + cell.x;
         uint bits = texelFetch(early_guides, index * 2 + 1).r;
         scores[i] = 1e30;
-        spatial[i] = 0.0;
-        coverage[i] = 0;
-        samples[i] = vec4(0);
-        hero[i] = 1.0;
         if ((bits & (1u << 19u)) == 0u) {
             continue;
         }
         vec3 n = early_decode_normal(bits);
-        uint selected = (bits >> 16u) & 3u;
-        ivec2 pixel = cell * 2 + ivec2(selected & 1u, selected >> 1u);
+        uint selected = ((bits >> 16u) & 3u) | (((bits >> 28u) & 3u) << 2u);
+        ivec2 pixel = cell * early_scale
+                      + ivec2(selected % uint(early_scale), selected / uint(early_scale));
         float depth = uintBitsToFloat(texelFetch(early_guides, index * 2).r);
         float distance = early_projection[3][2] / (depth * 2.0 + (early_projection[2][2] - 1.0));
         vec2 ndc = (vec2(pixel) + 0.5) / early_extent * 2.0 - 1.0;
@@ -100,28 +109,43 @@ bool early_surface(
         float plane_error =
             max(abs(dot(delta, normal_view)), abs(dot(delta, n)) - length(delta) * 0.02);
         scores[i] = plane_error / tolerance + 8.0 * (1.0 - clamp(dot(n, normal_view), -1.0, 1.0));
-        spatial[i] =
-            max(0.001,
-                (x == 0 ? 1.0 - fraction.x : fraction.x) * (y == 0 ? 1.0 - fraction.y : fraction.y)
-            );
-        coverage[i] = (bits & (1u << 18u)) != 0u ? 1 : 0;
-        samples[i] = texelFetch(early_values, index);
-        hero[i] = float((bits >> 20u) & 255u) / 255.0;
-        samples[i].rgb = (exp2(samples[i].rgb * 20.0) - 1.0) / 16.0;
+        int covers = (bits & (1u << 18u)) != 0u ? 1 : 0;
+        present |= 1 << i;
+        coverage |= covers << i;
         if (scores[i] < best) {
             best = scores[i];
-            best_coverage = coverage[i];
+            best_coverage = covers;
         }
     }
+#ifdef OPENRAC_EARLY_TRANSLUCENT
+    // A fringe takes probe-covered lighting whenever a neighbour has it, not the original's.
+    if (coverage != 0) {
+        best_coverage = 1;
+    }
+#endif
     result = vec4(0);
     hero_visibility = 0.0;
     float total = 0.0;
     for (int i = 0; i < 4; ++i) {
+        // A candidate without a surface has a zero spatial weight.
+        if (((present >> i) & 1) == 0 || ((coverage >> i) & 1) != best_coverage) {
+            continue;
+        }
+        int x = i & 1, y = i >> 1;
+        ivec2 cell = clamp(begin + ivec2(x, y), ivec2(0), half_extent - 1);
+        int index = cell.y * half_extent.x + cell.x;
+        float spatial =
+            max(0.001,
+                (x == 0 ? 1.0 - fraction.x : fraction.x) * (y == 0 ? 1.0 - fraction.y : fraction.y)
+            );
         float difference = min(32.0, max(0.0, scores[i] - best) * 8.0);
         float squared = difference * difference;
-        float weight = coverage[i] == best_coverage ? spatial[i] / (1.0 + squared * squared) : 0.0;
-        result += samples[i] * weight;
-        hero_visibility += hero[i] * weight;
+        float weight = spatial / (1.0 + squared * squared);
+        vec4 sample_value = texelFetch(early_values, index);
+        sample_value.rgb = (exp2(sample_value.rgb * 20.0) - 1.0) / 16.0;
+        uint bits = texelFetch(early_guides, index * 2 + 1).r;
+        result += sample_value * weight;
+        hero_visibility += float((bits >> 20u) & 255u) / 255.0 * weight;
         total += weight;
     }
     result = total > 0.0 ? result / total : vec4(0, 0, 0, 1);

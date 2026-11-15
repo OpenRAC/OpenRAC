@@ -4,7 +4,7 @@
 #include "enhanced/viewer/object_preview_lighting.h"
 
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::enhanced {
 Result<void> ObjectPreviewLighting::set_lights(std::span<const LocalLight> lights) {

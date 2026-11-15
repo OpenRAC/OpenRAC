@@ -4,7 +4,7 @@
 #include <algorithm>
 
 #include "game/common/profile.h"
-#include "renderer/water_impulse.h"
+#include "renderer/effects/water_impulse.h"
 
 namespace openrac::frontend {
 // CPU capture only: the worker never dereferences game objects or borrows game RAM.

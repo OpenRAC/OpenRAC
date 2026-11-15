@@ -9,7 +9,7 @@
 
 #include <span>
 
-#include "renderer/shader.h"
+#include "renderer/gl/shader.h"
 #include "renderer/ui/overlay_list.h"
 
 namespace openrac::renderer::ui {

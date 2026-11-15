@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The renderer's GL (renderer/gl.h, renderer/world/gl_world.h) carried out with Metal, as
+// The renderer's GL (renderer/gl/gl.h, renderer/world/gl_world.h) carried out with Metal, as
 // renderer/vulkan/vkgl.h carries it out with Vulkan: chosen with OPENRAC_GL_API=metal.
 //
 // The GL model kept: rows are counted from the bottom as GL counts them. A texture's row 0 is GL's
@@ -33,7 +33,7 @@ bool open(const Config& config, std::string& error);
 void close();
 bool active();
 
-// renderer/gl.h's loader: the GL functions by name, null for one this does not carry out.
+// renderer/gl/gl.h's loader: the GL functions by name, null for one this does not carry out.
 using Proc = void (*)();
 Proc get_proc(const char* name);
 

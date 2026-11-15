@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "overrides": [],
+  "presets": {
+    "lit-default": {
+      "shading": "standard",
+      "type": "lit",
+      "reflection": {
+        "strength": 0.104,
+        "tint": [
+          1,
+          1,
+          1
+        ]
+      },
+      "surface": {
+        "metallic": 0,
+        "reflectivity": 0.013,
+        "roughness": 1
+      }
+    },
+    "ratchet-coat": {
+      "fur": {
+        "enabled": true,
+        "environment_strength": 0.993
+      },
+      "surface": {
+        "metallic": 0,
+        "roughness": 0.855
+      },
+      "wetness": {
+        "reflectivity": 0.04699999999999999
+      }
+    }
+  }
+}

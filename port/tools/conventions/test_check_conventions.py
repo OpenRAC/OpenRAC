@@ -26,7 +26,7 @@ def rules(findings):
 
 class ScopeTest(unittest.TestCase):
     def test_port_sources_are_in_scope(self):
-        self.assertTrue(cc.in_scope("port/renderer/gl.cpp"))
+        self.assertTrue(cc.in_scope("port/renderer/gl/gl.cpp"))
         self.assertTrue(cc.in_scope("port/game/rac1/host/hand.c"))
         self.assertTrue(cc.in_scope("port/runtime/include/openrac/guest.h"))
 

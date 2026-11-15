@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// OpenGL's program binaries (renderer/program_cache.h): a program built again from the same
+// OpenGL's program binaries (renderer/gl/program_cache.h): a program built again from the same
 // sources is loaded from the binary kept in memory, a later run's from the binary's file, and it
 // draws the pixels the compiled program draws; a damaged file is compiled again and kept over.
 // The cache is a folder of the test's own. Skipped (exit 77) where no context can be made, or the
@@ -17,10 +17,10 @@
 #include <vector>
 
 #include "check.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/program_cache.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/program_cache.h"
+#include "renderer/gl/shader.h"
 #include "renderer_gl_context.h"
 
 namespace {

@@ -71,6 +71,13 @@ private:
 // program ends.
 void install_crash_handler();
 
+// Windows: a library the program loads itself (the disc part, a native mod). A fault in its code
+// is reported at once, like one in the program. A fault in any other library (an overlay, a
+// driver) may be one that library catches itself, so it is reported only if nothing catches it.
+// No-ops elsewhere.
+void add_own_library(const void* module);
+void remove_own_library(const void* module);
+
 // A debugging aid (OPENRAC_GUARD): the write after the first `skip` into [address, address + bytes)
 // of game memory is reported with the host's stack and ends the program. Other writes to the same pages pass and
 // disarm it until it is called again (once a frame). POSIX only.

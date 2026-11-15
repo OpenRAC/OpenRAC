@@ -25,7 +25,7 @@
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
 #include "gpu_draw_reference.h"
-#include "renderer/framebuffer.h"
+#include "renderer/gl/framebuffer.h"
 #include "renderer/renderer.h"
 #include "renderer_gl_context.h"
 #include "scene/level.h"

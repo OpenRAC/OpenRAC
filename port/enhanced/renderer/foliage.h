@@ -54,7 +54,7 @@ struct FoliageControls {
 [[nodiscard]] std::string foliage_texture_hash(const renderer::Rgba8Image& image);
 // Rejects nonfinite or out-of-range parameters instead of passing invalid material data to the GPU.
 [[nodiscard]] Result<FoliageMaterial> read_foliage_material(const json::Value& value);
-// Packs four bounded controls into two half pairs, retaining the existing 96-byte GPU material record.
+// Packs four bounded controls into two half pairs in the shared GPU material record.
 [[nodiscard]] std::array<std::uint32_t, 2> pack_foliage_material(const FoliageMaterial& material);
 
 // Render-thread material selection; no GPU resources or mutable state are shared with the game thread.

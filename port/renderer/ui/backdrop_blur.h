@@ -4,7 +4,7 @@
 // The window blurred, as the launcher's desktop header blurs the page under it (backdrop-filter):
 // the game menu lies over this (debug/menu_window.cpp game_backdrop). The rows are read from the
 // default framebuffer, halved a few times and blurred with a Gaussian there, with
-// renderer/gl.h's calls, so it runs on an OpenGL window and on the Vulkan renderer's alike.
+// renderer/gl/gl.h's calls, so it runs on an OpenGL window and on the Vulkan renderer's alike.
 //
 // Its GL objects are made at the first blur and freed by release(), while the context is current.
 

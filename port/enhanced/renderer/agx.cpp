@@ -10,11 +10,11 @@
 #include "common/log.h"
 #include "common/result.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/vulkan/native_compute.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #endif
 #include "renderer_shaders.h"
 

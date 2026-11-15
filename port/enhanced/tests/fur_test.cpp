@@ -10,8 +10,8 @@
 
 #include "enhanced/renderer/fur.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 
@@ -158,8 +158,9 @@ int test_gpu() {
     set_enhanced_rendering(true);
     enhanced::set_fur_material_settings(settings);
     renderer::Shader shader;
-    const std::string vertex =
-        std::string("#version 430 core\n") + lighting::shaders::fur_vertex_glsl + R"(
+    const std::string vertex = std::string("#version 430 core\n")
+                               + lighting::shaders::fur_shell_glsl
+                               + lighting::shaders::fur_vertex_glsl + R"(
 uniform int test_id;
 uniform float test_palette, test_lighting;
 flat out int v_hero_fur;

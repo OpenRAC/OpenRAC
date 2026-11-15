@@ -9,9 +9,9 @@
 #include <vector>
 
 #include "enhanced/renderer/gtao_depth.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/vulkan/graph_execution.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"

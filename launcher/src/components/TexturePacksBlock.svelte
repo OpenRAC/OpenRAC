@@ -12,6 +12,7 @@
   import { grouped } from "$lib/format";
   import { TEXTURES } from "$lib/modsText";
   import { isPlaying } from "$lib/player.svelte";
+  import { keepRead, lastRead } from "$lib/lastRead";
   import { textureCount } from "$lib/texturePacks";
 
   let {
@@ -29,7 +30,10 @@
     open?: boolean;
   } = $props();
 
-  let view = $state<TexturePackView | null>(null);
+  // The pack as the page last showed it (lastRead.ts): shown at once as the tab opens, then read
+  // again.
+  const keptKey = () => `texture-pack:${version.key}`;
+  let view = $state<TexturePackView | null>(lastRead<TexturePackView | null>(keptKey(), null));
   let failed = $state<string | null>(null);
   let busy = $state(false);
 
@@ -38,9 +42,11 @@
   async function load() {
     const mine = ++reading;
     try {
+      const key = keptKey();
       const read = await api.texturePacks(version.game, version.name);
       if (mine === reading) {
         view = read;
+        keepRead(key, read);
         failed = null;
       }
     } catch (e) {
@@ -67,7 +73,9 @@
 
   const setDumping = (dumping: boolean) =>
     work(async () => {
+      const key = keptKey();
       view = await api.texturePacksSet(version.game, version.name, { dumping });
+      keepRead(key, view);
       toast(dumping ? "The game saves its textures from your next Play." : "The game no longer saves its textures.");
     });
 
@@ -145,6 +153,10 @@
           <p class="muted">
             Open a saved picture in any image editor, upscale or repaint it at any size, and keep its file name. Put it
             in your pack, in any folder.
+          </p>
+          <p class="muted">
+            PNG works everywhere. For sharp icons, text and logos an SVG works too. For a smaller pack that takes a
+            quarter of the graphics memory, KTX2 in Basis Universal (UASTC or ETC1S; world textures with mip levels).
           </p>
           <p class="muted">
             Animated: put numbered pictures (0001.png, 0002.png…) in a folder named like the saved picture, without

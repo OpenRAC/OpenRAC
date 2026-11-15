@@ -10,12 +10,12 @@
 #include <stdexcept>
 #include <string>
 
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
-#include "renderer/vulkan/frame_capture.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/diagnostics/frame_capture.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"

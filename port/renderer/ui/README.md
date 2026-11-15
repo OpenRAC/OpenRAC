@@ -1,6 +1,6 @@
 # renderer/ui
 
-What the game programs draw over the game's picture with the renderer's GL (`renderer/gl.h`): Dear
+What the game programs draw over the game's picture with the renderer's GL (`renderer/gl/gl.h`): Dear
 ImGui's draw lists on a window whose GL is the Vulkan renderer's, the on-screen pad, the frame-rate
 counter, the CPU-made picture of the developer level menu, and the logo these show. Library `openrac_renderer_ui`,
 namespace `openrac::renderer::ui`. It holds the GL half of these overlays only: what they show and
@@ -23,7 +23,7 @@ P2-06), which keeps no GL call of these overlays.
 
 ## Depends on
 
-- `renderer` (the GL functions, `renderer/shader.h`), below it on the same layer.
+- `renderer` (the GL functions, `renderer/gl/shader.h`), below it on the same layer.
 - `platform` (`platform/touch_pad.h`, the pad the overlay draws), a lower layer.
 - `common` (the log and asynchronous frame statistics).
 - Dear ImGui (`openrac_imgui`), privately: `imgui_gl.h` names only `ImDrawData`, by a forward
@@ -49,7 +49,7 @@ game settings or wait for GPU results.
 - `imgui_gl::init` returns `false` and says why in its `std::string& error` when its program does
   not build; the debug overlay then logs a warning and stays off.
 - The touch overlay logs a warning and draws nothing when its shader does not build.
-- The other draws cannot fail; a GL error is the renderer's to report (`renderer/gl_stats.h`).
+- The other draws cannot fail; a GL error is the renderer's to report (`renderer/gl/gl_stats.h`).
 
 ## Configuration
 

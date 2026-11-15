@@ -17,7 +17,7 @@
 #define SCREEN_LINES RAC1_ADDR(0x0013E604u)
 
 /* Base pointers the picture is sent to as textures, one per band of rows. The port's texture pool
- * keeps uploads by base pointer and models no chip memory (renderer/texture_pool.h), so these are
+ * keeps uploads by base pointer and models no chip memory (renderer/textures/texture_pool.h), so these are
  * names, not room: nothing uploads there before the title, and what the game uploads there later
  * replaces them. */
 #define PICTURE_BASE 0x3E00u

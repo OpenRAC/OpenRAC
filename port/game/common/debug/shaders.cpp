@@ -14,7 +14,7 @@
 #include "common/env.h"
 #include "common/stats.h"
 #include "debug/overlay.h"
-#include "renderer/gl_stats.h"
+#include "renderer/gl/gl_stats.h"
 
 namespace openrac::frontend::debug_overlay {
 

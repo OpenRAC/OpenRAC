@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -94,7 +95,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.14",
+    const std::string& api = "1.15",
     const std::string& extra = "",
     const std::string& games = R"({"test": ["one"]})",
     const std::string& hooks = R"(["Test_Add"])"
@@ -125,8 +126,10 @@ void install(
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"},
+                                  {"value": "z_watchers_fail", "name": "Watchers fail"},
                                   {"value": "hoverboard", "name": "Hoverboard"},
-                                  {"value": "callback_only", "name": "Callback only"}]},
+                                  {"value": "callback_only", "name": "Callback only"},
+                                  {"value": "keep", "name": "Keep"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -521,7 +524,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.14", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.15", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -681,6 +684,56 @@ void a_party_reads_the_mods(const fs::path& plugins) {
     api.party_replay(1);
     CHECK(api.party_replaying() == 1);
     api.party_replay(0);
+    mods::reset();
+}
+
+// A mod's own settings (interface 1.15): set for the run and written into the launcher's list,
+// every other mod and setting kept; a key the manifest does not declare, a setting of another type
+// and a value it refuses are refused. The launcher's change is heard once the list is read again
+// (about a second of ticks), the mod's own write is not.
+void a_mod_sets_its_own_settings(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "keep"}},
+        {"id": "test-b", "enabled": true, "settings": {"tag": 3}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
+    const auto seen = [](int record) {
+        return std::count(g_records.begin(), g_records.end(), record);
+    };
+    // Set; no such key; a bool for an int; not a choice; a keybind; no such key name; a float for
+    // an int; the tag read back; the keybind read back.
+    for (const int record : {12000, 12011, 12021, 12031, 12040, 12051, 12061, 12342, 12201}) {
+        CHECK(seen(record) == 1);
+    }
+    std::vector<mods::ListEntry> list;
+    std::string error;
+    CHECK(mods::parse_list(read(plugins / "plugins.json"), list, error) && list.size() == 2);
+    CHECK(list[0].id == "test-a" && list[0].settings["tag"].number() == 42);
+    CHECK(list[0].settings["behaviour"].string() == "keep");
+    CHECK(list[0].settings["jump"].string() == "KeyW,ArrowUp");
+    CHECK(list[1].id == "test-b" && list[1].settings["tag"].number() == 3 && list[1].enabled);
+    CHECK(!fs::exists(plugins / "plugins.json.port.tmp"));
+
+    // The mod's own write: not heard, however many ticks.
+    for (int i = 0; i < 150; ++i) {
+        mods::frame();
+    }
+    CHECK(std::none_of(g_records.begin(), g_records.end(), [](int r) {
+        return r >= 12100 && r < 12200;
+    }));
+
+    // The launcher's: heard once, the new value read.
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "keep", "tag": 7}},
+        {"id": "test-b", "enabled": true, "settings": {"tag": 3}}]})");
+    fs::last_write_time(
+        plugins / "plugins.json",
+        fs::last_write_time(plugins / "plugins.json") + std::chrono::seconds(5)
+    );
+    for (int i = 0; i < 150; ++i) {
+        mods::frame();
+    }
+    CHECK(seen(12107) == 1);
     mods::reset();
 }
 
@@ -1252,7 +1305,7 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
 // RAC2 has no game hook catalogue or script binding yet, but a native mod that only uses
 // common callbacks still loads. A native mod that tries to take a game hook is refused cleanly.
 void rac2_callback_only_native_mod(const fs::path& plugins) {
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.14", "", R"({"rac2": ["ntsc"]})", "[]");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.15", "", R"({"rac2": ["ntsc"]})", "[]");
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true,
          "settings": {"tag": 4, "behaviour": "callback_only"}}]})");
@@ -1268,7 +1321,7 @@ void rac2_callback_only_native_mod(const fs::path& plugins) {
     mods::reset();
 
     install(
-        plugins, "a", OPENRAC_TEST_MOD_A, "1.14", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
+        plugins, "a", OPENRAC_TEST_MOD_A, "1.15", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
     );
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"tag": 1}}]})");
@@ -1314,7 +1367,8 @@ void a_mod_for_1_5_still_loads(const fs::path& plugins) {
     mods::reset();
 }
 
-// A library another user of the computer could swap is not loaded (POSIX desktops).
+// A library another user of the computer could swap is not loaded (POSIX desktops); one of this
+// user's own that all may write in (Steam may start the launcher with umask 0) is closed and loads.
 void a_library_others_can_change_is_refused(const fs::path& plugins) {
 #if !defined(_WIN32) && !defined(__ANDROID__)
     install(plugins, "a", OPENRAC_TEST_MOD_A);
@@ -1322,52 +1376,44 @@ void a_library_others_can_change_is_refused(const fs::path& plugins) {
         plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
     );
     const fs::path lib = plugins / "test-a" / "lib" / library_name();
-    const auto was = fs::status(lib).permissions();
-    fs::permissions(lib, fs::perms::others_write, fs::perm_options::add);
-    mods::load(host(plugins));
-    auto [state, reason] = status_of(plugins, "test-a");
-    CHECK(state == "failed");
-    CHECK(reason.find("any user of this computer") != std::string::npos);
-    mods::reset();
-    fs::permissions(lib, was);
-    // A folder above it that all may write in, without the sticky bit.
     const fs::path folder = plugins / "test-a" / "lib";
-    const auto folder_was = fs::status(folder).permissions();
+    fs::permissions(lib, fs::perms::others_write, fs::perm_options::add);
     fs::permissions(folder, fs::perms::others_all, fs::perm_options::add);
     mods::load(host(plugins));
-    std::tie(state, reason) = status_of(plugins, "test-a");
-    CHECK(state == "failed");
-    CHECK(reason.find("its folder") != std::string::npos);
-    mods::reset();
-    // With the sticky bit, as /tmp has, it loads.
-    fs::permissions(folder, fs::perms::sticky_bit, fs::perm_options::add);
-    mods::load(host(plugins));
     CHECK(status_of(plugins, "test-a").first == "loaded");
+    CHECK((fs::status(lib).permissions() & fs::perms::others_write) == fs::perms::none);
+    CHECK((fs::status(folder).permissions() & fs::perms::others_write) == fs::perms::none);
     mods::reset();
-    fs::permissions(folder, folder_was);
-    // A library another user owns could be changed by that user (checked where the test may chown).
+    // Another user's library or folder is refused.
     if (geteuid() == 0) {
         CHECK(chown(lib.c_str(), 4321, 4321) == 0);
         mods::load(host(plugins));
-        std::tie(state, reason) = status_of(plugins, "test-a");
+        auto [state, reason] = status_of(plugins, "test-a");
         CHECK(state == "failed");
-        CHECK(reason.find("belongs to another user") != std::string::npos);
+        CHECK(reason.find("another user") != std::string::npos);
         mods::reset();
         CHECK(chown(lib.c_str(), 0, 0) == 0);
+        CHECK(chown(folder.c_str(), 4321, 4321) == 0);
+        mods::load(host(plugins));
+        std::tie(state, reason) = status_of(plugins, "test-a");
+        CHECK(state == "failed");
+        CHECK(reason.find("its folder") != std::string::npos);
+        mods::reset();
+        CHECK(chown(folder.c_str(), 0, 0) == 0);
+        // A link is followed: the file it leads to is the one checked.
+        const fs::path elsewhere = plugins / "elsewhere";
+        fs::create_directories(elsewhere);
+        fs::rename(lib, elsewhere / library_name());
+        fs::create_symlink(elsewhere / library_name(), lib);
+        CHECK(chown(elsewhere.c_str(), 4321, 4321) == 0);
+        mods::load(host(plugins));
+        std::tie(state, reason) = status_of(plugins, "test-a");
+        CHECK(state == "failed");
+        CHECK(reason.find("elsewhere") != std::string::npos);
+        mods::reset();
+        fs::remove(lib);
+        fs::rename(elsewhere / library_name(), lib);
     }
-    // A link is followed: the file it leads to is the one checked.
-    const fs::path elsewhere = plugins / "elsewhere";
-    fs::create_directories(elsewhere);
-    fs::rename(lib, elsewhere / library_name());
-    fs::create_symlink(elsewhere / library_name(), lib);
-    fs::permissions(elsewhere, fs::perms::others_all, fs::perm_options::add);
-    mods::load(host(plugins));
-    std::tie(state, reason) = status_of(plugins, "test-a");
-    CHECK(state == "failed");
-    CHECK(reason.find("elsewhere") != std::string::npos);
-    mods::reset();
-    fs::remove(lib);
-    fs::rename(elsewhere / library_name(), lib);
 #else
     (void)plugins;
 #endif
@@ -1408,7 +1454,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.14", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.15", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1669,6 +1715,65 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK((g_motion == std::vector<std::string>{"camera off"}));
 }
 
+// undo() drops these registrations before closing a refused mod's library.
+// Use resident callbacks here so a missed cleanup is reported instead of jumping
+// into unmapped DLL code when the next vendor camera event arrives.
+void dropped_mod_watchers_are_not_called() {
+    mods::reset_play();
+    openrac_api api{};
+    mods::fill_play_api(api, &kPlay, {});
+    int owner = 0, other = 0, camera_calls = 0, metal_calls = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    auto* another = reinterpret_cast<openrac_mod*>(&other);
+    auto camera = [](void* user, int, int) {
+        ++*static_cast<int*>(user);
+    };
+    auto metal = [](void* user, int, int) {
+        ++*static_cast<int*>(user);
+        return 0;
+    };
+    mods::play_loading(mod);
+    CHECK(api.on_camera_script(mod, camera, &camera_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.on_metal_detect(mod, metal, &metal_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.camera_script_play(mod, 737) == OPENRAC_HOOK_OK);
+    mods::play_loading(nullptr);
+    mods::drop_figures(another);
+    CHECK(api.camera_script_play(another, 737) == OPENRAC_HOOK_UNKNOWN);
+    g_script_events = 1;
+    mods::play_update();
+    CHECK(camera_calls == 1);
+    CHECK(openrac_game_metal_detect(1, 2) == 0 && metal_calls == 1);
+    mods::drop_figures(mod);
+    CHECK(api.camera_script_play(another, 737) == OPENRAC_HOOK_OK);
+    g_script_events = 1;
+    mods::play_update();
+    CHECK(camera_calls == 1);
+    CHECK(openrac_game_metal_detect == nullptr || openrac_game_metal_detect(1, 2) == 1);
+    CHECK(metal_calls == 1);
+    mods::play_loading(another);
+    CHECK(api.on_camera_script(another, camera, &camera_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.on_metal_detect(another, metal, &metal_calls) == OPENRAC_HOOK_OK);
+    mods::reset_play();
+}
+
+void refused_library_leaves_no_watchers(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "settings": {"behaviour": "world"}},
+        {"id": "test-b", "settings": {"behaviour": "z_watchers_fail"}}]})");
+    auto h = host(plugins);
+    h.play = &kPlay;
+    mods::load(h);
+    CHECK(status_of(plugins, "test-a").first == "loaded");
+    CHECK(status_of(plugins, "test-b").second == "the world gate is already taken");
+    g_records.clear();
+    g_script_events = 1;
+    // test-b's DLL has been closed. Neither event may enter its old code.
+    mods::play_update();
+    CHECK(openrac_game_metal_detect == nullptr || openrac_game_metal_detect(1, 2) == 1);
+    CHECK(g_records.empty());
+    mods::reset();
+}
+
 int main() {
     const fs::path dir = fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
@@ -1691,6 +1796,7 @@ int main() {
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
+    a_mod_sets_its_own_settings(plugins);
     the_1_14_calls_answer_unknown_without_a_game(plugins);
     a_party_reads_the_data_packs(plugins);
     a_mod_copies_and_knows_the_key(plugins);
@@ -1704,6 +1810,8 @@ int main() {
     motion_reaches_the_game(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
     a_library_others_can_change_is_refused(plugins);
+    dropped_mod_watchers_are_not_called();
+    refused_library_leaves_no_watchers(plugins);
     std::error_code e;
     fs::remove_all(dir, e);
     return test::result();

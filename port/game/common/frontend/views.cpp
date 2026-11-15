@@ -19,7 +19,7 @@
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "platform/window.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/math.h"
 
 namespace openrac::frontend {
@@ -96,6 +96,7 @@ void render_view(SceneFrame& frame, const openrac_view& v, renderer::FrameBuffer
     // its depth) are the window's picture's, not a view's.
     input.before_hud = {};
     input.on_before_particles = {};
+    input.pre_particle_colour_texture = 0;
     input.on_resolve_world = {};
     input.after_world_depth = {};
     input.keep_colour = false;

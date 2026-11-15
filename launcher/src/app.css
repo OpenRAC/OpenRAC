@@ -942,8 +942,18 @@ main {
   view-transition-name: page;
 }
 
+/* A desktop's header lies over the page (Header.svelte). In the root picture it was under the
+   page's picture, and a scrolled page washed over its buttons; in a layer of its own, on top. */
+html:not([data-platform="android"]) .site-header {
+  view-transition-name: header;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root),
+::view-transition-group(header),
+::view-transition-image-pair(header),
+::view-transition-old(header),
+::view-transition-new(header),
 ::view-transition-group(side),
 ::view-transition-image-pair(side),
 ::view-transition-old(side),
@@ -954,6 +964,7 @@ main {
 /* The browser lays the old picture under the new one and adds them up (plus-lighter): with no
    fade, both showed at once. The old bar and game list hide; the new ones are live. */
 ::view-transition-old(root),
+::view-transition-old(header),
 ::view-transition-old(side) {
   opacity: 0;
 }
@@ -1006,6 +1017,10 @@ html[data-nav="up"] {
 ::view-transition-group(page),
 ::view-transition-group(side) {
   z-index: 2;
+}
+
+::view-transition-group(header) {
+  z-index: 3;
 }
 
 ::view-transition-old(wave):only-child {

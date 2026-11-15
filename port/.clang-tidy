@@ -1,8 +1,8 @@
 # The port's C++ checks: the rules of docs/CODING_CONVENTIONS.md that clang-tidy can see,
 # mostly naming, ownership and the shape of control flow. Run it on the C++ files you touch:
 #
-#   run-clang-tidy -p build/release -quiet 'port/renderer/gl\.cpp'
-#   clang-tidy -p build/release renderer/gl.cpp
+#   run-clang-tidy -p build/release -quiet 'port/renderer/gl/gl\.cpp'
+#   clang-tidy -p build/release renderer/gl/gl.cpp
 #
 # It reads the compile commands of a configured build (CMAKE_EXPORT_COMPILE_COMMANDS is on).
 # Existing code has findings; new code and the lines you change have none. CI does not run it:

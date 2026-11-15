@@ -8,20 +8,23 @@
 #include <cstring>
 #include <format>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "common/log.h"
+#include "debug_overlay.h"
 #include "fixes.h"
+#include "menu_catalog.h"
 #include "mod_ui.h"
 #include "mods.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "pause_options.h"
 #include "platform/window.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/texture_pool.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/textures/texture_pool.h"
 #include "settings.h"
 
 namespace openrac::frontend::options_menu {
@@ -52,7 +55,6 @@ constexpr const char* kLabels[kRows] = {
 
 // The "Game fixes" group, after the settings' own rows: its heading, then a row a fix.
 constexpr int kFixesHeading = kRows;
-constexpr const char* kFixesLabel = "Game fixes";
 
 // The page's texts in the game's other languages: English, then French, German, Spanish and
 // Italian, the PAL disc's five. Draft translations, to be checked by native speakers.
@@ -64,6 +66,13 @@ constexpr Words kWords[] = {
     {{"Display mode", "Mode d'affichage", "Anzeigemodus", "Modo de pantalla", "Modalità schermo"}},
     {{"Monitor", "Écran", "Monitor", "Monitor", "Monitor"}},
     {{"Picture", "Format d'image", "Bildformat", "Formato de imagen", "Formato immagine"}},
+    {{"Field of View", "Champ de vision", "Sichtfeld", "Campo de visión", "Campo visivo"}},
+    {{"Enhanced graphics",
+      "Graphismes améliorés",
+      "Verbesserte Grafik",
+      "Gráficos mejorados",
+      "Grafica migliorata"}},
+    {{"Fill screen", "Plein écran", "Bildschirm füllen", "Llenar pantalla", "Riempi schermo"}},
     {{"HUD", "Interface", "HUD", "HUD", "HUD"}},
     {{"Render scale",
       "Échelle de rendu",
@@ -181,6 +190,9 @@ constexpr Words kWords[] = {
 // Texts with a number in them: the words around it.
 constexpr Words kCustom = {{"Custom ", "Personnalisé ", "Eigenes ", "Personalizado ", "Personalizzato "}};
 constexpr Words kAnisotropic = {{"Anisotropic ", "Anisotrope ", "Anisotrop ", "Anisotrópico ", "Anisotropico "}};
+constexpr Words kUpscaler = {
+    {" (upscaler)", " (upscaler)", " (Upscaler)", " (escalador)", " (upscaler)"}
+};
 constexpr Words kNotConnected =
     {{" (not connected)", " (non connecté)", " (nicht verbunden)", " (no conectado)", " (non collegato)"}};
 
@@ -219,8 +231,10 @@ std::string translated(const std::string& text, int lang) {
             return w->text[lang] + text.substr(std::strlen(w->text[0]));
         }
     }
-    if (text.ends_with(kNotConnected.text[0])) {
-        return text.substr(0, text.size() - std::strlen(kNotConnected.text[0])) + kNotConnected.text[lang];
+    for (const Words* w : {&kNotConnected, &kUpscaler}) {
+        if (text.ends_with(w->text[0])) {
+            return text.substr(0, text.size() - std::strlen(w->text[0])) + w->text[lang];
+        }
     }
     return text;
 }
@@ -331,14 +345,17 @@ std::string value_of(int row) {
         case kMsaa:
             return s.msaa > 1 ? std::format("{}x", s.msaa) : std::string("Off");
         case kAnisotropy: {
-            const int samples =
-                s.anisotropy_samples(gl::enhanced_rendering_available() && s.enhanced_graphics);
-            return samples > 1 ? std::format("Anisotropic {}x", samples) : std::string("Trilinear");
+            if (s.anisotropy == 0) {
+                return "Auto";
+            }
+            return s.anisotropy > 1 ? std::format("Anisotropic {}x", s.anisotropy)
+                                    : std::string("Trilinear");
         }
         case kDrawDistance:
             return s.draw_distance == 100 ? std::string("Original")
-                   : s.draw_distance == 0 ? std::string("Unlimited")
-                                          : std::format("{}%", s.draw_distance);
+                   : s.draw_distance == 0
+                       ? std::string("Unlimited")
+                       : std::format("{:g}x", static_cast<float>(s.draw_distance) / 100.0f);
         case kActiveDistance:
             return s.original_active_distance ? "Original" : "Match";
         case kVSync:
@@ -397,17 +414,21 @@ void step_value(int row, int by) {
             s.msaa = stepped(settings::kSampleCounts, s.msaa, by,
                              offered(settings::kSampleCounts, renderer::FrameBuffer::max_samples()));
             break;
-        case kAnisotropy:
+        case kAnisotropy: {
+            // Auto (0) first, then what the graphics card offers.
+            constexpr int kChoices[] = {0, 1, 2, 4, 8, 16};
             s.anisotropy = stepped(
-                settings::kAnisotropies,
-                s.anisotropy_samples(gl::enhanced_rendering_available() && s.enhanced_graphics),
+                kChoices,
+                s.anisotropy,
                 by,
-                offered(
-                    settings::kAnisotropies,
-                    static_cast<int>(renderer::TexturePool::max_anisotropy())
-                )
+                1
+                    + offered(
+                        settings::kAnisotropies,
+                        static_cast<int>(renderer::TexturePool::max_anisotropy())
+                    )
             );
             break;
+        }
         case kDrawDistance:
             s.draw_distance = stepped(settings::kDrawDistances, s.draw_distance, by);
             break;
@@ -517,9 +538,6 @@ void step_value(int row, int by) {
 namespace page {
 
 constexpr gaddr kRowBytes = 0x14;
-// The pad's buttons as the game's menus test them (the pad's two bytes the other way round).
-constexpr std::uint32_t kPadLeft = 0x8000;
-constexpr std::uint32_t kPadRight = 0x2000;
 
 // The port's text ids: past the game's last (its table's ids are under 0x7000).
 constexpr int kTextFirst = 0x7E00;
@@ -617,7 +635,7 @@ bool update(const openrac_front_end& fe) {
         std::uint8_t& pressed = GREF(std::uint8_t, n.flags + static_cast<gaddr>(i));
         if (pressed != 0) {
             pressed = 0;
-            step_value(n.top + i, 1);
+            page_step(n.top + i, 1);
             changed = true;
         }
     }
@@ -625,14 +643,17 @@ bool update(const openrac_front_end& fe) {
     const gaddr page = GREF(std::uint32_t, fe.page_menu + 4);
     if (page == fe.video_page && GREF(std::uint32_t, page + 0x40) == fe.video_list
         && GREF(std::int32_t, fe.video_list + 0x3C) == 0) {
-        const std::uint32_t pad = GREF(std::uint32_t, fe.pad + 0x1C4);
-        if ((pad & (kPadLeft | kPadRight)) != 0) {
-            step_value(n.top + cursor, (pad & kPadRight) != 0 ? 1 : -1);
+        // Not the stick pushed up or down onto a row, which the game also makes Left or Right.
+        const RowPress press = row_press(fe.pad);
+        if (press == RowPress::Left || press == RowPress::Right) {
+            page_step(n.top + cursor, press == RowPress::Right ? 1 : -1);
             changed = true;
         }
     }
+    // Fewer rows than before (a row that does nothing now is left out): the window back in them.
+    n.top = std::max(0, std::min(n.top, page_rows() - kShown));
     // The window follows the cursor: a row short of each end while there are more that way.
-    if (cursor == kShown - 1 && n.top + kShown < row_count()) {
+    if (cursor == kShown - 1 && n.top + kShown < page_rows()) {
         ++n.top;
         --cursor;
     } else if (cursor == 0 && n.top > 0) {
@@ -640,8 +661,8 @@ bool update(const openrac_front_end& fe) {
         ++cursor;
     }
     for (int i = 0; i < kShown; ++i) {
-        put_text(n.labels + kTextBytes * static_cast<gaddr>(i), label(n.top + i));
-        put_text(n.values + kTextBytes * static_cast<gaddr>(i), value_of(n.top + i));
+        put_text(n.labels + kTextBytes * static_cast<gaddr>(i), page_label(n.top + i));
+        put_text(n.values + kTextBytes * static_cast<gaddr>(i), page_value(n.top + i));
     }
     if (changed) {
         settings::save();
@@ -968,23 +989,33 @@ bool update(gaddr page_menu, gaddr pad) {
     // The port's Video page.
     page::build();
     bool changed = false;
+    // The widget steps its int on Cross and on the game's Left and Right, the stick's too: only
+    // what the player pressed counts, not the stick pushed up or down onto a row (row_press).
+    const RowPress press = row_press(pad);
+    bool stepped = false;
     for (int i = 0; i < kShownHere; ++i) {
         std::int32_t& v = GREF(std::int32_t, m.values + 4 * static_cast<gaddr>(i));
         if (v != 1) {
-            step_value(m.top + i, v > 1 ? 1 : -1);
+            if (press != RowPress::None) {
+                const int by = press == RowPress::Left    ? -1
+                               : press == RowPress::Right ? 1
+                                                          : (v > 1 ? 1 : -1);
+                page_step(m.top + i, by);
+                changed = true;
+                stepped = true;
+            }
             v = 1;
-            changed = true;
         }
     }
     std::int32_t& cursor = GREF(std::int32_t, m.list + 0x38);
     cursor = std::clamp(cursor, 0, kShownHere - 1);
-    // Left and Right step the setting too (the widget itself steps on Cross).
-    const std::uint32_t pressed = GREF(std::uint32_t, pad + 0x1C4);
-    if ((pressed & (page::kPadLeft | page::kPadRight)) != 0) {
-        step_value(m.top + cursor, (pressed & page::kPadRight) != 0 ? 1 : -1);
+    // Left and Right step the setting too, when the widget did not.
+    if (!stepped && (press == RowPress::Left || press == RowPress::Right)) {
+        page_step(m.top + cursor, press == RowPress::Right ? 1 : -1);
         changed = true;
     }
-    if (cursor == kShownHere - 1 && m.top + kShownHere < row_count()) {
+    m.top = std::max(0, std::min(m.top, page_rows() - kShownHere));
+    if (cursor == kShownHere - 1 && m.top + kShownHere < page_rows()) {
         ++m.top;
         --cursor;
     } else if (cursor == 0 && m.top > 0) {
@@ -992,8 +1023,13 @@ bool update(gaddr page_menu, gaddr pad) {
         ++cursor;
     }
     for (int i = 0; i < kShownHere; ++i) {
-        page::put_text(page::pause_rows_text + page::kTextBytes * static_cast<gaddr>(i), label(m.top + i));
-        page::put_text(page::pause_rows_text + page::kTextBytes * static_cast<gaddr>(kShownHere + i), value_of(m.top + i));
+        page::put_text(
+            page::pause_rows_text + page::kTextBytes * static_cast<gaddr>(i), page_label(m.top + i)
+        );
+        page::put_text(
+            page::pause_rows_text + page::kTextBytes * static_cast<gaddr>(kShownHere + i),
+            page_value(m.top + i)
+        );
     }
     if (changed) {
         settings::save();
@@ -1020,24 +1056,13 @@ void savestate_restored() {
     pause_page::m = {};
 }
 
-int row_count() {
-    return fixes::count() > 0 ? kRows + 1 + fixes::count() : kRows;
-}
-
 int fix_of_row(int row) {
     const int fix = row - kFixesHeading - 1;
     return fix >= 0 && fix < fixes::count() ? fix : -1;
 }
 
 const char* label(int row) {
-    if (row >= 0 && row < kRows) {
-        return kLabels[row];
-    }
-    if (row == kFixesHeading && fixes::count() > 0) {
-        return kFixesLabel;
-    }
-    const int fix = fix_of_row(row);
-    return fix >= 0 ? fixes::fix(fix).name : "";
+    return row >= 0 && row < kRows ? kLabels[row] : "";
 }
 
 std::string value(int row) {
@@ -1046,6 +1071,39 @@ std::string value(int row) {
 
 void step(int row, int by) {
     step_value(row, by);
+}
+
+namespace {
+
+// The game pages' rows: the in-game menu's entries marked for them.
+std::optional<menu::Id> page_row(int row) {
+    const std::vector<menu::Id> rows = debug_overlay::game_page_entries();
+    if (row < 0 || row >= static_cast<int>(rows.size())) {
+        return std::nullopt;
+    }
+    return rows[static_cast<std::size_t>(row)];
+}
+
+}  // namespace
+
+int page_rows() {
+    return static_cast<int>(debug_overlay::game_page_entries().size());
+}
+
+std::string page_label(int row) {
+    const auto id = page_row(row);
+    return id ? debug_overlay::game_page_label(*id) : std::string();
+}
+
+std::string page_value(int row) {
+    const auto id = page_row(row);
+    return id ? debug_overlay::game_page_value(*id) : std::string();
+}
+
+void page_step(int row, int by) {
+    if (const auto id = page_row(row)) {
+        debug_overlay::game_page_step(*id, by);
+    }
 }
 
 bool update(int loaded_overlay) {
@@ -1071,6 +1129,15 @@ bool update(int loaded_overlay) {
 
 std::uint32_t text(int id) {
     return front_end() != nullptr ? page::text(id) : 0;
+}
+
+RowPress row_press(std::uint32_t pad) {
+    return row_press(
+        GREF(std::uint32_t, pad + 0x1B4),
+        GREF(std::uint32_t, pad + 0x1C4),
+        GREF(float, pad + 0x108),
+        GREF(float, pad + 0x10C)
+    );
 }
 
 PauseRows pause_rows(int index) {

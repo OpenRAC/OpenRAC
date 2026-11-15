@@ -35,6 +35,8 @@ end)
 | `openrac.game`, `.version`, `.platform`, `.api` | `"rac1"`, `"pal"` or `"ntsc"`, `"macos-arm64"` ..., the game's interface version (`"1.1"`) |
 | `openrac.log(...)`, `openrac.warn(...)` | a line in the game's log, after your mod's id (`print` does the same as `log`) |
 | `openrac.setting(key)` | one of your [settings](settings.md) |
+| `openrac.set_setting(key, value)` (1.15) | set one of your settings, for the run and in the launcher's list: `true` when it was set ([settings](settings.md#changing-them-from-the-game-interface-115)) |
+| `openrac.on_settings(fn)` (1.15) | while your scripts first run: `fn()` after the launcher changed your settings while the game runs |
 | `openrac.hook(id, fn)` | wrap or replace a hook point: `fn(original, ...)` gets its arguments; `original(...)` goes on down the chain and returns its result; `original()` with no arguments passes the call's own; return nothing to keep the original's result |
 | `openrac.before(id, fn)`, `openrac.after(id, fn)` | `fn(...)` before or after the rest of the chain, which runs whatever `fn` does |
 | `openrac.on_frame(fn)` | `fn()` after each game tick |

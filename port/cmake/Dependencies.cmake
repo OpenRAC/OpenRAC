@@ -10,13 +10,14 @@
 #   cgltf     glTF 2.0 reader, for the level viewer (MIT)
 #   stb       stb_image and stb_image_write, for the viewer's PNGs (MIT or public domain)
 #   xxHash    PCSX2 texture replacement keys (BSD-2-Clause)
-#   nanosvg   the on-screen pad's SVG icons (zlib)
+#   nanosvg   the on-screen pad's SVG icons and texture packs' SVGs (zlib)
+#   Basis Universal  texture packs' KTX2 pictures: its transcoder and Zstandard decoder (Apache-2.0)
 #   Dear ImGui  the games' debug overlay (MIT)
 #
 # To build without network access, point CMake at local clones:
 #   -DFETCHCONTENT_SOURCE_DIR_SDL3=... -DFETCHCONTENT_SOURCE_DIR_CGLTF=...
 #   -DFETCHCONTENT_SOURCE_DIR_STB=... -DFETCHCONTENT_SOURCE_DIR_IMGUI=...
-#   -DFETCHCONTENT_SOURCE_DIR_NANOSVG=...
+#   -DFETCHCONTENT_SOURCE_DIR_NANOSVG=... -DFETCHCONTENT_SOURCE_DIR_BASIS_UNIVERSAL=...
 
 include_guard(GLOBAL)
 include(FetchContent)
@@ -157,6 +158,35 @@ if(NOT TARGET openrac_nanosvg)
   endif()
 endif()
 
+# Basis Universal (Apache-2.0): texture packs' KTX2 pictures (renderer/textures/pack_pictures.h).
+# A pack in UASTC or ETC1S works on every GPU, so the port reads those and plain RGBA8 only. Only
+# its transcoder and the Zstandard decoder it ships are compiled, in openrac_basisu; the encoder and
+# its CMakeLists.txt are left out. Release 2.50 is pinned.
+FetchContent_Declare(basis_universal
+  GIT_REPOSITORY https://github.com/BinomialLLC/basis_universal.git
+  GIT_TAG 9bebe16726b3a61c8c213eeee3b7cffb462ef34e
+  SOURCE_SUBDIR openrac-download-only
+)
+FetchContent_MakeAvailable(basis_universal)
+if(NOT TARGET openrac_basisu)
+  add_library(openrac_basisu STATIC
+    "${basis_universal_SOURCE_DIR}/transcoder/basisu_transcoder.cpp"
+    "${basis_universal_SOURCE_DIR}/zstd/zstddeclib.c")
+  target_include_directories(openrac_basisu SYSTEM PUBLIC
+    "${basis_universal_SOURCE_DIR}/transcoder" "${basis_universal_SOURCE_DIR}/zstd")
+  target_compile_definitions(openrac_basisu PUBLIC BASISD_SUPPORT_KTX2=1 BASISD_SUPPORT_KTX2_ZSTD=1)
+  # Apache-2.0 asks for its licence beside the program; Zstandard's (BSD) comes with it.
+  configure_file("${basis_universal_SOURCE_DIR}/LICENSE"
+    "${CMAKE_BINARY_DIR}/licenses/basis_universal/LICENSE" COPYONLY)
+  configure_file("${basis_universal_SOURCE_DIR}/zstd/LICENSE"
+    "${CMAKE_BINARY_DIR}/licenses/zstd/LICENSE" COPYONLY)
+  if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(openrac_basisu PRIVATE /w)
+  else()
+    target_compile_options(openrac_basisu PRIVATE -w)
+  endif()
+endif()
+
 if(NOT TARGET openrac_cgltf)
   add_library(openrac_cgltf INTERFACE)
   target_include_directories(openrac_cgltf SYSTEM INTERFACE "${cgltf_SOURCE_DIR}")
@@ -168,7 +198,7 @@ endif()
 # What OpenGOAL draws its debug windows with. The repository has no build of
 # its own: its four sources and the SDL3 and OpenGL 3 backends are compiled
 # here into one static library, without the port's warnings. The OpenGL
-# backend brings its own small loader, so it needs nothing of renderer/gl.h.
+# backend brings its own small loader, so it needs nothing of renderer/gl/gl.h.
 FetchContent_Declare(imgui
   GIT_REPOSITORY https://github.com/ocornut/imgui.git
   GIT_TAG v1.91.9b
@@ -260,6 +290,11 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
   set(BUILD_SHARED_LIBS ${openrac_shared_libs})
 
   add_library(openrac_vulkan STATIC "${volk_SOURCE_DIR}/volk.c")
+  target_sources(openrac_vulkan PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/commands/native_command_encoder.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/commands/graph_queue.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/graph/graph_state_translation.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/graph/graph_buffer_execution.cpp")
   target_include_directories(openrac_vulkan SYSTEM PUBLIC
     "${vulkan_headers_SOURCE_DIR}/include" "${volk_SOURCE_DIR}" "${vma_SOURCE_DIR}/include")
   target_compile_definitions(openrac_vulkan PUBLIC VK_NO_PROTOTYPES)

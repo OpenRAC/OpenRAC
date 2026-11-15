@@ -89,18 +89,16 @@ constexpr Old kOld[] = {
     {kTouch, "Responsive controls", Id::ResponsiveControls},
     {kTouch, "Enhanced graphics: why it is off", Id::EnhancedStatus},
     {kTouch, "Enhanced graphics", Id::EnhancedGraphics},
-    {kTouch, "Modern shadows", Id::ModernShadows},
     {kTouch, "Shadow quality", Id::ShadowQuality},
-    {kTouch, "Gameplay rim light", Id::RimLight},
-    {kTouch, "Rim shadow lift", Id::RimShadowLift},
-    {kTouch, "Bounce strength", Id::BounceStrength},
-    {kTouch, "Ambient occlusion", Id::AmbientOcclusion},
+    {kTouch, "Shadow filtering", Id::ShadowFilter},
     {kTouch, "Occlusion quality", Id::OcclusionQuality},
     {kTouch, "Hierarchical depth (Hi-Z)", Id::OcclusionHiZ},
     {kTouch, "Texture upscaling", Id::TextureUpscaling},
+    {kTouch, "Effects detail", Id::EffectsDetail},
     {kTouch, "Upscaling", Id::Upscaling},
     {kTouch, "Sharpening", Id::Sharpening},
     {kTouch, "Motion blur", Id::MotionBlur},
+    {kTouch, "Motion blur quality", Id::MotionBlurQuality},
     {kTouch, "Color correction", Id::ColorCorrection},
     {kTouch, "Brightness", Id::Brightness},
     {kTouch, "Reset to defaults", Id::EnhancedReset},
@@ -179,7 +177,7 @@ void lists_each_entry_once_in_order() {
         CHECK(&entry(e.id) == &e);
         CHECK(e.label != nullptr && *e.label != '\0');
         CHECK(e.help != nullptr && *e.help != '\0');
-        CHECK(e.where != 0 && (e.where & ~kEverywhere) == 0);
+        CHECK((e.where & kEverywhere) != 0 && (e.where & ~(kEverywhere | kGamePage)) == 0);
         CHECK(static_cast<int>(e.tab) >= tab);
         tab = static_cast<int>(e.tab);
         const std::string here = std::string(tab_name(e.tab)) + "/" + e.section;
@@ -215,9 +213,38 @@ void offers_hdr_look_everywhere() {
     }
 }
 
+// The game's own Video pages keep a short list, like a console's (the menu has the rest): these
+// entries, each a setting the pages can step.
+void keeps_game_pages_short() {
+    const std::set<Id> wanted = {
+        Id::DisplayMode,
+        Id::Picture,
+        Id::GameplayFov,
+        Id::Hud,
+        Id::RenderScale,
+        Id::Msaa,
+        Id::Anisotropy,
+        Id::DrawDistance,
+        Id::FrameRate,
+        Id::VSync,
+        Id::FrameCounter,
+        Id::Hdr,
+        Id::EnhancedGraphics,
+    };
+    std::set<Id> marked;
+    for (const Entry& e : entries()) {
+        if ((e.where & kGamePage) != 0) {
+            marked.insert(e.id);
+            CHECK(e.kind == Kind::Switch || e.kind == Kind::Choice || e.kind == Kind::Slider);
+        }
+    }
+    CHECK(marked == wanted);
+}
+
 }  // namespace
 
 int main() {
+    keeps_game_pages_short();
     keeps_every_old_option();
     offers_hdr_look_everywhere();
     lists_each_entry_once_in_order();

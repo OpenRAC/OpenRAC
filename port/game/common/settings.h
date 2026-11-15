@@ -19,14 +19,15 @@
 #include <string_view>
 
 #include "common/hdr.h"
-#include "renderer/bloom_settings.h"
-#include "renderer/gtao_settings.h"
-#include "renderer/motion_blur_settings.h"
-#include "renderer/shadow_settings.h"
-#include "renderer/temporal_settings.h"
-#include "renderer/texture_filter.h"
+#include "renderer/settings/bloom_settings.h"
+#include "renderer/settings/gtao_settings.h"
+#include "renderer/settings/motion_blur_settings.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/settings/shadow_settings.h"
+#include "renderer/settings/temporal_settings.h"
+#include "renderer/settings/volumetric_settings.h"
+#include "renderer/textures/texture_filter.h"
 #include "renderer/ui/fps_counter.h"
-#include "renderer/volumetric_settings.h"
 
 namespace openrac::settings {
 
@@ -85,6 +86,24 @@ inline constexpr int kDefaultGameplayFov = 100;
 inline constexpr int kMaxGameplayFov = 120;
 inline constexpr int kGameplayFovStep = 5;
 
+// The presets of Enhanced graphics: the options that cost the most, set together. Custom is any
+// other mix of them.
+enum class EnhancedPreset {
+    Low,     // weak phones and integrated graphics: every effect at its cheapest, motion blur off
+    Medium,  // handhelds and Apple Silicon: fewer rendered pixels and smaller sun maps
+    High,    // desktop graphics cards
+    Custom
+};
+inline constexpr const char* kEnhancedPresetNames[] = {"Low", "Medium", "High", "Custom"};
+
+// Where Enhanced graphics start at the Medium preset: phones, handhelds and Apple Silicon. The
+// same effects at a lower cost; players can still pick High.
+#if defined(__ANDROID__) || (defined(__APPLE__) && defined(__aarch64__))
+inline constexpr bool kHandheldDefaults = true;
+#else
+inline constexpr bool kHandheldDefaults = false;
+#endif
+
 struct Settings {
     DisplayMode display_mode = DisplayMode::Windowed;
     int monitor = 0;  // 0: the display the window is on; n: the nth display, counted from 1
@@ -104,7 +123,9 @@ struct Settings {
     bool enhanced_rendering = false;
     bool enhanced_graphics = true;  // F4 within it; retains individual feature preferences
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
-    renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High;
+    renderer::ShadowQuality shadow_quality =
+        kHandheldDefaults ? renderer::ShadowQuality::Medium : renderer::ShadowQuality::High;
+    renderer::ShadowFilter shadow_filter = renderer::ShadowFilter::Soft;
     renderer::VolumetricQuality volumetric_quality = renderer::VolumetricQuality::Off;
 
     struct NanotechLight {
@@ -113,15 +134,21 @@ struct Settings {
         float brightness = 1.20f;
         float range = 2.22f;
     } nanotech_light;
-    bool rim_light = true;
+
+    // The menu puts Off before the renderer's quality levels.
+    int shadow_quality_choice() const {
+        return enhanced_shadows ? static_cast<int>(shadow_quality) + 1 : 0;
+    }
+
+    void set_shadow_quality_choice(int choice) {
+        enhanced_shadows = choice > 0;
+        if (enhanced_shadows) {
+            shadow_quality = static_cast<renderer::ShadowQuality>(choice - 1);
+        }
+    }
     // A texture pack from <data>/texture_packs/<game id>/ (docs/port/TEXTURE_PACKS.md); takes
     // effect at the next start.
     bool texture_pack = true;
-    bool rim_shadow_lift = true;
-    float rim_lift_exponent = 0.09f;
-    float rim_lift_max_gain = 7.1f;
-    float rim_light_strength = 0.30f;
-    float rim_light_falloff = 6.46f;   // Higher values narrow the lit edge.
     bool probe_spheres = false;        // diagnostic placement/fade overlay
     bool medial_axis_debug = false;    // Baked centre paths and junctions.
     bool ceiling_area_lights = false;  // Baked source rectangles and emitting-direction arrows.
@@ -129,10 +156,13 @@ struct Settings {
         false;  // Baked reflection capture positions and influence boxes.
     float probe_gi_multiplier = 1.0f;
     // The settings sweep's experiments alone (debug/capture.cpp); never saved.
+    bool sweep_rim_light_off = false;
     bool sweep_probe_lighting_off = false;
     bool sweep_translucent_off = false;
     bool sweep_translucent_unlit = false;
     bool sweep_translucent_full = false;
+    bool sweep_moby_blended_off = false;
+    bool sweep_one_triangle = false;
     float probe_normal_bias = 0.5f;  // receiver offsets in world units
     float probe_view_bias = 0.5f;
     bool sun_direction_override = false;
@@ -140,9 +170,27 @@ struct Settings {
     std::optional<std::array<float, 3>> sunlight_direction() const;
     // Restore this window's preferences without changing general graphics/audio or startup enablement.
     void reset_enhanced();
+    // Sets the options a preset covers (upscaling, shadow quality and filtering, occlusion
+    // quality, motion blur, texture upscaling, effects detail) and leaves the rest alone; Custom
+    // changes nothing.
+    void apply_enhanced_preset(EnhancedPreset preset);
+    // The preset those options match now, or Custom.
+    EnhancedPreset enhanced_preset() const;
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
-    renderer::TemporalQuality temporal_quality =
-        renderer::TemporalQuality::Quality;  // Enhanced Vulkan only.
+
+    int occlusion_quality_choice() const {
+        return gtao ? static_cast<int>(gtao_settings.quality) + 1 : 0;
+    }
+
+    void set_occlusion_quality_choice(int choice) {
+        gtao = choice > 0;
+        if (gtao) {
+            gtao_settings.quality = static_cast<renderer::GtaoQuality>(choice - 1);
+        }
+    }
+    renderer::TemporalQuality temporal_quality =  // Enhanced Vulkan only.
+        kHandheldDefaults ? renderer::TemporalQuality::Balanced
+                          : renderer::TemporalQuality::Quality;
     renderer::BloomSettings bloom;
     bool agx_preview = true;                 // SDR-only AgX colour treatment experiment.
     float agx_exposure = 0.25f;              // Base exposure in stops, before AgX.
@@ -156,6 +204,11 @@ struct Settings {
     float motion_blur_strength = 0.5f;       // Exposure strength in [0, 1].
     float temporal_sharpness = 0.2f;         // AMD RCAS strength in [0, 1].
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;
+    // Effects detail: High draws every Enhanced effect in full; Medium and Low allow the lossy
+    // shortcuts that cost visibly little (renderer/render_opt.h).
+    renderer::render_opt::EffectsDetail effects_detail =
+        kHandheldDefaults ? renderer::render_opt::EffectsDetail::Medium
+                          : renderer::render_opt::EffectsDetail::High;
     int anisotropy = 0;  // 0: mode default; otherwise 1 (off), 2, 4, 8, 16
     // Draw distance: how far the game's own culls reach, in percent of the game's (100, Original:
     // each moby's, tie's and shrub's own distance, at most the level's caps; 400 the default); 0
@@ -267,8 +320,8 @@ void save();
 // set_muted(true) holds the factor at 0 whatever the volume is (the window lost the keyboard).
 void set_volume(int volume);
 
-// HDR output's mode by its file name ("off", "on"), as the launcher's OPENRAC_HDR asks for
-// it over the file's: false, with nothing changed, for another word.
+// HDR output's mode by its file name ("off", "on"), as OPENRAC_HDR asks for it over the file's:
+// false, with nothing changed, for another word.
 bool set_hdr_mode(std::string_view name);
 void set_muted(bool muted);
 float output_gain();

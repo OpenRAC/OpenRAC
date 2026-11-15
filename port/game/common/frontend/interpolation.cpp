@@ -50,12 +50,12 @@
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "platform/window.h"
-#include "renderer/direct.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/direct/direct.h"
+#include "renderer/effects/shadows.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
-#include "renderer/shadows.h"
-#include "renderer/texture_pool.h"
+#include "renderer/textures/texture_pool.h"
 #include "renderer/ui/fps_counter.h"
 #include "scene/level_renderer.h"
 #include "scene/screenshot.h"
@@ -559,6 +559,11 @@ bool finish_render() try {
         return !g || !g->render_failed;
     }
     const auto started = std::chrono::steady_clock::now();
+    while (!g->render_worker->ready_until(
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(50)
+    )) {
+        platform::pump_events();
+    }
     std::string error;
     const bool complete = g->render_worker->finish(error);
     auto output = std::move(g->pending_frame);

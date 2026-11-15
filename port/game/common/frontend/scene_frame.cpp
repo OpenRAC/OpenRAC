@@ -27,9 +27,10 @@
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "openrac/game_host.h"
-#include "renderer/direct.h"
-#include "renderer/gl.h"
-#include "renderer/precise_depth.h"
+#include "renderer/direct/direct.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/precise_depth.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -152,9 +153,13 @@ float prepare_target(SceneFrame& frame) {
 
     auto& output = frame.output;
     const auto& graphics = frame.graphics;
-    frame_size(
-        output.box.width, output.box.height, graphics.render_scale, output.width, output.height
-    );
+    constexpr int kNativeRenderScale = 100;  // Percent of the output picture.
+    int render_scale = graphics.render_scale;
+    // Cap the enhanced render target while preserving the player's scale setting.
+    if (graphics.enhanced_graphics && enhanced_graphics_available()) {
+        render_scale = std::min(render_scale, kNativeRenderScale);
+    }
+    frame_size(output.box.width, output.box.height, render_scale, output.width, output.height);
     // Temporal reconstruction supplies antialiasing; native rendering keeps the saved MSAA preference.
     const int samples =
         frame.temporal ? 1 : std::clamp(graphics.msaa, 1, renderer::FrameBuffer::max_samples());
@@ -201,6 +206,10 @@ void set_lighting(SceneFrame& frame) {
     }
     owner.scene.set_point_emitters(std::move(emitters));
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
+    // The lossy render shortcuts follow the setting; High (and the base game) draws in full.
+    renderer::render_opt::set_effects_detail(
+        enhanced ? graphics.effects_detail : renderer::render_opt::EffectsDetail::High
+    );
     if (auto* lighting = owner.scene.level_lighting()) {
         lighting->set_material_overrides(enhanced);
     }
@@ -212,12 +221,10 @@ void set_lighting(SceneFrame& frame) {
         graphics.sweep_translucent_unlit,
         graphics.sweep_translucent_full
     );
-    owner.scene.set_gameplay_rim(
-        enhanced && graphics.rim_light, graphics.rim_light_strength, graphics.rim_light_falloff
-    );
-    owner.scene.set_gameplay_rim_lift(
-        graphics.rim_shadow_lift, graphics.rim_lift_exponent, graphics.rim_lift_max_gain
-    );
+    owner.scene.set_sweep_moby_blended_off(graphics.sweep_moby_blended_off);
+    owner.scene.set_sweep_one_triangle(graphics.sweep_one_triangle);
+    owner.scene.set_gameplay_rim(enhanced && !graphics.sweep_rim_light_off, 0.30f, 6.46f);
+    owner.scene.set_gameplay_rim_lift(enhanced, 0.09f, 7.1f);
     owner.scene.set_probe_bias(graphics.probe_normal_bias, graphics.probe_view_bias);
     if (auto* lighting = owner.scene.level_lighting()) {
         lighting->set_sunlight_direction(enhanced ? graphics.sunlight_direction() : std::nullopt);
@@ -227,6 +234,7 @@ void set_lighting(SceneFrame& frame) {
     owner.scene.set_medial_axis_debug(graphics.medial_axis_debug);
     owner.scene.set_environment_probe_debug(graphics.environment_probe_debug);
     input.shadow_quality = graphics.shadow_quality;
+    input.shadow_filter = graphics.shadow_filter;
     input.volumetric_quality = graphics.volumetric_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera

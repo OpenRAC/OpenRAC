@@ -34,6 +34,9 @@ enum Where : std::uint8_t {
     kDesktop = 1,
     kTouch = 2,
     kEverywhere = kDesktop | kTouch,
+    // Also a row of the game's own Video pages (options_menu.h, page_rows), on the screens above.
+    // Keep these few: the game's pages show four to seven rows at a time, and the menu has the rest.
+    kGamePage = 4,
 };
 
 // The menu's tabs, in their order along the bar (the drawer's sections follow it too). Program
@@ -82,22 +85,24 @@ enum class Id : std::uint8_t {
     // Enhanced
     EnhancedStatus,
     EnhancedGraphics,
-    ModernShadows,
+    EnhancedLow,
+    EnhancedMedium,
+    EnhancedHigh,
     ShadowQuality,
-    RimLight,
-    RimShadowLift,
-    BounceStrength,
-    AmbientOcclusion,
+    ShadowFilter,
     OcclusionQuality,
-    OcclusionHiZ,
     TextureUpscaling,
+    EffectsDetail,
     Upscaling,
     Sharpening,
     MotionBlur,
+    MotionBlurQuality,
     ColorCorrection,
     Brightness,
     EnhancedReset,
+    OcclusionHiZ,
     EnhancedAdvanced,
+    EnhancedMaterials,
     // Game
     Volume,
     MuteInBackground,

@@ -79,11 +79,6 @@ pub struct Config {
     /// (src-tauri/src/android.rs).
     #[ts(type = "\"opengl\" | \"vulkan\" | \"metal\"")]
     pub renderer: String,
-    /// HDR output (port docs/port/HDR.md): "off" (default) or "on", given to each game's start
-    /// (OPENRAC_HDR) over the game's own setting. On: HDR when the system has the display in HDR
-    /// mode. On every system; it needs the Vulkan renderer. Anything else reads as "off" (load).
-    #[ts(type = "\"off\" | \"on\"")]
-    pub hdr: String,
     /// Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
     /// (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
     /// a start whose window crashed before it drew a click; the player may turn it off again.
@@ -158,7 +153,6 @@ impl Default for Config {
             game_colors: true,
             detailed_game_log: false,
             renderer: "vulkan".into(),
-            hdr: "off".into(),
             safe_rendering: false,
             play_with_mods: false,
             crashes_seen: BTreeMap::new(),
@@ -185,18 +179,7 @@ impl Config {
 /// Reads `path`; a missing or unreadable file gives the defaults, so a
 /// broken settings file never stops the launcher from starting.
 pub fn load(path: &Path) -> Config {
-    let mut config: Config =
-        std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default();
-    config.hdr = hdr_mode(&config.hdr).into();
-    config
-}
-
-/// The HDR setting as "off" or "on": anything but "on" is "off", the game's default.
-pub fn hdr_mode(value: &str) -> &'static str {
-    match value {
-        "on" => "on",
-        _ => "off",
-    }
+    std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default()
 }
 
 /// The renderer Play starts the game with on `platform`, from Settings' `renderer`: "vulkan",
@@ -326,16 +309,12 @@ mod tests {
         }
     }
 
-    /// HDR is Off or On: anything else reads as Off.
+    /// An old file with the removed "hdr" key still loads; HDR is the game's own setting now.
     #[test]
-    fn hdr_is_off_or_on() {
+    fn old_hdr_key_still_loads() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("launcher.json");
-        std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
-        assert_eq!(load(&path).hdr, "off");
-        for (old, now) in [("off", "off"), ("on", "on"), ("bright", "off")] {
-            std::fs::write(&path, format!(r#"{{"setupComplete": true, "hdr": "{old}"}}"#)).unwrap();
-            assert_eq!(load(&path).hdr, now, "{old}");
-        }
+        std::fs::write(&path, r#"{"setupComplete": true, "hdr": "on"}"#).unwrap();
+        assert!(load(&path).setup_complete);
     }
 }

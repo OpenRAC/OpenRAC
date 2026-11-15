@@ -5,8 +5,8 @@
 #include <memory>
 #include <string>
 
-#include "renderer/effects.h"
-#include "renderer/shader.h"
+#include "renderer/effects/effects.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::scene {
 class LevelScene;

@@ -15,12 +15,18 @@ namespace openrac::enhanced {
 struct ComputeOutput {
     unsigned buffer = 0;      // Renderer-owned, stable storage-buffer name.
     std::uint64_t bytes = 0;  // Written bytes starting at offset zero.
+    bool track_shader_reads = false;
 };
 
 // Shortlist branches consume metadata but do not sample the image bindings of a combined kernel.
 enum class ComputeInputs : std::uint8_t {
     All,
     UniformBlocks
+};
+
+enum class SampledInputExports : std::uint8_t {
+    External,
+    Continuation
 };
 
 // Runs `record` synchronously on the render thread, with Vulkan graph dependencies or OpenGL compatibility barriers.
@@ -31,6 +37,7 @@ enum class ComputeInputs : std::uint8_t {
     std::span<const ComputeOutput> outputs,
     const std::function<void()>& record,
     std::string& error,
-    ComputeInputs inputs = ComputeInputs::All
+    ComputeInputs inputs = ComputeInputs::All,
+    SampledInputExports sampled_exports = SampledInputExports::External
 );
 }  // namespace openrac::enhanced

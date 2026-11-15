@@ -14,13 +14,13 @@
 #include "enhanced/renderer/water_window.h"
 #include "enhanced/tests/water_gpu_fixture.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #ifdef OPENRAC_VULKAN
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 #include "tests/check.h"

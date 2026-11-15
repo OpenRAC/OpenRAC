@@ -181,7 +181,6 @@
     font-weight: 600;
     color: var(--text);
     background: var(--control);
-    border-bottom-width: 3px;
     border-radius: var(--radius-sm);
     cursor: pointer;
   }
@@ -202,11 +201,11 @@
     }
   }
 
+  /* An empty cap: a dashed edge all round. Buttons have no border (app.css), so it is set whole. */
   .cap.empty {
     background: transparent;
     box-shadow: none;
-    border-style: dashed;
-    border-bottom-width: 1px;
+    border: 1px dashed var(--line-field);
   }
 
   .cap.waiting {
@@ -239,8 +238,6 @@
     line-height: 1;
     color: var(--soft);
     background: var(--control);
-    border-left: none;
-    border-bottom-width: 3px;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     cursor: pointer;
   }

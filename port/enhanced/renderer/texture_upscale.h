@@ -9,9 +9,9 @@
 #include <string>
 #include <unordered_map>
 
-#include "renderer/shader.h"
-#include "renderer/texture_filter.h"
-#include "renderer/texture_pool.h"
+#include "renderer/gl/shader.h"
+#include "renderer/textures/texture_filter.h"
+#include "renderer/textures/texture_pool.h"
 
 namespace openrac::enhanced {
 // Installs the optional colour provider once, after a supported graphics context is current.
