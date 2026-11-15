@@ -44,14 +44,6 @@ const sameScope = (a: Scope, b: Scope) =>
 
 /** Older lines are dropped past this many, so a chatty build cannot exhaust memory. */
 export const MAX_LINES = 5000;
-/** How many of the oldest lines go at once when a job passes MAX_LINES: dropping one line for
- *  each new one would move every line the Tasks page and the console show, for each line. */
-export const DROP_LINES = 500;
-
-/** The events in a `job-output` payload: a batch of lines from the desktop app (core
- *  jobs::batched), a single line from iOS (port/ios/launcher.mm). */
-export const jobEvents = (payload: JobEvent | JobEvent[]): JobEvent[] =>
-  Array.isArray(payload) ? payload : [payload];
 
 export class Queue {
   /**
@@ -161,7 +153,7 @@ export class Queue {
     }
     if (event.type === "output") {
       job.lines.push({ stream: event.stream, line: event.line });
-      if (job.lines.length > MAX_LINES) job.lines.splice(0, job.lines.length - MAX_LINES + DROP_LINES);
+      if (job.lines.length > MAX_LINES) job.lines.splice(0, job.lines.length - MAX_LINES);
       return;
     }
     job.code = event.code;

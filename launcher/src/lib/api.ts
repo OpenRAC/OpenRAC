@@ -14,7 +14,6 @@ const listen: typeof tauriListen = onIOS ? (iosListen as typeof tauriListen) : t
 const open: typeof tauriOpen = onIOS ? (iosOpen as typeof tauriOpen) : tauriOpen;
 const confirm: typeof tauriConfirm = onIOS ? iosConfirm : tauriConfirm;
 import { REPO_URL } from "./links";
-import { jobEvents } from "./queue";
 import type { BackgroundStatus } from "./progress";
 import type { ActionArea } from "./generated/ActionArea";
 import type { ActionKind } from "./generated/ActionKind";
@@ -856,15 +855,14 @@ export async function onUpdateProgress(
   });
 }
 
-/** Job output and exits, from `job-output` events (a batch of lines from the desktop app, core
- *  jobs::batched; one line from iOS) and `job-exit` events. */
+/** Job output and exits, from `job-output` and `job-exit` events. */
 export async function onJobEvent(handler: (event: JobEvent) => void): Promise<UnlistenFn> {
   if (!inTauri) {
     const { mockListen } = await import("./mock");
     return mockListen(handler);
   }
-  const offOutput = await listen<JobEvent | JobEvent[]>("job-output", (e) => {
-    for (const event of jobEvents(e.payload)) handler(event);
+  const offOutput = await listen<JobEvent>("job-output", (e) => {
+    handler(e.payload);
   });
   const offExit = await listen<JobEvent>("job-exit", (e) => {
     handler(e.payload);

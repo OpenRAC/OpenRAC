@@ -397,11 +397,10 @@ async fn run_action(
     let app_handle = app.clone();
     let title = plan.title.clone();
     launcher_log::line(&format!("run: {}", openrac_launcher_core::jobs::command_line(&plan)));
-    let forward = job_events(app);
     let started = state.jobs.start(&plan, config.root.as_deref(), move |event| {
         // Keep the assembled files alive through native baking, including cancellation.
         let _snapshot = &bake_mods;
-        match &event {
+        let _ = match &event {
             Event::Output { line, .. } => {
                 // The planet and bolts the game logs.
                 if let Some(log) =
@@ -416,6 +415,7 @@ async fn run_action(
                         }
                     }
                 }
+                app.emit("job-output", &event)
             }
             Event::Exit { code, cancelled, .. } => {
                 launcher_log::line(&format!(
@@ -439,29 +439,14 @@ async fn run_action(
                         }
                     }
                 }
+                app.emit("job-exit", &event)
             }
-        }
-        forward(event);
+        };
     });
     if let Err(e) = &started {
         launcher_log::line(&format!("could not start: {e}"));
     }
     started
-}
-
-/// A job's sink to the window: its output lines as `job-output` events of a few lines each
-/// (core jobs::batched: one event per line froze the window under a build), its exit as `job-exit`.
-fn job_events(app: AppHandle) -> impl Fn(Event) + Send + Sync + 'static {
-    openrac_launcher_core::jobs::batched(openrac_launcher_core::jobs::BATCH_WINDOW, move |batch| {
-        let (lines, exits): (Vec<Event>, Vec<Event>) =
-            batch.into_iter().partition(|e| matches!(e, Event::Output { .. }));
-        if !lines.is_empty() {
-            let _ = app.emit("job-output", &lines);
-        }
-        for exit in exits {
-            let _ = app.emit("job-exit", &exit);
-        }
-    })
 }
 
 // ---- Differences from the original (core/src/differences.rs) ----
@@ -1072,7 +1057,12 @@ fn install_game(app: AppHandle, state: State<'_, AppState>, game: String, image:
             config::save(file, &current)?;
         }
     }
-    state.jobs.start(&plan, config.root.as_deref(), job_events(app))
+    state.jobs.start(&plan, config.root.as_deref(), move |event| {
+        let _ = match &event {
+            Event::Output { .. } => app.emit("job-output", &event),
+            Event::Exit { .. } => app.emit("job-exit", &event),
+        };
+    })
 }
 
 /// The plain image setting a game up reads: an .iso as it is; a CHD unpacked once into

@@ -153,15 +153,12 @@ export function readProgress(actionId: string, lines: Pick<Line, "line">[]): Job
   return { percent: null, note: null };
 }
 
-/** The last COUNT lines of output, for the Details box. Read from the end: it is worked out again
- *  for each batch of output, and a job keeps thousands of lines. */
+/** The last COUNT lines of output, for the Details box. */
 export function tailLines(lines: Pick<Line, "line">[], count = 8): string[] {
-  const tail: string[] = [];
-  for (let i = lines.length - 1; i >= 0 && tail.length < count; i--) {
-    const text = lines[i]?.line ?? "";
-    if (!text.startsWith(PROGRESS_LINE)) tail.push(text);
-  }
-  return tail.reverse();
+  return lines
+    .filter((l) => !l.line.startsWith(PROGRESS_LINE))
+    .slice(-count)
+    .map((l) => l.line);
 }
 
 /** What the Android notification says while the launcher works with its window closed. */

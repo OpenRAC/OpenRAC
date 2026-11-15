@@ -261,40 +261,6 @@ impl Jobs {
     }
 }
 
-/// How long [`batched`] gathers output lines before it sends them on.
-pub const BATCH_WINDOW: Duration = Duration::from_millis(50);
-/// The most lines in one batch: a burst is sent in pieces, not held back.
-const BATCH_LINES: usize = 1000;
-
-/// A sink that hands `sink` the events in batches: what came in [`BATCH_WINDOW`], at most
-/// [`BATCH_LINES`] lines, an exit always last and at once. A build or a bake prints thousands of
-/// lines a second; an event to the window for each one floods the webview (each is a script run on
-/// the UI thread) and redraws the page for each line, and the window stops answering.
-pub fn batched(window: Duration, sink: impl Fn(Vec<Event>) + Send + 'static) -> impl Fn(Event) + Send + Sync + 'static {
-    let (tx, rx) = std::sync::mpsc::channel::<Event>();
-    std::thread::spawn(move || {
-        // Ends when every sender is gone: the job has ended and its readers with it.
-        while let Ok(first) = rx.recv() {
-            let deadline = Instant::now() + window;
-            let mut ended = matches!(first, Event::Exit { .. });
-            let mut batch = vec![first];
-            while !ended && batch.len() < BATCH_LINES {
-                match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
-                    Ok(event) => {
-                        ended = matches!(event, Event::Exit { .. });
-                        batch.push(event);
-                    }
-                    Err(_) => break,
-                }
-            }
-            sink(batch);
-        }
-    });
-    move |event| {
-        let _ = tx.send(event);
-    }
-}
-
 /// Starts `plan` on its own: its output is not read and the launcher does
 /// not wait for it.
 pub fn launch(plan: &Plan, root: Option<&std::path::Path>) -> Result<Started, String> {
@@ -441,6 +407,7 @@ mod tests {
     // For the tests that run a shell, which are Unix only.
     #[cfg(unix)]
     use std::path::PathBuf;
+    #[cfg(unix)]
     use std::sync::mpsc;
 
     #[test]
@@ -500,38 +467,6 @@ mod tests {
         assert_eq!(stdout, ["one", "a", "b"]);
         assert!(lines.contains(&(Stream::Stderr, "two".to_string())));
         assert!(jobs.running().is_empty());
-    }
-
-    fn line(id: u32, n: usize) -> Event {
-        Event::Output { id, stream: Stream::Stdout, line: n.to_string() }
-    }
-
-    #[test]
-    fn batches_a_burst_of_lines_and_sends_the_exit_at_once() {
-        let (tx, rx) = mpsc::channel();
-        let sink = batched(Duration::from_secs(60), move |batch| tx.send(batch).unwrap());
-        for n in 0..2500 {
-            sink(line(1, n));
-        }
-        sink(Event::Exit { id: 1, code: Some(0), cancelled: false, outputs: vec![] });
-        let mut batches = Vec::new();
-        while batches.iter().map(Vec::len).sum::<usize>() < 2501 {
-            batches.push(rx.recv_timeout(Duration::from_secs(10)).unwrap());
-        }
-        // A long window, yet nothing waits for it: full batches go at once, the exit ends its batch.
-        assert_eq!(batches.iter().map(Vec::len).collect::<Vec<_>>(), [1000, 1000, 501]);
-        let all: Vec<Event> = batches.into_iter().flatten().collect();
-        assert_eq!(all[..2500], (0..2500).map(|n| line(1, n)).collect::<Vec<_>>()[..]);
-        assert!(matches!(all[2500], Event::Exit { .. }));
-    }
-
-    #[test]
-    fn sends_a_quiet_jobs_lines_after_the_window() {
-        let (tx, rx) = mpsc::channel();
-        let sink = batched(Duration::from_millis(20), move |batch| tx.send(batch).unwrap());
-        sink(line(1, 0));
-        sink(line(1, 1));
-        assert_eq!(rx.recv_timeout(Duration::from_secs(10)).unwrap(), [line(1, 0), line(1, 1)]);
     }
 
     #[cfg(unix)]

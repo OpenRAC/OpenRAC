@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DROP_LINES, MAX_LINES, Queue, jobEvents } from "./queue";
+import { MAX_LINES, Queue } from "./queue";
 
 const repo = { kind: "repository" } as const;
 
@@ -102,21 +102,9 @@ describe("queue", () => {
     const q = new Queue();
     const a = q.add(repo, "a", "A");
     q.started(a, 1, "cmd");
-    for (let i = 0; i < MAX_LINES; i++) q.apply({ type: "output", id: 1, stream: "stdout", line: String(i) });
+    for (let i = 0; i < MAX_LINES + 10; i++) q.apply({ type: "output", id: 1, stream: "stdout", line: String(i) });
     expect(a.lines.length).toBe(MAX_LINES);
-    // Past the limit the oldest go in a block, not one for each new line.
-    for (let i = MAX_LINES; i < MAX_LINES + 10; i++) {
-      q.apply({ type: "output", id: 1, stream: "stdout", line: String(i) });
-    }
-    expect(a.lines.length).toBe(MAX_LINES - DROP_LINES + 9);
-    expect(a.lines[0]?.line).toBe(String(DROP_LINES + 1));
-    expect(a.lines.at(-1)?.line).toBe(String(MAX_LINES + 9));
-  });
-
-  it("reads a batch of output lines and a single one alike", () => {
-    const line = { type: "output", id: 1, stream: "stdout", line: "a" } as const;
-    expect(jobEvents([line, line])).toEqual([line, line]);
-    expect(jobEvents(line)).toEqual([line]);
+    expect(a.lines[0]?.line).toBe("10");
   });
 
   it("finds the live job a second request would repeat", () => {
