@@ -95,6 +95,54 @@ class Pairing:
         self.report: dict[str, dict] = {}
         self.kinds: Counter = Counter()
         self.by_hand: dict[str, str] = {}
+        # Variants split off folded functions (split_places.tsv): v1.01's name -> the release's.
+        self.by_split: dict[str, str] = {}
+        self.split_rows: list[str] = []
+
+    def split_place(self, level: int, address: int) -> int | None:
+        """v1.01's function place LEVEL:ADDRESS in the release: the same copy of the same catalogue
+        row there (the k-th copy in that level), or None."""
+        if not hasattr(self, "_us_owner"):
+            self._us_owner = {pl: n for n, _, _, places in self.us_levels for pl in places}
+            self._r_by_us = {n: places for n, _, _, places in self.r_levels}
+        name = self._us_owner.get((level, address))
+        if name is None:
+            return None
+        theirs = sorted(a for lv, a in self.us_places.get(name, []) if lv == level)
+        mine = sorted(a for lv, a in self._r_by_us.get(name, []) if lv == level)
+        if len(theirs) != len(mine):
+            return None
+        return mine[theirs.index(address)]
+
+    def read_splits(self, text: str) -> None:
+        """The release's split_places.tsv rows, from the primary's. A variant's places are its own
+        places' copies in the release, level by level, never every place of the function it is
+        split off: the catalogue folds the two, so the release's name for the variant is that
+        function's. A variant the catalogue has no row of is named by its first place there."""
+        lines = ["# This release's copy of port/game/rac2-ntsc/split_places.tsv, by its names (release_carry.py).", "#"]
+        for line in text.splitlines():
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 3:
+                lines.append(line)
+                continue
+            places = []
+            for item in cols[2].split(","):
+                lv, _, a = item.strip().partition(":")
+                at = self.split_place(int(lv), int(a, 16)) if a else None
+                if at is not None:
+                    places.append((int(lv), at))
+            parent = self.function(cols[0], "split_places")
+            m = FUNC.fullmatch(cols[1])
+            if m and m.group(1) and cols[1] not in self.us_places and places:
+                variant = f"func_L{places[0][0]:02d}_{places[0][1]:08X}"  # a place, not a row
+                self.by_split[cols[1]] = variant
+            else:
+                variant = self.function(cols[1], "split_places")
+            if variant is None or parent is None or not places:
+                lines.append(f"# not in this release: {line}")
+                continue
+            lines.append("\t".join([parent, variant, ",".join(f"{lv:02d}:{a:08X}" for lv, a in places)] + cols[3:]))
+        self.split_rows = lines
 
     def read_by_hand(self, path: Path) -> None:
         """release_pairs.tsv beside the release's hostgen.json: pairs checked by hand where nothing
@@ -135,6 +183,8 @@ class Pairing:
             return name
         suffix = m.group(3)
         base = name[:len(name) - len(suffix)] if suffix else name
+        if base in self.by_split:
+            return self.by_split[base] + suffix
         new = self.table.name(base)
         how = None
         if base in self.by_hand:
@@ -476,19 +526,9 @@ def carry_libraries(p: Pairing, text: str) -> str:
 
 
 def carry_split_places(p: Pairing, text: str) -> str:
-    lines = ["# This release's copy of port/game/rac2-ntsc/split_places.tsv, by its names (release_carry.py).", "#"]
-    for line in text.splitlines():
-        cols = line.split("\t")
-        if line.startswith("#") or len(cols) < 3:
-            lines.append(line)
-            continue
-        variant, parent = p.function(cols[0], "split_places"), p.function(cols[1], "split_places")
-        if variant is None or parent is None:
-            lines.append(f"# not in this release: {line}")
-            continue
-        places = ",".join(f"{lv:02d}:{a:08X}" for lv, a in p.r_places.get(variant, []))
-        lines.append("\t".join([variant, parent, places] + cols[3:]))
-    return "\n".join(lines) + "\n"
+    if not p.split_rows:
+        p.read_splits(text)
+    return "\n".join(p.split_rows) + "\n"
 
 
 HOST_FUNC = re.compile(r"\bfunc_(?:L\d\d_)?[0-9A-F]{8}((?:_\w+)?)\b")
@@ -783,6 +823,7 @@ def main(argv: list[str] | None = None) -> int:
     p.read_by_hand(out_dir / "release_pairs.tsv")
     p.primary_dir = args.primary.parent
     p.out_dir = out_dir
+    p.read_splits((args.primary.parent / "split_places.tsv").read_text())
     new_cfg = carry_config(p, cfg, args.version)
     primary = args.primary.parent
     (out_dir / "libraries.tsv").write_text(carry_libraries(p, (primary / "libraries.tsv").read_text()))

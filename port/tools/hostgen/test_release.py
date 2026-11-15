@@ -226,6 +226,24 @@ class Committed(unittest.TestCase):
                 missing = sorted(k for k in wanted_k if f"#define RAC2_K_{k} " not in header)
                 self.assertEqual(missing, [], "constants the shared C uses and the table lacks")
 
+    def test_split_variants_keep_their_own_levels(self):
+        # A variant split off a folded function has its own places in the release, level by level,
+        # never every place of the function: the release's table is what read_splits writes.
+        source = REPO / "games/rac2/decomp"
+        if not (source / "config/pal/levels/functions.tsv").is_file():
+            self.skipTest("no rac2-decomp here")
+        primary = (REPO / "port/game/rac2-ntsc/split_places.tsv").read_text()
+        for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
+            folder = REPO / "port/game" / game
+            p = release_carry.Pairing(source, version, release.Release.load(folder / "release_names.json"), None, None)
+            p.read_by_hand(folder / "release_pairs.tsv")
+            p.read_splits(primary)
+            with self.subTest(game=game):
+                self.assertEqual("\n".join(p.split_rows) + "\n", (folder / "split_places.tsv").read_text())
+                levels = {r.split("\t")[1]: {x[:2] for x in r.split("\t")[2].split(",")}
+                          for r in p.split_rows if not r.startswith("#")}
+                self.assertEqual(levels[p.by_split["func_L08_002F2C48"]], {"08", "09", "19", "30"})
+
     def test_release_configs_name_their_tables(self):
         for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
             cfg = json.loads((REPO / "port/game" / game / "hostgen.json").read_text())

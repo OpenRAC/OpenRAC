@@ -1,0 +1,7 @@
+# Functions the rac2 programs bind differently, on purpose or known (port/tools/versionmap/parity.py).
+# Every other difference fails the build. Remove a row when the versions agree again.
+# v1.01 name	place (boot or level), or "row"	the programs that differ	why
+# Also: a name, "sig" (its row's C type differs); an address (L13:001D9E40), "data" (no evidence for it).
+func_00124418	row	rac2-ntsc,rac2-ntsc2,rac2-pal	the entry after a fill word: the catalogue's row starts one word earlier (release_carry.py names such entries by their own address); to confirm on the disc
+func_00126288	row	rac2-ntsc,rac2-ntsc2,rac2-pal	the entry after a fill word, as func_00124418 (the row's note: catalogue place 0x00126284); to confirm on the disc
+func_00314B5C	row	rac2-pal	PAL's copy is catalogued at 0x00314B60 (func_PAL_00314B5C, 4200 bytes) while the decomp's C starts at 0x00314B5C (tools/levels.py: 4204 bytes); which one the game calls is being checked on the disc

@@ -47,26 +47,53 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 NAME = re.compile(r"^(?:FUN|func)_(?:L(\d\d)_)?([0-9A-Fa-f]{8})(?:_\w*)?$")
-# The programs of each game the check reads, and their catalogue in rac1-decomp's versions.
+# The programs of each game the check reads (the primary first), and each one's catalogue: the
+# decomp's files that name every function of that version by the primary's name, with its places.
 GAMES = {
     "rac1": {"source": "games/rac1/decomp",
+             "catalogue": ["config/versions/{v}/functions.tsv"],
              "programs": {"rac1-pal": "pal", "rac1-ntsc": "us", "rac1-pal1": "pal_v1", "rac1-jp": "jp"}},
+    # rac2-decomp's own config is NTSC v1.01's; config/<v>/ the releases' (tools/carry.py).
+    "rac2": {"source": "games/rac2/decomp",
+             "catalogue": ["config/{v}boot/functions.tsv", "config/{v}levels/functions.tsv"],
+             "programs": {"rac2-ntsc": "", "rac2-ntsc2": "us2/", "rac2-pal": "pal/"}},
 }
+
+
+def catalogue(spec: dict, source: Path, version: str) -> "Catalogue":
+    return Catalogue([source / f.format(v=version) for f in spec["catalogue"]])
 
 
 class Catalogue:
     """One version's functions: where each starts (place, address) and its PAL v2.00 name."""
 
-    def __init__(self, path: Path):
+    def __init__(self, paths: list[Path]):
         self.at: dict[tuple[str, int], str] = {}
         self.spans: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
         self.places: dict[str, set[str]] = defaultdict(set)
-        for line in path.read_text().splitlines():
+        for path in paths:
+            self.read(path)
+
+    def read(self, path: Path) -> None:
+        """A table with a "places (level:address)" column, or an executable's (name, address,
+        size): its header says which."""
+        lines = path.read_text().splitlines()
+        heads = [line.lstrip("# ").split("\t") for line in lines if line.startswith("#")]
+        where = next((i for head in heads for i, c in enumerate(head) if c.startswith("places")), None)
+        if where is None and not any(head[1:2] == ["address"] for head in heads):
+            where = 8  # rac1-decomp's config/versions/<v>/functions.tsv
+        for line in lines:
             cols = line.split("\t")
-            if line.startswith("#") or len(cols) < 9:
+            if line.startswith("#") or len(cols) < 3:
                 continue
             name, size = cols[0], int(cols[2]) if cols[2].isdigit() else 0
-            for item in cols[8].split(","):
+            if where is None:
+                items = [f"boot:{cols[1]}"]
+            elif len(cols) > where:
+                items = cols[where].split(",")
+            else:
+                continue
+            for item in items:
                 place, _, addr = item.partition(":")
                 if not addr:
                     continue
@@ -129,7 +156,7 @@ def split_variants(path: Path) -> dict[str, list[tuple[str, int]]]:
     return out
 
 
-def omits(header: Path) -> dict[str, str]:
+def omits(header: Path, game: str = "rac1") -> dict[str, str]:
     """The shared host C a program leaves out on purpose (host/rac1_version.h, RAC1_OMIT_<name> 1),
     by PAL v2.00's name, with the comment that says why."""
     out: dict[str, str] = {}
@@ -137,7 +164,7 @@ def omits(header: Path) -> dict[str, str]:
         return out
     why = ""
     for line in header.read_text().splitlines():
-        m = re.match(r"\s*#define RAC1_OMIT_(\w+) 1\b(.*)", line)
+        m = re.match(rf"\s*#define {game.upper()}_OMIT_(\w+) 1\b(.*)", line)
         if m:
             out[m.group(1)] = (why + " " + m.group(2).strip()).strip()
         elif line.lstrip().startswith(("/*", "*")):
@@ -172,8 +199,35 @@ DEFINE = re.compile(r"^#define RAC1_ADDR_(?:L(\d\d)_)?0x([0-9A-Fa-f]{8})u\s+0x([
 SYMBOL = re.compile(r"^(?:D|func)_(?:V2_)?(?:L(\d\d)_)?([0-9A-F]{8})$")
 
 
+# The evidence release_carry.py writes beside each address of a rac2 release (rac2_version.h).
+RAC2_EVIDENCE = {"the release's build", "versionmap: exact", "versionmap: between", "code",
+                 "the same instruction of the paired function", "the same microcode at the same place"}
+RAC2_DEFINE = re.compile(r"^#define RAC2_(?:L(\d\d)_|ADDR_)(?:0x)?([0-9A-Fa-f]{8})u\s+0x[0-9A-Fa-f]{8}u\s*(?:/\*\s*(.*?)\s*\*/)?")
+
+
+def rac2_addresses(program_dir: Path) -> list[tuple[str, str]]:
+    """A rac2 release's addresses whose evidence is not one release_carry.py stands by (a guess,
+    a hand edit with no comment), or that it found nowhere."""
+    header = program_dir / "host/rac2_version.h"
+    if not (program_dir / "release_names.json").is_file() or not header.is_file():
+        return []
+    out = []
+    for line in header.read_text().splitlines():
+        if re.match(r"/\* RAC2_L?ADDR_\S+: not found \*/", line):
+            name = line.split()[1].rstrip(":")
+            out.append((name, "release_carry.py found it nowhere in this release"))
+            continue
+        m = RAC2_DEFINE.match(line.replace("RAC2_LADDR_", "RAC2_L").replace("_0x", "_"))
+        if m and (m.group(3) or "") not in RAC2_EVIDENCE:
+            place = f"L{m.group(1)}" if m.group(1) else "boot"
+            out.append((f"{place}:{m.group(2).upper()}", f"its evidence is \"{m.group(3) or 'none'}\""))
+    return out
+
+
 def data_addresses(program_dir: Path) -> list[tuple[str, str]]:
     """The addresses in a carried release's rac1_version.h with nothing behind them: (name, why)."""
+    if (program_dir / "host/rac2_version.h").is_file():
+        return rac2_addresses(program_dir)
     names_path, header = program_dir / "release_names.json", program_dir / "host/rac1_version.h"
     if not names_path.is_file() or not header.is_file():
         return []
@@ -225,14 +279,14 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
     used = set()
     # The places of the primary's names (RAC1_OMIT names a PAL v2.00 row or function).
     primary = next(iter(spec["programs"]))
-    first = Catalogue(source / "config/versions" / spec["programs"][primary] / "functions.tsv")
+    first = catalogue(spec, source, spec["programs"][primary])
     left_out: dict[str, dict[tuple[str, str], str]] = {}
     # Variants split off folded functions (split_places.tsv), each program's own: a carried
     # release's file keeps PAL v2.00's names, with its own places.
     split = {p: split_variants(root / "port/game" / p / "split_places.tsv") for p in spec["programs"]}
     for program in spec["programs"]:
         left_out[program] = {}
-        for name, why in omits(root / "port/game" / program / "host/rac1_version.h").items():
+        for name, why in omits(root / "port/game" / program / f"host/{game}_version.h", game).items():
             for at in split[primary].get(name, [])[:1]:  # a variant split off a folded function
                 if at in first.at:
                     left_out[program][(first.at[at], at[0])] = why
@@ -242,7 +296,7 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
                 for place in first.places[owner]:
                     left_out[program][(owner, place)] = why
     for program, version in spec["programs"].items():
-        cat = cats[program] = Catalogue(source / "config/versions" / version / "functions.tsv")
+        cat = cats[program] = catalogue(spec, source, version)
         cfg = json.loads((root / "port/game" / program / "hostgen.json").read_text())
         named = symbols(root / cfg["source"])
         kinds: dict[tuple[str, str], set[str]] = defaultdict(set)
@@ -318,7 +372,7 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
             if why is not None and program in why[0]:
                 used.add((name, "data"))
                 continue
-            errors.append(f"{program}: host/rac1_version.h's address {name}: {what}; give the reason in "
+            errors.append(f"{program}: host/{game}_version.h's address {name}: {what}; give the reason in "
                           f"port/game/{game}/parity.tsv ({name}, data, {program}) or fix the address")
     for key in sorted(set(reasons) - used):
         errors.append(f"{game}: parity.tsv lists {key[0]} ({key[1]}), whose versions no longer differ: remove the row")
@@ -339,8 +393,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.program is None:
             ap.error("give a game or --program")
         return 0
-    source = ROOT / GAMES[game]["source"] / "config/versions"
-    if args.program and not source.is_dir():
+    source = ROOT / GAMES[game]["source"] / GAMES[game]["catalogue"][0].format(v=next(iter(GAMES[game]["programs"].values())))
+    if args.program and not source.is_file():
         # A build from a checkout without rac1-decomp (the NTSC decomp alone): CI checks it.
         print(f"parity: {game}: no {source.relative_to(ROOT)} here, not checked", file=sys.stderr)
         return 0

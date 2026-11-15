@@ -127,10 +127,11 @@ jobs:
       # that calls the IOP has a host row, each version's names table covers the shared host C, and
       # every version binds each function alike or port/game/rac1/parity.tsv says why (the game's
       # build runs that too). None of it needs a disc.
-      - name: rac1 versions' tables
+      - name: rac1 and rac2 versions' tables
         run: |
           python -m unittest discover -s port/tools/versionmap -p test_parity.py -v
           python port/tools/versionmap/parity.py rac1
+          python port/tools/versionmap/parity.py rac2
           for release in rac1-pal1 rac1-jp; do
             python port/tools/hostgen/release_rac1.py --game "port/game/$release" --primary port/game/rac1-pal --tables --check
           done
