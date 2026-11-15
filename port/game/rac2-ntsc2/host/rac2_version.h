@@ -29,6 +29,7 @@
 #define RAC2_ADDR_0x00152C26u 0x00152C26u /* versionmap: between */
 #define RAC2_ADDR_0x00152C64u 0x00152C64u /* versionmap: between */
 #define RAC2_ADDR_0x00152C68u 0x00152C68u /* versionmap: between */
+#define RAC2_ADDR_0x001A72DCu 0x001A72DCu /* data_moves: the boot run 0x00000000-0x001A7900 stays */
 #define RAC2_ADDR_0x001A7350u 0x001A7350u /* versionmap: exact */
 #define RAC2_ADDR_0x001A7354u 0x001A7354u /* versionmap: exact */
 #define RAC2_ADDR_0x001A79F0u 0x001A79F8u /* the release's build */
@@ -69,6 +70,8 @@
 #define RAC2_ADDR_0x001B1D98u 0x001B1D18u /* the release's build */
 #define RAC2_ADDR_0x001B20F0u 0x001B2070u /* the release's build */
 #define RAC2_ADDR_0x001B22A8u 0x001B2228u /* the release's build */
+#define RAC2_ADDR_0x001B23C8u                                                                      \
+    0x001B2348u /* data_moves: the boot run 0x001B18E0-0x001F2A30 moved -0x80 */
 #define RAC2_ADDR_0x001B5200u 0x001B5180u /* the release's build */
 #define RAC2_ADDR_0x001B5570u 0x001B54F0u /* the release's build */
 #define RAC2_ADDR_0x001B8840u 0x001B87C0u /* the release's build */
