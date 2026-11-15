@@ -1,6 +1,6 @@
 # Places config/us/levels/functions.tsv folds into a function by its fingerprint whose code differs
 # from it in a constant, field offset, or call/global identity: each gets its own function.
-# Carried from port/game/rac1-pal/split_places.tsv through the version map (README.md): a row is here
+# Carried from port/game/rac1-pal/tables/split_places.tsv through the version map (README.md): a row is here
 # when the NTSC decomp's catalogue folds the same places; where it names them apart, none is needed.
 # function	variant	places (level:address)
 FUN_00215420	FUN_00217a10	00:00267898,01:0027C478,02:00268F10,03:00255A50,04:0025A108,05:002917F8,06:00276680,07:0028FB90,08:00271808,09:00286258,10:0025A678,11:0028CC68,12:0027FF70,13:002732A0,14:0026F200,15:00256E80,16:00262CD8,17:00261228,18:00269808

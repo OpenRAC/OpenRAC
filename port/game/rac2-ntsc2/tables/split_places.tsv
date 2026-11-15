@@ -1,4 +1,4 @@
-# This release's copy of port/game/rac2-ntsc/split_places.tsv, by its names (release_carry.py).
+# This release's copy of port/game/rac2-ntsc/tables/split_places.tsv, by its names (release_carry.py).
 #
 # The draw callback lists: the same code on other addresses, so the catalogue gives each level's copy
 # a name of its own instead of the executable's. Each copy is given back to the routine it is, whose
