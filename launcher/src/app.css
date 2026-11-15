@@ -147,6 +147,20 @@
   initial-value: #ffe08f;
 }
 
+/* How far the header's scrolling row fades out at each end (Header.svelte): a length, so the fade
+   eases in and out. */
+@property --fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 html {
   transition:
     --glow var(--slow) var(--ease),
