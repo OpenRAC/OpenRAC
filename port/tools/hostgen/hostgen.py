@@ -1633,6 +1633,12 @@ def main(argv: list[str] | None = None) -> int:
                             inherited, asm_stage, asm_results)
     if summary is None:
         return 1
+    if cfg.get("assembly_allow") and summary["assembly_allow_unused"]:
+        # A row that allows nothing any more: the table stays true, so it goes with the change.
+        for name in summary["assembly_allow_unused"]:
+            print(f"hostgen: error: {cfg['assembly_allow']} allows {name}, which is no longer left to its "
+                  "assembly where translated code reaches it: remove the row", file=sys.stderr)
+        return 1
     if cfg.get("assembly_allow") and summary["assembly_unallowed"]:
         # assembly_guard: before the stamp, so the next build says it again.
         for name in summary["assembly_unallowed"]:
