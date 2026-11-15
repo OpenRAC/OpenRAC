@@ -6,8 +6,9 @@ Pushes and manual runs check everything. A pull request skips what its files can
 the launcher's jobs when it changes only port/, the port's jobs when it changes only launcher/,
 and builds of the games it does not touch, and any build for Markdown that no build or test reads
 (MARKDOWN_READ lists those that are read). A release carried from another (a hostgen.json with
-"release": rac1-pal1, rac1-jp, rac2-ntsc2, rac2-pal) is built in a pull request only when its
-own folder changes. Anything unclear (a workflow, this file, a failed git call) checks everything.
+"release": rac1-pal1, rac1-jp) is built in a pull request only when its own folder changes; Going
+Commando's PAL and USA v2.00 (PLAYED) are built as their own programs, since a change to what they
+share can break them alone (an argument their C drops crashed only there). Anything unclear (a workflow, this file, a failed git call) checks everything.
 `ci_scope.py ios` does the same for the iOS jobs, for pushes too.
 """
 
@@ -72,12 +73,16 @@ def docs_only(base):
     return bool(paths) and all(map(is_docs, paths))
 
 
+# Releases carried from another that players play: built whenever their primary is.
+PLAYED = ("rac2-pal", "rac2-ntsc2")
+
+
 def programs(root=ROOT):
-    """Each game program's id, and whether it is a release carried from another."""
+    """Each game program's id, and whether it is a release carried from another (and not PLAYED)."""
     found = {}
     for path in sorted((root / "port/game").glob("*/hostgen.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
-        found[data["id"]] = "release" in data
+        found[data["id"]] = "release" in data and data["id"] not in PLAYED
     return found
 
 
