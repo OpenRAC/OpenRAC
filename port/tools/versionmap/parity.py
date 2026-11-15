@@ -15,7 +15,11 @@ there, by its PAL v2.00 name, so the four rac1 programs can be read side by side
 - a row whose address is not the start of a function in its version: it binds the middle of
   another function, or nothing, and the function it was meant for runs its console C;
 - a function a version has, bound one way in one version and another way (or not at all) in
-  another, with no reason in port/game/<game>/parity.tsv.
+  another, with no reason in port/game/<game>/parity.tsv. A version whose host/rac1_version.h
+  leaves the shared host C out (RAC1_OMIT, with its reason) is not compared there.
+
+A row naming a variant of the program's split_places.tsv binds it by name (a carried release
+keeps PAL v2.00's name there, with its own places): it is read at the variant's first place.
 
 parity.tsv: PAL v2.00 name, place (boot or NN), the programs that differ, why; or a table row's
 name, "row", the programs whose row is not at a function's start, why. A row there that no
@@ -100,6 +104,38 @@ def read_reasons(path: Path) -> dict[tuple[str, str], tuple[set[str], str]]:
     return out
 
 
+def split_variants(path: Path) -> dict[str, list[tuple[str, int]]]:
+    """The variants a program's split_places.tsv splits off folded functions: name, places."""
+    out: dict[str, list[tuple[str, int]]] = {}
+    if path.is_file():
+        for cols in (line.split("\t") for line in path.read_text().splitlines()):
+            if cols[0].startswith("#") or len(cols) < 3:
+                continue
+            for item in cols[2].split(","):
+                level, _, addr = item.strip().partition(":")
+                if addr:
+                    out.setdefault(cols[1], []).append((f"{int(level):02d}", int(addr, 16)))
+    return out
+
+
+def omits(header: Path) -> dict[str, str]:
+    """The shared host C a program leaves out on purpose (host/rac1_version.h, RAC1_OMIT_<name> 1),
+    by PAL v2.00's name, with the comment that says why."""
+    out: dict[str, str] = {}
+    if not header.is_file():
+        return out
+    why = ""
+    for line in header.read_text().splitlines():
+        m = re.match(r"\s*#define RAC1_OMIT_(\w+) 1\b(.*)", line)
+        if m:
+            out[m.group(1)] = (why + " " + m.group(2).strip()).strip()
+        elif line.lstrip().startswith(("/*", "*")):
+            why = (why + " " if not line.lstrip().startswith("/*") else "") + line.strip(" /*")
+        elif line.strip():
+            why = ""
+    return out
+
+
 def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
     spec = GAMES[game]
     source = root / spec["source"]
@@ -108,12 +144,38 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
     cats: dict[str, Catalogue] = {}
     reasons = read_reasons(root / "port/game" / game / "parity.tsv")
     used = set()
+    # The places of the primary's names (RAC1_OMIT names a PAL v2.00 row or function).
+    primary = next(iter(spec["programs"]))
+    first = Catalogue(source / "config/versions" / spec["programs"][primary] / "functions.tsv")
+    left_out: dict[str, dict[tuple[str, str], str]] = {}
+    # Variants split off folded functions (split_places.tsv), each program's own: a carried
+    # release's file keeps PAL v2.00's names, with its own places.
+    split = {p: split_variants(root / "port/game" / p / "split_places.tsv") for p in spec["programs"]}
+    for program in spec["programs"]:
+        left_out[program] = {}
+        for name, why in omits(root / "port/game" / program / "host/rac1_version.h").items():
+            for at in split[primary].get(name, [])[:1]:  # a variant split off a folded function
+                if at in first.at:
+                    left_out[program][(first.at[at], at[0])] = why
+            at = place_of(name, {})
+            owner = first.at.get(at) if at else None
+            if owner is not None:  # the omit takes the function out in every place it has
+                for place in first.places[owner]:
+                    left_out[program][(owner, place)] = why
     for program, version in spec["programs"].items():
         cat = cats[program] = Catalogue(source / "config/versions" / version / "functions.tsv")
         cfg = json.loads((root / "port/game" / program / "hostgen.json").read_text())
         named = symbols(root / cfg["source"])
         kinds: dict[tuple[str, str], set[str]] = defaultdict(set)
         for cols in rows(root / "port/game" / program / "libraries.tsv"):
+            if cols[0] in split[program]:
+                # A variant split off a folded function: bound by its name, in the places its
+                # program's split_places.tsv gives it (a release keeps PAL v2.00's name there).
+                # Read at its first place, as a function's own name is.
+                at = split[program][cols[0]][0]
+                if at in cat.at:
+                    kinds[(cat.at[at], at[0])].add(cols[3])
+                continue
             at = place_of(cols[0], named)
             if at is None:
                 continue  # a library function by its own name (memcpy): no address to read
@@ -135,8 +197,12 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
     lines = []
     for (name, place), by in sorted(bound.items()):
         # A version without the function, or without it in that place, has nothing to bind.
-        seen = {p: by.get(p, "-") for p, cat in cats.items() if place in cat.places.get(name, ())}
-        lines.append(f"{name}\t{place}\t" + "\t".join(f"{p}={seen.get(p, 'absent')}" for p in cats))
+        # A version that leaves the shared host C out on purpose (RAC1_OMIT, with its reason) runs
+        # the game's own code there: not a difference.
+        seen = {p: by.get(p, "-") for p, cat in cats.items()
+                if place in cat.places.get(name, ()) and (name, place) not in left_out[p]}
+        lines.append(f"{name}\t{place}\t" + "\t".join(
+            f"{p}={'omitted' if (name, place) in left_out[p] else seen.get(p, 'absent')}" for p in cats))
         if len(set(seen.values())) <= 1:
             continue
         # What most versions do (in a tie, the first program's: the primary's) is the rule.

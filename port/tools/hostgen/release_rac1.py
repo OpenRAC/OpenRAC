@@ -70,9 +70,16 @@ class Carry:
         # The shared host C the release leaves out (release.json "omit", RAC1_OMIT): no host
         # function of that name is built, so no table row may wrap or replace it.
         self.omit: set[str] = set()
+        # Variants split off a folded function (split_places.tsv): the release's split_places.tsv
+        # gives each its own places under PAL v2.00's name, so a row binds it by that name.
+        self.variants: set[str] = set()
         # PAL v2.00's places and the release's, by name (the k-th of a program is the k-th).
         self.p_places = {r["name"]: r["places"] for r in primary_rows}
         self.r_places = {r["name"]: r["places"] for r in rows}
+        # Fingerprints: a level copy the release's catalogue folds into another function of the
+        # same bytes (func_001F9840 for func_001F9878) is still that copy.
+        self.p_fp = {r["name"]: r["fp"] for r in primary_rows if r.get("fp")}
+        self.r_fp_at = {p: r["fp"] for r in rows if r.get("fp") for p in r["places"]}
         self.p_at: dict[tuple, str] = {}
         for r in primary_rows:
             for p in r["places"]:
@@ -117,7 +124,7 @@ class Carry:
         not the release's, so the name alone would bind the middle of another function. None for
         a name that is not such a place, or one neither the catalogues nor a map pair."""
         m = FUNC.fullmatch(name)
-        if not m or m.group(1) is None:
+        if not m or m.group(1) is None or name in self.variants:
             return None
         level, address = int(m.group(1)), int(m.group(2), 16)
         owner = self.p_at.get((level, address))
@@ -130,6 +137,9 @@ class Carry:
         mine = sorted(a for p, a in self.r_places.get(owner, self.r_places.get(new, [])) if p == level)
         if address in theirs and len(mine) == len(theirs):
             return f"func_L{level:02d}_{mine[theirs.index(address)]:08X}"
+        at = self.neighbour(level, address, owner)
+        if at is not None:
+            return f"func_L{level:02d}_{at:08X}"
         hit = self.map.function(address, f"level:{level:02d}") if self.map is not None else None
         if hit is not None:
             new = f"func_L{level:02d}_{hit[0]:08X}"
@@ -142,6 +152,27 @@ class Carry:
         self.report["functions"][name] = {"as": new, "how": "level copy: versionmap", "for": why}
         return new
 
+    def neighbour(self, level: int, address: int, owner: str) -> int | None:
+        """A copy the counts do not pair, placed by the nearest function before it that both
+        programs have once in that level: the same distance from it in the release, kept only where
+        the release's catalogue has a copy of the same function there."""
+        before = sorted((a, n) for (p, a), n in self.p_at.items() if p == level and a < address)[-8:]
+        for start, name in reversed(before):
+            theirs = [a for p, a in self.p_places[name] if p == level]
+            mine = [a for p, a in self.r_places.get(name, self.r_places.get(self.table.name(name), []))
+                    if p == level]
+            if len(theirs) != 1 or len(mine) != 1:
+                continue
+            at = mine[0] + (address - start)
+            fp = self.p_fp.get(owner)
+            same = (level, at) in self.r_owner(owner) or (fp is not None and self.r_fp_at.get((level, at)) == fp)
+            return at if same else None
+        return None
+
+    def r_owner(self, owner: str) -> set:
+        """The release's places of OWNER (PAL v2.00's name, or the release's)."""
+        return set(self.r_places.get(owner, self.r_places.get(self.table.name(owner), [])))
+
     def place(self, level: int, address: int, why: str) -> int | None:
         """PAL v2.00's function place LEVEL:ADDRESS in the release: the same place of the same
         function there (its catalogue), else versionmap's pair."""
@@ -152,7 +183,10 @@ class Carry:
             mine = sorted(a for p, a in self.r_places.get(name, self.r_places.get(new, [])) if p == level)
             if address in theirs and len(mine) == len(theirs):
                 return mine[theirs.index(address)]
-        hit = self.map.function(address, f"level:{level:02d}")
+            at = self.neighbour(level, address, name) if isinstance(level, int) else None
+            if at is not None:
+                return at
+        hit = self.map.function(address, f"level:{level:02d}") if self.map is not None else None
         if hit is not None:
             if hit[1] != "same":
                 self.report["functions"][f"{level:02d}:{address:08X}"] = {"as": f"{level:02d}:{hit[0]:08X}",
@@ -539,6 +573,8 @@ def main(argv: list[str] | None = None) -> int:
     c = Carry(table, raw, vmap, rel.read_rows(source / "config/versions/pal/functions.tsv"),
               rel.read_rows(source / "config/versions" / version / "functions.tsv"))
     c.omit = set(settings.get("omit", {}))
+    c.variants = {line.split("\t")[1] for line in (primary / "split_places.tsv").read_text().splitlines()
+                  if not line.startswith("#") and len(line.split("\t")) >= 3}
     if (game / "release_carry.json").is_file():
         c.known = json.loads((game / "release_carry.json").read_text()).get("functions", {})
     own = settings.get("libraries", {})

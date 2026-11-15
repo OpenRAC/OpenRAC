@@ -12,8 +12,7 @@
   "top": "0x00250000",
   "save_folder": "BESCES-50916RATCHET",
   "omit": {
-    "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here).",
-    "func_L00_001FEEF8": "Level 0's 0x1FEEF8, where PAL v2.00 has a copy of the gp-0x7E94 factor (variants.c): here it is the start of another function, func_L00_001FF2F8's copy, which the carried row replaced; the copy's place here is not paired yet."
+    "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here)."
   },
   "defines_extra": {
     "RAC1_ADDR_L02_0x0015FA1Cu": [

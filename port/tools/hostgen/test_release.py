@@ -359,6 +359,31 @@ class Rac1Carry(unittest.TestCase):
         out = self.mod.carry_libraries(c, "func_L00_00300000\tgame\tX\thost\nfunc_L00_00300100\tgame\tY\thost\n")
         self.assertEqual(out, "func_L00_002FFF10\tgame\tX\thost\nfunc_L00_00300100\tgame\tY\thost\n")
 
+    def test_a_split_variant_keeps_its_name(self):
+        # split_places.tsv's variant: the release's file gives it its own places by this name.
+        raw = {"names": {}, "how": {}}
+        primary = [{"name": "func_00200000", "places": [("boot", 0x200000), (0, 0x300000)]}]
+        release_rows = [{"name": "func_00200000", "places": [("boot", 0x200000), (0, 0x2FFF00)]}]
+        c = self.mod.Carry(release.Release(raw), raw, None, primary, release_rows)
+        c.variants = {"func_L00_00300000"}
+        out = self.mod.carry_libraries(c, "func_L00_00300000\tgame\tX\thost\n")
+        self.assertEqual(out, "func_L00_00300000\tgame\tX\thost\n")
+
+    def test_a_copy_the_release_folds_elsewhere(self):
+        # The release's catalogue folds level 0's copy into another function of the same bytes:
+        # the place is found from the function before it, and kept for its fingerprint.
+        raw = {"names": {}, "how": {}}
+        primary = [{"name": "func_00200000", "fp": "aa", "places": [(0, 0x300000)]},
+                   {"name": "func_00200100", "fp": "bb", "places": [("boot", 0x200100), (0, 0x300100)]}]
+        release_rows = [{"name": "func_00200000", "fp": "aa", "places": [(0, 0x2FF000)]},
+                        {"name": "func_00200100", "fp": "bb", "places": [("boot", 0x200100)]},
+                        {"name": "func_00200180", "fp": "bb", "places": [(0, 0x2FF100)]}]
+        c = self.mod.Carry(release.Release(raw), raw, None, primary, release_rows)
+        self.assertEqual(c.place(0, 0x300100, "test"), 0x2FF100)
+        release_rows[2]["fp"] = "cc"
+        c = self.mod.Carry(release.Release(raw), raw, None, primary, release_rows)
+        self.assertIsNone(c.place(0, 0x300100, "test"))
+
     def test_the_releases_own_rows_follow(self):
         # release.json "libraries": a function only the release has, in its own name.
         out = self.mod.carry_libraries(self.c, "func_00200000\tgame\tX\thost\n",

@@ -66,5 +66,23 @@ class Parity(unittest.TestCase):
         self.assertIn("no longer differ", errors[0])
 
 
+    def test_an_omit_covers_every_place(self):
+        # b leaves the shared host C of f2 out (RAC1_OMIT): none of f2's places is compared there.
+        header = self.root / "port/game/toy-b/host/rac1_version.h"
+        header.parent.mkdir()
+        header.write_text("/* b runs its own C */\n#define RAC1_OMIT_func_00100100 1\n")
+        self.assertEqual(parity.omits(header), {"func_00100100": "b runs its own C"})
+        self.assertEqual(self.tables("func_00100100\tx\tf2\thost\nfunc_L03_00300000\tx\tf2c\thost\n", ""), [])
+
+    def test_a_split_variant_is_read_at_its_own_places(self):
+        # b's split_places.tsv keeps a's name for the variant, with b's places.
+        (self.root / "port/game/toy-a/split_places.tsv").write_text("func_00100100\tfunc_L03_00300000\t03:00300000\n")
+        (self.root / "port/game/toy-b/split_places.tsv").write_text("func_00100100\tfunc_L03_00300000\t03:00300100\n")
+        row = "func_L03_00300000\tx\tv\thost\n"
+        self.assertEqual(self.tables(row, row), [])
+        errors = self.tables(row, "")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("func_00100100 (03) runs differently", errors[0])
+
 if __name__ == "__main__":
     unittest.main()
