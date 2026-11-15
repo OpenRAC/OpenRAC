@@ -329,3 +329,7 @@ func_002EF480	render	rac2Renderer002EF480	host	a renderer only func_002EF3B0 cal
 func_002F1010	render	rac2Renderer002F1010	host	a renderer only func_002F0EF8 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
 func_002F1E88	render	rac2Renderer002F1E88	host	a renderer only func_002F0EF8 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
 func_002F2A38	render	rac2Renderer002F2A38	host	a renderer only func_002F0EF8 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002A1738	render	rac2MobyAnimPose	host	host-replaced renderer: the port never calls it; reports a reach (host/handasm_render_big.c)	int (int, int)
+func_002E1228	render	rac2CullAndEmitShrubs	host	host-replaced renderer: the port never calls it; reports a reach (host/handasm_render_big.c)	void (void)
+func_002E182C	render	rac2ShrubsResume182C	host	a fragment of func_002E1228 (host-replaced renderer): reports a reach (host/handasm_render_big.c)	int (int, int, int, int)
+func_002E25C0	render	rac2ShrubsResume25C0	host	a fragment of func_002E1228 (host-replaced renderer): reports a reach (host/handasm_render_big.c)	int (void)
