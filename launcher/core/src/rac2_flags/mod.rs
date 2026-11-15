@@ -41,6 +41,11 @@ pub const MOBY_COUNTS: i32 = 3005;
 pub const GROUP_STATES: i32 = 3004;
 
 /// A level's moby count ([`Place::Count`]).
+/// A flag tried one by one: set in a save by the editor and seen by the game at load (2026-11-15).
+pub(crate) const fn proven(flag: Flag) -> Flag {
+    Flag { confidence: Confidence::Proven, ..flag }
+}
+
 pub(crate) const fn count(level: usize, uid: u16) -> Place {
     Place::Count { level, uid }
 }

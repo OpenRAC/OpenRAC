@@ -11,7 +11,7 @@
 //! and object group (chunk 3004) in the level's section; they are in `RAC2_SAVE_FORMAT.md`,
 //! "Advanced: Electrolyzer puzzles (L-7)".
 
-use super::{count, electrolyzer, group_done, Confidence, Flag, Place};
+use super::{count, electrolyzer, group_done, proven, Confidence, Flag, Place};
 
 /// A byte of the story chunk, set to `on`.
 const fn story(offset: usize, on: u8) -> Place {
@@ -71,7 +71,7 @@ pub const FLAGS: &[Flag] = &[
     arena("maktar-arena-6", "Arena: Time Challenge: Kill 60 Enemies in 60 Seconds", 0x36),
     arena("maktar-arena-7", "Arena: Mega Challenge!", 0x37),
     arena("maktar-arena-8", "Arena: Limited Weapon: Use Only 300 Heavy Lancer Shots", 0x38),
-    arena("maktar-arena-9", "Arena: Limited Weapon: Kill All Enemies with 8 Mini-Nuke Shots", 0x91),
+    proven(arena("maktar-arena-9", "Arena: Limited Weapon: Kill All Enemies with 8 Mini-Nuke Shots", 0x91)),
     arena("maktar-arena-10", "Arena: Tag Team Battle: Chainblade and B2 Brawler", 0x39),
     arena("maktar-arena-11", "Arena: Endurance Challenge!", 0x3A),
     arena("maktar-arena-12", "Arena: Ultimate Challenge!", 0x3B),
@@ -163,12 +163,12 @@ pub const FLAGS: &[Flag] = &[
         Confidence::Proven,
     ),
     // Barlow's five hoverbike races (wins, chunk 5 0x4D..0x51).
-    race(
+    proven(race(
         "barlow-race-1",
         "Hoverbike race 1 won",
         0x4D,
         "Won at least once: race 2 can be picked, and from the next visit Feltzin System is on the ship's map.",
-    ),
+    )),
     race(
         "barlow-race-2",
         "Hoverbike race 2 won",
@@ -204,7 +204,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Space mission 2 won",
         description: "The second space combat mission (an optional challenge for bolts).",
         place: story(0x62, 1),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "feltzin-mission-3-won",
