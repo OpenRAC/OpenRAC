@@ -6,3 +6,8 @@ func_L00_003676D8	func_L00_003676D8.c
 func_L01_003CDDC8	func_L01_003CDDC8.c
 # TODO: remove once rac2-decomp gives func_002E5490 an int result that agrees with its callers.
 func_002E5490	func_002E5490.c
+func_L02_00330568	func_L02_00330568.c
+func_V1_L02_003CE8B0	func_V1_L02_003CE8B0.c
+func_L04_0033EA48	func_L04_0033EA48.c
+func_V1_L06_00443DE0	func_V1_L06_00443DE0.c
+func_V1_L09_00404F90	func_V1_L09_00404F90.c
