@@ -150,11 +150,24 @@ def read_primary_hand(config_dir: Path, cfg: dict) -> dict[str, str]:
     table = cfg.get("primary_hand")
     if not table or RELEASE is None or not (config_dir / table).is_file():
         return {}
+    # Names the release view has no value for (a global no placed C uses), paired by hand:
+    # release/hand_names.tsv beside the configuration, "v1.01 name<TAB>release name<TAB>evidence".
+    extra: dict[str, str] = {}
+    pairs = config_dir / "release" / "hand_names.tsv"
+    if pairs.is_file():
+        for line in pairs.read_text().splitlines():
+            row = line.split("\t")
+            if line.strip() and not line.startswith("#") and len(row) >= 3 and row[2].strip():
+                extra[row[0].strip()] = row[1].strip()
+    word = re.compile(r"\b(" + "|".join(map(re.escape, extra)) + r")\b") if extra else None
     texts: dict[int, str] = {}
     out: dict[str, str] = {}
     for name, c in read_table_of_c(config_dir / table).items():
         if id(c) not in texts:
-            texts[id(c)] = RELEASE.text(c)
+            # The view leaves a name it has no value for as it is; the hand pairs then rename it
+            # (after the view, which would take the release's name for a v1.01 one).
+            text = RELEASE.text(c)
+            texts[id(c)] = word.sub(lambda m: extra[m.group(1)], text) if word else text
         out[RELEASE.name(name)] = texts[id(c)]
     return out
 
@@ -927,6 +940,8 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     for key in ("libraries", "hand", "primary_hand", "assembly_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
+    if cfg.get("primary_hand") and (config.parent / "release" / "hand_names.tsv").is_file():
+        paths.append(config.parent / "release" / "hand_names.tsv")
     if cfg.get("drafts"):
         paths.append(config.parent / cfg["drafts"]["units"])
     # Hand/override tables may name C outside the configuration's own directory.
