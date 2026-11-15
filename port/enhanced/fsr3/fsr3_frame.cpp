@@ -108,6 +108,7 @@ void Fsr3::State::draw_camera_motion() {
     camera_motion.use();
     glUniformMatrix4fv(camera_motion.uniform("inverse_raster"), 1, GL_FALSE, inverse_raster.data());
     glUniformMatrix4fv(camera_motion.uniform("previous_view"), 1, GL_FALSE, view.previous.data());
+    glUniformMatrix4fv(camera_motion.uniform("previous_clip"), 1, GL_FALSE, previous_clip.data());
     glUniform3f(
         camera_motion.uniform("camera_position"),
         camera.position[0],
