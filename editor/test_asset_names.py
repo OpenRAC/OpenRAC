@@ -1,5 +1,5 @@
 """The Assets dock's readable names (addons/openrac_library/names/<game>.tsv): one name per kind and
-class in short snake_case, never a bare number or a placeholder, and the header credits where they come from.
+class in short snake_case, each its own, never a bare number or a placeholder, and the header credits where they come from.
 
     python3 -m unittest test_asset_names
 """
@@ -29,6 +29,7 @@ class AssetNames(unittest.TestCase):
     def test_each_class_has_one_readable_name(self):
         for path in sorted(NAMES.glob("*.tsv")):
             seen = set()
+            names = set()
 
             for line in path.read_text(encoding="utf-8").splitlines():
                 if line.startswith("#") or not line:
@@ -39,8 +40,11 @@ class AssetNames(unittest.TestCase):
                 self.assertTrue(number.isdigit(), line)
                 self.assertNotIn((kind, number), seen, line)
                 seen.add((kind, number))
-                # Short snake_case: small_turret.
-                self.assertRegex(name, r"^[a-z0-9]+(_[a-z0-9]+){0,2}$", line)
+                # Short snake_case (small_turret), and no two assets share a name: a model that
+                # looks like another carries the planet it comes from and a number (pipe_kerwan_2).
+                self.assertRegex(name, r"^[a-z0-9]+(_[a-z0-9]+)*$", line)
+                self.assertNotIn(name, names, line)
+                names.add(name)
                 # Fits the dock's two lines under the picture.
                 lines = wrapped(name)
                 self.assertLessEqual(len(lines), 2, line)
