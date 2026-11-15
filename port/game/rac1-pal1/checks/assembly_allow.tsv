@@ -1,0 +1,7 @@
+# Functions this program may leave to their assembly although translated code reaches them
+# (hostgen.json "assembly_allow"; hostgen.py assembly_guard). Every other one fails the build.
+# name	reason
+func_001205E4	not entered at the catalogue's entry: func_00120610 passes on its address plus 4, func_001205E8, which has C
+func_00120958	not entered at the catalogue's entry (a linker remnant): func_001209A0 passes on its address plus 8, func_00120960, which has C
+func_001271D8	libmpeg's motion compensation (hand-written MMI): the port's movie player decodes the game's movies itself, so nothing of sceMpeg runs
+func_L06_00249280	a linker remnant, never entered: the level code that takes its address passes its address plus 0x20, func_L06_002492A0, which has C
