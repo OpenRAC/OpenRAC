@@ -8,8 +8,9 @@ extern int openrac_emitter_falloff(void *self, float d, float x, float y) __asm_
  * a float, but the assembly hands back func_002E53E0's $v0 untouched, and StartSoundEmitter
  * (func_002E6908) reads $v0 as an int. With float, hostgen sees the result in $f0, a register the
  * callee never sets, and passes 0: every 3D sound started with a distance (the weapons' fire among
- * them) fell under StartSoundEmitter's cut of 32 and never played.
- * TODO: remove this file and its overrides.tsv row once rac2-decomp gives func_002E54D8 an int
+ * them) fell under StartSoundEmitter's cut of 32 and never played. */
+
+/* TODO: remove this file and its overrides.tsv row once rac2-decomp gives func_002E54D8 an int
  * result that agrees with its callers' declarations (002E5AD0.c, 002E10B8-voices.c), at the next
  * decomp bump. */
 int func_002E54D8(char *self, char *p)

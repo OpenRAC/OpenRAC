@@ -4,4 +4,5 @@ func_002945B8	func_002945B8.c
 func_L00_003062B0	func_L00_003062B0.c
 func_L00_003676D8	func_L00_003676D8.c
 func_L01_003CDDC8	func_L01_003CDDC8.c
+# TODO: remove once rac2-decomp gives func_002E5490 an int result that agrees with its callers.
 func_002E5490	func_002E5490.c
