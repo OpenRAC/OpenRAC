@@ -407,7 +407,7 @@ static const openrac_script_point k_points[32] = {
     {"rac2.moby.nanotech_ball.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_NanotechBall_Update_links, k_Moby_NanotechBall_Update_thunks, S16_call},
 };
 
-static const openrac_script_alias k_aliases[125] = {
+static const openrac_script_alias k_aliases[127] = {
     {"Hero_ApproachSpeed", "rac2.player.approach_speed"},
     {"Hero_NanotechSteps", "rac2.player.nanotech_steps"},
     {"Hero_TakeDamage", "rac2.player.take_damage"},
@@ -474,6 +474,8 @@ static const openrac_script_alias k_aliases[125] = {
     {"func_002F7488", "rac2.vendor.build_list"},
     {"func_002F7578", "rac2.vendor.build_list"},
     {"func_002F9C80", "rac2.vendor.draw_list"},
+    {"func_002FAB0C", "rac2.vendor.draw_list"},
+    {"func_002FACD0", "rac2.vendor.draw_list"},
     {"func_003136D0", "rac2.moby.nanotech_ball.update"},
     {"func_003144C8", "rac2.moby.nanotech_ball.update"},
     {"func_00314B5C", "rac2.moby.nanotech_ball.update"},
@@ -542,7 +544,7 @@ static const openrac_script_field k_fields[1] = {
 
 static const openrac_script_binding k_binding = {
     "rac2", 3, k_discs, 32, k_points, 0, k_fields, NULL,
-    125, k_aliases,
+    127, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {
