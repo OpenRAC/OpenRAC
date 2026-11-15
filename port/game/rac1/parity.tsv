@@ -58,7 +58,6 @@ func_L00_001F2BE8	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (
 func_L00_001F34F0	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
 func_L00_001FDE48	00	rac1-ntsc	an NTSC-only option (rac1-ntsc/host/water.c, hud_panels.c): not ported to PAL v2.00's functions and data yet, so PAL, PAL v1.00 and NTSC-J run the game's own draw
 func_L00_00200290	00	rac1-ntsc	the NTSC decomp's level C calls the executable's fast_bsphere_check (FUN_001fa728), PAL's calls the levels' FastBSphereCheck: each program wraps the one its game calls (rac1-ntsc/host/rac1_version.h maps the name)
-func_L00_0023A1A0	00	rac1-ntsc	an NTSC-only option (rac1-ntsc/host/water.c, hud_panels.c): not ported to PAL v2.00's functions and data yet, so PAL, PAL v1.00 and NTSC-J run the game's own draw
 func_L00_00252D20	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
 func_L00_00254218	00	rac1-ntsc	the NTSC decomp names the executable's copy and every level's as one function (FUN_0020fa90), so its one row binds both; PAL binds the levels' copy and runs the executable's decomp C (the same instructions)
 func_L00_00290030	00	rac1-ntsc	custom ship destinations (editor maps, rac1-pal/host/destinations.c): written for PAL's menu data and not ported to the NTSC decomp yet

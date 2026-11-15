@@ -307,6 +307,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_001FD3E8 game_FUN_001fce28
 #define func_001FD3E8__game game_FUN_001fce28__game
 #define RAC1_ADDR_L00_0x0015F808u 0x0015F728u
+#define RAC1_ADDR_L00_0x0015F8D0u 0x0015F7F0u
+#define RAC1_ADDR_L00_0x0015F8E8u 0x0015F808u
+#define RAC1_ADDR_L00_0x0015F8F0u 0x0015F810u
+#define RAC1_ADDR_L00_0x0015F8FCu 0x0015F81Cu
+#define RAC1_ADDR_L00_0x0015F900u 0x0015F820u
 #define RAC1_ADDR_L00_0x0015FB28u 0x0015FA70u
 #define RAC1_ADDR_L00_0x0015FB2Cu 0x0015FA74u
 /* The title loop's exit (front_end.c title_exit), PAL space_load_pending D_0015F690, which
@@ -393,6 +398,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_002781D8 game_FUN_L00_002772c0
 #define func_L00_002781D8__game game_FUN_L00_002772c0__game
 #define func_00200248 game_FUN_001ffa10
+#define func_00200198 game_FUN_001ff960
+/* draw_health_hud_panel (rac1/host/hud_panels.c). */
+#define func_L00_0023A1A0 game_FUN_L00_00239810
+#define func_L00_0023A1A0__game game_FUN_L00_00239810__game
 #define func_00200468 game_FUN_001ffc30
 #define func_00200468__game game_FUN_001ffc30__game
 #define func_00200650 game_FUN_001ffe18
