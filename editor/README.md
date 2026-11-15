@@ -17,7 +17,7 @@ supported yet.
 
 It sits at the top of OpenRAC because it serves all four games. It reads
 Ratchet & Clank's four discs in full, and Going Commando's three
-discs (playable; level edits not packed back yet) and Up Your Arsenal's and
+discs (playable; moved and changed mobys are packed back) and Up Your Arsenal's and
 Deadlocked's NTSC-U discs in early access: their levels,
 textures and models, to look at and to make texture and model packs from
 ([The later games](#the-later-games-early-access)).

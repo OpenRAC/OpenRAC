@@ -2746,6 +2746,32 @@
         "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
       },
       {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in Godot back into the game's level data, in assets/packed/rac2/ntsc; your disc image is never changed. Packs the objects you moved, turned, scaled or changed; adding, deleting or giving an object another class is not packed yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "pack",
+          "{disc}",
+          "assets/levels/rac2/ntsc",
+          "assets/packed/rac2/ntsc"
+        ],
+        "output": "assets/packed/rac2/ntsc",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/ntsc/level_00/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15, USA v1.01): a moby of level 0 moved in the scene packed to one changed byte of the level's gameplay file."
+      },
+      {
         "id": "port-levels",
         "label": "Get the levels ready",
         "description": "Reads the levels from your disc into the form the game draws, and texture and model packs are made from: all 27 levels and the four ship flights, in assets/port/rac2/ntsc. A few minutes and a few GB, once; read again when an update changes their format.",
@@ -2872,7 +2898,7 @@
       {
         "id": "overrides-stack",
         "label": "Put the mods together",
-        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "description": "Puts your packed levels and the overrides packs that are on, in their order, into the one folder the game reads its mods from. A pack for another game is left out and listed.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -2884,6 +2910,8 @@
           "{data}/overrides",
           "--out",
           "{data}/mods/ntsc",
+          "--packed",
+          "{root}/assets/packed/rac2/ntsc",
           "--levels",
           "{root}/assets/port/rac2/ntsc"
         ],
@@ -2898,7 +2926,7 @@
           }
         ],
         "docs": "editor/MODDING.md",
-        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+        "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15): a texture pack of level 4 stacked into {data}/mods/ntsc and played with --mods drew every texture from it."
       },
       {
         "id": "port-build",
@@ -3004,6 +3032,46 @@
           "--window",
           "--levels",
           "{root}/assets/port/rac2/ntsc"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
+      },
+      {
+        "id": "play-edited",
+        "label": "Play with your edits",
+        "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Built like Play. The Mods page runs overrides-stack first, which writes {data}/mods/ntsc.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc",
+          "--mods",
+          "{data}/mods/ntsc"
         ],
         "platforms": [
           "linux",
@@ -3209,6 +3277,32 @@
         "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
       },
       {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in Godot back into the game's level data, in assets/packed/rac2/pal; your disc image is never changed. Packs the objects you moved, turned, scaled or changed; adding, deleting or giving an object another class is not packed yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "pack",
+          "{disc}",
+          "assets/levels/rac2/pal",
+          "assets/packed/rac2/pal"
+        ],
+        "output": "assets/packed/rac2/pal",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/pal/level_00/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15, USA v1.01): a moby of level 0 moved in the scene packed to one changed byte of the level's gameplay file."
+      },
+      {
         "id": "port-levels",
         "label": "Get the levels ready",
         "description": "Reads the levels from your disc into the form the game draws, and texture and model packs are made from: all 27 levels and the four ship flights, in assets/port/rac2/pal. A few minutes and a few GB, once; read again when an update changes their format.",
@@ -3335,7 +3429,7 @@
       {
         "id": "overrides-stack",
         "label": "Put the mods together",
-        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "description": "Puts your packed levels and the overrides packs that are on, in their order, into the one folder the game reads its mods from. A pack for another game is left out and listed.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -3347,6 +3441,8 @@
           "{data}/overrides",
           "--out",
           "{data}/mods/pal",
+          "--packed",
+          "{root}/assets/packed/rac2/pal",
           "--levels",
           "{root}/assets/port/rac2/pal"
         ],
@@ -3361,7 +3457,7 @@
           }
         ],
         "docs": "editor/MODDING.md",
-        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+        "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15): a texture pack of level 4 stacked into {data}/mods/pal and played with --mods drew every texture from it."
       },
       {
         "id": "port-build",
@@ -3467,6 +3563,46 @@
           "--window",
           "--levels",
           "{root}/assets/port/rac2/pal"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-pal.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
+      },
+      {
+        "id": "play-edited",
+        "label": "Play with your edits",
+        "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Built like Play. The Mods page runs overrides-stack first, which writes {data}/mods/pal.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac2/pal",
+          "--mods",
+          "{data}/mods/pal"
         ],
         "platforms": [
           "linux",
@@ -3672,6 +3808,32 @@
         "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
       },
       {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in Godot back into the game's level data, in assets/packed/rac2/ntsc2; your disc image is never changed. Packs the objects you moved, turned, scaled or changed; adding, deleting or giving an object another class is not packed yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "pack",
+          "{disc}",
+          "assets/levels/rac2/ntsc2",
+          "assets/packed/rac2/ntsc2"
+        ],
+        "output": "assets/packed/rac2/ntsc2",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/ntsc2/level_00/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15, USA v1.01): a moby of level 0 moved in the scene packed to one changed byte of the level's gameplay file."
+      },
+      {
         "id": "port-levels",
         "label": "Get the levels ready",
         "description": "Reads the levels from your disc into the form the game draws, and texture and model packs are made from: all 27 levels and the four ship flights, in assets/port/rac2/ntsc2. A few minutes and a few GB, once; read again when an update changes their format.",
@@ -3798,7 +3960,7 @@
       {
         "id": "overrides-stack",
         "label": "Put the mods together",
-        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "description": "Puts your packed levels and the overrides packs that are on, in their order, into the one folder the game reads its mods from. A pack for another game is left out and listed.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -3810,6 +3972,8 @@
           "{data}/overrides",
           "--out",
           "{data}/mods/ntsc2",
+          "--packed",
+          "{root}/assets/packed/rac2/ntsc2",
           "--levels",
           "{root}/assets/port/rac2/ntsc2"
         ],
@@ -3824,7 +3988,7 @@
           }
         ],
         "docs": "editor/MODDING.md",
-        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+        "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15): a texture pack of level 4 stacked into {data}/mods/ntsc2 and played with --mods drew every texture from it."
       },
       {
         "id": "port-build",
@@ -3930,6 +4094,46 @@
           "--window",
           "--levels",
           "{root}/assets/port/rac2/ntsc2"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc2.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
+      },
+      {
+        "id": "play-edited",
+        "label": "Play with your edits",
+        "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Built like Play. The Mods page runs overrides-stack first, which writes {data}/mods/ntsc2.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc2",
+          "--mods",
+          "{data}/mods/ntsc2"
         ],
         "platforms": [
           "linux",

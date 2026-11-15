@@ -18,8 +18,8 @@ per instance are node metadata (rc1_*), so a packer can write them back.
 
 Going Commando's, Up Your Arsenal's and Deadlocked's levels (wads.py) are written the same way,
 with the same rc1_* metadata names, plus rc1_game on the level node. Their scenes are for looking
-and making texture and model packs: the level packer reads Ratchet & Clank's only, which the
-level node says (rc1_packable, and its description in the Scene dock).
+and making texture and model packs: the level packer reads Ratchet & Clank's and Going Commando's
+mobys (pack_later.py) only, which the level node says (rc1_packable, and its description in the Scene dock).
 """
 
 import colorsys
@@ -303,14 +303,18 @@ class LevelWriter:
         if fmt.packable:
             self.scene.node(f"Level_{level.id:02}", kind="Node3D", script=script, metadata__rc1_level=level.id)
         else:
-            # A later game's level: shown and exported, not packed back yet (pack.py).
+            # A later game's level: shown and exported; Going Commando's mobys are packed back
+            # (pack_later.py), the other games' levels not yet.
+            gc = fmt.game == "rac2"
             self.scene.node(f"Level_{level.id:02}", kind="Node3D", script=script, metadata__rc1_level=level.id,
-                            metadata__rc1_game=fmt.game, metadata__rc1_packable=False,
-                            editor_description=f"{fmt.title}, level {level.id}"
-                            f"{'' if fmt.game == 'rac2' else ' (early access)'}.\n"
-                            "Static scenery, mobys and textures to look at and to make texture and model "
-                            "packs from. Edits here are not packed back into the game yet: the level "
-                            "packer reads Ratchet & Clank's levels only.")
+                            metadata__rc1_game=fmt.game, metadata__rc1_packable=gc,
+                            editor_description=f"{fmt.title}, level {level.id}{'' if gc else ' (early access)'}.\n"
+                            + ("Mobys moved, turned, scaled or given other values are packed back into the game "
+                               "(Pack your edited levels); adding or deleting mobys, a moby's class, ties, "
+                               "shrubs, terrain and collision are not yet." if gc else
+                               "Static scenery, mobys and textures to look at and to make texture and model "
+                               "packs from. Edits here are not packed back into the game yet: the level "
+                               "packer reads Ratchet & Clank's and Going Commando's levels only."))
         problems = level.problems if fmt.lenient else None
         self.write_environment(level_sky(level, fmt))
         self.scene.node("Game", ".", "Node3D", transform=transform(GAME_TO_GODOT))
@@ -608,7 +612,7 @@ def write_project(project: Path, levels: list[int], region: str = "PAL", game: s
                 else f"Ratchet & Clank levels ({region})")
     else:
         fmt = games.FORMATS[game]
-        # Going Commando plays; its edits are only not packed back yet. The other later games are early access.
+        # Going Commando plays and its moby edits are packed back. The other later games are early access.
         tag = "" if game == "rac2" else ", early access"
         name = (f"{fmt.title}: {fmt.level_name(levels[0])} ({region}{tag})" if len(levels) == 1
                 else f"{fmt.title} levels ({region}{tag})")

@@ -763,7 +763,7 @@ mod tests {
     use crate::testing::checkout;
 
     /// Going Commando plays (prebuilt, like rac1): none of its actions call it early access or
-    /// say the game is not playable. Its level edits are not packed back, and the text says so.
+    /// say the game is not playable. Its level edits are packed back and it plays with its mods.
     #[test]
     fn going_commando_is_not_early_access() {
         let file = load(&checkout()).unwrap();
@@ -771,7 +771,11 @@ mod tests {
             let list = &file.versions[key];
             let play = list.iter().find(|a| a.id == "play").unwrap_or_else(|| panic!("{key} has no play"));
             assert_ne!(play.state, State::Planned, "{key} play");
-            assert!(list.iter().all(|a| a.id != "editor-pack"), "{key} packs levels: update Mods.svelte early()");
+            for id in ["editor-pack", "play-edited"] {
+                assert!(list.iter().any(|a| a.id == id), "{key} has no {id}");
+            }
+            let stack = list.iter().find(|a| a.id == "overrides-stack").expect("overrides-stack");
+            assert!(stack.args.iter().any(|a| a == "--packed"), "{key}: the stack leaves the packed levels out");
             for a in list {
                 let text = a.description.to_lowercase();
                 assert!(!text.contains("early access"), "{key} {}: {}", a.id, a.description);
