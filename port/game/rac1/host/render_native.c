@@ -114,9 +114,9 @@ void func_00212578(int a0, int a1) {
  * the scratchpad, at +0x37), a hidden one (mode +0x34 bits 0x81), and, as ReRAC's moby_lod.rs
  * replays the culls, a bounding sphere (+0x00, x y z r in units of 1/1024) beyond the draw distance
  * (+0x32, s16 units, at most the global one at D_00160030), wholly in front of the near plane, or
- * wholly outside a side plane of the game's 4:3 view (moby_view.h). The game fix
- * fix_wide_moby_effects (differences.json) opens the side planes as the port's picture and the
- * player's Field of View open them (moby_view.h).
+ * wholly outside a side plane of the game's 4:3 view. The game fix fix_wide_moby_effects
+ * (differences.json) opens the side planes as the port's picture and the player's Field of View
+ * open them (moby_view.h).
  */
 static void mark_drawn_mobys(gaddr first, int count) {
     float cam[3], rows[12], view[12];
