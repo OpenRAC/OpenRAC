@@ -17,7 +17,10 @@ Its levels are its own disc's (the launcher's "Get the levels ready" writes
 ## How it is made
 
 Nothing here is written by hand but `release.json` (this release's ids and the facts its tables
-are read from: `$gp`, the main segment's start, the save folder) and this file. The rest is
+are read from: `$gp`, the main segment's start, the save folder, and table rows for functions
+only this release has) and this file. Never edit the generated tables by hand: CI checks
+`libraries.tsv`, `hand/*.tsv` and `host/rac1_names.tsv` against
+`release_rac1.py --tables --check`, which needs no disc. The rest is
 written by two tools from a built checkout of rac1-decomp:
 
 ```sh

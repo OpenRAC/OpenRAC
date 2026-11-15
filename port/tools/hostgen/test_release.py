@@ -342,3 +342,47 @@ class Rac1Carry(unittest.TestCase):
 
     def test_a_call_reaches_the_counterpart(self):
         self.assertEqual(self.c.function("func_00200200", "t", calls=True), "func_00201000")
+
+    def test_a_level_copy_row_moves_with_its_copy(self):
+        # func_L00_00300000 is the first of func_00200000's two copies in level 0; the release has
+        # them elsewhere.
+        raw = {"names": {}, "how": {}}
+        primary = [{"name": "func_00200000", "places": [("boot", 0x200000), (0, 0x300000), (0, 0x300100)]},
+                   {"name": "func_00200100", "places": [(0, 0x300200)]}]
+        release_rows = [{"name": "func_00200000", "places": [("boot", 0x200000), (0, 0x2FFF00), (0, 0x300000)]}]
+        c = self.mod.Carry(release.Release(raw), raw, None, primary, release_rows)
+        out = self.mod.carry_libraries(c, "func_L00_00300000\tgame\tX\thost\nfunc_L00_00300100\tgame\tY\thost\n")
+        self.assertEqual(out, "func_L00_002FFF00\tgame\tX\thost\nfunc_L00_00300000\tgame\tY\thost\n")
+        # A pair a full run recorded (release_carry.json) is read back without a map.
+        c.r_places = {}
+        c.known = {"func_L00_00300000": {"as": "func_L00_002FFF10"}}
+        out = self.mod.carry_libraries(c, "func_L00_00300000\tgame\tX\thost\nfunc_L00_00300100\tgame\tY\thost\n")
+        self.assertEqual(out, "func_L00_002FFF10\tgame\tX\thost\nfunc_L00_00300100\tgame\tY\thost\n")
+
+    def test_the_releases_own_rows_follow(self):
+        # release.json "libraries": a function only the release has, in its own name.
+        out = self.mod.carry_libraries(self.c, "func_00200000\tgame\tX\thost\n",
+                                       {"func_E1_00124000": ["mc", "sceMcChdir", "host", "why"]})
+        self.assertEqual(out, "func_001FFF00\tgame\tX\thost\nfunc_E1_00124000\tmc\tsceMcChdir\thost\twhy\n")
+
+    def test_rpc_callers_new_in_a_release(self):
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d)
+            (src / "include/names").mkdir(parents=True)
+            (src / "include/names/executable.h").write_text("#define sceMcOpen func_00123000\n")
+            (src / "src/core").mkdir(parents=True)
+            (src / "src/core/mc.c").write_text(
+                "int sceMcOpen(int a) {\n    return sif_call_rpc(0, 2, 0, 0, 0, 0, 0, 0, 0);\n}\n"
+                "int other(void) {\n    return 0;\n}\n")
+            (src / "src/versions/v1/core").mkdir(parents=True)
+            (src / "src/versions/v1/core/own.c").write_text(
+                "int func_E1_00124000(int a) {\n    return sif_call_rpc(0, 12, 0, 0, 0, 0, 0, 0, 0);\n}\n")
+            (src / "config/versions/v1").mkdir(parents=True)
+            (src / "config/versions/v1/map.tsv").write_text(
+                "# head\nfunc_00123000\tsrc/core/mc.c\tmatch\nfunc_E1_00124000\tsrc/versions/v1/core/own.c\tmatch\n")
+            self.assertEqual(self.mod.rpc_callers(src, None), {"func_00123000"})
+            self.assertEqual(self.mod.rpc_callers(src, "v1"), {"func_00123000", "func_E1_00124000"})
+            # rac1-pal's caller is carried; the release's own needs its own row.
+            self.assertEqual(self.mod.unbound_rpc_callers(self.c, src, "v1", "func_00123000\tmc\tsceMcOpen\thost\n"),
+                             ["func_E1_00124000"])
+            self.assertEqual(self.mod.unbound_rpc_callers(self.c, src, "v1", "func_E1_00124000\tmc\tX\thost\n"), [])

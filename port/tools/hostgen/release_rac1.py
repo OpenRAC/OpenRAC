@@ -25,6 +25,11 @@ uses at that address), else versionmap's `exact` pair, else its `between` or `gu
 
     python3 port/tools/hostgen/release_rac1.py --game port/game/rac1-pal1 --primary port/game/rac1-pal \\
         --map build/versionmap/rac1-pal--rac1-pal1.json
+
+The tables of function names (libraries.tsv, hand/*.tsv, host/rac1_names.tsv) need no map, so no
+disc: `--tables` writes only them, `--tables --check` fails when a committed one differs (CI runs
+it). A function only the release has gets its row from release.json "libraries"; one that calls
+the IOP with no row fails the check, as its console C would wait for an IOP forever.
 """
 from __future__ import annotations
 
@@ -60,6 +65,8 @@ class Carry:
         self.table, self.raw, self.map = table, raw, vmap
         self.how: dict[str, str] = raw.get("how", {})
         self.report: dict[str, dict] = {"functions": {}, "addresses": {}, "dropped": {}}
+        # What a full run recorded (release_carry.json "functions"): read back without a map.
+        self.known: dict[str, dict] = {}
         # The shared host C the release leaves out (release.json "omit", RAC1_OMIT): no host
         # function of that name is built, so no table row may wrap or replace it.
         self.omit: set[str] = set()
@@ -102,6 +109,37 @@ class Carry:
             new = "func_" + new[4:]
         if not how.startswith("function: carried (same code)") and how not in ("function: unchanged",):
             self.report["functions"][name] = {"as": new, "how": how, "for": why}
+        return new
+
+    def level_copy(self, name: str, why: str) -> str | None:
+        """A row named by a level copy's place (func_L00_002EDB68: one of func_001E97C8's copies in
+        level 0, no name of its own) in the release: the same copy's place there. Its address is
+        not the release's, so the name alone would bind the middle of another function. None for
+        a name that is not such a place, or one neither the catalogues nor a map pair."""
+        m = FUNC.fullmatch(name)
+        if not m or m.group(1) is None:
+            return None
+        level, address = int(m.group(1)), int(m.group(2), 16)
+        owner = self.p_at.get((level, address))
+        if owner is None or owner == name:
+            return None
+        # The catalogues pair the k-th copy in a level with the k-th; else versionmap's pair (a
+        # full run, recorded in release_carry.json), else the pair a full run recorded before.
+        theirs = sorted(a for p, a in self.p_places[owner] if p == level)
+        new = self.table.name(owner)
+        mine = sorted(a for p, a in self.r_places.get(owner, self.r_places.get(new, [])) if p == level)
+        if address in theirs and len(mine) == len(theirs):
+            return f"func_L{level:02d}_{mine[theirs.index(address)]:08X}"
+        hit = self.map.function(address, f"level:{level:02d}") if self.map is not None else None
+        if hit is not None:
+            new = f"func_L{level:02d}_{hit[0]:08X}"
+        elif name in self.known:
+            new = self.known[name]["as"]
+        else:
+            # Kept at PAL v2.00's address, as before: parity.py says where that is no function's
+            # start here (port/game/rac1/parity.tsv lists the known ones until a run with the map).
+            return None
+        self.report["functions"][name] = {"as": new, "how": "level copy: versionmap", "for": why}
         return new
 
     def place(self, level: int, address: int, why: str) -> int | None:
@@ -205,14 +243,16 @@ def carry_config(c: Carry, cfg: dict, version: str, out_id: str, title: str, ser
     return new
 
 
-def carry_libraries(c: Carry, text: str) -> str:
+def carry_libraries(c: Carry, text: str, own: dict[str, list[str]] | None = None) -> str:
+    """rac1-pal's table in the release's names, then the release's own rows (release.json
+    "libraries": functions only the release has, so rac1-pal's table cannot carry them)."""
     out = []
     for line in text.splitlines():
         cols = line.split("\t")
         if line.startswith("#") or not line.strip() or not cols[0].startswith("func_"):
             out.append(line)
             continue
-        new = c.function(cols[0], f"libraries.tsv {cols[0]}")
+        new = c.level_copy(cols[0], f"libraries.tsv {cols[0]}") or c.function(cols[0], f"libraries.tsv {cols[0]}")
         if new is None:
             continue
         if cols[0] in c.omit:
@@ -220,6 +260,8 @@ def carry_libraries(c: Carry, text: str) -> str:
             c.report["dropped"][cols[0]] = f"libraries.tsv {cols[0]}: the shared host C leaves it out here"
             continue
         out.append("\t".join([new] + cols[1:]))
+    for name, cols in (own or {}).items():
+        out.append("\t".join([c.table.name(name)] + cols))
     return "\n".join(out) + "\n"
 
 
@@ -280,7 +322,8 @@ def host_names(c: Carry, shared: list[Path]) -> str:
     for name in sorted(found):
         if not FUNC.match(name):
             continue
-        new = c.function(name, "shared host C", calls=True)
+        # A level copy's place moves with the copy, as its libraries.tsv row does.
+        new = c.level_copy(name, "shared host C") or c.function(name, "shared host C", calls=True)
         if new is not None and new != name:
             rows.append(f"{name}\t{new}")
     return "\n".join(rows) + "\n"
@@ -393,13 +436,98 @@ def profile_table(c: Carry, game_state: str, profile: str, out_id: str, label: s
     return "\n".join(lines)
 
 
+RPC_CALL = re.compile(r"\b(?:sif_call_rpc|sceSifCallRpc)\s*\(")
+C_DEF = re.compile(r"^[A-Za-z_][\w \t*]*?\b(\w+)\s*\([^;{]*\)\s*\{", re.M)
+
+
+def rpc_callers(source: Path, version: str | None) -> set[str]:
+    """The functions whose C calls the IOP through SIF RPC, by the catalogue's names: in VERSION's
+    view of the decompilation (map.tsv's file for each), or PAL v2.00's (src/ but src/versions/)."""
+    names: dict[str, str] = {}
+    for header in sorted((source / "include/names").glob("*.h")):
+        for m in re.finditer(r"#define\s+(\w+)\s+(func_\w+)", header.read_text(errors="replace")):
+            names[m.group(1)] = m.group(2)
+    files: dict[str, set[str] | None] = {}
+    if version is None:
+        files = {p.relative_to(source).as_posix(): None for p in sorted((source / "src").rglob("*.c"))
+                 if "versions" not in p.relative_to(source / "src").parts[:1]}
+    else:
+        for line in (source / "config/versions" / version / "map.tsv").read_text().splitlines():
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 3 or not cols[1].endswith(".c"):
+                continue
+            files.setdefault(cols[1], set()).add(cols[0])
+    out = set()
+    for path, wanted in files.items():
+        text = (source / path).read_text(errors="replace") if (source / path).is_file() else ""
+        if not RPC_CALL.search(text):
+            continue
+        for m in C_DEF.finditer(text):
+            name = names.get(m.group(1), m.group(1))
+            end = text.find("\n}", m.end())
+            if (wanted is None or name in wanted) and RPC_CALL.search(text, m.end(), end if end >= 0 else len(text)):
+                out.add(name)
+    return out
+
+
+def unbound_rpc_callers(c: Carry, source: Path, version: str, libraries: str) -> list[str]:
+    """The release's functions that call the IOP where rac1-pal's do not (its own functions, or its
+    own C of a shared one) and have no row in its table: with no IOP in the port, their console C
+    waits forever (PAL v1.00's sceMcChdir did, on Reading Memory Card)."""
+    rows = {line.split("\t", 1)[0] for line in libraries.splitlines() if line and not line.startswith("#")}
+    new = rpc_callers(source, version) - rpc_callers(source, None)
+    return sorted(name for name in new if c.table.name(name) not in rows)
+
+
+def name_tables(c: Carry, cfg: dict, game: Path, primary: Path, own: dict[str, list[str]], check: bool) -> int:
+    """The release's tables of function names, which rest only on the release table (no map): with
+    CHECK, compared with the committed files, so a hand edit or a row rac1-pal gained and the
+    release did not fails, naming the file."""
+    shared = sorted(p for d in cfg.get("host_shared", []) for p in (primary / d).resolve().glob("*.[ch]"))
+    files = {game / "libraries.tsv": carry_libraries(c, (primary / "libraries.tsv").read_text(), own),
+             game / "host" / "rac1_names.tsv": host_names(c, shared)}
+    for name in ("hand.tsv", "overrides.tsv"):
+        if (primary / "hand" / name).is_file():
+            files[game / "hand" / name] = carry_libraries(c, (primary / "hand" / name).read_text())
+    stale = []
+    version = json.loads((game / "release.json").read_text())["version"]
+    unbound = unbound_rpc_callers(c, (ROOT / cfg["source"]).resolve(), version, files[game / "libraries.tsv"])
+    for name in unbound:
+        print(f"release_rac1: {game.name}: {name} ({c.table.name(name)}) calls the IOP and has no libraries.tsv "
+              f"row: give it one in release.json \"libraries\" (a host function of the same job)", file=sys.stderr)
+    for path, text in files.items():
+        if path.is_file() and path.read_text() == text:
+            continue
+        if check:
+            stale.append(path)
+            old = path.read_text().splitlines() if path.is_file() else []
+            new = text.splitlines()
+            for line in [f"-{x}" for x in old if x not in set(new)][:10] + [f"+{x}" for x in new if x not in set(old)][:10]:
+                print(f"  {line}")
+        else:
+            path.write_text(text)
+    for path in stale:
+        print(f"release_rac1: {path.relative_to(ROOT)} is not what release_rac1.py writes from rac1-pal's "
+              f"tables: run it with --tables (no --check) and commit the result", file=sys.stderr)
+    return 1 if stale or unbound else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--game", type=Path, required=True, help="the release's folder (port/game/rac1-pal1)")
     ap.add_argument("--primary", type=Path, required=True, help="port/game/rac1-pal")
-    ap.add_argument("--map", type=Path, required=True, help="versionmap's map from rac1/pal to the release")
+    ap.add_argument("--map", type=Path, help="versionmap's map from rac1/pal to the release (not with --tables)")
     ap.add_argument("--settings", type=Path, help="the release's own facts (JSON): id, version, title, serial, ...")
+    ap.add_argument("--tables", action="store_true",
+                    help="only the tables of function names (libraries.tsv, hand/*.tsv, host/rac1_names.tsv): "
+                         "they need no map, so no disc")
+    ap.add_argument("--check", action="store_true",
+                    help="with --tables: write nothing, fail when a committed table is not what this writes")
     args = ap.parse_args(argv)
+    if args.check and not args.tables:
+        ap.error("--check needs --tables")
+    if args.map is None and not args.tables:
+        ap.error("--map is needed, but with --tables")
     game, primary = args.game.resolve(), args.primary.resolve()
     settings = json.loads((args.settings or game / "release.json").read_text())
     version = settings["version"]
@@ -407,10 +535,15 @@ def main(argv: list[str] | None = None) -> int:
     source = (ROOT / cfg["source"]).resolve()
     raw = json.loads((game / "release_names.json").read_text())
     table = rel.Release(raw)
-    vmap = Map(args.map)
+    vmap = Map(args.map) if args.map else None
     c = Carry(table, raw, vmap, rel.read_rows(source / "config/versions/pal/functions.tsv"),
               rel.read_rows(source / "config/versions" / version / "functions.tsv"))
     c.omit = set(settings.get("omit", {}))
+    if (game / "release_carry.json").is_file():
+        c.known = json.loads((game / "release_carry.json").read_text()).get("functions", {})
+    own = settings.get("libraries", {})
+    if args.tables:
+        return name_tables(c, cfg, game, primary, own, args.check)
     # hostgen.json
     new_cfg = carry_config(c, cfg, version, settings["id"], settings["title"], settings["serial"],
                            settings["frame_rate"], int(settings["gp"], 16), int(settings["main"], 16),
@@ -437,7 +570,7 @@ def main(argv: list[str] | None = None) -> int:
     new_cfg["symbols"] = symbols
     (game / "hostgen.json").write_text(json.dumps(new_cfg, indent=2) + "\n")
     # libraries.tsv, split_places.tsv
-    (game / "libraries.tsv").write_text(carry_libraries(c, (primary / "libraries.tsv").read_text()))
+    (game / "libraries.tsv").write_text(carry_libraries(c, (primary / "libraries.tsv").read_text(), own))
     (game / "split_places.tsv").write_text(carry_split_places(c, (primary / "split_places.tsv").read_text()))
     # hand/: the tables and the C, in the release's names
     hand = game / "hand"

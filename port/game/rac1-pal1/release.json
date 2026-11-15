@@ -12,7 +12,8 @@
   "top": "0x00250000",
   "save_folder": "BESCES-50916RATCHET",
   "omit": {
-    "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here)."
+    "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here).",
+    "func_L00_001FEEF8": "Level 0's 0x1FEEF8, where PAL v2.00 has a copy of the gp-0x7E94 factor (variants.c): here it is the start of another function, func_L00_001FF2F8's copy, which the carried row replaced; the copy's place here is not paired yet."
   },
   "defines_extra": {
     "RAC1_ADDR_L02_0x0015FA1Cu": [
@@ -22,6 +23,14 @@
     "RAC1_ADDR_L02_0x0015FA20u": [
       "0x0015F920u",
       "Aridia's counter anchor (hud.c): release_names.json pairs it, D_L02_0015F920."
+    ]
+  },
+  "libraries": {
+    "func_E1_001240C0": [
+      "mc",
+      "sceMcChdir",
+      "host",
+      "PAL v1.00's own: its memory card state machine enters the save folder with it (PAL v2.00 reads the folder with sceMcGetDir); with its console C it waited for an IOP forever on Reading Memory Card"
     ]
   }
 }

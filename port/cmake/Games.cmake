@@ -25,6 +25,7 @@ include(Differences)
 set_property(GLOBAL APPEND PROPERTY JOB_POOLS openrac_hostgen=1)
 
 set(OPENRAC_HOSTGEN "${CMAKE_CURRENT_LIST_DIR}/../tools/hostgen/hostgen.py")
+set(OPENRAC_PARITY "${CMAKE_CURRENT_LIST_DIR}/../tools/versionmap/parity.py")
 set(OPENRAC_GAME_DIR "${CMAKE_CURRENT_LIST_DIR}/../game")
 set(OPENRAC_REPO_DIR "${CMAKE_CURRENT_LIST_DIR}/../..")
 
@@ -202,6 +203,11 @@ function(openrac_add_game config)
   # Handwritten replacements can live below hand/functional and other subfolders.
   # Track their contents, not only the immediate directory entry, on edits.
   file(GLOB_RECURSE hand_inputs CONFIGURE_DEPENDS "${config_dir}/hand/*")
+  # The parity check reads the tables of the game's programs and the game's reasons.
+  string(REGEX REPLACE "-.*" "" parity_game "${id}")
+  file(GLOB parity_inputs CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/${parity_game}-*/libraries.tsv"
+       "${OPENRAC_GAME_DIR}/${parity_game}/parity.tsv")
+  list(APPEND parity_inputs "${OPENRAC_PARITY}")
   # A game whose assembly a build without the disc calls through slots (hostgen.json "asm"
   # "interface", tools/hostgen/asmext.py): its program, for the part built from the disc later
   # (asmdev.py), and its symbols exported to that part.
@@ -215,10 +221,13 @@ function(openrac_add_game config)
   add_custom_command(
     OUTPUT "${gen}/hostgen.stamp"
     BYPRODUCTS ${outputs}
+    # Every version of the game binds each function alike, or port/game/<game>/parity.tsv says
+    # why not (tools/versionmap/parity.py): a version that runs other code does not build.
+    COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_PARITY}" --program "${id}"
     COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${config}"
             --source "${game_source}" --out "${gen}" --quiet ${asm_args}
     COMMAND "${CMAKE_COMMAND}" -E touch "${gen}/hostgen.stamp"
-    DEPENDS ${inputs} ${tool} ${tables} ${hand_inputs}
+    DEPENDS ${inputs} ${tool} ${tables} ${hand_inputs} ${parity_inputs}
     COMMENT "hostgen: ${id} from ${game_source}"
     JOB_POOL openrac_hostgen
     VERBATIM)

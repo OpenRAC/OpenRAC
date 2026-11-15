@@ -1,0 +1,104 @@
+# Functions the rac1 programs bind differently, on purpose or known (port/tools/versionmap/parity.py).
+# Every other difference fails the build. Remove a row when the versions agree again.
+# PAL v2.00 name	place (boot or level)	the programs that differ	why
+func_00118A40	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118A70	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118A80	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118B30	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118B40	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118B90	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118BB0	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118BD0	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118C30	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118C50	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118CD0	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118D00	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118D10	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118D20	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118D30	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118D40	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118D50	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118D70	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118D90	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118DB0	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118DD0	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118DF0	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00118E80	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00119328	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00119390	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_001193F8	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00119460	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0011A690	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0011A6C8	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0011B6B8	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0011BF48	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0011D700	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0011E6D8	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0011EF28	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0011F4F8	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00123168	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00124B88	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_001252C0	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00125358	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0012D868	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0012DA30	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_001E97C8	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_001E9E70	boot	rac1-jp,rac1-pal1	the level sky routine (sky.c): release.json omits it in PAL v1.00 and NTSC-J until checked there, so Novalis's clouds stay still there
+func_001EFE10	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_001F7680	00	rac1-pal1	known when this check came in; not reviewed yet
+func_001F9840	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_001FA8F0	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00204340	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0020C468	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_0020C738	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0020C758	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0020FC38	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_002108E0	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00216270	00	rac1-jp,rac1-pal1	known when this check came in; not reviewed yet
+func_00216270	03	rac1-jp,rac1-pal1	known when this check came in; not reviewed yet
+func_00216270	07	rac1-jp,rac1-pal1	known when this check came in; not reviewed yet
+func_00216270	08	rac1-jp,rac1-pal1	known when this check came in; not reviewed yet
+func_00216270	14	rac1-jp,rac1-pal1	known when this check came in; not reviewed yet
+func_00216270	18	rac1-jp,rac1-pal1	known when this check came in; not reviewed yet
+func_0021BB90	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00222848	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00224C30	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_0022D7E0	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_00233AB8	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_001EFFF0	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_001F10E0	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_001F1D20	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_001F2BE8	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_001F34F0	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_001FDE48	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_00200290	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_0020A858	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_00232A00	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_0023A1A0	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_00252D20	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_00254218	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_0025C710	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_0028F210	01	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_00290030	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_0029A7D0	02	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_002E0AE8	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_002E0AE8	boot	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_002E9A40	00	rac1-ntsc	known when this check came in; not reviewed yet
+func_L05_0031AAA8	16	rac1-ntsc	known when this check came in; not reviewed yet
+func_L06_00300AB0	13	rac1-ntsc	known when this check came in; not reviewed yet
+func_L11_0030BCD8	11	rac1-ntsc	known when this check came in; not reviewed yet
+func_L11_0030FB58	12	rac1-ntsc	known when this check came in; not reviewed yet
+func_L17_002F1FE0	17	rac1-ntsc	known when this check came in; not reviewed yet
+func_L17_002F2458	17	rac1-ntsc	known when this check came in; not reviewed yet
+func_L17_002F2BD8	17	rac1-ntsc	known when this check came in; not reviewed yet
+func_L00_001FEE50	row	rac1-jp,rac1-pal1	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it
+func_L00_001FEEC0	row	rac1-jp,rac1-pal1	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it
+func_L00_001FEEF8	row	rac1-jp	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it
+func_L00_001FEF08	row	rac1-jp,rac1-pal1	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it
+func_L00_00286598	row	rac1-jp,rac1-pal1	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it
+func_L03_002DDD58	row	rac1-jp,rac1-pal1	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it
+func_L07_002F9418	row	rac1-jp,rac1-pal1	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it
+func_L07_0030E800	row	rac1-jp,rac1-pal1	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it
+func_L08_002DB448	row	rac1-jp,rac1-pal1	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it
+func_L14_003047D8	row	rac1-jp,rac1-pal1	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it
+func_L18_002FC168	row	rac1-jp,rac1-pal1	a level copy the catalogues do not pair: its row stays at PAL v2.00's address, which here is inside another function; release_rac1.py with the disc's versionmap places it

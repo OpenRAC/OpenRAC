@@ -85,6 +85,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_TRANSFER_PAD08 0x46
 /* The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here). */
 #define RAC1_OMIT_func_001E9E70 1
+/* Level 0's 0x1FEEF8, where PAL v2.00 has a copy of the gp-0x7E94 factor (variants.c): here it is the start of another function, func_L00_001FF2F8's copy, which the carried row replaced; the copy's place here is not paired yet. */
+#define RAC1_OMIT_func_L00_001FEEF8 1
 /* Aridia's counter anchor (hud.c): release_names.json pairs it, D_L02_0015F91C. */
 #define RAC1_ADDR_L02_0x0015FA1Cu 0x0015F91Cu
 /* Aridia's counter anchor (hud.c): release_names.json pairs it, D_L02_0015F920. */
@@ -121,7 +123,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0015EE60u 0x0015ED60u
 #define RAC1_ADDR_0x0015EE64u 0x0015ED64u
 #define RAC1_ADDR_0x0015EE68u 0x0015ED68u
-#define RAC1_ADDR_0x0015EE6Cu 0x0015ED6Cu
 #define RAC1_ADDR_0x0015EE70u 0x0015ED70u
 #define RAC1_ADDR_0x0015EE80u 0x0015ED80u
 #define RAC1_ADDR_0x0015EE84u 0x0015ED84u

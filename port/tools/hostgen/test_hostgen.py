@@ -2021,6 +2021,20 @@ class SharedLibraries(unittest.TestCase):
         self.assertEqual(len(re.findall(r" openrac_lib_\w+\(", header)), len(names))
 
 
+class RowsWithoutFunction(unittest.TestCase):
+    def test_a_row_must_name_a_function(self):
+        # A row that binds nothing would leave the console C running (or a wrap lost) without a
+        # word: hostgen lists it and fails.
+        from program import Function, Program
+        program = Program()
+        program.functions["func_00100000"] = Function("func_00100000", None)
+        program.wrap = {"func_00100000", "func_00100100"}
+        program.hook = {"func_00100200": "Hook"}
+        self.assertEqual(hostgen.rows_without_function(program, {"func_00100000": ("X", ""),
+                                                                 "func_00100300": ("Y", "")}),
+                         ["func_00100100", "func_00100200", "func_00100300"])
+
+
 class VariantCalls(unittest.TestCase):
     def unit(self, places: dict, shared_level=None):
         from lower import Unit

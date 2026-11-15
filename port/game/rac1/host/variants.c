@@ -320,9 +320,11 @@ float func_L00_001FEEC0(float x) {
     return GREF(float, RAC1_ADDR(0x0015EE68u)) * x; /* gp-0x7E98 */
 }
 
+#if !RAC1_OMIT(func_L00_001FEEF8)
 float func_L00_001FEEF8(float x) {
     return GREF(float, RAC1_ADDR(0x0015EE6Cu)) * x; /* gp-0x7E94 */
 }
+#endif
 
 float func_L00_001FEF08(float x) {
     return GREF(float, RAC1_ADDR(0x0015EE70u)) * x; /* gp-0x7E90 */
