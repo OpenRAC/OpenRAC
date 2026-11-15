@@ -64,7 +64,8 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
     if (m_clock_frame != input.frame) {
         if (!m_debug.paused && m_clock_frame != std::numeric_limits<std::uint64_t>::max()
             && input.frame > m_clock_frame) {
-            m_time += double(std::min<std::uint64_t>(input.frame - m_clock_frame, 4)) / 60.;
+            m_time +=
+                double(std::min<std::uint64_t>(input.frame - m_clock_frame, 4)) / input.tick_rate;
         }
         m_clock_frame = input.frame;
     }

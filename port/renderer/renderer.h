@@ -271,6 +271,9 @@ struct FrameInput {
     std::function<void(unsigned, int, int)> after_world_depth;
     // The game's tick this frame shows (the same for the frames drawn between two ticks).
     std::uint64_t frame = 0;
+    // The game's ticks a second: 60, or 50 for Going Commando's PAL. Effects timed by `frame`
+    // count seconds as frame / tick_rate.
+    double tick_rate = 60.0;
     double seconds = 0.0;
     // Opts a known depth hook into resource/dispatch preparation without draws or readbacks.
     bool prepares_world_depth = false;
