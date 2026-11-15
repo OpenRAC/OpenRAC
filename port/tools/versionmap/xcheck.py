@@ -189,7 +189,7 @@ class Game:
         split = set()
         split_pairs = []
         self.split_names = set()
-        sp = self.dir / self.cfg.get("split_places", "split_places.tsv")
+        sp = self.dir / self.cfg.get("split_places", "tables/split_places.tsv")
         if self.cfg.get("split_places") and sp.is_file():
             for line in sp.read_text().splitlines():
                 f = line.split("\t")

@@ -12,9 +12,6 @@
 /* The capsule query's last argument, as this version's C declares it (host/collision.c). */
 #define RAC1_COLL_CAPSULE_IGNORE gaddr
 
-gaddr rac1_ship_destination_text(int id);
-#define RAC1_DESTINATION_TEXT(id) rac1_ship_destination_text(id)
-
 /* Level vtbl records carry moby update functions; the executable's vtbl is an empty sentinel. */
 #define RAC1_MOBY_VTBL(level) rac1_moby_vtbl_address(level)
 
@@ -89,8 +86,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_OMIT_func_001F75D0 1
 /* The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here). */
 #define RAC1_OMIT_func_001E9E70 1
-/* Aridia's counters with "HUD: Edges" (hud.c): NTSC-J's anchors are not paired yet, so that part is left out. */
-#define RAC1_OMIT_func_L02_0023D6E0 1
 /* FontPrintWindow as NTSC-J's own C calls it: its font_print_window_regular (src/versions/jp/game/render/draw/func_001F7560.c) draws with func_J_001F81F8, its own routine, not PAL v2.00's func_001F7070. */
 #define RAC1_FONT_PRINT_WINDOW func_001F81F8
 
@@ -102,10 +97,12 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0010E4C0u 0x0010E4C0u
 #define RAC1_ADDR_0x00137C80u 0x00137C80u
 #define RAC1_ADDR_0x0013CA40u 0x0013CA40u
+#define RAC1_ADDR_0x0013CC04u 0x0013CC04u
 #define RAC1_ADDR_0x0013D010u 0x0013D010u
 #define RAC1_ADDR_0x0013D490u 0x0013D490u
 #define RAC1_ADDR_0x0013D510u 0x0013D510u
 #define RAC1_ADDR_0x0013D5C8u 0x0013D5C8u
+#define RAC1_ADDR_0x0013D618u 0x0013D618u
 #define RAC1_ADDR_0x0013E130u 0x0013E130u
 #define RAC1_ADDR_0x0013E150u 0x0013E150u
 #define RAC1_ADDR_0x0013E15Au 0x0013E15Au
@@ -158,6 +155,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x00160048u 0x00160048u
 #define RAC1_ADDR_0x0016004Cu 0x0016004Cu
 #define RAC1_ADDR_0x00160050u 0x00160050u
+#define RAC1_ADDR_0x001602E0u 0x001602E0u
 #define RAC1_ADDR_0x0016044Cu 0x0016044Cu
 #define RAC1_ADDR_0x0016055Cu 0x0016055Cu
 #define RAC1_ADDR_0x00160588u 0x00160588u
@@ -218,6 +216,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x001D61A0u 0x001D5FA0u
 #define RAC1_ADDR_0x001D61E0u 0x001D5FE0u
 #define RAC1_ADDR_0x001D9A70u 0x001D9870u
+#define RAC1_ADDR_0x001DE0C0u 0x001DDEC0u
 #define RAC1_ADDR_0x001DF3D0u 0x001DFCB0u
 #define RAC1_ADDR_0x001DF770u 0x001DFCB0u
 #define RAC1_ADDR_0x001DFB10u 0x001DFCB0u
@@ -229,9 +228,13 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x0015F044u 0x0015F044u
 #define RAC1_ADDR_L00_0x0015F650u 0x0015F650u
 #define RAC1_ADDR_L00_0x0015F6A8u 0x0015F6A8u
-#define RAC1_ADDR_L00_0x002618D8u 0x00262838u /* GiveItem */
 #define RAC1_ADDR_L00_0x0015F6F8u 0x0015F6F8u
 #define RAC1_ADDR_L00_0x0015F808u 0x0015F808u
+#define RAC1_ADDR_L00_0x0015F8D0u 0x0015F8D0u
+#define RAC1_ADDR_L00_0x0015F8E8u 0x0015F8E8u
+#define RAC1_ADDR_L00_0x0015F8F0u 0x0015F8F0u
+#define RAC1_ADDR_L00_0x0015F8FCu 0x0015F8FCu
+#define RAC1_ADDR_L00_0x0015F900u 0x0015F900u
 #define RAC1_ADDR_L00_0x0015FB28u 0x0015FB28u
 #define RAC1_ADDR_L00_0x0015FB2Cu 0x0015FB2Cu
 #define RAC1_ADDR_L00_0x00160098u 0x00160098u
@@ -257,17 +260,21 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x001C2870u 0x001C2670u
 #define RAC1_ADDR_L00_0x001C3280u 0x001C3080u
 #define RAC1_ADDR_L00_0x001E7F90u 0x001E8390u
+#define RAC1_ADDR_L00_0x002618D8u 0x00262838u
+#define RAC1_ADDR_L02_0x0015FA1Cu 0x0015FA1Cu
+#define RAC1_ADDR_L02_0x0015FA20u 0x0015FA20u
 #define RAC1_ADDR_L03_0x001DC460u 0x001DC860u
 #define RAC1_ADDR_L05_0x00160098u 0x00160098u
 #define RAC1_ADDR_L05_0x001672C0u 0x001672C0u
 #define RAC1_ADDR_L05_0x001AC040u 0x001ABE40u
 #define RAC1_ADDR_L05_0x001B0CB0u 0x001B0AB0u
 #define RAC1_ADDR_L07_0x001D36C0u 0x001D3AC0u
-#define RAC1_ADDR_L07_0x00208820u 0x001D3AC0u
+#define RAC1_ADDR_L07_0x00208820u 0x00208C20u
 #define RAC1_ADDR_L08_0x001D7320u 0x001D7720u
 #define RAC1_ADDR_L09_0x001FCA00u 0x001FCE00u
 #define RAC1_ADDR_L09_0x002F0AA0u 0x002F16D8u
 #define RAC1_ADDR_L11_0x00160058u 0x00160058u
+#define RAC1_ADDR_L11_0x00161240u 0x00161240u
 #define RAC1_ADDR_L11_0x001AC540u 0x001AC340u
 #define RAC1_ADDR_L12_0x001CC1C0u 0x001CC5C0u
 #define RAC1_ADDR_L13_0x00161F18u 0x00161F08u
@@ -282,6 +289,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L13_0x00161F3Cu 0x00161F2Cu
 #define RAC1_ADDR_L13_0x001D9E40u 0x001DA240u
 #define RAC1_ADDR_L14_0x001E9FA0u 0x001EA3A0u
+#define RAC1_ADDR_L17_0x00161240u 0x00161240u
 #define RAC1_ADDR_L18_0x001DFED0u 0x001E02D0u
 
 #endif /* OPENRAC_RAC1_VERSION_H */

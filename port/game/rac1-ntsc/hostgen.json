@@ -164,9 +164,9 @@
   "overrides": "hand/overrides.tsv",
   "drafts": {
     "guard": "NON_MATCHING",
-    "units": "drafts.tsv"
+    "units": "tables/drafts.tsv"
   },
-  "split_places": "split_places.tsv",
+  "split_places": "tables/split_places.tsv",
   "asm": {
     "enabled": true,
     "dirs": ["config/us/overlays/asm", "config/us/expected/asm", "config/us/asm",

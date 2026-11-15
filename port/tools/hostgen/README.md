@@ -240,7 +240,7 @@ table is each game's `no_c.tsv` ([port/game](../../game/README.md#the-functions-
 ```sh
 python3 port/tools/hostgen/no_c.py --game port/game/rac1-pal/hostgen.json \
     --gen port/build/release/games/rac1-pal/gen --source games/rac1 \
-    --image <the PAL disc image> --out port/game/rac1-pal/no_c.tsv
+    --image <the PAL disc image> --out port/game/rac1-pal/checks/no_c.tsv
 ```
 
 ### Checking a translation against retail

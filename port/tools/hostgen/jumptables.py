@@ -176,10 +176,10 @@ def main() -> int:
     r = retail.Retail.from_image(args.image, low)
     report = json.loads(args.report.read_text())
 
-    target = cfg.get("jump_tables", "jump_tables.json")
-    path = args.game.parent / (target if isinstance(target, str) else "jump_tables.json")
+    target = cfg.get("jump_tables", "tables/jump_tables.json")
+    path = args.game.parent / (target if isinstance(target, str) else "tables/jump_tables.json")
     tables = json.loads(path.read_text()) if path.is_file() else {}
-    derived_file = args.game.parent / "derived_names.json"
+    derived_file = args.game.parent / "tables" / "derived_names.json"
     derived = json.loads(derived_file.read_text()) if derived_file.is_file() else {}
     for fn, gotos in sorted(report.get("computed_gotos", {}).items()):
         for g in gotos:

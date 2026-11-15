@@ -7,6 +7,7 @@
       "kind": "fix",
       "name": "Nanotech HUD panel",
       "discs": [
+        "pal",
         "ntsc"
       ],
       "original": "The health HUD draws two partially overlapping background strips for five or eight nanotech orbs.",
@@ -16,7 +17,7 @@
         "default": true
       },
       "refs": [
-        "port/game/rac1-ntsc/host/hud_panels.c"
+        "port/game/rac1/host/hud_panels.c"
       ]
     },
     {

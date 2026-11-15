@@ -606,6 +606,14 @@ def _c_string(text: str | None) -> str:
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def rows_without_function(program: Program, host_rows: dict) -> list[str]:
+    """The library table's host, wrap and hook rows that name no function of the program. Such a
+    row binds nothing: a renamed or moved function would run its console C, or lose its wrap,
+    without a word. hostgen fails on them."""
+    rows = set(host_rows) | program.wrap | set(program.hook)
+    return sorted(sym for sym in rows if sym not in program.functions)
+
+
 def write_libraries(program: Program, out: Path, rows: dict, api: dict) -> int:
     """libraries.c: each library address the game's table binds to a shared
     replacement, as a function of that address calling openrac_lib_<name>."""
@@ -1386,7 +1394,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
                   overridden: set[str], inherited: list[str], asm_stage: dict, asm_results: dict) -> dict | None:
     """Every file after the units': the program's files, the libraries, the hooks, the assembly's,
     units.txt and the report. Returns the report's summary, or None when a hook point has no
-    signature a hook can take (said)."""
+    signature a hook can take or a library row names no function (said)."""
     extra = write_program_files(program, out, cfg.get("title", cfg.get("name", args.game.parent.name)))
     # Places of functions with C that a call through their address does not reach (should be none).
     extra["places_without_function"] = program.places_without_function()
@@ -1400,6 +1408,11 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     extra["unprototyped_callers"] = sorted(getattr(program, "unprototyped_callers", []))
     extra["unresolved_derived"] = dict(sorted(getattr(program, "unresolved_derived", {}).items()))
     extra["bound_libraries"] = write_libraries(program, out, host_rows, library_api(args.game.parent, cfg))
+    extra["rows_without_function"] = rows_without_function(program, host_rows)
+    for sym in extra["rows_without_function"]:
+        print(f"hostgen: error: libraries.tsv binds {sym}, which is no function of this program", file=sys.stderr)
+    if extra["rows_without_function"]:
+        return None
     write_game_info(program, out, cfg)
     extra["hooks"] = sorted(program.hook.values())
     extra["hooks_skipped"] = write_hooks(program, out, cfg.get("title", cfg.get("name", args.game.parent.name)))

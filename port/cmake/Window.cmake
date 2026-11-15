@@ -1185,7 +1185,7 @@ add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
 set_property(TEST water_bake APPEND PROPERTY LABELS baker)
 
 add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c
-  game/rac1/host/water.c)
+  game/rac1/host/water.c game/rac1/host/water_surfaces.c)
 target_include_directories(water_host_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" enhanced/tests/water_host_stubs
   game/rac1-ntsc/host game/common/include runtime/include)
 openrac_warnings(water_host_test)

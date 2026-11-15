@@ -133,13 +133,13 @@
     "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly"
   },
   "derived": {
-    "table": "release_names.json"
+    "table": "release/release_names.json"
   },
   "places": "config/us2/levels/functions.tsv",
-  "split_places": "split_places.tsv",
-  "call_copies": "call_copies.tsv",
-  "level_twins": "level_twins.tsv",
-  "data_copies": "data_copies.tsv",
+  "split_places": "tables/split_places.tsv",
+  "call_copies": "tables/call_copies.tsv",
+  "level_twins": "tables/level_twins.tsv",
+  "data_copies": "tables/data_copies.tsv",
   "calls_as": {
     "L22": {
       "func_L22_002F47E8": "func_00283670",
@@ -439,7 +439,7 @@
     "func_0028EEA8"
   ],
   "params_from_declarations": true,
-  "jump_tables": "jump_tables.json",
+  "jump_tables": "tables/jump_tables.json",
   "overrides": "hand/overrides.tsv",
   "extra_params": {
     "#": "Arguments a function's matching C leaves in their registers for a call it makes; each checked against the retail assembly (the register is the function's own argument).",
@@ -509,7 +509,7 @@
   "tick_rate": 60,
   "release": {
     "version": "us2",
-    "table": "release_names.json"
+    "table": "release/release_names.json"
   },
   "hand": "hand/hand.tsv"
 }

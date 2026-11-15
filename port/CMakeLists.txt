@@ -86,8 +86,7 @@ endif()
 
 enable_testing()
 
-add_executable(rac1_hud_panels_test tests/rac1_hud_panels_test.c
-  game/rac1-ntsc/host/hud_panels.c)
+add_executable(rac1_hud_panels_test tests/rac1_hud_panels_test.c)
 target_include_directories(rac1_hud_panels_test PRIVATE tests/hud_panels_stub)
 add_test(NAME rac1_hud_panels COMMAND rac1_hud_panels_test)
 
@@ -253,7 +252,7 @@ openrac_add_c_test(level_descriptor
   INCLUDES game/common/include runtime/include)
 
 openrac_add_test(ship_destination
-  SOURCES tests/ship_destination_test.cpp game/rac1-pal/host/destinations.c
+  SOURCES tests/ship_destination_test.cpp tests/ship_destination_unit.c
   INCLUDES tests/ship_destination_stubs game/common/include
   LIBS openrac_runtime)
 
@@ -504,6 +503,7 @@ if(OPENRAC_PORT_GAMES)
   set_tests_properties(rac1-ntsc_hand_xcheck PROPERTIES SKIP_RETURN_CODE 77 LABELS game-rac1-ntsc)
   add_test(NAME xcheck_tool
            COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_xcheck.py")
-  add_test(NAME ntsc_twins_tool
-           COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_ntsc_twins.py")
+  # Every rac1 version binds each function, its C type and its data alike, or parity.tsv says why.
+  add_test(NAME parity_tool
+           COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_parity.py")
 endif()

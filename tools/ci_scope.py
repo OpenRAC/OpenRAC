@@ -6,9 +6,11 @@ Pushes and manual runs check everything. A pull request skips what its files can
 the launcher's jobs when it changes only port/, the port's jobs when it changes only launcher/,
 and builds of the games it does not touch, and any build for Markdown that no build or test reads
 (MARKDOWN_READ lists those that are read). A release carried from another (a hostgen.json with
-"release": rac1-pal1, rac1-jp) is built in a pull request only when its own folder changes; Going
-Commando's PAL and USA v2.00 (PLAYED) are built as their own programs, since a change to what they
-share can break them alone (an argument their C drops crashed only there). Anything unclear (a workflow, this file, a failed git call) checks everything.
+"release": rac1-pal1, rac1-jp, rac2-ntsc2, rac2-pal) is built in a pull request when its own
+folder, its game's other port folders or its game's decomp change, not for shared code. Going
+Commando's PAL and USA v2.00 (PLAYED) are built whenever its USA disc is, since a change to what
+they share can break them alone (an argument their C drops crashed only there). Anything unclear
+(a workflow, this file, a failed git call) checks everything.
 `ci_scope.py ios` does the same for the iOS jobs, for pushes too.
 """
 
@@ -139,16 +141,24 @@ def plan(paths, known, shared=frozenset(), removed=frozenset()):
     for path in port_paths:
         bits = path.split("/")
         if bits[:2] == ["port", "game"] and len(bits) > 3 and bits[2] != "common":
-            # port/game/<program>/, or port/game/rac1/ (what rac1's programs share).
-            mine = [p for p in every if p == bits[2] or p.startswith(bits[2] + "-")]
+            # port/game/<program>/, or port/game/rac1/ (what rac1's programs share). A release
+            # carries its game's shared host C and its primary's tables, so a change to either
+            # builds the game's releases too; a release's own folder builds only itself.
+            game = bits[2].split("-")[0]
+            mine = [p for p in every if p == bits[2] or p.startswith(game + "-")]
             if mine:
-                parts.update(p for p in mine if p == bits[2] or not known[p])
+                if bits[2] in known and known[bits[2]]:
+                    parts.add(bits[2])
+                else:
+                    parts.update(p for p in mine if p == bits[2] or p.startswith(bits[2] + "-") or known[p])
                 if bits[2] in shared:
                     parts.add("common")
                     enhanced = True
                 continue
         if bits[0] == "games" and len(bits) > 2:
-            parts.update(p for p in every if p.startswith(bits[1] + "-") and not known[p])
+            # A decomp change reaches every program of the game, its releases too (PAL v1.00's
+            # memory card hang came in with a decomp import).
+            parts.update(p for p in every if p.startswith(bits[1] + "-"))
             continue
         # Anything else the port reads: the shared part and every game it builds itself.
         parts.update(["common", *(p for p in every if not known[p])])

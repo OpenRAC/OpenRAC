@@ -95,6 +95,54 @@ class Pairing:
         self.report: dict[str, dict] = {}
         self.kinds: Counter = Counter()
         self.by_hand: dict[str, str] = {}
+        # Variants split off folded functions (split_places.tsv): v1.01's name -> the release's.
+        self.by_split: dict[str, str] = {}
+        self.split_rows: list[str] = []
+
+    def split_place(self, level: int, address: int) -> int | None:
+        """v1.01's function place LEVEL:ADDRESS in the release: the same copy of the same catalogue
+        row there (the k-th copy in that level), or None."""
+        if not hasattr(self, "_us_owner"):
+            self._us_owner = {pl: n for n, _, _, places in self.us_levels for pl in places}
+            self._r_by_us = {n: places for n, _, _, places in self.r_levels}
+        name = self._us_owner.get((level, address))
+        if name is None:
+            return None
+        theirs = sorted(a for lv, a in self.us_places.get(name, []) if lv == level)
+        mine = sorted(a for lv, a in self._r_by_us.get(name, []) if lv == level)
+        if len(theirs) != len(mine):
+            return None
+        return mine[theirs.index(address)]
+
+    def read_splits(self, text: str) -> None:
+        """The release's split_places.tsv rows, from the primary's. A variant's places are its own
+        places' copies in the release, level by level, never every place of the function it is
+        split off: the catalogue folds the two, so the release's name for the variant is that
+        function's. A variant the catalogue has no row of is named by its first place there."""
+        lines = ["# This release's copy of port/game/rac2-ntsc/tables/split_places.tsv, by its names (release_carry.py).", "#"]
+        for line in text.splitlines():
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 3:
+                lines.append(line)
+                continue
+            places = []
+            for item in cols[2].split(","):
+                lv, _, a = item.strip().partition(":")
+                at = self.split_place(int(lv), int(a, 16)) if a else None
+                if at is not None:
+                    places.append((int(lv), at))
+            parent = self.function(cols[0], "split_places")
+            m = FUNC.fullmatch(cols[1])
+            if m and m.group(1) and cols[1] not in self.us_places and places:
+                variant = f"func_L{places[0][0]:02d}_{places[0][1]:08X}"  # a place, not a row
+                self.by_split[cols[1]] = variant
+            else:
+                variant = self.function(cols[1], "split_places")
+            if variant is None or parent is None or not places:
+                lines.append(f"# not in this release: {line}")
+                continue
+            lines.append("\t".join([parent, variant, ",".join(f"{lv:02d}:{a:08X}" for lv, a in places)] + cols[3:]))
+        self.split_rows = lines
 
     def read_by_hand(self, path: Path) -> None:
         """release_pairs.tsv beside the release's hostgen.json: pairs checked by hand where nothing
@@ -135,6 +183,8 @@ class Pairing:
             return name
         suffix = m.group(3)
         base = name[:len(name) - len(suffix)] if suffix else name
+        if base in self.by_split:
+            return self.by_split[base] + suffix
         new = self.table.name(base)
         how = None
         if base in self.by_hand:
@@ -337,8 +387,8 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     out["skip"] = [other if s in ("src/pal", "src/us2") else s for s in cfg.get("skip", [])]
     out["skip"] = list(dict.fromkeys(out["skip"]))
     out["symbols"] = []
-    out["derived"] = {"table": "release_names.json"}
-    out["release"] = {"version": version, "table": "release_names.json"}
+    out["derived"] = {"table": "release/release_names.json"}
+    out["release"] = {"version": version, "table": "release/release_names.json"}
     out["places"] = f"{info['config']}/levels/functions.tsv"
     out["executable_functions"] = f"{info['config']}/boot/functions.tsv"
     if "formed_as" in cfg:
@@ -434,7 +484,7 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     # "jump_tables": the release's own file beside its hostgen.json, which jumptables.py writes from the
     # release's disc (its tables hold the release's addresses; the labels are the C's).
     if cfg.get("jump_tables"):
-        out["jump_tables"] = "jump_tables.json"
+        out["jump_tables"] = "tables/jump_tables.json"
     # "hand": the release's own C for its own hand-written assembly (func_PAL_...), beside its hostgen.json.
     if (p.out_dir / "hand/hand.tsv").is_file():
         out["hand"] = "hand/hand.tsv"
@@ -514,19 +564,9 @@ def carry_libraries(p: Pairing, text: str) -> str:
 
 
 def carry_split_places(p: Pairing, text: str) -> str:
-    lines = ["# This release's copy of port/game/rac2-ntsc/split_places.tsv, by its names (release_carry.py).", "#"]
-    for line in text.splitlines():
-        cols = line.split("\t")
-        if line.startswith("#") or len(cols) < 3:
-            lines.append(line)
-            continue
-        variant, parent = p.function(cols[0], "split_places"), p.function(cols[1], "split_places")
-        if variant is None or parent is None:
-            lines.append(f"# not in this release: {line}")
-            continue
-        places = ",".join(f"{lv:02d}:{a:08X}" for lv, a in p.r_places.get(variant, []))
-        lines.append("\t".join([variant, parent, places] + cols[3:]))
-    return "\n".join(lines) + "\n"
+    if not p.split_rows:
+        p.read_splits(text)
+    return "\n".join(p.split_rows) + "\n"
 
 
 HOST_FUNC = re.compile(r"\bfunc_(?:L\d\d_)?[0-9A-F]{8}((?:_\w+)?)\b")
@@ -580,7 +620,7 @@ def constants(p: Pairing, code: dict[str, str], version: str) -> list[str]:
         return []
     out = ["/* Constants of the game's code (RAC2_K): the same instruction's in this release. */"]
     by_hand = {}
-    path = p.out_dir / "release_constants.tsv"
+    path = p.out_dir / "release" / "release_constants.tsv"
     if path.is_file():
         for line in path.read_text().splitlines():
             cols = line.split("\t")
@@ -887,18 +927,19 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     out_dir = args.game.parent
     cfg = json.loads(args.primary.read_text())
-    table = rel.Release.load(out_dir / "release_names.json")
+    table = rel.Release.load(out_dir / "release" / "release_names.json")
     carry_path = args.source / rel.RELEASES[args.version]["build"] / "carry.json"
     carry = json.loads(carry_path.read_text()) if carry_path.is_file() else None
     vmap = json.loads(args.map.read_text()) if args.map else None
     p = Pairing(args.source, args.version, table, vmap, carry)
-    p.read_by_hand(out_dir / "release_pairs.tsv")
+    p.read_by_hand(out_dir / "release" / "release_pairs.tsv")
     p.primary_dir = args.primary.parent
     p.out_dir = out_dir
+    p.read_splits((args.primary.parent / "tables" / "split_places.tsv").read_text())
     new_cfg = carry_config(p, cfg, args.version)
     primary = args.primary.parent
     libraries = carry_libraries(p, (primary / "libraries.tsv").read_text())
-    extra = out_dir / "release_extra.json"
+    extra = out_dir / "release" / "release_extra.json"
     if extra.is_file() and json.loads(extra.read_text()).get("libraries"):
         # Rows of the release's own (release_extra.json "libraries"): a level copy its catalogue names apart.
         libraries += "# This release's own rows (release_extra.json).\n" + "".join(
@@ -926,7 +967,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.primary_protos:
         add_signatures(p, new_cfg, cfg, (primary / "libraries.tsv").read_text(), args.primary_protos.read_text())
     args.game.write_text(json.dumps(new_cfg, indent=2) + "\n")
-    (out_dir / "split_places.tsv").write_text(carry_split_places(p, (primary / "split_places.tsv").read_text()))
+    (out_dir / "tables" / "split_places.tsv").write_text(carry_split_places(p, (primary / "tables" / "split_places.tsv").read_text()))
     if cfg.get("overrides"):
         carry_overrides(p, primary / cfg["overrides"], out_dir / cfg["overrides"])
     host = out_dir / "host"
@@ -941,7 +982,7 @@ def main(argv: list[str] | None = None) -> int:
     report = {"about": "How release_carry.py paired what the primary release's port names: what rests on less "
                        "than the same code, and what it found nowhere.", "counts": dict(sorted(p.kinds.items())),
               **p.report}
-    (out_dir / "release_carry.json").write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
+    (out_dir / "release" / "release_carry.json").write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
     print(f"release_carry: {out_dir}: " + ", ".join(f"{k} {v}" for k, v in sorted(p.kinds.items())))
     return 0
 

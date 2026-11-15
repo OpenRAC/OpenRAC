@@ -122,6 +122,15 @@ jobs:
       - name: PAL and NTSC rendering host-hook parity
         run: python -m unittest discover -s port/tools/hostgen -p test_host_hook_parity.py -v
 
+      # Every game version's tables, with no disc (port/tools/versionmap/check_versions.py): each
+      # version binds each function alike or its game's parity.tsv says why, carried releases'
+      # tables are what their tool writes, and each version's names table covers the shared host C.
+      # A new game or version is found by its files, so this step does not change.
+      - name: Game versions' tables
+        run: |
+          python -m unittest discover -s port/tools/versionmap -p test_parity.py -v
+          python port/tools/versionmap/check_versions.py
+
       - name: Level editor (synthetic data only)
         run: python -m unittest discover -s editor -v
 

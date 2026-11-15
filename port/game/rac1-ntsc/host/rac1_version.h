@@ -307,6 +307,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_001FD3E8 game_FUN_001fce28
 #define func_001FD3E8__game game_FUN_001fce28__game
 #define RAC1_ADDR_L00_0x0015F808u 0x0015F728u
+#define RAC1_ADDR_L00_0x0015F8D0u 0x0015F7F0u
+#define RAC1_ADDR_L00_0x0015F8E8u 0x0015F808u
+#define RAC1_ADDR_L00_0x0015F8F0u 0x0015F810u
+#define RAC1_ADDR_L00_0x0015F8FCu 0x0015F81Cu
+#define RAC1_ADDR_L00_0x0015F900u 0x0015F820u
 #define RAC1_ADDR_L00_0x0015FB28u 0x0015FA70u
 #define RAC1_ADDR_L00_0x0015FB2Cu 0x0015FA74u
 /* The title loop's exit (front_end.c title_exit), PAL space_load_pending D_0015F690, which
@@ -337,6 +342,17 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * (src/overlays/l02/hud_counter.c, read by draw_hud_counter FUN_L02_0023cda8). */
 #define RAC1_ADDR_L02_0x0015FA1Cu 0x0015F944u
 #define RAC1_ADDR_L02_0x0015FA20u 0x0015F948u
+
+/* The ship computer's list (rac1/host/destinations.c): the NTSC decomp declares FUN_00221800
+ * (the same bytes as PAL's) as void (menu, s32). */
+#define RAC1_SHIP_MENU_RESULT void
+#define RAC1_SHIP_MENU_PARAMS gaddr menu, int unused
+#define RAC1_SHIP_MENU_CALL(menu) (func_00222848__game(menu, unused), 0)
+#define RAC1_SHIP_MENU_RETURN(result)                                                              \
+    do {                                                                                           \
+        (void)(result);                                                                            \
+        return;                                                                                    \
+    } while (0)
 
 /* draw_visibomb_outside_zone_overlay in the NTSC decomp's visibomb_zone_timer.c:
  * PAL's DrawTiledScreenOverlay (func_L01_00303810), including the retail call under the wrap. */
@@ -398,6 +414,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_002781D8 game_FUN_L00_002772c0
 #define func_L00_002781D8__game game_FUN_L00_002772c0__game
 #define func_00200248 game_FUN_001ffa10
+#define func_00200198 game_FUN_001ff960
+/* draw_health_hud_panel (rac1/host/hud_panels.c). */
+#define func_L00_0023A1A0 game_FUN_L00_00239810
+#define func_L00_0023A1A0__game game_FUN_L00_00239810__game
 #define func_00200468 game_FUN_001ffc30
 #define func_00200468__game game_FUN_001ffc30__game
 #define func_00200650 game_FUN_001ffe18
@@ -718,5 +738,30 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L14_0x001E9FA0u 0x001E9C60u
 #define RAC1_ADDR_L18_0x001DFED0u 0x001DFC10u
 #define RAC1_ADDR_0x00160020u 0x0015FF20u
+/* Pokitaru's ocean and Fleet's pools (rac1/host/water_surfaces.c): the level chain's cursor. */
+#define RAC1_ADDR_L11_0x00161240u 0x001611C0u
+#define RAC1_ADDR_L17_0x00161240u 0x001611C0u
+#define func_L17_002F1FE0 game_FUN_L17_002f04d0
+#define func_L17_002F1FE0__game game_FUN_L17_002f04d0__game
+#define func_L17_002F2458 game_FUN_L17_002f0948
+#define func_L17_002F2458__game game_FUN_L17_002f0948__game
+#define func_L17_002F2BD8 game_FUN_L17_002f10c8
+#define func_L17_002F2BD8__game game_FUN_L17_002f10c8__game
+#define func_L00_001FDE48 game_FUN_L00_001fde98
+#define func_L00_001FDE48__game game_FUN_L00_001fde98__game
+#define func_L11_0030BCD8 game_FUN_L11_0030a908
+#define func_L11_0030BCD8__game game_FUN_L11_0030a908__game
+
+/* The ship computer's destinations (rac1/host/destinations.c). */
+#define RAC1_ADDR_0x001602E0u 0x001601E0u
+#define RAC1_ADDR_0x0013D618u 0x0013D510u
+#define RAC1_ADDR_0x001DE0C0u 0x001DDD40u
+#define RAC1_ADDR_0x0013CC04u 0x0013CB04u
+#define func_0021BB90 game_FUN_0021abf8
+#define func_0021BB90__game game_FUN_0021abf8__game
+#define func_00222848 game_FUN_00221800
+#define func_00222848__game game_FUN_00221800__game
+#define func_L00_00290030 game_FUN_L00_0028ed58
+#define func_L00_00290030__game game_FUN_L00_0028ed58__game
 
 #endif /* OPENRAC_RAC1_VERSION_H */

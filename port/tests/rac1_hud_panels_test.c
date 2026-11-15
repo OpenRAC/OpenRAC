@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "game_protos.h"
-#include "openrac/game_host.h"
+
+#include "rac1.h"
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "%d: %s\n", __LINE__, #c); exit(1); } } while (0)
 
 static uint32_t memory[0x200000 / 4];
@@ -122,3 +122,6 @@ int main(void) {
     CHECK(game_FUN_L00_00239810(element) == 73 && count == 0 && original_cap == 32);
     return 0;
 }
+
+/* The shared host C, with the NTSC names above (tests/hud_panels_stub/rac1.h). */
+#include "../game/rac1/host/hud_panels.c"

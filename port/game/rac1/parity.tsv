@@ -1,0 +1,68 @@
+# Functions the rac1 programs bind differently, on purpose or known (port/tools/versionmap/parity.py).
+# Every other difference fails the build. Remove a row when the versions agree again.
+# PAL v2.00 name	place (boot or level)	the programs that differ	why
+# Also: a name, "sig" (its row's C type differs); an address (L13:001D9E40), "data" (no evidence for it).
+func_00118A40	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118A70	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118A80	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118B30	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118B40	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118B90	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118BB0	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118BD0	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118C30	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118C50	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118CD0	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118D00	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118D10	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118D20	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118D30	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118D40	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118D50	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118D70	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118D90	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118DB0	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118DD0	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118DF0	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00118E80	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_00119328	boot	rac1-ntsc	a console library function: PAL runs the decomp's C, which reaches the port through what it calls (its row says how); NTSC's row answers with the port's own function of the same job
+func_00119390	boot	rac1-ntsc	a console library function: PAL runs the decomp's C, which reaches the port through what it calls (its row says how); NTSC's row answers with the port's own function of the same job
+func_001193F8	boot	rac1-ntsc	a console library function: PAL runs the decomp's C, which reaches the port through what it calls (its row says how); NTSC's row answers with the port's own function of the same job
+func_00119460	boot	rac1-ntsc	a console library function: PAL runs the decomp's C, which reaches the port through what it calls (its row says how); NTSC's row answers with the port's own function of the same job
+func_0011A690	boot	rac1-ntsc	a debug print: PAL's goes to the port's log (rac1-pal/host/kprintf.c), NTSC runs its decomp's C (src/sdk/deci2); the game is the same
+func_0011A6C8	boot	rac1-ntsc	a debug print: PAL's goes to the port's log (rac1-pal/host/kprintf.c), NTSC runs its decomp's C (src/sdk/deci2); the game is the same
+func_0011B6B8	boot	rac1-ntsc	a console library function: PAL runs the decomp's C, which reaches the port through what it calls (its row says how); NTSC's row answers with the port's own function of the same job
+func_0011BF48	boot	rac1-ntsc	a console library function: PAL runs the decomp's C, which reaches the port through what it calls (its row says how); NTSC's row answers with the port's own function of the same job
+func_0011D700	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_0011E6D8	boot	rac1-ntsc	double to unsigned 64-bit: PAL's is libgcc's assembly, which the port answers; NTSC runs its decomp's C (src/sdk/soft_float/__fixunsdfdi.c), the same conversion
+func_0011EF28	boot	rac1-ntsc	64-bit divide: NTSC's newlib calls it by name and hostgen skips its libgcc assembly, so the port answers; PAL's C never calls it (the host compiler divides)
+func_0011F4F8	boot	rac1-ntsc	64-bit divide: NTSC's newlib calls it by name and hostgen skips its libgcc assembly, so the port answers; PAL's C never calls it (the host compiler divides)
+func_00123168	boot	rac1-ntsc	a console library function: PAL runs the decomp's C, which reaches the port through what it calls (its row says how); NTSC's row answers with the port's own function of the same job
+func_00124B88	boot	rac1-ntsc	a console library function: PAL runs the decomp's C, which reaches the port through what it calls (its row says how); NTSC's row answers with the port's own function of the same job
+func_001252C0	boot	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_0012D868	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_0012DA30	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
+func_001EFE10	boot	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_001F7680	00	rac1-pal1	PAL v1.00's executable has no copy of it, so its row binds level 0's (release_carry.json); NTSC leaves it out (its boot loop draws with draw_bootImage)
+func_001FA8F0	boot	rac1-ntsc	the NTSC decomp's level C calls the executable's fast_bsphere_check (FUN_001fa728), PAL's calls the levels' FastBSphereCheck: each program wraps the one its game calls (rac1-ntsc/host/rac1_version.h maps the name)
+func_0020C468	00	rac1-ntsc	WadDecompress: the NTSC decomp's catalogue lists the levels' copy apart from the executable's, so it has a row of its own (rac1/host/hand.c); PAL's one name covers both
+func_0020C738	boot	rac1-ntsc	WadDecompress's hand-written helpers: nothing in the port calls them (WadDecompress itself is the port's), so NTSC needs no row
+func_0020C758	boot	rac1-ntsc	WadDecompress's hand-written helpers: nothing in the port calls them (WadDecompress itself is the port's), so NTSC needs no row
+func_0020FC38	boot	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_002108E0	boot	rac1-ntsc	the NTSC decomp names the executable's copy and every level's as one function (FUN_0020fa90), so its one row binds both; PAL binds the levels' copy and runs the executable's decomp C (the same instructions)
+func_L00_001EFFF0	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_L00_001F10E0	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_L00_001F1D20	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_L00_001F2BE8	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_L00_001F34F0	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_L00_00200290	00	rac1-ntsc	the NTSC decomp's level C calls the executable's fast_bsphere_check (FUN_001fa728), PAL's calls the levels' FastBSphereCheck: each program wraps the one its game calls (rac1-ntsc/host/rac1_version.h maps the name)
+func_L00_00252D20	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_L00_00254218	00	rac1-ntsc	the NTSC decomp names the executable's copy and every level's as one function (FUN_0020fa90), so its one row binds both; PAL binds the levels' copy and runs the executable's decomp C (the same instructions)
+func_L00_002E0AE8	00	rac1-ntsc	the NTSC decomp's catalogue has this function in the executable too (boot:0023A2C0), and NTSC's hook binds it there; PAL binds level 0's place of the same function
+func_L00_002E0AE8	boot	rac1-ntsc	the NTSC decomp's catalogue has this function in the executable too (boot:0023A2C0), and NTSC's hook binds it there; PAL binds level 0's place of the same function
+func_00222848	sig	rac1-ntsc	the NTSC decomp declares the ship menu's builder void (menu, s32); rac1-ntsc's rac1_version.h gives destinations.c that shape (RAC1_SHIP_MENU_*)
+func_L00_0025AC00	sig	rac1-ntsc	the NTSC decomp puts PostHitMessage's damage last; rac1-ntsc's rac1_version.h maps world.c's call to that order
+func_L01_002F74D0	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
+func_L01_002F7528	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
+func_L01_002FFF00	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
+func_L01_0030AFD0	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
