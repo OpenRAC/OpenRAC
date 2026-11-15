@@ -1,0 +1,5 @@
+# Calls whose C reads a result the callee's definition does not return in that register, which the
+# translation takes as 0 (hostgen.json "result_allow", hostgen.py result_guard). Each row says why 0
+# is right here: the value goes nowhere, or the port has nothing the retail value would mean.
+# A call whose value nothing reads (an expression statement) is not listed.
+# caller	callee	reason

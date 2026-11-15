@@ -10,6 +10,8 @@ is game code, except the paired colour-write regression below.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import re
 import shutil
@@ -4296,6 +4298,60 @@ class AssemblyGuard(unittest.TestCase):
         got = hostgen.assembly_guard(self.summary(), {"func_A": "why", "func_Z": "why"})
         self.assertEqual(got["assembly_unallowed"], ["func_E"])
         self.assertEqual(got["assembly_allow_unused"], ["func_Z"])
+
+
+class ResultGuard(unittest.TestCase):
+    """hostgen.json "result_allow": a call reading a result its callee does not set, taken as 0."""
+
+    def run_hostgen(self, allow: str | None) -> tuple[int, dict]:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            src = tmp / "game"
+            (src / "include").mkdir(parents=True)
+            (src / "include" / "common.h").write_text(COMMON_H)
+            (src / "src").mkdir()
+            (src / "src" / "callee.c").write_text('#include "common.h"\nvoid func_B(int x) { (void)x; }\n'
+                                                   'float func_C(void) { return 1.0f; }\n')
+            (src / "src" / "caller.c").write_text(textwrap.dedent("""\
+                #include "common.h"
+                int func_B(int x);
+                int func_C(void);
+                int func_A(int x) { func_B(x); (void)func_C(); return func_B(x) + func_C(); }
+                """))
+            cfg = {"name": "test", "sources": ["src"], "includes": ["include", "src"],
+                   "host_functions": HOST_FUNCTIONS}
+            if allow is not None:
+                (tmp / "result_allow.tsv").write_text(allow)
+                cfg["result_allow"] = "result_allow.tsv"
+            (tmp / "hostgen.json").write_text(json.dumps(cfg))
+            out = tmp / "gen"
+            with contextlib.redirect_stderr(io.StringIO()):
+                rc = hostgen.main(["--game", str(tmp / "hostgen.json"), "--source", str(src), "--out", str(out),
+                                   "--jobs", "1", "--quiet"])
+            return rc, json.loads((out / "report.json").read_text())
+
+    def test_a_read_result_is_listed_and_a_discarded_one_is_not(self):
+        rc, report = self.run_hostgen(None)
+        self.assertEqual(rc, 0)  # a game without the table is not checked
+        self.assertEqual(report["results_zeroed"], {"func_A": ["func_B", "func_C"]})
+        self.assertEqual(report["extern_result_mismatch"]["func_C"],
+                         {"returns": "float", "read_as": {"int": ["func_A"]}, "used_by": ["func_A"]})
+
+    def test_a_call_without_a_row_fails_the_run(self):
+        rc, report = self.run_hostgen("func_A\tfunc_B\tits caller adds a value nobody reads\n")
+        self.assertEqual(rc, 1)
+        self.assertEqual(report["results_zeroed_unallowed"], ["func_A\tfunc_C"])
+
+    def test_every_call_allowed_passes_and_a_stale_row_fails(self):
+        rows = "func_A\tfunc_B\twhy\nfunc_A\tfunc_C\twhy\n"
+        self.assertEqual(self.run_hostgen(rows)[0], 0)
+        rc, report = self.run_hostgen(rows + "func_A\tfunc_Z\twhy\n")
+        self.assertEqual(rc, 1)
+        self.assertEqual(report["result_allow_unused"], ["func_A\tfunc_Z"])
+
+    def test_a_row_needs_a_reason(self):
+        with self.assertRaises(SystemExit):
+            self.run_hostgen("func_A\tfunc_B\n")
 
 if __name__ == "__main__":
     unittest.main()
