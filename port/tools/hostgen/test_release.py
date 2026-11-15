@@ -232,14 +232,14 @@ class Committed(unittest.TestCase):
         source = REPO / "games/rac2/decomp"
         if not (source / "config/pal/levels/functions.tsv").is_file():
             self.skipTest("no rac2-decomp here")
-        primary = (REPO / "port/game/rac2-ntsc/split_places.tsv").read_text()
+        primary = (REPO / "port/game/rac2-ntsc/tables/split_places.tsv").read_text()
         for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
             folder = REPO / "port/game" / game
-            p = release_carry.Pairing(source, version, release.Release.load(folder / "release_names.json"), None, None)
-            p.read_by_hand(folder / "release_pairs.tsv")
+            p = release_carry.Pairing(source, version, release.Release.load(folder / "release" / "release_names.json"), None, None)
+            p.read_by_hand(folder / "release" / "release_pairs.tsv")
             p.read_splits(primary)
             with self.subTest(game=game):
-                self.assertEqual("\n".join(p.split_rows) + "\n", (folder / "split_places.tsv").read_text())
+                self.assertEqual("\n".join(p.split_rows) + "\n", (folder / "tables" / "split_places.tsv").read_text())
                 levels = {r.split("\t")[1]: {x[:2] for x in r.split("\t")[2].split(",")}
                           for r in p.split_rows if not r.startswith("#")}
                 self.assertEqual(levels[p.by_split["func_L08_002F2C48"]], {"08", "09", "19", "30"})
@@ -248,9 +248,9 @@ class Committed(unittest.TestCase):
         for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
             cfg = json.loads((REPO / "port/game" / game / "hostgen.json").read_text())
             with self.subTest(game=game):
-                self.assertEqual(cfg["release"], {"version": version, "table": "release_names.json"})
-                self.assertEqual(cfg["derived"], {"table": "release_names.json"})
-                self.assertTrue((REPO / "port/game" / game / "release_names.json").is_file())
+                self.assertEqual(cfg["release"], {"version": version, "table": "release/release_names.json"})
+                self.assertEqual(cfg["derived"], {"table": "release/release_names.json"})
+                self.assertTrue((REPO / "port/game" / game / "release" / "release_names.json").is_file())
                 self.assertEqual(cfg["host_shared"], ["../rac2/host"])
 
 

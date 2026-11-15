@@ -10,7 +10,7 @@ fcheck says SAME on real calls of the retail game; one fcheck cannot reach is
   /opt/homebrew/bin/python3 tools/fcheck_gate.py run --only func_001F7E98 ...
   /opt/homebrew/bin/python3 tools/fcheck_gate.py report [--strict]     summary of the verdicts already in the tables
   /opt/homebrew/bin/python3 tools/fcheck_gate.py us                    US: record "unchecked (no US oracle)" in port/game/rac1-ntsc/hand/fcheck.tsv
-  /opt/homebrew/bin/python3 tools/fcheck_gate.py run --game rac2       rac2 USA v1.01: rac2-decomp's nonmatching/functional.tsv -> port/game/rac2-ntsc/fcheck.tsv
+  /opt/homebrew/bin/python3 tools/fcheck_gate.py run --game rac2       rac2 USA v1.01: rac2-decomp's nonmatching/functional.tsv -> port/game/rac2-ntsc/checks/fcheck.tsv
   /opt/homebrew/bin/python3 tools/fcheck_gate.py report --game rac2
   /opt/homebrew/bin/python3 tools/fcheck_gate.py calibrate [--mutants N]   rac2: the harness's acceptance test on matched C
 
@@ -33,7 +33,7 @@ git-ignored build-sn/.
 
 Verdicts, written to OpenRAC-owned files keyed by function name (the backfill
 tables themselves, synced from rac1-decomp or read by hostgen, are never
-touched): port/game/rac1-pal/fcheck.tsv for functional.tsv and
+touched): port/game/rac1-pal/checks/fcheck.tsv for functional.tsv and
 port/game/rac1-ntsc/hand/fcheck.tsv for hand.tsv. Columns:
 
   status  same            fcheck compared real calls and everything matched
@@ -80,10 +80,10 @@ US_TABLE = ROOT / "port/game/rac1-ntsc/hand/hand.tsv"
 # The port's own C for PAL: hostgen places a hand row before a candidate of the same name, so a
 # functional.tsv row that is also here is not the C the port runs (its verdict says so).
 PAL_HAND = ROOT / "port/game/rac1-pal/hand/hand.tsv"
-PAL_VERDICTS = ROOT / "port/game/rac1-pal/fcheck.tsv"
-RAC2_RUN_VERDICTS = ROOT / "port/game/rac2-ntsc/fcheck_run.tsv"
+PAL_VERDICTS = ROOT / "port/game/rac1-pal/checks/fcheck.tsv"
+RAC2_RUN_VERDICTS = ROOT / "port/game/rac2-ntsc/checks/fcheck_run.tsv"
 # Functions whose DIFFERS is known not to be a difference of the C (name<TAB>reason), recorded by hand.
-PAL_ARTEFACTS = ROOT / "port/game/rac1-pal/fcheck_artefacts.tsv"
+PAL_ARTEFACTS = ROOT / "port/game/rac1-pal/checks/fcheck_artefacts.tsv"
 US_VERDICTS = ROOT / "port/game/rac1-ntsc/hand/fcheck.tsv"
 PYTHON = "/opt/homebrew/bin/python3" if Path("/opt/homebrew/bin/python3").exists() else sys.executable
 HEADER = "name\tstatus\tdate\tfcheck\tcsum\tnote"
@@ -762,8 +762,8 @@ class Profile:
 RAC2 = Profile(
     key="rac2-ntsc", game="rac2", version="ntsc",
     table="nonmatching/functional.tsv",                         # in the rac2-decomp checkout
-    verdicts=ROOT / "port/game/rac2-ntsc/fcheck.tsv",
-    artefacts=ROOT / "port/game/rac2-ntsc/fcheck_artefacts.tsv",
+    verdicts=ROOT / "port/game/rac2-ntsc/checks/fcheck.tsv",
+    artefacts=ROOT / "port/game/rac2-ntsc/checks/fcheck_artefacts.tsv",
     disc="baserom/SCUS_972.68.iso", boot_elf="baserom/SCUS_972.68",   # two PT_LOADs (load_segments)
     boot_catalogue="config/boot/functions.tsv",                 # name, address, size
     level_catalogue="config/levels/functions.tsv",              # name, kind, size, fp, levels, NN:ADDR places

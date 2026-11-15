@@ -208,9 +208,9 @@ function(openrac_add_game config)
   string(REGEX REPLACE "-.*" "" parity_game "${id}")
   file(GLOB parity_inputs CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/${parity_game}-*/libraries.tsv"
        "${OPENRAC_GAME_DIR}/${parity_game}-*/host/${parity_game}_version.h"
-       "${OPENRAC_GAME_DIR}/${parity_game}-*/release_names.json"
-       "${OPENRAC_GAME_DIR}/${parity_game}-*/release_carry.json"
-       "${OPENRAC_GAME_DIR}/${parity_game}-*/data_moves.tsv"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/release/release_names.json"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/release/release_carry.json"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/release/data_moves.tsv"
        "${OPENRAC_GAME_DIR}/${parity_game}/parity.tsv")
   get_filename_component(parity_dir "${OPENRAC_PARITY}" DIRECTORY)
   list(APPEND parity_inputs "${OPENRAC_PARITY}" "${parity_dir}/data_moves.py")

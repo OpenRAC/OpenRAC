@@ -17,7 +17,7 @@ caller's, in bytes. own: the callee's place in home. exe: the jal's target in th
 of the caller, or 0.
 
     python3 port/tools/hostgen/copycalls.py --source games/rac2/decomp \\
-        --out port/game/rac2-ntsc/call_copies.tsv
+        --out port/game/rac2-ntsc/tables/call_copies.tsv
 """
 from __future__ import annotations
 

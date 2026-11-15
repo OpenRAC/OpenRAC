@@ -77,8 +77,10 @@ class Parity(unittest.TestCase):
 
     def test_a_split_variant_is_read_at_its_own_places(self):
         # b's split_places.tsv keeps a's name for the variant, with b's places.
-        (self.root / "port/game/toy-a/split_places.tsv").write_text("func_00100100\tfunc_L03_00300000\t03:00300000\n")
-        (self.root / "port/game/toy-b/split_places.tsv").write_text("func_00100100\tfunc_L03_00300000\t03:00300100\n")
+        (self.root / "port/game/toy-a/tables").mkdir()
+        (self.root / "port/game/toy-a/tables/split_places.tsv").write_text("func_00100100\tfunc_L03_00300000\t03:00300000\n")
+        (self.root / "port/game/toy-b/tables").mkdir()
+        (self.root / "port/game/toy-b/tables/split_places.tsv").write_text("func_00100100\tfunc_L03_00300000\t03:00300100\n")
         row = "func_L03_00300000\tx\tv\thost\n"
         self.assertEqual(self.tables(row, row), [])
         errors = self.tables(row, "")
@@ -97,7 +99,8 @@ class Parity(unittest.TestCase):
     def test_a_data_address_with_nothing_behind_it(self):
         b = self.root / "port/game/toy-b"
         (b / "host").mkdir()
-        (b / "release_names.json").write_text(json.dumps({
+        (b / "release").mkdir()
+        (b / "release/release_names.json").write_text(json.dumps({
             "how": {"D_L17_00160000": "x", "D_L17_00160100": "x", "D_00130000": "x"},
             "names": {"D_L17_00160000": "D_L17_0015FF00", "D_L17_00160100": "D_L17_00160000"}}))
         header = b / "host/rac1_version.h"
@@ -117,19 +120,20 @@ class Parity(unittest.TestCase):
     def test_the_map_checks_named_data_too(self):
         b = self.root / "port/game/toy-b"
         (b / "host").mkdir()
+        (b / "release").mkdir()
         # rac1-decomp named the wrong datum: the check gave L07:00208820 its neighbour's place.
-        (b / "release_names.json").write_text(json.dumps({
+        (b / "release/release_names.json").write_text(json.dumps({
             "how": {"D_L07_00208820": "x"}, "names": {"D_L07_00208820": "D_L07_001D3300"}}))
         vmap = {"programs": {"level:07": {"data": {"001D36C0": "001D3300", "00208820": "00208460",
                                                    "00208830": "00208470"}}}}
-        (b / "data_moves.tsv").write_text(data_moves.write(vmap, "toy-b"))
+        (b / "release/data_moves.tsv").write_text(data_moves.write(vmap, "toy-b"))
         header = b / "host/rac1_version.h"
         header.write_text("#define RAC1_ADDR_L07_0x00208820u 0x001D3300u\n")
         errors = self.tables("", "")
         self.assertEqual(len(errors), 1, errors)
         self.assertIn("data_moves.tsv) places it at 00208460", errors[0])
         # The map alone vouches for an unnamed address inside one of its runs.
-        (b / "release_names.json").write_text(json.dumps({"how": {}, "names": {}}))
+        (b / "release/release_names.json").write_text(json.dumps({"how": {}, "names": {}}))
         header.write_text("#define RAC1_ADDR_L07_0x00208828u 0x00208468u\n")
         self.assertEqual(self.tables("", ""), [])
 

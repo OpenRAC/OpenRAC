@@ -197,7 +197,7 @@ entry point inside another function). The log says what was renamed.
 The verdicts are kept in files OpenRAC owns, one per backfill table and keyed
 by function name, so the tables themselves (`functional.tsv` is synced from
 rac1-decomp, both are read by hostgen) are never changed:
-`port/game/rac1-pal/fcheck.tsv` for `nonmatching/functional.tsv` and
+`port/game/rac1-pal/checks/fcheck.tsv` for `nonmatching/functional.tsv` and
 `port/game/rac1-ntsc/hand/fcheck.tsv` for `hand/hand.tsv`. Columns, after
 `name`:
 
@@ -215,7 +215,7 @@ verdict has not been through the gate.
 
 **`same-run`: C the gate cannot run.** fcheck delivers no interrupts, frames or disc, so a function
 that waits on them is `unchecked`. Such a function can get a weaker verdict, `same-run`, kept apart in
-`port/game/rac2-ntsc/fcheck_run.tsv`: a whole headless run with the function's calls sent to the C
+`port/game/rac2-ntsc/checks/fcheck_run.tsv`: a whole headless run with the function's calls sent to the C
 (`openrac-boot --swap`), whose main memory at a field (`--dump-ram`) equals a plain run's under the same
 script and `OPENRAC_CLOCK`, leaving out the C's code and the stack. It says less than `same`: it compares
 memory once, at that field, not the result, kept registers or device order of each call, and covers only
@@ -318,9 +318,9 @@ python3 tools/fcheck_gate.py report --game rac2
 python3 tools/fcheck_gate.py calibrate -j 16 --mutants 20    # the harness's own test (below)
 ```
 
-The verdicts go to `port/game/rac2-ntsc/fcheck.tsv` (same columns; `fcheck` is
+The verdicts go to `port/game/rac2-ntsc/checks/fcheck.tsv` (same columns; `fcheck` is
 the rac2-decomp commit), known harness artefacts to
-`port/game/rac2-ntsc/fcheck_artefacts.tsv`. States, test copies and logs are in
+`port/game/rac2-ntsc/checks/fcheck_artefacts.tsv`. States, test copies and logs are in
 the ignored `build/fcheck/rac2-ntsc/` (states are about 5 MB each, level 00's about 16). A single
 function can be checked from rac2-decomp directly:
 `RAC2_FCHECK_STATES=<OpenRAC>/build/fcheck/rac2-ntsc/states python3
@@ -361,7 +361,7 @@ C's.
 **A translation through the gate.** A function hostgen translates from assembly has no row, but
 the same check answers for it: `hostgen.py --asm-console DIR --asm-console-names FILE` writes each
 named function in the console's form, and `tools/fcheck.py check NAME DIR/NAME.c` runs that
-against retail. `port/game/rac2-ntsc/fcheck_asm.tsv` keeps those verdicts (columns: name, status,
+against retail. `port/game/rac2-ntsc/checks/fcheck_asm.tsv` keeps those verdicts (columns: name, status,
 level, calls, note). It proves the console form: the host build is the same text with hostgen's
 host macros, which only play proves. Three things to know: a whole kernel needs
 `RAC2_FCHECK_OPT=-O1`, since cc1 runs out of address space at -O2, and the driver sends a branch
@@ -386,7 +386,7 @@ difference is noted in the file, never counted as `same`.
   in as the candidate (a top-level `__asm__` block); if that gets the same
   DIFFERS, the C is not the cause. Such a function, and one whose difference
   is the host having no hardware to act on (FlushCache), goes in
-  `port/game/rac1-pal/fcheck_artefacts.tsv` with the reason; the gate then
+  `port/game/rac1-pal/checks/fcheck_artefacts.tsv` with the reason; the gate then
   writes it as `unchecked` with that reason, never as `same`.
 
 A report line that says a backfill is finished without one of those is
@@ -465,7 +465,7 @@ no tier left, or the port needs it now              -> functional C, with its co
 | | Ratchet & Clank (PAL) | Going Commando |
 |---|---|---|
 | Near misses | `nonmatching/<area>/` | `nonmatching/<area>/` |
-| Functional C | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac1-pal/fcheck.tsv` | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac2-ntsc/fcheck.tsv` |
+| Functional C | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac1-pal/checks/fcheck.tsv` | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac2-ntsc/checks/fcheck.tsv` |
 | Pieces of one function | `config/overlays/joined.tsv` | the catalogue, `tools/levels.py` |
 | Handwritten | `ASM_FUNC`, counted as finished | `ASM_FUNC`, counted as finished |
 | Worker bound and protocol | `docs/QUEUE.md`, `docs/AGENT_WORKFLOW.md` | `docs/AGENT_WORKFLOW.md` |

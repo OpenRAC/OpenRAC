@@ -119,7 +119,7 @@ class Pairing:
         places' copies in the release, level by level, never every place of the function it is
         split off: the catalogue folds the two, so the release's name for the variant is that
         function's. A variant the catalogue has no row of is named by its first place there."""
-        lines = ["# This release's copy of port/game/rac2-ntsc/split_places.tsv, by its names (release_carry.py).", "#"]
+        lines = ["# This release's copy of port/game/rac2-ntsc/tables/split_places.tsv, by its names (release_carry.py).", "#"]
         for line in text.splitlines():
             cols = line.split("\t")
             if line.startswith("#") or len(cols) < 3:
@@ -387,8 +387,8 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     out["skip"] = [other if s in ("src/pal", "src/us2") else s for s in cfg.get("skip", [])]
     out["skip"] = list(dict.fromkeys(out["skip"]))
     out["symbols"] = []
-    out["derived"] = {"table": "release_names.json"}
-    out["release"] = {"version": version, "table": "release_names.json"}
+    out["derived"] = {"table": "release/release_names.json"}
+    out["release"] = {"version": version, "table": "release/release_names.json"}
     out["places"] = f"{info['config']}/levels/functions.tsv"
     out["executable_functions"] = f"{info['config']}/boot/functions.tsv"
     if "formed_as" in cfg:
@@ -484,7 +484,7 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     # "jump_tables": the release's own file beside its hostgen.json, which jumptables.py writes from the
     # release's disc (its tables hold the release's addresses; the labels are the C's).
     if cfg.get("jump_tables"):
-        out["jump_tables"] = "jump_tables.json"
+        out["jump_tables"] = "tables/jump_tables.json"
     # "hand": the release's own C for its own hand-written assembly (func_PAL_...), beside its hostgen.json.
     if (p.out_dir / "hand/hand.tsv").is_file():
         out["hand"] = "hand/hand.tsv"
@@ -620,7 +620,7 @@ def constants(p: Pairing, code: dict[str, str], version: str) -> list[str]:
         return []
     out = ["/* Constants of the game's code (RAC2_K): the same instruction's in this release. */"]
     by_hand = {}
-    path = p.out_dir / "release_constants.tsv"
+    path = p.out_dir / "release" / "release_constants.tsv"
     if path.is_file():
         for line in path.read_text().splitlines():
             cols = line.split("\t")
@@ -927,19 +927,19 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     out_dir = args.game.parent
     cfg = json.loads(args.primary.read_text())
-    table = rel.Release.load(out_dir / "release_names.json")
+    table = rel.Release.load(out_dir / "release" / "release_names.json")
     carry_path = args.source / rel.RELEASES[args.version]["build"] / "carry.json"
     carry = json.loads(carry_path.read_text()) if carry_path.is_file() else None
     vmap = json.loads(args.map.read_text()) if args.map else None
     p = Pairing(args.source, args.version, table, vmap, carry)
-    p.read_by_hand(out_dir / "release_pairs.tsv")
+    p.read_by_hand(out_dir / "release" / "release_pairs.tsv")
     p.primary_dir = args.primary.parent
     p.out_dir = out_dir
-    p.read_splits((args.primary.parent / "split_places.tsv").read_text())
+    p.read_splits((args.primary.parent / "tables" / "split_places.tsv").read_text())
     new_cfg = carry_config(p, cfg, args.version)
     primary = args.primary.parent
     libraries = carry_libraries(p, (primary / "libraries.tsv").read_text())
-    extra = out_dir / "release_extra.json"
+    extra = out_dir / "release" / "release_extra.json"
     if extra.is_file() and json.loads(extra.read_text()).get("libraries"):
         # Rows of the release's own (release_extra.json "libraries"): a level copy its catalogue names apart.
         libraries += "# This release's own rows (release_extra.json).\n" + "".join(
@@ -967,7 +967,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.primary_protos:
         add_signatures(p, new_cfg, cfg, (primary / "libraries.tsv").read_text(), args.primary_protos.read_text())
     args.game.write_text(json.dumps(new_cfg, indent=2) + "\n")
-    (out_dir / "split_places.tsv").write_text(carry_split_places(p, (primary / "split_places.tsv").read_text()))
+    (out_dir / "tables" / "split_places.tsv").write_text(carry_split_places(p, (primary / "tables" / "split_places.tsv").read_text()))
     if cfg.get("overrides"):
         carry_overrides(p, primary / cfg["overrides"], out_dir / cfg["overrides"])
     host = out_dir / "host"
@@ -982,7 +982,7 @@ def main(argv: list[str] | None = None) -> int:
     report = {"about": "How release_carry.py paired what the primary release's port names: what rests on less "
                        "than the same code, and what it found nowhere.", "counts": dict(sorted(p.kinds.items())),
               **p.report}
-    (out_dir / "release_carry.json").write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
+    (out_dir / "release" / "release_carry.json").write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
     print(f"release_carry: {out_dir}: " + ", ".join(f"{k} {v}" for k, v in sorted(p.kinds.items())))
     return 0
 

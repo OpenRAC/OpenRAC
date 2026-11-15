@@ -15,7 +15,7 @@ addresses). Its tables say where every name is on NTSC-U, without building anyth
   their per-caller aliases `D_00142430_0039B470`, short names `D_142430`), one per program, as
   rac3-decomp's NTSC-U build read them from the disc's bytes.
 
-From them this writes port/game/rac3-ntsc/release_names.json, the release table hostgen reads
+From them this writes port/game/rac3-ntsc/release/release_names.json, the release table hostgen reads
 ("release" and "derived" in hostgen.json; release.py):
 
 - every PAL function name renamed to its NTSC-U name; one NTSC-U does not have gets the `PAL`

@@ -1,10 +1,14 @@
-# Going Commando, USA v2.00 (SCUS-97268, Greatest Hits)
+# openrac-rac2-ntsc2: Going Commando, USA v2.00 (Greatest Hits)
 
-`openrac-rac2-ntsc2`: Going Commando's port for this disc, the same program as
-[rac2-ntsc](../rac2-ntsc/README.md)'s on this release's addresses. Its decompilation is rac2-decomp's
-(`games/rac2/decomp`), read through the release view; the host C, the profile and the game fixes are
-shared ([port/game/rac2](../rac2/README.md), which also says how these files are written again).
-Nothing here is edited by hand except `release_pairs.tsv`, `release_constants.tsv` and `release_extra.json`.
+Going Commando's USA v2.00 disc (`SCUS_972.68`, Greatest Hits): rac2-ntsc's program at this
+release's addresses, read through the release view of [games/rac2](../../../games/rac2/decomp) (`src/` and `src/us2/`). This
+disc: same layout as v1.01 with its fixes, its own text ids and about 1,100 functions of its own ([RAC2_NOTES.md](../../../docs/port/RAC2_NOTES.md#what-differs-between-the-discs)).
 
-Build and play it as rac2-ntsc's: `python3 tools/build_port.py rac2-ntsc2 --disc <your disc image>`, or the
-launcher, which picks this program when the disc is this release.
+```sh
+python3 tools/build_port.py rac2-ntsc2 --disc <your disc image>
+```
+
+Play it as rac2-ntsc's, or from the launcher, which picks this program for this disc.
+
+Everything here is generated except `release/release_pairs.tsv` and `release/release_extra.json`: how, and what each file is, is in
+[rac2: carried releases](../rac2/README.md#carried-releases).

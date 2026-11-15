@@ -247,7 +247,7 @@ def carry_config(c: Carry, cfg: dict, version: str, out_id: str, title: str, ser
     new.update({"id": out_id, "title": title, "serial": serial, "frame_rate": rate})
     new["entry"] = c.function(cfg["entry"], "entry")
     new["places"] = f"config/versions/{version}/functions.tsv"
-    new["release"] = {"version": version, "table": "release_names.json", "splice": f"src/versions/{version}"}
+    new["release"] = {"version": version, "table": "release/release_names.json", "splice": f"src/versions/{version}"}
     # Names by address, and the FUN_ spelling the release table gives a PAL v2.00 function the
     # release has not, whose callers reach another (release.py).
     new["names"] = {"code": [r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{6,8})(?:_\w*)?$",
@@ -522,7 +522,7 @@ def name_tables(c: Carry, cfg: dict, game: Path, primary: Path, own: dict[str, l
         if (primary / "hand" / name).is_file():
             files[game / "hand" / name] = carry_libraries(c, (primary / "hand" / name).read_text())
     stale = []
-    version = json.loads((game / "release.json").read_text())["version"]
+    version = json.loads((game / "release" / "release.json").read_text())["version"]
     unbound = unbound_rpc_callers(c, (ROOT / cfg["source"]).resolve(), version, files[game / "libraries.tsv"])
     for name in unbound:
         print(f"release_rac1: {game.name}: {name} ({c.table.name(name)}) calls the IOP and has no libraries.tsv "
@@ -561,20 +561,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.map is None and not args.tables:
         ap.error("--map is needed, but with --tables")
     game, primary = args.game.resolve(), args.primary.resolve()
-    settings = json.loads((args.settings or game / "release.json").read_text())
+    settings = json.loads((args.settings or game / "release" / "release.json").read_text())
     version = settings["version"]
     cfg = json.loads((primary / "hostgen.json").read_text())
     source = (ROOT / cfg["source"]).resolve()
-    raw = json.loads((game / "release_names.json").read_text())
+    raw = json.loads((game / "release" / "release_names.json").read_text())
     table = rel.Release(raw)
     vmap = Map(args.map) if args.map else None
     c = Carry(table, raw, vmap, rel.read_rows(source / "config/versions/pal/functions.tsv"),
               rel.read_rows(source / "config/versions" / version / "functions.tsv"))
     c.omit = set(settings.get("omit", {}))
-    c.variants = {line.split("\t")[1] for line in (primary / "split_places.tsv").read_text().splitlines()
+    c.variants = {line.split("\t")[1] for line in (primary / "tables" / "split_places.tsv").read_text().splitlines()
                   if not line.startswith("#") and len(line.split("\t")) >= 3}
-    if (game / "release_carry.json").is_file():
-        c.known = json.loads((game / "release_carry.json").read_text()).get("functions", {})
+    if (game / "release" / "release_carry.json").is_file():
+        c.known = json.loads((game / "release" / "release_carry.json").read_text()).get("functions", {})
     own = settings.get("libraries", {})
     if args.tables:
         return name_tables(c, cfg, game, primary, own, args.check)
@@ -599,13 +599,13 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             out_lines.append(f"{new} = 0x{n.group(4).upper()};{m.group(2)}")
         name = Path(table_name).name
-        (game / name).write_text("\n".join(out_lines) + "\n")
-        symbols.append(os.path.relpath(game.resolve() / name, source))  # read relative to the source
+        (game / "tables" / name).write_text("\n".join(out_lines) + "\n")
+        symbols.append(os.path.relpath(game.resolve() / "tables" / name, source))  # read relative to the source
     new_cfg["symbols"] = symbols
     (game / "hostgen.json").write_text(json.dumps(new_cfg, indent=2) + "\n")
     # libraries.tsv, split_places.tsv
     (game / "libraries.tsv").write_text(carry_libraries(c, (primary / "libraries.tsv").read_text(), own))
-    (game / "split_places.tsv").write_text(carry_split_places(c, (primary / "split_places.tsv").read_text()))
+    (game / "tables" / "split_places.tsv").write_text(carry_split_places(c, (primary / "tables" / "split_places.tsv").read_text()))
     # hand/: the tables and the C, in the release's names
     hand = game / "hand"
     if hand.exists():
@@ -643,7 +643,7 @@ def main(argv: list[str] | None = None) -> int:
                        "release has no counterpart of, left out.",
               **{k: dict(sorted(v.items())) for k, v in c.report.items()},
               "counts": {k: len(v) for k, v in c.report.items()}}
-    (game / "release_carry.json").write_text(json.dumps(report, indent=1) + "\n")
+    (game / "release" / "release_carry.json").write_text(json.dumps(report, indent=1) + "\n")
     print(f"release_rac1: {game.name}: " + ", ".join(f"{k} {len(v)}" for k, v in c.report.items()))
     return 0
 

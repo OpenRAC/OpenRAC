@@ -213,9 +213,9 @@ def rac2_addresses(program_dir: Path) -> list[tuple[str, str]]:
     """A rac2 release's addresses whose evidence is not one release_carry.py stands by (a guess,
     a hand edit with no comment), or that it found nowhere."""
     header = program_dir / "host/rac2_version.h"
-    if not (program_dir / "release_names.json").is_file() or not header.is_file():
+    if not (program_dir / "release" / "release_names.json").is_file() or not header.is_file():
         return []
-    moves = data_moves.read(program_dir / "data_moves.tsv")  # versionmap's runs, from the discs
+    moves = data_moves.read(program_dir / "release" / "data_moves.tsv")  # versionmap's runs, from the discs
     out = []
     for line in header.read_text().splitlines():
         full = re.match(r"^#define RAC2_(?:LADDR_(\d\d)_|ADDR_)0x([0-9A-Fa-f]{8})u\s+0x([0-9A-Fa-f]{8})u", line)
@@ -241,7 +241,7 @@ def data_addresses(program_dir: Path) -> list[tuple[str, str]]:
     """The addresses in a carried release's rac1_version.h with nothing behind them: (name, why)."""
     if (program_dir / "host/rac2_version.h").is_file():
         return rac2_addresses(program_dir)
-    names_path, header = program_dir / "release_names.json", program_dir / "host/rac1_version.h"
+    names_path, header = program_dir / "release" / "release_names.json", program_dir / "host/rac1_version.h"
     if not names_path.is_file() or not header.is_file():
         return []
     table = json.loads(names_path.read_text())
@@ -254,12 +254,12 @@ def data_addresses(program_dir: Path) -> list[tuple[str, str]]:
         moved = SYMBOL.match(mine)
         if moved:
             known[m.group(1) or "boot"][int(m.group(2), 16)] = int(moved.group(2), 16)
-    carry = program_dir / "release_carry.json"  # versionmap's pairs a full run recorded
+    carry = program_dir / "release" / "release_carry.json"  # versionmap's pairs a full run recorded
     if carry.is_file():
         for key, hit in json.loads(carry.read_text()).get("addresses", {}).items():
             level, _, address = key.rpartition(":")
             known[level or "boot"][int(address, 16)] = int(hit["as"], 16)
-    moves = data_moves.read(program_dir / "data_moves.tsv")  # versionmap's runs, from the discs
+    moves = data_moves.read(program_dir / "release" / "data_moves.tsv")  # versionmap's runs, from the discs
     out = []
     for line in header.read_text().splitlines():
         m = DEFINE.match(line)
@@ -301,7 +301,7 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
     left_out: dict[str, dict[tuple[str, str], str]] = {}
     # Variants split off folded functions (split_places.tsv), each program's own: a carried
     # release's file keeps PAL v2.00's names, with its own places.
-    split = {p: split_variants(root / "port/game" / p / "split_places.tsv") for p in spec["programs"]}
+    split = {p: split_variants(root / "port/game" / p / "tables" / "split_places.tsv") for p in spec["programs"]}
     for program in spec["programs"]:
         left_out[program] = {}
         for name, why in omits(root / "port/game" / program / f"host/{game}_version.h", game).items():

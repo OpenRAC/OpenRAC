@@ -1050,7 +1050,7 @@ def main(argv: list[str] | None = None) -> int:
         release = Release({"names": parts["names"]})
         unit_names, unit_evidence = units(source, version, release, parts, cfg.get("sources", ["src"]))
         release.units = unit_names
-        primary_table = args.game.parent.parent / "rac2-ntsc" / "derived_names.json"
+        primary_table = args.game.parent.parent / "rac2-ntsc" / "tables" / "derived_names.json"
         derived = derived_values(parts, release, RELEASES[version]["level_base"],
                                  json.loads(primary_table.read_text()) if primary_table.is_file() else None,
                                  args.map)
