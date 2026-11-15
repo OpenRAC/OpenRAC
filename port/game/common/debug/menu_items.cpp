@@ -14,6 +14,7 @@
 #include <iterator>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <SDL3/SDL.h>
 
@@ -236,7 +237,14 @@ Item item(Id id, std::uint8_t where) {
         case Id::RenderScale:
             return row_choice(kRenderScale);
         case Id::Msaa:
-            return row_choice(kMsaa);
+            it = row_choice(kMsaa);
+            // The upscaler (or motion blur) draws one sample a pixel and keeps the choice for later.
+            if (set.msaa > 1 && enhanced_on() && enhanced::Fsr3::available()
+                && (set.temporal_quality != renderer::TemporalQuality::Off
+                    || (set.motion_blur && set.motion_blur_strength > 0.0f))) {
+                it.value += " (upscaler)";
+            }
+            return it;
         case Id::Anisotropy:
             return row_choice(kAnisotropy);
         case Id::DrawDistance:
@@ -961,6 +969,78 @@ void press_entry(Id id) {
 std::string entry_label(Id id, std::uint8_t where) {
     const Item it = item(id, where);
     return it.label.empty() ? std::string(menu::entry(id).label) : it.label;
+}
+
+// ---- The game's own Video pages ----
+
+namespace {
+
+// The kind of screen the game's pages are on, for the entries' Where.
+std::uint8_t game_screen() {
+    return drawer_possible() ? menu::kTouch : menu::kDesktop;
+}
+
+}  // namespace
+
+std::vector<Id> game_page_entries() {
+    std::vector<Id> ids;
+    const std::uint8_t where = game_screen();
+    for (const menu::Entry& e : menu::entries()) {
+        if ((e.where & menu::kGamePage) != 0 && menu::offered(e, where)
+            && item(e.id, where).shown) {
+            ids.push_back(e.id);
+        }
+    }
+    return ids;
+}
+
+std::string game_page_label(Id id) {
+    // The menu's switch says what it does; the game's page names the setting.
+    if (id == Id::EnhancedGraphics) {
+        return "Enhanced graphics";
+    }
+    return entry_label(id, game_screen());
+}
+
+std::string game_page_value(Id id) {
+    const menu::Entry& e = menu::entry(id);
+    const Item it = item(id, game_screen());
+    switch (e.kind) {
+        case menu::Kind::Switch:
+            return it.on ? "On" : "Off";
+        case menu::Kind::Slider: {
+            // As a factor: the game's font draws a pad button for the percent sign.
+            const int value = *slider_of(id).value;
+            if (id == Id::GameplayFov && value == settings::kDefaultGameplayFov) {
+                return "Original";
+            }
+            return value % 100 == 0 ? std::format("{}x", value / 100)
+                                    : std::format("{:.2f}x", static_cast<float>(value) / 100.0f);
+        }
+        default:
+            return it.value;
+    }
+}
+
+void game_page_step(Id id, int by) {
+    const menu::Entry& e = menu::entry(id);
+    if (e.kind == menu::Kind::Slider) {
+        const Slider slider = slider_of(id);
+        const int next =
+            std::clamp(*slider.value + by * slider.step, slider.minimum, slider.maximum);
+        if (next != *slider.value) {
+            *slider.value = next;
+            changed();
+        }
+        return;
+    }
+    if (e.kind == menu::Kind::Choice) {
+        const Item it = item(id, game_screen());
+        if ((by < 0 && !it.can_lower) || (by > 0 && !it.can_raise)) {
+            return;
+        }
+    }
+    act(id, by);
 }
 
 void quit_game() {

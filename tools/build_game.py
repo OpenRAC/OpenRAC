@@ -7,8 +7,8 @@ A game that still needs code from the player's disc cannot be shipped built, so 
 carries no program for it. This fetches the source of the commit the installer was built from,
 builds it with tools/build_port.py from the player's own disc, and copies the program to DIR. The
 copy is read-only. Long Windows installation paths build in the user's temporary folder;
-the finished program still goes into DIR. The compilers are the player's:
-tools/build_port.py says what to install when one is missing.
+the finished program still goes into DIR. On Windows tools/build_port.py installs missing
+build tools with WinGet; elsewhere the compilers are the player's.
 """
 from __future__ import annotations
 
@@ -166,6 +166,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True, help="where the finished program goes")
     parser.add_argument("--source-url", help="where the source archive is, if not on GitHub")
     parser.add_argument("--preset", default=PRESET, help=f"the CMake preset; default {PRESET}")
+    parser.add_argument("--no-install-deps", action="store_true",
+                        help="report missing Windows build tools without installing them through WinGet")
     args = parser.parse_args(argv)
     use_the_systems_libraries()
     if not args.disc.is_file():
@@ -176,8 +178,11 @@ def main(argv: list[str] | None = None) -> int:
     commit = carried_commit()
     url = args.source_url or ARCHIVE.format(repository=carried_repository(), commit=commit)
     source = fetch_source(url, commit, build_directory(out))
-    subprocess.run([sys.executable, "tools/build_port.py", args.game, "--disc", str(args.disc.resolve()),
-                    "--preset", args.preset], cwd=source, check=True)
+    command = [sys.executable, "tools/build_port.py", args.game, "--disc", str(args.disc.resolve()),
+               "--preset", args.preset]
+    if args.no_install_deps:
+        command.append("--no-install-deps")
+    subprocess.run(command, cwd=source, check=True)
     program = copy_program(source / "port" / "build" / args.preset, args.game, out)
     clean_up(source, out)
     print(f"built {program}", flush=True)

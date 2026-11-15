@@ -13,8 +13,8 @@
 
 namespace openrac::frontend::options_menu {
 
-// The rows: one per setting, whichever menu shows them (the game's options pages here, the
-// overlay's menus and drawer, debug_overlay.cpp).
+// The settings the menus step: one row per setting. The in-game menu's entries use them
+// (debug/menu_items.cpp), and the game's own Video pages show some of those entries (page_rows).
 enum Row {
     kDisplayMode,
     kMonitor,
@@ -37,19 +37,26 @@ enum Row {
     kRows
 };
 
-// After the rows above, when the program's disc has game fixes (fixes.h): a "Game fixes" row that
-// heads them (nothing to change), then a row for each, On (the port's fix) or Original (the
-// console's behaviour). Every page that lists the rows scrolls through all of them.
-int row_count();
+// After the rows above, when the program's disc has game fixes (fixes.h): a row for each, On (the
+// port's fix) or Original (the console's behaviour), at kRows + 1 + its index.
 int fix_of_row(int row);  // the fix's index (fixes.h), or -1 for any other row
 
-// A row's name, and its setting's value now, as the player reads them.
+// A setting's name and its value now, as the player reads them.
 const char* label(int row);
 std::string value(int row);
 
 // A row moved to its next value (by = 1) or the one before (by = -1), within what the graphics
 // card offers. Not saved (settings::save) and not applied: the window applies what changed.
 void step(int row, int by);
+
+// The rows of the game's own Video pages: the in-game menu's entries marked for them
+// (menu::kGamePage) that this screen offers and that do something now. Game fixes stay in the
+// in-game menu. The same entries, values and steps as the in-game menu, in English
+// (shown() puts them in the game's language). A step is saved and applied at once.
+int page_rows();
+std::string page_label(int row);
+std::string page_value(int row);
+void page_step(int row, int by);
 
 // Once a frame: while the boot program runs (the title and its menus), the Video options page
 // shows the port's rows, four at a time, moving with the cursor. Cross or Right moves the row under
