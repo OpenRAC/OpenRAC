@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
         memset(ram1 + STACK_LOW, 0, 0x01F00000u - STACK_LOW);
         memset(openrac_guest_base + STACK_LOW, 0, 0x01F00000u - STACK_LOW);
         bad |= differs("RAM", ram1, openrac_guest_base, 0, RAM);
-        bad |= differs("VU0", vu1, openrac_vu0, 0, VU0_SIZE);
+        if (!getenv("HANDDIFF_VU0_DEAD")) bad |= differs("VU0", vu1, openrac_vu0, 0, VU0_SIZE);
         bad |= differs("scratchpad", spr1, openrac_guest_base + SPR, SPR, 0x4000);
         if (nlog[0] != nlog[1]) { printf("  %d side effects against %d\n", nlog[0], nlog[1]); bad = 1; }
         for (int i = 0; i < nlog[0] && i < nlog[1]; ++i)
@@ -356,7 +356,8 @@ def check(name: str, args: argparse.Namespace, work: Path, runtime: list[Path]) 
     exe = work / f"handdiff_{name}"
     run(["clang++", "-no-pie", "-o", str(exe), str(ho), str(so), *map(str, objs), *map(str, runtime),
          *defsyms, "-lm"])
-    r = subprocess.run([str(exe), str(args.trials), str(args.seed)], capture_output=True, text=True)
+    env = dict(os.environ, **({"HANDDIFF_VU0_DEAD": "1"} if args.vu0_dead else {}))
+    r = subprocess.run([str(exe), str(args.trials), str(args.seed)], capture_output=True, text=True, env=env)
     sys.stdout.write(r.stdout + r.stderr)
     return r.returncode == 0
 
@@ -369,6 +370,9 @@ def main(argv=None) -> int:
     ap.add_argument("--trials", type=int, default=2000)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--args", help="per parameter: p, i, w, f, or a C value, comma-separated")
+    ap.add_argument("--vu0-dead", action="store_true",
+                    help="leave the vector unit's registers out of the comparison: only for a routine whose "
+                         "registers no later code reads (say why where its verdict is kept)")
     ap.add_argument("--keep", type=Path, help="keep the test programs in this directory")
     ap.add_argument("names", nargs="+")
     args = ap.parse_args(argv)

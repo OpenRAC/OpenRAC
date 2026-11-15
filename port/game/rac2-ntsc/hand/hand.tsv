@@ -2,5 +2,23 @@
 # PAL and USA v2.00 read this table too, renamed through their release view ("primary_hand").
 # Each function is checked against hostgen's translation of the retail routine (port/tools/hostgen/handdiff.py).
 # name	file (relative to this table)
+# fastfunc
+func_00282848	fastfunc.c
+func_00282890	fastfunc.c
 func_002828B8	fastfunc.c
+func_002828C8	fastfunc.c
+func_002828F0	fastfunc.c
+func_00282900	fastfunc.c
 func_00282928	fastfunc.c
+func_00282938	fastfunc.c
+func_00282C58	fastfunc.c
+func_L00_002EDC90	fastfunc_level.c
+func_L00_002EDCB8	fastfunc_level.c
+func_L00_002EDCC8	fastfunc_level.c
+func_L00_002EDD00	fastfunc_level.c
+func_L00_002EDD28	fastfunc_level.c
+func_L00_002EDD38	fastfunc_level.c
+# core_misc
+func_0011B0B0	core_misc.c
+func_00124540	core_misc.c
+func_0011CDA0	core_misc.c

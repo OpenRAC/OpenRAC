@@ -315,3 +315,4 @@ func_L04_0030EDE0	fastfunc	rac2VecSubInPlace	host	vsub.xyz into the second argum
 func_L01_003042AC	texture	rac2OozlaBlend	host	two frames of a palette texture blended (host/handasm.c)	void (void *, void *, void *, void *, void *, int, float)
 func_00117848	libm	rac2Fmod	host	fdlibm __ieee754_fmod: exact, as the host's fmod (host/handasm.c)	double (double, double)
 func_0026F7A0	game	rac2ReturnZero	host	returns 0; a release's catalogue may not list its copy (host/handasm.c)	unsigned int (void)
+func_001291A0	vu0	rac2Vu0Sine	host	the sine kernel on the vector unit's registers (host/handasm.c)	int (int, int, int, int)

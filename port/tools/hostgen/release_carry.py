@@ -504,6 +504,9 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
         asm = dict(cfg["asm"])
         asm["signatures"] = {n2: sig for n, sig in cfg["asm"].get("signatures", {}).items()
                              if (n2 := (p.function(n, "asm.signatures") if FUNC.fullmatch(n) else n))}
+        if cfg["asm"].get("leave"):
+            asm["leave"] = {n2: why for n, why in cfg["asm"]["leave"].items()
+                            if (n2 := p.function(n, "asm.leave"))}
         asm["gp"] = f"0x{info['gp']:08X}"
         asm["retail"] = {"exe": f"{info['baserom']}/{out['serial']}", "dump": f"{info['baserom']}/levels"}
         out["asm"] = asm
