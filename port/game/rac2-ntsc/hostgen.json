@@ -438,6 +438,15 @@
     "func_00131D98"
   ],
   "asm": {
+    "leave": {
+      "func_00129120": "not a routine of its own: the catalogue's entry is the end of the routine before it (stores of vf4 and vf6 through registers that routine set), followed by sceVu0ScaleVector, whose own entry func_00129148 host/handasm.c answers",
+      "func_00129160": "not a routine of its own: the end of the routine before it, followed by sceVu0UnitMatrix, whose own entry func_00129178 host/handasm.c answers",
+      "func_002BA048": "a piece of func_002B9420's loop, entered by a branch: it reads that routine's $s0-$s2 (a packet cursor, a count, a record) and its vf20; func_002B9420 is the port's own (host_functions)",
+      "func_00310010": "the shared epilogue of a routine (stores to its $s0 record, restores its saved registers from its frame, returns from it), entered by a jump from inside it",
+      "func_00281154": "a step of func_00280B90's packet builder: it takes the packet cursor in $at and the source in $s2 from it; func_00280B90 is the port's own (host_functions)",
+      "func_002811D4": "a step of func_00280B90's packet builder: the packet cursor in $at, which it advances; func_00280B90 is the port's own (host_functions)",
+      "func_00281490": "a step of func_00280B90's packet builder: its inputs in vf8-vf10 and $at; func_00280B90 is the port's own (host_functions)"
+    },
     "signatures": {
       "F391de845_FUN_002E45C8": "int (void *, float, float, float)",
       "func_00283B98_10": "float (float, float)",
@@ -477,6 +486,9 @@
   "params_from_declarations": true,
   "jump_tables": "tables/jump_tables.json",
   "overrides": "hand/overrides.tsv",
+  "assembly_allow": "checks/assembly_allow.tsv",
+  "result_allow": "checks/result_allow.tsv",
+  "hand": "hand/hand.tsv",
   "extra_params": {
     "#": "Arguments a function's matching C leaves in their registers for a call it makes; each checked against the retail assembly (the register is the function's own argument).",
     "func_00335918": [

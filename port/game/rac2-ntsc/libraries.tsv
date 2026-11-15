@@ -99,6 +99,8 @@ func_0011FAA8	kernel	GetEntryAddress	host	syscall wrapper 0x5b
 func_00121AB8	libgcc	__muldi3	host	symbol_addrs.txt name
 func_00121B20	libgcc	__udivdi3	host	symbol_addrs.txt name
 func_001220F0	libgcc	__umoddi3	host	symbol_addrs.txt name
+func_0011FC68	libgcc	__divdi3	host	src/core/0011FC68.c, which hostgen.json skips (libgcc)
+func_00121450	libgcc	__moddi3	host	src/core/00121450.c, which hostgen.json skips (libgcc)
 func_00124E08	cdvd	sceCdInit	host	symbol_addrs.txt name
 func_001250E8	cdvd	sceCdDiskReady	host	symbol_addrs.txt name
 func_001252E0	cdvd	sceCdMmode	host	symbol_addrs.txt name
@@ -315,3 +317,27 @@ func_L04_0030EDE0	fastfunc	rac2VecSubInPlace	host	vsub.xyz into the second argum
 func_L01_003042AC	texture	rac2OozlaBlend	host	two frames of a palette texture blended (host/handasm.c)	void (void *, void *, void *, void *, void *, int, float)
 func_00117848	libm	rac2Fmod	host	fdlibm __ieee754_fmod: exact, as the host's fmod (host/handasm.c)	double (double, double)
 func_0026F7A0	game	rac2ReturnZero	host	returns 0; a release's catalogue may not list its copy (host/handasm.c)	unsigned int (void)
+func_001291A0	vu0	rac2Vu0Sine	host	the sine kernel on the vector unit's registers (host/handasm.c)	int (int, int, int, int)
+func_002F1E60	render	rac2Fragment002F1E60	host	a fragment of func_002F1010: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F29E4	render	rac2Fragment002F29E4	host	a fragment of func_002F1E88: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F2A0C	render	rac2Fragment002F2A0C	host	a fragment of func_002F1E88: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F32AC	render	rac2Fragment002F32AC	host	a fragment of func_002F2A38: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F32D4	render	rac2Fragment002F32D4	host	a fragment of func_002F2A38: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F3C40	render	rac2Fragment002F3C40	host	a fragment of func_002F35B0: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F3D20	render	rac2Fragment002F3D20	host	a fragment of func_002F35B0: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F3E40	render	rac2Fragment002F3E40	host	a fragment of func_002F35B0: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F4F78	render	rac2Fragment002F4F78	host	a fragment of func_002F3E78: reports a reach (host/handasm_vu0.c)	void (void)
+func_002EF480	render	rac2Renderer002EF480	host	a renderer only func_002EF3B0 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F1010	render	rac2Renderer002F1010	host	a renderer only func_002F0EF8 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F1E88	render	rac2Renderer002F1E88	host	a renderer only func_002F0EF8 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F2A38	render	rac2Renderer002F2A38	host	a renderer only func_002F0EF8 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002A1738	render	rac2MobyAnimPose	host	host-replaced renderer: the port never calls it; reports a reach (host/handasm_render_big.c)	int (int, int)
+func_002E1228	render	rac2CullAndEmitShrubs	host	host-replaced renderer: the port never calls it; reports a reach (host/handasm_render_big.c)	void (void)
+func_002E182C	render	rac2ShrubsResume182C	host	a fragment of func_002E1228 (host-replaced renderer): reports a reach (host/handasm_render_big.c)	int (int, int, int, int)
+func_002E25C0	render	rac2ShrubsResume25C0	host	a fragment of func_002E1228 (host-replaced renderer): reports a reach (host/handasm_render_big.c)	int (void)
+func_00120528	libgcc	__sjthrow	host	not reached: C++ exception throw (longjmp to a guest handler); nothing in the game throws (host/handasm_libgcc_unwind.c)	void (void)
+func_001205E0	libgcc	rac2SjthrowLanding	host	a fragment of func_00120528 (its setjmp landing), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_00120748	libgcc	rac2SjpopnthrowTail	host	a fragment of __sjpopnthrow, entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_00120FA4	libgcc	rac2ThrowLanding	host	a fragment of __throw (00120F00-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_0012118C	libgcc	rac2RethrowLanding	host	a fragment of __rethrow (001210E0-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_00130004	mpeg	rac2DecodeFrameTail	host	a fragment of func_0012FEC0 (its epilogue), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)

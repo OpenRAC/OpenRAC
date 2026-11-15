@@ -1,0 +1,3 @@
+# Functions this program may leave to their assembly although translated code reaches them
+# (hostgen.json "assembly_allow"; hostgen.py assembly_guard). Every other one fails the build.
+# name	reason

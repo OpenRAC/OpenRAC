@@ -170,6 +170,8 @@
   "candidates": "nonmatching/functional.tsv",
   "hand": "hand/hand.tsv",
   "overrides": "hand/overrides.tsv",
+  "assembly_allow": "checks/assembly_allow.tsv",
+  "result_allow": "checks/result_allow.tsv",
   "asm": {
     "enabled": true,
     "dirs": [],

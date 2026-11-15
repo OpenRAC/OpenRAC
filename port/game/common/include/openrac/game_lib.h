@@ -129,6 +129,8 @@ double openrac_lib___extendsfdf2(float);
 long long openrac_lib___muldi3(long long, long long);
 unsigned long long openrac_lib___udivdi3(unsigned long long, unsigned long long);
 unsigned long long openrac_lib___umoddi3(unsigned long long, unsigned long long);
+long long openrac_lib___divdi3(long long, long long);
+long long openrac_lib___moddi3(long long, long long);
 unsigned long long openrac_lib___fixunsdfdi(double);
 /* cdvd */
 int openrac_lib_sceCdSync(int);

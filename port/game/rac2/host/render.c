@@ -97,7 +97,8 @@ void func_002E3940(int shell) {
  *   (func_L00_00429568) flies past the ship, so it runs when that shot ends. Updated early, it cut
  *   the shot, the path camera came back with no speed, and the view held still on the ship. */
 static int game_distance_moby(int class_id) {
-    static const int kBoard[] = {2163, 2198, 2596, 2645, 2759, 2809, 2810, 2811, 2812, 2813, 2819, 2894};
+    static const int kBoard[] =
+        {2163, 2198, 2596, 2645, 2759, 2809, 2810, 2811, 2812, 2813, 2819, 2894};
     for (size_t i = 0; i < sizeof(kBoard) / sizeof(kBoard[0]); ++i) {
         if (kBoard[i] == class_id) {
             return 1;
