@@ -121,6 +121,9 @@ class FnReport:
     # Direct calls whose call site disagrees with the callee's definition (arity, kinds, result):
     # "callee: what differs", for port/tools/hostgen/priority.py.
     mismatches: list = field(default_factory=list)
+    # Callees of calls whose result it reads from a register the callee does not set (a void, or a
+    # result of the other kind), which the translation takes as 0 (result_guard).
+    zeroed_results: set = field(default_factory=set)
     # Instructions of its asm statements that the host does not run (asm_stmt): what they compute is
     # missing from the translation.
     asm_skipped: list = field(default_factory=list)
@@ -257,6 +260,10 @@ class Unit:
         self.inline_copies: list[tuple[str, str]] = []
         self._inline_count: dict[str, int] = {}
         self._inlining: set[str] = set()
+        # The call an expression statement makes, whose result nothing reads (result_guard), and
+        # for each call being lowered, whether it is that one.
+        self._discarded_id = None
+        self._discarded_calls: list[bool] = []
         self._helpers: dict[str, dict] | None = None
         self._index(ast)
         for name in list(self.typedefs):
@@ -1178,7 +1185,7 @@ class Unit:
                     return [pad + "return 0;"]
                 return [pad + "return;"]
             if self.cls(self.fn.sig.ret) == "void":
-                return [pad + f"{self.rv(kids[0])};", pad + "return;"]
+                return [pad + f"{self._discarded_rv(kids[0])};", pad + "return;"]
             value = (self._wide_value(kids[0], self.fn.sig.ret) if self.fn.wide_result
                      else self.convert(kids[0], self.fn.sig.ret))
             return [pad + f"return {value};"]
@@ -1252,7 +1259,19 @@ class Unit:
         if k in ("AttributedStmt",):
             return self.stmt(_inner(n)[-1], depth)
         # An expression statement.
-        return [pad + self.rv(n) + ";"]
+        return [pad + self._discarded_rv(n) + ";"]
+
+    def _discarded_rv(self, n: dict) -> str:
+        """rv of an expression whose value nothing reads: a call there that reads a result its
+        callee does not set reads nothing (result_guard)."""
+        e = _strip_parens(n)
+        while e.get("kind") in ("CStyleCastExpr", "ImplicitCastExpr") and _inner(e):
+            e = _strip_parens(_inner(e)[0])
+        saved, self._discarded_id = self._discarded_id, e.get("id")
+        try:
+            return self.rv(n)
+        finally:
+            self._discarded_id = saved
 
     def asm_stmt(self, n: dict) -> str:
         """An asm statement (its instructions from clangast.asm_strings): an ordering barrier or a
@@ -2588,6 +2607,19 @@ class Unit:
     # ---- Calls ----
 
     def call(self, n: dict) -> str:
+        self._discarded_calls.append(n.get("id") is not None and n.get("id") == self._discarded_id)
+        try:
+            return self._call(n)
+        finally:
+            self._discarded_calls.pop()
+
+    def _zeroed_result(self, sym: str) -> None:
+        """A call that reads a result its callee does not set, which the translation takes as 0:
+        for result_guard, unless nothing reads it (an expression statement)."""
+        if not (self._discarded_calls and self._discarded_calls[-1]):
+            self.fn.report.zeroed_results.add(sym)
+
+    def _call(self, n: dict) -> str:
         kids = _inner(n)
         callee, args = kids[0], kids[1:]
         result_t = self.ty(n)
@@ -2907,6 +2939,7 @@ class Unit:
             return text
         if ret_cls == "void" or self._reg_class(ret_cls) != self._reg_class(result_cls):
             # On the console the caller read a register the callee did not set.
+            self._zeroed_result(sym)
             return f"({text}, ({self.host(ctype.strip_quals(result_t))})0)"
         if result_cls == "ptr":
             return f"(gaddr)({text})"
@@ -3231,6 +3264,7 @@ class Unit:
             return text
         if ret_cls == "void" or self._reg_class(ret_cls) != self._reg_class(result_cls) or ret_cls == "rec" != result_cls:
             # On the console the caller read a register the callee did not set.
+            self._zeroed_result(sym)
             return f"({text}, ({self.host(ctype.strip_quals(result_t))})0)"
         if result_cls == "ptr":
             return f"(gaddr)({text})"

@@ -727,6 +727,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
     no_c = [f for f in program.stubs()]
     stage = extra.pop("asm", None) or asmc.Stage()
     allow = extra.pop("assembly_allow", {})
+    result_allow = extra.pop("result_allow", None)
     asm_reasons: dict[str, int] = {}
     for why in stage.unsupported.values():
         key = re.sub(r",? at [0-9A-F]{8}\b| \([0-9A-F]{8}\)", "", why)
@@ -748,6 +749,12 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         "arguments_filled_with_zero": {f.name: f.zero_args for f in fns if f.zero_args},
         "computed_gotos": {f.name: f.computed_gotos for f in fns if getattr(f, "computed_gotos", None)},
         "call_site_mismatches": {f.name: sorted(set(f.mismatches)) for f in fns if f.mismatches},
+        # Each function whose definition returns another kind of result (or none) than a caller's
+        # declaration of it reads: the decompilation matches each file alone, so nothing there sees
+        # it (func_002E46C0 defined float, declared int where StartSoundEmitter calls it).
+        "extern_result_mismatch": extern_result_mismatch(fns),
+        "results_zeroed": {f.name: sorted(f.zeroed_results) for f in fns
+                           if f.status == "translated" and getattr(f, "zeroed_results", None)},
         "call_graph": {f.name: sorted(f.calls) for f in fns if f.status == "translated" and f.calls},
         "hardware_accesses": sum(f.hw for f in fns),
         "functions_touching_hardware": sorted(f.name for f in fns if f.hw),
@@ -778,6 +785,8 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
     frontier = boot_frontier(fns_and_asm, program, extra.get("roots", []))
     summary["frontier"] = frontier
     summary.update(assembly_guard(summary, allow))
+    if result_allow is not None:
+        summary.update(result_guard(summary, result_allow))
     (out / "report.json").write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
     md = [
         f"# hostgen report: {game}",
@@ -937,7 +946,7 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
                     if p.is_file() and p.suffix in (".json", ".tsv", ".c", ".h", ".txt", ".inc"))
     paths += [config.parent / cfg.get("library_api", "../common/libraries.tsv"), HERE / "include"]
     paths += sorted((config.parent.parent / str(cfg.get("game", "")) / "host").glob("*.c"))
-    for key in ("libraries", "hand", "primary_hand", "assembly_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
+    for key in ("libraries", "hand", "primary_hand", "assembly_allow", "result_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
     if cfg.get("primary_hand") and (config.parent / "release" / "hand_names.tsv").is_file():
@@ -1481,6 +1490,8 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
             return None
     extra["asm"] = asm_stage
     extra["assembly_allow"] = read_assembly_allow(args.game.parent, cfg)
+    if cfg.get("result_allow"):
+        extra["result_allow"] = read_result_allow(args.game.parent, cfg)
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))
     return write_report(out, reports, program, extra, cfg.get("title", cfg.get("name", "")))
@@ -1535,6 +1546,54 @@ def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
     return {"assembly_reached": {n: sorted(v) for n, v in sorted(reached.items())},
             "assembly_unallowed": sorted(n for n in reached if n not in allow),
             "assembly_allow_unused": sorted(n for n in allow if n not in reached)}
+
+
+def extern_result_mismatch(fns) -> dict:
+    """callee -> {"returns": its definition's kind, "read_as": {kind the call site reads: [callers]},
+    "used_by": [callers whose read value is used]}, from the calls lowering recorded."""
+    out: dict = {}
+    for f in fns:
+        for m in set(f.mismatches):
+            hit = re.match(r"(\S+): .*reads a (\w+) result, returns (\w+)", m)
+            if hit:
+                e = out.setdefault(hit[1], {"returns": hit[3], "read_as": {}, "used_by": []})
+                e["read_as"].setdefault(hit[2], []).append(f.name)
+                if hit[1] in getattr(f, "zeroed_results", ()):
+                    e["used_by"].append(f.name)
+    for e in out.values():
+        for v in e["read_as"].values():
+            v.sort()
+        e["used_by"].sort()
+    return dict(sorted(out.items()))
+
+
+def read_result_allow(config_dir: Path, cfg: dict) -> dict[tuple[str, str], str]:
+    """hostgen.json "result_allow": a table of caller<TAB>callee<TAB>reason, the calls whose result
+    the translation may take as 0 (result_guard)."""
+    table = cfg["result_allow"]
+    out = {}
+    for line in (config_dir / table).read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            caller, _, rest = line.partition("\t")
+            callee, _, reason = rest.partition("\t")
+            if not callee.strip() or not reason.strip():
+                raise SystemExit(f"hostgen: {table}: {line.strip()}: a row is caller, callee and the reason")
+            out[(caller.strip(), callee.strip())] = reason.strip()
+    return out
+
+
+def result_guard(summary: dict, allow: dict[tuple[str, str], str]) -> dict:
+    """The calls that read a result the callee does not hand back in that register: it returns
+    nothing, or a float where the caller reads an integer (or the other way). On the console the
+    caller read whatever the register held; the translation reads 0. Mostly that is the
+    decompilation's own sloppiness about a value nobody uses, but a decompilation bump that changed
+    a callee's C result type silenced Going Commando's 3D sounds this way (func_002E46C0 turned
+    float, StartSoundEmitter reads its $v0). Each such call needs a row of "result_allow" with the
+    reason the 0 is right, or the callee's real type (hand C, an "asm" "signatures" entry); main()
+    fails the run on any other."""
+    zeroed = {(caller, callee) for caller, callees in summary.get("results_zeroed", {}).items() for callee in callees}
+    return {"results_zeroed_unallowed": sorted(f"{a}\t{b}" for a, b in zeroed if (a, b) not in allow),
+            "result_allow_unused": sorted(f"{a}\t{b}" for a, b in allow if (a, b) not in zeroed)}
 
 
 def stop_for_unreadable_units(reports: list[UnitReport], allow_unreadable: bool) -> bool:
@@ -1660,6 +1719,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"hostgen: error: {name} runs as its assembly ({'translated from it' if name in summary['from_assembly'] else 'a stub without the disc'}), "
                   f"and {', '.join(by[:3]) or 'the program'}{' and more' if len(by) > 3 else ''} reach it: give it C "
                   "(hand/hand.tsv, or a host row) or a row with the reason in hostgen.json \"assembly_allow\"",
+                  file=sys.stderr)
+        return 1
+    if cfg.get("result_allow") and (summary["result_allow_unused"] or summary["results_zeroed_unallowed"]):
+        # result_guard: before the stamp, so the next build says it again.
+        for row in summary["result_allow_unused"]:
+            print(f"hostgen: error: {cfg['result_allow']} allows {row.replace(chr(9), ' -> ')}, a call that no "
+                  "longer reads a result its callee does not set: remove the row", file=sys.stderr)
+        for row in summary["results_zeroed_unallowed"]:
+            caller, callee = row.split("\t")
+            print(f"hostgen: error: {caller} reads a result of {callee} from a register it does not set, which "
+                  f"the translation takes as 0: give {callee} its real result type (hand C, an \"asm\" "
+                  f"\"signatures\" entry) or a row with the reason in hostgen.json \"result_allow\"",
                   file=sys.stderr)
         return 1
     if not args.quiet:
