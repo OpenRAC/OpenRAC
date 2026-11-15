@@ -373,7 +373,8 @@ mod tests {
             assert!(!build.developer, "{id}");
         }
         assert_ne!(play.state, actions::State::Planned);
-        assert!(play.warning.as_deref().is_some_and(|w| w.contains("early and unstable")), "{:?}", play.warning);
+        // Playable from every disc: no warning to accept before Play.
+        assert!(play.warning.is_none(), "{:?}", play.warning);
     }
 
     #[test]

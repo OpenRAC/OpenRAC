@@ -64,8 +64,9 @@ extern Options g_options;
 // by it. Zero until the first tick.
 extern std::chrono::steady_clock::time_point g_next_frame;
 
-// The game's ticks a second: 60 for every version. The PAL game runs in its own 60 Hz mode
-// (options_menu.cpp keeps it there), so its time base is a sixtieth of a second too.
+// The game's ticks a second: 60, Ratchet & Clank's PAL game running in its own 60 Hz mode
+// (options_menu.cpp keeps it there), so its time base is a sixtieth of a second too; 50 for a disc
+// whose code has 50 Hz built in and no such mode (Going Commando's PAL, hostgen.json "tick_rate").
 int tick_rate();
 
 // Ends the run's records: OPENRAC_REACH's file written, the functions without C that were reached

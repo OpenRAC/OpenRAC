@@ -44,6 +44,8 @@ from level import decoded, load_wad_level
 from occlusion import write_stamp as write_pvs_stamp
 from lighting import normal_table
 from pack import pack
+import games
+import pack_later
 from port import PortLevelWriter, levels_format
 from util import sha256
 import wads
@@ -87,8 +89,8 @@ def ours(path: Path, kind: str) -> None:
                           code="folder-not-ours")
 
 
-def ours_packed(path: Path, version: str) -> None:
-    """Refuses to replace a non-empty directory unless it is this version's RAC1 pack."""
+def ours_packed(path: Path, version: str, game: str = "rac1") -> None:
+    """Refuses to replace a non-empty directory unless it is this game and version's pack."""
     if not path.exists():
         return
     if not path.is_dir():
@@ -99,8 +101,8 @@ def ours_packed(path: Path, version: str) -> None:
         manifest = json.loads((path / "packed.json").read_text())
     except (OSError, ValueError):
         manifest = None
-    if not isinstance(manifest, dict) or manifest.get("game") != "rac1" or manifest.get("version") != version:
-        raise FormatError(f"{path} holds files that are not a RAC1 {version.upper()} packed-level export; "
+    if not isinstance(manifest, dict) or manifest.get("game") != game or manifest.get("version") != version:
+        raise FormatError(f"{path} holds files that are not a {games.title(game)} {version.upper()} packed-level export; "
                           "choose another folder", code="pack-folder-not-ours")
 
 
@@ -511,6 +513,38 @@ def raw_later(source: wads.WadDisc, level_id: int, out: Path) -> None:
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
 
+def later_pack(args, source, survey: dict, version: wads.Version) -> None:
+    """Going Commando's levels edited in Godot, packed back (pack_later.py) as Ratchet & Clank's are."""
+    dest = args.out.resolve()
+    if not args.anywhere and not any(root in dest.parents for root in (ROOT / "assets", ROOT / "build")):
+        raise FormatError("output must be a directory under this repository's assets/ or build/",
+                          code="folder-not-allowed")
+    if not (args.project / "project.godot").is_file() and not list(args.project.glob("level_*/project.godot")):
+        raise FormatError(f"{args.project} is not the editor's Godot project or its folder of "
+                          "per-level projects (run `godot` first)", code="no-project")
+    for stats in [*args.project.glob("levels/*/level.json"), *args.project.glob("level_*/levels/*/level.json")]:
+        game = json.loads(stats.read_text()).get("game", "rac1")
+        if game != version.game:
+            raise FormatError(f"{args.project} holds {games.title(game)}'s levels, not {games.title(version.game)}'s",
+                              code="game-not-packable")
+    ours_packed(dest, version.key, version.game)
+    result = {}
+
+    def build_pack(directory: Path) -> None:
+        levels, mobys = pack_later.pack(source, survey, args.project, directory)
+        report = (directory / "changes.txt").read_text()
+        incomplete = [line.strip() for line in report.splitlines() if line.lstrip().startswith("not packed:")]
+        if incomplete:
+            raise FormatError("Some Godot edits could not be packed:\n" + "\n".join(f"  {line}" for line in incomplete),
+                              code="pack-incomplete")
+        result.update(levels=levels, mobys=mobys, report=report)
+
+    dest = publish(dest, build_pack, args.anywhere, replace=True)
+    print(result["report"], end="")
+    print(f"Packed {result['levels']} level(s), {result['mobys']} moby edit(s): {dest}")
+    say_output(dest)
+
+
 def later_main(args, parser, disc: Disc, version: wads.Version) -> None:
     """The commands for Going Commando's, Up Your Arsenal's and Deadlocked's discs."""
     source = wads.WadDisc(disc, version)
@@ -521,9 +555,12 @@ def later_main(args, parser, disc: Disc, version: wads.Version) -> None:
         print()
         return
     if args.command == "pack":
-        raise FormatError(f"packing levels back is Ratchet & Clank's only for now; {version.game}'s levels "
-                          "can be extracted, opened in Godot and used for texture and model packs",
-                          code="game-not-packable")
+        if version.game != "rac2":
+            raise FormatError(f"packing levels back is Ratchet & Clank's and Going Commando's only for now; "
+                              f"{version.game}'s levels can be extracted, opened in Godot and used for texture "
+                              "and model packs", code="game-not-packable")
+        later_pack(args, source, survey, version)
+        return
     wanted = sorted(set(args.level or numbers))
     unknown = [n for n in wanted if n not in numbers]
     if unknown:
@@ -540,7 +577,7 @@ def later_main(args, parser, disc: Disc, version: wads.Version) -> None:
         dest = publish(args.out, lambda out: port(args.iso, survey, wanted, args.terrain_lod, max(1, args.jobs), out,
                                                   version.game), args.anywhere, replace=True)
         # Going Commando's port draws them (its Play, developer tools on); the other later games' do not yet.
-        state = "early access" if version.game == "rac2" else "early access, not playable yet"
+        state = "playable" if version.game == "rac2" else "early access, not playable yet"
         print(f"Levels in the port's layout ({state}): {dest}")
         say_output(dest)
     else:
@@ -665,7 +702,8 @@ def main() -> None:
                 for stats in [*args.project.glob("levels/*/level.json"), *args.project.glob("level_*/levels/*/level.json")]:
                     game = json.loads(stats.read_text()).get("game", "rac1")
                     if game != "rac1":
-                        raise FormatError(f"{args.project} holds {game}'s levels, which are not packed back yet",
+                        raise FormatError(f"{args.project} holds {games.title(game)}'s levels; pack them with "
+                                          "their own disc",
                                           code="game-not-packable")
                 ours_packed(dest, disc.version.key)
                 # Build beside the published pack. An unsupported Godot edit must not leave a

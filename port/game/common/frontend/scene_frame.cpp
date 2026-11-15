@@ -27,6 +27,7 @@
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "openrac/game_host.h"
+#include "program/program.h"
 #include "renderer/direct/direct.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/precise_depth.h"
@@ -518,7 +519,7 @@ bool draw_world(SceneFrame& frame) {
                     owner.frame,
                     view_projection,
                     scene.haze,
-                    static_cast<float>(scene.frame) / 60.0f
+                    static_cast<float>(static_cast<double>(scene.frame) / program::tick_rate())
                 );
                 if (before_hud) {
                     before_hud();

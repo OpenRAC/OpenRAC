@@ -7,7 +7,7 @@ Builds OpenRAC for Android: the launcher's APK with the games in it
 
 GAME is one of the port's games (port/game/<id>/hostgen.json): rac1-pal,
 rac1-ntsc, rac1-pal1, rac1-jp and Going Commando's three discs (rac2-ntsc, rac2-pal,
-rac2-ntsc2) when none is named. A game whose code is still partly in assembly (Going Commando: hostgen.json "asm" "interface") is built without
+rac2-ntsc2) when none is named. A game whose code is still partly in assembly (hostgen.json "asm" "interface"; none now) is built without
 the disc, calling those functions through slots; the APK carries what the
 device needs to build them from the player's disc when it is set up
 (tools/asm_part.py): its kit, and Clang and lld (Zig's static AArch64 build,

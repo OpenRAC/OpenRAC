@@ -37,8 +37,8 @@
       "kind": "port",
       "name": "Frames between ticks",
       "discs": ["ntsc", "pal", "ntsc2"],
-      "original": "One picture a game tick, 60 a second.",
-      "port": "The game still ticks 60 times a second, but the port also draws frames between ticks, with the camera, the mobys and their poses moved from one tick to the next, at the display's rate or the Frame rate setting.",
+      "original": "One picture a game tick: 60 a second on the NTSC-U discs, 50 on the PAL disc.",
+      "port": "The game ticks as its disc does (60 a second, 50 on the PAL disc), but the port also draws frames between ticks, with the camera, the mobys and their poses moved from one tick to the next, at the display's rate or the Frame rate setting.",
       "refs": ["docs/port/SETTINGS.md (2. The tick and the frames)", "port/game/common/settings.h"]
     },
     {
@@ -47,16 +47,16 @@
       "name": "Wider pictures",
       "discs": ["ntsc", "pal", "ntsc2"],
       "original": "A 4:3 picture, or the game's own 16:9 option, which narrows the vertical view and leaves the television to stretch it.",
-      "port": "A wider picture keeps the game's vertical field of view and shows more of the world to the sides. The game's 16:9 option has no meaning in a window, and the port keeps it off.",
+      "port": "A wider picture keeps the game's vertical field of view and shows more of the world to the sides. The game's 16:9 option has no meaning in a window, and the port keeps it off; the title menu's 16:9 page is the port's Video page instead.",
       "refs": ["docs/port/SETTINGS.md (1. The settings)", "port/game/rac2/host/options.c"]
     },
     {
       "id": "remembered-options",
       "kind": "port",
-      "name": "Remembered sound",
+      "name": "Remembered sound and language",
       "discs": ["ntsc", "pal", "ntsc2"],
-      "original": "The Sound page (playback mode, music and sound volume) resets at power off.",
-      "port": "The port keeps the Sound page in its settings file and puts it back at every start. A loaded save's Sound page still replaces it, as on the console, and is kept from then on.",
+      "original": "The Sound page (playback mode, music and sound volume) and the language reset at power off, and a loaded save brings its own.",
+      "port": "The port keeps the Sound page and the language in its settings file and puts them back at every start. A loaded save keeps the player's: its own Sound page and language are not taken.",
       "refs": ["port/game/rac2/host/options.c"]
     },
     {
@@ -67,6 +67,51 @@
       "original": "Start needs the shoulder buttons held with it to skip a scene. The ship leaving a planet skips on Cross or Triangle only, and the flight between planets cannot be skipped.",
       "port": "With the Skip cutscenes setting on (the default), Start alone skips an in-game scene: the port holds the shoulder buttons for it, so the game's own skip ends the scene. Start also presses Cross while the ship leaves a planet, and ends the flight between planets once the next planet is read from the disc: the flight's lap and then the approach end, and the planet loads as it would have. The planet's arrival scene then plays; Start skips it as any other scene. Off, Start works as on a console.",
       "refs": ["port/game/rac2/host/tools.c"]
+    },
+    {
+      "id": "pal-50-hz",
+      "kind": "port",
+      "name": "50 Hz on the PAL disc",
+      "discs": ["pal"],
+      "original": "The PAL game runs at 50 Hz, and its code counts in fiftieths of a second (its 1/50 s constants, its animation steps scaled by 1.2); it has no 60 Hz mode.",
+      "port": "The port ticks the PAL game 50 times a second, as the console did, so it plays at the right speed; the frames between ticks still draw at the display's rate. (Ratchet & Clank's PAL disc has a 60 Hz mode, which its port uses; Going Commando's has none.)",
+      "refs": ["port/game/common/program/vsync.cpp (tick_rate)", "port/game/rac2-pal/hostgen.json (tick_rate)"]
+    },
+    {
+      "id": "assert-trap-continues",
+      "kind": "guard",
+      "name": "The game's assert carries on",
+      "discs": ["ntsc", "pal", "ntsc2"],
+      "original": "The game's assert (func_00282A28, an unconditional trap) stops the console.",
+      "port": "The port logs where it was reached and the game carries on; only the developer's --stop-on-missing stops there.",
+      "refs": ["port/game/rac2/host/handasm.c"]
+    },
+    {
+      "id": "divide-by-zero",
+      "kind": "guard",
+      "name": "Integer divide by zero",
+      "discs": ["ntsc", "pal", "ntsc2"],
+      "original": "The EE's integer divide never traps: by zero it gives -1 (or 1) and the dividend as the remainder, and the game's C relies on it (the HUD's column count for a type out of range is 0).",
+      "port": "The port divides as the EE does, where a PC would stop the game with an arithmetic fault.",
+      "refs": ["port/runtime/include/openrac/guest.h (openrac_sdiv)", "port/tools/hostgen/lower.py (_int_divide)"]
+    },
+    {
+      "id": "active-distance",
+      "kind": "port",
+      "name": "Far mobys keep running",
+      "discs": ["ntsc", "pal", "ntsc2"],
+      "original": "A moby updates only inside the console's draw distance (at most 960 units).",
+      "port": "By default a moby updates out to the Draw distance setting, so far mobys animate and patrol where they are drawn. Active distance: Original keeps the console's distance.",
+      "refs": ["port/game/rac2/host/render.c", "docs/port/SETTINGS.md"]
+    },
+    {
+      "id": "background-play",
+      "kind": "port",
+      "name": "Plays in the background",
+      "discs": ["ntsc", "pal", "ntsc2"],
+      "original": "A console game has the screen and the controller to itself.",
+      "port": "The game keeps running, and a controller keeps playing it, while another window has the focus; on Windows a full-screen game stays up instead of minimising. The keyboard counts only while the game's window has the focus, and Mute in background silences it.",
+      "refs": ["port/platform/window.cpp"]
     }
   ]
 }

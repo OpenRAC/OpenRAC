@@ -1022,8 +1022,9 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
     target = Target(levels) if levels is not None else None
     layers = []
     if packed is not None and Path(packed).is_dir():
-        made = read_json(Path(packed) / PACKED).get("version", "pal") if (Path(packed) / PACKED).is_file() else "pal"
-        layers.append(("your packed levels", "packed", Path(packed), made))
+        note = read_json(Path(packed) / PACKED) if (Path(packed) / PACKED).is_file() else {}
+        layers.append(("your packed levels", "packed", Path(packed),
+                       {"game": note.get("game", GAME), "version": note.get("version", "pal")}))
     if folder is not None and Path(folder).is_dir():
         for entry in load_state(folder)["packs"]:
             if entry.get("enabled", True):

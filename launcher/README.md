@@ -12,8 +12,9 @@ Daxter. Nothing here emulates the console.
 
 It covers all six games: Ratchet & Clank (PAL and NTSC-U, and PAL v1.00 and
 Japan's disc, which it finds but cannot play yet), Going Commando, Up
-Your Arsenal, Deadlocked, Size Matters and Secret Agent Clank. Only
-Ratchet & Clank (PAL v2.00 and NTSC-U) is playable today. The others can be browsed, and set
+Your Arsenal, Deadlocked, Size Matters and Secret Agent Clank. Ratchet &
+Clank (PAL v2.00 and NTSC-U) and Going Commando (USA v1.01, USA v2.00 and
+Europe's) are playable today. The others can be browsed, and set
 up, built and checked where their projects support it. Each game's Play
 button says what is still missing.
 
@@ -206,19 +207,15 @@ the packs: on or off, order, remove, add a `.zip` or folder, or drop one on
 the page. With the **Mods** switch under Play on, Play first combines the packed
 levels with the packs that are on ([editor/MODDING.md](../editor/MODDING.md)).
 
-Going Commando (any of its three discs: USA v1.01, USA v2.00 and Europe's),
-Up Your Arsenal and Deadlocked (NTSC-U) are early access.
-Their levels open in Godot and **Models and textures** works, but edits are
-not packed back. Their packs wait in Your mods
+Going Commando (any of its three discs: USA v1.01, USA v2.00 and Europe's) is
+playable; Up Your Arsenal and Deadlocked (NTSC-U) are early access. Their
+levels open in Godot and **Models and textures** works, but level edits are
+not packed back yet. Their packs wait in Your mods
 ([editor/README.md](../editor/README.md#the-later-games-early-access)). Up
-Your Arsenal and Deadlocked are not playable yet. Going Commando's program
-still needs code from your disc. The Windows installer carries the game without
-that code and a small compiler: **Build and play** builds the missing part from
-your disc, with nothing to install or download, then gets its levels ready as
-Ratchet & Clank's does. On Linux and macOS no installer carries it: **Build and
-play** downloads OpenRAC's source and builds it from your disc. That needs a
-compiler, and says which is missing. On Linux it also needs SDL's X11, Wayland
-and audio development packages, such as `libxss-dev`.
+Your Arsenal and Deadlocked are not playable yet. Going Commando's decompilation
+is whole, so every installer carries its three programs built as Ratchet &
+Clank's are: pick the disc, get the levels ready, Play. Nothing is built on
+your computer.
 
 ## Develop
 

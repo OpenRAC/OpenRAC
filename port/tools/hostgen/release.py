@@ -76,6 +76,18 @@ RELEASES = {
 }
 
 
+_BETWEEN: dict = {}
+
+
+def _between(versionmap: Path):
+    """versionmap's Map of VERSIONMAP, read once."""
+    if versionmap not in _BETWEEN:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "versionmap"))
+        from versionmap import Map
+        _BETWEEN[versionmap] = Map(versionmap)
+    return _BETWEEN[versionmap]
+
+
 def core(kind: str, level: int | None, address: int, tag: str | None = None) -> str:
     kind = "func" if kind == "FUN" else kind
     return f"{kind}_{tag + '_' if tag else ''}{f'L{level:02d}_' if level is not None else ''}{address:08X}"
@@ -564,6 +576,12 @@ def build(source: Path, version: str, versionmap: Path | None, uses: Counter, pa
             value, how = r_values[home][name], f"{what}: the release's build"
         elif not tagged and (v := (mapped(home, address) if kind == "D" else mapped_function(home, address))) is not None:
             value, how = v, f"{what}: versionmap ({'exact' if kind == 'D' else 'paired'})"
+        elif (not tagged and kind == "D" and versionmap
+              and (hit := _between(versionmap).data(address, "boot" if home == "boot" else f"level:{home}"))
+              and hit[1] == "between"):
+            # A datum no function forms by itself (a small-data float only the release's own copy of a
+            # changed function reads), between two neighbours that moved alike: versionmap's `between`.
+            value, how = hit[0], f"{what}: versionmap (between)"
         else:
             # Used only where another program placed it (a level's C): the first level whose build
             # did (level_data has each level's own).
@@ -892,7 +910,8 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
     return out, evidence
 
 
-def derived_values(parts: dict, release: Release, level_base: int) -> dict:
+def derived_values(parts: dict, release: Release, level_base: int, primary: dict | None = None,
+                   versionmap: Path | None = None) -> dict:
     """The derived table (derived.py's form) in the release's names: every value the release's build
     gave, the executable's as values, a level's where it moved."""
     values = {release.name(k): v for k, v in parts["r_values"].get("boot", {}).items()}
@@ -927,6 +946,11 @@ def derived_values(parts: dict, release: Release, level_base: int) -> dict:
                     own = re.match(r"(?:ref|r1_func)_L(\d\d)_", name)
                     if name not in levels or (own is not None and int(own.group(1)) == lv):
                         levels[name] = [lv, f"{v:#010x}"]
+                    if name.startswith("ref_"):
+                        # A derived datum each level's build places on its own (ref_L00_00410D20_01, a particle
+                        # table: 0x00257960 in PAL's level 1, 0x0025AF70 in its level 3): each level's own
+                        # value, which a function shared by the levels reads there (lower.py, level_data).
+                        moved[name] = f"{v:#010x}"
                 continue
             m = NAME.match(name)
             if m and m.group(1) == "D":
@@ -940,6 +964,17 @@ def derived_values(parts: dict, release: Release, level_base: int) -> dict:
                     moved[name] = f"{v:#010x}"
         if moved:
             level_data[str(lv)] = dict(sorted(moved.items()))
+    # A level's derived datum the release's build placed nowhere (its own copy of the function spells it
+    # otherwise): v1.01's address of it (PRIMARY, the primary release's derived table) where versionmap pairs
+    # it, by the same instruction or between two neighbours that moved alike.
+    if primary and versionmap:
+        for name, (lv, at) in sorted(primary.get("levels", {}).items()):
+            if not name.startswith("ref_") or name in levels or name in values:
+                continue
+            address = int(str(at), 16)
+            hit = _between(versionmap).data(address, f"level:{int(lv):02d}")
+            if hit is not None and hit[1] in ("exact", "between"):
+                levels[name] = [int(lv), f"{hit[0]:#010x}"]
     return {"values": {k: f"{v:#010x}" for k, v in sorted(values.items())},
             "levels": dict(sorted(levels.items())), "level_data": level_data}
 
@@ -1003,7 +1038,10 @@ def main(argv: list[str] | None = None) -> int:
         release = Release({"names": parts["names"]})
         unit_names, unit_evidence = units(source, version, release, parts, cfg.get("sources", ["src"]))
         release.units = unit_names
-        derived = derived_values(parts, release, RELEASES[version]["level_base"])
+        primary_table = args.game.parent.parent / "rac2-ntsc" / "derived_names.json"
+        derived = derived_values(parts, release, RELEASES[version]["level_base"],
+                                 json.loads(primary_table.read_text()) if primary_table.is_file() else None,
+                                 args.map)
         DEAD_NOW = DEAD
         source_note = {"commit": None, "version": version, "table": f"{RELEASES[version]['build']}/*/placed.json"}
     try:
@@ -1026,7 +1064,9 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             if cpath.is_file():
                 text = release.text(cpath.read_text(errors="replace"))
-                marked = sorted(set(re.findall(rf"\b(?:func|D)_{DEAD_NOW}_\w+", text)))
+                # In its code: a comment naming rac1's address of the same routine is no use of it.
+                code = re.sub(r"/\*.*?\*/|//[^\n]*", " ", text, flags=re.S)
+                marked = sorted(set(re.findall(rf"\b(?:func|D)_{DEAD_NOW}_\w+", code)))
                 if marked:
                     left_out[cname] = f"names what this release does not have ({', '.join(marked[:3])})"
     unresolved = sorted({release.name(t) for t in uses if t.startswith(("D_", "func_"))

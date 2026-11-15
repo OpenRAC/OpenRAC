@@ -89,8 +89,8 @@
     jobs.list.filter((j) => j.scope.kind === "version" && j.scope.key === v.key && ids.includes(j.actionId));
   const running = (v: VersionView, ids: string[]) => jobsOf(v, ids).find(live) ?? null;
 
-  /** Early access: the editor reads the game's levels, but they are not packed back and the game
-   *  is not playable yet (the version has no editor-pack, and its play is planned). */
+  /** The editor reads the game's levels, but they are not packed back (the version has no editor-pack).
+   *  Early access where the game is not playable yet either; a game that plays is not marked so. */
   const early = (v: VersionView) => !action(v, "editor-pack");
   const playable = (v: VersionView) => {
     const play = action(v, "play");
@@ -125,6 +125,7 @@
     }
     if (
       early(v) &&
+      !playable(v) &&
       v.status.disc.state === "found" &&
       !running(v, [
         "editor-extract",
@@ -327,9 +328,12 @@
           {@const dirs = folders(v)}
           {@const current = shownTab(v)}
 
-          {#if early(v)}
+          {#if early(v) && !playable(v)}
             <!-- Honest about early access, in a line: what works, what comes later. -->
             <p class="early"><strong>{PAGE.earlyTitle}</strong><span class="muted">{PAGE.earlyLine}</span></p>
+          {:else if early(v)}
+            <!-- A game that plays, whose level edits are not packed back yet (Going Commando): what works. -->
+            <p class="muted">{PAGE.packLaterLine}</p>
           {/if}
 
           {#if !onModPage}<div class="tabs" role="tablist" aria-label={PAGE.tabsLabel} use:tablist>

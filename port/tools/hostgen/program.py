@@ -87,6 +87,9 @@ class Function:
     # parameter index -> the (callee, integer argument number) its value is only ever passed on to, unchanged
     # (forwarded_params); widen_forwarded makes such a parameter 64-bit where every one of them takes 64 bits
     forwards: dict = field(default_factory=dict)
+    # parameters its callers' declarations pass past the ones its definition names (params_from_declarations):
+    # registers the definition leaves untouched and passes on, appended to sig.params and to the definition
+    extra: tuple = ()
     widened: dict = field(default_factory=dict)  # parameter index -> the 64-bit type it was given
     # the functions whose result a `return` statement hands back as it is (returned_calls); widen_returns makes a
     # 32-bit result 64-bit where one of them is "returns_64"
@@ -651,6 +654,51 @@ def int_params(sig: Signature, typedefs: dict | None) -> list[tuple[int, str | N
     return out
 
 
+def params_from_declarations(program: Program) -> list[str]:
+    """hostgen.json "params_from_declarations": a definition that names fewer parameters than its callers'
+    declarations pass. Matching C may leave out an argument it only hands on to a call (the register keeps the
+    caller's value: Going Commando's func_003361E0(o) calls func_00335FC8(o, text, arg) with its callers' text and
+    arg). The longest such declaration's extra parameters are added to the signature (what callers are matched to)
+    and to the definition (lower.py), so the definition's own short calls pass them through (lower.py's
+    passthrough). Only where the declaration agrees with the definition on which of the shared parameters are
+    floats, and every extra one is a scalar. Not for the port's own host or wrapped functions. Returns
+    "symbol: n parameter(s)" of each one."""
+    changed = []
+    for f in program.functions.values():
+        listed = f.symbol in getattr(program, "extra_params", {})
+        if (f.unit is None or f.asm or f.static or f.symbol in program.host or f.symbol in program.wrap
+                or (f.symbol in getattr(program, "host_called", ()) and not listed)
+                or not (f.sig.prototyped or listed) or f.sig.variadic):
+            continue
+        n = len(f.sig.params)
+
+        def kind(t):
+            c = canon(t, program.typedefs)
+            return None if c is None else ("f" if c in ("float", "double", "long double") else "i")
+        own = [kind(t) for t in f.sig.params]
+        best = None
+        declared = list(f.declared)
+        listed = getattr(program, "extra_params", {}).get(f.symbol)
+        if listed:
+            # hostgen.json "extra_params": what its callers pass, where no declaration says it.
+            declared.append(Signature(f.sig.ret, f.sig.params + tuple(ctype.parse(x) for x in listed), False, True))
+        for d in declared:
+            if not d.prototyped or d.variadic or len(d.params) <= n:
+                continue
+            if [kind(t) for t in d.params[:n]] != own:
+                continue
+            if any(kind(t) is None for t in d.params[n:]):
+                continue
+            if best is None or len(d.params) > len(best.params):
+                best = d
+        if best is None:
+            continue
+        f.extra = tuple(best.params[n:])
+        f.sig = Signature(f.sig.ret, f.sig.params + f.extra, False, True)
+        changed.append(f"{f.symbol}: {len(f.extra)} parameter(s)")
+    return changed
+
+
 def widen_forwarded(program: Program) -> list[str]:
     """A parameter that a definition only passes on unchanged (forwarded_params) to callees whose parameter there is
     64-bit takes 64 bits itself: on the EE the register reaches the callee with all its bits, whatever type the C
@@ -802,6 +850,8 @@ def derived_resolves(program: Program, name: str, unit: str | None = None) -> bo
     f = program.functions.get(name)
     if f is not None and (f.unit is not None or name in program.host):
         return True
+    if any(name in names for names in program.level_data.values()):
+        return True  # a datum only the levels' builds place (lower.py _level_only_data)
     return bool(program.data_address(name) is not None or program.code_places(name))
 
 

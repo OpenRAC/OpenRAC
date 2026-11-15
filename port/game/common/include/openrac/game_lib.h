@@ -19,6 +19,7 @@ extern "C" {
 int openrac_lib_memcmp(gaddr, gaddr, unsigned int);
 gaddr openrac_lib_memcpy(gaddr, gaddr, unsigned int);
 gaddr openrac_lib_memset(gaddr, int, unsigned int);
+gaddr openrac_lib_memchr(gaddr, int, unsigned int);
 gaddr openrac_lib_strchr(gaddr, int);
 int openrac_lib_strcmp(gaddr, gaddr);
 gaddr openrac_lib_strcpy(gaddr, gaddr);
