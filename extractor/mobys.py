@@ -74,7 +74,7 @@ def matrix(position, rotation, scale: float) -> list[float]:
 
 def moby_class_names() -> dict[int, str]:
     """Class number -> name, from moby_classes.tsv (see its header)."""
-    rows = (line.split("\t") for line in CLASS_NAMES.read_text().splitlines() if line and not line.startswith("#"))
+    rows = (line.split("\t") for line in CLASS_NAMES.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#"))
     return {int(number): name for number, name in rows}
 
 
@@ -114,7 +114,7 @@ def names_h_symbols(path: Path) -> dict[str, str]:
     """include/names.h and its parts (include/names/): readable name -> func_ symbol."""
     if not path.is_file():
         return {}
-    text = "\n".join(p.read_text() for p in [path, *sorted((path.parent / "names").glob("*.h"))])
+    text = "\n".join(p.read_text(encoding="utf-8") for p in [path, *sorted((path.parent / "names").glob("*.h"))])
     return dict(re.findall(r"^#define\s+(\w+)\s+(func_\w+)\s*$", text, re.M))
 
 
@@ -154,9 +154,9 @@ def moby_logic(level: int) -> dict[int, dict]:
             # A function the decompilation has renamed is defined under its readable name
             # (include/names.h maps each one to its func_ symbol).
             symbol_of = names_h_symbols(DECOMPILATION / "include" / "names.h")
-            sources = ((p, p.read_text(errors="replace")) for p in sorted((DECOMPILATION / "src").rglob("*.c")))
+            sources = ((p, p.read_text(errors="replace", encoding="utf-8")) for p in sorted((DECOMPILATION / "src").rglob("*.c")))
             where, defined_as = c_definitions(sources, symbol_of)
-            for function, classes in update_roles(table.read_text()).items():
+            for function, classes in update_roles(table.read_text(encoding="utf-8")).items():
                 path, is_c = where.get(function, (None, False))
                 for class_id, levels in classes.items():
                     for lv in levels:

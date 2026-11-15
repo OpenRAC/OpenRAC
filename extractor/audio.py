@@ -695,8 +695,8 @@ def export(iso: Path, out: Path, what: str, level: int | None = None, workers: i
         summary = {"format": EXPORT_FORMAT, "tool": TOOL, "game": "rac1", "version": version, "what": what,
                    "level": level, "id": os.urandom(8).hex(),
                    "sounds": {f"{place}.wav": {"key": places[place].key, "sha256": hashes[place]} for place in places}}
-        (temporary / SUMMARY).write_text(json.dumps(summary, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
-        (temporary / "README.txt").write_text(README)
+        (temporary / SUMMARY).write_text(json.dumps(summary, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+        (temporary / "README.txt").write_text(README, encoding="utf-8", newline="\n")
         file_ops.rename(temporary, out)
     finally:
         if temporary.exists():
@@ -763,7 +763,7 @@ def import_edits(edited: Path, into: Path, name: str | None = None) -> tuple[str
         (staged / "audio").mkdir(parents=True)
         for rel, data in changed.items():
             (staged / rel).write_bytes(data)
-        (staged / overrides.MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n")
+        (staged / overrides.MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8", newline="\n")
         return overrides.install(staged, into, replace_export=summary["id"]), len(changed), refused
 
 

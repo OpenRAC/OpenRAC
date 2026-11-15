@@ -73,9 +73,9 @@ def class_layouts() -> dict[int, list[tuple]]:
     include = DECOMPILATION / "include"
     for path in (include / "common.h", include / "structs" / "misc.h"):  # what moby_pvars.h includes
         if path.is_file():
-            types.read(path.read_text(errors="replace"))
+            types.read(path.read_text(errors="replace", encoding="utf-8"))
     # cparse reads `short int` as two names; the header writes it so.
-    text = re.sub(r"\b(short|long)\s+int\b", r"\1", header.read_text(errors="replace"))
+    text = re.sub(r"\b(short|long)\s+int\b", r"\1", header.read_text(errors="replace", encoding="utf-8"))
     types.read(text)
     for class_id, body in re.findall(r"^struct update(\d+) \{[^\n]*\n(.*?)^\};", text, re.M | re.S):
         s = types.structs.get(f"update{class_id}")

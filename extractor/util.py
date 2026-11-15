@@ -44,7 +44,7 @@ def read_json(path: Path | str, error: Callable[[Path | str, Exception], Excepti
     what ERROR makes of PATH and the cause, without the cause chained: each tool keeps its own
     error type and wording at its boundary (assets.py's AssetError, overrides.py's PackError)."""
     try:
-        return json.loads(Path(path).read_text())
+        return json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise error(path, exc) from None
 

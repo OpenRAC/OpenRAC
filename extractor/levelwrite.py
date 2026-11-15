@@ -281,7 +281,7 @@ class LevelWriter:
 
         sets = [[floats(colour_a), self.godot_axes(floats(dir_a)), floats(colour_b), self.godot_axes(floats(dir_b))]
                 for colour_a, dir_a, colour_b, dir_b in bank]
-        (self.dir / "light_bank.json").write_text(json.dumps({"sets": sets}) + "\n")
+        (self.dir / "light_bank.json").write_text(json.dumps({"sets": sets}) + "\n", encoding="utf-8", newline="\n")
 
     @staticmethod
     def godot_axes(v: list[float]) -> list[float]:
@@ -370,8 +370,8 @@ class LevelWriter:
                                 [max(p[i] for p in self.corners) for i in range(3)]] if self.corners else [[0, 0, 0], [0, 0, 0]]
         if self.fmt.lenient:
             self.stats["problems"] = problem_summary(self.level.problems)
-        (self.dir / f"{self.name}.tscn").write_text(self.scene.text())
-        (self.dir / "level.json").write_text(json.dumps(self.stats, indent=2) + "\n")
+        (self.dir / f"{self.name}.tscn").write_text(self.scene.text(), encoding="utf-8", newline="\n")
+        (self.dir / "level.json").write_text(json.dumps(self.stats, indent=2) + "\n", encoding="utf-8", newline="\n")
         return self.stats
 
 

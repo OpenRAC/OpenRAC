@@ -375,7 +375,7 @@ def export_model(export: LevelExport, family: str, class_id: int, entry: dict) -
         textures[texture_name] = export.textures[texture_name]["size"]
     doc["buffers"][0]["uri"] = f"{stem}.bin"
     (out / f"{stem}.bin").write_bytes(buffer)
-    (out / f"{stem}.gltf").write_text(json.dumps(doc, indent=1, allow_nan=False) + "\n")
+    (out / f"{stem}.gltf").write_text(json.dumps(doc, indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
     skeleton = None
     if document.list("skins"):
         names = [document.list("nodes")[j].get("name", "") for j in document.list("skins")[0]["joints"]]
@@ -393,7 +393,7 @@ def export_model(export: LevelExport, family: str, class_id: int, entry: dict) -
         "levels": "all" if family == "moby" else [export.level],
         "axes": "glTF (Y up); the game's are Z up: (x, y, z) in the game is (x, z, -y) here",
     }
-    (out / "asset.json").write_text(json.dumps(manifest, indent=1) + "\n")
+    (out / "asset.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8", newline="\n")
     return manifest
 
 
@@ -419,7 +419,7 @@ def export_terrain(export: LevelExport, level_entry: dict) -> dict | None:
         textures[texture_name] = export.textures[texture_name]["size"]
     doc["buffers"][0]["uri"] = "terrain.bin"
     (out / "terrain.bin").write_bytes(buffer)
-    (out / "terrain.gltf").write_text(json.dumps(doc, indent=1, allow_nan=False) + "\n")
+    (out / "terrain.gltf").write_text(json.dumps(doc, indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
     manifest = {
         "format": ASSET_FORMAT, "game": export.game, "version": export.version,
         "levels_format": levels_format(export.game),
@@ -432,7 +432,7 @@ def export_terrain(export: LevelExport, level_entry: dict) -> dict | None:
         "colour_scale": TERRAIN_COLOUR_SCALE,
         "axes": "glTF (Y up); the game's are Z up: (x, y, z) in the game is (x, z, -y) here",
     }
-    (out / "asset.json").write_text(json.dumps(manifest, indent=1) + "\n")
+    (out / "asset.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8", newline="\n")
     return manifest
 
 
@@ -459,7 +459,7 @@ def export_sky(export: LevelExport, level_entry: dict) -> dict | None:
         textures[texture_name] = export.textures[texture_name]["size"]
     doc["buffers"][0]["uri"] = "sky.bin"
     (out / "sky.bin").write_bytes(buffer)
-    (out / "sky.gltf").write_text(json.dumps(doc, indent=1, allow_nan=False) + "\n")
+    (out / "sky.gltf").write_text(json.dumps(doc, indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
     manifest = {
         "format": ASSET_FORMAT, "game": export.game, "version": export.version,
         "levels_format": levels_format(export.game),
@@ -474,7 +474,7 @@ def export_sky(export: LevelExport, level_entry: dict) -> dict | None:
         "importable": False,
         "axes": "glTF (Y up); the game's are Z up: (x, y, z) in the game is (x, z, -y) here",
     }
-    (out / "asset.json").write_text(json.dumps(manifest, indent=1) + "\n")
+    (out / "asset.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8", newline="\n")
     return manifest
 
 
@@ -527,7 +527,7 @@ def export(levels: Path, out: Path, level_ids: list[int], what: str, classes: li
             textures = {"format": ASSET_FORMAT, "game": game, "version": version, "levels_format": levels_format(game),
                         "level": level, "textures": dict(sorted(export_level.textures.items()))}
             (export_level.dir / "textures").mkdir(exist_ok=True)
-            (export_level.dir / "textures" / "textures.json").write_text(json.dumps(textures, indent=1) + "\n")
+            (export_level.dir / "textures" / "textures.json").write_text(json.dumps(textures, indent=1) + "\n", encoding="utf-8", newline="\n")
             counts["textures"] += len(export_level.textures)
             terrain = (export_level.dir / "terrain" / "asset.json").is_file()
             print(f"level {level:02}: {sum(1 for _ in export_level.dir.glob('*s/*/asset.json'))} models, "
@@ -541,8 +541,8 @@ def export(levels: Path, out: Path, level_ids: list[int], what: str, classes: li
         summary = {"format": ASSET_FORMAT, "tool": "openrac-assets", "game": game, "version": version,
                    "levels_format": levels_format(game), "id": os.urandom(8).hex(), "what": what,
                    "levels": sorted(level_ids), **counts}
-        (temporary / "export.json").write_text(json.dumps(summary, indent=1) + "\n")
-        (temporary / "README.txt").write_text(README)
+        (temporary / "export.json").write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8", newline="\n")
+        (temporary / "README.txt").write_text(README, encoding="utf-8", newline="\n")
         out.parent.mkdir(parents=True, exist_ok=True)
         file_ops.rename(temporary, out)
     finally:
@@ -582,7 +582,7 @@ class LevelsIndex:
         self.manifests = {}
         for path in sorted(levels.glob("level_*/manifest.json")):
             try:
-                manifest = json.loads(path.read_text())
+                manifest = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 continue
             if manifest.get("format") == levels_format(levels_game(manifest)) and isinstance(manifest.get("level"), int):
@@ -1496,7 +1496,7 @@ def write_pack(pack: Pack, out: Path, name: str, author: str, description: str, 
         target = out / path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
-    (out / overrides.MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n")
+    (out / overrides.MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8", newline="\n")
     return manifest
 
 

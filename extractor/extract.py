@@ -108,7 +108,7 @@ def adopt_flat_export(out: Path, version: str, kind: str = "port") -> bool:
         return False
     if kind == "port":
         try:
-            found = json.loads((levels[-1] / marker).read_text()).get("version", "pal")
+            found = json.loads((levels[-1] / marker).read_text(encoding="utf-8")).get("version", "pal")
         except (OSError, ValueError):
             return False
     else:
@@ -312,7 +312,7 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
         write_pvs_stamp(out)
     # Last: every level is whole. The launcher counts the levels as ready by this stamp, named
     # after the export format, so a format bump reads them again before they are checked.
-    (out / levels_stamp_name(game)).write_text(json.dumps({"format": levels_format(game)}) + "\n")
+    (out / levels_stamp_name(game)).write_text(json.dumps({"format": levels_format(game)}) + "\n", encoding="utf-8", newline="\n")
 
 
 def raw_later(source: wads.WadDisc, level_id: int, out: Path) -> None:
@@ -328,7 +328,7 @@ def raw_later(source: wads.WadDisc, level_id: int, out: Path) -> None:
         (out / name).parent.mkdir(parents=True, exist_ok=True)
         (out / name).write_bytes(data)
         manifest["files"].append({"path": name, "bytes": len(data), "sha256": sha256(data)})
-    (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 def later_main(args, parser, disc: Disc, version: wads.Version) -> None:
@@ -368,7 +368,7 @@ def raw(disc: Disc, survey: dict, level_id: int, out: Path) -> None:
         (out / name).parent.mkdir(parents=True, exist_ok=True)
         (out / name).write_bytes(data)
         manifest["files"].append({"path": name, "bytes": len(data), "sha256": sha256(data)})
-    (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 def main() -> None:

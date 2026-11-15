@@ -116,7 +116,7 @@ AUDIO = re.compile(r"^audio/")
 PACKED = "packed.json"  # the level packer's note of the disc it packed (OpenRAC Editor's tools/pack.py)
 # The packed levels' format this OpenRAC plays (packed.json's "format"; extractor_api.json's
 # packed_format, which the editor's packer writes).
-PACKED_FORMAT = json.loads((Path(__file__).with_name("extractor_api.json")).read_text())["packed_format"]
+PACKED_FORMAT = json.loads((Path(__file__).with_name("extractor_api.json")).read_text(encoding="utf-8"))["packed_format"]
 PEOPLE = re.compile(r"^(?:[^/]+\.(?:txt|md)|(?:README|LICENSE|CREDITS)[^/]*)$", re.IGNORECASE)
 MAX_FILES = 200_000
 
@@ -388,7 +388,7 @@ def load_state(folder: Path) -> dict:
     if not path.is_file():
         return {"format": 1, "packs": []}
     try:
-        state = json.loads(path.read_text())
+        state = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise PackError(f"{path} cannot be read ({exc})") from None
     if state.get("format") != 1 or not isinstance(state.get("packs"), list):
@@ -402,7 +402,7 @@ def load_state(folder: Path) -> dict:
 def save_state(folder: Path, state: dict) -> None:
     path = Path(folder) / STATE
     temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(state, indent=1) + "\n")
+    temporary.write_text(json.dumps(state, indent=1) + "\n", encoding="utf-8", newline="\n")
     file_ops.replace(temporary, path)
 
 
@@ -419,7 +419,7 @@ def export_pack(folder: Path, export: str) -> str | None:
     existing = None
     for entry in load_state(folder)["packs"]:
         try:
-            other = json.loads((Path(folder) / "packs" / entry["id"] / MANIFEST).read_text())
+            other = json.loads((Path(folder) / "packs" / entry["id"] / MANIFEST).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
         if other.get("export") == export:
@@ -432,7 +432,7 @@ def install(staged: Path, folder: Path, replace_export: str | None = None) -> st
     made from the same export (REPLACE_EXPORT) takes the place of the older one, keeping its
     place and state."""
     folder = ensure(folder)
-    manifest = json.loads((staged / MANIFEST).read_text())
+    manifest = json.loads((staged / MANIFEST).read_text(encoding="utf-8"))
     state = load_state(folder)
     taken = {p.name for p in (folder / "packs").iterdir()}
     existing = export_pack(folder, replace_export) if replace_export else None
@@ -931,7 +931,7 @@ def write_layers(layers, target, temporary: Path) -> dict:
                                                    len(skipped[ident]) > 6 else ""))
         for rel, source in files.items():
             if rel == "patches.tsv":
-                for line in source.read_text().splitlines():
+                for line in source.read_text(encoding="utf-8").splitlines():
                     fields = line.split("\t")
                     if line.startswith("#") or len(fields) != 3:
                         continue
@@ -942,7 +942,7 @@ def write_layers(layers, target, temporary: Path) -> dict:
                     patches[key] = (fields[2], ident)
                 continue
             if rel == "virtual.tsv":
-                for line in source.read_text().splitlines():
+                for line in source.read_text(encoding="utf-8").splitlines():
                     fields = line.split("\t")
                     if line.startswith("#") or len(fields) not in (3, 7):
                         continue
@@ -996,13 +996,13 @@ def write_layers(layers, target, temporary: Path) -> dict:
         reconcile_headers()
     (temporary / "patches.tsv").write_text(
         "# first sector\tsectors\tfile (beside this list)\n"
-        + "".join(f"{first}\t{count}\t{file}\n" for (first, count), (file, _) in sorted(patches.items())))
+        + "".join(f"{first}\t{count}\t{file}\n" for (first, count), (file, _) in sorted(patches.items())), encoding="utf-8", newline="\n")
     (temporary / "virtual.tsv").write_text(
         "# first sector\tsectors\tfile (beside this list)\n"
         + "".join(f"{first}\t{count}\t{file}"
                  + (f"\t{level}\t{slot}\t{original_first}\t{original_count}" if level is not None else "") + "\n"
                  for first, count, file, _, level, slot, original_first, original_count in
-                 sorted(virtuals.values(), key=lambda row: row[0])))
+                 sorted(virtuals.values(), key=lambda row: row[0])), encoding="utf-8", newline="\n")
     changing = {owner for rel, owner in owners.items() if GAMEPLAY_FILES.fullmatch(rel)}
     changing |= {owner for _, owner in patches.values()}
     changing |= {row[3] for row in virtuals.values()}
@@ -1011,7 +1011,7 @@ def write_layers(layers, target, temporary: Path) -> dict:
                           for name, ident, root, manifest in layers],
                "files": dict(sorted(owners.items())), "notes": notes,
                "skipped": {k: v for k, v in skipped.items() if v}}
-    (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n")
+    (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8", newline="\n")
 
     return summary
 
@@ -1072,21 +1072,21 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
     try:
         summary = write_layers(layers, target, temporary)
         if maps:
-            (temporary / "map.json").write_text(json.dumps(maps[0], indent=1, allow_nan=False) + "\n")
+            (temporary / "map.json").write_text(json.dumps(maps[0], indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
         if destinations:
             entries = []
             for entry, layer in sorted(destinations, key=lambda pair: pair[0]["id"]):
                 write_layers(layers + [layer], target, temporary / "destinations" / entry["id"])
                 entries.append(entry)
             registry = {"format": 1, "game": "rac1", "version": "pal", "destinations": entries}
-            (temporary / "destinations.json").write_text(json.dumps(registry, indent=1, allow_nan=False) + "\n")
+            (temporary / "destinations.json").write_text(json.dumps(registry, indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
             summary["destinations"] = [{"id": m["id"], "name": m["name"]} for m in entries]
             kept = {layer["id"]: layer for layer in summary["layers"]}
             summary["layers"] = [kept.get(ident) or layer_record(name, ident, root, manifest, True)
                                  for name, ident, root, manifest in requested_layers if ident != "packed"]
             summary["notes"].append(f"{len(entries)} added ship destination(s) prepared separately from the campaign")
-            (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n")
-        (temporary / MARKER).write_text("made by extractor/overrides.py stack; it is replaced each time\n")
+            (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8", newline="\n")
+        (temporary / MARKER).write_text("made by extractor/overrides.py stack; it is replaced each time\n", encoding="utf-8", newline="\n")
         if out.exists():
             old = Path(tempfile.mkdtemp(prefix=f".{out.name}-old-", dir=out.parent))
             file_ops.rename(out, old / out.name)
@@ -1236,7 +1236,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.json:
                 print(json.dumps(state, indent=1))
             for i, entry in enumerate(state["packs"], 1):
-                manifest = json.loads((args.into / "packs" / entry["id"] / MANIFEST).read_text())
+                manifest = json.loads((args.into / "packs" / entry["id"] / MANIFEST).read_text(encoding="utf-8"))
                 print(f"{i}. {entry['id']}: {manifest['name']} ({'on' if entry.get('enabled', True) else 'off'})")
             return 0
         if args.command == "remove":

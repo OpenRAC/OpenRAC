@@ -84,9 +84,14 @@ pub fn folder() -> PathBuf {
 pub fn read(dir: &Path) -> Result<Editor, String> {
     let path = crate::under(dir, MANIFEST);
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let manifest: Manifest = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+    // A manifest saved by a Windows editor may start with a byte order mark.
+    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    let manifest: Manifest = serde_json::from_str(text).map_err(|e| format!("{}: {e}", path.display()))?;
     if manifest.format != FORMAT {
-        return Err(format!("OpenRAC Editor {} is newer than this launcher reads: update the launcher", manifest.version));
+        return Err(format!(
+            "OpenRAC Editor {} is newer than this launcher reads: update the launcher",
+            manifest.version
+        ));
     }
     Ok(Editor { dir: dir.to_path_buf(), manifest })
 }
@@ -250,7 +255,8 @@ fn put_in_place(bytes: &[u8], dir: &Path) -> Result<(), String> {
         }
     }
     unpack(bytes, &fresh)?;
-    read(&fresh).map_err(|e| format!("the download is not OpenRAC Editor ({e})"))?;
+    let editor = read(&fresh).map_err(|e| format!("the download is not OpenRAC Editor ({e})"))?;
+    make_runnable(&editor);
     if dir.exists() {
         std::fs::rename(dir, &old).map_err(|e| format!("{}: {e} (close OpenRAC Editor first)", dir.display()))?;
     }
@@ -264,6 +270,23 @@ fn put_in_place(bytes: &[u8], dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// The editor's programs can run, though the .zip kept no Unix modes (one packed on Windows).
+fn make_runnable(editor: &Editor) {
+    #[cfg(unix)]
+    for program in editor.manifest.program.values() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = crate::under(&editor.dir, program);
+        if let Ok(meta) = std::fs::metadata(&path) {
+            if meta.is_file() {
+                let _ =
+                    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(meta.permissions().mode() | 0o755));
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = editor;
+}
+
 /// The .zip `bytes` into `into`: files and folders only, inside it, with their Unix modes (the
 /// program's execute bit).
 fn unpack(bytes: &[u8], into: &Path) -> Result<(), String> {
@@ -273,6 +296,10 @@ fn unpack(bytes: &[u8], into: &Path) -> Result<(), String> {
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
         let name = entry.name().map_err(|e| e.to_string())?.to_string();
+        // A name with \\ is one folder on Windows and a single odd file elsewhere: refused everywhere.
+        if name.contains('\\') {
+            return Err(format!("the .zip names a file with \\ in place of / ({name})"));
+        }
         let Some(relative) = entry.enclosed_name() else {
             return Err(format!("the .zip names a file outside its folder ({name})"));
         };
@@ -366,7 +393,10 @@ mod tests {
         let editor = read(dir.path()).unwrap();
         assert_eq!(editor.manifest.version, "v1.0.0");
         let actions = editor.actions("rac1/pal");
-        assert_eq!(actions[0].docs.as_deref(), Some("https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md"));
+        assert_eq!(
+            actions[0].docs.as_deref(),
+            Some("https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md")
+        );
         assert!(editor.actions("rac2/pal").is_empty());
         // No program yet: that is the problem.
         let root = tempfile::tempdir().unwrap();
@@ -427,7 +457,8 @@ mod tests {
         // A damaged download is refused before anything is changed.
         let mut bad = fetch.0.clone();
         bad.insert(format!("https://dl.test/{name}"), b"not it".to_vec());
-        let release: Release = serde_json::from_slice(&bad[&format!("https://api.test/repos/{REPOSITORY}/releases/latest")]).unwrap();
+        let release: Release =
+            serde_json::from_slice(&bad[&format!("https://api.test/repos/{REPOSITORY}/releases/latest")]).unwrap();
         assert_eq!(release.assets.len(), 2);
         let sums = String::from_utf8(bad["https://dl.test/SHA256SUMS"].clone()).unwrap();
         assert!(crate::remote::verify(b"not it", name, None, Some(&sums)).is_err());
@@ -439,5 +470,71 @@ mod tests {
         let archive = zip_of(&[("../evil.txt", b"x", 0o644)]);
         assert!(unpack(&archive, &home.path().join("x")).unwrap_err().contains("outside"));
         assert!(!home.path().join("evil.txt").exists());
+    }
+
+    #[test]
+    fn reads_a_manifest_saved_on_windows() {
+        // A byte order mark and \r\n line ends, as Notepad saves it.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("openrac")).unwrap();
+        let text = format!("\u{feff}{}", MANIFEST_TEXT.replace('\n', "\r\n"));
+        std::fs::write(dir.path().join(MANIFEST), text).unwrap();
+        assert_eq!(read(dir.path()).unwrap().manifest.version, "v1.0.0");
+    }
+
+    #[test]
+    fn each_computer_has_its_own_archive() {
+        let names: Vec<_> = [Platform::Linux, Platform::Windows, Platform::Macos].map(asset_name).into_iter().collect();
+        for (name, system) in names.iter().zip(["linux", "windows", "macos"]) {
+            let name = name.unwrap();
+            assert!(name.ends_with(".zip") && name.contains(system), "{name}");
+        }
+        assert_eq!(names.iter().collect::<std::collections::BTreeSet<_>>().len(), 3);
+        assert_eq!(asset_name(Platform::Android), None);
+        assert_eq!(asset_name(Platform::Ios), None);
+    }
+
+    #[test]
+    fn a_program_path_with_spaces_and_folders_is_found_on_any_system() {
+        // The manifest's paths use /; the folders are joined with this system's separator.
+        let root = Path::new("base");
+        let path = crate::under(root, "OpenRAC Editor.app/Contents/MacOS/OpenRAC Editor");
+        let want: PathBuf = ["base", "OpenRAC Editor.app", "Contents", "MacOS", "OpenRAC Editor"].iter().collect();
+        assert_eq!(path, want);
+        assert_eq!(path.components().count(), 5);
+    }
+
+    #[test]
+    fn installs_under_a_folder_with_spaces_dots_and_letters_past_ascii() {
+        // A Windows user folder such as C:\Users\Mateusz Kłysz, and a folder name with a dot
+        // (the swap uses <name>.new and <name>.old beside it).
+        let home = tempfile::tempdir().unwrap();
+        let dir = home.path().join("Mateusz Kłysz").join("Open RAC").join("editor.v2");
+        let archive = zip_of(&[(MANIFEST, MANIFEST_TEXT.as_bytes(), 0o644), (program_key(), b"#!", 0o755)]);
+        put_in_place(&archive, &dir).unwrap();
+        put_in_place(&archive, &dir).unwrap();
+        assert!(read(&dir).unwrap().program().is_some());
+        let left: Vec<_> = std::fs::read_dir(dir.parent().unwrap()).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(left, vec![std::ffi::OsString::from("editor.v2")], "no .new or .old left beside it");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_program_packed_without_unix_modes_still_runs() {
+        // An archive made on Windows keeps no execute bit.
+        use std::os::unix::fs::PermissionsExt;
+        let home = tempfile::tempdir().unwrap();
+        let dir = home.path().join("editor");
+        let archive = zip_of(&[(MANIFEST, MANIFEST_TEXT.as_bytes(), 0o644), (program_key(), b"#!", 0o644)]);
+        put_in_place(&archive, &dir).unwrap();
+        let program = read(&dir).unwrap().program().unwrap();
+        assert_eq!(std::fs::metadata(program).unwrap().permissions().mode() & 0o111, 0o111);
+    }
+
+    #[test]
+    fn refuses_names_with_backslashes() {
+        let home = tempfile::tempdir().unwrap();
+        let archive = zip_of(&[("openrac\\editor.json", MANIFEST_TEXT.as_bytes(), 0o644)]);
+        assert!(unpack(&archive, &home.path().join("x")).unwrap_err().contains("in place of /"));
     }
 }

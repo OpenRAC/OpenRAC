@@ -367,6 +367,6 @@ class PortLevelWriter(LevelWriter):
             # the game lights its mobys with.
             manifest["lights"] = [[list(struct.unpack("<4f", struct.pack("<4I", *v))) for v in s]
                                   for s in light_bank(self.level.gameplay)]
-        (self.dir / "placements.json").write_text(json.dumps(self.placements, indent=1, allow_nan=False) + "\n")
-        (self.dir / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
+        (self.dir / "placements.json").write_text(json.dumps(self.placements, indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
+        (self.dir / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
         return self.stats

@@ -16,7 +16,7 @@ STAMP = "visibility-1.json"
 
 
 def write_stamp(levels: Path) -> None:
-    (levels / STAMP).write_text(json.dumps({"format": 1}) + "\n")
+    (levels / STAMP).write_text(json.dumps({"format": 1}) + "\n", encoding="utf-8", newline="\n")
 
 
 def export_pvs(level, directory: Path):
@@ -64,7 +64,7 @@ def export_pvs(level, directory: Path):
                 "grid": "pvs.bin", "terrain": terrain_words, "ties": ties,
                 "tie_words": tie_words, "mobys": mobys}
     (directory / "pvs.bin").write_bytes(grid)
-    (directory / "pvs.json").write_text(json.dumps(document, separators=(',', ':')) + '\n')
+    (directory / "pvs.json").write_text(json.dumps(document, separators=(',', ':')) + '\n', encoding="utf-8", newline="\n")
 
 
 if __name__ == '__main__':
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         for info in progress_line.counted("visibility", found, lambda info: info['id']):
             directory = args.levels / f"level_{info['id']:02}"
             manifest = directory / 'manifest.json'
-            identity = json.loads(manifest.read_text())
+            identity = json.loads(manifest.read_text(encoding="utf-8"))
             if (identity.get('game'), identity.get('version'), identity.get('level')) != (
                     'rac1', disc.version.key, info['id']):
                 raise ValueError(f"export/disc identity mismatch: {directory}")
