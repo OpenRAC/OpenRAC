@@ -478,6 +478,13 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
         border_hash
     };
     if (auto found = m_converted.find(key); found != m_converted.end()) {
+        // A held texture still drawn after the place went quiet is a still picture: dumped now.
+        Entry& e = m_entries[found->second - 1];
+        if (e.held != nullptr
+            && (m_tick < e.held_tick || m_tick - e.held_tick > texture_pack::LiveWatch::kMaxGap)) {
+            texture_pack::dump_picture(*e.held, {.interface = true});
+            e.held = nullptr;
+        }
         return found->second;
     }
     if (indexed && colours.empty()) {
@@ -530,6 +537,7 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     // A texture the game makes anew each tick (a fade, a picture it draws) is not dumped: each
     // tick's would be a file of its own, and no pack can replace them.
     bool dump = true;
+    std::vector<std::uint64_t> taken_back;
     if (texture_pack::dumping()) {
         const auto seen = m_live.see(
             std::uint64_t{tex0.tbp0} | (std::uint64_t{tex0.tw} << 20)
@@ -540,6 +548,7 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
         dump = !seen.live;
         if (!seen.undump.empty()) {
             texture_pack::undump(seen.undump);
+            taken_back = seen.undump;
             log::info(
                 "textures: the upload at block {:#x} ({}x{}) changes every tick; not dumped "
                 "({} taken back)",
@@ -550,6 +559,9 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
             );
         }
     }
+    // The original, for a dump later (Entry::held): a texture pack of PCSX2's may change `image`.
+    std::shared_ptr<const Rgba8Image> held =
+        dump ? nullptr : std::make_shared<const Rgba8Image>(image);
     const bool packed =
         texture_pack::replace(image, {.interface = true, .later = true, .dump = dump}, &replaced);
     if (!packed && clut != nullptr) {
@@ -602,6 +614,22 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     entry.from_upload = true;
     entry.key = key;
     entry.pack_hash = replaced.hash;
+    if (!packed && held != nullptr) {
+        entry.held = std::move(held);
+        entry.held_tick = m_tick;
+    }
+    // The place's earlier textures taken back from the dump: held too, in case one settles.
+    if (!taken_back.empty()) {
+        const std::set<std::uint64_t> back(taken_back.begin(), taken_back.end());
+        for (Entry& other : m_entries) {
+            if (other.live && other.from_upload && other.held == nullptr && !other.pack_replacement
+                && back.contains(other.pack_hash) && &other != &entry
+                && texture_pack::image_hash(other.image) == other.pack_hash) {
+                other.held = std::make_shared<const Rgba8Image>(other.image);
+                other.held_tick = m_tick;
+            }
+        }
+    }
     animate(h, std::move(replaced.animation));
     set_blocks(h, std::move(replaced.blocks));
     m_converted.emplace(key, h);

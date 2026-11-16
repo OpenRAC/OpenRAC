@@ -1027,6 +1027,14 @@ void dump_animated(
     );
 }
 
+void dump_picture(const Rgba8Image& image, const Origin& origin) {
+    State& s = state();
+    const std::lock_guard guard(s.lock);
+    if (!s.dump.empty() && s.io.save != nullptr && !image.pixels.empty()) {
+        dump(s, image_hash(image), image, origin);
+    }
+}
+
 void undump(std::span<const std::uint64_t> hashes) {
     State& s = state();
     const std::lock_guard guard(s.lock);

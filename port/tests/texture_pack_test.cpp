@@ -316,6 +316,12 @@ void check_live(const fs::path& root) {
     // Forgotten: met again, it is written again.
     disk().clear();
     CHECK(!texture_pack::replace(image, {.interface = true}) && disk().size() == 1);
+    // A held texture that settled is dumped once, by its own hash.
+    disk().clear();
+    texture_pack::undump(std::span(&hash, 1));
+    texture_pack::dump_picture(image, {.interface = true});
+    texture_pack::dump_picture(image, {.interface = true});
+    CHECK(disk().size() == 1 && disk().contains("Interface/" + texture_pack::file_name(hash)));
 }
 
 }  // namespace

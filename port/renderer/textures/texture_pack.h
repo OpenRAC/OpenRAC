@@ -200,6 +200,10 @@ bool dumping();
 // not written. Once per first hash.
 void dump_animated(std::span<const std::uint64_t> order, std::span<const Rgba8Image* const> images);
 
+// Dumps `image` (the original, as replace() would have) into the folder of `origin`, if it is not
+// dumped yet: a texture held back by LiveWatch that then stayed on the screen.
+void dump_picture(const Rgba8Image& image, const Origin& origin);
+
 // Removes the dump files of `hashes` that this run wrote (a texture found to be made anew each
 // tick, LiveWatch). Files from an earlier run stay.
 void undump(std::span<const std::uint64_t> hashes);
