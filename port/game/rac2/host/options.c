@@ -138,33 +138,33 @@ static int video_text(int id);
 #define TEXT_MOD_SLOTS 8
 static gaddr mod_slots;
 
-int func_00288FB8(int id) {
+gaddr func_00288FB8(int id) {
     /* The pause list's descriptions move with its extra rows (video_text): the mods' rows' are
      * mod_pages.c's texts, as their labels are. */
     id = video_text(id);
     const uint32_t label = rac2_mod_pages_text(id);
     if (label != 0) {
-        return (int)label;
+        return (gaddr)label;
     }
     if (id == TEXT_VIDEO_HELP) {
         const gaddr help = page_buffers() + 3 * TEXT_BYTES;
         snprintf((char*)G(help), TEXT_BYTES, "Display, picture and frame rate settings.");
-        return (int)help;
+        return help;
     }
     if (id == TEXT_PLANETS) {
         const gaddr name = page_buffers() + 2 * TEXT_BYTES;
         snprintf((char*)G(name), TEXT_BYTES, "Planets");
-        return (int)name;
+        return name;
     }
     if (id == TEXT_VIDEO) {
         const gaddr name = page_buffers();
         openrac_game_option_word("Video", (char*)G(name), TEXT_BYTES);
-        return (int)name;
+        return name;
     }
     if (id == TEXT_WIDESCREEN && openrac_game_loaded_overlay() == OPENRAC_OVERLAY_EXE) {
         const gaddr name = page_buffers();
         openrac_game_option_word("Video", (char*)G(name), TEXT_BYTES);
-        return (int)name;
+        return name;
     }
     /* The port's slots for a mod's own texts (rac2.text.by_id): a mod writes its text into one and
      * returns its address from its replacement. */
@@ -173,7 +173,7 @@ int func_00288FB8(int id) {
             mod_slots = openrac_guest_static(TEXT_MOD_SLOTS * TEXT_BYTES);
             memset(G(mod_slots), 0, TEXT_MOD_SLOTS * TEXT_BYTES);
         }
-        return (int)(mod_slots + (gaddr)(id - TEXT_MOD_SLOT) * TEXT_BYTES);
+        return mod_slots + (gaddr)(id - TEXT_MOD_SLOT) * TEXT_BYTES;
     }
     /* The mods' hook point, rac2.text.by_id: the game's text with none. */
     return func_00288FB8__hooked(id);

@@ -5,21 +5,10 @@
 # disc's assembly.
 # caller	callee	reason
 func_0012672C	func_0011AF60	GsPutIMR (syscall 0x71) returns the old mask, which sceGsExecStoreImage puts back; the port has no GS interrupts and its GsPutIMR ignores the mask
-func_00132818	func_00132DF0	rc2 command wrapper passing the result on; no caller reads it
-func_00132AA0	func_00132DF0	rc2 command wrapper passing the result on; no caller reads it
-func_00133300	func_00132DF0	rc2 command wrapper passing the result on; no caller reads it
 func_00284E80	func_00125D98	wrapper passing the result on; its one caller (the loader) does not read it
-func_0029C5D0	func_00343798	wrapper passing the result on; every caller calls it for its effect only
-func_L00_0030D6A8	func_00343798	level copy of func_0029C5D0's wrapper; every caller calls it for its effect only
 func_002A0380	func_002A0048	returns func_002A0048's result when D_001B1B80 is set; both callers call it for its effect only
-func_002A90C8	func_002A8F70	wrapper passing the result on; every caller calls it for its effect only
-func_002D3D88	func_0028EA58	draws a bar through func_0028EA58 (a void draw) and passes the result on; no caller reads it
-func_L00_002F74F0	func_0028B950	setup wrapper passing the result on; no caller reads it
 func_L00_002FC588	func_00278EB0	r1_ wrapper passing the result on; no caller reads it
 func_L00_002FC5A8	func_00278F80	r1_ wrapper passing the result on; no caller reads it
 func_L00_002FC5E8	func_L00_002E2958	r1_ wrapper passing the result on; no caller reads it
 func_L00_0030DD70	func_003387A0	HUD message wrapper; every caller calls it for its effect only
 func_L00_0030DDB0	func_00338040	HUD message wrapper passing the result on; no caller reads it
-func_L00_00433F50	func_0033AF48	wrapper passing the result on; no caller reads it
-func_L00_00443DF8	func_00338A60	wrapper passing the result on; no caller reads it
-func_L00_00443E18	func_00338F58	wrapper passing the result on; no caller reads it
