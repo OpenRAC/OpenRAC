@@ -54,15 +54,14 @@ release's bytes), then versionmap's pairs (same instruction, same code). A name 
 marked (`func_V1_...`, `D_V1_...`), never guessed. The release's build says what its C is
 (`build/<v>/*/placed.json`): `placed` lists the functions it put in the release, and `gone_in` the
 primary's definitions it left out, by file, which the view drops under any spelling, so no place
-gets two bodies. Their tables are generated: only
+gets two bodies. An empty level hook its callers pair with one of the release's (`hooks`) keeps its
+body, so every hook place has C. Their tables are generated: only
 `release/release.json` is written by hand. It holds the release's facts (ids, title, frame and tick
 rates, the decompilation's catalogue, build and dump folders, `level_base`, `$gp`, the primary
 release's folder) and the pairs checked by hand, each with its evidence: `pairs` (functions),
 `constants` (`RAC2_K`), `hand_names` (globals of the hand C the release table has no value for),
 `hand` (the release's own hand C in `hand/`) and `extra` (additions to the carried `hostgen.json`).
 The primary's hand C is written into `hand/` in the release's names, as rac1's releases do.
-A level hook place of the release that no C defines gets an empty body there
-(`hand/level_hooks.c`), from its bytes (`jr $ra` and an empty delay slot).
 
 After a sync of `games/rac2/decomp`, with rac2-decomp built for v1.01 and the release
 (`tools/build.py all`, `--version pal|us2`; `tools/carry.py --version pal|us2`), the three discs'

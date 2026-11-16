@@ -12,12 +12,6 @@
   "global: exact": 146,
   "global: the release's build": 74
  },
- "empty_hooks": [
-  "0026F588",
-  "0026F5A0",
-  "0026F5C0",
-  "0026F628"
- ],
  "functions": {
   "func_001158F8": [
    "func_001158F8",

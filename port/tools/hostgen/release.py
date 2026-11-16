@@ -980,6 +980,10 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
             for name, how in (defined_kinds(text, readable or {}) if not mine else {}).items():
                 # C the build did not place; or the assembly of a function the release's catalogue
                 # does not have (assembly the release has stays: the port's hand C stands in).
+                if name in parts.get("hooks", {}) and how == "c":
+                    # A level hook its callers pair with one of the release's (pair_stubs): an empty
+                    # body as at every hook place, where the catalogue, by order, has another hook.
+                    continue
                 if name not in parts["placed"] if how == "c" else name in parts["absent"]:
                     gone_in.setdefault(name, []).append(rel)
                     evidence["function: a shared definition the release's build did not place (gone)"] += 1
@@ -1096,6 +1100,7 @@ def check_gone(source: Path, table: dict, readable: dict[str, str], sources: lis
     not have ("absent") but gives a place. A rename or a move in the decompilation shows here."""
     placed = set(table.get("placed", []))
     absent = set(table.get("absent", []))
+    hooks = set(table.get("hooks", []))
     if not placed:
         return []
     gone_in = table.get("gone_in", {})
@@ -1107,6 +1112,8 @@ def check_gone(source: Path, table: dict, readable: dict[str, str], sources: lis
             if rel.startswith(f"src/{version}/"):
                 continue
             for name, how in defined_kinds(path.read_text(errors="replace"), readable).items():
+                if name in hooks and how == "c":
+                    continue
                 if name not in placed if how == "c" else name in absent:
                     found.add((rel, name))
     out = [f"{rel}: defines {name}, which the release's build did not place, but the table does not leave it out"
@@ -1248,6 +1255,8 @@ def main(argv: list[str] | None = None) -> int:
         table["absent"] = sorted(parts["absent"])
         # Where the build places the copies its catalogue folds away (release_carry's split places).
         table["folded_places"] = folded_places(source / RAC2_RELEASES[version]["build"], parts["us_levels"], parts["r_levels"])
+        # The level hooks pair_stubs paired: their empty bodies stay (units, check_gone).
+        table["hooks"] = sorted(parts.get("hooks", {}))
     if gone_in:
         # Their definitions in the shared C, each left out of the file named (Release.splice).
         table["gone"] = sorted(gone_in)

@@ -26,7 +26,7 @@
   "global: versionmap (between)": 672,
   "global: versionmap (exact)": 264,
   "function: a hook named as the release's catalogue does": 8,
-  "function: a shared definition the release's build did not place (gone)": 4596,
+  "function: a shared definition the release's build did not place (gone)": 4584,
   "short name: left as it is": 224,
   "short name: the release's build": 1041,
   "short name: v1.01's build, the same function's place here": 212
@@ -191149,18 +191149,59 @@
   "func_L30_004186B0"
  ],
  "folded_places": {},
+ "hooks": [
+  "func_00120BC8",
+  "func_0026F710",
+  "func_0026F718",
+  "func_0026F720",
+  "func_0026F728",
+  "func_0026F730",
+  "func_0026F738",
+  "func_0026F740",
+  "func_0026F748",
+  "func_0026F750",
+  "func_0026F758",
+  "func_0026F760",
+  "func_0026F768",
+  "func_0026F770",
+  "func_0026F778",
+  "func_0026F780",
+  "func_0026F788",
+  "func_0026F790",
+  "func_0026F798",
+  "func_0026F7B0",
+  "func_0026F7B8",
+  "func_0026F7C0",
+  "func_0026F7C8",
+  "func_0026F7D0",
+  "func_0026F7D8",
+  "func_0026F7E0",
+  "func_0026F7E8",
+  "func_0026F7F0",
+  "func_0026F7F8",
+  "func_0026F800",
+  "func_0026F808",
+  "func_002820C8",
+  "func_00288D88",
+  "func_00289AA0",
+  "func_002912F0",
+  "func_00298170",
+  "func_002FF288",
+  "func_00336DA0",
+  "func_00338808",
+  "func_00338A58",
+  "func_00338F50",
+  "func_003417C8",
+  "func_00342420",
+  "func_0034E218",
+  "func_003505A8",
+  "func_00351E40"
+ ],
  "gone": [
   "func_0026EA00",
   "func_0026EAC8",
   "func_0026EDE8",
-  "func_0026F710",
-  "func_0026F718",
-  "func_0026F730",
-  "func_0026F750",
   "func_0026F7A0",
-  "func_0026F7B0",
-  "func_0026F7B8",
-  "func_0026F808",
   "func_0026FE48",
   "func_00270EE0",
   "func_00271130",
@@ -191193,7 +191234,6 @@
   "func_00288508",
   "func_00288E18",
   "func_00289178",
-  "func_00289AA0",
   "func_00289AA8",
   "func_0028A2F8",
   "func_0028A670",
@@ -191620,7 +191660,6 @@
   "func_002FDBD8",
   "func_002FE5A0",
   "func_002FF0D8",
-  "func_002FF288",
   "func_002FF450",
   "func_002FFB68",
   "func_002FFD78",
@@ -191780,9 +191819,7 @@
   "func_00338718",
   "func_003387A0",
   "func_00338810",
-  "func_00338A58",
   "func_00338AD8",
-  "func_00338F50",
   "func_00339008",
   "func_00339078",
   "func_00339320",
@@ -191893,7 +191930,6 @@
   "func_003415B8",
   "func_00341610",
   "func_00341760",
-  "func_003417C8",
   "func_003417D0",
   "func_003418C0",
   "func_00341A68",
@@ -195757,28 +195793,7 @@
   "func_0026EDE8": [
    "src/game/0026EA00-loader.c"
   ],
-  "func_0026F710": [
-   "src/game/0026EA00.c"
-  ],
-  "func_0026F718": [
-   "src/game/0026EA00.c"
-  ],
-  "func_0026F730": [
-   "src/game/0026EA00.c"
-  ],
-  "func_0026F750": [
-   "src/game/0026EA00.c"
-  ],
   "func_0026F7A0": [
-   "src/game/0026EA00.c"
-  ],
-  "func_0026F7B0": [
-   "src/game/0026EA00.c"
-  ],
-  "func_0026F7B8": [
-   "src/game/0026EA00.c"
-  ],
-  "func_0026F808": [
    "src/game/0026EA00.c"
   ],
   "func_0026FE48": [
@@ -195876,9 +195891,6 @@
   ],
   "func_00289178": [
    "src/game/00289178.c"
-  ],
-  "func_00289AA0": [
-   "src/game/00288D88.c"
   ],
   "func_00289AA8": [
    "src/game/00288D88-render.c"
@@ -197158,9 +197170,6 @@
   "func_002FF0D8": [
    "src/game/002FC8D0-start.c"
   ],
-  "func_002FF288": [
-   "src/game/002FC8D0.c"
-  ],
   "func_002FF450": [
    "src/game/002FC8D0-preview.c"
   ],
@@ -197638,14 +197647,8 @@
   "func_00338810": [
    "src/game/003387A0-g8.c"
   ],
-  "func_00338A58": [
-   "src/game/003387A0.c"
-  ],
   "func_00338AD8": [
    "src/game/00338AD8.c"
-  ],
-  "func_00338F50": [
-   "src/game/00338A60.c"
   ],
   "func_00339008": [
    "src/game/00338A60.c"
@@ -197976,9 +197979,6 @@
   ],
   "func_00341760": [
    "src/game/0033F030-g8.c"
-  ],
-  "func_003417C8": [
-   "src/game/0033F030.c"
   ],
   "func_003417D0": [
    "src/game/0033F030-g8.c"
