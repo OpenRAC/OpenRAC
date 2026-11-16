@@ -720,6 +720,10 @@ typedef struct openrac_game_play {
         int32_t* surface,
         uint32_t* moby
     );
+    /* The skeleton joint of the hero's attach point `point` on the moby at `moby` (one of the
+     * hero's class), as openrac_held_piece.joint names them (openrac_api.prop_attach,
+     * OPENRAC_ATTACH_HELD); -1 for one the game does not have. NULL for a game without it. */
+    int (*attach_point_joint)(uint32_t moby, int point);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)
