@@ -72,7 +72,7 @@ jobs:
   # X.Y.Z and their latest.json X.Y.(Z+1)-dev, and launchers on that channel updated forever.
   version:
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 5
     outputs:
       base: ${{ steps.base.outputs.base }}
     steps:
@@ -633,7 +633,7 @@ jobs:
     if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') }}
     needs: [version, build]
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
@@ -691,7 +691,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/launcher-v')
     needs: build
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:

@@ -45,7 +45,7 @@ jobs:
   scope:
     name: Which iOS checks run
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 5
     outputs:
       port: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.ios_port }}
       launcher: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.ios_launcher }}
@@ -79,7 +79,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.port != 'false' }}
     runs-on: macos-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
     env:
       HOMEBREW_NO_AUTO_UPDATE: "1"
       CMAKE_C_COMPILER_LAUNCHER: ccache
@@ -122,7 +122,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.launcher != 'false' }}
     runs-on: macos-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
     env:
       # Python headers for the CPython bridge (docs/port/IOS.md).
       PYTHON_APPLE: https://github.com/beeware/Python-Apple-support/releases/download/3.14-b14/Python-3.14-iOS-support.b14.tar.gz

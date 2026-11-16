@@ -43,7 +43,7 @@ jobs:
   scope:
     name: Which checks run
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
       launcher: ${{ steps.scope.outputs.launcher }}
@@ -80,7 +80,7 @@ jobs:
   checks:
     name: Repository (tools, tables, conventions)
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -237,7 +237,7 @@ jobs:
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' }}
     name: Launcher / ${{ matrix.system }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -286,7 +286,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.pages != 'false' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 15
     defaults:
       run:
         shell: bash
@@ -451,7 +451,7 @@ jobs:
     needs: [scope, port-part]
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 5
     steps:
       - name: Require every part
         env:
@@ -547,7 +547,7 @@ jobs:
     # It asks for the build alone: the build's own condition covers scope.
     if: ${{ !cancelled() && needs.port-vulkan-enhanced-build.result == 'success' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -613,7 +613,7 @@ jobs:
     needs: [scope, port-vulkan-enhanced-build, port-vulkan-enhanced-tests]
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 5
     steps:
       - name: Require the build and all test groups
         env:
