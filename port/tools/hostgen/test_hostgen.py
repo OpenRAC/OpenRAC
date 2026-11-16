@@ -2733,6 +2733,27 @@ class Places(unittest.TestCase):
             self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
             (gen / "game" / "a.c").write_text(same.replace("return func_00280000(pass_0)", "return 1"))
             self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            # Two that do nothing alike pass whatever their parameters: hostgen's stubs for a
+            # function without C, or void functions without a statement. A stub beside an empty
+            # function, or an empty one returning a value, does not.
+            stub = ("void {0}({1}) {{\n    static openrac_reach_site site_ = {{\"{0}\", \"no-c\", 0, 0, 0}};\n"
+                    "    openrac_guest_reach(&site_);\n}}\n")
+            (gen / "stubs.c").write_text(stub.format("Fb1bbe20c_FUN_00270000", "gaddr a0")
+                                         + stub.format("func_00270000", "gaddr a0, int a1"))
+            (gen / "game" / "a.c").write_text("")
+            self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
+            (gen / "stubs.c").write_text("")
+            (gen / "game" / "a.c").write_text("void Fb1bbe20c_FUN_00270000(void)\n{\n}\n"
+                                              "void func_00270000(gaddr pass_0)\n{\n    /* nothing */\n}\n")
+            self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
+            (gen / "stubs.c").write_text(stub.format("func_00270000", "gaddr a0"))
+            (gen / "game" / "a.c").write_text("void Fb1bbe20c_FUN_00270000(void)\n{\n}\n")
+            self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            (gen / "stubs.c").write_text("")
+            (gen / "game" / "a.c").write_text("void Fb1bbe20c_FUN_00270000(void)\n{\n}\n"
+                                              "int func_00270000(void)\n{\n}\n")
+            self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            (gen / "game" / "a.c").write_text(same.replace("return func_00280000(pass_0)", "return 1"))
             config = gen / "cfg"
             (config / "host").mkdir(parents=True)
             (config / "hostgen.json").write_text(json.dumps({"release": {"table": "t.json"}}))
