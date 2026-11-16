@@ -255,6 +255,8 @@ std::vector<std::uint8_t> direct_packets(
     std::array<Context, 2> contexts{};
     std::uint64_t reg_prim = 0, reg_fogcol = 0;
     bool strip_context = false;
+    // Scoped parent of vertices in a display list produced one tick before the captured mobys.
+    std::uint32_t previous_effect_parent = 0;
     // The fog line the liquid grid's packet gives the strip program (build_interpolated_dma_packet,
     // func_L02_002A52D0, unpacks it to VU addresses 0x3AC to 0x3AF): the view context's fog_mul
     // (0x3AC.w), screen_bias with fog_add in w (0x3AE), then the far and near F (0x3AF.x, .y).
@@ -336,6 +338,11 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&address, d + p + 8, 8);
                     switch (address & 0xFF) {
                         case 0x7F:
+                            // Only explicitly attached strips follow a delayed parent transform.
+                            if ((value >> 48) == OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER) {
+                                previous_effect_parent = static_cast<std::uint32_t>(value);
+                            }
+
                             if ((value >> 48) == renderer::GifInterpreter::kWorldMarker
                                 && !strips_at_world) {
                                 strips_at_world = strips->size();
@@ -595,6 +602,7 @@ std::vector<std::uint8_t> direct_packets(
                 strip.z_written = gs.zbuf_seen && ((gs.zbuf >> 32) & 1) == 0;
                 strip.blend_disabled = strip_blend_disabled;
                 strip.surface = surface;
+                strip.previous_parent = previous_effect_parent;
                 strip.uv_motion = uv_motion;
                 static const bool& strip_fog_off = stats::probe(
                     "OPENRAC_STRIP_FOG_OFF", "reference: the effect strips drawn without the GS fog"

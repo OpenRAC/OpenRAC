@@ -10,8 +10,16 @@ capturing a tick; rendering consumes the captured scene and does not read live g
 - `render_worker.h`: persistent worker with one accepted job, including the running job.
 - `scene_frame.cpp`: world target setup, lighting and temporal reconstruction.
 - `scene_interpolation.cpp`: camera, object, joint and shadow interpolation.
+- `scene_effects.cpp`: captured strip, callback and particle interpolation.
+- `effect_attachment.h`: transform history for attachments, including objects with no mesh.
 - `scenery_capture.h`: owned scenery records; camera visibility leaves shadow casters resident.
 - `scene_hud.cpp`: captured HUD data, offscreen menu objects and retained backgrounds.
+
+Physical effect attachments use the parent's displayed transform. Directly captured quads start
+at its current tick; marked strips in a delayed display list start at its previous tick. Callback
+ownership alone leaves world-space trails and beams unchanged.
+Explicit particle position anchors also apply before a new slot has interpolation history.
+Rigid sprites retain their world offsets and orientation while following the displayed anchor.
 
 ## Depends on
 
@@ -59,6 +67,12 @@ it overlaps the previous frame's render sections and is not part of the current 
 See [debugging](../../../../docs/port/DEBUGGING.md) for run and capture switches.
 
 ## Tests
+
+`frontend_geometry` checks attachment transforms, rotation, nonuniform scale and singular axes.
+`effect_attachment` checks meshless anchors, missing and reused history, newborn sprites,
+orientation and rigid/nonrigid quad blending. `rac2_effect_attachment` checks intact, floating
+and invalid callback owners; `rac2_moby_view` checks nanotech positions and particle owners for
+all three releases. `effect_quad` checks that RAC1 quads leave physical attachments unset.
 
 `render_worker` checks owned input, slot reuse, publication, captured-owner release, exception
 reporting, inherited rounding and joining at destruction. `stats`, `frame_counter`, `settings`

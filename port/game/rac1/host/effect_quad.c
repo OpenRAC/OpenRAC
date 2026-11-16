@@ -62,6 +62,7 @@ void func_001F7EF8(gaddr a0, int a1, int a2) {
     q.clut = 0;
     q.id = rac1_effect_quad_id != 0 ? rac1_effect_quad_id++ : 0;
     q.parent = 0;
+    q.attachment = 0;
     q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
     openrac_game_effect_quad(&q);
 }
