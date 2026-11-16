@@ -88,6 +88,10 @@
   "about": "The port's own C for the release's own hand-written assembly: name, file in hand/.",
   "func_002A3288": "func_002A3288.c"
  },
+ "overrides": {
+  "about": "The port's own C for the release's own matched functions: name, file in hand/, each file says why.",
+  "func_003446B8": "func_003446B8.c"
+ },
  "extra": {
   "about": "The release's own additions to the carried hostgen.json (release_carry.py merges them): each with why.",
   "unit_aliases": {

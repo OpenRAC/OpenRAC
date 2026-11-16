@@ -918,6 +918,8 @@ def carry_overrides(p: Pairing, table: Path, out: Path) -> None:
         written = re.sub(r"\b" + re.escape(p.table.name(name)) + r"\b", new, written)
         (out.parent / f"{new}.c").write_text(written)
         rows.append(f"{new}\t{new}.c")
+    # The release's own overrides (release.json "overrides": name -> file in hand/), for C of its own.
+    rows += [f"{name}\t{file}" for name, file in p.facts.get("overrides", {}).items()]
     out.write_text("\n".join(rows) + "\n")
 
 

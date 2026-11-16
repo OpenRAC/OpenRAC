@@ -60,7 +60,8 @@ body, so every hook place has C. Their tables are generated: only
 rates, the decompilation's catalogue, build and dump folders, `level_base`, `$gp`, the primary
 release's folder) and the pairs checked by hand, each with its evidence: `pairs` (functions),
 `constants` (`RAC2_K`), `hand_names` (globals of the hand C the release table has no value for),
-`hand` (the release's own hand C in `hand/`) and `extra` (additions to the carried `hostgen.json`).
+`hand` (the release's own hand C in `hand/`), `overrides` (the port's C for the release's own matched
+functions, in `hand/`) and `extra` (additions to the carried `hostgen.json`).
 The primary's hand C is written into `hand/` in the release's names, as rac1's releases do.
 
 After a sync of `games/rac2/decomp`, with rac2-decomp built for v1.01 and the release
