@@ -68,14 +68,31 @@ UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
 DEAD = "V1"
 
 # The releases tools/levels.py builds: catalogues, build, dumps; where a level's program starts; $gp.
+# The primary release's here; each other release's from its facts file (release/release.json).
 RELEASES = {
     "us": {"config": "config", "build": "build", "baserom": "baserom", "tag": None,
            "level_base": 0x1A7C80, "gp": 0x1AEFF0},
-    "pal": {"config": "config/pal", "build": "build/pal", "baserom": "baserom/pal", "tag": "PAL",
-            "level_base": 0x1A7D00, "gp": 0x1AF070},
-    "us2": {"config": "config/us2", "build": "build/us2", "baserom": "baserom/us2", "tag": "US2",
-            "level_base": 0x1A7C80, "gp": 0x1AEFF0},
 }
+GAME_DIR = Path(__file__).resolve().parents[2] / "game"
+
+
+def read_facts(path: Path) -> dict:
+    """A release's facts file (release/release.json), its rows without their "about"."""
+    facts = json.loads(Path(path).read_text())
+    for value in facts.values():
+        if isinstance(value, dict):
+            value.pop("about", None)
+    return facts
+
+
+# Each release's facts, by its version (port/game/<release>/release/release.json, "game": "rac2").
+FACTS: dict[str, dict] = {}
+for _path in sorted(GAME_DIR.glob("*/release/release.json")):
+    _facts = read_facts(_path)
+    if _facts.get("game") == "rac2":
+        FACTS[_facts["version"]] = _facts
+        RELEASES[_facts["version"]] = {k: _facts[k] for k in ("config", "build", "baserom", "tag")}
+        RELEASES[_facts["version"]].update(level_base=int(_facts["level_base"], 16), gp=int(_facts["gp"], 16))
 
 
 _BETWEEN: dict = {}
@@ -116,7 +133,8 @@ def read_levels(path: Path) -> list[tuple[str, str, int, list[tuple[int, int]]]]
     return rows
 
 
-EXECUTABLES = {"us": "SCUS_972.68", "pal": "SCES_516.07", "us2": "SCUS_972.68"}
+# Each release's executable: the primary's, and each other's serial (its facts).
+EXECUTABLES = {"us": "SCUS_972.68", **{v: f["serial"] for v, f in FACTS.items()}}
 JR_RA = 0x03E00008
 # The delay slots of an empty function: nothing, or a zero result (daddu $v0, $zero, $zero).
 EMPTY_SLOTS = (0x00000000, 0x0000102D)
@@ -1185,7 +1203,7 @@ def main(argv: list[str] | None = None) -> int:
         release.readable = readable
         unit_names, unit_evidence, gone_in = units(source, version, release, parts, cfg.get("sources", ["src"]), readable)
         release.units = unit_names
-        primary_table = args.game.parent.parent / "rac2-ntsc" / "tables" / "derived_names.json"
+        primary_table = args.game.parent.parent / FACTS[version]["primary"] / "tables" / "derived_names.json"
         derived = derived_values(parts, release, RELEASES[version]["level_base"],
                                  json.loads(primary_table.read_text()) if primary_table.is_file() else None,
                                  args.map)

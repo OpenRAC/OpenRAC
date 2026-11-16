@@ -1,5 +1,5 @@
 # The port's own C for Going Commando's hand-written assembly (hostgen.json "hand"), in v1.01's names.
-# PAL and USA v2.00 read this table too, renamed through their release view ("primary_hand").
+# Each carried release has it in its own hand/, in its names (release_carry.py).
 # Each function is checked against hostgen's translation of the retail routine (port/tools/hostgen/handdiff.py).
 # name	file (relative to this table)
 # fastfunc

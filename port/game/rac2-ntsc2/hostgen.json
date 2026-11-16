@@ -536,6 +536,5 @@
   "release": {
     "version": "us2",
     "table": "release/release_names.json"
-  },
-  "primary_hand": "../rac2-ntsc/hand/hand.tsv"
+  }
 }

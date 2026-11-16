@@ -316,13 +316,33 @@ class Committed(unittest.TestCase):
         for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
             folder = REPO / "port/game" / game
             p = release_carry.Pairing(source, version, release.Release.load(folder / "release" / "release_names.json"), None, None)
-            p.read_by_hand(folder / "release" / "release_pairs.tsv")
+            p.read_by_hand(release.read_facts(folder / "release" / "release.json"))
             p.read_splits(primary)
             with self.subTest(game=game):
                 self.assertEqual("\n".join(p.split_rows) + "\n", (folder / "tables" / "split_places.tsv").read_text())
                 levels = {r.split("\t")[1]: {x[:2] for x in r.split("\t")[2].split(",")}
                           for r in p.split_rows if not r.startswith("#")}
                 self.assertEqual(levels[p.by_split["func_L08_002F2C48"]], {"08", "09", "19", "30"})
+
+    def test_release_facts_are_the_tools(self):
+        # Each release's facts file is what the tools read of it: its places and its own hand C.
+        for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
+            folder = REPO / "port/game" / game
+            facts = release.read_facts(folder / "release" / "release.json")
+            cfg = json.loads((folder / "hostgen.json").read_text())
+            with self.subTest(game=game):
+                self.assertEqual(facts["version"], version)
+                self.assertEqual(release.RELEASES[version]["level_base"], int(facts["level_base"], 16))
+                self.assertEqual(cfg["relocate"][0], release.RELEASES[version]["level_base"])
+                self.assertEqual(cfg["asm"]["gp"], facts["gp"])
+                for key in ("id", "title", "serial", "frame_rate", "tick_rate"):
+                    self.assertEqual(cfg[key], facts[key])
+                self.assertTrue((REPO / "port/game" / facts["primary"] / "hostgen.json").is_file())
+                self.assertNotIn("primary_hand", cfg)
+                table = (folder / "hand" / "hand.tsv").read_text()
+                for name, file in facts.get("hand", {}).items():
+                    self.assertIn(f"{name}\t{file}\n", table)
+                    self.assertTrue((folder / "hand" / file).is_file())
 
     def test_release_configs_name_their_tables(self):
         for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):

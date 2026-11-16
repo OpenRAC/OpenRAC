@@ -52,8 +52,14 @@ USA v2.00 and PAL read the decompilation through a *release view*: every v1.01 a
 to the release's, from what rac2-decomp proves (its catalogues and its build's values read from the
 release's bytes), then versionmap's pairs (same instruction, same code). A name with neither is
 marked (`func_V1_...`, `D_V1_...`), never guessed. Their tables are generated: only
-`release/release_pairs.tsv`, `release/release_constants.tsv` and `release/release_extra.json` are
-written by hand.
+`release/release.json` is written by hand. It holds the release's facts (ids, title, frame and tick
+rates, the decompilation's catalogue, build and dump folders, `level_base`, `$gp`, the primary
+release's folder) and the pairs checked by hand, each with its evidence: `pairs` (functions),
+`constants` (`RAC2_K`), `hand_names` (globals of the hand C the release table has no value for),
+`hand` (the release's own hand C in `hand/`) and `extra` (additions to the carried `hostgen.json`).
+The primary's hand C is written into `hand/` in the release's names, as rac1's releases do.
+A level hook only the release has, whose place no C defines, gets an empty body there
+(`hand/level_hooks.c`), from its bytes (`jr $ra` and an empty delay slot).
 
 After a sync of `games/rac2/decomp`, with rac2-decomp built for v1.01 and the release
 (`tools/build.py all`, `--version pal|us2`; `tools/carry.py --version pal|us2`), the three discs'
@@ -68,13 +74,11 @@ python3 port/tools/hostgen/release_carry.py --game port/game/rac2-<r>/hostgen.js
     --primary port/game/rac2-ntsc/hostgen.json --source <rac2-decomp> \
     --map build/versionmap/rac2-ntsc--rac2-<r>.json --version <v> \
     --primary-protos port/build/release/games/rac2-ntsc/gen/game_protos.h
-python3 port/tools/hostgen/copycalls.py --source games/rac2/decomp --version <v> \
-    --release-table port/game/rac2-<r>/release/release_names.json --out port/game/rac2-<r>/tables/call_copies.tsv \
-    --data port/game/rac2-<r>/tables/data_copies.tsv --config port/game/rac2-<r>/hostgen.json \
-    --twins port/game/rac2-<r>/tables/level_twins.tsv
 python3 port/tools/versionmap/data_moves.py write build/versionmap/rac2-ntsc--rac2-<r>.json port/game/rac2-<r>/release/data_moves.tsv
 ```
 
+`release_carry.py` also writes `tables/call_copies.tsv`, `data_copies.tsv` and `level_twins.tsv`
+(`copycalls.py`, which still runs alone; `--no-copycalls` leaves them as they are).
 `--primary-protos` takes a v1.01 build's prototypes; without them the wrapped functions' C types
 are dropped and the release's host C no longer compiles.
 
@@ -83,4 +87,4 @@ are dropped and the release's host C no longer compiles.
 | `release/release_names.json` | each v1.01 name and the release's, the values the release's build derived, and the evidence |
 | `release/release_carry.json` | what rests on less than the same code (`near`, `called`, between moved neighbours, not found) |
 | `release/data_moves.tsv` | how the release moved v1.01's data, from versionmap's map (addresses only) |
-| `hostgen.json`, `libraries.tsv`, `tables/`, `host/` | rac2-ntsc's, in the release's names and places |
+| `hostgen.json`, `libraries.tsv`, `hand/`, `tables/`, `host/` | rac2-ntsc's, in the release's names and places |

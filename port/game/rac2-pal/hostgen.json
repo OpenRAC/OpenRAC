@@ -557,6 +557,5 @@
   "release": {
     "version": "pal",
     "table": "release/release_names.json"
-  },
-  "primary_hand": "../rac2-ntsc/hand/hand.tsv"
+  }
 }
