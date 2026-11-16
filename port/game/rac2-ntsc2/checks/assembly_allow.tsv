@@ -9,3 +9,4 @@ func_V1_JP_002D0198	the Japanese release's code (src/jp), as func_JP_0027FB70
 func_V1_KR_0027FCA0	the Korean release's code (src/kr), which this program carries: only other func_KR_ functions reach it, and nothing reaches them
 func_V1_KR_0028AB78	the Korean release's code (src/kr), as func_KR_0027FCA0
 func_V1_KR_002D0E58	the Korean release's code (src/kr), as func_KR_0027FCA0
+ref_US2_0029CD18_00	a level hook only this release has (an empty function, jr ra; nop, at 0x0026F7E0): no C defines it, and its assembly is the whole function. Called as a hook (level_hooks), so a level that fills it runs its own code

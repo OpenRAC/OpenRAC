@@ -399,7 +399,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"abicheck: {len(host_problems)} host declarations whose type is not the definition's",
               file=sys.stderr)
     # Reported, not failed: a few such pairs are the same code (versionmap's pairs), and the
-    # release's own answers first (program.py). release.py's check_units is the check.
+    # release's own answers first (program.py). release.py's check_gone is the check.
     twins = two_bodies(read_tables(args.gen / "functions.c")[0])
     if twins:
         print(f"abicheck: {len(twins)} addresses with the primary's C beside the release's own "

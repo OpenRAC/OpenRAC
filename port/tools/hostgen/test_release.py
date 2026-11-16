@@ -272,6 +272,15 @@ class Carried(unittest.TestCase):
         table.names["func_PAL_0026F580"] = "func_0026F580"
         hooks = release_carry.level_hooks(p, ["func_0026F588", "func_0026F590"])
         self.assertEqual(hooks, ["func_0026F578", "func_0026F580", "func_0026F588", "func_0026F590"])
+        # A name the release's build gives a hook's place is that hook too.
+        with tempfile.TemporaryDirectory() as tmp:
+            placed = Path(tmp) / "build/pal/boot/placed.json"
+            placed.parent.mkdir(parents=True)
+            placed.write_text(json.dumps({"values": {"ref_PAL_0029CD18_00": "0x0026F580", "D_00300000": "0x0026F580"}}))
+            p.source, p.version = Path(tmp), "pal"
+            hooks = release_carry.level_hooks(p, ["func_0026F588", "func_0026F590"])
+        self.assertIn("ref_PAL_0029CD18_00", hooks)
+        self.assertNotIn("D_00300000", hooks)
 
 
 class Committed(unittest.TestCase):

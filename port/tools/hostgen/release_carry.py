@@ -364,7 +364,13 @@ def level_hooks(p: Pairing, carried: list[str], primary: list[str] = ()) -> list
     # func_0026F7A0, in the gap its catalogue keeps from v1.01's): v1.01's hooks in the release's
     # names, where the release's build placed them.
     named = {p.table.name(n) for n in primary}
-    hooks = sorted(set(hooks) | {n for n in named if re.fullmatch(r"func_[0-9A-F]{8}", n)})
+    hooks = set(hooks) | {n for n in named if re.fullmatch(r"func_[0-9A-F]{8}", n)}
+    # The release's C can call a hook by another name its build places there (a hook only the
+    # release has): that name is a hook too, or the call misses what a level put in the hook.
+    at = {a for a, s, n in rows[first:last + 1] if s == 8}
+    source = getattr(p, "source", None)
+    boot = rel.placed_values(source / rel.RELEASES[p.version]["build"]).get("boot", {}) if source else {}
+    hooks = sorted(hooks | {n for n, v in boot.items() if v in at and not rel.NAME.fullmatch(n)})
     p.report["level_hooks"] = {"from": f"{rows[first][0]:08X}", "to": f"{rows[last][0]:08X}", "count": len(hooks),
                                "carried": len(found)}
     return hooks
