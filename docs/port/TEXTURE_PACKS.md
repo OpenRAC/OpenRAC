@@ -68,6 +68,10 @@ not into your pack.
 
    A second run into the same folder writes only what is new, and still moves
    textures to `Shared/`.
+   Fully transparent uploads are omitted only when the draw's texture function
+   and source-over blend make their colours invisible. Unknown draw states,
+   RGB-only textures and blank animation frames are kept. Texture hashes and
+   replacement names are unchanged.
 2. Edit or upscale the pictures you want. Keep the file name. Any size works:
    the game samples a replacement over the same area as the original.
 3. Put the edited files in `<data>/texture_packs/<game id>/`, in any folders,
