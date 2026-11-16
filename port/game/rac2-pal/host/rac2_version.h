@@ -96,7 +96,7 @@
 #define RAC2_ADDR_0x00264290u 0x00264010u /* the release's build */
 #define RAC2_ADDR_0x002652B0u 0x00265030u /* versionmap: between */
 #define RAC2_ADDR_0x0026EDE8u 0x0026EC50u /* code */
-#define RAC2_ADDR_0x002DC908u 0x002DD600u /* code */
+#define RAC2_ADDR_0x002DC908u 0x002DD5F8u /* code */
 
 /* Addresses of a level's program. */
 #define RAC2_LADDR_00_0x001B14ACu 0x001B14BCu /* the release's build */
