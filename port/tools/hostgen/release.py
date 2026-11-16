@@ -1147,7 +1147,7 @@ def main(argv: list[str] | None = None) -> int:
     roots = sorted(set(cfg.get("sources", ["src"]) + cfg.get("includes", ["include"]) + ["nonmatching"]))
     readable = primary_aliases(source, cfg)
     # What hostgen leaves out (other releases' code; rac1's src/data, read from the disc) is no use.
-    uses = used_tokens(source, roots, cfg.get("skip", []), readable=readable)
+    uses = used_tokens(source, roots, cfg.get("skip", []), readable=None if version in RAC1_RELEASES else readable)
     if version in RAC1_RELEASES:
         if args.relocs is None:
             ap.error("a Ratchet & Clank release needs --relocs (version_relocs.py's output)")
