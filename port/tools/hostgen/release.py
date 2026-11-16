@@ -223,6 +223,15 @@ def placed_values(build: Path) -> dict[str, dict[str, int]]:
     return out
 
 
+def placed_functions(build: Path) -> set[str]:
+    """Every C function a build linked into one of its programs (placed.json "functions"): what the
+    release is made of, by the decompilation's own check of every byte."""
+    out: set[str] = set()
+    for path in sorted(build.glob("*/placed.json")):
+        out.update(json.loads(path.read_text()).get("functions", {}))
+    return out
+
+
 class Release:
     """The table: renames and the derived values in the release's names."""
 
@@ -242,6 +251,15 @@ class Release:
         self.release_places: dict[str, dict[int, int]] = {}
         # The decompilation's readable names (names.h): readable name -> the primary's address name.
         self.readable: dict[str, str] = {}
+
+    def _readable_of(self) -> dict[str, list[str]]:
+        """The primary's address name -> its readable names (self.readable inverted)."""
+        if getattr(self, "_readable_inv", None) is None or self._readable_inv[0] is not self.readable:
+            inv: dict[str, list[str]] = {}
+            for r, a in self.readable.items():
+                inv.setdefault(a, []).append(r)
+            self._readable_inv = (self.readable, inv)
+        return self._readable_inv[1]
 
     @classmethod
     def load(cls, path: Path) -> "Release":
@@ -269,16 +287,31 @@ class Release:
         one for a function only the release has (func_<tag>_...) goes at the end."""
         import prep
         spans, tail = [], []
+        own_readable = self._readable_of()
         for name in self.gone:
-            # A definition of PAL v2.00's the release has no function for: left out (its lines stay).
+            # A definition of the primary's the release has no function for: left out (its lines stay).
             if name in self.gone_in and not unit.startswith(tuple(self.gone_in[name])):
                 continue
-            spellings = [name] + (readable or {}).get(name, [])
+            spellings = list(dict.fromkeys([name] + (readable or {}).get(name, []) + own_readable.get(name, [])))
+            found = False
+            if not any(x in text for x in spellings):
+                spellings = []
             for spelling in spellings + [f"{x}_r" for x in spellings]:
                 span = prep._definition(text, spelling) if spelling in text else None
                 if span:
                     text = text[:span[0]] + "\n" * text.count("\n", span[0], span[1]) + text[span[1]:]
+                    found = True
                     break
+            # Its assembly's marker too, or the primary's assembly comes back as the release's.
+            marker = None if not spellings else re.compile(r"^[ \t]*(?:INCLUDE_ASM|ASM_FUNC)\([^,]*,\s*(?:%s)\s*\)[ \t]*;?[ \t]*$"
+                                % "|".join(re.escape(x) for x in spellings), re.M)
+            text, n = marker.subn("", text) if marker else (text, 0)
+            found = found or n > 0
+            if not found and unit in self.gone_in.get(name, ()):
+                # The table names this file (rac2: one file each): the definition moved or was
+                # renamed, and the primary's C would run at the release's place. Rebuild the table.
+                raise ValueError(f"{unit}: the release leaves out {name}, which this file no longer defines "
+                                 "(rebuild the release table: release.py build)")
         for name, body in self.splices.get(unit, []):
             if self.tag and name.startswith(f"func_{self.tag}_"):
                 tail.append(body.rstrip("\n"))
@@ -369,12 +402,6 @@ class Release:
         # (func_V1_...), so they are not defined twice; the file's other mentions of a function it
         # defines (func_002CAA58 calls func_002CA070 in the same file) are calls of the release's
         # function, as in any other file. A mark of a name the file does not define stays whole.
-        marked = {k for k, v in own.items() if f"_{DEAD}_" in v}
-        if marked and self.readable:
-            # A definition under a readable name is the same function: its spellings are written
-            # as the address name first, as splice() finds them, so the mark reaches it.
-            import prep
-            text = prep.unalias(text, {r: a for r, a in self.readable.items() if a in marked})
         definitions = ([m for m in DEFINED.finditer(text)] + [m for m in INCLUDED.finditer(text)]
                        if any(f"_{DEAD}_" in v for v in own.values()) else [])
         defined = {m.start(1) for m in definitions}
@@ -413,6 +440,14 @@ def primary_aliases(source: Path, cfg: dict) -> dict[str, str]:
         path = source / header
         if path.is_file() and path.suffix != ".json":
             out.update(prep.read_aliases(prep.read_alias_header(path)))
+    return out
+
+
+def defined_kinds(text: str, readable: dict[str, str]) -> dict[str, str]:
+    """defined_names, each with how: "c" (a C body) or "asm" (its assembly's marker)."""
+    out = {name: "asm" for name in INCLUDED.findall(text)}
+    for name in defined_names(re.sub(r"\b(INCLUDE_ASM|ASM_FUNC)\(", "_NO_ASM_(", text), readable):
+        out[name] = "c"
     return out
 
 
@@ -657,8 +692,11 @@ def build(source: Path, version: str, versionmap: Path | None, uses: Counter, pa
             else:
                 continue
             evidence["function: another spelling of a function with two v1.01 names"] += 1
+    placed = placed_functions(source / rel["build"])
+    if not placed:
+        raise SystemExit(f"release: no {rel['build']}/*/placed.json: build the release first (tools/build.py all --version {version})")
     return {"names": dict(sorted((k, v) for k, v in names.items() if k != v)), "evidence": dict(sorted(evidence.items())),
-            "r_values": r_values, "us_values": us_values, "r_levels": r_levels, "us_levels": us_levels,
+            "placed": placed, "r_values": r_values, "us_values": us_values, "r_levels": r_levels, "us_levels": us_levels,
             "r_boot": r_boot, "us_boot": us_boot, "plain": plain, "absent": absent, "hooks": hooks}
 
 
@@ -878,9 +916,10 @@ def build_rac1(source: Path, version: str, relocs: Path, versionmap: Path | None
 
 
 def units(source: Path, version: str, release: Release, parts: dict, sources: list[str],
-          readable: dict[str, str] | None = None) -> tuple[dict, Counter]:
+          readable: dict[str, str] | None = None) -> tuple[dict, Counter, dict]:
     """Each file's short names in the release's names: the function at the value that level's
-    build gave the name (the release's, else v1.01's renamed)."""
+    build gave the name (the release's, else the primary's renamed); and the primary's definitions
+    the release leaves out (name -> the files that define it)."""
     tag = RELEASES[version]["tag"]
     evidence: Counter = Counter()
 
@@ -907,6 +946,7 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
     r_exe_names = {release.name(n): a for n, a, _ in parts["r_boot"]}
     us_exe = {a: n for n, a, _ in parts["us_boot"]}
     out: dict[str, dict[str, str]] = {}
+    gone_in: dict[str, list[str]] = {}
     for d in sources:
         for path in sorted((source / d).rglob("*.c")):
             rel = path.relative_to(source).as_posix()
@@ -914,13 +954,16 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
             level = f"{int(unit_level.group(1)):02d}" if unit_level else "boot"
             mine = rel.startswith(f"src/{version}/")
             text = path.read_text(errors="replace")
-            # A v1.01 function the release does not have, defined here (as C or as its assembly's
-            # marker): no address in this file, though the release's C elsewhere may take the address
-            # its build read for that name (the release's own function there).
-            for name in defined_names(text, readable or {}):
-                if name in parts["absent"] and f"_{DEAD}_" not in release.name(name):
-                    out.setdefault(rel, {})[name] = name.replace("func_", f"func_{DEAD}_", 1)
-                    evidence["function: v1.01's definition of one the release does not have"] += 1
+            # A shared definition (C, or its assembly's marker) the release's build did not link into
+            # any of its programs: not the release's code (a function it does not have, or changed:
+            # its own C in src/<version>/ is), so it is left out here (Release.splice), as rac1's
+            # releases leave theirs out. What the build placed is the release, byte for byte.
+            for name, how in (defined_kinds(text, readable or {}) if not mine else {}).items():
+                # C the build did not place; or the assembly of a function the release's catalogue
+                # does not have (assembly the release has stays: the port's hand C stands in).
+                if name not in parts["placed"] if how == "c" else name in parts["absent"]:
+                    gone_in.setdefault(name, []).append(rel)
+                    evidence["function: a shared definition the release's build did not place (gone)"] += 1
             if mine:
                 # The release's own C was built against its catalogue: a v1.01 hook name there is the
                 # hook its catalogue gave the name (PAL's func_PAL_00310BE8 calls func_0026F770 at
@@ -955,7 +998,7 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
                 evidence[how] += 1
                 if new != short:
                     out.setdefault(rel, {})[short] = new
-    return out, evidence
+    return out, evidence, gone_in
 
 
 def derived_values(parts: dict, release: Release, level_base: int, primary: dict | None = None,
@@ -1027,22 +1070,30 @@ def derived_values(parts: dict, release: Release, level_base: int, primary: dict
             "levels": dict(sorted(levels.items())), "level_data": level_data}
 
 
-def check_units(source: Path, table: dict, readable: dict[str, str], sources: list[str]) -> list[str]:
-    """Definitions in the shared C of functions the release does not have (table "absent") that
-    its unit does not mark: the primary's C would run at the release's place. Needs no disc."""
+def check_gone(source: Path, table: dict, readable: dict[str, str], sources: list[str],
+               version: str) -> list[str]:
+    """The table's left-out definitions against the decompilation, without a disc: each "gone_in"
+    file still defines its function, and the shared C defines no other function the release does
+    not have ("absent") but gives a place. A rename or a move in the decompilation shows here."""
+    placed = set(table.get("placed", []))
     absent = set(table.get("absent", []))
-    if not absent:
+    if not placed:
         return []
-    release = Release(table)
-    units_table = table.get("units", {})
-    out = []
+    gone_in = table.get("gone_in", {})
+    expected = {(rel, name) for name, rels in gone_in.items() for rel in rels}
+    found = set()
     for d in sources:
         for path in sorted((source / d).rglob("*.c")):
             rel = path.relative_to(source).as_posix()
-            for name in defined_names(path.read_text(errors="replace"), readable):
-                if (name in absent and f"_{DEAD}_" not in release.name(name)
-                        and f"_{DEAD}_" not in units_table.get(rel, {}).get(name, "")):
-                    out.append(f"{rel}: {name} is the primary's only, but its unit does not mark it")
+            if rel.startswith(f"src/{version}/"):
+                continue
+            for name, how in defined_kinds(path.read_text(errors="replace"), readable).items():
+                if name not in placed if how == "c" else name in absent:
+                    found.add((rel, name))
+    out = [f"{rel}: defines {name}, which the release's build did not place, but the table does not leave it out"
+           for rel, name in sorted(found - expected)]
+    out += [f"{rel}: the table leaves out {name}, which this file no longer defines"
+            for rel, name in sorted(expected - found)]
     return out
 
 
@@ -1099,7 +1150,7 @@ def main(argv: list[str] | None = None) -> int:
         uses.update(used_tokens(source, [f"src/versions/{version}"]))
         parts = build_rac1(source, version, args.relocs.resolve(), args.map, uses)
         release = Release({"names": parts["names"]})
-        unit_names, unit_evidence = {}, Counter()
+        unit_names, unit_evidence, gone_in = {}, Counter(), {}
         derived = {"values": {}, "levels": {}, "level_data": {}}
         DEAD_NOW = RAC1_RELEASES[version]["dead"]
         source_note = {"commit": None, "version": version, "table": "version_relocs.py (rac1-decomp's tools/version_check.py)"}
@@ -1111,7 +1162,7 @@ def main(argv: list[str] | None = None) -> int:
             parts["catalogue_hooks"] = {h: unpaired.get(h, h) for h in parts["hooks"]}
         release = Release({"names": parts["names"]})
         release.readable = readable
-        unit_names, unit_evidence = units(source, version, release, parts, cfg.get("sources", ["src"]), readable)
+        unit_names, unit_evidence, gone_in = units(source, version, release, parts, cfg.get("sources", ["src"]), readable)
         release.units = unit_names
         primary_table = args.game.parent.parent / "rac2-ntsc" / "tables" / "derived_names.json"
         derived = derived_values(parts, release, RELEASES[version]["level_base"],
@@ -1134,7 +1185,7 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             cname, _, crel = line.partition("\t")
             cname, cpath = cname.strip(), source / crel.strip()
-            if f"_{DEAD_NOW}_" in release.name(cname):
+            if f"_{DEAD_NOW}_" in release.name(cname) or cname in gone_in:
                 left_out[cname] = "not in this release"
                 continue
             if cpath.is_file():
@@ -1163,10 +1214,15 @@ def main(argv: list[str] | None = None) -> int:
         "candidates_left_out": dict(sorted(left_out.items())),
         "marked_in_use": unresolved,
     }
-    if parts.get("absent"):
-        # The primary's functions the release does not have: every definition of one in the shared C
-        # must be marked in its unit (check_units), or the primary's C runs at the release's place.
+    if parts.get("placed"):
+        # The functions the release's build linked, and those its catalogue does not have
+        # (check_gone reads them).
+        table["placed"] = sorted(parts["placed"])
         table["absent"] = sorted(parts["absent"])
+    if gone_in:
+        # Their definitions in the shared C, each left out of the file named (Release.splice).
+        table["gone"] = sorted(gone_in)
+        table["gone_in"] = {k: sorted(v) for k, v in sorted(gone_in.items())}
     if parts.get("gone"):
         # PAL v2.00's definitions the release has no function for (another of its own is called).
         table["gone"] = parts["gone"]

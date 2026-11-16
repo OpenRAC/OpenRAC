@@ -1549,9 +1549,11 @@ def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
     # no translated code reaches, which a build without it never sees.
     for name in summary.get("from_assembly", {}):
         reached.setdefault(name, set())
+    allowed = {same_place(n) for n in allow}
+    reached_at = {same_place(n) for n in reached}
     return {"assembly_reached": {n: sorted(v) for n, v in sorted(reached.items())},
-            "assembly_unallowed": sorted(n for n, by in reached.items() if by and n not in allow),
-            "assembly_allow_unused": sorted(n for n in allow if n not in reached)}
+            "assembly_unallowed": sorted(n for n, by in reached.items() if by and same_place(n) not in allowed),
+            "assembly_allow_unused": sorted(n for n in allow if same_place(n) not in reached_at)}
 
 
 def extern_result_mismatch(fns) -> dict:
@@ -1571,6 +1573,15 @@ def extern_result_mismatch(fns) -> dict:
             v.sort()
         e["used_by"].sort()
     return dict(sorted(out.items()))
+
+
+# Two spellings of one place (a release view's FUN_<place> and func_<place>): one function to the
+# allow tables, so a row survives the table's choice of spelling.
+_SPELLING = re.compile(r"^(?:F[0-9a-f]+_)?FUN_")
+
+
+def same_place(name: str) -> str:
+    return _SPELLING.sub("func_", name)
 
 
 def read_result_allow(config_dir: Path, cfg: dict) -> dict[tuple[str, str], str]:
@@ -1598,8 +1609,11 @@ def result_guard(summary: dict, allow: dict[tuple[str, str], str]) -> dict:
     reason the 0 is right, or the callee's real type (hand C, an "asm" "signatures" entry); main()
     fails the run on any other."""
     zeroed = {(caller, callee) for caller, callees in summary.get("results_zeroed", {}).items() for callee in callees}
-    return {"results_zeroed_unallowed": sorted(f"{a}\t{b}" for a, b in zeroed if (a, b) not in allow),
-            "result_allow_unused": sorted(f"{a}\t{b}" for a, b in allow if (a, b) not in zeroed)}
+    allowed = {(same_place(a), same_place(b)) for a, b in allow}
+    seen = {(same_place(a), same_place(b)) for a, b in zeroed}
+    return {"results_zeroed_unallowed": sorted(f"{a}\t{b}" for a, b in zeroed
+                                               if (same_place(a), same_place(b)) not in allowed),
+            "result_allow_unused": sorted(f"{a}\t{b}" for a, b in allow if (same_place(a), same_place(b)) not in seen)}
 
 
 def stop_for_unreadable_units(reports: list[UnitReport], allow_unreadable: bool) -> bool:

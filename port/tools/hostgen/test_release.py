@@ -84,14 +84,24 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual(r.text(text, "src/game/002C7748.c"),
                          'INCLUDE_ASM("asm/game", func_V1_002CA070);\nvoid func_002CAA58(void)\n{\n    FUN_002CAEA0();\n}\n')
 
-    def test_a_mark_reaches_a_definition_under_a_readable_name(self):
-        # A definition under a readable name (names.h) is marked as under its address name.
-        r = release.Release({"names": {"func_00344848": "FUN_003468F8"},
-                             "units": {"src/game/00344848.c": {"func_00344848": "func_V1_00344848"}}})
+    def test_a_gone_definition_is_left_out_under_any_spelling(self):
+        # The release has its own function at the primary's place: the primary's definition (here
+        # under a readable name) and its assembly marker are left out of the file the table names.
+        r = release.Release({"names": {"func_00344848": "FUN_003468F8"}, "gone": ["func_00344848", "func_00344F98"],
+                             "gone_in": {"func_00344848": ["src/game/00344848.c"],
+                                         "func_00344F98": ["src/game/00344848.c"]}})
         r.readable = {"grid_menu_reposition_widgets": "func_00344848"}
-        text = "void grid_menu_reposition_widgets(char *menu)\n{\n}\nvoid f(void) { grid_menu_reposition_widgets(0); }\n"
-        self.assertEqual(r.text(text, "src/game/00344848.c"),
-                         "void func_V1_00344848(char *menu)\n{\n}\nvoid f(void) { FUN_003468F8(0); }\n")
+        text = ("void grid_menu_reposition_widgets(char *menu)\n{\n    x();\n}\n"
+                'INCLUDE_ASM("asm/game", func_00344F98);\nvoid keep(void)\n{\n}\n')
+        out = r.splice(text, "src/game/00344848.c")
+        self.assertNotIn("grid_menu_reposition_widgets(char", out)
+        self.assertNotIn("INCLUDE_ASM", out)
+        self.assertIn("void keep(void)", out)
+        self.assertEqual(out.count("\n"), text.count("\n"))
+        # Another file is not touched; the named file without the definition stops the build.
+        self.assertEqual(r.splice(text, "src/game/other.c"), text)
+        with self.assertRaises(ValueError):
+            r.splice("void keep(void)\n{\n}\n", "src/game/00344848.c")
 
     def test_defined_names_reads_every_spelling(self):
         readable = {"grid_menu_reposition_widgets": "func_00344848", "cam_set_mode_state": "func_00335300"}
@@ -111,27 +121,30 @@ class ReleaseNames(unittest.TestCase):
             uses = release.used_tokens(Path(d), ["src"], readable={"grid_menu_reposition_widgets": "func_00344848"})
         self.assertEqual(uses["func_00344848"], 1)
 
-    def test_check_units_finds_an_unmarked_definition(self):
+    def test_check_gone_finds_a_definition_the_table_misses(self):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "src" / "game").mkdir(parents=True)
             (Path(d) / "src" / "game" / "00344848.c").write_text("void grid_menu_reposition_widgets(char *m)\n{\n}\n")
-            table = {"names": {"func_00344848": "FUN_003468F8"}, "absent": ["func_00344848"], "units": {}}
+            table = {"names": {"func_00344848": "FUN_003468F8"}, "absent": ["func_00344848"],
+                     "placed": ["func_00344D58"]}
             readable = {"grid_menu_reposition_widgets": "func_00344848"}
-            self.assertEqual(len(release.check_units(Path(d), table, readable, ["src"])), 1)
-            table["units"] = {"src/game/00344848.c": {"func_00344848": "func_V1_00344848"}}
-            self.assertEqual(release.check_units(Path(d), table, readable, ["src"]), [])
+            self.assertEqual(len(release.check_gone(Path(d), table, readable, ["src"], "pal")), 1)
+            table["gone_in"] = {"func_00344848": ["src/game/00344848.c"]}
+            self.assertEqual(release.check_gone(Path(d), table, readable, ["src"], "pal"), [])
+            table["gone_in"] = {"func_00344848": ["src/game/moved.c"]}
+            self.assertEqual(len(release.check_gone(Path(d), table, readable, ["src"], "pal")), 2)
 
-    def test_committed_tables_mark_every_definition(self):
+    def test_committed_tables_leave_out_every_definition(self):
         # Each carried release's table against the decompilation CI checks out (no disc needed).
         source = REPO / "games" / "rac2" / "decomp"
         for game in ("rac2-pal", "rac2-ntsc2"):
             config = REPO / "port" / "game" / game / "hostgen.json"
             cfg = json.loads(config.read_text())
             table = json.loads((config.parent / cfg["release"]["table"]).read_text())
-            if not (source / "src").is_dir() or "absent" not in table:
+            if not (source / "src").is_dir() or "placed" not in table:
                 continue
-            problems = release.check_units(source, table, release.primary_aliases(source, cfg),
-                                           cfg.get("sources", ["src"]))
+            problems = release.check_gone(source, table, release.primary_aliases(source, cfg),
+                                          cfg.get("sources", ["src"]), cfg["release"]["version"])
             self.assertEqual(problems[:10], [], f"{game}: rebuild its table with release.py build")
 
     def test_six_digits_in_a_file_of_the_executable(self):
@@ -182,7 +195,8 @@ class Building(unittest.TestCase):
                                                 "func_PAL_002000B0\t002000B0\t12\n",
                 "config/pal/levels/functions.tsv": levels + "func_L00_002B0000\tlevel\t8\tx\t1\t00:002B0100\n",
                 "build/boot/placed.json": {"values": {"D_001A7A18": "0x001a7a18"}},
-                "build/pal/boot/placed.json": {"values": {"D_001A7A18": "0x001a7aa0", "func_00200030": "0x002000b0"}},
+                "build/pal/boot/placed.json": {"functions": {"func_00200000": [0x00200080, 16]},
+                                               "values": {"D_001A7A18": "0x001a7aa0", "func_00200030": "0x002000b0"}},
                 "build/pal/00_x/placed.json": {"values": {"D_L00_001B0000": "0x001b0040"}},
                 "src/game/a.c": "void func_00200030(void) {}\nint D_001A7A18;\nextern int D_L00_001B0000;\n",
             })
