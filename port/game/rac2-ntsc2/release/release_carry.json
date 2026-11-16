@@ -5,9 +5,8 @@
   "function: called": 30,
   "function: changed": 92,
   "function: found": 28,
-  "function: near": 32,
-  "function: not found": 6,
-  "function: same": 716,
+  "function: near": 40,
+  "function: same": 719,
   "global: aligned": 4,
   "global: between": 18,
   "global: exact": 109,
@@ -190,7 +189,7 @@
    "RAC2_K OPTIONS_LIST_OFFSET"
   ],
   "func_002DC900": [
-   "func_002DD638",
+   "func_002DD630",
    "changed",
    "host C 0x002DC908"
   ],
@@ -208,6 +207,11 @@
    "func_002F4A98",
    "found",
    "host C"
+  ],
+  "func_002F9C80": [
+   "func_002FAB0C",
+   "near",
+   "libraries.tsv Vendor_DrawList"
   ],
   "func_00310010": [
    "func_00310E08",
@@ -339,6 +343,11 @@
    "near",
    "calls_as"
   ],
+  "func_L04_0040AD28": [
+   "func_L04_0040C228",
+   "near",
+   "host C"
+  ],
   "func_L04_00411298": [
    "func_L04_004127A8",
    "changed",
@@ -348,6 +357,11 @@
    "func_L04_004188B8",
    "near",
    "host C"
+  ],
+  "func_L04_00419918": [
+   "func_L04_0041B020",
+   "near",
+   "libraries.tsv Moby_RaceController_Update"
   ],
   "func_L04_00434BB0": [
    "func_L04_004362F0",
@@ -373,6 +387,11 @@
    "func_L08_0040FF80",
    "by hand",
    "libraries.tsv Moby_GliderPickup_Update"
+  ],
+  "func_L08_0041D808": [
+   "func_L08_0041EDD0",
+   "near",
+   "host C"
   ],
   "func_L10_00421790": [
    "func_L10_00422CA8",
@@ -492,11 +511,5 @@
   "count": 47,
   "from": "0026F718",
   "to": "0026F818"
- },
- "unpaired": {
-  "func_002F9C80": "libraries.tsv Vendor_DrawList",
-  "func_L04_0040AD28": "host C",
-  "func_L04_00419918": "libraries.tsv Moby_RaceController_Update",
-  "func_L08_0041D808": "host C"
  }
 }

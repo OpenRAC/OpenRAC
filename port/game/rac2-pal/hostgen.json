@@ -345,7 +345,6 @@
   "small_copies_own_data": 32,
   "level_hooks_by_registers": true,
   "level_hooks": [
-    "func_0026F578",
     "func_0026F580",
     "func_0026F588",
     "func_0026F590",
@@ -538,13 +537,16 @@
       "void *",
       "int"
     ],
+    "func_L07_0037BE20": [
+      "void *"
+    ],
     "func_L00_003855C0": [
       "void *"
     ],
     "func_L16_0043BEF0": [
       "void *"
     ],
-    "func_L00_00430BD8": [
+    "func_L00_00430168": [
       "int"
     ],
     "func_L00_00430BF8": [

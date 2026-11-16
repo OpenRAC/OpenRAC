@@ -3,11 +3,10 @@
  "counts": {
   "function: by hand": 20,
   "function: called": 28,
-  "function: changed": 74,
+  "function: changed": 73,
   "function: found": 28,
-  "function: near": 80,
-  "function: not found": 10,
-  "function: same": 681,
+  "function: near": 94,
+  "function: same": 685,
   "global: aligned": 5,
   "global: between": 16,
   "global: exact": 146,
@@ -114,11 +113,6 @@
    "changed",
    "host C 0x0026EDE8"
   ],
-  "func_0026F710": [
-   "func_0026F578",
-   "changed",
-   "level_hooks"
-  ],
   "func_0026F718": [
    "func_0026F580",
    "changed",
@@ -215,7 +209,7 @@
    "RAC2_K OPTIONS_LIST_OFFSET"
   ],
   "func_002DC900": [
-   "func_002DD600",
+   "func_002DD5F8",
    "changed",
    "host C 0x002DC908"
   ],
@@ -243,6 +237,11 @@
    "func_00311448",
    "found",
    "asm.leave"
+  ],
+  "func_003136D0": [
+   "func_00314B5C",
+   "near",
+   "host C"
   ],
   "func_00336A78": [
    "func_00338770",
@@ -439,6 +438,11 @@
    "near",
    "calls_as"
   ],
+  "func_L04_0040AD28": [
+   "func_L04_0040F2B0",
+   "near",
+   "host C"
+  ],
   "func_L04_00411298": [
    "func_L04_004158F0",
    "near",
@@ -448,6 +452,11 @@
    "func_L04_0041BC68",
    "near",
    "host C"
+  ],
+  "func_L04_00419918": [
+   "func_L04_0041E4A0",
+   "near",
+   "libraries.tsv Moby_RaceController_Update"
   ],
   "func_L04_00434BB0": [
    "func_L04_00439C28",
@@ -484,10 +493,20 @@
    "near",
    "calls_as"
   ],
+  "func_L08_003DB518": [
+   "func_L08_003DF830",
+   "near",
+   "host C"
+  ],
   "func_L08_0040E9B8": [
    "func_L08_004137E8",
    "by hand",
    "libraries.tsv Moby_GliderPickup_Update"
+  ],
+  "func_L08_0041D808": [
+   "func_L08_00422A30",
+   "near",
+   "host C"
   ],
   "func_L09_00404B90": [
    "func_L09_00409AC8",
@@ -628,16 +647,9 @@
   ]
  },
  "level_hooks": {
-  "carried": 27,
-  "count": 39,
-  "from": "0026F578",
+  "carried": 26,
+  "count": 38,
+  "from": "0026F580",
   "to": "0026F678"
- },
- "unpaired": {
-  "func_003136D0": "host C",
-  "func_L04_0040AD28": "host C",
-  "func_L04_00419918": "libraries.tsv Moby_RaceController_Update",
-  "func_L08_003DB518": "host C",
-  "func_L08_0041D808": "host C"
  }
 }
