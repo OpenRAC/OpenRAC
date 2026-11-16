@@ -118,6 +118,7 @@ struct Kept {
         scene::Instance instance;
         host::GameState camera;
         bool on_screen = false;
+        int preview_item_class = -1;
     };
 
     std::vector<TargetMoby> target_mobys;
@@ -248,6 +249,8 @@ struct State {
     // The mods' prop meshes read with the level (interface 1.12, mods::prop_meshes): each one's
     // model in `level`.
     std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
+    int infobot_pickup_model = -1;
+    std::vector<std::vector<renderer::Mat4>> infobot_pickup_poses;
     scene::ObjectPicker picker;
     scene::LevelScene scene;
     DebugCamera debug_camera;  // Only the scene/render owner updates inspection poses.

@@ -68,6 +68,13 @@ game address.
 | `rac1.text.msg_string` | `msg_string` | `i32(i32)` | id | pal, ntsc | Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn. |
 | `rac1.vendor.open_menu` | `Vendor_OpenMenu` | `void(u32)` | moby | pal, ntsc | Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero. |
 | `rac1.gold_bolt.count_unspent` | `GoldBolts_CountUnspent` | `i32()` |  | pal, ntsc | Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership. |
+| `rac1.vendor.draw_icons` | `Vendor_DrawIcons` | `void()` |  | pal, ntsc | Draws the vendor carousel icons; mods may change reward icons without changing purchase rows. |
+| `rac1.vendor.draw_details` | `Vendor_DrawDetails` | `void()` |  | pal, ntsc | Draws the vendor selected-item name and price panel. |
+| `rac1.ui.icon_frame` | `UI_IconFrame` | `i32(i32,i32)` | icon, frame | pal, ntsc | Resolves an icon and animation frame to its HUD sprite frame. |
+| `rac1.npc.try_dialog` | `NPC_TryDialog` | `i32(u32,u32)` | moby, request | pal, ntsc | Tests an NPC interaction request; identifies the owner of a purchase dialogue. |
+| `rac1.ui.sprite.draw` | `UI_DrawSprite` | `void(i32,i32,i32,i32,i32,i32)` | frame, x, y, width, height, alpha | pal, ntsc | Draws a HUD sprite as one packed GIF packet. |
+| `rac1.pickup.start_scene` | `Pickup_StartScene` | `void(i32)` | scene | pal, ntsc | Reward acquisition presentation. |
+| `rac1.gold_case.start_demo` | `GoldCase_StartDemo` | `void(u32,i32)` | moby, item | pal, ntsc | Reward acquisition presentation. |
 
 ## Fields
 

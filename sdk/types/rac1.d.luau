@@ -66,6 +66,13 @@ type HookPoint =
     | "rac1.text.msg_string"
     | "rac1.vendor.open_menu"
     | "rac1.gold_bolt.count_unspent"
+    | "rac1.vendor.draw_icons"
+    | "rac1.vendor.draw_details"
+    | "rac1.ui.icon_frame"
+    | "rac1.npc.try_dialog"
+    | "rac1.ui.sprite.draw"
+    | "rac1.pickup.start_scene"
+    | "rac1.gold_case.start_demo"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -708,6 +715,7 @@ type HookPoint =
     | "FollowCamera_ApplyOverrides"
     | "GoldBolts_CountCollected"
     | "GoldBolts_CountUnspent"
+    | "GoldCase_StartDemo"
     | "Help_Request"
     | "Hero_AdvanceAnimation"
     | "Hero_ApproachSpeed"
@@ -1375,7 +1383,9 @@ type HookPoint =
     | "Moby_WhiteFlower_Update"
     | "Moby_WoodcutBot_Update"
     | "Moby_Wrench_Update"
+    | "NPC_TryDialog"
     | "Pad_ProcessReport"
+    | "Pickup_StartScene"
     | "Planet_Unlock"
     | "Save_NewGame"
     | "Save_NewGamePlus"
@@ -1387,7 +1397,11 @@ type HookPoint =
     | "Save_UpdateState"
     | "Ship_InitTransition"
     | "Ship_TravelTo"
+    | "UI_DrawSprite"
+    | "UI_IconFrame"
     | "Vendor_BuildItemList"
+    | "Vendor_DrawDetails"
+    | "Vendor_DrawIcons"
     | "Vendor_InitLevelStock"
     | "Vendor_InitializeSelected"
     | "Vendor_MenuUpdate"
@@ -1530,6 +1544,20 @@ type msg_stringFn = (id: number) -> number
 type Vendor_OpenMenuFn = (moby: number) -> ()
 -- rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership.
 type GoldBolts_CountUnspentFn = () -> number
+-- rac1.vendor.draw_icons (Vendor_DrawIcons) void(): Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.
+type Vendor_DrawIconsFn = () -> ()
+-- rac1.vendor.draw_details (Vendor_DrawDetails) void(): Draws the vendor selected-item name and price panel.
+type Vendor_DrawDetailsFn = () -> ()
+-- rac1.ui.icon_frame (UI_IconFrame) i32(i32,i32): Resolves an icon and animation frame to its HUD sprite frame.
+type UI_IconFrameFn = (icon: number, frame: number) -> number
+-- rac1.npc.try_dialog (NPC_TryDialog) i32(u32,u32): Tests an NPC interaction request; identifies the owner of a purchase dialogue.
+type NPC_TryDialogFn = (moby: number, request: number) -> number
+-- rac1.ui.sprite.draw (UI_DrawSprite) void(i32,i32,i32,i32,i32,i32): Draws a HUD sprite as one packed GIF packet.
+type UI_DrawSpriteFn = (frame: number, x: number, y: number, width: number, height: number, alpha: number) -> ()
+-- rac1.pickup.start_scene (Pickup_StartScene) void(i32): Reward acquisition presentation.
+type Pickup_StartSceneFn = (scene: number) -> ()
+-- rac1.gold_case.start_demo (GoldCase_StartDemo) void(u32,i32): Reward acquisition presentation.
+type GoldCase_StartDemoFn = (moby: number, item: number) -> ()
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 

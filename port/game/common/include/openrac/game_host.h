@@ -63,6 +63,8 @@ void openrac_game_register_functions(void);
 /* The player's disc image, as the extractor kept it (iso_data/<game>/disc.iso).
  * The game reads it by sector. */
 extern const char* openrac_game_disc_image;
+/* Portable presentation's own mechanical/chirp cues, mixed with game audio. */
+void openrac_game_infobot_sound(int opening);
 
 /* A folder of edited levels (--mods), or NULL: its patches.tsv lists the disc
  * sectors that are read from files beside it instead (editor/pack.py writes
@@ -498,6 +500,12 @@ typedef struct openrac_game_shot2 {
     float aux[4];
 } openrac_game_shot2;
 
+typedef struct openrac_infobot_presentation {
+    float position[3];
+    float openness;
+    float scale;
+} openrac_infobot_presentation;
+
 typedef struct openrac_game_play {
     /* The levels, by the game's own numbers, and their names. */
     int levels;
@@ -720,6 +728,10 @@ typedef struct openrac_game_play {
         int32_t* surface,
         uint32_t* moby
     );
+    int (*pickup_animation)(int kind, int item);
+    /* A portable pickup presentation keeps the level background visible. */
+    int (*pickup_background)(void);
+    int (*infobot_presentation)(openrac_infobot_presentation* out);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)

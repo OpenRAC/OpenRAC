@@ -23,6 +23,8 @@
 
 #include "common/log.h"
 #include "mod_touch.h"
+#include "openrac/guest.h"
+#include <map>
 #include "mods.h"
 
 // The game's calls into the mods' world (game_host.h), set while mods are loaded.
@@ -1286,6 +1288,20 @@ std::mutex g_props_lock;
 std::array<Prop, OPENRAC_PROPS_MAX> g_props;
 std::vector<std::filesystem::path> g_prop_meshes;
 unsigned g_prop_generation = 0;
+struct VisualSet {
+    const openrac_mod* mod;
+    std::uint32_t loads;
+    std::vector<openrac_moby_visual> visuals;
+};
+std::vector<VisualSet> g_visuals;
+std::vector<int> g_visual_classes;
+unsigned g_visual_generation = 0;
+std::uint32_t g_sprite_tint = UINT32_MAX;
+std::uint32_t api_sprite_tint(openrac_mod* mod, std::uint32_t rgb) {
+    const auto previous = g_sprite_tint;
+    if (mod) g_sprite_tint = rgb;
+    return previous;
+}
 std::vector<Sound> g_sounds;
 std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_voices;
 int (*g_sound_load)(const std::filesystem::path&) = nullptr;
@@ -1416,6 +1432,48 @@ Prop* own_prop(const openrac_mod* mod, int id) {
         return nullptr;
     }
     return &p;
+}
+
+std::map<const openrac_mod*, std::map<std::string, openrac_gaddr>> g_guest_text;
+openrac_gaddr api_guest_text(openrac_mod* mod, const char* text) {
+    if (!mod || !text) return 0;
+    const std::size_t length = strnlen(text, 1024);
+    if (length >= 1024) return 0;
+    static std::uint64_t generation = UINT64_MAX;
+    const auto now = openrac_guest_cache_generation();
+    if (generation != now) { g_guest_text.clear(); generation = now; }
+    auto& strings = g_guest_text[mod];
+    if (const auto found = strings.find(text); found != strings.end()) return found->second;
+    std::size_t bytes = length + 1;
+    for (const auto& [s, address] : strings) { (void)address; bytes += s.size() + 1; }
+    if (bytes > 65536) return 0;
+    const auto address = openrac_guest_string(text, length + 1);
+    strings.emplace(text, address);
+    return address;
+}
+
+int api_pickup_animation(openrac_mod* mod, int kind, int item) {
+    return mod && openrac_game_play_host && openrac_game_play_host->pickup_animation
+        ? openrac_game_play_host->pickup_animation(kind,item) : 0;
+}
+int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int count) {
+    if (!mod || count < 0 || count > OPENRAC_MOBY_VISUALS_MAX || (count && !visuals)) return OPENRAC_HOOK_UNKNOWN;
+    for (int i = 0; i < count; ++i) {
+        const auto& v = visuals[i];
+        if (!v.moby || v.moby > UINT32_MAX - 0x100u || v.oclass < -1 || v.oclass >= 0x800
+            || !std::isfinite(v.height) || v.height < 0 || v.height > 100) return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod || set.loads != loads_now(); });
+    if (count) g_visuals.push_back({mod, loads_now(), {visuals, visuals + count}});
+    for (int i = 0; i < count; ++i) {
+        if (visuals[i].oclass < 0) continue;
+        if (std::find(g_visual_classes.begin(), g_visual_classes.end(), visuals[i].oclass) == g_visual_classes.end()) {
+            g_visual_classes.push_back(visuals[i].oclass);
+            ++g_visual_generation;
+        }
+    }
+    return OPENRAC_HOOK_OK;
 }
 
 int api_prop_create(openrac_mod* mod, const char* mesh_path) {
@@ -1910,6 +1968,10 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.hero_set_joints = api_hero_set_joints;
     api.collision_triangles = api_collision_triangles;
     api.prop_create = api_prop_create;
+    api.moby_visuals = api_moby_visuals;
+    api.guest_text = api_guest_text;
+    api.sprite_tint = api_sprite_tint;
+    api.pickup_animation = api_pickup_animation;
     api.prop_pose = api_prop_pose;
     api.prop_hide = api_prop_hide;
     api.prop_remove = api_prop_remove;
@@ -1973,6 +2035,25 @@ std::vector<PropDraw> props_drawn() {
 std::vector<std::filesystem::path> prop_meshes() {
     const std::lock_guard<std::mutex> lock(g_props_lock);
     return g_prop_meshes;
+}
+
+std::uint32_t sprite_tint() { return g_sprite_tint; }
+
+std::vector<int> visual_classes() {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    return g_visual_classes;
+}
+unsigned visual_classes_generation() {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    return g_visual_generation;
+}
+std::vector<openrac_moby_visual> moby_visuals() {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    std::vector<openrac_moby_visual> result;
+    for (const auto& set : g_visuals) if (set.loads == loads_now()) {
+        result.insert(result.end(), set.visuals.begin(), set.visuals.end());
+    }
+    return result;
 }
 
 unsigned prop_meshes_generation() {
@@ -2043,6 +2124,7 @@ bool play_skipping() {
     std::int32_t level = -1;
     if (phase_now(&level) != g_skip_phase || scene_now() != g_skip_scene) {
         g_skip_ticks = 0;
+    g_sprite_tint = UINT32_MAX;
         return false;
     }
     --g_skip_ticks;
@@ -2065,6 +2147,7 @@ void reset_play() {
         g_notice.clear();
     }
     g_skip_ticks = 0;
+    g_sprite_tint = UINT32_MAX;
     // A scene a mod asked for and the game has not started yet.
     if (g_play != nullptr && g_play->scene_start != nullptr) {
         g_play->scene_start(-1);
@@ -2073,6 +2156,9 @@ void reset_play() {
     {
         const std::lock_guard<std::mutex> lock(g_props_lock);
         g_props.fill(Prop{});
+        g_visuals.clear();
+        g_visual_classes.clear();
+        ++g_visual_generation;
     }
     {
         const std::lock_guard<std::mutex> lock(g_haze_lock);
@@ -2119,6 +2205,10 @@ void reset_play() {
 }
 
 void drop_figures(const openrac_mod* mod) {
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });
+    }
     for (Figure& f : g_figures) {
         if (f.mod == mod) {
             if (live(f)) {

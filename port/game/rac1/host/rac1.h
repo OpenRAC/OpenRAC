@@ -226,6 +226,10 @@ gaddr rac1_updating_moby(void);
  * whether a moby is an actor of the scene playing (world.c's listing). */
 int32_t rac1_scene_playing(int32_t* frame);
 int rac1_scene_start(int32_t scene);
+int rac1_pickup_animation(int kind, int item);
+int rac1_pickup_background(void);
+int rac1_infobot_presentation(openrac_infobot_presentation* out);
+void rac1_pickup_tick(void);
 /* camera_script.c: the game's camera scripts for the mods (interface 1.14; play.c's table), and
  * what ends or shows one at the end of the tick's moby loop. */
 void rac1_camera_script_tick(void);

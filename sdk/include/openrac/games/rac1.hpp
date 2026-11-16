@@ -475,6 +475,62 @@ struct GoldBolts_CountUnspent {
     using fn = int32_t (*)();
 };
 
+// Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.
+struct Vendor_DrawIcons {
+    static constexpr const char* id = "rac1.vendor.draw_icons";
+    static constexpr const char* name = "Vendor_DrawIcons";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Draws the vendor selected-item name and price panel.
+struct Vendor_DrawDetails {
+    static constexpr const char* id = "rac1.vendor.draw_details";
+    static constexpr const char* name = "Vendor_DrawDetails";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Resolves an icon and animation frame to its HUD sprite frame.
+struct UI_IconFrame {
+    static constexpr const char* id = "rac1.ui.icon_frame";
+    static constexpr const char* name = "UI_IconFrame";
+    static constexpr const char* signature = "i32(i32,i32)";
+    using fn = int32_t (*)(int32_t, int32_t);
+};
+
+// Tests an NPC interaction request; identifies the owner of a purchase dialogue.
+struct NPC_TryDialog {
+    static constexpr const char* id = "rac1.npc.try_dialog";
+    static constexpr const char* name = "NPC_TryDialog";
+    static constexpr const char* signature = "i32(u32,u32)";
+    using fn = int32_t (*)(uint32_t, uint32_t);
+};
+
+// Draws a HUD sprite as one packed GIF packet.
+struct UI_DrawSprite {
+    static constexpr const char* id = "rac1.ui.sprite.draw";
+    static constexpr const char* name = "UI_DrawSprite";
+    static constexpr const char* signature = "void(i32,i32,i32,i32,i32,i32)";
+    using fn = void (*)(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
+};
+
+// Reward acquisition presentation.
+struct Pickup_StartScene {
+    static constexpr const char* id = "rac1.pickup.start_scene";
+    static constexpr const char* name = "Pickup_StartScene";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// Reward acquisition presentation.
+struct GoldCase_StartDemo {
+    static constexpr const char* id = "rac1.gold_case.start_demo";
+    static constexpr const char* name = "GoldCase_StartDemo";
+    static constexpr const char* signature = "void(u32,i32)";
+    using fn = void (*)(uint32_t, int32_t);
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -5588,6 +5644,9 @@ namespace hooks {
         using count_collected = rac1::GoldBolts_CountCollected;
         using count_unspent = rac1::GoldBolts_CountUnspent;
     }  // namespace gold_bolt
+    namespace gold_case {
+        using start_demo = rac1::GoldCase_StartDemo;
+    }  // namespace gold_case
     namespace help {
         using request = rac1::Help_Request;
     }  // namespace help
@@ -7549,9 +7608,15 @@ namespace hooks {
             using update = rac1::Moby_Wrench_Update;
         }  // namespace wrench
     }  // namespace moby
+    namespace npc {
+        using try_dialog = rac1::NPC_TryDialog;
+    }  // namespace npc
     namespace pad {
         using process_report = rac1::Pad_ProcessReport;
     }  // namespace pad
+    namespace pickup {
+        using start_scene = rac1::Pickup_StartScene;
+    }  // namespace pickup
     namespace planet {
         using unlock = rac1::Planet_Unlock;
     }  // namespace planet
@@ -7581,8 +7646,16 @@ namespace hooks {
     namespace text {
         using msg_string = rac1::msg_string;
     }  // namespace text
+    namespace ui {
+        using icon_frame = rac1::UI_IconFrame;
+        namespace sprite {
+            using draw = rac1::UI_DrawSprite;
+        }  // namespace sprite
+    }  // namespace ui
     namespace vendor {
         using build_item_list = rac1::Vendor_BuildItemList;
+        using draw_details = rac1::Vendor_DrawDetails;
+        using draw_icons = rac1::Vendor_DrawIcons;
         using init_level_stock = rac1::Vendor_InitLevelStock;
         using initialize_selected = rac1::Vendor_InitializeSelected;
         using menu_update = rac1::Vendor_MenuUpdate;

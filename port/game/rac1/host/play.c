@@ -808,6 +808,9 @@ const openrac_game_play rac1_play = {
     .figure_shot2 = rac1_figure_shot2,
     .scene_playing = rac1_scene_playing,
     .scene_start = rac1_scene_start,
+    .pickup_animation = rac1_pickup_animation,
+    .pickup_background = rac1_pickup_background,
+    .infobot_presentation = rac1_infobot_presentation,
     /* Both discs: the port ticks them alike, and their levels, classes, items, scenes and saves
      * mean the same. A disc or a change of this code that breaks that takes a new number. */
     .world_family = "rac1-60-1",

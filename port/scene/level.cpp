@@ -641,6 +641,116 @@ std::optional<std::uint32_t> load_model(
     return static_cast<std::uint32_t>(level.models.size() - 1);
 }
 
+bool load_preview_animation(const fs::path& path, Model& model, const char* clip, const LevelData* geometry) {
+    cgltf_options options{};
+    cgltf_data* raw = nullptr;
+    const auto name = path.string();
+    if (cgltf_parse_file(&options, name.c_str(), &raw) != cgltf_result_success) return false;
+    const std::unique_ptr<cgltf_data, decltype(&cgltf_free)> data(raw, cgltf_free);
+    if (cgltf_load_buffers(&options, raw, name.c_str()) != cgltf_result_success
+        || raw->skins_count != 1 || model.bones.empty()) return false;
+    const cgltf_animation* animation = nullptr;
+    for (cgltf_size i = 0; i < raw->animations_count; ++i)
+        if (raw->animations[i].name && std::strcmp(raw->animations[i].name, clip) == 0)
+            animation = &raw->animations[i];
+    if (!animation) return false;
+    float duration = 0;
+    for (cgltf_size i = 0; i < animation->samplers_count; ++i) {
+        const auto& sampler = animation->samplers[i];
+        if (!sampler.input || !sampler.output || sampler.input->count == 0
+            || sampler.output->count != sampler.input->count
+            || sampler.interpolation == cgltf_interpolation_type_cubic_spline) return false;
+        float last = 0;
+        if (!cgltf_accessor_read_float(sampler.input, sampler.input->count - 1, &last, 1)
+            || !std::isfinite(last)) return false;
+        duration = std::max(duration, last);
+    }
+    // Retail weapon display sequences can be a single authored pose at time zero.
+    if (duration < 0 || duration > 30) return false;
+    const auto& skin = raw->skins[0];
+    std::vector<std::vector<Mat4>> poses;
+    const int frames = std::max(1, int(std::ceil(duration * 60)));
+    for (int frame = 0; frame < frames; ++frame) {
+        const float time = float(frame) / 60;
+        for (cgltf_size i = 0; i < animation->channels_count; ++i) {
+            const auto& channel = animation->channels[i];
+            auto* node = channel.target_node;
+            if (!node || !channel.sampler) return false;
+            const auto& sampler = *channel.sampler;
+            cgltf_size a = 0;
+            float ta = 0, tb = 0;
+            cgltf_accessor_read_float(sampler.input, 0, &ta, 1);
+            while (a + 1 < sampler.input->count) {
+                cgltf_accessor_read_float(sampler.input, a + 1, &tb, 1);
+                if (tb > time) break;
+                ta = tb;
+                ++a;
+            }
+            const auto b = std::min(a + 1, sampler.input->count - 1);
+            cgltf_accessor_read_float(sampler.input, b, &tb, 1);
+            const bool rotation = channel.target_path == cgltf_animation_path_type_rotation;
+            const int count = rotation ? 4 : 3;
+            float from[4]{}, to[4]{}, value[4]{};
+            if (!cgltf_accessor_read_float(sampler.output, a, from, count)
+                || !cgltf_accessor_read_float(sampler.output, b, to, count)) return false;
+            const float weight = sampler.interpolation == cgltf_interpolation_type_step || tb <= ta
+                ? 0 : std::clamp((time - ta) / (tb - ta), 0.0f, 1.0f);
+            float dot = 0;
+            for (int j = 0; j < count; ++j) dot += from[j] * to[j];
+            float norm = 0;
+            for (int j = 0; j < count; ++j) {
+                value[j] = from[j] * (1 - weight) + to[j] * weight * (rotation && dot < 0 ? -1 : 1);
+                norm += value[j] * value[j];
+            }
+            node->has_matrix = false;
+            if (rotation) {
+                if (norm <= 0) return false;
+                for (int j = 0; j < 4; ++j) node->rotation[j] = value[j] / std::sqrt(norm);
+                node->has_rotation = true;
+            } else if (channel.target_path == cgltf_animation_path_type_translation) {
+                std::copy_n(value, 3, node->translation); node->has_translation = true;
+            } else if (channel.target_path == cgltf_animation_path_type_scale) {
+                std::copy_n(value, 3, node->scale); node->has_scale = true;
+            } else return false;
+        }
+        std::vector<Mat4> pose(model.bones.size(), renderer::identity());
+        for (cgltf_size j = 0; j < skin.joints_count; ++j) {
+            const auto number = std::size_t(bone_number(skin.joints[j], int(j)));
+            if (!skin.joints[j] || number >= pose.size()) return false;
+            Mat4 world{}, inverse = renderer::identity();
+            cgltf_node_transform_world(skin.joints[j], world.data());
+            if (skin.inverse_bind_matrices
+                && !cgltf_accessor_read_float(skin.inverse_bind_matrices, j, inverse.data(), 16)) return false;
+            pose[number] = renderer::multiply(world, inverse);
+        }
+        poses.push_back(std::move(pose));
+    }
+    if (geometry) {
+        std::vector<std::uint32_t> vertices;
+        for (const auto& primitive : model.primitives)
+            for (std::uint32_t i = 0; i < primitive.index_count; ++i)
+                vertices.push_back(geometry->indices[primitive.first_index + i]);
+        std::sort(vertices.begin(), vertices.end());
+        vertices.erase(std::unique(vertices.begin(), vertices.end()), vertices.end());
+        Vec3 low{3.0e38f, 3.0e38f, 3.0e38f}, high{-3.0e38f, -3.0e38f, -3.0e38f};
+        for (const auto& pose : poses) for (const auto index : vertices) {
+            const auto& vertex = geometry->vertices[index];
+            const Vec3 position{vertex.position[0], vertex.position[1], vertex.position[2]};
+            Vec3 skinned{}; float weight = 0;
+            for (int j = 0; j < 4; ++j) {
+                if (vertex.weights[j] <= 0 || vertex.joints[j] >= pose.size()) continue;
+                const auto point = renderer::transform_point(pose[vertex.joints[j]], position);
+                for (int axis = 0; axis < 3; ++axis) skinned[axis] += point[axis] * vertex.weights[j];
+                weight += vertex.weights[j];
+            }
+            grow(low, high, weight > 0 ? skinned : position);
+        }
+        if (!vertices.empty()) { model.preview_min = low; model.preview_max = high; model.preview_bounds = true; }
+    }
+    model.preview_poses = std::move(poses);
+    return true;
+}
+
 std::uint32_t add_box_model(LevelData& level) {
     Model model;
     model.name = "box";

@@ -148,6 +148,10 @@ struct Model {
     Vec3 max{};
     std::vector<ModelJoint> bones;  // Indexed by the same joint number as skin weights.
     int joints = 0;                 // a skinned mesh: one past the highest joint its vertices use
+    // Optional exported idle animation for a render-only replacement, sampled at 60 Hz.
+    std::vector<std::vector<Mat4>> preview_poses;
+    Vec3 preview_min{}, preview_max{};
+    bool preview_bounds = false;
 };
 
 struct Instance {
@@ -345,6 +349,9 @@ std::vector<renderer::Rgba8Image> load_sky_textures(
 std::optional<std::uint32_t> load_model(
     const std::filesystem::path& path, LevelData& level, std::string& error
 );
+
+bool load_preview_animation(const std::filesystem::path& path, Model& model, const char* clip,
+    const LevelData* geometry = nullptr);
 
 // A unit box, 0.5 on a side, standing on its base: what the viewer draws for
 // a moby class without a mesh.

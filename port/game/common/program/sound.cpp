@@ -279,3 +279,12 @@ void watch_sound() {
 #endif
 
 }  // namespace openrac::program
+
+extern "C" void openrac_game_infobot_sound(int opening) {
+#ifdef OPENRAC_FRONTEND
+    using namespace openrac::audio::ui_sounds;
+    play(opening?Sound::InfobotOpen:Sound::InfobotClose);
+#else
+    (void)opening;
+#endif
+}

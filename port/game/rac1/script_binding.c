@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[695];
+static const openrac_script_point k_points[702];
 
 /* Shape S0: void(u32,u32,i32) (pad, report, size). */
 typedef void (*S0_fn)(uint32_t, uint32_t, int32_t);
@@ -819,6 +819,107 @@ static void S41_call(void* original, const openrac_script_value* v, openrac_scri
 }
 #define S41_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S41_THUNK(N, I, 0) S41_THUNK(N, I, 1) S41_THUNK(N, I, 2) S41_THUNK(N, I, 3) S41_THUNK(N, I, 4) S41_THUNK(N, I, 5) S41_THUNK(N, I, 6) S41_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
+/* Shape S42: i32(i32,i32) (icon, frame). */
+typedef int32_t (*S42_fn)(int32_t, int32_t);
+static const uint8_t k_S42_kinds[] = {OPENRAC_SV_I32, OPENRAC_SV_I32};
+static const char* const k_S42_names[] = {"icon", "frame"};
+static void S42_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    r->i = ((S42_fn)original)((int32_t)v[0].i, (int32_t)v[1].i);
+}
+#define S42_THUNK(N, I, K) static int32_t N##_##K(int32_t icon, int32_t frame) { \
+    openrac_script_value v[2] = {{0, 0.0}}; \
+    v[0].i = (int64_t)icon; \
+    v[1].i = (int64_t)frame; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        return ((S42_fn)k_##N##_links[K].original)(icon, frame); \
+    } \
+    return (int32_t)r.i; \
+}
+#define S42_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S42_THUNK(N, I, 0) S42_THUNK(N, I, 1) S42_THUNK(N, I, 2) S42_THUNK(N, I, 3) S42_THUNK(N, I, 4) S42_THUNK(N, I, 5) S42_THUNK(N, I, 6) S42_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S43: i32(u32,u32) (moby, request). */
+typedef int32_t (*S43_fn)(uint32_t, uint32_t);
+static const uint8_t k_S43_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_U32};
+static const char* const k_S43_names[] = {"moby", "request"};
+static void S43_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    r->i = ((S43_fn)original)((uint32_t)v[0].i, (uint32_t)v[1].i);
+}
+#define S43_THUNK(N, I, K) static int32_t N##_##K(uint32_t moby, uint32_t request) { \
+    openrac_script_value v[2] = {{0, 0.0}}; \
+    v[0].i = (int64_t)moby; \
+    v[1].i = (int64_t)request; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        return ((S43_fn)k_##N##_links[K].original)(moby, request); \
+    } \
+    return (int32_t)r.i; \
+}
+#define S43_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S43_THUNK(N, I, 0) S43_THUNK(N, I, 1) S43_THUNK(N, I, 2) S43_THUNK(N, I, 3) S43_THUNK(N, I, 4) S43_THUNK(N, I, 5) S43_THUNK(N, I, 6) S43_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S44: void(i32,i32,i32,i32,i32,i32) (frame, x, y, width, height, alpha). */
+typedef void (*S44_fn)(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
+static const uint8_t k_S44_kinds[] = {OPENRAC_SV_I32, OPENRAC_SV_I32, OPENRAC_SV_I32, OPENRAC_SV_I32, OPENRAC_SV_I32, OPENRAC_SV_I32};
+static const char* const k_S44_names[] = {"frame", "x", "y", "width", "height", "alpha"};
+static void S44_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S44_fn)original)((int32_t)v[0].i, (int32_t)v[1].i, (int32_t)v[2].i, (int32_t)v[3].i, (int32_t)v[4].i, (int32_t)v[5].i);
+}
+#define S44_THUNK(N, I, K) static void N##_##K(int32_t frame, int32_t x, int32_t y, int32_t width, int32_t height, int32_t alpha) { \
+    openrac_script_value v[6] = {{0, 0.0}}; \
+    v[0].i = (int64_t)frame; \
+    v[1].i = (int64_t)x; \
+    v[2].i = (int64_t)y; \
+    v[3].i = (int64_t)width; \
+    v[4].i = (int64_t)height; \
+    v[5].i = (int64_t)alpha; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S44_fn)k_##N##_links[K].original)(frame, x, y, width, height, alpha); \
+        return; \
+    } \
+}
+#define S44_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S44_THUNK(N, I, 0) S44_THUNK(N, I, 1) S44_THUNK(N, I, 2) S44_THUNK(N, I, 3) S44_THUNK(N, I, 4) S44_THUNK(N, I, 5) S44_THUNK(N, I, 6) S44_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S45: void(i32) (scene). */
+typedef void (*S45_fn)(int32_t);
+static const uint8_t k_S45_kinds[] = {OPENRAC_SV_I32};
+static const char* const k_S45_names[] = {"scene"};
+static void S45_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S45_fn)original)((int32_t)v[0].i);
+}
+#define S45_THUNK(N, I, K) static void N##_##K(int32_t scene) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)scene; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S45_fn)k_##N##_links[K].original)(scene); \
+        return; \
+    } \
+}
+#define S45_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S45_THUNK(N, I, 0) S45_THUNK(N, I, 1) S45_THUNK(N, I, 2) S45_THUNK(N, I, 3) S45_THUNK(N, I, 4) S45_THUNK(N, I, 5) S45_THUNK(N, I, 6) S45_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
+/* Shape S46: void(u32,i32) (moby, item). */
+typedef void (*S46_fn)(uint32_t, int32_t);
+static const uint8_t k_S46_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_I32};
+static const char* const k_S46_names[] = {"moby", "item"};
+static void S46_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S46_fn)original)((uint32_t)v[0].i, (int32_t)v[1].i);
+}
+#define S46_THUNK(N, I, K) static void N##_##K(uint32_t moby, int32_t item) { \
+    openrac_script_value v[2] = {{0, 0.0}}; \
+    v[0].i = (int64_t)moby; \
+    v[1].i = (int64_t)item; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S46_fn)k_##N##_links[K].original)(moby, item); \
+        return; \
+    } \
+}
+#define S46_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S46_THUNK(N, I, 0) S46_THUNK(N, I, 1) S46_THUNK(N, I, 2) S46_THUNK(N, I, 3) S46_THUNK(N, I, 4) S46_THUNK(N, I, 5) S46_THUNK(N, I, 6) S46_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
 S0_POINT(Pad_ProcessReport, 0) /* rac1.pad.process_report */
 S1_POINT(Hero_UpdateMotionInput, 1) /* rac1.player.update_motion_input */
 S2_POINT(Hero_TurnToHeading, 2) /* rac1.player.turn_to_heading */
@@ -877,645 +978,652 @@ S1_POINT(Save_UpdateState, 54) /* rac1.save.update_state */
 S40_POINT(msg_string, 55) /* rac1.text.msg_string */
 S41_POINT(Vendor_OpenMenu, 56) /* rac1.vendor.open_menu */
 S10_POINT(GoldBolts_CountUnspent, 57) /* rac1.gold_bolt.count_unspent */
-S1_POINT(Moby_Class1750_Update, 58) /* rac1.moby.class_1750.update */
-S41_POINT(Moby_Class676_Update, 59) /* rac1.moby.class_676.update */
-S41_POINT(Moby_Class482_Update, 60) /* rac1.moby.class_482.update */
-S41_POINT(Moby_Class809_Update, 61) /* rac1.moby.texture_scroll.update */
-S41_POINT(Moby_CameraObject_Update, 62) /* rac1.moby.camera_object.update */
-S41_POINT(Moby_Vendor_Update, 63) /* rac1.moby.light_beam.update */
-S41_POINT(Moby_Bolt_Update, 64) /* rac1.moby.bolt.update */
-S41_POINT(Moby_Wrench_Update, 65) /* rac1.moby.wrench.update */
-S41_POINT(Moby_Mine_Update, 66) /* rac1.moby.mine.update */
-S41_POINT(Moby_Class112_Update, 67) /* rac1.moby.spin_fade_out.update */
-S41_POINT(Moby_Class121_Update, 68) /* rac1.moby.hero_bomb.update */
-S41_POINT(Moby_Class122_Update, 69) /* rac1.moby.falling_spark.update */
-S41_POINT(Moby_NanotechCrateFragment_Update, 70) /* rac1.moby.debris_bounce.update */
-S41_POINT(Moby_GoldDevastatorMissile_Update, 71) /* rac1.moby.missile.update */
-S41_POINT(Moby_Visibomb_Update, 72) /* rac1.moby.moby163.update */
-S41_POINT(Moby_Class166_Update, 73) /* rac1.moby.moby166.update */
-S41_POINT(Moby_Class167_Update, 74) /* rac1.moby.moby167.update */
-S41_POINT(Moby_VisibombMissile_Update, 75) /* rac1.moby.visibomb_missile.update */
-S41_POINT(Moby_Taunter_Update, 76) /* rac1.moby.moby175.update */
-S41_POINT(Moby_Pyrocitor_Update, 77) /* rac1.moby.pyrocitor.update */
-S41_POINT(Moby_Class179_Update, 78) /* rac1.moby.moby179.update */
-S41_POINT(Moby_Walloper_Update, 79) /* rac1.moby.moby180.update */
-S41_POINT(Moby_Morphoray_Update, 80) /* rac1.moby.morphoray.update */
-S41_POINT(Moby_DoomBot_Update, 81) /* rac1.moby.doom_bot.update */
-S41_POINT(Moby_Trespasser_Update, 82) /* rac1.moby.moby188.update */
-S41_POINT(Moby_MineGlove_Update, 83) /* rac1.moby.mine_glove.update */
-S41_POINT(Moby_BombGlove_Update, 84) /* rac1.moby.moby192.update */
-S41_POINT(Moby_Decoy_Update, 85) /* rac1.moby.thrown_object.update */
-S41_POINT(Moby_DevestatorAmmo_Update, 86) /* rac1.moby.ammo_pickup.update */
-S41_POINT(Moby_SwingshotHook_Update, 87) /* rac1.moby.moby209.update */
-S41_POINT(Moby_GloveOfDoom_Update, 88) /* rac1.moby.carrier.update */
-S41_POINT(Moby_Bomb_Update, 89) /* rac1.moby.bomb_230.update */
-S41_POINT(Moby_MorphorayChicken_Update, 90) /* rac1.moby.morphoray_chicken.update */
-S41_POINT(Moby_Class305_Update, 91) /* rac1.moby.moby305.update */
-S41_POINT(Moby_Class428_Update, 92) /* rac1.moby.moby428.update */
-S41_POINT(Moby_Ryno_Update, 93) /* rac1.moby.ryno.update */
-S41_POINT(Moby_Rocket_Update, 94) /* rac1.moby.rocket_steer.update */
-S41_POINT(Moby_Drone_Update, 95) /* rac1.moby.drone.update */
-S41_POINT(Moby_BoltCrate_Update, 96) /* rac1.moby.crate.update */
-S41_POINT(Moby_VeldinShip_Update, 97) /* rac1.moby.veldin_ship.update */
-S41_POINT(Moby_DecoyGlove_Update, 98) /* rac1.moby.decoy_glove.update */
-S41_POINT(Moby_MetalDetector_Update, 99) /* rac1.moby.target_tracker.update */
-S41_POINT(Moby_Helipack_Update, 100) /* rac1.moby.clank_pack.update */
-S41_POINT(Moby_Class639_Update, 101) /* rac1.moby.moby639.update */
-S41_POINT(Moby_HornyToad_Update, 102) /* rac1.moby.horny_toad.update */
-S41_POINT(Moby_Infobot_Update, 103) /* rac1.moby.infobot.update */
-S41_POINT(Moby_ParticleSpawnerSmokeFire_Update, 104) /* rac1.moby.particle_field.update */
-S41_POINT(Moby_Class775_Update, 105) /* rac1.moby.grow_and_fade_out.update */
-S41_POINT(Moby_Class804_Update, 106) /* rac1.moby.trail_moby.update */
-S41_POINT(Moby_NanotechBall_Update, 107) /* rac1.moby.nanotech_ball.update */
-S41_POINT(Moby_ClankCutsceneTrigger_Update, 108) /* rac1.moby.moby834.update */
-S41_POINT(Moby_Suckcannon_Update, 109) /* rac1.moby.suck_cannon.update */
-S41_POINT(Moby_RedOrb_Update, 110) /* rac1.moby.pulsing_color_moby.update */
-S41_POINT(Moby_Class1138_Update, 111) /* rac1.moby.quad_moby.update */
-S41_POINT(Moby_VendorOrb_Update, 112) /* rac1.moby.moby1143.update */
-S41_POINT(Moby_Hydrodisplacer_Update, 113) /* rac1.moby.hydrodisplacer_pad.update */
-S41_POINT(Moby_PilotsHelmet_Update, 114) /* rac1.moby.moby1290.update */
-S41_POINT(Moby_Class1413_Update, 115) /* rac1.moby.moby1413.update */
-S41_POINT(Moby_VeldinRobotEnemy_Update, 116) /* rac1.moby.vendor.update */
-S41_POINT(Moby_Class1471_Update, 117) /* rac1.moby.beam_slot_manager.update */
-S41_POINT(Moby_Class1545_Update, 118) /* rac1.moby.moby1545.update */
-S41_POINT(Moby_Pterodactyl_Update, 119) /* rac1.moby.path_follow_moby.update */
-S41_POINT(Moby_BombthrowerGrass_Update, 120) /* rac1.moby.grass.update */
-S41_POINT(Moby_Hoverboard_Update, 121) /* rac1.moby.fx_group.update */
-S41_POINT(Moby_NovalisElevator_Update, 122) /* rac1.moby.path_platform.update */
-S41_POINT(Moby_Class27_Update, 123) /* rac1.moby.particle_emitter.update */
-S41_POINT(Moby_Class156_Update, 124) /* rac1.moby.moby156.update */
-S41_POINT(Moby_BoltCrank_Update, 125) /* rac1.moby.bolt_crank.update */
-S41_POINT(Moby_GoldWeaponCase_Update, 126) /* rac1.moby.item_offer.update */
-S41_POINT(Moby_SandMouse_Update, 127) /* rac1.moby.sand_mouse.update */
-S41_POINT(Moby_Birdbot_Update, 128) /* rac1.moby.birdbot.update */
-S41_POINT(Moby_Class567_Update, 129) /* rac1.moby.burning_debris.update */
-S41_POINT(Moby_LargeAmoeboid_Update, 130) /* rac1.moby.amoeboid.update */
-S41_POINT(Moby_Peckbot_Update, 131) /* rac1.moby.peckbot.update */
-S41_POINT(Moby_SandmouseHouse_Update, 132) /* rac1.moby.moby604.update */
-S41_POINT(Moby_Class605_Update, 133) /* rac1.moby.moby605.update */
-S41_POINT(Moby_WaterCurrent_Update, 134) /* rac1.moby.path_carrier.update */
-S41_POINT(Moby_CaveDoor_Update, 135) /* rac1.moby.crank_rotator.update */
-S41_POINT(Moby_FighterJet_Update, 136) /* rac1.moby.tethered_mine.update */
-S41_POINT(Moby_DoorHalf_Update, 137) /* rac1.moby.crank_slider.update */
-S41_POINT(Moby_StationaryShip_Update, 138) /* rac1.moby.rider_carrier.update */
-S41_POINT(Moby_Class845_Update, 139) /* rac1.moby.class_845.update */
-S41_POINT(Moby_Class678_Update, 140) /* rac1.moby.scrolling_layers2.update */
-S41_POINT(Moby_Class679_Update, 141) /* rac1.moby.grind_rail.update */
-S41_POINT(Moby_Class686_Update, 142) /* rac1.moby.flying_burst.update */
-S41_POINT(Moby_BomberJet_Update, 143) /* rac1.moby.gunship.update */
-S41_POINT(Moby_WaterLily_Update, 144) /* rac1.moby.hover_enemy.update */
-S41_POINT(Moby_Rock_Update, 145) /* rac1.moby.debris_moby.update */
-S41_POINT(Moby_Class700_Update, 146) /* rac1.moby.steam_vent.update */
-S41_POINT(Moby_FallingRock_Update, 147) /* rac1.moby.collapsing_platform.update */
-S41_POINT(Moby_PistonPlatform_Update, 148) /* rac1.moby.lift_move.update */
-S41_POINT(Moby_RockFormation_Update, 149) /* rac1.moby.breakable_rock.update */
-S41_POINT(Moby_Fan_Update, 150) /* rac1.moby.oscillating_spinner.update */
-S41_POINT(Moby_BridgePiece1_Update, 151) /* rac1.moby.projectile_breakable.update */
-S41_POINT(Moby_Class722_Update, 152) /* rac1.moby.falling_drop.update */
-S41_POINT(Moby_DestroyableCaveWall_Update, 153) /* rac1.moby.breakable_wall.update */
-S41_POINT(Moby_AgnoggShipFront_Update, 154) /* rac1.moby.agnogg_ship.update */
-S41_POINT(Moby_Class737_Update, 155) /* rac1.moby.cutscene_trigger.update */
-S41_POINT(Moby_BridgeHalf_Update, 156) /* rac1.moby.hinged_bridge.update */
-S41_POINT(Moby_Class751_Update, 157) /* rac1.moby.water_surface_fx.update */
-S41_POINT(Moby_GreenMushroom_Update, 158) /* rac1.moby.breakable_pot.update */
-S41_POINT(Moby_Class761_Update, 159) /* rac1.moby.pulsing_mesh.update */
-S41_POINT(Moby_DoorLeft_Update, 160) /* rac1.moby.sliding_door.update */
-S41_POINT(Moby_ThePlumber_Update, 161) /* rac1.moby.talking_npc.update */
-S41_POINT(Moby_Pipe_Update, 162) /* rac1.moby.moby778.update */
-S41_POINT(Moby_Class779_Update, 163) /* rac1.moby.smoke_emitter.update */
-S41_POINT(Moby_Class787_Update, 164) /* rac1.moby.falling_chunk.update */
-S41_POINT(Moby_SpawnPoint_Update, 165) /* rac1.moby.checkpoint_trigger.update */
-S41_POINT(Moby_Beehive_Update, 166) /* rac1.moby.enemy_spawner.update */
-S41_POINT(Moby_Class832_Update, 167) /* rac1.moby.rc_range_limiter.update */
-S41_POINT(Moby_MushroomUnderside_Update, 168) /* rac1.moby.moby1042.update */
-S41_POINT(Moby_GoldBolt_Update, 169) /* rac1.moby.gold_bolt.update */
-S41_POINT(Moby_Teleporter_Update, 170) /* rac1.moby.teleporter_pad.update */
-S41_POINT(Moby_Class1225_Update, 171) /* rac1.moby.moby1225.update */
-S41_POINT(Moby_Class1341_Update, 172) /* rac1.moby.help_hint_director.update */
-S41_POINT(Moby_Class1504_Update, 173) /* rac1.moby.wandering_light.update */
-S41_POINT(Moby_Class1510_Update, 174) /* rac1.moby.moby1510.update */
-S41_POINT(Moby_Class1546_Update, 175) /* rac1.moby.moby1546.update */
-S41_POINT(Moby_Class1633_Update, 176) /* rac1.moby.class_1633.update */
-S41_POINT(Moby_TallShroom_Update, 177) /* rac1.moby.moby1813.update */
-S41_POINT(Moby_Sandmouse_Update, 178) /* rac1.moby.mouse_critter.update */
-S41_POINT(Moby_Class1848_Update, 179) /* rac1.moby.moby1848.update */
-S41_POINT(Moby_TrackdriveLeft_Update, 180) /* rac1.moby.trackdrive_left.update */
-S41_POINT(Moby_SandShark_Update, 181) /* rac1.moby.sand_shark.update */
-S41_POINT(Moby_Constructorbot_Update, 182) /* rac1.moby.moby612.update */
-S41_POINT(Moby_TresspasserPad_Update, 183) /* rac1.moby.trespasser_puzzle.update */
-S41_POINT(Moby_Elevator_Update, 184) /* rac1.moby.elevator_651.update */
-S41_POINT(Moby_ConveyorBelt_Update, 185) /* rac1.moby.pusher.update */
-S41_POINT(Moby_Bulldozer_Update, 186) /* rac1.moby.moby656.update */
-S41_POINT(Moby_SandSharkNest_Update, 187) /* rac1.moby.sand_shark_nest.update */
-S41_POINT(Moby_GrabCrane_Update, 188) /* rac1.moby.moby675.update */
-S41_POINT(Moby_Platform_Update, 189) /* rac1.moby.rotate_platform.update */
-S41_POINT(Moby_TransportPod_Update, 190) /* rac1.moby.moby713.update */
-S41_POINT(Moby_Crane_Update, 191) /* rac1.moby.moby732.update */
-S41_POINT(Moby_RocketLauncher_Update, 192) /* rac1.moby.rocket_launcher.update */
-S41_POINT(Moby_RocketDoor1_Update, 193) /* rac1.moby.rocket_door1.update */
-S41_POINT(Moby_TresspasserDoor1_Update, 194) /* rac1.moby.moby743.update */
-S41_POINT(Moby_TresspasserDoor2_Update, 195) /* rac1.moby.moby744.update */
-S41_POINT(Moby_SandsharkEgg_Update, 196) /* rac1.moby.moby755.update */
-S41_POINT(Moby_SwingshotVersatarget_Update, 197) /* rac1.moby.hideable_flower.update */
-S41_POINT(Moby_Rocks_Update, 198) /* rac1.moby.moby762.update */
-S41_POINT(Moby_SkidsAgent_Update, 199) /* rac1.moby.skids_agent.update */
-S41_POINT(Moby_SkidMcmarx_Update, 200) /* rac1.moby.skid_mc_marx_aridia.update */
-S41_POINT(Moby_LiftcarPlatform_Update, 201) /* rac1.moby.driver_lift.update */
-S41_POINT(Moby_OceanAridia_Update, 202) /* rac1.moby.moby854.update */
-S41_POINT(Moby_Tresspasser_Update, 203) /* rac1.moby.moby1005.update */
-S41_POINT(Moby_Constructorbot1208_Update, 204) /* rac1.moby.shard_debris.update */
-S41_POINT(Moby_BackgroundShip1_Update, 205) /* rac1.moby.background_ship.update */
-S41_POINT(Moby_BackgroundShip2_Update, 206) /* rac1.moby.ship_path.update */
-S41_POINT(Moby_Class1324_Update, 207) /* rac1.moby.tutorial_hint.update */
-S41_POINT(Moby_Class1479_Update, 208) /* rac1.moby.moby1479.update */
-S41_POINT(Moby_WhiteFlower_Update, 209) /* rac1.moby.break_on_hit_l02.update */
-S41_POINT(Moby_MetropolisTrainLocomotive_Update, 210) /* rac1.moby.metropolis_train.update */
-S41_POINT(Moby_MovingPlatformSmall_Update, 211) /* rac1.moby.moving_platform.update */
-S41_POINT(Moby_MetropolisTrainCarriage_Update, 212) /* rac1.moby.metropolis_train_carriage.update */
-S41_POINT(Moby_RedShip1_Update, 213) /* rac1.moby.train_car.update */
-S41_POINT(Moby_Class235_Update, 214) /* rac1.moby.parent_follow_fade.update */
-S41_POINT(Moby_Spawner_Update, 215) /* rac1.moby.child_spawner.update */
-S41_POINT(Moby_Bomb545_Update, 216) /* rac1.moby.moby545.update */
-S41_POINT(Moby_RobotDog_Update, 217) /* rac1.moby.moby573.update */
-S41_POINT(Moby_Class574_Update, 218) /* rac1.moby.moby574.update */
-S41_POINT(Moby_MineLayer_Update, 219) /* rac1.moby.trooper.update */
-S41_POINT(Moby_Mine627_Update, 220) /* rac1.moby.kerwan_mine.update */
-S41_POINT(Moby_BlargHelicopter_Update, 221) /* rac1.moby.helicopter_gunship.update */
-S41_POINT(Moby_Taxi_Update, 222) /* rac1.moby.rail_taxi.update */
-S41_POINT(Moby_Statue_Update, 223) /* rac1.moby.moby817.update */
-S41_POINT(Moby_RoboShackSign_Update, 224) /* rac1.moby.spinner.update */
-S41_POINT(Moby_Class833_Update, 225) /* rac1.moby.kerwan_homing_rocket.update */
-S41_POINT(Moby_Class848_Update, 226) /* rac1.moby.moby848.update */
-S41_POINT(Moby_Helga_Update, 227) /* rac1.moby.quest_giver.update */
-S41_POINT(Moby_Class898_Update, 228) /* rac1.moby.rail_moby.update */
-S41_POINT(Moby_Class899_Update, 229) /* rac1.moby.rail_spawner.update */
-S41_POINT(Moby_BigAl_Update, 230) /* rac1.moby.guide.update */
-S41_POINT(Moby_RobotQwark_Update, 231) /* rac1.moby.moby914.update */
-S41_POINT(Moby_Fred1_Update, 232) /* rac1.moby.fred_1.update */
-S41_POINT(Moby_QwarkUmbris_Update, 233) /* rac1.moby.qwark_watch.update */
-S41_POINT(Moby_Class994_Update, 234) /* rac1.moby.ambient_stream_l03.update */
-S41_POINT(Moby_Gate_Update, 235) /* rac1.moby.rise_when_collected.update */
-S41_POINT(Moby_Taxi1012_Update, 236) /* rac1.moby.rail_lift.update */
-S41_POINT(Moby_Class1221_Update, 237) /* rac1.moby.falling_moby.update */
-S41_POINT(Moby_Class1342_Update, 238) /* rac1.moby.tutorial_hint_trigger.update */
-S41_POINT(Moby_Class1548_Update, 239) /* rac1.moby.cutscene_beams.update */
-S41_POINT(Moby_Class86_Update, 240) /* rac1.moby.swarm.update */
-S41_POINT(Moby_Class161_Update, 241) /* rac1.moby.class_161.update */
-S41_POINT(Moby_Class184_Update, 242) /* rac1.moby.moby184_shot.update */
-S41_POINT(Moby_BigAxebot_Update, 243) /* rac1.moby.big_axebot.update */
-S41_POINT(Moby_CircularSawEnemy_Update, 244) /* rac1.moby.circular_saw.update */
-S41_POINT(Moby_BlargTrooper_Update, 245) /* rac1.moby.blarg_trooper.update */
-S41_POINT(Moby_EudoraBridge_Update, 246) /* rac1.moby.switch_follower.update */
-S41_POINT(Moby_PlatformBooster_Update, 247) /* rac1.moby.lever_door.update */
-S41_POINT(Moby_SnowPlow_Update, 248) /* rac1.moby.path_vehicle.update */
-S41_POINT(Moby_FloatingPlatform_Update, 249) /* rac1.moby.floating_platform_481.update */
-S41_POINT(Moby_TransportShip_Update, 250) /* rac1.moby.delete_moby.update */
-S41_POINT(Moby_WoodcutBot_Update, 251) /* rac1.moby.wb_moby.update */
-S41_POINT(Moby_Class584_Update, 252) /* rac1.moby.moby584.update */
-S41_POINT(Moby_Class617_Update, 253) /* rac1.moby.path_keyframe_blend.update */
-S41_POINT(Moby_Leaf_Update, 254) /* rac1.moby.drift_spark_moby.update */
-S41_POINT(Moby_UpperDoor_Update, 255) /* rac1.moby.collectable.update */
-S41_POINT(Moby_SuckCannon_Update, 256) /* rac1.moby.warp_portal.update */
-S41_POINT(Moby_Lieutenant_Update, 257) /* rac1.moby.unlock_planet_pad.update */
-S41_POINT(Moby_Class1343_Update, 258) /* rac1.moby.moby1343.update */
-S41_POINT(Moby_Class1516_Update, 259) /* rac1.moby.bouncing_debris.update */
-S41_POINT(Moby_Class1549_Update, 260) /* rac1.moby.sparks_trigger_l04.update */
-S41_POINT(Moby_Sharkigator_Update, 261) /* rac1.moby.sharkigator_35.update */
-S41_POINT(Moby_SceneryShip_Update, 262) /* rac1.moby.scenery_ship.update */
-S41_POINT(Moby_Amoeboid_Update, 263) /* rac1.moby.grazing_critter.update */
-S41_POINT(Moby_Class258_Update, 264) /* rac1.moby.moby258.update */
-S41_POINT(Moby_HydrodisplacerFaucet_Update, 265) /* rac1.moby.moby341.update */
-S41_POINT(Moby_Hoverboard439_Update, 266) /* rac1.moby.hoverboard.update */
-S41_POINT(Moby_Extermibot_Update, 267) /* rac1.moby.extermibot.update */
-S41_POINT(Moby_Extermitank_Update, 268) /* rac1.moby.extermitank.update */
-S41_POINT(Moby_SkidMcmarx717_Update, 269) /* rac1.moby.skid_mc_marx.update */
-S41_POINT(Moby_FloatingPlatform810_Update, 270) /* rac1.moby.floating_platform_810.update */
-S41_POINT(Moby_Box_Update, 271) /* rac1.moby.moby812.update */
-S41_POINT(Moby_Lamp_Update, 272) /* rac1.moby.moby823.update */
-S41_POINT(Moby_FloorButton_Update, 273) /* rac1.moby.floor_button.update */
-S41_POINT(Moby_Water_Update, 274) /* rac1.moby.water_surface.update */
-S41_POINT(Moby_ElectricGate_Update, 275) /* rac1.moby.electric_gate.update */
-S41_POINT(Moby_Class841_Update, 276) /* rac1.moby.fog_zone.update */
-S41_POINT(Moby_Class843_Update, 277) /* rac1.moby.pose_slide_out.update */
-S41_POINT(Moby_DrainCover_Update, 278) /* rac1.moby.drain_cover.update */
-S41_POINT(Moby_PipeMountedGrating_Update, 279) /* rac1.moby.pipe_mounted_grating.update */
-S41_POINT(Moby_Class852_Update, 280) /* rac1.moby.gate_rise.update */
-S41_POINT(Moby_Class855_Update, 281) /* rac1.moby.emitter_l05.update */
-S41_POINT(Moby_ElevatorWithButton_Update, 282) /* rac1.moby.lift_l05.update */
-S41_POINT(Moby_OceanRilgar_Update, 283) /* rac1.moby.pulsing_marker.update */
-S41_POINT(Moby_Class893_Update, 284) /* rac1.moby.class_893.update */
-S41_POINT(Moby_Class895_Update, 285) /* rac1.moby.triggered_rotor.update */
-S41_POINT(Moby_HoverboardGirl_Update, 286) /* rac1.moby.hoverboard_girl.update */
-S41_POINT(Moby_QwarksBouncer_Update, 287) /* rac1.moby.bouncer.update */
-S41_POINT(Moby_ShadySalesman_Update, 288) /* rac1.moby.shady_salesman.update */
-S41_POINT(Moby_BlargGun_Update, 289) /* rac1.moby.blarg_gun.update */
-S41_POINT(Moby_Class982_Update, 290) /* rac1.moby.water_plane_marker.update */
-S41_POINT(Moby_Television_Update, 291) /* rac1.moby.bobbing_moby_l05.update */
-S41_POINT(Moby_Taxi998_Update, 292) /* rac1.moby.pickup_l05.update */
-S41_POINT(Moby_QwarksTrailer_Update, 293) /* rac1.moby.qwarks_trailer.update */
-S41_POINT(Moby_HoverboardRing_Update, 294) /* rac1.moby.moby1139.update */
-S41_POINT(Moby_Class1347_Update, 295) /* rac1.moby.challenge.update */
-S41_POINT(Moby_Lamp1511_Update, 296) /* rac1.moby.mine_moby.update */
-S41_POINT(Moby_Class1550_Update, 297) /* rac1.moby.moby1550.update */
-S41_POINT(Moby_HangarDoor_Update, 298) /* rac1.moby.orbiting_platform.update */
-S41_POINT(Moby_GadgebotSpawnContainer_Update, 299) /* rac1.moby.moby302.update */
-S41_POINT(Moby_GadgebotSpawnPad_Update, 300) /* rac1.moby.moby303.update */
-S41_POINT(Moby_Class367_Update, 301) /* rac1.moby.moby367.update */
-S41_POINT(Moby_Frog_Update, 302) /* rac1.moby.frog.update */
-S41_POINT(Moby_Gadgebot_Update, 303) /* rac1.moby.gadgebot.update */
-S41_POINT(Moby_ToxicGasVent_Update, 304) /* rac1.moby.swinging_hazard.update */
-S41_POINT(Moby_Class1021_Update, 305) /* rac1.moby.door_ring.update */
-S41_POINT(Moby_Class1028_Update, 306) /* rac1.moby.drawbridge.update */
-S41_POINT(Moby_Class1035_Update, 307) /* rac1.moby.class_1035.update */
-S41_POINT(Moby_EnergySphereHolder_Update, 308) /* rac1.moby.collectible_spawner.update */
-S41_POINT(Moby_Class1039_Update, 309) /* rac1.moby.trigger_lists.update */
-S41_POINT(Moby_EnergySphere_Update, 310) /* rac1.moby.moby1040.update */
-S41_POINT(Moby_AlienSnapper_Update, 311) /* rac1.moby.moby1048.update */
-S41_POINT(Moby_AlienQueen_Update, 312) /* rac1.moby.alien_queen.update */
-S41_POINT(Moby_Class1054_Update, 313) /* rac1.moby.moby1054.update */
-S41_POINT(Moby_Class1061_Update, 314) /* rac1.moby.callable_lift.update */
-S41_POINT(Moby_Class1062_Update, 315) /* rac1.moby.class_1062.update */
-S41_POINT(Moby_Class1066_Update, 316) /* rac1.moby.launch_trigger.update */
-S41_POINT(Moby_BlargSpaceCommando_Update, 317) /* rac1.moby.moby1068.update */
-S41_POINT(Moby_Class1083_Update, 318) /* rac1.moby.camera_takeover_trigger.update */
-S41_POINT(Moby_Class1085_Update, 319) /* rac1.moby.spinning_debris.update */
-S41_POINT(Moby_Class1091_Update, 320) /* rac1.moby.bobbing_moby.update */
-S41_POINT(Moby_Fred_Update, 321) /* rac1.moby.moby1105.update */
-S41_POINT(Moby_Class1108_Update, 322) /* rac1.moby.moby1108.update */
-S41_POINT(Moby_Shuttle_Update, 323) /* rac1.moby.shuttle.update */
-S41_POINT(Moby_RedButton_Update, 324) /* rac1.moby.red_button.update */
-S41_POINT(Moby_Class1123_Update, 325) /* rac1.moby.moby1123.update */
-S41_POINT(Moby_BotDoorLock_Update, 326) /* rac1.moby.moby1302.update */
-S41_POINT(Moby_Class1348_Update, 327) /* rac1.moby.class_1348.update */
-S41_POINT(Moby_Class1512_Update, 328) /* rac1.moby.spark_emitter.update */
-S41_POINT(Moby_Class1551_Update, 329) /* rac1.moby.sparks_trigger_l06.update */
-S41_POINT(Moby_Mushroom_Update, 330) /* rac1.moby.spawn_child_and_delete.update */
-S41_POINT(Moby_Class1660_Update, 331) /* rac1.moby.break_on_hit_blarg.update */
-S41_POINT(Moby_Class1898_Update, 332) /* rac1.moby.moby1898.update */
-S41_POINT(Moby_TaxiPlatform_Update, 333) /* rac1.moby.taxi_platform_38.update */
-S41_POINT(Moby_TaxiPlatform1474_Update, 334) /* rac1.moby.taxi_platform_1474.update */
-S41_POINT(Moby_Class436_Update, 335) /* rac1.moby.moby436.update */
-S41_POINT(Moby_Class317_Update, 336) /* rac1.moby.ambient_stream_l07.update */
-S41_POINT(Moby_PurpleShip_Update, 337) /* rac1.moby.purple_ship_529.update */
-S41_POINT(Moby_BoltcratePossiblyForMetalDetector_Update, 338) /* rac1.moby.path_train.update */
-S41_POINT(Moby_Class880_Update, 339) /* rac1.moby.bolt_projectile.update */
-S41_POINT(Moby_Bomb882_Update, 340) /* rac1.moby.gravity_debris.update */
-S41_POINT(Moby_TimedActivationPads_Update, 341) /* rac1.moby.timed_pad.update */
-S41_POINT(Moby_Water902_Update, 342) /* rac1.moby.water_plate.update */
-S41_POINT(Moby_Class1013_Update, 343) /* rac1.moby.target_driven_slider.update */
-S41_POINT(Moby_OceanUmbris_Update, 344) /* rac1.moby.audio_stream_trigger.update */
-S41_POINT(Moby_Bombomatic_Update, 345) /* rac1.moby.lobber_enemy.update */
-S41_POINT(Moby_Class1046_Update, 346) /* rac1.moby.shockwave.update */
-S41_POINT(Moby_Class1049_Update, 347) /* rac1.moby.lobbed_bomb.update */
-S41_POINT(Moby_Sharkigator1059_Update, 348) /* rac1.moby.sharkigator_1059.update */
-S41_POINT(Moby_Door_Update, 349) /* rac1.moby.door.update */
-S41_POINT(Moby_Class1069_Update, 350) /* rac1.moby.moby1069.update */
-S41_POINT(Moby_Class1080_Update, 351) /* rac1.moby.falling_leaf.update */
-S41_POINT(Moby_Snagglebeast_Update, 352) /* rac1.moby.snagglebeast.update */
-S41_POINT(Moby_Mine1112_Update, 353) /* rac1.moby.swooper.update */
-S41_POINT(Moby_Class1113_Update, 354) /* rac1.moby.breakable_prop.update */
-S41_POINT(Moby_MachinegunTurret_Update, 355) /* rac1.moby.machinegun_turret_1126.update */
-S41_POINT(Moby_Class1128_Update, 356) /* rac1.moby.moving_moby_l07.update */
-S41_POINT(Moby_Bridge_Update, 357) /* rac1.moby.bridge.update */
-S41_POINT(Moby_Class1133_Update, 358) /* rac1.moby.moby1133.update */
-S41_POINT(Moby_Class1142_Update, 359) /* rac1.moby.moby1142.update */
-S41_POINT(Moby_Class1552_Update, 360) /* rac1.moby.spark_burst_spawner.update */
-S41_POINT(Moby_Class1789_Update, 361) /* rac1.moby.moby1789.update */
-S41_POINT(Moby_Class152_Update, 362) /* rac1.moby.moby152.update */
-S41_POINT(Moby_Bomb248_Update, 363) /* rac1.moby.bomb_248.update */
-S41_POINT(Moby_Scoutbot_Update, 364) /* rac1.moby.scoutbot.update */
-S41_POINT(Moby_BomberTank_Update, 365) /* rac1.moby.bomber_tank.update */
-S41_POINT(Moby_Class327_Update, 366) /* rac1.moby.moby327.update */
-S41_POINT(Moby_BlargBombthrower_Update, 367) /* rac1.moby.blarg_bomb_thrower.update */
-S41_POINT(Moby_Shuttle424_Update, 368) /* rac1.moby.route_platform.update */
-S41_POINT(Moby_Bomb425_Update, 369) /* rac1.moby.moby425.update */
-S41_POINT(Moby_Rocket435_Update, 370) /* rac1.moby.guided_rocket.update */
-S41_POINT(Moby_Class438_Update, 371) /* rac1.moby.moby438.update */
-S41_POINT(Moby_Class440_Update, 372) /* rac1.moby.cannon.update */
-S41_POINT(Moby_Class441_Update, 373) /* rac1.moby.falling_debris.update */
-S41_POINT(Moby_Class444_Update, 374) /* rac1.moby.moby444.update */
-S41_POINT(Moby_BoltThief_Update, 375) /* rac1.moby.batalia_bolt_thief.update */
-S41_POINT(Moby_Rocket458_Update, 376) /* rac1.moby.moby458.update */
-S41_POINT(Moby_Shrub_Update, 377) /* rac1.moby.moby462.update */
-S41_POINT(Moby_Class463_Update, 378) /* rac1.moby.swarm_leader.update */
-S41_POINT(Moby_Class467_Update, 379) /* rac1.moby.group_clear.update */
-S41_POINT(Moby_Class468_Update, 380) /* rac1.moby.gate_swing.update */
-S41_POINT(Moby_Class600_Update, 381) /* rac1.moby.moby600.update */
-S41_POINT(Moby_Class621_Update, 382) /* rac1.moby.moby621.update */
-S41_POINT(Moby_Class648_Update, 383) /* rac1.moby.moby648.update */
-S41_POINT(Moby_Class671_Update, 384) /* rac1.moby.flicker_light.update */
-S41_POINT(Moby_BlargParatrooper_Update, 385) /* rac1.moby.paratrooper.update */
-S41_POINT(Moby_Commando_Update, 386) /* rac1.moby.commando.update */
-S41_POINT(Moby_BataliaDeserter_Update, 387) /* rac1.moby.deserter.update */
-S41_POINT(Moby_ThePlumberBatalia_Update, 388) /* rac1.moby.moby1283.update */
-S41_POINT(Moby_Class1292_Update, 389) /* rac1.moby.fire_bolt.update */
-S41_POINT(Moby_Class1349_Update, 390) /* rac1.moby.moby1349.update */
-S41_POINT(Moby_Class1400_Update, 391) /* rac1.moby.moby1400.update */
-S41_POINT(Moby_Class1553_Update, 392) /* rac1.moby.moby1553.update */
-S41_POINT(Moby_Class1629_Update, 393) /* rac1.moby.moby1629.update */
-S41_POINT(Moby_Class1641_Update, 394) /* rac1.moby.moby1641.update */
-S41_POINT(Moby_Class1649_Update, 395) /* rac1.moby.moby1649.update */
-S41_POINT(Moby_AirshipPart_Update, 396) /* rac1.moby.airship_part.update */
-S41_POINT(Moby_Seeker_Update, 397) /* rac1.moby.moby52.update */
-S41_POINT(Moby_Class193_Update, 398) /* rac1.moby.ground_enemy.update */
-S41_POINT(Moby_Asteroid_Update, 399) /* rac1.moby.asteroid_belt.update */
-S41_POINT(Moby_Display_Update, 400) /* rac1.moby.breakable_stack.update */
-S41_POINT(Moby_Class279_Update, 401) /* rac1.moby.moby279.update */
-S41_POINT(Moby_Class313_Update, 402) /* rac1.moby.tumbling_debris.update */
-S41_POINT(Moby_Class320_Update, 403) /* rac1.moby.heavy_tumbling_debris.update */
-S41_POINT(Moby_Class417_Update, 404) /* rac1.moby.moby417.update */
-S41_POINT(Moby_Platform664_Update, 405) /* rac1.moby.moby664.update */
-S41_POINT(Moby_Class1000_Update, 406) /* rac1.moby.moby1000.update */
-S41_POINT(Moby_Elevator1150_Update, 407) /* rac1.moby.path_platform_l09.update */
-S41_POINT(Moby_RefuelingStation_Update, 408) /* rac1.moby.pressure_plate.update */
-S41_POINT(Moby_AirshipPart1181_Update, 409) /* rac1.moby.airship_chain_link.update */
-S41_POINT(Moby_Turret_Update, 410) /* rac1.moby.mountable_turret.update */
-S41_POINT(Moby_Class1206_Update, 411) /* rac1.moby.moby1206.update */
-S41_POINT(Moby_Class1258_Update, 412) /* rac1.moby.enemy_shot.update */
-S41_POINT(Moby_Barrier_Update, 413) /* rac1.moby.barrier.update */
-S41_POINT(Moby_Class1293_Update, 414) /* rac1.moby.linked_riser.update */
-S41_POINT(Moby_Shuttle1766_Update, 415) /* rac1.moby.moby1766.update */
-S41_POINT(Moby_Spawner1885_Update, 416) /* rac1.moby.moby1885.update */
-S41_POINT(Moby_SpawnerEgg_Update, 417) /* rac1.moby.moby1886.update */
-S41_POINT(Moby_Platform1033_Update, 418) /* rac1.moby.moby1033.update */
-S41_POINT(Moby_Platform1117_Update, 419) /* rac1.moby.bobbing_platform.update */
-S41_POINT(Moby_Magnetboots_Update, 420) /* rac1.moby.spinning_pickup.update */
-S41_POINT(Moby_Class22_Update, 421) /* rac1.moby.moby22.update */
-S41_POINT(Moby_GadgebotTelepotPad_Update, 422) /* rac1.moby.near_hero_sparkle.update */
-S41_POINT(Moby_Class702_Update, 423) /* rac1.moby.moby702.update */
-S41_POINT(Moby_Class794_Update, 424) /* rac1.moby.moby794.update */
-S41_POINT(Moby_Rocket819_Update, 425) /* rac1.moby.moby819.update */
-S41_POINT(Moby_Class859_Update, 426) /* rac1.moby.moby859.update */
-S41_POINT(Moby_Bomb938_Update, 427) /* rac1.moby.moby938.update */
-S41_POINT(Moby_BombthrowerGrass939_Update, 428) /* rac1.moby.timed_shooter.update */
-S41_POINT(Moby_Class947_Update, 429) /* rac1.moby.electric_spark.update */
-S41_POINT(Moby_LabDoor_Update, 430) /* rac1.moby.height_glide.update */
-S41_POINT(Moby_Button_Update, 431) /* rac1.moby.moby1031.update */
-S41_POINT(Moby_Class1047_Update, 432) /* rac1.moby.moby1047.update */
-S41_POINT(Moby_Class1067_Update, 433) /* rac1.moby.sound_prop.update */
-S41_POINT(Moby_Class1090_Update, 434) /* rac1.moby.moby1090.update */
-S41_POINT(Moby_BlockCave_Update, 435) /* rac1.moby.collectible_trigger.update */
-S41_POINT(Moby_Screamer_Update, 436) /* rac1.moby.moby1196.update */
-S41_POINT(Moby_Class1199_Update, 437) /* rac1.moby.moby1199.update */
-S41_POINT(Moby_ToxicCrab_Update, 438) /* rac1.moby.toxic_crab.update */
-S41_POINT(Moby_BlargShip_Update, 439) /* rac1.moby.blarg_ship.update */
-S41_POINT(Moby_Class1240_Update, 440) /* rac1.moby.exhaust_vent.update */
-S41_POINT(Moby_NanotechUpgradeVendor_Update, 441) /* rac1.moby.nanotech_vendor.update */
-S41_POINT(Moby_Class1344_Update, 442) /* rac1.moby.moby1344.update */
-S41_POINT(Moby_Gun_Update, 443) /* rac1.moby.linked_turret.update */
-S41_POINT(Moby_Class1378_Update, 444) /* rac1.moby.moby1378.update */
-S41_POINT(Moby_Gate1_Update, 445) /* rac1.moby.swing_door.update */
-S41_POINT(Moby_Gate2_Update, 446) /* rac1.moby.moby1424.update */
-S41_POINT(Moby_Class1544_Update, 447) /* rac1.moby.effect_emitter.update */
-S41_POINT(Moby_Class1555_Update, 448) /* rac1.moby.moby1555.update */
-S41_POINT(Moby_Class1855_Update, 449) /* rac1.moby.moby1855.update */
-S41_POINT(Moby_Class1856_Update, 450) /* rac1.moby.moby1856.update */
-S41_POINT(Moby_Class23_Update, 451) /* rac1.moby.pickup.update */
-S41_POINT(Moby_Class37_Update, 452) /* rac1.moby.moby37.update */
-S41_POINT(Moby_Class65_Update, 453) /* rac1.moby.moby65.update */
-S41_POINT(Moby_Bob_Update, 454) /* rac1.moby.moby90.update */
-S41_POINT(Moby_ResortOwner_Update, 455) /* rac1.moby.moby114.update */
-S41_POINT(Moby_FredPokitaru_Update, 456) /* rac1.moby.pokitaru_vendor.update */
-S41_POINT(Moby_Teleporter318_Update, 457) /* rac1.moby.moby318.update */
-S41_POINT(Moby_Class361_Update, 458) /* rac1.moby.moby361.update */
-S41_POINT(Moby_Class1009_Update, 459) /* rac1.moby.class_1009.update */
-S41_POINT(Moby_Class1017_Update, 460) /* rac1.moby.fireball.update */
-S41_POINT(Moby_Rocket1034_Update, 461) /* rac1.moby.moby1034.update */
-S41_POINT(Moby_PokitaruBoat_Update, 462) /* rac1.moby.pokitaru_boat.update */
-S41_POINT(Moby_OceanPokitaru_Update, 463) /* rac1.moby.ocean.update */
-S41_POINT(Moby_Class1156_Update, 464) /* rac1.moby.cutscene_controller.update */
-S41_POINT(Moby_Class1157_Update, 465) /* rac1.moby.moby1157.update */
-S41_POINT(Moby_Class1158_Update, 466) /* rac1.moby.moby1158.update */
-S41_POINT(Moby_Class1159_Update, 467) /* rac1.moby.moby1159.update */
-S41_POINT(Moby_SeesawPlatform_Update, 468) /* rac1.moby.moby1178.update */
-S41_POINT(Moby_ThrusterPackLock_Update, 469) /* rac1.moby.moby1179.update */
-S41_POINT(Moby_Class1180_Update, 470) /* rac1.moby.moby1180.update */
-S41_POINT(Moby_Ammocrate_Update, 471) /* rac1.moby.ship_collider.update */
-S41_POINT(Moby_Class1219_Update, 472) /* rac1.moby.moby1219.update */
-S41_POINT(Moby_Psytcopus_Update, 473) /* rac1.moby.psytcopus.update */
-S41_POINT(Moby_JetFighter_Update, 474) /* rac1.moby.jet_fighter.update */
-S41_POINT(Moby_Puffoid_Update, 475) /* rac1.moby.moby1246.update */
-S41_POINT(Moby_Class1248_Update, 476) /* rac1.moby.gate.update */
-S41_POINT(Moby_OilTankerFront_Update, 477) /* rac1.moby.moby1264.update */
-S41_POINT(Moby_Class1265_Update, 478) /* rac1.moby.bubbling_vent.update */
-S41_POINT(Moby_EnergySphere1297_Update, 479) /* rac1.moby.moby1297.update */
-S41_POINT(Moby_BlargShip1319_Update, 480) /* rac1.moby.flying_craft.update */
-S41_POINT(Moby_Class1350_Update, 481) /* rac1.moby.moby1350.update */
-S41_POINT(Moby_Class1524_Update, 482) /* rac1.moby.bubble.update */
-S41_POINT(Moby_Class1903_Update, 483) /* rac1.moby.pokitaru_surface_near.update */
-S41_POINT(Moby_Class1919_Update, 484) /* rac1.moby.pokitaru_surface_far.update */
-S41_POINT(Moby_Class19_Update, 485) /* rac1.moby.moby19.update */
-S41_POINT(Moby_Class238_Update, 486) /* rac1.moby.hoven_troll.update */
-S41_POINT(Moby_Platform240_Update, 487) /* rac1.moby.hoven_platform.update */
-S41_POINT(Moby_Miner_Update, 488) /* rac1.moby.miner.update */
-S41_POINT(Moby_Class293_Update, 489) /* rac1.moby.moby293.update */
-S41_POINT(Moby_BlargTrooper294_Update, 490) /* rac1.moby.moby294.update */
-S41_POINT(Moby_BlargHelicopter326_Update, 491) /* rac1.moby.moby326.update */
-S41_POINT(Moby_Edwina_Update, 492) /* rac1.moby.edwina.update */
-S41_POINT(Moby_Helicopter_Update, 493) /* rac1.moby.moby336.update */
-S41_POINT(Moby_CraneArm_Update, 494) /* rac1.moby.moby339.update */
-S41_POINT(Moby_WaterReservoir_Update, 495) /* rac1.moby.water_reservoir.update */
-S41_POINT(Moby_Rocket409_Update, 496) /* rac1.moby.hoven_shot.update */
-S41_POINT(Moby_Class422_Update, 497) /* rac1.moby.hoven_challenge.update */
-S41_POINT(Moby_Class1259_Update, 498) /* rac1.moby.moby1259.update */
-S41_POINT(Moby_HovenTurret_Update, 499) /* rac1.moby.moby1267.update */
-S41_POINT(Moby_Mine1269_Update, 500) /* rac1.moby.hoven_homing_mine.update */
-S41_POINT(Moby_PlanetbusterMaximusPart_Update, 501) /* rac1.moby.planetbuster_part.update */
-S41_POINT(Moby_HomingMineSpawner_Update, 502) /* rac1.moby.door_switch.update */
-S41_POINT(Moby_Class1345_Update, 503) /* rac1.moby.moby1345.update */
-S41_POINT(Moby_BlargCommander_Update, 504) /* rac1.moby.blarg_commander.update */
-S41_POINT(Moby_Class1404_Update, 505) /* rac1.moby.cutscene_volume_trigger.update */
-S41_POINT(Moby_Class1557_Update, 506) /* rac1.moby.class_1557.update */
-S41_POINT(Moby_Class1901_Update, 507) /* rac1.moby.moby1901.update */
-S41_POINT(Moby_Class6_Update, 508) /* rac1.moby.clip_volume_trigger.update */
-S41_POINT(Moby_Elevator21_Update, 509) /* rac1.moby.elevator_21.update */
-S41_POINT(Moby_BlargTurret_Update, 510) /* rac1.moby.blarg_turret.update */
-S41_POINT(Moby_BlargGunner_Update, 511) /* rac1.moby.gem_lock_turret.update */
-S41_POINT(Moby_Robosquawker_Update, 512) /* rac1.moby.robosquawker.update */
-S41_POINT(Moby_FighterJet69_Update, 513) /* rac1.moby.fighter_jet_69.update */
-S41_POINT(Moby_Rocket82_Update, 514) /* rac1.moby.homing_rocket82.update */
-S41_POINT(Moby_Mine83_Update, 515) /* rac1.moby.moby83.update */
-S41_POINT(Moby_BlargSpaceFighter_Update, 516) /* rac1.moby.blarg_space_fighter.update */
-S41_POINT(Moby_BlargSpaceFighter111_Update, 517) /* rac1.moby.blarg_fighter111.update */
-S41_POINT(Moby_Class127_Update, 518) /* rac1.moby.rotating_door.update */
-S41_POINT(Moby_ForcefieldTower_Update, 519) /* rac1.moby.forcefield_tower.update */
-S41_POINT(Moby_Asteroid212_Update, 520) /* rac1.moby.drifting_blob.update */
-S41_POINT(Moby_Ammocrate224_Update, 521) /* rac1.moby.ship_pickup.update */
-S41_POINT(Moby_Class231_Update, 522) /* rac1.moby.switch.update */
-S41_POINT(Moby_Rocket295_Update, 523) /* rac1.moby.rocket295.update */
-S41_POINT(Moby_Class352_Update, 524) /* rac1.moby.fade_in_hold_out.update */
-S41_POINT(Moby_QwarksStarfighterPart_Update, 525) /* rac1.moby.qwark_starfighter_part.update */
-S41_POINT(Moby_QwarksStarfighterPart389_Update, 526) /* rac1.moby.starfighter_part.update */
-S41_POINT(Moby_Forcefield_Update, 527) /* rac1.moby.gem_lock_pickup.update */
-S41_POINT(Moby_PurpleShip533_Update, 528) /* rac1.moby.purple_ship_533.update */
-S41_POINT(Moby_Class558_Update, 529) /* rac1.moby.help_volume.update */
-S41_POINT(Moby_Class667_Update, 530) /* rac1.moby.moby_state_relay.update */
-S41_POINT(Moby_Class674_Update, 531) /* rac1.moby.controlled_gate.update */
-S41_POINT(Moby_Class1238_Update, 532) /* rac1.moby.projectile_l13.update */
-S41_POINT(Moby_PoisonVessel_Update, 533) /* rac1.moby.moby1261.update */
-S41_POINT(Moby_BlargSpaceCommando1262_Update, 534) /* rac1.moby.blarg_space_commando.update */
-S41_POINT(Moby_Class1263_Update, 535) /* rac1.moby.bobbing_lights.update */
-S41_POINT(Moby_Class1270_Update, 536) /* rac1.moby.lift1270.update */
-S41_POINT(Moby_Class1271_Update, 537) /* rac1.moby.class_1271.update */
-S41_POINT(Moby_Class1353_Update, 538) /* rac1.moby.moby1353.update */
-S41_POINT(Moby_Class1403_Update, 539) /* rac1.moby.class_1403.update */
-S41_POINT(Moby_Class1558_Update, 540) /* rac1.moby.sparks_trigger_l13.update */
-S41_POINT(Moby_Class1577_Update, 541) /* rac1.moby.watch_mobys.update */
-S41_POINT(Moby_Class1632_Update, 542) /* rac1.moby.moby1632.update */
-S41_POINT(Moby_Class1634_Update, 543) /* rac1.moby.moby1634.update */
-S41_POINT(Moby_BlargShip1805_Update, 544) /* rac1.moby.moby1805.update */
-S41_POINT(Moby_Platform903_Update, 545) /* rac1.moby.keyframe_platform.update */
-S41_POINT(Moby_BlargHeavyInterceptor_Update, 546) /* rac1.moby.moby8.update */
-S41_POINT(Moby_Plasmabot_Update, 547) /* rac1.moby.plasmabot.update */
-S41_POINT(Moby_MachinegunTurret30_Update, 548) /* rac1.moby.machinegun_turret_30.update */
-S41_POINT(Moby_Minibomber_Update, 549) /* rac1.moby.minibomber.update */
-S41_POINT(Moby_Class81_Update, 550) /* rac1.moby.moby81.update */
-S41_POINT(Moby_Plasmabot211_Update, 551) /* rac1.moby.moby211.update */
-S41_POINT(Moby_PlasmabotHatch_Update, 552) /* rac1.moby.moby250.update */
-S41_POINT(Moby_Platform309_Update, 553) /* rac1.moby.moby309.update */
-S41_POINT(Moby_Class325_Update, 554) /* rac1.moby.debris_particle.update */
-S41_POINT(Moby_Class386_Update, 555) /* rac1.moby.gem_lock_sentry.update */
-S41_POINT(Moby_Class403_Update, 556) /* rac1.moby.race_debris.update */
-S41_POINT(Moby_Shuttle557_Update, 557) /* rac1.moby.path_lift.update */
-S41_POINT(Moby_Class610_Update, 558) /* rac1.moby.moby610.update */
-S41_POINT(Moby_Mine643_Update, 559) /* rac1.moby.mine_l14.update */
-S41_POINT(Moby_Class681_Update, 560) /* rac1.moby.sweeping_bolt.update */
-S41_POINT(Moby_Class684_Update, 561) /* rac1.moby.class_684.update */
-S41_POINT(Moby_Elevator685_Update, 562) /* rac1.moby.moby685.update */
-S41_POINT(Moby_Taxi712_Update, 563) /* rac1.moby.taxi.update */
-S41_POINT(Moby_QwarkOltanis_Update, 564) /* rac1.moby.moby851.update */
-S41_POINT(Moby_Jet_Update, 565) /* rac1.moby.moby908.update */
-S41_POINT(Moby_Jet921_Update, 566) /* rac1.moby.oltanis_jet.update */
-S41_POINT(Moby_Rocket922_Update, 567) /* rac1.moby.flyer.update */
-S41_POINT(Moby_BoltThief923_Update, 568) /* rac1.moby.bolt_thief.update */
-S41_POINT(Moby_Sam_Update, 569) /* rac1.moby.moby924.update */
-S41_POINT(Moby_Mine933_Update, 570) /* rac1.moby.floating_mine.update */
-S41_POINT(Moby_Class1193_Update, 571) /* rac1.moby.bouncing_spark.update */
-S41_POINT(Moby_Class1224_Update, 572) /* rac1.moby.moby1224.update */
-S41_POINT(Moby_Class1331_Update, 573) /* rac1.moby.moby1331.update */
-S41_POINT(Moby_Class1352_Update, 574) /* rac1.moby.triggered_unlock.update */
-S41_POINT(Moby_Morphoray1354_Update, 575) /* rac1.moby.collectible_pickup.update */
-S41_POINT(Moby_Class1395_Update, 576) /* rac1.moby.moby1395.update */
-S41_POINT(Moby_Class1397_Update, 577) /* rac1.moby.moby1397.update */
-S41_POINT(Moby_Button1416_Update, 578) /* rac1.moby.step_on_switch.update */
-S41_POINT(Moby_BlargHeavyInterceptor1417_Update, 579) /* rac1.moby.blarg_interceptor.update */
-S41_POINT(Moby_Class1418_Update, 580) /* rac1.moby.queue_effect_draw.update */
-S41_POINT(Moby_Class1559_Update, 581) /* rac1.moby.skill_point.update */
-S41_POINT(Moby_Sentrybot_Update, 582) /* rac1.moby.sentrybot.update */
-S41_POINT(Moby_Rocket49_Update, 583) /* rac1.moby.projectile.update */
-S41_POINT(Moby_Class67_Update, 584) /* rac1.moby.moby67.update */
-S41_POINT(Moby_Class256_Update, 585) /* rac1.moby.class_256.update */
-S41_POINT(Moby_Class1427_Update, 586) /* rac1.moby.scale_fade_and_delete.update */
-S41_POINT(Moby_Class1523_Update, 587) /* rac1.moby.moby1523.update */
-S41_POINT(Moby_Mine77_Update, 588) /* rac1.moby.moby77.update */
-S41_POINT(Moby_Class78_Update, 589) /* rac1.moby.moby78.update */
-S41_POINT(Moby_Gate92_Update, 590) /* rac1.moby.sliding_gate.update */
-S41_POINT(Moby_Gate93_Update, 591) /* rac1.moby.clip_volume_door.update */
-S41_POINT(Moby_Spiderbot_Update, 592) /* rac1.moby.spiderbot.update */
-S41_POINT(Moby_Class148_Update, 593) /* rac1.moby.class_148.update */
-S41_POINT(Moby_Class154_Update, 594) /* rac1.moby.hit_reaction_effect_alt.update */
-S41_POINT(Moby_Door196_Update, 595) /* rac1.moby.moving_moby.update */
-S41_POINT(Moby_ConstructionArm_Update, 596) /* rac1.moby.construction_arm.update */
-S41_POINT(Moby_Helicopter233_Update, 597) /* rac1.moby.helicopter.update */
-S41_POINT(Moby_SentrybotAlarm_Update, 598) /* rac1.moby.sentrybot_alarm.update */
-S41_POINT(Moby_UltramechUnlimited_Update, 599) /* rac1.moby.ultramech.update */
-S41_POINT(Moby_Class655_Update, 600) /* rac1.moby.class_655.update */
-S41_POINT(Moby_Class934_Update, 601) /* rac1.moby.moby934.update */
-S41_POINT(Moby_Class937_Update, 602) /* rac1.moby.class_937.update */
-S41_POINT(Moby_UnderwaterRing_Update, 603) /* rac1.moby.underwater_ring.update */
-S41_POINT(Moby_ConveyorBelt1250_Update, 604) /* rac1.moby.side_drift.update */
-S41_POINT(Moby_PoisonVessel1257_Update, 605) /* rac1.moby.poison_vessel.update */
-S41_POINT(Moby_BoltGrabber_Update, 606) /* rac1.moby.moby1388.update */
-S41_POINT(Moby_Class1394_Update, 607) /* rac1.moby.moby1257_spawner.update */
-S41_POINT(Moby_Class1405_Update, 608) /* rac1.moby.ripple_strips_moby.update */
-S41_POINT(Moby_Class1419_Update, 609) /* rac1.moby.moby1419.update */
-S41_POINT(Moby_Class1425_Update, 610) /* rac1.moby.class_1425.update */
-S41_POINT(Moby_Codebot_Update, 611) /* rac1.moby.moby1428.update */
-S41_POINT(Moby_CodebotSlot_Update, 612) /* rac1.moby.codebot_slot.update */
-S41_POINT(Moby_UltramechScientist_Update, 613) /* rac1.moby.ultramech_scientist.update */
-S41_POINT(Moby_GiantClankPad_Update, 614) /* rac1.moby.giant_clank_pad.update */
-S41_POINT(Moby_Class1469_Update, 615) /* rac1.moby.moby1469.update */
-S41_POINT(Moby_Class1560_Update, 616) /* rac1.moby.boss_slot_effect.update */
-S41_POINT(Moby_Rocket50_Update, 617) /* rac1.moby.homing_projectile.update */
-S41_POINT(Moby_Rocket1475_Update, 618) /* rac1.moby.homing_spark_1475.update */
-S41_POINT(Moby_Class257_Update, 619) /* rac1.moby.moby257.update */
-S41_POINT(Moby_Bomb281_Update, 620) /* rac1.moby.thrown_bomb.update */
-S41_POINT(Moby_Rocket470_Update, 621) /* rac1.moby.moby470.update */
-S41_POINT(Moby_ConveyorBelt471_Update, 622) /* rac1.moby.moby471.update */
-S41_POINT(Moby_TestDummy_Update, 623) /* rac1.moby.test_dummy.update */
-S41_POINT(Moby_WallButton_Update, 624) /* rac1.moby.moby546.update */
-S41_POINT(Moby_Class552_Update, 625) /* rac1.moby.moby552.update */
-S41_POINT(Moby_TestDummyOnHoverboard_Update, 626) /* rac1.moby.hoverboard_racer.update */
-S41_POINT(Moby_BlargEliteCommando_Update, 627) /* rac1.moby.floating_enemy.update */
-S41_POINT(Moby_Door647_Update, 628) /* rac1.moby.moby647.update */
-S41_POINT(Moby_TestDummyDoor_Update, 629) /* rac1.moby.moby650.update */
-S41_POINT(Moby_Class654_Update, 630) /* rac1.moby.moby654.update */
-S41_POINT(Moby_Class800_Update, 631) /* rac1.moby.moby800.update */
-S41_POINT(Moby_ArmedTransport_Update, 632) /* rac1.moby.armed_transport.update */
-S41_POINT(Moby_HelpDeskLady_Update, 633) /* rac1.moby.watcher.update */
-S41_POINT(Moby_Class1387_Update, 634) /* rac1.moby.moby1387.update */
-S41_POINT(Moby_BoltThief1401_Update, 635) /* rac1.moby.crate_platform.update */
-S41_POINT(Moby_Taxi1410_Update, 636) /* rac1.moby.path_pickup.update */
-S41_POINT(Moby_GrindrailGate_Update, 637) /* rac1.moby.moby1439.update */
-S41_POINT(Moby_GrindrailGate1441_Update, 638) /* rac1.moby.moby1441.update */
-S41_POINT(Moby_GrindrailButton_Update, 639) /* rac1.moby.moby1442.update */
-S41_POINT(Moby_GrindrailBarrier_Update, 640) /* rac1.moby.ring_effect.update */
-S41_POINT(Moby_Chomper_Update, 641) /* rac1.moby.wandering_helper.update */
-S41_POINT(Moby_GadgetronCeo_Update, 642) /* rac1.moby.challenge_npc.update */
-S41_POINT(Moby_Class1561_Update, 643) /* rac1.moby.banner_trigger.update */
-S41_POINT(Moby_Class1667_Update, 644) /* rac1.moby.path_walker.update */
-S41_POINT(Moby_Class1812_Update, 645) /* rac1.moby.spark_ring_emitter.update */
-S41_POINT(Moby_Elevator1826_Update, 646) /* rac1.moby.elevator_platform.update */
-S41_POINT(Moby_GadgetronSign_Update, 647) /* rac1.moby.spinning_object.update */
-S41_POINT(Moby_Class1923_Update, 648) /* rac1.moby.target_activator.update */
-S41_POINT(Moby_Class1943_Update, 649) /* rac1.moby.env_map_a.update */
-S41_POINT(Moby_Class1947_Update, 650) /* rac1.moby.class_1947.update */
-S41_POINT(Moby_Class1948_Update, 651) /* rac1.moby.env_map_b.update */
-S41_POINT(Moby_Class1907_Update, 652) /* rac1.moby.class_1907.update */
-S41_POINT(Moby_Class1953_Update, 653) /* rac1.moby.env_map_c.update */
-S41_POINT(Moby_Class99_Update, 654) /* rac1.moby.moby99.update */
-S41_POINT(Moby_DreksFleetTurret_Update, 655) /* rac1.moby.fleet_turret.update */
-S41_POINT(Moby_Class669_Update, 656) /* rac1.moby.moby669.update */
-S41_POINT(Moby_Class835_Update, 657) /* rac1.moby.moby835.update */
-S41_POINT(Moby_Door1359_Update, 658) /* rac1.moby.stops_platform.update */
-S41_POINT(Moby_Class1368_Update, 659) /* rac1.moby.moby1368.update */
-S41_POINT(Moby_FighterJet1379_Update, 660) /* rac1.moby.fighter_jet_1379.update */
-S41_POINT(Moby_MagnetElevator_Update, 661) /* rac1.moby.moby1380.update */
-S41_POINT(Moby_RobotDog1382_Update, 662) /* rac1.moby.moby1382.update */
-S41_POINT(Moby_Shuttle1448_Update, 663) /* rac1.moby.moby1448.update */
-S41_POINT(Moby_Class1470_Update, 664) /* rac1.moby.moby1470.update */
-S41_POINT(Moby_Class1562_Update, 665) /* rac1.moby.moby750_spark_trigger.update */
-S41_POINT(Moby_Class1772_Update, 666) /* rac1.moby.fleet_reflection.update */
-S41_POINT(Moby_BlargShip1843_Update, 667) /* rac1.moby.moby1843.update */
-S41_POINT(Moby_Class1873_Update, 668) /* rac1.moby.moby1873.update */
-S41_POINT(Moby_Class1876_Update, 669) /* rac1.moby.moby1876.update */
-S41_POINT(Moby_Rocket41_Update, 670) /* rac1.moby.moby41.update */
-S41_POINT(Moby_Rocket564_Update, 671) /* rac1.moby.moby564.update */
-S41_POINT(Moby_Mine568_Update, 672) /* rac1.moby.moby568.update */
-S41_POINT(Moby_Class582_Update, 673) /* rac1.moby.path_junction.update */
-S41_POINT(Moby_ThrusterPackLockGreen_Update, 674) /* rac1.moby.energy_field_emitter.update */
-S41_POINT(Moby_ThrusterPackLockRed_Update, 675) /* rac1.moby.timed_lift.update */
-S41_POINT(Moby_FloatingPlatform587_Update, 676) /* rac1.moby.sinking_platform.update */
-S41_POINT(Moby_Class624_Update, 677) /* rac1.moby.falling_fireball.update */
-S41_POINT(Moby_Class628_Update, 678) /* rac1.moby.moby628.update */
-S41_POINT(Moby_Class644_Update, 679) /* rac1.moby.vendor_moby.update */
-S41_POINT(Moby_Class885_Update, 680) /* rac1.moby.hit_trigger.update */
-S41_POINT(Moby_Class983_Update, 681) /* rac1.moby.homing_spark_983.update */
-S41_POINT(Moby_DrekFightMissile_Update, 682) /* rac1.moby.moby1355.update */
-S41_POINT(Moby_Class1381_Update, 683) /* rac1.moby.moby1381.update */
-S41_POINT(Moby_Class1392_Update, 684) /* rac1.moby.moby1392.update */
-S41_POINT(Moby_Class1402_Update, 685) /* rac1.moby.moby1402.update */
-S41_POINT(Moby_DrekFinalBossRobot_Update, 686) /* rac1.moby.final_boss.update */
-S41_POINT(Moby_Class1432_Update, 687) /* rac1.moby.class_1432.update */
-S41_POINT(Moby_DeplanetizerGun_Update, 688) /* rac1.moby.moby1434.update */
-S41_POINT(Moby_RocketTank_Update, 689) /* rac1.moby.moby1454.update */
-S41_POINT(Moby_Class1563_Update, 690) /* rac1.moby.moby1563.update */
-S41_POINT(Moby_DeplanetizerGun1568_Update, 691) /* rac1.moby.moby1568.update */
-S41_POINT(Moby_Class1584_Update, 692) /* rac1.moby.moby1584.update */
-S41_POINT(Moby_Class1799_Update, 693) /* rac1.moby.moby1799.update */
-S41_POINT(Moby_Gadgebot1906_Update, 694) /* rac1.moby.moby1906.update */
+S1_POINT(Vendor_DrawIcons, 58) /* rac1.vendor.draw_icons */
+S1_POINT(Vendor_DrawDetails, 59) /* rac1.vendor.draw_details */
+S42_POINT(UI_IconFrame, 60) /* rac1.ui.icon_frame */
+S43_POINT(NPC_TryDialog, 61) /* rac1.npc.try_dialog */
+S44_POINT(UI_DrawSprite, 62) /* rac1.ui.sprite.draw */
+S45_POINT(Pickup_StartScene, 63) /* rac1.pickup.start_scene */
+S46_POINT(GoldCase_StartDemo, 64) /* rac1.gold_case.start_demo */
+S1_POINT(Moby_Class1750_Update, 65) /* rac1.moby.class_1750.update */
+S41_POINT(Moby_Class676_Update, 66) /* rac1.moby.class_676.update */
+S41_POINT(Moby_Class482_Update, 67) /* rac1.moby.class_482.update */
+S41_POINT(Moby_Class809_Update, 68) /* rac1.moby.texture_scroll.update */
+S41_POINT(Moby_CameraObject_Update, 69) /* rac1.moby.camera_object.update */
+S41_POINT(Moby_Vendor_Update, 70) /* rac1.moby.light_beam.update */
+S41_POINT(Moby_Bolt_Update, 71) /* rac1.moby.bolt.update */
+S41_POINT(Moby_Wrench_Update, 72) /* rac1.moby.wrench.update */
+S41_POINT(Moby_Mine_Update, 73) /* rac1.moby.mine.update */
+S41_POINT(Moby_Class112_Update, 74) /* rac1.moby.spin_fade_out.update */
+S41_POINT(Moby_Class121_Update, 75) /* rac1.moby.hero_bomb.update */
+S41_POINT(Moby_Class122_Update, 76) /* rac1.moby.falling_spark.update */
+S41_POINT(Moby_NanotechCrateFragment_Update, 77) /* rac1.moby.debris_bounce.update */
+S41_POINT(Moby_GoldDevastatorMissile_Update, 78) /* rac1.moby.missile.update */
+S41_POINT(Moby_Visibomb_Update, 79) /* rac1.moby.moby163.update */
+S41_POINT(Moby_Class166_Update, 80) /* rac1.moby.moby166.update */
+S41_POINT(Moby_Class167_Update, 81) /* rac1.moby.moby167.update */
+S41_POINT(Moby_VisibombMissile_Update, 82) /* rac1.moby.visibomb_missile.update */
+S41_POINT(Moby_Taunter_Update, 83) /* rac1.moby.moby175.update */
+S41_POINT(Moby_Pyrocitor_Update, 84) /* rac1.moby.pyrocitor.update */
+S41_POINT(Moby_Class179_Update, 85) /* rac1.moby.moby179.update */
+S41_POINT(Moby_Walloper_Update, 86) /* rac1.moby.moby180.update */
+S41_POINT(Moby_Morphoray_Update, 87) /* rac1.moby.morphoray.update */
+S41_POINT(Moby_DoomBot_Update, 88) /* rac1.moby.doom_bot.update */
+S41_POINT(Moby_Trespasser_Update, 89) /* rac1.moby.moby188.update */
+S41_POINT(Moby_MineGlove_Update, 90) /* rac1.moby.mine_glove.update */
+S41_POINT(Moby_BombGlove_Update, 91) /* rac1.moby.moby192.update */
+S41_POINT(Moby_Decoy_Update, 92) /* rac1.moby.thrown_object.update */
+S41_POINT(Moby_DevestatorAmmo_Update, 93) /* rac1.moby.ammo_pickup.update */
+S41_POINT(Moby_SwingshotHook_Update, 94) /* rac1.moby.moby209.update */
+S41_POINT(Moby_GloveOfDoom_Update, 95) /* rac1.moby.carrier.update */
+S41_POINT(Moby_Bomb_Update, 96) /* rac1.moby.bomb_230.update */
+S41_POINT(Moby_MorphorayChicken_Update, 97) /* rac1.moby.morphoray_chicken.update */
+S41_POINT(Moby_Class305_Update, 98) /* rac1.moby.moby305.update */
+S41_POINT(Moby_Class428_Update, 99) /* rac1.moby.moby428.update */
+S41_POINT(Moby_Ryno_Update, 100) /* rac1.moby.ryno.update */
+S41_POINT(Moby_Rocket_Update, 101) /* rac1.moby.rocket_steer.update */
+S41_POINT(Moby_Drone_Update, 102) /* rac1.moby.drone.update */
+S41_POINT(Moby_BoltCrate_Update, 103) /* rac1.moby.crate.update */
+S41_POINT(Moby_VeldinShip_Update, 104) /* rac1.moby.veldin_ship.update */
+S41_POINT(Moby_DecoyGlove_Update, 105) /* rac1.moby.decoy_glove.update */
+S41_POINT(Moby_MetalDetector_Update, 106) /* rac1.moby.target_tracker.update */
+S41_POINT(Moby_Helipack_Update, 107) /* rac1.moby.clank_pack.update */
+S41_POINT(Moby_Class639_Update, 108) /* rac1.moby.moby639.update */
+S41_POINT(Moby_HornyToad_Update, 109) /* rac1.moby.horny_toad.update */
+S41_POINT(Moby_Infobot_Update, 110) /* rac1.moby.infobot.update */
+S41_POINT(Moby_ParticleSpawnerSmokeFire_Update, 111) /* rac1.moby.particle_field.update */
+S41_POINT(Moby_Class775_Update, 112) /* rac1.moby.grow_and_fade_out.update */
+S41_POINT(Moby_Class804_Update, 113) /* rac1.moby.trail_moby.update */
+S41_POINT(Moby_NanotechBall_Update, 114) /* rac1.moby.nanotech_ball.update */
+S41_POINT(Moby_ClankCutsceneTrigger_Update, 115) /* rac1.moby.moby834.update */
+S41_POINT(Moby_Suckcannon_Update, 116) /* rac1.moby.suck_cannon.update */
+S41_POINT(Moby_RedOrb_Update, 117) /* rac1.moby.pulsing_color_moby.update */
+S41_POINT(Moby_Class1138_Update, 118) /* rac1.moby.quad_moby.update */
+S41_POINT(Moby_VendorOrb_Update, 119) /* rac1.moby.moby1143.update */
+S41_POINT(Moby_Hydrodisplacer_Update, 120) /* rac1.moby.hydrodisplacer_pad.update */
+S41_POINT(Moby_PilotsHelmet_Update, 121) /* rac1.moby.moby1290.update */
+S41_POINT(Moby_Class1413_Update, 122) /* rac1.moby.moby1413.update */
+S41_POINT(Moby_VeldinRobotEnemy_Update, 123) /* rac1.moby.vendor.update */
+S41_POINT(Moby_Class1471_Update, 124) /* rac1.moby.beam_slot_manager.update */
+S41_POINT(Moby_Class1545_Update, 125) /* rac1.moby.moby1545.update */
+S41_POINT(Moby_Pterodactyl_Update, 126) /* rac1.moby.path_follow_moby.update */
+S41_POINT(Moby_BombthrowerGrass_Update, 127) /* rac1.moby.grass.update */
+S41_POINT(Moby_Hoverboard_Update, 128) /* rac1.moby.fx_group.update */
+S41_POINT(Moby_NovalisElevator_Update, 129) /* rac1.moby.path_platform.update */
+S41_POINT(Moby_Class27_Update, 130) /* rac1.moby.particle_emitter.update */
+S41_POINT(Moby_Class156_Update, 131) /* rac1.moby.moby156.update */
+S41_POINT(Moby_BoltCrank_Update, 132) /* rac1.moby.bolt_crank.update */
+S41_POINT(Moby_GoldWeaponCase_Update, 133) /* rac1.moby.item_offer.update */
+S41_POINT(Moby_SandMouse_Update, 134) /* rac1.moby.sand_mouse.update */
+S41_POINT(Moby_Birdbot_Update, 135) /* rac1.moby.birdbot.update */
+S41_POINT(Moby_Class567_Update, 136) /* rac1.moby.burning_debris.update */
+S41_POINT(Moby_LargeAmoeboid_Update, 137) /* rac1.moby.amoeboid.update */
+S41_POINT(Moby_Peckbot_Update, 138) /* rac1.moby.peckbot.update */
+S41_POINT(Moby_SandmouseHouse_Update, 139) /* rac1.moby.moby604.update */
+S41_POINT(Moby_Class605_Update, 140) /* rac1.moby.moby605.update */
+S41_POINT(Moby_WaterCurrent_Update, 141) /* rac1.moby.path_carrier.update */
+S41_POINT(Moby_CaveDoor_Update, 142) /* rac1.moby.crank_rotator.update */
+S41_POINT(Moby_FighterJet_Update, 143) /* rac1.moby.tethered_mine.update */
+S41_POINT(Moby_DoorHalf_Update, 144) /* rac1.moby.crank_slider.update */
+S41_POINT(Moby_StationaryShip_Update, 145) /* rac1.moby.rider_carrier.update */
+S41_POINT(Moby_Class845_Update, 146) /* rac1.moby.class_845.update */
+S41_POINT(Moby_Class678_Update, 147) /* rac1.moby.scrolling_layers2.update */
+S41_POINT(Moby_Class679_Update, 148) /* rac1.moby.grind_rail.update */
+S41_POINT(Moby_Class686_Update, 149) /* rac1.moby.flying_burst.update */
+S41_POINT(Moby_BomberJet_Update, 150) /* rac1.moby.gunship.update */
+S41_POINT(Moby_WaterLily_Update, 151) /* rac1.moby.hover_enemy.update */
+S41_POINT(Moby_Rock_Update, 152) /* rac1.moby.debris_moby.update */
+S41_POINT(Moby_Class700_Update, 153) /* rac1.moby.steam_vent.update */
+S41_POINT(Moby_FallingRock_Update, 154) /* rac1.moby.collapsing_platform.update */
+S41_POINT(Moby_PistonPlatform_Update, 155) /* rac1.moby.lift_move.update */
+S41_POINT(Moby_RockFormation_Update, 156) /* rac1.moby.breakable_rock.update */
+S41_POINT(Moby_Fan_Update, 157) /* rac1.moby.oscillating_spinner.update */
+S41_POINT(Moby_BridgePiece1_Update, 158) /* rac1.moby.projectile_breakable.update */
+S41_POINT(Moby_Class722_Update, 159) /* rac1.moby.falling_drop.update */
+S41_POINT(Moby_DestroyableCaveWall_Update, 160) /* rac1.moby.breakable_wall.update */
+S41_POINT(Moby_AgnoggShipFront_Update, 161) /* rac1.moby.agnogg_ship.update */
+S41_POINT(Moby_Class737_Update, 162) /* rac1.moby.cutscene_trigger.update */
+S41_POINT(Moby_BridgeHalf_Update, 163) /* rac1.moby.hinged_bridge.update */
+S41_POINT(Moby_Class751_Update, 164) /* rac1.moby.water_surface_fx.update */
+S41_POINT(Moby_GreenMushroom_Update, 165) /* rac1.moby.breakable_pot.update */
+S41_POINT(Moby_Class761_Update, 166) /* rac1.moby.pulsing_mesh.update */
+S41_POINT(Moby_DoorLeft_Update, 167) /* rac1.moby.sliding_door.update */
+S41_POINT(Moby_ThePlumber_Update, 168) /* rac1.moby.talking_npc.update */
+S41_POINT(Moby_Pipe_Update, 169) /* rac1.moby.moby778.update */
+S41_POINT(Moby_Class779_Update, 170) /* rac1.moby.smoke_emitter.update */
+S41_POINT(Moby_Class787_Update, 171) /* rac1.moby.falling_chunk.update */
+S41_POINT(Moby_SpawnPoint_Update, 172) /* rac1.moby.checkpoint_trigger.update */
+S41_POINT(Moby_Beehive_Update, 173) /* rac1.moby.enemy_spawner.update */
+S41_POINT(Moby_Class832_Update, 174) /* rac1.moby.rc_range_limiter.update */
+S41_POINT(Moby_MushroomUnderside_Update, 175) /* rac1.moby.moby1042.update */
+S41_POINT(Moby_GoldBolt_Update, 176) /* rac1.moby.gold_bolt.update */
+S41_POINT(Moby_Teleporter_Update, 177) /* rac1.moby.teleporter_pad.update */
+S41_POINT(Moby_Class1225_Update, 178) /* rac1.moby.moby1225.update */
+S41_POINT(Moby_Class1341_Update, 179) /* rac1.moby.help_hint_director.update */
+S41_POINT(Moby_Class1504_Update, 180) /* rac1.moby.wandering_light.update */
+S41_POINT(Moby_Class1510_Update, 181) /* rac1.moby.moby1510.update */
+S41_POINT(Moby_Class1546_Update, 182) /* rac1.moby.moby1546.update */
+S41_POINT(Moby_Class1633_Update, 183) /* rac1.moby.class_1633.update */
+S41_POINT(Moby_TallShroom_Update, 184) /* rac1.moby.moby1813.update */
+S41_POINT(Moby_Sandmouse_Update, 185) /* rac1.moby.mouse_critter.update */
+S41_POINT(Moby_Class1848_Update, 186) /* rac1.moby.moby1848.update */
+S41_POINT(Moby_TrackdriveLeft_Update, 187) /* rac1.moby.trackdrive_left.update */
+S41_POINT(Moby_SandShark_Update, 188) /* rac1.moby.sand_shark.update */
+S41_POINT(Moby_Constructorbot_Update, 189) /* rac1.moby.moby612.update */
+S41_POINT(Moby_TresspasserPad_Update, 190) /* rac1.moby.trespasser_puzzle.update */
+S41_POINT(Moby_Elevator_Update, 191) /* rac1.moby.elevator_651.update */
+S41_POINT(Moby_ConveyorBelt_Update, 192) /* rac1.moby.pusher.update */
+S41_POINT(Moby_Bulldozer_Update, 193) /* rac1.moby.moby656.update */
+S41_POINT(Moby_SandSharkNest_Update, 194) /* rac1.moby.sand_shark_nest.update */
+S41_POINT(Moby_GrabCrane_Update, 195) /* rac1.moby.moby675.update */
+S41_POINT(Moby_Platform_Update, 196) /* rac1.moby.rotate_platform.update */
+S41_POINT(Moby_TransportPod_Update, 197) /* rac1.moby.moby713.update */
+S41_POINT(Moby_Crane_Update, 198) /* rac1.moby.moby732.update */
+S41_POINT(Moby_RocketLauncher_Update, 199) /* rac1.moby.rocket_launcher.update */
+S41_POINT(Moby_RocketDoor1_Update, 200) /* rac1.moby.rocket_door1.update */
+S41_POINT(Moby_TresspasserDoor1_Update, 201) /* rac1.moby.moby743.update */
+S41_POINT(Moby_TresspasserDoor2_Update, 202) /* rac1.moby.moby744.update */
+S41_POINT(Moby_SandsharkEgg_Update, 203) /* rac1.moby.moby755.update */
+S41_POINT(Moby_SwingshotVersatarget_Update, 204) /* rac1.moby.hideable_flower.update */
+S41_POINT(Moby_Rocks_Update, 205) /* rac1.moby.moby762.update */
+S41_POINT(Moby_SkidsAgent_Update, 206) /* rac1.moby.skids_agent.update */
+S41_POINT(Moby_SkidMcmarx_Update, 207) /* rac1.moby.skid_mc_marx_aridia.update */
+S41_POINT(Moby_LiftcarPlatform_Update, 208) /* rac1.moby.driver_lift.update */
+S41_POINT(Moby_OceanAridia_Update, 209) /* rac1.moby.moby854.update */
+S41_POINT(Moby_Tresspasser_Update, 210) /* rac1.moby.moby1005.update */
+S41_POINT(Moby_Constructorbot1208_Update, 211) /* rac1.moby.shard_debris.update */
+S41_POINT(Moby_BackgroundShip1_Update, 212) /* rac1.moby.background_ship.update */
+S41_POINT(Moby_BackgroundShip2_Update, 213) /* rac1.moby.ship_path.update */
+S41_POINT(Moby_Class1324_Update, 214) /* rac1.moby.tutorial_hint.update */
+S41_POINT(Moby_Class1479_Update, 215) /* rac1.moby.moby1479.update */
+S41_POINT(Moby_WhiteFlower_Update, 216) /* rac1.moby.break_on_hit_l02.update */
+S41_POINT(Moby_MetropolisTrainLocomotive_Update, 217) /* rac1.moby.metropolis_train.update */
+S41_POINT(Moby_MovingPlatformSmall_Update, 218) /* rac1.moby.moving_platform.update */
+S41_POINT(Moby_MetropolisTrainCarriage_Update, 219) /* rac1.moby.metropolis_train_carriage.update */
+S41_POINT(Moby_RedShip1_Update, 220) /* rac1.moby.train_car.update */
+S41_POINT(Moby_Class235_Update, 221) /* rac1.moby.parent_follow_fade.update */
+S41_POINT(Moby_Spawner_Update, 222) /* rac1.moby.child_spawner.update */
+S41_POINT(Moby_Bomb545_Update, 223) /* rac1.moby.moby545.update */
+S41_POINT(Moby_RobotDog_Update, 224) /* rac1.moby.moby573.update */
+S41_POINT(Moby_Class574_Update, 225) /* rac1.moby.moby574.update */
+S41_POINT(Moby_MineLayer_Update, 226) /* rac1.moby.trooper.update */
+S41_POINT(Moby_Mine627_Update, 227) /* rac1.moby.kerwan_mine.update */
+S41_POINT(Moby_BlargHelicopter_Update, 228) /* rac1.moby.helicopter_gunship.update */
+S41_POINT(Moby_Taxi_Update, 229) /* rac1.moby.rail_taxi.update */
+S41_POINT(Moby_Statue_Update, 230) /* rac1.moby.moby817.update */
+S41_POINT(Moby_RoboShackSign_Update, 231) /* rac1.moby.spinner.update */
+S41_POINT(Moby_Class833_Update, 232) /* rac1.moby.kerwan_homing_rocket.update */
+S41_POINT(Moby_Class848_Update, 233) /* rac1.moby.moby848.update */
+S41_POINT(Moby_Helga_Update, 234) /* rac1.moby.quest_giver.update */
+S41_POINT(Moby_Class898_Update, 235) /* rac1.moby.rail_moby.update */
+S41_POINT(Moby_Class899_Update, 236) /* rac1.moby.rail_spawner.update */
+S41_POINT(Moby_BigAl_Update, 237) /* rac1.moby.guide.update */
+S41_POINT(Moby_RobotQwark_Update, 238) /* rac1.moby.moby914.update */
+S41_POINT(Moby_Fred1_Update, 239) /* rac1.moby.fred_1.update */
+S41_POINT(Moby_QwarkUmbris_Update, 240) /* rac1.moby.qwark_watch.update */
+S41_POINT(Moby_Class994_Update, 241) /* rac1.moby.ambient_stream_l03.update */
+S41_POINT(Moby_Gate_Update, 242) /* rac1.moby.rise_when_collected.update */
+S41_POINT(Moby_Taxi1012_Update, 243) /* rac1.moby.rail_lift.update */
+S41_POINT(Moby_Class1221_Update, 244) /* rac1.moby.falling_moby.update */
+S41_POINT(Moby_Class1342_Update, 245) /* rac1.moby.tutorial_hint_trigger.update */
+S41_POINT(Moby_Class1548_Update, 246) /* rac1.moby.cutscene_beams.update */
+S41_POINT(Moby_Class86_Update, 247) /* rac1.moby.swarm.update */
+S41_POINT(Moby_Class161_Update, 248) /* rac1.moby.class_161.update */
+S41_POINT(Moby_Class184_Update, 249) /* rac1.moby.moby184_shot.update */
+S41_POINT(Moby_BigAxebot_Update, 250) /* rac1.moby.big_axebot.update */
+S41_POINT(Moby_CircularSawEnemy_Update, 251) /* rac1.moby.circular_saw.update */
+S41_POINT(Moby_BlargTrooper_Update, 252) /* rac1.moby.blarg_trooper.update */
+S41_POINT(Moby_EudoraBridge_Update, 253) /* rac1.moby.switch_follower.update */
+S41_POINT(Moby_PlatformBooster_Update, 254) /* rac1.moby.lever_door.update */
+S41_POINT(Moby_SnowPlow_Update, 255) /* rac1.moby.path_vehicle.update */
+S41_POINT(Moby_FloatingPlatform_Update, 256) /* rac1.moby.floating_platform_481.update */
+S41_POINT(Moby_TransportShip_Update, 257) /* rac1.moby.delete_moby.update */
+S41_POINT(Moby_WoodcutBot_Update, 258) /* rac1.moby.wb_moby.update */
+S41_POINT(Moby_Class584_Update, 259) /* rac1.moby.moby584.update */
+S41_POINT(Moby_Class617_Update, 260) /* rac1.moby.path_keyframe_blend.update */
+S41_POINT(Moby_Leaf_Update, 261) /* rac1.moby.drift_spark_moby.update */
+S41_POINT(Moby_UpperDoor_Update, 262) /* rac1.moby.collectable.update */
+S41_POINT(Moby_SuckCannon_Update, 263) /* rac1.moby.warp_portal.update */
+S41_POINT(Moby_Lieutenant_Update, 264) /* rac1.moby.unlock_planet_pad.update */
+S41_POINT(Moby_Class1343_Update, 265) /* rac1.moby.moby1343.update */
+S41_POINT(Moby_Class1516_Update, 266) /* rac1.moby.bouncing_debris.update */
+S41_POINT(Moby_Class1549_Update, 267) /* rac1.moby.sparks_trigger_l04.update */
+S41_POINT(Moby_Sharkigator_Update, 268) /* rac1.moby.sharkigator_35.update */
+S41_POINT(Moby_SceneryShip_Update, 269) /* rac1.moby.scenery_ship.update */
+S41_POINT(Moby_Amoeboid_Update, 270) /* rac1.moby.grazing_critter.update */
+S41_POINT(Moby_Class258_Update, 271) /* rac1.moby.moby258.update */
+S41_POINT(Moby_HydrodisplacerFaucet_Update, 272) /* rac1.moby.moby341.update */
+S41_POINT(Moby_Hoverboard439_Update, 273) /* rac1.moby.hoverboard.update */
+S41_POINT(Moby_Extermibot_Update, 274) /* rac1.moby.extermibot.update */
+S41_POINT(Moby_Extermitank_Update, 275) /* rac1.moby.extermitank.update */
+S41_POINT(Moby_SkidMcmarx717_Update, 276) /* rac1.moby.skid_mc_marx.update */
+S41_POINT(Moby_FloatingPlatform810_Update, 277) /* rac1.moby.floating_platform_810.update */
+S41_POINT(Moby_Box_Update, 278) /* rac1.moby.moby812.update */
+S41_POINT(Moby_Lamp_Update, 279) /* rac1.moby.moby823.update */
+S41_POINT(Moby_FloorButton_Update, 280) /* rac1.moby.floor_button.update */
+S41_POINT(Moby_Water_Update, 281) /* rac1.moby.water_surface.update */
+S41_POINT(Moby_ElectricGate_Update, 282) /* rac1.moby.electric_gate.update */
+S41_POINT(Moby_Class841_Update, 283) /* rac1.moby.fog_zone.update */
+S41_POINT(Moby_Class843_Update, 284) /* rac1.moby.pose_slide_out.update */
+S41_POINT(Moby_DrainCover_Update, 285) /* rac1.moby.drain_cover.update */
+S41_POINT(Moby_PipeMountedGrating_Update, 286) /* rac1.moby.pipe_mounted_grating.update */
+S41_POINT(Moby_Class852_Update, 287) /* rac1.moby.gate_rise.update */
+S41_POINT(Moby_Class855_Update, 288) /* rac1.moby.emitter_l05.update */
+S41_POINT(Moby_ElevatorWithButton_Update, 289) /* rac1.moby.lift_l05.update */
+S41_POINT(Moby_OceanRilgar_Update, 290) /* rac1.moby.pulsing_marker.update */
+S41_POINT(Moby_Class893_Update, 291) /* rac1.moby.class_893.update */
+S41_POINT(Moby_Class895_Update, 292) /* rac1.moby.triggered_rotor.update */
+S41_POINT(Moby_HoverboardGirl_Update, 293) /* rac1.moby.hoverboard_girl.update */
+S41_POINT(Moby_QwarksBouncer_Update, 294) /* rac1.moby.bouncer.update */
+S41_POINT(Moby_ShadySalesman_Update, 295) /* rac1.moby.shady_salesman.update */
+S41_POINT(Moby_BlargGun_Update, 296) /* rac1.moby.blarg_gun.update */
+S41_POINT(Moby_Class982_Update, 297) /* rac1.moby.water_plane_marker.update */
+S41_POINT(Moby_Television_Update, 298) /* rac1.moby.bobbing_moby_l05.update */
+S41_POINT(Moby_Taxi998_Update, 299) /* rac1.moby.pickup_l05.update */
+S41_POINT(Moby_QwarksTrailer_Update, 300) /* rac1.moby.qwarks_trailer.update */
+S41_POINT(Moby_HoverboardRing_Update, 301) /* rac1.moby.moby1139.update */
+S41_POINT(Moby_Class1347_Update, 302) /* rac1.moby.challenge.update */
+S41_POINT(Moby_Lamp1511_Update, 303) /* rac1.moby.mine_moby.update */
+S41_POINT(Moby_Class1550_Update, 304) /* rac1.moby.moby1550.update */
+S41_POINT(Moby_HangarDoor_Update, 305) /* rac1.moby.orbiting_platform.update */
+S41_POINT(Moby_GadgebotSpawnContainer_Update, 306) /* rac1.moby.moby302.update */
+S41_POINT(Moby_GadgebotSpawnPad_Update, 307) /* rac1.moby.moby303.update */
+S41_POINT(Moby_Class367_Update, 308) /* rac1.moby.moby367.update */
+S41_POINT(Moby_Frog_Update, 309) /* rac1.moby.frog.update */
+S41_POINT(Moby_Gadgebot_Update, 310) /* rac1.moby.gadgebot.update */
+S41_POINT(Moby_ToxicGasVent_Update, 311) /* rac1.moby.swinging_hazard.update */
+S41_POINT(Moby_Class1021_Update, 312) /* rac1.moby.door_ring.update */
+S41_POINT(Moby_Class1028_Update, 313) /* rac1.moby.drawbridge.update */
+S41_POINT(Moby_Class1035_Update, 314) /* rac1.moby.class_1035.update */
+S41_POINT(Moby_EnergySphereHolder_Update, 315) /* rac1.moby.collectible_spawner.update */
+S41_POINT(Moby_Class1039_Update, 316) /* rac1.moby.trigger_lists.update */
+S41_POINT(Moby_EnergySphere_Update, 317) /* rac1.moby.moby1040.update */
+S41_POINT(Moby_AlienSnapper_Update, 318) /* rac1.moby.moby1048.update */
+S41_POINT(Moby_AlienQueen_Update, 319) /* rac1.moby.alien_queen.update */
+S41_POINT(Moby_Class1054_Update, 320) /* rac1.moby.moby1054.update */
+S41_POINT(Moby_Class1061_Update, 321) /* rac1.moby.callable_lift.update */
+S41_POINT(Moby_Class1062_Update, 322) /* rac1.moby.class_1062.update */
+S41_POINT(Moby_Class1066_Update, 323) /* rac1.moby.launch_trigger.update */
+S41_POINT(Moby_BlargSpaceCommando_Update, 324) /* rac1.moby.moby1068.update */
+S41_POINT(Moby_Class1083_Update, 325) /* rac1.moby.camera_takeover_trigger.update */
+S41_POINT(Moby_Class1085_Update, 326) /* rac1.moby.spinning_debris.update */
+S41_POINT(Moby_Class1091_Update, 327) /* rac1.moby.bobbing_moby.update */
+S41_POINT(Moby_Fred_Update, 328) /* rac1.moby.moby1105.update */
+S41_POINT(Moby_Class1108_Update, 329) /* rac1.moby.moby1108.update */
+S41_POINT(Moby_Shuttle_Update, 330) /* rac1.moby.shuttle.update */
+S41_POINT(Moby_RedButton_Update, 331) /* rac1.moby.red_button.update */
+S41_POINT(Moby_Class1123_Update, 332) /* rac1.moby.moby1123.update */
+S41_POINT(Moby_BotDoorLock_Update, 333) /* rac1.moby.moby1302.update */
+S41_POINT(Moby_Class1348_Update, 334) /* rac1.moby.class_1348.update */
+S41_POINT(Moby_Class1512_Update, 335) /* rac1.moby.spark_emitter.update */
+S41_POINT(Moby_Class1551_Update, 336) /* rac1.moby.sparks_trigger_l06.update */
+S41_POINT(Moby_Mushroom_Update, 337) /* rac1.moby.spawn_child_and_delete.update */
+S41_POINT(Moby_Class1660_Update, 338) /* rac1.moby.break_on_hit_blarg.update */
+S41_POINT(Moby_Class1898_Update, 339) /* rac1.moby.moby1898.update */
+S41_POINT(Moby_TaxiPlatform_Update, 340) /* rac1.moby.taxi_platform_38.update */
+S41_POINT(Moby_TaxiPlatform1474_Update, 341) /* rac1.moby.taxi_platform_1474.update */
+S41_POINT(Moby_Class436_Update, 342) /* rac1.moby.moby436.update */
+S41_POINT(Moby_Class317_Update, 343) /* rac1.moby.ambient_stream_l07.update */
+S41_POINT(Moby_PurpleShip_Update, 344) /* rac1.moby.purple_ship_529.update */
+S41_POINT(Moby_BoltcratePossiblyForMetalDetector_Update, 345) /* rac1.moby.path_train.update */
+S41_POINT(Moby_Class880_Update, 346) /* rac1.moby.bolt_projectile.update */
+S41_POINT(Moby_Bomb882_Update, 347) /* rac1.moby.gravity_debris.update */
+S41_POINT(Moby_TimedActivationPads_Update, 348) /* rac1.moby.timed_pad.update */
+S41_POINT(Moby_Water902_Update, 349) /* rac1.moby.water_plate.update */
+S41_POINT(Moby_Class1013_Update, 350) /* rac1.moby.target_driven_slider.update */
+S41_POINT(Moby_OceanUmbris_Update, 351) /* rac1.moby.audio_stream_trigger.update */
+S41_POINT(Moby_Bombomatic_Update, 352) /* rac1.moby.lobber_enemy.update */
+S41_POINT(Moby_Class1046_Update, 353) /* rac1.moby.shockwave.update */
+S41_POINT(Moby_Class1049_Update, 354) /* rac1.moby.lobbed_bomb.update */
+S41_POINT(Moby_Sharkigator1059_Update, 355) /* rac1.moby.sharkigator_1059.update */
+S41_POINT(Moby_Door_Update, 356) /* rac1.moby.door.update */
+S41_POINT(Moby_Class1069_Update, 357) /* rac1.moby.moby1069.update */
+S41_POINT(Moby_Class1080_Update, 358) /* rac1.moby.falling_leaf.update */
+S41_POINT(Moby_Snagglebeast_Update, 359) /* rac1.moby.snagglebeast.update */
+S41_POINT(Moby_Mine1112_Update, 360) /* rac1.moby.swooper.update */
+S41_POINT(Moby_Class1113_Update, 361) /* rac1.moby.breakable_prop.update */
+S41_POINT(Moby_MachinegunTurret_Update, 362) /* rac1.moby.machinegun_turret_1126.update */
+S41_POINT(Moby_Class1128_Update, 363) /* rac1.moby.moving_moby_l07.update */
+S41_POINT(Moby_Bridge_Update, 364) /* rac1.moby.bridge.update */
+S41_POINT(Moby_Class1133_Update, 365) /* rac1.moby.moby1133.update */
+S41_POINT(Moby_Class1142_Update, 366) /* rac1.moby.moby1142.update */
+S41_POINT(Moby_Class1552_Update, 367) /* rac1.moby.spark_burst_spawner.update */
+S41_POINT(Moby_Class1789_Update, 368) /* rac1.moby.moby1789.update */
+S41_POINT(Moby_Class152_Update, 369) /* rac1.moby.moby152.update */
+S41_POINT(Moby_Bomb248_Update, 370) /* rac1.moby.bomb_248.update */
+S41_POINT(Moby_Scoutbot_Update, 371) /* rac1.moby.scoutbot.update */
+S41_POINT(Moby_BomberTank_Update, 372) /* rac1.moby.bomber_tank.update */
+S41_POINT(Moby_Class327_Update, 373) /* rac1.moby.moby327.update */
+S41_POINT(Moby_BlargBombthrower_Update, 374) /* rac1.moby.blarg_bomb_thrower.update */
+S41_POINT(Moby_Shuttle424_Update, 375) /* rac1.moby.route_platform.update */
+S41_POINT(Moby_Bomb425_Update, 376) /* rac1.moby.moby425.update */
+S41_POINT(Moby_Rocket435_Update, 377) /* rac1.moby.guided_rocket.update */
+S41_POINT(Moby_Class438_Update, 378) /* rac1.moby.moby438.update */
+S41_POINT(Moby_Class440_Update, 379) /* rac1.moby.cannon.update */
+S41_POINT(Moby_Class441_Update, 380) /* rac1.moby.falling_debris.update */
+S41_POINT(Moby_Class444_Update, 381) /* rac1.moby.moby444.update */
+S41_POINT(Moby_BoltThief_Update, 382) /* rac1.moby.batalia_bolt_thief.update */
+S41_POINT(Moby_Rocket458_Update, 383) /* rac1.moby.moby458.update */
+S41_POINT(Moby_Shrub_Update, 384) /* rac1.moby.moby462.update */
+S41_POINT(Moby_Class463_Update, 385) /* rac1.moby.swarm_leader.update */
+S41_POINT(Moby_Class467_Update, 386) /* rac1.moby.group_clear.update */
+S41_POINT(Moby_Class468_Update, 387) /* rac1.moby.gate_swing.update */
+S41_POINT(Moby_Class600_Update, 388) /* rac1.moby.moby600.update */
+S41_POINT(Moby_Class621_Update, 389) /* rac1.moby.moby621.update */
+S41_POINT(Moby_Class648_Update, 390) /* rac1.moby.moby648.update */
+S41_POINT(Moby_Class671_Update, 391) /* rac1.moby.flicker_light.update */
+S41_POINT(Moby_BlargParatrooper_Update, 392) /* rac1.moby.paratrooper.update */
+S41_POINT(Moby_Commando_Update, 393) /* rac1.moby.commando.update */
+S41_POINT(Moby_BataliaDeserter_Update, 394) /* rac1.moby.deserter.update */
+S41_POINT(Moby_ThePlumberBatalia_Update, 395) /* rac1.moby.moby1283.update */
+S41_POINT(Moby_Class1292_Update, 396) /* rac1.moby.fire_bolt.update */
+S41_POINT(Moby_Class1349_Update, 397) /* rac1.moby.moby1349.update */
+S41_POINT(Moby_Class1400_Update, 398) /* rac1.moby.moby1400.update */
+S41_POINT(Moby_Class1553_Update, 399) /* rac1.moby.moby1553.update */
+S41_POINT(Moby_Class1629_Update, 400) /* rac1.moby.moby1629.update */
+S41_POINT(Moby_Class1641_Update, 401) /* rac1.moby.moby1641.update */
+S41_POINT(Moby_Class1649_Update, 402) /* rac1.moby.moby1649.update */
+S41_POINT(Moby_AirshipPart_Update, 403) /* rac1.moby.airship_part.update */
+S41_POINT(Moby_Seeker_Update, 404) /* rac1.moby.moby52.update */
+S41_POINT(Moby_Class193_Update, 405) /* rac1.moby.ground_enemy.update */
+S41_POINT(Moby_Asteroid_Update, 406) /* rac1.moby.asteroid_belt.update */
+S41_POINT(Moby_Display_Update, 407) /* rac1.moby.breakable_stack.update */
+S41_POINT(Moby_Class279_Update, 408) /* rac1.moby.moby279.update */
+S41_POINT(Moby_Class313_Update, 409) /* rac1.moby.tumbling_debris.update */
+S41_POINT(Moby_Class320_Update, 410) /* rac1.moby.heavy_tumbling_debris.update */
+S41_POINT(Moby_Class417_Update, 411) /* rac1.moby.moby417.update */
+S41_POINT(Moby_Platform664_Update, 412) /* rac1.moby.moby664.update */
+S41_POINT(Moby_Class1000_Update, 413) /* rac1.moby.moby1000.update */
+S41_POINT(Moby_Elevator1150_Update, 414) /* rac1.moby.path_platform_l09.update */
+S41_POINT(Moby_RefuelingStation_Update, 415) /* rac1.moby.pressure_plate.update */
+S41_POINT(Moby_AirshipPart1181_Update, 416) /* rac1.moby.airship_chain_link.update */
+S41_POINT(Moby_Turret_Update, 417) /* rac1.moby.mountable_turret.update */
+S41_POINT(Moby_Class1206_Update, 418) /* rac1.moby.moby1206.update */
+S41_POINT(Moby_Class1258_Update, 419) /* rac1.moby.enemy_shot.update */
+S41_POINT(Moby_Barrier_Update, 420) /* rac1.moby.barrier.update */
+S41_POINT(Moby_Class1293_Update, 421) /* rac1.moby.linked_riser.update */
+S41_POINT(Moby_Shuttle1766_Update, 422) /* rac1.moby.moby1766.update */
+S41_POINT(Moby_Spawner1885_Update, 423) /* rac1.moby.moby1885.update */
+S41_POINT(Moby_SpawnerEgg_Update, 424) /* rac1.moby.moby1886.update */
+S41_POINT(Moby_Platform1033_Update, 425) /* rac1.moby.moby1033.update */
+S41_POINT(Moby_Platform1117_Update, 426) /* rac1.moby.bobbing_platform.update */
+S41_POINT(Moby_Magnetboots_Update, 427) /* rac1.moby.spinning_pickup.update */
+S41_POINT(Moby_Class22_Update, 428) /* rac1.moby.moby22.update */
+S41_POINT(Moby_GadgebotTelepotPad_Update, 429) /* rac1.moby.near_hero_sparkle.update */
+S41_POINT(Moby_Class702_Update, 430) /* rac1.moby.moby702.update */
+S41_POINT(Moby_Class794_Update, 431) /* rac1.moby.moby794.update */
+S41_POINT(Moby_Rocket819_Update, 432) /* rac1.moby.moby819.update */
+S41_POINT(Moby_Class859_Update, 433) /* rac1.moby.moby859.update */
+S41_POINT(Moby_Bomb938_Update, 434) /* rac1.moby.moby938.update */
+S41_POINT(Moby_BombthrowerGrass939_Update, 435) /* rac1.moby.timed_shooter.update */
+S41_POINT(Moby_Class947_Update, 436) /* rac1.moby.electric_spark.update */
+S41_POINT(Moby_LabDoor_Update, 437) /* rac1.moby.height_glide.update */
+S41_POINT(Moby_Button_Update, 438) /* rac1.moby.moby1031.update */
+S41_POINT(Moby_Class1047_Update, 439) /* rac1.moby.moby1047.update */
+S41_POINT(Moby_Class1067_Update, 440) /* rac1.moby.sound_prop.update */
+S41_POINT(Moby_Class1090_Update, 441) /* rac1.moby.moby1090.update */
+S41_POINT(Moby_BlockCave_Update, 442) /* rac1.moby.collectible_trigger.update */
+S41_POINT(Moby_Screamer_Update, 443) /* rac1.moby.moby1196.update */
+S41_POINT(Moby_Class1199_Update, 444) /* rac1.moby.moby1199.update */
+S41_POINT(Moby_ToxicCrab_Update, 445) /* rac1.moby.toxic_crab.update */
+S41_POINT(Moby_BlargShip_Update, 446) /* rac1.moby.blarg_ship.update */
+S41_POINT(Moby_Class1240_Update, 447) /* rac1.moby.exhaust_vent.update */
+S41_POINT(Moby_NanotechUpgradeVendor_Update, 448) /* rac1.moby.nanotech_vendor.update */
+S41_POINT(Moby_Class1344_Update, 449) /* rac1.moby.moby1344.update */
+S41_POINT(Moby_Gun_Update, 450) /* rac1.moby.linked_turret.update */
+S41_POINT(Moby_Class1378_Update, 451) /* rac1.moby.moby1378.update */
+S41_POINT(Moby_Gate1_Update, 452) /* rac1.moby.swing_door.update */
+S41_POINT(Moby_Gate2_Update, 453) /* rac1.moby.moby1424.update */
+S41_POINT(Moby_Class1544_Update, 454) /* rac1.moby.effect_emitter.update */
+S41_POINT(Moby_Class1555_Update, 455) /* rac1.moby.moby1555.update */
+S41_POINT(Moby_Class1855_Update, 456) /* rac1.moby.moby1855.update */
+S41_POINT(Moby_Class1856_Update, 457) /* rac1.moby.moby1856.update */
+S41_POINT(Moby_Class23_Update, 458) /* rac1.moby.pickup.update */
+S41_POINT(Moby_Class37_Update, 459) /* rac1.moby.moby37.update */
+S41_POINT(Moby_Class65_Update, 460) /* rac1.moby.moby65.update */
+S41_POINT(Moby_Bob_Update, 461) /* rac1.moby.moby90.update */
+S41_POINT(Moby_ResortOwner_Update, 462) /* rac1.moby.moby114.update */
+S41_POINT(Moby_FredPokitaru_Update, 463) /* rac1.moby.pokitaru_vendor.update */
+S41_POINT(Moby_Teleporter318_Update, 464) /* rac1.moby.moby318.update */
+S41_POINT(Moby_Class361_Update, 465) /* rac1.moby.moby361.update */
+S41_POINT(Moby_Class1009_Update, 466) /* rac1.moby.class_1009.update */
+S41_POINT(Moby_Class1017_Update, 467) /* rac1.moby.fireball.update */
+S41_POINT(Moby_Rocket1034_Update, 468) /* rac1.moby.moby1034.update */
+S41_POINT(Moby_PokitaruBoat_Update, 469) /* rac1.moby.pokitaru_boat.update */
+S41_POINT(Moby_OceanPokitaru_Update, 470) /* rac1.moby.ocean.update */
+S41_POINT(Moby_Class1156_Update, 471) /* rac1.moby.cutscene_controller.update */
+S41_POINT(Moby_Class1157_Update, 472) /* rac1.moby.moby1157.update */
+S41_POINT(Moby_Class1158_Update, 473) /* rac1.moby.moby1158.update */
+S41_POINT(Moby_Class1159_Update, 474) /* rac1.moby.moby1159.update */
+S41_POINT(Moby_SeesawPlatform_Update, 475) /* rac1.moby.moby1178.update */
+S41_POINT(Moby_ThrusterPackLock_Update, 476) /* rac1.moby.moby1179.update */
+S41_POINT(Moby_Class1180_Update, 477) /* rac1.moby.moby1180.update */
+S41_POINT(Moby_Ammocrate_Update, 478) /* rac1.moby.ship_collider.update */
+S41_POINT(Moby_Class1219_Update, 479) /* rac1.moby.moby1219.update */
+S41_POINT(Moby_Psytcopus_Update, 480) /* rac1.moby.psytcopus.update */
+S41_POINT(Moby_JetFighter_Update, 481) /* rac1.moby.jet_fighter.update */
+S41_POINT(Moby_Puffoid_Update, 482) /* rac1.moby.moby1246.update */
+S41_POINT(Moby_Class1248_Update, 483) /* rac1.moby.gate.update */
+S41_POINT(Moby_OilTankerFront_Update, 484) /* rac1.moby.moby1264.update */
+S41_POINT(Moby_Class1265_Update, 485) /* rac1.moby.bubbling_vent.update */
+S41_POINT(Moby_EnergySphere1297_Update, 486) /* rac1.moby.moby1297.update */
+S41_POINT(Moby_BlargShip1319_Update, 487) /* rac1.moby.flying_craft.update */
+S41_POINT(Moby_Class1350_Update, 488) /* rac1.moby.moby1350.update */
+S41_POINT(Moby_Class1524_Update, 489) /* rac1.moby.bubble.update */
+S41_POINT(Moby_Class1903_Update, 490) /* rac1.moby.pokitaru_surface_near.update */
+S41_POINT(Moby_Class1919_Update, 491) /* rac1.moby.pokitaru_surface_far.update */
+S41_POINT(Moby_Class19_Update, 492) /* rac1.moby.moby19.update */
+S41_POINT(Moby_Class238_Update, 493) /* rac1.moby.hoven_troll.update */
+S41_POINT(Moby_Platform240_Update, 494) /* rac1.moby.hoven_platform.update */
+S41_POINT(Moby_Miner_Update, 495) /* rac1.moby.miner.update */
+S41_POINT(Moby_Class293_Update, 496) /* rac1.moby.moby293.update */
+S41_POINT(Moby_BlargTrooper294_Update, 497) /* rac1.moby.moby294.update */
+S41_POINT(Moby_BlargHelicopter326_Update, 498) /* rac1.moby.moby326.update */
+S41_POINT(Moby_Edwina_Update, 499) /* rac1.moby.edwina.update */
+S41_POINT(Moby_Helicopter_Update, 500) /* rac1.moby.moby336.update */
+S41_POINT(Moby_CraneArm_Update, 501) /* rac1.moby.moby339.update */
+S41_POINT(Moby_WaterReservoir_Update, 502) /* rac1.moby.water_reservoir.update */
+S41_POINT(Moby_Rocket409_Update, 503) /* rac1.moby.hoven_shot.update */
+S41_POINT(Moby_Class422_Update, 504) /* rac1.moby.hoven_challenge.update */
+S41_POINT(Moby_Class1259_Update, 505) /* rac1.moby.moby1259.update */
+S41_POINT(Moby_HovenTurret_Update, 506) /* rac1.moby.moby1267.update */
+S41_POINT(Moby_Mine1269_Update, 507) /* rac1.moby.hoven_homing_mine.update */
+S41_POINT(Moby_PlanetbusterMaximusPart_Update, 508) /* rac1.moby.planetbuster_part.update */
+S41_POINT(Moby_HomingMineSpawner_Update, 509) /* rac1.moby.door_switch.update */
+S41_POINT(Moby_Class1345_Update, 510) /* rac1.moby.moby1345.update */
+S41_POINT(Moby_BlargCommander_Update, 511) /* rac1.moby.blarg_commander.update */
+S41_POINT(Moby_Class1404_Update, 512) /* rac1.moby.cutscene_volume_trigger.update */
+S41_POINT(Moby_Class1557_Update, 513) /* rac1.moby.class_1557.update */
+S41_POINT(Moby_Class1901_Update, 514) /* rac1.moby.moby1901.update */
+S41_POINT(Moby_Class6_Update, 515) /* rac1.moby.clip_volume_trigger.update */
+S41_POINT(Moby_Elevator21_Update, 516) /* rac1.moby.elevator_21.update */
+S41_POINT(Moby_BlargTurret_Update, 517) /* rac1.moby.blarg_turret.update */
+S41_POINT(Moby_BlargGunner_Update, 518) /* rac1.moby.gem_lock_turret.update */
+S41_POINT(Moby_Robosquawker_Update, 519) /* rac1.moby.robosquawker.update */
+S41_POINT(Moby_FighterJet69_Update, 520) /* rac1.moby.fighter_jet_69.update */
+S41_POINT(Moby_Rocket82_Update, 521) /* rac1.moby.homing_rocket82.update */
+S41_POINT(Moby_Mine83_Update, 522) /* rac1.moby.moby83.update */
+S41_POINT(Moby_BlargSpaceFighter_Update, 523) /* rac1.moby.blarg_space_fighter.update */
+S41_POINT(Moby_BlargSpaceFighter111_Update, 524) /* rac1.moby.blarg_fighter111.update */
+S41_POINT(Moby_Class127_Update, 525) /* rac1.moby.rotating_door.update */
+S41_POINT(Moby_ForcefieldTower_Update, 526) /* rac1.moby.forcefield_tower.update */
+S41_POINT(Moby_Asteroid212_Update, 527) /* rac1.moby.drifting_blob.update */
+S41_POINT(Moby_Ammocrate224_Update, 528) /* rac1.moby.ship_pickup.update */
+S41_POINT(Moby_Class231_Update, 529) /* rac1.moby.switch.update */
+S41_POINT(Moby_Rocket295_Update, 530) /* rac1.moby.rocket295.update */
+S41_POINT(Moby_Class352_Update, 531) /* rac1.moby.fade_in_hold_out.update */
+S41_POINT(Moby_QwarksStarfighterPart_Update, 532) /* rac1.moby.qwark_starfighter_part.update */
+S41_POINT(Moby_QwarksStarfighterPart389_Update, 533) /* rac1.moby.starfighter_part.update */
+S41_POINT(Moby_Forcefield_Update, 534) /* rac1.moby.gem_lock_pickup.update */
+S41_POINT(Moby_PurpleShip533_Update, 535) /* rac1.moby.purple_ship_533.update */
+S41_POINT(Moby_Class558_Update, 536) /* rac1.moby.help_volume.update */
+S41_POINT(Moby_Class667_Update, 537) /* rac1.moby.moby_state_relay.update */
+S41_POINT(Moby_Class674_Update, 538) /* rac1.moby.controlled_gate.update */
+S41_POINT(Moby_Class1238_Update, 539) /* rac1.moby.projectile_l13.update */
+S41_POINT(Moby_PoisonVessel_Update, 540) /* rac1.moby.moby1261.update */
+S41_POINT(Moby_BlargSpaceCommando1262_Update, 541) /* rac1.moby.blarg_space_commando.update */
+S41_POINT(Moby_Class1263_Update, 542) /* rac1.moby.bobbing_lights.update */
+S41_POINT(Moby_Class1270_Update, 543) /* rac1.moby.lift1270.update */
+S41_POINT(Moby_Class1271_Update, 544) /* rac1.moby.class_1271.update */
+S41_POINT(Moby_Class1353_Update, 545) /* rac1.moby.moby1353.update */
+S41_POINT(Moby_Class1403_Update, 546) /* rac1.moby.class_1403.update */
+S41_POINT(Moby_Class1558_Update, 547) /* rac1.moby.sparks_trigger_l13.update */
+S41_POINT(Moby_Class1577_Update, 548) /* rac1.moby.watch_mobys.update */
+S41_POINT(Moby_Class1632_Update, 549) /* rac1.moby.moby1632.update */
+S41_POINT(Moby_Class1634_Update, 550) /* rac1.moby.moby1634.update */
+S41_POINT(Moby_BlargShip1805_Update, 551) /* rac1.moby.moby1805.update */
+S41_POINT(Moby_Platform903_Update, 552) /* rac1.moby.keyframe_platform.update */
+S41_POINT(Moby_BlargHeavyInterceptor_Update, 553) /* rac1.moby.moby8.update */
+S41_POINT(Moby_Plasmabot_Update, 554) /* rac1.moby.plasmabot.update */
+S41_POINT(Moby_MachinegunTurret30_Update, 555) /* rac1.moby.machinegun_turret_30.update */
+S41_POINT(Moby_Minibomber_Update, 556) /* rac1.moby.minibomber.update */
+S41_POINT(Moby_Class81_Update, 557) /* rac1.moby.moby81.update */
+S41_POINT(Moby_Plasmabot211_Update, 558) /* rac1.moby.moby211.update */
+S41_POINT(Moby_PlasmabotHatch_Update, 559) /* rac1.moby.moby250.update */
+S41_POINT(Moby_Platform309_Update, 560) /* rac1.moby.moby309.update */
+S41_POINT(Moby_Class325_Update, 561) /* rac1.moby.debris_particle.update */
+S41_POINT(Moby_Class386_Update, 562) /* rac1.moby.gem_lock_sentry.update */
+S41_POINT(Moby_Class403_Update, 563) /* rac1.moby.race_debris.update */
+S41_POINT(Moby_Shuttle557_Update, 564) /* rac1.moby.path_lift.update */
+S41_POINT(Moby_Class610_Update, 565) /* rac1.moby.moby610.update */
+S41_POINT(Moby_Mine643_Update, 566) /* rac1.moby.mine_l14.update */
+S41_POINT(Moby_Class681_Update, 567) /* rac1.moby.sweeping_bolt.update */
+S41_POINT(Moby_Class684_Update, 568) /* rac1.moby.class_684.update */
+S41_POINT(Moby_Elevator685_Update, 569) /* rac1.moby.moby685.update */
+S41_POINT(Moby_Taxi712_Update, 570) /* rac1.moby.taxi.update */
+S41_POINT(Moby_QwarkOltanis_Update, 571) /* rac1.moby.moby851.update */
+S41_POINT(Moby_Jet_Update, 572) /* rac1.moby.moby908.update */
+S41_POINT(Moby_Jet921_Update, 573) /* rac1.moby.oltanis_jet.update */
+S41_POINT(Moby_Rocket922_Update, 574) /* rac1.moby.flyer.update */
+S41_POINT(Moby_BoltThief923_Update, 575) /* rac1.moby.bolt_thief.update */
+S41_POINT(Moby_Sam_Update, 576) /* rac1.moby.moby924.update */
+S41_POINT(Moby_Mine933_Update, 577) /* rac1.moby.floating_mine.update */
+S41_POINT(Moby_Class1193_Update, 578) /* rac1.moby.bouncing_spark.update */
+S41_POINT(Moby_Class1224_Update, 579) /* rac1.moby.moby1224.update */
+S41_POINT(Moby_Class1331_Update, 580) /* rac1.moby.moby1331.update */
+S41_POINT(Moby_Class1352_Update, 581) /* rac1.moby.triggered_unlock.update */
+S41_POINT(Moby_Morphoray1354_Update, 582) /* rac1.moby.collectible_pickup.update */
+S41_POINT(Moby_Class1395_Update, 583) /* rac1.moby.moby1395.update */
+S41_POINT(Moby_Class1397_Update, 584) /* rac1.moby.moby1397.update */
+S41_POINT(Moby_Button1416_Update, 585) /* rac1.moby.step_on_switch.update */
+S41_POINT(Moby_BlargHeavyInterceptor1417_Update, 586) /* rac1.moby.blarg_interceptor.update */
+S41_POINT(Moby_Class1418_Update, 587) /* rac1.moby.queue_effect_draw.update */
+S41_POINT(Moby_Class1559_Update, 588) /* rac1.moby.skill_point.update */
+S41_POINT(Moby_Sentrybot_Update, 589) /* rac1.moby.sentrybot.update */
+S41_POINT(Moby_Rocket49_Update, 590) /* rac1.moby.projectile.update */
+S41_POINT(Moby_Class67_Update, 591) /* rac1.moby.moby67.update */
+S41_POINT(Moby_Class256_Update, 592) /* rac1.moby.class_256.update */
+S41_POINT(Moby_Class1427_Update, 593) /* rac1.moby.scale_fade_and_delete.update */
+S41_POINT(Moby_Class1523_Update, 594) /* rac1.moby.moby1523.update */
+S41_POINT(Moby_Mine77_Update, 595) /* rac1.moby.moby77.update */
+S41_POINT(Moby_Class78_Update, 596) /* rac1.moby.moby78.update */
+S41_POINT(Moby_Gate92_Update, 597) /* rac1.moby.sliding_gate.update */
+S41_POINT(Moby_Gate93_Update, 598) /* rac1.moby.clip_volume_door.update */
+S41_POINT(Moby_Spiderbot_Update, 599) /* rac1.moby.spiderbot.update */
+S41_POINT(Moby_Class148_Update, 600) /* rac1.moby.class_148.update */
+S41_POINT(Moby_Class154_Update, 601) /* rac1.moby.hit_reaction_effect_alt.update */
+S41_POINT(Moby_Door196_Update, 602) /* rac1.moby.moving_moby.update */
+S41_POINT(Moby_ConstructionArm_Update, 603) /* rac1.moby.construction_arm.update */
+S41_POINT(Moby_Helicopter233_Update, 604) /* rac1.moby.helicopter.update */
+S41_POINT(Moby_SentrybotAlarm_Update, 605) /* rac1.moby.sentrybot_alarm.update */
+S41_POINT(Moby_UltramechUnlimited_Update, 606) /* rac1.moby.ultramech.update */
+S41_POINT(Moby_Class655_Update, 607) /* rac1.moby.class_655.update */
+S41_POINT(Moby_Class934_Update, 608) /* rac1.moby.moby934.update */
+S41_POINT(Moby_Class937_Update, 609) /* rac1.moby.class_937.update */
+S41_POINT(Moby_UnderwaterRing_Update, 610) /* rac1.moby.underwater_ring.update */
+S41_POINT(Moby_ConveyorBelt1250_Update, 611) /* rac1.moby.side_drift.update */
+S41_POINT(Moby_PoisonVessel1257_Update, 612) /* rac1.moby.poison_vessel.update */
+S41_POINT(Moby_BoltGrabber_Update, 613) /* rac1.moby.moby1388.update */
+S41_POINT(Moby_Class1394_Update, 614) /* rac1.moby.moby1257_spawner.update */
+S41_POINT(Moby_Class1405_Update, 615) /* rac1.moby.ripple_strips_moby.update */
+S41_POINT(Moby_Class1419_Update, 616) /* rac1.moby.moby1419.update */
+S41_POINT(Moby_Class1425_Update, 617) /* rac1.moby.class_1425.update */
+S41_POINT(Moby_Codebot_Update, 618) /* rac1.moby.moby1428.update */
+S41_POINT(Moby_CodebotSlot_Update, 619) /* rac1.moby.codebot_slot.update */
+S41_POINT(Moby_UltramechScientist_Update, 620) /* rac1.moby.ultramech_scientist.update */
+S41_POINT(Moby_GiantClankPad_Update, 621) /* rac1.moby.giant_clank_pad.update */
+S41_POINT(Moby_Class1469_Update, 622) /* rac1.moby.moby1469.update */
+S41_POINT(Moby_Class1560_Update, 623) /* rac1.moby.boss_slot_effect.update */
+S41_POINT(Moby_Rocket50_Update, 624) /* rac1.moby.homing_projectile.update */
+S41_POINT(Moby_Rocket1475_Update, 625) /* rac1.moby.homing_spark_1475.update */
+S41_POINT(Moby_Class257_Update, 626) /* rac1.moby.moby257.update */
+S41_POINT(Moby_Bomb281_Update, 627) /* rac1.moby.thrown_bomb.update */
+S41_POINT(Moby_Rocket470_Update, 628) /* rac1.moby.moby470.update */
+S41_POINT(Moby_ConveyorBelt471_Update, 629) /* rac1.moby.moby471.update */
+S41_POINT(Moby_TestDummy_Update, 630) /* rac1.moby.test_dummy.update */
+S41_POINT(Moby_WallButton_Update, 631) /* rac1.moby.moby546.update */
+S41_POINT(Moby_Class552_Update, 632) /* rac1.moby.moby552.update */
+S41_POINT(Moby_TestDummyOnHoverboard_Update, 633) /* rac1.moby.hoverboard_racer.update */
+S41_POINT(Moby_BlargEliteCommando_Update, 634) /* rac1.moby.floating_enemy.update */
+S41_POINT(Moby_Door647_Update, 635) /* rac1.moby.moby647.update */
+S41_POINT(Moby_TestDummyDoor_Update, 636) /* rac1.moby.moby650.update */
+S41_POINT(Moby_Class654_Update, 637) /* rac1.moby.moby654.update */
+S41_POINT(Moby_Class800_Update, 638) /* rac1.moby.moby800.update */
+S41_POINT(Moby_ArmedTransport_Update, 639) /* rac1.moby.armed_transport.update */
+S41_POINT(Moby_HelpDeskLady_Update, 640) /* rac1.moby.watcher.update */
+S41_POINT(Moby_Class1387_Update, 641) /* rac1.moby.moby1387.update */
+S41_POINT(Moby_BoltThief1401_Update, 642) /* rac1.moby.crate_platform.update */
+S41_POINT(Moby_Taxi1410_Update, 643) /* rac1.moby.path_pickup.update */
+S41_POINT(Moby_GrindrailGate_Update, 644) /* rac1.moby.moby1439.update */
+S41_POINT(Moby_GrindrailGate1441_Update, 645) /* rac1.moby.moby1441.update */
+S41_POINT(Moby_GrindrailButton_Update, 646) /* rac1.moby.moby1442.update */
+S41_POINT(Moby_GrindrailBarrier_Update, 647) /* rac1.moby.ring_effect.update */
+S41_POINT(Moby_Chomper_Update, 648) /* rac1.moby.wandering_helper.update */
+S41_POINT(Moby_GadgetronCeo_Update, 649) /* rac1.moby.challenge_npc.update */
+S41_POINT(Moby_Class1561_Update, 650) /* rac1.moby.banner_trigger.update */
+S41_POINT(Moby_Class1667_Update, 651) /* rac1.moby.path_walker.update */
+S41_POINT(Moby_Class1812_Update, 652) /* rac1.moby.spark_ring_emitter.update */
+S41_POINT(Moby_Elevator1826_Update, 653) /* rac1.moby.elevator_platform.update */
+S41_POINT(Moby_GadgetronSign_Update, 654) /* rac1.moby.spinning_object.update */
+S41_POINT(Moby_Class1923_Update, 655) /* rac1.moby.target_activator.update */
+S41_POINT(Moby_Class1943_Update, 656) /* rac1.moby.env_map_a.update */
+S41_POINT(Moby_Class1947_Update, 657) /* rac1.moby.class_1947.update */
+S41_POINT(Moby_Class1948_Update, 658) /* rac1.moby.env_map_b.update */
+S41_POINT(Moby_Class1907_Update, 659) /* rac1.moby.class_1907.update */
+S41_POINT(Moby_Class1953_Update, 660) /* rac1.moby.env_map_c.update */
+S41_POINT(Moby_Class99_Update, 661) /* rac1.moby.moby99.update */
+S41_POINT(Moby_DreksFleetTurret_Update, 662) /* rac1.moby.fleet_turret.update */
+S41_POINT(Moby_Class669_Update, 663) /* rac1.moby.moby669.update */
+S41_POINT(Moby_Class835_Update, 664) /* rac1.moby.moby835.update */
+S41_POINT(Moby_Door1359_Update, 665) /* rac1.moby.stops_platform.update */
+S41_POINT(Moby_Class1368_Update, 666) /* rac1.moby.moby1368.update */
+S41_POINT(Moby_FighterJet1379_Update, 667) /* rac1.moby.fighter_jet_1379.update */
+S41_POINT(Moby_MagnetElevator_Update, 668) /* rac1.moby.moby1380.update */
+S41_POINT(Moby_RobotDog1382_Update, 669) /* rac1.moby.moby1382.update */
+S41_POINT(Moby_Shuttle1448_Update, 670) /* rac1.moby.moby1448.update */
+S41_POINT(Moby_Class1470_Update, 671) /* rac1.moby.moby1470.update */
+S41_POINT(Moby_Class1562_Update, 672) /* rac1.moby.moby750_spark_trigger.update */
+S41_POINT(Moby_Class1772_Update, 673) /* rac1.moby.fleet_reflection.update */
+S41_POINT(Moby_BlargShip1843_Update, 674) /* rac1.moby.moby1843.update */
+S41_POINT(Moby_Class1873_Update, 675) /* rac1.moby.moby1873.update */
+S41_POINT(Moby_Class1876_Update, 676) /* rac1.moby.moby1876.update */
+S41_POINT(Moby_Rocket41_Update, 677) /* rac1.moby.moby41.update */
+S41_POINT(Moby_Rocket564_Update, 678) /* rac1.moby.moby564.update */
+S41_POINT(Moby_Mine568_Update, 679) /* rac1.moby.moby568.update */
+S41_POINT(Moby_Class582_Update, 680) /* rac1.moby.path_junction.update */
+S41_POINT(Moby_ThrusterPackLockGreen_Update, 681) /* rac1.moby.energy_field_emitter.update */
+S41_POINT(Moby_ThrusterPackLockRed_Update, 682) /* rac1.moby.timed_lift.update */
+S41_POINT(Moby_FloatingPlatform587_Update, 683) /* rac1.moby.sinking_platform.update */
+S41_POINT(Moby_Class624_Update, 684) /* rac1.moby.falling_fireball.update */
+S41_POINT(Moby_Class628_Update, 685) /* rac1.moby.moby628.update */
+S41_POINT(Moby_Class644_Update, 686) /* rac1.moby.vendor_moby.update */
+S41_POINT(Moby_Class885_Update, 687) /* rac1.moby.hit_trigger.update */
+S41_POINT(Moby_Class983_Update, 688) /* rac1.moby.homing_spark_983.update */
+S41_POINT(Moby_DrekFightMissile_Update, 689) /* rac1.moby.moby1355.update */
+S41_POINT(Moby_Class1381_Update, 690) /* rac1.moby.moby1381.update */
+S41_POINT(Moby_Class1392_Update, 691) /* rac1.moby.moby1392.update */
+S41_POINT(Moby_Class1402_Update, 692) /* rac1.moby.moby1402.update */
+S41_POINT(Moby_DrekFinalBossRobot_Update, 693) /* rac1.moby.final_boss.update */
+S41_POINT(Moby_Class1432_Update, 694) /* rac1.moby.class_1432.update */
+S41_POINT(Moby_DeplanetizerGun_Update, 695) /* rac1.moby.moby1434.update */
+S41_POINT(Moby_RocketTank_Update, 696) /* rac1.moby.moby1454.update */
+S41_POINT(Moby_Class1563_Update, 697) /* rac1.moby.moby1563.update */
+S41_POINT(Moby_DeplanetizerGun1568_Update, 698) /* rac1.moby.moby1568.update */
+S41_POINT(Moby_Class1584_Update, 699) /* rac1.moby.moby1584.update */
+S41_POINT(Moby_Class1799_Update, 700) /* rac1.moby.moby1799.update */
+S41_POINT(Moby_Gadgebot1906_Update, 701) /* rac1.moby.moby1906.update */
 
-static const openrac_script_point k_points[695] = {
+static const openrac_script_point k_points[702] = {
     {"rac1.pad.process_report", "void(u32,u32,i32)", 3, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Pad_ProcessReport_links, k_Pad_ProcessReport_thunks, S0_call},
     {"rac1.player.update_motion_input", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Hero_UpdateMotionInput_links, k_Hero_UpdateMotionInput_thunks, S1_call},
     {"rac1.player.turn_to_heading", "void(i32,f32,f32,f32)", 4, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Hero_TurnToHeading_links, k_Hero_TurnToHeading_thunks, S2_call},
@@ -1574,6 +1682,13 @@ static const openrac_script_point k_points[695] = {
     {"rac1.text.msg_string", "i32(i32)", 1, k_S40_kinds, k_S40_names, OPENRAC_SV_I32, k_msg_string_links, k_msg_string_thunks, S40_call},
     {"rac1.vendor.open_menu", "void(u32)", 1, k_S41_kinds, k_S41_names, OPENRAC_SV_VOID, k_Vendor_OpenMenu_links, k_Vendor_OpenMenu_thunks, S41_call},
     {"rac1.gold_bolt.count_unspent", "i32()", 0, k_S10_kinds, k_S10_names, OPENRAC_SV_I32, k_GoldBolts_CountUnspent_links, k_GoldBolts_CountUnspent_thunks, S10_call},
+    {"rac1.vendor.draw_icons", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Vendor_DrawIcons_links, k_Vendor_DrawIcons_thunks, S1_call},
+    {"rac1.vendor.draw_details", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Vendor_DrawDetails_links, k_Vendor_DrawDetails_thunks, S1_call},
+    {"rac1.ui.icon_frame", "i32(i32,i32)", 2, k_S42_kinds, k_S42_names, OPENRAC_SV_I32, k_UI_IconFrame_links, k_UI_IconFrame_thunks, S42_call},
+    {"rac1.npc.try_dialog", "i32(u32,u32)", 2, k_S43_kinds, k_S43_names, OPENRAC_SV_I32, k_NPC_TryDialog_links, k_NPC_TryDialog_thunks, S43_call},
+    {"rac1.ui.sprite.draw", "void(i32,i32,i32,i32,i32,i32)", 6, k_S44_kinds, k_S44_names, OPENRAC_SV_VOID, k_UI_DrawSprite_links, k_UI_DrawSprite_thunks, S44_call},
+    {"rac1.pickup.start_scene", "void(i32)", 1, k_S45_kinds, k_S45_names, OPENRAC_SV_VOID, k_Pickup_StartScene_links, k_Pickup_StartScene_thunks, S45_call},
+    {"rac1.gold_case.start_demo", "void(u32,i32)", 2, k_S46_kinds, k_S46_names, OPENRAC_SV_VOID, k_GoldCase_StartDemo_links, k_GoldCase_StartDemo_thunks, S46_call},
     {"rac1.moby.class_1750.update", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Moby_Class1750_Update_links, k_Moby_Class1750_Update_thunks, S1_call},
     {"rac1.moby.class_676.update", "void(u32)", 1, k_S41_kinds, k_S41_names, OPENRAC_SV_VOID, k_Moby_Class676_Update_links, k_Moby_Class676_Update_thunks, S41_call},
     {"rac1.moby.class_482.update", "void(u32)", 1, k_S41_kinds, k_S41_names, OPENRAC_SV_VOID, k_Moby_Class482_Update_links, k_Moby_Class482_Update_thunks, S41_call},
@@ -2213,10 +2328,12 @@ static const openrac_script_point k_points[695] = {
     {"rac1.moby.moby1906.update", "void(u32)", 1, k_S41_kinds, k_S41_names, OPENRAC_SV_VOID, k_Moby_Gadgebot1906_Update_links, k_Moby_Gadgebot1906_Update_thunks, S41_call},
 };
 
-static const openrac_script_alias k_aliases[2089] = {
+static const openrac_script_alias k_aliases[2110] = {
     {"Ammo_ChooseDrop", "rac1.ammo.choose_drop"},
     {"Ammo_SpawnDrop", "rac1.ammo.spawn_drop"},
     {"FUN_001fdd10", "rac1.text.msg_string"},
+    {"FUN_001ff960", "rac1.ui.icon_frame"},
+    {"FUN_001ffc30", "rac1.ui.sprite.draw"},
     {"FUN_00209298", "rac1.save.restore"},
     {"FUN_00209370", "rac1.save.new_game"},
     {"FUN_002093d8", "rac1.save.update_state"},
@@ -2243,6 +2360,8 @@ static const openrac_script_alias k_aliases[2089] = {
     {"FUN_00224368", "rac1.menu.equipped_preview.update"},
     {"FUN_002269c0", "rac1.save.prepare"},
     {"FUN_00226b08", "rac1.save.new_game_plus"},
+    {"FUN_002386e8", "rac1.vendor.draw_icons"},
+    {"FUN_002389e0", "rac1.vendor.draw_details"},
     {"FUN_0023a2c0", "rac1.moby.quad_moby.update"},
     {"FUN_0023ab78", "rac1.moby.class_676.update"},
     {"FUN_L00_00203908", "rac1.help.request"},
@@ -2265,8 +2384,10 @@ static const openrac_script_alias k_aliases[2089] = {
     {"FUN_L00_0025a420", "rac1.combat.get_hit"},
     {"FUN_L00_002607d0", "rac1.planet.unlock"},
     {"FUN_L00_00260860", "rac1.item.give"},
+    {"FUN_L00_00266448", "rac1.npc.try_dialog"},
     {"FUN_L00_0028e9c8", "rac1.ship.init_transition"},
     {"FUN_L00_0028ed58", "rac1.ship.travel_to"},
+    {"FUN_L00_00298840", "rac1.pickup.start_scene"},
     {"FUN_L00_0029a400", "rac1.vendor.build_item_list"},
     {"FUN_L00_0029a6b0", "rac1.vendor.open_menu"},
     {"FUN_L00_0029b680", "rac1.vendor.initialize_selected"},
@@ -2339,6 +2460,7 @@ static const openrac_script_alias k_aliases[2089] = {
     {"FUN_L00_002e3d88", "rac1.moby.fx_group.update"},
     {"FUN_L00_002e6000", "rac1.camera.follow.apply_overrides"},
     {"FUN_L01_00228870", "rac1.player.update"},
+    {"FUN_L01_002aea70", "rac1.gold_case.start_demo"},
     {"FUN_L01_002b9eb0", "rac1.moby.path_platform.update"},
     {"FUN_L01_002bd100", "rac1.moby.particle_emitter.update"},
     {"FUN_L01_002c7530", "rac1.moby.moby156.update"},
@@ -2916,6 +3038,7 @@ static const openrac_script_alias k_aliases[2089] = {
     {"FollowCamera_ApplyOverrides", "rac1.camera.follow.apply_overrides"},
     {"GoldBolts_CountCollected", "rac1.gold_bolt.count_collected"},
     {"GoldBolts_CountUnspent", "rac1.gold_bolt.count_unspent"},
+    {"GoldCase_StartDemo", "rac1.gold_case.start_demo"},
     {"Help_Request", "rac1.help.request"},
     {"Hero_AdvanceAnimation", "rac1.player.advance_animation"},
     {"Hero_ApproachSpeed", "rac1.player.approach_speed"},
@@ -3583,7 +3706,9 @@ static const openrac_script_alias k_aliases[2089] = {
     {"Moby_WhiteFlower_Update", "rac1.moby.break_on_hit_l02.update"},
     {"Moby_WoodcutBot_Update", "rac1.moby.wb_moby.update"},
     {"Moby_Wrench_Update", "rac1.moby.wrench.update"},
+    {"NPC_TryDialog", "rac1.npc.try_dialog"},
     {"Pad_ProcessReport", "rac1.pad.process_report"},
+    {"Pickup_StartScene", "rac1.pickup.start_scene"},
     {"Planet_Unlock", "rac1.planet.unlock"},
     {"Save_NewGame", "rac1.save.new_game"},
     {"Save_NewGamePlus", "rac1.save.new_game_plus"},
@@ -3595,7 +3720,11 @@ static const openrac_script_alias k_aliases[2089] = {
     {"Save_UpdateState", "rac1.save.update_state"},
     {"Ship_InitTransition", "rac1.ship.init_transition"},
     {"Ship_TravelTo", "rac1.ship.travel_to"},
+    {"UI_DrawSprite", "rac1.ui.sprite.draw"},
+    {"UI_IconFrame", "rac1.ui.icon_frame"},
     {"Vendor_BuildItemList", "rac1.vendor.build_item_list"},
+    {"Vendor_DrawDetails", "rac1.vendor.draw_details"},
+    {"Vendor_DrawIcons", "rac1.vendor.draw_icons"},
     {"Vendor_InitLevelStock", "rac1.vendor.init_level_stock"},
     {"Vendor_InitializeSelected", "rac1.vendor.initialize_selected"},
     {"Vendor_MenuUpdate", "rac1.vendor.menu_update"},
@@ -3606,6 +3735,8 @@ static const openrac_script_alias k_aliases[2089] = {
     {"Weapon_Ryno_PickTarget", "rac1.weapon.ryno.pick_target"},
     {"Weapon_TakeAmmo", "rac1.weapon.take_ammo"},
     {"func_001FE540", "rac1.text.msg_string"},
+    {"func_00200198", "rac1.ui.icon_frame"},
+    {"func_00200468", "rac1.ui.sprite.draw"},
     {"func_00209CE8", "rac1.save.restore"},
     {"func_00209DC0", "rac1.save.new_game"},
     {"func_00209E68", "rac1.save.update_state"},
@@ -3632,6 +3763,8 @@ static const openrac_script_alias k_aliases[2089] = {
     {"func_002255F8", "rac1.menu.equipped_preview.update"},
     {"func_00227C78", "rac1.save.prepare"},
     {"func_00227DB0", "rac1.save.new_game_plus"},
+    {"func_00239A00", "rac1.vendor.draw_icons"},
+    {"func_00239CF8", "rac1.vendor.draw_details"},
     {"func_0023BF48", "rac1.moby.class_676.update"},
     {"func_L00_00203F20", "rac1.help.request"},
     {"func_L00_002056D8", "rac1.player.take_damage"},
@@ -3653,8 +3786,10 @@ static const openrac_script_alias k_aliases[2089] = {
     {"func_L00_0025B478", "rac1.combat.get_hit"},
     {"func_L00_00261848", "rac1.planet.unlock"},
     {"func_L00_002618D8", "rac1.item.give"},
+    {"func_L00_00267290", "rac1.npc.try_dialog"},
     {"func_L00_0028FCA0", "rac1.ship.init_transition"},
     {"func_L00_00290030", "rac1.ship.travel_to"},
+    {"func_L00_00299B68", "rac1.pickup.start_scene"},
     {"func_L00_0029B770", "rac1.vendor.build_item_list"},
     {"func_L00_0029BA20", "rac1.vendor.open_menu"},
     {"func_L00_0029C9E8", "rac1.vendor.initialize_selected"},
@@ -3728,6 +3863,7 @@ static const openrac_script_alias k_aliases[2089] = {
     {"func_L00_002E5238", "rac1.moby.fx_group.update"},
     {"func_L00_002E74B0", "rac1.camera.follow.apply_overrides"},
     {"func_L01_00228E08", "rac1.player.update"},
+    {"func_L01_002AFD00", "rac1.gold_case.start_demo"},
     {"func_L01_002BB068", "rac1.moby.path_platform.update"},
     {"func_L01_002BE2C8", "rac1.moby.particle_emitter.update"},
     {"func_L01_002C8740", "rac1.moby.moby156.update"},
@@ -8365,8 +8501,8 @@ static const openrac_script_class k_classes[224] = {
 };
 static const openrac_script_moby k_moby = {0xA6u, OPENRAC_SV_I16, 0x78u, 224, k_classes};
 static const openrac_script_binding k_binding = {
-    "rac1", 2, k_discs, 695, k_points, 7, k_fields, &k_moby,
-    2089, k_aliases,
+    "rac1", 2, k_discs, 702, k_points, 7, k_fields, &k_moby,
+    2110, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

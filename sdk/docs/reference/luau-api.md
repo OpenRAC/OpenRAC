@@ -535,6 +535,62 @@ rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts 
 type GoldBolts_CountUnspentFn = () -> number
 ```
 
+### `Vendor_DrawIconsFn`
+
+rac1.vendor.draw_icons (Vendor_DrawIcons) void(): Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.
+
+```lua
+type Vendor_DrawIconsFn = () -> ()
+```
+
+### `Vendor_DrawDetailsFn`
+
+rac1.vendor.draw_details (Vendor_DrawDetails) void(): Draws the vendor selected-item name and price panel.
+
+```lua
+type Vendor_DrawDetailsFn = () -> ()
+```
+
+### `UI_IconFrameFn`
+
+rac1.ui.icon_frame (UI_IconFrame) i32(i32,i32): Resolves an icon and animation frame to its HUD sprite frame.
+
+```lua
+type UI_IconFrameFn = (icon: number, frame: number) -> number
+```
+
+### `NPC_TryDialogFn`
+
+rac1.npc.try_dialog (NPC_TryDialog) i32(u32,u32): Tests an NPC interaction request; identifies the owner of a purchase dialogue.
+
+```lua
+type NPC_TryDialogFn = (moby: number, request: number) -> number
+```
+
+### `UI_DrawSpriteFn`
+
+rac1.ui.sprite.draw (UI_DrawSprite) void(i32,i32,i32,i32,i32,i32): Draws a HUD sprite as one packed GIF packet.
+
+```lua
+type UI_DrawSpriteFn = (frame: number, x: number, y: number, width: number, height: number, alpha: number) -> ()
+```
+
+### `Pickup_StartSceneFn`
+
+rac1.pickup.start_scene (Pickup_StartScene) void(i32): Reward acquisition presentation.
+
+```lua
+type Pickup_StartSceneFn = (scene: number) -> ()
+```
+
+### `GoldCase_StartDemoFn`
+
+rac1.gold_case.start_demo (GoldCase_StartDemo) void(u32,i32): Reward acquisition presentation.
+
+```lua
+type GoldCase_StartDemoFn = (moby: number, item: number) -> ()
+```
+
 ### `MobyUpdateFn`
 
 rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.

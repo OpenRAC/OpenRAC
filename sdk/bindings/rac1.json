@@ -796,6 +796,101 @@
         "ntsc": "FUN_00215248"
       },
       "about": "Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership."
+    },
+    {
+      "id": "rac1.vendor.draw_icons",
+      "name": "Vendor_DrawIcons",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_00239A00",
+        "ntsc": "FUN_002386e8"
+      },
+      "about": "Draws the vendor carousel icons; mods may change reward icons without changing purchase rows."
+    },
+    {
+      "id": "rac1.vendor.draw_details",
+      "name": "Vendor_DrawDetails",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_00239CF8",
+        "ntsc": "FUN_002389e0"
+      },
+      "about": "Draws the vendor selected-item name and price panel."
+    },
+    {
+      "id": "rac1.ui.icon_frame",
+      "name": "UI_IconFrame",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "icon",
+        "frame"
+      ],
+      "symbols": {
+        "pal": "func_00200198",
+        "ntsc": "FUN_001ff960"
+      },
+      "about": "Resolves an icon and animation frame to its HUD sprite frame."
+    },
+    {
+      "id": "rac1.npc.try_dialog",
+      "name": "NPC_TryDialog",
+      "signature": "i32(u32,u32)",
+      "params": [
+        "moby",
+        "request"
+      ],
+      "symbols": {
+        "pal": "func_L00_00267290",
+        "ntsc": "FUN_L00_00266448"
+      },
+      "about": "Tests an NPC interaction request; identifies the owner of a purchase dialogue."
+    },
+    {
+      "id": "rac1.ui.sprite.draw",
+      "name": "UI_DrawSprite",
+      "signature": "void(i32,i32,i32,i32,i32,i32)",
+      "params": [
+        "frame",
+        "x",
+        "y",
+        "width",
+        "height",
+        "alpha"
+      ],
+      "symbols": {
+        "pal": "func_00200468",
+        "ntsc": "FUN_001ffc30"
+      },
+      "about": "Draws a HUD sprite as one packed GIF packet."
+    },
+    {
+      "id": "rac1.pickup.start_scene",
+      "name": "Pickup_StartScene",
+      "signature": "void(i32)",
+      "params": [
+        "scene"
+      ],
+      "symbols": {
+        "pal": "func_L00_00299B68",
+        "ntsc": "FUN_L00_00298840"
+      },
+      "about": "Reward acquisition presentation."
+    },
+    {
+      "id": "rac1.gold_case.start_demo",
+      "name": "GoldCase_StartDemo",
+      "signature": "void(u32,i32)",
+      "params": [
+        "moby",
+        "item"
+      ],
+      "symbols": {
+        "pal": "func_L01_002AFD00",
+        "ntsc": "FUN_L01_002aea70"
+      },
+      "about": "Reward acquisition presentation."
     }
   ],
   "bases": {
