@@ -271,6 +271,59 @@ void check_cycles(const fs::path& root) {
     CHECK(disk().size() == 2);
 }
 
+// Textures made anew each tick are found live and not dumped; a cycle and slow changes are not.
+void check_live(const fs::path& root) {
+    using texture_pack::LiveWatch;
+    LiveWatch watch;
+    std::uint64_t tick = 100;
+    // A new texture every tick: live at the kLiveTicks-th, which gives back all the earlier ones.
+    for (std::uint64_t hash = 1; hash < LiveWatch::kLiveTicks; ++hash) {
+        const auto seen = watch.see(1, hash, ++tick);
+        CHECK(!seen.live && seen.undump.empty());
+    }
+    auto seen = watch.see(1, 1000, ++tick);
+    CHECK(seen.live && seen.undump.size() == LiveWatch::kLiveTicks);
+    seen = watch.see(1, 1001, tick += 2);
+    CHECK(seen.live && seen.undump.empty());
+    // After a pause the place is watched afresh.
+    CHECK(!watch.see(1, 1002, tick += LiveWatch::kMaxGap + 1).live);
+
+    bool any = false;
+    // A cycle's frames come back (made again after being dropped): only its new ones count.
+    for (int round = 0; round < 20; ++round) {
+        for (std::uint64_t hash = 1; hash <= 32; ++hash) {
+            any = any || watch.see(2, hash, tick += 2).live;
+        }
+    }
+    // New textures, but slower than kMaxGap apart (a menu's pages).
+    for (std::uint64_t hash = 1; hash < 200; ++hash) {
+        any = any || watch.see(3, hash, tick += LiveWatch::kMaxGap + 1).live;
+    }
+    // Many new textures in one tick (a menu opening) count once.
+    for (std::uint64_t hash = 1; hash < 200; ++hash) {
+        any = any || watch.see(4, hash, tick).live;
+    }
+    CHECK(!any);
+
+    // Not dumped with `dump` false; undump() takes back what this run wrote.
+    disk().clear();
+    texture_pack::configure({}, root / "live", {load, save, nullptr});
+    auto image = solid(2, 2, 7);
+    CHECK(!texture_pack::replace(image, {.interface = true, .dump = false}) && disk().empty());
+    CHECK(!texture_pack::replace(image, {.interface = true}) && disk().size() == 1);
+    const std::uint64_t hash = texture_pack::image_hash(image);
+    texture_pack::undump(std::span(&hash, 1));
+    // Forgotten: met again, it is written again.
+    disk().clear();
+    CHECK(!texture_pack::replace(image, {.interface = true}) && disk().size() == 1);
+    // A held texture that settled is dumped once, by its own hash.
+    disk().clear();
+    texture_pack::undump(std::span(&hash, 1));
+    texture_pack::dump_picture(image, {.interface = true});
+    texture_pack::dump_picture(image, {.interface = true});
+    CHECK(disk().size() == 1 && disk().contains("Interface/" + texture_pack::file_name(hash)));
+}
+
 }  // namespace
 
 // Fake KTX2 and SVG readers: a KTX2 is red 100, with one level of blocks in the format asked, an
@@ -558,6 +611,7 @@ int main() {
     check_folders(pack / "folders");
     check_animated_pack(pack);
     check_cycles(pack);
+    check_live(pack);
     fs::remove_all(pack);
     return test::result();
 }

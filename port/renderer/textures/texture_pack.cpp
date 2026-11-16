@@ -62,6 +62,7 @@ struct State {
     fs::path dump;
     LevelNamer level_name = nullptr;
     std::unordered_map<std::uint64_t, fs::path> dumped;  // where each dumped texture lies, by hash
+    std::set<std::uint64_t> written;  // the dumped textures this run wrote (undump())
     std::set<std::uint64_t> grouped;  // first hashes of the cycles written under Animated/
     unsigned replaced = 0;
     // preload()'s thread, last so that it stops before the rest goes; `reading` while it works.
@@ -241,6 +242,7 @@ void dump(State& s, std::uint64_t hash, const Rgba8Image& image, const Origin& o
             log::warn("texture {} could not be dumped", file_name(hash));
         }
         s.dumped.emplace(hash, file);
+        s.written.insert(hash);
         return;
     }
     // A level's texture dumped under another planet is shared: it moves to Shared/.
@@ -529,6 +531,7 @@ void configure(const fs::path& pack, const fs::path& dump, Io io, LevelNamer lev
     s.pack = pack;
     ++s.generation;
     s.dumped.clear();
+    s.written.clear();
     s.grouped.clear();
     s.replaced = 0;
     s.dump = dump;
@@ -595,7 +598,7 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
     if (found_out != nullptr) {
         *found_out = Replacement{hash, nullptr, nullptr};
     }
-    if (!s.dump.empty() && s.io.save != nullptr) {
+    if (!s.dump.empty() && s.io.save != nullptr && origin.dump) {
         dump(s, hash, image, origin);
     }
     // An animation comes before a still picture of the same hash.
@@ -1022,6 +1025,57 @@ void dump_animated(
         written.size(),
         folder.string()
     );
+}
+
+void dump_picture(const Rgba8Image& image, const Origin& origin) {
+    State& s = state();
+    const std::lock_guard guard(s.lock);
+    if (!s.dump.empty() && s.io.save != nullptr && !image.pixels.empty()) {
+        dump(s, image_hash(image), image, origin);
+    }
+}
+
+void undump(std::span<const std::uint64_t> hashes) {
+    State& s = state();
+    const std::lock_guard guard(s.lock);
+    for (const std::uint64_t hash : hashes) {
+        const auto found = s.dumped.find(hash);
+        if (s.written.erase(hash) == 0 || found == s.dumped.end()) {
+            continue;
+        }
+        std::error_code e;
+        fs::remove(found->second, e);
+        s.dumped.erase(found);
+    }
+}
+
+LiveWatch::Seen LiveWatch::see(std::uint64_t place, std::uint64_t hash, std::uint64_t tick) {
+    Place& at = m_places[place];
+    // A pause: what came before is forgotten (a tick counted back, as after a load, is one too).
+    if (at.ticks != 0 && (tick < at.last_tick || tick - at.last_tick > kMaxGap)) {
+        at = Place{};
+    }
+    Seen seen;
+    if (at.live) {
+        at.last_tick = tick;
+        seen.live = true;
+        return seen;
+    }
+    // One shown before in this run: a cycle's frame again, made again after it was dropped.
+    if (!at.hashes.insert(hash).second) {
+        return seen;
+    }
+    if (at.ticks == 0 || tick != at.last_tick) {
+        ++at.ticks;
+    }
+    at.last_tick = tick;
+    if (at.ticks >= kLiveTicks) {
+        at.live = true;
+        seen.live = true;
+        seen.undump.assign(at.hashes.begin(), at.hashes.end());
+        at.hashes.clear();
+    }
+    return seen;
 }
 
 std::optional<std::vector<std::uint64_t>> CycleWatch::see(

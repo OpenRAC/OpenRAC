@@ -317,6 +317,10 @@ private:
         std::uint64_t last_used = 0;
         Key key{};
         std::uint64_t pack_hash = 0;  // its texture pack hash (texture_pack::Replacement), or 0
+        // Not dumped yet, as LiveWatch held it back on tick `held_tick`: dumped if it is still
+        // drawn a while later (it settled, as a fade's last picture does).
+        std::shared_ptr<const Rgba8Image> held;
+        std::uint64_t held_tick = 0;
         // An animated replacement's frames (animate()): GL textures of frames past the first
         // (frame_gl[i - 1] is frame i; 0 until drawn) and the tick its clock started at.
         std::shared_ptr<const texture_pack::Animation> animation;
@@ -392,6 +396,7 @@ private:
     // only while textures are dumped (texture_pack::dumping).
     std::unordered_map<std::uint64_t, std::pair<std::uint64_t, unsigned>> m_slot_turns;
     texture_pack::CycleWatch m_cycles;
+    texture_pack::LiveWatch m_live;  // uploads the game makes anew each tick: not dumped
     std::unordered_map<std::uint64_t, TextureHandle> m_distance_fields;  // by the source's content
     // The field last given for a handle, with a sample of its texels (distance_field).
     std::unordered_map<TextureHandle, std::pair<std::uint64_t, TextureHandle>> m_field_of_handle;
