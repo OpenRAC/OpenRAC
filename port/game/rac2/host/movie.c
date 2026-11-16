@@ -40,8 +40,9 @@ void func_00127220(gaddr channel, gaddr tag);
  * the tick's list. */
 static void movie_overlay(const uint8_t* rgba, int width, int height) {
     const gaddr list = (gaddr)(FMV_GS_BASE + 0x1C81C0);
-    /* The texture the list's sprites read is 512 x 512 (TEX0's TW and TH): the rows under the
-     * picture are black, as nothing is drawn there. */
+    /* The list's sprites read the top left 512 x 512 of a 1024 x 1024 texture (TEX0's TW and
+     * TH, from BuildAspectBlitStrips): the picture is put there that size, the rows under it
+     * black, as nothing is drawn there. */
     static uint8_t pixels[512 * 512 * 4];
     const openrac_game_image picture = {FMV_FRAME_TBP >> 8, 8, 0, 0, 0, 512, 512, 0};
 
