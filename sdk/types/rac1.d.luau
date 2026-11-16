@@ -66,7 +66,7 @@ type HookPoint =
     | "rac1.text.msg_string"
     | "rac1.vendor.open_menu"
     | "rac1.gold_bolt.count_unspent"
-    | "rac1.vendor.draw_icons"
+    | "rac1.vendor.icon_strip.draw"
     | "rac1.vendor.draw_details"
     | "rac1.ui.icon_frame"
     | "rac1.npc.try_dialog"
@@ -1401,7 +1401,7 @@ type HookPoint =
     | "UI_IconFrame"
     | "Vendor_BuildItemList"
     | "Vendor_DrawDetails"
-    | "Vendor_DrawIcons"
+    | "Vendor_DrawIconStrip"
     | "Vendor_InitLevelStock"
     | "Vendor_InitializeSelected"
     | "Vendor_MenuUpdate"
@@ -1544,8 +1544,8 @@ type msg_stringFn = (id: number) -> number
 type Vendor_OpenMenuFn = (moby: number) -> ()
 -- rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership.
 type GoldBolts_CountUnspentFn = () -> number
--- rac1.vendor.draw_icons (Vendor_DrawIcons) void(): Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.
-type Vendor_DrawIconsFn = () -> ()
+-- rac1.vendor.icon_strip.draw (Vendor_DrawIconStrip) void(): Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+type Vendor_DrawIconStripFn = () -> ()
 -- rac1.vendor.draw_details (Vendor_DrawDetails) void(): Draws the vendor selected-item name and price panel.
 type Vendor_DrawDetailsFn = () -> ()
 -- rac1.ui.icon_frame (UI_IconFrame) i32(i32,i32): Resolves an icon and animation frame to its HUD sprite frame.

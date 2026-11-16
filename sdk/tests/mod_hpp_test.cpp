@@ -910,6 +910,29 @@ void fill_17(openrac_api &api) {
   };
 }
 
+// The fake host's 1.18 prop_attach: what it was asked last.
+std::string g_18;
+
+void fill_18(openrac_api &api) {
+  api.prop_attach = [](openrac_mod *, int id, std::int32_t slot,
+                       std::int32_t joint, std::uint32_t flags,
+                       const float offset[16]) {
+    g_18 = std::to_string(id) + " " + std::to_string(slot) + " " +
+           std::to_string(joint) + " " + std::to_string(flags) +
+           (offset != nullptr ? " offset" : "");
+    return slot >= 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.prop_frame = [](openrac_mod *, int id, float out[16]) {
+    if (id != 2) {
+      return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (int i = 0; i < 16; ++i) {
+      out[i] = static_cast<float>(i);
+    }
+    return OPENRAC_HOOK_OK;
+  };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -1899,6 +1922,26 @@ int main() {
       api.api_minor = 16;
       CHECK(!mod.has_collision_line() && !mod.collision_line(from, to, hit) &&
             hit.hit == 0);
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.18: a prop fixed to a joint, or to the hero's attach point.
+    {
+      fill_18(api);
+      const float offset[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+      CHECK(mod.has_prop_attach() && mod.prop_attach(2, 3, 5) &&
+            g_18 == "2 3 5 0");
+      CHECK(mod.prop_attach(2, 3, 1, OPENRAC_ATTACH_HELD, offset) &&
+            g_18 == "2 3 1 1 offset");
+      CHECK(!mod.prop_attach(2, -1, 5));
+      float frame[16] = {};
+      CHECK(mod.prop_frame(2, frame) && frame[12] == 12.0f);
+      CHECK(!mod.prop_frame(3, frame));
+
+      // A port of 1.17 has none of it.
+      g_18.clear();
+      api.api_minor = 17;
+      CHECK(!mod.has_prop_attach() && !mod.prop_attach(2, 3, 5) &&
+            g_18.empty() && !mod.prop_frame(2, frame));
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);

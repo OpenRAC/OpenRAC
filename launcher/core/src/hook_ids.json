@@ -694,7 +694,7 @@
    "UI_IconFrame": "rac1.ui.icon_frame",
    "Vendor_BuildItemList": "rac1.vendor.build_item_list",
    "Vendor_DrawDetails": "rac1.vendor.draw_details",
-   "Vendor_DrawIcons": "rac1.vendor.draw_icons",
+   "Vendor_DrawIconStrip": "rac1.vendor.icon_strip.draw",
    "Vendor_InitLevelStock": "rac1.vendor.init_level_stock",
    "Vendor_InitializeSelected": "rac1.vendor.initialize_selected",
    "Vendor_MenuUpdate": "rac1.vendor.menu_update",

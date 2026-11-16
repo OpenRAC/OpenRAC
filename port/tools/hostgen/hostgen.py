@@ -141,37 +141,6 @@ def read_hand(config_dir: Path, cfg: dict) -> dict[str, str]:
     return read_table_of_c(config_dir / table)
 
 
-def read_primary_hand(config_dir: Path, cfg: dict) -> dict[str, str]:
-    """The primary release's hand C, for another release (hostgen.json "primary_hand": the primary's
-    hand table, relative to this configuration): written in the primary's names, so each text and
-    each name is renamed through the release view, as the decompilation's own candidates are. One
-    file of C then serves every release of the game (rac2's hand-written assembly: port/game/rac2-ntsc/
-    hand). A release's own "hand" row for the same function wins."""
-    table = cfg.get("primary_hand")
-    if not table or RELEASE is None or not (config_dir / table).is_file():
-        return {}
-    # Names the release view has no value for (a global no placed C uses), paired by hand:
-    # release/hand_names.tsv beside the configuration, "v1.01 name<TAB>release name<TAB>evidence".
-    extra: dict[str, str] = {}
-    pairs = config_dir / "release" / "hand_names.tsv"
-    if pairs.is_file():
-        for line in pairs.read_text().splitlines():
-            row = line.split("\t")
-            if line.strip() and not line.startswith("#") and len(row) >= 3 and row[2].strip():
-                extra[row[0].strip()] = row[1].strip()
-    word = re.compile(r"\b(" + "|".join(map(re.escape, extra)) + r")\b") if extra else None
-    texts: dict[int, str] = {}
-    out: dict[str, str] = {}
-    for name, c in read_table_of_c(config_dir / table).items():
-        if id(c) not in texts:
-            # The view leaves a name it has no value for as it is; the hand pairs then rename it
-            # (after the view, which would take the release's name for a v1.01 one).
-            text = RELEASE.text(c)
-            texts[id(c)] = word.sub(lambda m: extra[m.group(1)], text) if word else text
-        out[RELEASE.name(name)] = texts[id(c)]
-    return out
-
-
 def read_overrides(config_dir: Path, cfg: dict) -> dict[str, str]:
     """The port's own C for functions the decompilation has as matching C (hostgen.json
     "overrides": a table beside the game's configuration, files relative to it, as "hand"): what
@@ -558,7 +527,8 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
     for overlay in sorted(code_tables):
         name = "exe" if overlay < 0 else f"overlay_{overlay:02d}"
         fn.append(f"static const openrac_fn_entry k_{name}[] = {{")
-        for addr, sym in sorted(code_tables[overlay]):
+        # In the tables' order: the runtime keeps the first of two functions at one address.
+        for addr, sym in code_tables[overlay]:
             fn.append(f"    {{0x{addr:08X}u, (openrac_host_fn){cname(sym)}, \"{sym}\"}},")
         fn.append("};")
         fn.append("")
@@ -949,15 +919,13 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
                     if p.is_file() and p.suffix in (".json", ".tsv", ".c", ".h", ".txt", ".inc"))
     paths += [config.parent / cfg.get("library_api", "../common/libraries.tsv"), HERE / "include"]
     paths += sorted((config.parent.parent / str(cfg.get("game", "")) / "host").glob("*.c"))
-    for key in ("libraries", "hand", "primary_hand", "assembly_allow", "result_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
+    for key in ("libraries", "hand", "assembly_allow", "result_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
-    if cfg.get("primary_hand") and (config.parent / "release" / "hand_names.tsv").is_file():
-        paths.append(config.parent / "release" / "hand_names.tsv")
     if cfg.get("drafts"):
         paths.append(config.parent / cfg["drafts"]["units"])
     # Hand/override tables may name C outside the configuration's own directory.
-    for key in ("hand", "primary_hand", "overrides"):
+    for key in ("hand", "overrides"):
         if cfg.get(key):
             table = config.parent / cfg[key]
             if table.is_file():
@@ -1149,7 +1117,7 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
         # end, a program of its own) are its file's.
         texts = {id(c): RELEASE.text(c, files.get(name)) for name, c in decomp.items()}
         decomp = {RELEASE.text(name, files.get(name)): texts[id(c)] for name, c in decomp.items()}
-    candidates = {**decomp, **read_primary_hand(args.game.parent, cfg), **read_hand(args.game.parent, cfg)}
+    candidates = {**decomp, **read_hand(args.game.parent, cfg)}
     # A candidate for a function the port writes itself (libraries.tsv host rows, "host_functions")
     # is not read: the port's version replaces the function, and what the candidate's file defines
     # besides is dead (rac1/pal's DIntr, func_0011D960, keeps the interrupt enable bit in a global
@@ -1212,6 +1180,7 @@ def override_problems(root: Path, replacements: dict, overridden: set[str]) -> l
 def new_program(cfg: dict, source: Path) -> Program:
     """The program's names, groups and symbol tables, read before any unit."""
     program = Program()
+    program.release_view = RELEASE is not None
     program.set_names(cfg["names"].get("code"), cfg["names"].get("data"))
     program.groups = cfg["groups"]
     program.expanded_target_table_addresses = {
@@ -1292,7 +1261,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         for row in rows:
             m = own.fullmatch(row[0])
             if m is None and RELEASE is not None:
-                # A shared row, in the release's name: v2.00's func_002C00F0 (its func_002C1010, named after
+                # A shared row, in the release's name: a release's func_002C00F0 (its func_002C1010, named after
                 # the fill word in front) is entered at 0x002C1018, which its callers' func_002C1018 spells.
                 m = shared.fullmatch(RELEASE.name(row[0]))
             if m is not None and int(m.group(1), 16) != int(row[1], 16):
@@ -1543,12 +1512,24 @@ def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
             c = spelling.get(c, c)
             if c in asm and c != caller:
                 reached.setdefault(c, set()).add(caller)
-    # A function translated from assembly is its assembly, reached or not: the disc's part.
+    # A function translated from assembly is its assembly, reached or not: the disc's part, in the
+    # report. Only a reached one fails, as without the disc: rac1's disc build translates 260 that
+    # no translated code reaches, which a build without it never sees.
     for name in summary.get("from_assembly", {}):
         reached.setdefault(name, set())
+    # A row stands for its code place: two names of one place (a release's catalogue name and a
+    # reference into it) are one function, whichever of them the calls use in a build.
+    def places(n: str) -> set:
+        return {same_place(n)} | {tuple(pl) for pl in summary["without_c_places"].get(n, {}).get("places", [])}
+    allowed = set().union(*(places(n) for n in allow))
+    reached_at = set().union(*(places(n) for n in reached))
+    # A row goes once its function has C. One still without it stays, reached or not here: a build
+    # without the disc has no assembly to translate, so a call from the release's own assembly, or
+    # to a stub of no C, does not show.
+    without_c = set().union(*(places(n) for n in summary["without_c_places"]))
     return {"assembly_reached": {n: sorted(v) for n, v in sorted(reached.items())},
-            "assembly_unallowed": sorted(n for n in reached if n not in allow),
-            "assembly_allow_unused": sorted(n for n in allow if n not in reached)}
+            "assembly_unallowed": sorted(n for n, by in reached.items() if by and not places(n) & allowed),
+            "assembly_allow_unused": sorted(n for n in allow if not places(n) & (reached_at | without_c))}
 
 
 def extern_result_mismatch(fns) -> dict:
@@ -1568,6 +1549,15 @@ def extern_result_mismatch(fns) -> dict:
             v.sort()
         e["used_by"].sort()
     return dict(sorted(out.items()))
+
+
+# Two spellings of one place (a release view's FUN_<place> and func_<place>): one function to the
+# allow tables, so a row survives the table's choice of spelling.
+_SPELLING = re.compile(r"^(?:F[0-9a-f]+_)?FUN_")
+
+
+def same_place(name: str) -> str:
+    return _SPELLING.sub("func_", name)
 
 
 def read_result_allow(config_dir: Path, cfg: dict) -> dict[tuple[str, str], str]:
@@ -1595,8 +1585,11 @@ def result_guard(summary: dict, allow: dict[tuple[str, str], str]) -> dict:
     reason the 0 is right, or the callee's real type (hand C, an "asm" "signatures" entry); main()
     fails the run on any other."""
     zeroed = {(caller, callee) for caller, callees in summary.get("results_zeroed", {}).items() for callee in callees}
-    return {"results_zeroed_unallowed": sorted(f"{a}\t{b}" for a, b in zeroed if (a, b) not in allow),
-            "result_allow_unused": sorted(f"{a}\t{b}" for a, b in allow if (a, b) not in zeroed)}
+    allowed = {(same_place(a), same_place(b)) for a, b in allow}
+    seen = {(same_place(a), same_place(b)) for a, b in zeroed}
+    return {"results_zeroed_unallowed": sorted(f"{a}\t{b}" for a, b in zeroed
+                                               if (same_place(a), same_place(b)) not in allowed),
+            "result_allow_unused": sorted(f"{a}\t{b}" for a, b in allow if (same_place(a), same_place(b)) not in seen)}
 
 
 def stop_for_unreadable_units(reports: list[UnitReport], allow_unreadable: bool) -> bool:

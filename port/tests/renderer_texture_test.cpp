@@ -849,6 +849,57 @@ void thin_glyph_marks() {
     CHECK(!inside(1, 3) && !inside(5, 3) && !inside(8, 9) && !inside(12, 9));
 }
 
+// A movie's picture (set_picture): one texture at its block, refilled in place each frame, kept
+// while it is shown and read only by a draw that samples it whole.
+void pictures() {
+    TexturePool textures;
+    const gs::Texa texa{0, false, 0x80};
+    std::vector<std::uint8_t> pixels(4 * 4 * 4, 7);
+    // What the game uploaded there before is not what the memory holds once a picture is put.
+    textures.upload(upload(0x700, gs::kPsmct32, 4, 4, std::vector<std::uint8_t>(64, 1)));
+    textures.set_picture(0x700, 1, 4, 4, pixels);
+    CHECK(textures.picture_at(0x700));
+    const TextureHandle first = textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa);
+    CHECK(first != textures.placeholder());
+    CHECK(textures.image(first).texel(0, 0) == rgba(7, 7, 7, 7));
+    CHECK(textures.alpha_scale(first) == AlphaScale::Gs);
+
+    // The next frame: the same texture with the new texels, and no texture more.
+    const std::size_t count = textures.size();
+    pixels[0] = 200;
+    textures.set_picture(0x700, 1, 4, 4, pixels);
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa) == first);
+    CHECK(textures.image(first).texel(0, 0) == rgba(200, 7, 7, 7));
+    CHECK(textures.size() == count);
+
+    // A bigger texture at that block, as wide a buffer, holds the picture in its top left (Going
+    // Commando's movie strips read 1024 x 1024 over its 512 x 512 picture): the picture's texture,
+    // the draw's coordinates scaled to it.
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 3, 4), texa) == first);
+    CHECK(textures.uv_scale(first)[0] == 2.0f && textures.uv_scale(first)[1] == 4.0f);
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa) == first);
+    CHECK(textures.uv_scale(first)[0] == 1.0f && textures.uv_scale(first)[1] == 1.0f);
+
+    // Another view of that memory is not the picture: another format, another buffer width, or
+    // less than the picture.
+    gs::Tex0 other_width = tex0(0x700, gs::kPsmct32, 3, 3);
+    other_width.tbw = 2;
+    CHECK(textures.resolve(other_width, texa) == textures.placeholder());
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmt8, 2, 2), texa) == textures.placeholder());
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 1, 2), texa) == textures.placeholder());
+
+    // Kept while it is not drawn (a paused movie), unlike a converted upload.
+    for (std::uint32_t i = 0; i < TexturePool::kKeepFrames * 2; ++i) {
+        textures.end_frame();
+    }
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa) == first);
+
+    // Forgotten when the movie ends: the memory is the game's again.
+    textures.forget_picture(0x700);
+    CHECK(!textures.picture_at(0x700));
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa) == textures.placeholder());
+}
+
 int main() {
     pcsx2_texture_pack();
     direct_colour();
@@ -864,5 +915,6 @@ int main() {
     inside_and_loaded();
     cached_uploads();
     particle_pass_cache();
+    pictures();
     return openrac::test::result();
 }

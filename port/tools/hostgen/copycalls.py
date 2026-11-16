@@ -28,6 +28,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import release  # noqa: E402
 
 
 def elf_sections(path: Path) -> list[tuple[int, bytes]]:
@@ -81,18 +82,17 @@ class Layout:
     """Where a release's catalogues and dumps are, and its names (release.py): v1.01's by default."""
 
     def __init__(self, source: Path, version: str = "us", table: Path | None = None):
-        import release
-        info = release.RELEASES[version]
+        info = release.RAC2_RELEASES[version]
         self.levels = source / info["config"] / "levels/functions.tsv"
         self.boot = source / info["config"] / "boot/functions.tsv"
         self.baserom = source / info["baserom"]
-        self.exe = self.baserom / {"us": "SCUS_972.68", "pal": "SCES_516.07", "us2": "SCUS_972.68"}[version]
+        self.exe = self.baserom / release.EXECUTABLES[version]
         self.name = release.Release.load(table).name if table else (lambda n: n)
         # v1.01's name of each of the release's names, and v1.01's executable and catalogue, for the
         # hook calls of v1.01's executable functions the release has only in its levels (primary_hooks).
         self.primary = {}
         if table and version != "us":
-            us = release.RELEASES["us"]
+            us = release.RAC2_RELEASES["us"]
             for old, new in release.Release.load(table).names.items():
                 self.primary.setdefault(new, old)
             self.primary_boot = source / us["config"] / "boot/functions.tsv"
@@ -326,7 +326,7 @@ def data_conflicts(source: Path, low: int, high: int, gp: int, layout: "Layout |
     return sorted(out)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
@@ -334,11 +334,11 @@ def main() -> int:
     parser.add_argument("--config", type=Path, help="the game's hostgen.json")
     parser.add_argument("--twins", type=Path, help="also write the level copies of the executable's "
                         "functions entered away from their name (hostgen.json \"level_twins\")")
-    parser.add_argument("--version", default="us", choices=["us", "pal", "us2"],
+    parser.add_argument("--version", default="us", choices=sorted(release.RAC2_RELEASES),
                         help="the release (its catalogues and dumps; tools/levels.py's --version)")
     parser.add_argument("--release-table", type=Path,
                         help="the release's table (release.py): the catalogues read in the release's names")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     layout = Layout(args.source, args.version, args.release_table)
     if args.twins:
         found_twins = twins(args.source, layout)

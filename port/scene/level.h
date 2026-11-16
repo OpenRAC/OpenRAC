@@ -350,8 +350,12 @@ std::optional<std::uint32_t> load_model(
     const std::filesystem::path& path, LevelData& level, std::string& error
 );
 
-bool load_preview_animation(const std::filesystem::path& path, Model& model, const char* clip,
-    const LevelData* geometry = nullptr);
+bool load_preview_animation(
+    const std::filesystem::path& path,
+    Model& model,
+    const char* clip,
+    const LevelData* geometry = nullptr
+);
 
 // A unit box, 0.5 on a side, standing on its base: what the viewer draws for
 // a moby class without a mesh.

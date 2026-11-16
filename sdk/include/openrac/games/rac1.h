@@ -195,6 +195,12 @@ typedef void (*openrac_rac1_Ship_TravelTo)(int32_t dest);
 #define OPENRAC_RAC1_SIG_Moby_CollectBolt "void(u32)"
 typedef void (*openrac_rac1_Moby_CollectBolt)(openrac_gaddr bolt);
 
+/* Vendor_DrawIconStrip (func_00239A00, rac1.vendor.icon_strip.draw): draws the vendor's item and
+ * ammunition icons. The original also advances the carousel's scrolling. */
+#define OPENRAC_RAC1_HOOK_Vendor_DrawIconStrip "Vendor_DrawIconStrip"
+#define OPENRAC_RAC1_SIG_Vendor_DrawIconStrip "void()"
+typedef void (*openrac_rac1_Vendor_DrawIconStrip)(void);
+
 /* ------------------------------------------------------------------------------------------ *
  * Taking a hook point
  * ------------------------------------------------------------------------------------------ */

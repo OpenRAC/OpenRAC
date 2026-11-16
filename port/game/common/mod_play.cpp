@@ -17,15 +17,15 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
 
 #include "common/log.h"
 #include "mod_touch.h"
-#include "openrac/guest.h"
-#include <map>
 #include "mods.h"
+#include "openrac/guest.h"
 
 // The game's calls into the mods' world (game_host.h), set while mods are loaded.
 int (*openrac_game_moby_update)(std::int32_t slot, int phase) = nullptr;
@@ -1274,6 +1274,12 @@ struct Prop {
     std::array<float, 16> matrix{};
     std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
     int blend = 0;
+    // Fixed to a moby's joint (1.18): the moby, its joint; `matrix` is the offset then.
+    gaddr attached_moby = 0;
+    int attached_joint = -1;
+    // Where the renderer drew it on that joint last (prop_frame), once it has.
+    std::array<float, 16> placed{};
+    bool was_placed = false;
 };
 
 // A sound a mod loaded: whose, and the host's id of it.
@@ -1288,18 +1294,23 @@ std::mutex g_props_lock;
 std::array<Prop, OPENRAC_PROPS_MAX> g_props;
 std::vector<std::filesystem::path> g_prop_meshes;
 unsigned g_prop_generation = 0;
+
 struct VisualSet {
     const openrac_mod* mod;
     std::uint32_t loads;
     std::vector<openrac_moby_visual> visuals;
 };
+
 std::vector<VisualSet> g_visuals;
 std::vector<int> g_visual_classes;
 unsigned g_visual_generation = 0;
 std::uint32_t g_sprite_tint = UINT32_MAX;
+
 std::uint32_t api_sprite_tint(openrac_mod* mod, std::uint32_t rgb) {
     const auto previous = g_sprite_tint;
-    if (mod) g_sprite_tint = rgb;
+    if (mod) {
+        g_sprite_tint = rgb;
+    }
     return previous;
 }
 std::vector<Sound> g_sounds;
@@ -1435,18 +1446,33 @@ Prop* own_prop(const openrac_mod* mod, int id) {
 }
 
 std::map<const openrac_mod*, std::map<std::string, openrac_gaddr>> g_guest_text;
+
 openrac_gaddr api_guest_text(openrac_mod* mod, const char* text) {
-    if (!mod || !text) return 0;
+    if (!mod || !text) {
+        return 0;
+    }
     const std::size_t length = strnlen(text, 1024);
-    if (length >= 1024) return 0;
+    if (length >= 1024) {
+        return 0;
+    }
     static std::uint64_t generation = UINT64_MAX;
     const auto now = openrac_guest_cache_generation();
-    if (generation != now) { g_guest_text.clear(); generation = now; }
+    if (generation != now) {
+        g_guest_text.clear();
+        generation = now;
+    }
     auto& strings = g_guest_text[mod];
-    if (const auto found = strings.find(text); found != strings.end()) return found->second;
+    if (const auto found = strings.find(text); found != strings.end()) {
+        return found->second;
+    }
     std::size_t bytes = length + 1;
-    for (const auto& [s, address] : strings) { (void)address; bytes += s.size() + 1; }
-    if (bytes > 65536) return 0;
+    for (const auto& [s, address] : strings) {
+        (void)address;
+        bytes += s.size() + 1;
+    }
+    if (bytes > 65536) {
+        return 0;
+    }
     const auto address = openrac_guest_string(text, length + 1);
     strings.emplace(text, address);
     return address;
@@ -1454,21 +1480,34 @@ openrac_gaddr api_guest_text(openrac_mod* mod, const char* text) {
 
 int api_pickup_animation(openrac_mod* mod, int kind, int item) {
     return mod && openrac_game_play_host && openrac_game_play_host->pickup_animation
-        ? openrac_game_play_host->pickup_animation(kind,item) : 0;
+               ? openrac_game_play_host->pickup_animation(kind, item)
+               : 0;
 }
+
 int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int count) {
-    if (!mod || count < 0 || count > OPENRAC_MOBY_VISUALS_MAX || (count && !visuals)) return OPENRAC_HOOK_UNKNOWN;
+    if (!mod || count < 0 || count > OPENRAC_MOBY_VISUALS_MAX || (count && !visuals)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
     for (int i = 0; i < count; ++i) {
         const auto& v = visuals[i];
         if (!v.moby || v.moby > UINT32_MAX - 0x100u || v.oclass < -1 || v.oclass >= 0x800
-            || !std::isfinite(v.height) || v.height < 0 || v.height > 100) return OPENRAC_HOOK_UNKNOWN;
+            || !std::isfinite(v.height) || v.height < 0 || v.height > 100) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
     }
     const std::lock_guard<std::mutex> lock(g_props_lock);
-    std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod || set.loads != loads_now(); });
-    if (count) g_visuals.push_back({mod, loads_now(), {visuals, visuals + count}});
+    std::erase_if(g_visuals, [&](const auto& set) {
+        return set.mod == mod || set.loads != loads_now();
+    });
+    if (count) {
+        g_visuals.push_back({mod, loads_now(), {visuals, visuals + count}});
+    }
     for (int i = 0; i < count; ++i) {
-        if (visuals[i].oclass < 0) continue;
-        if (std::find(g_visual_classes.begin(), g_visual_classes.end(), visuals[i].oclass) == g_visual_classes.end()) {
+        if (visuals[i].oclass < 0) {
+            continue;
+        }
+        if (std::find(g_visual_classes.begin(), g_visual_classes.end(), visuals[i].oclass)
+            == g_visual_classes.end()) {
             g_visual_classes.push_back(visuals[i].oclass);
             ++g_visual_generation;
         }
@@ -1561,6 +1600,65 @@ int api_prop_pose(openrac_mod* mod, int id, const openrac_prop_pose* pose) {
         p->blend = 0;
     }
     p->posed = true;
+    p->attached_moby = 0;
+    p->attached_joint = -1;
+    return OPENRAC_HOOK_OK;
+}
+
+// A prop fixed to a moby's joint (interface 1.18): the renderer places it each frame
+// (frontend/frame.cpp), `matrix` kept as its offset in the joint's frame.
+int api_prop_attach(
+    openrac_mod* mod,
+    int id,
+    std::int32_t slot,
+    std::int32_t joint,
+    std::uint32_t flags,
+    const float offset[16]
+) {
+    const gaddr moby = slot >= 0 ? moby_address(slot) : 0;
+    // An attach point of the hero's (as hero_held names them): the game's own list says its joint.
+    if ((flags & OPENRAC_ATTACH_HELD) != 0) {
+        joint = g_play != nullptr && g_play->attach_point_joint != nullptr && joint >= 0
+                    ? g_play->attach_point_joint(moby, joint)
+                    : -1;
+    }
+    if (moby == 0 || joint < 0
+        || (offset != nullptr
+            && !std::all_of(offset, offset + 16, [](float f) { return std::isfinite(f); }))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (offset != nullptr) {
+        std::copy(offset, offset + 16, p->matrix.begin());
+    } else {
+        p->matrix = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    }
+    if (p->attached_moby != moby || p->attached_joint != joint) {
+        p->was_placed = false;  // not drawn on this joint yet
+    }
+    p->attached_moby = moby;
+    p->attached_joint = joint;
+    p->posed = true;
+    return OPENRAC_HOOK_OK;
+}
+
+// Where a prop was drawn last (interface 1.18): its pose, or, fixed to a joint, the matrix the
+// renderer drew it with (prop_placed).
+int api_prop_frame(openrac_mod* mod, int id, float out[16]) {
+    if (out == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const Prop* p = own_prop(mod, id);
+    if (p == nullptr || !p->posed || (p->attached_moby != 0 && !p->was_placed)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::array<float, 16>& m = p->attached_moby != 0 ? p->placed : p->matrix;
+    std::copy(m.begin(), m.end(), out);
     return OPENRAC_HOOK_OK;
 }
 
@@ -1973,6 +2071,8 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.sprite_tint = api_sprite_tint;
     api.pickup_animation = api_pickup_animation;
     api.prop_pose = api_prop_pose;
+    api.prop_attach = api_prop_attach;
+    api.prop_frame = api_prop_frame;
     api.prop_hide = api_prop_hide;
     api.prop_remove = api_prop_remove;
     api.sound_load = api_sound_load;
@@ -2026,10 +2126,30 @@ std::vector<PropDraw> props_drawn() {
     for (std::size_t i = 0; i < g_props.size(); ++i) {
         const Prop& p = g_props[i];
         if (p.mod != nullptr && p.posed && !p.hidden && p.loads == loads) {
-            out.push_back({static_cast<int>(i), p.mesh, p.matrix, p.tint, p.blend});
+            out.push_back(
+                {static_cast<int>(i),
+                 p.mesh,
+                 p.matrix,
+                 p.tint,
+                 p.blend,
+                 p.attached_moby,
+                 p.attached_joint}
+            );
         }
     }
     return out;
+}
+
+void prop_placed(int id, const std::array<float, 16>& matrix) {
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    if (id < 0 || static_cast<std::size_t>(id) >= g_props.size()) {
+        return;
+    }
+    Prop& p = g_props[static_cast<std::size_t>(id)];
+    if (p.mod != nullptr && p.attached_moby != 0) {
+        p.placed = matrix;
+        p.was_placed = true;
+    }
 }
 
 std::vector<std::filesystem::path> prop_meshes() {
@@ -2037,21 +2157,27 @@ std::vector<std::filesystem::path> prop_meshes() {
     return g_prop_meshes;
 }
 
-std::uint32_t sprite_tint() { return g_sprite_tint; }
+std::uint32_t sprite_tint() {
+    return g_sprite_tint;
+}
 
 std::vector<int> visual_classes() {
     const std::lock_guard<std::mutex> lock(g_props_lock);
     return g_visual_classes;
 }
+
 unsigned visual_classes_generation() {
     const std::lock_guard<std::mutex> lock(g_props_lock);
     return g_visual_generation;
 }
+
 std::vector<openrac_moby_visual> moby_visuals() {
     const std::lock_guard<std::mutex> lock(g_props_lock);
     std::vector<openrac_moby_visual> result;
-    for (const auto& set : g_visuals) if (set.loads == loads_now()) {
-        result.insert(result.end(), set.visuals.begin(), set.visuals.end());
+    for (const auto& set : g_visuals) {
+        if (set.loads == loads_now()) {
+            result.insert(result.end(), set.visuals.begin(), set.visuals.end());
+        }
     }
     return result;
 }
@@ -2124,7 +2250,7 @@ bool play_skipping() {
     std::int32_t level = -1;
     if (phase_now(&level) != g_skip_phase || scene_now() != g_skip_scene) {
         g_skip_ticks = 0;
-    g_sprite_tint = UINT32_MAX;
+        g_sprite_tint = UINT32_MAX;
         return false;
     }
     --g_skip_ticks;

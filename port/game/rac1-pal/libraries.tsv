@@ -379,6 +379,7 @@ func_L00_002EBF50	camera	CameraScript	wrap	a moby's camera script started: told 
 func_L00_002EC0C8	camera	CameraScript2	wrap	a camera script ended: as CameraScript	void (int)
 func_L00_00217718	camera	Hero_ResetToPosition	wrap	left out for a stand-in: another player's hero is not this game's (rac1/host/camera_script.c)	void (unsigned int, unsigned int, int, int)
 func_L00_00232C10	moby	set_hero_animation	wrap	Ratchet's animation: a sequence his class lacks in this level (Quartu has no drowning one, issue #39) is swapped for swimming or skipped (rac1/host/hero_anim_guard.c)	void (int, int, float)
+func_L00_00233950	hero	update_hero_item_moby_flags	wrap	Ratchet's held pieces shown again each tick (update_hero_item_moby_flags): the game's C, then the pieces a mod hid (moby_hide) hidden again, so a mod's own weapon model can take the hand's place (rac1/host/world.c)	void (void)
 func_L00_00232EF0	hero	Hero_AdvanceAnimation	hook	Ratchet's animation advance, once a tick after his state's update: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none	void (void)
 func_L00_002076E8	hero	Hero_Update	hook	the hero's whole update each tick in levels 0, 4, 7, 9, 10, 13, 17 (the level loop's coordinate_hero_frame_update: his animation, the stick, his state machine and movement, ledges and rails, his body's easing, his moby, what he holds, his drawing): a hook point for mods, rac1.player.update with its copies in the other levels (docs/port/MODS.md; the RAC-Board mod takes it); the game's C with none	void (void)
 func_L01_00228E08	hero	Hero_Update	hook	the hero's whole update each tick in levels 1, 2, 5, 11, 12, 15 (the level loop's update_hero_frame: his animation, the stick, his state machine and movement, ledges and rails, his body's easing, his moby, what he holds, his drawing): a hook point for mods, rac1.player.update with its copies in the other levels (docs/port/MODS.md; the RAC-Board mod takes it); the game's C with none	void (void)
@@ -422,6 +423,7 @@ func_L00_00238530	hud	Hud_QuickSelect_Update	hook	the quick select in play, each
 func_L00_00238C30	hud	Hud_QuickSelect_Draw	hook	draws the quick select's item icons in play: a hook point for mods (docs/port/MODS.md; for mods that add weapons, issue 127); the game's C with none	int (unsigned int)
 func_L00_0029CDE0	vendor	Vendor_MenuUpdate	hook	the vendor's purchase menu, each tick it is open: buying items and ammo: a hook point for mods (docs/port/MODS.md; for mods that add weapons, issue 127); the game's C with none	void (void)
 func_L00_0029C9E8	vendor	Vendor_InitializeSelected	hook	sets up the mobys and text of the vendor's selected row: a hook point for mods (docs/port/MODS.md; for mods that add weapons, issue 127); the game's C with none	void (void)
+func_00239A00	vendor	Vendor_DrawIconStrip	hook	draws the Gadgetron vendor's item and ammunition icons	void (void)
 func_L00_00258250	items	Ammo_ChooseDrop	hook	chooses the ammo a moby or crate drops: the item to out_item, the count returned: a hook point for mods (docs/port/MODS.md; for mods that add weapons, issue 127); the game's C with none	int (unsigned int, unsigned int)
 func_L00_002C6608	items	Ammo_SpawnDrop	hook	makes an ammo pickup moby at pos; returns it, or 0: a hook point for mods (docs/port/MODS.md; for mods that add weapons, issue 127); the game's C with none	unsigned int (unsigned int, int, int, int)
 func_00227C78	memcard	Save_Prepare	hook	the game's state into a save, and a full memory card write started: a hook point for mods (docs/port/MODS.md; for mods that add weapons, issue 127); the game's C with none	void (int, int)
@@ -1139,7 +1141,7 @@ func_L00_00255B90	draw	MobyAnimDecodeLocalPose	wrap	the local pose decoder: a mo
 func_L00_0029BA20	vendor	Vendor_OpenMenu	hook	opens the vendor purchase menu, including the Gadgetron PDA remote vendor; a hook point for mods to prevent opening an empty vendor; NTSC FUN_L00_0029a6b0	void (unsigned int)
 
 func_L01_00303810	draw	DrawVisibombStatic	wrap	The out-of-range static tiles cover the whole widescreen target; retain the retail draw and scope the whole-target marker to it.
-func_00239A00	mods	Vendor_DrawIcons	hook	Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.	void (void)
+func_00239A00	mods	Vendor_DrawIconStrip	hook	Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.	void (void)
 func_00239CF8	mods	Vendor_DrawDetails	hook	Draws the vendor selected-item name and price panel.	void (void)
 func_00200198	mods	UI_IconFrame	hook	Resolves an icon and animation frame to its HUD sprite frame.	int (int, int)
 func_L00_00267290	mods	NPC_TryDialog	hook	Tests an NPC interaction request; identifies the owner of a purchase dialogue.	int (unsigned int, unsigned int)

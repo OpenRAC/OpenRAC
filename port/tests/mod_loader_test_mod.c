@@ -287,7 +287,9 @@ static void world_frame(void) {
 /* Interface 1.12, a step a frame. Frame 1 (in a level): the hero's pose set (the test's game
  * names Test_Add, which the mod holds, as the hero's update), the collision triangles (3, two
  * read), a prop made (one outside the mod's folder and one missing refused) and posed at (1, 2, 3)
- * at scale 2, a sound loaded (a missing one refused) and played, its voice changed and stopped.
+ * at scale 2, a second prop of it fixed to joint 5 of the moby in slot 3, then to the hero's attach
+ * point 1 (interface 1.18; no moby in slot 4 and no attach point 2 refused), a sound loaded (a
+ * missing one refused) and played, its voice changed and stopped.
  * Frame 2 (another hook point named, the level loaded again): the pose refused, the prop gone. */
 static void motion_frame(void) {
     openrac_pose pose;
@@ -317,6 +319,23 @@ static void motion_frame(void) {
         s_record(9540 + -s_api->prop_create(s_mod, "missing.glb"));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop + 1, &where));
+        {
+            const float offset[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.5f, 0, 0, 1};
+            const int held = s_api->prop_create(s_mod, "board.glb");
+            s_record(9660 + -s_api->prop_attach(s_mod, held, 3, 5, 0, offset));
+            s_record(9660 + -s_api->prop_attach(s_mod, held, 4, 5, 0, NULL));
+            s_record(9670 + -s_api->prop_attach(s_mod, held, 3, 1, OPENRAC_ATTACH_HELD, offset));
+            s_record(9670 + -s_api->prop_attach(s_mod, held, 3, 2, OPENRAC_ATTACH_HELD, NULL));
+            {
+                /* Where they were drawn: the posed one at its pose; the fixed one not drawn on
+                 * its joint yet; another mod's not ours. */
+                float at[16];
+                memset(at, 0, sizeof at);
+                s_record(9680 + -s_api->prop_frame(s_mod, s_prop, at) + (at[12] == 1.0f ? 0 : 5));
+                s_record(9680 + -s_api->prop_frame(s_mod, held, at));
+                s_record(9680 + -s_api->prop_frame(s_mod, s_prop + 2, at));
+            }
+        }
         sound = s_api->sound_load(s_mod, "beep.wav");
         s_record(9560 + sound);
         s_record(9560 + -s_api->sound_load(s_mod, "missing.wav"));

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -15,9 +16,8 @@ const openrac_game_play* openrac_game_play_host = nullptr;
 }
 using namespace openrac;
 static_assert(
-    offsetof(openrac_api, moby_visuals)
-        == offsetof(openrac_api, setting_set_bool) + 9 * sizeof(void*),
-    "released-SDK compatibility must skip the official settings, save-data and collision slots"
+    offsetof(openrac_api, moby_visuals) == offsetof(openrac_api, prop_frame) + sizeof(void*),
+    "reward API entries must follow the released 1.18 prop attachment entries"
 );
 
 namespace {

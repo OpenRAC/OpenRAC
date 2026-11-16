@@ -787,6 +787,7 @@ const openrac_game_play rac1_play = {
     .camera_position = rac1_world_camera_position,
     .level_line = rac1_level_line,
     .collision_line = rac1_collision_line,
+    .attach_point_joint = rac1_attach_point_joint,
     .moby_run = rac1_world_moby_run,
     .shared_read = rac1_shared_read,
     .shared_give = rac1_shared_give,

@@ -814,6 +814,7 @@ target_link_libraries(hero_shadow_test PRIVATE openrac_viewer_lib openrac_platfo
 openrac_warnings(hero_shadow_test)
 add_test(NAME hero_shadow_cpu COMMAND hero_shadow_test)
 openrac_add_test(moby_shadow LIBS openrac_scene)
+openrac_add_test(moby_key_gap LIBS openrac_scene)
 openrac_add_test(hero_attachments SOURCES tests/hero_attachments_test.cpp
   game/rac1/host/hero_attachments.c INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}")
 openrac_add_test(hero_shadow_rig INCLUDES . game/common/include runtime/include)
@@ -863,6 +864,9 @@ openrac_add_test(camera_debug SOURCES tests/camera_debug_test.cpp
 # programs compile them through cmake/Games.cmake's glob.
 openrac_add_test(frontend_geometry SOURCES tests/frontend_geometry_test.cpp
                  game/common/frontend/geometry.cpp INCLUDES .)
+  openrac_add_test(effect_attachment SOURCES tests/effect_attachment_test.cpp
+                   game/common/frontend/effect_attachment.cpp game/common/frontend/geometry.cpp
+                   INCLUDES . runtime/include)
 openrac_add_test(scenery_capture SOURCES tests/scenery_capture_test.cpp
                  game/common/frontend/scenery_capture.cpp INCLUDES . runtime/include)
 openrac_add_test(frontend_pacing SOURCES tests/frontend_pacing_test.cpp

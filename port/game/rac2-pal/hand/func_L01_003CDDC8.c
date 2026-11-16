@@ -75,7 +75,7 @@ void func_L01_003CDDC8(char *obj)
     *(unsigned char *)(obj + 0xBC) = 0;
     if ((unsigned int)(*(unsigned char *)(obj + 0x20) - 2) < 3) {
         func_L00_002E7EB8(FUN_L01_003CD8A0, obj);
-        func_002837E0(vec, obj + 0xC0, *(float *)(s + 0x68) * ((float)*(int *)(s + 0x7C) * 0.020000001f));
+        func_002837E0(vec, obj + 0xC0, *(float *)(s + 0x68) * ((float)*(int *)(s + 0x7C) * 0.016666668f));
         func_002AE250(s + 0x20, vec, obj + 0xF0, obj + 0xF0);
     }
     qcopy(vec, obj + 0x10);

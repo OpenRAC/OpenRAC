@@ -978,7 +978,7 @@ S1_POINT(Save_UpdateState, 54) /* rac1.save.update_state */
 S40_POINT(msg_string, 55) /* rac1.text.msg_string */
 S41_POINT(Vendor_OpenMenu, 56) /* rac1.vendor.open_menu */
 S10_POINT(GoldBolts_CountUnspent, 57) /* rac1.gold_bolt.count_unspent */
-S1_POINT(Vendor_DrawIcons, 58) /* rac1.vendor.draw_icons */
+S1_POINT(Vendor_DrawIconStrip, 58) /* rac1.vendor.icon_strip.draw */
 S1_POINT(Vendor_DrawDetails, 59) /* rac1.vendor.draw_details */
 S42_POINT(UI_IconFrame, 60) /* rac1.ui.icon_frame */
 S43_POINT(NPC_TryDialog, 61) /* rac1.npc.try_dialog */
@@ -1682,7 +1682,7 @@ static const openrac_script_point k_points[702] = {
     {"rac1.text.msg_string", "i32(i32)", 1, k_S40_kinds, k_S40_names, OPENRAC_SV_I32, k_msg_string_links, k_msg_string_thunks, S40_call},
     {"rac1.vendor.open_menu", "void(u32)", 1, k_S41_kinds, k_S41_names, OPENRAC_SV_VOID, k_Vendor_OpenMenu_links, k_Vendor_OpenMenu_thunks, S41_call},
     {"rac1.gold_bolt.count_unspent", "i32()", 0, k_S10_kinds, k_S10_names, OPENRAC_SV_I32, k_GoldBolts_CountUnspent_links, k_GoldBolts_CountUnspent_thunks, S10_call},
-    {"rac1.vendor.draw_icons", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Vendor_DrawIcons_links, k_Vendor_DrawIcons_thunks, S1_call},
+    {"rac1.vendor.icon_strip.draw", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Vendor_DrawIconStrip_links, k_Vendor_DrawIconStrip_thunks, S1_call},
     {"rac1.vendor.draw_details", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Vendor_DrawDetails_links, k_Vendor_DrawDetails_thunks, S1_call},
     {"rac1.ui.icon_frame", "i32(i32,i32)", 2, k_S42_kinds, k_S42_names, OPENRAC_SV_I32, k_UI_IconFrame_links, k_UI_IconFrame_thunks, S42_call},
     {"rac1.npc.try_dialog", "i32(u32,u32)", 2, k_S43_kinds, k_S43_names, OPENRAC_SV_I32, k_NPC_TryDialog_links, k_NPC_TryDialog_thunks, S43_call},
@@ -2328,7 +2328,7 @@ static const openrac_script_point k_points[702] = {
     {"rac1.moby.moby1906.update", "void(u32)", 1, k_S41_kinds, k_S41_names, OPENRAC_SV_VOID, k_Moby_Gadgebot1906_Update_links, k_Moby_Gadgebot1906_Update_thunks, S41_call},
 };
 
-static const openrac_script_alias k_aliases[2110] = {
+static const openrac_script_alias k_aliases[2112] = {
     {"Ammo_ChooseDrop", "rac1.ammo.choose_drop"},
     {"Ammo_SpawnDrop", "rac1.ammo.spawn_drop"},
     {"FUN_001fdd10", "rac1.text.msg_string"},
@@ -2360,7 +2360,7 @@ static const openrac_script_alias k_aliases[2110] = {
     {"FUN_00224368", "rac1.menu.equipped_preview.update"},
     {"FUN_002269c0", "rac1.save.prepare"},
     {"FUN_00226b08", "rac1.save.new_game_plus"},
-    {"FUN_002386e8", "rac1.vendor.draw_icons"},
+    {"FUN_002386e8", "rac1.vendor.icon_strip.draw"},
     {"FUN_002389e0", "rac1.vendor.draw_details"},
     {"FUN_0023a2c0", "rac1.moby.quad_moby.update"},
     {"FUN_0023ab78", "rac1.moby.class_676.update"},
@@ -3724,7 +3724,8 @@ static const openrac_script_alias k_aliases[2110] = {
     {"UI_IconFrame", "rac1.ui.icon_frame"},
     {"Vendor_BuildItemList", "rac1.vendor.build_item_list"},
     {"Vendor_DrawDetails", "rac1.vendor.draw_details"},
-    {"Vendor_DrawIcons", "rac1.vendor.draw_icons"},
+    {"Vendor_DrawIconStrip", "rac1.vendor.icon_strip.draw"},
+    {"Vendor_DrawIcons", "rac1.vendor.icon_strip.draw"},
     {"Vendor_InitLevelStock", "rac1.vendor.init_level_stock"},
     {"Vendor_InitializeSelected", "rac1.vendor.initialize_selected"},
     {"Vendor_MenuUpdate", "rac1.vendor.menu_update"},
@@ -3763,7 +3764,7 @@ static const openrac_script_alias k_aliases[2110] = {
     {"func_002255F8", "rac1.menu.equipped_preview.update"},
     {"func_00227C78", "rac1.save.prepare"},
     {"func_00227DB0", "rac1.save.new_game_plus"},
-    {"func_00239A00", "rac1.vendor.draw_icons"},
+    {"func_00239A00", "rac1.vendor.icon_strip.draw"},
     {"func_00239CF8", "rac1.vendor.draw_details"},
     {"func_0023BF48", "rac1.moby.class_676.update"},
     {"func_L00_00203F20", "rac1.help.request"},
@@ -4439,6 +4440,7 @@ static const openrac_script_alias k_aliases[2110] = {
     {"func_L18_002FC188", "rac1.moby.moby1799.update"},
     {"func_L18_002FD058", "rac1.moby.moby1906.update"},
     {"msg_string", "rac1.text.msg_string"},
+    {"rac1.vendor.draw_icons", "rac1.vendor.icon_strip.draw"},
 };
 
 static const char* const k_discs[] = {"pal", "ntsc"};
@@ -8502,7 +8504,7 @@ static const openrac_script_class k_classes[224] = {
 static const openrac_script_moby k_moby = {0xA6u, OPENRAC_SV_I16, 0x78u, 224, k_classes};
 static const openrac_script_binding k_binding = {
     "rac1", 2, k_discs, 702, k_points, 7, k_fields, &k_moby,
-    2110, k_aliases,
+    2112, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

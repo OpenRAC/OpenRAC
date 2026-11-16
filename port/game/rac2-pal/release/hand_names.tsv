@@ -1,3 +1,0 @@
-# v1.01 name	this release's	how it was paired (hostgen.py read_primary_hand: the hand C's globals the release view has no value for)
-D_0013CF58	D_0013CFD8	data_moves.tsv: the boot run 0x00133B80-0x001A7900 moved +0x80 (528 pairs); sceSif's code is the same at the same place
-D_00146940	D_001469C0	data_moves.tsv: boot run 00133B80-001A7900 moved +0x80 over 528 pairs (both neighbours in the view agree: D_00143180->D_00143200, D_00146CC0->D_00146D40)

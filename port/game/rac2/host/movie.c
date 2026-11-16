@@ -19,6 +19,13 @@
  * movie's subtitles (0x0027D5C0). The port uploads the native player's picture
  * there and builds that list with the game's own code on each blank, sent as
  * the tick's display list.
+ *
+ * The movies are 16:9, squeezed into the 4:3 frame. Before playing, the console's
+ * PlayFmvMovie builds the list's strips (BuildAspectBlitStrips, 0x00284088): full
+ * height with the 16:9 option on, for a wide television to stretch, otherwise 115/160
+ * of it, a letterbox. The port keeps that option off (options.c), so a window wider
+ * than 4:3 gets the full height and the window stretches the movie's ticks to its
+ * width (frontend::set_movie_playing), as such a television does.
  */
 #include <stdint.h>
 #include <string.h>
@@ -33,15 +40,30 @@
 #define FMV_FRAME_TBP GREF(int, OPENRAC_DATA(RAC2_ADDR(0x001A72DCu)))
 
 void func_002B6480(gaddr packet, int mode);
+void func_00284088(int use_given, int full_height);
 void func_00127220(gaddr channel, gaddr tag);
 
 /* A blank of the movie: the picture to where the decoder's chain puts it, then the list the
  * console's handler sends (0x0034FFC0's func_002B6480 call, its first buffer's), sent to VIF1 as
  * the tick's list. */
+/* What PlayFmvMovie was given for the strips when the window is not wider than 4:3. */
+static int s_strips_given;
+
+/* The list's strips for the window as it is now: full height in a window wider than 4:3, which
+ * stretches the movie to its width (frontend::picture_aspect), else as the game was asked. */
+static void movie_strips(void) {
+    if (openrac_game_picture_wider() > 1.0f) {
+        func_00284088(1, 1);
+    } else {
+        func_00284088(s_strips_given, s_strips_given);
+    }
+}
+
 static void movie_overlay(const uint8_t* rgba, int width, int height) {
     const gaddr list = (gaddr)(FMV_GS_BASE + 0x1C81C0);
-    /* The texture the list's sprites read is 512 x 512 (TEX0's TW and TH): the rows under the
-     * picture are black, as nothing is drawn there. */
+    /* The list's sprites read the top left 512 x 512 of a 1024 x 1024 texture (TEX0's TW and
+     * TH, from BuildAspectBlitStrips): the picture is put there that size, the rows under it
+     * black, as nothing is drawn there. */
     static uint8_t pixels[512 * 512 * 4];
     const openrac_game_image picture = {FMV_FRAME_TBP >> 8, 8, 0, 0, 0, 512, 512, 0};
 
@@ -53,6 +75,7 @@ static void movie_overlay(const uint8_t* rgba, int width, int height) {
     }
     openrac_game_load_picture(&picture, pixels);
 
+    movie_strips();
     func_002B6480(list, 0);
     func_00127220(0x10009000u, list & 0x0FFFFFFFu);
 }
@@ -61,7 +84,8 @@ int func_0034EF58(int first, int second, int pool, int state, int mode, int volu
     (void)pool;
     (void)state;
     (void)mode;
-    (void)volume;
+    s_strips_given = volume;
+    movie_strips();
     const int result =
         openrac_game_play_movie_over((uint32_t)first, (uint32_t)second, 0, 1, movie_overlay);
 

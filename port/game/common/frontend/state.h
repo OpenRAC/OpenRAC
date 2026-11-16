@@ -32,6 +32,7 @@
 #include "game/common/debug_camera.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/render_worker.h"
+#include "game/common/frontend/sleeping_mobys.h"
 #include "game/common/frontend/tick_picture.h"
 #include "game/common/profile.h"
 #include "openrac/guest.h"
@@ -130,6 +131,8 @@ struct Kept {
     // The world was drawn under a menu (State::world_under_menu): the menu's picture of the frame
     // is this tick's world.
     bool world_under_menu = false;
+    // A movie's tick (frontend::set_movie_playing).
+    bool movie = false;
     std::uint64_t frame = 0;
 };
 
@@ -221,6 +224,10 @@ struct State {
     // program's, never null while the window is open.
     const host::GameProfile* profile = nullptr;
     ScriptedMobyColours scripted_moby_colours;
+    // Far mobys the game leaves asleep, posed in the picture only (Active distance: Match), and
+    // the level their clocks belong to.
+    SleepingMobys sleeping_mobys;
+    int sleeping_level = -100;
     std::filesystem::path levels;
     std::unique_ptr<platform::Platform> sdl;
     std::unique_ptr<platform::Window> window;
@@ -304,6 +311,7 @@ struct State {
         std::uint32_t pixels, clut;
         int log2_side;
         std::uint32_t id;  // its slot and type (particle), 0 when not known
+        std::uint32_t attachment = 0;  // Position anchor, including particles with no slot history.
     };
 
     std::vector<Particle> particles;
@@ -363,6 +371,7 @@ struct State {
     TickPictures tick_pictures;
     bool repeat_frame = false;
     bool overdraw = false;
+    bool movie_playing = false;  // set_movie_playing
     // What the window is in now of the player's settings (apply_settings): the display mode, the
     // display; the picture's shape; the swap's wait as asked and as the
     // driver took it; whether the sound is held silent (the window lost the keyboard).

@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright (c) 2026 the OpenRAC contributors */
 #ifndef OPENRAC_VENDOR_TITLE_H
 #define OPENRAC_VENDOR_TITLE_H
 #include <stdint.h>

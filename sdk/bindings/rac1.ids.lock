@@ -693,7 +693,7 @@ rac1.ui.icon_frame	pal:00200198	FUN_001ff960,UI_IconFrame,func_00200198
 rac1.ui.sprite.draw	pal:00200468	FUN_001ffc30,UI_DrawSprite,func_00200468
 rac1.vendor.build_item_list	pal:L00:0029B770	FUN_L00_0029a400,Vendor_BuildItemList,func_L00_0029B770
 rac1.vendor.draw_details	pal:00239CF8	FUN_002389e0,Vendor_DrawDetails,func_00239CF8
-rac1.vendor.draw_icons	pal:00239A00	FUN_002386e8,Vendor_DrawIcons,func_00239A00
+rac1.vendor.icon_strip.draw	pal:00239A00	FUN_002386e8,Vendor_DrawIconStrip,Vendor_DrawIcons,func_00239A00,rac1.vendor.draw_icons
 rac1.vendor.init_level_stock	pal:L00:0023DB30	FUN_L00_0023d198,Vendor_InitLevelStock,func_L00_0023DB30
 rac1.vendor.initialize_selected	pal:L00:0029C9E8	FUN_L00_0029b680,Vendor_InitializeSelected,func_L00_0029C9E8
 rac1.vendor.menu_update	pal:L00:0029CDE0	FUN_L00_0029ba78,Vendor_MenuUpdate,func_L00_0029CDE0

@@ -161,7 +161,8 @@ std::vector<renderer::ShadowCapsule> moby_shadows(
     std::span<const std::uint8_t> ram,
     std::uint32_t moby,
     const renderer::Mat4& model,
-    float proxy_scale
+    float proxy_scale,
+    const AnimKeys* keys
 ) {
     std::vector<renderer::ShadowCapsule> out;
     if (!std::isfinite(proxy_scale) || proxy_scale <= 0 || proxy_scale > 1 || moby > ram.size()
@@ -184,7 +185,7 @@ std::vector<renderer::ShadowCapsule> moby_shadows(
     if (!size || skeleton < size || skeleton > ram.size()) {
         return out;
     }
-    const auto pose = moby_pose_matrices(ram, moby);
+    const auto pose = keys ? moby_pose_matrices(ram, moby, *keys) : moby_pose_matrices(ram, moby);
     if (pose.empty()) {
         return out;
     }

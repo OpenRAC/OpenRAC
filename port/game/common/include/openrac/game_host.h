@@ -728,6 +728,10 @@ typedef struct openrac_game_play {
         int32_t* surface,
         uint32_t* moby
     );
+    /* The skeleton joint of the hero's attach point `point` on the moby at `moby` (one of the
+     * hero's class), as openrac_held_piece.joint names them (openrac_api.prop_attach,
+     * OPENRAC_ATTACH_HELD); -1 for one the game does not have. NULL for a game without it. */
+    int (*attach_point_joint)(uint32_t moby, int point);
     int (*pickup_animation)(int kind, int item);
     /* A portable pickup presentation keeps the level background visible. */
     int (*pickup_background)(void);
@@ -887,6 +891,9 @@ typedef struct openrac_game_quad {
      * between ticks may move it with the moby's body (an engine's flame), so that it stays where it
      * is on the moby; the window decides which owners' quads sit on them. */
     uint32_t parent;
+    /* A physical attachment whose current-tick geometry follows this moby's displayed transform;
+     * 0 for world-space effects, including trails emitted by a moving callback owner. */
+    uint32_t attachment;
 } openrac_game_quad;
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);
@@ -897,6 +904,11 @@ void openrac_game_effect_quad(const openrac_game_quad* quad);
  * and ZBUF the list left in effect there. 0 when there is none (no window, or no quad). */
 #define OPENRAC_EFFECT_QUAD_MARKER 0x4551u
 uint32_t openrac_game_effect_quad_marker(void);
+
+/* A scoped attachment for strips in a display list delayed by one tick: write this tag in bits
+ * 48-63 and the parent moby's address in bits 0-31 to NOP; address 0 ends the scope. The frontend
+ * moves these vertices from the previous parent transform to its displayed transform. */
+#define OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER 0x4550u
 
 /* Where the game's moby renderer draws the world's mobys, for the display list: the game puts
  * (OPENRAC_WORLD_MOBYS_MARKER << 48) in it with an A+D write to the NOP register where the world's
@@ -966,18 +978,6 @@ float openrac_game_picture_wider(void);
  * at least 1: the frame's view tests open by as much, so that what the wider view shows is not
  * culled. 1 at 100%, below it, and while the setting does not apply (cutscenes, the debug camera). */
 float openrac_game_view_opened(void);
-
-/* The player's Draw distance as a factor of the game's (settings.h draw_distance): 1 at Original,
- * 4 at 400%, 0 Unlimited; 1 without a window. The moby renderers' drawn flag (+0x31) takes it, so
- * that a moby the window draws farther away is drawn to the game too, which keeps it active (the
- * moby loop updates a drawn moby whatever its update distance). */
-float openrac_game_draw_distance(void);
-
-/* The player's Active distance as a factor of the game's (settings.h active_distance_scale): Draw
- * distance's at Match (the default), 1 at Original; 1 without a window. The moby renderers' drawn
- * flag (+0x31) takes it, so that a moby the window draws farther away is drawn to the game too,
- * which keeps it active (the moby loop updates a drawn moby whatever its update distance). */
-float openrac_game_active_distance(void);
 
 /* A game fix's flag, by its setting key (port/game/<game>/differences.json, kind "fix";
  * game/common/fixes.h): nonzero while the port's fix is on, 0 for the console's behaviour. The

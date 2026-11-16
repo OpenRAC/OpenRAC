@@ -75,14 +75,75 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual(r.text(text, "src/levels/02_x/L02_a.c"), "func_00313FD8(e0); func_002AA0A8(e1);")
         self.assertEqual(r.text(text, "src/game/other.c"), "func_00313FD8(e0); func_002AA0A8(e1);")
 
-    def test_a_files_mark_is_its_definition_only(self):
-        # The file defines v1.01's func_002CA070 (marked: the release has its own) and calls it from
-        # another function: the call is the release's function.
-        r = release.Release({"names": {"func_002CA070": "FUN_002CAEA0"},
-                             "units": {"src/game/002C7748.c": {"func_002CA070": "func_V1_002CA070"}}})
-        text = 'INCLUDE_ASM("asm/game", func_002CA070);\nvoid func_002CAA58(void)\n{\n    func_002CA070();\n}\n'
-        self.assertEqual(r.text(text, "src/game/002C7748.c"),
-                         'INCLUDE_ASM("asm/game", func_V1_002CA070);\nvoid func_002CAA58(void)\n{\n    FUN_002CAEA0();\n}\n')
+    def test_a_gone_definition_is_left_out_under_any_spelling(self):
+        # The release has its own function at the primary's place: the primary's definition (here
+        # under a readable name) and its assembly marker are left out of the file the table names.
+        r = release.Release({"names": {"func_00344848": "FUN_003468F8"}, "gone": ["func_00344848", "func_00344F98"],
+                             "gone_in": {"func_00344848": ["src/game/00344848.c"],
+                                         "func_00344F98": ["src/game/00344848.c"]}})
+        r.readable = {"grid_menu_reposition_widgets": "func_00344848"}
+        text = ("void grid_menu_reposition_widgets(char *menu)\n{\n    x();\n}\n"
+                'INCLUDE_ASM("asm/game", func_00344F98);\nvoid keep(void)\n{\n}\n')
+        out = r.splice(text, "src/game/00344848.c")
+        self.assertNotIn("grid_menu_reposition_widgets(char", out)
+        self.assertNotIn("INCLUDE_ASM", out)
+        self.assertIn("void keep(void)", out)
+        self.assertEqual(out.count("\n"), text.count("\n"))
+        # Another file is not touched; the named file without the definition stops the build.
+        self.assertEqual(r.splice(text, "src/game/other.c"), text)
+        with self.assertRaises(ValueError):
+            r.splice("void keep(void)\n{\n}\n", "src/game/00344848.c")
+
+    def test_defined_names_reads_every_spelling(self):
+        readable = {"grid_menu_reposition_widgets": "func_00344848", "cam_set_mode_state": "func_00335300"}
+        text = ("void grid_menu_reposition_widgets(char *menu)\n{\n}\n"
+                "int cam_set_mode_state_r(int mode) __asm__(\"func_00335300\");\n"
+                "int cam_set_mode_state_r(int mode)\n{\n}\n"
+                "void func_00344D58(void)\n{\n}\n"
+                'INCLUDE_ASM("asm/game", func_00344F98);\n'
+                "static void helper(void)\n{\n}\n")
+        self.assertEqual(sorted(release.defined_names(text, readable)),
+                         ["func_00335300", "func_00344848", "func_00344D58", "func_00344F98"])
+
+    def test_a_readable_name_is_a_use(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "src").mkdir()
+            (Path(d) / "src" / "a.c").write_text("void f(void) { grid_menu_reposition_widgets(0); }\n")
+            uses = release.used_tokens(Path(d), ["src"], readable={"grid_menu_reposition_widgets": "func_00344848"})
+        self.assertEqual(uses["func_00344848"], 1)
+
+    def test_check_gone_finds_a_definition_the_table_misses(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "src" / "game").mkdir(parents=True)
+            (Path(d) / "src" / "game" / "00344848.c").write_text("void grid_menu_reposition_widgets(char *m)\n{\n}\n")
+            table = {"names": {"func_00344848": "FUN_003468F8"}, "absent": ["func_00344848"],
+                     "placed": ["func_00344D58"]}
+            readable = {"grid_menu_reposition_widgets": "func_00344848"}
+            self.assertEqual(len(release.check_gone(Path(d), table, readable, ["src"], "pal")), 1)
+            table["gone_in"] = {"func_00344848": ["src/game/00344848.c"]}
+            self.assertEqual(release.check_gone(Path(d), table, readable, ["src"], "pal"), [])
+            table["gone_in"] = {"func_00344848": ["src/game/moved.c"]}
+            self.assertEqual(len(release.check_gone(Path(d), table, readable, ["src"], "pal")), 2)
+
+    def test_committed_tables_leave_out_every_definition(self):
+        # Each carried release's table against the decompilation CI checks out (no disc needed).
+        source = REPO / "games" / "rac2" / "decomp"
+        tables = {}
+        for game in ("rac2-pal", "rac2-ntsc2"):
+            config = REPO / "port" / "game" / game / "hostgen.json"
+            cfg = json.loads(config.read_text())
+            tables[game] = (cfg, json.loads((config.parent / cfg["release"]["table"]).read_text()))
+        # Strict once any table is rebuilt: every release then needs "placed" and "gone_in".
+        if any("placed" in table for _, table in tables.values()):
+            for game, (_, table) in tables.items():
+                self.assertTrue("placed" in table and "gone_in" in table,
+                                f"{game}: rebuild its table with release.py build")
+        for game, (cfg, table) in tables.items():
+            if not (source / "src").is_dir() or "placed" not in table:
+                continue
+            problems = release.check_gone(source, table, release.primary_aliases(source, cfg),
+                                          cfg.get("sources", ["src"]), cfg["release"]["version"])
+            self.assertEqual(problems[:10], [], f"{game}: rebuild its table with release.py build")
 
     def test_six_digits_in_a_file_of_the_executable(self):
         # func_2802E0 in src/game/ is the executable's func_002802E0 (as hostgen reads it): renamed
@@ -132,11 +193,12 @@ class Building(unittest.TestCase):
                                                 "func_PAL_002000B0\t002000B0\t12\n",
                 "config/pal/levels/functions.tsv": levels + "func_L00_002B0000\tlevel\t8\tx\t1\t00:002B0100\n",
                 "build/boot/placed.json": {"values": {"D_001A7A18": "0x001a7a18"}},
-                "build/pal/boot/placed.json": {"values": {"D_001A7A18": "0x001a7aa0", "func_00200030": "0x002000b0"}},
+                "build/pal/boot/placed.json": {"functions": {"func_00200000": [0x00200080, 16]},
+                                               "values": {"D_001A7A18": "0x001a7aa0", "func_00200030": "0x002000b0"}},
                 "build/pal/00_x/placed.json": {"values": {"D_L00_001B0000": "0x001b0040"}},
                 "src/game/a.c": "void func_00200030(void) {}\nint D_001A7A18;\nextern int D_L00_001B0000;\n",
             })
-            parts = release.build(root, "pal", None, Counter(["D_L00_001B0000"]))
+            parts = release.build_rac2(root, "pal", None, Counter(["D_L00_001B0000"]))
             names = parts["names"]
             self.assertEqual(names["func_00200000"], "func_00200080")
             # A twin entered away from its name keeps the distance (name 0x200010, entry 0x200018).
@@ -208,6 +270,15 @@ class Carried(unittest.TestCase):
         table.names["func_PAL_0026F580"] = "func_0026F580"
         hooks = release_carry.level_hooks(p, ["func_0026F588", "func_0026F590"])
         self.assertEqual(hooks, ["func_0026F578", "func_0026F580", "func_0026F588", "func_0026F590"])
+        # A name the release's build gives a hook's place is that hook too.
+        with tempfile.TemporaryDirectory() as tmp:
+            placed = Path(tmp) / "build/pal/boot/placed.json"
+            placed.parent.mkdir(parents=True)
+            placed.write_text(json.dumps({"values": {"ref_PAL_0029CD18_00": "0x0026F580", "D_00300000": "0x0026F580"}}))
+            p.source, p.version = Path(tmp), "pal"
+            hooks = release_carry.level_hooks(p, ["func_0026F588", "func_0026F590"])
+        self.assertIn("ref_PAL_0029CD18_00", hooks)
+        self.assertNotIn("D_00300000", hooks)
 
 
 class Committed(unittest.TestCase):
@@ -236,13 +307,33 @@ class Committed(unittest.TestCase):
         for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
             folder = REPO / "port/game" / game
             p = release_carry.Pairing(source, version, release.Release.load(folder / "release" / "release_names.json"), None, None)
-            p.read_by_hand(folder / "release" / "release_pairs.tsv")
+            p.read_by_hand(release.read_facts(folder / "release" / "release.json"))
             p.read_splits(primary)
             with self.subTest(game=game):
                 self.assertEqual("\n".join(p.split_rows) + "\n", (folder / "tables" / "split_places.tsv").read_text())
                 levels = {r.split("\t")[1]: {x[:2] for x in r.split("\t")[2].split(",")}
                           for r in p.split_rows if not r.startswith("#")}
                 self.assertEqual(levels[p.by_split["func_L08_002F2C48"]], {"08", "09", "19", "30"})
+
+    def test_release_facts_are_the_tools(self):
+        # Each release's facts file is what the tools read of it: its places and its own hand C.
+        for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
+            folder = REPO / "port/game" / game
+            facts = release.read_facts(folder / "release" / "release.json")
+            cfg = json.loads((folder / "hostgen.json").read_text())
+            with self.subTest(game=game):
+                self.assertEqual(facts["version"], version)
+                self.assertEqual(release.RAC2_RELEASES[version]["level_base"], int(facts["level_base"], 16))
+                self.assertEqual(cfg["relocate"][0], release.RAC2_RELEASES[version]["level_base"])
+                self.assertEqual(cfg["asm"]["gp"], facts["gp"])
+                for key in ("id", "title", "serial", "frame_rate", "tick_rate"):
+                    self.assertEqual(cfg[key], facts[key])
+                self.assertTrue((REPO / "port/game" / facts["primary"] / "hostgen.json").is_file())
+                self.assertNotIn("primary_hand", cfg)
+                table = (folder / "hand" / "hand.tsv").read_text()
+                for name, file in facts.get("hand", {}).items():
+                    self.assertIn(f"{name}\t{file}\n", table)
+                    self.assertTrue((folder / "hand" / file).is_file())
 
     def test_release_configs_name_their_tables(self):
         for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):

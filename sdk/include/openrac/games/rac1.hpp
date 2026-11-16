@@ -475,10 +475,10 @@ struct GoldBolts_CountUnspent {
     using fn = int32_t (*)();
 };
 
-// Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.
-struct Vendor_DrawIcons {
-    static constexpr const char* id = "rac1.vendor.draw_icons";
-    static constexpr const char* name = "Vendor_DrawIcons";
+// Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+struct Vendor_DrawIconStrip {
+    static constexpr const char* id = "rac1.vendor.icon_strip.draw";
+    static constexpr const char* name = "Vendor_DrawIconStrip";
     static constexpr const char* signature = "void()";
     using fn = void (*)();
 };
@@ -7655,7 +7655,9 @@ namespace hooks {
     namespace vendor {
         using build_item_list = rac1::Vendor_BuildItemList;
         using draw_details = rac1::Vendor_DrawDetails;
-        using draw_icons = rac1::Vendor_DrawIcons;
+        namespace icon_strip {
+            using draw = rac1::Vendor_DrawIconStrip;
+        }  // namespace icon_strip
         using init_level_stock = rac1::Vendor_InitLevelStock;
         using initialize_selected = rac1::Vendor_InitializeSelected;
         using menu_update = rac1::Vendor_MenuUpdate;

@@ -50,11 +50,17 @@ struct Shape {
 Shape shape_of(Sound s) {
     switch (s) {
         case Sound::InfobotOpen:
-            return {{{{Kind::Body, 30, 700, 1400, 350, 15, 160, 450, 0.10f},
-                      {Kind::Air, 0, 600, 1800, 600, 25, 230, 700, 0.045f, 1.6f}}}, 2};
+            return {
+                {{{Kind::Body, 30, 700, 1400, 350, 15, 160, 450, 0.10f},
+                  {Kind::Air, 0, 600, 1800, 600, 25, 230, 700, 0.045f, 1.6f}}},
+                2
+            };
         case Sound::InfobotClose:
-            return {{{{Kind::Body, 30, 1400, 550, 350, 15, 160, 450, 0.09f},
-                      {Kind::Air, 0, 1800, 600, 600, 25, 230, 700, 0.045f, 1.6f}}}, 2};
+            return {
+                {{{Kind::Body, 30, 1400, 550, 350, 15, 160, 450, 0.09f},
+                  {Kind::Air, 0, 1800, 600, 600, 25, 230, 700, 0.045f, 1.6f}}},
+                2
+            };
         case Sound::Cursor:
             return {{{{Kind::Body, 0, 1400, 800, 14, 1, 9, 45, 0.07f}}}, 1};
         case Sound::Confirm:
@@ -172,9 +178,9 @@ struct State {
     Clock::time_point cursor_at{};
     bool cursor_played = false;
     std::vector<float> bus;  // a block's dry sum
-    std::array<std::vector<float>,2> infobot_audio;
-    int infobot_clip=-1;
-    std::size_t infobot_at=0;
+    std::array<std::vector<float>, 2> infobot_audio;
+    int infobot_clip = -1;
+    std::size_t infobot_at = 0;
     float low_pass = 0.0f;
     Room left{kLines[0]}, right{kLines[1]};
     int quiet = kTailSamples;  // samples since the last voice ended
@@ -257,19 +263,24 @@ void render(Voice& v, std::span<float> bus) {
 
 }  // namespace
 
-void set_infobot_audio(std::span<const std::int16_t> mono,unsigned rate) {
-    State& s=state();
+void set_infobot_audio(std::span<const std::int16_t> mono, unsigned rate) {
+    State& s = state();
     std::lock_guard guard(s.lock);
-    s.infobot_audio={}; s.infobot_clip=-1; s.infobot_at=0;
-    if (!rate || mono.empty()) return;
-    auto& clip=s.infobot_audio[0];
-    clip.resize(std::size_t(double(mono.size())*kRate/rate));
-    for (std::size_t i=0;i<clip.size();++i) {
-        const double at=double(i)*rate/kRate;
-        const auto a=std::min(std::size_t(at),mono.size()-1), b=std::min(a+1,mono.size()-1);
-        clip[i]=float((mono[a]+(mono[b]-mono[a])*(at-a))/32768.0);
+    s.infobot_audio = {};
+    s.infobot_clip = -1;
+    s.infobot_at = 0;
+    if (!rate || mono.empty()) {
+        return;
     }
-    s.infobot_audio[1].assign(clip.rbegin(),clip.rend());
+    auto& clip = s.infobot_audio[0];
+    clip.resize(std::size_t(double(mono.size()) * kRate / rate));
+    for (std::size_t i = 0; i < clip.size(); ++i) {
+        const double at = double(i) * rate / kRate;
+        const auto a = std::min(std::size_t(at), mono.size() - 1),
+                   b = std::min(a + 1, mono.size() - 1);
+        clip[i] = float((mono[a] + (mono[b] - mono[a]) * (at - a)) / 32768.0);
+    }
+    s.infobot_audio[1].assign(clip.rbegin(), clip.rend());
 }
 
 void play(Sound sound) {
@@ -278,10 +289,12 @@ void play(Sound sound) {
     const int id = static_cast<int>(sound);
     const Clock::time_point now = Clock::now();
     std::lock_guard guard(s.lock);
-    if (sound==Sound::InfobotOpen || sound==Sound::InfobotClose) {
-        const int clip=sound==Sound::InfobotOpen?0:1;
+    if (sound == Sound::InfobotOpen || sound == Sound::InfobotClose) {
+        const int clip = sound == Sound::InfobotOpen ? 0 : 1;
         if (!s.infobot_audio[clip].empty()) {
-            s.infobot_clip=clip; s.infobot_at=0; s.quiet=0;
+            s.infobot_clip = clip;
+            s.infobot_at = 0;
+            s.quiet = 0;
             return;
         }
     }
@@ -324,11 +337,14 @@ void mix(std::span<std::int16_t> interleaved) {
         return;  // nothing sounding, the room at rest
     }
     s.bus.assign(frames, 0.0f);
-    if (s.infobot_clip>=0) {
-        const auto& clip=s.infobot_audio[s.infobot_clip];
-        for (std::size_t i=0;i<frames && s.infobot_at<clip.size();++i)
-            s.bus[i]+=clip[s.infobot_at++];
-        if (s.infobot_at>=clip.size()) s.infobot_clip=-1;
+    if (s.infobot_clip >= 0) {
+        const auto& clip = s.infobot_audio[s.infobot_clip];
+        for (std::size_t i = 0; i < frames && s.infobot_at < clip.size(); ++i) {
+            s.bus[i] += clip[s.infobot_at++];
+        }
+        if (s.infobot_at >= clip.size()) {
+            s.infobot_clip = -1;
+        }
     }
     for (Voice& v : s.voices) {
         if (v.sound >= 0) {
@@ -349,7 +365,7 @@ void mix(std::span<std::int16_t> interleaved) {
     }
     const bool still =
         std::any_of(s.voices.begin(), s.voices.end(), [](const Voice& v) { return v.sound >= 0; });
-    s.quiet = (still || s.infobot_clip>=0) ? 0 : s.quiet + static_cast<int>(frames);
+    s.quiet = (still || s.infobot_clip >= 0) ? 0 : s.quiet + static_cast<int>(frames);
     if (s.quiet >= kTailSamples) {
         s.left.clear();
         s.right.clear();
@@ -367,7 +383,8 @@ void reset() {
     State& s = state();
     std::lock_guard guard(s.lock);
     s.voices = {};
-    s.infobot_clip=-1; s.infobot_at=0;
+    s.infobot_clip = -1;
+    s.infobot_at = 0;
     s.cursor_played = false;
     s.left.clear();
     s.right.clear();

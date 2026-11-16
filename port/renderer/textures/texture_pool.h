@@ -30,7 +30,6 @@
 #include <span>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "renderer/direct/gs.h"
@@ -83,16 +82,20 @@ public:
     void upload(ImageUpload upload);
 
     // A picture put in a frame buffer's memory outside the display list (a movie's frame, at
-    // `block`): drawn from there as a texture, not as the frame, until it is forgotten (its
-    // transfer with it).
-    void mark_picture(std::uint32_t block) { m_pictures.insert(block); }
+    // `block`, PSMCT32 `width_units` wide, RGBA rows top first): drawn from there as a texture, not
+    // as the frame, until it is forgotten. One GL texture per block, its texels replaced in place
+    // each time (no hash, no conversion, no new texture per movie frame).
+    void set_picture(
+        std::uint32_t block,
+        std::uint32_t width_units,
+        int width,
+        int height,
+        std::span<const std::uint8_t> rgba
+    );
 
     bool picture_at(std::uint32_t block) const { return m_pictures.contains(block); }
 
-    void forget_picture(std::uint32_t block) {
-        m_pictures.erase(block);
-        m_uploads.erase(block);
-    }
+    void forget_picture(std::uint32_t block);
 
     // Same ordering/replacement semantics as upload(). For repeated immutable
     // frame inputs, reuse identical stored bytes without copying or rehashing.
@@ -314,12 +317,17 @@ private:
         std::uint64_t last_used = 0;
         Key key{};
         std::uint64_t pack_hash = 0;  // its texture pack hash (texture_pack::Replacement), or 0
+        // Not dumped yet, as LiveWatch held it back on tick `held_tick`: dumped if it is still
+        // drawn a while later (it settled, as a fade's last picture does).
+        std::shared_ptr<const Rgba8Image> held;
+        std::uint64_t held_tick = 0;
         // An animated replacement's frames (animate()): GL textures of frames past the first
         // (frame_gl[i - 1] is frame i; 0 until drawn) and the tick its clock started at.
         std::shared_ptr<const texture_pack::Animation> animation;
         // A pack KTX2's blocks (set_blocks), and whether the GL texture was made from them.
         std::shared_ptr<const CompressedImage> blocks;
         bool gl_blocks = false;
+        bool stale = false;  // a picture whose texels changed since its GL texture was filled
         std::vector<unsigned> frame_gl;
         std::uint64_t animation_start = 0;
         bool animation_started = false;
@@ -362,13 +370,19 @@ private:
         TextureHandle source
     );
 
+    // A picture's texture and the buffer width it was put with (set_picture).
+    struct Picture {
+        TextureHandle texture = 0;
+        std::uint32_t width_units = 0;
+    };
+
     std::unique_ptr<UpscaledTextureColours> m_upscaled_texture_colours;
 
     std::vector<Entry> m_entries;  // handle - 1
     float m_anisotropy = 1.0f;
     std::vector<TextureHandle> m_free;
     std::unordered_map<std::uint32_t, Stored> m_uploads;        // by base pointer
-    std::unordered_set<std::uint32_t> m_pictures;               // mark_picture's blocks
+    std::unordered_map<std::uint32_t, Picture> m_pictures;      // set_picture's, by block
     std::uint64_t m_sequence = 0;
     std::unordered_map<std::uint32_t, Clut> m_cluts;            // loaded, by CBP (load_clut)
     std::unordered_map<std::uint32_t, TextureHandle> m_placed;  // by base pointer
@@ -382,6 +396,7 @@ private:
     // only while textures are dumped (texture_pack::dumping).
     std::unordered_map<std::uint64_t, std::pair<std::uint64_t, unsigned>> m_slot_turns;
     texture_pack::CycleWatch m_cycles;
+    texture_pack::LiveWatch m_live;  // uploads the game makes anew each tick: not dumped
     std::unordered_map<std::uint64_t, TextureHandle> m_distance_fields;  // by the source's content
     // The field last given for a handle, with a sample of its texels (distance_field).
     std::unordered_map<TextureHandle, std::pair<std::uint64_t, TextureHandle>> m_field_of_handle;

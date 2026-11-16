@@ -90,10 +90,10 @@ void func_001F6668(int x, int y, unsigned long long colour, gaddr text, int limi
     uint32_t mode = 0;
     /* Only the title in the vendor's 128-pixel left monitor. */
     g_vendor_title_scale = 1.0f;
-    if (x == 6 && y == 8 && glyphs == OPENRAC_DATA(RAC1_ADDR(0x001DF770u)) &&
-        openrac_game_mode && openrac_game_mode(&mode) && mode == 5) {
-        g_vendor_title_scale = openrac_vendor_title_scale(
-            (const uint8_t*)G(text), limit, (const int8_t*)G(glyphs));
+    if (x == 6 && y == 8 && glyphs == OPENRAC_DATA(RAC1_ADDR(0x001DF770u)) && openrac_game_mode
+        && openrac_game_mode(&mode) && mode == 5) {
+        g_vendor_title_scale =
+            openrac_vendor_title_scale((const uint8_t*)G(text), limit, (const int8_t*)G(glyphs));
     }
     ++g_glyphs;
     func_001F6668__game(x, y, colour, text, limit, texture, glyphs);

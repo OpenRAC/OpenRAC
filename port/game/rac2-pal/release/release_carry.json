@@ -3,20 +3,40 @@
  "counts": {
   "function: by hand": 20,
   "function: called": 28,
-  "function: changed": 69,
-  "function: near": 96,
-  "function: not found": 2,
-  "function: same": 647,
+  "function: changed": 73,
+  "function: found": 28,
+  "function: near": 94,
+  "function: same": 685,
   "global: aligned": 5,
   "global: between": 16,
-  "global: exact": 144,
-  "global: the release's build": 73
+  "global: exact": 146,
+  "global: the release's build": 74
  },
  "functions": {
   "func_001158F8": [
    "func_001158F8",
    "by hand",
    "signature"
+  ],
+  "func_001205E0": [
+   "func_001205E0",
+   "found",
+   "host C"
+  ],
+  "func_00120748": [
+   "func_00120748",
+   "found",
+   "host C"
+  ],
+  "func_00120FA4": [
+   "func_00120FA4",
+   "found",
+   "host C"
+  ],
+  "func_0012118C": [
+   "func_0012118C",
+   "found",
+   "host C"
   ],
   "func_00124418": [
    "func_00124418",
@@ -78,6 +98,16 @@
    "called",
    "host C"
   ],
+  "func_00130004": [
+   "func_00130004",
+   "found",
+   "host C"
+  ],
+  "func_00131430": [
+   "func_00131430",
+   "found",
+   "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c"
+  ],
   "func_0026EDE8": [
    "func_0026EC50",
    "changed",
@@ -117,6 +147,11 @@
    "func_00280A30",
    "called",
    "host C"
+  ],
+  "func_00281490": [
+   "func_00281D50",
+   "found",
+   "asm.leave"
   ],
   "func_0028E458": [
    "func_0028ECD8",
@@ -158,6 +193,11 @@
    "near",
    "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c"
   ],
+  "func_002B6480": [
+   "func_002B7038",
+   "changed",
+   "host C"
+  ],
   "func_002D5748": [
    "func_002D6320",
    "near",
@@ -173,10 +213,30 @@
    "changed",
    "host C 0x002DC908"
   ],
+  "func_002E182C": [
+   "func_002E25FC",
+   "found",
+   "host C"
+  ],
+  "func_002E25C0": [
+   "func_002E3390",
+   "found",
+   "host C"
+  ],
+  "func_002F3C40": [
+   "func_002F4B90",
+   "found",
+   "host C"
+  ],
   "func_002F9C80": [
    "func_002FACD0",
    "near",
    "libraries.tsv Vendor_DrawList"
+  ],
+  "func_00310010": [
+   "func_00311448",
+   "found",
+   "asm.leave"
   ],
   "func_003136D0": [
    "func_00314B5C",
@@ -348,6 +408,16 @@
    "near",
    "unit_aliases src/levels/11_joba/L11_00449330.c"
   ],
+  "func_L02_00333438": [
+   "func_L02_00335630",
+   "changed",
+   "overrides"
+  ],
+  "func_L02_003CE8B0": [
+   "func_L02_003D2898",
+   "changed",
+   "overrides"
+  ],
   "func_L03_003C7018": [
    "func_L03_003CB058",
    "changed",
@@ -408,6 +478,16 @@
    "near",
    "host C"
   ],
+  "func_L06_00396268": [
+   "func_L13_00360CC0",
+   "found",
+   "more_places func_L00_00354DF8"
+  ],
+  "func_L06_00443DE0": [
+   "func_L06_00448968",
+   "changed",
+   "overrides"
+  ],
   "func_L08_002CB6E8": [
    "func_L08_002CB6E0",
    "near",
@@ -437,6 +517,11 @@
    "func_L09_00409B48",
    "near",
    "calls_as"
+  ],
+  "func_L09_00404F90": [
+   "func_L09_00409F00",
+   "changed",
+   "overrides"
   ],
   "func_L10_00421790": [
    "func_L10_00426618",
@@ -563,12 +648,8 @@
  },
  "level_hooks": {
   "carried": 26,
-  "count": 31,
+  "count": 38,
   "from": "0026F580",
   "to": "0026F678"
- },
- "unpaired": {
-  "func_00131430": "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c",
-  "func_L06_00396268": "more_places func_L00_00354DF8"
  }
 }

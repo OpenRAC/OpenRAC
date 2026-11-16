@@ -97,6 +97,8 @@
     "src"
   ],
   "skip": [
+    "src/jp",
+    "src/kr",
     "src/pal",
     "src/core/0011FC68.c",
     "src/core/00120528-eh.c",
@@ -130,7 +132,8 @@
   "global_views": true,
   "candidates_left_out": {
     "func_L03_003CA4B0": "includes common.h after its unit's own qcopy",
-    "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly"
+    "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly",
+    "func_002A2450": "not in this release"
   },
   "derived": {
     "table": "release/release_names.json"
@@ -142,18 +145,18 @@
   "data_copies": "tables/data_copies.tsv",
   "calls_as": {
     "L22": {
-      "func_L22_002F47E8": "func_00283670",
-      "func_L22_002F4858": "func_002836E0",
-      "func_L22_002F4818": "func_002836A0",
-      "func_L22_002F4918": "func_00283788",
-      "func_L22_0032B440": "func_002B0E40"
+      "func_002F48D8": "func_00283670",
+      "func_002F4948": "func_002836E0",
+      "func_002F4908": "func_002836A0",
+      "func_002F4A08": "func_00283788",
+      "func_0032AFE8": "func_002B0E40"
     },
     "L23": {
-      "func_L22_002F47E8": "func_00283670",
-      "func_L22_002F4858": "func_002836E0",
-      "func_L22_002F4818": "func_002836A0",
-      "func_L22_002F4918": "func_00283788",
-      "func_L22_0032B440": "func_002B0E40"
+      "func_002F48D8": "func_00283670",
+      "func_002F4948": "func_002836E0",
+      "func_002F4908": "func_002836A0",
+      "func_002F4A08": "func_00283788",
+      "func_0032AFE8": "func_002B0E40"
     },
     "L12": {
       "func_3248E0": "func_002A85B8",
@@ -161,7 +164,7 @@
       "func_333240": "func_L00_0032B580"
     },
     "func_L12_00403FA0": {
-      "func_L12_002F2A00": "func_00283A48"
+      "func_00283820": "func_00283A48"
     },
     "func_L12_002CF9E0": {
       "func_V1_L00_002B2CC8": "func_L12_002B86E8"
@@ -178,17 +181,17 @@
       "func_L00_002AD000": "func_L01_002AE2A0"
     },
     "func_L09_00406020": {
-      "func_L08_00317818": "func_002A82D8"
+      "func_L08_00317778": "func_002A82D8"
     },
     "func_L09_00406080": {
-      "func_L08_00317818": "func_002A82D8"
+      "func_L08_00317778": "func_002A82D8"
     },
     "func_L18_003FCB78": {
       "func_L08_002F36E0": "func_0027D640"
     }
   },
   "more_places": {
-    "func_L00_00355F38": "01:0034C2C0,02:0035CF30,03:00357710,04:00379938,05:00368498,07:0034BEB8,08:00364480,09:003531D0,11:0036A7F8,12:0035B820,13:0035FA58,14:003606E8,15:0036EC10,17:003595C8,18:00372220,20:0036BFB0,22:003598C8,23:0035DFE0,24:0034D598,25:003624D8,26:003559A8,30:00356780",
+    "func_L00_00355F38": "01:0034C2C0,02:0035CF30,03:00357710,04:00379938,05:00368498,06:003974C0,07:0034BEB8,08:00364480,09:003531D0,11:0036A7F8,12:0035B820,13:0035FA58,14:003606E8,15:0036EC10,17:003595C8,18:00372220,20:0036BFB0,22:003598C8,23:0035DFE0,24:0034D598,25:003624D8,26:003559A8,30:00356780",
     "func_0029E308": "01:00305170,04:003300A0,06:0034ED98,08:0031BD50,18:00329D50,20:00323CB0"
   },
   "splits_keep_names": true,
@@ -245,24 +248,24 @@
       "func_V1_002E67A0_2": "func_0027CED8"
     },
     "src/levels/23_damosel_orbit/L23_00416388-scan.c": {
-      "func_L22_002F47E8": "func_00283670",
-      "func_L22_002F4818": "func_002836A0",
-      "func_L22_002F4858": "func_002836E0",
-      "func_L22_002F4918": "func_00283788",
-      "func_L22_002F4AC8": "func_002838D0",
-      "func_L22_0032B440": "func_002B0E40"
+      "func_002F48D8": "func_00283670",
+      "func_002F4908": "func_002836A0",
+      "func_002F4948": "func_002836E0",
+      "func_002F4A08": "func_00283788",
+      "func_002F4BB8": "func_002838D0",
+      "func_0032AFE8": "func_002B0E40"
     },
     "src/levels/11_joba/L11_00449330.c": {
-      "func_L02_002F2D58": "func_00283670",
+      "func_002F2DC8": "func_00283670",
       "FUN_L02_0032C760": "func_L02_0032C760",
-      "func_L02_003157A0": "func_002A0170"
+      "func_003152D0": "func_002A0170"
     },
     "src/levels/12_todano/L12_00388090-flags-g8.c": {
       "func_L12_00365ED8": "func_002E6B30",
-      "func_L12_0032B088": "func_L00_00327898"
+      "func_0032ADA0": "func_L00_00327898"
     },
     "src/levels/12_todano/L12_00402B48-g16.c": {
-      "func_L12_002F2A00": "func_00283A48"
+      "func_00283820": "func_00283A48"
     },
     "src/levels/04_barlow/L04_002E04A8.c": {
       "func_L00_002AD000": "func_L01_002AE2A0",
@@ -290,7 +293,8 @@
       "FUN_00122B00": "func_00122B00",
       "FUN_00122DA8": "func_00122DA8",
       "FUN_00123298": "func_00123298",
-      "FUN_001234F0": "func_001234F0"
+      "FUN_001234F0": "func_001234F0",
+      "FUN_00131430": "func_00131430"
     },
     "src/levels/15_gorn/L15_00315428-g8.c": {
       "func_V1_80380770": "func_L05_0037B198",
@@ -342,7 +346,22 @@
     "func_0026F800",
     "func_0026F808",
     "func_0026F810",
-    "func_0026F818"
+    "func_0026F818",
+    "ref_00302DA0_00",
+    "ref_00302DA0_01",
+    "ref_00302DA0_02",
+    "ref_00302DA0_03",
+    "ref_L00_003DD6A8_18",
+    "ref_US2_0029C818_00",
+    "ref_US2_0029C818_01",
+    "ref_US2_0029CD18_00",
+    "ref_US2_002D65D8_00",
+    "ref_US2_002D65D8_01",
+    "ref_US2_002EA0C0_00",
+    "ref_US2_002EA0C0_01",
+    "ref_US2_002F8FF8_00",
+    "ref_US2_002F97A8_00",
+    "ref_US2_0030FAC0_00"
   ],
   "keep_spent_arguments": true,
   "level_short_names": "^func_(?:80(?=[0-9A-F]{6}$))?(?P<addr>[0-9A-F]{6,8})$",
@@ -405,17 +424,14 @@
     "leave": {
       "func_00129120": "not a routine of its own: the catalogue's entry is the end of the routine before it (stores of vf4 and vf6 through registers that routine set), followed by sceVu0ScaleVector, whose own entry func_00129148 host/handasm.c answers",
       "func_00129160": "not a routine of its own: the end of the routine before it, followed by sceVu0UnitMatrix, whose own entry func_00129178 host/handasm.c answers",
-      "func_002BAF68": "a piece of func_002BA340's loop, entered by a branch: it reads that routine's $s0-$s2 (a packet cursor, a count, a record) and its vf20; func_002BA340 is the port's own (host_functions)",
-      "func_00281B04": "a step of func_00281540's packet builder: it takes the packet cursor in $at and the source in $s2 from it; func_00281540 is the port's own (host_functions)",
-      "func_00281B84": "a step of func_00281540's packet builder: the packet cursor in $at, which it advances; func_00281540 is the port's own (host_functions)"
+      "func_002BAF68": "a piece of func_002B9420's loop, entered by a branch: it reads that routine's $s0-$s2 (a packet cursor, a count, a record) and its vf20; func_002B9420 is the port's own (host_functions)",
+      "func_00310E08": "the shared epilogue of a routine (stores to its $s0 record, restores its saved registers from its frame, returns from it), entered by a jump from inside it",
+      "func_00281B04": "a step of func_00280B90's packet builder: it takes the packet cursor in $at and the source in $s2 from it; func_00280B90 is the port's own (host_functions)",
+      "func_00281B84": "a step of func_00280B90's packet builder: the packet cursor in $at, which it advances; func_00280B90 is the port's own (host_functions)",
+      "func_00281E40": "a step of func_00280B90's packet builder: its inputs in vf8-vf10 and $at; func_00280B90 is the port's own (host_functions)"
     },
     "signatures": {
-      "F391de845_FUN_002E45C8": "int (void *, float, float, float)",
-      "func_00284548_10": "float (float, float)",
-      "func_0028F2C0": "int (int, int, int, int, int, void *)",
-      "func_L04_0040C228": "void (void)",
-      "func_L04_004188B8": "void (void)",
-      "func_L03_003C8620": "void (void)"
+      "func_00284548_10": "float (float, float)"
     },
     "results_before_calls": true,
     "vu0_programs": {
@@ -450,7 +466,7 @@
   "overrides": "hand/overrides.tsv",
   "assembly_allow": "checks/assembly_allow.tsv",
   "result_allow": "checks/result_allow.tsv",
-  "primary_hand": "../rac2-ntsc/hand/hand.tsv",
+  "hand": "hand/hand.tsv",
   "extra_params": {
     "#": "Arguments a function's matching C leaves in their registers for a call it makes; each checked against the retail assembly (the register is the function's own argument).",
     "func_00336720": [
@@ -520,6 +536,5 @@
   "release": {
     "version": "us2",
     "table": "release/release_names.json"
-  },
-  "hand": "hand/hand.tsv"
+  }
 }

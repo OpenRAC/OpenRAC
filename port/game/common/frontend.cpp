@@ -153,6 +153,11 @@ bool skippable() {
 
 // The picture's shape now: the player's setting, for the window as it is.
 float picture_aspect(int window_width, int window_height) {
+    // A movie fills the window whatever the picture setting (set_movie_playing): the game sizes its
+    // picture to the window's shape (rac2/host/movie.c), as a television would.
+    if (g != nullptr && g->movie_playing && window_width > 0 && window_height > 0) {
+        return static_cast<float>(window_width) / static_cast<float>(window_height);
+    }
     return settings::aspect_ratio(settings::get(), window_width, window_height);
 }
 
@@ -533,6 +538,12 @@ void world_drawn(std::span<const std::uint8_t> ram) {
     g->world_shrubs.reset();
     if (settings::get().original_draw_distance()) {
         g->world_shrubs = g->profile->shrub_draws(ram, level);
+    }
+}
+
+void set_movie_playing(bool on) {
+    if (g) {
+        g->movie_playing = on;
     }
 }
 

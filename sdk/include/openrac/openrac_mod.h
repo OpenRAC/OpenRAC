@@ -70,10 +70,10 @@ extern "C" {
  * own settings changed from the game (written into the launcher's list of mods)
  * and told when the launcher changes them while the game runs, 1.16 a mod's own
  * data kept with the game's saves, 1.17 the game's own collision query asked by
- * a mod (collision_line), 1.18 render-only reward models, guest text, sprite
- * tint and pickup acquisition presentations.
+ * a mod (collision_line), 1.18 a prop fixed to a moby's joint (prop_attach).
+ * 1.19 render-only reward models, guest text, sprite tint and pickup presentations.
  */
-#define OPENRAC_MOD_API_MINOR 18
+#define OPENRAC_MOD_API_MINOR 19
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -99,6 +99,10 @@ typedef struct openrac_line_hit {
    * faces. */
   int32_t moby;
 } openrac_line_hit;
+
+/* prop_attach's flags: `joint` is one of the hero's attach points
+ * (openrac_held_piece.joint), not a joint of his skeleton. Since 1.19. */
+#define OPENRAC_ATTACH_HELD 0x1u
 
 /* The most bytes of a mod's data kept with a save (openrac_api.save_data_set). Since 1.16. */
 #define OPENRAC_SAVE_DATA_MAX 65536u
@@ -1310,14 +1314,14 @@ typedef struct openrac_pack_entry {
  * sees them, and one built for 1.2 loads on a 1.2 port or newer. */
 /* A render-only replacement: the live moby's address and a class from the extracted game (-1 hides it).
  * height 0 preserves the original model's displayed height; positive values set world units.
- * Neither the moby's class, animation, collision nor update state is modified. Since 1.18. */
+ * Neither the moby's class, animation, collision nor update state is modified. Since 1.19. */
 typedef struct openrac_moby_visual {
     openrac_gaddr moby;
     int32_t oclass;
     float height;
 } openrac_moby_visual;
 
-/* Maximum replacements a mod submits for one frame. Since 1.18. */
+/* Maximum replacements a mod submits for one frame. Since 1.19. */
 #define OPENRAC_MOBY_VISUALS_MAX 512
 
 typedef struct openrac_api {
@@ -1722,10 +1726,13 @@ typedef struct openrac_api {
      * scenes of. Since 1.9. */
     int (*play_scene)(openrac_mod* mod, int scene);
 
-    /* Hides the moby in `slot` from drawing (`hidden` 1), as the game hides one, or shows it again
-     * (0); the game's own update may change it again (one a mod drives keeps it). Listed with
-     * OPENRAC_MOBY_HIDDEN while hidden. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no
-     * moby there. Since 1.9. */
+    /* Hides the moby in `slot` from drawing (`hidden` 1), as the game hides
+     * one, or shows it again (0); the game's own update may change it again
+     * (one a mod drives keeps it). Since 1.18, a piece the hero holds
+     * (hero_held) stays hidden while it is in that slot, though the game shows
+     * his pieces again each tick: for a mod's own model in its place
+     * (prop_attach). Listed with OPENRAC_MOBY_HIDDEN while hidden. Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby there. Since 1.9. */
     int (*moby_hide)(openrac_mod* mod, int slot, int hidden);
 
     /* Fills `out` (its size set by the mod) with the last deletion the game made of the moby in
@@ -2178,24 +2185,57 @@ typedef struct openrac_api {
     int (*collision_line)(const float from[3], const float to[3],
                           uint32_t flags, int32_t ignore,
                           openrac_line_hit *out);
+
+    /* Fixes a prop of the mod's (prop_create) to joint `joint` of the moby in
+     * slot `slot` (since 1.18): its skeleton's joint, or with
+     * OPENRAC_ATTACH_HELD in `flags` one of the hero's attach points as
+     * hero_held names them (openrac_held_piece.joint: where the game puts the
+     * piece in his hand, his helmet, his pack), for a moby of the hero's class.
+     * From the next frame the renderer draws it at that joint's frame as the
+     * moby is drawn, times `offset` (a 4 by 4 matrix, column-major, in the
+     * joint's frame: the prop's own place, turn and scale on the joint, in the
+     * game's units, the moby's own scale left out; null for none), every
+     * frame, so it never lags behind the moby's animation. With no offset at an
+     * attach point, the prop's origin is where the game puts its own piece (a
+     * weapon model's grip, in the hero's hand). It is not drawn while the moby
+     * is not (hidden, culled, gone), nor for a joint the moby's class does not
+     * have. Its tint and blend stay as prop_pose last gave them. prop_pose
+     * takes it off the joint again. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for a prop that is not the mod's, no moby in the
+     * slot, a joint below 0, an attach point the game does not have or an
+     * offset that is not numbers. */
+    int (*prop_attach)(openrac_mod *mod, int id, int32_t slot, int32_t joint,
+                       uint32_t flags, const float offset[16]);
+
+    /* Where a prop of the mod's was drawn last (since 1.18): into `out` the 4
+     * by 4 matrix, column-major, that took its mesh's coordinates to the
+     * world's in the last frame drawn. For a prop fixed to a joint
+     * (prop_attach) that is the joint's frame then times its offset: the way
+     * a weapon in the hero's hand points, and where its muzzle is (a point of
+     * its mesh carried by the matrix), through a somersault as through a
+     * walk. For a posed one, its pose. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for a prop that is not the mod's, not posed, or not
+     * drawn on its joint since it was fixed there. */
+    int (*prop_frame)(openrac_mod *mod, int id, float out[16]);
+
     /* Replaces this mod's render-only moby appearances for this level load. count 0 clears them.
      * The renderer imports requested classes from this disc's extracted levels, including classes
      * not resident in the current level. Missing assets leave the original visible. Replacement
      * meshes draw in bind pose, including menu/render-to-texture cameras. Requests expire on
-     * level changes or mod unload. Returns OPENRAC_HOOK_OK, or UNKNOWN for invalid input. Since 1.18. */
+     * level changes or mod unload. Returns OPENRAC_HOOK_OK, or UNKNOWN for invalid input. Since 1.19. */
     int (*moby_visuals)(openrac_mod* mod, const openrac_moby_visual* visuals, int count);
     /* A persistent, deduplicated game-memory copy of UTF-8 text, for a text hook's return value.
      * At most 1,023 bytes per string and 64 KiB of unique text per mod. Returns 0 at the limit.
-     * Allocations are included in guest snapshots; callers need not hold native storage. Since 1.18. */
+     * Allocations are included in guest snapshots; callers need not hold native storage. Since 1.19. */
     openrac_gaddr (*guest_text)(openrac_mod* mod, const char* text);
     /* Temporarily overrides native UI sprite RGB (PS2 0..128 per channel). UINT32_MAX disables it.
      * Returns the previous value; restore it before returning from the enclosing draw hook.
-     * Alpha is preserved. Since 1.18. */
+     * Alpha is preserved. Since 1.19. */
     uint32_t (*sprite_tint)(openrac_mod* mod, uint32_t rgb);
     /* Local pickup presentation: 1 Gold Bolt, 2 weapon demo (item is its base ID),
      * 3 Infobot capture/video/close (item is the destination planet ID).
      * -1 polls an active sequence. Returns 1 active,
-     * 0 unsupported/finished, -1 busy (retry). Does not grant items. Since 1.18. */
+     * 0 unsupported/finished, -1 busy (retry). Does not grant items. Since 1.19. */
     int (*pickup_animation)(openrac_mod* mod, int kind, int item);
 } openrac_api;
 

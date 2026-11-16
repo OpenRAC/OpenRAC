@@ -239,6 +239,12 @@ public:
     // were until its render equivalence is run with the change.
     virtual bool interpolates_effect_quads() const { return false; }
 
+    // Returns the position anchor of an active particle record, or 0 for world-space particles.
+    // Attached sprites can follow it from their first frame, before their slot has any history.
+    [[nodiscard]] virtual std::uint32_t particle_attachment(std::span<const std::uint8_t>) const {
+        return 0;
+    }
+
     // Whether the terrain's vertex colours take the point lights in reach, as Going Commando's
     // PatchTfragVertexLighting (0x2F0468) adds them to the colours the level lit (mesh.vert),
     // rather than not at all.

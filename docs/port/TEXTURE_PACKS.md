@@ -191,7 +191,9 @@ frame by frame.
   there are no frames to replace.
 - **Made while the game runs.** Fades, the picture drawn into a screen (the
   vendor's screen, the ship's cockpit display) and other textures the game
-  draws itself change every frame. They cannot be replaced.
+  draws itself change every frame. They cannot be replaced. In the 2D layer
+  a dump skips them: a place that gets a new texture on almost every tick for
+  about a second is not dumped, and its first ones are removed again.
 
 Examples from Going Commando (NTSC-U):
 

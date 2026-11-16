@@ -27,6 +27,8 @@ void func_0020D678__game(gaddr a0);
 void func_00213C78(void);
 void func_00218B10(void);
 void func_002352C8(void);
+void func_L00_00233950(void);
+void func_L00_00233950__game(void);
 void func_L00_00235FF8(int a0);
 void func_L00_0025AAC0(gaddr a0, gaddr a1);
 void func_L00_0025AAC0__game(gaddr a0, gaddr a1);

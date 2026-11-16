@@ -136,6 +136,19 @@ int play_movie(
         ~TouchSkip() { frontend::touch_controls::set_movie(false); }
     } touch_skip(start_skips != 0);
 
+    // A movie the game draws itself fills the window (frontend::set_movie_playing).
+    struct MoviePlaying {
+        explicit MoviePlaying(bool on) : on(on) { frontend::set_movie_playing(on); }
+
+        ~MoviePlaying() {
+            if (on) {
+                frontend::set_movie_playing(false);
+            }
+        }
+
+        bool on;
+    } movie_playing(overlay != nullptr);
+
     for (std::uint64_t blank = 0;; ++blank) {
         if (output) {
             output->set_gain(settings::output_gain());

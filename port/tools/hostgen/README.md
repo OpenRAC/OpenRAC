@@ -380,7 +380,9 @@ table of that release's names for them, `"release": {"version": ..., "table": ..
 ([release.py](release.py)): `prep.py` writes every file in those names (the address names in code,
 strings and comments; a file's short names by its level's program), the catalogues' names are
 read in them, the candidates too, and the table is the `"derived"` values as well. Every other
-rule then holds as for the primary release. [release_carry.py](release_carry.py) writes the
+rule then holds as for the primary release. rac2's table follows the release's own build: `placed`
+(what its build put in the release) and `gone_in` (the primary's definitions it left out, by file,
+which `Release.splice` drops under any spelling). [release_carry.py](release_carry.py) writes the
 release's configuration and tables from the primary's (port/game/rac2/README.md).
 
 Up Your Arsenal's rac3-decomp names its C by PAL's addresses; rac3-ntsc reads it in NTSC-U's
@@ -407,7 +409,7 @@ and a function's per-caller alias is the function at its place (`"words"`):
 | [asm.py](asm.py), [asmc.py](asmc.py) | reading the decompilation's assembly, and C from it for the functions with no C |
 | [retail.py](retail.py), [test_retail.py](test_retail.py) | the same instructions from the retail program (the disc image, or the executable and level dumps) |
 | [derived.py](derived.py), [test_derived.py](test_derived.py) | the names a decompilation's build derives: which table is read, and the port's copy written again |
-| [release.py](release.py), [release_carry.py](release_carry.py), [release_rac3.py](release_rac3.py), [test_release.py](test_release.py) | another release's names for the primary's (the release view), its port tables carried, and rac3-ntsc's table |
+| [release.py](release.py), [release_rac1.py](release_rac1.py), [release_carry.py](release_carry.py), [release_rac3.py](release_rac3.py), [test_release.py](test_release.py) | another release's names for the primary's (the release view), its port tables carried (rac1, rac2), and rac3-ntsc's table |
 | [no_c.py](no_c.py), [test_no_c.py](test_no_c.py) | which functions with no C need C: each game's `no_c.tsv` |
 | [tests/assembler.py](tests/assembler.py) | the tests' small assembler: assembly files written the way the setup writes them |
 | [test_hostgen.py](test_hostgen.py), [tests/harness.c](tests/harness.c) | small programs in the console's C, translated, built, run and checked |

@@ -157,6 +157,8 @@ void rac1_world_moby_hide(gaddr moby, int hidden);
 int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out);
 int rac1_world_camera_position(float out[3]);
 int rac1_level_line(const float from[3], const float to[3], int* blocked);
+/* The skeleton joint of the hero's attach point `point` on `moby` (figure_items.c), -1 for none. */
+int rac1_attach_point_joint(gaddr moby, int point);
 int rac1_collision_line(
     const float from[3],
     const float to[3],

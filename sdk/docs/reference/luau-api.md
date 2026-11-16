@@ -535,12 +535,12 @@ rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts 
 type GoldBolts_CountUnspentFn = () -> number
 ```
 
-### `Vendor_DrawIconsFn`
+### `Vendor_DrawIconStripFn`
 
-rac1.vendor.draw_icons (Vendor_DrawIcons) void(): Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.
+rac1.vendor.icon_strip.draw (Vendor_DrawIconStrip) void(): Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
 
 ```lua
-type Vendor_DrawIconsFn = () -> ()
+type Vendor_DrawIconStripFn = () -> ()
 ```
 
 ### `Vendor_DrawDetailsFn`
