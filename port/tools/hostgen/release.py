@@ -240,7 +240,7 @@ class Release:
         self.level_base = 0
         # The release's level catalogue: a function's name there -> {level: its place}.
         self.release_places: dict[str, dict[int, int]] = {}
-        # The decompilation's readable names (names.h): readable name -> v1.01's address name.
+        # The decompilation's readable names (names.h): readable name -> the primary's address name.
         self.readable: dict[str, str] = {}
 
     @classmethod
@@ -371,9 +371,8 @@ class Release:
         # function, as in any other file. A mark of a name the file does not define stays whole.
         marked = {k for k, v in own.items() if f"_{DEAD}_" in v}
         if marked and self.readable:
-            # A definition written under a readable name (rac2-decomp names its functions) is the
-            # same function: its spellings are written as the address name first, as
-            # splice() finds rac1's, so the mark reaches it.
+            # A definition under a readable name is the same function: its spellings are written
+            # as the address name first, as splice() finds them, so the mark reaches it.
             import prep
             text = prep.unalias(text, {r: a for r, a in self.readable.items() if a in marked})
         definitions = ([m for m in DEFINED.finditer(text)] + [m for m in INCLUDED.finditer(text)]
@@ -407,7 +406,7 @@ class Release:
 
 
 def primary_aliases(source: Path, cfg: dict) -> dict[str, str]:
-    """readable name -> v1.01's address name, from the names headers hostgen.json lists ("aliases")."""
+    """readable name -> the primary's address name, from the names headers hostgen.json lists ("aliases")."""
     import prep
     out: dict[str, str] = {}
     for header in cfg.get("aliases", []):

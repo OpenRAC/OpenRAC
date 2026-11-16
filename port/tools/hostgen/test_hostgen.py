@@ -2686,8 +2686,8 @@ class Places(unittest.TestCase):
             self.assertEqual(stats["known"], 2)
 
     def test_abicheck_finds_v1_c_beside_the_releases_own(self):
-        # rac2 PAL after #538: v1.01's grid_menu_reposition_widgets at PAL's 0x003468F8 beside PAL's
-        # own C there. Two spellings of one function (func_X and func_X_1) are fine.
+        # The primary's C at the release's place beside the release's own C there is an error;
+        # two spellings of one function (func_X and func_X_1) are fine.
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "functions.c"
             path.write_text(

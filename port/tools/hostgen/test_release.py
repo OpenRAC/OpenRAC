@@ -85,8 +85,7 @@ class ReleaseNames(unittest.TestCase):
                          'INCLUDE_ASM("asm/game", func_V1_002CA070);\nvoid func_002CAA58(void)\n{\n    FUN_002CAEA0();\n}\n')
 
     def test_a_mark_reaches_a_definition_under_a_readable_name(self):
-        # rac2-decomp defines grid_menu_reposition_widgets (names.h: func_00344848). The release has
-        # its own C at that place: v1.01's definition is marked, as under its address name.
+        # A definition under a readable name (names.h) is marked as under its address name.
         r = release.Release({"names": {"func_00344848": "FUN_003468F8"},
                              "units": {"src/game/00344848.c": {"func_00344848": "func_V1_00344848"}}})
         r.readable = {"grid_menu_reposition_widgets": "func_00344848"}
