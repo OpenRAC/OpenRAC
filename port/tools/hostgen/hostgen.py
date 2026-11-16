@@ -1523,9 +1523,13 @@ def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
         return {same_place(n)} | {tuple(pl) for pl in summary["without_c_places"].get(n, {}).get("places", [])}
     allowed = set().union(*(places(n) for n in allow))
     reached_at = set().union(*(places(n) for n in reached))
+    # A row goes once its function has C. One still without it stays, reached or not here: a build
+    # without the disc has no assembly to translate, so a call from the release's own assembly, or
+    # to a stub of no C, does not show.
+    without_c = set().union(*(places(n) for n in summary["without_c_places"]))
     return {"assembly_reached": {n: sorted(v) for n, v in sorted(reached.items())},
             "assembly_unallowed": sorted(n for n, by in reached.items() if by and not places(n) & allowed),
-            "assembly_allow_unused": sorted(n for n in allow if not places(n) & reached_at)}
+            "assembly_allow_unused": sorted(n for n in allow if not places(n) & (reached_at | without_c))}
 
 
 def extern_result_mismatch(fns) -> dict:

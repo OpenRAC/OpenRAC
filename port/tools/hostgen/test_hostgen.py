@@ -4387,6 +4387,9 @@ class AssemblyGuard(unittest.TestCase):
         got = hostgen.assembly_guard(self.summary(), {"func_A": "why", "func_Z": "why"})
         self.assertEqual(got["assembly_unallowed"], ["func_F"])
         self.assertEqual(got["assembly_allow_unused"], ["func_Z"])
+        # func_D has no C yet but nothing reaches it here (a build without the disc): its row stands.
+        got = hostgen.assembly_guard(self.summary(), {"func_A": "why", "func_D": "why"})
+        self.assertEqual(got["assembly_allow_unused"], [])
 
     def test_a_row_stands_for_every_name_of_its_place(self):
         # ref_G and func_G are one place: a build whose calls reach either name uses the row.
