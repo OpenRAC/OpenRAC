@@ -542,6 +542,7 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
     q.alpha = quad.alpha;
     q.id = quad.id;
     q.parent = quad.parent;
+    q.attachment = quad.attachment;
     const std::uint32_t pixels = quad.pixels & 0x01FFFFFF;
     const std::uint32_t clut = quad.clut & 0x01FFFFFF;
     const std::uint32_t tbp = static_cast<std::uint32_t>(quad.tex0 & 0x3FFF);
@@ -845,6 +846,7 @@ void particle(
     State::Particle p;
     std::memcpy(p.record.data(), record, p.record.size());
     p.id = id;
+    p.attachment = g->profile->particle_attachment(p.record);
     p.pixels = pixels & 0x01FFFFFF;
     p.clut = clut & 0x01FFFFFF;
     p.log2_side = log2_side;
@@ -1183,6 +1185,7 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         q.tex1 = 0xFF9000000120ull;
         q.alpha = r[3];
         q.id = p.id;
+        q.attachment = p.attachment;
         q.rigid = kind != 3;
         items.push_back({z, q});
     }

@@ -5,9 +5,8 @@
  * Going Commando: the game's own renderers, which the native port does not run. On the console they
  * are hand-written assembly that turns level data into VU1 and GS packets; the port draws the same
  * things with its own renderers from the extracted level, as for Ratchet & Clank
- * (port/game/rac1/host/render_native.c, whose reading of each routine holds here: the routines were
- * paired instruction by instruction, ~/RACSwarm's RAC1_MAP.tsv). DrawWorld (func_0027BD70, matched C)
- * still runs: each pass it calls ends here, where a native renderer takes over.
+ * (port/game/rac1/host/render_native.c). DrawWorld (func_0027BD70) still runs: its passes end here,
+ * where native renderers consume the game's pass order and recorded draw arguments.
  */
 #include <math.h>
 #include <stdint.h>
@@ -325,6 +324,7 @@ static void world_quad(gaddr a0, gaddr a1) {
     memcpy(&q.alpha, r + 0x88, 8);
     q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
     q.parent = rac2_draw_owner;
+    q.attachment = rac2_effect_attachment(rac2_draw_owner);
     openrac_game_effect_quad(&q);
     /* Where the console's packet would have gone in the list, so that the window draws the quad
      * with the TEST and ZBUF in effect there (the game sets TEST_1 around its quads with

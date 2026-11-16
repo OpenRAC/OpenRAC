@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 
 namespace openrac::frontend {
 namespace {
@@ -29,6 +30,9 @@ constexpr float kCameraStepSquared = 64.0f;
 // The least cosine between a tick's axis and the next one's for the same moby or shot (about 45
 // degrees).
 constexpr float kSameTurnCosine = 0.7f;
+
+// Smaller determinants amplify numerical noise when an effect's parent axes are nearly singular.
+constexpr float kMinimumEffectDeterminant = 1e-12f;
 
 }  // namespace
 
@@ -90,6 +94,46 @@ bool same_moby(const renderer::Mat4& from, const renderer::Mat4& to) {
     }
 
     return la > 0.0f && lb > 0.0f && dot >= kSameTurnCosine * std::sqrt(la * lb);
+}
+
+void follow_moby(const renderer::Mat4& now, const renderer::Mat4& drawn, float point[3]) {
+    // The axes' inverse by cofactors: column c of `now` is axis c (elements c * 4 .. c * 4 + 2).
+    const float a = now[0], b = now[4], c = now[8];
+    const float d = now[1], e = now[5], f = now[9];
+    const float g = now[2], h = now[6], i = now[10];
+    const float co[9] = {
+        e * i - f * h,
+        c * h - b * i,
+        b * f - c * e,
+        f * g - d * i,
+        a * i - c * g,
+        c * d - a * f,
+        d * h - e * g,
+        b * g - a * h,
+        a * e - b * d,
+    };
+    const float det = a * co[0] + b * co[3] + c * co[6];
+    // Degenerate axes can still supply the parent's translation.
+    if (!(std::fabs(det) > kMinimumEffectDeterminant)) {
+        for (std::size_t k = 0; k < 3; ++k) {
+            point[k] += drawn[12 + k] - now[12 + k];
+        }
+        return;
+    }
+
+    const float r[3] = {point[0] - now[12], point[1] - now[13], point[2] - now[14]};
+    float local[3];
+
+    // Removing the source origin before inversion preserves precision far from the level's origin.
+    for (std::size_t k = 0; k < 3; ++k) {
+        local[k] = (co[k * 3] * r[0] + co[k * 3 + 1] * r[1] + co[k * 3 + 2] * r[2]) / det;
+    }
+
+    // Rebuild the same local point through the parent's displayed axes.
+    for (std::size_t k = 0; k < 3; ++k) {
+        point[k] =
+            drawn[k] * local[0] + drawn[4 + k] * local[1] + drawn[8 + k] * local[2] + drawn[12 + k];
+    }
 }
 
 renderer::Mat4 blend_matrix(const renderer::Mat4& from, const renderer::Mat4& to, float t) {

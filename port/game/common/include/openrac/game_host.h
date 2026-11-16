@@ -875,6 +875,9 @@ typedef struct openrac_game_quad {
      * between ticks may move it with the moby's body (an engine's flame), so that it stays where it
      * is on the moby; the window decides which owners' quads sit on them. */
     uint32_t parent;
+    /* A physical attachment whose current-tick geometry follows this moby's displayed transform;
+     * 0 for world-space effects, including trails emitted by a moving callback owner. */
+    uint32_t attachment;
 } openrac_game_quad;
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);
@@ -885,6 +888,11 @@ void openrac_game_effect_quad(const openrac_game_quad* quad);
  * and ZBUF the list left in effect there. 0 when there is none (no window, or no quad). */
 #define OPENRAC_EFFECT_QUAD_MARKER 0x4551u
 uint32_t openrac_game_effect_quad_marker(void);
+
+/* A scoped attachment for strips in a display list delayed by one tick: write this tag in bits
+ * 48-63 and the parent moby's address in bits 0-31 to NOP; address 0 ends the scope. The frontend
+ * moves these vertices from the previous parent transform to its displayed transform. */
+#define OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER 0x4550u
 
 /* Where the game's moby renderer draws the world's mobys, for the display list: the game puts
  * (OPENRAC_WORLD_MOBYS_MARKER << 48) in it with an A+D write to the NOP register where the world's

@@ -99,10 +99,13 @@ struct EffectQuad {
     // Its shape is the tick's own (a sprite or a flat quad, turned by its record's rotation, which
     // a game may pick at random each tick): a frame between ticks moves it whole, by its centre,
     // rather than each corner part way (which shrinks a quad turned between the two ticks).
+    // With an attachment, it follows the anchor's position without rotating its world offset.
     bool rigid = false;
     // The moby it belongs to (its game address), or 0: a frame between ticks may move it with the
     // moby's body as that frame draws it, rather than leaving it at the tick's place, ahead.
     std::uint32_t parent = 0;
+    // Physical attachment for current-tick geometry; callback ownership alone does not imply this.
+    std::uint32_t attachment = 0;
 };
 
 // A strip the game sent to its VU1 strip program (rac1: func_L00_001FDE48's packets: the seas,
@@ -124,6 +127,8 @@ struct EffectUvMotion {
 };
 
 struct EffectStrip {
+    // Physical parent at the previous tick, for geometry from a delayed display list; 0 is unbound.
+    std::uint32_t previous_parent = 0;
     std::uint32_t first = 0, count = 0;
     std::uint64_t clamp = 0, tex0 = 0, tex1 = 0, alpha = 0x44;
     std::uint64_t test = 0;  // TEST as the DIRECT data before the strip leaves it (0: none seen)

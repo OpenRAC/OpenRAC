@@ -3,9 +3,11 @@
 //
 // Going Commando's profile gives MobyProc's view (GameState::moby_view) from each program's own
 // globals, and leaves a moby past its draw distance or the program's cap undrawn, as the game does.
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <optional>
+#include <string_view>
 #include <vector>
 
 #include "game/common/profile.h"
@@ -93,9 +95,67 @@ void culls_past_the_distance_and_the_cap() {
     CHECK(!fade_at(profile, state, 150.0f, 4000));
     CHECK(fade_at(profile, state, 100.0f, 4000) == std::uint8_t{0x80});
 }
+
+// Captures a floating nanotech anchor without requiring the mesh axes and scale it never builds.
+void test_nanotech_keeps_its_position_without_a_mesh() {
+    std::array<std::uint8_t, 0x200> ram{};
+    constexpr std::uint32_t kMoby = 0x100;
+    constexpr std::uint16_t kNanotechClass = 806;
+    std::memcpy(ram.data() + kMoby + 0xAA, &kNanotechClass, sizeof(kNanotechClass));
+    ram[kMoby + 0x20] = 2;
+    const renderer::Vec3 position{10, 20, 30};
+    std::memcpy(ram.data() + kMoby + 0x10, position.data(), sizeof(position));
+
+    // All releases share the callback-only nanotech layout.
+    for (const std::string_view game : {"rac2-ntsc", "rac2-ntsc2", "rac2-pal"}) {
+        const auto anchor = host::game_profile(game).read_moby(ram, kMoby);
+        CHECK(anchor.has_value());
+        if (!anchor) {
+            continue;
+        }
+
+        CHECK(anchor->model_only);
+        CHECK(anchor->model_class == -1);
+        CHECK(anchor->matrix == renderer::translation({10, 20, 30}));
+    }
+}
+
+// Identifies position-attached nanotech sparks without attaching free-moving or warped particles.
+void test_nanotech_sparks_name_their_position_anchor() {
+    std::array<std::uint8_t, 0x40> record{};
+    record[0] = 62;
+    record[0x22] = 2;
+    std::uint32_t owner = 0x100;
+    std::memcpy(record.data() + 0x24, &owner, sizeof(owner));
+
+    // The particle update's layout is shared by all three releases.
+    for (const std::string_view game : {"rac2-ntsc", "rac2-ntsc2", "rac2-pal"}) {
+        CHECK(host::game_profile(game).particle_attachment(record) == owner);
+    }
+
+    const host::GameProfile& profile = host::game_profile("rac2-ntsc");
+    record[0x22] = 1;
+    CHECK(profile.particle_attachment(record) == 0);
+    record[0x22] = 0;
+    CHECK(profile.particle_attachment(record) == 0);
+    record[0x22] = 2;
+    record[0x23] = 1;
+    CHECK(profile.particle_attachment(record) == 0);
+    record[0x23] = 0;
+    record[0] = 0;
+    CHECK(profile.particle_attachment(record) == 0);
+    record[0] = 62;
+    owner = 0xFFFFFFFFu;
+    std::memcpy(record.data() + 0x24, &owner, sizeof(owner));
+    CHECK(profile.particle_attachment(record) == 0);
+    CHECK(profile.particle_attachment({}) == 0);
+}
+
 }  // namespace
 
 int main() {
+    test_nanotech_keeps_its_position_without_a_mesh();
+    test_nanotech_sparks_name_their_position_anchor();
     reads_each_programs_view();
     culls_past_the_distance_and_the_cap();
     return openrac::test::result();
