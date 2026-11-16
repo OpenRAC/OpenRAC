@@ -19,6 +19,13 @@
  * movie's subtitles (0x0027D5C0). The port uploads the native player's picture
  * there and builds that list with the game's own code on each blank, sent as
  * the tick's display list.
+ *
+ * The movies are 16:9, squeezed into the 4:3 frame. Before playing, the console's
+ * PlayFmvMovie builds the list's strips (BuildAspectBlitStrips, 0x00284088): full
+ * height with the 16:9 option on, for a wide television to stretch, otherwise 115/160
+ * of it, a letterbox. The port keeps that option off (options.c), so a window wider
+ * than 4:3 gets the full height and the window stretches the movie's ticks to its
+ * width (frontend::set_movie_playing), as such a television does.
  */
 #include <stdint.h>
 #include <string.h>
@@ -33,6 +40,7 @@
 #define FMV_FRAME_TBP GREF(int, OPENRAC_DATA(RAC2_ADDR(0x001A72DCu)))
 
 void func_002B6480(gaddr packet, int mode);
+void func_00284088(int use_given, int full_height);
 void func_00127220(gaddr channel, gaddr tag);
 
 /* A blank of the movie: the picture to where the decoder's chain puts it, then the list the
@@ -62,7 +70,11 @@ int func_0034EF58(int first, int second, int pool, int state, int mode, int volu
     (void)pool;
     (void)state;
     (void)mode;
-    (void)volume;
+    if (openrac_game_picture_wider() > 1.0f) {
+        func_00284088(1, 1);
+    } else {
+        func_00284088(volume, volume);
+    }
     const int result =
         openrac_game_play_movie_over((uint32_t)first, (uint32_t)second, 0, 1, movie_overlay);
 

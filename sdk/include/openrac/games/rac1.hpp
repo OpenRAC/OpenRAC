@@ -475,6 +475,14 @@ struct GoldBolts_CountUnspent {
     using fn = int32_t (*)();
 };
 
+// Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+struct Vendor_DrawIconStrip {
+    static constexpr const char* id = "rac1.vendor.icon_strip.draw";
+    static constexpr const char* name = "Vendor_DrawIconStrip";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -7583,6 +7591,9 @@ namespace hooks {
     }  // namespace text
     namespace vendor {
         using build_item_list = rac1::Vendor_BuildItemList;
+        namespace icon_strip {
+            using draw = rac1::Vendor_DrawIconStrip;
+        }  // namespace icon_strip
         using init_level_stock = rac1::Vendor_InitLevelStock;
         using initialize_selected = rac1::Vendor_InitializeSelected;
         using menu_update = rac1::Vendor_MenuUpdate;

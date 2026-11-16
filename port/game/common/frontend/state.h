@@ -130,6 +130,8 @@ struct Kept {
     // The world was drawn under a menu (State::world_under_menu): the menu's picture of the frame
     // is this tick's world.
     bool world_under_menu = false;
+    // A movie's tick (frontend::set_movie_playing).
+    bool movie = false;
     std::uint64_t frame = 0;
 };
 
@@ -366,6 +368,7 @@ struct State {
     TickPictures tick_pictures;
     bool repeat_frame = false;
     bool overdraw = false;
+    bool movie_playing = false;  // set_movie_playing
     // What the window is in now of the player's settings (apply_settings): the display mode, the
     // display; the picture's shape; the swap's wait as asked and as the
     // driver took it; whether the sound is held silent (the window lost the keyboard).

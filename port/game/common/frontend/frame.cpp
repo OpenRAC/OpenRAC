@@ -2359,8 +2359,11 @@ void choose_repeat_frame(int level, bool debug) {
          g->frame.id() != 0,
          level}
     );
-    g->repeat_frame = picture == TickPicture::Repeat;
-    g->overdraw = picture == TickPicture::Overdraw;
+    // A movie's tick starts from a cleared frame: the game's picture before it does not show
+    // around the movie.
+    k.movie = g->movie_playing;
+    g->repeat_frame = !k.movie && picture == TickPicture::Repeat;
+    g->overdraw = !k.movie && picture == TickPicture::Overdraw;
     // The picture stands, but the chip still took the images the tick's list sent: kept, a block
     // the game sends once is there when a later tick draws from it.
     if (g->repeat_frame && g->hud && g->profile->repeated_ticks_send_images()

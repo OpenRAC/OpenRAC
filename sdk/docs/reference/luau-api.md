@@ -535,6 +535,14 @@ rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts 
 type GoldBolts_CountUnspentFn = () -> number
 ```
 
+### `Vendor_DrawIconStripFn`
+
+rac1.vendor.icon_strip.draw (Vendor_DrawIconStrip) void(): Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+
+```lua
+type Vendor_DrawIconStripFn = () -> ()
+```
+
 ### `MobyUpdateFn`
 
 rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.

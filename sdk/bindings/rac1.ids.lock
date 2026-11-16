@@ -687,6 +687,7 @@ rac1.ship.init_transition	pal:L00:0028FCA0	FUN_L00_0028e9c8,Ship_InitTransition,
 rac1.ship.travel_to	pal:L00:00290030	FUN_L00_0028ed58,Ship_TravelTo,func_L00_00290030
 rac1.text.msg_string	pal:001FE540	FUN_001fdd10,func_001FE540,msg_string
 rac1.vendor.build_item_list	pal:L00:0029B770	FUN_L00_0029a400,Vendor_BuildItemList,func_L00_0029B770
+rac1.vendor.icon_strip.draw	pal:00239A00	FUN_002386e8,Vendor_DrawIconStrip,func_00239A00
 rac1.vendor.init_level_stock	pal:L00:0023DB30	FUN_L00_0023d198,Vendor_InitLevelStock,func_L00_0023DB30
 rac1.vendor.initialize_selected	pal:L00:0029C9E8	FUN_L00_0029b680,Vendor_InitializeSelected,func_L00_0029C9E8
 rac1.vendor.menu_update	pal:L00:0029CDE0	FUN_L00_0029ba78,Vendor_MenuUpdate,func_L00_0029CDE0

@@ -66,6 +66,7 @@ type HookPoint =
     | "rac1.text.msg_string"
     | "rac1.vendor.open_menu"
     | "rac1.gold_bolt.count_unspent"
+    | "rac1.vendor.icon_strip.draw"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -1388,6 +1389,7 @@ type HookPoint =
     | "Ship_InitTransition"
     | "Ship_TravelTo"
     | "Vendor_BuildItemList"
+    | "Vendor_DrawIconStrip"
     | "Vendor_InitLevelStock"
     | "Vendor_InitializeSelected"
     | "Vendor_MenuUpdate"
@@ -1530,6 +1532,8 @@ type msg_stringFn = (id: number) -> number
 type Vendor_OpenMenuFn = (moby: number) -> ()
 -- rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership.
 type GoldBolts_CountUnspentFn = () -> number
+-- rac1.vendor.icon_strip.draw (Vendor_DrawIconStrip) void(): Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+type Vendor_DrawIconStripFn = () -> ()
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 

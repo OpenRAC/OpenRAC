@@ -536,6 +536,12 @@ void world_drawn(std::span<const std::uint8_t> ram) {
     }
 }
 
+void set_movie_playing(bool on) {
+    if (g) {
+        g->movie_playing = on;
+    }
+}
+
 bool show_picture(const std::uint8_t* rgba, int width, int height, float black) {
     using namespace gl;
     // Movie frames also share the graphics context with pending world recording.
