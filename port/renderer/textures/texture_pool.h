@@ -392,6 +392,7 @@ private:
     // only while textures are dumped (texture_pack::dumping).
     std::unordered_map<std::uint64_t, std::pair<std::uint64_t, unsigned>> m_slot_turns;
     texture_pack::CycleWatch m_cycles;
+    texture_pack::LiveWatch m_live;  // uploads the game makes anew each tick: not dumped
     std::unordered_map<std::uint64_t, TextureHandle> m_distance_fields;  // by the source's content
     // The field last given for a handle, with a sample of its texels (distance_field).
     std::unordered_map<TextureHandle, std::pair<std::uint64_t, TextureHandle>> m_field_of_handle;

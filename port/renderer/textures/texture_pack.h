@@ -20,6 +20,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -108,6 +109,8 @@ struct Origin {
     // for now (replace() gives false); the caller converts the texture again once it is
     // (kept_version()). For a caller that can, so that no frame waits for the disk.
     bool later = false;
+    // False: not dumped (a texture the game makes anew each tick, LiveWatch).
+    bool dump = true;
 };
 
 // A level's name for its dump folder (the game's planet table); nullptr or an empty name gives
@@ -196,6 +199,40 @@ bool dumping();
 // (a frame shown twice in it is listed twice). `images` matches `order`; a null one is listed but
 // not written. Once per first hash.
 void dump_animated(std::span<const std::uint64_t> order, std::span<const Rgba8Image* const> images);
+
+// Removes the dump files of `hashes` that this run wrote (a texture found to be made anew each
+// tick, LiveWatch). Files from an earlier run stay.
+void undump(std::span<const std::uint64_t> hashes);
+
+// Finds the textures the game makes anew while it runs (fades, a picture drawn into a texture,
+// colours changed each tick): per place, a new texture on most ticks, never one seen there
+// before. No pack can replace these (each has a name of its own), so the dump skips them. A cycle
+// is not one: it shows the same few textures again (CycleWatch).
+class LiveWatch {
+public:
+    // New textures at one place, each at most kMaxGap ticks after the one before, on kLiveTicks
+    // ticks: the place is live. Twice the longest cycle, whose frames are all new once.
+    static constexpr std::uint64_t kMaxGap = 4;
+    static constexpr std::size_t kLiveTicks = 64;
+
+    struct Seen {
+        bool live = false;                  // `hash` is a live texture: not dumped
+        std::vector<std::uint64_t> undump;  // the place's earlier textures, now known to be live
+    };
+
+    // `hash` converted at `place` on tick `tick`.
+    Seen see(std::uint64_t place, std::uint64_t hash, std::uint64_t tick);
+
+private:
+    struct Place {
+        std::set<std::uint64_t> hashes;  // the textures of the current run
+        std::uint64_t last_tick = 0;     // the last new one's tick
+        std::size_t ticks = 0;           // ticks with a new one in the current run
+        bool live = false;
+    };
+
+    std::unordered_map<std::uint64_t, Place> m_places;
+};
 
 // Finds the textures the game cycles in one place: per slot (where a texture is drawn), the
 // hashes it showed, change by change. A slot whose latest changes are one sequence of at least two

@@ -527,7 +527,31 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     std::array<float, 2> uv_scale{1.0f, 1.0f};
     // A pack picture not read yet is read in the background: the original is drawn until then,
     // and end_frame() has the texture converted again (no frame waits for the disk).
-    const bool packed = texture_pack::replace(image, {.interface = true, .later = true}, &replaced);
+    // A texture the game makes anew each tick (a fade, a picture it draws) is not dumped: each
+    // tick's would be a file of its own, and no pack can replace them.
+    bool dump = true;
+    if (texture_pack::dumping()) {
+        const auto seen = m_live.see(
+            std::uint64_t{tex0.tbp0} | (std::uint64_t{tex0.tw} << 20)
+                | (std::uint64_t{tex0.th} << 24) | (std::uint64_t{tex0.psm} << 28),
+            texture_pack::image_hash(image),
+            m_tick
+        );
+        dump = !seen.live;
+        if (!seen.undump.empty()) {
+            texture_pack::undump(seen.undump);
+            log::info(
+                "textures: the upload at block {:#x} ({}x{}) changes every tick; not dumped "
+                "({} taken back)",
+                tex0.tbp0,
+                image.width,
+                image.height,
+                seen.undump.size()
+            );
+        }
+    }
+    const bool packed =
+        texture_pack::replace(image, {.interface = true, .later = true, .dump = dump}, &replaced);
     if (!packed && clut != nullptr) {
         pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs);
         if (extent[0] != 0) {
