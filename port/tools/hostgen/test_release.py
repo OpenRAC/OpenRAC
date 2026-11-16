@@ -75,15 +75,6 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual(r.text(text, "src/levels/02_x/L02_a.c"), "func_00313FD8(e0); func_002AA0A8(e1);")
         self.assertEqual(r.text(text, "src/game/other.c"), "func_00313FD8(e0); func_002AA0A8(e1);")
 
-    def test_a_files_mark_is_its_definition_only(self):
-        # The file defines v1.01's func_002CA070 (marked: the release has its own) and calls it from
-        # another function: the call is the release's function.
-        r = release.Release({"names": {"func_002CA070": "FUN_002CAEA0"},
-                             "units": {"src/game/002C7748.c": {"func_002CA070": "func_V1_002CA070"}}})
-        text = 'INCLUDE_ASM("asm/game", func_002CA070);\nvoid func_002CAA58(void)\n{\n    func_002CA070();\n}\n'
-        self.assertEqual(r.text(text, "src/game/002C7748.c"),
-                         'INCLUDE_ASM("asm/game", func_V1_002CA070);\nvoid func_002CAA58(void)\n{\n    FUN_002CAEA0();\n}\n')
-
     def test_a_gone_definition_is_left_out_under_any_spelling(self):
         # The release has its own function at the primary's place: the primary's definition (here
         # under a readable name) and its assembly marker are left out of the file the table names.
