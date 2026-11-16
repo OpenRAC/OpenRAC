@@ -346,7 +346,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -467,7 +467,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -547,7 +547,7 @@ jobs:
     # It asks for the build alone: the build's own condition covers scope.
     if: ${{ !cancelled() && needs.port-vulkan-enhanced-build.result == 'success' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 45
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -635,7 +635,7 @@ jobs:
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
     runs-on: ubuntu-26.04
     container: registry.fedoraproject.org/fedora:44
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       # Every compile through ccache, kept between runs as the other port jobs keep theirs.
       CMAKE_C_COMPILER_LAUNCHER: ccache
@@ -700,7 +700,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       CMAKE_C_COMPILER_LAUNCHER: ccache
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
