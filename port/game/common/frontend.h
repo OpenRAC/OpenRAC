@@ -161,12 +161,10 @@ void upload_image(
     std::span<const std::uint8_t> pixels
 );
 
-// The game reading a PSMCT32 rectangle of its draw buffer back (sceGsExecStoreImage): answered
-// with the last frame drawn, scaled to the chip's pixels. False if the rectangle is not in the
-// draw buffer (nothing written).
 // A picture put in a frame buffer's memory outside the display list (a movie's frame where the
-// console's decoder leaves it), as upload_image's image, RGBA rows top to bottom: the list's draws
-// from that block read it as a texture, not as the frame drawn, until forget_picture.
+// console's decoder leaves it), PSMCT32, RGBA rows top to bottom: the list's draws from that block
+// read it as a texture, not as the frame drawn, until forget_picture. Each call refills one GL
+// texture in place.
 void upload_picture(
     std::uint32_t base,
     std::uint32_t width_units,
@@ -175,6 +173,10 @@ void upload_picture(
     std::span<const std::uint8_t> pixels
 );
 void forget_picture(std::uint32_t base);
+
+// The game reading a PSMCT32 rectangle of its draw buffer back (sceGsExecStoreImage): answered
+// with the last frame drawn, scaled to the chip's pixels. False if the rectangle is not in the
+// draw buffer (nothing written).
 
 bool store_image(std::uint32_t base, std::uint32_t width_units, std::uint8_t psm, int x, int y,
                  int width, int height, std::span<std::uint8_t> out);

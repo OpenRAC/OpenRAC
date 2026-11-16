@@ -81,13 +81,15 @@ void upload_picture(
     std::uint32_t height,
     std::span<const std::uint8_t> pixels
 ) {
-    // The pool's marks are read by the render thread: set with no frame being drawn.
+    // The pool's pictures are read by the render thread: set with no frame being drawn. Not an
+    // upload_image: a movie frame each blank would be hashed, converted and given a new texture.
     if (!g || !finish_render()) {
         return;
     }
-    upload_image(base, width_units, renderer::gs::kPsmct32, 0, 0, width, height, pixels);
     if (g->renderer) {
-        g->renderer->textures().mark_picture(base);
+        g->renderer->textures().set_picture(
+            base, width_units, static_cast<int>(width), static_cast<int>(height), pixels
+        );
     }
 }
 
@@ -95,12 +97,6 @@ void forget_picture(std::uint32_t base) {
     if (!g || !finish_render()) {
         return;
     }
-    const auto at = [base](const renderer::ImageUpload& image) {
-        return image.dbp == base;
-    };
-    std::erase_if(g->images, at);
-    std::erase_if(g->pending_images, at);
-    std::erase_if(g->images_after_list, at);
     if (g->renderer) {
         g->renderer->textures().forget_picture(base);
     }
