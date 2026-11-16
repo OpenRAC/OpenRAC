@@ -796,6 +796,17 @@
         "ntsc": "FUN_00215248"
       },
       "about": "Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership."
+    },
+    {
+      "id": "rac1.vendor.icon_strip.draw",
+      "name": "Vendor_DrawIconStrip",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_00239A00",
+        "ntsc": "FUN_002386e8"
+      },
+      "about": "Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling."
     }
   ],
   "bases": {

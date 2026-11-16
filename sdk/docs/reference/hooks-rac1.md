@@ -68,6 +68,7 @@ game address.
 | `rac1.text.msg_string` | `msg_string` | `i32(i32)` | id | pal, ntsc | Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn. |
 | `rac1.vendor.open_menu` | `Vendor_OpenMenu` | `void(u32)` | moby | pal, ntsc | Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero. |
 | `rac1.gold_bolt.count_unspent` | `GoldBolts_CountUnspent` | `i32()` |  | pal, ntsc | Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership. |
+| `rac1.vendor.icon_strip.draw` | `Vendor_DrawIconStrip` | `void()` |  | pal, ntsc | Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling. |
 
 ## Fields
 
