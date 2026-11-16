@@ -401,12 +401,24 @@ def code(definition: str) -> str:
 
 def does_nothing(definition: str) -> str | None:
     """"no-c" for hostgen's stub of a function without C, "empty" for a void function without a
-    statement: two such of one kind run nothing either way, whatever their parameters."""
+    statement, "zero" for one that only returns an integer 0: two such of one kind run the same
+    either way, whatever their parameters."""
     if NO_C.search(definition):
         return "no-c"
     head, body = re.split(r"\s?\{\n", definition, maxsplit=1)
-    if re.match(r"^(?:static\s+)?void\s", head) and not COMMENT.sub(" ", body).strip(" \n}"):
+    body = COMMENT.sub(" ", body).strip(" \n}")
+    if re.match(r"^(?:static\s+)?void\s", head) and not body:
         return "empty"
+    m = re.fullmatch(r"return\b(.*);", body, re.S)
+    if m and not re.search(r"\b(?:float|double|void)\b", head[:head.index("(")]):
+        value = m.group(1)
+        while True:  # casts and brackets aside
+            shorter = re.sub(r"\(\s*[A-Za-z_][\w\s]*\**\s*\)|\(\s*([^()]*?)\s*\)", r"\1", value)
+            if shorter == value:
+                break
+            value = shorter
+        if re.fullmatch(r"\s*0[uUlL]*\s*", value):
+            return "zero"
     return None
 
 

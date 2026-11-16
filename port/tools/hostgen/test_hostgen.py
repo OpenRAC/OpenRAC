@@ -2753,6 +2753,13 @@ class Places(unittest.TestCase):
             (gen / "game" / "a.c").write_text("void Fb1bbe20c_FUN_00270000(void)\n{\n}\n"
                                               "int func_00270000(void)\n{\n}\n")
             self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            # Two that only return an integer 0 pass whatever their parameters; a 1 does not.
+            zero = ("unsigned int Fb1bbe20c_FUN_00270000(void)\n{\n    return (unsigned int)(((unsigned int)(0)));\n}\n"
+                    "unsigned int func_00270000(int pass_0)\n{\n    return 0;\n}\n")
+            (gen / "game" / "a.c").write_text(zero)
+            self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
+            (gen / "game" / "a.c").write_text(zero.replace("return 0;", "return 1;"))
+            self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
             (gen / "game" / "a.c").write_text(same.replace("return func_00280000(pass_0)", "return 1"))
             config = gen / "cfg"
             (config / "host").mkdir(parents=True)
