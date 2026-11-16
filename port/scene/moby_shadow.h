@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "renderer/effects/shadow_volume.h"
+#include "scene/moby_pose.h"
 
 namespace openrac::scene {
 struct MobyShadowState {
@@ -36,11 +37,12 @@ MobyShadowState moby_shadow_state_on_axis(
     const renderer::Mat4& view
 );
 
-// The relocated class block, posed with P_j (not the mesh's P_j S_j).
+// The relocated class block, posed with P_j (not the mesh's P_j S_j); by `keys` when given.
 std::vector<renderer::ShadowCapsule> moby_shadows(
     std::span<const std::uint8_t> ram,
     std::uint32_t moby,
     const renderer::Mat4& model,
-    float scale = 1.0f
+    float scale = 1.0f,
+    const AnimKeys* keys = nullptr
 );
 }  // namespace openrac::scene

@@ -13,6 +13,7 @@ capturing a tick; rendering consumes the captured scene and does not read live g
 - `scene_effects.cpp`: captured strip, callback and particle interpolation.
 - `effect_attachment.h`: transform history for attachments, including objects with no mesh.
 - `scenery_capture.h`: owned scenery records; camera visibility leaves shadow casters resident.
+- `sleeping_mobys.h`: far mobys the game leaves asleep, animated in the picture only.
 - `scene_hud.cpp`: captured HUD data, offscreen menu objects and retained backgrounds.
 
 Physical effect attachments use the parent's displayed transform. Directly captured quads start
@@ -77,7 +78,8 @@ all three releases. `effect_quad` checks that RAC1 quads leave physical attachme
 `render_worker` checks owned input, slot reuse, publication, captured-owner release, exception
 reporting, inherited rounding and joining at destruction. `stats`, `frame_counter`, `settings`
 and `env` cover profiling and configuration. `scenery_capture` covers offscreen caster residency,
-persistent hiding, draw-distance limits and owned matrix capture. Game integration checks need locally extracted data:
+persistent hiding, draw-distance limits and owned matrix capture. `sleeping_mobys` covers the
+game's activity test, which sequences loop and the sleeping mobys' looped keys. Game integration checks need locally extracted data:
 compare matching views with Vulkan validation, including menu readbacks, render-size changes
 and quitting with a frame pending.
 

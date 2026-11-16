@@ -199,6 +199,9 @@ openrac_add_test(moby_passes INCLUDES .)
 # How each tick's frames start: cleared, the last picture, or under the tick's 2D
 # (game/common/frontend/tick_picture.h).
 openrac_add_test(tick_picture INCLUDES .)
+# Far mobys the game leaves asleep, animated in the picture only
+# (game/common/frontend/sleeping_mobys.h).
+openrac_add_test(sleeping_mobys INCLUDES .)
 # Where a menu's mobys drawn with a camera of their own go, alone and over a level's world drawn
 # under it (game/common/frontend/menu_layers.h).
 openrac_add_test(menu_layers INCLUDES .)

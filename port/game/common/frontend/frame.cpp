@@ -1390,6 +1390,27 @@ TickMobys pose_mobys(
     if (state.moby_view) {
         state.moby_view->scale = settings::get().draw_distance_scale();
     }
+    // Active distance at Match: the mobys the game leaves asleep loop their animation in the
+    // picture (frontend/sleeping_mobys.h). Read from the game's memory, never written to it.
+    const bool animate_sleeping = !settings::get().original_active_distance;
+    if (g->sleeping_level != g->loaded || !animate_sleeping) {
+        g->sleeping_mobys.reset();
+        g->sleeping_level = g->loaded;
+    }
+    if (animate_sleeping) {
+        std::vector<std::uint32_t> addresses;
+        addresses.reserve(state.mobys.size());
+        for (const host::LiveMoby& m : state.mobys) {
+            addresses.push_back(m.address);
+        }
+        g->sleeping_mobys.tick(
+            ram,
+            addresses,
+            {state.camera_position[0], state.camera_position[1], state.camera_position[2]},
+            g->profile->moby_anim_fields(),
+            world_ran && !under_menu
+        );
+    }
 
     // The live mobys, by class, each in the pose its animation fields give (scene/moby_pose.h):
     // its joint palette goes to the scene, which skins the class's mesh with it. OPENRAC_ANIM=0
@@ -1792,7 +1813,12 @@ TickMobys pose_mobys(
                     ? scene::moby_shadow_state_on_axis(ram, m.address, directions, state.view())
                     : scene::moby_shadow_state(ram, m.address, directions, state.view());
             if (cast.enabled) {
-                auto capsules = scene::moby_shadows(ram, m.address, m.matrix, cast.scale);
+                // A sleeping moby's shadow takes the pose it is drawn in.
+                const auto keys =
+                    animate_sleeping ? g->sleeping_mobys.keys(ram, m.address) : std::nullopt;
+                auto capsules = scene::moby_shadows(
+                    ram, m.address, m.matrix, cast.scale, keys ? &*keys : nullptr
+                );
                 if (debug && g->index % 100 == 0) {
                     log::info(
                         "Moby shadow {:#x} class {}: {} proxies, slot {}, extrusion {:.2f} {:.2f} "
@@ -1940,9 +1966,17 @@ TickMobys pose_mobys(
     // The poses: each a pure function of the game's memory, evaluated in parallel (the costliest
     // part of reading the scene, about 1.5 ms a tick for 180 mobys on a phone's fast core), then
     // given palette slots in the loop's order, as one thread gave them.
+    std::vector<std::optional<scene::AnimKeys>> sleeping_keys(pose_jobs.size());
+    if (animate_sleeping) {
+        for (std::size_t i = 0; i < pose_jobs.size(); ++i) {
+            sleeping_keys[i] = g->sleeping_mobys.keys(ram, pose_jobs[i].address);
+        }
+    }
     std::vector<std::vector<assets::rac1::JointMatrix>> poses(pose_jobs.size());
     parallel::for_each(pose_jobs.size(), [&](std::size_t i) {
-        poses[i] = scene::moby_palette(ram, pose_jobs[i].address);
+        poses[i] = sleeping_keys[i]
+                       ? scene::moby_palette(ram, pose_jobs[i].address, *sleeping_keys[i])
+                       : scene::moby_palette(ram, pose_jobs[i].address);
     });
     for (std::size_t k = 0; k < pose_jobs.size(); ++k) {
         const PoseJob& job = pose_jobs[k];
