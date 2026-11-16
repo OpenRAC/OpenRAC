@@ -104,6 +104,10 @@ class Function:
     derived: tuple = ()
 
 
+# The primary's C under the release's name for a place (release.py: FUN_<place>, F<hash>_FUN_<place>).
+_TWIN = re.compile(r"^(?:F[0-9a-f]+_)?FUN_")
+
+
 @dataclass
 class Program:
     functions: dict[str, Function] = field(default_factory=dict)
@@ -118,6 +122,9 @@ class Program:
     symbols: dict[str, int] = field(default_factory=dict)  # other named globals -> address
     typedefs: dict[str, set] = field(default_factory=dict)  # name -> desugared type strings
     host: set = field(default_factory=set)  # functions the port writes by hand (port/game/<game>/)
+    # Another release's view of the primary's C: at one address, the release's own C answers before
+    # the primary's C under the release's name for that place (FUN_..., an F<hash>_FUN_...).
+    release_view: bool = False
     from_assembly: set = field(default_factory=set)  # C left out for C from the instructions (hostgen.json "from_assembly")
     wrap: set = field(default_factory=set)  # translated as <name>__game, called by a host <name>
     wrap_host: set = field(default_factory=set)  # with a `wrap` row: a hook point among them is <name>__hooked
@@ -363,9 +370,15 @@ class Program:
             tables.setdefault(place[0], []).append((place[1], sym))
             taken.add(place)
         for entries in tables.values():
-            entries.sort()
+            entries.sort(key=self._table_order)
         self._code_tables = tables
         return tables
+
+    def _table_order(self, entry: tuple[int, str]) -> tuple:
+        """By address; in a release view the release's own function first (the runtime keeps the
+        first, guest.cpp), not whichever name sorts first."""
+        addr, sym = entry
+        return (addr, self.release_view and _TWIN.match(sym) is not None, sym)
 
     def places_without_function(self) -> list[str]:
         """The catalogue's places of functions with C that no table entry answers: a call through

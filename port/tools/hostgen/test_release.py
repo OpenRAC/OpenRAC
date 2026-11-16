@@ -111,6 +111,29 @@ class ReleaseNames(unittest.TestCase):
             uses = release.used_tokens(Path(d), ["src"], readable={"grid_menu_reposition_widgets": "func_00344848"})
         self.assertEqual(uses["func_00344848"], 1)
 
+    def test_check_units_finds_an_unmarked_definition(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "src" / "game").mkdir(parents=True)
+            (Path(d) / "src" / "game" / "00344848.c").write_text("void grid_menu_reposition_widgets(char *m)\n{\n}\n")
+            table = {"names": {"func_00344848": "FUN_003468F8"}, "absent": ["func_00344848"], "units": {}}
+            readable = {"grid_menu_reposition_widgets": "func_00344848"}
+            self.assertEqual(len(release.check_units(Path(d), table, readable, ["src"])), 1)
+            table["units"] = {"src/game/00344848.c": {"func_00344848": "func_V1_00344848"}}
+            self.assertEqual(release.check_units(Path(d), table, readable, ["src"]), [])
+
+    def test_committed_tables_mark_every_definition(self):
+        # Each carried release's table against the decompilation CI checks out (no disc needed).
+        source = REPO / "games" / "rac2" / "decomp"
+        for game in ("rac2-pal", "rac2-ntsc2"):
+            config = REPO / "port" / "game" / game / "hostgen.json"
+            cfg = json.loads(config.read_text())
+            table = json.loads((config.parent / cfg["release"]["table"]).read_text())
+            if not (source / "src").is_dir() or "absent" not in table:
+                continue
+            problems = release.check_units(source, table, release.primary_aliases(source, cfg),
+                                           cfg.get("sources", ["src"]))
+            self.assertEqual(problems[:10], [], f"{game}: rebuild its table with release.py build")
+
     def test_six_digits_in_a_file_of_the_executable(self):
         # func_2802E0 in src/game/ is the executable's func_002802E0 (as hostgen reads it): renamed
         # as that name; in a level's file six digits are that level's, renamed by the file's table.

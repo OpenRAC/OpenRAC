@@ -1212,6 +1212,7 @@ def override_problems(root: Path, replacements: dict, overridden: set[str]) -> l
 def new_program(cfg: dict, source: Path) -> Program:
     """The program's names, groups and symbol tables, read before any unit."""
     program = Program()
+    program.release_view = RELEASE is not None
     program.set_names(cfg["names"].get("code"), cfg["names"].get("data"))
     program.groups = cfg["groups"]
     program.expanded_target_table_addresses = {

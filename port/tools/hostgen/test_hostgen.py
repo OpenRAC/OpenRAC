@@ -2685,6 +2685,17 @@ class Places(unittest.TestCase):
             self.assertEqual(problems, [])
             self.assertEqual(stats["known"], 2)
 
+    def test_release_view_puts_the_releases_own_first(self):
+        import program as program_mod
+        p = program_mod.Program()
+        entries = [(0x003468F8, "func_003468F8"), (0x003468F8, "FUN_003468F8"), (0x00270000, "Fb1bbe20c_FUN_00270000"),
+                   (0x00270000, "func_00270000")]
+        self.assertEqual(sorted(entries, key=p._table_order)[2:], [(0x003468F8, "FUN_003468F8"), (0x003468F8, "func_003468F8")])
+        p.release_view = True
+        self.assertEqual(sorted(entries, key=p._table_order),
+                         [(0x00270000, "func_00270000"), (0x00270000, "Fb1bbe20c_FUN_00270000"),
+                          (0x003468F8, "func_003468F8"), (0x003468F8, "FUN_003468F8")])
+
     def test_abicheck_finds_v1_c_beside_the_releases_own(self):
         # The primary's C at the release's place beside the release's own C there is an error;
         # two spellings of one function (func_X and func_X_1) are fine.

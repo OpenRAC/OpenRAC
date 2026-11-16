@@ -1027,6 +1027,25 @@ def derived_values(parts: dict, release: Release, level_base: int, primary: dict
             "levels": dict(sorted(levels.items())), "level_data": level_data}
 
 
+def check_units(source: Path, table: dict, readable: dict[str, str], sources: list[str]) -> list[str]:
+    """Definitions in the shared C of functions the release does not have (table "absent") that
+    its unit does not mark: the primary's C would run at the release's place. Needs no disc."""
+    absent = set(table.get("absent", []))
+    if not absent:
+        return []
+    release = Release(table)
+    units_table = table.get("units", {})
+    out = []
+    for d in sources:
+        for path in sorted((source / d).rglob("*.c")):
+            rel = path.relative_to(source).as_posix()
+            for name in defined_names(path.read_text(errors="replace"), readable):
+                if (name in absent and f"_{DEAD}_" not in release.name(name)
+                        and f"_{DEAD}_" not in units_table.get(rel, {}).get(name, "")):
+                    out.append(f"{rel}: {name} is the primary's only, but its unit does not mark it")
+    return out
+
+
 def used_tokens(source: Path, sources: list[str], skip: list[str] = (),
                 readable: dict[str, str] | None = None) -> Counter:
     out: Counter = Counter()
@@ -1144,6 +1163,10 @@ def main(argv: list[str] | None = None) -> int:
         "candidates_left_out": dict(sorted(left_out.items())),
         "marked_in_use": unresolved,
     }
+    if parts.get("absent"):
+        # The primary's functions the release does not have: every definition of one in the shared C
+        # must be marked in its unit (check_units), or the primary's C runs at the release's place.
+        table["absent"] = sorted(parts["absent"])
     if parts.get("gone"):
         # PAL v2.00's definitions the release has no function for (another of its own is called).
         table["gone"] = parts["gone"]
