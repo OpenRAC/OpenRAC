@@ -3,9 +3,3 @@
 # name	reason
 func_0011B270	COP0 (mfc0), which hostgen's translation of the assembly does not run: a stub with the disc as well (assembly_unsupported). Reached only through func_00115C90 (newlib's _sbrk_r), when newlib's malloc grows its heap (func_00116460, func_00117108)
 func_0011F170	COP0 (mtc0): a stub with the disc as well (assembly_unsupported). Reached only through func_0011F130, on the program's exit path (exit, func_0011FA20, by way of the exit thunk func_00131CA8)
-func_JP_0027FB70	the Japanese release's code (src/jp), which this program carries: only other func_JP_ functions reach it, and nothing reaches them
-func_JP_00289E68	the Japanese release's code (src/jp), as func_JP_0027FB70
-func_JP_002D0198	the Japanese release's code (src/jp), as func_JP_0027FB70
-func_KR_0027FCA0	the Korean release's code (src/kr), which this program carries: only other func_KR_ functions reach it, and nothing reaches them
-func_KR_0028AB78	the Korean release's code (src/kr), as func_KR_0027FCA0
-func_KR_002D0E58	the Korean release's code (src/kr), as func_KR_0027FCA0

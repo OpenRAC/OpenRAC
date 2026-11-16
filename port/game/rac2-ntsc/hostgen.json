@@ -96,6 +96,8 @@
     "src"
   ],
   "skip": [
+    "src/jp",
+    "src/kr",
     "src/pal",
     "src/us2",
     "src/core/0011FC68.c",
