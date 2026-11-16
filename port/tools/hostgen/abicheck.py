@@ -452,7 +452,8 @@ def two_bodies(at: dict[tuple[int, int], list[str]], defs: dict[str, list[str]] 
 
 def strict_twins(host: Path | None) -> bool:
     """Two bodies fail the check for a release whose table says what the decompilation placed
-    (release.py build: "placed", "gone_in"); before, they are reported."""
+    (release.py build: "placed"); before, they are reported. A table with "gone_in" alone (rac3's)
+    is not such a build."""
     config = host.parent / "hostgen.json" if host else None
     if config is None or not config.is_file():
         return False
@@ -461,7 +462,7 @@ def strict_twins(host: Path | None) -> bool:
     if not release.get("table") or not table.is_file():
         return False
     keys = json.loads(table.read_text())
-    return "placed" in keys or "gone_in" in keys
+    return "placed" in keys
 
 
 def main(argv: list[str] | None = None) -> int:
