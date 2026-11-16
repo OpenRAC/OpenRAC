@@ -1543,11 +1543,13 @@ def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
             c = spelling.get(c, c)
             if c in asm and c != caller:
                 reached.setdefault(c, set()).add(caller)
-    # A function translated from assembly is its assembly, reached or not: the disc's part.
+    # A function translated from assembly is its assembly, reached or not: the disc's part, in the
+    # report. Only a reached one fails, as without the disc: rac1's disc build translates 260 that
+    # no translated code reaches, which a build without it never sees.
     for name in summary.get("from_assembly", {}):
         reached.setdefault(name, set())
     return {"assembly_reached": {n: sorted(v) for n, v in sorted(reached.items())},
-            "assembly_unallowed": sorted(n for n in reached if n not in allow),
+            "assembly_unallowed": sorted(n for n, by in reached.items() if by and n not in allow),
             "assembly_allow_unused": sorted(n for n in allow if n not in reached)}
 
 

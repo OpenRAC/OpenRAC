@@ -4286,17 +4286,18 @@ class AssemblyGuard(unittest.TestCase):
         return {"without_c_places": {"func_A": {"kind": "asm"}, "func_B": {"kind": "asm"},
                                      "func_C": {"kind": "asm", "other_spelling": "func_C2"},
                                      "func_D": {"kind": "no-c"}},
-                "from_assembly": {"func_E": "<disc>"},
-                "call_graph": {"func_X": ["func_A", "func_C", "func_D"], "func_B": ["func_B"]}}
+                "from_assembly": {"func_E": "<disc>", "func_F": "<disc>"},
+                "call_graph": {"func_X": ["func_A", "func_C", "func_D", "func_F"], "func_B": ["func_B"]}}
 
-    def test_a_reached_stub_and_every_translation_are_listed(self):
+    def test_every_translation_is_listed_and_a_reached_one_fails(self):
+        # func_E: translated from the disc, reached by nothing, as a build without it has it.
         got = hostgen.assembly_guard(self.summary(), {})
-        self.assertEqual(got["assembly_reached"], {"func_A": ["func_X"], "func_E": []})
-        self.assertEqual(got["assembly_unallowed"], ["func_A", "func_E"])
+        self.assertEqual(got["assembly_reached"], {"func_A": ["func_X"], "func_E": [], "func_F": ["func_X"]})
+        self.assertEqual(got["assembly_unallowed"], ["func_A", "func_F"])
 
     def test_an_allowed_row_stands_and_an_unused_one_is_said(self):
         got = hostgen.assembly_guard(self.summary(), {"func_A": "why", "func_Z": "why"})
-        self.assertEqual(got["assembly_unallowed"], ["func_E"])
+        self.assertEqual(got["assembly_unallowed"], ["func_F"])
         self.assertEqual(got["assembly_allow_unused"], ["func_Z"])
 
 
