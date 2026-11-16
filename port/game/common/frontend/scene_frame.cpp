@@ -166,8 +166,8 @@ float prepare_target(SceneFrame& frame) {
         frame.temporal ? 1 : std::clamp(graphics.msaa, 1, renderer::FrameBuffer::max_samples());
     resize_target(frame, samples);
 
-    // A wider picture preserves the central television framing.
-    if (output.aspect > kTvAspect && output.box.width > 0 && output.box.height > 0) {
+    // A wider picture preserves the central television framing; a movie's fills the width.
+    if (!frame.scene.movie && output.aspect > kTvAspect && output.box.width > 0 && output.box.height > 0) {
         return std::min(
             1.0f,
             kTvAspect * static_cast<float>(output.box.height) / static_cast<float>(output.box.width)

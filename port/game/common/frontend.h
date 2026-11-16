@@ -185,6 +185,11 @@ bool store_image(std::uint32_t base, std::uint32_t width_units, std::uint8_t psm
 // was closed.
 bool show_picture(const std::uint8_t* rgba, int width, int height, float black);
 
+// A movie the game draws with its own list (openrac_game_play_movie_over) is playing: its ticks
+// start from a cleared frame and their 2D fills the window's whole width, as a wide television
+// stretches the game's 16:9 picture (the movies are anamorphic).
+void set_movie_playing(bool on);
+
 // Window frames since the player got control in a scripted run (OPENRAC_PRESS's and OPENRAC_WRITE's
 // c entries), -1 before.
 std::int64_t since_control();
