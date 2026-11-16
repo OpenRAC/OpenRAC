@@ -1174,6 +1174,15 @@ def main(argv: list[str] | None = None) -> int:
         derived = derived_values(parts, release, RELEASES[version]["level_base"],
                                  json.loads(primary_table.read_text()) if primary_table.is_file() else None,
                                  args.map)
+        # Another spelling of a name (F<hash>_FUN_<address>, F<hash>_D_<address>) that no C the release's
+        # build placed uses has no value of its own: the release's address of that name, never the primary's.
+        if cfg.get("derived"):
+            for name in derived_mod.used_names(source, cfg) - set(derived["values"]) - set(derived["levels"]):
+                m = re.fullmatch(r"F[0-9a-f]{8}_(FUN|D)_([0-9A-F]{8})", name)
+                new = release.name(f"{'func' if m.group(1) == 'FUN' else 'D'}_{m.group(2)}") if m else ""
+                if re.fullmatch(r"(?:func|FUN|D)_[0-9A-F]{8}", new):
+                    derived["values"][name] = f"{int(new[-8:], 16):#010x}"
+            derived["values"] = dict(sorted(derived["values"].items()))
         DEAD_NOW = DEAD
         source_note = {"commit": None, "version": version, "table": f"{RELEASES[version]['build']}/*/placed.json"}
     try:
