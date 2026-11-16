@@ -9,4 +9,3 @@ func_V1_JP_002D0198	the Japanese release's code (src/jp), as func_JP_0027FB70
 func_V1_KR_0027FCA0	the Korean release's code (src/kr), which this program carries: only other func_KR_ functions reach it, and nothing reaches them
 func_V1_KR_0028AB78	the Korean release's code (src/kr), as func_KR_0027FCA0
 func_V1_KR_002D0E58	the Korean release's code (src/kr), as func_KR_0027FCA0
-ref_US2_0029CD18_00	v2.00's return-zero stub at 0x0026F7E0 (jr $ra; daddu $v0, $zero, $zero), one of a run of identical stubs the release view gives no C name; its translation returns 0 as the disc does. Reached only through func_0029CD18 (the decomp's func_US2_0029CD18)
