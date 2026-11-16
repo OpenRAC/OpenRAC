@@ -46,6 +46,19 @@ void func_00127220(gaddr channel, gaddr tag);
 /* A blank of the movie: the picture to where the decoder's chain puts it, then the list the
  * console's handler sends (0x0034FFC0's func_002B6480 call, its first buffer's), sent to VIF1 as
  * the tick's list. */
+/* What PlayFmvMovie was given for the strips when the window is not wider than 4:3. */
+static int s_strips_given;
+
+/* The list's strips for the window as it is now: full height in a window wider than 4:3, which
+ * stretches the movie to its width (frontend::picture_aspect), else as the game was asked. */
+static void movie_strips(void) {
+    if (openrac_game_picture_wider() > 1.0f) {
+        func_00284088(1, 1);
+    } else {
+        func_00284088(s_strips_given, s_strips_given);
+    }
+}
+
 static void movie_overlay(const uint8_t* rgba, int width, int height) {
     const gaddr list = (gaddr)(FMV_GS_BASE + 0x1C81C0);
     /* The list's sprites read the top left 512 x 512 of a 1024 x 1024 texture (TEX0's TW and
@@ -62,6 +75,7 @@ static void movie_overlay(const uint8_t* rgba, int width, int height) {
     }
     openrac_game_load_picture(&picture, pixels);
 
+    movie_strips();
     func_002B6480(list, 0);
     func_00127220(0x10009000u, list & 0x0FFFFFFFu);
 }
@@ -70,11 +84,8 @@ int func_0034EF58(int first, int second, int pool, int state, int mode, int volu
     (void)pool;
     (void)state;
     (void)mode;
-    if (openrac_game_picture_wider() > 1.0f) {
-        func_00284088(1, 1);
-    } else {
-        func_00284088(volume, volume);
-    }
+    s_strips_given = volume;
+    movie_strips();
     const int result =
         openrac_game_play_movie_over((uint32_t)first, (uint32_t)second, 0, 1, movie_overlay);
 

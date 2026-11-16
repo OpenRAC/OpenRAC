@@ -500,9 +500,10 @@ public:
 
     float depth_near() const override { return 0.25f; }
 
-    // The VRAM base of the frame (D_001A72DC, 0x1E8000 in bytes / 256 / 8): past the two 448-line
-    // buffers, where the world's passes set FRAME (func_002DF1B8: FBP 0xF4).
-    std::uint32_t draw_buffer_block() const override { return 0x1E80; }
+    // The VRAM base of the frame (D_001A72DC in bytes / 256): past the two display buffers, where
+    // the world's passes set FRAME. The 448-line discs put it at 0x1E8000 (func_002DF1B8: FBP
+    // 0xF4), PAL's 512-line mode at 0x1E0000 (0x00274128), where its movies' pictures go too.
+    std::uint32_t draw_buffer_block() const override { return &release_ == &kPal ? 0x1E00 : 0x1E80; }
 
     // 0x10 before Ratchet & Clank's: ResolveMobyAnimFramePtrs (func_0029F390) reads the frames at
     // +0x40, the sequences at +0x42 and writes the keys at +0x58, and the pose layer slots
