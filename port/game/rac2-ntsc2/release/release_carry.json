@@ -3,19 +3,40 @@
  "counts": {
   "function: by hand": 16,
   "function: called": 30,
-  "function: near": 109,
-  "function: not found": 2,
-  "function: same": 698,
+  "function: changed": 92,
+  "function: found": 28,
+  "function: near": 40,
+  "function: same": 719,
   "global: aligned": 4,
   "global: between": 18,
-  "global: exact": 107,
-  "global: the release's build": 110
+  "global: exact": 109,
+  "global: the release's build": 111
  },
  "functions": {
   "func_001158F8": [
    "func_001158F8",
    "called",
    "signature"
+  ],
+  "func_001205E0": [
+   "func_001205E0",
+   "found",
+   "host C"
+  ],
+  "func_00120748": [
+   "func_00120748",
+   "found",
+   "host C"
+  ],
+  "func_00120FA4": [
+   "func_00120FA4",
+   "found",
+   "host C"
+  ],
+  "func_0012118C": [
+   "func_0012118C",
+   "found",
+   "host C"
   ],
   "func_00124418": [
    "func_00124418",
@@ -77,15 +98,45 @@
    "called",
    "host C"
   ],
+  "func_00130004": [
+   "func_00130004",
+   "found",
+   "host C"
+  ],
+  "func_00131430": [
+   "func_00131430",
+   "found",
+   "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c"
+  ],
   "func_0026EDE8": [
    "func_0026EDE8",
-   "near",
+   "changed",
    "host C 0x0026EDE8"
+  ],
+  "func_0026F718": [
+   "func_0026F718",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F730": [
+   "FUN_0026F730",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F750": [
+   "FUN_0026F750",
+   "changed",
+   "level_hooks"
   ],
   "func_0026F7A0": [
    "func_0026F7A8",
    "by hand",
    "host C"
+  ],
+  "func_0026F7B8": [
+   "func_0026F7B8",
+   "changed",
+   "level_hooks"
   ],
   "func_0027C878": [
    "func_0027CED8",
@@ -102,35 +153,75 @@
    "called",
    "host C"
   ],
+  "func_00281490": [
+   "func_00281E40",
+   "found",
+   "asm.leave"
+  ],
   "func_002900B8": [
    "func_00290920",
    "near",
    "host C"
+  ],
+  "func_0029C4C0": [
+   "func_0029D2F8",
+   "changed",
+   "RAC2_K PAUSE_LIST_OFFSET"
   ],
   "func_002A6C58": [
    "func_002A7AA8",
    "near",
    "libraries.tsv Moby_RecordDeath"
   ],
+  "func_002B6480": [
+   "func_002B73A0",
+   "changed",
+   "host C"
+  ],
   "func_002D5748": [
    "func_002D63B0",
-   "near",
+   "changed",
    "RAC2_K MAIN_LIST_OFFSET"
   ],
   "func_002D58A0": [
    "func_002D6508",
-   "near",
+   "changed",
    "RAC2_K OPTIONS_LIST_OFFSET"
   ],
   "func_002DC900": [
    "func_002DD630",
-   "near",
+   "changed",
    "host C 0x002DC908"
+  ],
+  "func_002E182C": [
+   "func_002E2644",
+   "found",
+   "host C"
+  ],
+  "func_002E25C0": [
+   "func_002E33D8",
+   "found",
+   "host C"
+  ],
+  "func_002F3C40": [
+   "func_002F4A98",
+   "found",
+   "host C"
   ],
   "func_002F9C80": [
    "func_002FAB0C",
    "near",
    "libraries.tsv Vendor_DrawList"
+  ],
+  "func_00310010": [
+   "func_00310E08",
+   "found",
+   "asm.leave"
+  ],
+  "func_003136D0": [
+   "func_003144C8",
+   "changed",
+   "host C"
   ],
   "func_00336A78": [
    "func_003378A0",
@@ -139,68 +230,88 @@
   ],
   "func_0033AF48": [
    "func_0033BF90",
-   "near",
+   "changed",
    "host C"
   ],
   "func_0033B050": [
    "func_0033C098",
-   "near",
+   "changed",
    "host C"
   ],
   "func_0033C2D8": [
    "func_0033D320",
-   "near",
+   "changed",
    "host C"
   ],
   "func_0033C378": [
    "func_0033D3C0",
-   "near",
+   "changed",
    "host C"
   ],
   "func_0033C468": [
    "func_0033D4B0",
-   "near",
+   "changed",
    "RAC2_K TEXT_PAGE_TOGGLE"
+  ],
+  "func_0033C590": [
+   "func_0033D5D8",
+   "changed",
+   "host C"
   ],
   "func_0033C738": [
    "func_0033D780",
-   "near",
+   "changed",
    "RAC2_K TEXT_WIDESCREEN"
   ],
   "func_00341540": [
    "func_00342450",
-   "near",
+   "changed",
    "host C"
   ],
   "func_00341610": [
    "func_00342520",
-   "near",
+   "changed",
    "RAC2_K PAUSE_OPTIONS_ROWS"
   ],
   "func_00341A68": [
    "func_00342978",
-   "near",
+   "changed",
    "host C"
   ],
   "func_00341A88": [
    "func_00342998",
-   "near",
+   "changed",
    "RAC2_K LIST_ORIGIN"
   ],
   "func_00341C20": [
    "func_00342B30",
-   "near",
+   "changed",
    "RAC2_K LIST_TITLE_TEXT"
   ],
   "func_00341EB0": [
    "func_00342DC0",
-   "near",
+   "changed",
    "host C"
   ],
   "func_00342380": [
    "func_00343290",
-   "near",
+   "changed",
    "host C"
+  ],
+  "func_0034E4F8": [
+   "func_0034F240",
+   "changed",
+   "host C"
+  ],
+  "func_L00_002A4EF8": [
+   "func_L00_002A4EF8",
+   "changed",
+   "libraries.tsv Hero_TakeDamage"
+  ],
+  "func_L00_00303990": [
+   "func_L00_00304660",
+   "changed",
+   "libraries.tsv Level_Load"
   ],
   "func_L00_00438E68": [
    "func_L00_0043A470",
@@ -222,6 +333,11 @@
    "by hand",
    "libraries.tsv Moby_BoxBreakerPickup_Update"
   ],
+  "func_L03_003C7018": [
+   "func_L03_003C8620",
+   "changed",
+   "host C"
+  ],
   "func_L04_002E04A8": [
    "func_L04_002E06B0",
    "near",
@@ -234,7 +350,7 @@
   ],
   "func_L04_00411298": [
    "func_L04_004127A8",
-   "near",
+   "changed",
    "host C"
   ],
   "func_L04_00417308": [
@@ -256,6 +372,11 @@
    "func_L05_0041F478",
    "near",
    "host C"
+  ],
+  "func_L06_00396268": [
+   "func_L13_0035FA58",
+   "found",
+   "more_places func_L00_00354DF8"
   ],
   "func_L08_002CB6E8": [
    "func_L08_002CB8F0",
@@ -287,6 +408,16 @@
    "by hand",
    "libraries.tsv Moby_LevitatorSeller_Update"
   ],
+  "func_L12_002B85E0": [
+   "func_L12_002B86E8",
+   "changed",
+   "unit_aliases src/levels/12_todano/L12_002CF7B0-decider.c"
+  ],
+  "func_L12_002CF7B0": [
+   "func_L12_002CF9E0",
+   "changed",
+   "calls_as"
+  ],
   "func_L13_002C5760": [
    "func_L13_002C58E8",
    "near",
@@ -309,12 +440,12 @@
   ],
   "func_L22_003A5018": [
    "func_L22_003A6448",
-   "near",
+   "changed",
    "host C"
   ],
   "func_L23_0041DA48": [
    "func_L23_0041EF48",
-   "near",
+   "changed",
    "host C"
   ]
  },
@@ -380,9 +511,5 @@
   "count": 32,
   "from": "0026F718",
   "to": "0026F818"
- },
- "unpaired": {
-  "func_00131430": "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c",
-  "func_L06_00396268": "more_places func_L00_00354DF8"
  }
 }

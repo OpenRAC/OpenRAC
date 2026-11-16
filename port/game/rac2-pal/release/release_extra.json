@@ -47,6 +47,20 @@
     "is": "func_L05_0041EA08",
     "why": "rac2-decomp's func_PAL_L05_0041EA08 (src/pal/levels/shared/L05_0041EA08-cc-g8.c) is its PAL copy of func_L05_00419CC8 (the same C at 50 Hz), which the release table could not pair; this PAL file calls it by the v1.01 name. Without it levels 10 and 15 run v1.01's copy, which takes level 5's address of its callback (an unknown call, 0x0041EF88) and steps at 60 Hz"
    }
+  },
+  "src/game/002AA800.c": {
+   "F500f9762_FUN_00283CE0": {
+    "is": "func_002845A0",
+    "why": "v1.01's C of gfx_start_color_fade and its sibling (func_002AB800, func_002AB8C0: PAL's FUN_002AC290, FUN_002AC3C0) calls IntToFloat (v1.01 func_00283CE0) by its F500f9762_ spelling, which PAL's build gives no value (PAL builds its own copies, src/pal/game/002AC290.c), so the view would keep v1.01's address, another function in PAL (PAL's 0x00283CE0); PAL's own code at 0x002AC290 calls 0x002845A0 here"
+   },
+   "F500f9762_FUN_00283CF0": {
+    "is": "func_002845B0",
+    "why": "v1.01's C of gfx_start_color_fade and its sibling (func_002AB800, func_002AB8C0: PAL's FUN_002AC290, FUN_002AC3C0) calls FloatToInt (v1.01 func_00283CF0) by its F500f9762_ spelling, which PAL's build gives no value (PAL builds its own copies, src/pal/game/002AC290.c), so the view would keep v1.01's address, another function in PAL (PAL's func_00283CF0 is mat_fast_helper_b, which returns nothing); PAL's own code at 0x002AC290 calls 0x002845B0 here"
+   },
+   "F500f9762_FUN_002A04B8": {
+    "is": "func_002A0E78",
+    "why": "v1.01's C of gfx_start_color_fade and its sibling (func_002AB800, func_002AB8C0: PAL's FUN_002AC290, FUN_002AC3C0) calls get_moby_color (v1.01 func_002A04B8) by its F500f9762_ spelling, which PAL's build gives no value (PAL builds its own copies, src/pal/game/002AC290.c), so the view would keep v1.01's address, another function in PAL (PAL's 0x002A04B8); PAL's own code at 0x002AC290 calls 0x002A0E78 here"
+   }
   }
  },
  "more_places": {
