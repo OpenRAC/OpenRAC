@@ -10,5 +10,6 @@ python3 tools/build_port.py rac2-ntsc2 --disc <your disc image>
 
 Play it as rac2-ntsc's, or from the launcher, which picks this program for this disc.
 
-Everything here is generated except `release/release_pairs.tsv` and `release/release_extra.json`: how, and what each file is, is in
+Everything here is generated except `release/release.json` and the release's own hand C it names in
+`hand/`: how, and what each file is, is in
 [rac2: carried releases](../rac2/README.md#carried-releases).

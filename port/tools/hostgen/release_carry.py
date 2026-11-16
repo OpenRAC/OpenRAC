@@ -144,16 +144,12 @@ class Pairing:
             lines.append("\t".join([parent, variant, ",".join(f"{lv:02d}:{a:08X}" for lv, a in places)] + cols[3:]))
         self.split_rows = lines
 
-    def read_by_hand(self, path: Path) -> None:
-        """release_pairs.tsv beside the release's hostgen.json: pairs checked by hand where nothing
-        above pairs them (v1.01 name, the release's name in the release's names, the evidence)."""
-        if not path.is_file():
-            return
-        for line in path.read_text().splitlines():
-            cols = line.split("\t")
-            if line.startswith("#") or len(cols) < 3:
-                continue
-            self.by_hand[cols[0]] = cols[1]
+    def read_by_hand(self, facts: dict) -> None:
+        """The release's facts file "pairs": pairs checked by hand where nothing above pairs them
+        (the primary's name: the release's name in the release's names, and the evidence)."""
+        for name, row in facts.get("pairs", {}).items():
+            if row.get("why"):
+                self.by_hand[name] = row["is"]
 
     def _starts(self, level: int | None) -> set[int]:
         """v1.01's catalogue places in the executable (None) or a level."""
@@ -380,17 +376,14 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     """The release's hostgen.json from the primary release's."""
     info = rel.RELEASES[version]
     out = dict(cfg)
-    names = {"pal": "PAL", "us2": "NTSC-U, v2.00"}
-    out["id"] = {"pal": "rac2-pal", "us2": "rac2-ntsc2"}[version]
-    out["title"] = f"Ratchet & Clank: Going Commando ({names[version]})"
-    out["serial"] = {"pal": "SCES_516.07", "us2": "SCUS_972.68"}[version]
-    out["frame_rate"] = 50 if version == "pal" else 60
-    # PAL's code counts in fiftieths (its own constants, no 60 Hz mode): the port ticks it 50 times a second.
-    out["tick_rate"] = 50 if version == "pal" else 60
+    facts = p.facts
+    for key in ("id", "title", "serial", "frame_rate", "tick_rate"):
+        out[key] = facts[key]
     out["entry"] = p.function(cfg["entry"], "entry")
     out["ps2_float"] = carry_list(p, cfg.get("ps2_float", []), "ps2_float")
-    other = {"pal": "src/us2", "us2": "src/pal"}[version]
-    out["skip"] = [other if s in ("src/pal", "src/us2") else s for s in cfg.get("skip", [])]
+    # The releases' own C: the primary's skip of it is the release's facts' (the other release's).
+    own = facts["skip"]
+    out["skip"] = [own["as"] if s in own["own"] else s for s in cfg.get("skip", [])]
     out["skip"] = list(dict.fromkeys(out["skip"]))
     out["symbols"] = []
     out["derived"] = {"table": "release/release_names.json"}
@@ -491,14 +484,11 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     # release's disc (its tables hold the release's addresses; the labels are the C's).
     if cfg.get("jump_tables"):
         out["jump_tables"] = "tables/jump_tables.json"
-    # "hand": the release's own C for its own hand-written assembly (func_PAL_...), beside its hostgen.json.
-    if (p.out_dir / "hand/hand.tsv").is_file():
+    # "hand": the primary's hand C in the release's names, and the release's own (carry_hand).
+    if cfg.get("hand") or facts.get("hand"):
         out["hand"] = "hand/hand.tsv"
     else:
         out.pop("hand", None)
-    # The primary's hand C, in its names: hostgen renames it through the release view.
-    if cfg.get("hand"):
-        out["primary_hand"] = f"../{p.primary_dir.name}/{cfg['hand']}"
     out["relocate"] = [info["level_base"], cfg["relocate"][1]]
     out["level_hooks"] = level_hooks(p, carry_list(p, cfg.get("level_hooks", []), "level_hooks"),
                                      cfg.get("level_hooks", []))
@@ -633,13 +623,7 @@ def constants(p: Pairing, code: dict[str, str], version: str) -> list[str]:
     if not found:
         return []
     out = ["/* Constants of the game's code (RAC2_K): the same instruction's in this release. */"]
-    by_hand = {}
-    path = p.out_dir / "release" / "release_constants.tsv"
-    if path.is_file():
-        for line in path.read_text().splitlines():
-            cols = line.split("\t")
-            if not line.startswith("#") and len(cols) >= 3:
-                by_hand[cols[0]] = (int(cols[1], 0), cols[2])
+    by_hand = {name: (int(row["value"], 0), row["why"]) for name, row in p.facts.get("constants", {}).items()}
     us_boot, r_boot = p.code("us", "boot"), p.code(version, "boot")
     for name, (value, where) in sorted(found.items()):
         new, how = None, None
@@ -928,39 +912,108 @@ def carry_overrides(p: Pairing, table: Path, out: Path) -> None:
     out.write_text("\n".join(rows) + "\n")
 
 
+def carry_hand(p: Pairing, table: Path | None, out: Path) -> None:
+    """hostgen.json "hand": the primary's hand C written again in the release's names (release.py's
+    text), then the release's own rows (its facts' "hand", C kept in hand/). A name the release table
+    has no value for takes the facts' "hand_names" pair; one with neither is marked (func_V1_...,
+    D_V1_...), never guessed, and listed in the report."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    rows = ["# Written by port/tools/hostgen/release_carry.py from the primary release's hand C and the",
+            "# release's own (release/release.json \"hand\"); do not edit.",
+            "# name\tfile (relative to this table)"]
+    extra = {k: v["is"] for k, v in p.facts.get("hand_names", {}).items() if v.get("why")}
+    word = re.compile(r"\b(" + "|".join(map(re.escape, extra)) + r")\b") if extra else None
+    written: set[str] = set()
+    for line in table.read_text().splitlines() if table else []:
+        if not line.strip() or line.startswith("#"):
+            continue
+        name, _, file = line.partition("\t")
+        file = file.strip()
+        if file not in written:
+            text = (table.parent / file).read_text(encoding="utf-8", errors="surrogateescape")
+            # The view leaves a name it has no value for as it is; the hand pairs then rename it.
+            renamed = p.table.text(text)
+            left = sorted(n for n in code_names(text) if not known(p, n) and n not in extra)
+            if left:
+                p.report.setdefault("hand_names_left", {})[file] = left
+            renamed = word.sub(lambda m: extra[m.group(1)], renamed) if word else renamed
+            for name in left:
+                m = rel.NAME.fullmatch(name)
+                mark = rel.core(m.group(1), int(m.group(3)) if m.group(3) else None, int(m.group(4), 16), rel.DEAD)
+                renamed = re.sub(r"\b" + re.escape(name) + r"\b", mark, renamed)
+            (out.parent / file).write_text(renamed, encoding="utf-8", errors="surrogateescape")
+            written.add(file)
+        rows.append(f"{p.table.name(name.strip())}\t{file}")
+    rows += [f"{name}\t{file}" for name, file in p.facts.get("hand", {}).items()]
+    out.write_text("\n".join(rows) + "\n")
+
+
+def code_names(text: str) -> set[str]:
+    """The address names TEXT's code (not its comments) uses."""
+    return {m.group(0) for m in rel.NAME.finditer(HOST_SKIP.sub(" ", text))}
+
+
+def known(p: Pairing, name: str) -> bool:
+    """Whether the release table pairs NAME (an address name), or the release's catalogue has a
+    function of that name (the same function at the same place)."""
+    m = rel.NAME.fullmatch(name)
+    if rel.core(m.group(1), int(m.group(3)) if m.group(3) else None, int(m.group(4), 16), m.group(2)) in p.table.names:
+        return True
+    return m.group(1) == "func" and (name in p.r_entry or name in p.r_places)
+
+
+def run_copycalls(out_dir: Path, source: Path, version: str) -> None:
+    """copycalls.py's tables for the release (call_copies, data_copies, level_twins), from the same
+    release table and hostgen.json, so they are never older than them."""
+    import copycalls
+    tables, game = out_dir / "tables", out_dir / "hostgen.json"
+    copycalls.main(["--source", str(source), "--version", version,
+                    "--release-table", str(out_dir / "release" / "release_names.json"),
+                    "--out", str(tables / "call_copies.tsv"), "--data", str(tables / "data_copies.tsv"),
+                    "--config", str(game), "--twins", str(tables / "level_twins.tsv")])
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--game", type=Path, required=True, help="the release's hostgen.json (its directory is written)")
     ap.add_argument("--primary", type=Path, required=True, help="the primary release's hostgen.json")
     ap.add_argument("--source", type=Path, required=True, help="the built decompilation (release.py build's)")
     ap.add_argument("--map", type=Path, help="versionmap.py's map from v1.01 to the release")
-    ap.add_argument("--version", required=True, choices=["pal", "us2"])
+    ap.add_argument("--version", choices=sorted(set(rel.RELEASES) - {"us"}),
+                    help="the release (by default its facts file's, release/release.json)")
+    ap.add_argument("--no-copycalls", action="store_true",
+                    help="leave the copy tables (copycalls.py's) as they are")
     ap.add_argument("--primary-protos", type=Path,
                     help="the primary's generated game_protos.h (port/build/<preset>/games/rac2-ntsc/gen): the "
                          "signatures of the functions the host C replaces or wraps that this release changed")
     args = ap.parse_args(argv)
     out_dir = args.game.parent
+    facts = rel.read_facts(out_dir / "release" / "release.json")
+    args.version = args.version or facts["version"]
+    if facts["version"] != args.version:
+        ap.error(f"--version {args.version}: the release's facts say {facts['version']}")
     cfg = json.loads(args.primary.read_text())
     table = rel.Release.load(out_dir / "release" / "release_names.json")
     carry_path = args.source / rel.RELEASES[args.version]["build"] / "carry.json"
     carry = json.loads(carry_path.read_text()) if carry_path.is_file() else None
     vmap = json.loads(args.map.read_text()) if args.map else None
     p = Pairing(args.source, args.version, table, vmap, carry)
-    p.read_by_hand(out_dir / "release" / "release_pairs.tsv")
+    p.facts = facts
+    p.read_by_hand(facts)
     p.primary_dir = args.primary.parent
     p.out_dir = out_dir
     p.read_splits((args.primary.parent / "tables" / "split_places.tsv").read_text())
     new_cfg = carry_config(p, cfg, args.version)
     primary = args.primary.parent
     libraries = carry_libraries(p, (primary / "libraries.tsv").read_text())
-    extra = out_dir / "release" / "release_extra.json"
-    if extra.is_file() and json.loads(extra.read_text()).get("libraries"):
-        # Rows of the release's own (release_extra.json "libraries"): a level copy its catalogue names apart.
-        libraries += "# This release's own rows (release_extra.json).\n" + "".join(
-            row + "\n" for row in json.loads(extra.read_text())["libraries"])
+    extra = facts.get("extra", {})
+    if extra.get("libraries"):
+        # Rows of the release's own (release.json "extra" "libraries"): a level copy its catalogue names apart.
+        libraries += "# This release's own rows (release.json \"extra\").\n" + "".join(
+            row + "\n" for row in extra["libraries"])
     (out_dir / "libraries.tsv").write_text(libraries)
-    if extra.is_file():
-        for key, rows in json.loads(extra.read_text()).items():
+    if extra:
+        for key, rows in extra.items():
             if key == "from_assembly":
                 new_cfg["from_assembly"] = list(dict.fromkeys(new_cfg.get("from_assembly", []) + list(rows)))
             elif key == "libraries":
@@ -984,6 +1037,8 @@ def main(argv: list[str] | None = None) -> int:
     (out_dir / "tables" / "split_places.tsv").write_text(carry_split_places(p, (primary / "tables" / "split_places.tsv").read_text()))
     if cfg.get("overrides"):
         carry_overrides(p, primary / cfg["overrides"], out_dir / cfg["overrides"])
+    if new_cfg.get("hand"):
+        carry_hand(p, primary / cfg["hand"] if cfg.get("hand") else None, out_dir / new_cfg["hand"])
     host = out_dir / "host"
     host.mkdir(exist_ok=True)
     shared = primary.parent / "rac2" / "host"
@@ -998,6 +1053,8 @@ def main(argv: list[str] | None = None) -> int:
               **p.report}
     (out_dir / "release" / "release_carry.json").write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
     print(f"release_carry: {out_dir}: " + ", ".join(f"{k} {v}" for k, v in sorted(p.kinds.items())))
+    if not args.no_copycalls:
+        run_copycalls(out_dir, args.source, args.version)
     return 0
 
 
