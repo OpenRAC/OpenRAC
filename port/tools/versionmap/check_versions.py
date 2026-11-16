@@ -9,9 +9,9 @@ Checks every game version's tables, with no disc (CI runs this):
 - parity.py for every game in its GAMES table;
 - release_<game>.py --tables --check for every release folder with a release/release.json,
   carried from the first program of its game, where its game has such a tool;
-- for a program with a host/<game>_version.h: hostnames.py check for rac1's (its tool's format),
-  release_host.py --check for another game's release (hostgen.json "release": its tables are
-  written from a disc, so only their cover of the shared C is checked).
+- hostnames.py check for every program with a host/<game>_version.h of rac1's, or of another
+  game's release (hostgen.json "release": its tables are written from a disc, so only their
+  cover of the shared C is checked).
 
 A new game or version needs no change here: it is found by its files and parity.py's GAMES.
 """
@@ -47,10 +47,8 @@ def main() -> int:
         config = program / "hostgen.json"
         if not config.is_file() or header.name != f"{json.loads(config.read_text())['game']}_version.h":
             continue
-        if header.name == "rac1_version.h":
+        if header.name == "rac1_version.h" or "release" in json.loads(config.read_text()):
             ok &= run("port/tools/versionmap/hostnames.py", "check", f"port/game/{program.name}")
-        elif "release" in json.loads(config.read_text()):
-            ok &= run("port/tools/hostgen/release_host.py", "--check", f"port/game/{program.name}")
     return 0 if ok else 1
 
 
