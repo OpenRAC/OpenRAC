@@ -153,6 +153,16 @@ public:
         return std::nullopt;
     }
 
+    // Adds the moby at game address `moby` to `mobys`, once for each part the game draws of it
+    // (Going Commando's bangles); nothing when read_moby reads none.
+    virtual void add_moby(
+        std::span<const std::uint8_t> ram, std::uint32_t moby, std::vector<LiveMoby>& mobys
+    ) const {
+        if (const auto live = read_moby(ram, moby)) {
+            mobys.push_back(*live);
+        }
+    }
+
     // The vertex alpha's distance fade the game's moby renderer gives the moby whose record starts
     // at `moby`, seen from `state`'s camera, in the GS's units (0x80 none, 0 at its draw distance);
     // none when it leaves the moby undrawn by its distance.
