@@ -65,7 +65,7 @@ See [debugging](../../../../docs/port/DEBUGGING.md) for run and capture switches
 reporting, inherited rounding and joining at destruction. `stats`, `frame_counter`, `settings`
 and `env` cover profiling and configuration. `scenery_capture` covers offscreen caster residency,
 persistent hiding, draw-distance limits and owned matrix capture. `sleeping_mobys` covers the
-game's activity test and the sleeping mobys' looped keys. Game integration checks need locally extracted data:
+game's activity test, which sequences loop and the sleeping mobys' looped keys. Game integration checks need locally extracted data:
 compare matching views with Vulkan validation, including menu readbacks, render-size changes
 and quitting with a frame pending.
 

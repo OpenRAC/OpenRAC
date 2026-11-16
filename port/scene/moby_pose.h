@@ -25,6 +25,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -81,6 +82,24 @@ std::vector<assets::rac1::JointMatrix> moby_palette(
  */
 std::vector<assets::rac1::JointMatrix> moby_pose_matrices(
     std::span<const std::uint8_t> ram, std::uint32_t moby
+);
+
+/**
+ * How far apart two frames of a class pose its joints: the largest turn of any joint (radians) and
+ * the largest move of any joint's translation (packed model units). A joint a frame does not
+ * translate stands at its rest translation, as the evaluator leaves it.
+ */
+struct KeyGap {
+    float turn = 0.0f;
+    float move = 0.0f;
+};
+
+/**
+ * The gap between the frames at game addresses `a` and `b` of the class at `cls`; none when either
+ * is not a frame of it.
+ */
+std::optional<KeyGap> key_gap(
+    std::span<const std::uint8_t> ram, std::uint32_t cls, std::uint32_t a, std::uint32_t b
 );
 
 /** The same pose matrices posed by `keys`, as moby_palette with keys. */

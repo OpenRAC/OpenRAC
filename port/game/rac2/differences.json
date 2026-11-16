@@ -101,7 +101,7 @@
       "name": "Far mobys animate",
       "discs": ["ntsc", "pal", "ntsc2"],
       "original": "A moby runs only near the camera (inside its draw distance, at most 960 units, or its own update range). Past that it stands still in its spawn pose.",
-      "port": "The game runs its mobys exactly as on the console. With a Draw distance past Original, the far mobys the game leaves asleep are drawn and, by default, animated in the picture only: the game never sees it. Active distance: Original draws them standing still.",
+      "port": "The game runs its mobys exactly as on the console. With a Draw distance past Original, the far mobys the game leaves asleep are drawn and, by default, play their looping animation in the picture only: the game never sees it. Active distance: Original draws them standing still.",
       "refs": ["port/game/common/frontend/sleeping_mobys.h", "port/game/rac2/host/render.c", "docs/port/SETTINGS.md"]
     },
     {
