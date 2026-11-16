@@ -481,9 +481,21 @@ static int extra_rows(void) {
     return 1 + (mod_rows > 0 ? mod_rows : 0);
 }
 
-/* The rows closer, so that the extra rows fit in the panel made for PAUSE_OPTIONS_ROWS. */
+/* The game's row step, before the list's is changed (func_00341610 keeps it). */
+static float list_row_step(void) {
+    return list_steps[1] != 0.0f ? list_steps[1] : GREF(float, LIST_ROW_STEP);
+}
+
+/* The rows' step with the extra rows: whole lines, as tab_menu_update_list hands the text its step
+ * as an int (a step a hair under 32 would be 31, a line short each row). */
+static int list_rows_step(void) {
+    return (int)list_row_step() * PAUSE_OPTIONS_ROWS / (PAUSE_OPTIONS_ROWS + extra_rows());
+}
+
+/* The rows closer, so that the extra rows fit in the panel made for PAUSE_OPTIONS_ROWS: by the
+ * text's step, so that the art, icons and cursor stay on its rows. */
 static float list_tighter(void) {
-    return (float)PAUSE_OPTIONS_ROWS / (float)(PAUSE_OPTIONS_ROWS + extra_rows());
+    return (float)list_rows_step() / list_row_step();
 }
 
 #define PAUSE_LIST_OFFSET RAC2_K(PAUSE_LIST_OFFSET, 0x3BE08u, func_0029C4C0)
@@ -597,6 +609,9 @@ void func_00341610(gaddr list, int which) {
         }
         GREF(float, steps[i]) = video ? list_steps[i] * list_tighter() : list_steps[i];
     }
+    if (video) {
+        GREF(float, LIST_ROW_STEP) = (float)list_rows_step();
+    }
     func_00341610__game(list, which);
     if (!video) {
         return;
@@ -642,10 +657,6 @@ void func_00341610(gaddr list, int which) {
 #define LIST_ICON_FIRST OPENRAC_DATA(RAC2_ADDR(0x001AE124u))
 #define GS_SCISSOR_1 0x40ull
 #define GS_LAST_LINE 447
-/* The art's rows are a little closer than the text's: by here that is this many lines. */
-#define PANEL_LOWER_DROP 2.0f
-/* The icons keep their size in the squeezed slots: this many lines up centres them. */
-#define PANEL_ICON_RISE 1.0f
 #define LIST_ICON_HALF                                                                             \
     16.0f /* LIST_ICON_FIRST is an icon's top, and the row's middle is below it */
 
@@ -656,7 +667,8 @@ static void panel_clip(int top, int bottom) {
     );
 }
 
-/* Draws the sprite SQUEEZED about the first row, moved down by BELOW. */
+/* Draws the sprite squeezed about the first row's middle, moved down by BELOW: the rows' middles,
+ * the text's and the icons' alike, stay where the squeezed steps put them. */
 static void panel_sprite(gaddr sprite, float first_row, float below) {
     const gaddr position = GREF(gaddr, sprite + SPRITE_POSITION);
     const gaddr scale = GREF(gaddr, sprite + SPRITE_SCALE);
@@ -669,8 +681,9 @@ static void panel_sprite(gaddr sprite, float first_row, float below) {
     GREF(float, scale + 4u) = height;
 }
 
-/* func_00341A88 for this list: its icons, a line higher, and on the Video row the icon the title's
- * Options list has there, from that list's sheet. */
+/* func_00341A88 for this list: its icons, as much smaller as the rows are closer and in the middle
+ * of their slots (full size, the tall ones met their frames), and on the Video row the icon the
+ * title's Options list has there, from that list's sheet. */
 static void list_icons(gaddr list) {
     const gaddr icon = list + LIST_ICON;
     const gaddr origin = GREF(gaddr, list + LIST_ORIGIN);
@@ -678,10 +691,22 @@ static void list_icons(gaddr list) {
     const int rows = GREF(int, list + PAUSE_LIST_COUNT);
     const gaddr icons = GREF(gaddr, list + PAUSE_LIST_ICONS);
     const float x = GREF(float, origin) + GREF(float, LIST_ICON_LEFT);
-    const float y = GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST) - PANEL_ICON_RISE;
+    const float y = GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST);
+    const gaddr size = GREF(gaddr, icon + SPRITE_SCALE);
+    const float width = GREF(float, size);
+    const float height = GREF(float, size + 4u);
+    const float tighter = list_tighter();
+    GREF(float, size) = width * tighter;
+    GREF(float, size + 4u) = height * tighter;
     for (int i = 0; i < rows; ++i) {
         const float row_y = y + GREF(float, LIST_ICON_STEP) * (float)i;
-        func_00335E38(icon, x, row_y, 0.0f, 0.0f);
+        func_00335E38(
+            icon,
+            x + 0.5f * width * (1.0f - tighter),
+            row_y + 0.5f * height * (1.0f - tighter),
+            0.0f,
+            0.0f
+        );
         func_00336920(
             icon,
             i > VIDEO_ROW_AFTER && i <= VIDEO_ROW_AFTER + extra_rows()
@@ -692,6 +717,8 @@ static void list_icons(gaddr list) {
         GREF(unsigned int, func_00335E20(icon)) = i == chosen ? 0x70FFFEEDu : 0x60F0F0B0u;
         func_00336828(icon);
     }
+    GREF(float, size) = width;
+    GREF(float, size + 4u) = height;
 }
 
 void func_00341C20(gaddr list) {
@@ -707,8 +734,9 @@ void func_00341C20(gaddr list) {
         {0u, RAC2_K(LIST_SPRITE_1, 0x4Cu, func_00341C20), RAC2_K(LIST_SPRITE_2, 0xE4u, func_00341C20)};
     const gaddr origin = GREF(gaddr, list + LIST_ORIGIN);
     const float step = GREF(float, LIST_ICON_STEP);
-    const float first_row = GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST);
-    const int split = (int)(first_row + LIST_ICON_HALF + step * (PAUSE_OPTIONS_ROWS - 1.5f));
+    const float first_row =
+        GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST) + LIST_ICON_HALF;
+    const int split = (int)(first_row + step * (PAUSE_OPTIONS_ROWS - 1.5f));
 
     func_00336320(list + LIST_TITLE_BAR);
     panel_clip(0, split - 1);
@@ -720,7 +748,7 @@ void func_00341C20(gaddr list) {
         const int from = split + (int)(step * (float)(k - 1));
         panel_clip(from, k == extra ? GS_LAST_LINE : split + (int)(step * (float)k) - 1);
         for (int i = 0; i < PANEL_SPRITE_ROWS; ++i) {
-            panel_sprite(list + sprites[i], first_row, step * (float)k + PANEL_LOWER_DROP);
+            panel_sprite(list + sprites[i], first_row, step * (float)k);
         }
     }
     panel_clip(0, GS_LAST_LINE);
