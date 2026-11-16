@@ -25,7 +25,7 @@
   "global: the release's own": 141,
   "global: versionmap (between)": 672,
   "global: versionmap (exact)": 264,
-  "function: a hook named as the release's catalogue does": 8,
+  "function: a hook named as the release's catalogue does": 60,
   "function: a shared definition the release's build did not place (gone)": 4584,
   "short name: left as it is": 224,
   "short name: the release's build": 1041,
@@ -26966,21 +26966,113 @@
    "func_3330A8": "func_335270",
    "func_383120": "func_385ED0"
   },
+  "src/pal/game/00272208-qcopy.c": {
+   "stub_empty_22": "func_0026F628"
+  },
+  "src/pal/game/002CBD80-g8.c": {
+   "stub_empty_23": "func_0026F630",
+   "stub_empty_24": "func_0026F638",
+   "stub_empty_25": "func_0026F640",
+   "stub_empty_26": "func_0026F648",
+   "stub_empty_27": "func_0026F650",
+   "stub_empty_28": "func_0026F658",
+   "stub_empty_29": "func_0026F660"
+  },
+  "src/pal/game/002CE0B0.c": {
+   "stub_empty_24": "func_0026F638",
+   "stub_empty_25": "func_0026F640",
+   "stub_empty_26": "func_0026F648",
+   "stub_empty_27": "func_0026F650",
+   "stub_empty_28": "func_0026F658",
+   "stub_empty_29": "func_0026F660"
+  },
+  "src/pal/game/002D5FF0.c": {
+   "stub_empty_24": "func_0026F638",
+   "stub_empty_25": "func_0026F640"
+  },
   "src/pal/game/002E7B78-cc-g8.c": {
    "func_0026F720": "func_0026F588",
    "func_0026F728": "func_0026F590",
+   "stub_empty_4": "func_0026F590",
    "func_0026F748": "func_0026F5B0"
+  },
+  "src/pal/game/002E8030-qcopy.c": {
+   "stub_empty_10": "func_0026F5C0",
+   "stub_empty_15": "func_0026F5E8"
   },
   "src/pal/game/002EA0B0-flags.c": {
    "func_0026F718": "func_V1_0026F718",
-   "func_0026F720": "func_0026F588"
+   "func_0026F720": "func_0026F588",
+   "stub_empty_3": "func_0026F588",
+   "stub_empty_17": "func_0026F5F8",
+   "stub_empty_18": "func_0026F600"
+  },
+  "src/pal/game/002EBA30-flags.c": {
+   "stub_empty_17": "func_0026F5F8"
+  },
+  "src/pal/game/002F6208-g8.c": {
+   "stub_empty_4": "func_0026F590",
+   "stub_empty_10": "func_0026F5C0",
+   "stub_empty_15": "func_0026F5E8"
   },
   "src/pal/game/002F90E8-open-g8.c": {
    "func_0026F720": "func_0026F588",
-   "func_0026F728": "func_0026F590"
+   "func_0026F728": "func_0026F590",
+   "stub_empty_4": "func_0026F590"
   },
   "src/pal/game/002F96D8-g16.c": {
-   "func_0026F780": "func_0026F5E8"
+   "func_0026F780": "func_0026F5E8",
+   "stub_empty_15": "func_0026F5E8"
+  },
+  "src/pal/game/002F9898-sw.c": {
+   "stub_empty_8": "func_0026F5B0"
+  },
+  "src/pal/game/003096D0-sw.c": {
+   "stub_empty_30": "func_0026F668"
+  },
+  "src/pal/game/0030A9D8-g8.c": {
+   "stub_empty_6": "func_0026F5A0",
+   "stub_empty_7": "func_0026F5A8",
+   "stub_empty_11": "func_0026F5C8",
+   "stub_empty_12": "func_0026F5D0"
+  },
+  "src/pal/game/0030D834-sw.c": {
+   "stub_empty_11": "func_0026F5C8",
+   "stub_empty_12": "func_0026F5D0"
+  },
+  "src/pal/game/0030F2B0-sw.c": {
+   "stub_empty_8": "func_0026F5B0"
+  },
+  "src/pal/game/00310BE8-sw.c": {
+   "stub_empty_13": "func_0026F5D8"
+  },
+  "src/pal/game/00310BE8-sw2.c": {
+   "stub_empty_13": "func_0026F5D8"
+  },
+  "src/pal/game/003164C0-sw.c": {
+   "stub_empty_5": "FUN_0026F5A0",
+   "stub_empty_6": "func_0026F5A0",
+   "stub_empty_7": "func_0026F5A8",
+   "stub_empty_8": "func_0026F5B0",
+   "stub_empty_10": "func_0026F5C0",
+   "stub_empty_11": "func_0026F5C8",
+   "stub_empty_12": "func_0026F5D0"
+  },
+  "src/pal/game/00317310-port.c": {
+   "stub_empty_11": "func_0026F5C8"
+  },
+  "src/pal/game/00320D00-pickup-g8.c": {
+   "stub_empty_8": "func_0026F5B0"
+  },
+  "src/pal/game/0033423C-sw.c": {
+   "stub_empty_11": "func_0026F5C8",
+   "stub_empty_12": "func_0026F5D0"
+  },
+  "src/pal/game/00335118-g8.c": {
+   "stub_empty_15": "func_0026F5E8"
+  },
+  "src/pal/game/00350E98.c": {
+   "stub_empty_17": "func_0026F5F8"
   },
   "src/pal/levels/01_oozla/L01_003D1FD0.c": {
    "func_3120A8": "func_313DF8",

@@ -56,6 +56,16 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual(self.r.text(text, "src/game/other.c"),
                          "func_2F5D68(x); func_00283F58(y); func_00283698(z);")
 
+    def test_a_files_own_readable_name(self):
+        # The release's own C calls a hook by its readable name, at the place its catalogue gives
+        # the name; the alias's v1.01 name elsewhere is the hook its callers pair.
+        r = release.Release({"names": {"func_0026F790": "func_0026F600"},
+                             "units": {"src/pal/game/a.c": {"stub_empty_17": "func_0026F5F8"}}})
+        text = "stub_empty_17(o, 0); stub_empty_170(o); my_stub_empty_17(); func_0026F790(o, 0);"
+        self.assertEqual(r.text(text, "src/pal/game/a.c"),
+                         "func_0026F5F8(o, 0); stub_empty_170(o); my_stub_empty_17(); func_0026F600(o, 0);")
+        self.assertEqual(r.text(text, "src/game/b.c"), text.replace("func_0026F790", "func_0026F600"))
+
     def test_a_level_files_names_of_its_level(self):
         # In an Oozla file func_00312B68 is level 1's copy of func_002A9640 (the primary's level
         # catalogue), not the executable's address it states: it is that function in the release.
