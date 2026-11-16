@@ -527,7 +527,8 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
     for overlay in sorted(code_tables):
         name = "exe" if overlay < 0 else f"overlay_{overlay:02d}"
         fn.append(f"static const openrac_fn_entry k_{name}[] = {{")
-        for addr, sym in sorted(code_tables[overlay]):
+        # In the tables' order: the runtime keeps the first of two functions at one address.
+        for addr, sym in code_tables[overlay]:
             fn.append(f"    {{0x{addr:08X}u, (openrac_host_fn){cname(sym)}, \"{sym}\"}},")
         fn.append("};")
         fn.append("")

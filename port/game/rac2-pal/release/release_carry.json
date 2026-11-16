@@ -9,8 +9,8 @@
   "function: same": 685,
   "global: aligned": 5,
   "global: between": 16,
-  "global: exact": 145,
-  "global: the release's build": 75
+  "global: exact": 146,
+  "global: the release's build": 74
  },
  "functions": {
   "func_001158F8": [
@@ -648,7 +648,7 @@
  },
  "level_hooks": {
   "carried": 26,
-  "count": 31,
+  "count": 38,
   "from": "0026F580",
   "to": "0026F678"
  }

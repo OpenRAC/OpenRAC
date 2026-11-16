@@ -250,6 +250,22 @@ def placed_functions(build: Path) -> set[str]:
     return out
 
 
+def folded_places(build: Path, us_levels: list, r_levels: list) -> dict[str, dict[str, str]]:
+    """The primary's level functions the release's catalogue folds into another row (it has no row
+    of their own) but the release's build places under their own name: name -> {level: place}."""
+    rows = {n for n, *_ in r_levels}
+    theirs = {n for n, *_ in us_levels} - rows
+    out: dict[str, dict[str, str]] = {}
+    for path in sorted(build.glob("*/placed.json")):
+        program = path.parent.name[:2]
+        if not program.isdigit():
+            continue
+        for name, (address, _size) in json.loads(path.read_text()).get("functions", {}).items():
+            if name in theirs:
+                out.setdefault(name, {})[program] = f"{address:#010x}"
+    return dict(sorted(out.items()))
+
+
 class Release:
     """The table: renames and the derived values in the release's names."""
 
@@ -1164,10 +1180,9 @@ def main(argv: list[str] | None = None) -> int:
     source = args.source.resolve()
     roots = sorted(set(cfg.get("sources", ["src"]) + cfg.get("includes", ["include"]) + ["nonmatching"]))
     readable = primary_aliases(source, cfg)
-    uses = used_tokens(source, roots, readable=readable)
+    # What hostgen leaves out (other releases' code; rac1's src/data, read from the disc) is no use.
+    uses = used_tokens(source, roots, cfg.get("skip", []), readable=None if version in RAC1_RELEASES else readable)
     if version in RAC1_RELEASES:
-        # What hostgen leaves out (src/data: the port reads the executable's data from the disc).
-        uses = used_tokens(source, roots, cfg.get("skip", []))
         if args.relocs is None:
             ap.error("a Ratchet & Clank release needs --relocs (version_relocs.py's output)")
         # The release's own definitions are its C too (hostgen splices them in: "release" "splice").
@@ -1192,6 +1207,15 @@ def main(argv: list[str] | None = None) -> int:
         derived = derived_values(parts, release, RELEASES[version]["level_base"],
                                  json.loads(primary_table.read_text()) if primary_table.is_file() else None,
                                  args.map)
+        # Another spelling of a name (F<hash>_FUN_<address>, F<hash>_D_<address>) that no C the release's
+        # build placed uses has no value of its own: the release's address of that name, never the primary's.
+        if cfg.get("derived"):
+            for name in derived_mod.used_names(source, cfg) - set(derived["values"]) - set(derived["levels"]):
+                m = re.fullmatch(r"F[0-9a-f]{8}_(FUN|D)_([0-9A-F]{8})", name)
+                new = release.name(f"{'func' if m.group(1) == 'FUN' else 'D'}_{m.group(2)}") if m else ""
+                if re.fullmatch(r"(?:func|FUN|D)_[0-9A-F]{8}", new):
+                    derived["values"][name] = f"{int(new[-8:], 16):#010x}"
+            derived["values"] = dict(sorted(derived["values"].items()))
         DEAD_NOW = DEAD
         source_note = {"commit": None, "version": version, "table": f"{RELEASES[version]['build']}/*/placed.json"}
     try:
@@ -1243,6 +1267,8 @@ def main(argv: list[str] | None = None) -> int:
         # (check_gone reads them).
         table["placed"] = sorted(parts["placed"])
         table["absent"] = sorted(parts["absent"])
+        # Where the build places the copies its catalogue folds away (release_carry's split places).
+        table["folded_places"] = folded_places(source / RELEASES[version]["build"], parts["us_levels"], parts["r_levels"])
     if gone_in:
         # Their definitions in the shared C, each left out of the file named (Release.splice).
         table["gone"] = sorted(gone_in)

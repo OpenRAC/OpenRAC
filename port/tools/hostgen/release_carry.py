@@ -99,20 +99,27 @@ class Pairing:
         self.by_split: dict[str, str] = {}
         self.split_rows: list[str] = []
 
-    def split_place(self, level: int, address: int) -> int | None:
-        """v1.01's function place LEVEL:ADDRESS in the release: the same copy of the same catalogue
-        row there (the k-th copy in that level), or None."""
+    def _split_index(self) -> None:
         if not hasattr(self, "_us_owner"):
             self._us_owner = {pl: n for n, _, _, places in self.us_levels for pl in places}
             self._r_by_us = {n: places for n, _, _, places in self.r_levels}
+
+    def split_place(self, level: int, address: int) -> int | None:
+        """v1.01's function place LEVEL:ADDRESS in the release: the same copy of the same catalogue
+        row there (the k-th copy in that level), or None."""
+        self._split_index()
         name = self._us_owner.get((level, address))
         if name is None:
             return None
         theirs = sorted(a for lv, a in self.us_places.get(name, []) if lv == level)
         mine = sorted(a for lv, a in self._r_by_us.get(name, []) if lv == level)
-        if len(theirs) != len(mine):
+        if len(theirs) == len(mine):
+            return mine[theirs.index(address)]
+        if name in self._r_by_us or len(theirs) != 1:
             return None
-        return mine[theirs.index(address)]
+        # The release's catalogue folds the row into another: where the release's build placed it.
+        at = self.table.table.get("folded_places", {}).get(name, {}).get(f"{level:02d}")
+        return int(at, 16) if at else None
 
     def read_splits(self, text: str) -> None:
         """The release's split_places.tsv rows, from the primary's. A variant's places are its own
@@ -133,7 +140,9 @@ class Pairing:
                     places.append((int(lv), at))
             parent = self.function(cols[0], "split_places")
             m = FUNC.fullmatch(cols[1])
-            if m and m.group(1) and cols[1] not in self.us_places and places:
+            self._split_index()
+            if m and m.group(1) and (cols[1] not in self.us_places or cols[1] not in self._r_by_us) and places:
+                # No row of its own here (or none in the primary): the variant is named by a place.
                 variant = f"func_L{places[0][0]:02d}_{places[0][1]:08X}"  # a place, not a row
                 self.by_split[cols[1]] = variant
             else:

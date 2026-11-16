@@ -2712,6 +2712,60 @@ class Places(unittest.TestCase):
         self.assertEqual(len(twins), 1)
         self.assertIn("0x003468F8", twins[0])
 
+    def test_abicheck_lets_two_spellings_of_the_same_code_be(self):
+        # Two names of one place pass only when their C is the same code (names of parameters,
+        # comments, layout and the spelling of a place aside); otherwise a release whose table is
+        # rebuilt (its "placed") fails.
+        import abicheck
+        table = ("static const openrac_fn_entry k_exe[] = {\n"
+                 "    {0x00270000u, (openrac_host_fn)Fb1bbe20c_FUN_00270000, \"x\"},\n"
+                 "    {0x00270000u, (openrac_host_fn)func_00270000, \"func_00270000\"},\n};\n")
+        same = ("int Fb1bbe20c_FUN_00270000(int a)\n{\n    return FUN_00280000(a); /* v1 */\n}\n"
+                "int func_00270000(int pass_0)\n{\n    return func_00280000(pass_0);\n}\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            gen = Path(tmp)
+            (gen / "functions.c").write_text(table)
+            (gen / "game_protos.h").write_text("")
+            (gen / "game").mkdir()
+            (gen / "game" / "a.c").write_text(same)
+            at = abicheck.read_tables(gen / "functions.c")[0]
+            names = {"Fb1bbe20c_FUN_00270000", "func_00270000"}
+            self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
+            (gen / "game" / "a.c").write_text(same.replace("return func_00280000(pass_0)", "return 1"))
+            self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            # Two that do nothing alike pass whatever their parameters: hostgen's stubs for a
+            # function without C, or void functions without a statement. A stub beside an empty
+            # function, or an empty one returning a value, does not.
+            stub = ("void {0}({1}) {{\n    static openrac_reach_site site_ = {{\"{0}\", \"no-c\", 0, 0, 0}};\n"
+                    "    openrac_guest_reach(&site_);\n}}\n")
+            (gen / "stubs.c").write_text(stub.format("Fb1bbe20c_FUN_00270000", "gaddr a0")
+                                         + stub.format("func_00270000", "gaddr a0, int a1"))
+            (gen / "game" / "a.c").write_text("")
+            self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
+            (gen / "stubs.c").write_text("")
+            (gen / "game" / "a.c").write_text("void Fb1bbe20c_FUN_00270000(void)\n{\n}\n"
+                                              "void func_00270000(gaddr pass_0)\n{\n    /* nothing */\n}\n")
+            self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
+            (gen / "stubs.c").write_text(stub.format("func_00270000", "gaddr a0"))
+            (gen / "game" / "a.c").write_text("void Fb1bbe20c_FUN_00270000(void)\n{\n}\n")
+            self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            (gen / "stubs.c").write_text("")
+            (gen / "game" / "a.c").write_text("void Fb1bbe20c_FUN_00270000(void)\n{\n}\n"
+                                              "int func_00270000(void)\n{\n}\n")
+            self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            (gen / "game" / "a.c").write_text(same.replace("return func_00280000(pass_0)", "return 1"))
+            config = gen / "cfg"
+            (config / "host").mkdir(parents=True)
+            (config / "hostgen.json").write_text(json.dumps({"release": {"table": "t.json"}}))
+            (config / "t.json").write_text(json.dumps({"names": {}}))
+            self.assertFalse(abicheck.strict_twins(config / "host"))
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(abicheck.main([str(gen), "--host", str(config / "host")]), 0)
+            (config / "t.json").write_text(json.dumps({"names": {}, "placed": []}))
+            self.assertTrue(abicheck.strict_twins(config / "host"))
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(abicheck.main([str(gen), "--host", str(config / "host")]), 1)
+
     def test_abicheck_finds_a_long_long_passed_as_an_int(self):
         with tempfile.TemporaryDirectory() as tmp:
             gen = Path(tmp)

@@ -97,6 +97,8 @@
     "src"
   ],
   "skip": [
+    "src/jp",
+    "src/kr",
     "src/us2",
     "src/core/0011FC68.c",
     "src/core/00120528-eh.c",
@@ -130,7 +132,9 @@
   "global_views": true,
   "candidates_left_out": {
     "func_L03_003CA4B0": "includes common.h after its unit's own qcopy",
-    "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly"
+    "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly",
+    "func_002A05A8": "not in this release",
+    "func_002A2450": "not in this release"
   },
   "derived": {
     "table": "release/release_names.json"
@@ -371,7 +375,14 @@
     "func_0026F660",
     "func_0026F668",
     "func_0026F670",
-    "func_0026F678"
+    "func_0026F678",
+    "ref_00302DA0_00",
+    "ref_00302DA0_01",
+    "ref_00302DA0_02",
+    "ref_00302DA0_03",
+    "ref_L00_003DD6A8_18",
+    "ref_PAL_002F9898_00",
+    "ref_PAL_0030A560_00"
   ],
   "keep_spent_arguments": true,
   "level_short_names": "^func_(?:80(?=[0-9A-F]{6}$))?(?P<addr>[0-9A-F]{6,8})$",

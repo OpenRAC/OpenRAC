@@ -137,10 +137,17 @@ class ReleaseNames(unittest.TestCase):
     def test_committed_tables_leave_out_every_definition(self):
         # Each carried release's table against the decompilation CI checks out (no disc needed).
         source = REPO / "games" / "rac2" / "decomp"
+        tables = {}
         for game in ("rac2-pal", "rac2-ntsc2"):
             config = REPO / "port" / "game" / game / "hostgen.json"
             cfg = json.loads(config.read_text())
-            table = json.loads((config.parent / cfg["release"]["table"]).read_text())
+            tables[game] = (cfg, json.loads((config.parent / cfg["release"]["table"]).read_text()))
+        # Strict once any table is rebuilt: every release then needs "placed" and "gone_in".
+        if any("placed" in table for _, table in tables.values()):
+            for game, (_, table) in tables.items():
+                self.assertTrue("placed" in table and "gone_in" in table,
+                                f"{game}: rebuild its table with release.py build")
+        for game, (cfg, table) in tables.items():
             if not (source / "src").is_dir() or "placed" not in table:
                 continue
             problems = release.check_gone(source, table, release.primary_aliases(source, cfg),
