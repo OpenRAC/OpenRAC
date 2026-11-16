@@ -95,7 +95,7 @@ class Pairing:
         self.report: dict[str, dict] = {}
         self.kinds: Counter = Counter()
         self.by_hand: dict[str, str] = {}
-        # Variants split off folded functions (split_places.tsv): v1.01's name -> the release's.
+        # Variants split off folded functions (split_places.tsv): the primary's name -> the release's.
         self.by_split: dict[str, str] = {}
         self.split_rows: list[str] = []
 
@@ -105,7 +105,7 @@ class Pairing:
             self._r_by_us = {n: places for n, _, _, places in self.r_levels}
 
     def split_place(self, level: int, address: int) -> int | None:
-        """v1.01's function place LEVEL:ADDRESS in the release: the same copy of the same catalogue
+        """The primary's function place LEVEL:ADDRESS in the release: the same copy of the same catalogue
         row there (the k-th copy in that level), or None."""
         self._split_index()
         name = self._us_owner.get((level, address))
@@ -859,7 +859,7 @@ def _definition(text: str, name: str) -> tuple[int, int] | None:
 
 def _release_definition(p: Pairing, new: str) -> tuple[str, str] | None:
     """The release's own C of its function NEW (src/pal, src/us2: func_PAL_..., func_US2_L01_...):
-    (the file's text, the name it is defined by), or None where it shares v1.01's C."""
+    (the file's text, the name it is defined by), or None where it shares the primary's C."""
     m = FUNC.fullmatch(new)
     if m is None:
         return None
@@ -876,7 +876,7 @@ def carry_overrides(p: Pairing, table: Path, out: Path) -> None:
     """hostgen.json "overrides": the port's own C for matched functions goes in after the release's
     names are written (prep.copy_tree), so each file is written again in them (release.py's text),
     under the release's name of its function. Where the release has C of its own for the function
-    (a 50 Hz constant), the override's change to v1.01's C is made to the release's C instead."""
+    (a 50 Hz constant), the override's change to the primary's C is made to the release's C instead."""
     import difflib
     out.parent.mkdir(parents=True, exist_ok=True)
     rows = ["# Written by port/tools/hostgen/release_carry.py from the primary release's overrides; do not edit.",
@@ -915,7 +915,7 @@ def carry_overrides(p: Pairing, table: Path, out: Path) -> None:
             override = override[:at[0]] + body + override[at[1]:]
         written = p.table.text(override)
         # The definition goes by the release's name of the function, which the release view may spell
-        # otherwise (a v1.01 definition the release replaces with its own is func_V1_ there).
+        # otherwise (a primary definition the release replaces with its own is func_V1_ there).
         written = re.sub(r"\b" + re.escape(p.table.name(name)) + r"\b", new, written)
         (out.parent / f"{new}.c").write_text(written)
         rows.append(f"{new}\t{new}.c")
@@ -957,7 +957,7 @@ def carry_hand(p: Pairing, table: Path | None, out: Path) -> None:
     rows += [f"{name}\t{file}" for name, file in p.facts.get("hand", {}).items()]
     empty = empty_hooks(p)
     if empty:
-        # A hook only the release has: no C defines its place, so it gets the primary's empty body.
+        # A hook place no C defines (the hooks pair by callers, the C by catalogue): an empty body.
         (out.parent / "level_hooks.c").write_text(
             "/* Written by port/tools/hostgen/release_carry.py: the release's level hooks no C defines,\n"
             "   each an empty function as the primary's hooks are (jr $ra; a nop, or a zero result). */\n"

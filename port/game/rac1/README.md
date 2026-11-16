@@ -65,7 +65,7 @@ python3 port/tools/hostgen/release.py build --game port/game/rac1-<disc>/hostgen
     --relocs build/relocs-<v> --map build/versionmap/rac1-pal--rac1-<disc>.json
 python3 port/tools/hostgen/release_rac1.py --game port/game/rac1-<disc> --primary port/game/rac1-pal \
     --map build/versionmap/rac1-pal--rac1-<disc>.json
-python3 port/tools/versionmap/data_moves.py write build/versionmap/rac1-pal--rac1-<disc>.json port/game/rac1-<disc>/data_moves.tsv
+python3 port/tools/versionmap/data_moves.py write build/versionmap/rac1-pal--rac1-<disc>.json port/game/rac1-<disc>/release/data_moves.tsv
 ```
 
 | File | |

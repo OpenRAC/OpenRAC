@@ -1261,7 +1261,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         for row in rows:
             m = own.fullmatch(row[0])
             if m is None and RELEASE is not None:
-                # A shared row, in the release's name: v2.00's func_002C00F0 (its func_002C1010, named after
+                # A shared row, in the release's name: a release's func_002C00F0 (its func_002C1010, named after
                 # the fill word in front) is entered at 0x002C1018, which its callers' func_002C1018 spells.
                 m = shared.fullmatch(RELEASE.name(row[0]))
             if m is not None and int(m.group(1), 16) != int(row[1], 16):

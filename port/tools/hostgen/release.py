@@ -1058,7 +1058,7 @@ def derived_values(parts: dict, release: Release, level_base: int, primary: dict
                         levels[name] = [lv, f"{v:#010x}"]
                     if name.startswith("ref_"):
                         # A derived datum each level's build places on its own (ref_L00_00410D20_01, a particle
-                        # table: 0x00257960 in PAL's level 1, 0x0025AF70 in its level 3): each level's own
+                        # table: 0x00257960 in a release's level 1, 0x0025AF70 in its level 3): each level's own
                         # value, which a function shared by the levels reads there (lower.py, level_data).
                         moved[name] = f"{v:#010x}"
                 continue
@@ -1075,7 +1075,7 @@ def derived_values(parts: dict, release: Release, level_base: int, primary: dict
         if moved:
             level_data[str(lv)] = dict(sorted(moved.items()))
     # A level's derived datum the release's build placed nowhere (its own copy of the function spells it
-    # otherwise): v1.01's address of it (PRIMARY, the primary release's derived table) where versionmap pairs
+    # otherwise): the primary's address of it (PRIMARY, the primary release's derived table) where versionmap pairs
     # it, by the same instruction or between two neighbours that moved alike.
     if primary and versionmap:
         for name, (lv, at) in sorted(primary.get("levels", {}).items()):

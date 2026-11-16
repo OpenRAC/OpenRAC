@@ -51,19 +51,25 @@ Game facts the port relies on (level hooks, layouts, flights, credits, the Barlo
 USA v2.00 and PAL read the decompilation through a *release view*: every v1.01 address name renamed
 to the release's, from what rac2-decomp proves (its catalogues and its build's values read from the
 release's bytes), then versionmap's pairs (same instruction, same code). A name with neither is
-marked (`func_V1_...`, `D_V1_...`), never guessed. Their tables are generated: only
+marked (`func_V1_...`, `D_V1_...`), never guessed. The release's build says what its C is
+(`build/<v>/*/placed.json`): `placed` lists the functions it put in the release, and `gone_in` the
+primary's definitions it left out, by file, which the view drops under any spelling, so no place
+gets two bodies. Their tables are generated: only
 `release/release.json` is written by hand. It holds the release's facts (ids, title, frame and tick
 rates, the decompilation's catalogue, build and dump folders, `level_base`, `$gp`, the primary
 release's folder) and the pairs checked by hand, each with its evidence: `pairs` (functions),
 `constants` (`RAC2_K`), `hand_names` (globals of the hand C the release table has no value for),
 `hand` (the release's own hand C in `hand/`) and `extra` (additions to the carried `hostgen.json`).
 The primary's hand C is written into `hand/` in the release's names, as rac1's releases do.
-A level hook only the release has, whose place no C defines, gets an empty body there
+A level hook place of the release that no C defines gets an empty body there
 (`hand/level_hooks.c`), from its bytes (`jr $ra` and an empty delay slot).
 
 After a sync of `games/rac2/decomp`, with rac2-decomp built for v1.01 and the release
 (`tools/build.py all`, `--version pal|us2`; `tools/carry.py --version pal|us2`), the three discs'
-dumps in its `baserom/`, and `<r>` `pal` or `ntsc2` (`<v>` `pal` or `us2`):
+dumps in its `baserom/`, and `<r>` `pal` or `ntsc2` (`<v>` `pal` or `us2`). `tools/carry.py`
+rewrites the decompilation's `config/<v>/*/functions.tsv`: put them back
+(`git -C games/rac2/decomp checkout -- config/`) before `release.py build`, or the tables follow
+catalogues CI does not have.
 
 ```sh
 python3 port/tools/versionmap/versionmap.py build rac2/ntsc rac2/<r> --out build/versionmap/rac2-ntsc--rac2-<r>.json \

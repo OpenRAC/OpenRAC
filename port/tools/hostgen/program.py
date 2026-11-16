@@ -347,7 +347,7 @@ class Program:
             # call through the address too, not whichever sorts first.
             own = self.canonical(sym)
             if own != sym and own in self.functions and prototype(self.functions[own], self.typedefs) is not None:
-                # Its other places are still its own (PAL v1's catalogue gives func_001F91A8 the
+                # Its other places are still its own (a release's catalogue can give func_001F91A8 the
                 # place of level 0's func_L00_001FEEC0 among its own): added below where free.
                 spare.append(sym)
                 continue
