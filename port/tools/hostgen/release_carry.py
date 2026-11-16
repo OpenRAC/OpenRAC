@@ -115,9 +115,11 @@ class Pairing:
         mine = sorted(a for lv, a in self._r_by_us.get(name, []) if lv == level)
         if len(theirs) == len(mine):
             return mine[theirs.index(address)]
-        # The release's catalogue folds this copy into another row: versionmap's pair of the place.
-        hit = (self.vmap or {}).get("programs", {}).get(f"level:{level:02d}", {}).get("functions", {}).get(f"{address:08X}")
-        return int(hit[0], 16) if hit else None
+        if name in self._r_by_us or len(theirs) != 1:
+            return None
+        # The release's catalogue folds the row into another: where the release's build placed it.
+        at = self.table.table.get("folded_places", {}).get(name, {}).get(f"{level:02d}")
+        return int(at, 16) if at else None
 
     def read_splits(self, text: str) -> None:
         """The release's split_places.tsv rows, from the primary's. A variant's places are its own

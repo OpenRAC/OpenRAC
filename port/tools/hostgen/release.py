@@ -232,6 +232,22 @@ def placed_functions(build: Path) -> set[str]:
     return out
 
 
+def folded_places(build: Path, us_levels: list, r_levels: list) -> dict[str, dict[str, str]]:
+    """The primary's level functions the release's catalogue folds into another row (it has no row
+    of their own) but the release's build places under their own name: name -> {level: place}."""
+    rows = {n for n, *_ in r_levels}
+    theirs = {n for n, *_ in us_levels} - rows
+    out: dict[str, dict[str, str]] = {}
+    for path in sorted(build.glob("*/placed.json")):
+        program = path.parent.name[:2]
+        if not program.isdigit():
+            continue
+        for name, (address, _size) in json.loads(path.read_text()).get("functions", {}).items():
+            if name in theirs:
+                out.setdefault(name, {})[program] = f"{address:#010x}"
+    return dict(sorted(out.items()))
+
+
 class Release:
     """The table: renames and the derived values in the release's names."""
 
@@ -1233,6 +1249,8 @@ def main(argv: list[str] | None = None) -> int:
         # (check_gone reads them).
         table["placed"] = sorted(parts["placed"])
         table["absent"] = sorted(parts["absent"])
+        # Where the build places the copies its catalogue folds away (release_carry's split places).
+        table["folded_places"] = folded_places(source / RELEASES[version]["build"], parts["us_levels"], parts["r_levels"])
     if gone_in:
         # Their definitions in the shared C, each left out of the file named (Release.splice).
         table["gone"] = sorted(gone_in)
