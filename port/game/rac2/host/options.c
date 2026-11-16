@@ -734,7 +734,8 @@ void func_00341C20(gaddr list) {
         {0u, RAC2_K(LIST_SPRITE_1, 0x4Cu, func_00341C20), RAC2_K(LIST_SPRITE_2, 0xE4u, func_00341C20)};
     const gaddr origin = GREF(gaddr, list + LIST_ORIGIN);
     const float step = GREF(float, LIST_ICON_STEP);
-    const float first_row = GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST) + LIST_ICON_HALF;
+    const float first_row =
+        GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST) + LIST_ICON_HALF;
     const int split = (int)(first_row + step * (PAUSE_OPTIONS_ROWS - 1.5f));
 
     func_00336320(list + LIST_TITLE_BAR);

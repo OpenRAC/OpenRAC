@@ -1551,7 +1551,8 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
     if (attributes().tme && context().tex0.tbp0 == g_draw_buffer_block
         && !m_textures.picture_at(context().tex0.tbp0)
         && (target == m_config.display_block || target == g_draw_buffer_block)
-        && std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16 >= kFrameFillLines) {
+        && std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16
+               >= kFrameFillLines) {
         return;
     }
     // A sprite is a rectangle from two corners; depth, colour and fog come
