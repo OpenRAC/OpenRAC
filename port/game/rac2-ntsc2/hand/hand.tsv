@@ -40,3 +40,8 @@ func_0012DF18	mpeg_spr.c
 func_0012E238	mpeg_csc.c
 func_0012E538	mpeg_csc.c
 func_002A3288	func_002A3288.c
+func_0026F720	level_hooks.c
+func_0026F738	level_hooks.c
+func_0026F758	level_hooks.c
+func_0026F7C0	level_hooks.c
+func_0026F7E0	level_hooks.c

@@ -376,6 +376,7 @@ def level_hooks(p: Pairing, carried: list[str], primary: list[str] = ()) -> list
     source = getattr(p, "source", None)
     boot = rel.placed_values(source / rel.RELEASES[p.version]["build"]).get("boot", {}) if source else {}
     hooks = sorted(hooks | {n for n, v in boot.items() if v in at and not rel.NAME.fullmatch(n)})
+    p.hook_places = [a for a, s, n in rows[first:last + 1] if s == 8]
     p.report["level_hooks"] = {"from": f"{rows[first][0]:08X}", "to": f"{rows[last][0]:08X}", "count": len(hooks),
                                "carried": len(found)}
     return hooks
@@ -954,7 +955,47 @@ def carry_hand(p: Pairing, table: Path | None, out: Path) -> None:
             written.add(file)
         rows.append(f"{p.table.name(name.strip())}\t{file}")
     rows += [f"{name}\t{file}" for name, file in p.facts.get("hand", {}).items()]
+    empty = empty_hooks(p)
+    if empty:
+        # A hook only the release has: no C defines its place, so it gets the primary's empty body.
+        (out.parent / "level_hooks.c").write_text(
+            "/* Written by port/tools/hostgen/release_carry.py: the release's level hooks no C defines,\n"
+            "   each an empty function as the primary's hooks are (jr $ra; a nop, or a zero result). */\n"
+            + "".join(f"\nint {name}(void)\n{{\n    return 0;\n}}\n" if zero else f"\nvoid {name}(void)\n{{\n}}\n"
+                      for name, zero in empty))
+        rows += [f"{name}\tlevel_hooks.c" for name, _ in empty]
     out.write_text("\n".join(rows) + "\n")
+
+
+def empty_hooks(p: Pairing) -> list[tuple[str, bool]]:
+    """The release's level hook places no C defines whose bytes are jr $ra and an empty delay
+    slot (pair_stubs' test), by their names (func_<address>), each with whether the slot sets a
+    zero result (daddu $v0, $zero, $zero)."""
+    places = getattr(p, "hook_places", [])
+    if not places:
+        return []
+    # The places the release's C still defines: each function its build placed, less the
+    # definitions the release leaves out (gone), at the release's name of it (a hook's name is
+    # paired by its callers, so it can be another hook's place).
+    gone = set(p.table.table.get("gone", []))
+    defined = set()
+    for n in p.table.table.get("placed", []):
+        new = p.table.name(n)
+        if n not in gone and re.fullmatch(r"func_[0-9A-F]{8}", new):
+            defined.add(int(new[5:], 16))
+    exe = p.source / rel.RELEASES[p.version]["baserom"] / rel.EXECUTABLES[p.version]
+    out = []
+    for a in places:
+        if a in defined:
+            continue
+        code = exe_bytes(exe, a, 8)
+        if code is None:
+            continue
+        first, slot = int.from_bytes(code[:4], "little"), int.from_bytes(code[4:], "little")
+        if first == rel.JR_RA and slot in rel.EMPTY_SLOTS:
+            out.append((f"func_{a:08X}", slot != 0))
+            p.report.setdefault("empty_hooks", []).append(f"{a:08X}")
+    return out
 
 
 def code_names(text: str) -> set[str]:

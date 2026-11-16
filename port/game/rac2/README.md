@@ -58,6 +58,8 @@ release's folder) and the pairs checked by hand, each with its evidence: `pairs`
 `constants` (`RAC2_K`), `hand_names` (globals of the hand C the release table has no value for),
 `hand` (the release's own hand C in `hand/`) and `extra` (additions to the carried `hostgen.json`).
 The primary's hand C is written into `hand/` in the release's names, as rac1's releases do.
+A level hook only the release has, whose place no C defines, gets an empty body there
+(`hand/level_hooks.c`), from its bytes (`jr $ra` and an empty delay slot).
 
 After a sync of `games/rac2/decomp`, with rac2-decomp built for v1.01 and the release
 (`tools/build.py all`, `--version pal|us2`; `tools/carry.py --version pal|us2`), the three discs'
