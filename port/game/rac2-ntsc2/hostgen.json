@@ -130,7 +130,8 @@
   "global_views": true,
   "candidates_left_out": {
     "func_L03_003CA4B0": "includes common.h after its unit's own qcopy",
-    "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly"
+    "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly",
+    "func_002A2450": "not in this release"
   },
   "derived": {
     "table": "release/release_names.json"
@@ -183,7 +184,7 @@
     "func_L09_00406080": {
       "func_L08_00317778": "func_002A82D8"
     },
-    "func_L18_003FCB78": {
+    "func_L19_003E0FE0": {
       "func_L08_002F36E0": "func_0027D640"
     }
   },
@@ -343,7 +344,22 @@
     "func_0026F800",
     "func_0026F808",
     "func_0026F810",
-    "func_0026F818"
+    "func_0026F818",
+    "ref_00302DA0_00",
+    "ref_00302DA0_01",
+    "ref_00302DA0_02",
+    "ref_00302DA0_03",
+    "ref_L00_003DD6A8_18",
+    "ref_US2_0029C818_00",
+    "ref_US2_0029C818_01",
+    "ref_US2_0029CD18_00",
+    "ref_US2_002D65D8_00",
+    "ref_US2_002D65D8_01",
+    "ref_US2_002EA0C0_00",
+    "ref_US2_002EA0C0_01",
+    "ref_US2_002F8FF8_00",
+    "ref_US2_002F97A8_00",
+    "ref_US2_0030FAC0_00"
   ],
   "keep_spent_arguments": true,
   "level_short_names": "^func_(?:80(?=[0-9A-F]{6}$))?(?P<addr>[0-9A-F]{6,8})$",
@@ -397,9 +413,7 @@
     "func_00280C28",
     "func_003378A0"
   ],
-  "from_assembly": [
-    "func_L18_00304470"
-  ],
+  "from_assembly": [],
   "roots": [
     "func_00131AE8",
     "func_00131D98"
@@ -500,16 +514,13 @@
       "void *",
       "int"
     ],
-    "func_L07_0037A460": [
-      "void *"
-    ],
     "func_L00_00383B90": [
       "void *"
     ],
     "func_L16_004378D8": [
       "void *"
     ],
-    "func_L00_0042C0E8": [
+    "func_L00_0042CB58": [
       "int"
     ],
     "func_L00_0042CB78": [
