@@ -402,6 +402,12 @@ class Release:
         # (func_V1_...), so they are not defined twice; the file's other mentions of a function it
         # defines (func_002CAA58 calls func_002CA070 in the same file) are calls of the release's
         # function, as in any other file. A mark of a name the file does not define stays whole.
+        marked = {k for k, v in own.items() if f"_{DEAD}_" in v}
+        if marked and self.readable:
+            # A table with marks (before gone_in): a definition under a readable name is the same
+            # function, so its spellings are written as the address name first and the mark reaches it.
+            import prep
+            text = prep.unalias(text, {r: a for r, a in self.readable.items() if a in marked})
         definitions = ([m for m in DEFINED.finditer(text)] + [m for m in INCLUDED.finditer(text)]
                        if any(f"_{DEAD}_" in v for v in own.values()) else [])
         defined = {m.start(1) for m in definitions}
@@ -457,7 +463,7 @@ def defined_names(text: str, readable: dict[str, str]) -> list[str]:
     assembler name."""
     out = DEFINED.findall(text) + INCLUDED.findall(text)
     for word in DEFINED_ANY.findall(text):
-        base = word[:-2] if word.endswith("_r") else word
+        base = word[:-2] if word.endswith("_r") and word not in readable else word
         name = readable.get(base, base)
         if name != word and NAME.fullmatch(name):
             out.append(name)
