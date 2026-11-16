@@ -7,12 +7,15 @@ Checks every game version's tables, with no disc (CI runs this):
   check_versions.py
 
 - parity.py for every game in its GAMES table;
-- release_rac1.py --tables --check for every release folder with a release/release.json,
-  carried from the first program of its game;
-- hostnames.py check for every program with a host/rac1_version.h.
+- release_<game>.py --tables --check for every release folder with a release/release.json,
+  carried from the first program of its game, where its game has such a tool;
+- for a program with a host/<game>_version.h: hostnames.py check for rac1's (its tool's format),
+  release_host.py --check for another game's release (hostgen.json "release": its tables are
+  written from a disc, so only their cover of the shared C is checked).
 
 A new game or version needs no change here: it is found by its files and parity.py's GAMES.
 """
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -35,11 +38,19 @@ def main() -> int:
         ok &= run("port/tools/versionmap/parity.py", game)
         primary = next(iter(spec["programs"]))
         for program in spec["programs"]:
-            if (game_dir / program / "release/release.json").is_file():
-                ok &= run("port/tools/hostgen/release_rac1.py", "--game", f"port/game/{program}",
+            tool = ROOT / f"port/tools/hostgen/release_{game}.py"
+            if (game_dir / program / "release/release.json").is_file() and tool.is_file():
+                ok &= run(f"port/tools/hostgen/{tool.name}", "--game", f"port/game/{program}",
                           "--primary", f"port/game/{primary}", "--tables", "--check")
-    for header in sorted(game_dir.glob("*/host/rac1_version.h")):
-        ok &= run("port/tools/versionmap/hostnames.py", "check", f"port/game/{header.parent.parent.name}")
+    for header in sorted(game_dir.glob("*/host/*_version.h")):
+        program = header.parent.parent
+        config = program / "hostgen.json"
+        if not config.is_file() or header.name != f"{json.loads(config.read_text())['game']}_version.h":
+            continue
+        if header.name == "rac1_version.h":
+            ok &= run("port/tools/versionmap/hostnames.py", "check", f"port/game/{program.name}")
+        elif "release" in json.loads(config.read_text()):
+            ok &= run("port/tools/hostgen/release_host.py", "--check", f"port/game/{program.name}")
     return 0 if ok else 1
 
 

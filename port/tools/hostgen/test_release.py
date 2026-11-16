@@ -14,6 +14,7 @@ sys.path.insert(0, str(HERE))
 
 import release  # noqa: E402
 import release_carry  # noqa: E402
+import release_host  # noqa: E402
 
 REPO = HERE.parent.parent.parent
 
@@ -153,6 +154,27 @@ class ReleaseNames(unittest.TestCase):
             problems = release.check_gone(source, table, release.primary_aliases(source, cfg),
                                           cfg.get("sources", ["src"]), cfg["release"]["version"])
             self.assertEqual(problems[:10], [], f"{game}: rebuild its table with release.py build")
+
+    def test_host_tables_cover_the_shared_c(self):
+        # release_host.py --check: each name, address and constant the shared C uses has its row,
+        # and no row is left over; the committed releases pass.
+        with tempfile.TemporaryDirectory() as d:
+            prog, shared = Path(d) / "rel", Path(d) / "shared"
+            (prog / "host").mkdir(parents=True)
+            shared.mkdir()
+            (prog / "hostgen.json").write_text(json.dumps({"game": "rac2", "host_shared": ["../shared"]}))
+            (shared / "a.c").write_text("/* func_00100000 */ void f(void) { func_00200000(); "
+                                        "func_00200000__game(); RAC2_ADDR(0x00300000u); RAC2_K(X, 1, func_00200000); }\n")
+            (prog / "host" / "rac2_version.h").write_text("#define RAC2_ADDR_0x00300000u 0x00300080u\n"
+                                                          "/* RAC2_K_X: not found */\n")
+            names = "func_00200000\tfunc_00200080\nfunc_00200000__game\tfunc_00200080__game\n"
+            (prog / "host" / "rac2_names.tsv").write_text(names)
+            self.assertEqual(release_host.check(prog), [])
+            (prog / "host" / "rac2_names.tsv").write_text(names.split("\n")[0] + "\nfunc_00100000\tfunc_00100080\n")
+            (prog / "host" / "rac2_version.h").write_text("#define RAC2_ADDR_0x00300004u 0x00300084u\n")
+            self.assertEqual(len(release_host.check(prog)), 5)
+        for game in ("rac2-pal", "rac2-ntsc2"):
+            self.assertEqual(release_host.check(REPO / "port" / "game" / game), [], game)
 
     def test_six_digits_in_a_file_of_the_executable(self):
         # func_2802E0 in src/game/ is the executable's func_002802E0 (as hostgen reads it): renamed
