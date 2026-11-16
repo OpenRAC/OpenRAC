@@ -89,8 +89,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     # Fedora's row runs in Fedora itself; the others on the runner.
     container: ${{ matrix.container }}
-    # A row's own limit where its build is longer (timeout, below), else an hour.
-    timeout-minutes: ${{ matrix.timeout || 60 }}
+    # Two hours for every row: a cold compiler cache takes Windows and Android past an hour.
+    timeout-minutes: 120
     env:
       NAME: ${{ matrix.name }}
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
@@ -123,7 +123,6 @@ jobs:
           # tools/bundle_standalone.py and tools/asm_part.py read them in the build's own folder.
           - name: windows
             os: windows-latest
-            timeout: 180
             python: x86_64-pc-windows-msvc
             python_sha256: 11ed9f8a6ac64fb1b5a55e40e305a6744a3f77a70863c8f8197a6e4349abc64a
             tauri: build
@@ -189,7 +188,6 @@ jobs:
           # tools/build_android.py builds and collects them in one folder.
           - name: android
             os: ubuntu-latest
-            timeout: 120
             targets: aarch64-linux-android
             tauri: android build --apk --target aarch64 --debug
             files: launcher/src-tauri/gen/android/app/build/outputs/apk/*/debug/OpenRAC*.apk*
