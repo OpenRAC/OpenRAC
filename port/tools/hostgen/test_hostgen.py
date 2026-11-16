@@ -4388,6 +4388,16 @@ class AssemblyGuard(unittest.TestCase):
         self.assertEqual(got["assembly_unallowed"], ["func_F"])
         self.assertEqual(got["assembly_allow_unused"], ["func_Z"])
 
+    def test_a_row_stands_for_every_name_of_its_place(self):
+        # ref_G and func_G are one place: a build whose calls reach either name uses the row.
+        summary = self.summary()
+        summary["without_c_places"].update({"func_G": {"kind": "asm", "places": [[-1, "00100000"]]},
+                                            "ref_G": {"kind": "no-c", "places": [[-1, "00100000"]]}})
+        summary["call_graph"]["func_X"].append("func_G")
+        got = hostgen.assembly_guard(summary, {"func_A": "why", "func_F": "why", "ref_G": "why"})
+        self.assertEqual(got["assembly_unallowed"], [])
+        self.assertEqual(got["assembly_allow_unused"], [])
+
 
 class ResultGuard(unittest.TestCase):
     """hostgen.json "result_allow": a call reading a result its callee does not set, taken as 0."""

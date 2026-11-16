@@ -1517,11 +1517,15 @@ def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
     # no translated code reaches, which a build without it never sees.
     for name in summary.get("from_assembly", {}):
         reached.setdefault(name, set())
-    allowed = {same_place(n) for n in allow}
-    reached_at = {same_place(n) for n in reached}
+    # A row stands for its code place: two names of one place (a release's catalogue name and a
+    # reference into it) are one function, whichever of them the calls use in a build.
+    def places(n: str) -> set:
+        return {same_place(n)} | {tuple(pl) for pl in summary["without_c_places"].get(n, {}).get("places", [])}
+    allowed = set().union(*(places(n) for n in allow))
+    reached_at = set().union(*(places(n) for n in reached))
     return {"assembly_reached": {n: sorted(v) for n, v in sorted(reached.items())},
-            "assembly_unallowed": sorted(n for n, by in reached.items() if by and same_place(n) not in allowed),
-            "assembly_allow_unused": sorted(n for n in allow if same_place(n) not in reached_at)}
+            "assembly_unallowed": sorted(n for n, by in reached.items() if by and not places(n) & allowed),
+            "assembly_allow_unused": sorted(n for n in allow if not places(n) & reached_at)}
 
 
 def extern_result_mismatch(fns) -> dict:
