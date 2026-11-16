@@ -356,6 +356,24 @@ def check_host(host: Path, protos: dict[str, tuple[str, list[str]]]) -> list[str
     return problems
 
 
+TWIN = re.compile(r"^(?:game_)?FUN_(\w+)$")
+
+
+def two_bodies(at: dict[tuple[int, int], list[str]]) -> list[str]:
+    """Addresses where v1.01's C (named by the release's place, FUN_...) sits beside the release's
+    own C (func_... of the same place). The runtime keeps the first and the game runs v1.01's code
+    with v1.01's offsets (rac2 PAL's title, #538). Two spellings of one function are not this."""
+    out = []
+    for (overlay, addr), fns in sorted(at.items()):
+        for fn in fns:
+            m = TWIN.match(fn)
+            if m and f"func_{m.group(1)}" in fns:
+                where = "exe" if overlay == -1 else f"overlay {overlay}"
+                out.append(f"functions.c: {where} 0x{addr:08X}: {fn} (v1.01's C) and func_{m.group(1)} "
+                           "(the release's own); release.py missed v1.01's definition")
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("gen", type=Path, help="a game's generated directory (port/build/<preset>/games/<id>/gen)")
@@ -380,7 +398,12 @@ def main(argv: list[str] | None = None) -> int:
             print(p)
         print(f"abicheck: {len(host_problems)} host declarations whose type is not the definition's",
               file=sys.stderr)
-    return 1 if problems or host_problems else 0
+    twins = two_bodies(read_tables(args.gen / "functions.c")[0])
+    for p in twins:
+        print(p)
+    if twins:
+        print(f"abicheck: {len(twins)} addresses with v1.01's C beside the release's own", file=sys.stderr)
+    return 1 if problems or host_problems or twins else 0
 
 
 if __name__ == "__main__":

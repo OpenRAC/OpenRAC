@@ -2685,6 +2685,22 @@ class Places(unittest.TestCase):
             self.assertEqual(problems, [])
             self.assertEqual(stats["known"], 2)
 
+    def test_abicheck_finds_v1_c_beside_the_releases_own(self):
+        # rac2 PAL after #538: v1.01's grid_menu_reposition_widgets at PAL's 0x003468F8 beside PAL's
+        # own C there. Two spellings of one function (func_X and func_X_1) are fine.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "functions.c"
+            path.write_text(
+                "static const openrac_fn_entry k_exe[] = {\n"
+                "    {0x003468F8u, (openrac_host_fn)game_FUN_003468F8, \"FUN_003468F8\"},\n"
+                "    {0x003468F8u, (openrac_host_fn)func_003468F8, \"func_003468F8\"},\n"
+                "    {0x00270000u, (openrac_host_fn)func_00270000, \"func_00270000\"},\n"
+                "    {0x00270000u, (openrac_host_fn)func_00270000_1, \"func_00270000_1\"},\n};\n")
+            import abicheck
+            twins = abicheck.two_bodies(abicheck.read_tables(path)[0])
+        self.assertEqual(len(twins), 1)
+        self.assertIn("0x003468F8", twins[0])
+
     def test_abicheck_finds_a_long_long_passed_as_an_int(self):
         with tempfile.TemporaryDirectory() as tmp:
             gen = Path(tmp)

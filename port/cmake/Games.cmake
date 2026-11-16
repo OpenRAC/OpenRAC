@@ -309,14 +309,6 @@ function(openrac_add_game config)
   add_test(NAME ${id}_call_abi COMMAND "${Python3_EXECUTABLE}" "${hostgen_dir}/abicheck.py" "${gen}"
            --host "${config_dir}/host")
   set_tests_properties(${id}_call_abi PROPERTIES SKIP_RETURN_CODE 77 LABELS game-${id})
-  # One function per game address: the runtime keeps the first and the game runs it, so a
-  # release table that misses a definition runs v1.01's C at the release's address (#538). A game
-  # with checks/two_functions_allow.tsv (the addresses checked) is held to it.
-  if(EXISTS "${config_dir}/checks/two_functions_allow.tsv")
-    add_test(NAME ${id}_one_function COMMAND "${Python3_EXECUTABLE}" "${hostgen_dir}/one_function.py" "${gen}"
-             --allow "${config_dir}/checks/two_functions_allow.tsv")
-    set_tests_properties(${id}_one_function PROPERTIES SKIP_RETURN_CODE 77 LABELS game-${id})
-  endif()
 
   # The game: generated C, and the game's own host C if it has any.
   file(GLOB host CONFIGURE_DEPENDS "${config_dir}/host/*.c")
