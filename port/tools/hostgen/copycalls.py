@@ -82,7 +82,7 @@ class Layout:
     """Where a release's catalogues and dumps are, and its names (release.py): v1.01's by default."""
 
     def __init__(self, source: Path, version: str = "us", table: Path | None = None):
-        info = release.RELEASES[version]
+        info = release.RAC2_RELEASES[version]
         self.levels = source / info["config"] / "levels/functions.tsv"
         self.boot = source / info["config"] / "boot/functions.tsv"
         self.baserom = source / info["baserom"]
@@ -92,7 +92,7 @@ class Layout:
         # hook calls of v1.01's executable functions the release has only in its levels (primary_hooks).
         self.primary = {}
         if table and version != "us":
-            us = release.RELEASES["us"]
+            us = release.RAC2_RELEASES["us"]
             for old, new in release.Release.load(table).names.items():
                 self.primary.setdefault(new, old)
             self.primary_boot = source / us["config"] / "boot/functions.tsv"
@@ -334,7 +334,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, help="the game's hostgen.json")
     parser.add_argument("--twins", type=Path, help="also write the level copies of the executable's "
                         "functions entered away from their name (hostgen.json \"level_twins\")")
-    parser.add_argument("--version", default="us", choices=sorted(release.RELEASES),
+    parser.add_argument("--version", default="us", choices=sorted(release.RAC2_RELEASES),
                         help="the release (its catalogues and dumps; tools/levels.py's --version)")
     parser.add_argument("--release-table", type=Path,
                         help="the release's table (release.py): the catalogues read in the release's names")

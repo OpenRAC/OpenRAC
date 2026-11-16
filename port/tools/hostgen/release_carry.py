@@ -44,7 +44,7 @@ class Pairing:
 
     def __init__(self, source: Path, version: str, table: rel.Release, vmap: dict | None, carry: dict | None):
         self.table, self.vmap, self.version, self.source = table, vmap, version, source
-        info = rel.RELEASES[version]
+        info = rel.RAC2_RELEASES[version]
         self.us_boot = rel.read_boot(source / "config/boot/functions.tsv")
         self.us_levels = rel.read_levels(source / "config/levels/functions.tsv")
         self.r_boot = rel.read_boot(source / info["config"] / "boot/functions.tsv")
@@ -78,7 +78,7 @@ class Pairing:
                 was = was if isinstance(was, list) else [was] if was else []
                 # The carry's own names are its run's; the committed catalogue's row at the same place
                 # is the release's function.
-                m = FUNC.fullmatch(name.replace(f"_{rel.RELEASES[version]['tag']}_", "_", 1))
+                m = FUNC.fullmatch(name.replace(f"_{rel.RAC2_RELEASES[version]['tag']}_", "_", 1))
                 if not re.search(r"[0-9A-F]{8}$", name):
                     continue
                 if part == "boot":
@@ -227,7 +227,7 @@ class Pairing:
 
     def data(self, address: int, program: str = "boot", why: str = "") -> int | None:
         """The release's address of v1.01's global at ADDRESS (in PROGRAM: "boot", "level:NN")."""
-        level_part = program != "boot" and address >= rel.RELEASES["us"]["level_base"]
+        level_part = program != "boot" and address >= rel.RAC2_RELEASES["us"]["level_base"]
         name = rel.core("D", int(program[6:]) if level_part else None, address)
         new = self.table.names.get(name)
         if new and "_V1_" not in new:
@@ -264,7 +264,7 @@ class Pairing:
         cache = self.__dict__.setdefault("_code", {})
         key = (version, program)
         if key not in cache:
-            info = rel.RELEASES[version]
+            info = rel.RAC2_RELEASES[version]
             base = self.source / info["baserom"]
             if program == "boot":
                 exe = {"us": "SCUS_972.68", "pal": "SCES_516.07", "us2": "SCUS_972.68"}[version]
@@ -285,7 +285,7 @@ class Pairing:
         if program in cache:
             return cache[program]
         votes: dict[int, Counter] = {}
-        gp_us, gp_r = rel.RELEASES["us"]["gp"], rel.RELEASES[self.version]["gp"]
+        gp_us, gp_r = rel.RAC2_RELEASES["us"]["gp"], rel.RAC2_RELEASES[self.version]["gp"]
         us_code, r_code = self.code("us", program), self.code(self.version, program)
         for a, row in (self.vmap or {}).get("programs", {}).get(program, {}).get("functions", {}).items():
             if row[1] not in ("same", "near") or not row[2] or not row[3]:
@@ -374,7 +374,7 @@ def level_hooks(p: Pairing, carried: list[str], primary: list[str] = ()) -> list
     # release has): that name is a hook too, or the call misses what a level put in the hook.
     at = {a for a, s, n in rows[first:last + 1] if s == 8}
     source = getattr(p, "source", None)
-    boot = rel.placed_values(source / rel.RELEASES[p.version]["build"]).get("boot", {}) if source else {}
+    boot = rel.placed_values(source / rel.RAC2_RELEASES[p.version]["build"]).get("boot", {}) if source else {}
     hooks = sorted(hooks | {n for n, v in boot.items() if v in at and not rel.NAME.fullmatch(n)})
     p.hook_places = [a for a, s, n in rows[first:last + 1] if s == 8]
     p.report["level_hooks"] = {"from": f"{rows[first][0]:08X}", "to": f"{rows[last][0]:08X}", "count": len(hooks),
@@ -384,7 +384,7 @@ def level_hooks(p: Pairing, carried: list[str], primary: list[str] = ()) -> list
 
 def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     """The release's hostgen.json from the primary release's."""
-    info = rel.RELEASES[version]
+    info = rel.RAC2_RELEASES[version]
     out = dict(cfg)
     facts = p.facts
     for key in ("id", "title", "serial", "frame_rate", "tick_rate"):
@@ -677,7 +677,7 @@ def constants(p: Pairing, code: dict[str, str], version: str) -> list[str]:
 
 def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, version: str) -> str:
     """The release's rac2_version.h for the shared host C (port/game/rac2/host/rac2.h)."""
-    info = rel.RELEASES[version]
+    info = rel.RAC2_RELEASES[version]
     texts = {f.name: f.read_text() for f in sorted(shared.glob("*.[ch]"))}
     code = {n: code_text(t) for n, t in texts.items()}
     lines = []
@@ -863,7 +863,7 @@ def _release_definition(p: Pairing, new: str) -> tuple[str, str] | None:
     m = FUNC.fullmatch(new)
     if m is None:
         return None
-    tag = rel.RELEASES[p.version]["tag"]
+    tag = rel.RAC2_RELEASES[p.version]["tag"]
     own = f"func_{tag}_" + (f"L{m.group(1)}_" if m.group(1) else "") + m.group(2)
     for path in sorted((p.source / "src" / p.version).rglob("*.c")):
         text = path.read_text(errors="replace")
@@ -983,7 +983,7 @@ def empty_hooks(p: Pairing) -> list[tuple[str, bool]]:
         new = p.table.name(n)
         if n not in gone and re.fullmatch(r"func_[0-9A-F]{8}", new):
             defined.add(int(new[5:], 16))
-    exe = p.source / rel.RELEASES[p.version]["baserom"] / rel.EXECUTABLES[p.version]
+    exe = p.source / rel.RAC2_RELEASES[p.version]["baserom"] / rel.EXECUTABLES[p.version]
     out = []
     for a in places:
         if a in defined:
@@ -1029,7 +1029,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--primary", type=Path, required=True, help="the primary release's hostgen.json")
     ap.add_argument("--source", type=Path, required=True, help="the built decompilation (release.py build's)")
     ap.add_argument("--map", type=Path, help="versionmap.py's map from v1.01 to the release")
-    ap.add_argument("--version", choices=sorted(set(rel.RELEASES) - {"us"}),
+    ap.add_argument("--version", choices=sorted(set(rel.RAC2_RELEASES) - {"us"}),
                     help="the release (by default its facts file's, release/release.json)")
     ap.add_argument("--no-copycalls", action="store_true",
                     help="leave the copy tables (copycalls.py's) as they are")
@@ -1044,7 +1044,7 @@ def main(argv: list[str] | None = None) -> int:
         ap.error(f"--version {args.version}: the release's facts say {facts['version']}")
     cfg = json.loads(args.primary.read_text())
     table = rel.Release.load(out_dir / "release" / "release_names.json")
-    carry_path = args.source / rel.RELEASES[args.version]["build"] / "carry.json"
+    carry_path = args.source / rel.RAC2_RELEASES[args.version]["build"] / "carry.json"
     carry = json.loads(carry_path.read_text()) if carry_path.is_file() else None
     vmap = json.loads(args.map.read_text()) if args.map else None
     p = Pairing(args.source, args.version, table, vmap, carry)

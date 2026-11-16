@@ -198,7 +198,7 @@ class Building(unittest.TestCase):
                 "build/pal/00_x/placed.json": {"values": {"D_L00_001B0000": "0x001b0040"}},
                 "src/game/a.c": "void func_00200030(void) {}\nint D_001A7A18;\nextern int D_L00_001B0000;\n",
             })
-            parts = release.build(root, "pal", None, Counter(["D_L00_001B0000"]))
+            parts = release.build_rac2(root, "pal", None, Counter(["D_L00_001B0000"]))
             names = parts["names"]
             self.assertEqual(names["func_00200000"], "func_00200080")
             # A twin entered away from its name keeps the distance (name 0x200010, entry 0x200018).
@@ -323,8 +323,8 @@ class Committed(unittest.TestCase):
             cfg = json.loads((folder / "hostgen.json").read_text())
             with self.subTest(game=game):
                 self.assertEqual(facts["version"], version)
-                self.assertEqual(release.RELEASES[version]["level_base"], int(facts["level_base"], 16))
-                self.assertEqual(cfg["relocate"][0], release.RELEASES[version]["level_base"])
+                self.assertEqual(release.RAC2_RELEASES[version]["level_base"], int(facts["level_base"], 16))
+                self.assertEqual(cfg["relocate"][0], release.RAC2_RELEASES[version]["level_base"])
                 self.assertEqual(cfg["asm"]["gp"], facts["gp"])
                 for key in ("id", "title", "serial", "frame_rate", "tick_rate"):
                     self.assertEqual(cfg[key], facts[key])

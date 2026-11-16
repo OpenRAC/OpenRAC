@@ -69,7 +69,7 @@ DEAD = "V1"
 
 # The releases tools/levels.py builds: catalogues, build, dumps; where a level's program starts; $gp.
 # The primary release's here; each other release's from its facts file (release/release.json).
-RELEASES = {
+RAC2_RELEASES = {
     "us": {"config": "config", "build": "build", "baserom": "baserom", "tag": None,
            "level_base": 0x1A7C80, "gp": 0x1AEFF0},
 }
@@ -91,8 +91,8 @@ for _path in sorted(GAME_DIR.glob("*/release/release.json")):
     _facts = read_facts(_path)
     if _facts.get("game") == "rac2":
         FACTS[_facts["version"]] = _facts
-        RELEASES[_facts["version"]] = {k: _facts[k] for k in ("config", "build", "baserom", "tag")}
-        RELEASES[_facts["version"]].update(level_base=int(_facts["level_base"], 16), gp=int(_facts["gp"], 16))
+        RAC2_RELEASES[_facts["version"]] = {k: _facts[k] for k in ("config", "build", "baserom", "tag")}
+        RAC2_RELEASES[_facts["version"]].update(level_base=int(_facts["level_base"], 16), gp=int(_facts["gp"], 16))
 
 
 _BETWEEN: dict = {}
@@ -382,7 +382,7 @@ class Release:
         (`func_00312B68` in an Oozla file is level 1's copy of func_002A9640 there, as hostgen reads
         it: Program.level_short_name). The table renames an eight-digit name as the executable's
         address it states, which in a level file is another function, or none."""
-        us, rel = RELEASES["us"], RELEASES[version]
+        us, rel = RAC2_RELEASES["us"], RAC2_RELEASES[version]
         boot, levels = source / us["config"] / "boot/functions.tsv", source / us["config"] / "levels/functions.tsv"
         r_levels = source / rel["config"] / "levels/functions.tsv"
         if not boot.is_file() or not levels.is_file() or not r_levels.is_file():
@@ -493,7 +493,7 @@ def configured(source: Path, config_dir: Path, cfg: dict) -> Release | None:
         raise FileNotFoundError(f"{cfg.get('id')}: no release table {path}: write it with port/tools/hostgen/release.py build")
     table = Release.load(path)
     table.readable = primary_aliases(source, cfg)
-    if r.get("version") in RELEASES:
+    if r.get("version") in RAC2_RELEASES:
         table.read_level_local(source, r["version"])
     if r.get("splice"):
         table.read_splices(source, r["splice"], RAC1_RELEASES.get(r["version"], {}).get("tag"))
@@ -502,8 +502,8 @@ def configured(source: Path, config_dir: Path, cfg: dict) -> Release | None:
 
 # ---------------------------------------------------------------- building the table
 
-def build(source: Path, version: str, versionmap: Path | None, uses: Counter, pair_hooks: bool = True) -> dict:
-    us, rel = RELEASES["us"], RELEASES[version]
+def build_rac2(source: Path, version: str, versionmap: Path | None, uses: Counter, pair_hooks: bool = True) -> dict:
+    us, rel = RAC2_RELEASES["us"], RAC2_RELEASES[version]
     tag = rel["tag"]
     evidence: Counter = Counter()
     names: dict[str, str] = {}
@@ -754,7 +754,7 @@ def read_rows(path: Path) -> list[dict]:
 
 
 def build_rac1(source: Path, version: str, relocs: Path, versionmap: Path | None, uses: Counter) -> dict:
-    """The release table of a rac1-decomp release: build()'s, from its catalogue and its check."""
+    """The release table of a rac1-decomp release: build_rac2()'s, from its catalogue and its check."""
     info = RAC1_RELEASES[version]
     tag, dead = info["tag"], info["dead"]
     evidence: Counter = Counter()
@@ -802,7 +802,7 @@ def build_rac1(source: Path, version: str, relocs: Path, versionmap: Path | None
             put(name, core("func", m.group(3) and int(m.group(3)), mine[min(k, len(mine) - 1)] + stated - base), why)
         elif r["places"]:
             # Here only in other programs (an executable function only the levels hold): a function of
-            # the first of them, as release.build() names one.
+            # the first of them, as release.build_rac2() names one.
             level, address = next((p, a) for p, a in sorted(r["places"], key=lambda p: (p[0] == "boot", p)) if p != "boot")
             put(name, core("func", level, address), "function: only in other programs here")
     vmap = json.loads(versionmap.read_text()) if versionmap else None
@@ -939,7 +939,7 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
     """Each file's short names in the release's names: the function at the value that level's
     build gave the name (the release's, else the primary's renamed); and the primary's definitions
     the release leaves out (name -> the files that define it)."""
-    tag = RELEASES[version]["tag"]
+    tag = RAC2_RELEASES[version]["tag"]
     evidence: Counter = Counter()
 
     def at(rows_levels, boot_rows, level: int, address: int) -> str | None:
@@ -1173,17 +1173,17 @@ def main(argv: list[str] | None = None) -> int:
         DEAD_NOW = RAC1_RELEASES[version]["dead"]
         source_note = {"commit": None, "version": version, "table": "version_relocs.py (rac1-decomp's tools/version_check.py)"}
     else:
-        parts = build(source, version, args.map, uses)
+        parts = build_rac2(source, version, args.map, uses)
         if parts["hooks"]:
             # What the catalogues alone name each hook, for the release's own C (units).
-            unpaired = build(source, version, args.map, uses, pair_hooks=False)["names"]
+            unpaired = build_rac2(source, version, args.map, uses, pair_hooks=False)["names"]
             parts["catalogue_hooks"] = {h: unpaired.get(h, h) for h in parts["hooks"]}
         release = Release({"names": parts["names"]})
         release.readable = readable
         unit_names, unit_evidence, gone_in = units(source, version, release, parts, cfg.get("sources", ["src"]), readable)
         release.units = unit_names
         primary_table = args.game.parent.parent / FACTS[version]["primary"] / "tables" / "derived_names.json"
-        derived = derived_values(parts, release, RELEASES[version]["level_base"],
+        derived = derived_values(parts, release, RAC2_RELEASES[version]["level_base"],
                                  json.loads(primary_table.read_text()) if primary_table.is_file() else None,
                                  args.map)
         # Another spelling of a name (F<hash>_FUN_<address>, F<hash>_D_<address>) that no C the release's
@@ -1196,7 +1196,7 @@ def main(argv: list[str] | None = None) -> int:
                     derived["values"][name] = f"{int(new[-8:], 16):#010x}"
             derived["values"] = dict(sorted(derived["values"].items()))
         DEAD_NOW = DEAD
-        source_note = {"commit": None, "version": version, "table": f"{RELEASES[version]['build']}/*/placed.json"}
+        source_note = {"commit": None, "version": version, "table": f"{RAC2_RELEASES[version]['build']}/*/placed.json"}
     try:
         commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=source, capture_output=True, text=True,
                                 timeout=15).stdout.strip() or None
@@ -1247,7 +1247,7 @@ def main(argv: list[str] | None = None) -> int:
         table["placed"] = sorted(parts["placed"])
         table["absent"] = sorted(parts["absent"])
         # Where the build places the copies its catalogue folds away (release_carry's split places).
-        table["folded_places"] = folded_places(source / RELEASES[version]["build"], parts["us_levels"], parts["r_levels"])
+        table["folded_places"] = folded_places(source / RAC2_RELEASES[version]["build"], parts["us_levels"], parts["r_levels"])
     if gone_in:
         # Their definitions in the shared C, each left out of the file named (Release.splice).
         table["gone"] = sorted(gone_in)
