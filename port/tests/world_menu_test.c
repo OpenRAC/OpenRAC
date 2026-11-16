@@ -138,6 +138,7 @@ void func_L00_00277A88__game(void) {
 }
 
 void func_001FD3E8__game(void) {}
+void func_L00_00233950__game(void) {}
 
 /* The level's update: its mobys' collision queries, each a new stamp; how many found the queries
  * off (a creature finding no ground). */
