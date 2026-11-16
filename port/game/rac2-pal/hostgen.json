@@ -97,6 +97,8 @@
     "src"
   ],
   "skip": [
+    "src/jp",
+    "src/kr",
     "src/us2",
     "src/core/0011FC68.c",
     "src/core/00120528-eh.c",
@@ -130,7 +132,9 @@
   "global_views": true,
   "candidates_left_out": {
     "func_L03_003CA4B0": "includes common.h after its unit's own qcopy",
-    "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly"
+    "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly",
+    "func_002A05A8": "not in this release",
+    "func_002A2450": "not in this release"
   },
   "derived": {
     "table": "release/release_names.json"
@@ -310,13 +314,18 @@
     "src/levels/01_oozla/L01_00412E00-flags-g8.c": {
       "func_333240": "func_L00_0032C328"
     },
-    "src/game/002AA800.c": {
-      "F500f9762_FUN_00283CE0": "func_002845A0",
-      "F500f9762_FUN_00283CF0": "func_002845B0",
-      "F500f9762_FUN_002A04B8": "func_002A0E78"
-    },
     "src/levels/shared/L00_002B5A88-qcopy.c": {
       "func_V1_L00_002B55F0_1": "func_L00_002B5518"
+    },
+    "src/pal/levels/shared/L00_003BEE68-cc.c": {
+      "func_V1_802EE138_1": "func_002835B0",
+      "func_V1_802EE3D0_1": "func_002837E0"
+    },
+    "src/pal/levels/shared/L13_002C56D8-deck.c": {
+      "func_L00_002BDB68": "func_L00_002B2BE0"
+    },
+    "src/pal/levels/shared/L02_003E2FB0.c": {
+      "func_V1_L00_0037E5F0": "func_L00_00381328"
     },
     "src/levels/shared/L00_003EE100.c": {
       "func_V1_L00_003F0198_2": "func_L00_003F4518"
@@ -327,15 +336,10 @@
     "src/pal/levels/15_gorn/L15_00316F78-effects-g8.c": {
       "func_V1_L05_00419CC8": "func_L05_0041EA08"
     },
-    "src/pal/levels/shared/L00_003BEE68-cc.c": {
-      "func_V1_802EE138_1": "func_002835B0",
-      "func_V1_802EE3D0_1": "func_002837E0"
-    },
-    "src/pal/levels/shared/L02_003E2FB0.c": {
-      "func_V1_L00_0037E5F0": "func_L00_00381328"
-    },
-    "src/pal/levels/shared/L13_002C56D8-deck.c": {
-      "func_L00_002BDB68": "func_L00_002B2BE0"
+    "src/game/002AA800.c": {
+      "F500f9762_FUN_00283CE0": "func_002845A0",
+      "F500f9762_FUN_00283CF0": "func_002845B0",
+      "F500f9762_FUN_002A04B8": "func_002A0E78"
     }
   },
   "small_copies_own_data": 32,
@@ -371,7 +375,14 @@
     "func_0026F660",
     "func_0026F668",
     "func_0026F670",
-    "func_0026F678"
+    "func_0026F678",
+    "ref_00302DA0_00",
+    "ref_00302DA0_01",
+    "ref_00302DA0_02",
+    "ref_00302DA0_03",
+    "ref_L00_003DD6A8_18",
+    "ref_PAL_002F9898_00",
+    "ref_PAL_0030A560_00"
   ],
   "keep_spent_arguments": true,
   "level_short_names": "^func_(?:80(?=[0-9A-F]{6}$))?(?P<addr>[0-9A-F]{6,8})$",
@@ -546,6 +557,5 @@
   "release": {
     "version": "pal",
     "table": "release/release_names.json"
-  },
-  "primary_hand": "../rac2-ntsc/hand/hand.tsv"
+  }
 }

@@ -1,3 +1,42 @@
-# The port's own C for USA v2.00's hand-written assembly (hostgen.json "hand"), in this release's names.
+# Written by port/tools/hostgen/release_carry.py from the primary release's hand C and the
+# release's own (release/release.json "hand"); do not edit.
 # name	file (relative to this table)
+func_002831F8	fastfunc.c
+func_00283240	fastfunc.c
+func_00283268	fastfunc.c
+func_00283278	fastfunc.c
+func_002832A0	fastfunc.c
+func_002832B0	fastfunc.c
+func_002832D8	fastfunc.c
+func_002832E8	fastfunc.c
+func_00283608	fastfunc.c
+func_L00_002EE9F8	fastfunc_level.c
+func_L00_002EEA20	fastfunc_level.c
+func_L00_002EEA30	fastfunc_level.c
+func_L00_002EEA68	fastfunc_level.c
+func_L00_002EEA90	fastfunc_level.c
+func_L00_002EEAA0	fastfunc_level.c
+func_0011B0B0	core_misc.c
+func_00124540	core_misc.c
+func_0011CDA0	core_misc.c
+func_0012A3E8	mpeg.c
+func_0012A460	mpeg.c
+func_0012A4F8	mpeg.c
+func_0012A5B0	mpeg.c
+func_0012A680	mpeg.c
+func_0012A730	mpeg.c
+func_0012A7E8	mpeg.c
+func_0012A8E0	mpeg.c
+func_0012A9E0	mpeg.c
+func_0012AA80	mpeg.c
+func_0012AB30	mpeg.c
+func_0012AC10	mpeg.c
+func_0012ACF8	mpeg.c
+func_0012ADD0	mpeg.c
+func_0012AEA0	mpeg.c
+func_0012AFC0	mpeg.c
+func_0012B180	mpeg.c
+func_0012DF18	mpeg_spr.c
+func_0012E238	mpeg_csc.c
+func_0012E538	mpeg_csc.c
 func_002A3288	func_002A3288.c

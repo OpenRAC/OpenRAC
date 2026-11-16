@@ -151,7 +151,9 @@ function(openrac_add_game config)
     return()
   endif()
 
-  # What hostgen will write, known now so the build can depend on it.
+  # What hostgen will write, known now so the build can depend on it. The listing follows
+  # hostgen.json (its sources and skips), so a change there configures again.
+  set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${config}")
   execute_process(
     COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${config}"
             --source "${game_source}" --out "${gen}" --list

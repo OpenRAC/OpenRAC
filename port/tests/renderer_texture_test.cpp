@@ -872,9 +872,21 @@ void pictures() {
     CHECK(textures.image(first).texel(0, 0) == rgba(200, 7, 7, 7));
     CHECK(textures.size() == count);
 
-    // Another view of that memory is not the picture.
-    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 3, 3), texa) == textures.placeholder());
+    // A bigger texture at that block, as wide a buffer, holds the picture in its top left (Going
+    // Commando's movie strips read 1024 x 1024 over its 512 x 512 picture): the picture's texture,
+    // the draw's coordinates scaled to it.
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 3, 4), texa) == first);
+    CHECK(textures.uv_scale(first)[0] == 2.0f && textures.uv_scale(first)[1] == 4.0f);
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa) == first);
+    CHECK(textures.uv_scale(first)[0] == 1.0f && textures.uv_scale(first)[1] == 1.0f);
+
+    // Another view of that memory is not the picture: another format, another buffer width, or
+    // less than the picture.
+    gs::Tex0 other_width = tex0(0x700, gs::kPsmct32, 3, 3);
+    other_width.tbw = 2;
+    CHECK(textures.resolve(other_width, texa) == textures.placeholder());
     CHECK(textures.resolve(tex0(0x700, gs::kPsmt8, 2, 2), texa) == textures.placeholder());
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 1, 2), texa) == textures.placeholder());
 
     // Kept while it is not drawn (a paused movie), unlike a converted upload.
     for (std::uint32_t i = 0; i < TexturePool::kKeepFrames * 2; ++i) {

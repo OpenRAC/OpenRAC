@@ -638,13 +638,19 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
 
 TextureHandle TexturePool::resolve(const gs::Tex0& tex0, const gs::Texa& texa) {
     TextureHandle h = 0;
-    // A picture (set_picture) is read as it is when the draw samples it whole, as the movie's
-    // sprites do; another view of that memory finds no upload there.
+    // A picture (set_picture) is what a draw reads from its block in its format and buffer width,
+    // as the movie's sprites do: its rows are the top left of the draw's texture, which can be
+    // bigger (Going Commando's strips read 1024 x 1024 over the 512 x 512 picture). The picture's
+    // texture holds the picture alone, so the draw's coordinates are scaled to it (uv_scale).
+    // Another view of that memory finds no upload there.
     if (auto picture = m_pictures.find(tex0.tbp0); picture != m_pictures.end()) {
-        const Rgba8Image& image = m_entries[picture->second.texture - 1].image;
+        Entry& e = m_entries[picture->second.texture - 1];
         if (tex0.psm == gs::kPsmct32 && tex0.tbw == picture->second.width_units
-            && tex0.width() == image.width && tex0.height() == image.height) {
+            && tex0.width() >= e.image.width && tex0.height() >= e.image.height) {
             h = picture->second.texture;
+            e.uv_scale =
+                {static_cast<float>(tex0.width()) / static_cast<float>(e.image.width),
+                 static_cast<float>(tex0.height()) / static_cast<float>(e.image.height)};
         }
     } else if (auto placed = m_placed.find(tex0.tbp0); placed != m_placed.end()) {
         h = placed->second;

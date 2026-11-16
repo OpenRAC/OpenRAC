@@ -97,6 +97,8 @@
     "src"
   ],
   "skip": [
+    "src/jp",
+    "src/kr",
     "src/pal",
     "src/core/0011FC68.c",
     "src/core/00120528-eh.c",
@@ -130,7 +132,8 @@
   "global_views": true,
   "candidates_left_out": {
     "func_L03_003CA4B0": "includes common.h after its unit's own qcopy",
-    "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly"
+    "func_L03_003E4680": "includes common.h after its unit's own qcopy; stays assembly",
+    "func_002A2450": "not in this release"
   },
   "derived": {
     "table": "release/release_names.json"
@@ -343,7 +346,22 @@
     "func_0026F800",
     "func_0026F808",
     "func_0026F810",
-    "func_0026F818"
+    "func_0026F818",
+    "ref_00302DA0_00",
+    "ref_00302DA0_01",
+    "ref_00302DA0_02",
+    "ref_00302DA0_03",
+    "ref_L00_003DD6A8_18",
+    "ref_US2_0029C818_00",
+    "ref_US2_0029C818_01",
+    "ref_US2_0029CD18_00",
+    "ref_US2_002D65D8_00",
+    "ref_US2_002D65D8_01",
+    "ref_US2_002EA0C0_00",
+    "ref_US2_002EA0C0_01",
+    "ref_US2_002F8FF8_00",
+    "ref_US2_002F97A8_00",
+    "ref_US2_0030FAC0_00"
   ],
   "keep_spent_arguments": true,
   "level_short_names": "^func_(?:80(?=[0-9A-F]{6}$))?(?P<addr>[0-9A-F]{6,8})$",
@@ -397,9 +415,7 @@
     "func_00280C28",
     "func_003378A0"
   ],
-  "from_assembly": [
-    "func_L18_00304470"
-  ],
+  "from_assembly": [],
   "roots": [
     "func_00131AE8",
     "func_00131D98"
@@ -520,6 +536,5 @@
   "release": {
     "version": "us2",
     "table": "release/release_names.json"
-  },
-  "primary_hand": "../rac2-ntsc/hand/hand.tsv"
+  }
 }

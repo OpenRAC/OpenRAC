@@ -8,6 +8,6 @@
 func_0012672C	func_0011AF60	GsPutIMR (syscall 0x71) returns the old mask, which sceGsExecStoreImage puts back; the port has no GS interrupts and its GsPutIMR ignores the mask
 func_00285740	func_00125D98	wrapper passing the result on; its one caller (the loader) does not read it
 func_002A0D40	func_002A0A08	returns func_002A0048's result when D_001B1B80 is set; both callers call it for its effect only
-func_L00_0030FBC0	FUN_0033A528	HUD message wrapper; every caller calls it for its effect only
-func_L00_0030FC00	FUN_00339DC8	HUD message wrapper passing the result on; no caller reads it
-func_L13_0040EDF0	FUN_L13_0040ED20	the call goes through an unprototyped (int) FUN_ name to a float function, as the last call of a function that inherits a float result from it; every caller of func_L13_0040EDF0 calls it for its effect only
+func_L00_0030FBC0	func_0033A528	HUD message wrapper; every caller calls it for its effect only
+func_L00_0030FC00	func_00339DC8	HUD message wrapper passing the result on; no caller reads it
+func_L13_0040EDF0	func_L13_0040ED20	the call goes through an unprototyped (int) FUN_ name to a float function, as the last call of a function that inherits a float result from it; every caller of func_L13_0040EDF0 calls it for its effect only
