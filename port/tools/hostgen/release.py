@@ -61,6 +61,8 @@ SHORT = re.compile(r"(?<![\w])func_(80)?([0-9A-F]{6})(?![0-9A-Za-z_])")
 # Either, for a file with short names of its own.
 ANY = re.compile(r"(?<![\w])func_(?:80)?[0-9A-F]{6}(?![0-9A-Za-z_])|" + NAME.pattern)
 DEFINED = re.compile(r"^[A-Za-z_][\w \t\*]*?\b(func_(?:[A-Z][A-Z0-9]{0,3}_)?(?:L\d\d_)?[0-9A-F]{8})\s*\([^;{}]*\)\s*\{", re.M)
+# A definition under any name: an address name, or a readable one the names header gives it.
+DEFINED_ANY = re.compile(r"^[A-Za-z_][\w \t\*]*?\b([A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{", re.M)
 INCLUDED = re.compile(r"^[ \t]*(?:INCLUDE_ASM|ASM_FUNC)\([^,]*,\s*(func_(?:[A-Z][A-Z0-9]{0,3}_)?(?:L\d\d_)?[0-9A-F]{8})\s*\)", re.M)
 UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
 DEAD = "V1"
@@ -238,6 +240,8 @@ class Release:
         self.level_base = 0
         # The release's level catalogue: a function's name there -> {level: its place}.
         self.release_places: dict[str, dict[int, int]] = {}
+        # The decompilation's readable names (names.h): readable name -> v1.01's address name.
+        self.readable: dict[str, str] = {}
 
     @classmethod
     def load(cls, path: Path) -> "Release":
@@ -365,6 +369,13 @@ class Release:
         # (func_V1_...), so they are not defined twice; the file's other mentions of a function it
         # defines (func_002CAA58 calls func_002CA070 in the same file) are calls of the release's
         # function, as in any other file. A mark of a name the file does not define stays whole.
+        marked = {k for k, v in own.items() if f"_{DEAD}_" in v}
+        if marked and self.readable:
+            # A definition written under a readable name (rac2-decomp names its functions) is the
+            # same function: its spellings are written as the address name first, as
+            # splice() finds rac1's, so the mark reaches it.
+            import prep
+            text = prep.unalias(text, {r: a for r, a in self.readable.items() if a in marked})
         definitions = ([m for m in DEFINED.finditer(text)] + [m for m in INCLUDED.finditer(text)]
                        if any(f"_{DEAD}_" in v for v in own.values()) else [])
         defined = {m.start(1) for m in definitions}
@@ -395,6 +406,30 @@ class Release:
         return ANY.sub(one, text)
 
 
+def primary_aliases(source: Path, cfg: dict) -> dict[str, str]:
+    """readable name -> v1.01's address name, from the names headers hostgen.json lists ("aliases")."""
+    import prep
+    out: dict[str, str] = {}
+    for header in cfg.get("aliases", []):
+        path = source / header
+        if path.is_file() and path.suffix != ".json":
+            out.update(prep.read_aliases(prep.read_alias_header(path)))
+    return out
+
+
+def defined_names(text: str, readable: dict[str, str]) -> list[str]:
+    """The address names TEXT defines (as C or as its assembly's marker), whatever the spelling:
+    the address name, a readable name, or either with the `_r` of a definition under an
+    assembler name."""
+    out = DEFINED.findall(text) + INCLUDED.findall(text)
+    for word in DEFINED_ANY.findall(text):
+        base = word[:-2] if word.endswith("_r") else word
+        name = readable.get(base, base)
+        if name != word and NAME.fullmatch(name):
+            out.append(name)
+    return list(dict.fromkeys(out))
+
+
 def configured(source: Path, config_dir: Path, cfg: dict) -> Release | None:
     """The release table hostgen.json names ("release": {"table": ...}), or None for a primary release."""
     r = cfg.get("release")
@@ -404,6 +439,7 @@ def configured(source: Path, config_dir: Path, cfg: dict) -> Release | None:
     if not path.is_file():
         raise FileNotFoundError(f"{cfg.get('id')}: no release table {path}: write it with port/tools/hostgen/release.py build")
     table = Release.load(path)
+    table.readable = primary_aliases(source, cfg)
     if r.get("version") in RELEASES:
         table.read_level_local(source, r["version"])
     if r.get("splice"):
@@ -842,7 +878,8 @@ def build_rac1(source: Path, version: str, relocs: Path, versionmap: Path | None
             "how": how, "absent": absent, "gone": sorted(gone), "rows": rows, "primary": primary, "r_values": r_values}
 
 
-def units(source: Path, version: str, release: Release, parts: dict, sources: list[str]) -> tuple[dict, Counter]:
+def units(source: Path, version: str, release: Release, parts: dict, sources: list[str],
+          readable: dict[str, str] | None = None) -> tuple[dict, Counter]:
     """Each file's short names in the release's names: the function at the value that level's
     build gave the name (the release's, else v1.01's renamed)."""
     tag = RELEASES[version]["tag"]
@@ -881,7 +918,7 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
             # A v1.01 function the release does not have, defined here (as C or as its assembly's
             # marker): no address in this file, though the release's C elsewhere may take the address
             # its build read for that name (the release's own function there).
-            for name in DEFINED.findall(text) + INCLUDED.findall(text):
+            for name in defined_names(text, readable or {}):
                 if name in parts["absent"] and f"_{DEAD}_" not in release.name(name):
                     out.setdefault(rel, {})[name] = name.replace("func_", f"func_{DEAD}_", 1)
                     evidence["function: v1.01's definition of one the release does not have"] += 1
@@ -991,15 +1028,21 @@ def derived_values(parts: dict, release: Release, level_base: int, primary: dict
             "levels": dict(sorted(levels.items())), "level_data": level_data}
 
 
-def used_tokens(source: Path, sources: list[str], skip: list[str] = ()) -> Counter:
+def used_tokens(source: Path, sources: list[str], skip: list[str] = (),
+                readable: dict[str, str] | None = None) -> Counter:
     out: Counter = Counter()
+    word = re.compile(r"(?<![\w])[A-Za-z_]\w*")
     for d in sources:
         for p in (source / d).rglob("*"):
             rel = p.relative_to(source).as_posix()
             if any(rel == s or rel.startswith(s.rstrip("/") + "/") for s in skip):
                 continue
             if p.suffix in (".c", ".h") and p.is_file():
-                out.update(m.group(0) for m in NAME.finditer(p.read_text(errors="replace")))
+                text = p.read_text(errors="replace")
+                out.update(m.group(0) for m in NAME.finditer(text))
+                if readable:
+                    # A readable name is a use of its address name (names.h).
+                    out.update(readable[w] for w in word.findall(text) if w in readable)
     return out
 
 
@@ -1027,7 +1070,8 @@ def main(argv: list[str] | None = None) -> int:
     version = cfg["release"]["version"]
     source = args.source.resolve()
     roots = sorted(set(cfg.get("sources", ["src"]) + cfg.get("includes", ["include"]) + ["nonmatching"]))
-    uses = used_tokens(source, roots)
+    readable = primary_aliases(source, cfg)
+    uses = used_tokens(source, roots, readable=readable)
     if version in RAC1_RELEASES:
         # What hostgen leaves out (src/data: the port reads the executable's data from the disc).
         uses = used_tokens(source, roots, cfg.get("skip", []))
@@ -1048,7 +1092,8 @@ def main(argv: list[str] | None = None) -> int:
             unpaired = build(source, version, args.map, uses, pair_hooks=False)["names"]
             parts["catalogue_hooks"] = {h: unpaired.get(h, h) for h in parts["hooks"]}
         release = Release({"names": parts["names"]})
-        unit_names, unit_evidence = units(source, version, release, parts, cfg.get("sources", ["src"]))
+        release.readable = readable
+        unit_names, unit_evidence = units(source, version, release, parts, cfg.get("sources", ["src"]), readable)
         release.units = unit_names
         primary_table = args.game.parent.parent / "rac2-ntsc" / "tables" / "derived_names.json"
         derived = derived_values(parts, release, RELEASES[version]["level_base"],
@@ -1075,7 +1120,8 @@ def main(argv: list[str] | None = None) -> int:
                 left_out[cname] = "not in this release"
                 continue
             if cpath.is_file():
-                text = release.text(cpath.read_text(errors="replace"))
+                import prep
+                text = release.text(prep.unalias(cpath.read_text(errors="replace"), readable))
                 # In its code: a comment naming rac1's address of the same routine is no use of it.
                 code = re.sub(r"/\*.*?\*/|//[^\n]*", " ", text, flags=re.S)
                 marked = sorted(set(re.findall(rf"\b(?:func|D)_{DEAD_NOW}_\w+", code)))

@@ -84,6 +84,34 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual(r.text(text, "src/game/002C7748.c"),
                          'INCLUDE_ASM("asm/game", func_V1_002CA070);\nvoid func_002CAA58(void)\n{\n    FUN_002CAEA0();\n}\n')
 
+    def test_a_mark_reaches_a_definition_under_a_readable_name(self):
+        # rac2-decomp defines grid_menu_reposition_widgets (names.h: func_00344848). The release has
+        # its own C at that place: v1.01's definition is marked, as under its address name.
+        r = release.Release({"names": {"func_00344848": "FUN_003468F8"},
+                             "units": {"src/game/00344848.c": {"func_00344848": "func_V1_00344848"}}})
+        r.readable = {"grid_menu_reposition_widgets": "func_00344848"}
+        text = "void grid_menu_reposition_widgets(char *menu)\n{\n}\nvoid f(void) { grid_menu_reposition_widgets(0); }\n"
+        self.assertEqual(r.text(text, "src/game/00344848.c"),
+                         "void func_V1_00344848(char *menu)\n{\n}\nvoid f(void) { FUN_003468F8(0); }\n")
+
+    def test_defined_names_reads_every_spelling(self):
+        readable = {"grid_menu_reposition_widgets": "func_00344848", "cam_set_mode_state": "func_00335300"}
+        text = ("void grid_menu_reposition_widgets(char *menu)\n{\n}\n"
+                "int cam_set_mode_state_r(int mode) __asm__(\"func_00335300\");\n"
+                "int cam_set_mode_state_r(int mode)\n{\n}\n"
+                "void func_00344D58(void)\n{\n}\n"
+                'INCLUDE_ASM("asm/game", func_00344F98);\n'
+                "static void helper(void)\n{\n}\n")
+        self.assertEqual(sorted(release.defined_names(text, readable)),
+                         ["func_00335300", "func_00344848", "func_00344D58", "func_00344F98"])
+
+    def test_a_readable_name_is_a_use(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "src").mkdir()
+            (Path(d) / "src" / "a.c").write_text("void f(void) { grid_menu_reposition_widgets(0); }\n")
+            uses = release.used_tokens(Path(d), ["src"], readable={"grid_menu_reposition_widgets": "func_00344848"})
+        self.assertEqual(uses["func_00344848"], 1)
+
     def test_six_digits_in_a_file_of_the_executable(self):
         # func_2802E0 in src/game/ is the executable's func_002802E0 (as hostgen reads it): renamed
         # as that name; in a level's file six digits are that level's, renamed by the file's table.
