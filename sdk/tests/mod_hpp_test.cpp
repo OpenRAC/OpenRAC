@@ -933,6 +933,33 @@ void fill_18(openrac_api &api) {
   };
 }
 
+// The fake host's 1.19 menu switches: one switch (action 3) and one choice
+// (action 4), as a port keeps them.
+int g_19_switch = -1;
+int g_19_choice = -1;
+
+void fill_19(openrac_api &api) {
+  api.developer_menu_switch = [](openrac_mod *, std::uint32_t action, int on) {
+    if (action != 3) {
+      return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_19_switch = on;
+    return OPENRAC_HOOK_OK;
+  };
+  api.developer_menu_choice = [](openrac_mod *, std::uint32_t action,
+                                 const char *const *values, std::uint32_t count,
+                                 std::uint32_t index) {
+    if (action != 4 || values == nullptr || index >= count) {
+      return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_19_choice = static_cast<int>(index);
+    return OPENRAC_HOOK_OK;
+  };
+  api.developer_menu_value = [](openrac_mod *, std::uint32_t action) {
+    return action == 3 ? g_19_switch : action == 4 ? g_19_choice : -1;
+  };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -1942,6 +1969,23 @@ int main() {
       api.api_minor = 17;
       CHECK(!mod.has_prop_attach() && !mod.prop_attach(2, 3, 5) &&
             g_18.empty() && !mod.prop_frame(2, frame));
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.19: a switch and a choice in the mod's developer menu.
+    {
+      fill_19(api);
+      const char *const speeds[] = {"x1", "x2", "x4"};
+      CHECK(mod.has_menu_switches() && mod.menu_switch(3, true) &&
+            mod.menu_value(3) == 1);
+      CHECK(mod.menu_choice(4, speeds, 3, 2) && mod.menu_value(4) == 2);
+      CHECK(!mod.menu_switch(5, true) && !mod.menu_choice(4, speeds, 3, 3));
+      CHECK(mod.menu_value(5) == -1);
+
+      // A port of 1.18 has none of it.
+      g_19_switch = 0;
+      api.api_minor = 18;
+      CHECK(!mod.has_menu_switches() && !mod.menu_switch(3, true) &&
+            g_19_switch == 0 && mod.menu_value(3) == -1);
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);

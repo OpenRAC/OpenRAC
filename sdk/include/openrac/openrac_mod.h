@@ -70,9 +70,11 @@ extern "C" {
  * own settings changed from the game (written into the launcher's list of mods)
  * and told when the launcher changes them while the game runs, 1.16 a mod's own
  * data kept with the game's saves, 1.17 the game's own collision query asked by
- * a mod (collision_line), 1.18 a prop fixed to a moby's joint (prop_attach).
+ * a mod (collision_line), 1.18 a prop fixed to a moby's joint (prop_attach),
+ * 1.19 switches and choices in a mod's developer menu, which the menu turns
+ * over at once, the game paused or not (developer_menu_switch).
  */
-#define OPENRAC_MOD_API_MINOR 18
+#define OPENRAC_MOD_API_MINOR 19
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -2204,6 +2206,35 @@ typedef struct openrac_api {
      * OPENRAC_HOOK_UNKNOWN for a prop that is not the mod's, not posed, or not
      * drawn on its joint since it was fixed there. */
     int (*prop_frame)(openrac_mod *mod, int id, float out[16]);
+
+    /* Makes the mod's developer menu item `action` a switch (since 1.19), on
+     * when `on` is nonzero. The menu draws it on or off and turns it over as
+     * soon as the player presses it, while the menu pauses the game too, and
+     * queues `action` as for a press: the mod reads the state it was left in
+     * with developer_menu_value at its tick boundary (two presses before then
+     * queue it twice and leave it as it was). Called again, it sets the state,
+     * for one the mod changed itself. From openrac_mod_load, after
+     * developer_menu, or the mod's tick-boundary callback. Returns
+     * OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN for an action the mod has not
+     * registered, or OPENRAC_HOOK_TOO_LATE at another time. */
+    int (*developer_menu_switch)(openrac_mod *mod, uint32_t action, int on);
+
+    /* Makes the mod's developer menu item `action` a choice (since 1.19)
+     * among `count` values (`values`, their labels, copied), `index` the one
+     * shown. The menu shows the value between two arrows and moves it back or
+     * on as soon as the player presses one, queuing `action` as for a press;
+     * developer_menu_value says which it is at the mod's tick boundary. Called
+     * again, it sets the values and the index. The same times and returns as
+     * developer_menu_switch, and OPENRAC_HOOK_UNKNOWN for no values, a null
+     * one, or an index outside them. */
+    int (*developer_menu_choice)(openrac_mod *mod, uint32_t action,
+                                 const char *const *values, uint32_t count,
+                                 uint32_t index);
+
+    /* The state of the mod's developer menu item `action` (since 1.19): a
+     * switch's 0 or 1, a choice's index, or -1 for a plain item or an action
+     * the mod has not registered. At any time. */
+    int (*developer_menu_value)(openrac_mod *mod, uint32_t action);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

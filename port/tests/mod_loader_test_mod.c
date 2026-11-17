@@ -104,6 +104,10 @@ static void on_tick_boundary(void* user, uint32_t tick) {
         if (action != 0) {
             s_record(9000 + (int)action);
             s_record(9100 + s_api->developer_menu_set_label(s_mod, action, "Saved: Veldin"));
+            /* Interface 1.19: the state the menu left the switch or the choice in. */
+            s_record(9200 + s_api->developer_menu_value(s_mod, action));
+            /* The mod sets its own switch here, as it changed elsewhere. */
+            s_record(9300 + -s_api->developer_menu_switch(s_mod, 3, 0));
         }
         return;
     }
@@ -447,6 +451,10 @@ static void on_frame(void* user) {
                     + (s_api->developer_menu_set_label(s_mod, 1, "Too late")
                        == OPENRAC_HOOK_TOO_LATE)
                 );
+                /* Interface 1.19: a switch is set while loading or at the tick boundary only. */
+                s_record(
+                    1800 + (s_api->developer_menu_switch(s_mod, 3, 0) == OPENRAC_HOOK_TOO_LATE)
+                );
             }
         }
     }
@@ -762,16 +770,33 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         openrac_developer_menu_item items[] = {
             {"Empty", "Shift+Num0", 1, "Save"},
             {"Empty", "Ctrl+Num0", 2, "Load"},
+            {"Invincible", NULL, 3, NULL},
+            {"Speed", NULL, 4, NULL},
         };
         const openrac_developer_menu_item duplicate_action[] = {{"Other", NULL, 1, "Other"}};
+        const char* speeds[] = {"x1", "x2", "x4"};
+        const char* null_speed[] = {"x1", NULL};
         s_developer_menu = 1;
         if (api->api_minor < 10
-            || api->developer_menu(mod, "Savestates", items, 2) != OPENRAC_HOOK_OK
-            || api->developer_menu(mod, "Savestates", items, 2) != OPENRAC_HOOK_TAKEN
-            || api->developer_menu(mod, "Developer", items, 2) != OPENRAC_HOOK_TAKEN
+            || api->developer_menu(mod, "Savestates", items, 4) != OPENRAC_HOOK_OK
+            || api->developer_menu(mod, "Savestates", items, 4) != OPENRAC_HOOK_TAKEN
+            || api->developer_menu(mod, "Developer", items, 4) != OPENRAC_HOOK_TAKEN
             || api->developer_menu(mod, "Other", duplicate_action, 1) != OPENRAC_HOOK_TAKEN
             || api->on_tick_boundary(mod, on_tick_boundary, NULL) != OPENRAC_HOOK_OK) {
             return 16;
+        }
+        /* Interface 1.19: item 3 a switch, item 4 a choice; nothing else is either. */
+        if (api->api_minor < 19 || api->developer_menu_value(mod, 3) != -1
+            || api->developer_menu_switch(mod, 3, 7) != OPENRAC_HOOK_OK
+            || api->developer_menu_value(mod, 3) != 1
+            || api->developer_menu_switch(mod, 99, 1) != OPENRAC_HOOK_UNKNOWN
+            || api->developer_menu_choice(mod, 4, speeds, 3, 3) != OPENRAC_HOOK_UNKNOWN
+            || api->developer_menu_choice(mod, 4, speeds, 0, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->developer_menu_choice(mod, 4, null_speed, 2, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->developer_menu_choice(mod, 4, speeds, 3, 1) != OPENRAC_HOOK_OK
+            || api->developer_menu_value(mod, 4) != 1 || api->developer_menu_value(mod, 1) != -1
+            || api->developer_menu_value(mod, 99) != -1) {
+            return 23;
         }
         /* The host copies its strings, so the caller's stack storage can go away. */
         items[0].label = "Changed after registration";

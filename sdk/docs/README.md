@@ -35,6 +35,7 @@ Mods of textures, models and levels are made with the level editor instead
 9. [Troubleshooting](troubleshooting.md): a mod that does not load, purist mode, crash reports.
 10. [Views of the game](views.md): extra views for a VR headset or another display, with OpenGL or Vulkan (native mods, interface 1.4).
 11. [Props](props.md): a mod's own models in the level, on a moby's joint (a weapon in the hero's hand), and the limits to know (native mods, interfaces 1.12 and 1.18).
+12. [Developer menus](developer-menus.md): a mod's own tab in OpenRAC's menu, with rows, switches and choices, and why it pauses the game (native mods, interfaces 1.10 and 1.19).
 
 ## Reference
 

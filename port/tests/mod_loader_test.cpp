@@ -96,7 +96,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.18",
+    const std::string& api = "1.19",
     const std::string& extra = "",
     const std::string& games = R"({"test": ["one"]})",
     const std::string& hooks = R"(["Test_Add"])"
@@ -526,7 +526,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.18", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.19", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -1029,7 +1029,7 @@ void a_mod_provides_a_desktop_menu(const fs::path& plugins) {
     CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
     const auto& menus = mods::developer_menus();
     CHECK(menus.size() == 1 && menus[0].title == "Savestates");
-    CHECK(menus[0].items.size() == 2);
+    CHECK(menus[0].items.size() == 4);
     CHECK(menus[0].items[0].label == "Empty" && menus[0].items[0].group == "Save");
     CHECK(menus[0].items[0].shortcut == "Shift+Num0" && menus[0].items[0].action == 1);
     CHECK(menus[0].items[1].label == "Empty" && menus[0].items[1].group == "Load");
@@ -1047,6 +1047,33 @@ void a_mod_provides_a_desktop_menu(const fs::path& plugins) {
     CHECK(std::find(g_records.begin(), g_records.end(), 9100) != g_records.end());
     CHECK(menus[0].items[0].label == "Saved: Veldin");
     CHECK(menus[0].items[1].label == "Empty");
+
+    // A switch and a choice (interface 1.19): made while loading, set only then or at the tick
+    // boundary, turned over and moved by the menu at once, which queues their action.
+    const auto& items = menus[0].items;
+    CHECK(items[0].kind == mods::MenuItemKind::Press);
+    // On while loading; the mod turned it off at the last tick boundary (it does at each action).
+    CHECK(items[2].kind == mods::MenuItemKind::Switch && items[2].value == 0);
+    CHECK(items[3].kind == mods::MenuItemKind::Choice && items[3].value == 1);
+    CHECK(items[3].values == std::vector<std::string>({"x1", "x2", "x4"}));
+    CHECK(std::find(g_records.begin(), g_records.end(), 1801) != g_records.end());
+    mods::set_developer_menu_value(menus[0].mod, 3, 1);
+    CHECK(items[2].value == 1);
+    // Values the item cannot have, and a plain item, are neither set nor queued.
+    mods::set_developer_menu_value(menus[0].mod, 3, 2);
+    mods::set_developer_menu_value(menus[0].mod, 4, 3);
+    mods::set_developer_menu_value(menus[0].mod, 1, 1);
+    CHECK(items[2].value == 1 && items[3].value == 1);
+    CHECK(menus[0].actions.size() == 1);
+    g_records.clear();
+    mods::tick_boundary(2);
+    CHECK(g_records == std::vector<int>({9003, 9100, 9201, 9300}));
+    CHECK(items[2].value == 0);
+    mods::set_developer_menu_value(menus[0].mod, 4, 2);
+    g_records.clear();
+    mods::tick_boundary(3);
+    CHECK(g_records == std::vector<int>({9004, 9100, 9202, 9300}));
+    CHECK(items[3].value == 2 && items[3].label == "Saved: Veldin");
 
     mods::reset();
     CHECK(mods::developer_menus().empty());
@@ -1475,7 +1502,7 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
 // RAC2 has no game hook catalogue or script binding yet, but a native mod that only uses
 // common callbacks still loads. A native mod that tries to take a game hook is refused cleanly.
 void rac2_callback_only_native_mod(const fs::path& plugins) {
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.18", "", R"({"rac2": ["ntsc"]})", "[]");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.19", "", R"({"rac2": ["ntsc"]})", "[]");
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true,
          "settings": {"tag": 4, "behaviour": "callback_only"}}]})");
@@ -1491,7 +1518,7 @@ void rac2_callback_only_native_mod(const fs::path& plugins) {
     mods::reset();
 
     install(
-        plugins, "a", OPENRAC_TEST_MOD_A, "1.18", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
+        plugins, "a", OPENRAC_TEST_MOD_A, "1.19", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
     );
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"tag": 1}}]})");
@@ -1624,7 +1651,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.18", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.19", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
