@@ -1129,8 +1129,10 @@ void openrac_music_hold(int held) {
                 s->held_paused = s->paused;
                 s->held_volume = s->volume;
             } else {
-                s->paused = s->held_paused;
-                s->volume = s->held_volume;
+                // Vendor exit may finish its native fade/unpause while held. Keep
+                // that progress, and recover the pre-movie volume after native stops.
+                s->paused = s->held_paused && s->paused;
+                s->volume = std::max(s->volume, s->held_volume);
             }
         }
     }

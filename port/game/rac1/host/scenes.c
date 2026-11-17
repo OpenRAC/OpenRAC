@@ -356,7 +356,6 @@ static void pickup_finish(void) {
         rac1_hero_place(pickup.home, pickup.yaw, 0);
     }
     func_0020BFC8(0, -1);
-    func_00216F28();
     openrac_music_hold(0);
     memset(&pickup, 0, sizeof pickup);
 }
@@ -520,8 +519,7 @@ int rac1_pickup_animation(int kind, int item) {
         GREF(float, pickup.prop + 0x48) = pickup.yaw;
         /* State zero only initializes the native prop. Borrow a valid index for
          * that check, restoring it immediately; the prop never owns a location. */
-        const gaddr collected = RAC1_ADDR(0x0014BFC0u)
-                                + 4 * GREF(int32_t, OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015EE84u)));
+        const gaddr collected = RAC1_ADDR(0x0014BFC0u) + 4 * GREF(int32_t, RAC1_ADDR(0x0015EE84u));
         const uint8_t saved = GREF(uint8_t, collected);
         GREF(uint8_t, collected) = 0;
         GREF(uint8_t, pickup.prop + 0x20) = 0;
