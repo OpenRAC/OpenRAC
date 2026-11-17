@@ -1245,7 +1245,8 @@ std::string mod_menu_title(int index) {
 }
 
 // A mod's menu: its items without a group on one card, then a heading and a card for each group,
-// in the order they first come. A press queues the item's action for the mod.
+// in the order they first come. A press queues the item's action for the mod; a switch is turned
+// over and a choice moved at once (1.19), the game paused as it is, and queue it too.
 void draw_mod_menu(int index) {
     const auto& menus = mods::developer_menus();
     if (index < 0 || index >= static_cast<int>(menus.size())) {
@@ -1256,8 +1257,28 @@ void draw_mod_menu(int index) {
         const std::string label =
             item.shortcut.empty() ? item.label : std::format("{}  ({})", item.label, item.shortcut);
         ImGui::PushID(&item);
-        if (menu_row(label.c_str())) {
-            mods::queue_developer_menu_action(menu.mod, item.action);
+        switch (item.kind) {
+            case mods::MenuItemKind::Switch:
+                if (menu_switch(label.c_str(), item.value != 0)) {
+                    mods::set_developer_menu_value(menu.mod, item.action, item.value != 0 ? 0 : 1);
+                }
+                break;
+            case mods::MenuItemKind::Choice: {
+                const int last = static_cast<int>(item.values.size()) - 1;
+                const int at = std::clamp(item.value, 0, last);
+                if (const int by = menu_choice(
+                        label.c_str(), item.values[static_cast<std::size_t>(at)], at > 0, at < last
+                    )) {
+                    // menu_choice moves no value past either end.
+                    mods::set_developer_menu_value(menu.mod, item.action, at + by);
+                }
+                break;
+            }
+            case mods::MenuItemKind::Press:
+                if (menu_row(label.c_str())) {
+                    mods::queue_developer_menu_action(menu.mod, item.action);
+                }
+                break;
         }
         ImGui::PopID();
         if (ImGui::IsItemHovered() || ImGui::IsItemFocused()) {
