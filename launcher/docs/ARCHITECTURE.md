@@ -512,7 +512,9 @@ launch options a player types: the version the game's page plays, that is the
 developer's disc choice, else the disc set up, else the game's first;
 `disc_choice::played_version`), starts a game as its Play button does, with no window:
 `library::direct_play` plans the game's first `play` action (data folder, mods,
-build checks), and a play that asks for confirmation is not started unseen. If
+build checks), and a play that asks for confirmation is not started unseen.
+The page knows nothing of a shortcut's game (it is no job of its), so its own
+mod updates wait while one runs. If
 it cannot start, the window opens on that game. An open launcher gets the
 argument through single instance and starts the game itself; otherwise the
 launcher hides its window and ends with the game. A game's page offers Add to

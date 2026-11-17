@@ -4,7 +4,7 @@
 // commands and events is docs/ARCHITECTURE.md's; keep them in step with
 // src/lib/api.ts and src/lib/mock.ts.
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 mod android;
@@ -204,6 +204,9 @@ static CLICKED: AtomicBool = AtomicBool::new(false);
 static SAFE_AFTER_CRASH: AtomicBool = AtomicBool::new(false);
 /// The game a `--play` start could not start (startup_game).
 static PENDING_GAME: Mutex<Option<String>> = Mutex::new(None);
+/// `--play` starts whose game runs. The page knows nothing of such a game (it is no job of its), so
+/// its own updates (mods_auto_update) wait while there is one.
+static SHORTCUT_PLAYS: AtomicUsize = AtomicUsize::new(0);
 
 /// The page saw the player's first click, before it is drawn.
 #[tauri::command]
@@ -2226,11 +2229,20 @@ fn play_from_shortcut<R: tauri::Runtime>(
     let app = app.clone();
     std::thread::spawn(move || {
         let _ = child.wait();
+        SHORTCUT_PLAYS.fetch_sub(1, Ordering::SeqCst);
         if exit_after {
             app.exit(0);
         }
     });
     Ok(())
+}
+
+/// A `--play` request as the start or the open launcher got it. From here until its game ends the
+/// page's own updates wait (SHORTCUT_PLAYS).
+#[cfg(desktop)]
+fn start_from_shortcut(app: &AppHandle, game: String, own: bool) {
+    SHORTCUT_PLAYS.fetch_add(1, Ordering::SeqCst);
+    handle_play_request(app, &game, own);
 }
 
 /// A `--play` request: the game starts and the window stays away; if it cannot start, the window
@@ -2249,6 +2261,7 @@ fn handle_play_request<R: tauri::Runtime>(app: &AppHandle<R>, arg: &str, own: bo
             }
         }
         Err((key, why)) => {
+            SHORTCUT_PLAYS.fetch_sub(1, Ordering::SeqCst);
             launcher_log::line(&format!("could not play {arg}: {why}"));
             if let Some(key) = key {
                 *PENDING_GAME.lock().unwrap() = Some(key.clone());
@@ -2503,7 +2516,8 @@ async fn mods_auto_update(
     running: bool,
 ) -> Result<openrac_launcher_core::mod_updates::UpdateRun, ModError> {
     use openrac_launcher_core::mod_updates;
-    if running {
+    // A game a shortcut started is no job of the page's, so `running` cannot know of it.
+    if running || SHORTCUT_PLAYS.load(Ordering::SeqCst) > 0 {
         return Err(ModError::new(ModErrorKind::UserFixable, "Mods are not updated while the game runs.")
             .with(openrac_launcher_core::mod_error::ModAction::CloseGame));
     }
@@ -3041,7 +3055,7 @@ fn with_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
         // A shortcut's game starts in this launcher, and its window stays as it is.
         if let Some(game) = openrac_launcher_core::shortcut::play_arg(&args) {
-            handle_play_request(app, &game, false);
+            start_from_shortcut(app, game, false);
             return;
         }
         forward_link(app, &args);
@@ -3122,7 +3136,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     set_up_deep_links(app);
     #[cfg(desktop)]
     if let Some(game) = play {
-        handle_play_request(app.handle(), &game, true);
+        start_from_shortcut(app.handle(), game, true);
     }
     Ok(())
 }
