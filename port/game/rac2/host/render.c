@@ -267,6 +267,9 @@ void func_0029FEE0(void) {}
 /* draw_owner.h: the running draw callback's argument (wide_view.c sets it). */
 gaddr rac2_draw_owner;
 
+/* draw_owner.h: the next world quad's id, 0 for none (ship_glass.c sets it). */
+uint32_t rac2_effect_quad_id;
+
 static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
     return openrac_effect_texture(
         tex0, GREF(int, OPENRAC_DATA(TEXTURE_UPLOADS)), OPENRAC_DATA(TEXTURE_RECORDS), pixels, clut
@@ -302,6 +305,7 @@ static void world_quad(gaddr a0, gaddr a1) {
     memcpy(&q.tex1, r + 0x80, 8);
     memcpy(&q.alpha, r + 0x88, 8);
     q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
+    q.id = rac2_effect_quad_id != 0 ? rac2_effect_quad_id++ : 0;
     q.parent = rac2_draw_owner;
     q.attachment = rac2_effect_attachment(rac2_draw_owner);
     openrac_game_effect_quad(&q);
