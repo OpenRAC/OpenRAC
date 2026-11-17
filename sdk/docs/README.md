@@ -11,7 +11,7 @@ There are two kinds of behaviour mod:
 |---|---|---|
 | Written in | [Luau](https://luau.org) (a typed Lua) | C or C++ |
 | You need | a text editor | a C/C++ compiler and CMake |
-| Runs on | every platform, Android included | the platforms you build it for (the template's workflow builds Windows, Linux and macOS) |
+| Runs on | every platform, Android included | the platforms you build it for (the template's workflow builds Windows, Linux, macOS and Android) |
 | Safety | sandboxed: it sees only what OpenRAC gives it | runs as code on the player's computer |
 | Since | interface 1.1 (SDK 1.1) | interface 1.0 |
 
