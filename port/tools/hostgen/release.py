@@ -228,6 +228,17 @@ def pair_stubs(us_exe: list[tuple[int, bytes]], r_exe: list[tuple[int, bytes]],
     return {f"func_{h:08X}": r for h, r in sorted(paired.items())}
 
 
+def build_folder(source: Path, version: str) -> Path:
+    """VERSION's build of rac2-decomp: SOURCE's own (source/build/<version>) when it has one, else
+    the published build facts of SOURCE's commit (tools/facts.py), which need no build."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools"))
+    import facts
+    try:
+        return facts.root(source, "rac2/decomp", version) / RAC2_RELEASES[version]["build"]
+    except facts.FactsError as e:
+        raise SystemExit(str(e)) from None
+
+
 def placed_values(build: Path) -> dict[str, dict[str, int]]:
     """Program ("boot", "00", ...) -> {name: value} from a build's placed.json files."""
     out = {}
@@ -589,8 +600,8 @@ def build_rac2(source: Path, version: str, versionmap: Path | None, uses: Counte
     r_boot_at = {a: n for n, a, _ in r_boot}
     pending: dict[str, str] = {}
     # Globals and other names: the release's build's values for v1.01's names, program by program.
-    r_values = placed_values(source / rel["build"])
-    us_values = placed_values(source / us["build"])
+    r_values = placed_values(build_folder(source, version))
+    us_values = placed_values(build_folder(source, "us"))
     # v1.01's functions the release's catalogues do not have: where the release's C takes one's
     # address, the value its build read (the release's changed function there); else no address.
     for name, *_ in us_boot + [(n, 0, 0) for n, *_ in us_levels]:
@@ -716,7 +727,7 @@ def build_rac2(source: Path, version: str, versionmap: Path | None, uses: Counte
             else:
                 continue
             evidence["function: another spelling of a function with two v1.01 names"] += 1
-    placed = placed_functions(source / rel["build"])
+    placed = placed_functions(build_folder(source, version))
     if not placed:
         raise SystemExit(f"release: no {rel['build']}/*/placed.json: build the release first (tools/build.py all --version {version})")
     return {"names": dict(sorted((k, v) for k, v in names.items() if k != v)), "evidence": dict(sorted(evidence.items())),

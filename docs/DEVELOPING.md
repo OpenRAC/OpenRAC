@@ -104,6 +104,7 @@ A few tools work across them:
 
 ```sh
 python3 tools/sources.py status|update DECOMP # where each decomp is; move its pin (SOURCES.md)
+python3 tools/facts.py publish|fetch|check DECOMP   # a decomp build's facts for the table tools (SOURCES.md)
 python3 tools/xmap.py scan|report|ports FROM TO # the function map across the games
 python3 tools/port.py FROM TO [--check]         # functions FROM matched that TO has unchanged
 python3 tools/permuter run|base|queue PROFILE FUNC   # decomp-permuter for any game

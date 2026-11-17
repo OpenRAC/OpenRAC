@@ -69,7 +69,9 @@ After a sync of `games/rac2/decomp`, with rac2-decomp built for v1.01 and the re
 dumps in its `baserom/`, and `<r>` `pal` or `ntsc2` (`<v>` `pal` or `us2`). `tools/carry.py`
 rewrites the decompilation's `config/<v>/*/functions.tsv`: put them back
 (`git -C games/rac2/decomp checkout -- config/`) before `release.py build`, or the tables follow
-catalogues CI does not have.
+catalogues CI does not have. Then publish the build's facts (`python3 tools/facts.py publish
+rac2/decomp`, docs/SOURCES.md "Build facts"). Without a build, the same commands read the
+published facts instead: only the discs are needed.
 
 ```sh
 python3 port/tools/versionmap/versionmap.py build rac2/ntsc rac2/<r> --out build/versionmap/rac2-ntsc--rac2-<r>.json \
