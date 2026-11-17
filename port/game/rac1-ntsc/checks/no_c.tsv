@@ -1391,7 +1391,6 @@ func_L15_002D79E8	a	other spelling	none	called by FUN_L15_002d6810 [C] (levels 1
 func_L15_002D7BB0	a	other spelling	none	called by FUN_L15_002d6810 [C] (levels 15,17)	the same function as FUN_L15_002d7bb0, which has C: calls to this name go there
 func_L15_002D8710	a	other spelling	none	address formed by FUN_L15_002d6810 [C] (levels 15,17), FUN_L18_002e9e70 [C] (level 18)	the same function as FUN_L15_002d8710, which has C: calls to this name go there
 func_L15_002D95A0	a	other spelling	none	called by FUN_L15_002d6810 [C] (levels 15,17)	the same function as FUN_L15_002d95a0, which has C: calls to this name go there
-malloc_extend_top	c	needs C	translated	called by _malloc_r [C] (the executable); C calls it: _malloc_r	translated from its assembly
 memcard_GetDataSize	a	declared only	none	nothing: no C calls it, and it has no address	declared by the decompilation, defined nowhere, and no C calls it or takes its address
 memcard_Init	a	declared only	none	nothing: no C calls it, and it has no address	declared by the decompilation, defined nowhere, and no C calls it or takes its address
 mpegError__FP7sceMpegP18sceMpegCbDataErrorPv	a	declared only	none	nothing: no C calls it, and it has no address	declared by the decompilation, defined nowhere, and no C calls it or takes its address
