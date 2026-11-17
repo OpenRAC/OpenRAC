@@ -6,44 +6,31 @@
  * (release_carry.json says what rests on less than the release's check). The function names are
  * host/rac1_names.tsv's (release_host.py).
  */
-
 #ifndef OPENRAC_RAC1_VERSION_H
-
 #define OPENRAC_RAC1_VERSION_H
 
 /* The capsule query's last argument, as this version's C declares it (host/collision.c). */
-
 #define RAC1_COLL_CAPSULE_IGNORE gaddr
 
 /* Level vtbl records carry moby update functions; the executable's vtbl is an empty sentinel. */
-
 #define RAC1_MOBY_VTBL(level) rac1_moby_vtbl_address(level)
 
 static inline unsigned rac1_moby_vtbl_address(int level) {
     static const unsigned addresses[] = {
-
         0x001EA280u, 0x0020BA00u, 0x001FAE80u, 0x001E3780u, 0x001DC800u, 0x00218C00u, 0x00201A80u,
-
         0x00211C00u, 0x001FC800u, 0x00209280u, 0x001DD500u, 0x0021B800u, 0x0020CA80u, 0x001F5780u,
-
         0x001FD200u, 0x001E3580u, 0x001E8800u, 0x001E6F80u, 0x001F2C00u,
-
     };
-
     return level >= 0 && (unsigned)level < sizeof(addresses) / sizeof(addresses[0])
-
                ? addresses[level]
-
                : 0;
 }
 
 /* gHeroPos (D_0013F4D0), for crash reports (boot.c); a version without it reports no position. */
-
 #define RAC1_HERO_POS 0x0013F3D0u
 
 /* The game's folder on the memory card (memcard_get_name's, "BA****-*****RATCHET" with the disc's
  * region and serial), where its save files are (play.c, the mods' saves). */
-
 #define RAC1_SAVE_FOLDER "BESCES-50916RATCHET"
 
 /* Where libmc (func_001236F0..func_00124528, the port's lib/mc.c) keeps the state of a command, for
@@ -51,209 +38,116 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * runs (0: none; sceMcSync func_00123F30 returns -1 then, else hands it out and clears it once the
  * IOP has answered), D_0015B0C0 the library's RPC receive buffer, whose first word is the command's
  * result that sceMcSync hands out. A version without them keeps lib/mc.c's own. */
-
 #define RAC1_MC_COMMAND 0x00132DA8u
-
 #define RAC1_MC_RESULT 0x0015AFC0u
 
 /* The game's memory card record (memory_card_state) and its words play.c reads: which card is in
  * use, the card's header mismatches, whether saving is on, the operation running and the one
  * waiting. The card's save number is at +0x14 on every disc. */
-
 #define RAC1_CARD_STATE 0x0013D290u
-
 #define RAC1_CARD_ERRORS 0xB4
-
 #define RAC1_CARD_ACTIVE 0xC8
-
 #define RAC1_CARD_OPERATION 0xDC
-
 #define RAC1_CARD_PENDING 0xE4
-
 #define RAC1_CARD_PENDING_CARD 0xE8
-
 #define RAC1_CARD_SAVING 0xFC
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
-
 /* The pause menu mobys' update at 0x0023B578: the decompilation has C for it (func_0023B578) since the
  * remnant in front of it was split off. */
-
 #define RAC1_OMIT_game_D_0023B578 1
-
 /* shrub_class_init: the decompilation's candidate (nonmatching/functional,
  * register_shrub_render_class) is the function, the GS texture registers of the
  * class's packets included. */
-
 #define RAC1_OMIT_func_00204340 1
-
 /* The executable's sky tile cull (sky_bsphere_check, SkyBsphereCheck's twin): its candidate is the function. */
-
 #define RAC1_OMIT_func_0022D7E0 1
 
 /* Where this version's decompilation declares a function otherwise: the type in its prototypes. */
-
 /* ParseBin's result, the loaded level's entry. */
-
 #define RAC1_TYPE_func_0012DA38_result gaddr
-
 /* DrawTexturedQuad's colour and TEX0. */
-
 #define RAC1_TYPE_func_001F5800_u64 unsigned long long
-
 /* The text lookup's result, a string's address. */
-
 #define RAC1_TYPE_func_001FE540_result gaddr
-
 /* The sprite's TEX0 (func_00200CA0). */
-
 #define RAC1_TYPE_func_00200CA0_tex0 long long
-
 /* UpdateWorldObjectAnimation's parameter (scene_actors.c): the chunk's slot, which it does not read. */
-
 #define RAC1_TYPE_func_00204FC0_params gaddr chunk __attribute__((unused))
-
 /* memcard_RestoreGame's save, read through its address (options.c). */
-
 #define RAC1_TYPE_func_00209CE8_save int
 
 /* Where UpdateWorldObjectAnimation keeps the model record's word at +8 in the transfer state
  * D_0018CC20 (scene_actors.c). */
-
 #define RAC1_TRANSFER_PAD08 0x46
-
 /* The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here). */
-
 #define RAC1_OMIT_func_001E9E70 1
 
 /* ---- generated below ---- */
 
 /* Addresses: games/rac1's, this version's (RAC1_LADDR: in level NN's program). */
-
 #define RAC1_ADDR(a) RAC1_ADDR_##a
-
 #define RAC1_LADDR(n, a) RAC1_ADDR_L##n##_##a
-
 #define RAC1_ADDR_0x0010E4C0u 0x0010E4C0u
-
 #define RAC1_ADDR_0x00137C80u 0x00137B80u
-
 #define RAC1_ADDR_0x0013CA40u 0x0013C940u
-
 #define RAC1_ADDR_0x0013CC04u 0x0013CB04u
-
 #define RAC1_ADDR_0x0013D010u 0x0013CF10u
-
 #define RAC1_ADDR_0x0013D490u 0x0013D388u
-
 #define RAC1_ADDR_0x0013D510u 0x0013D408u
-
 #define RAC1_ADDR_0x0013D5C8u 0x0013D4C0u
-
 #define RAC1_ADDR_0x0013D618u 0x0013D510u
-
 #define RAC1_ADDR_0x0013E130u 0x0013E030u
-
 #define RAC1_ADDR_0x0013E150u 0x0013E050u
-
 #define RAC1_ADDR_0x0013E15Au 0x0013E05Au
-
 #define RAC1_ADDR_0x0013E604u 0x0013E504u
-
 #define RAC1_ADDR_0x0013E610u 0x0013E510u
-
 #define RAC1_ADDR_0x0013E614u 0x0013E514u
-
 #define RAC1_ADDR_0x0013E620u 0x0013E520u
-
 #define RAC1_ADDR_0x0013E650u 0x0013E550u
-
 #define RAC1_ADDR_0x0013F450u 0x0013F350u
-
 #define RAC1_ADDR_0x0014C150u 0x0014C050u
-
 #define RAC1_ADDR_0x001517D0u 0x001516D0u
-
 #define RAC1_ADDR_0x00151C60u 0x00151B60u
-
 #define RAC1_ADDR_0x0015EDA0u 0x0015ECA0u
-
 #define RAC1_ADDR_0x0015EDA8u 0x0015ECA8u
-
 #define RAC1_ADDR_0x0015EDB0u 0x0015ECB0u
-
 #define RAC1_ADDR_0x0015EDC0u 0x0015ECC0u
-
 #define RAC1_ADDR_0x0015EE60u 0x0015ED60u
-
 #define RAC1_ADDR_0x0015EE64u 0x0015ED64u
-
 #define RAC1_ADDR_0x0015EE68u 0x0015ED68u
-
 #define RAC1_ADDR_0x0015EE6Cu 0x0015ED6Cu
-
 #define RAC1_ADDR_0x0015EE70u 0x0015ED70u
-
 #define RAC1_ADDR_0x0015EE80u 0x0015ED80u
-
 #define RAC1_ADDR_0x0015EE84u 0x0015ED84u
-
 #define RAC1_ADDR_0x0015EE88u 0x0015ED88u
-
 #define RAC1_ADDR_0x0015EE98u 0x0015ED98u
-
 #define RAC1_ADDR_0x0015EEA0u 0x0015EDA0u
-
 #define RAC1_ADDR_0x0015EEB4u 0x0015EDB4u
-
 #define RAC1_ADDR_0x0015EEE0u 0x0015EDE0u
-
 #define RAC1_ADDR_0x0015EEE8u 0x0015EDE8u
-
 #define RAC1_ADDR_0x0015EF4Au 0x0015EE4Au
-
 #define RAC1_ADDR_0x0015F000u 0x0015EF00u
-
 #define RAC1_ADDR_0x0015F558u 0x0015F458u
-
 #define RAC1_ADDR_0x0015F564u 0x0015F464u
-
 #define RAC1_ADDR_0x0015F568u 0x0015F468u
-
 #define RAC1_ADDR_0x0015F56Cu 0x0015F46Cu
-
 #define RAC1_ADDR_0x0015F570u 0x0015F470u
-
 #define RAC1_ADDR_0x0015F574u 0x0015F474u
-
 #define RAC1_ADDR_0x0015F690u 0x0015F590u
-
 #define RAC1_ADDR_0x0015F6B0u 0x0015F5B0u
-
 #define RAC1_ADDR_0x0015F6B4u 0x0015F5B4u
-
 #define RAC1_ADDR_0x0015F6E4u 0x0015F5E0u
-
 #define RAC1_ADDR_0x0015F6E8u 0x0015F5E4u
-
 #define RAC1_ADDR_0x0015F6FCu 0x0015F5F8u
-
 #define RAC1_ADDR_0x00160000u 0x0015FEC0u
-
 #define RAC1_ADDR_0x00160018u 0x0015FED8u
-
 #define RAC1_ADDR_0x0016001Cu 0x0015FEDCu
-
 #define RAC1_ADDR_0x00160020u 0x0015FEE0u
-
 #define RAC1_ADDR_0x00160024u 0x0015FEE4u
-
 #define RAC1_ADDR_0x00160030u 0x0015FEF0u
-
 #define RAC1_ADDR_0x00160048u 0x0015FF08u
-
 #define RAC1_ADDR_0x0016004Cu 0x0015FF0Cu
-
 #define RAC1_ADDR_0x00160050u 0x0015FF10u
 #define RAC1_ADDR_0x001602E0u 0x001601A0u
 #define RAC1_ADDR_0x0016044Cu 0x0016030Cu

@@ -8,89 +8,53 @@
  * instruction forming the address); the part below the mark is written and checked by
  * port/tools/versionmap/hostnames.py.
  */
-
 #ifndef OPENRAC_RAC1_VERSION_H
-
 #define OPENRAC_RAC1_VERSION_H
 
 /* The capsule query's last argument, as this version's C declares it (host/collision.c). */
-
 #define RAC1_COLL_CAPSULE_IGNORE int
 
 /* Level vtbl records carry moby update functions; the executable's vtbl is an empty sentinel. */
-
 #define RAC1_MOBY_VTBL(level) rac1_moby_vtbl_address(level)
 
 static inline unsigned rac1_moby_vtbl_address(int level) {
     static const unsigned addresses[] = {
-
         0x001EA300u, 0x0020BB00u, 0x001FAF80u, 0x001E3880u, 0x001DC900u, 0x00218C80u, 0x00201B80u,
-
         0x00211D00u, 0x001FC900u, 0x00209380u, 0x001DD600u, 0x0021B900u, 0x0020CB80u, 0x001F5880u,
-
         0x001FD280u, 0x001E3680u, 0x001E8900u, 0x001E7080u, 0x001F2D00u,
-
     };
-
     return level >= 0 && (unsigned)level < sizeof(addresses) / sizeof(addresses[0])
-
                ? addresses[level]
-
                : 0;
 }
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
-
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */
-
 #define RAC1_OMIT_func_L00_002EDB68 1
-
 /* PAL's assign_moby_class_data, whose level vtbl is at another address in each program. */
-
 #define func_00213BB8 game_FUN_00212d68
-
 /* FUN_L00_0025b6b8: the NTSC decomp's C takes the two vectors by address already. */
-
 #define RAC1_OMIT_func_L00_0025C710 1
-
 /* The boot loop draws its picture with draw_bootImage (FUN_002012b8), which boot_picture.c wraps. */
-
 #define RAC1_OMIT_func_001F7680 1
-
 /* The memory card page's MODS badges (save_marks.c): the page's draw is not carried to this
  * version yet, so this disc shows the badges in the launcher only. */
-
 #define RAC1_OMIT_func_00224C30 1
-
 /* FUN_0023a2c0, the pause menu mobys' update: the NTSC decomp has C for it. */
-
 #define RAC1_OMIT_game_D_0023B578 1
-
 /* Variants (variants.c) the NTSC decomp's catalogue names apart, each with C of its own. */
-
 #define RAC1_OMIT_func_L00_00232A00 1 /* FUN_L00_002321a8 */
-
 #define RAC1_OMIT_func_L00_0020A870 1 /* FUN_L00_0020a1f8, FUN_L00_0020a210, FUN_L00_0020a228 */
-
 #define RAC1_OMIT_func_L01_002A2B68 1 /* FUN_L01_002a1968 */
-
 #define RAC1_OMIT_func_L00_002E9A88 1 /* FUN_L00_002e85d8 */
-
 #define RAC1_OMIT_func_L05_0031AAA8 1 /* FUN_L05_00319598, FUN_L16_002e4be0 */
-
 #define RAC1_OMIT_func_L12_002C08A0 1 /* FUN_L12_002bf6d0 */
-
 #define RAC1_OMIT_func_L13_0030AD88 1 /* FUN_L13_003098d0 */
-
 /* PlayMovieEntryIfIdle's second copy in levels 2, 8 and 16 (variants.c): PAL's own, not mapped for
  * this disc yet. */
-
 #define RAC1_OMIT_func_L02_00299F28 1
-
 /* Entries the version map cannot pair, checked by hand. */
-
 /* sceVu0Normalize, an entry inside the VU0 library object, which the map does not cut out. */
-
 #define func_001252C0 game_FUN_00125180
 /* sceVu0ScaleVector (0x1251E8): the decompilation has no C for it, and only a build with the disc
  * translated it, so a build without the disc called a stub from the level code (FUN_L00_0025aca0,
@@ -101,7 +65,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 
 /* The items the US game's Options list is given (Language, Sound: its enter puts them there each
  * time); PAL's list, 0x1D4810 here (Language, Video, Sound), is still in the data, unused. */
-
 #define RAC1_ADDR_0x001D4B90u 0x001D4840u
 
 /* The class registration tables differ from PAL: class count, resources, and the empty executable
@@ -109,294 +72,174 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * versions (resources, updates, class ids), each 0x380 lower here: PAL's updates (0x1B3900,
  * resident_moby_class_data) are the US decomp's D_001B3580, which init_moby_instance copies into a
  * moby's update at +0x74; the US 0x1B3900 is the s16 class ids register_moby_class writes. */
-
 #define RAC1_ADDR_0x00160000u 0x0015FF00u
-
 #define RAC1_ADDR_0x001B3580u 0x001B3200u
-
 #define RAC1_ADDR_0x001B3900u 0x001B3580u
-
 #define RAC1_ADDR_0x001E8F00u 0x001E8B80u
 
 /* Where this version's decompilation declares a function otherwise: the type in its prototypes. */
-
 /* ParseBin's result, the loaded level's entry. */
-
 #define RAC1_TYPE_func_0012DA38_result long long
-
 /* DrawTexturedQuad's colour and TEX0. */
-
 #define RAC1_TYPE_func_001F5800_u64 long long
-
 /* The text lookup's result, a string's address. */
-
 #define RAC1_TYPE_func_001FE540_result int
-
 /* The sprite's TEX0 (FUN_00200468 here, PAL's func_00200CA0). */
-
 #define RAC1_TYPE_func_00200CA0_tex0 unsigned long long
-
 /* The hero's position (PAL gHeroPos D_0013F4D0: the hero record D_0013F450, here 0x0013F350,
  * plus 0x80), for crash reports (boot.c). */
-
 #define RAC1_HERO_POS 0x0013F3D0u
-
 /* The game's folder on the memory card, where its save files are (play.c, the mods' saves). */
-
 #define RAC1_SAVE_FOLDER "BASCUS-97199RATCHET"
-
 /* The game's memory card record (play.c): memory_card_state, whose card is 8 bytes shorter here
  * than PAL's. */
-
 #define RAC1_CARD_STATE 0x0013D290u
-
 #define RAC1_CARD_ERRORS 0xAC
-
 #define RAC1_CARD_ACTIVE 0xC0
-
 #define RAC1_CARD_OPERATION 0xD4
-
 #define RAC1_CARD_PENDING 0xDC
-
 #define RAC1_CARD_PENDING_CARD 0xE0
-
 #define RAC1_CARD_SAVING 0xF4
-
 /* The moby update loop (crash_state.c): PAL func_00213C78 is FUN_00212e28 here (the NTSC
  * decomp's C), with the list's head (FUN_0020d868, kept in D_0015FF24) and the steps before and
  * after each update (FUN_0020d580, FUN_0020def8). */
-
 #define func_00213C78 game_FUN_00212e28
-
 #define func_0020E6B8 game_FUN_0020d868
-
 #define func_0020E3D0 game_FUN_0020d580
-
 #define func_0020ED48 game_FUN_0020def8
-
 #define RAC1_ADDR_0x00160024u 0x0015FF24u
-
 /* A scene's actors (scene_actors.c): PAL's UpdateWorldObjectAnimation func_00204FC0 is FUN_00204790
  * here (the NTSC decomp's src/world/animation/update_world_object_animation.c), CreateMoby
  * func_0020D348 is FUN_0020c4f8 and FlushCache keeps its name; the version map pairs each as `same`
  * and the data below as `exact`. The US routine takes no parameter, and keeps the model record's
  * word at +8 at +0x48 of the transfer state (PAL +0x46). */
-
 #define func_00204FC0 game_FUN_00204790
-
 #define func_0020D348 game_FUN_0020c4f8
-
 #define func_00118D80 game_FlushCache
-
 #define RAC1_TYPE_func_00204FC0_params void
-
 #define RAC1_TRANSFER_PAD08 0x48
-
 #define RAC1_ADDR_0x0018CC20u 0x0018CB20u
-
 #define RAC1_ADDR_0x00160588u 0x00160488u
-
 #define RAC1_ADDR_0x0013E130u 0x0013E030u
-
 /* The level loader (moby_pool.c): PAL's LoadLevelGameplay func_L00_002422D8 is FUN_L00_00241940 here
  * (the NTSC decomp's src/overlays/shared/world/loaders/load_level_gameplay.c, ported from PAL's;
  * libraries.tsv pairs the two), a hook point under the wrap; its load state, PAL D_L00_00173F00,
  * is D_L00_00173E00 here (the same C reads the header from +4 of each). */
-
 #define func_L00_002422D8 game_FUN_L00_00241940
-
 #define func_L00_002422D8__hooked game_FUN_L00_00241940__hooked
-
 #define RAC1_ADDR_L00_0x00173F00u 0x00173E00u
-
 /* The run list's builder (moby_pool.c) is func_0020E6B8 above (FUN_0020d868); its group member lists
  * and target pointer table, PAL D_001C7AC0 and D_001C7C80 (the US build's own C of FUN_0020d868
  * forms these two). */
-
 #define RAC1_ADDR_0x001C7AC0u 0x001C7740u
-
 #define RAC1_ADDR_0x001C7C80u 0x001C7900u
-
 /* The game's options the port remembers (options.c): PAL memcard_RestoreGame func_00209CE8 is
  * FUN_00209298 here and initialize_gameplay_sound_system func_0022DBE8 is FUN_0022c8d0 (the NTSC
  * decomp's memcard_restore_game.c and initialize_gameplay_sound_system.c); the language, PAL
  * D_0015EE88, and the playback mode, music and sound volumes, PAL D_0015EEE8..EEF0, are its
  * game_language and playback_mode, music_volume, sound_volume (include/rnc/globals.h,
  * gameplay/state/options.h). */
-
 #define func_00209CE8 game_FUN_00209298
-
 #define func_00209CE8__hooked game_FUN_00209298__hooked
-
 #define func_0022DBE8 game_FUN_0022c8d0
-
 #define func_0022DBE8__game game_FUN_0022c8d0__game
-
 #define RAC1_TYPE_func_00209CE8_save gaddr
-
 #define RAC1_ADDR_0x0015EE88u 0x0015ED88u
-
 #define RAC1_ADDR_0x0015EEE8u 0x0015EDE8u
-
 /* Gaspar's copy of AmbientStreamL07Update (variants.c): PAL 09:002F0B48 is 09:002EF7F8 here (the
  * catalogue's places of FUN_L07_002f8058), draw_level09_textured_surfaces PAL func_L09_002F0AA0 is
  * FUN_L09_002ef750 and its grid record PAL D_L09_001FCA00 is D_L09_001FC740 (the NTSC decomp's
  * asteroid.c), ScaleTableIntoBuffer PAL func_L02_002A5238 is FUN_L02_002a4058
  * (timed_activation_pads.c). */
-
 #define func_L09_002F0B48 func_L09_002EF7F8
-
 #define func_L02_002A5238 game_FUN_L02_002a4058
-
 #define RAC1_ADDR_L05_0x001672C0u 0x001671C0u
-
 #define RAC1_ADDR_L05_0x001B0CB0u 0x001B0930u
-
 #define RAC1_ADDR_L09_0x001FCA00u 0x001FC740u
-
 #define RAC1_ADDR_L09_0x002F0AA0u 0x002EF750u
-
 /* A movie in a level (movie.c): PAL prepare_movie_playback func_L00_0029A940 is FUN_L00_002995d0
  * here, and what reads the parked RAM back, PAL func_L00_0029AB38, FUN_L00_002997c8 (the NTSC
  * decomp's 00295100.c). */
-
 #define func_L00_0029A940 game_FUN_L00_002995d0
-
 #define func_L00_0029A940__game game_FUN_L00_002995d0__game
-
 #define func_L00_0029AB38 game_FUN_L00_002997c8
-
 #define func_L00_0029AB38__game game_FUN_L00_002997c8__game
-
 /* The level's scenes (scenes.c): PAL StartCutscene func_L00_00299B68 is FUN_L00_00298840 here,
  * its block, PAL cutscene_state D_L00_0016C960, is D_L00_0016C860. */
-
 #define func_L00_00299B68 game_FUN_L00_00298840
-
 #define RAC1_ADDR_L00_0x0016C960u 0x0016C860u
-
 /* The follow camera's stick read and turn (camera_latch.c): PAL FollowCamera_ReadStickInput
  * func_L00_002E9E60 is FUN_L00_002e89b0 here; the pad's mirror and the camera's invert options,
  * PAL D_0015EEB4 and D_0015EEE0, are D_0015EDB4 and opt_cam_invert; the turn speed, the spring's
  * stiffness and damping and the camera block, PAL D_L00_0015F044, D_L00_00161D7C, D_L00_00161D80
  * and D_L00_00166F10, are D_L00_0015EF44, D_L00_00161CAC, D_L00_00161CB0 and D_L00_00166E10 (the
  * NTSC decomp's follow_camera_turn_and_pitch.c). */
-
 #define func_L00_002E9E60 game_FUN_L00_002e89b0
-
 #define func_L00_002E9E60__game game_FUN_L00_002e89b0__game
-
 /* Ratchet's animation guard (hero_anim_guard.c): PAL set_hero_animation func_L00_00232C10 is
  * FUN_L00_002323b8 here. */
-
 #define func_L00_00232C10 game_FUN_L00_002323b8
-
 /* The mods' hero_hurt (play.c): PAL hero_change_health func_L00_002056D8 is FUN_L00_002050c0. */
-
 #define func_L00_002056D8 game_FUN_L00_002050c0
-
 /* Its hero_set_pose: PAL release_and_clear_hero_voice_slots func_L00_00207220 is
  * FUN_L00_00206c08 here. */
-
 #define func_L00_00207220 game_FUN_L00_00206c08
-
 /* The local pose decoder the port wraps (render_native.c). */
-
 #define func_L00_00255B90 game_FUN_L00_00254b58
-
 #define func_L00_00255B90__game game_FUN_L00_00254b58__game
-
 #define func_L00_00232C10__game game_FUN_L00_002323b8__game
-
 /* Ratchet's held pieces a mod hid (world.c): PAL update_hero_item_moby_flags func_L00_00233950 is
  * FUN_L00_002330d0 here. */
-
 #define func_L00_00233950 game_FUN_L00_002330d0
-
 #define func_L00_00233950__game game_FUN_L00_002330d0__game
-
 #define RAC1_ADDR_0x0015EEB4u 0x0015EDB4u
-
 #define RAC1_ADDR_0x0015EEE0u 0x0015EDE0u
-
 #define RAC1_ADDR_L00_0x0015F044u 0x0015EF44u
-
 #define RAC1_ADDR_L00_0x00161D7Cu 0x00161CACu
-
 #define RAC1_ADDR_L00_0x00161D80u 0x00161CB0u
-
 #define RAC1_ADDR_L00_0x00166F10u 0x00166E10u
 
 /* The camera scripts (camera_script.c): CameraScript, CameraScript2, set_camera_position and
  * set_camera_rotation are the NTSC decomp's jet_mount, jet_end_mount and its own two names, by their
  * labels in scripted_camera.h; the camera up now, PAL's g_current_follow_cam, keeps the 0x100 of
  * the block it lies in. HeroEnterMoveState is its shared hero_set_state. */
-
 #define func_L00_002EBF50 game_FUN_L00_002eaaa0
-
 #define func_L00_002EBF50__game game_FUN_L00_002eaaa0__game
-
 #define func_L00_002EC0C8 game_FUN_L00_002eac18
-
 #define func_L00_002EC0C8__game game_FUN_L00_002eac18__game
-
 #define func_L00_002EBE88 game_FUN_L00_002ea9d8
-
 #define func_L00_002EBE88__game game_FUN_L00_002ea9d8__game
-
 #define func_L00_002EBEE0 game_FUN_L00_002eaa30
-
 #define func_L00_002EBEE0__game game_FUN_L00_002eaa30__game
-
 #define func_L00_00222B80 game_FUN_L00_002223f8
-
 #define func_L00_00217718__game game_FUN_L00_00216f90__game
-
 #define RAC1_ADDR_L00_0x00166F00u 0x00166E00u
 
 /* The page menu's (front_end.c, mod_ui.cpp), checked by hand in the US data and code: the title's
  * main page (initialize_menu_preview_scene's), the Options page (its back is the main page, its
  * seqs 0xBE..0xC0), the memory card's prompt widget (draw_prompt_box's) and the frame mobys'
  * slots, 0x10 bytes lower than the map's guess: PAL's MenuSystem has four words more. */
-
 #define RAC1_ADDR_0x001D4948u 0x001D45C8u
-
 #define RAC1_ADDR_0x001D4B08u 0x001D4788u
-
 #define RAC1_ADDR_0x001D29D0u 0x001D2650u
-
 #define RAC1_ADDR_0x001D6120u 0x001D5D90u
-
 /* The touch pad's map page (touch.c): menu_system.current and the map's page, by hand from the US
  * decomp (menu_system.h, menu_pages.h), 0x380 lower as the menu data around them. */
-
 #define RAC1_ADDR_0x001D5F74u 0x001D5BF4u
-
 #define RAC1_ADDR_0x001CF798u 0x001CF418u
-
 #define RAC1_ADDR_0x001CF538u 0x001CF1B8u
-
 /* The map's selection (touch.c: level_map_selection, map_state.h), 0x100 lower. */
-
 #define RAC1_ADDR_0x001A01F0u 0x001A00F0u
-
 /* The help prompt's frames left, owner and message (touch.c), from the US decomp's
  * try_set_help_message. */
-
 #define RAC1_ADDR_0x0015F6B0u 0x0015F5D0u
-
 #define RAC1_ADDR_0x0015F6B4u 0x0015F5D4u
-
 #define RAC1_ADDR_0x00161388u 0x00161288u
-
 /* MobySetAnimation, which the US decomp's update_menu_system calls as FUN_00212ed8; the map pairs
  * PAL's with 0x212F58. */
-
 #define func_00213D28 game_FUN_00212ed8
-
 /* The large font's glyph table (mod_ui.cpp's page widths), after the normal and small ones as in
  * PAL: the US decomp's large_font_metrics. */
-
 #define RAC1_ADDR_0x001DFB10u 0x001DF790u
 
 /* The mods' play (play.c): PAL MobyBlendAnimation func_00213DE0 is FUN_00212f90 here (the NTSC
@@ -405,46 +248,28 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * level a load goes to, PAL D_0015F6E4, is 0x15F600 (`exact`), and the level loop's end, PAL
  * D_L00_0015F650, is D_L00_0015F570 (the loop's `while` in the NTSC decomp's
  * src/overlays/shared/rendering/00245c28.c). */
-
 #define func_00213DE0 game_FUN_00212f90
-
 #define func_0020BA00 game_FUN_0020abb0
-
 #define RAC1_ADDR_0x0015F6E4u 0x0015F600u
-
 #define RAC1_ADDR_L00_0x0015F650u 0x0015F570u
-
 /* The world (world.c): PAL PostHitMessage func_L00_0025AC00 is FUN_L00_00259bc8 here, whose C has
  * the damage last (RAC1_POST_HIT_DAMAGE_LAST), and record_moby_hit func_L00_0025AAC0 is
  * FUN_L00_00259a88 (the NTSC decomp's find_moby_hit.c); the hit ring, PAL D_L00_00178200, is
  * D_L00_00178100 (its hero_check_damage.c), the file-order table, PAL D_L00_001ACB00, D_L00_001AC780
  * (its load_level_gameplay.c's moby_index_remap), and the end of the placed mobys, PAL D_0016001C,
  * 0x15FF1C (`exact`). */
-
 #define RAC1_POST_HIT_DAMAGE_LAST 1
-
 #define func_00215570 game_FUN_00214720
-
 #define func_L00_0025A778 game_FUN_L00_00259740
-
 #define func_L00_0025AC00 game_FUN_L00_00259bc8
-
 #define func_L00_0025AC00__game game_FUN_L00_00259bc8__game
-
 #define func_L00_0025AAC0 game_FUN_L00_00259a88
-
 #define func_L00_0025AAC0__game game_FUN_L00_00259a88__game
-
 /* DeleteMoby (world.c's wrap of it): PAL func_0020D678 is FUN_0020c828 here (generated below). */
-
 #define func_0020D678__game game_FUN_0020c828__game
-
 #define RAC1_ADDR_L00_0x00178200u 0x00178100u
-
 #define RAC1_ADDR_L00_0x001ACB00u 0x001AC780u
-
 #define RAC1_ADDR_0x0016001Cu 0x0015FF1Cu
-
 /* The items posed from Ratchet's (item_pose.c), from the NTSC decomp's C, which names each by its
  * address: HandItemUpdate func_00225E00 is update_menu_preview_class_pose (FUN_00224b70) here,
  * func_00225FB8 update_menu_preview_animation_transform (FUN_00224d28), func_002260A8
@@ -455,91 +280,53 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * D_001864D0), class_pose_manipulator (0x1D6160) and the previews' two manipulators, the one put
  * back on joint 0x16 (0x1D61A0) and the one on 0x17 (0x1D61E0), as the NTSC decomp's
  * hand_gadget.h and the three files place them. */
-
 #define func_00225E00 game_FUN_00224b70
-
 #define func_00225FB8 game_FUN_00224d28
-
 #define func_002260A8 game_FUN_00224e18
-
 #define func_0020DAF8 game_FUN_0020cca8
-
 #define func_001FA480 game_FUN_001fa2b8
-
 #define func_00214F78 game_FUN_00214128
-
 #define func_0020EEE8 game_FUN_0020e098
-
 #define func_0020D9D8 game_FUN_0020cb88
-
 #define func_0020D960 game_FUN_0020cb10
-
 #define RAC1_ADDR_0x00225E00u 0x00224B70u
-
 #define RAC1_ADDR_0x00225FB8u 0x00224D28u
-
 #define RAC1_ADDR_0x002260A8u 0x00224E18u
-
 #define RAC1_ADDR_0x001864D0u 0x001863D0u
-
 #define RAC1_ADDR_0x001D6160u 0x001D5DD0u
-
 #define RAC1_ADDR_0x001D61A0u 0x001D5E10u
-
 #define RAC1_ADDR_0x001D61E0u 0x001D5E50u
-
 /* The world under a menu (world.c): PAL select_moby_context func_L00_00235FF8 is FUN_L00_00235668
  * here, its context word, PAL D_L00_0015F808, D_L00_0015F728, and the level's array kept aside
  * while the pause menu's is up, PAL D_L00_0015FB28 and D_L00_0015FB2C, D_L00_0015FA70 and
  * D_L00_0015FA74 (the NTSC decomp's ui/hud/00234fd0.c); the pause menu's tick, PAL
  * func_L00_00277A88, is FUN_L00_00276bd0, and update_mode_freeze, PAL func_001FD3E8, FUN_001fce28
  * (its rendering/00245c28.c, the level loop). */
-
 #define func_L00_001F3958 game_FUN_001f0b58
-
 #define func_L00_00217718 game_FUN_L00_00216f90
-
 #define func_L00_00211908 game_FUN_L00_00211250
-
 #define func_L00_00211908__game game_FUN_L00_00211250__game
-
 #define func_L00_00235FF8 game_FUN_L00_00235668
-
 #define func_L00_00277A88 game_FUN_L00_00276bd0
-
 #define func_L00_00277A88__game game_FUN_L00_00276bd0__game
-
 #define func_001FD3E8 game_FUN_001fce28
-
 #define func_001FD3E8__game game_FUN_001fce28__game
-
 #define RAC1_ADDR_L00_0x0015F808u 0x0015F728u
-
 #define RAC1_ADDR_L00_0x0015F8D0u 0x0015F7F0u
-
 #define RAC1_ADDR_L00_0x0015F8E8u 0x0015F808u
-
 #define RAC1_ADDR_L00_0x0015F8F0u 0x0015F810u
-
 #define RAC1_ADDR_L00_0x0015F8FCu 0x0015F81Cu
-
 #define RAC1_ADDR_L00_0x0015F900u 0x0015F820u
-
 #define RAC1_ADDR_L00_0x0015FB28u 0x0015FA70u
-
 #define RAC1_ADDR_L00_0x0015FB2Cu 0x0015FA74u
-
 /* The title loop's exit (front_end.c title_exit), PAL space_load_pending D_0015F690, which
  * transition.c's title loop waits on: the NTSC decomp's transition_do_transition waits on
  * space_load_pending D_0015F5B0 (its game_globals.h). 0x15F590 is freeze_fmt_time, a format string
  * (draw_dialog_text.c), never 0: the port's main menu rows (Exit, the mods') were never put in. */
-
 #define RAC1_ADDR_0x0015F690u 0x0015F5B0u
 
 /* Shared explosion capture for enhanced water. */
-
 #define func_L00_0025F4A8 game_FUN_L00_0025e450
-
 #define func_L00_0025F4A8__game game_FUN_L00_0025e450__game
 
 /* The hero moved by a mod (play.c, interface 1.12): PAL advance_hero_animation func_L00_00232EF0
@@ -548,99 +335,61 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * FUN_L00_00209240, update_hero_equipped_items func_L00_00210FE0 FUN_L00_00210928 (the NTSC
  * decomp's gameplay/hero/air_accel.c), begin_draw_frame func_001F7B40 FUN_001f7978 and
  * euler_rotation_matrix func_001FA218 FUN_001fa050, as games/rac1's names_ntsc.tsv pairs them. */
-
 #define func_L00_00232EF0 game_FUN_L00_00232670
-
 #define func_L00_00205CC0 game_FUN_L00_002056a8
-
 #define func_L00_00208E98 game_FUN_L00_00208820
-
 #define func_L00_002098B8 game_FUN_L00_00209240
-
 #define func_L00_00210FE0 game_FUN_L00_00210928
-
 #define func_001F7B40 game_FUN_001f7978
-
 #define func_001FA218 game_FUN_001fa050
 
 /* Aridia's counter anchors (hud.c): l02_hud_counter_left/right_anchor_x of the NTSC decomp
  * (src/overlays/l02/hud_counter.c, read by draw_hud_counter FUN_L02_0023cda8). */
-
 #define RAC1_ADDR_L02_0x0015FA1Cu 0x0015F944u
-
 #define RAC1_ADDR_L02_0x0015FA20u 0x0015F948u
 
 /* The ship computer's list (rac1/host/destinations.c): the NTSC decomp declares FUN_00221800
  * (the same bytes as PAL's) as void (menu, s32). */
-
 #define RAC1_SHIP_MENU_RESULT void
-
 #define RAC1_SHIP_MENU_PARAMS gaddr menu, int unused
-
 #define RAC1_SHIP_MENU_CALL(menu) (func_00222848__game(menu, unused), 0)
-
-#define RAC1_SHIP_MENU_RETURN(result)
-
-do {
-    (void)(result);
-
-    return;
-
-} while (0)
+#define RAC1_SHIP_MENU_RETURN(result)                                                              \
+    do {                                                                                           \
+        (void)(result);                                                                            \
+        return;                                                                                    \
+    } while (0)
 
 /* draw_visibomb_outside_zone_overlay in the NTSC decomp's visibomb_zone_timer.c:
  * PAL's DrawTiledScreenOverlay (func_L01_00303810), including the retail call under the wrap. */
-
 #define func_L01_00303810 game_FUN_L01_00302438
-
 #define func_L01_00303810__game game_FUN_L01_00302438__game
 
 /* ---- generated below ---- */
 
 /* Functions: games/rac1's name, this version's. */
-
 #define func_00116078 game_printf
-
 #define func_00116248 game_sprintf
-
 #define func_0012DA38 game_FUN_0012d8f8
-
 #define func_0012DA38__game game_FUN_0012d8f8__game
-
 #define func_0012DDC0 game_FUN_0012dc80
-
 #define func_001E9E70 game_FUN_001e9ab8
-
 #define func_001E9E70__game game_FUN_001e9ab8__game
-
 #define func_001EC210 game_FUN_001ebe68
-
 #define func_001EFE10 game_FUN_001efa68
-
 #define func_001F2608 game_FUN_001f2260
-
 #define func_001F2608__game game_FUN_001f2260__game
-
 #define func_001F4630 game_FUN_001f4280
-
 #define func_001F4630__game game_FUN_001f4280__game
-
 #define func_001F4868 game_FUN_001f44b8
-
 #define func_001F4A00 game_FUN_001f4650
 #define func_001F4A78 game_FUN_001f46c8
 #define func_001F4AF0 game_FUN_001f4740
 #define func_001F4BB8 game_FUN_001f4808
 #define func_001F5800 game_FUN_001f5450
-
 #define func_001F5800__game game_FUN_001f5450__game
-
 #define func_001F6668 game_FUN_001f62b0
-
 #define func_001F6668__game game_FUN_001f62b0__game
-
 #define func_001F7070 game_FUN_001f7090
-
 #define func_001F7560 game_FUN_001f7580
 #define func_001F75D0 game_FUN_001f75f0
 #define func_001F7C60 game_FUN_001f7a98
