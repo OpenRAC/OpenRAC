@@ -18,9 +18,13 @@
     changed,
     editList,
     fieldErrors,
+    fillAllAmmo,
+    giveAll,
     ownedCount,
     platinumCount,
+    setAllPlatinum,
     setOwned,
+    takeAll,
     setVersion,
     SHIP_PAINTS,
     flagGroups,
@@ -90,6 +94,8 @@
   const editedSections = $derived(new Set(edits.map((e) => e.section)));
   const changeCount = $derived(Math.max(edits.length, dirty ? 1 : 0));
   let asking = $state(false);
+  /** "Take all" gadgets asks first, beside the button, with the story-item warning. */
+  let confirmTake = $state(false);
   let reviewing = $state(false);
   let modalEl = $state<HTMLElement | null>(null);
   let bodyEl = $state<HTMLElement | null>(null);
@@ -162,7 +168,8 @@
   }
 
   function escape() {
-    if (asking) asking = false;
+    if (confirmTake) confirmTake = false;
+    else if (asking) asking = false;
     else if (reviewing) reviewing = false;
     else close();
   }
@@ -438,6 +445,28 @@
             Weapons <span class="count"
               >{ownedCount(view, fields, "weapon")[0]} of {ownedCount(view, fields, "weapon")[1]}</span
             >
+            <span class="grow"></span>
+            <span class="actions">
+              <button
+                class="ghost small"
+                onclick={() => {
+                  if (view && fields) giveAll(view, fields, "weapon");
+                }}>Give all</button
+              >
+              <button
+                class="ghost small"
+                onclick={() => {
+                  if (view && fields) fillAllAmmo(view, fields);
+                }}>Fill all ammo</button
+              >
+              <button
+                class="ghost small"
+                title="What Ratchet has in hand stays"
+                onclick={() => {
+                  if (view && fields) takeAll(view, fields, "weapon");
+                }}>Take all</button
+              >
+            </span>
           </h3>
           <p class="note">
             Outside challenge mode a V3 still earns experience but never upgrades to V4: pick V4 here instead. A new
@@ -637,7 +666,40 @@
             Gadgets and items <span class="count"
               >{ownedCount(view, fields, "gadget")[0]} of {ownedCount(view, fields, "gadget")[1]}</span
             >
+            <span class="grow"></span>
+            <span class="actions">
+              <button
+                class="ghost small"
+                onclick={() => {
+                  if (view && fields) giveAll(view, fields, "gadget");
+                }}>Give all</button
+              >
+              <button
+                class="ghost small"
+                onclick={() => (confirmTake = true)}
+                disabled={confirmTake || ownedCount(view, fields, "gadget")[0] === 0}>Take all</button
+              >
+            </span>
           </h3>
+          {#if confirmTake}
+            <div
+              class="ask-box"
+              role="alertdialog"
+              aria-label="Take every gadget and item away?"
+              transition:slide={fold}
+            >
+              <Icon name="warn" size={16} />
+              <span class="grow">{storyWarning} Take away every gadget and item?</span>
+              <button class="ghost small" use:focusOnShow onclick={() => (confirmTake = false)}>Keep them</button>
+              <button
+                class="small"
+                onclick={() => {
+                  if (view && fields) takeAll(view, fields, "gadget");
+                  confirmTake = false;
+                }}>Take all</button
+              >
+            </div>
+          {/if}
           <div class="chips">
             {#each gadgets as g (g.id)}
               {@const s = item(g.id)}
@@ -662,6 +724,21 @@
         <section id="se2-planets" aria-labelledby="se2-planets-h">
           <h3 id="se2-planets-h">
             Planets <span class="count">{platinumCount(fields)} platinum bolts</span>
+            <span class="grow"></span>
+            <span class="actions">
+              <button
+                class="ghost small"
+                onclick={() => {
+                  if (fields) setAllPlatinum(fields, true);
+                }}>All platinum bolts</button
+              >
+              <button
+                class="ghost small"
+                onclick={() => {
+                  if (fields) setAllPlatinum(fields, false);
+                }}>No platinum bolts</button
+              >
+            </span>
           </h3>
           <ul class="rows planets">
             {#each view.planets as p (p.id)}
@@ -1113,6 +1190,35 @@
     align-items: center;
     gap: 10px;
     margin: 14px 0 8px;
+  }
+
+  .actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 2px;
+    font-family: var(--font-sans);
+  }
+
+  /* Asks before "Take all" gadgets, under the button that asked. */
+  .ask-box {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    font-size: 0.8125rem;
+    color: var(--text);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
+    border-radius: var(--radius-sm);
+  }
+
+  .ask-box > :global(svg) {
+    flex: none;
+    color: var(--amber);
   }
 
   .count {
