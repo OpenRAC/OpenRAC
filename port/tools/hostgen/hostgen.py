@@ -1232,7 +1232,11 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.aliases.update({(unit, name): symbol for unit, names in cfg.get("unit_aliases", {}).items()
                             for name, symbol in names.items()})
     program.global_views = bool(cfg.get("global_views", False))
-    program.formed_as = {name: int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
+    # Keyed by the primary's names, as release_carry.py writes them; a release's C says the release's
+    # (USA v2.00's D_001F0000, the particle textures' pointers, is D_001EFF80 there): unmatched, the
+    # name went to OPENRAC_DATA alone and read another word, so the trail puffs took texture 0, the
+    # rain's streak, and bolts on Oozla stood in cones of light (T-46).
+    program.formed_as = {in_release(name): int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
     # hostgen.json "cross_level_data": {name: reason} — a datum a level function may name by another
     # level's address with no copy of the function there to find its own from (lower.py _copy_named_in).
     program.cross_level_data = dict(cfg.get("cross_level_data", {}))
