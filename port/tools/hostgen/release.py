@@ -448,6 +448,11 @@ class Release:
                 return new if new != f"func_00{short.group(2)}" else word
             named = NAME.fullmatch(word)
             return self._one(named) if named else word
+        # A readable name the unit's table gives (a hook's, as its catalogue names it) goes too.
+        words = sorted((w for w in own if not ANY.fullmatch(w)), key=len, reverse=True)
+        if words:
+            either = re.compile(rf"{ANY.pattern}|(?<![\w])(?:{'|'.join(map(re.escape, words))})(?![\w])")
+            return either.sub(one, text)
         return ANY.sub(one, text)
 
 
@@ -958,6 +963,10 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
     for name, _, _, places in parts["us_levels"]:
         for p in places:
             us_at.setdefault(p, name)
+    hook_aliases: dict[str, list[str]] = {}
+    for word, name in sorted((readable or {}).items()):
+        if name in parts.get("catalogue_hooks", {}):
+            hook_aliases.setdefault(name, []).append(word)
     r_exe = {a: n for n, a, _ in parts["r_boot"]}
     r_place_of = {}
     for (l, a), n in r_at.items():
@@ -993,9 +1002,14 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
                 # 0x0026F5D8), which pair_stubs pairs with another of v1.01's: the name the table
                 # gives it without the pairing.
                 for hook, old in parts.get("catalogue_hooks", {}).items():
-                    if old != release.name(hook) and re.search(rf"(?<![\w]){hook}(?![0-9A-Za-z])", text):
-                        out.setdefault(rel, {})[hook] = old
-                        evidence["function: a hook named as the release's catalogue does"] += 1
+                    if old == release.name(hook):
+                        continue
+                    # By its address name, or by a readable one (stub_empty_17 for func_0026F790).
+                    for word in (hook, *hook_aliases.get(hook, ())):
+                        tail = "0-9A-Za-z" if word == hook else r"\w"
+                        if re.search(rf"(?<![\w]){word}(?![{tail}])", text):
+                            out.setdefault(rel, {})[word] = old
+                            evidence["function: a hook named as the release's catalogue does"] += 1
             if unit_level is None:
                 continue
             found = {m.group(0) for m in SHORT.finditer(text)}
