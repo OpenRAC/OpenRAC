@@ -151,7 +151,6 @@ void test_nanotech_sparks_name_their_position_anchor() {
     CHECK(profile.particle_attachment({}) == 0);
 }
 
-
 // A moby the vendor draws from its own pool, not the list, comes with its bangles: the ammo
 // preview (class 3291, bangle word 1) is drawn as its own mesh and bangle 0, the ammo box.
 void test_extra_moby_keeps_its_bangles() {
