@@ -3,7 +3,7 @@
  "counts": {
   "function: by hand": 20,
   "function: called": 28,
-  "function: changed": 69,
+  "function: changed": 72,
   "function: found": 28,
   "function: near": 100,
   "function: same": 697,
@@ -211,6 +211,11 @@
   "func_002E25C0": [
    "func_002E3390",
    "found",
+   "host C"
+  ],
+  "func_002ECB70": [
+   "func_002EDA88",
+   "changed",
    "host C"
   ],
   "func_002F3C40": [

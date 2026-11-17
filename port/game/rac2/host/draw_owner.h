@@ -18,6 +18,10 @@
 /* The running callback's argument, 0 outside the lists' runs. */
 extern gaddr rac2_draw_owner;
 
+/* The id of the next world quad drawn (openrac_game_quad::id), counted up per quad; 0 for none.
+ * A frame between ticks moves a quad with an id from where the last tick had it. */
+extern uint32_t rac2_effect_quad_id;
+
 /* Returns the nanotech ball's position anchor while its body is drawn, otherwise 0.
  * Class +0xAA and state +0x20 are shared by the releases
  * (seen in game code: func_003136D0 and func_003146C0). */
