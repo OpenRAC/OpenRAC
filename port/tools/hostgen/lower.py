@@ -1990,7 +1990,11 @@ class Unit:
         if self.fn is None:
             return False
         names = getattr(self.program, "ps2_float", ())
-        if self.fn.code not in names and not (self.fn.static and self.fn.name in self._ps2_statics(names)):
+        # A release's assembly-only function is spelled FUN_ (PAL's FUN_002A0F68, v1.01's func_002A05A8,
+        # the animation step), and the list says func_ at its address: the same function. Unmatched, its
+        # candidate C divided by a zero rate into infinity, then NaN, and stepped frames for ever (T-38).
+        code = "func_" + self.fn.code[4:] if self.fn.code.startswith("FUN_") else self.fn.code
+        if code not in names and not (self.fn.static and self.fn.name in self._ps2_statics(names)):
             return False
         self.uses_ps2 = True
         return True
