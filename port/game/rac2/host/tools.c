@@ -321,6 +321,13 @@ static void skip(void) {
     }
 }
 
+/* Clank on the hero's back. The hero's set-up (func_L00_002A4928) sets this short when the
+ * Heli-Pack is not owned, and while it is set the hero's items update (func_L00_002D3068) hides the
+ * pack slot's mobys: Clank is away until Endako. Endako's rescue (func_L03_003D20F8) clears it, and so
+ * does the hero's next set-up, after a death. The hero block starts 0x80 before his position. */
+#define ITEM_HELI_PACK 2
+#define HERO_WITHOUT_CLANK (RAC2_g_heroPos - 0x80u + 0x24FCu)
+
 /* An item into the hero's hands as GiveInventoryItem (0x00288308) leaves it: owned, shown as new,
  * full of ammunition, in the weapon lists when it is a weapon, and on the quick select ring's first
  * free slot when it is one the ring takes (0x00288208: kind 0, and a class to show). The game's own routine is in each
@@ -332,6 +339,9 @@ static int give_item(int id) {
         GREF(uint8_t, RAC2_g_inventoryOwned + (unsigned)id) = 1;
         GREF(uint8_t, RAC2_g_inventoryNewFlag + (unsigned)id) = 1;
         changed = 1;
+        if (id == ITEM_HELI_PACK) {
+            GREF(int16_t, HERO_WITHOUT_CLANK) = 0;
+        }
     }
     if (ITEM_AMMO_PRICE(record) != 0) {
         GREF(int32_t, RAC2_g_weaponAmmo + 4u * (unsigned)id) = ITEM_AMMO_FULL(record);
