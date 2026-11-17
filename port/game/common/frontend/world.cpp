@@ -21,13 +21,17 @@
 #include <format>
 #include <future>
 #include <memory>
+#include <set>
 #include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "assets/disc/disc.h"
+#include "assets/disc/level.h"
 #include "assets/disc/scene.h"
+#include "assets/disc/wad.h"
+#include "assets/geometry/moby.h"
 #include "assets/geometry/moby_animation.h"
 #include "assets/sound/adpcm.h"
 #include "assets/sound/vag.h"
@@ -77,6 +81,8 @@
 namespace openrac::frontend {
 
 namespace {
+
+#include "special_acquisition.inc"
 
 bool infobot_screen_motion(scene::Model& model) {
     try {
@@ -378,6 +384,8 @@ void use_level(int number) {
     lighting::use_scene_lighting(g->scene);
     g->level = scene::LevelData();
     g->prop_models.clear();
+    audio::ui_sounds::play_pickup_audio(-1);
+    g->special_pickup_clips.clear();
     g->infobot_pickup_model = -1;
     g->infobot_pickup_poses.clear();
     g->picker.clear();
@@ -526,6 +534,16 @@ void use_level(int number) {
                 break;
             }
         }
+    }
+    if (g->level.game == "rac1" && wanted >= 0 && wanted < 19
+        && std::any_of(
+            visual_classes.begin(),
+            visual_classes.end(),
+            [](int id) {
+                return id == 407 || id == 37 || id == 1002 || id == 1428 || id == 645 || id == 1433;
+            }
+        )) {
+        load_special_pickup_clips();
     }
     enhanced::install_texture_upscaler(g->renderer->textures());
     crash::level_breadcrumb("level scene upload", wanted);
@@ -1591,4 +1609,8 @@ extern "C" int openrac_game_enhanced_water(void) {
         }
         return int(available);
     });
+}
+
+extern "C" int openrac_game_special_available(int item) {
+    return openrac::frontend::g && openrac::frontend::g->special_pickup_clips.contains(item);
 }

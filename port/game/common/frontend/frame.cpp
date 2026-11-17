@@ -2278,10 +2278,64 @@ TickMobys pose_mobys(
         live.push_back(instance);
         live_addresses.push_back(m.address);
     }
+    if (!only_own_camera && !under_menu && presenting_infobot
+        && infobot_presentation.special_item) {
+        const auto found = g->special_pickup_clips.find(infobot_presentation.special_item);
+        if (found != g->special_pickup_clips.end()) {
+            const auto& clip = found->second;
+            const bool face_camera = infobot_presentation.special_item == 407
+                                     || infobot_presentation.special_item == 37
+                                     || infobot_presentation.special_item == 1002;
+            const float angle = infobot_presentation.yaw - (face_camera ? 0 : clip.yaw);
+            auto anchor = renderer::identity();
+            anchor[0] = anchor[5] = std::cos(angle);
+            anchor[1] = std::sin(angle);
+            anchor[4] = -anchor[1];
+            if (face_camera) {
+                anchor = renderer::multiply(anchor, clip.upright);
+            }
+            for (int axis = 0; axis < 3; ++axis) {
+                anchor[12 + axis] = infobot_presentation.position[axis];
+            }
+            int index = 0;
+            for (const auto& actor : clip.actors) {
+                const auto tick = std::min(
+                    std::size_t(std::max(0.0f, infobot_presentation.time) * clip.fps),
+                    actor.frames.size() - 1
+                );
+                const auto& frame = actor.frames[tick];
+                renderer::Vec3 relative{};
+                for (int axis = 0; axis < 3; ++axis) {
+                    relative[axis] =
+                        (frame.position[axis] - clip.origin[axis]) * infobot_presentation.scale;
+                }
+                scene::Instance instance;
+                instance.model = actor.model;
+                instance.matrix = renderer::multiply(
+                    anchor,
+                    renderer::multiply(
+                        renderer::translation(relative),
+                        renderer::scale(actor.scale * infobot_presentation.scale)
+                    )
+                );
+                if (!frame.pose.empty()) {
+                    instance.palette = int(palette.size());
+                    palette.insert(palette.end(), frame.pose.begin(), frame.pose.end());
+                }
+                instance.occlusion = scene::Pvs::always;
+                instance.moby_light = {0, 0, 0, 1};
+                instance.gameplay_essential = true;
+                live.push_back(instance);
+                live_addresses.push_back(0xFFFFFD00u + unsigned(index++));
+                live_joints.push_back(0);
+            }
+        }
+    }
     if (!only_own_camera && !under_menu && g->infobot_pickup_model >= 0 && openrac_game_play_host
         && openrac_game_play_host->infobot_presentation) {
         openrac_infobot_presentation presentation{};
-        if (openrac_game_play_host->infobot_presentation(&presentation)) {
+        if (openrac_game_play_host->infobot_presentation(&presentation)
+            && !presentation.special_item) {
             const auto id = std::uint32_t(g->infobot_pickup_model);
             const auto& model = g->level.models[id];
             const auto& poses = g->infobot_pickup_poses;

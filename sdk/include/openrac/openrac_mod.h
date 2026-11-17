@@ -2234,6 +2234,8 @@ typedef struct openrac_api {
     uint32_t (*sprite_tint)(openrac_mod* mod, uint32_t rgb);
     /* Local pickup presentation: 1 Gold Bolt, 2 weapon demo (item is its base ID),
      * 3 Infobot capture/video/close (item is the destination planet ID).
+     * 4 special-item receiving motion (item is its native moby class: 37, 407,
+     * 645, 1002, 1428 or 1433). Background music resumes from its paused position.
      * -1 polls an active sequence. Returns 1 active,
      * 0 unsupported/finished, -1 busy (retry). Does not grant items. Since 1.19. */
     int (*pickup_animation)(openrac_mod* mod, int kind, int item);

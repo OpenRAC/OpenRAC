@@ -13,6 +13,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <map>
 #include <mutex>
 #include <numbers>
 #include <vector>
@@ -179,6 +180,10 @@ struct State {
     bool cursor_played = false;
     std::vector<float> bus;  // a block's dry sum
     std::array<std::vector<float>, 2> infobot_audio;
+    std::map<int, std::vector<float>> pickup_audio;
+    int pickup_clip = -1;
+    std::size_t pickup_at = 0;
+    std::vector<float> pickup_bus;
     int infobot_clip = -1;
     std::size_t infobot_at = 0;
     float low_pass = 0.0f;
@@ -263,6 +268,44 @@ void render(Voice& v, std::span<float> bus) {
 
 }  // namespace
 
+void set_pickup_audio(int item, std::span<const std::int16_t> mono, unsigned rate) {
+    State& s = state();
+    std::lock_guard guard(s.lock);
+    if (s.pickup_clip == item) {
+        s.pickup_clip = -1;
+        s.pickup_at = 0;
+    }
+    auto& clip = s.pickup_audio[item];
+    clip.clear();
+    if (!rate || mono.empty()) {
+        return;
+    }
+    clip.resize(std::size_t(double(mono.size()) * kRate / rate));
+    for (std::size_t i = 0; i < clip.size(); ++i) {
+        const double at = double(i) * rate / kRate;
+        const auto a = std::min(std::size_t(at), mono.size() - 1),
+                   b = std::min(a + 1, mono.size() - 1);
+        clip[i] = float((mono[a] + (mono[b] - mono[a]) * (at - a)) / 32768.0);
+    }
+}
+
+bool play_pickup_audio(int item) {
+    State& s = state();
+    std::lock_guard guard(s.lock);
+    s.pickup_clip = -1;
+    s.pickup_at = 0;
+    if (item < 0) {
+        return true;
+    }
+    const auto clip = s.pickup_audio.find(item);
+    if (clip == s.pickup_audio.end() || clip->second.empty()) {
+        return false;
+    }
+    s.pickup_clip = item;
+    s.quiet = 0;
+    return true;
+}
+
 void set_infobot_audio(std::span<const std::int16_t> mono, unsigned rate) {
     State& s = state();
     std::lock_guard guard(s.lock);
@@ -337,6 +380,16 @@ void mix(std::span<std::int16_t> interleaved) {
         return;  // nothing sounding, the room at rest
     }
     s.bus.assign(frames, 0.0f);
+    s.pickup_bus.assign(frames, 0.0f);
+    if (s.pickup_clip >= 0) {
+        const auto& clip = s.pickup_audio[s.pickup_clip];
+        for (std::size_t i = 0; i < frames && s.pickup_at < clip.size(); ++i) {
+            s.pickup_bus[i] = clip[s.pickup_at++];
+        }
+        if (s.pickup_at >= clip.size()) {
+            s.pickup_clip = -1;
+        }
+    }
     if (s.infobot_clip >= 0) {
         const auto& clip = s.infobot_audio[s.infobot_clip];
         for (std::size_t i = 0; i < frames && s.infobot_at < clip.size(); ++i) {
@@ -358,14 +411,18 @@ void mix(std::span<std::int16_t> interleaved) {
         const float sides[2] = {dry + kWet * s.left.step(dry), dry + kWet * s.right.step(dry)};
         for (std::size_t c = 0; c < 2; ++c) {
             std::int16_t& out = interleaved[f * 2 + c];
-            out = static_cast<std::int16_t>(
-                std::clamp(static_cast<float>(out) + sides[c] * 32767.0f, -32768.0f, 32767.0f)
-            );
+            out = static_cast<std::int16_t>(std::clamp(
+                static_cast<float>(out) + (sides[c] + s.pickup_bus[f]) * 32767.0f,
+                -32768.0f,
+                32767.0f
+            ));
         }
     }
     const bool still =
         std::any_of(s.voices.begin(), s.voices.end(), [](const Voice& v) { return v.sound >= 0; });
-    s.quiet = (still || s.infobot_clip >= 0) ? 0 : s.quiet + static_cast<int>(frames);
+    s.quiet = (still || s.infobot_clip >= 0 || s.pickup_clip >= 0)
+                  ? 0
+                  : s.quiet + static_cast<int>(frames);
     if (s.quiet >= kTailSamples) {
         s.left.clear();
         s.right.clear();
@@ -383,6 +440,8 @@ void reset() {
     State& s = state();
     std::lock_guard guard(s.lock);
     s.voices = {};
+    s.pickup_clip = -1;
+    s.pickup_at = 0;
     s.infobot_clip = -1;
     s.infobot_at = 0;
     s.cursor_played = false;

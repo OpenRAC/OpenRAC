@@ -32,7 +32,7 @@ inline Adjustment defaults(int id) {
         case 37:
             return {32.5f, 7.0f, 1.97359955f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 645:
-            return {-127.5f, -6.75f, 2.63739991f, 21.5f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+            return {-127.0f, -3.5f, 2.63739895f, 18.5f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 1002:
             return {3.0f, 0.0f, 0.699899852f, 0.0f, 0.0f, 18.5f, true, 0.0f, 0.0f, 0.0f, false};
         case 1428:
@@ -43,7 +43,7 @@ inline Adjustment defaults(int id) {
             return {0.0f, 10.5f, 2.61739921f, -30.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 66181:
             return {
-                17.5f, 16.5f, 2.70099997f, 0.0f, 0.0f, 0.0f, true, 0.0f, 1.02399992f, 0.0f, true
+                17.5f, 16.5f, 2.70099902f, 0.0f, 0.0f, 0.0f, true, 0.0f, 1.02399945f, 0.0f, true
             };
         case 66538:
             return {-2.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
@@ -68,7 +68,7 @@ inline Adjustment defaults(int id) {
         case 208:
             return {46.75f, -13.0f, 1.72099888f, -2.5f, 0.0f, 13.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 407:
-            return {92.5f, -34.5f, 4.0f, 0.0f, 0.0f, 198.5f, true, 0.0f, 0.0f, 0.0f, false};
+            return {60.0f, 19.25f, 4.0f, 0.0f, 0.0f, 223.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 433:
             return {41.0f, -9.0f, 1.26399886f, 14.5f, 6.5f, -137.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 439:
@@ -208,9 +208,7 @@ inline Adjustment defaults(int id) {
                 18.0f, 0.0f, 1.70899891f, 0.0f, 0.0f, -32.0f, true, -0.949999451f, 1.0f, 0.0f, true
             };
         case 65943:
-            return {
-                13.5f, 0.0f, 4.0f, 0.0f, 6.5f, 65.0f, true, 0.622999727f, 0.199999928f, 0.0f, true
-            };
+            return {4.25f, 13.5f, 4.0f, -30.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, true};
         case 65969:
             return {
                 10.8799982f,

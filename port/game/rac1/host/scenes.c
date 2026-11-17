@@ -44,6 +44,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "openrac/sound_engine.h"
 #include "rac1.h"
 
 #define LEVEL_MODE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F6A8u))
@@ -267,13 +268,17 @@ static void pickup_infobot_camera(int reset) {
     }
     if (reset) {
         func_L00_00217718(at, rot, 0x72, 0);
-        openrac_game_infobot_sound(pickup.info_stage == 0);
+        if (pickup.kind == 3) {
+            openrac_game_infobot_sound(pickup.info_stage == 0);
+        }
     }
     if (pickup.hidden_hero) {
         GREF(uint16_t, pickup.hidden_hero + 0x34) |= 1;
     }
     const float t = fminf(pickup.info_time / 0.9f, 1);
-    const float open = pickup.info_stage == 2 ? 1 - t * t * (3 - 2 * t) : t * t * (3 - 2 * t);
+    const float open = pickup.kind == 4         ? 0
+                       : pickup.info_stage == 2 ? 1 - t * t * (3 - 2 * t)
+                                                : t * t * (3 - 2 * t);
     const float distance = (4.5f + 0.5f * open) * pickup.info_scale;
     float target[3] =
         {pickup.home[0], pickup.home[1], pickup.home[2] + (1.0f + 0.3f * open) * pickup.info_scale};
@@ -299,7 +304,7 @@ static void pickup_infobot_camera(int reset) {
 }
 
 int rac1_infobot_presentation(openrac_infobot_presentation* out) {
-    if (pickup.kind != 3 || pickup.info_stage == 1 || !rac1_level_running()
+    if ((pickup.kind != 3 && pickup.kind != 4) || pickup.info_stage == 1 || !rac1_level_running()
         || pickup.load != rac1_moby_generation()) {
         return 0;
     }
@@ -307,6 +312,13 @@ int rac1_infobot_presentation(openrac_infobot_presentation* out) {
     out->position[1] = pickup.home[1];
     out->position[2] = pickup.home[2];
     out->scale = pickup.info_scale;
+    out->special_item = pickup.kind == 4 ? pickup.info_movie : 0;
+    out->time = pickup.info_time;
+    out->yaw = pickup.yaw;
+    if (pickup.kind == 4
+        && (pickup.info_movie == 407 || pickup.info_movie == 37 || pickup.info_movie == 1002)) {
+        out->yaw = pickup.info_angle;
+    }
     const float t = fminf(pickup.info_time / 0.9f, 1);
     const float eased = t * t * (3 - 2 * t);
     out->openness = pickup.info_stage == 2 ? 1 - eased : eased;
@@ -314,7 +326,7 @@ int rac1_infobot_presentation(openrac_infobot_presentation* out) {
 }
 
 int rac1_pickup_background(void) {
-    return pickup.kind == 3 && pickup.info_stage != 1 && rac1_level_running()
+    return (pickup.kind == 3 || pickup.kind == 4) && pickup.info_stage != 1 && rac1_level_running()
            && pickup.load == rac1_moby_generation();
 }
 
@@ -335,7 +347,7 @@ static void pickup_finish(void) {
         GREF(unsigned short, pickup.held + 0x34) =
             (GREF(unsigned short, pickup.held + 0x34) & ~1u) | (pickup.held_flags & 1u);
     }
-    if (pickup.kind == 1 || pickup.kind == 3) {
+    if (pickup.kind == 1 || pickup.kind == 3 || pickup.kind == 4) {
         GREF(int32_t, OPENRAC_LDATA(1, RAC1_LADDR(01, 0x0015F504u))) = pickup.gold_active;
         func_L00_00217718(HERO + 0x80, HERO + 0x90, 0, 0);
         func_L00_002EC0C8(0);
@@ -344,11 +356,14 @@ static void pickup_finish(void) {
         rac1_hero_place(pickup.home, pickup.yaw, 0);
     }
     func_0020BFC8(0, -1);
+    func_00216F28();
+    openrac_music_hold(0);
     memset(&pickup, 0, sizeof pickup);
 }
 
 void rac1_pickup_tick(void) {
     if (pickup.kind && (!rac1_level_running() || pickup.load != rac1_moby_generation())) {
+        openrac_music_hold(0);
         memset(&pickup, 0, sizeof pickup);
     }
     if (pickup.kind) {
@@ -359,6 +374,19 @@ void rac1_pickup_tick(void) {
              * Stop before its final accounting/save: AP already granted the reward. */
             if (GREF(int, HERO_HEALTH) <= 0 || pickup.ticks >= 900
                 || (GREF(uint8_t, pickup.prop + 0x52) == 0 && GREF(int32_t, vars + 0x6C) <= 2)) {
+                pickup_finish();
+            }
+        } else if (pickup.kind == 4 && GREF(int, LEVEL_MODE) == MODE_PLAY) {
+            const float dt = GREF(float, RAC1_ADDR(0x0015EE6Cu));
+            pickup.info_time += dt > 0 && dt < 0.25f ? dt : 1.0f / 60;
+            pickup_infobot_camera(0);
+            const float duration = pickup.info_movie == 1002   ? 4.8f
+                                   : pickup.info_movie == 1428 ? 4.12f
+                                   : pickup.info_movie == 407  ? 1.08f
+                                   : pickup.info_movie == 37   ? .76f
+                                   : pickup.info_movie == 645  ? 7.76f
+                                                               : 7.8f;
+            if (GREF(int, HERO_HEALTH) <= 0 || pickup.info_time >= duration) {
                 pickup_finish();
             }
         } else if (pickup.kind == 3 && GREF(int, LEVEL_MODE) == MODE_PLAY) {
@@ -398,7 +426,14 @@ int rac1_pickup_animation(int kind, int item) {
         }
         return 0;
     }
-    if (kind < 1 || kind > 3) {
+    if (kind < 1 || kind > 4) {
+        return 0;
+    }
+    if (kind == 4 && item != 1002 && item != 1428 && item != 645 && item != 1433 && item != 407
+        && item != 37) {
+        return 0;
+    }
+    if (kind == 4 && !openrac_game_special_available(item)) {
         return 0;
     }
     if (pickup.kind || !rac1_level_running() || GREF(int, LEVEL_MODE) != MODE_PLAY) {
@@ -414,6 +449,7 @@ int rac1_pickup_animation(int kind, int item) {
     if (kind == 3 && (item < 2 || item > 18)) {
         return 0;
     }
+    openrac_music_hold(1);
     pickup.kind = kind;
     pickup.load = rac1_moby_generation();
     for (int axis = 0; axis < 3; ++axis) {
@@ -441,7 +477,7 @@ int rac1_pickup_animation(int kind, int item) {
         }
         GREF(int32_t, vendor + 0x48) = item;
         func_L00_0029C070();
-    } else if (kind == 3) {
+    } else if (kind == 3 || kind == 4) {
         pickup.info_movie = item;
         pickup.hidden_hero = GREF(gaddr, HERO_MOBY);
         if (pickup.hidden_hero) {
@@ -455,9 +491,13 @@ int rac1_pickup_animation(int kind, int item) {
             GREF(unsigned short, pickup.held + 0x34) |= 1;
         }
         pickup_infobot_camera(1);
+        if (kind == 4) {
+            openrac_game_special_sound(item);
+        }
     } else {
         pickup.prop = func_0020D348(1134);
         if (!pickup.prop) {
+            openrac_music_hold(0);
             memset(&pickup, 0, sizeof pickup);
             return 0;
         }
@@ -480,7 +520,8 @@ int rac1_pickup_animation(int kind, int item) {
         GREF(float, pickup.prop + 0x48) = pickup.yaw;
         /* State zero only initializes the native prop. Borrow a valid index for
          * that check, restoring it immediately; the prop never owns a location. */
-        const gaddr collected = RAC1_ADDR(0x0014BFC0u) + 4 * GREF(int32_t, RAC1_ADDR(0x0015EE84u));
+        const gaddr collected = RAC1_ADDR(0x0014BFC0u)
+                                + 4 * GREF(int32_t, OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015EE84u)));
         const uint8_t saved = GREF(uint8_t, collected);
         GREF(uint8_t, collected) = 0;
         GREF(uint8_t, pickup.prop + 0x20) = 0;
