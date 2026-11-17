@@ -9,8 +9,6 @@ func_001290E0	row	rac2-ntsc,rac2-ntsc2,rac2-pal	sceVu0Normalize, the second entr
 func_00129148	row	rac2-ntsc,rac2-ntsc2,rac2-pal	sceVu0ScaleVector, the second entry of func_00129120: host/handasm.c answers it there
 func_00129178	row	rac2-ntsc,rac2-ntsc2,rac2-pal	sceVu0UnitMatrix, the second entry of func_00129160: host/handasm.c answers it there
 func_0012B138	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a function the catalogue does not list (between func_0012B0D8 and func_0012B198): host/handasm.c answers it
-func_0026F7A8	row	rac2-ntsc2	rac2ReturnZero: v2.00's copy of the return-zero stub, which its catalogue does not list (host/handasm.c)
-func_0026F610	row	rac2-pal	rac2ReturnZero: PAL's copy of the return-zero stub, which its catalogue does not list (host/handasm.c)
 func_002FAB0C	row	rac2-ntsc2	the row names v2.00's own C (func_US2_002FAB0C, from the nop before it); hostgen binds it at the catalogue's place 0x002FAB10, versionmap's pair of v1.01's func_002F9C80
 func_002F3C40	row	rac2-ntsc	a fragment inside func_002F35B0 (v1.01's catalogue lists it as an entry, the decomp's as part of func_002F35B0): host/handasm_vu0.c reports a reach there; PAL's and v2.00's catalogues have no such entry, and the release view's func_L22_ name for it is another function
 func_002E182C	row	rac2-ntsc	a resume point inside func_002E1228 (its own code jumps back to it through a scratchpad word): host/handasm_render_big.c reports a reach there; PAL's and v2.00's catalogues have no such entry

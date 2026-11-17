@@ -3,14 +3,14 @@
  "counts": {
   "function: by hand": 16,
   "function: called": 30,
-  "function: changed": 92,
+  "function: changed": 88,
   "function: found": 28,
-  "function: near": 40,
-  "function: same": 719,
-  "global: aligned": 4,
+  "function: near": 43,
+  "function: same": 726,
+  "global: aligned": 5,
   "global: between": 18,
-  "global: exact": 109,
-  "global: the release's build": 111
+  "global: exact": 111,
+  "global: the release's build": 114
  },
  "functions": {
   "func_001158F8": [
@@ -113,30 +113,10 @@
    "changed",
    "host C 0x0026EDE8"
   ],
-  "func_0026F718": [
-   "func_0026F718",
-   "changed",
-   "level_hooks"
-  ],
-  "func_0026F730": [
-   "FUN_0026F730",
-   "changed",
-   "level_hooks"
-  ],
-  "func_0026F750": [
-   "FUN_0026F750",
-   "changed",
-   "level_hooks"
-  ],
   "func_0026F7A0": [
    "func_0026F7A8",
    "by hand",
    "host C"
-  ],
-  "func_0026F7B8": [
-   "func_0026F7B8",
-   "changed",
-   "level_hooks"
   ],
   "func_0027C878": [
    "func_0027CED8",
@@ -192,6 +172,11 @@
    "func_002DD630",
    "changed",
    "host C 0x002DC908"
+  ],
+  "func_002DDA10": [
+   "func_002DE768",
+   "near",
+   "host C"
   ],
   "func_002E182C": [
    "func_002E2644",
@@ -507,7 +492,7 @@
   ]
  },
  "level_hooks": {
-  "carried": 26,
+  "carried": 31,
   "count": 47,
   "from": "0026F718",
   "to": "0026F818"

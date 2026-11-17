@@ -295,6 +295,12 @@ class Pairing:
             if mine is None or theirs is None:
                 continue
             fa, fb = copycalls.formed(mine, gp_us), copycalls.formed(theirs, gp_r)
+            # A global the release's function forms too stayed where it was, whatever the
+            # alignment pairs it with (v2.00's save slot list forms 0x001393E0 and 0x00139410).
+            kept = {i for i in fa if fa[i] in fb.values()}
+            for i in kept:
+                votes.setdefault(fa[i], Counter())[fa[i]] += 1
+            fa = {i: x for i, x in fa.items() if i not in kept}
             if len(mine) == len(theirs):
                 pairs = [(i, i) for i in fa]
             else:
