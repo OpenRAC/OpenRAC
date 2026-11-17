@@ -25,7 +25,7 @@
 #define RAC2_ADDR_0x00138180u 0x00138180u /* versionmap: exact */
 #define RAC2_ADDR_0x00138280u 0x00138280u /* versionmap: between */
 #define RAC2_ADDR_0x001393E0u 0x001393E0u /* versionmap: exact */
-#define RAC2_ADDR_0x00139410u 0x00139410u /* versionmap: exact */
+#define RAC2_ADDR_0x00139410u 0x00139410u /* the same instruction of the paired function */
 #define RAC2_ADDR_0x00146B40u 0x00146B40u /* the same instruction of the paired function */
 #define RAC2_ADDR_0x00146B44u 0x00146B44u /* versionmap: between */
 #define RAC2_ADDR_0x00152C26u 0x00152C26u /* versionmap: between */
