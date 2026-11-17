@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2026 the OpenRAC contributors */
 /*
- * The Mapper's crystal and moonstone markers on USA v1.01 (difference "mapper-markers", T-44).
+ * The Mapper's crystal and moonstone markers on USA v1.01 and PAL (difference "mapper-markers", T-44).
  *
  * USA v2.00 added them: its map (func_US2_00296810) draws the hero's arrow and then, while the
  * Mapper is owned, func_US2_00298AA8, which pulses a marker on the map over every moby of the
@@ -11,31 +11,33 @@
  * its arrow: inside the map's clip, with the same rectangle, scale, classes, colours and pulse.
  * The pulse is kept here, not in game memory.
  *
- * v1.01 only: PAL's tables (rac2_names.tsv, libraries.tsv) are carried by release_carry.py and
- * do not wrap the map (parity.tsv).
+ * PAL's map is v1.01's (src/pal/game/00296870-map-g8.c: the same rectangle and state), so it gets
+ * them too. USA v2.00 draws them itself: its RAC2_K(MAP_MARKERS) is 0 (release.json), and the wrap
+ * only calls its map.
  */
 #include <stdint.h>
 #include "game_protos.h"
 #include "rac2.h"
 #include "openrac/game_host.h"
 
-#if defined(RAC2_PRIMARY)
-
 void func_00295F60__game(int paging, int set_clip);
 
-/* v1.01's globals (executable.h names). */
-#define MAP_INDEX 0x001A79F0u      /* g_current_map_index */
-#define ITEM_OWNED 0x001A7AF8u     /* g_item_owned_flags */
+/* Does this release's map lack the markers (1: v1.01, PAL), or draw them itself (0: v2.00)? */
+#define MARKERS RAC2_K(MAP_MARKERS, 1, func_00295F60)
+
+/* The globals (executable.h names). */
+#define MAP_INDEX RAC2_ADDR(0x001A79F0u)      /* g_current_map_index */
+#define ITEM_OWNED RAC2_ADDR(0x001A7AF8u)     /* g_item_owned_flags */
 #define ITEM_MAPPER 5
-#define SCREEN 0x001A7340u         /* g_screen_width: width, height */
-#define MAP_HIDDEN 0x001A95F0u     /* g_map_icons_hidden */
-#define MAP_SCISSOR_A 0x001A960Cu  /* g_map_scissor_a, b, c, d */
-#define MAP_SCISSOR_B 0x001A9610u
-#define MAP_SCISSOR_C 0x001A9614u
-#define MAP_SCISSOR_D 0x001A9618u
-#define MAP_STATE 0x001C4FA0u      /* g_map_overlay_state */
-#define MOBY_FIRST 0x001B18D8u     /* g_moby_context_first, second */
-#define MOBY_LAST 0x001B18DCu
+#define SCREEN RAC2_ADDR(0x001A7340u)         /* g_screen_width: width, height */
+#define MAP_HIDDEN RAC2_ADDR(0x001A95F0u)     /* g_map_icons_hidden */
+#define MAP_SCISSOR_A RAC2_ADDR(0x001A960Cu)  /* g_map_scissor_a, b, c, d */
+#define MAP_SCISSOR_B RAC2_ADDR(0x001A9610u)
+#define MAP_SCISSOR_C RAC2_ADDR(0x001A9614u)
+#define MAP_SCISSOR_D RAC2_ADDR(0x001A9618u)
+#define MAP_STATE RAC2_ADDR(0x001C4FA0u)      /* g_map_overlay_state */
+#define MOBY_FIRST RAC2_ADDR(0x001B18D8u)     /* g_moby_context_first, second */
+#define MOBY_LAST RAC2_ADDR(0x001B18DCu)
 
 /* g_map_overlay_state's fields (00295F60-map-g8.c). */
 #define MAP_ENABLED 0x24u
@@ -73,7 +75,7 @@ static void line(int x0, int y0, int x1, int y1, uint32_t colour) {
     func_0028FAB8(x0, y0, x1, y1, (int)colour, 0);
 }
 
-/* func_US2_00298AA8, on v1.01's functions. */
+/* func_US2_00298AA8, on v1.01's functions (the release's, renamed by its rac2_names.tsv). */
 static void draw_markers(float x0, float x1, float y0, float y1, float scale) {
     const int map = GREF(int32_t, MAP_INDEX);
     const int* table;
@@ -145,7 +147,7 @@ static void draw_markers(float x0, float x1, float y0, float y1, float scale) {
 /* DrawMapOverlay: v1.01's map, then v2.00's markers where v2.00 draws them. */
 void func_00295F60(int paging, int set_clip) {
     func_00295F60__game(paging, set_clip);
-    if (GREF(int32_t, OPENRAC_DATA(MAP_HIDDEN)) != 0
+    if (!MARKERS || GREF(int32_t, OPENRAC_DATA(MAP_HIDDEN)) != 0
         || GREF(uint8_t, ITEM_OWNED + ITEM_MAPPER) == 0) {
         return;
     }
@@ -178,5 +180,3 @@ void func_00295F60(int paging, int set_clip) {
         func_0027C660();
     }
 }
-
-#endif

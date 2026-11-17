@@ -5,12 +5,12 @@
   "function: called": 30,
   "function: changed": 88,
   "function: found": 28,
-  "function: near": 43,
-  "function: same": 726,
-  "global: aligned": 5,
+  "function: near": 46,
+  "function: same": 731,
+  "global: aligned": 6,
   "global: between": 18,
-  "global: exact": 111,
-  "global: the release's build": 114
+  "global: exact": 112,
+  "global: the release's build": 122
  },
  "functions": {
   "func_001158F8": [
@@ -140,6 +140,11 @@
   ],
   "func_002900B8": [
    "func_00290920",
+   "near",
+   "host C"
+  ],
+  "func_00295F60": [
+   "func_00296810",
    "near",
    "host C"
   ],
