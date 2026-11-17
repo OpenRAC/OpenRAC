@@ -27,7 +27,7 @@ decomp of the North American release, kept apart from ours.
 |---|---|---|---|---|
 | Ratchet & Clank | [rac1-decomp](https://github.com/OpenRAC/rac1-decomp) (main) | PAL `SCES_509.16`, PAL `SCES_509.16`, NTSC-J `SCPS_150.37` | [`games/rac1/decomp`](../games/rac1/decomp) | `f911d6e4b971` (2026-11-08) |
 | Ratchet & Clank | [Lombyte](https://github.com/lombyte-project/Lombyte) (main) | NTSC-U `SCUS_971.99` | [`games/rac1/ntsc-decomp`](../games/rac1/ntsc-decomp) | `5497cf4394bb` (2026-11-06) |
-| Ratchet & Clank: Going Commando | [rac2-decomp](https://github.com/OpenRAC/rac2-decomp) (master) | NTSC-U `SCUS_972.68`, PAL `SCES_516.07`, NTSC-U `SCUS_972.68` | [`games/rac2/decomp`](../games/rac2/decomp) | `005bfc4dd3b0` (2026-11-15) |
+| Ratchet & Clank: Going Commando | [rac2-decomp](https://github.com/OpenRAC/rac2-decomp) (master) | NTSC-U `SCUS_972.68`, PAL `SCES_516.07`, NTSC-U `SCUS_972.68` | [`games/rac2/decomp`](../games/rac2/decomp) | `4ea93ceaf43a` (2026-11-17) |
 | Ratchet & Clank: Up Your Arsenal | [rac3-decomp](https://github.com/OpenRAC/rac3-decomp) (master) | NTSC-U `SCUS_973.53`, PAL `SCES_524.56` | [`games/rac3/decomp`](../games/rac3/decomp) | `c73ab8f001fe` (2026-11-12) |
 | Ratchet: Deadlocked | [rac4-decomp](https://github.com/OpenRAC/rac4-decomp) (main) | NTSC-U `SCUS_974.65` | [`games/rac4/decomp`](../games/rac4/decomp) | `4a7372f50e34` (2026-11-08) |
 | Ratchet & Clank: Size Matters | [rac5-sm-decomp](https://github.com/OpenRAC/rac5-sm-decomp) (master) | NTSC-U `SCUS_976.15` | [`games/rac5/decomp`](../games/rac5/decomp) | `6da0c82366fc` (2026-11-08) |
@@ -101,11 +101,39 @@ its patches folder, game.json and the port's tables together, as `chore(import)`
 commit against the [sourcing policy](policy/SOURCING.md).
 
 CI runs `python3 tools/sources.py check --since <base>`. It fails when a pin and game.json
-disagree, or when a pin moves without any change under `port/game/<game>*`. Run it yourself with:
+disagree, when a pin moves without any change under `port/game/<game>*`, or when a moved pin has
+no published build facts (below). Run it yourself with:
 
 ```sh
 python3 tools/sources.py check --since origin/develop
 ```
+
+## Build facts
+
+Some tables are made from a decomp's finished build: rac2's derived names
+(`build/**/placed.json`) and its PAL and v2.00 release tables (`build/<v>/*/placed.json`,
+`build/<v>/carry.json`). A full build takes an hour and needs the discs. So one person builds and
+publishes the build's facts; everyone else downloads them.
+
+After a full build of the pinned commit (and `tools/carry.py`, then `git checkout -- config/`):
+
+```sh
+python3 tools/facts.py publish rac2/decomp              # every version: us, pal, us2
+```
+
+A bundle holds only names, addresses, sizes and hashes; `publish` refuses anything else. It goes
+to the `decomp-facts` release as `<decomp>-<commit>-<version>.zip`. The table tools
+(`derived.py`, `release.py build`, `release_carry.py`) then work without a build: when `--source`
+has no build, they fetch the bundle of its commit into `build/facts/` and check its sha256s. A
+local build wins. They still read the discs from `baserom/`. hostgen never reads bundles.
+
+```sh
+python3 tools/facts.py check rac2/decomp                # is every bundle of the pin published?
+python3 tools/facts.py fetch rac2/decomp pal            # download and check one
+```
+
+`tools/facts.py` `SPECS` lists what each decomp's bundles hold. Add a decomp there when a tool
+starts reading its build.
 
 ## Changing a patch
 

@@ -125,6 +125,29 @@ export function setOwned(view: Rac2SaveView, f: Rac2SaveFields, id: number, owne
   if (owned && maxAmmo !== null && item.ammo === 0) item.ammo = maxAmmo;
 }
 
+/** Gives every item of a kind, each weapon with full ammo if it had none. */
+export function giveAll(view: Rac2SaveView, f: Rac2SaveFields, kind: "weapon" | "gadget"): void {
+  for (const info of view.items.filter((i) => i.kind === kind)) setOwned(view, f, info.id, true);
+}
+
+/** Takes every item of a kind away, but what Ratchet has in hand or on. */
+export function takeAll(view: Rac2SaveView, f: Rac2SaveFields, kind: "weapon" | "gadget"): void {
+  for (const info of view.items.filter((i) => i.kind === kind)) setOwned(view, f, info.id, false);
+}
+
+/** Fills the ammo of every weapon the save owns, up to what its chosen version holds. */
+export function fillAllAmmo(view: Rac2SaveView, f: Rac2SaveFields): void {
+  for (const item of f.items) {
+    const { maxAmmo } = limits(view, f, item.id);
+    if (item.owned && item.ammo !== null && maxAmmo !== null) item.ammo = maxAmmo;
+  }
+}
+
+/** Every platinum bolt found, or none. */
+export function setAllPlatinum(f: Rac2SaveFields, found: boolean): void {
+  for (const p of f.planets) p.platinum = p.platinum.map(() => found);
+}
+
 /** Items of a kind owned, of how many. */
 export function ownedCount(view: Rac2SaveView, f: Rac2SaveFields, kind: "weapon" | "gadget"): [number, number] {
   const ids = new Set(view.items.filter((i) => i.kind === kind).map((i) => i.id));

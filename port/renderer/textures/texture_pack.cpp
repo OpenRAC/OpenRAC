@@ -230,12 +230,36 @@ std::string folder_name(std::string name) {
     return name;
 }
 
+// Returns whether any texel has nonzero alpha, including faint effects.
+bool has_visible_texels(const Rgba8Image& image) {
+    // RGBA8 stores alpha in the fourth byte of each pixel.
+    constexpr std::size_t kPixelBytes = 4;
+    constexpr std::size_t kAlphaByte = 3;
+
+    // The alpha bytes alone determine whether the RGBA picture is empty.
+    for (std::size_t byte = kAlphaByte; byte < image.pixels.size(); byte += kPixelBytes) {
+        // Any nonzero alpha carries artwork that a pack maker may want to keep.
+        if (image.pixels[byte] != 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Writes or moves the texture's dump file; the lock is held.
 void dump(State& s, std::uint64_t hash, const Rgba8Image& image, const Origin& origin) {
     std::error_code e;
     const fs::path folder = dump_folder(origin);
     const auto found = s.dumped.find(hash);
+
+    // Only new exports need their pixels checked; existing files can still move between folders.
     if (found == s.dumped.end()) {
+        // Changing RGB below empty alpha produces unique hashes without useful RGBA pictures.
+        if (origin.skip_empty_alpha && !has_visible_texels(image)) {
+            return;
+        }
+
         fs::create_directories(s.dump / folder, e);
         const fs::path file = s.dump / folder / file_name(hash);
         if (!s.io.save(file, image)) {

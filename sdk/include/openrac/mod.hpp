@@ -970,6 +970,44 @@ public:
              m_api->prop_frame(m_handle, id, out) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.19: whether the port has switches and choices in a mod's
+    // developer menu (developer_menu_switch, developer_menu_choice).
+    bool has_menu_switches() const {
+      return m_api->api_minor >= 19 &&
+             m_api->size >=
+                 offsetof(openrac_api, developer_menu_value) + sizeof(void *);
+    }
+
+    // Since 1.19: makes the developer menu item `action` a switch, or sets it,
+    // on or off. The menu turns it over at once and queues `action`; read the
+    // state with menu_value() at the tick boundary. Only during load (after
+    // developer_menu) or from the tick boundary. Returns false when refused or
+    // the port has no such call.
+    bool menu_switch(std::uint32_t action, bool on) const {
+      return has_menu_switches() &&
+             m_api->developer_menu_switch(m_handle, action, on ? 1 : 0) ==
+                 OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.19: makes the developer menu item `action` a choice among
+    // `count` values (copied), or sets them, `index` the one shown. The menu
+    // moves it with its arrows at once and queues `action`. The same times and
+    // results as menu_switch().
+    bool menu_choice(std::uint32_t action, const char *const *values,
+                     std::uint32_t count, std::uint32_t index) const {
+      return has_menu_switches() &&
+             m_api->developer_menu_choice(m_handle, action, values, count,
+                                          index) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.19: a switch's 0 or 1, a choice's index; -1 for a plain item,
+    // an action the mod has not registered, or a port without switches.
+    int menu_value(std::uint32_t action) const {
+      return has_menu_switches()
+                 ? m_api->developer_menu_value(m_handle, action)
+                 : -1;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

@@ -436,6 +436,16 @@ public:
         return read_live_moby(ram, moby, release_);
     }
 
+    // With its bangles: the vendor's ammo preview (class 3291) is bangle 0 alone, its own mesh is
+    // two triangles.
+    void add_moby(
+        std::span<const std::uint8_t> ram, std::uint32_t moby, std::vector<host::LiveMoby>& mobys
+    ) const override {
+        if (const auto live = read_live_moby(ram, moby, release_)) {
+            add_drawn_parts(ram, *live, mobys);
+        }
+    }
+
     // MobyProc leaves a moby past its draw distance (+0x32, at most the level's cap) undrawn and
     // fades it over the last 16 units, as Ratchet & Clank's does.
     std::optional<std::uint8_t> moby_distance_fade(

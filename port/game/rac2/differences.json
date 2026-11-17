@@ -33,6 +33,15 @@
       "refs": ["port/game/rac2/host/wide_view.c"]
     },
     {
+      "id": "mapper-markers",
+      "kind": "port",
+      "name": "Mapper markers",
+      "discs": ["ntsc"],
+      "original": "USA v1.01's Mapper only shows the whole map: crystals on Tabora and moonstones on Grelbin are not marked. USA v2.00 added the markers.",
+      "port": "With the Mapper, Tabora's crystals and Grelbin's moonstones pulse on the map as USA v2.00 marks them (its classes, colours and icon, drawn after v1.01's map).",
+      "refs": ["port/game/rac2/host/map_markers.c", "games/rac2/decomp src/us2/game/00298AA8-g16.c"]
+    },
+    {
       "id": "frames-between-ticks",
       "kind": "port",
       "name": "Frames between ticks",

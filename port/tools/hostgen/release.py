@@ -228,6 +228,17 @@ def pair_stubs(us_exe: list[tuple[int, bytes]], r_exe: list[tuple[int, bytes]],
     return {f"func_{h:08X}": r for h, r in sorted(paired.items())}
 
 
+def build_folder(source: Path, version: str) -> Path:
+    """VERSION's build of rac2-decomp: SOURCE's own (source/build/<version>) when it has one, else
+    the published build facts of SOURCE's commit (tools/facts.py), which need no build."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools"))
+    import facts
+    try:
+        return facts.root(source, "rac2/decomp", version) / RAC2_RELEASES[version]["build"]
+    except facts.FactsError as e:
+        raise SystemExit(str(e)) from None
+
+
 def placed_values(build: Path) -> dict[str, dict[str, int]]:
     """Program ("boot", "00", ...) -> {name: value} from a build's placed.json files."""
     out = {}
@@ -448,6 +459,11 @@ class Release:
                 return new if new != f"func_00{short.group(2)}" else word
             named = NAME.fullmatch(word)
             return self._one(named) if named else word
+        # A readable name the unit's table gives (a hook's, as its catalogue names it) goes too.
+        words = sorted((w for w in own if not ANY.fullmatch(w)), key=len, reverse=True)
+        if words:
+            either = re.compile(rf"{ANY.pattern}|(?<![\w])(?:{'|'.join(map(re.escape, words))})(?![\w])")
+            return either.sub(one, text)
         return ANY.sub(one, text)
 
 
@@ -584,8 +600,8 @@ def build_rac2(source: Path, version: str, versionmap: Path | None, uses: Counte
     r_boot_at = {a: n for n, a, _ in r_boot}
     pending: dict[str, str] = {}
     # Globals and other names: the release's build's values for v1.01's names, program by program.
-    r_values = placed_values(source / rel["build"])
-    us_values = placed_values(source / us["build"])
+    r_values = placed_values(build_folder(source, version))
+    us_values = placed_values(build_folder(source, "us"))
     # v1.01's functions the release's catalogues do not have: where the release's C takes one's
     # address, the value its build read (the release's changed function there); else no address.
     for name, *_ in us_boot + [(n, 0, 0) for n, *_ in us_levels]:
@@ -711,7 +727,7 @@ def build_rac2(source: Path, version: str, versionmap: Path | None, uses: Counte
             else:
                 continue
             evidence["function: another spelling of a function with two v1.01 names"] += 1
-    placed = placed_functions(source / rel["build"])
+    placed = placed_functions(build_folder(source, version))
     if not placed:
         raise SystemExit(f"release: no {rel['build']}/*/placed.json: build the release first (tools/build.py all --version {version})")
     return {"names": dict(sorted((k, v) for k, v in names.items() if k != v)), "evidence": dict(sorted(evidence.items())),
@@ -934,6 +950,73 @@ def build_rac1(source: Path, version: str, relocs: Path, versionmap: Path | None
             "how": how, "absent": absent, "gone": sorted(gone), "rows": rows, "primary": primary, "r_values": r_values}
 
 
+def catalogue_hooks(source: Path, version: str, hooks) -> dict[str, str]:
+    """The level hooks the release's catalogue has, each by the name the catalogue alone gives it
+    (as build_rac2 without pair_stubs): what the release's own C, built against that catalogue,
+    calls it. Needs no disc; a hook the catalogue lacks is named by the release's build (left out)."""
+    us_entry = {n: a for n, a, _ in read_boot(source / RAC2_RELEASES["us"]["config"] / "boot/functions.tsv")}
+    r_boot = {n: a for n, a, _ in read_boot(source / RAC2_RELEASES[version]["config"] / "boot/functions.tsv")}
+    # As build_rac2 carries a function of the same code (a twin entered away from its name too).
+    return {h: core("func", None, r_boot[h] + int(h[-8:], 16) - us_entry[h])
+            for h in hooks if h in r_boot and h in us_entry and NAME.fullmatch(h)}
+
+
+def aliases_of(readable: dict[str, str], hooks) -> dict[str, list[str]]:
+    """Each hook's readable names (stub_empty_17 for func_0026F790)."""
+    out: dict[str, list[str]] = {}
+    for word, name in sorted(readable.items()):
+        if name in hooks:
+            out.setdefault(name, []).append(word)
+    return out
+
+
+def hook_words(text: str, hooks: dict[str, str], aliases: dict[str, list[str]], release: Release) -> dict[str, str]:
+    """The words of the release's own C (TEXT) that name a level hook the table pairs elsewhere
+    (pair_stubs), each with the name its catalogue gives it (HOOKS: catalogue_hooks)."""
+    out = {}
+    for hook, old in hooks.items():
+        if old == release.name(hook):
+            continue
+        # By its address name, or by a readable one (stub_empty_17 for func_0026F790).
+        for word in (hook, *aliases.get(hook, ())):
+            if names_word(text, word, address=word == hook):
+                out[word] = old
+    return out
+
+
+def gone_words(text: str, values: dict[str, dict[str, int]], readable: dict[str, str], release: Release,
+               row_at) -> dict[str, str]:
+    """The words of the release's own C (TEXT) that name a primary function the release has no
+    row for (the table's func_V1_...), by its address name or a readable one, each with the
+    release's function the release's build linked the name to: the catalogue's row at the value
+    the build gave the name (VALUES: program -> name -> value; ROW_AT(program, value): the row
+    there, or None). A shared file can be in several programs, so every program's row must be the
+    same function; where they differ the word stays. PAL's Maktar code calls
+    module_l00_call_handler_2 (func_L00_0030CF60), which PAL has as func_PAL_0029C7F0: without
+    this the port called an empty body."""
+    out = {}
+    for word in sorted(set(re.findall(r"(?<![\w])[A-Za-z_]\w*(?![\w])", text))):
+        name = readable.get(word, word)
+        if not name.startswith("func_") or NAME.fullmatch(name) is None:
+            continue
+        if "_V1_" not in release.name(name):
+            continue
+        found = {release.name(row) for program, vals in values.items()
+                 if name in vals and (row := row_at(program, vals[name])) is not None}
+        if len(found) == 1:
+            new = found.pop()
+            if "_V1_" not in new and new != word:
+                out[word] = new
+    return out
+
+
+def names_word(text: str, word: str, address: bool) -> bool:
+    """Whether TEXT has WORD: an address name (func_0026F790) as ANY reads one, so a suffix after
+    an underscore is another name's; a readable one (stub_empty_17) whole."""
+    tail = "0-9A-Za-z" if address else r"\w"
+    return re.search(rf"(?<![\w]){re.escape(word)}(?![{tail}])", text) is not None
+
+
 def units(source: Path, version: str, release: Release, parts: dict, sources: list[str],
           readable: dict[str, str] | None = None) -> tuple[dict, Counter, dict]:
     """Each file's short names in the release's names: the function at the value that level's
@@ -958,12 +1041,17 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
     for name, _, _, places in parts["us_levels"]:
         for p in places:
             us_at.setdefault(p, name)
+    hook_aliases = aliases_of(readable or {}, parts.get("catalogue_hooks", {}))
     r_exe = {a: n for n, a, _ in parts["r_boot"]}
     r_place_of = {}
     for (l, a), n in r_at.items():
         r_place_of.setdefault((l, release.name(n)), a)
     r_exe_names = {release.name(n): a for n, a, _ in parts["r_boot"]}
     us_exe = {a: n for n, a, _ in parts["us_boot"]}
+
+    def row_at(program: str, value: int) -> str | None:
+        # The release's catalogue row at a value of a program: a level's place, else the executable's.
+        return (None if program == "boot" else r_at.get((int(program), value))) or r_exe.get(value)
     out: dict[str, dict[str, str]] = {}
     gone_in: dict[str, list[str]] = {}
     for d in sources:
@@ -992,10 +1080,15 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
                 # hook its catalogue gave the name (PAL's func_PAL_00310BE8 calls func_0026F770 at
                 # 0x0026F5D8), which pair_stubs pairs with another of v1.01's: the name the table
                 # gives it without the pairing.
-                for hook, old in parts.get("catalogue_hooks", {}).items():
-                    if old != release.name(hook) and re.search(rf"(?<![\w]){hook}(?![0-9A-Za-z])", text):
-                        out.setdefault(rel, {})[hook] = old
-                        evidence["function: a hook named as the release's catalogue does"] += 1
+                for word, old in hook_words(text, parts.get("catalogue_hooks", {}), hook_aliases, release).items():
+                    out.setdefault(rel, {})[word] = old
+                    evidence["function: a hook named as the release's catalogue does"] += 1
+                # A v1.01 function the release has no row for, which that C still calls by v1.01's
+                # name or a readable one: the function the release's build linked the call to.
+                for word, new in gone_words(text, parts["r_values"], readable or {}, release, row_at).items():
+                    if word not in out.get(rel, {}):
+                        out.setdefault(rel, {})[word] = new
+                        evidence["function: one the release lacks, where its build linked the release's own C"] += 1
             if unit_level is None:
                 continue
             found = {m.group(0) for m in SHORT.finditer(text)}

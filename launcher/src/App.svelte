@@ -10,6 +10,7 @@
   import { startGameRequests } from "$lib/gameRequest";
   import { startAutoUpdates } from "$lib/modAutoUpdate.svelte";
   import UpdateModal from "$components/UpdateModal.svelte";
+  import WaveBackdrop from "$components/WaveBackdrop.svelte";
   import { errorText, onAndroid } from "$lib/api";
   import {
     app,
@@ -25,7 +26,10 @@
   import { lookForModUpdates } from "$lib/modUpdates.svelte";
   import { preloadArt } from "$lib/media";
   import { modNav } from "$lib/modNav.svelte";
-  import { slide, slides } from "$lib/motion";
+  import { reduced, slide, slides } from "$lib/motion";
+  import { shelfWave } from "$lib/shelfWave.svelte";
+  import { fade } from "svelte/transition";
+  import { cubicIn, cubicOut } from "svelte/easing";
   import { applyPalette } from "$lib/palettes";
   import { applyAccent } from "$lib/themes";
   import Game from "./pages/Game.svelte";
@@ -203,6 +207,19 @@
   </div>
 {:else}
   <div class="shell">
+    <!-- Behind the rail and the page: Android Games' wave (shelfWave.svelte.ts). It fades in place as
+         the tab changes, inside the window's own picture of the slide. -->
+    {#if onAndroid && shelfWave.on}
+      <div
+        class="wave-ground"
+        aria-hidden="true"
+        style={shelfWave.glow ? `--glow: ${shelfWave.glow}` : undefined}
+        in:fade={{ duration: reduced ? 0 : 450, easing: cubicOut }}
+        out:fade={{ duration: reduced ? 0 : 200, easing: cubicIn }}
+      >
+        <WaveBackdrop shift={shelfWave.shift} still={reduced} />
+      </div>
+    {/if}
     <!-- The first run has the bar with only the name (Android's rail is only its tabs). -->
     {#if app.config.setupComplete}<Header shown={page} />{:else if !onAndroid}<Header setup />{/if}
     <main bind:this={view}>
@@ -249,6 +266,18 @@
     flex-direction: column;
   }
 
+  /* Under everything in the shell, over the window's ground. On under the rail, frosted there
+     (WaveBackdrop.svelte). */
+  .wave-ground {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    --frost: var(--nav-left);
+    overflow: hidden;
+    pointer-events: none;
+    transition: --glow 900ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
   /* A desktop's header lies over the page (Header.svelte): the page starts at the window's top and
      scrolls under it, its first line kept below it. A tab with a list takes the room back for its
      two columns (SideFrame.svelte). */
@@ -260,6 +289,8 @@
      (Header.svelte). */
   :global(html[data-platform="android"]) .shell {
     flex-direction: row;
+    /* The wave's z-index: -1 (above) stays above the window's ground. */
+    isolation: isolate;
     /* Nothing beside the page scrolls the window: no strip of the background under the rail. */
     overflow: hidden;
   }

@@ -295,6 +295,12 @@ class Pairing:
             if mine is None or theirs is None:
                 continue
             fa, fb = copycalls.formed(mine, gp_us), copycalls.formed(theirs, gp_r)
+            # A global the release's function forms too stayed where it was, whatever the
+            # alignment pairs it with (v2.00's save slot list forms 0x001393E0 and 0x00139410).
+            kept = {i for i in fa if fa[i] in fb.values()}
+            for i in kept:
+                votes.setdefault(fa[i], Counter())[fa[i]] += 1
+            fa = {i: x for i, x in fa.items() if i not in kept}
             if len(mine) == len(theirs):
                 pairs = [(i, i) for i in fa]
             else:
@@ -374,7 +380,7 @@ def level_hooks(p: Pairing, carried: list[str], primary: list[str] = ()) -> list
     # release has): that name is a hook too, or the call misses what a level put in the hook.
     at = {a for a, s, n in rows[first:last + 1] if s == 8}
     source = getattr(p, "source", None)
-    boot = rel.placed_values(source / rel.RAC2_RELEASES[p.version]["build"]).get("boot", {}) if source else {}
+    boot = rel.placed_values(rel.build_folder(source, p.version)).get("boot", {}) if source else {}
     hooks = sorted(hooks | {n for n, v in boot.items() if v in at and not rel.NAME.fullmatch(n)})
     p.report["level_hooks"] = {"from": f"{rows[first][0]:08X}", "to": f"{rows[last][0]:08X}", "count": len(hooks),
                                "carried": len(found)}
@@ -1005,7 +1011,7 @@ def main(argv: list[str] | None = None) -> int:
         ap.error(f"--version {args.version}: the release's facts say {facts['version']}")
     cfg = json.loads(args.primary.read_text())
     table = rel.Release.load(out_dir / "release" / "release_names.json")
-    carry_path = args.source / rel.RAC2_RELEASES[args.version]["build"] / "carry.json"
+    carry_path = rel.build_folder(args.source.resolve(), args.version) / "carry.json"
     carry = json.loads(carry_path.read_text()) if carry_path.is_file() else None
     vmap = json.loads(args.map.read_text()) if args.map else None
     p = Pairing(args.source, args.version, table, vmap, carry)

@@ -230,6 +230,7 @@ func_0028E868	hud	HudSprite	wrap	a HUD texture as a sprite: drawn natively (host
 func_0028ECD8	hud	HudBarSprite	wrap	a HUD texture as a sprite, a texel a pixel: drawn natively (host/ui2d.c)
 func_0028EE98	hud	HudSpriteFine	wrap	a HUD texture as a sprite, in 16ths of a pixel: drawn natively (host/ui2d.c)
 func_0028F078	hud	HudSpriteColour	wrap	func_0028EE98 in a colour: drawn natively (host/ui2d.c)
+func_00295F60	draw	DrawMapOverlay	wrap	the map: with the Mapper, v2.00's crystal and moonstone markers are drawn after it (host/map_markers.c)
 func_0028F278	hud	HudTextureSprite	wrap	a sprite of a given texture: drawn natively (host/ui2d.c)
 func_0028F410	hud	HudRotatedSprite	wrap	a rotated sprite: drawn natively (host/ui2d.c)
 func_0028F788	hud	HudSpriteRect	wrap	a HUD texture as a sprite with explicit texel corners: drawn natively (host/ui2d.c)
@@ -256,6 +257,7 @@ func_002D5748	menu	MainMenuEnter	wrap	the title's main menu as it opens (its lis
 func_00341540	menu	PauseListItems	wrap	the pause menu's lists' items: the Options list's are a copy with a Video row after Camera (host/options.c)	void (unsigned int, int, int, int)
 func_00341610	menu	PauseListShow	wrap	shows one of the pause menu's lists: the Options list has a ninth row, with the rows closer (host/options.c)	void (unsigned int, int)
 func_00341C20	options	OptionsListDraw	wrap	the pause list's panel, whose art has no ninth row: drawn in two clipped parts for it
+func_002DDA10	menu	SaveSlotListDraw	wrap	the Load and Save pages' four slots: a MODS badge on each one saved with mods loaded (host/save_marks.c)
 func_0033C590	menu	CameraPageUpdate	wrap	the pause menu's Camera page: its 16:9 row is not reached, and the copy the Options list's Video row opens shows the port's Video rows, which move as the title's (host/options.c)
 func_0033C738	menu	CameraPageDraw	wrap	the pause menu's Camera page: its three camera rows, or the Video rows drawn in the panel for the Options list's Video row (host/options.c)
 func_0029B168	card	RestoreBlocks	wrap	a save's blocks into their places (rac1's memcard_restore_data): the language and the Sound page stay the player's (host/options.c)

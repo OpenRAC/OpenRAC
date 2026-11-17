@@ -70,10 +70,12 @@ extern "C" {
  * own settings changed from the game (written into the launcher's list of mods)
  * and told when the launcher changes them while the game runs, 1.16 a mod's own
  * data kept with the game's saves, 1.17 the game's own collision query asked by
- * a mod (collision_line), 1.18 a prop fixed to a moby's joint (prop_attach).
- * 1.19 render-only reward models, guest text, sprite tint and pickup presentations.
+ * a mod (collision_line), 1.18 a prop fixed to a moby's joint (prop_attach),
+ * 1.19 switches and choices in a mod's developer menu, which the menu turns
+ * over at once, the game paused or not (developer_menu_switch), 1.20
+ * render-only reward models, guest text, sprite tint and pickup presentations.
  */
-#define OPENRAC_MOD_API_MINOR 19
+#define OPENRAC_MOD_API_MINOR 20
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -101,7 +103,7 @@ typedef struct openrac_line_hit {
 } openrac_line_hit;
 
 /* prop_attach's flags: `joint` is one of the hero's attach points
- * (openrac_held_piece.joint), not a joint of his skeleton. Since 1.19. */
+ * (openrac_held_piece.joint), not a joint of his skeleton. Since 1.18. */
 #define OPENRAC_ATTACH_HELD 0x1u
 
 /* The most bytes of a mod's data kept with a save (openrac_api.save_data_set). Since 1.16. */
@@ -1314,14 +1316,14 @@ typedef struct openrac_pack_entry {
  * sees them, and one built for 1.2 loads on a 1.2 port or newer. */
 /* A render-only replacement: the live moby's address and a class from the extracted game (-1 hides it).
  * height 0 preserves the original model's displayed height; positive values set world units.
- * Neither the moby's class, animation, collision nor update state is modified. Since 1.19. */
+ * Neither the moby's class, animation, collision nor update state is modified. Since 1.20. */
 typedef struct openrac_moby_visual {
     openrac_gaddr moby;
     int32_t oclass;
     float height;
 } openrac_moby_visual;
 
-/* Maximum replacements a mod submits for one frame. Since 1.19. */
+/* Maximum replacements a mod submits for one frame. Since 1.20. */
 #define OPENRAC_MOBY_VISUALS_MAX 512
 
 typedef struct openrac_api {
@@ -2218,26 +2220,55 @@ typedef struct openrac_api {
      * drawn on its joint since it was fixed there. */
     int (*prop_frame)(openrac_mod *mod, int id, float out[16]);
 
+    /* Makes the mod's developer menu item `action` a switch (since 1.19), on
+     * when `on` is nonzero. The menu draws it on or off and turns it over as
+     * soon as the player presses it, while the menu pauses the game too, and
+     * queues `action` as for a press: the mod reads the state it was left in
+     * with developer_menu_value at its tick boundary (two presses before then
+     * queue it twice and leave it as it was). Called again, it sets the state,
+     * for one the mod changed itself. From openrac_mod_load, after
+     * developer_menu, or the mod's tick-boundary callback. Returns
+     * OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN for an action the mod has not
+     * registered, or OPENRAC_HOOK_TOO_LATE at another time. */
+    int (*developer_menu_switch)(openrac_mod *mod, uint32_t action, int on);
+
+    /* Makes the mod's developer menu item `action` a choice (since 1.19)
+     * among `count` values (`values`, their labels, copied), `index` the one
+     * shown. The menu shows the value between two arrows and moves it back or
+     * on as soon as the player presses one, queuing `action` as for a press;
+     * developer_menu_value says which it is at the mod's tick boundary. Called
+     * again, it sets the values and the index. The same times and returns as
+     * developer_menu_switch, and OPENRAC_HOOK_UNKNOWN for no values, a null
+     * one, or an index outside them. */
+    int (*developer_menu_choice)(openrac_mod *mod, uint32_t action,
+                                 const char *const *values, uint32_t count,
+                                 uint32_t index);
+
+    /* The state of the mod's developer menu item `action` (since 1.19): a
+     * switch's 0 or 1, a choice's index, or -1 for a plain item or an action
+     * the mod has not registered. At any time. */
+    int (*developer_menu_value)(openrac_mod *mod, uint32_t action);
+
     /* Replaces this mod's render-only moby appearances for this level load. count 0 clears them.
      * The renderer imports requested classes from this disc's extracted levels, including classes
      * not resident in the current level. Missing assets leave the original visible. Replacement
      * meshes draw in bind pose, including menu/render-to-texture cameras. Requests expire on
-     * level changes or mod unload. Returns OPENRAC_HOOK_OK, or UNKNOWN for invalid input. Since 1.19. */
+     * level changes or mod unload. Returns OPENRAC_HOOK_OK, or UNKNOWN for invalid input. Since 1.20. */
     int (*moby_visuals)(openrac_mod* mod, const openrac_moby_visual* visuals, int count);
     /* A persistent, deduplicated game-memory copy of UTF-8 text, for a text hook's return value.
      * At most 1,023 bytes per string and 64 KiB of unique text per mod. Returns 0 at the limit.
-     * Allocations are included in guest snapshots; callers need not hold native storage. Since 1.19. */
+     * Allocations are included in guest snapshots; callers need not hold native storage. Since 1.20. */
     openrac_gaddr (*guest_text)(openrac_mod* mod, const char* text);
     /* Temporarily overrides native UI sprite RGB (PS2 0..128 per channel). UINT32_MAX disables it.
      * Returns the previous value; restore it before returning from the enclosing draw hook.
-     * Alpha is preserved. Since 1.19. */
+     * Alpha is preserved. Since 1.20. */
     uint32_t (*sprite_tint)(openrac_mod* mod, uint32_t rgb);
     /* Local pickup presentation: 1 Gold Bolt, 2 weapon demo (item is its base ID),
      * 3 Infobot capture/video/close (item is the destination planet ID).
      * 4 special-item receiving motion (item is its native moby class: 37, 407,
      * 645, 1002, 1428 or 1433). Background music resumes from its paused position.
      * -1 polls an active sequence. Returns 1 active,
-     * 0 unsupported/finished, -1 busy (retry). Does not grant items. Since 1.19. */
+     * 0 unsupported/finished, -1 busy (retry). Does not grant items. Since 1.20. */
     int (*pickup_animation)(openrac_mod* mod, int kind, int item);
 } openrac_api;
 

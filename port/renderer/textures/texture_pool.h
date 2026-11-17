@@ -177,7 +177,11 @@ public:
 
     // The texture TEX0 describes, converted with TEXA. Never 0: when nothing
     // is known at that base pointer, the placeholder (a checkerboard).
-    TextureHandle resolve(const gs::Tex0& tex0, const gs::Texa& texa);
+    // `dump_blend` is the active blend equation, or null for an unblended or unknown draw.
+    // Only proven invisible empty-alpha uploads may be omitted from dumps; rendering is unchanged.
+    TextureHandle resolve(
+        const gs::Tex0& tex0, const gs::Texa& texa, const gs::Alpha* dump_blend = nullptr
+    );
 
     TextureHandle placeholder() const { return m_placeholder; }
 
@@ -258,11 +262,14 @@ private:
         std::uint8_t psm, cpsm;
         gs::Texa texa;
         std::uint64_t pixels_hash, clut_hash, crop_border_hash;
+        // Visible draws must not reuse a conversion that omitted its empty-alpha dump.
+        bool skip_empty_alpha;
 
         bool operator==(const Key&) const = default;
     };
 
     struct KeyHash {
+        // Hashes the sampling fields and empty-alpha export policy.
         std::size_t operator()(const Key& key) const;
     };
 
@@ -353,7 +360,10 @@ private:
     // `hash` seen in `slot`: a cycle found there is logged (`where` says where) and dumped.
     void see_cycle(std::uint64_t slot, std::uint64_t hash, const std::string& where);
     void set_wrap(Entry& e, bool repeat_s, bool repeat_t);
-    TextureHandle convert_upload(const gs::Tex0& tex0, const gs::Texa& texa);
+    // Converts an uploaded image, applying texture packs only to reusable textures.
+    TextureHandle convert_upload(
+        const gs::Tex0& tex0, const gs::Texa& texa, const gs::Alpha* dump_blend
+    );
     std::vector<std::uint8_t> texture_raster(
         const Stored& stored, const gs::Tex0& tex0, int width, int height
     ) const;

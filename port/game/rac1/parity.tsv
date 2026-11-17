@@ -40,6 +40,7 @@ func_0011F4F8	boot	rac1-ntsc	64-bit divide: NTSC's newlib calls it by name and h
 func_00123168	boot	rac1-ntsc	a console library function: PAL runs the decomp's C, which reaches the port through what it calls (its row says how); NTSC's row answers with the port's own function of the same job
 func_00124B88	boot	rac1-ntsc	a console library function: PAL runs the decomp's C, which reaches the port through what it calls (its row says how); NTSC's row answers with the port's own function of the same job
 func_001252C0	boot	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_00125328	boot	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has it as VU0 asm statements, which its hostgen.json host_functions replace with the same host C
 func_0012D868	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
 func_0012DA30	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
 func_001EFE10	boot	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C

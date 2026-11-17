@@ -46,7 +46,7 @@ import derived  # noqa: E402
 import release  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
-from lower import Unit, UnitReport  # noqa: E402
+from lower import LEVEL_SHORT_MISS, Unit, UnitReport  # noqa: E402
 from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -1701,6 +1701,14 @@ def main(argv: list[str] | None = None) -> int:
     summary = write_outputs(out, args, cfg, program, units, reports, problems, host_rows, used, overridden,
                             inherited, asm_stage, asm_results)
     if summary is None:
+        return 1
+    misses = [(r.unit, p) for r in reports for p in r.problems if p.startswith(LEVEL_SHORT_MISS)]
+    if misses:
+        # The decompilation's build reads such a name's value from the retail jal, so it still
+        # matches; the port would call another function. Fixed in the decompilation, by the name
+        # the level's own function has there (or the executable's name, which each level's copy takes).
+        for unit, problem in misses:
+            print(f"hostgen: error: {unit}: {problem}", file=sys.stderr)
         return 1
     if cfg.get("assembly_allow") and summary["assembly_allow_unused"]:
         # A row that allows nothing any more: the table stays true, so it goes with the change.

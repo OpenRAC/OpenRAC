@@ -92,12 +92,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* sceVu0Normalize, an entry inside the VU0 library object, which the map does not cut out. */
 
 #define func_001252C0 game_FUN_00125180
-
-/* sceVu0ScaleVector and sceVu0UnitMatrix: the US game has C for the matrix (sceVu0UnitMatrix) and
- * translates the scale (0x1251E8) from its assembly, so rac1/host's versions are PAL's only. */
-
-#define RAC1_OMIT_func_00125328 1
-
+/* sceVu0ScaleVector (0x1251E8): the decompilation has no C for it, and only a build with the disc
+ * translated it, so a build without the disc called a stub from the level code (FUN_L00_0025aca0,
+ * the moby hit test). rac1/host's version (PAL's func_00125328) is the US one too. */
+#define func_00125328 game_FUN_001251e8
+/* sceVu0UnitMatrix: the US game has C for it, so rac1/host's version is PAL's only. */
 #define RAC1_OMIT_func_00125358 1
 
 /* The items the US game's Options list is given (Language, Sound: its enter puts them there each
@@ -629,21 +628,9 @@ do {
 #define func_001F4868 game_FUN_001f44b8
 
 #define func_001F4A00 game_FUN_001f4650
-
-#define func_001F4A00__game game_FUN_001f4650__game
-
 #define func_001F4A78 game_FUN_001f46c8
-
-#define func_001F4A78__game game_FUN_001f46c8__game
-
 #define func_001F4AF0 game_FUN_001f4740
-
-#define func_001F4AF0__game game_FUN_001f4740__game
-
 #define func_001F4BB8 game_FUN_001f4808
-
-#define func_001F4BB8__game game_FUN_001f4808__game
-
 #define func_001F5800 game_FUN_001f5450
 
 #define func_001F5800__game game_FUN_001f5450__game
@@ -924,6 +911,10 @@ do {
 #define RAC1_ADDR_0x0018E140u 0x0018E040u
 #define RAC1_ADDR_0x0018E240u 0x0018E140u
 #define RAC1_ADDR_0x0018E340u 0x0018E240u
+#define RAC1_ADDR_0x0018DC40u 0x0018DB40u
+#define RAC1_ADDR_0x0018DD40u 0x0018DC40u
+#define RAC1_ADDR_0x0018DE40u 0x0018DD40u
+#define RAC1_ADDR_0x0018DF40u 0x0018DE40u
 #define RAC1_ADDR_0x00193400u 0x00193300u
 #define RAC1_ADDR_0x001940C0u 0x00193FC0u /* the NTSC decomp's occl_visibility */
 #define RAC1_ADDR_0x001941C0u 0x001940C0u

@@ -1312,7 +1312,9 @@ void GifInterpreter::ensure_draw() {
             s.clamp_s = true;
             s.clamp_t = true;
         } else if (s.textured) {
-            s.texture = m_textures.resolve(c.tex0, m_texa);
+            // Unblended draws can use RGB under zero alpha, so only active blending permits filtering.
+            const gs::Alpha* dump_blend = p.abe ? &c.alpha : nullptr;
+            s.texture = m_textures.resolve(c.tex0, m_texa, dump_blend);
             // A pack's picture is drawn as its maker made it: a field of a big one would also
             // take seconds of CPU (four times its size).
             if (m_glyph && s.texture != m_textures.placeholder()

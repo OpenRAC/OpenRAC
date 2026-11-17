@@ -46,11 +46,22 @@ struct SavestateRuntime {
     int overlay = -1;
 };
 
+// What a developer menu item is: a press (1.10), or since 1.19 a switch or a choice the menu turns
+// over or moves itself (developer_menu_switch, developer_menu_choice).
+enum class MenuItemKind {
+    Press,
+    Switch,
+    Choice
+};
+
 struct DeveloperMenuItem {
     std::string label;
     std::string shortcut;
     std::string group;
     std::uint32_t action = 0;
+    MenuItemKind kind = MenuItemKind::Press;
+    int value = 0;                    // a switch's 0 or 1, a choice's index
+    std::vector<std::string> values;  // a choice's values
 };
 
 struct DeveloperMenu {
@@ -159,6 +170,9 @@ void tick_boundary(std::uint32_t tick);
 // Optional mod-provided top-level menus for the in-window menu bar.
 const std::vector<DeveloperMenu>& developer_menus();
 void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action);
+// The menu turned a switch over or moved a choice (1.19): its new state, and its action queued as
+// for a press. A value the item cannot have is ignored.
+void set_developer_menu_value(openrac_mod* mod, std::uint32_t action, int value);
 
 // How many mods are loaded.
 int loaded_count();

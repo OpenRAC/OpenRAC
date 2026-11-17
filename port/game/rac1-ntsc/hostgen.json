@@ -15,8 +15,7 @@
     "src/sdk/soft_float/__muldi3.c",
     "src/sdk/soft_float/moddi3.c",
     "src/sdk/soft_float/udivdi3.c",
-    "src/sdk/soft_float/umoddi3.c",
-    "src/sdk/libc/malloc/malloc_extend_top.c"
+    "src/sdk/soft_float/umoddi3.c"
   ],
   "includes": [
     "include",

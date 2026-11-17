@@ -6,6 +6,10 @@
 #ifndef OPENRAC_RAC2_VERSION_H
 #define OPENRAC_RAC2_VERSION_H
 
+/* The release the shared C is written for. Host C that has no rows yet in another release's tables
+ * (rac2_names.tsv, rac2_addresses.h) is built for it alone until they are written again. */
+#define RAC2_PRIMARY 1
+
 #define RAC2_ADDR(a) a
 #define RAC2_LADDR(n, a) a
 /* A constant of the game's code, v1.01's as the shared C writes it (`where` it is read). */

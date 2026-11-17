@@ -82,7 +82,6 @@ export const PAGE = {
 export const GET_MODS = {
   title: "Get mods",
   lead: "Find mods on the official hub, openrac.dev, or anywhere else: a GitHub page, a .zip or a folder. Add them below.",
-  leadNoHub: "Find mods anywhere: a GitHub page, a .zip or a folder. Add them below.",
   hub: "Open the mod hub",
   hubUrl: "https://openrac.dev/mods",
   publish: "Publish your mod",

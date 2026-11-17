@@ -6,8 +6,9 @@
 // any size. When one texture has several, the SVG wins, then the KTX2, then the PNG; one that
 // cannot be read gives way to the next. The level's textures (scene/level.cpp) and the 2D layer's
 // uploads (texture_pool.cpp) both ask here.
-// With a dump folder, every texture is written there once, by the same name, for pack makers,
-// sorted into folders a player can find their way in: Interface/ (the 2D layer: HUD, menus, font),
+// With a dump folder, textures are written once, by the same name, for pack makers. A caller
+// that knows empty alpha hides the texture may omit blank pictures; animation frames are kept.
+// Pictures are sorted into folders a player can find their way in: Interface/ (HUD, menus, font),
 // Planets/<planet>/ (a level's own textures) and Shared/ (those met on more than one planet).
 //
 // A replacement can be animated: a folder named by the hash holding frames not named by a hash
@@ -111,6 +112,8 @@ struct Origin {
     bool later = false;
     // False: not dumped (a texture the game makes anew each tick, LiveWatch).
     bool dump = true;
+    // True only when the caller knows zero-alpha texels cannot contribute colour to this draw.
+    bool skip_empty_alpha = false;
 };
 
 // A level's name for its dump folder (the game's planet table); nullptr or an empty name gives

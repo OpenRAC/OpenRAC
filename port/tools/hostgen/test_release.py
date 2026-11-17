@@ -56,6 +56,45 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual(self.r.text(text, "src/game/other.c"),
                          "func_2F5D68(x); func_00283F58(y); func_00283698(z);")
 
+    def test_a_files_own_readable_name(self):
+        # The release's own C calls a hook by its readable name, at the place its catalogue gives
+        # the name; the alias's v1.01 name elsewhere is the hook its callers pair.
+        r = release.Release({"names": {"func_0026F790": "func_0026F600"},
+                             "units": {"src/pal/game/a.c": {"stub_empty_17": "func_0026F5F8"}}})
+        text = "stub_empty_17(o, 0); stub_empty_170(o); my_stub_empty_17(); func_0026F790(o, 0);"
+        self.assertEqual(r.text(text, "src/pal/game/a.c"),
+                         "func_0026F5F8(o, 0); stub_empty_170(o); my_stub_empty_17(); func_0026F600(o, 0);")
+        self.assertEqual(r.text(text, "src/game/b.c"), text.replace("func_0026F790", "func_0026F600"))
+
+    def test_a_call_to_a_function_the_release_lacks(self):
+        # PAL's own Maktar C calls module_l00_call_handler_2 (func_L00_0030CF60), which PAL has no
+        # row for; its build linked the call to level 2's copy of func_PAL_0029C7F0 (and level 22's
+        # to its copy there). A name the build gave no value, one the release has, one at no row and
+        # one two programs link to different functions stay as they are.
+        r = release.Release({"names": {"func_L00_0030CF60": "func_V1_L00_0030CF60",
+                                       "func_L00_00303530": "func_V1_L00_00303530",
+                                       "func_L00_002B1F90": "func_V1_L00_002B1F90",
+                                       "func_L01_00321178": "func_V1_L01_00321178",
+                                       "func_L00_0030C930": "func_V1_L00_0030C930",
+                                       "func_PAL_0029C7F0": "func_0029C7F0",
+                                       "func_00283580": "func_00283698"}})
+        text = ("module_l00_call_handler_2(); func_L00_0030CF60(); load_scene_chunk(); "
+                "func_L00_002B1F90(); func_00283580(); func_L01_00321178(o); func_L00_0030C930();")
+        readable = {"module_l00_call_handler_2": "func_L00_0030CF60", "load_scene_chunk": "func_L00_00303530"}
+        values = {"02": {"func_L00_0030CF60": 0x00312EC0, "func_00283580": 0x00283698,
+                         "func_L01_00321178": 0x00313000, "func_L00_0030C930": 0x00312EC0},
+                  "22": {"func_L00_0030CF60": 0x003118A0, "func_L00_0030C930": 0x00311900},
+                  "boot": {"func_L00_002B1F90": 0x00290000}}
+        rows = {("02", 0x00312EC0): "func_PAL_0029C7F0", ("22", 0x003118A0): "func_PAL_0029C7F0",
+                ("22", 0x00311900): "func_PAL_L00_0030F000", ("boot", 0x00290000): "func_PAL_00290000"}
+        got = release.gone_words(text, values, readable, r, lambda program, value: rows.get((program, value)))
+        self.assertEqual(got, {"module_l00_call_handler_2": "func_0029C7F0", "func_L00_0030CF60": "func_0029C7F0",
+                               "func_L00_002B1F90": "func_PAL_00290000"})
+        # The unit's table renames the readable name and the address name alike.
+        r.units = {"src/pal/levels/02_x/L02_a.c": got}
+        self.assertEqual(r.text("module_l00_call_handler_2(); func_L00_0030CF60();", "src/pal/levels/02_x/L02_a.c"),
+                         "func_0029C7F0(); func_0029C7F0();")
+
     def test_a_level_files_names_of_its_level(self):
         # In an Oozla file func_00312B68 is level 1's copy of func_002A9640 (the primary's level
         # catalogue), not the executable's address it states: it is that function in the release.

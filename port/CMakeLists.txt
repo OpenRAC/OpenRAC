@@ -468,6 +468,7 @@ openrac_add_c_test(checkpoint_restore NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Going Commando's nanotech render anchors before and after their crates break.
 openrac_add_c_test(rac2_effect_attachment INCLUDES game/rac2/host runtime/include)
+openrac_add_c_test(rac2_hero_attachments INCLUDES game/rac2/host)
 # Going Commando's saves as the play calls read them, on a save the game wrote.
 openrac_add_c_test(rac2_save INCLUDES game/rac2/host
   DEFINITIONS "RAC2_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac2/save-oozla.bin\"")
@@ -488,25 +489,32 @@ add_test(NAME gpu_test_config
 if(OPENRAC_PORT_GAMES)
   include(Games)
   openrac_add_games()
-  # Each rac1 version's table names every function and address the shared host C uses, and nothing
-  # else (port/game/rac1/README.md); no disc needed.
-  foreach(version rac1-pal rac1-ntsc rac1-pal1 rac1-jp)
+  # Each version's table names every function and address the shared host C uses, and nothing
+  # else (port/game/rac1/README.md; Going Commando's carried releases: release_carry.py); no disc
+  # needed.
+  foreach(version rac1-pal rac1-ntsc rac1-pal1 rac1-jp rac2-pal rac2-ntsc2)
     add_test(NAME ${version}_host_table
              COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/hostnames.py" check
                      "${PROJECT_SOURCE_DIR}/game/${version}")
     set_tests_properties(${version}_host_table PROPERTIES LABELS game-${version})
   endforeach()
-  # NTSC-U's own C (hand.tsv's rows) against the US code: every call and global the C reaches is
-  # one the retail function reaches, or allow.tsv says why not (port/game/rac1-ntsc/README.md).
-  # Skipped (77) without the retail program the decompilation's setup places.
-  set(xcheck_args "")
-  if(OPENRAC_RAC1_NTSC_ASM_SOURCE)
-    set(xcheck_args --asm-source "${OPENRAC_RAC1_NTSC_ASM_SOURCE}")
-  endif()
-  add_test(NAME rac1-ntsc_hand_xcheck
-           COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/xcheck.py" check
-                   "${PROJECT_SOURCE_DIR}/game/rac1-ntsc" --gen "${CMAKE_BINARY_DIR}/games/rac1-ntsc/gen" ${xcheck_args})
-  set_tests_properties(rac1-ntsc_hand_xcheck PROPERTIES SKIP_RETURN_CODE 77 LABELS game-rac1-ntsc)
+  # The port's own C for the US code (hand.tsv's rows) against it: every call and global the C
+  # reaches is one the retail function reaches, or allow.tsv says why not
+  # (port/game/rac1-ntsc/README.md). Skipped (77) without the retail program the decompilation's
+  # setup places. The other releases take this C (rac2: "primary_hand"; rac1: carried).
+  foreach(version rac1-ntsc rac2-ntsc)
+    string(TOUPPER "${version}" id)
+    string(REPLACE "-" "_" id "${id}")
+    set(xcheck_args "")
+    if(OPENRAC_${id}_ASM_SOURCE)
+      set(xcheck_args --asm-source "${OPENRAC_${id}_ASM_SOURCE}")
+    endif()
+    add_test(NAME ${version}_hand_xcheck
+             COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/xcheck.py" check
+                     "${PROJECT_SOURCE_DIR}/game/${version}" --gen "${CMAKE_BINARY_DIR}/games/${version}/gen"
+                     ${xcheck_args})
+    set_tests_properties(${version}_hand_xcheck PROPERTIES SKIP_RETURN_CODE 77 LABELS game-${version})
+  endforeach()
   add_test(NAME xcheck_tool
            COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_xcheck.py")
   # Every rac1 version binds each function, its C type and its data alike, or parity.tsv says why.

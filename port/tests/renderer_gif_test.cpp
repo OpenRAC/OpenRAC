@@ -7,11 +7,15 @@
 #include <cfenv>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <system_error>
 #include <utility>
 
 #include "check.h"
 #include "renderer/direct/direct.h"
 #include "renderer/effects/effects.h"
+#include "renderer/textures/texture_pack.h"
 #include "renderer_gif_builder.h"
 
 namespace {
@@ -418,6 +422,54 @@ void scissor_of_a_shorter_buffer() {
     CHECK(std::fesetround(rounding) == 0);
 }
 
+// Writes a marker so the CPU-only GIF test can observe exports without a PNG encoder.
+bool save_dump_marker(const std::filesystem::path& file, const Rgba8Image&) {
+    return std::ofstream(file).put('x').good();
+}
+
+// Keeps a zero-alpha upload when an unblended draw follows a source-over draw of the same pixels.
+void test_empty_alpha_draw_export() {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "openrac_gif_empty_alpha_dump_test";
+    std::error_code error;
+    fs::remove_all(root, error);
+    CHECK(!error);
+    texture_pack::configure({}, root, {.save = save_dump_marker});
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    // A 4x4 RGBA8 image at block 0x800 has red RGB and no alpha.
+    std::vector<std::uint8_t> pixels(std::size_t{4} * 4 * 4);
+    pixels[0] = 255;
+    GifBuilder first;
+    first.image(0x800, 1, gs::kPsmct32, 4, 4, pixels);
+    // ALPHA 0x44 selects (Cs - Cd) * As + Cd; the first sprite is blended (seen in gs::Alpha).
+    first.ad(
+        {{gs::kTex0_1, openrac::test::tex0(0x800, 1, gs::kPsmct32, 2, 2, true)},
+         {gs::kAlpha1, 0x44},
+         {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, true, true)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kXyz2, xyz2(8, 8, 0)}}
+    );
+    CHECK(gif.gif(first.bytes));
+    CHECK(gif.draws().size() == 1);
+    CHECK(!fs::exists(root / "Interface"));
+    GifBuilder second;
+    second.ad(
+        {{gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kXyz2, xyz2(8, 8, 0)}}
+    );
+    CHECK(gif.gif(second.bytes));
+    CHECK(gif.draws().size() == 2);
+    const Rgba8Image& shown = textures.image(gif.draws().back().state.texture);
+    const fs::path saved =
+        root / "Interface" / texture_pack::file_name(texture_pack::image_hash(shown));
+    CHECK(fs::is_regular_file(saved));
+    texture_pack::configure({}, {}, {});
+    fs::remove_all(root, error);
+    CHECK(!error);
+}
+
 void textures_and_vif() {
     TexturePool textures;
     GifInterpreter gif(textures);
@@ -724,6 +776,7 @@ int main() {
     scissor_of_a_shorter_buffer();
     textures_and_vif();
     movie_picture_strips();
+    test_empty_alpha_draw_export();
     offscreen_then_upload();
     frame_named_without_draw();
     upload_over_offscreen();

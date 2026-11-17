@@ -51,6 +51,13 @@ Measured from the programs, not assumed (release_carry.json has each):
   release.py pairs them by their callers instead (`pair_stubs`: every v1.01 function that calls a
   hook and has one function of the release of the same shape calls the release's hook at the same
   place); the release's own C keeps its catalogue's spelling (the per-file names).
+- **Calls to functions the release does not have.** The release's own C (src/pal, src/us2) still
+  calls some v1.01 functions by v1.01's name or a readable one (`module_l00_call_handler_2`,
+  `load_scene_chunk`), which the release has under another name or as another function. The
+  table marks such a name as not in the release (`func_V1_...`), an empty body in the port. So
+  each such word in a release file names the function the release's build linked it to: the
+  catalogue's row at the build's value for the name, the same function in every program that
+  has one, else the word stays (the per-file names).
 - **Executable functions the release has only in its levels.** USA v2.00 changed some of v1.01's
   executable functions (its `func_US2_002E8010`, `func_US2_002F6220`) and kept v1.01's code in the
   levels (`func_L00_00362138`, `func_L00_00361D08`: the level start's cutscene). In a level only

@@ -513,6 +513,13 @@ describe("A controller", () => {
     expect(said.join(" ")).not.toContain("index_fetch");
   });
 
+  it("shows the hub buttons for every game, not only Ratchet & Clank", async () => {
+    await open("page=mods&version=rac2/ntsc");
+    const banner = page.getByRole("region", { name: "Get mods" });
+    await banner.getByRole("button", { name: "Open the mod hub" }).waitFor();
+    expect(await banner.getByRole("button", { name: "Publish your mod" }).count()).toBe(1);
+  });
+
   it("finds a mod and shows one kind when there are many", async () => {
     await open("page=mods&version=rac1/pal&manymods");
     const search = page.getByRole("searchbox", { name: "Find a mod" });

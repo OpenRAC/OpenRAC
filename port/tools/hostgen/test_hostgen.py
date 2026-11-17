@@ -2235,6 +2235,41 @@ class Places(unittest.TestCase):
                           (out / "levels" / "16_x" / "L16_00435CE8.c").read_text())
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_six_digit_name_its_level_lacks_stops_the_build(self):
+        # Going Commando's L06_0035EA68.c called func_2EEEB8, FastVecAdd only in level 17. Level 6
+        # has no function there, so the port called level 0's quaternion_to_rotation_basis at that
+        # address, which wrote over Boldan's paths.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "game").mkdir(parents=True)
+            (src / "src" / "game" / "m.c").write_text(
+                "void func_00283958(void *q, void *m) { }\n"
+                "void func_00282CC0(void *a, void *b, void *c) { }\n")
+            unit = src / "src" / "levels" / "shared" / "L06_003E4FA0.c"
+            (src / "functions.tsv").write_text(
+                "func_00283958\tboot\t8\tfingerprint\t1\t00:002EEEB8\n"
+                "func_00282CC0\tboot\t8\tfingerprint\t1\t06:0032D5C8\n"
+                "func_L06_003E4FA0\tshared\t8\tfingerprint\t1\t06:003E4FA0\n")
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "relocate": [0x1A7C80, 0x500000], "bare_names_in_level_0": True,
+                "level_short_names": "^func_(?P<addr>[0-9A-F]{6,8})$",
+            }))
+            args = ["--game", str(root / "hostgen.json"), "--source", str(src),
+                    "--out", str(root / "gen"), "--jobs", "1", "--quiet"]
+            unit.write_text("extern void func_2EEEB8(void *, void *, void *);\n"
+                            "void func_L06_003E4FA0(char *p) { func_2EEEB8(p, p, p); }\n")
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(hostgen.main(args), 1)
+            self.assertIn("func_2EEEB8 names no function of this file's level", err.getvalue())
+            # Its own level's name for the copy there is fine.
+            unit.write_text("extern void func_32D5C8(void *, void *, void *);\n"
+                            "void func_L06_003E4FA0(char *p) { func_32D5C8(p, p, p); }\n")
+            self.assertEqual(hostgen.main(args), 0)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_function_entered_away_from_its_name_calls_the_levels_hook(self):
         # Going Commando's func_0031FC28 (the ammo pickup's update) is entered at 0x0031FC60, after
         # another function's leftover instructions, and the level catalogue lists its copies under
@@ -2326,6 +2361,69 @@ class Places(unittest.TestCase):
                                            "--jobs", "1", "--quiet"]), 0)
             self.assertIn("OPENRAC_LDATA(1, 0x001B255Cu)",
                           (out / "levels" / "shared" / "L01_002A7248.c").read_text())
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_level_files_global_that_does_not_pair_is_read_from_the_copy(self):
+        # Going Commando's func_L00_004272A0 reads D_L00_001B15DC, the ship levels' object count.
+        # Level 0's func_L00_00427290 writes that address too, but in Feltzin they are two
+        # globals, so the pair was the other one and the minimap had no enemies. data_copies.tsv
+        # lists it: the running copy's own address, even for the file's own level's name.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L00_00427290-g8.c").write_text(
+                "extern int D_L00_001B15DC;\n"
+                "int func_L00_004272A0(void) { return D_L00_001B15DC; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_004272A0\tshared\t8\tfingerprint\t2\t00:004272A0,05:00379EC8\n")
+            (root / "data_copies.tsv").write_text("func_L00_004272A0\t001B15DC\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {"D_L00_001B15DC": "0x001b15dc"},
+                "level_data": {"0": {"D_L00_001B15DC": "0x001b15dc"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+                "data_copies": "data_copies.tsv",
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L00_00427290-g8.c").read_text()
+            self.assertIn("openrac_data_in_copy(0, 0x004272A0u, 8u, openrac_self_, 0x001B15DCu)", text)
+            self.assertNotIn("OPENRAC_LDATA(0, 0x001B15DCu)", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_another_levels_derived_name_is_that_levels_address(self):
+        # Going Commando's fade_set_level (func_L00_0037E670) stores the Shield Charger's strength
+        # as ref_L02_00385E18_00, the address level 2's build derived (0x001B3DB0). Read as level
+        # 0's, it was another word in every level: fade_get_value saw 0 and the shield went at once.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L00_0037E668.c").write_text(
+                "extern float ref_L02_00385E18_00;\n"
+                "void func_L00_0037E670(int raised) { if (!raised) ref_L02_00385E18_00 = 40.0f; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_0037E670\tshared\t40\tfingerprint\t2\t00:0037E670,02:00385E20\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {"ref_L02_00385E18_00": "0x001b3db0"},
+                "level_data": {"2": {"ref_L02_00385E18_00": "0x001b3db0"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L00_0037E668.c").read_text()
+            self.assertIn("OPENRAC_LDATA(2, 0x001B3DB0u)", text)
+            self.assertNotIn("OPENRAC_LDATA(0, 0x001B3DB0u)", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_the_gp_view_of_a_level_derived_global_is_that_global(self):

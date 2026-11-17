@@ -151,10 +151,42 @@ void test_nanotech_sparks_name_their_position_anchor() {
     CHECK(profile.particle_attachment({}) == 0);
 }
 
+// A moby the vendor draws from its own pool, not the list, comes with its bangles: the ammo
+// preview (class 3291, bangle word 1) is drawn as its own mesh and bangle 0, the ammo box.
+void test_extra_moby_keeps_its_bangles() {
+    std::vector<std::uint8_t> ram(0x200);
+    constexpr std::uint32_t kMoby = 0x100;
+    constexpr std::int16_t kAmmoPreview = 3291;
+    std::memcpy(ram.data() + kMoby + 0xAA, &kAmmoPreview, sizeof(kAmmoPreview));
+    put_float(ram, kMoby + 0x2C, 1.0f);
+    put_float(ram, kMoby + 0xC0, 1.0f);
+    put_float(ram, kMoby + 0xD4, 1.0f);
+    put_float(ram, kMoby + 0xE8, 1.0f);
+
+    for (const std::string_view game : {"rac2-ntsc", "rac2-ntsc2", "rac2-pal"}) {
+        const host::GameProfile& profile = host::game_profile(game);
+        for (const std::int16_t word : {std::int16_t{1}, std::int16_t(0x8001)}) {
+            std::memcpy(ram.data() + kMoby + 0x7C, &word, sizeof(word));
+            std::vector<host::LiveMoby> mobys;
+            profile.add_moby(ram, kMoby, mobys);
+            // Bit 15 clear: the mesh and bangle 0; set: bangle 0 alone.
+            CHECK(mobys.size() == (word > 0 ? 2u : 1u));
+            if (mobys.empty()) {
+                continue;
+            }
+            const host::LiveMoby& bangle = mobys.back();
+            CHECK(bangle.address == kMoby);
+            CHECK(bangle.model_only);
+            CHECK(bangle.model_class == 100000 + kAmmoPreview * 16);
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
     test_nanotech_keeps_its_position_without_a_mesh();
+    test_extra_moby_keeps_its_bangles();
     test_nanotech_sparks_name_their_position_anchor();
     reads_each_programs_view();
     culls_past_the_distance_and_the_cap();

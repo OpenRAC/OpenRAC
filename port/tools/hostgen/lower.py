@@ -53,9 +53,13 @@ LEVEL_RELOCATE = (0x0015F000, 0x00400000)
 LEVEL_NAME = re.compile(r"(?:func|FUN)_L(\d\d)_")
 # A function name with a suffix after its address: a per-caller alias of that function (rac3).
 CALLER_ALIAS = re.compile(r"(func_[0-9A-Fa-f]{8})_\w+$")
+# The start of a unit problem that stops the build (hostgen.py): a six-digit name its level lacks.
+LEVEL_SHORT_MISS = "level_short_names: "
 # A call_copies row with an executable target: the executable's call, else the level copy's.
 _EXE_OR_COPY = "(openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? "
 UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
+# A name a level's build derived for the datum a function of it reaches (ref_L02_00385E18_00).
+DERIVED_REF = re.compile(r"ref_L(\d\d)_[0-9A-Fa-f]{8}_\d+")
 # A datum's name with a word after its number (D_001A7390_sda): the same datum; a number after it
 # (D_L00_001B1B00_1) is one of the build's own, a datum of its own.
 GLOBAL_VIEW = re.compile(r"^(D_(?:L\d\d_)?[0-9A-Fa-f]{8})_[A-Za-z_]\w*$")
@@ -1033,9 +1037,9 @@ class Unit:
             stack.extend(_inner(n))
 
     def _label_leads(self) -> list:
-        """Each label of the function being translated, in source order, with what its code does first of a call
-        (["call", callee]), a goto (["goto"]) or a return (["return"]): what jumptables.py matches with the
-        instructions at each address of a table."""
+        """Each label of the function being translated, in source order, with what its code does first: its
+        first two calls (["call", callee, next callee]), or a return (["return"], ["return", value] for a
+        constant): what jumptables.py matches with the instructions at each address of a table."""
         events = []
         stack = [self.fn.body_node]
         while stack:
@@ -1053,26 +1057,33 @@ class Unit:
                 events.append(("goto", None))
             elif k == "ReturnStmt":
                 # `return f(x)` calls first: the return follows what its value does.
-                stack.append({"kind": "openrac_return"})
+                value = _strip_casts(_inner(n)[0]) if _inner(n) else {}
+                stack.append({"kind": "openrac_return",
+                              "value": value.get("value") if value.get("kind") == "IntegerLiteral" else None})
             elif k == "openrac_return":
-                events.append(("return", None))
+                events.append(("return", n["value"]))
             if k == "CallExpr":
                 # Its arguments run first, but a call inside them is rare: the call itself leads.
                 continue
             stack.extend(reversed(_inner(n)))
         at = {name: i for i, (k, name) in enumerate(events) if k == "label"}
 
-        def lead(i: int, seen: frozenset) -> list:
+        def lead(i: int, seen: frozenset, calls: tuple = ()) -> list:
             # A goto leads where its label does (the compiler's code is followed through its branches too).
             for kk, nn in events[i + 1:]:
                 if kk == "label":
                     continue
                 if kk == "call":
-                    return ["call", nn]
+                    calls += (nn,)
+                    if len(calls) == 2:
+                        break
+                    continue
                 if kk == "goto" and nn in at and nn not in seen:
-                    return lead(at[nn], seen | {nn})
-                return ["return"]
-            return ["return"]
+                    return lead(at[nn], seen | {nn}, calls)
+                if kk == "return" and not calls and nn is not None:
+                    return ["return", int(nn)]
+                break
+            return ["call", *calls] if calls else ["return"]
         return [[name, lead(i, frozenset({name}))] for i, (k, name) in enumerate(events) if k == "label"]
 
     def _table_of(self, base: dict) -> dict:
@@ -1940,6 +1951,11 @@ class Unit:
             own = LEVEL_NAME.match(self.fn.code)
             sym = calls_as.get(self.fn.code, {}).get(sym, sym)
             sym = calls_as.get(f"L{int(own.group(1)):02d}", {}).get(sym, sym) if own else sym
+        miss = self.program.level_short_miss(self.unit, sym, self.fn.code if self.fn is not None else "")
+        if miss is not None:
+            problem = f"{LEVEL_SHORT_MISS}{sym} names no function of this file's level; it would call level 0's {miss}"
+            if problem not in self.report.problems:
+                self.report.problems.append(problem)
         sym = self._level_short_name(sym)
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:
@@ -2304,9 +2320,15 @@ class Unit:
                 # level's already, and the executable's datum there is another.
                 placed = moved.get(f"D_{address:08X}")
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
-            if placed is not None and low <= placed < high:
+            # Not a global that does not pair between levels (data_copies.tsv): that one is read
+            # below, where the running copy forms it. rac2: level 0 reads and writes 0x001B15DC
+            # in func_L00_004272A0 and func_L00_00427290; in the ship levels these are two
+            # globals, and the first pair made the minimap's object count read the other one.
+            own_copy = (placed == address and self.fn is not None and self._shared_level() is not None
+                        and (self.fn.code, placed) in getattr(self.program, "data_copies", ()))
+            if placed is not None and low <= placed < high and not own_copy:
                 return f"OPENRAC_LDATA({level}, {hexaddr(placed)})"
-        formed = getattr(self.program, "formed_as", {}).get(symbol or "")
+        formed =getattr(self.program, "formed_as", {}).get(symbol or "")
         if formed is not None:
             # An address the code only forms with something added (hostgen.json "formed_as"): pairing
             # the programs finds the sum, so the name is that, relocated, less what was added.
@@ -2377,7 +2399,12 @@ class Unit:
                 home, canon = self._copy_named_in(symbol, level)
                 addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif level is not None and low <= address < high:
-                addr = f"OPENRAC_LDATA({level}, {addr})"
+                # A name another level's build derived is that level's address: Going Commando's
+                # fade_set_level (func_L00_0037E670) stores the Shield Charger's strength as
+                # ref_L02_00385E18_00, level 2's 0x001B3DB0; read as level 0's it was another word
+                # in every level, fade_get_value saw 0 and the shield went at once.
+                derived = DERIVED_REF.fullmatch(symbol or "")
+                addr = f"OPENRAC_LDATA({int(derived.group(1)) if derived else level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
             addr = f"OPENRAC_TARGET_TABLE({addr})"
         return addr

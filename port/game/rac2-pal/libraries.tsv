@@ -259,6 +259,7 @@ func_002D6320	menu	MainMenuEnter	wrap	the title's main menu as it opens (its lis
 func_003435C0	menu	PauseListItems	wrap	the pause menu's lists' items: the Options list's are a copy with a Video row after Camera (host/options.c)	void (unsigned int, int, int, int)
 func_00343690	menu	PauseListShow	wrap	shows one of the pause menu's lists: the Options list has a ninth row, with the rows closer (host/options.c)	void (unsigned int, int)
 func_00343C88	options	OptionsListDraw	wrap	the pause list's panel, whose art has no ninth row: drawn in two clipped parts for it
+func_002DE710	menu	SaveSlotListDraw	wrap	the Load and Save pages' four slots: a MODS badge on each one saved with mods loaded (host/save_marks.c)
 func_0033E460	menu	CameraPageUpdate	wrap	the pause menu's Camera page: its 16:9 row is not reached, and the copy the Options list's Video row opens shows the port's Video rows, which move as the title's (host/options.c)
 func_0033E608	menu	CameraPageDraw	wrap	the pause menu's Camera page: its three camera rows, or the Video rows drawn in the panel for the Options list's Video row (host/options.c)
 func_0029BB00	card	RestoreBlocks	wrap	a save's blocks into their places (rac1's memcard_restore_data): the language and the Sound page stay the player's (host/options.c)

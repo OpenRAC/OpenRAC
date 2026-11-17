@@ -560,12 +560,12 @@ int api_developer_menu(
         if (action_taken) {
             return OPENRAC_HOOK_TAKEN;
         }
-        menu.items.push_back(
-            {items[i].label,
-             items[i].shortcut != nullptr ? items[i].shortcut : "",
-             items[i].group != nullptr ? items[i].group : "",
-             items[i].action}
-        );
+        DeveloperMenuItem item;
+        item.label = items[i].label;
+        item.shortcut = items[i].shortcut != nullptr ? items[i].shortcut : "";
+        item.group = items[i].group != nullptr ? items[i].group : "";
+        item.action = items[i].action;
+        menu.items.push_back(std::move(item));
     }
     g_developer_menus.push_back(std::move(menu));
     return OPENRAC_HOOK_OK;
@@ -628,6 +628,70 @@ int api_developer_menu_set_label(openrac_mod* mod, std::uint32_t action, const c
         }
     }
     return OPENRAC_HOOK_UNKNOWN;
+}
+
+// The mod's developer menu item of `action`, or null.
+DeveloperMenuItem* developer_menu_item(openrac_mod* mod, std::uint32_t action) {
+    for (DeveloperMenu& menu : g_developer_menus) {
+        if (menu.mod != mod) {
+            continue;
+        }
+        const auto item = std::find_if(
+            menu.items.begin(), menu.items.end(), [action](const DeveloperMenuItem& entry) {
+                return entry.action == action;
+            }
+        );
+        if (item != menu.items.end()) {
+            return &*item;
+        }
+    }
+    return nullptr;
+}
+
+// Whether the mod may make or set a switch or a choice now (1.19): while it loads, or at its tick
+// boundary, as for the labels.
+bool may_set_developer_menu(openrac_mod* mod) {
+    return mod != nullptr && (mod == g_loading || (mod == g_tick_mod && g_in_tick_boundary));
+}
+
+int api_developer_menu_switch(openrac_mod* mod, std::uint32_t action, int on) {
+    if (!may_set_developer_menu(mod)) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    DeveloperMenuItem* item = developer_menu_item(mod, action);
+    if (item == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    item->kind = MenuItemKind::Switch;
+    item->value = on != 0 ? 1 : 0;
+    item->values.clear();
+    return OPENRAC_HOOK_OK;
+}
+
+int api_developer_menu_choice(
+    openrac_mod* mod,
+    std::uint32_t action,
+    const char* const* values,
+    std::uint32_t count,
+    std::uint32_t index
+) {
+    if (!may_set_developer_menu(mod)) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    DeveloperMenuItem* item = developer_menu_item(mod, action);
+    if (item == nullptr || values == nullptr || count == 0 || index >= count
+        || std::any_of(values, values + count, [](const char* v) { return v == nullptr; })) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    item->kind = MenuItemKind::Choice;
+    item->values.assign(values, values + count);
+    item->value = static_cast<int>(index);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_developer_menu_value(openrac_mod* mod, std::uint32_t action) {
+    const DeveloperMenuItem* item = mod != nullptr ? developer_menu_item(mod, action) : nullptr;
+    return item != nullptr && item->kind != MenuItemKind::Press ? item->value : -1;
 }
 
 int api_on_pad(openrac_mod* mod, openrac_pad_fn fn, void* user) {
@@ -1880,6 +1944,9 @@ void fill_api(const Host& host) {
     g_api.developer_menu = api_developer_menu;
     g_api.take_developer_menu_action = api_take_developer_menu_action;
     g_api.developer_menu_set_label = api_developer_menu_set_label;
+    g_api.developer_menu_switch = api_developer_menu_switch;
+    g_api.developer_menu_choice = api_developer_menu_choice;
+    g_api.developer_menu_value = api_developer_menu_value;
     g_api.data_dir = api_data_dir;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
@@ -2569,6 +2636,22 @@ void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action) {
         }
         return;
     }
+}
+
+void set_developer_menu_value(openrac_mod* mod, std::uint32_t action, int value) {
+    DeveloperMenuItem* item = mod != nullptr ? developer_menu_item(mod, action) : nullptr;
+    if (item == nullptr) {
+        return;
+    }
+    const bool fits = item->kind == MenuItemKind::Switch
+                          ? value == 0 || value == 1
+                          : item->kind == MenuItemKind::Choice && value >= 0
+                                && value < static_cast<int>(item->values.size());
+    if (!fits) {
+        return;
+    }
+    item->value = value;
+    queue_developer_menu_action(mod, action);
 }
 
 int loaded_count() {

@@ -436,6 +436,21 @@ class Program:
             return self.by_place.get((-1, address), f"func_{address:08X}")
         return own or sym
 
+    def level_short_miss(self, unit: str, sym: str, function: str = "") -> str | None:
+        """Level 0's function a six-digit name in a level's file would call when its own level has
+        no function there (canonical's fallback), or None. Such a name was copied from another
+        level: L06_0035EA68.c's func_2EEEB8 is FastVecAdd in level 17, but level 0's
+        quaternion_to_rotation_basis ran on Boldan's taxi and wrote over the level's paths."""
+        pattern = getattr(self, "level_short_names", None)
+        m = pattern.match(sym) if pattern else None
+        if m is None or not self.bare_names_in_level_0:
+            return None
+        found = _UNIT_LEVEL.search(unit) or _LEVEL_NAME.match(function)
+        address = int(m.group("addr"), 16)
+        if found is None or address in self.executable_starts or self.by_place.get((int(found.group(1)), address)):
+            return None
+        return self.by_place.get((0, address))
+
     def canonical(self, symbol: str) -> str:
         """The symbol with C at the same place as symbol, or symbol: the port's own function
         there before the decompilation's C."""

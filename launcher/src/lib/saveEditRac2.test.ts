@@ -5,11 +5,15 @@ import {
   changed,
   editList,
   fieldErrors,
+  fillAllAmmo,
   flagGroups,
+  giveAll,
   ownedCount,
   platinumCount,
+  setAllPlatinum,
   setOwned,
   setVersion,
+  takeAll,
   versionHow,
   versionLabel,
   versionName,
@@ -163,6 +167,32 @@ describe("the Going Commando save editor's page checks", () => {
     expect(at(f, 30).owned).toBe(true);
     expect(ownedCount(v, f, "weapon")).toEqual([3, 3]);
     expect(changed(v, f)).toBe(true);
+  });
+
+  it("gives, fills and takes every item of a kind at once", () => {
+    const v = view();
+    const f = structuredClone(v.fields);
+    giveAll(v, f, "weapon");
+    expect(ownedCount(v, f, "weapon")).toEqual([3, 3]);
+    expect(at(f, 24).ammo).toBe(25);
+    expect(at(f, 2).owned).toBe(false);
+    at(f, 24).version = 1;
+    at(f, 24).ammo = 3;
+    fillAllAmmo(v, f);
+    expect([at(f, 30).ammo, at(f, 24).ammo, at(f, 12).ammo]).toEqual([200, 20, 40]);
+    takeAll(v, f, "weapon");
+    expect(ownedCount(v, f, "weapon")).toEqual([1, 3]);
+    expect(at(f, 30).owned).toBe(true);
+    giveAll(v, f, "gadget");
+    expect(at(f, 2).owned).toBe(true);
+  });
+
+  it("sets every platinum bolt, or none", () => {
+    const f = structuredClone(view().fields);
+    setAllPlatinum(f, true);
+    expect(platinumCount(f)).toBe(4);
+    setAllPlatinum(f, false);
+    expect(platinumCount(f)).toBe(0);
   });
 
   it("lists the changes in a player's words", () => {
