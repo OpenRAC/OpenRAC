@@ -150,6 +150,23 @@ void arc_style() {
     touch.finger_up(5);
     CHECK(!read(touch).held(Button::L1));
 
+    // A set without the toggle (a menu, a load) lets it go: it is off when the set comes back.
+    touch.finger_down(5, l->x, l->y);
+    touch.finger_up(5);
+    CHECK(read(touch).held(Button::L1));
+    touch.set_actions({act("ok", bit(Button::Cross), TouchSize::Large)});
+    CHECK(!read(touch).held(Button::L1));
+    touch.set_actions({look});
+    CHECK(!read(touch).held(Button::L1));
+
+    // Beside the stick an own place first: strafe takes the lowest, look the next free.
+    TouchAction strafe = act("strafe", bit(Button::L2), TouchSize::Small);
+    strafe.side = TouchSide::Left;
+    strafe.at = 0;
+    touch.set_actions({look, strafe});
+    CHECK(action(touch, "strafe")->group == TouchGroup::Left0);
+    CHECK(action(touch, "look")->group == TouchGroup::Left1);
+
     // Back to the Classic style: the DualShock's buttons again.
     touch.set_style(TouchStyle::Classic);
     CHECK(action(touch, "look") == nullptr && touch.controls().size() == 16);

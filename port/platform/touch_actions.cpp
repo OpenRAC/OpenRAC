@@ -99,6 +99,10 @@ bool read_action(const json::Value& v, TouchAction& a, std::string& error) {
             return false;
         }
         a.at = static_cast<int>(n);
+        if (a.side == TouchSide::Left && a.at > 2) {
+            error = std::format("action {}: \"at\" beside the stick is 0 to 2", a.id);
+            return false;
+        }
     }
     a.when = v["when"].string();
     a.instead = v["instead"].string();
