@@ -662,6 +662,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0018E140u 0x0018E040u
 #define RAC1_ADDR_0x0018E240u 0x0018E140u
 #define RAC1_ADDR_0x0018E340u 0x0018E240u
+#define RAC1_ADDR_0x0018DC40u 0x0018DB40u
+#define RAC1_ADDR_0x0018DD40u 0x0018DC40u
+#define RAC1_ADDR_0x0018DE40u 0x0018DD40u
+#define RAC1_ADDR_0x0018DF40u 0x0018DE40u
 #define RAC1_ADDR_0x00193400u 0x00193300u
 #define RAC1_ADDR_0x001940C0u 0x00193FC0u /* the NTSC decomp's occl_visibility */
 #define RAC1_ADDR_0x001941C0u 0x001940C0u
