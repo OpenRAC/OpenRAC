@@ -2235,6 +2235,41 @@ class Places(unittest.TestCase):
                           (out / "levels" / "16_x" / "L16_00435CE8.c").read_text())
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_six_digit_name_its_level_lacks_stops_the_build(self):
+        # Going Commando's L06_0035EA68.c called func_2EEEB8, FastVecAdd only in level 17. Level 6
+        # has no function there, so the port called level 0's quaternion_to_rotation_basis at that
+        # address, which wrote over Boldan's paths.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "game").mkdir(parents=True)
+            (src / "src" / "game" / "m.c").write_text(
+                "void func_00283958(void *q, void *m) { }\n"
+                "void func_00282CC0(void *a, void *b, void *c) { }\n")
+            unit = src / "src" / "levels" / "shared" / "L06_003E4FA0.c"
+            (src / "functions.tsv").write_text(
+                "func_00283958\tboot\t8\tfingerprint\t1\t00:002EEEB8\n"
+                "func_00282CC0\tboot\t8\tfingerprint\t1\t06:0032D5C8\n"
+                "func_L06_003E4FA0\tshared\t8\tfingerprint\t1\t06:003E4FA0\n")
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "relocate": [0x1A7C80, 0x500000], "bare_names_in_level_0": True,
+                "level_short_names": "^func_(?P<addr>[0-9A-F]{6,8})$",
+            }))
+            args = ["--game", str(root / "hostgen.json"), "--source", str(src),
+                    "--out", str(root / "gen"), "--jobs", "1", "--quiet"]
+            unit.write_text("extern void func_2EEEB8(void *, void *, void *);\n"
+                            "void func_L06_003E4FA0(char *p) { func_2EEEB8(p, p, p); }\n")
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(hostgen.main(args), 1)
+            self.assertIn("func_2EEEB8 names no function of this file's level", err.getvalue())
+            # Its own level's name for the copy there is fine.
+            unit.write_text("extern void func_32D5C8(void *, void *, void *);\n"
+                            "void func_L06_003E4FA0(char *p) { func_32D5C8(p, p, p); }\n")
+            self.assertEqual(hostgen.main(args), 0)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_function_entered_away_from_its_name_calls_the_levels_hook(self):
         # Going Commando's func_0031FC28 (the ammo pickup's update) is entered at 0x0031FC60, after
         # another function's leftover instructions, and the level catalogue lists its copies under

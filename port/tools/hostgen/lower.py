@@ -53,6 +53,8 @@ LEVEL_RELOCATE = (0x0015F000, 0x00400000)
 LEVEL_NAME = re.compile(r"(?:func|FUN)_L(\d\d)_")
 # A function name with a suffix after its address: a per-caller alias of that function (rac3).
 CALLER_ALIAS = re.compile(r"(func_[0-9A-Fa-f]{8})_\w+$")
+# The start of a unit problem that stops the build (hostgen.py): a six-digit name its level lacks.
+LEVEL_SHORT_MISS = "level_short_names: "
 # A call_copies row with an executable target: the executable's call, else the level copy's.
 _EXE_OR_COPY = "(openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? "
 UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
@@ -1947,6 +1949,11 @@ class Unit:
             own = LEVEL_NAME.match(self.fn.code)
             sym = calls_as.get(self.fn.code, {}).get(sym, sym)
             sym = calls_as.get(f"L{int(own.group(1)):02d}", {}).get(sym, sym) if own else sym
+        miss = self.program.level_short_miss(self.unit, sym, self.fn.code if self.fn is not None else "")
+        if miss is not None:
+            problem = f"{LEVEL_SHORT_MISS}{sym} names no function of this file's level; it would call level 0's {miss}"
+            if problem not in self.report.problems:
+                self.report.problems.append(problem)
         sym = self._level_short_name(sym)
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:
