@@ -150,6 +150,15 @@ void arc_style() {
     touch.finger_up(5);
     CHECK(!read(touch).held(Button::L1));
 
+    // A set without the toggle (a menu, a load) lets it go: it is off when the set comes back.
+    touch.finger_down(5, l->x, l->y);
+    touch.finger_up(5);
+    CHECK(read(touch).held(Button::L1));
+    touch.set_actions({act("ok", bit(Button::Cross), TouchSize::Large)});
+    CHECK(!read(touch).held(Button::L1));
+    touch.set_actions({look});
+    CHECK(!read(touch).held(Button::L1));
+
     // Back to the Classic style: the DualShock's buttons again.
     touch.set_style(TouchStyle::Classic);
     CHECK(action(touch, "look") == nullptr && touch.controls().size() == 16);

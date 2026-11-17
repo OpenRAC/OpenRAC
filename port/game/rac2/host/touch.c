@@ -10,7 +10,9 @@
  * hides the level, such as a hacking board ("minigame": Circle tries again, Triangle quits),
  * anything else a movie, a scene or a load ("cutscene"). In play the space combat levels are the
  * ship's, Giant Clank his own, then swimming, grinding and on foot. Hints: a "press triangle"
- * prompt.
+ * prompt. On foot with no health the hero is dying: "default", which has no strafe button, so the
+ * strafe toggle (sets/rac2.json, L2) is off when he comes back. A menu, a load or a scene drops it
+ * the same way.
  * Installed with the tools (tools.c, rac2_install_tools).
  */
 #include "openrac/game_host.h"
@@ -61,6 +63,9 @@ static const char* play_context(int level) {
     }
     if (grinding(state)) {
         return "grind";
+    }
+    if (GREF(int32_t, RAC2_g_health) <= 0) {
+        return "default"; /* dying: no strafe button, so its toggle lets go */
     }
     return "foot";
 }
