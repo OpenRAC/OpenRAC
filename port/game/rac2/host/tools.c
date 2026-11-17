@@ -158,8 +158,115 @@ void rac2_options_frame(void);
 int rac2_planets_take(void);
 static void flight_skip(void);
 
+static int game_mode(uint32_t* mode);
+
+#if defined(RAC2_PRIMARY)
+/*
+ * OPENRAC_MAP_WATCH=1, a catcher for a damaged map run list (T-41, T-39). A save packs the level map
+ * (map_fill_buffer, func_00297670) with func_00283EF0, which walks the run list at the map state's
+ * +0x14 (g_map_overlay_state, D_001C4FA0, the level's copy) in byte pairs until the run total is
+ * exactly 0x40000; a damaged list walks it off the end of memory. Players hit that after long
+ * sessions, never in short ones. The list is walked each frame; a frame it no longer comes to
+ * 0x40000 is logged with the bytes that changed since it last did. It only reads, so the game runs
+ * as it would without it.
+ */
+#define MAP_STATE RAC2_ADDR(0x001C4FA0u)
+#define MAP_INDEX RAC2_ADDR(0x001A79F0u)
+#define MAP_RUNS 0x40000u
+#define MAP_LIST_MAX 0x4000u
+
+/* The list's length in bytes when its runs come to MAP_RUNS, else 0. */
+static uint32_t map_list_length(gaddr list) {
+    uint32_t total = 0;
+    for (uint32_t at = 0; at + 2 <= MAP_LIST_MAX && list + at + 2 <= 0x02000000u; at += 2) {
+        const uint8_t* pair = G(list + at);
+        total += pair[0];
+        if (total == MAP_RUNS) {
+            return at + 2;
+        }
+        total += pair[1];
+    }
+    return 0;
+}
+
+static void map_watch(unsigned frame) {
+    static int mode = -1;
+    static gaddr list;
+    static int list_level = -1;
+    static uint32_t length;
+    static uint8_t copy[MAP_LIST_MAX];
+    if (mode < 0) {
+        const char* value = getenv("OPENRAC_MAP_WATCH");
+        mode = value != NULL && *value != '\0' && strcmp(value, "0") != 0;
+    }
+    if (mode == 0) {
+        return;
+    }
+    const int level = GREF(int32_t, MAP_INDEX);
+    const gaddr state = openrac_relocate_data(MAP_STATE);
+    if (GREF(int32_t, state + 0x10) == 0) {
+        return;
+    }
+    const gaddr now = GREF(uint32_t, state + 0x14);
+    if (now < 0x00100000u || now >= 0x02000000u) {
+        return;
+    }
+    const uint32_t now_length = map_list_length(now);
+    if (now_length != 0) {
+        if (now != list || now_length != length || level != list_level
+            || memcmp(copy, G(now), now_length) != 0) {
+            list = now;
+            length = now_length;
+            list_level = level;
+            memcpy(copy, G(now), now_length);
+            fprintf(stderr, "[map watch] frame %u: level %d's map list at %08x, %u bytes\n", frame,
+                    level, list, length);
+        }
+        return;
+    }
+    if (list == 0) {
+        return;
+    }
+    /* Damaged: what changed in the copy the last good frame had. */
+    uint32_t first = length, changed = 0;
+    if (now == list) {
+        for (uint32_t i = 0; i < length; ++i) {
+            if (((const uint8_t*)G(now))[i] != copy[i]) {
+                first = i < first ? i : first;
+                ++changed;
+            }
+        }
+    }
+    uint32_t mode_now = 0;
+    const int known = game_mode(&mode_now);
+    fprintf(stderr,
+            "[map watch] frame %u: level %d's map list at %08x no longer comes to %x (list was "
+            "%08x, level %d, %u bytes); %u bytes changed from +%x; game mode %d\n",
+            frame, level, now, MAP_RUNS, list, list_level, length, changed, first,
+            known ? (int)mode_now : -1);
+    if (changed != 0) {
+        const uint32_t from = first & ~0xFu;
+        const uint32_t to = from + 32u < length ? from + 32u : length;
+        fprintf(stderr, "[map watch] +%x was:", from);
+        for (uint32_t i = from; i < to; ++i) {
+            fprintf(stderr, " %02x", copy[i]);
+        }
+        fprintf(stderr, "\n[map watch] +%x now:", from);
+        for (uint32_t i = from; i < to; ++i) {
+            fprintf(stderr, " %02x", ((const uint8_t*)G(now))[i]);
+        }
+        fprintf(stderr, "\n");
+    }
+    /* Once: the next good list is watched again. */
+    list = 0;
+}
+#endif
+
 static void on_frame(unsigned frame) {
     (void)frame;
+#if defined(RAC2_PRIMARY)
+    map_watch(frame);
+#endif
     rac2_options_frame();
     direct_start();
     /* The developer mode's Planets page (options.c): the level chosen there. */
