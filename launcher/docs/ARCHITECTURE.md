@@ -513,8 +513,14 @@ developer's disc choice, else the disc set up, else the game's first;
 `disc_choice::played_version`), starts a game as its Play button does, with no window:
 `library::direct_play` plans the game's first `play` action (data folder, mods,
 build checks), and a play that asks for confirmation is not started unseen.
+`--update-mods` beside it first puts in the updates the Play button puts in by
+itself (Settings has them on): the signed mod list is waited for at most 20 s,
+then the updates that go in silently are let finish before the game starts, so
+it never starts on a half-changed folder. Majors and new hooks still wait for a
+click on the Mods tab, and the launcher log says what went in and what waits.
 The page knows nothing of a shortcut's game (it is no job of its), so its own
-mod updates wait while one runs. If
+updates wait while a shortcut start updates or its game runs, and a run of
+updates, the page's or a start's, is one at a time. If
 it cannot start, the window opens on that game. An open launcher gets the
 argument through single instance and starts the game itself; otherwise the
 launcher hides its window and ends with the game. A game's page offers Add to
