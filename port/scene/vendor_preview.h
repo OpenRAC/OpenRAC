@@ -29,6 +29,30 @@ inline int normal_weapon_class(int id) {
 // Approved in-game vendor framing from Batches 1, 2 and 3; displays are independent.
 inline Adjustment defaults(int id) {
     switch (id) {
+        case 37:
+            return {32.5f, 7.0f, 1.97359955f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+        case 645:
+            return {-127.5f, -6.75f, 2.63739991f, 21.5f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+        case 1002:
+            return {3.0f, 0.0f, 0.699899852f, 0.0f, 0.0f, 18.5f, true, 0.0f, 0.0f, 0.0f, false};
+        case 1428:
+            return {31.75f, -12.75f, 1.0f, 180.0f, -90.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+        case 1433:
+            return {21.75f, -7.25f, 1.27299964f, 190.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+        case 65573:
+            return {0.0f, 10.5f, 2.61739921f, -30.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+        case 66181:
+            return {
+                17.5f, 16.5f, 2.70099997f, 0.0f, 0.0f, 0.0f, true, 0.0f, 1.02399992f, 0.0f, true
+            };
+        case 66538:
+            return {-2.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+        case 66964:
+            return {
+                16.75f, -5.5f, 0.942899763f, 0.0f, 90.0f, 0.0f, true, 0.0f, 2.97299981f, 0.0f, true
+            };
+        case 66969:
+            return {18.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, true, 0.0f, 2.89799928f, 0.0f, true};
         case 173:
             return {
                 42.75f, -12.75f, 1.45299887f, 12.0f, 8.0f, -102.5f, true, 0.0f, 0.0f, 0.0f, false
@@ -548,6 +572,21 @@ inline renderer::Mat4 orient(
         renderer::multiply(change, renderer::translation({-pivot[0], -pivot[1], -pivot[2]}))
     );
     return renderer::multiply(source, change);
+}
+
+// Retail weapon holograms lean by 30 degrees before their model adjustment.
+// Nanotech cans need a level base so their saved upright orientation spins vertically.
+inline renderer::Mat4 can_hologram_basis(renderer::Mat4 source, int id) {
+    if (id != 645 && id != 1433) {
+        return source;
+    }
+    const float tilt = std::atan2(source[6], std::hypot(source[4], source[5]));
+    const float c = std::cos(-tilt), s = std::sin(-tilt);
+    auto correction = renderer::identity();
+    correction[5] = correction[10] = c;
+    correction[6] = s;
+    correction[9] = -s;
+    return renderer::multiply(source, correction);
 }
 
 inline renderer::Mat4 freeze_spin(renderer::Mat4 source, float native_angle, bool spin) {

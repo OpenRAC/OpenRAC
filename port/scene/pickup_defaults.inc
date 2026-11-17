@@ -87,3 +87,14 @@ case 1464:
     return {{0.0f, 0.0f, 0.497799992f, 8.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false}, 0.0f};
 case 1465:
     return {{0.0f, 0.0f, 0.600899994f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false}, 0.0f};
+
+case 37:
+    return {{0.0f, 0.0f, 0.358699947f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false}, 0.0f};
+case 645:
+    return {{0.0f, 0.0f, 0.209799975f, 0.0f, -90.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false}, 0.0f};
+case 1002:
+    return {{0.0f, 0.0f, 0.343899965f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false}, 0.0f};
+case 1428:
+    return {{0.0f, 0.0f, 0.73089987f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false}, 0.0f};
+case 1433:
+    return {{0.0f, 0.0f, 0.208699971f, 0.0f, -90.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false}, 0.0f};

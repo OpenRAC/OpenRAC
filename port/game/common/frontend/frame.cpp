@@ -310,7 +310,7 @@ std::vector<std::uint8_t> direct_packets(
     // the ones between were sent from the draw callback lists before the mobys.
     const std::size_t strips_at_start = strips != nullptr ? strips->size() : 0;
     std::optional<std::size_t> strips_at_world, strips_at_mobys;
-    std::size_t direct_at = 0;   // where the DIRECT being read starts in the 2D data
+    std::size_t direct_at = 0;  // where the DIRECT being read starts in the 2D data
     const auto track_direct = [&](const std::uint8_t* d, std::size_t size) {
         std::size_t p = 0;
         if (image_left > 0) {
@@ -2038,6 +2038,7 @@ TickMobys pose_mobys(
             if (m.address + 0x4c <= ram.size()) {
                 std::memcpy(&spin_angle, ram.data() + m.address + 0x48, sizeof spin_angle);
             }
+            instance.matrix = preview::can_hologram_basis(instance.matrix, replacement->oclass);
             instance.matrix = preview::orient(
                 preview::freeze_spin(instance.matrix, spin_angle, a.spin), a, pivot, true
             );

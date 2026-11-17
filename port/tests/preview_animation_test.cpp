@@ -22,6 +22,31 @@ int main(int argc, char** argv) {
         }
     };
     {
+        namespace preview = scene::vendor_preview;
+        for (float angle : {0.0f, 0.5f, 1.5f, 3.0f}) {
+            preview::Adjustment native;
+            native.pitch = 30;
+            native.roll = angle * 180.0f / 3.14159265359f;
+            auto source = preview::orient(renderer::identity(), native, {0, 0, 0}, false);
+            preview::Adjustment upright;
+            upright.yaw = -90;
+            for (int id : {645, 1433}) {
+                const auto result = preview::orient(
+                    preview::can_hologram_basis(source, id), upright, {0, 0, 0}, false
+                );
+                check(
+                    std::abs(result[0]) < .00001f && std::abs(result[1]) < .00001f
+                        && std::abs(result[2] - 1) < .00001f,
+                    "Nanotech can remains upright through hologram spin"
+                );
+            }
+            check(
+                preview::can_hologram_basis(source, 168) == source,
+                "retail weapon hologram basis is unchanged"
+            );
+        }
+    }
+    {
         namespace cases = scene::gold_case_preview;
         check(
             std::abs(cases::defaults(157).model.size - .849999964f) < .000001f
