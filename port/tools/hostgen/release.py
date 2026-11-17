@@ -973,6 +973,32 @@ def hook_words(text: str, hooks: dict[str, str], aliases: dict[str, list[str]], 
     return out
 
 
+def gone_words(text: str, values: dict[str, dict[str, int]], readable: dict[str, str], release: Release,
+               row_at) -> dict[str, str]:
+    """The words of the release's own C (TEXT) that name a primary function the release has no
+    row for (the table's func_V1_...), by its address name or a readable one, each with the
+    release's function the release's build linked the name to: the catalogue's row at the value
+    the build gave the name (VALUES: program -> name -> value; ROW_AT(program, value): the row
+    there, or None). A shared file can be in several programs, so every program's row must be the
+    same function; where they differ the word stays. PAL's Maktar code calls
+    module_l00_call_handler_2 (func_L00_0030CF60), which PAL has as func_PAL_0029C7F0: without
+    this the port called an empty body."""
+    out = {}
+    for word in sorted(set(re.findall(r"(?<![\w])[A-Za-z_]\w*(?![\w])", text))):
+        name = readable.get(word, word)
+        if not name.startswith("func_") or NAME.fullmatch(name) is None:
+            continue
+        if "_V1_" not in release.name(name):
+            continue
+        found = {release.name(row) for program, vals in values.items()
+                 if name in vals and (row := row_at(program, vals[name])) is not None}
+        if len(found) == 1:
+            new = found.pop()
+            if "_V1_" not in new and new != word:
+                out[word] = new
+    return out
+
+
 def names_word(text: str, word: str, address: bool) -> bool:
     """Whether TEXT has WORD: an address name (func_0026F790) as ANY reads one, so a suffix after
     an underscore is another name's; a readable one (stub_empty_17) whole."""
@@ -1011,6 +1037,10 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
         r_place_of.setdefault((l, release.name(n)), a)
     r_exe_names = {release.name(n): a for n, a, _ in parts["r_boot"]}
     us_exe = {a: n for n, a, _ in parts["us_boot"]}
+
+    def row_at(program: str, value: int) -> str | None:
+        # The release's catalogue row at a value of a program: a level's place, else the executable's.
+        return (None if program == "boot" else r_at.get((int(program), value))) or r_exe.get(value)
     out: dict[str, dict[str, str]] = {}
     gone_in: dict[str, list[str]] = {}
     for d in sources:
@@ -1042,6 +1072,12 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
                 for word, old in hook_words(text, parts.get("catalogue_hooks", {}), hook_aliases, release).items():
                     out.setdefault(rel, {})[word] = old
                     evidence["function: a hook named as the release's catalogue does"] += 1
+                # A v1.01 function the release has no row for, which that C still calls by v1.01's
+                # name or a readable one: the function the release's build linked the call to.
+                for word, new in gone_words(text, parts["r_values"], readable or {}, release, row_at).items():
+                    if word not in out.get(rel, {}):
+                        out.setdefault(rel, {})[word] = new
+                        evidence["function: one the release lacks, where its build linked the release's own C"] += 1
             if unit_level is None:
                 continue
             found = {m.group(0) for m in SHORT.finditer(text)}
