@@ -1452,8 +1452,8 @@ TickMobys pose_mobys(
     // marker. The zoom does not reach the moby program's scales: drawn with it, the models sat at
     // the targets' edges at a third of their size, as ReRAC found too; they are drawn with the
     // frame's focal lengths (the frame camera's GameState::focal_x). A moby not in the list (the
-    // vendor's own) is read from its address; with the frame's camera (the item's hologram over the
-    // vendor) it is drawn in the world.
+    // vendor's own) is read from its address, with its bangles (GameProfile::add_moby); with the
+    // frame's camera (the item's hologram over the vendor) it is drawn in the world.
     const std::size_t listed = state.mobys.size();
     std::unordered_map<std::uint32_t, const host::GameState*> into_texture;
     // Over a world drawn under a menu (`under_menu`): the menu's mobys, drawn on the screen at their
@@ -1520,9 +1520,7 @@ TickMobys pose_mobys(
                     break;
             }
             if (!drawn(address)) {
-                if (const auto extra = g->profile->read_moby(ram, address)) {
-                    state.mobys.push_back(*extra);
-                }
+                g->profile->add_moby(ram, address, state.mobys);
             }
         }
     }
