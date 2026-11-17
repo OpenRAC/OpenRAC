@@ -603,7 +603,9 @@ void main() {
         discard;
     }
     if (effect_pass != 0) {
-        if (glow_split != 0 && (c.a >= effect_reference) != (glow_split == 1)) {
+        // An added moby skips the first half (it writes no depth), so the second draws all of it.
+        if (glow_split != 0 && effect_additive == 0
+            && (c.a >= effect_reference) != (glow_split == 1)) {
             discard;
         }
         vec3 e = min(c.rgb, vec3(1.0));
