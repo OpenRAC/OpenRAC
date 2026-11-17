@@ -98,7 +98,7 @@ TouchPad::TouchPad() {
     // Beside the stick, above it, for the left thumb (what the shoulders under the left index
     // finger did on the pad: looking, strafing).
     group(G::Left0, From::Left, 0.18f, 0.40f);
-    group(G::Left1, From::Left, 0.18f, 0.25f);
+    group(G::Left1, From::Left, 0.18f, 0.21f);
     group(G::Left2, From::Left, 0.36f, 0.25f);
     group(G::Top0, From::Middle, -0.20f, 0.075f);
     group(G::Top1, From::Middle, 0.20f, 0.075f);
@@ -233,13 +233,30 @@ void TouchPad::arc_controls() {
             arc_of[i] = kArc[free];
         }
     }
+    // Beside the stick the same: its own place (`at`, 0 to 2) first, the rest in the free ones.
+    std::array<bool, std::size(kLeft)> left_taken{};
+    for (const TouchAction& a : shown) {
+        if (a.side == TouchSide::Left && a.at >= 0 && a.at < static_cast<int>(std::size(kLeft))) {
+            left_taken[static_cast<std::size_t>(a.at)] = true;
+        }
+    }
     for (std::size_t i = 0; i < shown.size(); ++i) {
         const TouchAction& a = shown[i];
         G g = G::Count;
         if (a.side == TouchSide::Hint) {
             g = hint < std::size(kHint) ? kHint[hint++] : G::Count;
         } else if (a.side == TouchSide::Left) {
-            g = left < std::size(kLeft) ? kLeft[left++] : G::Count;
+            if (a.at >= 0 && a.at < static_cast<int>(std::size(kLeft))) {
+                g = kLeft[a.at];
+            } else {
+                while (left < std::size(kLeft) && left_taken[left]) {
+                    ++left;
+                }
+                if (left < std::size(kLeft)) {
+                    left_taken[left] = true;
+                    g = kLeft[left];
+                }
+            }
         } else if (a.side == TouchSide::Top) {
             g = top < std::size(kTop) ? kTop[top++] : G::Count;
         } else {
