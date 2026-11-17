@@ -233,6 +233,7 @@ func_0028F0D0	hud	HudSprite	wrap	a HUD texture as a sprite: drawn natively (host
 func_0028F540	hud	HudBarSprite	wrap	a HUD texture as a sprite, a texel a pixel: drawn natively (host/ui2d.c)
 func_0028F700	hud	HudSpriteFine	wrap	a HUD texture as a sprite, in 16ths of a pixel: drawn natively (host/ui2d.c)
 func_0028F8E0	hud	HudSpriteColour	wrap	func_0028EE98 in a colour: drawn natively (host/ui2d.c)
+func_00296810	draw	DrawMapOverlay	wrap	the map: with the Mapper, v2.00's crystal and moonstone markers are drawn after it (host/map_markers.c)
 func_0028FAE0	hud	HudTextureSprite	wrap	a sprite of a given texture: drawn natively (host/ui2d.c)
 func_0028FC78	hud	HudRotatedSprite	wrap	a rotated sprite: drawn natively (host/ui2d.c)
 func_0028FFF0	hud	HudSpriteRect	wrap	a HUD texture as a sprite with explicit texel corners: drawn natively (host/ui2d.c)

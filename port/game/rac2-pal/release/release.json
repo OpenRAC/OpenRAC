@@ -91,6 +91,10 @@
   "PAUSE_OPTIONS_ROWS": {
    "value": "7",
    "why": "func_00341610 as func_00343690: addiu $v1, $zero, 0x7 at +0x5c for v1.01's 0x8 (the Options list's rows, list 1)"
+  },
+  "MAP_MARKERS": {
+   "value": "1",
+   "why": "PAL's map (func_PAL_00296870, src/pal/game/00296870-map-g8.c) is v1.01's DrawMapOverlay C, which draws no Mapper markers: the port draws v2.00's (host/map_markers.c)"
   }
  },
  "hand_names": {

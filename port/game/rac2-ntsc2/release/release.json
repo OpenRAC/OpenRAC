@@ -69,6 +69,13 @@
    "why": "returns 0 (jr $ra; daddu $v0, $zero, $zero) at 0x0026F7A8, after the same empty stubs as in v1.01; the catalogue does not list it"
   }
  },
+ "constants": {
+  "about": "RAC2_K constants taken as they are: name, value, the evidence.",
+  "MAP_MARKERS": {
+   "value": "0",
+   "why": "v2.00's map (func_US2_00296810) draws the Mapper's markers itself (map_draw_class_markers_us2, func_US2_00298AA8): the port adds none"
+  }
+ },
  "hand_names": {
   "about": "Names of the primary's hand C the release table has no value for: the primary's name, the release's, the evidence.",
   "D_0013CF58": {
