@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "hero_attachments.h"
 #include "openrac/game_host.h"
 #include "openrac/host_env.h"
 #include "rac2.h"
@@ -604,6 +605,13 @@ static void front_end_start_level(int level) {
     rac2_start_level(level, 1);
 }
 
+/* Reads the resident hero state for the shared shadow rig; position is at +0x80 (play.c). */
+static unsigned hero_shadow_casters(gaddr* addresses, unsigned capacity) {
+    return rac2_hero_attachments(
+        openrac_guest_base, openrac_guest_ram_size, RAC2_g_heroPos - 0x80u, addresses, capacity
+    );
+}
+
 static const openrac_front_end front_end = {
     .levels = LEVELS,
     .level_names = rac2_level_names,
@@ -617,6 +625,7 @@ static const openrac_front_end front_end = {
      * whose bit (+0x3A) is clear in byte +0x3B, a tie (+0x10, byte +0x11), a moby (+0x36, +0x37). */
     .occlusion = RAC2_ADDR(0x001BADC0u),
     .start_level_anywhere = 1,
+    .hero_shadow_casters = hero_shadow_casters,
     /* D_001A7BB4: the language, a byte the menus' action type 9 sets (0 English, 2 French, 3 German,
      * 4 Spanish, 5 Italian: the values of the language list's items), read as a word as the text lookup reads it
      * (func_002D5E98); the port's rows on the Video pages follow it. */
