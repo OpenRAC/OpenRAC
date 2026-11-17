@@ -2304,9 +2304,15 @@ class Unit:
                 # level's already, and the executable's datum there is another.
                 placed = moved.get(f"D_{address:08X}")
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
-            if placed is not None and low <= placed < high:
+            # Not a global that does not pair between levels (data_copies.tsv): that one is read
+            # below, where the running copy forms it. rac2: level 0 reads and writes 0x001B15DC
+            # in func_L00_004272A0 and func_L00_00427290; in the ship levels these are two
+            # globals, and the first pair made the minimap's object count read the other one.
+            own_copy = (placed == address and self.fn is not None and self._shared_level() is not None
+                        and (self.fn.code, placed) in getattr(self.program, "data_copies", ()))
+            if placed is not None and low <= placed < high and not own_copy:
                 return f"OPENRAC_LDATA({level}, {hexaddr(placed)})"
-        formed = getattr(self.program, "formed_as", {}).get(symbol or "")
+        formed =getattr(self.program, "formed_as", {}).get(symbol or "")
         if formed is not None:
             # An address the code only forms with something added (hostgen.json "formed_as"): pairing
             # the programs finds the sum, so the name is that, relocated, less what was added.

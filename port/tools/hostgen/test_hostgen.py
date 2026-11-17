@@ -2328,6 +2328,39 @@ class Places(unittest.TestCase):
                           (out / "levels" / "shared" / "L01_002A7248.c").read_text())
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_level_files_global_that_does_not_pair_is_read_from_the_copy(self):
+        # Going Commando's func_L00_004272A0 reads D_L00_001B15DC, the ship levels' object count.
+        # Level 0's func_L00_00427290 writes that address too, but in Feltzin they are two
+        # globals, so the pair was the other one and the minimap had no enemies. data_copies.tsv
+        # lists it: the running copy's own address, even for the file's own level's name.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L00_00427290-g8.c").write_text(
+                "extern int D_L00_001B15DC;\n"
+                "int func_L00_004272A0(void) { return D_L00_001B15DC; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_004272A0\tshared\t8\tfingerprint\t2\t00:004272A0,05:00379EC8\n")
+            (root / "data_copies.tsv").write_text("func_L00_004272A0\t001B15DC\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {"D_L00_001B15DC": "0x001b15dc"},
+                "level_data": {"0": {"D_L00_001B15DC": "0x001b15dc"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+                "data_copies": "data_copies.tsv",
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L00_00427290-g8.c").read_text()
+            self.assertIn("openrac_data_in_copy(0, 0x004272A0u, 8u, openrac_self_, 0x001B15DCu)", text)
+            self.assertNotIn("OPENRAC_LDATA(0, 0x001B15DCu)", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_the_gp_view_of_a_level_derived_global_is_that_global(self):
         # Going Commando's follow camera stick read (func_L00_00424F98, L00_00424F98-g8.c) says
         # `extern float ref_L00_00424F98_03 SDATA(ref_L00_00424F98_03)`: the label is the name with
