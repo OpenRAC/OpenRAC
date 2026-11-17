@@ -101,11 +101,39 @@ its patches folder, game.json and the port's tables together, as `chore(import)`
 commit against the [sourcing policy](policy/SOURCING.md).
 
 CI runs `python3 tools/sources.py check --since <base>`. It fails when a pin and game.json
-disagree, or when a pin moves without any change under `port/game/<game>*`. Run it yourself with:
+disagree, when a pin moves without any change under `port/game/<game>*`, or when a moved pin has
+no published build facts (below). Run it yourself with:
 
 ```sh
 python3 tools/sources.py check --since origin/develop
 ```
+
+## Build facts
+
+Some tables are made from a decomp's finished build: rac2's derived names
+(`build/**/placed.json`) and its PAL and v2.00 release tables (`build/<v>/*/placed.json`,
+`build/<v>/carry.json`). A full build takes an hour and needs the discs. So one person builds and
+publishes the build's facts; everyone else downloads them.
+
+After a full build of the pinned commit (and `tools/carry.py`, then `git checkout -- config/`):
+
+```sh
+python3 tools/facts.py publish rac2/decomp              # every version: us, pal, us2
+```
+
+A bundle holds only names, addresses, sizes and hashes; `publish` refuses anything else. It goes
+to the `decomp-facts` release as `<decomp>-<commit>-<version>.zip`. The table tools
+(`derived.py`, `release.py build`, `release_carry.py`) then work without a build: when `--source`
+has no build, they fetch the bundle of its commit into `build/facts/` and check its sha256s. A
+local build wins. They still read the discs from `baserom/`. hostgen never reads bundles.
+
+```sh
+python3 tools/facts.py check rac2/decomp                # is every bundle of the pin published?
+python3 tools/facts.py fetch rac2/decomp pal            # download and check one
+```
+
+`tools/facts.py` `SPECS` lists what each decomp's bundles hold. Add a decomp there when a tool
+starts reading its build.
 
 ## Changing a patch
 

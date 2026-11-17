@@ -154,12 +154,13 @@ def level_data(source: Path, boot: dict | None = None) -> dict[str, dict[str, st
     return out
 
 
-def make_table(source: Path, cfg: dict, build: dict, commit: str | None) -> dict:
+def make_table(source: Path, cfg: dict, build: dict, commit: str | None, built: Path | None = None) -> dict:
     """The committed form of a build's table: its values, where they come from, and the names
-    the C uses that it has no value for."""
+    the C uses that it has no value for. BUILT holds the build (its build/; default SOURCE)."""
+    built = built or source
     values = {k: v for k, v in sorted(build.get("values", {}).items()) if isinstance(v, str)}
-    levels = level_values(source, values)
-    placed = level_data(source, build.get("values", {}))
+    levels = level_values(built, values)
+    placed = level_data(built, build.get("values", {}))
     return {
         "about": "Names and the addresses the decompilation's own build derived for them from the "
                  "retail bytes. Written by port/tools/hostgen/derived.py; do not edit.",
@@ -197,11 +198,23 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(f"derived: {table_path} covers the C")
         return 0
-    build_path = source / d["build"]
+    # The build's facts: SOURCE's own build, else the published bundle of its commit (tools/facts.py).
+    # Only this table's maker reads them; hostgen reads the committed table (resolve()).
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools"))
+    import facts
+    built = source
+    decomp = Path(cfg.get("source", "")).relative_to("games").as_posix() if cfg.get("source", "").startswith("games/") else None
+    if not (source / d["build"]).is_file() and decomp in facts.SPECS:
+        try:
+            built = facts.root(source, decomp, facts.PRIMARY[decomp])
+        except facts.FactsError as e:
+            print(e, file=sys.stderr)
+            return 1
+    build_path = built / d["build"]
     if not build_path.is_file():
         print(f"derived: {build_path} is missing: build the decompilation first", file=sys.stderr)
         return 1
-    table = make_table(source, cfg, json.loads(build_path.read_text()), source_commit(source))
+    table = make_table(source, cfg, json.loads(build_path.read_text()), source_commit(source), built)
     table_path.write_text(json.dumps(table, indent=1) + "\n")
     print(f"derived: {table_path}: {len(table['values'])} values, {len(table['unresolved'])} names unresolved "
           f"(from {build_path})")
