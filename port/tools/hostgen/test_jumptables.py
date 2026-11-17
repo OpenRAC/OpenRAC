@@ -51,6 +51,16 @@ class Leads(unittest.TestCase):
         self.assertEqual(jumptables.asm_lead(code, 2, 0x100, {}), ["return", 0x2F66])
 
 
+class Places(unittest.TestCase):
+    def test_release_level_data(self):
+        # PAL names Joba's table by the NTSC address; its level data says where PAL has it.
+        class Program:
+            symbols: dict = {}
+            level_data = {11: {"jtbl_002BB0E0": 0x2BAFA0}}
+        self.assertEqual(jumptables.table_place(Program(), "jtbl_002BB0E0"), (11, 0x2BAFA0))
+        self.assertEqual(jumptables.table_place(Program(), "D_L02_002A52D0"), (2, 0x2A52D0))
+
+
 class Align(unittest.TestCase):
     def test_labels_numbered_from_one(self):
         # The Maktar slot machine's prize (slot_machine_award_prize): five cases c1..c5 for indices 0..4,
