@@ -1033,9 +1033,9 @@ class Unit:
             stack.extend(_inner(n))
 
     def _label_leads(self) -> list:
-        """Each label of the function being translated, in source order, with what its code does first of a call
-        (["call", callee]), a goto (["goto"]) or a return (["return"]): what jumptables.py matches with the
-        instructions at each address of a table."""
+        """Each label of the function being translated, in source order, with what its code does first: its
+        first two calls (["call", callee, next callee]), or a return (["return"], ["return", value] for a
+        constant): what jumptables.py matches with the instructions at each address of a table."""
         events = []
         stack = [self.fn.body_node]
         while stack:
@@ -1053,26 +1053,33 @@ class Unit:
                 events.append(("goto", None))
             elif k == "ReturnStmt":
                 # `return f(x)` calls first: the return follows what its value does.
-                stack.append({"kind": "openrac_return"})
+                value = _strip_casts(_inner(n)[0]) if _inner(n) else {}
+                stack.append({"kind": "openrac_return",
+                              "value": value.get("value") if value.get("kind") == "IntegerLiteral" else None})
             elif k == "openrac_return":
-                events.append(("return", None))
+                events.append(("return", n["value"]))
             if k == "CallExpr":
                 # Its arguments run first, but a call inside them is rare: the call itself leads.
                 continue
             stack.extend(reversed(_inner(n)))
         at = {name: i for i, (k, name) in enumerate(events) if k == "label"}
 
-        def lead(i: int, seen: frozenset) -> list:
+        def lead(i: int, seen: frozenset, calls: tuple = ()) -> list:
             # A goto leads where its label does (the compiler's code is followed through its branches too).
             for kk, nn in events[i + 1:]:
                 if kk == "label":
                     continue
                 if kk == "call":
-                    return ["call", nn]
+                    calls += (nn,)
+                    if len(calls) == 2:
+                        break
+                    continue
                 if kk == "goto" and nn in at and nn not in seen:
-                    return lead(at[nn], seen | {nn})
-                return ["return"]
-            return ["return"]
+                    return lead(at[nn], seen | {nn}, calls)
+                if kk == "return" and not calls and nn is not None:
+                    return ["return", int(nn)]
+                break
+            return ["call", *calls] if calls else ["return"]
         return [[name, lead(i, frozenset({name}))] for i, (k, name) in enumerate(events) if k == "label"]
 
     def _table_of(self, base: dict) -> dict:
