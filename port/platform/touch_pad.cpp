@@ -98,7 +98,7 @@ TouchPad::TouchPad() {
     // Beside the stick, above it, for the left thumb (what the shoulders under the left index
     // finger did on the pad: looking, strafing).
     group(G::Left0, From::Left, 0.18f, 0.40f);
-    group(G::Left1, From::Left, 0.18f, 0.21f);
+    group(G::Left1, From::Left, 0.18f, 0.25f);
     group(G::Left2, From::Left, 0.36f, 0.25f);
     group(G::Top0, From::Middle, -0.20f, 0.075f);
     group(G::Top1, From::Middle, 0.20f, 0.075f);

@@ -160,7 +160,7 @@ void arc_style() {
     CHECK(!read(touch).held(Button::L1));
 
     // Beside the stick an own place first: strafe takes the lowest, look the next free.
-    TouchAction strafe = act("strafe", bit(Button::L2), TouchSize::Large);
+    TouchAction strafe = act("strafe", bit(Button::L2), TouchSize::Small);
     strafe.side = TouchSide::Left;
     strafe.at = 0;
     touch.set_actions({look, strafe});
