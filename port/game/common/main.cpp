@@ -73,6 +73,7 @@
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
 #include "frontend/mod_media.h"
+#include "game/common/profile.h"
 #include "mod_menu.h"
 #include "platform/bindings.h"
 #include "platform/input.h"
@@ -696,6 +697,11 @@ int main(int argc, char** argv) {
     bool mods_loaded = false;
 
 #ifdef OPENRAC_FRONTEND
+    // The joint poses the game reads (openrac_game_moby_chain) need its moby layout with or without
+    // a window: a run without one read rac2's poses at rac1's offsets, and Notak's chain spawned
+    // until the moby pool was full.
+    scene::set_moby_anim_fields(host::game_profile(openrac_game.id).moby_anim_fields());
+    scene::set_moby_layer_records(host::game_profile(openrac_game.id).moby_layer_records());
     if (g_options.window) {
         std::string why;
         settings::load(g_options.settings);
