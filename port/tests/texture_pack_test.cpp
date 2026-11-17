@@ -3,12 +3,14 @@
 //
 // Texture packs (renderer/textures/texture_pack.h): names by hash, replacement at any size, the dump,
 // animated replacements (frame by tick, the folder and GIF loaders) and the dump's cycle groups.
+#include <cstdint>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <iterator>
 #include <map>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include "check.h"
@@ -529,6 +531,83 @@ void check_kept_pictures(const fs::path& root) {
     fs::remove_all(root);
 }
 
+namespace {
+
+// Stops changing RGB beneath zero alpha from filling a dump, without dropping faint or RGB-only pictures.
+void test_empty_alpha_dump(const fs::path& root) {
+    disk().clear();
+    texture_pack::configure({}, root / "blank", {load, save});
+    // A 64x64 synthetic image changes through 256 invisible colours, as a live upload can.
+    constexpr int kSide = 64;
+    constexpr unsigned kColours = 256;
+    Rgba8Image image(kSide, kSide);
+
+    // Replacement identity and source texels must stay intact even when no PNG is exported.
+    for (unsigned colour = 0; colour < kColours; ++colour) {
+        image.pixels[0] = static_cast<std::uint8_t>(colour);
+        const std::uint64_t original = texture_pack::image_hash(image);
+        texture_pack::Replacement found;
+        CHECK(!texture_pack::replace(image, {.interface = true, .skip_empty_alpha = true}, &found));
+        CHECK(found.hash == original);
+        CHECK(texture_pack::image_hash(image) == original);
+    }
+
+    CHECK(disk().empty());
+    image.pixels.back() = 1;
+    const std::string faint = texture_pack::file_name(texture_pack::image_hash(image));
+    CHECK(!texture_pack::replace(image, {.interface = true, .skip_empty_alpha = true}));
+    CHECK(disk().size() == 1 && disk().contains("Interface/" + faint));
+    image.pixels.back() = 0;
+    const std::string rgb = texture_pack::file_name(texture_pack::image_hash(image));
+    CHECK(!texture_pack::replace(image, {.interface = true}));
+    CHECK(disk().size() == 2 && disk().contains("Interface/" + rgb));
+}
+
+// Keeps existing replacements of transparent source images addressable by their original hashes.
+void test_transparent_pack_lookup(const fs::path& root) {
+    disk().clear();
+    // Two-by-two synthetic pictures keep this file-lookup fixture small.
+    Rgba8Image blank(2, 2);
+    const std::string name = texture_pack::file_name(texture_pack::image_hash(blank));
+    const fs::path pack = root / "pack";
+    std::error_code error;
+    fs::create_directories(pack, error);
+    CHECK(!error);
+    CHECK(std::ofstream(pack / name).put('x').good());
+    disk()[name] = solid(2, 2, 200);
+    texture_pack::configure(pack, root / "dump", {load, save});
+    CHECK(texture_pack::replace(blank, {.interface = true, .skip_empty_alpha = true}));
+    CHECK(blank.pixels[0] == 200);
+    CHECK(!disk().contains("Interface/" + name));
+}
+
+// Retains blank frames in explicit animation cycles, where they can make an effect blink.
+void test_blank_animation_frames(const fs::path& root) {
+    disk().clear();
+    texture_pack::configure({}, root, {load, save});
+    // A two-frame, two-by-two synthetic animation alternates between blank and lit.
+    Rgba8Image blank(2, 2);
+    const Rgba8Image lit = solid(2, 2, 100);
+    const std::vector<std::uint64_t> order{
+        texture_pack::image_hash(blank), texture_pack::image_hash(lit)
+    };
+    const std::vector<const Rgba8Image*> images{&blank, &lit};
+    CHECK(
+        !texture_pack::replace(blank, {.interface = true, .skip_empty_alpha = true})
+        && disk().empty()
+    );
+    texture_pack::dump_animated(order, images);
+    const std::string name = texture_pack::file_name(order[0]);
+    CHECK(disk().size() == 2 && disk().contains(name.substr(0, 16) + "/" + name));
+    const fs::path folder = root / texture_pack::dump_folder({.cycle = order[0]});
+    std::ifstream in(folder / "order.txt");
+    const std::string text{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+    CHECK(text.find(name) != std::string::npos);
+}
+
+}  // namespace
+
+// Runs synthetic texture-pack lookup, export, animation and cache regressions.
 int main() {
     const auto small = solid(2, 2, 10);
     // The hash takes the size and every texel; the name is 16 hex digits.
@@ -612,6 +691,9 @@ int main() {
     check_animated_pack(pack);
     check_cycles(pack);
     check_live(pack);
+    test_empty_alpha_dump(pack / "empty-alpha");
+    test_transparent_pack_lookup(pack / "transparent-pack");
+    test_blank_animation_frames(pack / "blank-animation");
     fs::remove_all(pack);
     return test::result();
 }

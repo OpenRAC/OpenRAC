@@ -360,6 +360,7 @@ private:
     bool m_picture = false;  // between kPictureMarker's two markers
     DirectVertex convert(const GsVertex& v) const;
     void screen_position(const GsVertex& v, float& x, float& y) const;
+    // Resolves the current sampling and draw state before grouping this primitive with earlier draws.
     void ensure_draw();
     const gs::Prim& attributes() const;
     const Context& context() const;
