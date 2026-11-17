@@ -58,6 +58,8 @@ LEVEL_SHORT_MISS = "level_short_names: "
 # A call_copies row with an executable target: the executable's call, else the level copy's.
 _EXE_OR_COPY = "(openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? "
 UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
+# A name a level's build derived for the datum a function of it reaches (ref_L02_00385E18_00).
+DERIVED_REF = re.compile(r"ref_L(\d\d)_[0-9A-Fa-f]{8}_\d+")
 # A datum's name with a word after its number (D_001A7390_sda): the same datum; a number after it
 # (D_L00_001B1B00_1) is one of the build's own, a datum of its own.
 GLOBAL_VIEW = re.compile(r"^(D_(?:L\d\d_)?[0-9A-Fa-f]{8})_[A-Za-z_]\w*$")
@@ -2397,7 +2399,12 @@ class Unit:
                 home, canon = self._copy_named_in(symbol, level)
                 addr = f"openrac_data_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {addr})"
             elif level is not None and low <= address < high:
-                addr = f"OPENRAC_LDATA({level}, {addr})"
+                # A name another level's build derived is that level's address: Going Commando's
+                # fade_set_level (func_L00_0037E670) stores the Shield Charger's strength as
+                # ref_L02_00385E18_00, level 2's 0x001B3DB0; read as level 0's it was another word
+                # in every level, fade_get_value saw 0 and the shield went at once.
+                derived = DERIVED_REF.fullmatch(symbol or "")
+                addr = f"OPENRAC_LDATA({int(derived.group(1)) if derived else level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
             addr = f"OPENRAC_TARGET_TABLE({addr})"
         return addr

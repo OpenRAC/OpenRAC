@@ -2396,6 +2396,36 @@ class Places(unittest.TestCase):
             self.assertNotIn("OPENRAC_LDATA(0, 0x001B15DCu)", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_another_levels_derived_name_is_that_levels_address(self):
+        # Going Commando's fade_set_level (func_L00_0037E670) stores the Shield Charger's strength
+        # as ref_L02_00385E18_00, the address level 2's build derived (0x001B3DB0). Read as level
+        # 0's, it was another word in every level: fade_get_value saw 0 and the shield went at once.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L00_0037E668.c").write_text(
+                "extern float ref_L02_00385E18_00;\n"
+                "void func_L00_0037E670(int raised) { if (!raised) ref_L02_00385E18_00 = 40.0f; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_0037E670\tshared\t40\tfingerprint\t2\t00:0037E670,02:00385E20\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {"ref_L02_00385E18_00": "0x001b3db0"},
+                "level_data": {"2": {"ref_L02_00385E18_00": "0x001b3db0"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L00_0037E668.c").read_text()
+            self.assertIn("OPENRAC_LDATA(2, 0x001B3DB0u)", text)
+            self.assertNotIn("OPENRAC_LDATA(0, 0x001B3DB0u)", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_the_gp_view_of_a_level_derived_global_is_that_global(self):
         # Going Commando's follow camera stick read (func_L00_00424F98, L00_00424F98-g8.c) says
         # `extern float ref_L00_00424F98_03 SDATA(ref_L00_00424F98_03)`: the label is the name with
