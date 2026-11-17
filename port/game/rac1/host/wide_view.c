@@ -97,24 +97,66 @@ static void run_list(void (*run)(void)) {
     wide_run_list(run, wider, taller);
 }
 
+/*
+ * Each list's run, as the game's loop: funcs[i](args[i]) while i is below the count (read again each
+ * time). A callback whose argument is a moby (0x100-aligned) has its quads numbered from it
+ * (effect_quad.c), so a frame between ticks blends them from the last tick's, as it moves the
+ * moby's body. Without ids a moby's glows (Clank's antenna, the Gadgebots' eyes) stayed at the new
+ * tick's place while the body was drawn part way to it, ahead of it above 60 frames a second.
+ */
+extern uint32_t rac1_effect_quad_id;
+
+#define LIST(count, funcs, args) {RAC1_ADDR(count), RAC1_ADDR(funcs), RAC1_ADDR(args)}
+static const gaddr k_lists[4][3] = {
+    LIST(0x0015F564u, 0x0018DC40u, 0x0018DD40u), /* func_001F4A00 */
+    LIST(0x0015F568u, 0x0018DE40u, 0x0018DF40u), /* func_001F4BB8 */
+    LIST(0x0015F56Cu, 0x0018E040u, 0x0018E140u), /* func_001F4A78 */
+    LIST(0x0015F570u, 0x0018E240u, 0x0018E340u), /* func_001F4AF0 */
+};
+#undef LIST
+
+static int g_list;
+
+static void run_callbacks(void) {
+    const gaddr count = OPENRAC_DATA(k_lists[g_list][0]);
+    const gaddr funcs = OPENRAC_DATA(k_lists[g_list][1]);
+    const gaddr args = OPENRAC_DATA(k_lists[g_list][2]);
+    for (int i = 0; i < GREF(int, count); i++) {
+        const gaddr fn = GREF(gaddr, funcs + 4u * (gaddr)i);
+        const gaddr arg = GREF(gaddr, args + 4u * (gaddr)i);
+        rac1_effect_quad_id = arg != 0 && (arg & 0xFF) == 0 ? arg + 1 : 0;
+        if (fn != 0) {
+            openrac_guest_call_a0(fn, arg);
+        }
+    }
+    rac1_effect_quad_id = 0;
+}
+
+static void run_numbered(int list) {
+    const int outer = g_list;
+    g_list = list;
+    run_list(run_callbacks);
+    g_list = outer;
+}
+
 /* ExecuteDrawCallbacks: list 1. */
 void func_001F4A00(void) {
-    run_list(func_001F4A00__game);
+    run_numbered(0);
 }
 
 /* ExecuteDrawCallbacks2: list 2. */
 void func_001F4BB8(void) {
-    run_list(func_001F4BB8__game);
+    run_numbered(1);
 }
 
 /* ExecuteDrawCallbacks3: list 3. */
 void func_001F4A78(void) {
-    run_list(func_001F4A78__game);
+    run_numbered(2);
 }
 
 /* ExecuteDrawCallbacks4: list 4. */
 void func_001F4AF0(void) {
-    run_list(func_001F4AF0__game);
+    run_numbered(3);
 }
 
 /* The liquid grid's cull: a flag per block into the scratchpad (0: not drawn). */
