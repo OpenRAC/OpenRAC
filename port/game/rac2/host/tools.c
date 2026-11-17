@@ -170,7 +170,8 @@ static int game_mode(uint32_t* mode);
  * 0x40000 is logged with the bytes that changed since it last did. It only reads, so the game runs
  * as it would without it.
  */
-#define MAP_STATE RAC2_ADDR(0x001C4FA0u)
+/* v1.01's address, as this block is built for v1.01 alone (RAC2_PRIMARY). */
+#define MAP_STATE 0x001C4FA0u
 #define MAP_INDEX RAC2_ADDR(0x001A79F0u)
 #define MAP_RUNS 0x40000u
 #define MAP_LIST_MAX 0x4000u
@@ -196,8 +197,8 @@ static void map_watch(unsigned frame) {
     static uint32_t length;
     static uint8_t copy[MAP_LIST_MAX];
     if (mode < 0) {
-        const char* value = getenv("OPENRAC_MAP_WATCH");
-        mode = value != NULL && *value != '\0' && strcmp(value, "0") != 0;
+        const char* value = openrac_env_string("OPENRAC_MAP_WATCH");
+        mode = value != NULL && *value != '\0';
     }
     if (mode == 0) {
         return;
