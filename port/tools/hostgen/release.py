@@ -939,6 +939,47 @@ def build_rac1(source: Path, version: str, relocs: Path, versionmap: Path | None
             "how": how, "absent": absent, "gone": sorted(gone), "rows": rows, "primary": primary, "r_values": r_values}
 
 
+def catalogue_hooks(source: Path, version: str, hooks) -> dict[str, str]:
+    """The level hooks the release's catalogue has, each by the name the catalogue alone gives it
+    (as build_rac2 without pair_stubs): what the release's own C, built against that catalogue,
+    calls it. Needs no disc; a hook the catalogue lacks is named by the release's build (left out)."""
+    us_entry = {n: a for n, a, _ in read_boot(source / RAC2_RELEASES["us"]["config"] / "boot/functions.tsv")}
+    r_boot = {n: a for n, a, _ in read_boot(source / RAC2_RELEASES[version]["config"] / "boot/functions.tsv")}
+    # As build_rac2 carries a function of the same code (a twin entered away from its name too).
+    return {h: core("func", None, r_boot[h] + int(h[-8:], 16) - us_entry[h])
+            for h in hooks if h in r_boot and h in us_entry and NAME.fullmatch(h)}
+
+
+def aliases_of(readable: dict[str, str], hooks) -> dict[str, list[str]]:
+    """Each hook's readable names (stub_empty_17 for func_0026F790)."""
+    out: dict[str, list[str]] = {}
+    for word, name in sorted(readable.items()):
+        if name in hooks:
+            out.setdefault(name, []).append(word)
+    return out
+
+
+def hook_words(text: str, hooks: dict[str, str], aliases: dict[str, list[str]], release: Release) -> dict[str, str]:
+    """The words of the release's own C (TEXT) that name a level hook the table pairs elsewhere
+    (pair_stubs), each with the name its catalogue gives it (HOOKS: catalogue_hooks)."""
+    out = {}
+    for hook, old in hooks.items():
+        if old == release.name(hook):
+            continue
+        # By its address name, or by a readable one (stub_empty_17 for func_0026F790).
+        for word in (hook, *aliases.get(hook, ())):
+            if names_word(text, word, address=word == hook):
+                out[word] = old
+    return out
+
+
+def names_word(text: str, word: str, address: bool) -> bool:
+    """Whether TEXT has WORD: an address name (func_0026F790) as ANY reads one, so a suffix after
+    an underscore is another name's; a readable one (stub_empty_17) whole."""
+    tail = "0-9A-Za-z" if address else r"\w"
+    return re.search(rf"(?<![\w]){re.escape(word)}(?![{tail}])", text) is not None
+
+
 def units(source: Path, version: str, release: Release, parts: dict, sources: list[str],
           readable: dict[str, str] | None = None) -> tuple[dict, Counter, dict]:
     """Each file's short names in the release's names: the function at the value that level's
@@ -963,10 +1004,7 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
     for name, _, _, places in parts["us_levels"]:
         for p in places:
             us_at.setdefault(p, name)
-    hook_aliases: dict[str, list[str]] = {}
-    for word, name in sorted((readable or {}).items()):
-        if name in parts.get("catalogue_hooks", {}):
-            hook_aliases.setdefault(name, []).append(word)
+    hook_aliases = aliases_of(readable or {}, parts.get("catalogue_hooks", {}))
     r_exe = {a: n for n, a, _ in parts["r_boot"]}
     r_place_of = {}
     for (l, a), n in r_at.items():
@@ -1001,15 +1039,9 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
                 # hook its catalogue gave the name (PAL's func_PAL_00310BE8 calls func_0026F770 at
                 # 0x0026F5D8), which pair_stubs pairs with another of v1.01's: the name the table
                 # gives it without the pairing.
-                for hook, old in parts.get("catalogue_hooks", {}).items():
-                    if old == release.name(hook):
-                        continue
-                    # By its address name, or by a readable one (stub_empty_17 for func_0026F790).
-                    for word in (hook, *hook_aliases.get(hook, ())):
-                        tail = "0-9A-Za-z" if word == hook else r"\w"
-                        if re.search(rf"(?<![\w]){word}(?![{tail}])", text):
-                            out.setdefault(rel, {})[word] = old
-                            evidence["function: a hook named as the release's catalogue does"] += 1
+                for word, old in hook_words(text, parts.get("catalogue_hooks", {}), hook_aliases, release).items():
+                    out.setdefault(rel, {})[word] = old
+                    evidence["function: a hook named as the release's catalogue does"] += 1
             if unit_level is None:
                 continue
             found = {m.group(0) for m in SHORT.finditer(text)}
