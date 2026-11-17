@@ -54,6 +54,15 @@ def address_of(program, name: str) -> int | None:
     return int(m.group(1), 16) if m else None
 
 
+def table_place(program, name: str) -> tuple[int, int | None]:
+    """(level, address) of a table: where one level's program places it (a release names its level data
+    by the primary's address, jtbl_002BB0E0 is at 0x2BAFA0 in PAL), else what its name says."""
+    placed = [(lv, names[name]) for lv, names in getattr(program, "level_data", {}).items() if name in names]
+    if len(placed) == 1:
+        return placed[0]
+    return level_of(name), address_of(program, name)
+
+
 def derived_address(derived: dict, name: str) -> tuple[int, int] | None:
     """(level, address) of a name the decompilation's build derives (derived_names.json), or None."""
     if name in derived.get("levels", {}):
@@ -223,14 +232,15 @@ def main() -> int:
     target = cfg.get("jump_tables", "tables/jump_tables.json")
     path = args.game.parent / (target if isinstance(target, str) else "tables/jump_tables.json")
     tables = json.loads(path.read_text()) if path.is_file() else {}
-    derived_file = args.game.parent / "tables" / "derived_names.json"
+    # The names the build derives (a release's own table, hostgen.json "derived"), as hostgen reads them.
+    derived_file = args.game.parent / (cfg.get("derived") or {}).get("table", "tables/derived_names.json")
     derived = json.loads(derived_file.read_text()) if derived_file.is_file() else {}
     for fn, gotos in sorted(report.get("computed_gotos", {}).items()):
         for g in gotos:
             name = g["table"]
             if name in tables:
                 continue
-            at, tlevel = address_of(program, name), level_of(name)
+            tlevel, at = table_place(program, name)
             if name.startswith(("ref_", "r1_")) and derived_address(derived, name):
                 tlevel, at = derived_address(derived, name)
             if at is None:
