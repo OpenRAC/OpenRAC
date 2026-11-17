@@ -15,6 +15,7 @@
   import { keepRead, lastRead } from "$lib/lastRead";
   import { regionLabel, titleLines } from "$lib/labels";
   import { reduced } from "$lib/motion";
+  import { shelfWave } from "$lib/shelfWave.svelte";
   import { modUpdates } from "$lib/modUpdates.svelte";
   import { news, type NewsItem } from "$lib/news";
   import { hasPort, offersStep, playerAct, playerState, playerVersion, playWarning } from "$lib/player.svelte";
@@ -28,7 +29,6 @@
   import Icon from "./Icon.svelte";
   import Menu from "./Menu.svelte";
   import ModsSwitch from "./ModsSwitch.svelte";
-  import WaveBackdrop from "./WaveBackdrop.svelte";
 
   let { games }: { games: GameView[] } = $props();
 
@@ -201,6 +201,18 @@
   /** Where the wave behind follows the wheel: where it is headed, inside its ends, so the spring's
    *  overshoot and the pull past the first or last disc never move the wave. */
   const calm = $derived(Math.max(0, Math.min(games.length - 1, at - drag / step)));
+
+  // The wave itself is drawn behind the app (App.svelte, shelfWave.svelte.ts): on while the shelf shows.
+  $effect(() => {
+    shelfWave.on = Boolean(game && v && next);
+    return () => {
+      shelfWave.on = false;
+    };
+  });
+  $effect(() => {
+    shelfWave.shift = calm;
+    shelfWave.glow = glow;
+  });
 
   /** Where disc `i` stands: its offset from the middle of the wheel, and how it shows there. */
   function place(i: number) {
@@ -479,8 +491,6 @@
 
 {#if game && v && next}
   <div class="shelf" bind:this={root} style={glow ? `--glow: ${glow}` : undefined}>
-    <!-- Behind the whole shelf, its foot too. -->
-    <div class="backdrop" aria-hidden="true"><WaveBackdrop shift={calm} still={reduced} /></div>
     <div
       class="stage"
       class:twisting
@@ -686,19 +696,6 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
-  }
-
-  /* Behind everything: the wave in the game's colour (WaveBackdrop.svelte). */
-  .backdrop {
-    position: absolute;
-    inset: 0;
-    /* On under the rail, frosted there (WaveBackdrop.svelte). */
-    left: calc(-1 * var(--nav-left));
-    --frost: var(--nav-left);
-    overflow: hidden;
-    pointer-events: none;
-    /* Fades in place when the page changes, never sliding with it under the rail (app.css). */
-    view-transition-name: wave;
   }
 
   /* ---- the wheel: the discs stand one above the other, the one picked in the middle ---- */
