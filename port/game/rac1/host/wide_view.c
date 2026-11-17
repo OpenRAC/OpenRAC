@@ -106,14 +106,12 @@ static void run_list(void (*run)(void)) {
  */
 extern uint32_t rac1_effect_quad_id;
 
-#define LIST(count, funcs, args) {RAC1_ADDR(count), RAC1_ADDR(funcs), RAC1_ADDR(args)}
 static const gaddr k_lists[4][3] = {
-    LIST(0x0015F564u, 0x0018DC40u, 0x0018DD40u), /* func_001F4A00 */
-    LIST(0x0015F568u, 0x0018DE40u, 0x0018DF40u), /* func_001F4BB8 */
-    LIST(0x0015F56Cu, 0x0018E040u, 0x0018E140u), /* func_001F4A78 */
-    LIST(0x0015F570u, 0x0018E240u, 0x0018E340u), /* func_001F4AF0 */
+    {RAC1_ADDR(0x0015F564u), RAC1_ADDR(0x0018DC40u), RAC1_ADDR(0x0018DD40u)}, /* func_001F4A00 */
+    {RAC1_ADDR(0x0015F568u), RAC1_ADDR(0x0018DE40u), RAC1_ADDR(0x0018DF40u)}, /* func_001F4BB8 */
+    {RAC1_ADDR(0x0015F56Cu), RAC1_ADDR(0x0018E040u), RAC1_ADDR(0x0018E140u)}, /* func_001F4A78 */
+    {RAC1_ADDR(0x0015F570u), RAC1_ADDR(0x0018E240u), RAC1_ADDR(0x0018E340u)}, /* func_001F4AF0 */
 };
-#undef LIST
 
 static int g_list;
 
