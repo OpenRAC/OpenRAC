@@ -56,9 +56,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* Entries the version map cannot pair, checked by hand. */
 /* sceVu0Normalize, an entry inside the VU0 library object, which the map does not cut out. */
 #define func_001252C0 game_FUN_00125180
-/* sceVu0ScaleVector and sceVu0UnitMatrix: the US game has C for the matrix (sceVu0UnitMatrix) and
- * translates the scale (0x1251E8) from its assembly, so rac1/host's versions are PAL's only. */
-#define RAC1_OMIT_func_00125328 1
+/* sceVu0ScaleVector (0x1251E8): the decompilation has no C for it, and only a build with the disc
+ * translated it, so a build without the disc called a stub from the level code (FUN_L00_0025aca0,
+ * the moby hit test). rac1/host's version (PAL's func_00125328) is the US one too. */
+#define func_00125328 game_FUN_001251e8
+/* sceVu0UnitMatrix: the US game has C for it, so rac1/host's version is PAL's only. */
 #define RAC1_OMIT_func_00125358 1
 
 /* The items the US game's Options list is given (Language, Sound: its enter puts them there each
