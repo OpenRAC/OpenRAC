@@ -274,7 +274,7 @@
                from a link or a .zip the system's picker copies in. Where mods come from is said
                first (GetMods): the launcher lists none itself. No level editor or model export:
                they need Godot and a desktop. -->
-          {#if !onModPage}<GetMods hub={mine.game === "rac1"} /><ModsToolbar />{/if}
+          {#if !onModPage}<GetMods /><ModsToolbar />{/if}
           <PluginsPanel version={mine} reload={pluginsReload + reload} onpack={() => (reload += 1)} />
           {#if !onModPage}
             <ModUpdatesPanel version={mine} onchange={() => (pluginsReload += 1)} />
@@ -292,10 +292,7 @@
         {:else if !v && played}
           <!-- The level editor cannot open it here (an installed launcher without its tools, say), but the
                game plays: its gameplay mods, which load when it is played from its page. -->
-          {#if !onModPage}<GetMods hub={played.game === "rac1"} /><AddMod
-              version={played}
-              onadded={added}
-            /><ModsToolbar />{/if}
+          {#if !onModPage}<GetMods /><AddMod version={played} onadded={added} /><ModsToolbar />{/if}
           <PluginsPanel version={played} reload={pluginsReload + reload} onpack={() => (reload += 1)} />
           {#if !onModPage}
             <ModUpdatesPanel version={played} onchange={() => (pluginsReload += 1)} />
@@ -361,7 +358,7 @@
               {#if current === "mine" && onModPage && playable(v)}
                 <PluginsPanel version={v} reload={pluginsReload + reload} onpack={() => (reload += 1)} />
               {:else if current === "mine"}
-                <GetMods hub={v.game === "rac1"} />
+                <GetMods />
                 <AddMod version={v} links={playable(v)} files={playable(v) || !!adder?.runnable} onadded={added} />
                 <ModsToolbar />
                 {#if playable(v)}
