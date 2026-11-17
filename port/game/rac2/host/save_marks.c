@@ -14,8 +14,8 @@
  * the slot's first line (its play time), at the panel's right. Every slot is three lines high and a
  * gap below, as the game's loop steps it, so a badge's place is arithmetic.
  *
- * v1.01 only (RAC2_PRIMARY) until the PAL and v2.00 tables are written again: their copies of the
- * draw (func_PAL_002DE710, func_US2_002DE768) are their own functions.
+ * PAL and USA v2.00 use it too: their rac2_names.tsv gives the release's names (func_002DE710,
+ * func_002DE768) and RAC2_ADDR the release's addresses.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -24,8 +24,6 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac2.h"
-
-#if defined(RAC2_PRIMARY)
 
 int func_002DDA10__game(gaddr menu);
 void func_0027C540(int);
@@ -162,5 +160,3 @@ int func_002DDA10(gaddr menu) {
     func_0027C660();
     return drawn;
 }
-
-#endif /* RAC2_PRIMARY */
