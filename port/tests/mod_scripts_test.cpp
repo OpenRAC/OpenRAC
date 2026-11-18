@@ -40,28 +40,38 @@ namespace {
 
 // The hook points, as hooks.c writes them.
 void* g_slot_add = nullptr;
+
 int add_game(int x) {
     return x + 1;
 }
+
 int add(int x) {
     if (g_slot_add != nullptr) {
         return reinterpret_cast<int (*)(int)>(g_slot_add)(x);
     }
     return add_game(x);
 }
+
 void* g_slot_scale = nullptr;
+
 float scale_game(float x, unsigned by) {
     return x * static_cast<float>(by);
 }
+
 float scale(float x, unsigned by) {
     if (g_slot_scale != nullptr) {
         return reinterpret_cast<float (*)(float, unsigned)>(g_slot_scale)(x, by);
     }
     return scale_game(x, by);
 }
+
 const mods::HookPoint kHooks[] = {
     {"Test_Add", "func_00100000", "i32(i32)", &g_slot_add, reinterpret_cast<void*>(add_game)},
-    {"Test_Scale", "func_00100100", "f32(f32,u32)", &g_slot_scale, reinterpret_cast<void*>(scale_game)},
+    {"Test_Scale",
+     "func_00100100",
+     "f32(f32,u32)",
+     &g_slot_scale,
+     reinterpret_cast<void*>(scale_game)},
 };
 
 void (*g_pad_hook)(int, unsigned char*, int) = nullptr;
@@ -89,9 +99,12 @@ const char* library_name() {
 }
 
 // A script mod: its manifest and its files (name -> text).
-void install_script(const fs::path& plugins, const std::string& id,
-                    const std::vector<std::pair<std::string, std::string>>& files,
-                    const std::string& settings = "") {
+void install_script(
+    const fs::path& plugins,
+    const std::string& id,
+    const std::vector<std::pair<std::string, std::string>>& files,
+    const std::string& settings = ""
+) {
     const fs::path dir = plugins / id;
     fs::remove_all(dir);
     std::string scripts;
@@ -101,20 +114,27 @@ void install_script(const fs::path& plugins, const std::string& id,
             scripts += (scripts.empty() ? "\"" : ", \"") + name + "\"";
         }
     }
-    write(dir / "openrac-mod.json", R"({"format": 2, "id": ")" + id + R"(", "name": "Script", "version": "1.0.0",
-        "type": "script", "api": "1.1", "scripts": [)" + scripts + R"(], "games": {"test": ["one"]},
-        "hooks": ["Test_Add", "Test_Scale"], "settings": [)" + settings + "]}");
+    write(
+        dir / "openrac-mod.json",
+        R"({"format": 2, "id": ")" + id + R"(", "name": "Script", "version": "1.0.0",
+        "type": "script", "api": "1.1", "scripts": [)"
+            + scripts + R"(], "games": {"test": ["one"]},
+        "hooks": ["Test_Add", "Test_Scale"], "settings": [)"
+            + settings + "]}"
+    );
 }
 
 // The native test mod (mod_loader_test_mod.c), as test-a.
 void install_native(const fs::path& plugins) {
     const fs::path dir = plugins / "test-a";
     fs::create_directories(dir / "lib");
-    fs::copy_file(OPENRAC_TEST_MOD_A, dir / "lib" / library_name(), fs::copy_options::overwrite_existing);
+    fs::copy_file(
+        OPENRAC_TEST_MOD_A, dir / "lib" / library_name(), fs::copy_options::overwrite_existing
+    );
     write(
         dir / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.20", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.19", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": "lib/)" + library_name() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0},
@@ -171,7 +191,10 @@ void no_script_mod_no_state(const fs::path& plugins) {
 }
 
 void the_sandbox(const fs::path& plugins) {
-    install_script(plugins, "sandbox", {{"main.luau", R"(
+    install_script(
+        plugins,
+        "sandbox",
+        {{"main.luau", R"(
 assert(io == nil, "io")
 assert(os.execute == nil and os.getenv == nil and os.remove == nil, "os")
 assert(type(os.clock()) == "number", "os.clock")
@@ -186,7 +209,8 @@ assert(util.twice(4) == 8, "require of the mod's own file")
 assert(require("lib/util") == util, "a module runs once")
 openrac.log("sandbox fine on", openrac.game, openrac.version, openrac.api)
 )"},
-                                        {"lib/util.luau", "return { twice = function(x) return x * 2 end }"}});
+         {"lib/util.luau", "return { twice = function(x) return x * 2 end }"}}
+    );
     list(plugins, R"({"id": "sandbox", "enabled": true})");
     CHECK(mods::load(host(plugins)) == "sandbox 1.0.0");
     CHECK(status_of(plugins, "sandbox").first == "loaded");
@@ -259,12 +283,18 @@ void one_chain_with_native_mods(const fs::path& plugins) {
 openrac.hook("Test_Add", function(original, x) return original(x) * 2 end)
 )"}});
     // The script loaded last runs first: double(a(game)) = ((0 + 1) * 10 + 1) * 2.
-    list(plugins, R"({"id": "test-a", "enabled": true, "settings": {"tag": 1}}, {"id": "double", "enabled": true})");
+    list(
+        plugins,
+        R"({"id": "test-a", "enabled": true, "settings": {"tag": 1}}, {"id": "double", "enabled": true})"
+    );
     CHECK(mods::load(host(plugins)) == "test-a 1.0.0, double 1.0.0");
     CHECK(add(0) == 22);
     mods::reset();
     // The other way round: a(double(game)) = ((0 + 1) * 2) * 10 + 1.
-    list(plugins, R"({"id": "double", "enabled": true}, {"id": "test-a", "enabled": true, "settings": {"tag": 1}})");
+    list(
+        plugins,
+        R"({"id": "double", "enabled": true}, {"id": "test-a", "enabled": true, "settings": {"tag": 1}})"
+    );
     CHECK(mods::load(host(plugins)) == "double 1.0.0, test-a 1.0.0");
     CHECK(add(0) == 21);
     mods::reset();
@@ -286,7 +316,10 @@ void before_after_pad_fields(const fs::path& plugins) {
     std::memset(G(0x00100000u), 0, 8);
     const float value = 2.5f;
     std::memcpy(G(0x00100004u), &value, 4);
-    install_script(plugins, "watch", {{"main.luau", R"(
+    install_script(
+        plugins,
+        "watch",
+        {{"main.luau", R"(
 openrac.before("Test_Add", function(x) openrac.fields.counter += x end)
 openrac.after("Test_Add", function(x) openrac.write("i32", 0x00100008, x * 3) end)
 openrac.on_pad(function(port, report)
@@ -298,7 +331,9 @@ openrac.on_frame(function()
     assert(not pcall(openrac.read, "u32", 0x10000000), "outside RAM")
     openrac.fields.counter += 1000
 end)
-)"}}, R"({"key": "step", "name": "Step", "type": "int", "default": 5})");
+)"}},
+        R"({"key": "step", "name": "Step", "type": "int", "default": 5})"
+    );
     list(plugins, R"({"id": "watch", "enabled": true})");
     mods::load(host(plugins));
     CHECK(add(4) == 5);
@@ -346,9 +381,15 @@ end)
     mods::Host h = host(plugins);
     g_input = openrac_input{};
     g_input.size = sizeof g_input;
-    h.input = [] { return static_cast<const openrac_input*>(&g_input); };
-    h.take_input = [](std::uint32_t devices) { g_taken |= devices; };
-    h.capture_mouse = [](bool capture) { g_captured = capture; };
+    h.input = [] {
+        return static_cast<const openrac_input*>(&g_input);
+    };
+    h.take_input = [](std::uint32_t devices) {
+        g_taken |= devices;
+    };
+    h.capture_mouse = [](bool capture) {
+        g_captured = capture;
+    };
     CHECK(mods::load(h) == "kbm 1.0.0");
     CHECK(g_taken == OPENRAC_INPUT_KEYBOARD);
     g_input.keys[26] = OPENRAC_KEY_HELD;
@@ -464,7 +505,8 @@ openrac.on_pad(function(port, report) buffer.writeu8(report, 1, heard) end)
 int main() {
     runtime::Memory::create();
     mods::scripts::set_budget_ms(kBudgetMs);
-    const fs::path dir = fs::temp_directory_path() / ("openrac_mod_scripts_test_" + std::to_string(std::rand()));
+    const fs::path dir =
+        fs::temp_directory_path() / ("openrac_mod_scripts_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
     const fs::path plugins = dir / "plugins";
     no_script_mod_no_state(plugins);

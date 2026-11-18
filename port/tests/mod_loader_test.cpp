@@ -47,21 +47,25 @@ namespace {
 
 // The hook point, as hooks.c writes one.
 void* g_slot_add = nullptr;
+
 int add_game(int x) {
     return x + 1;
 }
+
 int add(int x) {
     if (g_slot_add != nullptr) {
         return reinterpret_cast<int (*)(int)>(g_slot_add)(x);
     }
     return add_game(x);
 }
+
 const mods::HookPoint kHooks[] = {
     {"Test_Add", "func_00100000", "i32(i32)", &g_slot_add, reinterpret_cast<void*>(add_game)},
 };
 
 // The function the mods find by name (api->function): what they report.
 std::vector<int> g_records;
+
 extern "C" void test_record(int v) {
     g_records.push_back(v);
 }
@@ -102,7 +106,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.20",
+    const std::string& api = "1.19",
     const std::string& extra = "",
     const std::string& games = R"({"test": ["one"]})",
     const std::string& hooks = R"(["Test_Add"])"
@@ -445,7 +449,9 @@ void two_mods_chain_in_load_order(const fs::path& plugins) {
     CHECK(add(0) == 112);
     CHECK(status_of(plugins, "test-a").first == "loaded");
     CHECK(status_of(plugins, "test-b").first == "loaded");
-    CHECK(read(plugins / "status.json").find("\"hook_points\": [\"Test_Add\"]") != std::string::npos);
+    CHECK(
+        read(plugins / "status.json").find("\"hook_points\": [\"Test_Add\"]") != std::string::npos
+    );
     // Frame callbacks in load order; a hook taken in one (after load) is refused (1000 + 3).
     CHECK(mods::g_frame_callbacks);
     mods::frame();
@@ -456,14 +462,20 @@ void two_mods_chain_in_load_order(const fs::path& plugins) {
     g_pad_hook(0, report, 18);
     CHECK(report[0] == 13);
     mods::reset();
-    CHECK(g_slot_add == nullptr && add(0) == 1 && g_pad_hook == nullptr && !mods::g_frame_callbacks);
+    CHECK(
+        g_slot_add == nullptr && add(0) == 1 && g_pad_hook == nullptr && !mods::g_frame_callbacks
+    );
 }
 
 void a_mod_that_fails_is_taken_back(const fs::path& plugins) {
     for (const char* behaviour : {"fail", "unknown_hook", "bad_signature"}) {
-        write(plugins / "plugins.json", std::string(R"({"format": 1, "mods": [
+        write(
+            plugins / "plugins.json",
+            std::string(R"({"format": 1, "mods": [
             {"id": "test-a", "settings": {"tag": 1}},
-            {"id": "test-b", "settings": {"tag": 2, "behaviour": ")") + behaviour + R"("}}]})");
+            {"id": "test-b", "settings": {"tag": 2, "behaviour": ")")
+                + behaviour + R"("}}]})"
+        );
         g_records.clear();
         const std::string line = mods::load(host(plugins));
         CHECK(line == "test-a 1.0.0 (1 not loaded: plugins/status.json)");
@@ -513,7 +525,10 @@ void a_library_of_another_id(const fs::path& plugins) {
     copy_library(OPENRAC_TEST_MOD_A, plugins / "test-b" / "lib" / library_name());
     write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-b"}]})");
     CHECK(mods::load(host(plugins)) == "none (1 not loaded: plugins/status.json)");
-    CHECK(status_of(plugins, "test-b").second.find("its library is mod \"test-a\"") != std::string::npos);
+    CHECK(
+        status_of(plugins, "test-b").second.find("its library is mod \"test-a\"")
+        != std::string::npos
+    );
     mods::reset();
     install(plugins, "b", OPENRAC_TEST_MOD_B);
 }
@@ -533,12 +548,15 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.20", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.19", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
     );
-    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"tag": 4}}]})");
+    write(
+        plugins / "plugins.json",
+        R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"tag": 4}}]})"
+    );
     const fs::path elsewhere = root / "somewhere-else";
     fs::create_directories(elsewhere);
     const fs::path before = fs::current_path();
@@ -568,8 +586,12 @@ void input_reaches_the_mod(const fs::path& plugins) {
     g_input.size = sizeof g_input;
     g_taken = 0;
     g_captures = 0;
-    h.input = [] { return static_cast<const openrac_input*>(&g_input); };
-    h.take_input = [](std::uint32_t devices) { g_taken |= devices; };
+    h.input = [] {
+        return static_cast<const openrac_input*>(&g_input);
+    };
+    h.take_input = [](std::uint32_t devices) {
+        g_taken |= devices;
+    };
     h.capture_mouse = [](bool capture) {
         ++g_captures;
         g_captured = capture;
@@ -1509,7 +1531,7 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
 // RAC2 has no game hook catalogue or script binding yet, but a native mod that only uses
 // common callbacks still loads. A native mod that tries to take a game hook is refused cleanly.
 void rac2_callback_only_native_mod(const fs::path& plugins) {
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.20", "", R"({"rac2": ["ntsc"]})", "[]");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.19", "", R"({"rac2": ["ntsc"]})", "[]");
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true,
          "settings": {"tag": 4, "behaviour": "callback_only"}}]})");
@@ -1525,7 +1547,7 @@ void rac2_callback_only_native_mod(const fs::path& plugins) {
     mods::reset();
 
     install(
-        plugins, "a", OPENRAC_TEST_MOD_A, "1.20", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
+        plugins, "a", OPENRAC_TEST_MOD_A, "1.19", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
     );
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"tag": 1}}]})");
@@ -1658,7 +1680,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.20", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.19", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1684,7 +1706,7 @@ void native_vulkan_access_requires_a_declaration(const fs::path& plugins) {
             plugins,
             "current",
             OPENRAC_TEST_MOD_CURRENT,
-            "1.20",
+            std::to_string(OPENRAC_MOD_API_MAJOR) + "." + std::to_string(OPENRAC_MOD_API_MINOR),
             declared ? R"("vulkan_queue": true,)" : ""
         );
         CHECK(!mods::makes_vulkan_device(list, false));
@@ -1704,7 +1726,11 @@ void native_vulkan_access_requires_a_declaration(const fs::path& plugins) {
 // permanent id, test.add. The mod still asks for Test_Add, and binds; status.json names the id.
 void an_old_name_still_binds(const fs::path& plugins) {
     static const mods::HookPoint renamed[] = {
-        {"Test_Add_Renamed", "func_00100000", "i32(i32)", &g_slot_add, reinterpret_cast<void*>(add_game)},
+        {"Test_Add_Renamed",
+         "func_00100000",
+         "i32(i32)",
+         &g_slot_add,
+         reinterpret_cast<void*>(add_game)},
     };
     static const openrac_script_alias aliases[] = {
         {"Test_Add", "test.add"},
@@ -1712,13 +1738,17 @@ void an_old_name_still_binds(const fs::path& plugins) {
         {"func_00100000", "test.add"},
     };
     static const char* const discs[] = {"one"};
-    static const openrac_script_binding binding = {"test", 1, discs, 0, nullptr, 0, nullptr, nullptr, 3, aliases};
+    static const openrac_script_binding binding =
+        {"test", 1, discs, 0, nullptr, 0, nullptr, nullptr, 3, aliases};
     CHECK(std::string(openrac_script_hook_id(&binding, "Test_Add")) == "test.add");
     CHECK(std::string(openrac_script_hook_id(&binding, "func_00100000")) == "test.add");
     CHECK(std::string(openrac_script_hook_id(&binding, "test.add")) == "test.add");
     CHECK(std::string(openrac_script_hook_id(&binding, "Unknown")) == "Unknown");
     CHECK(std::string(openrac_script_hook_id(nullptr, "Test_Add")) == "Test_Add");
-    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"tag": 5}}]})");
+    write(
+        plugins / "plugins.json",
+        R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"tag": 5}}]})"
+    );
     mods::Host h = host(plugins);
     h.hooks = renamed;
     h.scripts = &binding;
@@ -2036,7 +2066,8 @@ void refused_library_leaves_no_watchers(const fs::path& plugins) {
 }
 
 int main() {
-    const fs::path dir = fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
+    const fs::path dir =
+        fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
     const fs::path plugins = dir / "plugins";
     install(plugins, "a", OPENRAC_TEST_MOD_A);
