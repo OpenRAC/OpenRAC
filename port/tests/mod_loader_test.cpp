@@ -31,9 +31,9 @@
 #include "mod_manifest.h"
 #include "mod_play.h"
 #include "mods.h"
+#include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/script_binding.h"
-#include "openrac/game_host.h"
 
 // mod_play.cpp asks the game for its play host (pickup_animation); there is no game here.
 extern "C" {
