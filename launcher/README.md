@@ -118,7 +118,7 @@ the game you used last.
   own** saves the game's pictures while you play, so you can edit them
   ([docs/port/TEXTURE_PACKS.md](../docs/port/TEXTURE_PACKS.md)).
 - **Differences from the original**: for a game with a port, what it does
-  differently and why. **Game fixes** can be switched; **Kept from crashing**
+  differently and why. **Game fixes** can be switched (some are always on); **Kept from crashing**
   and **Playing on a PC** are listed for the record. The list is
   `port/game/<game>/differences.json`
   ([docs/port/SETTINGS.md](../docs/port/SETTINGS.md#8-game-fixes-and-the-differences-from-the-original)).

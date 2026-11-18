@@ -498,7 +498,7 @@ Each entry:
 | Field | |
 |---|---|
 | `id` | lower-case words joined by hyphens: `wide-liquids` |
-| `kind` | `fix`: the player may switch it back. `guard`: keeps the game from crashing where the console carried on unnoticed; shown, never switched (off would only mean the crash). `port`: a difference that comes with being a PC program, for the record |
+| `kind` | `fix`: the player may switch it back. `guard`: keeps the game from crashing where the console carried on unnoticed; shown, never switched (off would only mean the crash). `always`: a fix that is always on (a soft lock, a feature one disc lacks); listed with the game fixes, never switched. `port`: a difference that comes with being a PC program, for the record |
 | `name` | a few words. A fix's is its row on the game's Options page: 22 letters at most |
 | `discs` | the game's versions it applies to: `pal`, `ntsc`, and Going Commando's `ntsc2` (USA v2.00) |
 | `original` | what the PS2 game does |

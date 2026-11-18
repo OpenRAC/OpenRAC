@@ -22,6 +22,14 @@ describe("groupDifferences", () => {
   });
 });
 
+describe("a fix that is always on", () => {
+  it("is listed with the game fixes, in the list's order", () => {
+    const groups = groupDifferences([entry("s", "always"), entry("f", "fix", true), entry("p", "port")]);
+    expect(groups.map((g) => g.kind)).toEqual(["fix", "port"]);
+    expect(groups[0]?.entries.map((e) => e.id)).toEqual(["s", "f"]);
+  });
+});
+
 describe("differencesSummary", () => {
   it("counts the fixes that are on, and the rest", () => {
     const fixes = [entry("a", "fix", true), entry("b", "fix", true), entry("c", "fix", false)];
