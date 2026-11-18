@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 19;
+pub const API_MINOR: u32 = 20;
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -235,6 +235,11 @@ pub struct Manifest {
     pub games: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     pub plugin: BTreeMap<String, String>,
+    #[serde(default)]
+    vulkan_device: Value,
+    // An explicit null is invalid, so keep it distinct from an absent declaration.
+    #[serde(default, deserialize_with = "present_json_value")]
+    vulkan_queue: Option<Value>,
     /// `native` (the default, also when absent) or `script`.
     #[serde(default, rename = "type")]
     pub kind: String,
@@ -272,6 +277,10 @@ pub struct Manifest {
     /// What it keeps beside each save, which the save editor shows (mod_save_data.rs).
     #[serde(default)]
     pub save_data: Option<crate::mod_save_data::SaveData>,
+}
+
+fn present_json_value<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
 }
 
 /// An id: lower-case letters and digits in words joined by hyphens, at most 64 characters.
@@ -350,6 +359,15 @@ impl Manifest {
 
     /// The rules of MODS.md, section 3, that need nothing but the file: the first broken one.
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_manifest(false)
+    }
+
+    /// The source manifest leaves the library list to the build that creates the release archive.
+    pub(crate) fn validate_source(&self) -> Result<(), String> {
+        self.validate_manifest(true)
+    }
+
+    fn validate_manifest(&self, source: bool) -> Result<(), String> {
         if self.format != 2 {
             return Err(format!("format {} is not a native mod's (2)", self.format));
         }
@@ -427,6 +445,19 @@ impl Manifest {
                 return Err(format!("its library for {platform} is not a path inside the mod"));
             }
         }
+        let can_declare_vulkan = self.api.as_deref().and_then(parse_api).is_some_and(|api| api >= (1, 20));
+        if self.vulkan_queue.as_ref().is_some_and(|queue| {
+            !queue.is_boolean() || self.is_script() || (!source && self.plugin.is_empty()) || !can_declare_vulkan
+        }) {
+            return Err("\"vulkan_queue\" must be a boolean on a native mod targeting interface 1.20 or later".into());
+        }
+        if can_declare_vulkan
+            && !self.is_script()
+            && self.vulkan_device.as_bool() == Some(true)
+            && self.vulkan_queue.as_ref().and_then(Value::as_bool) != Some(true)
+        {
+            return Err("\"vulkan_device\" requires \"vulkan_queue\": true from interface 1.20".into());
+        }
         if let Some(word) = &self.multiplayer {
             if !matches!(word.as_str(), "gameplay" | "input" | "cosmetic" | "solo") {
                 return Err(format!("\"multiplayer\" is gameplay, input, cosmetic or solo, not {word:?}"));
@@ -482,12 +513,7 @@ impl Manifest {
         if self.plugin.is_empty() && !self.is_script() {
             return Ok(());
         }
-        let (major, minor) = parse_api(self.api.as_deref().unwrap_or_default()).unwrap_or_default();
-        if major != API_MAJOR || minor > API_MINOR {
-            return Err(format!(
-                "Needs OpenRAC with mod interface {major}.{minor}; this one has {API_MAJOR}.{API_MINOR}."
-            ));
-        }
+        self.check_api_compatibility()?;
         // A script runs wherever the port does, Android included.
         if self.is_script() {
             return Ok(());
@@ -497,6 +523,17 @@ impl Manifest {
             Some(p) => Err(format!("Not built for this computer ({p}).")),
             None => Err("Native mods do not run on this system.".into()),
         }
+    }
+
+    pub(crate) fn check_api_compatibility(&self) -> Result<(), String> {
+        let api = self.api.as_deref().ok_or("it has no \"api\"")?;
+        let (major, minor) = parse_api(api).ok_or_else(|| format!("its api {api:?} is not MAJOR.MINOR"))?;
+        if major != API_MAJOR || minor > API_MINOR {
+            return Err(format!(
+                "Needs OpenRAC with mod interface {major}.{minor}; this one has {API_MAJOR}.{API_MINOR}."
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -1824,6 +1861,37 @@ mod tests {
         // A native mod built for interface 1.0 still loads on 1.1.
         let old: Manifest = serde_json::from_value(manifest("n", json!({"api": "1.0"}))).unwrap();
         assert!(old.runs_on("rac1", "pal", Some(here())).is_ok());
+    }
+
+    #[test]
+    fn vulkan_declarations_are_checked() {
+        let native = |extra: Value| serde_json::from_value::<Manifest>(manifest("native", extra)).unwrap().validate();
+        for fields in [
+            json!({"api": "1.19", "vulkan_device": true}),
+            json!({"api": "1.20"}),
+            json!({"api": "1.20", "vulkan_queue": false}),
+            json!({"api": "1.20", "vulkan_queue": true}),
+            json!({"api": "1.20", "vulkan_device": true, "vulkan_queue": true}),
+        ] {
+            assert_eq!(native(fields), Ok(()));
+        }
+        for fields in [
+            json!({"api": "1.20", "vulkan_queue": null}),
+            json!({"api": "1.20", "vulkan_queue": "true"}),
+            json!({"api": "1.19", "vulkan_queue": false}),
+            json!({"api": "1.20", "plugin": {}, "vulkan_queue": true}),
+        ] {
+            assert!(native(fields).unwrap_err().contains("must be a boolean on a native mod"));
+        }
+        for fields in [
+            json!({"api": "1.20", "vulkan_device": true}),
+            json!({"api": "1.20", "vulkan_device": true, "vulkan_queue": false}),
+        ] {
+            assert!(native(fields).unwrap_err().contains("requires \"vulkan_queue\": true"));
+        }
+        let script: Manifest =
+            serde_json::from_value(script("swap", json!({"api": "1.20", "vulkan_queue": true}))).unwrap();
+        assert!(script.validate().unwrap_err().contains("must be a boolean on a native mod"));
     }
 
     #[test]

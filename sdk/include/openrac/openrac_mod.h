@@ -72,9 +72,10 @@ extern "C" {
  * data kept with the game's saves, 1.17 the game's own collision query asked by
  * a mod (collision_line), 1.18 a prop fixed to a moby's joint (prop_attach),
  * 1.19 switches and choices in a mod's developer menu, which the menu turns
- * over at once, the game paused or not (developer_menu_switch).
+ * over at once, the game paused or not (developer_menu_switch), and 1.20
+ * explicit native Vulkan access through the manifest's "vulkan_queue" field.
  */
-#define OPENRAC_MOD_API_MINOR 19
+#define OPENRAC_MOD_API_MINOR 20
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -277,9 +278,11 @@ typedef struct openrac_graphics {
   void *(*gl_proc)(const char *name);
   /* Vulkan: the backend's instance, physical device, device and graphics queue,
    * its family and its index in the family, and the vkGetInstanceProcAddr they
-   * were made with; null and 0 otherwise. While a mod has views (on_views) the
-   * port submits to the queue on the game's thread only, so a mod's own use of
-   * it there (OpenXR's xrEndFrame) needs no lock. */
+   * were made with. Mods targeting 1.20 or later get null handles and zero
+   * queue indices unless their manifest declares "vulkan_queue": true.
+   * That declaration keeps Vulkan on the game's thread, so a mod's own use
+   * of the queue there (OpenXR's xrEndFrame) needs no lock. Mods targeting
+   * 1.19 or earlier retain the existing behavior when they register views. */
   void *vk_instance;
   void *vk_physical_device;
   void *vk_device;
@@ -1421,7 +1424,9 @@ typedef struct openrac_api {
 
     /* Asks the port to draw views of the game besides the window's picture each
      * frame, through `source` (openrac_view_source), with OpenGL and Vulkan.
-     * While a mod has views, the Vulkan renderer draws on the game's thread.
+     * While a mod has views, Vulkan draws on the game's thread. From 1.20,
+     * the manifest's "vulkan_queue": true declares native Vulkan access and
+     * selects game-thread rendering for the session.
      * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has them,
      * OPENRAC_HOOK_UNKNOWN for a source without begin or end, or
      * OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.4. */

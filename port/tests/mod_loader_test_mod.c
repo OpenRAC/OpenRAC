@@ -598,6 +598,19 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     s_record = (void (*)(int))api->function("Test_Record");
     const char* behaviour = api->setting_string(mod, "behaviour");
     api->log(mod, OPENRAC_LOG_INFO, behaviour);
+    if (strcmp(behaviour, "native_handles") == 0) {
+        const openrac_graphics* graphics = api->graphics();
+        if (graphics->backend != OPENRAC_GRAPHICS_VULKAN) {
+            return 1;
+        }
+        const int has_handles = graphics->vk_device != NULL;
+        if ((graphics->vk_queue != NULL) != has_handles
+            || (graphics->vk_queue_index != 0) != has_handles) {
+            return 2;
+        }
+        s_record(14000 + has_handles);
+        return 0;
+    }
     if (behaviour[0] == 'z') { /* watchers registered before an exclusive gate refuses */
         if (api->on_camera_script(mod, failed_camera, NULL) != OPENRAC_HOOK_OK
             || api->on_metal_detect(mod, failed_metal, NULL) != OPENRAC_HOOK_OK) {

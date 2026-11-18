@@ -151,6 +151,10 @@ std::string load(const Host& host);
 // purist mode or with no list.
 bool makes_vulkan_device(const std::filesystem::path& list, bool purist);
 
+// True while a loaded mod has declared native Vulkan access.
+bool vulkan_needs_game_thread();
+bool view_source_can_use_vulkan();
+
 // Each loaded mod's openrac_mod_unload, last first (at exit).
 void unload();
 
