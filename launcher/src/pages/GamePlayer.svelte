@@ -215,9 +215,8 @@
           <div class="title box">
             <!-- The series, then the game's own name: on its own line on Android (as on Games' banner);
                  on the desktop it goes to a line of its own, whole, when both do not fit on one. -->
-            <span class="part">{name.game ? `${name.series} ` : name.series}</span>{#if name.game}<span class="part"
-                >{name.game}</span
-              >{/if}
+            <span class="part">{name.series}</span>
+            {#if name.game}<span class="part">{name.game}</span>{/if}
             {#if game.year}<small>{game.year}</small>{/if}
           </div>
 
@@ -523,13 +522,10 @@
     padding: 18px 30px;
   }
 
+  /* Each part stays whole: the game's own name moves to a line of its own instead of breaking. */
   .title .part {
     display: inline-block;
-  }
-
-  /* The gap trails the series, so a game name that wraps starts flush on its own line. */
-  .title .part:has(+ .part) {
-    padding-right: 0.28em;
+    white-space: nowrap;
   }
 
   .title small {
