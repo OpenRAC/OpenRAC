@@ -4,6 +4,9 @@
 #include "scene/level.h"
 
 #include <algorithm>
+#include <array>
+#include <atomic>
+#include <bit>
 #include <cgltf.h>
 #include <cmath>
 #include <cstdlib>
@@ -14,12 +17,16 @@
 #include <map>
 #include <stb_image.h>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
+#include "common/joining_thread.h"
 #include "common/json.h"
 #include "common/log.h"
 #include "common/profiler.h"
-#include "renderer/texture_pack.h"
+#include "materials/catalog.h"
+#include "renderer/textures/pcsx2_pack.h"
+#include "renderer/textures/texture_pack.h"
 #include "scene/material_overrides.h"
 
 namespace openrac::scene {
@@ -123,6 +130,137 @@ fs::path override_of(const fs::path& path, const LevelData& level, int* overridd
     return (level.dir / rel).lexically_normal();
 }
 
+// Editor exports retain the texture's indexed raster and its palette in the PNG.
+void replace_pcsx2(const fs::path& path, renderer::Rgba8Image& image) {
+    if (!renderer::pcsx2_pack::enabled() || image.width > renderer::kMaxTextureSide
+        || image.height > renderer::kMaxTextureSide
+        || !std::has_single_bit(static_cast<unsigned>(image.width))
+        || !std::has_single_bit(static_cast<unsigned>(image.height))) {
+        return;
+    }
+    const auto stride = static_cast<std::size_t>(image.width) + 1;
+    const auto row_bytes = stride * static_cast<std::size_t>(image.height);
+    std::ifstream file(path, std::ios::binary);
+    std::array<char, 8> header{};
+    if (!file.read(header.data(), header.size())
+        || std::string_view(header.data(), header.size()) != "\x89PNG\r\n\x1a\n") {
+        return;
+    }
+    std::array<std::uint8_t, 768> rgb{};
+    std::array<std::uint8_t, 256> alpha{}, raw_alpha{};
+    bool has_palette = false, has_alpha = false, has_raw_alpha = false;
+    std::vector<char> compressed;
+    while (file.read(header.data(), header.size())) {
+        const auto* size_bytes = reinterpret_cast<const unsigned char*>(header.data());
+        const std::uint32_t size = (std::uint32_t{size_bytes[0]} << 24)
+                                   | (std::uint32_t{size_bytes[1]} << 16)
+                                   | (std::uint32_t{size_bytes[2]} << 8) | size_bytes[3];
+        const std::string_view type(header.data() + 4, 4);
+        if (type == "IHDR") {
+            std::array<char, 13> info{};
+            if (size != info.size() || !file.read(info.data(), info.size()) || info[8] != 8
+                || info[9] != 3 || info[12] != 0) {
+                return;
+            }
+        } else if (type == "PLTE" && size == rgb.size()) {
+            has_palette = static_cast<bool>(file.read(reinterpret_cast<char*>(rgb.data()), size));
+        } else if (type == "tRNS" && size == alpha.size()) {
+            has_alpha = static_cast<bool>(file.read(reinterpret_cast<char*>(alpha.data()), size));
+        } else if (type == "orAC" && size == raw_alpha.size()) {
+            has_raw_alpha =
+                static_cast<bool>(file.read(reinterpret_cast<char*>(raw_alpha.data()), size));
+        } else if (type == "IDAT") {
+            const auto offset = compressed.size();
+            if (offset + size > row_bytes + 65536) {
+                return;
+            }
+            compressed.resize(offset + size);
+            file.read(compressed.data() + offset, size);
+        } else if (type == "IEND") {
+            break;
+        } else {
+            file.seekg(size, std::ios::cur);
+        }
+        file.seekg(4, std::ios::cur);  // CRC
+    }
+    if (!has_palette || !has_alpha || compressed.empty()) {
+        return;
+    }
+    std::vector<char> rows(row_bytes);
+    if (stbi_zlib_decode_buffer(
+            rows.data(),
+            static_cast<int>(rows.size()),
+            compressed.data(),
+            static_cast<int>(compressed.size())
+        )
+        != static_cast<int>(rows.size())) {
+        return;
+    }
+    std::vector<std::uint8_t> raster;
+    raster.reserve(row_bytes);
+    for (std::size_t y = 0; y < rows.size(); y += stride) {
+        if (rows[y] != 0) {
+            return;  // The editor writes unfiltered rows.
+        }
+        raster.insert(raster.end(), rows.data() + y + 1, rows.data() + y + stride);
+    }
+    std::array<std::uint32_t, 256> palette{};
+    for (std::size_t i = 0; i < palette.size(); ++i) {
+        const auto a = has_raw_alpha ? raw_alpha[i] : (alpha[i] + 1u) / 2;
+        palette[i] = renderer::rgba(rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2], a);
+    }
+    renderer::pcsx2_pack::replace_indexed8(image, raster, palette);
+}
+
+// With a texture pack: the level's textures looked up in it all at once, on several threads, so
+// that its big pictures are decoded side by side, not one after another while the level loads.
+void read_pack_pictures_ahead(const fs::path& dir) {
+    if (!renderer::texture_pack::has_pictures()) {
+        return;
+    }
+    std::vector<fs::path> files;
+    std::error_code e;
+    for (auto it = fs::recursive_directory_iterator(dir, e);
+         it != fs::recursive_directory_iterator();
+         it.increment(e)) {
+        if (it->is_regular_file(e) && it->path().extension() == ".png") {
+            files.push_back(it->path());
+        }
+    }
+    std::vector<renderer::texture_pack::TextureId> ids(files.size());
+    std::atomic<std::size_t> next{0};
+    {
+        constexpr unsigned kMostThreads = 8;
+        const unsigned count = std::clamp(std::thread::hardware_concurrency(), 1u, kMostThreads);
+        std::vector<JoiningThread> workers;
+        for (unsigned i = 0; i < count; ++i) {
+            workers.emplace_back([&] {
+                for (std::size_t at = next++; at < files.size(); at = next++) {
+                    // Read as image_index() reads it, so that the hash is the same.
+                    int w = 0;
+                    int h = 0;
+                    int channels = 0;
+                    unsigned char* pixels =
+                        stbi_load(files[at].string().c_str(), &w, &h, &channels, 4);
+                    if (pixels == nullptr) {
+                        continue;
+                    }
+                    renderer::Rgba8Image image(w, h);
+                    std::copy(
+                        pixels,
+                        pixels + static_cast<std::ptrdiff_t>(w) * h * 4,
+                        image.pixels.begin()
+                    );
+                    stbi_image_free(pixels);
+                    ids[at] = {renderer::texture_pack::image_hash(image), w, h};
+                }
+            });
+        }
+    }
+    std::erase_if(ids, [](const renderer::texture_pack::TextureId& id) { return id.hash == 0; });
+    renderer::texture_pack::read_level_pictures(ids);
+}
+
 int image_index(const fs::path& requested, LevelData& level) {
     int overridden = 0;
     const std::string key =
@@ -150,9 +288,23 @@ int image_index(const fs::path& requested, LevelData& level) {
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size, and its frames
     // when it is animated.
     renderer::texture_pack::Replacement replaced;
-    renderer::texture_pack::replace(image, {.level = level.level}, &replaced);
+    // The original's texels, while a pack may replace them: its material identity is the original's.
+    renderer::Rgba8Image original;
+    if (renderer::texture_pack::has_pictures()) {
+        original = image;
+    }
+    std::string identity;
+    if (renderer::texture_pack::replace(image, {.level = level.level}, &replaced)) {
+        identity = materials::texture_identity(original.width, original.height, original.pixels);
+    } else {
+        replace_pcsx2(key, image);
+    }
+    level.image_identities.resize(level.images.size());
+    level.image_identities.push_back(std::move(identity));
     level.image_animations.resize(level.images.size());
     level.image_animations.push_back(std::move(replaced.animation));
+    level.image_blocks.resize(level.images.size());
+    level.image_blocks.push_back(std::move(replaced.blocks));
     bool translucent = false;
     for (std::size_t i = 3; i < image.pixels.size(); i += 4) {
         if (image.pixels[i] < 250) {
@@ -461,10 +613,21 @@ std::optional<std::uint32_t> load_model(
                 out.shell = std::atoi(node.name + 4);
             }
             if (node.name != nullptr && std::strncmp(node.name, "Terrain_", 8) == 0) {
+                // Terrain_MMM, or Terrain_cN_MMM for a streamed chunk's (editor/godot.py
+                // chunk_terrain).
+                const char* at = node.name + 8;
+                long chunk = 0;
+                if (*at == 'c') {
+                    char* after = nullptr;
+                    chunk = std::strtol(at + 1, &after, 10);
+                    at = after != at + 1 && *after == '_' ? after + 1 : node.name;
+                }
                 char* end = nullptr;
-                const long fragment = std::strtol(node.name + 8, &end, 10);
-                if (end != node.name + 8 && *end == 0 && fragment >= 0 && fragment < 1000000) {
+                const long fragment = std::strtol(at, &end, 10);
+                if (at != node.name && end != at && *end == 0 && fragment >= 0 && fragment < 1000000
+                    && chunk >= 0 && chunk < 16) {
                     out.terrain_fragment = static_cast<int>(fragment);
+                    out.terrain_chunk = static_cast<int>(chunk);
                 }
             }
             model.primitives.push_back(out);
@@ -566,9 +729,17 @@ bool load_level(
     LevelData& out,
     std::string& error,
     const fs::path& edited,
-    const std::vector<fs::path>& mod_roots
+    const std::vector<fs::path>& mod_roots,
+    void (*prepare_geometry)(LevelData&)
 ) {
     const profiling::Zone trace("Load level assets");
+
+    // The pack's pictures read ahead for this level and not used are freed, whatever the outcome.
+    struct DropPictures {
+        ~DropPictures() { renderer::texture_pack::drop_level_pictures(); }
+    } drop_pictures;
+
+    read_pack_pictures_ahead(dir);
 
     out = LevelData{};
     out.dir = dir;
@@ -1254,6 +1425,13 @@ bool load_level(
         }
         material.emission_vertex_colour =
             edit["vertex_colour"].boolean(material.emission_vertex_colour);
+        if (const auto& average = edit["average_for_bake"]; !average.is_null()) {
+            if (average.type() != json::Value::Type::Bool) {
+                error = "average_for_bake requires a boolean in probe-emission.json";
+                return false;
+            }
+            material.average_emission_for_bake = average.boolean();
+        }
         material.diffuse_scale =
             static_cast<float>(edit["diffuse_scale"].number(material.diffuse_scale));
         if (!std::isfinite(material.diffuse_scale) || material.diffuse_scale < 0
@@ -1324,7 +1502,13 @@ bool load_level(
         out.pvs.grid.empty() ? "unavailable" : "loaded",
         out.pvs.grid.size()
     );
+    if (prepare_geometry) {
+        prepare_geometry(out);
+    }
+    prepare_chrome_geometry(out);
     prepare_material_overrides(out);
+    // The pack's HUD and effect pictures, read now behind the loading screen, not while playing.
+    renderer::texture_pack::preload();
     return true;
 }
 

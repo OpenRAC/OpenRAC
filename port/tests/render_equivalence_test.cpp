@@ -30,12 +30,13 @@
 
 #include "common/env.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/render_baseline_file.h"
 #include "tests/render_equivalence_costs.h"
+#include "tests/render_equivalence_inputs.h"
 #include "tests/render_equivalence_policy.h"
 #include "tests/render_fixture.h"
 #include "tests/render_frame_batch.h"
@@ -56,6 +57,8 @@ constexpr std::uint64_t kFrames = 8;
 // The frames of one run, each the picture's RGBA bytes.
 using Frames = std::vector<std::vector<std::uint8_t>>;
 
+using openrac::test::FixtureInputs;
+
 // Owns no resources; an optional renderer is borrowed for one fixed shader configuration.
 struct RunSetup {
     const openrac::scene::LevelData& level;     // Fixture data owned by the test driver.
@@ -63,6 +66,8 @@ struct RunSetup {
     bool enhanced;                              // Mode used to build shaders and draw frames.
     render::SceneRenderer* reusable = nullptr;  // Borrowed only within one fixed option state.
     bool batched = false;  // Snapshot ordinary frames without a host wait per frame.
+    openrac::test::RenderFrameBatch* snapshots = nullptr;  // Storage reused after readback.
+    const FixtureInputs* inputs = nullptr;  // Immutable CPU inputs owned by the selection.
 };
 
 // Keep multiple textured, cutout and blended meshes and skinned classes in the pixel matrix.
@@ -93,7 +98,8 @@ Frames draw_run(const RunSetup& setup, const render::Scenario& scenario, std::st
     }
     auto& scene = setup.reusable ? *setup.reusable : *fresh;
 
-    openrac::test::RenderFrameBatch batch;
+    openrac::test::RenderFrameBatch local_batch;
+    auto& batch = setup.snapshots ? *setup.snapshots : local_batch;
     if (setup.batched && !batch.create(kWidth, kHeight, static_cast<int>(kFrames), error)) {
         return {};
     }
@@ -115,12 +121,21 @@ Frames draw_run(const RunSetup& setup, const render::Scenario& scenario, std::st
 
         const render::Picture shown = render::picture(index, scenario.between);
         const double tick = static_cast<double>(shown.tick - 1) + shown.alpha;
-        render::MobyFrame mobys = render::mobys_at(level, size, shown);
+        const auto scenario_index = static_cast<std::size_t>(
+            render::find_scenario(scenario.name) - render::kScenarios.data()
+        );
+        const openrac::test::FixtureFrame* prepared =
+            setup.inputs ? &(*setup.inputs)[scenario_index][index] : nullptr;
+        render::MobyFrame generated;
+        if (!prepared) {
+            generated = render::mobys_at(level, size, shown);
+        }
 
         // A churn scenario: mobys enter and leave at each tick (render_fixture.h, churned).
-        if (scenario.churn) {
-            mobys = render::churned(std::move(mobys), shown.tick);
+        if (!prepared && scenario.churn) {
+            generated = render::churned(std::move(generated), shown.tick);
         }
+        const auto& mobys = prepared ? prepared->mobys : generated;
 
         if (check_scroll) {
             openrac::stats::begin_frame(openrac::stats::FrameKind::Tick, index);
@@ -130,7 +145,9 @@ Frames draw_run(const RunSetup& setup, const render::Scenario& scenario, std::st
         const auto shadow_quality = check_scroll && (index == 0 || index == kFrames - 1)
                                         ? ShadowQuality::High
                                         : ShadowQuality::Medium;
-        const auto camera = render::camera_at(walk, scenario.camera, tick, ticks, aspect);
+        const auto camera = prepared
+                                ? prepared->camera
+                                : render::camera_at(walk, scenario.camera, tick, ticks, aspect);
         // Another view in the same recording must not lend its visibility to this camera.
         if (index == 4) {
             auto other = camera;
@@ -222,6 +239,12 @@ Difference compare(const Frames& a, const Frames& b) {
             continue;
         }
 
+        // Most frames are identical. Vector equality uses the library's bulk
+        // byte comparison; only mismatches need per-pixel tolerance diagnostics.
+        if (left == right) {
+            continue;
+        }
+
         std::size_t differing = 0;
 
         // Pixel by pixel, four channels each.
@@ -297,28 +320,28 @@ void test_the_scene_is_drawn(
 // Tests that `scenario` draws the same frames twice; reports the noise floor when it does not.
 // Returns false when it does not, since no comparison can rest on it then.
 bool test_the_driver_draws_alike_twice(
-    const openrac::scene::LevelData& level,
-    const render::SceneSize& size,
-    const render::Scenario& scenario,
-    bool enhanced,
-    Frames& baseline
+    const RunSetup& setup, const render::Scenario& scenario, Frames& baseline, bool fresh_programs
 ) {
     std::string error;
-    // The oracle creates fresh native objects; only its paired draw may borrow immutable state.
-    openrac::vkgl::test_reuse_programs(true, false);
+    // The first scenario in each mode creates fresh native objects. Later scenarios
+    // keep independent scenes while borrowing only matching immutable programs.
+    openrac::vkgl::test_reuse_programs(true, !fresh_programs);
     const auto before = openrac::vkgl::submission_counters().test_program_reuses;
-    Frames first = draw_run({level, size, enhanced}, scenario, error);
-    CHECK(openrac::vkgl::submission_counters().test_program_reuses == before);
+    Frames first = draw_run(setup, scenario, error);
+    if (fresh_programs) {
+        CHECK(openrac::vkgl::submission_counters().test_program_reuses == before);
+    }
     openrac::vkgl::test_reuse_programs(true);
-    const Frames second = draw_run({level, size, enhanced, nullptr, true}, scenario, error);
-    openrac::vkgl::test_reuse_programs(false);
+    auto batched = setup;
+    batched.batched = true;
+    const Frames second = draw_run(batched, scenario, error);
     CHECK(!first.empty());
     const Difference noise = compare(first, second);
     const bool alike = !first.empty() && within(noise, render_opt::Tolerance{});
     std::printf(
         "%s%s: drawn twice, %s (worst frame %.6f of its pixels, channel by %d)%s%s\n",
         std::string(scenario.name).c_str(),
-        enhanced ? " (enhanced)" : "",
+        setup.enhanced ? " (enhanced)" : "",
         alike ? "identical" : "NOT identical",
         noise.worst_fraction,
         noise.worst_channel,
@@ -349,7 +372,10 @@ void test_an_entry_changes_no_frame(
         render_opt::reset();
         return;
     }
-    const RunSetup reused{setup.level, setup.size, setup.enhanced, &scene, true};
+    openrac::test::RenderFrameBatch snapshots;
+    const RunSetup reused{
+        setup.level, setup.size, setup.enhanced, &scene, true, &snapshots, setup.inputs
+    };
     timing.lap(setup.enhanced ? "enhanced setup" : "compatibility setup");
     for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
         const auto& scenario = render::kScenarios[index];
@@ -386,43 +412,45 @@ std::vector<Frames> draw_scenarios(const RunSetup& setup, std::string& error) {
     if (!scene.open(setup.level, {kWidth, kHeight, 1, setup.enhanced}, error)) {
         return {};
     }
-    const RunSetup reused{setup.level, setup.size, setup.enhanced, &scene, true};
+    openrac::test::RenderFrameBatch snapshots;
+    const RunSetup reused{
+        setup.level, setup.size, setup.enhanced, &scene, true, &snapshots, setup.inputs
+    };
     std::vector<Frames> frames;
+    frames.reserve(render::kScenarios.size());
     for (const auto& scenario : render::kScenarios) {
         frames.push_back(draw_run(reused, scenario, error));
     }
     return frames;
 }
 
-// Compares poisoned discards with retained attachments in every scenario and the same mode.
-void test_no_pass_reads_what_it_discards(const RunSetup& setup) {
+// Compares poisoned discards with verified default pixels in every scenario and mode.
+void test_no_pass_reads_what_it_discards(
+    const RunSetup& setup, const std::array<Frames, render::kScenarios.size()>& baselines
+) {
     openrac::test::RenderTestTiming timing("discard comparisons");
     std::string error;
     CHECK(openrac::vkgl::test_poison_discards(true));
     openrac::vkgl::test_reuse_programs(true, false);
     const auto poisoned_frames = draw_scenarios(setup, error);
     openrac::vkgl::test_poison_discards(false);
-    render_opt::set(render_opt::Opt::AttachmentDiscard, false);
-    openrac::vkgl::test_reuse_programs(true);
-    const auto kept_frames = draw_scenarios(setup, error);
     timing.lap(setup.enhanced ? "enhanced draw/readback" : "compatibility draw/readback");
     render_opt::reset();
     openrac::vkgl::test_reuse_programs(false);
     CHECK(poisoned_frames.size() == render::kScenarios.size());
-    CHECK(kept_frames.size() == render::kScenarios.size());
-    if (poisoned_frames.size() != render::kScenarios.size()
-        || kept_frames.size() != render::kScenarios.size()) {
+    if (poisoned_frames.size() != render::kScenarios.size()) {
         std::fprintf(stderr, "%s\n", error.c_str());
         return;
     }
     for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
         const auto& scenario = render::kScenarios[index];
         const auto& poisoned = poisoned_frames[index];
-        const auto& kept = kept_frames[index];
+        const auto& kept = baselines[index];
         const Difference difference = compare(poisoned, kept);
         const bool equivalent = !poisoned.empty() && within(difference, render_opt::Tolerance{});
         std::printf(
-            "%s%s: discarded attachments poisoned against kept, %s (worst frame %.6f of its "
+            "%s%s: discarded attachments poisoned against verified defaults, %s (worst frame %.6f "
+            "of its "
             "pixels, "
             "channel by %d)\n",
             std::string(scenario.name).c_str(),
@@ -536,29 +564,32 @@ bool load_baselines(
 
 // Verifies defaults with fresh renderers, synchronous/batched capture and poisoned attachments.
 void prepare_baselines(
-    const openrac::scene::LevelData& level,
-    const render::SceneSize& size,
-    const std::vector<bool>& modes,
-    Baselines& baselines,
-    bool witness = true
+    const RunSetup& setup, const std::vector<bool>& modes, Baselines& baselines, bool witness = true
 ) {
     openrac::test::RenderTestTiming timing("equivalence baselines");
     // The fixture already checked the scene witness when lending compatibility snapshots.
     if (witness) {
         use_enhanced(false);
-        test_the_scene_is_drawn(level, size);
+        test_the_scene_is_drawn(setup.level, setup.size);
         timing.lap("scene witness");
     }
     for (bool enhanced : modes) {
         use_enhanced(enhanced);
         for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
             test_the_driver_draws_alike_twice(
-                level, size, render::kScenarios[index], enhanced, baselines[enhanced ? 1 : 0][index]
+                {setup.level, setup.size, enhanced, nullptr, false, nullptr, setup.inputs},
+                render::kScenarios[index],
+                baselines[enhanced ? 1 : 0][index],
+                index == 0
             );
         }
         timing.lap(enhanced ? "enhanced determinism" : "compatibility determinism");
-        test_no_pass_reads_what_it_discards({level, size, enhanced});
+        test_no_pass_reads_what_it_discards(
+            {setup.level, setup.size, enhanced, nullptr, false, nullptr, setup.inputs},
+            baselines[enhanced ? 1 : 0]
+        );
     }
+    openrac::vkgl::test_reuse_programs(false);
     CHECK(openrac::vkgl::submission_counters().validation_errors == 0);
 }
 
@@ -610,7 +641,9 @@ void compare_registry(
             // Cache and lifecycle switches retain their original fresh-program behaviour.
             openrac::vkgl::test_reuse_programs(openrac::test::may_reuse_test_programs(entry.opt));
             test_an_entry_changes_no_frame(
-                {setup.level, setup.size, enhanced}, baselines[enhanced ? 1 : 0], entry
+                {setup.level, setup.size, enhanced, nullptr, false, nullptr, setup.inputs},
+                baselines[enhanced ? 1 : 0],
+                entry
             );
         }
     }
@@ -672,12 +705,12 @@ bool acquire_baselines(
         }
         // Every enhanced determinism, batched capture and discard check still runs with scrolling.
         if (std::find(modes.begin(), modes.end(), true) != modes.end()) {
-            prepare_baselines(setup.level, setup.size, {true}, baselines, false);
+            prepare_baselines(setup, {true}, baselines, false);
         }
         return openrac::test::failures() == 0;
     }
     if (chosen.prepare || chosen.baselines.empty()) {
-        prepare_baselines(setup.level, setup.size, modes, baselines);
+        prepare_baselines(setup, modes, baselines);
         // A failed comparison must not publish a new shared reference.
         if (openrac::test::failures() != 0) {
             return false;
@@ -717,6 +750,9 @@ int run_selection(const Selection& chosen, const char* executable_path) {
 
     const render::SceneSize size = test_size();
     const openrac::scene::LevelData level = render::make_level(size);
+    const auto fixture_inputs =
+        openrac::test::prepare_inputs(level, size, kWidth, kHeight, kFrames);
+    const RunSetup setup{level, size, false, nullptr, false, nullptr, &fixture_inputs};
     std::vector<bool> modes{false};
     openrac::gl::set_enhanced_rendering(true);
 
@@ -733,7 +769,7 @@ int run_selection(const Selection& chosen, const char* executable_path) {
         return 1;
     }
     Baselines baselines;
-    if (!acquire_baselines(chosen, {level, size, false}, modes, *executable, baselines)) {
+    if (!acquire_baselines(chosen, setup, modes, *executable, baselines)) {
         std::fprintf(stderr, "cannot obtain verified equivalence baselines\n");
         return 1;
     }
@@ -741,7 +777,7 @@ int run_selection(const Selection& chosen, const char* executable_path) {
         return openrac::test::result();
     }
 
-    compare_registry(chosen, {level, size, false}, modes, baselines);
+    compare_registry(chosen, setup, modes, baselines);
 
     // The validation layer, where it ran, saw nothing wrong.
     if (openrac::env::value(openrac::env::Var::VulkanValidation)) {
@@ -751,9 +787,104 @@ int run_selection(const Selection& chosen, const char* executable_path) {
     return openrac::test::result();
 }
 
+// The most pixels of a frame that differ from OpenGL's by more than `channel`.
+std::size_t worst_pixels_beyond(const Frames& a, const Frames& b, int channel) {
+    std::size_t worst = 0;
+    for (std::size_t frame = 0; frame < std::min(a.size(), b.size()); ++frame) {
+        std::size_t beyond = 0;
+        for (std::size_t at = 0; at + 4 <= std::min(a[frame].size(), b[frame].size()); at += 4) {
+            bool over = false;
+            for (std::size_t c = 0; c < 4; ++c) {
+                over |= std::abs(int{a[frame][at + c]} - int{b[frame][at + c]}) > channel;
+            }
+            beyond += over ? 1 : 0;
+        }
+        worst = std::max(worst, beyond);
+    }
+    return worst;
+}
+
+// --opengl-frames FILE writes the compatibility scenarios' frames as OpenGL draws them;
+// --against-opengl FILE draws them on this process's API (Metal) and requires the same bytes. Two
+// processes, since a process opens one API.
+int run_against_opengl(const std::filesystem::path& path, bool save, const char* executable_path) {
+    openrac::test::GlContext context;
+    std::string error;
+    if (!context.open(error, kWidth, kHeight)) {
+        std::printf("SKIP: no window: %s\n", error.c_str());
+        return openrac::test::kSkip;
+    }
+    const auto executable = openrac::test::baseline_executable_checksum(executable_path);
+    if (!executable) {
+        std::fprintf(stderr, "cannot identify the equivalence executable\n");
+        return 1;
+    }
+    const std::string identity =
+        std::format("opengl-frames/{}/{}/{}/{}", *executable, kWidth, kHeight, kFrames);
+    const render::SceneSize size = test_size();
+    const openrac::scene::LevelData level = render::make_level(size);
+    use_enhanced(false);
+
+    Baselines drawn;
+    for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
+        drawn[0][index] = draw_run({level, size, false}, render::kScenarios[index], error);
+        CHECK(drawn[0][index].size() == kFrames);
+    }
+    // A frame of the clear colour alone would match any API's.
+    CHECK(!drawn[0][0].empty() && drawn_share(drawn[0][0].front()) > 0.05);
+    if (save) {
+        CHECK(openrac::test::write_render_baseline(path, identity, flatten(drawn, {false})));
+        return openrac::test::result();
+    }
+    // Where OpenGL drew nothing (no window for it), there is nothing to compare with.
+    if (!std::filesystem::exists(path)) {
+        std::printf("SKIP: no OpenGL frames\n");
+        return openrac::test::kSkip;
+    }
+    const auto expected = flatten(drawn, {false});
+    const auto opengl = openrac::test::read_render_baseline(path, identity, expected.size());
+    if (opengl.empty()) {
+        std::fprintf(stderr, "missing or stale OpenGL frames; run render_equivalence_opengl\n");
+        return 1;
+    }
+    constexpr std::size_t kFrameBytes = std::size_t{kWidth} * kHeight * 4;
+    // Apple's OpenGL runs on Metal, so the two agree exactly. AMD's OpenGL (R9 M370X) filters
+    // textures in eighths of a level, moving channels by up to 5, and resolves a triangle edge
+    // through a pixel centre otherwise in up to 2 pixels a frame (tools/remote-mac.sh measures it).
+    const std::string_view renderer =
+        reinterpret_cast<const char*>(openrac::gl::glGetString(openrac::gl::GL_RENDERER));
+    const bool apple = renderer.starts_with("Apple");
+    for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
+        Frames theirs;
+        for (std::size_t frame = 0; frame < kFrames; ++frame) {
+            const auto at = opengl.begin()
+                            + static_cast<std::ptrdiff_t>((index * kFrames + frame) * kFrameBytes);
+            theirs.emplace_back(at, at + static_cast<std::ptrdiff_t>(kFrameBytes));
+        }
+        const Difference difference = compare(drawn[0][index], theirs);
+        std::printf(
+            "%s: %.4f of a frame's pixels differ from OpenGL's, by up to %d\n",
+            std::string(render::kScenarios[index].name).c_str(),
+            difference.worst_fraction,
+            difference.worst_channel
+        );
+        CHECK(difference.same_shape);
+        CHECK(
+            apple ? difference.worst_channel == 0
+                  : worst_pixels_beyond(drawn[0][index], theirs, 5) <= 2
+        );
+    }
+    return openrac::test::result();
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 3
+        && (std::string_view(argv[1]) == "--opengl-frames"
+            || std::string_view(argv[1]) == "--against-opengl")) {
+        return run_against_opengl(argv[2], std::string_view(argv[1]) == "--opengl-frames", argv[0]);
+    }
     const auto chosen = selection(argc, argv);
     if (!chosen) {
         std::fprintf(

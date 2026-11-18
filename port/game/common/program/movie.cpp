@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/precise_wait.h"
 #include "openrac/game_host.h"
@@ -23,6 +24,7 @@
 
 #if defined(OPENRAC_FRONTEND) && defined(OPENRAC_MOVIES)
 #include "frontend.h"
+#include "game/common/frontend/touch_controls.h"
 #include "media/movie.h"
 #include "platform/audio.h"
 #include "settings.h"
@@ -38,7 +40,13 @@ namespace openrac::program {
  * been handed over less what the device still holds), so picture and sound cannot drift apart.
  * When the video ends (or is skipped) the last picture stays up for the console's FadeToBlack(4).
  */
-int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
+int play_movie(
+    uint32_t lsn,
+    uint32_t bytes,
+    int channel,
+    int start_skips,
+    void (*overlay)(const std::uint8_t* rgba, int width, int height)
+) {
     if (openrac_game_map != nullptr && openrac_game_map->skip_movies) {
         log::info("map {}: disc movie at sector {} omitted", openrac_game_map->name, lsn);
         return 1;
@@ -121,6 +129,26 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         g_frame++;
     };
 
+    // The touch pad shows its skip button while Start skips the movie.
+    struct TouchSkip {
+        explicit TouchSkip(bool on) { frontend::touch_controls::set_movie(on); }
+
+        ~TouchSkip() { frontend::touch_controls::set_movie(false); }
+    } touch_skip(start_skips != 0);
+
+    // A movie the game draws itself fills the window (frontend::set_movie_playing).
+    struct MoviePlaying {
+        explicit MoviePlaying(bool on) : on(on) { frontend::set_movie_playing(on); }
+
+        ~MoviePlaying() {
+            if (on) {
+                frontend::set_movie_playing(false);
+            }
+        }
+
+        bool on;
+    } movie_playing(overlay != nullptr);
+
     for (std::uint64_t blank = 0;; ++blank) {
         if (output) {
             output->set_gain(settings::output_gain());
@@ -148,9 +176,21 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         if (shown) {
             media::frame_to_rgba(*shown, rgba);
 
-            if (!frontend::show_picture(rgba.data(), int(shown->width), int(shown->height), 0.0f)) {
+            if (overlay != nullptr) {
+                overlay(rgba.data(), int(shown->width), int(shown->height));
+            } else if (!frontend::show_picture(
+                           rgba.data(), int(shown->width), int(shown->height), 0.0f
+                       )) {
                 leave();
             }
+        }
+
+        // The list the game's player sends each blank (the picture and what it draws over it), as
+        // a tick of the game: vsync draws it, reads the window and paces the blank.
+        if (overlay != nullptr && shown) {
+            vsync();
+        } else if (overlay != nullptr) {
+            pace();
         }
 
         // Start skips when pressed during the movie: what is held as it starts is not a press.
@@ -167,16 +207,23 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         previous = buttons;
 
         if (start_skips && start_now && !start_before) {
+            crash::breadcrumb(crash::BreadcrumbThread::Main, "movie skip requested");
             log::info("movie at sector {}: Start pressed (pad {:#06x})", lsn, buttons);
             skipped = 1;
             break;
         }
 
-        pace();
+        if (overlay == nullptr) {
+            pace();  // with an overlay, vsync (or the pace above) paced the blank
+        }
     }
 
-    // FadeToBlack(4) over the last picture, then its closing black blank.
-    for (int step = 0; step <= 4 && shown; ++step) {
+    // FadeToBlack(4) over the last picture, then its closing black blank. A game that draws the
+    // picture itself is left on its last frame, which the game's own transition then follows.
+    if (shown) {
+        crash::breadcrumb(crash::BreadcrumbThread::Main, "movie fade-out started");
+    }
+    for (int step = 0; step <= 4 && shown && overlay == nullptr; ++step) {
         frontend::show_picture(
             rgba.data(),
             int(shown->width),
@@ -190,6 +237,7 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         output->pause(true);
     }
 
+    crash::breadcrumb(crash::BreadcrumbThread::Main, "movie returning to game");
     log::info("movie at sector {}: {}", lsn, skipped ? "skipped" : "played");
     return skipped;
 #else
@@ -197,6 +245,7 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
     (void)bytes;
     (void)channel;
     (void)start_skips;
+    (void)overlay;
     return 0;
 #endif
 }

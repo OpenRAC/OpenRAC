@@ -14,6 +14,7 @@
 #include <iterator>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <SDL3/SDL.h>
 
@@ -25,7 +26,7 @@
 #include "frontend.h"
 #include "mods.h"
 #include "options_menu.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "settings.h"
 
 #pragma clang diagnostic error "-Wswitch"
@@ -39,12 +40,20 @@ using menu::Id;
 // What an entry shows now.
 struct Item {
     bool shown = true;
+    bool enabled = true;
     std::string label;      // empty: the catalog's
     bool on = false;        // a switch
+    bool selected = false;  // an action whose settings match
     std::string value;      // a choice's value, a note's line
     bool can_lower = true;  // a choice: whether it can be moved back and on
     bool can_raise = true;
 };
+
+settings::EnhancedPreset enhanced_preset(Id id) {
+    return static_cast<settings::EnhancedPreset>(
+        static_cast<int>(id) - static_cast<int>(Id::EnhancedLow)
+    );
+}
 
 constexpr bool kEnhancedBuilt =
 #if defined(OPENRAC_ENHANCED_RENDERING) && OPENRAC_ENHANCED_RENDERING
@@ -113,12 +122,51 @@ int step_index(const std::array<int, N>& steps, int value) {
     return at;
 }
 
+// A slider's setting and its range in percent.
+struct Slider {
+    int* value;
+    int minimum;
+    int maximum;
+    int step;
+};
+
+// The HDR look's slider step. The settings file takes any percent.
+constexpr int kHdrLookStep = 5;
+
+Slider slider_of(Id id) {
+    settings::Settings& set = settings::get();
+    switch (id) {
+        case Id::HdrHighlights:
+            return {&set.hdr_highlights, 0, 100, kHdrLookStep};
+        case Id::HdrSdrHue:
+            return {&set.hdr_sdr_hue, 0, 100, kHdrLookStep};
+        case Id::HdrSdrChroma:
+            return {&set.hdr_sdr_chroma, 0, 100, kHdrLookStep};
+        case Id::HdrBlowout:
+            return {&set.hdr_blowout, 0, 100, kHdrLookStep};
+        case Id::GameplayFov:
+        default:
+            return {
+                &set.gameplay_fov,
+                settings::kMinGameplayFov,
+                settings::kMaxGameplayFov,
+                settings::kGameplayFovStep
+            };
+    }
+}
+
 int white_index() {
     return step_index(kWhites, settings::get().hdr_paper_white);
 }
 
 int peak_index() {
     return step_index(kPeaks, settings::get().hdr_peak);
+}
+
+constexpr auto kSizes = std::to_array(settings::kMenuSizes);
+
+int size_index() {
+    return step_index(kSizes, settings::get().menu_size);
 }
 
 // An options row (options_menu.h) as a choice.
@@ -166,6 +214,14 @@ Item item(Id id, std::uint8_t where) {
             return row_choice(kDisplayMode);
         case Id::Monitor:
             return row_choice(kMonitor);
+        case Id::MenuSize: {
+            const int at = size_index();
+            it.value =
+                set.menu_size == 100 ? std::string("Auto") : std::format("{}%", set.menu_size);
+            it.can_lower = at > 0;
+            it.can_raise = at < static_cast<int>(kSizes.size()) - 1;
+            return it;
+        }
         case Id::Picture:
             it = row_choice(kAspect);
             if (where == menu::kTouch && set.aspect == settings::Aspect::Window) {
@@ -181,11 +237,20 @@ Item item(Id id, std::uint8_t where) {
         case Id::RenderScale:
             return row_choice(kRenderScale);
         case Id::Msaa:
-            return row_choice(kMsaa);
+            it = row_choice(kMsaa);
+            // The upscaler (or motion blur) draws one sample a pixel and keeps the choice for later.
+            if (set.msaa > 1 && enhanced_on() && enhanced::Fsr3::available()
+                && (set.temporal_quality != renderer::TemporalQuality::Off
+                    || (set.motion_blur && set.motion_blur_strength > 0.0f))) {
+                it.value += " (upscaler)";
+            }
+            return it;
         case Id::Anisotropy:
             return row_choice(kAnisotropy);
-        case Id::SceneryDetail:
-            return row_choice(kSceneryDetail);
+        case Id::DrawDistance:
+            return row_choice(kDrawDistance);
+        case Id::ActiveDistance:
+            return row_choice(kActiveDistance);
         case Id::FrameRate:
             return row_choice(kFrameRate);
         case Id::FrameCap:
@@ -220,6 +285,12 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = at < static_cast<int>(kPeaks.size()) - 1;
             return it;
         }
+        case Id::HdrHighlights:
+        case Id::HdrSdrHue:
+        case Id::HdrSdrChroma:
+        case Id::HdrBlowout:
+            it.shown = set.hdr != hdr::Mode::Off;
+            return it;
         case Id::HdrStatus:
             it.shown = set.hdr != hdr::Mode::Off;
             it.value = frontend::hdr_status();
@@ -246,47 +317,43 @@ Item item(Id id, std::uint8_t where) {
             it.shown = enhanced_ready();
             it.on = set.enhanced_graphics;
             return it;
-        case Id::ModernShadows:
-            it.shown = enhanced_on();
-            it.on = set.enhanced_shadows;
-            return it;
-        case Id::ShadowQuality: {
+        case Id::ShadowFilter: {
             it.shown = enhanced_on() && set.enhanced_shadows;
-            const int quality = static_cast<int>(set.shadow_quality);
-            it.value = renderer::kShadowQualityNames[quality];
-            it.can_lower = quality > 0;
-            it.can_raise = quality < static_cast<int>(renderer::ShadowQuality::Count) - 1;
+            const int filter = static_cast<int>(set.shadow_filter);
+            it.value = renderer::kShadowFilterNames[filter];
+            it.can_lower = filter > 0;
+            it.can_raise = filter < static_cast<int>(renderer::ShadowFilter::Count) - 1;
             return it;
         }
-        case Id::RimLight:
+        case Id::EnhancedLow:
+        case Id::EnhancedMedium:
+        case Id::EnhancedHigh: {
+            const auto preset = enhanced_preset(id);
             it.shown = enhanced_on();
-            it.on = set.rim_light;
+            it.selected = set.enhanced_preset() == preset;
             return it;
-        case Id::RimShadowLift:
-            it.shown = enhanced_on() && set.rim_light;
-            it.on = set.rim_shadow_lift;
-            return it;
-        case Id::BounceStrength:
+        }
+        case Id::ShadowQuality: {
             it.shown = enhanced_on();
-            it.value = std::format("{:g}x", set.probe_gi_multiplier);
-            it.can_lower = set.probe_gi_multiplier > 0.05f;
-            it.can_raise = set.probe_gi_multiplier < 4.95f;
+            const int quality = set.shadow_quality_choice();
+            it.value = quality == 0 ? "Off" : renderer::kShadowQualityNames[quality - 1];
+            it.can_lower = quality > 0;
+            it.can_raise = quality < static_cast<int>(renderer::ShadowQuality::Count);
             return it;
-        case Id::AmbientOcclusion:
-            it.shown = enhanced_on();
-            it.on = set.gtao;
-            return it;
+        }
         case Id::OcclusionQuality: {
-            it.shown = enhanced_on() && set.gtao;
-            const bool quality = set.gtao_settings.quality == renderer::GtaoQuality::Quality;
-            it.value = quality ? "Quality" : "Performance";
-            it.can_lower = quality;
-            it.can_raise = !quality;
+            it.shown = enhanced_on();
+            const int quality = set.occlusion_quality_choice();
+            constexpr const char* names[] = {"Off", "Low", "Performance", "Quality"};
+            it.value = names[quality];
+            it.can_lower = quality > 0;
+            it.can_raise = quality < static_cast<int>(renderer::GtaoQuality::Quality) + 1;
             return it;
         }
         // The hierarchy is relevant only while enhanced ambient occlusion is enabled.
         case Id::OcclusionHiZ:
-            it.shown = enhanced_on() && set.gtao;
+            it.shown = enhanced_on();
+            it.enabled = set.gtao;
             it.on = set.gtao_settings.hi_z;
             return it;
         case Id::TextureUpscaling: {
@@ -295,6 +362,15 @@ Item item(Id id, std::uint8_t where) {
             it.value = settings::name(set.texture_filter);
             it.can_lower = filter > 0;
             it.can_raise = filter < static_cast<int>(renderer::TextureFilter::Count) - 1;
+            return it;
+        }
+        case Id::EffectsDetail: {
+            it.shown = enhanced_on();
+            constexpr const char* kNames[] = {"Low", "Medium", "High"};
+            const int detail = static_cast<int>(set.effects_detail);
+            it.value = kNames[detail];
+            it.can_lower = detail > 0;
+            it.can_raise = detail < 2;
             return it;
         }
         case Id::Upscaling: {
@@ -311,8 +387,8 @@ Item item(Id id, std::uint8_t where) {
             return it;
         }
         case Id::Sharpening:
-            it.shown = enhanced_on() && enhanced::Fsr3::available()
-                       && set.temporal_quality != renderer::TemporalQuality::Off;
+            it.shown = enhanced_on() && enhanced::Fsr3::available();
+            it.enabled = set.temporal_quality != renderer::TemporalQuality::Off;
             it.value = percent(set.temporal_sharpness);
             it.can_lower = set.temporal_sharpness > 0.025f;
             it.can_raise = set.temporal_sharpness < 0.975f;
@@ -322,6 +398,14 @@ Item item(Id id, std::uint8_t where) {
             it.shown = enhanced_on() && enhanced::Fsr3::available();
             it.on = set.motion_blur;
             return it;
+        case Id::MotionBlurQuality: {
+            it.shown = enhanced_on() && enhanced::Fsr3::available() && set.motion_blur;
+            const bool quality = set.motion_blur_settings.quality;
+            it.value = quality ? "Quality" : "Performance";
+            it.can_lower = quality;
+            it.can_raise = !quality;
+            return it;
+        }
         case Id::ColorCorrection:
             it.shown = enhanced_on();
             it.on = set.agx_preview;
@@ -341,6 +425,10 @@ Item item(Id id, std::uint8_t where) {
         case Id::EnhancedAdvanced:
             it.shown = gl::enhanced_rendering_available();
             it.on = s.enhanced_settings;
+            return it;
+        case Id::EnhancedMaterials:
+            it.shown = gl::enhanced_rendering_available();
+            it.on = s.material_settings;
             return it;
 
         // ---- Game ----
@@ -370,6 +458,10 @@ Item item(Id id, std::uint8_t where) {
         case Id::TriggerPoint:
         case Id::FaceButtons:
         case Id::PadBackground:
+        case Id::RumbleStrength:
+        case Id::RumbleStyle:
+        case Id::RumbleTriggers:
+        case Id::RumblePhone:
         case Id::ConnectedControllers:
         case Id::PlayersReset:
         case Id::PlayerOne:
@@ -386,6 +478,9 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = r.can_raise;
             return it;
         }
+        case Id::TouchActionButtons:
+            it.on = set.touch_style == 0;
+            return it;
         case Id::TouchButtonSize:
             it.value = std::format("{}%", set.touch_scale);
             it.can_lower = set.touch_scale > settings::kTouchScales[0];
@@ -412,6 +507,10 @@ Item item(Id id, std::uint8_t where) {
         case Id::ObjectViewer:
             it.shown = s.developer;
             it.on = s.object_viewer.open;
+            return it;
+        case Id::MeatProxyReview:
+            it.shown = s.developer;
+            it.on = s.meat_proxy_review;
             return it;
         case Id::LevelSelect:
             it.shown = s.developer;
@@ -441,7 +540,8 @@ Item item(Id id, std::uint8_t where) {
             it.value = capture_length_name();
             return it;
         case Id::RecordSweep:
-            it.shown = !capture_pending();
+            // It measures the parts of Enhanced graphics, so it is offered only with them on.
+            it.shown = !capture_pending() && enhanced_on();
             it.label = std::format("Graphics sweep ({:.0f} s)", settings_sweep_seconds());
             return it;
         case Id::RecordFolder:
@@ -476,10 +576,11 @@ Item item(Id id, std::uint8_t where) {
         case Id::FreecamExit:
             return it;
         case Id::FreecamHelp:
-            it.value = menu::entry(id).help;
+            // The keys are drawn as a list (freecam_help); the words are only for culling.
+            it.value = "";
             if (s.camera_tools.mode == CameraDebugMode::CullingInspection) {
-                it.value += " Yellow: culling frustum. Shadow maps: red, green, blue, purple (near "
-                            "to far). Objects not submitted by the game cannot be revealed here.";
+                it.value = "Yellow: culling frustum. Shadow maps: red, green, blue, purple (near "
+                           "to far). Objects not submitted by the game cannot be revealed here.";
             }
             return it;
 
@@ -507,6 +608,12 @@ bool act(Id id, int by) {
         case Id::DisplayMode:
             change_setting(kDisplayMode, by);
             return false;
+        case Id::MenuSize:
+            set.menu_size = kSizes[static_cast<std::size_t>(
+                std::clamp(size_index() + by, 0, static_cast<int>(kSizes.size()) - 1)
+            )];
+            changed();
+            return false;
         case Id::Monitor:
             change_setting(kMonitor, by);
             return false;
@@ -527,8 +634,11 @@ bool act(Id id, int by) {
         case Id::Anisotropy:
             change_setting(kAnisotropy, by);
             return false;
-        case Id::SceneryDetail:
-            change_setting(kSceneryDetail, by);
+        case Id::DrawDistance:
+            change_setting(kDrawDistance, by);
+            return false;
+        case Id::ActiveDistance:
+            change_setting(kActiveDistance, by);
             return false;
         case Id::FrameRate:
             change_setting(kFrameRate, by);
@@ -544,8 +654,8 @@ bool act(Id id, int by) {
             return false;
         case Id::Hdr: {
             // From Off, it counts from the next start (frontend's apply_hdr says so).
-            const int mode = static_cast<int>(set.hdr);
-            set.hdr = static_cast<hdr::Mode>((mode + by + 3) % 3);
+            const int count = static_cast<int>(hdr::Mode::Count);
+            set.hdr = static_cast<hdr::Mode>((static_cast<int>(set.hdr) + by + count) % count);
             changed();
             return false;
         }
@@ -561,6 +671,11 @@ bool act(Id id, int by) {
             )];
             changed();
             return false;
+        case Id::HdrHighlights:
+        case Id::HdrSdrHue:
+        case Id::HdrSdrChroma:
+        case Id::HdrBlowout:
+            return false;  // sliders (draw_entry)
         case Id::HdrStatus:
             return false;
         case Id::LowLatency:
@@ -581,43 +696,46 @@ bool act(Id id, int by) {
             set.enhanced_graphics = !set.enhanced_graphics;
             changed();
             return false;
-        case Id::ModernShadows:
-            set.enhanced_shadows = !set.enhanced_shadows;
-            changed();
-            return false;
-        case Id::ShadowQuality: {
-            const int last = static_cast<int>(renderer::ShadowQuality::Count) - 1;
-            set.shadow_quality = static_cast<renderer::ShadowQuality>(
-                std::clamp(static_cast<int>(set.shadow_quality) + by, 0, last)
+        case Id::ShadowFilter: {
+            const int last = static_cast<int>(renderer::ShadowFilter::Count) - 1;
+            set.shadow_filter = static_cast<renderer::ShadowFilter>(
+                std::clamp(static_cast<int>(set.shadow_filter) + by, 0, last)
             );
             changed();
             return false;
         }
-        case Id::RimLight:
-            set.rim_light = !set.rim_light;
+        case Id::EnhancedLow:
+        case Id::EnhancedMedium:
+        case Id::EnhancedHigh: {
+            set.apply_enhanced_preset(enhanced_preset(id));
             changed();
             return false;
-        case Id::RimShadowLift:
-            set.rim_shadow_lift = !set.rim_shadow_lift;
+        }
+        case Id::ShadowQuality: {
+            const int last = static_cast<int>(renderer::ShadowQuality::Count);
+            set.set_shadow_quality_choice(std::clamp(set.shadow_quality_choice() + by, 0, last));
             changed();
             return false;
-        case Id::BounceStrength:
-            set.probe_gi_multiplier = stepped(set.probe_gi_multiplier, 0.25f, by, 0.0f, 5.0f);
-            changed();
-            return false;
-        case Id::AmbientOcclusion:
-            set.gtao = !set.gtao;
-            changed();
-            return false;
+        }
         case Id::OcclusionQuality:
-            set.gtao_settings.quality = set.gtao_settings.quality == renderer::GtaoQuality::Quality
-                                            ? renderer::GtaoQuality::Performance
-                                            : renderer::GtaoQuality::Quality;
+            set.set_occlusion_quality_choice(
+                std::clamp(
+                    set.occlusion_quality_choice() + by,
+                    0,
+                    static_cast<int>(renderer::GtaoQuality::Quality) + 1
+                )
+            );
             changed();
             return false;
         // Persist the hierarchy choice with the remaining ambient-occlusion options.
         case Id::OcclusionHiZ:
             set.gtao_settings.hi_z = !set.gtao_settings.hi_z;
+            changed();
+            return false;
+        case Id::EffectsDetail:
+            set.effects_detail = static_cast<renderer::render_opt::EffectsDetail>(
+                std::clamp(static_cast<int>(set.effects_detail) + by, 0, 2)
+            );
             changed();
             return false;
         case Id::TextureUpscaling: {
@@ -644,6 +762,10 @@ bool act(Id id, int by) {
             set.motion_blur = !set.motion_blur;
             changed();
             return false;
+        case Id::MotionBlurQuality:
+            set.motion_blur_settings.quality = !set.motion_blur_settings.quality;
+            changed();
+            return false;
         case Id::ColorCorrection:
             set.agx_preview = !set.agx_preview;
             changed();
@@ -663,6 +785,9 @@ bool act(Id id, int by) {
         case Id::EnhancedAdvanced:
             s.enhanced_settings = !s.enhanced_settings;
             return s.enhanced_settings;
+        case Id::EnhancedMaterials:
+            s.material_settings = !s.material_settings;
+            return s.material_settings;
 
         // ---- Game ----
         case Id::Volume:
@@ -689,6 +814,10 @@ bool act(Id id, int by) {
         case Id::TriggerPoint:
         case Id::FaceButtons:
         case Id::PadBackground:
+        case Id::RumbleStrength:
+        case Id::RumbleStyle:
+        case Id::RumbleTriggers:
+        case Id::RumblePhone:
         case Id::ConnectedControllers:
         case Id::PlayersReset:
         case Id::PlayerOne:
@@ -696,6 +825,10 @@ bool act(Id id, int by) {
         case Id::MenuOpen:
         case Id::ControlsReset:
             controls_act(id, by);
+            return false;
+        case Id::TouchActionButtons:
+            set.touch_style = set.touch_style == 0 ? 1 : 0;
+            settings::save();
             return false;
         case Id::TouchButtonSize:
             set.touch_scale = settings::step_listed(settings::kTouchScales, set.touch_scale, by);
@@ -723,6 +856,9 @@ bool act(Id id, int by) {
                 set_picker_enabled(true);
             }
             return false;
+        case Id::MeatProxyReview:
+            s.meat_proxy_review = !s.meat_proxy_review;
+            return s.meat_proxy_review;
         case Id::LevelSelect:
             press(SDLK_F1);
             return true;
@@ -835,6 +971,78 @@ std::string entry_label(Id id, std::uint8_t where) {
     return it.label.empty() ? std::string(menu::entry(id).label) : it.label;
 }
 
+// ---- The game's own Video pages ----
+
+namespace {
+
+// The kind of screen the game's pages are on, for the entries' Where.
+std::uint8_t game_screen() {
+    return drawer_possible() ? menu::kTouch : menu::kDesktop;
+}
+
+}  // namespace
+
+std::vector<Id> game_page_entries() {
+    std::vector<Id> ids;
+    const std::uint8_t where = game_screen();
+    for (const menu::Entry& e : menu::entries()) {
+        if ((e.where & menu::kGamePage) != 0 && menu::offered(e, where)
+            && item(e.id, where).shown) {
+            ids.push_back(e.id);
+        }
+    }
+    return ids;
+}
+
+std::string game_page_label(Id id) {
+    // The menu's switch says what it does; the game's page names the setting.
+    if (id == Id::EnhancedGraphics) {
+        return "Enhanced graphics";
+    }
+    return entry_label(id, game_screen());
+}
+
+std::string game_page_value(Id id) {
+    const menu::Entry& e = menu::entry(id);
+    const Item it = item(id, game_screen());
+    switch (e.kind) {
+        case menu::Kind::Switch:
+            return it.on ? "On" : "Off";
+        case menu::Kind::Slider: {
+            // As a factor: the game's font draws a pad button for the percent sign.
+            const int value = *slider_of(id).value;
+            if (id == Id::GameplayFov && value == settings::kDefaultGameplayFov) {
+                return "Original";
+            }
+            return value % 100 == 0 ? std::format("{}x", value / 100)
+                                    : std::format("{:.2f}x", static_cast<float>(value) / 100.0f);
+        }
+        default:
+            return it.value;
+    }
+}
+
+void game_page_step(Id id, int by) {
+    const menu::Entry& e = menu::entry(id);
+    if (e.kind == menu::Kind::Slider) {
+        const Slider slider = slider_of(id);
+        const int next =
+            std::clamp(*slider.value + by * slider.step, slider.minimum, slider.maximum);
+        if (next != *slider.value) {
+            *slider.value = next;
+            changed();
+        }
+        return;
+    }
+    if (e.kind == menu::Kind::Choice) {
+        const Item it = item(id, game_screen());
+        if ((by < 0 && !it.can_lower) || (by > 0 && !it.can_raise)) {
+            return;
+        }
+    }
+    act(id, by);
+}
+
 void quit_game() {
     // As the window's close button: the frame loop ends the program normally, so the launcher
     // sees an ordinary exit.
@@ -862,6 +1070,42 @@ void quit_confirm_rows(bool note) {
     }
 }
 
+namespace {
+
+// The freecam's keys, for the device in hand: the controller's (on Android always, it has no
+// keys of its own) or the keyboard and mouse.
+void freecam_help(std::uint8_t where) {
+    if (where == menu::kTouch || s.menu_motion.pad) {
+        const SDL_GamepadType type = pad_type();
+        const bool sony = type == SDL_GAMEPAD_TYPE_PS3 || type == SDL_GAMEPAD_TYPE_PS4
+                          || type == SDL_GAMEPAD_TYPE_PS5;
+        const bool nintendo = type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO
+                              || type == SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR;
+        const std::string l2 = sony ? "L2" : nintendo ? "ZL" : "LT";
+        const std::string r2 = sony ? "R2" : nintendo ? "ZR" : "RT";
+        const std::string l3 = sony ? "L3" : "LS";
+        const std::string r3 = sony ? "R3" : "RS";
+        menu_key_rows({
+            {{l3}, "Move"},
+            {{r3}, "Look"},
+            {{r2, l2}, "Up, down"},
+            {{pad_name(type, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER),
+              pad_name(type, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER)},
+             "Faster, slower"},
+            {{l3, r3}, s.developer ? "Both: freecam on and off" : "Both: freecam off"},
+        });
+    } else {
+        menu_key_rows({
+            {{"W", "A", "S", "D"}, "Move"},
+            {{"Alt"}, "Hold to look (or RMB)"},
+            {{"E", "Q"}, "Up, down"},
+            {{"Shift", "Ctrl"}, "Faster, slower"},
+        });
+    }
+}
+
+}  // namespace
+
 void draw_entry(Id id, std::uint8_t where) {
     const menu::Entry& e = menu::entry(id);
     if (!menu::offered(e, where)) {
@@ -879,23 +1123,23 @@ void draw_entry(Id id, std::uint8_t where) {
     bool close = false;
     switch (e.kind) {
         case menu::Kind::Switch:
-            if (menu_switch(label.c_str(), it.on)) {
+            if (menu_switch(label.c_str(), it.on, it.enabled)) {
                 close = act(id, 1);
             }
             break;
         case menu::Kind::Choice:
-            if (const int by = menu_choice(label.c_str(), it.value, it.can_lower, it.can_raise)) {
+            // The upscaler name can change as it starts. Keep focus tied to the catalog entry.
+            if (const int by = menu_choice(
+                    label.c_str(), it.value, it.can_lower, it.can_raise, it.enabled, e.label
+                )) {
                 close = act(id, by);
             }
             break;
         case menu::Kind::Slider: {
-            int& value = settings::get().gameplay_fov;
+            const Slider slider = slider_of(id);
+            int& value = *slider.value;
             const int next = menu_percent_slider(
-                label.c_str(),
-                value,
-                settings::kMinGameplayFov,
-                settings::kMaxGameplayFov,
-                settings::kGameplayFovStep
+                label.c_str(), value, slider.minimum, slider.maximum, slider.step
             );
             // Apply live and save once the mouse drag ends, or immediately for a discrete step.
             const bool edited = next != value;
@@ -908,12 +1152,20 @@ void draw_entry(Id id, std::uint8_t where) {
             }
             break;
         }
-        case menu::Kind::Action:
-            if (menu_row(label.c_str(), id == Id::Quit ? ui().err : ui().text)) {
+        case menu::Kind::Action: {
+            const auto ink = it.selected ? ui().gold : id == Id::Quit ? ui().err : ui().text;
+            if (menu_row(label.c_str(), ink)) {
                 close = act(id, 1);
             }
             break;
+        }
         case menu::Kind::Note:
+            if (id == Id::FreecamHelp) {
+                freecam_help(where);
+                if (it.value.empty()) {
+                    return;
+                }
+            }
             menu_note(it.value.c_str());
             return;
         case menu::Kind::Fixes:
@@ -993,7 +1245,8 @@ std::string mod_menu_title(int index) {
 }
 
 // A mod's menu: its items without a group on one card, then a heading and a card for each group,
-// in the order they first come. A press queues the item's action for the mod.
+// in the order they first come. A press queues the item's action for the mod; a switch is turned
+// over and a choice moved at once (1.19), the game paused as it is, and queue it too.
 void draw_mod_menu(int index) {
     const auto& menus = mods::developer_menus();
     if (index < 0 || index >= static_cast<int>(menus.size())) {
@@ -1004,8 +1257,28 @@ void draw_mod_menu(int index) {
         const std::string label =
             item.shortcut.empty() ? item.label : std::format("{}  ({})", item.label, item.shortcut);
         ImGui::PushID(&item);
-        if (menu_row(label.c_str())) {
-            mods::queue_developer_menu_action(menu.mod, item.action);
+        switch (item.kind) {
+            case mods::MenuItemKind::Switch:
+                if (menu_switch(label.c_str(), item.value != 0)) {
+                    mods::set_developer_menu_value(menu.mod, item.action, item.value != 0 ? 0 : 1);
+                }
+                break;
+            case mods::MenuItemKind::Choice: {
+                const int last = static_cast<int>(item.values.size()) - 1;
+                const int at = std::clamp(item.value, 0, last);
+                if (const int by = menu_choice(
+                        label.c_str(), item.values[static_cast<std::size_t>(at)], at > 0, at < last
+                    )) {
+                    // menu_choice moves no value past either end.
+                    mods::set_developer_menu_value(menu.mod, item.action, at + by);
+                }
+                break;
+            }
+            case mods::MenuItemKind::Press:
+                if (menu_row(label.c_str())) {
+                    mods::queue_developer_menu_action(menu.mod, item.action);
+                }
+                break;
         }
         ImGui::PopID();
         if (ImGui::IsItemHovered() || ImGui::IsItemFocused()) {

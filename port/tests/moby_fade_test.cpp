@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <random>
+#include <vector>
 
+#include "game/common/moby_proc.h"
 #include "game/common/profile.h"
 #include "game/rac1/game_state.h"
 #include "openrac/ps2float.h"
@@ -162,15 +166,87 @@ void the_last_16_units() {
         {9286.5f * 1024.0f, 5217.6f * 1024.0f, 235.1f * 1024.0f, 1.08f * 1024.0f};
     place(moby, far_side, 64);
     CHECK(!game::rac1::moby_distance_fade(moby, state));
-    // No sphere yet: drawn whole.
+    // A sphere never built (all zero) is a point at the origin, as MobyProc reads it: Hrugis
+    // Cloud's turret arms (class 0x134F, draw distance 0x1FF), seen from the start of the level.
+    state.camera_position = {425.0f, 470.0f, 503.0f};
+    state.forward = {1.0f, 0.0f, 0.0f};
+    state.moby_view = host::GameState::MobyView{{1.0f, 0.0f, 0.0f}, 960, 0.1f * 1024.0f};
     const float none[4] = {};
-    place(moby, none, 64);
-    CHECK(game::rac1::moby_distance_fade(moby, state) == std::uint8_t{0x80});
+    place(moby, none, 0x1FF);
+    CHECK(!asmc_moby_proc(moby, state.camera_position, *state.moby_view));
+    CHECK(!game::rac1::moby_distance_fade(moby, state));
+    // Looking back at the origin, it is past the draw distance.
+    state.forward = {-0.53f, -0.58f, -0.62f};
+    state.moby_view->depth_axis = state.forward;
+    CHECK(!asmc_moby_proc(moby, state.camera_position, *state.moby_view));
+    CHECK(!game::rac1::moby_distance_fade(moby, state));
+}
+
+// Captures exactly one bobbing emitter for the glow-only pickup while it is active.
+void test_nanotech_orb_without_mesh(const game::rac1::GameAddresses& addresses) {
+    std::vector<std::uint8_t> ram(0x200000);
+    const auto write = [&](std::uint32_t address, auto value) {
+        std::memcpy(ram.data() + address, &value, sizeof(value));
+    };
+    constexpr std::uint32_t orb = 0x1000;
+    constexpr std::uint32_t vars = 0x1100;
+    write(addresses.moby_first, orb);
+    write(addresses.moby_end, orb + 0x100);
+    write(orb + 0x10, renderer::Vec3{10.0f, 20.0f, 30.0f});
+    write(orb + 0x78, vars);
+    write(orb + 0xA6, std::uint16_t{806});
+    write(vars, 0.25f);
+
+    for (const auto state : std::array<std::uint8_t, 5>{0, 1, 2, 3, 0xFE}) {
+        write(orb + 0x20, state);
+        const auto captured = game::rac1::read_game_state(ram, addresses);
+        CHECK(captured.mobys.empty());
+        if (state == 1 || state == 2) {
+            CHECK(captured.nanotech_orbs == (std::vector<renderer::Vec3>{{10, 20, 30.75f}}));
+        } else {
+            CHECK(captured.nanotech_orbs.empty());
+        }
+    }
+    write(orb + 0x20, std::uint8_t{1});
+    write(vars, -0.25f);
+    CHECK(
+        game::rac1::read_game_state(ram, addresses).nanotech_orbs
+        == (std::vector<renderer::Vec3>{{10, 20, 30.25f}})
+    );
 }
 }  // namespace
+
+// The freecam (issue #366): a moby behind the game's camera is kept by its draw distance in any
+// direction; past it, with no draw distance, or with a sphere that is not a number, it is not.
+void the_free_camera_reaches_behind() {
+    host::GameState state;
+    state.camera_position = {100.0f, 0.0f, 0.0f};
+    state.forward = {1.0f, 0.0f, 0.0f};
+    state.moby_view = host::GameState::MobyView{{1.0f, 0.0f, 0.0f}, 0x7FFF, 0.1f * 1024.0f};
+    std::uint8_t moby[0x100] = {};
+    const auto at = [&](float x, float r, std::int16_t dd) {
+        const float sphere[4] = {x * 1024.0f, 0.0f, 0.0f, r * 1024.0f};
+        place(moby, sphere, dd);
+        return host::moby_free_camera_reach(moby, state);
+    };
+    CHECK(at(80.0f, 1.0f, 64) == std::uint8_t{0x80});     // 20 units behind: kept ...
+    CHECK(!game::rac1::moby_distance_fade(moby, state));  // ... where the game's view culls it
+    CHECK(!at(30.0f, 1.0f, 64));                          // 69 units behind, past its 64
+    CHECK(!at(80.0f, 1.0f, 0));                           // no draw distance
+    state.moby_view->draw_cap = 16;                       // the cap still wins
+    CHECK(!at(80.0f, 1.0f, 64));
+    state.moby_view->scale = 0.0f;  // Unlimited
+    CHECK(at(-2000.0f, 1.0f, 64) == std::uint8_t{0x80});
+    CHECK(!at(-9000.0f, 1.0f, 64));  // Pokitaru's class 1161, far out
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    CHECK(!at(nan, 1.0f, 64));
+}
 
 int main() {
     matches_the_asm();
     the_last_16_units();
+    the_free_camera_reaches_behind();
+    test_nanotech_orb_without_mesh(game::rac1::kRac1PalLevels[0]);
+    test_nanotech_orb_without_mesh(game::rac1::kRac1NtscLevels[0]);
     return openrac::test::result();
 }

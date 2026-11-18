@@ -14,6 +14,12 @@
 include_guard(GLOBAL)
 include(Dependencies)
 
+if(NOT OPENRAC_IOS AND NOT WIN32)
+  openrac_add_test(mobile_lifecycle SOURCES tests/mobile_lifecycle_test.cpp platform/pump.cpp
+    INCLUDES . DEFINITIONS OPENRAC_IOS=1 LIBS openrac_common openrac_sdl3)
+  set_tests_properties(mobile_lifecycle PROPERTIES TIMEOUT 10)
+endif()
+
 # GLSL sources become C++ string constants in <name>_shaders.h / .cpp under
 # the build directory: namespace <namespace>::shaders, one constant per file,
 # named after it (direct.frag -> direct_frag). Shaders are part of the
@@ -54,11 +60,14 @@ add_library(openrac_platform STATIC
   platform/controls_file.cpp
   platform/gpu_driver.cpp
   platform/input.cpp
+  platform/menu_chord.cpp
   platform/pad.cpp
   platform/players.cpp
   platform/performance_hint.cpp
   platform/pump.cpp
+  platform/rumble.cpp
   platform/show_folder.cpp
+  platform/touch_actions.cpp
   platform/touch_pad.cpp
   platform/window.cpp
 )
@@ -75,6 +84,10 @@ openrac_add_test(controls SOURCES tests/controls_test.cpp game/common/controls_s
                           INCLUDES . game/common LIBS openrac_platform)
 # Which gamepad plays on which port (platform/input.h).
 openrac_add_test(input_ports SOURCES tests/input_ports_test.cpp INCLUDES . LIBS openrac_platform)
+# The game's motor commands as a gamepad plays them (platform/rumble.h).
+openrac_add_test(rumble SOURCES tests/rumble_test.cpp INCLUDES . LIBS openrac_platform)
+# Start+Select opens the menu, which the game never sees (platform/menu_chord.h).
+openrac_add_test(menu_chord SOURCES tests/menu_chord_test.cpp INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp
@@ -87,49 +100,52 @@ if(ANDROID)
     target_compile_definitions(openrac_platform PRIVATE OPENRAC_ADRENOTOOLS=1)
   endif()
 endif()
-# The Vulkan renderer: renderer/gl.h carried out with Vulkan (renderer/vulkan/vkgl.h), which the
+# The Vulkan renderer: renderer/gl/gl.h carried out with Vulkan (renderer/vulkan/vkgl.h), which the
 # window opens for OPENRAC_GL_API=vulkan.
 if(OPENRAC_VULKAN)
   add_library(openrac_renderer_vulkan STATIC
-    renderer/vulkan/graph_presentation.cpp
-    renderer/vulkan/frame_capture.cpp
-    renderer/vulkan/gpu_breadcrumbs.cpp
-    renderer/vulkan/surface_batch.cpp renderer/vulkan/surface_batch_import.cpp
-    renderer/vulkan/surface_copy.cpp renderer/vulkan/attachment_copy.cpp
-    renderer/vulkan/prepared_raster.cpp
-    renderer/vulkan/temporal_graph.cpp
-    renderer/vulkan/temporal_compute.cpp
-    renderer/vulkan/native_compute.cpp
-    renderer/vulkan/depth_combine.cpp
-    renderer/vulkan/graph_states.cpp
-    renderer/vulkan/graph_execution.cpp
-    renderer/vulkan/colour_graph.cpp
-    renderer/vulkan/colour_snapshot.cpp
-    renderer/vulkan/graph_graphics_inputs.cpp
-    renderer/vulkan/graph_compute_inputs.cpp
-    renderer/vulkan/graph_transfers.cpp
-    renderer/vulkan/colour_transform.cpp
-    renderer/vulkan/hdr_output.cpp
-    renderer/vulkan/native_shader_compiler.cpp
-    renderer/vulkan/pipeline_cache_file.cpp
-    renderer/vulkan/shader_compiler.cpp
+    renderer/vulkan/graph/graph_presentation.cpp
+    renderer/vulkan/diagnostics/frame_capture.cpp
+    renderer/vulkan/diagnostics/gpu_breadcrumbs.cpp
+    renderer/vulkan/graph/surface_batch.cpp renderer/vulkan/graph/surface_batch_import.cpp
+    renderer/vulkan/graph/surface_copy.cpp renderer/vulkan/graph/attachment_copy.cpp
+    renderer/vulkan/graph/prepared_raster.cpp
+    renderer/vulkan/graph/temporal_graph.cpp
+    renderer/vulkan/graph/temporal_compute.cpp
+    renderer/vulkan/passes/native_compute.cpp
+    renderer/vulkan/passes/depth_combine.cpp
+    renderer/vulkan/graph/graph_states.cpp
+    renderer/vulkan/graph/graph_execution.cpp
+    renderer/vulkan/graph/graph_imports.cpp
+    renderer/vulkan/graph/graph_pipeline.cpp
+    renderer/vulkan/graph/graph_immediate_work.cpp
+    renderer/vulkan/graph/graph_image_work.cpp
+    renderer/vulkan/graph/colour_graph.cpp
+    renderer/vulkan/graph/colour_snapshot.cpp
+    renderer/vulkan/graph/graph_shader_inputs.cpp
+    renderer/vulkan/graph/graph_transfers.cpp
+    renderer/vulkan/passes/colour_transform.cpp
+    renderer/vulkan/presentation/hdr_output.cpp
+    renderer/vulkan/pipelines/native_shader_compiler.cpp
+    renderer/vulkan/cache/pipeline_cache_file.cpp
+    renderer/vulkan/pipelines/shader_compiler.cpp
     renderer/vulkan/vkgl.cpp
-    renderer/vulkan/vkgl_commands.cpp
-    renderer/vulkan/vkgl_device.cpp
-    renderer/vulkan/vkgl_draw.cpp
-    renderer/vulkan/vkgl_gl.cpp
-    renderer/vulkan/gl_program.cpp renderer/vulkan/test_program_cache.cpp
-    renderer/vulkan/vkgl_pipelines.cpp
-    renderer/vulkan/vkgl_present.cpp
-    renderer/vulkan/vkgl_resources.cpp
-    renderer/vulkan/vma.cpp
+    renderer/vulkan/commands/vkgl_commands.cpp
+    renderer/vulkan/context/vkgl_device.cpp
+    renderer/vulkan/draw/vkgl_draw.cpp
+    renderer/vulkan/context/vkgl_gl.cpp
+    renderer/vulkan/pipelines/gl_program.cpp renderer/vulkan/cache/test_program_cache.cpp
+    renderer/vulkan/pipelines/vkgl_pipelines.cpp
+    renderer/vulkan/presentation/vkgl_present.cpp
+    renderer/vulkan/resources/vkgl_resources.cpp
+    renderer/vulkan/resources/vma.cpp
   )
   if(OPENRAC_TRACY)
-    target_sources(openrac_renderer_vulkan PRIVATE renderer/vulkan/tracy.cpp)
+    target_sources(openrac_renderer_vulkan PRIVATE renderer/vulkan/diagnostics/tracy.cpp)
   endif()
   target_link_libraries(openrac_renderer_vulkan
     PUBLIC openrac_common openrac_sdl3 openrac_vulkan PRIVATE openrac_glslang)
-  # HDR output's encode pass (renderer/vulkan/hdr_output.cpp).
+  # HDR output's encode pass (renderer/vulkan/presentation/hdr_output.cpp).
   openrac_embed_shaders(openrac_renderer_vulkan vkgl openrac::vkgl
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/shaders/hdr_encode.comp"
   )
@@ -138,22 +154,22 @@ if(OPENRAC_VULKAN)
   # build saved (the tests' pictures came out black), although the cache's header matched.
   set(openrac_renderer_vulkan_pipeline_sources
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_commands.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_device.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_draw.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_gl.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gl_program.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gl_program.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/commands/vkgl_commands.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/context/vkgl_device.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/draw/vkgl_draw.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/context/vkgl_gl.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/pipelines/gl_program.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/pipelines/gl_program.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_internal.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_pipelines.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_present.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/vkgl_resources.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/shader_compiler.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/native_shader_compiler.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/shader_compiler_internal.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gpu_draw.inc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/multisample_blit.inc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/gpu_materials.inc")
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/pipelines/vkgl_pipelines.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/presentation/vkgl_present.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/resources/vkgl_resources.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/pipelines/shader_compiler.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/pipelines/native_shader_compiler.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/pipelines/shader_compiler_internal.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/draw/gpu_draw.inc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/draw/multisample_blit.inc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/draw/gpu_materials.inc")
   # And every file holding a shader's text, wherever it is (a C++ file's own GLSL too): two builds
   # whose shaders differ must not read each other's cache, which MoltenVK has taken for the same
   # pipelines (another build's menus came out as blank white boxes).
@@ -197,49 +213,78 @@ if(OPENRAC_VULKAN)
     target_compile_options(openrac_renderer_vulkan PRIVATE -Wno-missing-field-initializers)
   endif()
   # The allocator's own source is not ours to keep warning-free.
-  set_source_files_properties(renderer/vulkan/vma.cpp PROPERTIES COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/w,-w>")
+  set_source_files_properties(renderer/vulkan/resources/vma.cpp PROPERTIES COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/w,-w>")
   target_link_libraries(openrac_platform PRIVATE openrac_renderer_vulkan)
   target_compile_definitions(openrac_platform PRIVATE OPENRAC_VULKAN=1)
 endif()
+
+# ---- renderer/metal (renderer/metal/README.md) ----
+# Its shaders are the Vulkan backend's SPIR-V, made by its glslang, as MSL.
+if(OPENRAC_METAL AND NOT OPENRAC_VULKAN)
+  message(FATAL_ERROR "OPENRAC_METAL needs OPENRAC_VULKAN: its shaders are compiled by the Vulkan backend's glslang")
+endif()
+if(OPENRAC_METAL)
+  add_library(openrac_renderer_metal STATIC
+    renderer/metal/mtlgl.mm renderer/metal/mtlgl_draw.mm renderer/metal/mtlgl_resources.mm
+    renderer/metal/shader_translate.cpp renderer/metal/mtlgl_backend.cpp)
+  target_link_libraries(openrac_renderer_metal
+    PUBLIC openrac_renderer_vulkan openrac_sdl3 "-framework Metal" "-framework QuartzCore" "-framework OpenGL"
+           "-framework Foundation"
+    PRIVATE openrac_spirv_cross)
+  target_compile_options(openrac_renderer_metal PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
+  openrac_warnings(openrac_renderer_metal)
+  target_link_libraries(openrac_platform PRIVATE openrac_renderer_metal)
+  target_compile_definitions(openrac_platform PRIVATE OPENRAC_METAL=1)
+endif()
 # macOS: the menu bar's name and menus (platform/macos_app.mm).
-if(APPLE)
+if(APPLE AND NOT OPENRAC_IOS)
   target_sources(openrac_platform PRIVATE platform/macos_app.mm)
   target_link_libraries(openrac_platform PRIVATE "-framework Cocoa")
 endif()
 
 # ---- renderer ----
 add_library(openrac_renderer STATIC
-  renderer/debug_lines.cpp
-  renderer/debug_geometry.cpp
-  renderer/direct.cpp
-  renderer/effects.cpp
-  renderer/effects_colour.cpp renderer/effects_draw.cpp
-  renderer/framebuffer.cpp
+  renderer/debug/debug_lines.cpp
+  renderer/debug/debug_geometry.cpp
+  renderer/direct/direct.cpp
+  renderer/effects/effects.cpp
+  renderer/effects/effects_colour.cpp renderer/effects/effects_draw.cpp
+  renderer/gl/framebuffer.cpp
   enhanced/renderer/agx.cpp
+  enhanced/renderer/bloom.cpp
   enhanced/renderer/gtao.cpp
   enhanced/renderer/compute_graph.cpp
   enhanced/renderer/gtao_depth.cpp
   enhanced/renderer/gtao_passes.cpp
   enhanced/renderer/gtao_graph.cpp
-  renderer/gl.cpp
-  renderer/gl_stats.cpp
-  renderer/haze.cpp
+  renderer/gl/gl.cpp
+  renderer/gl/gl_stats.cpp
+  renderer/effects/haze.cpp
   renderer/renderer.cpp
-  renderer/colour_graph.cpp
-  renderer/colour_snapshot.cpp
-  renderer/surface_prepass.cpp
-  renderer/surface_chain.cpp
-  renderer/world_colour.cpp
-  renderer/shadow_volume.cpp
-  renderer/shadows.cpp
-  renderer/program_cache.cpp
-  renderer/gl_warmup.cpp
-  renderer/shader.cpp
-  renderer/subsystems.cpp
-  renderer/texture.cpp
-  renderer/texture_pack.cpp
-  renderer/texture_pool.cpp
+  renderer/frame/colour_graph.cpp
+  renderer/frame/colour_snapshot.cpp
+  renderer/frame/surface_prepass.cpp
+  renderer/frame/surface_chain.cpp
+  renderer/frame/world_colour.cpp
+  renderer/effects/shadow_volume.cpp
+  renderer/effects/shadows.cpp
+  renderer/gl/program_cache.cpp
+  renderer/gl/gl_warmup.cpp
+  renderer/gl/shader.cpp
+  renderer/frame/subsystems.cpp
+  renderer/textures/texture.cpp
+  renderer/textures/texture_pack.cpp
+  renderer/textures/pcsx2_pack.cpp
+  renderer/textures/pcsx2_dds.cpp
+  renderer/textures/texture_pool.cpp
 )
+
+# A texture pack's KTX2 and SVG pictures (renderer/textures/pack_pictures.h): their own library, so
+# that the renderer links neither decoder and the test needs no window.
+add_library(openrac_pack_pictures STATIC renderer/textures/pack_pictures.cpp)
+target_include_directories(openrac_pack_pictures PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(openrac_pack_pictures PUBLIC openrac_common PRIVATE openrac_basisu openrac_nanosvg)
+openrac_warnings(openrac_pack_pictures)
 openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/debug_lines.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/debug_lines.frag"
@@ -247,6 +292,9 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/surface_normal.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/upscaled_texture_colours.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/agx.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/bloom_downsample.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/bloom_upsample.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/bloom_composite.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_common.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_evaluate.comp"
@@ -255,6 +303,7 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/effect.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/effect_depth.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow_composite.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.frag"
@@ -262,6 +311,7 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.frag"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common)
+target_include_directories(openrac_renderer SYSTEM PRIVATE "${openrac_xxhash_SOURCE_DIR}")
 if(OPENRAC_VULKAN)
   target_link_libraries(openrac_renderer PRIVATE openrac_renderer_vulkan)
   target_compile_definitions(openrac_renderer PRIVATE OPENRAC_VULKAN=1)
@@ -274,15 +324,19 @@ openrac_warnings(openrac_renderer)
 # menu's picture and the logo they show. Its own library, so that the renderer itself needs neither
 # ImGui nor the platform's touch pad.
 add_library(openrac_renderer_ui STATIC
+  renderer/ui/backdrop_blur.cpp
   renderer/ui/canvas.cpp
   renderer/ui/fps_counter.cpp
   renderer/ui/imgui_gl.cpp
   renderer/ui/logo.cpp
+  renderer/ui/overlay_draw.cpp
+  renderer/ui/overlay_list.cpp
   renderer/ui/picture_blit.cpp
+  renderer/ui/touch_icons.cpp
   renderer/ui/touch_overlay.cpp
 )
 target_link_libraries(openrac_renderer_ui PUBLIC openrac_renderer openrac_platform
-  PRIVATE openrac_imgui)
+  PRIVATE openrac_imgui openrac_nanosvg)
 openrac_warnings(openrac_renderer_ui)
 
 # Optional upscaled texture colours: the normal renderer only owns the provider interface.
@@ -344,6 +398,7 @@ openrac_add_test(material_catalog SOURCES tests/material_catalog_test.cpp LIBS o
 add_library(openrac_scene STATIC
   scene/hero_shadow.cpp
   scene/level.cpp
+  scene/chrome_geometry.cpp
   scene/tie_relight.cpp
   scene/material_overrides.cpp
   scene/material_resolve.cpp
@@ -469,7 +524,7 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_preview.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_preview.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/environment_selection.comp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/chrome.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/thin_glass.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/wetness.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/foliage.glsl"
@@ -639,6 +694,11 @@ add_library(openrac_viewer_lib INTERFACE)
 target_link_libraries(openrac_viewer_lib INTERFACE openrac_scene_renderer openrac_enhanced_viewer
   openrac_enhanced_textures)
 
+# MobyProc's distance test and fade (game/common/moby_proc.h), which both games' profiles share.
+add_library(openrac_game_moby_proc STATIC game/common/moby_proc.cpp)
+target_link_libraries(openrac_game_moby_proc PUBLIC openrac_scene_renderer)
+openrac_warnings(openrac_game_moby_proc)
+
 # Ratchet & Clank's profile (game/common/profile.h): what the renderers read of the running game
 # from its memory (game/rac1/game_state.h), for rac1's programs (cmake/Games.cmake links it as
 # openrac_game_<game>_profile), the viewer and its tests.
@@ -646,14 +706,22 @@ add_library(openrac_game_rac1_profile STATIC
   game/rac1/game_state.cpp
   game/rac1/profile.cpp
   game/rac1/shrub_proc.cpp
+  game/rac1/ship_visor.cpp
 )
 target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include)
-target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer)
+target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
 openrac_warnings(openrac_game_rac1_profile)
 openrac_add_test(camera_target LIBS openrac_game_rac1_profile)
 openrac_add_test(moby_fade LIBS openrac_game_rac1_profile openrac_ps2float)
 openrac_add_test(shrub_proc LIBS openrac_game_rac1_profile openrac_ps2float)
 openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
+
+# Going Commando's profile, one for its three discs (game/rac2/profile.cpp), for rac2's programs.
+add_library(openrac_game_rac2_profile STATIC game/rac2/profile.cpp)
+target_include_directories(openrac_game_rac2_profile PRIVATE runtime/include)
+target_link_libraries(openrac_game_rac2_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
+openrac_warnings(openrac_game_rac2_profile)
+openrac_add_test(rac2_moby_view LIBS openrac_game_rac2_profile)
 
 # Tests are registered through openrac_add_test (cmake/Tests.cmake), which makes the program
 # <subject>_test and the ctest test <subject>; a program that runs under more names gets them with
@@ -705,16 +773,26 @@ if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   openrac_add_test(graph_compute LIBS openrac_renderer openrac_platform)
   set_tests_properties(graph_compute PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  openrac_add_test(graph_immediate_work LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(graph_immediate_work PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  openrac_add_test(graph_attachment LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(graph_attachment PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   set_tests_properties(early_lighting_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
+target_sources(probe_gpu_test PRIVATE enhanced/tests/material_surface_gpu.cpp)
 target_link_libraries(probe_gpu_test PRIVATE openrac_viewer_lib openrac_platform)
 target_include_directories(probe_gpu_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 openrac_warnings(probe_gpu_test)
 if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   add_test(NAME probe_gpu_vulkan COMMAND probe_gpu_test)
+  add_test(NAME probe_sphere_overlay_vulkan COMMAND probe_gpu_test --sphere-overlays)
+  add_test(NAME probe_glass_cutout_vulkan COMMAND probe_gpu_test --glass-cutouts)
+  add_test(NAME probe_chrome_original_vulkan COMMAND probe_gpu_test --chrome-original)
   target_compile_definitions(probe_gpu_test PRIVATE OPENRAC_VULKAN=1)
-  set_tests_properties(probe_gpu_vulkan PROPERTIES SKIP_RETURN_CODE 77
+  set_tests_properties(probe_gpu_vulkan probe_sphere_overlay_vulkan probe_glass_cutout_vulkan probe_chrome_original_vulkan PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
 
@@ -736,6 +814,7 @@ target_link_libraries(hero_shadow_test PRIVATE openrac_viewer_lib openrac_platfo
 openrac_warnings(hero_shadow_test)
 add_test(NAME hero_shadow_cpu COMMAND hero_shadow_test)
 openrac_add_test(moby_shadow LIBS openrac_scene)
+openrac_add_test(moby_key_gap LIBS openrac_scene)
 openrac_add_test(hero_attachments SOURCES tests/hero_attachments_test.cpp
   game/rac1/host/hero_attachments.c INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}")
 openrac_add_test(hero_shadow_rig INCLUDES . game/common/include runtime/include)
@@ -762,7 +841,7 @@ include(EnhancedBaker)
 add_executable(openrac-viewer viewer/main.cpp)
 target_link_libraries(openrac-viewer PRIVATE openrac_viewer_lib openrac_game_rac1_profile openrac_platform)
 openrac_warnings(openrac-viewer)
-if(APPLE)
+if(APPLE AND NOT OPENRAC_IOS)
   include(MacApp)
   openrac_macos_app(openrac-viewer NAME "OpenRAC Viewer" ID dev.openrac.viewer
     ICON "${PROJECT_SOURCE_DIR}/../launcher/src-tauri/icons/icon.icns")
@@ -779,12 +858,17 @@ openrac_add_test(touch_pad LIBS openrac_platform)
 
 openrac_add_test(camera_debug SOURCES tests/camera_debug_test.cpp
                  game/common/frontend/debug_camera.cpp scene/fly_camera.cpp
-                 renderer/debug_geometry.cpp scene/sun_shadow.cpp INCLUDES .)
+                 renderer/debug/debug_geometry.cpp scene/sun_shadow.cpp INCLUDES .)
 
 # The frontend's pure helpers (game/common/frontend/), built from their own sources: the game
 # programs compile them through cmake/Games.cmake's glob.
 openrac_add_test(frontend_geometry SOURCES tests/frontend_geometry_test.cpp
                  game/common/frontend/geometry.cpp INCLUDES .)
+  openrac_add_test(effect_attachment SOURCES tests/effect_attachment_test.cpp
+                   game/common/frontend/effect_attachment.cpp game/common/frontend/geometry.cpp
+                   INCLUDES . runtime/include)
+openrac_add_test(scenery_capture SOURCES tests/scenery_capture_test.cpp
+                 game/common/frontend/scenery_capture.cpp INCLUDES . runtime/include)
 openrac_add_test(frontend_pacing SOURCES tests/frontend_pacing_test.cpp
                  game/common/frontend/pacing.cpp INCLUDES .)
 openrac_add_test(frame_limiter SOURCES tests/frame_limiter_test.cpp
@@ -800,8 +884,24 @@ set_tests_properties(touch_overlay PROPERTIES SKIP_RETURN_CODE 77)
 
 openrac_add_test(imgui_gl LIBS openrac_renderer_ui openrac_platform openrac_imgui)
 set_tests_properties(imgui_gl PROPERTIES SKIP_RETURN_CODE 77)
+openrac_add_test(overlay_draw LIBS openrac_renderer_ui openrac_platform)
+set_tests_properties(overlay_draw PROPERTIES SKIP_RETURN_CODE 77)
 
 openrac_add_test(renderer_texture LIBS openrac_renderer)
+# Texture packs' KTX2 and SVG pictures, from small files made for the test (tests/data/pack_pictures).
+openrac_add_test(pack_pictures LIBS openrac_pack_pictures
+  DEFINITIONS "PACK_PICTURES_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/data/pack_pictures\"")
+# And kept on the GPU in blocks (TexturePool::set_blocks): BC7, else ASTC 4x4 (BC7 hidden), else
+# RGBA8 (both hidden).
+openrac_add_test(texture_blocks_gl LIBS openrac_renderer openrac_platform openrac_pack_pictures
+  DEFINITIONS "PACK_PICTURES_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/data/pack_pictures\"")
+add_test(NAME texture_blocks_gl_astc COMMAND texture_blocks_gl_test)
+add_test(NAME texture_blocks_gl_rgba8 COMMAND texture_blocks_gl_test none)
+set_tests_properties(texture_blocks_gl PROPERTIES SKIP_RETURN_CODE 77)
+set_tests_properties(texture_blocks_gl_astc PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+  "OPENRAC_GL_HIDE_EXTENSIONS=GL_ARB_texture_compression_bptc,GL_EXT_texture_compression_bptc")
+set_tests_properties(texture_blocks_gl_rgba8 PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+  "OPENRAC_GL_HIDE_EXTENSIONS=GL_ARB_texture_compression_bptc,GL_EXT_texture_compression_bptc,GL_KHR_texture_compression_astc_ldr")
 # The view math of a mod's views (renderer/math.h): header only.
 openrac_add_test(renderer_math INCLUDES .)
 
@@ -815,7 +915,7 @@ set_tests_properties(program_cache PROPERTIES SKIP_RETURN_CODE 77)
 openrac_add_test(gl_warmup LIBS openrac_renderer openrac_platform)
 set_tests_properties(gl_warmup PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=desktop")
 
-# Precise world depth (renderer/precise_depth.h): walls 1 cm apart, parted at every distance.
+# Precise world depth (renderer/gl/precise_depth.h): walls 1 cm apart, parted at every distance.
 openrac_add_test(precise_depth LIBS openrac_renderer openrac_platform)
 set_tests_properties(precise_depth PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu)
 if(OPENRAC_VULKAN)
@@ -838,6 +938,11 @@ if(OPENRAC_VULKAN)
       "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
   endif()
 endif()
+if(OPENRAC_METAL)
+  add_test(NAME texture_filter_metal COMMAND texture_filter_test)
+  set_tests_properties(texture_filter_metal PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=metal;OPENRAC_ENHANCED=0;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
 
 # The embedded sources' headers (openrac_embed_shaders) are private to their libraries.
 openrac_add_test(renderer_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
@@ -846,6 +951,20 @@ set_tests_properties(renderer_shader PROPERTIES SKIP_RETURN_CODE 77)
 if(OPENRAC_VULKAN)
   target_compile_definitions(renderer_shader_test PRIVATE OPENRAC_VULKAN=1)
   target_link_libraries(renderer_shader_test PRIVATE openrac_renderer_vulkan)
+endif()
+# metal_shader  every program the game builds, translated to MSL and compiled by the Metal device
+#               (tests/metal_shader_test.mm)
+if(OPENRAC_METAL)
+  openrac_add_test(metal_shader SOURCES tests/metal_shader_test.mm
+                   INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+                   LIBS openrac_renderer_metal openrac_scene_renderer)
+  target_compile_options(metal_shader_test PRIVATE -fobjc-arc)
+  set_tests_properties(metal_shader PROPERTIES SKIP_RETURN_CODE 77)
+  # mtlgl          the GL core on Metal without a window: clears and reads; then the same calls
+  #                in a hidden window on OpenGL and on Metal, read back (tests/mtlgl_test.cpp)
+  openrac_add_test(mtlgl LIBS openrac_renderer_metal openrac_renderer openrac_platform)
+  set_tests_properties(mtlgl PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1")
 endif()
 
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
@@ -866,15 +985,18 @@ add_test(NAME renderer_direct_es COMMAND renderer_direct_test)
 add_test(NAME renderer_shader_es COMMAND renderer_shader_test)
 add_test(NAME touch_overlay_es COMMAND touch_overlay_test)
 add_test(NAME imgui_gl_es COMMAND imgui_gl_test)
+add_test(NAME overlay_draw_es COMMAND overlay_draw_test)
+add_test(NAME texture_blocks_gl_es COMMAND texture_blocks_gl_test)
 add_test(NAME viewer_es COMMAND viewer_test "${CMAKE_CURRENT_BINARY_DIR}/viewer_test_level_es")
-set(openrac_es_tests renderer_direct_es renderer_shader_es touch_overlay_es imgui_gl_es viewer_es)
+set(openrac_es_tests renderer_direct_es renderer_shader_es touch_overlay_es imgui_gl_es overlay_draw_es
+    texture_blocks_gl_es viewer_es)
 if(TARGET world_gl_smoke_test)
   add_test(NAME world_gl_smoke_es COMMAND world_gl_smoke_test)
   list(APPEND openrac_es_tests world_gl_smoke_es)
 endif()
 set_tests_properties(${openrac_es_tests} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=es")
 # And as on a driver without the two extensions the shaders use where they can (Mali's lack clip
-# distances, some lack noperspective): the fallbacks of renderer/shader.h's es_source.
+# distances, some lack noperspective): the fallbacks of renderer/gl/shader.h's es_source.
 add_test(NAME renderer_shader_es_bare COMMAND renderer_shader_test)
 set(openrac_es_bare_tests renderer_shader_es_bare)
 if(TARGET world_gl_smoke_test)
@@ -903,15 +1025,40 @@ if(OPENRAC_VULKAN)
   add_test(NAME renderer_shader_vulkan COMMAND renderer_shader_test)
   add_test(NAME touch_overlay_vulkan COMMAND touch_overlay_test)
   add_test(NAME imgui_gl_vulkan COMMAND imgui_gl_test)
+  add_test(NAME overlay_draw_vulkan COMMAND overlay_draw_test)
+  add_test(NAME texture_blocks_gl_vulkan COMMAND texture_blocks_gl_test)
   add_test(NAME viewer_vulkan COMMAND viewer_test "${CMAKE_CURRENT_BINARY_DIR}/viewer_test_level_vulkan")
   set(openrac_vulkan_tests renderer_direct_vulkan renderer_shader_vulkan touch_overlay_vulkan imgui_gl_vulkan
-      viewer_vulkan)
+      overlay_draw_vulkan texture_blocks_gl_vulkan viewer_vulkan)
   if(TARGET world_gl_smoke_test)
     add_test(NAME world_gl_smoke_vulkan COMMAND world_gl_smoke_test)
     list(APPEND openrac_vulkan_tests world_gl_smoke_vulkan)
   endif()
   set_tests_properties(${openrac_vulkan_tests} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  # ASTC 4x4 on Vulkan too, with BC7 hidden.
+  add_test(NAME texture_blocks_gl_vulkan_astc COMMAND texture_blocks_gl_test)
+  set_tests_properties(texture_blocks_gl_vulkan_astc PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_GL_HIDE_EXTENSIONS=GL_ARB_texture_compression_bptc")
+endif()
+# And on the Metal renderer (renderer/metal/mtlgl.h), with Metal's API validation. Where Metal
+# cannot open, the window falls back to OpenGL and these repeat the tests above. SDL's offscreen
+# driver has no Metal, so these open hidden Cocoa windows.
+if(OPENRAC_METAL)
+  add_test(NAME renderer_direct_metal COMMAND renderer_direct_test)
+  add_test(NAME renderer_shader_metal COMMAND renderer_shader_test)
+  add_test(NAME touch_overlay_metal COMMAND touch_overlay_test)
+  add_test(NAME imgui_gl_metal COMMAND imgui_gl_test)
+  add_test(NAME overlay_draw_metal COMMAND overlay_draw_test)
+  add_test(NAME viewer_metal COMMAND viewer_test "${CMAKE_CURRENT_BINARY_DIR}/viewer_test_level_metal")
+  set(openrac_metal_tests renderer_direct_metal renderer_shader_metal touch_overlay_metal imgui_gl_metal
+      overlay_draw_metal viewer_metal)
+  if(TARGET world_gl_smoke_test)
+    add_test(NAME world_gl_smoke_metal COMMAND world_gl_smoke_test)
+    list(APPEND openrac_metal_tests world_gl_smoke_metal)
+  endif()
+  set_tests_properties(${openrac_metal_tests} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
 endif()
 
 # Spatial GTAO: plane invariance, contact occlusion, deterministic frames and MSAA depth resolve.
@@ -1044,7 +1191,7 @@ add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
 set_property(TEST water_bake APPEND PROPERTY LABELS baker)
 
 add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c
-  game/rac1/host/water.c)
+  game/rac1/host/water.c game/rac1/host/water_surfaces.c)
 target_include_directories(water_host_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" enhanced/tests/water_host_stubs
   game/rac1-ntsc/host game/common/include runtime/include)
 openrac_warnings(water_host_test)
@@ -1058,6 +1205,18 @@ if(OPENRAC_VULKAN)
   target_link_libraries(agx_test PRIVATE openrac_renderer_vulkan)
   add_test(NAME agx_vulkan COMMAND agx_test --expect-on)
   set_tests_properties(agx_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
+endif()
+
+# Standard multi-resolution Gaussian bloom: compatibility bypass plus Vulkan spread test.
+openrac_add_test(bloom SOURCES enhanced/tests/bloom_test.cpp LIBS openrac_renderer openrac_platform)
+set_tests_properties(bloom PROPERTIES SKIP_RETURN_CODE 77
+  ENVIRONMENT "OPENRAC_GL_API=desktop;OPENRAC_ENHANCED=1")
+if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
+  target_compile_definitions(bloom_test PRIVATE OPENRAC_VULKAN=1)
+  target_link_libraries(bloom_test PRIVATE openrac_renderer_vulkan)
+  add_test(NAME bloom_vulkan COMMAND bloom_test --expect-on)
+  set_tests_properties(bloom_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
 endif()
 

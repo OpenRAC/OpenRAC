@@ -5,6 +5,7 @@ package dev.openrac.game;
 
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.ApplicationInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -25,6 +26,12 @@ import android.view.WindowManager;
 import dev.openrac.launcher.FilesProvider;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import org.libsdl.app.SDLActivity;
 
@@ -47,8 +54,13 @@ public class GameActivity extends SDLActivity {
     /** How long a game asked to quit has to end its process (onDestroy). */
     private static final long QUIT_WAIT_MS = 3000;
 
+    /** A debuggable build's folder in the app's files, for a start driven over adb (debugLaunch). */
+    private static final String DEBUG_DIR = "debug";
+
     private String library = "openrac-rac1-pal";
     private String[] arguments = new String[0];
+    /** A debuggable build: the game's library to load in place of the APK's, or null. */
+    private String debugLibrary;
     /** The activity's thread, where SDL's commands run (coverScreen after a style change). */
     private final Handler uiThread = new Handler(Looper.getMainLooper());
 
@@ -63,18 +75,23 @@ public class GameActivity extends SDLActivity {
         if (given != null) {
             arguments = given;
         }
-        String[] environment = intent.getStringArrayExtra(EXTRA_ENVIRONMENT);
-        if (environment != null) {
-            for (String pair : environment) {
-                int at = pair.indexOf('=');
-                if (at <= 0) {
-                    continue;
-                }
-                try {
-                    Os.setenv(pair.substring(0, at), pair.substring(at + 1), true);
-                } catch (ErrnoException e) {
-                    Log.w(TAG, "cannot set " + pair.substring(0, at) + ": " + e);
-                }
+        String[] passed = intent.getStringArrayExtra(EXTRA_ENVIRONMENT);
+        List<String> environment = new ArrayList<>();
+        if (passed != null) {
+            environment.addAll(Arrays.asList(passed));
+        }
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            debugLaunch(named != null, environment);
+        }
+        for (String pair : environment) {
+            int at = pair.indexOf('=');
+            if (at <= 0) {
+                continue;
+            }
+            try {
+                Os.setenv(pair.substring(0, at), pair.substring(at + 1), true);
+            } catch (ErrnoException e) {
+                Log.w(TAG, "cannot set " + pair.substring(0, at) + ": " + e);
             }
         }
         Log.i(TAG, "starting lib" + library + ".so with " + String.join(" ", arguments));
@@ -82,6 +99,80 @@ public class GameActivity extends SDLActivity {
         super.onCreate(savedInstanceState);
         preferFastestRefresh();
         coverScreen();
+    }
+
+    /**
+     * A debuggable build's start can be driven over adb (tools/android_device.py,
+     * port/android/README.md). A start by the launcher is written to files/debug/last_launch, and
+     * a start without one (the debug build's exported alias, "am start") repeats it. Then
+     * files/debug/extra, which adb's run-as writes, adds to either. Both hold lines: "library
+     * NAME", "arg TEXT", "env NAME=VALUE", and in extra "load PATH" for a library file to load in
+     * place of the APK's.
+     */
+    private void debugLaunch(boolean fromLauncher, List<String> environment) {
+        File dir = new File(getFilesDir(), DEBUG_DIR);
+        File last = new File(dir, "last_launch");
+        File extra = new File(dir, "extra");
+        List<String> given = new ArrayList<>(Arrays.asList(arguments));
+        try {
+            if (fromLauncher) {
+                List<String> lines = new ArrayList<>();
+                lines.add("library " + library);
+                for (String argument : given) {
+                    lines.add("arg " + argument);
+                }
+                for (String pair : environment) {
+                    lines.add("env " + pair);
+                }
+                if (dir.isDirectory() || dir.mkdirs()) {
+                    Files.write(last.toPath(), lines, StandardCharsets.UTF_8);
+                }
+            } else if (last.isFile()) {
+                debugLines(Files.readAllLines(last.toPath(), StandardCharsets.UTF_8), given, environment);
+            } else {
+                Log.w(TAG, "debug start: no launch to repeat, play once from the launcher first");
+            }
+            if (extra.isFile()) {
+                debugLines(Files.readAllLines(extra.toPath(), StandardCharsets.UTF_8), given, environment);
+                Log.i(TAG, "debug start: with " + extra);
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "debug start: " + e);
+        }
+        arguments = given.toArray(new String[0]);
+    }
+
+    /** Takes the lines of a debug launch file (debugLaunch) into the start. */
+    private void debugLines(List<String> lines, List<String> given, List<String> environment) {
+        for (String line : lines) {
+            int at = line.indexOf(' ');
+            if (at <= 0) {
+                continue;
+            }
+            String value = line.substring(at + 1);
+            switch (line.substring(0, at)) {
+                case "library":
+                    if (value.matches("openrac-[a-z0-9-]+")) {
+                        library = value;
+                    }
+                    break;
+                case "arg":
+                    given.add(value);
+                    break;
+                case "env":
+                    environment.add(value);
+                    break;
+                case "load":
+                    if (new File(value).isFile()) {
+                        debugLibrary = value;
+                    } else {
+                        Log.w(TAG, "debug start: no library at " + value);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     /**
@@ -274,7 +365,21 @@ public class GameActivity extends SDLActivity {
 
     @Override
     protected String[] getLibraries() {
-        return new String[] {"SDL3", library};
+        return debugLibrary != null ? new String[] {"SDL3"} : new String[] {"SDL3", library};
+    }
+
+    @Override
+    public void loadLibraries() {
+        super.loadLibraries();
+        if (debugLibrary != null) {
+            System.load(debugLibrary);
+            Log.i(TAG, "debug start: " + debugLibrary + " in place of the APK's lib" + library + ".so");
+        }
+    }
+
+    @Override
+    protected String getMainSharedObject() {
+        return debugLibrary != null ? debugLibrary : super.getMainSharedObject();
     }
 
     @Override

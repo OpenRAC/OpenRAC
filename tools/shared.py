@@ -46,7 +46,7 @@ def problems() -> list[str]:
 
 def identical_across_games() -> list[list[str]]:
     """Groups of tracked files with the same content in two or more game versions."""
-    tracked = proc.git(ROOT, "ls-files", "games", check=False).split("\n")
+    tracked = proc.git(ROOT, "ls-files", "--recurse-submodules", "games", check=False).split("\n")
     by_content = defaultdict(list)
     for name in tracked:
         path = ROOT / name

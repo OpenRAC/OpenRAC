@@ -99,5 +99,8 @@ void main() {
         v_alpha = colour.a * tint.a;
     }
     v_glow = abs(moby_light.w) > 0.5 && light_slot < -1.5 && moby_ambient.w > 0.5 ? 1 : 0;
+    if (v_glow != 0) {
+        v_alpha = tint.a;
+    }
 #endif
 }

@@ -36,7 +36,8 @@ launcher runs on the player's own extracted levels. It needs Embree 4
 (Apache-2.0): a pinned release's source is downloaded once, checked against
 its SHA-256 and built as a static library in port/build/embree/, so the
 baker is one program with nothing beside it. A baker that cannot be built
-is said and left out; the game is built all the same. The build folder
+is said and left out; the game is built all the same. --require-baker (CI)
+builds it too but stops the build when it cannot be built. The build folder
 keeps the choice. Intel Macs ship without the baker (Embree's static
 library cannot be built there): the option says so, and their enhanced
 graphics keep the original lighting.
@@ -55,9 +56,11 @@ the preset says. Standard library only.
 """
 
 import argparse
+import http.client
 import json
 import os
 import platform
+import re
 import shutil
 import stat
 import subprocess
@@ -68,30 +71,15 @@ import urllib.request
 from pathlib import Path
 
 from openrac_common import background, digest, paths, proc
+from build_port_tools import (
+    BuildError, MissingTool, NO_CLANG, NO_NINJA, find_clang, find_cmake, find_program,
+    find_visual_studio, install_windows_tool, msvc_environment, windows_path,
+)
 
 ROOT = paths.repo_root()
 PORT = ROOT / "port"
 WINDOWS = os.name == "nt"
 DEFAULT_GAME = "rac1-pal"
-
-NO_VISUAL_STUDIO = (
-    "Visual Studio's C++ tools were not found. Install Visual Studio (Community is free) or its "
-    'Build Tools with the "Desktop development with C++" workload, then build again.'
-)
-NO_CLANG = (
-    "Clang was not found. Install LLVM (winget install LLVM.LLVM) or Visual Studio's "
-    '"C++ Clang tools for Windows", then build again.'
-    if WINDOWS
-    else "Clang was not found. Install it (apt install clang, or Xcode's command line tools), then build again."
-)
-NO_NINJA = (
-    'Ninja was not found. Install it (winget install Ninja-build.Ninja) or Visual Studio\'s "C++ CMake '
-    'tools for Windows", then build again.'
-    if WINDOWS
-    else "Ninja was not found. Install it (apt install ninja-build, or brew install ninja), then build again."
-)
-NO_CMAKE = "CMake 3.25 or newer was not found. Install it (https://cmake.org/download/), then build again."
-
 
 # Embree, for the probe baker only (never linked into a game): this release's source, checked
 # against its SHA-256, built static with Embree's own task scheduler (no TBB) and only the
@@ -134,16 +122,16 @@ EMBREE_X86_ISAS = {
     "EMBREE_ISA_AVX512": "OFF",
 }
 EMBREE_DIR = PORT / "build" / "embree"
+# Tries at Embree's download, and the wait before the second (doubled each time): GitHub's archives
+# sometimes answer a request with a 5xx.
+EMBREE_TRIES = 4
+EMBREE_RETRY_WAIT = 5.0
 BAKER = "openrac-enhanced-baker"
 # Intel Macs ship without the baker (the maintainers' decision): AppleClang builds Embree's static
 # library for one ISA only, and x86-64 needs several (EMBREE_X86_ISAS), so it cannot be built there.
 # A level without a bake keeps the original lighting (port/enhanced/viewer/probe_lighting.cpp), and
 # the launcher says the same (launcher/core/src/enhanced.rs, NO_BAKER_HERE).
 NO_BAKER_HERE = "Intel Macs ship without the probe baker: their enhanced graphics keep the original lighting."
-
-
-class BuildError(Exception):
-    """Why the build cannot start, worded for whoever reads the launcher's Tasks."""
 
 
 def build_jobs() -> int:
@@ -228,12 +216,25 @@ def fetch_embree(dest: Path) -> Path:
         say(f"downloading Embree {EMBREE_VERSION} ({EMBREE_URL})")
         dest.mkdir(parents=True, exist_ok=True)
         part = archive.with_suffix(".part")
-        with urllib.request.urlopen(EMBREE_URL, timeout=120) as response, part.open("wb") as out:
-            shutil.copyfileobj(response, out)
-        got = digest.sha256(part)
-        if got != EMBREE_SHA256:
-            part.unlink()
-            raise BuildError(f"Embree's source archive has SHA-256 {got}, not {EMBREE_SHA256}")
+        wait = EMBREE_RETRY_WAIT
+        for attempt in range(1, EMBREE_TRIES + 1):
+            # A cut transfer is an HTTPException (IncompleteRead), not an OSError; a short or wrong
+            # body without an error is caught by its SHA-256. Each is tried again.
+            try:
+                with urllib.request.urlopen(EMBREE_URL, timeout=120) as response, part.open("wb") as out:
+                    shutil.copyfileobj(response, out)
+                got = digest.sha256(part)
+                problem = None if got == EMBREE_SHA256 else f"SHA-256 {got}, not {EMBREE_SHA256}"
+            except (OSError, http.client.HTTPException) as e:
+                problem = str(e) or type(e).__name__
+            if problem is None:
+                break
+            part.unlink(missing_ok=True)
+            if attempt == EMBREE_TRIES:
+                raise BuildError(f"Embree's source did not download ({problem})")
+            say(f"Embree's download failed ({problem}); trying again in {wait:g} s")
+            time.sleep(wait)
+            wait *= 2
         part.replace(archive)
     source = dest / f"embree-{EMBREE_VERSION}"
     if not (source / "CMakeLists.txt").is_file():
@@ -279,7 +280,7 @@ def build_embree(cmake: str, env: dict[str, str], compilers: tuple[str, str, str
     build = [cmake, "--build", str(work), "--parallel", str(build_jobs())]
     for command in (configure, build, [cmake, "--install", str(work)]):
         say("> " + " ".join(f'"{part}"' if " " in part else part for part in command))
-        if subprocess.run(command, cwd=EMBREE_DIR, env=env).returncode != 0:
+        if proc.run(command, cwd=EMBREE_DIR, env=env, check=False, brief=True).returncode != 0:
             raise BuildError(f"Embree did not build ({Path(command[0]).name} {command[1]})")
     # Its license and the notices of what it carries (SSE2NEON on ARM), for whoever passes the
     # baker on (licenses(), tools/bundle_standalone.py).
@@ -304,10 +305,11 @@ def copy_licenses(build: Path) -> None:
 
 
 def probe_baker(cmake: str, env: dict[str, str], compilers: tuple[str, str, str] | None,
-                cache: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+                cache: dict[str, str], required: bool = False) -> tuple[dict[str, str], list[str]]:
     """What --probe-baker adds to the build: its CMake defines and its targets. The baker with
     its Embree built (build_embree); on an Intel Mac, NO_BAKER_HERE said and no baker; where
-    Embree fails, a warning and no baker. The game is built in every case."""
+    Embree fails, a warning and no baker, so the game is built in every case. REQUIRED
+    (--require-baker): an Embree that fails raises BuildError instead."""
     if not ships_baker():
         say(NO_BAKER_HERE)
         return {"OPENRAC_PROBE_BAKER": "OFF"}, []
@@ -315,6 +317,8 @@ def probe_baker(cmake: str, env: dict[str, str], compilers: tuple[str, str, str]
         embree = build_embree(cmake, env, compilers, cache)
         return {"OPENRAC_PROBE_BAKER": "ON", "embree_DIR": embree.as_posix()}, [BAKER]
     except (BuildError, OSError) as e:
+        if required:
+            raise BuildError(f"the probe baker cannot be built: {e}") from e
         print(f"warning: the probe baker is left out: {e}", file=sys.stderr, flush=True)
         return {"OPENRAC_PROBE_BAKER": "OFF"}, []
 
@@ -362,17 +366,6 @@ def remove_tree(path: Path) -> None:
         shutil.rmtree(path, onerror=writable_then_again)
 
 
-def parse_environment(text: str) -> dict[str, str]:
-    """What cmd.exe's `set` prints, as an environment. Names are upper-cased, as Windows ignores
-    their case; the drive entries (=C:=...) are left out."""
-    env = {}
-    for line in text.splitlines():
-        key, sep, value = line.partition("=")
-        if sep and key:
-            env[key.upper()] = value
-    return env
-
-
 def kept_choices(cache: dict[str, str]) -> dict[str, str]:
     """What a build folder keeps of --source, --disc and --probe-baker (OPENRAC_<ID>_SOURCE,
     _RETAIL_IMAGE, OPENRAC_PROBE_BAKER)."""
@@ -416,8 +409,13 @@ def write_stamp(build: Path, names: list[str]) -> None:
             games |= {g for g in old.get("games", []) if isinstance(g, str)}
     except (OSError, ValueError, AttributeError):
         pass
-    stamp.write_text(json.dumps({"version": version, "commit": commit, "games": sorted(games)}, indent=2) + "\n",
-                     encoding="utf-8")
+    data = {"version": version, "commit": commit, "games": sorted(games)}
+    # The GitHub repository CI built it in (a fork's commit is only there): where an installed
+    # launcher fetches this commit's source to build a game from the disc (tools/build_game.py).
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_][A-Za-z0-9._-]*", repository):
+        data["repository"] = repository
+    stamp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def same_path(a: str | Path, b: str | Path) -> bool:
@@ -495,92 +493,29 @@ def commands(
     return out
 
 
-# ---- the tools, found ----------------------------------------------------------------------
-
-
-def find_visual_studio() -> Path:
-    """The newest Visual Studio (any edition, Build Tools too) with the C++ x64 tools."""
-    base = os.environ.get("PROGRAMFILES(X86)") or r"C:\Program Files (x86)"
-    vswhere = Path(base) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
-    if not vswhere.is_file():
-        raise BuildError(NO_VISUAL_STUDIO)
-    found = subprocess.run(
-        [str(vswhere), "-latest", "-products", "*", "-requires",
-         "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath"],
-        capture_output=True, text=True,
-    )
-    lines = found.stdout.strip().splitlines()
-    if found.returncode != 0 or not lines:
-        raise BuildError(NO_VISUAL_STUDIO)
-    return Path(lines[0])
-
-
-def msvc_environment(visual_studio: Path) -> dict[str, str]:
-    """The environment vcvars64.bat sets up, read back with `set` (UTF-16, cmd's /u, so any
-    character in a path comes through)."""
-    bat = visual_studio / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
-    if not bat.is_file():
-        raise BuildError(f"{bat} is missing: repair Visual Studio's C++ tools, then build again.")
-    done = subprocess.run(f'cmd /u /s /c ""{bat}" >nul 2>&1 && set"', capture_output=True)
-    env = parse_environment(done.stdout.decode("utf-16-le", errors="replace"))
-    if done.returncode != 0 or "INCLUDE" not in env:
-        raise BuildError(f"{bat} did not set up Visual Studio's environment.")
-    return env
-
-
-def clang_candidates(env: dict[str, str], visual_studio: Path | None) -> list[Path]:
-    """Where Clang is looked for on Windows, in order."""
-    out = []
-    if env.get("OPENRAC_CLANG"):
-        out.append(Path(env["OPENRAC_CLANG"]))
-    for base in (env.get("PROGRAMFILES"), env.get("PROGRAMW6432")):
-        if base:
-            out.append(Path(base) / "LLVM" / "bin" / "clang.exe")
-    if env.get("USERPROFILE"):
-        out.append(Path(env["USERPROFILE"]) / "scoop" / "apps" / "llvm" / "current" / "bin" / "clang.exe")
-    if visual_studio is not None:
-        out.append(visual_studio / "VC" / "Tools" / "Llvm" / "x64" / "bin" / "clang.exe")
-    on_path = shutil.which("clang", path=env.get("PATH"))
-    if on_path:
-        out.append(Path(on_path))
-    return out
-
-
-def find_clang(env: dict[str, str], visual_studio: Path | None) -> tuple[Path, Path]:
-    """Clang and Clang++ (beside it), for a new build folder on Windows."""
-    for clang in clang_candidates(env, visual_studio):
-        if clang.is_file():
-            cxx = clang.with_name("clang++.exe")
-            return clang, cxx if cxx.is_file() else clang
-    raise BuildError(NO_CLANG)
-
-
-def find_program(name: str, *paths: str | None) -> Path | None:
-    for path in paths:
-        if path:
-            found = shutil.which(name, path=path)
-            if found:
-                return Path(found)
-    return None
-
-
-def find_cmake(cache: dict[str, str], *paths: str | None) -> Path:
-    """The CMake that configured the build folder, else the first on these PATHs."""
-    cached = cache.get("CMAKE_COMMAND")
-    if cached and Path(cached).is_file():
-        return Path(cached)
-    found = find_program("cmake", *paths)
-    if found is None:
-        raise BuildError(NO_CMAKE)
-    return found
-
-
 # ---- the build ---------------------------------------------------------------------------
 
 
-def prepare(cache: dict[str, str]) -> tuple[dict[str, str], Path, tuple[str, str, str] | None]:
+def prepare(cache: dict[str, str], *, install_deps: bool = True
+            ) -> tuple[dict[str, str], Path, tuple[str, str, str] | None]:
+    """Install missing Windows tools once each, then recheck before starting the build."""
+    installed: set[str] = set()
+    while True:
+        try:
+            return prepare_tools(cache)
+        except MissingTool as missing:
+            if not WINDOWS or not install_deps:
+                raise
+            if missing.package in installed:
+                raise BuildError(f"Setup finished, but the tool is still unavailable. "
+                                 f"Repair its installation, or restart Windows if the installer asked.\n{missing}") from missing
+            install_windows_tool(missing)
+            installed.add(missing.package)
+
+
+def prepare_tools(cache: dict[str, str]) -> tuple[dict[str, str], Path, tuple[str, str, str] | None]:
     """The environment to build in, CMake, and the compilers to configure a new folder with."""
-    user_path = os.environ.get("PATH")
+    user_path = windows_path() if WINDOWS else os.environ.get("PATH")
     if not WINDOWS:
         if not cache:
             if find_program("ninja", user_path) is None:
@@ -592,6 +527,9 @@ def prepare(cache: dict[str, str]) -> tuple[dict[str, str], Path, tuple[str, str
     visual_studio = find_visual_studio()
     say(f"Visual Studio: {visual_studio}")
     env = msvc_environment(visual_studio)
+    env["PATH"] = os.pathsep.join(filter(None, (env.get("PATH"), user_path)))
+    if find_program("git", env.get("PATH")) is None:
+        raise MissingTool("Git was not found. Install Git for Windows, then build again.", "Git.Git")
     compilers = None
     if "CMAKE_C_COMPILER" in cache:
         clang = Path(cache["CMAKE_C_COMPILER"])
@@ -599,7 +537,7 @@ def prepare(cache: dict[str, str]) -> tuple[dict[str, str], Path, tuple[str, str
         clang, cxx = find_clang(env, visual_studio)
         ninja = find_program("ninja", env.get("PATH"))
         if ninja is None:
-            raise BuildError(NO_NINJA)
+            raise MissingTool(NO_NINJA, "Ninja-build.Ninja")
         compilers = (clang.as_posix(), cxx.as_posix(), ninja.as_posix())
     say(f"Clang: {clang}")
     # hostgen reads the decompilation with the same Clang (port/tools/hostgen/clangast.py).
@@ -632,11 +570,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--probe-baker", action="store_true",
                         help="also build openrac-enhanced-baker, the enhanced lighting's baker, with a pinned Embree "
                              "built from source (kept for later builds; left out with a warning if it fails)")
+    parser.add_argument("--require-baker", action="store_true",
+                        help="--probe-baker, but a baker that cannot be built stops the build (CI)")
     parser.add_argument("--tracy", action="store_true", help="build optional Tracy CPU and Vulkan GPU profiling")
     parser.add_argument("--tracy-system", action="store_true", help="enable Tracy system tracing (implies --tracy)")
     parser.add_argument("--tracy-sampling", action="store_true", help="enable Tracy sampling (implies system tracing)")
     parser.add_argument("--clean", action="store_true",
                         help="delete the build folder first and build everything again (its --source and --disc kept)")
+    parser.add_argument("--no-install-deps", action="store_true",
+                        help="report missing Windows build tools without installing them through WinGet")
     args = parser.parse_args(argv)
     # Whatever the player does comes first; the compilers have the rest of the CPU.
     background.lower_priority()
@@ -669,7 +611,7 @@ def main(argv: list[str] | None = None) -> int:
         remove_tree(build)
         cache = {}
     try:
-        env, cmake, compilers = prepare(cache)
+        env, cmake, compilers = prepare(cache, install_deps=not args.no_install_deps)
     except BuildError as e:
         print(f"error: {e}", file=sys.stderr, flush=True)
         return 1
@@ -681,8 +623,13 @@ def main(argv: list[str] | None = None) -> int:
     python = plain_path(sys.executable).as_posix()
     more = list(args.target)
     defines: dict[str, str] = {}
-    if args.probe_baker or cache.get("OPENRAC_PROBE_BAKER") == "ON" or kept.get("OPENRAC_PROBE_BAKER") == "ON":
-        defines, baker = probe_baker(str(cmake), env, compilers, cache)
+    if (args.probe_baker or args.require_baker or cache.get("OPENRAC_PROBE_BAKER") == "ON"
+            or kept.get("OPENRAC_PROBE_BAKER") == "ON"):
+        try:
+            defines, baker = probe_baker(str(cmake), env, compilers, cache, required=args.require_baker)
+        except BuildError as e:
+            print(f"error: {e}", file=sys.stderr, flush=True)
+            return 1
         more += baker
         kept.pop("OPENRAC_PROBE_BAKER", None)
     defines.update({
@@ -693,7 +640,7 @@ def main(argv: list[str] | None = None) -> int:
     for command in commands(str(cmake), args.preset, build, names, source, cache, compilers, python, more,
                             disc, kept, defines):
         say("> " + " ".join(f'"{part}"' if " " in part else part for part in command))
-        status = subprocess.run(command, cwd=PORT, env=env).returncode
+        status = proc.run(command, cwd=PORT, env=env, check=False, brief=True).returncode
         if status != 0:
             print(f"error: the build stopped ({Path(command[0]).name} {command[1]} exited with {status})",
                   file=sys.stderr, flush=True)
@@ -708,7 +655,10 @@ def main(argv: list[str] | None = None) -> int:
         try:
             copy_licenses(build)
         except (BuildError, OSError) as e:
-            print(f"warning: {e}", file=sys.stderr, flush=True)
+            # A baker passed on without Embree's license breaks its terms: CI stops there.
+            print(f"{'error' if args.require_baker else 'warning'}: {e}", file=sys.stderr, flush=True)
+            if args.require_baker:
+                return 1
         say(f"built {(build / (BAKER + suffix)).relative_to(ROOT).as_posix()}")
     return 0
 

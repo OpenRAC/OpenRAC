@@ -6,7 +6,10 @@
 #include <cmath>
 #include <utility>
 
+#include "debug/menu_ui.h"
 #include "debug/overlay.h"
+#include "frontend.h"
+#include "platform/input.h"
 
 namespace openrac::frontend::debug_overlay {
 namespace {
@@ -121,16 +124,43 @@ void camera_debug_event(const SDL_Event& event) {
     }
 }
 
-// Samples the display clock and controls once before the scene handoff.
-CameraDebugFrame camera_debug_frame() {
-    CameraDebugFrame result;
+namespace {
+std::optional<CameraDebugPlacement> review_placement;
+std::uint64_t placement_serial = 0;
+}  // namespace
+
+void place_review_camera(int level, scene::Vec3 position, scene::Vec3 forward) {
+    s.camera_tools.enabled = true;
+    s.camera_tools.mode = CameraDebugMode::FreeLook;
+    review_placement = CameraDebugPlacement{level, position, forward, ++placement_serial};
+}
+
+// L3+R3 on a gamepad turns freecam on (developer mode only, so a player's stray press does
+// not) and off. Checked where the window samples the freecam and before the game reads its pad,
+// so whichever comes first in a frame sees it. What is held then (L3 and R3 too) is held back from
+// the game until let go: R3 opens the map, L3 shows the health and bolts. R3 alone reaches
+// the game as before, with no wait, so an R3 pressed a frame before L3 still opens the map.
+void camera_pad_chord() {
+    // A player's game (no developer mode, no freecam) reads nothing more.
+    if (!s.developer && !s.camera_tools.enabled) {
+        s.camera_pad_chord = false;
+        return;
+    }
     const bool focused = s.window && SDL_GetKeyboardFocus() == s.window;
-    const bool typing = ImGui::GetCurrentContext() && ImGui::GetIO().WantTextInput;
-    // L3+R3 on a gamepad turns freecam on (developer mode only, so a player's stray press does
-    // not) and off. The game still sees the press that turns it on.
-    const bool chord = focused && !s.menu_open && pad_chord_held();
-    if (chord && !s.camera_pad_chord && (s.developer || s.camera_tools.enabled)) {
+    // The menu's own button may be L3 or R3: its press opened the menu, the chord closes it.
+    const SDL_GamepadButton menu = menu_bar_button();
+    const bool menu_ours =
+        menu == SDL_GAMEPAD_BUTTON_LEFT_STICK || menu == SDL_GAMEPAD_BUTTON_RIGHT_STICK;
+    const bool chord = focused && (!s.menu_open || menu_ours) && pad_chord_held();
+    if (chord && !s.camera_pad_chord) {
+        if (s.menu_open) {
+            set_menu(false);  // holds back what is held, as below
+        }
         s.camera_tools.enabled = !s.camera_tools.enabled;
+        if (platform::Input* input = frontend::input()) {
+            input->hold_back_held();
+            input->refresh_pads();  // the pads already read this frame held the chord
+        }
         notify({
             .id = "freecam",
             .title = s.camera_tools.enabled ? "Freecam on" : "Freecam off",
@@ -139,7 +169,19 @@ CameraDebugFrame camera_debug_frame() {
         });
     }
     s.camera_pad_chord = chord;
+}
+
+// Samples the display clock and controls once before the scene handoff.
+CameraDebugFrame camera_debug_frame() {
+    CameraDebugFrame result;
+    const bool focused = s.window && SDL_GetKeyboardFocus() == s.window;
+    const bool typing = ImGui::GetCurrentContext() && ImGui::GetIO().WantTextInput;
+    camera_pad_chord();
     result.settings = s.camera_tools;
+    if (!result.settings.enabled) {
+        review_placement.reset();
+    }
+    result.placement = review_placement;
     result.reset = std::exchange(s.camera_reset, false);
     // Ordinary player frames do not sample extra input or update a developer camera clock.
     if (!result.settings.enabled && !result.reset) {

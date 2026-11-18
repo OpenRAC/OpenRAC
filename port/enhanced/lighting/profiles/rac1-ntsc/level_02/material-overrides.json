@@ -1,0 +1,337 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "aridia-green-ship-light",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 55,
+        "texture_path": "textures/terrain_0040.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            0.0947129875,
+            0.784537315,
+            0.247318104
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-green-terrain-grid-light",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 64,
+        "texture_path": "textures/terrain_0042.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            0.144957602,
+            4.15643406,
+            0.555377781
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-green-terrain-strip-light",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 24,
+        "texture_path": "textures/terrain_0039.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            0.0955752581,
+            0.32679221,
+            0.398014814
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-yellow-low-fixture-lights",
+      "match": {
+        "model": "tie_1411.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0039.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/yellow-light-emission.png",
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 140,
+          "bake_mesh_rgb": [
+            20.1528358,
+            7.19730759,
+            67.7957611
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-yellow-shaft-lights",
+      "match": {
+        "model": "tie_628.glb",
+        "material_slot": 1,
+        "texture_path": "textures/tie_0039.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/yellow-light-emission.png",
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 140,
+          "bake_mesh_rgb": [
+            2.59182286,
+            3.83085465,
+            3.74750972
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-lower-column-light-panels",
+      "match": {
+        "model": "tie_1415.glb",
+        "material_slot": 1,
+        "texture_path": "textures/tie_0089.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            2.49159932,
+            7.64600134,
+            7.81914711
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-lower-column-light-trim",
+      "match": {
+        "model": "tie_1415.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0042.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            1.90348685,
+            3.98555851,
+            4.90695429
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-blue-column-light",
+      "match": {
+        "model": "tie_603.glb",
+        "material_slot": 3,
+        "texture_path": "textures/tie_0089.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            2.57976007,
+            7.70119619,
+            7.87193537
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-green-fixture-lights",
+      "match": {
+        "model": "tie_1414.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0042.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 2.25,
+          "bake_intensity": 15,
+          "bake_mesh_rgb": [
+            0.364500999,
+            7.01109123,
+            1.59290397
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-small-green-fixture-lights",
+      "match": {
+        "model": "tie_1412.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0042.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 2.25,
+          "bake_intensity": 15,
+          "bake_mesh_rgb": [
+            0.65205735,
+            12.524024,
+            3.09996462
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-yellow-fixture-lights",
+      "match": {
+        "model": "tie_626.glb",
+        "material_slot": 1,
+        "texture_path": "textures/tie_0039.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/yellow-light-emission.png",
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            0.339224398,
+            0.386782974,
+            0.349513322
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-cyan-floor-light",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 65,
+        "texture_path": "textures/terrain_0058.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            0.0978967249,
+            0.645263553,
+            0.742421925
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-red-ring",
+      "match": {
+        "model": "tie_596.glb",
+        "material_slot": 4,
+        "texture_path": "textures/tie_0090.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/red-ring-emission.png",
+          "runtime_intensity": 1,
+          "bake_intensity": 30,
+          "bake_mesh_rgb": [
+            1.6738013,
+            0.00306719961,
+            0.00188238255
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "aridia-lower-red-ring",
+      "match": {
+        "model": "tie_597.glb",
+        "material_slot": 1,
+        "texture_path": "textures/tie_0090.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/red-ring-emission.png",
+          "runtime_intensity": 1,
+          "bake_intensity": 30,
+          "bake_mesh_rgb": [
+            1.69042075,
+            0.00309799658,
+            0.00190150097
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_231.glb-0",
+      "match": {
+        "model": "shrub_231.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0045.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.338977724,
+            0.00960938167,
+            0.00018581537
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_231.glb-1",
+      "match": {
+        "model": "shrub_231.glb",
+        "material_slot": 1,
+        "texture_path": "textures/shrub_0046.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.195653021,
+            0.00407415628,
+            0.000100937592
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    }
+  ]
+}

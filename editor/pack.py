@@ -127,8 +127,10 @@ def read_scene_nodes(text: str, parent: str, kind: str) -> list[dict]:
             else:
                 try:
                     number = float(value)
-                    node["meta"][name] = int(number) if number == int(number) and "." not in value else number
-                except (ValueError, OverflowError):     # text (a link's target) or not finite: gamedata.py's
+                    # Godot writes an infinite float as inf (Going Commando's rooted_distance).
+                    node["meta"][name] = (number if not math.isfinite(number) or "." in value
+                                          or number != int(number) else int(number))
+                except ValueError:      # text (a link's target): gamedata.py's
                     node["meta"][name] = value
     return nodes
 
@@ -211,12 +213,14 @@ def virtual_range(next_sector: list[int], count: int) -> int:
     return first
 
 
-def apply(node: dict, record: dict, original: dict | None, whole: bool, problems: list[str]) -> list[str]:
+def apply(node: dict, record: dict, original: dict | None, whole: bool, problems: list[str],
+          usual_values: dict = USUAL) -> list[str]:
     """Writes a scene node's placement, class and values into RECORD (a moby's fields). ORIGINAL is
     the moby the node was extracted from, when RECORD is still that moby's: what the scene has
     as the extractor wrote it is then left alone. WHOLE says the node lists every value that is
     not the usual one (a node the extractor wrote, or Godot's copy of one), so a value it does
-    not list is the usual one. Returns what changed, in words."""
+    not list is the usual one (USUAL_VALUES: the game's record's, Ratchet & Clank's by default).
+    Returns what changed, in words."""
     edits = []
     if original is None or not same(node["transform"], scene_transform(original["matrix"])):
         (x, y, z), (rx, ry, rz), scale = placement(node["transform"])
@@ -235,10 +239,10 @@ def apply(node: dict, record: dict, original: dict | None, whole: bool, problems
                 record[key] = meta[key]
         if "colour" in meta:
             record["r"], record["g"], record["b"] = meta["colour"]
-        for key, usual in USUAL.items():
+        for key, usual in usual_values.items():
             if whole or key in meta:
                 record[key] = meta.get(key, usual)
-        unknown = sorted(set(meta) - set(ALWAYS) - set(USUAL) - {"colour"})
+        unknown = sorted(set(meta) - set(ALWAYS) - set(usual_values) - {"colour"})
         if unknown:
             problems.append(f"{node['name']}: no such value: rc1_{', rc1_'.join(unknown)}")
         edits.append("values")

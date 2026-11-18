@@ -115,6 +115,8 @@ bool motion_blur_controls(settings::Settings& graphics) {
         "Strength", &graphics.motion_blur_strength, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
     );
     control_tip("Exposure strength. 0.5 is a 1/120-second exposure; 1 is 1/60 second.");
+    changed |= checkbox("Quality##motion_blur", &blur.quality);
+    control_tip("Finds trails at full resolution; off (Performance) searches a half-size grid.");
     if (ImGui::TreeNode("Advanced##motion_blur")) {
         changed |= slider_float(
             "Cutscene multiplier",
@@ -199,7 +201,7 @@ void ocean_material_controls() {
         ImGuiSliderFlags_AlwaysClamp
     );
     // Reset takes precedence if the user edited another control on the same frame.
-    if (ImGui::Button("Reset ocean material to level profile")) {
+    if (ImGui::Button("Reset ocean material to authored defaults")) {
         enhanced::reset_ocean_material();
         return;
     }
@@ -359,7 +361,7 @@ void water_controls() {
     }
     ImGui::EndDisabled();
     if (!enhanced::water_available()) {
-        ImGui::TextDisabled("A valid Novalis water bake is required.");
+        ImGui::TextDisabled("A valid water bake is required.");
     }
 }
 
@@ -422,7 +424,7 @@ void enhanced_settings_window() {
         return;
     }
     ImGui::SetNextWindowSize(ImVec2(dp(490), dp(660)), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Enhanced Settings", &s.enhanced_settings)) {
+    if (!ImGui::Begin("Enhanced Developer Settings###Enhanced Settings", &s.enhanced_settings)) {
         ImGui::End();
         return;
     }
@@ -472,6 +474,12 @@ void enhanced_settings_window() {
             graphics.texture_filter = static_cast<renderer::TextureFilter>(texture_filter);
             changed = true;
         }
+        int effects_detail = static_cast<int>(graphics.effects_detail);
+        if (combo("Effects detail", &effects_detail, "Low\0Medium\0High\0")) {
+            graphics.effects_detail =
+                static_cast<renderer::render_opt::EffectsDetail>(effects_detail);
+            changed = true;
+        }
         ImGui::BeginDisabled(!enhanced::Fsr3::available());
         int temporal_quality = static_cast<int>(graphics.temporal_quality);
         if (combo(
@@ -485,7 +493,10 @@ void enhanced_settings_window() {
         }
         ImGui::EndDisabled();
 
-        ImGui::BeginDisabled(!enhanced::Fsr3::available());
+        ImGui::BeginDisabled(
+            !enhanced::Fsr3::available()
+            || graphics.temporal_quality == renderer::TemporalQuality::Off
+        );
         changed |= slider_float(
             "Upscaling sharpening",
             &graphics.temporal_sharpness,
@@ -498,33 +509,33 @@ void enhanced_settings_window() {
         if (ImGui::Button("Reset image quality")) {
             const settings::Settings defaults;
             graphics.texture_filter = defaults.texture_filter;
+            graphics.effects_detail = defaults.effects_detail;
             graphics.temporal_quality = defaults.temporal_quality;
             graphics.temporal_sharpness = defaults.temporal_sharpness;
             changed = true;
         }
     }
     if (ImGui::CollapsingHeader("Lighting & shadows", ImGuiTreeNodeFlags_DefaultOpen)) {
-        changed |= checkbox("Modern shadows", &graphics.enhanced_shadows);
-        ImGui::BeginDisabled(!graphics.enhanced_shadows);
-        int shadow_quality = static_cast<int>(graphics.shadow_quality);
+        int shadow_quality = graphics.shadow_quality_choice();
+        if (combo("Shadow quality", &shadow_quality, "Off\0Low\0Medium\0High\0")) {
+            graphics.set_shadow_quality_choice(shadow_quality);
+            changed = true;
+        }
+        int shadow_filter = static_cast<int>(graphics.shadow_filter);
         if (combo(
-                "Shadow quality",
-                &shadow_quality,
-                renderer::kShadowQualityNames,
-                static_cast<int>(renderer::ShadowQuality::Count)
+                "Shadow filtering",
+                &shadow_filter,
+                renderer::kShadowFilterNames,
+                static_cast<int>(renderer::ShadowFilter::Count)
             )) {
-            graphics.shadow_quality = static_cast<renderer::ShadowQuality>(shadow_quality);
+            graphics.shadow_filter = static_cast<renderer::ShadowFilter>(shadow_filter);
             changed = true;
         }
-        ImGui::EndDisabled();
-        changed |= checkbox("Ambient occlusion", &graphics.gtao);
-        ImGui::BeginDisabled(!graphics.gtao);
-        int quality = static_cast<int>(graphics.gtao_settings.quality);
-        if (combo("Occlusion quality", &quality, "Performance\0Quality\0")) {
-            graphics.gtao_settings.quality = static_cast<renderer::GtaoQuality>(quality);
+        int quality = graphics.occlusion_quality_choice();
+        if (combo("Occlusion quality", &quality, "Off\0Low\0Performance\0Quality\0")) {
+            graphics.set_occlusion_quality_choice(quality);
             changed = true;
         }
-        ImGui::EndDisabled();
         if (ImGui::TreeNode("Advanced##occlusion")) {
             ImGui::BeginDisabled(!graphics.gtao);
             gtao_controls();
@@ -539,51 +550,6 @@ void enhanced_settings_window() {
             "%.2fx",
             ImGuiSliderFlags_AlwaysClamp
         );
-        changed |= checkbox("Gameplay rim light", &graphics.rim_light);
-        if (ImGui::TreeNode("Advanced##rim")) {
-            ImGui::BeginDisabled(!graphics.rim_light);
-            changed |= slider_float(
-                "Rim strength",
-                &graphics.rim_light_strength,
-                0,
-                1,
-                "%.2f",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            changed |= slider_float(
-                "Rim falloff",
-                &graphics.rim_light_falloff,
-                1,
-                8,
-                "%.2f",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            changed |= checkbox("Rim shadow lift", &graphics.rim_shadow_lift);
-            ImGui::BeginDisabled(!graphics.rim_shadow_lift);
-            changed |= slider_float(
-                "Lift exponent",
-                &graphics.rim_lift_exponent,
-                0.01f,
-                1,
-                "%.2f",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            changed |= slider_float(
-                "Maximum lift gain",
-                &graphics.rim_lift_max_gain,
-                1,
-                16,
-                "%.2fx",
-                ImGuiSliderFlags_AlwaysClamp
-            );
-            ImGui::EndDisabled();
-            control_tip(
-                "Higher falloff narrows the edge. Lower lift exponents brighten dim surroundings, "
-                "preserving the local bounced-light colour. Exponent 1 leaves brightness unchanged."
-            );
-            ImGui::EndDisabled();
-            ImGui::TreePop();
-        }
         if (ImGui::TreeNode("Main light direction")) {
             changed |= checkbox("Override light direction", &graphics.sun_direction_override);
             ImGui::BeginDisabled(!graphics.sun_direction_override);
@@ -616,6 +582,20 @@ void enhanced_settings_window() {
             );
             ImGui::TreePop();
         }
+        if (ImGui::TreeNode("Nanotech orb lights (Ratchet & Clank 1)")) {
+            auto& light = graphics.nanotech_light;
+            changed |= checkbox("Nanotech orb lights", &light.enabled);
+            ImGui::BeginDisabled(!light.enabled);
+            changed |= colour_edit("Colour (linear RGB)", light.colour.data());
+            changed |= slider_float(
+                "Brightness", &light.brightness, 0.0f, 8.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp
+            );
+            changed |= slider_float(
+                "Range", &light.range, 0.1f, 12.0f, "%.2f units", ImGuiSliderFlags_AlwaysClamp
+            );
+            ImGui::EndDisabled();
+            ImGui::TreePop();
+        }
         if (ImGui::Button("Reset lighting and shadows")) {
             const settings::Settings defaults;
             graphics.enhanced_shadows = defaults.enhanced_shadows;
@@ -623,12 +603,7 @@ void enhanced_settings_window() {
             graphics.gtao = defaults.gtao;
             graphics.gtao_settings = defaults.gtao_settings;
             graphics.probe_gi_multiplier = defaults.probe_gi_multiplier;
-            graphics.rim_light = defaults.rim_light;
-            graphics.rim_light_strength = defaults.rim_light_strength;
-            graphics.rim_light_falloff = defaults.rim_light_falloff;
-            graphics.rim_shadow_lift = defaults.rim_shadow_lift;
-            graphics.rim_lift_exponent = defaults.rim_lift_exponent;
-            graphics.rim_lift_max_gain = defaults.rim_lift_max_gain;
+            graphics.nanotech_light = defaults.nanotech_light;
             graphics.sun_direction_override = defaults.sun_direction_override;
             graphics.sun_azimuth = defaults.sun_azimuth;
             graphics.sun_elevation = defaults.sun_elevation;
@@ -636,6 +611,29 @@ void enhanced_settings_window() {
         }
     }
     if (ImGui::CollapsingHeader("Post processing")) {
+        ImGui::SeparatorText("Bloom");
+        auto& bloom = graphics.bloom;
+        changed |= checkbox("Bloom", &bloom.enabled);
+        ImGui::BeginDisabled(!bloom.enabled);
+        changed |= slider_float(
+            "Bloom strength", &bloom.strength, 0, 1, "%.3f", ImGuiSliderFlags_AlwaysClamp
+        );
+        changed |= slider_float(
+            "Bloom threshold", &bloom.threshold, 0, 4, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        control_tip("Brightness needed for a surface to contribute to the glow.");
+        changed |= slider_float(
+            "Bloom soft knee", &bloom.knee, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        control_tip("Softens the transition around the brightness threshold.");
+        changed |= slider_float(
+            "Bloom spread", &bloom.scatter, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        ImGui::EndDisabled();
+        if (ImGui::Button("Reset bloom")) {
+            bloom = {};
+            changed = true;
+        }
         ImGui::SeparatorText("AgX");
         changed |= checkbox("AgX", &graphics.agx_preview);
         control_tip(
@@ -660,12 +658,6 @@ void enhanced_settings_window() {
         changed |= motion_blur_controls(graphics);
     }
     if (ImGui::CollapsingHeader("Materials & water")) {
-        if (ImGui::Button("Material inspector")) {
-            s.material_settings = true;
-        }
-        ImGui::TextDisabled(
-            "Shared JSON materials: foliage, emission, reflections, fur and wetness."
-        );
         if (ImGui::TreeNode("Ratchet fur geometry")) {
             fur_shell_controls();
             ImGui::TreePop();

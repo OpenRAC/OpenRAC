@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "textures": [
+    {
+      "output": "deck-light-emission.png",
+      "mask": "deck-light-mask.png",
+      "mode": "solid",
+      "colour": [
+        255,
+        255,
+        0
+      ]
+    },
+    {
+      "output": "red-orange-panel-emission.png",
+      "mask": "red-orange-panel-mask.png",
+      "mode": "source",
+      "source": "textures/terrain_0022.png",
+      "gain": 1.45
+    },
+    {
+      "output": "green-floor-panel-emission.png",
+      "mask": "green-floor-panel-mask.png",
+      "mode": "source",
+      "source": "textures/terrain_0065.png"
+    },
+    {
+      "output": "cyan-ceiling-emission.png",
+      "mask": "cyan-ceiling-mask.png",
+      "mode": "source",
+      "source": "textures/tie_0055.png"
+    }
+  ]
+}

@@ -53,7 +53,7 @@ Two independent reasons.
 | | |
 |---|---|
 | **No loading.** | The port reads no disc at runtime. The console's loading costs a PS2 run around eight minutes (<https://www.speedrun.com/rac1/guides/gnz18>). |
-| **60 Hz on PAL.** | The port runs the PAL game at 60 Hz (`port/game/common/main.cpp:138-142`); a PAL console runs it at 50 Hz. The game's own logic takes a different branch (`SetVideoModeTiming`, `games/rac1/src/game/mobyutil.c:1115-1136`) and different tricks become possible — the community's version-differences note says the Orxon 1 Clank proxy cannot be done at 50 Hz. |
+| **60 Hz on PAL.** | The port runs the PAL game at 60 Hz (`port/game/common/main.cpp:138-142`); a PAL console runs it at 50 Hz. The game's own logic takes a different branch (`SetVideoModeTiming`, `games/rac1/decomp/src/game/mobyutil.c:1115-1136`) and different tricks become possible — the community's version-differences note says the Orxon 1 Clank proxy cannot be done at 50 Hz. |
 | **The build is a different program.** | OpenRAC is a decompilation recompiled for the PC, not the retail program. It is a different executable with the same behaviour, and the community's rule is about the game, not the executable. |
 
 So a port run is not a faster console run. It is a different race.

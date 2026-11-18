@@ -294,12 +294,12 @@ class BootstrapTests(TempDir):
 # ---- games ----
 
 RAC8 = {"id": "rac8", "title": "Eight", "versions": {
-    "pal": {"serial": "SCES_888.88", "region": "PAL", "dir": "games/rac8", "source": {"checkout": "~/x"},
+    "pal": {"serial": "SCES_888.88", "region": "PAL", "dir": "games/rac8", "source": {"name": "x"},
             "xmap": {"code": []}},
     "ntsc": {"serial": "SCUS_888.88", "region": "NTSC-U"},
 }}
 RAC9 = {"id": "rac9", "title": "Nine", "versions": {
-    "ntsc": {"serial": "SCUS_999.99", "region": "NTSC-U", "source": {"checkout": "~/y"}},
+    "ntsc": {"serial": "SCUS_999.99", "region": "NTSC-U", "source": {"name": "y"}},
 }}
 
 
@@ -328,31 +328,25 @@ class GamesTests(TempDir):
     def test_source_variable_is_the_game_and_version_in_capitals(self):
         self.assertEqual(games.source_variable("rac1", "pal"), "OPENRAC_SOURCE_RAC1_PAL")
 
-    def test_source_checkout_is_the_variable_else_game_json(self):
+    def test_source_checkout_is_the_variable_else_the_submodule(self):
         with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC8_PAL": "/elsewhere"}):
             self.assertEqual(games.source_checkout("rac8", "pal", self.dir), Path("/elsewhere"))
-        # Not set, and set but empty, both fall back to game.json's path with ~ expanded.
+        # Not set, and set but empty, both give the version's own directory (its submodule).
         with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC8_PAL": ""}):
-            self.assertEqual(games.source_checkout("rac8", "pal", self.dir), Path(os.path.expanduser("~/x")))
+            self.assertEqual(games.source_checkout("rac8", "pal", self.dir), self.dir / "games/rac8")
             del os.environ["OPENRAC_SOURCE_RAC8_PAL"]
-            self.assertEqual(games.source_checkout("rac8", "pal", self.dir), Path(os.path.expanduser("~/x")))
+            self.assertEqual(games.source_checkout("rac8", "pal", self.dir), self.dir / "games/rac8")
+        self.assertIsNone(games.source_checkout("rac8", "ntsc", self.dir))
 
-    def test_a_relative_checkout_is_written_from_the_top_of_openrac(self):
-        manifest = self.dir / "games/rac8/game.json"
+    def test_a_shared_source_is_the_checkout_of_the_version_it_shares(self):
+        manifest = self.dir / "games/rac9/game.json"
         data = json.loads(manifest.read_text())
-        data["versions"]["pal"]["source"]["checkout"] = "../rac8-decomp"
+        data["versions"]["pal"] = {"serial": "SCES_999.99", "source": {"shared": "ntsc"}}
         manifest.write_text(json.dumps(data))
-        with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC8_PAL": ""}):
-            self.assertEqual(games.source_checkout("rac8", "pal", self.dir), (self.dir / "../rac8-decomp").resolve())
-            # The same from any working directory: the path is the manifest's, not the caller's.
-            here = os.getcwd()
-            try:
-                os.chdir(self.dir / "games")
-                self.assertEqual(
-                    games.source_checkout("rac8", "pal", self.dir), (self.dir / "../rac8-decomp").resolve()
-                )
-            finally:
-                os.chdir(here)
+        with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC9_NTSC": "", "OPENRAC_SOURCE_RAC9_PAL": "/ignored"}):
+            self.assertEqual(games.source_checkout("rac9", "pal", self.dir), self.dir / "games/rac9/ntsc")
+        with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC9_NTSC": "/mine"}):
+            self.assertEqual(games.source_checkout("rac9", "pal", self.dir), Path("/mine"))
 
     def test_source_checkout_is_none_without_a_source_even_with_the_variable(self):
         with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC8_NTSC": "/elsewhere"}):
@@ -612,6 +606,26 @@ class ProcTests(TempDir):
     def test_run_captures_text_and_replaces_bad_bytes(self):
         done = proc.run([sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'ok \\xff')"], capture=True)
         self.assertEqual(done.stdout, "ok \ufffd")
+
+    def test_brief_lines_keep_errors_and_shorten_compiles(self):
+        lines = ["-- The C compiler identification is Clang", "[1/100] Building C object a.o",
+                 "[5/100] Building CXX object b.o", "[11/100] hostgen: rac2-pal", "x.c:1:2: error: e",
+                 "FAILED: a.o", "[100/100] Linking CXX executable openrac"]
+        self.assertEqual(list(proc.brief_lines(lines)), [
+            "[  1%] 1/100 steps", "[11/100] hostgen: rac2-pal", "x.c:1:2: error: e", "FAILED: a.o",
+            "[100/100] Linking CXX executable openrac", "(1 CMake status lines left out: OPENRAC_BUILD_LOG=brief)"])
+
+    def test_run_brief_only_under_the_variable(self):
+        code = "print('-- status'); print('[1/2] Building C object a.o'); print('kept'); raise SystemExit(2)"
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {"OPENRAC_BUILD_LOG": "brief"}), contextlib.redirect_stdout(out):
+            done = proc.run([sys.executable, "-c", code], check=False, brief=True)
+        self.assertEqual(done.returncode, 2)
+        self.assertEqual(out.getvalue().splitlines(),
+                         ["[ 50%] 1/2 steps", "kept", "(1 CMake status lines left out: OPENRAC_BUILD_LOG=brief)"])
+        with mock.patch.dict(os.environ, {"OPENRAC_BUILD_LOG": "brief"}), contextlib.redirect_stdout(io.StringIO()), \
+                self.assertRaises(subprocess.CalledProcessError):
+            proc.run([sys.executable, "-c", code], brief=True)
 
     @unittest.skipUnless(shutil.which("git"), "git is not installed")
     def test_git_reads_and_fcheck_gates_commit(self):

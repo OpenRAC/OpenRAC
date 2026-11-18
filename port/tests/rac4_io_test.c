@@ -16,8 +16,11 @@ int func_0013B810(int, int);
 int func_0013BA20(int, int, int);
 int func_0013BA98(int, int);
 int func_0013BBD0(int, int);
+int func_0013BC30(int, int, int, int);
 int func_0013BD50(int, int, int, int);
 int func_0013BE88(int, int, int, int);
+int func_0013BF40(int, int, int);
+int func_0013C008(int, int, int);
 int func_0013C210(int, int);
 int func_00158A30(int, int, int);
 int func_00158C60(int, int, int, int);
@@ -28,6 +31,7 @@ static uint16_t sample_buttons = 0xFFFF;
 static const uint8_t sample_sticks[4] = {17, 34, 51, 68};
 static int sample_connected = 1;
 static int sound_starts, sound_commands;
+static int motor_port = -1, motor_small = -1, motor_large = -1;
 
 static void check(int ok, int line) {
     if (!ok) {
@@ -41,6 +45,12 @@ int openrac_game_pad(int port, uint16_t *buttons, uint8_t analog[4]) {
     *buttons = sample_buttons;
     memcpy(analog, sample_sticks, sizeof sample_sticks);
     return port == 0 && sample_connected;
+}
+
+void openrac_game_set_motors(int port, int small, int large) {
+    motor_port = port;
+    motor_small = small;
+    motor_large = large;
 }
 
 void openrac_game_pad_after_mods(int port, uint8_t *report, int size) {
@@ -105,6 +115,21 @@ int main(void) {
         }
         CHECK(memory[15] == 0xA5 && memory[48] == 0xA5);
     }
+    /* The motors: two, aligned by the game, sent through the window. */
+    CHECK(func_0013BC30(0, 0, -1, 0) == 2);
+    CHECK(func_0013BC30(0, 0, 2, 0) == 0);
+    static const uint8_t align[6] = {0, 1, 0xFF, 0xFF, 0xFF, 0xFF};
+    memcpy(memory, align, sizeof align);
+    CHECK(func_0013C008(0, 0, 0) == 0); /* no table */
+    memcpy(memory + 8, align, sizeof align);
+    CHECK(func_0013C008(0, 0, 8) == 1);
+    static const uint8_t act[6] = {1, 200, 0, 0, 0, 0};
+    memcpy(memory + 8, act, sizeof act);
+    CHECK(func_0013BF40(0, 0, 8) == 1);
+    CHECK(motor_port == 0 && motor_small == 1 && motor_large == 200);
+    memset(memory + 8, 0, 6);
+    CHECK(func_0013BF40(0, 0, 8) == 1);
+    CHECK(motor_small == 0 && motor_large == 0);
     sample_connected = 0;
     memset(packet, 0xA5, 32);
     CHECK(func_0013BA98(0, 0) == 0 && func_0013BBD0(0, 0) == 1);

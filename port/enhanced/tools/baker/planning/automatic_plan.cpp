@@ -14,6 +14,7 @@
 #include "enhanced/tools/baker/pipeline/coordinator_protocol.h"
 #include "enhanced/tools/baker/pipeline/pipeline_internal.h"
 #include "enhanced/tools/baker/planning/final_plan.h"
+#include "enhanced/tools/baker/sources/interior_inputs.h"
 
 namespace openrac::lighting {
 namespace {
@@ -88,7 +89,9 @@ Result<std::string> automatic_plan(
             }
         }
 
-        const auto gameplay = options.level_directory / "bake-inputs/gameplay.bin";
+        const auto gameplay = bake_input(
+            options.level_directory / "bake-inputs/gameplay.bin", options.level_overrides
+        );
         const auto whitelist = profiles / manifest["game"].string() / "moby-seeds.json";
         bake_json::Object request{
             {"coarse", coarse},
@@ -96,8 +99,11 @@ Result<std::string> automatic_plan(
             {"scene_hash",
              pipeline::parsed(coordinator_string(std::to_string(options.scene_hash)))},
             {"profile", pipeline::parsed(describe_level_bake_profile(profile))},
-            {"region_settings", pipeline::region_settings(options.level_directory)},
+            {"region_settings",
+             pipeline::region_settings(options.level_directory, options.level_overrides)},
             {"whitelist", pipeline::parsed(coordinator_string(whitelist.string()))},
+            {"level_overrides",
+             pipeline::parsed(coordinator_string(options.level_overrides.string()))},
             {"gameplay",
              pipeline::parsed(coordinator_string(
                  !manifest["collision"].is_null() && std::filesystem::is_regular_file(gameplay)

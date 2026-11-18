@@ -22,6 +22,7 @@
 #include "lua.h"
 #include "luacode.h"
 #include "lualib.h"
+#include "mod_touch.h"
 #include "openrac/guest.h"
 #include "openrac/keys.h"
 
@@ -561,6 +562,23 @@ void pad_callback(void* user, int port, std::uint8_t* report, int size) {
     lua_unref(T, ref);
 }
 
+// The mod's settings changed in the launcher's list (interface 1.15): the script's copy read again
+// from the loader's, then its function.
+void settings_callback(void* user) {
+    auto* c = static_cast<Callback*>(user);
+    State* s = c->state;
+    if (s->stopped) {
+        return;
+    }
+    if (s->services.settings_of != nullptr) {
+        if (const auto* now = s->services.settings_of(s->mod.handle); now != nullptr) {
+            s->mod.settings = *now;
+        }
+    }
+    lua_getref(s->T, c->fn);
+    call(s, 0, 0, "on_settings");
+}
+
 int add_callback(lua_State* L, bool pad) {
     State* s = state_of(L);
     luaL_checktype(L, 1, LUA_TFUNCTION);
@@ -583,6 +601,29 @@ int add_callback(lua_State* L, bool pad) {
 
 int api_on_frame(lua_State* L) {
     return add_callback(L, false);
+}
+
+// openrac.on_settings(fn) (interface 1.15): fn after the launcher changed the mod's settings.
+int api_on_settings(lua_State* L) {
+    State* s = state_of(L);
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    if (!s->loading) {
+        luaL_error(L, "callbacks are set while the mod's scripts first run");
+    }
+    if (s->services.on_settings == nullptr) {
+        luaL_error(L, "this OpenRAC cannot tell a mod of its settings' changes");
+    }
+    auto c = std::make_unique<Callback>();
+    c->state = s;
+    lua_pushvalue(L, 1);
+    c->fn = lua_ref(L, -1);
+    lua_pop(L, 1);
+    if (const int result = s->services.on_settings(s->mod.handle, settings_callback, c.get());
+        result != OPENRAC_HOOK_OK) {
+        luaL_error(L, "the callback was refused (%d)", result);
+    }
+    s->callbacks.push_back(std::move(c));
+    return 0;
 }
 int api_on_pad(lua_State* L) {
     return add_callback(L, true);
@@ -633,6 +674,53 @@ int api_setting(lua_State* L) {
             lua_pushlstring(L, v.s.data(), v.s.size());
             break;
     }
+    return 1;
+}
+
+// openrac.set_setting(key, value) (interface 1.15): the setting set for this run and in the
+// launcher's list, by its type in the manifest; true when it is one the mod declares and the value
+// one it takes.
+int api_set_setting(lua_State* L) {
+    State* s = state_of(L);
+    const char* key = luaL_checkstring(L, 1);
+    luaL_checkany(L, 2);
+    const auto it = s->mod.settings.find(key);
+    int result = OPENRAC_HOOK_UNKNOWN;
+    if (it != s->mod.settings.end() && s->services.setting_set_bool != nullptr) {
+        switch (it->second.type) {
+            case SettingType::Bool:
+                if (lua_isboolean(L, 2)) {
+                    result = s->services.setting_set_bool(s->mod.handle, key, lua_toboolean(L, 2));
+                }
+                break;
+            case SettingType::Int:
+                if (lua_type(L, 2) == LUA_TNUMBER) {
+                    const double n = lua_tonumber(L, 2);
+                    if (std::floor(n) == n && std::fabs(n) < 9.0e15) {
+                        result = s->services.setting_set_int(
+                            s->mod.handle, key, static_cast<std::int64_t>(n)
+                        );
+                    }
+                }
+                break;
+            case SettingType::Float:
+                if (lua_type(L, 2) == LUA_TNUMBER) {
+                    result = s->services.setting_set_float(s->mod.handle, key, lua_tonumber(L, 2));
+                }
+                break;
+            default:
+                if (lua_type(L, 2) == LUA_TSTRING) {
+                    result = s->services.setting_set_string(s->mod.handle, key, lua_tostring(L, 2));
+                }
+                break;
+        }
+    }
+    if (result == OPENRAC_HOOK_OK && s->services.settings_of != nullptr) {
+        if (const auto* now = s->services.settings_of(s->mod.handle); now != nullptr) {
+            s->mod.settings = *now;
+        }
+    }
+    lua_pushboolean(L, result == OPENRAC_HOOK_OK);
     return 1;
 }
 
@@ -718,6 +806,40 @@ int api_capture_mouse(lua_State* L) {
     if (s->services.capture_mouse != nullptr) {
         s->services.capture_mouse(s->mod.handle, lua_toboolean(L, 1) ? 1 : 0);
     }
+    return 0;
+}
+
+// ---- The on-screen pad's buttons (interface 1.13) ----
+
+int api_touch_define(lua_State* L) {
+    State* s = state_of(L);
+    std::string error;
+    const bool ok = touch::define(s->mod.id, luaL_checkstring(L, 1), error);
+    if (!ok) {
+        log_line(s, OPENRAC_LOG_WARN, error);
+    }
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+}
+
+int api_touch_icon(lua_State* L) {
+    State* s = state_of(L);
+    std::string error;
+    const bool ok = touch::icon(s->mod.id, luaL_checkstring(L, 1), luaL_checkstring(L, 2), error);
+    if (!ok) {
+        log_line(s, OPENRAC_LOG_WARN, error);
+    }
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+}
+
+int api_touch_push(lua_State* L) {
+    touch::push(state_of(L)->mod.id, luaL_optstring(L, 1, ""));
+    return 0;
+}
+
+int api_touch_hint(lua_State* L) {
+    touch::hint(state_of(L)->mod.id, luaL_checkstring(L, 1), lua_toboolean(L, 2) != 0);
     return 0;
 }
 
@@ -854,6 +976,8 @@ void push_openrac(lua_State* L, State* s) {
     set_function(L, "log", api_log);
     set_function(L, "warn", api_warn);
     set_function(L, "setting", api_setting);
+    set_function(L, "set_setting", api_set_setting);
+    set_function(L, "on_settings", api_on_settings);
     set_function(L, "hook", api_hook);
     set_function(L, "before", api_before);
     set_function(L, "after", api_after);
@@ -868,6 +992,10 @@ void push_openrac(lua_State* L, State* s) {
     set_function(L, "pointer", api_pointer);
     set_function(L, "take_input", api_take_input);
     set_function(L, "capture_mouse", api_capture_mouse);
+    set_function(L, "touch_define", api_touch_define);
+    set_function(L, "touch_icon", api_touch_icon);
+    set_function(L, "touch_push", api_touch_push);
+    set_function(L, "touch_hint", api_touch_hint);
     if (s->binding->moby != nullptr) {
         set_function(L, "pvars", api_pvars);
     }

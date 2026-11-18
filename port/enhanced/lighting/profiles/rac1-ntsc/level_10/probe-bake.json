@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "look_regions": [
+    {
+      "bounds": [
+        205,
+        99,
+        44,
+        227,
+        131,
+        69
+      ],
+      "feather": 4,
+      "diffuse_gain": 0.8
+    }
+  ]
+}

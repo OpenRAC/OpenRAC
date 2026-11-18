@@ -15,9 +15,10 @@ from . import liquids, profiles
 
 
 # The games and disc versions whose gameplay schema the baker reads, and the tag each export's
-# gameplay copy carries: Ratchet & Clank's PAL and NTSC-U, and Going Commando's NTSC-U, whose light
+# gameplay copy carries: Ratchet & Clank's PAL and NTSC-U, and Going Commando's three discs, whose light
 # bank and environment transitions port/assets/world/gameplay.cpp places.
-GAMEPLAY_TAGS = {("rac1", "pal"): "rac1-v1", ("rac1", "ntsc"): "rac1-v1", ("rac2", "ntsc"): "rac2-v1"}
+GAMEPLAY_TAGS = {("rac1", "pal"): "rac1-v1", ("rac1", "ntsc"): "rac1-v1", ("rac2", "ntsc"): "rac2-v1",
+                 ("rac2", "pal"): "rac2-v1", ("rac2", "ntsc2"): "rac2-v1"}
 
 
 def write_bake_inputs(level, directory):
@@ -43,7 +44,7 @@ def write_bake_inputs(level, directory):
     # Gaspar's lava (Ratchet & Clank's level 9) alone needs more of the disc.
     if level.game == "rac2":
         # Going Commando's liquid surfaces (enhanced/liquids.py), lit by the reviewed ones.
-        reviewed_path = profiles.PROFILE_ROOT / f"{level.game}-{level.version}" / "liquids.json"
+        reviewed_path = profiles.PROFILE_ROOT / profiles.profile_name(level.game, level.version) / "liquids.json"
         reviewed = json.loads(reviewed_path.read_text()) if reviewed_path.is_file() else {}
         shas = {entry["texture_sha256"] for entry in reviewed.get("emissive", [])}
         found = liquids.write_liquids(level, games.of(level), directory, shas)

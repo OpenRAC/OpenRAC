@@ -49,6 +49,7 @@
 #include <vector>
 
 #include "common/build_info.h"
+#include "common/cache_folder.h"
 #include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
@@ -65,22 +66,30 @@
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
+#include <SDL3/SDL_misc.h>
+
 #include "debug_overlay.h"
 #include "enhanced/renderer/fur.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
 #include "frontend/mod_media.h"
+#include "game/common/profile.h"
 #include "mod_menu.h"
 #include "platform/bindings.h"
 #include "platform/input.h"
 #include "platform/pump.h"
 #include "platform/window.h"
-#include "renderer/gl.h"
-#include "renderer/texture_pack.h"
+#include "renderer/gl/gl.h"
+#include "renderer/textures/pack_pictures.h"
+#include "renderer/textures/pcsx2_pack.h"
+#include "renderer/textures/texture_pack.h"
 #include "scene/moby_pose.h"
 #include "settings.h"
 #endif
-#if defined(OPENRAC_ANDROID_ACTIVITY)
+#if defined(OPENRAC_IOS)
+#include "platform/ios.h"
+#endif
+#if defined(OPENRAC_ANDROID_ACTIVITY) || defined(OPENRAC_IOS)
 // The game as Android's activity loads it (libopenrac-<id>.so): main is SDL_main, which SDL's
 // activity calls with the arguments the launcher gave it. The executable beside it
 // (libopenrac-<id>-cli.so) keeps its main.
@@ -92,18 +101,36 @@
 #include <stb_image_write.h>
 
 namespace {
-// A texture pack's PNGs (renderer/texture_pack.h), read and written with stb.
+// A texture pack's PNGs (renderer/textures/texture_pack.h), read and written with stb.
+template <bool GsAlpha>
 std::optional<openrac::renderer::Rgba8Image> texture_pack_load(const std::filesystem::path& file) {
     int w = 0;
     int h = 0;
     int channels = 0;
-    unsigned char* pixels = stbi_load(file.string().c_str(), &w, &h, &channels, 4);
+#if defined(_WIN32)
+    std::FILE* input = nullptr;
+    _wfopen_s(&input, file.c_str(), L"rb");
+#else
+    std::FILE* input = std::fopen(file.c_str(), "rb");
+#endif
+    if (input == nullptr) {
+        return std::nullopt;
+    }
+    unsigned char* pixels = stbi_load_from_file(input, &w, &h, &channels, 4);
+    std::fclose(input);
     if (pixels == nullptr) {
         return std::nullopt;
     }
     openrac::renderer::Rgba8Image image(w, h);
     std::copy(pixels, pixels + static_cast<std::ptrdiff_t>(w) * h * 4, image.pixels.begin());
     stbi_image_free(pixels);
+    if constexpr (GsAlpha) {
+        if (channels == 1 || channels == 3) {
+            for (std::size_t a = 3; a < image.pixels.size(); a += 4) {
+                image.pixels[a] = 0x80;
+            }
+        }
+    }
     return image;
 }
 
@@ -113,7 +140,7 @@ bool texture_pack_save(const std::filesystem::path& file, const openrac::rendere
            != 0;
 }
 
-// A level's planet name for the dump's folders (renderer/texture_pack.h): the game's own table, and
+// A level's planet name for the dump's folders (renderer/textures/texture_pack.h): the game's own table, and
 // the port's own worlds (frontend/world.cpp): the title screen's (99) and the flights between
 // planets (98, and Going Commando's 95 to 97).
 std::string texture_pack_level_name(int level) {
@@ -129,7 +156,7 @@ std::string texture_pack_level_name(int level) {
     return name != nullptr ? name : "";
 }
 
-// A texture pack's animated GIF (renderer/texture_pack.h): its frames and their delays, looped.
+// A texture pack's animated GIF (renderer/textures/texture_pack.h): its frames and their delays, looped.
 std::optional<openrac::renderer::texture_pack::Animation> texture_pack_load_gif(
     const std::filesystem::path& file
 ) {
@@ -215,11 +242,14 @@ int (*openrac_game_skip_buttons)(void) = nullptr;
 void (*openrac_game_skip)(void) = nullptr;
 int (*openrac_game_flight)(void) = nullptr;
 int (*openrac_game_mode)(uint32_t* mode) = nullptr;
+int (*openrac_game_touch)(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]) =
+    nullptr;
 int (*openrac_game_hero_position)(float xyz[3]) = nullptr;
 int (*openrac_game_camera_position)(float xyz[3]) = nullptr;
 int (*openrac_game_updating_moby)(openrac_game_moby* out) = nullptr;
 int (*openrac_game_hero)(float position[3], float rotation[3], int32_t* state) = nullptr;
 int (*openrac_game_camera_turn)(uint8_t, float, float*, float[3], unsigned*) = nullptr;
+float openrac_game_camera_speed = 1.0f;
 const openrac_front_end* openrac_game_front_end = nullptr;
 const openrac_game_play* openrac_game_play_host = nullptr;
 const openrac_game_tools* openrac_game_tools_host = nullptr;
@@ -279,6 +309,7 @@ void open_session(int argc, char** argv) {
         log::warn("the log cannot be written in {}", g_options.data.string());
     }
     crash::configure(g_options.data / "crashes", program_name(), started);
+    frontend::debug_overlay::set_picker_report_folder(g_options.data.string());
     crash::set_moby_source(updating_moby);
     const char* level = log::level() <= log::Level::Debug     ? "debug"
                         : log::level() <= log::Level::Verbose ? "verbose"
@@ -354,6 +385,7 @@ void load_mods() {
     host.hooks = openrac_game_hook_points;
     host.hook_count = openrac_game_hook_point_count;
     host.list = g_options.plugins;
+    host.stack = g_options.mods.empty() ? std::filesystem::path() : g_options.mods / "stack.json";
     host.purist = g_options.no_mods;
     host.loaded_level = openrac_game_loaded_overlay;
     host.pad_hook = &openrac_game_pad_report_hook;
@@ -449,6 +481,12 @@ void load_mods() {
     host.graphics = frontend::mod_graphics;
     host.menu_rect = frontend::mod_menu::rect;
     host.menu_text = frontend::mod_menu::text_at;
+    host.open_url = [](const char* url) {
+        return SDL_OpenURL(url);
+    };
+    host.set_clipboard = [](const char* text) {
+        return SDL_SetClipboardText(text);
+    };
     host.set_views = frontend::set_view_source;
     host.set_vulkan_setup = [](const openrac_vulkan_setup* setup) {
         platform::VulkanSetup s;
@@ -511,6 +549,16 @@ bool has_virtual_sector_mappings(const fs::path& mount) {
 }  // namespace
 
 int main(int argc, char** argv) {
+#if defined(OPENRAC_IOS)
+    auto ios_arguments = openrac::platform::ios_arguments();
+    std::vector<char*> ios_argv;
+    for (auto& argument : ios_arguments) {
+        ios_argv.push_back(argument.data());
+    }
+    argc = static_cast<int>(ios_argv.size());
+    ios_argv.push_back(nullptr);
+    argv = ios_argv.data();
+#endif
     profiling::thread_name("Game");
 #if defined(_WIN32)
     // Windows sleeps in steps of 15.6 ms unless a program asks for 1 ms: the wait for the next
@@ -574,6 +622,9 @@ int main(int argc, char** argv) {
     // The session's log first, so that a game that cannot start says why in it (on Android the
     // only place the player can read it, through the launcher).
     open_session(argc, argv);
+    // The part of the game built from the disc, before any of its code runs, and after the log is
+    // open so that one that does not load says why there.
+    load_asm_part(g_options);
     const fs::path iso = g_options.data / "iso_data" / openrac_game.game;
     const fs::path exe = iso / openrac_game.serial;
     const fs::path disc = iso / "disc.iso";
@@ -646,6 +697,11 @@ int main(int argc, char** argv) {
     bool mods_loaded = false;
 
 #ifdef OPENRAC_FRONTEND
+    // The joint poses the game reads (openrac_game_moby_chain) need its moby layout with or without
+    // a window: a run without one read rac2's poses at rac1's offsets, and Notak's chain spawned
+    // until the moby pool was full.
+    scene::set_moby_anim_fields(host::game_profile(openrac_game.id).moby_anim_fields());
+    scene::set_moby_layer_records(host::game_profile(openrac_game.id).moby_layer_records());
     if (g_options.window) {
         std::string why;
         settings::load(g_options.settings);
@@ -654,7 +710,7 @@ int main(int argc, char** argv) {
             if (settings::set_hdr_mode(hdr)) {
                 log::info("HDR output {} (OPENRAC_HDR)", hdr);
             } else {
-                log::warn("OPENRAC_HDR={}: not off, auto or on, ignored", hdr);
+                log::warn("OPENRAC_HDR={}: not off or on, ignored", hdr);
             }
         }
         log::header("settings  " + settings::summary(), false);
@@ -689,17 +745,34 @@ int main(int argc, char** argv) {
             log::info("enhanced rendering on (Vulkan only); probe bakes from {}",
                       g_options.probes.empty() ? std::string("nowhere") : g_options.probes.string());
         }
-        // A texture pack (docs/port/TEXTURE_PACKS.md): <data>/texture_packs/<game id>/, and
-        // OPENRAC_DUMP_TEXTURES=DIR writes every texture under the names a pack uses.
+        // A texture pack (docs/port/TEXTURE_PACKS.md): <data>/texture_packs/<game id>/, a mod like
+        // the others, so --no-mods leaves it out; OPENRAC_DUMP_TEXTURES=DIR writes every texture
+        // under the names a pack uses.
         {
             const auto dump = env::value(env::Var::DumpTextures);
+            const bool use_packs = settings::get().texture_pack && !g_options.no_mods;
+            const auto pcsx2 = env::path(env::Var::Pcsx2TexturePack);
+            renderer::pcsx2_pack::configure(
+                use_packs && pcsx2 ? *pcsx2 : fs::path{}, texture_pack_load<true>
+            );
             renderer::texture_pack::configure(
-                settings::get().texture_pack ? g_options.data / "texture_packs" / openrac_game.id
-                                             : fs::path{},
+                use_packs ? g_options.data / "texture_packs" / openrac_game.id : fs::path{},
                 dump ? fs::path(std::string(*dump)) : fs::path{},
-                {texture_pack_load, texture_pack_save, texture_pack_load_gif},
+                {texture_pack_load<false>,
+                 texture_pack_save,
+                 texture_pack_load_gif,
+                 renderer::pack_pictures::load_ktx2,
+                 renderer::pack_pictures::load_svg},
                 texture_pack_level_name
             );
+            // The HUD's and effects' pictures, read in the background from the start (those the
+            // last runs showed, once it knows them).
+            if (use_packs) {
+                renderer::texture_pack::set_play_list(
+                    cache_folder() / "texture_packs" / (std::string(openrac_game.id) + ".txt")
+                );
+            }
+            renderer::texture_pack::preload();
         }
         fs::path levels = g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels);
         // A mod that makes the Vulkan device with the port (a VR headset's) is loaded before the

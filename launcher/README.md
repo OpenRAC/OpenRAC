@@ -10,9 +10,11 @@ editing. It is OpenRAC's version of
 [OpenGOAL's launcher](https://github.com/open-goal/launcher) for Jak and
 Daxter. Nothing here emulates the console.
 
-It covers all six games: Ratchet & Clank (PAL and NTSC-U), Going Commando, Up
-Your Arsenal, Deadlocked, Size Matters and Secret Agent Clank. Only
-Ratchet & Clank (PAL and NTSC-U) is playable today. The others can be browsed, and set
+It covers all six games: Ratchet & Clank (PAL and NTSC-U, and PAL v1.00 and
+Japan's disc, which it finds but cannot play yet), Going Commando, Up
+Your Arsenal, Deadlocked, Size Matters and Secret Agent Clank. Ratchet &
+Clank (PAL v2.00 and NTSC-U) and Going Commando (USA v1.01, USA v2.00 and
+Europe's) are playable today. The others can be browsed, and set
 up, built and checked where their projects support it. Each game's Play
 button says what is still missing.
 
@@ -28,9 +30,9 @@ It is a [Tauri 2](https://tauri.app/) app. Rust does every file and process
 operation (`core/` and `src-tauri/`); Svelte 5 draws the UI (`src/`), styled
 after [openrac.dev](https://openrac.dev).
 
-| Games                                                                                 | A game                                                                                           |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| ![The games: one tile each, with what can be done next](docs/screenshots/library.jpg) | ![A game: the main button, its menu, save files and the level editor](docs/screenshots/game.jpg) |
+| A game                                                                                      | Mods                                                                          |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| ![A game: its main button, the set-up steps, its saves and help](docs/screenshots/game.jpg) | ![The Mods tab: get mods, add one, switch them on](docs/screenshots/mods.jpg) |
 
 ## Read first
 
@@ -110,16 +112,10 @@ the game you used last.
 - **Logs**: every play session and crash is kept under **Help**, newest
   first, with the same Copy and Save actions. A recent crash marks the game
   in the list. **Detailed logs** makes the game write more, for when we ask.
-- **Texture packs**: for a game with a port, your own pictures in place of
-  the game's, in three steps. **Save the game's textures while you play**
-  makes the next Play save every picture it shows, sorted into Interface
-  (HUD, menus, font), Shared and a folder for each planet, with counts that
-  open each folder; they come from your disc, so keep them to yourself.
-  Edit or upscale the ones you want in any editor and put them in **your
-  pack**, which has its own switch. **Add a pack…** checks a shared `.zip`
-  (another game's is refused) and adds it to yours or replaces yours, which
-  is kept beside it. **Share my pack…** saves yours as a `.zip`, leaving out
-  pictures that are still the game's own
+- **Texture packs**: your own pictures in place of the game's. Your pack is
+  a mod, first under the packs on Mods → My mods. Its menu shares it as a
+  `.zip` or replaces it. Add a shared pack with **Add a mod**. **Make your
+  own** saves the game's pictures while you play, so you can edit them
   ([docs/port/TEXTURE_PACKS.md](../docs/port/TEXTURE_PACKS.md)).
 - **Differences from the original**: for a game with a port, what it does
   differently and why. **Game fixes** can be switched; **Kept from crashing**
@@ -146,6 +142,12 @@ from the game's next start. Play brings them only with the **Mods** switch under
 it on (off by default: the game as the console plays it).
 Android loads no native mods. Its Mods tab shows the script mods, Enhanced
 graphics and the packs on one page, without the level editor.
+
+**My mods** holds everything the game loads. The other tabs make things, and
+what they make shows up there. The **Get mods** banner at the top opens the
+hub (openrac.dev/mods); the launcher does not list mods itself. With six or
+more mods a toolbar adds a search, kinds and an order. In load order, drag a
+row by its grip, or use its menu (for a pad).
 
 **Enhanced graphics** (experimental) is built in. It is the first row of
 Gameplay mods for Ratchet & Clank (PAL and NTSC-U) and Going Commando
@@ -205,16 +207,15 @@ the packs: on or off, order, remove, add a `.zip` or folder, or drop one on
 the page. With the **Mods** switch under Play on, Play first combines the packed
 levels with the packs that are on ([editor/MODDING.md](../editor/MODDING.md)).
 
-Going Commando, Up Your Arsenal and Deadlocked (NTSC-U) are early access.
-Their levels open in Godot and **Models and textures** works, but edits are
-not packed back. Their packs wait in Your mods
+Going Commando (any of its three discs: USA v1.01, USA v2.00 and Europe's) is
+playable; Up Your Arsenal and Deadlocked (NTSC-U) are early access. Their
+levels open in Godot and **Models and textures** works, but level edits are
+not packed back yet. Their packs wait in Your mods
 ([editor/README.md](../editor/README.md#the-later-games-early-access)). Up
-Your Arsenal and Deadlocked are not playable yet. Going Commando's program
-still needs code from your disc, so no installer carries it: **Build and play**
-downloads OpenRAC's source and builds it from your disc, then gets its levels
-ready as Ratchet & Clank's does. It needs a compiler (on Windows: Visual Studio
-with C++, LLVM, CMake and Ninja) and says which is missing. On Linux it also
-needs SDL's X11, Wayland and audio development packages, such as `libxss-dev`.
+Your Arsenal and Deadlocked are not playable yet. Going Commando's decompilation
+is whole, so every installer carries its three programs built as Ratchet &
+Clank's are: pick the disc, get the levels ready, Play. Nothing is built on
+your computer.
 
 ## Develop
 
@@ -225,7 +226,8 @@ sizes, and the details of the checks.
 You need:
 
 - Node 20+;
-- Yarn, the version in `package.json`, through Corepack (`corepack enable`);
+- Yarn, the version in `package.json`, through Corepack (`corepack enable`; on Node 25 and later, run
+  `npm install --global corepack` first);
 - Rust stable. On Windows, use Rust's MSVC toolchain. If your default is GNU,
   run `rustup override set stable-x86_64-pc-windows-msvc` in this folder.
 - On Linux, Tauri's system libraries. On Debian and Ubuntu:

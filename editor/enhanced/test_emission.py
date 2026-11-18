@@ -38,6 +38,16 @@ class EmissionTests(unittest.TestCase):
         (self.level/'textures/another_name.png').write_bytes(b'synthetic light texture')
         self.assertEqual(len(resolve_materials(self.level, self.catalog)), 2)
 
+    def test_legacy_projection_keeps_mesh_mode_in_the_material_catalog(self):
+        material = dict(runtime_intensity=2, bake_mode='mesh',
+                        bake_mesh_rgb=[1, 2, 3], bake_use_cutout=True)
+        catalog = dict(version=1, overrides=[dict(
+            id='fixture-lamp', match={'texture_file_sha256': self.material['texture_sha256']},
+            set={'emission': material, 'surface': {'diffuse_scale': 0}})])
+        (self.root/'material-overrides.json').write_text(json.dumps(catalog))
+        self.assertEqual(resolve_materials(self.level, self.root/'emission-materials.json'),
+                         {'textures/renamed.png': self.definition})
+
     def test_catalog_updates_refresh_defaults_and_preserve_explicit_overrides(self):
         path = self.level/'probe-emission.json'
         apply_materials(self.level, self.catalog)

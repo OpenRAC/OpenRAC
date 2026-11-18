@@ -20,6 +20,7 @@
 #include "check.h"
 #include "common/json.h"
 #include "mod_manifest.h"
+#include "openrac/openrac_mod.h"
 
 using namespace openrac;
 using namespace openrac::mods;
@@ -239,6 +240,13 @@ void checks() {
         Target rac2 = rac1_pal();
         rac2.game = "rac2";
         CHECK(!plan_all({candidate(manifest("a"))}, rac2)[0].load);
+        rac2.version = "ntsc";
+        const std::string rac2_native =
+            R"({"format": 2, "id": "callback", "name": "Callback", "version": "1.0.0", "api": "1.0", "games": {"rac2": ["ntsc"]}, "hooks": [], "plugin": {")"
+            + std::string(platform_key()) + R"(": "lib/callback"}})";
+        CHECK(
+            plan_all({candidate(rac2_native)}, rac2)[0].load
+        );  // native callbacks need no game hook catalogue or script binding
         d = plan_all({candidate(manifest("a", "1.0.0", "", "2.0"))});
         CHECK(!d[0].load && d[0].reason.find("needs interface 2.0") != std::string::npos);
         d = plan_all({candidate(manifest("a", "1.0.0", "", "1.3"))});
@@ -498,11 +506,123 @@ void assets() {
     }
 }
 
+// What a mod and a setting are to a party (interface 1.14): gameplay and shared unless they say.
+void party() {
+    const auto of = [](const std::string& fields) {
+        return R"({"format": 2, "id": "a", "name": "A", "version": "1.0.0", "games": {"rac1": ["pal"]},)"
+               + fields + "}";
+    };
+    Manifest m;
+    std::string error;
+    CHECK(
+        parse_manifest(of(R"("settings": [])"), m, error) && m.party == OPENRAC_PARTY_MOD_GAMEPLAY
+    );
+    Manifest input;
+    CHECK(
+        parse_manifest(of(R"("multiplayer": "input")"), input, error)
+        && input.party == OPENRAC_PARTY_MOD_INPUT
+    );
+    Manifest cosmetic;
+    CHECK(
+        parse_manifest(of(R"("multiplayer": "cosmetic")"), cosmetic, error)
+        && cosmetic.party == OPENRAC_PARTY_MOD_COSMETIC
+    );
+    Manifest solo;
+    CHECK(
+        parse_manifest(of(R"("multiplayer": "solo")"), solo, error)
+        && solo.party == OPENRAC_PARTY_MOD_SOLO
+    );
+    Manifest bad;
+    CHECK(!parse_manifest(of(R"("multiplayer": "party")"), bad, error));
+    CHECK(error.find("multiplayer") != std::string::npos);
+    Manifest settings;
+    CHECK(parse_manifest(
+        of(R"("settings": [
+        {"key": "a", "name": "A", "type": "bool", "default": false},
+        {"key": "b", "name": "B", "type": "string", "default": "", "multiplayer": "own"},
+        {"key": "c", "name": "C", "type": "string", "default": "", "multiplayer": "host"}])"),
+        settings,
+        error
+    ));
+    CHECK(settings.settings[0].party == OPENRAC_PARTY_SETTING_SHARED);
+    CHECK(settings.settings[1].party == OPENRAC_PARTY_SETTING_OWN);
+    CHECK(settings.settings[2].party == OPENRAC_PARTY_SETTING_HOST);
+    Manifest bad_setting;
+    CHECK(!parse_manifest(
+        of(R"("settings": [
+        {"key": "a", "name": "A", "type": "bool", "default": false, "multiplayer": "mine"}])"),
+        bad_setting,
+        error
+    ));
+
+    // A key and the player's name are each player's own unless the manifest says otherwise: a mod
+    // code leaves them out, so a party must not compare them.
+    Manifest own;
+    CHECK(parse_manifest(
+        of(R"("settings": [
+        {"key": "jump", "name": "Jump", "type": "keybind", "default": "KeyA"},
+        {"key": "who", "name": "Who", "type": "string", "default": "${player_name}"},
+        {"key": "pinned", "name": "Pinned", "type": "keybind", "default": "KeyA", "multiplayer": "host"},
+        {"key": "word", "name": "Word", "type": "string", "default": "x"}])"),
+        own,
+        error
+    ));
+    CHECK(own.settings[0].party == OPENRAC_PARTY_SETTING_OWN);
+    CHECK(own.settings[1].party == OPENRAC_PARTY_SETTING_OWN);
+    CHECK(own.settings[2].party == OPENRAC_PARTY_SETTING_HOST);
+    CHECK(own.settings[3].party == OPENRAC_PARTY_SETTING_SHARED);
+}
+
+// A mod for several games (openrac-mods docs/MULTI_GAME.md): it loads in each game it names, and a
+// setting for some of them is its default in the others, whatever the list says.
+void several_games() {
+    const std::string text =
+        R"({"format": 2, "id": "both", "name": "Both", "version": "1.0.0", "api": "1.0",
+        "games": {"rac1": ["pal", "ntsc"], "rac2": ["ntsc", "pal", "ntsc2"]},
+        "plugin": {"macos-arm64": "lib/a.dylib", "macos-x86_64": "lib/a.dylib", "linux-x86_64": "lib/a.so",
+                   "linux-aarch64": "lib/a.so", "windows-x86_64": "lib/a.dll", "windows-arm64": "lib/a.dll"},
+        "hooks": ["rac1.player.take_damage", "rac2.player.take_damage"],
+        "settings": [{"key": "count", "name": "Count", "type": "float", "default": 1.0, "games": ["rac1"]},
+                     {"key": "damage", "name": "Damage", "type": "float", "default": 1.0}]})";
+    Manifest m;
+    std::string error;
+    CHECK(parse_manifest(text, m, error));
+    CHECK(m.games.size() == 2 && m.settings[0].games == std::vector<std::string>{"rac1"});
+    CHECK(setting_for_game(m.settings[0], "rac1") && !setting_for_game(m.settings[0], "rac2"));
+    CHECK(setting_for_game(m.settings[1], "rac2"));
+    Target rac2 = rac1_pal();
+    rac2.game = "rac2";
+    rac2.version = "ntsc2";
+    CHECK(plan_all({candidate(text)}, rac2).at(0).load);
+    CHECK(plan_all({candidate(text)}).at(0).load);
+    rac2.version = "jp";
+    CHECK(!plan_all({candidate(text)}, rac2).at(0).load);
+    std::vector<ListEntry> list;
+    CHECK(parse_list(
+        R"({"format": 1, "mods": [{"id": "both", "settings": {"count": 2.0, "damage": 2.0}}]})",
+        list,
+        error
+    ));
+    std::vector<std::string> notes;
+    auto values = resolve_settings(m, list[0].settings, notes, "rac2");
+    CHECK(values.at("count").f == 1.0 && values.at("damage").f == 2.0 && notes.empty());
+    values = resolve_settings(m, list[0].settings, notes, "rac1");
+    CHECK(values.at("count").f == 2.0 && values.at("damage").f == 2.0);
+    // "games" of a setting names the mod's games only, and at least one.
+    for (const char* only : {R"([])", R"(["rac3"])", R"("rac1")"}) {
+        std::string bad = text;
+        bad.replace(bad.find(R"(["rac1"]})"), 8, only);
+        CHECK(!parse_manifest(bad, m, error));
+    }
+}
+
 int main() {
     versions();
+    party();
     assets();
     manifests();
     settings();
+    several_games();
     keybinds();
     presets();
     lists();

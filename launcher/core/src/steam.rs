@@ -1,5 +1,6 @@
-//! Adds the launcher to the player's Steam library as a non-Steam game: an entry in
-//! `userdata/<id>/config/shortcuts.vdf` and its pictures in `config/grid/`.
+//! Adds the launcher, or one of its games, to the player's Steam library as a non-Steam game: an
+//! entry in `userdata/<id>/config/shortcuts.vdf` and its pictures in `config/grid/`. A game's
+//! entry starts the same launcher with `--play <id>` (shortcut.rs) under the game's own name.
 //!
 //! Steam may be open: it picks up a changed file, and may write its own copy at any moment, so a
 //! write that Steam overtakes is made again on top of Steam's copy. Every other entry and every
@@ -44,7 +45,56 @@ pub enum State {
     Outdated,
 }
 
-/// The entry's pictures, as Steam's library shows them.
+/// Which entry: the launcher's own, or one game's. Told apart by name and launch options, so
+/// finding the launcher's entry never lands on a game's.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Target {
+    pub name: String,
+    /// What the entry hands the launcher; empty for the launcher itself.
+    pub options: String,
+    /// The entry comes with its library pictures (a cover at least): one added without them, by
+    /// a launcher from before a game had its own, is shown as to update, which puts them.
+    pub pictures: bool,
+}
+
+impl Target {
+    pub fn launcher() -> Target {
+        Target { name: NAME.into(), options: String::new(), pictures: false }
+    }
+
+    /// The game `id` (`rac1-pal`) under its `title`.
+    pub fn game(title: &str, id: &str) -> Target {
+        Target { name: title.into(), options: crate::shortcut::play_options(id), pictures: false }
+    }
+
+    /// The same entry, which comes with its library pictures.
+    pub fn with_pictures(self) -> Target {
+        Target { pictures: true, ..self }
+    }
+
+    fn is_launcher(&self) -> bool {
+        self.options.is_empty()
+    }
+
+    fn matches(&self, entry: &Value) -> bool {
+        let Value::Map(fields) = entry else { return false };
+        if !matches!(get(fields, "AppName"), Some(Value::Text(name)) if name == self.name.as_bytes()) {
+            return false;
+        }
+        let options = match get(fields, "LaunchOptions") {
+            Some(Value::Text(text)) => text.as_slice(),
+            _ => b"",
+        };
+        if self.is_launcher() {
+            // The player may have added options of their own to it; a game's entry has this one.
+            !options.windows(6).any(|w| w == b"--play")
+        } else {
+            options == self.options.as_bytes()
+        }
+    }
+}
+
+/// The entry's pictures, as Steam's library shows them. An empty one is not written.
 pub struct Art<'a> {
     /// 600 x 900.
     pub cover: &'a [u8],
@@ -145,11 +195,6 @@ fn set(map: &mut Vec<(Vec<u8>, Value)>, name: &str, value: Value) {
     }
 }
 
-fn is_ours(entry: &Value) -> bool {
-    let Value::Map(fields) = entry else { return false };
-    matches!(get(fields, "AppName"), Some(Value::Text(name)) if name == NAME.as_bytes())
-}
-
 fn crc32(bytes: &[u8]) -> u32 {
     let mut crc = u32::MAX;
     for byte in bytes {
@@ -239,19 +284,27 @@ fn user_dir(root: &Path) -> Option<PathBuf> {
 }
 
 /// What the file says about an account's entry, for `program`.
-fn state_of(user: &Path, program: &Path) -> State {
+fn state_of(user: &Path, program: &Path, target: &Target) -> State {
     let Ok(bytes) = std::fs::read(user.join("config/shortcuts.vdf")) else { return State::NotAdded };
     let Ok(file) = parse(&bytes) else { return State::NotAdded };
     let Some(Value::Map(entries)) = get(&file, "shortcuts") else { return State::NotAdded };
-    let Some((_, Value::Map(fields))) = entries.iter().find(|(_, entry)| is_ours(entry)) else {
+    let Some((_, Value::Map(fields))) = entries.iter().find(|(_, entry)| target.matches(entry)) else {
         return State::NotAdded;
     };
     // An entry that turned the Desktop Layout off in the launcher's window is updated too.
     let desktop = matches!(get(fields, "AllowDesktopConfig"), Some(Value::Int(1)));
+    // And one that should have its pictures and has no cover (added before it had them).
+    let pictured = !target.pictures
+        || matches!(get(fields, "appid"), Some(Value::Int(id)) if has_cover(&user.join("config/grid"), *id));
     match get(fields, "Exe") {
-        Some(Value::Text(exe)) if exe == quoted(program).as_bytes() && desktop => State::Added,
+        Some(Value::Text(exe)) if exe == quoted(program).as_bytes() && desktop && pictured => State::Added,
         _ => State::Outdated,
     }
+}
+
+/// Whether Steam has a cover for the entry `id`: ours, or one the player chose, in any format.
+fn has_cover(grid: &Path, id: u32) -> bool {
+    ["png", "jpg", "jpeg", "webp"].iter().any(|ext| grid.join(format!("{id}p.{ext}")).exists())
 }
 
 /// The first Steam of `roots` that is there.
@@ -267,6 +320,11 @@ fn is_flatpak(root: &Path) -> bool {
 
 /// Where the launcher at `program` stands in the first Steam of `roots` that is there.
 pub fn state(roots: &[PathBuf], program: &Path) -> State {
+    state_for(roots, program, &Target::launcher())
+}
+
+/// Where the entry `target`, started through `program`, stands in the first Steam of `roots`.
+pub fn state_for(roots: &[PathBuf], program: &Path, target: &Target) -> State {
     let Some(root) = found(roots) else {
         return State::NoSteam;
     };
@@ -274,14 +332,19 @@ pub fn state(roots: &[PathBuf], program: &Path) -> State {
         return State::FlatpakSteam;
     }
     match user_dir(root) {
-        Some(user) => state_of(&user, program),
+        Some(user) => state_of(&user, program, target),
         None => State::NoUser,
     }
 }
 
 /// `shortcuts.vdf` with the entry for `program` added, or updated where it is. And the entry's id.
 /// `icon` is the path to the icon, given the id.
-fn with_entry(bytes: Option<&[u8]>, program: &Path, icon: impl Fn(u32) -> PathBuf) -> Result<(Vec<u8>, u32), String> {
+fn with_entry(
+    bytes: Option<&[u8]>,
+    program: &Path,
+    target: &Target,
+    icon: impl Fn(u32) -> PathBuf,
+) -> Result<(Vec<u8>, u32), String> {
     let mut file = match bytes {
         Some(bytes) => parse(bytes).map_err(|e| format!("Steam's list of shortcuts can't be read: {e}."))?,
         None => Vec::new(),
@@ -293,7 +356,7 @@ fn with_entry(bytes: Option<&[u8]>, program: &Path, icon: impl Fn(u32) -> PathBu
         return Err("Steam's list of shortcuts can't be read: it has no list.".into());
     };
 
-    if !entries.iter().any(|(_, entry)| is_ours(entry)) {
+    if !entries.iter().any(|(_, entry)| target.matches(entry)) {
         let next = entries
             .iter()
             .filter_map(|(key, _)| std::str::from_utf8(key).ok()?.parse::<u64>().ok())
@@ -302,9 +365,9 @@ fn with_entry(bytes: Option<&[u8]>, program: &Path, icon: impl Fn(u32) -> PathBu
         // What Steam writes for a new entry: it adds any that are missing, and drops none.
         let text = |text: &str| Value::Text(text.as_bytes().to_vec());
         let fields = vec![
-            (b"AppName".to_vec(), text(NAME)),
+            (b"AppName".to_vec(), text(&target.name)),
             (b"ShortcutPath".to_vec(), text("")),
-            (b"LaunchOptions".to_vec(), text("")),
+            (b"LaunchOptions".to_vec(), text(&target.options)),
             (b"IsHidden".to_vec(), Value::Int(0)),
             (b"AllowDesktopConfig".to_vec(), Value::Int(1)),
             (b"AllowOverlay".to_vec(), Value::Int(1)),
@@ -318,7 +381,7 @@ fn with_entry(bytes: Option<&[u8]>, program: &Path, icon: impl Fn(u32) -> PathBu
         ];
         entries.push((next.to_string().into_bytes(), Value::Map(fields)));
     }
-    let Some((_, Value::Map(fields))) = entries.iter_mut().find(|(_, entry)| is_ours(entry)) else {
+    let Some((_, Value::Map(fields))) = entries.iter_mut().find(|(_, entry)| target.matches(entry)) else {
         return Err("Steam's list of shortcuts can't be read: the new entry is not in it.".into());
     };
 
@@ -326,7 +389,7 @@ fn with_entry(bytes: Option<&[u8]>, program: &Path, icon: impl Fn(u32) -> PathBu
     // An entry keeps its id across a moved launcher: the player's collections hang on it.
     let id = match get(fields, "appid") {
         Some(Value::Int(id)) => *id,
-        _ => app_id(&exe, NAME),
+        _ => app_id(&exe, &target.name),
     };
     let text = |path: String| Value::Text(path.into_bytes());
     set(fields, "appid", Value::Int(id));
@@ -352,9 +415,9 @@ fn mark(path: &Path) -> Option<(u64, std::time::SystemTime)> {
 }
 
 /// Whether a list about to replace Steam's reads back, with the entry in it.
-fn valid(bytes: &[u8]) -> bool {
+fn valid(bytes: &[u8], target: &Target) -> bool {
     let Ok(file) = parse(bytes) else { return false };
-    matches!(get(&file, "shortcuts"), Some(Value::Map(entries)) if entries.iter().any(|(_, e)| is_ours(e)))
+    matches!(get(&file, "shortcuts"), Some(Value::Map(entries)) if entries.iter().any(|(_, e)| target.matches(e)))
 }
 
 /// Keeps a dated copy of the list and drops the oldest past `BACKUPS`.
@@ -409,7 +472,8 @@ fn write_art(grid: &Path, id: u32, art: &Art) -> std::io::Result<()> {
     std::fs::create_dir_all(grid)?;
     let bytes = [art.cover, art.wide, art.hero, art.logo, art.icon];
     for ((stem, ext), bytes) in art_names(id).into_iter().zip(bytes) {
-        if ["png", "jpg", "jpeg", "webp"].iter().any(|e| grid.join(format!("{stem}.{e}")).exists()) {
+        if bytes.is_empty() || ["png", "jpg", "jpeg", "webp"].iter().any(|e| grid.join(format!("{stem}.{e}")).exists())
+        {
             continue;
         }
         let target = grid.join(format!("{stem}.{ext}"));
@@ -429,7 +493,7 @@ fn write_art(grid: &Path, id: u32, art: &Art) -> std::io::Result<()> {
 /// shortcut this way), and it may write its own copy at any moment. So the list is read, changed
 /// and checked, and if Steam wrote it in between, read and changed again on top of Steam's copy.
 /// `before_write` runs between the read and the write; the tests use it to play Steam.
-fn add_to(user: &Path, program: &Path, art: &Art, before_write: impl Fn(&Path)) -> Result<(), String> {
+fn add_to(user: &Path, program: &Path, target: &Target, art: &Art, before_write: impl Fn(&Path)) -> Result<(), String> {
     let failed = |e: std::io::Error| format!("Steam's folder can't be written: {e}.");
     let config = user.join("config");
     let grid = config.join("grid");
@@ -438,14 +502,14 @@ fn add_to(user: &Path, program: &Path, art: &Art, before_write: impl Fn(&Path)) 
 
     let mut old = read_list(&list).map_err(failed)?;
     let mut seen = mark(&list);
-    let (mut new, mut id) = with_entry(old.as_deref(), program, icon)?;
+    let (mut new, mut id) = with_entry(old.as_deref(), program, target, icon)?;
     before_write(&list);
     if mark(&list) != seen {
         old = read_list(&list).map_err(failed)?;
         seen = mark(&list);
-        (new, id) = with_entry(old.as_deref(), program, icon)?;
+        (new, id) = with_entry(old.as_deref(), program, target, icon)?;
     }
-    if !valid(&new) {
+    if !valid(&new, target) {
         return Err("Steam's list of shortcuts can't be written: the new list does not read back.".into());
     }
     std::fs::create_dir_all(&config).map_err(failed)?;
@@ -462,6 +526,11 @@ fn add_to(user: &Path, program: &Path, art: &Art, before_write: impl Fn(&Path)) 
 /// Adds the launcher to the first Steam of `roots`, or updates its entry. What it stands at now.
 /// Steam may be open; if it does not show the entry, it shows it after a restart.
 pub fn add(roots: &[PathBuf], program: &Path, art: &Art) -> Result<State, String> {
+    add_for(roots, program, &Target::launcher(), art)
+}
+
+/// The same for the entry `target`: a game's own, which starts `program` with `--play`.
+pub fn add_for(roots: &[PathBuf], program: &Path, target: &Target, art: &Art) -> Result<State, String> {
     let Some(root) = found(roots) else {
         return Err("Steam isn't installed here.".into());
     };
@@ -469,8 +538,8 @@ pub fn add(roots: &[PathBuf], program: &Path, art: &Art) -> Result<State, String
         return Err(FLATPAK_STEAM.into());
     }
     let user = user_dir(root).ok_or("Sign in to Steam once, then try again.")?;
-    add_to(&user, program, art, |_| ())?;
-    Ok(state_of(&user, program))
+    add_to(&user, program, target, art, |_| ())?;
+    Ok(state_of(&user, program, target))
 }
 
 #[cfg(test)]
@@ -527,12 +596,12 @@ mod tests {
         theirs.extend_from_slice(b"\x009\x00\x01AppName\x00New one\x00\x08\x08\x08");
         assert!(parse(&theirs).is_ok());
         let program = Path::new("/opt/openrac");
-        add_to(&user, program, &ART, |list| std::fs::write(list, &theirs).unwrap()).unwrap();
+        add_to(&user, program, &Target::launcher(), &ART, |list| std::fs::write(list, &theirs).unwrap()).unwrap();
         let entries = entries_of(&list);
         assert_eq!(entries.len(), 3);
         assert_eq!(entries[1].0, b"9");
         assert_eq!(entries[2].0, b"10");
-        assert!(is_ours(&entries[2].1));
+        assert!(Target::launcher().matches(&entries[2].1));
         assert_eq!(backups(&user), vec![theirs]);
     }
 
@@ -609,7 +678,7 @@ mod tests {
             list.extend_from_slice(b"\x00\x01AppName\x00OpenRAC\x00\x01Exe\x00\"/old\"\x00\x08");
         }
         list.extend_from_slice(b"\x08\x08");
-        let (out, _) = with_entry(Some(&list), Path::new("/new"), |_| PathBuf::new()).unwrap();
+        let (out, _) = with_entry(Some(&list), Path::new("/new"), &Target::launcher(), |_| PathBuf::new()).unwrap();
         let file = parse(&out).unwrap();
         let Some(Value::Map(entries)) = get(&file, "shortcuts") else { panic!("no list") };
         assert_eq!(entries.len(), 2);
@@ -780,7 +849,7 @@ mod tests {
         assert_eq!(add(&roots, program, &ART), Ok(State::Added));
         let ours = |list: &Path| {
             let entries = entries_of(list);
-            let Some((_, Value::Map(fields))) = entries.into_iter().find(|(_, e)| is_ours(e)) else {
+            let Some((_, Value::Map(fields))) = entries.into_iter().find(|(_, e)| Target::launcher().matches(e)) else {
                 panic!("no entry")
             };
             fields
@@ -793,7 +862,9 @@ mod tests {
         let Some((_, Value::Map(entries))) = file.iter_mut().find(|(k, _)| is_key(k, "shortcuts")) else {
             panic!("no list")
         };
-        let Some((_, Value::Map(fields))) = entries.iter_mut().find(|(_, e)| is_ours(e)) else { panic!("no entry") };
+        let Some((_, Value::Map(fields))) = entries.iter_mut().find(|(_, e)| Target::launcher().matches(e)) else {
+            panic!("no entry")
+        };
         set(fields, "AllowDesktopConfig", Value::Int(0));
         set(fields, "LaunchOptions", Value::Text(b"--keep".to_vec()));
         let mut bytes = Vec::new();
@@ -895,5 +966,99 @@ mod tests {
         let roots = [dir.path().join("nowhere")];
         assert_eq!(state(&roots, Path::new("/a")), State::NoSteam);
         assert!(add(&roots, Path::new("/a"), &ART).is_err());
+    }
+
+    const NO_ART: Art = Art { cover: b"", wide: b"", hero: b"", logo: b"", icon: b"icon" };
+
+    #[test]
+    fn a_game_gets_its_own_entry_beside_the_launchers() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        let list = user.join("config/shortcuts.vdf");
+        std::fs::write(&list, steams_list()).unwrap();
+        let program = Path::new("/opt/OpenRAC.AppImage");
+        let game = Target::game("Ratchet & Clank (PAL)", "rac1-pal");
+        let other = Target::game("Ratchet & Clank (NTSC)", "rac1-ntsc");
+
+        assert_eq!(add_for(&roots, program, &game, &NO_ART), Ok(State::Added));
+        assert_eq!(state(&roots, program), State::NotAdded, "a game's entry is not the launcher's");
+        assert_eq!(state_for(&roots, program, &other), State::NotAdded);
+        assert_eq!(add(&roots, program, &ART), Ok(State::Added));
+        assert_eq!(add_for(&roots, program, &other, &NO_ART), Ok(State::Added));
+
+        let entries = entries_of(&list);
+        assert_eq!(entries.len(), 4, "the other game's entry stayed");
+        let fields = |n: usize| match &entries[n].1 {
+            Value::Map(f) => f.clone(),
+            _ => panic!("not a map"),
+        };
+        assert_eq!(get(&fields(1), "AppName"), Some(&Value::Text(b"Ratchet & Clank (PAL)".to_vec())));
+        assert_eq!(get(&fields(1), "LaunchOptions"), Some(&Value::Text(b"--play rac1-pal".to_vec())));
+        assert_eq!(get(&fields(1), "Exe"), Some(&Value::Text(b"\"/opt/OpenRAC.AppImage\"".to_vec())));
+        assert_eq!(get(&fields(2), "LaunchOptions"), Some(&Value::Text(Vec::new())));
+        assert_ne!(get(&fields(1), "appid"), get(&fields(2), "appid"));
+        // Adding again changes no entry's count.
+        assert_eq!(add_for(&roots, program, &game, &NO_ART), Ok(State::Added));
+        assert_eq!(entries_of(&list).len(), 4);
+    }
+
+    #[test]
+    fn a_launcher_entry_with_the_players_own_options_is_still_found() {
+        let mut list = Vec::new();
+        list.extend_from_slice(
+            b"\x00shortcuts\x00\x000\x00\x01AppName\x00OpenRAC\x00\x01LaunchOptions\x00-x\x00\x08\x08\x08",
+        );
+        let (out, _) = with_entry(Some(&list), Path::new("/p"), &Target::launcher(), |_| PathBuf::new()).unwrap();
+        let file = parse(&out).unwrap();
+        let Some(Value::Map(entries)) = get(&file, "shortcuts") else { panic!("no list") };
+        assert_eq!(entries.len(), 1);
+    }
+
+    #[test]
+    fn a_game_added_without_its_pictures_is_to_update_and_gets_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        let program = Path::new("/opt/OpenRAC.AppImage");
+        let before = Target::game("Ratchet & Clank (PAL)", "rac1-pal");
+        let now = before.clone().with_pictures();
+
+        // A launcher from before the games had pictures: the icon alone.
+        assert_eq!(add_for(&roots, program, &before, &NO_ART), Ok(State::Added));
+        assert_eq!(state_for(&roots, program, &now), State::Outdated);
+        assert_eq!(add_for(&roots, program, &now, &ART), Ok(State::Added));
+        let entries = entries_of(&user.join("config/shortcuts.vdf"));
+        assert_eq!(entries.len(), 1, "updated in place");
+        let Value::Map(fields) = &entries[0].1 else { panic!("not a map") };
+        let Some(Value::Int(id)) = get(fields, "appid") else { panic!("no id") };
+        let grid = user.join("config/grid");
+        for (name, bytes) in [(format!("{id}p.jpg"), "cover"), (format!("{id}_hero.jpg"), "hero")] {
+            assert_eq!(std::fs::read_to_string(grid.join(&name)).unwrap(), bytes, "{name}");
+        }
+        assert_eq!(std::fs::read_to_string(grid.join(format!("{id}_icon.png"))).unwrap(), "icon", "the first kept");
+
+        // A cover the player chose counts as one.
+        std::fs::remove_file(grid.join(format!("{id}p.jpg"))).unwrap();
+        assert_eq!(state_for(&roots, program, &now), State::Outdated);
+        std::fs::write(grid.join(format!("{id}p.png")), b"mine").unwrap();
+        assert_eq!(state_for(&roots, program, &now), State::Added);
+        // The launcher's own entry asks for no pictures to be Added.
+        assert_eq!(add(&roots, program, &NO_ART), Ok(State::Added));
+    }
+
+    #[test]
+    fn a_game_art_is_only_what_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        add_for(&roots, Path::new("/p"), &Target::game("G", "g-pal"), &NO_ART).unwrap();
+        let grid: Vec<String> = std::fs::read_dir(user.join("config/grid"))
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(grid.len(), 1, "{grid:?}");
+        assert!(grid[0].ends_with("_icon.png"));
     }
 }

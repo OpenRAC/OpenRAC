@@ -51,6 +51,8 @@ MIN_SHAPE = 48           # bytes: a shape match below this is too easily a coinc
 ALIKE = 0.80             # least similarity for two functions between the same anchors to be paired
 RESIDENT = ("boot", "frontbin")
 NAME = re.compile(r"^(?:func|FUN)_(?:L(\d+)_)?([0-9A-Fa-f]{8})$")
+# A function's level in a report whose names carry a release tag: func_PAL_L05_..., func_L05_....
+RELEASE_LEVEL = re.compile(r"^(?:func|FUN)_(?:(?!L\d+_)[A-Z][A-Z0-9]*_)?(?:L(\d+)_)?[0-9A-Fa-f]{6,8}")
 
 
 # --- Manifests ---------------------------------------------------------------
@@ -88,7 +90,7 @@ def load(path: str, fmt: str) -> dict[str, tuple[int, bytes]]:
     p = Path(path)
     if fmt == "elf":
         return {n: (a, d) for n, (a, d, _f) in mips.elf_sections(p).items() if n in CODE_SECTIONS}
-    if fmt == "rac1-level":             # games/rac1/*/…/level_NN: text.bin and manifest.json
+    if fmt == "rac1-level":             # games/rac1/decomp/*/…/level_NN: text.bin and manifest.json
         text = next(r for r in json.loads((p / "manifest.json").read_text())["records"] if r["name"] == "text")
         return {".text": (text["address"], (p / "text.bin").read_bytes())}
     if fmt == "rac2-level":             # games/rac2/*/baserom/levels/NN_name (tools/levels.py dump)
@@ -130,7 +132,15 @@ def known(key: str, version: dict) -> dict[str, list[tuple[int, int, str, bool]]
             for f in unit.get("functions", []):
                 done = float(f.get("fuzzy_match_percent", 0)) >= 100 and f["name"] not in skip
                 m = NAME.match(f["name"])
-                if m:
+                if cfg.get("addresses") == "virtual" and "virtual_address" in (f.get("metadata") or {}):
+                    # Names that state another release's addresses (Going Commando's PAL and v2.00
+                    # keep v1.01's names, and name their own code func_PAL_..., func_US2_...): the
+                    # report's address is this release's, the level the name's or the unit's.
+                    level = RELEASE_LEVEL.match(f["name"])
+                    level = level.group(1) if level and level.group(1) else next(
+                        (c[6:] for c in cats if re.fullmatch(r"level_\d+", c)), None)
+                    add(level, int(f["metadata"]["virtual_address"]), int(f["size"]), f["name"], done)
+                elif m:
                     add(m.group(1), int(m.group(2), 16), int(f["size"]), f["name"], done)
                 elif "virtual_address" in (f.get("metadata") or {}):
                     level = next((c[6:] for c in cats if re.fullmatch(r"level_\d+", c)), None)

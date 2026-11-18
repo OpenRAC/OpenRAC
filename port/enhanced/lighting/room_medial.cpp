@@ -201,18 +201,20 @@ void RoomLayout::rebuild_medial(
 
             medial_centres.push_back(root);
             selected[root] = true;
+            // Geodesic distance to the current skeleton avoids cutting through walls. It only
+            // falls as branches join the skeleton, so each pass spreads from the new branch alone
+            // (the same least distances a full pass from every selected node finds).
+            for (auto a : component) {
+                reach[a] = INFINITY;
+            }
+            for (auto a : component) {
+                if (selected[a]) {
+                    reach[a] = 0;
+                    pending.emplace(0, a);
+                }
+            }
 
             for (;;) {
-                // Geodesic distance to the current skeleton avoids cutting through walls.
-                std::fill(reach.begin(), reach.end(), INFINITY);
-
-                for (auto a : component) {
-                    if (selected[a]) {
-                        reach[a] = 0;
-                        pending.emplace(0, a);
-                    }
-                }
-
                 while (!pending.empty()) {
                     const auto [value, a] = pending.top();
                     pending.pop();
@@ -251,6 +253,8 @@ void RoomLayout::rebuild_medial(
                 // substantial uncovered branches survive, rather than one branch per obstacle.
                 while (!selected[tip] && parent[tip] != kMissing) {
                     selected[tip] = true;
+                    reach[tip] = 0;
+                    pending.emplace(0, tip);
                     const auto next = parent[tip];
                     skeleton[tip].push_back(next);
                     skeleton[next].push_back(tip);

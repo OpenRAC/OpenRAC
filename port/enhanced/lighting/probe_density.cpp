@@ -203,7 +203,11 @@ std::vector<ProbeDensityReceiver> probe_density_receivers(
         throw std::runtime_error("adaptive probe receivers require matching floor/ceiling data");
     }
 
-    Scene scene(source, settings.sunlight_direction, threads);
+    Scene scene(
+        source,
+        settings.sunlight_direction,
+        {.threads = threads, .prepare_emission_averages = false}
+    );
     std::vector<ProbeDensityReceiver> result;
 
     for (unsigned id = 0; id < floors.size(); ++id) {

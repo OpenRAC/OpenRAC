@@ -31,6 +31,12 @@ language server at the SDK's `types/rac1.d.luau` for autocomplete. How to use it
 | `openrac.pointer` | `() -> (number, number, boolean)` |
 | `openrac.take_input` | `(...("keyboard" \| "mouse")) -> ()` |
 | `openrac.capture_mouse` | `(capture: boolean) -> ()` |
+| `openrac.touch_define` | `(json: string) -> boolean` |
+| `openrac.touch_icon` | `(name: string, svg: string) -> boolean` |
+| `openrac.touch_push` | `(context: string?) -> ()` |
+| `openrac.touch_hint` | `(hint: string, on: boolean) -> ()` |
+| `openrac.set_setting` | `(key: string, value: any) -> boolean` |
+| `openrac.on_settings` | `(fn: () -> ()) -> ()` |
 | `openrac.pvars` | `(moby: number) -> { [string]: number }?` |
 
 ## Types
@@ -137,6 +143,22 @@ rac1.planet.unlock (Planet_Unlock) void(i32): Unlocks a planet's coordinates (Un
 type Planet_UnlockFn = (planet: number) -> ()
 ```
 
+### `Help_RequestFn`
+
+rac1.help.request (Help_Request) i32(i32,i32): Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1.
+
+```lua
+type Help_RequestFn = (message: number, slot: number) -> number
+```
+
+### `Ship_InitTransitionFn`
+
+rac1.ship.init_transition (Ship_InitTransition) void(i32): Puts the hero in the ship for a landing or take-off (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to load. On Orxon its choice of chunks goes by whether the O2 Mask is owned.
+
+```lua
+type Ship_InitTransitionFn = (mode: number) -> ()
+```
+
 ### `Vendor_InitLevelStockFn`
 
 rac1.vendor.init_level_stock (Vendor_InitLevelStock) void(): The vendor's stock at each level start (VendorStockLevelInit): gives the Bomb Glove while the player has none, keeps the stock's known items and adds the level's new weapon.
@@ -183,6 +205,38 @@ rac1.weapon.take_ammo (Weapon_TakeAmmo) i32(i32,i32): Takes amount of ammo from 
 
 ```lua
 type Weapon_TakeAmmoFn = (item: number, amount: number) -> number
+```
+
+### `Weapon_Blaster_PickTargetFn`
+
+rac1.weapon.blaster.pick_target (Weapon_Blaster_PickTarget) u32(i32,u32,u32,u32): Chooses the Blaster's auto-aim target for a shot from from (select_blaster_auto_aim_target; from a Vec4, yaw and pitch f32s, all addresses): the nearest targetable creature (Moby flags 0x1000) within 20 units whose aim point is within about 9 degrees of the heading yaw/pitch and in sight from the camera and from from (ignore: the moby the sight test passes over). Writes the pitch toward it, and the yaw when within 10 degrees, and returns it; 0 for none.
+
+```lua
+type Weapon_Blaster_PickTargetFn = (ignore: number, from: number, yaw: number, pitch: number) -> number
+```
+
+### `Weapon_Ryno_PickTargetFn`
+
+rac1.weapon.ryno.pick_target (Weapon_Ryno_PickTarget) u32(u32,u32,u32,f32,f32,f32): Chooses a R.Y.N.O. missile's target (select_ryno_target): the creature with a target record, of class type 5, within max_distance across of pos (a Vec4 address) and max_yaw / max_pitch of the aim angles (aim, f32s at +4 pitch and +8 yaw), the best by angle and distance, in sight; skip is the seven mobys the salvo has already (0: only the ones drawn last frame). Returns the moby, 0 for none.
+
+```lua
+type Weapon_Ryno_PickTargetFn = (pos: number, aim: number, skip: number, max_yaw: number, max_pitch: number, max_distance: number) -> number
+```
+
+### `Weapon_GoldDevastator_PickTargetFn`
+
+rac1.weapon.gold_devastator.pick_target (Weapon_GoldDevastator_PickTarget) void(u32,u32,u32): Chooses the gold Devastator missile's target (select_gold_devastator_missile_target): the creature within 40 units of the missile nearest its heading, in a cone that widens with the weapon's level, in sight, not skip; writes it into the missile's data (data, its pvars).
+
+```lua
+type Weapon_GoldDevastator_PickTargetFn = (missile: number, data: number, skip: number) -> ()
+```
+
+### `Weapon_Drone_PickTargetFn`
+
+rac1.weapon.drone.pick_target (Weapon_Drone_PickTarget) u32(u32,u32): Chooses a drone's target (select_nearest_drone_target): the nearest moby of class type 5, 7 or 8 to from (a Vec4 address), within 4, 5.3 or 6 units by type, not one of the nine in skip, not held by the Suck Cannon. Returns the moby, 0 for none.
+
+```lua
+type Weapon_Drone_PickTargetFn = (from: number, skip: number) -> number
 ```
 
 ### `Moby_RecordDeathFn`
@@ -455,6 +509,38 @@ rac1.save.update_state (Save_UpdateState) void(): The memory card's state machin
 
 ```lua
 type Save_UpdateStateFn = () -> ()
+```
+
+### `msg_stringFn`
+
+rac1.text.msg_string (msg_string) i32(i32): Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn.
+
+```lua
+type msg_stringFn = (id: number) -> number
+```
+
+### `Vendor_OpenMenuFn`
+
+rac1.vendor.open_menu (Vendor_OpenMenu) void(u32): Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero.
+
+```lua
+type Vendor_OpenMenuFn = (moby: number) -> ()
+```
+
+### `GoldBolts_CountUnspentFn`
+
+rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership.
+
+```lua
+type GoldBolts_CountUnspentFn = () -> number
+```
+
+### `Vendor_DrawIconStripFn`
+
+rac1.vendor.icon_strip.draw (Vendor_DrawIconStrip) void(): Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+
+```lua
+type Vendor_DrawIconStripFn = () -> ()
 ```
 
 ### `MobyUpdateFn`

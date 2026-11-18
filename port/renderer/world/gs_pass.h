@@ -51,7 +51,7 @@
 #include <span>
 #include <vector>
 
-#include "renderer/texture.h"
+#include "renderer/textures/texture.h"
 
 namespace openrac::renderer::world {
 

@@ -25,9 +25,10 @@ presets?: Array<PluginPreset>, hooks: Array<string>, sharedHooks: Array<SharedHo
  */
 native: boolean, 
 /**
- * `native` (runs code on this computer), `script` (runs scripts, sandboxed) or `data`.
+ * `native` (runs code on this computer), `script` (runs scripts, sandboxed), `tool` (a page
+ * of its own in the launcher, kept apart from it) or `data`.
  */
-kind: "native" | "script" | "data" | "built-in", 
+kind: "native" | "script" | "tool" | "data" | "built-in", 
 /**
  * The installed folder (developer tools show it).
  */
@@ -35,4 +36,8 @@ path: string,
 /**
  * The mods it requires that are not installed: the row offers "Fix: install" for them.
  */
-missing?: Array<string>, };
+missing?: Array<string>, 
+/**
+ * Its own page in the launcher, inside its folder (mod_tools.rs): the Open button shows it.
+ */
+tool?: string, };

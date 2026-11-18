@@ -73,9 +73,21 @@ class Version:
 RAC2_NTSC = Version(game="rac2", key="ntsc", **util.disc_identity("rac2", "ntsc"), level_header=0x60,
                     hero_packs=0x4f04, hero_armours=9, item_banks=0x4b3c, flights=0x3e58, flight_count=4,
                     normal_table=0x238f00)
+# Going Commando's PAL and v2.00 discs: RC2.HDR has the same global headers at the same offsets
+# and sizes on all three (0x328, 0x40, 0x1870, ... 0x3f4 from +0), so the packs, banks and flights
+# are where v1.01's are. The normal table is where PatchTfragVertexLighting forms it in each
+# executable (func_002F0468: 0x238F00 on PAL, 0x238E80 on v2.00), the same 2 KB of bytes.
+RAC2_PAL = Version(game="rac2", key="pal", **util.disc_identity("rac2", "pal"), level_header=0x60,
+                   hero_packs=0x4f04, hero_armours=9, item_banks=0x4b3c, flights=0x3e58, flight_count=4,
+                   normal_table=0x238f00)
+RAC2_NTSC2 = Version(game="rac2", key="ntsc2", **util.disc_identity("rac2", "ntsc2"), level_header=0x60,
+                     hero_packs=0x4f04, hero_armours=9, item_banks=0x4b3c, flights=0x3e58, flight_count=4,
+                     normal_table=0x238e80)
 RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"), level_header=0x60)
+# Up Your Arsenal's PAL disc: the same table of contents and level headers as NTSC-U's.
+RAC3_PAL = Version(game="rac3", key="pal", **util.disc_identity("rac3", "pal"), level_header=0x60)
 RAC4_NTSC = Version(game="rac4", key="ntsc", **util.disc_identity("rac4", "ntsc"), level_header=0xc68)
-VERSIONS = (RAC2_NTSC, RAC3_NTSC, RAC4_NTSC)
+VERSIONS = (RAC2_NTSC, RAC2_PAL, RAC2_NTSC2, RAC3_NTSC, RAC3_PAL, RAC4_NTSC)
 
 
 def boot_name(disc: Disc) -> str | None:
@@ -91,14 +103,20 @@ def identify(disc: Disc) -> Version | None:
     """The later game this disc is, by the executable SYSTEM.CNF boots, or None for any other disc
     (Ratchet & Clank's among them: disc.Disc reads those). The executable is checked by SHA-1."""
     name = boot_name(disc)
-    version = next((v for v in VERSIONS if v.executable == name), None)
-    if version is None:
+    candidates = [v for v in VERSIONS if v.executable == name]
+    if not candidates:
         return None
+    # One serial can be several releases (Going Commando's v1.01 and v2.00 both boot SCUS_972.68):
+    # the executable's size and SHA-1 say which.
     found = next(((lba, size) for path, lba, size in walk(disc) if path == name), None)
-    if found is None or found[1] != version.executable_size:
-        raise FormatError(f"{name} is not {version.label}'s executable")
-    if hashlib.sha1(disc.read(found[0] * SECTOR, found[1])).hexdigest() != version.executable_sha1:
-        raise FormatError(f"the executable's SHA-1 does not match {version.game} {version.label}")
+    sized = [v for v in candidates if found is not None and found[1] == v.executable_size]
+    if not sized:
+        raise FormatError(f"{name} is not {' or '.join(v.label for v in candidates)}'s executable")
+    sha1 = hashlib.sha1(disc.read(found[0] * SECTOR, found[1])).hexdigest()
+    version = next((v for v in sized if v.executable_sha1 == sha1), None)
+    if version is None:
+        raise FormatError(f"the executable's SHA-1 does not match {sized[0].game} "
+                          f"{' or '.join(v.label for v in sized)}")
     return version
 
 

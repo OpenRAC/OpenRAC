@@ -9,10 +9,10 @@ recording of your own play, and its thumbnail. GAME is OpenRAC's id (rac1 to rac
 site's name for the game (rac1, gc, uya, deadlocked, size-matters, sac), so the files match
 src/lib/media.ts.
 
-`thumbs` makes every game's thumbnail, <name>-thumb.webp, and its tile picture, <name>-tile.webp,
-from its picture: the game list shows the pictures 64 by 44 and Android's Games tab a few hundred
-pixels wide, and a picture up to 3840 wide decodes to tens of MB where those take one or two.
-Run it after a picture is added or replaced.
+`thumbs` makes every game's thumbnail, <name>-thumb.webp, from its picture: the game list shows the
+pictures 64 by 44, and a picture up to 3840 wide decodes to tens of MB where that takes a few KB.
+The tile pictures carry the game's logo and come from scripts/game_art.py, so `thumbs` leaves
+them; `still` writes one without a logo for a game that has none yet.
 
 Record the game yourself, from your own disc: docs/STYLE.md says what to write in
 THIRD_PARTY_NOTICES.md before it ships. Needs ffmpeg with libwebp.
@@ -64,12 +64,14 @@ def tile_args(picture: Path, out: Path) -> list[str]:
     ]  # fmt: skip
 
 
-def thumb(img: Path, name: str) -> Path | None:
-    """Writes NAME's thumbnail and tile picture from its picture; None when there is no picture yet."""
+def thumb(img: Path, name: str, tile: bool = False) -> Path | None:
+    """Writes NAME's thumbnail (and with TILE its tile picture) from its picture; None when there is
+    no picture yet."""
     picture = img / f"{name}-bg.webp"
     if not picture.is_file():
         return None
-    subprocess.run(tile_args(picture, img / f"{name}-tile.webp"), check=True)
+    if tile:
+        subprocess.run(tile_args(picture, img / f"{name}-tile.webp"), check=True)
     out = img / f"{name}-thumb.webp"
     subprocess.run(thumb_args(picture, out), check=True)
     return out
@@ -84,7 +86,7 @@ def still(a: argparse.Namespace) -> int:
     picture = a.out / f"{name}-bg.webp"
     subprocess.run(still_args(a.recording, picture, a.at, 1600), check=True)
     print(f"{picture}: {picture.stat().st_size / 1024:.0f} KB")
-    small = thumb(a.out, name)
+    small = thumb(a.out, name, tile=True)
     if small:
         print(f"{small}: {small.stat().st_size / 1024:.0f} KB")
     return 0

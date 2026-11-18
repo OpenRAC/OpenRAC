@@ -16,8 +16,8 @@
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
@@ -389,6 +389,20 @@ void test_native_lights_without_probes(Fixture& f, const renderer::Camera& camer
     CHECK(std::any_of(expected.begin(), expected.end(), [](auto value) { return value != 0; }));
     renderer::FrameInput input;
     input.frame = 1;
+    provider.prepare_deformation(input, scene);
+    f.draw(camera, {3, 0, false, false}, {0, 0, f.width, f.height}, &provider);
+    CHECK(f.target.read_rgba() == expected);
+
+    // A newly collected or disabled emitter must disappear even if the frame is drawn again.
+    scene.set_point_emitters({{.position = {0, 0, -2}, .radiance = {1, 0, 0}, .range = 4}});
+    provider.prepare_deformation(input, scene);
+    f.draw(camera, {3, 0, false, false}, {0, 0, f.width, f.height}, &provider);
+    CHECK(f.target.read_rgba() != expected);
+    scene.set_point_emitters({{.position = {0, 0, -20}, .radiance = {1, 0, 0}, .range = 4}});
+    provider.prepare_deformation(input, scene);
+    f.draw(camera, {3, 0, false, false}, {0, 0, f.width, f.height}, &provider);
+    CHECK(f.target.read_rgba() == expected);
+    scene.set_point_emitters({});
     provider.prepare_deformation(input, scene);
     f.draw(camera, {3, 0, false, false}, {0, 0, f.width, f.height}, &provider);
     CHECK(f.target.read_rgba() == expected);

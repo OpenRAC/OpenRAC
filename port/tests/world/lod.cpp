@@ -120,11 +120,35 @@ void fog_line() {
 
 }  // namespace
 
+// The level scene's clamp is the programs': F = max(min(F, near), far), so a near intensity under
+// the far one never fogs past the far intensity, and a far intensity of 255 fogs nothing (the
+// Electrolyzer puzzles' near 100, far 255 drew the board 61% fog colour before).
+void scene_fog() {
+    const auto level = scene_fog_params(0.0f, 100.0f * kUnits, 255.0f, 102.0f);
+    CHECK(level.has_value());
+    CHECK((*level)[2] == 102.0f && (*level)[3] == 255.0f);
+    CHECK(std::fabs((*level)[0] * 50.0f * kUnits + (*level)[1] - 178.5f) < 0.01f);
+
+    CHECK(!scene_fog_params(0.0f, 100.0f * kUnits, 100.0f, 255.0f).has_value());
+    CHECK(!scene_fog_params(0.0f, 100.0f * kUnits, 255.0f, 255.0f).has_value());
+    CHECK(!scene_fog_params(50.0f, 50.0f, 255.0f, 0.0f).has_value());
+
+    // Near under far, far under 255: the far intensity everywhere.
+    const auto inverted = scene_fog_params(0.0f, 100.0f * kUnits, 100.0f, 200.0f);
+    CHECK(inverted.has_value());
+    CHECK((*inverted)[2] == 200.0f && (*inverted)[3] == 200.0f);
+
+    // Full fog everywhere stays on.
+    const auto full = scene_fog_params(0.0f, 1.0f, 0.0f, 0.0f);
+    CHECK(full.has_value() && (*full)[2] == 0.0f && (*full)[3] == 0.0f);
+}
+
 int main() {
     tfrag_lod_rule();
     tfrag_cull();
     tie_lod_rule();
     tie_culling();
     fog_line();
+    scene_fog();
     return openrac::test::result();
 }

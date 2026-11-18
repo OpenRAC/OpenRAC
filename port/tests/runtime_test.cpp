@@ -328,6 +328,36 @@ void relocation_with_folded_copies() {
     openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
 }
 
+int card_prompt(int a) {
+    return a;
+}
+
+// A level function the executable also carries (rac1 PAL v1 and NTSC-J: the title's card menu runs
+// level 0's code at its boot place). With no level loaded, its level data is the executable's.
+void level_data_in_the_executable() {
+    // Level 0's program: the prompt at 0x1E0000 forms 0x1B9E70, its menu.
+    const std::uint32_t level0[] = {0x3C04001Cu, 0x24849E70u, 0x03E00008u, 0};
+    // The executable's copy at 0x12F000 forms 0x1D5D70, the executable's menu.
+    const std::uint32_t copy[] = {0x3C04001Du, 0x24845D70u, 0x03E00008u, 0};
+    std::memcpy(G(0x0012F000u), copy, sizeof copy);
+    const auto fn = reinterpret_cast<openrac_host_fn>(card_prompt);
+    static const openrac_fn_entry exe_fns[] = {{0x0012F000u, fn, "prompt"}};
+    static const openrac_fn_entry level_fns[] = {{0x001E0000u, fn, "prompt"}};
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 1);
+    openrac_guest_register(0, level_fns, 1);
+    openrac_guest_add_level_program(
+        0, 0x001E0000u, reinterpret_cast<const std::uint8_t*>(level0), sizeof level0
+    );
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    CHECK(OPENRAC_LDATA(0, 0x001B9E70u) == 0x001D5D70u);
+    CHECK(OPENRAC_LDATA(0, 0x001B9F44u) == 0x001D5E44u);  // a field of it
+    CHECK(OPENRAC_LCODE(0, 0x001E0000u) == 0x0012F000u);
+    openrac_guest_set_overlay(0);
+    CHECK(OPENRAC_LDATA(0, 0x001B9E70u) == 0x001B9E70u);  // its own level: as written
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    openrac_guest_clear_level_programs();
+}
+
 int particle_loop(int a) {
     return a;
 }
@@ -376,6 +406,54 @@ void relocation_end_pointer_gives_way() {
     CHECK(OPENRAC_DATA(0x00150000u) == 0x00160000u);
     CHECK(OPENRAC_DATA(0x00150100u) == 0x00160200u);  // not the loop's end, 0x00160100
     CHECK(OPENRAC_DATA(0x00150104u) == 0x00160204u);  // a field of it, from the same pair
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
+}
+
+int frame_draw(int a) {
+    return a;
+}
+
+int title_sky(int a) {
+    return a;
+}
+
+int level_sky(int a) {
+    return a;
+}
+
+// A level's copy of a function can call its own routine where the executable's calls another (rac1:
+// the frame draw calls the title's sky in the executable, each level's sky in that level's copy).
+// openrac_level_call finds it from the copy's own call.
+void level_call_follows_the_copy() {
+    // Executable: the draw at 0x10A000 calls the title's sky at 0x10A100.
+    std::vector<std::uint8_t> exe(0x200, 0);
+    const std::uint32_t draw[] = {0x0C042840u, 0, 0x03E00008u, 0};
+    std::memcpy(exe.data(), draw, sizeof draw);
+    // Level 9: the draw's copy at 0x1A0000 calls the level's sky at 0x1A0200.
+    const std::uint32_t copy[] = {0x0C068080u, 0, 0x03E00008u, 0};
+    std::memcpy(G(0x001A0000u), copy, sizeof copy);
+    const auto fn = [](auto f) {
+        return reinterpret_cast<openrac_host_fn>(f);
+    };
+    static const openrac_fn_entry exe_fns[] = {
+        {0x0010A000u, fn(frame_draw), "draw"},
+        {0x0010A100u, fn(title_sky), "title_sky"},
+    };
+    static const openrac_fn_entry level_fns[] = {
+        {0x001A0000u, fn(frame_draw), "draw"},
+        {0x001A0200u, fn(level_sky), "level_sky"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 2);
+    openrac_guest_register(9, level_fns, 2);
+    openrac_guest_set_relocation(
+        0x00140000u, 0x00170000u, 0, exe.data(), 0x0010A000u, static_cast<std::uint32_t>(exe.size())
+    );
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    CHECK(openrac_level_call(0x0010A000u, 0x10u, 0x0010A100u) == 0x0010A100u);
+    openrac_guest_set_overlay(9);
+    CHECK(openrac_level_call(0x0010A000u, 0x10u, 0x0010A100u) == 0x001A0200u);
+    CHECK(openrac_guest_function(0x001A0200u) == fn(level_sky));
     openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
     openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
 }
@@ -547,9 +625,11 @@ int main() {
     code_in_copy_jal();
     folded_address();
     relocation_with_folded_copies();
+    level_data_in_the_executable();
     elf();
     reach_report_updates();
     host_stack();
+    level_call_follows_the_copy();
     relocation_end_pointer_gives_way();  // last: it turns on Going Commando's pairing rules
     return openrac::test::result();
 }

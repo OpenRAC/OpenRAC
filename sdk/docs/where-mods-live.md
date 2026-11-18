@@ -55,8 +55,12 @@ game.
 
 ## Android
 
-The game runs inside the app there, and Android does not let an app load code it
-wrote itself, so native mods are not loaded on Android. Script mods are.
+The game runs inside the app there. Script mods and data packs work as
+elsewhere. A native mod loads when its release has an `android-arm64` build:
+the template's workflow makes one with the Android NDK. The game opens the
+library read-only, as Android 14 asks of code an app loads from its own files.
+A mod released before it had that build shows in the Mods tab as not built for
+this platform until its next release.
 
 ## A mod's own files
 
@@ -65,3 +69,10 @@ A native mod keeps its own files (a seed, a list of games played) in the folder
 beside the memory cards (`~/.local/share/openrac`, `~/Library/Application
 Support/OpenRAC`, `%LOCALAPPDATA%\openrac`). The game makes it on the first ask
 and never removes it; updating or removing the mod leaves it in place.
+
+Ask `data_dir` for this folder; do not work out a path of your own from `HOME`
+or `XDG_DATA_HOME`. On Android only `data_dir` is a folder the player can
+reach: the Files app shows it as **OpenRAC > Mod files > `<id>`**
+(`files/share/openrac/mod-data/<id>` in the app's storage), where a log or a
+spoiler file can be opened, copied or shared. A folder the mod makes anywhere
+else in the app's storage is hidden from the player.

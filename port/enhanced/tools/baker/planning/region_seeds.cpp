@@ -570,12 +570,14 @@ void seed_regions(
     if (coverage) {
         authored_seeds(state, gameplay);
     }
-    const bool collision = std::filesystem::is_regular_file(level / "collision.glb");
+    const std::filesystem::path overrides = request["level_overrides"].string();
+    const auto collision_path = bake_input(level / "collision.glb", overrides);
+    const bool collision = std::filesystem::is_regular_file(collision_path);
 
     // Only requested floor or enclosure queries need collision geometry.
     if (collision
         && (state.settings.mobys || (!state.regions.empty() && state.settings.geometry))) {
-        auto triangles = load_coverage_collision(level);
+        auto triangles = load_coverage_collision(level, overrides);
 
         // Collision decoding errors must stop planning before publication.
         if (!triangles) {
@@ -583,7 +585,7 @@ void seed_regions(
         }
 
         state.triangles = std::move(*triangles);
-        auto identity = bake_source_identity(level / "collision.glb");
+        auto identity = bake_source_identity(collision_path);
 
         // Collision size must not require a second complete resident copy for hashing.
         if (!identity) {
@@ -606,7 +608,11 @@ void seed_regions(
         }
 
         state.whitelist_hash = source_hash(source_bytes(path));
-        placement_markers(state, document(level / "placements.json"), whitelist, gameplay);
+        const auto edited = overrides / "bake-inputs/moby-placements.json";
+        const auto placements = !overrides.empty() && std::filesystem::is_regular_file(edited)
+                                    ? edited
+                                    : level / "placements.json";
+        placement_markers(state, document(placements), whitelist, gameplay);
 
         // Reflection anchors must not accidentally allocate, merge or split local GI volumes.
         if (coverage) {

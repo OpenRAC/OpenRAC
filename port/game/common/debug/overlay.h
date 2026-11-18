@@ -25,6 +25,8 @@
 #include <filesystem>
 #include <format>
 #include <imgui.h>
+#include <memory>
+#include <optional>
 #include <set>
 #include <span>
 #include <string>
@@ -60,6 +62,12 @@ constexpr std::array<const char*, kSectionCount> kSectionNames =
 
 // Developer menu and renderer-panel controls share the same opt-in camera settings.
 void camera_tools_controls();
+void place_review_camera(int level, scene::Vec3 position, scene::Vec3 forward);
+void meat_proxy_review_window(const Shown& shown);
+
+inline renderer::Vec3 camera_forward(const renderer::Camera& camera) {
+    return {-camera.view[2], -camera.view[6], -camera.view[10]};
+}
 
 // The pad's buttons by bit (active low in the report).
 constexpr std::array<const char*, 16> kButtonNames =
@@ -225,13 +233,15 @@ struct State {
     std::uint32_t selected = 0;  // address; 0 none
     bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
     bool material_settings = false;  // Unified authoring window, independent of Enhanced Settings.
-    bool material_preset_edit = false;   // Shared preset editing instead of one object slot.
     std::string material_preset;         // Stable preset id, revalidated after level changes.
-    std::size_t material_selection = 0;  // Current immutable binding row, revalidated on each draw.
-    std::uint32_t material_model = ~0u;  // Pending click-picker model, or none.
-    int material_slot = -1;              // Pending click-picker material.
+    int material_library_preset = -1;
+    std::optional<std::size_t> material_selection;  // Active slot for the preview.
+    std::vector<std::size_t> material_extra_slots;
+    std::weak_ptr<const scene::MaterialAssets> material_selection_assets;
+    bool material_pick_pending = false;  // Resolve the latest picker result in the editor.
     std::string material_error;          // Persistent edit/save diagnostics.
     bool enhanced_settings = false;  // Independent Enhanced Settings window.
+    bool meat_proxy_review = false;
     ControlsMenu controls;           // the menu's Controls tab
     bool inspector = false;      // the moby inspector window is open
     bool labels = false;         // the mobys' classes written in the picture
@@ -250,7 +260,7 @@ struct State {
     std::uint32_t used_pages = 0;             // the 4 KB pages holding data, in all the cells
 
     // Screenshots of the window, with the overlay.
-    std::string shot_path;         // write the next frame there
+    std::optional<std::uint64_t> shot_tick;  // write the next frame under this tick's name
     std::uint64_t shot_every = 0;  // OPENRAC_OVERLAY_SHOT=N:PREFIX
     std::string shot_prefix;       // the start of their file names
     std::uint64_t shot_from = 0;   // OPENRAC_SHOT_FROM: the first tick written
@@ -300,6 +310,10 @@ struct State {
     ImVec2 bar_min{};
     ImVec2 bar_max{};
     ImVec2 touch_guides{-1.0f, -1.0f};
+    // The size of the control picked to be resized (set_touch_selected()), below 0 for none, and
+    // the steps the bar asked to change it by (take_touch_size_steps()).
+    float touch_selected = -1.0f;
+    int touch_size_steps = 0;
     Card card;                      // the card being drawn on
     bool settings_changed = false;  // a setting changed in the drawer or the menus, not applied yet
     Scroll panel_scroll;            // the panel's drag_scroll
@@ -422,7 +436,7 @@ void inspector_window();
 
 // Draws the game section: the level, the hero, the camera, the pad, the calls to functions without
 // C, and the probes' switches. Defined in debug/game.cpp.
-void game_section();
+void game_section(const Shown& shown);
 
 // Returns the folder the shaders are read again from: OPENRAC_SHADER_DIR when it is set, otherwise
 // the port folder the build read them from (common/stats.h), empty when none was built in.
@@ -439,14 +453,9 @@ void shaders_section();
 // Defined in debug_overlay.cpp.
 void set_visible(bool on);
 
-// Returns the file name for a screenshot of the window at `tick`: in the working folder; on
-// Android, whose apps run in "/" (not writable), in the app's own files (HOME, which the launcher
-// sets), the folder made when it is missing. Defined in debug_overlay.cpp.
-std::string shot_name(std::uint64_t tick);
-
 // ---- The touch handling, the drawer, the menus and their controls ----
 
-// Says whether the drawer is offered: always on Android, elsewhere when OPENRAC_DRAWER=1. With it
+// Says whether the drawer is offered: always on Android/iOS, elsewhere when OPENRAC_DRAWER=1. With it
 // the menus are the drawer's and the panel has no keys to name. Defined in debug/touch.cpp.
 bool drawer_possible();
 
@@ -492,9 +501,11 @@ void press(SDL_Keycode key);
 std::string menu_bar_key_label();
 SDL_Scancode menu_bar_scancode();
 
-// The controller button that does the same (SDL_GAMEPAD_BUTTON_INVALID for none), and its name
-// as the player reads it ("R4", "none"). Defined in debug/menu_bar.cpp.
+// The controller button that does the same (SDL_GAMEPAD_BUTTON_INVALID for none and for Start+Select),
+// whether it is Start+Select pressed together (the default, platform/menu_chord.h), and its name as
+// the player reads it ("Start+Select", "R4", "none"). Defined in debug/menu_bar.cpp.
 SDL_GamepadButton menu_bar_button();
+bool menu_bar_chord();
 std::string menu_bar_button_label();
 
 // Opens or closes the menu. Defined in debug/menu_bar.cpp.
@@ -559,13 +570,15 @@ void capture_frame(const Shown& shown);
 // details are separate in debug/picker.cpp.
 void picture_marks(const Shown& shown);
 // Draws unified material authoring controls after the window-thread handoff.
-void material_settings_window();
+void material_settings_window(const Shown& shown);
+void release_material_preview();
 void picker_overlay(const Shown& shown);
 // Reads one native input action; the returned comma begins the next frame/action pair.
 Result<const char*> read_scripted_action(const char*, ScriptedInput&);
 // Delivers due held/drag actions only inside the game, without moving the operating system cursor.
 void refresh_scripted_pointer();
 void run_script(std::uint64_t frame, int held);
+void release_scripted_pointer(const SDL_Event& event);
 // Initial inline actions, or an explicit @file whose append-only actions are polled only in diagnostics.
 void configure_scripted_input(std::string_view text);
 // Inspect the click selection without borrowing game graphics objects or moving its camera.

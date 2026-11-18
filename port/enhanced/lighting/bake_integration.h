@@ -32,7 +32,7 @@ struct RaySample {
 struct EmissionSample {
     Float3 direction{}, radiance_weight{};
     double pdf = 0;      // Full solid-angle density, including emitter selection.
-    bool delta = false;  // Point sources have no competing continuous direction sample.
+    bool delta = false;  // True when a direction sample cannot reach this light sample.
 };
 
 // Linear irradiance and normalised distance moments for one texel.
@@ -48,7 +48,9 @@ struct IntegratedSample {
     std::span<const RaySample> rays,
     std::span<const EmissionSample> emission,
     float distance_exponent,
-    float max_distance
+    float max_distance,
+    std::size_t lighting_ray_count =
+        0  // Zero uses every ray; otherwise the rest are visibility only.
 );
 
 }  // namespace openrac::lighting::bake_detail

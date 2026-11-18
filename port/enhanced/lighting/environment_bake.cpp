@@ -103,6 +103,7 @@ Float3 capture(const Capture& context, Float3 origin, Float3 direction) {
     // Reuse emission texture/vertex modulation with the visible, rather than bake-boosted, colour.
     auto visible = triangle;
     visible.emission = triangle.visible_emission;
+    visible.mesh_emission = false;
     auto result = bake_emission(scene.input, visible, hit.hit.u, hit.hit.v);
 
     for (unsigned c = 0; c < 3; ++c) {
@@ -212,7 +213,12 @@ EnvironmentAsset bake_environment(
     }
 
     const unsigned threads = worker_budget(execution);
-    Scene scene(source, settings.sunlight_direction, threads);
+    // Reflection capture reads visible emission at the hit, using the baked GI separately.
+    Scene scene(
+        source,
+        settings.sunlight_direction,
+        {.threads = threads, .prepare_emission_averages = false}
+    );
     const CaptureGi field(gi);
     EnvironmentAsset asset;
     asset.colour_format = settings.texture_format;
@@ -221,6 +227,9 @@ EnvironmentAsset bake_environment(
     asset.scene_hash = gi[0].grid.scene_hash;
     asset.settings_hash = gi[0].grid.settings_hash;
     asset.probes = place_environment_probes(scene, gi, floors, settings, options, placement);
+    if (asset.probes.empty()) {
+        return asset;
+    }
 
     if (asset.height() > 16384 || asset.width() > 16384
         || std::uint64_t(asset.width()) * asset.height() * 4 > 512ull * 1024 * 1024) {

@@ -180,9 +180,7 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--text);
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
-    border-bottom-width: 3px;
+    background: var(--control);
     border-radius: var(--radius-sm);
     cursor: pointer;
   }
@@ -194,7 +192,8 @@
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .cap:hover {
-      border-color: var(--amber);
+      background: var(--on-fill);
+      color: var(--amber);
     }
 
     :global(html:where(:not([data-input="pad"]))) .clear:hover {
@@ -202,10 +201,11 @@
     }
   }
 
+  /* An empty cap: a dashed edge all round. Buttons have no border (app.css), so it is set whole. */
   .cap.empty {
     background: transparent;
-    border-style: dashed;
-    border-bottom-width: 1px;
+    box-shadow: none;
+    border: 1px dashed var(--line-field);
   }
 
   .cap.waiting {
@@ -213,12 +213,13 @@
     font-weight: 500;
     color: var(--bar-ink);
     background: var(--amber);
-    border-color: var(--amber);
+    box-shadow: none;
+    background: var(--on-fill);
     animation: pulse 1.2s ease-in-out infinite;
   }
 
   .cap.clash {
-    border-color: var(--amber);
+    background: var(--on-fill);
     color: var(--amber);
   }
 
@@ -236,10 +237,7 @@
     font-size: 0.9375rem;
     line-height: 1;
     color: var(--soft);
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
-    border-left: none;
-    border-bottom-width: 3px;
+    background: var(--control);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     cursor: pointer;
   }

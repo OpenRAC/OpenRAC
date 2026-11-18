@@ -22,6 +22,7 @@ uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = GUEST_RAM_SIZE; /* the console's 32 MiB arena */
 static int enabled, steps, impulses, builds;
 static gaddr ocean_draw_cursor, ocean_draw_moby;
+static unsigned fleet_strips;
 static float captured_z, captured_w, captured_amplitude, captured_scroll;
 
 gaddr openrac_relocate_level_data(int from, gaddr at) {
@@ -46,6 +47,55 @@ void game_FUN_L01_002f6150__game(void) {}
 void game_FUN_L11_0030a908__game(gaddr moby) {
     ocean_draw_cursor = GREF(gaddr, 0x001611C0u);
     ocean_draw_moby = moby;
+    GREF(gaddr, 0x001611C0u) += 16u; /* the game's draw moves the cursor on */
+}
+
+static void fleet_draw(gaddr moby, unsigned strips) {
+    for (unsigned strip = 0; strip < strips; ++strip) {
+        game_FUN_L00_001fde98(4, moby, moby + 16u, moby + 32u, 2);
+    }
+}
+
+void game_FUN_L17_002f04d0__game(gaddr moby) {
+    fleet_draw(moby, 4);
+}
+
+void game_FUN_L17_002f0948__game(gaddr moby) {
+    fleet_draw(moby, 2);
+}
+
+void game_FUN_L17_002f10c8__game(gaddr moby) {
+    fleet_draw(moby, 2);
+}
+
+void game_FUN_L00_001fde98__game(int count, gaddr vertices, gaddr colours, gaddr uv, int mode) {
+    CHECK(count == 4 && colours == vertices + 16u && uv == vertices + 32u && mode == 2);
+    ++fleet_strips;
+    GREF(gaddr, 0x001611C0u) += 16u;
+}
+
+static void check_fleet_water(gaddr cursor, gaddr packet, gaddr moby) {
+    void (*const pools[])(
+        gaddr
+    ) = {game_FUN_L17_002f04d0, game_FUN_L17_002f0948, game_FUN_L17_002f10c8};
+    for (unsigned i = 0; i < sizeof(pools) / sizeof(*pools); ++i) {
+        const unsigned strips = i == 0 ? 2u : 1u;
+        GREF(gaddr, cursor) = packet;
+        enabled = 0;
+        fleet_strips = 0;
+        pools[i](moby);
+        CHECK(fleet_strips == strips * 2 && GREF(gaddr, cursor) == packet + 32u * strips);
+        GREF(gaddr, cursor) = packet;
+
+        enabled = 1;
+        fleet_strips = 0;
+        pools[i](moby);
+        CHECK(fleet_strips == strips && GREF(gaddr, cursor) == packet + 96u + 16u * strips);
+        CHECK(GREF(uint64_t, packet + 32u) == ((0x5754ull << 48) | (i + 1u)));
+        CHECK(GREF(uint64_t, packet + 80u + 16u * strips) == (0x5754ull << 48));
+        game_FUN_L00_001fde98(4, moby, moby + 16u, moby + 32u, 2);
+        CHECK(fleet_strips == strips + 1);
+    }
 }
 
 void game_FUN_L01_002feb28__game(void) {}
@@ -301,15 +351,23 @@ int main(void) {
     enabled = 0;
     game_FUN_L01_00262618(0x00202D80u);
     CHECK(captured_z == 2 && captured_w == 4);
+    /* No tag before the game's own draw has shown the cursor is where the table says. */
+    enabled = 1;
     GREF(gaddr, cursor) = packet;
     game_FUN_L11_0030a908(layer);
-    CHECK(ocean_draw_cursor == packet && GREF(gaddr, cursor) == packet);
+    CHECK(ocean_draw_cursor == packet && GREF(gaddr, cursor) == packet + 16u);
+    enabled = 0;
+    GREF(gaddr, cursor) = packet;
+    game_FUN_L11_0030a908(layer);
+    CHECK(ocean_draw_cursor == packet && GREF(gaddr, cursor) == packet + 16u);
     enabled = 1;
+    GREF(gaddr, cursor) = packet;
     game_FUN_L11_0030a908(layer);
     CHECK(ocean_draw_moby == layer && ocean_draw_cursor == packet + 48u);
     CHECK(GREF(uint64_t, packet + 32u) == ((0x5754ull << 48) | 1u));
-    CHECK(GREF(uint64_t, packet + 80u) == (0x5754ull << 48));
-    CHECK(GREF(gaddr, cursor) == packet + 96u);
+    CHECK(GREF(uint64_t, packet + 96u) == (0x5754ull << 48));
+    CHECK(GREF(gaddr, cursor) == packet + 112u);
+    check_fleet_water(cursor, packet, layer);
     check_explosion_capture();
     check_bomb_glove_capture();
     free(openrac_guest_base);

@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 12;
+pub const API_MINOR: u32 = 20;
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -66,6 +66,8 @@ pub const MANIFEST: &str = "openrac-mod.json";
 pub const LIST: &str = "plugins.json";
 /// The port's answer at its last start.
 pub const STATUS: &str = "status.json";
+/// The mod code of the set in place, for the game to show (modset.rs).
+pub const CODE_FILE: &str = "modset.json";
 
 /// `<data>/plugins` for a game set up in `install_dir`.
 pub fn dir(install_dir: &Path, game: &str) -> PathBuf {
@@ -91,7 +93,7 @@ fn platform_key_for(os: &str, arch: &str) -> Option<&'static str> {
     })
 }
 
-const PLATFORMS: [&str; 7] = [
+pub(crate) const PLATFORMS: [&str; 7] = [
     "macos-arm64",
     "macos-x86_64",
     "linux-x86_64",
@@ -150,12 +152,27 @@ pub struct SettingSpec {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     #[ts(as = "Option<String>", optional)]
     pub group: String,
+    /// What it is to a multiplayer party (interface 1.14): `own` (each player's), `host` (the
+    /// host's rules bring it); absent: it must match the host's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub multiplayer: Option<String>,
+    /// The games it is for, of the mod's (a mod for several games, docs/port/MODS.md section 3):
+    /// shown for those only, and the port gives it its default in the others. Empty: every game.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<String>>", optional)]
+    pub games: Vec<String>,
 }
 
 impl SettingSpec {
     /// A keybind's most binds.
     pub fn most_binds(&self) -> usize {
         self.binds.unwrap_or(2) as usize
+    }
+
+    /// Whether it is for `game` (its `games` empty or naming it).
+    pub fn for_game(&self, game: &str) -> bool {
+        self.games.is_empty() || self.games.iter().any(|g| g == game)
     }
 }
 
@@ -218,6 +235,11 @@ pub struct Manifest {
     pub games: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     pub plugin: BTreeMap<String, String>,
+    #[serde(default)]
+    vulkan_device: Value,
+    // An explicit null is invalid, so keep it distinct from an absent declaration.
+    #[serde(default, deserialize_with = "present_json_value")]
+    vulkan_queue: Option<Value>,
     /// `native` (the default, also when absent) or `script`.
     #[serde(default, rename = "type")]
     pub kind: String,
@@ -228,6 +250,10 @@ pub struct Manifest {
     /// (MODS.md, section 3).
     #[serde(default)]
     pub assets: Option<String>,
+    /// A .json file inside the mod with the on-screen pad's buttons and icons (interface 1.13;
+    /// MODS.md, "Touch controls").
+    #[serde(default)]
+    pub touch: Option<String>,
     #[serde(default)]
     pub hooks: Vec<String>,
     #[serde(default)]
@@ -241,6 +267,20 @@ pub struct Manifest {
     pub conflicts: Vec<Conflict>,
     #[serde(default)]
     pub load: LoadHints,
+    /// What the mod is to a multiplayer party (interface 1.14): `gameplay` (also when absent),
+    /// `input`, `cosmetic` or `solo`.
+    #[serde(default)]
+    pub multiplayer: Option<String>,
+    /// Its own page in the launcher (mod_tools.rs).
+    #[serde(default)]
+    pub tool: Option<crate::mod_tools::Tool>,
+    /// What it keeps beside each save, which the save editor shows (mod_save_data.rs).
+    #[serde(default)]
+    pub save_data: Option<crate::mod_save_data::SaveData>,
+}
+
+fn present_json_value<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
 }
 
 /// An id: lower-case letters and digits in words joined by hyphens, at most 64 characters.
@@ -303,10 +343,13 @@ impl Manifest {
         self.kind == "script"
     }
 
-    /// What it is, as the Mods tab tells it: `script`, `native` (a library), or `data`.
+    /// What it is, as the Mods tab tells it: `script`, `native` (a library), `tool` (only its own
+    /// page in the launcher, mod_tools.rs) or `data`.
     pub fn kind_name(&self) -> &'static str {
         if self.is_script() {
             "script"
+        } else if self.plugin.is_empty() && self.tool.is_some() {
+            "tool"
         } else if self.plugin.is_empty() {
             "data"
         } else {
@@ -316,11 +359,23 @@ impl Manifest {
 
     /// The rules of MODS.md, section 3, that need nothing but the file: the first broken one.
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_manifest(false)
+    }
+
+    /// The source manifest leaves the library list to the build that creates the release archive.
+    pub(crate) fn validate_source(&self) -> Result<(), String> {
+        self.validate_manifest(true)
+    }
+
+    fn validate_manifest(&self, source: bool) -> Result<(), String> {
         if self.format != 2 {
             return Err(format!("format {} is not a native mod's (2)", self.format));
         }
         if !valid_id(&self.id) {
             return Err(format!("its id {:?} is not lower-case words joined by hyphens", self.id));
+        }
+        if let Some(save_data) = &self.save_data {
+            save_data.validate()?;
         }
         if self.name.trim().is_empty() {
             return Err("it has no name".into());
@@ -333,6 +388,11 @@ impl Manifest {
         }
         if self.games.is_empty() || self.games.values().any(Vec::is_empty) {
             return Err("it names no game, or a game with no disc".into());
+        }
+        for s in &self.settings {
+            if let Some(g) = s.games.iter().find(|g| !self.games.contains_key(g.as_str())) {
+                return Err(format!("its setting {:?} is for {g}, which is not one of its games", s.key));
+            }
         }
         match self.kind.as_str() {
             "" | "native" | "script" => {}
@@ -358,9 +418,19 @@ impl Manifest {
         } else if !self.scripts.is_empty() {
             return Err("only a script mod (\"type\": \"script\") names scripts".into());
         }
+        if let Some(tool) = &self.tool {
+            if !safe_relative(&tool.page) || !tool.page.ends_with(".html") {
+                return Err(format!("its page {:?} is not an .html file inside the mod", tool.page));
+            }
+        }
         if let Some(assets) = &self.assets {
             if !safe_relative(assets) {
                 return Err(format!("its assets {assets:?} is not a folder inside the mod"));
+            }
+        }
+        if let Some(touch) = &self.touch {
+            if !touch.ends_with(".json") || !safe_relative(touch) {
+                return Err(format!("its touch {touch:?} is not a .json file inside the mod"));
             }
         }
         if !self.plugin.is_empty() {
@@ -375,10 +445,31 @@ impl Manifest {
                 return Err(format!("its library for {platform} is not a path inside the mod"));
             }
         }
+        let can_declare_vulkan = self.api.as_deref().and_then(parse_api).is_some_and(|api| api >= (1, 20));
+        if self.vulkan_queue.as_ref().is_some_and(|queue| {
+            !queue.is_boolean() || self.is_script() || (!source && self.plugin.is_empty()) || !can_declare_vulkan
+        }) {
+            return Err("\"vulkan_queue\" must be a boolean on a native mod targeting interface 1.20 or later".into());
+        }
+        if can_declare_vulkan
+            && !self.is_script()
+            && self.vulkan_device.as_bool() == Some(true)
+            && self.vulkan_queue.as_ref().and_then(Value::as_bool) != Some(true)
+        {
+            return Err("\"vulkan_device\" requires \"vulkan_queue\": true from interface 1.20".into());
+        }
+        if let Some(word) = &self.multiplayer {
+            if !matches!(word.as_str(), "gameplay" | "input" | "cosmetic" | "solo") {
+                return Err(format!("\"multiplayer\" is gameplay, input, cosmetic or solo, not {word:?}"));
+            }
+        }
         let mut keys = BTreeSet::new();
         for s in &self.settings {
             if !valid_key(&s.key) || !keys.insert(s.key.as_str()) {
                 return Err(format!("setting {:?}: the key is not [a-z0-9_]+, or is there twice", s.key));
+            }
+            if !matches!(s.multiplayer.as_deref(), None | Some("own" | "host")) {
+                return Err(format!("setting {:?}: \"multiplayer\" is own or host", s.key));
             }
             match s.kind.as_str() {
                 "bool" | "int" | "float" | "string" | "keybind" => {}
@@ -422,12 +513,7 @@ impl Manifest {
         if self.plugin.is_empty() && !self.is_script() {
             return Ok(());
         }
-        let (major, minor) = parse_api(self.api.as_deref().unwrap_or_default()).unwrap_or_default();
-        if major != API_MAJOR || minor > API_MINOR {
-            return Err(format!(
-                "Needs OpenRAC with mod interface {major}.{minor}; this one has {API_MAJOR}.{API_MINOR}."
-            ));
-        }
+        self.check_api_compatibility()?;
         // A script runs wherever the port does, Android included.
         if self.is_script() {
             return Ok(());
@@ -437,6 +523,17 @@ impl Manifest {
             Some(p) => Err(format!("Not built for this computer ({p}).")),
             None => Err("Native mods do not run on this system.".into()),
         }
+    }
+
+    pub(crate) fn check_api_compatibility(&self) -> Result<(), String> {
+        let api = self.api.as_deref().ok_or("it has no \"api\"")?;
+        let (major, minor) = parse_api(api).ok_or_else(|| format!("its api {api:?} is not MAJOR.MINOR"))?;
+        if major != API_MAJOR || minor > API_MINOR {
+            return Err(format!(
+                "Needs OpenRAC with mod interface {major}.{minor}; this one has {API_MAJOR}.{API_MINOR}."
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -604,6 +701,12 @@ pub struct SettingView {
     pub conflicts: Vec<String>,
 }
 
+/// Whether a hook point the manifest lists is `game`'s: an id of another of the mod's games
+/// (`rac2.player.take_damage` while rac1 runs) is not.
+pub fn hook_for_game(m: &Manifest, hook: &str, game: &str) -> bool {
+    !matches!(hook.split_once('.'), Some((g, _)) if g != game && m.games.contains_key(g))
+}
+
 /// Fills each keybind's `conflicts`: the other keybinds of its group that share one of its binds.
 pub fn mark_conflicts(settings: &mut [SettingView]) {
     let binds: Vec<Vec<String>> = settings
@@ -662,8 +765,9 @@ pub struct PluginView {
     pub shared_hooks: Vec<SharedHook>,
     /// Whether it carries code (a library) or only data.
     pub native: bool,
-    /// `native` (runs code on this computer), `script` (runs scripts, sandboxed) or `data`.
-    #[ts(type = "\"native\" | \"script\" | \"data\" | \"built-in\"")]
+    /// `native` (runs code on this computer), `script` (runs scripts, sandboxed), `tool` (a page
+    /// of its own in the launcher, kept apart from it) or `data`.
+    #[ts(type = "\"native\" | \"script\" | \"tool\" | \"data\" | \"built-in\"")]
     pub kind: String,
     /// The installed folder (developer tools show it).
     pub path: String,
@@ -671,6 +775,10 @@ pub struct PluginView {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub missing: Vec<String>,
+    /// Its own page in the launcher, inside its folder (mod_tools.rs): the Open button shows it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tool: Option<String>,
 }
 
 /// The mods of a game, in load order, for its disc `version` ("pal").
@@ -721,6 +829,7 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
         let mut settings: Vec<SettingView> = m
             .settings
             .iter()
+            .filter(|spec| spec.for_game(game))
             .map(|spec| SettingView {
                 spec: spec.clone(),
                 value: entry.settings.get(&spec.key).and_then(|v| check_value(spec, v)).unwrap_or(spec.default.clone()),
@@ -729,9 +838,11 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
             .collect();
         mark_conflicts(&mut settings);
         // By permanent id (hook_ids.rs): one mod may name a hook point by its name, another by its id.
+        // A mod for several games names each game's by id: another game's are not this one's.
         let shared_hooks = m
             .hooks
             .iter()
+            .filter(|hook| hook_for_game(&m, hook, game))
             .filter_map(|hook| {
                 let hid = crate::hook_ids::id(game, hook);
                 let with: Vec<String> = mods
@@ -740,7 +851,9 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
                     .filter(|(e, other)| {
                         e.id != entry.id
                             && e.enabled
-                            && other.as_ref().is_ok_and(|o| o.hooks.iter().any(|h| crate::hook_ids::id(game, h) == hid))
+                            && other.as_ref().is_ok_and(|o| {
+                                o.hooks.iter().any(|h| hook_for_game(o, h, game) && crate::hook_ids::id(game, h) == hid)
+                            })
                     })
                     .map(|(e, other)| other.as_ref().map_or(e.id.clone(), |o| o.name.clone()))
                     .collect();
@@ -767,6 +880,7 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
             kind: m.kind_name().into(),
             path: folder.display().to_string(),
             missing: m.requires.iter().filter(|r| !mods.iter().any(|e| e.id == r.id)).map(|r| r.id.clone()).collect(),
+            tool: m.tool.as_ref().map(|t| t.page.clone()),
         });
     }
     Ok(out)
@@ -837,6 +951,9 @@ pub fn set_enabled(dir: &Path, game: &str, version: &str, id: &str, on: bool) ->
         let manifests: Vec<Result<Manifest, String>> =
             mods.iter().map(|e| read_manifest(&dir.join(&e.id)).and_then(|m| m.validate().map(|()| m))).collect();
         let m = manifests[at].clone().map_err(|e| format!("{id} cannot be read: {e}"))?;
+        if m.kind_name() == "tool" {
+            return Err(format!("{} is a page in the launcher, with nothing to load in the game", m.name));
+        }
         m.runs_on(game, version, platform_key())?;
         if let Some(why) = against_others(&m, at, &mods, &manifests, true) {
             return Err(why);
@@ -847,6 +964,9 @@ pub fn set_enabled(dir: &Path, game: &str, version: &str, id: &str, on: bool) ->
         mods[at].enabled = false;
     }
     write_list(dir, &mods)?;
+    if read_manifest(&dir.join(id)).is_ok_and(|m| matches!(party_kind(&m), "gameplay" | "solo")) {
+        forget_code(dir);
+    }
     list(dir, game, version)
 }
 
@@ -988,6 +1108,16 @@ pub fn move_mod(dir: &Path, game: &str, version: &str, id: &str, up: bool) -> Re
 /// player never set the value, and a mod treats it as unset.
 pub const PLAYER_NAME: &str = "${player_name}";
 
+/// Whether a mod that is on in `dir` uses the launcher's Multiplayer name: one of its string
+/// settings defaults to [`PLAYER_NAME`] (the multiplayer mod's name, for one). Settings shows
+/// the name only then.
+pub fn uses_player_name(dir: &Path) -> bool {
+    read_list(dir).unwrap_or_default().iter().filter(|e| e.enabled).any(|e| {
+        read_manifest(&dir.join(&e.id))
+            .is_ok_and(|m| m.settings.iter().any(|s| s.kind == "string" && s.default == PLAYER_NAME))
+    })
+}
+
 /// Shows the placeholder default of string settings as `player_name` (the launcher's Multiplayer
 /// name), in the default and in a value that still is the placeholder. A value the player set is
 /// left as it is.
@@ -1021,6 +1151,9 @@ pub fn set_setting(
     let m = read_manifest(&dir.join(id))?;
     let spec = m.settings.iter().find(|s| s.key == key).ok_or_else(|| format!("{id} has no setting {key}"))?;
     let mut value = check_value(spec, &value).ok_or_else(|| format!("{value} is not a value of {}", spec.name))?;
+    if shared_setting(spec) && party_kind(&m) == "gameplay" {
+        forget_code(dir);
+    }
     if spec.kind == "string" && spec.default == PLAYER_NAME && value == player_name {
         value = Value::String(PLAYER_NAME.into());
     }
@@ -1029,6 +1162,73 @@ pub fn set_setting(
     let mut views = list(dir, game, version)?;
     show_player_name(&mut views, player_name);
     Ok(views)
+}
+
+/// What a mod is to a party: `gameplay`, `input`, `cosmetic` or `solo` (the manifest's
+/// `multiplayer`, `gameplay` when it has none).
+pub fn party_kind(m: &Manifest) -> &str {
+    m.multiplayer.as_deref().unwrap_or("gameplay")
+}
+
+/// Whether a mod code carries this setting: one a party compares (no `multiplayer` of its own),
+/// that is not a keybind and is not the player's name.
+pub fn shared_setting(spec: &SettingSpec) -> bool {
+    spec.multiplayer.is_none() && spec.kind != "keybind" && spec.default != PLAYER_NAME
+}
+
+/// The set a code names is no longer the one in place: its code must not be shown any more.
+fn forget_code(dir: &Path) {
+    let _ = std::fs::remove_file(dir.join(CODE_FILE));
+}
+
+/// Each mod's id and whether it is on, in load order.
+pub(crate) fn load_order(dir: &Path) -> Result<Vec<(String, bool)>, String> {
+    Ok(read_list(dir)?.into_iter().map(|e| (e.id, e.enabled)).collect())
+}
+
+/// Whether a mod is on, and its settings as stored.
+pub(crate) type Stored = (bool, Map<String, Value>);
+
+/// Each mod's state as stored, by id.
+pub(crate) fn stored(dir: &Path) -> Result<BTreeMap<String, Stored>, String> {
+    Ok(read_list(dir)?.into_iter().map(|e| (e.id, (e.enabled, e.settings))).collect())
+}
+
+/// Sets values of a mod's settings, each one checked against its manifest. The keys it does not
+/// know and the values it does not take are left out: their names come back.
+pub(crate) fn set_values(dir: &Path, id: &str, values: &BTreeMap<String, Value>) -> Result<Vec<String>, String> {
+    let mut mods = read_list(dir)?;
+    let at = position(&mods, id)?;
+    let m = read_manifest(&dir.join(id))?;
+    let mut skipped = Vec::new();
+    for (key, value) in values {
+        match m
+            .settings
+            .iter()
+            .find(|s| s.key == *key)
+            .filter(|s| shared_setting(s))
+            .and_then(|s| check_value(s, value))
+        {
+            Some(value) => {
+                mods[at].settings.insert(key.clone(), value);
+            }
+            None => skipped.push(key.clone()),
+        }
+    }
+    write_list(dir, &mods)?;
+    Ok(skipped)
+}
+
+/// Puts the mods of `order` in that order among themselves, on the places they hold now: the others
+/// stay where they are.
+pub(crate) fn arrange(dir: &Path, order: &[String]) -> Result<(), String> {
+    let mut mods = read_list(dir)?;
+    let places: Vec<usize> = mods.iter().enumerate().filter(|(_, e)| order.contains(&e.id)).map(|(i, _)| i).collect();
+    let mut wanted: Vec<Entry> = order.iter().filter_map(|id| mods.iter().find(|e| e.id == *id).cloned()).collect();
+    for (place, entry) in places.into_iter().zip(wanted.drain(..)) {
+        mods[place] = entry;
+    }
+    write_list(dir, &mods)
 }
 
 /// Removes a mod: its folder in the store and its line in the list.
@@ -1044,6 +1244,7 @@ pub fn remove(dir: &Path, game: &str, version: &str, id: &str) -> Result<Vec<Plu
         std::fs::remove_dir_all(&folder).map_err(|e| format!("{}: {e}", folder.display()))?;
     }
     write_list(dir, &mods)?;
+    forget_code(dir);
     list(dir, game, version)
 }
 
@@ -1216,7 +1417,7 @@ fn unzip_capped(zip_path: &Path, into: &Path, max_bytes: u64, max_files: usize) 
     let mut written: u64 = 0;
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
-        let name = entry.name().to_string();
+        let name = entry.name().map_err(|e| e.to_string())?.to_string();
         let Some(relative) = entry.enclosed_name().filter(|p| safe_relative(&p.to_string_lossy().replace('\\', "/")))
         else {
             return Err(format!("the .zip names a file outside its folder ({name})"));
@@ -1237,6 +1438,7 @@ fn unzip_capped(zip_path: &Path, into: &Path, max_bytes: u64, max_files: usize) 
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
         }
+        // What the archive says of a size is not trusted: reading stops at what is left.
         let mut bytes = Vec::new();
         let left = max_bytes - written;
         (&mut entry).take(left + 1).read_to_end(&mut bytes).map_err(|e| format!("{name}: {e}"))?;
@@ -1369,7 +1571,7 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
     }
     // A native mod's source folder (a checkout not yet built) names no library: the port would
     // refuse it at every start, so it is refused here, before it replaces a working copy.
-    if !m.is_script() && m.plugin.is_empty() {
+    if !m.is_script() && m.plugin.is_empty() && m.tool.is_none() {
         return Err(format!(
             "{} has no library built: this is its source folder. Add its release .zip, or build the mods \
              first (cmake --build build) and add the checkout again, whose build/package is then taken",
@@ -1386,6 +1588,11 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
             return Err(format!("{} names a script it does not hold ({path})", m.name));
         }
     }
+    if let Some(tool) = &m.tool {
+        if !root.join(&tool.page).is_file() {
+            return Err(format!("{} names a page it does not hold ({})", m.name, tool.page));
+        }
+    }
     // Staged in `.staging/<id>`, then swapped in; an install it replaces waits in `.previous/<id>`
     // (one kept), so a failure puts it back and a bad update can be rolled back.
     let staging = dir.join(STAGING).join(&m.id);
@@ -1400,7 +1607,10 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
         // New: on when it can run here and nothing stands against it.
         let manifests: Vec<Result<Manifest, String>> =
             mods.iter().map(|e| read_manifest(&dir.join(&e.id)).and_then(|m| m.validate().map(|()| m))).collect();
-        if m.runs_on(game, version, platform_key()).is_ok() && against_others(&m, at, &mods, &manifests, true).is_none()
+        // A mod that is only a page in the launcher has nothing for the game to load: never on.
+        if m.kind_name() != "tool"
+            && m.runs_on(game, version, platform_key()).is_ok()
+            && against_others(&m, at, &mods, &manifests, true).is_none()
         {
             mods[at].enabled = true;
             place(&mut mods, at, &manifests);
@@ -1412,6 +1622,9 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
         entry.settings.retain(|key, value| m.settings.iter().any(|s| s.key == *key && check_value(s, value).is_some()));
     }
     write_list(dir, &mods)?;
+    if matches!(party_kind(&m), "gameplay" | "solo") {
+        forget_code(dir);
+    }
     Ok(Installed::Plugin { id: m.id.clone(), name: m.name.clone(), version: m.version.clone(), replaced, enabled })
 }
 
@@ -1491,6 +1704,48 @@ mod tests {
     }
 
     #[test]
+    fn a_page_of_its_own() {
+        let mut m = manifest("nanotech-upscaler", json!({"tool": {"page": "ui/index.html"}}));
+        m.as_object_mut().unwrap().remove("plugin");
+        m.as_object_mut().unwrap().remove("api");
+        let tool: Manifest = serde_json::from_value(m.clone()).unwrap();
+        assert_eq!(tool.validate(), Ok(()));
+        assert_eq!(tool.kind_name(), "tool");
+        assert_eq!(tool.runs_on("rac1", "pal", None), Ok(()), "a page runs wherever the launcher does");
+        for bad in ["../index.html", "/ui/index.html", "ui/index.js", ""] {
+            m["tool"] = json!({"page": bad});
+            let refused: Manifest = serde_json::from_value(m.clone()).unwrap();
+            assert!(refused.validate().is_err(), "{bad:?} was let through");
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("plugins");
+        installed_mod(&dir, "nanotech-upscaler", json!({"tool": {"page": "ui/index.html"}}));
+        let views = list(&dir, "rac1", "pal").unwrap();
+        assert_eq!(view(&views, "nanotech-upscaler").tool.as_deref(), Some("ui/index.html"));
+    }
+
+    #[test]
+    fn install_a_page_of_its_own() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("plugins");
+        let mut m = manifest("upscaler", json!({"tool": {"page": "ui/index.html"}}));
+        m.as_object_mut().unwrap().remove("plugin");
+        m.as_object_mut().unwrap().remove("api");
+        let src = tmp.path().join("upscaler");
+        std::fs::create_dir_all(src.join("ui")).unwrap();
+        std::fs::write(src.join(MANIFEST), serde_json::to_vec(&m).unwrap()).unwrap();
+        assert!(install(&dir, "rac1", "pal", &src).unwrap_err().contains("page it does not hold"));
+        std::fs::write(src.join("ui").join("index.html"), "<!doctype html>").unwrap();
+        // Installed, but never on: the game has nothing of it to load.
+        match install(&dir, "rac1", "pal", &src).unwrap() {
+            Installed::Plugin { id, enabled, .. } => assert_eq!((id.as_str(), enabled), ("upscaler", false)),
+            other => panic!("{other:?}"),
+        }
+        assert!(set_enabled(&dir, "rac1", "pal", "upscaler", true).unwrap_err().contains("page in the launcher"));
+        assert_eq!(view(&list(&dir, "rac1", "pal").unwrap(), "upscaler").kind, "tool");
+    }
+
+    #[test]
     fn manifests_are_checked() {
         let good: Manifest = serde_json::from_value(manifest(
             "lock-strafe",
@@ -1507,6 +1762,18 @@ mod tests {
             m.validate().unwrap_err()
         };
         assert!(broken(json!({"format": 1})).contains("format"));
+        assert!(broken(json!({"multiplayer": "party"})).contains("multiplayer"));
+        let party = |word: &str| -> Result<(), String> {
+            let m: Manifest = serde_json::from_value(manifest("x", json!({"multiplayer": word}))).unwrap();
+            m.validate()
+        };
+        assert!(
+            party("gameplay").is_ok() && party("input").is_ok() && party("cosmetic").is_ok() && party("solo").is_ok()
+        );
+        assert!(broken(json!({"settings": [
+            {"key": "a", "name": "A", "type": "bool", "default": true, "multiplayer": "mine"}
+        ]}))
+        .contains("multiplayer"));
         assert!(broken(json!({"id": "Lock_Strafe"})).contains("id"));
         assert!(broken(json!({"id": "a--b"})).contains("id"));
         assert!(broken(json!({"version": "1.0"})).contains("version"));
@@ -1586,9 +1853,45 @@ mod tests {
         for bad in ["", "../up", "/abs", "a\\b"] {
             assert!(native(json!({"assets": bad})).unwrap_err().contains("assets"), "{bad}");
         }
+        // Its touch file (MODS.md, "Touch controls") is a .json file inside it.
+        native(json!({"touch": "touch/touch.json"})).unwrap();
+        for bad in ["", "../up.json", "/abs.json", "touch.txt"] {
+            assert!(native(json!({"touch": bad})).unwrap_err().contains("touch"), "{bad}");
+        }
         // A native mod built for interface 1.0 still loads on 1.1.
         let old: Manifest = serde_json::from_value(manifest("n", json!({"api": "1.0"}))).unwrap();
         assert!(old.runs_on("rac1", "pal", Some(here())).is_ok());
+    }
+
+    #[test]
+    fn vulkan_declarations_are_checked() {
+        let native = |extra: Value| serde_json::from_value::<Manifest>(manifest("native", extra)).unwrap().validate();
+        for fields in [
+            json!({"api": "1.19", "vulkan_device": true}),
+            json!({"api": "1.20"}),
+            json!({"api": "1.20", "vulkan_queue": false}),
+            json!({"api": "1.20", "vulkan_queue": true}),
+            json!({"api": "1.20", "vulkan_device": true, "vulkan_queue": true}),
+        ] {
+            assert_eq!(native(fields), Ok(()));
+        }
+        for fields in [
+            json!({"api": "1.20", "vulkan_queue": null}),
+            json!({"api": "1.20", "vulkan_queue": "true"}),
+            json!({"api": "1.19", "vulkan_queue": false}),
+            json!({"api": "1.20", "plugin": {}, "vulkan_queue": true}),
+        ] {
+            assert!(native(fields).unwrap_err().contains("must be a boolean on a native mod"));
+        }
+        for fields in [
+            json!({"api": "1.20", "vulkan_device": true}),
+            json!({"api": "1.20", "vulkan_device": true, "vulkan_queue": false}),
+        ] {
+            assert!(native(fields).unwrap_err().contains("requires \"vulkan_queue\": true"));
+        }
+        let script: Manifest =
+            serde_json::from_value(script("swap", json!({"api": "1.20", "vulkan_queue": true}))).unwrap();
+        assert!(script.validate().unwrap_err().contains("must be a boolean on a native mod"));
     }
 
     #[test]
@@ -1818,6 +2121,41 @@ mod tests {
     }
 
     #[test]
+    fn a_mod_for_several_games() {
+        // One folder per game's plugins/, the same mod in each: each game shows its own settings
+        // and shares only its own hook points (openrac-mods docs/MULTI_GAME.md).
+        let both = json!({"rac1": ["pal", "ntsc"], "rac2": ["ntsc", "pal", "ntsc2"]});
+        let settings = json!([
+            {"key": "count", "name": "Count", "type": "float", "default": 1.0, "games": ["rac1"]},
+            {"key": "damage", "name": "Damage", "type": "float", "default": 1.0},
+        ]);
+        let hooks = json!(["rac1.player.take_damage", "rac2.player.take_damage"]);
+        for (game, version, keys) in [("rac1", "pal", vec!["count", "damage"]), ("rac2", "ntsc2", vec!["damage"])] {
+            let tmp = tempfile::tempdir().unwrap();
+            let dir = tmp.path();
+            installed_mod(dir, "both", json!({"games": both, "settings": settings, "hooks": hooks}));
+            installed_mod(dir, "other", json!({"games": both, "hooks": ["rac2.player.take_damage"]}));
+            std::fs::write(
+                dir.join(LIST),
+                r#"{"format": 1, "mods": [{"id": "both", "enabled": true}, {"id": "other", "enabled": true}]}"#,
+            )
+            .unwrap();
+            let views = list(dir, game, version).unwrap();
+            let v = view(&views, "both");
+            assert_eq!(v.state, "ready", "{game}: {}", v.reason);
+            assert_eq!(v.settings.iter().map(|s| s.spec.key.as_str()).collect::<Vec<_>>(), keys, "{game}");
+            let shared: Vec<&str> = v.shared_hooks.iter().map(|h| h.hook.as_str()).collect();
+            assert_eq!(shared, if game == "rac2" { vec!["rac2.player.take_damage"] } else { vec![] }, "{game}");
+        }
+        let m: Manifest = serde_json::from_value(manifest(
+            "bad",
+            json!({"settings": [{"key": "n", "name": "N", "type": "bool", "default": false, "games": ["rac2"]}]}),
+        ))
+        .unwrap();
+        assert!(m.validate().unwrap_err().contains("not one of its games"));
+    }
+
+    #[test]
     fn states_from_the_disc_the_system_and_the_last_start() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path();
@@ -2006,6 +2344,31 @@ mod tests {
         let mut views = list(dir, "rac1", "pal").unwrap();
         show_player_name(&mut views, "SwiftRobot42");
         assert_eq!(views[0].settings[0].value, json!("SwiftRobot42"));
+    }
+
+    #[test]
+    fn the_multiplayer_name_is_used_only_by_a_mod_that_is_on() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        assert!(!uses_player_name(dir), "no mods");
+        installed_mod(
+            dir,
+            "mp",
+            json!({"settings": [{"key": "name", "name": "Name", "type": "string", "default": "${player_name}"}]}),
+        );
+        installed_mod(dir, "other", json!({"settings": [{"key": "x", "name": "X", "type": "string", "default": ""}]}));
+        std::fs::write(
+            dir.join(LIST),
+            r#"{"format": 1, "mods": [{"id": "mp", "enabled": false}, {"id": "other", "enabled": true}]}"#,
+        )
+        .unwrap();
+        assert!(!uses_player_name(dir), "installed but off");
+        set_enabled(dir, "rac1", "pal", "mp", true).unwrap();
+        assert!(uses_player_name(dir));
+        set_enabled(dir, "rac1", "pal", "other", false).unwrap();
+        assert!(uses_player_name(dir), "the other mod plays no part");
+        set_enabled(dir, "rac1", "pal", "mp", false).unwrap();
+        assert!(!uses_player_name(dir));
     }
 
     fn zip_of(path: &Path, files: &[(&str, &[u8])]) {

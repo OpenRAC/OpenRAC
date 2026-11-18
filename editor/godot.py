@@ -18,8 +18,8 @@ per instance are node metadata (rc1_*), so a packer can write them back.
 
 Going Commando's, Up Your Arsenal's and Deadlocked's levels (wads.py) are written the same way,
 with the same rc1_* metadata names, plus rc1_game on the level node. Their scenes are for looking
-and making texture and model packs: the level packer reads Ratchet & Clank's only, which the
-level node says (rc1_packable, and its description in the Scene dock).
+and making texture and model packs: the level packer reads Ratchet & Clank's and Going Commando's
+mobys (pack_later.py) only, which the level node says (rc1_packable, and its description in the Scene dock).
 """
 
 import colorsys
@@ -30,7 +30,7 @@ import shutil
 import struct
 from pathlib import Path
 
-from collision import collision_mesh, decode
+from collision import Collision, collision_mesh, decode
 import collision_scene
 from formats import FormatError, png, unpack
 from lighting import light_bank
@@ -160,6 +160,13 @@ class Scene:
         parts = ["[gd_scene format=3]", "\n".join(self.resources), *self.subresources, *self.nodes]
         parts += ["\n".join(f'[editable path="{path}"]' for path in self.editable)] if self.editable else []
         return "\n\n".join(p for p in parts if p) + "\n"
+
+
+def collision_glb(data: Collision) -> bytes:
+    """The renderer export of a packed static collision block."""
+    gltf = Gltf()
+    gltf.node("Collision", gltf.coloured(collision_mesh(data), gltf.overlay("collision", COLLISION_ALPHA)))
+    return gltf.glb()
 
 
 class LevelWriter:
@@ -296,13 +303,18 @@ class LevelWriter:
         if fmt.packable:
             self.scene.node(f"Level_{level.id:02}", kind="Node3D", script=script, metadata__rc1_level=level.id)
         else:
-            # A later game's level: shown and exported, not packed back yet (pack.py).
+            # A later game's level: shown and exported; Going Commando's mobys are packed back
+            # (pack_later.py), the other games' levels not yet.
+            gc = fmt.game == "rac2"
             self.scene.node(f"Level_{level.id:02}", kind="Node3D", script=script, metadata__rc1_level=level.id,
-                            metadata__rc1_game=fmt.game, metadata__rc1_packable=False,
-                            editor_description=f"{fmt.title}, level {level.id} (early access).\n"
-                            "Static scenery, mobys and textures to look at and to make texture and model "
-                            "packs from. Edits here are not packed back into the game yet: the level "
-                            "packer reads Ratchet & Clank's levels only.")
+                            metadata__rc1_game=fmt.game, metadata__rc1_packable=gc,
+                            editor_description=f"{fmt.title}, level {level.id}{'' if gc else ' (early access)'}.\n"
+                            + ("Mobys moved, turned, scaled or given other values are packed back into the game "
+                               "(Pack your edited levels); adding or deleting mobys, a moby's class, ties, "
+                               "shrubs, terrain and collision are not yet." if gc else
+                               "Static scenery, mobys and textures to look at and to make texture and model "
+                               "packs from. Edits here are not packed back into the game yet: the level "
+                               "packer reads Ratchet & Clank's and Going Commando's levels only."))
         problems = level.problems if fmt.lenient else None
         self.write_environment(level_sky(level, fmt))
         self.scene.node("Game", ".", "Node3D", transform=transform(GAME_TO_GODOT))
@@ -347,9 +359,7 @@ class LevelWriter:
             self.stats["collision"]["hero_triangles"] = sum(h["triangles"] for h in manifest["hero_walls"].values())
             collision_scene.add_collision_nodes(self.scene, self.res, manifest)
             return
-        gltf = Gltf()
-        gltf.node("Collision", gltf.coloured(collision_mesh(data), gltf.overlay("collision", COLLISION_ALPHA)))
-        (self.dir / "collision.glb").write_bytes(gltf.glb())
+        (self.dir / "collision.glb").write_bytes(collision_glb(data))
         self.scene.node("Collision", "Game", instance=self.scene.resource("PackedScene", f"{self.res}/collision.glb", "collision"),
                         visible=False)
         # Godot's glTF import ignores vertex colours, so the mesh gets the material here.
@@ -407,7 +417,7 @@ class LevelWriter:
         rotation_order XYZ makes the Inspector show the game's own Euler
         angles (R = Rz * Ry * Rx); the transform itself is exact either way.
         """
-        # The class names and update functions are Ratchet & Clank's (moby_classes.tsv, games/rac1):
+        # The class names and update functions are Ratchet & Clank's (moby_classes.tsv, games/rac1/decomp):
         # another game's class numbers mean other classes.
         names = moby_class_names() if self.fmt.class_names else {}
         logic = moby_logic(self.level.id) if self.fmt.class_names else {}
@@ -602,8 +612,10 @@ def write_project(project: Path, levels: list[int], region: str = "PAL", game: s
                 else f"Ratchet & Clank levels ({region})")
     else:
         fmt = games.FORMATS[game]
-        name = (f"{fmt.title}: {fmt.level_name(levels[0])} ({region}, early access)" if len(levels) == 1
-                else f"{fmt.title} levels ({region}, early access)")
+        # Going Commando plays and its moby edits are packed back. The other later games are early access.
+        tag = "" if game == "rac2" else ", early access"
+        name = (f"{fmt.title}: {fmt.level_name(levels[0])} ({region}{tag})" if len(levels) == 1
+                else f"{fmt.title} levels ({region}{tag})")
     (project / "project.godot").write_text(PROJECT.format(main=main, name=name, addon=ADDON_CFG))
     shutil.copytree(SCRIPTS, project / "rc1")
     install_addon(project)

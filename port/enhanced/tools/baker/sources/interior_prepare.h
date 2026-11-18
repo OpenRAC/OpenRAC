@@ -18,7 +18,8 @@ namespace openrac::lighting {
     const std::filesystem::path& level,
     const std::filesystem::path& gameplay,
     const std::filesystem::path& output,
-    bool generate_sources = true
+    bool generate_sources = true,
+    const std::filesystem::path& overrides = {}
 );
 
 }  // namespace openrac::lighting

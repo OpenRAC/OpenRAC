@@ -453,13 +453,7 @@ pub fn write_save(
         return Err("the edited save did not read back as asked; nothing was written".into());
     }
     let backup = saves::backup_card(card_dir, Some(&format!("before_edit_slot{}", slot + 1)))?;
-    let tmp = path.with_file_name(format!(".save{slot}.bin.editing"));
-    fs::write(&tmp, &out).map_err(|e| format!("could not write the save: {e}"))?;
-    if fs::read(&tmp).ok().as_deref() != Some(&out[..]) {
-        let _ = fs::remove_file(&tmp);
-        return Err("the save did not write back as it should; it was not replaced".into());
-    }
-    fs::rename(&tmp, &path).map_err(|e| format!("could not replace the save: {e}"))?;
+    crate::save_edit::replace_save(&path, &out)?;
     Ok(Rac2ExtraWriteResult { backup, view: view(serial, slot, &out, &check) })
 }
 

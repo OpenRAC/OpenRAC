@@ -1,0 +1,233 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "mesh-emission-terrain.glb-20",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 20,
+        "texture_path": "textures/terrain_0037.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0123233628,
+            1.29996479,
+            1.41793442
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-terrain.glb-27",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 27,
+        "texture_path": "textures/terrain_0020.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0204163585,
+            1.30167758,
+            1.41735733
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-terrain.glb-57",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 57,
+        "texture_path": "textures/terrain_0083.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0365062729,
+            1.23387587,
+            1.00823617
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_162.glb-3",
+      "match": {
+        "model": "tie_162.glb",
+        "material_slot": 3,
+        "texture_path": "textures/tie_0012.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0364863202,
+            1.23357797,
+            1.00798941
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_164.glb-4",
+      "match": {
+        "model": "tie_164.glb",
+        "material_slot": 4,
+        "texture_path": "textures/tie_0012.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0364833176,
+            1.23357999,
+            1.00798893
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_169.glb-11",
+      "match": {
+        "model": "tie_169.glb",
+        "material_slot": 11,
+        "texture_path": "textures/tie_0012.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0364863314,
+            1.23357809,
+            1.00798953
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_175.glb-10",
+      "match": {
+        "model": "tie_175.glb",
+        "material_slot": 10,
+        "texture_path": "textures/tie_0088.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.012400561,
+            1.2990557,
+            1.41699469
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_188.glb-2",
+      "match": {
+        "model": "tie_188.glb",
+        "material_slot": 2,
+        "texture_path": "textures/tie_0088.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0123982932,
+            1.29909337,
+            1.4170332
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_323.glb-4",
+      "match": {
+        "model": "tie_323.glb",
+        "material_slot": 4,
+        "texture_path": "textures/tie_0160.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.020446321,
+            1.29267359,
+            1.40843499
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_328.glb-5",
+      "match": {
+        "model": "tie_328.glb",
+        "material_slot": 5,
+        "texture_path": "textures/tie_0012.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0364896506,
+            1.23359835,
+            1.00800633
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_336.glb-5",
+      "match": {
+        "model": "tie_336.glb",
+        "material_slot": 5,
+        "texture_path": "textures/tie_0160.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0196650792,
+            1.29616129,
+            1.41184354
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_42.glb-7",
+      "match": {
+        "model": "tie_42.glb",
+        "material_slot": 7,
+        "texture_path": "textures/tie_0012.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0364962034,
+            1.23359168,
+            1.00800359
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    }
+  ]
+}

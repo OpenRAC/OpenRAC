@@ -1,6 +1,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.openrac_launcher" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+        <!-- The page's coal under it: no white flash at a start, and the card Recents shows
+             while the game runs (OpenracPlugin's play) is coal with the icon, not white. -->
+        <item name="android:windowBackground">@color/launcher_ground</item>
     </style>
 </resources>

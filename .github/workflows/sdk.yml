@@ -33,8 +33,10 @@ concurrency:
 jobs:
   archive:
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -73,6 +75,7 @@ jobs:
               -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28
             cross: true
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash
@@ -129,6 +132,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/sdk-v')
     needs: [archive, build]
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     permissions:
       contents: write
     steps:

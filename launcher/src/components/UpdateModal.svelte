@@ -186,6 +186,12 @@
     padding: 24px;
   }
 
+  @media (max-height: 500px) {
+    .overlay {
+      padding: 12px 24px;
+    }
+  }
+
   .backdrop {
     position: absolute;
     inset: 0;
@@ -211,8 +217,12 @@
     z-index: 1;
     width: 100%;
     max-width: 560px;
-    background: var(--panel);
-    border: 1px solid var(--line-strong);
+    /* Never taller than the window (a phone held sideways): the body scrolls, the title and
+       the buttons stay. */
+    max-height: 100%;
+    background: var(--card);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
@@ -221,12 +231,15 @@
   }
 
   .header {
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 18px 24px;
     border-bottom: 1px solid var(--line);
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .title-row {
@@ -246,6 +259,7 @@
 
   .close-btn {
     background: transparent;
+    box-shadow: none;
     border: none;
     color: var(--dim);
     font-size: 1.125rem;
@@ -270,6 +284,7 @@
     flex-direction: column;
     gap: 16px;
     max-height: 400px;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -285,7 +300,6 @@
     font-weight: 600;
     color: var(--amber);
     background: color-mix(in srgb, var(--amber) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
     padding: 3px 10px;
     border-radius: 6px;
   }
@@ -336,7 +350,6 @@
     margin: 0;
     padding: 12px;
     background: var(--ink-deep);
-    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     font-family: var(--font-sans);
     font-size: 0.8125rem;
@@ -360,7 +373,6 @@
     background: var(--ink-deep);
     border-radius: 4px;
     overflow: hidden;
-    border: 1px solid var(--line);
   }
 
   .progress-fill {
@@ -405,25 +417,27 @@
     gap: 8px;
     padding: 10px 14px;
     background: color-mix(in srgb, var(--err) 12%, transparent);
-    border: 1px solid var(--err);
     border-radius: var(--radius-sm);
     color: var(--err);
     font-size: 0.8125rem;
   }
 
   .actions {
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 12px;
     padding: 16px 24px;
     border-top: 1px solid var(--line);
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .btn-cancel {
     background: transparent;
-    border: 1px solid var(--line);
+    box-shadow: none;
     color: var(--soft);
     padding: 8px 18px;
     border-radius: var(--radius-sm);
@@ -442,7 +456,7 @@
   }
 
   .btn-primary {
-    background: linear-gradient(180deg, var(--bar-top), var(--bar-bottom));
+    background: var(--amber);
     border: none;
     color: var(--bar-ink-deep);
     font-weight: 600;
@@ -453,12 +467,13 @@
     box-shadow: 0 4px 12px rgba(229, 160, 19, 0.25);
     transition:
       transform 0.1s,
-      filter 0.15s;
+      background-color 0.15s;
   }
 
   @media (hover: hover) {
+    /* Gold like every main button (app.css), or the shared hover's dark control fill wins. */
     :global(html:where(:not([data-input="pad"]))) .btn-primary:hover {
-      filter: brightness(1.1);
+      background-color: var(--gold);
     }
   }
 

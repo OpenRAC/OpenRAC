@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { supports } from "$lib/capabilities";
   import { SETTINGS_TEXT } from "$lib/modsText";
   // Three groups: where things are (folders), the programs the launcher uses,
   // and how the launcher itself behaves. Edits stay local until saved; the bar
@@ -25,6 +26,7 @@
   import { DISCORD_URL, PYTHON_URL, REPO_URL, SITE_URL } from "$lib/links";
   import { nameProblem } from "$lib/multiplayerName";
   import { applyPalette, PALETTES } from "$lib/palettes";
+  import { applyAccent } from "$lib/themes";
   import { channelName, devBranches } from "$lib/updates";
   import { tablist } from "$lib/tabs";
 
@@ -45,18 +47,19 @@
     "docker",
     "discsDir",
     "installDir",
-    "layout",
+    "saveDir",
     "theme",
+    "gameColors",
     "discordRpc",
     "checkUpdates",
     "updateChannel",
     "updateBranch",
     "detailedGameLog",
     "renderer",
-    "hdr",
     "safeRendering",
     "saveEditorAdvanced",
     "developer",
+    "incrementalBuilds",
     "discordClientId",
     "multiplayerName",
   ] as const satisfies (keyof Config)[];
@@ -82,13 +85,26 @@
   const desktopRenderer = $derived(
     app.info?.platform === "windows" || app.info?.platform === "linux" || app.info?.platform === "macos",
   );
+  /** The game's Metal renderer is offered on macOS only. */
+  const metalRenderer = $derived(app.info?.platform === "macos");
+  /** The renderer the game starts with, as core/src/config.rs renderer_for has it: a Mac's Metal
+   *  is Vulkan anywhere else, anything unknown OpenGL. */
+  const shownRenderer = $derived<Config["renderer"]>(
+    draft.renderer === "metal"
+      ? metalRenderer
+        ? "metal"
+        : "vulkan"
+      : draft.renderer === "vulkan"
+        ? "vulkan"
+        : "opengl",
+  );
   /** Advanced opens by itself when something in it is on. */
   let advancedOpen = $state(
     saved().detailedGameLog ||
       saved().developer ||
       saved().saveEditorAdvanced ||
       saved().renderer === "vulkan" ||
-      saved().hdr !== "" ||
+      saved().renderer === "metal" ||
       saved().safeRendering,
   );
 
@@ -149,17 +165,40 @@
     });
   });
 
+  /** Android saves by itself, so a change still waiting when the page is left is saved then. */
+  const kept = () => onAndroid && !setup && (saving || (changed && !nameError));
+
   // A theme picked shows at once; left unsaved, the saved one comes back with the page's end.
   $effect(() => {
     applyPalette(draft.theme);
     return () => {
-      applyPalette(app.config?.theme);
+      if (!kept()) applyPalette(app.config?.theme);
+    };
+  });
+
+  // Game colours too, on the game picked.
+  $effect(() => {
+    const game = app.version?.split("/")[0] ?? null;
+    applyAccent(game, draft.gameColors);
+    return () => {
+      if (!kept()) applyAccent(game, app.config?.gameColors ?? true);
     };
   });
 
   const changed = $derived(!!app.config && JSON.stringify(edited(draft)) !== JSON.stringify(edited(app.config)));
   /** What is wrong with the multiplayer name typed, if anything: nothing is saved until it is right. */
   const nameError = $derived(nameProblem(draft.multiplayerName));
+  /** The Multiplayer name shows only while a mod that uses it (the multiplayer mod) is on in one
+   *  of the games; hidden, it keeps its value. */
+  let nameUsed = $state(false);
+  $effect(() => {
+    const games = [...new Set(app.library?.games.flatMap((g) => g.versions.map((v) => v.game)) ?? [])];
+    if (setup || !games.length) return;
+    void api.playerNameUsed(games).then(
+      (used) => (nameUsed = used),
+      () => (nameUsed = false),
+    );
+  });
 
   /** Android saves a change by itself, a moment after it is made (a field being typed in is
    *  saved once the typing stops), with no bar to press: a switch flipped is a setting changed.
@@ -179,6 +218,10 @@
       clearTimeout(timer);
     };
   });
+  // Left before the moment passed (a theme picked, then another tab at once): saved now.
+  $effect(() => () => {
+    if (kept() && !saving) void save(false);
+  });
   const tool = (t: "python" | "godot" | "docker") => (path: string) => api.checkTool(t, path);
   const root = (path: string): Promise<Check> => api.checkRoot(path);
   /** The install folder only has to be a place to write; the extractor makes what it needs inside. */
@@ -188,6 +231,10 @@
   /** The games folder is looked through when it is saved; what it holds shows on the Games page. */
   const gamesFolder = (path: string): Promise<Check> =>
     Promise.resolve({ ok: true, version: null, message: `Disc images (.iso) are looked for in ${path}` });
+
+  /** The save folder only has to be a place to write; the games make a folder per disc in it. */
+  const saveFolder = (path: string): Promise<Check> =>
+    Promise.resolve({ ok: true, version: null, message: `Saves are kept in ${path}/<disc serial>` });
 
   async function save(finish: boolean) {
     saving = true;
@@ -374,6 +421,17 @@
           detail={draft.developer}
           check={installFolder}
         />
+        <!-- The games' memory cards, in a folder the player can sync (Syncthing, a cloud drive). The
+             saves already made are copied there when it is saved (save_config); Play gives the
+             game --cards. Empty: the default, beside the games' settings. -->
+        <PathField
+          label="Save folder"
+          hint="Where your games keep their saves, for example a folder you sync between computers. Your saves are copied there when you save. Empty: the default."
+          folder
+          bind:value={draft.saveDir}
+          detail
+          check={saveFolder}
+        />
       </section>
     {:else}
       <section class="panel">
@@ -416,23 +474,17 @@
           {/each}
         </div>
       </div>
-      <!-- Android has neither: its games are tiles, and no Discord app on the device reads a
-           desktop's rich presence. -->
+      <label class="setting">
+        <span class="text">
+          <strong>Game colours</strong>
+          <small>The bar, buttons and panels in the picked game's own colour, not the gold.</small>
+        </span>
+        <input type="checkbox" role="switch" class="switch" bind:checked={draft.gameColors} />
+      </label>
+      <!-- Android has neither: its Games tab is a shelf of discs, and no Discord app on the
+           device reads a desktop's rich presence. -->
       {#if !onAndroid}
         <AddToSteam />
-        <label class="setting">
-          <span class="text">
-            <strong>Compact layout</strong>
-            <small>A game's name and its Play button side by side.</small>
-          </span>
-          <input
-            type="checkbox"
-            role="switch"
-            class="switch"
-            checked={draft.layout !== "classic"}
-            onchange={(e) => (draft.layout = e.currentTarget.checked ? "compact" : "classic")}
-          />
-        </label>
         <label class="setting">
           <span class="text">
             <strong>Show in Discord</strong>
@@ -442,47 +494,70 @@
         </label>
       {/if}
       <!-- The name online mods show the other players; the game gets it as OPENRAC_PLAYER_NAME. -->
-      <div class="field">
-        <label for="multiplayer-name">Multiplayer name</label>
-        <input
-          id="multiplayer-name"
-          type="text"
-          class="mono"
-          autocomplete="off"
-          spellcheck="false"
-          maxlength="16"
-          aria-invalid={!!nameError}
-          aria-describedby="multiplayer-name-note"
-          bind:value={draft.multiplayerName}
-        />
-        <p id="multiplayer-name-note" class="dim note">
-          {nameError ?? "What other players see in online mods. 3 to 16 letters, digits and underscores."}
-        </p>
-      </div>
+      {#if nameUsed}
+        <div class="field">
+          <label for="multiplayer-name">Multiplayer name</label>
+          <input
+            id="multiplayer-name"
+            type="text"
+            class="mono"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="16"
+            aria-invalid={!!nameError}
+            aria-describedby="multiplayer-name-note"
+            bind:value={draft.multiplayerName}
+          />
+          <p id="multiplayer-name-note" class="dim note">
+            {nameError ?? "What other players see in online mods. 3 to 16 letters, digits and underscores."}
+          </p>
+        </div>
+      {/if}
     </section>
 
     <section class="panel">
       <h2>Updates</h2>
+      {#if !supports(app.info, "updates")}<p class="muted">
+          This build receives updates through its distribution channel, such as the App Store.
+        </p>{/if}
       <label class="setting">
         <span class="text">
           <strong>Look for updates at start</strong>
           <small>Nothing is installed without your click.</small>
         </span>
-        <input type="checkbox" role="switch" class="switch" bind:checked={draft.checkUpdates} />
+        <input
+          type="checkbox"
+          role="switch"
+          class="switch"
+          disabled={!supports(app.info, "updates")}
+          bind:checked={draft.checkUpdates}
+        />
       </label>
       <label class="setting">
         <span class="text">
           <strong>Look for mod updates at start</strong>
           <small>Once a day, for the mods you added from a link. The Mods tab still looks when you ask.</small>
         </span>
-        <input type="checkbox" role="switch" class="switch" bind:checked={draft.checkModUpdates} />
+        <input
+          type="checkbox"
+          role="switch"
+          class="switch"
+          disabled={!supports(app.info, "updates")}
+          bind:checked={draft.checkModUpdates}
+        />
       </label>
       <label class="setting">
         <span class="text">
           <strong>{SETTINGS_TEXT.autoUpdate}</strong>
           <small>{SETTINGS_TEXT.autoUpdateLine}</small>
         </span>
-        <input type="checkbox" role="switch" class="switch" bind:checked={draft.autoUpdateMods} />
+        <input
+          type="checkbox"
+          role="switch"
+          class="switch"
+          disabled={!supports(app.info, "updates")}
+          bind:checked={draft.autoUpdateMods}
+        />
       </label>
       <label class="setting">
         <span class="text">
@@ -491,7 +566,7 @@
         </span>
         <input type="checkbox" role="switch" class="switch" bind:checked={draft.cleanupUnusedDeps} />
       </label>
-      {#if app.info?.updateChannels}
+      {#if app.info?.updateChannels && supports(app.info, "updates")}
         <div class="setting">
           <span class="text">
             <strong>Channel</strong>
@@ -538,14 +613,18 @@
         {/if}
       {/if}
       <p class="dim note status">
-        <button class="link" disabled={looked === "looking"} onclick={() => void checkNow()}>Check now</button>
+        <button
+          class="link"
+          disabled={looked === "looking" || !supports(app.info, "updates")}
+          onclick={() => void checkNow()}>Check now</button
+        >
         {#if looked === "looking"}· Looking…{:else if app.update?.switchTo}· {channelName(app.update.switchTo)}
           {app.update.version} can replace this build.
           <button class="link" onclick={() => (app.showUpdateModal = true)}>Switch</button
           >{:else if looked === "found" || app.update}· {app.update?.name ?? "A new version"} is out.
           <button class="link" onclick={() => (app.showUpdateModal = true)}>Update</button>{:else if looked === "none"}·
           You have the latest ({app.info?.version ?? ""}).{:else if looked === "failed"}· Could not check: {lookError}.{/if}
-        {#if source}
+        {#if source && supports(app.info, "updates")}
           · <button class="link" onclick={() => void api.openUrl(source.page)}>Releases</button>
           {#if draft.developer}
             · <span class="mono">github.com/{source.repository} · {source.channel ?? "latest release"}</span>
@@ -590,58 +669,36 @@
           <input type="checkbox" role="switch" class="switch" bind:checked={draft.detailedGameLog} />
         </label>
         {#if desktopRenderer}
-          <!-- What the game draws with (OPENRAC_GL_API, core/src/actions.rs); without Vulkan it
-               falls back to OpenGL by itself (port/platform/window.cpp). -->
+          <!-- What the game draws with (OPENRAC_GL_API, core/src/actions.rs); without Vulkan or
+               Metal it falls back to OpenGL by itself (port/platform/window.cpp). Metal is
+               offered on macOS only. -->
           <div class="setting">
             <span class="text">
               <strong>Renderer</strong>
               <small>
-                {draft.renderer === "vulkan"
+                {shownRenderer === "vulkan"
                   ? "Vulkan 1.3, the default; without it the game draws with OpenGL."
-                  : "OpenGL 4.1."}
+                  : shownRenderer === "metal"
+                    ? "Metal; without it the game draws with OpenGL."
+                    : "OpenGL 4.1."}
                 From the game's next start: a running game keeps its renderer.
               </small>
             </span>
             <div class="segmented" role="radiogroup" aria-label="Renderer">
-              <button
-                role="radio"
-                aria-checked={draft.renderer === "vulkan"}
-                onclick={() => (draft.renderer = "vulkan")}>Vulkan</button
+              <button role="radio" aria-checked={shownRenderer === "vulkan"} onclick={() => (draft.renderer = "vulkan")}
+                >Vulkan</button
               >
-              <button
-                role="radio"
-                aria-checked={draft.renderer !== "vulkan"}
-                onclick={() => (draft.renderer = "opengl")}>OpenGL</button
+              {#if metalRenderer}
+                <button role="radio" aria-checked={shownRenderer === "metal"} onclick={() => (draft.renderer = "metal")}
+                  >Metal</button
+                >
+              {/if}
+              <button role="radio" aria-checked={shownRenderer === "opengl"} onclick={() => (draft.renderer = "opengl")}
+                >OpenGL</button
               >
             </div>
           </div>
         {/if}
-        <!-- HDR output (OPENRAC_HDR, core/src/actions.rs; port docs/port/HDR.md): left to the
-             game's own setting, or the launcher's word for every start. -->
-        <div class="setting">
-          <span class="text">
-            <strong>HDR</strong>
-            <small>
-              {draft.hdr === ""
-                ? "As each game has it (its options drawer)."
-                : draft.hdr === "auto"
-                  ? "On when your screen is in HDR mode (Windows, macOS, Wayland)."
-                  : draft.hdr === "on"
-                    ? "Always, where the screen offers it."
-                    : "Off: the picture as always."}
-              Shows the game on an HDR screen as it looks in SDR. Needs the Vulkan renderer.
-            </small>
-          </span>
-          <div class="segmented" role="radiogroup" aria-label="HDR">
-            {#each [["", "Game"], ["off", "Off"], ["auto", "Auto"], ["on", "On"]] as [value, label] (value)}
-              <button
-                role="radio"
-                aria-checked={draft.hdr === value}
-                onclick={() => (draft.hdr = value as Config["hdr"])}>{label}</button
-              >
-            {/each}
-          </div>
-        </div>
         {#if app.info?.platform === "linux"}
           <!-- The launcher's own window without WebKitGTK's accelerated compositing
                (core/src/webkit.rs); on by itself after a start that crashed. -->
@@ -670,6 +727,17 @@
         {#if draft.developer}
           <!-- What developer tools add: under the switch, set in from it. -->
           <div class="dev">
+            <label class="setting">
+              <span class="text">
+                <strong>Incremental builds (for developers)</strong>
+                <small
+                  >After a change to OpenRAC, build only what changed instead of the game from scratch. A build folder
+                  OpenRAC cannot vouch for (another OpenRAC version, no build stamp) is still built from scratch. The
+                  Rebuild from scratch action stays.</small
+                >
+              </span>
+              <input type="checkbox" role="switch" class="switch" bind:checked={draft.incrementalBuilds} />
+            </label>
             {#if !rootHere && !onAndroid}
               <PathField
                 label="OpenRAC folder"
@@ -765,11 +833,10 @@
     gap: 20px;
     align-items: center;
     padding: 24px;
-    border-radius: 30px;
+    border-radius: var(--radius);
     background:
       radial-gradient(80% 90% at 80% 0, color-mix(in srgb, var(--brand) 28%, transparent), transparent 70%),
       var(--panel);
-    border: 1px solid var(--line);
   }
 
   /* The logo's mark in the accent, beside the welcome that names it. */
@@ -817,21 +884,19 @@
     align-items: center;
     gap: 8px;
     padding: 6px 12px 6px 6px;
-    border-radius: 999px;
-    border: 1px solid var(--line-strong);
-    background: var(--panel);
+    border-radius: var(--radius-sm);
+    background: var(--control);
     color: var(--soft);
     font-size: 0.8125rem;
     font-weight: 600;
     transition:
-      border-color var(--fast) var(--ease),
+      background var(--fast) var(--ease),
       color var(--fast) var(--ease);
   }
 
   .themes button.on {
-    border-color: var(--amber);
-    color: var(--text);
-    box-shadow: 0 0 0 1px var(--amber);
+    background: var(--on-fill);
+    color: var(--amber);
   }
 
   .swatch {
@@ -909,7 +974,9 @@
   .link {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 0;
+    min-height: 0;
     color: var(--amber);
     font-size: 0.8125rem;
   }
@@ -950,9 +1017,10 @@
     align-items: center;
     gap: 10px;
     padding: 12px 14px 12px 20px;
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
+    border-radius: var(--radius-sm);
     box-shadow: var(--shadow);
     font-size: 0.875rem;
     animation: bar-in var(--medium) var(--ease) both;

@@ -4,14 +4,12 @@ python3 -m unittest discover -s tools"""
 import json
 import os
 import struct
-import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 import openrac
-import sources
 from openrac_common import games, iso9660
 
 SECTOR = iso9660.SECTOR
@@ -109,8 +107,14 @@ class ManifestTests(unittest.TestCase):
         for game, name, version in games.versions():
             for key in ("region", "serial", "disc", "boot", "target"):
                 self.assertIn(key, version, f"{game['id']}/{name}")
-            self.assertNotIn(version["serial"], serials)
-            serials.add(version["serial"])
+            # One serial can be two builds (Going Commando's v1.01 and v2.00, SCUS_972.68): told
+            # apart by the boot executable, and by ByteMatch's version id.
+            build = (version["serial"], version["boot"].get("sha1") or version["boot"].get("sha256"))
+            self.assertNotIn(build, serials)
+            serials.add(build)
+            bytematch = version.get("bytematch_version", version["serial"])
+            self.assertNotIn(("bytematch", bytematch), serials, f"{game['id']}/{name}")
+            serials.add(("bytematch", bytematch))
             # A version only extracted (no decompilation built from it, no port: rac2's PAL disc)
             # is pinned by what the extractor checks: the boot's SHA-1, the disc's files and
             # their contents hash, recorded from a player's disc.
@@ -151,7 +155,7 @@ class ProgressTests(unittest.TestCase):
 
     def test_progress_table_uses_bytematch_badges(self):
         game = {"id": "rac1", "title": "Ratchet & Clank",
-                "versions": {"pal": {"dir": "games/rac1"}}}
+                "versions": {"pal": {"dir": "games/rac1/decomp"}}}
         version = {"serial": "SCES_509.16", "bytematch": "OpenRAC/rac1-decomp", "source": {}}
         measured = {"percent": 25.0, "matched_code": 250, "total_code": 1000,
                     "matched_functions": 3, "total_functions": 10,
@@ -198,39 +202,16 @@ class ProgressTests(unittest.TestCase):
         self.assertIn("color=ffb443", box)
         self.assertEqual(box.count("<img "), 2)
 
-class SourceMirrorTest(unittest.TestCase):
-    def test_mirror_takes_the_whole_tree_and_redoes_the_rewrites(self):
-        with tempfile.TemporaryDirectory() as temp:
-            top = Path(temp)
-            repo, root = top / "repo", top / "root"
-            for tree in (repo, root):
-                tree.mkdir()
-                subprocess.run(["git", "init", "-q", tree], check=True)
-                subprocess.run(["git", "-C", tree, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q",
-                                "--allow-empty", "-m", "start"], check=True)
-            (repo / "kept.c").write_text("/* Old (MIT) */\n")
-            (repo / "left").mkdir()
-            (repo / "left" / "out.txt").write_text("not here\n")
-            subprocess.run(["git", "-C", repo, "add", "-A"], check=True)
-            subprocess.run(["git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q",
-                            "-m", "one"], check=True)
-            commit = sources.proc.git(repo, "rev-parse", "HEAD")
-            dest = root / "games" / "g" / "v"
-            dest.mkdir(parents=True)
-            (dest / "gone.c").write_text("stale\n")
-            (dest / "local.bin").write_text("untracked\n")
-            subprocess.run(["git", "-C", root, "add", "games/g/v/gone.c"], check=True)
-            game = {"id": "g", "versions": {"v": {"source": {
-                "exclude": ["left"], "rewrites": [["Old (MIT)", "Old (GPL-3.0)"]], "commit": "0" * 40}}}}
-            manifest = root / "game.json"
-            with mock.patch.object(sources, "ROOT", root):
-                sources.do_mirror("g/v", manifest, game, "v", repo, dest, commit)
-            self.assertEqual((dest / "kept.c").read_text(), "/* Old (GPL-3.0) */\n")
-            self.assertFalse((dest / "gone.c").exists())
-            self.assertFalse((dest / "left").exists())
-            self.assertTrue((dest / "local.bin").exists())
-            self.assertEqual(json.loads(manifest.read_text())["versions"]["v"]["source"]["commit"], commit)
-
+    def test_progress_box_tells_two_releases_of_one_serial_apart(self):
+        v1 = {"serial": "SCUS_972.68", "bytematch": "OpenRAC/rac2-decomp", "disc": {"video": "NTSC", "version": "1.01"}}
+        v2 = {"serial": "SCUS_972.68", "bytematch": "OpenRAC/rac2-decomp", "bytematch_version": "SCUS_972.68_v2",
+              "disc": {"video": "NTSC", "version": "2.00"}}
+        rac2 = {"id": "rac2", "title": "Ratchet & Clank: Going Commando", "versions": {"ntsc": v1, "ntsc2": v2}}
+        box = openrac.progress_box([(rac2, "ntsc", v1), (rac2, "ntsc2", v2)])
+        self.assertIn("<td>Going Commando (NTSC v1.01)</td>", box)
+        self.assertIn("<td>Going Commando (NTSC v2.00)</td>", box)
+        self.assertIn('href="https://bytematch.dev/OpenRAC/rac2-decomp/SCUS_972.68_v2"', box)
+        self.assertIn("version=SCUS_972.68_v2", box)
 
 if __name__ == "__main__":
     unittest.main()

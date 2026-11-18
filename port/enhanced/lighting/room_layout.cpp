@@ -11,6 +11,7 @@
 #include "common/profiler.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_scene.h"
+#include "enhanced/lighting/parallel_each.h"
 #include "enhanced/lighting/room_distance_field.h"
 
 namespace openrac::lighting::bake_detail {
@@ -27,14 +28,9 @@ bool connected(std::span<const EnvironmentFloorSample> floors, unsigned a, unsig
 }  // namespace
 
 RoomLayout prepare_room_layout(
-    const BakeScene& source,
-    std::vector<EnvironmentFloorSample>& floors,
-    const BakeSettings& settings,
-    unsigned threads
+    const Scene& scene, std::vector<EnvironmentFloorSample>& floors, const BakeSettings& settings
 ) {
     const profiling::Zone timing("Prepare room layout");
-
-    Scene scene(source, settings.sunlight_direction, threads);
     floors = connected_room_floors(scene, floors, settings);
     return room_layout(scene, floors, settings);
 }
@@ -52,7 +48,8 @@ RoomLayout room_layout(
     result.ceilings.resize(floors.size(), std::numeric_limits<float>::infinity());
     result.height_bounds.resize(floors.size());
 
-    for (unsigned a = 0; a < floors.size(); ++a) {
+    // Each floor's clearance and ceiling come from its own rays: floors run in parallel.
+    parallel_each(floors.size(), [&](std::size_t a) {
         result.height_bounds[a] = floors[a].height_bounds.value_or(
             Float2{floors[a].position[2] - .8f, floors[a].position[2] + 3.8f}
         );
@@ -103,7 +100,7 @@ RoomLayout room_layout(
                 throw std::runtime_error("invalid room floor edge");
             }
         }
-    }
+    });
 
     // Wide floor cores cannot connect through a narrow doorway. Local exposure changes have no
     // role here: a patch of foliage or skylight must not create a separate reflection room.

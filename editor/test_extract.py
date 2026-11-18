@@ -70,6 +70,13 @@ class PoolTests(unittest.TestCase):
         with worker_pool(2) as pool:
             self.assertIsInstance(pool, ProcessPoolExecutor)
 
+    def test_ios_exports_without_child_processes(self):
+        from concurrent.futures import ThreadPoolExecutor
+        with mock.patch.object(sys, "platform", "ios"):
+            with worker_pool(8) as pool:
+                self.assertIsInstance(pool, ThreadPoolExecutor)
+                self.assertEqual(pool.submit(sum, [1, 2, 3]).result(), 6)
+
     def test_processes_of_their_own_without_sem_open(self):
         # Android's CPython: building a process pool fails for want of sem_open.
         lacking = mock.Mock(side_effect=NotImplementedError("This platform lacks sem_open"))

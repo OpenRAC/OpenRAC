@@ -52,7 +52,19 @@ struct Setting {
     std::vector<std::string> choices;  // the values of a choice
     std::size_t max_length = 0;        // a string's (0: no limit)
     int binds = 2;                     // a keybind's most binds
+    std::vector<std::string> choice_names;  // the names of a choice's values, in their order
+    int party = 0;                          // "multiplayer": an OPENRAC_PARTY_SETTING_* value
+    // "games": the games it is for, of the manifest's (MODS.md, section 3); empty: every one. In
+    // another game it is its default, and the launcher does not show it.
+    std::vector<std::string> games;
 };
+
+// Whether a setting is for this game (its "games" empty or naming it).
+bool setting_for_game(const Setting& s, std::string_view game);
+
+// A value of the setting's type from JSON, within its limits, as the list's are checked (a
+// keybind's names normalized): false when it is not one.
+bool setting_value(const Setting& s, const json::Value& v, SettingValue& out);
 
 // A keybind's text as names of openrac/keys.h, split at commas or spaces: false when one is no
 // name, one is there twice or there are more than `most`; else `normalized` is them comma-joined.
@@ -82,6 +94,9 @@ struct Manifest {
     // "assets": a folder inside the mod (MODS.md, section 3): its level_NN folders are searched
     // before the extracted levels' files, and their classes.json adds render classes.
     std::string assets;
+    // "touch" (interface 1.13): a JSON file inside the mod with the on-screen pad's sets of actions
+    // ("contexts") and the icons they use ("icons": name -> an .svg inside the mod).
+    std::string touch;
     std::vector<std::string> hooks;
     std::vector<Setting> settings;
     std::vector<Requirement> requirements;  // the manifest's "requires"
@@ -91,6 +106,9 @@ struct Manifest {
     // (openrac_api.setup_vulkan), so the mods load before the window opens. Ignored on a script
     // mod or one of an older interface.
     bool vulkan_device = false;
+    bool vulkan_queue = false;  // Native Vulkan access requires game-thread rendering (1.20).
+    // "multiplayer" (interface 1.14): an OPENRAC_PARTY_MOD_* value, gameplay when it says nothing.
+    int party = 0;
 };
 
 // A manifest's text checked by the rules of MODS.md section 3. False, and why, when one is broken.
@@ -114,11 +132,13 @@ struct ListEntry {
 bool parse_list(std::string_view text, std::vector<ListEntry>& out, std::string& error);
 
 // The values a mod gets: each declared setting's from the list where it is of the right type and
-// in range, its default otherwise (a line in `notes` says so).
+// in range, its default otherwise (a line in `notes` says so). With `game`, a setting that is not
+// for that game ("games") is its default, whatever the list says.
 std::map<std::string, SettingValue> resolve_settings(
     const Manifest& manifest,
     const std::map<std::string, json::Value>& written,
-    std::vector<std::string>& notes
+    std::vector<std::string>& notes,
+    std::string_view game = {}
 );
 
 // This build's platform key: "macos-arm64", "linux-x86_64", "windows-x86_64", "android-arm64", ...

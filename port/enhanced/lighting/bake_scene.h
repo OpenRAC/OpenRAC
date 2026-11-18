@@ -8,6 +8,15 @@
 #include <embree4/rtcore.h>
 
 namespace openrac::lighting::bake_detail {
+struct SceneOptions {
+    std::uint32_t threads = 0;
+    BakeThreadPool* pool = nullptr;
+    EmissionAverageCache* emission_cache = nullptr;
+    bool prepare_emission_averages = true;
+    bool prepare_nearby_mesh_lights = false;
+    bool high_build_quality = false;
+};
+
 // Build identical query intervals for closest-hit and occlusion traversal.
 inline RTCRay make_ray(Float3 origin, Float3 direction, float near, float far) {
     RTCRay ray{};
@@ -25,9 +34,9 @@ inline RTCRay make_ray(Float3 origin, Float3 direction, float near, float far) {
 
 // Immutable source geometry, traversal and emitter selection tables.
 struct Scene {
-    const BakeScene& input;      // borrowed immutable export
-    RTCDevice device = nullptr;  // owned Embree error and allocation context
-    RTCScene handle = nullptr;   // owned acceleration structure
+    const BakeScene& input;               // borrowed immutable export
+    RTCDevice device = nullptr;           // owned Embree error and allocation context
+    RTCScene handle = nullptr;            // owned acceleration structure
     RTCScene rectangle_handle = nullptr;  // Owned transparent emitter acceleration.
 
     // Cumulative area/power selection entry for a surface or point emitter.
@@ -36,10 +45,27 @@ struct Scene {
         double cumulative;     // Inclusive area/power weight.
         float area;            // Zero for a point emitter.
         Float3 normal;         // Geometric surface orientation, ignored for point emitters.
+        std::optional<Float3> average_emission{};  // Linear RGB, or point sampling when absent.
     };
 
     std::vector<Emitter> emitters;  // Stable source order for deterministic sampling.
     double emission_weight = 0;     // Total weight of the emitter distribution.
+
+    struct EmitterCell {
+        struct Entry {
+            std::size_t emitter;
+            double cumulative;
+        };
+
+        std::array<int, 3> key;
+        Float3 center;
+        std::vector<Entry> entries;
+    };
+
+    std::vector<EmitterCell> emitter_cells;
+    std::vector<std::size_t> cell_by_mesh_emitter;
+    double mesh_emission_weight = 0;
+    void prepare_emitter_cells();
     // Separate geometry keeps opaque hits out of the alpha callback.
     // Transport resolves local primitive IDs only when it needs material data.
     std::array<std::vector<std::uint32_t>, 2> triangle_ids;
@@ -71,8 +97,11 @@ struct Scene {
     // Build one acceleration structure; the source must outlive this scene. THREADS: Embree's own
     // build threads (0: one per CPU thread, Embree's default); several bakes at once each take
     // their share, not the whole CPU each.
-    explicit Scene(const BakeScene& source, const std::optional<Float3>& sunlight_direction = {},
-                   std::uint32_t threads = 0);
+    explicit Scene(
+        const BakeScene& source,
+        const std::optional<Float3>& sunlight_direction = {},
+        const SceneOptions& options = {}
+    );
     // Release the Embree scene and device after all workers have joined.
     ~Scene();
     Scene(const Scene&) = delete;
@@ -104,7 +133,7 @@ struct Scene {
 
 private:
     // Classify traversal geometry without changing emitter sampling order.
-    void collect_triangles();
+    void collect_triangles(const SceneOptions& options);
     // Upload one geometry group; empty groups have no Embree object.
     void build_geometry(unsigned group);
     // Reject cutout candidates for both closest-hit and occlusion traversal.

@@ -53,7 +53,7 @@ class PackLevel(unittest.TestCase):
         def as_godot(index, node):
             node[0] = node[0].replace(' parent=', ' type="Node3D" parent=').replace(" instance=", " unique_id=77 instance=")
             return node + ["metadata/rc1_class = 500", 'metadata/rc1_class_name = "BoltCrate"',
-                           'metadata/rc1_source = "games/rac1/src/example.c"',
+                           'metadata/rc1_source = "games/rac1/decomp/src/example.c"',
                            'metadata/rc1_update = "UpdateCrate"']
         out, changes, problems = pack_level(0, self.data, scene(self.data, as_godot))
         self.assertEqual((out, changes, problems), (self.data, [], []))

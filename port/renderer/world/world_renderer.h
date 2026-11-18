@@ -14,8 +14,8 @@
 #include <memory>
 #include <string>
 
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 #include "renderer/world/gs_pass.h"
 #include "renderer/world/world_context.h"
 

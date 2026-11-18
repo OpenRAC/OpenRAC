@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "regions": {
+    "authored": [
+      {
+        "bounds": [
+          540,
+          718,
+          94,
+          592,
+          786,
+          126
+        ],
+        "spacing": 5
+      }
+    ]
+  },
+  "area_lights": [
+    {
+      "position": [565, 746, 106.75],
+      "axis_u": [8, 0, 0],
+      "axis_v": [0, 0, -1.4],
+      "radiance": [1.5, 2.2, 2.5]
+    }
+  ]
+}

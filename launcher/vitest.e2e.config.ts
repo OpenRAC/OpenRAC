@@ -3,5 +3,12 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: { include: ["e2e/**/*.test.ts"], environment: "node", testTimeout: 20_000 },
+  test: {
+    include: ["e2e/**/*.test.ts"],
+    environment: "node",
+    testTimeout: 20_000,
+    // One file at a time: each starts a Vite server, and two pre-bundling into the same cache at
+    // once fail with ENOTEMPTY renaming node_modules/.vite/deps_ssr.
+    fileParallelism: false,
+  },
 });

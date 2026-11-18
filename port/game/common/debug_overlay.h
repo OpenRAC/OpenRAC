@@ -26,6 +26,7 @@
 #include <SDL3/SDL.h>
 
 #include "game/common/debug_camera.h"
+#include "game/common/menu_catalog.h"
 #include "game/common/profile.h"
 #include "renderer/math.h"
 #include "renderer/renderer.h"
@@ -35,10 +36,20 @@ namespace openrac::frontend::debug_overlay {
 
 // Samples window-thread controls into an owned render job; tools remain active while paused.
 CameraDebugFrame camera_debug_frame();
+// Run requested review travel at the same game-loop boundary as developer and mod travel.
+void meat_proxy_review_update();
+// The pending review view is waiting for its destination's ship landing.
+bool meat_proxy_review_skips_landing();
+// The review started a trip and the ship is in its interplanetary flight.
+bool meat_proxy_review_skips_flight();
 // Observes pointer input after UI routing, including releases and focus loss.
 void camera_debug_event(const SDL_Event& event);
 // Freecam takes gameplay input but leaves developer shortcuts available.
 bool free_camera_enabled();
+// A gamepad's L3+R3 toggles freecam, held back from the game's pad (no map on its R3).
+void camera_pad_chord();
+// Start+Select opens the menu, taken from the game's pad (no pause, no map). Before the game's read.
+void menu_pad_chord();
 // Alt or right-click requests hidden-cursor freecam look while the window is focused.
 bool camera_debug_capturing();
 
@@ -50,6 +61,9 @@ bool picker_enabled();
 // The isolated studio may still need displayed poses after click picking is turned off.
 bool picker_snapshot_needed();
 void set_picker_enabled(bool enabled);
+// Where the click picker writes moby-picker.json: the game's data folder (its logs' folder),
+// never the working directory, which can be a source checkout.
+void set_picker_report_folder(const std::string& folder);
 
 // Any desktop overlay window holding the mouse, including Enhanced Settings.
 bool visible();
@@ -103,6 +117,9 @@ struct Shown {
     int picker_level_number = -1;
     std::uint64_t picker_tick = 0;
     unsigned picker_layers = 0;
+    bool freecam = false;   // The picture's camera came from freecam.
+    int camera_level = -1;  // Level that supplied the rendered camera.
+    bool enhanced_graphics = false;
 };
 
 void draw(const Shown& shown);
@@ -121,7 +138,7 @@ double tick_stretch();
 
 // ---- The drawer: the window's options on a touch screen ----
 //
-// On Android the menus along the window's top (View, Graphics, Sound, Developer), which want a
+// On Android/iOS the menus along the window's top (View, Graphics, Sound, Developer), which want a
 // mouse and Alt to bring them back, are a drawer instead, as an emulator's: it slides in from the
 // left over the paused game, its rows large enough for a thumb and moved through by a gamepad.
 // The on-screen pad's options button opens it, as do Back and a gamepad's Guide button; Back,
@@ -140,6 +157,11 @@ bool take_touch_reset();
 // The lines a dragged group of the pad has snapped to (TouchPad::guide_x, guide_y), drawn across
 // the screen while editing: 0..1 of the width and of the height, below 0 for none.
 void set_touch_guides(float x, float y);
+// The size of the control the player last took hold of (TouchPad::selected_size), for the bar to
+// show and change, below 0 when none is.
+void set_touch_selected(float size);
+// The steps the bar's - and + asked that control's size to change by since the last call.
+int take_touch_size_steps();
 // True once after the drawer or the menus changed one of the port's settings (saved already): the
 // window applies it (frontend/window.cpp, apply_settings).
 bool take_settings_changed();
@@ -176,5 +198,16 @@ void dismiss(std::string_view id);
 
 // GL objects and the ImGui context, before the window's context goes.
 void release();
+
+// ---- The game's own Video pages (options_menu.h, page_rows) ----
+//
+// The in-game menu's entries marked for the game's pages (menu::kGamePage), in the catalog's
+// order, that this screen offers (the drawer's touch entries or the desktop's) and that do something
+// now (an entry's `shown`). Their names and values in English, as the game's font can draw them,
+// and a step that is saved and applied at once, as in the menus. Defined in debug/menu_items.cpp.
+std::vector<menu::Id> game_page_entries();
+std::string game_page_label(menu::Id id);
+std::string game_page_value(menu::Id id);
+void game_page_step(menu::Id id, int by);
 
 }  // namespace openrac::frontend::debug_overlay

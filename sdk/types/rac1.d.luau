@@ -17,12 +17,18 @@ type HookPoint =
     | "rac1.player.update"
     | "rac1.item.give"
     | "rac1.planet.unlock"
+    | "rac1.help.request"
+    | "rac1.ship.init_transition"
     | "rac1.vendor.init_level_stock"
     | "rac1.vendor.build_item_list"
     | "rac1.gold_bolt.count_collected"
     | "rac1.player.take_damage"
     | "rac1.combat.get_hit"
     | "rac1.weapon.take_ammo"
+    | "rac1.weapon.blaster.pick_target"
+    | "rac1.weapon.ryno.pick_target"
+    | "rac1.weapon.gold_devastator.pick_target"
+    | "rac1.weapon.drone.pick_target"
     | "rac1.moby.record_death"
     | "rac1.level.load_gameplay"
     | "rac1.player.approach_speed"
@@ -57,6 +63,10 @@ type HookPoint =
     | "rac1.save.new_game_plus"
     | "rac1.save.serialize"
     | "rac1.save.update_state"
+    | "rac1.text.msg_string"
+    | "rac1.vendor.open_menu"
+    | "rac1.gold_bolt.count_unspent"
+    | "rac1.vendor.icon_strip.draw"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -698,6 +708,8 @@ type HookPoint =
     | "Ammo_SpawnDrop"
     | "FollowCamera_ApplyOverrides"
     | "GoldBolts_CountCollected"
+    | "GoldBolts_CountUnspent"
+    | "Help_Request"
     | "Hero_AdvanceAnimation"
     | "Hero_ApproachSpeed"
     | "Hero_SetPlanarVelocity"
@@ -1374,12 +1386,20 @@ type HookPoint =
     | "Save_RestoreData"
     | "Save_Serialize"
     | "Save_UpdateState"
+    | "Ship_InitTransition"
     | "Ship_TravelTo"
     | "Vendor_BuildItemList"
+    | "Vendor_DrawIconStrip"
     | "Vendor_InitLevelStock"
     | "Vendor_InitializeSelected"
     | "Vendor_MenuUpdate"
+    | "Vendor_OpenMenu"
+    | "Weapon_Blaster_PickTarget"
+    | "Weapon_Drone_PickTarget"
+    | "Weapon_GoldDevastator_PickTarget"
+    | "Weapon_Ryno_PickTarget"
     | "Weapon_TakeAmmo"
+    | "msg_string"
 type MemoryType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32"
 
 type Fields = {
@@ -1414,6 +1434,10 @@ type Hero_UpdateFn = () -> ()
 type Item_GiveFn = (id: number, equip: number) -> ()
 -- rac1.planet.unlock (Planet_Unlock) void(i32): Unlocks a planet's coordinates (UnlockPlanet): its flag (one byte per level), the galaxy list, and its banner unless it is the planet the player is on.
 type Planet_UnlockFn = (planet: number) -> ()
+-- rac1.help.request (Help_Request) i32(i32,i32): Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1.
+type Help_RequestFn = (message: number, slot: number) -> number
+-- rac1.ship.init_transition (Ship_InitTransition) void(i32): Puts the hero in the ship for a landing or take-off (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to load. On Orxon its choice of chunks goes by whether the O2 Mask is owned.
+type Ship_InitTransitionFn = (mode: number) -> ()
 -- rac1.vendor.init_level_stock (Vendor_InitLevelStock) void(): The vendor's stock at each level start (VendorStockLevelInit): gives the Bomb Glove while the player has none, keeps the stock's known items and adds the level's new weapon.
 type Vendor_InitLevelStockFn = () -> ()
 -- rac1.vendor.build_item_list (Vendor_BuildItemList) void(i32): The vendor menu's list (VendorBuildItemList), from the stock and the items owned: each time the menu opens and after each purchase. skip_unflagged leaves out what is for sale (the menu opened from the pause screen).
@@ -1426,6 +1450,14 @@ type Hero_TakeDamageFn = (amount: number) -> ()
 type Moby_GetHitMessageFn = (moby: number, mask: number, keep: number) -> number
 -- rac1.weapon.take_ammo (Weapon_TakeAmmo) i32(i32,i32): Takes amount of ammo from item for a shot (TakeAmmo; -1 is the item in hand): 1 when taken, 0 when there is too little. An item with no ammo limit takes none and gives 1.
 type Weapon_TakeAmmoFn = (item: number, amount: number) -> number
+-- rac1.weapon.blaster.pick_target (Weapon_Blaster_PickTarget) u32(i32,u32,u32,u32): Chooses the Blaster's auto-aim target for a shot from from (select_blaster_auto_aim_target; from a Vec4, yaw and pitch f32s, all addresses): the nearest targetable creature (Moby flags 0x1000) within 20 units whose aim point is within about 9 degrees of the heading yaw/pitch and in sight from the camera and from from (ignore: the moby the sight test passes over). Writes the pitch toward it, and the yaw when within 10 degrees, and returns it; 0 for none.
+type Weapon_Blaster_PickTargetFn = (ignore: number, from: number, yaw: number, pitch: number) -> number
+-- rac1.weapon.ryno.pick_target (Weapon_Ryno_PickTarget) u32(u32,u32,u32,f32,f32,f32): Chooses a R.Y.N.O. missile's target (select_ryno_target): the creature with a target record, of class type 5, within max_distance across of pos (a Vec4 address) and max_yaw / max_pitch of the aim angles (aim, f32s at +4 pitch and +8 yaw), the best by angle and distance, in sight; skip is the seven mobys the salvo has already (0: only the ones drawn last frame). Returns the moby, 0 for none.
+type Weapon_Ryno_PickTargetFn = (pos: number, aim: number, skip: number, max_yaw: number, max_pitch: number, max_distance: number) -> number
+-- rac1.weapon.gold_devastator.pick_target (Weapon_GoldDevastator_PickTarget) void(u32,u32,u32): Chooses the gold Devastator missile's target (select_gold_devastator_missile_target): the creature within 40 units of the missile nearest its heading, in a cone that widens with the weapon's level, in sight, not skip; writes it into the missile's data (data, its pvars).
+type Weapon_GoldDevastator_PickTargetFn = (missile: number, data: number, skip: number) -> ()
+-- rac1.weapon.drone.pick_target (Weapon_Drone_PickTarget) u32(u32,u32): Chooses a drone's target (select_nearest_drone_target): the nearest moby of class type 5, 7 or 8 to from (a Vec4 address), within 4, 5.3 or 6 units by type, not one of the nine in skip, not held by the Suck Cannon. Returns the moby, 0 for none.
+type Weapon_Drone_PickTargetFn = (from: number, skip: number) -> number
 -- rac1.moby.record_death (Moby_RecordDeath) void(u32,i32,i32): Records a placed moby's death or a crate's break (SetDeathBits): its save id's killed bits (none for a save id below 0), its mission, then drops its bolts: about the s16 at +0xB4 (or what a tallied source has left of +0xB6), which it then clears.
 type Moby_RecordDeathFn = (moby: number, flags: number, index: number) -> ()
 -- rac1.level.load_gameplay (Level_LoadGameplay) u32(i32): Loads a level's gameplay file into the level heap (LoadLevelGameplay), once per level start: the settings, the placed mobys and their pvars, the spare moby pool, the paths and the rest; returns the heap cursor. After it, every placed moby exists and none has run.
@@ -1494,6 +1526,14 @@ type Save_NewGamePlusFn = (slot: number) -> ()
 type Save_SerializeFn = (out: number) -> ()
 -- rac1.save.update_state (Save_UpdateState) void(): The memory card's state machine, each tick (memcard_update_state): saves and loads go through it.
 type Save_UpdateStateFn = () -> ()
+-- rac1.text.msg_string (msg_string) i32(i32): Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn.
+type msg_stringFn = (id: number) -> number
+-- rac1.vendor.open_menu (Vendor_OpenMenu) void(u32): Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero.
+type Vendor_OpenMenuFn = (moby: number) -> ()
+-- rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership.
+type GoldBolts_CountUnspentFn = () -> number
+-- rac1.vendor.icon_strip.draw (Vendor_DrawIconStrip) void(): Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+type Vendor_DrawIconStripFn = () -> ()
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 
@@ -1522,6 +1562,14 @@ declare openrac: {
     pointer: () -> (number, number, boolean),
     take_input: (...("keyboard" | "mouse")) -> (),
     capture_mouse: (capture: boolean) -> (),
+    -- interface 1.13: the on-screen pad's action buttons (MODS.md, "Touch controls")
+    touch_define: (json: string) -> boolean,
+    touch_icon: (name: string, svg: string) -> boolean,
+    touch_push: (context: string?) -> (),
+    touch_hint: (hint: string, on: boolean) -> (),
+    -- interface 1.15: the mod's own settings set (for the run and in the launcher's list), and its changes heard
+    set_setting: (key: string, value: any) -> boolean,
+    on_settings: (fn: () -> ()) -> (),
     -- experimental: a moby's pvars by name, from the behaviour catalogue
     pvars: (moby: number) -> { [string]: number }?,
 }

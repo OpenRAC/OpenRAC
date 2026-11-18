@@ -29,6 +29,12 @@ developer: boolean,
  */
 saveEditorAdvanced: boolean, 
 /**
+ * For developers: after a change to OpenRAC, build the game again incrementally (`port-build`)
+ * instead of from scratch (`port-rebuild`). A build folder that is unusable (no stamp from
+ * OpenRAC's build, another OpenRAC version) is still built from scratch. Default off.
+ */
+incrementalBuilds: boolean, 
+/**
  * Where games are set up from the player's discs (OpenGOAL's install
  * directory); unset: the launcher's per-user data folder.
  */
@@ -38,6 +44,13 @@ installDir: string | null,
  * knows (discs.rs): with it nobody picks an image by hand.
  */
 discsDir: string | null, 
+/**
+ * The player's own folder for the games' memory cards (their saves): a folder per disc
+ * serial in it, as in the default `<data home>/memcard`, so one folder can be synced
+ * (Syncthing, a cloud drive). Unset: the default. Given to each game's start as `--cards`
+ * (saves.rs `card_dir_in`); not on Android, which keeps its files in its own place.
+ */
+saveDir: string | null, 
 /**
  * The first-run setup was finished (or skipped).
  */
@@ -76,14 +89,15 @@ updateBranch: string | null,
  */
 discordClientId: string | null, 
 /**
- * The page layout: "compact" (default) or "classic", the original design (src/layouts/).
- */
-layout: "compact" | "classic", 
-/**
- * The launcher's theme (src/lib/palettes.json): "openrac" (default), "gruvbox", "oled", "nord"
+ * The launcher's theme (src/lib/palettes.json): "openrac" (default), "oled", "nord"
  * or "mocha". The accent is not a theme's: it is the picked game's.
  */
 theme: string, 
+/**
+ * The picked game's own bar, gold and coal (palettes.json game_colors) instead of the
+ * launcher's, in the launcher and the game's menu. On by default; off, every game wears the gold.
+ */
+gameColors: boolean, 
 /**
  * The game writes a detailed log (OPENRAC_LOG=verbose): level loads, controller changes,
  * what the port is missing. Off by default, so a log stays small.
@@ -91,18 +105,14 @@ theme: string,
 detailedGameLog: boolean, 
 /**
  * What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
- * Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries), or
- * "opengl" (OpenGL 4.1). Where Vulkan cannot start, the game draws with OpenGL
- * (port/platform/window.cpp). Not used on Android, which keeps its own choice
+ * Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries),
+ * "opengl" (OpenGL 4.1), or, on macOS only, "metal", the port's Metal renderer
+ * (OPENRAC_GL_API=metal, port/renderer/metal). Where Vulkan or Metal cannot start, the game
+ * draws with OpenGL (port/platform/window.cpp); "metal" on any other system plays as
+ * "vulkan" (renderer_for). Not used on Android, which keeps its own choice
  * (src-tauri/src/android.rs).
  */
-renderer: "opengl" | "vulkan", 
-/**
- * HDR output (port docs/port/HDR.md): "" (default) leaves it to the game's own setting (its
- * drawer, the settings file's `hdr`); "off", "auto" or "on" is given to each game's start
- * (OPENRAC_HDR), over that. On every system; it needs the Vulkan renderer.
- */
-hdr: "" | "off" | "auto" | "on", 
+renderer: "opengl" | "vulkan" | "metal", 
 /**
  * Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
  * (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
@@ -121,17 +131,29 @@ playWithMods: boolean,
  */
 crashesSeen: { [key in string]: number }, 
 /**
- * For developers with more than one disc of a game in the games folder: the version each
+ * For developers whose launcher knows more than one disc of a game: the version each
  * game's page plays (`rac1` -> `rac1/ntsc`). Used only with developer tools on
  * (disc_choice.rs); without one, the disc set up, as for a player.
  */
 discChoice: { [key in string]: string }, 
+/**
+ * For developers: the image each version was last set up from (`rac1/ntsc` -> the .iso), so
+ * the disc switch offers that version without a games folder (disc_choice.rs). An image
+ * moved, deleted or now another disc is not offered.
+ */
+discImages: { [key in string]: string }, 
 /**
  * The name online mods show the other players (multiplayer.rs): 3 to 16 letters, digits and
  * underscores, made up at the first start and changed in Settings. Given to the game as
  * `OPENRAC_PLAYER_NAME`.
  */
 multiplayerName: string, 
+/**
+ * This installation's key (multiplayer.rs): random, made at the first start and never shown.
+ * What a host's ban holds on to, so a new name gets round none. Given to the game as
+ * `OPENRAC_IDENTITY_KEY`.
+ */
+multiplayerKey: string, 
 /**
  * The mod indexes to read (index.rs), in order; empty: the built-in list (`index::INDEXES`).
  */

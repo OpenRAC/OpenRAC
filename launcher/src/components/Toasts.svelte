@@ -89,6 +89,19 @@
               >
             </div>
             <small>{t.bake.failure.level ? `${t.bake.failure.level} - ` : ""}{t.bake.failure.code}</small>
+          {:else if t.details}
+            <details class="error-details">
+              <summary>Error details</summary>
+              <pre>{t.details}</pre>
+            </details>
+            <div class="actions">
+              <button
+                class="ghost small"
+                onclick={() => {
+                  app.page = "tasks";
+                }}>View details</button
+              >
+            </div>
           {/if}
         </div>
         <button
@@ -128,7 +141,8 @@
     gap: 8px;
     /* Over the full-screen launch and running screens (LaunchScreen, GameRunning). */
     z-index: 70;
-    max-width: 420px;
+    /* Wide enough for a one-line message ("Updated 2 mods. See what changed on the Mods tab."). */
+    max-width: min(520px, calc(100vw - 40px));
   }
 
   /* Not display: contents, which takes a live region out of what a screen reader hears. */
@@ -143,8 +157,9 @@
     display: flex;
     gap: 10px;
     align-items: flex-start;
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);
     padding: 10px 8px 10px 14px;
     font-size: 0.875rem;
@@ -197,17 +212,30 @@
   }
 
   .toast.error {
-    border-color: color-mix(in srgb, var(--err) 60%, transparent);
+    background: color-mix(in srgb, var(--err) 14%, var(--panel));
   }
 
   .toast.error > :global(svg) {
     color: var(--err);
   }
 
+  /* Dismiss: a 40 px target that reaches over the toast's padding, so a one-line toast stays one
+     line tall and its text sits in the middle, level with the icon and the cross. */
   .toast button {
     flex: none;
-    margin: -4px 0;
+    min-height: 32px;
+    min-width: 32px;
+    justify-content: center;
+    margin: -6px 0;
     padding: 4px 6px;
+  }
+
+  .list[role="status"] .toast {
+    align-items: center;
+  }
+
+  .list[role="status"] .toast > :global(svg) {
+    margin-top: 0;
   }
 
   /* Android: centred over the bottom of the page, as its snackbars are. */

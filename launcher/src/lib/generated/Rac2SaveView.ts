@@ -26,6 +26,11 @@ savedAt: string | null,
  */
 maxHealth: number, fields: Rac2SaveFields, items: Array<Rac2ItemInfo>, planets: Array<Rac2PlanetInfo>, maxBolts: number, maxXp: number, 
 /**
+ * Times challenge mode (New Game+) was started (read only): 0 for a first playthrough, where
+ * the game gives no weapon a version past V2.
+ */
+challengeMode: number, 
+/**
  * The Advanced view's progress flags, in the order of `fields.flags`.
  */
 flags: Array<Rac2FlagInfo>, };

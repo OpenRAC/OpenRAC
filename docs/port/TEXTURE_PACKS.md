@@ -3,7 +3,7 @@
 A texture pack replaces the game's textures with your own pictures, at any
 size: an upscaled or repainted set. It works for the levels' textures (the
 world, the models, the sky) and for the 2D layer (the HUD, the menus, the
-font). Code: [`port/renderer/texture_pack.cpp`](../../port/renderer/texture_pack.cpp);
+font). Code: [`port/renderer/textures/texture_pack.cpp`](../../port/renderer/textures/texture_pack.cpp);
 the launcher's side: [`launcher/core/src/texture_packs.rs`](../../launcher/core/src/texture_packs.rs).
 
 ## Where it goes
@@ -15,37 +15,40 @@ gives the game (`--data`) and the game id is the port's:
 |---|---|
 | Ratchet & Clank (PAL) | `rac1-pal` |
 | Ratchet & Clank (NTSC-U) | `rac1-ntsc` |
-| Going Commando (NTSC-U) | `rac2-ntsc` |
+| Going Commando (USA v1.01) | `rac2-ntsc` |
+| Going Commando (USA v2.00) | `rac2-ntsc2` |
+| Going Commando (Europe) | `rac2-pal` |
 
-Every `.png` in it or in its sub-folders whose name is a texture's hash is
-used; other files are left alone, and the folders are only for you. The
+Every picture in it or in its sub-folders whose name is a texture's hash is
+used: a `.png`, `.ktx2` or `.svg` (see [Picture formats](#picture-formats)).
+Other files are left alone, and the folders are only for you. The
 setting `texture_pack` (on by default, [SETTINGS.md](SETTINGS.md)) turns it
-off. The log says how many textures the pack has at the start.
+off. It is a mod like the others: `--no-mods` (the launcher's Mods switch
+under Play off) leaves it out too. The log says how many textures the pack
+has at the start.
 
 ## In the launcher
 
-A game's page has a **Texture packs** section, in three steps:
+Your pack is a mod. It is the first row of **Graphics and sound packs** on
+**Mods → My mods**, with a switch (the `texture_pack` setting) and a menu:
 
-1. **Save the game's textures while you play.** Switch it on and play: every
-   picture the game shows is saved once into the textures folder (below).
-   The counts per folder open that folder. It stays on until you switch it
-   off; the launcher starts the game with `OPENRAC_DUMP_TEXTURES` for you.
-2. **Make your own pictures.** Open a saved picture in any image editor,
-   upscale or repaint it, keep its file name, and put it in your pack
-   (**Open your pack**), in any folder.
-3. **Your texture pack.** Its switch is the `texture_pack` setting. **Add a
-   pack…** reads a shared `.zip`: it says how many textures it has and in
-   which folders, refuses another game's pack, and adds it to yours (a
-   picture for the same texture replaces yours) or replaces yours, which is
-   kept beside it as `<game id> (before import <date>)`. **Share my pack…**
-   saves your pack as a `.zip` with its folders and a manifest, and leaves
-   out any picture that is still byte for byte the one the game saved: those
-   are your disc's, not yours to share.
+- **Share my pack…** saves it as a `.zip`. Pictures that are still exactly the
+  game's own are left out (they come from your disc).
+- **Replace with a pack…** puts in another pack and keeps the old one as
+  `<game id> (before import <date>)`.
 
-The textures folder is `texture_dumps/<game id>/` in the launcher's data folder
-(`%LOCALAPPDATA%\openrac`, `~/Library/Application Support/OpenRAC`,
-`~/.local/share/openrac`), not the pack's, so the game's own pictures never
-end up in a pack by themselves.
+To add a shared pack, use **Add a mod** (a file or a drop). It is checked,
+another game's pack is refused, and its pictures are added to yours.
+
+**Make your own** opens the steps (Models and textures; on Android a fold):
+
+1. **Save the game's textures while you play.** Switch it on and play. Each
+   picture the game shows is saved once.
+2. **Make your own pictures.** Edit or upscale a saved picture, keep its file
+   name, and put it in your pack (**Open your pack**), in any folder.
+
+Saved pictures go to `texture_dumps/<game id>/` in the launcher's data folder,
+not into your pack.
 
 ## Making one by hand
 
@@ -65,6 +68,10 @@ end up in a pack by themselves.
 
    A second run into the same folder writes only what is new, and still moves
    textures to `Shared/`.
+   Fully transparent uploads are omitted only when the draw's texture function
+   and source-over blend make their colours invisible. Unknown draw states,
+   RGB-only textures and blank animation frames are kept. Texture hashes and
+   replacement names are unchanged.
 2. Edit or upscale the pictures you want. Keep the file name. Any size works:
    the game samples a replacement over the same area as the original.
 3. Put the edited files in `<data>/texture_packs/<game id>/`, in any folders,
@@ -74,6 +81,54 @@ Leave out the pictures you did not change: an unchanged copy only costs memory.
 Textures the game makes while it runs (a fade, an animated screen) change from
 frame to frame, so each frame is a texture of its own; replacing those is not
 useful.
+
+## Picture formats
+
+Use only formats that work on every GPU:
+
+| Format | Use it for |
+|---|---|
+| `.png` | Anything. Works in every version of the port. |
+| `.ktx2` | Big packs. Basis Universal (UASTC or ETC1S), or plain RGBA8. |
+| `.svg` | Sharp, simple art: HUD icons, text, logos, menu parts. |
+
+**KTX2.** The game turns a Basis KTX2 into what the GPU reads: BC7, else
+ASTC 4x4, else RGBA8. BC7 and ASTC use a quarter of the GPU memory of a PNG.
+Metal uses RGBA8 for now. The log line `texture pack KTX2 pictures kept as`
+tells you which one is used.
+
+World and model textures need mip levels in the file, or they stay RGBA8.
+Make files like this:
+
+```
+basisu -ktx2 -uastc -mipmap 0123456789abcdef.png
+```
+
+UASTC looks best; ETC1S makes the smallest file. A KTX2 may be up to 8192
+texels a side and 4096 x 4096 in all. BC1-BC7, ASTC and ETC2 files are refused
+because only some GPUs read them.
+
+**SVG.** The game draws it at four times the texture's size (at most 4096 a
+side). Give it the texture's shape (the same `viewBox` ratio). Only shapes,
+fills, strokes and gradients are drawn, so turn text into paths. Images,
+fonts, links and scripts are not read, and the launcher refuses an SVG with
+them. Up to 4 MB. Not for photos or painted textures.
+
+**Size and speed.** The game reads each picture from disk once. A level's
+pictures are read while it loads, several at a time. HUD, menu and effect
+pictures are read in the background from the start, smallest first, and kept
+in memory (up to 1 GB, 512 MB on Android). A HUD or menu picture past that is
+read the first time it shows, in the background: the original shows for a few
+frames until it is ready, so the game never waits for it. The game remembers
+which pictures were HUD, menus or effects (in its cache folder), and from the
+next run reads ahead only those. Keep HUD pictures no bigger than they need to
+be, and keep level pictures in a `Planets/` folder (as the dump does), so the
+first run does not read them ahead too. A replaced font is drawn as
+the picture is, without the sharpening the game gives the original font.
+
+**Several formats for one texture.** The game tries SVG, then KTX2, then PNG.
+If one cannot be read, it uses the next. Keep a PNG beside an SVG or KTX2 so
+older versions of the port still work.
 
 ## A pack's .zip
 
@@ -86,21 +141,37 @@ A shared pack is a `.zip` of the pack folder's contents, folders kept, with
 
 The launcher accepts a `.zip` without the manifest, and one whose contents
 sit in a single folder of their own. It refuses one whose manifest names
-another game, a file outside the `.zip`'s folder, a link, a `.png` not named
+another game, a file outside the `.zip`'s folder, a link, a picture not named
 by a texture (except an animation's frames, in a folder named by a texture),
-two pictures for one texture, and a file that is not the picture its name
-says. Other files (a readme) are left out.
+two pictures of one format for one texture, an animation and a still picture
+for one texture, a file that is not the picture its name says, a KTX2 that only
+some GPUs read, and an SVG with a script or a link. Other files (a readme) are
+left out. Adding a texture replaces all of its pictures in your pack.
 
 ## PCSX2 packs
 
-PCSX2 names its replacements by a hash of the texture as it lies in the
-console's video memory. The port converts textures before it sees them, so
-those names do not match. A PCSX2 pack can be carried over by dumping with
-`OPENRAC_DUMP_TEXTURES`, matching the pictures to the pack's by eye or by image
-comparison, and copying the pack's picture under the dumped name.
+In the desktop launcher, open **Mods > My mods**, then the three-dot menu
+beside **Your texture pack**, and choose **Choose PCSX2 Pack**. Select the
+extracted pack's `textures` folder, the matching disc-serial folder, or its
+`replacements` folder. The launcher remembers the folder for this game version
+and reads the images directly from it. Choose **Choose PCSX2 Pack** again to
+select another pack, or **Clear PCSX2 Pack** to remove the selection. Enable
+the texture-pack switch and restart the game to use it.
 
-The dumped pictures are taken from your disc. Do not share them; share only the
-pictures you made.
+For a game started outside the launcher, set `OPENRAC_PCSX2_TEXTURE_PACK` to
+the `replacements` folder. A PCSX2 pack is loaded only from an explicitly
+selected folder. Clearing the selection disables it from the next game start.
+
+OpenRAC looks up full 8-bit indexed textures using the PCSX2 texture and
+palette hashes. It also looks up cropped 8-bit interface textures whose
+legacy PCSX2 filenames contain the source rectangle (`-r<hex>`). Crops are
+placed back in the interface atlas, so a crop changes only its rectangle.
+OpenRAC loads PNG and DDS replacements (DXT1, DXT3, DXT5, and 32-bit RGB/RGBA).
+Regular OpenRAC texture packs take priority. Region names containing only
+dimensions (`-rWxH`), dedicated mip levels, and other GS pixel formats still
+use the original textures. Some older level exports lost raw palette alpha values above
+`0x80`. If a matching level texture is skipped, re-export the levels to
+preserve those values.
 
 ## Animated textures
 
@@ -124,7 +195,9 @@ frame by frame.
   there are no frames to replace.
 - **Made while the game runs.** Fades, the picture drawn into a screen (the
   vendor's screen, the ship's cockpit display) and other textures the game
-  draws itself change every frame. They cannot be replaced.
+  draws itself change every frame. They cannot be replaced. In the 2D layer
+  a dump skips them: a place that gets a new texture on almost every tick for
+  about a second is not dumped, and its first ones are removed again.
 
 Examples from Going Commando (NTSC-U):
 

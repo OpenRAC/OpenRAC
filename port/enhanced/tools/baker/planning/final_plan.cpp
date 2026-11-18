@@ -88,7 +88,12 @@ json::Value planned_seeds(
 // Keeps floor evidence available independently of local allocations and generated interior lights.
 json::Value seed_plan(const ProbeBatchOptions& options, const json::Value& request) {
     const bool coverage = request["region_settings"]["enabled"].boolean();
-    const bool reflections = load_level_bake_profile(options.level_directory).environment.enabled;
+    const auto environment =
+        load_level_bake_profile(options.level_directory, options.level_overrides).environment;
+    const bool reflections =
+        environment.enabled
+        && (environment.require_full_coverage
+            || std::filesystem::is_regular_file(request["whitelist"].string()));
 
     // Sparse-only scenes need no gameplay when neither placement feature uses it.
     if (!coverage && !reflections) {
@@ -237,6 +242,9 @@ std::string transport_regions(const json::Value& plan) {
         if (!region["lattice_bounds"].is_null()) {
             fields["lattice_bounds"] = region["lattice_bounds"];
         }
+        if (!region["fit_to_floor"].is_null()) {
+            fields["fit_to_floor"] = region["fit_to_floor"];
+        }
 
         // JSON elements are separated without a trailing comma.
         if (result.size() > 1) {
@@ -299,10 +307,46 @@ json::Value complete_report(const ProbeBatchOptions& options, const json::Value&
 
     validate_metadata(request);
     auto fields = seed_plan(options, request).members();
-    const auto count = fields.at("regions").items().size();
+    auto regions = fields.at("regions").items();
+    if (settings["enabled"].boolean()) {
+        for (const auto& region : settings["authored"].items()) {
+            const auto& bounds = region["bounds"];
+            const auto axes = spacing(region["spacing"]);
+            const auto& fit_to_floor = region["fit_to_floor"];
+            if (!fit_to_floor.is_null() && fit_to_floor.type() != json::Value::Type::Bool) {
+                throw std::runtime_error("authored probe fit_to_floor must be a boolean");
+            }
+            if (bounds.items().size() != 6) {
+                throw std::runtime_error("authored probe bounds require six coordinates");
+            }
+            double probes = 1;
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                const auto& lo = bounds[axis];
+                const auto& hi = bounds[axis + 3];
+                if (!lo.is_number() || !hi.is_number() || !std::isfinite(lo.number())
+                    || !std::isfinite(hi.number()) || hi.number() - lo.number() < 2 * axes[axis]) {
+                    throw std::runtime_error("invalid authored probe volume extent");
+                }
+                probes *=
+                    std::ceil(hi.number() / axes[axis]) - std::floor(lo.number() / axes[axis]) + 1;
+            }
+            if (probes > settings["max_probes"].number()) {
+                throw std::runtime_error("authored probe volume exceeds the per-region budget");
+            }
+            regions.push_back(region);
+        }
+    }
+    std::string region_json = "[";
+    for (const auto& region : regions) {
+        if (region_json.size() > 1) {
+            region_json += ',';
+        }
+        region_json += bake_json::json_text(region);
+    }
+    fields["regions"] = parsed(region_json + ']');
 
     // Runtime capacity and the configured level cap both bound final allocations.
-    if (count > coordinator_integer(settings["max_regions"], 1024)) {
+    if (regions.size() > coordinator_integer(settings["max_regions"], 1024)) {
         throw std::runtime_error("planned dense regions exceed the runtime region limit");
     }
 

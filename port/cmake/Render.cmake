@@ -2,7 +2,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 #
 # What drawing costs, measured and switched: the optimisation registry, which every render
-# optimisation registers with (renderer/render_opt.h, docs/port/RENDER_PERF.md), and its tests.
+# optimisation registers with (renderer/settings/render_opt.h, docs/port/RENDER_PERF.md), and its tests.
 #
 #   openrac_render_opt  the registry: a library of its own, apart from openrac_renderer, because it
 #                       has no GL or window in it and its tests run in the headless preset too
@@ -28,29 +28,38 @@
 
 include_guard(GLOBAL)
 
-add_library(openrac_render_opt STATIC renderer/render_opt.cpp)
+add_library(openrac_render_opt STATIC renderer/settings/render_opt.cpp)
 target_link_libraries(openrac_render_opt PUBLIC openrac_common)
 openrac_warnings(openrac_render_opt)
 
 # The graph planner has no graphics API dependency; its validation tests also run headlessly.
 add_library(openrac_renderer_graph STATIC
+  renderer/graph/command_buffer.cpp renderer/graph/submission.cpp
   renderer/graph/frame_graph.cpp renderer/graph/ranges.cpp
   renderer/graph/compile.cpp renderer/graph/describe.cpp renderer/graph/frame_context.cpp)
 target_link_libraries(openrac_renderer_graph PUBLIC openrac_common)
 openrac_warnings(openrac_renderer_graph)
 openrac_add_test(frame_graph LIBS openrac_renderer_graph)
 openrac_add_test(frame_context LIBS openrac_renderer_graph)
+openrac_add_test(graph_submission LIBS openrac_renderer_graph)
+openrac_add_test(graph_breadcrumbs LIBS openrac_renderer_graph)
+add_test(NAME render_graph_boundary
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/render_graph_boundary_test.py")
 
 if(TARGET openrac_renderer_vulkan)
   target_link_libraries(openrac_renderer_vulkan PRIVATE openrac_renderer_graph)
 endif()
+if(TARGET openrac_vulkan)
+  target_link_libraries(openrac_vulkan PUBLIC openrac_renderer_graph)
+  openrac_add_test(graph_state_translation LIBS openrac_vulkan)
+endif()
 
-# The envelope of the Vulkan backend's cache files (renderer/vulkan/cache_file.h), which the
+# The envelope of the Vulkan backend's cache files (renderer/vulkan/cache/cache_file.h), which the
 # pipeline cache and its manifest share (R-10), and the SPIR-V cache in it (R-12). Added here so that cmake/Window.cmake, which makes
 # the target, is left to its own lane.
 if(TARGET openrac_renderer_vulkan)
   target_sources(openrac_renderer_vulkan PRIVATE
-    renderer/vulkan/cache_file.cpp renderer/vulkan/spirv_cache_file.cpp)
+    renderer/vulkan/cache/cache_file.cpp renderer/vulkan/cache/spirv_cache_file.cpp)
 endif()
 
 # The renderers whose draw code asks the registry.
@@ -181,6 +190,17 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
     LABELS render-equivalence ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   set_property(TEST ${vulkan_seed_tests} APPEND PROPERTY FIXTURES_REQUIRED render_equivalence_caches)
+  # render_equivalence_metal  the compatibility scenarios on Metal, byte for byte as OpenGL draws
+  #                           them in render_equivalence_opengl (hidden Cocoa windows)
+  if(OPENRAC_METAL)
+    set(opengl_frames "${CMAKE_CURRENT_BINARY_DIR}/test-cache/opengl-frames.bin")
+    add_test(NAME render_equivalence_opengl COMMAND render_equivalence_test --opengl-frames "${opengl_frames}")
+    add_test(NAME render_equivalence_metal COMMAND render_equivalence_test --against-opengl "${opengl_frames}")
+    set_tests_properties(render_equivalence_opengl PROPERTIES FIXTURES_SETUP opengl_frames
+      SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=desktop;SDL_VIDEO_DRIVER=cocoa")
+    set_tests_properties(render_equivalence_metal PROPERTIES FIXTURES_REQUIRED opengl_frames
+      SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+  endif()
   if(OPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS)
     # Start the longest runnable tests first on a runner with no timing history.
     set_tests_properties(render_equivalence_prepare_vulkan PROPERTIES COST 90)
@@ -212,7 +232,7 @@ endif()
 #   vulkan_buffer   a static GL buffer drawn, rewritten in part, filled again, read through 8-bit
 #                   indices and as a uniform block, frame after frame (tests/vulkan_buffer_test.cpp)
 #   vulkan_present  the one copy to the screen against the two (tests/vulkan_present_test.cpp)
-#   cull_coverage   the zero-coverage cull's CPU reference (renderer/gpu_draw.h) against a software
+#   cull_coverage   the zero-coverage cull's CPU reference (renderer/gl/gpu_draw.h) against a software
 #                   rasteriser (tests/cull_coverage_test.cpp); no GPU, so every preset runs it
 openrac_add_test(cull_coverage INCLUDES .)
 #   vulkan_present_timing  the presentation extensions switched off one by one

@@ -414,7 +414,7 @@ struct VulkanDiagnostic {
     std::size_t length = 0;
 };
 
-constinit std::array<VulkanDiagnostic, 32> g_vulkan_diagnostics{};
+constinit std::array<VulkanDiagnostic, 64> g_vulkan_diagnostics{};
 constinit std::atomic<std::uint64_t> g_vulkan_sequence{0};
 
 void write_vulkan_diagnostics(Out& out) {

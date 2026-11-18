@@ -149,6 +149,33 @@
       "about": "Unlocks a planet's coordinates (UnlockPlanet): its flag (one byte per level), the galaxy list, and its banner unless it is the planet the player is on."
     },
     {
+      "id": "rac1.help.request",
+      "name": "Help_Request",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "message",
+        "slot"
+      ],
+      "symbols": {
+        "pal": "func_L00_00203F20",
+        "ntsc": "FUN_L00_00203908"
+      },
+      "about": "Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1."
+    },
+    {
+      "id": "rac1.ship.init_transition",
+      "name": "Ship_InitTransition",
+      "signature": "void(i32)",
+      "params": [
+        "mode"
+      ],
+      "symbols": {
+        "pal": "func_L00_0028FCA0",
+        "ntsc": "FUN_L00_0028e9c8"
+      },
+      "about": "Puts the hero in the ship for a landing or take-off (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to load. On Orxon its choice of chunks goes by whether the O2 Mask is owned."
+    },
+    {
       "id": "rac1.vendor.init_level_stock",
       "name": "Vendor_InitLevelStock",
       "signature": "void()",
@@ -224,6 +251,69 @@
         "ntsc": "FUN_L00_00233db8"
       },
       "about": "Takes amount of ammo from item for a shot (TakeAmmo; -1 is the item in hand): 1 when taken, 0 when there is too little. An item with no ammo limit takes none and gives 1."
+    },
+    {
+      "id": "rac1.weapon.blaster.pick_target",
+      "name": "Weapon_Blaster_PickTarget",
+      "signature": "u32(i32,u32,u32,u32)",
+      "params": [
+        "ignore",
+        "from",
+        "yaw",
+        "pitch"
+      ],
+      "symbols": {
+        "pal": "func_L00_002B5998",
+        "ntsc": "FUN_L00_002b46a8"
+      },
+      "about": "Chooses the Blaster's auto-aim target for a shot from from (select_blaster_auto_aim_target; from a Vec4, yaw and pitch f32s, all addresses): the nearest targetable creature (Moby flags 0x1000) within 20 units whose aim point is within about 9 degrees of the heading yaw/pitch and in sight from the camera and from from (ignore: the moby the sight test passes over). Writes the pitch toward it, and the yaw when within 10 degrees, and returns it; 0 for none."
+    },
+    {
+      "id": "rac1.weapon.ryno.pick_target",
+      "name": "Weapon_Ryno_PickTarget",
+      "signature": "u32(u32,u32,u32,f32,f32,f32)",
+      "params": [
+        "pos",
+        "aim",
+        "skip",
+        "max_yaw",
+        "max_pitch",
+        "max_distance"
+      ],
+      "symbols": {
+        "pal": "func_L00_002CD7B0",
+        "ntsc": "FUN_L00_002cc360"
+      },
+      "about": "Chooses a R.Y.N.O. missile's target (select_ryno_target): the creature with a target record, of class type 5, within max_distance across of pos (a Vec4 address) and max_yaw / max_pitch of the aim angles (aim, f32s at +4 pitch and +8 yaw), the best by angle and distance, in sight; skip is the seven mobys the salvo has already (0: only the ones drawn last frame). Returns the moby, 0 for none."
+    },
+    {
+      "id": "rac1.weapon.gold_devastator.pick_target",
+      "name": "Weapon_GoldDevastator_PickTarget",
+      "signature": "void(u32,u32,u32)",
+      "params": [
+        "missile",
+        "data",
+        "skip"
+      ],
+      "symbols": {
+        "pal": "func_L00_002B1290",
+        "ntsc": "FUN_L00_002affa8"
+      },
+      "about": "Chooses the gold Devastator missile's target (select_gold_devastator_missile_target): the creature within 40 units of the missile nearest its heading, in a cone that widens with the weapon's level, in sight, not skip; writes it into the missile's data (data, its pvars)."
+    },
+    {
+      "id": "rac1.weapon.drone.pick_target",
+      "name": "Weapon_Drone_PickTarget",
+      "signature": "u32(u32,u32)",
+      "params": [
+        "from",
+        "skip"
+      ],
+      "symbols": {
+        "pal": "func_L00_002CF3D8",
+        "ntsc": "FUN_L00_002cdf28"
+      },
+      "about": "Chooses a drone's target (select_nearest_drone_target): the nearest moby of class type 5, 7 or 8 to from (a Vec4 address), within 4, 5.3 or 6 units by type, not one of the nine in skip, not held by the Suck Cannon. Returns the moby, 0 for none."
     },
     {
       "id": "rac1.moby.record_death",
@@ -669,6 +759,54 @@
         "ntsc": "FUN_002093d8"
       },
       "about": "The memory card's state machine, each tick (memcard_update_state): saves and loads go through it."
+    },
+    {
+      "id": "rac1.text.msg_string",
+      "name": "msg_string",
+      "signature": "i32(i32)",
+      "params": [
+        "id"
+      ],
+      "symbols": {
+        "pal": "func_001FE540",
+        "ntsc": "FUN_001fdd10"
+      },
+      "about": "Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn."
+    },
+    {
+      "id": "rac1.vendor.open_menu",
+      "name": "Vendor_OpenMenu",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "pal": "func_L00_0029BA20",
+        "ntsc": "FUN_L00_0029a6b0"
+      },
+      "about": "Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero."
+    },
+    {
+      "id": "rac1.gold_bolt.count_unspent",
+      "name": "GoldBolts_CountUnspent",
+      "signature": "i32()",
+      "params": [],
+      "symbols": {
+        "pal": "func_00216098",
+        "ntsc": "FUN_00215248"
+      },
+      "about": "Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership."
+    },
+    {
+      "id": "rac1.vendor.icon_strip.draw",
+      "name": "Vendor_DrawIconStrip",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_00239A00",
+        "ntsc": "FUN_002386e8"
+      },
+      "about": "Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling."
     }
   ],
   "bases": {

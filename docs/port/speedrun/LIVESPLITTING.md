@@ -257,6 +257,6 @@ Two limits to know:
 |---|---|
 | **Draw a split overlay in the game** | There is no drawing API for mods. The SDK has no text, no quad and no renderer hook; `MODS.md` lists a renderer hook as *proposed*. Use LiveSplit's own overlay, or an external one. |
 | **Split on a specific in-level event without a hook point** | Read the game's memory instead. `api->memory` gives full access, and `api->relocate_data(address)` gives a global's address for the level loaded now. |
-| **Split on anything in rac2, rac3 or rac4** | Those ports have **zero** hook points and no script binding, so a mod for them is refused with "this OpenRAC runs no hook point … for rac2". |
+| **Split on a specific RAC2/3/4 game hook** | Those ports have **zero** game hook points and no script binding. RAC2 can still load a native callback-only mod, but an event that needs a game hook must wait for that hook to be exposed (or be derived from a common callback/API instead). |
 | **Run as a Luau script and talk to LiveSplit** | The sandbox has no sockets and no file IO. |
 | **Ship an .asl for LiveSplit** | The official autosplitter index contains no Ratchet & Clank 1 entry at all — not for PS2, PS3 or Vita. The only Ratchet entry is *Rift Apart*. A port-specific autosplitter would be new work; the mod approach is better here because the port can emit the events itself. |

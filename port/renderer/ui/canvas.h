@@ -21,6 +21,13 @@ constexpr int kGlyphCellHeight = 8;
 // The largest text size draw_text takes; a larger one is drawn at it.
 constexpr int kMaxTextSize = 8;
 
+// A glyph's lit pixels are in rows of kGlyphColumns characters, kGlyphRows of them, '#' lit.
+constexpr int kGlyphColumns = 5;
+constexpr int kGlyphRows = 7;
+
+// Returns the rows of the font's glyph for `c` (its capital for a letter), or nullptr for none.
+const char* glyph_rows(char c);
+
 // Returns the colour 0xRRGGBBAA of r, g, b and a (0 to 255 each).
 constexpr std::uint32_t rgba(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a = 255) {
     return (std::uint32_t{r} << 24) | (std::uint32_t{g} << 16) | (std::uint32_t{b} << 8) | a;

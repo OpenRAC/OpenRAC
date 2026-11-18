@@ -26,6 +26,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "common/breadcrumbs.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/stats.h"
@@ -41,6 +42,7 @@
 #include "game/common/particle_texture_cache.h"
 #include "game/common/profile.h"
 #include "mod_menu.h"
+#include "mod_overlay.h"
 #include "mod_ui.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
@@ -50,15 +52,17 @@
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "platform/window.h"
-#include "renderer/direct.h"
-#include "renderer/effects.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/gl_stats.h"
-#include "renderer/gl_warmup.h"
-#include "renderer/precise_depth.h"
+#include "renderer/direct/direct.h"
+#include "renderer/effects/effects.h"
+#include "renderer/effects/shadows.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gl_stats.h"
+#include "renderer/gl/gl_warmup.h"
+#include "renderer/gl/precise_depth.h"
 #include "renderer/renderer.h"
-#include "renderer/shadows.h"
+#include "renderer/textures/texture_pack.h"
+#include "renderer/textures/texture_pool.h"
 #include "renderer/ui/fps_counter.h"
 #include "renderer/ui/touch_overlay.h"
 #include "scene/hero_shadow.h"
@@ -68,6 +72,9 @@
 #include "scene/moby_shadow.h"
 #include "scene/screenshot.h"
 #include "settings.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 extern "C" int openrac_game_loaded_overlay(void);
 
@@ -146,6 +153,11 @@ bool skippable() {
 
 // The picture's shape now: the player's setting, for the window as it is.
 float picture_aspect(int window_width, int window_height) {
+    // A movie fills the window whatever the picture setting (set_movie_playing): the game sizes its
+    // picture to the window's shape (rac2/host/movie.c), as a television would.
+    if (g != nullptr && g->movie_playing && window_width > 0 && window_height > 0) {
+        return static_cast<float>(window_width) / static_cast<float>(window_height);
+    }
     return settings::aspect_ratio(settings::get(), window_width, window_height);
 }
 
@@ -422,6 +434,14 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     config.hidden = env::flag(env::Var::Hidden);
     // HDR output may be turned on later only when it was not off at start (common/hdr.h).
     config.hdr = chosen.hdr != hdr::Mode::Off;
+#if defined(OPENRAC_VULKAN)
+    // Only the Vulkan renderer has HDR output: HDR on draws with it, whatever renderer was asked
+    // for (it falls back to OpenGL by itself where Vulkan cannot start).
+    if (config.hdr && config.gl_api != platform::GlApi::Vulkan) {
+        log::info("HDR output is on: drawing with Vulkan, the renderer that has it");
+        config.gl_api = platform::GlApi::Vulkan;
+    }
+#endif
     config.gpu_breadcrumbs = chosen.gpu_breadcrumbs;
     g->hdr_at_start = config.hdr;
     g->window = platform::Window::open(config, error);
@@ -444,10 +464,26 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
         error = "OpenGL functions missing: " + missing;
         return false;
     }
-    // [debug tools] The renderer's GL calls counted from here on (renderer/gl_stats.h).
+    // [debug tools] The renderer's GL calls counted from here on (renderer/gl/gl_stats.h).
     renderer::gl_stats::install(platform::Window::gl_loader());
-    // OpenGL's drawn states noted, to draw them again at each level's load (renderer/gl_warmup.h).
+    // OpenGL's drawn states noted, to draw them again at each level's load (renderer/gl/gl_warmup.h).
     renderer::gl_warmup::install(platform::Window::gl_loader());
+#if defined(OPENRAC_VULKAN)
+    // A level's load deletes and links the same shader programs: their pipelines are kept
+    // (vk-program-keep), so only a run's first level makes them.
+    if (gl::is_vulkan()) {
+        vkgl::keep_programs(true);
+    }
+#endif
+    // A texture pack's KTX2 pictures are transcoded, as they load, to the blocks this GPU reads.
+    const renderer::BlockFormat blocks = renderer::TexturePool::gpu_block_format();
+    renderer::texture_pack::set_block_format(blocks);
+    log::info(
+        "graphics: texture pack KTX2 pictures kept as {}",
+        blocks == renderer::BlockFormat::Bc7       ? "BC7"
+        : blocks == renderer::BlockFormat::Astc4x4 ? "ASTC 4x4"
+                                                   : "RGBA8"
+    );
     log::info("graphics: up to {} samples a pixel, anisotropy up to {:.0f}; the swap {}", 
               renderer::FrameBuffer::max_samples(), renderer::TexturePool::max_anisotropy(),
               g->swap == platform::SwapInterval::Immediate ? "does not wait"
@@ -461,6 +497,14 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
                 : "in GL's form: no glClipControl here (GameProfile::depth_near)"
         );
     }
+#if defined(OPENRAC_IOS)
+    platform::set_background_handler([] {
+        // Finish both the worker's recording and GPU execution before UIKit suspends the scene.
+        if (g && finish_render() && gl::glFinish != nullptr) {
+            gl::glFinish();
+        }
+    });
+#endif
     return true;
 }
 
@@ -491,6 +535,16 @@ void world_drawn(std::span<const std::uint8_t> ram) {
     }
     const int level = openrac_game_loaded_overlay();
     g->world_camera = g->profile->read_state(ram, level);
+    g->world_shrubs.reset();
+    if (settings::get().original_draw_distance()) {
+        g->world_shrubs = g->profile->shrub_draws(ram, level);
+    }
+}
+
+void set_movie_playing(bool on) {
+    if (g) {
+        g->movie_playing = on;
+    }
 }
 
 bool show_picture(const std::uint8_t* rgba, int width, int height, float black) {
@@ -514,6 +568,8 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
     }
     apply_mouse_capture();
     g->input.update();
+    const crash::BreadcrumbScope breadcrumbs(static_cast<std::int64_t>(g->index));
+    crash::breadcrumb(black > 0.0f ? "picture fade frame" : "picture frame");
     stats::begin_frame(stats::FrameKind::Picture, g->index);  // [debug tools]
 
     // The fade, on the bytes as the chip's black quad blends them: C * (1 - coverage).
@@ -539,8 +595,13 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
     const std::uint64_t index = g->index++;
     if (shots().due(index)) {
         const std::string path = shots().prefix + std::to_string(index) + ".png";
-        scene::write_png(path, width, height, pixels);
-        log::info("frame {} written to {}", index, path);
+        scene::write_png_later(
+            path,
+            width,
+            height,
+            std::move(pixels),
+            std::format("frame {} written to {}", index, path)
+        );
     }
     // The picture fills the frame the game's own frames fill; its first row is the top.
     present(g->picture.id(), width, height, window_width, window_height, true);
@@ -586,6 +647,9 @@ std::int64_t since_control() {
 }
 
 void close() {
+#if defined(OPENRAC_IOS)
+    platform::set_background_handler(nullptr);
+#endif
     if (g) {
         // Stop the worker before releasing the scene, temporal history or graphics context.
         // Cleanup still releases resources after a previously reported render error.
@@ -597,10 +661,12 @@ void close() {
         renderer::ui::touch_overlay::release();
         debug_menu::release();
         mod_menu::release();
+        mod_overlay::release();
         // A mod's views: it lets go of what it made with the context, while the context is there.
         release_views(*g);
         // Temporal histories reference the target and scene, so retire them before either owner.
         g->temporal.reset();
+        g->bloom.release();
         g->agx.release();
         g->haze.release();
         g->frame.release();

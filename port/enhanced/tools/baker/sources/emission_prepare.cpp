@@ -11,6 +11,7 @@
 #include "enhanced/tools/baker/pipeline/bake_json.h"
 #include "enhanced/tools/baker/pipeline/stage_file.h"
 #include "enhanced/tools/baker/sources/emission_catalog.h"
+#include "enhanced/tools/baker/sources/emission_textures.h"
 #include "materials/catalog.h"
 
 namespace openrac::lighting {
@@ -55,6 +56,7 @@ void prepare_material_sources(
         if (!parsed) {
             throw std::runtime_error(parsed.error().message);
         }
+        prepare_material_textures(level, source.parent_path(), target.parent_path() / "textures");
         const auto written = materials::write_catalog(target, *parsed);
         if (!written) {
             throw std::runtime_error(written.error().message);

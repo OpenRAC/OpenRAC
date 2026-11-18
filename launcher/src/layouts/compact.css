@@ -1,15 +1,13 @@
-/* The Compact layout (Settings → Appearance). Every rule is scoped to
-   :root[data-layout="compact"]: with Classic chosen none applies, and the
-   launcher looks exactly as it did before. To remove the layout, delete this
-   file and its import in main.ts. */
+/* The launcher's layout over the pages' own styles. `:root:root` gives each rule the weight
+   to win over a component's scoped style. */
 
 /* ---- The game page: the title and Play on one band ---- */
 
-:root[data-layout="compact"] .page:has(> .hero) {
+:root:root .page:has(> .hero) {
   max-width: 1080px;
   gap: 16px;
 }
-:root[data-layout="compact"] .hero {
+:root:root .hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   /* The steps and a job's strip take rows of their own below (grid-column 1 / -1), only when
@@ -21,14 +19,14 @@
   padding: 24px 28px;
   border-radius: 22px;
 }
-:root[data-layout="compact"] .hero > .title {
+:root:root .hero > .title {
   grid-area: title;
   font-size: clamp(22px, 2.6vw, 32px);
   padding: 12px 22px;
   border-width: 5px;
   text-align: left;
 }
-:root[data-layout="compact"] .hero > .go {
+:root:root .hero > .go {
   grid-area: go;
   justify-self: end;
   margin-top: 0;
@@ -43,57 +41,57 @@
   column-gap: 10px;
   justify-items: center;
 }
-:root[data-layout="compact"] .hero > .go > .go-row {
+:root:root .hero > .go > .go-row {
   display: contents;
 }
-:root[data-layout="compact"] .hero > .go > :not(.go-row) {
+:root:root .hero > .go > :not(.go-row) {
   grid-column: 1;
 }
-:root[data-layout="compact"] .hero .big {
+:root:root .hero .big {
   font-size: 1.1875rem;
   padding: 13px 30px;
 }
-:root[data-layout="compact"] .hero .line {
+:root:root .hero .line {
   font-size: 0.8125rem;
 }
-:root[data-layout="compact"] .hero > .steps {
+:root:root .hero > .steps {
   grid-column: 1 / -1;
   justify-self: stretch;
   margin: 4px 0 0;
 }
-:root[data-layout="compact"] .hero > .job {
+:root:root .hero > .job {
   /* The running job's strip: its own row under the steps, the card's full width. */
   grid-column: 1 / -1;
   justify-self: stretch;
 }
-:root[data-layout="compact"] .page-ambient-bg {
+:root:root .page-ambient-bg {
   height: 360px;
 }
 
 @media (max-width: 640px) {
-  :root[data-layout="compact"] .hero {
+  :root:root .hero {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "title" "go";
     justify-items: center;
   }
-  :root[data-layout="compact"] .hero > .go {
+  :root:root .hero > .go {
     justify-self: center;
   }
 }
 
 /* ---- The games: smaller cards, so more of them fit ---- */
 
-:root[data-layout="compact"] .card {
+:root:root .card {
   padding: 18px;
   border-radius: 22px;
 }
-:root[data-layout="compact"] .card-content {
+:root:root .card-content {
   gap: 12px;
 }
-:root[data-layout="compact"] .card .title {
+:root:root .card .title {
   padding: 9px 18px;
   border-radius: 14px;
 }
-:root[data-layout="compact"] .card .title-text {
+:root:root .card .title-text {
   font-size: 1.25rem;
 }

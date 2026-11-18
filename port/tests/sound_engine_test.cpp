@@ -3,7 +3,7 @@
 //
 // The VAG streams of the game's sound engine (port/game/common/lib/sound_engine.cpp) on a disc
 // image made here: the time a stream has left, from the frame it starts on, which RAC1's music
-// crossfade measures its fade against (games/rac1/src/game/music.c, music_Update). And what the
+// crossfade measures its fade against (games/rac1/decomp/src/game/music.c, music_Update). And what the
 // game reads back while the output mixes ahead of its device: the sound as it is heard.
 
 #include <algorithm>

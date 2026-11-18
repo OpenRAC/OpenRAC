@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { acceptWarning, extractorError, forgetWarning, jobs } from "./app.svelte";
-import { isBuilt, isPlaying, playerState, rebuildSteps } from "./player.svelte";
+import { isBuilt, isPlaying, playerState, rebuildSteps, updateStep } from "./player.svelte";
 import type { Job } from "./queue";
 import type { ActionView, GameView, VersionView } from "./api";
 
@@ -191,5 +191,37 @@ describe("acceptWarning", () => {
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(await acceptWarning(scope, play)).toBe(true);
     expect(confirm).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("updateStep", () => {
+  const both = [step("port-build"), step("port-rebuild")];
+
+  it("rebuilds from scratch by default", () => {
+    const got = updateStep(versionWith(both), false);
+    expect(got).toMatchObject({ incremental: false, cleanBecause: null });
+    expect(got?.action.id).toBe("port-rebuild");
+  });
+
+  it("builds incrementally with the Incremental builds setting", () => {
+    const got = updateStep(versionWith(both), true);
+    expect(got).toMatchObject({ incremental: true, cleanBecause: null });
+    expect(got?.action.id).toBe("port-build");
+  });
+
+  it("still builds from scratch, and says why, when the build folder is unusable", () => {
+    const v = { ...versionWith(both), portCleanReason: "it was built by another OpenRAC version" };
+    const got = updateStep(v, true);
+    expect(got?.action.id).toBe("port-rebuild");
+    expect(got?.incremental).toBe(false);
+    expect(got?.cleanBecause).toBe("it was built by another OpenRAC version");
+    // Off, the reason is not needed: it is from scratch anyway.
+    expect(updateStep(v, false)?.cleanBecause).toBeNull();
+  });
+
+  it("falls back to what can run", () => {
+    expect(updateStep(versionWith([step("port-build"), step("port-rebuild", { runnable: false })]), false)).toBeNull();
+    expect(updateStep(versionWith([step("port-rebuild")]), true)?.action.id).toBe("port-rebuild");
+    expect(updateStep(versionWith([]), true)).toBeNull();
   });
 });

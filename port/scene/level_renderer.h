@@ -26,12 +26,12 @@
 #include <utility>
 #include <vector>
 
-#include "renderer/debug_lines.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gpu_draw.h"
-#include "renderer/render_opt.h"
+#include "renderer/debug/debug_lines.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gpu_draw.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gpu.h"
 #include "scene/level.h"
 #include "scene/level_lighting.h"
@@ -56,6 +56,20 @@ struct GameScenery {
     // The same of the shrubs (their records' +0 and +0x1E).
     std::vector<std::array<float, 4>> shrub_spheres;
     std::vector<std::uint16_t> shrub_lights;
+    // Per tie and per shrub, nonzero where the game has hidden it in its record: a tie's +0x1E bit
+    // 2, a shrub's +0x16 bit 0, which Going Commando's TieProc (0x2F133C) and ShrubProc
+    // (0x2E15B0) test to leave it undrawn. Empty: none hidden.
+    // The frontend also applies the scaled draw-distance limits.
+    // Camera PVS and near-plane culls leave shadow casters resident; the visible pass applies them.
+    std::vector<std::uint8_t> tie_hidden;
+    std::vector<std::uint8_t> shrub_hidden;
+    // Each terrain fragment's occlusion word, in the game's fragment order (its tfrag records'
+    // +0x3B byte and +0x3A bit), for a game whose frame mask stands in for a baked grid
+    // (LevelScene::set_game_pvs). Empty: the words as loaded.
+    std::vector<std::uint16_t> terrain_occlusion;
+    // Per terrain fragment, nonzero where it is past the terrain's far cull this tick (the
+    // level's, 960 units, times Draw distance). Empty: none.
+    std::vector<std::uint8_t> terrain_far;
 };
 
 class LevelScene {
@@ -132,17 +146,17 @@ public:
     // ship paint jobs) with the game's `number`; one the level does not have leaves the one bound.
     void set_variant(int number);
 
-    // "Scenery detail: Original" (settings.h), from the camera at `eye` seeing through
-    // `projection`: the ties and shrubs beyond their draw distances (LevelData::draw_distances) left
+    // Draw distance (settings.h) for the ties and shrubs, from the camera at `eye` seeing through
+    // `projection`: those beyond their draw distances (LevelData::draw_distances) times `scale` left
     // out, every one drawn at its most detailed LOD. A layer is grouped again only when one of its
     // instances changes, so the test holds back by a few units: an instance leaves only some way
     // past its distance, by straight-line distance however the camera turns; it comes back as soon
-    // as the game would draw it. Off, the instances as loaded: never set again unless the setting
-    // was on, so the default draws the level's resident ties and shrubs untouched.
-    void choose_scenery(bool original, const renderer::Vec3& eye, const renderer::Mat4& projection);
+    // as the game would draw it. Scale 0 (Unlimited): the instances as loaded, never set again
+    // unless a distance was in use.
+    void choose_scenery(float scale, const renderer::Vec3& eye, const renderer::Mat4& projection);
 
-    // ShrubProc's choice for the tick (GameProfile::shrub_draws), one per shrub as loaded: with
-    // "Scenery detail: Original" the shrubs' layer then keeps those it draws whole (choose_scenery)
+    // ShrubProc's choice for the tick (GameProfile::shrub_draws), one per shrub as loaded: at
+    // "Draw distance: Original" the shrubs' layer then keeps those it draws whole (choose_scenery)
     // and add_shrub_effects the rest. Empty, or not one per shrub: the draw distances alone.
     void set_shrub_draws(std::vector<ShrubDraw> draws);
 
@@ -154,8 +168,8 @@ public:
     // (GameProfile::scenery_matrices), one per instance as loaded in each layer's order, the
     // matrix's first three columns and its translation; empty: drawn as loaded. An instance the
     // game moved leaves its layer and is drawn with the mobys (add_moved_scenery) where the game
-    // puts it; one whose matrix the game zeroed is not drawn. A layer is grouped again only when
-    // the set of moved instances changes.
+    // puts it; one whose matrix the game zeroed, or that its record hides, is not drawn. A layer
+    // is grouped again only when the set of moved instances changes.
     // A tie that a point light reaches (its list) is lit again with it each tick, as the game does.
     void move_scenery(const GameScenery& scenery);
 
@@ -231,6 +245,14 @@ public:
         m_sweep_translucent_unlit = unlit;
         m_sweep_translucent_full = full;
     }
+
+    // Another of the sweep's experiments: the mobys' glow, blended and metal passes left out (the
+    // late passes other than their translucent one), to time them on a device.
+    void set_sweep_moby_blended_off(bool off) { m_sweep_moby_blended_off = off; }
+
+    // And another: every draw of the world's layers cut to its first triangle, in the prepass and
+    // the colour passes alike. What is left is the cost of the draws themselves.
+    void set_sweep_one_triangle(bool on) { m_sweep_one_triangle = on; }
 
     // Controls the GI-coloured edge light on essential gameplay objects.
     void set_gameplay_rim(bool enabled, float strength, float falloff) {
@@ -313,6 +335,12 @@ public:
     // Immutable frame light bank for registered lighting providers.
     const std::array<float, 64>& point_lights() const { return m_point_lights; }
 
+    void set_point_emitters(std::vector<renderer::PointEmitter> lights) {
+        m_point_emitters = std::move(lights);
+    }
+
+    std::span<const renderer::PointEmitter> point_emitters() const { return m_point_emitters; }
+
     // Each point-lit moby's third light for the original lighting (colour, then world direction),
     // indexed by moby_light.x / 256 - 1 (mesh.vert); empty for a game whose moby program has none.
     void set_moby_point_lights(std::vector<std::array<float, 8>> lights) {
@@ -342,6 +370,9 @@ public:
     void bind_surface_lighting(
         const renderer::Shader& shader, const renderer::Camera& camera
     ) const;
+
+    // The game's occlusion mask this tick (std::nullopt when the game has none).
+    void set_game_pvs(const std::optional<Pvs::Mask>& mask) { m_pvs.game = mask; }
 
     void set_light_sets(const std::vector<float>& sets) {
         if (sets.size() == 16 * 16) {
@@ -466,6 +497,12 @@ private:
     void record_shadow_atlas(
         unsigned scrolling, bool cache, bool discard, renderer::RenderState& state
     );
+    // Clears and draws only the atlas views of `views` (one bit each, the hero's after the sun's):
+    // one pass of a frame that keeps other cascades (shadow-far-alternate).
+    void record_shadow_atlas_views(unsigned views, bool discard, renderer::RenderState& state);
+    // Keeps the far cascades the last frame drew in place of this frame's while this frame's
+    // receivers fit inside them (shadow-far-alternate); sets m_kept_cascades.
+    void keep_far_cascades(bool level_bounds);
     // Restores the world target and releases attachment contents no lighting pass samples.
     void finish_shadow_atlas(bool discard, const renderer::RenderState& state);
     // Finishes unused attachment cleanup and publishes counters after every deferred shadow producer.
@@ -538,6 +575,8 @@ private:
     void combine_scrolling_shadows(unsigned mask, renderer::RenderState& state);
     void release_scrolling_shadows();
     Group make_group(std::uint32_t model);
+    void point_positions() const;
+    void sync_position_stream();
     void fill_group(Group& g, const std::vector<InstanceData>& list, unsigned usage);
     void build_groups(Layer layer, const std::vector<Instance>& instances, bool live);
     // build_groups' parts, also for set_instances' in-place path (level_renderer.cpp says more).
@@ -677,6 +716,10 @@ private:
     // in the sorted index buffer and turning each fragment into another draw.
     std::vector<std::uint32_t> m_cpu_indices;
     std::vector<PvsModel> m_pvs_models;
+    // The terrain fragments past the game's far cull this tick (GameScenery::terrain_far).
+    std::vector<std::uint8_t> m_terrain_far;
+    // The terrain chunk the game's records are (move_scenery); -1 every chunk.
+    int m_terrain_chunk = -1;
     std::array<CameraCulling, kLayerCount> m_camera_culling{};
     // Each model's copy in material order, for the opaque pass of the static layers (upload); a
     // model of one primitive, or one only live mobys use, is its own.
@@ -721,16 +764,21 @@ private:
     MobyLayout m_moby_layout;
     std::size_t m_palette_rows = 0;  // the palette texture's height now
     unsigned m_vertices = 0;
+    unsigned m_positions = 0;        // the vertices' positions alone (vertex-position-stream)
+    bool m_position_stream = false;  // the vertex arrays read positions from m_positions
     unsigned m_indices = 0;
     unsigned m_palette = 0;           // RGBA32F texture, four texels per matrix
     unsigned m_lights = 0;            // RGBA8 texture, the ties' lit colours
     std::vector<float> m_light_sets;  // the level's 16 directional light sets (LevelData)
     std::array<float, 64> m_point_lights{};
+    std::vector<renderer::PointEmitter> m_point_emitters;
     std::vector<std::array<float, 8>> m_moby_point_lights;
     bool m_terrain_point_lights = false;
     bool m_sweep_translucent_off = false;
     bool m_sweep_translucent_unlit = false;
     bool m_sweep_translucent_full = false;
+    bool m_sweep_moby_blended_off = false;
+    bool m_sweep_one_triangle = false;
     std::array<float, 2> m_gameplay_rim{0.30f, 6.46f};
     std::array<float, 2> m_gameplay_rim_lift{0.09f, 7.1f};
     std::unique_ptr<LevelLighting> m_lighting;  // The probe and early lighting; null: none.
@@ -744,11 +792,15 @@ private:
     renderer::Shader m_mesh;
     renderer::Shader m_early_mesh, m_early_solid;
     renderer::Shader m_colour_opaque, m_early_colour_opaque, m_static_translucent,
-        m_static_translucent_full;
+        m_static_translucent_full, m_static_translucent_early;
     // Static solid, static alpha-tested, then opaque mobys (optional skinning).
     std::array<renderer::Shader, 3> m_colour_specialised, m_early_colour_specialised;
     // mesh.frag's opaque path alone, without discard (the static layers' opaque pass; draw_layer).
     renderer::Shader m_solid;
+    // The probe coverage view's colour shaders (OPENRAC_PROBE_COVERAGE), alpha and solid.
+    renderer::Shader m_coverage, m_coverage_solid;
+    // The mobys' blended passes with the cheaper probe light (probe-fast-blended).
+    renderer::Shader m_mesh_fast;
     renderer::Shader m_depth, m_depth_solid;
     std::array<renderer::Shader, 2> m_rigid_depth, m_rigid_surface_depth;
     bool make_rigid_depth_programs(std::string& error);
@@ -803,6 +855,22 @@ private:
     std::optional<bool> m_hero_logged_airborne;
     std::array<std::unique_ptr<renderer::FrameBuffer>, kSunCascades> m_sun_maps;
     SunCascades m_sun_cascades;
+
+    // shadow-far-alternate: the far cascades as the atlas last drew them, and what they were drawn
+    // for. A frame after one that drew a cascade keeps it while its receivers fit inside it.
+    struct DrawnCascades {
+        SunCascades cascades;
+        // The cascades the atlas holds as drawn, one bit each: the last frame's, or with
+        // shadow-far-quarter also older ones kept since.
+        unsigned fresh = 0;
+        bool separate_hero = false;
+        std::uint64_t generation = 0;
+        int atlas_size = 0;
+    };
+
+    DrawnCascades m_drawn_cascades;
+    unsigned m_kept_cascades = 0;  // the cascades this frame keeps from the last, one bit each
+    unsigned m_far_phase = 0;      // shadow-far-quarter: which far cascade this frame draws
     renderer::Camera m_sun_camera;        // View whose splits produced the current shadow maps.
     bool m_culling_lines_failed = false;  // Retry failed diagnostic shaders after scene release.
     std::unique_ptr<renderer::DebugLines>

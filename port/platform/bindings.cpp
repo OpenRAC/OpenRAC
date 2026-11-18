@@ -377,6 +377,18 @@ bool read_tuning(std::string_view key, std::string_view value, PadTuning& tuning
         }
     } else if (key == "pad_background") {
         good = read_switch(value, tuning.background);
+    } else if (key == "pad_rumble") {
+        good = read_int(value, 0, 200, tuning.rumble.strength);
+    } else if (key == "pad_rumble_style") {
+        const std::string_view v = trimmed(value);
+        good = v == "enhanced" || v == "classic";
+        if (good) {
+            tuning.rumble.style = v == "classic" ? RumbleStyle::Classic : RumbleStyle::Enhanced;
+        }
+    } else if (key == "pad_rumble_triggers") {
+        good = read_switch(value, tuning.rumble.triggers);
+    } else if (key == "pad_rumble_phone") {
+        good = read_switch(value, tuning.rumble.phone);
     } else {
         known = false;
         for (const TuningKey& t : kStickKeys) {
@@ -407,10 +419,14 @@ std::map<std::string, std::string, std::less<>> tuning_values(const PadTuning& t
     out["pad_trigger_threshold"] = std::to_string(threshold_percent(tuning.trigger_threshold));
     out["pad_face_buttons"] = tuning.face_labels ? "labels" : "position";
     out["pad_background"] = tuning.background ? "1" : "0";
+    out["pad_rumble"] = std::to_string(tuning.rumble.strength);
+    out["pad_rumble_style"] = tuning.rumble.style == RumbleStyle::Classic ? "classic" : "enhanced";
+    out["pad_rumble_triggers"] = tuning.rumble.triggers ? "1" : "0";
+    out["pad_rumble_phone"] = tuning.rumble.phone ? "1" : "0";
     return out;
 }
 
-void tune_stick(float& x, float& y, const StickTuning& tuning) {
+float tune_stick(float& x, float& y, const StickTuning& tuning) {
     if (tuning.invert_x) {
         x = -x;
     }
@@ -427,11 +443,14 @@ void tune_stick(float& x, float& y, const StickTuning& tuning) {
         x = std::clamp(x * scale, -1.0f, 1.0f);
         y = std::clamp(y * scale, -1.0f, 1.0f);
     }
+    float past_full = 1.0f;
     if (tuning.sensitivity != 100) {
         const float scale = static_cast<float>(tuning.sensitivity) / 100.0f;
+        past_full = std::max(1.0f, std::fabs(x * scale));
         x = std::clamp(x * scale, -1.0f, 1.0f);
         y = std::clamp(y * scale, -1.0f, 1.0f);
     }
+    return past_full;
 }
 
 void swap_face_labels(PadInputs& inputs) {
@@ -755,6 +774,7 @@ void apply_keys(const Bindings& bindings, std::span<const bool> keys, Pad& pad) 
     }
     if (rx != 0) {
         pad.right_x = key_stick_byte(rx);
+        pad.camera_speed = 1.0f;  // keys turn at normal speed
     }
     if (ry != 0) {
         pad.right_y = key_stick_byte(ry);
@@ -773,12 +793,16 @@ void apply_pad(
     // Each is tuned first (the player's dead zone, sensitivity and inversion), then shaped.
     Reading reading;
     reading.threshold = bindings.tuning.trigger_threshold;
+    float right_past_full = 1.0f;
     for (std::size_t s = 0; s < 2; ++s) {
         float& x = reading.sticks[2 * s];
         float& y = reading.sticks[2 * s + 1];
         x = static_cast<float>(inputs.axes[2 * s]) / 32768.0f;
         y = static_cast<float>(inputs.axes[2 * s + 1]) / 32768.0f;
-        tune_stick(x, y, bindings.tuning.sticks[s]);
+        const float past_full = tune_stick(x, y, bindings.tuning.sticks[s]);
+        if (s == 1) {
+            right_past_full = past_full;
+        }
         shape_stick(x, y, gates[s]);
     }
 
@@ -842,6 +866,24 @@ void apply_pad(
         pad.right_x,
         pad.right_y
     );
+
+    // Faster camera only for the right stick itself, pushed all the way, with default binding.
+    if (right_past_full > 1.0f) {
+        const float x = reading.sticks[SDL_GAMEPAD_AXIS_RIGHTX];
+        const int sign = x > 0.0f ? 1 : -1;
+        const Target toward = sign > 0 ? Target::RightStickRight : Target::RightStickLeft;
+        const Target away = sign > 0 ? Target::RightStickLeft : Target::RightStickRight;
+        const Bindings::Slot& slot = bindings.slots[static_cast<std::size_t>(toward)];
+        const Binding own{Binding::Kind::PadAxis, SDL_GAMEPAD_AXIS_RIGHTX, sign};
+        bool bound = false;
+        for (int p = 0; p < slot.pad_count; ++p) {
+            const PadChord& chord = slot.pad[static_cast<std::size_t>(p)];
+            bound = bound || (chord.input == own && chord.with.kind == Binding::Kind::None);
+        }
+        if (bound && std::fabs(x) >= 1.0f && push[static_cast<std::size_t>(away)] == 0.0f) {
+            pad.camera_speed = right_past_full;
+        }
+    }
 }
 
 }  // namespace openrac::platform

@@ -11,7 +11,7 @@
 #include <cstring>
 #include <vector>
 
-#include "renderer/gs.h"
+#include "renderer/direct/gs.h"
 
 namespace openrac::test {
 

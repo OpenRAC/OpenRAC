@@ -122,6 +122,14 @@ the centre, colour Σ a_j · colour_j, direction the normalised weighted sum,
 K = 0. Items on Ratchet copy his light sets, cross-fade and ambient every
 frame.
 
+With a cross-fade byte, MobyProc blends the two sets' colours (clamped at 0)
+and directions by it and scales each direction by VRSQRT of its squared length
+(0x2A56B0). A set with no lights has zero directions, and the console's
+reciprocal root of 0 times 0 is 0, so those lights add nothing. The
+Electrolyzer puzzles light their board this way: ambient 0x10 0x50 0x50 (red
+0x5050DD to grey 0x505050 while it pulses), sets 14 and 14, cross-fade 14, and
+the level's set 14 is empty, so the board is the ambient alone.
+
 ## 5. Point lights on the world
 
 Explosions and similar effects light the level as well as the mobys.
@@ -161,5 +169,5 @@ ReRAC contributors), `docs/plan/tfrag_lighting.md`,
 `docs/plan/tie_lighting.md`, `docs/plan/shrub_lighting.md`,
 `docs/plan/moby_skinning_lighting.md`, `docs/plan/moby_render_notes.md`,
 `docs/formats/tfrag_rac1.md` section 4.1; PAL names from
-`games/rac1/config/overlays/us_map.tsv` and
+`games/rac1/decomp/config/overlays/us_map.tsv` and
 [RENDERER.md](../../port/RENDERER.md).

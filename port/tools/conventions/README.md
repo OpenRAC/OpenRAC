@@ -23,7 +23,7 @@ that gates fails. An advisory is printed with `(advisory)` and does not fail.
 |---|---|---|
 | every C and C++ file in scope | line 1 is an SPDX licence line; no tab; no em or en dash | yes |
 | every C and C++ file in scope | no `getenv`, `std::getenv` or `SDL_getenv` of an `OPENRAC_` name, or of a name that is not a literal, outside `common/env.cpp` and `runtime/host_env.cpp` (see [the getenv rule](#the-getenv-rule)) | yes; a stale exception is advisory |
-| C++ files added since `--since` | lines 1 and 2 are the `//` licence and copyright lines; clang-format reports nothing; no `static` at namespace scope; no raw `new`, `delete`, `malloc`, `free`; no `using namespace` in a header; `extern "C"` only in a file named for a C contract, in `game/common/lib/` or in a test; no `printf` family or `std::cout`/`std::cerr` outside tests and `main` files | yes |
+| C++ files added since `--since` | lines 1 and 2 are the `//` licence and copyright lines; clang-format reports nothing (Objective-C excepted: the port's `.clang-format` is for C++ alone); no `static` at namespace scope; no raw `new`, `delete`, `malloc`, `free`; no `using namespace` in a header; `extern "C"` only in a file named for a C contract, in `game/common/lib/` or in a test; no `printf` family or `std::cout`/`std::cerr` outside tests and `main` files | yes |
 | C files added since `--since` | line 2 is the copyright line; clang-format reports nothing | advisory |
 | lines changed since `--since` (`--touched`) | clang-format would not change them (through `git-clang-format`) | advisory; `--strict-touched` makes it gate |
 

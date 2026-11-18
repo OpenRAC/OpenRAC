@@ -1160,6 +1160,16 @@ void pair_code(
     };
     std::uint32_t call_slot = 0;
     bool call = false;
+    // A branch-likely's delay slot runs only when the branch is taken: the code after the slot is
+    // reached with the registers as they were before it. Going Commando's func_L00_0032A258
+    // (beql $v0, $zero, ...; lui $v0, %hi(D_001AA380)) goes on to use $v0 as a call's result
+    // (sw $s7, 0x64($v0)); taken for the lui's, that formed 0x001B0064 the same in Tabora's and
+    // Dobbo's programs (func_L00_00324D18 0x001B0000 the same way), so level 8's glider constants
+    // there (func_L08_003CD708's yaw scale, Dobbo's 0x001AFF54) were read unmoved in Dobbo, and
+    // the first turn of the stick sent the hero to -3e37.
+    Registers annulled{};
+    std::uint32_t likely_from = 0;
+    bool likely = false;
     for (std::uint32_t i = 0; i + 4 <= size; i += 4) {
         if (call && i == call_slot + 4) {
             forget_call();
@@ -1173,6 +1183,14 @@ void pair_code(
             std::memcpy(r.known, known, sizeof(known));
             std::memcpy(r.whole, whole, sizeof(whole));
             pending = false;
+        }
+        if (likely && i == likely_from + 8) {
+            std::memcpy(ve, annulled.ve, sizeof(ve));
+            std::memcpy(vl, annulled.vl, sizeof(vl));
+            std::memcpy(origin, annulled.origin, sizeof(origin));
+            std::memcpy(known, annulled.known, sizeof(known));
+            std::memcpy(whole, annulled.whole, sizeof(whole));
+            likely = false;
         }
         if (auto t = at_target.find(i); t != at_target.end()) {
             for (int r = 0; r < 32; ++r) {
@@ -1199,6 +1217,17 @@ void pair_code(
                 pending = true;
                 pending_from = i;
                 pending_target = static_cast<std::uint32_t>(target);
+            }
+            const std::uint32_t bt = (we >> 16) & 31;
+            if ((op >= 0x14 && op <= 0x17) || (op == 0x01 && (bt & 0x0E) == 0x02)
+                || (op == 0x11 && (bt & 2) != 0)) {
+                std::memcpy(annulled.ve, ve, sizeof(ve));
+                std::memcpy(annulled.vl, vl, sizeof(vl));
+                std::memcpy(annulled.origin, origin, sizeof(origin));
+                std::memcpy(annulled.known, known, sizeof(known));
+                std::memcpy(annulled.whole, whole, sizeof(whole));
+                likely_from = i;
+                likely = true;
             }
         }
         const std::uint32_t rs = (we >> 21) & 31, rt = (we >> 16) & 31;
@@ -1551,8 +1580,13 @@ LevelMap& level_pair_map(int from, int loaded) {
     }
     LevelMap& map = g_level_pair_maps[key];
     auto source = g_overlays.find(from);
+    // With no level loaded, the copies are the executable's: a level function the executable also
+    // carries (rac1 PAL v1 and NTSC-J: the title's card menu), paired at its boot place.
     auto level = g_overlays.find(loaded);
-    if (source == g_overlays.end() || level == g_overlays.end() || level_program(from).empty()) {
+    const Table* loaded_table = loaded == OPENRAC_OVERLAY_EXE ? &g_exe
+                                : level != g_overlays.end()   ? &level->second
+                                                              : nullptr;
+    if (source == g_overlays.end() || loaded_table == nullptr || level_program(from).empty()) {
         return map;
     }
     Functions own;
@@ -1562,7 +1596,7 @@ LevelMap& level_pair_map(int from, int loaded) {
     }
     std::sort(own.begin(), own.end());
     std::unordered_map<openrac_host_fn, std::vector<gaddr>> copies;
-    for (const auto& [address, entry] : level->second) {
+    for (const auto& [address, entry] : *loaded_table) {
         copies[entry.fn].push_back(address);
     }
     std::map<gaddr, std::int32_t> pairs;
@@ -1829,8 +1863,7 @@ void openrac_guest_add_level_program(int level, gaddr base, const uint8_t* bytes
 
 gaddr openrac_relocate_level_data(int from, gaddr address) {
     const int overlay = current_overlay();
-    if (overlay == from || overlay == OPENRAC_OVERLAY_EXE
-        || address - g_level_low >= g_level_high - g_level_low) {
+    if (overlay == from || address - g_level_low >= g_level_high - g_level_low) {
         return address;
     }
     thread_local AnswerCache<int, int, gaddr> answers;
@@ -2201,7 +2234,7 @@ static gaddr hook_in_copy(
 
 static gaddr relocate_level_code(int from, gaddr address) {
     const int overlay = current_overlay();
-    if (overlay == from || overlay == OPENRAC_OVERLAY_EXE) {
+    if (overlay == from) {
         return address;
     }
     std::scoped_lock hold(g_relocate_lock);
@@ -2267,6 +2300,25 @@ gaddr openrac_data_in_copy(int from, gaddr canon, uint32_t size, gaddr self, gad
     thread_local AnswerCache<int, int, gaddr, std::uint32_t, gaddr, gaddr> answers;
     return answers.remember({current_overlay(), from, canon, size, self, target}, [&] {
         return data_in_copy(from, canon, size, self, target);
+    });
+}
+
+gaddr openrac_level_call(gaddr caller, uint32_t size, gaddr callee) {
+    thread_local AnswerCache<int, gaddr, std::uint32_t, gaddr> answers;
+    return answers.remember({current_overlay(), caller, size, callee}, [&] {
+        const gaddr copy = relocate_code(caller);
+        if (copy == caller) {
+            return callee;
+        }
+        const std::uint32_t call = 0x0C000000u | ((callee >> 2) & 0x03FFFFFFu);  // jal callee
+        for (std::uint32_t at = 0; at + 4 <= size; at += 4) {
+            if (exe_word(caller + at) != call) {
+                continue;
+            }
+            const std::uint32_t w = game_word(copy + at);
+            return (w >> 26) == 3 ? ((copy + at) & 0xF0000000u) | ((w & 0x03FFFFFFu) << 2) : callee;
+        }
+        return callee;
     });
 }
 

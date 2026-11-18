@@ -17,7 +17,7 @@
 #define SCREEN_LINES RAC1_ADDR(0x0013E604u)
 
 /* Base pointers the picture is sent to as textures, one per band of rows. The port's texture pool
- * keeps uploads by base pointer and models no chip memory (renderer/texture_pool.h), so these are
+ * keeps uploads by base pointer and models no chip memory (renderer/textures/texture_pool.h), so these are
  * names, not room: nothing uploads there before the title, and what the game uploads there later
  * replaces them. */
 #define PICTURE_BASE 0x3E00u
@@ -79,12 +79,14 @@ static void draw_picture(gaddr image, int rows) {
     }
 }
 
+#if !RAC1_OMIT(func_00201AF0)
 /* draw_bootImage (func_00201AF0, matched C in the decompilation): the picture shown while a level
  * loads, 448 lines on PAL (416 otherwise), then a TEXFLUSH. */
 void func_00201AF0(unsigned int image) {
     func_00201AF0__game(image);
     draw_picture(image, GREF(int32_t, OPENRAC_DATA(PAL_LINES)) ? 448 : 416);
 }
+#endif
 
 #if !RAC1_OMIT(func_001F7680)
 /* func_001F7680 (the decompilation's functional C): the same transfer of a screen-high picture,

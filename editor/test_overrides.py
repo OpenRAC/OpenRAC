@@ -110,8 +110,8 @@ class PackTests(unittest.TestCase):
             self.assertEqual(any("levels of format" in p for p in problems), flagged, made)
 
     def test_wrong_game_or_nothing_inside_is_refused(self):
-        # Up Your Arsenal is read from its NTSC-U disc only; a game OpenRAC does not know at all.
-        for game, version in (("rac3", "pal"), ("rac9", "ntsc")):
+        # Deadlocked is read from its NTSC-U disc only; a game OpenRAC does not know at all.
+        for game, version in (("rac4", "pal"), ("rac9", "ntsc")):
             other = write_pack(self.root / f"{game}-{version}", "Other", {"level_00/textures/a.png": rgb_png(2, 2, (0, 0, 0))},
                                game=game, version=version)
             with self.assertRaisesRegex(overrides.PackError, "not a pack for a game OpenRAC reads"):
@@ -195,6 +195,26 @@ class PackTests(unittest.TestCase):
         self.assertEqual(sorted(p.name for p in out.iterdir()), ["pal"])
         self.assertEqual((out / "pal/level_00/textures/x.png").read_bytes(), red)
 
+    def test_a_layer_says_whether_it_changes_the_game_and_holds_the_same_on_either_disc(self):
+        packed = self.root / "packed"
+        (packed / "level_00").mkdir(parents=True)
+        (packed / "level_00" / "gameplay_pal.wad").write_bytes(b"wad")
+        (packed / "packed.json").write_text('{"version": "pal"}')
+        summary = overrides.stack(None, self.root / "mods", packed)
+        layer = summary["layers"][0]
+        self.assertEqual((layer["id"], layer["gameplay"]), ("packed", True))
+        self.assertEqual(len(layer["digest"]), 64)
+        (packed / "level_00" / "gameplay_pal.wad").write_bytes(b"wa2")
+        other = overrides.stack(None, self.root / "mods2", packed)["layers"][0]
+        self.assertNotEqual(layer["digest"], other["digest"])
+        # A picture alone changes nothing a party shares, and its number stays out of the file.
+        (packed / "level_00" / "gameplay_pal.wad").unlink()
+        (packed / "level_00" / "textures").mkdir()
+        (packed / "level_00" / "textures" / "x.png").write_bytes(b"p")
+        looks = overrides.stack(None, self.root / "mods3", packed)["layers"][0]
+        self.assertEqual(looks["gameplay"], False)
+        self.assertNotIn("digest", looks)
+
     def test_packed_levels_of_the_other_disc_are_left_out(self):
         packed = self.root / "packed"
         (packed / "level_02").mkdir(parents=True)
@@ -217,6 +237,16 @@ class PackTests(unittest.TestCase):
         self.assertEqual(used, ["level_01/mobys/moby_500.glb", "level_01/textures/moby_0001.png"])
         self.assertEqual(ignored, ["level_01/placements.json"])
         self.assertTrue(any("not packed back yet" in p for p in problems))
+
+    def test_going_commando_packs_for_every_disc(self):
+        red = rgb_png(2, 2, (255, 0, 0))
+        for version in ("ntsc", "pal", "ntsc2"):
+            into = self.root / f"into-{version}"
+            overrides.add(write_pack(self.root / f"gc-{version}", "Going", {"level_00/textures/x.png": red},
+                                     game="rac2", version=version), into)
+            summary = overrides.stack(into, self.root / f"mods-{version}", None,
+                                      levels(self.root / f"gc-levels-{version}", version, "rac2"))
+            self.assertEqual(summary["files"], {"level_00/textures/x.png": "going"}, version)
 
     def test_a_pack_goes_to_its_own_game_s_levels_only(self):
         red = rgb_png(2, 2, (255, 0, 0))

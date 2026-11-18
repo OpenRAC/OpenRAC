@@ -14,7 +14,7 @@ the switches for looking inside a running game are [DEBUGGING.md](DEBUGGING.md).
 ## How addresses are given
 
 US addresses are those of the level overlays' shared engine code as the NTSC
-decomp lays it out for level 0 (`games/rac1/ntsc/config/overlays/us/`,
+decomp lays it out for level 0 (`games/rac1/ntsc-decomp/config/us/levels/`,
 `functions.tsv`: a row's places are `level:address`). The generated
 `functions.c` of the build (`port/build/release/games/rac1-ntsc/gen/`) lists
 the same address against the name hostgen gave it, so `0x1F9838` is
@@ -164,8 +164,8 @@ See 4.3.
   in the graphics chip's registers (ALPHA, TEST); a renderer that reads the
   texture's alpha but not the blend mode draws it opaque or black.
 - **Where.** The state arrives in the game's packets as the GS register
-  words `port/renderer/gs.h` decodes; the blend choice is in
-  `port/renderer/direct.cpp` and `port/renderer/shaders/direct.frag`.
+  words `port/renderer/direct/gs.h` decodes; the blend choice is in
+  `port/renderer/direct/direct.cpp` and `port/renderer/shaders/direct.frag`.
 - **Port today.** Partly: the direct renderer applies the GS blend modes for
   the 2D and for effects; whether the three level effects use only modes it
   knows has not been checked.
@@ -268,9 +268,9 @@ See 4.3.
   levels' copies of a routine can differ in a constant or a field offset and
   still be catalogued as one. Whatever C is written for the name then runs
   on a place it does not fit (a rail search, a hero routine, a Vendor update).
-- **Where.** `port/game/rac1-ntsc/split_places.tsv` (23 rows carried from
+- **Where.** `port/game/rac1-ntsc/tables/split_places.tsv` (23 rows carried from
   PAL) and `host/variants.c`; the catalogue is
-  `games/rac1/ntsc/config/overlays/us/functions.tsv`.
+  `games/rac1/ntsc-decomp/config/us/levels/functions.tsv`.
 - **Port today.** Handled where PAL found it. Anything new needs the same
   treatment: list the place in `split_places.tsv`, write the variant.
 
@@ -353,7 +353,7 @@ See 4.3.
 - **Cause.** Several effects (Aridia's sand sea is one) upload new texture
   pixels each frame. A host that keeps every upload it ever converted runs
   out of space on the card.
-- **Where.** `port/renderer/texture_pool.cpp` and `.h`: uploads are converted
+- **Where.** `port/renderer/textures/texture_pool.cpp` and `.h`: uploads are converted
   by base pointer in `m_uploads`.
 - **Port today.** Handled in design: conversions of game uploads that no
   draw has used are dropped once a frame (the "may be dropped" mark in the
@@ -363,7 +363,7 @@ See 4.3.
 ### 3.5 Particles and effects drawn in the wrong order or not at all
 
 See 1.3 and 1.6. The particle program and its packets go through the
-direct renderer's effect path (`port/renderer/effects.cpp`); the game's own
+direct renderer's effect path (`port/renderer/effects/effects.cpp`); the game's own
 particle code is `FUN_00217a30` (allocate) and `FUN_00217b88` (update),
 carried from PAL in `hand/`.
 
@@ -592,8 +592,8 @@ PAL-US `compare` shows only what is new. All are compared again with
   (0x313854), 16 ticks later. The wide route `11-jet-fighter` leaves `hs` and
   `mb` out from c=100.
 
-Port bugs these comparisons found and fixed (OPENRAC_PATCHES.md has each US
-edit): Eudora's walker gait read time 0 (`FUN_L04_002927d0`); the Oltanis,
+Port bugs these comparisons found and fixed (games/rac1/ntsc-decomp-patches has
+each US edit): Eudora's walker gait read time 0 (`FUN_L04_002927d0`); the Oltanis,
 Kalebo III and Batalia hero updates were stubs (an assembler label with an
 offset); spawns through PAL's name for `create_moby`, `func_0020D348_m`, went
 nowhere; `draw_mobys` read the moby list through literal addresses, so the

@@ -5,9 +5,9 @@
 #include <optional>
 
 #include "enhanced/fsr3/frame_target.h"
-#include "renderer/motion_blur_settings.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
+#include "renderer/settings/motion_blur_settings.h"
 
 namespace openrac::enhanced::fsr3_detail {
 // Tracking-focus translation is measured between displayed cameras, independently of the eye.
@@ -65,21 +65,23 @@ private:
     int jump_flood(const Passes& passes);
     // Resolves moving samples and, for direct reconstruction, copies stationary pixels too.
     void gather(const Passes& passes, int source);
-    bool prepare(int width, int height, int render_width, int render_height, std::string& error);
+    bool prepare(
+        int width, int height, int render_width, int render_height, bool quality, std::string& error
+    );
     bool prepare_colour(int width, int height, std::string& error);
     FrameTarget m_velocity, m_colour;
     std::array<int, 2> m_colour_size{};
     std::array<FrameTarget, 2>
         m_seeds;  // R32UI packed 16-bit source coordinates, ping-ponged by JFA.
     std::array<renderer::Shader, 2> m_extract_variants;
-    renderer::Shader m_extract, m_first_jump, m_jump, m_resolve, m_copy_resolve;
+    renderer::Shader m_first_jump, m_jump, m_resolve, m_copy_resolve;
     renderer::Shader m_fast_first_jump, m_fast_jump;
     renderer::Shader m_unique_jump;
 
     struct FloodSetup {
         std::array<int, 2> display;
         float min_motion, spread;
-        int first_jump;
+        int first_jump, seed_scale;
         bool fast, unique;
         bool operator==(const FloodSetup&) const = default;
     };
@@ -87,6 +89,7 @@ private:
     std::optional<FloodSetup> m_flood_setup;
     unsigned m_vao = 0;
     std::array<int, 4> m_size{};
+    int m_seed_scale = 1;  // Render pixels per seed cell, 2 with motion-blur-half-flood.
     bool m_failed = false;
 };
 

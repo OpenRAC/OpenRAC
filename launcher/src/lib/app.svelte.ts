@@ -2,6 +2,8 @@
 // job queue. Pages read `app` and call the functions below; nothing else
 // talks to the Rust side except through api.ts.
 import { hidePaths } from "./paths";
+import { toolFailure } from "./toolErrors";
+import { withShownTitles } from "./labels";
 import { bakeFailure, type BakeFailure } from "./bakeFailure";
 import {
   api,
@@ -10,7 +12,7 @@ import {
   onDiscCopy,
   onAndroid,
   errorText,
-  onJobEvent,
+  onJobEvents,
   type ActionView,
   type DiscCopy,
   type AppInfo,
@@ -65,6 +67,8 @@ interface AppState {
     text: string;
     kind: "info" | "error";
     bake?: BakeNotice;
+    /** A failed task's last output lines, folders cut to their names. */
+    details?: string;
   }[];
   update: UpdateInfo | null;
   showUpdateModal: boolean;
@@ -216,9 +220,9 @@ function expire(id: number) {
 }
 
 /** Says something for a moment; an error stays until it is dismissed, as it may need reading twice. */
-export function toast(text: string, kind: "info" | "error" = "info", bake?: BakeNotice) {
+export function toast(text: string, kind: "info" | "error" = "info", bake?: BakeNotice, details?: string) {
   const id = ++toastId;
-  app.toasts.push({ id, text, kind, bake });
+  app.toasts.push({ id, text, kind, bake, details });
   // No more than four errors at once: the oldest gives way.
   const errors = app.toasts.filter((t) => t.kind === "error");
   if (errors.length > 4 && errors[0]) expire(errors[0].id);
@@ -293,12 +297,11 @@ export async function start() {
   app.startError = null;
   try {
     if (!listening) {
-      await onJobEvent((event) => {
-        queue.apply(event);
+      await onJobEvents((events) => {
+        queue.applyAll(events);
         // A job that ended: the exit event, whether it came before the start call
         // returned (the queue kept it until the id was known) or after it.
-        const ended = queue.takeEnded();
-        if (ended) handleExit(ended);
+        for (let ended = queue.takeEnded(); ended; ended = queue.takeEnded()) handleExit(ended);
       });
       listening = true;
       // The time, once a second: what a running job's elapsed time is counted against.
@@ -385,7 +388,9 @@ function handleExit(job: Job) {
   else if (job.state === "failed" && job.actionId === "probe-bake" && version !== null) {
     const failure = bakeFailure(job);
     toast(failure.title, "error", { failure, version, jobKey: job.key });
-  } else if (job.state === "failed" && !job.actionId.startsWith("install:")) toast(`${job.title} failed`, "error");
+  } else if (job.state === "failed" && !job.actionId.startsWith("install:"))
+    // What the task printed last says why: without it the player only reads that it failed.
+    toast(`${job.title} failed`, "error", undefined, toolFailure(job.lines).details || undefined);
   // Played to the end since: the notice folds to a line (CrashNotice), the report still a click away.
   if (job.state === "succeeded" && played && app.stopped && version.startsWith(`${app.stopped.game}/`)) {
     app.stopped = { ...app.stopped, playedSince: true };
@@ -517,7 +522,7 @@ function same(key: keyof typeof seen, value: unknown): boolean {
 }
 
 function setLibrary(library: Library | null) {
-  if (!same("library", library)) app.library = library;
+  if (!same("library", library)) app.library = library && withShownTitles(library);
 }
 
 export async function refresh() {
@@ -540,7 +545,8 @@ export async function refresh() {
   const discs = ++discsSeq;
   let scan: { found: FoundDisc[]; choices: DiscChoice[] } = { found: [], choices: [] };
   try {
-    if (app.config.discsDir) scan = await api.scanDiscs();
+    // A developer's disc switch also draws on the discs set up without a games folder.
+    if (app.config.discsDir || app.config.developer) scan = await api.scanDiscs();
   } catch {
     // A folder that went away: the game pages ask for an image as before.
   }
@@ -592,11 +598,36 @@ export async function saveConfig(config: Config): Promise<boolean> {
 export function openVersion(key: string) {
   app.version = key;
   app.page = "game";
-  if (app.config && app.config.lastVersion !== key) {
-    void guard(api.saveConfig({ ...app.config, lastVersion: key })).then((saved) => {
+  keepLastVersion(0);
+}
+
+/** How long the last game picked waits before it is written to the settings: the controller's
+ *  focus picks a game at each step along Games' shelf, and only where it stops is kept. */
+const KEEP_PICK_MS = 500;
+let keepTimer: ReturnType<typeof setTimeout> | undefined;
+/** The writes of lastVersion, one at a time, so that an older pick never lands after a newer one. */
+let keeping: Promise<unknown> = Promise.resolve();
+
+/** Makes `key` the version picked, the one Games shows and Mods works on, without leaving the page;
+ *  the settings keep it once the picking stops. */
+export function pickVersion(key: string) {
+  app.version = key;
+  keepLastVersion(KEEP_PICK_MS);
+}
+
+/** Writes the version picked (app.version) to the settings as lastVersion, after `delay` ms. */
+function keepLastVersion(delay: number) {
+  clearTimeout(keepTimer);
+  const write = () => {
+    keeping = keeping.then(async () => {
+      const key = app.version;
+      if (!key || !app.config || app.config.lastVersion === key) return;
+      const saved = await guard(api.saveConfig({ ...app.config, lastVersion: key }));
       if (saved) app.config = saved;
     });
-  }
+  };
+  if (delay === 0) write();
+  else keepTimer = setTimeout(write, delay);
 }
 
 /** Opens Develop on TARGET: "checkout", "console" or a version's key; by default the version
@@ -617,6 +648,12 @@ function taskOf(actionId: string): string | null {
   if (actionId === "port-build" || actionId === "build") return "Building the game";
   if (actionId === "editor-extract" || actionId === "editor-import") return "Preparing the level editor";
   return null;
+}
+
+/** Whether a game runs now: mods load at its start, so changing them waits for it to close. */
+export function gameRunning(): boolean {
+  if (onAndroid) return !!app.game?.running;
+  return jobs.list.some((j) => PLAY_ACTIONS.includes(j.actionId) && j.state === "running");
 }
 
 export function updateDiscordPresence(page: Page = app.page, version: string | null = app.version) {

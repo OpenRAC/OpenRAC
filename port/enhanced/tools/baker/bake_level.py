@@ -104,11 +104,19 @@ def write_json(path, value, *, replace=False):
             temporary.unlink(missing_ok=True)
 
 
+def profile_name(game: str, version: str) -> str:
+    """The reviewed profiles' folder for GAME and VERSION: the editor's (editor/enhanced/profiles.py),
+    which names one folder for releases that share their levels (Going Commando's three discs)."""
+    sys.path.insert(0, str(seeds.ROOT/'editor'))
+    from enhanced import profiles  # noqa: E402
+    return profiles.profile_name(game, version)
+
+
 def prepare_emission(level_dir, baker):
     """Resolve the same explicit material definitions used by normal level export."""
     manifest = diagnostics.read_json(level_dir/'manifest.json')
     if all(key in manifest for key in ('game', 'version', 'level')):
-        profiles = seeds.ROOT/'port/enhanced/lighting/profiles'/f"{manifest['game']}-{manifest['version']}"
+        profiles = seeds.ROOT/'port/enhanced/lighting/profiles'/profile_name(manifest['game'], manifest['version'])
         diagnostics.capture([str(baker), '--prepare-level-emission', str(level_dir),
                              str(profiles/'emission-materials.json'),
                              str(profiles/f"level_{manifest['level']:02}"/'probe-emission.json')])
@@ -316,10 +324,13 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
     manifest = diagnostics.stage('Read level manifest', diagnostics.read_json, level_dir/'manifest.json')
     diagnostics.stage('Prepare water', prepare_water.prepare, level_dir, manifest, disc, baker=baker)
     settings = diagnostics.stage('Read lighting settings', RegionSettings.load, level_dir)
-    gameplay = diagnostics.stage('Read gameplay seeds', seeds.read_gameplay, level_dir, manifest, disc) \
-        if settings.enabled or settings.interior_lighting else None
     common = [str(baker), '--level-dir', str(level_dir), *options]
     profile = diagnostics.stage('Read baker profile', lambda: diagnostics.parse_profile(diagnostics.capture(common+['--print-profile'])))
+    gameplay = None
+    if settings.enabled or settings.interior_lighting:
+        gameplay = diagnostics.stage('Read gameplay seeds', seeds.read_gameplay, level_dir, manifest, disc)
+    elif profile.get('reflections') and (level_dir/'bake-inputs/gameplay.bin').is_file():
+        gameplay = (level_dir/'bake-inputs/gameplay.bin').read_bytes()
     output_dir.mkdir(parents=True, exist_ok=resume)
 
     # Resolve reviewed shared materials before the native scene snapshot, including older exports.

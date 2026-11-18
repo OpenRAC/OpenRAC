@@ -62,8 +62,8 @@ ties or beats the base, `artefacts.txt` where it has some, and `result.json` wit
 candidate. `--no-asm-passes` leaves out the fence and barrier passes (they put empty inline asm in
 the C, which rac1/pal's matching rules forbid; such a result is a hint to rewrite by hand).
 
-The sister checkouts are found the usual way (`games.source_checkout`): `$OPENRAC_SOURCE_<GAME>_<VERSION>`,
-else game.json's `checkout`, written from the top of OpenRAC (`../rac3-decomp`: cloned beside OpenRAC). Set the variable only for a checkout kept elsewhere.
+The projects are found the usual way (`games.source_checkout`): `$OPENRAC_SOURCE_<GAME>_<VERSION>`,
+else the version's submodule under `games/`. Set the variable only for a checkout kept elsewhere.
 
 ### Per game
 

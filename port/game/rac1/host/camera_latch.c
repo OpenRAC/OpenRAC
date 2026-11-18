@@ -26,6 +26,7 @@
 #include "rac1.h"
 
 #define PAD RAC1_ADDR(0x0013CA40u)
+#define ANALOG_X (PAD + 0x100u) /* right stick x as a float */
 #define PAD_MIRROR RAC1_ADDR(0x0015EEB4u)
 #define CAM_INVERT RAC1_ADDR(0x0015EEE0u)
 #define LEVEL_MODE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F6A8u))
@@ -41,6 +42,11 @@ void func_L00_002E9E60(gaddr camera, gaddr yaw, gaddr pitch) {
     func_L00_002E9E60__game(camera, yaw, pitch);
     s_camera = GREF(gaddr, camera + 0x70u);
     ++s_reads;
+    /* Sensitivity above 100%: scale the stick's turn. Locked and scripted turns stay as they are. */
+    if (openrac_game_camera_speed != 1.0f && (GREF(int32_t, s_camera + 0x1B8u) & 1) == 0
+        && GREF(float, ANALOG_X) != 0.0f) {
+        GREF(float, yaw) *= openrac_game_camera_speed;
+    }
 }
 
 /* The pad's analog[0] for a report byte (Pad_ProcessReport), then as the camera reads it. */
@@ -57,6 +63,7 @@ static float stick_turn(uint8_t x) {
     if (GREF(uint8_t, PAD_MIRROR) != 0) {
         f = -f;
     }
+    f *= openrac_game_camera_speed;
     return GREF(int32_t, CAM_INVERT) == 0 ? -f : f;
 }
 

@@ -55,6 +55,15 @@ class ManifestRules(unittest.TestCase):
     def test_good(self):
         self.assertEqual(pm.check_manifest(GOOD), [])
 
+    def test_multiplayer(self):
+        for word in ("gameplay", "input", "cosmetic", "solo"):
+            self.assertEqual(pm.check_manifest(changed(multiplayer=word)), [])
+        self.assertTrue(pm.check_manifest(changed(multiplayer="party")))
+        setting = {"key": "a", "name": "A", "type": "bool", "default": True}
+        self.assertEqual(pm.check_manifest(changed(settings=[dict(setting, multiplayer="host")])), [])
+        self.assertEqual(pm.check_manifest(changed(settings=[dict(setting, multiplayer="own")])), [])
+        self.assertTrue(pm.check_manifest(changed(settings=[dict(setting, multiplayer="mine")])))
+
     def test_format(self):
         self.assertIn("data pack", pm.check_manifest(changed(format=1))[0])
         self.assertTrue(pm.check_manifest(changed(format=3)))
@@ -75,6 +84,14 @@ class ManifestRules(unittest.TestCase):
         self.assertIn("this SDK knows", " ".join(pm.check_manifest(changed(api="2.0"))))
         # Data only: no plugin, no api needed.
         self.assertEqual(pm.check_manifest(changed(plugin=None, api=None)), [])
+
+    def test_vulkan_device_requires_queue_opt_in(self):
+        self.assertEqual(pm.check_manifest(changed(plugin=None, api="1.19", vulkan_device=True)), [])
+        self.assertEqual(pm.check_manifest(changed(plugin=None, api="1.20", vulkan_device=True)),
+                         ["vulkan_device: requires vulkan_queue: true from interface 1.20"])
+        self.assertEqual(pm.check_manifest(changed(plugin=None, api="1.20", vulkan_device=True, vulkan_queue=True)),
+                         ["vulkan_queue: a boolean on a native mod targeting interface 1.20 or later"])
+        self.assertEqual(pm.check_manifest(changed(api="1.20", vulkan_device=True, vulkan_queue=True)), [])
 
     def test_games(self):
         for bad in ({}, {"rac1": []}, {"rac1": "pal"}, {"RAC1": ["pal"]}, []):
@@ -178,6 +195,24 @@ class ManifestRules(unittest.TestCase):
             self.assertIsNone(pm.hook_names("rac2", Path(d)))
 
 
+    def test_a_mod_for_several_games(self):
+        # Each game's hook points by id, checked against that game's table; aliases only for one game.
+        both = {"rac1": ["pal", "ntsc"], "rac2": ["ntsc", "pal", "ntsc2"]}
+        self.assertEqual(pm.check_manifest(changed(games=both, hooks=["rac1.player.take_damage",
+                                                                       "rac2.player.take_damage"])), [])
+        self.assertIn("is not a hook point of rac2",
+                      " ".join(pm.check_manifest(changed(games=both, hooks=["rac2.player.turn_to_heading"]))))
+        self.assertIn("by id", " ".join(pm.check_manifest(changed(games=both, hooks=["Hero_TakeDamage"]))))
+        # A rac2 id in a mod that is not for rac2 is no hook point of its game.
+        self.assertTrue(pm.check_manifest(changed(hooks=["rac2.player.take_damage"])))
+
+    def test_a_setting_for_some_games(self):
+        both = {"rac1": ["pal"], "rac2": ["ntsc"]}
+        setting = {"key": "count", "name": "Count", "type": "bool", "default": False}
+        self.assertEqual(pm.check_manifest(changed(games=both, hooks=[], settings=[dict(setting, games=["rac1"])])), [])
+        for only in ([], ["rac3"], "rac1", [1]):
+            self.assertTrue(pm.check_manifest(changed(games=both, hooks=[], settings=[dict(setting, games=only)])), only)
+
 class Archives(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -227,6 +262,31 @@ class Archives(unittest.TestCase):
         for bad in ("", "../up", "/abs", "a\\b", "c:/x", "a//b", 3):
             self.assertTrue(any("assets" in e for e in pm.check_manifest(changed(assets=bad))), bad)
         self.assertEqual(pm.check_manifest(changed(assets="assets")), [])
+
+    def test_package_carries_the_touch_file_and_its_icons(self):
+        # MODS.md, "Touch controls": the touch file and the icons it names go in.
+        folder = self.folder("linux-x86_64")
+        m = json.loads((folder / pm.MANIFEST).read_text())
+        m["touch"] = "touch/touch.json"
+        (folder / pm.MANIFEST).write_text(json.dumps(m))
+        (folder / "touch").mkdir()
+        (folder / "touch" / "touch.json").write_text(json.dumps(
+            {"contexts": {"kart": {"actions": [{"id": "go", "icon": "kart", "press": "cross"}]}},
+             "icons": {"kart": "touch/kart.svg"}}))
+        (folder / "touch" / "kart.svg").write_text("<svg/>")
+        out = pm.package(folder, self.root / "dist")
+        with zipfile.ZipFile(out) as z:
+            names = z.namelist()
+        self.assertIn("touch/touch.json", names)
+        self.assertIn("touch/kart.svg", names)
+        (folder / "touch" / "kart.svg").unlink()
+        with self.assertRaises(pm.ManifestError):
+            pm.package(folder, self.root / "dist")
+
+    def test_touch_must_be_a_json_file_inside(self):
+        for bad in ("", "../up.json", "/abs.json", "touch.txt", "a\\b.json", 3):
+            self.assertTrue(any("touch" in e for e in pm.check_manifest(changed(touch=bad))), bad)
+        self.assertEqual(pm.check_manifest(changed(touch="touch.json")), [])
 
     def test_package_refuses_a_missing_library(self):
         folder = self.folder("linux-x86_64")

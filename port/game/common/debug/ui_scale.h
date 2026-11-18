@@ -14,15 +14,21 @@ namespace openrac::frontend::debug_overlay {
 // SDL_GetWindowPixelDensity); display_height the display's height in window units (its current
 // mode's h), 0 when unknown. The system's own content scale (Windows at 150 %, a phone's density)
 // counts everywhere; on a desktop the display's height over 1080, a quarter at a time, counts as
-// well, so that a 4K display left at 100 % still gets twice the size. 1 at 1080p.
-inline float ui_scale(float display_scale, float pixel_density, int display_height, bool desktop) {
+// well, so that a 4K display left at 100 % still gets twice the size. 1 at 1080p. The player's
+// Menu size (menu_size, percent of that) scales it on top.
+inline float ui_scale(
+    float display_scale, float pixel_density, int display_height, bool desktop, int menu_size = 100
+) {
     float scale =
         display_scale > 0.0f && pixel_density > 0.0f ? display_scale / pixel_density : 1.0f;
     if (desktop && display_height > 0) {
         scale =
             std::max(scale, std::floor(static_cast<float>(display_height) / 1080.0f * 4.0f) / 4.0f);
     }
-    return std::clamp(scale, 1.0f, 4.0f);
+    // The player's Menu size (settings' menu_size, percent) on top.
+    return std::clamp(
+        std::clamp(scale, 1.0f, 4.0f) * static_cast<float>(menu_size) / 100.0f, 0.5f, 8.0f
+    );
 }
 
 }  // namespace openrac::frontend::debug_overlay

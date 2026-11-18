@@ -1,0 +1,11 @@
+# The port's own C for functions the decompilation has as matching C (hostgen.json "overrides"):
+# the matched definition is left out of hostgen's prepared copy and this C goes at the end of its
+# file, translated like the game's C. For what the port has to do otherwise than the matching C says
+# (a 64-bit value an int keeps, a result retail leaves in a register the C declares void, a stack
+# slot retail reads before it is written); the decompilation stays as it matches. Each file says why.
+# name	file (relative to this table)
+func_001F6970	matched_outlined_rect.c
+func_L02_002DC3C0	matched_lock_arc.c
+func_00214B60	matched_moby_update_loop.c
+func_L00_00266718	matched_moby_link_loop.c
+func_L08_002F7EC8	matched_flickering_mesh.c

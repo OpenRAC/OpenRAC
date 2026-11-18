@@ -8,8 +8,8 @@
 
 #include "enhanced/lighting/probe_texture_encode.h"
 #include "enhanced/viewer/probe_texture_upload.h"
-#include "renderer/framebuffer.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 

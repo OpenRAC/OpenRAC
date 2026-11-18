@@ -15,7 +15,6 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use crate::plugins::{self, Installed, Manifest, MANIFEST};
 
@@ -29,6 +28,8 @@ pub const SUMS: &str = "SHA256SUMS";
 pub const INDEX_TAG: &str = "index";
 /// The largest file fetched (a mod's archive, a repository's).
 pub const MAX_BYTES: u64 = 256 * 1024 * 1024;
+/// The most of a manifest read out of an archive.
+const MANIFEST_MAX_BYTES: u64 = 1024 * 1024;
 
 // ---- Fetching -------------------------------------------------------------------------------
 
@@ -37,8 +38,16 @@ pub trait Fetch {
     fn get(&self, url: &str, api: bool) -> Result<Vec<u8>, String>;
 }
 
+impl<T: Fetch + ?Sized> Fetch for &T {
+    fn get(&self, url: &str, api: bool) -> Result<Vec<u8>, String> {
+        (**self).get(url, api)
+    }
+}
+
 /// The real one for mods: `curl` (on Linux, macOS and Windows 10+), https only, following
 /// redirects (a release's asset, a repository's archive), with a time limit and a size cap.
+/// GitHub's API is asked with the token in `GH_TOKEN` or `GITHUB_TOKEN` when one is set (5,000
+/// requests an hour instead of 60), handed to curl on its input, never on its command line.
 pub struct Curl;
 
 impl Fetch for Curl {
@@ -47,13 +56,150 @@ impl Fetch for Curl {
             return Err(format!("{url} is not an https:// address"));
         }
         let mut cmd = crate::detect::quiet(Path::new("curl"));
-        cmd.args(["-sS", "-f", "-L", "--proto", "=https", "--connect-timeout", "15", "--max-time", "600"])
+        // No -f: the answer's headers (-D -, before its body) say why GitHub refused, and when its
+        // limit lets the launcher ask again.
+        cmd.args(["-sS", "-L", "-D", "-", "--proto", "=https", "--connect-timeout", "15", "--max-time", "600"])
             .args(["--max-filesize", &MAX_BYTES.to_string()])
             .args(["-H", concat!("User-Agent: openrac-launcher/", env!("CARGO_PKG_VERSION"))]);
         if api {
             cmd.args(["-H", "Accept: application/vnd.github+json", "-H", "X-GitHub-Api-Version: 2022-11-28"]);
         }
-        run_curl(cmd, url, "the launcher fetches mods with it")
+        // curl sends a header given this way to the address asked only, not where it redirects to.
+        let token = github_token().filter(|_| url.starts_with("https://api.github.com/"));
+        let config = token.map(|t| {
+            cmd.args(["-K", "-"]);
+            format!("header = \"Authorization: Bearer {t}\"\n")
+        });
+        let out = run_curl(cmd, url, config.as_deref(), "the launcher fetches mods with it")?;
+        let (status, headers, body) = split_response(&out);
+        match status {
+            200..=299 => Ok(body.to_vec()),
+            _ => Err(http_error(url, status, &headers, config.is_some(), unix_now())),
+        }
+    }
+}
+
+/// A GitHub token from the environment, if one is set and looks like one.
+fn github_token() -> Option<String> {
+    ["GH_TOKEN", "GITHUB_TOKEN"]
+        .iter()
+        .filter_map(|k| std::env::var(k).ok())
+        .map(|t| t.trim().to_string())
+        .find(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+}
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs())
+}
+
+/// curl's output with `-D -`: the final answer's status and headers (names in lower case) and its
+/// body. With `-L` each redirect's headers come first, and are skipped.
+fn split_response(out: &[u8]) -> (u16, Vec<(String, String)>, &[u8]) {
+    let mut rest = out;
+    let (mut status, mut headers) = (0, Vec::new());
+    while rest.starts_with(b"HTTP/") {
+        let end = rest.windows(4).position(|w| w == b"\r\n\r\n").map(|i| (i, 4));
+        let Some((i, n)) = end.or_else(|| rest.windows(2).position(|w| w == b"\n\n").map(|i| (i, 2))) else { break };
+        let block = String::from_utf8_lossy(&rest[..i]);
+        let mut lines = block.lines();
+        let first = lines.next().unwrap_or_default();
+        status = first.split_whitespace().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+        headers = lines
+            .filter_map(|l| l.split_once(':'))
+            .map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_string()))
+            .collect();
+        rest = &rest[i + n..];
+        // A redirect followed, a 100 Continue, a proxy's tunnel: another answer comes after it.
+        let interim = (100..200).contains(&status)
+            || (300..400).contains(&status)
+            || first.to_ascii_lowercase().contains("connection established");
+        if !(interim && rest.starts_with(b"HTTP/")) {
+            break;
+        }
+    }
+    (status, headers, rest)
+}
+
+/// Why an answer of `status` is no file, in the words the Mods tab shows. `now`: the time in Unix
+/// seconds, for how long GitHub's limit lasts.
+fn http_error(url: &str, status: u16, headers: &[(String, String)], token: bool, now: u64) -> String {
+    let header = |name: &str| headers.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str());
+    let spent = header("x-ratelimit-remaining") == Some("0");
+    let retry = header("retry-after").and_then(|s| s.parse::<u64>().ok());
+    if matches!(status, 403 | 429) && (spent || retry.is_some()) {
+        let wait = retry.or_else(|| header("x-ratelimit-reset")?.parse::<u64>().ok().map(|r| r.saturating_sub(now)));
+        let when = match wait.map(|s| s.div_ceil(60).max(1)) {
+            None => "try again in an hour".to_string(),
+            Some(1) => "try again in a minute".to_string(),
+            Some(m) => format!("try again in {m} minutes"),
+        };
+        if !spent {
+            return format!("GitHub asked the launcher to slow down; {when}");
+        }
+        let limit = header("x-ratelimit-limit").map_or(String::new(), |l| format!(" of {l} requests an hour"));
+        let whose = if token { "for your GitHub token" } else { "from this network" };
+        return format!("GitHub's limit{limit} {whose} is used up; {when}");
+    }
+    match status {
+        404 => format!("{url}: not found"),
+        0 => format!("{url} could not be fetched"),
+        s => format!("{url} could not be fetched (HTTP {s})"),
+    }
+}
+
+/// How long an answer of GitHub's API is reused: long enough for one look and its updates, short
+/// enough that a release just published is seen soon.
+pub const API_CACHE_SECONDS: u64 = 5 * 60;
+
+/// Answers of GitHub's API kept for a few minutes ([`API_CACHE_SECONDS`]), for the launcher's
+/// whole run: checking a repository of eleven mods and then updating each would read it twelve
+/// times, and GitHub allows 60 requests an hour without a login. Files and downloads are not kept.
+pub struct ApiCache {
+    ttl: std::time::Duration,
+    answers: std::sync::Mutex<std::collections::HashMap<String, (std::time::Instant, Vec<u8>)>>,
+}
+
+impl ApiCache {
+    pub fn new(ttl: std::time::Duration) -> Self {
+        ApiCache { ttl, answers: Default::default() }
+    }
+
+    /// The launcher's one cache.
+    pub fn shared() -> &'static ApiCache {
+        static SHARED: std::sync::OnceLock<ApiCache> = std::sync::OnceLock::new();
+        SHARED.get_or_init(|| ApiCache::new(std::time::Duration::from_secs(API_CACHE_SECONDS)))
+    }
+}
+
+/// A [`Fetch`] whose API answers come from `cache` while they are fresh. Failures are not kept.
+pub struct Cached<'c, F> {
+    pub inner: F,
+    pub cache: &'c ApiCache,
+}
+
+impl<F> Cached<'static, F> {
+    /// `inner` through the launcher's one cache.
+    pub fn shared(inner: F) -> Self {
+        Cached { inner, cache: ApiCache::shared() }
+    }
+}
+
+impl<F: Fetch> Fetch for Cached<'_, F> {
+    fn get(&self, url: &str, api: bool) -> Result<Vec<u8>, String> {
+        if !api {
+            return self.inner.get(url, api);
+        }
+        let lock = || self.cache.answers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some((at, bytes)) = lock().get(url) {
+            if at.elapsed() < self.cache.ttl {
+                return Ok(bytes.clone());
+            }
+        }
+        let bytes = self.inner.get(url, api)?;
+        let mut answers = lock();
+        answers.retain(|_, (at, _)| at.elapsed() < self.cache.ttl);
+        answers.insert(url.to_string(), (std::time::Instant::now(), bytes.clone()));
+        Ok(bytes)
     }
 }
 
@@ -66,18 +212,28 @@ impl Fetch for QuickCurl {
     fn get(&self, url: &str, _api: bool) -> Result<Vec<u8>, String> {
         let mut cmd = crate::detect::quiet(Path::new("curl"));
         cmd.args(["-s", "-f", "--connect-timeout", "4", "--max-time", "10"]);
-        run_curl(cmd, url, "the launcher fetches its progress figures with it")
+        run_curl(cmd, url, None, "the launcher fetches its progress figures with it")
     }
 }
 
-/// Runs `cmd` (a `curl` with its options) on `url`, its input closed: the body, or why not.
-/// `purpose` says, when curl cannot be started, what the launcher needed it for.
-fn run_curl(mut cmd: std::process::Command, url: &str, purpose: &str) -> Result<Vec<u8>, String> {
-    let out = cmd
-        .arg(url)
-        .stdin(std::process::Stdio::null())
-        .output()
-        .map_err(|e| format!("curl cannot be started ({e}): {purpose}"))?;
+/// Runs `cmd` (a `curl` with its options) on `url`, `input` (a config: `-K -`) on its input, else
+/// its input closed: what it printed, or why it failed. `purpose` says, when curl cannot be
+/// started, what the launcher needed it for.
+fn run_curl(mut cmd: std::process::Command, url: &str, input: Option<&str>, purpose: &str) -> Result<Vec<u8>, String> {
+    use std::process::Stdio;
+    let started = |e: std::io::Error| format!("curl cannot be started ({e}): {purpose}");
+    cmd.arg(url).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let out = match input {
+        None => cmd.stdin(Stdio::null()).output().map_err(started)?,
+        Some(text) => {
+            let mut child = cmd.stdin(Stdio::piped()).spawn().map_err(started)?;
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write;
+                let _ = stdin.write_all(text.as_bytes());
+            }
+            child.wait_with_output().map_err(started)?
+        }
+    };
     if out.status.success() {
         return Ok(out.stdout);
     }
@@ -91,16 +247,22 @@ fn run_curl(mut cmd: std::process::Command, url: &str, purpose: &str) -> Result<
     })
 }
 
-/// Where GitHub answers: its API and its raw files (the tests point both elsewhere).
+/// Where GitHub answers: its API, its raw files and its site, for a repository's archive (the
+/// tests point them elsewhere). Raw files and archives do not count against the API's limit.
 #[derive(Debug, Clone)]
 pub struct Hosts {
     pub api: String,
     pub raw: String,
+    pub web: String,
 }
 
 impl Default for Hosts {
     fn default() -> Self {
-        Hosts { api: "https://api.github.com".into(), raw: "https://raw.githubusercontent.com".into() }
+        Hosts {
+            api: "https://api.github.com".into(),
+            raw: "https://raw.githubusercontent.com".into(),
+            web: "https://github.com".into(),
+        }
     }
 }
 
@@ -220,11 +382,33 @@ struct Release {
     prerelease: bool,
     #[serde(default)]
     assets: Vec<Asset>,
+    /// When it was published: what a mod code's review shows.
+    #[serde(default)]
+    published_at: Option<String>,
+    /// The date of the release's commit (GitHub's `created_at`).
+    #[serde(default)]
+    created_at: Option<String>,
 }
 
 impl Release {
     fn asset(&self, name: &str) -> Option<&Asset> {
         self.assets.iter().find(|a| a.name == name)
+    }
+
+    /// When it was made, for newest-first: its commit's date, else when it was published.
+    fn when(&self) -> Option<&str> {
+        self.created_at.as_deref().or(self.published_at.as_deref())
+    }
+
+    /// Whether it holds a build of mod `id` for `platform` (`<id>-<version>-<platform>.zip`).
+    fn builds(&self, id: &str, platform: &str) -> bool {
+        let (prefix, suffix) = (format!("{id}-"), format!("-{platform}.zip"));
+        self.assets.iter().any(|a| {
+            a.name
+                .strip_prefix(&prefix)
+                .and_then(|r| r.strip_suffix(&suffix))
+                .is_some_and(|v| plugins::parse_version(v).is_some())
+        })
     }
 
     /// Whether asset `name` can be checked: by GitHub's digest or the release's SHA256SUMS.
@@ -361,7 +545,7 @@ pub fn verify(bytes: &[u8], name: &str, digest: Option<&str>, sums: Option<&str>
             }
         });
     }
-    let got = format!("{:x}", Sha256::digest(bytes));
+    let got = crate::sha256_hex(bytes);
     if [digest, listed.as_deref()].into_iter().flatten().any(|want| want != got) {
         return Err(format!(
             "{name} is not the file the release lists (its SHA-256 differs): it was damaged or changed, and is not installed."
@@ -376,7 +560,7 @@ fn manifest_in_zip(bytes: &[u8]) -> Result<Value, String> {
         zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|e| format!("the download is not a .zip ({e})"))?;
     let mut best: Option<String> = None;
     for i in 0..archive.len() {
-        let name = archive.by_index(i).map_err(|e| e.to_string())?.name().to_string();
+        let name = archive.by_index(i).map_err(|e| e.to_string())?.name().map_err(|e| e.to_string())?.to_string();
         let depth = name.split('/').count();
         if name.ends_with(MANIFEST)
             && (name == MANIFEST || depth == 2)
@@ -387,7 +571,16 @@ fn manifest_in_zip(bytes: &[u8]) -> Result<Value, String> {
     }
     let name = best.ok_or_else(|| format!("the download has no {MANIFEST}: it is not an OpenRAC mod"))?;
     let mut text = String::new();
-    archive.by_name(&name).map_err(|e| e.to_string())?.read_to_string(&mut text).map_err(|e| e.to_string())?;
+    // A manifest is a few kilobytes: one that claims more is read no further than the limit.
+    archive
+        .by_name(&name)
+        .map_err(|e| e.to_string())?
+        .take(MANIFEST_MAX_BYTES + 1)
+        .read_to_string(&mut text)
+        .map_err(|e| e.to_string())?;
+    if text.len() as u64 > MANIFEST_MAX_BYTES {
+        return Err(format!("its {MANIFEST} is too large to be a mod's"));
+    }
     serde_json::from_str(&text).map_err(|e| format!("its {MANIFEST} cannot be read ({e})"))
 }
 
@@ -435,13 +628,17 @@ fn describe(
         });
     }
     let m: Manifest = serde_json::from_value(raw.clone()).map_err(|e| format!("{path} cannot be read ({e})"))?;
-    let check = m.validate().map_err(|e| format!("Its {MANIFEST} breaks a rule: {e}.")).and_then(|()| {
+    let check = m.validate_source().map_err(|e| format!("Its {MANIFEST} breaks a rule: {e}.")).and_then(|()| {
         if m.plugin.is_empty() && !m.is_script() {
             m.games
                 .get(game)
                 .filter(|d| d.iter().any(|d| d == version))
-                .map(|_| ())
-                .ok_or_else(|| format!("Not for this game's disc ({game}, {version})."))
+                .ok_or_else(|| format!("Not for this game's disc ({game}, {version})."))?;
+            if m.api.is_some() {
+                m.check_api_compatibility()
+            } else {
+                Ok(())
+            }
         } else {
             m.runs_on(game, version, platform)
         }
@@ -511,7 +708,7 @@ fn read_github(
         })?,
         "the repository's releases",
     )?;
-    let eligible: Vec<Release> = match tag {
+    let mut eligible: Vec<Release> = match tag {
         Some(t) => {
             let r = releases
                 .iter()
@@ -522,6 +719,12 @@ fn read_github(
         // The mod index's own release (openrac-mods' `index` tag) holds no mod: never a mod's release.
         None => releases.iter().filter(|r| !r.draft && !r.prerelease && r.tag_name != INDEX_TAG).cloned().collect(),
     };
+    // Newest first. GitHub's list is not in date order: a repository of many mods, each released
+    // on its own tag, can list an older mod's release first, and every other mod's manifest would
+    // then be read as it was back then (openrac-mods listed xbox-icons-v1.1.0 first, from before
+    // the other mods took Going Commando, so they could not be installed for it). The dates are
+    // GitHub's ISO 8601 in UTC, which sort as text; a release without one goes last.
+    eligible.sort_by(|a, b| b.when().cmp(&a.when()));
     // What the manifests are read at: the release named, a branch or commit named, the newest
     // release, or the default branch.
     // A link to a folder, /tree/<branch>/<folder>: the branch is the shortest start of the path the
@@ -581,6 +784,23 @@ fn read_github(
     for path in shown {
         let raw: Value = json(&fetch.get(&raw_at(&path), false)?, &path)?;
         let mut m = describe(&raw, &path, repo, game, version, platform, &installed)?;
+        // A mod whose version at `at` has no release yet (its bump came before another mod's
+        // release): its manifest at its own newest release, which is what would be installed.
+        if let (Some(p), None, None, "native") = (platform, tag, reference, m.kind.as_str()) {
+            let name = asset_name(&m.id, &m.version, p);
+            if !eligible.iter().any(|r| r.asset(&name).is_some()) {
+                if let Some(r) = eligible.iter().find(|r| r.tag_name != at && r.builds(&m.id, p)) {
+                    let url = format!("{}/{owner}/{repo}/{}/{path}", hosts.raw, r.tag_name);
+                    let own = fetch
+                        .get(&url, false)
+                        .and_then(|bytes| json::<Value>(&bytes, &path))
+                        .and_then(|raw| describe(&raw, &path, repo, game, version, platform, &installed));
+                    if let Some(own) = own.ok().filter(|o| o.id == m.id) {
+                        m = own;
+                    }
+                }
+            }
+        }
         if m.kind == "native" {
             match platform {
                 None if m.compatible => {
@@ -769,6 +989,10 @@ pub struct ModSource {
     /// Kept at this version: no update is offered.
     #[serde(default)]
     pub pin: bool,
+    /// The SHA-256 of its release's `SHA256SUMS`, when a mod code installed it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub sums: Option<String>,
     /// Installed as another mod's dependency, not asked for (index_apply.rs).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     #[ts(as = "Option<bool>", optional)]
@@ -896,7 +1120,7 @@ fn check_expected(bytes: &[u8], name: &str, expected: Option<&crate::index::Asse
     if want.asset != name {
         return Err(format!("{name} is not the archive the mod list names ({}): it is not installed.", want.asset));
     }
-    if format!("{:x}", Sha256::digest(bytes)) != want.sha256.to_ascii_lowercase() {
+    if crate::sha256_hex(bytes) != want.sha256.to_ascii_lowercase() {
         return Err(format!(
             "{name} is not the file the mod list lists (its SHA-256 differs): it was changed after it was listed, and is not installed."
         ));
@@ -987,7 +1211,7 @@ pub fn install_checked(
             // The repository's archive at the commit shown: one top folder, then the mod's.
             let Source::GitHub { owner, repo, .. } = &source else { unreachable!() };
             let at = preview.commit.clone().unwrap_or_else(|| preview.reference.clone());
-            let bytes = ctx.fetch.get(&format!("{}/repos/{owner}/{repo}/zipball/{at}", ctx.hosts.api), false)?;
+            let bytes = ctx.fetch.get(&archive_url(&ctx.hosts, owner, repo, &at), false)?;
             let zip = staging.0.join("repo.zip");
             std::fs::write(&zip, &bytes).map_err(|e| e.to_string())?;
             let out = staging.0.join("repo");
@@ -1046,6 +1270,7 @@ pub fn install_checked(
             commit: preview.commit.clone(),
             kind: m.kind.clone(),
             pin,
+            sums: None,
             auto,
             pin_reason,
             skip,
@@ -1125,6 +1350,335 @@ pub fn update(ctx: &Context, id: &str) -> Result<RemoteInstalled, String> {
     install(ctx, &s.url, id)
 }
 
+// ---- A mod at an exact version ----------------------------------------------------------------
+
+/// The newest archives kept in the cache, in bytes, before the oldest go.
+const CACHE_BYTES: u64 = 512 * 1024 * 1024;
+
+/// One mod a mod code names (modset.rs): never "the newest", always this version of it, from a
+/// release's `tag` whose `SHA256SUMS` hashes to `sums`, or from a `commit`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pin {
+    pub url: String,
+    pub path: String,
+    pub id: String,
+    pub version: String,
+    pub tag: Option<String>,
+    pub commit: Option<String>,
+    pub sums: Option<String>,
+}
+
+/// Why a pinned mod cannot be had.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PinError {
+    /// The release or the commit is not there any more.
+    Gone,
+    /// It is there, and is not what the code was made from: a retag, a rebuilt release.
+    Changed,
+    /// It is what the code names, and cannot run here: the words say why.
+    Unfit(String),
+    /// It could not be read now (no network, GitHub's limit).
+    Failed(String),
+}
+
+/// A pinned mod as read, nothing downloaded yet: what the review shows and the install needs.
+#[derive(Debug, Clone)]
+pub struct Pinned {
+    pub pin: Pin,
+    pub name: String,
+    /// "native" or "script".
+    pub kind: String,
+    pub manifest: Manifest,
+    /// When its release was published.
+    pub published: Option<String>,
+    /// The archive to fetch: its name, its address and, from the release's `SHA256SUMS`, its hash.
+    asset: Option<(String, String, String)>,
+    /// The address of the repository's archive, when there is no release to fetch from.
+    zipball: Option<String>,
+}
+
+/// What the download of a pinned mod left: checked, not installed yet.
+pub struct Staged {
+    _scratch: plugins::Scratch,
+    path: std::path::PathBuf,
+}
+
+fn github_parts(url: &str) -> Result<(String, String), String> {
+    match parse_url(url)? {
+        Source::GitHub { owner, repo, reference: None, tag: None } => Ok((owner, repo)),
+        _ => Err(format!("{url} is not a repository on GitHub")),
+    }
+}
+
+/// A repository's archive at `at` (a commit, a tag), from GitHub's site rather than its API, whose
+/// limit it does not count against.
+fn archive_url(hosts: &Hosts, owner: &str, repo: &str, at: &str) -> String {
+    format!("{}/{owner}/{repo}/archive/{at}.zip", hosts.web)
+}
+
+/// The release tagged `tag`: from the list of the newest releases, which every mod of a repository
+/// shares (one request for a code of ten mods, through [`Cached`]), else asked for by its tag.
+fn release_by_tag(ctx: &Context, owner: &str, repo: &str, tag: &str) -> Result<Release, String> {
+    let base = format!("{}/repos/{owner}/{repo}", ctx.hosts.api);
+    let listed = ctx.fetch.get(&format!("{base}/releases?per_page=100"), true).ok();
+    if let Some(r) = listed
+        .and_then(|bytes| serde_json::from_slice::<Vec<Release>>(&bytes).ok())
+        .and_then(|list| list.into_iter().find(|r| r.tag_name == tag))
+    {
+        return Ok(r);
+    }
+    json(&ctx.fetch.get(&format!("{base}/releases/tags/{tag}"), true)?, "the release")
+}
+
+/// An error of the fetcher: "not found" and every other failure are different stories to tell.
+fn pin_fetch_error(e: String) -> PinError {
+    if e.ends_with("not found") {
+        PinError::Gone
+    } else {
+        PinError::Failed(e)
+    }
+}
+
+/// Reads what `pin` names with as few of GitHub's requests as can be: one to the API for its
+/// release (the list of releases, which a code's other mods from the repository share), which the
+/// anonymous limit (60 an hour) counts, and raw files, which it does not. No tree: a code of ten
+/// mods from one repository must not read it ten times.
+pub fn read_pinned(ctx: &Context, pin: &Pin) -> Result<Pinned, PinError> {
+    let (owner, repo) = github_parts(&pin.url).map_err(PinError::Failed)?;
+    let (at, release) = match (&pin.tag, &pin.commit) {
+        (Some(tag), _) => (tag.clone(), Some(release_by_tag(ctx, &owner, &repo, tag).map_err(pin_fetch_error)?)),
+        (None, Some(commit)) => (commit.clone(), None),
+        (None, None) => return Err(PinError::Failed(format!("{} names no version to fetch", pin.id))),
+    };
+    let manifest_path = if pin.path.is_empty() { MANIFEST.to_string() } else { format!("{}/{MANIFEST}", pin.path) };
+    let raw_url = format!("{}/{owner}/{repo}/{at}/{manifest_path}", ctx.hosts.raw);
+    let raw: Value =
+        json(&ctx.fetch.get(&raw_url, false).map_err(pin_fetch_error)?, MANIFEST).map_err(PinError::Failed)?;
+    let described = describe(&raw, &manifest_path, &repo, ctx.game, ctx.version, ctx.platform, &BTreeMap::new())
+        .map_err(|_| PinError::Changed)?;
+    if described.id != pin.id || described.version != pin.version || described.kind == "pack" {
+        return Err(PinError::Changed);
+    }
+    let manifest: Manifest = serde_json::from_value(raw).map_err(|_| PinError::Changed)?;
+    if !described.compatible {
+        return Err(PinError::Unfit(described.why.unwrap_or_default()));
+    }
+    let mut asset = None;
+    let mut published = None;
+    // What is installed is the release's archive, not the repository's manifest: with a release,
+    // the kind is the archive's. A native build is `<id>-<version>-<platform>.zip` (for any
+    // platform), a script `<id>-<version>.zip`; stage_pinned checks the archive's manifest agrees.
+    let mut kind = described.kind.clone();
+    if let Some(release) = &release {
+        let built = plugins::PLATFORMS.iter().any(|p| release.asset(&asset_name(&pin.id, &pin.version, p)).is_some());
+        kind = if built { "native".into() } else { "script".into() };
+    }
+    if let Some(release) = &release {
+        published = release.published_at.clone();
+        let sums_asset = release.asset(SUMS).ok_or(PinError::Changed)?;
+        let text = ctx.fetch.get(&sums_asset.browser_download_url, false).map_err(pin_fetch_error)?;
+        if pin.sums.as_deref() != Some(crate::sha256_hex(&text).as_str()) {
+            return Err(PinError::Changed);
+        }
+        let listed = parse_sums(&String::from_utf8_lossy(&text));
+        let wanted = if kind == "native" {
+            let Some(platform) = ctx.platform else {
+                return Err(PinError::Unfit("Native mods are not loaded on this system.".into()));
+            };
+            asset_name(&pin.id, &pin.version, platform)
+        } else {
+            format!("{}-{}.zip", pin.id, pin.version)
+        };
+        match (release.asset(&wanted), listed.get(&wanted)) {
+            (Some(a), Some(hash)) => asset = Some((wanted, a.browser_download_url.clone(), hash.clone())),
+            (Some(_), None) => return Err(PinError::Changed),
+            (None, _) if kind == "native" => return Err(PinError::Unfit("Not built for this computer.".into())),
+            (None, _) => {}
+        }
+    } else if kind == "native" {
+        return Err(PinError::Unfit("A native mod is installed built, from a release.".into()));
+    }
+    let zipball = asset.is_none().then(|| archive_url(&ctx.hosts, &owner, &repo, &at));
+    Ok(Pinned { pin: pin.clone(), name: described.name, kind, manifest, published, asset, zipball })
+}
+
+/// The newest version of mod `id` a repository's releases have an archive of, for "ask the host to
+/// update": a release's assets are `<id>-<version>[-<platform>].zip`.
+pub fn newest_release(ctx: &Context, url: &str, id: &str) -> Option<String> {
+    let (owner, repo) = github_parts(url).ok()?;
+    let releases: Vec<Release> =
+        json(&ctx.fetch.get(&format!("{}/repos/{owner}/{repo}/releases?per_page=100", ctx.hosts.api), true).ok()?, "")
+            .ok()?;
+    let prefix = format!("{id}-");
+    let mut best: Option<(String, (u64, u64, u64, bool))> = None;
+    for release in releases.iter().filter(|r| !r.draft && !r.prerelease) {
+        for asset in &release.assets {
+            let Some(rest) = asset.name.strip_prefix(&prefix).and_then(|r| r.strip_suffix(".zip")) else { continue };
+            let version = plugins::PLATFORMS.iter().find_map(|p| rest.strip_suffix(&format!("-{p}"))).unwrap_or(rest);
+            let Some(parsed) = plugins::parse_version(version) else { continue };
+            if best.as_ref().is_none_or(|(_, b)| plugins::compare_versions(parsed, *b).is_gt()) {
+                best = Some((version.to_string(), parsed));
+            }
+        }
+    }
+    best.map(|(version, _)| version)
+}
+
+/// The SHA-256 of a release's `SHA256SUMS`: what a mod code pins a release by. It holds every
+/// platform's hash, so one code serves them all, and a rebuilt release changes it.
+pub fn sums_hash(ctx: &Context, url: &str, tag: &str) -> Result<String, String> {
+    let (owner, repo) = github_parts(url)?;
+    let release = release_by_tag(ctx, &owner, &repo, tag)?;
+    let asset = release.asset(SUMS).ok_or_else(|| format!("{tag} has no {SUMS}"))?;
+    Ok(crate::sha256_hex(&ctx.fetch.get(&asset.browser_download_url, false)?))
+}
+
+/// `<plugins>/.cache/<sha256>.zip`: an archive a code fetched, kept under its own hash. A file
+/// there is read back only if it still hashes to its name.
+fn cache_file(dir: &Path, hash: &str) -> std::path::PathBuf {
+    dir.join(".cache").join(format!("{hash}.zip"))
+}
+
+fn from_cache(dir: &Path, hash: &str) -> Option<Vec<u8>> {
+    let bytes = std::fs::read(cache_file(dir, hash)).ok()?;
+    (crate::sha256_hex(&bytes) == hash).then_some(bytes)
+}
+
+/// Keeps an archive by its hash, then takes the least recently written ones away past the limit.
+/// The cache only saves downloads: failing to keep one is no failure.
+fn to_cache(dir: &Path, hash: &str, bytes: &[u8]) {
+    let file = cache_file(dir, hash);
+    let Some(parent) = file.parent() else { return };
+    if std::fs::create_dir_all(parent).is_err() || std::fs::write(&file, bytes).is_err() {
+        return;
+    }
+    let mut kept: Vec<(std::time::SystemTime, u64, std::path::PathBuf)> = std::fs::read_dir(parent)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            let meta = e.metadata().ok()?;
+            Some((meta.modified().ok()?, meta.len(), e.path()))
+        })
+        .collect();
+    kept.sort();
+    let mut total: u64 = kept.iter().map(|k| k.1).sum();
+    for (_, size, path) in kept {
+        if total <= CACHE_BYTES || path == file {
+            break;
+        }
+        if std::fs::remove_file(&path).is_ok() {
+            total -= size;
+        }
+    }
+}
+
+/// Downloads a pinned mod (or takes it from the cache) and checks it, without touching the store:
+/// a code's mods are all fetched before the first is installed, so that a failure changes nothing.
+pub fn stage_pinned(ctx: &Context, pinned: &Pinned) -> Result<Staged, String> {
+    std::fs::create_dir_all(ctx.dir).map_err(|e| format!("{}: {e}", ctx.dir.display()))?;
+    let scratch = plugins::Scratch::new(ctx.dir, "code")?;
+    let path = if let Some((name, url, hash)) = &pinned.asset {
+        let bytes = match from_cache(ctx.dir, hash) {
+            Some(bytes) => bytes,
+            None => {
+                let bytes = ctx.fetch.get(url, false)?;
+                if crate::sha256_hex(&bytes) != *hash {
+                    return Err(format!(
+                        "{name} is not the file the release lists (its SHA-256 differs): it was damaged or changed, and is not installed."
+                    ));
+                }
+                to_cache(ctx.dir, hash, &bytes);
+                bytes
+            }
+        };
+        let inside = manifest_in_zip(&bytes)?;
+        check_inside(&inside, pinned, ctx.platform)?;
+        let file = scratch.0.join(name);
+        std::fs::write(&file, &bytes).map_err(|e| format!("{}: {e}", file.display()))?;
+        file
+    } else {
+        let url = pinned.zipball.as_deref().ok_or("nothing to download")?;
+        let zip = scratch.0.join("repo.zip");
+        std::fs::write(&zip, ctx.fetch.get(url, false)?).map_err(|e| e.to_string())?;
+        let out = scratch.0.join("repo");
+        plugins::unzip(&zip, &out)?;
+        let top = std::fs::read_dir(&out)
+            .map_err(|e| e.to_string())?
+            .flatten()
+            .find(|e| e.path().is_dir())
+            .ok_or("the repository's archive is empty")?
+            .path();
+        let folder = top.join(&pinned.pin.path);
+        let inside: Value =
+            json(&std::fs::read(folder.join(MANIFEST)).map_err(|e| format!("{}: {e}", pinned.name))?, MANIFEST)?;
+        check_inside(&inside, pinned, ctx.platform)?;
+        folder
+    };
+    Ok(Staged { _scratch: scratch, path })
+}
+
+/// A download must hold the mod the review showed: its id and version, and its kind, a native
+/// mod's library for this computer among them.
+fn check_inside(manifest: &Value, pinned: &Pinned, platform: Option<&str>) -> Result<(), String> {
+    let pin = &pinned.pin;
+    let text = |k: &str| manifest.get(k).and_then(Value::as_str).unwrap_or_default();
+    if text("id") != pin.id || text("version") != pin.version {
+        return Err(format!(
+            "The download holds {} {}, not {} {}: it is not installed.",
+            text("id"),
+            text("version"),
+            pin.id,
+            pin.version
+        ));
+    }
+    let inside: Manifest = serde_json::from_value(manifest.clone())
+        .map_err(|e| format!("The download's {MANIFEST} cannot be read ({e}): it is not installed."))?;
+    let kind = if inside.is_script() { "script" } else { "native" };
+    if kind != pinned.kind {
+        return Err(format!(
+            "The download holds a {kind} mod, not the {} mod shown: {} is not installed.",
+            pinned.kind, pinned.name
+        ));
+    }
+    if kind == "native" && platform.is_none_or(|p| !inside.plugin.contains_key(p)) {
+        return Err(format!("The download has no library for this computer: {} is not installed.", pinned.name));
+    }
+    if kind == "script" && !inside.plugin.is_empty() {
+        return Err(format!(
+            "The download names a library, not the script mod shown: {} is not installed.",
+            pinned.name
+        ));
+    }
+    Ok(())
+}
+
+/// Puts a staged mod in the store and remembers exactly what it is.
+pub fn install_staged(ctx: &Context, pinned: &Pinned, staged: &Staged) -> Result<(), String> {
+    match plugins::install(ctx.dir, ctx.game, ctx.version, &staged.path)? {
+        Installed::Plugin { .. } => {}
+        Installed::Pack => return Err(format!("{} is a data pack, not the mod described", pinned.name)),
+    }
+    let mut sources = read_sources(ctx.dir);
+    sources.mods.insert(
+        pinned.pin.id.clone(),
+        ModSource {
+            url: pinned.pin.url.clone(),
+            path: pinned.pin.path.clone(),
+            version: pinned.pin.version.clone(),
+            tag: pinned.pin.tag.clone(),
+            commit: pinned.pin.commit.clone(),
+            kind: pinned.kind.clone(),
+            // A code's versions are exact: updating one would leave the party's set.
+            pin: true,
+            pin_reason: Some("shared".into()),
+            sums: pinned.pin.sums.clone(),
+            ..ModSource::default()
+        },
+    );
+    write_sources(ctx.dir, &sources)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1158,8 +1712,10 @@ mod tests {
     const DL: &str = "https://dl.test";
     const PLATFORM: &str = "linux-x86_64";
 
+    const WEB: &str = "https://web.test";
+
     fn hosts() -> Hosts {
-        Hosts { api: API.into(), raw: RAW.into() }
+        Hosts { api: API.into(), raw: RAW.into(), web: WEB.into() }
     }
 
     fn manifest(id: &str, version: &str) -> String {
@@ -1171,19 +1727,23 @@ mod tests {
     }
 
     fn mod_zip(id: &str, version: &str) -> Vec<u8> {
+        // As package_mod.py writes it: the manifest names this platform's library only.
+        let one = manifest(id, version).replace(r#", "windows-x86_64": "lib/windows-x86_64/m.dll""#, "");
+        mod_zip_with_manifest(id, &one)
+    }
+
+    fn mod_zip_with_manifest(id: &str, manifest: &str) -> Vec<u8> {
         let mut w = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
         let o = zip::write::SimpleFileOptions::default();
         w.start_file(format!("{id}/openrac-mod.json"), o).unwrap();
-        // As package_mod.py writes it: the manifest names this platform's library only.
-        let one = manifest(id, version).replace(r#", "windows-x86_64": "lib/windows-x86_64/m.dll""#, "");
-        w.write_all(one.as_bytes()).unwrap();
+        w.write_all(manifest.as_bytes()).unwrap();
         w.start_file(format!("{id}/lib/{PLATFORM}/m.so"), o).unwrap();
         w.write_all(b"library").unwrap();
         w.finish().unwrap().into_inner()
     }
 
     fn sha(bytes: &[u8]) -> String {
-        format!("{:x}", Sha256::digest(bytes))
+        crate::sha256_hex(bytes)
     }
 
     /// A repository o/r with the given files at commit c1, releases as given.
@@ -1387,6 +1947,65 @@ mod tests {
     }
 
     #[test]
+    fn vulkan_mod_source_can_omit_the_library_list() {
+        let id = "vulkan-mod";
+        let mut source: Value = serde_json::from_str(&manifest(id, "1.0.0")).unwrap();
+        source["api"] = "1.20".into();
+        source["vulkan_queue"] = true.into();
+        source.as_object_mut().unwrap().remove("plugin");
+
+        for packaged_library in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut fx = Fixture::default();
+            let rel = release(&mut fx, "v1.0.0", id, "1.0.0", Some(String::new()), false);
+            let mut packaged = source.clone();
+            if packaged_library {
+                packaged["plugin"] = serde_json::json!({(PLATFORM): format!("lib/{PLATFORM}/m.so")});
+            }
+            let name = asset_name(id, "1.0.0", PLATFORM);
+            let bytes = mod_zip_with_manifest(id, &packaged.to_string());
+            fx.put(&format!("{DL}/v1.0.0/SHA256SUMS"), format!("{}  {name}\n", sha(&bytes)));
+            fx.put(&format!("{DL}/v1.0.0/{name}"), bytes);
+            repo(&mut fx, &[("openrac-mod.json", source.to_string())], serde_json::json!([rel]), "c1");
+
+            let c = ctx(dir.path(), &fx);
+            let url = "https://github.com/o/r";
+            let shown = &preview(&c, url).unwrap().mods[0];
+            assert!(shown.compatible, "{:?}", shown.why);
+            let result = install(&c, url, id);
+            if packaged_library {
+                assert!(matches!(result.unwrap(), RemoteInstalled::Plugin { .. }));
+            } else {
+                assert!(result.unwrap_err().contains("vulkan_queue"));
+            }
+        }
+    }
+
+    #[test]
+    fn vulkan_mod_source_requires_a_supported_api() {
+        let id = "vulkan-mod";
+        let api = format!("{}.{}", plugins::API_MAJOR, plugins::API_MINOR + 1);
+        let mut source: Value = serde_json::from_str(&manifest(id, "1.0.0")).unwrap();
+        source["api"] = api.clone().into();
+        source["vulkan_queue"] = true.into();
+        source.as_object_mut().unwrap().remove("plugin");
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        let rel = release(&mut fx, "v1.0.0", id, "1.0.0", Some(String::new()), false);
+        repo(&mut fx, &[("openrac-mod.json", source.to_string())], serde_json::json!([rel]), "c1");
+
+        let c = ctx(dir.path(), &fx);
+        let url = "https://github.com/o/r";
+        let shown = &preview(&c, url).unwrap().mods[0];
+        assert!(!shown.compatible);
+        let reason = format!("Needs OpenRAC with mod interface {api}");
+        assert!(shown.why.as_deref().unwrap().contains(reason.as_str()));
+        assert!(install(&c, url, id).unwrap_err().contains(reason.as_str()));
+        assert!(!fx.asked.borrow().iter().any(|url| url.starts_with(DL)));
+    }
+
+    #[test]
     fn asset_names_per_platform() {
         assert_eq!(asset_name("lock-strafe", "1.0.0", "macos-arm64"), "lock-strafe-1.0.0-macos-arm64.zip");
         let dir = tempfile::tempdir().unwrap();
@@ -1574,7 +2193,7 @@ mod tests {
         w.start_file("o-r-c1/shiny/level_00/textures/x.png", o).unwrap();
         w.write_all(b"png").unwrap();
         w.start_file("o-r-c1/README.md", o).unwrap();
-        fx.put(&format!("{API}/repos/o/r/zipball/c1"), w.finish().unwrap().into_inner());
+        fx.put(&format!("{WEB}/o/r/archive/c1.zip"), w.finish().unwrap().into_inner());
         let c = ctx(dir.path(), &fx);
         let p = preview(&c, "https://github.com/o/r").unwrap();
         assert_eq!((p.mods[0].id.as_str(), p.mods[0].kind.as_str(), p.mods[0].compatible), ("shiny", "pack", true));
@@ -1614,7 +2233,7 @@ mod tests {
         w.start_file(format!("o-r-{commit}/{folder}/main.luau"), o).unwrap();
         w.write_all(b"openrac.log('hi')\n").unwrap();
         w.start_file(format!("o-r-{commit}/README.md"), o).unwrap();
-        fx.put(&format!("{API}/repos/o/r/zipball/{commit}"), w.finish().unwrap().into_inner());
+        fx.put(&format!("{WEB}/o/r/archive/{commit}.zip"), w.finish().unwrap().into_inner());
     }
 
     #[test]
@@ -1752,6 +2371,119 @@ mod tests {
         assert!(errors[0].starts_with("m, n: "), "{errors:?}");
     }
 
+    /// A repository o/r of `ids` mods, each in its folder with a release `<id>-v<version>` (as
+    /// openrac-mods is), all at commit `commit`.
+    fn many(fx: &mut Fixture, ids: &[&str], version: &str, commit: &str) {
+        let mut releases = Vec::new();
+        let mut files = Vec::new();
+        for id in ids {
+            let tag = format!("{id}-v{version}");
+            releases.push(release(fx, &tag, id, version, Some(String::new()), false));
+            fx.put(&format!("{API}/repos/o/r/commits/{tag}"), serde_json::json!({"sha": commit}).to_string());
+            files.push((format!("{id}/openrac-mod.json"), manifest(id, version)));
+        }
+        let files: Vec<(&str, String)> = files.iter().map(|(p, t)| (p.as_str(), t.clone())).collect();
+        repo(fx, &files, Value::Array(releases), commit);
+    }
+
+    /// Checking a repository of several mods and updating each reads GitHub's API once, through
+    /// the launcher's cache: not once per mod, which spent the anonymous 60 an hour.
+    #[test]
+    fn updating_every_mod_of_a_repository_reads_it_once() {
+        let ids = ["a", "b", "c", "d", "e"];
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        many(&mut fx, &ids, "1.0.0", "c1");
+        for id in ids {
+            install(&ctx(dir.path(), &fx), "https://github.com/o/r", id).unwrap();
+        }
+        let api = |fx: &Fixture| fx.asked.borrow().iter().filter(|u| u.starts_with(API)).count();
+        let update_all = |fetch: &dyn Fetch| {
+            let c = ctx(dir.path(), fetch);
+            let (found, errors) = check_updates(&c);
+            assert!(errors.is_empty(), "{errors:?}");
+            assert_eq!(found.len(), ids.len());
+            for u in found {
+                update(&c, &u.id).unwrap();
+            }
+        };
+        // Without the cache: the look reads the repository (its releases, the commit, the tree),
+        // and every update reads it again.
+        let mut fx = Fixture::default();
+        many(&mut fx, &ids, "1.1.0", "c2");
+        update_all(&fx);
+        assert_eq!(api(&fx), 3 * (1 + ids.len()));
+        // With it: three requests in all.
+        for id in ids {
+            let mut sources = read_sources(dir.path());
+            sources.mods.get_mut(id).unwrap().version = "1.0.0".into();
+            write_sources(dir.path(), &sources).unwrap();
+        }
+        fx.asked.borrow_mut().clear();
+        let cache = ApiCache::new(std::time::Duration::from_secs(60));
+        update_all(&Cached { inner: &fx, cache: &cache });
+        assert_eq!(api(&fx), 3, "{:#?}", fx.asked.borrow());
+        assert_eq!(read_sources(dir.path()).mods["e"].version, "1.1.0");
+        // An answer past its time is asked again; a failure is never kept.
+        let stale = ApiCache::new(std::time::Duration::ZERO);
+        let once = Cached { inner: &fx, cache: &stale };
+        let url = format!("{API}/repos/o/r/releases?per_page=100");
+        fx.asked.borrow_mut().clear();
+        once.get(&url, true).unwrap();
+        once.get(&url, true).unwrap();
+        assert_eq!(api(&fx), 2);
+        let missing = format!("{API}/repos/o/missing");
+        let cached = Cached { inner: &fx, cache: &cache };
+        assert!(cached.get(&missing, true).is_err() && cached.get(&missing, true).is_err());
+        assert_eq!(fx.asked.borrow().iter().filter(|u| **u == missing).count(), 2);
+        // Downloads go around it.
+        fx.asked.borrow_mut().clear();
+        let dl = format!("{DL}/a-v1.1.0/SHA256SUMS");
+        cached.get(&dl, false).unwrap();
+        cached.get(&dl, false).unwrap();
+        assert_eq!(fx.asked.borrow().len(), 2);
+    }
+
+    /// curl's `-D -` output: the redirects' headers skipped, the last answer's kept.
+    #[test]
+    fn the_answer_after_its_redirects() {
+        let out = b"HTTP/2 302\r\nlocation: https://x\r\n\r\nHTTP/1.1 200 Connection established\r\n\r\nHTTP/2 200\r\nETag: \"e\"\r\n\r\nHTTP/ body";
+        let (status, headers, body) = split_response(out);
+        assert_eq!((status, body), (200, &b"HTTP/ body"[..]));
+        assert_eq!(headers, [("etag".to_string(), "\"e\"".to_string())]);
+        let (status, _, body) = split_response(b"HTTP/1.1 404 Not Found\r\n\r\n{}");
+        assert_eq!((status, body), (404, &b"{}"[..]));
+        assert_eq!(split_response(b"no headers").0, 0);
+    }
+
+    /// GitHub's limit said plainly, with when it lets the launcher ask again.
+    #[test]
+    fn the_rate_limit_is_said_plainly() {
+        let h = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+            pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        };
+        let url = "https://api.github.com/repos/OpenRAC/openrac-mods/releases?per_page=100";
+        let spent = h(&[("x-ratelimit-limit", "60"), ("x-ratelimit-remaining", "0"), ("x-ratelimit-reset", "10000")]);
+        assert_eq!(
+            http_error(url, 403, &spent, false, 10000 - 23 * 60 + 5),
+            "GitHub's limit of 60 requests an hour from this network is used up; try again in 23 minutes"
+        );
+        assert_eq!(
+            http_error(url, 403, &spent, true, 9990),
+            "GitHub's limit of 60 requests an hour for your GitHub token is used up; try again in a minute"
+        );
+        assert_eq!(
+            http_error(url, 429, &h(&[("retry-after", "120")]), false, 0),
+            "GitHub asked the launcher to slow down; try again in 2 minutes"
+        );
+        // Another refusal is not the limit; a missing file is "not found", as before.
+        assert_eq!(
+            http_error(url, 403, &h(&[("x-ratelimit-remaining", "59")]), false, 0),
+            format!("{url} could not be fetched (HTTP 403)")
+        );
+        assert_eq!(http_error(url, 404, &[], false, 0), format!("{url}: not found"));
+    }
+
     #[test]
     fn a_named_release() {
         let dir = tempfile::tempdir().unwrap();
@@ -1763,6 +2495,53 @@ mod tests {
         assert!(preview(&ctx(dir.path(), &fx), "https://github.com/o/r/releases/tag/v9")
             .unwrap_err()
             .contains("no release v9"));
+    }
+
+    /// A code's review and install read the release's archive, not the repository's manifest: one
+    /// that says script while its release ships a library is shown native, and an archive named
+    /// as a script's that holds a library is refused.
+    #[test]
+    fn a_pinned_mod_is_what_its_release_holds() {
+        let script = r#"{"format": 2, "id": "m", "name": "Mod m", "version": "1.0.0", "author": "Someone",
+            "type": "script", "scripts": ["main.luau"], "api": "1.1", "games": {"rac1": ["pal", "ntsc"]}}"#;
+        let pin = |sums: &[u8]| Pin {
+            url: "https://github.com/o/r".into(),
+            path: String::new(),
+            id: "m".into(),
+            version: "1.0.0".into(),
+            tag: Some("v1.0.0".into()),
+            commit: None,
+            sums: Some(sha(sums)),
+        };
+        // A native build in the release: shown native, and it installs.
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        let rel = release(&mut fx, "v1.0.0", "m", "1.0.0", Some(String::new()), false);
+        fx.put(&format!("{API}/repos/o/r/releases/tags/v1.0.0"), rel.to_string());
+        fx.put(&format!("{RAW}/o/r/v1.0.0/openrac-mod.json"), script);
+        let sums = fx.files[&format!("{DL}/v1.0.0/SHA256SUMS")].clone();
+        let c = ctx(dir.path(), &fx);
+        let pinned = read_pinned(&c, &pin(&sums)).unwrap();
+        assert_eq!(pinned.kind, "native");
+        assert!(stage_pinned(&c, &pinned).is_ok());
+        // The script's archive name, a library inside: refused before anything is installed.
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        let bytes = mod_zip("m", "1.0.0");
+        let name = "m-1.0.0.zip";
+        let text = format!("{}  {name}\n", sha(&bytes));
+        fx.put(&format!("{DL}/v1.0.0/{name}"), bytes);
+        fx.put(&format!("{DL}/v1.0.0/SHA256SUMS"), text.clone());
+        let rel = serde_json::json!({"tag_name": "v1.0.0", "draft": false, "prerelease": false, "assets": [
+            {"name": name, "browser_download_url": format!("{DL}/v1.0.0/{name}")},
+            {"name": "SHA256SUMS", "browser_download_url": format!("{DL}/v1.0.0/SHA256SUMS")}]});
+        fx.put(&format!("{API}/repos/o/r/releases/tags/v1.0.0"), rel.to_string());
+        fx.put(&format!("{RAW}/o/r/v1.0.0/openrac-mod.json"), script);
+        let c = ctx(dir.path(), &fx);
+        let pinned = read_pinned(&c, &pin(text.as_bytes())).unwrap();
+        assert_eq!(pinned.kind, "script");
+        let err = stage_pinned(&c, &pinned).err().unwrap();
+        assert!(err.contains("native mod, not the script"), "{err}");
     }
 
     /// Another host, through git: a local repository stands for it. Skipped without git.
@@ -1820,5 +2599,77 @@ mod tests {
             Ok(p) => assert!(p.mods.iter().any(|m| m.id == "lock-strafe"), "{p:#?}"),
             Err(e) => eprintln!("OpenRAC/openrac-mods: {e}"),
         }
+    }
+
+    /// Two mods in folders a/ and b/, each released on its own tag: `releases` as listed, and the
+    /// manifests at each commit.
+    fn two_mods(fx: &mut Fixture, releases: Value, at: &[(&str, &str, [String; 2])]) {
+        fx.put(&format!("{API}/repos/o/r/releases?per_page=100"), releases.to_string());
+        let tree = serde_json::json!({"tree": [
+            {"path": "a/openrac-mod.json", "type": "blob"}, {"path": "b/openrac-mod.json", "type": "blob"}]});
+        for (tag, commit, [a, b]) in at {
+            fx.put(&format!("{API}/repos/o/r/commits/{tag}"), serde_json::json!({"sha": commit}).to_string());
+            fx.put(&format!("{API}/repos/o/r/git/trees/{commit}?recursive=1"), tree.to_string());
+            for (at, (folder, text)) in [(*commit, ("a", a)), (*commit, ("b", b)), (*tag, ("a", a)), (*tag, ("b", b))] {
+                fx.put(&format!("{RAW}/o/r/{at}/{folder}/openrac-mod.json"), text.clone());
+            }
+        }
+    }
+
+    fn dated(mut release: Value, created: &str) -> Value {
+        release["created_at"] = created.into();
+        release["published_at"] = created.into();
+        release
+    }
+
+    #[test]
+    fn manifests_are_read_at_the_newest_release_whatever_githubs_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        // b took PAL after a-v1.0.0 was made; GitHub lists the older release first.
+        let old = dated(release(&mut fx, "a-v1.0.0", "a", "1.0.0", Some(String::new()), false), "2026-11-08T04:52:00Z");
+        let new = dated(release(&mut fx, "b-v1.1.0", "b", "1.1.0", Some(String::new()), false), "2026-11-08T07:37:49Z");
+        let ntsc_only = manifest("b", "1.0.0").replace(r#""pal", "#, "");
+        two_mods(
+            &mut fx,
+            serde_json::json!([old, new]),
+            &[
+                ("a-v1.0.0", "c0", [manifest("a", "1.0.0"), ntsc_only]),
+                ("b-v1.1.0", "c1", [manifest("a", "1.0.0"), manifest("b", "1.1.0")]),
+            ],
+        );
+        let p = preview(&ctx(dir.path(), &fx), "https://github.com/o/r").unwrap();
+        assert_eq!(p.reference, "b-v1.1.0");
+        let b = p.mods.iter().find(|m| m.id == "b").unwrap();
+        assert!(b.compatible, "{b:?}");
+        assert_eq!((b.version.as_str(), b.tag.as_deref()), ("1.1.0", Some("b-v1.1.0")));
+        let a = p.mods.iter().find(|m| m.id == "a").unwrap();
+        assert_eq!((a.compatible, a.tag.as_deref()), (true, Some("a-v1.0.0")));
+    }
+
+    #[test]
+    fn a_mod_bumped_but_not_released_yet_offers_its_own_newest_release() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        // a-v2.0.0, the newest, has b at 1.2.0, whose release is not out: b's own b-v1.1.0 is.
+        let b_rel =
+            dated(release(&mut fx, "b-v1.1.0", "b", "1.1.0", Some(String::new()), false), "2026-11-08T05:00:00Z");
+        let a_rel =
+            dated(release(&mut fx, "a-v2.0.0", "a", "2.0.0", Some(String::new()), false), "2026-11-08T06:00:00Z");
+        two_mods(
+            &mut fx,
+            serde_json::json!([b_rel, a_rel]),
+            &[
+                ("b-v1.1.0", "c1", [manifest("a", "1.0.0"), manifest("b", "1.1.0")]),
+                ("a-v2.0.0", "c2", [manifest("a", "2.0.0"), manifest("b", "1.2.0")]),
+            ],
+        );
+        let p = preview(&ctx(dir.path(), &fx), "https://github.com/o/r").unwrap();
+        assert_eq!(p.reference, "a-v2.0.0");
+        let b = p.mods.iter().find(|m| m.id == "b").unwrap();
+        assert!(b.compatible, "{b:?}");
+        assert_eq!((b.version.as_str(), b.tag.as_deref()), ("1.1.0", Some("b-v1.1.0")));
+        let got = install(&ctx(dir.path(), &fx), "https://github.com/o/r", "b").unwrap();
+        assert!(matches!(got, RemoteInstalled::Plugin { ref version, .. } if version == "1.1.0"), "{got:?}");
     }
 }

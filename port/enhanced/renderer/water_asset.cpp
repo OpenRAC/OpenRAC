@@ -408,6 +408,6 @@ Water::Water(scene::LevelScene& scene, const std::filesystem::path& path) : m_sc
         }
     }
     m_mesh = std::make_unique<WaterMesh>(path, fingerprint);
-    log::info("enhanced Novalis water: {} bodies, {} simulation cells", bodies, cells);
+    log::info("enhanced pool water: {} bodies, {} simulation cells", bodies, cells);
 }
 }  // namespace openrac::enhanced::water_detail

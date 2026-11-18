@@ -7,13 +7,14 @@
 // program describes its front end (game_host.h, openrac_front_end): Ratchet & Clank, every disc.
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <string>
 
 namespace openrac::frontend::options_menu {
 
-// The rows: one per setting, whichever menu shows them (the game's options pages here, the
-// overlay's menus and drawer, debug_overlay.cpp).
+// The settings the menus step: one row per setting. The in-game menu's entries use them
+// (debug/menu_items.cpp), and the game's own Video pages show some of those entries (page_rows).
 enum Row {
     kDisplayMode,
     kMonitor,
@@ -22,7 +23,8 @@ enum Row {
     kRenderScale,
     kMsaa,
     kAnisotropy,
-    kSceneryDetail,
+    kDrawDistance,
+    kActiveDistance,
     kVSync,
     kHdr,
     kFrameRate,
@@ -35,19 +37,26 @@ enum Row {
     kRows
 };
 
-// After the rows above, when the program's disc has game fixes (fixes.h): a "Game fixes" row that
-// heads them (nothing to change), then a row for each, On (the port's fix) or Original (the
-// console's behaviour). Every page that lists the rows scrolls through all of them.
-int row_count();
+// After the rows above, when the program's disc has game fixes (fixes.h): a row for each, On (the
+// port's fix) or Original (the console's behaviour), at kRows + 1 + its index.
 int fix_of_row(int row);  // the fix's index (fixes.h), or -1 for any other row
 
-// A row's name, and its setting's value now, as the player reads them.
+// A setting's name and its value now, as the player reads them.
 const char* label(int row);
 std::string value(int row);
 
 // A row moved to its next value (by = 1) or the one before (by = -1), within what the graphics
 // card offers. Not saved (settings::save) and not applied: the window applies what changed.
 void step(int row, int by);
+
+// The rows of the game's own Video pages: the in-game menu's entries marked for them
+// (menu::kGamePage) that this screen offers and that do something now. Game fixes stay in the
+// in-game menu. The same entries, values and steps as the in-game menu, in English
+// (shown() puts them in the game's language). A step is saved and applied at once.
+int page_rows();
+std::string page_label(int row);
+std::string page_value(int row);
+void page_step(int row, int by);
 
 // Once a frame: while the boot program runs (the title and its menus), the Video options page
 // shows the port's rows, four at a time, moving with the cursor. Cross or Right moves the row under
@@ -66,6 +75,38 @@ struct PauseRows {
 
 constexpr int kPauseRowsShown = 5;
 PauseRows pause_rows(int index);
+
+// What a row of the options pages is pressed with this tick: Cross, Left or Right, or nothing.
+// The game's pad reading makes the left stick a direction as soon as it leans a third of the way,
+// sideways or not (games/rac1 src/game/system/pad.c), so the stick pushed down onto a row a little
+// off straight is Left or Right as well: a direction counts from the d-pad, and from the stick only
+// while it leans more sideways than up or down.
+enum class RowPress {
+    None,
+    Cross,
+    Left,
+    Right
+};
+
+// The pad's words and stick as the game keeps them (PadState): `raw` the buttons newly down
+// without the stick's directions (+0x1B4), `all` with them (+0x1C4), `x` and `y` the left stick
+// (+0x108, +0x10C).
+inline RowPress row_press(std::uint32_t raw, std::uint32_t all, float x, float y) {
+    constexpr std::uint32_t kCross = 0x0040, kRight = 0x2000, kLeft = 0x8000;
+    if (((raw | all) & kCross) != 0) {
+        return RowPress::Cross;
+    }
+    if ((raw & (kLeft | kRight)) != 0) {
+        return (raw & kRight) != 0 ? RowPress::Right : RowPress::Left;
+    }
+    if ((all & (kLeft | kRight)) != 0 && std::fabs(x) > std::fabs(y)) {
+        return (all & kRight) != 0 ? RowPress::Right : RowPress::Left;
+    }
+    return RowPress::None;
+}
+
+// The same for the first pad, its PadState at `pad` (openrac_front_end.pad).
+RowPress row_press(std::uint32_t pad);
 // Drops guest-memory addresses cached by the port's Video pages. A restored snapshot can replace
 // the guest allocations and level program those addresses referred to.
 void savestate_restored();

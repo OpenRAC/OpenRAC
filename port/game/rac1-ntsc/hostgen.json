@@ -3,7 +3,7 @@
   "title": "Ratchet & Clank (NTSC-U)",
   "game": "rac1",
   "serial": "SCUS_971.99",
-  "source": "games/rac1/ntsc",
+  "source": "games/rac1/ntsc-decomp",
   "frame_rate": 60,
   "entry": "FUN_0012d9d8",
   "sources": [
@@ -15,8 +15,7 @@
     "src/sdk/soft_float/__muldi3.c",
     "src/sdk/soft_float/moddi3.c",
     "src/sdk/soft_float/udivdi3.c",
-    "src/sdk/soft_float/umoddi3.c",
-    "src/sdk/libc/malloc/malloc_extend_top.c"
+    "src/sdk/soft_float/umoddi3.c"
   ],
   "includes": [
     "include",
@@ -28,12 +27,11 @@
     "LOMBYTE_MOBY_UPDATE_H",
     "MOBY_CALL_UPDATE(update,moby)=do { if (update) (update)(moby); } while (0)"
   ],
-  "aliases": ["config/us/port_aliases.h"],
   "symbols": [
     "config/us/symbol_addrs.txt",
     "config/us/port_symbols.txt"
   ],
-  "places": "config/overlays/us/functions.tsv",
+  "places": "config/us/levels/functions.tsv",
   "libraries": "libraries.tsv",
   "host_shared": ["../rac1/host"],
   "overlay_hook": true,
@@ -163,11 +161,13 @@
   ],
   "hand": "hand/hand.tsv",
   "overrides": "hand/overrides.tsv",
+  "assembly_allow": "checks/assembly_allow.tsv",
+  "result_allow": "checks/result_allow.tsv",
   "drafts": {
     "guard": "NON_MATCHING",
-    "units": "drafts.tsv"
+    "units": "tables/drafts.tsv"
   },
-  "split_places": "split_places.tsv",
+  "split_places": "tables/split_places.tsv",
   "asm": {
     "enabled": true,
     "dirs": ["config/us/overlays/asm", "config/us/expected/asm", "config/us/asm",

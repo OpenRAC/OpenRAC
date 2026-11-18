@@ -58,6 +58,11 @@ CATALOGUES = {
 }
 
 # Where a game lists the functions it keeps as assembly because they were written as assembly.
+# Where each game version's decompilation is, under games/ (its game.json "dir").
+TREES = {
+    "rac1/pal": "rac1/decomp",
+}
+
 HANDWRITTEN = {
     "rac1/pal": "config/handwritten_asm.txt",
 }
@@ -585,7 +590,7 @@ class Retail:
                     for place in fields[5].split(","):
                         found.setdefault(int(place[:2]), []).append(int(place[3:], 16))
         self.regions = {}  # level ("00") or None for the boot program -> [(address, bytes)]
-        serial = json.loads((game_dir.parent / "game.json").read_text())["versions"][game_dir.name]["serial"]
+        serial = json.loads((game_dir.parent / "game.json").read_text())["versions"][key.split("/")[1]]["serial"]
         self.hooked = set()  # (None, address) of each boot-program function the runtime answers itself
         hooks = ROOT / "runtime" / "games" / f"{serial}.hooks"
         if hooks.is_file():
@@ -1077,7 +1082,7 @@ def host_compile(job):
 
 def build(key, out_dir, only):
     """Builds the library for a game version. Returns its path."""
-    game_dir = ROOT / "games" / key
+    game_dir = ROOT / "games" / TREES.get(key, key)
     if key not in SOURCE_DIRS:
         raise SystemExit(f"port.py: no source folders are listed for {key}")
     sources = sorted(path for folder in SOURCE_DIRS[key] for path in (game_dir / folder).rglob("*.c")
@@ -1172,12 +1177,12 @@ def wanted(key, out_dir, files, most):
             for address in addresses:
                 owner[(level, address)] = name
     matched = set()
-    report = ROOT / "games" / key / "progress" / "report.json"
+    report = ROOT / "games" / TREES.get(key, key) / "progress" / "report.json"
     if report.exists():
         for unit in json.loads(report.read_text())["units"]:
             matched.update(f["name"] for f in unit.get("functions", []) if f.get("fuzzy_match_percent") == 100.0)
     by_hand = set()
-    listing = ROOT / "games" / key / HANDWRITTEN.get(key, "none")
+    listing = ROOT / "games" / TREES.get(key, key) / HANDWRITTEN.get(key, "none")
     if listing.is_file():
         by_hand = {line.strip().split("/")[-1] for line in listing.read_text().split("\n") if line.strip() and not line.startswith("#")}
     status = {}

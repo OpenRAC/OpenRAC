@@ -161,9 +161,23 @@ void upload_image(
     std::span<const std::uint8_t> pixels
 );
 
+// A picture put in a frame buffer's memory outside the display list (a movie's frame where the
+// console's decoder leaves it), PSMCT32, RGBA rows top to bottom: the list's draws from that block
+// read it as a texture, not as the frame drawn, until forget_picture. Each call refills one GL
+// texture in place.
+void upload_picture(
+    std::uint32_t base,
+    std::uint32_t width_units,
+    std::uint32_t width,
+    std::uint32_t height,
+    std::span<const std::uint8_t> pixels
+);
+void forget_picture(std::uint32_t base);
+
 // The game reading a PSMCT32 rectangle of its draw buffer back (sceGsExecStoreImage): answered
 // with the last frame drawn, scaled to the chip's pixels. False if the rectangle is not in the
 // draw buffer (nothing written).
+
 bool store_image(std::uint32_t base, std::uint32_t width_units, std::uint8_t psm, int x, int y,
                  int width, int height, std::span<std::uint8_t> out);
 
@@ -172,6 +186,11 @@ bool store_image(std::uint32_t base, std::uint32_t width_units, std::uint8_t psm
 // FadeToBlack), and reads the input. Counts as a frame (shots, OPENRAC_PRESS). False once the window
 // was closed.
 bool show_picture(const std::uint8_t* rgba, int width, int height, float black);
+
+// A movie the game draws with its own list (openrac_game_play_movie_over) is playing: its ticks
+// start from a cleared frame and their 2D fills the window's whole width, as a wide television
+// stretches the game's 16:9 picture (the movies are anamorphic).
+void set_movie_playing(bool on);
 
 // Window frames since the player got control in a scripted run (OPENRAC_PRESS's and OPENRAC_WRITE's
 // c entries), -1 before.
@@ -183,6 +202,9 @@ std::string walk_state();
 // The pad of a port as the game's pad library reads it: buttons active low, then the right and
 // left sticks (x, y each).
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);
+
+// The game's motor commands for a port's pad (openrac_game_set_motors), for the input to play.
+void set_motors(int port, bool small, std::uint8_t large);
 
 // With the player's responsive_controls setting, reads the pads again just before the game's next
 // tick runs (the end of program::vsync, after its wait): the tick reads the sticks and buttons as
@@ -255,16 +277,27 @@ std::string enhanced_graphics_error();
 
 // Shares immutable material inspector data only while the render worker is idle.
 std::shared_ptr<const enhanced::MaterialEditor> material_editor();
-// Applies one validated sparse property edit with exclusive scene ownership.
+// Applies one validated batch of sparse property edits with exclusive scene ownership.
 bool patch_material(
-    std::size_t binding, std::string key, materials::Value value, std::string& error
+    std::span<const std::size_t> bindings, materials::Properties properties, std::string& error
 );
+bool assign_material(
+    std::span<const std::size_t> bindings,
+    const std::string& material,
+    materials::Properties definition,
+    std::string& error
+);
+bool make_material_unique(std::span<const std::size_t> bindings, std::string& error);
+bool clear_material_slots(std::span<const std::size_t> bindings, std::string& error);
 // Applies one shared preset field with the same scene ownership and validation as object edits.
 bool patch_material_preset(
     const std::string& preset, std::string key, materials::Value value, std::string& error
 );
-// Removes one unsaved object field so it inherits the last loaded/saved value.
-bool undo_material(std::size_t binding, const std::string& key, std::string& error);
+bool delete_material_override(const std::string& id, std::string& error);
+// Removes an unsaved field on each selected slot.
+bool undo_material(
+    std::span<const std::size_t> bindings, const std::string& key, std::string& error
+);
 // Removes one unsaved shared preset field while retaining other edits.
 bool undo_material_preset(const std::string& preset, const std::string& key, std::string& error);
 // Saves the local JSON overlay, preserving the old file on failure.

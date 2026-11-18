@@ -83,6 +83,22 @@ struct Planet_Unlock {
     using fn = void (*)(int32_t);
 };
 
+// Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1.
+struct Help_Request {
+    static constexpr const char* id = "rac1.help.request";
+    static constexpr const char* name = "Help_Request";
+    static constexpr const char* signature = "i32(i32,i32)";
+    using fn = int32_t (*)(int32_t, int32_t);
+};
+
+// Puts the hero in the ship for a landing or take-off (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to load. On Orxon its choice of chunks goes by whether the O2 Mask is owned.
+struct Ship_InitTransition {
+    static constexpr const char* id = "rac1.ship.init_transition";
+    static constexpr const char* name = "Ship_InitTransition";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
 // The vendor's stock at each level start (VendorStockLevelInit): gives the Bomb Glove while the player has none, keeps the stock's known items and adds the level's new weapon.
 struct Vendor_InitLevelStock {
     static constexpr const char* id = "rac1.vendor.init_level_stock";
@@ -129,6 +145,38 @@ struct Weapon_TakeAmmo {
     static constexpr const char* name = "Weapon_TakeAmmo";
     static constexpr const char* signature = "i32(i32,i32)";
     using fn = int32_t (*)(int32_t, int32_t);
+};
+
+// Chooses the Blaster's auto-aim target for a shot from from (select_blaster_auto_aim_target; from a Vec4, yaw and pitch f32s, all addresses): the nearest targetable creature (Moby flags 0x1000) within 20 units whose aim point is within about 9 degrees of the heading yaw/pitch and in sight from the camera and from from (ignore: the moby the sight test passes over). Writes the pitch toward it, and the yaw when within 10 degrees, and returns it; 0 for none.
+struct Weapon_Blaster_PickTarget {
+    static constexpr const char* id = "rac1.weapon.blaster.pick_target";
+    static constexpr const char* name = "Weapon_Blaster_PickTarget";
+    static constexpr const char* signature = "u32(i32,u32,u32,u32)";
+    using fn = uint32_t (*)(int32_t, uint32_t, uint32_t, uint32_t);
+};
+
+// Chooses a R.Y.N.O. missile's target (select_ryno_target): the creature with a target record, of class type 5, within max_distance across of pos (a Vec4 address) and max_yaw / max_pitch of the aim angles (aim, f32s at +4 pitch and +8 yaw), the best by angle and distance, in sight; skip is the seven mobys the salvo has already (0: only the ones drawn last frame). Returns the moby, 0 for none.
+struct Weapon_Ryno_PickTarget {
+    static constexpr const char* id = "rac1.weapon.ryno.pick_target";
+    static constexpr const char* name = "Weapon_Ryno_PickTarget";
+    static constexpr const char* signature = "u32(u32,u32,u32,f32,f32,f32)";
+    using fn = uint32_t (*)(uint32_t, uint32_t, uint32_t, float, float, float);
+};
+
+// Chooses the gold Devastator missile's target (select_gold_devastator_missile_target): the creature within 40 units of the missile nearest its heading, in a cone that widens with the weapon's level, in sight, not skip; writes it into the missile's data (data, its pvars).
+struct Weapon_GoldDevastator_PickTarget {
+    static constexpr const char* id = "rac1.weapon.gold_devastator.pick_target";
+    static constexpr const char* name = "Weapon_GoldDevastator_PickTarget";
+    static constexpr const char* signature = "void(u32,u32,u32)";
+    using fn = void (*)(uint32_t, uint32_t, uint32_t);
+};
+
+// Chooses a drone's target (select_nearest_drone_target): the nearest moby of class type 5, 7 or 8 to from (a Vec4 address), within 4, 5.3 or 6 units by type, not one of the nine in skip, not held by the Suck Cannon. Returns the moby, 0 for none.
+struct Weapon_Drone_PickTarget {
+    static constexpr const char* id = "rac1.weapon.drone.pick_target";
+    static constexpr const char* name = "Weapon_Drone_PickTarget";
+    static constexpr const char* signature = "u32(u32,u32)";
+    using fn = uint32_t (*)(uint32_t, uint32_t);
 };
 
 // Records a placed moby's death or a crate's break (SetDeathBits): its save id's killed bits (none for a save id below 0), its mission, then drops its bolts: about the s16 at +0xB4 (or what a tallied source has left of +0xB6), which it then clears.
@@ -399,6 +447,38 @@ struct Save_Serialize {
 struct Save_UpdateState {
     static constexpr const char* id = "rac1.save.update_state";
     static constexpr const char* name = "Save_UpdateState";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn.
+struct msg_string {
+    static constexpr const char* id = "rac1.text.msg_string";
+    static constexpr const char* name = "msg_string";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
+// Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero.
+struct Vendor_OpenMenu {
+    static constexpr const char* id = "rac1.vendor.open_menu";
+    static constexpr const char* name = "Vendor_OpenMenu";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership.
+struct GoldBolts_CountUnspent {
+    static constexpr const char* id = "rac1.gold_bolt.count_unspent";
+    static constexpr const char* name = "GoldBolts_CountUnspent";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
+// Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+struct Vendor_DrawIconStrip {
+    static constexpr const char* id = "rac1.vendor.icon_strip.draw";
+    static constexpr const char* name = "Vendor_DrawIconStrip";
     static constexpr const char* signature = "void()";
     using fn = void (*)();
 };
@@ -5514,7 +5594,11 @@ namespace hooks {
     }  // namespace combat
     namespace gold_bolt {
         using count_collected = rac1::GoldBolts_CountCollected;
+        using count_unspent = rac1::GoldBolts_CountUnspent;
     }  // namespace gold_bolt
+    namespace help {
+        using request = rac1::Help_Request;
+    }  // namespace help
     namespace hud {
         namespace quick_select {
             using draw = rac1::Hud_QuickSelect_Draw;
@@ -7499,15 +7583,35 @@ namespace hooks {
         using update_state = rac1::Save_UpdateState;
     }  // namespace save
     namespace ship {
+        using init_transition = rac1::Ship_InitTransition;
         using travel_to = rac1::Ship_TravelTo;
     }  // namespace ship
+    namespace text {
+        using msg_string = rac1::msg_string;
+    }  // namespace text
     namespace vendor {
         using build_item_list = rac1::Vendor_BuildItemList;
+        namespace icon_strip {
+            using draw = rac1::Vendor_DrawIconStrip;
+        }  // namespace icon_strip
         using init_level_stock = rac1::Vendor_InitLevelStock;
         using initialize_selected = rac1::Vendor_InitializeSelected;
         using menu_update = rac1::Vendor_MenuUpdate;
+        using open_menu = rac1::Vendor_OpenMenu;
     }  // namespace vendor
     namespace weapon {
+        namespace blaster {
+            using pick_target = rac1::Weapon_Blaster_PickTarget;
+        }  // namespace blaster
+        namespace drone {
+            using pick_target = rac1::Weapon_Drone_PickTarget;
+        }  // namespace drone
+        namespace gold_devastator {
+            using pick_target = rac1::Weapon_GoldDevastator_PickTarget;
+        }  // namespace gold_devastator
+        namespace ryno {
+            using pick_target = rac1::Weapon_Ryno_PickTarget;
+        }  // namespace ryno
         using take_ammo = rac1::Weapon_TakeAmmo;
     }  // namespace weapon
 }  // namespace hooks

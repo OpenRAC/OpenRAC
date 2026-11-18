@@ -81,26 +81,27 @@ Lanes<float> emission_weights(const DirectionBlock& block, Float3 direction) {
 }
 
 // Rays remain the outer reduction: the compiler can pack independent texel accumulations.
-template <bool Power32>
-Accumulator accumulate_rays(
-    const DirectionBlock& directions, std::span<const RaySample> rays, float exponent
+template <bool Power32, bool Lighting = true>
+void accumulate_rays(
+    Accumulator& result,
+    const DirectionBlock& directions,
+    std::span<const RaySample> rays,
+    float exponent
 ) {
-    Accumulator result;
-
     for (const auto& ray : rays) {
         const auto weights = ray_weights<Power32>(directions, ray.direction, exponent);
 
         for (std::size_t lane = 0; lane < kIntegrationLanes; ++lane) {
-            result.red[lane] += ray.radiance[0] * weights.cosine[lane];
-            result.green[lane] += ray.radiance[1] * weights.cosine[lane];
-            result.blue[lane] += ray.radiance[2] * weights.cosine[lane];
+            if constexpr (Lighting) {
+                result.red[lane] += ray.radiance[0] * weights.cosine[lane];
+                result.green[lane] += ray.radiance[1] * weights.cosine[lane];
+                result.blue[lane] += ray.radiance[2] * weights.cosine[lane];
+            }
             result.weight[lane] += weights.distance[lane];
             result.first[lane] += weights.distance[lane] * ray.distance;
             result.second[lane] += weights.distance[lane] * ray.distance * ray.distance;
         }
     }
-
-    return result;
 }
 
 // Apply the original diffuse solid-angle factor and cap fallback independently in each lane.
@@ -133,13 +134,24 @@ std::array<IntegratedSample, kIntegrationLanes> integrate_probe_block(
     std::span<const RaySample> rays,
     std::span<const EmissionSample> emission,
     float distance_exponent,
-    float max_distance
+    float max_distance,
+    std::size_t lighting_ray_count
 ) {
+    if (!lighting_ray_count) {
+        lighting_ray_count = rays.size();
+    }
+    const auto lighting = rays.first(lighting_ray_count);
+    const auto visibility_only = rays.subspan(lighting_ray_count);
+    Accumulator sums;
     // Select once per block; the specialised ray loop contains no exponent branch or pow calls.
-    const auto sums = distance_exponent == 32
-                          ? accumulate_rays<true>(directions, rays, distance_exponent)
-                          : accumulate_rays<false>(directions, rays, distance_exponent);
-    auto result = finish_rays(sums, rays.size(), max_distance);
+    if (distance_exponent == 32) {
+        accumulate_rays<true>(sums, directions, lighting, distance_exponent);
+        accumulate_rays<true, false>(sums, directions, visibility_only, distance_exponent);
+    } else {
+        accumulate_rays<false>(sums, directions, lighting, distance_exponent);
+        accumulate_rays<false, false>(sums, directions, visibility_only, distance_exponent);
+    }
+    auto result = finish_rays(sums, lighting_ray_count, max_distance);
 
     for (const auto& light : emission) {
         const auto weights = emission_weights(directions, light.direction);

@@ -1,6 +1,6 @@
 // Words for the codes the Rust side sends.
 import type { IconName } from "$components/Icon.svelte";
-import type { ActionState, DiscState } from "./api";
+import type { ActionState, DiscState, Library } from "./api";
 
 /** What a game list entry (GameList.svelte) says under the game's name, and in which colour;
  *  BUSY shows a spinner. */
@@ -17,6 +17,8 @@ export interface SideEntry {
   state?: EntryState | null;
   /** A picture, shown cropped. */
   art?: string | null;
+  /** A game's disc in place of the picture (the desktop's game list): its print, or its label. */
+  disc?: { game: string; version: string; title: string };
   /** Without a picture: an icon. */
   icon?: IconName;
   /** The game's colours (themeStyle) for the picture's frame. */
@@ -27,10 +29,35 @@ export interface SideEntry {
   group?: string;
 }
 
+/** Names the launcher shows in place of the catalogue's (games/<game>/game.json). */
+const SHOWN_TITLES: Record<string, string> = {
+  "Ratchet & Clank: Secret Agent Clank": "Secret Agent Clank",
+};
+
+/** The library with each game's and version's name as the launcher shows it. */
+export function withShownTitles(library: Library): Library {
+  const shown = (title: string) => SHOWN_TITLES[title] ?? title;
+  return {
+    ...library,
+    games: library.games.map((g) => ({
+      ...g,
+      title: shown(g.title),
+      versions: g.versions.map((v) => ({ ...v, title: shown(v.title) })),
+    })),
+  };
+}
+
 /** A game's name without the series in front, for a narrow list: "Ratchet & Clank: Going Commando"
  *  -> "Going Commando", "Ratchet: Deadlocked" -> "Deadlocked"; the first game keeps its name. */
 export function shortTitle(title: string): string {
   return title.replace(/^Ratchet( & Clank)?: /, "");
+}
+
+/** A game's name in two lines, the series and the game ("Ratchet & Clank:", "Going Commando");
+ *  "Ratchet: Deadlocked" is one name and keeps one line (`game` empty). */
+export function titleLines(title: string): { series: string; game: string } {
+  const at = title.startsWith("Ratchet & Clank: ") ? title.indexOf(": ") : -1;
+  return at < 0 ? { series: title, game: "" } : { series: title.slice(0, at + 1), game: title.slice(at + 2) };
 }
 
 /** `pal` -> "PAL", `ntsc` -> "NTSC-U", `ntsc-j` -> "NTSC-J". */

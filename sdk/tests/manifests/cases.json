@@ -156,6 +156,8 @@
        "plugin": {"linux-x86_64": "lib/linux-x86_64/lock_strafe.so"},
        "description": ""
      }},
+    {"name": "a touch file inside the mod", "valid": true,
+     "manifest": {"format": 2, "id": "kart", "name": "Kart", "version": "1.0.0", "api": "1.0", "games": {"rac1": ["pal", "ntsc"]}, "plugin": {"linux-x86_64": "lib/linux-x86_64/kart.so"}, "touch": "touch/touch.json"}},
     {"name": "not an object", "valid": false,
      "manifest": [{"format": 2, "id": "lock-strafe", "name": "Lock-strafe", "version": "1.0.0", "api": "1.0", "games": {"rac1": ["pal", "ntsc"]}, "plugin": {"linux-x86_64": "lib/linux-x86_64/lock_strafe.so"}}]},
     {"name": "format 1 is a data pack", "valid": false,
@@ -542,6 +544,10 @@
        "plugin": {"linux-x86_64": "lib/linux-x86_64/lock_strafe.so"},
        "requires": [{"id": "b", "version": "~1"}]
      }},
+    {"name": "a touch file out of the mod", "valid": false,
+     "manifest": {"format": 2, "id": "kart", "name": "Kart", "version": "1.0.0", "api": "1.0", "games": {"rac1": ["pal", "ntsc"]}, "plugin": {"linux-x86_64": "lib/linux-x86_64/kart.so"}, "touch": "../touch.json"}},
+    {"name": "a touch file that is not .json", "valid": false,
+     "manifest": {"format": 2, "id": "kart", "name": "Kart", "version": "1.0.0", "api": "1.0", "games": {"rac1": ["pal", "ntsc"]}, "plugin": {"linux-x86_64": "lib/linux-x86_64/kart.so"}, "touch": "touch.txt"}},
     {"name": "format written 2.0", "valid": {"launcher": false, "sdk": true, "port": true}, "why": "Python compares 2.0 == 2; serde reads format as a u32 and refuses a float",
      "manifest": {"format": 2.0, "id": "lock-strafe", "name": "Lock-strafe", "version": "1.0.0", "api": "1.0", "games": {"rac1": ["pal", "ntsc"]}, "plugin": {"linux-x86_64": "lib/linux-x86_64/lock_strafe.so"}}},
     {"name": "a name of spaces", "valid": {"launcher": false, "sdk": false, "port": true}, "why": "the port asks only for a non-empty string; the others trim it first",

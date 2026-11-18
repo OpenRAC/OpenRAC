@@ -9,17 +9,16 @@
 //! bit `id & 7`. Scene ids are numbered by level (the first id of each level's scenes is the table at
 //! 0x1AD030: Smolg 137, Damosel 143, Grelbin 150, Yeedil 155). Each flag names the function that
 //! reads it in `launcher/docs/RAC2_SAVE_FORMAT.md`, "Advanced: progress flags, Smolg to the Museum".
+//!
+//! The Electrolyzer puzzles ([`super::electrolyzer`]) are also the board's moby count (chunk 3005)
+//! and object group (chunk 3004) in the level's section; they are in `RAC2_SAVE_FORMAT.md`,
+//! "Advanced: Electrolyzer puzzles (L-7)".
 
-use super::{Confidence, Flag, Place};
+use super::{count, electrolyzer, scene, Confidence, Flag, Place};
 
 /// A story byte (chunk 5): set is 1, as the game writes it.
 const fn story(offset: usize) -> Place {
     Place::Byte { chunk: 5, level: None, offset, on: 1 }
-}
-
-/// Scene `id`'s seen bit (chunk 43).
-const fn scene(id: usize) -> Place {
-    Place::Bit { chunk: 43, level: None, offset: (id >> 2) * 4 + (id & 31) / 8, bit: (id & 7) as u8 }
 }
 
 pub const FLAGS: &[Flag] = &[
@@ -30,7 +29,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Hypnomatic part found",
         description: "The Smolg part of the three the Hypnomatic maker on Damosel asks for; the inventory and the maker count it.",
         place: story(0x84),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "smolg-coordinates-trader-met",
@@ -38,8 +37,17 @@ pub const FLAGS: &[Flag] = &[
         name: "Damosel coordinates seller met",
         description: "Off, the trader who sells Damosel's coordinates plays his introduction again before he sells them.",
         place: scene(137),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
+    electrolyzer(
+        "smolg-electrolyzer",
+        17,
+        "Electrolyzer puzzle solved",
+        "The board that powers the lift beside it (moby 32). Off, the lift waits and the board can be \
+         played again.",
+        &[count(17, 32)],
+        Confidence::Proven,
+    ),
     // Damosel (18)
     Flag {
         id: "damosel-hypnomatic-part",
@@ -47,7 +55,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Hypnomatic part found",
         description: "The Damosel part of the three; off, its pickup sparkles and can be taken again.",
         place: story(0x86),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "damosel-hypnomatic-maker-met",
@@ -55,7 +63,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Hypnomatic maker met",
         description: "Off, the Hypnomatic maker plays his introduction again before he asks for the parts.",
         place: scene(144),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "damosel-giant-clank-return",
@@ -63,7 +71,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Coming back from Giant Clank",
         description: "On, the next arrival on Damosel starts at Giant Clank's launch pad and plays the return scene; the game clears it then.",
         place: story(0x9F),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     // Grelbin (19)
     Flag {
@@ -72,7 +80,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Hypnomatic part traded",
         description: "The Grelbin part of the three; on, the moonstone trader only buys moonstones for bolts.",
         place: story(0x89),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "grelbin-moonstone-trader-met",
@@ -80,7 +88,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Moonstone trader met",
         description: "Off (with no trade made), the moonstone trader waits for his introduction scene before he trades.",
         place: scene(152),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "grelbin-first-moonstone-trade",
@@ -88,8 +96,18 @@ pub const FLAGS: &[Flag] = &[
         name: "First moonstone trade made",
         description: "The scene of the first trade; on, the trader offers the Hypnomatic part for more moonstones.",
         place: scene(154),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
+    // Yeedil (20)
+    electrolyzer(
+        "yeedil-electrolyzer",
+        20,
+        "Electrolyzer puzzle solved",
+        "The board that powers the lift beside it (moby 26). Off, the lift waits and the board can be \
+         played again.",
+        &[count(20, 26)],
+        Confidence::Proven,
+    ),
     // Damosel Orbit (23)
     Flag {
         id: "damosel-orbit-battle-won",
@@ -97,7 +115,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Giant Clank battle won",
         description: "With Coming back from Giant Clank on, the return to Damosel gives the Mapper if it is not owned yet.",
         place: story(0xA1),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
 ];
 

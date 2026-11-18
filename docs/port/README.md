@@ -18,7 +18,7 @@ it); the studies it produced are in this folder.
 Nothing from the games is ever committed: no code bytes, data, microcode or
 media from a disc ([SOURCING.md](../policy/SOURCING.md)).
 
-The port starts with Ratchet & Clank ([games/rac1](../../games/rac1)), whose
+The port starts with Ratchet & Clank ([games/rac1/decomp](../../games/rac1/decomp)), whose
 decompilation is furthest along. The sequels follow, sharing the renderer
 where their engines agree ([docs/engine](../engine/README.md)). The code is
 in [port/](../../port/README.md).

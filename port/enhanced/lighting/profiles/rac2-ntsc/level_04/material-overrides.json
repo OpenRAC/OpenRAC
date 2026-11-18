@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "mesh-emission-terrain.glb-102",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 102,
+        "texture_path": "textures/terrain_0109.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.081287846,
+            1.75821018,
+            1.79577553
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_2410.glb-0",
+      "match": {
+        "model": "tie_2410.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0129.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.017037997,
+            3.54413915,
+            2.80656314
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_2520.glb-1",
+      "match": {
+        "model": "tie_2520.glb",
+        "material_slot": 1,
+        "texture_path": "textures/tie_0156.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0,
+            4.357265,
+            4.36599731
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    }
+  ]
+}

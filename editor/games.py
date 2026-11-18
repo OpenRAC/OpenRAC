@@ -142,7 +142,7 @@ class Format:
     sky_short_shells: bool = False      # a sky shell's cluster count and flags are s16 (Up Your Arsenal, Deadlocked)
     # What only Ratchet & Clank has so far: its levels lit as the game lights them at load
     # (lighting.py needs the executable's normal table, disc.Version.normal_table), its moby
-    # class names (moby_classes.tsv) and update functions (games/rac1), and the level packer.
+    # class names (moby_classes.tsv) and update functions (games/rac1/decomp), and the level packer.
     lighting: bool = False
     # The terrain and the shrubs lit as the game lights them at level load, the ties left to a
     # reader of their own (Going Commando: its PatchTfragVertexLighting, 0x2F0468, is
@@ -230,8 +230,8 @@ FORMATS = {f.game: f for f in (RAC1, RAC2, RAC3, RAC4)}
 # The discs each game's levels are read from, as games/<game>/game.json lists its versions:
 # Ratchet & Clank's PAL and NTSC-U, the others' NTSC-U. An overrides pack or an asset export names
 # its game and version; a pack's files fit the levels of its own game only.
-# A version only recognised for extraction (no decompilation source and no port: Going Commando's
-# PAL disc) is not one: nothing has mapped its levels yet.
+# A version only recognised for extraction (no decompilation source and no port) is not one:
+# nothing has mapped its levels yet. Going Commando's three discs (ntsc, pal, ntsc2) all are.
 VERSIONS = {
     game: tuple(name for name, version in manifests.load(game)["versions"].items()
                 if version.get("source") or "port" in version)

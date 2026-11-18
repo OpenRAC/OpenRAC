@@ -14,6 +14,9 @@ namespace {
 constexpr std::uint8_t D = kDesktop;
 constexpr std::uint8_t T = kTouch;
 constexpr std::uint8_t A = kEverywhere;
+// Also on the game's own Video pages.
+constexpr std::uint8_t DG = kDesktop | kGamePage;
+constexpr std::uint8_t AG = kEverywhere | kGamePage;
 
 constexpr Kind kSwitch = Kind::Switch;
 constexpr Kind kChoice = Kind::Choice;
@@ -26,41 +29,51 @@ constexpr Entry kEntries[] = {
     // ---- Graphics ----
     {Id::FullScreen, Tab::Graphics, "Display", kSwitch, D, "Full screen",
      "Fills the screen with the game's window, or gives the window back. F11 does the same."},
-    {Id::DisplayMode, Tab::Graphics, "Display", kChoice, D, "Display mode",
+    {Id::DisplayMode, Tab::Graphics, "Display", kChoice, DG, "Display mode",
      "Windowed, or borderless full screen at the display's own resolution."},
     {Id::Monitor, Tab::Graphics, "Display", kChoice, D, "Monitor",
      "The display the game goes full screen on: the window's own, or a display by its number."},
-    {Id::Picture, Tab::Graphics, "Picture", kChoice, A, "Picture",
+    {Id::MenuSize, Tab::Graphics, "Display", kChoice, A, "Menu size",
+     "How large this menu and its text are. Auto sizes it to the screen; the steps make it "
+     "smaller or larger from there."},
+    {Id::Picture, Tab::Graphics, "Picture", kChoice, AG, "Picture",
      "The picture's shape: the console's 4:3, a wide screen, or the whole window."},
-    {Id::GameplayFov, Tab::Graphics, "Picture", Kind::Slider, A, "Field of View",
+    {Id::GameplayFov, Tab::Graphics, "Picture", Kind::Slider, AG, "Field of View",
      "Adjusts how much of the world you see during gameplay. 100% is the original camera view."},
-    {Id::Hud, Tab::Graphics, "Picture", kChoice, A, "HUD",
+    {Id::Hud, Tab::Graphics, "Picture", kChoice, AG, "HUD",
      "Where the HUD sits on a wide picture: in the 4:3 middle, as on a console, or out at the "
      "screen's edges."},
-    {Id::RenderScale, Tab::Graphics, "Picture", kChoice, A, "Render scale",
+    {Id::RenderScale, Tab::Graphics, "Picture", kChoice, AG, "Render scale",
      "How many pixels the 3D world is drawn with, against the window's. Lower it on a slow "
      "device; raise it for a sharper picture."},
-    {Id::Msaa, Tab::Graphics, "Picture", kChoice, A, "Anti-aliasing",
+    {Id::Msaa, Tab::Graphics, "Picture", kChoice, AG, "Anti-aliasing",
      "Smooths the edges of the world's shapes. Each step costs the graphics card more."},
-    {Id::Anisotropy, Tab::Graphics, "Picture", kChoice, A, "Anisotropic filtering",
+    {Id::Anisotropy, Tab::Graphics, "Picture", kChoice, AG, "Anisotropic filtering",
      "Keeps floors and walls sharp when seen at a slant. Cheap on most graphics cards."},
-    {Id::SceneryDetail, Tab::Graphics, "Picture", kChoice, A, "Scenery detail",
-     "Full draws the scenery's most detailed models at every distance; Original swaps them for "
-     "simpler ones far away, as the console did."},
-    {Id::FrameRate, Tab::Graphics, "Frames", kChoice, A, "Frame rate",
+    {Id::DrawDistance, Tab::Graphics, "Picture", kChoice, AG, "Draw distance",
+     "How far away things are still drawn. Original stops where the console did; the larger "
+     "steps draw farther, and Unlimited draws everything in view. What the game hides from a "
+     "place stays hidden."},
+    {Id::ActiveDistance, Tab::Graphics, "Picture", kChoice, A, "Active distance",
+     "What far things do in the picture. The game always runs as on the console. Match animates "
+     "the far things the game has not woken yet, in the picture only; Original shows them "
+     "standing still."},
+    {Id::FrameRate, Tab::Graphics, "Frames", kChoice, AG, "Frame rate",
      "Original keeps the console's rate. The others draw extra frames between the game's ticks: "
      "as fast as the display, up to a cap, or without a limit. The game itself runs at its own "
      "speed either way."},
-    {Id::FrameCap, Tab::Graphics, "Frames", kChoice, A, "Frame cap",
+    // Desktop only: on Android the display's rate is the system's, and Frame rate's list of caps
+    // is enough there.
+    {Id::FrameCap, Tab::Graphics, "Frames", kChoice, D, "Frame cap",
      "The most frames a second, in steps of 5, while Frame rate is capped."},
-    {Id::VSync, Tab::Graphics, "Frames", kChoice, A, "VSync",
+    {Id::VSync, Tab::Graphics, "Frames", kChoice, AG, "VSync",
      "Waits for the display before showing a frame, which stops tearing. Off shows frames as "
      "soon as they are drawn."},
-    {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, A, "Frame counter",
+    {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, AG, "Frame counter",
      "Shows the frames a second in a corner of the picture. F2 changes it too."},
-    {Id::Hdr, Tab::Graphics, "HDR", kChoice, A, "HDR",
-     "High dynamic range output, on a display that has it. Auto follows the system's setting. "
-     "Turned on from Off, it starts with the game's next start."},
+    {Id::Hdr, Tab::Graphics, "HDR", kChoice, AG, "HDR",
+     "High dynamic range output, whenever the screen offers it. Turned on from Off, it starts "
+     "with the game's next start."},
     {Id::HdrPaperWhite, Tab::Graphics, "HDR", kChoice, A, "HDR paper white",
      "How bright the game's white is in HDR. System takes the brightness the system gives "
      "ordinary pictures."},
@@ -68,6 +81,16 @@ constexpr Entry kEntries[] = {
      "The brightest that glows and explosions may go in HDR, also told to the display. Display "
      "takes what the display reports. Where the system sets the brightness (Android, macOS), "
      "it can only go lower."},
+    {Id::HdrHighlights, Tab::Graphics, "HDR", Kind::Slider, A, "HDR highlights",
+     "How much brighter than white glows and explosions get. 0% is as in SDR."},
+    {Id::HdrSdrHue, Tab::Graphics, "HDR", Kind::Slider, A, "SDR hue",
+     "Gives very bright colours their SDR hue. In SDR, fire looks orange; in HDR, redder. 0% "
+     "keeps the HDR hue."},
+    {Id::HdrSdrChroma, Tab::Graphics, "HDR", Kind::Slider, A, "SDR chrominance",
+     "Gives very bright colours their SDR saturation, which fades them towards white. 0% "
+     "keeps the HDR saturation."},
+    {Id::HdrBlowout, Tab::Graphics, "HDR", Kind::Slider, A, "HDR blowout",
+     "Makes very bright light fade to white. 0% is off."},
     {Id::HdrStatus, Tab::Graphics, "HDR", kNote, A, "HDR status",
      "What the display and the system give the game for HDR now."},
     {Id::LowLatency, Tab::Graphics, "Latency", kSwitch, A, "Low-latency frames",
@@ -83,44 +106,50 @@ constexpr Entry kEntries[] = {
     // ---- Enhanced ----
     {Id::EnhancedStatus, Tab::Enhanced, "Enhanced graphics", kNote, A, "Enhanced graphics",
      "Why the enhanced graphics cannot be changed now, and what to do about it."},
-    {Id::EnhancedGraphics, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Enhanced graphics",
+    {Id::EnhancedGraphics, Tab::Enhanced, "Enhanced graphics", kSwitch, AG, "Enable enhanced mode",
      "Bounced light, modern shadows and ambient occlusion over the original lighting. Off shows "
      "the game as the console drew it."},
-    {Id::ModernShadows, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Modern shadows",
-     "Shadows cast by the level's sun on everything, in place of the game's round blobs."},
-    {Id::ShadowQuality, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Shadow quality",
-     "The shadows' sharpness and reach. Higher costs the graphics card more."},
-    {Id::RimLight, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Gameplay rim light",
-     "A thin light along the edges of characters, so they stand out from the scenery."},
-    {Id::RimShadowLift, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Rim shadow lift",
-     "Lets the rim light show in shadow too."},
-    {Id::BounceStrength, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Bounce strength",
-     "How much light bounces off the level onto everything else."},
-    {Id::AmbientOcclusion, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Ambient occlusion",
-     "Darkens corners and creases where light hardly reaches."},
-    {Id::OcclusionQuality, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Occlusion quality",
+    {Id::EnhancedLow, Tab::Enhanced, "Presets", kAction, A, "Low",
+     "Lower shadow resolution, performance upscaling and original textures."},
+    {Id::EnhancedMedium, Tab::Enhanced, "Presets", kAction, A, "Medium",
+     "Medium shadow resolution, quality upscaling and edge-aware textures."},
+    {Id::EnhancedHigh, Tab::Enhanced, "Presets", kAction, A, "High",
+     "High shadow resolution, native resolution and higher-quality ambient occlusion."},
+    {Id::ShadowQuality, Tab::Enhanced, "Advanced", kChoice, A, "Shadow quality",
+     "Off uses original shadows. Higher quality sharpens modern shadows at a higher GPU cost."},
+    {Id::ShadowFilter, Tab::Enhanced, "Advanced", kChoice, A, "Shadow filtering",
+     "Soft blurs shadow edges with a wide filter; Fast costs less and leaves them harder."},
+    {Id::OcclusionQuality, Tab::Enhanced, "Advanced", kChoice, A, "Occlusion quality",
      "Quality traces more directions for smoother occlusion; Performance costs less."},
-    {Id::OcclusionHiZ, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Hierarchical depth (Hi-Z)",
-     "Uses a depth hierarchy for distant ambient-occlusion samples."},
-    {Id::TextureUpscaling, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Texture upscaling",
+    {Id::TextureUpscaling, Tab::Enhanced, "Advanced", kChoice, A, "Texture upscaling",
      "Normal draws the world's textures as they are; Edge-aware enlarges them twice with sharp "
      "edges."},
-    {Id::Upscaling, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Upscaling",
+    {Id::EffectsDetail, Tab::Enhanced, "Advanced", kChoice, A, "Effects detail",
+     "High draws every effect in full. Medium and Low take cheaper shortcuts that change the "
+     "picture a little: coarser water, simpler leaf shadows, and on Low coarser lighting."},
+    {Id::Upscaling, Tab::Enhanced, "Advanced", kChoice, A, "Upscaling",
      "Draws fewer pixels and builds the full picture from several frames. The named upscaler is "
      "the one this device uses."},
-    {Id::Sharpening, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Sharpening",
+    {Id::Sharpening, Tab::Enhanced, "Advanced", kChoice, A, "Sharpening",
      "How much the upscaler sharpens the picture it builds."},
-    {Id::MotionBlur, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Motion blur",
+    {Id::MotionBlur, Tab::Enhanced, "Advanced", kSwitch, A, "Motion blur",
      "Blurs what moves fast across the picture."},
-    {Id::ColorCorrection, Tab::Enhanced, "Enhanced graphics", kSwitch, A, "Color correction",
+    {Id::MotionBlurQuality, Tab::Enhanced, "Advanced", kChoice, A, "Motion blur quality",
+     "Quality finds blur trails at full resolution; Performance costs less with nearly the same "
+     "trails."},
+    {Id::ColorCorrection, Tab::Enhanced, "Advanced", kSwitch, A, "Color correction",
      "A filmic tone curve (AgX) for the enhanced lighting's brighter colours."},
-    {Id::Brightness, Tab::Enhanced, "Enhanced graphics", kChoice, A, "Brightness",
+    {Id::Brightness, Tab::Enhanced, "Advanced", kChoice, A, "Brightness",
      "The picture's brightness under color correction."},
-    {Id::EnhancedReset, Tab::Enhanced, "Enhanced graphics", kAction, A, "Reset to defaults",
+    {Id::EnhancedReset, Tab::Enhanced, "Advanced", kAction, A, "Reset to defaults",
      "Puts every enhanced setting back as it came. Press twice: the first press only asks."},
-    {Id::EnhancedAdvanced, Tab::Enhanced, "Advanced", kSwitch, D, "Advanced tuning window",
-     "A window with every enhanced setting, the materials, the water and the diagnostics, for "
-     "tuning a level by eye."},
+    {Id::OcclusionHiZ, Tab::Enhanced, "Experimental", kSwitch, A, "Hierarchical depth (Hi-Z)",
+     "An experimental method that uses a depth hierarchy to improve GTAO performance."},
+    {Id::EnhancedAdvanced, Tab::Enhanced, "Developer settings", kSwitch, D,
+     "Enhanced Developer Settings",
+     "Open developer controls for enhanced rendering, water and diagnostics."},
+    {Id::EnhancedMaterials, Tab::Enhanced, "Developer settings", kSwitch, D, "Material Studio",
+     "Open the enhanced material editor for the current level."},
 
     // ---- Game ----
     {Id::Volume, Tab::Game, "Sound", kChoice, A, "Volume",
@@ -164,6 +193,15 @@ constexpr Entry kEntries[] = {
      "Controllers work in the background",
      "The controllers still play while another window is in front. Off: the game ignores them "
      "while it is alt-tabbed or minimised."},
+    {Id::RumbleStrength, Tab::Controls, "Vibration", kChoice, A, "Vibration",
+     "How strong the controller vibrates. Off: never."},
+    {Id::RumbleStyle, Tab::Controls, "Vibration", kChoice, A, "Vibration style",
+     "Enhanced: smoother and easier to feel on modern controllers. Classic: the game's raw "
+     "values."},
+    {Id::RumbleTriggers, Tab::Controls, "Vibration", kSwitch, A, "Vibration in the triggers",
+     "Also vibrate the triggers, on controllers that have trigger motors (Xbox One and later)."},
+    {Id::RumblePhone, Tab::Controls, "Vibration", kSwitch, T, "Vibrate the phone",
+     "With touch controls, the phone or tablet vibrates."},
     {Id::ConnectedControllers, Tab::Controls, "Players", kPanel, A, "Controllers connected",
      "Each controller connected, lit while a button is pressed on it, and the player it is."},
     {Id::PlayersReset, Tab::Controls, "Players", kAction, A, "Players back to the defaults",
@@ -176,6 +214,9 @@ constexpr Entry kEntries[] = {
      "The key and the controller button that open and close this menu. Any controller's Select "
      "and Start pressed together do too. The key is kept by its place on the keyboard; Alt "
      "counts pressed by itself, so Alt+Return still goes full screen."},
+    {Id::TouchActionButtons, Tab::Controls, "Touch controls", kSwitch, T, "Action buttons",
+     "Buttons that show what they do (jump, fire, the ship's boost) and change with what the game "
+     "is doing. Off: the DualShock's buttons."},
     {Id::TouchButtonSize, Tab::Controls, "Touch controls", kChoice, T, "Button size",
      "The on-screen buttons' size."},
     {Id::TouchCameraSpeed, Tab::Controls, "Touch controls", kChoice, T, "Camera speed",
@@ -194,6 +235,8 @@ constexpr Entry kEntries[] = {
      "Click a moby in the picture to select it and see its fields."},
     {Id::ObjectViewer, Tab::Developer, "Tools", kSwitch, D, "Object viewer",
      "Look at a picked object on its own: its model, bones, lights and materials."},
+    {Id::MeatProxyReview, Tab::Developer, "Tools", kSwitch, D, "Meat Proxy Review",
+     "Open saved freecam views and record feedback."},
     {Id::LevelSelect, Tab::Developer, "Tools", kAction, A, "Level select",
      "Goes to another level. F1 opens it too."},
     {Id::KeepPaused, Tab::Developer, "Time", kSwitch, A, "Keep paused",
@@ -213,7 +256,7 @@ constexpr Entry kEntries[] = {
      "How long a gameplay recording runs, or until it is stopped."},
     {Id::RecordSweep, Tab::Developer, "Record diagnostics", kAction, A, "Graphics sweep",
      "Stand still while it runs: it changes the graphics settings every few seconds, with "
-     "VSync off, and measures what each one costs. Use it when the game is slow everywhere."},
+     "VSync off, and measures what each one costs. Shown while Enhanced graphics is on."},
     {Id::RecordFolder, Tab::Developer, "Record diagnostics", kAction, D, "Open recordings folder",
      "Opens the folder the recordings and their reports are saved in."},
     {Id::SlowCpu, Tab::Developer, "Performance", kChoice, A, "Simulate slow CPU",
@@ -234,9 +277,7 @@ constexpr Entry kEntries[] = {
     {Id::FreecamExit, Tab::Developer, "Freecam", kAction, A, "Exit freecam",
      "Gives the view back to the game and puts the freecam's settings back as they came."},
     {Id::FreecamHelp, Tab::Developer, "Freecam", kNote, A, "Freecam controls",
-     "W/S follow the view, A/D strafe, E up, Q down, Shift faster, Ctrl slower. Hold Alt or "
-     "right-click to look. Gamepad: left stick moves, right stick looks, R2 up, L2 down, R1 "
-     "faster, L1 slower; L3+R3 turns freecam off (and on, in developer mode)."},
+     "How to move the freecam, with the keyboard or the controller, whichever was used last."},
 
     // ---- Program ----
     {Id::Quit, Tab::Program, "", kAction, A, "Quit game",

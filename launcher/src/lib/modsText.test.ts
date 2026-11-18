@@ -69,6 +69,15 @@ describe("the sentences", () => {
     expect(updatesFound(2, ["a: down"])).toBe("2 updates found. Not checked: a: down");
   });
 
+  it("count what the mod list's look found too", () => {
+    const none = { updated: 0, waiting: 0, held: 0 };
+    expect(updatesFound(0, [], none)).toBe("Every mod is up to date.");
+    expect(updatesFound(0, [], { ...none, waiting: 1 })).toBe("1 update is available below.");
+    expect(updatesFound(1, [], { updated: 2, waiting: 0, held: 1 })).toBe(
+      "Updated 2 mods; their settings are kept. 1 update waits: see below for why. 1 update found.",
+    );
+  });
+
   it("say what an install came to", () => {
     expect(installedFrom.on("Lock-strafe", "OpenRAC/openrac-mods")).toBe(
       "Installed Lock-strafe from OpenRAC/openrac-mods. It is on from the game's next start.",

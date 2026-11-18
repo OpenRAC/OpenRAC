@@ -26,7 +26,9 @@ use serde_json::Value;
 use crate::differences::{read_switch, read_value, settings_file, with_value, write_settings};
 use crate::plugins::{check_value, Choice, PluginView, SettingSpec, SettingView};
 
+mod bake_mods;
 mod bakes;
+pub use bake_mods::assemble_bake_mods;
 pub use bakes::{bake_log, bake_status, delete_bakes, version_bake_status, BakeStatus};
 
 /// The entry's id on the Mods tab (`?mod=enhanced-graphics`).
@@ -43,9 +45,10 @@ pub const NO_BAKER_HERE: &str =
 pub const SHIPS_BAKER: bool = !cfg!(all(target_os = "macos", target_arch = "x86_64"));
 
 /// Whether a version has the entry: the bake planner reads RAC1's levels (PAL and NTSC-U) and
-/// RAC2's (NTSC-U), as the baker's `bake_identity_supported` does.
+/// RAC2's (its three discs), as the baker's `bake_identity_supported` does.
 pub fn supported(game: &str, version: &str) -> bool {
-    (game == "rac1" && matches!(version, "pal" | "ntsc")) || (game == "rac2" && version == "ntsc")
+    (game == "rac1" && matches!(version, "pal" | "ntsc"))
+        || (game == "rac2" && matches!(version, "ntsc" | "pal" | "ntsc2"))
 }
 
 /// Where a version's probe bakes are kept: `<data>/probes/<version>`.
@@ -67,6 +70,8 @@ fn spec(key: &str, name: &str, kind: &str, default: Value, description: &str) ->
         max_length: None,
         binds: None,
         group: String::new(),
+        multiplayer: None,
+        games: Vec::new(),
     }
 }
 
@@ -84,8 +89,20 @@ fn advanced(mut s: SettingSpec) -> SettingSpec {
 /// diagnostic ones (probe spheres, receiver biases, GTAO directions and steps) stay in the game's
 /// own Enhanced menu.
 pub fn settings() -> Vec<SettingSpec> {
+    let mut blur_quality = spec(
+        "motion_blur_quality",
+        "Motion blur quality",
+        "choice",
+        "performance".into(),
+        "Quality finds blur trails at full resolution. Performance costs less with nearly the same trails.",
+    );
+    blur_quality.choices = vec![
+        Choice { value: "performance".into(), name: "Performance".into() },
+        Choice { value: "quality".into(), name: "Quality".into() },
+    ];
     let mut quality = spec("gtao_quality", "Occlusion quality", "choice", "performance".into(), "");
     quality.choices = vec![
+        Choice { value: "low".into(), name: "Low".into() },
         Choice { value: "performance".into(), name: "Performance".into() },
         Choice { value: "quality".into(), name: "Quality".into() },
     ];
@@ -101,6 +118,17 @@ pub fn settings() -> Vec<SettingSpec> {
         Choice { value: "low".into(), name: "Low".into() },
         Choice { value: "medium".into(), name: "Medium".into() },
         Choice { value: "high".into(), name: "High".into() },
+    ];
+    let mut shadow_filter = spec(
+        "shadow_filter",
+        "Shadow filtering",
+        "choice",
+        "soft".into(),
+        "Soft blurs shadow edges with a wide filter. Fast costs less and leaves them harder.",
+    );
+    shadow_filter.choices = vec![
+        Choice { value: "fast".into(), name: "Fast".into() },
+        Choice { value: "soft".into(), name: "Soft".into() },
     ];
     let mut texture_filter = spec(
         "texture_filter",
@@ -127,12 +155,26 @@ pub fn settings() -> Vec<SettingSpec> {
         Choice { value: "balanced".into(), name: "Balanced".into() },
         Choice { value: "performance".into(), name: "Performance".into() },
     ];
+    let mut detail = spec(
+        "effects_detail",
+        "Effects detail",
+        "choice",
+        "high".into(),
+        "High draws every effect in full. Medium and Low take cheaper shortcuts that change the picture a little: coarser water, simpler leaf shadows, and on Low coarser lighting.",
+    );
+    detail.choices = vec![
+        Choice { value: "low".into(), name: "Low".into() },
+        Choice { value: "medium".into(), name: "Medium".into() },
+        Choice { value: "high".into(), name: "High".into() },
+    ];
     vec![
         shadows,
+        shadow_filter,
         spec("gtao", "Ambient occlusion", "bool", true.into(), "Soft shade in corners and under objects."),
         quality,
         texture_filter,
         temporal,
+        detail,
         spec(
             "agx_preview",
             "Color Correction",
@@ -147,6 +189,7 @@ pub fn settings() -> Vec<SettingSpec> {
             0.01,
         ),
         spec("motion_blur", "Motion blur", "bool", true.into(), "Subtle motion blur to enhance animations."),
+        blur_quality,
         advanced(range(spec("temporal_sharpness", "Upscaling sharpening", "float", 0.2.into(), ""), 0.0, 1.0, 0.05)),
     ]
 }
@@ -223,6 +266,7 @@ pub fn view(data_home: &Path, game: &str, version: &str, bake: BakeStatus) -> En
             kind: "built-in".into(),
             path: String::new(),
             missing: Vec::new(),
+            tool: None,
         },
         bake,
     }
@@ -290,9 +334,9 @@ mod tests {
             all.iter().filter(|s| s.group == "advanced").map(|s| s.key.as_str()).collect::<Vec<_>>(),
             vec!["temporal_sharpness"]
         );
-        assert!(all
-            .iter()
-            .all(|s| s.key != "enhanced_shadows" && (s.key == "motion_blur" || !s.key.starts_with("motion_blur_"))));
+        assert!(all.iter().all(|s| s.key != "enhanced_shadows"
+            && (matches!(s.key.as_str(), "motion_blur" | "motion_blur_quality")
+                || !s.key.starts_with("motion_blur_"))));
         for version in ["pal", "ntsc"] {
             let file = settings_file(&home, "rac1", version);
             std::fs::create_dir_all(file.parent().unwrap()).unwrap();
@@ -385,7 +429,8 @@ mod tests {
     #[test]
     fn the_versions_the_baker_reads_have_the_entry() {
         assert!(supported("rac1", "pal") && supported("rac1", "ntsc") && supported("rac2", "ntsc"));
-        assert!(!supported("rac2", "pal") && !supported("rac3", "ntsc") && !supported("rac1", "jp"));
+        assert!(supported("rac2", "pal") && supported("rac2", "ntsc2"));
+        assert!(!supported("rac3", "ntsc") && !supported("rac1", "jp") && !supported("rac1", "pal1"));
         // Going Commando's settings file is its own: switching it on leaves Ratchet & Clank's alone.
         let home = temp("rac2-entry");
         set_enabled(&home, "rac2", "ntsc", true).unwrap();

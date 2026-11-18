@@ -72,7 +72,7 @@ endif()
 class CachePolicy(unittest.TestCase):
     def test_native_compiler_caches_do_not_save_pr_private_snapshots(self):
         """Checks and launcher builds share the success-only compiler cache policy."""
-        for name, count in (("checks.yml", 5), ("launcher.yml", 1)):
+        for name, count in (("checks.yml", 4), ("launcher.yml", 1)):
             text = (ROOT / ".github/workflows" / name).read_text()
             self.assertEqual(count, text.count("uses: ./.github/actions/compiler-cache"), name)
             self.assertNotIn("uses: hendrikmuhs/ccache-action@", text, name)
@@ -206,6 +206,7 @@ class CachePolicy(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which("ccache") and shutil.which("clang"), "ccache and Clang required")
 @unittest.skipIf(os.name == "nt", "The compiler timestamp fixture uses a POSIX executable")
+@unittest.skipIf(os.environ.get("OPENRAC_CCACHE_SHIM"), "CI could not install ccache; a stand-in is on PATH")
 class CompilerRestore(unittest.TestCase):
     def test_compiler_reinstallation_reuses_objects_but_replacement_does_not(self):
         """Content identity hits across mtime changes and misses when compiler bytes change."""

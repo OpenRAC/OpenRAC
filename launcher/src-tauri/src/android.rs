@@ -216,6 +216,38 @@ pub async fn pick_zip<R: Runtime>(app: AppHandle<R>) -> Result<Option<PathBuf>, 
     }
 }
 
+/// A small file the player picks (a mod page's preset): its bytes, None when they backed out.
+/// Refused past `most` bytes, before more than that is read; an empty file is refused too.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub async fn pick_small<R: Runtime>(app: AppHandle<R>, most: u64) -> Result<Option<Vec<u8>>, String> {
+    #[cfg(target_os = "android")]
+    {
+        use std::io::Read;
+        #[derive(Deserialize)]
+        struct Picked {
+            fd: Option<i32>,
+        }
+        let picked: Picked = kotlin(&app, "pickDisc", ()).await?;
+        let Some(fd) = picked.fd else { return Ok(None) };
+        // The descriptor Kotlin detached is this process's to close: File owns it from here.
+        let file = unsafe { <std::fs::File as std::os::fd::FromRawFd>::from_raw_fd(fd) };
+        let mut bytes = Vec::new();
+        file.take(most + 1).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+        if bytes.len() as u64 > most {
+            return Err(format!("the file is larger than {} KB", most >> 10));
+        }
+        if bytes.is_empty() {
+            return Err("the file is empty".into());
+        }
+        Ok(Some(bytes))
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, most);
+        Err(ANDROID_ONLY.into())
+    }
+}
+
 /// The player's GPU driver packages, the one chosen and what the device is (OpenracPlugin.kt).
 #[tauri::command]
 pub async fn gpu_drivers<R: Runtime>(app: AppHandle<R>) -> Result<serde_json::Value, String> {
@@ -263,16 +295,25 @@ pub async fn save_as<R: Runtime>(
     path: &std::path::Path,
     name: &str,
 ) -> Result<Option<String>, String> {
+    save_as_type(app, path, name, "application/zip").await
+}
+
+/// save_as for a file of another type (`mime`): a mod's page saves .json too (mod_tool.rs).
+pub async fn save_as_type<R: Runtime>(
+    app: &AppHandle<R>,
+    path: &std::path::Path,
+    name: &str,
+    mime: &str,
+) -> Result<Option<String>, String> {
     #[cfg(target_os = "android")]
     {
         let saved: serde_json::Value =
-            kotlin(app, "saveFileAs", serde_json::json!({ "path": path, "name": name, "mime": "application/zip" }))
-                .await?;
+            kotlin(app, "saveFileAs", serde_json::json!({ "path": path, "name": name, "mime": mime })).await?;
         Ok(saved["saved"].as_str().map(str::to_string))
     }
     #[cfg(not(target_os = "android"))]
     {
-        let _ = (app, path, name);
+        let _ = (app, path, name, mime);
         Err(ANDROID_ONLY.into())
     }
 }
@@ -422,7 +463,12 @@ pub async fn update_check<R: Runtime>(
             })?;
         let text = std::fs::read_to_string(&manifest).map_err(|e| e.to_string())?;
         let _ = std::fs::remove_file(&manifest);
-        update::release_for(&text, update::ANDROID, &crate::launcher_version(&app), switching)
+        // Going back to Stable takes an older release too (its page: Android installs no older APK
+        // over a newer one). Development takes only a newer build, installed as any update: a
+        // newer version is a later CI run, so a higher version code (docs/RELEASING.md). An older
+        // one is the build made before this release, which Android would refuse.
+        let back_to_stable = switching && source.channel.is_none();
+        update::release_for(&text, update::ANDROID, &crate::launcher_version(&app), back_to_stable)
     }
     #[cfg(not(target_os = "android"))]
     {

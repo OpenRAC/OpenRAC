@@ -24,8 +24,10 @@ OUT (launcher/src-tauri/resources/openrac for an installer) gets:
                              A Linux program goes without its debug info
                              (its symbols stay, for a crash report's backtrace):
                              three quarters of its size, which every installer
-                             would compress and every player download
-  python/                    a Python to run the tools (--python: an unpacked
+                             would compress and every player download.
+                             A Windows program goes with Microsoft's C++
+                             runtime beside it, which a new Windows lacks
+  python/                   a Python to run the tools (--python: an unpacked
                              python-build-standalone "install_only" archive)
 
 --android makes the copy the Android launcher carries in its APK
@@ -42,6 +44,7 @@ side against it (OPENRAC_ROOT=OUT); an installer needs both.
 """
 import argparse
 import json
+import os
 import re
 import shutil
 import sys
@@ -65,8 +68,7 @@ STAMP = f"verified-{levels_format()}.json"
 LEVELS_STAMP = f"levels-{levels_format()}.json"
 
 # What a player's launcher offers for a version, from launcher/actions.json. The rest (the
-# decompilation's builds and checks, building the port, the tools' tests) needs a checkout, except
-# PLAYER_BUILDS.
+# decompilation's builds and checks, building the port, the tools' tests) needs a checkout.
 PLAY = ("port-levels", "port-levels-check", "probe-bake", "play")
 # Mods: the level editor (Godot projects of the disc's levels, packed back into the game's data),
 # models and textures, packs, and playing with them. In a checkout they work in its assets/; the
@@ -75,9 +77,6 @@ MODS = ("editor-extract", "editor-preview", "editor-import", "editor-open", "edi
         "assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "overrides-add", "overrides-stack", "editor-show-packs",
         "editor-hide-packs", "play-edited")
 KEEP = PLAY + MODS
-# The versions whose program still needs code from the player's disc, so no installer can carry it:
-# the player builds it, with tools/build_game.py. Version -> port game.
-PLAYER_BUILDS = {"rac2/ntsc": "rac2-ntsc"}
 # Where a checkout's folders for version <game>/<version> go in the carried copy, longest first:
 # the levels the port draws, the level editor's projects, and the packed levels.
 MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("assets/levels/", "levels"),
@@ -87,10 +86,15 @@ MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("asse
 # the program looks without --levels.
 LEVELS_ROOT = "{data}/port"
 # The programs carried when the build has them; the first is required.
-GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc")
+GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac1-pal1", "openrac-rac1-jp",
+         "openrac-rac2-ntsc", "openrac-rac2-pal", "openrac-rac2-ntsc2")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it, including its interior inference stage.
 TOOLS = ("openrac-enhanced-baker",)
+# What a Windows program built against MSVC's libraries imports and Windows does not always have:
+# without them it does not start ("MSVCP140.dll was not found"). Only the Visual C++ Redistributable
+# or Visual Studio installs them, and a player needs neither when they are beside the program.
+WINDOWS_RUNTIME = ("msvcp140.dll", "msvcp140_2.dll", "vcruntime140.dll", "vcruntime140_1.dll")
 # Authored settings travel with the exporter, rather than depending on a source checkout.
 PROBE_PROFILES = "port/enhanced/lighting/profiles"
 WATER_PROFILES = "port/enhanced/water/profiles"
@@ -121,25 +125,6 @@ def moved(value, key: str):
     return value
 
 
-def player_program_folder() -> str:
-    """Where a player's own build of a game goes. By commit, so a launcher built from another one
-    builds it again: CI raises a dev build's version only after this copy is made."""
-    commit = proc.git(ROOT, "rev-parse", "--short=8", "HEAD", check=False)
-    return f"{{data}}/program/{commit or 'source'}"
-
-
-def player_build(action: dict, game: str) -> dict:
-    """The port-build ACTION as a player's copy runs it (PLAYER_BUILDS)."""
-    folder = player_program_folder()
-    action = {k: v for k, v in action.items() if k not in ("developer", "todo", "docs")}
-    action["description"] = ("Downloads OpenRAC's source and builds the game for this computer from your disc. "
-                             "About 100 MB and some minutes the first time. Needs a compiler: it says which if one is missing.")
-    action["args"] = ["tools/build_game.py", game, "--disc", "{disc}", "--out", folder]
-    action["requires"] = ["disc", "python"]
-    action["artifact"] = f"{folder}/openrac-{game}.exe"
-    return action
-
-
 def point_at(args: list[str], levels: str) -> list[str]:
     """ARGS with --levels naming LEVELS."""
     if "--levels" not in args:
@@ -148,23 +133,25 @@ def point_at(args: list[str], levels: str) -> list[str]:
     return args[:at + 1] + [levels] + args[at + 2:]
 
 
-def player_actions(android: bool = False) -> dict:
-    """launcher/actions.json cut down to what works from a carried copy."""
+def player_actions(android: bool = False, android_games: set[str] | None = None) -> dict:
+    """launcher/actions.json cut down to what works from a carried copy. ANDROID_GAMES: the
+    games an APK carries (rac1-pal, ...); a Play for any other is not Android's there."""
     source = json.loads((ROOT / "launcher/actions.json").read_text())
     out = {key: value for key, value in source.items() if key not in ("repository", "versions")}
     out["repository"] = []
     out["versions"] = {}
     for key, actions in source["versions"].items():
         levels = levels_folder(key)
-        game = None if android else PLAYER_BUILDS.get(key)
         kept = []
         for action in actions:
-            if game and action["id"] == "port-build":
-                kept.append(player_build(action, game))
-                continue
             if action["id"] not in KEEP:
                 continue
             action = dict(action)
+            if (android_games is not None and action["id"] == "play"
+                    and key.replace("/", "-") not in android_games and "android" in action.get("platforms", [])):
+                # Its library is not in the APK (tools/build_android.py GAME ...): Play would start
+                # nothing.
+                action["platforms"] = [p for p in action["platforms"] if p != "android"]
             if action.get("state") != "planned":
                 args = action.get("args", [])
                 if action["id"] == "port-levels" and not key.startswith("rac1/"):
@@ -216,8 +203,6 @@ def player_actions(android: bool = False) -> dict:
                     # screenshot) has a place there, and the copy has no folder for each version.
                     action["cwd"] = "{data}"
                 action.pop("todo", None)
-            if game and action.get("artifact", "").endswith(f"openrac-{game}.exe"):
-                action["artifact"] = f"{player_program_folder()}/openrac-{game}.exe"
             kept.append(action)
         out["versions"][key] = kept
     return out
@@ -246,19 +231,20 @@ def strip_debug(path: Path) -> bool:
     return True
 
 
-def copy_games(build: Path, dest: Path) -> list[str]:
+def copy_games(build: Path, dest: Path, extra: tuple[str, ...] = ()) -> list[str]:
     """The game programs in BUILD, copied to DEST; their names. On macOS a game is an application
     bundle named by its title in apps/openrac-<id>/ (port/cmake/MacApp.cmake), carried whole; the
     build folder's link to its program is not."""
     carried = []
-    for game in GAMES + TOOLS:
+    for game in GAMES + extra + TOOLS:
         apps = build / "apps" / game
         if any(apps.glob("*.app")):
             shutil.copytree(apps, dest / "apps" / game, symlinks=True, dirs_exist_ok=True)
             carried.append(f"apps/{game}")
             continue
-        for path in sorted(build.glob(f"{game}*")):
-            if path.is_file() and path.suffix in ("", ".exe"):
+        # The program itself, not another one its name begins (openrac-rac2-ntsc2 for rac2-ntsc).
+        for path in (build / game, build / f"{game}.exe"):
+            if path.is_file():
                 shutil.copy2(path, dest / path.name)
                 strip_debug(dest / path.name)
                 carried.append(path.name)
@@ -269,12 +255,23 @@ def copy_games(build: Path, dest: Path) -> list[str]:
     return carried
 
 
+def copy_windows_runtime(system: Path, dest: Path) -> list[str]:
+    """WINDOWS_RUNTIME from SYSTEM (the building computer's System32) to DEST; their names."""
+    for name in WINDOWS_RUNTIME:
+        if not (system / name).is_file():
+            sys.exit(f"{system} has no {name}: the Windows games cannot start without it on a new Windows")
+        shutil.copy2(system / name, dest / name)
+    return list(WINDOWS_RUNTIME)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("out", type=Path)
     parser.add_argument("--game-build", type=Path, help="the build folder holding the game (port/build/release)")
     parser.add_argument("--python", type=Path, help="an unpacked standalone Python (its python/ folder)")
     parser.add_argument("--android", action="store_true", help="the Android launcher's copy (tools/build_android.py)")
+    parser.add_argument("--android-games", metavar="ID,...",
+                        help="with --android: the games the APK carries (rac1-pal,rac1-ntsc); Play is Android's for those only")
     args = parser.parse_args()
     if args.android and args.game_build:
         sys.exit("--android carries no game build: the games are the APK's libraries")
@@ -289,7 +286,7 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
 
     # The tools, without their tests; the catalogue; the progress the library shows.
-    for name in ("openrac.py", "extractor.py") + (() if args.android else ("build_game.py",)):
+    for name in ("openrac.py", "extractor.py"):
         (out / "tools").mkdir(exist_ok=True)
         shutil.copy2(ROOT / "tools" / name, out / "tools" / name)
     # The helpers they import, found from the copy's own tools/ (they find the copy's root by
@@ -301,7 +298,8 @@ def main() -> int:
     proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",
               out / "editor/pvar_layouts.json"])
     files.copy_tree(ROOT / PROBE_PROFILES, out / PROBE_PROFILES,
-                    lambda rel: rel.suffix == ".json")
+                    lambda rel: rel.suffix == ".json"
+                    or (rel.suffix == ".png" and rel.parent.name == "emission-masks"))
     files.copy_tree(ROOT / WATER_PROFILES, out / WATER_PROFILES,
                     lambda rel: rel.name in {"water-boundaries.json", "ocean-profile.json"})
     for manifest in sorted((ROOT / "games").glob("*/game.json")):
@@ -311,7 +309,9 @@ def main() -> int:
     (out / "progress").mkdir(exist_ok=True)
     shutil.copy2(ROOT / "progress/summary.json", out / "progress/summary.json")
     (out / "launcher").mkdir(exist_ok=True)
-    (out / "launcher/actions.json").write_text(json.dumps(player_actions(args.android), indent=2) + "\n")
+    android_games = set(args.android_games.split(",")) if args.android and args.android_games else None
+    (out / "launcher/actions.json").write_text(
+        json.dumps(player_actions(args.android, android_games), indent=2) + "\n")
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         if (ROOT / name).is_file():
             shutil.copy2(ROOT / name, out / name)
@@ -327,6 +327,8 @@ def main() -> int:
             for path in sorted(args.game_build.glob(pattern)):
                 shutil.copy2(path, dest / path.name, follow_symlinks=True)
                 carried.append(path.name)
+        if any(name.endswith(".exe") for name in carried):
+            carried += copy_windows_runtime(Path(os.environ["SystemRoot"]) / "System32", dest)
         # Carry notices for dependencies built into either the game or its optional baking tools.
         if (args.game_build / "licenses").is_dir():
             shutil.copytree(args.game_build / "licenses", dest / "licenses", dirs_exist_ok=True)

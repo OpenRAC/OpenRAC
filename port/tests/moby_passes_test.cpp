@@ -5,6 +5,7 @@
 // GS's TEST 0x5360b does, so a near glow face hides the far ones (the parked ship's thrusters).
 
 #include <cstddef>
+#include <utility>
 
 #include "renderer/world/gs_pass.h"
 #include "scene/moby_passes.h"
@@ -58,10 +59,23 @@ void test_the_reference_is_the_moby_test() {
     CHECK(fading.aref == 0x08);
 }
 
+void test_opaque_fragments_precede_blended_fragments() {
+    CHECK(kMobyOpaqueSplitSteps[0].pass == kMobySolid);
+    for (const auto [opaque, blended] : {std::pair{1, 3}, std::pair{2, 4}}) {
+        const auto& early = kMobyOpaqueSplitSteps[opaque];
+        const auto& late = kMobyOpaqueSplitSteps[blended];
+        CHECK(early.pass == late.pass);
+        CHECK(early.depth_write && late.depth_write);
+        CHECK(early.glow_split == late.glow_split);
+        CHECK(early.opacity_split == 1 && late.opacity_split == -1);
+    }
+}
+
 }  // namespace
 
 int main() {
     test_glow_writes_depth_before_the_blended_passes();
     test_the_reference_is_the_moby_test();
+    test_opaque_fragments_precede_blended_fragments();
     return openrac::test::result();
 }

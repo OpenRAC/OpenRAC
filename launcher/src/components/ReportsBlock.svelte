@@ -193,7 +193,7 @@
           <div class="row tools">
             {#if !onAndroid}
               <!-- Android opens no app's own folders: Save puts a report where the player chooses. -->
-              <button class="ghost small" onclick={() => void guard(api.openReportsFolder(game, false))}>
+              <button class="small" onclick={() => void guard(api.openReportsFolder(game, false))}>
                 <Icon name="folder" size={14} />Open folder
               </button>
             {/if}
@@ -348,7 +348,6 @@
     padding: 3px 10px;
     border-radius: 999px;
     color: var(--err);
-    border: 1px solid color-mix(in srgb, var(--err) 45%, transparent);
     background: color-mix(in srgb, var(--err) 10%, transparent);
   }
 
@@ -428,15 +427,19 @@
   .empty {
     color: var(--soft);
     padding: 14px 16px;
-    border: 1px dashed var(--line-strong);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: 12px;
   }
 
   .link {
     display: inline;
     padding: 0;
+    min-height: 0;
     border: 0;
     background: none;
+    box-shadow: none;
     color: var(--amber);
     font: inherit;
     text-decoration: underline;
@@ -499,16 +502,9 @@
     color: var(--err);
   }
 
-  @media (hover: hover) {
-    :global(html:where(:not([data-input="pad"]))) button.danger:hover:not(:disabled) {
-      border-color: color-mix(in srgb, var(--err) 45%, transparent);
-    }
-  }
-
   button.danger-solid {
     color: var(--ink-deep);
     background: var(--err);
-    border-color: transparent;
     font-weight: 600;
   }
 
@@ -527,7 +523,6 @@
     padding: 10px 14px;
     border-radius: 12px;
     background: color-mix(in srgb, var(--err) 8%, var(--panel-hi));
-    border: 1px solid color-mix(in srgb, var(--err) 40%, transparent);
   }
 
   li > .ask {

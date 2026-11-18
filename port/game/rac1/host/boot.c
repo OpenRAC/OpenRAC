@@ -3,6 +3,7 @@
  *
  * Ratchet & Clank: around the game's own start-up code (libraries.tsv, port = wrap). */
 #include <stdlib.h>
+#include <string.h>
 
 #include "openrac/host_env.h"
 #include "rac1.h"
@@ -15,6 +16,7 @@ static int loaded_level = OPENRAC_OVERLAY_EXE;
 
 /* The programs ParseBin loaded since the start (play.c: a figure lives in one). */
 static uint32_t program_loads;
+static uint32_t moby_generation;
 
 /* Frames left in which the flight between planets counts as playing: set by its update. */
 static int flight_frames;
@@ -36,11 +38,69 @@ static int in_level(void) {
     return loaded_level >= 0 && loaded_level < LEVELS;
 }
 
+static int give_inventory(const char* what) {
+    const int weapons = strcmp(what, "weapons") == 0 || strcmp(what, "all") == 0;
+    const int gadgets = strcmp(what, "gadgets") == 0 || strcmp(what, "all") == 0;
+    if ((!weapons && !gadgets) || !in_level() || GREF(int, LEVEL_MODE) != 0) {
+        return -1;
+    }
+
+    typedef void (*GiveItem)(int, int);
+    const GiveItem give = GFN(GiveItem, OPENRAC_LCODE(0, RAC1_LADDR(00, 0x002618D8u)));
+    if (give == NULL) {
+        return -1;
+    }
+    // Item IDs are shared by the RAC1 discs. Wrench and Clank are starting equipment.
+    static const uint8_t weapon_ids[] =
+        {0x09, 0x0a, 0x0b, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x17, 0x18, 0x19};
+    static const uint8_t gadget_ids[] =
+        {0x02,
+         0x03,
+         0x04,
+         0x05,
+         0x06,
+         0x07,
+         0x0c,
+         0x16,
+         0x1a,
+         0x1b,
+         0x1c,
+         0x1d,
+         0x1e,
+         0x1f,
+         0x20,
+         0x21,
+         0x22,
+         0x23};
+    int changed = 0;
+    for (unsigned group = 0; group < 2; ++group) {
+        if (!(group == 0 ? weapons : gadgets)) {
+            continue;
+        }
+        const uint8_t* ids = group == 0 ? weapon_ids : gadget_ids;
+        const unsigned count = group == 0 ? sizeof(weapon_ids) : sizeof(gadget_ids);
+        for (unsigned i = 0; i < count; ++i) {
+            const unsigned id = ids[i];
+            if (!GREF(uint8_t, RAC1_ADDR(0x0013D5C8u) + id)) {
+                give(id, 0);
+                ++changed;
+            }
+        }
+    }
+    return changed;
+}
+
+static const openrac_game_tools rac1_tools = {.give = give_inventory};
+
 /* Whether a level's landing or take-off plays: the level in game mode 6, the ship in one of those
  * two states. */
 static int ship_scene(void) {
     const int state = GREF(int, SHIP_STATE);
     return in_level() && GREF(int, LEVEL_MODE) == 6 && (state == SHIP_TAKE_OFF || state == SHIP_LANDING);
+}
+
+int rac1_landing(int level) {
+    return level == loaded_level && ship_scene() && GREF(int, SHIP_STATE) == SHIP_LANDING;
 }
 
 /* ParseBin: copies the next level's program over the executable's main
@@ -64,6 +124,7 @@ RAC1_TYPE_func_0012DA38_result func_0012DA38(void) {
     const RAC1_TYPE_func_0012DA38_result entry = func_0012DA38__game();
     loaded_level = GREF(int, CURRENT_LEVEL);
     ++program_loads;
+    ++moby_generation;
     /* No level: Quit Game, whose level's loader read the boot program back from the disc
      * (func_00204BE8). That copy is another build of the executable's program: the same
      * sections at the same addresses, the data the same but for its code pointers, and code
@@ -80,6 +141,14 @@ RAC1_TYPE_func_0012DA38_result func_0012DA38(void) {
 
 uint32_t rac1_program_loads(void) {
     return program_loads;
+}
+
+uint32_t rac1_moby_generation(void) {
+    return moby_generation;
+}
+
+void rac1_mobys_rebuilt(void) {
+    ++moby_generation;
 }
 
 /* hostgen.json: "overlay_hook": true. */
@@ -108,12 +177,26 @@ void func_001F4630(int arg0) {
     func_001F4630__game(arg0);
 }
 
+/* The startup loop only displays a notice when this check returns nonzero.
+ * Bypass that loop without changing the memory card service used by saves. */
+int func_00209BB8(void) {
+    if (openrac_env_string("OPENRAC_DIRECT") != NULL) {
+        return 0;
+    }
+    return func_00209BB8__game();
+}
+
 /* NewGameInit: a new game's state is a fresh save restored from the disc, with the level set to 0
  * (Veldin); the level's files are read right after. With --level N the new game starts in level N
  * instead, the way the behaviour checker reaches a level with its level write. The mods' hook point
  * (rac1.save.new_game) sits under this, as func_00209DC0__hooked. */
 void func_00209DC0(void) {
     func_00209DC0__hooked();
+    /* A new game (also the one that keeps the progress): the mods' data starts empty (interface
+     * 1.16), before the save the game writes right after it into the slot the player chose. */
+    if (openrac_game_new_game != NULL) {
+        openrac_game_new_game();
+    }
     if (openrac_game_start_level >= 0 && openrac_game_start_level < LEVELS) {
         GREF(int, CURRENT_LEVEL) = openrac_game_start_level;
     }
@@ -238,9 +321,30 @@ static int hero(float position[3], float rotation[3], int32_t *state) {
     return 1;
 }
 
+/*
+ * ShipTravelTo's first frame (state 3, timer 0) makes the two escort ships with CreateMoby when the
+ * flight has a path, and moves and updates them at once with no null check. With a full pool (a
+ * mod's extra enemies) one comes back 0 and the update reads a garbage moby. A documented
+ * divergence: without room for both, this flight drops its path, as a flight without one does.
+ */
+#define SHIP_TIMER (RAC1_ADDR(0x0013E130u) + 0x24u)
+#define SHIP_PATH (RAC1_ADDR(0x0013E130u) + 0x30u)
+#define SHIP_TRAVEL 3
+#define SHIP_ESCORTS 2
+
+static void escorts_need_room(void) {
+    if (GREF(int, SHIP_STATE) != SHIP_TRAVEL || GREF(short, SHIP_TIMER) != 0
+        || GREF(int, SHIP_PATH) < 0 || rac1_moby_pool_room(SHIP_ESCORTS)) {
+        return;
+    }
+    GREF(int, SHIP_PATH) = -1;
+    openrac_game_warn("ship escorts skipped: moby pool full (the flight plays without its path)");
+}
+
 /* The flight's update (func_00230A90), once a frame of the transition's flight loop (space.c). */
 void func_00230A90(void) {
     flight_frames = 2;
+    escorts_need_room();
     /* Hide missing scene actors so the update does not use a null moby (scene_actors.c). */
     rac1_scene_actors_pack();
     func_00230A90__game();
@@ -281,6 +385,8 @@ __attribute__((constructor)) static void install_direct_start(void) {
     openrac_game_mode = game_mode;
     openrac_game_hero_position = hero_position;
     openrac_game_hero = hero;
+    openrac_game_touch = rac1_touch;
     openrac_game_front_end = &rac1_front_end;
     openrac_game_play_host = &rac1_play;
+    openrac_game_tools_host = &rac1_tools;
 }

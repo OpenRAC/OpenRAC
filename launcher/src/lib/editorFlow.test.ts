@@ -92,7 +92,7 @@ describe("editorStage", () => {
     expect(s.kind).toBe("updating");
   });
 
-  it("early access has no pack or play step", () => {
+  it("a game whose levels are not packed back has no pack or play step", () => {
     expect(editorStage(input({ early: true, state: state({ unpacked: [0] }) })).kind).toBe("ready");
     expect(editorStage(input({ early: true, state: state({ packedAt: 1, packedLevels: 1 }) })).primary).toBe("open");
   });
@@ -131,7 +131,7 @@ describe("Your levels", () => {
     expect(levelTools(state(), false, true)).toEqual(["pack-again", "export-again"]);
     expect(levelTools(state({ levels: [] }), false, true)).toEqual([]);
     expect(levelTools(null, false, true)).toEqual([]);
-    // Early access packs nothing; without the disc nothing can be read again.
+    // A game whose levels are not packed back packs nothing; without the disc nothing can be read again.
     expect(levelTools(state(), true, true)).toEqual(["export-again"]);
     expect(levelTools(state(), false, false)).toEqual(["pack-again"]);
   });

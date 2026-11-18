@@ -586,6 +586,52 @@ void prune_probes(
     origins.resize(write);
     report.owners.resize(write);
 }
+
+// Automatic captures can leave gaps, but must never leak into an incompatible space.
+void keep_safe_captures(
+    const std::vector<EnvironmentFloor>& floors,
+    std::vector<EnvironmentProbe>& probes,
+    std::vector<unsigned>& origins,
+    EnvironmentPlacementReport& report
+) {
+    std::vector<bool> keep(probes.size(), true);
+    for (unsigned i = 0; i < probes.size(); ++i) {
+        for (const auto& floor : floors) {
+            if (environment_spaces_compatible(floors[origins[i]], floor)) {
+                continue;
+            }
+            for (unsigned h = 0; h < kEnvironmentReceiverHeights.size(); ++h) {
+                if (environment_probe_coverage(probes[i], environment_receiver_position(floor, h))
+                    >= kEnvironmentUsefulCoverage) {
+                    keep[i] = false;
+                    break;
+                }
+            }
+            if (!keep[i]) {
+                break;
+            }
+        }
+    }
+    for (const auto& [a, b] : report.spacing_conflicts) {
+        if (keep[a]) {
+            keep[b] = false;
+        }
+    }
+    report.spacing_conflicts.clear();
+
+    unsigned write = 0;
+    for (unsigned i = 0; i < probes.size(); ++i) {
+        if (keep[i]) {
+            probes[write] = probes[i];
+            origins[write] = origins[i];
+            report.owners[write++] = report.owners[i];
+        }
+    }
+    report.pruned_probes += static_cast<unsigned>(probes.size()) - write;
+    probes.resize(write);
+    origins.resize(write);
+    report.owners.resize(write);
+}
 }  // namespace
 
 std::vector<EnvironmentProbe> place_environment_probes(
@@ -601,6 +647,9 @@ std::vector<EnvironmentProbe> place_environment_probes(
     report = {};
 
     if (floors.empty()) {
+        if (!options.require_full_coverage) {
+            return {};
+        }
         throw std::runtime_error(
             "environment placement requires gameplay-anchored floor inference"
         );
@@ -701,6 +750,11 @@ std::vector<EnvironmentProbe> place_environment_probes(
         }
     }
 
+    if (!options.require_full_coverage) {
+        keep_safe_captures(playable, result, origins, report);
+        report.receivers.clear();
+    }
+
     for (unsigned i = 0; i < result.size(); ++i) {
         report.capture_positions.push_back(result[i].position);
 
@@ -719,6 +773,7 @@ std::vector<EnvironmentProbe> place_environment_probes(
         for (unsigned h = 0; h < kEnvironmentReceiverHeights.size(); ++h) {
             const auto p = environment_receiver_position(floor, h);
             float coverage = 0;
+            EnvironmentCoverageReceiver receiver{p, h, {}};
 
             for (unsigned i = 0; i < result.size(); ++i) {
                 const float weight = environment_probe_coverage(result[i], p);
@@ -733,7 +788,13 @@ std::vector<EnvironmentProbe> place_environment_probes(
                                result[i], playable[origins[i]], floor, p
                            )) {
                     coverage = std::max(coverage, weight);
+                    if (!options.require_full_coverage) {
+                        receiver.probes.push_back(i);
+                    }
                 }
+            }
+            if (!options.require_full_coverage) {
+                report.receivers.push_back(std::move(receiver));
             }
 
             report.minimum_coverage = std::min(report.minimum_coverage, coverage);
@@ -745,8 +806,8 @@ std::vector<EnvironmentProbe> place_environment_probes(
         }
     }
 
-    if (result.empty() || !report.uncovered.empty() || report.ownership_conflicts != 0
-        || !report.spacing_conflicts.empty()) {
+    if (report.ownership_conflicts != 0 || !report.spacing_conflicts.empty()
+        || (options.require_full_coverage && (result.empty() || !report.uncovered.empty()))) {
         throw std::runtime_error(
             "environment placement incomplete: " + std::to_string(report.uncovered.size())
             + " uncovered samples, " + std::to_string(report.ownership_conflicts)

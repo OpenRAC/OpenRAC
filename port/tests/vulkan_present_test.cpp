@@ -24,10 +24,10 @@
 #include <vector>
 #include <volk.h>
 
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -292,9 +292,8 @@ int main(int argc, char** argv) {
         return openrac::test::kSkip;
     }
 
-    // The paths under test, whatever OPENRAC_RENDER_OPT_OFF says: the copy waits only when both
-    // are on (it needs attachment-discard's deferred passes).
-    render_opt::set(render_opt::Opt::AttachmentDiscard, true);
+    // Exercise the single-copy path, whatever OPENRAC_RENDER_OPT_OFF says.
+    // Attachment discard always uses deferred passes when available.
     render_opt::set(render_opt::Opt::PresentSingleCopy, true);
     const Picture picture = make_picture();
     if (swapchain) {

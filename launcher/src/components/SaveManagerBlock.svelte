@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { supports } from "$lib/capabilities";
   // A game's saves: the memory card's used slots as rows (planet, bolts, when it was saved), the
   // empty ones in one line, and the backups folded under a line of their own, each called by its
   // note. File names, sizes and the card's folder name are a contributor's details: a chip and
@@ -13,13 +14,17 @@
   import { fold } from "$lib/motion";
   import { tick } from "svelte";
   import { slide } from "svelte/transition";
+  import { hasRead, keepRead, lastRead } from "$lib/lastRead";
+  import { holdSlide } from "$lib/motion";
 
   let { version }: { version: VersionView } = $props();
 
   const developer = $derived(app.config?.developer ?? false);
 
   let loading = $state(true);
-  let status = $state<GameSaveStatus | null>(null);
+  // The card as the page last read it (lastRead.ts), shown at once as the tab opens, then read again.
+  const savesKey = () => `saves:${version.serial}`;
+  let status = $state<GameSaveStatus | null>(lastRead<GameSaveStatus | null>(savesKey(), null));
   let backupNote = $state("");
   let creatingBackup = $state(false);
   let restoringBackupName = $state<string | null>(null);
@@ -47,6 +52,7 @@
     loading = true;
     try {
       status = await api.inspectSaves(version.serial);
+      keepRead(savesKey(), $state.snapshot(status));
     } catch (e) {
       toast(`Failed to inspect saves: ${String(e)}`, "error");
     } finally {
@@ -118,13 +124,17 @@
 
   $effect(() => {
     // Again whenever the card changed elsewhere (app.savesChanged: an import, the game ending).
-    if (app.savesChanged >= 0) void loadStatus();
+    // With nothing kept, the tab's slide waits a moment for the card, so the saves come in with the page.
+    if (app.savesChanged >= 0) {
+      const read = loadStatus();
+      if (!hasRead(savesKey())) holdSlide(read);
+    }
   });
 </script>
 
 {#if editing !== null}
   <!-- The save editor loads the first time a slot is edited. -->
-  {#await version.serial === "SCUS_972.68" ? import("$components/SaveEditorRac2.svelte") : import("$components/SaveEditor.svelte") then { default: SaveEditor }}
+  {#await version.game === "rac2" ? import("$components/SaveEditorRac2.svelte") : import("$components/SaveEditor.svelte") then { default: SaveEditor }}
     <SaveEditor
       serial={version.serial}
       slot={editing}
@@ -160,17 +170,23 @@
     {/if}
     <div class="actions">
       {#if developer && status?.exists}
-        <button class="ghost small" onclick={loadStatus} disabled={loading} title="Read the memory card again">
+        <button class="small" onclick={loadStatus} disabled={loading} title="Read the memory card again">
           {#if loading}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}Refresh
         </button>
       {/if}
       {#if used.length}
-        <button class="ghost small" onclick={() => (transfer = { mode: "export", source: null })}
-          ><Icon name="upload" size={14} />Export</button
+        <button
+          class="small"
+          disabled={!supports(app.info, "saveTransfer")}
+          onclick={() => (transfer = { mode: "export", source: null })}><Icon name="upload" size={14} />Export</button
         >
       {/if}
-      <button class="ghost small" onclick={() => void startImport()}><Icon name="download" size={14} />Import</button>
-      <button class="ghost small" onclick={openFolder}><Icon name="folder" size={14} />Open folder</button>
+      <button class="small" disabled={!supports(app.info, "saveTransfer")} onclick={() => void startImport()}
+        ><Icon name="download" size={14} />Import</button
+      >
+      <button class="small" disabled={!supports(app.info, "openFolders")} onclick={openFolder}
+        ><Icon name="folder" size={14} />Open folder</button
+      >
     </div>
   </div>
 
@@ -199,8 +215,10 @@
               <span></span>
             {/if}
             {#if slot.editable}
-              <button class="small edit" onclick={() => (editing = slot.slotIndex)}
-                ><Icon name="edit" size={14} />Edit</button
+              <button
+                class="small edit"
+                disabled={!supports(app.info, "saveEditing")}
+                onclick={() => (editing = slot.slotIndex)}><Icon name="edit" size={14} />Edit</button
               >
             {:else}
               <span></span>
@@ -211,6 +229,24 @@
       {#if empty}<p class="empty">{empty}</p>{/if}
     {:else}
       <p class="muted">No saves on this card yet: they show here once you have saved in the game.</p>
+    {/if}
+
+    {#if status.coopSaves.length}
+      <!-- A party's saves: never the player's own slots. They are hosted from the game's Multiplayer page. -->
+      <h4 class="coop-title">Co-op saves</h4>
+      <p class="muted">From your parties. Your own saves above are left as they are.</p>
+      <ul class="slots">
+        {#each status.coopSaves as slot (slot.slotIndex)}
+          <li>
+            <span class="slot">Co-op {slot.slotIndex + 1}</span>
+            <span class="planet">{slot.planetName ?? "Unknown planet"}</span>
+            <span class="bolts"><Icon name="bolt" size={14} />{grouped(slot.bolts ?? 0)}</span>
+            <span class="when">{saved(slot.timestamp)}</span>
+            <span class="modded" title="Whose party this was">{slot.host ?? ""}</span>
+            <span></span>
+          </li>
+        {/each}
+      </ul>
     {/if}
 
     <div class="backups">
@@ -264,7 +300,7 @@
                   {/if}
                   <button
                     class="ghost small restore"
-                    disabled={restoringBackupName === backup.name}
+                    disabled={restoringBackupName === backup.name || !supports(app.info, "saveEditing")}
                     onclick={() => void restoreBackup(backup)}
                   >
                     {#if restoringBackupName === backup.name}<span class="spinner"></span>{/if}Restore
@@ -322,19 +358,22 @@
     gap: 6px;
   }
 
-  /* A narrow panel: a slot's planet and Edit on the first line, its bolts, time and mods under. */
-  @container (max-width: 520px) {
-    .slots li {
-      grid-template-columns: 48px minmax(0, 1fr) auto;
+  /* A narrow panel: two lines a slot, the planet over its bolts, time and mods; Edit beside both. */
+  @container (max-width: 560px) {
+    /* .saves: over the wide row's columns, which come later in the file. */
+    .saves .slots li {
+      grid-template-columns: 52px auto minmax(0, 1fr) auto auto;
       grid-template-areas:
-        "slot planet edit"
-        ". bolts bolts"
-        ". when mods";
-      row-gap: 4px;
+        "slot planet planet planet edit"
+        "slot bolts when mods edit";
+      gap: 2px 12px;
+      padding: 10px 2px;
     }
 
     .slots li > :nth-child(1) {
       grid-area: slot;
+      align-self: start;
+      padding-top: 2px;
     }
 
     .slots li > :nth-child(2) {
@@ -356,6 +395,7 @@
 
     .slots li > :nth-child(6) {
       grid-area: edit;
+      justify-self: end;
     }
   }
 
@@ -366,9 +406,14 @@
   }
 
   /* One used slot per row, the columns aligned down the list. */
+  .coop-title {
+    margin: 16px 0 2px;
+    font-size: inherit;
+  }
+
   .slots li {
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) auto minmax(0, auto) auto auto;
+    grid-template-columns: 60px minmax(0, 1fr) auto minmax(0, auto) auto auto;
     align-items: center;
     gap: 14px;
     padding: 9px 2px;
@@ -379,6 +424,8 @@
   .slot {
     font-size: 0.8125rem;
     color: var(--dim);
+    /* "Co-op 1" on one line. */
+    white-space: nowrap;
   }
 
   .planet {
@@ -396,7 +443,6 @@
     text-transform: uppercase;
     color: var(--amber);
     background: color-mix(in srgb, var(--amber) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
     border-radius: 6px;
     padding: 2px 7px;
     cursor: help;
@@ -426,8 +472,7 @@
   .chip {
     font-size: 0.75rem;
     color: var(--soft);
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
+    background: var(--control);
     border-radius: 7px;
     padding: 2px 8px;
     white-space: nowrap;
@@ -445,11 +490,15 @@
   .fold {
     justify-content: flex-start;
     gap: 8px;
-    padding: 4px 0;
     border: 0;
     background: none;
+    box-shadow: none;
     color: var(--lav);
     font-weight: 600;
+    /* Room on both sides, so the triangle sits inside the fill a hover gives it; the negative
+     margin keeps the words in line with the text around. */
+    padding: 8px 12px;
+    margin-left: -12px;
   }
 
   .fold::before {
@@ -503,27 +552,5 @@
 
   .small-text {
     font-size: 0.8125rem;
-  }
-
-  @media (max-width: 640px) {
-    .slots li {
-      grid-template-columns: 48px minmax(0, 1fr) auto;
-      row-gap: 6px;
-    }
-
-    /* The date on a line of its own under the planet, the mods badge beside it, Edit at its end. */
-    .slots .when {
-      grid-column: 2;
-    }
-
-    .slots .modded {
-      grid-column: 3;
-      justify-self: end;
-    }
-
-    .slots li > :last-child {
-      grid-column: 3;
-      justify-self: end;
-    }
   }
 </style>

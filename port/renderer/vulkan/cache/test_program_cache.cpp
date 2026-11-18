@@ -1,0 +1,169 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// Retention of immutable modules, layouts and pipelines across fresh GL programs: opted into by a
+// test, or the game's kept programs (vk-program-keep), which a level's load deletes and links
+// again. Exact bytecode and layout modes must match; uniforms and descriptor state are never
+// reused.
+
+#include <algorithm>
+#include <utility>
+
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/vkgl_internal.h"
+
+namespace openrac::vkgl::detail {
+namespace {
+
+// Checks every input to module/layout creation, without accepting a hash collision.
+bool compatible(const Program& a, const Program& b) {
+    // The lazy clamped stage is compiled separately from the SPIR-V compared below.
+    if (b.clamped_tried) {
+        const bool half =
+            g->shader_float16
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16);
+        if (half != b.clamped_half_precision || a.vertex_source != b.vertex_source
+            || a.fragment_source != b.fragment_source) {
+            return false;
+        }
+    }
+    return a.compiled.vertex == b.compiled.vertex && a.compiled.fragment == b.compiled.fragment
+           && a.compiled.compute == b.compiled.compute
+           && a.compiled.default_binding == b.compiled.default_binding
+           && a.compiled.default_size == b.compiled.default_size
+           && a.gpu_materials == b.gpu_materials && a.material_start == b.material_start
+           && a.dynamic_uniforms == b.dynamic_uniforms
+           && a.draw_uniform_offset == b.draw_uniform_offset
+           && std::equal(
+               a.test_layout_bindings.begin(),
+               a.test_layout_bindings.end(),
+               b.test_layout_bindings.begin(),
+               b.test_layout_bindings.end(),
+               [](const auto& x, const auto& y) {
+                   return x.binding == y.binding && x.descriptorType == y.descriptorType
+                          && x.descriptorCount == y.descriptorCount && x.stageFlags == y.stageFlags
+                          && x.pImmutableSamplers == nullptr && y.pImmutableSamplers == nullptr;
+               }
+           );
+}
+
+// Transfers ownership while leaving the donor unable to destroy the borrowed objects.
+void move_objects(Program& to, Program& from) {
+    to.vertex = std::exchange(from.vertex, VK_NULL_HANDLE);
+    to.fragment = std::exchange(from.fragment, VK_NULL_HANDLE);
+    to.fragment_clamped = std::exchange(from.fragment_clamped, VK_NULL_HANDLE);
+    to.clamped_tried = std::exchange(from.clamped_tried, false);
+    to.clamped_half_precision = from.clamped_half_precision;
+    to.compute = std::exchange(from.compute, VK_NULL_HANDLE);
+    to.compute_pipeline = std::exchange(from.compute_pipeline, VK_NULL_HANDLE);
+    to.set_layout = std::exchange(from.set_layout, VK_NULL_HANDLE);
+    to.layout = std::exchange(from.layout, VK_NULL_HANDLE);
+    to.identity = from.identity;
+    from.last_pipeline = VK_NULL_HANDLE;
+    from.last_pipeline_key.clear();
+}
+
+}  // namespace
+
+bool keeps_programs() {
+    return g->keep_programs
+           && renderer::render_opt::enabled(renderer::render_opt::Opt::VkProgramKeep);
+}
+
+bool reuse_test_program(Program& program) {
+    const bool kept = keeps_programs();
+    // Without either retention a program has its usual lifetime and compilation.
+    if (!kept && (!g->test_program_reuse || !g->test_program_borrow)) {
+        return false;
+    }
+    const auto found = std::find_if(g->test_programs.begin(), g->test_programs.end(), [&](auto& p) {
+        return compatible(program, p);
+    });
+    // Changed shader arithmetic, descriptor mode or push constants need fresh driver objects.
+    if (found == g->test_programs.end()) {
+        return false;
+    }
+    g->pipelines.rename_program(found->serial, program.serial);
+    // The game's programs link pipelines from parts, which a test's retention never does.
+    rename_program_libraries(found->serial, program.serial);
+    move_objects(program, *found);
+    g->test_programs.erase(found);
+    ++(kept ? g->submission.program_reuses : g->submission.test_program_reuses);
+    return true;
+}
+
+bool retain_test_program(Program& program) {
+    constexpr std::size_t kRetainedPrograms = 256;  // Bounds test-only shader permutations.
+    // The game's: more than two levels' programs, so a level's load finds the last level's.
+    constexpr std::size_t kKeptPrograms = 128;
+    const bool kept = keeps_programs();
+    // Partial links use the ordinary deferred destruction path, as does a test's full pool.
+    if ((!kept && !g->test_program_reuse) || !program.linked || !program.layout
+        || (!kept && g->test_programs.size() >= kRetainedPrograms)) {
+        return false;
+    }
+    // A pool copy already owns these objects; normal retirement avoids duplicate retained entries.
+    if (std::any_of(g->test_programs.begin(), g->test_programs.end(), [&](const auto& p) {
+            return compatible(program, p);
+        })) {
+        return false;
+    }
+    Program retained;
+    retained.compiled = program.compiled;
+    retained.test_layout_bindings = program.test_layout_bindings;
+    retained.serial = program.serial;
+    retained.linked = true;
+    retained.gpu_materials = program.gpu_materials;
+    retained.material_start = program.material_start;
+    retained.dynamic_uniforms = program.dynamic_uniforms;
+    retained.draw_uniform_offset = program.draw_uniform_offset;
+    if (program.clamped_tried) {
+        retained.vertex_source = program.vertex_source;
+        retained.fragment_source = program.fragment_source;
+    }
+    move_objects(retained, program);
+    g->test_programs.push_back(std::move(retained));
+    // The game's oldest kept programs go when the pool is full: variants no level links any more.
+    while (kept && g->test_programs.size() > kKeptPrograms) {
+        destroy_program(g->test_programs.front());
+        g->test_programs.erase(g->test_programs.begin());
+    }
+    return true;
+}
+
+void clear_test_programs() {
+    g->test_program_reuse = false;
+    g->test_program_borrow = false;
+    g->keep_programs = false;
+    for (auto& program : g->test_programs) {
+        release_program(program);
+    }
+    g->test_programs.clear();
+}
+
+}  // namespace openrac::vkgl::detail
+
+namespace openrac::vkgl {
+
+void test_reuse_programs(bool on, bool borrow) {
+    // Tests may request this only after opening their Vulkan context.
+    if (detail::g) {
+        detail::g->test_program_reuse = on;
+        detail::g->test_program_borrow = on && borrow;
+    }
+}
+
+void keep_programs(bool on) {
+    // Nothing to keep without a context. Off, what is kept stays until the backend closes.
+    if (detail::g) {
+        detail::g->keep_programs = on;
+    }
+}
+
+void set_texture_lod_bias(float bias) {
+    if (detail::g) {
+        detail::g->texture_lod_bias = bias;
+    }
+}
+
+}  // namespace openrac::vkgl

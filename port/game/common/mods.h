@@ -15,6 +15,7 @@
 #include <deque>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "openrac/game_host.h"
@@ -45,11 +46,22 @@ struct SavestateRuntime {
     int overlay = -1;
 };
 
+// What a developer menu item is: a press (1.10), or since 1.19 a switch or a choice the menu turns
+// over or moves itself (developer_menu_switch, developer_menu_choice).
+enum class MenuItemKind {
+    Press,
+    Switch,
+    Choice
+};
+
 struct DeveloperMenuItem {
     std::string label;
     std::string shortcut;
     std::string group;
     std::uint32_t action = 0;
+    MenuItemKind kind = MenuItemKind::Press;
+    int value = 0;                    // a switch's 0 or 1, a choice's index
+    std::vector<std::string> values;  // a choice's values
 };
 
 struct DeveloperMenu {
@@ -67,6 +79,7 @@ struct Host {
     const HookPoint* hooks = nullptr;
     int hook_count = 0;
     std::filesystem::path list;  // plugins.json; the mods' folders are beside it
+    std::filesystem::path stack;  // the stacked data packs' stack.json; empty: none in this run
     bool purist = false;         // --no-mods: nothing is read or loaded
     int (*loaded_level)(void) = nullptr;
     // Where the pad library looks for a callback on each report (game_host.h,
@@ -93,6 +106,11 @@ struct Host {
     // (null: a test's, or no window, and then nothing is drawn).
     void (*menu_rect)(int x, int y, int width, int height, std::uint32_t rgba) = nullptr;
     void (*menu_text)(int x, int y, int size, std::uint32_t rgba, const char* text) = nullptr;
+    // A link handed to the system (interface 1.14; null: a test's, or no window). True when it
+    // went.
+    bool (*open_url)(const char* url) = nullptr;
+    // Puts text on the system clipboard (interface 1.14; null: a test's, or no window).
+    bool (*set_clipboard)(const char* text) = nullptr;
     // The running game's essential host-side tick state and post-restore audio/renderer rebuild.
     bool (*capture_savestate_runtime)(SavestateRuntime* state) = nullptr;
     void (*restore_savestate_runtime)(const SavestateRuntime* state) = nullptr;
@@ -133,6 +151,10 @@ std::string load(const Host& host);
 // purist mode or with no list.
 bool makes_vulkan_device(const std::filesystem::path& list, bool purist);
 
+// True while a loaded mod has declared native Vulkan access.
+bool vulkan_needs_game_thread();
+bool view_source_can_use_vulkan();
+
 // Each loaded mod's openrac_mod_unload, last first (at exit).
 void unload();
 
@@ -152,9 +174,14 @@ void tick_boundary(std::uint32_t tick);
 // Optional mod-provided top-level menus for the in-window menu bar.
 const std::vector<DeveloperMenu>& developer_menus();
 void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action);
+// The menu turned a switch over or moved a choice (1.19): its new state, and its action queued as
+// for a press. A value the item cannot have is ignored.
+void set_developer_menu_value(openrac_mod* mod, std::uint32_t action, int value);
 
 // How many mods are loaded.
 int loaded_count();
+// The table the mods are given, for the tests' direct calls.
+const openrac_api& api_for_tests();
 
 // The loaded mods' assets folders (MODS.md, section 3), the last loaded first: a file in one takes
 // the place of the same path in those after it and in the extracted levels.
@@ -181,10 +208,18 @@ struct PropDraw {
     std::array<float, 16> matrix{};
     std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
     int blend = 0;  // OPENRAC_PROP_OPAQUE, _ALPHA or _ADD
+    // Fixed to a moby's joint (interface 1.18, prop_attach): the moby (a game address, 0 for
+    // none), its joint, and `matrix` is then the offset in the joint's frame.
+    std::uint32_t attached_moby = 0;
+    int attached_joint = -1;
 };
 
 // The props shown in the level now (posed, not hidden, of this level load). From any thread.
 std::vector<PropDraw> props_drawn();
+
+// The renderer drew prop `id`, fixed to a joint, with `matrix` this frame (interface 1.18,
+// prop_frame tells the mod). From any thread.
+void prop_placed(int id, const std::array<float, 16>& matrix);
 
 // Every mesh a prop was made of in this run, in the order first asked for, and a count that grows
 // when one is added: the front end reads them with each level's scenery, and reads the level's
@@ -225,6 +260,16 @@ std::string play_notice();
 // entry's label ("" past the list).
 int menu_entry_count();
 std::string menu_entry_label(int index);
+
+// Whether `url` is a mod code's link, the only link a mod may have opened: openrac://modset/ and a
+// code, in the characters a code has.
+bool is_mod_code_link(std::string_view url);
+
+// Drawing over the game (interface 1.14): whether a mod draws now (one took on_overlay and the game
+// shows a level, not a menu or a scene), and each such mod's callback with `overlay`. On the window
+// thread, with the frame finished.
+bool overlay_wanted();
+void run_overlays(const openrac_overlay& overlay);
 
 // Runs entry `index`'s page for a frame: its callback with `frame`, its drawing sent to the host's
 // menu_rect and menu_text. True when the page closes (the mod said so, or there is no such entry).

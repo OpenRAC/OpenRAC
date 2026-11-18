@@ -100,16 +100,23 @@ void func_00212578(int a0, int a1) {
 
 /*
  * What MobyProc decides for each moby of the list before drawing it, which the game reads back:
- * +0x31, drawn this frame (the moby loop keeps a drawn moby active; vehicles, enemies and effects
- * test it). The list runs COUNT mobys of 0x100 bytes from FIRST (a negative count: on to its end),
- * and ends early at a moby whose state (+0x20) is -1, the list's end marker; a moby with another
- * negative state (being removed) is passed over, its +0x31 left as it was. Not drawn: a moby whose
- * group mask (+0x36) has no bit of the current one (the table at D_001940C0, which MobyProc copies
- * to the scratchpad, at +0x37), a hidden one (mode +0x34 bits 0x81), and, as ReRAC's moby_lod.rs
+ * +0x31, drawn this frame. It is game logic, not only drawing: the moby loop keeps a drawn moby
+ * and its whole group active and lists it as a target, the lock-on reads it, and many classes act
+ * on it (a frog wanders only while drawn; crates and bolts make their glows and sparkles, which
+ * take random numbers). So it is always the console's test, whatever the window draws: the port's
+ * renderer culls the mobys it draws itself (host::moby_proc_distance_fade) and animates the far
+ * ones the game leaves asleep (frontend/sleeping_mobys.h).
+ *
+ * The list runs COUNT mobys of 0x100 bytes from FIRST (a negative count: on to its end), and ends
+ * early at a moby whose state (+0x20) is -1, the list's end marker; a moby with another negative
+ * state (being removed) is passed over, its +0x31 left as it was. Not drawn: a moby whose group
+ * mask (+0x36) has no bit of the current one (the table at D_001940C0, which MobyProc copies to
+ * the scratchpad, at +0x37), a hidden one (mode +0x34 bits 0x81), and, as ReRAC's moby_lod.rs
  * replays the culls, a bounding sphere (+0x00, x y z r in units of 1/1024) beyond the draw distance
  * (+0x32, s16 units, at most the global one at D_00160030), wholly in front of the near plane, or
- * wholly outside a side plane of the view. The side planes are the port's picture's, wider than
- * 4:3 when it is (moby_view.h).
+ * wholly outside a side plane of the game's 4:3 view. The game fix fix_wide_moby_effects
+ * (differences.json) opens the side planes as the port's picture and the player's Field of View
+ * open them (moby_view.h).
  */
 static void mark_drawn_mobys(gaddr first, int count) {
     float cam[3], rows[12], view[12];
@@ -134,9 +141,6 @@ static void mark_drawn_mobys(gaddr first, int count) {
     if (!(ty > 0.05f && ty < 10.0f)) {
         ty = tx * 0.756f;
     }
-    /* The picture's sides: the game's 4:3 tangent opened as the port's picture is (moby_view.h),
-     * and both tangents as the player's Field of View opens them (openrac_game_view_opened).
-     * The game fix fix_wide_moby_effects (differences.json); off, the console's 4:3 test. */
     static const unsigned char* fix;
     if (!fix) {
         fix = openrac_game_fix("fix_wide_moby_effects");
@@ -267,6 +271,8 @@ void func_002298B0(int a0, int a1) {
 
 /* ShrubProc, the shrub renderer */
 void func_00229F00(void) {
+    /* The previous callback list draws both ice layers before the shrubs' scuff decals. */
+    put_marker((uint64_t)OPENRAC_WORLD_SHRUBS_MARKER << 48);
     openrac_game_draw(OPENRAC_DRAW_SHRUBS);
 }
 

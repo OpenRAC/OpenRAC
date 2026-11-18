@@ -28,6 +28,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -49,8 +50,10 @@
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/hero_shadows.h"
 #include "game/common/frontend/menu_layers.h"
+#include "game/common/frontend/scenery_capture.h"
 #include "game/common/frontend/state.h"
 #include "game/common/frontend/water_interactions.h"
+#include "game/common/moby_proc.h"
 #include "mod_menu.h"
 #include "mod_ui.h"
 #include "mods.h"
@@ -59,9 +62,9 @@
 #include "options_menu.h"
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
-#include "renderer/direct.h"
+#include "renderer/direct/direct.h"
+#include "renderer/effects/shadows.h"
 #include "renderer/renderer.h"
-#include "renderer/shadows.h"
 #include "renderer/world/fog.h"
 #include "scene/hero_shadow.h"
 #include "scene/level_renderer.h"
@@ -168,6 +171,21 @@ std::vector<std::uint8_t> direct_packets(
         }
     };
     for (int steps = 0; tag_at != 0 && steps < 20000; ++steps) {
+        // A list holds no more data than game memory does: a chain that runs past that loops (a tag
+        // that points back, from a bad pointer) and would grow `vif` by up to 1 MB a tag, 20 GB over
+        // the steps, which takes the computer's memory with it. It is cut there, once noted.
+        if (vif.size() > ram.size()) {
+            static bool noted = false;
+            if (!noted) {
+                noted = true;
+                log::warn(
+                    "display list from {:#x} runs past {} bytes: a looping chain, cut",
+                    chain,
+                    ram.size()
+                );
+            }
+            break;
+        }
         const std::uint32_t lo = word_at(ram, tag_at);
         const std::uint32_t raw_addr = word_at(ram, tag_at + 4);
         const bool from_spr = (raw_addr & 0x80000000u) != 0;
@@ -237,6 +255,8 @@ std::vector<std::uint8_t> direct_packets(
     std::array<Context, 2> contexts{};
     std::uint64_t reg_prim = 0, reg_fogcol = 0;
     bool strip_context = false;
+    // Scoped parent of vertices in a display list produced one tick before the captured mobys.
+    std::uint32_t previous_effect_parent = 0;
     // The fog line the liquid grid's packet gives the strip program (build_interpolated_dma_packet,
     // func_L02_002A52D0, unpacks it to VU addresses 0x3AC to 0x3AF): the view context's fog_mul
     // (0x3AC.w), screen_bias with fog_add in w (0x3AE), then the far and near F (0x3AF.x, .y).
@@ -245,6 +265,7 @@ std::vector<std::uint8_t> direct_packets(
     std::array<std::uint32_t, 16> vu_fog{};
     unsigned vu_fog_set = 0;
     bool strip_fog = false;
+    bool strip_blend_disabled = false;
     const std::uint8_t* strip_st = nullptr;
     const std::uint8_t* strip_rgba = nullptr;
     const std::uint8_t* strip_xyz = nullptr;
@@ -281,6 +302,10 @@ std::vector<std::uint8_t> direct_packets(
     // Each context's FRAME width in pixels, as the list sets it (the picture's until it does).
     std::array<std::uint32_t, 2> frame_width{512, 512};
     std::size_t image_left = 0;  // IMAGE data a tag announced that runs on into the next DIRECT
+    // The scenery markers bracket the strips drawn before the native shrub or moby pass.
+    const std::size_t strips_at_start = strips != nullptr ? strips->size() : 0;
+    std::optional<std::size_t> strips_at_world;
+    std::optional<std::size_t> strips_after_early_effects;
     std::size_t direct_at = 0;   // where the DIRECT being read starts in the 2D data
     const auto track_direct = [&](const std::uint8_t* d, std::size_t size) {
         std::size_t p = 0;
@@ -312,7 +337,27 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&value, d + p, 8);
                     std::memcpy(&address, d + p + 8, 8);
                     switch (address & 0xFF) {
-                        case 0x7F:
+                        case 0x7F: {
+                            // Only explicitly attached strips follow a delayed parent transform.
+                            if ((value >> 48) == OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER) {
+                                previous_effect_parent = static_cast<std::uint32_t>(value);
+                            }
+
+                            if ((value >> 48) == renderer::GifInterpreter::kWorldMarker
+                                && !strips_at_world) {
+                                strips_at_world = strips->size();
+                            }
+
+                            const std::uint64_t marker = value >> 48;
+                            const bool shrubs_started =
+                                marker == OPENRAC_WORLD_SHRUBS_MARKER && strips_at_world;
+
+                            // The first scenery marker closes the early effects pass.
+                            if (!strips_after_early_effects
+                                && (shrubs_started || marker == OPENRAC_WORLD_MOBYS_MARKER)) {
+                                strips_after_early_effects = strips->size();
+                            }
+
                             if ((value >> 48) == renderer::GifInterpreter::kMobyMarker
                                 && texture_mobys != nullptr) {
                                 // Mobys drawn while the frame is a buffer narrower than the
@@ -350,6 +395,7 @@ std::vector<std::uint8_t> direct_packets(
                                 }
                             }
                             break;
+                        }
                         case 0x50:
                             reg_bitbltbuf = value;
                             break;
@@ -520,6 +566,7 @@ std::vector<std::uint8_t> direct_packets(
                     const std::uint64_t prim = ((tag >> 46) & 1) != 0 ? tag >> 47 : reg_prim;
                     strip_fog = ((prim >> 5) & 1) != 0;
                     strip_context = ((prim >> 9) & 1) != 0;
+                    strip_blend_disabled = ((tag >> 46) & 1) != 0 && ((prim >> 6) & 1) == 0;
                     strip_st = strip_rgba = strip_xyz = nullptr;
                 } else if (strip_tag && address == 1 && vn == 1 && vl == 0
                            && count == strip_count) {
@@ -560,7 +607,11 @@ std::vector<std::uint8_t> direct_packets(
                 strip.clamp = gs.clamp;
                 strip.alpha = gs.alpha;
                 strip.test = gs.test;
+                strip.z_masked = gs.zbuf_seen && ((gs.zbuf >> 32) & 1) != 0;
+                strip.z_written = gs.zbuf_seen && ((gs.zbuf >> 32) & 1) == 0;
+                strip.blend_disabled = strip_blend_disabled;
                 strip.surface = surface;
+                strip.previous_parent = previous_effect_parent;
                 strip.uv_motion = uv_motion;
                 static const bool& strip_fog_off = stats::probe(
                     "OPENRAC_STRIP_FOG_OFF", "reference: the effect strips drawn without the GS fog"
@@ -611,6 +662,15 @@ std::vector<std::uint8_t> direct_packets(
                 );
             }
             strip_tag = false;
+        }
+    }
+    // Keep the early effects below the scenery, including partially blended surface layers.
+    if (strips != nullptr && strips_after_early_effects) {
+        const std::size_t from = strips_at_world.value_or(strips_at_start);
+
+        // Mark only strips collected in this display list.
+        for (std::size_t i = from; i < *strips_after_early_effects && i < strips->size(); ++i) {
+            (*strips)[i].before_mobys = true;
         }
     }
     return gif;
@@ -688,6 +748,7 @@ bool read_window_events() {
     debug_menu::update(openrac_game_loaded_overlay(), g->index);
     // A start or travel a mod asked for (interface 1.8), where the developer menu starts a level.
     mods::play_update();
+    debug_overlay::meat_proxy_review_update();
     // The mods' entries go after the Planets entry debug_menu put in the same list (mod_menu.h).
     mod_menu::update(openrac_game_loaded_overlay());
     // The mods' items in the main menu and their pages of the game's widgets (mod_ui.h).
@@ -756,6 +817,7 @@ void copy_world_camera(host::GameState& state) {
         // A level's world under a menu's moby context: its mobys, not the menu's in the globals.
         if (g->world_under_menu) {
             state.mobys = g->world_camera->mobys;
+            state.nanotech_orbs = g->world_camera->nanotech_orbs;
         }
     }
 }
@@ -816,12 +878,8 @@ void follow_route(std::span<const std::uint8_t> ram, int level) {
     }
 }
 
-// Writes this tick's line of OPENRAC_TRACE. `draws`: the layers the game drew (frame()).
-void trace_tick(const host::GameState& state, std::uint32_t draws) {
-    // OPENRAC_TRACE=FILE: one JSON line a tick, for port/tools/regress (docs/port/REGRESSION.md):
-    // f the window frame, c frames since control (null before), lv the level (-1 the boot
-    // program), m the game mode, cam/fw the camera's position and forward row, hp/hr/hs the hero's
-    // position, rotation and state, mb the live mobys, dr the layers the game drew.
+// The OPENRAC_TRACE file, opened on first use (nullptr: no trace).
+std::FILE* trace_file() {
     static std::FILE* trace = [] {
         const std::optional<std::string> path = env_string(env::Var::Trace);
         std::FILE* f = path && !path->empty() ? std::fopen(path->c_str(), "w") : nullptr;
@@ -830,7 +888,34 @@ void trace_tick(const host::GameState& state, std::uint32_t draws) {
         }
         return f;
     }();
-    if (trace != nullptr) {
+    return trace;
+}
+
+// The part of the last tick's trace line after "c" (the level onwards), which a kept picture
+// repeats.
+std::string g_trace_rest;
+
+// Writes one line of OPENRAC_TRACE: the window frame and the frames since control, then `rest`.
+void write_trace_line(std::FILE* trace, const std::string& rest) {
+    std::string line = std::format(
+        "{{\"f\":{},\"c\":{}",
+        g->index,
+        g_route.control < 0 ? std::string("null")
+                            : std::to_string(static_cast<std::int64_t>(g->index) - g_route.control)
+    );
+    line += rest;
+    std::fwrite(line.data(), 1, line.size(), trace);
+    std::fflush(trace);  // a crash keeps every tick before it
+}
+
+// Writes this tick's line of OPENRAC_TRACE. `draws`: the layers the game drew (frame()).
+void trace_tick(const host::GameState& state, std::uint32_t draws) {
+    // OPENRAC_TRACE=FILE: one JSON line a window frame, for port/tools/regress
+    // (docs/port/REGRESSION.md): f the window frame, c frames since control (null before), lv the
+    // level (-1 the boot program), m the game mode, cam/fw the camera's position and forward row,
+    // hp/hr/hs the hero's position, rotation and state, mb the live mobys, dr the layers the game
+    // drew, k 1 on a frame that kept the last picture (trace_kept).
+    if (std::FILE* trace = trace_file()) {
         const auto num = [](float v) {
             return std::isfinite(v) ? std::format("{:.4f}", v) : std::string("null");
         };
@@ -838,11 +923,7 @@ void trace_tick(const host::GameState& state, std::uint32_t draws) {
             return std::format("[{},{},{}]", num(v[0]), num(v[1]), num(v[2]));
         };
         std::string line = std::format(
-            "{{\"f\":{},\"c\":{},\"lv\":{},\"m\":{},\"cam\":{},\"fw\":{}",
-            g->index,
-            g_route.control < 0
-                ? std::string("null")
-                : std::to_string(static_cast<std::int64_t>(g->index) - g_route.control),
+            ",\"lv\":{},\"m\":{},\"cam\":{},\"fw\":{}",
             g_route.level,
             g_route.mode,
             vec(state.camera_position.data()),
@@ -853,9 +934,18 @@ void trace_tick(const host::GameState& state, std::uint32_t draws) {
         if (openrac_game_hero != nullptr && openrac_game_hero(hp, hr, &hs) != 0) {
             line += std::format(",\"hp\":{},\"hr\":{},\"hs\":{}", vec(hp), vec(hr), hs);
         }
-        line += std::format(",\"mb\":{},\"dr\":{}}}\n", state.mobys.size(), draws);
-        std::fwrite(line.data(), 1, line.size(), trace);
-        std::fflush(trace);  // a crash keeps every tick before it
+        line += std::format(",\"mb\":{},\"dr\":{}", state.mobys.size(), draws);
+        g_trace_rest = line;
+        write_trace_line(trace, line + "}\n");
+    }
+}
+
+// The trace line of a frame that kept the last picture (keep_picture): the last tick's values
+// again, marked k. Without it a run ending on such a frame looked to the regress runner as if it
+// stopped short of its route (Gaspar).
+void trace_kept() {
+    if (std::FILE* trace = trace_file(); trace != nullptr && !g_trace_rest.empty()) {
+        write_trace_line(trace, g_trace_rest + ",\"k\":1}\n");
     }
 }
 
@@ -947,6 +1037,27 @@ void log_tick_state(
         state.fog_near_f,
         state.fog_far_f
     );
+    if (state.moby_view) {
+        // How many of the live mobys MobyProc's distance test leaves undrawn, and fades.
+        std::size_t culled = 0, fading = 0;
+        for (const host::LiveMoby& m : state.mobys) {
+            if (m.address + 0x100 > ram.size()) {
+                continue;
+            }
+            const auto fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+            culled += fade ? 0 : 1;
+            fading += fade && *fade < 0x80 ? 1 : 0;
+        }
+        log::info(
+            "  moby draw cap {} units, near plane {:.0f}: {} of {} mobys beyond their draw "
+            "distance, {} fading",
+            state.moby_view->draw_cap,
+            state.moby_view->near_plane,
+            culled,
+            state.mobys.size(),
+            fading
+        );
+    }
     static const std::optional<std::uint64_t> fx_dump = env_frame(env::Var::FxDump);
     if (fx_dump && g->index >= *fx_dump && g->index < *fx_dump + 100) {
         for (const renderer::EffectQuad& e : g->effects) {
@@ -1164,20 +1275,111 @@ std::optional<std::array<float, 8>> moby_point_light(
 // address and joints, the joint palette they index, the hero's shadow, and the mobys the game
 // drew into a texture.
 
-// "Scenery detail: Original": ShrubProc's choice for the tick, from the camera the game's world
-// renderers left in memory (`world_ran`, not under a menu); none to keep the last tick's, empty
-// with the setting off.
+// "Draw distance: Original": ShrubProc's choice for the tick, from the camera the game's world
+// renderers drew with (`world_ran`, not under a menu; read then, State::world_shrubs); none to
+// keep the last tick's, empty at any other step (the shrubs' distances alone, scaled:
+// LevelScene::choose_scenery). Read at the end of the tick instead, the main menu's own camera
+// culled every shrub of the title world (the tanks and lights by the hangar).
 std::optional<std::vector<host::ShrubDraw>> shrub_draws(
     std::span<const std::uint8_t> ram, bool world_ran
 ) {
-    if (!settings::get().original_lod) {
+    if (!settings::get().original_draw_distance()) {
         return std::vector<host::ShrubDraw>{};
     }
     if (!world_ran) {
         return std::nullopt;
     }
+    if (g->world_shrubs) {
+        return g->world_shrubs;
+    }
     const profiling::Zone trace("Shrub draws");
     return g->profile->shrub_draws(ram, openrac_game_loaded_overlay());
+}
+
+// Captures the ties and shrubs as the game holds them, one per loaded instance
+// (GameProfile::scenery_matrices), when the world ran this tick; none for a game that never moves
+// them, or when the words do not point at as many records in memory.
+std::optional<scene::GameScenery> scenery_matrices(
+    std::span<const std::uint8_t> ram, bool world_ran, const host::GameState& state
+) {
+    const auto words = g->profile->scenery_matrices();
+    if (!world_ran || (words[0] == 0 && words[1] == 0)) {
+        return std::nullopt;
+    }
+    auto captured = capture_scenery(
+        ram,
+        words,
+        state,
+        settings::get().draw_distance_scale(),
+        {g->level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size(),
+         g->level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size()}
+    );
+    const auto& result = captured.scenery;
+    const std::uint32_t tie_cap = captured.tie_cap;
+    const float shrub_cap = captured.shrub_cap;
+    std::optional<scene::Pvs::Mask> mask;
+    if (occlusion_address() != 0) {
+        if (const gaddr m = openrac_relocate_data(occlusion_address());
+            m + sizeof(scene::Pvs::Mask) <= ram.size()) {
+            mask.emplace();
+            std::memcpy(mask->data(), ram.data() + m, mask->size());
+        }
+    }
+    // Once a level: which visibility the culls use and the caps they read, for a player's log.
+    static int logged_level = -100;
+    if (logged_level != g->loaded) {
+        logged_level = g->loaded;
+        log::info(
+            "level {}: scenery culls from the game's records: occlusion mask {}, {} ties, {} "
+            "shrubs, {} terrain fragments; caps {} (ties) and {:.0f} (shrubs); draw distance {}",
+            g->loaded,
+            mask ? "read" : "unavailable",
+            result.tie_hidden.size(),
+            result.shrub_hidden.size(),
+            result.terrain_occlusion.size(),
+            tie_cap,
+            shrub_cap,
+            settings::get().draw_distance == 0 ? std::string("Unlimited")
+                                               : std::format("{}%", settings::get().draw_distance)
+        );
+    }
+    // OPENRAC_SCENERY_LOG: what the culls above leave out, every 100 ticks.
+    static const bool& scenery_log = stats::probe(
+        "OPENRAC_SCENERY_LOG", "the ties, shrubs and terrain the game's culls leave out"
+    );
+    if (scenery_log && g->index % 100 == 0) {
+        const auto out = [](const std::vector<std::uint8_t>& v) {
+            return std::count_if(v.begin(), v.end(), [](std::uint8_t b) { return b != 0; });
+        };
+        std::size_t seen_bits = 0, terrain_seen = 0;
+        if (mask) {
+            for (const std::uint8_t b : *mask) {
+                seen_bits += static_cast<std::size_t>(std::popcount(b));
+            }
+        }
+        for (std::size_t i = 0; i < result.terrain_occlusion.size(); ++i) {
+            terrain_seen += (!mask || scene::Pvs::visible(*mask, result.terrain_occlusion[i]))
+                                    && !(i < result.terrain_far.size() && result.terrain_far[i])
+                                ? 1
+                                : 0;
+        }
+        log::info(
+            "scenery {}: mask {} of 1024 bits; ties {} of {} left out; shrubs {} of {} left out; "
+            "terrain {} of {} fragments drawn; caps {} and {:.0f}; draw distance {}%",
+            g->index,
+            seen_bits,
+            out(result.tie_hidden),
+            result.tie_hidden.size(),
+            out(result.shrub_hidden),
+            result.shrub_hidden.size(),
+            terrain_seen,
+            result.terrain_occlusion.size(),
+            tie_cap,
+            shrub_cap,
+            settings::get().draw_distance
+        );
+    }
+    return std::move(captured.scenery);
 }
 
 // Reads the live mobys this tick: which are drawn, how (blend, light, colour, the camera they
@@ -1185,71 +1387,6 @@ std::optional<std::vector<host::ShrubDraw>> shrub_draws(
 // are added to `state`. `world_ran`, `only_own_camera`: the world renderers ran this tick, and
 // only mobys with a camera of their own were drawn without them; `under_menu`: that world is a
 // level's under a menu (world_under_menu); `debug`: OPENRAC_DEBUG.
-// The ties and shrubs as the game holds them, one per instance the level loaded
-// (GameProfile::scenery_matrices), when the world ran this tick; none for a game that never moves
-// them, or when the words do not point at as many records in memory.
-std::optional<scene::GameScenery> scenery_matrices(
-    std::span<const std::uint8_t> ram, bool world_ran
-) {
-    const auto words = g->profile->scenery_matrices();
-    if (!world_ran || (words[0] == 0 && words[1] == 0)) {
-        return std::nullopt;
-    }
-    // Where the word at an executable's address points, when `count` records of `size` fit there.
-    auto table = [&](std::uint32_t address, std::size_t count, std::size_t size) -> gaddr {
-        if (address == 0 || count == 0) {
-            return 0;
-        }
-        const gaddr word = openrac_relocate_data(address);
-        if (word + 4 > ram.size()) {
-            return 0;
-        }
-        gaddr at;
-        std::memcpy(&at, ram.data() + word, 4);
-        return at != 0 && at % 16 == 0 && at + count * size <= ram.size() ? at : 0;
-    };
-    scene::GameScenery result;
-    constexpr std::array<scene::Layer, 2> layers{scene::Layer::Ties, scene::Layer::Shrubs};
-    for (std::size_t k = 0; k < 2; ++k) {
-        const std::size_t count = g->level.instances[static_cast<std::size_t>(layers[k])].size();
-        const gaddr at = table(words[k], count, 0x40);
-        if (at == 0) {
-            continue;
-        }
-        auto& out = result.matrices[k];
-        out.resize(count);
-        for (std::size_t i = 0; i < count; ++i) {
-            const std::uint8_t* m = ram.data() + at + i * 0x40;
-            for (std::size_t c = 0; c < 4; ++c) {
-                std::memcpy(&out[i][c * 3], m + c * 0x10, 12);
-            }
-        }
-    }
-    const std::size_t ties =
-        g->level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size();
-    if (const gaddr at = table(words[2], ties, 0x20); at != 0) {
-        result.tie_spheres.resize(ties);
-        result.tie_lights.resize(ties);
-        for (std::size_t i = 0; i < ties; ++i) {
-            const std::uint8_t* r = ram.data() + at + i * 0x20;
-            std::memcpy(result.tie_spheres[i].data(), r, 16);
-            std::memcpy(&result.tie_lights[i], r + 0x1A, 2);
-        }
-    }
-    const std::size_t shrubs =
-        g->level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size();
-    if (const gaddr at = table(words[3], shrubs, 0x20); at != 0) {
-        result.shrub_spheres.resize(shrubs);
-        result.shrub_lights.resize(shrubs);
-        for (std::size_t i = 0; i < shrubs; ++i) {
-            const std::uint8_t* r = ram.data() + at + i * 0x20;
-            std::memcpy(result.shrub_spheres[i].data(), r, 16);
-            std::memcpy(&result.shrub_lights[i], r + 0x1E, 2);
-        }
-    }
-    return result;
-}
-
 TickMobys pose_mobys(
     std::span<const std::uint8_t> ram,
     host::GameState& state,
@@ -1259,6 +1396,31 @@ TickMobys pose_mobys(
     bool debug
 ) {
     const profiling::Zone trace("Pose mobys");
+    // Draw distance (settings.h) for MobyProc's distance test (host::moby_proc_distance_fade).
+    if (state.moby_view) {
+        state.moby_view->scale = settings::get().draw_distance_scale();
+    }
+    // Active distance at Match: the mobys the game leaves asleep loop their animation in the
+    // picture (frontend/sleeping_mobys.h). Read from the game's memory, never written to it.
+    const bool animate_sleeping = !settings::get().original_active_distance;
+    if (g->sleeping_level != g->loaded || !animate_sleeping) {
+        g->sleeping_mobys.reset();
+        g->sleeping_level = g->loaded;
+    }
+    if (animate_sleeping) {
+        std::vector<std::uint32_t> addresses;
+        addresses.reserve(state.mobys.size());
+        for (const host::LiveMoby& m : state.mobys) {
+            addresses.push_back(m.address);
+        }
+        g->sleeping_mobys.tick(
+            ram,
+            addresses,
+            {state.camera_position[0], state.camera_position[1], state.camera_position[2]},
+            g->profile->moby_anim_fields(),
+            world_ran && !under_menu
+        );
+    }
 
     // The live mobys, by class, each in the pose its animation fields give (scene/moby_pose.h):
     // its joint palette goes to the scene, which skins the class's mesh with it. OPENRAC_ANIM=0
@@ -1300,8 +1462,8 @@ TickMobys pose_mobys(
     // marker. The zoom does not reach the moby program's scales: drawn with it, the models sat at
     // the targets' edges at a third of their size, as ReRAC found too; they are drawn with the
     // frame's focal lengths (the frame camera's GameState::focal_x). A moby not in the list (the
-    // vendor's own) is read from its address; with the frame's camera (the item's hologram over the
-    // vendor) it is drawn in the world.
+    // vendor's own) is read from its address, with its bangles (GameProfile::add_moby); with the
+    // frame's camera (the item's hologram over the vendor) it is drawn in the world.
     const std::size_t listed = state.mobys.size();
     std::unordered_map<std::uint32_t, const host::GameState*> into_texture;
     // Over a world drawn under a menu (`under_menu`): the menu's mobys, drawn on the screen at their
@@ -1368,9 +1530,7 @@ TickMobys pose_mobys(
                     break;
             }
             if (!drawn(address)) {
-                if (const auto extra = g->profile->read_moby(ram, address)) {
-                    state.mobys.push_back(*extra);
-                }
+                g->profile->add_moby(ram, address, state.mobys);
             }
         }
     }
@@ -1389,6 +1549,7 @@ TickMobys pose_mobys(
         attached_catalog.reset();
     }
 #endif
+    const bool free_camera = debug_overlay::free_camera_enabled();
     for (std::size_t index = 0; index < state.mobys.size(); ++index) {
         bool light_only = false;
         const host::LiveMoby& m = state.mobys[index];
@@ -1418,7 +1579,18 @@ TickMobys pose_mobys(
             });
         std::optional<std::uint8_t> distance_fade = std::uint8_t{0x80};
         if (!extra && world_ran && m.address + 0x34 <= ram.size() && !own_camera) {
-            distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+            // The freecam flies away from the game's camera, whose depth and sides it is not: a
+            // moby behind Ratchet is in its view. Kept by its draw distance from the game's camera
+            // in any direction, the window's own view of the freecam culls the rest.
+            if (free_camera) {
+                distance_fade = host::moby_free_camera_reach(ram.data() + m.address, state);
+            } else if (state.moby_view && g->profile->keeps_game_draw_distance(m.class_id)) {
+                host::GameState retail = state;
+                retail.moby_view->scale = 1.0f;
+                distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, retail);
+            } else {
+                distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+            }
         }
         if (!distance_fade) {
 #ifdef OPENRAC_LIGHT_AUTHORING
@@ -1649,7 +1821,12 @@ TickMobys pose_mobys(
                     ? scene::moby_shadow_state_on_axis(ram, m.address, directions, state.view())
                     : scene::moby_shadow_state(ram, m.address, directions, state.view());
             if (cast.enabled) {
-                auto capsules = scene::moby_shadows(ram, m.address, m.matrix, cast.scale);
+                // A sleeping moby's shadow takes the pose it is drawn in.
+                const auto keys =
+                    animate_sleeping ? g->sleeping_mobys.keys(ram, m.address) : std::nullopt;
+                auto capsules = scene::moby_shadows(
+                    ram, m.address, m.matrix, cast.scale, keys ? &*keys : nullptr
+                );
                 if (debug && g->index % 100 == 0) {
                     log::info(
                         "Moby shadow {:#x} class {}: {} proxies, slot {}, extrusion {:.2f} {:.2f} "
@@ -1735,7 +1912,62 @@ TickMobys pose_mobys(
             if (model == g->prop_models.end()) {
                 continue;
             }
-            scene::Instance instance{model->second, props[i].matrix, props[i].tint};
+            renderer::Mat4 place = props[i].matrix;
+            // Fixed to a moby's joint (interface 1.18, prop_attach): drawn only while that moby is,
+            // at the joint's frame as the moby is drawn now, times the prop's offset there.
+            if (props[i].attached_moby != 0) {
+                const auto moby =
+                    std::find_if(state.mobys.begin(), state.mobys.end(), [&](const auto& m) {
+                        return m.address == props[i].attached_moby;
+                    });
+                if (moby == state.mobys.end()
+                    || std::find(live_addresses.begin(), live_addresses.end(), moby->address)
+                           == live_addresses.end()) {
+                    continue;
+                }
+                const auto pose = scene::moby_pose_matrices(ram, moby->address);
+                if (props[i].attached_joint < 0
+                    || static_cast<std::size_t>(props[i].attached_joint) >= pose.size()) {
+                    continue;
+                }
+                // Its rows are the images of the joint's axes, then its place in packed units.
+                const auto& f = pose[static_cast<std::size_t>(props[i].attached_joint)];
+                const renderer::Mat4 joint{
+                    f[0][0],
+                    f[0][1],
+                    f[0][2],
+                    0.0f,
+                    f[1][0],
+                    f[1][1],
+                    f[1][2],
+                    0.0f,
+                    f[2][0],
+                    f[2][1],
+                    f[2][2],
+                    0.0f,
+                    f[3][0] / 1024.0f,
+                    f[3][1] / 1024.0f,
+                    f[3][2] / 1024.0f,
+                    1.0f,
+                };
+                // The joint's frame in the world, its axes made unit again: the moby's own scale
+                // (Ratchet's is about 0.15) stays out, so the offset and the prop's mesh are in the
+                // game's units.
+                renderer::Mat4 frame = renderer::multiply(moby->matrix, joint);
+                for (int c = 0; c < 3; ++c) {
+                    const float* axis = &frame[static_cast<std::size_t>(4 * c)];
+                    const float length =
+                        std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+                    if (length > 1e-6f) {
+                        for (int r = 0; r < 3; ++r) {
+                            frame[static_cast<std::size_t>(4 * c + r)] /= length;
+                        }
+                    }
+                }
+                place = renderer::multiply(frame, props[i].matrix);
+                mods::prop_placed(props[i].id, place);  // where the mod's prop_frame finds it
+            }
+            scene::Instance instance{model->second, place, props[i].tint};
             instance.moby_light = {0.0f, 0.0f, 0.0f, 1.0f};
             instance.occlusion = scene::Pvs::always;
             instance.blend = props[i].blend;
@@ -1773,14 +2005,13 @@ TickMobys pose_mobys(
                 a[along] = mesh.min[along] + radius;
                 b[along] = mesh.max[along] - radius;
                 renderer::ShadowCapsule capsule;
-                capsule.a = renderer::transform_point(props[i].matrix, a);
-                capsule.b = renderer::transform_point(props[i].matrix, b);
+                capsule.a = renderer::transform_point(place, a);
+                capsule.b = renderer::transform_point(place, b);
                 // The matrix's scale along the side the radius was measured on.
-                const renderer::Vec3 o =
-                    renderer::transform_point(props[i].matrix, renderer::Vec3{});
+                const renderer::Vec3 o = renderer::transform_point(place, renderer::Vec3{});
                 renderer::Vec3 unit{};
                 unit[across] = 1.0f;
-                const renderer::Vec3 u = renderer::transform_point(props[i].matrix, unit);
+                const renderer::Vec3 u = renderer::transform_point(place, unit);
                 const float scale = std::sqrt(
                     (u[0] - o[0]) * (u[0] - o[0]) + (u[1] - o[1]) * (u[1] - o[1])
                     + (u[2] - o[2]) * (u[2] - o[2])
@@ -1797,9 +2028,17 @@ TickMobys pose_mobys(
     // The poses: each a pure function of the game's memory, evaluated in parallel (the costliest
     // part of reading the scene, about 1.5 ms a tick for 180 mobys on a phone's fast core), then
     // given palette slots in the loop's order, as one thread gave them.
+    std::vector<std::optional<scene::AnimKeys>> sleeping_keys(pose_jobs.size());
+    if (animate_sleeping) {
+        for (std::size_t i = 0; i < pose_jobs.size(); ++i) {
+            sleeping_keys[i] = g->sleeping_mobys.keys(ram, pose_jobs[i].address);
+        }
+    }
     std::vector<std::vector<assets::rac1::JointMatrix>> poses(pose_jobs.size());
     parallel::for_each(pose_jobs.size(), [&](std::size_t i) {
-        poses[i] = scene::moby_palette(ram, pose_jobs[i].address);
+        poses[i] = sleeping_keys[i]
+                       ? scene::moby_palette(ram, pose_jobs[i].address, *sleeping_keys[i])
+                       : scene::moby_palette(ram, pose_jobs[i].address);
     });
     for (std::size_t k = 0; k < pose_jobs.size(); ++k) {
         const PoseJob& job = pose_jobs[k];
@@ -1845,7 +2084,7 @@ TickMobys pose_mobys(
         water_hands,
         std::move(point_lit),
         shrub_draws(ram, world_ran && !under_menu),
-        scenery_matrices(ram, world_ran && !under_menu)
+        scenery_matrices(ram, world_ran && !under_menu, state)
     };
 }
 
@@ -1870,6 +2109,16 @@ void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state
             }
         }
     }
+    // The game's occlusion mask, which picks retail's fallback outside the baked grid.
+    std::optional<scene::Pvs::Mask> occlusion;
+    if (occlusion_address() != 0) {
+        const gaddr mask = openrac_relocate_data(occlusion_address());
+        if (mask + sizeof(scene::Pvs::Mask) <= ram.size()) {
+            occlusion.emplace();
+            std::memcpy(occlusion->data(), ram.data() + mask, occlusion->size());
+        }
+    }
+    g->scene.set_game_pvs(occlusion);
 }
 
 // Keeps this tick's scene for the frames drawn until the next one (Kept), the last tick's as
@@ -2172,8 +2421,11 @@ void choose_repeat_frame(int level, bool debug) {
          g->frame.id() != 0,
          level}
     );
-    g->repeat_frame = picture == TickPicture::Repeat;
-    g->overdraw = picture == TickPicture::Overdraw;
+    // A movie's tick starts from a cleared frame: the game's picture before it does not show
+    // around the movie.
+    k.movie = g->movie_playing;
+    g->repeat_frame = !k.movie && picture == TickPicture::Repeat;
+    g->overdraw = !k.movie && picture == TickPicture::Overdraw;
     // The picture stands, but the chip still took the images the tick's list sent: kept, a block
     // the game sends once is there when a later tick draws from it.
     if (g->repeat_frame && g->hud && g->profile->repeated_ticks_send_images()
@@ -2201,6 +2453,23 @@ void choose_repeat_frame(int level, bool debug) {
             k.strips.front().tex0,
             k.strips.front().alpha
         );
+        // The ones sent before the world's mobys (EffectStrip::before_mobys), drawn with the
+        // liquids, by their GS state.
+        std::map<std::tuple<std::uint64_t, std::uint64_t, bool>, int> early;
+        for (const auto& st : k.strips) {
+            if (st.before_mobys) {
+                ++early[{st.alpha, st.test, st.z_masked}];
+            }
+        }
+        for (const auto& [state, count] : early) {
+            log::info(
+                "    {} strips before the mobys: ALPHA {:#x} TEST {:#x}{}",
+                count,
+                std::get<0>(state),
+                std::get<1>(state),
+                std::get<2>(state) ? ", depth masked" : ""
+            );
+        }
     }
 }
 
@@ -2621,6 +2890,7 @@ bool keep_picture() {
     // shots and the run's end count them. Not counted, a script waiting on a frame number during
     // such a wait (the boot's) waited for ever.
     ++g->index;
+    trace_kept();
     if (run_over()) {
         return false;
     }

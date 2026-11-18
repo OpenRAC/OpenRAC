@@ -3,7 +3,8 @@
  * The retail reader at 0x0013BA20 copies the padman's packet; the game's
  * reader at 0x00490400 consumes the status/id prefix, active-low buttons,
  * sticks and pressures. libpad2 uses the same payload without that prefix.
- * Configuration completes synchronously. Multitaps and motors are absent.
+ * Configuration completes synchronously. Multitaps are absent. Motors: SetActAlign maps each
+ * SetActDirect byte to motor 0 (small, on/off) or 1 (large, speed).
  */
 #include <stdint.h>
 #include <string.h>
@@ -14,7 +15,15 @@
 
 static struct {
     unsigned char open, analog, pressure;
+    unsigned char align[6]; /* each SetActDirect byte's motor, 0xFF none */
 } pads[2];
+
+enum {
+    ACT_SMALL = 0,
+    ACT_LARGE = 1,
+    ACT_COUNT = 2,
+    ACT_NONE = 0xFF
+};
 
 static int opened(int port, int slot) {
     return port >= 0 && port < 2 && slot == 0 && pads[port].open;
@@ -45,6 +54,7 @@ int func_0013B628(int port, int slot, int work) { /* scePadPortOpen */
     pads[port].open = 1;
     pads[port].analog = 0;
     pads[port].pressure = 0;
+    memset(pads[port].align, ACT_NONE, sizeof pads[port].align);
     return 1;
 }
 
@@ -84,11 +94,15 @@ int func_0013BBD0(int port, int slot) { /* scePadGetReqState */
 }
 
 int func_0013BC30(int port, int slot, int actuator, int term) { /* scePadInfoAct */
-    (void)port;
-    (void)slot;
-    (void)actuator;
+    if (!connected(port, slot) || !pads[port].analog) {
+        return 0;
+    }
+    if (actuator == -1) {
+        return ACT_COUNT; /* how many motors */
+    }
+    /* Term details are unknown for Deadlocked; an existing motor answers 1. */
     (void)term;
-    return 0; /* no motors advertised */
+    return actuator >= 0 && actuator < ACT_COUNT;
 }
 
 int func_0013BD50(int port, int slot, int info, int index) { /* scePadInfoMode */
@@ -121,17 +135,28 @@ int func_0013BE88(int port, int slot, int mode, int lock) { /* scePadSetMainMode
 }
 
 int func_0013BF40(int port, int slot, int values) { /* scePadSetActDirect */
-    (void)port;
-    (void)slot;
-    (void)values;
-    return 0;
+    if (values == 0 || !connected(port, slot)) {
+        return 0;
+    }
+    const unsigned char* data = G((gaddr)values);
+    int small = 0, large = 0;
+    for (int i = 0; i < 6; i++) {
+        if (pads[port].align[i] == ACT_SMALL) {
+            small = data[i] != 0;
+        } else if (pads[port].align[i] == ACT_LARGE) {
+            large = data[i];
+        }
+    }
+    openrac_game_set_motors(port, small, large);
+    return 1;
 }
 
 int func_0013C008(int port, int slot, int alignment) { /* scePadSetActAlign */
-    (void)port;
-    (void)slot;
-    (void)alignment;
-    return 0;
+    if (alignment == 0 || !connected(port, slot)) {
+        return 0;
+    }
+    memcpy(pads[port].align, G((gaddr)alignment), sizeof pads[port].align);
+    return 1;
 }
 
 int func_0013C0E0(int port, int slot, int mask) { /* scePadSetButtonInfo */

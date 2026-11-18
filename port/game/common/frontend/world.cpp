@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -46,16 +47,18 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
+#include "platform/pump.h"
 #include "program/program.h"
-#include "renderer/direct.h"
-#include "renderer/effects.h"
-#include "renderer/gl.h"
-#include "renderer/gl_warmup.h"
+#include "renderer/direct/direct.h"
+#include "renderer/effects/effects.h"
+#include "renderer/effects/shadows.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gl_warmup.h"
 #include "renderer/renderer.h"
-#include "renderer/shadows.h"
-#include "renderer/texture.h"
-#include "renderer/texture_pack.h"
-#include "renderer/texture_pool.h"
+#include "renderer/textures/pcsx2_pack.h"
+#include "renderer/textures/texture.h"
+#include "renderer/textures/texture_pack.h"
+#include "renderer/textures/texture_pool.h"
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "settings.h"
@@ -66,6 +69,11 @@
 namespace openrac::frontend {
 
 namespace {
+
+bool supports_enhanced_water(std::string_view game, int level) {
+    // Novalis, Pokitaru's ocean and Fleet's pools: every rac1 disc tags them (rac1 host C).
+    return game.starts_with("rac1-") && (level == 1 || level == 11 || level == 17);
+}
 
 // The extracted level the title world is written as (editor/level.py load_title).
 constexpr int kTitleWorld = 99;
@@ -97,11 +105,15 @@ struct LevelSources {
     std::filesystem::path dir;
     std::filesystem::path edited;
     std::vector<std::filesystem::path> mod_roots;
+    void (*prepare_geometry)(scene::LevelData&) = nullptr;
 };
 
 LevelSources level_sources(int wanted) {
     LevelSources sources;
     sources.dir = g->levels / std::format("level_{:02d}", wanted);
+    if (gl::enhanced_rendering_available()) {
+        sources.prepare_geometry = g->profile->level_geometry_preparer();
+    }
     // An edited level's scenery (--mods): the editor's pack writes it beside its gameplay file.
     if (openrac_game_mods_dir != nullptr) {
         sources.edited = std::filesystem::path(openrac_game_mods_dir)
@@ -120,6 +132,10 @@ bool read_level(int wanted, const LevelSources& sources, std::string& error) {
     if (g_preload.read.valid() && g_preload.level == wanted
         && g_preload.generation == openrac_game_mods_generation) {
         crash::level_breadcrumb("level data wait", wanted);
+        while (g_preload.read.wait_for(std::chrono::milliseconds(50))
+               == std::future_status::timeout) {
+            platform::pump_events();
+        }
         Preload::Read read = g_preload.read.get();
         g_preload.level = -1;
         if (read.level.dir == sources.dir) {
@@ -130,8 +146,9 @@ bool read_level(int wanted, const LevelSources& sources, std::string& error) {
         }
     }
     crash::level_breadcrumb("level data read", wanted);
-    const bool read =
-        scene::load_level(sources.dir, g->level, error, sources.edited, sources.mod_roots);
+    const bool read = scene::load_level(
+        sources.dir, g->level, error, sources.edited, sources.mod_roots, sources.prepare_geometry
+    );
     crash::level_breadcrumb(read ? "level data ready" : "level data failed", wanted);
     return read;
 }
@@ -184,7 +201,12 @@ void preload_level(int number) {
     g_preload.read = std::async(std::launch::async, [sources = level_sources(number)] {
         Preload::Read read;
         read.ok = scene::load_level(
-            sources.dir, read.level, read.error, sources.edited, sources.mod_roots
+            sources.dir,
+            read.level,
+            read.error,
+            sources.edited,
+            sources.mod_roots,
+            sources.prepare_geometry
         );
         return read;
     });
@@ -194,6 +216,11 @@ void preload_level(int number) {
 // The directional light bank, in the executable's terms (relocated to the loaded program's copy).
 gaddr light_bank_address() {
     return openrac_game_front_end != nullptr ? openrac_game_front_end->light_bank : 0;
+}
+
+// The game's occlusion mask (0x80 bytes), in the executable's terms; 0 when the game has none.
+gaddr occlusion_address() {
+    return openrac_game_front_end != nullptr ? openrac_game_front_end->occlusion : 0;
 }
 
 // Uploads a level's geometry; while the boot program runs (the title and the main menu), the title
@@ -329,6 +356,7 @@ void use_level(int number) {
     g->hud = hud.get();
     g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
     configure_level_shadows(*g, wanted);
+    bool split_opaque_effects = false;
     for (std::size_t layer = 0; layer < scene::kLayerCount; ++layer) {
         // The caster is drawn after its shadow, so its proxy cannot darken
         // Ratchet himself. Opaque scenery has already filled the depth buffer.
@@ -342,15 +370,32 @@ void use_level(int number) {
             std::make_unique<scene::LayerRenderer>(g->scene, static_cast<scene::Layer>(layer)),
             error
         );
+        if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
+            && g->game.starts_with("rac1-")) {
+            split_opaque_effects = g->renderer->add(
+                                       std::make_unique<renderer::EffectRenderer>(
+                                           "opaque effects",
+                                           renderer::EffectPart::Opaque,
+                                           renderer::Bucket::Ties,
+                                           enhanced::atmosphere_material(g->scene)
+                                       ),
+                                       error
+                                   )
+                                   != nullptr;
+            if (!split_opaque_effects) {
+                log::error("opaque effect renderer: {}", error);
+            }
+        }
         // The liquids (the seas and lava the game draws solid) after the ties, where retail's draw
-        // callback list 3 draws them, before the shrubs and mobys (renderer/effects.h).
+        // callback list 3 draws them, before the shrubs and mobys (renderer/effects/effects.h).
         if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
             && g->renderer->add(
                    std::make_unique<renderer::EffectRenderer>(
                        "liquids",
                        renderer::EffectPart::Liquids,
                        renderer::Bucket::Ties,
-                       enhanced::atmosphere_material(g->scene)
+                       enhanced::atmosphere_material(g->scene),
+                       split_opaque_effects
                    ),
                    error
                ) == nullptr) {
@@ -364,11 +409,10 @@ void use_level(int number) {
                 renderer::Bucket::Particles,
                 enhanced::atmosphere_material(
                     g->scene,
-                    ((wanted == 1 && g->game.starts_with("rac1-"))
-                     || (wanted == 11 && g->game == "rac1-ntsc"))
-                        ? enhanced::make_water(g->scene, dir)
-                        : nullptr
-                )
+                    supports_enhanced_water(g->game, wanted) ? enhanced::make_water(g->scene, dir)
+                                                             : nullptr
+                ),
+                split_opaque_effects
             ),
             error
         )
@@ -394,7 +438,7 @@ void use_level(int number) {
     crash::level_breadcrumb("level pipelines", wanted);
 #if defined(OPENRAC_VULKAN)
     if (gl::is_vulkan()) {
-        vkgl::finish_pipelines();
+        vkgl::finish_pipelines(platform::pump_events);
     }
 #endif
     renderer::gl_warmup::warm();
@@ -427,6 +471,7 @@ void savestate_restored(std::uint64_t tick) {
     g->loaded = -2;
     g->index = tick;
     g->world_camera.reset();
+    g->world_shrubs.reset();
     g->moby_cameras.clear();
     g->effects.clear();
     g->effect_uploads.clear();
@@ -449,6 +494,7 @@ void savestate_restored(std::uint64_t tick) {
     g->repeat_frame = false;
     g->overdraw = false;
     g->skipped = 0;
+    g->bloom.release();
     g->agx.release();
     g->haze.release();
     g->frame.release();
@@ -496,6 +542,7 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
     q.alpha = quad.alpha;
     q.id = quad.id;
     q.parent = quad.parent;
+    q.attachment = quad.attachment;
     const std::uint32_t pixels = quad.pixels & 0x01FFFFFF;
     const std::uint32_t clut = quad.clut & 0x01FFFFFF;
     const std::uint32_t tbp = static_cast<std::uint32_t>(quad.tex0 & 0x3FFF);
@@ -506,6 +553,28 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
     const std::uint32_t height = 1u << ((quad.tex0 >> 30) & 0xF);
     if (pixels != 0 && clut != 0 && pixels + width * height <= ram.size()
         && clut + 1024 <= ram.size()) {
+        const renderer::gs::Tex0 t = renderer::gs::Tex0::decode(quad.tex0);
+        const bool own_texture = t.psm == 0x13 && t.cpsm == 0x00 && !t.csm;
+        const std::array<std::uint32_t, 3> source{pixels, clut, width << 16 | height};
+        auto hashed = g->effect_hashed.end();
+        if (own_texture) {
+            hashed =
+                std::find_if(g->effect_hashed.begin(), g->effect_hashed.end(), [&](const auto& h) {
+                    return h.source == source;
+                });
+        }
+        // The same source again this frame (a field of quads with one texture): its uploads are
+        // the earlier quad's, already copied, rather than another copy of the same bytes (each
+        // ~5 KB; a thousand of them cost the game's tick milliseconds on a phone).
+        if (hashed != g->effect_hashed.end() && hashed->uploads >= 0
+            && static_cast<std::size_t>(hashed->uploads) + 1 < g->effect_uploads.size()
+            && g->effect_uploads[static_cast<std::size_t>(hashed->uploads)].dbp == cbp
+            && g->effect_uploads[static_cast<std::size_t>(hashed->uploads) + 1].dbp == tbp) {
+            q.uploads = hashed->uploads;
+            g->effect_texture_ids.push_back({g->effects.size(), hashed->pixels, hashed->clut});
+            g->effects.push_back(q);
+            return;
+        }
         renderer::ImageUpload palette;
         palette.dbp = cbp;
         palette.dbw = 1;
@@ -524,24 +593,18 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
         // An 8-bit texture with a 32-bit CLUT (the paging's own) is drawn from a texture of its own,
         // by content (effect_textures): its GS blocks are shared with other effect textures in the
         // frame, and the pool holds only the last upload at a block when the quads are drawn.
-        const renderer::gs::Tex0 t = renderer::gs::Tex0::decode(quad.tex0);
-        if (t.psm == 0x13 && t.cpsm == 0x00 && !t.csm) {
-            const std::array<std::uint32_t, 3> source{pixels, clut, width << 16 | height};
-            auto hashed =
-                std::find_if(g->effect_hashed.begin(), g->effect_hashed.end(), [&](const auto& h) {
-                    return h.first == source;
-                });
+        if (own_texture) {
             if (hashed == g->effect_hashed.end()) {
                 g->effect_hashed.push_back(
                     {source,
-                     {renderer::hash_bytes(image.data.data(), image.data.size()),
-                      renderer::hash_bytes(palette.data.data(), palette.data.size())}}
+                     renderer::hash_bytes(image.data.data(), image.data.size()),
+                     renderer::hash_bytes(palette.data.data(), palette.data.size()),
+                     q.uploads}
                 );
                 hashed = std::prev(g->effect_hashed.end());
             }
-            g->effect_texture_ids.push_back(
-                {g->effects.size(), hashed->second.first, hashed->second.second}
-            );
+            hashed->uploads = q.uploads;
+            g->effect_texture_ids.push_back({g->effects.size(), hashed->pixels, hashed->clut});
         }
         g->effect_uploads.push_back(std::move(palette));
         g->effect_uploads.push_back(std::move(image));
@@ -597,7 +660,11 @@ void effect_textures() {
             );
             // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
             renderer::texture_pack::Replacement replaced;
-            renderer::texture_pack::replace(texture, {}, &replaced);
+            if (!renderer::texture_pack::replace(texture, {}, &replaced)) {
+                renderer::pcsx2_pack::replace_indexed8(
+                    texture, image.data, colours, renderer::AlphaScale::Gs
+                );
+            }
             const renderer::TextureHandle h = g->renderer->textures().add(
                 std::move(texture),
                 renderer::AlphaScale::Gs,
@@ -779,6 +846,7 @@ void particle(
     State::Particle p;
     std::memcpy(p.record.data(), record, p.record.size());
     p.id = id;
+    p.attachment = g->profile->particle_attachment(p.record);
     p.pixels = pixels & 0x01FFFFFF;
     p.clut = clut & 0x01FFFFFF;
     p.log2_side = log2_side;
@@ -823,7 +891,9 @@ std::uint32_t particle_texture(
         renderer::convert_t8(indices, kSide, kSide, palette, renderer::AlphaScale::Gs);
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
     renderer::texture_pack::Replacement replaced;
-    renderer::texture_pack::replace(image, {}, &replaced);
+    if (!renderer::texture_pack::replace(image, {}, &replaced)) {
+        renderer::pcsx2_pack::replace_indexed8(image, indices, palette, renderer::AlphaScale::Gs);
+    }
     const renderer::TextureHandle h = g->renderer->textures().add(
         std::move(image),
         renderer::AlphaScale::Gs,
@@ -1115,6 +1185,7 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         q.tex1 = 0xFF9000000120ull;
         q.alpha = r[3];
         q.id = p.id;
+        q.attachment = p.attachment;
         q.rigid = kind != 3;
         items.push_back({z, q});
     }
@@ -1198,11 +1269,42 @@ std::shared_ptr<const enhanced::MaterialEditor> material_editor() {
 }
 
 bool patch_material(
-    std::size_t binding, std::string key, materials::Value value, std::string& error
+    std::span<const std::size_t> bindings, materials::Properties properties, std::string& error
+) {
+    auto* editor = editable_materials(error);
+    return editor && material_edit_result(editor->patch(bindings, std::move(properties)), error);
+}
+
+bool assign_material(
+    std::span<const std::size_t> bindings,
+    const std::string& material,
+    materials::Properties definition,
+    std::string& error
 ) {
     auto* editor = editable_materials(error);
     return editor
-           && material_edit_result(editor->patch(binding, std::move(key), std::move(value)), error);
+           && material_edit_result(
+               editor->assign(bindings, material, std::move(definition)), error
+           );
+}
+
+bool make_material_unique(std::span<const std::size_t> bindings, std::string& error) {
+    auto* editor = editable_materials(error);
+    if (!editor) {
+        return false;
+    }
+    const auto result = editor->make_unique(bindings);
+    if (!result) {
+        error = result.error().message;
+        return false;
+    }
+    error.clear();
+    return true;
+}
+
+bool clear_material_slots(std::span<const std::size_t> bindings, std::string& error) {
+    auto* editor = editable_materials(error);
+    return editor && material_edit_result(editor->clear_slots(bindings), error);
 }
 
 bool patch_material_preset(
@@ -1215,9 +1317,16 @@ bool patch_material_preset(
            );
 }
 
-bool undo_material(std::size_t binding, const std::string& key, std::string& error) {
+bool delete_material_override(const std::string& id, std::string& error) {
     auto* editor = editable_materials(error);
-    return editor && material_edit_result(editor->undo(binding, key), error);
+    return editor && material_edit_result(editor->delete_override(id), error);
+}
+
+bool undo_material(
+    std::span<const std::size_t> bindings, const std::string& key, std::string& error
+) {
+    auto* editor = editable_materials(error);
+    return editor && material_edit_result(editor->undo(bindings, key), error);
 }
 
 bool undo_material_preset(const std::string& preset, const std::string& key, std::string& error) {
@@ -1286,9 +1395,7 @@ extern "C" int openrac_game_enhanced_water(void) {
     using namespace openrac;
     return c_boundary::call("openrac_game_enhanced_water", 0, [] {
         const bool available =
-            frontend::g && frontend::g->game.starts_with("rac1-")
-            && (frontend::g->loaded == 1
-                || (frontend::g->loaded == 11 && frontend::g->game == "rac1-ntsc"))
+            frontend::g && frontend::supports_enhanced_water(frontend::g->game, frontend::g->loaded)
             && frontend::enhanced_graphics_available() && settings::get().enhanced_graphics
             && enhanced::water_available();
         if (available && frontend::g->loaded == 11 && enhanced::ocean_replaces_horizon()) {

@@ -423,7 +423,8 @@ def clang_format_findings(root, clang_format, paths, gating):
             capture_output=True,
             text=True,
         )
-        if result.returncode != 0:
+        # The port's .clang-format is for C++ alone; clang-format refuses Objective-C under it.
+        if result.returncode != 0 and "support Objective-C" not in result.stderr:
             first = re.search(r":(\d+):\d+: (?:error|warning)", result.stderr)
             line = int(first.group(1)) if first else 1
             findings.append(

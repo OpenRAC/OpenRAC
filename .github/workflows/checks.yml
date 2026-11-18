@@ -11,6 +11,8 @@ on:
   push:
     branches: [master, develop]
   pull_request:
+    # ready_for_review: a draft skips the port's builds (scope below), so they run when it is ready.
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       time-vulkan-shards:
@@ -33,18 +35,39 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
 
 jobs:
+  # What a pull request needs (tools/ci_scope.py: the jobs and the port's parts its files can
+  # affect), and on every event all the parts the Linux port job is built in: one for what the
+  # games share, one per game program (port/game/*/hostgen.json "id"). A push runs everything.
+  # A draft pull request runs no port build (Linux, Enhanced, Fedora, Windows), only the cheap
+  # checks; marking it ready runs the rest.
   scope:
-    if: github.event_name == 'pull_request'
+    name: Which checks run
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
+      launcher: ${{ steps.scope.outputs.launcher }}
+      pages: ${{ steps.scope.outputs.pages }}
+      port: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.port }}
+      enhanced: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.enhanced }}
+      port_programs: ${{ steps.parts.outputs.port_programs }}
+      port_parts: ${{ github.event.pull_request.draft && '[]' || steps.scope.outputs.port_parts || steps.parts.outputs.port_parts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
+      - id: parts
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, pathlib
+          programs = sorted(json.loads(path.read_text())["id"]
+                            for path in pathlib.Path("port/game").glob("*/hostgen.json"))
+          print("port_programs=" + json.dumps(programs))
+          print("port_parts=" + json.dumps(["common", *programs]))
+          PY
       - id: scope
+        if: github.event_name == 'pull_request'
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -55,15 +78,31 @@ jobs:
           fi
 
   checks:
+    name: Repository (tools, tables, conventions)
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
+
+      # Each decomp's pin matches its game.json, and a pull request that moves one also changes
+      # the port's tables made from it and has its build facts published (tools/sources.py check).
+      - name: Decomp pins
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "$BASE" ]; then
+            git fetch -q --depth=1 origin "$BASE"
+            python tools/sources.py check --since "$BASE"
+          else
+            python tools/sources.py check
+          fi
 
       # The workflows themselves: actionlint at a fixed version, checked against its SHA-256.
       - name: Workflows
@@ -72,7 +111,7 @@ jobs:
           ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
         run: |
           archive="$RUNNER_TEMP/actionlint.tar.gz"
-          curl -sSfL -o "$archive" \
+          curl -sSfL --retry 5 --retry-delay 5 -o "$archive" \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           echo "$ACTIONLINT_SHA256  $archive" | sha256sum -c -
           tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
@@ -83,6 +122,15 @@ jobs:
 
       - name: PAL and NTSC rendering host-hook parity
         run: python -m unittest discover -s port/tools/hostgen -p test_host_hook_parity.py -v
+
+      # Every game version's tables, with no disc (port/tools/versionmap/check_versions.py): each
+      # version binds each function alike or its game's parity.tsv says why, carried releases'
+      # tables are what their tool writes, and each version's names table covers the shared host C.
+      # A new game or version is found by its files, so this step does not change.
+      - name: Game versions' tables
+        run: |
+          python -m unittest discover -s port/tools/versionmap -p test_parity.py -v
+          python port/tools/versionmap/check_versions.py
 
       - name: Level editor (synthetic data only)
         run: python -m unittest discover -s editor -v
@@ -141,15 +189,19 @@ jobs:
         run: python tools/shared.py check
 
       - name: rac1/pal progress report is current with its source
-        working-directory: games/rac1
+        working-directory: games/rac1/decomp
         run: python tools/gen_progress_report.py --check
 
-      - name: rac4 progress report is current with its source
-        working-directory: games/rac4/ntsc
-        run: python tools/gen_progress_report.py --check
+      - name: rac4 progress reports are current with their source
+        working-directory: games/rac4/decomp
+        # rac4-decomp's reports (progress/report.json, progress/pal/), as its own CI checks them;
+        # gen_progress_report.py's legacy report is a build output now (build/legacy_report.json).
+        run: |
+          python tools/progress.py --version us --check
+          python tools/progress.py --version pal --check
 
       - name: rac1/ntsc tools
-        working-directory: games/rac1/ntsc
+        working-directory: games/rac1/ntsc-decomp
         run: |
           # scripts/data-refs.py and its tests read the executable with these
           # (the versions requirements.txt pins).
@@ -158,7 +210,7 @@ jobs:
           python -m py_compile scripts/*.py
 
       - name: rac2 tools, layout and progress report
-        working-directory: games/rac2/ntsc
+        working-directory: games/rac2/decomp
         run: |
           # tools/check.py disassembles with it, at the version the decomp pins.
           python -m pip install "$(grep '^rabbitizer==' requirements.txt)"
@@ -167,13 +219,13 @@ jobs:
           python tools/progress.py --check
 
       - name: rac5 tools and layout
-        working-directory: games/rac5/ntsc
+        working-directory: games/rac5/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
 
       - name: rac6 tools and layout
-        working-directory: games/rac6/ntsc
+        working-directory: games/rac6/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
@@ -183,14 +235,16 @@ jobs:
   # backslashes, files are checked out with CRLF and the Unix-only tests are left out.
   launcher:
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
-    name: launcher (${{ matrix.os }})
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' }}
+    name: Launcher / ${{ matrix.system }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-26.04, windows-latest]
+        include:
+          - { system: Linux, os: ubuntu-26.04 }
+          - { system: Windows, os: windows-latest }
     defaults:
       run:
         shell: bash
@@ -199,36 +253,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/launcher-toolchain
         with:
           cache-key: checks-launcher-${{ matrix.os }}
           components: clippy, rustfmt
       - name: Tauri's system libraries
         if: runner.os == 'Linux'
-        run: |
-          apt=(sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-          packages=(libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev)
-          "${apt[@]}" update
-          # As launcher.yml: the downloads first, within five minutes (the runner's Azure mirror has
-          # sent packages at 90 kB/s), then once more from Ubuntu's own archive.
-          fetch() { timeout 300 "${apt[@]}" install -y --no-install-recommends --download-only "${packages[@]}"; }
-          if ! fetch; then
-            echo "::warning::the packages did not come within five minutes: once more without the Azure mirror"
-            if [ -f /etc/apt/apt-mirrors.txt ]; then
-              sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
-              grep -q '^http' /etc/apt/apt-mirrors.txt \
-                || echo "http://archive.ubuntu.com/ubuntu/" | sudo tee /etc/apt/apt-mirrors.txt
-            fi
-            "${apt[@]}" update
-            "${apt[@]}" install -y --no-install-recommends --download-only "${packages[@]}"
-          fi
-          "${apt[@]}" install -y --no-install-recommends "${packages[@]}"
+        uses: ./.github/actions/apt-install
+        with:
+          packages: libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev
 
-      - name: UI (svelte-check, ESLint, Prettier, Vitest)
-        run: |
-          yarn install --immutable
-          yarn verify
-
+      # The pages' checks (yarn verify) are the same on every system: they run once, in
+      # launcher-android. Here only what differs per system: the Rust side.
       - name: Rust format
         if: runner.os == 'Linux'
         run: cargo fmt --all --check
@@ -238,16 +275,17 @@ jobs:
 
       - name: Rust lints (the whole app)
         run: |
+          yarn install --immutable
           yarn build
           cargo clippy --workspace --all-targets -- -D warnings
 
-  # The Android launcher's pages in a browser (launcher/e2e/): the preview's Android layout, page
-  # by page, so that what Android has (Develop and Mods for the picked game, the start and running
-  # screens, the update's window, the themes) does not regress. About a minute: no Rust, one
-  # browser, one Vite server. On 24.04, which Playwright's install-deps knows.
+  # The launcher's pages, once (they are the same on every system): svelte-check, ESLint,
+  # Prettier and Vitest, then the Android layout in a browser (launcher/e2e/), page by page. No
+  # Rust, one browser, one Vite server. On 24.04, which Playwright's install-deps knows.
   launcher-android:
+    name: Launcher / Pages (lint, unit tests, Android layout)
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.pages != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -258,58 +296,101 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "26.13.0"
           package-manager-cache: false
-      - run: corepack enable
+      - run: npm install --global corepack@0.36.0 && corepack enable
       - uses: ./.github/actions/yarn-cache
-      - name: The launcher's packages and a headless Chromium
+      - name: The launcher's packages
+        run: yarn install --immutable
+      - name: Lint and unit tests (svelte-check, ESLint, Prettier, Vitest)
+        run: yarn verify
+      # The browser comes from Playwright's CDN, cached by version. No apt on the way: the
+      # runner has its libraries already, and apt mirrors that fail to resolve took 10 minutes
+      # and failed the job over fonts the tests never use. install-deps runs only when a
+      # library is really missing, and is cut short.
+      - id: playwright
+        run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
+      - name: A headless Chromium
         run: |
-          yarn install --immutable
-          yarn playwright-core install --with-deps chromium-headless-shell
+          for try in 1 2 3; do
+            timeout 180 yarn playwright-core install chromium-headless-shell && break
+            [ "$try" = 3 ] && exit 1
+            sleep $((try * 10))
+          done
+          shell=$(find ~/.cache/ms-playwright -type f -name 'chrome-headless-shell' -o -type f -name 'headless_shell' | head -n 1)
+          if ldd "$shell" | grep -q 'not found'; then
+            ldd "$shell" | grep 'not found'
+            timeout 300 yarn playwright-core install-deps chromium-headless-shell \
+              || echo "::warning::install-deps failed; trying the tests anyway"
+          fi
       - name: Android pages
         run: yarn test:android
 
-  # The native port (port/): hostgen's tests, then the whole port built with
-  # Clang and system SDL3, with enhanced rendering compiled out. Exercise
-  # the compatibility OpenGL/ES and core Vulkan paths on Mesa's software renderer.
-  port:
+  # The native port (port/): hostgen's tests, then the port built with Clang and system SDL3, with
+  # enhanced rendering compiled out, in parts, each on its own runner so that none outgrows the time
+  # limit with a cold cache. "common" builds everything but the games' programs
+  # (OPENRAC_PORT_GAMES_IN_ALL=OFF) and runs every test without a game-* label, exercising the
+  # compatibility OpenGL/ES and core Vulkan paths on Mesa's software renderer. Each program's part
+  # (port/game/*/hostgen.json "id": rac1-pal, rac2-ntsc...) builds openrac-<id> and runs its tests,
+  # labelled game-<id> (port/cmake/Games.cmake). One part per program, not per game: Going
+  # Commando's three programs in one job took 53 minutes with a cold cache. Every test runs in
+  # exactly one part.
+  port-part:
+    name: Port / Linux (${{ matrix.part }})
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ${{ fromJSON(needs.scope.outputs.port_parts) }}
     env:
+      PART: ${{ matrix.part }}
+      PORT_PROGRAMS: ${{ needs.scope.outputs.port_programs }}
       MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
       MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       # Each key's prefix is no other job's: "checks-port" was the start of every other port
-      # job's key, and restored their objects, built with other options, when it had none.
+      # job's key, and restored their objects, built with other options, when it had none. One key
+      # per part, so that one program's objects never evict another's.
       - uses: ./.github/actions/compiler-cache
         with:
-          key: checks-port-release
+          key: checks-port-release-${{ matrix.part }}
           max-size: 1G
       - uses: ./.github/actions/mesa-cache
+        if: matrix.part == 'common'
         with:
           variant: ubuntu-release
       - name: Compilers, SDL3 and software Vulkan
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang lld ninja-build libsdl3-dev \
+        uses: ./.github/actions/apt-install
+        with:
+          packages: >-
+            clang lld ninja-build libsdl3-dev
             libgl1-mesa-dev libegl1-mesa-dev libgl1-mesa-dri mesa-vulkan-drivers vulkan-validationlayers
 
       - uses: ./.github/actions/port-build-cache
         with:
-          variant: ubuntu-compatibility
+          variant: ubuntu-compatibility-${{ matrix.part }}
           preset: release
+          hostgen: ${{ matrix.part != 'common' }}
 
       - name: hostgen and build cache regressions
+        if: matrix.part == 'common'
         run: |
           python -m unittest discover -s port/tools/hostgen -v
           # This job installs both Clang and ccache, so the real cache fixture runs here.
@@ -319,14 +400,22 @@ jobs:
       - name: Build
         working-directory: port
         run: |
-          cmake --preset release -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_PROBE_BAKER=OFF
-          cmake --build --preset release
+          cmake --preset release -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_PROBE_BAKER=OFF \
+            -DOPENRAC_BAKE_LZ4=OFF \
+            -DOPENRAC_PORT_GAMES_IN_ALL=OFF
+          if [ "$PART" = common ]; then
+            cmake --build --preset release
+          else
+            cmake --build --preset release --target "openrac-$PART"
+          fi
 
+      # Run once: the configuration is the same in every part.
       - name: Verify compatibility build configuration
+        if: matrix.part == 'common'
         working-directory: port
         run: |
           python3 - <<'PY'
-          import json, pathlib, subprocess
+          import json, os, pathlib, subprocess
           cache = pathlib.Path('build/release/CMakeCache.txt').read_text().splitlines()
           assert 'OPENRAC_ENHANCED_RENDERING:BOOL=OFF' in cache
           assert 'OPENRAC_PROBE_BAKER:BOOL=OFF' in cache
@@ -337,64 +426,54 @@ jobs:
                       'hero_shadow_vulkan', 'sun_shadow_vulkan', 'shadow_scroll_vulkan',
                       'fsr3_frame', 'probe_bake'}
           assert not names & enhanced, names & enhanced
+          # Every game label is a part's: no test is left out of every part.
+          programs = set(json.loads(os.environ['PORT_PROGRAMS']))
+          for test in tests:
+              labels = [label for prop in test.get('properties', []) if prop['name'] == 'LABELS'
+                        for label in prop['value'] if label.startswith('game-')]
+              assert len(labels) <= 1, (test['name'], labels)
+              assert all(label[len('game-'):] in programs for label in labels), (test['name'], labels)
           PY
 
       - name: Tests
         working-directory: port
         env:
           SDL_VIDEO_DRIVER: offscreen
-        run: ctest --preset release --parallel 2 --stop-on-failure
+        run: |
+          if [ "$PART" = common ]; then
+            ctest --preset release --parallel 2 --stop-on-failure -LE '^game-'
+          else
+            ctest --preset release --parallel 2 --stop-on-failure --no-tests=error -L "^game-$PART\$"
+          fi
 
-  # The port without a window (the headless preset, no SDL3): the runtime, the
-  # games and their tests. Built here so code that only the window build can
-  # compile (outside the frontend's #ifdef) cannot creep back in unseen.
-  port-headless:
-    needs: scope
+  # One check for every part (what branch protection requires).
+  port:
+    name: Port / Linux
+    needs: [scope, port-part]
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 45
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.12"
-      - uses: ./.github/actions/compiler-cache
-        with:
-          key: checks-port-headless
-          max-size: 1G
-      - name: Compilers
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang ninja-build
-
-      - uses: ./.github/actions/port-build-cache
-        with:
-          variant: ubuntu-headless
-          preset: headless
-
-      - name: Build
-        working-directory: port
-        run: |
-          cmake --preset headless
-          cmake --build --preset headless
-
-      - name: Tests
-        working-directory: port
-        run: ctest --preset headless
+      - name: Require every part
+        env:
+          RESULT: ${{ needs.port-part.result }}
+          PARTS: ${{ needs.scope.outputs.port_parts }}
+        # Skipped only when the pull request needs no part.
+        run: test "$RESULT" = success || { test "$RESULT" = skipped && test "$PARTS" = "[]"; }
 
   # Full enhanced Vulkan coverage and the offline Embree baker, separately from
   # the compatibility build above. The preset explicitly compiles enhanced code in.
   port-vulkan-enhanced-build:
+    name: Port / Enhanced Vulkan build
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/compiler-cache
         with:
           key: checks-port-enhanced
@@ -407,13 +486,12 @@ jobs:
           key: enhanced-apt-v1-ubuntu-26.04-${{ runner.arch }}-${{ hashFiles('.github/workflows/checks.yml') }}
           restore-keys: enhanced-apt-v1-ubuntu-26.04-${{ runner.arch }}-
       - name: Compilers, software Vulkan and Embree 4
-        run: |
-          archives="$RUNNER_TEMP/openrac-enhanced-apt"
-          mkdir -p "$archives"
-          sudo apt-get update
-          sudo apt-get -o Dir::Cache::archives="$archives" install -y --no-install-recommends \
-            clang lld ninja-build libembree-dev libsdl3-dev \
-            libgl1-mesa-dev libegl1-mesa-dev
+        uses: ./.github/actions/apt-install
+        with:
+          archives: ${{ runner.temp }}/openrac-enhanced-apt
+          packages: >-
+            clang lld ninja-build libembree-dev libsdl3-dev
+            libgl1-mesa-dev libegl1-mesa-dev zstd
       - name: Save enhanced Vulkan packages
         if: steps.enhanced-apt.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -439,26 +517,43 @@ jobs:
           python3 tools/ci_port_tests.py port/build/enhanced plan
           # CTest and some fixtures embed absolute paths. Consumers use the same checkout layout.
           pwd -P > port/build/enhanced/ci-workspace.txt
+          # The tests need no DWARF (RelWithDebInfo), and it is most of the size. The symbol
+          # table stays, so backtraces still name functions.
+          echo "before strip: $(du -sh --exclude=CMakeFiles --exclude='*-src' port/build/enhanced | cut -f1)"
+          find port/build/enhanced -path '*/CMakeFiles' -prune -o -path '*-src' -prune -o -type f \
+            -size +100k ! -name '*.o' -print0 | while IFS= read -r -d '' file; do
+            if [ "$(head -c 4 "$file" | od -An -tx1 | tr -d ' ')" = 7f454c46 ]; then
+              strip --strip-debug "$file"
+            fi
+          done
           tar -C port/build --exclude=CMakeFiles --exclude='*-src' --exclude='*-subbuild' \
             --exclude='*.a' --exclude='*.o' --exclude='*.ninja' --exclude='.ninja_*' \
             --exclude=Testing --exclude=CMakeCache.txt \
-            -cf - enhanced | gzip -1 > "$RUNNER_TEMP/openrac-enhanced-tests.tar.gz"
+            -cf - enhanced | zstd -3 -T0 -q > "$RUNNER_TEMP/openrac-enhanced-tests.tar.zst"
+          ls -lh "$RUNNER_TEMP/openrac-enhanced-tests.tar.zst"
+          # What is left, largest first, to see what to trim next.
+          find port/build/enhanced -path '*/CMakeFiles' -prune -o -path '*-src' -prune -o -type f \
+            ! -name '*.a' ! -name '*.o' -printf '%s %p\n' | sort -rn | head -15 | numfmt --to=iec --field=1
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openrac-enhanced-tests
-          path: ${{ runner.temp }}/openrac-enhanced-tests.tar.gz
+          path: ${{ runner.temp }}/openrac-enhanced-tests.tar.zst
           compression-level: 0
           retention-days: 1
           if-no-files-found: error
 
   port-vulkan-enhanced-tests:
+    name: Port / Enhanced Vulkan tests (${{ matrix.group }})
     needs: port-vulkan-enhanced-build
+    # It asks for the build alone: the build's own condition covers scope.
+    if: ${{ !cancelled() && needs.port-vulkan-enhanced-build.result == 'success' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        group: [vulkan, equivalence, cpu, baker]
+        # cpu and baker take half a minute each: one runner for both.
+        group: [vulkan, equivalence, cpu-baker]
     env:
       SDL_VIDEO_DRIVER: x11
       LIBGL_ALWAYS_SOFTWARE: "1"
@@ -470,34 +565,52 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/mesa-cache
         if: matrix.group == 'vulkan' || matrix.group == 'equivalence'
         with:
-          variant: ubuntu-enhanced-nopt
+          # Each runner compiles different variants; immutable cache keys must not race.
+          variant: ubuntu-enhanced-nopt-${{ matrix.group }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: openrac-enhanced-tests
           path: ${{ runner.temp }}
       - name: Install test runtime dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ninja-build libembree-dev libsdl3-dev \
-            libgl1 libegl1 libgles2 libglx-mesa0 libegl-mesa0 libgl1-mesa-dri \
-            mesa-vulkan-drivers vulkan-validationlayers xvfb xauth
+        uses: ./.github/actions/apt-install
+        with:
+          packages: >-
+            ninja-build libembree-dev libsdl3-dev
+            libgl1 libegl1 libgles2 libglx-mesa0 libegl-mesa0 libgl1-mesa-dri
+            mesa-vulkan-drivers vulkan-validationlayers xvfb xauth zstd
       - name: Run the restored test group
         env:
           TEST_GROUP: ${{ matrix.group }}
         run: |
           mkdir -p port/build
-          tar -C port/build -xzf "$RUNNER_TEMP/openrac-enhanced-tests.tar.gz"
+          zstd -dc "$RUNNER_TEMP/openrac-enhanced-tests.tar.zst" | tar -C port/build -xf -
           test "$(cat port/build/enhanced/ci-workspace.txt)" = "$(pwd -P)"
-          xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$TEST_GROUP"
+          for group in ${TEST_GROUP//-/ }; do
+            xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$group"
+          done
       - name: Measure Vulkan shard contention
         if: github.event_name == 'workflow_dispatch' && inputs.time-vulkan-shards && matrix.group == 'vulkan'
         run: xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced timing
 
-  # Keep the existing check name for branch protection.
+      - name: Save enhanced test timings and failures
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: enhanced-test-results-${{ matrix.group }}
+          path: |
+            port/build/enhanced/ci-*-results.xml
+            port/build/enhanced/ci-timing-*.xml
+            port/build/enhanced/Testing/Temporary/LastTest.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # One check for the build and every test group (what branch protection requires).
   port-vulkan-enhanced:
+    name: Port / Enhanced Vulkan
     needs: [scope, port-vulkan-enhanced-build, port-vulkan-enhanced-tests]
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
@@ -507,18 +620,23 @@ jobs:
         env:
           BUILD_RESULT: ${{ needs.port-vulkan-enhanced-build.result }}
           TEST_RESULT: ${{ needs.port-vulkan-enhanced-tests.result }}
-        run: test "$BUILD_RESULT" = success && test "$TEST_RESULT" = success
+          NEEDED: ${{ needs.scope.outputs.enhanced }}
+        # Skipped only when the pull request does not touch what the enhanced build reads.
+        run: |
+          if [ "$NEEDED" = false ]; then test "$BUILD_RESULT" = skipped; exit; fi
+          test "$BUILD_RESULT" = success && test "$TEST_RESULT" = success
 
   # The native port on Fedora (the release players run): the program built as the launcher's
   # "Build the game" builds it (tools/build_port.py), against the system's SDL3, Clang and CMake,
-  # then hostgen, all non-Vulkan tests and a small Vulkan smoke set. The full Vulkan
+  # then all non-Vulkan tests and a small Vulkan smoke set (hostgen's tests run once, in port). The full Vulkan
   # suite runs in port-vulkan-enhanced; this set retains Fedora's optimised Mesa coverage.
   port-fedora:
+    name: Port / Fedora
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
     runs-on: ubuntu-26.04
     container: registry.fedoraproject.org/fedora:44
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       # Every compile through ccache, kept between runs as the other port jobs keep theirs.
       CMAKE_C_COMPILER_LAUNCHER: ccache
@@ -535,6 +653,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
 
       - uses: ./.github/actions/compiler-cache
         with:
@@ -551,9 +670,6 @@ jobs:
 
       - name: Build openrac-rac1-pal as the launcher builds it
         run: python3 tools/build_port.py rac1-pal
-
-      - name: hostgen
-        run: python3 -m unittest discover -s port/tools/hostgen
 
       # Every test program (the *_test targets), not the whole port: rac1/ntsc's program calls a
       # memchr nothing declares, which Clang 16 and later refuse.
@@ -581,10 +697,11 @@ jobs:
   # those of hostgen's that need no POSIX host. The port is written on Linux
   # and macOS, and what only builds there (execinfo.h, fseeko) stops here.
   port-windows:
+    name: Port / Windows
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       CMAKE_C_COMPILER_LAUNCHER: ccache
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
@@ -592,6 +709,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -610,9 +728,11 @@ jobs:
       - name: Build openrac-rac1-pal and the runtime and diagnostic tests
         run: python tools/build_port.py rac1-pal --target runtime_test --target log_test --target crash_symbols_test --target breadcrumbs_test --target breadcrumbs_no_alloc_test --target render_worker_test
 
+      - name: Windows build environment tests
+        run: python -m unittest discover -s tools -p test_build_port.py -v
+
       - name: The runtime and Windows diagnostic tests
         run: ctest --test-dir port/build/release -R "^(runtime|log|crash_symbols|crash_symbols_local|breadcrumbs|breadcrumbs_no_alloc|render_worker)$" --output-on-failure
 
       - name: hostgen's tests
         run: python -m unittest discover -s port/tools/hostgen -v
-

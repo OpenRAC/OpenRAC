@@ -26,6 +26,7 @@ export const STATE_LABEL = {
 export const KIND_LABEL = {
   native: { text: "Runs code", tone: "warn" },
   script: { text: "Sandboxed script", tone: "ok" },
+  tool: { text: "Launcher page", tone: "ok" },
   pack: { text: "Textures and models", tone: "off" },
   builtIn: { text: "Experimental", tone: "warn" },
 } as const satisfies Record<string, Label>;
@@ -34,6 +35,7 @@ export const KIND_LABEL = {
 export const KIND_HINT = {
   native: "A program: it runs on this computer with the game's rights. Install it only from people you trust.",
   script: "Runs in the game's sandbox: it reaches only what the game lets scripts change, never your files.",
+  tool: "A page of its own in the launcher, kept apart from it: it reads the game's levels and saved textures, and saves only where you choose.",
   pack: "Data only: it replaces textures, models or levels, and runs nothing.",
   builtIn: "Part of the game, off unless you turn it on. Still being worked on.",
 } as const satisfies Record<KindKey, string>;
@@ -66,6 +68,8 @@ export const PAGE = {
   earlyTitle: "Early access",
   earlyLine:
     "Its levels open in Godot and you can make texture and model packs. Packing level edits and playing come later.",
+  packLaterLine:
+    "Its levels open in Godot and you can make texture and model packs. Packing level edits back into the game comes later.",
   noneTitle: "No mods for this game yet",
   noneLine: "Mods arrive once the level editor can read its levels.",
   noneLink: "Follow the progress on openrac.dev",
@@ -74,11 +78,21 @@ export const PAGE = {
   developerTitle: "For developers",
 } as const;
 
+/** My mods' first line (GetMods.svelte): where mods come from. The launcher lists none itself. */
+export const GET_MODS = {
+  title: "Get mods",
+  lead: "Find mods on the official hub, openrac.dev, or anywhere else: a GitHub page, a .zip or a folder. Add them below.",
+  hub: "Open the mod hub",
+  hubUrl: "https://openrac.dev/mods",
+  publish: "Publish your mod",
+  publishUrl: "https://openrac.dev/mods/submit",
+} as const;
+
 /** Adding a mod: a link, a file or a folder (AddMod.svelte). */
 export const ADD = {
   title: "Add a mod",
   linkLabel: "A mod's link",
-  linkPlaceholder: "Paste a mod's link, like openrac.dev/mods/lock-strafe",
+  linkPlaceholder: "Paste a mod's link, like openrac.dev/mods/lock-strafe, or a friend's mod code",
   notModPage: "That page isn't a mod. Open a mod's page on openrac.dev and copy its link.",
   go: "Find",
   file: "File…",
@@ -90,10 +104,6 @@ export const ADD = {
   addingSeveral: (count: number) => `Adding ${count} mods…`,
   drop: "or drop a .zip or folder on this page",
   dropHere: "Drop to add it",
-  browse: "Browse mods",
-  modsUrl: "https://openrac.dev/mods",
-  publish: "Publish your mod",
-  publishUrl: "https://openrac.dev/mods/submit",
   close: "Close",
 } as const;
 
@@ -120,6 +130,34 @@ export const PANEL = {
   folder: "Folder",
   id: "Id",
   interface: "interface",
+} as const;
+
+/** My mods' toolbar when there are many (ModsToolbar.svelte, lib/modsView.svelte.ts). */
+export const VIEW = {
+  label: "Show my mods",
+  search: "Find a mod",
+  searchPlaceholder: "Find a mod by name or words",
+  clear: "Clear",
+  all: "All",
+  gameplay: "Gameplay",
+  looks: "Graphics and sound",
+  tools: "Tools",
+  sortLabel: "Order",
+  sortOrder: "Load order",
+  sortName: "A to Z",
+  /** Under a list sorted by name or searched: it cannot be moved like that. */
+  orderFrozen: "Sorted for viewing only: switch to Load order, with no search, to move mods.",
+  none: (query: string) => `Nothing matches “${query}”.`,
+  noneInGroup: "None of this kind yet.",
+  grip: (name: string) => `Drag to move ${name}`,
+  moveTop: "Move to the top",
+  moveBottom: "Move to the bottom",
+  toolsTitle: "Tools",
+  builtInTitle: "Built in",
+  toolsSub: "Pages of their own in the launcher, always on: they make things, the game does not load them.",
+  /** A tool's switch: on, greyed, and why. */
+  toolAlwaysOn: "Always on: a tool is a page in the launcher, so it can't be turned off.",
+  toolAlwaysOnShort: "Always on",
 } as const;
 
 /** The badge on a mod's row besides its state and kind (lib/plugins.ts, modBadge). */
@@ -167,6 +205,9 @@ export const ENHANCED = {
 
 /** A mod's own page (ModPage.svelte). */
 export const MOD_PAGE = {
+  /** A mod with a page of its own (core/src/mod_tools.rs): the button that shows it. */
+  openTool: "Open",
+  openToolHint: (name: string) => `Open ${name}'s page`,
   back: "Back to My mods",
   crumbsLabel: "Where you are",
   crumbRoot: "My mods",
@@ -179,6 +220,8 @@ export const MOD_PAGE = {
   resetAllConfirm: (name: string) => `Put every setting of ${name} back to its default?`,
   resetAllDone: "Every setting is back to its default.",
   noSettings: "This mod has nothing to set: switch it on and play.",
+  /** A mod with a page of its own keeps its settings there. */
+  toolSettings: "Its settings are on its own page: Open.",
   offNote: "Off: its settings are kept for when you switch it on.",
   update: (version: string) => `Update to ${version}`,
   more: (name: string) => `More for ${name}`,
@@ -228,8 +271,8 @@ export const alsoBound = (names: string[]) =>
 
 /** The packs' list (PacksPanel.svelte). */
 export const PACKS = {
-  title: "Textures, models, levels and sound",
-  sub: "Change how the game looks and sounds",
+  title: "Graphics and sound packs",
+  sub: "Textures, models, levels and sound",
   empty: "None yet. Add one above, or make your own in the Level editor, Models and textures, or Audio.",
   orderHint: "Lower in the list wins",
   moveUpTitle: "Move up: the packs under it win where they change the same thing",
@@ -244,15 +287,39 @@ export const PREVIEW = {
   reinstall: "Reinstall",
 } as const;
 
+/** The player's own texture pack: a row of the packs (PacksPanel.svelte) and the steps that make
+ *  it (TexturePacksBlock.svelte; core/src/texture_packs.rs). */
+export const TEXTURES = {
+  name: "Your texture pack",
+  badge: "Texture pack",
+  badgeHint: "Pictures that replace the game's own by their name, at any size.",
+  make: "Make your own",
+  share: "Share my pack…",
+  replace: "Replace with a pack…",
+  replaceYes: "Replace my pack",
+  openFolder: "Open its folder",
+  pickTitle: "Choose a texture pack (.zip)",
+  replaced: (n: string, kept: string | null) =>
+    kept ? `Your pack is now ${n}. The old one is kept beside it, as “${kept}”.` : `Your pack is now ${n}.`,
+  added: (n: string, replaced: number) =>
+    replaced
+      ? `Added ${n} to your texture pack, ${replaced} of them in place of yours.`
+      : `Added ${n} to your texture pack.`,
+  makeTitle: "Make a texture pack",
+  makeLead: "Save the game's pictures, repaint or upscale them, and they become your texture pack.",
+  whereItIs: "Your pack is in My mods, with the other packs, where you switch it on, share it or replace it.",
+  goToMine: "Show it in My mods",
+} as const;
+
 /** Mods, the switch under Play on the game's page (GamePlayer.svelte): off,
  *  the default, the game starts with no mods at all; the Mods tab says so above its list. */
 export const WITH_MODS = {
   label: "Mods",
   hint: "Play with your gameplay mods, packs, packed levels and Enhanced graphics from the Mods tab.",
   /** Beside the switch when it is on: how many are switched on, a way to the Mods tab. */
-  count: (n: number | null) => (n === null ? "Mods tab" : n === 0 ? "none on yet" : `${n} on`),
+  count: (n: number | null) => (n === null || n === 0 ? "enabled" : `enabled: ${n}`),
   /** Beside the switch when it is off. */
-  original: "original game",
+  original: "disabled",
   offNotice: "Play starts the game without mods. Turn on Mods under Play to use them.",
   turnOn: "Turn on",
 } as const;
@@ -309,12 +376,6 @@ export const cannotSwitchOn = (why: string) => `Cannot be switched on: ${why}`;
 export const removeConfirm = (name: string) => `Remove ${name}? The launcher's copy and its settings are deleted.`;
 export const withName = (name: string, why: string) => `${name}: ${why}`;
 
-/** The links a mod was already added from, under the link field (AddMod). */
-export const SAVED_SOURCES = {
-  label: "Added from before",
-  hint: (source: string) => `Read ${source} again`,
-};
-
 /** The prompt when the launcher starts and the day's look found newer mods (modUpdates). */
 export const START_UPDATES = {
   title: "Your mods have updates",
@@ -329,11 +390,30 @@ export const START_UPDATES = {
   neverHint: "The Mods tab's \u201cCheck now\u201d still looks whenever you ask.",
 };
 
-/** The update check's answer. */
-export function updatesFound(count: number, errors: string[]): string {
-  const found =
-    count === 0 ? "Every mod from a link is up to date." : `${count} update${count === 1 ? "" : "s"} found.`;
-  return found + (errors.length ? ` Not checked: ${errors.join("; ")}` : "");
+/** What the index's look found for the mods it lists (lib/modAutoUpdate's checkIndex). */
+export interface IndexFound {
+  /** Went in by themselves. */
+  updated: number;
+  /** Wait for a click under "Update available". */
+  waiting: number;
+  /** Cannot go in now (a newer launcher, another mod): under "Waiting". */
+  held: number;
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * The update check's answer: the updates of the mods from a link (`count`, with the sources it
+ * could not read) and, when the index was looked at too, what it found for the mods it lists.
+ */
+export function updatesFound(count: number, errors: string[], index: IndexFound | null = null): string {
+  const said: string[] = [];
+  if (index?.updated) said.push(`Updated ${plural(index.updated, "mod", "mods")}; their settings are kept.`);
+  if (index?.waiting) said.push(`${plural(index.waiting, "update is", "updates are")} available below.`);
+  if (index?.held) said.push(`${plural(index.held, "update waits", "updates wait")}: see below for why.`);
+  if (count > 0) said.push(`${plural(count, "update", "updates")} found.`);
+  if (said.length === 0) said.push(index ? "Every mod is up to date." : "Every mod from a link is up to date.");
+  return said.join(" ") + (errors.length ? ` Not checked: ${errors.join("; ")}` : "");
 }
 
 export function updatedAll(done: number, failed: number): string {
@@ -408,6 +488,85 @@ export const ASSETS = {
   exported: (level: string) => `Exported ${level}: the folder is opening.`,
 } as const;
 
+/** Mod codes (ModSetShare.svelte, ModSetReview.svelte, ModSetSaved.svelte, core/src/modset.rs): friends
+ *  matching their mods. The words never name a disc's region, and "code" is always a mod code here. */
+export const MOD_CODES = {
+  share: "Share these mods",
+  shareHint: "Make a code friends can enter to get the same mods",
+  shareTitle: "Share your mods",
+  shareLead: "Friends enter the code on their Mods page and get these mods, at these versions, with these settings.",
+  nothing: "No mods are on, so there's nothing to share yet.",
+  inCode: "In the code",
+  suggest: "Also suggest",
+  suggestHint: "Controls and looks are each player's own. Friends choose whether to take these.",
+  byHand: "Friends need the file",
+  byHandHint: "These aren't in a catalogue, so the code can only name them. Send the .zip yourself.",
+  solo: "Can't be played in a party",
+  soloHint: "A party refuses these. Turn them off before you host.",
+  make: "Make code",
+  making: "Making the code…",
+  close: "Close",
+  cancel: "Cancel",
+  codeLabel: "Mod code",
+  copyCode: "Copy code",
+  copyFull: "Copy full code",
+  copied: "Copied",
+  copyRefused: "The system wouldn't let the launcher copy that. Select the text and copy it yourself.",
+  codeLife: "It lasts 30 days from its last use. The full code never runs out and works offline.",
+  offline: "The server can't be reached, so there's no short code this time.",
+  offlineFull: "Send this instead. It holds everything and works without a server:",
+  reading: "Reading the code…",
+  madeOn: (date: string) => `Made ${date}`,
+  codeAndDate: (code: string, date: string) => `Code ${code} · made ${date}`,
+  whatChanges: "What changes",
+  group: {
+    install: "New",
+    update: "Updated",
+    downgrade: "Moved to an older version",
+    reinstall: "Replaced with the catalogue's copy",
+    enable: "Turned on",
+    disable: "Turned off",
+    settings: "Settings",
+    optional: "Suggested, your choice",
+    unavailable: "Can't be added",
+    manual: "Get these by hand",
+    packs: "Also needed",
+  },
+  packsHint: "Texture and model packs can't come through a code. Ask your friend for these.",
+  manualHint: "These aren't in a catalogue. Ask your friend for the .zip.",
+  nearest: (version: string) => `The newest there is: ${version}. Ask your friend to update.`,
+  matches: (count: number) => (count === 1 ? "1 mod already matches." : `${count} mods already match.`),
+  trustTitle: "This runs code on your computer",
+  trustLine: (label: string) => `Mods from ${label} aren't made by OpenRAC, and you haven't used them before.`,
+  trust: (label: string) => `I trust ${label}`,
+  fresh: "Published in the last two days",
+  otherGame: "This code is for another game.",
+  noGame: "Set up a game first, then enter the code again.",
+  queued: "Another code came in: it opens when this one is closed.",
+  otherOpenrac: (version: string) =>
+    `It was made with OpenRAC ${version}. A party needs the same OpenRAC on every side.`,
+  partial: "Part of this can't be applied. The rest can, but the party may still refuse you.",
+  running: "Close the game first: mods load when it starts.",
+  saved: "Your mods now are saved first, so you can go back.",
+  already: "You already match this code. There's nothing to change.",
+  apply: "Apply",
+  applying: "Applying…",
+  doneTitle: "Your mods match",
+  done: "Start the game and join the party.",
+  doneSkipped: (count: number) =>
+    count === 1
+      ? "1 mod is still missing, so the party may refuse you."
+      : `${count} mods are still missing, so the party may refuse you.`,
+  undo: "Put my old mods back",
+  playAndJoin: (party: string) => `Play and join ${party}`,
+  undone: "Your old mods are back.",
+  savedTitle: "Earlier mods",
+  savedHint: "Saved each time a code was applied. The last ten are kept.",
+  savedRow: (code: string, date: string) => (code ? `Before ${code}, ${date}` : `Before a full code, ${date}`),
+  restore: "Restore",
+  restoreConfirm: "Put these mods back? Mods added since stay installed, turned off.",
+} as const;
+
 /** Audio (AudioPanel.svelte). */
 export const AUDIO = {
   lead: "Export the game's sounds as WAV files, edit or replace them, then import them back as a pack.",
@@ -443,7 +602,7 @@ export const AUDIO = {
   nothing: "No file in that folder differs from what was exported, so no pack is left from it.",
 } as const;
 
-// ---- The mod hub: the change set (DeepLinkInstall.svelte) and Browse (ModBrowse.svelte) ------
+// ---- The mod hub: the change set (DeepLinkInstall.svelte), opened by a link from openrac.dev ---
 // Each message says what happened, why if known, and what to do, in two short sentences at most,
 // with no code in it (core/src/mod_error.rs gives the kind; `detail` stays in "Copy details").
 
@@ -562,89 +721,16 @@ export function appliedText(done: number, total: number, failed: string | null):
   return done === 1 ? "Installed 1 mod. It's on." : `Installed ${done} mods. They're on.`;
 }
 
-export const INDEX_STATE = {
-  stale: "The mod list is out of date.",
-  newerFormat: "Update the launcher to see new mods.",
-} as const;
-
-export function offlineText(fetchedAt: number, now = Date.now() / 1000): string {
-  const hours = Math.max(0, Math.round((now - fetchedAt) / 3600));
-  if (fetchedAt === 0) return "Showing the saved mod list.";
-  if (hours < 1) return "Showing the mod list from less than an hour ago.";
-  if (hours < 48) return `Showing the mod list from ${hours} ${hours === 1 ? "hour" : "hours"} ago.`;
-  return `Showing the mod list from ${Math.round(hours / 24)} days ago.`;
-}
-
-export const revokedOffText = (name: string, version: string, reason: string) =>
-  `${name} ${version} was turned off: ${reason}`;
-
-export const BROWSE = {
-  tabTitle: "Browse",
-  search: "Search mods",
-  searchHint: "/",
-  presetsLabel: "Show",
-  name: "Name",
-  author: "Author",
-  version: "Version",
-  downloads: "Downloads",
-  install: "Install",
-  installed: "Installed",
-  notHere: "Doesn't work here",
-  devOnly: "Dev build only",
-  clearFilters: "Clear filters",
-  viewOnSite: "View on openrac.dev",
-  watch: "Watch on YouTube",
-  noReadme: "No description yet.",
-  noVersions: "No versions.",
-  noFiles: "No files listed.",
-  requires: "Needs",
-  conflicts: "Can't be on with",
-  recommends: "Recommends",
-  suggests: "Suggests",
-  nothing: "None",
-  license: "License",
-  tags: "Tags",
-  updated: "Updated",
-  impact: "Impact",
-  aiAssisted: "AI-assisted",
-  yes: "Yes",
-  no: "No",
-  detailsAria: "Mod details",
-  failed: "The mod list couldn't be loaded.",
-  empty: "No mods in this list yet.",
-} as const;
-
-export const PRESET_LABEL = {
-  compatible: "Compatible",
-  installed: "Installed",
-  upgradeable: "Upgradeable",
-  notInstalled: "Not installed",
-  all: "All",
-} as const;
-
-export const DETAIL_TAB = {
-  metadata: "Metadata",
-  relationships: "Relationships",
-  versions: "Versions",
-  files: "Files",
-} as const;
-
-export const noMatch = (q: string) => `No mods match "${q}".`;
-export const didYouMean = (name: string) => `Did you mean ${name}?`;
-export const IMPACT_LABEL: Record<string, string> = {
-  cosmetic: "Cosmetic only",
-  gameplay: "Changes gameplay",
-  "speedrun-safe": "Speedrun-safe",
-  "touches-saves": "Changes saves",
-  online: "Online",
-};
-
 // ---- Mods kept current and tidy (lib/modAutoUpdate, ModUpdatesPanel.svelte, PluginsPanel) -----
 
 import type { Hold } from "./api";
 
 export const updatedMods = (n: number) =>
   n === 1 ? "Updated 1 mod. See what changed on the Mods tab." : `Updated ${n} mods. See what changed on the Mods tab.`;
+
+/** A withdrawn version the look for updates turned off (ModUpdatesPanel). */
+export const revokedOffText = (name: string, version: string, reason: string) =>
+  `${name} ${version} was turned off: ${reason}`;
 
 export const UPDATES = {
   title: "Mod updates",
@@ -714,9 +800,27 @@ export const STEAM_TEXT = {
   added: "Added. If Steam is open and does not show it, restart Steam.",
 } as const;
 
+/** A game's page: its own Steam entry and desktop shortcut (GameShortcuts.svelte). */
+export const SHORTCUT_TEXT = {
+  steamLine: "Add this game to your Steam library as its own entry. It starts without the launcher's window.",
+  steamIn: "In your Steam library.",
+  desktopTitle: "Desktop shortcut",
+  desktopLine: "A shortcut on your Desktop that starts this game without the launcher's window.",
+  create: "Create shortcut",
+  created: (path: string) => `Shortcut written to ${path}.`,
+} as const;
+
 export const SETTINGS_TEXT = {
   autoUpdate: "Update mods automatically",
   autoUpdateLine: "Small updates go in by themselves before you play. Big ones wait for you.",
   cleanUp: "Clean up unused dependencies",
   cleanUpLine: "Removing a mod also removes what was installed only for it.",
 } as const;
+
+/** A mod's own page (ModTool.svelte). */
+export const MOD_TOOL = {
+  frameLabel: (name: string) => `${name}'s page`,
+  backTo: (name: string) => `Back to ${name}`,
+  failed: (why: string) => `The page asked for something the launcher could not do: ${why}`,
+  onlyInApp: "A mod's page opens in the launcher app, not in this preview.",
+};

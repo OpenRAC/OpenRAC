@@ -7,6 +7,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -16,8 +17,16 @@
 #include <stdexcept>
 #include <string_view>
 
+#if !defined(_WIN32)
+#include <dlfcn.h>
+#include <signal.h>
+#include <unistd.h>
+#include <unwind.h>
+#endif
+
 #include "common/json.h"
 #include "common/profiler.h"
+#include "enhanced/lighting/bake_material.h"
 #include "enhanced/lighting/probe_texture_encode.h"
 #include "enhanced/tools/baker/batch.h"
 #include "enhanced/tools/baker/batch_command.h"
@@ -27,7 +36,10 @@
 #include "enhanced/tools/baker/pipeline/pipeline.h"
 #include "enhanced/tools/baker/probe_device.h"
 #include "enhanced/tools/baker/sources/activation.h"
+#include "enhanced/tools/baker/sources/emission_migration.h"
 #include "enhanced/tools/baker/sources/emission_prepare.h"
+#include "enhanced/tools/baker/sources/emission_review.h"
+#include "enhanced/tools/baker/sources/emission_textures.h"
 #include "enhanced/tools/baker/sources/interior_prepare.h"
 #include "enhanced/tools/baker/sources/interior_sources.h"
 #include "enhanced/tools/baker/sources/interior_stage.h"
@@ -72,14 +84,21 @@ float real(const std::string& text) {
 void usage() {
     std::cout
         << "Offline enhanced lighting bake (no game window)\n"
-        << "openrac-enhanced-baker --bake-all --levels-dir DIR --output-dir DIR [--update]\n"
+        << "openrac-enhanced-baker --inspect-emissive-task LEVELS_DIR REVIEW_JSON TASK_ID\n"
+        << "openrac-enhanced-baker --calculate-mesh-emission LEVEL_DIR\n"
+        << "openrac-enhanced-baker --migrate-mesh-emission LEVEL_DIR MATERIAL_OVERRIDES.json\n"
+        << "openrac-enhanced-baker --bake-all --levels-dir DIR --output-dir DIR [--mods-dir DIR] "
+           "[--update]\n"
         << "  --jobs N --memory-mib N\n"
+        << "  --lz4-assets | --no-lz4-assets (lossless file compression; default on when "
+           "available)\n"
         << "  --compression auto|none|bc6h|astc (colour: default auto; ASTC colour requires HDR "
            "support)\n"
         << "openrac-enhanced-baker --level-dir DIR [--inspect | --output FILE | --verify FILE]\n"
         << "openrac-enhanced-baker --infer-interiors INPUT.json OUTPUT.json [SPACING]\n"
         << "openrac-enhanced-baker --prepare-level-interiors LEVEL_DIR GAMEPLAY.bin OUTPUT_DIR\n"
         << "openrac-enhanced-baker --prepare-level-emission LEVEL_DIR CATALOG.json DEFAULTS.json\n"
+        << "openrac-enhanced-baker --print-emission-fingerprint LEVEL_DIR PROFILES_DIR\n"
         << "  --threads N (optional emission hashing worker budget)\n"
         << "openrac-enhanced-baker --decode-water LEVEL_DIR\n"
         << "openrac-enhanced-baker --bake-pokitaru-coast LEVEL_DIR X Y SIZE CELL\n"
@@ -91,7 +110,7 @@ void usage() {
         << "  --batch-output DIR (prepare once, then read one JSON region plan on stdin)\n"
         << "  --prepare-interiors GAMEPLAY.bin (prepare interiors inside the batch process)\n"
         << "  --resume (with --batch-output: keep the grids a stopped bake verified)\n"
-        << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 256 --bounces 3 --seed 1\n"
+        << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 128 --bounces 2 --seed 1\n"
         << "  --tracy-wait SECONDS (wait up to 120 seconds for a Tracy capture)\n"
         << "  --threads 0 (all CPU threads; 1 for serial baking, same quality)\n"
         << "  --light-set 0 --environment 0.1 (uniform fallback radiance)\n"
@@ -204,14 +223,159 @@ void water_command(int argc, char** argv) {
     }
 }
 
+// ---- Crash report ----
+
+#if !defined(_WIN32)
+// Writes text to stderr from a signal handler (no allocation, no stdio).
+void crash_write(const char* text) {
+    std::size_t size = 0;
+
+    while (text[size]) {
+        ++size;
+    }
+
+    [[maybe_unused]] const auto written = ::write(STDERR_FILENO, text, size);
+}
+
+void crash_write_hex(std::uintptr_t value) {
+    char text[2 + 16 + 1] = {'0', 'x'};
+    int length = 2;
+
+    for (int shift = 60; shift >= 0; shift -= 4) {
+        const unsigned digit = (value >> shift) & 0xF;
+
+        if (digit || length > 2 || shift == 0) {
+            text[length++] = static_cast<char>(digit < 10 ? '0' + digit : 'a' + digit - 10);
+        }
+    }
+
+    text[length] = 0;
+    crash_write(text);
+}
+
+// One stack frame: the module it is in and the offset inside it, which a build's symbols name.
+_Unwind_Reason_Code crash_frame(_Unwind_Context* context, void* count) {
+    auto& frames = *static_cast<int*>(count);
+    const auto pc = static_cast<std::uintptr_t>(_Unwind_GetIP(context));
+
+    if (!pc || ++frames > 32) {
+        return frames > 32 ? _URC_END_OF_STACK : _URC_NO_REASON;
+    }
+
+    crash_write("  at ");
+    Dl_info info{};
+
+    if (dladdr(reinterpret_cast<void*>(pc), &info) && info.dli_fname) {
+        const char* name = info.dli_fname;
+
+        for (const char* c = name; *c; ++c) {
+            if (*c == '/') {
+                name = c + 1;
+            }
+        }
+
+        crash_write(name);
+        crash_write("+");
+        crash_write_hex(pc - reinterpret_cast<std::uintptr_t>(info.dli_fbase));
+
+        if (info.dli_sname) {
+            crash_write(" ");
+            crash_write(info.dli_sname);
+        }
+    } else {
+        crash_write_hex(pc);
+    }
+
+    crash_write("\n");
+    return _URC_NO_REASON;
+}
+
+// A crash ends the bake with its cause and stack on stderr, so the launcher shows them.
+void on_crash(int sig, siginfo_t* info, void*) {
+    const char* name = sig == SIGSEGV   ? "SIGSEGV (bad memory access)"
+                       : sig == SIGBUS  ? "SIGBUS (bad memory access)"
+                       : sig == SIGILL  ? "SIGILL (illegal instruction)"
+                       : sig == SIGFPE  ? "SIGFPE (arithmetic fault)"
+                       : sig == SIGABRT ? "SIGABRT (aborted)"
+                                        : "a fatal signal";
+    crash_write("\nprobe bake: crashed with ");
+    crash_write(name);
+
+    if (sig != SIGABRT) {
+        crash_write(" at address ");
+        crash_write_hex(reinterpret_cast<std::uintptr_t>(info->si_addr));
+    }
+
+    crash_write("\n");
+    int frames = 0;
+    _Unwind_Backtrace(crash_frame, &frames);
+    // SA_RESETHAND restored the default action: raising again ends the process as the crash would.
+    raise(sig);
+}
+
+void install_crash_report() {
+    // Its own stack, so a stack overflow on the main thread is still reported.
+    static char stack[64 * 1024];
+    stack_t alternate{};
+    alternate.ss_sp = stack;
+    alternate.ss_size = sizeof(stack);
+    sigaltstack(&alternate, nullptr);
+
+    struct sigaction action{};
+    action.sa_sigaction = on_crash;
+    action.sa_flags = SA_SIGINFO | SA_RESETHAND | SA_ONSTACK;
+    sigemptyset(&action.sa_mask);
+
+    for (const int sig : {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT}) {
+        sigaction(sig, &action, nullptr);
+    }
+}
+#else
+void install_crash_report() {}
+#endif
+
 }  // namespace
 
 // ---- Entry point ----
 
 // Dispatches native enhanced-baker stages and reports failures at the command-line boundary.
 int main(int argc, char** argv) {
+    install_crash_report();
+
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--print-emission-fingerprint") {
+            std::cout << emission_texture_fingerprint(argv[2], argv[3]) << '\n';
+            return 0;
+        }
+        if (argc == 3 && std::string_view(argv[1]) == "--print-mod-key") {
+            std::cout << probe_variant_key(argv[2]) << '\n';
+            return 0;
+        }
+        if (argc == 4 && std::string_view(argv[1]) == "--print-modded-source") {
+            std::cout << probe_input_hash(argv[2], argv[3]) << '\n';
+            return 0;
+        }
         profiling::thread_name("Enhanced bake");
+
+        if (argc == 3 && std::string_view(argv[1]) == "--calculate-mesh-emission") {
+            std::cout << calculate_mesh_emission(argv[2]);
+            return 0;
+        }
+
+        if (argc == 4 && std::string_view(argv[1]) == "--migrate-mesh-emission") {
+            migrate_mesh_emission(argv[2], argv[3]);
+            return 0;
+        }
+
+        if (argc > 1 && std::string_view(argv[1]) == "--inspect-emissive-task") {
+            if (argc != 5) {
+                throw std::runtime_error(
+                    "--inspect-emissive-task requires LEVELS_DIR REVIEW_JSON TASK_ID"
+                );
+            }
+            inspect_emissive_task(argv[2], argv[3], argv[4], std::cout);
+            return 0;
+        }
 
         // One native process admits multiple levels while Python supplies preparation and plans.
         if (argc == 2 && std::string_view(argv[1]) == "--coordinate-levels") {
@@ -321,13 +485,15 @@ int main(int argc, char** argv) {
 
         // ---- Single-grid inspection, verification and baking ----
 
-        fs::path directory, output, verify, compare_coarse;
+        fs::path directory, overrides, output, verify, compare_coarse;
         bool inspect = false, game_rounding = false, print_profile = false;
 
         // Resolve the directory first: explicit CLI overrides win in any order.
         for (int i = 1; i + 1 < argc; ++i) {
             if (std::string_view(argv[i]) == "--level-dir") {
                 directory = argv[++i];
+            } else if (std::string_view(argv[i]) == "--level-overrides") {
+                overrides = argv[++i];
             } else if (std::string_view(argv[i]) == "--tracy-wait") {
                 const float seconds = real(argv[++i]);
 
@@ -347,8 +513,8 @@ int main(int argc, char** argv) {
 
         const profiling::Zone trace("Probe baker");
 
-        const auto profile =
-            directory.empty() ? LevelBakeProfile{} : load_level_bake_profile(directory);
+        auto profile =
+            directory.empty() ? LevelBakeProfile{} : load_level_bake_profile(directory, overrides);
         Float3 spacing = profile.sparse_spacing;
         Float3 environment = profile.activation.environment;
         unsigned resolution = profile.map_resolution, light_set = profile.activation.light_set;
@@ -391,10 +557,9 @@ int main(int argc, char** argv) {
 
             if (argument == "--compression") {
                 settings.texture_format = parse_probe_texture_format(value);
-            } else if (argument == "--level-dir") {
-                directory = value;
-            } else if (argument == "--tracy-wait") {
-                // The first pass waits before any asset loading.
+            } else if (argument == "--level-dir" || argument == "--level-overrides"
+                       || argument == "--tracy-wait") {
+                // The first pass resolves level paths and waits before any asset loading.
             } else if (argument == "--output") {
                 output = value;
             } else if (argument == "--verify") {
@@ -461,6 +626,8 @@ int main(int argc, char** argv) {
                 light_set = integer(value);
             } else if (argument == "--rays") {
                 settings.rays_per_probe = integer(value);
+                settings.adaptive_rays = false;
+                profile.explicit_ray_policy = true;
             } else if (argument == "--bounces") {
                 settings.bounces = integer(value);
             } else if (argument == "--threads") {
@@ -522,7 +689,8 @@ int main(int argc, char** argv) {
 
         std::cout << "Loading extracted level " << directory.string() << std::endl;
 
-        if (!scene::load_level(directory, level, error)) {
+        const auto edited = overrides.empty() ? fs::path{} : overrides / "placements.json";
+        if (!scene::load_level(directory, level, error, edited)) {
             throw std::runtime_error(error);
         }
 
@@ -535,7 +703,8 @@ int main(int argc, char** argv) {
             expected.bake = settings;
             expected.light_set = light_set;
             expected.environment = environment;
-            const auto volume = load_level_probes(verify, level, expected, true);
+            ProbeAssetLoader loader(level, expected);
+            const auto volume = loader.load_with_previous_defaults(verify, profile, true);
             std::cout << "Probe asset verified: " << volume.grid.game_version << " level "
                       << volume.grid.level << ", " << volume.probes.size()
                       << " probes; scene and settings match\n";
@@ -543,7 +712,7 @@ int main(int argc, char** argv) {
             if (compare_coarse.empty()) {
                 report_terrain_coverage(level, volume, nullptr, std::cout);
             } else {
-                const auto coarse = load_level_probes(compare_coarse, level, expected, true);
+                const auto coarse = loader.load(compare_coarse, true);
                 validate_probe_pair(coarse, volume);
                 report_terrain_coverage(level, volume, &coarse, std::cout);
             }
@@ -553,8 +722,9 @@ int main(int argc, char** argv) {
 
         const auto start = std::chrono::steady_clock::now();
         auto exported = export_probe_scene(level, light_set, environment);
+        bake_detail::EmissionAverageCache emission_cache(exported.scene);
         // The source sidecar is already part of the canonical scene fingerprint used at runtime.
-        auto interior_report = apply_interior_sources(level, exported.scene);
+        auto interior_report = apply_interior_sources(level, exported.scene, &emission_cache);
 
         if (!interior_report) {
             throw std::runtime_error(interior_report.error().message);
@@ -601,7 +771,7 @@ int main(int argc, char** argv) {
         level = scene::LevelData{};
         auto last = start;
         const auto volume =
-            ProbeBaker(exported.scene, settings)
+            ProbeBaker(exported.scene, settings, 0, nullptr, &emission_cache)
                 .bake(
                     grid,
                     [&](std::size_t done, std::size_t total) {

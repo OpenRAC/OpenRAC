@@ -9,9 +9,9 @@
 #include <string>
 #include <unordered_map>
 
-#include "renderer/shader.h"
-#include "renderer/texture_filter.h"
-#include "renderer/texture_pool.h"
+#include "renderer/gl/shader.h"
+#include "renderer/textures/texture_filter.h"
+#include "renderer/textures/texture_pool.h"
 
 namespace openrac::enhanced {
 // Installs the optional colour provider once, after a supported graphics context is current.
@@ -48,7 +48,7 @@ private:
         return static_cast<std::size_t>(width) * height * 16;  // 2x width/height, RGBA8
     }
 
-    std::array<renderer::Shader, 5> m_shaders;  // Four wrap combinations and a reference.
+    std::array<renderer::Shader, 4> m_shaders;  // Four wrap combinations.
     unsigned m_buffer = 0;
     std::size_t m_buffer_capacity = 0;
     std::unordered_map<unsigned, Entry> m_cache;

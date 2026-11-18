@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "mesh-emission-shrub_492.glb-0",
+      "match": {
+        "model": "shrub_492.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0033.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.209127471,
+            0.320073813,
+            0.00147324707
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_494.glb-0",
+      "match": {
+        "model": "shrub_494.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0033.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.226015404,
+            0.342942178,
+            0.00149179331
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_495.glb-0",
+      "match": {
+        "model": "shrub_495.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0033.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.224108145,
+            0.340323955,
+            0.00148954941
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_1899.glb-3",
+      "match": {
+        "model": "tie_1899.glb",
+        "material_slot": 3,
+        "texture_path": "textures/tie_0075.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.241372705,
+            0.363530189,
+            0.00150329527
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_1903.glb-1",
+      "match": {
+        "model": "tie_1903.glb",
+        "material_slot": 1,
+        "texture_path": "textures/tie_0082.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.114657521,
+            0.0341316052,
+            0.000964316481
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    }
+  ]
+}

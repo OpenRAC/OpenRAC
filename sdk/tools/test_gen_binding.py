@@ -102,6 +102,15 @@ class Binding(unittest.TestCase):
         problems = gen_binding.check_rows(b)
         self.assertTrue(any("func_00000000" in p for p in problems), problems)
 
+    def test_rac2s_hooks_are_its_libraries_hook_rows(self):
+        b = gen_binding.load("rac2")
+        self.assertEqual(gen_binding.check_rows(b), [])
+        self.assertEqual(b["discs"], ["ntsc", "pal", "ntsc2"])
+        self.assertIn("rac2.player.take_damage", [h["id"] for h in b["hooks"]])
+        # A job both games have keeps rac1's <area>.<name> (openrac-mods docs/MULTI_GAME.md).
+        rac1 = {h["id"].split(".", 1)[1] for h in gen_binding.load("rac1")["hooks"]}
+        self.assertIn("player.take_damage", rac1)
+
     def test_the_catalogues_update_functions_are_hook_points(self):
         b = gen_binding.load("rac1")
         cat = [h for h in b["hooks"] if h["origin"] == "catalogue"]

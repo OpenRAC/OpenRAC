@@ -4,7 +4,7 @@
  * The games' printf conversions, for the prints the port answers itself (sprintf, printf,
  * kprintf). Their own C walks the console's argument save area, which a host va_list is not, so
  * each game's host C takes the arguments as a host va_list and formats them here
- * (rac1/host/hand.c, rac1-pal/host/kprintf.c, rac2-ntsc/host/print.c). */
+ * (rac1/host/hand.c, rac1-pal/host/kprintf.c, rac2/host/print.c). */
 #ifndef OPENRAC_GUEST_FORMAT_H
 #define OPENRAC_GUEST_FORMAT_H
 

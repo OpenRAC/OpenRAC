@@ -202,7 +202,11 @@ Placement classify(
 
 // Consume the primary hit in place; subsequent bounces overwrite it with full-scene hits.
 Float3 radiance(
-    const Scene& acceleration, const BakeSettings& settings, RTCRayHit& hit, Random& random
+    const Scene& acceleration,
+    const BakeSettings& settings,
+    RTCRayHit& hit,
+    Random& random,
+    const ProbeLightDistribution* distribution
 ) {
     // The finite moment range is a storage convention, not a scene clipping distance.
     constexpr float kFar = std::numeric_limits<float>::infinity();
@@ -212,7 +216,9 @@ Float3 radiance(
 
     // The final depth can escape to the sky without adding another surface bounce.
     for (std::uint32_t bounce = 0; bounce <= settings.bounces; ++bounce) {
-        const auto emission = segment_emission(acceleration, settings, hit, direction_pdf);
+        const auto emission = segment_emission(
+            acceleration, settings, hit, direction_pdf, bounce == 0 ? distribution : nullptr
+        );
 
         // Emission is accepted at the terminal depth without another diffuse bounce.
         for (unsigned c = 0; c < 3; ++c) {

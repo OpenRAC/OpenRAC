@@ -15,8 +15,8 @@
 #include "enhanced/tests/gpu_probe_fixture.h"
 #include "enhanced/tests/probe_fixture.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -64,6 +64,7 @@ scene::LevelData corner(bool wall) {
     }
     data.indices = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
     scene::Model model;
+    model.name = "terrain.glb";
     model.min = {-4, -4, 0};
     model.max = {4, 4, 3};
     model.primitives.push_back({0, wall ? 12u : 6u, 0});
@@ -109,12 +110,6 @@ void check_scene_quality(
             renderer.render(input, {frame.id(), width, height});
             CHECK(frame.read_rgba() == ao);
         }
-        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, false);
-        renderer.render(input, {frame.id(), width, height});
-        CHECK(frame.read_rgba() == ao);
-        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, true);
-        renderer.render(input, {frame.id(), width, height});
-        CHECK(frame.read_rgba() == ao);
         if (samples == 1) {
             // Both paths must preserve the same pixels, including subsequent
             // depth-tested colour passes and changes to the borrowed depth.
@@ -209,28 +204,6 @@ void check_scene_quality(
             input.gtao_settings.steps = 6;
             renderer.render(input, {frame.id(), width, height});
             const auto full = frame.read_rgba();
-            renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, false);
-            renderer.render(input, {frame.id(), width, height});
-            const auto unspecialized = frame.read_rgba();
-            if (unspecialized != full) {
-                std::size_t different = 0;
-                int maximum = 0;
-                for (std::size_t at = 0; at < full.size(); ++at) {
-                    const int delta = std::abs(int(unspecialized[at]) - int(full[at]));
-                    different += delta != 0;
-                    maximum = std::max(maximum, delta);
-                }
-                std::printf(
-                    "GTAO variant %dx%d quality=%d: %zu differing channels, max %d\n",
-                    width,
-                    height,
-                    int(quality),
-                    different,
-                    maximum
-                );
-            }
-            CHECK(unspecialized == full);
-            renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, true);
             CHECK(full.size() == plain.size());
             CHECK(full != plain);
             input.gtao_settings = renderer::GtaoSettings{};

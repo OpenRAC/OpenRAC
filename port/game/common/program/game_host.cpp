@@ -46,8 +46,8 @@
 #include "debug/overlay.h"
 #include "frontend.h"
 #include "options_menu.h"
-#include "renderer/direct.h"
-#include "renderer/texture.h"
+#include "renderer/direct/direct.h"
+#include "renderer/textures/texture.h"
 #include "scene/moby_pose.h"
 #include "settings.h"
 #endif
@@ -286,16 +286,19 @@ void openrac_game_set_display(const openrac_game_display* d) {
 // The video mode the game asks the console for (sceGsResetGraph, SetGsCrt): 2 is NTSC, 60 fields a
 // second, 3 is PAL, 50. The game's tick is one field: a PAL game that changes to its 60 Hz mode
 // counts its time in sixtieths from then on (rac1/pal: func_002157C0 sets the time base when a
-// level starts). The port keeps the PAL game in that mode and ticks every game 60 times a second.
+// level starts). The port keeps such a game in that mode and ticks it 60 times a second; a disc
+// whose code is written for 50 (Going Commando's PAL) ticks 50 (openrac_game.tick_rate).
 void openrac_game_set_video_mode(int interlace, int mode, int field_mode) {
     c_boundary::call("openrac_game_set_video_mode", [&] {
-        // Logged only: the port paces every game at 60 Hz whatever the mode (tick_rate()).
+        // Logged only: the port paces the game at tick_rate() whatever the mode.
         log::info(
             "video mode {:#x} (interlace {}, field mode {}){}",
             mode,
             interlace,
             field_mode,
-            mode == 3 ? " (PAL 50 Hz: the port keeps 60)" : ""
+            mode != 3           ? ""
+            : tick_rate() == 50 ? " (PAL 50 Hz)"
+                                : " (PAL 50 Hz: the port keeps 60)"
         );
     });
 }
@@ -327,6 +330,39 @@ void openrac_game_load_image(const openrac_game_image* image) {
                 )
             );
         }
+#endif
+    });
+}
+
+void openrac_game_load_picture(const openrac_game_image* image, const uint8_t* pixels) {
+    c_boundary::call("openrac_game_load_picture", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && image->width > 0 && image->height > 0) {
+            frontend::upload_picture(
+                static_cast<std::uint32_t>(image->base),
+                static_cast<std::uint32_t>(image->width_units),
+                static_cast<std::uint32_t>(image->width),
+                static_cast<std::uint32_t>(image->height),
+                std::span<const std::uint8_t>(
+                    pixels, static_cast<std::size_t>(image->width) * image->height * 4
+                )
+            );
+        }
+#else
+        (void)image;
+        (void)pixels;
+#endif
+    });
+}
+
+void openrac_game_forget_picture(int base) {
+    c_boundary::call("openrac_game_forget_picture", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            frontend::forget_picture(static_cast<std::uint32_t>(base));
+        }
+#else
+        (void)base;
 #endif
     });
 }
@@ -365,6 +401,18 @@ void openrac_game_store_image(const openrac_game_image* image) {
 int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
     return c_boundary::call("openrac_game_play_movie", 0, [&]() -> int {
         return play_movie(lsn, bytes, channel, start_skips);
+    });
+}
+
+int openrac_game_play_movie_over(
+    uint32_t lsn,
+    uint32_t bytes,
+    int channel,
+    int start_skips,
+    void (*overlay)(const uint8_t* rgba, int width, int height)
+) {
+    return c_boundary::call("openrac_game_play_movie_over", 0, [&]() -> int {
+        return play_movie(lsn, bytes, channel, start_skips, overlay);
     });
 }
 
@@ -631,7 +679,7 @@ int openrac_game_option_rows(void) {
     return c_boundary::call("openrac_game_option_rows", 0, [&]() -> int {
 #ifdef OPENRAC_FRONTEND
         if (g_window) {
-            return frontend::options_menu::row_count();
+            return frontend::options_menu::page_rows();
         }
 #endif
         return 0;
@@ -643,12 +691,12 @@ void openrac_game_option_row_text(int row, char* label, char* value, int size) {
         put_option_text("", label, size);
         put_option_text("", value, size);
 #ifdef OPENRAC_FRONTEND
-        if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
+        if (g_window && row >= 0 && row < frontend::options_menu::page_rows()) {
             put_option_text(
-                frontend::options_menu::shown(frontend::options_menu::label(row)), label, size
+                frontend::options_menu::shown(frontend::options_menu::page_label(row)), label, size
             );
             put_option_text(
-                frontend::options_menu::shown(frontend::options_menu::value(row)), value, size
+                frontend::options_menu::shown(frontend::options_menu::page_value(row)), value, size
             );
         }
 #endif
@@ -659,8 +707,8 @@ void openrac_game_option_row_text(int row, char* label, char* value, int size) {
 void openrac_game_option_step(int row, int by) {
     c_boundary::call("openrac_game_option_step", [&] {
 #ifdef OPENRAC_FRONTEND
-        if (g_window && row >= 0 && row < frontend::options_menu::row_count()) {
-            frontend::debug_overlay::change_setting(row, by);
+        if (g_window && row >= 0 && row < frontend::options_menu::page_rows()) {
+            frontend::options_menu::page_step(row, by);
         }
 #endif
         (void)row;
@@ -724,6 +772,21 @@ void openrac_game_pad_after_mods(int port, uint8_t* report, int size) {
         (void)port;
         (void)report;
         (void)size;
+    });
+}
+
+void openrac_game_set_motors(int port, int small, int large) {
+    c_boundary::call("openrac_game_set_motors", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            frontend::set_motors(
+                port, small != 0, static_cast<std::uint8_t>(std::clamp(large, 0, 255))
+            );
+        }
+#endif
+        (void)port;
+        (void)small;
+        (void)large;
     });
 }
 

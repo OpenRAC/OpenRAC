@@ -179,15 +179,11 @@ void upload_instances(SceneFrame& frame) {
     const auto& palette = blend ? blended : frame.scene.palette;
     frame.owner.scene.set_palette(palette);
 
-    // Motion history must match the exact pose drawn into depth and colour.
-    if (frame.temporal) {
-        frame.owner.temporal->set_scene(live, palette);
-    }
-
-    // "Scenery detail: Original": the shrubs ShrubProc fades or draws as billboards, with the
+    // "Draw distance: Original": the shrubs ShrubProc fades or draws as billboards, with the
     // mobys; the ones it draws whole stay in their layer (choose_scenery).
     frame.owner.scene.set_shrub_draws(
-        frame.graphics.original_lod ? frame.scene.shrubs : std::vector<scene::ShrubDraw>{}
+        frame.graphics.original_draw_distance() ? frame.scene.shrubs
+                                                : std::vector<scene::ShrubDraw>{}
     );
     // The ties and shrubs the game moved this tick (a moby's group) or removed, with the mobys:
     // only those of a pass the game ran this tick. The vendor's menu draws no tie or shrub pass
@@ -201,7 +197,7 @@ void upload_instances(SceneFrame& frame) {
     const std::array<bool, 2> scenery_ran{
         ran(renderer::Bucket::Ties), ran(renderer::Bucket::Shrubs)
     };
-    const bool shrub_effects = frame.graphics.original_lod && scenery_ran[1];
+    const bool shrub_effects = frame.graphics.original_draw_distance() && scenery_ran[1];
     const bool more = shrub_effects || frame.owner.scene.has_moved_scenery();
     std::vector<scene::Instance> with_shrubs;
     if (more) {
@@ -232,12 +228,17 @@ void upload_instances(SceneFrame& frame) {
         );
     }
     const auto& drawn = more ? with_shrubs : live;
+    // Include moved ties and shrubs: motion history must match every pose drawn into depth.
+    if (frame.temporal) {
+        frame.owner.temporal->set_scene(drawn, palette);
+    }
+
     frame.owner.scene.set_variant(frame.scene.texture_variant);
     frame.owner.scene.set_instances(scene::Layer::Mobys, drawn);
+    frame.output.picker_level = frame.scene.level;
     if (debug_overlay::picker_snapshot_needed()) {
         frame.output.picker_live = live;
         frame.output.picker_palette = palette;
-        frame.output.picker_level = frame.scene.level;
         frame.output.picker_layers = frame.scene.draws;
     }
 }

@@ -29,6 +29,11 @@ import {
   mockControlsView,
 } from "./mockControls";
 import type { ActionView } from "./generated/ActionView";
+import type { Applied } from "./generated/Applied";
+import type { ModProfile } from "./generated/ModProfile";
+import type { Review } from "./generated/Review";
+import type { SharePreview } from "./generated/SharePreview";
+import type { Shared } from "./generated/Shared";
 import type { TexturePackView } from "./generated/TexturePackView";
 import type { BuildInfo } from "./generated/BuildInfo";
 import type { Check } from "./generated/Check";
@@ -102,8 +107,8 @@ interface RawAction {
 interface RawVersion {
   region?: string;
   serial?: string;
-  disc?: { file: string; size?: number; sha1?: string };
-  boot?: { file: string; size?: number; sha1?: string };
+  disc?: { file: string; size?: number; sha1?: string; version?: string };
+  boot?: { file: string; size?: number; sha1?: string; version?: string };
   inputs?: { from: string; path: string; target?: string }[];
   target?: string;
   setup?: string;
@@ -222,6 +227,12 @@ const DEV = {
 /** A fork's branches with development builds, as the preview has them (updates.ts, devBranches). */
 export const MOCK_DEV_BRANCHES = ["develop", "feature-launcher-logo", "fix-pad-navigation"];
 
+/** Long Godot paths for ?longpaths: Settings must keep them inside the window. */
+const LONG_GODOTS: [string, string] = [
+  "C:\\Users\\someone\\Downloads\\Godot_v4.7.2-stable_win64.exe\\Godot_v4.7.2-stable_win64\\Godot_v4.7.2-stable_win64.exe",
+  "C:\\Users\\someone\\AppData\\Local\\Programs\\OpenRAC Editor\\nightly-2026-11-14\\openrac-editor.windows.editor.x86_64.exe",
+];
+
 let config: Config = {
   // ?setup: a first start where no OpenRAC folder was found, so the welcome screen asks for one.
   root: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup")
@@ -229,17 +240,22 @@ let config: Config = {
     : "/home/you/OpenRAC",
   python: "/usr/bin/python3",
   // ?godot: Godot is chosen, so the Mods tab's level editor can open a level.
-  godot: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("godot")
-    ? "/usr/bin/godot"
-    : null,
+  // ?longpaths: a Godot deep in a Windows user folder, as a download leaves it (PathField.svelte).
+  godot: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("longpaths")
+    ? LONG_GODOTS[0]
+    : new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("godot")
+      ? "/usr/bin/godot"
+      : null,
   docker: "/usr/bin/docker",
   // ?developer shows the contributor's pages.
   developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("developer"),
   // ?advanced switches the advanced save editor on.
   saveEditorAdvanced: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("advanced"),
+  incrementalBuilds: false,
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup"),
   installDir: "/home/you/.local/share/dev.openrac.launcher",
+  saveDir: null,
   // ?discs: a games folder is chosen.
   discsDir: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("discs")
     ? "/home/you/Games/PS2"
@@ -252,21 +268,23 @@ let config: Config = {
   checkModUpdates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("modupdates"),
   updateChannel: null,
   updateBranch: null,
-  layout: "compact",
   theme: new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("theme") ?? "openrac",
   discordClientId: null,
+  // ?gold: Game colours off, every game in the launcher's gold.
+  gameColors: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("gold"),
   detailedGameLog: false,
   // ?vulkan: the desktop's Vulkan renderer is chosen (Settings, Advanced).
   renderer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("vulkan")
     ? "vulkan"
     : "opengl",
-  hdr: "",
   safeRendering: false,
   // ?mods: the Mods switch under Play is on.
   playWithMods: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("mods"),
   crashesSeen: {},
   discChoice: {},
+  discImages: {},
   multiplayerName: "BraveLombax42",
+  multiplayerKey: "0123456789abcdef0123456789abcdef",
   modIndexes: [],
   prereleaseMods: null,
   pendingDeepLink: null,
@@ -517,8 +535,22 @@ function library(): Library {
           region: v.region ?? "",
           serial: v.serial ?? "",
           dir: `games/${g.id}/${name}`,
-          disc: v.disc ? { file: v.disc.file, size: v.disc.size ?? null, sha1: v.disc.sha1 ?? null } : null,
-          boot: v.boot ? { file: v.boot.file, size: v.boot.size ?? null, sha1: v.boot.sha1 ?? null } : null,
+          disc: v.disc
+            ? {
+                file: v.disc.file,
+                size: v.disc.size ?? null,
+                sha1: v.disc.sha1 ?? null,
+                version: v.disc.version ?? null,
+              }
+            : null,
+          boot: v.boot
+            ? {
+                file: v.boot.file,
+                size: v.boot.size ?? null,
+                sha1: v.boot.sha1 ?? null,
+                version: v.boot.version ?? null,
+              }
+            : null,
           inputs: (v.inputs ?? []).map((i) => ({ from: i.from, path: i.path, target: i.target ?? null })),
           target: v.target ?? null,
           setup: v.setup ?? null,
@@ -537,6 +569,7 @@ function library(): Library {
           status: st,
           actions: (actions.versions[key] ?? []).filter(shown).map((a) => view(a, st, key)),
           portOutdated: false,
+          portCleanReason: null,
         };
       });
       return { id: g.id, title: g.title, year: g.year ?? null, install: installState(g.id), versions };
@@ -581,6 +614,95 @@ function findAction(scope: Scope, id: string): RawAction | undefined {
 // ?editor=reading has no levels yet; with ?progress=<step>:<done>/<total>[:<level>] the next
 // editor job (read, export again, pack, read the game's levels) stops at that count and runs on,
 // e.g. ?editor=reading&progress=read:3/18:4 then "Read the levels and open".
+/** Mod codes in the browser: a saved set exists once one was applied. */
+let mockCodeApplied = false;
+
+function mockSharePreview(): SharePreview {
+  const m = (id: string, name: string, version: string) => ({ id, name, version });
+  return {
+    mods: [m("multiplayer", "Multiplayer", "0.9.0"), m("difficulty-mod", "Difficulty", "1.4.0")],
+    optional: [m("keyboard-mouse", "Keyboard and mouse", "2.0.1"), m("xbox-icons", "Xbox icons", "1.0.1")],
+    manual: [m("my-tweak", "My tweak", "0.1.0")],
+    solo: [],
+  };
+}
+
+/** A code's review: an entry starting with A already matches, with B asks to trust a source, with
+ *  C is for another game, with D has parts that cannot be applied; any other has a bit of it all. */
+function mockReview(text: string): Review {
+  const line = (id: string, name: string, version: string, action: string, more: Partial<Review["mods"][0]> = {}) => ({
+    id,
+    name,
+    version,
+    action: action as Review["mods"][0]["action"],
+    from: null,
+    source: "OpenRAC/rac1-mods",
+    native: true,
+    optional: false,
+    why: null,
+    nearest: null,
+    fresh: false,
+    published: "2026-10-20T10:00:00Z",
+    ...more,
+  });
+  const base: Review = {
+    set: "{}",
+    party: null,
+    code: text.startsWith("ORMS1.") ? null : "K7M2-9QXR",
+    name: "SwiftLombax427's mods",
+    created: "2026-10-31T12:00:00Z",
+    game: "rac1",
+    wrongGame: false,
+    mods: [
+      line("multiplayer", "Multiplayer", "0.9.0", "keep", { from: "0.9.0" }),
+      line("difficulty-mod", "Difficulty", "1.4.0", "update", { from: "1.3.0" }),
+      line("ammo-max", "Ammo max", "1.0.0", "install"),
+      line("keyboard-mouse", "Keyboard and mouse", "2.0.1", "install", { optional: true }),
+    ],
+    disable: [{ id: "lock-strafe", name: "Lock-strafe", version: "1.0.3" }],
+    settings: [{ modName: "Difficulty", name: "Enemy count", from: 1, to: 2 }],
+    manual: [],
+    packs: [],
+    ask: [],
+    otherOpenrac: null,
+    partial: false,
+    nothing: false,
+  };
+  const first = text.trim().toUpperCase()[0];
+  if (first === "A") {
+    return {
+      ...base,
+      mods: [line("multiplayer", "Multiplayer", "0.9.0", "keep", { from: "0.9.0" })],
+      disable: [],
+      settings: [],
+      nothing: true,
+    };
+  }
+  if (first === "B") {
+    const mods = [line("gravity", "Low gravity", "2.1.0", "install", { source: "someone/rac-mods", fresh: true })];
+    return { ...base, mods, ask: [{ url: "https://github.com/someone/rac-mods", label: "someone/rac-mods" }] };
+  }
+  if (first === "C")
+    return { ...base, mods: [], disable: [], settings: [], game: "rac2", wrongGame: true, partial: true };
+  if (first === "D") {
+    return {
+      ...base,
+      mods: [
+        ...base.mods,
+        line("old-thing", "Old thing", "1.2.0", "unavailable", {
+          why: "Version 1.2.0 is gone from its repository.",
+          nearest: "1.3.0",
+        }),
+      ],
+      manual: [{ id: "my-tweak", name: "My tweak", version: "0.1.0" }],
+      packs: ["hd-textures"],
+      otherOpenrac: "0.9.9",
+      partial: true,
+    };
+  }
+  return base;
+}
+
 let mockEditor = query.get("editor") ?? "ready";
 const mockHold = /^([a-z]+):(\d+)\/(\d+)(?::(\d+))?$/.exec(query.get("progress") ?? "");
 
@@ -1710,7 +1832,70 @@ let mockPlugins: PluginView[] = query.has("nomods")
         kind: "native",
         path: "/home/you/.local/share/dev.openrac.launcher/active/rac1/data/plugins/difficulty",
       },
+      {
+        id: "nanotech-upscaler",
+        name: "Nanotech Upscaler",
+        version: "0.1.0",
+        author: "Mateusz Kłysz",
+        description:
+          "Upscales every texture of Ratchet & Clank on your own device into a texture pack, in the game's own style.",
+        homepage: "https://github.com/mateuszklysz/Nanotech-Upscaler",
+        license: "GPL-3.0-or-later",
+        enabled: false,
+        state: "ready",
+        reason: "",
+        blocked: "",
+        settings: [],
+        hooks: [],
+        sharedHooks: [],
+        native: false,
+        kind: "tool",
+        path: "/home/you/.local/share/dev.openrac.launcher/active/rac1/data/plugins/nanotech-upscaler",
+        tool: "ui/index.html",
+      },
     ];
+
+// ?manymods: a long list, as a player with many mods has (My mods' toolbar, search and moving).
+if (query.has("manymods")) {
+  const more: [string, string, "native" | "script", boolean][] = [
+    ["Bolt magnet", "Bolts fly to you from twice as far.", "script", true],
+    ["Faster Clank", "Clank's backpack moves you a little quicker.", "script", true],
+    ["Speedrun timer", "An in-game timer with splits per planet.", "native", true],
+    ["Hard mode plus", "Enemies hit harder and drop fewer bolts.", "native", false],
+    ["Skip intros", "Goes straight to the title screen.", "script", true],
+    ["Infinite ammo", "Weapons never run dry. For fun runs only.", "script", false],
+    ["Photo mode", "Freeze the game and fly the camera around.", "native", true],
+    ["Classic HUD", "The HUD as the first release had it.", "script", true],
+    ["Gadget hotkeys", "One key per gadget, no quick select.", "native", true],
+    ["Practice tools", "Save and load a position anywhere.", "native", false],
+    ["Colour blind HUD", "HUD colours that read for every eye.", "script", true],
+    ["Vendor tweaks", "Prices and stock of Gadgetron's vendors.", "script", false],
+  ];
+  const at = mockPlugins.findIndex((p) => p.kind === "tool");
+  mockPlugins.splice(
+    at < 0 ? mockPlugins.length : at,
+    0,
+    ...more.map(([name, description, kind, enabled]) => ({
+      id: name.toLowerCase().replace(/\s+/g, "-"),
+      name,
+      version: "1.0.0",
+      author: "someone",
+      description,
+      homepage: "",
+      license: "MIT",
+      enabled,
+      state: enabled ? ("ready" as const) : ("off" as const),
+      reason: "",
+      blocked: "",
+      settings: [],
+      hooks: [],
+      sharedHooks: [],
+      native: kind === "native",
+      kind,
+      path: `/home/you/.local/share/dev.openrac.launcher/active/rac1/data/plugins/${name}`,
+    })),
+  );
+}
 
 /** What the preview's game says it did with the mods at its last start. */
 function mockPluginStatus(): PluginStatus | null {
@@ -1752,12 +1937,23 @@ function samplePack(name: string): PackView {
 
 /** A game's texture pack and saved textures, as the preview pretends (`?notextures`: none yet). */
 const mockTextures: TexturePackView = query.has("notextures")
-  ? { id: "", enabled: true, dumping: false, packCount: 0, packAnimated: 0, pack: [], dumpCount: 0, dump: [] }
+  ? {
+      id: "",
+      enabled: true,
+      pcsx2Path: null,
+      dumping: false,
+      packCount: 0,
+      packAnimated: 0,
+      pack: [],
+      dumpCount: 0,
+      dump: [],
+    }
   : {
       id: "",
       enabled: true,
       dumping: false,
       packCount: 38,
+      pcsx2Path: null,
       packAnimated: 2,
       pack: [
         { path: "Interface", label: "Interface", count: 12 },
@@ -1785,6 +1981,21 @@ const mockPacks: PackView[] = [
   },
   { ...samplePack("green-ratchet"), name: "Green Ratchet", enabled: false },
 ];
+
+if (query.has("manymods")) {
+  mockPacks.push(
+    {
+      ...samplePack("new-sounds"),
+      name: "Crunchier wrench",
+      author: "someone",
+      textures: 0,
+      models: 0,
+      levels: 0,
+      sounds: 14,
+    },
+    { ...samplePack("ship-skins"), name: "Ship skins", author: "someone", textures: 36, models: 2, levels: 3 },
+  );
+}
 
 if (query.has("summary")) {
   mockPacks.push({
@@ -1823,7 +2034,7 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       lines.splice(
         2 + n,
         0,
-        `[${n}/${total}] Building C object CMakeFiles/openrac-rac1-pal.dir/__w/OpenRAC/OpenRAC/games/rac1/pal/src/level_${n}/func_001E99D8_generated_long_name.c.o`,
+        `[${n}/${total}] Building C object CMakeFiles/openrac-rac1-pal.dir/__w/OpenRAC/OpenRAC/games/rac1/decomp/src/level_${n}/func_001E99D8_generated_long_name.c.o`,
       );
     }
   }
@@ -2101,6 +2312,34 @@ const RAC2_FLAGS: [string, number | null, string, string, "proven" | "fromCode"]
 ];
 const savedRac2: Record<string, Rac2SaveFields> = {};
 
+/** A weapon's versions in the preview: the core's shape, with made-up later steps and ammo. */
+function mockRac2Versions(
+  id: number,
+  name: string,
+  ammo: number | null,
+  up: string | null,
+  xp: number | null,
+): Rac2SaveView["items"][number]["versions"] {
+  const v = (k: number, how: "first" | "experience" | "bought", min: number | null, max: number | null) => ({
+    label: `V${String(k + 1)}`,
+    name: k > 0 && up ? up : name,
+    how,
+    stepXp: how === "experience" ? min : null,
+    challengeOnly: k >= 2 || (how === "bought" && xp === null),
+    maxAmmo: ammo === null ? null : Math.round(ammo * (1 + k / 2)),
+    minXp: min,
+    maxXp: max,
+  });
+  if (xp === null) return [v(0, "first", null, null), v(1, "bought", null, null)];
+  if (id === 9) return [v(0, "first", 0, xp - 1), v(1, "experience", xp, 9_999_999)];
+  return [
+    v(0, "first", 0, xp - 1),
+    v(1, "experience", xp, 9_999_999),
+    v(2, "bought", 0, xp * 10 - 1),
+    v(3, "experience", xp * 10, 9_999_999),
+  ];
+}
+
 /** A Going Commando slot: early in the game, on Oozla, with the Lancer in hand. */
 function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
   const owned = new Set([24, 30, 42]);
@@ -2116,6 +2355,7 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
       owned: owned.has(id),
       ammo: ammo === null ? null : owned.has(id) ? ammo : 0,
       xp: up === null ? null : id === 30 ? 1968 : 0,
+      version: RAC2_ITEMS.find((i) => i[0] === id)?.[6] ? 0 : null,
     })),
     planets: RAC2_LEVELS.map(([id]) => ({
       id,
@@ -2142,12 +2382,13 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
       upgradeName: up,
       upgradeXp: xp,
       maxXp: xp === null ? null : xp - 1,
-      version: versions ? 0 : null,
+      versions: versions ? mockRac2Versions(id, name, ammo, up, xp) : [],
       worn: id === 30,
     })),
     planets: RAC2_LEVELS.map(([id, name]) => ({ id, name })),
     maxBolts: 9_999_999,
     maxXp: 9_999_999,
+    challengeMode: 1,
     flags: RAC2_FLAGS.map(([id, level, name, description, confidence]) => ({
       id,
       level,
@@ -2338,16 +2579,20 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       });
     case "get_config":
       return delay<Config>({ ...config });
-    case "save_config":
+    case "save_config": {
       config = { ...(args.config as Config) };
+      // For the e2e tests: how many writes, and the last one (Games keeps a pick once it stops).
+      const seen = window as unknown as { __openracConfigWrites?: { count: number; last: Config } };
+      seen.__openracConfigWrites = { count: (seen.__openracConfigWrites?.count ?? 0) + 1, last: { ...config } };
       return delay<Config>({ ...config });
+    }
     case "adopt_godot":
       return delay<Config>({ ...config });
     case "detect":
       return delay<Detected>({
         roots: query.has("setup") ? [] : [{ path: "/home/you/OpenRAC", source: "next to the launcher" }],
         pythons: [{ path: "/usr/bin/python3", source: "PATH" }],
-        godots: [],
+        godots: query.has("longpaths") ? LONG_GODOTS.map((path) => ({ path, source: "Downloads" })) : [],
         dockers: [{ path: "/usr/bin/docker", source: "PATH" }],
       });
     case "check_root":
@@ -2404,6 +2649,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
                 game: "rac1",
                 versions,
                 chosen: versions.includes(remembered) ? remembered : (versions[0] ?? remembered),
+                images: Object.fromEntries(found.map((d) => [d.version, d.path])),
               },
             ]
           : [];
@@ -2522,15 +2768,18 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "texture_packs_view":
       return delay<TexturePackView>({ ...mockTextures, id: `${String(args.game)}-${String(args.version)}` });
     case "texture_packs_set":
+      if (typeof args.pcsx2 === "string") mockTextures.pcsx2Path = args.pcsx2 || null;
       if (typeof args.enabled === "boolean") mockTextures.enabled = args.enabled;
       if (typeof args.dumping === "boolean") mockTextures.dumping = args.dumping;
       return delay<TexturePackView>({ ...mockTextures, id: `${String(args.game)}-${String(args.version)}` });
     case "texture_packs_open":
       return delay(null);
     case "texture_packs_preview":
+      // Only a file named like a texture pack is one; any other .zip is a mod or an overrides pack.
+      if (!/texture/i.test(String(args.source))) throw new Error("This .zip holds no texture pictures.");
       if (String(args.source).includes("rac1")) {
         throw new Error(
-          "This pack is for Ratchet & Clank (PAL), not Going Commando (NTSC-U). Add it on that game's page instead.",
+          "This pack is for Ratchet & Clank (PAL), not Going Commando (NTSC-U). Add it on that game's Mods tab instead.",
         );
       }
       return delay({
@@ -2557,6 +2806,23 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         kept: args.mode === "replace" ? "rac2-ntsc (before import 2026-11-03-061500)" : null,
       });
     }
+    case "mod_tool_list":
+      return delay([{ path: "level_00/textures/moby_0001.png", size: 4096 }]);
+    case "mod_tool_read":
+    case "mod_tool_open":
+      return delay(new ArrayBuffer(0));
+    case "mod_tool_store_get":
+      return delay(null);
+    case "mod_tool_store_set":
+      return delay(null);
+    case "mod_tool_save":
+      return delay("~/Downloads/Nanotech 4x.zip");
+    case "mod_tool_save_start":
+      return delay(1);
+    case "mod_tool_save_write":
+      return delay(null);
+    case "mod_tool_save_end":
+      return delay(args.keep ? "~/Downloads/Nanotech Upscaler rac1-pal.zip" : "");
     case "texture_packs_export":
       return delay({ saved: "~/Downloads/rac2-ntsc-texture-pack.zip", textures: mockTextures.packCount, leftOut: 3 });
     case "enhanced_view":
@@ -2579,8 +2845,42 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         mod: { ...mockEnhanced.mod, state: mockEnhanced.mod.enabled ? "ready" : "off" },
       });
     }
+    case "modset_share_preview":
+      return delay<SharePreview>(mockSharePreview());
+    case "modset_share":
+      return delay<Shared>({
+        code: "K7M2-9QXR",
+        long: "ORMS1.eNplkLtuwzAMRX-l4NIlfshR_NAW9AMKFJ0aZKAlyjFiW4YlBygC_3upJktRQAsvr3gueQfrlhEDKLGDCUcCBUeDr_5ldMbDDvRCGMiwXORFmQiR5OIzF0pW6rD_YkP3-LSgFlyZ3msP6gRT8JrrGQc478DNNLGDfXkq-HHnd7463aGPwwenr4kPC1ri3o0W37uJdZHm6Z6Vaz9FW4TNA36z4t26aCbfYV0Gbl1CmL3Ksq4Pl7VNtRuzd6Z-",
+        link: "openrac://modset/K7M2-9QXR",
+      });
+    case "modset_review":
+      return delay<Review>(mockReview(String(args.text)));
+    case "modset_apply":
+      mockCodeApplied = true;
+      return delay<Applied>({
+        profile: "20261031T120000Z",
+        installed: 2,
+        enabled: 2,
+        disabled: 1,
+        skipped: ["by-hand"],
+        ignored: [],
+      });
+    case "modset_profiles":
+      return delay<ModProfile[]>(
+        mockCodeApplied
+          ? [{ id: "20261031T120000Z", code: "K7M2-9QXR", created: "2026-10-31T12:00:00Z", mods: 3 }]
+          : [],
+      );
+    case "modset_restore":
+      mockCodeApplied = false;
+      return delay(null);
+    case "modset_take_link":
+      return delay<string | null>(null);
     case "plugins_list":
       return delay<PluginView[]>(mockPlugins.map((p) => ({ ...p })));
+    case "player_name_used":
+      // A mod that uses the Multiplayer name is on, unless ?nomods.
+      return delay(!query.has("nomods"));
     case "plugins_status":
       return delay<PluginStatus | null>(mockPluginStatus());
     case "plugins_set_enabled":
@@ -2663,7 +2963,13 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "steam_add":
       if (steamAsked() === "open") throw new Error("Close Steam, then try again.");
       return delay("added");
+    case "shortcut_create":
+      return delay(`/home/player/Desktop/${String(args.version).replace("/", "-")}.desktop`);
+    case "startup_game":
+      return delay(null);
     case "index_fetch":
+      // Said, so a test sees that a page did not read the mod list by itself.
+      console.info("[preview] index_fetch");
       return delay(mockIndexView());
     case "index_resolve":
       return delay(mockResolve(args.wanted as WantedMod[], (args.turnOff as string[] | undefined) ?? []));
@@ -2735,6 +3041,16 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         exists: true,
         gameFolderName: "BESCES-50916RATCHET",
         title: "Ratchet & Clank",
+        coopSaves: [
+          {
+            slotIndex: 0,
+            path: `/home/you/.local/share/openrac/memcard/${serial}/BESCES-50916RATCHET-coop/save0.bin`,
+            bolts: 4200,
+            planetName: "Novalis",
+            timestamp: "2026-10-30 21:14:02",
+            host: "Kero",
+          },
+        ],
         slots: [
           {
             slotIndex: 0,

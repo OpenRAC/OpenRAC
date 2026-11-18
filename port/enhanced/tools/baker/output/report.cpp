@@ -14,6 +14,7 @@
 #include <stdexcept>
 
 #include "common/profiler.h"
+#include "enhanced/lighting/bake_lz4.h"
 #include "enhanced/tools/baker/sources/activation.h"
 
 namespace fs = std::filesystem;
@@ -60,13 +61,22 @@ std::string describe_level_bake_profile(const LevelBakeProfile& profile) {
            << ",\"terrain_vertex_albedo_strength\":" << settings.terrain_vertex_albedo_strength
            << ",\"texture_compression\":\"" << probe_texture_name(settings.texture_format) << '"'
            << ",\"depth_compression\":\"RG16 UNORM local mean/spread (canonical maps)\""
+           << ",\"emission_averaging_version\":1"
            << ",\"probe_format_version\":" << kProbeFormatVersion
            << ",\"bake_version\":" << kProbeBakeVersion << ",\"sparse_spacing\":[" << spacing[0]
            << ',' << spacing[1] << ',' << spacing[2] << "],\"dense_spacing\":["
            << profile.dense_spacing[0] << ',' << profile.dense_spacing[1] << ','
            << profile.dense_spacing[2] << "],\"resolution\":" << resolution
-           << ",\"rays\":" << settings.rays_per_probe << ",\"bounces\":" << settings.bounces
-           << ",\"sky\":\"" << (settings.use_level_sky ? "level" : "uniform") << "\""
+           << ",\"rays\":" << settings.rays_per_probe;
+    output << ",\"adaptive_rays\":" << (settings.adaptive_rays ? "true" : "false");
+    if (bake_lz4_available()) {
+        output << ",\"asset_storage\":\"lz4-v1\"";
+    }
+    if (profile.environment.enabled) {
+        output << ",\"reflections\":true";
+    }
+    output << ",\"bounces\":" << settings.bounces << ",\"sky\":\""
+           << (settings.use_level_sky ? "level" : "uniform") << "\""
            << ",\"light_set\":" << light_set << ",\"environment\":[" << environment[0] << ','
            << environment[1] << ',' << environment[2] << ']' << ",\"seed\":" << settings.seed
            << ",\"ray_bias\":" << settings.ray_bias

@@ -122,6 +122,60 @@ class ClangCompatibility(unittest.TestCase):
             self.assertIn("func_00100040(", text)
             self.assertNotIn("D_0015EE6C", text)   # the first label is the variable's
 
+    def test_a_local_that_repeats_a_parameters_name(self):
+        # rac4-decomp's func_L01_003CA498 (2026-11): `u8 *object = *(u8 **)((u8 *)object + 0xAC);`
+        # in a function whose parameter is `object`. GCC 2.95 only warned; the initializer reads
+        # the parameter. The local is kept apart under an alias, with no asm label.
+        with tempfile.TemporaryDirectory(prefix="hostgen shadow ") as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            (source / "src").mkdir(parents=True)
+            (source / "include").mkdir()
+            (source / "src/example.c").write_text(
+                "int func_00100000(void *object) {\n"
+                "    unsigned char *object = *(unsigned char **)((unsigned char *)object + 0xAC);\n"
+                "    return object[4];\n"
+                "}\n"
+            )
+            config = root / "game.json"
+            config.write_text(json.dumps({"name": "shadow", "sources": ["src"],
+                                          "includes": ["include"], "defines": []}))
+            output = root / "generated"
+            self.assertEqual(hostgen.main([
+                "--game", str(config), "--source", str(source), "--out", str(output),
+                "--jobs", "2", "--quiet",
+            ]), 0)
+            report = json.loads((output / "report.json").read_text())
+            self.assertEqual(report["units_unreadable"], [])
+            self.assertIn("func_00100000(", (output / "example.c").read_text())
+
+    def test_an_array_of_a_record_never_completed(self):
+        # rac2-decomp's L05_003008C0.c (d29456d6): the unit passes the array by address only.
+        with tempfile.TemporaryDirectory(prefix="hostgen incomplete ") as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            (source / "src").mkdir(parents=True)
+            (source / "include").mkdir()
+            (source / "src/example.c").write_text(
+                "typedef struct Glyph Glyph;\n"
+                "extern int func_00100100(Glyph *);\n"
+                "extern Glyph D_00200000[];\n"
+                "int func_00100000(void) {\n"
+                "    return func_00100100(D_00200000);\n"
+                "}\n"
+            )
+            config = root / "game.json"
+            config.write_text(json.dumps({"name": "incomplete", "sources": ["src"],
+                                          "includes": ["include"], "defines": []}))
+            output = root / "generated"
+            self.assertEqual(hostgen.main([
+                "--game", str(config), "--source", str(source), "--out", str(output),
+                "--jobs", "2", "--quiet",
+            ]), 0)
+            report = json.loads((output / "report.json").read_text())
+            self.assertEqual(report["units_unreadable"], [])
+            self.assertIn("0x00200000", (output / "example.c").read_text())
+
     def test_a_definition_that_contradicts_a_shared_header(self):
         # A header shared by the callers says `void *` and `void` where the definitions take
         # `float *` and return int (rac1/pal's include/callees.h against its candidates): the

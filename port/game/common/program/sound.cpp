@@ -146,7 +146,11 @@ HealthWindow g_health;
 
 void report_health() {
     const platform::AudioOutput::Health h = g_sound->take_health();
+    if (h.reopens > 0) {
+        log::warn("audio: the device stopped asking for sound and was opened again");
+    }
     if (stats::enabled()) {
+        stats::gauge("audio device reopened", h.reopens);
         stats::gauge("audio short frames", h.short_frames);
         stats::gauge("audio request gap ms", h.worst_gap_ms);
         stats::gauge("audio mix ms", h.worst_render_ms);

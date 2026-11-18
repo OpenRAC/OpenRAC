@@ -10,6 +10,9 @@ use std::hash::{BuildHasher, Hasher};
 /// ([`is_valid`]).
 pub const ENV: &str = "OPENRAC_PLAYER_NAME";
 
+/// The environment variable the game reads this installation's key from: what a host bans.
+pub const KEY_ENV: &str = "OPENRAC_IDENTITY_KEY";
+
 /// The shortest and the longest name, in characters.
 pub const MIN_LEN: usize = 3;
 pub const MAX_LEN: usize = 16;
@@ -61,14 +64,30 @@ fn seed() -> u64 {
     hasher.finish()
 }
 
+/// Whether a key could be one of [`new_key`]'s: what the game sends and a save's note keeps.
+pub fn is_valid_key(key: &str) -> bool {
+    key.len() == 32 && key.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// A new key: 128 random bits as hex, with no name or address in it.
+pub fn new_key() -> String {
+    format!("{:016x}{:016x}", seed(), seed().wrapping_mul(0x9E37_79B9_7F4A_7C15))
+}
+
 /// Gives `config` a random name when it has no valid one (the first start, or a settings file from
-/// before the name, or a name edited by hand into something invalid). True when it changed.
+/// before the name, or a name edited by hand into something invalid), and a key likewise, which
+/// then never changes. True when it changed.
 pub fn settle(config: &mut crate::config::Config) -> bool {
-    if is_valid(&config.multiplayer_name) {
-        return false;
+    let mut changed = false;
+    if !is_valid(&config.multiplayer_name) {
+        config.multiplayer_name = random_name();
+        changed = true;
     }
-    config.multiplayer_name = random_name();
-    true
+    if !is_valid_key(&config.multiplayer_key) {
+        config.multiplayer_key = new_key();
+        changed = true;
+    }
+    changed
 }
 
 #[cfg(test)]
@@ -108,5 +127,21 @@ mod tests {
         config.multiplayer_name = "no spaces please".into();
         assert!(settle(&mut config));
         assert!(is_valid(&config.multiplayer_name));
+    }
+
+    #[test]
+    fn a_key_is_made_once_and_kept() {
+        let mut config = crate::config::Config::default();
+        assert!(config.multiplayer_key.is_empty());
+        assert!(settle(&mut config));
+        assert!(is_valid_key(&config.multiplayer_key));
+        let kept = config.multiplayer_key.clone();
+        assert!(!settle(&mut config));
+        assert_eq!(config.multiplayer_key, kept);
+        // A new name leaves the key: a ban does not go with a name.
+        config.multiplayer_name = "no spaces please".into();
+        assert!(settle(&mut config));
+        assert_eq!(config.multiplayer_key, kept);
+        assert_ne!(new_key(), new_key());
     }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// What the game's shrub renderer draws of one shrub instance in a frame, as Scenery detail:
+// What the game's shrub renderer draws of one shrub instance in a frame, as Draw distance:
 // Original draws it (GameProfile::shrub_draws, LevelScene::choose_scenery).
 
 #pragma once

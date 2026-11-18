@@ -2,7 +2,7 @@
  * Copyright (c) 2026 the OpenRAC contributors
  *
  * Going Commando's words the port's tools read, by the names of the decompilation's symbol table
- * (games/rac2/ntsc/symbol_addrs/usa/symbol_addrs.txt): each define is a name of that table with
+ * (games/rac2/decomp/symbol_addrs/usa/symbol_addrs.txt): each define is a name of that table with
  * RAC2_ and its address, which test_regress.py checks against the table, so nothing here is a
  * number of its own. Below 0x1A7C80 every program shares the word; from there on it is the boot
  * program's, and the loaded level has its copy elsewhere (OPENRAC_DATA). */

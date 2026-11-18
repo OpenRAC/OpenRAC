@@ -6,7 +6,7 @@ import ModUpdatesPanel from "../components/ModUpdatesPanel.svelte";
 import type { VersionView } from "./api";
 import { autoUpdates } from "./modAutoUpdate.svelte";
 import { mockUpdates } from "./mockIndex";
-import { UPDATES, holdText } from "./modsText";
+import { UPDATES, holdText, revokedOffText } from "./modsText";
 
 const version = { key: "rac1/pal", game: "rac1", name: "pal" } as VersionView;
 const html = () => render(ModUpdatesPanel, { props: { version } }).body.replace(/<!--[^>]*-->/g, "");
@@ -23,7 +23,7 @@ describe("the updates panel", () => {
   });
 
   it("is not there with nothing to say", () => {
-    autoUpdates.plans.rac1 = { silent: [], waiting: [], held: [] };
+    autoUpdates.plans.rac1 = { silent: [], waiting: [], held: [], turnedOff: [] };
     expect(html().trim()).toBe("");
   });
 
@@ -39,8 +39,18 @@ describe("the updates panel", () => {
     expect(out).toMatch(/<button class="small"[^>]*>[\s\S]*?Update<\/button>/);
   });
 
+  it("says which withdrawn versions it turned off", () => {
+    autoUpdates.plans.rac1 = {
+      silent: [],
+      waiting: [],
+      held: [],
+      turnedOff: [{ id: "ammo-max", name: "Ammo max", version: "1.0.0", reason: "It corrupts saves." }],
+    };
+    expect(unescape(html())).toContain(revokedOffText("Ammo max", "1.0.0", "It corrupts saves."));
+  });
+
   it("says what just went in", () => {
-    autoUpdates.plans.rac1 = { silent: [], waiting: [], held: [] };
+    autoUpdates.plans.rac1 = { silent: [], waiting: [], held: [], turnedOff: [] };
     autoUpdates.recent.rac1 = mockUpdates().silent;
     const out = html();
     expect(out).toContain(UPDATES.recentTitle);

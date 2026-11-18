@@ -49,7 +49,6 @@ FUN_L00_001fde98	overlays_shared_drawquad_001FD1D8.c
 FUN_00210850	game_joint_matrices.c
 FUN_00217a30	game_particle_allocate.c
 FUN_0020e098	game_moby_bounds.c
-FUN_L00_0020dd20	functional/FUN_L00_0020dd20.c
 FUN_L00_00257024	level_moby_lighting.c
 FUN_00217b88	game_particle_update.c
 FUN_001f9ff8	game_scale_matrix.c
@@ -58,12 +57,11 @@ update_moby_grids	game_moby_grid.c
 FUN_L00_001ff600	level_planar_limit.c
 FUN_001fa400	game_fastfunc.c
 FUN_001fa4f8	game_fastfunc.c
-FUN_L00_002d5160	functional/FUN_L00_002d5160.c
 FUN_001f99e8	game_sound_math.c
 FUN_001f9c90	game_sound_math.c
 # Written for this version (the NTSC decomp keeps it as assembly; PAL's decompilation has it in C).
 convert_integer_to_float	game_int_to_float.c
-# The PAL decompilation's functional C (games/rac1/nonmatching/functional.tsv), carried the same way:
+# The PAL decompilation's functional C (games/rac1/decomp/nonmatching/functional.tsv), carried the same way:
 # C that does what the function does without matching its bytes, for functions the NTSC decomp still has as assembly.
 memmove	functional/memmove.c
 sceVu0UnitMatrix	functional/sceVu0UnitMatrix.c
@@ -75,7 +73,6 @@ FUN_L00_001ff660	functional/FUN_L00_001ff660.c
 FUN_L00_001ffd48	functional/FUN_L00_001ffd48.c
 FUN_L00_001ffe20	functional/FUN_L00_001ffe20.c
 FUN_L00_00250430	functional/FUN_L00_00250430.c
-FUN_L00_002a5040	functional/FUN_L00_002a5040.c
 FUN_L01_00261c10	functional/FUN_L01_00261c10.c
 FUN_L01_00261d78	functional/FUN_L01_00261d78.c
 FUN_L01_00262038	functional/FUN_L01_00262038.c
@@ -113,18 +110,14 @@ FUN_0020d868	functional/FUN_0020d868.c
 FUN_0020def8	functional/FUN_0020def8.c
 FUN_002106f8	functional/FUN_002106f8.c
 FUN_00212c28	functional/FUN_00212c28.c
-FUN_00212e28	functional/FUN_00212e28.c
 FUN_001ef9c8	functional/FUN_001ef9c8.c
 FUN_L00_001f3608	functional/FUN_L00_001f3608.c
 FUN_L00_001ff378	functional/FUN_L00_001ff378.c
 FUN_L00_001fff28	functional/FUN_L00_001fff28.c
 FUN_L00_0024dbc0	functional/FUN_L00_0024dbc0.c
 FUN_L00_00250df8	functional/FUN_L00_00250df8.c
-FUN_L00_00264740	functional/FUN_L00_00264740.c
 FUN_L00_00267a08	functional/FUN_L00_00267a08.c
 FUN_L00_00250320	functional/FUN_L00_00250320.c
-FUN_L00_00269d20	functional/FUN_L00_00269d20.c
-FUN_00215e00	functional/FUN_00215e00.c
 FUN_0020d580	functional/FUN_0020d580.c
 FUN_L00_001ff768	functional/FUN_L00_001ff768.c
 FUN_L00_002503c0	functional/FUN_L00_002503c0.c
@@ -138,14 +131,12 @@ FUN_L01_00261df8	functional/FUN_L01_00261df8.c
 FUN_L01_00262388	functional/FUN_L01_00262388.c
 FUN_L01_0021fa98	functional/FUN_L01_0021fa98.c
 FUN_L08_002025d0	functional/FUN_L08_002025d0.c
-FUN_L06_00307578	functional/FUN_L06_00307578.c
 FUN_L12_002667fc	functional/FUN_L12_002667fc.c
 FUN_L01_00262618	functional/FUN_L01_00262618.c
 FUN_L06_00216b88	functional/FUN_L06_00216b88.c
 ComputeByteStringHash	functional/ComputeByteStringHash.c
 _doCSC2	functional/_doCSC2.c
 _motionComp0	functional/_motionComp0.c
-_getRef0	functional/_getRef0.c
 FUN_001fa860	functional/FUN_001fa860.c
 FUN_0023b3d8	functional/FUN_0023b3d8.c
 FUN_L00_001fd1c8	functional/FUN_L00_001fd1c8.c
@@ -171,4 +162,3 @@ func_00127060	functional/func_00127060.c
 func_00127178	functional/func_00127178.c
 memchr	functional/memchr.c
 sceSifWriteBackDCache	functional/sceSifWriteBackDCache.c
-FUN_00238f08	functional/FUN_00238f08.c

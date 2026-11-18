@@ -54,6 +54,7 @@ bool android_display_hdr(hdr::Display& display) {
             jfloat got[5] = {};
             env->GetFloatArrayRegion(values, 0, 5, got);
             display.known = true;
+            display.system_decides = true;
             display.hdr_enabled = got[0] != 0.0f;
             display.peak_nits = got[1];
             display.sdr_white_nits = got[2];

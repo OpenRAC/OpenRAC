@@ -110,6 +110,12 @@ and untracked; PAL and NTSC need their own exports.
 ## Level settings
 
 `probe-bake.json` overrides defaults; only `"version": 1` and changed values are needed.
+The CPU baker defaults to adaptive sampling with 64 to 512 primary rays, split visibility,
+progressive Sobol directions and nearby mesh-light sampling. It checks convergence after
+64, 128 and 256 rays. Once lighting converges, the remaining rays trace first hits for
+visibility. Set `rays` in the profile or pass `--rays` for a fixed budget with global
+light sampling. GPU probe baking requires a fixed budget. At runtime, `OPENRAC_PROBE_RAYS`
+selects the fixed budget to verify.
 The [example](../tools/baker/probe-bake.example.json) lists defaults. Delete it and any mod profile
 to reset. CLI/runtime overrides win; `--print-profile` shows resolved settings. Baking never edits
 the profile: retain it as an input record and rebake sparse/dense together after input changes.
@@ -213,6 +219,24 @@ scripts, per-level region/bake settings and emission/interior sidecars, so chang
 layouts even when the native baker executable has not changed.
 `seed_regions.py` can inspect or replace regions for an existing sparse bake, saving the previous list.
 
+Use `regions.authored` for local volumes outside the automatic floor graph, such as a
+swingshot path or a tall arena. Each entry takes `bounds` as world-space minimum XYZ then
+maximum XYZ, and `spacing` as a scalar or XYZ. Authored volumes are added to automatic
+coverage and count towards the same region and per-volume probe budgets.
+
+The optional top-level `look_regions` list scales Enhanced diffuse lighting within world-space
+boxes. Each box takes `bounds`, a `feather` in world units and a `diffuse_gain`. A gain of
+zero can fade a shaft into darkness. Material emission is evaluated separately.
+
+Use Classic captures as visual references only. Fix Enhanced lighting through probe placement,
+baked light sources and, where appropriate, emissive materials. Do not blend Classic diffuse
+lighting into Enhanced to match a reference. Review the resulting Enhanced bake from the
+same camera and check adjacent surfaces for spill and leaks.
+
+For authored fill, `area_lights` takes bake-only rectangles with a world-space `position`,
+perpendicular half-edges `axis_u` and `axis_v`, and linear RGB `radiance`. The cross product
+of the half-edges points toward the lit side. Geometry occludes these lights during the bake.
+
 ## Formats and compatibility
 
 Only **file format 5, bake revision 5** is supported. Rebake older data.
@@ -298,17 +322,51 @@ Optional `bake_intensity` overrides transport only, defaults to runtime intensit
 automatic interior boosts. Novalis mushrooms use runtime intensity 1 and bake intensity 4:
 the rigid underside emits into the bake; the animated cap retains runtime emission.
 
+Material catalogs also support constant mesh emission. A model and material slot can use a
+measured linear RGB value for the bake, while the game still draws the original emissive
+texture. See the [material configuration](../../materials/README.md#configuration) for the
+texture and mesh modes, their cutout defaults, and the migration command.
+
 Per-material `contrast` in `probe-emission.json` ranges from 1 to 4 (default 1). After linear
 filtering/optional vertex tint, emission RGB gains `(luminance / 0.18)^(contrast - 1)` before
 intensity. Higher values darken below-middle-grey emission and brighten highlights, preserving
 hue, black, alpha and diffuse colour. Runtime/bake use the same curve; Novalis mushrooms use 1.5,
 others 1. Rebake/reload after changes, e.g. `{"runtime_intensity": 1, "bake_intensity": 4, "contrast": 1.5}`.
 
-The version's `emission-materials.json` catalog identifies reviewed PNG content by SHA-256,
-independent of level/texture numbering. Export/preparation resolves it into `probe-emission.json`;
-runtime needs no catalog/checkout. Per-level values, including explicit zero, override defaults.
+The version's `material-overrides.json` catalog can identify reviewed PNG content by SHA-256,
+independent of level and texture numbering. Export and bake preparation publish the material
+catalog alongside a compatibility `probe-emission.json` sidecar. Per-level values, including
+explicit zero, override defaults.
 `_catalog_defaults` lets existing exports refresh tracked defaults while retaining local authoring.
 Changed texture content needs a reviewed identity; brightness never implies emission.
+
+For emission generated from game textures, put an authored 8-bit grayscale PNG in
+`emission-masks/` beside the profile's `material-overrides.json`. Add its recipe to
+`emission-textures.json`:
+
+```json
+{
+  "version": 1,
+  "textures": [{
+    "output": "yellow-light-emission.png",
+    "mask": "yellow-light-mask.png",
+    "mode": "source",
+    "source": "textures/tie_0039.png"
+  }]
+}
+```
+
+The native baker reads `source` from the local export. It must match the mask size.
+`source` keeps the texture's RGB detail. `tint` multiplies it by an RGB `colour` in
+0â€“255, and `solid` uses that colour without a source texture. The mask scales the
+encoded RGB channels from black to full colour. Optional `gain` scales those channels
+before they are clamped. The output is opaque.
+
+Use `materials/<layer>/textures/<output>` as the level-relative `emission.texture`.
+The baker installs the generated image and its material layer before checking the
+bake cache. The game and the baker use that same image with their respective
+emission intensities. Keep generated colour textures in the local export.
+Independently authored colour PNGs can still be installed from `material-textures/`.
 
 `vertex_colour` uses ties'/shrubs' original instance light-slot colours in runtime and transport,
 not base mesh colour. An empty object marks reviewed ordinary material without overriding glTF emission.
@@ -458,9 +516,11 @@ independently of lighting selection. It uses the CPU diagnostic filter; normal l
 
 ## Environment reflections
 
-Enable `environment_probes.enabled` in a level's `probe-bake.json`. After all GI grids verify,
-the baker captures static HDR surroundings using the runtime GI reference, shadowed sun,
-visible emission and the skybox. Bake-only emission gains affect transport, not visible surfaces.
+Reflection probes default on for gameplay levels with exported collision and gameplay data.
+Set `environment_probes.enabled` to `false` in a level's `probe-bake.json` to opt out.
+After all GI grids verify, the baker captures static HDR surroundings using the runtime GI
+reference, shadowed sun, visible emission and the skybox. Bake-only emission gains affect
+transport, not visible surfaces.
 Water and authored chrome/glass packets use these captures in enhanced mode.
 
 Captures sit near floor-space centres, normally 3 units above their actual supporting floor.
@@ -474,7 +534,9 @@ must merge or relocate until at least `minimum_capture_spacing` (6 units) apart.
 storeys and water media exempt pairs. Other merges require 85% shared receiver area and similar
 GI signatures: Rec.709 luminance within 2:1 plus 0.02, and Oklab distance at most 0.06 at a common
 18% luminance. These are placement heuristics, not comparisons of finished cubemaps.
-Every accepted replacement preserves every receiver; unresolved coverage or spacing fails baking.
+Every accepted merge preserves coverage within the placement tolerances. Automatic placement drops
+unsafe captures and leaves uncovered areas to local GI. Setting `environment_probes.enabled` to
+`true` explicitly requires complete coverage and fails the bake if conflicts remain.
 
 `maximum_probes` defaults to 512 as a safety limit. Captures use 128x128 source faces and 128 GGX
 samples. `environment.orpe` version 6 stores a GPU-ready compressed HDR atlas, oriented influence and
@@ -564,3 +626,11 @@ recover HDR detail.
 AgX matrices are adapted from Google Filament's `ToneMapper.cpp` at
 `be858f42ab95cf0ba6e224ac2dc3950bdb172080` (Apache-2.0); see
 [the retained licence](../renderer/agx-LICENSE.txt) and the third-party notices.
+
+## Lighting for edited levels
+
+In the launcher, turn on Mods for Play, then prepare lighting under Enhanced
+Graphics. Preparation uses the same packed levels and enabled override packs as
+Play, including each enabled ship destination. Repacking or changing the
+enabled overrides makes the affected lighting due for preparation. Original
+levels and previously baked edits keep separate cache entries.

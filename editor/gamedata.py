@@ -28,7 +28,7 @@ Pvars are the per-instance class variables: one block per moby, camera or sound 
 links (+0x50, the word is a moby's place in the table, which the loader makes a run-time moby
 index), the pointer fixups (+0x5C, an offset in the block the loader makes an address) and the
 shared-data records (+0x4C, the field gets an address in the shared blob). The layouts the
-decompilation knows (games/rac1/include/pvars/moby_pvars.h, `struct update<class>`, adapted there from
+decompilation knows (games/rac1/decomp/include/pvars/moby_pvars.h, `struct update<class>`, adapted there from
 Wrench, GPL-3.0-or-later; the camera header from port/assets/world/cameras.h, after ReRAC, ISC)
 give fields names and types; the rest of a block is shown as its 32-bit words.
 
@@ -431,7 +431,7 @@ def export_layouts(path: Path) -> None:
     layouts = class_layouts()
     if not layouts:
         raise FormatError("Cannot build the editor package without the qualified pvar layouts")
-    data = {"format": 1, "source": "games/rac1/include/pvars/moby_pvars.h",
+    data = {"format": 1, "source": "games/rac1/decomp/include/pvars/moby_pvars.h",
             "classes": {str(c): fields for c, fields in sorted(layouts.items())}}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")

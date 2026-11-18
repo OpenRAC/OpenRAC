@@ -34,9 +34,10 @@ have to look like. The documents are in [speedrun/](speedrun/README.md).
   hardware takes far less here. A port run needs its own category. See
   [speedrun/TIMING.md](speedrun/TIMING.md) and
   [speedrun/RULES.md](speedrun/RULES.md).
-- **Only Ratchet & Clank can be modded today.** rac1 has 654 hook points on
-  both discs; rac2, rac3 and rac4 have none and no script binding, so a mod
-  for them is refused.
+- **Game-hook and script modding is still RAC1-only.** rac1 has 654 hook points
+  on both discs. RAC2 has no game hook points or script binding yet, but native
+  mods that use only common callbacks such as pad or tick-boundary callbacks can
+  load. RAC3 and RAC4 have not gained game hook points or script bindings.
 
 ## A note on what is verified and what is not
 
@@ -54,4 +55,4 @@ Where a claim could not be checked, it says so.
 | Frame pacing and settings | [SETTINGS.md](SETTINGS.md), [DEBUGGING.md](DEBUGGING.md) |
 | Mods, the SDK, hook points | [MODS.md](MODS.md), [sdk/docs/](../../sdk/docs/README.md) |
 | Playing the port by script | [RAC1_PAL_TESTING.md](RAC1_PAL_TESTING.md), [REGRESSION.md](REGRESSION.md) |
-| The game's own knowledge | [games/rac1](../../games/rac1), [docs/engine](../engine/README.md) |
+| The game's own knowledge | [games/rac1/decomp](../../games/rac1/decomp), [docs/engine](../engine/README.md) |

@@ -122,7 +122,7 @@ Read with `std::getenv` throughout `port/`. The authoritative list is
 | `OPENRAC_UI_SKIP` | `NAME,...` | The listed 2D routines send the game's own packets instead of native quads. |
 | `OPENRAC_UI_RESIDUAL` | set | Log the kinds of 2D primitive still drawn from the game's packets. |
 | `OPENRAC_SHOW_MISSING` | set | Draw textured primitives whose texture is not uploaded with a magenta placeholder. |
-| `OPENRAC_GL_API` | `es` \| `desktop` \| `vulkan` | The kind of OpenGL context. |
+| `OPENRAC_GL_API` | `es` \| `desktop` \| `vulkan` \| `metal` | The kind of OpenGL context. |
 | `OPENRAC_GL_HIDE_EXTENSIONS` | `NAME,...` | Pretend the driver lacks these GL extensions. |
 | `OPENRAC_VULKAN_VALIDATION` | `1` | Khronos validation layer messages. |
 | `OPENRAC_VULKAN_PIPELINE_CACHE` | path, or `0`/`off` | Where Vulkan pipelines are cached. |
@@ -198,7 +198,7 @@ A file with `frame_rate` but no `vsync` gets `vsync = on` when
 | **F9** / **F10** | Volume down / up |
 | **F11** | Full screen |
 | **F12** | Screenshot |
-| **`** (key under Escape) | Hide and show the in-window menus (`menu_bar_key`, pad: L3, `menu_bar_button`; Controller bindings, Menu bar tab) |
+| **`** (key under Escape) | Hide and show the in-window menus (`menu_bar_key`, pad: Start+Select, `menu_button`; Controller bindings, Menu bar tab) |
 | **Alt+Return** | Fullscreen |
 
 ## 5. The input map
@@ -277,7 +277,7 @@ The hero's fields are also exposed by name to script mods:
 |---|---|
 | **SDK version** | 1.3.0 (`sdk/VERSION`); the interface's major is 1, minor 3 |
 | **Hook points, rac1** | **654** on both discs (`port/game/rac1-pal/libraries.tsv`) |
-| **Hook points, rac2/3/4** | **0** — a mod for them is refused |
+| **Hook points, rac2/3/4** | **0** — game-hook mods cannot take a hook there; RAC2 native callback-only mods can still load |
 | **Script binding** | rac1 only; the others use `script_binding_none.c` and refuse script mods |
 | **Script budget** | 2 ms per call, `OPENRAC_SCRIPT_BUDGET_MS` |
 | **Per-tick cost with no mods** | One test of a bool (`mods.h:67-71`) |

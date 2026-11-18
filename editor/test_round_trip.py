@@ -4,7 +4,7 @@ over the first pack, and stacked into the folder the game reads with --mods.
 
 It needs the image of a Ratchet & Clank disc (PAL SCES-50916, NTSC-U SCUS-97199), which is never
 in the repository: OPENRAC_RAC1_PAL_DISC / OPENRAC_RAC1_NTSC_DISC name one, else the usual places
-are looked in (games/rac1/baserom, ../rac1-decomp/baserom). Without one the tests are skipped.
+are looked in (games/rac1/decomp/baserom, ../rac1-decomp/baserom). Without one the tests are skipped.
 Level 0 (Veldin) is the one tested: players reported it, and it is the first a new game loads.
 About two and a half minutes a disc, most of it the levels the game draws.
 """
@@ -33,7 +33,7 @@ def find_disc(version: str) -> Path | None:
     variable, name = DISCS[version]
     if os.environ.get(variable):
         return Path(os.environ[variable])
-    for folder in (ROOT / "games" / "rac1" / "baserom", ROOT.parent / "rac1-decomp" / "baserom"):
+    for folder in (ROOT / "games" / "rac1" / "decomp" / "baserom", ROOT.parent / "rac1-decomp" / "baserom"):
         if (folder / name).is_file():
             return folder / name
     return None

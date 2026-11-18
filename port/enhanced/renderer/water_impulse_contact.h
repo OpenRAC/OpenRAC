@@ -5,7 +5,7 @@
 #include <optional>
 #include <span>
 
-#include "renderer/water_impulse.h"
+#include "renderer/effects/water_impulse.h"
 
 namespace openrac::enhanced {
 struct WaterImpulseContact {

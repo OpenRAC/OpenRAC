@@ -23,11 +23,12 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "renderer/math.h"
-#include "renderer/texture.h"
-#include "renderer/texture_pack.h"
+#include "renderer/textures/texture.h"
+#include "renderer/textures/texture_pack.h"
 #include "scene/pvs.h"
 #include "scene/tie_relight.h"
 
@@ -84,13 +85,21 @@ struct Material {
     bool authored_emission = false;
     // Optional absolute texture multiplier for baking; absent uses runtime emission.
     std::optional<float> bake_intensity;
+    std::optional<Vec3> bake_mesh_rgb;
+    bool bake_use_cutout = true;
     std::optional<int> source_slot;  // Original glTF slot, or -1 for its implicit material.
     int emission_image = -1;
     bool emission_vertex_colour = false;
+    bool average_emission_for_bake = true;
     float emission_contrast = 1;  // Luminance power curve around linear middle grey (0.18).
     float diffuse_scale = 1;
     std::string name;  // Authored material identity, including distinct chrome and glass maps.
 };
+
+// Retail sphere maps are separate from the textured colour pass.
+inline bool is_retail_chrome(bool metal, std::string_view name) {
+    return metal && name == "metal_chrome";
+}
 
 struct Primitive {
     std::uint32_t first_index = 0;
@@ -98,6 +107,9 @@ struct Primitive {
     int material = 0;
     int shell = -1;  // a sky's: the game's shell number (its node Sky_N), for the shell's matrix
     int terrain_fragment = -1;
+    // The streamed chunk the fragment belongs to (Going Commando's levels, node Terrain_cN_MMM):
+    // 0 the level's own terrain. The game draws one chunk's fragments at a time.
+    int terrain_chunk = 0;
     std::uint16_t occlusion = Pvs::always;
     // Whether any of its vertices is a glow packet's (light slot -2, mesh.vert): only those can be
     // drawn by the mobys' glow pass, which leaves the others out (LevelScene::upload sets it).
@@ -107,7 +119,20 @@ struct Primitive {
     // A count of 0 draws the whole primitive there.
     std::uint32_t glow_first = 0;
     std::uint32_t glow_count = 0;
+    bool enhanced_only = false;    // Standard replacement for geometry found only in a retail pass.
+    int appearance_material = -1;  // Chrome coverage follows this editable colour/replacement slot.
+
+    int appearance_slot() const {
+        return appearance_material >= 0 ? appearance_material : material;
+    }
 };
+
+inline bool material_pass_visible(
+    const Primitive& primitive, const Material& material, bool enhanced, bool original = false
+) {
+    return enhanced && !original ? !is_retail_chrome(material.metal, material.name)
+                                 : !primitive.enhanced_only;
+}
 
 // Original joint identity and bind frame, retained for bone attachments and viewer diagnostics.
 struct ModelJoint {
@@ -122,7 +147,7 @@ struct Model {
     Vec3 min{};
     Vec3 max{};
     std::vector<ModelJoint> bones;  // Indexed by the same joint number as skin weights.
-    int joints = 0;  // a skinned mesh: one past the highest joint its vertices use
+    int joints = 0;                 // a skinned mesh: one past the highest joint its vertices use
 };
 
 struct Instance {
@@ -220,6 +245,11 @@ struct LevelData {
     std::vector<renderer::Rgba8Image> images;
     // Parallel to images (or shorter): a texture pack's animated replacement of each, or null.
     std::vector<std::shared_ptr<const renderer::texture_pack::Animation>> image_animations;
+    // Parallel to images (or shorter): a texture pack KTX2's picture of each in GPU blocks, or null.
+    std::vector<std::shared_ptr<const renderer::CompressedImage>> image_blocks;
+    // Parallel to images (or shorter): for one a texture pack replaced, the original's material
+    // identity (materials::texture_identity), so that material rules still find it; else empty.
+    std::vector<std::string> image_identities;
     std::vector<std::string> image_paths;
     // Parallel to images: whether some texel is below full alpha (under the chip's 0x80), which
     // the GS blends however the export's alpha mode reads (material_index).
@@ -234,8 +264,8 @@ struct LevelData {
     // instances; game units of camera depth): a tie's own, capped at 720 (TieProc; 0 is never
     // drawn), a shrub's raised to 16 and, for a class with a billboard, to its fade distance + 24,
     // capped at 500 (ShrubProc; shrub_sky.md section 4). Empty for a layer whose export does not
-    // carry them (shrubs before "billboard_fade") or a game whose caps are not known. Drawn by only
-    // "Scenery detail: Original" (LevelScene::choose_scenery).
+    // carry them (shrubs before "billboard_fade") or a game whose caps are not known. Used by
+    // "Draw distance" (LevelScene::choose_scenery).
     std::array<std::vector<float>, kLayerCount> draw_distances;
     // Each shrub's class's billboard sprite (the model of the quad ShrubProc draws in place of a
     // far one; -1 none), parallel to the shrubs; empty when the shrubs are not the level's own
@@ -281,6 +311,9 @@ struct LevelData {
 // The world centre of `model`'s bounds drawn at `matrix`.
 Vec3 bounds_centre(const Model& model, const Mat4& matrix);
 
+// Keeps the classic chrome packets and adds standard geometry for their uncovered triangles.
+void prepare_chrome_geometry(LevelData& level);
+
 // Load a level directory. Returns false with a reason if the manifest or a
 // mesh cannot be read; a missing texture only counts in missing_images.
 // `edited`, when it names a file, is a placements file from a mod (the editor's
@@ -288,12 +321,14 @@ Vec3 bounds_centre(const Model& model, const Mat4& matrix);
 // folder it is in is the mod's folder for the level (LevelData::overrides): its
 // meshes and textures are read in place of the level's own of the same path,
 // whether or not the placements file itself is there.
+// prepare_geometry can add runtime geometry before material overrides are resolved.
 bool load_level(
     const std::filesystem::path& dir,
     LevelData& out,
     std::string& error,
     const std::filesystem::path& edited = {},
-    const std::vector<std::filesystem::path>& mod_roots = {}
+    const std::vector<std::filesystem::path>& mod_roots = {},
+    void (*prepare_geometry)(LevelData&) = nullptr
 );
 
 // The level's sky textures (textures/sky_NNNN.png, by the sky's own texture numbers), including the

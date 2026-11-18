@@ -1,9 +1,11 @@
-// Adding what the player chose or dropped on the Mods tab: a native mod goes to the game's mods
+// Adding what the player chose or dropped on the Mods tab: a texture pack's .zip goes into the
+// player's own texture pack (core/src/texture_packs.rs, added to it), a native mod to the game's mods
 // (src-tauri/src/lib.rs, plugins_install), a data pack to its overrides packs (editor/overrides.py,
 // the version's overrides-add action). The player never has to know which is which.
 import { api, type VersionView } from "./api";
 import { jobs, runChain } from "./app.svelte";
-import { added, withName } from "./modsText";
+import { added, TEXTURES, withName } from "./modsText";
+import { refusesPack, textureCount } from "./texturePacks";
 import { toolFailure } from "./toolErrors";
 
 export interface Added {
@@ -25,6 +27,40 @@ function whyStopped(): string {
 
 const nameOf = (path: string) => path.split(/[\\/]/).at(-1) ?? path;
 
+/** A texture pack's .zip added to the player's own pack, or why it is refused; null when the file
+ *  is not a texture pack at all (a mod, an overrides pack), to be added as one. */
+async function addTexturePack(v: VersionView, path: string): Promise<Added | null> {
+  if (!path.toLowerCase().endsWith(".zip")) return null;
+  let preview;
+  try {
+    preview = await api.texturePacksPreview(v.game, v.name, path);
+  } catch (e) {
+    const why = typeof e === "string" ? e : e instanceof Error ? e.message : String(e);
+    // A texture pack that cannot be added (another game's, say): said as it is. Anything else is
+    // not a texture pack, and is added as what it is.
+    if (refusesPack(why)) {
+      return { text: withName(nameOf(path), why), failed: true, plugin: false, pack: false };
+    }
+    return null;
+  }
+  try {
+    const done = await api.texturePacksImport(v.game, v.name, path, "merge");
+    return {
+      text: TEXTURES.added(textureCount(done.textures), preview.replacing),
+      failed: false,
+      plugin: false,
+      pack: true,
+    };
+  } catch (e) {
+    return {
+      text: withName(nameOf(path), typeof e === "string" ? e : String(e)),
+      failed: true,
+      plugin: false,
+      pack: false,
+    };
+  }
+}
+
 /** Adds each path in turn, stopping at the first that fails; what the last one came to. */
 export async function addMods(v: VersionView, paths: string[]): Promise<Added> {
   const result: Added = { text: "", failed: false, plugin: false, pack: false };
@@ -41,6 +77,13 @@ export async function addMods(v: VersionView, paths: string[]): Promise<Added> {
   let count = 0;
   for (const path of each) {
     const name = nameOf(path);
+    const texture = await addTexturePack(v, path);
+    if (texture) {
+      if (texture.failed) return { ...result, text: texture.text, failed: true };
+      result.pack = true;
+      result.text = texture.text;
+      continue;
+    }
     let installed;
     try {
       installed = await api.pluginsInstall(v.game, v.name, path);

@@ -30,7 +30,7 @@ file names its source and the spec it follows.
 |---|---|
 | rac1-ntsc | known: ReRAC's `docs/formats/disc_layout.md`, `wad_layouts_rac1.md` |
 | rac1-pal | known: the same table of contents at sector 1500, as OpenRAC's own reader of the PAL disc gives it ([editor/disc.py](../../../editor/disc.py), [level.py](../../../editor/level.py)) |
-| rac2-ntsc, rac3-ntsc, rac4-ntsc | identified (serial and boot executable) but not readable: their tables of contents are not known yet, and `disc_layout()` refuses them |
+| rac2-ntsc, rac3-ntsc, rac3-pal, rac4-ntsc | identified (serial and boot executable) but not readable: their tables of contents are not known yet, and `disc_layout()` refuses them |
 
 Addresses in the comments are NTSC-U (SCUS_971.99) unless they say PAL.
 

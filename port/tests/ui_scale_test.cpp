@@ -25,6 +25,9 @@ int main() {
     // A phone: its density only, however tall its screen.
     CHECK(ui_scale(3.0f, 1.0f, 2400, false) == 3.0f);
     CHECK(ui_scale(1.0f, 1.0f, 2400, false) == 1.0f);
+    // Menu size on top: 4K at 150 % of Auto, 1080p at 60 %.
+    CHECK(ui_scale(1.0f, 1.0f, 2160, true, 150) == 3.0f);
+    CHECK(ui_scale(1.0f, 1.0f, 1080, true, 60) == 0.6f);
     // Unknown values fall back to 1.
     CHECK(ui_scale(0.0f, 0.0f, 0, true) == 1.0f);
     return openrac::test::result();

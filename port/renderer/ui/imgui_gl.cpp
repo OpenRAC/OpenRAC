@@ -2,17 +2,16 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // What ImGui's OpenGL 3 backend (backends/imgui_impl_opengl3.cpp; MIT License, Copyright (c)
-// 2014-2025 Omar Cornut) does, with the calls renderer/gl.h has: one program, one vertex array,
+// 2014-2025 Omar Cornut) does, with the calls renderer/gl/gl.h has: one program, one vertex array,
 // the font's texture, a scissor per command.
 
 #include "renderer/ui/imgui_gl.h"
 
 #include <cstdint>
-
 #include <imgui.h>
 
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::renderer::ui::imgui_gl {
 namespace {

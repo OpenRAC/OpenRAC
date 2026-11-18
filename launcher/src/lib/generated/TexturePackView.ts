@@ -2,7 +2,7 @@
 import type { TextureFolder } from "./TextureFolder";
 
 /**
- * The Texture packs section of a game's page.
+ * The Texture packs section of a game's Mods tab.
  */
 export type TexturePackView = { 
 /**
@@ -12,7 +12,7 @@ id: string,
 /**
  * The `texture_pack` setting.
  */
-enabled: boolean, 
+enabled: boolean, pcsx2Path: string | null, 
 /**
  * Whether the next Play saves the textures.
  */

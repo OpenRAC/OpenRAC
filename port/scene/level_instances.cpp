@@ -5,13 +5,14 @@
 #include <cmath>
 #include <cstring>
 #include <iterator>
+#include <map>
 #include <stdexcept>
 
 #include "assets/geometry/shrub_lighting.h"
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "scene/hero_shadow.h"
@@ -28,6 +29,51 @@ namespace openrac::scene {
 using namespace openrac::gl;
 using namespace render_detail;
 
+// Points attribute 0 of the bound vertex array at the positions: the tight buffer of their own
+// (vertex-position-stream), so that depth-only passes and a tile GPU's binning read 12 bytes a
+// vertex, or the wide vertex.
+void LevelScene::point_positions() const {
+    if (m_position_stream) {
+        glBindBuffer(GL_ARRAY_BUFFER, m_positions);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), offset(0));
+    } else {
+        glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
+        glVertexAttribPointer(
+            0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offset(offsetof(Vertex, position))
+        );
+    }
+}
+
+// Follows vertex-position-stream when it is switched while a level is loaded (the Graphics sweep,
+// the equivalence test): every vertex array made so far is pointed again.
+void LevelScene::sync_position_stream() {
+    const bool wanted =
+        m_positions != 0
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::VertexPositionStream);
+    if (wanted == m_position_stream) {
+        return;
+    }
+    m_position_stream = wanted;
+    const auto point = [this](unsigned vao) {
+        if (vao != 0) {
+            glBindVertexArray(vao);
+            point_positions();
+        }
+    };
+    for (const auto* all : {&m_groups, &m_idle}) {
+        for (const auto& groups : *all) {
+            for (const Group& g : groups) {
+                point(g.vao);
+                point(g.camera_vao);
+                point(g.pvs_vao);
+            }
+        }
+    }
+    point(m_shadow_compact.vao);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 // A class model's vertex array: the level's vertices and indices, and an instance buffer of its own
 // (empty until fill_group).
 LevelScene::Group LevelScene::make_group(std::uint32_t model) {
@@ -35,11 +81,11 @@ LevelScene::Group LevelScene::make_group(std::uint32_t model) {
     g.model = model;
     glGenVertexArrays(1, &g.vao);
     glBindVertexArray(g.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indices);
     constexpr auto kStride = static_cast<GLsizei>(sizeof(Vertex));
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, kStride, offset(offsetof(Vertex, position)));
+    point_positions();
+    glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, kStride, offset(offsetof(Vertex, normal)));
     glEnableVertexAttribArray(2);
@@ -407,6 +453,10 @@ renderer::GpuInstanceBatch LevelScene::gpu_batch(
 void LevelScene::submit_instances(
     renderer::GpuInstanceBatch batch, unsigned first, unsigned count, int instances
 ) {
+    // The settings sweep's experiment: the draw is kept, its triangles are not.
+    if (m_sweep_one_triangle) {
+        count = std::min(count, 3u);
+    }
 #if defined(OPENRAC_VULKAN)
     if (batch) {
         if (!vkgl::draw_gpu_instances(batch, first, count)) {
@@ -452,6 +502,13 @@ void LevelScene::set_instances(Layer layer, const std::vector<Instance>& source)
 #else
     const auto& instances = source;
 #endif
+    // The animated-scenery pass submits an empty layer even in levels without
+    // animated scenery. No casters changed when that layer was already empty.
+    // Removing a nonempty layer must still rebuild it and invalidate cached depth.
+    if (layer != Layer::Mobys && instances.empty()
+        && m_groups[static_cast<std::size_t>(layer)].empty()) {
+        return;
+    }
     // The CPU time of handing the scene a layer's instances (the moby layer's, every frame).
     const stats::Scope pass(layer == Layer::Mobys ? "moby instances" : "layer instances");
     m_camera_visibility[static_cast<std::size_t>(layer)].recording = 0;
@@ -510,7 +567,7 @@ void LevelScene::set_instances(Layer layer, const std::vector<Instance>& source)
 }
 
 void LevelScene::choose_scenery(
-    bool original, const renderer::Vec3& eye, const renderer::Mat4& projection
+    float scale, const renderer::Vec3& eye, const renderer::Mat4& projection
 ) {
     // How much farther than its depth a point in the view can be: 1 / the cosine of the view's
     // corner, from the projection's tangents. Within it, a straight-line distance below this times
@@ -526,8 +583,8 @@ void LevelScene::choose_scenery(
         if (scenery.source.empty() || scenery.distances.empty()) {
             continue;
         }
-        // Off again after being on: the instances as loaded, once.
-        if (!original) {
+        // Unlimited again after a distance: the instances as loaded, once.
+        if (!(scale > 0.0f)) {
             if (!scenery.drawn.empty()) {
                 scenery.drawn.clear();
                 set_instances(layer, resident_scenery(k));
@@ -550,7 +607,7 @@ void LevelScene::choose_scenery(
             const Vec3 to{centre[0] - eye[0], centre[1] - eye[1], centre[2] - eye[2]};
             const bool was = !first && scenery.drawn[i] != 0;
             // Squared, so that the test needs no root: limit and limit + margin, both positive.
-            const float limit = scenery.distances[i] * reach;
+            const float limit = scenery.distances[i] * scale * reach;
             const float reach_to = was ? limit + kLeaveMargin : limit;
             const float away = to[0] * to[0] + to[1] * to[1] + to[2] * to[2];
             const bool shown =
@@ -587,6 +644,47 @@ std::vector<Instance> LevelScene::resident_scenery(std::size_t k) const {
 }
 
 void LevelScene::move_scenery(const GameScenery& game) {
+    // The terrain's occlusion words from the game's records (GameScenery::terrain_occlusion), once
+    // they differ from the primitives': the cached visible lists are made again.
+    if (!game.terrain_occlusion.empty()) {
+        // The streamed chunk the game's records are (Going Commando: the level's own terrain, or a
+        // chunk it loaded in its place): the one with as many fragments. Only that one is drawn.
+        std::map<int, std::size_t> fragments;
+        for (const Model& model : m_models) {
+            for (const Primitive& p : model.primitives) {
+                if (p.terrain_fragment >= 0) {
+                    auto& n = fragments[p.terrain_chunk];
+                    n = std::max(n, static_cast<std::size_t>(p.terrain_fragment) + 1);
+                }
+            }
+        }
+        int chunk = -1;
+        for (const auto& [c, n] : fragments) {
+            if (n == game.terrain_occlusion.size() && chunk < 0) {
+                chunk = c;
+            }
+        }
+        bool changed = chunk != m_terrain_chunk;
+        m_terrain_chunk = chunk;
+        for (Model& model : m_models) {
+            for (Primitive& p : model.primitives) {
+                if (p.terrain_fragment >= 0 && p.terrain_chunk == chunk
+                    && static_cast<std::size_t>(p.terrain_fragment)
+                           < game.terrain_occlusion.size()) {
+                    const std::uint16_t word =
+                        game.terrain_occlusion[static_cast<std::size_t>(p.terrain_fragment)];
+                    changed = changed || p.occlusion != word;
+                    p.occlusion = word;
+                }
+            }
+        }
+        if (changed || game.terrain_far != m_terrain_far) {
+            m_terrain_far = game.terrain_far;
+            for (auto& cached : m_pvs_models) {
+                cached.valid = false;
+            }
+        }
+    }
     // How far a matrix entry may be from the loaded one and still be taken for it: the export
     // writes the game's floats, so only a move changes them.
     constexpr float kSame = 1.0e-3f;
@@ -629,6 +727,10 @@ void LevelScene::move_scenery(const GameScenery& game) {
         const bool ties = kSceneryLayers[k] == Layer::Ties;
         const bool listed =
             ties && game.tie_lights.size() == count && game.tie_spheres.size() == count;
+        // The ones the game hides by a bit of their record (GameScenery::tie_hidden): Dobbo
+        // Orbit's buildings, whose ties stay where they stood once Giant Clank has knocked them
+        // down, their collision mobys deleted.
+        const auto& hidden = ties ? game.tie_hidden : game.shrub_hidden;
         bool changed = false;
         for (std::size_t i = 0; i < count; ++i) {
             const Mat4& m = scenery.source[i].matrix;
@@ -641,7 +743,8 @@ void LevelScene::move_scenery(const GameScenery& game) {
                     same = same && std::abs(v - m[c * 4 + r]) < kSame;
                 }
             }
-            const std::uint8_t state = zero ? 2 : same ? 0 : 1;
+            const bool gone = hidden.size() == count && hidden[i] != 0;
+            const std::uint8_t state = zero || gone ? 2 : same ? 0 : 1;
             m_moved_count += state == 1;
             changed = changed || state != moved.state[i];
             moved.state[i] = state;

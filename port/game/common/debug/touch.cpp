@@ -65,9 +65,9 @@ bool on_overlay_window(ImVec2 at) {
 
 }  // namespace
 
-// On Android the drawer has the menus (debug_overlay.h); OPENRAC_DRAWER=1 elsewhere too.
+// On mobile the drawer has the menus (debug_overlay.h); OPENRAC_DRAWER=1 elsewhere too.
 bool drawer_possible() {
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(OPENRAC_IOS)
     return true;
 #else
     return env::flag(env::Var::Drawer);

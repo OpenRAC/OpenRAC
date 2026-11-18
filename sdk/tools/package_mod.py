@@ -95,19 +95,28 @@ def hook_names(game: str, bindings: Path | None = None) -> frozenset[str] | None
 
 def _check_hooks(hooks, games, errors: list[str], bindings: Path | None = None) -> None:
     """"hooks": the hook points the mod takes, each by its stable id (rac1.player.take_damage) or an
-    alias (Hero_TakeDamage). One of the mod's games must have it, when this SDK has that game's table."""
+    alias (Hero_TakeDamage). An id names its game, which must be one of the mod's and have it; an
+    alias must be a hook point of one of the mod's games, and a mod for several games names each by
+    its id (two games may share a name). A game this SDK has no table of is not checked."""
     if hooks is None:
         return
     if not isinstance(hooks, list) or not all(isinstance(h, str) and (HOOK_NAME.match(h) or HOOK_ID.match(h))
                                                for h in hooks):
         errors.append("hooks: a list of hook points, by id (rac1.player.take_damage) or alias (Hero_TakeDamage)")
         return
-    tables = [hook_names(g, bindings) for g in (games if isinstance(games, dict) else {})]
-    known = [t for t in tables if t is not None]
-    if not known:
-        return
+    games = games if isinstance(games, dict) else {}
+    tables = {g: hook_names(g, bindings) for g in games}
     for h in hooks:
-        if not any(h in t for t in known):
+        game = h.split(".", 1)[0] if HOOK_ID.match(h) else None
+        if game is not None and game in games:
+            if tables[game] is not None and h not in tables[game]:
+                errors.append(f"hooks: {h} is not a hook point of {game} (docs/reference/hooks-{game}.md)")
+            continue
+        if len(games) > 1:
+            errors.append(f"hooks: {h}: a mod for several games names its hook points by id (<game>.<area>.<name>)")
+            continue
+        known = [t for t in tables.values() if t is not None]
+        if known and not any(h in t for t in known):
             errors.append(f"hooks: {h} is not a hook point of {', '.join(sorted(games))} (docs/reference/hooks-<game>.md)")
 
 
@@ -300,11 +309,11 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
     kind = m.get("type", "native")
     if kind not in ("native", "script"):
         errors.append("type: native (the default) or script")
+    api = m.get("api")
     scripts = m.get("scripts")
     if kind == "script":
         if "plugin" in m:
             errors.append("plugin: a script mod carries no library")
-        api = m.get("api")
         if not isinstance(api, str) or not API.match(api):
             errors.append("api: MAJOR.MINOR, the interface the scripts are written for (required)")
         else:
@@ -329,7 +338,6 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
     if kind == "script":
         pass
     elif plugin is not None:
-        api = m.get("api")
         if not isinstance(api, str) or not API.match(api):
             errors.append("api: MAJOR.MINOR, the interface the mod was built for (required with a plugin)")
         elif int(api.split(".")[0]) not in API_MAJORS:
@@ -347,8 +355,15 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
                     continue
                 if root is not None and not (root / p).is_file():
                     errors.append(f"plugin {platform}: {path} is not in the mod")
-    elif "api" in m and not (isinstance(m["api"], str) and API.match(m["api"])):
+    elif "api" in m and not (isinstance(api, str) and API.match(api)):
         errors.append("api: MAJOR.MINOR")
+    can_declare_vulkan = (kind == "native" and isinstance(api, str) and API.fullmatch(api)
+                          and tuple(map(int, api.split("."))) >= (1, 20))
+    queue = m.get("vulkan_queue")
+    if "vulkan_queue" in m and (not can_declare_vulkan or not plugin or not isinstance(queue, bool)):
+        errors.append("vulkan_queue: a boolean on a native mod targeting interface 1.20 or later")
+    if can_declare_vulkan and m.get("vulkan_device") is True and queue is not True:
+        errors.append("vulkan_device: requires vulkan_queue: true from interface 1.20")
     _check_hooks(m.get("hooks"), games, errors, bindings)
     settings = m.get("settings", [])
     if not isinstance(settings, list):
@@ -361,6 +376,18 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
         if dup:
             errors.append(f"settings: a key twice ({', '.join(sorted(map(str, dup)))})")
         _check_presets(m.get("presets"), {s["key"]: s for s in settings if isinstance(s, dict) and "key" in s}, errors)
+    if m.get("multiplayer", "gameplay") not in ("gameplay", "input", "cosmetic", "solo"):
+        errors.append("multiplayer: gameplay, input, cosmetic or solo")
+    for s in settings if isinstance(settings, list) else []:
+        if isinstance(s, dict) and s.get("multiplayer", "own") not in ("own", "host"):
+            errors.append(f"setting {s.get('key')}: multiplayer is own or host")
+        # "games": the games it is for, of the mod's; the launcher shows it for those only and the
+        # port gives it its default elsewhere (docs/port/MODS.md, section 3).
+        if isinstance(s, dict) and "games" in s:
+            only = s["games"]
+            if (not isinstance(only, list) or not only
+                    or not all(isinstance(g, str) and isinstance(games, dict) and g in games for g in only)):
+                errors.append(f"setting {s.get('key')}: games is a list of the mod's games")
     _check_refs("requires", m.get("requires", []), errors, True)
     _check_refs("conflicts", m.get("conflicts", []), errors, False)
     load = m.get("load", {})
@@ -375,11 +402,52 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
             errors.append("assets: a folder inside the mod, with / (\"assets\")")
         elif root is not None and not (root / a).is_dir():
             errors.append(f"assets: {assets} is not a folder in the mod")
+    touch = m.get("touch")
+    if touch is not None:
+        t = touch if isinstance(touch, str) and touch.endswith(".json") and "\\" not in touch and ":" not in touch else None
+        if t is None or t.startswith("/") or any(part in ("", ".", "..") for part in t.split("/")):
+            errors.append("touch: a .json file inside the mod, with / (\"touch.json\")")
+        elif root is not None:
+            errors += _touch_errors(root, t)
     if isinstance(mid, str):
         for name in ("requires", "conflicts"):
             if any(isinstance(r, dict) and r.get("id") == mid for r in m.get(name, []) or []):
                 errors.append(f"{name}: the mod names itself")
     return errors
+
+
+def _inside(p) -> bool:
+    return (isinstance(p, str) and p != "" and not p.startswith("/") and "\\" not in p and ":" not in p
+            and all(part not in ("", ".", "..") for part in p.split("/")))
+
+
+def _touch_errors(root: Path, touch: str) -> list[str]:
+    """The manifest's "touch" file (MODS.md, "Touch controls"): a set of contexts, its icons .svg
+    files inside the mod."""
+    try:
+        doc = json.loads((root / PurePosixPath(touch)).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return [f"touch: {touch} cannot be read ({e})"]
+    if not isinstance(doc, dict) or not isinstance(doc.get("contexts"), dict):
+        return [f"touch: {touch} has no \"contexts\" object"]
+    icons = doc.get("icons", {})
+    if not isinstance(icons, dict):
+        return [f"touch: {touch}: \"icons\" maps names to .svg files"]
+    return [f"touch: icon {name}: {path!r} is not an .svg file in the mod" for name, path in icons.items()
+            if not _inside(path) or not path.endswith(".svg") or not (root / PurePosixPath(path)).is_file()]
+
+
+def _touch_files(folder: Path, m: dict) -> list[Path]:
+    """The manifest's "touch" file and the icons it names."""
+    if not m.get("touch"):
+        return []
+    path = folder / PurePosixPath(m["touch"])
+    out = [path]
+    try:
+        icons = json.loads(path.read_text(encoding="utf-8")).get("icons", {})
+    except (OSError, ValueError, AttributeError):
+        return out
+    return out + [folder / PurePosixPath(p) for p in icons.values() if _inside(p)]
 
 
 def read_manifest(path: Path) -> dict:
@@ -428,10 +496,12 @@ def _files(folder: Path) -> list[Path]:
     """What goes in the archive: the manifest, the plugin files, the assets, the files for people."""
     m = read_manifest(folder / MANIFEST)
     if m.get("type") == "script":
-        return _script_files(folder, m) + _asset_files(folder, m)
+        script = _script_files(folder, m)
+        return script + [p for p in _touch_files(folder, m) if p not in script] + _asset_files(folder, m)
     out = [folder / MANIFEST]
     for path in (m.get("plugin") or {}).values():
         out.append(folder / PurePosixPath(path))
+    out += _touch_files(folder, m)
     out += _asset_files(folder, m)
     out += sorted(p for p in folder.iterdir() if p.is_file() and EXTRAS.match(p.name))
     return out

@@ -50,15 +50,27 @@ uniform vec4 light_sets[64];
 // from the lights to it, for the record moby_light.x / 256 - 1 names. Going Commando's moby
 // program gives it no back light.
 uniform vec4 moby_point_lights[64];
+
+// MobyProc's scaling of a cross-faded light direction by VRSQRT of its squared length. A zero
+// direction (a light set with no lights, as the page menus' set 14 is until a menu fills it) stays
+// zero: the VU's reciprocal root of 0 is its largest float, and 0 times it is 0 on the console.
+// GLSL's normalize gives NaN there, and min(NaN, 2) lit the whole moby at the clamp.
+vec3 vu_unit(vec3 v) {
+    float d = dot(v, v);
+    return d > 0.0 ? v * inversesqrt(d) : vec3(0.0);
+}
 // The game's eight point lights as it holds them (colour, falloff; position, reach), added to the
 // terrain's colours when terrain_point_lit is set (Going Commando).
+// openrac_mode: terrain_point_lit metal_pass probe_mode probe_receiver sun_shadow_enabled
+// openrac_mode: hero_shadow_enabled hero_wetness_enabled
 uniform int terrain_point_lit;
 uniform vec4 terrain_point_lights[16];
 // The metal ("shine") pass (MobyProc's metal packets): texture coordinates from the view-space
 // normal, a sphere map of the level's chrome or glass picture, the vertex colour 0x70 and the
 // alpha the moby's distance gives (ReRAC moby_skinning_lighting.md 6 and 9).
 uniform int metal_pass;
-// 1: clip-space z goes to the window as it is (renderer/precise_depth.h), 0: GL's (z + w) / 2.
+uniform int object_thin_glass;
+// 1: clip-space z goes to the window as it is (renderer/gl/precise_depth.h), 0: GL's (z + w) / 2.
 uniform int clip_zero_to_one;
 uniform int probe_mode;
 uniform int probe_receiver;
@@ -67,7 +79,8 @@ uniform int hero_shadow_enabled;
 
 #ifdef OPENRAC_HERO_WETNESS
 layout(std430,binding=9) readonly buffer HeroWetness { float hero_wetness[]; };
-uniform int hero_wetness_enabled, hero_wetness_first, hero_wetness_count, hero_wetness_palette;
+uniform int hero_wetness_enabled;
+uniform int hero_wetness_first, hero_wetness_count, hero_wetness_palette;
 out float v_hero_wetness;
 #endif
 
@@ -112,7 +125,7 @@ void main() {
     vec4 p = vec4(position, 1.0);
     vec3 n = normal;
 #ifdef OPENRAC_HERO_FUR
-    if (hero_fur_shell > 0.) {
+    if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {
         // Displace bind-pose vertices before skinning, so every shell follows the same joints.
         int shell_receiver = hero_fur_receiver(gl_VertexID, palette, moby_light.w);
         float shell_wetness = 0.;
@@ -224,8 +237,8 @@ void main() {
         if (t > 0.0) {
             ca = mix(ca, light_sets[s1], t);
             cb = mix(cb, light_sets[s1 + 2], t);
-            da = normalize(mix(da, light_sets[s1 + 1].xyz, t));
-            db = normalize(mix(db, light_sets[s1 + 3].xyz, t));
+            da = vu_unit(mix(da, light_sets[s1 + 1].xyz, t));
+            db = vu_unit(mix(db, light_sets[s1 + 3].xyz, t));
         }
         vec3 nw = normalize(normal_model * n);
         float fa = dot(-da, nw);
@@ -260,6 +273,11 @@ void main() {
 #endif
 #ifndef OPENRAC_COLOUR_SPECIALISED
     if (metal_pass != 0) {
+        // A separate pane uses its actual depth and only the instance's fade.
+        if (object_thin_glass != 0) {
+            v_colour = vec4(1.0, 1.0, 1.0, tint.a);
+            return;
+        }
         // st = (e.xy + 1) / 2, e the normal in camera space (x right, y down: t grows downward).
         vec3 e = normalize(mat3(view) * normalize(normal_model * n));
         v_uv = vec2(e.x * 0.5 + 0.5, 0.5 - e.y * 0.5);

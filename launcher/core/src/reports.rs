@@ -538,11 +538,31 @@ pub fn bundle(
     Ok(names)
 }
 
-/// Where Save report puts the .zip: the player's Downloads folder, or their home.
+/// Where Save report puts the .zip: the player's Downloads folder, or their home. On Linux the
+/// folder has the desktop's own name ("Stažené", "Téléchargements"): user-dirs.dirs says which.
 pub fn save_folder() -> Option<PathBuf> {
     let home = PathBuf::from(home()?);
-    let downloads = home.join("Downloads");
+    let config = std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| home.join(".config"));
+    let named = if cfg!(target_os = "linux") {
+        std::fs::read_to_string(config.join("user-dirs.dirs")).ok().and_then(|t| xdg_download_dir(&t, &home))
+    } else {
+        None
+    };
+    let downloads = named.unwrap_or_else(|| home.join("Downloads"));
     Some(if downloads.is_dir() { downloads } else { home })
+}
+
+/// XDG_DOWNLOAD_DIR of a user-dirs.dirs file (`"$HOME/Stažené"`), `$HOME` made `home`; None
+/// without it, or when it is the home folder itself (the desktop's way to say "none").
+fn xdg_download_dir(text: &str, home: &std::path::Path) -> Option<PathBuf> {
+    let line = text.lines().map(str::trim).find(|l| l.starts_with("XDG_DOWNLOAD_DIR="))?;
+    let value = line["XDG_DOWNLOAD_DIR=".len()..].trim().trim_matches('"');
+    let path = match value.strip_prefix("$HOME") {
+        Some(rest) => home.join(rest.trim_start_matches('/')),
+        None if value.starts_with('/') => PathBuf::from(value),
+        None => return None,
+    };
+    (path != home).then_some(path)
 }
 
 /// "OpenRAC-crash-2026-10-17_20-08-29.zip" for `crashes/crash-2026-10-17_20-08-29.txt`.
@@ -656,6 +676,16 @@ pub fn write_zip(out: &Path, files: &[(String, Vec<u8>)]) -> Result<(), String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn xdg_download_dir_reads_the_desktops_name() {
+        let home = std::path::Path::new("/home/ann");
+        let file = "# comment\nXDG_DESKTOP_DIR=\"$HOME/Plocha\"\nXDG_DOWNLOAD_DIR=\"$HOME/Stažené\"\n";
+        assert_eq!(xdg_download_dir(file, home), Some(PathBuf::from("/home/ann/Stažené")));
+        assert_eq!(xdg_download_dir("XDG_DOWNLOAD_DIR=\"/data/dl\"", home), Some(PathBuf::from("/data/dl")));
+        assert_eq!(xdg_download_dir("XDG_DOWNLOAD_DIR=\"$HOME/\"", home), None);
+        assert_eq!(xdg_download_dir("XDG_MUSIC_DIR=\"$HOME/Music\"", home), None);
+    }
 
     const CRASH: &str = "==== OpenRAC crash report ====
 Reason:   access (SIGBUS) at game address 0x0F000000, which is not mapped

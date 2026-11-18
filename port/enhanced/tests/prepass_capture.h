@@ -2,10 +2,12 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #pragma once
 
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include <utility>
+
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 #include "tests/check.h"
 
 namespace openrac::test {
@@ -36,8 +38,10 @@ result=v;})",
         m_depth = state.target.depth_texture;
     }
 
-    void render(const renderer::FrameInput&, renderer::RenderState& state) override {
-        const auto& target = state.target;
+    void render(const renderer::FrameInput&, renderer::RenderState&) override {}
+
+    // The before-particles hook runs outside the world pass and before depth is discarded.
+    void capture(const renderer::RenderTarget& target) {
         if (m_output.width() != target.width || m_output.height() != target.height) {
             std::string error;
             CHECK(m_output.create(target.width, target.height, error));
@@ -63,8 +67,8 @@ result=v;})",
             gl::glDrawArrays(gl::GL_TRIANGLES, 0, 3);
             return m_output.read_rgba();
         };
-        normals = read(m_normal, false);
-        depths = read(m_depth, true);
+        normals = read(std::exchange(m_normal, 0), false);
+        depths = read(std::exchange(m_depth, 0), true);
         gl::glBindVertexArray(0);
         gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, target.framebuffer);
         gl::glViewport(0, 0, target.width, target.height);

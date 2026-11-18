@@ -27,19 +27,21 @@
 #include "enhanced/fsr3/fsr3.h"
 #include "enhanced/game/scripted_moby_colour.h"
 #include "enhanced/renderer/agx.h"
+#include "enhanced/renderer/bloom.h"
 #include "game/common/controls_store.h"
 #include "game/common/debug_camera.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/render_worker.h"
+#include "game/common/frontend/sleeping_mobys.h"
 #include "game/common/frontend/tick_picture.h"
 #include "game/common/profile.h"
 #include "openrac/guest.h"
 #include "platform/input.h"
 #include "platform/window.h"
-#include "renderer/framebuffer.h"
-#include "renderer/haze.h"
+#include "renderer/effects/haze.h"
+#include "renderer/effects/shadows.h"
+#include "renderer/gl/framebuffer.h"
 #include "renderer/renderer.h"
-#include "renderer/shadows.h"
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
@@ -128,6 +130,8 @@ struct Kept {
     // The world was drawn under a menu (State::world_under_menu): the menu's picture of the frame
     // is this tick's world.
     bool world_under_menu = false;
+    // A movie's tick (frontend::set_movie_playing).
+    bool movie = false;
     std::uint64_t frame = 0;
 };
 
@@ -170,12 +174,15 @@ struct FramePresentation {
     std::chrono::steady_clock::time_point
         finished{};           // Worker completion, excluding handoff idle time.
     renderer::Camera camera;  // Camera of the submitted scene, for the debug UI.
+    bool has_camera = false;  // The scene drew a world with that camera.
     CameraDebugFrame
         camera_debug;  // Window-thread inputs fixed before handing the scene to the worker.
     std::vector<scene::Instance> picker_live;
     std::vector<renderer::Mat4> picker_palette;
     int picker_level = -1;
     unsigned picker_layers = 0;
+    bool freecam = false;     // Set by the renderer when it applies freecam to this frame.
+    int camera_level = -1;    // Level that supplied the rendered camera.
     std::uint64_t tick = 0;   // Submitted window-frame number, including interpolation metadata.
 
     int window_width = 0;   // Drawable window extent, read on the window thread.
@@ -191,6 +198,7 @@ struct FramePresentation {
     Box box{};              // Picture rectangle in the window.
 
     bool first = false;         // First displayed frame for this game tick.
+    bool enhanced_graphics = false;
     bool dump_draws = false;    // Draw diagnostics captured before graphics ownership transfers.
     bool measure_cost = false;  // Enables the deliberately blocking frame-cost diagnostic.
     double scene_seconds = 0;   // Snapshot interpolation and pose upload time.
@@ -215,6 +223,10 @@ struct State {
     // program's, never null while the window is open.
     const host::GameProfile* profile = nullptr;
     ScriptedMobyColours scripted_moby_colours;
+    // Far mobys the game leaves asleep, posed in the picture only (Active distance: Match), and
+    // the level their clocks belong to.
+    SleepingMobys sleeping_mobys;
+    int sleeping_level = -100;
     std::filesystem::path levels;
     std::unique_ptr<platform::Platform> sdl;
     std::unique_ptr<platform::Window> window;
@@ -227,6 +239,7 @@ struct State {
         nullptr;  // Owned by renderer; consumes uploads on skipped ticks.
     std::unique_ptr<enhanced::Fsr3>
         temporal;  // Optional enhanced upscaler, released before the window.
+    enhanced::Bloom bloom;
     enhanced::AgxPreview agx;
     renderer::Haze haze;  // the mods' heat haze (interface 1.12)
     renderer::FrameBuffer frame;
@@ -252,6 +265,9 @@ struct State {
     std::vector<renderer::ImageUpload> images;
     // The camera the game's world renderers drew with this frame (world_drawn), if they ran.
     std::optional<host::GameState> world_camera;
+    // ShrubProc's choice read with that camera ("Draw distance: Original"): the main menu's code
+    // puts a camera of its own in memory after the title world is drawn.
+    std::optional<std::vector<host::ShrubDraw>> world_shrubs;
     // The last camera a frame drew its world from that usable_camera and usable_view accepted
     // (scene_frame.cpp's set_camera), drawn again in place of one they refuse; how many frames in
     // a row were refused, and how many runs of them were logged.
@@ -292,6 +308,7 @@ struct State {
         std::uint32_t pixels, clut;
         int log2_side;
         std::uint32_t id;  // its slot and type (particle), 0 when not known
+        std::uint32_t attachment = 0;  // Position anchor, including particles with no slot history.
     };
 
     std::vector<Particle> particles;
@@ -311,9 +328,17 @@ struct State {
     };
 
     std::vector<EffectTextureId> effect_texture_ids;
-    // This frame's sources hashed so far: pixels, CLUT, width << 16 | height -> their hashes.
-    std::vector<std::pair<std::array<std::uint32_t, 3>, std::pair<std::uint64_t, std::uint64_t>>>
-        effect_hashed;
+
+    // This frame's sources hashed so far: pixels, CLUT, width << 16 | height -> their hashes, and
+    // the uploads (EffectQuad::uploads) of the last quad that copied them, which later quads of the
+    // same source share (effect_quad).
+    struct EffectHashed {
+        std::array<std::uint32_t, 3> source;
+        std::uint64_t pixels, clut;
+        int uploads;
+    };
+
+    std::vector<EffectHashed> effect_hashed;
     // Since the last frame, for the capture's gauges (effect_textures): the effect quads by where
     // their texture's source was found (none, the paging records, remembered).
     std::array<int, 3> effect_sources{};
@@ -343,6 +368,7 @@ struct State {
     TickPictures tick_pictures;
     bool repeat_frame = false;
     bool overdraw = false;
+    bool movie_playing = false;  // set_movie_playing
     // What the window is in now of the player's settings (apply_settings): the display mode, the
     // display; the picture's shape; the swap's wait as asked and as the
     // driver took it; whether the sound is held silent (the window lost the keyboard).
@@ -505,6 +531,7 @@ void apply_mouse_capture();
 // The directional light bank, in the executable's terms (relocated to the loaded program's copy);
 // 0 for a game without one (frontend/world.cpp).
 gaddr light_bank_address();
+gaddr occlusion_address();
 
 // Uploads level `number`'s geometry and makes the renderers that draw it. Below 0 the boot program
 // runs: the title world (level 0 where it was not extracted), or at -2 the flight between planets

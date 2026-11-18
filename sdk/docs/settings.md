@@ -37,6 +37,10 @@ from the game's next start.
 The launcher shows a switch for `bool`, a segmented control or a list for
 `choice`, "press a key" buttons for `keybind`, and a field for the others.
 
+A mod for several games ([manifest](manifest.md#a-mod-for-several-games)) may
+give a setting `"games": ["rac1"]`, the games it is for: the launcher shows it
+there only, and the mod gets its default in the others.
+
 ## Key bindings
 
 A `keybind` (interface 1.2: `"api": "1.2"`) holds up to two inputs as
@@ -91,3 +95,34 @@ your code always gets a valid value.
 
 Where the values are kept: [where mods live](where-mods-live.md)
 (`plugins.json`).
+
+## Changing them from the game (interface 1.15)
+
+A mod with an options page of its own (a page of the pause menu, say) sets its
+settings there, and the launcher shows them and the next start has them:
+
+| | |
+|---|---|
+| Luau | `openrac.set_setting("mode", "hold")`: `true` when it was set |
+| C++ | `mod.set_setting("mode", "hold")`, `set_setting("count", 3)`, `set_setting("trace", true)`: `true` when it was set |
+| C | `api->setting_set_string(mod, "mode", "hold")`, `setting_set_bool`, `setting_set_int`, `setting_set_float`: `OPENRAC_HOOK_OK` when it was set |
+
+The value is checked as the launcher checks the list: the setting's type (a
+choice, a string and a keybind are set as strings), its range, its choices,
+its length and its binds. A key your manifest does not declare, another type or
+a value out of its limits is refused, and the setting keeps its value. Set, it
+is read back at once, and written into `plugins.json`; in purist mode it is
+this run's only.
+
+To hear the player change your settings in the launcher while the game runs,
+ask during load:
+
+| | |
+|---|---|
+| Luau | `openrac.on_settings(function() ... end)` |
+| C++ | `mod.on_settings([] { ... })` |
+| C | `api->on_settings(mod, fn, user)` |
+
+The port looks at the list about once a second; after it changed, your
+function runs once the new values are yours. Your own `set_setting` calls are
+not told. A mod that does not ask keeps the values it started with.

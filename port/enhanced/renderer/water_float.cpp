@@ -12,8 +12,8 @@
 #include "enhanced/renderer/water.h"
 #include "enhanced/renderer/water_graph.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 
@@ -42,8 +42,7 @@ std::string WaterFloat::vertex_source(std::string source) {
                           + std::string(lighting::shaders::water_swell_glsl) + "\n"
                           + std::string(lighting::shaders::water_displacement_glsl) + "\n"
                           + std::string(lighting::shaders::water_float_glsl) + "\n";
-    if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
-        && renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
         helpers.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
         helpers = renderer::shader_constants(std::move(helpers), {{"water_sim_local", 1}});
     }
@@ -108,11 +107,12 @@ void WaterFloat::prepare(const renderer::FrameInput& input, const scene::LevelSc
         && m_momentum == momentum) {
         return;
     }
-    // Follow the water simulation's 60 Hz game clock, including pauses and slow motion.
+    // Follow the water simulation's game clock (its ticks), including pauses and slow motion.
     const bool reset =
         m_seconds < 0 || input.frame < m_frame || input.frame - m_frame > 15 || !m_requested;
-    const double dt =
-        reset || water_debug_settings().paused ? 0. : double(input.frame - m_frame) / 60.;
+    const double dt = reset || water_debug_settings().paused
+                          ? 0.
+                          : double(input.frame - m_frame) / input.tick_rate;
     m_frame = input.frame;
     m_seconds = input.seconds;
     m_requested = input.enhanced_water;
@@ -230,7 +230,8 @@ void WaterFloat::bind(const renderer::Shader& shader, bool enabled) const {
         return;
     }
     // Shared maps and phase are constant within one displayed frame; only the group flag changes.
-    if (m_bound_shaders.insert(shader.id()).second) {
+    if (std::ranges::find(m_bound_shaders, shader.id()) == m_bound_shaders.end()) {
+        m_bound_shaders.push_back(shader.id());
         bind_maps(shader);
         glUniform1i(shader.uniform("water_float_poses"), kPoseUnit);
         glUniform1i(shader.uniform("water_float_count"), m_pose_count);

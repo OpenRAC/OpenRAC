@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { supports } from "$lib/capabilities";
   // The first-run question, at the top of the game page: a player who has set nothing up and named
   // no games folder is asked for one, once; a folder that holds no game OpenRAC knows says so.
   import { onAndroid } from "$lib/api";
@@ -21,7 +22,7 @@
   }
 </script>
 
-{#if askFolder || emptyFolder}
+{#if supports(app.info, "folderScan") && (askFolder || emptyFolder)}
   <section class="panel folder">
     <Icon name="folder" size={22} />
     <div class="grow">
@@ -62,7 +63,6 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    border-color: color-mix(in srgb, var(--amber) 45%, transparent);
   }
 
   .folder h2 {

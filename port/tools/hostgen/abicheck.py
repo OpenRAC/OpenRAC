@@ -30,6 +30,7 @@ assembly's translation calls those through each function's thunk where position 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -356,6 +357,114 @@ def check_host(host: Path, protos: dict[str, tuple[str, list[str]]]) -> list[str
     return problems
 
 
+# One place's spellings: the release's func_<place>, the primary's C under the release's name for it
+# (FUN_<place>, F<hash>_FUN_<place>, game_ in front where hostgen renames), a level's L<nn>_, six digits.
+PLACE = re.compile(r"^(?:game_)?(?:F[0-9a-f]+_)?(?:FUN|func)_(L\d\d_)?([0-9A-Fa-f]{6,8})$")
+SPELLED = re.compile(r"\b(?:game_)?(?:F[0-9a-f]+_)?(?:FUN|func)_(L\d\d_)?([0-9A-Fa-f]{6,8})\b")
+# A definition as hostgen writes it: the head on one line, the body to the first "}" in column 0.
+DEFINED = re.compile(r"^(?![#\s{}])[^;=\n]*?\b(\w+)\(([^;\n]*)\)\s?\{\n.*?^\}", re.M | re.S)
+# hostgen's stub for a function without C (stubs.c): it only reports the call.
+NO_C = re.compile(r"\{\s*static openrac_reach_site site_ = \{\"\w+\", \"no-c\"[^}]*\};\s*openrac_guest_reach\(&site_\);\s*\}\s*$")
+COMMENT = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
+
+
+def place(name: str) -> str | None:
+    m = PLACE.match(name)
+    return f"func_{m.group(1) or ''}{m.group(2).upper().zfill(8)}" if m else None
+
+
+def definitions(gen: Path, names: set[str]) -> dict[str, list[str]]:
+    """Each of NAMES's definitions in the generated C (not prep/'s sources)."""
+    out: dict[str, list[str]] = {}
+    for path in sorted(gen.rglob("*.c")):
+        if "prep" in path.relative_to(gen).parts or path.name == "functions.c":
+            continue
+        for m in DEFINED.finditer(path.read_text(errors="replace")):
+            if m.group(1) in names:
+                out.setdefault(m.group(1), []).append(m.group(0))
+    return out
+
+
+def code(definition: str) -> str:
+    """A definition as code alone: without its name, comments, layout and parameter names, every
+    spelling of a place written alike."""
+    head, body = re.split(r"\s?\{\n", definition, maxsplit=1)
+    params = head[head.index("(") + 1:head.rindex(")")]
+    text = head[:head.index("(")].rsplit(None, 1)[0] + "(" + params + "){" + body
+    text = SPELLED.sub(lambda m: f"func_{m.group(1) or ''}{m.group(2).upper().zfill(8)}", COMMENT.sub(" ", text))
+    for i, p in enumerate(params.split(",")):
+        m = re.search(r"(\w+)\s*(?:\[[^\]]*\])*\s*$", p)
+        if m and m.group(1) != "void":
+            text = re.sub(rf"\b{m.group(1)}\b", f"_p{i}", text)
+    return " ".join(text.split())
+
+
+def does_nothing(definition: str) -> str | None:
+    """"no-c" for hostgen's stub of a function without C, "empty" for a void function without a
+    statement, "zero" for one that only returns an integer 0: two such of one kind run the same
+    either way, whatever their parameters."""
+    if NO_C.search(definition):
+        return "no-c"
+    head, body = re.split(r"\s?\{\n", definition, maxsplit=1)
+    body = COMMENT.sub(" ", body).strip(" \n}")
+    if re.match(r"^(?:static\s+)?void\s", head) and not body:
+        return "empty"
+    m = re.fullmatch(r"return\b(.*);", body, re.S)
+    if m and not re.search(r"\b(?:float|double|void)\b", head[:head.index("(")]):
+        value = m.group(1)
+        while True:  # casts and brackets aside
+            shorter = re.sub(r"\(\s*[A-Za-z_][\w\s]*\**\s*\)|\(\s*([^()]*?)\s*\)", r"\1", value)
+            if shorter == value:
+                break
+            value = shorter
+        if re.fullmatch(r"\s*0[uUlL]*\s*", value):
+            return "zero"
+    return None
+
+
+def two_bodies(at: dict[tuple[int, int], list[str]], defs: dict[str, list[str]] | None = None) -> list[str]:
+    """Addresses where two spellings of one place have C of their own (the primary's C under the
+    release's name beside the release's own, or two names of one function the release merged).
+    The runtime keeps the first, so the other is never run: only the same code is safe. With DEFS
+    (definitions()), spellings whose one definition each is the same code, or each does nothing
+    alike (does_nothing), are left out."""
+    out = []
+    for (overlay, addr), fns in sorted(at.items()):
+        spellings: dict[str, list[str]] = {}
+        for fn in fns:
+            if place(fn):
+                spellings.setdefault(place(fn), []).append(fn)
+        for names in spellings.values():
+            if len(names) < 2:
+                continue
+            bodies = [(defs or {}).get(n, []) for n in names]
+            if defs is not None and all(len(b) == 1 for b in bodies):
+                if len({code(b[0]) for b in bodies}) == 1:
+                    continue
+                kinds = {does_nothing(b[0]) for b in bodies}
+                if len(kinds) == 1 and None not in kinds:
+                    continue
+            where = "exe" if overlay == -1 else f"overlay {overlay}"
+            out.append(f"functions.c: {where} 0x{addr:08X}: {' and '.join(names)} are not the same code; "
+                       f"the runtime runs {names[0]}")
+    return out
+
+
+def strict_twins(host: Path | None) -> bool:
+    """Two bodies fail the check for a release whose table says what the decompilation placed
+    (release.py build: "placed"); before, they are reported. A table with "gone_in" alone (rac3's)
+    is not such a build."""
+    config = host.parent / "hostgen.json" if host else None
+    if config is None or not config.is_file():
+        return False
+    release = json.loads(config.read_text()).get("release") or {}
+    table = config.parent / release.get("table", "")
+    if not release.get("table") or not table.is_file():
+        return False
+    keys = json.loads(table.read_text())
+    return "placed" in keys
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("gen", type=Path, help="a game's generated directory (port/build/<preset>/games/<id>/gen)")
@@ -380,7 +489,19 @@ def main(argv: list[str] | None = None) -> int:
             print(p)
         print(f"abicheck: {len(host_problems)} host declarations whose type is not the definition's",
               file=sys.stderr)
-    return 1 if problems or host_problems else 0
+    at = read_tables(args.gen / "functions.c")[0]
+    spelled = {n for fns in at.values() for n in fns
+               if place(n) and sum(place(o) == place(n) for o in fns) > 1}
+    twins = two_bodies(at, definitions(args.gen, spelled))
+    strict = strict_twins(args.host)
+    if twins:
+        if strict:
+            for t in twins:
+                print(t)
+        print(f"abicheck: {len(twins)} addresses with two bodies of one place "
+              f"({'failed' if strict else 'reported until the release table is rebuilt'}; first: {twins[0]})",
+              file=sys.stderr)
+    return 1 if problems or host_problems or (twins and strict) else 0
 
 
 if __name__ == "__main__":

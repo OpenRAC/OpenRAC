@@ -39,10 +39,10 @@ describe("palettes", () => {
   });
 
   it("put a theme on and take it off again", () => {
-    applyPalette("gruvbox", root as unknown as HTMLElement);
-    expect(root.style.getPropertyValue("--ink")).toBe("#282828");
-    expect(root.dataset.theme).toBe("gruvbox");
-    expect(storedPalette()).toBe("gruvbox");
+    applyPalette("nord", root as unknown as HTMLElement);
+    expect(root.style.getPropertyValue("--ink")).toBe("#2e3440");
+    expect(root.dataset.theme).toBe("nord");
+    expect(storedPalette()).toBe("nord");
     applyPalette("openrac", root as unknown as HTMLElement);
     expect(PALETTE_TOKENS.filter((t) => root.style.getPropertyValue(t))).toEqual([]);
     expect(storedPalette()).toBe("openrac");

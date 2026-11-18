@@ -101,10 +101,8 @@ struct Pad {
     std::uint8_t left_x = kStickCentre;
     std::uint8_t left_y = kStickCentre;
     std::array<std::uint8_t, static_cast<std::size_t>(Pressure::Count)> pressure{};
-    // Rumble the game asked for (scePadSetActDirect): the small motor is on or
-    // off, the large one has a speed. The platform layer plays it.
-    bool small_motor = false;
-    std::uint8_t large_motor = 0;
+    // Camera turn speed from right stick sensitivity above 100%. 1 = normal.
+    float camera_speed = 1.0f;
 
     bool held(Button button) const { return (buttons & static_cast<std::uint16_t>(button)) == 0; }
 

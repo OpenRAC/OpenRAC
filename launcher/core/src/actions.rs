@@ -167,6 +167,8 @@ pub enum Platform {
     Windows,
     /// The Android launcher (docs/port/ANDROID.md): it plays from the copy it carries.
     Android,
+    /// iPhone and iPad: local preparation and an engine carried in the signed application.
+    Ios,
 }
 
 impl Platform {
@@ -177,6 +179,8 @@ impl Platform {
             Platform::Macos
         } else if cfg!(target_os = "android") {
             Platform::Android
+        } else if cfg!(target_os = "ios") {
+            Platform::Ios
         } else {
             Platform::Linux
         }
@@ -188,6 +192,7 @@ impl Platform {
             Platform::Macos => "macOS",
             Platform::Windows => "Windows",
             Platform::Android => "Android",
+            Platform::Ios => "iOS",
         }
     }
 }
@@ -564,30 +569,45 @@ impl Action {
         // Settings, "Theme": the game's options drawer wears the launcher's colours (theme.rs).
         if self.kind == Kind::Play {
             let game = ctx.version.map(|v| v.game.as_str());
-            env.push((crate::theme::ENV.to_string(), crate::theme::ui_colors(&ctx.config.theme, game)));
+            env.push((
+                crate::theme::ENV.to_string(),
+                crate::theme::ui_colors(&ctx.config.theme, game, ctx.config.game_colors),
+            ));
+        }
+        // Settings, "Save folder": the game keeps its memory card in the player's own folder
+        // (`--cards`, port/game/common/program/options.cpp), the one the save manager reads too.
+        // Only for the port's own program (it takes --data); Android keeps its files in one place.
+        if self.kind == Kind::Play && !matches!(ctx.platform, Platform::Android) && args.iter().any(|a| a == "--data") {
+            if let (Some(v), Some(dir)) = (ctx.version, ctx.config.save_dir.as_deref()) {
+                let theirs = args.iter().any(|a| a == "--cards" || a == "--no-card");
+                if !dir.as_os_str().is_empty() && !v.serial.is_empty() && !theirs {
+                    let card = crate::saves::card_dir_in(Some(dir), &v.serial);
+                    args.extend(["--cards".to_string(), card.display().to_string()]);
+                }
+            }
         }
         // Settings, "Multiplayer name": the name online mods show the other players
         // (multiplayer.rs); one that is not valid is left out, and the mod uses its own.
         if self.kind == Kind::Play && crate::multiplayer::is_valid(&ctx.config.multiplayer_name) {
             env.push((crate::multiplayer::ENV.to_string(), ctx.config.multiplayer_name.clone()));
         }
+        if self.kind == Kind::Play && crate::multiplayer::is_valid_key(&ctx.config.multiplayer_key) {
+            env.push((crate::multiplayer::KEY_ENV.to_string(), ctx.config.multiplayer_key.clone()));
+        }
         // Settings, "Detailed game logs": the port's verbose log (port/common/log.h).
         if self.kind == Kind::Play && ctx.config.detailed_game_log {
             env.push(("OPENRAC_LOG".to_string(), "verbose".to_string()));
         }
-        // Settings, "Renderer" (Windows, Linux and macOS, where it runs on the MoltenVK the game's
-        // bundle carries): the port's Vulkan renderer, which draws with OpenGL instead where
-        // Vulkan cannot start (port/platform/window.cpp). Android keeps its own choice
-        // (src-tauri/src/android.rs).
-        if self.kind == Kind::Play
-            && ctx.config.renderer == "vulkan"
-            && matches!(ctx.platform, Platform::Windows | Platform::Linux | Platform::Macos)
-        {
-            env.push(("OPENRAC_GL_API".to_string(), "vulkan".to_string()));
-        }
-        // Settings, "HDR": the launcher's choice over the game's own for this start.
-        if self.kind == Kind::Play && matches!(ctx.config.hdr.as_str(), "off" | "auto" | "on") {
-            env.push(("OPENRAC_HDR".to_string(), ctx.config.hdr.clone()));
+        // Settings, "Renderer" (Windows, Linux and macOS): the port's Vulkan renderer (on macOS
+        // on the MoltenVK the game's bundle carries), or on macOS its Metal renderer; either
+        // draws with OpenGL instead where it cannot start (port/platform/window.cpp). OpenGL sets
+        // nothing. Metal on another system plays with Vulkan (config::renderer_for). Android
+        // keeps its own choice (src-tauri/src/android.rs).
+        if self.kind == Kind::Play && matches!(ctx.platform, Platform::Windows | Platform::Linux | Platform::Macos) {
+            let renderer = crate::config::renderer_for(&ctx.config.renderer, ctx.platform);
+            if renderer != "opengl" {
+                env.push(("OPENRAC_GL_API".to_string(), renderer.to_string()));
+            }
         }
         // The Mods tab's Enhanced graphics (enhanced.rs): with `enhanced_rendering = 1` in the
         // version's settings file the game draws with Vulkan, the one renderer that has it, and
@@ -602,7 +622,11 @@ impl Action {
                         crate::enhanced::play_additions(&text, Path::new(&data), &v.name)
                     {
                         for (key, value) in more_env {
-                            if !env.iter().any(|(k, _)| *k == key) {
+                            if key == "OPENRAC_GL_API" {
+                                // Enhanced graphics is Vulkan only: it wins over Settings' Metal.
+                                env.retain(|(k, _)| *k != key);
+                                env.push((key, value));
+                            } else if !env.iter().any(|(k, _)| *k == key) {
                                 env.push((key, value));
                             }
                         }
@@ -619,6 +643,12 @@ impl Action {
                     if !env.iter().any(|(k, _)| *k == pair.0) {
                         env.push(pair);
                     }
+                }
+                if let Some(path) = crate::texture_packs::pcsx2::selected(&crate::saves::data_home(), &v.game, &v.name)?
+                {
+                    let key = crate::texture_packs::pcsx2::ENV;
+                    env.retain(|(name, _)| name != key);
+                    env.push((key.to_string(), path.display().to_string()));
                 }
             }
         }
@@ -731,6 +761,28 @@ fn value(name: &str, ctx: &Context) -> Result<String, String> {
 mod tests {
     use super::*;
     use crate::testing::checkout;
+
+    /// Going Commando plays (prebuilt, like rac1): none of its actions call it early access or
+    /// say the game is not playable. Its level edits are packed back and it plays with its mods.
+    #[test]
+    fn going_commando_is_not_early_access() {
+        let file = load(&checkout()).unwrap();
+        for key in ["rac2/ntsc", "rac2/pal", "rac2/ntsc2"] {
+            let list = &file.versions[key];
+            let play = list.iter().find(|a| a.id == "play").unwrap_or_else(|| panic!("{key} has no play"));
+            assert_ne!(play.state, State::Planned, "{key} play");
+            for id in ["editor-pack", "play-edited"] {
+                assert!(list.iter().any(|a| a.id == id), "{key} has no {id}");
+            }
+            let stack = list.iter().find(|a| a.id == "overrides-stack").expect("overrides-stack");
+            assert!(stack.args.iter().any(|a| a == "--packed"), "{key}: the stack leaves the packed levels out");
+            for a in list {
+                let text = a.description.to_lowercase();
+                assert!(!text.contains("early access"), "{key} {}: {}", a.id, a.description);
+                assert!(!text.contains("not playable"), "{key} {}", a.id);
+            }
+        }
+    }
 
     #[test]
     fn the_checkouts_actions_json_is_valid() {
@@ -1016,6 +1068,19 @@ mod tests {
         let plan = play.plan(&ctx(&installed)).unwrap();
         let data = Path::new("/games").join("active").join("rac1").join("data");
         assert_eq!(plan.args[1], data.display().to_string());
+        // Only an explicitly selected PCSX2 pack is passed to the game, including spaces.
+        let pack = tempfile::tempdir().unwrap();
+        let folder = pack.path().join("HD pack/SCES-50916/replacements");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("abc-def-00001153.png"), b"PNG").unwrap();
+        let home = crate::saves::data_home();
+        use crate::texture_packs::pcsx2;
+        assert!(!plan.env.iter().any(|(name, _)| name == pcsx2::ENV));
+        pcsx2::select(&home, "rac1", "pal", "SCES_509.16", folder.to_str().unwrap()).unwrap();
+        let selected_plan = play.plan(&ctx(&installed)).unwrap();
+        assert!(selected_plan.env.contains(&(pcsx2::ENV.to_string(), folder.display().to_string())));
+        pcsx2::select(&home, "rac1", "pal", "SCES_509.16", "").unwrap();
+        assert!(!play.plan(&ctx(&installed)).unwrap().env.iter().any(|(name, _)| name == pcsx2::ENV));
         assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_LOG"));
         // The Mods switch off, the default: no native mods.
         assert_eq!(plan.args.last().map(String::as_str), Some("--no-mods"), "{:?}", plan.args);
@@ -1041,6 +1106,19 @@ mod tests {
         assert!(added.args.iter().any(|a| a == "--destinations"));
         assert!(!added.args.iter().any(|a| a == "--map"));
         assert!(!map_play.plan(&ctx(&installed)).unwrap().args.iter().any(|a| a == "--destinations"));
+        // Settings, "Save folder": unset, the game's own default card; set, its card in that folder.
+        assert!(!plan.args.iter().any(|a| a == "--cards"), "{:?}", plan.args);
+        let synced = Config { save_dir: Some("/sync/openrac".into()), ..installed.clone() };
+        let plan = play.plan(&ctx(&synced)).unwrap();
+        let serial = ctx(&synced).version.unwrap().serial.clone();
+        let card = Path::new("/sync/openrac").join(&serial).display().to_string();
+        let at = plan.args.iter().position(|a| a == "--cards").expect("--cards");
+        assert_eq!(plan.args[at + 1], card, "{:?}", plan.args);
+        // Not on Android, and not twice over an action's own.
+        assert!(!play.plan(&Context { platform: Platform::Android, ..ctx(&synced) }).unwrap().args.contains(&card));
+        let mut own = play.clone();
+        own.args.extend(["--cards".to_string(), "/elsewhere".to_string()]);
+        assert_eq!(own.plan(&ctx(&synced)).unwrap().args.iter().filter(|a| *a == "--cards").count(), 1);
         // Settings, "Detailed game logs": the game's verbose log.
         let detailed = Config { detailed_game_log: true, ..installed.clone() };
         let plan = play.plan(&ctx(&detailed)).unwrap();
@@ -1056,15 +1134,12 @@ mod tests {
         );
         let unnamed = Config { multiplayer_name: "no spaces".into(), ..installed.clone() };
         assert!(!play.plan(&ctx(&unnamed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_PLAYER_NAME"));
-        // Settings, "HDR": nothing by default (the game's own), else the launcher's word.
-        assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_HDR"));
-        let modes = ["off", "auto", "on"].map(|mode| Config { hdr: mode.into(), ..installed.clone() });
-        for hdr in &modes {
-            let plan = play.plan(&ctx(hdr)).unwrap();
-            assert!(plan.env.contains(&("OPENRAC_HDR".to_string(), hdr.hdr.clone())), "{:?}", plan.env);
-        }
-        let odd = Config { hdr: "bright".into(), ..installed.clone() };
-        assert!(!play.plan(&ctx(&odd)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_HDR"));
+        let key = "0123456789abcdef0123456789abcdef".to_string();
+        let keyed = Config { multiplayer_key: key.clone(), ..installed.clone() };
+        assert!(play.plan(&ctx(&keyed)).unwrap().env.contains(&("OPENRAC_IDENTITY_KEY".to_string(), key)));
+        assert!(!play.plan(&ctx(&installed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_IDENTITY_KEY"));
+        // HDR is the game's own setting: the launcher never overrides it.
+        assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_HDR"), "{:?}", plan.env);
         // Settings, "Renderer": Vulkan, the default, on the desktops; OpenGL sets nothing.
         let opengl = Config { renderer: "opengl".into(), ..installed.clone() };
         assert!(!play.plan(&ctx(&opengl)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_GL_API"));
@@ -1075,6 +1150,16 @@ mod tests {
         let on_mac = Context { platform: Platform::Macos, ..ctx(&vulkan) };
         let plan = play.plan(&on_mac).unwrap();
         assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
+        // Metal on macOS only; elsewhere a Mac's "metal" plays with Vulkan.
+        let metal = Config { renderer: "metal".into(), ..installed.clone() };
+        let plan = play.plan(&Context { platform: Platform::Macos, ..ctx(&metal) }).unwrap();
+        assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "metal".to_string())), "{:?}", plan.env);
+        for platform in [Platform::Windows, Platform::Linux] {
+            let plan = play.plan(&Context { platform, ..ctx(&metal) }).unwrap();
+            assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
+        }
+        let on_android = Context { platform: Platform::Android, ..ctx(&metal) };
+        assert!(!play.plan(&on_android).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_GL_API"));
         // Android keeps its own renderer, unless Enhanced graphics is on: then Vulkan and the
         // probe bakes, as on the desktops.
         let on_android = Context { platform: Platform::Android, ..ctx(&vulkan) };
@@ -1086,6 +1171,10 @@ mod tests {
         assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
         let probes = crate::enhanced::probes_dir(&data, "pal").display().to_string();
         assert!(plan.args.ends_with(&["--probes".to_string(), probes]), "{:?}", plan.args);
+        // Enhanced graphics is Vulkan only, so it wins over Settings' Metal on a Mac.
+        let plan = play.plan(&Context { platform: Platform::Macos, ..ctx(&metal) }).unwrap();
+        let apis: Vec<_> = plan.env.iter().filter(|(k, _)| k == "OPENRAC_GL_API").collect();
+        assert_eq!(apis, [&("OPENRAC_GL_API".to_string(), "vulkan".to_string())], "{:?}", plan.env);
         std::fs::remove_file(&file).unwrap();
     }
 

@@ -18,8 +18,9 @@
 #include "frontend.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/scene_frame_internal.h"
+#include "mods.h"
 #include "platform/window.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/math.h"
 
 namespace openrac::frontend {
@@ -96,6 +97,7 @@ void render_view(SceneFrame& frame, const openrac_view& v, renderer::FrameBuffer
     // its depth) are the window's picture's, not a view's.
     input.before_hud = {};
     input.on_before_particles = {};
+    input.pre_particle_colour_texture = 0;
     input.on_resolve_world = {};
     input.after_world_depth = {};
     input.keep_colour = false;
@@ -165,6 +167,13 @@ unsigned target_of(State& owner, unsigned texture) {
 // Copies the view's picture where the mod said. False when it could not be.
 bool copy_out(State& owner, const openrac_view& v, const renderer::FrameBuffer& picture) {
     if (gl::is_vulkan()) {
+        if (v.image != nullptr && !mods::view_source_can_use_vulkan()) {
+            if (!g_warned) {
+                log::warn("mod views: a native Vulkan image requires \"vulkan_queue\": true");
+                g_warned = true;
+            }
+            return false;
+        }
         return v.image == nullptr
                || platform::copy_to_vulkan_image(
                    picture.colour_texture(), v.image, v.image_layout, v.width, v.height

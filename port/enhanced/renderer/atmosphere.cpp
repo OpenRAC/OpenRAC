@@ -15,9 +15,9 @@
 #include "common/stats.h"
 #include "enhanced/renderer/compute_graph.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/colour_graph.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "scene/level_renderer.h"
@@ -174,11 +174,7 @@ void Atmosphere::prepare(
             volume.colour_density.begin(), volume.colour_density.end(), media.begin() + i * 4
         );
     }
-    auto& compute = m_compute
-        [renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
-                 && volume_count == 0
-             ? 0
-             : 1];
+    auto& compute = m_compute[volume_count == 0 ? 0 : 1];
     std::string error;
     if (!compute.id()) {
         std::string source = "#version 430 core\n#define OPENRAC_PROBE_PIXEL ivec2(-1)\n"
@@ -445,10 +441,12 @@ public:
 
     // Preserve the child material's pre-effects scene snapshot.
     void prepare_scene(
-        const renderer::FrameInput& input, const renderer::RenderTarget& target
+        const renderer::FrameInput& input,
+        const renderer::RenderTarget& target,
+        unsigned pre_particle_colour
     ) override {
         if (m_material) {
-            m_material->prepare_scene(input, target);
+            m_material->prepare_scene(input, target, pre_particle_colour);
         }
     }
 

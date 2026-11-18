@@ -158,9 +158,11 @@ def _pairs(trace: Path, prefix: str) -> dict:
         if settled.get("hp") != a.get("hp") or None in cams or any(
                 max(abs(k[i] - cams[1][i]) for i in range(3)) > 0.5 for k in cams):
             continue  # the camera still flies to the place
-        shots = [Path(f"{prefix}{f + i * EVERY}.png") for i in range(3)]
-        if all(s.exists() for s in shots):
-            pairs[(tuple(a["hp"]), tuple(a["hr"]))] = (f, *shots, a)
+        for suffix in ("", "_enhanced"):
+            shots = [Path(f"{prefix}{f + i * EVERY}{suffix}.png") for i in range(3)]
+            if all(s.exists() for s in shots):
+                pairs[(tuple(a["hp"]), tuple(a["hr"]))] = (f, *shots, a)
+                break
     return pairs
 
 

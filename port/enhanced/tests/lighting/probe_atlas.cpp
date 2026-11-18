@@ -5,6 +5,7 @@
 #include <cmath>
 #include <stdexcept>
 
+#include "enhanced/lighting/bake_lz4.h"
 #include "tests/check.h"
 using namespace openrac::lighting;
 
@@ -47,6 +48,12 @@ int main() {
     }));
     CHECK(encode_probes(gpu) == gpu.gpu_bytes);
     const auto cpu = decode_probes(gpu.gpu_bytes);
+    if (bake_lz4_available()) {
+        const auto frame = compress_bake_asset(gpu.gpu_bytes);
+        CHECK(is_lz4_bake_asset(frame));
+        CHECK(decode_gpu_probes(frame).gpu_bytes == gpu.gpu_bytes);
+        CHECK(decode_probes(frame).distance_moments == cpu.distance_moments);
+    }
     CHECK(cpu.probes[64].offset == volume.probes[64].offset);
     CHECK(cpu.distance_moments == volume.distance_moments);
     for (auto e : cpu.irradiance) {

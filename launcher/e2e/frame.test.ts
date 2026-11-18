@@ -133,7 +133,7 @@ describe("a desktop tab with a list", () => {
     });
     await openSettings();
     const fetched = await page.evaluate(() =>
-      performance.getEntriesByType("resource").some((entry) => entry.name.includes("Mods")),
+      performance.getEntriesByType("resource").some((entry) => entry.name.includes("/pages/Mods.svelte")),
     );
     expect(fetched).toBe(false);
     expect((await press("mods")).parts).toContain("::view-transition-new(side)");

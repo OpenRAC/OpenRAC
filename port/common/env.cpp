@@ -34,6 +34,9 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::AnimTrace, "OPENRAC_ANIM_TRACE",
      Kind::Flag, Truth::Set, "off",
      "each co-op figure's animation as it is posed, on stderr (ATRACE F lines)"},
+    {Var::AsrQuality, "OPENRAC_ASR_QUALITY",
+     Kind::Text, Truth::NotAFlag, "quality",
+     "Arm ASR's shader quality: quality, balanced or performance"},
     {Var::AudioBufferMs, "OPENRAC_AUDIO_BUFFER_MS",
      Kind::Integer, Truth::NotAFlag, "20 (desktop), 0 (Android)",
      "milliseconds of sound mixed ahead of the device on a thread of its own; 0 mixes on the device's request"},
@@ -99,8 +102,8 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      Kind::Flag, Truth::Set, "off",
      "with --level N, goes straight into level N from the title world"},
     {Var::Drawer, "OPENRAC_DRAWER",
-     Kind::Flag, Truth::Set, "off (on on Android)",
-     "the overlay's menus in the drawer, as on Android, in place of the menu bar"},
+     Kind::Flag, Truth::Set, "off (on on Android/iOS)",
+     "the overlay's menus in the drawer, as on mobile, in place of the menu bar"},
     {Var::DrawCoverage, "OPENRAC_DRAW_COVERAGE",
      Kind::Path, Truth::NotAFlag, "none",
      "writes what the game asked to draw and the port did not to that JSON file, per level"},
@@ -148,7 +151,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "WHAT[@FRAME],...: gives the hero all, weapons, gadgets, bolts:N or an item, FRAME frames after control"},
     {Var::GlApi, "OPENRAC_GL_API",
      Kind::Text, Truth::NotAFlag, "desktop (es on Android)",
-     "the graphics API: es, desktop or vulkan"},
+     "the graphics API: es, desktop, vulkan or metal"},
     {Var::GlHideExtensions, "OPENRAC_GL_HIDE_EXTENSIONS",
      Kind::Text, Truth::NotAFlag, "none",
      "NAME,...: the renderer acts as if the driver lacked these GL extensions"},
@@ -158,6 +161,11 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::Gpu, "OPENRAC_GPU",
      Kind::Text, Truth::NotAFlag, "the discrete card (Linux)",
      "integrated: the system chooses the graphics card (Linux)"},
+    {Var::GpuBake, "OPENRAC_GPU_BAKE",
+     Kind::Flag, Truth::Set, "off",
+     "the probe baker traces probe rays on the GPU (Vulkan ray query) instead of Embree"},
+    {Var::GpuBakeCheck, "OPENRAC_GPU_BAKE_CHECK", Kind::Flag, Truth::Set, "off",
+     "with OPENRAC_GPU_BAKE, also trace every 16th probe on the CPU and log how far the GPU differs"},
     {Var::GpuBreadcrumbs, "OPENRAC_GPU_BREADCRUMBS",
      Kind::Flag, Truth::UnlessZero, "on (supported Vulkan drivers)",
      "record Vulkan render graph progress on the GPU for device-loss reports"},
@@ -184,7 +192,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "FRAME:ADDRESS:BYTES[:SKIP]: the first write into those bytes ends the program"},
     {Var::Hdr, "OPENRAC_HDR",
      Kind::Text, Truth::NotAFlag, "the settings' hdr",
-     "off, auto or on: HDR output for this run, over the settings file (the launcher's HDR)"},
+     "off or on: HDR output for this run, over the settings file (the launcher's HDR)"},
     {Var::HdrFrame, "OPENRAC_HDR_FRAME",
      Kind::Flag, Truth::Set, "off",
      "Vulkan: the HDR frame (half floats) without an HDR screen, shown clamped as SDR, to compare"},
@@ -206,6 +214,9 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::HitLog, "OPENRAC_HIT_LOG",
      Kind::Flag, Truth::Set, "off",
      "each hit sphere with a template, and the mobys it listed, on stderr"},
+    {Var::IdentityKey, "OPENRAC_IDENTITY_KEY",
+     Kind::Text, Truth::NotAFlag, "none",
+     "this installation's key for co-op bans, set by the launcher (openrac_api.identity_key)"},
     {Var::Invincible, "OPENRAC_INVINCIBLE",
      Kind::Flag, Truth::One, "off",
      "the hero is put back at full health each tick"},
@@ -221,6 +232,12 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::Log, "OPENRAC_LOG",
      Kind::Text, Truth::NotAFlag, "info",
      "the log's level: verbose or debug"},
+    {Var::MapWatch, "OPENRAC_MAP_WATCH",
+     Kind::Flag, Truth::Set, "off",
+     "rac2 NTSC v1.01: logs a level's map run list and the first frame it is damaged (T-41)"},
+    {Var::MeatProxyReview, "OPENRAC_MEAT_PROXY_REVIEW",
+     Kind::Path, Truth::NotAFlag, "meat-proxy-review.json in the system temp folder",
+     "JSON task queue and saved feedback for the developer review panel"},
     {Var::Menu, "OPENRAC_MENU",
      Kind::Text, Truth::NotAFlag, "closed",
      "TAB[@TICK] (graphics, enhanced, game, controls, developer): the menu open on that tab at that tick"},
@@ -242,6 +259,9 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::OpaqueColourBatchOff, "OPENRAC_OPAQUE_COLOUR_BATCH_OFF",
      Kind::Flag, Truth::Set, "off",
      "reference: opaque colour in per-layer order"},
+    {Var::OpaqueEffectsOff, "OPENRAC_OPAQUE_EFFECTS_OFF",
+     Kind::Flag, Truth::Set, "off",
+     "reference: draw opaque effects in their original passes"},
     {Var::OpaqueSpecialiseOff, "OPENRAC_OPAQUE_SPECIALISE_OFF",
      Kind::Flag, Truth::Set, "off",
      "reference: the unspecialised mesh colour shaders"},
@@ -257,9 +277,18 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::PauseAt, "OPENRAC_PAUSE_AT",
      Kind::Text, Truth::NotAFlag, "none",
      "TICK[:FRAMES]: pauses the game at that window frame"},
+    {Var::Pcsx2TexturePack, "OPENRAC_PCSX2_TEXTURE_PACK",
+     Kind::Path, Truth::NotAFlag, "none",
+     "PCSX2 replacement folder selected in the launcher"},
     {Var::PerfCapture, "OPENRAC_PERF_CAPTURE",
      Kind::Text, Truth::NotAFlag, "none",
      "FRAME:SECONDS[:FILE]: a performance capture from that window frame, its report to FILE"},
+    {Var::PlayTrace, "OPENRAC_PLAY_TRACE",
+     Kind::Text, Truth::NotAFlag, "off",
+     "WHAT,...: Going Commando's play calls run without a mod, on stderr (PTRACE lines)"},
+    {Var::PlayTraceSave, "OPENRAC_PLAY_TRACE_SAVE",
+     Kind::Path, Truth::NotAFlag, "none",
+     "the file OPENRAC_PLAY_TRACE's capture writes its save to"},
     {Var::Press, "OPENRAC_PRESS",
      Kind::Text, Truth::NotAFlag, "none",
      "FRAME:MASK:FRAMES[:LX:LY[:RX:RY]],...: pad buttons on port 0 by script"},
@@ -316,7 +345,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "log one diagnostic frame graph at the first nonempty Vulkan presentation"},
     {Var::RenderOptOff, "OPENRAC_RENDER_OPT_OFF",
      Kind::Text, Truth::NotAFlag, "none",
-     "NAME,NAME or all: render optimisations of renderer/render_opt.h switched off, for comparing"},
+     "NAME,NAME or all: render optimisations of renderer/settings/render_opt.h switched off, for comparing"},
     {Var::RenderThread, "OPENRAC_RENDER_THREAD",
      Kind::Flag, Truth::UnlessZero, "on (Vulkan)",
      "record the Vulkan world on a bounded render worker; 0 uses synchronous rendering"},
@@ -326,6 +355,9 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::RoundNearest, "OPENRAC_ROUND_NEAREST",
      Kind::Flag, Truth::Set, "off",
      "the game's thread keeps the host's rounding to nearest, to compare"},
+    {Var::SceneryLog, "OPENRAC_SCENERY_LOG",
+     Kind::Flag, Truth::Set, "off",
+     "the ties, shrubs and terrain the game's culls leave out, every 100 ticks, in the log"},
     {Var::ScriptBudgetMs, "OPENRAC_SCRIPT_BUDGET_MS",
      Kind::Number, Truth::NotAFlag, "2",
      "the milliseconds a script mod may run each time the game calls into it"},
@@ -470,6 +502,9 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::VkParticleTextureReuseOff, "OPENRAC_VK_PARTICLE_TEXTURE_REUSE_OFF",
      Kind::Flag, Truth::Set, "off",
      "reference: the texture of every visible particle hashed (Vulkan)"},
+    {Var::VkPipelineStats, "OPENRAC_VK_PIPELINE_STATS",
+     Kind::Flag, Truth::Set, "off",
+     "log each Vulkan pipeline's shader statistics from the driver (registers, instructions)"},
     {Var::VkRingTrimOff, "OPENRAC_VK_RING_TRIM_OFF",
      Kind::Flag, Truth::Set, "off",
      "reference: keep Vulkan upload ring chunks for the life of the device"},
@@ -528,7 +563,12 @@ constexpr bool rows_in_order() {
 static_assert(rows_in_order(), "each row of kVariables is at the place of its Var");
 
 // The value of each variable as the program found it, in the table's order; nothing when unset.
-using Snapshot = std::array<std::optional<std::string>, kVariableCount>;
+struct StoredValue {
+    std::optional<std::string> text;
+    std::optional<std::filesystem::path> path;
+};
+
+using Snapshot = std::array<StoredValue, kVariableCount>;
 
 // Reads every variable of the table from the environment.
 Snapshot read_environment() {
@@ -537,10 +577,23 @@ Snapshot read_environment() {
         // std::getenv wants the name ending in a NUL, which a view need not have.
         const std::string name(row.name);
         const char* found = std::getenv(name.c_str());
+        auto& stored = values[index(row.var)];
 
         // An unset variable stays nothing; one set to the empty string is kept as set.
         if (found != nullptr) {
-            values[index(row.var)] = std::string(found);
+            stored.text = std::string(found);
+        }
+        if (row.kind == Kind::Path) {
+#if defined(_WIN32)
+            const std::wstring wide_name(name.begin(), name.end());
+            if (const wchar_t* wide = _wgetenv(wide_name.c_str())) {
+                stored.path = std::filesystem::path(wide);
+            }
+#else
+            if (found != nullptr) {
+                stored.path = std::filesystem::path(found);
+            }
+#endif
         }
     }
     return values;
@@ -577,7 +630,7 @@ std::optional<Var> find(std::string_view name) {
 }
 
 std::optional<std::string_view> value(Var var) {
-    const std::optional<std::string>& found = snapshot()[index(var)];
+    const std::optional<std::string>& found = snapshot()[index(var)].text;
 
     // An unset variable has no value, which differs from the empty string.
     if (!found) {
@@ -586,6 +639,12 @@ std::optional<std::string_view> value(Var var) {
 
     // A view of the kept std::string, so its data() ends in a NUL (env.h promises it to C).
     return std::string_view(*found);
+}
+
+// Preserve the filesystem's encoding while retaining the common startup snapshot.
+std::optional<std::filesystem::path> path(Var var) {
+    assert(variable(var).kind == Kind::Path);
+    return snapshot()[index(var)].path;
 }
 
 bool flag(Var var) {

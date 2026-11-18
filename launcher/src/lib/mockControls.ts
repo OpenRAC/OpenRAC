@@ -113,6 +113,7 @@ export function mockControlsView(game: string | null, player: number | null = nu
       ["pad_left_deadzone", "Left stick dead zone", "0", 0, 50],
       ["pad_right_deadzone", "Right stick dead zone", "0", 0, 50],
       ["pad_trigger_threshold", "Trigger press point", "13", 1, 100],
+      ["pad_rumble", "Vibration strength", "100", 0, 200],
     ].map(([key, label, value, low, high]) => {
       const set = layers.reduce<[string, ControlsLayer] | null>(
         (got, [layer, values]) => (values.has(String(key)) ? [values.get(String(key)) ?? "", layer] : got),

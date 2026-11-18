@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// HDR output's encode pass (renderer/vulkan/hdr_output.cpp, shaders/hdr_encode.comp) against its
+// HDR output's encode pass (renderer/vulkan/presentation/hdr_output.cpp, shaders/hdr_encode.comp) against its
 // CPU arithmetic (common/hdr.h). A swapchain cannot be read back and the test machine has no HDR
 // screen, so vkgl::test_hdr_encode runs the pass on the default framebuffer into a stand-in of the
 // screen's image, HDR10 and scRGB, and the test compares every pixel, turned the right way up,
@@ -13,14 +13,15 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
 
 #include "common/hdr.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -30,14 +31,14 @@ namespace {
 using namespace openrac::gl;
 namespace hdr = openrac::hdr;
 
-constexpr int kWidth = 64;
-constexpr int kHeight = 48;
+int g_width = 64;  // the drawable's, once the window is open
+int g_height = 48;
 
 // Paints the window: four quarters of different colours and a grey ramp along the bottom rows, so
 // that both the orientation and the curve show.
 void paint_window() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, kWidth, kHeight);
+    glViewport(0, 0, g_width, g_height);
     glEnable(GL_SCISSOR_TEST);
     constexpr std::array<std::array<float, 3>, 4> kQuarters = {{
         {1.0f, 0.0f, 0.0f},
@@ -46,12 +47,12 @@ void paint_window() {
         {1.0f, 1.0f, 1.0f},
     }};
     for (int n = 0; n < 4; ++n) {
-        glScissor((n % 2) * kWidth / 2, (n / 2) * kHeight / 2, kWidth / 2, kHeight / 2);
+        glScissor((n % 2) * g_width / 2, (n / 2) * g_height / 2, g_width / 2, g_height / 2);
         glClearColor(kQuarters[n][0], kQuarters[n][1], kQuarters[n][2], 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
     }
-    for (int x = 0; x < kWidth; ++x) {
-        const float v = static_cast<float>(x) / (kWidth - 1);
+    for (int x = 0; x < g_width; ++x) {
+        const float v = static_cast<float>(x) / (g_width - 1);
         glScissor(x, 0, 1, 4);
         glClearColor(v, v * 0.5f, 1.0f - v, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -72,30 +73,68 @@ float half_to_float(std::uint16_t h) {
     return sign * std::ldexp(1.0f + static_cast<float>(mantissa) / 1024.0f, exponent - 15);
 }
 
+// Whether two read-backs differ by at most one 10-bit step (HDR10) or not at all (scRGB).
+bool within_a_step(
+    const std::vector<std::uint8_t>& a, const std::vector<std::uint8_t>& b, hdr::Output output
+) {
+    if (output != hdr::Output::Hdr10) {
+        return a == b;
+    }
+    for (std::size_t i = 0; i + 4 <= a.size(); i += 4) {
+        std::uint32_t pa = 0;
+        std::uint32_t pb = 0;
+        std::memcpy(&pa, &a[i], 4);
+        std::memcpy(&pb, &b[i], 4);
+        for (int shift = 0; shift < 30; shift += 10) {
+            const int ca = static_cast<int>((pa >> shift) & 0x3FF);
+            const int cb = static_cast<int>((pb >> shift) & 0x3FF);
+            if (std::abs(ca - cb) > 1) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 // The pass's pixels against the CPU's, for `output` at `levels`: a 10-bit step for HDR10 (the
-// GPU's pow and the rounding), a half float's precision for scRGB.
+// GPU's pow and the rounding), a half float's precision for scRGB. `picture` is the pass's input
+// as RGBA floats, row 0 at the bottom: the window's, or framebuffer `source`'s.
 void test_encode(
-    const std::vector<std::uint8_t>& window, hdr::Output output, const hdr::Levels& levels
+    const std::vector<float>& picture,
+    hdr::Output output,
+    const hdr::Levels& levels,
+    unsigned source = 0
 ) {
     std::vector<std::uint8_t> screen;
-    CHECK(openrac::vkgl::test_hdr_encode(output, levels, kWidth, kHeight, screen));
+    CHECK(openrac::vkgl::test_hdr_encode(output, levels, g_width, g_height, screen, false, source));
     std::vector<std::uint8_t> staged;
-    CHECK(openrac::vkgl::test_hdr_encode(output, levels, kWidth, kHeight, staged, true));
+    CHECK(openrac::vkgl::test_hdr_encode(output, levels, g_width, g_height, staged, true, source));
     CHECK(screen == staged);
+    // Through a half-float image and a blit (a screen format the pass cannot store): the same
+    // picture, to one 10-bit step.
+    std::vector<std::uint8_t> blitted;
+    CHECK(
+        openrac::vkgl::test_hdr_encode(
+            output, levels, g_width, g_height, blitted, false, source, true
+        )
+    );
+    CHECK(blitted.size() == screen.size());
+    if (blitted.size() == screen.size()) {
+        CHECK(within_a_step(screen, blitted, output));
+    }
     const std::size_t texel = output == hdr::Output::Hdr10 ? 4 : 8;
-    CHECK(screen.size() == static_cast<std::size_t>(kWidth * kHeight) * texel);
-    if (screen.size() != static_cast<std::size_t>(kWidth * kHeight) * texel) {
+    CHECK(screen.size() == static_cast<std::size_t>(g_width * g_height) * texel);
+    if (screen.size() != static_cast<std::size_t>(g_width * g_height) * texel) {
         return;
     }
     int bad = 0;
-    for (int y = 0; y < kHeight; ++y) {
-        for (int x = 0; x < kWidth; ++x) {
+    for (int y = 0; y < g_height; ++y) {
+        for (int x = 0; x < g_width; ++x) {
             // The screen's row 0 is its top, the window's its bottom.
-            const std::uint8_t* in =
-                &window[(static_cast<std::size_t>(kHeight - 1 - y) * kWidth + x) * 4];
-            const hdr::Rgb want =
-                hdr::encode({in[0] / 255.0f, in[1] / 255.0f, in[2] / 255.0f}, output, levels);
-            const std::uint8_t* got = &screen[(static_cast<std::size_t>(y) * kWidth + x) * texel];
+            const float* in =
+                &picture[(static_cast<std::size_t>(g_height - 1 - y) * g_width + x) * 4];
+            const hdr::Rgb want = hdr::encode({in[0], in[1], in[2]}, output, levels);
+            const std::uint8_t* got = &screen[(static_cast<std::size_t>(y) * g_width + x) * texel];
             for (int c = 0; c < 3; ++c) {
                 float value = 0.0f;
                 float tolerance = 0.0f;
@@ -132,7 +171,7 @@ void test_encode(
 // inside PQ's range and the top left quarter (the window's top left, white) is paper white.
 void test_scaled() {
     std::vector<std::uint8_t> screen;
-    const hdr::Levels levels{203.0f, 1000.0f};
+    const hdr::Levels levels{203.0f, 1000.0f, {}};
     CHECK(openrac::vkgl::test_hdr_encode(hdr::Output::Hdr10, levels, 96, 80, screen));
     if (screen.size() != 96u * 80u * 4u) {
         CHECK(false);
@@ -272,6 +311,65 @@ void test_float_frame() {
     glDeleteVertexArrays(1, &vao);
 }
 
+// Light above white with the look's sliders: a float picture of colours added up past white
+// (fire-like reds, a cyan, grey, a dim pixel) through the pass, against the CPU's to_light.
+void test_look() {
+    std::string error;
+    openrac::renderer::Shader shader;
+    CHECK(shader.build(
+        "hdr look fixture",
+        "#version 410 core\n"
+        "void main() {\n"
+        "    vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);\n"
+        "    gl_Position = vec4(p * 2.0 - 1.0, 0, 1);\n"
+        "}\n",
+        "#version 410 core\n"
+        "uniform vec4 colour;\n"
+        "layout(location = 0) out vec4 result;\n"
+        "void main() { result = colour; }\n",
+        error
+    ));
+    unsigned vao = 0;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    openrac::renderer::FrameBuffer frame;
+    CHECK(frame.create(g_width, g_height, error, 1, false, true) && frame.float_colour());
+    constexpr std::array<std::array<float, 4>, 8> kColumns = {{
+        {3.0f, 1.35f, 0.3f, 1.0f},
+        {2.0f, 0.9f, 0.2f, 1.0f},
+        {1.5f, 0.2f, 0.05f, 1.0f},
+        {0.2f, 1.8f, 2.4f, 1.0f},
+        {2.0f, 2.0f, 2.0f, 1.0f},
+        {4.0f, 0.0f, 3.0f, 1.0f},
+        {0.5f, 0.25f, 0.75f, 1.0f},
+        {1.0f, 1.0f, 1.0f, 1.0f},
+    }};
+    glEnable(GL_SCISSOR_TEST);
+    for (int n = 0; n < 8; ++n) {
+        glScissor(n * g_width / 8, 0, g_width / 8, g_height);
+        fill(frame, shader, kColumns[n], false);
+    }
+    glDisable(GL_SCISSOR_TEST);
+    std::vector<float> picture(static_cast<std::size_t>(g_width * g_height * 4));
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, frame.id());
+    glReadPixels(0, 0, g_width, g_height, GL_RGBA, GL_FLOAT, picture.data());
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    CHECK(picture[0] > 2.9f);  // above white, as drawn
+
+    const hdr::Look looks[] = {
+        {},
+        {1.0f, 1.0f, 0.0f, 0.0f},
+        {1.0f, 0.5f, 1.0f, 0.0f},
+        {0.5f, 0.0f, 0.0f, 1.0f},
+        {0.0f, 1.0f, 1.0f, 1.0f},
+    };
+    for (const hdr::Look& look : looks) {
+        test_encode(picture, hdr::Output::Hdr10, {203.0f, 1000.0f, look}, frame.id());
+        test_encode(picture, hdr::Output::ScRgb, {203.0f, 2000.0f, look}, frame.id());
+    }
+    glDeleteVertexArrays(1, &vao);
+}
+
 }  // namespace
 
 int main() {
@@ -279,20 +377,29 @@ int main() {
     std::string error;
 
     // No Vulkan here (or it fell back to OpenGL): nothing of the backend to test.
-    if (!context.open(error, kWidth, kHeight) || !openrac::vkgl::active()) {
+    if (!context.open(error, g_width, g_height) || !openrac::vkgl::active()) {
         std::printf("SKIP: Vulkan unavailable: %s\n", error.c_str());
         return openrac::test::kSkip;
     }
+    // A high-density display gives the window more pixels than asked for, and the pass reads all.
+    context.window().drawable_size(g_width, g_height);
 
     paint_window();
-    std::vector<std::uint8_t> window(static_cast<std::size_t>(kWidth * kHeight * 4));
-    glReadPixels(0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, window.data());
-    test_encode(window, hdr::Output::Hdr10, {203.0f, 1000.0f});
-    test_encode(window, hdr::Output::Hdr10, {480.0f, 1500.0f});
-    test_encode(window, hdr::Output::ScRgb, {203.0f, 1000.0f});
-    test_encode(window, hdr::Output::ScRgb, {80.0f, 400.0f});
+    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(g_width * g_height * 4));
+    glReadPixels(0, 0, g_width, g_height, GL_RGBA, GL_UNSIGNED_BYTE, bytes.data());
+    std::vector<float> window(bytes.size());
+    for (std::size_t i = 0; i < bytes.size(); ++i) {
+        window[i] = bytes[i] / 255.0f;
+    }
+    test_encode(window, hdr::Output::Hdr10, {203.0f, 1000.0f, {}});
+    test_encode(window, hdr::Output::Hdr10, {480.0f, 1500.0f, {}});
+    test_encode(window, hdr::Output::ScRgb, {203.0f, 1000.0f, {}});
+    test_encode(window, hdr::Output::ScRgb, {80.0f, 400.0f, {}});
+    // A look changes nothing at or below white.
+    test_encode(window, hdr::Output::Hdr10, {203.0f, 1000.0f, {0.5f, 1.0f, 1.0f, 1.0f}});
     test_scaled();
     test_float_frame();
+    test_look();
     // Without an HDR request the screen is sent SDR, and a hidden window has no HDR to offer.
     CHECK(openrac::vkgl::hdr_output() == hdr::Output::Sdr);
     CHECK(openrac::vkgl::submission_counters().validation_errors == 0);

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 #include "renderer/renderer.h"
 #include "scene/fly_camera.h"
@@ -24,12 +25,21 @@ struct CameraDebugSettings {
     float speed = 20;        // World units per second; Shift multiplies this by four.
 };
 
+// A requested view stays in snapshots until superseded, so dropped frames cannot lose it.
+struct CameraDebugPlacement {
+    int level;
+    scene::Vec3 position;
+    scene::Vec3 forward;
+    std::uint64_t serial;
+};
+
 // Window-thread input copied into each bounded scene snapshot, including paused frames.
 struct CameraDebugFrame {
     CameraDebugSettings settings;
     scene::FlyControls controls;
     float seconds = 0;   // Display-frame elapsed time, not simulation ticks.
     bool reset = false;  // Reseed from the game's current camera on this frame.
+    std::optional<CameraDebugPlacement> placement;
 };
 
 // No SDL, ImGui or game RAM access; only the render owner updates these persistent poses.
@@ -42,5 +52,6 @@ private:
     scene::FlyCamera m_fly;  // Shared free-flight movement used by the level viewer.
     bool m_active = false;   // Whether the fly pose was initialised for this activation.
     int m_level = -1;        // Prevents stale poses from surviving level travel.
+    std::uint64_t m_placement_serial = 0;
 };
 }  // namespace openrac::frontend

@@ -153,6 +153,11 @@ impl Layout {
         }
     }
 
+    /// The game's copy of the levels, one folder per level (`level_NN`): what Play reads.
+    pub fn game_levels(&self) -> PathBuf {
+        self.assets_of("port")
+    }
+
     /// The level editor's Godot projects, one folder per level (`level_NN`).
     pub fn projects(&self) -> PathBuf {
         self.assets_of("levels")

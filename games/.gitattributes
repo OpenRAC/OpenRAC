@@ -1,0 +1,3 @@
+# The patches and files OpenRAC applies to the decompilations stay byte for byte as written
+# (git apply needs the exact lines), on every system.
+*/*-patches/** -text -whitespace

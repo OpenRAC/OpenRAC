@@ -94,7 +94,7 @@ Players describe what they see, not what broke. Before reproducing, know:
 ## 3. Reproducing it by script
 
 Follow [RAC1_PAL_TESTING.md](RAC1_PAL_TESTING.md). The short version, from
-`games/rac1`:
+`games/rac1/decomp`:
 
 ```sh
 D="$HOME/Library/Application Support/dev.openrac.launcher/active/rac1/data"
@@ -162,7 +162,7 @@ answer:
    it. Look there before reverse-engineering anything again; adapt its code
    with its notice where it helps.
 7. **The decompilations.** PAL's names are in rac1-decomp's
-   `include/names.h`; Lombyte's in `games/rac1/ntsc/config`. A level function
+   `include/names.h`; Lombyte's in `games/rac1/ntsc-decomp/config`. A level function
    has a copy in every level: `config/overlays/functions.tsv` lists where.
 8. **The other version.** `port/tools/versionmap` pairs PAL and NTSC-U
    functions (`same`, `near`) and data; when one version works, watch the
@@ -194,7 +194,7 @@ Where a change goes matters as much as the change ([LAYOUT.md](../LAYOUT.md)):
 
 | The fault is in | Fix it in |
 |---|---|
-| The game's own C doing something only a PC trips on (an argument passed in a register, a call through an address) | The C in `games/<game>/<version>/src`, keeping the PS2 build byte-identical. In a tree OpenRAC follows from another project (the NTSC decomp), list the change in that tree's `OPENRAC_PATCHES.md` and offer it upstream |
+| The game's own C doing something only a PC trips on (an argument passed in a register, a call through an address) | The C in `games/<game>/<version>/src`, keeping the PS2 build byte-identical. In a tree OpenRAC follows from another project (the NTSC decomp), make the change a patch in `games/<game>/<version>-patches/` with its reason ([SOURCES.md](../SOURCES.md#changing-a-patch)) and offer it upstream |
 | A function a decompilation has only as assembly | `port/game/<id>/hand/` (and `hand.tsv`), C carried from the other version where `versionmap` says `same` |
 | Something the console's hardware or libraries did | The engine: `port/runtime`, `port/renderer`, `port/viewer`, `port/game/common`, shared by every game and version; data-driven per game where they differ, never forked |
 | A routine the port must answer itself (drawing, a hook) | A `wrap` or `host` row in `port/game/<id>/libraries.tsv` with its host C in `port/game/<id>/host/` |

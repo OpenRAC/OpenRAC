@@ -14,7 +14,7 @@ import { playerVersion } from "./player.svelte";
 export type Phase = "idle" | "loading" | "ready" | "applying" | "done" | "error";
 
 export interface ChangeSet {
-  /** The link shown, or "browse" for one opened from the Browse view. */
+  /** The link shown, or "launcher" for one opened from the launcher itself (a missing mod's Fix). */
   link: string | null;
   phase: Phase;
   wanted: WantedMod[];
@@ -65,7 +65,8 @@ const asModError = (e: unknown): ModError =>
 
 /** A link arrived: shown now, or kept for when the one shown closes. Anything more is dropped. */
 export function receive(url: string | null | undefined): void {
-  if (!url) return;
+  // A mod code's link is not an install link: modCodes.svelte.ts opens its review.
+  if (!url || url.startsWith("openrac://modset/")) return;
   if (changeSet.link === null) {
     void openLink(url);
   } else if (changeSet.queued === null && changeSet.link !== url) {
@@ -97,7 +98,7 @@ export async function openLink(url: string): Promise<void> {
 }
 
 /** Opens the change set for `wanted` (a link's mods, or Browse's Install), on the Mods page. */
-export async function openChangeSet(wanted: WantedMod[], game: string | null = null, link = "browse"): Promise<void> {
+export async function openChangeSet(wanted: WantedMod[], game: string | null = null, link = "launcher"): Promise<void> {
   const where = target(game);
   Object.assign(changeSet, { ...empty(), link, wanted, phase: "loading", queued: changeSet.queued });
   // On a desktop the Mods tab and the game; Android's Mods page is one page.
@@ -156,7 +157,7 @@ export async function fix(action: ModAction): Promise<void> {
       return;
     case "retry":
     case "useCached":
-      if (changeSet.link && changeSet.link !== "browse") await openLink(changeSet.link);
+      if (changeSet.link && changeSet.link !== "launcher") await openLink(changeSet.link);
       else await openChangeSet(changeSet.wanted, changeSet.game);
       return;
     case "report":
@@ -170,7 +171,7 @@ export async function fix(action: ModAction): Promise<void> {
 /** The dev build's channel, with this link kept to open again after its update and restart. */
 export async function switchToDev(): Promise<void> {
   if (!app.config) return;
-  const link = changeSet.link && changeSet.link !== "browse" ? changeSet.link : null;
+  const link = changeSet.link && changeSet.link !== "launcher" ? changeSet.link : null;
   await saveConfig({ ...app.config, updateChannel: "dev", pendingDeepLink: link });
   close();
   if (await lookForUpdate().catch(() => false)) app.showUpdateModal = true;
@@ -189,7 +190,7 @@ export async function apply(): Promise<void> {
   try {
     const extra = changeSet.ticked.map((id) => ({ id, version: null }));
     // A link from openrac.dev with exact versions (a shared setup) keeps those mods at them.
-    const shared = changeSet.link !== "browse" && changeSet.wanted.some((w) => w.version !== null);
+    const shared = changeSet.link !== "launcher" && changeSet.wanted.some((w) => w.version !== null);
     const result = await api.indexApply(
       game,
       version,

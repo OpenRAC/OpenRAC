@@ -1,7 +1,0 @@
-#ifndef LOMBYTE_RNC_OVERLAY_SHARED_ENEMIES_PATH_OR_BALLISTIC_DEBRIS_H
-#define LOMBYTE_RNC_OVERLAY_SHARED_ENEMIES_PATH_OR_BALLISTIC_DEBRIS_H
-
-unsigned char *
-spawn_path_or_ballistic_debris(char *owner, float *scale, int mode) __asm__("FUN_L14_002e0170");
-
-#endif /* LOMBYTE_RNC_OVERLAY_SHARED_ENEMIES_PATH_OR_BALLISTIC_DEBRIS_H */

@@ -1,3 +1,5 @@
+import contextlib
+import io
 import tempfile
 import unittest
 import sys
@@ -89,6 +91,19 @@ class CatalogueTests(unittest.TestCase):
             self.assertEqual(prototype(p.functions[name]).split('(')[0].split()[0], 'int')
             self.assertEqual(len(p.functions[name].sig.params), 2)
             self.assertNotIn('func_00100100', p.functions)
+
+    def test_signature_for_a_function_with_c_now_is_skipped(self):
+        # The decomp matched a function after hostgen.json gave it an assembly signature: its C
+        # gives the prototype, so the stale entry is passed over with a warning, not an error.
+        name = 'func_00100000'
+        p = Program()
+        p.functions[name] = Function(name, Signature(ctype.Base('void'), (), True, False), unit='src/a.c')
+        p.index_places()
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            asmc.apply_signatures(p, {'signatures': {name: 'int (int)'}}, discovered=True)
+        self.assertEqual(p.functions[name].sig.ret, ctype.Base('void'))
+        self.assertIn('has C now', err.getvalue())
 
     def test_catalogue_entry_gets_real_argument_signature(self):
         with tempfile.TemporaryDirectory() as temp:

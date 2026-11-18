@@ -98,13 +98,34 @@ Float3 source_sample(std::span<const Float3> faces, unsigned size, Float3 direct
     return result;
 }
 
+// half_vector's per-sample terms, which depend only on roughness and the sample: computed once
+// per level instead of once per texel, with the same arithmetic.
+struct HalfVectorTerms {
+    float sine, cosine, angle_cosine, angle_sine;
+};
+
+std::vector<HalfVectorTerms> half_vector_terms(float roughness, std::span<const Float2> samples) {
+    std::vector<HalfVectorTerms> terms;
+    terms.reserve(samples.size());
+    const float alpha = roughness * roughness;
+
+    for (const auto sample : samples) {
+        const float cosine = std::sqrt((1 - sample[1]) / (1 + (alpha * alpha - 1) * sample[1]));
+        const float sine = std::sqrt(std::max(0.f, 1 - cosine * cosine)),
+                    angle = 2 * kPi * sample[0];
+        terms.push_back({sine, cosine, std::cos(angle), std::sin(angle)});
+    }
+
+    return terms;
+}
+
 // Split-sum environment convolution with the reflected direction centred on N = V.
 Float3 filtered(
     std::span<const Float3> faces,
     unsigned size,
     Float3 n,
     float roughness,
-    std::span<const Float2> samples
+    std::span<const HalfVectorTerms> terms
 ) {
     if (roughness == 0) {
         return source_sample(faces, size, n);
@@ -112,9 +133,17 @@ Float3 filtered(
 
     Float3 sum{};
     float weight = 0;
+    const auto tangent = unit(cross(std::abs(n[2]) < .99f ? Float3{0, 0, 1} : Float3{0, 1, 0}, n));
+    const auto bitangent = cross(n, tangent);
 
-    for (const auto sample : samples) {
-        const auto h = half_vector(n, roughness, sample);
+    for (const auto& term : terms) {
+        Float3 h{};
+
+        for (unsigned c = 0; c < 3; ++c) {
+            h[c] = tangent[c] * term.sine * term.angle_cosine
+                   + bitangent[c] * term.sine * term.angle_sine + n[c] * term.cosine;
+        }
+
         const float nh = dot(n, h);
         const Float3 light{2 * nh * h[0] - n[0], 2 * nh * h[1] - n[1], 2 * nh * h[2] - n[2]};
         const float nl = std::max(0.f, dot(n, light));
@@ -193,6 +222,7 @@ void filter_environment(
         // Preserve the original GGX schedule rather than treating retained mip one as a mirror.
         const float roughness =
             float(mip + kEnvironmentFirstMip) / float(asset.levels() + kEnvironmentFirstMip - 1);
+        const auto terms = half_vector_terms(roughness, directions);
 
         for (unsigned face = 0; face < 6; ++face) {
             for (unsigned y = 0; y < side; ++y) {
@@ -204,7 +234,7 @@ void filter_environment(
                     );
                     asset.pixels[std::size_t(row + y) * asset.width() + column + face * side + x] =
                         pack_environment_colour(
-                            filtered(faces, asset.resolution, direction, roughness, directions)
+                            filtered(faces, asset.resolution, direction, roughness, terms)
                         );
                 }
             }

@@ -2,8 +2,8 @@
 """What to backfill first: the weak functions gameplay goes through, per level program.
 
     python3 port/tools/hostgen/priority.py --game port/game/rac1-pal/hostgen.json \\
-        --gen port/build/release/games/rac1-pal/gen --dump games/rac1/baserom/overlays \\
-        --exe games/rac1/baserom/SCES_509.16 --out build/priority/rac1-pal.md
+        --gen port/build/release/games/rac1-pal/gen --dump games/rac1/decomp/baserom/overlays \\
+        --exe games/rac1/decomp/baserom/SCES_509.16 --out build/priority/rac1-pal.md
 
 It reads what hostgen wrote (report.json with its call_graph and call_site_mismatches,
 functions.c, stubs.c) and the decompilation's tables, and builds a call graph for each level

@@ -2,14 +2,17 @@
 python3 -m unittest discover -s tools"""
 
 import contextlib
+import hashlib
 import os
 import io
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest import mock
 
 import build_port
+import build_port_tools as build_tools
 
 CACHE = """# This is the CMakeCache file.
 //Path to a program.
@@ -51,24 +54,115 @@ class Reading(unittest.TestCase):
         self.assertEqual(len(cache), 5)
 
     def test_what_cmd_set_prints(self):
-        env = build_port.parse_environment("Path=C:\\a;C:\\b\r\nINCLUDE=C:\\inc\r\n=C:=C:\\\r\n")
+        env = build_tools.parse_environment("Path=C:\\a;C:\\b\r\nINCLUDE=C:\\inc\r\n=C:=C:\\\r\n")
         self.assertEqual(env, {"PATH": "C:\\a;C:\\b", "INCLUDE": "C:\\inc"})
 
     def test_names_follow_the_games(self):
         self.assertEqual(build_port.source_variable("rac1-pal"), "OPENRAC_RAC1_PAL_SOURCE")
         self.assertEqual(build_port.targets(["rac1-pal"]), ["openrac-rac1-pal", "openrac-extractor"])
         self.assertIn("rac1-pal", build_port.games())
-        self.assertEqual(build_port.default_source("rac1-pal"), build_port.ROOT / "games" / "rac1")
+        self.assertEqual(build_port.default_source("rac1-pal"), build_port.ROOT / "games" / "rac1" / "decomp")
 
     def test_clang_is_looked_for_in_order(self):
         env = {"OPENRAC_CLANG": "X:/mine/clang.exe", "PROGRAMFILES": "X:/PF", "USERPROFILE": "X:/me", "PATH": ""}
-        found = build_port.clang_candidates(env, Path("X:/VS"))
+        found = build_tools.clang_candidates(env, Path("X:/VS"))
         self.assertEqual(found[:4], [
             Path("X:/mine/clang.exe"),
             Path("X:/PF/LLVM/bin/clang.exe"),
             Path("X:/me/scoop/apps/llvm/current/bin/clang.exe"),
             Path("X:/VS/VC/Tools/Llvm/x64/bin/clang.exe"),
         ])
+
+
+class MsvcEnvironment(unittest.TestCase):
+    """Setup failures retain their cause without printing the whole environment."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.visual_studio = Path(self.tmp.name) / "Visual Studio"
+        self.bat = self.visual_studio / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
+        self.bat.parent.mkdir(parents=True)
+        self.bat.write_text("@exit /b 0\n", encoding="ascii")
+
+    def result(self, environment="", diagnostics="", code=0):
+        return build_tools.subprocess.CompletedProcess(
+            "cmd", code, environment.encode("utf-16-le"),
+            diagnostics.encode("oem" if os.name == "nt" else "utf-8"),
+        )
+
+    def failure(self, result):
+        with mock.patch.object(build_tools.subprocess, "run", return_value=result), \
+                mock.patch.object(build_tools, "find_program", return_value=None), \
+                self.assertRaises(build_tools.BuildError) as caught:
+            build_tools.msvc_environment(self.visual_studio)
+        return str(caught.exception)
+
+    def test_success_keeps_unicode_paths(self):
+        environment = "INCLUDE=C:\\include\\\u03bb\r\nPath=C:\\tools\r\n"
+        with mock.patch.object(build_tools.subprocess, "run", return_value=self.result(environment)):
+            self.assertEqual(build_tools.msvc_environment(self.visual_studio),
+                             {"INCLUDE": "C:\\include\\\u03bb", "PATH": "C:\\tools"})
+
+    def test_missing_setup_script_names_the_repair(self):
+        self.bat.unlink()
+        with self.assertRaisesRegex(build_tools.BuildError, "repair Visual Studio"):
+            build_tools.msvc_environment(self.visual_studio)
+
+    def test_cannot_start_cmd_preserves_the_cause(self):
+        with mock.patch.object(build_tools.subprocess, "run", side_effect=OSError("access denied")), \
+                self.assertRaises(build_tools.BuildError) as caught:
+            build_tools.msvc_environment(self.visual_studio)
+        self.assertIn("Could not start cmd.exe", str(caught.exception))
+        self.assertIn("access denied", str(caught.exception))
+        self.assertIsInstance(caught.exception.__cause__, OSError)
+
+    def test_setup_failure_retains_script_output_and_exit_code(self):
+        message = self.failure(self.result(diagnostics="Windows SDK not found\r\n", code=7))
+        for expected in ("vcvars64.bat did not complete", "Windows SDK not found", "Exit code: 7",
+                         str(self.visual_studio), str(self.bat), "Toolchain environment: unavailable"):
+            self.assertIn(expected, message)
+
+    def test_environment_dump_failure_is_distinguished_from_setup_failure(self):
+        message = self.failure(self.result(
+            diagnostics="Setup succeeded\r\nOPENRAC_VCVARS_COMPLETE\r\nCannot start cmd\r\n", code=5))
+        self.assertIn("cmd.exe could not read back", message)
+        self.assertIn("vcvars64.bat output:\nSetup succeeded", message)
+        self.assertIn("Environment dump diagnostics:\nCannot start cmd", message)
+        self.assertNotIn("OPENRAC_VCVARS_COMPLETE", message)
+
+    def test_empty_environment_dump_is_reported(self):
+        message = self.failure(self.result(diagnostics="OPENRAC_VCVARS_COMPLETE\r\n"))
+        self.assertIn("cmd.exe could not read back", message)
+
+    def test_missing_include_lists_tools_without_dumping_secrets(self):
+        message = self.failure(self.result(
+            "PATH=C:\\tools\r\nLIB=C:\\lib\r\nVCToolsVersion=14.44\r\n"
+            "WindowsSDKVersion=10.0.26100.0\r\nPRIVATE_TOKEN=keep-secret\r\n",
+            "OPENRAC_VCVARS_COMPLETE\r\n"))
+        for expected in ("INCLUDE is missing", "INCLUDE: unset", "LIB: set", "LIBPATH: unset",
+                         "MSVC toolset: 14.44", "Windows SDK: 10.0.26100.0",
+                         "clang.exe on configured PATH: not found"):
+            self.assertIn(expected, message)
+        self.assertNotIn("keep-secret", message)
+        self.assertNotIn("PRIVATE_TOKEN", message)
+
+    @unittest.skipUnless(os.name == "nt", "requires Windows cmd.exe")
+    def test_real_batch_output_does_not_corrupt_unicode_environment(self):
+        self.bat.write_text('@echo off\necho Setup output\necho Setup warning 1>&2\n'
+                            'set "INCLUDE=%OPENRAC_TEST_INCLUDE%"\nexit /b 0\n', encoding="ascii")
+        with mock.patch.dict(os.environ, {"OPENRAC_TEST_INCLUDE": "C:\\include\\\u03bb"}):
+            environment = build_tools.msvc_environment(self.visual_studio)
+        self.assertEqual(environment["INCLUDE"], "C:\\include\\\u03bb")
+
+    @unittest.skipUnless(os.name == "nt", "requires Windows cmd.exe")
+    def test_real_batch_failure_keeps_stdout_and_stderr(self):
+        self.bat.write_text("@echo off\necho Setup output\necho SDK missing 1>&2\nexit /b 7\n",
+                            encoding="ascii")
+        with self.assertRaises(build_tools.BuildError) as caught:
+            build_tools.msvc_environment(self.visual_studio)
+        for expected in ("Setup output", "SDK missing", "Exit code: 7", "did not complete"):
+            self.assertIn(expected, str(caught.exception))
 
 
 class Clean(unittest.TestCase):
@@ -271,6 +365,102 @@ class ProbeBaker(unittest.TestCase):
         (defines, more), _, _ = self.baker_on("Linux", "x86_64", embree=build_port.BuildError("no network"))
         self.assertEqual((defines, more), ({"OPENRAC_PROBE_BAKER": "OFF"}, []))
 
+    def test_a_required_baker_whose_embree_fails_stops_with_the_reason(self):
+        build = mock.Mock(side_effect=build_port.BuildError("no network"))
+        with mock.patch.object(build_port.platform, "system", return_value="Linux"), \
+                mock.patch.object(build_port.platform, "machine", return_value="aarch64"), \
+                mock.patch.object(build_port, "build_embree", build), \
+                self.assertRaisesRegex(build_port.BuildError, "no network"):
+            build_port.probe_baker("cmake", {}, None, {}, required=True)
+
+    def test_require_baker_fails_the_build_before_compiling(self):
+        run = mock.Mock(return_value=mock.Mock(returncode=0))
+        err = io.StringIO()
+        with mock.patch.object(build_port.platform, "system", return_value="Linux"), \
+                mock.patch.object(build_port.platform, "machine", return_value="aarch64"), \
+                mock.patch.object(build_port, "read_cache", return_value={}), \
+                mock.patch.object(build_port, "prepare", return_value=({}, Path("cmake"), None)), \
+                mock.patch.object(build_port, "build_embree", side_effect=build_port.BuildError("no network")), \
+                mock.patch.object(build_port.subprocess, "run", run), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            status = build_port.main(["rac1-pal", "--require-baker"])
+        self.assertEqual(status, 1)
+        run.assert_not_called()
+        self.assertIn("the probe baker cannot be built: no network", err.getvalue())
+
+    def test_embree_download_is_tried_again_after_a_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            calls = []
+
+            def urlopen(url, timeout):
+                calls.append(url)
+                raise urllib.error.HTTPError(url, 504, "Gateway Timeout", {}, None)
+
+            with mock.patch.object(build_port.urllib.request, "urlopen", urlopen), \
+                    mock.patch.object(build_port.time, "sleep") as sleep, \
+                    contextlib.redirect_stdout(io.StringIO()), \
+                    self.assertRaisesRegex(build_port.BuildError, "did not download"):
+                build_port.fetch_embree(Path(tmp))
+        self.assertEqual(len(calls), build_port.EMBREE_TRIES)
+        self.assertEqual(sleep.call_count, build_port.EMBREE_TRIES - 1)
+
+    def test_require_baker_fails_without_embrees_license(self):
+        run = mock.Mock(return_value=mock.Mock(returncode=0))
+        err = io.StringIO()
+        with mock.patch.object(build_port.platform, "system", return_value="Linux"), \
+                mock.patch.object(build_port.platform, "machine", return_value="aarch64"), \
+                mock.patch.object(build_port, "read_cache", return_value={}), \
+                mock.patch.object(build_port, "prepare", return_value=({}, Path("cmake"), None)), \
+                mock.patch.object(build_port, "build_embree", return_value=Path("/b/embree")), \
+                mock.patch.object(build_port, "copy_licenses", side_effect=build_port.BuildError("no LICENSE.txt")), \
+                mock.patch.object(build_port, "write_stamp"), \
+                mock.patch.object(build_port.subprocess, "run", run), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            self.assertEqual(build_port.main(["rac1-pal", "--require-baker"]), 1)
+            self.assertEqual(build_port.main(["rac1-pal", "--probe-baker"]), 0)
+        self.assertIn("error: no LICENSE.txt", err.getvalue())
+        self.assertIn("warning: no LICENSE.txt", err.getvalue())
+
+    def fetch(self, answers):
+        """fetch_embree into a temporary folder, urlopen answering ANSWERS in turn (an exception
+        to raise, or the bytes of the body); the result or the BuildError, and the sleeps."""
+        answers = list(answers)
+
+        def urlopen(url, timeout):
+            answer = answers.pop(0)
+            if isinstance(answer, BaseException):
+                raise answer
+            return contextlib.nullcontext(io.BytesIO(answer))
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(build_port.urllib.request, "urlopen", urlopen), \
+                mock.patch.object(build_port.time, "sleep") as sleep, \
+                mock.patch.object(build_port, "EMBREE_SHA256", hashlib.sha256(b"good").hexdigest()), \
+                mock.patch.object(build_port.tarfile, "open", side_effect=build_port.BuildError("unpacked")), \
+                contextlib.redirect_stdout(io.StringIO()):
+            try:
+                build_port.fetch_embree(Path(tmp))
+                result = None
+            except build_port.BuildError as e:
+                result = e
+            leftover = sorted(p.name for p in Path(tmp).iterdir())
+        return result, sleep.call_count, answers, leftover
+
+    def test_a_cut_transfer_and_a_wrong_body_are_tried_again(self):
+        cut = build_port.http.client.IncompleteRead(b"go")
+        result, sleeps, left, files = self.fetch([cut, b"html error page", b"good"])
+        # The good archive is kept and then unpacked (mocked to stop there).
+        self.assertEqual(str(result), "unpacked")
+        self.assertEqual((sleeps, left), (2, []))
+        self.assertIn(f"embree-{build_port.EMBREE_VERSION}.tar.gz", files)
+        self.assertNotIn(f"embree-{build_port.EMBREE_VERSION}.part", files)
+
+    def test_a_download_that_never_works_says_why_and_leaves_no_part(self):
+        result, sleeps, _, files = self.fetch([b"bad"] * build_port.EMBREE_TRIES)
+        self.assertIn("did not download (SHA-256", str(result))
+        self.assertEqual(sleeps, build_port.EMBREE_TRIES - 1)
+        self.assertEqual(files, [])
+
     def test_an_intel_mac_builds_the_rest_and_succeeds(self):
         # The whole command line, its tools mocked: the game and the extractor are configured and
         # built without the baker, and the build exits 0.
@@ -318,6 +508,14 @@ class Stamp(unittest.TestCase):
         # Another game built from the same checkout joins it.
         build_port.write_stamp(self.build, ["rac1-ntsc"])
         self.assertEqual(self.read()["games"], ["rac1-ntsc", "rac1-pal"])
+
+    def test_a_ci_build_records_its_repository(self):
+        with mock.patch.dict(build_port.os.environ, {"GITHUB_REPOSITORY": "someone/OpenRAC"}):
+            build_port.write_stamp(self.build, ["rac2-ntsc"])
+        self.assertEqual(self.read()["repository"], "someone/OpenRAC")
+        with mock.patch.dict(build_port.os.environ, {"GITHUB_REPOSITORY": "not a repository"}):
+            build_port.write_stamp(self.build, ["rac2-ntsc"])
+        self.assertNotIn("repository", self.read())
 
     def test_a_build_from_another_checkout_starts_the_list_again(self):
         (self.build / "openrac-build.json").write_text('{"version": "0.0.1", "commit": null, "games": ["rac1-pal"]}')

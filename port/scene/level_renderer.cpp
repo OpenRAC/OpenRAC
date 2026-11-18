@@ -12,10 +12,11 @@
 
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/colour_graph.h"
-#include "renderer/gl.h"
-#include "renderer/precise_depth.h"
-#include "renderer/render_opt.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/precise_depth.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/world/fog.h"
 #include "renderer/world/gl_world.h"
 #include "renderer/world/gs_pass.h"
 #include "renderer_shaders.h"
@@ -59,6 +60,30 @@ using renderer::Bucket;
 using namespace render_detail;
 
 namespace {
+
+struct LayerGaugeNames {
+    std::string camera_submitted, camera_culled;
+    std::string rigid_draws, empty_groups;
+    std::string pvs_instances, pvs_primitives;
+};
+
+const LayerGaugeNames& layer_gauge_names(Layer layer) {
+    static const auto names = [] {
+        std::array<LayerGaugeNames, kLayerCount> labels;
+        for (std::size_t index = 0; index < labels.size(); ++index) {
+            const std::string name = layer_name(static_cast<Layer>(index));
+            labels[index] =
+                {"camera " + name + " submitted",
+                 "camera " + name + " culled",
+                 "prepass rigid draws " + name,
+                 "prepass empty groups " + name,
+                 "pvs " + name + " instances culled",
+                 "pvs " + name + " primitive passes culled"};
+        }
+        return labels;
+    }();
+    return names[static_cast<std::size_t>(layer)];
+}
 
 Bucket bucket_of(Layer layer) {
     switch (layer) {
@@ -136,6 +161,19 @@ bool LevelScene::upload(
         || !m_sky.build("sky", shaders::sky_vert, shaders::sky_frag, error)) {
         return false;
     }
+    if (m_lighting) {
+        std::string coverage(fragment), coverage_solid(solid);
+        coverage.insert(coverage.find('\n') + 1, "#define OPENRAC_PROBE_COVERAGE 1\n");
+        coverage_solid.insert(coverage_solid.find('\n') + 1, "#define OPENRAC_PROBE_COVERAGE 1\n");
+        std::string fast(fragment);
+        fast.insert(fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
+        if (!m_mesh_fast.build("mesh (cheaper probe light)", mesh_vertex, fast, error)
+            || !m_coverage.build("mesh (probe coverage)", mesh_vertex, coverage, error)
+            || !m_coverage_solid
+                    .build("mesh (solid, probe coverage)", mesh_vertex, coverage_solid, error)) {
+            return false;
+        }
+    }
     if (m_early_capable) {
         std::string early = m_lighting->early_fragment(shaders::mesh_frag), early_solid(early);
         early_solid.insert(early_solid.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
@@ -171,84 +209,88 @@ bool LevelScene::upload(
 #endif
     // The same small pass shaders also serve OpenGL and direct/CPU draws. No
     // material-buffer or batching capability is required to fix these controls.
-    if (m_colour_opaque.id()
-        || renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
-        || renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeFastBlended)) {
-        // Keep opaque features constant per native program. In particular,
-        // static geometry never needs the joint-palette path, and solid
-        // geometry must not inherit the alpha shader's discard instructions.
-        for (unsigned variant = 0; variant < m_colour_specialised.size(); ++variant) {
-            std::string vertex(mesh_vertex);
-            vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-            vertex = renderer::shader_constants(vertex, {{"metal_pass", 0}});
+    // Keep opaque features constant per native program. In particular,
+    // static geometry never needs the joint-palette path, and solid
+    // geometry must not inherit the alpha shader's discard instructions.
+    for (unsigned variant = 0; variant < m_colour_specialised.size(); ++variant) {
+        std::string vertex(mesh_vertex);
+        vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
+        vertex = renderer::shader_constants(vertex, {{"metal_pass", 0}});
+        if (variant < 2) {
+            vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
+            vertex = renderer::shader_constants(vertex, {{"skinning", 0}});
+        }
+        const auto specialise = [&](std::string source) {
+            source.insert(source.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
+            // Both stages must agree when static variants remove material-specific interfaces.
             if (variant < 2) {
-                vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-                vertex = renderer::shader_constants(vertex, {{"skinning", 0}});
+                source.insert(source.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
             }
-            const auto specialise = [&](std::string source) {
-                source.insert(source.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-                // Both stages must agree when static variants remove material-specific interfaces.
-                if (variant < 2) {
-                    source.insert(source.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-                }
-                if (variant == 0) {
-                    source.insert(source.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
-                }
-                for (const auto* name :
-                     {"metal_pass",
-                      "glow_pass",
-                      "translucent_pass",
-                      "effect_pass",
-                      "probe_effect"}) {
-                    source = renderer::shader_constants(std::move(source), {{name, 0}});
-                }
-                return source;
-            };
-            const char* names[] =
-                {"solid static colour", "alpha static colour", "opaque moby colour"};
-            if (!m_colour_specialised[variant]
-                     .build(names[variant], vertex, specialise(fragment), error)
-                || (m_early_capable
-                    && !m_early_colour_specialised[variant].build(
-                        std::string("early ") + names[variant],
-                        vertex,
-                        specialise(m_lighting->early_fragment(shaders::mesh_frag)),
-                        error
-                    ))) {
-                return false;
+            if (variant == 0) {
+                source.insert(source.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
             }
-        }
-        std::string static_vertex(mesh_vertex), static_translucent(fragment);
-        static_vertex
-            .insert(static_vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-        static_translucent
-            .insert(static_translucent.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-        static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-        static_translucent
-            .insert(static_translucent.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-        static_vertex = renderer::shader_constants(std::move(static_vertex), {{"skinning", 0}});
-        static_vertex = renderer::shader_constants(std::move(static_vertex), {{"metal_pass", 0}});
-        for (const auto* name : {"metal_pass", "glow_pass", "effect_pass", "probe_effect"}) {
-            static_translucent =
-                renderer::shader_constants(std::move(static_translucent), {{name, 0}});
-        }
-        static_translucent =
-            renderer::shader_constants(std::move(static_translucent), {{"translucent_pass", 1}});
-        // The default blended static pass reads cheaper probe light and shadows (Enhanced is
-        // allowed to be lossy, probe-fast-blended); the full one stays as the reference.
-        std::string static_fast(static_translucent);
-        static_fast.insert(static_fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
-        if (!m_static_translucent
-                 .build("static translucent colour", static_vertex, static_fast, error)
-            || !m_static_translucent_full.build(
-                "static translucent colour, full probe light",
-                static_vertex,
-                static_translucent,
-                error
-            )) {
+            for (const auto* name :
+                 {"metal_pass", "glow_pass", "translucent_pass", "effect_pass", "probe_effect"}) {
+                source = renderer::shader_constants(std::move(source), {{name, 0}});
+            }
+            return source;
+        };
+        const char* names[] = {"solid static colour", "alpha static colour", "opaque moby colour"};
+        if (!m_colour_specialised[variant]
+                 .build(names[variant], vertex, specialise(fragment), error)
+            || (m_early_capable
+                && !m_early_colour_specialised[variant].build(
+                    std::string("early ") + names[variant],
+                    vertex,
+                    specialise(m_lighting->early_fragment(shaders::mesh_frag)),
+                    error
+                ))) {
             return false;
         }
     }
+    std::string static_vertex(mesh_vertex), static_translucent(fragment);
+    static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
+    static_translucent
+        .insert(static_translucent.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
+    static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
+    static_translucent
+        .insert(static_translucent.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
+    static_vertex = renderer::shader_constants(std::move(static_vertex), {{"skinning", 0}});
+    static_vertex = renderer::shader_constants(std::move(static_vertex), {{"metal_pass", 0}});
+    for (const auto* name : {"metal_pass", "glow_pass", "effect_pass", "probe_effect"}) {
+        static_translucent = renderer::shader_constants(std::move(static_translucent), {{name, 0}});
+    }
+    static_translucent =
+        renderer::shader_constants(std::move(static_translucent), {{"translucent_pass", 1}});
+    // The default blended static pass reads cheaper probe light and shadows (Enhanced is
+    // allowed to be lossy, probe-fast-blended); the full one stays as the reference.
+    std::string static_fast(static_translucent);
+    static_fast.insert(static_fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
+    if (!m_static_translucent.build("static translucent colour", static_vertex, static_fast, error)
+        || !m_static_translucent_full.build(
+            "static translucent colour, full probe light", static_vertex, static_translucent, error
+        )) {
+        return false;
+    }
+    if (m_early_capable) {
+        // The same blended pass reading the early lighting (blended-early-light).
+        std::string early = m_lighting->early_fragment(shaders::mesh_frag);
+        for (const char* define :
+             {"#define OPENRAC_EARLY_TRANSLUCENT 1\n",
+              "#define OPENRAC_COLOUR_SPECIALISED 1\n",
+              "#define OPENRAC_STATIC_COLOUR 1\n"}) {
+            early.insert(early.find('\n') + 1, define);
+        }
+        for (const auto* name : {"metal_pass", "glow_pass", "effect_pass", "probe_effect"}) {
+            early = renderer::shader_constants(std::move(early), {{name, 0}});
+        }
+        early = renderer::shader_constants(std::move(early), {{"translucent_pass", 1}});
+        if (!m_static_translucent_early
+                 .build("static translucent colour, early lighting", static_vertex, early, error)) {
+            return false;
+        }
+    }
+
     const std::string depth_source = deformation_vertex(shaders::mesh_depth_vert);
     std::string depth_vertex(depth_source), depth_fragment(shaders::mesh_depth_frag);
     depth_vertex.insert(depth_vertex.find('\n') + 1, "#define OPENRAC_DEPTH_SOLID 1\n");
@@ -379,6 +421,11 @@ bool LevelScene::upload(
         if (i < level.image_animations.size() && level.image_animations[i] != nullptr
             && level.images[i].width > 0) {
             textures.animate(m_textures.back(), level.image_animations[i]);
+        }
+        // A texture pack KTX2's picture is kept on the GPU in blocks.
+        if (i < level.image_blocks.size() && level.image_blocks[i] != nullptr
+            && level.images[i].width > 0) {
+            textures.set_blocks(m_textures.back(), level.image_blocks[i]);
         }
     }
     m_variant_image = -1;
@@ -538,6 +585,22 @@ bool LevelScene::upload(
         level.vertices.data(),
         GL_STATIC_DRAW
     );
+    // The same positions again, tightly packed (vertex-position-stream).
+    std::vector<float> positions;
+    positions.reserve(level.vertices.size() * 3);
+    for (const Vertex& vertex : level.vertices) {
+        positions.insert(positions.end(), std::begin(vertex.position), std::end(vertex.position));
+    }
+    glGenBuffers(1, &m_positions);
+    glBindBuffer(GL_ARRAY_BUFFER, m_positions);
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(positions.size() * sizeof(float)),
+        positions.data(),
+        GL_STATIC_DRAW
+    );
+    m_position_stream =
+        renderer::render_opt::enabled(renderer::render_opt::Opt::VertexPositionStream);
     // Buffers have no type of their own: the indices are filled through the
     // array target, before any vertex array exists to hold the element binding.
     glGenBuffers(1, &m_indices);
@@ -630,6 +693,7 @@ void LevelScene::draw_mobys(
 }
 
 void LevelScene::release() {
+    m_point_emitters.clear();
     m_culling_lines.reset();
     m_culling_lines_failed = false;
 #if defined(OPENRAC_VULKAN)
@@ -645,6 +709,8 @@ void LevelScene::release() {
         release_target(map);
     }
     m_sun_enabled = m_sun_ready = false;
+    m_drawn_cascades = {};
+    m_kept_cascades = 0;
     glDeleteVertexArrays(1, &m_shadow_compact.vao);
     glDeleteBuffers(1, &m_shadow_compact.instances);
     m_shadow_compact = {};
@@ -709,6 +775,11 @@ void LevelScene::release() {
         glDeleteBuffers(1, &m_vertices);
         m_vertices = 0;
     }
+    if (m_positions != 0) {
+        glDeleteBuffers(1, &m_positions);
+        m_positions = 0;
+        m_position_stream = false;
+    }
     if (m_indices != 0) {
         glDeleteBuffers(1, &m_indices);
         m_indices = 0;
@@ -720,6 +791,7 @@ void LevelScene::release() {
     m_mesh.release();
     m_static_translucent.release();
     m_static_translucent_full.release();
+    m_static_translucent_early.release();
     m_colour_opaque.release();
     m_early_colour_opaque.release();
     for (auto& shader : m_colour_specialised) {
@@ -729,6 +801,9 @@ void LevelScene::release() {
         shader.release();
     }
     m_early_mesh.release();
+    m_coverage.release();
+    m_mesh_fast.release();
+    m_coverage_solid.release();
     m_early_solid.release();
     m_solid.release();
     m_depth.release();
@@ -741,6 +816,8 @@ void LevelScene::release() {
         glDeleteBuffers(1, &model.indices);
     }
     m_pvs_models.clear();
+    m_terrain_far.clear();
+    m_terrain_chunk = -1;
     m_cpu_indices.clear();
     // Nothing to choose from until the next level (choose_scenery).
     m_scenery = {};
@@ -757,17 +834,15 @@ void LevelScene::release() {
 void LevelScene::set_fog(
     const std::array<float, 3>& colour, float near_depth, float far_depth, float near_f, float far_f
 ) {
-    // UpdateViewContext's terms (renderer/world/fog.h): F = depth x slope + offset, clamped to
-    // [far F, near F]. Equal depths or no fog asked for (both F 255) leave it off.
-    const float range = far_depth - near_depth;
-    if (!(range > 0.0f) || (near_f >= 255.0f && far_f >= 255.0f)) {
+    // UpdateViewContext's terms, clamped as the programs clamp them (renderer/world/fog.h). Equal
+    // depths or a fog that fogs nothing (far F 255) leave it off.
+    const auto params = renderer::world::scene_fog_params(near_depth, far_depth, near_f, far_f);
+    if (!params) {
         m_fog_colour = {colour[0], colour[1], colour[2], 0.0f};
         return;
     }
-    const float slope = (far_f - near_f) / range;
-    const float offset = (near_f * far_depth - far_f * near_depth) / range;
     m_fog_colour = {colour[0], colour[1], colour[2], 1.0f};
-    m_fog_params = {slope, offset, std::min(near_f, far_f), std::max(near_f, far_f)};
+    m_fog_params = *params;
 }
 
 bool LevelScene::batches_opaque_colour() const {
@@ -793,7 +868,8 @@ bool LevelScene::colour_blend_barrier(Layer layer) const {
         }
         for (const auto& primitive : m_models[group.model].primitives) {
             const auto& material = m_materials[static_cast<std::size_t>(primitive.material)];
-            if (material.cutout || material.metal || group.blend) {
+            if (material.cutout || material.metal || group.blend
+                || (m_lighting && m_lighting->material_glass(group.model, primitive.material))) {
                 return true;
             }
         }
@@ -853,6 +929,8 @@ std::vector<Instance> LevelScene::animated_instances(double seconds) const {
 void LevelScene::draw_layer(
     Layer layer, const renderer::FrameInput& input, renderer::RenderState& state
 ) {
+    sync_position_stream();
+    const bool enhanced_materials = m_lighting && m_lighting->enhanced_materials_enabled();
     if (m_lighting) {
         m_lighting->prepare_deformation(input, *this);
     }
@@ -914,8 +992,14 @@ void LevelScene::draw_layer(
         stats::probe("OPENRAC_PVS_OFF", "Profiling reference: disable baked camera visibility");
     // Shadow casters can lie outside the gameplay camera's baked visibility set.
     const bool skip_pvs = pvs_off || shadow_inspection;
-    const auto pvs_mask = skip_pvs ? Pvs::all_visible() : m_pvs.follow(cull_camera.position);
-    const bool use_pvs = !skip_pvs && !m_pvs.grid.empty();
+    // A game that gives its own frame mask needs no baked grid (Going Commando's, whose levels
+    // have none exported): Pvs::follow takes the game's there.
+    const bool use_pvs = !skip_pvs && (!m_pvs.grid.empty() || m_pvs.game.has_value());
+    auto pvs_mask = Pvs::all_visible();
+    if (use_pvs) {
+        pvs_mask = input.keep_pvs_history ? m_pvs.follow(cull_camera.position)
+                                          : m_pvs.select(cull_camera.position);
+    }
     const bool gpu = gpu_driven();
     const bool cache_visibility =
         gpu && (state.depth_prepass || state.reuse_prepass_depth)
@@ -1059,14 +1143,14 @@ void LevelScene::draw_layer(
     visibility_scope.reset();
 
     if (stats::enabled()) {
-        const auto name = std::string("camera ") + layer_name(layer);
-        stats::gauge(name + " submitted", static_cast<double>(camera_counts.submitted));
-        stats::gauge(name + " culled", static_cast<double>(camera_counts.rejected));
+        const auto& names = layer_gauge_names(layer);
+        stats::gauge(names.camera_submitted, static_cast<double>(camera_counts.submitted));
+        stats::gauge(names.camera_culled, static_cast<double>(camera_counts.rejected));
     }
     // On a target wider than the game's picture, the 2D layer's mobys are cut at the picture's sides
     // (mesh.vert).
-    // An ES driver without GL_EXT_clip_cull_distance has no clip planes (renderer/shader.h,
-    // es_source), nor has Vulkan on Mali (renderer/vulkan/shader_compiler.cpp,
+    // An ES driver without GL_EXT_clip_cull_distance has no clip planes (renderer/gl/shader.h,
+    // es_source), nor has Vulkan on Mali (renderer/vulkan/pipelines/shader_compiler.cpp,
     // vertex_clip_distance).
     const bool cut = layer == Layer::Mobys && state.target.picture_scale_x < 1.0f
                      && (!gl::is_es() || gl::has_extension("GL_EXT_clip_cull_distance"));
@@ -1074,7 +1158,7 @@ void LevelScene::draw_layer(
         glEnable(GL_CLIP_DISTANCE0);
         glEnable(GL_CLIP_DISTANCE1);
     }
-    // Precise depth (renderer/precise_depth.h): the world's draws send clip-space z to the window as
+    // Precise depth (renderer/gl/precise_depth.h): the world's draws send clip-space z to the window as
     // it is, with the camera's projection in that form, so the same depth lands there with 32-bit
     // float precision; everything else keeps GL's form.
     const bool precise = renderer::precise_depth();
@@ -1218,17 +1302,21 @@ void LevelScene::draw_layer(
     std::uint64_t rigid_prepass_draws = 0, empty_prepass_groups = 0;
     // The mobys' glow pass runs twice (scene/moby_passes.h): its texels at or above the GS's alpha
     // reference first, writing depth, then the rest without.
-    const int steps = mobys ? static_cast<int>(kMobyPassSteps.size()) : passes;
+    const auto moby_steps = input.opaque_effects
+                                ? std::span<const MobyPassStep>(kMobyOpaqueSplitSteps)
+                                : std::span<const MobyPassStep>(kMobyPassSteps);
+    const int steps = mobys ? static_cast<int>(moby_steps.size()) : passes;
     for (int step = 0; step < steps; ++step) {
         const MobyPassStep moby_step =
-            mobys ? kMobyPassSteps[static_cast<std::size_t>(step)] : MobyPassStep{};
+            mobys ? moby_steps[static_cast<std::size_t>(step)] : MobyPassStep{};
         const int pass = mobys ? moby_step.pass : step;
         const int glow_split = moby_step.glow_split;
-        if (state.depth_prepass && (mobys ? pass > 0 : pass > 1)) {
+        const bool opaque_fragment = moby_step.opacity_split > 0;
+        const bool opaque = mobys ? pass == 0 || opaque_fragment : pass <= 1;
+        if (state.depth_prepass && !opaque) {
             break;
         }
         if (colour_batch) {
-            const bool opaque = mobys ? pass == 0 : pass <= 1;
             if (state.opaque_colour_phase >= 0) {
                 if (!opaque || (state.opaque_colour_phase == 0) != (!mobys && pass == 0)) {
                     continue;
@@ -1240,6 +1328,11 @@ void LevelScene::draw_layer(
         const bool solid = !mobys && pass == 0;
         const bool sweep_translucent = !state.depth_prepass && pass == 2;
         if (sweep_translucent && m_sweep_translucent_off) {
+            continue;
+        }
+        // The sweep's other experiment: the mobys' late glow, blended and metal draws.
+        if (m_sweep_moby_blended_off && mobys && !state.depth_prepass && !opaque
+            && pass != kMobyTranslucent) {
             continue;
         }
         const bool reused =
@@ -1262,7 +1355,8 @@ void LevelScene::draw_layer(
         const bool early = !state.depth_prepass
                            && (mobys ? pass == kMobySolid || pass == kMobyMetal : pass <= 1)
                            && m_lighting && m_lighting->early_matches(input, state);
-        const bool batch_shader = colour_batch && state.opaque_colour_phase >= 0;
+        const bool batch_shader =
+            colour_batch && state.opaque_colour_phase >= 0 && !opaque_fragment;
         static const bool& specialisation_off = stats::probe(
             "OPENRAC_OPAQUE_SPECIALISE_OFF", "Reference: unspecialised mesh colour shaders"
         );
@@ -1271,16 +1365,16 @@ void LevelScene::draw_layer(
         static const bool& fast_off = stats::probe(
             "OPENRAC_PROBE_FAST_OFF", "Reference: full probe light on blended static passes"
         );
-        // The cheaper probe light exists only in the static variant, so it takes that variant
-        // with shader-variants off too: shader-variants alone stays byte-identical.
+        // The cheaper probe light is selected within the static blended variants.
         const bool fast_blended =
             !fast_off && !m_sweep_translucent_full
             && renderer::render_opt::enabled(renderer::render_opt::Opt::ProbeFastBlended);
-        const bool static_translucent =
-            !state.depth_prepass && !mobys && pass == 2 && m_static_translucent.id()
-            && !specialisation_off
-            && (fast_blended
-                || renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants));
+        const bool static_translucent = !state.depth_prepass && !mobys && pass == 2
+                                        && m_static_translucent.id() && !specialisation_off;
+        const bool early_blended =
+            static_translucent && !m_sweep_translucent_full && m_static_translucent_early.id()
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::BlendedEarlyLight)
+            && m_lighting && m_lighting->early_matches(input, state);
         const renderer::Shader* selected = &m_mesh;
         // Both depth variants retain identical positions and alpha coverage.
         if (state.depth_prepass) {
@@ -1290,11 +1384,20 @@ void LevelScene::draw_layer(
             } else {
                 selected = solid ? &m_depth_solid : &m_depth;
             }
+        } else if (m_lighting && m_lighting->coverage_view() && m_coverage.id()) {
+            // The coverage view: the same alpha handling, with the coverage colours.
+            selected = solid ? &m_coverage_solid : &m_coverage;
+        } else if (mobys && fast_blended && m_mesh_fast.id()
+                   && (pass == kMobyGlow || pass == kMobyTranslucent || pass == kMobyEffects)) {
+            // The mobys' blended passes read the cheaper probe light too (Enhanced, lossy).
+            selected = &m_mesh_fast;
+        } else if (static_translucent && early_blended) {
+            // Low effects detail: the fringes read the early lighting of the surfaces they lie on.
+            selected = &m_static_translucent_early;
         } else if (static_translucent) {
             // Static blended packets omit moby-only vertex work.
             selected = fast_blended ? &m_static_translucent : &m_static_translucent_full;
         } else if (!specialisation_off && specialised[variant].id()
-                   && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
                    && (batch_shader || (mobys ? pass == 0 : pass <= 1))) {
             // Opaque variants specialise alpha handling for each geometry kind.
             selected = &specialised[variant];
@@ -1353,7 +1456,13 @@ void LevelScene::draw_layer(
         // pulled a little toward the camera (MobyProc adds 1000 to their GS Z; mesh.vert).
         const bool metal = mobys && pass == 4;
         const bool translucent = pass == 2;
-        glDepthFunc(reused ? GL_EQUAL : GL_GEQUAL);
+        // Over the reused prepass depth, GEQUAL passes exactly the fragments EQUAL does: every
+        // surface drawn here is in the prepass, so none is nearer than the depth it left. Adreno
+        // turns its low-resolution Z (LRZ) off for EQUAL, and keeps it for GEQUAL without writes.
+        const GLenum reused_func =
+            renderer::render_opt::enabled(renderer::render_opt::Opt::OpaqueDepthGequal) ? GL_GEQUAL
+                                                                                        : GL_EQUAL;
+        glDepthFunc(reused ? reused_func : GL_GEQUAL);
         glDepthMask(reused ? GL_FALSE : GL_TRUE);
         glUniform1i(program->uniform("metal_pass"), metal ? 1 : 0);
         glUniform1i(program->uniform("glow_pass"), mobys && pass == 1 ? 1 : 0);
@@ -1365,10 +1474,16 @@ void LevelScene::draw_layer(
             glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
             glDepthMask(mobys && moby_step.depth_write ? GL_TRUE : GL_FALSE);
         }
+        bool premultiplied = false;
         glUniform2f(
             program->uniform("gameplay_rim_lift"), m_gameplay_rim_lift[0], m_gameplay_rim_lift[1]
         );
         glUniform1i(program->uniform("glow_split"), glow_split);
+        glUniform1i(program->uniform("opacity_split"), moby_step.opacity_split);
+        if (opaque_fragment) {
+            // Preserve destination alpha like the original moby blend, while replacing RGB.
+            glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ZERO, GL_ONE);
+        }
         glUniform2f(
             program->uniform("gameplay_rim_parameters"), m_gameplay_rim[0], m_gameplay_rim[1]
         );
@@ -1377,8 +1492,14 @@ void LevelScene::draw_layer(
             if (!visible[gi] || (!metal && (g.blend != 0) != effects)) {
                 continue;
             }
+            if (opaque_fragment && pass == kMobyGlow && !g.cpu_instances.empty()
+                && std::ranges::none_of(g.cpu_instances, [](const InstanceData& instance) {
+                       return instance.moby_ambient[3] > .5f;
+                   })) {
+                continue;
+            }
             // An added moby writes no depth: all of it is drawn in the second half.
-            if (effects && glow_split == 1 && g.blend == 2) {
+            if (effects && glow_split == 1 && (g.blend == 2 || (opaque_fragment && g.blend == 5))) {
                 continue;
             }
             // Inspection includes blended and chrome geometry in the selected frustum filter.
@@ -1412,8 +1533,11 @@ void LevelScene::draw_layer(
             }
             if (m_lighting) {
                 m_lighting->bind_deformation(*program, g.floats_on_water);
+                if (mobys) {
+                    m_lighting->bind_moby_model(*program, g.model);
+                }
             }
-            if (effects) {
+            if (effects && !opaque_fragment) {
                 // Additive: the shader writes Cs * As (mesh.frag, effect_additive).
                 glBlendFuncSeparate(
                     g.blend == 2 ? GL_ONE : GL_SRC_ALPHA,
@@ -1528,6 +1652,15 @@ void LevelScene::draw_layer(
                     set_material = run_material;
                     set_variant = variant;
                 }
+                if (metal && enhanced_material) {
+                    const bool glass = m_lighting->material_glass(g.model, run_material);
+                    if (glass != premultiplied) {
+                        glBlendFuncSeparate(
+                            glass ? GL_ONE : GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE
+                        );
+                        premultiplied = glass;
+                    }
+                }
                 submit_instances(batch, run_first, run_count, instances);
                 rigid_prepass_draws += group_rigid ? 1u : 0u;
                 ++state.stats.draw_calls;
@@ -1548,7 +1681,7 @@ void LevelScene::draw_layer(
                                                  * static_cast<std::uint64_t>(instances);
                     }
                     m_lighting->bind_surface_layer(*program, 0);
-                    glDepthFunc(reused ? GL_EQUAL : GL_GEQUAL);
+                    glDepthFunc(reused ? reused_func : GL_GEQUAL);
                     glDepthMask(reused ? GL_FALSE : GL_TRUE);
                 }
                 run_count = 0;
@@ -1565,7 +1698,17 @@ void LevelScene::draw_layer(
                     cached.rejected = 0;
                     std::vector<std::uint32_t> visible_indices;
                     for (const auto& primitive : *primitives) {
-                        if (!Pvs::visible(pvs_mask, primitive.occlusion)) {
+                        const auto fragment = static_cast<std::size_t>(primitive.terrain_fragment);
+                        // Another streamed chunk than the game's: not drawn (move_scenery).
+                        if (primitive.terrain_fragment >= 0 && m_terrain_chunk >= 0
+                            && primitive.terrain_chunk != m_terrain_chunk) {
+                            ++cached.rejected;
+                            continue;
+                        }
+                        const bool far = primitive.terrain_fragment >= 0
+                                         && fragment < m_terrain_far.size()
+                                         && m_terrain_far[fragment];
+                        if (far || !Pvs::visible(pvs_mask, primitive.occlusion)) {
                             ++cached.rejected;
                             continue;
                         }
@@ -1604,17 +1747,29 @@ void LevelScene::draw_layer(
                 }
             }
             for (const Primitive& p : *primitives) {
-                const bool is_metal = m_materials[static_cast<std::size_t>(p.material)].metal;
-                if (is_metal != metal) {
+                const auto& material = m_materials[static_cast<std::size_t>(p.material)];
+                const bool glass =
+                    enhanced_materials && m_lighting->material_glass(g.model, p.material);
+                if (glass ? (state.depth_prepass || (mobys ? pass != kMobyMetal : pass != 2))
+                          : material.metal != metal) {
+                    continue;
+                }
+                const bool original =
+                    enhanced_materials
+                    && m_lighting->material_original(g.model, p.appearance_slot());
+                if (!material_pass_visible(p, material, enhanced_materials, original)) {
                     continue;
                 }
                 // The glow pass draws a glow packet's faces only: the rest would be discarded.
                 if (mobys && pass == kMobyGlow && !p.glow_vertices
-                    && renderer::render_opt::enabled(renderer::render_opt::Opt::MobyGlowSkip)) {
+                    && (opaque_fragment
+                        || renderer::render_opt::enabled(
+                            renderer::render_opt::Opt::MobyGlowSkip
+                        ))) {
                     continue;
                 }
                 const bool is_cutout = m_materials[static_cast<std::size_t>(p.material)].cutout;
-                if ((translucent || cutouts) && !is_cutout) {
+                if (!glass && (translucent || cutouts) && !is_cutout) {
                     continue;
                 }
                 if (solid && is_cutout) {
@@ -1625,7 +1780,10 @@ void LevelScene::draw_layer(
                 std::uint32_t first = p.first_index;
                 std::uint32_t count = p.index_count;
                 if (mobys && pass == kMobyGlow && p.glow_count != 0 && !compact_indices
-                    && renderer::render_opt::enabled(renderer::render_opt::Opt::MobyGlowSkip)) {
+                    && (opaque_fragment
+                        || renderer::render_opt::enabled(
+                            renderer::render_opt::Opt::MobyGlowSkip
+                        ))) {
                     first = p.glow_first;
                     count = p.glow_count;
                 }
@@ -1650,21 +1808,14 @@ void LevelScene::draw_layer(
     glDepthFunc(GL_GEQUAL);
     glBindVertexArray(0);
     if (stats::enabled()) {
+        const auto& names = layer_gauge_names(layer);
         if (state.depth_prepass) {
-            stats::gauge(
-                std::string("prepass rigid draws ") + layer_name(layer), double(rigid_prepass_draws)
-            );
-            stats::gauge(
-                std::string("prepass empty groups ") + layer_name(layer),
-                double(empty_prepass_groups)
-            );
+            stats::gauge(names.rigid_draws, double(rigid_prepass_draws));
+            stats::gauge(names.empty_groups, double(empty_prepass_groups));
         }
-        const auto name = std::string("pvs ") + layer_name(layer);
-        stats::gauge(name + " instances culled", static_cast<double>(pvs_rejected));
-        stats::gauge(
-            name + " primitive passes culled", static_cast<double>(pvs_primitives_rejected)
-        );
-        stats::gauge("pvs enabled", !pvs_off && !m_pvs.grid.empty() ? 1 : 0);
+        stats::gauge(names.pvs_instances, static_cast<double>(pvs_rejected));
+        stats::gauge(names.pvs_primitives, static_cast<double>(pvs_primitives_rejected));
+        stats::gauge("pvs enabled", !pvs_off && (!m_pvs.grid.empty() || m_pvs.game) ? 1 : 0);
     }
     if (cut) {
         glDisable(GL_CLIP_DISTANCE0);

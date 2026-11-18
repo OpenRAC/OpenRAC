@@ -27,26 +27,6 @@ static void water_marker(unsigned surface) {
     water_level_marker(1, surface);
 }
 
-void openrac_skip_ocean_quad(int skip);
-
-void game_FUN_L11_0030a908(gaddr moby) {
-    /* Preserve the original draw packets and keep the tag local to the ocean callback. */
-    const int enhanced = openrac_game_enhanced_water();
-    if (enhanced) {
-        water_level_marker(11, 1);
-    }
-    if (enhanced == 2) {
-        openrac_skip_ocean_quad(1);
-    }
-    game_FUN_L11_0030a908__game(moby);
-    if (enhanced == 2) {
-        openrac_skip_ocean_quad(0);
-    }
-    if (enhanced) {
-        water_level_marker(11, 0);
-    }
-}
-
 /* Snapshot shader UV parameters into harmless NOPs beside this layer's draw packets.
  * The original layer update still owns scroll wrapping and the animation counter. */
 static void water_uv_motion(gaddr layer) {

@@ -1,7 +1,15 @@
 #version 430 core
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Cull probe volumes against each screen tile's depth range.
+#ifdef OPENRAC_PROBE_TILES
+// The tile kernel: 8x8 lanes, each reducing a 2x2 block of the 16x16 tile in registers first, a
+// quarter of the shared-memory atomics; the same tiles and masks as 256 lanes of one pixel each.
+layout(local_size_x = 8, local_size_y = 8) in;
+const uint kLanes = 64u;
+#else
 layout(local_size_x = 16, local_size_y = 16) in;
+const uint kLanes = 256u;
+#endif
 
 // Per region: origin/atlas offset, spacing, then dimensions.
 layout(std140) uniform ProbeRegions {
@@ -104,7 +112,6 @@ void main() {
     ivec2 extent = textureSize(scene_depth, 0);
     ivec2 begin = ivec2(gl_WorkGroupID.xy) * 16;
     ivec2 end = min(begin + 16, extent);
-    ivec2 pixel = begin + ivec2(gl_LocalInvocationID.xy);
     if (lane == 0) {
         minimum_depth = floatBitsToUint(1.0);
         maximum_depth = 0u;
@@ -113,11 +120,26 @@ void main() {
         hit_words[lane] = 0u;
     }
     barrier();
-    if (all(lessThan(pixel, extent))) {
-        float d = texelFetch(scene_depth, pixel, 0).r;
-        if (d > 0.0) {
-            atomicMin(minimum_depth, floatBitsToUint(d));
-            atomicMax(maximum_depth, floatBitsToUint(d));
+    {
+        // Each lane's pixels; the bounds of the ones with geometry (depth above zero).
+        const int step = kLanes == 64u ? 2 : 1;
+        ivec2 first = begin + ivec2(gl_LocalInvocationID.xy) * step;
+        float lowest = 1.0, highest = 0.0;
+        for (int y = 0; y < step; ++y) {
+            for (int x = 0; x < step; ++x) {
+                ivec2 pixel = first + ivec2(x, y);
+                if (all(lessThan(pixel, extent))) {
+                    float d = texelFetch(scene_depth, pixel, 0).r;
+                    if (d > 0.0) {
+                        lowest = min(lowest, d);
+                        highest = max(highest, d);
+                    }
+                }
+            }
+        }
+        if (highest > 0.0) {
+            atomicMin(minimum_depth, floatBitsToUint(lowest));
+            atomicMax(maximum_depth, floatBitsToUint(highest));
         }
     }
     barrier();
@@ -135,8 +157,10 @@ void main() {
             planes[4] = planes[5] = vec4(0);
         }
         barrier();
-        if (lane < masks[0] && intersects_region(masks[1u + lane], planes)) {
-            atomicOr(hit_words[lane / 32], 1u << (lane % 32));
+        for (uint region = lane; region < masks[0]; region += kLanes) {
+            if (intersects_region(masks[1u + region], planes)) {
+                atomicOr(hit_words[region / 32u], 1u << (region % 32u));
+            }
         }
         barrier();
         if (lane < 4u) {
@@ -162,8 +186,10 @@ void main() {
             planes[5] = transform * vec4(0, 0, -1, uintBitsToFloat(maximum_depth) * 2.0 - 1.0);
         }
         barrier();
-        if (lane < masks[0] && intersects_region(masks[1u + lane], planes)) {
-            atomicOr(hit_words[lane / 32], 1u << (lane % 32));
+        for (uint region = lane; region < masks[0]; region += kLanes) {
+            if (intersects_region(masks[1u + region], planes)) {
+                atomicOr(hit_words[region / 32u], 1u << (region % 32u));
+            }
         }
         barrier();
     }

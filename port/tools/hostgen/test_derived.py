@@ -115,6 +115,25 @@ class Table(unittest.TestCase):
             (fx.source / "src" / "b.c").write_text("int g(void) { return r1_func_00120000(); }\n")
             self.assertEqual(derived.uncovered(fx.source, CFG, table), ["r1_func_00120000"])
 
+    def test_a_matched_functions_references_are_derived_names_too(self):
+        # rac2-decomp matched func_002F5FB8 with ref_L00_002F5FB8_* externs after the port's table
+        # was written: their function was a stub and nothing said so.
+        with tempfile.TemporaryDirectory() as d:
+            fx = Fixture(Path(d))
+            build = {"program": "boot", "values": {"r1_func_0011DB98": "0x0011f818"}}
+            table = derived.make_table(fx.source, CFG, build, "abc")
+            (fx.source / "src" / "c.c").write_text(
+                "extern int ref_L00_002F5FB8_04[];\n"
+                "extern int ref_002B6658_00;\n"
+                "extern float ref_L00_00424F98_03 SDATA(ref_L00_00424F98_03);\n"
+                "int h(void) { return ref_L00_002F5FB8_04[ref_002B6658_00]; }\n"
+                "int ref_count_00000000_xyz;\n")
+            self.assertEqual(derived.uncovered(fx.source, CFG, table),
+                             ["ref_002B6658_00", "ref_L00_002F5FB8_04", "ref_L00_00424F98_03"])
+            build["values"].update({"ref_L00_002F5FB8_04": "0x001ad4b8", "ref_002B6658_00": "0x001b0000",
+                                    "ref_L00_00424F98_03": "0x001b14c4"})
+            self.assertEqual(derived.uncovered(fx.source, CFG, derived.make_table(fx.source, CFG, build, "abc")), [])
+
     def test_write_and_check(self):
         with tempfile.TemporaryDirectory() as d:
             fx = Fixture(Path(d))
@@ -136,18 +155,31 @@ class Committed(unittest.TestCase):
     the copy written again from a build of that commit)."""
 
     def test_rac2_covers_its_c(self):
-        config = REPO / "port" / "game" / "rac2-ntsc" / "hostgen.json"
-        cfg = json.loads(config.read_text())
-        source = REPO / cfg["source"]
-        if not (source / "src").is_dir():
-            self.skipTest("no games/rac2/ntsc")
-        table = json.loads((config.parent / cfg["derived"]["table"]).read_text())
-        self.assertEqual(derived.uncovered(source, cfg, table), [])
+        # v1.01's table, and each other release's (its release table, release.py, in its names).
+        for game in ("rac2-ntsc", "rac2-pal", "rac2-ntsc2"):
+            config = REPO / "port" / "game" / game / "hostgen.json"
+            cfg = json.loads(config.read_text())
+            source = REPO / cfg["source"]
+            if not (source / "src").is_dir():
+                self.skipTest("no games/rac2/decomp")
+            table = json.loads((config.parent / cfg["derived"]["table"]).read_text())
+            with self.subTest(game=game):
+                self.assertEqual(derived.uncovered(source, cfg, table), [])
 
-    def test_only_rac2_has_one(self):
+    def test_only_rac2_and_rac3_have_one(self):
+        # rac3-ntsc's is its release table (release_rac3.py): the values of rac3-decomp's names
+        # that state no address of their own.
         games = sorted(p.parent.name for p in (REPO / "port" / "game").glob("*/hostgen.json")
                        if "derived" in json.loads(p.read_text()))
-        self.assertEqual(games, ["rac2-ntsc"])
+        self.assertEqual(games, ["rac2-ntsc", "rac2-ntsc2", "rac2-pal", "rac3-ntsc"])
+
+
+class SuffixedRac1Names(unittest.TestCase):
+    def test_a_rac1_name_with_its_place_is_derived(self):
+        # rac2-decomp writes one rac1 routine's calls as r1_func_0011CC38_002FC5C8: the name and the
+        # place it is called from. The whole name is the derived one, not its first part.
+        text = "int f(void) { return r1_func_0011CC38_002FC5C8() + r1_func_0011CC38(); }"
+        self.assertEqual(derived.DERIVED_NAME.findall(text), ["r1_func_0011CC38_002FC5C8", "r1_func_0011CC38"])
 
 
 if __name__ == "__main__":

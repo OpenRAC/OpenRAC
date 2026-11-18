@@ -91,7 +91,7 @@ def node_name(class_id: int, index: int, names: dict[int, str]) -> str:
     return f"{kind}_{index:04}"
 
 
-DECOMPILATION = Path(__file__).resolve().parents[1] / "games" / "rac1"
+DECOMPILATION = Path(__file__).resolve().parents[1] / "games" / "rac1" / "decomp"
 _UPDATE = re.compile(r"UpdateMoby_(\d+):([\d/]+)")
 _SYMBOL = re.compile(r"func_(?:L\d\d_)?[0-9A-F]{8}")
 _logic = None
@@ -143,7 +143,7 @@ def c_definitions(sources, symbol_of: dict[str, str]) -> tuple[dict, dict]:
 def moby_logic(level: int) -> dict[int, dict]:
     """class -> {"function", "file", "decompiled", "defined_as"} for the classes LEVEL updates: the function
     the game calls for each moby of the class every frame, where it is in the decompilation
-    (games/rac1), and whether it is C there yet. From that project's
+    (games/rac1/decomp), and whether it is C there yet. From that project's
     config/overlays/names.tsv (the UpdateMoby_<class> roles) and its src/. Empty when the
     decompilation is not in this checkout."""
     global _logic

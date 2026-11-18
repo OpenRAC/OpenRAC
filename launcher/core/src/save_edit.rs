@@ -7,10 +7,13 @@
 //!
 //! # The format
 //!
-//! Both rac1 discs (PAL `SCES_509.16`, US `SCUS_971.99`) write the same file: their descriptor
-//! tables (PAL `D_001A05C0` / `D_001A08C0`, US `0x1A04C0` / `0x1A07C0`) list the same chunks with
-//! the same ids and sizes, in the same order; only the addresses differ. So one decoder serves both,
-//! picked by the card's serial ([`edits_serial`]).
+//! All of rac1's discs (PAL `SCES_509.16`, v2.00 and v1.00, US `SCUS_971.99`, Japan `SCPS_150.37`)
+//! write the same file: their descriptor tables (PAL `D_001A05C0` / `D_001A08C0`, PAL v1.00
+//! `0x1A0440` / `0x1A0740`, US `0x1A04C0` / `0x1A07C0`, Japan `0x1A03C0` / `0x1A06C0`; 47 global and
+//! 11 level chunks) list the same chunks with the same ids and sizes, in the same order, and add
+//! up to the same section sizes (0x1530, 0xaa4); only the addresses differ. Read from each disc's
+//! executable, not run on the Japanese game. So one decoder serves all, picked by the card's
+//! serial ([`edits_serial`]).
 //!
 //! `saveN.bin` is the game's `memcard_MakeWholeSave` (US `src/storage/memory_card/
 //! memcard_make_whole_save.c`; PAL `src/game/memcard.c`):
@@ -641,7 +644,7 @@ pub fn can_land(p: usize) -> bool {
 /// Whether the editor knows the saves of the game with this disc serial: both Ratchet & Clank
 /// discs, which write the same format.
 pub fn edits_serial(serial: &str) -> bool {
-    matches!(serial, "SCES_509.16" | "SCUS_971.99")
+    matches!(serial, "SCES_509.16" | "SCUS_971.99" | "SCPS_150.37")
 }
 
 fn i32_at(b: &[u8], i: usize) -> i32 {
@@ -926,6 +929,29 @@ fn clock_text(clock: &[u8]) -> Option<String> {
     Some(format!("{:04}-{mo:02}-{d:02} {h:02}:{m:02}:{s:02}", 2000 + y))
 }
 
+/// Puts `bytes` in place of the save at `path` in one rename. They are written first to a hidden
+/// file beside the save's folder, never in it: the games count the files of their folder, and
+/// Going Commando takes a folder with anything more than its own for no save at all and offers
+/// to make a new one. The file is read back before the rename and removed on any failure, so
+/// nothing of the editor's is left in or beside the folder.
+pub fn replace_save(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let folder = path.parent().ok_or("the save has no folder")?;
+    let beside = folder.parent().ok_or("the save's folder has no card around it")?;
+    let name = |p: &Path| p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let tmp = beside.join(format!(".editing_{}_{}", name(folder), name(path)));
+    let done = fs::write(&tmp, bytes)
+        .map_err(|e| format!("could not write the save: {e}"))
+        .and_then(|()| match fs::read(&tmp) {
+            Ok(back) if back == bytes => Ok(()),
+            _ => Err("the save did not write back as it should; it was not replaced".to_string()),
+        })
+        .and_then(|()| fs::rename(&tmp, path).map_err(|e| format!("could not replace the save: {e}")));
+    if done.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    done
+}
+
 /// FNV-1a 64 of the bytes, as hex: enough to notice that the file changed under the page.
 pub fn fingerprint(bytes: &[u8]) -> String {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
@@ -1133,13 +1159,7 @@ pub fn write_save(
         return Err("the edited save did not read back as asked; nothing was written".into());
     }
     let backup = saves::backup_card(card_dir, Some(&format!("before_edit_slot{}", slot + 1)))?;
-    let tmp = path.with_file_name(format!(".save{slot}.bin.editing"));
-    fs::write(&tmp, &out).map_err(|e| format!("could not write the save: {e}"))?;
-    if fs::read(&tmp).ok().as_deref() != Some(&out[..]) {
-        let _ = fs::remove_file(&tmp);
-        return Err("the save did not write back as it should; it was not replaced".into());
-    }
-    fs::rename(&tmp, &path).map_err(|e| format!("could not replace the save: {e}"))?;
+    replace_save(&path, &out)?;
     Ok(WriteResult { backup, view: view(serial, slot, &out, &check) })
 }
 
@@ -1150,9 +1170,11 @@ pub fn write_save(
 /// the macOS bundle's folder) and the bundle's own name.
 fn program_marks(serial: &str) -> &'static [&'static str] {
     match serial {
-        "SCES_509.16" => &["openrac-rac1-pal", "Ratchet & Clank (PAL)"],
+        "SCES_509.16" => &["openrac-rac1-pal", "openrac-rac1-pal1", "Ratchet & Clank (PAL)"],
         "SCUS_971.99" => &["openrac-rac1-ntsc", "Ratchet & Clank (NTSC)"],
-        "SCUS_972.68" => &["openrac-rac2-ntsc", "Ratchet & Clank - Going Commando (NTSC)"],
+        "SCPS_150.37" => &["openrac-rac1-jp", "Ratchet & Clank (Japan)"],
+        "SCUS_972.68" => &["openrac-rac2-ntsc", "openrac-rac2-ntsc2", "Ratchet & Clank - Going Commando (NTSC)"],
+        "SCES_516.07" => &["openrac-rac2-pal", "Ratchet & Clank - Going Commando (PAL)"],
         _ => &[],
     }
 }
@@ -1634,7 +1656,12 @@ mod tests {
         assert_ne!(r2.backup.name, r.backup.name);
         let kept = fs::read(Path::new(&r.backup.path).join("BESCES-50916RATCHET/save1.bin")).unwrap();
         assert_eq!(SaveFile::parse(&kept).unwrap().fields().bolts, 0);
-        assert!(!card.path().join("BESCES-50916RATCHET/.save1.bin.editing").exists());
+        let left: Vec<_> = fs::read_dir(card.path().join("BESCES-50916RATCHET")).unwrap().flatten().collect();
+        assert!(left.iter().all(|e| !e.file_name().to_string_lossy().starts_with('.')), "nothing of the editor's");
+        assert!(fs::read_dir(card.path())
+            .unwrap()
+            .flatten()
+            .all(|e| !e.file_name().to_string_lossy().starts_with(".editing")));
     }
 
     #[test]

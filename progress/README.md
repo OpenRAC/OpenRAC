@@ -6,19 +6,28 @@ are comparable within a game, not between games.
 
 | Game | Version | Code matched | Functions | Fuzzy | Report date |
 |---|---|---:|---:|---:|---|
-| Ratchet & Clank | SCES_509.16 ([`games/rac1`](../games/rac1)) | 100.00% (3,713,096 / 3,713,096 bytes) | 5,116 / 5,116 | 100.00% | 2026-10-28 |
-| Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc`](../games/rac1/ntsc)) | 100.00% (3,547,932 / 3,547,932 bytes) | 4,244 / 4,244 | 100.00% | 2026-10-31 |
-| Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 84.74% (4,684,272 / 5,527,936 bytes) | 7,760 / 8,579 | 84.74% | 2026-11-01 |
-| Ratchet & Clank: Going Commando | SCES_516.07 (not started) | – | – | – | – |
-| Ratchet & Clank: Up Your Arsenal | SCUS_973.53 ([`games/rac3/ntsc`](../games/rac3/ntsc)) | 1.28% (164,764 / 12,838,776 bytes) | 1,292 / 31,316 | 1.28% | 2026-10-03 |
-| Ratchet: Deadlocked | SCUS_974.65 ([`games/rac4/ntsc`](../games/rac4/ntsc)) | 0.51% (26,572 / 5,175,440 bytes) | 243 / 15,056 | 0.51% | 2026-10-05 |
-| Ratchet & Clank: Size Matters | SCUS_976.15 ([`games/rac5/ntsc`](../games/rac5/ntsc)) | – | – | – | – |
-| Ratchet & Clank: Secret Agent Clank | SCUS_976.23 ([`games/rac6/ntsc`](../games/rac6/ntsc)) | – | – | – | – |
+| Ratchet & Clank | SCES_509.16 ([`games/rac1/decomp`](../games/rac1/decomp)) | 100.00% (3,713,584 / 3,713,584 bytes) | 5,118 / 5,118 | 100.00% | 2026-11-05 |
+| Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc-decomp`](../games/rac1/ntsc-decomp)) | 100.00% (3,547,932 / 3,547,932 bytes) | 4,244 / 4,244 | 100.00% | 2026-10-31 |
+| Ratchet & Clank | SCES_509.16_v1 ([`games/rac1/decomp`](../games/rac1/decomp)) | 100.00% (3,693,664 / 3,693,664 bytes) | 5,082 / 5,082 | 100.00% | 2026-11-05 |
+| Ratchet & Clank | SCPS_150.37 ([`games/rac1/decomp`](../games/rac1/decomp)) | 100.00% (3,706,260 / 3,706,260 bytes) | 5,101 / 5,101 | 100.00% | 2026-11-05 |
+| Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/decomp`](../games/rac2/decomp)) | 95.64% (5,283,220 / 5,524,060 bytes) | 8,410 / 8,527 | 95.64% | 2026-11-07 |
+| Ratchet & Clank: Going Commando | SCES_516.07 ([`games/rac2/decomp`](../games/rac2/decomp)) | 95.19% (5,423,520 / 5,697,584 bytes) | 8,470 / 8,611 | 95.19% | 2026-11-07 |
+| Ratchet & Clank: Going Commando | SCUS_972.68_v2 ([`games/rac2/decomp`](../games/rac2/decomp)) | 95.45% (5,324,696 / 5,578,452 bytes) | 8,446 / 8,581 | 95.45% | 2026-11-07 |
+| Ratchet & Clank: Up Your Arsenal | SCUS_973.53 ([`games/rac3/decomp`](../games/rac3/decomp)) | 10.01% (751,972 / 7,508,980 bytes) | 6,401 / 16,222 | 10.73% | 2026-11-07 |
+| Ratchet & Clank: Up Your Arsenal | SCES_524.56 ([`games/rac3/decomp`](../games/rac3/decomp)) | 10.42% (786,100 / 7,546,948 bytes) | 6,499 / 16,164 | 10.42% | 2026-11-07 |
+| Ratchet: Deadlocked | SCUS_974.65 ([`games/rac4/decomp`](../games/rac4/decomp)) | 0.51% (26,572 / 5,175,440 bytes) | 243 / 15,056 | 0.51% | 2026-10-05 |
+| Ratchet & Clank: Size Matters | SCUS_976.15 ([`games/rac5/decomp`](../games/rac5/decomp)) | – | – | – | – |
+| Ratchet & Clank: Secret Agent Clank | SCUS_976.23 ([`games/rac6/decomp`](../games/rac6/decomp)) | – | – | – | – |
 
 ## Notes
 
 - **rac1/pal**: The boot executable and all 19 level programs. Handwritten assembly and linker remnants count as finished; staged near misses (nonmatching/) give the fuzzy figure.
 - **rac1/ntsc**: Lombyte commits no report: its CI publishes one on the project's progress branch, which `openrac.py progress --fetch` copies to progress/sources/. Byte-weighted over the boot executable and the 19 level programs.
+- **rac1/pal1**: The boot executable and all 19 level programs, counted with the primary's rules (config/versions/pal_v1/functions.tsv): a function is finished when the shared C, or this release's own definition in src/versions/pal_v1/, builds its bytes (tools/version_check.py).
+- **rac1/jp**: The boot executable and all 19 level programs, counted with the primary's rules (config/versions/jp/functions.tsv): a function is finished when the shared C, or this release's own definition in src/versions/jp/, builds its bytes (tools/version_check.py).
 - **rac2/ntsc**: Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail.
-- **rac3/ntsc**: The committed report is from 2026-10-01. At bfd8278, tools/pr_check.py --target all counts frontbin 1,800 of 1,867 entries final (1,419 functions in C), boot_elf 2,265 of 2,809 (1,580 in C) and i5bootn 191 of 199 (35 in C); the level programs are counted but not compiled yet.
+- **rac2/pal**: Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail.
+- **rac2/ntsc2**: Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail.
+- **rac3/ntsc**: rac3-decomp's NTSC-U report (SCUS_973.53_report): a C function counts as final only when every NTSC-U program that has it builds it from C (docs/versions.md, The counts).
+- **rac3/pal**: rac3-decomp's PAL report: the three core programs and the 49 level programs; a function counts as matched when its C builds into a program that equals retail.
 - **rac4/ntsc**: Functions are compared one by one with most 16-bit immediates masked (symbols, struct offsets and small constants are not checked), and nothing is linked yet, so this is a looser proof than the other games'. Overlay code identical to resident code is counted once.

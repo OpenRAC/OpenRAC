@@ -32,7 +32,7 @@
 /* The flag that says this is the PAL game (its rows are further apart). */
 #define PAL_LINES RAC1_ADDR(0x0015EE80u)
 
-/* MenuScreen (games/rac1/include/menu.h): its width at +0x20. */
+/* MenuScreen (games/rac1/decomp/include/menu.h): its width at +0x20. */
 #define MENU_WIDTH 0x20u
 
 /* The badge, in the colour the game gives a slot it is not pointing at. */

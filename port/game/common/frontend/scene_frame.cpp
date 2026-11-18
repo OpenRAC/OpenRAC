@@ -27,9 +27,11 @@
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "openrac/game_host.h"
-#include "renderer/direct.h"
-#include "renderer/gl.h"
-#include "renderer/precise_depth.h"
+#include "program/program.h"
+#include "renderer/direct/direct.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/precise_depth.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -152,16 +154,21 @@ float prepare_target(SceneFrame& frame) {
 
     auto& output = frame.output;
     const auto& graphics = frame.graphics;
-    frame_size(
-        output.box.width, output.box.height, graphics.render_scale, output.width, output.height
-    );
+    constexpr int kNativeRenderScale = 100;  // Percent of the output picture.
+    int render_scale = graphics.render_scale;
+    // Cap the enhanced render target while preserving the player's scale setting.
+    if (graphics.enhanced_graphics && enhanced_graphics_available()) {
+        render_scale = std::min(render_scale, kNativeRenderScale);
+    }
+    frame_size(output.box.width, output.box.height, render_scale, output.width, output.height);
     // Temporal reconstruction supplies antialiasing; native rendering keeps the saved MSAA preference.
     const int samples =
         frame.temporal ? 1 : std::clamp(graphics.msaa, 1, renderer::FrameBuffer::max_samples());
     resize_target(frame, samples);
 
-    // A wider picture preserves the central television framing.
-    if (output.aspect > kTvAspect && output.box.width > 0 && output.box.height > 0) {
+    // A wider picture preserves the central television framing; a movie's fills the width.
+    if (!frame.scene.movie && output.aspect > kTvAspect && output.box.width > 0
+        && output.box.height > 0) {
         return std::min(
             1.0f,
             kTvAspect * static_cast<float>(output.box.height) / static_cast<float>(output.box.width)
@@ -187,7 +194,24 @@ void set_lighting(SceneFrame& frame) {
     }
 
     const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
+    std::vector<renderer::PointEmitter> emitters;
+    const auto& orb_light = graphics.nanotech_light;
+    if (enhanced && orb_light.enabled && orb_light.brightness > 0.0f) {
+        auto radiance = orb_light.colour;
+        for (float& channel : radiance) {
+            channel *= orb_light.brightness;
+        }
+        emitters.reserve(scene.state.nanotech_orbs.size());
+        for (const auto& position : scene.state.nanotech_orbs) {
+            emitters.push_back({position, radiance, orb_light.range});
+        }
+    }
+    owner.scene.set_point_emitters(std::move(emitters));
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
+    // The lossy render shortcuts follow the setting; High (and the base game) draws in full.
+    renderer::render_opt::set_effects_detail(
+        enhanced ? graphics.effects_detail : renderer::render_opt::EffectsDetail::High
+    );
     if (auto* lighting = owner.scene.level_lighting()) {
         lighting->set_material_overrides(enhanced);
     }
@@ -199,12 +223,10 @@ void set_lighting(SceneFrame& frame) {
         graphics.sweep_translucent_unlit,
         graphics.sweep_translucent_full
     );
-    owner.scene.set_gameplay_rim(
-        enhanced && graphics.rim_light, graphics.rim_light_strength, graphics.rim_light_falloff
-    );
-    owner.scene.set_gameplay_rim_lift(
-        graphics.rim_shadow_lift, graphics.rim_lift_exponent, graphics.rim_lift_max_gain
-    );
+    owner.scene.set_sweep_moby_blended_off(graphics.sweep_moby_blended_off);
+    owner.scene.set_sweep_one_triangle(graphics.sweep_one_triangle);
+    owner.scene.set_gameplay_rim(enhanced && !graphics.sweep_rim_light_off, 0.30f, 6.46f);
+    owner.scene.set_gameplay_rim_lift(enhanced, 0.09f, 7.1f);
     owner.scene.set_probe_bias(graphics.probe_normal_bias, graphics.probe_view_bias);
     if (auto* lighting = owner.scene.level_lighting()) {
         lighting->set_sunlight_direction(enhanced ? graphics.sunlight_direction() : std::nullopt);
@@ -214,6 +236,7 @@ void set_lighting(SceneFrame& frame) {
     owner.scene.set_medial_axis_debug(graphics.medial_axis_debug);
     owner.scene.set_environment_probe_debug(graphics.environment_probe_debug);
     input.shadow_quality = graphics.shadow_quality;
+    input.shadow_filter = graphics.shadow_filter;
     input.volumetric_quality = graphics.volumetric_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
@@ -236,6 +259,12 @@ void set_buckets(SceneFrame& frame) {
     State& owner = frame.owner;
     const Kept& scene = frame.scene;
     const bool has_camera = frame.has_camera;
+    static const bool& opaque_effects_off = stats::probe(
+        "OPENRAC_OPAQUE_EFFECTS_OFF", "Reference: draw opaque effects in their original passes"
+    );
+    frame.input.opaque_effects =
+        !opaque_effects_off && owner.game.starts_with("rac1-") && has_camera
+        && (scene.draws & (1u << static_cast<unsigned>(renderer::Bucket::Ties))) != 0;
 
     // Native HUD remains available even when the game submits no world.
     for (auto& bucket : owner.renderer
@@ -368,10 +397,14 @@ void set_camera(SceneFrame& frame) {
     set_view_opened(opened);
     if (has_camera) {
         owner.debug_camera.apply(input, frame.output.camera_debug, scene.level);
+        frame.output.freecam = frame.output.camera_debug.settings.enabled;
+        frame.output.camera_level = scene.level;
     }
     const auto& visibility_camera = input.culling_camera ? *input.culling_camera : input.camera;
     owner.scene.choose_scenery(
-        frame.graphics.original_lod, visibility_camera.position, visibility_camera.projection
+        frame.graphics.draw_distance_scale(),
+        visibility_camera.position,
+        visibility_camera.projection
     );
     const bool had_probes = owner.scene.probe_data_available();
     owner.scene.update_probe_regions(input.camera);
@@ -420,18 +453,32 @@ bool draw_world(SceneFrame& frame) {
         target.resolves_itself = owner.frame.resolves_itself();
         target.wide_2d = picture_scale < 1.0f && graphics.hud == settings::Hud::Edges;
 
-        const bool grade_colour = graphics.agx_preview && graphics.enhanced_graphics
-                                  && enhanced_graphics_available() && scene.has_camera
-                                  && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
+        const bool enhanced_world_colour = graphics.enhanced_graphics
+                                           && enhanced_graphics_available() && scene.has_camera
+                                           && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
+        const bool bloom_colour =
+            enhanced_world_colour && graphics.bloom.enabled && graphics.bloom.strength > 0.0f;
+        const bool grade_colour = enhanced_world_colour && graphics.agx_preview;
+        const bool finish_world_colour = bloom_colour || grade_colour;
         std::function<void()> finish_colour;
-        // Temporal resolve can compose this known colour-only operation before late world and HUD work.
-        if (grade_colour) {
-            finish_colour = [&owner, exposure = graphics.adjusted_agx_exposure()] {
-                crash::breadcrumb("tone mapping");
-                owner.agx.apply(owner.frame, exposure);
+        // Bloom and optional tone mapping are colour-only and run before late world/HUD work.
+        if (finish_world_colour) {
+            finish_colour = [&owner,
+                             bloom_colour,
+                             bloom = graphics.bloom,
+                             grade_colour,
+                             exposure = graphics.adjusted_agx_exposure()] {
+                if (bloom_colour) {
+                    crash::breadcrumb("bloom");
+                    owner.bloom.apply(owner.frame, bloom);
+                }
+                if (grade_colour) {
+                    crash::breadcrumb("tone mapping");
+                    owner.agx.apply(owner.frame, exposure);
+                }
             };
         }
-        bool graded_by_temporal = false;
+        bool colour_finished_by_temporal = false;
 
         // Loading/menu snapshots bypass history; active world frames resolve before the final HUD bucket.
         if (temporal_wanted && !input.keep_colour) {
@@ -452,7 +499,7 @@ bool draw_world(SceneFrame& frame) {
             const bool active = owner.temporal->begin(
                 temporal, graphics.temporal_quality, graphics.temporal_sharpness, temporal_error
             );
-            graded_by_temporal = active && grade_colour;
+            colour_finished_by_temporal = active && finish_world_colour;
 
             // The temporal module reports recoverable setup failures without throwing.
             if (!active && !temporal_error.empty()) {
@@ -473,14 +520,14 @@ bool draw_world(SceneFrame& frame) {
                     owner.frame,
                     view_projection,
                     scene.haze,
-                    static_cast<float>(scene.frame) / 60.0f
+                    static_cast<float>(static_cast<double>(scene.frame) / program::tick_rate())
                 );
                 if (before_hud) {
                     before_hud();
                 }
             };
         }
-        if (grade_colour && !graded_by_temporal) {
+        if (finish_world_colour && !colour_finished_by_temporal) {
             auto before_hud = std::move(input.before_hud);
             input.before_hud = [finish_colour = std::move(finish_colour),
                                 before_hud = std::move(before_hud)] {
@@ -540,7 +587,9 @@ void render_scene(
 
     output.shown = owner.frame.resolved();
     output.camera = frame.input.camera;
+    output.has_camera = frame.has_camera;
     output.tick = frame.input.frame;
+    output.enhanced_graphics = graphics.enhanced_graphics && enhanced_graphics_available();
     output.finished = std::chrono::steady_clock::now();
     output.scene_seconds = std::chrono::duration<double>(scene_done - output.started).count();
     output.record_seconds = std::chrono::duration<double>(recorded - scene_done).count();

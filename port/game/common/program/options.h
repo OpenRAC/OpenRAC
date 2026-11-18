@@ -26,6 +26,8 @@ struct Options {
     bool keep_going = true;
     bool window = false;
     bool skip_movies = false;  // development probes; not movie-playback validation
+    bool unlock_all_weapons = false;
+    bool unlock_all_gadgets = false;
     fs::path levels;           // the extracted levels the window draws (level_00, ...)
     fs::path
         mods;  // levels edited in Godot and packed (editor/pack.py), read in place of the disc's
@@ -45,6 +47,8 @@ struct Options {
     bool debug_overlay = false;  // the debug overlay shown from the start (F3 shows and hides it)
     bool check_levels =
         false;  // read every extracted level as the window would, say what is wrong, and stop
+    fs::path asm_part;  // the part of the game built from the disc (program/asm_part.cpp), if not
+                        // in its place in the data folder
 };
 
 // OpenRAC's folder in the player's data home, where the launcher keeps cards and settings:

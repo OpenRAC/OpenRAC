@@ -14,7 +14,7 @@
 #include <string>
 
 #include "platform/window.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::test {
 

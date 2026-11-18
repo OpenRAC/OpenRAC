@@ -63,6 +63,30 @@ const openrac_game_tools* tools() {
     return openrac_game_tools_host;
 }
 
+void apply_unlocks(std::int64_t since) {
+    static bool done = false;
+    if (done || (!g_options.unlock_all_weapons && !g_options.unlock_all_gadgets)) {
+        return;
+    }
+    const auto* play = openrac_game_play_host;
+    std::int32_t level = -1;
+    if (since < 0
+        && (g_window || !play || !play->phase
+            || play->phase(&level) != OPENRAC_GAME_PHASE_PLAYING)) {
+        return;
+    }
+    done = true;
+    const char* what = g_options.unlock_all_weapons
+                           ? (g_options.unlock_all_gadgets ? "all" : "weapons")
+                           : "gadgets";
+    const int changed = tools() && tools()->give ? tools()->give(what) : -1;
+    if (changed < 0) {
+        log::warn("This game cannot unlock {} from the command line", what);
+    } else {
+        log::info("Inventory unlock: {}, {} items granted", what, changed);
+    }
+}
+
 // OPENRAC_GIVE=WHAT[@FRAME],...: each entry once, FRAME frames after control (0 by default).
 void apply_give(std::int64_t since) {
     static const std::optional<std::string> script = env_string(env::Var::Give);
@@ -220,6 +244,7 @@ void run_tools() {
     const int level = openrac_game_loaded_overlay();
     runtime::rearm_soft_faults();
     check_stuck(level, since);
+    apply_unlocks(since);
     apply_give(since);
     apply_teleports(since);
 

@@ -1,8 +1,9 @@
-// What a player can do with a game right now: one answer, used by the library's
-// tile and the game's page, so the main button says and does the same thing in both.
+// What a player can do with a game right now: one answer, used by Android's disc
+// shelf and the game's page, so the main button says and does the same thing in both.
 import type { ActionView, GameView, VersionView } from "./api";
 import type { IconName } from "$components/Icon.svelte";
 import { onAndroid, pickFolder, pickIso } from "./api";
+import { onIOS } from "./ios";
 import {
   acceptWarning,
   app,
@@ -75,11 +76,16 @@ export function isPlaying(v: VersionView): boolean {
 const action = (v: VersionView, id: string): ActionView | null =>
   v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
 
-/** The image of GAME in the player's games folder, if it holds one: a developer's chosen one
- *  when the folder holds more than one of its discs. */
-export function foundDisc(game: string) {
-  const chosen = choiceFor(app.discChoices, game)?.chosen;
-  return app.discs.find((d) => d.game === game && (!chosen || d.version === chosen)) ?? null;
+/** The image of GAME to set it up from: the one in the player's games folder, if it holds one;
+ *  a developer's chosen disc when the launcher knows more than one, from the games folder or the
+ *  image it was set up from before. */
+export function foundDisc(game: string): { path: string; inFolder: boolean } | null {
+  const choice = choiceFor(app.discChoices, game);
+  const chosen = choice?.chosen;
+  const found = app.discs.find((d) => d.game === game && (!chosen || d.version === chosen));
+  if (found) return { path: found.path, inFolder: true };
+  const picked = choice ? choice.images[choice.chosen] : undefined;
+  return picked ? { path: picked, inFolder: false } : null;
 }
 
 const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path;
@@ -175,7 +181,27 @@ export function rebuildSteps(v: VersionView): ActionView[] | null {
   if (missingProgram(v)) return null;
   const levels = action(v, "port-levels");
   const check = action(v, "port-levels-check");
-  return levels?.runnable ? [levels, ...(check ? [check] : [])] : null;
+  const part = action(v, "port-part");
+  return levels?.runnable ? [...(part?.runnable ? [part] : []), levels, ...(check ? [check] : [])] : null;
+}
+
+/**
+ * What the "an update is ready" notice runs for a game built by an older OpenRAC: the build from
+ * scratch (port-rebuild), or with the Incremental builds setting (developers) the incremental one
+ * (port-build), unless the build folder is unusable (VersionView.portCleanReason: no stamp from
+ * OpenRAC's build, another OpenRAC version), when it is still from scratch and says why. Null when
+ * neither can run.
+ */
+export function updateStep(
+  v: VersionView,
+  incremental: boolean,
+): { action: ActionView; incremental: boolean; cleanBecause: string | null } | null {
+  const full = action(v, "port-rebuild");
+  const build = action(v, "port-build");
+  const usable = (a: ActionView | null): a is ActionView => !!a?.thisPlatform && a.runnable;
+  const cleanBecause = incremental && v.portCleanReason && usable(full) ? v.portCleanReason : null;
+  if (incremental && !cleanBecause && usable(build)) return { action: build, incremental: true, cleanBecause: null };
+  return usable(full) ? { action: full, incremental: false, cleanBecause } : null;
 }
 
 export function playerState(game: GameView, v: VersionView): PlayerState {
@@ -183,10 +209,16 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
   const build = action(v, "port-build");
   const levels = action(v, "port-levels");
   const check = action(v, "port-levels-check");
+  /** Android: the game's code still in assembly, translated from the disc and compiled on the
+   *  device (tools/asm_part.py), as a desktop's Build the game does with the whole game. */
+  const part = action(v, "port-part");
   const setUp = game.install?.extracted ?? null;
   const other = setUp && setUp.version !== v.key ? (game.versions.find((o) => o.key === setUp.version) ?? null) : null;
   const installing = jobs.list.find((j) => j.actionId === `install:${v.game}` && live(j)) ?? null;
   const base = { primary: false, disabled: false, job: null as Job | null };
+  /** Android: a game whose Play the APK leaves out, as it carries no library for it. */
+  const notInApp = onAndroid && !play && v.actions.some((a) => a.id === "play" && a.state !== "planned");
+  const noBuildHint = `This app does not carry ${game.title}: an APK built with it (tools/build_android.py) builds it from your disc.`;
 
   if (installing) {
     return {
@@ -200,6 +232,18 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "warn",
     };
   }
+  if (onIOS && !play) {
+    return {
+      ...base,
+      kind: "unavailable",
+      label: "Not available on iOS",
+      icon: "play",
+      hint: "This iOS version does not include an engine for this game.",
+      disabled: true,
+      status: "Not available on iOS",
+      tone: "info",
+    };
+  }
   if (!setUp) {
     const planned = !play || play.state === "planned";
     const found = foundDisc(v.game);
@@ -208,11 +252,13 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       kind: "set-up",
       label: found ? "Set up" : "Set up from your disc",
       icon: "disc",
-      hint: planned
-        ? "This game cannot be played yet. You can set your disc up now, ready for when it can."
-        : found
-          ? `Found in your games folder: ${fileName(found.path)}`
-          : "Choose the image (.iso or .chd) of your own disc. OpenRAC never downloads a game.",
+      hint: notInApp
+        ? `${noBuildHint} You can set your disc up now.`
+        : planned
+          ? "This game cannot be played yet. You can set your disc up now, ready for when it can."
+          : found
+            ? `${found.inFolder ? "Found in your games folder" : "Your disc image"}: ${fileName(found.path)}`
+            : "Choose the image (.iso or .chd) of your own disc. OpenRAC never downloads a game.",
       primary: !planned,
       status: planned ? "Not playable yet" : "Not set up",
       tone: planned ? "info" : "warn",
@@ -227,6 +273,18 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       hint: "Your disc is set up. This game's PC port is not ready yet.",
       disabled: true,
       status: "Not playable yet",
+      tone: "info",
+    };
+  }
+  if (notInApp) {
+    return {
+      ...base,
+      kind: "unavailable",
+      label: "Not playable here yet",
+      icon: "play",
+      hint: noBuildHint,
+      disabled: true,
+      status: "Not playable here yet",
       tone: "info",
     };
   }
@@ -269,7 +327,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "ok",
     };
   }
-  const building = jobOf(v, ["port-build", "port-rebuild", "port-levels", "port-levels-check"]);
+  const building = jobOf(v, ["port-build", "port-rebuild", "port-part", "port-levels", "port-levels-check"]);
   if (building) {
     return {
       ...base,
@@ -279,7 +337,10 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       hint: phaseLabel(building),
       job: building,
       status:
-        building.actionId.startsWith("port-") && building.actionId.endsWith("build") ? "Building…" : "Getting ready…",
+        building.actionId === "port-part" ||
+        (building.actionId.startsWith("port-") && building.actionId.endsWith("build"))
+          ? "Building…"
+          : "Getting ready…",
       tone: "warn",
     };
   }
@@ -294,6 +355,18 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       primary: true,
       status: "Ready to play",
       tone: "ok",
+    };
+  }
+  if (part?.runnable && !part.done) {
+    return {
+      ...base,
+      kind: "build",
+      label: "Build and play",
+      icon: "build",
+      hint: "Makes the game's code that is still in assembly from your disc and compiles it on this device (nothing is downloaded), reads its levels, then starts it. A few minutes, the first time only.",
+      primary: true,
+      status: "Needs building",
+      tone: "warn",
     };
   }
   // The levels are ready when the game itself has read every one of them (the check's stamp),
@@ -399,6 +472,11 @@ export async function prepare(v: VersionView): Promise<boolean> {
   const build = action(v, "port-build");
   if (build?.runnable && !action(v, "play")?.done) {
     if (!(await runChain(scope, [build]))) return false;
+    await refresh();
+  }
+  const part = action(freshVersion(v), "port-part");
+  if (part?.runnable && !part.done) {
+    if (!(await runChain(scope, [part]))) return false;
     await refresh();
   }
   const now = freshVersion(v);
@@ -538,4 +616,20 @@ async function play(v: VersionView): Promise<void> {
     return;
   }
   await run({ kind: "version", key: v.key }, start);
+}
+
+/** Whether a version has a port to play (its Play is not only planned). */
+export function hasPort(v: VersionView | null): boolean {
+  return v?.actions.some((a) => a.id === "play" && a.state !== "planned") ?? false;
+}
+
+/** What Play warns of before it starts (actions.json `warning`), on this platform; null for none. */
+export function playWarning(v: VersionView | null): string | null {
+  return v?.actions.find((a) => a.id === "play" && a.thisPlatform)?.warning ?? null;
+}
+
+/** Whether the next step can be taken from beside a disc: on Android the game's page has no
+ *  button for it, so every step shows there, a game not playable yet's set-up too. */
+export function offersStep(next: PlayerState | null): boolean {
+  return !!next && !next.disabled && next.kind !== "installing";
 }

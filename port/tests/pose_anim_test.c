@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2026 the OpenRAC contributors */
-/* A posed moby's animation (rac1/host/pose_anim.h), against a moby that animates as the game's do
+/* A posed moby's animation (openrac/pose_anim.h), against a moby that animates as the game's do
  * (its time to the next key on by its speed times the key's length each tick, round the seq):
  * - a new seq is blended into, a blend plays on at its own speed, a moby far from the pose is put
  *   there;
@@ -9,12 +9,13 @@
  * - at the end of a seq that plays once, the moby ahead of the poses (as it comes out of its
  *   blend) does not run round into the seq's start;
  * - while the sender blends, the moby waits on the key the blend goes to;
- * - running with the poses, it keeps to them within a fraction of a key. */
+ * - running with the poses, it keeps to them within a fraction of a key;
+ * - a pose's velocity is a tick's move by the port's 60 ticks a second on every disc. */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../game/rac1/host/pose_anim.h"
+#include "openrac/pose_anim.h"
 
 #define CHECK(c)                                                                                   \
     do {                                                                                           \
@@ -153,7 +154,15 @@ static void the_sender_blends(void) {
     CHECK(m.speed > 0.0f);
 }
 
+/* A tick's move at 60 ticks a second, whichever disc's video rate. */
+static void a_velocity(void) {
+    CHECK(POSE_TICKS_A_SECOND == 60);
+    CHECK(pose_velocity(0.25f) == 15.0f);
+    CHECK(pose_velocity(-0.1f) == -0.1f * 60.0f);
+}
+
 int main(void) {
+    a_velocity();
     the_actions();
     a_stall();
     the_end_of_a_seq_that_plays_once();

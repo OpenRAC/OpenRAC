@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
+<!-- Original vector drawing after the PS2 OmniWrench 8000's silhouette. -->
+<!-- Reference: ratchet-galaxy.com/en/games/ps2/ratchet-and-clank/inventory/weapons/omniwrench-8000 -->
+<g transform="scale(0.16) translate(-640,-360)">
+  <path d="M400,563 Q413,590 477,605 L564,564 L590,447 L542,426" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" fill-opacity="0.75" stroke-opacity="0.75"/>
+  <g transform="translate(408,550) rotate(-42.82)">
+    <rect x="-8" y="-14" width="316" height="28" rx="10" fill="#fff" fill-opacity="0.75"/>
+    <path d="M0,-12 L308,-12 L308,-3 L0,-3 Z" fill="#fff"/>
+    <rect x="300" y="-9" width="50" height="18" rx="2" fill="#fff"/>
+    <rect x="274" y="-21" width="16" height="42" rx="3" fill="#fff"/>
+    <rect x="312" y="-17" width="12" height="34" rx="3" fill="#fff"/>
+  </g>
+  <path d="M752,100 L636,147 L602,174 L567,224 L558,260 L579,294 L748,112 Z" fill="#fff"/>
+  <path d="M748,112 L787,132 L622,303 L579,294 Z" fill="#fff" fill-opacity="0.6"/>
+  <path d="M748,325 L763,310 L786,331 L770,351 L741,367 L726,354 Z" fill="#fff" fill-opacity="0.7"/>
+  <path d="M675,219 L690,217 L777,312 L729,356 L699,350 L686,342 L662,348 L646,327 L647,308 L654,292 L641,272 L643,250 Z M716,285 A22,22 0 1 0 672,285 A22,22 0 1 0 716,285 Z" fill="#fff" fill-rule="evenodd"/>
+  <path d="M673,280 A22,22 0 0 1 715,285 L673,280 Z M673,290 L714,295 A22,22 0 0 1 673,290 Z" fill="#fff" fill-opacity="0.65"/>
+  <path d="M872,235 L882,242 L881,379 L735,477 L664,427 Z" fill="#fff"/>
+  <path d="M882,242 L901,257 L901,385 L885,400 L735,485 L735,477 L881,379 Z" fill="#fff" fill-opacity="0.6"/>
+  <path d="M735,477 L885,391 L878,414 L851,418 L841,433 L819,438 L808,451 L785,456 L776,475 L735,485 Z" fill="#fff" fill-opacity="0.8"/>
+  <circle cx="539" cy="427" r="13" fill="#fff"/>
+  <circle cx="400" cy="563" r="11" fill="#fff"/>
+</g>
+</svg>

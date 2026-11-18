@@ -5,9 +5,14 @@
 //
 // Adding a command: the Rust function, its name in generate_handler!, a
 // wrapper and its types here, and a case in mock.ts (docs/ARCHITECTURE.md).
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { confirm, open } from "@tauri-apps/plugin-dialog";
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { listen as tauriListen, type UnlistenFn } from "@tauri-apps/api/event";
+import { confirm as tauriConfirm, open as tauriOpen } from "@tauri-apps/plugin-dialog";
+import { onIOS, iosInvoke, iosListen, iosOpen, iosConfirm } from "./ios";
+const invoke: typeof tauriInvoke = onIOS ? iosInvoke : tauriInvoke;
+const listen: typeof tauriListen = onIOS ? (iosListen as typeof tauriListen) : tauriListen;
+const open: typeof tauriOpen = onIOS ? (iosOpen as typeof tauriOpen) : tauriOpen;
+const confirm: typeof tauriConfirm = onIOS ? iosConfirm : tauriConfirm;
 import { REPO_URL } from "./links";
 import type { BackgroundStatus } from "./progress";
 import type { ActionArea } from "./generated/ActionArea";
@@ -28,7 +33,17 @@ import type { Differences } from "./generated/Differences";
 import type { DiscChoice } from "./generated/DiscChoice";
 import type { DiscState } from "./generated/DiscState";
 import type { EnhancedView } from "./generated/EnhancedView";
+import type { ToolRoot } from "./generated/ToolRoot";
+import type { ToolFile } from "./generated/ToolFile";
 import type { FoundDisc } from "./generated/FoundDisc";
+import type { Applied } from "./generated/Applied";
+import type { Choices } from "./generated/Choices";
+import type { ModProfile } from "./generated/ModProfile";
+import type { Review } from "./generated/Review";
+import type { ReviewMod } from "./generated/ReviewMod";
+import type { ShareMod } from "./generated/ShareMod";
+import type { SharePreview } from "./generated/SharePreview";
+import type { Shared } from "./generated/Shared";
 import type { GameSaveStatus } from "./generated/GameSaveStatus";
 import type { GameView } from "./generated/GameView";
 import type { ImportedSaves } from "./generated/ImportedSaves";
@@ -72,6 +87,8 @@ import type { SaveView } from "./generated/SaveView";
 import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
 import type { Rac2SaveView } from "./generated/Rac2SaveView";
 import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
+import type { ModSaveData } from "./generated/ModSaveData";
+import type { ModSaveField } from "./generated/ModSaveField";
 import type { Rac2ExtraFields } from "./generated/Rac2ExtraFields";
 import type { Rac2ExtraView } from "./generated/Rac2ExtraView";
 import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
@@ -111,7 +128,7 @@ import type { UpdateItem } from "./generated/UpdateItem";
 import type { UpdatePlan } from "./generated/UpdatePlan";
 import type { UpdateRun } from "./generated/UpdateRun";
 
-export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+export const inTauri = onIOS || (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window);
 
 /** Whether a user agent is Android's WebView. WebKitGTK on a Linux tablet or handheld (a mobile
  *  chassis) says "Linux; like Android 4.4" to get websites' mobile pages: that is a desktop. */
@@ -130,6 +147,7 @@ export const onAndroid =
 
 export type { TextureFolder, TexturePackImportMode, TexturePackPreview, TexturePackView };
 export type { ExportedTexturePack, ImportedTexturePack };
+export type { ToolFile, ToolRoot };
 export type { ActionArea };
 export type { ActionKind };
 export type { ActionState };
@@ -149,6 +167,7 @@ export type { DiscChoice };
 export type { DiscState };
 export type { EnhancedView };
 export type { FoundDisc };
+export type { Applied, Choices, ModProfile, Review, ReviewMod, ShareMod, SharePreview, Shared };
 export type { GameSaveStatus };
 export type { GameView };
 export type { JobEvent };
@@ -181,6 +200,7 @@ export type {
   SaveSlotInfo,
 };
 export type { Rac2SaveFields, Rac2SaveView, Rac2WriteResult };
+export type { ModSaveData, ModSaveField };
 export type { Rac2ExtraFields, Rac2ExtraView, Rac2ExtraWriteResult };
 export type { Scope };
 export type { Started };
@@ -202,6 +222,7 @@ export type { Hold, LastUpdate, Orphan, UpdateItem, UpdatePlan, UpdateRun };
 
 /** What the app says about itself (src-tauri/src/lib.rs, AppInfo). */
 export interface AppInfo {
+  capabilities?: Partial<Record<import("./capabilities").Capability, boolean>>;
   version: string;
   platform: Platform;
   /** Where launcher.json lives. */
@@ -273,6 +294,13 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
   return mockCall(command, args) as Promise<T>;
 }
 
+/** A command whose body is raw bytes (a file a mod's page saves), with what describes them in headers. */
+async function callRaw<T>(command: string, body: Uint8Array, headers: Record<string, string>): Promise<T> {
+  if (inTauri) return invoke<T>(command, body, { headers });
+  const { mockCall } = await import("./mock");
+  return mockCall(command, { headers, size: body.byteLength }) as Promise<T>;
+}
+
 export const api = {
   appInfo: () => call<AppInfo>("app_info"),
   getConfig: () => call<Config>("get_config"),
@@ -294,7 +322,7 @@ export const api = {
       option: inputs.option ?? null,
     }),
   cancelJob: (id: number) => call<null>("cancel_job", { id }),
-  /** A file or folder in the checkout, relative to it (`games/rac1/README.md`). Android opens no
+  /** A file or folder in the checkout, relative to it (`games/rac1/decomp/README.md`). Android opens no
    *  app's own files: a document there is read on GitHub, and a folder cannot be shown. */
   openPath: (path: string) =>
     onAndroid
@@ -377,6 +405,12 @@ export const api = {
   /** Writes the Going Commando editor's fields, with write_save's guards and backup. */
   writeSaveRac2: (serial: string, slot: number, fingerprint: string, fields: Rac2SaveFields) =>
     call<Rac2WriteResult>("write_save_rac2", { serial, slot, fingerprint, fields }),
+  /** What the mods that are on keep beside a Going Commando save (core/src/mod_save_data.rs). */
+  readModSaveDataRac2: (serial: string, slot: number) =>
+    call<ModSaveData[]>("read_mod_save_data_rac2", { serial, slot }),
+  /** Writes one mod's fields of that save's record; refused while the game runs. */
+  writeModSaveDataRac2: (serial: string, slot: number, id: string, values: Record<string, number>) =>
+    call<ModSaveData>("write_mod_save_data_rac2", { serial, slot, id, values }),
   /** A Going Commando slot's advanced fields (core/src/save_edit_rac2_extra.rs). */
   readSaveRac2Extra: (serial: string, slot: number) => call<Rac2ExtraView>("read_save_rac2_extra", { serial, slot }),
   /** Writes them: refused while the game runs with the card or if the file changed; backed up first. */
@@ -399,6 +433,8 @@ export const api = {
     call<ResetDone>("reset_apply", { version, reset, withEdits }),
   /** A game's native mods (core/src/plugins.rs) for its disc `version` ("pal"), in load order. */
   pluginsList: (game: string, version: string) => call<PluginView[]>("plugins_list", { game, version }),
+  /** Whether a mod that is on in one of `games` uses the Multiplayer name (core plugins.rs). */
+  playerNameUsed: (games: string[]) => call<boolean>("player_name_used", { games }),
   pluginsSetEnabled: (game: string, version: string, id: string, enabled: boolean) =>
     call<PluginView[]>("plugins_set_enabled", { game, version, id, enabled }),
   pluginsMove: (game: string, version: string, id: string, up: boolean) =>
@@ -409,12 +445,13 @@ export const api = {
   /** A version's texture pack and the textures the game saved (core texture_packs.rs). */
   texturePacks: (game: string, version: string) => call<TexturePackView>("texture_packs_view", { game, version }),
   /** Switches the pack on or off, or saving the textures at the next Play. */
-  texturePacksSet: (game: string, version: string, change: { enabled?: boolean; dumping?: boolean }) =>
+  texturePacksSet: (game: string, version: string, change: { enabled?: boolean; dumping?: boolean; pcsx2?: string }) =>
     call<TexturePackView>("texture_packs_set", {
       game,
       version,
       enabled: change.enabled ?? null,
       dumping: change.dumping ?? null,
+      pcsx2: change.pcsx2 ?? null,
     }),
   /** Opens a folder of the pack, or of the saved textures (`dump`); `folder` "" is the whole one. */
   texturePacksOpen: (game: string, version: string, dump: boolean, folder = "") =>
@@ -426,6 +463,29 @@ export const api = {
   /** Saves the pack as a .zip where the player chooses; `saved` is empty when they backed out. */
   texturePacksExport: (game: string, version: string) =>
     call<ExportedTexturePack>("texture_packs_export", { game, version }),
+  // A mod's own page (core/src/mod_tools.rs, src-tauri/src/mod_tool.rs, lib/modTool.ts).
+  modToolList: (game: string, version: string, root: ToolRoot) =>
+    call<ToolFile[]>("mod_tool_list", { game, version, root }),
+  modToolRead: (game: string, version: string, root: ToolRoot, path: string, start?: number, length?: number) =>
+    call<ArrayBuffer>("mod_tool_read", { game, version, root, path, start: start ?? null, length: length ?? null }),
+  modToolStoreGet: (id: string, key: string) => call<unknown>("mod_tool_store_get", { id, key }),
+  modToolStoreSet: (id: string, key: string, value: unknown) => call<null>("mod_tool_store_set", { id, key, value }),
+  /** Saves a file the page made where the player chooses: the name it was saved under, or "" (backed out). */
+  modToolSave: (id: string, name: string, extension: string, bytes: Uint8Array) =>
+    callRaw<string>("mod_tool_save", bytes, {
+      "x-mod": encodeURIComponent(id),
+      "x-name": encodeURIComponent(name),
+      "x-extension": encodeURIComponent(extension),
+    }),
+  /** Starts saving a large file in parts: its number, 0 when the player backed out. */
+  modToolSaveStart: (id: string, name: string, extension: string) =>
+    call<number>("mod_tool_save_start", { id, name, extension }),
+  modToolSaveWrite: (token: number, bytes: Uint8Array) =>
+    callRaw<null>("mod_tool_save_write", bytes, { "x-token": String(token) }),
+  /** Ends it: kept (the name it was saved under) or dropped (""). */
+  modToolSaveEnd: (token: number, keep: boolean) => call<string>("mod_tool_save_end", { token, keep }),
+  /** A small file the player picks: its bytes, empty when they backed out. */
+  modToolOpen: (extension: string) => call<ArrayBuffer>("mod_tool_open", { extension }),
   enhancedView: (game: string, version: string) => call<EnhancedView | null>("enhanced_view", { game, version }),
   enhancedSetEnabled: (game: string, version: string, enabled: boolean) =>
     call<EnhancedView | null>("enhanced_set_enabled", { game, version, enabled }),
@@ -452,13 +512,32 @@ export const api = {
     call<RemoteInstalled>("plugins_update", { game, version, id }),
   pluginsSources: (game: string) => call<ModSources>("plugins_sources", { game }),
   pluginsSetPin: (game: string, id: string, pin: boolean) => call<ModSources>("plugins_set_pin", { game, id, pin }),
+  /** Mod codes (core/src/modset.rs): what a code of this game's mods would hold, and making one. */
+  modsetSharePreview: (game: string) => call<SharePreview>("modset_share_preview", { game }),
+  modsetShare: (game: string, version: string, extras: string[]) =>
+    call<Shared>("modset_share", { game, version, extras }),
+  /** Names the party the game joins on starting (a mod code's link, after Apply). */
+  modsetJoin: (game: string, party: string) => call<null>("modset_join", { game, party }),
+  /** What a code would change, with nothing changed. `text`: a code, short or long, or its link. */
+  modsetReview: (game: string, version: string, text: string) => call<Review>("modset_review", { game, version, text }),
+  modsetApply: (game: string, version: string, set: string, code: string | null, choices: Choices) =>
+    call<Applied>("modset_apply", { game, version, set, code, choices }),
+  modsetProfiles: (game: string) => call<ModProfile[]>("modset_profiles", { game }),
+  modsetRestore: (game: string, id: string) => call<null>("modset_restore", { game, id }),
+  /** The link that opened the launcher, once. */
+  modsetTakeLink: () => call<string | null>("modset_take_link"),
   /** The mod hub (core/src/index.rs, resolver.rs, index_apply.rs, deeplink.rs): their errors are
    *  ModError (modErrorOf), with the fix the page offers. */
   deeplinkParse: (url: string) => call<DeepLinkInstall>("deeplink_parse", { url }),
   /** Where the launcher stands in the player's Steam library. */
-  steamState: () => call<SteamState>("steam_state"),
-  /** Adds the launcher to Steam's library, or updates it. Steam may be open. */
-  steamAdd: () => call<SteamState>("steam_add"),
+  steamState: (version: string | null = null) => call<SteamState>("steam_state", { version }),
+  /** Adds the launcher to Steam's library, or with a version that game (it starts the launcher
+   *  with --play), or updates it. Steam may be open. */
+  steamAdd: (version: string | null = null) => call<SteamState>("steam_add", { version }),
+  /** A desktop shortcut that starts a game (Linux): the path it wrote. */
+  shortcutCreate: (version: string) => call<string>("shortcut_create", { version }),
+  /** The game a `--play` start could not start, once; the page shows it. */
+  startupGame: () => call<string | null>("startup_game"),
   /** Every mod index, checked (or its cached copy); with a game, its revoked mods are turned off. */
   indexFetch: (game: string | null = null, version: string | null = null) =>
     call<IndexView>("index_fetch", { game, version }),
@@ -475,7 +554,8 @@ export const api = {
     shared = false,
   ) => call<ApplyResult>("index_apply", { game, version, wanted, turnOff, serial, shared }),
   /** The index's updates for a game's mods: silent, waiting for a click, held back (mod_updates.rs). */
-  modsUpdates: (game: string, version: string) => call<UpdatePlan>("mods_updates", { game, version }),
+  modsUpdates: (game: string, version: string, fresh = false) =>
+    call<UpdatePlan>("mods_updates", { game, version, fresh }),
   /** Updates from a fresh fetch: the silent ones, or `ids` the player clicked. Refused while it runs. */
   modsAutoUpdate: (game: string, version: string, ids: string[] | null, running: boolean) =>
     call<UpdateRun>("mods_auto_update", { game, version, ids, running }),
@@ -679,6 +759,7 @@ export async function pickMemoryCard(title: string, dir: string | null): Promise
  *  the app's cache first (pick_zip). */
 export async function pickSavesFile(title: string): Promise<string | null> {
   if (!inTauri) return "/home/you/Downloads/OpenRAC saves SCES_509.16 2026-11-02.zip";
+  if (onIOS) return iosInvoke<string | null>("pick_saves_file");
   if (onAndroid) return call<string | null>("pick_zip");
   const picked = await open({
     directory: false,
@@ -721,7 +802,7 @@ export async function onDrop(
   handler: (paths: string[]) => void,
   hovering: (over: boolean) => void = () => undefined,
 ): Promise<() => void> {
-  if (!inTauri) return () => undefined;
+  if (!inTauri || onIOS) return () => undefined;
   const { getCurrentWebview } = await import("@tauri-apps/api/webview");
   return getCurrentWebview().onDragDropEvent((event) => {
     if (event.payload.type === "drop") handler(event.payload.paths);
@@ -750,6 +831,12 @@ export async function pickIso(title: string, copying?: (progress: DiscCopy) => v
   return typeof picked === "string" ? picked : null;
 }
 
+/** A mod code's link came in (modsetTakeLink has it). */
+export async function onModsetLink(handler: () => void): Promise<UnlistenFn> {
+  if (!inTauri) return () => undefined;
+  return listen("modset-link", handler);
+}
+
 /** `disc-copy` events: a picked image's copy (Android) or a .chd's unpacking. */
 export async function onDiscCopy(handler: (progress: DiscCopy) => void): Promise<UnlistenFn> {
   if (!inTauri) return () => undefined;
@@ -768,22 +855,33 @@ export async function onUpdateProgress(
   });
 }
 
-/** Job output and exits, from `job-output` and `job-exit` events. */
-export async function onJobEvent(handler: (event: JobEvent) => void): Promise<UnlistenFn> {
+/** Job output and exits, from `job-output` events (a few times a second, each a list of lines)
+ *  and `job-exit` events (one job's end, after its last lines). */
+export async function onJobEvents(handler: (events: JobEvent[]) => void): Promise<UnlistenFn> {
   if (!inTauri) {
     const { mockListen } = await import("./mock");
-    return mockListen(handler);
+    return mockListen((event) => {
+      handler([event]);
+    });
   }
-  const offOutput = await listen<JobEvent>("job-output", (e) => {
+  const offOutput = await listen<JobEvent[]>("job-output", (e) => {
     handler(e.payload);
   });
   const offExit = await listen<JobEvent>("job-exit", (e) => {
-    handler(e.payload);
+    handler([e.payload]);
   });
   return () => {
     offOutput();
     offExit();
   };
+}
+
+/** The game a `--play` start of an open launcher could not start (`open-game`): its version key. */
+export async function onOpenGame(handler: (key: string) => void): Promise<UnlistenFn> {
+  if (!inTauri) return () => undefined;
+  return listen<string>("open-game", (e) => {
+    handler(e.payload);
+  });
 }
 
 /** Each mod applied (index_apply's `index-apply` events). */

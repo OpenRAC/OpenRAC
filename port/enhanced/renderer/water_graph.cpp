@@ -8,9 +8,9 @@
 #include <string>
 #include <utility>
 
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/vulkan/graph_execution.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #endif
 
 namespace openrac::enhanced {

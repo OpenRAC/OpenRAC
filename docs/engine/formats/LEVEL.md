@@ -5,7 +5,7 @@ What a RAC1 level's sectors hold once the disc header has located them
 level's art, the block layout of the decompressed core data, and the
 gameplay file of placed instances. The layouts are Wrench's as ReRAC
 describes them, with ReRAC's corrections from the game's loader; where
-OpenRAC checked them on the PAL disc, [ASSETS.md](../../../games/rac1/docs/ASSETS.md)
+OpenRAC checked them on the PAL disc, [ASSETS.md](../../../games/rac1/decomp/docs/ASSETS.md)
 says so and is linked.
 
 **Games.** RAC1 (NTSC-U by ReRAC, PAL by OpenRAC). The core index, class
@@ -16,7 +16,7 @@ slots, the instance records, the moby texture stash) is in
 measured on prerelease discs (`LEVEL-ARCHIVE-FORMAT.md`).
 
 **Addresses.** NTSC-U addresses are ReRAC's (`SCUS_971.99`); PAL names come
-from `games/rac1/config/overlays/us_map.tsv`. A PAL name of the form
+from `games/rac1/decomp/config/overlays/us_map.tsv`. A PAL name of the form
 `func_L00_<address>` is level code, named by its address in level 00's
 program; ReRAC usually cites the copy in level 01 (Novalis).
 
@@ -82,7 +82,7 @@ offset}`, count first.
 0x30 further bytes follow the header in the index; their meaning is
 unknown. PAL's runtime tables in `func_001EABE8` (NTSC-U 0x1EA830) use the
 same relative layout
-([ASSETS.md](../../../games/rac1/docs/ASSETS.md#core-index)).
+([ASSETS.md](../../../games/rac1/decomp/docs/ASSETS.md#core-index)).
 
 ## 3. Blocks inside the core data
 
@@ -131,7 +131,7 @@ elements are not decoded.
 number, compressed size, pad. A gadget's textures are those of the moby
 class entry with the same class number. The sequels keep gadgets in a global
 `GADGET.WAD` (Wrench). PAL has 21 gadget classes per level, not decoded yet
-([ASSETS.md](../../../games/rac1/docs/ASSETS.md#moby-classes)).
+([ASSETS.md](../../../games/rac1/decomp/docs/ASSETS.md#moby-classes)).
 
 ## 8. The gameplay file
 
@@ -236,7 +236,7 @@ Shrub instance (0x70): class, f32 draw distance, matrix at 0x10, colour
 
 In both, the matrix's W component (+0x4C) is 0.01 on most placements and 0.0
 on the rest, meaning unknown (measured on PAL,
-[ASSETS.md](../../../games/rac1/docs/ASSETS.md#shrubs)). Lighting from
+[ASSETS.md](../../../games/rac1/decomp/docs/ASSETS.md#shrubs)). Lighting from
 these fields: [LIGHTING.md](../systems/LIGHTING.md).
 
 ### 8.5 Grids, transitions and sample points
@@ -267,5 +267,5 @@ these fields: [LIGHTING.md](../systems/LIGHTING.md).
 Sources: ReRAC (https://github.com/re-rac/rerac, ISC, Copyright (c) 2026
 ReRAC contributors), `docs/formats/wad_layouts_rac1.md` sections 2–6 and
 `docs/plan/moby_render_notes.md` section 1; PAL facts from
-[ASSETS.md](../../../games/rac1/docs/ASSETS.md) and
-`games/rac1/config/overlays/us_map.tsv`.
+[ASSETS.md](../../../games/rac1/decomp/docs/ASSETS.md) and
+`games/rac1/decomp/config/overlays/us_map.tsv`.

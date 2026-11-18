@@ -4,10 +4,12 @@
 // What the player bound each pad button to (platform/bindings.h): the names, what a button
 // presses from once a settings file has been read, and the pad pressed from made-up keys and
 // gamepads through that table.
+#include <algorithm>
 #include <array>
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "platform/bindings.h"
 #include "tests/check.h"
@@ -18,6 +20,7 @@ using openrac::platform::Binding;
 using openrac::platform::Bindings;
 using openrac::platform::Button;
 using openrac::platform::Pad;
+using openrac::platform::PadChord;
 using openrac::platform::PadInputs;
 using openrac::platform::StickGate;
 
@@ -30,22 +33,27 @@ void set_bindings(const std::map<std::string, std::string, std::less<>>& binding
 
 bool has_key(Button button, SDL_Scancode key) {
     const Bindings::Slot& slot = g_bindings.of(button);
+
     for (int i = 0; i < slot.key_count; ++i) {
         if (slot.keys[static_cast<std::size_t>(i)] == key) {
             return true;
         }
     }
+
     return false;
 }
 
 bool has_pad_input(Button button, Binding::Kind kind, int value) {
     const Bindings::Slot& slot = g_bindings.of(button);
+
     for (int i = 0; i < slot.pad_count; ++i) {
         const Binding& b = slot.pad[static_cast<std::size_t>(i)].input;
+
         if (b.kind == kind && b.value == value) {
             return true;
         }
     }
+
     return false;
 }
 
@@ -103,6 +111,7 @@ void test_keys_name_their_buttons() {
     const char* const* keys = openrac::platform::binding_keys();
     int count = 0;
     int buttons = 0;
+
     for (; keys[count] != nullptr; ++count) {
         Button button{};
         buttons += openrac::platform::button_of_key(keys[count], button) ? 1 : 0;
@@ -110,6 +119,7 @@ void test_keys_name_their_buttons() {
         CHECK(target >= 0);
         CHECK(std::string(openrac::platform::key_of_target(target)) == keys[count]);
     }
+
     CHECK(count == openrac::platform::kTargetCount);
     CHECK(buttons == 16);
     CHECK(
@@ -207,6 +217,7 @@ void test_defaults_press_as_before() {
         {SDL_SCANCODE_ESCAPE, Button::Start},
         {SDL_SCANCODE_BACKSPACE, Button::Select},
     };
+
     for (const KeyCase& c : kKeys) {
         auto keys = std::make_unique<bool[]>(SDL_SCANCODE_COUNT);
         keys[c.key] = true;
@@ -239,12 +250,14 @@ void test_defaults_press_as_before() {
         {SDL_GAMEPAD_BUTTON_DPAD_LEFT, Button::Left},
         {SDL_GAMEPAD_BUTTON_DPAD_RIGHT, Button::Right},
     };
+
     for (const PadCase& c : kPads) {
         PadInputs inputs;
         inputs.buttons[c.pad] = true;
         const Pad pad = pad_from(defaults, inputs);
         CHECK(pad.buttons == static_cast<std::uint16_t>(~static_cast<std::uint16_t>(c.button)));
     }
+
     // The buttons nothing presses by default press nothing.
     for (const SDL_GamepadButton spare :
          {SDL_GAMEPAD_BUTTON_GUIDE, SDL_GAMEPAD_BUTTON_MISC1, SDL_GAMEPAD_BUTTON_TOUCHPAD}) {
@@ -442,17 +455,21 @@ void test_tuning_reads() {
 
     // Written and read again, every value is the same.
     PadTuning again;
+
     for (const auto& [key, value] : openrac::platform::tuning_values(tuning)) {
         CHECK(openrac::platform::read_tuning(key, value, again));
     }
+
     CHECK(again == tuning);
     // The defaults write the threshold the port always had, and read it back exactly.
     PadTuning defaults;
     PadTuning back;
     back.trigger_threshold = 0;
+
     for (const auto& [key, value] : openrac::platform::tuning_values(defaults)) {
         openrac::platform::read_tuning(key, value, back);
     }
+
     CHECK(back.trigger_threshold == 0x20 || back.trigger_threshold == 0x21);
 }
 
@@ -497,6 +514,39 @@ void test_tuned_sticks() {
     const Pad pad = pad_from(g_bindings, inputs);
     CHECK(pad.right_y == 0xFF);
     CHECK(pad.left_y == 0x80);
+    CHECK(pad.camera_speed == 1.0f);
+
+    // Sensitivity above 100%: the byte stops at a full push, the rest turns the camera faster.
+    StickTuning fast;
+    fast.sensitivity = 300;
+    x = 0.2f;
+    y = 0.0f;
+    CHECK(openrac::platform::tune_stick(x, y, fast) == 1.0f);
+    CHECK(x > 0.59f && x < 0.61f);
+    x = -1.0f;
+    CHECK(openrac::platform::tune_stick(x, y, fast) == 3.0f);
+    CHECK(x == -1.0f);
+    set_bindings({{"pad_right_sensitivity", "200"}});
+    inputs = {};
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = 32767;
+    const Pad turned = pad_from(g_bindings, inputs);
+    CHECK(turned.right_x == 0xFF);
+    CHECK(turned.camera_speed > 1.99f && turned.camera_speed <= 2.0f);
+    // Not when something else is bound to the right stick's x.
+    set_bindings({{"pad_right_sensitivity", "200"}, {"bind_rstick_right", "PadLeftStickRight"}});
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
+    // Not at 100%, nor below a full push.
+    set_bindings({});
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
+    set_bindings({{"pad_right_sensitivity", "200"}});
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = 8192;
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = -32768;
+    CHECK(pad_from(g_bindings, inputs).camera_speed > 1.99f);
+    set_bindings({{"pad_left_sensitivity", "200"}});
+    inputs.axes[SDL_GAMEPAD_AXIS_LEFTX] = 32767;
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = 0;
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
 }
 
 // The trigger threshold moves where L2 holds; labels swap a Nintendo pad's face buttons.
@@ -561,6 +611,27 @@ void test_held_back_until_let_go() {
     CHECK(read[3]);
 }
 
+// Exercise both contiguous-search types: MSVC STL 14.51/14.52 with Clang used to reject them.
+void test_binding_searches() {
+    constexpr Binding left{Binding::Kind::PadAxis, SDL_GAMEPAD_AXIS_LEFTX, -1};
+    constexpr Binding right{Binding::Kind::PadAxis, SDL_GAMEPAD_AXIS_LEFTX, 1};
+    static_assert(left == left && left != right && noexcept(left == right));
+    const Binding up{Binding::Kind::PadAxis, SDL_GAMEPAD_AXIS_LEFTY, -1};
+    const Binding button{Binding::Kind::PadButton, SDL_GAMEPAD_AXIS_LEFTX, -1};
+    const std::vector<Binding> inputs{left, right, up, button};
+    CHECK(std::find(inputs.begin(), inputs.end(), left) == inputs.begin());
+    CHECK(std::find(inputs.begin(), inputs.end(), right) == inputs.begin() + 1);
+    CHECK(std::find(inputs.begin(), inputs.end(), up) == inputs.begin() + 2);
+    CHECK(std::find(inputs.begin(), inputs.end(), button) == inputs.begin() + 3);
+    CHECK(std::find(inputs.begin(), inputs.end(), Binding{}) == inputs.end());
+
+    std::array<PadChord, 3> chords{{{left, {}}, {left, button}, {right, button}}};
+    CHECK(std::find(chords.begin(), chords.end(), PadChord{left, {}}) == chords.begin());
+    CHECK(std::find(chords.begin(), chords.end(), PadChord{left, button}) == chords.begin() + 1);
+    CHECK(std::find(chords.begin(), chords.end(), PadChord{right, button}) == chords.begin() + 2);
+    CHECK(std::find(chords.begin(), chords.end(), PadChord{left, right}) == chords.end());
+}
+
 // Bindings that press alike are the same; a slot or a setting apart is a change.
 void test_differ() {
     const Bindings a = openrac::platform::default_bindings();
@@ -591,6 +662,7 @@ int main() {
     test_tuned_sticks();
     test_trigger_threshold_and_labels();
     test_held_back_until_let_go();
+    test_binding_searches();
     test_differ();
     return openrac::test::result();
 }

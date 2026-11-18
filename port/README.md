@@ -21,13 +21,30 @@ read the decompilation) and Python 3.
 
 - `--preset headless` builds without a window (no SDL3): the runtime, the
   games and their tests.
+- macOS builds with the Command Line Tools (`xcode-select --install`) alone; the
+  Xcode app is not needed. The programs run on macOS 12 and later
+  (`CMAKE_OSX_DEPLOYMENT_TARGET`). `--preset release-x86_64` builds for Intel
+  Macs and `--preset release-universal` for Apple silicon and Intel in one
+  binary; both build SDL3 in, as Homebrew's is for one architecture only.
+  With the Xcode app, `cmake --preset xcode` writes
+  `build/xcode/openrac_port.xcodeproj`, to build, run and debug in Xcode (its
+  GPU frame capture shows the Metal renderer's passes).
 - On Linux the build uses mold or lld and ccache when installed
   (`-DOPENRAC_PORT_FAST_BUILD=OFF` turns that off).
 - `python3 tools/build_port.py [GAME] [--source DIR]`, run from the top of
   OpenRAC, builds one game without the steps above. The launcher's "Build the
   game" runs it. It configures `build/release` once, then builds only what
   changed. On Windows it sets up Visual Studio's x64 environment and finds
-  Clang and Ninja. `--source` builds from your own copy of the decompilation
+  Clang and Ninja. Missing Windows tools (Visual Studio Build Tools with C++
+  and the Windows SDK, Git, LLVM, Ninja and CMake) are installed with WinGet,
+  then the build continues. An existing Visual Studio 2022 Build Tools
+  installation gets its missing C++ workload through the Visual Studio Installer.
+  Windows may ask for administrator permission;
+  installing the C++ tools can take several gigabytes. If WinGet is unavailable,
+  setup tries registering App Installer, then installing or repairing WinGet
+  for your account through Microsoft's PowerShell module. `--no-install-deps`
+  disables tool installation and WinGet repair. Python 3 must already be installed.
+  `--source` builds from your own copy of the decompilation
   and is remembered.
 
 ## Enhanced rendering
@@ -56,7 +73,7 @@ Its sources, shaders, tools and tests are in [`enhanced/`](enhanced/README.md).
 | [tools/hostgen/](tools/hostgen/README.md) | Rewrites a decompilation's C for game memory, and reports what the program reaches that has no C |
 | [game/](game/README.md) | One directory per game version, plus [game/common/](game/common): the library replacements (disc, memory card, graphics, kernel, pads, sound) and the program, `openrac-<id>` |
 | [platform/](platform/README.md) | Window, pads, audio output, timing (SDL3) |
-| [renderer/](renderer/README.md) | The OpenGL 4.1 renderer, in OpenGOAL's style; [graph/](renderer/graph/README.md) plans passes and barriers, [ui/](renderer/ui/README.md) draws over the picture, [vulkan/](renderer/vulkan/README.md) runs it on Vulkan 1.3 (`OPENRAC_GL_API=vulkan`) |
+| [renderer/](renderer/README.md) | The OpenGL 4.1 renderer, in OpenGOAL's style; [graph/](renderer/graph/README.md) plans passes and barriers, [ui/](renderer/ui/README.md) draws over the picture, [vulkan/](renderer/vulkan/README.md) runs it on Vulkan 1.3 (`OPENRAC_GL_API=vulkan`), [metal/](renderer/metal/README.md) on Metal (`OPENRAC_GL_API=metal`) |
 | [scene/](scene/README.md) | A level and its live mobys, ready to draw |
 | [materials/](materials/README.md) | CPU-only material catalogs, override resolution and shared validation |
 | [viewer/](viewer/README.md) | `openrac-viewer`: one extracted level with a free camera |
@@ -73,7 +90,7 @@ Its sources, shaders, tools and tests are in [`enhanced/`](enhanced/README.md).
 ## How a game is built
 
 ```
-games/rac1 (the decompilation, read only)
+games/rac1/decomp (the decompilation, read only)
    │  hostgen: Clang reads each file as the console's C,
    │  hostgen writes it again for game memory
    ▼

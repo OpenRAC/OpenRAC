@@ -1,6 +1,7 @@
 <script lang="ts">
   // A path setting: the value, what detection found, a picker, and a check.
   import { pickFile, pickFolder, type Candidate, type Check } from "$lib/api";
+  import { splitPath } from "$lib/format";
   import Icon from "./Icon.svelte";
 
   let {
@@ -78,6 +79,7 @@
       type="text"
       spellcheck="false"
       value={value ?? ""}
+      title={value ?? undefined}
       placeholder="Not set"
       onchange={(e) => (value = e.currentTarget.value.trim() || null)}
     />
@@ -95,8 +97,15 @@
     <div class="found">
       Found:
       {#each candidates as c (c.path)}
-        <button class="ghost small mono" class:on={c.path === value} onclick={() => (value = c.path)} title={c.source}
-          >{c.path}</button
+        {@const part = splitPath(c.path)}
+        <!-- One line: a long path loses the middle of its folders, never its file; the whole path is
+             in the tooltip. -->
+        <button
+          class="ghost small mono path"
+          class:on={c.path === value}
+          onclick={() => (value = c.path)}
+          title={`${c.path} (${c.source})`}
+          ><span class="head">{part.head}</span>{#if part.tail}<span class="tail">{part.tail}</span>{/if}</button
         >
       {/each}
     </div>
@@ -134,6 +143,17 @@
     font-size: 0.8125rem;
   }
 
+  /* A path in a message can be one long word: it breaks anywhere rather than leave the window. */
+  .message {
+    overflow-wrap: anywhere;
+  }
+
+  /* The path field never pushes the row past the panel. */
+  input {
+    flex: 1;
+    min-width: 0;
+  }
+
   .err {
     color: var(--err);
   }
@@ -145,6 +165,25 @@
     gap: 4px;
     font-size: 0.8125rem;
     color: var(--dim);
+  }
+
+  .found .path {
+    display: inline-flex;
+    gap: 0;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .path .head {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .path .tail {
+    flex: none;
+    white-space: nowrap;
   }
 
   .found .on {

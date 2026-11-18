@@ -268,7 +268,7 @@ class PortLevelWriter(LevelWriter):
     def write_shrub_billboards(self, fades: dict[int, int]) -> None:
         """Each shrub class's billboard fade distance in the class table ("billboard_fade", -1 for
         none): with the instances' draw distances, how far the game draws the class (its loader
-        raises a billboard class's to F + 24), for the port's Scenery detail: Original."""
+        raises a billboard class's to F + 24), for the port's Draw distance."""
         for class_id, entry in self.classes["shrub"].items():
             entry["billboard_fade"] = fades.get(int(class_id), -1)
             # The sprite the game draws in place of the far instances, when it has a texture.

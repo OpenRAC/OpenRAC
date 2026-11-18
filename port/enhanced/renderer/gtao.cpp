@@ -9,10 +9,10 @@
 #include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
-#include "renderer/surface_chain.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 
@@ -21,9 +21,7 @@ using namespace openrac::gl;
 
 bool Gtao::prepare_program(int scale, bool normals, bool performance, bool hi_z) {
     std::string error;
-    m_program = render_opt::enabled(render_opt::Opt::ShaderVariants)
-                    ? unsigned(scale - 1) + (normals ? 2u : 0u)
-                    : 4u;
+    m_program = unsigned(scale - 1) + (normals ? 2u : 0u);
     // Hi-Z is specialised independently, so the no-Hi-Z shader retains its original sampling cost.
     const unsigned evaluation = m_program + (hi_z ? kProgramVariants : 0u);
     Shader& kernel = performance ? m_evaluate_performance[evaluation] : m_evaluate[evaluation];
@@ -38,18 +36,15 @@ bool Gtao::prepare_program(int scale, bool normals, bool performance, bool hi_z)
         composite.insert(composite.find('\n') + 1, shaders::surface_normal_glsl);
         evaluate.insert(evaluate.find('\n') + 1, shaders::gtao_common_glsl);
         composite.insert(composite.find('\n') + 1, shaders::gtao_common_glsl);
-        if (m_program != 4) {
-            const auto definitions = "#define OPENRAC_GTAO_SCALE " + std::to_string(scale)
-                                     + "\n#define OPENRAC_SURFACE_NORMALS "
-                                     + (normals ? "1\n" : "0\n");
-            evaluate.insert(evaluate.find('\n') + 1, definitions);
-            composite.insert(composite.find('\n') + 1, definitions);
-            const auto constants =
-                {ShaderIntConstant{"evaluation_scale", scale},
-                 ShaderIntConstant{"surface_normals_enabled", normals ? 1 : 0}};
-            evaluate = shader_constants(std::move(evaluate), constants);
-            composite = shader_constants(std::move(composite), constants);
-        }
+        const auto definitions = "#define OPENRAC_GTAO_SCALE " + std::to_string(scale)
+                                 + "\n#define OPENRAC_SURFACE_NORMALS " + (normals ? "1\n" : "0\n");
+        evaluate.insert(evaluate.find('\n') + 1, definitions);
+        composite.insert(composite.find('\n') + 1, definitions);
+        const auto constants =
+            {ShaderIntConstant{"evaluation_scale", scale},
+             ShaderIntConstant{"surface_normals_enabled", normals ? 1 : 0}};
+        evaluate = shader_constants(std::move(evaluate), constants);
+        composite = shader_constants(std::move(composite), constants);
         if (performance) {
             evaluate.insert(evaluate.find('\n') + 1, "#define GTAO_REFINEMENT_STEPS 3\n");
         }
@@ -146,10 +141,7 @@ bool Gtao::render(
             !direct_depth && !scratch
         )
         || !prepare_program(
-            scale,
-            target.normal_texture != 0,
-            options.quality == GtaoQuality::Performance,
-            options.hi_z
+            scale, target.normal_texture != 0, options.quality != GtaoQuality::Quality, options.hi_z
         )) {
         glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
         glViewport(0, 0, target.width, target.height);

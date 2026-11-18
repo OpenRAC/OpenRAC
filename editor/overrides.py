@@ -98,7 +98,7 @@ PACK_FORMAT = 1
 MAP_PACK_FORMAT = 3  # map packs must be refused by builds that only replace campaign levels
 DESTINATION_PACK_FORMAT = 4  # separate worlds, never merged into campaign level files
 GAME = "rac1"  # the game of a pack whose manifest does not say
-VERSIONS = tuple(v.key for v in disc.VERSIONS)  # Ratchet & Clank's discs: pal, ntsc (games.VERSIONS for every game)
+VERSIONS = tuple(v.key for v in disc.VERSIONS)  # Ratchet & Clank's discs: pal, ntsc, pal1, jp (games.VERSIONS for every game)
 LEVELS_FORMAT = FORMAT
 # The oldest levels format whose models a pack's models are drawn with: 2 gave the mobys their
 # metal packets and chrome and glass maps; 3 only added classes, 4 the clamped textures' samplers (a
@@ -186,6 +186,11 @@ def describe(files) -> dict:
         else:
             level.setdefault("level", []).append(parts[1])
     return out
+
+
+def is_map(manifest) -> bool:
+    """Whether a layer's manifest (a dict, or the disc's name for packed levels) is a map's."""
+    return isinstance(manifest, dict) and "map" in manifest
 
 
 def read_manifest(data: bytes, where: str) -> dict:
@@ -814,6 +819,29 @@ def cross_disc(root: Path, manifest: dict, target: Target) -> tuple[dict, list[s
     return out, skipped
 
 
+# What a pack changes of the game itself, not only of how it looks: the level's own files, and the
+# lists that put them on the disc. A party has to agree on these (the multiplayer mod compares them);
+# textures, models and terrain draw in the port only, and are each player's own.
+GAMEPLAY_FILES = re.compile(r"(?:level_\d{2}/(?:gameplay_\w+\.wad|(?:core|index|header)_\w+\.bin)|patches\.tsv|virtual\.tsv)")
+
+
+def layer_record(name: str, ident: str, root: Path, manifest, changes_game: bool) -> dict:
+    """A layer as stack.json says it. A digest is of what the pack holds, not of what this disc took
+    of it, so one pack is one number on either disc; only a pack that changes the game has one."""
+    record = {"id": ident, "name": name, "gameplay": changes_game}
+    if isinstance(manifest, dict) and isinstance(manifest.get("pack_version"), str):
+        record["version"] = manifest["pack_version"]
+    if changes_game:
+        hasher = hashlib.sha256()
+        if isinstance(manifest, dict) and "map" in manifest:
+            hasher.update(json.dumps(manifest["map"], sort_keys=True).encode())
+        for rel, path in sorted(layer_files(root).items()):
+            if GAMEPLAY_FILES.fullmatch(rel):
+                hasher.update(f"{rel} {digest.sha256(path)}\n".encode())
+        record["digest"] = hasher.hexdigest()
+    return record
+
+
 def write_layers(layers, target, temporary: Path) -> dict:
     """Compose one isolated world from ordered layers; no destination shares an output folder."""
     temporary.mkdir(parents=True, exist_ok=True)
@@ -972,8 +1000,12 @@ def write_layers(layers, target, temporary: Path) -> dict:
                  + (f"\t{level}\t{slot}\t{original_first}\t{original_count}" if level is not None else "") + "\n"
                  for first, count, file, _, level, slot, original_first, original_count in
                  sorted(virtuals.values(), key=lambda row: row[0])))
+    changing = {owner for rel, owner in owners.items() if GAMEPLAY_FILES.fullmatch(rel)}
+    changing |= {owner for _, owner in patches.values()}
+    changing |= {row[3] for row in virtuals.values()}
     summary = {"format": 1, "version": target.version if target else None,
-               "layers": [{"id": ident, "name": name} for name, ident, _, _ in layers],
+               "layers": [layer_record(name, ident, root, manifest, ident in changing or is_map(manifest))
+                          for name, ident, root, manifest in layers],
                "files": dict(sorted(owners.items())), "notes": notes,
                "skipped": {k: v for k, v in skipped.items() if v}}
     (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n")
@@ -990,8 +1022,9 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
     target = Target(levels) if levels is not None else None
     layers = []
     if packed is not None and Path(packed).is_dir():
-        made = read_json(Path(packed) / PACKED).get("version", "pal") if (Path(packed) / PACKED).is_file() else "pal"
-        layers.append(("your packed levels", "packed", Path(packed), made))
+        note = read_json(Path(packed) / PACKED) if (Path(packed) / PACKED).is_file() else {}
+        layers.append(("your packed levels", "packed", Path(packed),
+                       {"game": note.get("game", GAME), "version": note.get("version", "pal")}))
     if folder is not None and Path(folder).is_dir():
         for entry in load_state(folder)["packs"]:
             if entry.get("enabled", True):
@@ -1042,7 +1075,9 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
             registry = {"format": 1, "game": "rac1", "version": "pal", "destinations": entries}
             (temporary / "destinations.json").write_text(json.dumps(registry, indent=1, allow_nan=False) + "\n")
             summary["destinations"] = [{"id": m["id"], "name": m["name"]} for m in entries]
-            summary["layers"] = [{"id": ident, "name": name} for name, ident, _, _ in requested_layers if ident != "packed"]
+            kept = {layer["id"]: layer for layer in summary["layers"]}
+            summary["layers"] = [kept.get(ident) or layer_record(name, ident, root, manifest, True)
+                                 for name, ident, root, manifest in requested_layers if ident != "packed"]
             summary["notes"].append(f"{len(entries)} added ship destination(s) prepared separately from the campaign")
             (temporary / "stack.json").write_text(json.dumps(summary, indent=1) + "\n")
         (temporary / MARKER).write_text("made by editor/overrides.py stack; it is replaced each time\n")
@@ -1136,6 +1171,7 @@ def main(argv: list[str] | None = None) -> int:
             command.add_argument("--json", action="store_true")
         if name == "stack":
             command.add_argument("--out", type=Path, required=True, help="the folder the port's --mods reads")
+            command.add_argument("--lighting-disc", type=Path, help="decode the stacked level inputs for lighting")
             command.add_argument("--packed", type=Path, help="the level packer's output, beneath the packs")
             command.add_argument("--levels", type=Path, required=True,
                                  help="the levels the game plays (either disc's): packs made from the other "
@@ -1177,6 +1213,12 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "stack":
             summary = stack(args.into, args.out, args.packed, args.levels)
+            if args.lighting_disc is not None:
+                from enhanced.mod_inputs import prepare_mod_inputs
+                try:
+                    prepare_mod_inputs(args.lighting_disc, args.out, args.levels)
+                except ValueError as error:
+                    raise PackError(f"cannot decode the packed lighting inputs: {error}") from error
             for note in summary["notes"]:
                 print(f"note: {note}")
             added = len(summary.get('destinations', []))

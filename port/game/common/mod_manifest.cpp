@@ -6,6 +6,7 @@
 #include "mod_manifest.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <format>
 #include <set>
@@ -146,9 +147,33 @@ bool parse_setting(const json::Value& v, Setting& s, std::string& error) {
             return false;
         }
     }
+    // Interface 1.11: own (each player's) or host (the host's rules bring it); else the party's.
+    if (const json::Value& party = v["multiplayer"]; !party.is_null()) {
+        const std::string word = party.is_string() ? party.string() : "";
+        if (word != "own" && word != "host") {
+            error = std::format("setting \"{}\": \"multiplayer\" must be own or host", s.key);
+            return false;
+        }
+        s.party = word == "own" ? 1 : 2;
+    }
+    if (const json::Value& games = v["games"]; !games.is_null()) {
+        if (!id_list(games, "games", s.games, error) || s.games.empty()) {
+            error = std::format(
+                "setting \"{}\": \"games\" must list one or more of the mod's games", s.key
+            );
+            return false;
+        }
+    }
     std::string type;
     if (!text(v, "type", true, type, error)) {
         return false;
+    }
+    // A key is its player's, and so is its name: never the party's to agree on. The launcher's mod
+    // codes leave the same ones out (launcher/core/src/plugins.rs, shared_setting), so a code can
+    // always make two games match.
+    if (v["multiplayer"].is_null()
+        && (type == "keybind" || (type == "string" && v["default"].string() == "${player_name}"))) {
+        s.party = 1;
     }
     if (type == "bool") {
         s.type = SettingType::Bool;
@@ -193,6 +218,9 @@ bool parse_setting(const json::Value& v, Setting& s, std::string& error) {
                 return false;
             }
             s.choices.push_back(c["value"].string());
+            s.choice_names.push_back(
+                c["name"].is_string() ? c["name"].string() : c["value"].string()
+            );
         }
     }
     if (const json::Value& m = v["max_length"]; !m.is_null()) {
@@ -550,10 +578,43 @@ bool parse_manifest(std::string_view source, Manifest& m, std::string& error) {
         }
         m.assets = assets.string();
     }
-    // Interface 1.4: only moves the loading before the window, so it is read and never refused (the
-    // packager's and the launcher's checks know nothing of it): true on a native mod of 1.4 or later.
+    const json::Value& touch = v["touch"];
+    if (!touch.is_null()) {
+        if (!touch.is_string() || !touch.string().ends_with(".json")
+            || !folder_path(touch.string())) {
+            error = "\"touch\" must be a .json file inside the mod, with / (\"touch.json\")";
+            return false;
+        }
+        m.touch = touch.string();
+    }
+    // Interface 1.4: a native mod can request loading before the window to make the Vulkan device.
     m.vulkan_device = v["vulkan_device"].boolean(false) && !m.script && m.has_api
                       && (m.api_major > 1 || m.api_minor >= 4);
+    const bool can_declare_vulkan = m.api_major > 1 || (m.api_major == 1 && m.api_minor >= 20);
+    if (const auto queue = v.members().find("vulkan_queue"); queue != v.members().end()) {
+        if (!is_bool(queue->second) || m.script || m.plugin.empty() || !can_declare_vulkan) {
+            error = "\"vulkan_queue\" must be a boolean on a native mod targeting interface 1.20 "
+                    "or later";
+            return false;
+        }
+        m.vulkan_queue = queue->second.boolean();
+    }
+    if (m.vulkan_device && can_declare_vulkan && !m.vulkan_queue) {
+        error = "\"vulkan_device\" requires \"vulkan_queue\": true from interface 1.20";
+        return false;
+    }
+    // Interface 1.11: what the mod is to a party; a word the port does not know refuses the manifest,
+    // as the packager's and the launcher's checks do.
+    if (const json::Value& party = v["multiplayer"]; !party.is_null()) {
+        const std::string word = party.is_string() ? party.string() : "";
+        constexpr std::array<std::string_view, 4> kinds = {"gameplay", "input", "cosmetic", "solo"};
+        const auto at = std::find(kinds.begin(), kinds.end(), word);
+        if (at == kinds.end()) {
+            error = "\"multiplayer\" must be gameplay, input, cosmetic or solo";
+            return false;
+        }
+        m.party = static_cast<int>(at - kinds.begin());
+    }
     const json::Value& settings = v["settings"];
     if (!settings.is_null()) {
         if (!settings.is_array()) {
@@ -569,6 +630,16 @@ bool parse_manifest(std::string_view source, Manifest& m, std::string& error) {
             if (!keys.insert(s.key).second) {
                 error = std::format("setting \"{}\" is declared twice", s.key);
                 return false;
+            }
+            for (const std::string& game : s.games) {
+                if (!m.games.contains(game)) {
+                    error = std::format(
+                        "setting \"{}\": \"games\" names {}, which \"games\" of the mod does not",
+                        s.key,
+                        game
+                    );
+                    return false;
+                }
             }
             m.settings.push_back(std::move(s));
         }
@@ -655,12 +726,28 @@ bool parse_list(std::string_view source, std::vector<ListEntry>& out, std::strin
     return true;
 }
 
-std::map<std::string, SettingValue> resolve_settings(const Manifest& manifest,
-                                                     const std::map<std::string, json::Value>& written,
-                                                     std::vector<std::string>& notes) {
+bool setting_value(const Setting& s, const json::Value& v, SettingValue& out) {
+    return value_of(s, v, out);
+}
+
+bool setting_for_game(const Setting& s, std::string_view game) {
+    return s.games.empty() || game.empty()
+           || std::find(s.games.begin(), s.games.end(), game) != s.games.end();
+}
+
+std::map<std::string, SettingValue> resolve_settings(
+    const Manifest& manifest,
+    const std::map<std::string, json::Value>& written,
+    std::vector<std::string>& notes,
+    std::string_view game
+) {
     std::map<std::string, SettingValue> out;
     for (const Setting& s : manifest.settings) {
         SettingValue value = s.fallback;
+        if (!setting_for_game(s, game)) {
+            out[s.key] = value;  // not for this game: its default, whatever the list says
+            continue;
+        }
         if (auto it = written.find(s.key); it != written.end()) {
             if (!value_of(s, it->second, value)) {
                 value = s.fallback;

@@ -74,6 +74,10 @@ pub struct FileSpec {
     pub size: Option<u64>,
     #[serde(default)]
     pub sha1: Option<String>,
+    /// The disc's version, as its `SYSTEM.CNF` says it (`VER = 2.00`): what tells two releases of
+    /// one serial apart (Going Commando's v1.01 and v2.00 both boot `SCUS_972.68`).
+    #[serde(default)]
+    pub version: Option<String>,
 }
 
 /// One input `openrac.py setup` places: `from` is `disc`, `boot`,
@@ -151,8 +155,8 @@ struct RawGame {
 
 #[derive(Deserialize)]
 struct RawVersion {
-    /// Where the version's tree lives, when not games/<game>/<version> (rac1's PAL tree is the
-    /// merged games/rac1 itself).
+    /// Where the version's tree lives, when not games/<game>/<version> (rac1's PAL v1.00 and Japanese
+    /// releases are built from games/rac1/decomp).
     #[serde(default)]
     dir: Option<String>,
     #[serde(default)]
@@ -473,6 +477,26 @@ impl Catalog {
         self.games.iter().flat_map(|g| &g.versions).find(|v| v.key == key)
     }
 
+    /// The version a disc is, by the serial its `SYSTEM.CNF` boots and, where releases share one
+    /// (Going Commando's v1.01 and v2.00: `SCUS_972.68`), the disc version it states (`VER`).
+    /// `game` limits it to one game. None for a disc of no version here, and for a shared serial
+    /// whose `VER` names none of them.
+    pub fn version_of_disc(&self, game: Option<&str>, serial: &str, disc_version: Option<&str>) -> Option<&Version> {
+        let mut candidates = self
+            .games
+            .iter()
+            .flat_map(|g| &g.versions)
+            .filter(|v| v.serial == serial && game.is_none_or(|g| v.game == g));
+        let first = candidates.next()?;
+        let rest: Vec<&Version> = candidates.collect();
+        if rest.is_empty() {
+            return Some(first);
+        }
+        let stated =
+            |v: &&Version| v.disc.as_ref().and_then(|d| d.version.as_deref()).is_some_and(|d| Some(d) == disc_version);
+        std::iter::once(first).chain(rest).find(stated)
+    }
+
     pub fn version_keys(&self) -> Vec<String> {
         self.games.iter().flat_map(|g| &g.versions).map(|v| v.key.clone()).collect()
     }
@@ -491,11 +515,43 @@ mod tests {
         // In game.json's order: rac1's PAL first.
         assert_eq!(
             catalog.version_keys(),
-            ["rac1/pal", "rac1/ntsc", "rac2/ntsc", "rac2/pal", "rac3/ntsc", "rac4/ntsc", "rac5/ntsc", "rac6/ntsc"]
+            [
+                "rac1/pal",
+                "rac1/ntsc",
+                "rac1/pal1",
+                "rac1/jp",
+                "rac2/ntsc",
+                "rac2/pal",
+                "rac2/ntsc2",
+                "rac3/ntsc",
+                "rac3/pal",
+                "rac4/ntsc",
+                "rac5/ntsc",
+                "rac6/ntsc"
+            ]
         );
+        // Going Commando's v1.01 and v2.00 boot the same serial; the disc's VER tells them apart.
+        let v1 = catalog.version_of_disc(None, "SCUS_972.68", Some("1.01")).map(|v| v.key.as_str());
+        let v2 = catalog.version_of_disc(Some("rac2"), "SCUS_972.68", Some("2.00")).map(|v| v.key.as_str());
+        assert_eq!((v1, v2), (Some("rac2/ntsc"), Some("rac2/ntsc2")));
+        assert!(catalog.version_of_disc(None, "SCUS_972.68", Some("3.00")).is_none());
+        let pal = catalog.version_of_disc(None, "SCES_516.07", None).map(|v| v.key.as_str());
+        assert_eq!(pal, Some("rac2/pal"));
+        assert!(catalog.version_of_disc(Some("rac1"), "SCES_516.07", None).is_none());
+        let uya_pal = catalog.version_of_disc(None, "SCES_524.56", Some("1.00")).map(|v| v.key.as_str());
+        assert_eq!(uya_pal, Some("rac3/pal"));
+        // Ratchet & Clank's PAL v1.00 and v2.00 boot the same serial; the disc's VER tells them apart.
+        let rac1 =
+            |disc_version| catalog.version_of_disc(Some("rac1"), "SCES_509.16", disc_version).map(|v| v.key.as_str());
+        assert_eq!((rac1(Some("2.00")), rac1(Some("1.00"))), (Some("rac1/pal"), Some("rac1/pal1")));
+        assert_eq!(rac1(Some("3.00")), None);
+        let jp = catalog.version_of_disc(None, "SCPS_150.37", Some("1.02")).map(|v| v.key.as_str());
+        assert_eq!(jp, Some("rac1/jp"));
+        let ntsc = catalog.version_of_disc(None, "SCUS_971.99", Some("1.00")).map(|v| v.key.as_str());
+        assert_eq!(ntsc, Some("rac1/ntsc"));
         let pal = catalog.version("rac1/pal").unwrap();
         assert_eq!(pal.serial, "SCES_509.16");
-        assert_eq!(pal.dir, "games/rac1");
+        assert_eq!(pal.dir, "games/rac1/decomp");
         assert!(pal.disc.as_ref().is_some_and(|d| d.size.is_some() && d.sha1.is_some()));
     }
 

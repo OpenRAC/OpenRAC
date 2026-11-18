@@ -26,6 +26,9 @@
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
 #include "game/rac1/host/collision_notes.h"
+#include "game/rac1/profile_rac1-jp.h"
+#include "game/rac1/profile_rac1-pal1.h"
+#include "game/rac1/ship_visor.h"
 #include "game/rac1/shrub_proc.h"
 #include "openrac/guest.h"
 #include "renderer/math.h"
@@ -49,6 +52,9 @@ struct ExecutableAddresses {
 // SCUS-97199 (rac1-ntsc's rac1_version.h pairs the hero's record).
 constexpr ExecutableAddresses kPalExecutable{0x001CAE00u, 0x0013F450u, 0x0015F6F0u, 0x001CE100u};
 constexpr ExecutableAddresses kNtscExecutable{0x001CAA80u, 0x0013F350u, 0x0015F60Cu, 0x001CDD80u};
+// PAL v1.00's and NTSC-J's, carried from PAL's (profile_rac1-pal1.h, profile_rac1-jp.h).
+constexpr ExecutableAddresses kPal1Executable OPENRAC_RAC1_PAL1_EXECUTABLE;
+constexpr ExecutableAddresses kJpExecutable OPENRAC_RAC1_JP_EXECUTABLE;
 
 // Developer tools, for a diagnostics recording: the moby table's spawn range (create_moby takes
 // a slot there whose state is 0xFE or more and whose +0x38 the frame clock has reached), with its
@@ -299,6 +305,11 @@ public:
         }
     }
 
+    // Only NTSC-U's canopy layouts have verified anchor signatures; other discs retain retail geometry.
+    LevelGeometryPreparer level_geometry_preparer() const override {
+        return &m_boot == &kRac1Ntsc ? add_ship_visor : nullptr;
+    }
+
     // The water lily class is shared by PAL and NTSC (editor/moby_classes.tsv).
     bool floats_on_water(int class_id) const override { return class_id == 695; }
 
@@ -322,6 +333,8 @@ private:
 // The two discs' profiles, constants for the program's life.
 const Profile kPalProfile{kRac1Pal, kRac1PalLevels, kPalExecutable};
 const Profile kNtscProfile{kRac1Ntsc, kRac1NtscLevels, kNtscExecutable};
+const Profile kPal1Profile{kRac1Pal1, kRac1Pal1Levels, kPal1Executable};
+const Profile kJpProfile{kRac1Jp, kRac1JpLevels, kJpExecutable};
 
 }  // namespace
 }  // namespace openrac::game::rac1
@@ -329,9 +342,15 @@ const Profile kNtscProfile{kRac1Ntsc, kRac1NtscLevels, kNtscExecutable};
 namespace openrac::host {
 
 const GameProfile& game_profile(std::string_view game) {
-    // The NTSC-U disc's id picks its tables; any other id reads as PAL, as rac1_addresses() does.
+    // Each other disc's id picks its tables; any other id reads as PAL, as rac1_addresses() does.
     if (game == "rac1-ntsc") {
         return game::rac1::kNtscProfile;
+    }
+    if (game == "rac1-pal1") {
+        return game::rac1::kPal1Profile;
+    }
+    if (game == "rac1-jp") {
+        return game::rac1::kJpProfile;
     }
 
     return game::rac1::kPalProfile;

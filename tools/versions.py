@@ -17,6 +17,7 @@ rest are still retail assembly), and only where tools/xmap.py pairs them one to 
 executable (`xmap.py scan` both versions first). Resident boot code only: no level programs yet.
 """
 import json
+import os
 import re
 import struct
 import sys
@@ -30,6 +31,15 @@ from openrac_common import paths, tables  # noqa: E402
 
 ROOT = paths.repo_root()
 OUT = ROOT / "build/versions"
+
+
+def variant_dir(key: str) -> Path:
+    """OpenRAC's own files for building version KEY (rac1/ntsc) from another version's tree: its
+    variants' C under src/, at the path of FROM's file that holds them, and splat.yaml for its own
+    disassembly (games/rac1/variants/ntsc/; games/rac1/VERSIONS.md). They are OpenRAC's, not the
+    decomp's: nothing of them is written into the decomp's tree but under its ignored build-sn/."""
+    game, version = key.split("/")
+    return ROOT / "games" / game / "variants" / version
 R_MIPS_32, R_MIPS_26, R_MIPS_HI16, R_MIPS_LO16, R_MIPS_GPREL16, R_MIPS_LITERAL = 2, 4, 5, 6, 7, 8
 SHT_SYMTAB, SHT_REL, STT_FUNC, STT_SECTION = 2, 9, 2, 3
 
@@ -169,15 +179,16 @@ OWN = re.compile(r"\b(func|D|jtbl)_([0-9A-F]{8})\b")
 def own_asm_units(dst_key: str, build: Path) -> list[tuple[str, tuple[str, list[str]]]]:
     """TO's own disassembly of its boot executable, for the functions nothing else places.
 
-    splat splits TO's executable with versions/<TO>/splat.yaml into versions/<TO>/asm/ (once).
+    splat splits TO's executable with its splat.yaml (variant_dir) into FROM's ignored
+    build-sn/<TO>-splat/asm/ (once).
     Its globals are renamed with an n in front (nfunc_, nD_, njtbl_: TO's addresses, which FROM's
     names would otherwise collide with) into build-sn/<TO>-asm/, and each segment becomes one
     generated C file of INCLUDE_ASM lines, as FROM keeps its unmatched functions: [(src path,
     (include folder, function names))]."""
     import subprocess
     version = dst_key.split("/")[1]
-    config = build / "versions" / version / "splat.yaml"
-    asm = build / "versions" / version / "asm" / "nonmatchings"
+    config = variant_dir(dst_key) / "splat.yaml"
+    asm = build / "build-sn" / f"{version}-splat" / "asm" / "nonmatchings"
     if not config.exists():
         return []
     if not asm.is_dir():
@@ -188,7 +199,7 @@ def own_asm_units(dst_key: str, build: Path) -> list[tuple[str, tuple[str, list[
             shutil.copyfile(boot_of(dst_key)[0], target)
         # then FROM's own fix-ups of splat's output (tools/setup_asm.sh): what SN's assembler reads
         out = asm.parent.relative_to(build).as_posix()
-        steps = [f"python -m splat split {config.relative_to(build).as_posix()}",
+        steps = [f"python -m splat split {Path(os.path.relpath(config, build)).as_posix()}",
                  f"python tools/fix_vu0_macro.py {out}", f"python tools/sn_regnames.py {out}",
                  f"python tools/fix_denormal_floats.py {out}"]
         run = subprocess.run(["bash", "tools/docker/run.sh", "bash", "-c", " && ".join(steps)],
@@ -214,8 +225,7 @@ def variant_objects(src_key: str, dst_key: str, build: Path, own_asm: bool = Fal
     "level")], once per run.
 
     A function whose code differs in TO (other struct offsets, other constants) has a variant
-    in versions/<TO's version>/src/ under FROM's tree, at the path of the file that holds it in
-    FROM. Only TO's build compiles it: FROM's own files stay as synced. Each variant is built
+    in src/ of TO's variant_dir, at the path of the file that holds it in FROM. Only TO's build compiles it: FROM's own files stay as synced. Each variant is built
     the way FROM builds its counterpart: an executable file by FROM's own Makefile.sn run in a
     shadow directory whose src/ holds only the variants, a level-code file (src/overlays/) by
     the pipeline FROM's progress report builds level files with. Same compiler, per-file flags
@@ -224,7 +234,7 @@ def variant_objects(src_key: str, dst_key: str, build: Path, own_asm: bool = Fal
     if key in _compiled:
         return _compiled[key]
     version = dst_key.split("/")[1]
-    root = build / "versions" / version / "src"
+    root = variant_dir(dst_key) / "src"
     files = sorted(root.rglob("*.c")) if root.is_dir() else []
     out = []
     asm_units = own_asm_units(dst_key, build) if own_asm else []
@@ -352,7 +362,7 @@ def check(src_key: str, dst_key: str, build: Path, boot_only: bool = False, ever
             placed[sym["name"]] = address
             pieces[sym["name"]] = piece
             outcome["same bytes"] += 1
-    # Variants: TO's own C for functions that differ, compiled from versions/<TO>/src/. They are
+    # Variants: TO's own C for functions that differ, compiled from its variant_dir's src/. They are
     # placed like FROM's functions and take the place of FROM's version of them.
     variant_failed = []
     compiled = variant_objects(src_key, dst_key, build, own_asm) if variants else []
@@ -784,7 +794,7 @@ def variant(src_key: str, dst_key: str, build: Path, names: list[str]) -> None:
     """Write TO's variant of FROM's functions NAMES (all in one source file) whose code differs in
     TO only in instruction immediates: struct offsets, constants. Each immediate FROM's compiled
     function has where TO's bytes have another is rewritten in a copy of the function's C (a hex
-    literal, or an int-array index for a word offset), into versions/<TO>/src/<the same path>.
+    literal, or an int-array index for a word offset), into src/<the same path> of TO's variant_dir.
     The file gets FROM's declarations and the externs the functions use. Rerun `check`: the
     variant counts only when it compiles to TO's bytes."""
     import re
@@ -876,7 +886,7 @@ def variant(src_key: str, dst_key: str, build: Path, names: list[str]) -> None:
         return head + body + tail
     text = re.sub(r"^((?:typedef\s+)?struct\s*\w*\s*\{)([^{}]*)(\}\s*\w*\s*;)", resize, text, flags=re.M)
     rel = src.relative_to(build / "src")
-    out = build / "versions" / dst_key.split("/")[1] / "src" / rel
+    out = variant_dir(dst_key) / "src" / rel
     out.parent.mkdir(parents=True, exist_ok=True)
     # The whole file, so it compiles as the same translation unit FROM's does; only NAMES differ.
     note = (f"/* {dst_key}'s copy of src/{rel.as_posix()}, made by tools/versions.py variant: {src_key}'s\n"

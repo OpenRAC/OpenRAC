@@ -28,6 +28,10 @@ void main() {
     effect_vertex(v_world, uv, v_colour);
 #endif
     gl_Position = view_projection * vec4(v_world, 1.0);
+    // A little nearer (reversed depth: larger is nearer), about five steps of a 24-bit depth buffer:
+    // a strip the game lays on a surface it drew before, a few millimetres apart (Kalebo III's dome
+    // glass over its fading panes), passes there as on the GS instead of tearing in and out of it.
+    gl_Position.z += 6.0e-7 * gl_Position.w;
 #ifdef OPENRAC_OCEAN_SPECTRUM
     // The ocean extends beyond the world camera's far plane at clear depth.
     if (water_mesh != 0 && gl_Position.w > 0.)

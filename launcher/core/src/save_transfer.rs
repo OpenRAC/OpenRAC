@@ -24,7 +24,6 @@
 //! card is kept.
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::{Read, Write};
@@ -187,10 +186,6 @@ fn split_entry(path: &str) -> Option<(&str, &str)> {
         .then_some((folder, file))
 }
 
-fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
-}
-
 /// `YYYY-MM-DDTHH:MM:SSZ` for seconds since 1970 (Howard Hinnant's civil_from_days).
 fn utc_stamp(secs: u64) -> String {
     let days = (secs / 86_400) as i64;
@@ -348,7 +343,7 @@ pub fn export_card(
             .map(|(path, bytes)| SaveArchiveFile {
                 path: path.clone(),
                 size: bytes.len() as u64,
-                sha256: sha256(bytes),
+                sha256: crate::sha256_hex(bytes),
             })
             .collect(),
     };
@@ -415,7 +410,7 @@ pub fn read_archive(path: &Path) -> Result<SaveArchive, String> {
             return Err(format!("{name} {NOT_OURS} (it is far larger than a memory card)"));
         }
         let bytes = read_entry(&f.path, MAX_FILE)?;
-        if bytes.len() as u64 != f.size || sha256(&bytes) != f.sha256.to_ascii_lowercase() {
+        if bytes.len() as u64 != f.size || crate::sha256_hex(&bytes) != f.sha256.to_ascii_lowercase() {
             return Err(format!("{name} is damaged: {} is not the file that was exported", f.path));
         }
         if files.insert(f.path.clone(), bytes).is_some() {
@@ -508,10 +503,13 @@ pub fn import_into(
     }
 
     fs::create_dir_all(card_dir).map_err(|e| format!("{}: {e}", card_dir.display()))?;
-    let backup = match saves::find_game_folder(card_dir) {
-        Some(_) => Some(saves::backup_card(card_dir, Some("before import"))?),
-        None => None,
-    };
+    // Anything on the card is backed up first, a card of co-op saves alone included.
+    let holds_saves = fs::read_dir(card_dir)
+        .map(|entries| {
+            entries.flatten().any(|e| e.path().is_dir() && !e.file_name().to_string_lossy().starts_with('.'))
+        })
+        .unwrap_or(false);
+    let backup = if holds_saves { Some(saves::backup_card(card_dir, Some("before import"))?) } else { None };
 
     // The file's folders, each with its files.
     let mut by_folder: BTreeMap<&str, Vec<(&str, &[u8])>> = BTreeMap::new();

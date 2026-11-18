@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { elapsed, grouped, matchedLine, pct, size } from "./format";
+import { elapsed, grouped, matchedLine, pct, size, splitPath } from "./format";
 
 describe("format", () => {
   it("writes percentages like the website", () => {
@@ -27,5 +27,15 @@ describe("format", () => {
     expect(elapsed(4200)).toBe("4 s");
     expect(elapsed(125_000)).toBe("2 min 05 s");
     expect(elapsed(3_780_000)).toBe("1 h 03 min");
+  });
+
+  it("splits a path into its folders and its last part", () => {
+    expect(splitPath("C:\\Users\\you\\Godot\\godot.exe")).toEqual({
+      head: "C:\\Users\\you\\Godot",
+      tail: "\\godot.exe",
+    });
+    expect(splitPath("/usr/bin/godot")).toEqual({ head: "/usr/bin", tail: "/godot" });
+    expect(splitPath("godot")).toEqual({ head: "godot", tail: "" });
+    expect(splitPath(`/opt/${"x".repeat(60)}`)).toEqual({ head: `/opt/${"x".repeat(60)}`, tail: "" });
   });
 });

@@ -146,6 +146,9 @@ EnvironmentBakeSettings read_environment_profile(
             }
 
             (key == "enabled" ? result.enabled : result.merge_enabled) = setting.boolean();
+            if (key == "enabled") {
+                result.require_full_coverage = true;
+            }
             continue;
         }
 
@@ -315,6 +318,41 @@ void apply_profile(const std::filesystem::path& path, LevelBakeProfile& profile)
             bake.surface_emission_regions = read_surface_emission_regions(value);
         } else if (key == "surface_emission_scale") {
             bake.surface_emission_scale = number(value, 0, 1e6);
+        } else if (key == "area_lights") {
+            if (!value.is_array() || value.items().size() > 64) {
+                fail("area_lights must be an array of at most 64 rectangles");
+            }
+            profile.area_lights.clear();
+            for (const auto& light : value.items()) {
+                profile.area_lights.push_back(
+                    {vector(light["position"], -1e6),
+                     vector(light["axis_u"], -1e6),
+                     vector(light["axis_v"], -1e6),
+                     vector(light["radiance"], 0)}
+                );
+            }
+        } else if (key == "look_regions") {
+            if (!value.is_array() || value.items().size() > kProbeLookRegions) {
+                fail("look_regions must be an array of at most 12 boxes");
+            }
+            profile.look_regions.clear();
+            for (const auto& box : value.items()) {
+                const auto& bounds = box["bounds"];
+                if (bounds.items().size() != 6) {
+                    fail("look region bounds require six coordinates");
+                }
+                ProbeLookRegion region;
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    region.minimum[axis] = number(bounds[axis], -1e6, 1e6);
+                    region.maximum[axis] = number(bounds[axis + 3], -1e6, 1e6);
+                    if (region.maximum[axis] <= region.minimum[axis]) {
+                        fail("look region bounds must have positive extent");
+                    }
+                }
+                region.feather = number(box["feather"], .01, 256);
+                region.diffuse_gain = number(box["diffuse_gain"], 0, 2);
+                profile.look_regions.push_back(region);
+            }
         } else if (key == "sky_intensity") {
             bake.sky_intensity = number(value, 0, 1e6);
         } else if (key == "sky_weight") {
@@ -339,6 +377,30 @@ void apply_profile(const std::filesystem::path& path, LevelBakeProfile& profile)
             bake.terrain_vertex_albedo_strength = number(value, 0, 1);
         } else if (key == "rays") {
             bake.rays_per_probe = integer(value, 16, 1048576);
+            profile.explicit_ray_policy = true;
+            if (root["adaptive_rays"].is_null()) {
+                bake.adaptive_rays = false;
+            }
+        } else if (key == "adaptive_rays") {
+            if (value.type() != json::Value::Type::Bool) {
+                fail("adaptive_rays requires a boolean");
+            }
+            bake.adaptive_rays = value.boolean();
+            profile.explicit_ray_policy = true;
+        } else if (key == "adaptive_split_visibility" || key == "adaptive_stratified_directions") {
+            if (value.type() != json::Value::Type::Bool) {
+                fail("adaptive sampling options require booleans");
+            }
+            if (key == "adaptive_split_visibility") {
+                profile.legacy_sampling.split_visibility = value.boolean();
+            } else {
+                profile.legacy_sampling.sobol = value.boolean();
+            }
+        } else if (key == "nearby_mesh_lights") {
+            if (value.type() != json::Value::Type::Bool) {
+                fail("nearby_mesh_lights requires a boolean");
+            }
+            profile.legacy_nearby_lights = value.boolean();
         } else if (key == "bounces") {
             bake.bounces = integer(value, 0, 32);
         } else if (key == "seed") {
@@ -401,14 +463,26 @@ LevelBakeProfile load_level_bake_profile(
     } rounding;
 
     LevelBakeProfile profile;
+    bool has_placement_inputs = false;
+    if (std::filesystem::is_regular_file(directory / "bake-inputs/gameplay.bin")) {
+        json::Value manifest;
+        std::string error;
+        has_placement_inputs =
+            json::parse_file((directory / "manifest.json").string(), manifest, error)
+            && !manifest["collision"].is_null();
+    }
+    if (has_placement_inputs) {
+        profile.environment.enabled = true;
+        profile.environment.require_full_coverage = false;
+    }
     apply_profile(directory / "probe-bake.json", profile);
 
     if (!overrides.empty()) {
         apply_profile(overrides / "probe-bake.json", profile);
     }
 
-    // Scene strategy has no playable-floor graph for local reflection capture placement.
-    if (profile.strategy == BakeStrategy::Scene) {
+    // Scene GI also serves background exports that have no data for reflection placement.
+    if (profile.strategy == BakeStrategy::Scene && !has_placement_inputs) {
         profile.environment.enabled = false;
     }
 
@@ -417,7 +491,7 @@ LevelBakeProfile load_level_bake_profile(
 
 bool bake_identity_supported(std::string_view game, std::string_view version) {
     return (game == "rac1" && (version == "pal" || version == "ntsc"))
-           || (game == "rac2" && version == "ntsc");
+           || (game == "rac2" && (version == "ntsc" || version == "pal" || version == "ntsc2"));
 }
 
 bool bake_identity_supported(std::string_view game_version) {
@@ -445,7 +519,7 @@ ProbeAssetLoader::ProbeAssetLoader(const scene::LevelData& level, const ProbeAct
     m_scene_hash = probe_activation_hash(level, expected.light_set, expected.environment);
 }
 
-ProbeVolume ProbeAssetLoader::load(
+ProbeVolume ProbeAssetLoader::read(
     const std::filesystem::path& path, bool expand_linear_maps
 ) const {
     std::ifstream input(path, std::ios::binary | std::ios::ate);
@@ -474,18 +548,66 @@ ProbeVolume ProbeAssetLoader::load(
         throw std::runtime_error("probe game version or level does not match loaded scene");
     }
 
-    if (volume.grid.settings_hash != probe_bake_settings_hash(volume.grid, m_bake)) {
-        throw std::runtime_error(
-            "probe bake settings differ; check OPENRAC_PROBE_RAYS and rebake if needed"
-        );
-    }
-
     if (volume.grid.scene_hash != m_scene_hash) {
         throw std::runtime_error(
             "stale probe scene or different lighting inputs; rebake this level"
         );
     }
 
+    return volume;
+}
+
+void ProbeAssetLoader::validate_settings(const ProbeVolume& volume) const {
+    const auto* legacy = m_legacy_sampling ? &*m_legacy_sampling : nullptr;
+    if (volume.grid.settings_hash != probe_bake_settings_hash(volume.grid, m_bake, legacy)) {
+        throw std::runtime_error(
+            "probe bake settings differ; check OPENRAC_PROBE_RAYS and rebake if needed"
+        );
+    }
+}
+
+ProbeVolume ProbeAssetLoader::load(
+    const std::filesystem::path& path, bool expand_linear_maps
+) const {
+    auto volume = read(path, expand_linear_maps);
+    validate_settings(volume);
+    return volume;
+}
+
+ProbeVolume ProbeAssetLoader::load_with_previous_defaults(
+    const std::filesystem::path& path, const LevelBakeProfile& profile, bool expand_linear_maps
+) {
+    auto volume = read(path, expand_linear_maps);
+    if (volume.grid.settings_hash == probe_bake_settings_hash(volume.grid, m_bake)) {
+        return volume;
+    }
+    auto previous = m_bake;
+    auto legacy = profile.legacy_sampling;
+    const auto accept = [&] {
+        if (volume.grid.settings_hash == probe_bake_settings_hash(volume.grid, previous, &legacy)) {
+            m_bake = previous;
+            m_legacy_sampling = legacy;
+            return true;
+        }
+        return false;
+    };
+    legacy.nearby_lights = profile.legacy_nearby_lights.value_or(previous.adaptive_rays);
+    if (accept()) {
+        return volume;
+    }
+    if (!profile.legacy_nearby_lights) {
+        legacy.nearby_lights = false;
+        if (accept()) {
+            return volume;
+        }
+    }
+    if (!profile.explicit_ray_policy) {
+        previous.adaptive_rays = false;
+        if (accept()) {
+            return volume;
+        }
+    }
+    validate_settings(volume);
     return volume;
 }
 

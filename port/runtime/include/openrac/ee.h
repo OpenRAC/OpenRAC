@@ -68,7 +68,7 @@ static inline uint32_t openrac_ee_cvtws(float f) {
 #include "openrac/ee_ops.h"
 
 /* The one vector unit 0 the program has. */
-extern openrac_vu0_state openrac_vu0;
+extern OPENRAC_PART_IMPORT openrac_vu0_state openrac_vu0;
 #define OPENRAC_VU0 (&openrac_vu0)
 #define OPENRAC_VU0_IN()
 #define OPENRAC_VU0_OUT()

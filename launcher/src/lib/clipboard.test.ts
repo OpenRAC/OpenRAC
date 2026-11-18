@@ -16,6 +16,25 @@ describe("copyText", () => {
     expect(app.toasts).toHaveLength(0);
   });
 
+  it("copies with the document's copy command when the async clipboard refuses", async () => {
+    vi.stubGlobal("navigator", { clipboard: { writeText: () => Promise.reject(new Error("no gesture")) } });
+    const field = { value: "", style: {}, setAttribute: vi.fn(), select: vi.fn(), remove: vi.fn() };
+    let copied = "";
+    vi.stubGlobal("document", {
+      activeElement: null,
+      body: { appendChild: vi.fn() },
+      createElement: () => field,
+      execCommand: (command: string) => {
+        copied = command === "copy" && field.select.mock.calls.length > 0 ? field.value : "";
+        return command === "copy";
+      },
+    });
+    expect(await copyText("report", "refused")).toBe(true);
+    expect(copied).toBe("report");
+    expect(field.remove).toHaveBeenCalled();
+    expect(app.toasts).toHaveLength(0);
+  });
+
   it("shows the caller's words when the browser refuses", async () => {
     vi.stubGlobal("navigator", { clipboard: { writeText: () => Promise.reject(new Error("denied")) } });
     expect(await copyText("x", "Select it and copy it yourself.")).toBe(false);

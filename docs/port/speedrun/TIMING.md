@@ -25,7 +25,7 @@ matters for two reasons:
 
 1. **The game logic itself runs differently.** The PAL game reads its own tick
    length from `D_0015EE7C` and its tick scale from `D_0015EE60`; about five
-   hundred places in the game's code read those (`games/rac1/src/game/mobyutil.c:1115-1136`,
+   hundred places in the game's code read those (`games/rac1/decomp/src/game/mobyutil.c:1115-1136`,
    the `SetVideoModeTiming` function the decompilation names). On a PAL disc at
    50 Hz the tick length is 0.02 s and the scale is 1.2; at 60 Hz they are
    0.0166… s and 1.0. The port keeps the PAL game in its own 60 Hz mode
@@ -37,15 +37,18 @@ matters for two reasons:
    version-differences note says the PS2 at 50 Hz cannot do the Orxon 1 Clank
    proxy, while 60 Hz can; the port always behaves as 60 Hz.
 
-> **A stale document.** `docs/port/SETTINGS.md` §2 and §3 still describe the
-> port as ticking 50 times a second for PAL, and as taking the tick rate from
+> **An older document.** The figures in `docs/port/SETTINGS.md` §2 and §3 are of
+> the port ticking 50 times a second for PAL, and taking the tick rate from
 > the video mode the game last set. Both were true before commit `14e72695`
 > ("feat(port): run every game at 60 Hz, PAL in its own 60 Hz mode",
 > 2026-10-15); that commit changed the code and `port/game/rac1-pal/README.md`
 > but not `SETTINGS.md`. The code is authoritative. The generated
 > `openrac_game.frame_rate` is still 50 for PAL
-> (`port/game/rac1-pal/hostgen.json:7`) but nothing reads it — grep for
-> `openrac_game.frame_rate` in `port/` returns no consumer.
+> (`port/game/rac1-pal/hostgen.json:7`): it is the disc's video rate, and
+> nothing that runs reads it. Until 2026-10-31 the hero's pose did
+> (`hero_pose`, `port/game/rac1/host/play.c`), so a PAL player's velocity went
+> out 16.7% low to the mods; it now uses `POSE_TICKS_A_SECOND`, 60 on every
+> disc.
 
 ## 2. The tick is on the wall clock
 
@@ -181,7 +184,7 @@ the same data can be produced from the debug overlay's "dump frames" checkbox,
 which writes `openrac_frames.jsonl` in the working directory.
 
 A second, coarser stream exists for the regression harness:
-`OPENRAC_TRACE=FILE` writes one JSON line a tick with the frame, the frames
+`OPENRAC_TRACE=FILE` writes one JSON line a window frame with the frame, the frames
 since the player got control, the level, the game mode, the camera, the hero
 and the live moby count (`port/game/common/frontend.cpp:2280-2308`).
 

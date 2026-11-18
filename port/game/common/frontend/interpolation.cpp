@@ -45,20 +45,23 @@
 #include "game/common/frontend/scene_frame_internal.h"
 #include "game/common/frontend/state.h"
 #include "mod_menu.h"
+#include "mod_overlay.h"
+#include "mods.h"
 #include "openrac/game_host.h"
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "platform/window.h"
-#include "renderer/direct.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/direct/direct.h"
+#include "renderer/effects/shadows.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
-#include "renderer/shadows.h"
-#include "renderer/texture_pool.h"
+#include "renderer/textures/texture_pool.h"
 #include "renderer/ui/fps_counter.h"
 #include "scene/level_renderer.h"
 #include "scene/screenshot.h"
 #include "settings.h"
+#include "ui_colors.h"
 
 namespace openrac::frontend {
 
@@ -108,7 +111,7 @@ double g_latency_slept = 0.0;
 // Vulkan jobs own their snapshots; mod views share the window thread and graphics queue.
 bool threaded_rendering() {
     static const bool requested = env::flag(env::Var::RenderThread);
-    return gl::is_vulkan() && requested && !views_wanted();
+    return gl::is_vulkan() && requested && !views_wanted() && !mods::vulkan_needs_game_thread();
 }
 
 // Returns the frames a second the frames between ticks are held to (the player's cap, or the
@@ -317,15 +320,20 @@ void capture_frame(const FramePresentation& output) {
         const auto writing = std::chrono::steady_clock::now();
         const std::string path = shots().prefix + std::to_string(output.tick)
                                  + (first ? std::string() : "_b" + std::to_string(between_index))
-                                 + ".png";
+                                 + (output.enhanced_graphics ? "_enhanced" : "") + ".png";
         // As the screen shows it: the frame's alpha is what the GS blends wrote, not a picture's
         // coverage, and a viewer that shows it draws the sky full of the effects' blotches.
         std::vector<std::uint8_t> pixels = renderer::read_rgba(shown, width, height);
         for (std::size_t i = 3; i < pixels.size(); i += 4) {
             pixels[i] = 0xFF;
         }
-        scene::write_png(path, width, height, pixels);
-        log::info("frame {} written to {}", output.tick, path);
+        scene::write_png_later(
+            path,
+            width,
+            height,
+            std::move(pixels),
+            std::format("frame {} written to {}", output.tick, path)
+        );
         shot_time += std::chrono::steady_clock::now() - writing;
     }
 }
@@ -465,7 +473,10 @@ void draw_overlay(const FramePresentation& output) {
          output.picker_palette,
          output.picker_level,
          output.tick,
-         output.picker_layers}
+         output.picker_layers,
+         output.freecam,
+         output.camera_level,
+         output.enhanced_graphics}
     );
 }
 
@@ -497,10 +508,13 @@ void present_frame(FramePresentation& output) {
     // The window thread's own parts of a frame, measured apart (performance captures).
     {
         const stats::Scope menus("menus");
+        mod_overlay::draw(output.camera, output.has_camera, shown, width, height, aspect);
         debug_menu::draw(shown, width, height);
         mod_menu::draw(shown, width, height);
         if (settings::get().show_fps != settings::FrameCounter::Off) {
-            renderer::ui::fps_counter::draw(shown, width, height);
+            // In the game's accent over the theme's darkest ink, as the launcher and the menu.
+            const ui_colors::Colors& colors = ui_colors::launcher();
+            renderer::ui::fps_counter::draw(shown, width, height, colors.amber, colors.ink_deep);
         }
     }
     {
@@ -546,6 +560,11 @@ bool finish_render() try {
         return !g || !g->render_failed;
     }
     const auto started = std::chrono::steady_clock::now();
+    while (!g->render_worker->ready_until(
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(50)
+    )) {
+        platform::pump_events();
+    }
     std::string error;
     const bool complete = g->render_worker->finish(error);
     auto output = std::move(g->pending_frame);

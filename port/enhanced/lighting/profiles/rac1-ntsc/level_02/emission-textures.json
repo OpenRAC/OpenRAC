@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "textures": [
+    {
+      "output": "red-ring-emission.png",
+      "mask": "red-ring-mask.png",
+      "mode": "solid",
+      "colour": [
+        245,
+        5,
+        3
+      ]
+    },
+    {
+      "output": "yellow-light-emission.png",
+      "mask": "yellow-light-mask.png",
+      "mode": "source",
+      "source": "textures/tie_0039.png"
+    }
+  ]
+}

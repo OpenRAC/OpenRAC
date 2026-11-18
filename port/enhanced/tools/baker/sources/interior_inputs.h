@@ -28,19 +28,27 @@ struct InteriorInput {
         transitions;  // Authored lighting boundaries in source order.
 };
 
+std::filesystem::path bake_input(
+    const std::filesystem::path& original, const std::filesystem::path& overrides
+);
+
 // Hashes the retained gameplay and collision files without decoding their geometry.
 [[nodiscard]] Result<std::string> interior_source_identity(
-    const std::filesystem::path& level, const std::filesystem::path& gameplay
+    const std::filesystem::path& level,
+    const std::filesystem::path& gameplay,
+    const std::filesystem::path& overrides = {}
 );
 
 // Loads transformed collision geometry without gameplay or graphics resources.
 [[nodiscard]] Result<std::vector<interiors::Triangle>> load_coverage_collision(
-    const std::filesystem::path& level
+    const std::filesystem::path& level, const std::filesystem::path& overrides = {}
 );
 
 // Loads collision and gameplay directly; reports malformed exports without launching another process.
 [[nodiscard]] Result<InteriorInput> load_interior_input(
-    const std::filesystem::path& level, const std::filesystem::path& gameplay
+    const std::filesystem::path& level,
+    const std::filesystem::path& gameplay,
+    const std::filesystem::path& overrides = {}
 );
 
 // Writes the collision diagnostic consumed by swimming-space planning until that consumer uses typed inputs.

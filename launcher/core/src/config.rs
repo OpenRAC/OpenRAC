@@ -24,6 +24,10 @@ pub struct Config {
     /// The save editor shows every field of a save, raw bytes included (for debugging). Off, the
     /// player's safe set only.
     pub save_editor_advanced: bool,
+    /// For developers: after a change to OpenRAC, build the game again incrementally (`port-build`)
+    /// instead of from scratch (`port-rebuild`). A build folder that is unusable (no stamp from
+    /// OpenRAC's build, another OpenRAC version) is still built from scratch. Default off.
+    pub incremental_builds: bool,
     /// Where games are set up from the player's discs (OpenGOAL's install
     /// directory); unset: the launcher's per-user data folder.
     pub install_dir: Option<PathBuf>,
@@ -31,6 +35,11 @@ pub struct Config {
     /// knows (discs.rs): with it nobody picks an image by hand.
     #[serde(default)]
     pub discs_dir: Option<PathBuf>,
+    /// The player's own folder for the games' memory cards (their saves): a folder per disc
+    /// serial in it, as in the default `<data home>/memcard`, so one folder can be synced
+    /// (Syncthing, a cloud drive). Unset: the default. Given to each game's start as `--cards`
+    /// (saves.rs `card_dir_in`); not on Android, which keeps its files in its own place.
+    pub save_dir: Option<PathBuf>,
     /// The first-run setup was finished (or skipped).
     pub setup_complete: bool,
     /// The version the launcher showed last (`rac1/pal`).
@@ -52,27 +61,24 @@ pub struct Config {
     pub update_branch: Option<String>,
     /// Custom Discord application ID (optional).
     pub discord_client_id: Option<String>,
-    /// The page layout: "compact" (default) or "classic", the original design (src/layouts/).
-    #[ts(type = "\"compact\" | \"classic\"")]
-    pub layout: String,
-    /// The launcher's theme (src/lib/palettes.json): "openrac" (default), "gruvbox", "oled", "nord"
+    /// The launcher's theme (src/lib/palettes.json): "openrac" (default), "oled", "nord"
     /// or "mocha". The accent is not a theme's: it is the picked game's.
     pub theme: String,
+    /// The picked game's own bar, gold and coal (palettes.json game_colors) instead of the
+    /// launcher's, in the launcher and the game's menu. On by default; off, every game wears the gold.
+    pub game_colors: bool,
     /// The game writes a detailed log (OPENRAC_LOG=verbose): level loads, controller changes,
     /// what the port is missing. Off by default, so a log stays small.
     pub detailed_game_log: bool,
     /// What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
-    /// Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries), or
-    /// "opengl" (OpenGL 4.1). Where Vulkan cannot start, the game draws with OpenGL
-    /// (port/platform/window.cpp). Not used on Android, which keeps its own choice
+    /// Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries),
+    /// "opengl" (OpenGL 4.1), or, on macOS only, "metal", the port's Metal renderer
+    /// (OPENRAC_GL_API=metal, port/renderer/metal). Where Vulkan or Metal cannot start, the game
+    /// draws with OpenGL (port/platform/window.cpp); "metal" on any other system plays as
+    /// "vulkan" (renderer_for). Not used on Android, which keeps its own choice
     /// (src-tauri/src/android.rs).
-    #[ts(type = "\"opengl\" | \"vulkan\"")]
+    #[ts(type = "\"opengl\" | \"vulkan\" | \"metal\"")]
     pub renderer: String,
-    /// HDR output (port docs/port/HDR.md): "" (default) leaves it to the game's own setting (its
-    /// drawer, the settings file's `hdr`); "off", "auto" or "on" is given to each game's start
-    /// (OPENRAC_HDR), over that. On every system; it needs the Vulkan renderer.
-    #[ts(type = "\"\" | \"off\" | \"auto\" | \"on\"")]
-    pub hdr: String,
     /// Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
     /// (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
     /// a start whose window crashed before it drew a click; the player may turn it off again.
@@ -84,14 +90,23 @@ pub struct Config {
     /// For each game, the time (seconds since 1970) of the newest crash report the player has
     /// dismissed: crashes up to then are seen, and no notice, button or mark is shown for them.
     pub crashes_seen: BTreeMap<String, u64>,
-    /// For developers with more than one disc of a game in the games folder: the version each
+    /// For developers whose launcher knows more than one disc of a game: the version each
     /// game's page plays (`rac1` -> `rac1/ntsc`). Used only with developer tools on
     /// (disc_choice.rs); without one, the disc set up, as for a player.
     pub disc_choice: BTreeMap<String, String>,
+    /// For developers: the image each version was last set up from (`rac1/ntsc` -> the .iso), so
+    /// the disc switch offers that version without a games folder (disc_choice.rs). An image
+    /// moved, deleted or now another disc is not offered.
+    pub disc_images: BTreeMap<String, PathBuf>,
     /// The name online mods show the other players (multiplayer.rs): 3 to 16 letters, digits and
     /// underscores, made up at the first start and changed in Settings. Given to the game as
     /// `OPENRAC_PLAYER_NAME`.
     pub multiplayer_name: String,
+    /// This installation's key (multiplayer.rs): random, made at the first start and never shown.
+    /// What a host's ban holds on to, so a new name gets round none. Given to the game as
+    /// `OPENRAC_IDENTITY_KEY`.
+    #[serde(default)]
+    pub multiplayer_key: String,
     /// Where the launcher keeps its own copy of the figures it fetched from bytematch.dev: in
     /// the per-user folder beside its settings, which the launcher can always write (a
     /// checkout it does not own, as an installed launcher carries one, is read-only).
@@ -122,8 +137,10 @@ impl Default for Config {
             docker: None,
             install_dir: None,
             discs_dir: None,
+            save_dir: None,
             developer: false,
             save_editor_advanced: false,
+            incremental_builds: false,
             setup_complete: false,
             last_version: None,
             discord_rpc: true,
@@ -132,16 +149,17 @@ impl Default for Config {
             update_channel: None,
             update_branch: None,
             discord_client_id: None,
-            layout: "compact".into(),
             theme: "openrac".into(),
+            game_colors: true,
             detailed_game_log: false,
             renderer: "vulkan".into(),
-            hdr: String::new(),
             safe_rendering: false,
             play_with_mods: false,
             crashes_seen: BTreeMap::new(),
             disc_choice: BTreeMap::new(),
+            disc_images: BTreeMap::new(),
             multiplayer_name: String::new(),
+            multiplayer_key: String::new(),
             progress_cache: None,
             mod_indexes: Vec::new(),
             prerelease_mods: None,
@@ -162,6 +180,18 @@ impl Config {
 /// broken settings file never stops the launcher from starting.
 pub fn load(path: &Path) -> Config {
     std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default()
+}
+
+/// The renderer Play starts the game with on `platform`, from Settings' `renderer`: "vulkan",
+/// "opengl", or "metal" on macOS only. Metal anywhere else (a settings file carried over from a
+/// Mac) is Vulkan, the default; anything unknown is OpenGL, as it always was.
+pub fn renderer_for(renderer: &str, platform: crate::actions::Platform) -> &'static str {
+    match renderer {
+        "vulkan" => "vulkan",
+        "metal" if platform == crate::actions::Platform::Macos => "metal",
+        "metal" => "vulkan",
+        _ => "opengl",
+    }
 }
 
 /// Writes `config` to `path` through a temporary file, so a crash never
@@ -218,6 +248,17 @@ mod tests {
         assert!(std::fs::read_to_string(&path).unwrap().contains("\"checkUpdates\": false"));
     }
 
+    /// A settings file without the option wears the game's colours; turning them off is kept.
+    #[test]
+    fn wears_game_colours_unless_turned_off() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("launcher.json");
+        std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
+        assert!(load(&path).game_colors);
+        save(&path, &Config { game_colors: false, ..Config::default() }).unwrap();
+        assert!(!load(&path).game_colors);
+    }
+
     /// A settings file from before the mod check offers mod updates; turning it off is kept.
     #[test]
     fn checks_for_mod_updates_unless_turned_off() {
@@ -249,5 +290,31 @@ mod tests {
         assert_eq!(load(&path).renderer, "vulkan");
         save(&path, &Config { renderer: "opengl".into(), ..Config::default() }).unwrap();
         assert_eq!(load(&path).renderer, "opengl");
+        save(&path, &Config { renderer: "metal".into(), ..Config::default() }).unwrap();
+        assert_eq!(load(&path).renderer, "metal");
+    }
+
+    /// Metal only on macOS: a Mac's "metal" plays with Vulkan on any other system.
+    #[test]
+    fn metal_is_for_macos_only() {
+        use crate::actions::Platform;
+        assert_eq!(renderer_for("metal", Platform::Macos), "metal");
+        for platform in [Platform::Windows, Platform::Linux, Platform::Android, Platform::Ios] {
+            assert_eq!(renderer_for("metal", platform), "vulkan", "{platform:?}");
+        }
+        for platform in [Platform::Macos, Platform::Windows, Platform::Linux] {
+            assert_eq!(renderer_for("vulkan", platform), "vulkan");
+            assert_eq!(renderer_for("opengl", platform), "opengl");
+            assert_eq!(renderer_for("glide", platform), "opengl");
+        }
+    }
+
+    /// An old file with the removed "hdr" key still loads; HDR is the game's own setting now.
+    #[test]
+    fn old_hdr_key_still_loads() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("launcher.json");
+        std::fs::write(&path, r#"{"setupComplete": true, "hdr": "on"}"#).unwrap();
+        assert!(load(&path).setup_complete);
     }
 }

@@ -10,10 +10,10 @@
 #include "common/stats.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced/tests/water_test_bake.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
@@ -57,7 +57,6 @@ void main(){
         const bool compact = mode != 0;
 
         renderer::render_opt::set(renderer::render_opt::Opt::WaterStepBarriers, compact);
-        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, compact);
         auto water = enhanced::make_water(scene, fixture.folder);
         CHECK(bool(water));
         if (!water || !water->init(error)) {

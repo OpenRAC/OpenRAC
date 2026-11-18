@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Fine UV-anchored strand slopes; derivative frames and normal reconstruction remain FP32.
+// openrac_mode: hero_fur_detail_enabled
 uniform int hero_fur_detail_enabled;
 uniform sampler2D hero_fur_detail;
 uniform vec4 hero_fur_detail_parameters; // Normal strength, colour contrast, fade start/end.

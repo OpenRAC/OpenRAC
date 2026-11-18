@@ -87,6 +87,8 @@ class MainActivity : TauriActivity() {
   override fun onResume() {
     super.onResume()
     inFront = true
+    // Back in front: Recents may take its picture again (OpenracPlugin's play turned it off).
+    if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(true)
     UpdateReceiver.showWaiting(this)
   }
 
@@ -97,6 +99,11 @@ class MainActivity : TauriActivity() {
 
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
+    // The page takes the window's focus at once: until a first touch gave it, the page could not
+    // focus a control (the d-pad then did nothing, or scrolled the page).
+    webView.isFocusable = true
+    webView.isFocusableInTouchMode = true
+    webView.post { webView.requestFocus() }
   }
 
   override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -136,9 +143,10 @@ class MainActivity : TauriActivity() {
     KeyEvent.KEYCODE_DPAD_DOWN -> "down"
     KeyEvent.KEYCODE_DPAD_LEFT -> "left"
     KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
-    KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_BUTTON_START -> "accept"
+    KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER -> "accept"
     KeyEvent.KEYCODE_BUTTON_B -> "back"
     KeyEvent.KEYCODE_BUTTON_Y -> "more"
+    KeyEvent.KEYCODE_BUTTON_X -> "extra"
     KeyEvent.KEYCODE_BUTTON_L1 -> "prev"
     KeyEvent.KEYCODE_BUTTON_R1 -> "next"
     else -> null
@@ -152,8 +160,12 @@ class MainActivity : TauriActivity() {
   }
 
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    // Start does nothing in the launcher: as A it pressed the page's main button, which could
+    // open the system's file picker (Set up from your disc).
+    if (event.keyCode == KeyEvent.KEYCODE_BUTTON_START && fromController(event)) return true
     val name = if (fromController(event)) button(event.keyCode) else null
     if (name == null || webView == null) return super.dispatchKeyEvent(event)
+    if (webView?.hasFocus() == false) webView?.requestFocus()
     // Held buttons repeat in the page, at its own pace.
     when (event.action) {
       KeyEvent.ACTION_DOWN -> if (event.repeatCount == 0) send("down:$name")

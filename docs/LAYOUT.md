@@ -4,15 +4,19 @@
 OpenRAC/
 ├── README.md, CONTRIBUTING.md
 ├── LICENSE.md, THIRD_PARTY_NOTICES.md, CREDITS.md
-├── games/                  one directory per game, one per version inside it
-│   ├── rac1/               Ratchet & Clank (2002): the PAL tree, SCES_509.16, from rac1-decomp
-│   │   ├── game.json       discs, checksums, what is decompiled, where it came from
-│   │   └── ntsc/           SCUS_971.99, from Lombyte
-│   ├── rac2/ntsc/          Going Commando, SCUS_972.68 v1.01, from rac2-decomp
-│   ├── rac3/ntsc/          Up Your Arsenal, SCUS_973.53, from rac3-uya-decomp
-│   ├── rac4/ntsc/          Deadlocked, SCUS_974.65, from rac-deadlocked-decomp
-│   ├── rac5/ntsc/          Size Matters, SCUS_976.15, from rac5-sm-decomp
-│   └── rac6/ntsc/          Secret Agent Clank, SCUS_976.23, from rac-sac-decomp
+├── games/                  one folder per game (games/README.md)
+│   ├── rac1/               Ratchet & Clank (2002)
+│   │   ├── README.md       the game, its versions, where each comes from, where the port's code is
+│   │   ├── game.json       discs, checksums, which decomp each version is built from, its pin
+│   │   ├── decomp/         our decomp, rac1-decomp (submodule): PAL v2.00, PAL v1.00, NTSC-J
+│   │   ├── decomp-patches/ OpenRAC-only changes to decomp/: NNNN-<what>.patch, files/, README.md
+│   │   ├── ntsc-decomp/    the third-party NTSC decomp, Lombyte (submodule): NTSC-U
+│   │   └── ntsc-decomp-patches/  OpenRAC-only changes to ntsc-decomp/
+│   ├── rac2/decomp/        Going Commando (USA v1.01 and v2.00, PAL), from rac2-decomp
+│   ├── rac3/decomp/        Up Your Arsenal (PAL, NTSC-U), from rac3-decomp
+│   ├── rac4/decomp/        Deadlocked, SCUS_974.65, from rac4-decomp
+│   ├── rac5/decomp/        Size Matters, SCUS_976.15, from rac5-sm-decomp
+│   └── rac6/decomp/        Secret Agent Clank, SCUS_976.23, from rac-sac-decomp
 ├── editor/                 Godot level editor and extractor (shared)
 ├── launcher/               desktop app to set up, build and play every game (Tauri)
 ├── port/                   the native PC port: runtime, hostgen, materials, renderer, platform, the games' programs
@@ -35,13 +39,12 @@ OpenRAC/
 
 ## The rules that keep it organised
 
-**Each game version is its own project.** It lives in
-`games/<game>/<version>/`, or in the `dir` its `game.json` entry names. It has
-its own README, license, build, tools and docs. Work from inside that
-directory: its paths are relative to it, and its build never reaches into
-another game. Its own docs decide how a match is proven there. rac1's two
-versions are becoming one tree at `games/rac1/` (the PAL tree), with NTSC-U
-built from it ([games/rac1/VERSIONS.md](../games/rac1/VERSIONS.md)).
+**Each game's decomp is its own project**, a git submodule at `games/<game>/decomp/` that holds
+every version of the game, with OpenRAC's patches beside it in `decomp-patches/`
+([SOURCES.md](SOURCES.md)). A third-party decomp of one version keeps a folder of its own whose
+name says so (`games/rac1/ntsc-decomp/`). Each has its own README, license, build, tools and docs.
+Work from inside that folder: its paths are relative to it, and its build never reaches into
+another game. Its own docs decide how a match is proven there.
 
 **Only shared things live at the top level**: things that serve more than one
 game, or the repository itself. That is the editor, the launcher,
@@ -69,12 +72,12 @@ what readers see.
 | A helper two or more Python tools need | `tools/openrac_common/`, with a test beside the others in `tools/test_openrac_common.py` |
 | A decision or rule for everyone | `docs/policy/`, and `CONTRIBUTING.md` if it changes how people work |
 | Restructure work: claiming a package, reporting it | its row in [docs/restructure/PROGRESS.md](restructure/PROGRESS.md) |
-| Decompiled code, a symbol map, a game's build change | `games/<game>/<version>/`, following that project's layout |
+| Decompiled code, a symbol map, a game's build change | a pull request in that project's own repository; if only OpenRAC needs it, a patch ([SOURCES.md](SOURCES.md)) |
 | A note about one game | that game's `docs/` |
 | Knowledge that holds across games (a format, a subsystem) | `docs/engine/`, linking the per-game evidence |
 | Matching or compiler knowledge across games | `docs/decomp/` |
 | A file a second game needs unchanged (a library source, a build helper) | a copy in that game, listed with the original in `shared/files.json` ([shared/](../shared/README.md)) |
-| A new game version | `games/<game>/<version>/`, plus its entry in `games/<game>/game.json` (the editor reads a disc's identity from it: boot executable, size, SHA-1, region, disc version) |
+| A new game version | its entry in `games/<game>/game.json` (the editor reads a disc's identity from it: boot executable, size, SHA-1, region, disc version), built from the game's decomp at `games/<game>/decomp/` ([games/README.md](../games/README.md#adding-a-version)) |
 
 ## Names
 
@@ -95,7 +98,7 @@ The arrangement follows OpenGOAL's (`jak-project`):
 
 | OpenGOAL | OpenRAC | |
 |---|---|---|
-| `goal_src/<game>` | `games/<game>/<version>` | the decompiled game code |
+| `goal_src/<game>` | `games/<game>/decomp` | the decompiled game code |
 | `game/` (kernel, graphics, sound, overlord) | `port/` (runtime, renderer, audio, platform) | the PC runtime that hosts it |
 | `goalc/` | `port/tools/hostgen` | what makes the game code a PC program |
 | `out/<game>/` | `assets/port/<game>/<version>`, `build/` | what is built from your disc |
@@ -115,8 +118,8 @@ Where it goes from here:
   - A change the game's C needs on the PC (an argument the PS2 passed in a
     register, a call through an address) goes into `games/` as C that builds
     the same PS2 bytes, and is offered to the project that tree follows.
-    Changes kept only in OpenRAC's copy are listed in that tree's
-    `OPENRAC_PATCHES.md`, so a sync keeps them.
+    Until the project takes it, it is a patch in
+    `games/<game>/decomp-patches/` ([SOURCES.md](SOURCES.md)).
   - Code that can only be PC code goes into `games/` under
     `#ifdef OPENRAC_PC` once that project accepts it. Until then it stays in
     `port/game/`.

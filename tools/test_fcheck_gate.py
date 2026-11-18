@@ -127,7 +127,7 @@ class Rac2ProfileTests(unittest.TestCase):
     def test_profile(self):
         self.assertEqual(g.RAC2.gp, 0x1AEFF0)
         self.assertEqual(g.RAC2.resident_max, 0x1A7C80)
-        self.assertEqual(g.RAC2.verdicts, g.ROOT / "port/game/rac2-ntsc/fcheck.tsv")
+        self.assertEqual(g.RAC2.verdicts, g.ROOT / "port/game/rac2-ntsc/checks/fcheck.tsv")
         self.assertTrue(str(g.RAC2.states).startswith(str(g.ROOT / "build")))     # ignored, never in git
         self.assertTrue(g.RAC2.level_fn.fullmatch("func_L00_002BA7D8"))
         self.assertFalse(g.RAC2.level_fn.fullmatch("func_002BA7D8"))
@@ -193,13 +193,11 @@ class DecompRootTests(unittest.TestCase):
         with mock.patch.dict(os.environ, env):
             self.assertEqual(g.decomp_root(), Path("/source"))
 
-    def test_else_game_json(self):
+    def test_else_the_submodule(self):
         with mock.patch.dict(os.environ):
             os.environ.pop("OPENRAC_DECOMP", None)
             os.environ.pop("OPENRAC_SOURCE_RAC1_PAL", None)
-            # game.json writes it from the top of OpenRAC ("../rac1-decomp").
-            checkout = g.games.load("rac1", g.ROOT)["versions"]["pal"]["source"]["checkout"]
-            self.assertEqual(g.decomp_root(), (Path(g.ROOT) / os.path.expanduser(checkout)).resolve())
+            self.assertEqual(g.decomp_root(), Path(g.ROOT) / "games/rac1/decomp")
 
 if __name__ == "__main__":
     unittest.main()

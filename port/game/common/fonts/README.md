@@ -5,7 +5,7 @@ Inter for its text, Orbitron for its headings. Both are under the SIL Open Font 
 (`OFL-Inter.txt`, `OFL-Orbitron.txt`). `cmake/Games.cmake` (`openrac_menu_fonts`) builds them
 into the game as bytes; `debug/menu_ui.cpp` hands them to Dear ImGui.
 
-- `Inter-Regular.ttf`, `Inter-SemiBold.ttf`: Inter 4.1 (`extras/ttf/` of
+- `Inter-Regular.ttf`, `Inter-Medium.ttf`, `Inter-SemiBold.ttf`: Inter 4.1 (`extras/ttf/` of
   https://github.com/rsms/inter/releases/tag/v4.1), cut to Latin and Latin Extended-A, a few
   dashes, quotes and arrows (Inter has no reserved font name, so a subset may keep it):
 

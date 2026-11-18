@@ -36,6 +36,11 @@ class DestinationPacks(unittest.TestCase):
             self.assertEqual([m['id'] for m in registry['destinations']], sorted([a, b]))
             self.assertFalse((out / 'map.json').exists())
             self.assertFalse((out / 'level_02/core_pal.bin').exists())
+            # What a party compares: every world, and the edit they share; the raw output is no layer.
+            layers = {layer['id']: layer for layer in json.loads((out / 'stack.json').read_text())['layers']}
+            self.assertEqual(len(layers), 3)
+            self.assertTrue(all(layer['gameplay'] and len(layer['digest']) == 64 for layer in layers.values()))
+            self.assertNotEqual(layers[a]['digest'], layers[b]['digest'])
             self.assertNotIn('200\t', (out / 'patches.tsv').read_text())
             for ident, value in ((a, 65), (b, 66)):
                 mount = out / 'destinations' / ident

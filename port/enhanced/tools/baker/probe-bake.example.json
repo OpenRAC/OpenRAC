@@ -9,7 +9,6 @@
   "terrain_vertex_albedo_strength": 0.5,
   "light_set": 0,
   "environment": [0.1, 0.1, 0.1],
-  "rays": 256,
   "bounces": 3,
   "seed": 1,
   "sparse_spacing": [256, 256, 256],
