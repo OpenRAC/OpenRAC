@@ -522,9 +522,14 @@
     padding: 18px 30px;
   }
 
-  /* Each part stays whole: the game's own name moves to a line of its own instead of breaking. */
+  /* Each part stays whole: the game's own name moves to a line of its own instead of breaking.
+     A one-part name ("Secret Agent Clank") may still wrap, so it never runs under the buttons. */
   .title .part {
     display: inline-block;
+  }
+
+  .title .part:has(+ .part),
+  .title .part + .part {
     white-space: nowrap;
   }
 
