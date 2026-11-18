@@ -118,6 +118,7 @@ void install(
                                   {"value": "bad_signature", "name": "Bad"},
                                   {"value": "input", "name": "Input"},
                                   {"value": "views", "name": "Views"},
+                                  {"value": "native_handles", "name": "Native handles"},
                                   {"value": "menu", "name": "Menu"},
                                   {"value": "savestate", "name": "Savestate"},
                                   {"value": "developer_menu", "name": "Developer menu"},
@@ -1658,6 +1659,38 @@ void views_reach_the_host(const fs::path& plugins) {
     install(plugins, "a", OPENRAC_TEST_MOD_A);
 }
 
+void native_vulkan_access_requires_a_declaration(const fs::path& plugins) {
+    const auto list = plugins / "plugins.json";
+    write(list, R"({"format": 1, "mods": [{"id": "test-current", "enabled": true,
+        "settings": {"behaviour": "native_handles"}}]})");
+    auto h = host(plugins);
+    h.graphics = []() -> const openrac_graphics* {
+        static openrac_graphics graphics{};
+        graphics.size = sizeof(openrac_graphics);
+        graphics.backend = OPENRAC_GRAPHICS_VULKAN;
+        graphics.vk_device = &graphics;
+        graphics.vk_queue = &graphics;
+        graphics.vk_queue_index = 1;
+        return &graphics;
+    };
+    for (bool declared : {false, true}) {
+        install(
+            plugins,
+            "current",
+            OPENRAC_TEST_MOD_CURRENT,
+            "1.20",
+            declared ? R"("vulkan_queue": true,)" : ""
+        );
+        CHECK(!mods::makes_vulkan_device(list, false));
+        g_records.clear();
+        CHECK(mods::load(h) == "test-current 1.0.0");
+        CHECK(mods::vulkan_needs_game_thread() == declared);
+        CHECK(g_records == std::vector<int>{declared ? 14001 : 14000});
+        mods::reset();
+        CHECK(!mods::vulkan_needs_game_thread());
+    }
+}
+
 }  // namespace
 
 // A hook point renamed after a mod was written (docs/port/MODS.md, section 4): the decompilation now
@@ -2015,6 +2048,7 @@ int main() {
     an_old_name_still_binds(plugins);
     input_reaches_the_mod(plugins);
     views_reach_the_host(plugins);
+    native_vulkan_access_requires_a_declaration(plugins);
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
