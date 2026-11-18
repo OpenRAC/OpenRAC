@@ -494,6 +494,15 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
             glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         }
 
+        // The HUD's packets read before before_hud, which asks whether they test depth.
+        if (i == hud) {
+            m_hud_reads_depth = true;
+            if (m_renderers[i]->enabled) {
+                m_renderers[i]->prepare(input, state);
+                m_hud_reads_depth = m_renderers[i]->reads_frame_depth();
+            }
+        }
+
         if (i == hud && depth_clamp) {
             glDisable(GL_DEPTH_CLAMP);
         }
