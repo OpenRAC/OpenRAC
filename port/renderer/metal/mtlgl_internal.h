@@ -28,10 +28,11 @@
 
 namespace openrac::mtlgl::detail {
 
+using gl::GL_ALWAYS, gl::GL_BACK, gl::GL_CCW, gl::GL_FILL, gl::GL_FLOAT, gl::GL_FUNC_ADD,
+    gl::GL_KEEP, gl::GL_LESS, gl::GL_LINEAR, gl::GL_NO_ERROR, gl::GL_ONE, gl::GL_REPEAT,
+    gl::GL_ZERO;
 using gl::GLbitfield, gl::GLboolean, gl::GLchar, gl::GLenum, gl::GLfloat, gl::GLint, gl::GLintptr,
     gl::GLsizei, gl::GLsizeiptr, gl::GLuint, gl::glClipControl;
-using gl::GL_ALWAYS, gl::GL_BACK, gl::GL_CCW, gl::GL_FILL, gl::GL_FLOAT, gl::GL_FUNC_ADD, gl::GL_KEEP,
-    gl::GL_LESS, gl::GL_LINEAR, gl::GL_NO_ERROR, gl::GL_ONE, gl::GL_REPEAT, gl::GL_ZERO;
 namespace wgl = openrac::renderer::world::gl;
 
 inline constexpr GLenum kGlInvalidEnum = 0x0500;
@@ -81,8 +82,8 @@ struct Names {
 
 struct Format {
     MTLPixelFormat pixel = MTLPixelFormatInvalid;
-    int bytes = 0;      // a texel's, or a compressed block's
-    int block = 1;      // the side of a compressed block
+    int bytes = 0;  // a texel's, or a compressed block's
+    int block = 1;  // the side of a compressed block
     bool stencil = false;
 };
 
@@ -177,7 +178,8 @@ struct State {
     bool blend = false, depth_test = false, cull = false, scissor_test = false;
     bool stencil_test = false, primitive_restart = false, depth_clamp = false;
     bool clip_zero_to_one = false;
-    GLenum blend_src_rgb = GL_ONE, blend_dst_rgb = GL_ZERO, blend_src_a = GL_ONE, blend_dst_a = GL_ZERO;
+    GLenum blend_src_rgb = GL_ONE, blend_dst_rgb = GL_ZERO, blend_src_a = GL_ONE,
+           blend_dst_a = GL_ZERO;
     GLenum blend_equation = GL_FUNC_ADD;
     float blend_colour[4] = {};
     GLenum depth_func = GL_LESS;
@@ -211,7 +213,7 @@ struct Context {
     id<MTLRenderPipelineState> flip;  // the default framebuffer to the drawable, upside down
     id<MTLLibrary> library;           // flip's and the blits' functions
     std::unordered_map<NSUInteger, id<MTLRenderPipelineState>> blits;  // by MTLPixelFormat
-    id<MTLTexture> colour, depth;     // the default framebuffer
+    id<MTLTexture> colour, depth;                                      // the default framebuffer
 
     id<MTLCommandBuffer> commands, uploads;
     id<MTLRenderCommandEncoder> pass;  // open on pass_target
@@ -270,23 +272,70 @@ VertexArray& vertex_array();
 
 // mtlgl_resources.mm's GL functions, for get_proc.
 #define MTLGL OPENRAC_GLAPI
-void MTLGL read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, void* pixels);
-void MTLGL copy_tex_sub_image(GLenum target, GLint level, GLint xoff, GLint yoff, GLint x, GLint y,
-                              GLsizei w, GLsizei h);
+void MTLGL
+read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, void* pixels);
+void MTLGL copy_tex_sub_image(
+    GLenum target, GLint level, GLint xoff, GLint yoff, GLint x, GLint y, GLsizei w, GLsizei h
+);
 void MTLGL gen_textures(GLsizei n, GLuint* names);
 void MTLGL delete_textures(GLsizei n, const GLuint* names);
 void MTLGL bind_texture(GLenum target, GLuint name);
 void MTLGL active_texture(GLenum unit);
-void MTLGL tex_image_2d(GLenum target, GLint level, GLint internal, GLsizei w, GLsizei h, GLint border,
-                        GLenum format, GLenum type, const void* pixels);
-void MTLGL compressed_tex_image_2d(GLenum target, GLint level, GLenum internal, GLsizei w, GLsizei h,
-                                   GLint border, GLsizei size, const void* pixels);
-void MTLGL compressed_tex_sub_image_2d(GLenum target, GLint level, GLint x, GLint y, GLsizei w,
-                                       GLsizei h, GLenum internal, GLsizei size, const void* pixels);
-void MTLGL tex_sub_image_2d(GLenum target, GLint level, GLint x, GLint y, GLsizei w, GLsizei h,
-                            GLenum format, GLenum type, const void* pixels);
-void MTLGL tex_image_3d(GLenum target, GLint level, GLint internal, GLsizei w, GLsizei h, GLsizei d,
-                        GLint border, GLenum format, GLenum type, const void* pixels);
+void MTLGL tex_image_2d(
+    GLenum target,
+    GLint level,
+    GLint internal,
+    GLsizei w,
+    GLsizei h,
+    GLint border,
+    GLenum format,
+    GLenum type,
+    const void* pixels
+);
+void MTLGL compressed_tex_image_2d(
+    GLenum target,
+    GLint level,
+    GLenum internal,
+    GLsizei w,
+    GLsizei h,
+    GLint border,
+    GLsizei size,
+    const void* pixels
+);
+void MTLGL compressed_tex_sub_image_2d(
+    GLenum target,
+    GLint level,
+    GLint x,
+    GLint y,
+    GLsizei w,
+    GLsizei h,
+    GLenum internal,
+    GLsizei size,
+    const void* pixels
+);
+void MTLGL tex_sub_image_2d(
+    GLenum target,
+    GLint level,
+    GLint x,
+    GLint y,
+    GLsizei w,
+    GLsizei h,
+    GLenum format,
+    GLenum type,
+    const void* pixels
+);
+void MTLGL tex_image_3d(
+    GLenum target,
+    GLint level,
+    GLint internal,
+    GLsizei w,
+    GLsizei h,
+    GLsizei d,
+    GLint border,
+    GLenum format,
+    GLenum type,
+    const void* pixels
+);
 void MTLGL tex_parameter_i(GLenum target, GLenum name, GLint value);
 void MTLGL tex_parameter_f(GLenum target, GLenum name, GLfloat value);
 void MTLGL generate_mipmap(GLenum target);
@@ -304,23 +353,36 @@ void MTLGL buffer_sub_data(GLenum target, GLintptr offset, GLsizeiptr size, cons
 void MTLGL gen_framebuffers(GLsizei n, GLuint* names);
 void MTLGL delete_framebuffers(GLsizei n, const GLuint* names);
 void MTLGL bind_framebuffer(GLenum target, GLuint name);
-void MTLGL framebuffer_texture_2d(GLenum target, GLenum attachment, GLenum textarget, GLuint texture,
-                                  GLint level);
-void MTLGL framebuffer_renderbuffer(GLenum target, GLenum attachment, GLenum rbtarget,
-                                    GLuint renderbuffer);
+void MTLGL framebuffer_texture_2d(
+    GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level
+);
+void MTLGL
+framebuffer_renderbuffer(GLenum target, GLenum attachment, GLenum rbtarget, GLuint renderbuffer);
 GLenum MTLGL check_framebuffer_status(GLenum target);
 void MTLGL gen_renderbuffers(GLsizei n, GLuint* names);
 void MTLGL delete_renderbuffers(GLsizei n, const GLuint* names);
 void MTLGL bind_renderbuffer(GLenum target, GLuint name);
 void MTLGL renderbuffer_storage(GLenum target, GLenum format, GLsizei w, GLsizei h);
-void MTLGL renderbuffer_storage_multisample(GLenum target, GLsizei samples, GLenum format, GLsizei w,
-                                            GLsizei h);
-void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx0, GLint dy0,
-                            GLint dx1, GLint dy1, GLbitfield mask, GLenum filter);
+void MTLGL renderbuffer_storage_multisample(
+    GLenum target, GLsizei samples, GLenum format, GLsizei w, GLsizei h
+);
+void MTLGL blit_framebuffer(
+    GLint sx0,
+    GLint sy0,
+    GLint sx1,
+    GLint sy1,
+    GLint dx0,
+    GLint dy0,
+    GLint dx1,
+    GLint dy1,
+    GLbitfield mask,
+    GLenum filter
+);
 
 // mtlgl_draw.mm's.
 GLuint MTLGL create_shader(GLenum type);
-void MTLGL shader_source(GLuint name, GLsizei count, const GLchar* const* strings, const GLint* lengths);
+void MTLGL
+shader_source(GLuint name, GLsizei count, const GLchar* const* strings, const GLint* lengths);
 void MTLGL compile_shader(GLuint name);
 void MTLGL get_shader_iv(GLuint name, GLenum what, GLint* out);
 void MTLGL get_shader_info_log(GLuint name, GLsizei size, GLsizei* length, GLchar* log);
@@ -348,16 +410,18 @@ void MTLGL gen_vertex_arrays(GLsizei n, GLuint* names);
 void MTLGL delete_vertex_arrays(GLsizei n, const GLuint* names);
 void MTLGL bind_vertex_array(GLuint name);
 void MTLGL enable_vertex_attrib_array(GLuint index);
-void MTLGL vertex_attrib_pointer(GLuint index, GLint size, GLenum type, GLboolean normalized,
-                                 GLsizei stride, const void* pointer);
-void MTLGL vertex_attrib_i_pointer(GLuint index, GLint size, GLenum type, GLsizei stride,
-                                   const void* pointer);
+void MTLGL vertex_attrib_pointer(
+    GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer
+);
+void MTLGL
+vertex_attrib_i_pointer(GLuint index, GLint size, GLenum type, GLsizei stride, const void* pointer);
 void MTLGL vertex_attrib_divisor(GLuint index, GLuint divisor);
 void MTLGL draw_arrays(GLenum mode, GLint first, GLsizei count);
 void MTLGL draw_arrays_instanced(GLenum mode, GLint first, GLsizei count, GLsizei instances);
 void MTLGL draw_elements(GLenum mode, GLsizei count, GLenum type, const void* indices);
-void MTLGL draw_elements_instanced(GLenum mode, GLsizei count, GLenum type, const void* indices,
-                                   GLsizei instances);
+void MTLGL draw_elements_instanced(
+    GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instances
+);
 #undef MTLGL
 
 }  // namespace openrac::mtlgl::detail

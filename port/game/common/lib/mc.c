@@ -185,8 +185,9 @@ static int card_parent(char* parent, size_t size, char* own, size_t own_size) {
 }
 
 /* Calls `each` with every name in the folder `dir`, "." and ".." too; 0 when it cannot be read. */
-static int each_name(const char* dir, void (*each)(const char* dir, const char* name, void* data),
-                     void* data) {
+static int each_name(
+    const char* dir, void (*each)(const char* dir, const char* name, void* data), void* data
+) {
 #if defined(_WIN32)
     char query[1100];
     struct _finddata_t found;
@@ -230,8 +231,7 @@ static void consider_card(const char* parent, const char* name, void* data) {
     char path[1200];
     if (!is_serial_folder(name) || strcmp(name, search->own) == 0
         || (search->found[0] != '\0' && strcmp(name, search->found) >= 0)
-        || snprintf(path, sizeof path, "%s/%s/%s", parent, name, search->top)
-               >= (int)sizeof path
+        || snprintf(path, sizeof path, "%s/%s/%s", parent, name, search->top) >= (int)sizeof path
         || !is_dir(path) || strlen(name) >= sizeof search->found) {
         return;
     }
@@ -273,8 +273,9 @@ static int card_path_of(int port, const char* name, char* out, size_t size, int*
         >= (int)sizeof relative) {
         return 0;
     }
-    if (snprintf(out, size, "%s%s%s%s", root, port == 0 ? "" : ".slot2", *relative ? "/" : "",
-                 relative)
+    if (snprintf(
+            out, size, "%s%s%s%s", root, port == 0 ? "" : ".slot2", *relative ? "/" : "", relative
+        )
         >= (int)size) {
         return 0;
     }
@@ -1112,7 +1113,8 @@ static void list(int port, const char* spec) {
     listing_filter filter = {pattern, 0};
     each_name(path, list_name, &filter);
     /* The first card's root also holds the other games' save folders it does not have itself. */
-    if (port != 0 || foreign || !card_path(port, "/", root, sizeof root) || strcmp(path, root) != 0) {
+    if (port != 0 || foreign || !card_path(port, "/", root, sizeof root)
+        || strcmp(path, root) != 0) {
         return;
     }
     char parent[1024], own[256];
