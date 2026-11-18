@@ -256,10 +256,16 @@ impl<'a> Resolver<'a> {
         notes: &mut Vec<PlanNote>,
     ) -> Result<Pick, (Why, Option<ModAction>)> {
         let index = self.req.index;
-        // The installed version, when it already fits: nothing changes.
+        // The installed version, when it already fits: nothing changes. The index's archives for
+        // this platform are not asked: the copy is on disk, built for this platform or not by what
+        // its own folder holds. A copy built by hand, of a mod that publishes no build for this
+        // platform, would otherwise fail every set it is in and hold back every other mod's update.
         if let Some(have) = self.installed(&m.id) {
             let entry = m.version(&have.version);
-            let fits = entry.is_none_or(|v| self.runs_here(m, v).is_ok() && api_fits(v.api.as_deref(), self.req.api));
+            let fits = entry.is_none_or(|v| {
+                matches!(self.runs_here(m, v), Ok(()) | Err(Why::NotForPlatform { .. }))
+                    && api_fits(v.api.as_deref(), self.req.api)
+            });
             if fits && index.revoked(&m.id, &have.version).is_none() && Self::meets_all(&have.version, wants) {
                 return Ok(Pick::Installed(have.version.clone()));
             }
@@ -783,6 +789,21 @@ mod tests {
         // Off: kept, and turned on.
         let plan = plan_with(&index, &[have("camera-base", "1.1.0", false)], STABLE, false, &[want("camera-tweaks")]);
         assert!(plan.already_ok[0].enable);
+    }
+
+    #[test]
+    fn an_installed_native_mod_without_this_platforms_archive_is_kept() {
+        // Built by hand: the index has no linux-x86_64 archive of lock-strafe 1.2.0.
+        let mut index = fixture();
+        let lock = index.mods.iter_mut().find(|m| m.id == "lock-strafe").unwrap();
+        lock.versions.iter_mut().for_each(|v| v.platforms.retain(|p, _| p != "linux-x86_64"));
+        let installed = [have("lock-strafe", "1.2.0", true)];
+        let plan = plan_with(&index, &installed, STABLE, false, &[want("lock-strafe")]);
+        assert!(!plan.blocked);
+        assert_eq!(ids(&plan.already_ok), [("lock-strafe", "1.2.0")]);
+        // Not installed, it still has nothing to install here.
+        let plan = plan_with(&index, &[], STABLE, false, &[want("lock-strafe")]);
+        assert_eq!(plan.incompatible[0].why, Why::NotForPlatform { platform: "linux-x86_64".into() });
     }
 
     #[test]

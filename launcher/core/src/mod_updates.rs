@@ -521,6 +521,18 @@ mod tests {
     }
 
     #[test]
+    fn a_hand_built_native_mod_does_not_hold_back_the_others() {
+        // lock-strafe 1.2.0 publishes no linux-x86_64 archive; the player built it by hand.
+        let mut index = fixture();
+        let lock = index.mods.iter_mut().find(|m| m.id == "lock-strafe").unwrap();
+        lock.versions.iter_mut().for_each(|v| v.platforms.retain(|p, _| p != "linux-x86_64"));
+        let installed = [have("camera-base", "1.1.0"), have("lock-strafe", "1.2.0")];
+        let plan = super::plan(&index, &installed, &Sources::default(), &HERE);
+        assert_eq!(ids(&plan.silent), [("camera-base", "1.2.0")]);
+        assert!(plan.held.is_empty());
+    }
+
+    #[test]
     fn another_games_new_hooks_do_not_hold_an_update() {
         // Difficulty 1.3.0 ran on rac1; 1.5.0 adds rac2 with its hooks. On rac1 it is a minor
         // update with the same hooks, so it goes in by itself; on rac2 the new rac2 hook waits.
