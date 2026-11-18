@@ -181,6 +181,7 @@ func_001336A0	989snd	snd_StreamSafeCdBreak	host	symbol_addrs.txt CdStopRead; que
 func_001336E8	989snd	snd_StreamSafeCdGetError	host	symbol_addrs.txt CdGetLoadStatus; the stream's error, else sceCdGetError (0x00125588)
 func_00133730	989snd	snd_StreamSafeCdCallback	host	same opening as rac4's; installs the callback or forwards to sceCdCallback (0x001245D0); catalogue place 0x001336C0
 func_0027BD40	graphics	StartFrameList	wrap	the frame's first packets: a picture written straight to the frame buffer is drawn after them (host/picture.c)
+func_002EDA88	graphics	ShipGlassDraw	wrap	the ship's cockpit glass, drawn as world quads: gives them ids so that a frame between ticks moves them with the hull (host/ship_glass.c)
 func_00131D18	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's (host/level.c)
 func_0029DE68	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
 # The sound library's wrappers each send one command, the same number as in Ratchet & Clank's.
@@ -233,6 +234,7 @@ func_0028F0E8	hud	HudSprite	wrap	a HUD texture as a sprite: drawn natively (host
 func_0028F558	hud	HudBarSprite	wrap	a HUD texture as a sprite, a texel a pixel: drawn natively (host/ui2d.c)
 func_0028F718	hud	HudSpriteFine	wrap	a HUD texture as a sprite, in 16ths of a pixel: drawn natively (host/ui2d.c)
 func_0028F8F8	hud	HudSpriteColour	wrap	func_0028EE98 in a colour: drawn natively (host/ui2d.c)
+func_00296870	draw	DrawMapOverlay	wrap	the map: with the Mapper, v2.00's crystal and moonstone markers are drawn after it (host/map_markers.c)
 func_0028FAF8	hud	HudTextureSprite	wrap	a sprite of a given texture: drawn natively (host/ui2d.c)
 func_0028FC90	hud	HudRotatedSprite	wrap	a rotated sprite: drawn natively (host/ui2d.c)
 func_00290008	hud	HudSpriteRect	wrap	a HUD texture as a sprite with explicit texel corners: drawn natively (host/ui2d.c)

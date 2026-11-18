@@ -921,6 +921,10 @@ uint32_t openrac_game_effect_quad_marker(void);
  * as the console drew them (renderer::EffectStrip::before_mobys). */
 #define OPENRAC_WORLD_MOBYS_MARKER 0x4D57u
 
+/* Where the game's shrub renderer starts, for the display list. Its strips between the world
+ * marker and this NOP tag belong before the shrubs, including both layers of Hoven's ice. */
+#define OPENRAC_WORLD_SHRUBS_MARKER 0x5357u
+
 /* World-space explosion; optional visual water response, with no gameplay side effects. */
 void openrac_game_water_explosion(const float position[3], float radius, float strength);
 

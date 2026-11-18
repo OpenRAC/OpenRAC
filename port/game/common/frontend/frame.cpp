@@ -306,10 +306,10 @@ std::vector<std::uint8_t> direct_packets(
     // Each context's FRAME width in pixels, as the list sets it (the picture's until it does).
     std::array<std::uint32_t, 2> frame_width{512, 512};
     std::size_t image_left = 0;  // IMAGE data a tag announced that runs on into the next DIRECT
-    // The strips so far at the world's marker and at the world's mobys' (OPENRAC_WORLD_MOBYS_MARKER):
-    // the ones between were sent from the draw callback lists before the mobys.
+    // The scenery markers bracket the strips drawn before the native shrub or moby pass.
     const std::size_t strips_at_start = strips != nullptr ? strips->size() : 0;
-    std::optional<std::size_t> strips_at_world, strips_at_mobys;
+    std::optional<std::size_t> strips_at_world;
+    std::optional<std::size_t> strips_after_early_effects;
     std::size_t direct_at = 0;  // where the DIRECT being read starts in the 2D data
     const auto track_direct = [&](const std::uint8_t* d, std::size_t size) {
         std::size_t p = 0;
@@ -341,7 +341,7 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&value, d + p, 8);
                     std::memcpy(&address, d + p + 8, 8);
                     switch (address & 0xFF) {
-                        case 0x7F:
+                        case 0x7F: {
                             // Only explicitly attached strips follow a delayed parent transform.
                             if ((value >> 48) == OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER) {
                                 previous_effect_parent = static_cast<std::uint32_t>(value);
@@ -351,9 +351,17 @@ std::vector<std::uint8_t> direct_packets(
                                 && !strips_at_world) {
                                 strips_at_world = strips->size();
                             }
-                            if ((value >> 48) == OPENRAC_WORLD_MOBYS_MARKER && !strips_at_mobys) {
-                                strips_at_mobys = strips->size();
+
+                            const std::uint64_t marker = value >> 48;
+                            const bool shrubs_started =
+                                marker == OPENRAC_WORLD_SHRUBS_MARKER && strips_at_world;
+
+                            // The first scenery marker closes the early effects pass.
+                            if (!strips_after_early_effects
+                                && (shrubs_started || marker == OPENRAC_WORLD_MOBYS_MARKER)) {
+                                strips_after_early_effects = strips->size();
                             }
+
                             if ((value >> 48) == renderer::GifInterpreter::kMobyMarker
                                 && texture_mobys != nullptr) {
                                 // Mobys drawn while the frame is a buffer narrower than the
@@ -391,6 +399,7 @@ std::vector<std::uint8_t> direct_packets(
                                 }
                             }
                             break;
+                        }
                         case 0x50:
                             reg_bitbltbuf = value;
                             break;
@@ -659,11 +668,12 @@ std::vector<std::uint8_t> direct_packets(
             strip_tag = false;
         }
     }
-    // A game that marks its world's mobys (rac2/host/render.c): the strips between the world's
-    // marker and theirs were drawn before the mobys.
-    if (strips != nullptr && strips_at_mobys) {
+    // Keep the early effects below the scenery, including partially blended surface layers.
+    if (strips != nullptr && strips_after_early_effects) {
         const std::size_t from = strips_at_world.value_or(strips_at_start);
-        for (std::size_t i = from; i < *strips_at_mobys && i < strips->size(); ++i) {
+
+        // Mark only strips collected in this display list.
+        for (std::size_t i = from; i < *strips_after_early_effects && i < strips->size(); ++i) {
             (*strips)[i].before_mobys = true;
         }
     }

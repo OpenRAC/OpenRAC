@@ -271,6 +271,8 @@ void func_002298B0(int a0, int a1) {
 
 /* ShrubProc, the shrub renderer */
 void func_00229F00(void) {
+    /* The previous callback list draws both ice layers before the shrubs' scuff decals. */
+    put_marker((uint64_t)OPENRAC_WORLD_SHRUBS_MARKER << 48);
     openrac_game_draw(OPENRAC_DRAW_SHRUBS);
 }
 

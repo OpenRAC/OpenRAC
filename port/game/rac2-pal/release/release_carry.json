@@ -3,14 +3,14 @@
  "counts": {
   "function: by hand": 20,
   "function: called": 28,
-  "function: changed": 69,
+  "function: changed": 72,
   "function: found": 28,
-  "function: near": 97,
-  "function: same": 692,
+  "function: near": 100,
+  "function: same": 697,
   "global: aligned": 5,
   "global: between": 16,
-  "global: exact": 145,
-  "global: the release's build": 81
+  "global: exact": 148,
+  "global: the release's build": 88
  },
  "functions": {
   "func_001158F8": [
@@ -143,6 +143,11 @@
    "changed",
    "overrides"
   ],
+  "func_00295F60": [
+   "func_00296870",
+   "near",
+   "host C"
+  ],
   "func_00298E08": [
    "func_002997A0",
    "changed",
@@ -206,6 +211,11 @@
   "func_002E25C0": [
    "func_002E3390",
    "found",
+   "host C"
+  ],
+  "func_002ECB70": [
+   "func_002EDA88",
+   "changed",
    "host C"
   ],
   "func_002F3C40": [
