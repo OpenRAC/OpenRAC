@@ -33,6 +33,9 @@ pub enum Kind {
     Fix,
     /// Keeps the game from crashing where the console carried on unnoticed: shown, never switched.
     Guard,
+    /// The port's fix of something the console does, always on (a soft lock, a missing feature): shown, never
+    /// switched.
+    Always,
     /// A difference that comes with being a PC program: for the record.
     Port,
 }

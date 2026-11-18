@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2026 the OpenRAC contributors */
 /*
- * A moby the Sheepinator already turned into a sheep is not turned again (fix "sheep-once", T-45).
+ * A moby the Sheepinator already turned into a sheep is not turned again (soft lock "sheep-once", T-45).
  *
  * sheep_spawn_from_object (func_L00_00403730) and its dark twin (func_L00_00408800) make the sheep,
  * then look at the target's link (its private value 0, byte 0xE): 1, a fighter its owner takes back,
@@ -12,13 +12,18 @@
  * it. With the 16 gone, an Impossible Challenge round that wants one never ends. The PS2 game does
  * it too (PCSX2, v1.01: three deleted by round 3).
  *
- * The fix leaves a target whose link is already 2 alone: no second sheep, no deletion.
+ * The port leaves a target whose link is already 2 alone: no second sheep, no deletion. USA v1.01
+ * alone: PAL's and v2.00's copies (src/pal/levels/shared/L00_00408110.c,
+ * src/us2/levels/shared/L00_00404C18-cc.c) take a link in mode 2 as they take 1 and keep the robot,
+ * so those discs run their own.
  */
 #include <stdint.h>
 
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "rac2.h"
+
+#if defined(RAC2_PRIMARY)
 
 gaddr func_L00_00403730__game(gaddr self);
 gaddr func_L00_00408800__game(gaddr self);
@@ -29,11 +34,7 @@ gaddr func_L00_00408800__game(gaddr self);
 #define LINK_TURNED 2    /* turned, its owner takes it back */
 
 static int already_turned(gaddr self) {
-    static const unsigned char* fix;
-    if (!fix) {
-        fix = openrac_game_fix("fix_sheep_once");
-    }
-    if (!*fix || self == 0 || (GREF(uint16_t, self + MOBY_FLAGS) & 0x20u) == 0) {
+    if (self == 0 || (GREF(uint16_t, self + MOBY_FLAGS) & 0x20u) == 0) {
         return 0;
     }
     const gaddr link = GREF(gaddr, GREF(gaddr, self + MOBY_VARS));
@@ -49,3 +50,5 @@ gaddr func_L00_00403730(gaddr self) {
 gaddr func_L00_00408800(gaddr self) {
     return already_turned(self) ? 0 : func_L00_00408800__game(self);
 }
+
+#endif

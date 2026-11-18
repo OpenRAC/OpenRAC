@@ -3,7 +3,8 @@
 #
 # A game's list of differences from the original (port/game/<game>/differences.json): what the port
 # does otherwise than the PS2 game, each entry a "fix" (a setting the player can switch back to the
-# console's behaviour), a "guard" (keeps the game from crashing where the console carried on) or a
+# console's behaviour), a "guard" (keeps the game from crashing where the console carried on), an
+# "always" (a fix that is always on: a soft lock, a missing feature) or a
 # "port" (a PC difference, for the record). The launcher reads the same file
 # (launcher/core/src/differences.rs); docs/port/SETTINGS.md section 8 says how to add an entry.
 #
@@ -62,8 +63,8 @@ function(openrac_write_fixes game version out)
           message(FATAL_ERROR "${file}: id \"${id}\" twice")
         endif()
         list(APPEND ids "${id}")
-        if(NOT kind MATCHES "^(fix|guard|port)$")
-          message(FATAL_ERROR "${file}: ${id}: kind \"${kind}\" is not fix, guard or port")
+        if(NOT kind MATCHES "^(fix|guard|always|port)$")
+          message(FATAL_ERROR "${file}: ${id}: kind \"${kind}\" is not fix, guard, always or port")
         endif()
         string(JSON discs_n ERROR_VARIABLE bad LENGTH "${entry}" discs)
         if(bad OR discs_n EQUAL 0)
