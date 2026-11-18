@@ -2,7 +2,7 @@
   "format": 2,
   "id": "keyboard-mouse",
   "name": "Keyboard and mouse",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "author": "Keros and the OpenRAC contributors",
   "description": "Plays Ratchet & Clank with a keyboard and mouse: WASD moves, the mouse turns the camera directly (right turns right, up looks up), left click fires, holding right click opens the Quick Select and the mouse picks its slot, Space jumps, Escape pauses, the number keys and the wheel change weapons. In menus the arrows and WASD move, Enter or Space confirm, Escape or Backspace go back, and the mouse points, clicks and scrolls; Space, Enter or Escape skip scenes and movies. Every action can be bound to any key, mouse button or wheel direction, two binds each, with Left-handed and Arrow keys presets. Built into OpenRAC: a gamepad keeps working beside it, and the game switches between them by what you touch last.",
   "license": "GPL-3.0-or-later",
@@ -27,7 +27,27 @@
       "min": 0.1,
       "max": 10.0,
       "step": 0.1,
-      "description": "How far the camera turns for the mouse's motion: at 1, about 9 degrees for 100 pixels. The camera turns as the mouse moves, with no easing."
+      "description": "How far the camera turns for the mouse's motion: at 1, 0.086 degrees a count (CS sensitivity 3.9). Raw counts, no easing."
+    },
+    {
+      "key": "mouse_y_ratio",
+      "name": "Up and down sensitivity",
+      "type": "float",
+      "default": 1.0,
+      "min": 0.25,
+      "max": 4.0,
+      "step": 0.05,
+      "description": "The up and down turn against the side to side one: 1 turns both alike."
+    },
+    {
+      "key": "mouse_dpi",
+      "name": "Your mouse's DPI",
+      "type": "int",
+      "default": 800,
+      "min": 100,
+      "max": 32000,
+      "step": 50,
+      "description": "Only for the hint below sensitivity (cm a full turn); the game does not use it."
     },
     {
       "key": "mouse_acceleration",
@@ -76,6 +96,13 @@
       "type": "bool",
       "default": true,
       "description": "In menus the cursor points at the game's items, a click confirms, right click goes back and the wheel scrolls."
+    },
+    {
+      "key": "key_prompts",
+      "name": "Key prompts",
+      "type": "bool",
+      "default": true,
+      "description": "While you play on the keyboard and mouse, the game's button icons show your keys (Space, LMB...)."
     },
     {
       "key": "walk_speed",

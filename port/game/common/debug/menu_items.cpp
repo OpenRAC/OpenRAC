@@ -478,6 +478,9 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = r.can_raise;
             return it;
         }
+        case Id::KeyboardMouse:
+            it.shown = keyboard_mouse_shown();
+            return it;
         case Id::TouchActionButtons:
             it.on = set.touch_style == 0;
             return it;
@@ -826,6 +829,8 @@ bool act(Id id, int by) {
         case Id::ControlsReset:
             controls_act(id, by);
             return false;
+        case Id::KeyboardMouse:
+            return false;  // its rows (debug/menu_keyboard_mouse.cpp)
         case Id::TouchActionButtons:
             set.touch_style = set.touch_style == 0 ? 1 : 0;
             settings::save();

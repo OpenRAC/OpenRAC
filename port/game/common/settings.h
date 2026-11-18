@@ -317,6 +317,9 @@ std::string summary();
 
 // Writes the settings to the file load() was given; nothing without one.
 void save();
+// The keyboard and mouse's lines (kbm_*) read again when another program (the launcher) changed
+// the file since the port last read or wrote it: true when they changed.
+bool reread_keyboard_mouse();
 
 // Sets the volume (held to 0..100). output_gain() is it as a factor, for the sound's own thread;
 // set_muted(true) holds the factor at 0 whatever the volume is (the window lost the keyboard).

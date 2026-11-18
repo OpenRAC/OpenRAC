@@ -235,6 +235,12 @@ void direct_look() {
         > 4.0f * std::fabs(kbm::DirectLook::yaw(10.0f, 0.0f, t))
     );
     t.acceleration = 0.0f;
+    // Up and down sensitivity scales the tilt only.
+    const float tilt = kbm::DirectLook::pitch(0.0f, 10.0f, t);
+    t.y_ratio = 0.5f;
+    CHECK(near(kbm::DirectLook::pitch(0.0f, 10.0f, t), 0.5f * tilt, 1e-6f));
+    CHECK(near(kbm::DirectLook::yaw(10.0f, 0.0f, t), one, 1e-6f));
+    t.y_ratio = 1.0f;
 
     // Mouse right turns the view right. The follow camera west of Ratchet looks east (+x); right of
     // that is south (-y), with z up. The game's turn is about up, right-handed (rotate).
@@ -699,6 +705,38 @@ void menu_mouse() {
 }
 
 // Each action's setting in the manifest, with the table's default and group.
+// The action each button icon stands for (key prompts), in the cells' order.
+void prompts() {
+    using kbm::Action;
+    using kbm::Context;
+    const auto play = kbm::prompt_actions(Context::Play, -1);
+    CHECK(play[0] == Action::Jump);         // Cross
+    CHECK(play[1] == Action::Wrench);       // Square
+    CHECK(play[2] == Action::QuickSelect);  // Triangle
+    CHECK(play[3] == Action::Fire);         // Circle
+    CHECK(play[4] == Action::FirstPerson);  // L1
+    CHECK(play[5] == Action::Strafe);       // L2
+    CHECK(play[6] == Action::Crouch);       // R1
+    CHECK(play[7] == Action::Count);        // R2: the game's own
+    // Without lock-strafe the strafe key presses nothing: L2 keeps its icon.
+    CHECK(kbm::prompt_actions(Context::Play, -1, false, false)[5] == Action::Count);
+
+    const auto menu = kbm::prompt_actions(Context::Menu, -1);
+    CHECK(menu[0] == Action::MenuConfirm);
+    CHECK(menu[2] == Action::MenuBack);
+    CHECK(menu[3] == Action::MenuCircle);
+    // On the map confirm travels (Circle) and Space turns the page (Cross).
+    const auto map = kbm::prompt_actions(Context::Menu, -1, true);
+    CHECK(map[3] == Action::MenuConfirm);
+    CHECK(map[0] == Action::Jump);
+    // The race's quit dialog: back is Circle.
+    CHECK(kbm::prompt_actions(Context::Dialog, kbm::kDialogQuitRace)[3] == Action::MenuBack);
+    // Where only Start counts, no icon changes.
+    for (Action a : kbm::prompt_actions(Context::Cutscene, -1)) {
+        CHECK(a == Action::Count);
+    }
+}
+
 void manifest(const char* path) {
     std::ifstream f(path);
     CHECK(f.good());
@@ -740,6 +778,7 @@ int main(int argc, char** argv) {
     buttons();
     press_edges();
     menu_mouse();
+    prompts();
 
     manifest(argc > 1 ? argv[1] : KBM_MANIFEST);
 

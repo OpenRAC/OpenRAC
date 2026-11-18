@@ -287,6 +287,7 @@ struct KeyStick {
 // The player's settings for the mouse's look.
 struct LookTuning {
     float sensitivity = 1.0f;   // the mouse's turn, 1 the default
+    float y_ratio = 1.0f;       // the up and down turn against the side to side one
     float acceleration = 0.0f;  // 0: none; more turns a fast flick further than a slow drag
     bool invert_y = false;
     bool pitch_holds = true;  // the camera's tilt stays where the mouse leaves it
@@ -329,6 +330,7 @@ struct MouseLook {
         const float smooth_dx = 0.5f * (dx + last_dx);
         last_dx = dx;
         const float speed = std::sqrt(smooth_dx * smooth_dx + dy * dy);
+        dy *= std::max(t.y_ratio, 0.0f);
         x = clamp1(smooth_dx * sens * gain(speed, t) / kPixelsForFullTurn);
 
         // In first person y is a rate like x, so it follows this tick's motion.
@@ -467,7 +469,7 @@ struct DirectLook {
     static float yaw(float dx, float dy, const LookTuning& t) { return -dx * scale(dx, dy, t); }
 
     static float pitch(float dx, float dy, const LookTuning& t) {
-        return (t.invert_y ? -dy : dy) * scale(dx, dy, t);
+        return (t.invert_y ? -dy : dy) * std::max(t.y_ratio, 0.0f) * scale(dx, dy, t);
     }
 };
 
@@ -790,11 +792,12 @@ inline constexpr int kDialogQuitRace = 0;  // (seen in game code)
 // Backspace, right click) Triangle, except where that would quit: in a "Quit?" dialog, Escape goes
 // on (Cross), and only Backspace or right click is Triangle; in a scene, a movie, the ship or a
 // slideshow, every one of them is Start (and Cross for the ship's landing and take-off), which
-// skips. On the map (map_screen) confirm is Circle, which travels. Menus' own Circle (the quit
+// skips. The strafe key presses L2 only when `strafe` (the lock-strafe mod is on): the game's own
+// L2 is the first-person view, which has a key of its own. On the map (map_screen) confirm is Circle, which travels. Menus' own Circle (the quit
 // page's quit, a cycled value's step back) has a bind of its own. The directions are not here: the
 // stick and the d-pad come apart (step()).
 inline std::uint16_t buttons_for(
-    Context c, ActionSet held, int dialog_kind, bool map_screen = false
+    Context c, ActionSet held, int dialog_kind, bool map_screen = false, bool strafe = true
 ) {
     const auto on = [&](Action a) {
         return (held & bit(a)) != 0;
@@ -817,7 +820,7 @@ inline std::uint16_t buttons_for(
             set(on(Action::Fire), kCircle);
             set(on(Action::Wrench), kSquare);
             set(on(Action::Crouch), kR1);
-            set(on(Action::Strafe), kL2);
+            set(on(Action::Strafe) && strafe, kL2);
             set(on(Action::FirstPerson), kL1);
             set(on(Action::Map), kSelect);
             set(on(Action::Pause), kStart);
@@ -871,6 +874,41 @@ inline std::uint16_t buttons_for(
     }
 
     return b;
+}
+
+// The game's button icons in the order of its fonts' cells (key_prompts.h Cell).
+inline constexpr std::array<std::uint16_t, 8> kPromptButtons =
+    {kCross, kSquare, kTriangle, kCircle, kL1, kL2, kR1, kR2};
+
+// The action each button icon stands for where the game is, Count for none: the first action that
+// presses that button (buttons_for), the menu's actions first out of play. In play Triangle opens
+// the Quick Select.
+inline std::array<Action, 8> prompt_actions(
+    Context c, int dialog_kind, bool map_screen = false, bool strafe = true
+) {
+    std::array<Action, 8> out;
+    out.fill(Action::Count);
+    const auto take = [&](Action a) {
+        const std::uint16_t b = buttons_for(c, bit(a), dialog_kind, map_screen, strafe);
+        for (std::size_t i = 0; i < out.size(); ++i) {
+            if ((b & kPromptButtons[i]) != 0 && out[i] == Action::Count) {
+                out[i] = a;
+            }
+        }
+    };
+    const bool play = c == Context::Play;
+    for (Group g : {Group::Menu, Group::Play}) {
+        for (int a = 0; a < kActionCount; ++a) {
+            const bool counts = play ? g == Group::Play : true;
+            if (counts && kActions[static_cast<std::size_t>(a)].group == g) {
+                take(static_cast<Action>(a));
+            }
+        }
+    }
+    if (play && out[2] == Action::Count) {
+        out[2] = Action::QuickSelect;
+    }
+    return out;
 }
 
 // Actions held when the game changes where it is stay out until they are let go: Escape that

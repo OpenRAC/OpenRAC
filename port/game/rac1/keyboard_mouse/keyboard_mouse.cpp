@@ -43,7 +43,10 @@
 #include <string>
 
 #include "discs.h"
+#include "game/common/frontend/active_input.h"
 #include "game/common/frontend/mouse_turn.h"
+#include "game/common/key_labels.h"
+#include "game/common/key_prompts.h"
 #include "kbm.hpp"
 #include "openrac/games/rac1.hpp"
 #include "openrac/mod.hpp"
@@ -143,13 +146,19 @@ struct Tick {
 openrac::Mod* s_mod = nullptr;
 const kbm_disc* s_disc = nullptr;
 
-// The player's settings, read by load() and not changed after.
+// The player's settings, read by load() and again when they change (on_settings).
 kbm::Bindings s_binds;
 kbm::MoveTuning s_move;
 kbm::LookTuning s_look_tuning;
 float s_ring_dead_zone = 30.0f;
 bool s_capture = true;
 bool s_menu_mouse = true;
+bool s_prompts = true;
+// The game's button icons as the player's keys while the keyboard and mouse are in use.
+openrac::key_prompts::Painter s_painter;
+// Whether the lock-strafe mod is loaded: the strafe key presses L2 only then. Asked at the first
+// tick, once every mod has loaded (-1 before).
+int s_strafe_mod = -1;
 
 // What the keys and the mouse hold now: the pad they make, the left stick's keys, the right stick's
 // mouse, the Quick Select's pointer, the actions blocked after the game changed where it is, the
@@ -1048,6 +1057,36 @@ void mouse_camera(const Tick& t, bool play, bool ring, std::uint16_t pad_buttons
     }
 }
 
+// The game's button icons show the keys that press them while the player is on the keyboard and
+// mouse, and the game's own again on the gamepad. Only the fonts' pictures change, never logic.
+void update_prompts(kbm::Context where, int dialog_kind, bool map) {
+    namespace kp = openrac::key_prompts;
+    constexpr std::uint32_t kRamBytes = 32u << 20;
+    kp::Fonts fonts;
+    const bool found = kp::find_fonts(
+        s_mod->memory().base(),
+        kRamBytes,
+        s_mod->relocate(s_disc->font_bank),
+        s_mod->relocate(s_disc->font_table),
+        fonts
+    );
+    if (!found) {
+        s_painter.forget();
+        return;
+    }
+    kp::Labels labels{};
+    if (s_prompts && (openrac::frontend::keyboard_mouse_in_use())) {
+        const auto actions = kbm::prompt_actions(where, dialog_kind, map, s_strafe_mod == 1);
+        for (std::size_t i = 0; i < actions.size(); ++i) {
+            if (actions[i] != Action::Count) {
+                const int bind = s_binds.of(actions[i])[0];
+                labels[i] = bind != 0 ? openrac::keys::icon_label(openrac_bind_to_name(bind)) : "";
+            }
+        }
+    }
+    s_painter.update(fonts, labels);
+}
+
 // The tick's pad from the keyboard and mouse: once a tick, when the port has read them anew.
 void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     Tick t;
@@ -1093,7 +1132,13 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
         }
     }
 
-    v.held = kbm::buttons_for(t.where, held, dialog_kind, map);
+    if (s_strafe_mod < 0) {
+        s_strafe_mod = 0;
+        for (const openrac::ModEntry& m : s_mod->mods()) {
+            s_strafe_mod |= m.id == std::string_view("lock-strafe") ? 1 : 0;
+        }
+    }
+    v.held = kbm::buttons_for(t.where, held, dialog_kind, map, s_strafe_mod == 1);
 
     // A click that waited has waited long enough: press it now.
     if (s_click_wait > 0 && --s_click_wait == 0) {
@@ -1128,6 +1173,7 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
 
     weapons(t);
     s_pad = v;
+    update_prompts(t.where, dialog_kind, map);
 }
 
 // The first pad's report, before the game reads it: the keys and the mouse on top of the pad's.
@@ -1254,12 +1300,14 @@ void read_settings(openrac::Mod& mod) {
     s_move.rise_ticks =
         static_cast<float>(mod.setting<double>("stick_ramp_ms")) * kTicksPerSecond / 1000.0f;
     s_look_tuning.sensitivity = static_cast<float>(mod.setting<double>("mouse_sensitivity"));
+    s_look_tuning.y_ratio = static_cast<float>(mod.setting<double>("mouse_y_ratio"));
     s_look_tuning.acceleration = static_cast<float>(mod.setting<double>("mouse_acceleration"));
     s_look_tuning.invert_y = mod.setting<bool>("invert_y");
     s_look_tuning.pitch_holds = mod.setting<std::string>("camera_tilt") != "return";
     s_ring_dead_zone = static_cast<float>(mod.setting<double>("quick_select_dead_zone"));
     s_capture = mod.setting<bool>("capture_cursor");
     s_menu_mouse = mod.setting<bool>("menu_mouse");
+    s_prompts = mod.setting<bool>("key_prompts");
 }
 
 // Puts everything the keys and the mouse hold back to rest, as at the first tick.
@@ -1285,6 +1333,7 @@ void reset_state() {
     s_looks = Looks::None;
     s_looks_up = kbm::kWorldUp;
     s_follow_locks = 0;
+    s_painter.forget();
 }
 
 // The mod's entry: finds the disc's addresses, reads the settings, takes the keyboard and the mouse
@@ -1303,6 +1352,7 @@ void load(openrac::Mod& mod) {
 
     s_mod = &mod;
     s_disc = nullptr;
+    s_strafe_mod = -1;
 
     // Take the disc whose addresses match the game's version.
     for (const kbm_disc& d : k_kbm_discs) {
@@ -1330,6 +1380,8 @@ void load(openrac::Mod& mod) {
     reset_state();
 
     mod.take_input(OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE);
+    // Changed in the game's menu or the launcher while it runs: used from the next tick.
+    mod.on_settings([] { read_settings(*s_mod); });
     mod.on_pad([](int port, std::uint8_t* report, int size) { on_pad(port, report, size); });
     mod.hook<rac1::FollowCamera_ApplyOverrides>([](auto original, std::uint32_t camera) {
         camera_overrides(original, camera);
@@ -1346,7 +1398,7 @@ void query(openrac_mod_info* info) {
     info->api_major = OPENRAC_MOD_API_MAJOR;
     info->api_minor = OPENRAC_MOD_API_MINOR;
     info->id = "keyboard-mouse";
-    info->version = "2.0.0";
+    info->version = "2.1.0";
 }
 
 int load(const openrac_api* api, openrac_mod* mod) {

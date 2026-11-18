@@ -23,6 +23,7 @@
 #include "debug_menu.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/active_input.h"
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
@@ -123,6 +124,10 @@ void apply_mouse_capture() {
     if (SDL_CursorVisible() != pointer) {
         pointer ? SDL_ShowCursor() : SDL_HideCursor();
     }
+}
+
+bool keyboard_mouse_in_use() {
+    return g && g->input.active_device() == platform::ActiveDevice::KeyboardMouse;
 }
 
 KeyboardMouseView keyboard_mouse() {

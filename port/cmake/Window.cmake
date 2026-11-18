@@ -729,7 +729,10 @@ openrac_add_test(keyboard_mouse_logic INCLUDES game/rac1/keyboard_mouse ../sdk/i
                  DEFINITIONS "KBM_MANIFEST=\"${PROJECT_SOURCE_DIR}/game/rac1/keyboard_mouse/openrac-mod.json\"")
 openrac_add_test(keyboard_mouse_load
                  SOURCES tests/keyboard_mouse_load_test.cpp game/rac1/keyboard_mouse/keyboard_mouse.cpp
+                         game/common/key_prompts.cpp
                  INCLUDES . game/rac1/keyboard_mouse ../sdk/include)
+# The keys painted over the game's button icons (game/common/key_prompts.h) and their labels.
+openrac_add_test(key_prompts SOURCES tests/key_prompts_test.cpp game/common/key_prompts.cpp INCLUDES .)
 
 # Going Commando's profile, one for its three discs (game/rac2/profile.cpp), for rac2's programs.
 add_library(openrac_game_rac2_profile STATIC game/rac2/profile.cpp)

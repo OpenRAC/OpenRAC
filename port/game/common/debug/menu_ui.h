@@ -16,6 +16,7 @@
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_gamepad.h>
 
 #include "audio/ui_sounds.h"
@@ -257,6 +258,14 @@ void controls_act(menu::Id id, int by);
 
 // Draws a Controls panel (menu::Kind::Panel): its rows on the card open now.
 void draw_controls_panel(menu::Id id);
+
+// The Keyboard and mouse panel (debug/menu_keyboard_mouse.cpp): whether there is one (the built-in
+// keyboard and mouse is loaded), its rows, and its key capture: an SDL event taken as the new key
+// (true: the event is used up).
+bool keyboard_mouse_shown();
+void keyboard_mouse_panel();
+bool keyboard_mouse_capturing();
+bool keyboard_mouse_capture_event(const SDL_Event& e);
 
 // Each frame: a press awaited for a binding arrives, gives up after a while, or ends with the
 // menu.

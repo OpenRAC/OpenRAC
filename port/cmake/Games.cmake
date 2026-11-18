@@ -560,6 +560,7 @@ function(openrac_built_in_mods target game_name)
 extern const unsigned char openrac_keyboard_mouse_manifest[] = {${bytes}0};
 ")
   target_sources(${target} PRIVATE "${dir}/built_in_mods.cpp" "${dir}/keyboard_mouse/keyboard_mouse.cpp"
+                                   "${OPENRAC_GAME_DIR}/common/key_prompts.cpp"
                                    "${cpp}")
   target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
 endfunction()

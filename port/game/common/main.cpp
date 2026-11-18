@@ -465,6 +465,20 @@ void load_mods() {
     // with its settings from the settings file.
     host.built_ins = mods::built_in_mods();
     host.built_in_settings["keyboard-mouse"] = settings::get().keyboard_mouse;
+    host.built_in_write =
+        [](const std::string& id, const std::string& key, const std::string& text) {
+            if (id == "keyboard-mouse") {
+                settings::get().keyboard_mouse[key] = text;
+                settings::save();
+            }
+        };
+    host.built_in_reread = [](std::map<std::string, std::map<std::string, std::string>>& out) {
+        if (!settings::reread_keyboard_mouse()) {
+            return false;
+        }
+        out["keyboard-mouse"] = settings::get().keyboard_mouse;
+        return true;
+    };
     // Mods loaded before the window opens (a mod that makes the Vulkan device): what they ask of
     // the keyboard and the cursor is kept for the window (apply_early_mod_input).
     host.take_input = [](std::uint32_t devices) {

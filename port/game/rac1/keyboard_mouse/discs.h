@@ -44,6 +44,10 @@ typedef struct kbm_disc {
     /* The executable's, through relocate_data: an item grid icon's width and height (two floats, in
      * the units of the frame the grid is laid out in; draw_menu_item_grid). */
     uint32_t grid_icon_size;
+    /* The executable's, through relocate_data: the effect bank's address (a word) and the effect
+     * texture table, where the game's fonts are (key_prompts.h). */
+    uint32_t font_bank;
+    uint32_t font_table;
 } kbm_disc;
 
 /* A menu page (page_menu +4): its focused widget, its widgets, the widget it moves to next. */
@@ -123,7 +127,9 @@ static const kbm_disc k_kbm_discs[] = {
      "func_L00_002E9DC8",
      "func_0021C840",
      "func_0021BB90",
-     0x00160390u},
+     0x00160390u,
+     0x0015F560u,
+     0x0018D540u},
     {"ntsc",
      0x0013F350u,
      0x00141EA0u,
@@ -140,7 +146,9 @@ static const kbm_disc k_kbm_discs[] = {
      "FUN_L00_002e8918",
      "FUN_0021b858",
      "FUN_0021abf8",
-     0x00160290u},
+     0x00160290u,
+     0x0015F460u,
+     0x0018D440u},
 };
 
 #endif /* KBM_DISCS_H */

@@ -16,6 +16,7 @@
 // It was the keyboard-mouse mod's load test; the entries are now the port's own functions
 // (keyboard_mouse.h) rather than a library's, and the frames' mouse turn (frontend/mouse_turn.h)
 // is checked against the turn the tick then makes.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -25,6 +26,7 @@
 
 #include "discs.h"
 #include "game/common/frontend/mouse_turn.h"
+#include "game/common/key_prompts.h"
 #include "kbm.hpp"
 #include "keyboard_mouse.h"
 #include "openrac/openrac_mod.h"
@@ -40,9 +42,16 @@
 // The frontend's side of the frames' mouse turn: kept here for the checks.
 openrac::frontend::MouseTurnFn g_mouse_turn = nullptr;
 
+// The device in use (frontend/active_input.h): the gamepad unless a check says otherwise.
+bool g_keyboard_mouse_in_use = false;
+
 namespace openrac::frontend {
 void set_mouse_turn(MouseTurnFn fn) {
     g_mouse_turn = fn;
+}
+
+bool keyboard_mouse_in_use() {
+    return g_keyboard_mouse_in_use;
 }
 }  // namespace openrac::frontend
 
@@ -123,7 +132,12 @@ void host_fail(openrac_mod*, const char* reason) {
     g_failed = reason;
 }
 
+bool g_prompts = true;
+
 int setting_bool(openrac_mod*, const char* key) {
+    if (std::strcmp(key, "key_prompts") == 0) {
+        return g_prompts ? 1 : 0;
+    }
     return std::strcmp(key, "capture_cursor") == 0 || std::strcmp(key, "menu_mouse") == 0 ? 1 : 0;
 }
 
@@ -131,8 +145,18 @@ std::int64_t setting_int(openrac_mod*, const char*) {
     return 0;
 }
 
+// What on_settings was given, the mods loaded (mod_entry) and the sensitivity the mod reads.
+openrac_frame_fn g_settings_fn = nullptr;
+void* g_settings_user = nullptr;
+std::vector<const char*> g_mods;
+double g_sensitivity = 1.0;
+
 double setting_float(openrac_mod*, const char* key) {
     if (std::strcmp(key, "mouse_sensitivity") == 0) {
+        return g_sensitivity;
+    }
+
+    if (std::strcmp(key, "mouse_y_ratio") == 0) {
         return 1.0;
     }
 
@@ -177,6 +201,26 @@ int host_hook(
 
 int host_on_frame(openrac_mod*, openrac_frame_fn, void*) {
     return 0;
+}
+
+int host_on_settings(openrac_mod*, openrac_frame_fn fn, void* user) {
+    g_settings_fn = fn;
+    g_settings_user = user;
+    return OPENRAC_HOOK_OK;
+}
+
+int host_mod_count() {
+    return static_cast<int>(g_mods.size());
+}
+
+int host_mod_entry(int index, openrac_mod_entry* out) {
+    if (index < 0 || index >= host_mod_count()) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->id = g_mods[static_cast<std::size_t>(index)];
+    out->name = out->id;
+    out->version = "1.0.0";
+    return OPENRAC_HOOK_OK;
 }
 
 int host_on_pad(openrac_mod*, openrac_pad_fn fn, void* user) {
@@ -296,6 +340,9 @@ openrac_api make_api() {
     api.input = host_input;
     api.take_input = host_take_input;
     api.capture_mouse = host_capture_mouse;
+    api.on_settings = host_on_settings;
+    api.mod_count = host_mod_count;
+    api.mod_entry = host_mod_entry;
     return api;
 }
 
@@ -425,6 +472,14 @@ void direct_camera() {
         read_pad();
         camera(kCamera);
         CHECK(g_mouse_turn(30.0f, 0.0f, &t));
+        // The sensitivity changed while the game runs (the menu, the launcher): used at once.
+        const float one = t.yaw;
+        g_sensitivity = 2.0;
+        CHECK(g_settings_fn != nullptr);
+        g_settings_fn(g_settings_user);
+        CHECK(g_mouse_turn(30.0f, 0.0f, &t) && close_to(t.yaw, 2.0f * one));
+        g_sensitivity = 1.0;
+        g_settings_fn(g_settings_user);
     }
 
     // Mouse up: the eye goes down (the view looks up), and the game is asked to hold it there.
@@ -535,6 +590,73 @@ void direct_camera() {
     r = read_pad();
     CHECK(kbm::game_axis(r.bytes[2]) == 1.0f);
     use_camera(0, 0);
+}
+
+// The game's fonts (key_prompts.h) in the test's memory: the Cross cell shows Space while the
+// keyboard and mouse are in use, the game's own again on the gamepad or with the setting off.
+void prompts() {
+    const kbm_disc& d = disc();
+    constexpr std::uint32_t kBank = 0x001A0000u;
+    std::memcpy(g_memory.data() + d.font_bank, &kBank, 4);
+    for (std::uint32_t f = 0; f < 3; ++f) {
+        const std::uint16_t texels =
+            static_cast<std::uint16_t>(f * openrac::key_prompts::kFontBytes / 16);
+        const std::uint16_t clut =
+            static_cast<std::uint16_t>(3 * openrac::key_prompts::kFontBytes / 16);
+        std::memcpy(g_memory.data() + d.font_table + 16 * (f + 1) + 8, &texels, 2);
+        std::memcpy(g_memory.data() + d.font_table + 16 * (f + 1) + 0xA, &clut, 2);
+    }
+    for (std::uint32_t i = 0; i < 3 * openrac::key_prompts::kFontBytes; ++i) {
+        g_memory[kBank + i] = static_cast<std::uint8_t>(i % 32);
+    }
+    // The palette: grey levels, entry 0 clear.
+    for (std::uint32_t i = 1; i < 256; ++i) {
+        std::uint8_t* e = g_memory.data() + kBank + 3 * openrac::key_prompts::kFontBytes + 4 * i;
+        e[0] = e[1] = e[2] = static_cast<std::uint8_t>(i);
+        e[3] = 0x80;
+    }
+    const std::vector<std::uint8_t> game(
+        g_memory.begin() + kBank, g_memory.begin() + kBank + 0x18400
+    );
+    const auto unchanged = [&] {
+        return std::equal(game.begin(), game.end(), g_memory.begin() + kBank);
+    };
+    const auto cross_painted = [&] {
+        return std::memcmp(g_memory.data() + kBank + 96 * 256, game.data() + 96 * 256, 24) != 0;
+    };
+
+    const openrac_api api = make_api();
+    CHECK(openrac::keyboard_mouse::load(&api, reinterpret_cast<openrac_mod*>(1)) == 0);
+    at<std::int32_t>(d.level_mode) = 0;
+
+    // The gamepad: the game's icons.
+    g_keyboard_mouse_in_use = false;
+    tick();
+    read_pad();
+    CHECK(unchanged());
+
+    // The keyboard and mouse: the keys.
+    g_keyboard_mouse_in_use = true;
+    tick();
+    read_pad();
+    CHECK(cross_painted());
+
+    // Back on the gamepad: every byte as the game had it.
+    g_keyboard_mouse_in_use = false;
+    tick();
+    read_pad();
+    CHECK(unchanged());
+
+    // The setting off: the game's icons on the keyboard too.
+    g_prompts = false;
+    g_keyboard_mouse_in_use = true;
+    CHECK(openrac::keyboard_mouse::load(&api, reinterpret_cast<openrac_mod*>(1)) == 0);
+    tick();
+    read_pad();
+    CHECK(unchanged());
+    g_prompts = true;
+    g_keyboard_mouse_in_use = false;
+    std::memset(g_memory.data() + d.font_bank, 0, 4);
 }
 
 void run() {
@@ -1080,6 +1202,24 @@ void run() {
 
     CHECK(g_camera_calls == 41 && g_look_calls == 30);
     CHECK(g_sp == 0x001F0000u);
+
+    // Shift strafes (L2) only with the lock-strafe mod; else the game's L2 is the first-person view,
+    // which has V.
+    for (const bool with : {false, true}) {
+        g_mods.clear();
+        if (with) {
+            g_mods.push_back("lock-strafe");
+        }
+        const openrac_api api = make_api();
+        CHECK(load(&api, reinterpret_cast<openrac_mod*>(1)) == 0);
+        at<std::int32_t>(d.level_mode) = 0;
+        tick();
+        hold(225);
+        CHECK(read_pad().held(kbm::kL2) == with);
+    }
+    g_mods.clear();
+
+    prompts();
 }
 
 }  // namespace
