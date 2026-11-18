@@ -54,6 +54,7 @@ endfunction()
 
 # ---- platform ----
 add_library(openrac_platform STATIC
+  platform/active_device.cpp
   platform/audio.cpp
   platform/bindings.cpp
   platform/clock.cpp
@@ -88,6 +89,8 @@ openrac_add_test(input_ports SOURCES tests/input_ports_test.cpp INCLUDES . LIBS 
 openrac_add_test(rumble SOURCES tests/rumble_test.cpp INCLUDES . LIBS openrac_platform)
 # Start+Select opens the menu, which the game never sees (platform/menu_chord.h).
 openrac_add_test(menu_chord SOURCES tests/menu_chord_test.cpp INCLUDES . LIBS openrac_platform)
+# Which device the player uses now, the gamepad or the keyboard and mouse (platform/active_device.h).
+openrac_add_test(active_device INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp
@@ -240,6 +243,11 @@ endif()
 if(APPLE AND NOT OPENRAC_IOS)
   target_sources(openrac_platform PRIVATE platform/macos_app.mm)
   target_link_libraries(openrac_platform PRIVATE "-framework Cocoa")
+  # The mouse's own motion, without the system's acceleration (platform/raw_mouse.h).
+  target_sources(openrac_platform PRIVATE platform/raw_mouse_macos.mm)
+  target_link_libraries(openrac_platform PRIVATE "-framework GameController")
+else()
+  target_sources(openrac_platform PRIVATE platform/raw_mouse.cpp)
 endif()
 
 # ---- renderer ----
@@ -715,6 +723,13 @@ openrac_add_test(camera_target LIBS openrac_game_rac1_profile)
 openrac_add_test(moby_fade LIBS openrac_game_rac1_profile openrac_ps2float)
 openrac_add_test(shrub_proc LIBS openrac_game_rac1_profile openrac_ps2float)
 openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
+# Ratchet & Clank's built-in keyboard and mouse (game/rac1/keyboard_mouse): its logic alone, with
+# its manifest; and its code loaded as the port loads it, against a host table of the test's own.
+openrac_add_test(keyboard_mouse_logic INCLUDES game/rac1/keyboard_mouse ../sdk/include
+                 DEFINITIONS "KBM_MANIFEST=\"${PROJECT_SOURCE_DIR}/game/rac1/keyboard_mouse/openrac-mod.json\"")
+openrac_add_test(keyboard_mouse_load
+                 SOURCES tests/keyboard_mouse_load_test.cpp game/rac1/keyboard_mouse/keyboard_mouse.cpp
+                 INCLUDES . game/rac1/keyboard_mouse ../sdk/include)
 
 # Going Commando's profile, one for its three discs (game/rac2/profile.cpp), for rac2's programs.
 add_library(openrac_game_rac2_profile STATIC game/rac2/profile.cpp)

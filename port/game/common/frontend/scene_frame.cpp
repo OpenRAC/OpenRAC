@@ -338,7 +338,7 @@ void set_camera(SceneFrame& frame) {
         scene.has_prev_state && frame.output.alpha < 1.0f
             ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
             : scene.state,
-        {frame.output.latch_yaw, frame.output.latch_pivot}
+        {frame.output.latch_yaw, frame.output.latch_pivot, frame.output.latch_pitch}
     );
     renderer::Camera camera;
     camera.view = state.view();

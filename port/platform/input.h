@@ -32,6 +32,7 @@
 #include <utility>
 #include <vector>
 
+#include "platform/active_device.h"
 #include "platform/bindings.h"
 #include "platform/menu_chord.h"
 #include "platform/pad.h"
@@ -116,6 +117,19 @@ public:
     // The keyboard and mouse as update() last read them, for the mods.
     const KeyboardMouse& keyboard_mouse() const { return m_km; }
 
+    // The mouse's motion since update() last read it: what the next tick will turn the camera by
+    // (frontend/mouse_turn.h).
+    void pending_mouse(float& dx, float& dy) {
+        pull_raw_mouse();
+        dx = m_dx;
+        dy = m_dy;
+    }
+
+    // Which device the player uses now, the gamepad or the keyboard and mouse (active_device.h).
+    ActiveDevice active_device() const { return m_switch.active(); }
+
+    DeviceSwitch& device_switch() { return m_switch; }
+
     // What each player's keys and gamepad press from now on (bindings.h), by player: the next read
     // uses them. What is held on a player's controller as theirs change, and the keys held as the
     // keyboard's player's change, are held back until let go (bindings.h's Latch).
@@ -173,7 +187,7 @@ public:
     void set_stick_dead_zone(const StickDeadZone& dead_zone) { m_dead_zone = dead_zone; }
 
     // Whether the cursor is captured now (the frontend sets it: SDL's relative mouse mode).
-    void set_captured(bool captured) { m_km.captured = captured; }
+    void set_captured(bool captured);
 
     // The on-screen pad, which adds to port 0 (touch_pad.h). The frontend tells it the window's
     // shape and draws it while it is visible.
@@ -203,6 +217,9 @@ private:
     static constexpr std::uint64_t kHandOverNs = 2'000'000'000;
 
     std::vector<Connected>::iterator find(std::uint32_t which);  // SDL_JoystickID
+    // The mouse's own motion (raw_mouse.h) added to the gathered motion while the cursor is
+    // captured, where SDL's is not the device's; dropped otherwise.
+    void pull_raw_mouse();
     // A gamepad's button pressed at SDL's time `ns`: the gamepad may move up the ports.
     void pressed(std::uint32_t which, std::uint64_t ns);
     // Moves the gamepad at from to to, its device with it (the others keep their order).
@@ -279,6 +296,7 @@ private:
     std::array<std::uint8_t, kKeyCount> m_went_down{};
     std::uint32_t m_mouse_went_down = 0;
     float m_dx = 0.0f, m_dy = 0.0f, m_wheel_x = 0.0f, m_wheel_y = 0.0f;
+    DeviceSwitch m_switch;
 };
 
 }  // namespace openrac::platform

@@ -291,7 +291,14 @@ struct Settings {
     // them: "Space,PadSouth"). Kept as the file wrote them, so this file needs nothing of SDL;
     // platform::set_bindings reads the names. A button with no binding keeps the port's default.
     std::map<std::string, std::string, std::less<>> bindings;
+    // The built-in keyboard and mouse's settings (docs/port/KEYBOARD_MOUSE.md): each key kbm_<its
+    // key> of the mod's manifest, kept here without the prefix as the file wrote it, for the mod
+    // loader to check (mods::Host::built_in_settings).
+    std::map<std::string, std::string> keyboard_mouse;
 };
+
+// The settings file's prefix of the built-in keyboard and mouse's keys.
+inline constexpr std::string_view kKeyboardMousePrefix = "kbm_";
 
 // The settings in use.
 Settings& get();

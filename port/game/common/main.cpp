@@ -68,6 +68,7 @@
 #ifdef OPENRAC_FRONTEND
 #include <SDL3/SDL_misc.h>
 
+#include "built_in_mods.h"
 #include "debug_overlay.h"
 #include "enhanced/renderer/fur.h"
 #include "enhanced/viewer/probe_lighting.h"
@@ -460,6 +461,10 @@ void load_mods() {
         }
     };
 #ifdef OPENRAC_FRONTEND
+    // The mods built into the program (built_in_mods.h): Ratchet & Clank's keyboard and mouse,
+    // with its settings from the settings file.
+    host.built_ins = mods::built_in_mods();
+    host.built_in_settings["keyboard-mouse"] = settings::get().keyboard_mouse;
     // Mods loaded before the window opens (a mod that makes the Vulkan device): what they ask of
     // the keyboard and the cursor is kept for the window (apply_early_mod_input).
     host.take_input = [](std::uint32_t devices) {

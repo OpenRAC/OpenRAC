@@ -2298,6 +2298,94 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
     return true;
 }
 
+// A built-in's settings, as text (Host::built_in_settings), in the JSON a list entry would hold:
+// a switch's 1|0|true|false as true or false, a number as a number, the rest as strings. A value
+// that is not of its type is left out, and the setting is its default.
+std::map<std::string, json::Value> built_in_values(
+    const Manifest& manifest, const std::map<std::string, std::string>& text
+) {
+    std::map<std::string, json::Value> out;
+    for (const Setting& s : manifest.settings) {
+        const auto it = text.find(s.key);
+        if (it == text.end()) {
+            continue;
+        }
+        std::string literal;
+        switch (s.type) {
+            case SettingType::Bool:
+                literal = it->second == "1" || it->second == "true"    ? "true"
+                          : it->second == "0" || it->second == "false" ? "false"
+                                                                       : "";
+                break;
+            case SettingType::Int:
+            case SettingType::Float:
+                literal = it->second;
+                break;
+            default:
+                literal = mods::quoted(it->second);
+                break;
+        }
+        json::Value v;
+        std::string error;
+        if (!literal.empty() && json::parse(literal, v, error)) {
+            out[s.key] = std::move(v);
+        }
+    }
+    return out;
+}
+
+// Loads one mod built into the program (BuiltIn): true when it is for this game and disc and
+// loaded. `why` says why one for this disc did not load.
+bool load_built_in(const BuiltIn& b, std::unique_ptr<openrac_mod>& out, std::string& why) {
+    Manifest manifest;
+    std::string error;
+    if (!parse_manifest(b.manifest, manifest, error)) {
+        why = "its manifest: " + error;
+        return false;
+    }
+    const auto game = manifest.games.find(g_host->game);
+    if (game == manifest.games.end()
+        || std::find(game->second.begin(), game->second.end(), g_host->version)
+               == game->second.end()) {
+        return false;  // not for this disc: nothing to say
+    }
+    auto mod = std::make_unique<openrac_mod>();
+    mod->id = manifest.id;
+    mod->version = manifest.version_text;
+    mod->file = "built in";
+    mod->manifest = manifest;
+    std::vector<std::string> notes;
+    const auto text = g_host->built_in_settings.find(manifest.id);
+    mod->settings = resolve_settings(
+        manifest,
+        text != g_host->built_in_settings.end() ? built_in_values(manifest, text->second)
+                                                : std::map<std::string, json::Value>{},
+        notes,
+        g_host->game
+    );
+    for (const std::string& n : notes) {
+        log::warn("{}: {}", mod->id, n);
+    }
+    openrac_mod_info info{};
+    info.size = sizeof(info);
+    b.query(&info);
+    if (info.id == nullptr || mod->id != info.id) {
+        why = "its code and its manifest name other mods";
+        return false;
+    }
+    mod->base = reinterpret_cast<const void*>(b.load);
+    g_loading = mod.get();
+    const int result = b.load(&g_api, mod.get());
+    g_loading = nullptr;
+    if (result != 0 || mod->hook_refused) {
+        undo(mod.get());
+        why = !mod->failure.empty() ? mod->failure : std::format("its load returned {}", result);
+        return false;
+    }
+    out = std::move(mod);
+    return true;
+}
+
 }  // namespace
 
 const std::vector<fs::path>& asset_roots() {
@@ -2305,27 +2393,52 @@ const std::vector<fs::path>& asset_roots() {
 }
 
 std::string load(const Host& host) {
-    if (host.purist) {
-        log::info("mods: purist mode (--no-mods), none loaded");
-        return "none (purist mode)";
-    }
-    std::string text;
-    if (!read_text(host.list, text)) {
-        return "none";
-    }
-    std::vector<ListEntry> list;
-    std::string error;
-    if (!parse_list(text, list, error)) {
-        log::warn("mods: {} cannot be read ({}): none loaded", log::tidy(host.list.string()), error);
-        return "none";
-    }
     static Host kept;
     kept = host;
     g_host = &kept;
+    fill_api(kept);
+    // The mods built into the program first, whatever the list says (BuiltIn).
+    std::vector<std::string> built_in;
+    if (!host.built_ins.empty()) {
+        for (const BuiltIn& b : host.built_ins) {
+            std::unique_ptr<openrac_mod> mod;
+            std::string why;
+            if (load_built_in(b, mod, why)) {
+                log::info("{} {} built in", mod->id, mod->version);
+                built_in.push_back(mod->id);
+                g_loaded.push_back(std::move(mod));
+            } else if (!why.empty()) {
+                log::warn("a built-in mod did not load: {}", why);
+            }
+        }
+    }
+    std::vector<ListEntry> list;
+    std::string text;
+    std::string error;
+    if (host.purist) {
+        log::info("mods: purist mode (--no-mods), none loaded but the built-in ones");
+    } else if (read_text(host.list, text) && !parse_list(text, list, error)) {
+        log::warn("mods: {} cannot be read ({}): none loaded", log::tidy(host.list.string()), error);
+        list.clear();
+    }
+    if (list.empty() && built_in.empty()) {
+        if (!host.purist && !text.empty() && error.empty()) {
+            write_status(kept, {});
+        }
+        g_host = nullptr;
+        return host.purist ? "none (purist mode)" : "none";
+    }
     const fs::path folder = host.list.parent_path();
     std::vector<Candidate> enabled;
+    std::vector<Outcome> outcomes;
     for (const ListEntry& e : list) {
         if (!e.enabled) {
+            continue;
+        }
+        // An older copy of a mod the port now carries (the keyboard-mouse mod): not loaded.
+        if (std::find(built_in.begin(), built_in.end(), e.id) != built_in.end()) {
+            log::info("mod {} not loaded: it is built into OpenRAC now", e.id);
+            outcomes.push_back({e.id, "", "refused", "it is built into OpenRAC now", {}});
             continue;
         }
         Candidate c;
@@ -2341,18 +2454,18 @@ std::string load(const Host& host) {
         }
         enabled.push_back(std::move(c));
     }
-    if (enabled.empty()) {
-        write_status(kept, {});
+    if (enabled.empty() && built_in.empty()) {
+        write_status(kept, outcomes);
+        g_outcomes = outcomes;
         return "none";
     }
-    fill_api(kept);
     const Target target{host.game, host.version, platform_key(), OPENRAC_MOD_API_MAJOR, OPENRAC_MOD_API_MINOR,
                         host.scripts != nullptr};
-    const auto decisions = plan(enabled, target, [&](const std::string& id, const std::string& path) {
-        std::error_code e;
-        return fs::is_regular_file(folder / id / fs::path(path), e);
-    });
-    std::vector<Outcome> outcomes;
+    const auto decisions =
+        plan(enabled, target, [&](const std::string& id, const std::string& path) {
+            std::error_code e;
+            return fs::is_regular_file(folder / id / fs::path(path), e);
+        });
     std::vector<std::string> not_loaded;  // refused or failed here: what requires them goes too
     for (std::size_t i = 0; i < enabled.size(); ++i) {
         const Candidate& c = enabled[i];
@@ -2436,7 +2549,9 @@ std::string load(const Host& host) {
         }
     }
     g_outcomes = outcomes;
-    write_status(kept, outcomes);
+    if (!host.purist && !host.list.empty()) {
+        write_status(kept, outcomes);
+    }
     g_images.clear();
     for (const auto& m : g_loaded) {
         g_images.push_back({m->id.c_str(), m->version.c_str(), m->file.c_str(), m->base});
@@ -2445,9 +2560,10 @@ std::string load(const Host& host) {
     set_loaded_mods_json();
     std::string line;
     for (const auto& m : g_loaded) {
-        line += (line.empty() ? "" : ", ") + m->id + " " + m->version;
+        line += (line.empty() ? "" : ", ") + m->id + " " + m->version
+                + (m->library == nullptr && !m->script ? " (built in)" : "");
     }
-    const std::size_t refused = enabled.size() - g_loaded.size();
+    const std::size_t refused = outcomes.size() - (g_loaded.size() - built_in.size());
     if (line.empty()) {
         line = "none";
     }

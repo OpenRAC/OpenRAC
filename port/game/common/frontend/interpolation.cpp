@@ -617,6 +617,7 @@ void draw_kept(bool first) try {
     const CameraTurn turn = g_held ? CameraTurn{} : latch_camera(*g->kept, output->alpha, display);
     output->latch_yaw = turn.yaw;
     output->latch_pivot = turn.pivot;
+    output->latch_pitch = turn.pitch;
     g->window->drawable_size(output->window_width, output->window_height);
     output->aspect = picture_aspect(output->window_width, output->window_height);
     output->box = frame_box(output->window_width, output->window_height, output->aspect);

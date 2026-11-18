@@ -11,6 +11,7 @@
 
 #include "common/log.h"
 #include "platform/bindings.h"
+#include "platform/raw_mouse.h"
 
 namespace openrac::platform {
 namespace {
@@ -127,6 +128,7 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_FINGER_DOWN:
             if (event.tfinger.touchID != SDL_MOUSE_TOUCHID) {
                 m_touch.finger_down(event.tfinger.fingerID, event.tfinger.x, event.tfinger.y);
+                m_switch.touch(event.tfinger.timestamp);
             }
             break;
         case SDL_EVENT_FINGER_MOTION:
@@ -142,6 +144,7 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_KEY_DOWN:
             if (!event.key.repeat && static_cast<std::size_t>(event.key.scancode) < kKeyCount) {
                 m_went_down[static_cast<std::size_t>(event.key.scancode)] = 1;
+                m_switch.key(static_cast<int>(event.key.scancode), event.key.timestamp);
             }
             m_touch.hide();
             break;
@@ -151,26 +154,35 @@ void Input::handle_event(const SDL_Event& event) {
                 it->tapped[event.gbutton.button] = kTapReads;
             }
             pressed(event.gbutton.which, event.gbutton.timestamp);
+            m_switch.gamepad(event.gbutton.timestamp);
             m_touch.hide();
             break;
         // The mouse, for the mods (KeyboardMouse): gathered until the next update(). A touch screen's
         // fingers that SDL also reports as the mouse are not the mouse.
         case SDL_EVENT_MOUSE_MOTION:
-            if (event.motion.which != SDL_TOUCH_MOUSEID) {
-                m_dx += event.motion.xrel;
-                m_dy += event.motion.yrel;
+            if (event.motion.which != SDL_TOUCH_MOUSEID && event.motion.which != SDL_PEN_MOUSEID) {
+                // Captured, the mouse's own motion stands in for SDL's where it reads one.
+                if (!(m_km.captured && raw_mouse::active())) {
+                    m_dx += event.motion.xrel;
+                    m_dy += event.motion.yrel;
+                }
+                m_switch.mouse_motion(event.motion.xrel, event.motion.yrel, event.motion.timestamp);
             }
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             if (event.button.which != SDL_TOUCH_MOUSEID && event.button.button >= 1
                 && event.button.button <= 5) {
                 m_mouse_went_down |= 1u << (event.button.button - 1);
+                m_switch.mouse_button(event.button.timestamp);
             }
             break;
         case SDL_EVENT_MOUSE_WHEEL: {
             const float flip = event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -1.0f : 1.0f;
             m_wheel_x += event.wheel.x * flip;
             m_wheel_y += event.wheel.y * flip;
+            if (event.wheel.which != SDL_TOUCH_MOUSEID) {
+                m_switch.wheel(event.wheel.timestamp);
+            }
             break;
         }
         case SDL_EVENT_GAMEPAD_AXIS_MOTION:
@@ -179,6 +191,7 @@ void Input::handle_event(const SDL_Event& event) {
                 if (const auto it = find(event.gaxis.which); it != m_gamepads.end()) {
                     it->active_ns = event.gaxis.timestamp;
                 }
+                m_switch.gamepad(event.gaxis.timestamp);
                 m_touch.hide();
             }
             break;
@@ -448,7 +461,26 @@ void Input::assign_players() {
     m_devices_changed = true;
 }
 
+void Input::set_captured(bool captured) {
+    if (captured && !m_km.captured) {
+        raw_mouse::start();
+        pull_raw_mouse();  // what moved before the capture is not the player's turn
+    }
+    m_km.captured = captured;
+}
+
+void Input::pull_raw_mouse() {
+    float dx = 0.0f;
+    float dy = 0.0f;
+    raw_mouse::take(dx, dy);
+    if (m_km.captured && raw_mouse::active()) {
+        m_dx += dx;
+        m_dy += dy;
+    }
+}
+
 void Input::update() {
+    pull_raw_mouse();
     int key_count = 0;
     const bool* state = SDL_GetKeyboardState(&key_count);
     // The keyboard counts only while the window has it, and not while Cmd/Win is held: a system
@@ -695,7 +727,8 @@ void Input::refresh_pads() {
             m_last[static_cast<std::size_t>(port)] = {};
             m_latch[static_cast<std::size_t>(port)] = {};
         }
-        if (keyboard_here && m_keyboard_table && !m_capturing) {
+        // A mod that took the keyboard presses pad 0 only: as player 2 the keys keep the table.
+        if (keyboard_here && (m_keyboard_table || port != 0) && !m_capturing) {
             apply_keys(m_bindings[static_cast<std::size_t>(port)], keys, pad);
         }
         if (port == 0) {

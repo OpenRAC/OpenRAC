@@ -575,6 +575,10 @@ void load(const std::filesystem::path& file) {
             // (platform/bindings.h), not here: this file knows nothing of SDL. An empty value is
             // kept as it is, and means the port's default.
             s.bindings[key] = value;
+        } else if (key.starts_with(kKeyboardMousePrefix)) {
+            // The built-in keyboard and mouse's setting: checked by the mod loader against the
+            // mod's manifest, which this file does not read.
+            s.keyboard_mouse[key.substr(kKeyboardMousePrefix.size())] = value;
         } else if (key.starts_with(kGameOptionPrefix)) {
             // An option the game keeps itself (game_option): any whole number in the file's range.
             int number = 0;
@@ -783,6 +787,13 @@ void save() {
         out << "# What the player bound each pad button to (the launcher's Controls)\n";
         for (const auto& [key, value] : s.bindings) {
             out << key << " = " << value << "\n";
+        }
+    }
+    // The keyboard and mouse's, likewise (the launcher's Mods tab, Keyboard and mouse).
+    if (!s.keyboard_mouse.empty()) {
+        out << "# Keyboard and mouse (the launcher's Mods tab)\n";
+        for (const auto& [key, value] : s.keyboard_mouse) {
+            out << kKeyboardMousePrefix << key << " = " << value << "\n";
         }
     }
     if (fixes::count() > 0) {
