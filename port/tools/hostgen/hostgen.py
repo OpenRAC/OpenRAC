@@ -348,13 +348,16 @@ def write_hook_copies(program: Program, name: str, syms: list[str], lines: list[
     each family of levels): one slot, whichever copy the game calls. The mod's replacement is told
     nothing of the copy; its original runs the copy that called it (the host's <name>__original,
     through the copy noted for the call, restored after it, so a nested call sees its own). One row
-    in the table, under the first copy's symbol. Returns the copies with no hook signature, or that
-    a wrap of the port's covers (none is then written); the signature must be the same for all."""
+    in the table, under the first copy's symbol. A copy the port wraps too (a `wrap` row: the hero's
+    move-state setters, hero_grab.c) gets its hook under the port's function, as <name>__hooked,
+    which the port's function calls, as write_hooks does for one function. Returns the copies with
+    no hook signature, or that pass a tail call's result on (none is then written); the signature
+    must be the same for all."""
     shapes = []
     for sym in syms:
         f = program.functions.get(sym)
         shape = hook_signature(f, program.typedefs) if f is not None else None
-        if shape is None or f.inherits or sym in program.wrap_host:
+        if shape is None or f.inherits:
             return list(syms)
         shapes.append(shape)
     if any(sh[0] != shapes[0][0] for sh in shapes):
@@ -371,7 +374,8 @@ def write_hook_copies(program: Program, name: str, syms: list[str], lines: list[
               f"static {ret} {name}__original({decl}) {{ {give}(({fptr}){game})({args}); }}"]
     for sym in syms:
         c = cname(sym)
-        lines += [f"{ret} {c}({decl}) {{",
+        entry = f"{c}__hooked" if sym in program.wrap_host else c
+        lines += [f"{ret} {entry}({decl}) {{",
                   f"    if ({slot} != 0) {{",
                   f"        void* was = {game};",
                   f"        {game} = (void*){c}__game;"]

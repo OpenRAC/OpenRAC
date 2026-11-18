@@ -179,7 +179,9 @@ void rac1_hero_guard_end(gaddr moby) {
     }
 }
 
-/* hero_set_state, each copy. */
+/* hero_set_state, each copy. Each is also the mod hook point Hero_EnterMoveState
+ * (rac1.player.enter_move_state), under this as <name>__hooked (hostgen's hooks.c: the mod's
+ * replacement, else the game's C), so a stand-in's guard holds for a mod's setter too. */
 #define GUARDED_SETTER(name, game)                                                                 \
     int name(int state, int animate) {                                                             \
         if (guard.on) {                                                                            \
@@ -189,20 +191,20 @@ void rac1_hero_guard_end(gaddr moby) {
         return game(state, animate);                                                               \
     }
 
-GUARDED_SETTER(func_L00_00222B80, func_L00_00222B80__game)
-GUARDED_SETTER(func_L01_0023D688, func_L01_0023D688__game)
-GUARDED_SETTER(func_L02_0022BE40, func_L02_0022BE40__game)
-GUARDED_SETTER(func_L03_00216D38, func_L03_00216D38__game)
-GUARDED_SETTER(func_L05_0024D680, func_L05_0024D680__game)
-GUARDED_SETTER(func_L06_00235E08, func_L06_00235E08__game)
-GUARDED_SETTER(func_L08_00231228, func_L08_00231228__game)
-GUARDED_SETTER(func_L11_0024E240, func_L11_0024E240__game)
-GUARDED_SETTER(func_L12_002407C0, func_L12_002407C0__game)
-GUARDED_SETTER(func_L14_002306C8, func_L14_002306C8__game)
-GUARDED_SETTER(func_L15_00217348, func_L15_00217348__game)
-GUARDED_SETTER(func_L16_0021EA88, func_L16_0021EA88__game)
-GUARDED_SETTER(func_L17_0021ED38, func_L17_0021ED38__game)
-GUARDED_SETTER(func_L18_002284E0, func_L18_002284E0__game)
+GUARDED_SETTER(func_L00_00222B80, func_L00_00222B80__hooked)
+GUARDED_SETTER(func_L01_0023D688, func_L01_0023D688__hooked)
+GUARDED_SETTER(func_L02_0022BE40, func_L02_0022BE40__hooked)
+GUARDED_SETTER(func_L03_00216D38, func_L03_00216D38__hooked)
+GUARDED_SETTER(func_L05_0024D680, func_L05_0024D680__hooked)
+GUARDED_SETTER(func_L06_00235E08, func_L06_00235E08__hooked)
+GUARDED_SETTER(func_L08_00231228, func_L08_00231228__hooked)
+GUARDED_SETTER(func_L11_0024E240, func_L11_0024E240__hooked)
+GUARDED_SETTER(func_L12_002407C0, func_L12_002407C0__hooked)
+GUARDED_SETTER(func_L14_002306C8, func_L14_002306C8__hooked)
+GUARDED_SETTER(func_L15_00217348, func_L15_00217348__hooked)
+GUARDED_SETTER(func_L16_0021EA88, func_L16_0021EA88__hooked)
+GUARDED_SETTER(func_L17_0021ED38, func_L17_0021ED38__hooked)
+GUARDED_SETTER(func_L18_002284E0, func_L18_002284E0__hooked)
 
 /* The ride or Clank taken up, each copy: nothing of it under a stand-in. */
 void func_L00_002110C0(int mode, int state, gaddr moby) {

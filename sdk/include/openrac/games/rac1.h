@@ -201,6 +201,29 @@ typedef void (*openrac_rac1_Moby_CollectBolt)(openrac_gaddr bolt);
 #define OPENRAC_RAC1_SIG_Vendor_DrawIconStrip "void()"
 typedef void (*openrac_rac1_Vendor_DrawIconStrip)(void);
 
+/* Hero_EnterMoveState (func_L00_00222B80, rac1.player.enter_move_state): puts the hero into a
+ * move state (+0x2084): HeroEnterMoveState, and the copy of it in each level with hero code of
+ * its own (one hook point). It sets the state up, starts its animation when force is non-zero,
+ * and returns 0 when it refuses the change (dying or a cutscene, unless force is 2). Every change
+ * of his state goes through it. */
+#define OPENRAC_RAC1_HOOK_Hero_EnterMoveState "Hero_EnterMoveState"
+#define OPENRAC_RAC1_SIG_Hero_EnterMoveState "i32(i32,i32)"
+typedef int32_t (*openrac_rac1_Hero_EnterMoveState)(int32_t state, int32_t force);
+
+/* Hero_ResolveGravityMode (func_L00_00233CC0, rac1.player.resolve_gravity_mode): the hero's
+ * gravity mode for the tick (+0x20B3: 0 the world's down, 1 the ground's normal), once a tick;
+ * 1 on magnetic ground with the Magneboots and in the magnet walk (state 0x3F). */
+#define OPENRAC_RAC1_HOOK_Hero_ResolveGravityMode "Hero_ResolveGravityMode"
+#define OPENRAC_RAC1_SIG_Hero_ResolveGravityMode "i32()"
+typedef int32_t (*openrac_rac1_Hero_ResolveGravityMode)(void);
+
+/* Hero_UpdateEquippedItems (func_L00_00210FE0, rac1.player.update_equipped_items): what the hero
+ * holds, once a tick: locks item selection and use (+0x20A7, +0x20AC) on magnetic ground with the
+ * Magneboots, in water or dying, then runs the item mobys and the items. */
+#define OPENRAC_RAC1_HOOK_Hero_UpdateEquippedItems "Hero_UpdateEquippedItems"
+#define OPENRAC_RAC1_SIG_Hero_UpdateEquippedItems "void()"
+typedef void (*openrac_rac1_Hero_UpdateEquippedItems)(void);
+
 /* ------------------------------------------------------------------------------------------ *
  * Taking a hook point
  * ------------------------------------------------------------------------------------------ */
