@@ -3,6 +3,7 @@
 // talks to the Rust side except through api.ts.
 import { hidePaths } from "./paths";
 import { toolFailure } from "./toolErrors";
+import { withShownTitles } from "./labels";
 import { bakeFailure, type BakeFailure } from "./bakeFailure";
 import {
   api,
@@ -521,7 +522,7 @@ function same(key: keyof typeof seen, value: unknown): boolean {
 }
 
 function setLibrary(library: Library | null) {
-  if (!same("library", library)) app.library = library;
+  if (!same("library", library)) app.library = library && withShownTitles(library);
 }
 
 export async function refresh() {
