@@ -960,6 +960,19 @@ void fill_19(openrac_api &api) {
   };
 }
 
+// The fake host's 1.21 hook entries: the game's take_ammo, found by its id only.
+int32_t take_ammo_21(int32_t item, int32_t amount) { return item * 100 + amount; }
+
+void fill_21(openrac_api &api) {
+  api.hook_entry = [](const char *name, const char *signature) -> void * {
+    if (std::string(name) != "rac1.weapon.take_ammo" ||
+        std::string(signature) != "i32(i32,i32)") {
+      return nullptr;
+    }
+    return reinterpret_cast<void *>(&take_ammo_21);
+  };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -1986,6 +1999,19 @@ int main() {
       api.api_minor = 18;
       CHECK(!mod.has_menu_switches() && !mod.menu_switch(3, true) &&
             g_19_switch == 0 && mod.menu_value(3) == -1);
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.21: a hook point's entry, asked by its id.
+    {
+      fill_21(api);
+      const auto take = mod.hook_entry<openrac::rac1::Weapon_TakeAmmo>();
+      CHECK(mod.has_hook_entry() && take != nullptr && take(3, 2) == 302);
+      CHECK(mod.hook_entry<Test_Twice>() == nullptr);
+
+      // A port of 1.20 has none of it.
+      api.api_minor = 20;
+      CHECK(!mod.has_hook_entry() &&
+            mod.hook_entry<openrac::rac1::Weapon_TakeAmmo>() == nullptr);
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);
