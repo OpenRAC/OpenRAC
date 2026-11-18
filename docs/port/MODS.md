@@ -736,6 +736,8 @@ where it was drawn (`prop_frame`, `prop_frame()`): the way a weapon in the hand 
 `developer_menu_choice`, `developer_menu_value`; the C++ layer's `menu_switch()`, `menu_choice()`,
 `menu_value()`, `has_menu_switches()`), which the menu shows and changes at once while it pauses the
 game, the mod reading their state at its next tick boundary.
+1.20 (SDK 1.20.0) render-only reward models (`moby_visuals`, `openrac_moby_visual`), guest text
+(`guest_text`), a sprite tint (`sprite_tint`) and pickup presentations (`pickup_animation`).
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
