@@ -188,6 +188,7 @@ struct Settings {
             gtao_settings.quality = static_cast<renderer::GtaoQuality>(choice - 1);
         }
     }
+
     renderer::TemporalQuality temporal_quality =  // Enhanced Vulkan only.
         kHandheldDefaults ? renderer::TemporalQuality::Balanced
                           : renderer::TemporalQuality::Quality;
