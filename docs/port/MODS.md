@@ -86,6 +86,9 @@ OpenRAC
 │   ├── examples/frame-counter/        a mod that uses each part of the interface
 │   └── tools/package_mod.py           a mod's .zip, with its manifest
 ├── port/game/common/mods.{h,cpp}      the loader: the list, the checks, dlopen, the hooks
+├── port/game/<game>/built_in_mods.cpp the mods built into the port (always loaded, even with
+│                                      --no-mods; their settings are `<prefix>_<key>` lines of
+│                                      the settings file): rac1's keyboard_mouse (KEYBOARD_MOUSE.md)
 ├── port/game/common/mod_manifest.*    manifests and the list, read and checked (tested alone)
 ├── port/game/<version>/libraries.tsv  `hook` rows: the hook points of each disc
 └── launcher/core/src/plugins.rs       the launcher's side: install, list, order, settings
