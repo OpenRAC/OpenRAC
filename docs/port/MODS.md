@@ -740,6 +740,7 @@ game, the mod reading their state at its next tick boundary.
 sdk/docs/views.md).
 1.21 (SDK 1.21.0) render-only reward models (`moby_visuals`, `openrac_moby_visual`), guest text
 (`guest_text`), a sprite tint (`sprite_tint`) and pickup presentations (`pickup_animation`).
+These reward calls follow the 1.20 entries in the API table; check interface 1.21 before using them.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
