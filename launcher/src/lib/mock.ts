@@ -65,6 +65,7 @@ import type { SaveChange } from "./generated/SaveChange";
 import type { SaveFields } from "./generated/SaveFields";
 import type { ExportedSaves } from "./generated/ExportedSaves";
 import type { SaveArchiveSlot } from "./generated/SaveArchiveSlot";
+import type { SaveCopySource } from "./generated/SaveCopySource";
 import type { SaveImportPreview } from "./generated/SaveImportPreview";
 import type { SaveView } from "./generated/SaveView";
 import type { Scope } from "./generated/Scope";
@@ -3200,6 +3201,55 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
           name: `.backup_${Math.floor(Date.now() / 1000)}_before_import`,
           path: "/home/you/.local/share/openrac/memcard/SCES_509.16/.backup_x_before_import",
           note: "before import",
+          createdMillis: Date.now(),
+          totalSize: 364544,
+        },
+      });
+    // Copies between the discs of one game: Ratchet & Clank's PAL page offers the US card's
+    // saves, the US page the PAL card's (`?saves=nocopy`: no other disc has any,
+    // `?saves=twocopies`: the PAL page offers the US and Japanese cards).
+    case "save_copy_sources": {
+      if (query.get("saves") === "nocopy") return delay<SaveCopySource[]>([]);
+      const us = { serial: "SCUS_971.99", region: "NTSC-U", saves: 2 };
+      const japan = { serial: "SCPS_150.37", region: "NTSC-J", saves: 1 };
+      return delay<SaveCopySource[]>(
+        args.serial === "SCUS_971.99"
+          ? [{ serial: "SCES_509.16", region: "PAL", saves: 2 }]
+          : args.serial === "SCES_509.16"
+            ? query.get("saves") === "twocopies"
+              ? [us, japan]
+              : [us]
+            : [],
+      );
+    }
+    case "preview_save_copy": {
+      const serial = typeof args.serial === "string" ? args.serial : "SCUS_971.99";
+      const from = typeof args.from === "string" ? args.from : "SCES_509.16";
+      const folder = serial === "SCUS_971.99" ? "BASCUS-97199RATCHET" : "BESCES-50916RATCHET";
+      const us = (s: SaveArchiveSlot) => ({ ...s, folder });
+      return delay<SaveImportPreview>({
+        serial: from,
+        title: "Ratchet & Clank",
+        launcherVersion: "",
+        created: new Date().toISOString(),
+        slots: [
+          {
+            slot: us(mockTransferSlot(serial, 0, 8, "Batalia", 12650)),
+            replaces: us(mockTransferSlot(serial, 0, 3, "Kerwan", 4890)),
+          },
+          { slot: us(mockTransferSlot(serial, 1, 12, "Hoven", 30210)), replaces: null },
+        ],
+        cardHasSaves: true,
+      });
+    }
+    case "copy_saves":
+      return delay({
+        folders: ["BASCUS-97199RATCHET"],
+        files: 2,
+        backup: {
+          name: `.backup_${Math.floor(Date.now() / 1000)}_before_copy_from_PAL`,
+          path: "/home/you/.local/share/openrac/memcard/SCUS_971.99/.backup_x_before_copy_from_PAL",
+          note: "before copy from PAL",
           createdMillis: Date.now(),
           totalSize: 364544,
         },
