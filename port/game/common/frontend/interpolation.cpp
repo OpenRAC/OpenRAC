@@ -46,6 +46,7 @@
 #include "game/common/frontend/state.h"
 #include "mod_menu.h"
 #include "mod_overlay.h"
+#include "mods.h"
 #include "openrac/game_host.h"
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
@@ -110,7 +111,7 @@ double g_latency_slept = 0.0;
 // Vulkan jobs own their snapshots; mod views share the window thread and graphics queue.
 bool threaded_rendering() {
     static const bool requested = env::flag(env::Var::RenderThread);
-    return gl::is_vulkan() && requested && !views_wanted();
+    return gl::is_vulkan() && requested && !views_wanted() && !mods::vulkan_needs_game_thread();
 }
 
 // Returns the frames a second the frames between ticks are held to (the player's cap, or the

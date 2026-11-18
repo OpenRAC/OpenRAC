@@ -18,7 +18,7 @@ using namespace openrac;
 static_assert(
     offsetof(openrac_api, moby_visuals)
         == offsetof(openrac_api, developer_menu_value) + sizeof(void*),
-    "reward API entries (1.20) must follow the 1.19 developer menu entries"
+    "reward API entries (1.21) must follow the 1.19 developer menu entries"
 );
 
 namespace {

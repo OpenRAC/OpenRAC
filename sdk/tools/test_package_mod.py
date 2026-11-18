@@ -85,6 +85,14 @@ class ManifestRules(unittest.TestCase):
         # Data only: no plugin, no api needed.
         self.assertEqual(pm.check_manifest(changed(plugin=None, api=None)), [])
 
+    def test_vulkan_device_requires_queue_opt_in(self):
+        self.assertEqual(pm.check_manifest(changed(plugin=None, api="1.19", vulkan_device=True)), [])
+        self.assertEqual(pm.check_manifest(changed(plugin=None, api="1.20", vulkan_device=True)),
+                         ["vulkan_device: requires vulkan_queue: true from interface 1.20"])
+        self.assertEqual(pm.check_manifest(changed(plugin=None, api="1.20", vulkan_device=True, vulkan_queue=True)),
+                         ["vulkan_queue: a boolean on a native mod targeting interface 1.20 or later"])
+        self.assertEqual(pm.check_manifest(changed(api="1.20", vulkan_device=True, vulkan_queue=True)), [])
+
     def test_games(self):
         for bad in ({}, {"rac1": []}, {"rac1": "pal"}, {"RAC1": ["pal"]}, []):
             self.assertTrue(pm.check_manifest(changed(games=bad)), bad)

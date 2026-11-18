@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { levelName, levelsOf, regionLabel, shortTitle, titleLines } from "./labels";
+import { levelName, levelsOf, regionLabel, shortTitle, titleLines, withShownTitles } from "./labels";
 
 describe("labels", () => {
   it("shortens a game's name for a narrow list", () => {
@@ -35,5 +35,18 @@ describe("titleLines", () => {
       game: "Going Commando",
     });
     expect(titleLines("Ratchet: Deadlocked")).toEqual({ series: "Ratchet: Deadlocked", game: "" });
+  });
+});
+
+describe("withShownTitles", () => {
+  it("shows Secret Agent Clank without the series", () => {
+    const game = (title: string) => ({ id: "x", title, year: null, install: null, versions: [{ title }] });
+    const library = {
+      games: [game("Ratchet & Clank: Secret Agent Clank"), game("Ratchet & Clank: Going Commando")],
+    } as never;
+    const [sac, rac2] = withShownTitles(library).games;
+    expect(sac?.title).toBe("Secret Agent Clank");
+    expect(sac?.versions[0]?.title).toBe("Secret Agent Clank");
+    expect(rac2?.title).toBe("Ratchet & Clank: Going Commando");
   });
 });

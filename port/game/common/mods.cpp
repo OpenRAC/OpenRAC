@@ -210,8 +210,10 @@ openrac_view_source g_views{};
 openrac_mod* g_views_mod = nullptr;
 openrac_vulkan_setup g_vulkan{};
 openrac_mod* g_vulkan_mod = nullptr;
+bool g_vulkan_queue_declared = false;
 std::vector<crash::ModImage> g_images;
 openrac_api g_api;
+openrac_api g_api_without_native_vulkan;
 const std::uint64_t g_snapshot_session = [] {
     const auto clock =
         static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
@@ -775,6 +777,21 @@ const openrac_graphics* api_graphics(void) {
     return graphics != nullptr ? graphics : &none;
 }
 
+bool native_vulkan_allowed(const mods::Manifest& manifest) {
+    return manifest.api_minor < 20 || manifest.vulkan_queue;
+}
+
+const openrac_graphics* api_graphics_without_native_vulkan() {
+    static const openrac_graphics vulkan = [] {
+        openrac_graphics info{};
+        info.size = sizeof(openrac_graphics);
+        info.backend = OPENRAC_GRAPHICS_VULKAN;
+        return info;
+    }();
+    const openrac_graphics* graphics = api_graphics();
+    return graphics->backend == OPENRAC_GRAPHICS_VULKAN ? &vulkan : graphics;
+}
+
 // A structure the mod gives with its own size first, copied into `out`: what a mod built against
 // a smaller one does not have stays zero. False when it is not even the size and the user pointer.
 template <class T>
@@ -808,6 +825,10 @@ int api_on_views(openrac_mod* mod, const openrac_view_source* source) {
 int api_setup_vulkan(openrac_mod* mod, const openrac_vulkan_setup* setup) {
     if (mod == nullptr || mod != g_loading) {
         return OPENRAC_HOOK_TOO_LATE;
+    }
+    if (!native_vulkan_allowed(mod->manifest)) {
+        log::warn("mod {} must declare \"vulkan_queue\": true to use native Vulkan", mod->id);
+        return OPENRAC_HOOK_UNKNOWN;
     }
     if (g_vulkan_mod != nullptr) {
         log::warn(
@@ -1986,6 +2007,8 @@ void fill_api(const Host& host) {
     g_api.save_data_set = api_save_data_set;
     g_api.save_data_get = api_save_data_get;
     g_api.on_save_data = api_on_save_data;
+    g_api_without_native_vulkan = g_api;
+    g_api_without_native_vulkan.graphics = api_graphics_without_native_vulkan;
 }
 
 // ---- status.json ----
@@ -2257,7 +2280,9 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
     mod->base = library::base_of(reinterpret_cast<const void*>(load));
     g_loading = mod.get();
     play_loading(mod.get());
-    const int result = load(&g_api, mod.get());
+    const openrac_api& api =
+        native_vulkan_allowed(mod->manifest) ? g_api : g_api_without_native_vulkan;
+    const int result = load(&api, mod.get());
     g_loading = nullptr;
     play_loading(nullptr);
     // A hook point asked for and not there (or of another signature) fails the load even when the
@@ -2402,6 +2427,14 @@ std::string load(const Host& host) {
         log::info("mod {} makes the Vulkan device", g_vulkan_mod->id);
         host.set_vulkan_setup(&g_vulkan);
     }
+    for (const auto& mod : g_loaded) {
+        if (mod->manifest.vulkan_queue) {
+            g_vulkan_queue_declared = true;
+            log::warn(
+                "mod {} requires native Vulkan access; Vulkan runs on the game's thread", mod->id
+            );
+        }
+    }
     g_outcomes = outcomes;
     write_status(kept, outcomes);
     g_images.clear();
@@ -2441,6 +2474,14 @@ bool makes_vulkan_device(const fs::path& list_path, bool purist) {
         }
     }
     return false;
+}
+
+bool vulkan_needs_game_thread() {
+    return g_vulkan_queue_declared;
+}
+
+bool view_source_can_use_vulkan() {
+    return g_views_mod != nullptr && native_vulkan_allowed(g_views_mod->manifest);
 }
 
 void unload() {
@@ -2696,6 +2737,7 @@ void reset() {
     scripts::reset();
     g_outcomes.clear();
     g_loaded.clear();
+    g_vulkan_queue_declared = false;
     g_asset_roots.clear();
     g_frames.clear();
     g_settings_callbacks.clear();

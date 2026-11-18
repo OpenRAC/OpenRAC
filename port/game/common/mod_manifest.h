@@ -106,6 +106,7 @@ struct Manifest {
     // (openrac_api.setup_vulkan), so the mods load before the window opens. Ignored on a script
     // mod or one of an older interface.
     bool vulkan_device = false;
+    bool vulkan_queue = false;  // Native Vulkan access requires game-thread rendering (1.20).
     // "multiplayer" (interface 1.14): an OPENRAC_PARTY_MOD_* value, gameplay when it says nothing.
     int party = 0;
 };
