@@ -329,6 +329,11 @@ public:
     // View keeps the world under it as it was paused); none for a game without one known.
     virtual std::optional<std::uint32_t> pause_mode() const { return std::nullopt; }
 
+    // The value of the game's mode word while the weapon quick select is open over play: the
+    // world goes on under it with the gameplay camera, so the Field of View stays; none for a
+    // game whose quick select keeps the play mode.
+    virtual std::optional<std::uint32_t> quick_select_mode() const { return std::nullopt; }
+
     // Returns the executable's address of the particle updates, one per particle type byte
     // (relocated when read); 0 for a game without them.
     virtual std::uint32_t particle_updates() const { return 0; }
