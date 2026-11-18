@@ -1065,11 +1065,14 @@ void update_prompts(kbm::Context where, int dialog_kind, bool map) {
     if (s_prompts && (openrac::frontend::keyboard_mouse_in_use())) {
         const auto actions = kbm::prompt_actions(where, dialog_kind, map, s_strafe_mod == 1);
         for (std::size_t i = 0; i < actions.size(); ++i) {
-            if (actions[i] != Action::Count) {
-                const int bind = s_binds.of(actions[i])[0];
-                labels[i] = bind != 0 ? openrac::keys::icon_label(openrac_bind_to_name(bind)) : "";
+            const int bind = actions[i] != Action::Count ? s_binds.of(actions[i])[0] : 0;
+            if (bind != 0) {
+                labels[i] = openrac_bind_to_name(bind);
             }
         }
+        // The sticks: the movement keys and the mouse.
+        labels[kp::LeftStick] = kbm::move_label(s_binds);
+        labels[kp::RightStick] = "Mouse";
     }
     s_painter.update(fonts, labels);
 }

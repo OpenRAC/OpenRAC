@@ -182,9 +182,12 @@ void update_prompts(const Tick& t) {
         for (std::size_t i = 0; i < actions.size(); ++i) {
             const int bind = actions[i] != Action::Count ? s_binds.of(actions[i])[0] : 0;
             if (bind != 0) {
-                labels[i] = openrac::keys::icon_label(openrac_bind_to_name(bind));
+                labels[i] = openrac_bind_to_name(bind);
             }
         }
+        // The sticks: the movement keys and the mouse.
+        labels[kp::LeftStick] = kbm::move_label(s_binds);
+        labels[kp::RightStick] = "Mouse";
     }
     s_painter.update(fonts, labels);
 }

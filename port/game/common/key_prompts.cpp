@@ -6,14 +6,20 @@
 #include "key_prompts.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
+
+#include "key_labels.h"
 
 namespace openrac::key_prompts {
 namespace {
 
 constexpr std::uint32_t kRow = 96;
 constexpr int kCellW = 24, kCellH = 16;
-constexpr std::uint32_t kCellsWidth = 192;  // the eight cells, u 0..191
+// Where each cell starts along the row (the "oe" glyph sits between the buttons and the sticks).
+constexpr std::array<std::uint32_t, kCells> kCellU = {0, 24, 48, 72, 96, 120, 144, 168, 208, 232};
+// The shoulder tabs' face inside a cell: x 4..22, y 3..13 (the tab's border around it).
+constexpr int kFaceX0 = 4, kFaceX1 = 23, kFaceY0 = 3, kFaceY1 = 14;
 
 // clang-format off
 // A..Z then 0..9: a row's bits, the leftmost pixel the highest of the glyph's width.
@@ -95,18 +101,13 @@ constexpr std::uint8_t kSmall[36][5] = {
 };
 // clang-format on
 
-// The key's colours, as the game's own L1 icon: its edge, its face and its letters.
-constexpr std::uint8_t kEdge[3] = {190, 190, 200};
-constexpr std::uint8_t kFace[3] = {34, 34, 40};
-constexpr std::uint8_t kInk[3] = {245, 245, 245};
-
 // A palette index's place in CSM1 order: within each 32 entries the middle two groups of 8 trade.
 std::uint32_t csm1(std::uint32_t i) {
     return (i & ~0x18u) | ((i & 8u) << 1) | ((i & 0x10u) >> 1);
 }
 
-std::uint8_t* texel(std::uint8_t* font, std::uint32_t u, std::uint32_t y) {
-    return font + (kRow + y) * kFontWidth + u;
+std::uint8_t* row_of(std::uint8_t* font, std::uint32_t y) {
+    return font + (kRow + y) * kFontWidth;
 }
 
 int glyph_index(char c) {
@@ -119,29 +120,55 @@ int glyph_index(char c) {
     return -1;
 }
 
-// One cell's picture, as 0 (clear), 1 (edge), 2 (face) and 3 (letters).
+// A cell's picture: 0 the key's face, 1 white, 2 the letters' grey edge.
 using Picture = std::array<std::array<std::uint8_t, kCellW>, kCellH>;
 
-Picture key_picture(const std::string& label) {
-    Picture p{};
-    for (int y = 1; y < kCellH - 1; ++y) {
-        for (int x = 0; x < kCellW; ++x) {
-            const bool corner = (x == 0 || x == kCellW - 1) && (y == 1 || y == kCellH - 2);
-            if (corner) {
-                continue;
+// The mouse, 9 x 10: its outline, its two buttons and the wheel between them.
+constexpr std::array<std::uint16_t, 10> kMouse =
+    {0x0FE, 0x111, 0x111, 0x111, 0x1FF, 0x101, 0x101, 0x101, 0x101, 0x0FE};
+// The wheel's way, 5 x 3: up.
+constexpr std::array<std::uint8_t, 3> kArrowUp = {0x04, 0x0E, 0x1F};
+
+enum class MouseLit {
+    None,
+    Left,
+    Right,
+    Middle
+};
+
+void put(Picture& p, int x, int y, std::uint8_t v) {
+    if (x >= kFaceX0 && x < kFaceX1 && y >= kFaceY0 && y < kFaceY1) {
+        p[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)] = v;
+    }
+}
+
+void draw_mouse(Picture& p, int left, int top, MouseLit lit) {
+    for (int y = 0; y < 10; ++y) {
+        for (int x = 0; x < 9; ++x) {
+            if ((kMouse[static_cast<std::size_t>(y)] >> (8 - x)) & 1u) {
+                put(p, left + x, top + y, 1);
             }
-            const bool edge = x == 0 || x == kCellW - 1 || y == 1 || y == kCellH - 2;
-            p[y][x] = edge ? 1 : 2;
         }
     }
+    const int from = lit == MouseLit::Left ? 1 : lit == MouseLit::Right ? 5 : 3;
+    if (lit != MouseLit::None) {
+        for (int y = 1; y <= 3; ++y) {
+            for (int x = from; x < from + 3; ++x) {
+                put(p, left + x, top + y, 1);
+            }
+        }
+    }
+}
+
+void draw_text(Picture& p, const std::string& text) {
     // Up to 3 letters in the large font, more in the small one; what does not fit is left out.
-    const bool big = label.size() <= 3;
+    const bool big = text.size() <= 3;
     const int w = big ? 5 : 3, h = big ? 7 : 5, advance = w + 1;
-    const int most = (kCellW - 4 + 1) / advance;
-    const int n = std::min(static_cast<int>(label.size()), most);
-    const int left = (kCellW - (n * advance - 1)) / 2, top = (kCellH - h) / 2;
+    const int n = std::min(static_cast<int>(text.size()), (kFaceX1 - kFaceX0 + 1) / advance);
+    const int left = (kFaceX0 + kFaceX1 - (n * advance - 1)) / 2;
+    const int top = (kFaceY0 + kFaceY1 - h) / 2;
     for (int i = 0; i < n; ++i) {
-        const int g = glyph_index(label[static_cast<std::size_t>(i)]);
+        const int g = glyph_index(text[static_cast<std::size_t>(i)]);
         if (g < 0) {
             continue;
         }
@@ -149,12 +176,172 @@ Picture key_picture(const std::string& label) {
             const std::uint8_t bits = big ? kBig[g][y] : kSmall[g][y];
             for (int x = 0; x < w; ++x) {
                 if ((bits >> (w - 1 - x)) & 1u) {
-                    p[top + y][left + i * advance + x] = 3;
+                    put(p, left + i * advance + x, top + y, 1);
                 }
             }
         }
     }
+}
+
+// What a cell shows for `label` (Labels).
+Picture key_picture(const std::string& label) {
+    Picture p{};
+    const int top = (kFaceY0 + kFaceY1 - 10) / 2;
+    if (label == "Mouse") {
+        draw_mouse(p, 9, top, MouseLit::None);
+    } else if (label == "MouseLeft" || label == "MouseRight" || label == "MouseMiddle") {
+        const MouseLit lit = label == "MouseLeft"    ? MouseLit::Left
+                             : label == "MouseRight" ? MouseLit::Right
+                                                     : MouseLit::Middle;
+        draw_mouse(p, 9, top, lit);
+    } else if (label == "WheelUp" || label == "WheelDown") {
+        draw_mouse(p, 6, top, MouseLit::Middle);
+        for (int y = 0; y < 3; ++y) {
+            const int row = label == "WheelUp" ? y : 2 - y;
+            for (int x = 0; x < 5; ++x) {
+                if ((kArrowUp[static_cast<std::size_t>(row)] >> (4 - x)) & 1u) {
+                    put(p, 16 + x, top + 3 + y, 1);
+                }
+            }
+        }
+    } else {
+        draw_text(p, openrac::keys::icon_label(label));
+    }
+    // The game's letters have a grey edge to their right.
+    for (int y = kFaceY0; y < kFaceY1; ++y) {
+        for (int x = kFaceX1 - 1; x > kFaceX0; --x) {
+            auto& row = p[static_cast<std::size_t>(y)];
+            if (row[static_cast<std::size_t>(x)] == 0
+                && row[static_cast<std::size_t>(x - 1)] == 1) {
+                row[static_cast<std::size_t>(x)] = 2;
+            }
+        }
+    }
     return p;
+}
+
+// The colour of a palette entry, and its sum of red, green and blue.
+struct Rgb {
+    double r = 0.0, g = 0.0, b = 0.0;
+};
+
+Rgb rgb(const std::uint8_t* palette, std::uint8_t i) {
+    const std::uint8_t* e = palette + csm1(i) * 4u;
+    return {static_cast<double>(e[0]), static_cast<double>(e[1]), static_cast<double>(e[2])};
+}
+
+double distance(Rgb a, Rgb b) {
+    return std::fabs(a.r - b.r) + std::fabs(a.g - b.g) + std::fabs(a.b - b.b);
+}
+
+// A font's blank key: its L1 tab with the letters taken out, and the entries its letters take.
+struct Key {
+    std::array<std::array<std::uint8_t, kCellW>, kCellH> cell{};
+    std::uint8_t white = 0;
+    std::uint8_t edge = 0;
+};
+
+// The shoulder tabs' shading is a plane in x and y: fitted to the texels the four tabs (L1, L2, R1,
+// R2) agree on, then every face texel far from it takes the tabs' entry nearest the plane's colour.
+bool blank_key(const std::uint8_t* font, const std::uint8_t* palette, Key& out) {
+    const auto tab = [&](int t, int x, int y) {
+        return font
+            [(kRow + static_cast<std::uint32_t>(y)) * kFontWidth + kCellU[L1 + t]
+             + static_cast<std::uint32_t>(x)];
+    };
+    // The normal equations of a least-squares plane c0 + c1 x + c2 y, one per colour channel.
+    double m[3][3] = {};
+    double v[3][3] = {};
+    std::array<bool, 256> used{};
+    int samples = 0;
+    for (int y = kFaceY0; y < kFaceY1; ++y) {
+        for (int x = kFaceX0; x < kFaceX1; ++x) {
+            double lo = 1e9, hi = -1e9;
+            for (int t = 0; t < 4; ++t) {
+                const Rgb c = rgb(palette, tab(t, x, y));
+                lo = std::min(lo, c.r + c.g + c.b);
+                hi = std::max(hi, c.r + c.g + c.b);
+            }
+            // The letters are bright: a texel bright in all four is a stroke they share.
+            if (hi - lo >= 15.0 || hi >= 330.0) {
+                continue;
+            }
+            const std::uint8_t i = tab(0, x, y);
+            const Rgb c = rgb(palette, i);
+            const double a[3] = {1.0, static_cast<double>(x), static_cast<double>(y)};
+            const double ch[3] = {c.r, c.g, c.b};
+            for (int r = 0; r < 3; ++r) {
+                for (int k = 0; k < 3; ++k) {
+                    m[r][k] += a[r] * a[k];
+                    v[k][r] += a[r] * ch[k];
+                }
+            }
+            used[i] = true;
+            ++samples;
+        }
+    }
+    const double det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+                       - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+                       + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    if (samples < 40 || std::fabs(det) < 1e-6) {
+        return false;
+    }
+    // Cramer's rule for each channel.
+    double coef[3][3] = {};
+    for (int k = 0; k < 3; ++k) {
+        for (int col = 0; col < 3; ++col) {
+            double a[3][3];
+            for (int r = 0; r < 3; ++r) {
+                for (int c = 0; c < 3; ++c) {
+                    a[r][c] = c == col ? v[k][r] : m[r][c];
+                }
+            }
+            coef[k][col] = (a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1])
+                            - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0])
+                            + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]))
+                           / det;
+        }
+    }
+    // The letters' white: the brightest entry of the L1 tab; their edge: the tab's entry nearest a
+    // middle grey.
+    double brightest = -1.0, edge_off = 1e9;
+    for (int y = 0; y < kCellH; ++y) {
+        for (int x = 0; x < kCellW; ++x) {
+            const std::uint8_t i = tab(0, x, y);
+            out.cell[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)] = i;
+            const Rgb c = rgb(palette, i);
+            if (c.r + c.g + c.b > brightest) {
+                brightest = c.r + c.g + c.b;
+                out.white = i;
+            }
+            if (distance(c, {128.0, 128.0, 128.0}) < edge_off) {
+                edge_off = distance(c, {128.0, 128.0, 128.0});
+                out.edge = i;
+            }
+        }
+    }
+    for (int y = kFaceY0; y < kFaceY1; ++y) {
+        for (int x = kFaceX0; x < kFaceX1; ++x) {
+            const Rgb want{
+                coef[0][0] + coef[0][1] * x + coef[0][2] * y,
+                coef[1][0] + coef[1][1] * x + coef[1][2] * y,
+                coef[2][0] + coef[2][1] * x + coef[2][2] * y
+            };
+            auto& texel = out.cell[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
+            if (distance(rgb(palette, texel), want) <= 24.0) {
+                continue;
+            }
+            double best = 1e9;
+            for (int i = 0; i < 256; ++i) {
+                const double d = distance(rgb(palette, static_cast<std::uint8_t>(i)), want);
+                if (used[static_cast<std::size_t>(i)] && d < best) {
+                    best = d;
+                    texel = static_cast<std::uint8_t>(i);
+                }
+            }
+        }
+    }
+    return true;
 }
 
 }  // namespace
@@ -200,8 +387,8 @@ std::uint32_t hash(const Fonts& f) {
     std::uint32_t h = 2166136261u;
     for (int i = 0; i < f.count; ++i) {
         for (std::uint32_t y = 0; y < kCellH; ++y) {
-            const std::uint8_t* row = texel(f.font[static_cast<std::size_t>(i)], 0, y);
-            for (std::uint32_t u = 0; u < kCellsWidth; ++u) {
+            const std::uint8_t* row = row_of(f.font[static_cast<std::size_t>(i)], y);
+            for (std::uint32_t u = 0; u < kFontWidth; ++u) {
                 h = (h ^ row[u]) * 16777619u;
             }
         }
@@ -213,37 +400,13 @@ bool paint(const Fonts& f, const Labels& labels) {
     if (f.count < 1 || f.palette == nullptr) {
         return false;
     }
-    // The palette's entries nearest the key's colours, and one with no alpha: the palette is left
-    // as it is, as the game's other textures may use it too.
-    std::array<int, 4> index{-1, -1, -1, -1};
-    std::array<int, 4> best{};
-    best.fill(1 << 30);
-    const std::array<const std::uint8_t*, 3> want{kEdge, kFace, kInk};
-    for (std::uint32_t i = 0; i < 256; ++i) {
-        const std::uint8_t* e = f.palette + csm1(i) * 4u;
-        if (e[3] == 0) {
-            if (index[0] < 0) {
-                index[0] = static_cast<int>(i);
-            }
-            continue;
+    std::array<Key, kFontsMax> keys{};
+    for (int i = 0; i < f.count; ++i) {
+        if (!blank_key(
+                f.font[static_cast<std::size_t>(i)], f.palette, keys[static_cast<std::size_t>(i)]
+            )) {
+            return false;
         }
-        if (e[3] < 0x80) {
-            continue;
-        }
-        for (std::size_t k = 0; k < want.size(); ++k) {
-            int d = 0;
-            for (int c = 0; c < 3; ++c) {
-                const int delta = e[c] - want[k][c];
-                d += delta * delta;
-            }
-            if (d < best[k + 1]) {
-                best[k + 1] = d;
-                index[k + 1] = static_cast<int>(i);
-            }
-        }
-    }
-    if (std::find(index.begin(), index.end(), -1) != index.end()) {
-        return false;
     }
     for (int c = 0; c < kCells; ++c) {
         const std::string& label = labels[static_cast<std::size_t>(c)];
@@ -252,16 +415,19 @@ bool paint(const Fonts& f, const Labels& labels) {
         }
         const Picture p = key_picture(label);
         for (int i = 0; i < f.count; ++i) {
+            const Key& key = keys[static_cast<std::size_t>(i)];
             for (int y = 0; y < kCellH; ++y) {
-                std::uint8_t* row = texel(
-                    f.font[static_cast<std::size_t>(i)],
-                    static_cast<std::uint32_t>(c * kCellW),
-                    static_cast<std::uint32_t>(y)
-                );
+                std::uint8_t* row =
+                    row_of(f.font[static_cast<std::size_t>(i)], static_cast<std::uint32_t>(y))
+                    + kCellU[static_cast<std::size_t>(c)];
                 for (int x = 0; x < kCellW; ++x) {
-                    row[x] = static_cast<std::uint8_t>(
-                        index[p[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)]]
-                    );
+                    const std::uint8_t v =
+                        p[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
+                    row[x] =
+                        v == 1 ? key.white
+                        : v == 2
+                            ? key.edge
+                            : key.cell[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
                 }
             }
         }
@@ -274,9 +440,9 @@ void Painter::restore(const Fonts& f) {
         const std::vector<std::uint8_t>& kept = m_cells[static_cast<std::size_t>(i)];
         for (std::uint32_t y = 0; y < kCellH; ++y) {
             std::memcpy(
-                texel(f.font[static_cast<std::size_t>(i)], 0, y),
-                kept.data() + y * kCellsWidth,
-                kCellsWidth
+                row_of(f.font[static_cast<std::size_t>(i)], y),
+                kept.data() + y * kFontWidth,
+                kFontWidth
             );
         }
     }
@@ -308,12 +474,12 @@ void Painter::update(const Fonts& f, const Labels& labels) {
     m_count = f.count;
     for (int i = 0; i < f.count; ++i) {
         std::vector<std::uint8_t>& kept = m_cells[static_cast<std::size_t>(i)];
-        kept.resize(kCellsWidth * kCellH);
+        kept.resize(static_cast<std::size_t>(kFontWidth) * kCellH);
         for (std::uint32_t y = 0; y < kCellH; ++y) {
             std::memcpy(
-                kept.data() + y * kCellsWidth,
-                texel(f.font[static_cast<std::size_t>(i)], 0, y),
-                kCellsWidth
+                kept.data() + y * kFontWidth,
+                row_of(f.font[static_cast<std::size_t>(i)], y),
+                kFontWidth
             );
         }
     }

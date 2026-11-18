@@ -67,10 +67,13 @@ loaded, so the game behaves as on a pad (L2 is first-person view there).
 
 ## Key prompts
 
-While you use the keyboard and mouse, the game's own button icons show your
-keys ("SPACE", "LMB") instead of Cross or Circle, and the PS2 icons come back
-on the gamepad. Only the picture of the game's font changes; the *Key prompts*
-setting turns it off.
+While you use the keyboard and mouse, every button icon of the game (the four
+face buttons, L1, L2, R1, R2 and both sticks) shows your keys instead: a key
+cap with its name ("SPACE", "F"), a mouse with the button lit for a click or
+the wheel, "WASD" for the left stick and a mouse for the right one. They are
+drawn as the game draws its own L1 button (its tab, its white letters), so
+they match. On the gamepad the PS2 icons come back. Only the picture of the
+game's font changes; the *Key prompts* setting turns it off.
 
 ## Changing the controls
 

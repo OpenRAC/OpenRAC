@@ -19,6 +19,7 @@
 #include "game/rac1/keyboard_mouse/kbm.hpp"
 #include "game/rac2/keyboard_mouse/keyboard_mouse.h"
 #include "game/rac2/keyboard_mouse/places.hpp"
+#include "key_prompts_fonts.h"
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
 
@@ -291,6 +292,9 @@ void prompts() {
     }
     for (std::uint32_t i = 0; i < 3 * kp::kFontBytes; ++i) {
         g_memory[kBank + i] = static_cast<std::uint8_t>(i % 32);
+    }
+    for (std::uint32_t f = 0; f < 3; ++f) {
+        draw_tabs(g_memory.data() + kBank + f * openrac::key_prompts::kFontBytes);
     }
     for (std::uint32_t i = 1; i < 256; ++i) {
         std::uint8_t* e = g_memory.data() + kBank + 3 * kp::kFontBytes + 4 * i;

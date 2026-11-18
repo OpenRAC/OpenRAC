@@ -725,7 +725,7 @@ openrac_add_test(shrub_proc LIBS openrac_game_rac1_profile openrac_ps2float)
 openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
 # Ratchet & Clank's built-in keyboard and mouse (game/rac1/keyboard_mouse): its logic alone, with
 # its manifest; and its code loaded as the port loads it, against a host table of the test's own.
-openrac_add_test(keyboard_mouse_logic INCLUDES game/rac1/keyboard_mouse ../sdk/include
+openrac_add_test(keyboard_mouse_logic INCLUDES . game/rac1/keyboard_mouse ../sdk/include
                  DEFINITIONS "KBM_MANIFEST=\"${PROJECT_SOURCE_DIR}/game/rac1/keyboard_mouse/openrac-mod.json\"")
 openrac_add_test(keyboard_mouse_load
                  SOURCES tests/keyboard_mouse_load_test.cpp game/rac1/keyboard_mouse/keyboard_mouse.cpp

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Key prompts (game/common/key_prompts.h) on fonts made here: found through the bank and table,
-// painted with the palette's own colours, put back byte for byte, left alone when the game reloads
-// them, and refused when the palette has no clear entry. Key labels (key_labels.h) too.
+// painted as the game's shoulder tabs with their letters taken out, put back byte for byte, left
+// alone when the game reloads them, and refused when the tabs are not ones it knows. Key labels (key_labels.h) too.
 
 #include <cstdio>
 #include <cstdlib>
@@ -12,6 +12,7 @@
 
 #include "game/common/key_labels.h"
 #include "game/common/key_prompts.h"
+#include "key_prompts_fonts.h"
 
 #define CHECK(c)                                                                                   \
     do {                                                                                           \
@@ -35,7 +36,7 @@ void put16(std::vector<std::uint8_t>& m, std::uint32_t a, std::uint16_t v) {
 }
 
 // Three fonts and their palette: texels use entries 0..`used`-1, entry 0 clear.
-std::vector<std::uint8_t> game_memory(int fonts, int used) {
+std::vector<std::uint8_t> game_memory(int fonts, int used, bool tabs = true) {
     std::vector<std::uint8_t> m(kRam);
     std::memcpy(m.data() + kBankWord, &kBank, 4);
     const std::uint16_t clut = (3 * kp::kFontBytes) / 16;
@@ -46,10 +47,13 @@ std::vector<std::uint8_t> game_memory(int fonts, int used) {
         for (std::uint32_t i = 0; i < kp::kFontBytes; ++i) {
             m[kBank + f * kp::kFontBytes + i] = static_cast<std::uint8_t>((i * 7u + f) % used);
         }
+        if (tabs) {
+            draw_tabs(m.data() + kBank + f * kp::kFontBytes);
+        }
     }
     for (std::uint32_t i = 0; i < 256; ++i) {
         std::uint8_t* e = m.data() + kBank + clut * 16u + i * 4u;
-        e[0] = static_cast<std::uint8_t>(i);
+        e[0] = e[1] = e[2] = static_cast<std::uint8_t>(i);
         e[3] = i == 0 ? 0 : 0x80;
     }
     return m;
@@ -69,6 +73,9 @@ void labels() {
     CHECK(icon_label("Numpad4") == "NUM4");
     CHECK(icon_label("NumpadEnter").size() <= 5);
     CHECK(icon_label("Semicolon").size() <= 5);
+    using openrac::keys::move_label;
+    CHECK(move_label({"KeyW", "KeyA", "KeyS", "KeyD"}) == "WASD");
+    CHECK(move_label({"ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"}) == "MOVE");
 }
 
 void find() {
@@ -104,13 +111,13 @@ void paint_and_restore() {
     CHECK(kp::find_fonts(m.data(), kRam, kBankWord, kTable, f));
 
     kp::Labels l{};
-    l[kp::Cross] = "SPACE";
-    l[kp::Circle] = "LMB";
+    l[kp::Cross] = "Space";
+    l[kp::Circle] = "MouseLeft";
     kp::Painter p;
     p.update(f, l);
     CHECK(p.painted());
     CHECK(m != before);
-    // Only the Cross and Circle cells and the palette changed.
+    // Only the Cross and Circle cells changed.
     for (int font = 0; font < 3; ++font) {
         for (std::uint32_t v = 0; v < 128; ++v) {
             for (std::uint32_t u = 0; u < 256; ++u) {
@@ -172,21 +179,63 @@ void game_reloads() {
     CHECK(m == painted);
 }
 
-void no_clear_entry() {
-    // A palette with no clear entry: nothing is painted.
-    std::vector<std::uint8_t> m = game_memory(3, 64);
-    const std::uint32_t clut = kBank + 3 * kp::kFontBytes;
-    m[clut + 3] = 0x80;
+void no_tabs() {
+    // Fonts whose shoulder tabs are not the game's: nothing is painted.
+    std::vector<std::uint8_t> m = game_memory(3, 64, false);
     const std::vector<std::uint8_t> before = m;
     kp::Fonts f;
     CHECK(kp::find_fonts(m.data(), kRam, kBankWord, kTable, f));
     kp::Labels l{};
-    l[kp::Cross] = "W";
+    l[kp::Cross] = "KeyW";
     CHECK(!kp::paint(f, l));
     kp::Painter p;
     p.update(f, l);
     CHECK(!p.painted());
     CHECK(m == before);
+}
+
+// The value of font 0's texel (u, v) of the icons' row.
+std::uint8_t at(const std::vector<std::uint8_t>& m, std::uint32_t u, std::uint32_t v) {
+    return m[kBank + (96 + v) * 256 + u];
+}
+
+void blank_keys_and_mice() {
+    std::vector<std::uint8_t> m = game_memory(3, 64);
+    kp::Fonts f;
+    CHECK(kp::find_fonts(m.data(), kRam, kBankWord, kTable, f));
+    // A label with nothing to draw: the tab with its letters taken out, none of their white left.
+    kp::Labels l{};
+    l[kp::Cross] = ".";
+    l[kp::Square] = "MouseLeft";
+    l[kp::Triangle] = "MouseRight";
+    l[kp::LeftStick] = "WASD";
+    l[kp::RightStick] = "Mouse";
+    CHECK(kp::paint(f, l));
+    for (std::uint32_t v = 3; v < 14; ++v) {
+        for (std::uint32_t u = 4; u < 23; ++u) {
+            CHECK(at(m, u, v) != 250);
+        }
+    }
+    // The mice: the left button lit on one, the right on the other.
+    bool differ = false;
+    for (std::uint32_t v = 0; v < 16; ++v) {
+        for (std::uint32_t u = 0; u < 24; ++u) {
+            differ |= at(m, 24 + u, v) != at(m, 48 + u, v);
+        }
+    }
+    CHECK(differ);
+    // The sticks' cells are painted too, the glyph between them left alone.
+    const std::vector<std::uint8_t> game = game_memory(3, 64);
+    bool sticks = false;
+    for (std::uint32_t v = 0; v < 16; ++v) {
+        for (std::uint32_t u = 192; u < 208; ++u) {
+            CHECK(at(m, u, v) == at(game, u, v));
+        }
+        for (std::uint32_t u = 208; u < 256; ++u) {
+            sticks |= at(m, u, v) != at(game, u, v);
+        }
+    }
+    CHECK(sticks);
 }
 
 void long_labels() {
@@ -207,7 +256,8 @@ int main() {
     find();
     paint_and_restore();
     game_reloads();
-    no_clear_entry();
+    no_tabs();
+    blank_keys_and_mice();
     long_labels();
     std::puts("key_prompts: ok");
     return 0;

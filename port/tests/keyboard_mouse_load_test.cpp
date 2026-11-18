@@ -28,6 +28,7 @@
 #include "game/common/frontend/mouse_turn.h"
 #include "game/common/key_prompts.h"
 #include "kbm.hpp"
+#include "key_prompts_fonts.h"
 #include "keyboard_mouse.h"
 #include "openrac/openrac_mod.h"
 
@@ -608,6 +609,9 @@ void prompts() {
     }
     for (std::uint32_t i = 0; i < 3 * openrac::key_prompts::kFontBytes; ++i) {
         g_memory[kBank + i] = static_cast<std::uint8_t>(i % 32);
+    }
+    for (std::uint32_t f = 0; f < 3; ++f) {
+        draw_tabs(g_memory.data() + kBank + f * openrac::key_prompts::kFontBytes);
     }
     // The palette: grey levels, entry 0 clear.
     for (std::uint32_t i = 1; i < 256; ++i) {

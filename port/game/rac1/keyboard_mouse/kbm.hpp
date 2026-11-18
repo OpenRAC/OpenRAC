@@ -13,10 +13,12 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "game/common/key_labels.h"
 #include "openrac/keys.h"
 
 namespace kbm {
@@ -909,6 +911,17 @@ inline std::array<Action, 8> prompt_actions(
         out[2] = Action::QuickSelect;
     }
     return out;
+}
+
+// The movement keys' icon (keys::move_label): "WASD" by default.
+inline std::string move_label(const Bindings& b) {
+    std::array<std::string_view, 4> names{};
+    const Action moves[4] =
+        {Action::MoveForward, Action::MoveLeft, Action::MoveBack, Action::MoveRight};
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        names[i] = openrac_bind_to_name(b.of(moves[i])[0]);
+    }
+    return openrac::keys::move_label(names);
 }
 
 // Actions held when the game changes where it is stay out until they are let go: Escape that

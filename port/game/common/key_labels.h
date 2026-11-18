@@ -98,4 +98,18 @@ inline std::string icon_label(std::string_view name) {
     return out.substr(0, 5);
 }
 
+// The movement keys (forward, left, back, right) on one key icon: their four letters ("WASD") when
+// each is one letter, else "MOVE".
+inline std::string move_label(const std::array<std::string_view, 4>& names) {
+    std::string out;
+    for (std::string_view n : names) {
+        const std::string one = icon_label(n);
+        if (one.size() != 1) {
+            return "MOVE";
+        }
+        out += one;
+    }
+    return out;
+}
+
 }  // namespace openrac::keys
