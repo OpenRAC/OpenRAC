@@ -8,10 +8,10 @@ export type ModFilter = "all" | ModGroup;
 export type ModSort = "order" | "name";
 
 /** The group a gameplay mod's kind goes in: a mod that is only a page in the launcher is a tool,
- *  Enhanced graphics changes the look, the rest runs in the game. */
+ *  the built-in entries (Enhanced graphics, Keyboard and mouse) are apart, the rest runs in the game. */
 export function groupOf(kind: string): ModGroup {
   if (kind === "tool") return "tools";
-  if (kind === "built-in") return "looks";
+  if (kind === "built-in" || kind === "always-on") return "looks";
   return "gameplay";
 }
 

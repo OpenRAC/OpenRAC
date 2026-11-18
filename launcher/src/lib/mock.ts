@@ -2877,7 +2877,30 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "modset_take_link":
       return delay<string | null>(null);
     case "plugins_list":
-      return delay<PluginView[]>(mockPlugins.map((p) => ({ ...p })));
+      // keyboard-mouse is built in now: its own entry (keyboard_mouse_view), not a mod.
+      return delay<PluginView[]>(mockPlugins.filter((p) => p.id !== "keyboard-mouse").map((p) => ({ ...p })));
+    case "keyboard_mouse_view":
+    case "keyboard_mouse_set_setting": {
+      const at = mockPlugins.findIndex((p) => p.id === "keyboard-mouse");
+      const found = mockPlugins[at];
+      if (args.game !== "rac1" || !found) return delay(null);
+      const mod: PluginView =
+        command === "keyboard_mouse_set_setting"
+          ? { ...found, settings: found.settings.map((s) => (s.key === args.key ? { ...s, value: args.value } : s)) }
+          : found;
+      mockPlugins[at] = mod;
+      return delay<PluginView>({
+        ...mod,
+        version: "Built in",
+        author: "OpenRAC",
+        enabled: true,
+        state: "ready",
+        kind: "always-on",
+        native: false,
+        hooks: [],
+        path: "",
+      });
+    }
     case "player_name_used":
       // A mod that uses the Multiplayer name is on, unless ?nomods.
       return delay(!query.has("nomods"));

@@ -59,6 +59,7 @@ pub mod index;
 pub mod index_apply;
 pub mod install;
 pub mod jobs;
+pub mod keyboard_mouse;
 pub mod launcher_log;
 pub mod library;
 pub mod mod_error;

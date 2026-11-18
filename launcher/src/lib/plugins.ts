@@ -36,6 +36,8 @@ export function modKind(kind: string): Label {
       return KIND_LABEL.tool;
     case "built-in":
       return KIND_LABEL.builtIn;
+    case "always-on":
+      return KIND_LABEL.alwaysOn;
     default:
       return KIND_LABEL.pack;
   }
@@ -44,6 +46,7 @@ export function modKind(kind: string): Label {
 /** What a mod's kind means, in a sentence: its label's tooltip. */
 export function modHint(kind: string): string {
   if (kind === "built-in") return KIND_HINT.builtIn;
+  if (kind === "always-on") return KIND_HINT.alwaysOn;
   if (kind === "tool") return KIND_HINT.tool;
   return kind === "native" ? KIND_HINT.native : kind === "script" ? KIND_HINT.script : KIND_HINT.pack;
 }

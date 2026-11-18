@@ -14,7 +14,14 @@ export function shareLink(
   disc: string,
 ): string | null {
   const shared = mods
-    .filter((m) => m.enabled && m.kind !== "built-in" && inIndex(m.id) && /^\d+\.\d+\.\d+(-[\w.]+)?$/.test(m.version))
+    .filter(
+      (m) =>
+        m.enabled &&
+        m.kind !== "built-in" &&
+        m.kind !== "always-on" &&
+        inIndex(m.id) &&
+        /^\d+\.\d+\.\d+(-[\w.]+)?$/.test(m.version),
+    )
     .slice(0, MAX)
     .map((m) => `${m.id}@${m.version}`);
   if (shared.length === 0) return null;
