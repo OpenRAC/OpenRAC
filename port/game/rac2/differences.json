@@ -33,6 +33,16 @@
       "refs": ["port/game/rac2/host/wide_view.c"]
     },
     {
+      "id": "sheep-once",
+      "kind": "fix",
+      "name": "Sheep turned once",
+      "discs": ["ntsc", "pal", "ntsc2"],
+      "original": "The Sheepinator can turn a Joba arena security robot again in the frame it went back to sleep, which deletes it; once all 16 are gone, an Impossible Challenge round that wants one never ends.",
+      "port": "A moby the Sheepinator already turned is left alone. Off, the Sheepinator turns it again and deletes it, as on the PS2.",
+      "setting": {"key": "fix_sheep_once", "default": true},
+      "refs": ["port/game/rac2/host/sheep_once.c"]
+    },
+    {
       "id": "mapper-markers",
       "kind": "port",
       "name": "Mapper markers",
