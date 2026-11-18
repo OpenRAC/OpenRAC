@@ -54,6 +54,7 @@
 
   // Each game's still picture, under its band and behind the page.
   const art = $derived(v ? gameArt(v.game) : null);
+  const name = $derived(titleLines(v?.title ?? ""));
 
   /** The game has a PC port to play (or to build and play); without one, the page says how far it is. */
   const portReady = $derived(!!action("play") && action("play")?.state !== "planned");
@@ -212,13 +213,11 @@
             </div>
           {/if}
           <div class="title box">
-            {#if onAndroid}
-              <!-- As on Games' banner: the series, then the game's own name on its own line. -->
-              {@const name = titleLines(v.title)}
-              <span>{name.series}</span>{#if name.game}<span>{name.game}</span>{/if}
-            {:else}
-              {v.title}
-            {/if}
+            <!-- The series, then the game's own name: on its own line on Android (as on Games' banner);
+                 on the desktop it goes to a line of its own, whole, when both do not fit on one. -->
+            <span class="part">{name.game ? `${name.series} ` : name.series}</span>{#if name.game}<span class="part"
+                >{name.game}</span
+              >{/if}
             {#if game.year}<small>{game.year}</small>{/if}
           </div>
 
@@ -522,6 +521,15 @@
     font-size: clamp(26px, 3.4vw, 40px);
     line-height: 1.15;
     padding: 18px 30px;
+  }
+
+  .title .part {
+    display: inline-block;
+  }
+
+  /* The gap trails the series, so a game name that wraps starts flush on its own line. */
+  .title .part:has(+ .part) {
+    padding-right: 0.28em;
   }
 
   .title small {
