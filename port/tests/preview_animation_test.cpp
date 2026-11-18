@@ -146,8 +146,8 @@ int main(int argc, char** argv) {
     );
     check(
         scene::vendor_preview::defaults(scene::vendor_preview::key(607, true)).x == 18
-            && scene::vendor_preview::defaults(scene::vendor_preview::key(407, true)).x == 13.5f,
-        "Heli-Pack and Persuader retain shared middle centering from the three-planet review"
+            && scene::vendor_preview::defaults(scene::vendor_preview::key(407, true)).x == 4.25f,
+        "Heli-Pack centering and the latest approved Persuader middle placement are retained"
     );
     check(
         scene::vendor_preview::defaults(614).y == -12.75f
