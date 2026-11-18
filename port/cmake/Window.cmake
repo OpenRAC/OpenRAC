@@ -731,6 +731,11 @@ openrac_add_test(keyboard_mouse_load
                  SOURCES tests/keyboard_mouse_load_test.cpp game/rac1/keyboard_mouse/keyboard_mouse.cpp
                          game/common/key_prompts.cpp
                  INCLUDES . game/rac1/keyboard_mouse ../sdk/include)
+# Going Commando's built-in keyboard and mouse, loaded against a host table of the test's own.
+openrac_add_test(keyboard_mouse_rac2
+                 SOURCES tests/keyboard_mouse_rac2_test.cpp game/rac2/keyboard_mouse/keyboard_mouse.cpp
+                         game/common/key_prompts.cpp
+                 INCLUDES . ../sdk/include game/common/include runtime/include)
 # The keys painted over the game's button icons (game/common/key_prompts.h) and their labels.
 openrac_add_test(key_prompts SOURCES tests/key_prompts_test.cpp game/common/key_prompts.cpp INCLUDES .)
 

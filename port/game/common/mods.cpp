@@ -2451,10 +2451,16 @@ openrac_mod* loaded_built_in(std::string_view id) {
 
 }  // namespace
 
-const std::vector<Setting>& built_in_settings(std::string_view id) {
-    static const std::vector<Setting> none;
-    const openrac_mod* mod = loaded_built_in(id);
-    return mod != nullptr ? mod->manifest.settings : none;
+std::vector<const Setting*> built_in_settings(std::string_view id) {
+    std::vector<const Setting*> out;
+    if (const openrac_mod* mod = loaded_built_in(id)) {
+        for (const Setting& s : mod->manifest.settings) {
+            if (g_host == nullptr || setting_for_game(s, g_host->game)) {
+                out.push_back(&s);
+            }
+        }
+    }
+    return out;
 }
 
 BuiltInSetting built_in_setting(std::string_view id, std::string_view key) {
@@ -2464,7 +2470,7 @@ BuiltInSetting built_in_setting(std::string_view id, std::string_view key) {
         return out;
     }
     for (const Setting& s : mod->manifest.settings) {
-        if (s.key == key) {
+        if (s.key == key && (g_host == nullptr || setting_for_game(s, g_host->game))) {
             out.spec = &s;
             const auto it = mod->settings.find(s.key);
             out.value = it != mod->settings.end() ? it->second : s.fallback;

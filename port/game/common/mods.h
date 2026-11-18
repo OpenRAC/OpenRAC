@@ -167,15 +167,16 @@ struct Host {
 };
 
 // A built-in mod's setting (BuiltIn), for the port's own menu: its manifest entry and value, or
-// null when no built-in of that id is loaded or it has no such setting.
+// null when no built-in of that id is loaded or it has no such setting for this game.
 struct BuiltInSetting {
     const Setting* spec = nullptr;
     SettingValue value;
 };
 
 BuiltInSetting built_in_setting(std::string_view id, std::string_view key);
-// The settings a loaded built-in declares, in its manifest's order; empty when none is loaded.
-const std::vector<Setting>& built_in_settings(std::string_view id);
+// The settings a loaded built-in declares for this game, in its manifest's order (valid while the
+// program runs); empty when none is loaded.
+std::vector<const Setting*> built_in_settings(std::string_view id);
 // Sets a built-in's setting from the port's menu, `literal` its JSON ("true", "1.5", "\"KeyW\""),
 // checked as setting_set_* checks it. The mod is told (on_settings) and the value kept. False when
 // refused.

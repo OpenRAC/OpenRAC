@@ -1,0 +1,343 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// Going Commando's built-in keyboard and mouse (game/rac2/keyboard_mouse) loaded as the port loads
+// it, against a host table of the test's own: where the game is (the on-screen pad's context)
+// decides what the keys press; WASD is the left stick, the mouse the right stick in play only, the
+// ship swaps fire and the wrench, the title's confirm presses Start too, and the button icons show
+// the keys only while the keyboard and mouse are in use.
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <vector>
+
+#include "game/common/key_prompts.h"
+#include "game/rac1/keyboard_mouse/kbm.hpp"
+#include "game/rac2/keyboard_mouse/keyboard_mouse.h"
+#include "game/rac2/keyboard_mouse/places.hpp"
+#include "openrac/game_host.h"
+#include "openrac/openrac_mod.h"
+
+#define CHECK(c)                                                                                   \
+    do {                                                                                           \
+        if (!(c)) {                                                                                \
+            std::fprintf(stderr, "%s:%d: CHECK(%s)\n", __FILE__, __LINE__, #c);                    \
+            std::exit(1);                                                                          \
+        }                                                                                          \
+    } while (0)
+
+bool g_keyboard_mouse_in_use = false;
+
+namespace openrac::frontend {
+bool keyboard_mouse_in_use() {
+    return g_keyboard_mouse_in_use;
+}
+}  // namespace openrac::frontend
+
+// Where the game is, as touch.c would say.
+const char* g_context = "foot";
+
+extern "C" int (*openrac_game_touch)(const char**, const char* [OPENRAC_TOUCH_HINTS_MAX]) =
+    [](const char** context, const char* [OPENRAC_TOUCH_HINTS_MAX]) {
+        *context = g_context;
+        return g_context != nullptr ? 0 : -1;
+    };
+
+namespace {
+
+constexpr std::uint32_t kMemorySize = 0x00200000u;
+std::vector<std::uint8_t> g_memory(kMemorySize);
+std::string g_version = "ntsc";
+openrac_input g_input{};
+openrac_pad_fn g_pad = nullptr;
+void* g_pad_user = nullptr;
+int g_capture = -1;
+std::uint32_t g_taken = 0;
+bool g_prompts = true;
+
+void host_log(openrac_mod*, int level, const char* text) {
+    std::printf("[%d] keyboard-mouse: %s\n", level, text);
+}
+
+void host_fail(openrac_mod*, const char* reason) {
+    std::printf("failed: %s\n", reason);
+}
+
+int setting_bool(openrac_mod*, const char* key) {
+    if (std::strcmp(key, "key_prompts") == 0) {
+        return g_prompts ? 1 : 0;
+    }
+    return std::strcmp(key, "capture_cursor") == 0 ? 1 : 0;
+}
+
+std::int64_t setting_int(openrac_mod*, const char*) {
+    return 0;
+}
+
+double setting_float(openrac_mod*, const char* key) {
+    if (std::strcmp(key, "mouse_sensitivity") == 0 || std::strcmp(key, "mouse_y_ratio") == 0) {
+        return 1.0;
+    }
+    if (std::strcmp(key, "walk_speed") == 0) {
+        return 0.5;
+    }
+    if (std::strcmp(key, "quick_select_dead_zone") == 0) {
+        return 30.0;
+    }
+    return 0.0;  // stick_ramp_ms: at once
+}
+
+const char* setting_string(openrac_mod*, const char* key) {
+    for (const kbm::ActionInfo& a : kbm::kActions) {
+        if (std::strcmp(a.key, key) == 0) {
+            return a.fallback;
+        }
+    }
+    return std::strcmp(key, "camera_tilt") == 0 ? "hold" : "";
+}
+
+int host_on_pad(openrac_mod*, openrac_pad_fn fn, void* user) {
+    g_pad = fn;
+    g_pad_user = user;
+    return 0;
+}
+
+int host_on_settings(openrac_mod*, openrac_frame_fn, void*) {
+    return OPENRAC_HOOK_OK;
+}
+
+openrac_gaddr host_relocate(openrac_gaddr a) {
+    return a;
+}
+
+const openrac_input* host_input() {
+    return &g_input;
+}
+
+int host_take_input(openrac_mod*, std::uint32_t devices) {
+    g_taken |= devices;
+    return 0;
+}
+
+void host_capture_mouse(openrac_mod*, int capture) {
+    g_capture = capture;
+}
+
+openrac_api make_api() {
+    openrac_api api{};
+    api.size = sizeof api;
+    api.api_major = OPENRAC_MOD_API_MAJOR;
+    api.api_minor = OPENRAC_MOD_API_MINOR;
+    api.game = "rac2";
+    api.version = g_version.c_str();
+    api.openrac_version = "0.0.0";
+    api.platform = "test";
+    api.memory = g_memory.data();
+    api.log = host_log;
+    api.fail = host_fail;
+    api.setting_bool = setting_bool;
+    api.setting_int = setting_int;
+    api.setting_float = setting_float;
+    api.setting_string = setting_string;
+    api.on_pad = host_on_pad;
+    api.relocate_data = host_relocate;
+    api.input = host_input;
+    api.take_input = host_take_input;
+    api.capture_mouse = host_capture_mouse;
+    api.on_settings = host_on_settings;
+    return api;
+}
+
+void tick() {
+    const std::uint32_t t = g_input.tick + 1;
+    g_input = openrac_input{};
+    g_input.size = sizeof g_input;
+    g_input.tick = t;
+    g_input.focused = 1;
+    g_input.captured = 1;
+}
+
+void hold(int key) {
+    g_input.keys[key] = OPENRAC_KEY_HELD;
+}
+
+struct Report {
+    std::uint8_t bytes[18];
+
+    std::uint16_t buttons() const { return static_cast<std::uint16_t>(bytes[0] | (bytes[1] << 8)); }
+
+    bool held(std::uint16_t button) const { return (buttons() & button) == 0; }
+};
+
+Report read_pad() {
+    Report r{};
+    r.bytes[0] = r.bytes[1] = 0xFF;
+    r.bytes[2] = r.bytes[3] = r.bytes[4] = r.bytes[5] = 0x80;
+    g_pad(g_pad_user, 0, r.bytes, 18);
+    return r;
+}
+
+constexpr int kKeyW = 26, kKeySpace = 44, kKeyEnter = 40, kKeyF = 9, kShiftLeft = 225;
+
+// The table lives on: the mod keeps it.
+openrac_api g_api{};
+
+void load_ok() {
+    g_api = make_api();
+    CHECK(openrac::keyboard_mouse::load(&g_api, reinterpret_cast<openrac_mod*>(1)) == 0);
+    CHECK(g_taken == (OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE));
+}
+
+void contexts() {
+    CHECK(kbm2::context_of("foot") == kbm::Context::Play);
+    CHECK(kbm2::context_of("ship") == kbm::Context::Play);
+    CHECK(kbm2::context_of("menu") == kbm::Context::Menu);
+    CHECK(kbm2::context_of("front_end") == kbm::Context::Menu);
+    CHECK(kbm2::context_of("vendor") == kbm::Context::Vendor);
+    CHECK(kbm2::context_of("dialog") == kbm::Context::Dialog);
+    CHECK(kbm2::context_of("cutscene") == kbm::Context::Cutscene);
+    CHECK(kbm2::context_of(nullptr) == kbm::Context::Cutscene);
+    CHECK(kbm2::ship_swap(kbm::kCircle) == kbm::kSquare);
+    CHECK(kbm2::ship_swap(kbm::kSquare | kbm::kCross) == (kbm::kCircle | kbm::kCross));
+    const auto ship = kbm2::prompt_actions("ship");
+    CHECK(ship[1] == kbm::Action::Fire);    // Square
+    CHECK(ship[3] == kbm::Action::Wrench);  // Circle
+}
+
+void play() {
+    g_context = "foot";
+    load_ok();
+    // W: the left stick forward; Space: Cross; Shift: L2, Going Commando's own strafe.
+    tick();
+    hold(kKeyW);
+    hold(kKeySpace);
+    hold(kShiftLeft);
+    Report r = read_pad();
+    CHECK(r.bytes[5] < 0x40);
+    CHECK(r.held(kbm::kCross));
+    CHECK(r.held(kbm::kL2));
+    CHECK(g_capture == 1);
+
+    // The mouse turns the right stick in play.
+    tick();
+    g_input.mouse_dx = 20.0f;
+    r = read_pad();
+    CHECK(r.bytes[2] > 0x80);
+
+    // The left click fires: Circle on foot, Square in the ship.
+    tick();
+    g_input.mouse_held = OPENRAC_MOUSE_LEFT;
+    CHECK(read_pad().held(kbm::kCircle));
+    g_context = "ship";
+    tick();
+    g_input.mouse_held = OPENRAC_MOUSE_LEFT;
+    r = read_pad();
+    CHECK(r.held(kbm::kSquare) && !r.held(kbm::kCircle));
+    tick();
+    hold(kKeyF);
+    CHECK(read_pad().held(kbm::kCircle));
+}
+
+void menus() {
+    // In a menu the cursor is free, the mouse moves no stick, Enter is Cross.
+    g_context = "menu";
+    tick();
+    g_input.mouse_dx = 20.0f;
+    hold(kKeyEnter);
+    Report r = read_pad();
+    CHECK(g_capture == 0);
+    CHECK(r.bytes[2] == 0x80);
+    CHECK(r.held(kbm::kCross) && !r.held(kbm::kStart));
+
+    // The title: confirming presses Start as well.
+    g_context = "front_end";
+    tick();
+    tick();
+    hold(kKeyEnter);
+    r = read_pad();
+    CHECK(r.held(kbm::kCross) && r.held(kbm::kStart));
+
+    // A dialog: Escape goes back (Triangle), never Cross.
+    g_context = "dialog";
+    tick();
+    tick();
+    hold(41);  // Escape
+    r = read_pad();
+    CHECK(r.held(kbm::kTriangle) && !r.held(kbm::kCross));
+
+    // No context (a load): only skips.
+    g_context = nullptr;
+    tick();
+    tick();
+    hold(kKeyW);
+    r = read_pad();
+    CHECK(!r.held(kbm::kCross));
+}
+
+void prompts() {
+    namespace kp = openrac::key_prompts;
+    g_context = "foot";
+    constexpr std::uint32_t kBank = 0x00100000u, kBankWord = 0x001B1604u, kTable = 0x001B9740u;
+    std::memcpy(g_memory.data() + kBankWord, &kBank, 4);
+    for (std::uint32_t f = 0; f < 3; ++f) {
+        const auto texels = static_cast<std::uint16_t>(f * kp::kFontBytes / 16);
+        const auto clut = static_cast<std::uint16_t>(3 * kp::kFontBytes / 16);
+        std::memcpy(g_memory.data() + kTable + 16 * (f + 1) + 8, &texels, 2);
+        std::memcpy(g_memory.data() + kTable + 16 * (f + 1) + 0xA, &clut, 2);
+    }
+    for (std::uint32_t i = 0; i < 3 * kp::kFontBytes; ++i) {
+        g_memory[kBank + i] = static_cast<std::uint8_t>(i % 32);
+    }
+    for (std::uint32_t i = 1; i < 256; ++i) {
+        std::uint8_t* e = g_memory.data() + kBank + 3 * kp::kFontBytes + 4 * i;
+        e[0] = e[1] = e[2] = static_cast<std::uint8_t>(i);
+        e[3] = 0x80;
+    }
+    const std::vector<std::uint8_t> game(
+        g_memory.begin() + kBank, g_memory.begin() + kBank + 3 * kp::kFontBytes
+    );
+    const auto unchanged = [&] {
+        return std::equal(game.begin(), game.end(), g_memory.begin() + kBank);
+    };
+    load_ok();
+    g_keyboard_mouse_in_use = false;
+    tick();
+    read_pad();
+    CHECK(unchanged());
+    g_keyboard_mouse_in_use = true;
+    tick();
+    read_pad();
+    CHECK(!unchanged());
+    g_keyboard_mouse_in_use = false;
+    tick();
+    read_pad();
+    CHECK(unchanged());
+}
+
+void other_games() {
+    // Not Going Commando, or a disc it has no addresses for: it does not load.
+    g_version = "jp";
+    g_api = make_api();
+    CHECK(openrac::keyboard_mouse::load(&g_api, reinterpret_cast<openrac_mod*>(1)) != 0);
+    g_version = "ntsc";
+}
+
+}  // namespace
+
+int main() {
+    contexts();
+    for (const char* v : {"ntsc", "pal"}) {
+        g_version = v;
+        play();
+        menus();
+    }
+    g_version = "ntsc";
+    prompts();
+    other_games();
+    std::puts("keyboard-mouse rac2: all passed");
+    return 0;
+}

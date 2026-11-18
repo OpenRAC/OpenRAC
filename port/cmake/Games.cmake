@@ -542,16 +542,17 @@ const unsigned int openrac_icon_png_size = ${size}u;
 endfunction()
 
 # The mods built into a game's program (game/common/built_in_mods.h), with a window only: the
-# game's built_in_mods.cpp and each mod's code, or built_in_mods_none.cpp for a game with none.
-# Ratchet & Clank has the keyboard and mouse (game/rac1/keyboard_mouse), its manifest embedded as
-# a C++ string (openrac_keyboard_mouse_manifest).
+# game's built_in_mods.cpp and its keyboard and mouse (game/<game>/keyboard_mouse), or
+# built_in_mods_none.cpp for a game with none. Ratchet & Clank and Going Commando share one
+# manifest (game/rac1/keyboard_mouse/openrac-mod.json), embedded as a C++ string
+# (openrac_keyboard_mouse_manifest).
 function(openrac_built_in_mods target game_name)
   set(dir "${OPENRAC_GAME_DIR}/${game_name}")
   if(NOT EXISTS "${dir}/built_in_mods.cpp")
     target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/built_in_mods_none.cpp")
     return()
   endif()
-  set(json "${dir}/keyboard_mouse/openrac-mod.json")
+  set(json "${OPENRAC_GAME_DIR}/rac1/keyboard_mouse/openrac-mod.json")
   set(cpp "${CMAKE_BINARY_DIR}/generated/openrac_${game_name}_built_in_manifests.cpp")
   set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${json}")
   file(READ "${json}" hex HEX)

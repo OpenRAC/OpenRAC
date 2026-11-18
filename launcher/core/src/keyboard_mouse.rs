@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 
-//! Keyboard and mouse: Ratchet & Clank's keyboard and mouse controls, built into the port
-//! (port/game/rac1/keyboard_mouse, docs/port/KEYBOARD_MOUSE.md), as a built-in entry of the Mods
-//! tab. It was the keyboard-mouse mod of openrac-mods. It is always on: the game starts on the
+//! Keyboard and mouse: the keyboard and mouse controls of Ratchet & Clank and Going Commando,
+//! built into the port (port/game/rac1/keyboard_mouse, port/game/rac2/keyboard_mouse,
+//! docs/port/KEYBOARD_MOUSE.md), as a built-in entry of the Mods tab. It was the keyboard-mouse mod of openrac-mods. It is always on: the game starts on the
 //! gamepad and switches to the keyboard and mouse when the player uses them. The entry shows the
 //! settings its manifest declares (the same file the port embeds), and keeps their values in the
 //! version's settings file as `kbm_<key> = <value>` lines, as Enhanced graphics keeps its own
@@ -28,7 +28,7 @@ fn manifest() -> Manifest {
     serde_json::from_str(MANIFEST).expect("the built-in keyboard and mouse's manifest is valid")
 }
 
-/// Whether a version has it: the discs its manifest names (RAC1 PAL and NTSC-U).
+/// Whether a version has it: the discs its manifest names.
 pub fn supported(game: &str, version: &str) -> bool {
     manifest().games.get(game).is_some_and(|versions| versions.iter().any(|v| v == version))
 }
@@ -63,6 +63,21 @@ fn written(value: &Value) -> String {
     }
 }
 
+/// The camera's turn for one mouse count at sensitivity 1 in Ratchet & Clank, in degrees
+/// (keyboard_mouse.cpp's 0.0015 radians), and Counter-Strike's at its sensitivity 1.
+const DEGREES_PER_COUNT: f64 = 0.0015 * 180.0 / std::f64::consts::PI;
+const CS_DEGREES_PER_COUNT: f64 = 0.022;
+
+/// The sensitivity in other words: Counter-Strike's, and cm a full turn at `dpi`.
+pub fn sensitivity_hint(sensitivity: f64, dpi: i64) -> String {
+    let degrees = DEGREES_PER_COUNT * sensitivity;
+    let mut hint = format!("Now as CS sensitivity {:.2}", degrees / CS_DEGREES_PER_COUNT);
+    if dpi > 0 && degrees > 0.0 {
+        hint += &format!(", {:.1} cm a full turn at {dpi} DPI", 360.0 / degrees / dpi as f64 * 2.54);
+    }
+    hint + "."
+}
+
 /// The entry for `game`/`version`, its values from the version's settings file in `data_home`.
 pub fn view(data_home: &Path, game: &str, version: &str) -> PluginView {
     let m = manifest();
@@ -74,13 +89,22 @@ pub fn view(data_home: &Path, game: &str, version: &str) -> PluginView {
         .map(|spec| SettingView { spec: spec.clone(), value: read_setting(&text, spec), conflicts: Vec::new() })
         .collect();
     mark_conflicts(&mut settings);
+    // Where the mouse turns the camera by an angle (the DPI is a setting there): the sensitivity
+    // in other words.
+    let value_of = |key: &str| settings.iter().find(|s| s.spec.key == key).map(|s| s.value.clone());
+    if let (Some(sens), Some(dpi)) = (value_of("mouse_sensitivity"), value_of("mouse_dpi")) {
+        let hint = sensitivity_hint(sens.as_f64().unwrap_or(1.0), dpi.as_i64().unwrap_or(0));
+        if let Some(s) = settings.iter_mut().find(|s| s.spec.key == "mouse_sensitivity") {
+            s.spec.description = format!("{} {hint}", s.spec.description);
+        }
+    }
     PluginView {
         id: ID.into(),
         name: m.name.clone(),
         version: "Built in".into(),
         author: "OpenRAC".into(),
-        description: "Play with a keyboard and mouse: the mouse turns the camera like a PC game. The game switches to \
-                      them when you use them, and back to the gamepad when you press it."
+        description: "Play with a keyboard and mouse: the mouse turns the camera, the icons show your keys. The \
+                      game switches to them when you use them, and back to the gamepad when you press it."
             .into(),
         homepage: String::new(),
         license: m.license.clone(),
@@ -103,8 +127,11 @@ pub fn view(data_home: &Path, game: &str, version: &str) -> PluginView {
 /// Sets one of its settings, checked as the port would read it.
 pub fn set_setting(data_home: &Path, game: &str, version: &str, key: &str, value: &Value) -> Result<(), String> {
     let m = manifest();
-    let spec =
-        m.settings.iter().find(|s| s.key == key).ok_or_else(|| format!("{key} is not a keyboard and mouse setting"))?;
+    let spec = m
+        .settings
+        .iter()
+        .find(|s| s.key == key && s.for_game(game))
+        .ok_or_else(|| format!("{key} is not a keyboard and mouse setting of {game}"))?;
     let value = check_value(spec, value).ok_or_else(|| format!("{} cannot be {value}", spec.name))?;
     let file = settings_file(data_home, game, version);
     let text = std::fs::read_to_string(&file).unwrap_or_default();
@@ -125,11 +152,39 @@ mod tests {
     }
 
     #[test]
-    fn rac1_discs_only() {
+    fn the_discs_it_knows() {
         assert!(supported("rac1", "pal"));
         assert!(supported("rac1", "ntsc"));
         assert!(!supported("rac1", "jp"));
-        assert!(!supported("rac2", "ntsc"));
+        for v in ["ntsc", "pal", "ntsc2"] {
+            assert!(supported("rac2", v));
+        }
+        assert!(!supported("rac3", "ntsc"));
+    }
+
+    #[test]
+    fn going_commando_has_no_ratchet_only_settings() {
+        let home = temp("rac2");
+        let v = view(&home, "rac2", "ntsc");
+        let has = |key: &str| v.settings.iter().any(|s| s.spec.key == key);
+        assert!(has("jump") && has("mouse_sensitivity") && has("key_prompts"));
+        assert!(!has("weapon_1") && !has("menu_mouse") && !has("mouse_dpi") && !has("camera_reset"));
+        // No angle to speak of there: the sensitivity has no CS hint.
+        let sens = v.settings.iter().find(|s| s.spec.key == "mouse_sensitivity").unwrap();
+        assert!(!sens.spec.description.contains("Now as CS"));
+        assert!(set_setting(&home, "rac2", "ntsc", "weapon_1", &json!("Digit1")).is_err());
+        assert!(set_setting(&home, "rac2", "ntsc", "jump", &json!("KeyJ")).is_ok());
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn sensitivity_in_other_words() {
+        // 0.0859 degrees a count: CS 3.91, and 13.3 cm a turn at 800 DPI.
+        assert_eq!(sensitivity_hint(1.0, 800), "Now as CS sensitivity 3.91, 13.3 cm a full turn at 800 DPI.");
+        assert_eq!(sensitivity_hint(2.0, 0), "Now as CS sensitivity 7.81.");
+        let v = view(&temp("hint"), "rac1", "ntsc");
+        let sens = v.settings.iter().find(|s| s.spec.key == "mouse_sensitivity").unwrap();
+        assert!(sens.spec.description.ends_with("Now as CS sensitivity 3.91, 13.3 cm a full turn at 800 DPI."));
     }
 
     #[test]

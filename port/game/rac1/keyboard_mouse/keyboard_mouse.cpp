@@ -2,10 +2,10 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Keyboard and mouse for Ratchet & Clank, built into the port (keyboard_mouse.h, docs/port/
-// KEYBOARD_MOUSE.md): the keys and the mouse, as the player bound them in the launcher, pressed
-// into the first pad's report each tick, on top of a gamepad's. It was the keyboard-mouse mod of
-// openrac-mods; it still loads through the mod interface, as a mod with no library or folder. What
-// a key presses follows where the game is (kbm::Context): in play the console's layout; in the
+// KEYBOARD_MOUSE.md): the keys and the mouse, as the player bound them, pressed into the first
+// pad's report each tick, on top of a gamepad's. It loads through the mod interface, as a mod with
+// no library or folder. What a key presses follows where the game is (kbm::Context): in play the
+// console's layout; in the
 // title, the menus and the dialogs confirm and back; in a scene, a movie or the ship, a skip. In
 // play the mouse turns the camera itself (kbm::DirectLook: the follow camera through its hook
 // point, the first-person view before its update), and while the Quick Select is held open picks
@@ -13,25 +13,10 @@
 // menu items, clicks, and its wheel scrolls. Takes the keyboard from the port (its own WASD table
 // stops) and the cursor while in play.
 //
-// The settings (openrac-mod.json, kept as kbm_<key> lines in the version's settings file), read
-// once when the game starts:
-//   mouse_sensitivity       How far the camera turns for the mouse's motion.
-//   mouse_acceleration      0 for none; more turns a fast flick further than a slow drag.
-//   invert_y                Mouse up looks down (the game's own invert options never apply).
-//   camera_tilt             Whether the follow camera keeps the tilt the mouse gave it (Stays) or
-//                           levels out as the game does (Levels out).
-//   capture_cursor          Hides the cursor and keeps it in the window while playing.
-//   menu_mouse              In menus the cursor points at the game's items, a click confirms and
-//                           the wheel scrolls.
-//   walk_speed              How far the walk key pushes the left stick.
-//   stick_ramp_ms           How long the movement keys take to push the stick all the way.
-//   quick_select_dead_zone  How far, in pixels, the mouse moves before the Quick Select points at
-//                           a slot.
-//   one setting per action  The action's binds, up to two keys, mouse buttons or wheel directions
-//                           (kbm::kActions lists them: move, walk, jump, fire, quick_select,
-//                           wrench, crouch, strafe, first_person, map, camera_reset, pause,
-//                           weapon_1 to weapon_8, weapon_next, weapon_prev, and the menu_*
-//                           actions for menus, dialogs and scenes).
+// The settings are openrac-mod.json's (shared with Going Commando's), kept as kbm_<key> lines in
+// the version's settings file and read again whenever they change. While the player is on the
+// keyboard and mouse the game's button icons show the keys (key_prompts.h).
+
 #include "keyboard_mouse.h"
 
 #include <array>
@@ -121,8 +106,10 @@ constexpr int kMinReportSize = 6;
 // game's dead zone of 0.3 of the stick's travel (assumed).
 constexpr int kPadLookDeadBytes = 38;
 
-// The game's ticks a second (assumed: the console's 60 Hz), to turn the ramp setting into ticks.
-constexpr float kTicksPerSecond = 60.0f;
+// The game's ticks a second, to turn the ramp setting into ticks: the PAL disc's 50, NTSC's 60.
+float ticks_per_second(const openrac::Mod& mod) {
+    return mod.version() == "pal" ? 50.0f : 60.0f;
+}
 
 // How many directions the menus' d-pad has (up, down, left, right).
 constexpr int kMenuDirections = 4;
@@ -1298,7 +1285,7 @@ void read_settings(openrac::Mod& mod) {
 
     s_move.walk = static_cast<float>(mod.setting<double>("walk_speed"));
     s_move.rise_ticks =
-        static_cast<float>(mod.setting<double>("stick_ramp_ms")) * kTicksPerSecond / 1000.0f;
+        static_cast<float>(mod.setting<double>("stick_ramp_ms")) * ticks_per_second(mod) / 1000.0f;
     s_look_tuning.sensitivity = static_cast<float>(mod.setting<double>("mouse_sensitivity"));
     s_look_tuning.y_ratio = static_cast<float>(mod.setting<double>("mouse_y_ratio"));
     s_look_tuning.acceleration = static_cast<float>(mod.setting<double>("mouse_acceleration"));

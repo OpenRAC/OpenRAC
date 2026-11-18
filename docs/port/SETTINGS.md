@@ -111,7 +111,7 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Mute in background | `mute_unfocused` | `0`, `1` | Silence while another window has the keyboard |
 | Game fixes: one row each | `fix_...` | `1` (the port's fix), `0` (the console's behaviour) | What the port changes from the console that a player may switch back (section 8). Ratchet & Clank: `fix_wide_moby_effects`, `fix_wide_nanotech_orbs`, `fix_wide_liquids` |
 | (F9, F10) | `volume` | `100`, `0` to `100` | How loud everything the port plays is |
-| Keyboard and mouse | `kbm_<key>` | the manifest's defaults | Ratchet & Clank: the built-in Keyboard and mouse's binds and settings ([KEYBOARD_MOUSE.md](KEYBOARD_MOUSE.md)), `kbm_mouse_sensitivity = 1.5`, `kbm_jump = Space,MouseRight`. Written by the launcher's Mods tab (its entry under Built in), read at start. A value that cannot be read is its default |
+| Keyboard and mouse | `kbm_<key>` | the manifest's defaults | Ratchet & Clank and Going Commando: the built-in Keyboard and mouse's binds and settings ([KEYBOARD_MOUSE.md](KEYBOARD_MOUSE.md)), `kbm_mouse_sensitivity = 1.5`, `kbm_jump = Space,MouseRight`. Written by the game's menu (Controls, Keyboard and mouse) and the launcher's Mods tab (its entry under Built in); used at once, also while the game runs. A value that cannot be read is its default |
 | Touch controls: Action buttons | `touch_style` | `0` (on), `1` (off) | On: the touch pad shows action buttons with icons that follow what the game is doing (on foot, Clank, swimming, a menu; [touch_controls.h](../../port/game/common/frontend/touch_controls.h)). Off: the DualShock's buttons |
 | Touch controls: Button size | `touch_scale` | `75`, `50` to `150` (percent) | The on-screen pad's size against its own ([touch_pad.h](../../port/platform/touch_pad.h)). Smaller controls sit nearer the screen's edges as well |
 | Touch controls: Camera speed | `touch_camera` | `100`, `25` to `300` (percent) | How short a push of the finger on the right of the screen, from where it landed, turns the camera at full speed: 200 halves the push. Above 100%, a full sideways swipe also turns the camera faster (rac1, rac2) |
@@ -436,11 +436,11 @@ follows ReRAC's idea and says so in
 | Setting | OpenGOAL | ReRAC | OpenRAC | |
 |---|---|---|---|---|
 | Choose the controller, port mapping | yes | first pad only | each player's controller by its id, or the next free one ([CONTROLS.md](CONTROLS.md)) | **now** |
-| Rebind controller, keyboard, mouse | yes | no | the controller's buttons and sticks, chords, every game's and each game's own, in their own files and a window in the game ([CONTROLS.md](CONTROLS.md)); keys on the buttons only | **now** for the controller; keyboard and mouse **later** |
+| Rebind controller, keyboard, mouse | yes | no | the controller's buttons and sticks, chords, every game's and each game's own, in their own files and a window in the game ([CONTROLS.md](CONTROLS.md)); keys and mouse buttons for every action of the built-in Keyboard and mouse ([KEYBOARD_MOUSE.md](KEYBOARD_MOUSE.md)) | **now** |
 | Stick deadzone, sensitivity | yes | fixed scale 1.33 | the game's own, and the port's per stick if set, with inversion | **now** |
 | Vibration on or off | yes | no rumble | rumble as the game drives it, no switch | **later**: a row on the game's own options |
 | Camera inverted, speed | its own page | the game's Camera page | the game's Camera page | **never** in the port: the game has it |
-| Keyboard, mouse camera and movement | yes | mouse as right stick | keyboard as a pad, no mouse | **later** |
+| Keyboard, mouse camera and movement | yes | mouse as right stick | raw mouse camera (rac1), mouse as right stick (rac2), WASD with walk ([KEYBOARD_MOUSE.md](KEYBOARD_MOUSE.md)) | **now** |
 | Ignore the controller while unfocused | yes | no | `pad_background = 0` ([CONTROLS.md](CONTROLS.md)) | **now** |
 | Controller LED, trigger effects, pressure | yes | no | no | **never** for the LED and triggers (nothing in the game drives them); pressure **later** |
 

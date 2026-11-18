@@ -142,16 +142,17 @@ void set_binds(const std::string& key, const std::vector<std::string>& binds) {
     set(key, "\"" + joined(binds) + "\"");
 }
 
-// The sensitivity in other words: Counter-Strike's, and cm a full turn at the DPI set.
+// The sensitivity in other words: Counter-Strike's, and cm a full turn at the DPI set. Only where
+// the mouse turns the camera by an angle (Ratchet & Clank, whose settings have the DPI).
 std::string sensitivity_hint() {
     const mods::BuiltInSetting sens = mods::built_in_setting(kId, "mouse_sensitivity");
     const mods::BuiltInSetting dpi = mods::built_in_setting(kId, "mouse_dpi");
-    if (sens.spec == nullptr) {
+    if (sens.spec == nullptr || dpi.spec == nullptr) {
         return "";
     }
     const double degrees = kDegreesPerCount * sens.value.f;
     std::string hint = std::format("As CS sensitivity {:.2f}", degrees / kCsDegreesPerCount);
-    if (dpi.spec != nullptr && dpi.value.i > 0 && degrees > 0.0) {
+    if (dpi.value.i > 0 && degrees > 0.0) {
         hint += std::format(
             ", {:.1f} cm a full turn at {} DPI",
             360.0 / degrees / static_cast<double>(dpi.value.i) * 2.54,
@@ -166,12 +167,12 @@ bool clashes(const mods::Setting& s, const std::vector<std::string>& binds) {
     if (s.key.starts_with("menu_")) {
         return false;
     }
-    for (const mods::Setting& other : mods::built_in_settings(kId)) {
-        if (other.key == s.key || other.type != mods::SettingType::Keybind
-            || other.key.starts_with("menu_")) {
+    for (const mods::Setting* other : mods::built_in_settings(kId)) {
+        if (other->key == s.key || other->type != mods::SettingType::Keybind
+            || other->key.starts_with("menu_")) {
             continue;
         }
-        for (const std::string& b : binds_of(mods::built_in_setting(kId, other.key).value.s)) {
+        for (const std::string& b : binds_of(mods::built_in_setting(kId, other->key).value.s)) {
             if (std::find(binds.begin(), binds.end(), b) != binds.end()) {
                 return true;
             }
@@ -319,11 +320,12 @@ void keyboard_mouse_panel() {
     if (!s.menu_open) {
         g.capture.clear();
     }
-    for (const mods::Setting& setting : mods::built_in_settings(kId)) {
-        setting_rows(setting, mods::built_in_setting(kId, setting.key).value);
+    for (const mods::Setting* setting : mods::built_in_settings(kId)) {
+        setting_rows(*setting, mods::built_in_setting(kId, setting->key).value);
     }
     if (sub("Every keyboard and mouse setting to the defaults")) {
-        for (const mods::Setting& setting : mods::built_in_settings(kId)) {
+        for (const mods::Setting* p : mods::built_in_settings(kId)) {
+            const mods::Setting& setting = *p;
             const mods::SettingValue& d = setting.fallback;
             switch (setting.type) {
                 case mods::SettingType::Bool:

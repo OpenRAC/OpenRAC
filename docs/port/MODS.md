@@ -88,7 +88,9 @@ OpenRAC
 ├── port/game/common/mods.{h,cpp}      the loader: the list, the checks, dlopen, the hooks
 ├── port/game/<game>/built_in_mods.cpp the mods built into the port (always loaded, even with
 │                                      --no-mods; their settings are `<prefix>_<key>` lines of
-│                                      the settings file): rac1's keyboard_mouse (KEYBOARD_MOUSE.md)
+│                                      the settings file, changed live from the game's menu or
+│                                      the launcher): rac1's and rac2's keyboard_mouse
+│                                      (KEYBOARD_MOUSE.md)
 ├── port/game/common/mod_manifest.*    manifests and the list, read and checked (tested alone)
 ├── port/game/<version>/libraries.tsv  `hook` rows: the hook points of each disc
 └── launcher/core/src/plugins.rs       the launcher's side: install, list, order, settings
