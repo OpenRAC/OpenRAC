@@ -172,4 +172,18 @@ void rac3_chain_census(gaddr channel, gaddr tag_addr) {
         pad ? (int)word(pad + 0x19Cu) : 0,
         pad ? word(pad + 0x574u) : 0
     );
+    /* The memory card's state machine (func_0039C7F0's block at 0x00142430): its state (the
+     * CS_* names' order in the executable), the card it works on, the slot chosen. */
+    fprintf(
+        stderr,
+        "[rac3 card] state %d (+0x160), card %d (+0x14C), +0x144 %d, slot %d (+0x148), +0x158 %d, "
+        "+0x164 %d, +0x17C %d\n",
+        (int)word(0x00142430u + 0x160u),
+        (int)word(0x00142430u + 0x14Cu),
+        (int)word(0x00142430u + 0x144u),
+        (int)word(0x00142430u + 0x148u),
+        (int)word(0x00142430u + 0x158u),
+        (int)word(0x00142430u + 0x164u),
+        (int)word(0x00142430u + 0x17Cu)
+    );
 }
