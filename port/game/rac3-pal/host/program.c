@@ -41,9 +41,45 @@ static int32_t word(gaddr at) {
     return v;
 }
 
+/* The programs' range (hostgen.json "relocate"): what a level's program replaces. */
+#define PROGRAMS_LOW 0x001D5680u
+#define PROGRAMS_HIGH 0x00700000u
+#define PROGRAM_BUFFER 0x001D4B50u /* where the next program was read: a header word, its records */
+
+/* A level function the catalogue names after another level (func_L05_...) is written with that
+ * level's addresses; the runtime pairs them with the loaded level's by their code (guest.h,
+ * OPENRAC_LDATA), from each level's program as the game reads it. Kept as it is read, before
+ * 0x0013AFF8 copies it over the boot program. */
+static void keep_level_program(int level) {
+    static uint64_t kept;
+    if (level < 0 || level >= LEVELS || (kept >> level) & 1u) {
+        return;
+    }
+    const gaddr buffer = (gaddr)word(PROGRAM_BUFFER);
+    gaddr at = buffer + (gaddr)word(buffer);
+    const gaddr entry = (gaddr)word(at + 12u);
+    while (at + 16u <= 0x02000000u && (gaddr)word(at + 12u) == entry) {
+        const gaddr base = (gaddr)word(at), size = (gaddr)word(at + 4u);
+        if (size > 0x02000000u - (at + 16u)) {
+            break;
+        }
+        openrac_guest_add_level_program(level, base, (const uint8_t*)G(at + 16u), size);
+        at += 16u + size;
+    }
+    kept |= (uint64_t)1 << level;
+}
+
 gaddr func_0013AFF8(void) {
-    const gaddr entry = func_0013AFF8__game();
+    static int range_set;
+    if (!range_set) {
+        range_set = 1;
+        openrac_guest_set_level_range(PROGRAMS_LOW, PROGRAMS_HIGH);
+    }
     const int level = word(CURRENT_LEVEL);
+    if (level >= 0 && level < LEVELS) {
+        keep_level_program(level);
+    }
+    const gaddr entry = func_0013AFF8__game();
     if (entry == FRONTEND_ENTRY) {
         loaded_overlay = FRONTBIN_OVERLAY;
     } else if (level >= 0 && level < LEVELS) {

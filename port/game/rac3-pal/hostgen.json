@@ -8,12 +8,16 @@
   "entry": "func_0013ADA8",
   "sources": [
     "src/boot_elf",
-    "src/frontbin"
+    "src/frontbin",
+    "src/levels"
   ],
   "skip": [
     "src/boot_elf/core/libgcc",
     "src/boot_elf/text/3C6718.c",
-    "src/frontbin/3C6360.c"
+    "src/frontbin/3C6360.c",
+    "src/levels/32_vidcomic_4/L32_003BE008.c",
+    "src/levels/shared/L01_003D0D48.c",
+    "src/levels/shared/L01_0045A6F0.c"
   ],
   "includes": [
     "include",
@@ -43,6 +47,7 @@
     }
   ],
   "candidates": "nonmatching/functional.tsv",
+  "places": "config/levels/functions.tsv",
   "candidate_folders_left_out": {
     "nonmatching/boot_elf": "the boot program's functions are translated from its own code, which the build reads from the disc (the loader's payload); these are NTSC-U drafts and near misses, some far from PAL's code (func_003BC7C0's matched 12.5% of it, and the level loading screen faulted in it)",
     "nonmatching/frontbin": "frontbin's functions are translated from its own program on the disc (asm retail programs); these are NTSC-U drafts and near misses, some far from PAL's code (func_003AF0B8's matched none of it, and the front end it starts crashed on an object it had not set up)"
@@ -114,7 +119,7 @@
         "frontbin": 100
       }
     },
-    "files": 8,
+    "files": 64,
     "results_before_calls": true,
     "dma_stores": true,
     "follow_saved_registers": true,

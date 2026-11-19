@@ -1135,7 +1135,8 @@ def read_places(path: Path, program: Program) -> int:
         cols = line.split("\t")
         if len(cols) < 6:
             continue
-        column = 8 if len(cols) >= 9 and ":" in cols[8] else 5
+        # rac3-decomp's catalogue has a remnant column before the levels: its places are the 7th.
+        column = 8 if len(cols) >= 9 and ":" in cols[8] else 6 if len(cols) == 7 and ":" in cols[6] else 5
         places = []
         boot = []
         for item in cols[column].split(","):
