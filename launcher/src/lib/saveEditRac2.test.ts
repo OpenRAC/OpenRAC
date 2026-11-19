@@ -109,9 +109,9 @@ function view(): Rac2SaveView {
         kind: "weapon",
         maxAmmo: 200,
         upgradeName: "Heavy Lancer",
-        upgradeXp: 8960,
-        maxXp: 8959,
-        versions: four("Lancer", "Heavy Lancer", 8960, 256_000, [200, 300, 400, 500]),
+        upgradeXp: 280,
+        maxXp: 279,
+        versions: four("Lancer", "Heavy Lancer", 280, 8_000, [200, 300, 400, 500]),
         worn: false,
         holdable: true,
       },
@@ -121,9 +121,9 @@ function view(): Rac2SaveView {
         kind: "weapon",
         maxAmmo: 25,
         upgradeName: "HK-22",
-        upgradeXp: 33600,
-        maxXp: 33599,
-        versions: four("Seeker Gun", "HK-22", 33_600, 339_200, [25, 20, 40, 50]),
+        upgradeXp: 1_050,
+        maxXp: 1_049,
+        versions: four("Seeker Gun", "HK-22", 1_050, 10_600, [25, 20, 40, 50]),
         worn: false,
         holdable: true,
       },
@@ -193,7 +193,7 @@ describe("the Going Commando save editor's page checks", () => {
 
     expect(fieldErrors(v, f)).toEqual({});
     f.bolts = 10_000_000;
-    at(f, 30).xp = 8960;
+    at(f, 30).xp = 280;
     at(f, 30).ammo = 201;
     expect(Object.keys(fieldErrors(v, f)).sort()).toEqual(["ammo-30", "bolts", "xp-30"]);
   });
@@ -272,7 +272,7 @@ describe("the Going Commando save editor's page checks", () => {
 
     expect(v1 && versionLabel(v1)).toBe("V1");
     expect(v3 && versionLabel(v3)).toBe("V3 Mega");
-    expect(v4 && versionHow(v4)).toBe("Upgrades itself at 339,200 experience, in challenge mode");
+    expect(v4 && versionHow(v4)).toBe("Upgrades itself at 10,600 XP, in challenge mode");
     expect(v3 && versionHow(v3)).toContain("challenge mode");
   });
 
@@ -287,22 +287,22 @@ describe("the Going Commando save editor's page checks", () => {
     seeker.xp = 1000;
     // V1 to V2: experience raised to the step, full ammo of the new version.
     setVersion(v, f, 24, 1);
-    expect(seeker).toMatchObject({ version: 1, xp: 33_600, ammo: 20 });
+    expect(seeker).toMatchObject({ version: 1, xp: 1_050, ammo: 20 });
     // V2 to V3, the purchase: experience starts again at 0.
     setVersion(v, f, 24, 2);
     expect(seeker).toMatchObject({ version: 2, xp: 0, ammo: 40 });
     // V3 to V4 by experience.
     setVersion(v, f, 24, 3);
-    expect(seeker).toMatchObject({ version: 3, xp: 339_200, ammo: 50 });
+    expect(seeker).toMatchObject({ version: 3, xp: 10_600, ammo: 50 });
     expect(fieldErrors(v, f)).toEqual({});
     // Down again: what fits is kept, and V1 is back at the save's own experience.
     setVersion(v, f, 24, 2);
-    expect(seeker).toMatchObject({ version: 2, xp: 339_199, ammo: 40 });
+    expect(seeker).toMatchObject({ version: 2, xp: 10_599, ammo: 40 });
     setVersion(v, f, 24, 0);
     expect(seeker).toMatchObject({ version: 0, xp: 0, ammo: 25 });
     // Straight from V1 to V4: through the purchase, so at the V4 step.
     setVersion(v, f, 24, 3);
-    expect(seeker).toMatchObject({ version: 3, xp: 339_200, ammo: 50 });
+    expect(seeker).toMatchObject({ version: 3, xp: 10_600, ammo: 50 });
     expect(editList(v, f).map((e) => e.text)).toContain("Version: Seeker Gun V1 → HK-22 V4 Mega");
     expect(changed(v, f)).toBe(true);
   });
@@ -329,9 +329,9 @@ describe("the Going Commando save editor's page checks", () => {
     seeker.owned = true;
     seeker.version = 1;
     seeker.ammo = 20;
-    seeker.xp = 33_599;
-    expect(fieldErrors(v, f)["xp-24"]).toBe("From 33,600 to 9,999,999");
-    seeker.xp = 33_600;
+    seeker.xp = 1_049;
+    expect(fieldErrors(v, f)["xp-24"]).toBe("From 1,050 to 9,999,999");
+    seeker.xp = 1_050;
     seeker.ammo = 21;
     expect(Object.keys(fieldErrors(v, f))).toEqual(["ammo-24"]);
     seeker.ammo = 20;
@@ -339,7 +339,7 @@ describe("the Going Commando save editor's page checks", () => {
     expect(fieldErrors(v, f)["version-24"]).toContain("Give");
     // The Lancer is in Ratchet's hand.
     at(f, 30).version = 1;
-    at(f, 30).xp = 8960;
+    at(f, 30).xp = 280;
     expect(fieldErrors(v, f)["version-30"]).toContain("hand");
   });
 
@@ -369,8 +369,8 @@ describe("the Going Commando save editor's page checks", () => {
 
     Object.assign(seeker, { owned: true, version: 3, ammo: 50, xp: 12_000 });
     at(f, 12).version = 1;
-    at(f, 12).xp = 6_000 * 32;
-    at(f, 44).xp = 40_000 * 32;
+    at(f, 12).xp = 6_000;
+    at(f, 44).xp = 40_000;
     expect(fieldErrors(v, f)).toEqual({});
     expect(editList(v, f).length).toBeGreaterThan(0);
     // Still in the range: no more than the editor's limit.
@@ -394,7 +394,7 @@ describe("the weapon in hand, the pack and the boots", () => {
     setOwned(v, f, 24, false);
     expect(at(f, 24).owned).toBe(true);
     at(f, 24).version = 1;
-    at(f, 24).xp = 33_600;
+    at(f, 24).xp = 1_050;
     expect(fieldErrors(v, f)["version-24"]).toContain("hand");
     at(f, 24).version = 0;
     at(f, 24).xp = 0;

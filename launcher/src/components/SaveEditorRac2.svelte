@@ -420,7 +420,7 @@
           {/each}
           <div class="line">
             <label for="se2-nanotech"
-              >Nanotech experience{#if fields.nanotechXp !== view.fields.nanotechXp}<span
+              >Nanotech XP{#if fields.nanotechXp !== view.fields.nanotechXp}<span
                   class="mark"
                   role="img"
                   aria-label="changed"
@@ -437,8 +437,8 @@
                 aria-invalid={!!errors.nanotechXp}
               />
               <span class="hint"
-                >Health in the save: {view.maxHealth}. The game works it out again from the
-                experience and the boosts.</span
+                >Health in the save: {view.maxHealth}. The game works it out again from the XP and
+                the boosts.</span
               >
               {#if errors.nanotechXp}<span class="err-text">{errors.nanotechXp}</span>{/if}
             </div>
@@ -606,9 +606,9 @@
             </span>
           </h3>
           <p class="note">
-            Outside challenge mode a V3 still earns experience but never upgrades to V4: pick V4
-            here instead. A new version comes with full ammo, and with the experience the game's own
-            upgrade leaves.
+            Outside challenge mode a V3 still earns XP but never upgrades to V4: pick V4 here
+            instead. A new version comes with full ammo, and with the XP the game's own upgrade
+            leaves.
           </p>
           <ul class="rows weapons">
             {#each weapons as w (w.id)}
@@ -760,7 +760,7 @@
                       class="ammo xp"
                       class:off={!s.owned}
                       title={next?.how === "experience"
-                        ? `Becomes ${next.name} ${versionLabel(next)} at ${(next.stepXp ?? 0).toLocaleString("en-US")}`
+                        ? `Becomes ${next.name} ${versionLabel(next)} at ${(next.stepXp ?? 0).toLocaleString("en-US")} XP`
                         : undefined}
                     >
                       <input
@@ -768,11 +768,15 @@
                         min={v?.minXp ?? 0}
                         max={v?.maxXp ?? w.maxXp}
                         step="1"
-                        aria-label={`${w.name} experience`}
+                        aria-label={`${w.name} XP`}
                         bind:value={s.xp}
                         aria-invalid={!!errors[`xp-${String(w.id)}`]}
                       />
-                      <span class="dim">XP</span>
+                      <span class="dim"
+                        >{next?.how === "experience" && next.stepXp !== null
+                          ? `/ ${next.stepXp.toLocaleString("en-US")} XP`
+                          : "XP"}</span
+                      >
                     </span>
                   {:else}
                     <span></span>
@@ -820,8 +824,8 @@
           {/each}
           {#if Object.keys(errors).some((k) => k.startsWith("ammo-") || k.startsWith("xp-"))}
             <p class="err-text">
-              Ammo goes up to what the version holds; experience stays under the next upgrade, which
-              the game makes itself, and at least at the step a version upgraded at.
+              Ammo goes up to what the version holds; XP stays under the next upgrade, which the
+              game makes itself, and at least at the step a version upgraded at.
             </p>
           {/if}
         </section>

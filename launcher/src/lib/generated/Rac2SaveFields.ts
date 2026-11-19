@@ -8,7 +8,8 @@ import type { Rac2PlanetState } from "./Rac2PlanetState";
  */
 export type Rac2SaveFields = { bolts: number, raritanium: number, 
 /**
- * Nanotech experience: the game raises the maximum health from it at each tick.
+ * Nanotech experience, in the units the game compares with its health table (the stored
+ * count >> 5): the game raises the maximum health from it at each tick.
  */
 nanotechXp: number, 
 /**
