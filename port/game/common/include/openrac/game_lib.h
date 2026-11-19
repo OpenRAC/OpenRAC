@@ -235,6 +235,26 @@ int openrac_lib_snd_UpdateMovieADPCM(int, int);
 int openrac_lib_snd_GetMovieNAX(void);
 int openrac_lib_snd_GetDopplerPitchMod(int);
 
+/* 989snd's command ring as Going Commando and Up Your Arsenal build it (lib/snd_ring.c): the batch
+ * a game's snd_QueueCommandToRing fills, answered by the native sound engine as an IOP that answers
+ * within a tick would. Host entry points, not library functions: each game's host C binds its own
+ * addresses to them.
+ * - pump: snd_Pump: the callbacks of the batch out, the disc read's end (snd_FlushSoundCommands),
+ *   then the next batch; whether a batch is still out.
+ * - queue: snd_QueueCommandToRing(command, size, data, callback, argument); 1 when taken.
+ * - queue_bytes: the same from host memory (a command the host builds itself).
+ * - send_sync: snd_SendCommandSync(command, size, data): the reply word.
+ * - bank_from_iop: snd_BankLoadFromIOP: a bank the game sent to the IOP's memory, its handle. */
+int openrac_snd_ring_pump(void);
+int openrac_snd_ring_queue(
+    unsigned int command, gaddr data, int bytes, gaddr callback, long long callback_data
+);
+void openrac_snd_ring_queue_bytes(
+    unsigned int command, const uint8_t* data, int bytes, gaddr callback, long long callback_data
+);
+int openrac_snd_ring_send_sync(unsigned int command, gaddr data, int bytes);
+int openrac_snd_ring_bank_from_iop(int bank);
+
 /* The IOP's memory from an address on, as sceSifSetDma left it, and how many bytes follow; NULL
  * past its end. A host accessor, not a library function. */
 const uint8_t* openrac_iop_bytes(uint32_t address, size_t* available);
