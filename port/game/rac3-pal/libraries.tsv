@@ -182,8 +182,34 @@ func_00124A80	kernel	rac3InitSyscallTable	host	InitSystemCallTableAddress (rac2-
 func_001242B8	sif	sceSifSyncIop	host	the shape of rac2-ntsc func_0011EEA0; polled after sceSifRebootIop by func_003983C8
 func_003A9348	dma	rac3KickVif0Chain	host	KickVif0Chain (rac2-ntsc func_002FC070): programs VIF0 itself and polls CHCR (host/dma.c)	void (unsigned int)
 func_0013B818	989snd	rac3SndReplyWait	host	the wait for the sound server's reply (host/sound.c): answered at once, there is no IOP	int (void)
-func_0013B620	989snd	snd_FlushSoundCommands	host	the flush the loader's wait (func_003A2B50) and every command send call between func_0013CA28 and func_0013CA20; the shared one also ends a snd_StreamSafeCdRead
+func_0013B620	989snd	rac3SndFlush	host	snd_FlushSoundCommands: the flush the loader's wait (func_003A2B50) and every command send call; answers the pending reply and runs the shared flush, which ends a snd_StreamSafeCdRead (host/sound.c)	int (void)
 func_0011F9A8	kernel	EnableDmac	host	hand-written wrapper: DI, EnableDmac (0x0011EB80), EI as Status had it
 func_0011F940	kernel	DisableDmac	host	hand-written wrapper: DI, DisableDmac (0x0011EB90), EI as Status had it
 func_0038D478	vu0	rac3Cosine	host	VU0 microprogram 0xDA0 on vf1.x (host/trig.c)	float (float)
 func_0038D490	vu0	rac3Sine	host	VU0 microprogram 0xDB0 on vf1.x (host/trig.c)	float (float)
+func_0012DA60	mc	sceMcInit	host	sends mcserv's RPC function 254, as rac2-ntsc's sceMcInit does
+func_0012DCA0	mc	sceMcOpen	host	sends mcserv's RPC function 2, as rac2-ntsc's sceMcOpen does
+func_0012DE00	mc	sceMcClose	host	sends mcserv's RPC function 3, as rac2-ntsc's sceMcClose does
+func_0012DEC0	mc	sceMcSeek	host	sends mcserv's RPC function 4, as rac2-ntsc's sceMcSeek does
+func_0012E050	mc	sceMcRead	host	sends mcserv's RPC function 5, as rac2-ntsc's sceMcRead does
+func_0012E168	mc	sceMcWrite	host	sends mcserv's RPC function 6, as rac2-ntsc's sceMcWrite does
+func_0012E400	mc	sceMcGetInfo	host	sends mcserv's RPC function 1, as rac2-ntsc's sceMcGetInfo does
+func_0012E580	mc	sceMcGetDir	host	sends mcserv's RPC function 13, as rac2-ntsc's sceMcGetDir does
+func_0012E6D8	mc	sceMcFormat	host	sends mcserv's RPC function 16, as rac2-ntsc's sceMcFormat does
+func_0012E7A8	mc	sceMcDelete	host	sends mcserv's RPC function 15, as rac2-ntsc's sceMcDelete does
+func_0012E8D8	mc	sceMcUnformat	host	sends mcserv's RPC function 17, as rac2-ntsc's sceMcUnformat does
+func_0012E2E0	mc	sceMcSync	host	waits on the semaphores, no RPC of its own, called by sceMcInit: as rac2-ntsc's sceMcSync
+func_003AFC48	movie	rac3PlayMovie	host	the movie player entry (rac2-ntsc func_0034EF58's counterpart): the native player plays the stream (host/movie.c)	int (int, int, unsigned int, int, int)
+func_0012EC90	pad	rac3PadInit	host	scePadInit: names libpad's version check ("libpad: Module version mismatch"); native controller ports (host/pad.c, Deadlocked's)	int (int)
+func_0012EF10	pad	rac3PadEnd	host	scePadEnd: called with no arguments by func_003980A0 (host/pad.c)	int (void)
+func_0012F0B8	pad	rac3PadPortOpen	host	scePadPortOpen: names "libpad: pad port is already open" (host/pad.c)	int (int, int, int)
+func_0012F3F8	pad	rac3PadRead	host	scePadRead: the last libpad call of the game's pad update (func_003A3B40), its buffer at pad +0x574 (host/pad.c)	int (int, int, int)
+func_0012F470	pad	rac3PadGetState	host	scePadGetState: compared with 6 (stable) and 2 (find controller) by func_003A3B40 (host/pad.c)	int (int, int)
+func_0012F5A8	pad	rac3PadGetReqState	host	scePadGetReqState: 1 (failed) steps func_003A3B40's state back (host/pad.c)	int (int, int)
+func_0012F608	pad	rac3PadInfoAct	host	scePadInfoAct: called with actuator -1 (the count) (host/pad.c)	int (int, int, int, int)
+func_0012F728	pad	rac3PadInfoMode	host	scePadInfoMode: terms 1 and 2 (current id 4 or 7) (host/pad.c)	int (int, int, int, int)
+func_0012F860	pad	rac3PadSetMainMode	host	scePadSetMainMode: (port, slot, 1, 3) (host/pad.c)	int (int, int, int, int)
+func_0012F918	pad	rac3PadSetActDirect	host	scePadSetActDirect: the motors, last in func_003A3B40 (host/pad.c)	int (int, int, int)
+func_0012F9E0	pad	rac3PadSetActAlign	host	scePadSetActAlign: after six alignment bytes are built (host/pad.c)	int (int, int, int)
+func_0012FC18	pad	rac3PadInfoPressMode	host	scePadInfoPressMode (host/pad.c)	int (int, int)
+func_0012FC78	pad	rac3PadEnterPressMode	host	scePadEnterPressMode (host/pad.c)	int (int, int)

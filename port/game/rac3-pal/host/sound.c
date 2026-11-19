@@ -20,3 +20,14 @@ int func_0013B818(void) {
     memcpy(G(0x001D4DA0u), &none, sizeof none);
     return 1;
 }
+
+int openrac_lib_snd_FlushSoundCommands(void);
+
+/* snd_FlushSoundCommands (0x0013B620): sends the queued commands and takes in the server's reply to
+ * the last one sent without a wait (func_0013B8B0 names its buffer at 0x001D4DA0, which the next
+ * command's send waits to see cleared). Here the reply is in at once, and the shared flush ends a
+ * stream read the game started (lib/snd.c). */
+int func_0013B620(void) {
+    func_0013B818();
+    return openrac_lib_snd_FlushSoundCommands();
+}
