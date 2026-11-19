@@ -57,7 +57,8 @@ translated from its instructions), `executable_extents` (names the C only declar
 function start nothing), `unpassed_registers` (a K&R call's missing arguments are the
 caller's registers), `candidate_scopes` (frontbin's drafts are for frontbin only: its functions
 share the boot program's addresses but not their code) and `asm.signatures` (a translated
-function's arguments the register use does not show: the text widget's draw hands its second on).
+function's arguments and result the decompilation's declarations do not give: the text widget's
+draw hands its second argument on, and the font's width wrappers return the width they forward).
 
 ## The menu's background
 
