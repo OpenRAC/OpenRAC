@@ -40,7 +40,7 @@ or a level, not handled yet).
 | `libraries.tsv` | 204 library entry points, found by their instructions against rac2-ntsc's and rac1-pal's tables, by shape where the SDK version differs, by RPC function number (libmc), and by the game's own calls (libpad) |
 | `host/entry.c` | the loader's unpacking, crt0, InitSystemCallTableAddress (no kernel to scan) |
 | `host/dma.c` | sceDmaSend leaving CHCR as the DMAC does (the VIF1 handler retires the frame's wait mask from it), KickVif0Chain |
-| `host/sound.c` | the 989snd reply wait and flush: answered at once (no IOP, no sound yet) |
+| `host/sound.c` | 989snd's command boundary (snd_Pump, snd_SendCommandSync, snd_QueueCommandToRing, the bank loads) on the ring rac2 shares (`common/lib/snd_ring.c`): the native sound engine plays the banks' sounds and the VAG streams |
 | `host/pad.c` | libpad 4.0, Deadlocked's host pad at this disc's addresses |
 | `host/movie.c` | the movie player entry: the shared native player |
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
@@ -54,6 +54,30 @@ or a level, not handled yet).
 translated from its instructions), `executable_extents` (names the C only declares inside another
 function start nothing) and `unpassed_registers` (a K&R call's missing arguments are the
 caller's registers).
+
+## Checking the C against PAL
+
+Many candidates (nonmatching/) are NTSC-U's C with its names moved to PAL addresses; a literal
+address, an offset into a table or a callee the move did not know stays NTSC-U's, and runs
+wrong on PAL (the font select's palette tables 0x80 off, the text lookup's $gp fallback, the save
+allocator's buffer top at 0x0022760C, each found only by running the game).
+`check_c_constants.py` finds them all at once: for every function the build takes from C, it
+compares the C's literals, data symbols and callees with PAL's own instructions of that function
+(the setup's `asm/`), and also flags a $gp register variable, frame-rate values and the 50 Hz
+(x*5+2)/6 timer scaling where C and assembly disagree, a draft nonmatching/README.md marks
+"differs", and a draft of one program read for the other's function at the same address. Run it
+after every decomp pin bump, from a decomp checkout whose setup wrote `asm/` and `baserom/*.elf`:
+
+```sh
+python3 port/game/rac3-pal/check_c_constants.py --asm-source <decomp with asm/>   # ~1 min
+```
+
+It exits 1 when a candidate has a strong hit; leave each one out in `hostgen.json`
+`candidates_left_out` (its assembly is translated instead) with the reason it prints, or correct
+the draft in rac3-decomp. Weak hits (small literals, inline assembly) are hints for review. The
+first run (rac3-decomp `c73ab8f`) checked 285 candidates and 2,434 matched functions and found 40
+candidates with strong hits, the three above among them; the 2 strong hits in matched C are
+matched $gp register variables (`func_0012AA78`, `func_0012FD50`).
 
 ## The menu's background
 
@@ -75,8 +99,11 @@ for it.
 - **Menu text**: the menus' text and icons go to VU1 (UNPACK, then MSCNT), not as GIF packets; the
   direct renderer draws only the GIF part (the boxes). A native renderer for that VU1 program, or
   the port's own text drawing hooked at the game's text calls, is next.
-- **Sound**: the 989snd commands are answered with empty replies; the shared sound replacements
-  are not bound.
+- **Music**: the menu's sound effects play (the front end's bank, an SBlk version 3 block, which
+  the shared bank reader now reads), but the boot front end asks for no music: its stream table
+  (the level table LoadLevelToc fills, `0x00160C40 + 0x7A04`) is never loaded and the music channel
+  stays at track -1. The streams' command (0x2C, two mono files as rac2's) is bound and untested.
+  `OPENRAC_AUDIO_TICKED=1 OPENRAC_AUDIO_DUMP=out.wav OPENRAC_SOUND_LOG=1` captures and logs it.
 - **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's
   `frontbin` group and `relocate` are not set up for them.
 - Saving from a level: the memory card works through the shared `sceMc*` (below), but no level
