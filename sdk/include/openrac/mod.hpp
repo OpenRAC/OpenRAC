@@ -1008,6 +1008,26 @@ public:
                  : -1;
     }
 
+    // Since 1.21: whether the port has hook_entry().
+    bool has_hook_entry() const {
+      return m_api->api_minor >= 21 &&
+             m_api->size >= offsetof(openrac_api, hook_entry) + sizeof(void *);
+    }
+
+    // Since 1.21: the entry of a hook point (a type of openrac/games/<game>.hpp),
+    // to call as the game calls it: the mods' replacements, this mod's too when it
+    // took the point, then the game's own function. Asked by the type's permanent
+    // id, the same on every disc. At any time. nullptr when the port has no such
+    // hook point, another signature, or no hook_entry.
+    template <class HookPoint>
+    typename HookPoint::fn hook_entry() const {
+      if (!has_hook_entry()) {
+        return nullptr;
+      }
+      return reinterpret_cast<typename HookPoint::fn>(m_api->hook_entry(
+          detail::hook_id<HookPoint>(), HookPoint::signature));
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

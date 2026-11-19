@@ -72,10 +72,12 @@ extern "C" {
  * data kept with the game's saves, 1.17 the game's own collision query asked by
  * a mod (collision_line), 1.18 a prop fixed to a moby's joint (prop_attach),
  * 1.19 switches and choices in a mod's developer menu, which the menu turns
- * over at once, the game paused or not (developer_menu_switch), and 1.20
- * explicit native Vulkan access through the manifest's "vulkan_queue" field.
+ * over at once, the game paused or not (developer_menu_switch), 1.20
+ * explicit native Vulkan access through the manifest's "vulkan_queue" field,
+ * and 1.21 a hook point called as the game calls it, the mods' replacements
+ * included (hook_entry).
  */
-#define OPENRAC_MOD_API_MINOR 20
+#define OPENRAC_MOD_API_MINOR 21
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -2240,6 +2242,17 @@ typedef struct openrac_api {
      * switch's 0 or 1, a choice's index, or -1 for a plain item or an action
      * the mod has not registered. At any time. */
     int (*developer_menu_value)(openrac_mod *mod, uint32_t action);
+
+    /* The entry of the hook point `name` (its id, name or an alias, as hook
+     * takes them), checked against `signature` as hook checks it (since 1.21):
+     * the function the game calls there, which runs the mods' replacements
+     * (the mod loaded last first) and then the game's own function. Calling it
+     * is calling the hook point as the game does, by a name that is the same on
+     * every disc (function() needs the disc's own). A mod that took the hook
+     * point runs its own replacement too. Null for a hook point this OpenRAC
+     * lacks, another signature, or no function of it in this program. At any
+     * time. */
+    void *(*hook_entry)(const char *name, const char *signature);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

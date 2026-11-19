@@ -453,6 +453,34 @@ void two_mods_chain_in_load_order(const fs::path& plugins) {
     CHECK(g_slot_add == nullptr && add(0) == 1 && g_pad_hook == nullptr && !mods::g_frame_callbacks);
 }
 
+// Interface 1.21: a hook point's entry, which the game calls by the point's symbol: the mods'
+// replacements, then the game's own. Another signature (i32 and u32 are one) and an unknown point
+// get none.
+void a_hook_point_is_called_as_the_game_calls_it(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"tag": 1}},
+        {"id": "test-b", "enabled": true, "settings": {"tag": 2}}]})");
+    // The program's table names the entry by the point's symbol, as hostgen's functions.c does.
+    const openrac_fn_entry entries[] = {
+        {0x00100000u, reinterpret_cast<openrac_host_fn>(add), "func_00100000"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, entries, 1);
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.api_minor >= 21);
+    void* entry = api.hook_entry("Test_Add", "i32(i32)");
+    CHECK(entry == reinterpret_cast<void*>(add));
+    // b(a(game)), as two_mods_chain_in_load_order has the game call it.
+    CHECK(entry != nullptr && reinterpret_cast<int (*)(int)>(entry)(0) == 112);
+    CHECK(api.hook_entry("Test_Add", "u32(u32)") == entry);
+    CHECK(api.hook_entry("Test_Add", "f32(i32)") == nullptr);
+    CHECK(api.hook_entry("Test_Nothing", "i32(i32)") == nullptr);
+    CHECK(api.hook_entry(nullptr, "i32(i32)") == nullptr);
+    CHECK(api.hook_entry("Test_Add", nullptr) == nullptr);
+    mods::reset();
+    CHECK(add(0) == 1);
+}
+
 void a_mod_that_fails_is_taken_back(const fs::path& plugins) {
     for (const char* behaviour : {"fail", "unknown_hook", "bad_signature"}) {
         write(plugins / "plugins.json", std::string(R"({"format": 1, "mods": [
@@ -1678,7 +1706,8 @@ void native_vulkan_access_requires_a_declaration(const fs::path& plugins) {
             plugins,
             "current",
             OPENRAC_TEST_MOD_CURRENT,
-            "1.20",
+            // The interface it is built for: this header's.
+            std::format("{}.{}", OPENRAC_MOD_API_MAJOR, OPENRAC_MOD_API_MINOR),
             declared ? R"("vulkan_queue": true,)" : ""
         );
         CHECK(!mods::makes_vulkan_device(list, false));
@@ -2040,6 +2069,7 @@ int main() {
     };
     openrac_guest_register(OPENRAC_OVERLAY_EXE, functions, 1);
     two_mods_chain_in_load_order(plugins);
+    a_hook_point_is_called_as_the_game_calls_it(plugins);
     a_mod_that_fails_is_taken_back(plugins);
     refused_before_opening(plugins);
     purist_and_no_list(plugins);
