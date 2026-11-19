@@ -1914,6 +1914,20 @@ void DirectRenderer::prepare(const FrameInput& input, RenderState& state) {
     submit(packets);
 }
 
+bool DirectRenderer::draws_nothing() const {
+    // Only off-screen panels drawn (or nothing at all), none of them from the frame.
+    return m_prepared
+           && (m_nothing
+               || std::none_of(
+                   m_interpreter->draws().begin(),
+                   m_interpreter->draws().end(),
+                   [](const DirectDraw& d) {
+                       return (d.count != 0 || d.mobys != 0)
+                              && (d.state.target == 0 || d.state.frame_source);
+                   }
+               ));
+}
+
 bool DirectRenderer::reads_frame_depth() const {
     // A draw on the frame that tests depth against what is there, or mobys drawn on it.
     return std::any_of(

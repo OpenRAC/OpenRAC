@@ -445,6 +445,15 @@ bool draw_world(SceneFrame& frame) {
         // [debug tools] The passes hidden in the overlay; the render timed (common/stats.h).
         debug_overlay::before_render(owner.renderer.get(), frame.input.frame);
         const stats::Scope render_scope("render");
+        // The last frame's samples were let go as they were resolved: one drawn over it starts
+        // from its resolved colour, any other clears them.
+        if (owner.frame.samples_let_go()) {
+            if (input.keep_colour) {
+                owner.frame.restore_samples();
+            } else {
+                owner.frame.samples_written();
+            }
+        }
         renderer::RenderTarget target{owner.frame.id(), width, height, picture_scale};
         if (graphics.enhanced_graphics && enhanced_graphics_available()) {
             target.depth_texture = owner.frame.depth_texture();
@@ -585,6 +594,16 @@ void render_scene(
         gl::glFinish();
     }
 
+#if defined(OPENRAC_VULKAN)
+    // The frame's samples are let go as they are resolved: a tiled GPU (a phone's) then writes out
+    // only the resolved colour, not every sample (at 4x and 3120x1440, 72 MB a frame). Not in a
+    // run of ticks drawn over the last picture (a fade): the next one blends over every sample.
+    if (gl::is_vulkan() && owner.frame.samples() > 1 && !owner.frame.resolves_itself()
+        && !owner.frame.samples_let_go() && !owner.overdraw
+        && vkgl::resolve_dropping_samples(owner.frame.id(), owner.frame.resolve_target())) {
+        owner.frame.samples_dropped();
+    }
+#endif
     output.shown = owner.frame.resolved();
     output.camera = frame.input.camera;
     output.has_camera = frame.has_camera;

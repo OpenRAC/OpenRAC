@@ -15,6 +15,9 @@
 #include "program/program.h"
 #include "renderer/direct/direct.h"
 #include "renderer/gl/gl.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace openrac::frontend {
 namespace {
@@ -252,6 +255,7 @@ void retain_background(SceneFrame& frame) {
     if (owner.hold_last_world && !owner.repeat_frame && owner.last_world.width() == width
         && owner.last_world.height() == height) {
         owner.last_world.blit_to(owner.frame.id(), width, height);
+        owner.frame.samples_written();
         input.keep_colour = true;
     }
 
@@ -282,6 +286,16 @@ void retain_background(SceneFrame& frame) {
                 gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, owner.frame.id());
                 gl::glInvalidateFramebuffer(gl::GL_FRAMEBUFFER, 2, dropped);
             }
+#if defined(OPENRAC_VULKAN)
+            // Nothing draws on the frame after this: its samples are resolved now and let go, so
+            // a tiled GPU does not write them out, and the copy reads the resolved colour.
+            if (!temporal && !owner.renderer->hud_draws() && gl::is_vulkan()
+                && owner.frame.samples() > 1 && !owner.frame.resolves_itself()
+                && !owner.frame.samples_let_go()
+                && vkgl::resolve_dropping_samples(owner.frame.id(), owner.frame.resolve_target())) {
+                owner.frame.samples_dropped();
+            }
+#endif
             owner.frame.blit_to(owner.last_world.id(), width, height);
             owner.last_world_tick = scene.frame;
             // A world under a menu: the menu's picture of the frame (read back once as it opened)

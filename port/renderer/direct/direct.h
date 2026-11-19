@@ -454,6 +454,7 @@ public:
     void render(const FrameInput& input, RenderState& state) override;
     void prepare(const FrameInput& input, RenderState& state) override;
     bool reads_frame_depth() const override;
+    bool draws_nothing() const override;
     void release() override;
 
     // As a component of another renderer: feed packets, then flush() draws

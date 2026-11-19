@@ -414,6 +414,9 @@ public:
     // Whether what render() draws tests against the frame's depth. Unknown: true.
     virtual bool reads_frame_depth() const { return true; }
 
+    // After prepare(): nothing is drawn on the frame.
+    virtual bool draws_nothing() const { return false; }
+
     // Free GL objects; the context is still current.
     virtual void release() {}
 
@@ -471,6 +474,9 @@ public:
     // Whether this frame's HUD tests against the world's depth; known from just before
     // FrameInput::before_hud is called until the next frame.
     bool hud_reads_depth() const { return m_hud_reads_depth; }
+
+    // In before_hud: something still draws on the frame after it (the HUD, ambient occlusion).
+    bool hud_draws() const { return m_hud_draws; }
 
 private:
     std::unique_ptr<AmbientOcclusion> m_ambient_occlusion;  // Null until one is registered.
@@ -536,6 +542,7 @@ private:
     std::vector<unsigned> m_opaque_colour_buffers;
     FrameStats m_stats;
     bool m_hud_reads_depth = true;  // hud_reads_depth
+    bool m_hud_draws = true;        // hud_draws
     bool m_initialised = false;
 };
 
