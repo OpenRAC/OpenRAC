@@ -26,7 +26,8 @@
 
 #if defined(RAC2_PRIMARY)
 
-#define TRAIL_COLOURS RAC2_ADDR(0x001AE900u) /* the puff's, the sparkle's, the streak's two */
+/* v1.01's address, as this block is built for v1.01 alone (RAC2_PRIMARY). */
+#define TRAIL_COLOURS 0x001AE900u /* the puff's, the sparkle's, the streak's two */
 #define TRAIL_COLOUR_WORDS 4
 
 /* mesh.frag's kPlatinumTint times kPlatinumColourGain (1.35), in thousandths. */
