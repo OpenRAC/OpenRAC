@@ -23,6 +23,13 @@
 //! folders with the file's, or merges: only the chosen slots are written, every other slot on the
 //! card is kept.
 //!
+//! The mods' records of a save that live in their own folders, not on the card (a mod's
+//! `save_data` file, `mod_save_data.rs`: NG++'s weapon tiers, by the save's clock), travel in the
+//! manifest (`modRecords`): an export takes each exported save's record from every installed mod
+//! that describes one, and an import puts the imported saves' records back into those files, so a
+//! save keeps its mods' state on another computer. The card's own files beside a save (`.mods`,
+//! `.moddata`) are files of the folder and go with it as they are.
+//!
 //! A copy between discs works the same way, from another disc's card instead of a file: the discs
 //! of a game whose saves are the same file (Ratchet & Clank's PAL, US and Japanese discs, Going
 //! Commando's PAL and US: `save_edit.rs`, `save_edit_rac2.rs`) each have their own card, so a
@@ -36,6 +43,7 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
+use crate::mod_save_data::{CarriedRecord, RecordFiles};
 use crate::pcsx2_card::ImportedSaves;
 use crate::saves::{self, SaveMod};
 
@@ -102,6 +110,88 @@ pub struct SaveArchiveManifest {
     /// Every slot in the file; the empty ones too, marked `empty`.
     pub slots: Vec<SaveArchiveSlot>,
     pub files: Vec<SaveArchiveFile>,
+    /// The mods' records of the saves, kept in the mods' own folders (`mod_save_data.rs`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<SaveModRecord>>", optional)]
+    pub mod_records: Vec<SaveModRecord>,
+}
+
+/// One mod's record of one save in an exported file: the save's slot, the mod and its file, the
+/// save's clock and the record's data, both hex as the mod's file holds them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveModRecord {
+    pub folder: String,
+    pub slot_index: usize,
+    /// The mod's id (`ng-plus-plus`).
+    pub id: String,
+    /// Its file in the mod's folder (`tiers.txt`).
+    pub file: String,
+    /// The save's clock (record 4), 16 hex digits.
+    pub clock: String,
+    pub data: String,
+}
+
+/// The clock a save was stamped with (its record 4, the 8 bytes the game writes when it saves):
+/// the key the mods' records go by. None for a file with no such record.
+fn save_clock(bytes: &[u8]) -> Option<[u8; 8]> {
+    let mut at = 16; // the sizes and the checksum before the records
+    while at + 8 <= bytes.len() {
+        let id = i32::from_le_bytes(bytes[at..at + 4].try_into().ok()?);
+        let size = i32::from_le_bytes(bytes[at + 4..at + 8].try_into().ok()?);
+        if id == -1 || size < 0 {
+            return None;
+        }
+        let (start, end) = (at + 8, at + 8 + size as usize);
+        if end > bytes.len() {
+            return None;
+        }
+        if id == 4 {
+            return bytes.get(start..start + 8)?.try_into().ok();
+        }
+        at = start + ((size as usize + 3) & !3);
+    }
+    None
+}
+
+fn clock_hex(clock: &[u8; 8]) -> String {
+    clock.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn clock_of_hex(text: &str) -> Option<[u8; 8]> {
+    if text.len() != 16 {
+        return None;
+    }
+    let mut out = [0u8; 8];
+    for (k, b) in out.iter_mut().enumerate() {
+        *b = u8::from_str_radix(text.get(2 * k..2 * k + 2)?, 16).ok()?;
+    }
+    Some(out)
+}
+
+/// The mods' records of the used slots of `files`, from `records`.
+fn records_of_slots(
+    files: &BTreeMap<String, Vec<u8>>,
+    slots: &[SaveArchiveSlot],
+    records: &RecordFiles,
+) -> Vec<SaveModRecord> {
+    let mut out = Vec::new();
+    for slot in slots.iter().filter(|s| !s.empty) {
+        let Some(clock) = files.get(&format!("{}/{}", slot.folder, slot.file)).and_then(|b| save_clock(b)) else {
+            continue;
+        };
+        for r in records.records_of(&clock) {
+            out.push(SaveModRecord {
+                folder: slot.folder.clone(),
+                slot_index: slot.slot_index,
+                id: r.id,
+                file: r.file,
+                clock: clock_hex(&clock),
+                data: r.data,
+            });
+        }
+    }
+    out
 }
 
 /// One slot of a file to import, with the slot it would replace on the card.
@@ -313,6 +403,7 @@ pub fn export_card(
     slot: Option<usize>,
     launcher_version: &str,
     dest: &Path,
+    records: &RecordFiles,
 ) -> Result<SaveArchiveManifest, String> {
     let mut files = BTreeMap::new();
     let folders = match slot {
@@ -344,6 +435,8 @@ pub fn export_card(
     }
 
     let title = files.iter().find(|(p, _)| p.ends_with("/icon.sys")).and_then(|(_, b)| saves::icon_title(b));
+    let slots = slots_in(serial, &files);
+    let mod_records = records_of_slots(&files, &slots, records);
     let manifest = SaveArchiveManifest {
         format: FORMAT.into(),
         format_version: FORMAT_VERSION,
@@ -351,7 +444,8 @@ pub fn export_card(
         title,
         launcher_version: launcher_version.to_string(),
         created: utc_stamp(now_secs()),
-        slots: slots_in(serial, &files),
+        slots,
+        mod_records,
         files: files
             .iter()
             .map(|(path, bytes)| SaveArchiveFile {
@@ -508,10 +602,20 @@ pub fn import_into(
     serial: &str,
     source: &Path,
     choice: &SaveImportChoice,
+    records: &RecordFiles,
 ) -> Result<ImportedSaves, String> {
     let archive = read_archive(source)?;
     check_serial(&archive, serial)?;
-    write_files(card_dir, serial, &archive.files, choice, "before import")
+    let done = write_files(card_dir, serial, &archive.files, choice, "before import")?;
+    // The mods' records of the saves written, back into the mods' files (a mod that reads none
+    // here still finds its record when it is installed).
+    for r in &archive.manifest.mod_records {
+        let picked = choice.replace_all
+            || choice.slots.iter().any(|p| p.folder.eq_ignore_ascii_case(&r.folder) && p.slot_index == r.slot_index);
+        let Some(clock) = clock_of_hex(&r.clock).filter(|_| picked) else { continue };
+        records.put(&clock, &CarriedRecord { id: r.id.clone(), file: r.file.clone(), data: r.data.clone() })?;
+    }
+    Ok(done)
 }
 
 /// Writes save folders' files (by `folder/file`) onto the card in `card_dir` as `choice` says,
@@ -782,8 +886,9 @@ pub fn export_saves(
     slot: Option<usize>,
     launcher_version: &str,
     dest: &Path,
+    records: &RecordFiles,
 ) -> Result<SaveArchiveManifest, String> {
-    export_card(&saves::get_memcard_dir(serial), serial, slot, launcher_version, dest)
+    export_card(&saves::get_memcard_dir(serial), serial, slot, launcher_version, dest, records)
 }
 
 /// [`preview_into`] the game's own card.
@@ -792,8 +897,13 @@ pub fn preview_import(serial: &str, source: &Path) -> Result<SaveImportPreview, 
 }
 
 /// [`import_into`] the game's own card.
-pub fn import_saves(serial: &str, source: &Path, choice: &SaveImportChoice) -> Result<ImportedSaves, String> {
-    import_into(&saves::get_memcard_dir(serial), serial, source, choice)
+pub fn import_saves(
+    serial: &str,
+    source: &Path,
+    choice: &SaveImportChoice,
+    records: &RecordFiles,
+) -> Result<ImportedSaves, String> {
+    import_into(&saves::get_memcard_dir(serial), serial, source, choice, records)
 }
 
 #[cfg(test)]
@@ -881,7 +991,7 @@ mod tests {
         let (from, to, file) = (tmp.path().join("a"), tmp.path().join("b"), tmp.path().join("saves.zip"));
         card(&from);
 
-        let m = export_card(&from, PAL, None, "0.10.1", &file).unwrap();
+        let m = export_card(&from, PAL, None, "0.10.1", &file, &RecordFiles::default()).unwrap();
         assert_eq!((m.format.as_str(), m.format_version, m.serial.as_str()), (FORMAT, 1, PAL));
         assert_eq!(m.launcher_version, "0.10.1");
         assert!(m.created.ends_with('Z'));
@@ -898,7 +1008,14 @@ mod tests {
         assert!(preview.slots.iter().all(|s| s.replaces.is_none()));
         assert!(!preview.card_has_saves);
 
-        let done = import_into(&to, PAL, &file, &SaveImportChoice { replace_all: true, slots: vec![] }).unwrap();
+        let done = import_into(
+            &to,
+            PAL,
+            &file,
+            &SaveImportChoice { replace_all: true, slots: vec![] },
+            &RecordFiles::default(),
+        )
+        .unwrap();
         assert_eq!(done.folders, vec![FOLDER.to_string()]);
         assert!(done.backup.is_none(), "an empty card has nothing to back up");
         for name in ["icon.sys", FOLDER, "save0.bin", "save1.bin", "save1.bin.mods", "save4.bin"] {
@@ -907,6 +1024,113 @@ mod tests {
         let names: Vec<String> =
             fs::read_dir(to.join(FOLDER)).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into()).collect();
         assert!(names.contains(&FOLDER.to_string()), "the folder's case is kept: {names:?}");
+    }
+
+    /// The mods' records of the saves on this computer: NG++'s weapon tiers (`tiers.txt`, a line
+    /// per save clock) in a mods' folder of the test's own.
+    fn ngpp_records(mod_data: &Path) -> RecordFiles {
+        let spec: crate::mod_save_data::SaveData = serde_json::from_str(
+            r#"{"file": "tiers.txt", "records": "clock-hex", "size": 56, "title": "Weapon tiers",
+                "fields": [{"key": "item_44", "name": "RYNO II", "offset": 44, "mask": 127, "max": 10,
+                            "attach": {"to": "item", "id": 44, "as": "version"},
+                            "requires": {"version": "last"}}]}"#,
+        )
+        .unwrap();
+        RecordFiles { mod_data: mod_data.to_path_buf(), mods: vec![("ng-plus-plus".into(), spec)] }
+    }
+
+    /// A save played with NG++, exported and imported on another computer: the card's files beside
+    /// it (`.mods`, `.moddata`, the SDK's per-save data) and NG++'s tiers record kept in its own
+    /// folder all come back as they were, and export again unchanged.
+    #[test]
+    fn a_modded_save_keeps_its_mods_data_through_an_export_and_an_import() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (from, to, file) = (tmp.path().join("a"), tmp.path().join("b"), tmp.path().join("saves.zip"));
+        card(&from);
+        fs::write(from.join(FOLDER).join("save1.bin.moddata"), b"{\"ng-plus-plus\": \"AAEC\"}").unwrap();
+        // The tiers: the save's clock (save()'s record 4) with the RYNO II at Ultima (2) and the
+        // started mark, another save's line before it.
+        let clock = "0014142300101026";
+        let mut tiers = [0u8; 56];
+        tiers[44] = 0x82;
+        tiers[30] = 0x83;
+        let record: String = tiers.iter().map(|b| format!("{b:02x}")).collect();
+        let here = ngpp_records(&tmp.path().join("mod-data-a"));
+        fs::create_dir_all(here.mod_data.join("ng-plus-plus")).unwrap();
+        let text = format!("1111111111111111 {}\n{clock} {record}\n", "00".repeat(56));
+        fs::write(here.mod_data.join("ng-plus-plus/tiers.txt"), &text).unwrap();
+
+        let m = export_card(&from, PAL, None, "0.10.1", &file, &here).unwrap();
+        assert!(m.files.iter().any(|f| f.path.ends_with("save1.bin.moddata")));
+        let carried: Vec<_> = m.mod_records.iter().filter(|r| r.slot_index == 1).collect();
+        assert_eq!(carried.len(), 1);
+        assert_eq!((carried[0].id.as_str(), carried[0].file.as_str()), ("ng-plus-plus", "tiers.txt"));
+        assert_eq!((carried[0].clock.as_str(), carried[0].data.as_str()), (clock, record.as_str()));
+        assert!(!m.mod_records.iter().any(|r| r.clock == "1111111111111111"), "only the exported saves'");
+
+        // Another computer: no tiers yet, and NG++ not even installed.
+        let there = ngpp_records(&tmp.path().join("mod-data-b"));
+        let all = SaveImportChoice { replace_all: true, slots: vec![] };
+        import_into(&to, PAL, &file, &all, &there).unwrap();
+        assert_eq!(read(&to, "save1.bin.moddata"), read(&from, "save1.bin.moddata"));
+        assert_eq!(read(&to, "save1.bin"), read(&from, "save1.bin"));
+        let back = fs::read_to_string(there.mod_data.join("ng-plus-plus/tiers.txt")).unwrap();
+        assert_eq!(back, format!("{clock} {record}\n"));
+        let read_back = crate::mod_save_data::read(
+            &there.mod_data,
+            "ng-plus-plus",
+            "NG++",
+            &there.mods[0].1,
+            &clock_of_hex(clock).unwrap(),
+        )
+        .unwrap();
+        assert!(read_back.found);
+        assert_eq!(read_back.fields[0].value, 2, "the RYNO II at Ultima");
+
+        // Exported again from there: the same records.
+        let again = tmp.path().join("again.zip");
+        let m2 = export_card(&to, PAL, None, "0.10.1", &again, &there).unwrap();
+        assert_eq!(m2.mod_records, m.mod_records);
+
+        // An edit there (the save editor writes the record) replaces the line, and a merge of one
+        // slot brings the exported record back over it; the other save's line stays.
+        crate::mod_save_data::write(
+            &there.mod_data,
+            "ng-plus-plus",
+            &there.mods[0].1,
+            &clock_of_hex(clock).unwrap(),
+            &BTreeMap::from([("item_44".to_string(), 5u8)]),
+        )
+        .unwrap();
+        fs::write(
+            there.mod_data.join("ng-plus-plus/tiers.txt"),
+            format!(
+                "2222222222222222 {}\n{}",
+                "01".repeat(56),
+                fs::read_to_string(there.mod_data.join("ng-plus-plus/tiers.txt")).unwrap()
+            ),
+        )
+        .unwrap();
+        let one =
+            SaveImportChoice { replace_all: false, slots: vec![SaveSlotRef { folder: FOLDER.into(), slot_index: 1 }] };
+        import_into(&to, PAL, &file, &one, &there).unwrap();
+        let merged = fs::read_to_string(there.mod_data.join("ng-plus-plus/tiers.txt")).unwrap();
+        assert_eq!(merged, format!("2222222222222222 {}\n{clock} {record}\n", "01".repeat(56)));
+    }
+
+    /// A record in a file is data, never a path: a mod id or file name that would leave the mods'
+    /// folder is refused.
+    #[test]
+    fn a_carried_record_stays_in_its_mods_folder() {
+        let tmp = tempfile::tempdir().unwrap();
+        let there = ngpp_records(tmp.path());
+        let clock = [1u8; 8];
+        for (id, file) in [("../x", "tiers.txt"), ("ng-plus-plus", "../tiers.txt"), ("ng-plus-plus", "a/b")] {
+            let r = CarriedRecord { id: id.into(), file: file.into(), data: "00".into() };
+            assert!(there.put(&clock, &r).is_err(), "{id}/{file}");
+        }
+        let r = CarriedRecord { id: "ng-plus-plus".into(), file: "tiers.txt".into(), data: "zz".into() };
+        assert!(there.put(&clock, &r).is_err(), "not hex");
     }
 
     /// One slot exported, and merged onto a card that has its own saves: only that slot changes,
@@ -922,7 +1146,7 @@ mod tests {
         fs::write(f.join("save0.bin"), save(1, 7)).unwrap();
         fs::write(f.join("save1.bin"), save(2, 8)).unwrap();
 
-        let m = export_card(&from, PAL, Some(1), "0.10.1", &file).unwrap();
+        let m = export_card(&from, PAL, Some(1), "0.10.1", &file, &RecordFiles::default()).unwrap();
         assert!(m.files.iter().all(|f| !f.path.ends_with("save0.bin")), "no other slot");
         assert!(m.files.iter().any(|f| f.path.ends_with("icon.sys")), "the folder's own files");
 
@@ -933,7 +1157,7 @@ mod tests {
 
         let choice =
             SaveImportChoice { replace_all: false, slots: vec![SaveSlotRef { folder: FOLDER.into(), slot_index: 1 }] };
-        let done = import_into(&to, PAL, &file, &choice).unwrap();
+        let done = import_into(&to, PAL, &file, &choice, &RecordFiles::default()).unwrap();
         assert_eq!(read(&to, "save1.bin"), read(&from, "save1.bin"));
         assert_eq!(read(&to, "save1.bin.mods"), read(&from, "save1.bin.mods"));
         assert_eq!(read(&to, "save0.bin"), save(1, 7), "the card's other slot is kept");
@@ -954,9 +1178,16 @@ mod tests {
         fs::create_dir_all(to.join(FOLDER)).unwrap();
         fs::write(to.join(FOLDER).join("save0.bin"), save(1, 7)).unwrap();
         fs::write(to.join(FOLDER).join("stray"), b"x").unwrap();
-        export_card(&from, PAL, None, "0.10.1", &file).unwrap();
+        export_card(&from, PAL, None, "0.10.1", &file, &RecordFiles::default()).unwrap();
 
-        let done = import_into(&to, PAL, &file, &SaveImportChoice { replace_all: true, slots: vec![] }).unwrap();
+        let done = import_into(
+            &to,
+            PAL,
+            &file,
+            &SaveImportChoice { replace_all: true, slots: vec![] },
+            &RecordFiles::default(),
+        )
+        .unwrap();
         assert_eq!(read(&to, "save0.bin"), read(&from, "save0.bin"));
         assert!(!to.join(FOLDER).join("stray").exists());
         let backup = done.backup.unwrap();
@@ -969,13 +1200,20 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let (from, to, file) = (tmp.path().join("a"), tmp.path().join("b"), tmp.path().join("ntsc.zip"));
         card(&from);
-        export_card(&from, "SCUS_971.99", None, "0.10.1", &file).unwrap();
+        export_card(&from, "SCUS_971.99", None, "0.10.1", &file, &RecordFiles::default()).unwrap();
         fs::create_dir_all(to.join(FOLDER)).unwrap();
         fs::write(to.join(FOLDER).join("save0.bin"), b"mine").unwrap();
 
         let err = preview_into(&to, PAL, &file).unwrap_err();
         assert!(err.contains("SCUS_971.99") && err.contains(PAL), "{err}");
-        let err = import_into(&to, PAL, &file, &SaveImportChoice { replace_all: true, slots: vec![] }).unwrap_err();
+        let err = import_into(
+            &to,
+            PAL,
+            &file,
+            &SaveImportChoice { replace_all: true, slots: vec![] },
+            &RecordFiles::default(),
+        )
+        .unwrap_err();
         assert!(err.contains("another game"), "{err}");
         assert_eq!(read(&to, "save0.bin"), b"mine");
         assert_eq!(fs::read_dir(&to).unwrap().count(), 1, "no backup either: nothing was done");
@@ -988,17 +1226,19 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let (from, to, file) = (tmp.path().join("a"), tmp.path().join("b"), tmp.path().join("ok.zip"));
         card(&from);
-        export_card(&from, PAL, None, "0.10.1", &file).unwrap();
+        export_card(&from, PAL, None, "0.10.1", &file, &RecordFiles::default()).unwrap();
         let good = fs::read(&file).unwrap();
         let all = SaveImportChoice { replace_all: true, slots: vec![] };
 
         let junk = tmp.path().join("junk.zip");
         fs::write(&junk, b"not a zip at all").unwrap();
-        assert!(import_into(&to, PAL, &junk, &all).unwrap_err().contains("not an OpenRAC saves file"));
+        assert!(import_into(&to, PAL, &junk, &all, &RecordFiles::default())
+            .unwrap_err()
+            .contains("not an OpenRAC saves file"));
 
         let cut = tmp.path().join("cut.zip");
         fs::write(&cut, &good[..good.len() / 2]).unwrap();
-        assert!(import_into(&to, PAL, &cut, &all).is_err());
+        assert!(import_into(&to, PAL, &cut, &all, &RecordFiles::default()).is_err());
 
         // The same manifest over a changed save0.bin.
         let archive = read_archive(&file).unwrap();
@@ -1021,19 +1261,21 @@ mod tests {
                 b[20] ^= 0xff;
             }
         });
-        assert!(import_into(&to, PAL, &changed, &all).unwrap_err().contains("damaged"));
+        assert!(import_into(&to, PAL, &changed, &all, &RecordFiles::default()).unwrap_err().contains("damaged"));
 
         let mut escaping = archive.manifest.clone();
         escaping.files[0].path = "../outside".into();
         let out = tmp.path().join("escape.zip");
         rewrite(&out, &escaping, &|_, _| {});
-        assert!(import_into(&to, PAL, &out, &all).unwrap_err().contains("outside a save folder"));
+        assert!(import_into(&to, PAL, &out, &all, &RecordFiles::default())
+            .unwrap_err()
+            .contains("outside a save folder"));
 
         let mut newer = archive.manifest.clone();
         newer.format_version = FORMAT_VERSION + 1;
         let future = tmp.path().join("future.zip");
         rewrite(&future, &newer, &|_, _| {});
-        assert!(import_into(&to, PAL, &future, &all).unwrap_err().contains("newer launcher"));
+        assert!(import_into(&to, PAL, &future, &all, &RecordFiles::default()).unwrap_err().contains("newer launcher"));
 
         assert!(!to.exists(), "nothing was written");
     }
@@ -1044,12 +1286,12 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let (from, to, file) = (tmp.path().join("a"), tmp.path().join("b"), tmp.path().join("s.zip"));
         card(&from);
-        export_card(&from, PAL, None, "0.10.1", &file).unwrap();
+        export_card(&from, PAL, None, "0.10.1", &file, &RecordFiles::default()).unwrap();
         let none = SaveImportChoice { replace_all: false, slots: vec![] };
-        assert!(import_into(&to, PAL, &file, &none).is_err());
+        assert!(import_into(&to, PAL, &file, &none, &RecordFiles::default()).is_err());
         let unused =
             SaveImportChoice { replace_all: false, slots: vec![SaveSlotRef { folder: FOLDER.into(), slot_index: 3 }] };
-        assert!(import_into(&to, PAL, &file, &unused).unwrap_err().contains("slot 4"));
+        assert!(import_into(&to, PAL, &file, &unused, &RecordFiles::default()).unwrap_err().contains("slot 4"));
         assert!(!to.exists());
     }
 
@@ -1058,9 +1300,11 @@ mod tests {
     fn nothing_to_export() {
         let tmp = tempfile::tempdir().unwrap();
         let file = tmp.path().join("x.zip");
-        assert!(export_card(&tmp.path().join("none"), PAL, None, "0", &file).is_err());
+        assert!(export_card(&tmp.path().join("none"), PAL, None, "0", &file, &RecordFiles::default()).is_err());
         card(tmp.path());
-        assert!(export_card(tmp.path(), PAL, Some(3), "0", &file).unwrap_err().contains("slot 4"));
+        assert!(export_card(tmp.path(), PAL, Some(3), "0", &file, &RecordFiles::default())
+            .unwrap_err()
+            .contains("slot 4"));
         assert!(!file.exists());
     }
 
@@ -1071,12 +1315,12 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let (from, to, file) = (tmp.path().join("a"), tmp.path().join("b"), tmp.path().join("s.zip"));
         card(&from);
-        export_card(&from, PAL, None, "0", &file).unwrap();
+        export_card(&from, PAL, None, "0", &file, &RecordFiles::default()).unwrap();
         fs::create_dir_all(to.join("besces-50916ratchet")).unwrap();
         fs::write(to.join("besces-50916ratchet").join("save0.bin"), save(1, 1)).unwrap();
         let choice =
             SaveImportChoice { replace_all: false, slots: vec![SaveSlotRef { folder: FOLDER.into(), slot_index: 0 }] };
-        import_into(&to, PAL, &file, &choice).unwrap();
+        import_into(&to, PAL, &file, &choice, &RecordFiles::default()).unwrap();
         assert_eq!(card_folders(&to), vec![FOLDER.to_string()]);
         assert_eq!(read(&to, "save0.bin"), read(&from, "save0.bin"));
     }
@@ -1101,7 +1345,7 @@ mod tests {
         card(tmp.path());
         fs::write(tmp.path().join(FOLDER).join("save0.bin.moddata"), b"zero").unwrap();
         fs::write(tmp.path().join(FOLDER).join("save1.bin.moddata"), b"one").unwrap();
-        let m = export_card(tmp.path(), PAL, Some(1), "0", &file).unwrap();
+        let m = export_card(tmp.path(), PAL, Some(1), "0", &file, &RecordFiles::default()).unwrap();
         assert!(m.files.iter().any(|f| f.path.ends_with("save1.bin.moddata")));
         assert!(!m.files.iter().any(|f| f.path.ends_with("save0.bin.moddata")));
     }
