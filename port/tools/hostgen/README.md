@@ -129,6 +129,8 @@ executable and level dumps the decompilation's setup placed. Where both are
 there, the files' lines come first (their text has splat's symbols) and the
 retail bytes fill the rest, which also lets a translation run on into a
 neighbour that has C (a function the catalogue cut short, a shared tail).
+An executable that is a loader carrying the game WAD-compressed (Up Your
+Arsenal's SCES_524.56) is read as the game it unpacks (`packed_program`).
 
 | Where it comes from | |
 |---|---|

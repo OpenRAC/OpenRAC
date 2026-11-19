@@ -9,9 +9,10 @@ draws only its boxes: no text, no background, no 3D (below). Levels are not load
 
 ## Running it
 
-The functions with no C are translated from `boot_elf.elf`, the unpacked game the
-decompilation's setup puts in `games/rac3/decomp/baserom/` (not from the disc image yet: the
-disc's executable is the loader, whose payload retail.py does not unpack).
+The functions with no C are translated from the disc image: the player's (`--disc`, or
+`OPENRAC_RAC3_PAL_RETAIL_IMAGE`), else `games/rac3/decomp/baserom/SCES_524.56.iso`. The disc's
+executable is the loader; retail.py reads it as the game it carries packed (the same sections as
+the decompilation's `boot_elf.elf`, which the build does not need).
 
 ```sh
 cmake --preset release && cmake --build --preset release --target openrac-rac3-pal

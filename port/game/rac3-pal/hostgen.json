@@ -95,7 +95,7 @@
     "dirs": [],
     "gp": "0x001DC8B0",
     "retail": {
-      "exe": "baserom/boot_elf.elf"
+      "image": "baserom/SCES_524.56.iso"
     },
     "files": 8,
     "results_before_calls": true,
