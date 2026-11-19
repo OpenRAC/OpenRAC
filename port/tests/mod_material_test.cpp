@@ -89,6 +89,8 @@ int main() {
     auto list = mods::moby_materials({{kCoin, kBolt}, {kOther, kBolt}});
     CHECK(list.size() == 1 && material_of(list, kCoin).material == OPENRAC_MOBY_MATERIAL_PLATINUM);
     CHECK(material_of(list, kCoin).rgb == 0xFFFFFF);
+    // The game's own effects of the moby ask the same (openrac_moby_platinum); another has none.
+    CHECK(openrac_moby_platinum(kCoin) == 1 && openrac_moby_platinum(kOther) == 0);
 
     // Set again, it changes; two mods on one moby, the last set is drawn.
     CHECK(api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_TINT, 0x80FF80) == OPENRAC_HOOK_OK);
@@ -99,10 +101,13 @@ int main() {
     );
     list = mods::moby_materials({{kCoin, kBolt}});
     CHECK(list.size() == 1 && material_of(list, kCoin).rgb == 0xC0C0FF);
+    CHECK(openrac_moby_platinum(kCoin) == 1);
 
     // NONE takes one mod's off, the other's is drawn again; unloading a mod takes its off.
     CHECK(api.moby_material(second, kCoin, OPENRAC_MOBY_MATERIAL_NONE, 0) == OPENRAC_HOOK_OK);
     CHECK(material_of(mods::moby_materials({{kCoin, kBolt}}), kCoin).rgb == 0x80FF80);
+    // A tint is no platinum.
+    CHECK(openrac_moby_platinum(kCoin) == 0);
     mods::drop_figures(first);
     CHECK(mods::moby_materials({{kCoin, kBolt}}).empty());
 
