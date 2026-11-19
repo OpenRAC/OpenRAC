@@ -65,6 +65,17 @@
 //! V4's step and no challenge mode left it V3 800 frames later; V4 has no step), and the editor offers them on every
 //! save. The version of the weapon in Ratchet's hand is not changed (a save with its record moved crashed the port at the level start, in the held weapon's
 //! update: launcher/docs/RAC2_SAVE_FORMAT.md).
+//!
+//! # What Ratchet has in hand and on
+//!
+//! Chunk 32 holds an item per equipment slot: the hand, the boots, the head and the pack
+//! (`ApplyHeroEquipmentRequest` and `SpawnHeroItemMobies`, `func_L00_002AFBC0`). The editor
+//! changes the weapon in hand (an owned weapon that is held, not one used at once), the pack (the
+//! Heli-Pack, the game's default, or an owned Thruster-Pack) and the Charge Boots (progress +0x2C,
+//! which the boots' slot is set from on load). The game's own hand switch makes the weapon held
+//! before the last weapon (progress +0x0C) and the editor does the same. Whatever is in hand or on
+//! in the request can't be taken away, and the weapon in hand keeps its saved version: see the
+//! format document, "What Ratchet has in hand and on".
 
 use crate::rac2_flags::{self, Confidence, Place};
 use crate::saves::{self, SaveBackupInfo, RAC2_PLANETS};
@@ -328,7 +339,9 @@ mod id {
     pub const MAP_ORDER: i32 = 20;
     /// Each item's record u8[80]: the item's own number, or a later version's (0x00139568).
     pub const RECORD: i32 = 30;
-    /// What the hero has on, s32[7] (0x001A7398).
+    /// What the hero has in hand and on, s32[7] (0x001A7398, `g_itemEquipSlotTable`): one item id
+    /// per equipment slot ([`S_HAND`], [`S_BOOTS`], [`S_HEAD`], [`S_PACK`]), 0 for the game's
+    /// default; the last three words are unused.
     pub const WORN: i32 = 32;
     /// Weapon experience s32[56] by item (0x00139868).
     pub const XP: i32 = 40;
@@ -344,6 +357,14 @@ mod id {
 const P_BOLTS: usize = 0x00;
 const P_RARITANIUM: usize = 0x04;
 const P_MAX_HEALTH: usize = 0x08;
+/// The weapon held before the one in hand, s32 (0x001A7A04, `g_player_stats[4]`): what the
+/// switch button goes back to; written by `ApplyHeroEquipmentRequest` when the hand changes, and
+/// its model loaded with the hand's at the level start (`func_L00_002A3B88`).
+const P_LAST_WEAPON: usize = 0x0C;
+/// The boots, s16 (0x001A7A24, `g_player_stats + 0x24`): 0 for the plain ones, else the boots'
+/// item. The boots' slot is set from it while a level loads (`SpawnHeroItemMobies`, frames under
+/// 3), so it, not the slot, is what a save loads with.
+const P_BOOTS: usize = 0x2C;
 /// Times challenge mode was started, u8 (`func_002DE990` adds 1; `func_00288D58` tests it).
 const P_CHALLENGE: usize = 0x12;
 const P_NANOTECH_XP: usize = 0x14;
@@ -365,6 +386,24 @@ pub const SHIP_PAINTS: u8 = 18;
 pub const MAX_BOLTS: u32 = 9_999_999;
 /// The editor's limit for nanotech and weapon experience.
 pub const MAX_XP: u32 = 9_999_999;
+
+/// The equipment slots of chunk 32, as `ApplyHeroEquipmentRequest` (`func_L00_002AFBC0`) and
+/// `SpawnHeroItemMobies` use them; an item's own slot is its record's +0x0C.
+const S_HAND: usize = 0;
+const S_BOOTS: usize = 1;
+// Slot 2 is the head (item 47 by default, shown only under water); not edited.
+const S_PACK: usize = 3;
+/// The game's packs worn on the back: the Heli-Pack (the default, also worn before it is
+/// owned) and the Thruster-Pack. The Hydro-Pack and the Levitator are put on and taken off by
+/// the game itself where they are needed.
+pub const HELI_PACK: u32 = 2;
+pub const THRUSTER_PACK: u32 = 3;
+/// The only boots a player chooses; the plain ones are 0 (or 52, the item the game shows for 0).
+pub const CHARGE_BOOTS: u32 = 54;
+const PLAIN_BOOTS: u32 = 52;
+/// Weapons the hero never holds: choosing one uses it at once (`ApplyHeroEquipmentRequest`
+/// handles requests 9, 0x1F and 0x2D by firing and clearing them), so it is never in hand.
+const NEVER_HELD: &[usize] = &[9, 31, 45];
 
 const ORDER_OWNED: u8 = 0x40;
 const ORDER_END: u8 = 0xff;
@@ -636,6 +675,14 @@ pub struct Rac2SaveFields {
     pub boosts: Vec<bool>,
     /// The armour worn, 0 (none) to 4.
     pub armor: u8,
+    /// The item in Ratchet's hand (chunk 32, slot 0): a weapon's id, 0 for none (the game then
+    /// gives him the Lancer at the level start).
+    pub hand: u32,
+    /// The pack on his back (chunk 32, slot 3): [`HELI_PACK`] or [`THRUSTER_PACK`] (0 when the
+    /// game is to choose, another item while it has one on for the moment).
+    pub pack: u32,
+    /// Wearing the Charge Boots (progress +0x2C and chunk 32, slot 1).
+    pub charge_boots: bool,
     /// The ship's paint job, 0 to 17.
     pub ship_paint: u8,
     pub items: Vec<Rac2ItemState>,
@@ -683,8 +730,12 @@ pub struct Rac2ItemInfo {
     /// The item's versions, V1 first; empty for an item with one. The version in the save is
     /// the item's `version` in the fields.
     pub versions: Vec<Rac2VersionInfo>,
-    /// Worn by the hero (taking it away, or changing its version, is refused).
+    /// On the hero in a place the editor does not change (taking it away, or changing its
+    /// version, is refused). What is in hand, the pack and the boots are the fields' `hand`,
+    /// `pack` and `charge_boots`, and follow them.
     pub worn: bool,
+    /// A weapon Ratchet can hold: the editor's choices for the weapon in hand.
+    pub holdable: bool,
 }
 
 /// One version of a weapon, with what the game requires of it.
@@ -741,6 +792,9 @@ pub struct Rac2SaveView {
     pub challenge_mode: u32,
     /// The Advanced view's progress flags, in the order of `fields.flags`.
     pub flags: Vec<Rac2FlagInfo>,
+    /// Whether the boots can be changed: false while the save has boots on that the game put on
+    /// for the moment (the Grindboots or Gravity Boots).
+    pub boots_editable: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ts_rs::TS)]
@@ -781,9 +835,30 @@ impl SaveFile {
         i32_at(self.global.get(id::LEVEL), 0) < 0
     }
 
+    /// The item in equipment slot `slot` of chunk 32.
+    fn slot(&self, slot: usize) -> u32 {
+        i32_at(self.global.get(id::WORN), slot) as u32
+    }
+
+    /// The boots the save loads with (progress +0x2C).
+    fn boots(&self) -> u32 {
+        let p = self.global.get(id::PROGRESS);
+        i16::from_le_bytes([p[P_BOOTS], p[P_BOOTS + 1]]) as u16 as u32
+    }
+
+    /// Whether the boots are ones a player chooses: plain or the Charge Boots, in both places.
+    fn boots_editable(&self) -> bool {
+        let chosen = |b: u32| b == 0 || b == PLAIN_BOOTS || b == CHARGE_BOOTS;
+        chosen(self.boots()) && chosen(self.slot(S_BOOTS))
+    }
+
+    /// On the hero in a place the editor does not change: the head, the unused words, and boots
+    /// the game put on for the moment.
     fn worn(&self, item: usize) -> bool {
         let worn = self.global.get(id::WORN);
-        (0..worn.len() / 4).any(|i| i32_at(worn, i) == item as i32)
+        let fixed = (0..worn.len() / 4).filter(|&s| s != S_HAND && s != S_PACK && s != S_BOOTS);
+        let boots = (!self.boots_editable()).then(|| [self.boots(), self.slot(S_BOOTS)]);
+        fixed.map(|s| i32_at(worn, s) as u32).chain(boots.into_iter().flatten()).any(|i| i == item as u32)
     }
 
     pub fn fields(&self) -> Rac2SaveFields {
@@ -815,6 +890,9 @@ impl SaveFile {
             nanotech_xp: word(p, P_NANOTECH_XP),
             boosts: p[P_BOOSTS..P_BOOSTS + BOOSTS].iter().map(|&b| b != 0).collect(),
             armor: p[P_ARMOR],
+            hand: self.slot(S_HAND),
+            pack: self.slot(S_PACK),
+            charge_boots: self.boots() == CHARGE_BOOTS,
             ship_paint: ((word(g.get(id::SHIP), 0) >> 16) & 31) as u8,
             items,
             planets,
@@ -906,18 +984,33 @@ impl SaveFile {
     pub fn apply(&mut self, want: &Rac2SaveFields) -> Result<(), String> {
         let have = self.fields();
         validate(want)?;
+        self.check_gear(want, &have)?;
         for (d, (w, h)) in ITEMS.iter().zip(want.items.iter().zip(&have.items)) {
-            if !w.owned && h.owned && self.worn(d.id) {
-                return Err(format!("Ratchet has the {} in hand or on: change it in the game first", d.name));
+            if !w.owned && h.owned {
+                if want.hand == d.id as u32 {
+                    return Err(format!("Ratchet holds the {}: put another weapon in his hand first", d.name));
+                }
+                if want.pack == d.id as u32 {
+                    return Err(format!("Ratchet wears the {}: put on another pack first", d.name));
+                }
+                if want.charge_boots && d.id as u32 == CHARGE_BOOTS {
+                    return Err(format!("Ratchet wears the {}: take them off first", d.name));
+                }
+                if self.worn(d.id) {
+                    return Err(format!("Ratchet has the {} on: change it in the game first", d.name));
+                }
             }
             let versions = d.versions();
             let depth = w.version.map_or(0, |v| v as usize);
             let rule = versions.get(depth).copied();
             let name = version_name(d, depth);
             if w.version != h.version {
-                if self.worn(d.id) {
+                // A save with the held weapon's record moved crashed the port at the level start
+                // (the format document): the weapon in hand, the one the save had or the one
+                // asked for, keeps the version it has in the save.
+                if want.hand == d.id as u32 || self.worn(d.id) {
                     return Err(format!(
-                        "Ratchet has the {} in hand: switch to another weapon in the game and save, then change its version",
+                        "Ratchet holds the {}: put another weapon in his hand to change its version",
                         d.name
                     ));
                 }
@@ -964,6 +1057,25 @@ impl SaveFile {
         }
         if want.armor != have.armor {
             p[P_ARMOR] = want.armor;
+        }
+        if want.hand != have.hand {
+            // As the game's own switch (ApplyHeroEquipmentRequest): the weapon held before
+            // becomes the one the switch button goes back to, when the new one was that.
+            if word(p, P_LAST_WEAPON) == want.hand && have.hand != 0 {
+                set_word(p, P_LAST_WEAPON, have.hand);
+            }
+            set_i32(self.global.get_mut(id::WORN), S_HAND, want.hand as i32);
+        }
+        if want.charge_boots != have.charge_boots {
+            // As the pause menu's choice: the boots' item, or 0 for the plain ones, in the saved
+            // boots and in the slot.
+            let boots = if want.charge_boots { CHARGE_BOOTS } else { 0 };
+            let p = self.global.get_mut(id::PROGRESS);
+            p[P_BOOTS..P_BOOTS + 2].copy_from_slice(&(boots as i16).to_le_bytes());
+            set_i32(self.global.get_mut(id::WORN), S_BOOTS, boots as i32);
+        }
+        if want.pack != have.pack {
+            set_i32(self.global.get_mut(id::WORN), S_PACK, want.pack as i32);
         }
         if want.ship_paint != have.ship_paint {
             let ship = self.global.get_mut(id::SHIP);
@@ -1030,6 +1142,41 @@ impl SaveFile {
         Ok(())
     }
 
+    /// Checks the weapon in hand, the pack and the boots of `want` against what the game can
+    /// have on Ratchet: only a change is checked, so a save the game left in another state still
+    /// opens and saves.
+    fn check_gear(&self, want: &Rac2SaveFields, have: &Rac2SaveFields) -> Result<(), String> {
+        let owned = |id: u32| want.items.iter().any(|i| i.id as u32 == id && i.owned);
+        let name = |id: u32| ITEMS.iter().find(|d| d.id as u32 == id).map_or("item", |d| d.name);
+        if want.hand != have.hand {
+            let d = ITEMS.iter().find(|d| d.id as u32 == want.hand);
+            if !d.is_some_and(holdable) {
+                return Err("Ratchet can hold only a weapon".into());
+            }
+            if !owned(want.hand) {
+                return Err(format!("the {} is not owned: give it to put it in Ratchet's hand", name(want.hand)));
+            }
+        }
+        if want.pack != have.pack {
+            if want.pack != HELI_PACK && want.pack != THRUSTER_PACK {
+                return Err("Ratchet's pack is the Heli-Pack or the Thruster-Pack".into());
+            }
+            // The Heli-Pack is the game's default, on the hero's back before it is given.
+            if want.pack == THRUSTER_PACK && !owned(THRUSTER_PACK) {
+                return Err("the Thruster-Pack is not owned: give it to put it on".into());
+            }
+        }
+        if want.charge_boots != have.charge_boots {
+            if !self.boots_editable() {
+                return Err("Ratchet has boots on that the game put on for the moment: change them in the game".into());
+            }
+            if want.charge_boots && !owned(CHARGE_BOOTS) {
+                return Err("the Charge Boots are not owned: give them to put them on".into());
+            }
+        }
+        Ok(())
+    }
+
     /// The parts of the game's item grant that are saved: owned, marked new, and a weapon at the
     /// end of the weapon list (the grant in a level, as the port's `give_item` mirrors it).
     fn give(&mut self, d: &ItemDef) {
@@ -1086,6 +1233,11 @@ impl SaveFile {
             set_i32(order, i, list.get(i).copied().unwrap_or(0));
         }
     }
+}
+
+/// Whether Ratchet can hold `d`: a weapon he does not use up at once ([`NEVER_HELD`]).
+fn holdable(d: &ItemDef) -> bool {
+    d.kind == Rac2ItemKind::Weapon && !NEVER_HELD.contains(&d.id)
 }
 
 /// Checks a request against the editor's lists and limits before anything is changed.
@@ -1201,6 +1353,7 @@ pub fn view(serial: &str, slot: usize, bytes: &[u8], file: &SaveFile) -> Rac2Sav
                     })
                     .collect(),
                 worn: file.worn(d.id),
+                holdable: holdable(d),
             })
             .collect(),
         planets: listed_levels().map(|(id, name)| Rac2PlanetInfo { id, name: name.to_string() }).collect(),
@@ -1216,6 +1369,7 @@ pub fn view(serial: &str, slot: usize, bytes: &[u8], file: &SaveFile) -> Rac2Sav
                 confidence: f.confidence,
             })
             .collect(),
+        boots_editable: file.boots_editable(),
     }
 }
 
@@ -1457,7 +1611,140 @@ mod tests {
         assert_eq!(worn, 30, "the Lancer is in hand");
         let mut want = f.fields();
         item_mut(&mut want, 30).owned = false;
-        assert!(f.apply(&want).unwrap_err().contains("on"));
+        assert!(f.apply(&want).unwrap_err().contains("holds the Lancer"));
+    }
+
+    #[test]
+    fn the_weapon_in_hand_can_be_changed_to_an_owned_weapon() {
+        // Oozla: the Lancer in hand, the Gravity Bomb the last weapon; the Seeker Gun owned.
+        let mut f = oozla();
+        let have = f.fields();
+        assert_eq!((have.hand, have.pack, have.charge_boots), (30, HELI_PACK, false));
+        assert_eq!(word(f.global.get(id::PROGRESS), P_LAST_WEAPON), 42);
+        let mut want = have.clone();
+        want.hand = 24;
+        f.apply(&want).unwrap();
+        let back = SaveFile::parse(&f.to_bytes()).unwrap();
+        assert_eq!(back.fields(), want, "the save reads back with the Seeker Gun in hand");
+        assert_eq!(i32_at(back.global.get(id::WORN), S_HAND), 24);
+        assert_eq!(word(back.global.get(id::PROGRESS), P_LAST_WEAPON), 42, "the last weapon stays");
+        let changed: Vec<i32> =
+            back.global.chunks.iter().zip(&oozla().global.chunks).filter(|(a, b)| a != b).map(|(a, _)| a.id).collect();
+        assert_eq!(changed, [id::WORN], "only the hand slot");
+        // Holding the last weapon makes the one held before the last, as the game's switch does.
+        let mut f = back;
+        let mut want = f.fields();
+        want.hand = 42;
+        f.apply(&want).unwrap();
+        assert_eq!(word(f.global.get(id::PROGRESS), P_LAST_WEAPON), 24);
+        let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
+        let info = |id: usize| v.items.iter().find(|i| i.id == id).unwrap();
+        assert!(!info(30).worn && !info(42).worn, "the hand follows the field, not `worn`");
+        // The Lancer is free now: its version changes and it can be taken away.
+        let mut want = f.fields();
+        item_mut(&mut want, 30).version = Some(1);
+        item_mut(&mut want, 30).xp = Some(280 * 32);
+        item_mut(&mut want, 30).ammo = Some(300);
+        f.apply(&want).unwrap();
+        assert_eq!(f.global.get(id::RECORD)[30], 60);
+        let mut want = f.fields();
+        item_mut(&mut want, 30).owned = false;
+        f.apply(&want).unwrap();
+    }
+
+    #[test]
+    fn the_weapon_in_hand_is_checked() {
+        let f = oozla();
+        let try_ = |change: &dyn Fn(&mut Rac2SaveFields)| {
+            let mut w = f.fields();
+            change(&mut w);
+            f.clone().apply(&w)
+        };
+        assert!(try_(&|w| w.hand = 44).unwrap_err().contains("not owned"), "the RYNO II is not owned");
+        assert!(
+            try_(&|w| {
+                item_mut(w, 31).owned = true;
+                w.hand = 31;
+            })
+            .unwrap_err()
+            .contains("only a weapon"),
+            "the Synthenoid is used at once, never held"
+        );
+        assert!(try_(&|w| w.hand = HELI_PACK).is_err(), "a gadget");
+        assert!(try_(&|w| w.hand = 0).is_err(), "nothing: the game would give the Lancer");
+        // Giving a weapon and holding it in one go.
+        try_(&|w| {
+            item_mut(w, 44).owned = true;
+            item_mut(w, 44).ammo = Some(100);
+            w.hand = 44;
+        })
+        .unwrap();
+        // The new weapon in hand is held: not taken away, its version kept.
+        assert!(try_(&|w| {
+            w.hand = 24;
+            item_mut(w, 24).owned = false;
+        })
+        .unwrap_err()
+        .contains("the Seeker Gun is not owned"));
+        assert!(try_(&|w| {
+            w.hand = 24;
+            item_mut(w, 24).version = Some(1);
+        })
+        .unwrap_err()
+        .contains("holds the Seeker Gun"));
+    }
+
+    #[test]
+    fn the_pack_and_the_boots_follow_the_games_rules() {
+        let f = oozla();
+        let try_ = |change: &dyn Fn(&mut Rac2SaveFields)| {
+            let mut w = f.fields();
+            change(&mut w);
+            let mut out = f.clone();
+            out.apply(&w).map(|()| out)
+        };
+        // The Heli-Pack is on before it is owned (the game's own save); the Thruster-Pack needs owning.
+        assert!(!item(&f.fields(), 2).owned);
+        assert!(try_(&|w| w.pack = THRUSTER_PACK).unwrap_err().contains("not owned"));
+        assert!(try_(&|w| w.pack = 4).is_err(), "the Hydro-Pack is the game's to put on");
+        assert!(try_(&|w| w.pack = 0).is_err());
+        let g = try_(&|w| {
+            item_mut(w, 3).owned = true;
+            w.pack = THRUSTER_PACK;
+        })
+        .unwrap();
+        assert_eq!(i32_at(g.global.get(id::WORN), S_PACK), 3);
+        let mut w = g.fields();
+        item_mut(&mut w, 3).owned = false;
+        assert!(g.clone().apply(&w).unwrap_err().contains("wears the Thruster-Pack"));
+        w.pack = HELI_PACK;
+        g.clone().apply(&w).unwrap();
+
+        // The Charge Boots: owned to put on; in the saved boots and in the slot.
+        assert!(try_(&|w| w.charge_boots = true).unwrap_err().contains("not owned"));
+        let g = try_(&|w| {
+            item_mut(w, 54).owned = true;
+            w.charge_boots = true;
+        })
+        .unwrap();
+        assert_eq!(g.boots(), CHARGE_BOOTS);
+        assert_eq!(g.slot(S_BOOTS), CHARGE_BOOTS);
+        let mut w = g.fields();
+        item_mut(&mut w, 54).owned = false;
+        assert!(g.clone().apply(&w).unwrap_err().contains("wears the Charge Boots"));
+        w.charge_boots = false;
+        let mut h = g.clone();
+        h.apply(&w).unwrap();
+        assert_eq!((h.boots(), h.slot(S_BOOTS)), (0, 0), "the plain boots, as the pause menu leaves them");
+
+        // Boots the game put on for the moment (the Grindboots) are left alone.
+        let mut grind = f.clone();
+        grind.global.get_mut(id::PROGRESS)[P_BOOTS] = 20;
+        assert!(!view("SCUS_972.68", 0, &grind.to_bytes(), &grind).boots_editable);
+        let mut w = grind.fields();
+        item_mut(&mut w, 54).owned = true;
+        w.charge_boots = true;
+        assert!(grind.clone().apply(&w).unwrap_err().contains("for the moment"));
     }
 
     #[test]
@@ -1467,7 +1754,7 @@ mod tests {
         item_mut(&mut want, 30).xp = Some(280 * 32);
         assert!(f.clone().apply(&want).unwrap_err().contains("8960"), "the Lancer's step");
         item_mut(&mut want, 30).version = Some(1);
-        assert!(f.clone().apply(&want).unwrap_err().contains("in hand"), "the Lancer is held");
+        assert!(f.clone().apply(&want).unwrap_err().contains("holds"), "the Lancer is held");
         item_mut(&mut want, 30).version = Some(0);
         item_mut(&mut want, 30).xp = Some(280 * 32 - 1);
         f.apply(&want).unwrap();

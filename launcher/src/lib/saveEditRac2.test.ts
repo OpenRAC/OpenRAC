@@ -4,17 +4,22 @@ import type { Rac2SaveFields, Rac2SaveView } from "./api";
 import type { Rac2VersionInfo } from "./generated/Rac2VersionInfo";
 import {
   changed,
+  CHARGE_BOOTS,
   editList,
   fieldErrors,
   fillAllAmmo,
   flagGroups,
   giveAll,
+  handChoices,
+  heldOrWorn,
+  HELI_PACK,
   ownedCount,
   platinumCount,
   setAllPlatinum,
   setOwned,
   setVersion,
   takeAll,
+  THRUSTER_PACK,
   versionHow,
   versionLabel,
   versionName,
@@ -71,6 +76,9 @@ function view(): Rac2SaveView {
       nanotechXp: 0,
       boosts: Array<boolean>(10).fill(false),
       armor: 0,
+      hand: 30,
+      pack: 2,
+      chargeBoots: false,
       shipPaint: 0,
       items: [
         { id: 2, owned: false, ammo: null, xp: null, version: null },
@@ -93,6 +101,7 @@ function view(): Rac2SaveView {
         maxXp: null,
         versions: [],
         worn: false,
+        holdable: false,
       },
       {
         id: 30,
@@ -103,7 +112,8 @@ function view(): Rac2SaveView {
         upgradeXp: 8960,
         maxXp: 8959,
         versions: four("Lancer", "Heavy Lancer", 8960, 256_000, [200, 300, 400, 500]),
-        worn: true,
+        worn: false,
+        holdable: true,
       },
       {
         id: 24,
@@ -115,6 +125,7 @@ function view(): Rac2SaveView {
         maxXp: 33599,
         versions: four("Seeker Gun", "HK-22", 33_600, 339_200, [25, 20, 40, 50]),
         worn: false,
+        holdable: true,
       },
       {
         id: 12,
@@ -147,12 +158,14 @@ function view(): Rac2SaveView {
           },
         ],
         worn: false,
+        holdable: true,
       },
     ],
     planets: [{ id: 1, name: "Oozla" }],
     maxBolts: 9_999_999,
     maxXp: 9_999_999,
     challengeMode: 0,
+    bootsEditable: true,
     flags: [
       {
         id: "maktar-arena-entered",
@@ -348,6 +361,7 @@ describe("the Going Commando save editor's page checks", () => {
       maxXp: MAX,
       versions: [],
       worn: false,
+      holdable: true,
     });
     v.fields.items.push({ id: 44, owned: true, ammo: 100, xp: 0, version: null });
     const f = structuredClone(v.fields);
@@ -362,5 +376,49 @@ describe("the Going Commando save editor's page checks", () => {
     // Still in the range: no more than the editor's limit.
     at(f, 44).xp = MAX + 1;
     expect(fieldErrors(v, f)["xp-44"]).toBe("From 0 to 9,999,999");
+  });
+});
+
+describe("the weapon in hand, the pack and the boots", () => {
+  it("offers the owned weapons Ratchet holds, and follows the choice", () => {
+    const v = view();
+    const f = structuredClone(v.fields);
+
+    expect(handChoices(v, f).map((c) => c.id)).toEqual([30, 12]);
+    setOwned(v, f, 24, true);
+    expect(handChoices(v, f).map((c) => c.id)).toEqual([30, 24, 12]);
+    f.hand = 24;
+    // The Seeker Gun is held now: it stays, and its version waits; the Lancer is free.
+    expect(heldOrWorn(v, f, 24)).toBe(true);
+    expect(heldOrWorn(v, f, 30)).toBe(false);
+    setOwned(v, f, 24, false);
+    expect(at(f, 24).owned).toBe(true);
+    at(f, 24).version = 1;
+    at(f, 24).xp = 33_600;
+    expect(fieldErrors(v, f)["version-24"]).toContain("hand");
+    at(f, 24).version = 0;
+    at(f, 24).xp = 0;
+    setVersion(v, f, 30, 1);
+    expect(fieldErrors(v, f)).toEqual({});
+    setOwned(v, f, 30, false);
+    expect(at(f, 30).owned).toBe(false);
+    expect(editList(v, f).map((e) => e.text)).toContain("Weapon in hand Lancer → Seeker Gun");
+  });
+
+  it("keeps the pack and the boots Ratchet wears", () => {
+    const v = view();
+    const f = structuredClone(v.fields);
+
+    setOwned(v, f, HELI_PACK, true);
+    expect(heldOrWorn(v, f, HELI_PACK)).toBe(true);
+    f.pack = THRUSTER_PACK;
+    expect(heldOrWorn(v, f, HELI_PACK)).toBe(false);
+    setOwned(v, f, HELI_PACK, false);
+    expect(at(f, HELI_PACK).owned).toBe(false);
+    f.chargeBoots = true;
+    expect(heldOrWorn(v, f, CHARGE_BOOTS)).toBe(true);
+    expect(editList(v, f).map((e) => e.text)).toEqual(
+      expect.arrayContaining(["Pack Heli-Pack → Item 3", "Boots: Charge Boots on"]),
+    );
   });
 });

@@ -20,6 +20,20 @@ boosts: Array<boolean>,
  */
 armor: number, 
 /**
+ * The item in Ratchet's hand (chunk 32, slot 0): a weapon's id, 0 for none (the game then
+ * gives him the Lancer at the level start).
+ */
+hand: number, 
+/**
+ * The pack on his back (chunk 32, slot 3): [`HELI_PACK`] or [`THRUSTER_PACK`] (0 when the
+ * game is to choose, another item while it has one on for the moment).
+ */
+pack: number, 
+/**
+ * Wearing the Charge Boots (progress +0x2C and chunk 32, slot 1).
+ */
+chargeBoots: boolean, 
+/**
  * The ship's paint job, 0 to 17.
  */
 shipPaint: number, items: Array<Rac2ItemState>, planets: Array<Rac2PlanetState>, 
