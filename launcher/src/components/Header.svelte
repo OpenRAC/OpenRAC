@@ -272,9 +272,8 @@
 
   /* A desktop has no bar of its own: the header lies over the page (App.svelte), on the page's own
      ground, the logo's first letter in the game's colour as Android's rail has it, its buttons the
-     theme's. Once the page scrolls under it, a haze fades in behind it: blurred and dark enough that
-     the page's text never shows through the buttons, fading out below, so neither an edge nor a
-     shadow shows. */
+     theme's. Once the page scrolls under it, the page's own ground fades in behind it, fully opaque,
+     so nothing of the page shows through the buttons. */
   :global(html:not([data-platform="android"])) .site-header {
     position: absolute;
     top: 0;
@@ -288,14 +287,11 @@
   :global(html:not([data-platform="android"])) .site-header::before {
     content: "";
     position: absolute;
-    inset: 0 0 -20px;
+    inset: 0;
     z-index: -1;
     pointer-events: none;
-    background: color-mix(in srgb, var(--ink) 85%, transparent);
-    backdrop-filter: blur(18px);
-    mask-image: linear-gradient(black 65%, transparent);
-    -webkit-mask-image: linear-gradient(black 65%, transparent);
-    /* Hidden, not only clear, at a page's top: WebKit can still draw a clear backdrop's filter. */
+    background: var(--ink);
+    /* Hidden, not only clear, at a page's top. */
     visibility: hidden;
     opacity: 0;
     transition:
