@@ -30,6 +30,7 @@ uint32_t openrac_lib_wad_decompress(const uint8_t* src, uint8_t* dst, uint32_t c
 int func_00124B90(void);              /* _InitSys */
 void func_0011F0A0(int a0);           /* FlushCache */
 void func_0013B330(int a0, gaddr a1); /* main */
+void rac3_install_tools(void);        /* tools.c */
 
 /* Where the loader's payload is: file offset 0x7080 of an executable whose one segment is file
  * offset 0x1000 at 0x00800000. */
@@ -83,6 +84,7 @@ void func_00124A80(void) {}
 
 int func_0013ADA8(void) {
     uint32_t argc;
+    rac3_install_tools();
     unpack_payload();
     openrac_game_draw(0);
     func_00124B90();  /* _InitSys */
