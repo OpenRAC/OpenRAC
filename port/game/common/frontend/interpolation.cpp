@@ -223,8 +223,7 @@ void swapped(std::chrono::steady_clock::time_point started) {
     {
         static steady_clock::time_point last_background;
         if (!g->window->focused() && pacing.period.count() > 0.0) {
-            const auto due =
-                last_background + duration_cast<steady_clock::duration>(pacing.period);
+            const auto due = last_background + duration_cast<steady_clock::duration>(pacing.period);
             if (due > steady_clock::now()) {
                 std::this_thread::sleep_until(due);
             }
