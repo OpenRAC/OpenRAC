@@ -227,6 +227,12 @@ void prop_placed(int id, const std::array<float, 16>& matrix);
 std::vector<std::filesystem::path> prop_meshes();
 unsigned prop_meshes_generation();
 
+// Render-only appearances, kept separately from game memory and scoped to one level load.
+std::vector<int> visual_classes();
+unsigned visual_classes_generation();
+std::uint32_t sprite_tint();
+std::vector<openrac_moby_visual> moby_visuals();
+
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 
 // A patch of heat haze to draw this frame (openrac_haze), in the game's world.

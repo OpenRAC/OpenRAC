@@ -296,4 +296,13 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L17_0x00161240u 0x00161240u
 #define RAC1_ADDR_L18_0x001DFED0u 0x001E02D0u
 
+/* Reward presentation: release-checked names and regional decomp counterparts. */
+#define RAC1_ADDR_0x0014BFC0u 0x0014BFC0u
+#define RAC1_ADDR_L00_0x0015F4FCu 0x0015F4FCu
+#define RAC1_ADDR_L00_0x001611B0u 0x001611B0u
+#define RAC1_ADDR_L00_0x001CA320u 0x001CA720u
+#define RAC1_ADDR_L00_0x001CA7C0u 0x001CABC0u
+#define RAC1_ADDR_L01_0x0015F504u 0x0015F504u
+#define RAC1_ADDR_L01_0x00309078u 0x00309C28u
+
 #endif /* OPENRAC_RAC1_VERSION_H */

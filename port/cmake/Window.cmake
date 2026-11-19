@@ -968,6 +968,7 @@ if(OPENRAC_METAL)
 endif()
 
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
+openrac_add_test(preview_animation LIBS openrac_scene)
 add_executable(viewer_test tests/viewer_test.cpp)
 if(OPENRAC_VULKAN)
   target_compile_definitions(viewer_test PRIVATE OPENRAC_VULKAN=1)

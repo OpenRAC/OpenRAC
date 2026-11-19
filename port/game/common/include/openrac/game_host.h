@@ -63,6 +63,10 @@ void openrac_game_register_functions(void);
 /* The player's disc image, as the extractor kept it (iso_data/<game>/disc.iso).
  * The game reads it by sector. */
 extern const char* openrac_game_disc_image;
+/* Portable presentation's own mechanical/chirp cues, mixed with game audio. */
+void openrac_game_infobot_sound(int opening);
+void openrac_game_special_sound(int item);
+int openrac_game_special_available(int item);
 
 /* A folder of edited levels (--mods), or NULL: its patches.tsv lists the disc
  * sectors that are read from files beside it instead (editor/pack.py writes
@@ -233,13 +237,13 @@ typedef struct openrac_front_end {
     /* The menus' sound for a widget (rac1: the confirm sound, 0x11, from the widget's moby). */
     void (*menu_sound)(int sound, gaddr moby);
     /* The front end's page menu, data in the boot program (rac1: debug_menu.cpp describes it). */
-    gaddr page_menu;      /* +4 the page shown */
-    gaddr options_list;   /* the Options list widget: +0x34 its items, 12 bytes each */
-    gaddr options_items;  /* the items the game gives it, ended by one without a label */
-    gaddr video_item;     /* the item that opens the Video page, added where the game's lack it */
+    gaddr page_menu;     /* +4 the page shown */
+    gaddr options_list;  /* the Options list widget: +0x34 its items, 12 bytes each */
+    gaddr options_items; /* the items the game gives it, ended by one without a label */
+    gaddr video_item;    /* the item that opens the Video page, added where the game's lack it */
     gaddr language_page, language_title, language_list; /* what the Planets page is copied from */
-    int16_t planets_text;                                /* "Planets" */
-    const int16_t* planet_texts;                         /* each level's planet name, by level */
+    int16_t planets_text;                               /* "Planets" */
+    const int16_t* planet_texts;                        /* each level's planet name, by level */
     gaddr video_page, video_list, video_rows; /* the Video options page, its list, its own rows */
     gaddr sound_hint;                         /* the Sound options page's hint widget */
     int32_t sound_list_seq, sound_hint_seq;   /* that page's frame animations */
@@ -498,6 +502,14 @@ typedef struct openrac_game_shot2 {
     float aux[4];
 } openrac_game_shot2;
 
+typedef struct openrac_infobot_presentation {
+    float position[3];
+    float openness;
+    float scale;
+    int special_item;
+    float time, yaw;
+} openrac_infobot_presentation;
+
 typedef struct openrac_game_play {
     /* The levels, by the game's own numbers, and their names. */
     int levels;
@@ -724,6 +736,10 @@ typedef struct openrac_game_play {
      * hero's class), as openrac_held_piece.joint names them (openrac_api.prop_attach,
      * OPENRAC_ATTACH_HELD); -1 for one the game does not have. NULL for a game without it. */
     int (*attach_point_joint)(uint32_t moby, int point);
+    int (*pickup_animation)(int kind, int item);
+    /* A portable pickup presentation keeps the level background visible. */
+    int (*pickup_background)(void);
+    int (*infobot_presentation)(openrac_infobot_presentation* out);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)

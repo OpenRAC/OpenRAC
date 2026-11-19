@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <optional>
 #include <span>
@@ -46,6 +47,7 @@
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
 #include "scene/object_picker.h"
+#include "scene/special_acquisition.h"
 #include "settings.h"
 
 union SDL_Event;
@@ -64,9 +66,9 @@ namespace openrac::frontend {
 // One tick's scene, as frame() read it from the game, for the frames drawn until the next tick
 // (between), and the last tick's camera and moby matrices to move them from.
 struct Kept {
-    int level = -3;  // the level the mobys belong to: another one starts over
+    int level = -3;                // the level the mobys belong to: another one starts over
     bool gameplay_camera = false;  // The level was in normal play when this camera was captured.
-    bool cutscene = false;  // Captured game state, never queried by the render worker.
+    bool cutscene = false;         // Captured game state, never queried by the render worker.
     host::GameState state, prev_state;
     bool has_state = false, has_prev_state = false;
     std::vector<scene::Instance> live;
@@ -119,6 +121,7 @@ struct Kept {
         scene::Instance instance;
         host::GameState camera;
         bool on_screen = false;
+        int preview_item_class = -1;
     };
 
     std::vector<TargetMoby> target_mobys;
@@ -181,9 +184,9 @@ struct FramePresentation {
     std::vector<renderer::Mat4> picker_palette;
     int picker_level = -1;
     unsigned picker_layers = 0;
-    bool freecam = false;     // Set by the renderer when it applies freecam to this frame.
-    int camera_level = -1;    // Level that supplied the rendered camera.
-    std::uint64_t tick = 0;   // Submitted window-frame number, including interpolation metadata.
+    bool freecam = false;    // Set by the renderer when it applies freecam to this frame.
+    int camera_level = -1;   // Level that supplied the rendered camera.
+    std::uint64_t tick = 0;  // Submitted window-frame number, including interpolation metadata.
 
     int window_width = 0;   // Drawable window extent, read on the window thread.
     int window_height = 0;  // Drawable window height.
@@ -195,9 +198,9 @@ struct FramePresentation {
     // submission: radians about the world's up axis, through the pivot.
     float latch_yaw = 0;
     renderer::Vec3 latch_pivot{};
-    Box box{};              // Picture rectangle in the window.
+    Box box{};  // Picture rectangle in the window.
 
-    bool first = false;         // First displayed frame for this game tick.
+    bool first = false;  // First displayed frame for this game tick.
     bool enhanced_graphics = false;
     bool dump_draws = false;    // Draw diagnostics captured before graphics ownership transfers.
     bool measure_cost = false;  // Enables the deliberately blocking frame-cost diagnostic.
@@ -255,6 +258,9 @@ struct State {
     // The mods' prop meshes read with the level (interface 1.12, mods::prop_meshes): each one's
     // model in `level`.
     std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
+    std::map<int, scene::SpecialClip> special_pickup_clips;
+    int infobot_pickup_model = -1;
+    std::vector<std::vector<renderer::Mat4>> infobot_pickup_poses;
     scene::ObjectPicker picker;
     scene::LevelScene scene;
     DebugCamera debug_camera;  // Only the scene/render owner updates inspection poses.
@@ -307,7 +313,7 @@ struct State {
         std::array<std::uint8_t, 0x40> record;
         std::uint32_t pixels, clut;
         int log2_side;
-        std::uint32_t id;  // its slot and type (particle), 0 when not known
+        std::uint32_t id;              // its slot and type (particle), 0 when not known
         std::uint32_t attachment = 0;  // Position anchor, including particles with no slot history.
     };
 
@@ -394,7 +400,7 @@ struct State {
     std::shared_ptr<FramePresentation>
         pending_frame;  // Window-thread owned; worker writes its result.
     std::vector<renderer::ImageUpload>
-        pending_images;          // Game-thread uploads held until the worker finishes.
+        pending_images;  // Game-thread uploads held until the worker finishes.
     std::vector<renderer::ImageUpload>
         images_after_list;       // Sent again a capture later (GameProfile::images_outlast_list).
     bool render_failed = false;  // A caught render error terminates the frontend cleanly.
@@ -418,12 +424,12 @@ struct Pacing {
     // The display's refresh rate is to be read again: at start, and whenever the window says its
     // display or that display's mode changed (window_event), not by asking every so many frames.
     bool interval_stale = true;
-    double cost = 0.004;                      // seconds
+    double cost = 0.004;       // seconds
     double cost_spread = 0.0;  // seconds: how much the cost moves from frame to frame, smoothed
     std::chrono::duration<double> late{0.0};  // how long after its time the tick came (set_tick)
     // The game's work for a tick (set_tick), the longest of late, ebbing a tenth a tick: seconds.
     double tick_work = 0.0;
-    float last_alpha = -1.0f;                 // how far between ticks the last frame was drawn
+    float last_alpha = -1.0f;  // how far between ticks the last frame was drawn
     // When the frame cap lets the next frame start, or (CapEdge::Present, cap_edge) when it is to
     // be shown.
     std::chrono::steady_clock::time_point due{};

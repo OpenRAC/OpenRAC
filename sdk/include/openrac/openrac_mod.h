@@ -74,10 +74,11 @@ extern "C" {
  * 1.19 switches and choices in a mod's developer menu, which the menu turns
  * over at once, the game paused or not (developer_menu_switch), 1.20
  * explicit native Vulkan access through the manifest's "vulkan_queue" field,
- * and 1.21 a hook point called as the game calls it, the mods' replacements
- * included (hook_entry).
+ * 1.21 a hook point called as the game calls it, the mods' replacements
+ * included (hook_entry), and 1.22 render-only reward models, guest text,
+ * sprite tint and pickup presentations.
  */
-#define OPENRAC_MOD_API_MINOR 21
+#define OPENRAC_MOD_API_MINOR 22
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1318,6 +1319,18 @@ typedef struct openrac_pack_entry {
 /* What the port offers a mod. Filled by the port; valid for the life of the program. Every function
  * is called on the game's thread. Members from "1.2" on are at the end: a mod built for 1.1 never
  * sees them, and one built for 1.2 loads on a 1.2 port or newer. */
+/* A render-only replacement: the live moby's address and a class from the extracted game (-1 hides it).
+ * height 0 preserves the original model's displayed height; positive values set world units.
+ * Neither the moby's class, animation, collision nor update state is modified. Since 1.22. */
+typedef struct openrac_moby_visual {
+    openrac_gaddr moby;
+    int32_t oclass;
+    float height;
+} openrac_moby_visual;
+
+/* Maximum replacements a mod submits for one frame. Since 1.22. */
+#define OPENRAC_MOBY_VISUALS_MAX 512
+
 typedef struct openrac_api {
     /* sizeof(openrac_api) as the port was built: a newer port's is larger. Since 1.0. */
     uint32_t size;
@@ -2253,6 +2266,28 @@ typedef struct openrac_api {
      * lacks, another signature, or no function of it in this program. At any
      * time. */
     void *(*hook_entry)(const char *name, const char *signature);
+
+    /* Replaces this mod's render-only moby appearances for this level load. count 0 clears them.
+     * The renderer imports requested classes from this disc's extracted levels, including classes
+     * not resident in the current level. Missing assets leave the original visible. Replacement
+     * meshes draw in bind pose, including menu/render-to-texture cameras. Requests expire on
+     * level changes or mod unload. Returns OPENRAC_HOOK_OK, or UNKNOWN for invalid input. Since 1.22. */
+    int (*moby_visuals)(openrac_mod* mod, const openrac_moby_visual* visuals, int count);
+    /* A persistent, deduplicated game-memory copy of UTF-8 text, for a text hook's return value.
+     * At most 1,023 bytes per string and 64 KiB of unique text per mod. Returns 0 at the limit.
+     * Allocations are included in guest snapshots; callers need not hold native storage. Since 1.22. */
+    openrac_gaddr (*guest_text)(openrac_mod* mod, const char* text);
+    /* Temporarily overrides native UI sprite RGB (PS2 0..128 per channel). UINT32_MAX disables it.
+     * Returns the previous value; restore it before returning from the enclosing draw hook.
+     * Alpha is preserved. Since 1.22. */
+    uint32_t (*sprite_tint)(openrac_mod* mod, uint32_t rgb);
+    /* Local pickup presentation: 1 Gold Bolt, 2 weapon demo (item is its base ID),
+     * 3 Infobot capture/video/close (item is the destination planet ID).
+     * 4 special-item receiving motion (item is its native moby class: 37, 407,
+     * 645, 1002, 1428 or 1433). Background music resumes from its paused position.
+     * -1 polls an active sequence. Returns 1 active,
+     * 0 unsupported/finished, -1 busy (retry). Does not grant items. Since 1.22. */
+    int (*pickup_animation)(openrac_mod* mod, int kind, int item);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

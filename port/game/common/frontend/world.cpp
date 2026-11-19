@@ -21,11 +21,21 @@
 #include <format>
 #include <future>
 #include <memory>
+#include <set>
 #include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "assets/disc/disc.h"
+#include "assets/disc/level.h"
+#include "assets/disc/scene.h"
+#include "assets/disc/wad.h"
+#include "assets/geometry/moby.h"
+#include "assets/geometry/moby_animation.h"
+#include "assets/sound/adpcm.h"
+#include "assets/sound/vag.h"
+#include "audio/ui_sounds.h"
 #include "common/breadcrumbs.h"
 #include "common/c_boundary.h"
 #include "common/env.h"
@@ -59,8 +69,10 @@
 #include "renderer/textures/texture.h"
 #include "renderer/textures/texture_pack.h"
 #include "renderer/textures/texture_pool.h"
+#include "scene/gold_case_preview.h"
 #include "scene/level.h"
 #include "scene/level_renderer.h"
+#include "scene/pickup_preview.h"
 #include "settings.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
@@ -69,6 +81,104 @@
 namespace openrac::frontend {
 
 namespace {
+
+#include "special_acquisition.inc"
+
+bool infobot_screen_motion(scene::Model& model) {
+    try {
+        namespace disc = assets::disc;
+        namespace anim = assets::rac1;
+        if (!openrac_game_disc_image || model.bones.empty()) {
+            return false;
+        }
+        const auto image = disc::Disc::open(openrac_game_disc_image, disc::rac1_layout());
+        if (const auto bytes = image.scene_speech(3, 10, 0)) {
+            const auto vag = assets::parse_vag(assets::ByteView(*bytes));
+            const auto pcm = assets::decode_adpcm(vag.body);
+            audio::ui_sounds::set_infobot_audio(pcm, vag.header.sample_rate);
+            log::info(
+                "Portable Infobot: Eudora mechanical audio, {:.2f} seconds",
+                double(pcm.size()) / vag.header.sample_rate
+            );
+        }
+        const bool pal = g->game.ends_with("-pal");
+        const auto bytes = image.scene_region(3, 10, pal);
+        if (!bytes) {
+            return false;
+        }
+        const auto level =
+            std::find_if(image.levels().begin(), image.levels().end(), [](const auto& entry) {
+                return entry.header.id == 3;
+            });
+        if (level == image.levels().end()) {
+            return false;
+        }
+        const auto scene = disc::Scene::load(
+            level->header,
+            assets::ByteView(*bytes),
+            10,
+            pal ? disc::SceneRegion::Pal : disc::SceneRegion::Ntsc
+        );
+        const auto& chunk = scene.chunks.front();
+        const auto actor =
+            std::find_if(chunk.actors.begin(), chunk.actors.end(), [](const auto& entry) {
+                return entry.klass == 750;
+            });
+        if (actor == chunk.actors.end()) {
+            return false;
+        }
+        auto data = chunk.sequence(*actor);
+        std::vector<std::uint8_t> sequence(data.data(), data.data() + data.size());
+        sequence[0x12] = 0;  // scene streams have no class sound-trigger table
+        anim::MobyAnimClass rig;
+        rig.joint_count = model.bones.size();
+        for (const auto& bone : model.bones) {
+            const auto inverse = renderer::inverse_affine(bone.bind).value_or(renderer::identity());
+            anim::JointMatrix bind{};
+            for (int col = 0; col < 4; ++col) {
+                for (int row = 0; row < 4; ++row) {
+                    bind[col][row] =
+                        inverse[col * 4 + row] * (col == 3 && row < 3 ? 1024.0f : 1.0f);
+                }
+            }
+            rig.skeleton.push_back(bind);
+            const auto parent = bone.parent >= 0
+                                    ? renderer::inverse_affine(model.bones[bone.parent].bind)
+                                          .value_or(renderer::identity())
+                                    : renderer::identity();
+            const auto local = renderer::multiply(parent, bone.bind);
+            rig.rest.push_back({local[12] * 1024, local[13] * 1024, local[14] * 1024});
+            rig.parent_word.push_back(
+                bone.parent >= 0 ? 0x70000000u + 0x40u * unsigned(bone.parent) : 0
+            );
+        }
+        rig.sequences.emplace_back(anim::parse_sequence(assets::ByteView(sequence), 0));
+        model.preview_poses.clear();
+        const auto frames = rig.sequences[0]->frames.size();
+        for (std::size_t frame = 0; frame < frames; ++frame) {
+            anim::AnimState state;
+            state.frame_a = state.frame_b = std::uint8_t(frame);
+            const auto source = anim::evaluate(rig, state);
+            std::vector<renderer::Mat4> pose;
+            for (const auto& joint : source) {
+                auto matrix = renderer::identity();
+                for (int col = 0; col < 4; ++col) {
+                    for (int row = 0; row < 4; ++row) {
+                        matrix[col * 4 + row] =
+                            joint[col][row] / (col == 3 && row < 3 ? 1024.0f : 1.0f);
+                    }
+                }
+                pose.push_back(matrix);
+            }
+            model.preview_poses.push_back(std::move(pose));
+        }
+        log::info("Portable Infobot screen motion: {} poses", model.preview_poses.size());
+        return !model.preview_poses.empty();
+    } catch (const std::exception& error) {
+        log::warn("Portable Infobot screen motion: {}", error.what());
+        return false;
+    }
+}
 
 bool supports_enhanced_water(std::string_view game, int level) {
     // Novalis, Pokitaru's ocean and Fleet's pools: every rac1 disc tags them (rac1 host C).
@@ -228,6 +338,7 @@ gaddr occlusion_address() {
 void use_level(int number) {
     static unsigned loaded_generation;
     static unsigned loaded_props;
+    static unsigned loaded_visuals;
     int wanted = number;
     if (number <= -2
         && std::filesystem::exists(
@@ -242,12 +353,13 @@ void use_level(int number) {
     // A prop of a mesh the level was read without (interface 1.12): the level is read again with it.
     const unsigned props = mods::prop_meshes_generation();
     if (wanted == g->loaded && loaded_generation == openrac_game_mods_generation
-        && loaded_props == props) {
+        && loaded_props == props && loaded_visuals == mods::visual_classes_generation()) {
         return;
     }
     crash::level_breadcrumb("level load started", wanted);
     loaded_generation = openrac_game_mods_generation;
     loaded_props = props;
+    loaded_visuals = mods::visual_classes_generation();
     g->loaded = wanted;
     // One renderer for the whole run: a new level replaces the subsystem renderers, but its texture
     // pool is the GS memory, which keeps what the game uploaded (a card's text uploaded through the
@@ -272,6 +384,10 @@ void use_level(int number) {
     lighting::use_scene_lighting(g->scene);
     g->level = scene::LevelData();
     g->prop_models.clear();
+    audio::ui_sounds::play_pickup_audio(-1);
+    g->special_pickup_clips.clear();
+    g->infobot_pickup_model = -1;
+    g->infobot_pickup_poses.clear();
     g->picker.clear();
     std::string error;
     const LevelSources sources = level_sources(wanted);
@@ -340,6 +456,94 @@ void use_level(int number) {
         } else {
             log::warn("mods: prop mesh {}: {}", mesh.string(), why);
         }
+    }
+    // Portable Infobot presentations use a render-only skeleton, never a local scene's actors.
+    if (g->level.game == "rac1" && openrac_game_play_host
+        && openrac_game_play_host->infobot_presentation) {
+        const auto mesh = g->levels / "level_03/mobys/moby_750.glb";
+        std::string why;
+        if (const auto model = scene::load_model(mesh, g->level, why)) {
+            if (infobot_screen_motion(g->level.models[*model])) {
+                g->infobot_pickup_model = int(*model);
+                // Vendor previews can replace the model's pose cache later.
+                g->infobot_pickup_poses = g->level.models[*model].preview_poses;
+            }
+        }
+    }
+    // Reward displays may need a class absent from this level. Import only extracted meshes;
+    // game resource tables and the two weapon decode buffers remain untouched.
+    auto visual_classes = mods::visual_classes();
+    for (const int id : visual_classes) {
+        // Gold meshes have their own display skeleton and seq_00 pose. A base
+        // weapon's native joint palette must never be applied to a gold mesh.
+        if (g->level.game == "rac1" && id >= 0x5B0 && id < 0x5BA) {
+            bool loaded = false;
+            for (int source = 0; source < 20; ++source) {
+                const auto mesh =
+                    g->levels / std::format("level_{:02d}/mobys/moby_{}.glb", source, id);
+                if (!std::filesystem::is_regular_file(mesh)) {
+                    continue;
+                }
+                std::string why;
+                if (const auto model = scene::load_model(mesh, g->level, why)) {
+                    if (!scene::load_preview_animation(
+                            mesh, g->level.models[*model], "seq_00", &g->level
+                        )) {
+                        log::warn("Gold weapon {}: cannot load its own display pose", id);
+                    }
+                    g->level.moby_classes[id] = {*model, false};
+                    loaded = true;
+                    break;
+                }
+            }
+            if (loaded) {
+                continue;
+            }
+        }
+        // Infobot reward previews use Kerwan's train/elevator bot and its idle loop.
+        if (g->level.game == "rac1" && id == 0x2EE) {
+            const auto mesh = g->levels / "level_03/mobys/moby_750.glb";
+            std::string why;
+            if (const auto model = scene::load_model(mesh, g->level, why)) {
+                if (!scene::load_preview_animation(
+                        mesh, g->level.models[*model], "seq_00_loop", &g->level
+                    )) {
+                    log::warn("Infobot reward preview: cannot load Kerwan idle animation");
+                } else {
+                    log::info(
+                        "Infobot reward preview: loaded Kerwan idle loop ({} poses)",
+                        g->level.models[*model].preview_poses.size()
+                    );
+                }
+                g->level.moby_classes[id] = {*model, false};
+                continue;
+            }
+        }
+        if (const auto found = g->level.moby_classes.find(id);
+            found != g->level.moby_classes.end() && !found->second.second) {
+            continue;
+        }
+        for (int source = 0; source < 20; ++source) {
+            const auto mesh = g->levels / std::format("level_{:02d}/mobys/moby_{}.glb", source, id);
+            if (!std::filesystem::is_regular_file(mesh)) {
+                continue;
+            }
+            std::string why;
+            if (const auto model = scene::load_model(mesh, g->level, why)) {
+                g->level.moby_classes[id] = {*model, false};
+                break;
+            }
+        }
+    }
+    if (g->level.game == "rac1" && wanted >= 0 && wanted < 19
+        && std::any_of(
+            visual_classes.begin(),
+            visual_classes.end(),
+            [](int id) {
+                return id == 407 || id == 37 || id == 1002 || id == 1428 || id == 645 || id == 1433;
+            }
+        )) {
+        load_special_pickup_clips();
     }
     enhanced::install_texture_upscaler(g->renderer->textures());
     crash::level_breadcrumb("level scene upload", wanted);
@@ -1225,7 +1429,9 @@ int ui_quad(const openrac_game_ui_rect& quad) {
     }
     q.clamp = quad.clamp;
     q.z = quad.z;
-    q.rgba = quad.rgba;
+    q.rgba = mods::sprite_tint() == UINT32_MAX
+                 ? quad.rgba
+                 : (quad.rgba & 0xFF000000u) | (mods::sprite_tint() & 0xFFFFFFu);
     q.tex0 = quad.tex0;
     q.flags = quad.flags;
     g->ui_quads.push_back(q);
@@ -1403,4 +1609,8 @@ extern "C" int openrac_game_enhanced_water(void) {
         }
         return int(available);
     });
+}
+
+extern "C" int openrac_game_special_available(int item) {
+    return openrac::frontend::g && openrac::frontend::g->special_pickup_clips.contains(item);
 }

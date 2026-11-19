@@ -15,6 +15,7 @@
 #include "program/program.h"
 #include "renderer/direct/direct.h"
 #include "renderer/gl/gl.h"
+#include "scene/vendor_preview.h"
 
 namespace openrac::frontend {
 namespace {
@@ -55,7 +56,9 @@ void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target
     for (const Kept::TargetMoby& moby : scene.target_mobys) {
         // Other markers draw different ranges of the captured menu objects.
         if (!moby.on_screen && moby.address >= first && moby.address < first + count * 0x100u) {
-            instances.push_back(moby.instance);
+            if (moby.preview_item_class < 0) {
+                instances.push_back(moby.instance);
+            }
             camera = &moby.camera;
         }
     }
@@ -95,6 +98,27 @@ void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target
         {}
     };
     owner.scene.draw_mobys(instances, panel, state);
+    for (const Kept::TargetMoby& moby : scene.target_mobys) {
+        if (moby.on_screen || moby.preview_item_class < 0 || moby.address < first
+            || moby.address >= first + count * 0x100u) {
+            continue;
+        }
+        auto inset = panel;
+        const auto& adjustment = scene::vendor_preview::get(moby.preview_item_class);
+        inset.camera.projection =
+            scene::vendor_preview::projection(panel.camera.projection, adjustment);
+        auto instance = moby.instance;
+        const auto& shape = owner.level.models[instance.model];
+        instance.matrix = scene::vendor_preview::orient(
+            instance.matrix,
+            adjustment,
+            {(shape.min[0] + shape.max[0]) * .5f,
+             (shape.min[1] + shape.max[1]) * .5f,
+             (shape.min[2] + shape.max[2]) * .5f},
+            false
+        );
+        owner.scene.draw_mobys({instance}, inset, state);
+    }
 }
 
 // Draws a menu's mobys on the screen over the world drawn under it (frontend/menu_layers.h), with

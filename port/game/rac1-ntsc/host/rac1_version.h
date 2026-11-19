@@ -769,4 +769,20 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_00290030 game_FUN_L00_0028ed58
 #define func_L00_00290030__game game_FUN_L00_0028ed58__game
 
+/* Reward presentation: release-checked names and regional decomp counterparts. */
+#define RAC1_ADDR_0x0014BFC0u 0x0014BEC0u
+#define RAC1_ADDR_L00_0x0015F4FCu 0x0015F3FCu
+#define RAC1_ADDR_L00_0x001611B0u 0x001610F0u
+#define RAC1_ADDR_L00_0x001CA320u 0x001CA020u
+#define RAC1_ADDR_L00_0x001CA7C0u 0x001CA4C0u
+#define RAC1_ADDR_L01_0x0015F504u 0x0015F404u
+#define RAC1_ADDR_L01_0x00309078u 0x00307CA0u
+#define func_0020BFC8 game_FUN_0020b178
+#define func_L00_0029A300 game_FUN_L00_00298f90
+#define func_L00_0029A300__game game_FUN_L00_00298f90__game
+#define func_L00_0029A7D0 game_FUN_L00_00299460
+#define func_L00_0029BA20 game_FUN_L00_0029a6b0
+#define func_L00_0029C070 game_FUN_L00_0029ad08
+#define func_L01_00309078__game game_FUN_L01_00307ca0__game
+
 #endif /* OPENRAC_RAC1_VERSION_H */

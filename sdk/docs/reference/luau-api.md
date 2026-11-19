@@ -543,6 +543,54 @@ rac1.vendor.icon_strip.draw (Vendor_DrawIconStrip) void(): Draws the Gadgetron v
 type Vendor_DrawIconStripFn = () -> ()
 ```
 
+### `Vendor_DrawDetailsFn`
+
+rac1.vendor.draw_details (Vendor_DrawDetails) void(): Draws the vendor selected-item name and price panel.
+
+```lua
+type Vendor_DrawDetailsFn = () -> ()
+```
+
+### `UI_IconFrameFn`
+
+rac1.ui.icon_frame (UI_IconFrame) i32(i32,i32): Resolves an icon and animation frame to its HUD sprite frame.
+
+```lua
+type UI_IconFrameFn = (icon: number, frame: number) -> number
+```
+
+### `NPC_TryDialogFn`
+
+rac1.npc.try_dialog (NPC_TryDialog) i32(u32,u32): Tests an NPC interaction request; identifies the owner of a purchase dialogue.
+
+```lua
+type NPC_TryDialogFn = (moby: number, request: number) -> number
+```
+
+### `UI_DrawSpriteFn`
+
+rac1.ui.sprite.draw (UI_DrawSprite) void(i32,i32,i32,i32,i32,i32): Draws a HUD sprite as one packed GIF packet.
+
+```lua
+type UI_DrawSpriteFn = (frame: number, x: number, y: number, width: number, height: number, alpha: number) -> ()
+```
+
+### `Pickup_StartSceneFn`
+
+rac1.pickup.start_scene (Pickup_StartScene) void(i32): Reward acquisition presentation.
+
+```lua
+type Pickup_StartSceneFn = (scene: number) -> ()
+```
+
+### `GoldCase_StartDemoFn`
+
+rac1.gold_case.start_demo (GoldCase_StartDemo) void(u32,i32): Reward acquisition presentation.
+
+```lua
+type GoldCase_StartDemoFn = (moby: number, item: number) -> ()
+```
+
 ### `Hero_EnterMoveStateFn`
 
 rac1.player.enter_move_state (Hero_EnterMoveState) i32(i32,i32): Puts the hero into a move state (+0x2084): HeroEnterMoveState in levels 0, 4, 7, 9, 10 and 13, and each other level's own copy of it (hero_set_state), one hook point. It keeps the states before it, clears the item locks (+0x20AC, and +0x20A7 when he is not in a vehicle), sets up the new state's control mode and motion, and starts its animation when force is non-zero. It refuses the change and returns 0 while the hero is dying or in a cutscene, unless force is 2, and for most states while he falls or is hurt with no health left; else it returns 1, or 0 where it passes him on to another state. Every change of his state goes through it: his update, his items, and the mobys and triggers that move him. A replacement can send him to another state by calling the original with that state (0x3F is the slow magnet walk on magnetic ground). Under a multiplayer stand-in the port's guard (hero_grab.c) takes the call first, and a mod does not see it.

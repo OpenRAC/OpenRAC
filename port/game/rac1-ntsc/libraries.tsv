@@ -1128,3 +1128,11 @@ FUN_L00_0029a6b0	vendor	Vendor_OpenMenu	hook	opens the vendor purchase menu, inc
 
 FUN_L01_00302438	draw	DrawVisibombStatic	wrap	The out-of-range static tiles cover the whole widescreen target; retain the retail draw and scope the whole-target marker to it. PAL func_L01_00303810
 FUN_L00_00239810	hud	draw_health_hud_panel	wrap	optional connected health background sized for 4/5/8 orbs; off preserves PS2 layout (rac1/host/hud_panels.c); PAL func_L00_0023A1A0	int (unsigned int)
+FUN_002386e8	mods	Vendor_DrawIconStrip	hook	Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.	void (void)
+FUN_002389e0	mods	Vendor_DrawDetails	hook	Draws the vendor selected-item name and price panel.	void (void)
+FUN_001ff960	mods	UI_IconFrame	hook	Resolves an icon and animation frame to its HUD sprite frame.	int (int, int)
+FUN_L00_00266448	mods	NPC_TryDialog	hook	Tests an NPC interaction request; identifies the owner of a purchase dialogue.	int (unsigned int, unsigned int)
+FUN_001ffc30	mods	UI_DrawSprite	hook	Draws one HUD sprite packet.	void (int, int, int, int, int, int)
+FUN_L00_00298f90	cutscene	Pickup_InfobotSceneUpdate	wrap	relocates an item acquisition capture scene around the actual pickup	void (void)
+FUN_L00_00298840	cutscene	Pickup_StartScene	hook	scene start intercepted only while a randomized world pickup update is running	void (int)
+FUN_L01_002aea70	cutscene	GoldCase_StartDemo	hook	Gold weapon case purchase presentation.	void (unsigned int, int)

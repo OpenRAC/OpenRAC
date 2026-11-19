@@ -1157,3 +1157,11 @@ func_L00_00255B90	draw	MobyAnimDecodeLocalPose	wrap	the local pose decoder: a mo
 func_L00_0029BA20	vendor	Vendor_OpenMenu	hook	opens the vendor purchase menu, including the Gadgetron PDA remote vendor; a hook point for mods to prevent opening an empty vendor; NTSC FUN_L00_0029a6b0	void (unsigned int)
 
 func_L01_00303810	draw	DrawVisibombStatic	wrap	The out-of-range static tiles cover the whole widescreen target; retain the retail draw and scope the whole-target marker to it.
+func_00239A00	mods	Vendor_DrawIconStrip	hook	Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.	void (void)
+func_00239CF8	mods	Vendor_DrawDetails	hook	Draws the vendor selected-item name and price panel.	void (void)
+func_00200198	mods	UI_IconFrame	hook	Resolves an icon and animation frame to its HUD sprite frame.	int (int, int)
+func_L00_00267290	mods	NPC_TryDialog	hook	Tests an NPC interaction request; identifies the owner of a purchase dialogue.	int (unsigned int, unsigned int)
+func_00200468	mods	UI_DrawSprite	hook	Draws one HUD sprite packet.	void (int, int, int, int, int, int)
+func_L00_0029A300	cutscene	Pickup_InfobotSceneUpdate	wrap	relocates an item acquisition capture scene around the actual pickup	void (void)
+func_L00_00299B68	cutscene	Pickup_StartScene	hook	scene start intercepted only while a randomized world pickup update is running	void (int)
+func_L01_002AFD00	cutscene	GoldCase_StartDemo	hook	Gold weapon case purchase presentation.	void (unsigned int, int)
