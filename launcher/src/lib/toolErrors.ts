@@ -87,6 +87,16 @@ export const TOOL_ERRORS: Record<string, ToolError> = {
     line: "Open a level in OpenRAC Editor first: that reads the levels from your disc.",
     next: "open",
   },
+  "planet-unnamed": {
+    title: "Your planet has no name yet",
+    line: "In OpenRAC Editor, open Project > Project Settings > OpenRAC > Planet, type its name (one line, at most 40 characters), save, then try again.",
+    next: "retry",
+  },
+  "planet-invalid": {
+    title: "Your planet could not be added",
+    line: "A new planet needs exactly one Ratchet start and the Ship under Game/LevelSettings. Show details says what is missing; fix it in OpenRAC Editor, save, then try again.",
+    next: "retry",
+  },
   "game-not-packable": {
     title: "Packing is not ready for this game yet",
     line: "You can open its levels in OpenRAC Editor and make texture and model packs.",
