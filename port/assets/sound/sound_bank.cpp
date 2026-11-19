@@ -17,6 +17,72 @@ namespace {
 
 constexpr std::size_t kSoundRecordSize = 12;
 constexpr std::size_t kGrainRecordSize = 0x28;
+constexpr std::size_t kPackedGrainSize = 8;
+
+// The grains whose parameters a version 2 or 3 block keeps in its grain data, at the offset the
+// opcode's low 24 bits give: tones, LFO settings, child sounds, plugin messages and branches.
+bool has_grain_data(GrainType type) {
+    switch (type) {
+        case GrainType::Tone:
+        case GrainType::Tone2:
+        case GrainType::LfoSettings:
+        case GrainType::StartChildSound:
+        case GrainType::StopChildSound:
+        case GrainType::PluginMessage:
+        case GrainType::Branch:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// A version 2 or 3 grain (8 bytes: `u32 opcode` with the type in its top byte and three argument
+// bytes below, `s32 delay`) as the version 1 grain it stands for, so that the player reads both
+// alike (OpenGOAL's 989snd, SFXGrain2). The grain data's records are a version 1 grain's parameters
+// (a tone's 24 bytes are the same); a control grain's three signed argument bytes are its params; a
+// pitch bend's amount is the first two as one value (`arg[1] << 8 | arg[0]`, both sign-extended);
+// a random delay's limit is the 24-bit argument plus one.
+Grain packed_grain(const ByteView& block, std::size_t at, u32 grain_data) {
+    const u32 opcode = block.u32_at(at);
+    Grain grain;
+    grain.type = static_cast<GrainType>(opcode >> 24);
+    grain.delay = block.s32_at(at + 4);
+    const u32 argument = opcode & 0xFFFFFF;
+
+    // Records: copied as far as the block goes.
+    if (has_grain_data(grain.type)) {
+        const std::size_t from = std::size_t{grain_data} + argument;
+
+        // A record at the block's very end is read as far as the block goes.
+        if (from < block.size()) {
+            const std::size_t n = std::min(grain.data.size(), block.size() - from);
+            std::memcpy(grain.data.data(), block.sub(from, n, "grain data").data(), n);
+        }
+
+        return grain;
+    }
+
+    // A random delay's limit is the whole argument.
+    if (grain.type == GrainType::RandDelay) {
+        const s32 amount = static_cast<s32>(argument) + 1;
+        std::memcpy(grain.data.data(), &amount, sizeof amount);
+        return grain;
+    }
+
+    const auto arg = [argument](int i) {
+        return static_cast<s16>(static_cast<s8>((argument >> (8 * i)) & 0xFF));
+    };
+    std::array<s16, 4> params{arg(0), arg(1), arg(2), 0};
+
+    // A pitch bend's amount spans two argument bytes.
+    if (grain.type == GrainType::PitchBend || grain.type == GrainType::AddPitchBend
+        || grain.type == GrainType::RandPitchBend) {
+        params = {static_cast<s16>(arg(0) | (arg(1) << 8)), 0, 0, 0};
+    }
+
+    std::memcpy(grain.data.data(), params.data(), sizeof params);
+    return grain;
+}
 
 template <typename T>
 T grain_field(const std::array<u8, 32>& data, std::size_t offset) {
@@ -148,10 +214,14 @@ SoundBank parse_sound_bank(ByteView bytes) {
     h.sound_ram_size = block.u32_at(0x2c);
     h.next_block = block.u32_at(0x30);
 
-    // Only version 1 is known; it has 0x28-byte grains.
-    if (h.version != 1) {
-        fail("SBlk version {}: only version 1 (0x28-byte grains) is known", h.version);
+    // Version 1 has 0x28-byte grains; versions 2 and 3 (Up Your Arsenal's) 8-byte grains whose
+    // records are in the grain data.
+    if (h.version < 1 || h.version > 3) {
+        fail("SBlk version {}: only versions 1 to 3 are known", h.version);
     }
+
+    const bool packed = h.version >= 2;
+    h.grain_data = packed ? block.u32_at(0x34) : 0;
 
     // A negative count would turn into a huge unsigned one in the loops below.
     if (h.sound_count < 0) {
@@ -175,6 +245,13 @@ SoundBank parse_sound_bank(ByteView bytes) {
 
         // Each sound's grains are stored in the grain table at its own offset.
         for (std::size_t k = 0; k < s.grain_count; ++k) {
+            // Versions 2 and 3: 8-byte grains, their records in the grain data.
+            if (packed) {
+                const std::size_t g = h.first_grain + s.first_grain_offset + kPackedGrainSize * k;
+                bank.grains.push_back(packed_grain(block, g, h.grain_data));
+                continue;
+            }
+
             const std::size_t g = h.first_grain + s.first_grain_offset + kGrainRecordSize * k;
             Grain grain;
             grain.type = static_cast<GrainType>(block.u32_at(g));
