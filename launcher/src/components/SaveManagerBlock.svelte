@@ -5,7 +5,16 @@
   // note. File names, sizes and the card's folder name are a contributor's details: a chip and
   // tooltips with developer tools on.
   import Icon from "$components/Icon.svelte";
-  import { api, ask, pickSavesFile, type GameSaveStatus, type SaveBackupInfo, type VersionView } from "$lib/api";
+  import {
+    api,
+    ask,
+    pickSavesFile,
+    type GameSaveStatus,
+    type SaveBackupInfo,
+    type SaveCopySource,
+    type VersionView,
+  } from "$lib/api";
+  import { copyButtonText } from "$lib/saveTransfer";
   import { app, toast } from "$lib/app.svelte";
   import { grouped, size } from "$lib/format";
   import { when } from "$lib/reports";
@@ -36,8 +45,10 @@
   /** "Back up now" asks for an optional name first, in the backups' own space. */
   let naming = $state(false);
   let noteInput = $state<HTMLInputElement | null>(null);
-  /** Export or Import (SaveTransfer.svelte), while its dialog is open. */
-  let transfer = $state<{ mode: "export" | "import"; source: string | null } | null>(null);
+  /** Export, Import or Copy (SaveTransfer.svelte), while its dialog is open. */
+  let transfer = $state<{ mode: "export" | "import" | "copy"; source: string | null } | null>(null);
+  /** The game's other discs whose cards hold saves this one can copy (PAL and US). */
+  let copySources = $state<SaveCopySource[]>([]);
 
   const used = $derived(status?.slots.filter((s) => !s.isEmpty) ?? []);
   const empty = $derived(emptySlots(status?.slots.filter((s) => s.isEmpty).map((s) => s.slotIndex + 1) ?? []));
@@ -50,9 +61,14 @@
 
   async function loadStatus() {
     loading = true;
+    // The other discs' cards are read beside this one's; a failure there only hides Copy.
+    const sources = supports(app.info, "saveTransfer")
+      ? api.saveCopySources(version.serial).catch((): SaveCopySource[] => [])
+      : Promise.resolve([]);
     try {
       status = await api.inspectSaves(version.serial);
       keepRead(savesKey(), $state.snapshot(status));
+      copySources = await sources;
     } catch (e) {
       toast(`Failed to inspect saves: ${String(e)}`, "error");
     } finally {
@@ -153,6 +169,7 @@
       serial={version.serial}
       mode={transfer.mode}
       source={transfer.source}
+      sources={copySources}
       {used}
       onclose={(changedCard) => {
         transfer = null;
@@ -184,6 +201,15 @@
       <button class="small" disabled={!supports(app.info, "saveTransfer")} onclick={() => void startImport()}
         ><Icon name="download" size={14} />Import</button
       >
+      {#if copySources.length}
+        <!-- The same game's saves on another disc's card (PAL and US): their own card each. -->
+        <button
+          class="small"
+          disabled={!supports(app.info, "saveTransfer")}
+          onclick={() => (transfer = { mode: "copy", source: null })}
+          ><Icon name="copy" size={14} />{copyButtonText(copySources)}</button
+        >
+      {/if}
       <button class="small" disabled={!supports(app.info, "openFolders")} onclick={openFolder}
         ><Icon name="folder" size={14} />Open folder</button
       >

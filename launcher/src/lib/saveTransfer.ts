@@ -1,7 +1,8 @@
-// Saves carried between devices (core/src/save_transfer.rs): the words of the Saves panel's
-// Export and Import dialogs, and the choice an import sends. No Svelte or Tauri here, so it can
+// Saves carried between devices and between the discs of one game (core/src/save_transfer.rs):
+// the words of the Saves panel's Export, Import and Copy dialogs, and the choice an import or a
+// copy sends. No Svelte or Tauri here, so it can
 // be tested.
-import type { SaveArchiveSlot, SaveImportChoice, SaveImportSlot } from "./api";
+import type { SaveArchiveSlot, SaveCopySource, SaveImportChoice, SaveImportSlot } from "./api";
 import { grouped } from "./format";
 
 export const TRANSFER = {
@@ -21,7 +22,28 @@ export const TRANSFER = {
   cancel: "Cancel",
   reading: "Reading the file…",
   nothing: "This file holds no saves.",
+  copyTitle: "Copy saves from another disc",
+  copyFrom: "Copy from",
+  copyReading: "Reading the other disc's saves…",
+  copyReplaceLine: "The card's saves become the other disc's.",
+  copyButton: "Copy",
 } as const;
+
+/** The Saves panel's button: "Copy from PAL", or "Copy from…" when there are several discs. */
+export function copyButtonText(sources: Pick<SaveCopySource, "region">[]): string {
+  const [only] = sources;
+  return only && sources.length === 1 ? `Copy from ${only.region}` : "Copy from…";
+}
+
+/** The copy dialog's first line: what it does, for the disc chosen. */
+export function copyLead(source: Pick<SaveCopySource, "region">): string {
+  return `Brings the saves of the ${source.region} disc onto this disc's memory card: both discs read the same saves.`;
+}
+
+/** A disc to copy from, in the dialog's choice: "PAL · 2 saves". */
+export function sourceLine(source: Pick<SaveCopySource, "region" | "saves">): string {
+  return `${source.region} · ${savesCount(source.saves)}`;
+}
 
 /** A slot in a player's words: "Slot 2 · Kerwan · 4 890 bolts". */
 export function slotLine(s: Pick<SaveArchiveSlot, "slotIndex" | "planetName" | "bolts">): string {
@@ -73,5 +95,13 @@ export function exportedText(saved: string, count: number): string {
 /** The toast after an import. */
 export function importedText(replaceAll: boolean, slots: number, backedUp: boolean): string {
   const what = replaceAll ? "Replaced the card's saves with the file's" : `Imported ${savesCount(slots)}`;
+  return `${what}.${backedUp ? " The saves that were there are in Backups." : ""}`;
+}
+
+/** The toast after a copy from another disc. */
+export function copiedText(region: string, replaceAll: boolean, slots: number, backedUp: boolean): string {
+  const what = replaceAll
+    ? `Copied every save of the ${region} disc`
+    : `Copied ${savesCount(slots)} from the ${region} disc`;
   return `${what}.${backedUp ? " The saves that were there are in Backups." : ""}`;
 }
