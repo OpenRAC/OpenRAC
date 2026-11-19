@@ -2,9 +2,9 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // A mod's platinum (interface 1.23) as the production mesh.frag draws it: a grey texel lit gold,
-// as Going Commando's bolt coins are (a grey texture, their moby colour and light set 13 gold),
-// comes out a cool white, and so does a gold glow packet, its brightness kept. Without the
-// material both are drawn as the texel times their colour, as before.
+// as Going Commando's bolt coins are (a grey texture lit gold by light set 13), comes out a cool
+// white, and so does a gold glow packet. Without the material both are drawn as the texel times
+// their colour, as before.
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -149,9 +149,10 @@ bool gold(const Colour& c) {
            && std::fabs(c.b - t * kGold[2]) <= step;
 }
 
-// Whether `c` is a cool white: blue at least red, red and blue within a tenth of each other.
+// Whether `c` is a cool white: bluer than it is red, green between, and near grey (red at least
+// 70% of blue: mesh.frag's kPlatinumTint has 0.86 to 1.16).
 bool cool_white(const Colour& c) {
-    return c.b >= c.r && c.b - c.r <= 0.1f && std::fabs(c.g - c.r) <= 0.1f;
+    return c.b > c.r && c.g >= c.r && c.g <= c.b && c.r >= 0.7f * c.b;
 }
 
 void print(const char* name, const Colour& c) {
@@ -191,8 +192,10 @@ int main() {
     // Platinum: a gold-lit grey texture is no longer gold, and no darker than the gold was.
     CHECK(cool_white(platinum));
     CHECK(platinum.luminance() >= surface.luminance());
-    // A platinum moby's glow packet is silver too, as bright as the gold one.
+    // A platinum moby's glow packet is silver too, brighter than the gold one but not blown out
+    // (kPlatinumColourGain, 1.35).
     CHECK(cool_white(platinum_glow));
-    CHECK(std::fabs(platinum_glow.luminance() - glow.luminance()) <= 0.04f);
+    CHECK(platinum_glow.luminance() >= glow.luminance());
+    CHECK(platinum_glow.luminance() <= 1.5f * glow.luminance());
     return test::result();
 }

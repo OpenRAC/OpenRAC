@@ -82,21 +82,22 @@ layout(location = 0) out vec4 out_colour;
 const vec3 kSun = vec3(0.36, 0.48, 0.80);
 
 // A mod's platinum (openrac_api.moby_material, OPENRAC_MOBY_MATERIAL_PLATINUM): render-only, a
-// cool white metal. Its texel is made grey with a trace of its colour left, brightened, and turned
-// a little blue; so is its colour after the vertex colour (platinum_colour), which is where a
-// coloured moby's colour is: Going Commando's bolt coins are a grey texture lit gold by their
-// moby colour (+0x3C) and light set 13 (moby_spawn_bolt_pickup). After the lighting it gets a tight
-// highlight from the fixed sun and a bright rim. A glow packet's colour is made silver the same
-// way, its brightness kept: its texel is not brightened and it gets no highlight.
+// cool white metal. Its texel is made grey (kPlatinumColourKept of its colour left), brightened and
+// turned blue; so is its colour after the vertex colour (platinum_colour), which is where a
+// coloured moby's colour is: Going Commando's bolt coins are a grey texture lit gold by light set
+// 13 (moby_spawn_bolt_pickup; their trail is the game's particles, rac2/host/platinum_trail.c).
+// After the lighting it gets a tight highlight from the fixed sun and a bright rim. A glow packet's
+// colour is made silver the same way: its texel is not brightened and it gets no highlight.
 const int kModMaterialPlatinum = 2;
-const float kPlatinumColourKept = 0.12;
+const float kPlatinumColourKept = 0.0;
 const float kPlatinumGain = 1.3;
 const float kPlatinumLift = 0.1;
-const vec3 kPlatinumTint = vec3(0.92, 0.97, 1.06);
-const float kPlatinumGloss = 40.0;      // the highlight's exponent: higher is tighter
-const float kPlatinumHighlight = 0.55;  // the highlight's strength at its peak
-const float kPlatinumRim = 0.3;         // the rim's strength at a grazing angle
+const vec3 kPlatinumTint = vec3(0.86, 0.95, 1.16);
+const float kPlatinumGloss = 40.0;     // the highlight's exponent: higher is tighter
+const float kPlatinumHighlight = 0.9;  // the highlight's strength at its peak
+const float kPlatinumRim = 0.55;       // the rim's strength at a grazing angle
 const vec3 kPlatinumShine = vec3(0.92, 0.96, 1.0);
+const float kPlatinumColourGain = 1.35; // platinum_colour's brightening
 
 bool platinum() {
     return v_mod_material == kModMaterialPlatinum;
@@ -116,14 +117,15 @@ vec4 platinum_texel(vec4 texel) {
     return vec4(clamp(metal * kPlatinumTint, 0.0, 1.0), texel.a);
 }
 
-// The texel times its vertex colour (lit, or a glow packet's), made grey with a trace of its colour
-// left and turned a little blue, its brightness kept; alpha as it is.
+// The texel times its vertex colour (lit, or a glow packet's), made grey (with kPlatinumColourKept
+// of its colour left), turned blue and brightened; alpha as it is.
 vec4 platinum_colour(vec4 c) {
     if (!platinum()) {
         return c;
     }
     float grey = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-    return vec4(mix(vec3(grey), c.rgb, kPlatinumColourKept) * kPlatinumTint, c.a);
+    vec3 metal = mix(vec3(grey), c.rgb, kPlatinumColourKept) * kPlatinumTint * kPlatinumColourGain;
+    return vec4(metal, c.a);
 }
 
 vec3 platinum_shine(vec3 rgb) {

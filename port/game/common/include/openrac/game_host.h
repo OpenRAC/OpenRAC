@@ -341,6 +341,12 @@ int openrac_mod_pages_items(int pause);
 int openrac_mod_pages_label(int pause, int index, char* out, int size);
 int openrac_mod_pages_after(int index);
 
+/* Whether a mod draws `moby` as platinum (openrac_api.moby_material, interface 1.23): 1 when the
+ * material on it this level load is OPENRAC_MOBY_MATERIAL_PLATINUM, else 0. For the game's own
+ * effects of that moby, which the renderer cannot tie to it: Going Commando's bolt coin trail
+ * (rac2/host/platinum_trail.c). From the game's thread (mod_play.cpp). */
+int openrac_moby_platinum(gaddr moby);
+
 #define OPENRAC_MOD_PAGES_TEXT 64
 #define OPENRAC_MOD_PAGES_ROWS 12
 #define OPENRAC_MOD_PAGES_FOOTER 3
