@@ -47,6 +47,7 @@ BUTTONS = {
 }
 
 HOLD = 4          # frames a button is held
+WINDOW = 8        # the frames before a check whose strings it reads
 SHOT_EVERY = 10   # a picture every this many frames (a 640x480 window: they are written in time)
 
 
@@ -60,6 +61,8 @@ class Step:
     changes: bool = True                              # what is shown must differ from before the press
     allow_empty: bool = False                         # a page that may print nothing (a picture)
     hold: int = HOLD                                  # frames the buttons are held
+    known: str = ""                                   # a failure another branch owns
+    absent: list[str] = field(default_factory=list)   # strings the page must no longer print
 
 
 @dataclass
@@ -67,6 +70,14 @@ class Route:
     name: str
     steps: list[Step]
     boot_wait: int = 420   # frames to the main menu (it shows at about 330)
+    card: bool = True      # an empty memory card folder in slot 1, or no card at all
+
+
+# Failures another branch owns: shown as known in the report, and not counted in the exit status.
+LEVEL_LOAD = ("feat/rac3-programs: the boot program's level load faults (a store at 0x80EFAFxx after "
+              "0x003BBDC0 unpacks the level's pack)")
+NEXT_ELF = ("feat/rac3-programs: multiplayer is another executable (LoadExecPS2 of cdrom0:/I5BOOTN.ELF;1), "
+            "which the port does not start: the screen fades to black and stays")
 
 
 # The main menu's rows top to bottom: LOAD GAME, NEW GAME, MULTIPLAYER, MULTIPLAYER TUTORIAL,
@@ -92,20 +103,34 @@ def routes() -> list[Route]:
             Step("left", "left", 30, changes=False), Step("right", "right", 30, changes=False),
             Step("triangle", "triangle", 40, changes=False), Step("start", "start", 60, changes=False),
         ]),
+        # No memory card: the boot screens' card check, then the menus without one.
+        Route("no-card", boot_wait=0, card=False, steps=[
+            Step("no card notice", None, 420, expect=["No Memory Card (PS2) inserted"], changes=False),
+            Step("continue to the main menu", "cross", 360, expect=back_to_main),
+            Step("open LOAD GAME", "cross", 120, expect=["Please insert a Memory Card"]),
+            Step("back", "triangle", 90, expect=back_to_main),
+            Step("down", "down", 30), Step("open NEW GAME", "cross", 120, expect=["No Memory Card"]),
+            Step("triangle", "triangle", 90, expect=back_to_main),
+        ]),
         Route("load-game", [main, Step("open LOAD GAME", "cross", 120), *pad_checks(False),
                             Step("cross", "cross", 60, changes=False),
                             Step("back", "triangle", 90, expect=back_to_main)]),
-        Route("new-game-no", [main, *row(1), Step("open NEW GAME", "cross", 120, expect=["save file"]),
+        Route("new-game-no", [main, *row(1), Step("open NEW GAME", "cross", 120, expect=["save file", "Yes", "No"]),
                               *pad_checks(False),
-                              Step("no save file", "triangle", 90),
-                              Step("continue without saving", "cross", 240, allow_empty=True)]),
-        Route("new-game-yes", [main, *row(1), Step("open NEW GAME", "cross", 120, expect=["save file"]),
-                               Step("create the save file", "circle", 240, allow_empty=True),
-                               Step("cross", "cross", 240, allow_empty=True)]),
-        Route("multiplayer", [main, *row(2), Step("open MULTIPLAYER", "cross", 240, allow_empty=True),
-                              *pad_checks(False), Step("back", "triangle", 90, allow_empty=True)]),
-        Route("mp-tutorial", [main, *row(3), Step("open MULTIPLAYER TUTORIAL", "cross", 240, allow_empty=True),
-                              *pad_checks(False), Step("back", "triangle", 90, allow_empty=True)]),
+                              Step("no save file", "triangle", 90, expect=["Continue anyway?"]),
+                              Step("continue without saving", "cross", 240, allow_empty=True, known=LEVEL_LOAD)]),
+        Route("new-game-yes", [main, *row(1), Step("open NEW GAME", "cross", 120, expect=["save file", "Yes", "No"]),
+                               Step("create the save file", "circle", 240, expect=["SELECT", "EMPTY"],
+                                    known="feat/rac3-saves (#627): func_003932E8's NTSC-U draft reads NTSC-U's "
+                                          "buffer top, and the save's icon is read over memory"),
+                               Step("start in slot 1", "cross", 300, allow_empty=True, known=LEVEL_LOAD)]),
+        Route("multiplayer", [main, *row(2), Step("open MULTIPLAYER", "cross", 240, absent=["LOAD GAME"], known=NEXT_ELF),
+                              Step("down", "down", 30, changes=False, absent=["LOAD GAME"], known=NEXT_ELF),
+                              Step("back", "triangle", 90, changes=False, absent=["LOAD GAME"], known=NEXT_ELF)]),
+        # The tutorial is a movie (skipped by --skip-movies); the main menu comes back after it.
+        Route("mp-tutorial", [main, *row(3), Step("open MULTIPLAYER TUTORIAL", "cross", 240, expect=back_to_main,
+                                                  changes=False),
+                              *pad_checks()]),
         # Options: four rows (16:9, SUBTITLES, SOUND, LANGUAGE), the cursor on the first; Cross
         # toggles a row, R1 opens ADJUST SCREEN, Triangle goes back.
         Route("options", [main, *row(4), Step("open OPTIONS", "cross", 120, expect=["LANGUAGE", "STEREO"]),
@@ -218,6 +243,7 @@ def run_route(route: Route, exe: Path, data: Path, out: Path, timeout: float) ->
         shutil.rmtree(rdir)
     (rdir / "shots").mkdir(parents=True)
     (rdir / "card").mkdir()
+    card = ["--cards", str(rdir / "card")] if route.card else ["--no-card"]
     press, timeline = press_spec(route)
     end = timeline[-1][2] + 10
     env = {k: v for k, v in os.environ.items() if not k.startswith("OPENRAC_")}
@@ -228,7 +254,7 @@ def run_route(route: Route, exe: Path, data: Path, out: Path, timeout: float) ->
     })
     # A small window: its pictures are written as fast as they come, so a crash loses none.
     (rdir / "settings.ini").write_text("window_size = 640x480\n")
-    cmd = [str(exe), "--data", str(data), "--cards", str(rdir / "card"), "--window", "--skip-movies",
+    cmd = [str(exe), "--data", str(data), *card, "--window", "--skip-movies",
            "--settings", str(rdir / "settings.ini"), "--frames", str(end)]
     started = time.monotonic()
     with (rdir / "run.log").open("w") as log:
@@ -244,7 +270,10 @@ def run_route(route: Route, exe: Path, data: Path, out: Path, timeout: float) ->
     before_img = None
     for i, (s, start, check) in enumerate(timeline):
         rec = frames.get(check) or frames.get(check - 1) or {}
-        texts = [t for _, t in rec.get("texts", [])]
+        # The strings of the step's last frames together: some pages blink (a frame in eight
+        # without its text).
+        texts = list(dict.fromkeys(t for f in range(check - WINDOW + 1, check + 1)
+                                   for _, t in frames.get(f, {}).get("texts", [])))
         shot = nearest_shot(rdir / "shots", check)
         kept = None
         if shot:
@@ -264,6 +293,9 @@ def run_route(route: Route, exe: Path, data: Path, out: Path, timeout: float) ->
             for e in s.expect:
                 if e not in joined:
                     problems.append(f"'{e}' not printed")
+            for e in s.absent:
+                if e in joined:
+                    problems.append(f"'{e}' still printed")
             img = image_hash(shot)
             if s.changes and s.press and before_texts is not None and texts == before_texts and img == before_img:
                 problems.append(f"no change after {s.press}")
@@ -271,7 +303,7 @@ def run_route(route: Route, exe: Path, data: Path, out: Path, timeout: float) ->
         before_texts = texts
         results.append({
             "step": s.name, "press": s.press, "frame": check, "state": rec.get("state", {}),
-            "texts": texts, "picture": str(kept) if kept else None, "problems": problems,
+            "texts": texts, "picture": str(kept) if kept else None, "problems": problems, "known": s.known,
         })
     shutil.rmtree(rdir / "shots", ignore_errors=True)
     (rdir / "pages.txt").write_text("\n".join(transitions(rdir / "menu.log")) + "\n")
@@ -279,18 +311,26 @@ def run_route(route: Route, exe: Path, data: Path, out: Path, timeout: float) ->
             "seconds": round(time.monotonic() - started, 1), "steps": results}
 
 
+def result(s: dict) -> str:
+    if not s["problems"]:
+        return "ok"
+    known = f" (known, {s['known']})" if s["known"] else ""
+    return "FAIL" + known + ": " + "; ".join(s["problems"])
+
+
 def report(results: list[dict], out: Path) -> bool:
+    """report.md and report.json; True when every step passes, or fails only as known."""
     ok = True
     lines = ["| route | step | press | result | state | strings |", "|---|---|---|---|---|---|"]
     for r in results:
         for s in r["steps"]:
             good = not s["problems"]
-            ok &= good
+            ok &= good or bool(s["known"])
             st = s["state"]
             state = f"mode {st.get('mode')} state {st.get('state')} screen {st.get('screen')}" if st else ""
             texts = "; ".join(dict.fromkeys(s["texts"]))[:160].replace("|", "/")
             lines.append(f"| {r['route']} | {s['step']} | {s['press'] or ''} | "
-                         f"{'ok' if good else 'FAIL: ' + '; '.join(s['problems'])} | {state} | {texts} |")
+                         f"{result(s)} | {state} | {texts} |")
     (out / "report.md").write_text("\n".join(lines) + "\n")
     (out / "report.json").write_text(json.dumps(results, indent=1))
     return ok

@@ -24,6 +24,27 @@ SDL_AUDIODRIVER=dummy "port/build/release/apps/openrac-rac3-pal/Ratchet & Clank 
 `OPENRAC_RAC3_CHAINS=N` prints the VIF codes of the first N display lists and the front end's
 state words (mode, boot state, boot screen, the pad's held and pressed buttons) each frame.
 
+## Testing the menus
+
+`menus.py` walks every page the front end reaches, each route from the boot screens: the card
+notices (an empty card and no card), the main menu, Load Game, New Game and its save questions,
+Multiplayer, the multiplayer tutorial, Options with each row, Adjust Screen and every language,
+the Sly 2 demo's button combination and the attract movie after 6000 idle frames. It runs the port
+hidden and muted, presses the pad by script (`OPENRAC_PRESS`) and reads `OPENRAC_RAC3_MENU_LOG`
+(each frame's state words and every string the font printed). After each step the page must have
+printed its strings (none empty or "(null)"), changed after the press and still be running; a
+picture of each step is kept. Re-run it after every change to the front end:
+
+```sh
+python3 port/game/rac3-pal/menus.py --data <data> --out build/rac3-menus \
+    --exe "port/build/release/apps/openrac-rac3-pal/Ratchet & Clank 3 (PAL).app/Contents/MacOS/Ratchet & Clank 3 (PAL)"
+```
+
+`build/rac3-menus/report.md` has a row for every step; each route's folder has its pictures,
+`menu.log`, `pages.txt` (the frames where the page changed) and `run.log`. A failure another branch
+owns (the level load, the multiplayer executable, saving) is marked known and does not fail the
+run. `--list` prints the routes, `--only` picks some, `--jobs` runs several at once.
+
 ## How it starts
 
 The disc boots `SCES_524.56`, a loader at `0x00800000` whose data holds the game WAD-compressed
@@ -48,6 +69,7 @@ or a level, not handled yet).
 | `host/spr_dma.c` | the scratchpad DMA channels the kernels start |
 | `host/ui2d.c` | the 2D layer's routines, wrapped as Going Commando's (rac2/host/ui2d.c): boxes, glyph quads, turned sprites, ring segments, the font's glyphs (drawn from its distance field) and the menus' Widget3D sprites become window records |
 | `host/chain_census.c` | `OPENRAC_RAC3_CHAINS` (a rough census: it reads image data inside DIRECT as VIF codes) |
+| `host/menu_log.c` | `OPENRAC_RAC3_MENU_LOG`: the front end's state and printed strings a frame, for `menus.py` |
 | `profile.cpp` | draws the display list the game sends (as rac4-ntsc), the records at their markers in it |
 | `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record |
 | `IDENTIFIED.tsv` | every function and global worked out on the way, for the backfill |

@@ -53,7 +53,8 @@ void rac3_menu_log_text(float x, float y, gaddr text, int length) {
     char line[1024];
     const char* s = (const char*)G(text < 0x40000000u ? text & 0x01FFFFFFu : text);
     size_t out = 0;
-    for (size_t n = 0; (length < 0 || n < (size_t)length) && s[n] != '\0' && out + 5 < sizeof line; ++n) {
+    for (size_t n = 0; (length < 0 || n < (size_t)length) && s[n] != '\0' && out + 5 < sizeof line;
+         ++n) {
         const unsigned char c = (unsigned char)s[n];
         if (c < 0x20u || c >= 0x7Fu || c == '|' || c == '\\') {
             out += (size_t)snprintf(line + out, sizeof line - out, "\\x%02X", c);
@@ -62,7 +63,8 @@ void rac3_menu_log_text(float x, float y, gaddr text, int length) {
         }
     }
     line[out] = '\0';
-    const int w = snprintf(g_texts + g_used, sizeof g_texts - g_used, "\t%d,%d|%s", (int)x, (int)y, line);
+    const int w =
+        snprintf(g_texts + g_used, sizeof g_texts - g_used, "\t%d,%d|%s", (int)x, (int)y, line);
     if (w > 0 && g_used + (size_t)w < sizeof g_texts) {
         g_used += (size_t)w;
     }
