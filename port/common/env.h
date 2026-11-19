@@ -115,6 +115,7 @@ enum class Var : std::uint16_t {
     Hitch,
     HitLog,
     IdentityKey,
+    InputLatency,
     Invincible,
     ItemsDebug,
     Keys,
