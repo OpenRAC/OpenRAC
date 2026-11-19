@@ -184,6 +184,16 @@ struct OverlayCallback {
 std::vector<OverlayCallback> g_overlays;
 
 openrac_mod* g_loading = nullptr;  // the mod whose openrac_mod_load runs: hooks are taken then only
+
+// A table a mod offers the others by name (1.29, interface_provide).
+struct OfferedInterface {
+    openrac_mod* mod;
+    std::string name;
+    std::uint32_t version;
+    const void* table;
+};
+
+std::vector<OfferedInterface> g_interfaces;
 std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 std::vector<fs::path> g_asset_roots;  // the loaded mods' assets folders, the last loaded first
 std::vector<FrameCallback> g_frames;
@@ -732,6 +742,49 @@ void* api_hook_entry(const char* name, const char* signature) {
             return nullptr;
         }
         return reinterpret_cast<void*>(openrac_guest_function_named(p.symbol));
+    }
+    return nullptr;
+}
+
+// The tables mods offer each other (1.29): a name is one mod's, offered during its load, and goes
+// with the mod (undo, reset).
+int api_interface_provide(
+    openrac_mod* mod, const char* name, std::uint32_t version, const void* table
+) {
+    constexpr std::size_t kNameMax = 64;
+    if (mod == nullptr || mod != g_loading || name == nullptr || table == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::string_view n(name);
+    if (n.empty() || n.size() > kNameMax) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const auto it =
+        std::find_if(g_interfaces.begin(), g_interfaces.end(), [&](const OfferedInterface& o) {
+            return o.name == n;
+        });
+    if (it != g_interfaces.end() && it->mod != mod) {
+        log::warn("mod {}: interface {} is offered by mod {} already", mod->id, n, it->mod->id);
+        return OPENRAC_HOOK_TAKEN;
+    }
+    if (it != g_interfaces.end()) {
+        it->version = version;
+        it->table = table;
+    } else {
+        g_interfaces.push_back({mod, std::string(n), version, table});
+    }
+    log::info("mod {} offers interface {} version {}", mod->id, n, version);
+    return OPENRAC_HOOK_OK;
+}
+
+const void* api_interface_find(const char* name, std::uint32_t min_version) {
+    if (name == nullptr) {
+        return nullptr;
+    }
+    for (const OfferedInterface& o : g_interfaces) {
+        if (o.name == name) {
+            return o.version >= min_version ? o.table : nullptr;
+        }
     }
     return nullptr;
 }
@@ -2059,6 +2112,8 @@ void fill_api(const Host& host) {
     g_api.developer_menu_value = api_developer_menu_value;
     g_api.developer_menu_look = api_developer_menu_look;
     g_api.hook_entry = api_hook_entry;
+    g_api.interface_provide = api_interface_provide;
+    g_api.interface_find = api_interface_find;
     g_api.data_dir = api_data_dir;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
@@ -2268,6 +2323,7 @@ void undo(openrac_mod* mod) {
     });
     std::erase_if(g_ui_pages, [&](const UiPageCallback& c) { return c.mod == mod; });
     std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
+    std::erase_if(g_interfaces, [&](const OfferedInterface& o) { return o.mod == mod; });
     drop_figures(mod);
     if (g_views_mod == mod) {
         g_views = {};
@@ -3052,6 +3108,7 @@ void reset() {
     reset_play();
     g_party_replay = false;
     g_tick_boundaries.clear();
+    g_interfaces.clear();
     g_tick_mod = nullptr;
     g_in_tick_boundary = false;
     g_state_restored = false;

@@ -1140,6 +1140,37 @@ public:
              m_api->developer_menu_look(m_handle, action, nullptr) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.29: whether the port has interface_provide() and
+    // interface_find().
+    bool has_interfaces() const {
+      return m_api->api_minor >= 29 &&
+             m_api->size >=
+                 offsetof(openrac_api, interface_find) + sizeof(void *);
+    }
+
+    // Since 1.29: offers `table` to the other mods under `name` at `version`.
+    // Only during load; the table stays where it is until the mod is unloaded.
+    // false when another mod offers `name`, for an empty name or no table, or
+    // when the port has no such call.
+    template <class T>
+    bool interface_provide(const char *name, std::uint32_t version,
+                           const T *table) const {
+      return has_interfaces() &&
+             m_api->interface_provide(m_handle, name, version, table) ==
+                 OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.29: the table another mod offers under `name`, as a T, when its
+    // version is `min_version` or more. At any time. nullptr when no loaded mod
+    // offers it, at an older version, or the port has no such call.
+    template <class T>
+    const T *interface_find(const char *name,
+                            std::uint32_t min_version = 0) const {
+      return has_interfaces() ? static_cast<const T *>(
+                                    m_api->interface_find(name, min_version))
+                              : nullptr;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>
