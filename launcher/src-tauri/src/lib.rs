@@ -1541,6 +1541,40 @@ async fn write_save_rac2(
     .map_err(|e| e.to_string())?
 }
 
+/// One Up Your Arsenal save slot for its save editor (core/src/save_edit_rac3.rs).
+#[tauri::command]
+async fn read_save_rac3(
+    serial: String,
+    slot: usize,
+) -> Result<openrac_launcher_core::save_edit_rac3::Rac3SaveView, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        openrac_launcher_core::save_edit_rac3::read_save(&card, &serial, slot)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Writes the Up Your Arsenal save editor's fields into a slot, with write_save_rac2's guards.
+#[tauri::command]
+async fn write_save_rac3(
+    app: AppHandle,
+    serial: String,
+    slot: usize,
+    fingerprint: String,
+    fields: openrac_launcher_core::save_edit_rac3::Rac3SaveFields,
+) -> Result<openrac_launcher_core::save_edit_rac3::Rac3WriteResult, String> {
+    let in_use = card_check(&app).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        openrac_launcher_core::save_edit_rac3::write_save(&card, &serial, slot, &fingerprint, &fields, || {
+            in_use(&card, &serial)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// What the mods that are on keep beside a Going Commando save (core/src/mod_save_data.rs): their
 /// fields of its record, for the save editor.
 #[tauri::command]
@@ -3122,6 +3156,8 @@ pub fn run() {
             write_save,
             read_save_rac2,
             write_save_rac2,
+            read_save_rac3,
+            write_save_rac3,
             read_save_rac2_extra,
             read_mod_save_data_rac2,
             write_mod_save_data_rac2,
