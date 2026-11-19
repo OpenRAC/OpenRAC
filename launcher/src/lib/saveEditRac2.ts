@@ -14,6 +14,44 @@ export const SHIP_PAINTS = 18;
 /** Armour levels: none, then the four the armour vendors sell. */
 export const ARMOR_LEVELS = 5;
 
+/** The packs Ratchet wears on his back by choice (item ids); the Heli-Pack is the game's default. */
+export const HELI_PACK = 2;
+
+export const THRUSTER_PACK = 3;
+
+/** The only boots a player puts on by choice (item id). */
+export const CHARGE_BOOTS = 54;
+
+/** Whether Ratchet has the item in hand or on in `f`: the weapon in hand, the pack and the boots
+ *  follow the fields; the rest of what he has on (`worn`) the editor leaves as it is. Such an
+ *  item can't be taken away. */
+export function heldOrWorn(view: Rac2SaveView, f: Rac2SaveFields, id: number): boolean {
+  const info = view.items.find((i) => i.id === id);
+
+  return !!info?.worn || f.hand === id || f.pack === id || (f.chargeBoots && id === CHARGE_BOOTS);
+}
+
+/** The weapons Ratchet can have in hand in `f`: the owned ones he holds (not those used at once,
+ *  like the Synthenoid), and what the save has in hand if it is none of them. */
+export function handChoices(view: Rac2SaveView, f: Rac2SaveFields): { id: number; name: string }[] {
+  const owned = (id: number) => f.items.find((i) => i.id === id)?.owned ?? false;
+  const list = view.items
+    .filter((i) => i.holdable && owned(i.id))
+    .map((i) => ({ id: i.id, name: versionName(view, f, i.id) ?? i.name }));
+
+  if (!list.some((i) => i.id === view.fields.hand))
+    list.unshift({ id: view.fields.hand, name: itemName(view, view.fields.hand) });
+
+  return list;
+}
+
+/** An item's name for the hand, pack and boots lines; 0 is the game's default. */
+export function itemName(view: Rac2SaveView, id: number): string {
+  if (id === 0) return "Nothing (the game picks)";
+
+  return view.items.find((i) => i.id === id)?.name ?? `Item ${String(id)}`;
+}
+
 const whole = (n: number | null, max: number) =>
   n !== null && Number.isInteger(n) && n >= 0 && n <= max;
 const num = (n: number) => n.toLocaleString("en-US");
@@ -93,8 +131,8 @@ export function fieldErrors(view: Rac2SaveView, f: Rac2SaveFields): Record<strin
     }
 
     if (versionChanged && info) {
-      if (info.worn)
-        errors[`version-${key}`] = "In Ratchet's hand: switch weapons in the game and save first";
+      if (info.worn || f.hand === item.id)
+        errors[`version-${key}`] = "In Ratchet's hand: put another weapon in his hand first";
       else if (!item.owned) errors[`version-${key}`] = "Give the weapon to change its version";
     }
   }
@@ -152,7 +190,7 @@ export function setOwned(view: Rac2SaveView, f: Rac2SaveFields, id: number, owne
   const info = view.items.find((i) => i.id === id);
 
   if (!item || !info) return;
-  if (!owned && info.worn) return;
+  if (!owned && heldOrWorn(view, f, id)) return;
   item.owned = owned;
   const { maxAmmo } = limits(view, f, id);
 
@@ -248,6 +286,26 @@ export function editList(view: Rac2SaveView, f: Rac2SaveFields): Rac2Edit[] {
       section: "ratchet",
       text: `Armour ${armorName(was.armor)} → ${armorName(f.armor)}`,
     });
+
+  if (f.hand !== was.hand) {
+    out.push({
+      section: "ratchet",
+      text: `Weapon in hand ${itemName(view, was.hand)} → ${itemName(view, f.hand)}`,
+    });
+  }
+
+  if (f.pack !== was.pack)
+    out.push({
+      section: "ratchet",
+      text: `Pack ${itemName(view, was.pack)} → ${itemName(view, f.pack)}`,
+    });
+
+  if (f.chargeBoots !== was.chargeBoots) {
+    out.push({
+      section: "ratchet",
+      text: f.chargeBoots ? "Boots: Charge Boots on" : "Boots: Charge Boots off",
+    });
+  }
 
   if (f.shipPaint !== was.shipPaint) {
     out.push({

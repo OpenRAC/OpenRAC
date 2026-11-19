@@ -31,11 +31,16 @@
     ARMOR_LEVELS,
     armorName,
     changed,
+    CHARGE_BOOTS,
     editList,
     fieldErrors,
     fillAllAmmo,
     flagGroups,
     giveAll,
+    handChoices,
+    heldOrWorn,
+    HELI_PACK,
+    itemName,
     ownedCount,
     platinumCount,
     type Rac2Section,
@@ -45,6 +50,7 @@
     setVersion,
     SHIP_PAINTS,
     takeAll,
+    THRUSTER_PACK,
     versionHow,
     versionLabel,
     versionName,
@@ -190,6 +196,22 @@
 
   function item(id: number) {
     return fields?.items.find((i) => i.id === id);
+  }
+
+  /** In Ratchet's hand or on him, as the page has it now: it stays. */
+  function held(id: number): boolean {
+    return !!view && !!fields && heldOrWorn(view, fields, id);
+  }
+
+  /** The version the save has for an item. */
+  function savedVersion(id: number) {
+    return view?.fields.items.find((i) => i.id === id)?.version;
+  }
+
+  /** Held, at the version it has in the save: the version picker is locked. Moved before the
+   *  weapon was put in hand, it stays open, so it can be put back. */
+  function versionLocked(id: number): boolean {
+    return held(id) && item(id)?.version === savedVersion(id);
   }
 
   function itemEdited(id: number): boolean {
@@ -462,6 +484,78 @@
             </div>
           </div>
           <div class="line">
+            <label for="se2-hand"
+              >Weapon in hand{#if fields.hand !== view.fields.hand}<span
+                  class="mark"
+                  role="img"
+                  aria-label="changed"
+                ></span>{/if}</label
+            >
+            <div class="field">
+              <select
+                id="se2-hand"
+                bind:value={fields.hand}
+                title="Owned weapons only. Gadgets come out when Ratchet needs them, and the Clank Zapper, Synthenoid and Shield Charger work at once, so none of them stays in his hand"
+              >
+                {#each handChoices(view, fields) as c (c.id)}
+                  <option value={c.id}>{c.name}</option>
+                {/each}
+              </select>
+              <span class="hint"
+                >What Ratchet holds when the save loads. It can't be taken away, and its version
+                stays as saved.</span
+              >
+            </div>
+          </div>
+          <div class="line">
+            <label for="se2-pack"
+              >Pack{#if fields.pack !== view.fields.pack}<span
+                  class="mark"
+                  role="img"
+                  aria-label="changed"
+                ></span>{/if}</label
+            >
+            <div class="field">
+              <select
+                id="se2-pack"
+                bind:value={fields.pack}
+                title="The Hydro-Pack and the Levitator are put on by the game where they are needed"
+              >
+                {#if view.fields.pack !== HELI_PACK && view.fields.pack !== THRUSTER_PACK}
+                  <option value={view.fields.pack}>{itemName(view, view.fields.pack)}</option>
+                {/if}
+                <option value={HELI_PACK}>Heli-Pack</option>
+                <option value={THRUSTER_PACK} disabled={!item(THRUSTER_PACK)?.owned}
+                  >Thruster-Pack{item(THRUSTER_PACK)?.owned ? "" : " (not owned)"}</option
+                >
+              </select>
+            </div>
+          </div>
+          <div class="line">
+            <label for="se2-boots"
+              >Boots{#if fields.chargeBoots !== view.fields.chargeBoots}<span
+                  class="mark"
+                  role="img"
+                  aria-label="changed"
+                ></span>{/if}</label
+            >
+            <div class="field">
+              <select
+                id="se2-boots"
+                bind:value={fields.chargeBoots}
+                disabled={!view.bootsEditable}
+                title={view.bootsEditable
+                  ? "The Grindboots and Gravity Boots go on by themselves where they are needed"
+                  : "Ratchet has boots on that the game put on for the moment: change them in the game"}
+              >
+                <option value={false}>Plain boots</option>
+                <option value={true} disabled={!item(CHARGE_BOOTS)?.owned}
+                  >Charge Boots{item(CHARGE_BOOTS)?.owned ? "" : " (not owned)"}</option
+                >
+              </select>
+            </div>
+          </div>
+          <div class="line">
             <label for="se2-paint"
               >Ship paint{#if fields.shipPaint !== view.fields.shipPaint}<span
                   class="mark"
@@ -522,11 +616,11 @@
               {#if s}
                 {@const at = attached.get(w.id)}
                 <li>
-                  <label class="own" title={w.worn ? "In Ratchet's hand: it stays" : undefined}>
+                  <label class="own" title={held(w.id) ? "In Ratchet's hand: it stays" : undefined}>
                     <input
                       type="checkbox"
                       checked={s.owned}
-                      disabled={w.worn && s.owned}
+                      disabled={held(w.id) && s.owned}
                       onchange={(e) => {
                         if (view && fields) setOwned(view, fields, w.id, e.currentTarget.checked);
                       }}
@@ -549,17 +643,17 @@
                         class:modded={tiers.length > 0}
                         class:off={!s.owned}
                         aria-label={`${w.name} version`}
-                        title={w.worn && !lastVersion
-                          ? "In Ratchet's hand: switch weapons in the game and save to change its version"
-                          : w.worn
-                            ? "In Ratchet's hand: its tiers can change; switch weapons in the game and save to change its version"
+                        title={held(w.id) && !lastVersion
+                          ? "In Ratchet's hand: put another weapon in his hand to change its version"
+                          : held(w.id)
+                            ? "In Ratchet's hand: its tiers can change; put another weapon in his hand to change its version"
                             : tiers.length > 0
                               ? `From ${tiers[0]?.attached.mod.name ?? "a mod"}: saved in the mod's own file`
                               : v
                                 ? versionHow(v)
                                 : undefined}
                         value={pickedValue(mods.values, at.version, s.version)}
-                        disabled={!s.owned || (w.worn && !lastVersion)}
+                        disabled={!s.owned || (versionLocked(w.id) && !lastVersion)}
                         aria-invalid={!!errors[`version-${String(w.id)}`]}
                         onchange={(e) => {
                           if (view && fields)
@@ -575,7 +669,9 @@
                       >
                         {#if w.versions.length === 0}<option value="g:0">{w.name}</option>{/if}
                         {#each w.versions as option, k (k)}
-                          <option value={`g:${String(k)}`} disabled={w.worn && k !== s.version}
+                          <option
+                            value={`g:${String(k)}`}
+                            disabled={held(w.id) && k !== savedVersion(w.id)}
                             >{versionLabel(option)}{option.name !== w.name
                               ? ` ${option.name}`
                               : ""}</option
@@ -610,13 +706,13 @@
                       class:mega={v?.challengeOnly}
                       class:off={!s.owned}
                       aria-label={`${w.name} version`}
-                      title={w.worn
-                        ? "In Ratchet's hand: switch weapons in the game and save to change its version"
+                      title={held(w.id)
+                        ? "In Ratchet's hand: put another weapon in his hand to change its version"
                         : v
                           ? versionHow(v)
                           : undefined}
                       value={s.version}
-                      disabled={!s.owned || w.worn}
+                      disabled={!s.owned || versionLocked(w.id)}
                       aria-invalid={!!errors[`version-${String(w.id)}`]}
                       onchange={(e) => {
                         if (view && fields)
@@ -784,7 +880,8 @@
                   <input
                     type="checkbox"
                     checked={s.owned}
-                    disabled={g.worn && s.owned}
+                    disabled={held(g.id) && s.owned}
+                    title={held(g.id) && s.owned ? "Ratchet has it on: it stays" : undefined}
                     onchange={(e) => {
                       if (view && fields) setOwned(view, fields, g.id, e.currentTarget.checked);
                     }}

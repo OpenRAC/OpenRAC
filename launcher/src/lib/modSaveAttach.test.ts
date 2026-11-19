@@ -30,6 +30,9 @@ function view(): Rac2SaveView {
     nanotechXp: 0,
     boosts: [],
     armor: 0,
+    hand: 30,
+    pack: 2,
+    chargeBoots: false,
     shipPaint: 0,
     items: [
       { id: 30, owned: true, ammo: 100, xp: 10, version: 1 },
@@ -49,6 +52,7 @@ function view(): Rac2SaveView {
     maxXp: 100,
     versions: ["V1", "V2", "V3", "V4"].slice(0, n).map(ver),
     worn: false,
+    holdable: true,
   });
 
   return {
@@ -65,6 +69,7 @@ function view(): Rac2SaveView {
     maxXp: 0,
     challengeMode: 0,
     flags: [],
+    bootsEditable: true,
   };
 }
 
