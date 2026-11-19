@@ -4545,6 +4545,46 @@ class AssemblyGuard(unittest.TestCase):
         self.assertEqual(got["assembly_allow_unused"], [])
 
 
+class PortHeaders(unittest.TestCase):
+    """hostgen.json "headers": the port's own copy of a decompilation header, found first (Up Your
+    Arsenal's include/vu0.h, whose "=j" asm Clang refuses)."""
+
+    def run_hostgen(self, headers: bool) -> tuple[int, str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            src = tmp / "game"
+            (src / "include").mkdir(parents=True)
+            (src / "include" / "common.h").write_text(COMMON_H)
+            (src / "include" / "vu0.h").write_text(
+                'static __inline__ float fabs_asm(float x) { float r; __asm__("abs.s %0, %1" : "=j"(r) : "j"(x)); return r; }\n')
+            (src / "src").mkdir()
+            (src / "src" / "a.c").write_text('#include "common.h"\n#include "vu0.h"\n'
+                                              'float func_A(float x) { return fabs_asm(x); }\n')
+            cfg = {"name": "test", "sources": ["src"], "includes": ["include", "src"],
+                   "host_functions": HOST_FUNCTIONS}
+            if headers:
+                (tmp / "headers").mkdir()
+                (tmp / "headers" / "vu0.h").write_text(
+                    "static __inline__ float fabs_asm(float x) { return x < 0.0f ? -x : x; }\n")
+                cfg["headers"] = "headers"
+            (tmp / "hostgen.json").write_text(json.dumps(cfg))
+            out = tmp / "gen"
+            with contextlib.redirect_stderr(io.StringIO()):
+                rc = hostgen.main(["--game", str(tmp / "hostgen.json"), "--source", str(src), "--out", str(out),
+                                   "--jobs", "1", "--quiet"])
+            text = "".join(f.read_text() for f in out.rglob("*.c") if "prep" not in f.parts) if rc == 0 else ""
+            return rc, text
+
+    def test_the_ports_header_is_read_in_place_of_the_decompilations(self):
+        rc, text = self.run_hostgen(True)
+        self.assertEqual(rc, 0)
+        self.assertIn("func_A", text)
+        self.assertNotIn("openrac_hostgen_asm", text)
+
+    def test_without_it_the_unit_cannot_be_read(self):
+        self.assertNotEqual(self.run_hostgen(False)[0], 0)
+
+
 class ResultGuard(unittest.TestCase):
     """hostgen.json "result_allow": a call reading a result its callee does not set, taken as 0."""
 

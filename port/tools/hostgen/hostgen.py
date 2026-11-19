@@ -1722,7 +1722,9 @@ def main(argv: list[str] | None = None) -> int:
     units = units_of(root, cfg)
     if args.only:
         units = [u for u in units if u in args.only]
-    flags = clangast.base_flags([Path(i) for i in cfg["includes"]] + [HERE / "include"], cfg["defines"])
+    # hostgen.json "headers": the port's own copies of headers of the decompilation, found first.
+    headers = [(args.game.parent / cfg["headers"]).resolve()] if cfg.get("headers") else []
+    flags = clangast.base_flags(headers + [Path(i) for i in cfg["includes"]] + [HERE / "include"], cfg["defines"])
     state = {"clang": clangast.clang_binary(), "root": root, "flags": flags, "out": out,
              "names": cfg["names"], "groups": cfg["groups"]}
 
