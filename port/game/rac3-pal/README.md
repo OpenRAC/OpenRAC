@@ -31,8 +31,31 @@ The disc boots `SCES_524.56`, a loader at `0x00800000` whose data holds the game
 as the console's loader would, and its entry (`host/entry.c`, `func_0013ADA8`) unpacks the
 records, then does crt0's user-mode steps and calls `main` (`0x0013B330`). `main` runs the loaded
 program's entry, `0x00381250`: boot_elf's own front end (frontbin's twin), which is the boot
-screens and the main menu. When it returns, `0x0013AFF8` gives the next program's entry (frontbin
-or a level, not handled yet).
+screens and the main menu. When it returns, `0x0013AFF8` copies the next program in and gives
+its entry (`host/program.c`).
+
+## The next program
+
+The front end ends when a menu's choice sets its exit word (`0x001D5B74`) and the level to go to
+(`0x001D9D04`). On its way out (`0x003A7CB8`, `0x003BD870`) it reads frontbin, the front end's
+own program in the MISC wad, when that level is below zero, else the level's program, to a buffer
+at the top of memory (`*0x001D4B50`) that `0x0013AFF8` copies over the boot program's (from `.lit`,
+`0x001D5680`, up: hostgen.json's `relocate`). The port wraps `0x0013AFF8` and says which program
+is loaded through the overlay hook: frontbin is hostgen's overlay 100 (`groups`), a level its own
+number. retail.py reads both from the disc (`asm` `retail` `programs`), so their functions with no
+C are translated from their own instructions.
+
+- **frontbin** loads and runs: its start-up, its widgets, its intro movie (the native player through
+  its own copy of the entry, `0x003AF890`) and then its menu loop, sending a display list each frame.
+- **A level** does not run yet: on the way to one (level 1, Veldin) the boot program's loading screen
+  (`0x003BD3E8`, its callback `0x003C10B0`, then `0x003BC7C0`) reads a block it expects at the
+  memory map's fourth region (`*(0x00227598)`, `0x006F3000`) that holds display-list data instead,
+  and faults; what fills that block before the loading screen is not found yet. The level's code
+  itself is not translated either: hostgen.json's `sources` has no `src/levels` and no `places`
+  catalogue (rac3-decomp's `config/levels/functions.tsv`), as Going Commando's has.
+
+Until the menus can be read, `OPENRAC_RAC3_NEXT=FRAME:LEVEL` writes what a menu's choice writes, at
+the boot program's FRAME-th display list (`-1`: frontbin).
 
 ## What the port answers
 
@@ -43,7 +66,9 @@ or a level, not handled yet).
 | `host/dma.c` | sceDmaSend leaving CHCR as the DMAC does (the VIF1 handler retires the frame's wait mask from it), KickVif0Chain |
 | `host/sound.c` | the 989snd reply wait and flush: answered at once (no IOP, no sound yet) |
 | `host/pad.c` | libpad 4.0, Deadlocked's host pad at this disc's addresses |
-| `host/movie.c` | the movie player entry: the shared native player |
+| `host/movie.c` | the movie player entry, the boot program's and frontbin's: the shared native player |
+| `host/program.c` | which program is loaded (the overlay hook), `OPENRAC_RAC3_NEXT` |
+| `headers/vu0.h` | the vector-library helpers of the decompilation's `include/vu0.h` (asm Clang refuses) in C, read in its place (hostgen.json `headers`) |
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
 | `host/spr_dma.c` | the scratchpad DMA channels the kernels start |
 | `host/chain_census.c` | `OPENRAC_RAC3_CHAINS` |
@@ -51,7 +76,9 @@ or a level, not handled yet).
 | `IDENTIFIED.tsv` | every function and global worked out on the way, for the backfill |
 
 `hostgen.json` also lists `from_assembly` (C that forwards registers or has VU0 inline assembly,
-translated from its instructions), `executable_extents` (names the C only declares inside another
+translated from its instructions), `candidate_folders_left_out` (the NTSC-U drafts of boot_elf and
+frontbin give way to the programs' own instructions, which the build reads from the disc: some
+drafts were far from PAL's code and crashed frontbin's start-up and the level loading screen), `executable_extents` (names the C only declares inside another
 function start nothing) and `unpassed_registers` (a K&R call's missing arguments are the
 caller's registers).
 
@@ -64,6 +91,5 @@ caller's registers).
   libmpeg through the IPU from a looping stream; it stays black.
 - **Sound**: the 989snd commands are answered with empty replies; the shared sound replacements
   are not bound.
-- **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's
-  `frontbin` group and `relocate` are not set up for them.
+- **A level**: see [The next program](#the-next-program).
 - The memory card works through the shared `sceMc*`; saving is untested.

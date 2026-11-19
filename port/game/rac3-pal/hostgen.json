@@ -44,6 +44,7 @@
   ],
   "candidates": "nonmatching/functional.tsv",
   "candidate_folders_left_out": {
+    "nonmatching/boot_elf": "the boot program's functions are translated from its own code, which the build reads from the disc (the loader's payload); these are NTSC-U drafts and near misses, some far from PAL's code (func_003BC7C0's matched 12.5% of it, and the level loading screen faulted in it)",
     "nonmatching/frontbin": "frontbin's functions are translated from its own program on the disc (asm retail programs); these are NTSC-U drafts and near misses, some far from PAL's code (func_003AF0B8's matched none of it, and the front end it starts crashed on an object it had not set up)"
   },
   "candidates_left_out": {
@@ -283,7 +284,20 @@
     "func_003C52F8__frontbin",
     "func_003E6378__frontbin",
     "func_003E9450__frontbin",
-    "func_003E58F8__frontbin"
+    "func_003E58F8__frontbin",
+    "func_00382468",
+    "func_00391100",
+    "func_00391128",
+    "func_003A1638",
+    "func_003AB8C0",
+    "func_003ABE10",
+    "func_003B3408",
+    "func_003B34A0",
+    "func_003B34D8",
+    "func_003B5BE8",
+    "func_003C4378",
+    "func_003E5CB0",
+    "func_003EAB30"
   ],
   "overlay_hook": true,
   "relocate": [

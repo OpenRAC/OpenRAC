@@ -14,49 +14,52 @@
 #define VU0_H
 
 typedef int vu0_q __attribute__((mode(TI)));
-typedef struct { float x, y, z, w; } __attribute__((aligned(16))) vu0_v4;
 
-static __inline__ void vec_sub_ab(void *d, void *a, void *b) {
-    vu0_v4 *pa = (vu0_v4 *)a, *pb = (vu0_v4 *)b, r;
+typedef struct {
+    float x, y, z, w;
+} __attribute__((aligned(16))) vu0_v4;
+
+static __inline__ void vec_sub_ab(void* d, void* a, void* b) {
+    vu0_v4 *pa = (vu0_v4*)a, *pb = (vu0_v4*)b, r;
     r.x = pa->x - pb->x;
     r.y = pa->y - pb->y;
     r.z = pa->z - pb->z;
     r.w = pa->w;
-    *(vu0_v4 *)d = r;
+    *(vu0_v4*)d = r;
 }
 
-static __inline__ void vec_sub_ba(void *d, void *a, void *b) {
+static __inline__ void vec_sub_ba(void* d, void* a, void* b) {
     vec_sub_ab(d, a, b);
 }
 
-static __inline__ void vec_add_ab(void *d, void *a, void *b) {
-    vu0_v4 *pa = (vu0_v4 *)a, *pb = (vu0_v4 *)b, r;
+static __inline__ void vec_add_ab(void* d, void* a, void* b) {
+    vu0_v4 *pa = (vu0_v4*)a, *pb = (vu0_v4*)b, r;
     r.x = pa->x + pb->x;
     r.y = pa->y + pb->y;
     r.z = pa->z + pb->z;
     r.w = pa->w;
-    *(vu0_v4 *)d = r;
+    *(vu0_v4*)d = r;
 }
 
-static __inline__ void vec_add_ba(void *d, void *a, void *b) {
+static __inline__ void vec_add_ba(void* d, void* a, void* b) {
     vec_add_ab(d, a, b);
 }
 
 /* vsub.xyz from $vf0 (zero): the result in a's register, so its w is a's. */
-static __inline__ void vec_neg(void *d, void *a) {
-    vu0_v4 *pa = (vu0_v4 *)a, r;
+static __inline__ void vec_neg(void* d, void* a) {
+    vu0_v4 *pa = (vu0_v4*)a, r;
     r.x = 0.0f - pa->x;
     r.y = 0.0f - pa->y;
     r.z = 0.0f - pa->z;
     r.w = pa->w;
-    *(vu0_v4 *)d = r;
+    *(vu0_v4*)d = r;
 }
 
-static __inline__ void vec_copy(void *d, void *s) {
-    *(vu0_v4 *)d = *(vu0_v4 *)s;
+static __inline__ void vec_copy(void* d, void* s) {
+    *(vu0_v4*)d = *(vu0_v4*)s;
 }
 
-#define qzero(d) (*(vu0_q *)(d) = 0)
+#define qzero(d) (*(vu0_q*)(d) = 0)
 
 static __inline__ float fabs_asm(float x) {
     return x < 0.0f ? -x : x;
@@ -87,13 +90,21 @@ static __inline__ int plzcw_asm(int x) {
 
 /* cvt.w.s and cvt.s.w on a value that stays in the FPU: the integer is carried in a float's bits. */
 static __inline__ float cvtws_asm(float x) {
-    union { float f; int i; } u;
+    union {
+        float f;
+        int i;
+    } u;
+
     u.i = (int)x;
     return u.f;
 }
 
 static __inline__ float cvtsw_asm(float x) {
-    union { float f; int i; } u;
+    union {
+        float f;
+        int i;
+    } u;
+
     u.f = x;
     return (float)u.i;
 }
@@ -124,8 +135,8 @@ static __inline__ vu0_q vu0_psraw(vu0_q a, int sa) {
 #define psraw_asm(a, sa) vu0_psraw((vu0_q)(a), (sa))
 
 /* The four rows of a 4x4 matrix, each scaled by `scale` (vmulx.xyzw). */
-static __inline__ void mat_scale(void *dst, void *src, float scale) {
-    float *d = (float *)dst, *s = (float *)src;
+static __inline__ void mat_scale(void* dst, void* src, float scale) {
+    float *d = (float*)dst, *s = (float*)src;
     int k;
     for (k = 0; k < 16; k++) {
         d[k] = s[k] * scale;

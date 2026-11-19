@@ -68,8 +68,9 @@ int openrac_game_loaded_overlay(void) {
 
 /* A warm save-state restores the program and the runtime's overlay together. */
 void openrac_game_restore_overlay(int overlay) {
-    loaded_overlay = overlay == FRONTBIN_OVERLAY || (overlay >= 0 && overlay < LEVELS) ? overlay
-                                                                                       : OPENRAC_OVERLAY_EXE;
+    loaded_overlay = overlay == FRONTBIN_OVERLAY || (overlay >= 0 && overlay < LEVELS)
+                         ? overlay
+                         : OPENRAC_OVERLAY_EXE;
 }
 
 /* OPENRAC_RAC3_NEXT=FRAME:LEVEL, a development probe until the menus can be read: at the boot
