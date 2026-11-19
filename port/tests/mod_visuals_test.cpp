@@ -16,9 +16,8 @@ const openrac_game_play* openrac_game_play_host = nullptr;
 }
 using namespace openrac;
 static_assert(
-    offsetof(openrac_api, moby_visuals)
-        == offsetof(openrac_api, developer_menu_value) + sizeof(void*),
-    "reward API entries (1.21) must follow the 1.19 developer menu entries"
+    offsetof(openrac_api, moby_visuals) == offsetof(openrac_api, hook_entry) + sizeof(void*),
+    "reward API entries (1.22) must follow hook_entry (1.21)"
 );
 
 namespace {

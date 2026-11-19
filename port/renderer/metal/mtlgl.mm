@@ -4,9 +4,6 @@
 // The context, the command stream (mtlgl_internal.h), state, and the present. Resources are
 // mtlgl_resources.mm's.
 
-#include <OpenGL/OpenGL.h>
-#include <SDL3/SDL_video.h>
-
 #include <algorithm>
 #include <cstring>
 #include <format>
@@ -14,7 +11,11 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_video.h>
+
 #include "renderer/metal/mtlgl_internal.h"
+
+#include <OpenGL/OpenGL.h>
 
 namespace openrac::mtlgl::detail {
 
@@ -99,7 +100,8 @@ void zero(id<MTLTexture> texture) {
         if (depth && texture.sampleCount == 1) {
             const NSUInteger w = std::max<NSUInteger>(texture.width >> level, 1);
             const NSUInteger h = std::max<NSUInteger>(texture.height >> level, 1);
-            id<MTLBuffer> ones = [g->device newBufferWithLength:w * h * 4 options:MTLResourceStorageModeShared];
+            id<MTLBuffer> ones = [g->device newBufferWithLength:w * h * 4
+                                                        options:MTLResourceStorageModeShared];
             std::memset(ones.contents, 0xFF, w * h * 4);
             id<MTLBlitCommandEncoder> copy = [uploads() blitCommandEncoder];
             [copy copyFromBuffer:ones
@@ -180,7 +182,8 @@ void begin_pass(const Target& target, GLbitfield clear) {
         d.colorAttachments[0].loadAction =
             (clear & GL_COLOR_BUFFER_BIT) != 0 ? MTLLoadActionClear : MTLLoadActionLoad;
         d.colorAttachments[0].clearColor = MTLClearColorMake(
-            s.clear_colour[0], s.clear_colour[1], s.clear_colour[2], s.clear_colour[3]);
+            s.clear_colour[0], s.clear_colour[1], s.clear_colour[2], s.clear_colour[3]
+        );
         d.colorAttachments[0].storeAction = MTLStoreActionStore;
     }
     if (target.depth != nil) {
@@ -268,11 +271,11 @@ fragment float4 resolve_bytes(float4 at [[position]], texture2d_ms<float> from [
 )";
 
 void make_default_framebuffer(int width, int height) {
-    MTLTextureDescriptor* d = [MTLTextureDescriptor
-        texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
-                                     width:static_cast<NSUInteger>(width)
-                                    height:static_cast<NSUInteger>(height)
-                                 mipmapped:NO];
+    MTLTextureDescriptor* d =
+        [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                           width:static_cast<NSUInteger>(width)
+                                                          height:static_cast<NSUInteger>(height)
+                                                       mipmapped:NO];
     d.storageMode = MTLStorageModePrivate;
     d.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
     g->colour = [g->device newTextureWithDescriptor:d];
@@ -363,7 +366,9 @@ void MTLGL get_integerv(GLenum name, GLint* data) {
             *data = kUnits;
             return;
         case GL_MAX_TEXTURE_BUFFER_SIZE:
-            *data = static_cast<GLint>(std::min<NSUInteger>(g->device.maxBufferLength / 16, 0x7FFFFFFF));
+            *data = static_cast<GLint>(
+                std::min<NSUInteger>(g->device.maxBufferLength / 16, 0x7FFFFFFF)
+            );
             return;
         case kGlMaxVertexAttribs:
             *data = 16;
@@ -452,16 +457,20 @@ void draw_clear(const Target& t, GLbitfield mask) {
     if (x1 == x0 || y1 == y0) {
         return;
     }
-    const bool stencil_format = t.depth != nil && t.depth.pixelFormat == MTLPixelFormatDepth32Float_Stencil8;
+    const bool stencil_format =
+        t.depth != nil && t.depth.pixelFormat == MTLPixelFormatDepth32Float_Stencil8;
     const bool depth = (mask & GL_DEPTH_BUFFER_BIT) != 0 && s.depth_mask;
     const bool stencil = (mask & GL_STENCIL_BUFFER_BIT) != 0 && stencil_format;
-    const MTLColorWriteMask write =
-        (mask & GL_COLOR_BUFFER_BIT) == 0
-            ? MTLColorWriteMaskNone
-            : (s.colour_mask[0] ? MTLColorWriteMaskRed : 0) | (s.colour_mask[1] ? MTLColorWriteMaskGreen : 0)
-                  | (s.colour_mask[2] ? MTLColorWriteMaskBlue : 0) | (s.colour_mask[3] ? MTLColorWriteMaskAlpha : 0);
-    const MTLPixelFormat colour_format = t.colour != nil ? t.colour.pixelFormat : MTLPixelFormatInvalid;
-    const MTLPixelFormat depth_format = t.depth != nil ? t.depth.pixelFormat : MTLPixelFormatInvalid;
+    const MTLColorWriteMask write = (mask & GL_COLOR_BUFFER_BIT) == 0
+                                        ? MTLColorWriteMaskNone
+                                        : (s.colour_mask[0] ? MTLColorWriteMaskRed : 0)
+                                              | (s.colour_mask[1] ? MTLColorWriteMaskGreen : 0)
+                                              | (s.colour_mask[2] ? MTLColorWriteMaskBlue : 0)
+                                              | (s.colour_mask[3] ? MTLColorWriteMaskAlpha : 0);
+    const MTLPixelFormat colour_format =
+        t.colour != nil ? t.colour.pixelFormat : MTLPixelFormatInvalid;
+    const MTLPixelFormat depth_format =
+        t.depth != nil ? t.depth.pixelFormat : MTLPixelFormatInvalid;
     // Above blit pipelines' keys, which are formats and sample counts.
     const NSUInteger key = NSUInteger{1} << 63 | NSUInteger{write} << 48 | size.sampleCount << 40
                            | NSUInteger{depth_format} << 20 | colour_format;
@@ -481,7 +490,8 @@ void draw_clear(const Target& t, GLbitfield mask) {
         fail(kGlInvalidOperation);  // an integer image's: its clear colour is not floats
         return;
     }
-    const std::string state_key = std::format("clear {} {} {}", depth, stencil, s.stencil_write_mask & 0xFF);
+    const std::string state_key =
+        std::format("clear {} {} {}", depth, stencil, s.stencil_write_mask & 0xFF);
     __strong id<MTLDepthStencilState>& state = g->depth_states[state_key];
     if (state == nil) {
         MTLDepthStencilDescriptor* d = [MTLDepthStencilDescriptor new];
@@ -504,8 +514,11 @@ void draw_clear(const Target& t, GLbitfield mask) {
     [pass setCullMode:MTLCullModeNone];
     [pass setTriangleFillMode:MTLTriangleFillModeFill];
     [pass setDepthClipMode:MTLDepthClipModeClip];
-    [pass setViewport:{0.0, 0.0, static_cast<double>(width), static_cast<double>(height), 0.0, 1.0}];
-    [pass setScissorRect:{static_cast<NSUInteger>(x0), static_cast<NSUInteger>(y0), static_cast<NSUInteger>(x1 - x0),
+    [pass
+        setViewport:{0.0, 0.0, static_cast<double>(width), static_cast<double>(height), 0.0, 1.0}];
+    [pass setScissorRect:{static_cast<NSUInteger>(x0),
+                          static_cast<NSUInteger>(y0),
+                          static_cast<NSUInteger>(x1 - x0),
                           static_cast<NSUInteger>(y1 - y0)}];
     [pass setVertexBytes:&s.clear_depth length:sizeof s.clear_depth atIndex:0];
     [pass setFragmentBytes:s.clear_colour length:sizeof s.clear_colour atIndex:0];
@@ -514,12 +527,12 @@ void draw_clear(const Target& t, GLbitfield mask) {
 
 void MTLGL clear(GLbitfield mask) {
     const State& s = g->state;
-    const bool partial = s.scissor_test
-                         || ((mask & GL_COLOR_BUFFER_BIT) != 0
-                             && !std::ranges::all_of(s.colour_mask, std::identity{}))
-                         || ((mask & GL_DEPTH_BUFFER_BIT) != 0 && !s.depth_mask)
-                         || ((mask & GL_STENCIL_BUFFER_BIT) != 0
-                             && (s.stencil_write_mask & 0xFF) != 0xFF);
+    const bool partial =
+        s.scissor_test
+        || ((mask & GL_COLOR_BUFFER_BIT) != 0
+            && !std::ranges::all_of(s.colour_mask, std::identity{}))
+        || ((mask & GL_DEPTH_BUFFER_BIT) != 0 && !s.depth_mask)
+        || ((mask & GL_STENCIL_BUFFER_BIT) != 0 && (s.stencil_write_mask & 0xFF) != 0xFF);
     const Target target = target_of(s.draw_framebuffer);
     if (target.colour == nil && target.depth == nil) {
         return;
@@ -768,10 +781,13 @@ const Entry kEntries[] = {
 // gpuswitch 0` keeps a MacBook Pro on its integrated one, which OpenGL then uses.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 id<MTLDevice> opengl_device() {
-    const CGLPixelFormatAttribute attributes[] = {
-        kCGLPFAOpenGLProfile, static_cast<CGLPixelFormatAttribute>(kCGLOGLPVersion_GL4_Core), kCGLPFAAccelerated,
-        static_cast<CGLPixelFormatAttribute>(0)};
+    const CGLPixelFormatAttribute attributes[] =
+        {kCGLPFAOpenGLProfile,
+         static_cast<CGLPixelFormatAttribute>(kCGLOGLPVersion_GL4_Core),
+         kCGLPFAAccelerated,
+         static_cast<CGLPixelFormatAttribute>(0)};
     CGLPixelFormatObj format = nullptr;
     int screens = 0, renderer = 0, count = 0;
     if (CGLChoosePixelFormat(attributes, &format, &screens) != kCGLNoError || format == nullptr) {
@@ -790,7 +806,8 @@ id<MTLDevice> opengl_device() {
         CGLDescribeRenderer(info, i, kCGLRPRegistryIDLow, &low);
         CGLDescribeRenderer(info, i, kCGLRPRegistryIDHigh, &high);
         if (rid == renderer) {
-            registry = std::uint64_t{static_cast<std::uint32_t>(high)} << 32 | static_cast<std::uint32_t>(low);
+            registry = std::uint64_t{static_cast<std::uint32_t>(high)} << 32
+                       | static_cast<std::uint32_t>(low);
         }
     }
     CGLDestroyRendererInfo(info);
@@ -801,6 +818,7 @@ id<MTLDevice> opengl_device() {
     }
     return nil;
 }
+
 #pragma clang diagnostic pop
 
 }  // namespace
@@ -834,7 +852,9 @@ bool open(const Config& config, std::string& error) {
     NSError* failure = nil;
     MTLCompileOptions* exact = [MTLCompileOptions new];
     exact.fastMathEnabled = NO;
-    id<MTLLibrary> library = [device newLibraryWithSource:@(kFlipSource) options:exact error:&failure];
+    id<MTLLibrary> library = [device newLibraryWithSource:@(kFlipSource)
+                                                  options:exact
+                                                    error:&failure];
     if (library == nil) {
         error = std::format("the present shader: {}", failure.localizedDescription.UTF8String);
         return false;
@@ -909,7 +929,8 @@ void present() {
                 MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
                 d.colorAttachments[0].texture = drawable.texture;
                 d.colorAttachments[0].loadAction = MTLLoadActionDontCare;
-                id<MTLRenderCommandEncoder> pass = [commands() renderCommandEncoderWithDescriptor:d];
+                id<MTLRenderCommandEncoder> pass =
+                    [commands() renderCommandEncoderWithDescriptor:d];
                 [pass setRenderPipelineState:g->flip];
                 [pass setFragmentTexture:g->colour atIndex:0];
                 [pass drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];

@@ -44,6 +44,34 @@ Take hooks only while your mod loads (in `openrac_mod_load`, in your C++
 `load`, or at the top level of a script). Hook points are the same on every
 disc a mod supports.
 
+## Calling a hook point yourself (interface 1.21)
+
+A mod sometimes does what the game does at a hook point itself: a weapon of the
+mod's takes its rounds as the game's weapons do. Calling the hook point, rather
+than redoing the game's work, lets the other mods on it apply: another mod's
+infinite ammo then covers your weapon too.
+
+`hook_entry(name, signature)` gives the hook point's entry, the function the
+game calls there: calling it runs the chain from the mod loaded last down to the
+game's own code, as when the game calls it. It takes an id or an alias and the
+same signature as `hook`, so it is the same on every disc, where `function()`
+needs the disc's own name of the function. It is null for a hook point this
+OpenRAC lacks or another signature.
+
+```cpp
+// C++: typed by the hook point, asked by its id.
+if (const auto take_ammo = mod.hook_entry<openrac::rac1::Weapon_TakeAmmo>()) {
+    if (take_ammo(item, 1) == 0) {
+        // too little ammo: the game's own answer, or another mod's
+    }
+}
+```
+
+In C, `api->hook_entry("rac1.weapon.take_ammo", OPENRAC_RAC1_SIG_Weapon_TakeAmmo)`.
+
+If your mod took the same hook point, its own replacement runs too: tell your
+own call apart (a flag set around it) when the replacement must not act on it.
+
 ## Stable ids
 
 Every hook point has a permanent **id** of the form

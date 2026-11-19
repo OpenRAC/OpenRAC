@@ -566,6 +566,9 @@ public:
     // Game state 2 is a level's scene (host/tools.c STATE_SCENE, which skip_cutscenes ends).
     std::optional<std::uint32_t> cutscene_mode() const override { return 2; }
 
+    // Game state 4 while the weapon wheel is open (func_00286738's modal mode 7, T-49).
+    std::optional<std::uint32_t> quick_select_mode() const override { return 4; }
+
     // The pad's read (func_002B88F0): |byte - 0x7F| from 0x30, over 0x4C, as Ratchet & Clank's.
     std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }
 

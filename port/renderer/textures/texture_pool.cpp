@@ -551,6 +551,7 @@ TextureHandle TexturePool::convert_upload(
     // An animated one gives its frames as well.
     texture_pack::Replacement replaced;
     bool cropped = false;
+    bool pcsx2 = false;
     std::array<float, 2> uv_scale{1.0f, 1.0f};
     // A pack picture not read yet is read in the background: the original is drawn until then,
     // and end_frame() has the texture converted again (no frame waits for the disk).
@@ -588,7 +589,7 @@ TextureHandle TexturePool::convert_upload(
         &replaced
     );
     if (!packed && clut != nullptr) {
-        pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs);
+        pcsx2 = pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs);
         if (extent[0] != 0) {
             auto extended = border.empty() ? std::vector<std::uint8_t>{}
                                            : texture_raster(*stored, tex0, extent[0], extent[1]);
@@ -633,6 +634,7 @@ TextureHandle TexturePool::convert_upload(
     auto& entry = m_entries[h - 1];
     entry.cropped_replacement = cropped;
     entry.pack_replacement = packed;
+    entry.pcsx2_replacement = pcsx2 || cropped;
     entry.uv_scale = uv_scale;
     entry.from_upload = true;
     entry.key = key;
@@ -703,6 +705,10 @@ bool TexturePool::has_cropped_replacement(TextureHandle texture) const {
 
 bool TexturePool::has_pack_replacement(TextureHandle texture) const {
     return m_entries[texture - 1].pack_replacement;
+}
+
+bool TexturePool::has_pcsx2_replacement(TextureHandle texture) const {
+    return m_entries[texture - 1].pcsx2_replacement;
 }
 
 std::array<float, 2> TexturePool::uv_scale(TextureHandle texture) const {

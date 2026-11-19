@@ -2699,8 +2699,11 @@ void keep_tick(
     const auto cutscene_mode = g->profile->cutscene_mode();
     const bool has_mode = openrac_game_mode != nullptr && openrac_game_mode(&mode) != 0;
     k.cutscene = has_mode && cutscene_mode && mode == *cutscene_mode;
-    // Both games report mode zero for normal play. Unknown modes retain the native lens.
-    k.gameplay_camera = has_mode && mode == 0;
+    // Both games report mode zero for normal play; the quick select's mode plays on under the
+    // wheel (profile.h quick_select_mode). Unknown modes retain the native lens.
+    const auto quick_select_mode = g->profile->quick_select_mode();
+    k.gameplay_camera =
+        has_mode && (mode == 0 || (quick_select_mode && mode == *quick_select_mode));
     k.state = state;
     k.has_state = true;
     k.live = std::move(mobys.live);

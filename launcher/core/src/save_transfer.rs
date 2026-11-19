@@ -22,6 +22,13 @@
 //! An import backs the card up first (`saves::backup_card`), then either replaces the game's save
 //! folders with the file's, or merges: only the chosen slots are written, every other slot on the
 //! card is kept.
+//!
+//! A copy between discs works the same way, from another disc's card instead of a file: the discs
+//! of a game whose saves are the same file (Ratchet & Clank's PAL, US and Japanese discs, Going
+//! Commando's PAL and US: `save_edit.rs`, `save_edit_rac2.rs`) each have their own card, so a
+//! game built from one disc does not see the saves of the other. The copy takes the other card's
+//! save folder, renamed to this disc's (`BESCES-50916RATCHET` becomes `BASCUS-97199RATCHET`, the
+//! folder's own reserved file too), and writes it as an import would.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -164,9 +171,19 @@ fn slot_of(name: &str) -> Option<usize> {
     })
 }
 
-/// The slot whose mark a file name is (`save3.bin.mods` is 3).
-fn mark_of(name: &str) -> Option<usize> {
-    slot_of(name.strip_suffix(".mods")?)
+/// What the computer keeps beside a save: the port's mark of the mods it was played with
+/// (`.mods`) and the mods' own data for it (`.moddata`, port/game/common/mods.cpp).
+const COMPANIONS: [&str; 2] = [".mods", ".moddata"];
+
+/// The slot a file beside a save belongs to (`save3.bin.mods`, `save3.bin.moddata`: 3).
+fn companion_of(name: &str) -> Option<usize> {
+    COMPANIONS.iter().find_map(|end| slot_of(name.strip_suffix(end)?))
+}
+
+/// The slot a file of a save folder goes with: its save, or a file beside it. None for the
+/// folder's own files (its icon, its reserved file).
+fn slot_file(name: &str) -> Option<usize> {
+    slot_of(name).or_else(|| companion_of(name))
 }
 
 /// Whether `name` is one file or folder name on every system: not empty, not `.` or `..`, no
@@ -315,13 +332,10 @@ pub fn export_card(
         files.extend(folder_files(card_dir, folder)?);
     }
     if let Some(index) = slot {
-        // The one slot and its mark, and the folder's own files: no other slot.
+        // The one slot and the files beside it, and the folder's own files: no other slot.
         files.retain(|path, _| {
             let file = path.split_once('/').map_or("", |(_, f)| f);
-            match (slot_of(file), mark_of(file)) {
-                (Some(i), _) | (_, Some(i)) => i == index,
-                _ => true,
-            }
+            slot_file(file).is_none_or(|i| i == index)
         });
         let used = slots_in(serial, &files).iter().any(|s| s.slot_index == index && !s.empty);
         if !used {
@@ -443,12 +457,27 @@ fn card_folder_named(card_dir: &Path, name: &str) -> Option<String> {
 pub fn preview_into(card_dir: &Path, serial: &str, source: &Path) -> Result<SaveImportPreview, String> {
     let archive = read_archive(source)?;
     check_serial(&archive, serial)?;
+    let (slots, card_has_saves) = preview_files(card_dir, serial, &archive.files);
+    let m = archive.manifest;
+    Ok(SaveImportPreview {
+        serial: m.serial,
+        title: m.title,
+        launcher_version: m.launcher_version,
+        created: m.created,
+        slots,
+        card_has_saves,
+    })
+}
+
+/// The used slots of `files` with the card's save each would replace, and whether the card in
+/// `card_dir` has saves of its own.
+fn preview_files(card_dir: &Path, serial: &str, files: &BTreeMap<String, Vec<u8>>) -> (Vec<SaveImportSlot>, bool) {
     let mut card = BTreeMap::new();
     for folder in card_folders(card_dir) {
         card.extend(folder_files(card_dir, &folder).unwrap_or_default());
     }
     let on_card = slots_in(serial, &card);
-    let slots = slots_in(serial, &archive.files)
+    let slots = slots_in(serial, files)
         .into_iter()
         .filter(|s| !s.empty)
         .map(|slot| {
@@ -459,15 +488,7 @@ pub fn preview_into(card_dir: &Path, serial: &str, source: &Path) -> Result<Save
             SaveImportSlot { slot, replaces }
         })
         .collect();
-    let m = archive.manifest;
-    Ok(SaveImportPreview {
-        serial: m.serial,
-        title: m.title,
-        launcher_version: m.launcher_version,
-        created: m.created,
-        slots,
-        card_has_saves: on_card.iter().any(|s| !s.empty),
-    })
+    (slots, on_card.iter().any(|s| !s.empty))
 }
 
 /// Writes `bytes` to `path` through a file beside it and a rename, so a save is never half written.
@@ -490,7 +511,20 @@ pub fn import_into(
 ) -> Result<ImportedSaves, String> {
     let archive = read_archive(source)?;
     check_serial(&archive, serial)?;
-    let in_file: Vec<SaveArchiveSlot> = slots_in(serial, &archive.files);
+    write_files(card_dir, serial, &archive.files, choice, "before import")
+}
+
+/// Writes save folders' files (by `folder/file`) onto the card in `card_dir` as `choice` says,
+/// after a backup of the card noted `note`: refused for a merge that chose no slot, or a slot
+/// `files` does not hold.
+fn write_files(
+    card_dir: &Path,
+    serial: &str,
+    files: &BTreeMap<String, Vec<u8>>,
+    choice: &SaveImportChoice,
+    note: &str,
+) -> Result<ImportedSaves, String> {
+    let in_file: Vec<SaveArchiveSlot> = slots_in(serial, files);
     if !choice.replace_all {
         if choice.slots.is_empty() {
             return Err("choose at least one slot to import".into());
@@ -509,11 +543,11 @@ pub fn import_into(
             entries.flatten().any(|e| e.path().is_dir() && !e.file_name().to_string_lossy().starts_with('.'))
         })
         .unwrap_or(false);
-    let backup = if holds_saves { Some(saves::backup_card(card_dir, Some("before import"))?) } else { None };
+    let backup = if holds_saves { Some(saves::backup_card(card_dir, Some(note))?) } else { None };
 
     // The file's folders, each with its files.
     let mut by_folder: BTreeMap<&str, Vec<(&str, &[u8])>> = BTreeMap::new();
-    for (path, bytes) in &archive.files {
+    for (path, bytes) in files {
         if let Some((folder, file)) = split_entry(path) {
             by_folder.entry(folder).or_default().push((file, bytes));
         }
@@ -540,10 +574,10 @@ pub fn import_into(
         for (file, bytes) in &entries {
             let target = dest.join(file);
             let take = choice.replace_all
-                || match (slot_of(file), mark_of(file)) {
-                    (Some(i), _) | (_, Some(i)) => picked(i),
+                || match slot_file(file) {
+                    Some(i) => picked(i),
                     // The folder's own files (icon, settings): only where the card has none.
-                    _ => !target.exists(),
+                    None => !target.exists(),
                 };
             if take {
                 write_file(&target, bytes)?;
@@ -551,18 +585,195 @@ pub fn import_into(
             }
         }
         if !choice.replace_all {
-            // A chosen slot without a mark in the file was played without mods: the card's old
-            // mark beside it would say otherwise.
+            // A chosen slot without a mark in the file was played without mods, and one without
+            // mod data has none: the card's old files beside it would belong to the save replaced.
             for pick in choice.slots.iter().filter(|p| p.folder == folder) {
-                let mark = format!("save{}.bin.mods", pick.slot_index);
-                if !entries.iter().any(|(f, _)| *f == mark) {
-                    let _ = fs::remove_file(dest.join(&mark));
+                for end in COMPANIONS {
+                    let beside = format!("save{}.bin{end}", pick.slot_index);
+                    if !entries.iter().any(|(f, _)| *f == beside) {
+                        let _ = fs::remove_file(dest.join(&beside));
+                    }
                 }
             }
         }
         folders.push(folder.to_string());
     }
     Ok(ImportedSaves { folders, files: written, backup })
+}
+
+// ---------------------------------------------------------------------------------------------
+// Copies between the discs of one game.
+
+/// The discs whose games write the same save file, a game a line, each with the name a player
+/// knows it by. Ratchet & Clank: every disc's descriptor tables list the same chunks
+/// (`save_edit.rs`); Going Commando: the US discs (v1.01 and v2.00 share `SCUS_972.68`, and so
+/// a card) and the PAL disc (`save_edit_rac2.rs`).
+const SAME_SAVES: &[&[(&str, &str)]] = &[
+    &[("SCES_509.16", "PAL"), ("SCUS_971.99", "NTSC-U"), ("SCPS_150.37", "NTSC-J")],
+    &[("SCUS_972.68", "NTSC-U"), ("SCES_516.07", "PAL")],
+];
+
+/// Another disc of the same game, as the Saves panel offers it to copy from.
+#[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveCopySource {
+    /// Its serial (`SCES_509.16`).
+    pub serial: String,
+    /// Its region as players name it (`PAL`, `NTSC-U`, `NTSC-J`).
+    pub region: String,
+    /// How many saves its card holds.
+    pub saves: usize,
+}
+
+/// The other discs whose saves `serial`'s game reads as its own, with their regions.
+fn same_save_discs(serial: &str) -> Vec<(&'static str, &'static str)> {
+    SAME_SAVES
+        .iter()
+        .find(|game| game.iter().any(|(s, _)| s.eq_ignore_ascii_case(serial)))
+        .map(|game| game.iter().copied().filter(|(s, _)| !s.eq_ignore_ascii_case(serial)).collect())
+        .unwrap_or_default()
+}
+
+/// The save folder a disc's game makes on its card (func_00298BB8 in Going Commando, the same
+/// template in Ratchet & Clank): `B`, the region (`E` for Europe, `I` for Japan, `A` otherwise),
+/// the serial's letters, a dash, its digits and `RATCHET`: `SCUS_971.99` is
+/// `BASCUS-97199RATCHET`.
+pub fn card_folder_name(serial: &str) -> Option<String> {
+    let (letters, number) = serial.split_once('_')?;
+    let digits: String = number.chars().filter(char::is_ascii_digit).collect();
+    if letters.len() != 4 || !letters.chars().all(|c| c.is_ascii_uppercase()) || digits.len() != 5 {
+        return None;
+    }
+    let region = match letters.as_bytes()[2] {
+        b'E' => 'E',
+        b'P' => 'I',
+        _ => 'A',
+    };
+    Some(format!("B{region}{letters}-{digits}RATCHET"))
+}
+
+/// The game's folder name on a card, when it has one.
+fn game_folder(card_dir: &Path) -> Option<String> {
+    saves::find_game_folder(card_dir).and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_string()))
+}
+
+/// The save folder of the card in `from_card`, by `folder/file` under the name the card in
+/// `to_card` uses (its own folder's, or the one `to_serial`'s game would make), its reserved file
+/// (named as the folder) renamed with it. Also whether `to_card` has that folder already.
+fn carried_files(
+    from_card: &Path,
+    to_card: &Path,
+    to_serial: &str,
+) -> Result<(BTreeMap<String, Vec<u8>>, bool), String> {
+    let from = game_folder(from_card).ok_or("the other disc's memory card holds no saves")?;
+    let theirs = game_folder(to_card);
+    let to = match &theirs {
+        Some(name) => name.clone(),
+        None => card_folder_name(to_serial).ok_or(format!("{to_serial} has no known save folder"))?,
+    };
+    let mut out = BTreeMap::new();
+    for (path, bytes) in folder_files(from_card, &from)? {
+        let file = path.split_once('/').map_or("", |(_, f)| f);
+        let file = if file.eq_ignore_ascii_case(&from) { to.as_str() } else { file };
+        out.insert(format!("{to}/{file}"), bytes);
+    }
+    Ok((out, theirs.is_some()))
+}
+
+/// The pair's check: two discs of one game whose saves are the same file.
+fn check_pair(from_serial: &str, to_serial: &str) -> Result<(), String> {
+    if same_save_discs(to_serial).iter().any(|(s, _)| s.eq_ignore_ascii_case(from_serial)) {
+        Ok(())
+    } else {
+        Err(format!("saves from {from_serial} cannot be copied to {to_serial}: they are not the same game's"))
+    }
+}
+
+/// The other discs of the game whose cards hold saves, for the game on `serial`; `card_of` gives
+/// a serial's card.
+pub fn copy_sources_with(serial: &str, card_of: impl Fn(&str) -> PathBuf) -> Vec<SaveCopySource> {
+    same_save_discs(serial)
+        .into_iter()
+        .filter_map(|(other, region)| {
+            let card = card_of(other);
+            let folder = game_folder(&card)?;
+            let files = folder_files(&card, &folder).ok()?;
+            let saves = slots_in(serial, &files).iter().filter(|s| !s.empty).count();
+            (saves > 0).then(|| SaveCopySource { serial: other.to_string(), region: region.to_string(), saves })
+        })
+        .collect()
+}
+
+/// What copying the saves on `from_serial`'s card (in `from_card`) onto `to_serial`'s (in
+/// `to_card`) would do, before anything is written: the slots, under this card's folder name, with
+/// what each replaces. `serial` is the other disc's, `created` now; a card without the game's
+/// folder yet has no saves of its own, and takes the other card's folder whole.
+pub fn preview_copy_between(
+    from_card: &Path,
+    from_serial: &str,
+    to_card: &Path,
+    to_serial: &str,
+) -> Result<SaveImportPreview, String> {
+    check_pair(from_serial, to_serial)?;
+    let (files, _) = carried_files(from_card, to_card, to_serial)?;
+    let (slots, card_has_saves) = preview_files(to_card, to_serial, &files);
+    let title = files.iter().find(|(p, _)| p.ends_with("/icon.sys")).and_then(|(_, b)| saves::icon_title(b));
+    Ok(SaveImportPreview {
+        serial: from_serial.to_string(),
+        title,
+        launcher_version: String::new(),
+        created: utc_stamp(now_secs()),
+        slots,
+        card_has_saves,
+    })
+}
+
+/// Copies the saves on `from_serial`'s card onto `to_serial`'s, after a backup of this card, as
+/// an import would: every save replaced, or the chosen slots merged. A card without the game's
+/// folder yet takes the other card's whole: Going Commando counts its folder's files and takes a
+/// folder with fewer for no save, then offers to write every slot empty.
+pub fn copy_between(
+    from_card: &Path,
+    from_serial: &str,
+    to_card: &Path,
+    to_serial: &str,
+    choice: &SaveImportChoice,
+) -> Result<ImportedSaves, String> {
+    check_pair(from_serial, to_serial)?;
+    let (files, has_folder) = carried_files(from_card, to_card, to_serial)?;
+    let whole = SaveImportChoice { replace_all: true, slots: Vec::new() };
+    let choice = if has_folder { choice } else { &whole };
+    let region = same_save_discs(to_serial)
+        .into_iter()
+        .find(|(s, _)| s.eq_ignore_ascii_case(from_serial))
+        .map_or(from_serial, |(_, r)| r);
+    write_files(to_card, to_serial, &files, choice, &format!("before copy from {region}"))
+}
+
+/// [`copy_sources_with`] the cards of the launcher's save folder.
+pub fn copy_sources(serial: &str) -> Vec<SaveCopySource> {
+    copy_sources_with(serial, saves::get_memcard_dir)
+}
+
+/// [`preview_copy_between`] the games' own cards.
+pub fn preview_copy(from_serial: &str, to_serial: &str) -> Result<SaveImportPreview, String> {
+    preview_copy_between(
+        &saves::get_memcard_dir(from_serial),
+        from_serial,
+        &saves::get_memcard_dir(to_serial),
+        to_serial,
+    )
+}
+
+/// [`copy_between`] the games' own cards.
+pub fn copy_saves(from_serial: &str, to_serial: &str, choice: &SaveImportChoice) -> Result<ImportedSaves, String> {
+    copy_between(
+        &saves::get_memcard_dir(from_serial),
+        from_serial,
+        &saves::get_memcard_dir(to_serial),
+        to_serial,
+        choice,
+    )
 }
 
 /// [`export_card`] from the game's own card.
@@ -644,8 +855,8 @@ mod tests {
         assert_eq!(slot_of("save01.bin"), None);
         assert_eq!(slot_of("save.bin"), None);
         assert_eq!(slot_of("icon.sys"), None);
-        assert_eq!(mark_of("save1.bin.mods"), Some(1));
-        assert_eq!(mark_of("save1.bin"), None);
+        assert_eq!(companion_of("save1.bin.mods"), Some(1));
+        assert_eq!(companion_of("save1.bin"), None);
     }
 
     #[test]
@@ -868,6 +1079,133 @@ mod tests {
         import_into(&to, PAL, &file, &choice).unwrap();
         assert_eq!(card_folders(&to), vec![FOLDER.to_string()]);
         assert_eq!(read(&to, "save0.bin"), read(&from, "save0.bin"));
+    }
+
+    const NTSC: &str = "SCUS_971.99";
+    const NTSC_FOLDER: &str = "BASCUS-97199RATCHET";
+
+    #[test]
+    fn files_beside_a_save_go_with_its_slot() {
+        assert_eq!(slot_file("save2.bin"), Some(2));
+        assert_eq!(slot_file("save2.bin.mods"), Some(2));
+        assert_eq!(slot_file("save2.bin.moddata"), Some(2));
+        assert_eq!(slot_file("icon.sys"), None);
+        assert_eq!(slot_file(FOLDER), None);
+    }
+
+    /// One slot exported: the mods' data of another slot stays behind with it.
+    #[test]
+    fn one_slot_leaves_the_other_slots_mod_data() {
+        let tmp = tempfile::tempdir().unwrap();
+        let file = tmp.path().join("one.zip");
+        card(tmp.path());
+        fs::write(tmp.path().join(FOLDER).join("save0.bin.moddata"), b"zero").unwrap();
+        fs::write(tmp.path().join(FOLDER).join("save1.bin.moddata"), b"one").unwrap();
+        let m = export_card(tmp.path(), PAL, Some(1), "0", &file).unwrap();
+        assert!(m.files.iter().any(|f| f.path.ends_with("save1.bin.moddata")));
+        assert!(!m.files.iter().any(|f| f.path.ends_with("save0.bin.moddata")));
+    }
+
+    #[test]
+    fn save_folder_names() {
+        assert_eq!(card_folder_name(NTSC).as_deref(), Some(NTSC_FOLDER));
+        assert_eq!(card_folder_name(PAL).as_deref(), Some(FOLDER));
+        assert_eq!(card_folder_name("SCPS_150.37").as_deref(), Some("BISCPS-15037RATCHET"));
+        assert_eq!(card_folder_name("SCUS_972.68").as_deref(), Some("BASCUS-97268RATCHET"));
+        assert_eq!(card_folder_name("SCES_516.07").as_deref(), Some("BESCES-51607RATCHET"));
+        for bad in ["", "SCUS", "scus_971.99", "SCUS_97.1", "SCUS_971.999"] {
+            assert_eq!(card_folder_name(bad), None, "{bad}");
+        }
+    }
+
+    /// The PAL disc's saves onto the US disc's card, which has none yet: the whole folder comes,
+    /// one slot chosen or not, renamed to the US disc's with its reserved file.
+    #[test]
+    fn copies_the_pal_saves_to_an_empty_us_card() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (pal, us) = (tmp.path().join("pal"), tmp.path().join("us"));
+        card(&pal);
+
+        let preview = preview_copy_between(&pal, PAL, &us, NTSC).unwrap();
+        assert_eq!(preview.serial, PAL);
+        assert!(!preview.card_has_saves);
+        assert_eq!(preview.slots.len(), 2);
+        assert!(preview.slots.iter().all(|s| s.slot.folder == NTSC_FOLDER && s.replaces.is_none()));
+
+        let one = SaveImportChoice {
+            replace_all: false,
+            slots: vec![SaveSlotRef { folder: NTSC_FOLDER.into(), slot_index: 1 }],
+        };
+        let done = copy_between(&pal, PAL, &us, NTSC, &one).unwrap();
+        assert_eq!(done.folders, vec![NTSC_FOLDER.to_string()]);
+        assert!(done.backup.is_none(), "an empty card has nothing to back up");
+        assert_eq!(card_folders(&us), vec![NTSC_FOLDER.to_string()]);
+        let mine = us.join(NTSC_FOLDER);
+        for name in ["icon.sys", "save0.bin", "save1.bin", "save1.bin.mods", "save4.bin"] {
+            assert_eq!(fs::read(mine.join(name)).unwrap(), read(&pal, name), "{name}");
+        }
+        assert_eq!(fs::read(mine.join(NTSC_FOLDER)).unwrap(), b"settings", "the reserved file takes the name");
+        assert!(!mine.join(FOLDER).exists());
+        assert!(pal.join(FOLDER).join("save0.bin").exists(), "the PAL card is left as it was");
+    }
+
+    /// One slot onto a US card with saves of its own: that slot and its mod mark replaced, the old
+    /// mod data beside it gone, the rest kept, after a backup named for the copy.
+    #[test]
+    fn merges_one_pal_slot_onto_a_us_card() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (pal, us) = (tmp.path().join("pal"), tmp.path().join("us"));
+        card(&pal);
+        let mine = us.join(NTSC_FOLDER);
+        fs::create_dir_all(&mine).unwrap();
+        fs::write(mine.join("icon.sys"), b"us icon").unwrap();
+        fs::write(mine.join("save0.bin"), save(1, 7)).unwrap();
+        fs::write(mine.join("save1.bin"), save(2, 8)).unwrap();
+        fs::write(mine.join("save1.bin.moddata"), b"old").unwrap();
+
+        let preview = preview_copy_between(&pal, PAL, &us, NTSC).unwrap();
+        assert!(preview.card_has_saves);
+        let slot1 = preview.slots.iter().find(|s| s.slot.slot_index == 1).unwrap();
+        assert_eq!(slot1.replaces.as_ref().and_then(|r| r.bolts), Some(8));
+
+        let choice = SaveImportChoice {
+            replace_all: false,
+            slots: vec![SaveSlotRef { folder: NTSC_FOLDER.into(), slot_index: 1 }],
+        };
+        let done = copy_between(&pal, PAL, &us, NTSC, &choice).unwrap();
+        assert_eq!(fs::read(mine.join("save1.bin")).unwrap(), read(&pal, "save1.bin"));
+        assert_eq!(fs::read(mine.join("save1.bin.mods")).unwrap(), read(&pal, "save1.bin.mods"));
+        assert!(!mine.join("save1.bin.moddata").exists(), "the replaced save's mod data goes with it");
+        assert_eq!(fs::read(mine.join("save0.bin")).unwrap(), save(1, 7));
+        assert_eq!(fs::read(mine.join("icon.sys")).unwrap(), b"us icon");
+        assert_eq!(fs::read(mine.join(NTSC_FOLDER)).unwrap(), b"settings", "a file the card lacked");
+        assert_eq!(done.backup.and_then(|b| b.note).as_deref(), Some("before copy from PAL"));
+    }
+
+    /// Another game's disc, the same disc, or a card without saves: refused, nothing written.
+    #[test]
+    fn copies_only_between_one_games_discs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (from, to) = (tmp.path().join("from"), tmp.path().join("to"));
+        card(&from);
+        let all = SaveImportChoice { replace_all: true, slots: vec![] };
+        assert!(copy_between(&from, "SCES_516.07", &to, NTSC, &all).unwrap_err().contains("not the same game"));
+        assert!(copy_between(&from, NTSC, &to, NTSC, &all).is_err());
+        assert!(preview_copy_between(&to, PAL, &from, NTSC).unwrap_err().contains("holds no saves"));
+        assert!(!to.exists());
+    }
+
+    /// The discs offered to copy from: the game's others whose cards hold saves.
+    #[test]
+    fn offers_the_other_discs_with_saves() {
+        let tmp = tempfile::tempdir().unwrap();
+        card(&tmp.path().join(PAL));
+        fs::create_dir_all(tmp.path().join("SCPS_150.37").join("BISCPS-15037RATCHET")).unwrap();
+        let sources = copy_sources_with(NTSC, |s| tmp.path().join(s));
+        assert_eq!(sources.len(), 1);
+        assert_eq!((sources[0].serial.as_str(), sources[0].region.as_str(), sources[0].saves), (PAL, "PAL", 2));
+        assert!(copy_sources_with("SCUS_973.53", |s| tmp.path().join(s)).is_empty(), "a game without copies");
+        assert!(copy_sources_with(PAL, |s| tmp.path().join(s)).is_empty(), "no other disc has saves");
     }
 
     /// The name offered for the file keeps only characters every system takes.

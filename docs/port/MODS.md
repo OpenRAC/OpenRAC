@@ -483,7 +483,10 @@ hook points this way (above).
 row: NanotechBallUpdate, for the wide-screen orb fix) keeps the port's
 function, and hostgen writes the hook as `<name>__hooked`, which the port's
 function calls where it called `<name>__game`: the mod replaces the game's
-code under the port's fix, and the fix holds for the mod's update too.
+code under the port's fix, and the fix holds for the mod's update too. The
+same holds for each copy of a hook point with copies: the hero's move-state
+setters (`Hero_EnterMoveState`) are each wrapped by the multiplayer stand-in's
+guard (`rac1/host/hero_grab.c`), and the mod's setter runs under it.
 
 ## 5. The list and the answer
 
@@ -605,6 +608,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `developer_menu(mod, title, items, count)`, `take_developer_menu_action(mod)` (1.10) | register a top-level desktop menu beside Developer; grouped items become submenus, and selections are queued for the mod's tick-boundary callback |
 | `developer_menu_set_label(mod, action, label)` (1.10) | update an item's label from the owning mod's tick-boundary callback |
 | `developer_menu_switch(mod, action, on)`, `developer_menu_choice(mod, action, values, count, index)`, `developer_menu_value(mod, action)` (1.19) | an item of the mod's menu made a switch (on or off) or a choice among values (shown between two arrows), from `openrac_mod_load` after `developer_menu` or the mod's tick-boundary callback, which also set them again for a state the mod changed itself. The menu turns a switch over or moves a choice as soon as the player presses it, though opening the menu pauses the game and the mod's tick boundary waits for it to close, and queues the item's action as for a press; at its tick boundary the mod reads the state it was left in with `developer_menu_value` (a switch's 0 or 1, a choice's index; -1 for a plain item) |
+| `hook_entry(name, signature)` (1.21) | the entry of a hook point, checked against its signature as `hook` checks it: the function the game calls there, so calling it runs the mods' replacements (the calling mod's own too, when it took the point) and then the game's own function. The same name on every disc, where `function()` needs the disc's own. Null for a hook point this OpenRAC lacks or another signature. At any time |
 | `data_dir(mod)`, `save_slot_current()` (1.11) | a folder of the mod's own for its files, beside the memory cards (`mod-data/<id>/`); the memory card slot the game in progress saves into, -1 for none |
 | `hero_set_pose(mod, &pose)` (1.12) | for the mod that has taken the hero's whole update (Ratchet & Clank: `rac1.player.update`, `Hero_Update`, `void()`), from its replacement, which does not call the original: the hero put in `pose` (an `openrac_pose`, as `hero_pose` gives it): his place, rotation (all three, z the yaw) and velocity (units a second) into his motion record and his matrices; a new `seq` started through the game's own `set_hero_animation` (the pose's `frame` its first key, blended in over 4 ticks), `anim_speed` his animation's speed; then what the update does after his movement to show him (his animation moved on, `update_hero_moby`, `update_hero_world_matrices`, `update_hero_equipped_items`, `begin_draw_frame`). With `OPENRAC_POSE_ON_GROUND` or `OPENRAC_POSE_IN_AIR` in the pose's flags, the ground fields the game's follow camera reads (his height above the ground, frames off it, past a jump's top) are set to match, so the camera follows him as on foot; on the ground, a jump, flip, fall or wrench slam state he kept becomes idle (state 0, as `hero_pose` then reports), since the camera keeps a mode of its own for each of them. His looping sounds from a state (the helipack's, a slide's) stop, as on a change of his control mode. The state machine, ledges, rails, the voice and the body's easing do not run: the mod moves him by its own rules. Another mod, or outside a level: `OPENRAC_HOOK_UNKNOWN` |
 | `hero_set_joints(mod, joints, count)` (1.12) | from any mod (to SDK 1.14.0 only from the same replacement): the hero's joints turned and moved on top of his animation (`openrac_joint_offset`: the joint, a unit quaternion composed after the animation's own turn, a translation in his model's units), as the game's joint modifiers compose; the list replaces the mod's last one and stays until the next call, 0 takes it off (at most `OPENRAC_JOINT_OFFSETS_MAX`, for all mods together); every mod's apply together, each mod's composed after those of the mods that set theirs first (the lock-strafe mod's hip twist beside a mod's riding stance). His drawing, shadow and what he carries follow. `OPENRAC_HOOK_UNKNOWN` outside a level, or, to SDK 1.14.0, for a mod without the hook |
@@ -738,9 +742,11 @@ where it was drawn (`prop_frame`, `prop_frame()`): the way a weapon in the hand 
 game, the mod reading their state at its next tick boundary.
 1.20 (SDK 1.20.0) native Vulkan access only for a mod whose manifest asks for it (`"vulkan_queue": true`,
 sdk/docs/views.md).
-1.21 (SDK 1.21.0) render-only reward models (`moby_visuals`, `openrac_moby_visual`), guest text
+1.21 (SDK 1.21.0) a hook point called as the game calls it, the mods' replacements included
+(`hook_entry`; the C++ layer's `hook_entry<HookPoint>()`, `has_hook_entry()`).
+1.22 (SDK 1.22.0) render-only reward models (`moby_visuals`, `openrac_moby_visual`), guest text
 (`guest_text`), a sprite tint (`sprite_tint`) and pickup presentations (`pickup_animation`).
-These reward calls follow the 1.20 entries in the API table; check interface 1.21 before using them.
+These reward calls follow the 1.21 entry in the API table; check interface 1.22 before using them.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's

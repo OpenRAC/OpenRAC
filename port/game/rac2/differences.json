@@ -33,8 +33,17 @@
       "refs": ["port/game/rac2/host/wide_view.c"]
     },
     {
+      "id": "sheep-once",
+      "kind": "always",
+      "name": "Sheep turned once",
+      "discs": ["ntsc"],
+      "original": "On USA v1.01 the Sheepinator can turn a Joba arena security robot again in the frame it went back to sleep, which deletes it; once all 16 are gone, an Impossible Challenge round that wants one never ends.",
+      "port": "A moby the Sheepinator already turned is left alone, so the arena keeps its robots and every round can end.",
+      "refs": ["port/game/rac2/host/sheep_once.c"]
+    },
+    {
       "id": "mapper-markers",
-      "kind": "port",
+      "kind": "always",
       "name": "Mapper markers",
       "discs": ["ntsc", "pal"],
       "original": "USA v1.01's and PAL's Mapper only show the whole map: crystals on Tabora and moonstones on Grelbin are not marked. USA v2.00 added the markers.",

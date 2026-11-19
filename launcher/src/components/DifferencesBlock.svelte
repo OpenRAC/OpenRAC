@@ -111,7 +111,7 @@
                         disabled={playing || saving === entry.id}
                         onchange={(ev) => void setFix(entry, ev.currentTarget.checked)}
                       />
-                    {:else if entry.kind === "guard"}
+                    {:else if entry.kind === "guard" || entry.kind === "always"}
                       <span class="state">Always on</span>
                     {/if}
                   </div>

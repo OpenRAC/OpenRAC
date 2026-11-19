@@ -203,6 +203,8 @@ public:
     bool has_cropped_replacement(TextureHandle texture) const;
     // Whether a texture pack's picture replaced `texture` (an upload's conversion).
     bool has_pack_replacement(TextureHandle texture) const;
+    // Whether a PCSX2 texture has been replaced by a picture from the pack (a DDS or PNG read from disk).
+    bool has_pcsx2_replacement(TextureHandle texture) const;
     std::array<float, 2> uv_scale(TextureHandle texture) const;
 
     // Whether `texture` has an animated replacement's frames (animate()).
@@ -317,6 +319,7 @@ private:
         Rgba8Image image;
         bool cropped_replacement = false;
         bool pack_replacement = false;
+        bool pcsx2_replacement = false;
         std::array<float, 2> uv_scale{1.0f, 1.0f};
         AlphaScale scale = AlphaScale::Gs;
         std::string name;

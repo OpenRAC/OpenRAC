@@ -42,8 +42,11 @@ std::string plain_colours(std::string_view fragment) {
     constexpr std::string_view marker = "// OPENRAC_UPSCALED_TEXTURE_COLOURS_SOURCE";
     std::string out(fragment);
     if (const auto at = out.find(marker); at != std::string::npos) {
-        out.replace(at, marker.size(),
-                    "vec4 sample_upscaled_texture_colours(vec2 uv) { return texture(tex_T0, uv); }\n");
+        out.replace(
+            at,
+            marker.size(),
+            "vec4 sample_upscaled_texture_colours(vec2 uv) { return texture(tex_T0, uv); }\n"
+        );
     }
     return out;
 }
@@ -53,12 +56,15 @@ bool has_buffer(const MslProgram& msl, int binding) {
 }
 
 const openrac::mtlgl::MslTexture* texture(const MslProgram& msl, int binding) {
-    const auto found = std::ranges::find(msl.textures, binding, &openrac::mtlgl::MslTexture::binding);
+    const auto found =
+        std::ranges::find(msl.textures, binding, &openrac::mtlgl::MslTexture::binding);
     return found == msl.textures.end() ? nullptr : &*found;
 }
 
 // Compiles `source` on the device and makes its `entry` with the clip control constant `clip`.
-bool metal_compiles(const char* name, const std::string& source, const std::string& entry, bool clip) {
+bool metal_compiles(
+    const char* name, const std::string& source, const std::string& entry, bool clip
+) {
     MTLCompileOptions* options = [MTLCompileOptions new];
     options.languageVersion = MTLLanguageVersion2_4;
     NSError* error = nil;
@@ -66,8 +72,9 @@ bool metal_compiles(const char* name, const std::string& source, const std::stri
                                                     options:options
                                                       error:&error];
     if (library == nil) {
-        std::fprintf(stderr, "%s: %s\n%s\n", name, error.localizedDescription.UTF8String,
-                     source.c_str());
+        std::fprintf(
+            stderr, "%s: %s\n%s\n", name, error.localizedDescription.UTF8String, source.c_str()
+        );
         return false;
     }
     MTLFunctionConstantValues* constants = [MTLFunctionConstantValues new];
@@ -78,15 +85,20 @@ bool metal_compiles(const char* name, const std::string& source, const std::stri
                                              constantValues:constants
                                                       error:&error];
     if (function == nil) {
-        std::fprintf(stderr, "%s: %s: %s\n", name, entry.c_str(),
-                     error.localizedDescription.UTF8String);
+        std::fprintf(
+            stderr, "%s: %s: %s\n", name, entry.c_str(), error.localizedDescription.UTF8String
+        );
         return false;
     }
     return true;
 }
 
-void program(const char* name, std::string_view vertex, std::string_view fragment,
-             std::string_view compute = {}) {
+void program(
+    const char* name,
+    std::string_view vertex,
+    std::string_view fragment,
+    std::string_view compute = {}
+) {
     CompiledProgram spirv;
     std::string log;
     if (!openrac::vkgl::compile_program(vertex, fragment, spirv, log, compute)) {
@@ -147,11 +159,17 @@ int main() {
         using openrac::renderer::world::compose;
 
         program("direct", renderer_src::direct_vert, plain_colours(renderer_src::direct_frag));
-        program("direct masked", renderer_src::direct_vert,
-                plain_colours(with(renderer_src::direct_frag, "#define OPENRAC_SAMPLE_MASK 1\n")));
+        program(
+            "direct masked",
+            renderer_src::direct_vert,
+            plain_colours(with(renderer_src::direct_frag, "#define OPENRAC_SAMPLE_MASK 1\n"))
+        );
         program("effect", renderer_src::effect_vert, plain_colours(renderer_src::direct_frag));
-        program("effect fixed", renderer_src::effect_vert,
-                plain_colours(with(renderer_src::direct_frag, "#define OPENRAC_EFFECT_FIXED 1\n")));
+        program(
+            "effect fixed",
+            renderer_src::effect_vert,
+            plain_colours(with(renderer_src::direct_frag, "#define OPENRAC_EFFECT_FIXED 1\n"))
+        );
         program("debug lines", renderer_src::debug_lines_vert, renderer_src::debug_lines_frag);
         program("heat haze", renderer_src::haze_vert, renderer_src::haze_frag);
         program("shadow volumes", renderer_src::shadow_vert, renderer_src::shadow_frag);
@@ -162,16 +180,24 @@ int main() {
         program("mesh (solid)", scene_src::mesh_vert, with(mesh, "#define OPENRAC_SOLID 1\n"));
         program("sky", scene_src::sky_vert, plain_colours(scene_src::sky_frag));
 
-        const std::initializer_list<std::string_view> parts = {world_src::world_common_glsl, world_src::world_lights_glsl,
-                            world_src::display_blend_glsl};
-        program("tfrag", compose(world_src::tfrag_vert, parts), compose(world_src::tfrag_frag, parts));
+        const std::initializer_list<std::string_view> parts =
+            {world_src::world_common_glsl,
+             world_src::world_lights_glsl,
+             world_src::display_blend_glsl};
+        program(
+            "tfrag", compose(world_src::tfrag_vert, parts), compose(world_src::tfrag_frag, parts)
+        );
         program("tie", compose(world_src::tie_vert, parts), compose(world_src::tie_frag, parts));
 
         std::string horizons(renderer_src::gtao_evaluate_comp);
         horizons.insert(horizons.find('\n') + 1, renderer_src::surface_normal_glsl);
         horizons.insert(horizons.find('\n') + 1, renderer_src::gtao_common_glsl);
-        program("GTAO horizons", {}, {},
-                with(horizons, "#define OPENRAC_GTAO_SCALE 1\n#define OPENRAC_SURFACE_NORMALS 1\n"));
+        program(
+            "GTAO horizons",
+            {},
+            {},
+            with(horizons, "#define OPENRAC_GTAO_SCALE 1\n#define OPENRAC_SURFACE_NORMALS 1\n")
+        );
     }
     return openrac::test::result();
 }
