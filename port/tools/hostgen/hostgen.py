@@ -1256,6 +1256,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program. Returns the signatures the port's own versions give (symbol -> text).
     Raises ValueError for a hook point libraries.tsv spells wrongly."""
     if cfg.get("places"):
+        program.place_kinds_as_levels = tuple(cfg.get("place_kinds_as_levels", ()))
         read_places(source / cfg["places"], program)
         if RELEASE is not None:
             program.places = {in_release(k): v for k, v in program.places.items()}

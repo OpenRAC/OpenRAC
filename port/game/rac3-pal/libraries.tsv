@@ -218,7 +218,7 @@ func_003AF890__frontbin	movie	rac3PlayMovieFrontbin	host	frontbin copy of the mo
 func_003A9BE8	draw	rac3LoadScreenPicture	wrap	puts a picture from EE memory (pixels, frame address in bytes, width, height) into the frame as 512x32 image transfers and returns its TEX0: the main menu background; the picture goes to the window as a texture drawn by a full-screen 2D record (host/picture.c)	unsigned long long (int, int, int, int)
 func_003A0B60	wad	rac3WadDecompress	host	the WAD decompressor (hand-written assembly, the instructions of rac2-ntsc func_0029D4D0's routine): the shared routine (host/wad.c)	int (int, int)
 func_003A0760__frontbin	wad	rac3WadDecompressFrontbin	host	frontbin copy of 0x003A0B60 (host/wad.c)	int (int, int)
-func_003A0760	wad	rac3WadDecompressLevel	host	the levels' copies of 0x003A0B60, which rac3-decomp's catalogue names after frontbin's (host/wad.c)	int (int, int)
+func_L01_00436F60	wad	rac3WadDecompressLevel	host	the levels' copies of 0x003A0B60 (the catalogue's frontbin row func_003A0760, named after Veldin's place: place_kinds_as_levels; host/wad.c)	int (int, int)
 func_0013BC30	989snd	snd_BankLoadFromEE_CB	host	RPC function 0x57 with the bank's EE address, the callback (in -0x7AC0($gp)) and its argument told the handle at the reply; the level loading screen (0x003BBB80) waits for it
 func_003CB6B8	render	rac3DrawMobys	host	hand-written moby renderer (0x003C81D8 with VU0 and the scratchpad): replaced, draws nothing until the native renderer (host/render.c)	void (int, int)
 func_0013BAB8	989snd	snd_BankLoadByLoc_CB	host	a bank by sector and offset, its handle told to the callback (rac2-ntsc func_00132498): the level loader waits for it (host/sound.c)	void (int, int, int, long long)

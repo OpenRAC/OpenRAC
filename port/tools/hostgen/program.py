@@ -1148,10 +1148,18 @@ def read_places(path: Path, program: Program) -> int:
         if boot and places:
             # A level function's copy in the executable (NTSC-J's card menu calls 0x0020A448).
             program.boot_places[cols[0]] = boot
+        name = cols[0]
+        if places and cols[1] in getattr(program, "place_kinds_as_levels", ()):
+            # A row of another program's function that the levels also carry (rac3-decomp's
+            # "frontbin" rows: frontbin's func_003CEDF8 is level 1's 0x004B1380): the levels' copies
+            # are named as the levels' own shared functions, after their first place, so they are
+            # translated as those are (their globals and calls the loaded level's), not as the
+            # other program's C written with its own addresses.
+            name = f"func_L{places[0][0]:02d}_{places[0][1]:08X}"
         if places:
-            program.places[cols[0]] = places
+            program.places[name] = places
             if cols[2].isdigit():
-                program.sizes[cols[0]] = int(cols[2])
+                program.sizes[name] = int(cols[2])
             count += 1
     return count
 
