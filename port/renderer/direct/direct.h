@@ -452,6 +452,9 @@ public:
 
     bool init(RenderState& state, std::string& error) override;
     void render(const FrameInput& input, RenderState& state) override;
+    void prepare(const FrameInput& input, RenderState& state) override;
+    bool reads_frame_depth() const override;
+    bool draws_nothing() const override;
     void release() override;
 
     // As a component of another renderer: feed packets, then flush() draws
@@ -475,6 +478,8 @@ public:
 private:
     const FrameInput* m_frame = nullptr;
     bool m_world_split = false;  // set_world_split, for the next render()
+    bool m_prepared = false;     // prepare() read this frame's packets; render() only draws
+    bool m_nothing = false;      // prepare() found nothing to draw
     void apply(const DirectState& state, RenderState& render_state);
     void draw(const DirectDraw& draw, RenderState& render_state);
     bool m_background = false;  // flush(): the part before the world
