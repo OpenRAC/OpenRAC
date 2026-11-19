@@ -38,6 +38,12 @@
 //!   (previous). +0x04 is the row's version (0 for V1 to 3 for V4), +0x6C the experience step to
 //!   the next one (compared with `experience >> 5`, 0 for none), +0x8E the full ammo, +0x80 the
 //!   price. Experience is chunk 40 (`D_00139868`, s32 by item); ammo chunk 9 (`D_00139688`).
+//! - **Units.** The game compares `experience >> 5` with every step, so the stored count is 32
+//!   times the units the steps use (as is nanotech experience, progress +0x14, against the health
+//!   table: `func_L00_002D5E30`). The editor shows and takes both in the compared units: a count
+//!   read is shifted down ([`shown_xp`]) and a changed one written shifted up ([`stored_xp`]); one
+//!   left alone is not written, so its low five bits stay. Every step, range and limit below is in
+//!   those units.
 //! - **The four versions.** The sixteen weapons that upgrade by experience have four rows, for
 //!   example the Lancer 30, 60, 79, 80 (V1 Lancer, V2 Heavy Lancer, then V3 and V4, which keep
 //!   the Heavy Lancer's model). V1 becomes V2 at its step (`func_L00_002D5EB8` each tick, through
@@ -309,6 +315,21 @@ impl SaveFile {
     }
 }
 
+/// A slot the game shows as empty, made from another save of the same disc: the game writes an
+/// empty slot as a whole save whose level (chunk 0) is -1 (its slot list, `FillSaveSlotInfo`,
+/// reads that word), and the clock (chunk 4) zero is how the launcher's slot list knows it.
+pub fn empty_slot(template: &[u8]) -> Result<Vec<u8>, String> {
+    let mut file = SaveFile::parse(template)?;
+    for c in &mut file.global.chunks {
+        match c.id {
+            0 => c.data.copy_from_slice(&(-1i32).to_le_bytes()),
+            4 => c.data.fill(0),
+            _ => {}
+        }
+    }
+    Ok(file.to_bytes())
+}
+
 // ---------------------------------------------------------------------------------------------
 // What the chunks hold (each proven by a save written after changing it in a running game, see
 // the format document).
@@ -384,8 +405,21 @@ pub const MAX_ARMOR: u8 = 4;
 pub const SHIP_PAINTS: u8 = 18;
 /// The editor's limit for bolts and raritanium (the HUD shows seven digits).
 pub const MAX_BOLTS: u32 = 9_999_999;
-/// The editor's limit for nanotech and weapon experience.
+/// The editor's limit for nanotech and weapon experience, in the units the game compares
+/// (`experience >> 5`): stored shifted up by 5, it still fits the game's s32.
 pub const MAX_XP: u32 = 9_999_999;
+const _: () = assert!((MAX_XP as u64) << 5 <= i32::MAX as u64);
+
+/// A stored experience count in the units the game compares with its steps (`>> 5`); a negative
+/// count shows as 0.
+pub fn shown_xp(stored: i32) -> u32 {
+    (stored.max(0) >> 5) as u32
+}
+
+/// The count to store for experience shown as `shown` (at most [`MAX_XP`]).
+pub fn stored_xp(shown: u32) -> i32 {
+    (shown.min(MAX_XP) << 5) as i32
+}
 
 /// The equipment slots of chunk 32, as `ApplyHeroEquipmentRequest` (`func_L00_002AFBC0`) and
 /// `SpawnHeroItemMobies` use them; an item's own slot is its record's +0x0C.
@@ -416,7 +450,7 @@ pub enum Rac2ItemKind {
 }
 
 /// A weapon's upgrade by experience: its name, and the experience it needs (the base record's
-/// +0x6C, compared with experience >> 5 at each tick by `func_L00_002D5EB8`).
+/// +0x6C, compared with experience >> 5 at each tick by `func_L00_002D5EB8`), in those units.
 #[derive(Clone, Copy, Debug)]
 pub struct Upgrade {
     pub name: &'static str,
@@ -446,7 +480,7 @@ const fn wu(
     up: &'static str,
     xp: u32,
 ) -> ItemDef {
-    ItemDef { id, name, kind: Rac2ItemKind::Weapon, chain, ammo, upgrade: Some(Upgrade { name: up, xp: xp << 5 }) }
+    ItemDef { id, name, kind: Rac2ItemKind::Weapon, chain, ammo, upgrade: Some(Upgrade { name: up, xp }) }
 }
 const fn g(id: usize, name: &'static str) -> ItemDef {
     ItemDef { id, name, kind: Rac2ItemKind::Gadget, chain: &[], ammo: &[], upgrade: None }
@@ -550,12 +584,12 @@ struct VersionRule {
 }
 
 impl ItemDef {
-    /// The experience at which the game moves the weapon from the version in `record` to the next,
-    /// at its next tick in a level; `None` when nothing follows by experience.
+    /// The experience (compared units) at which the game moves the weapon from the version in
+    /// `record` to the next, at its next tick in a level; `None` when nothing follows by experience.
     fn next_step(&self, record: u8) -> Option<u32> {
         match self.depth(record)? {
             0 => self.upgrade.map(|u| u.xp),
-            _ => LATER_STEPS.iter().find(|&&(r, _)| r == record).map(|&(_, xp)| xp << 5),
+            _ => LATER_STEPS.iter().find(|&&(r, _)| r == record).map(|&(_, xp)| xp),
         }
     }
 
@@ -644,8 +678,9 @@ pub struct Rac2ItemState {
     pub owned: bool,
     /// Ammo, for an item that has it.
     pub ammo: Option<u32>,
-    /// Experience, for a weapon that upgrades by it: in a level, the game upgrades the weapon
-    /// itself once this reaches the upgrade's threshold.
+    /// Experience, for a weapon (every weapon counts it), in the units the game compares with the
+    /// upgrade steps (the stored count >> 5): in a level, the game upgrades the weapon itself once
+    /// this reaches the upgrade's step.
     pub xp: Option<u32>,
     /// The version, 0 for V1 to 3 for V4 (an index into the item's `versions`), for an item with
     /// more than one: the record chunk 30 holds.
@@ -669,7 +704,8 @@ pub struct Rac2PlanetState {
 pub struct Rac2SaveFields {
     pub bolts: u32,
     pub raritanium: u32,
-    /// Nanotech experience: the game raises the maximum health from it at each tick.
+    /// Nanotech experience, in the units the game compares with its health table (the stored
+    /// count >> 5): the game raises the maximum health from it at each tick.
     pub nanotech_xp: u32,
     /// The ten Nanotech Boosts, found or not.
     pub boosts: Vec<bool>,
@@ -871,7 +907,7 @@ impl SaveFile {
                 id: d.id,
                 owned: owned[d.id] != 0,
                 ammo: d.has_ammo().then(|| i32_at(ammo, d.id).max(0) as u32),
-                xp: d.counts_xp().then(|| i32_at(xp, d.id).max(0) as u32),
+                xp: d.counts_xp().then(|| shown_xp(i32_at(xp, d.id))),
                 version: (d.chain.len() > 1).then(|| self.depth(d) as u32),
             })
             .collect();
@@ -887,7 +923,7 @@ impl SaveFile {
         Rac2SaveFields {
             bolts: word(p, P_BOLTS),
             raritanium: word(p, P_RARITANIUM),
-            nanotech_xp: word(p, P_NANOTECH_XP),
+            nanotech_xp: shown_xp(word(p, P_NANOTECH_XP) as i32),
             boosts: p[P_BOOSTS..P_BOOSTS + BOOSTS].iter().map(|&b| b != 0).collect(),
             armor: p[P_ARMOR],
             hand: self.slot(S_HAND),
@@ -1025,10 +1061,10 @@ impl SaveFile {
             if let (Some(x), Some((min, max))) = (w.xp, rule.and_then(|r| r.xp)) {
                 if (w.xp, w.version) != (h.xp, h.version) {
                     if x > max {
-                        return Err(format!("the {name} upgrades at {} experience: keep it under that", max + 1));
+                        return Err(format!("the {name} upgrades at {} XP: keep it under that", max + 1));
                     }
                     if x < min {
-                        return Err(format!("the {name} has at least {min} experience: the game upgrades at that"));
+                        return Err(format!("the {name} has at least {min} XP: the game upgrades at that"));
                     }
                 }
             }
@@ -1048,7 +1084,7 @@ impl SaveFile {
             set_word(p, P_RARITANIUM, want.raritanium);
         }
         if want.nanotech_xp != have.nanotech_xp {
-            set_word(p, P_NANOTECH_XP, want.nanotech_xp);
+            set_word(p, P_NANOTECH_XP, stored_xp(want.nanotech_xp) as u32);
         }
         if want.boosts != have.boosts {
             for (k, &on) in want.boosts.iter().enumerate() {
@@ -1098,7 +1134,7 @@ impl SaveFile {
             }
             if let (Some(x), Some(old)) = (w.xp, h.xp) {
                 if x != old {
-                    set_i32(self.global.get_mut(id::XP), d.id, x as i32);
+                    set_i32(self.global.get_mut(id::XP), d.id, stored_xp(x));
                 }
             }
             if let (Some(a), Some(old)) = (w.ammo, h.ammo) {
@@ -1249,7 +1285,7 @@ pub fn validate(f: &Rac2SaveFields) -> Result<(), String> {
         return Err(format!("raritanium goes up to {MAX_BOLTS}"));
     }
     if f.nanotech_xp > MAX_XP {
-        return Err(format!("nanotech experience goes up to {MAX_XP}"));
+        return Err(format!("nanotech XP goes up to {MAX_XP}"));
     }
     if f.boosts.len() != BOOSTS {
         return Err(format!("there are {BOOSTS} Nanotech Boosts"));
@@ -1271,7 +1307,7 @@ pub fn validate(f: &Rac2SaveFields) -> Result<(), String> {
             return Err(format!("{}'s experience does not match the game's", d.name));
         }
         if s.xp.is_some_and(|x| x > MAX_XP) {
-            return Err(format!("experience goes up to {MAX_XP}"));
+            return Err(format!("XP goes up to {MAX_XP}"));
         }
         let n = d.chain.len();
         match s.version {
@@ -1498,7 +1534,7 @@ mod tests {
         let f = oozla().fields();
         assert_eq!(f.bolts, 123_456);
         assert_eq!(f.raritanium, 0);
-        assert_eq!(f.nanotech_xp, 0x102d);
+        assert_eq!(f.nanotech_xp, 0x102d >> 5, "shown in the units the game compares");
         assert_eq!(f.armor, 0);
         assert_eq!(f.ship_paint, 0);
         assert!(f.boosts.iter().all(|&b| !b));
@@ -1507,7 +1543,7 @@ mod tests {
         assert_eq!(seeker.ammo, Some(25));
         let lancer = item(&f, 30);
         assert!(lancer.owned);
-        assert_eq!(lancer.xp, Some(0x7b0));
+        assert_eq!(lancer.xp, Some(0x7b0 >> 5), "shown in the units the steps use");
         assert!(!item(&f, 2).owned, "no Heli-Pack yet");
         let first = f.planets.iter().find(|p| p.id == 1).unwrap();
         assert!(first.available && first.visited);
@@ -1542,7 +1578,7 @@ mod tests {
         let mut want = before.fields();
         want.bolts = 1;
         want.raritanium = 777;
-        want.nanotech_xp = 20_000;
+        want.nanotech_xp = 20_000 >> 5; // 20,000 stored
         want.boosts[0] = true;
         want.boosts[2] = true;
         want.armor = 2;
@@ -1643,7 +1679,7 @@ mod tests {
         // The Lancer is free now: its version changes and it can be taken away.
         let mut want = f.fields();
         item_mut(&mut want, 30).version = Some(1);
-        item_mut(&mut want, 30).xp = Some(280 * 32);
+        item_mut(&mut want, 30).xp = Some(280);
         item_mut(&mut want, 30).ammo = Some(300);
         f.apply(&want).unwrap();
         assert_eq!(f.global.get(id::RECORD)[30], 60);
@@ -1751,17 +1787,17 @@ mod tests {
     fn experience_and_ammo_follow_the_version_in_the_save() {
         let mut f = oozla();
         let mut want = f.fields();
-        item_mut(&mut want, 30).xp = Some(280 * 32);
-        assert!(f.clone().apply(&want).unwrap_err().contains("8960"), "the Lancer's step");
+        item_mut(&mut want, 30).xp = Some(280);
+        assert!(f.clone().apply(&want).unwrap_err().contains("280"), "the Lancer's step");
         item_mut(&mut want, 30).version = Some(1);
         assert!(f.clone().apply(&want).unwrap_err().contains("holds"), "the Lancer is held");
         item_mut(&mut want, 30).version = Some(0);
-        item_mut(&mut want, 30).xp = Some(280 * 32 - 1);
+        item_mut(&mut want, 30).xp = Some(279);
         f.apply(&want).unwrap();
-        assert_eq!(i32_at(f.global.get(id::XP), 30), 8959);
+        assert_eq!(i32_at(f.global.get(id::XP), 30), 279 << 5);
         assert_eq!(f.global.get(id::RECORD)[30], 30, "the version is the game's to change");
         let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
-        assert_eq!(v.items.iter().find(|i| i.id == 30).unwrap().max_xp, Some(8959));
+        assert_eq!(v.items.iter().find(|i| i.id == 30).unwrap().max_xp, Some(279));
         let mut over = f.fields();
         item_mut(&mut over, 30).ammo = Some(201);
         assert!(f.clone().apply(&over).unwrap_err().contains("200"));
@@ -1778,10 +1814,7 @@ mod tests {
         f.global.get_mut(id::RECORD)[30] = 79;
         let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
         let lancer = v.items.iter().find(|i| i.id == 30).unwrap();
-        assert_eq!(
-            (item(&v.fields, 30).version, lancer.max_ammo, lancer.max_xp),
-            (Some(2), Some(400), Some(8000 * 32 - 1))
-        );
+        assert_eq!((item(&v.fields, 30).version, lancer.max_ammo, lancer.max_xp), (Some(2), Some(400), Some(7999)));
     }
 
     #[test]
@@ -1801,15 +1834,57 @@ mod tests {
         assert_eq!(v.items.iter().find(|i| i.id == 30).unwrap().versions[3].min_xp, Some(0));
         let mut want = f.fields();
         item_mut(&mut want, 30).xp = Some(5_000);
-        item_mut(&mut want, 12).xp = Some(6_000 * 32);
-        item_mut(&mut want, 44).xp = Some(40_000 * 32);
+        item_mut(&mut want, 12).xp = Some(6_000);
+        item_mut(&mut want, 44).xp = Some(40_000);
         item_mut(&mut want, 43).xp = Some(1);
         f.apply(&want).unwrap();
         let xp = f.global.get(id::XP);
-        assert_eq!((i32_at(xp, 30), i32_at(xp, 12), i32_at(xp, 44), i32_at(xp, 43)), (5_000, 192_000, 1_280_000, 1));
+        assert_eq!((i32_at(xp, 30), i32_at(xp, 12), i32_at(xp, 44), i32_at(xp, 43)), (160_000, 192_000, 1_280_000, 32));
         assert_eq!(f.fields(), want, "read back as written");
         // Gadgets count none.
         assert_eq!(item(&f.fields(), 2).xp, None);
+    }
+
+    #[test]
+    fn experience_is_shown_in_the_units_the_game_compares() {
+        // The game compares `experience >> 5` with the steps: a stored 23,000 is 718 of them.
+        assert_eq!((shown_xp(23_000), shown_xp(31), shown_xp(32), shown_xp(-5)), (718, 0, 1, 0));
+        assert_eq!(stored_xp(718), 718 << 5);
+        assert_eq!(stored_xp(MAX_XP), (MAX_XP << 5) as i32, "the limit fits the game's s32");
+        assert!(stored_xp(MAX_XP) > 0);
+
+        let mut f = oozla();
+        // Low bits a shown value hides: kept while it is not changed.
+        set_i32(f.global.get_mut(id::XP), 30, (61 << 5) | 0x1f);
+        set_i32(f.global.get_mut(id::XP), 26, 23_000);
+        set_word(f.global.get_mut(id::PROGRESS), P_NANOTECH_XP, (129 << 5) | 7);
+        let want = f.fields();
+        assert_eq!((item(&want, 30).xp, item(&want, 26).xp, want.nanotech_xp), (Some(61), Some(718), 129));
+        let before = f.clone();
+        f.apply(&want).unwrap();
+        assert_eq!(f.to_bytes(), before.to_bytes(), "a save opened and saved as it was keeps its bytes");
+
+        // A changed value lands shifted up.
+        let mut want = f.fields();
+        item_mut(&mut want, 26).xp = Some(700);
+        want.nanotech_xp = 2_000;
+        f.apply(&want).unwrap();
+        assert_eq!(i32_at(f.global.get(id::XP), 26), 700 << 5);
+        assert_eq!(word(f.global.get(id::PROGRESS), P_NANOTECH_XP), 2_000 << 5);
+        assert_eq!(i32_at(f.global.get(id::XP), 30), (61 << 5) | 0x1f, "the others untouched");
+        assert_eq!(f.fields(), want);
+
+        // The limit, in the shown units.
+        let mut over = f.fields();
+        over.nanotech_xp = MAX_XP + 1;
+        assert!(f.clone().apply(&over).unwrap_err().contains(&MAX_XP.to_string()));
+        let mut over = f.fields();
+        item_mut(&mut over, 44).xp = Some(MAX_XP + 1);
+        assert!(f.clone().apply(&over).unwrap_err().contains(&MAX_XP.to_string()));
+        let mut top = f.fields();
+        item_mut(&mut top, 44).xp = Some(MAX_XP);
+        f.apply(&top).unwrap();
+        assert_eq!(i32_at(f.global.get(id::XP), 44), (MAX_XP << 5) as i32);
     }
 
     /// The fixture as the same save would be once challenge mode was started.
@@ -1827,11 +1902,11 @@ mod tests {
     #[test]
     fn weapon_versions_are_the_games() {
         use Rac2VersionHow::*;
-        // The Lancer (records 30, 60, 79, 80): V2 at 280 << 5, V3 bought, V4 at 8000 << 5.
+        // The Lancer (records 30, 60, 79, 80): V2 at 280, V3 bought, V4 at 8000 (compared units).
         let lancer: Vec<_> = (0..4).map(|k| rule(30, k)).collect();
-        assert_eq!(lancer[0], VersionRule { how: First, challenge: false, xp: Some((0, 8959)) });
-        assert_eq!(lancer[1], VersionRule { how: Experience, challenge: false, xp: Some((8960, MAX_XP)) });
-        assert_eq!(lancer[2], VersionRule { how: Bought, challenge: true, xp: Some((0, 255_999)) });
+        assert_eq!(lancer[0], VersionRule { how: First, challenge: false, xp: Some((0, 279)) });
+        assert_eq!(lancer[1], VersionRule { how: Experience, challenge: false, xp: Some((280, MAX_XP)) });
+        assert_eq!(lancer[2], VersionRule { how: Bought, challenge: true, xp: Some((0, 7_999)) });
         // V4, the last, takes any count: NG++ counts its tiers' experience from 0 there.
         assert_eq!(lancer[3], VersionRule { how: Experience, challenge: true, xp: Some((0, MAX_XP)) });
         // Two-row weapons with no step: the second row is the challenge-mode purchase.
@@ -1862,8 +1937,8 @@ mod tests {
                 ("V4", "HK-22", Some(50))
             ]
         );
-        assert_eq!(seeker.versions[1].step_xp, Some(1050 * 32));
-        assert_eq!(seeker.versions[3].step_xp, Some(10600 * 32));
+        assert_eq!(seeker.versions[1].step_xp, Some(1050));
+        assert_eq!(seeker.versions[3].step_xp, Some(10600));
         assert_eq!(v.challenge_mode, 0);
     }
 
@@ -1872,9 +1947,7 @@ mod tests {
         // The Seeker Gun (24, owned, not in hand) through its four versions in challenge mode,
         // with the experience and ammo the game's own upgrade and purchase leave.
         let mut f = in_challenge_mode();
-        for (version, xp, ammo, record) in
-            [(1, 1050 * 32, 20, 67), (2, 0, 40, 85), (3, 10600 * 32, 50, 86), (0, 100, 25, 24)]
-        {
+        for (version, xp, ammo, record) in [(1, 1050, 20, 67), (2, 0, 40, 85), (3, 10600, 50, 86), (0, 100, 25, 24)] {
             let before = f.clone();
             let mut want = f.fields();
             let s = item_mut(&mut want, 24);
@@ -1900,12 +1973,12 @@ mod tests {
             (s.version, s.xp, s.ammo) = (Some(version), Some(xp), Some(ammo));
             f.clone().apply(&want)
         };
-        assert!(try_(1, 1050 * 32 - 1, 20).unwrap_err().contains("at least 33600"), "V2 keeps its step");
-        assert!(try_(1, 1050 * 32, 21).unwrap_err().contains("at most 20"), "V2's ammo");
-        assert!(try_(2, 10600 * 32, 40).unwrap_err().contains("339200"), "V3 is under its step");
+        assert!(try_(1, 1050 - 1, 20).unwrap_err().contains("at least 1050"), "V2 keeps its step");
+        assert!(try_(1, 1050, 21).unwrap_err().contains("at most 20"), "V2's ammo");
+        assert!(try_(2, 10600, 40).unwrap_err().contains("10600"), "V3 is under its step");
         // V4, the last, takes any count (NG++ counts its tiers' experience from 0 there).
         assert!(try_(3, 0, 50).is_ok(), "V4 takes a count under its step");
-        assert!(try_(2, 10600 * 32 - 1, 40).is_ok());
+        assert!(try_(2, 10600 - 1, 40).is_ok());
         assert!(try_(3, MAX_XP, 50).is_ok());
     }
 
@@ -1921,14 +1994,14 @@ mod tests {
         a.apply(&want).unwrap();
         assert_eq!(a.global.get(id::RECORD)[24], 85);
         let s = item_mut(&mut want, 24);
-        (s.version, s.xp, s.ammo) = (Some(3), Some(10600 * 32), Some(50));
+        (s.version, s.xp, s.ammo) = (Some(3), Some(10600), Some(50));
         let mut b = f.clone();
         b.apply(&want).unwrap();
         assert_eq!(b.global.get(id::RECORD)[24], 86);
         // The ranges still hold.
         let s = item_mut(&mut want, 24);
-        (s.version, s.xp, s.ammo) = (Some(2), Some(10600 * 32), Some(40));
-        assert!(f.clone().apply(&want).unwrap_err().contains("339200"));
+        (s.version, s.xp, s.ammo) = (Some(2), Some(10600), Some(40));
+        assert!(f.clone().apply(&want).unwrap_err().contains("10600"));
         let s = item_mut(&mut want, 24);
         (s.version, s.xp, s.ammo) = (Some(2), Some(0), Some(41));
         assert!(f.clone().apply(&want).unwrap_err().contains("at most 40"));
@@ -2315,7 +2388,7 @@ mod tests {
         let v = read_save(card.path(), "SCUS_972.68", 1).unwrap();
         let mut want = v.fields.clone();
         let s = item_mut(&mut want, 24);
-        (s.version, s.xp, s.ammo) = (Some(1), Some(1050 * 32), Some(20));
+        (s.version, s.xp, s.ammo) = (Some(1), Some(1050), Some(20));
         let refused = write_save(
             card.path(),
             "SCUS_972.68",

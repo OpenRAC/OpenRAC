@@ -885,6 +885,8 @@ bool open(const Config& config, std::string& error) {
         g->layer = (__bridge CAMetalLayer*)SDL_Metal_GetLayer(g->view);
         g->layer.device = device;
         g->layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+        // Kept for SDR after HDR (mtlgl_hdr.mm), which sets a colour space of its own.
+        g->hdr.sdr_space.reset(CGColorSpaceRetain(g->layer.colorspace));
         g->layer.displaySyncEnabled = config.vsync;
         SDL_GetWindowSizeInPixels(config.window, &width, &height);
         g->layer.drawableSize = CGSizeMake(width, height);
@@ -925,7 +927,13 @@ void present() {
     if (g->layer != nil) {
         @autoreleasepool {
             id<CAMetalDrawable> drawable = [g->layer nextDrawable];
-            if (drawable != nil) {
+            if (drawable != nil && g->hdr.shown != hdr::Output::Sdr) {
+                // HDR: the encode pass writes the drawable (mtlgl_hdr.mm). set_hdr built it before
+                // it changed the layer, so this never fails while HDR is shown.
+                if (encode_hdr(drawable.texture)) {
+                    [commands() presentDrawable:drawable];
+                }
+            } else if (drawable != nil) {
                 MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
                 d.colorAttachments[0].texture = drawable.texture;
                 d.colorAttachments[0].loadAction = MTLLoadActionDontCare;

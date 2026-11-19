@@ -252,6 +252,7 @@ void FrameBuffer::release() {
     m_texture_depth = false;
     m_samples = 1;
     m_implicit = false;
+    m_samples_let_go = false;
     m_width = 0;
     m_height = 0;
 }
@@ -260,7 +261,7 @@ unsigned FrameBuffer::resolved() const {
     if (m_resolve == 0) {
         return m_framebuffer;
     }
-    if (m_implicit) {
+    if (m_implicit || m_samples_let_go) {
         return m_resolve;  // the texture holds the resolved colour already
     }
     // As blit_to: neither the scissor nor the colour mask applies to a copy.
@@ -272,6 +273,23 @@ unsigned FrameBuffer::resolved() const {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     return m_resolve;
+}
+
+void FrameBuffer::restore_samples() {
+    if (!m_samples_let_go) {
+        return;
+    }
+    m_samples_let_go = false;
+    // As blit_to: neither the scissor nor the colour mask applies to a copy.
+    glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_resolve);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_framebuffer);
+    glBlitFramebuffer(
+        0, 0, m_width, m_height, 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST
+    );
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 std::vector<std::uint8_t> read_rgba(unsigned framebuffer, int width, int height) {
@@ -302,9 +320,11 @@ void FrameBuffer::blit_to(unsigned target, int dst_width, int dst_height) const 
     glDisable(GL_SCISSOR_TEST);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     // A multisampled target copies to one of another size only through its resolved colour.
-    const unsigned source = m_implicit || (m_samples > 1 && (dst_width != m_width || dst_height != m_height))
-                                ? resolved()
-                                : m_framebuffer;
+    const unsigned source =
+        m_implicit || m_samples_let_go
+                || (m_samples > 1 && (dst_width != m_width || dst_height != m_height))
+            ? resolved()
+            : m_framebuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, source);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target);
     const bool same_size = dst_width == m_width && dst_height == m_height;

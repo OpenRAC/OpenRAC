@@ -254,6 +254,11 @@ struct MobyMaterial {
 // of that moby, and is dropped. From the render thread.
 std::vector<MobyMaterial> moby_materials(const std::vector<LiveMobyId>& live);
 
+// Whether the material drawn on `moby` this level load is OPENRAC_MOBY_MATERIAL_PLATINUM (the last
+// one set on it), for the game's own effects of that moby (openrac_moby_platinum). From the game's
+// thread.
+bool moby_platinum(std::uint32_t moby);
+
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 
 // A patch of heat haze to draw this frame (openrac_haze), in the game's world.

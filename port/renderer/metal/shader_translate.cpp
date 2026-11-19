@@ -318,4 +318,50 @@ bool translate_program(
     }
 }
 
+bool translate_native_compute(
+    const std::vector<std::uint32_t>& spirv, MslProgram& out, std::string& log
+) {
+    out = MslProgram{};
+    try {
+        CompilerMSL compiler(spirv);
+        CompilerMSL::Options options;
+        options.platform = CompilerMSL::Options::macOS;
+        options.set_msl_version(kMslMajor, kMslMinor);
+        compiler.set_msl_options(options);
+        const spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+        // Each binding keeps its number as its texture slot, and a sampler beside it.
+        for (const auto* list : {&resources.sampled_images, &resources.storage_images}) {
+            for (const Resource& r : *list) {
+                MSLResourceBinding b;
+                b.stage = spv::ExecutionModelGLCompute;
+                b.desc_set = compiler.get_decoration(r.id, spv::DecorationDescriptorSet);
+                b.binding = compiler.get_decoration(r.id, spv::DecorationBinding);
+                b.msl_texture = b.binding;
+                b.msl_sampler = b.binding;
+                compiler.add_msl_resource_binding(b);
+                out.textures.push_back(
+                    {static_cast<int>(b.binding),
+                     list == &resources.sampled_images ? static_cast<int>(b.binding) : -1}
+                );
+            }
+        }
+        MSLResourceBinding push;
+        push.stage = spv::ExecutionModelGLCompute;
+        push.desc_set = spirv_cross::kPushConstDescSet;
+        push.binding = spirv_cross::kPushConstBinding;
+        push.msl_buffer = 0;
+        compiler.add_msl_resource_binding(push);
+        out.compute = compiler.compile();
+        out.compute_entry =
+            compiler.get_cleansed_entry_point_name("main", spv::ExecutionModelGLCompute);
+        for (std::uint32_t i = 0; i < 3; ++i) {
+            out.workgroup[i] = compiler.get_execution_mode_argument(spv::ExecutionModeLocalSize, i);
+        }
+        return true;
+    } catch (const spirv_cross::CompilerError& e) {
+        log += std::format("SPIRV-Cross: {}", e.what());
+        return false;
+    }
+}
+
 }  // namespace openrac::mtlgl

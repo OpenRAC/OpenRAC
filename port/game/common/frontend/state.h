@@ -386,8 +386,8 @@ struct State {
     platform::SwapInterval swap_asked = platform::SwapInterval::VSync;
     platform::SwapInterval swap = platform::SwapInterval::VSync;
     bool muted = false;
-    // The window was opened for HDR output (the settings' `hdr` was not off): only then can it
-    // be turned on (apply_hdr).
+    // The window was opened for HDR output (the settings' `hdr` was not off), or is a Metal one,
+    // which can turn to HDR at any time: only then can it be turned on (apply_hdr).
     bool hdr_at_start = false;
     // What the window's display said of HDR when apply_hdr last asked (for hdr_status).
     hdr::Display hdr_display;

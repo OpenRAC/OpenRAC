@@ -81,9 +81,9 @@ export function versionHow(v: Rac2VersionInfo): string {
     case "first":
       return "The version the weapon comes in";
     case "experience":
-      return `Upgrades itself at ${num(v.stepXp ?? 0)} experience${v.challengeOnly ? ", in challenge mode" : ""}`;
+      return `Upgrades itself at ${num(v.stepXp ?? 0)} XP${v.challengeOnly ? ", in challenge mode" : ""}`;
     case "bought":
-      return "Bought from a vendor in challenge mode; experience starts again at 0";
+      return "Bought from a vendor in challenge mode; XP starts again at 0";
     case "challengeStart":
       return "Given when challenge mode starts";
   }
@@ -268,7 +268,7 @@ export function editList(view: Rac2SaveView, f: Rac2SaveFields): Rac2Edit[] {
   if (f.nanotechXp !== was.nanotechXp) {
     out.push({
       section: "ratchet",
-      text: `Nanotech experience ${from(was.nanotechXp, f.nanotechXp)}`,
+      text: `Nanotech XP ${from(was.nanotechXp, f.nanotechXp)}`,
     });
   }
 
@@ -357,7 +357,7 @@ export function editList(view: Rac2SaveView, f: Rac2SaveFields): Rac2Edit[] {
     );
     add(
       section,
-      "Experience",
+      "XP",
       pairs
         .filter(([a, b]) => a?.xp !== b?.xp)
         .map(([, b]) => `${name(b?.id ?? 0)} ${num(b?.xp ?? 0)}`),

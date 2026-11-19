@@ -2279,6 +2279,20 @@ std::vector<MobyMaterial> moby_materials(const std::vector<LiveMobyId>& live) {
     return result;
 }
 
+bool moby_platinum(std::uint32_t moby) {
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    // The last set on it is the one drawn (moby_materials).
+    for (auto e = g_materials.rbegin(); e != g_materials.rend(); ++e) {
+        // Its own, of this level load.
+        if (e->loads == loads && e->material.moby == moby) {
+            return e->material.material == OPENRAC_MOBY_MATERIAL_PLATINUM;
+        }
+    }
+
+    return false;
+}
+
 unsigned prop_meshes_generation() {
     const std::lock_guard<std::mutex> lock(g_props_lock);
     return g_prop_generation;
@@ -2512,3 +2526,7 @@ void drop_figures(const openrac_mod* mod) {
 }
 
 }  // namespace openrac::mods
+
+int openrac_moby_platinum(gaddr moby) {
+    return openrac::mods::moby_platinum(moby) ? 1 : 0;
+}
