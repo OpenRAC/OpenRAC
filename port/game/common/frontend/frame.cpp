@@ -1640,6 +1640,8 @@ TickMobys pose_mobys(
     }
 #endif
     const bool free_camera = debug_overlay::free_camera_enabled();
+    // The view a draw distance exception is culled by: the game's own draw distance. Made once.
+    std::optional<host::GameState> game_distance_view;
     for (std::size_t index = 0; index < state.mobys.size(); ++index) {
         bool light_only = false;
         const host::LiveMoby& m = state.mobys[index];
@@ -1680,14 +1682,20 @@ TickMobys pose_mobys(
             // The freecam flies away from the game's camera, whose depth and sides it is not: a
             // moby behind Ratchet is in its view. Kept by its draw distance from the game's camera
             // in any direction, the window's own view of the freecam culls the rest.
+            // A class in the game's draw distance exceptions (port/game/<game>/draw_distance.tsv)
+            // keeps the game's own draw distance at every Draw distance.
+            const host::GameState* view = &state;
+            if (state.moby_view && g->profile->keeps_game_draw_distance(m.class_id)) {
+                if (!game_distance_view) {
+                    game_distance_view = state;
+                    game_distance_view->moby_view->scale = 1.0f;
+                }
+                view = &*game_distance_view;
+            }
             if (free_camera) {
-                distance_fade = host::moby_free_camera_reach(ram.data() + m.address, state);
-            } else if (state.moby_view && g->profile->keeps_game_draw_distance(m.class_id)) {
-                host::GameState retail = state;
-                retail.moby_view->scale = 1.0f;
-                distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, retail);
+                distance_fade = host::moby_free_camera_reach(ram.data() + m.address, *view);
             } else {
-                distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+                distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, *view);
             }
         }
         if (!distance_fade) {

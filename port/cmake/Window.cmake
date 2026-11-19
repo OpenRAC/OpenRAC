@@ -697,10 +697,21 @@ add_library(openrac_viewer_lib INTERFACE)
 target_link_libraries(openrac_viewer_lib INTERFACE openrac_scene_renderer openrac_enhanced_viewer
   openrac_enhanced_textures)
 
-# MobyProc's distance test and fade (game/common/moby_proc.h), which both games' profiles share.
-add_library(openrac_game_moby_proc STATIC game/common/moby_proc.cpp)
+# MobyProc's distance test and fade (game/common/moby_proc.h), which both games' profiles share,
+# and the reader of each game's draw distance exceptions (game/common/draw_distance_list.h).
+add_library(openrac_game_moby_proc STATIC game/common/moby_proc.cpp game/common/draw_distance_list.cpp)
 target_link_libraries(openrac_game_moby_proc PUBLIC openrac_scene_renderer)
 openrac_warnings(openrac_game_moby_proc)
+# Each game's draw_distance.tsv, as text in draw_distance_lists.h.
+set(draw_distance_rac1 "${CMAKE_CURRENT_SOURCE_DIR}/game/rac1/draw_distance.tsv")
+set(draw_distance_rac2 "${CMAKE_CURRENT_SOURCE_DIR}/game/rac2/draw_distance.tsv")
+file(READ "${draw_distance_rac1}" draw_distance_rac1_text)
+file(READ "${draw_distance_rac2}" draw_distance_rac2_text)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${draw_distance_rac1}" "${draw_distance_rac2}")
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/draw_distance_lists.h"
+  CONTENT "#pragma once\nnamespace openrac::host { inline constexpr char kRac1DrawDistanceList[] = R\"tsv(${draw_distance_rac1_text})tsv\"; inline constexpr char kRac2DrawDistanceList[] = R\"tsv(${draw_distance_rac2_text})tsv\"; }\n" @ONLY)
+openrac_add_test(draw_distance_list INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+  LIBS openrac_game_moby_proc)
 
 # Ratchet & Clank's profile (game/common/profile.h): what the renderers read of the running game
 # from its memory (game/rac1/game_state.h), for rac1's programs (cmake/Games.cmake links it as
@@ -711,7 +722,8 @@ add_library(openrac_game_rac1_profile STATIC
   game/rac1/shrub_proc.cpp
   game/rac1/ship_visor.cpp
 )
-target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include)
+target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include
+  "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
 openrac_warnings(openrac_game_rac1_profile)
 openrac_add_test(camera_target LIBS openrac_game_rac1_profile)
@@ -721,7 +733,8 @@ openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
 
 # Going Commando's profile, one for its three discs (game/rac2/profile.cpp), for rac2's programs.
 add_library(openrac_game_rac2_profile STATIC game/rac2/profile.cpp)
-target_include_directories(openrac_game_rac2_profile PRIVATE runtime/include)
+target_include_directories(openrac_game_rac2_profile PRIVATE runtime/include
+  "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(openrac_game_rac2_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
 openrac_warnings(openrac_game_rac2_profile)
 openrac_add_test(rac2_moby_view LIBS openrac_game_rac2_profile)
