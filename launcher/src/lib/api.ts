@@ -79,6 +79,7 @@ import type { SaveMod } from "./generated/SaveMod";
 import type { SaveChange } from "./generated/SaveChange";
 import type { SaveFields } from "./generated/SaveFields";
 import type { SaveArchiveSlot } from "./generated/SaveArchiveSlot";
+import type { SaveCopySource } from "./generated/SaveCopySource";
 import type { SaveImportChoice } from "./generated/SaveImportChoice";
 import type { SaveImportPreview } from "./generated/SaveImportPreview";
 import type { SaveImportSlot } from "./generated/SaveImportSlot";
@@ -194,6 +195,7 @@ export type {
   ExportedSaves,
   ImportedSaves,
   SaveArchiveSlot,
+  SaveCopySource,
   SaveImportChoice,
   SaveImportPreview,
   SaveImportSlot,
@@ -361,6 +363,13 @@ export const api = {
   /** The saves file onto the game's card, after a backup: all of it, or the chosen slots merged. */
   importSaves: (serial: string, source: string, choice: SaveImportChoice) =>
     call<ImportedSaves>("import_saves", { serial, source, choice }),
+  /** The game's other discs whose cards hold saves this disc's game reads as its own. */
+  saveCopySources: (serial: string) => call<SaveCopySource[]>("save_copy_sources", { serial }),
+  /** What copying the saves of the disc `from` onto this one's card would do (`serial` is `from`). */
+  previewSaveCopy: (from: string, serial: string) => call<SaveImportPreview>("preview_save_copy", { from, serial }),
+  /** The other disc's saves onto this one's card, after a backup: all of them, or the chosen slots. */
+  copySaves: (from: string, serial: string, choice: SaveImportChoice) =>
+    call<ImportedSaves>("copy_saves", { from, serial, choice }),
   openSavesFolder: (serial: string) => call<null>("open_saves_folder", { serial }),
   /** Android: OpenRAC's place in the system's Files app (the saves, settings, games, discs). */
   showFiles: () => call<null>("show_files"),

@@ -104,6 +104,10 @@ the game you used last.
   replaces every save on the card, after a backup. A file from another game
   or disc (PAL and NTSC are different discs) is refused, and so is a damaged
   one ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#saves-between-devices)).
+  **Copy from PAL** (or **Copy from NTSC-U**), on the Saves panel, brings the
+  saves of the game's other disc onto this one's card the same way: each disc
+  keeps its own card, but Ratchet & Clank's and Going Commando's discs read
+  each other's saves.
 - **Crashes**: the game page says when the game stopped unexpectedly. Your
   saves are kept. **Copy report** gives text for a
   [GitHub issue](https://github.com/OpenRAC/OpenRAC/issues) or Discord.

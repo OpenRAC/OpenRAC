@@ -1372,6 +1372,53 @@ async fn import_saves(
     .map_err(|e| e.to_string())?
 }
 
+/// The game's other discs whose cards hold saves this disc's game reads as its own
+/// (core/src/save_transfer.rs, "Copies between the discs of one game").
+#[tauri::command]
+async fn save_copy_sources(
+    serial: String,
+) -> Result<Vec<openrac_launcher_core::save_transfer::SaveCopySource>, String> {
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::save_transfer::copy_sources(&serial))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// What copying the saves of the disc `from` onto the card of `serial` would do, before anything
+/// is written: refused for another game's disc.
+#[tauri::command]
+async fn preview_save_copy(
+    from: String,
+    serial: String,
+) -> Result<openrac_launcher_core::save_transfer::SaveImportPreview, String> {
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::save_transfer::preview_copy(&from, &serial))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Copies the saves of the disc `from` onto the card of `serial`, after a backup: every save
+/// replaced, or the chosen slots merged. Refused while the game runs with this card, as an import
+/// is.
+#[tauri::command]
+async fn copy_saves(
+    app: AppHandle,
+    from: String,
+    serial: String,
+    choice: openrac_launcher_core::save_transfer::SaveImportChoice,
+) -> Result<openrac_launcher_core::pcsx2_card::ImportedSaves, String> {
+    let in_use = card_check(&app).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        if let Some(game) = in_use(&card, &serial)? {
+            return Err(format!("{game} is running with this memory card: close it first"));
+        }
+        let done = openrac_launcher_core::save_transfer::copy_saves(&from, &serial, &choice)?;
+        launcher_log::line(&format!("copied saves from {from} into {serial}: {} files", done.files));
+        Ok(done)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Where PCSX2 keeps its memory cards, for the file picker to open there; None when not found.
 #[tauri::command]
 fn pcsx2_memcards_dir() -> Option<String> {
@@ -3026,6 +3073,9 @@ pub fn run() {
             export_saves,
             preview_save_import,
             import_saves,
+            save_copy_sources,
+            preview_save_copy,
+            copy_saves,
             open_saves_folder,
             read_save,
             write_save,

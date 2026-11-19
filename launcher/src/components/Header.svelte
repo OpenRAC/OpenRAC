@@ -280,6 +280,8 @@
     /* Android keeps the picked game's own ink. */
     --bar-ink-deep: var(--ink-deep);
     --bar-name: var(--text);
+    /* The page starts below the header (App.svelte): a hairline marks where. */
+    border-bottom: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
   }
 
   :global(html:not([data-platform="android"])) .site-header::before {

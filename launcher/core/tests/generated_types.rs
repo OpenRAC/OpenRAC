@@ -69,6 +69,7 @@ fn export_all(cfg: &Config) {
         openrac_launcher_core::mod_summary::ModLoadSummary,
         pcsx2_card::ImportedSaves,
         save_transfer::ExportedSaves,
+        save_transfer::SaveCopySource,
         save_transfer::SaveImportChoice,
         save_transfer::SaveImportPreview,
         save_transfer::SaveArchiveManifest,

@@ -79,6 +79,12 @@ void pcsx2_texture_pack() {
     image = Rgba8Image(32, 16);
     CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));
     CHECK(image.texel(3, 3) == rgba(255, 0, 0, 128));
+    fs::remove(file);
+    image = Rgba8Image(32, 16);
+    CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));
+    CHECK(image.texel(3, 3) == rgba(255, 0, 0, 128));
+    std::ofstream(file, std::ios::binary)
+        .write(reinterpret_cast<const char*>(dds.data()), static_cast<std::streamsize>(dds.size()));
     // Reopening an explicitly selected external folder keeps its replacement available.
     pcsx2_pack::configure(folder, nullptr);
     image = Rgba8Image(32, 16);
@@ -141,12 +147,14 @@ void pcsx2_texture_pack() {
     pool.upload({block, 2, tex0.psm, 0, 0, 16, 16, neighbour});
     const auto first = pool.resolve(tex0, kTexa);
     CHECK(pool.has_cropped_replacement(first));
+    CHECK(pool.has_pcsx2_replacement(first));
     CHECK(pool.image(first).texel(65, 9) == rgba(255, 0, 0, 64));
     CHECK(pool.uv_scale(first)[0] == 32.0f / 33.0f);
     ++neighbour[3 * 16];
     pool.upload({block, 2, tex0.psm, 0, 0, 16, 16, std::move(neighbour)});
     const auto changed = pool.resolve(tex0, kTexa);
     CHECK(changed != first && !pool.has_cropped_replacement(changed));
+    CHECK(!pool.has_pcsx2_replacement(changed));
 
     pcsx2_pack::configure({}, nullptr);
     fs::remove(crop);
