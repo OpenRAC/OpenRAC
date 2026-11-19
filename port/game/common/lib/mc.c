@@ -1002,11 +1002,16 @@ static void add_entry(const char* dir, const char* name) {
  * the port's save marks (`.mods`) and the mods' data beside the saves (`.moddata`, written through
  * a hidden temporary file), and what file browsers and other tools leave behind, all hidden
  * files (Finder's .DS_Store, the launcher's .backup_ folders) and Explorer's Thumbs.db and
- * desktop.ini. A real card holds none of them, and the games count the entries of their save
- * folder: Going Commando takes its folder for no save at all unless it lists exactly its own nine
- * (func_00298F00, state 8), and then offers to create a new one, which writes every slot empty. */
+ * desktop.ini, and PCSX2's folder cards' own files (_pcsx2_index in every folder,
+ * _pcsx2_superblock at the top). A real card holds none of them, and the games count the entries
+ * of their save folder: Going Commando takes its folder for no save at all unless it lists exactly
+ * its own nine (func_00298F00, state 8), and then offers to create a new one, which writes every
+ * slot empty. */
 static int host_only(const char* name) {
     const size_t length = strlen(name);
+    if (strncmp(name, "_pcsx2_", 7) == 0) {
+        return 1;
+    }
     if (length > 5 && strcmp(name + length - 5, ".mods") == 0) {
         return 1;
     }

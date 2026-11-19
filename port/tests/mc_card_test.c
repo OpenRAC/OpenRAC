@@ -139,12 +139,13 @@ int main(void) {
         write_file(path, save, (int)sizeof save, 1);
     }
 
-    /* What Finder, Explorer, the port and the launcher put beside them. */
+    /* What Finder, Explorer, PCSX2, the port and the launcher put beside them. */
     const char* clutter[] =
         {".DS_Store",
          "._save0.bin",
          "Thumbs.db",
          "DESKTOP.INI",
+         "_pcsx2_index",
          "save0.bin.mods",
          "save0.bin.moddata",
          ".save1.bin.moddata.tmp"};
