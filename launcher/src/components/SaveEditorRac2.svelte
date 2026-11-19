@@ -540,6 +540,8 @@
                   {#if (at?.version.length ?? 0) > 0 && at}
                     {@const v = selectedVersion(view, fields, w.id)}
                     {@const tiers = activeTiers(mods.values, at.version)}
+                    {@const lastVersion =
+                      w.versions.length === 0 || s.version === w.versions.length - 1}
                     <span class="version-stack">
                       <select
                         class="version"
@@ -547,15 +549,17 @@
                         class:modded={tiers.length > 0}
                         class:off={!s.owned}
                         aria-label={`${w.name} version`}
-                        title={w.worn
+                        title={w.worn && !lastVersion
                           ? "In Ratchet's hand: switch weapons in the game and save to change its version"
-                          : tiers.length > 0
-                            ? `From ${tiers[0]?.attached.mod.name ?? "a mod"}: saved in the mod's own file`
-                            : v
-                              ? versionHow(v)
-                              : undefined}
+                          : w.worn
+                            ? "In Ratchet's hand: its tiers can change; switch weapons in the game and save to change its version"
+                            : tiers.length > 0
+                              ? `From ${tiers[0]?.attached.mod.name ?? "a mod"}: saved in the mod's own file`
+                              : v
+                                ? versionHow(v)
+                                : undefined}
                         value={pickedValue(mods.values, at.version, s.version)}
-                        disabled={!s.owned || w.worn}
+                        disabled={!s.owned || (w.worn && !lastVersion)}
                         aria-invalid={!!errors[`version-${String(w.id)}`]}
                         onchange={(e) => {
                           if (view && fields)
@@ -571,7 +575,7 @@
                       >
                         {#if w.versions.length === 0}<option value="g:0">{w.name}</option>{/if}
                         {#each w.versions as option, k (k)}
-                          <option value={`g:${String(k)}`}
+                          <option value={`g:${String(k)}`} disabled={w.worn && k !== s.version}
                             >{versionLabel(option)}{option.name !== w.name
                               ? ` ${option.name}`
                               : ""}</option
