@@ -37,6 +37,7 @@
   ],
   "candidates": "nonmatching/functional.tsv",
   "candidates_left_out": {
+    "func_003932E8": "the US draft reads the buffer top at 0x0022760C, US's place; PAL's is 0x0022758C (a save's icon was read over all of memory)",
     "func_00385A98": "Clang cannot read it: it calls func_0038DF00, which it does not declare",
     "func_0038D5B0": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
     "func_003EE310": "Clang cannot read it: it calls func_003EDBE0 with an argument its declaration does not take",
