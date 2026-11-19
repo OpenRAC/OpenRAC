@@ -26,16 +26,14 @@ void games_lists_read() {
 }
 
 void rows_that_do_not_fit_are_named() {
-    const DrawDistanceList list{
-        "# a comment\n"
-        "\n"
-        "12\tany\tname\treason\r\n"
-        "7\tany\tname\treason\n"
-        "x\tany\tname\treason\n"
-        "8\tany\tname\n"
-        "9\tany\t\treason\n"
-        "7\tany\tname\treason\n"
-    };
+    const DrawDistanceList list{"# a comment\n"
+                                "\n"
+                                "12\tany\tname\treason\r\n"
+                                "7\tany\tname\treason\n"
+                                "x\tany\tname\treason\n"
+                                "8\tany\tname\n"
+                                "9\tany\t\treason\n"
+                                "7\tany\tname\treason\n"};
     CHECK(list.classes().size() == 2);
     CHECK(list.classes()[0] == 7 && list.classes()[1] == 12);
     CHECK(list.errors().size() == 4);
