@@ -118,7 +118,7 @@ class Binding(unittest.TestCase):
         # The port's prototypes (game_protos.h): the splitter, one coin, the collector.
         self.assertEqual(bolt["rac2.bolt.spawn_pickups"]["signature"], "void(u32,i32,i32,i32,i32,i32,f32)")
         self.assertEqual(bolt["rac2.bolt.spawn_pickup"]["signature"], "u32(u32,u32,u32,u32,i32,i32)")
-        self.assertEqual(bolt["rac2.bolt.collect"]["signature"], "u32(u32)")
+        self.assertEqual(bolt["rac2.bolt.collect"]["signature"], "void(u32)")
         for h in bolt.values():
             self.assertEqual(set(h["symbols"]), {"ntsc", "pal", "ntsc2"}, h["id"])
         # The splitter is the executable's and each level's copy (part_spawn_bolt_pickups, which

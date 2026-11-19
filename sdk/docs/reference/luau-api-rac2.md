@@ -333,8 +333,8 @@ type Bolt_SpawnPickupFn = (source: number, position: number, velocity: number, f
 
 ### `Bolt_CollectFn`
 
-rac2.bolt.collect (Bolt_Collect) u32(u32): A bolt coin collected (CollectBolts): adds its class's value (classes 0x0D to 0x13: 1, 5, 20, 50, 100, 500, 1000; 1 for another) to the player's bolts (0x1A79F8) and, for a counted coin, to the level's bolt score, then throws its sparks. The coin's update (func_00300F58) calls it as the coin reaches the hero, the moby still alive, and reads no result (the port's prototype gives it one: return the original's). A replacement can change what a coin is worth: call the original and add more with openrac_api.bolts (a coin it marked worth five times: four times what the original added), or not call it.
+rac2.bolt.collect (Bolt_Collect) void(u32): A bolt coin collected (CollectBolts): adds its class's value (classes 0x0D to 0x13: 1, 5, 20, 50, 100, 500, 1000; 1 for another) to the player's bolts (0x1A79F8) and, for a counted coin, to the level's bolt score, then throws its sparks. The coin's update (func_00300F58) calls it as the coin reaches the hero, the moby still alive, and reads no result. A replacement can change what a coin is worth: call the original and add more with openrac_api.bolts (a coin it marked worth five times: four times what the original added), or not call it.
 
 ```lua
-type Bolt_CollectFn = (moby: number) -> number
+type Bolt_CollectFn = (moby: number) -> ()
 ```
