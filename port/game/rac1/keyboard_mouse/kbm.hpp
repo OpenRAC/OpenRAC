@@ -27,7 +27,8 @@ namespace kbm {
 
 // What a bind does. The pad buttons are Ratchet & Clank's: Cross jumps, Square swings the wrench,
 // Circle fires, Triangle holds the Quick Select open, R1 crouches, L1 looks in first person, L2
-// strafes (with the lock-strafe mod), Select opens the map, Start pauses.
+// strafes (with the lock-strafe mod), R2 crouches too (and strafes in water; Going Commando: strafes
+// and crouches), Select opens the map, Start pauses.
 enum class Action : int {
     MoveForward,
     MoveBack,
@@ -41,6 +42,7 @@ enum class Action : int {
     Crouch,
     Strafe,
     FirstPerson,
+    R2,
     Map,
     CameraReset,
     Pause,
@@ -96,6 +98,7 @@ inline constexpr std::array<ActionInfo, kActionCount> kActions = {{
     {"crouch", "ControlLeft,KeyC", Group::Play},
     {"strafe", "ShiftLeft", Group::Play},
     {"first_person", "KeyV,MouseBack", Group::Play},
+    {"r2", "KeyR,MouseForward", Group::Play},
     {"map", "Tab,KeyM", Group::Play},
     {"camera_reset", "KeyQ", Group::Play},
     {"pause", "Escape,KeyP", Group::Play},
@@ -824,6 +827,7 @@ inline std::uint16_t buttons_for(
             set(on(Action::Crouch), kR1);
             set(on(Action::Strafe) && strafe, kL2);
             set(on(Action::FirstPerson), kL1);
+            set(on(Action::R2), kR2);
             set(on(Action::Map), kSelect);
             set(on(Action::Pause), kStart);
             break;

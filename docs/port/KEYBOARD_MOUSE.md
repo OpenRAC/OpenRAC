@@ -49,6 +49,7 @@ menus, scenes, the overlay (F3) and when the window loses focus.
 | Crouch | Left Ctrl, C | R1 |
 | Strafe | Left Shift | L2 (Ratchet & Clank: only with the lock-strafe mod) |
 | First-person view | V, back side button | L1 |
+| R2: crouch (Going Commando: strafe and crouch) | R, front side button | R2 |
 | Map, pause | Tab or M, Escape or P | Select, Start |
 | Ratchet & Clank only: camera behind Ratchet | Q | none |
 | Ratchet & Clank only: weapon 1 to 8, next, previous | 1 to 8, wheel | none |
@@ -69,11 +70,19 @@ loaded, so the game behaves as on a pad (L2 is first-person view there).
 
 While you use the keyboard and mouse, every button icon of the game (the four
 face buttons, L1, L2, R1, R2 and both sticks) shows your keys instead: a key
-cap with its name ("SPACE", "F"), a mouse with the button lit for a click or
-the wheel, "WASD" for the left stick and a mouse for the right one. They are
-drawn as the game draws its own L1 button (its tab, its white letters), so
-they match. On the gamepad the PS2 icons come back. Only the picture of the
-game's font changes; the *Key prompts* setting turns it off.
+cap with its name ("SPACE", "F", "F12", two lines for "NUM 4" or "PG DN"),
+an arrow for the arrow keys, a mouse with the button lit for a click, the
+side buttons or the wheel, "WASD" for the left stick and a mouse for the
+right one. Every key and mouse button you can bind has its icon, so the icons
+always show what Controls has. They are drawn as the game draws its own L1
+button (its tab, its white letters), so they match. On the gamepad the PS2
+icons come back. Only the picture of the game's font changes; the *Key
+prompts* setting turns it off.
+
+The game's icons are 24 x 16 texels. The renderer draws the painted font from
+a picture six times as big, with smooth strokes, so the keys stay sharp on a
+4K screen (`renderer/textures/sharp_cells.h`). The game's memory and the
+texture's hash stay as painted.
 
 ## Changing the controls
 

@@ -945,6 +945,7 @@ let mockPlugins: PluginView[] = query.has("nomods")
               crouch: "ControlRight,KeyN",
               strafe: "ShiftRight",
               first_person: "KeyU,MouseBack",
+              r2: "KeyY,MouseForward",
               map: "KeyM,Backslash",
               camera_reset: "KeyO",
               pause: "Escape,KeyP",
@@ -1159,6 +1160,16 @@ let mockPlugins: PluginView[] = query.has("nomods")
             group: "play",
             description: "L1, held.",
             value: "KeyV,MouseBack",
+          },
+          {
+            key: "r2",
+            name: "R2",
+            type: "keybind",
+            default: "KeyR,MouseForward",
+            group: "play",
+            description:
+              "R2, held. Ratchet & Clank: crouches like R1, strafes in water. Going Commando: strafes and crouches.",
+            value: "KeyR,MouseForward",
           },
           {
             key: "map",

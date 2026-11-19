@@ -477,8 +477,9 @@ void buttons() {
     CHECK(b(Context::Play, {Action::Pause}) == kbm::kStart);
     CHECK(b(Context::Play, {Action::Fire, Action::Wrench}) == (kbm::kCircle | kbm::kSquare));
     CHECK(
-        b(Context::Play, {Action::Crouch, Action::Strafe, Action::FirstPerson, Action::Map})
-        == (kbm::kR1 | kbm::kL2 | kbm::kL1 | kbm::kSelect)
+        b(Context::Play,
+          {Action::Crouch, Action::Strafe, Action::FirstPerson, Action::R2, Action::Map})
+        == (kbm::kR1 | kbm::kL2 | kbm::kL1 | kbm::kR2 | kbm::kSelect)
     );
     CHECK(b(Context::Play, {Action::MenuConfirm, Action::MenuBack}) == 0);
 
@@ -704,7 +705,6 @@ void menu_mouse() {
     );
 }
 
-// Each action's setting in the manifest, with the table's default and group.
 // The action each button icon stands for (key prompts), in the cells' order.
 void prompts() {
     using kbm::Action;
@@ -717,7 +717,7 @@ void prompts() {
     CHECK(play[4] == Action::FirstPerson);  // L1
     CHECK(play[5] == Action::Strafe);       // L2
     CHECK(play[6] == Action::Crouch);       // R1
-    CHECK(play[7] == Action::Count);        // R2: the game's own
+    CHECK(play[7] == Action::R2);           // R2
     // Without lock-strafe the strafe key presses nothing: L2 keeps its icon.
     CHECK(kbm::prompt_actions(Context::Play, -1, false, false)[5] == Action::Count);
 

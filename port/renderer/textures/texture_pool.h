@@ -317,6 +317,8 @@ private:
         Rgba8Image image;
         bool cropped_replacement = false;
         bool pack_replacement = false;
+        // A sharper picture of it the GPU draws instead (sharp_cells.h), or null.
+        std::shared_ptr<const Rgba8Image> sharp;
         std::array<float, 2> uv_scale{1.0f, 1.0f};
         AlphaScale scale = AlphaScale::Gs;
         std::string name;

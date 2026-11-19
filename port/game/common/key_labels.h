@@ -2,7 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // A key's name (openrac/keys.h: "KeyW", "MouseLeft") as a player reads it: in a menu ("W", "Left
-// click") and on a button icon of the game's, at most 5 letters ("W", "LMB").
+// click") and on a button icon of the game's: one or two lines ("\n" between them) of at most 5
+// capitals, digits or signs ("W", "LMB", "NUM\n4").
 
 #pragma once
 
@@ -20,13 +21,13 @@ struct Words {
     std::string_view name, menu, icon;
 };
 
-inline constexpr std::array<Words, 30> kWords{{
+inline constexpr std::array<Words, 58> kWords{{
     {"Space", "Space", "SPACE"},
     {"Enter", "Enter", "ENTER"},
     {"Escape", "Esc", "ESC"},
-    {"Backspace", "Backspace", "BKSP"},
+    {"Backspace", "Backspace", "BACK\nSPACE"},
     {"Tab", "Tab", "TAB"},
-    {"CapsLock", "Caps Lock", "CAPS"},
+    {"CapsLock", "Caps Lock", "CAPS\nLOCK"},
     {"ShiftLeft", "Left Shift", "SHIFT"},
     {"ShiftRight", "Right Shift", "SHIFT"},
     {"ControlLeft", "Left Ctrl", "CTRL"},
@@ -50,7 +51,35 @@ inline constexpr std::array<Words, 30> kWords{{
     {"WheelRight", "Wheel right", "WHRT"},
     {"Delete", "Delete", "DEL"},
     {"Insert", "Insert", "INS"},
-    {"PageUp", "Page Up", "PGUP"},
+    {"Home", "Home", "HOME"},
+    {"End", "End", "END"},
+    {"PageUp", "Page Up", "PG\nUP"},
+    {"PageDown", "Page Down", "PG\nDN"},
+    {"PrintScreen", "Print Screen", "PRT\nSCR"},
+    {"ScrollLock", "Scroll Lock", "SCR\nLOCK"},
+    {"Pause", "Pause", "PAUSE"},
+    {"NumLock", "Num Lock", "NUM\nLOCK"},
+    {"ContextMenu", "Menu", "MENU"},
+    {"Minus", "-", "-"},
+    {"Equal", "=", "="},
+    {"BracketLeft", "[", "["},
+    {"BracketRight", "]", "]"},
+    {"Backslash", "\\", "\\"},
+    {"IntlBackslash", "\\ (ISO)", "\\"},
+    {"IntlHash", "#", "#"},
+    {"Semicolon", ";", ";"},
+    {"Quote", "'", "'"},
+    {"Backquote", "`", "`"},
+    {"Comma", ",", ","},
+    {"Period", ".", "."},
+    {"Slash", "/", "/"},
+    {"NumpadDivide", "Num /", "NUM\n/"},
+    {"NumpadMultiply", "Num *", "NUM\n*"},
+    {"NumpadSubtract", "Num -", "NUM\n-"},
+    {"NumpadAdd", "Num +", "NUM\n+"},
+    {"NumpadEnter", "Num Enter", "NUM\nENTER"},
+    {"NumpadDecimal", "Num .", "NUM\n."},
+    {"NumpadEqual", "Num =", "NUM\n="},
 }};
 
 inline std::string upper(std::string_view s) {
@@ -82,18 +111,17 @@ inline std::string menu_label(std::string_view name) {
     return std::string(name);
 }
 
-// At most 5 capitals: "W", "1", "LMB", "SPACE", "NUM4", "F5".
+// One or two lines of at most 5 capitals: "W", "1", "LMB", "SPACE", "NUM\n4", "F5".
 inline std::string icon_label(std::string_view name) {
     for (const detail::Words& w : detail::kWords) {
         if (w.name == name) {
             return std::string(w.icon);
         }
     }
-    std::string out = menu_label(name);
     if (name.starts_with("Numpad")) {
-        out = "NUM" + std::string(name.substr(6));
+        return "NUM\n" + detail::upper(name.substr(6)).substr(0, 5);
     }
-    out = detail::upper(out);
+    std::string out = detail::upper(menu_label(name));
     std::erase(out, ' ');
     return out.substr(0, 5);
 }

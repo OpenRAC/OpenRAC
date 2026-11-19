@@ -237,6 +237,14 @@
       "description": "L1, held."
     },
     {
+      "key": "r2",
+      "name": "R2",
+      "type": "keybind",
+      "default": "KeyR,MouseForward",
+      "group": "play",
+      "description": "R2, held. Ratchet & Clank: crouches like R1, strafes in water. Going Commando: strafes and crouches."
+    },
+    {
       "key": "map",
       "name": "Map",
       "type": "keybind",
@@ -433,6 +441,7 @@
         "crouch": "ControlRight,KeyN",
         "strafe": "ShiftRight",
         "first_person": "KeyU,MouseBack",
+        "r2": "KeyY,MouseForward",
         "map": "KeyM,Backslash",
         "camera_reset": "KeyO",
         "pause": "Escape,KeyP"

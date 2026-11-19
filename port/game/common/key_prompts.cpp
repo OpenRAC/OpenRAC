@@ -8,8 +8,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <string_view>
 
 #include "key_labels.h"
+#include "renderer/textures/sharp_cells.h"
 
 namespace openrac::key_prompts {
 namespace {
@@ -22,82 +24,121 @@ constexpr std::array<std::uint32_t, kCells> kCellU = {0, 24, 48, 72, 96, 120, 14
 constexpr int kFaceX0 = 4, kFaceX1 = 23, kFaceY0 = 3, kFaceY1 = 14;
 
 // clang-format off
-// A..Z then 0..9: a row's bits, the leftmost pixel the highest of the glyph's width.
-constexpr std::uint8_t kBig[36][7] = {
-    {0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11},  // A
-    {0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E},  // B
-    {0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E},  // C
-    {0x1E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1E},  // D
-    {0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F},  // E
-    {0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x10},  // F
-    {0x0E, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0F},  // G
-    {0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11},  // H
-    {0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E},  // I
-    {0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0C},  // J
-    {0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11},  // K
-    {0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F},  // L
-    {0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11},  // M
-    {0x11, 0x11, 0x19, 0x15, 0x13, 0x11, 0x11},  // N
-    {0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E},  // O
-    {0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10},  // P
-    {0x0E, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0D},  // Q
-    {0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11},  // R
-    {0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E},  // S
-    {0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04},  // T
-    {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E},  // U
-    {0x11, 0x11, 0x11, 0x11, 0x11, 0x0A, 0x04},  // V
-    {0x11, 0x11, 0x11, 0x15, 0x15, 0x15, 0x0A},  // W
-    {0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11},  // X
-    {0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04},  // Y
-    {0x1F, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1F},  // Z
-    {0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E},  // 0
-    {0x04, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E},  // 1
-    {0x0E, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1F},  // 2
-    {0x1F, 0x02, 0x04, 0x02, 0x01, 0x11, 0x0E},  // 3
-    {0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02, 0x02},  // 4
-    {0x1F, 0x10, 0x1E, 0x01, 0x01, 0x11, 0x0E},  // 5
-    {0x06, 0x08, 0x10, 0x1E, 0x11, 0x11, 0x0E},  // 6
-    {0x1F, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08},  // 7
-    {0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E},  // 8
-    {0x0E, 0x11, 0x11, 0x0F, 0x01, 0x02, 0x0C},  // 9
+// A glyph: its character and its rows' bits, the leftmost pixel the highest of the glyph's width.
+struct Big {
+    char c;
+    std::uint8_t rows[7];
 };
-constexpr std::uint8_t kSmall[36][5] = {
-    {0x02, 0x05, 0x07, 0x05, 0x05},  // A
-    {0x06, 0x05, 0x06, 0x05, 0x06},  // B
-    {0x03, 0x04, 0x04, 0x04, 0x03},  // C
-    {0x06, 0x05, 0x05, 0x05, 0x06},  // D
-    {0x07, 0x04, 0x06, 0x04, 0x07},  // E
-    {0x07, 0x04, 0x06, 0x04, 0x04},  // F
-    {0x03, 0x04, 0x05, 0x05, 0x03},  // G
-    {0x05, 0x05, 0x07, 0x05, 0x05},  // H
-    {0x07, 0x02, 0x02, 0x02, 0x07},  // I
-    {0x01, 0x01, 0x01, 0x05, 0x02},  // J
-    {0x05, 0x05, 0x06, 0x05, 0x05},  // K
-    {0x04, 0x04, 0x04, 0x04, 0x07},  // L
-    {0x05, 0x07, 0x07, 0x05, 0x05},  // M
-    {0x06, 0x05, 0x05, 0x05, 0x05},  // N
-    {0x02, 0x05, 0x05, 0x05, 0x02},  // O
-    {0x06, 0x05, 0x06, 0x04, 0x04},  // P
-    {0x02, 0x05, 0x05, 0x06, 0x03},  // Q
-    {0x06, 0x05, 0x06, 0x05, 0x05},  // R
-    {0x03, 0x04, 0x02, 0x01, 0x06},  // S
-    {0x07, 0x02, 0x02, 0x02, 0x02},  // T
-    {0x05, 0x05, 0x05, 0x05, 0x07},  // U
-    {0x05, 0x05, 0x05, 0x05, 0x02},  // V
-    {0x05, 0x05, 0x07, 0x07, 0x05},  // W
-    {0x05, 0x05, 0x02, 0x05, 0x05},  // X
-    {0x05, 0x05, 0x02, 0x02, 0x02},  // Y
-    {0x07, 0x01, 0x02, 0x04, 0x07},  // Z
-    {0x07, 0x05, 0x05, 0x05, 0x07},  // 0
-    {0x02, 0x06, 0x02, 0x02, 0x07},  // 1
-    {0x06, 0x01, 0x02, 0x04, 0x07},  // 2
-    {0x06, 0x01, 0x02, 0x01, 0x06},  // 3
-    {0x05, 0x05, 0x07, 0x01, 0x01},  // 4
-    {0x07, 0x04, 0x06, 0x01, 0x06},  // 5
-    {0x03, 0x04, 0x07, 0x05, 0x07},  // 6
-    {0x07, 0x01, 0x02, 0x02, 0x02},  // 7
-    {0x07, 0x05, 0x07, 0x05, 0x07},  // 8
-    {0x07, 0x05, 0x07, 0x01, 0x06},  // 9
+struct Small {
+    char c;
+    std::uint8_t rows[5];
+};
+
+// 5 x 7, for up to three letters.
+constexpr Big kBig[] = {
+    {'A', {0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11}},
+    {'B', {0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E}},
+    {'C', {0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E}},
+    {'D', {0x1E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1E}},
+    {'E', {0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F}},
+    {'F', {0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x10}},
+    {'G', {0x0E, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0F}},
+    {'H', {0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11}},
+    {'I', {0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E}},
+    {'J', {0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0C}},
+    {'K', {0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11}},
+    {'L', {0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F}},
+    {'M', {0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11}},
+    {'N', {0x11, 0x11, 0x19, 0x15, 0x13, 0x11, 0x11}},
+    {'O', {0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E}},
+    {'P', {0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10}},
+    {'Q', {0x0E, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0D}},
+    {'R', {0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11}},
+    {'S', {0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E}},
+    {'T', {0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04}},
+    {'U', {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E}},
+    {'V', {0x11, 0x11, 0x11, 0x11, 0x11, 0x0A, 0x04}},
+    {'W', {0x11, 0x11, 0x11, 0x15, 0x15, 0x15, 0x0A}},
+    {'X', {0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11}},
+    {'Y', {0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04}},
+    {'Z', {0x1F, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1F}},
+    {'0', {0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E}},
+    {'1', {0x04, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E}},
+    {'2', {0x0E, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1F}},
+    {'3', {0x1F, 0x02, 0x04, 0x02, 0x01, 0x11, 0x0E}},
+    {'4', {0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02, 0x02}},
+    {'5', {0x1F, 0x10, 0x1E, 0x01, 0x01, 0x11, 0x0E}},
+    {'6', {0x06, 0x08, 0x10, 0x1E, 0x11, 0x11, 0x0E}},
+    {'7', {0x1F, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08}},
+    {'8', {0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E}},
+    {'9', {0x0E, 0x11, 0x11, 0x0F, 0x01, 0x02, 0x0C}},
+    {'-', {0x00, 0x00, 0x00, 0x1F, 0x00, 0x00, 0x00}},
+    {'=', {0x00, 0x00, 0x1F, 0x00, 0x1F, 0x00, 0x00}},
+    {'[', {0x0E, 0x08, 0x08, 0x08, 0x08, 0x08, 0x0E}},
+    {']', {0x0E, 0x02, 0x02, 0x02, 0x02, 0x02, 0x0E}},
+    {'\\', {0x10, 0x10, 0x08, 0x04, 0x02, 0x01, 0x01}},
+    {'/', {0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x10}},
+    {'#', {0x0A, 0x0A, 0x1F, 0x0A, 0x1F, 0x0A, 0x0A}},
+    {';', {0x00, 0x0C, 0x0C, 0x00, 0x0C, 0x04, 0x08}},
+    {'\'', {0x0C, 0x04, 0x08, 0x00, 0x00, 0x00, 0x00}},
+    {'`', {0x08, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00}},
+    {',', {0x00, 0x00, 0x00, 0x00, 0x0C, 0x04, 0x08}},
+    {'.', {0x00, 0x00, 0x00, 0x00, 0x00, 0x0C, 0x0C}},
+    {'*', {0x00, 0x04, 0x15, 0x0E, 0x15, 0x04, 0x00}},
+    {'+', {0x00, 0x04, 0x04, 0x1F, 0x04, 0x04, 0x00}},
+};
+// 3 x 5, for four or five letters and two lines.
+constexpr Small kSmall[] = {
+    {'A', {0x02, 0x05, 0x07, 0x05, 0x05}},
+    {'B', {0x06, 0x05, 0x06, 0x05, 0x06}},
+    {'C', {0x03, 0x04, 0x04, 0x04, 0x03}},
+    {'D', {0x06, 0x05, 0x05, 0x05, 0x06}},
+    {'E', {0x07, 0x04, 0x06, 0x04, 0x07}},
+    {'F', {0x07, 0x04, 0x06, 0x04, 0x04}},
+    {'G', {0x03, 0x04, 0x05, 0x05, 0x03}},
+    {'H', {0x05, 0x05, 0x07, 0x05, 0x05}},
+    {'I', {0x07, 0x02, 0x02, 0x02, 0x07}},
+    {'J', {0x01, 0x01, 0x01, 0x05, 0x02}},
+    {'K', {0x05, 0x05, 0x06, 0x05, 0x05}},
+    {'L', {0x04, 0x04, 0x04, 0x04, 0x07}},
+    {'M', {0x05, 0x07, 0x07, 0x05, 0x05}},
+    {'N', {0x06, 0x05, 0x05, 0x05, 0x05}},
+    {'O', {0x02, 0x05, 0x05, 0x05, 0x02}},
+    {'P', {0x06, 0x05, 0x06, 0x04, 0x04}},
+    {'Q', {0x02, 0x05, 0x05, 0x06, 0x03}},
+    {'R', {0x06, 0x05, 0x06, 0x05, 0x05}},
+    {'S', {0x03, 0x04, 0x02, 0x01, 0x06}},
+    {'T', {0x07, 0x02, 0x02, 0x02, 0x02}},
+    {'U', {0x05, 0x05, 0x05, 0x05, 0x07}},
+    {'V', {0x05, 0x05, 0x05, 0x05, 0x02}},
+    {'W', {0x05, 0x05, 0x07, 0x07, 0x05}},
+    {'X', {0x05, 0x05, 0x02, 0x05, 0x05}},
+    {'Y', {0x05, 0x05, 0x02, 0x02, 0x02}},
+    {'Z', {0x07, 0x01, 0x02, 0x04, 0x07}},
+    {'0', {0x07, 0x05, 0x05, 0x05, 0x07}},
+    {'1', {0x02, 0x06, 0x02, 0x02, 0x07}},
+    {'2', {0x06, 0x01, 0x02, 0x04, 0x07}},
+    {'3', {0x06, 0x01, 0x02, 0x01, 0x06}},
+    {'4', {0x05, 0x05, 0x07, 0x01, 0x01}},
+    {'5', {0x07, 0x04, 0x06, 0x01, 0x06}},
+    {'6', {0x03, 0x04, 0x07, 0x05, 0x07}},
+    {'7', {0x07, 0x01, 0x02, 0x02, 0x02}},
+    {'8', {0x07, 0x05, 0x07, 0x05, 0x07}},
+    {'9', {0x07, 0x05, 0x07, 0x01, 0x06}},
+    {'-', {0x00, 0x00, 0x07, 0x00, 0x00}},
+    {'=', {0x00, 0x07, 0x00, 0x07, 0x00}},
+    {'[', {0x06, 0x04, 0x04, 0x04, 0x06}},
+    {']', {0x03, 0x01, 0x01, 0x01, 0x03}},
+    {'\\', {0x04, 0x04, 0x02, 0x01, 0x01}},
+    {'/', {0x01, 0x01, 0x02, 0x04, 0x04}},
+    {'#', {0x05, 0x07, 0x05, 0x07, 0x05}},
+    {';', {0x00, 0x02, 0x00, 0x02, 0x04}},
+    {'\'', {0x02, 0x02, 0x00, 0x00, 0x00}},
+    {'`', {0x04, 0x02, 0x00, 0x00, 0x00}},
+    {',', {0x00, 0x00, 0x00, 0x02, 0x04}},
+    {'.', {0x00, 0x00, 0x00, 0x00, 0x02}},
+    {'*', {0x00, 0x05, 0x02, 0x05, 0x00}},
+    {'+', {0x00, 0x02, 0x07, 0x02, 0x00}},
 };
 // clang-format on
 
@@ -110,35 +151,66 @@ std::uint8_t* row_of(std::uint8_t* font, std::uint32_t y) {
     return font + (kRow + y) * kFontWidth;
 }
 
-int glyph_index(char c) {
-    if (c >= 'A' && c <= 'Z') {
-        return c - 'A';
-    }
-    if (c >= '0' && c <= '9') {
-        return 26 + (c - '0');
-    }
-    return -1;
-}
-
 // A cell's picture: 0 the key's face, 1 white, 2 the letters' grey edge.
 using Picture = std::array<std::array<std::uint8_t, kCellW>, kCellH>;
 
 // The mouse, 9 x 10: its outline, its two buttons and the wheel between them.
 constexpr std::array<std::uint16_t, 10> kMouse =
     {0x0FE, 0x111, 0x111, 0x111, 0x1FF, 0x101, 0x101, 0x101, 0x101, 0x0FE};
-// The wheel's way, 5 x 3: up.
-constexpr std::array<std::uint8_t, 3> kArrowUp = {0x04, 0x0E, 0x1F};
+// A wheel's way, 5 x 3, pointing up.
+constexpr std::uint8_t kWheelArrow[3] = {0x04, 0x0E, 0x1F};
+// An arrow key's arrow, 7 x 7, pointing up.
+constexpr std::uint8_t kArrow[7] = {0x08, 0x1C, 0x2A, 0x49, 0x08, 0x08, 0x08};
 
+// The mouse's part drawn lit.
 enum class MouseLit {
     None,
     Left,
     Right,
-    Middle
+    Middle,
+    Side
+};
+
+// Which way a picture drawn pointing up is turned.
+enum class Turn {
+    Up,
+    Right,
+    Down,
+    Left
 };
 
 void put(Picture& p, int x, int y, std::uint8_t v) {
     if (x >= kFaceX0 && x < kFaceX1 && y >= kFaceY0 && y < kFaceY1) {
         p[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)] = v;
+    }
+}
+
+// A picture of `w` x `h` (rows of bits, the leftmost pixel the highest), turned, its top left at
+// `left`, `top`.
+void draw_bits(Picture& p, int left, int top, const std::uint8_t* rows, int w, int h, Turn turn) {
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            if (((rows[y] >> (w - 1 - x)) & 1u) == 0) {
+                continue;
+            }
+            int px = x, py = y;
+            switch (turn) {
+                case Turn::Up:
+                    break;
+                case Turn::Down:
+                    py = h - 1 - y;
+                    break;
+                case Turn::Right:
+                    px = h - 1 - y;
+                    py = x;
+                    break;
+                case Turn::Left:
+                    px = y;
+                    py = w - 1 - x;
+                    break;
+            }
+            put(p, left + px, top + py, 1);
+        }
     }
 }
 
@@ -150,6 +222,15 @@ void draw_mouse(Picture& p, int left, int top, MouseLit lit) {
             }
         }
     }
+    // The side buttons sit under the thumb, low on the left.
+    if (lit == MouseLit::Side) {
+        for (int y = 5; y <= 6; ++y) {
+            for (int x = 1; x <= 2; ++x) {
+                put(p, left + x, top + y, 1);
+            }
+        }
+        return;
+    }
     const int from = lit == MouseLit::Left ? 1 : lit == MouseLit::Right ? 5 : 3;
     if (lit != MouseLit::None) {
         for (int y = 1; y <= 3; ++y) {
@@ -160,50 +241,88 @@ void draw_mouse(Picture& p, int left, int top, MouseLit lit) {
     }
 }
 
-void draw_text(Picture& p, const std::string& text) {
-    // Up to 3 letters in the large font, more in the small one; what does not fit is left out.
-    const bool big = text.size() <= 3;
-    const int w = big ? 5 : 3, h = big ? 7 : 5, advance = w + 1;
-    const int n = std::min(static_cast<int>(text.size()), (kFaceX1 - kFaceX0 + 1) / advance);
-    const int left = (kFaceX0 + kFaceX1 - (n * advance - 1)) / 2;
-    const int top = (kFaceY0 + kFaceY1 - h) / 2;
-    for (int i = 0; i < n; ++i) {
-        const int g = glyph_index(text[static_cast<std::size_t>(i)]);
-        if (g < 0) {
-            continue;
+const std::uint8_t* glyph(char c, bool big) {
+    if (big) {
+        for (const Big& g : kBig) {
+            if (g.c == c) {
+                return g.rows;
+            }
         }
-        for (int y = 0; y < h; ++y) {
-            const std::uint8_t bits = big ? kBig[g][y] : kSmall[g][y];
-            for (int x = 0; x < w; ++x) {
-                if ((bits >> (w - 1 - x)) & 1u) {
-                    put(p, left + i * advance + x, top + y, 1);
-                }
+    } else {
+        for (const Small& g : kSmall) {
+            if (g.c == c) {
+                return g.rows;
             }
         }
     }
+    return nullptr;
+}
+
+// One line of text, centred across the face, its top at `top`.
+void draw_line(Picture& p, std::string_view text, bool big, int top) {
+    const int w = big ? 5 : 3, h = big ? 7 : 5, advance = w + 1;
+    const int n = std::min(static_cast<int>(text.size()), (kFaceX1 - kFaceX0 + 1) / advance);
+    const int left = (kFaceX0 + kFaceX1 - (n * advance - 1)) / 2;
+    for (int i = 0; i < n; ++i) {
+        if (const std::uint8_t* rows = glyph(text[static_cast<std::size_t>(i)], big)) {
+            draw_bits(p, left + i * advance, top, rows, w, h, Turn::Up);
+        }
+    }
+}
+
+// Up to 3 letters in the large font, more in the small one, two lines ("NUM\n4") in the small one
+// one above the other; what does not fit is left out.
+void draw_text(Picture& p, std::string_view text) {
+    const std::size_t split = text.find('\n');
+    if (split != std::string_view::npos) {
+        draw_line(p, text.substr(0, split), false, kFaceY0);
+        draw_line(p, text.substr(split + 1), false, kFaceY1 - 5);
+        return;
+    }
+    const bool big = text.size() <= 3;
+    draw_line(p, text, big, (kFaceY0 + kFaceY1 - (big ? 7 : 5)) / 2);
 }
 
 // What a cell shows for `label` (Labels).
 Picture key_picture(const std::string& label) {
     Picture p{};
     const int top = (kFaceY0 + kFaceY1 - 10) / 2;
-    if (label == "Mouse") {
-        draw_mouse(p, 9, top, MouseLit::None);
-    } else if (label == "MouseLeft" || label == "MouseRight" || label == "MouseMiddle") {
-        const MouseLit lit = label == "MouseLeft"    ? MouseLit::Left
-                             : label == "MouseRight" ? MouseLit::Right
-                                                     : MouseLit::Middle;
+    // The mouse alone, or a button of it lit.
+    const auto mouse_only = [&](MouseLit lit) {
         draw_mouse(p, 9, top, lit);
-    } else if (label == "WheelUp" || label == "WheelDown") {
-        draw_mouse(p, 6, top, MouseLit::Middle);
-        for (int y = 0; y < 3; ++y) {
-            const int row = label == "WheelUp" ? y : 2 - y;
-            for (int x = 0; x < 5; ++x) {
-                if ((kArrowUp[static_cast<std::size_t>(row)] >> (4 - x)) & 1u) {
-                    put(p, 16 + x, top + 3 + y, 1);
-                }
-            }
-        }
+    };
+    // The mouse on the left, the way it goes on the right.
+    const auto mouse_way = [&](MouseLit lit, Turn turn) {
+        draw_mouse(p, 6, top, lit);
+        const bool across = turn == Turn::Left || turn == Turn::Right;
+        draw_bits(p, across ? 17 : 16, top + (across ? 2 : 3), kWheelArrow, 5, 3, turn);
+    };
+    if (label == "Mouse") {
+        mouse_only(MouseLit::None);
+    } else if (label == "MouseLeft") {
+        mouse_only(MouseLit::Left);
+    } else if (label == "MouseRight") {
+        mouse_only(MouseLit::Right);
+    } else if (label == "MouseMiddle") {
+        mouse_only(MouseLit::Middle);
+    } else if (label == "WheelUp") {
+        mouse_way(MouseLit::Middle, Turn::Up);
+    } else if (label == "WheelDown") {
+        mouse_way(MouseLit::Middle, Turn::Down);
+    } else if (label == "WheelLeft") {
+        mouse_way(MouseLit::Middle, Turn::Left);
+    } else if (label == "WheelRight") {
+        mouse_way(MouseLit::Middle, Turn::Right);
+    } else if (label == "MouseBack") {
+        mouse_way(MouseLit::Side, Turn::Left);
+    } else if (label == "MouseForward") {
+        mouse_way(MouseLit::Side, Turn::Right);
+    } else if (label.starts_with("Arrow")) {
+        const Turn turn = label == "ArrowUp"     ? Turn::Up
+                          : label == "ArrowDown" ? Turn::Down
+                          : label == "ArrowLeft" ? Turn::Left
+                                                 : Turn::Right;
+        draw_bits(p, (kFaceX0 + kFaceX1 - 7) / 2, (kFaceY0 + kFaceY1 - 7) / 2, kArrow, 7, 7, turn);
     } else {
         draw_text(p, openrac::keys::icon_label(label));
     }
@@ -239,6 +358,7 @@ struct Key {
     std::array<std::array<std::uint8_t, kCellW>, kCellH> cell{};
     std::uint8_t white = 0;
     std::uint8_t edge = 0;
+    double plane[3][3] = {};  // the face's shading: per channel, c0 + c1 x + c2 y
 };
 
 // The shoulder tabs' shading is a plane in x and y: fitted to the texels the four tabs (L1, L2, R1,
@@ -302,6 +422,7 @@ bool blank_key(const std::uint8_t* font, const std::uint8_t* palette, Key& out) 
                            / det;
         }
     }
+    std::memcpy(out.plane, coef, sizeof coef);
     // The letters' white: the brightest entry of the L1 tab; their edge: the tab's entry nearest a
     // middle grey.
     double brightest = -1.0, edge_off = 1e9;
@@ -342,6 +463,124 @@ bool blank_key(const std::uint8_t* font, const std::uint8_t* palette, Key& out) 
         }
     }
     return true;
+}
+
+// How many times as big the sharp picture of a cell is: enough for a 4K screen (2160 lines over the
+// game's 448).
+constexpr int kSharp = 6;
+
+// How much of a sharp pixel at `px`, `py` (in texels, a texel's centre at whole numbers) the white
+// strokes of `white` cover: each white texel a dot one texel wide, joined to its white neighbours
+// by strokes as wide (across a corner only where no side joins them), and a square of four white
+// texels filled; smooth over one sharp pixel at the edge.
+float stroke_cover(const std::array<std::array<bool, kCellW>, kCellH>& white, float px, float py) {
+    const auto on = [&](int x, int y) {
+        return x >= 0 && y >= 0 && x < kCellW && y < kCellH
+               && white[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
+    };
+    // The distance from a point to the segment from (ax, ay) to (bx, by).
+    const auto segment = [&](float ax, float ay, float bx, float by) {
+        const float dx = bx - ax, dy = by - ay;
+        const float t =
+            std::clamp(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy), 0.0f, 1.0f);
+        return std::hypot(px - (ax + t * dx), py - (ay + t * dy));
+    };
+    float d = 2.0f;
+    const int cx = static_cast<int>(std::floor(px)), cy = static_cast<int>(std::floor(py));
+    for (int y = cy - 1; y <= cy + 1; ++y) {
+        for (int x = cx - 1; x <= cx + 1; ++x) {
+            if (!on(x, y)) {
+                continue;
+            }
+            const float fx = static_cast<float>(x), fy = static_cast<float>(y);
+            d = std::min(d, std::hypot(px - fx, py - fy));
+            if (on(x + 1, y)) {
+                d = std::min(d, segment(fx, fy, fx + 1.0f, fy));
+            }
+            if (on(x, y + 1)) {
+                d = std::min(d, segment(fx, fy, fx, fy + 1.0f));
+            }
+            if (on(x + 1, y + 1) && !on(x + 1, y) && !on(x, y + 1)) {
+                d = std::min(d, segment(fx, fy, fx + 1.0f, fy + 1.0f));
+            }
+            if (on(x - 1, y + 1) && !on(x - 1, y) && !on(x, y + 1)) {
+                d = std::min(d, segment(fx, fy, fx - 1.0f, fy + 1.0f));
+            }
+            if (on(x + 1, y) && on(x, y + 1) && on(x + 1, y + 1) && px >= fx && px <= fx + 1.0f
+                && py >= fy && py <= fy + 1.0f) {
+                d = 0.0f;
+            }
+        }
+    }
+    return std::clamp((0.5f - d) * static_cast<float>(kSharp) + 0.5f, 0.0f, 1.0f);
+}
+
+// A cell's picture kSharp times as big (RGB): the key's face shaded smoothly, the tab around it
+// scaled up from its texels, and the strokes and their grey edge drawn sharp.
+std::vector<std::uint8_t> sharp_picture(
+    const Picture& p, const Key& key, const std::uint8_t* palette
+) {
+    std::array<std::array<bool, kCellW>, kCellH> white{};
+    std::array<std::array<Rgb, kCellW>, kCellH> under{};
+    for (int y = 0; y < kCellH; ++y) {
+        for (int x = 0; x < kCellW; ++x) {
+            const auto sy = static_cast<std::size_t>(y), sx = static_cast<std::size_t>(x);
+            white[sy][sx] = p[sy][sx] == 1;
+            const bool face = x >= kFaceX0 && x < kFaceX1 && y >= kFaceY0 && y < kFaceY1;
+            const auto plane = [&](int k) {
+                return std::clamp(
+                    key.plane[k][0] + key.plane[k][1] * x + key.plane[k][2] * y, 0.0, 255.0
+                );
+            };
+            under[sy][sx] =
+                face ? Rgb{plane(0), plane(1), plane(2)} : rgb(palette, key.cell[sy][sx]);
+        }
+    }
+    const Rgb light = rgb(palette, key.white), edge = rgb(palette, key.edge);
+    const int w = kCellW * kSharp, h = kCellH * kSharp;
+    std::vector<std::uint8_t> out(static_cast<std::size_t>(w * h * 3));
+    for (int y = 0; y < h; ++y) {
+        const float py = (static_cast<float>(y) + 0.5f) / kSharp - 0.5f;
+        for (int x = 0; x < w; ++x) {
+            const float px = (static_cast<float>(x) + 0.5f) / kSharp - 0.5f;
+            // The texels under the strokes, as the linear filter reads them.
+            const int x0 = static_cast<int>(std::floor(px)), y0 = static_cast<int>(std::floor(py));
+            const double fx = px - static_cast<float>(x0), fy = py - static_cast<float>(y0);
+            const auto at = [&](int tx, int ty) {
+                return under[static_cast<std::size_t>(std::clamp(ty, 0, kCellH - 1))]
+                            [static_cast<std::size_t>(std::clamp(tx, 0, kCellW - 1))];
+            };
+            const Rgb a = at(x0, y0), b = at(x0 + 1, y0), c = at(x0, y0 + 1),
+                      d = at(x0 + 1, y0 + 1);
+            const auto mix = [](double u, double v, double t) {
+                return u + (v - u) * t;
+            };
+            Rgb colour{
+                mix(mix(a.r, b.r, fx), mix(c.r, d.r, fx), fy),
+                mix(mix(a.g, b.g, fx), mix(c.g, d.g, fx), fy),
+                mix(mix(a.b, b.b, fx), mix(c.b, d.b, fx), fy)
+            };
+            // The grey edge: the strokes one texel to the right, under the strokes themselves.
+            const double strokes = stroke_cover(white, px, py);
+            const double shade = std::min<double>(
+                stroke_cover(white, px - 1.0f, py),
+                px <= static_cast<float>(kFaceX1) - 0.5f ? 1.0 : 0.0
+            );
+            colour =
+                {mix(colour.r, edge.r, shade),
+                 mix(colour.g, edge.g, shade),
+                 mix(colour.b, edge.b, shade)};
+            colour =
+                {mix(colour.r, light.r, strokes),
+                 mix(colour.g, light.g, strokes),
+                 mix(colour.b, light.b, strokes)};
+            std::uint8_t* o = out.data() + static_cast<std::size_t>((y * w + x) * 3);
+            o[0] = static_cast<std::uint8_t>(std::lround(std::clamp(colour.r, 0.0, 255.0)));
+            o[1] = static_cast<std::uint8_t>(std::lround(std::clamp(colour.g, 0.0, 255.0)));
+            o[2] = static_cast<std::uint8_t>(std::lround(std::clamp(colour.b, 0.0, 255.0)));
+        }
+    }
+    return out;
 }
 
 }  // namespace
@@ -408,18 +647,31 @@ bool paint(const Fonts& f, const Labels& labels) {
             return false;
         }
     }
+    // Each font's new rows of cells, and the renderer's sharp pictures of them.
+    std::array<std::vector<std::uint8_t>, kFontsMax> rows;
+    std::vector<renderer::sharp_cells::Page> pages(static_cast<std::size_t>(f.count));
+    for (int i = 0; i < f.count; ++i) {
+        const std::uint8_t* from = row_of(f.font[static_cast<std::size_t>(i)], 0);
+        rows[static_cast<std::size_t>(i)].assign(from, from + kFontWidth * kCellH);
+        pages[static_cast<std::size_t>(i)] =
+            {static_cast<int>(kFontWidth), static_cast<int>(kFontBytes / kFontWidth), kSharp, {}};
+    }
     for (int c = 0; c < kCells; ++c) {
         const std::string& label = labels[static_cast<std::size_t>(c)];
         if (label.empty()) {
             continue;
         }
         const Picture p = key_picture(label);
+        const std::uint32_t u = kCellU[static_cast<std::size_t>(c)];
         for (int i = 0; i < f.count; ++i) {
             const Key& key = keys[static_cast<std::size_t>(i)];
+            renderer::sharp_cells::Cell cell{
+                static_cast<int>(u), static_cast<int>(kRow), kCellW, kCellH, {}, {}
+            };
+            cell.rgb.reserve(static_cast<std::size_t>(kCellW * kCellH * 3));
             for (int y = 0; y < kCellH; ++y) {
-                std::uint8_t* row =
-                    row_of(f.font[static_cast<std::size_t>(i)], static_cast<std::uint32_t>(y))
-                    + kCellU[static_cast<std::size_t>(c)];
+                std::uint8_t* row = rows[static_cast<std::size_t>(i)].data()
+                                    + static_cast<std::size_t>(y) * kFontWidth + u;
                 for (int x = 0; x < kCellW; ++x) {
                     const std::uint8_t v =
                         p[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
@@ -428,9 +680,22 @@ bool paint(const Fonts& f, const Labels& labels) {
                         : v == 2
                             ? key.edge
                             : key.cell[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
+                    const std::uint8_t* e = f.palette + csm1(row[x]) * 4u;
+                    cell.rgb.insert(cell.rgb.end(), e, e + 3);
                 }
             }
+            cell.sharp = sharp_picture(p, key, f.palette);
+            pages[static_cast<std::size_t>(i)].cells.push_back(std::move(cell));
         }
+    }
+    // The renderer knows the painted fonts before they are in memory, so it never draws them soft.
+    renderer::sharp_cells::set(std::move(pages));
+    for (int i = 0; i < f.count; ++i) {
+        std::memcpy(
+            row_of(f.font[static_cast<std::size_t>(i)], 0),
+            rows[static_cast<std::size_t>(i)].data(),
+            kFontWidth * kCellH
+        );
     }
     return true;
 }
@@ -447,6 +712,7 @@ void Painter::restore(const Fonts& f) {
         }
     }
     m_painted = false;
+    renderer::sharp_cells::set({});
 }
 
 void Painter::update(const Fonts& f, const Labels& labels) {

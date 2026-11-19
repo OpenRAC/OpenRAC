@@ -23,6 +23,7 @@
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
 #include "renderer/textures/pcsx2_pack.h"
+#include "renderer/textures/sharp_cells.h"
 #include "renderer/textures/texture_pack.h"
 
 namespace openrac::renderer {
@@ -629,8 +630,27 @@ TextureHandle TexturePool::convert_upload(
             }
         }
     }
+    // A built-in's sharper picture of a texture it painted (the key prompts): only on the GPU.
+    std::shared_ptr<const Rgba8Image> sharp;
+    if (!packed && !cropped) {
+        sharp_cells::Picture picture;
+        if (sharp_cells::picture(image.width, image.height, image.pixels.data(), picture)) {
+            auto big = std::make_shared<Rgba8Image>();
+            big->width = picture.width;
+            big->height = picture.height;
+            big->pixels = std::move(picture.pixels);
+            log::info(
+                "textures: the upload at block {:#x} drawn from a sharper picture ({}x{})",
+                tex0.tbp0,
+                big->width,
+                big->height
+            );
+            sharp = std::move(big);
+        }
+    }
     const TextureHandle h = add(std::move(image), AlphaScale::Gs, "upload");
     auto& entry = m_entries[h - 1];
+    entry.sharp = std::move(sharp);
     entry.cropped_replacement = cropped;
     entry.pack_replacement = packed;
     entry.uv_scale = uv_scale;
@@ -1012,7 +1032,7 @@ void TexturePool::create_gl(Entry& e) {
         }
     }
     if (e.gl == 0) {
-        e.gl = upload_gl(e, e.image);
+        e.gl = upload_gl(e, e.sharp != nullptr ? *e.sharp : e.image);
     }
     e.wrap = 0;  // a new texture repeats (set_wrap)
     e.stale = false;
@@ -1168,6 +1188,7 @@ void TexturePool::bind_upscaled_texture_colours(
     const auto& image = m_entries[texture - 1].image;
     const unsigned cached =
         filter != TextureFilter::Normal && !m_entries[texture - 1].field
+                && m_entries[texture - 1].sharp == nullptr
             ? m_upscaled_texture_colours->prepare(source, image.width, image.height, wrap, m_frame)
             : 0;
     // Cache creation uses its compute program. Restore the material before its uniforms.
