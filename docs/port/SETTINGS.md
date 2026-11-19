@@ -541,6 +541,7 @@ Ratchet & Clank's fixes now, all on by default and all for both discs:
 | `fix_wide_liquids` | the draw callback lists and the liquid grid's cull ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: seas, lava and sand are missing near the sides |
 | `fix_wide_air_traffic` | Kerwan's air traffic's sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: the traffic stops near the sides, in view |
 | `fix_wide_fires` | the smoke and fire emitter's sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: fires near the sides go out |
+| `fix_wide_barriers` | Orxon's energy barriers' sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: a barrier near the sides vanishes |
 
 At 4:3 none of them changes anything.
 
