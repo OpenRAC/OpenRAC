@@ -387,24 +387,6 @@ static void S18_call(void* original, const openrac_script_value* v, openrac_scri
 }
 #define S18_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S18_THUNK(N, I, 0) S18_THUNK(N, I, 1) S18_THUNK(N, I, 2) S18_THUNK(N, I, 3) S18_THUNK(N, I, 4) S18_THUNK(N, I, 5) S18_THUNK(N, I, 6) S18_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
-/* Shape S19: u32(u32) (moby). */
-typedef uint32_t (*S19_fn)(uint32_t);
-static const uint8_t k_S19_kinds[] = {OPENRAC_SV_U32};
-static const char* const k_S19_names[] = {"moby"};
-static void S19_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
-    r->i = ((S19_fn)original)((uint32_t)v[0].i);
-}
-#define S19_THUNK(N, I, K) static uint32_t N##_##K(uint32_t moby) { \
-    openrac_script_value v[1] = {{0, 0.0}}; \
-    v[0].i = (int64_t)moby; \
-    openrac_script_value r = {0, 0.0}; \
-    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
-        return ((S19_fn)k_##N##_links[K].original)(moby); \
-    } \
-    return (uint32_t)r.i; \
-}
-#define S19_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S19_THUNK(N, I, 0) S19_THUNK(N, I, 1) S19_THUNK(N, I, 2) S19_THUNK(N, I, 3) S19_THUNK(N, I, 4) S19_THUNK(N, I, 5) S19_THUNK(N, I, 6) S19_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
-
 S0_POINT(Hero_TakeDamage, 0) /* rac2.player.take_damage */
 S1_POINT(Moby_GetHitMessage, 1) /* rac2.combat.get_hit */
 S2_POINT(Moby_PostHit, 2) /* rac2.combat.post_hit */
@@ -439,7 +421,7 @@ S16_POINT(Moby_HypnomaticMaker_Update, 30) /* rac2.moby.hypnomatic_maker.update 
 S16_POINT(Moby_NanotechBall_Update, 31) /* rac2.moby.nanotech_ball.update */
 S17_POINT(Bolt_SpawnPickups, 32) /* rac2.bolt.spawn_pickups */
 S18_POINT(Bolt_SpawnPickup, 33) /* rac2.bolt.spawn_pickup */
-S19_POINT(Bolt_Collect, 34) /* rac2.bolt.collect */
+S16_POINT(Bolt_Collect, 34) /* rac2.bolt.collect */
 
 static const openrac_script_point k_points[35] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
@@ -476,7 +458,7 @@ static const openrac_script_point k_points[35] = {
     {"rac2.moby.nanotech_ball.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_NanotechBall_Update_links, k_Moby_NanotechBall_Update_thunks, S16_call},
     {"rac2.bolt.spawn_pickups", "void(u32,i32,i32,i32,i32,i32,f32)", 7, k_S17_kinds, k_S17_names, OPENRAC_SV_VOID, k_Bolt_SpawnPickups_links, k_Bolt_SpawnPickups_thunks, S17_call},
     {"rac2.bolt.spawn_pickup", "u32(u32,u32,u32,u32,i32,i32)", 6, k_S18_kinds, k_S18_names, OPENRAC_SV_U32, k_Bolt_SpawnPickup_links, k_Bolt_SpawnPickup_thunks, S18_call},
-    {"rac2.bolt.collect", "u32(u32)", 1, k_S19_kinds, k_S19_names, OPENRAC_SV_U32, k_Bolt_Collect_links, k_Bolt_Collect_thunks, S19_call},
+    {"rac2.bolt.collect", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Bolt_Collect_links, k_Bolt_Collect_thunks, S16_call},
 };
 
 static const openrac_script_alias k_aliases[142] = {
