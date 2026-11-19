@@ -297,7 +297,12 @@
     "func_003B5BE8",
     "func_003C4378",
     "func_003E5CB0",
-    "func_003EAB30"
+    "func_003EAB30",
+    "func_003E7018__frontbin",
+    "func_003E7040__frontbin",
+    "func_003E7068__frontbin",
+    "func_003E7090__frontbin",
+    "func_003E70B8__frontbin"
   ],
   "overlay_hook": true,
   "relocate": [
