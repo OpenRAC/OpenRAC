@@ -4,8 +4,9 @@ Up Your Arsenal's PAL disc (`SCES_524.56`), built by [hostgen](../../tools/hostg
 [games/rac3](../../../games/rac3/decomp), whose C is PAL's own (`src/boot_elf`, `src/frontbin`).
 The NTSC-U drafts are read only where PAL's code is the same.
 
-**An experiment, not playable.** It boots to the main menu, which runs and takes the pad, but
-draws only its boxes over its background picture: no text, no 3D (below). Levels are not loaded.
+**An experiment, not playable.** It boots to the main menu, which runs, takes the pad and draws
+its frames, labels and icons (the 2D layer's routines, wrapped: `host/ui2d.c`) over its
+background picture, but no 3D (below). Levels are not loaded.
 
 ## Running it
 
@@ -45,15 +46,18 @@ or a level, not handled yet).
 | `host/movie.c` | the movie player entry: the shared native player |
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
 | `host/spr_dma.c` | the scratchpad DMA channels the kernels start |
-| `host/chain_census.c` | `OPENRAC_RAC3_CHAINS` |
-| `profile.cpp` | draws the display list the game sends (as rac4-ntsc) |
+| `host/ui2d.c` | the 2D layer's routines, wrapped as Going Commando's (rac2/host/ui2d.c): boxes, glyph quads, turned sprites, ring segments, the font's glyphs (drawn from its distance field) and the menus' Widget3D sprites become window records |
+| `host/chain_census.c` | `OPENRAC_RAC3_CHAINS` (a rough census: it reads image data inside DIRECT as VIF codes) |
+| `profile.cpp` | draws the display list the game sends (as rac4-ntsc), the records at their markers in it |
 | `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record |
 | `IDENTIFIED.tsv` | every function and global worked out on the way, for the backfill |
 
 `hostgen.json` also lists `from_assembly` (C that forwards registers or has VU0 inline assembly,
 translated from its instructions), `executable_extents` (names the C only declares inside another
-function start nothing) and `unpassed_registers` (a K&R call's missing arguments are the
-caller's registers).
+function start nothing), `unpassed_registers` (a K&R call's missing arguments are the
+caller's registers), `candidate_scopes` (frontbin's drafts are for frontbin only: its functions
+share the boot program's addresses but not their code) and `asm.signatures` (a translated
+function's arguments the register use does not show: the text widget's draw hands its second on).
 
 ## The menu's background
 
@@ -72,9 +76,10 @@ for it.
 
 ## What is missing
 
-- **Menu text**: the menus' text and icons go to VU1 (UNPACK, then MSCNT), not as GIF packets; the
-  direct renderer draws only the GIF part (the boxes). A native renderer for that VU1 program, or
-  the port's own text drawing hooked at the game's text calls, is next.
+- **The rest of the 2D layer**: the menu's two corner ornaments (Widget3D quads whose PRIM takes
+  UV, which the routine does not send) and the dimming fill behind the menu are still the game's
+  packets; the shaded print (func_0038F458, a colour a corner) is not wrapped (its prototype is not
+  known).
 - **Sound**: the 989snd commands are answered with empty replies; the shared sound replacements
   are not bound.
 - **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's

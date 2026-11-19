@@ -1197,7 +1197,35 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
     undefined = sorted(name for name, c in overrides.items() if not prep.defines(c, name))
     overrides = {name: c for name, c in overrides.items() if name not in undefined}
     return {"candidates": candidates, "overrides": overrides, "aliases": aliases,
-            "long_long_128": long_long_128, "undefined": undefined}
+            "long_long_128": long_long_128, "undefined": undefined,
+            "candidate_scopes": candidate_scopes(cfg, files, decomp)}
+
+
+def candidate_scopes(cfg: dict, files: dict[str, str], decomp: dict[str, str]) -> dict[str, str]:
+    """The source directory each of the decompilation's candidates is for (hostgen.json
+    "candidate_scopes": {candidate folder: source directory}): name -> directory, for the
+    candidates whose file is under one of those folders. Programs whose functions share
+    addresses (Up Your Arsenal's boot front end and frontbin both run at 0x381080 on) have
+    candidates of one name for different functions, and each is C for its own program only."""
+    scopes = cfg.get("candidate_scopes", {})
+    if not scopes:
+        return {}
+    out: dict[str, str] = {}
+    for name in decomp:
+        rel = files.get(name, "")
+        for folder, source_dir in scopes.items():
+            if rel.startswith(folder.rstrip("/") + "/"):
+                out[name] = source_dir
+    return out
+
+
+def scoped_candidates(candidates: dict[str, str], scopes: dict[str, str], source_dir: str) -> dict[str, str]:
+    """The candidates that may replace stubs under SOURCE_DIR: every one without a scope, and those
+    scoped to it (candidate_scopes)."""
+    if not scopes:
+        return candidates
+    return {name: text for name, text in candidates.items()
+            if scopes.get(name, source_dir) == source_dir}
 
 
 def prepare_sources(args: argparse.Namespace, cfg: dict, source: Path, root: Path,
@@ -1209,7 +1237,8 @@ def prepare_sources(args: argparse.Namespace, cfg: dict, source: Path, root: Pat
     drafts = read_drafts(args.game.parent, cfg)
     for d in sorted(set(cfg["sources"] + cfg["includes"])):
         if (source / d).is_dir():
-            prep.copy_tree(source / d, root / d, candidates=replacements["candidates"], used=used, drafts=drafts,
+            candidates = scoped_candidates(replacements["candidates"], replacements.get("candidate_scopes", {}), d)
+            prep.copy_tree(source / d, root / d, candidates=candidates, used=used, drafts=drafts,
                            prefix=d, aliases=replacements["aliases"], long_long_128=replacements["long_long_128"],
                            overrides=replacements["overrides"], overridden=overridden, release=RELEASE)
     return used, overridden

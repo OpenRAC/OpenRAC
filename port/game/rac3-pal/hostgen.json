@@ -36,7 +36,13 @@
     }
   ],
   "candidates": "nonmatching/functional.tsv",
+  "candidate_scopes": {
+    "nonmatching/boot_elf": "src/boot_elf",
+    "nonmatching/frontbin": "src/frontbin"
+  },
   "candidates_left_out": {
+    "func_0038E530": "the font select: the US draft's fixed addresses of the font's page and palette tables (0x320000 - 0x3030 and - 0x2FB0) are NTSC-U's, 0x80 past PAL's 0x0031CF50 and 0x0031CFD0, so the prints took a palette for their pages (every glyph blank); the assembly is translated instead",
+    "func_003823D0": "the text lookup: its fallback string is $gp - 0x7128 through a register variable, which the host has as 0, so every text came out as a null pointer (the menu's labels empty); the assembly is translated instead",
     "func_00385A98": "Clang cannot read it: it calls func_0038DF00, which it does not declare",
     "func_0038D5B0": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
     "func_003EE310": "Clang cannot read it: it calls func_003EDBE0 with an argument its declaration does not take",
@@ -91,6 +97,9 @@
   },
   "asm": {
     "enabled": true,
+    "signatures": {
+      "func_003F03F0": "int (int, int)"
+    },
     "discover_entries": true,
     "dirs": [],
     "gp": "0x001DC8B0",
@@ -118,6 +127,7 @@
     "func_0012FE78",
     "func_0012FED8",
     "func_0012FF08",
+    "func_00382468",
     "func_003824D0",
     "func_00382760",
     "func_00382CB8",
@@ -127,6 +137,7 @@
     "func_00383B80",
     "func_00384878",
     "func_00385168",
+    "func_00386A58",
     "func_00389750",
     "func_0038C0B8",
     "func_0038D198",
@@ -159,6 +170,9 @@
     "func_0038DF80",
     "func_00390FD8",
     "func_00391068",
+    "func_00391100",
+    "func_00391128",
+    "func_00391150",
     "func_00391510",
     "func_003915F0",
     "func_003916E8",
@@ -237,9 +251,11 @@
     "func_003D7668",
     "func_003D7790",
     "func_003D81A0",
+    "func_003E5CB0",
     "func_003E6730",
     "func_003E6AD8",
     "func_003E9808",
+    "func_003EAB30",
     "func_003EC0D8",
     "func_003EEB18",
     "func_003EF4C8",
