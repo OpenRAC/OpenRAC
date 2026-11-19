@@ -104,16 +104,14 @@
     };
   });
 
-  /** Whether the page has scrolled under a desktop's header (its haze, below): the page, a
-   *  column of a tab with a list (SideFrame.svelte), or any other scrolling part of the page (a
-   *  settings panel, an editor) is not at its top. */
+  /** Whether the page has scrolled under a desktop's header (its haze, below): the page, or a
+   *  column of a tab with a list (SideFrame.svelte), is not at its top. */
   let under = $state(false);
   const scrolled = () => [...document.querySelectorAll("main, main > .frame > *")].some((e) => e.scrollTop > 1);
   $effect(() => {
     if (onAndroid) return;
-    const look = (e: Event) => {
-      const t = e.target;
-      under = scrolled() || (t instanceof Element && t.closest("main") !== null && t.scrollTop > 1);
+    const look = () => {
+      under = scrolled();
     };
     document.addEventListener("scroll", look, { capture: true, passive: true });
     return () => {
@@ -272,8 +270,8 @@
 
   /* A desktop has no bar of its own: the header lies over the page (App.svelte), on the page's own
      ground, the logo's first letter in the game's colour as Android's rail has it, its buttons the
-     theme's. Once the page scrolls under it, the page's own ground fades in behind it, fully opaque,
-     so nothing of the page shows through the buttons. */
+     theme's. Once the page scrolls under it, a haze fades in behind it: blurred, barely darkened,
+     fading out below, so nothing runs into the buttons and neither an edge nor a shadow shows. */
   :global(html:not([data-platform="android"])) .site-header {
     position: absolute;
     top: 0;
@@ -282,16 +280,21 @@
     /* Android keeps the picked game's own ink. */
     --bar-ink-deep: var(--ink-deep);
     --bar-name: var(--text);
+    /* The page starts below the header (App.svelte): a hairline marks where. */
+    border-bottom: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
   }
 
   :global(html:not([data-platform="android"])) .site-header::before {
     content: "";
     position: absolute;
-    inset: 0;
+    inset: 0 0 -20px;
     z-index: -1;
     pointer-events: none;
-    background: var(--ink);
-    /* Hidden, not only clear, at a page's top. */
+    background: color-mix(in srgb, var(--ink) 30%, transparent);
+    backdrop-filter: blur(18px);
+    mask-image: linear-gradient(black 65%, transparent);
+    -webkit-mask-image: linear-gradient(black 65%, transparent);
+    /* Hidden, not only clear, at a page's top: WebKit can still draw a clear backdrop's filter. */
     visibility: hidden;
     opacity: 0;
     transition:

@@ -278,11 +278,10 @@
     transition: --glow 900ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* A desktop's header lies over the page (Header.svelte): the page starts at the window's top and
-     scrolls under it, its first line kept below it. A tab with a list takes the room back for its
-     two columns (SideFrame.svelte). */
+  /* A desktop's header lies over the window's top (Header.svelte); the page starts below it and
+     scrolls there, so nothing of the page ever passes under the header. */
   :global(html:not([data-platform="android"])) main {
-    padding-top: var(--nav-top);
+    margin-top: var(--nav-top);
   }
 
   /* Android: the navigation rail beside the page, or its bar under it on a narrow window
