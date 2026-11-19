@@ -483,7 +483,10 @@ hook points this way (above).
 row: NanotechBallUpdate, for the wide-screen orb fix) keeps the port's
 function, and hostgen writes the hook as `<name>__hooked`, which the port's
 function calls where it called `<name>__game`: the mod replaces the game's
-code under the port's fix, and the fix holds for the mod's update too.
+code under the port's fix, and the fix holds for the mod's update too. The
+same holds for each copy of a hook point with copies: the hero's move-state
+setters (`Hero_EnterMoveState`) are each wrapped by the multiplayer stand-in's
+guard (`rac1/host/hero_grab.c`), and the mod's setter runs under it.
 
 ## 5. The list and the answer
 

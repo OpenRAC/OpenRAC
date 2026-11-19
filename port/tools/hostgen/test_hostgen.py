@@ -1788,6 +1788,51 @@ class Translate(unittest.TestCase):
         """)
         self.assertEqual(out, ["11", "12", "1", "1", "111", "112"])
 
+    def test_copies_under_wraps_of_the_ports_are_one_hook_point(self):
+        # The hero's move-state setters: each level's copy is wrapped by the port (hero_grab.c) and
+        # all are one hook point. The port's <name> stays and calls <name>__hooked; the mod's
+        # original runs the copy that called it, under the port's wrap.
+        out = self.run_program({"a.c": """
+            extern void test_take(void);
+            int func_00100000(int x) { return x + 1; }
+            int func_00100100(int x) { return x + 2; }
+            int test_main(void) {
+                test_print(func_00100000(10));
+                test_print(func_00100100(10));
+                test_take();
+                test_print(func_00100000(10));
+                test_print(func_00100100(10));
+                return 0;
+            }
+        """}, places="func_00100000\t0x00100000\t0x40\nfunc_00100100\t0x00100100\t0x40\n",
+            config={"libraries": "libraries.tsv", "host_functions": HOST_FUNCTIONS + ["test_take"]},
+            extra_files={"libraries.tsv": "# symbol\tlibrary\tname\tport\n"
+                                          "func_00100000\tgame\tSame\twrap\n"
+                                          "func_00100100\tgame\tSame\twrap\n"
+                                          "func_00100000\tgame\tSame\thook\n"
+                                          "func_00100100\tgame\tSame\thook\n"},
+            host_c="""
+            #include <string.h>
+            typedef struct { const char* name; const char* symbol; const char* signature; void** slot; void* original; } point;
+            extern const point openrac_game_hook_points[];
+            extern const int openrac_game_hook_point_count;
+            void game_test_print(int v);
+            int func_00100000__hooked(int x);
+            int func_00100100__hooked(int x);
+            int func_00100000(int x) { return 1000 + func_00100000__hooked(x); }  /* the port's wraps */
+            int func_00100100(int x) { return 2000 + func_00100100__hooked(x); }
+            static int (*s_original)(int);
+            static int replacement(int x) { return 100 + s_original(x); }
+            void game_test_take(void) {
+                const point* p = &openrac_game_hook_points[0];
+                game_test_print(openrac_game_hook_point_count);
+                game_test_print(strcmp(p->name, "Same") == 0 && strcmp(p->signature, "i32(i32)") == 0);
+                s_original = (int (*)(int))p->original;
+                *p->slot = (void*)replacement;
+            }
+        """)
+        self.assertEqual(out, ["1011", "2012", "1", "1", "1111", "2112"])
+
 
     def test_literal_addresses_reach_the_loaded_levels_globals(self):
         # The NTSC decomp's render_capture_effect_pass read the vendor's salesman flag through
