@@ -104,14 +104,16 @@
     };
   });
 
-  /** Whether the page has scrolled under a desktop's header (its haze, below): the page, or a
-   *  column of a tab with a list (SideFrame.svelte), is not at its top. */
+  /** Whether the page has scrolled under a desktop's header (its haze, below): the page, a
+   *  column of a tab with a list (SideFrame.svelte), or any other scrolling part of the page (a
+   *  settings panel, an editor) is not at its top. */
   let under = $state(false);
   const scrolled = () => [...document.querySelectorAll("main, main > .frame > *")].some((e) => e.scrollTop > 1);
   $effect(() => {
     if (onAndroid) return;
-    const look = () => {
-      under = scrolled();
+    const look = (e: Event) => {
+      const t = e.target;
+      under = scrolled() || (t instanceof Element && t.closest("main") !== null && t.scrollTop > 1);
     };
     document.addEventListener("scroll", look, { capture: true, passive: true });
     return () => {
@@ -270,8 +272,9 @@
 
   /* A desktop has no bar of its own: the header lies over the page (App.svelte), on the page's own
      ground, the logo's first letter in the game's colour as Android's rail has it, its buttons the
-     theme's. Once the page scrolls under it, a haze fades in behind it: blurred, barely darkened,
-     fading out below, so nothing runs into the buttons and neither an edge nor a shadow shows. */
+     theme's. Once the page scrolls under it, a haze fades in behind it: blurred and dark enough that
+     the page's text never shows through the buttons, fading out below, so neither an edge nor a
+     shadow shows. */
   :global(html:not([data-platform="android"])) .site-header {
     position: absolute;
     top: 0;
@@ -288,7 +291,7 @@
     inset: 0 0 -20px;
     z-index: -1;
     pointer-events: none;
-    background: color-mix(in srgb, var(--ink) 30%, transparent);
+    background: color-mix(in srgb, var(--ink) 85%, transparent);
     backdrop-filter: blur(18px);
     mask-image: linear-gradient(black 65%, transparent);
     -webkit-mask-image: linear-gradient(black 65%, transparent);
