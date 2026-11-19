@@ -33,7 +33,8 @@ bool quitting();
 // command holds. Buttons are active low, as the pad reports them; sticks right x, y, left x, y.
 void pad(std::uint16_t& buttons, std::uint8_t analog[4]);
 
-// The file a picture of the next drawn frame goes to, once (frontend/interpolation.cpp), or empty.
+// The file a picture of the window goes to, once, as the next frame is drawn (debug_overlay.cpp), or
+// empty.
 std::string take_shot();
 
 // The picture asked for was written (or not).

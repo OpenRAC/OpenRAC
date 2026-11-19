@@ -157,7 +157,7 @@ class Server:
                 "level": prop("integer", "For until level."),
                 "max_ticks": prop("integer", "The most to run (default 3600)."),
                 "skip": prop("boolean", "Press Start now and then while a scene plays, to skip it.")}, ["until"], self.wait),
-            ("game_shot", "A picture of the game now (the next frame drawn, a tick on).", {}, [], self.shot),
+            ("game_shot", "A picture of the game as the player sees it, subtitles included (the next frame drawn, a tick on).", {}, [], self.shot),
             ("game_mobys", "The level's live mobys: slot, spawn number, class, state, hidden, dead, position, heading. "
              "Near a point, nearest first.", {
                 "near": dict(VECTOR, description="[x, y, z]."), "radius": prop("number", "Only within this distance."),

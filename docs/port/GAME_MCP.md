@@ -29,7 +29,7 @@ draws off screen (`SDL_VIDEODRIVER=offscreen`).
 | `game_status` | Tick, phase (`front_end`, `loading`, `playing`, `scene`, `menu`), level, the hero (position, heading, state, health), the game's scene playing, the camera |
 | `game_step` | Runs ticks (60 a second) with buttons held (`cross`, `circle`, `square`, `triangle`, `start`, `select`, `l1` ... `r3`, `up` ... `right`) and the sticks (`[x, y]`, 0 to 255, 128 centred) |
 | `game_wait` | Runs ticks until `playing`, `level`, `scene` or `scene_end`, at most `max_ticks` |
-| `game_shot` | A picture of the next frame drawn |
+| `game_shot` | A picture of the window as the player sees it (subtitles and the mods' drawing included), a tick on |
 | `game_mobys` | The live mobys: slot, spawn number, class, state, hidden, dead, position, heading; near a point |
 | `game_hero_place` | Puts the hero at a place and heading, on the ground below |
 | `game_travel` | Leaves for another level, as the ship does |
@@ -55,7 +55,7 @@ asks for ticks.
 | `status` | | `tick`, `phase`, `level`, `level_name`, `loads`, `hero`, `scene`, `camera` |
 | `step` | `ticks`, `buttons` (a mask, pressed bits: 0x4000 cross, 0x8 start), `left`, `right` | the status after, `ran` |
 | `wait` | `until` (`playing`, `level`, `scene`, `scene_end`), `level`, `max_ticks`, `skip` | the status, `reached`, `ran` |
-| `shot` | `path` (a PNG to write) | `path`, once the frame is handed to the writer (it is written beside the game) |
+| `shot` | `path` (a PNG to write) | `path`, once the window's next picture is handed to the writer (it is written beside the game) |
 | `mobys` | `near`, `radius`, `class`, `limit` | `count`, `mobys` |
 | `hero_place` | `position`, `yaw` (degrees), `ground` | asked, there after the next tick |
 | `travel` | `level` | asked |

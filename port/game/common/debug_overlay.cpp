@@ -37,6 +37,7 @@
 #include "frontend.h"
 #include "mods.h"
 #include "openrac/game_host.h"
+#include "program/control.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/gl_stats.h"
 #include "renderer/ui/backdrop_blur.h"
@@ -994,7 +995,8 @@ void draw(const Shown& shown) {
     const bool badge = s.paused || s.stretch != 1.0 || notifications_pending() || capture_busy()
                        || !mods::play_notice().empty();
     const bool menu_out = s.menu_open || s.menu_at > 0.0f || s.shot_when_shut || s.touch_editing;
-    if (!(visible() || picker_enabled() || badge || menu_out || s.shot_tick)
+    const bool control_shot_wanted = !program::control::take_shot().empty();
+    if (!(visible() || picker_enabled() || badge || menu_out || s.shot_tick || control_shot_wanted)
         || shown.window == nullptr || !initialise(shown.window)) {
         s.drew_last_frame = false;
         return;
@@ -1081,6 +1083,13 @@ void draw(const Shown& shown) {
             s.shots++;
         }
     }
+    // --control's picture (program/control.h): the window as the player sees it, subtitles and
+    // the mods' drawing included, once.
+    bool control_shot = false;
+    if (scripted_shot.empty() && tick_frame) {
+        scripted_shot = program::control::take_shot();
+        control_shot = !scripted_shot.empty();
+    }
     if (!s.shot_tick && scripted_shot.empty()) {
         draw_notifications();
     }
@@ -1113,6 +1122,9 @@ void draw(const Shown& shown) {
             read_window(shown.window_width, shown.window_height),
             s.message
         );
+        if (control_shot) {
+            program::control::shot_taken(shown.window_width > 0 && shown.window_height > 0);
+        }
     }
     if (s.shot_tick) {
         const std::string path = shot_name(*s.shot_tick, shown.enhanced_graphics);

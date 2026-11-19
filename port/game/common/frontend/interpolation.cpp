@@ -50,7 +50,6 @@
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "platform/window.h"
-#include "program/control.h"
 #include "renderer/direct/direct.h"
 #include "renderer/effects/shadows.h"
 #include "renderer/gl/framebuffer.h"
@@ -335,22 +334,6 @@ void capture_frame(const FramePresentation& output) {
             std::format("frame {} written to {}", output.tick, path)
         );
         shot_time += std::chrono::steady_clock::now() - writing;
-    }
-    // --control's picture: the next drawn frame, once (program/control.h).
-    if (const std::string path = first ? program::control::take_shot() : std::string();
-        !path.empty()) {
-        std::vector<std::uint8_t> pixels = renderer::read_rgba(shown, width, height);
-        for (std::size_t i = 3; i < pixels.size(); i += 4) {
-            pixels[i] = 0xFF;
-        }
-        scene::write_png_later(
-            path,
-            width,
-            height,
-            std::move(pixels),
-            std::format("--control picture written to {}", path)
-        );
-        program::control::shot_taken(width > 0 && height > 0);
     }
 }
 
