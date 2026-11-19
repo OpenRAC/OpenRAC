@@ -213,3 +213,4 @@ func_0012F918	pad	rac3PadSetActDirect	host	scePadSetActDirect: the motors, last 
 func_0012F9E0	pad	rac3PadSetActAlign	host	scePadSetActAlign: after six alignment bytes are built (host/pad.c)	int (int, int, int)
 func_0012FC18	pad	rac3PadInfoPressMode	host	scePadInfoPressMode (host/pad.c)	int (int, int)
 func_0012FC78	pad	rac3PadEnterPressMode	host	scePadEnterPressMode (host/pad.c)	int (int, int)
+func_003A9BE8	draw	rac3LoadScreenPicture	wrap	puts a picture from EE memory (pixels, frame address in bytes, width, height) into the frame as 512x32 image transfers and returns its TEX0: the main menu background; the picture goes to the window as a texture drawn by a full-screen 2D record (host/picture.c)	unsigned long long (int, int, int, int)
