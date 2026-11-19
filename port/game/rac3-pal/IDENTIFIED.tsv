@@ -103,3 +103,22 @@ code	func_003E8048	0x003E8048	WidgetSetTextById	(widget id, string): the set-tex
 code	func_003E9828	0x003E9828	WidgetMessagesInit	fills the message tables (0x0031B7C8 position, 0x0031B8A0 text, ...) for each widget class
 code	func_003B4C30	0x003B4C30	MainMenuBuild	the main menu's widgets: frames 0xD0000-0xD0003, the five items 0xD000C-0xD0010 (texts at 0x00337640: 0x14C, 0x14E, 0x11E6, 0x169C, 0x107), their container 0xD0025
 code	func_003F2740	0x003F2740	PlacementNew	returns its second argument (operator new in place)
+code	func_003B5580	0x003B5580	OptionsScreen	the title's Options screen object (D_001DA168): build func_003B55D8, update func_003B5890, leave func_003B5B80; func_003B4BC0 (the main menu's Options item) opens it
+code	func_003B55D8	0x003B55D8	OptionsBuild	builds the Options page: its frame and title (0x107), the list (func_003B6128), the preview widget 0x1C0003 and the footer 0x1C0004 (text 0x1EBD)
+code	func_003B5890	0x003B5890	OptionsUpdate	the Options page's states (gp - 0x3ECC): 0 the list (func_003BA8B0, func_003B6090, func_003B5F78, func_003B63D0), the others the screen adjustment's dialog
+code	func_003B6128	0x003B6128	OptionsListInit	sets up list 0 (func_003B9F88(0), func_003BA020): the items at D_0037F830 counted, up to 6 shown, 2 columns, 0x9000 bytes of cells
+code	func_003B63D0	0x003B63D0	OptionsRowsText	each frame: every row's name ("%s:") and value into the list's cells (values at D_0037F790, 0x20 bytes each), the footer's text
+code	func_003B6090	0x003B6090	OptionsPreview	the row under the cursor into D_001D89B8; 30 frames after it moved, the preview widget 0x1C0003 plays the row's animation (the item's fourth word)
+code	func_003B5F78	0x003B5F78	OptionsButtons	(screen, menu buttons): Cross the row's action, R1 the screen adjustment (text 0xB3B), Triangle back to the main menu
+code	func_003B6588	0x003B6588	OptionToggleWidescreen	flips the 16:9 byte (D_00143950 + 0xAD) and updates the view (func_003877A0)
+code	func_003B6608	0x003B6608	OptionToggleSubtitles	flips D_00143950 + 6
+code	func_003B6620	0x003B6620	OptionToggleSound	flips the word D_00143950 + 8 (0 mono, else stereo)
+code	func_003B65B8	0x003B65B8	OptionNextLanguage	D_00143950 + 0xB7 to the next of 1 to 5, then func_003B6638 (the texts in that language)
+code	func_003B5088	0x003B5088	MainMenuUpdate	the main menu's update: Up and Down over the enabled items of D_00337640 ({widget, text, enabled, action}), Cross the item's action
+code	func_003B9F88	0x003B9F88	ListGet	(n): list widget n of four at D_00280CF0 (0xB4 bytes each: +4 first row shown, +8 cursor among them, +0xC rows, +0x10 shown, +0x14 columns, +0xB0 cells of 0x44 bytes, +0x40 a cell's state, 4 skipped)
+code	func_003BA1E8	0x003BA1E8	ListCell	(list, column, row): the cell's address
+code	func_003BACD8	0x003BACD8	ListMoveCursor	Up and Down, skipping cells of state 4, scrolling the shown rows
+code	func_003983C8	0x003983C8	FrontEndStartup	(more) sets D_00143950 + 0xB7 from sceScfGetLanguage unless an argument says otherwise (D_001D551D): the console's 1 English, 2 French, 3 Spanish, 4 German, 5 Italian to the game's 1, 2, 4, 3, 5 (jtbl_0031C120)
+data	D_00143950	0x00143950	options	the game's options: +6 subtitles, +8 sound (0 mono), +0xAD 16:9, +0xB7 language (1 English, 2 French, 3 German, 4 Spanish, 5 Italian)
+data	D_0037F830	0x0037F830	options_items	the Options rows, 16 bytes each {text id, enabled, action, preview animation}: 16:9 0x508, Subtitles 0x148, Sound 0x146, Language 0x14F; ended by a zero text
+data	D_00337640	0x00337640	main_menu_items	the main menu's five items, 16 bytes each {widget id, text id, enabled, action}: Load Game, New Game, Multiplayer, Multiplayer Tutorial, Options

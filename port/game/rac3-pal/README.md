@@ -50,6 +50,7 @@ or a level, not handled yet).
 | `host/chain_census.c` | `OPENRAC_RAC3_CHAINS` (a rough census: it reads image data inside DIRECT as VIF codes) |
 | `profile.cpp` | draws the display list the game sends (as rac4-ntsc), the records at their markers in it |
 | `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record |
+| `host/options.c` | the title's Options: the port's Video page in the 16:9 row's place, the game's 16:9 kept off, the subtitles, the sound mode and the language remembered between runs (below) |
 | `IDENTIFIED.tsv` | every function and global worked out on the way, for the backfill |
 
 `hostgen.json` also lists `from_assembly` (C that forwards registers or has VU0 inline assembly,
@@ -74,7 +75,33 @@ the picture goes to the window as a texture of its own and the display list gets
 record reading it in place of the transfers, as the 2D layer's quads do; nothing is sent to the GS
 for it.
 
+## The options
+
+The title's Options page (the boot program's screen at `D_001DA168`) is a list widget of two
+columns, the rows' names and values, over the options at `D_00143950`: 16:9 (+0xAD), Subtitles
+(+6), Sound, stereo or mono (+8) and Language (+0xB7, the game's 1 English, 2 French, 3 German,
+4 Spanish, 5 Italian). As Going Commando's port does with its 16:9 page (rac2/host/options.c), the
+16:9 row is the port's **Video** page: the window's picture has the player's shape, so the game's
+16:9 (which narrows the view for a television that stretches it back) is kept off. Cross on it
+shows the port's settings (`openrac_game_option_*`, the in-game menu's entries marked for the
+game's pages) in the same list, four rows at a time scrolling with the cursor as the game's own
+lists scroll; Cross or Right steps the row under the cursor, Left steps it back, Triangle goes
+back to the game's rows. A step is saved to the settings file and applied at once.
+
+A console forgets the options at power off; the port keeps them in the settings file
+(`game_subtitles`, `game_playback`, and the language as the console's `game_language`, which
+the front end's start-up reads back through `sceScfGetLanguage`). The in-window menu (Esc) and the
+F-key overlay (F3) are the shared ones, and the pad is the shared keyboard and controller path
+(Return is Start).
+
 ## What is missing
+
+- **The Options rows' text is cut at both sides**: each row's text is laid out about three glyphs
+  left of its column on the left and one right on the right, and clipped by its panel (the
+  translated layout, func_003AC590 → func_0038FDF8; the game's own packets show the same). The
+  Video page's rows inherit it.
+- **The mods' pages** (`openrac_api.ui_main_item`, Going Commando's rac2/host/mod_pages.c) are not
+  in rac3's menus yet.
 
 - **The rest of the 2D layer**: the menu's two corner ornaments (Widget3D quads whose PRIM takes
   UV, which the routine does not send) and the dimming fill behind the menu are still the game's
