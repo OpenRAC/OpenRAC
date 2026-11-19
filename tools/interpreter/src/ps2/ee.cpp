@@ -1215,8 +1215,18 @@ void Ee::cop0_op(u32 op) {
             // The function field, bits 0-5, chooses the operation (documented).
             switch (op & 0x3F) {
                 case 0x18:  // ERET
-                    // Return from the exception: continue at EPC, register 14 (documented).
-                    pc = cop0[14];
+                    /*
+                     * Return from the exception: continue at EPC, register 14; or, when the
+                     * error level (Status bit 2) is set, at ErrorEPC, register 30, clearing the
+                     * level (documented). Up Your Arsenal's timer writes set the level and ERET
+                     * to their caller through ErrorEPC to leave kernel mode.
+                     */
+                    if (cop0[12] & 4) {
+                        cop0[12] &= ~4u;
+                        pc = cop0[30];
+                    } else {
+                        pc = cop0[14];
+                    }
                     next_pc = pc + 4;
                     break;
 
