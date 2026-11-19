@@ -54,7 +54,7 @@ code	func_003AF470	0x003AF470	gui_build	builds the front end's widget tree (func
 code	func_0038D478	0x0038D478	vu0_cos	cos through VU0 microprogram 0xDA0 (vf1.x)
 code	func_0038D490	0x0038D490	vu0_sin	sin through VU0 microprogram 0xDB0 (vf1.x)
 data	D_001D5B94	0x001D5B94	game_mode	the front end's mode: 0 menus, 1 movie; switch jtbl_0031BF80 in func_00381250
-data	D_001D5B90	0x001D5B90	next_game_mode	-2 none
+data	D_001D5B90	0x001D5B90	next_game_mode	-2 none; the mode asked for, which game_mode_push writes (a level's is the word before its own mode word)
 data	D_001D5458	0x001D5458	boot_state	the front end's state in mode 0 (jtbl_0031BFD0, 11 states: 0 the main menu, 10 and 8 on the way to it)
 data	D_001D5688	0x001D5688	idle_frames	frames without input in the main menu; past 6000 the attract state; reset by a press
 data	D_001D568C	0x001D568C	in_boot_screens	1 while func_00381C98 runs the boot screens
@@ -111,5 +111,4 @@ data	D_00222480	0x00222480	game_cameras	the boot program's GameCamera array (0x4
 data	D_001DA4A0	0x001DA4A0	moby_first	the boot program's first spawned moby (*), the table's start the word before, moby_end (*) 0x001DA4A4, MobyProc's cap 0x001DA4D0
 data	D_001D545C	0x001D545C	level_current	the level whose program is loaded or loading (level_load, request_level_change); core data, every program's
 data	D_001D9D04	0x001D9D04	level_next	the boot program's and frontbin's level to go to ($gp-relative; a level's own copy elsewhere)
-data	D_001D5B90	0x001D5B90	game_mode_next	the boot program's mode asked for (game_mode_push); a level's the word before its mode word
 data	D_001A4BE0	0x001A4BE0	hero	the hero code's base: position +0x80 (0x001A4C60, read by the boot program's 0x003A0180), frames off the ground +0x36E (lh 0x36E in Veldin's hero code); the profile's hero_state
