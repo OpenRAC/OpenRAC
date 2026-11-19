@@ -10,12 +10,12 @@ runs:
     - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}/llvm-installer
-        key: llvm-installer-21.1.4-win64
+        key: llvm-installer-22.1.8-win64
 
     - shell: pwsh
       env:
-        LLVM_VERSION: "21.1.4"
-        LLVM_SHA256: 8e39f8051cd10a163c1fab304f16d8e16a9c0f5e94b59d08853bbab630bd65dd
+        LLVM_VERSION: "22.1.8"
+        LLVM_SHA256: 16e5709785fef73c854646241c4a92c5cd574318d1b33c63330dd7721903e55c
       run: |
         $ProgressPreference = "SilentlyContinue"
         $ErrorActionPreference = "Stop"
