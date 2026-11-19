@@ -225,3 +225,4 @@ func_0038C518	draw	DrawRingSegment	wrap	a ring's segment, the opcode sequence of
 func_0038C628	draw	DrawShadedBox	wrap	a box shaded from left to right, the opcode sequence of rac2-ntsc func_0027EA28 (the menus' separators and highlighted row): drawn natively (host/ui2d.c)
 func_0038B310	draw	DrawFlatBox	wrap	a box of flat colour, the opcode sequence of rac2-ntsc func_0027DE50: drawn natively (host/ui2d.c)
 func_003AA780	gui	DrawWidgetSprite	wrap	a Widget3D sprite (the menus' frames and art): its quads become records in their place (host/ui2d.c)
+func_0011B2E8	libc	sprintf	host	newlib's sprintf (it saves $a2-$t3 and $f12-$f19 and walks them): formatted by the port (host/print.c), as rac2-ntsc's func_00115DA8	int (unsigned int, unsigned int, ...)
