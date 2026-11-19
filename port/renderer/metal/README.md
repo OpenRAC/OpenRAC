@@ -126,8 +126,23 @@ five, which shows far more where surfaces meet. So in `remote-mac.sh`'s levels a
 in a hundred thousand differ on an M1, nearly all by 1. On an R9 M370X about one in ten differs,
 nearly all by 1 (filtering, above), and three in ten thousand by more than 8.
 
-The enhanced renderer (shadows, water, FSR3, HDR, frame interpolation) runs only on Vulkan's
-render graph, so under Metal the game looks as it does on OpenGL.
+The enhanced renderer (shadows, water, FSR3, frame interpolation) runs only on Vulkan's render
+graph, so under Metal the game looks as it does on OpenGL.
+
+## HDR output
+
+[mtlgl_hdr.mm](mtlgl_hdr.mm): HDR through macOS's EDR ([docs/port/HDR.md](../../../docs/port/HDR.md)).
+When HDR is on and the window's display has EDR headroom, the `CAMetalLayer` takes
+`MTLPixelFormatRGBA16Float` in `kCGColorSpaceExtendedLinearSRGB` with
+`wantsExtendedDynamicRangeContent`, and `present()` writes the default framebuffer into the
+drawable with the Vulkan backend's encode pass (`../vulkan/shaders/hdr_encode.comp`, scRGB),
+which `shader_translate.h`'s `translate_native_compute` makes MSL of. Both renderers therefore
+send a Mac's screen the same values. The layer changes at once, so HDR turns on and off while the
+game runs. The frame stays 8-bit: light above white (Vulkan's HDR frame) is not drawn here.
+
+[tests/metal_hdr_test.cpp](../../tests/metal_hdr_test.cpp) (`ctest -R metal_hdr`) checks the
+layer's set-up, the pass against `common/hdr.h` and against Vulkan's on the same picture, and a
+hidden window's layer turned to EDR and back.
 
 The `_metal` tests (`ctest --preset release -R _metal`) run the drawing tests on it with Metal's
 API validation, in hidden Cocoa windows: SDL's offscreen driver has no Metal.
