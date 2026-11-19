@@ -134,6 +134,18 @@ describe("settingGroups", () => {
     expect(groups[1]?.settings.map((s) => s.key)).toEqual(["jump", "fire"]);
   });
 
+  it("puts the settings under their manifest sections, in the order each first appears", () => {
+    const groups = settingGroups([
+      setting({ key: "sens", type: "float", section: "Mouse" }),
+      setting({ key: "jump", type: "keybind", group: "play", section: "Movement" }),
+      setting({ key: "tilt", type: "choice", section: "Mouse" }),
+      setting({ key: "back", type: "keybind", group: "menu", section: "Menus" }),
+    ]);
+    expect(groups.map((g) => g.title)).toEqual(["Mouse", "Movement", "Menus"]);
+    expect(groups.map((g) => g.id)).toEqual(["s-Mouse", "s-Movement", "s-Menus"]);
+    expect(groups[0]?.settings.map((s) => s.key)).toEqual(["sens", "tilt"]);
+  });
+
   it("calls a mod's only section Settings, and a mixed group by its name", () => {
     expect(settingGroups([setting({ key: "a" })]).map((g) => g.title)).toEqual(["Settings"]);
     expect(settingGroups([setting({ key: "a", group: "camera_feel" })])[0]?.title).toBe("Camera feel");

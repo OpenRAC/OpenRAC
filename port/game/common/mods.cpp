@@ -2463,6 +2463,25 @@ std::vector<const Setting*> built_in_settings(std::string_view id) {
     return out;
 }
 
+std::vector<Preset> built_in_presets(std::string_view id) {
+    std::vector<Preset> out;
+    if (const openrac_mod* mod = loaded_built_in(id)) {
+        for (Preset p : mod->manifest.presets) {
+            std::erase_if(p.values, [&](const auto& v) {
+                const auto s = std::find_if(
+                    mod->manifest.settings.begin(),
+                    mod->manifest.settings.end(),
+                    [&](const Setting& x) { return x.key == v.first; }
+                );
+                return s == mod->manifest.settings.end()
+                       || (g_host != nullptr && !setting_for_game(*s, g_host->game));
+            });
+            out.push_back(std::move(p));
+        }
+    }
+    return out;
+}
+
 BuiltInSetting built_in_setting(std::string_view id, std::string_view key) {
     BuiltInSetting out;
     openrac_mod* mod = loaded_built_in(id);

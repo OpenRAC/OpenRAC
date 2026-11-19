@@ -238,6 +238,9 @@ std::string entry_label(menu::Id id, std::uint8_t where);
 // Remembers `entry` (a menu::Id) as the one under the pointer or the focus when the item just drawn
 // is, for the desktop's help: a focus moved by a controller or keys wins over the pointer.
 void note_hover(int entry);
+// The same for a row of the entry's panel with help of its own: its heading (after the entry's),
+// name and line take the help's place.
+void note_hover_row(int entry, std::string section, std::string title, std::string help);
 
 // ---- The Controls tab (debug/menu_controls.cpp) ----
 

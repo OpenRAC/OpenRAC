@@ -35,7 +35,7 @@ menus, scenes, the overlay (F3) and when the window loses focus.
   stick turns it.
 - **Sensitivity in Ratchet & Clank:** at 1 one count turns 0.086 degrees, as
   CS sensitivity 3.9. Both menus show your setting as CS sensitivity and cm a
-  full turn at *Your mouse's DPI*.
+  full turn at *Mouse DPI*.
 
 ## Default controls
 
@@ -45,11 +45,11 @@ menus, scenes, the overlay (F3) and when the window loses focus.
 | Jump | Space | Cross |
 | Fire | Left click | Circle (Square in Going Commando's ship) |
 | Quick Select (hold, point with the mouse) | Right click | Triangle |
-| Wrench | F, middle click | Square (Circle, missiles, in the ship) |
+| Melee (wrench) | F, middle click | Square (Circle, missiles, in the ship) |
 | Crouch | Left Ctrl, C | R1 |
-| Strafe | Left Shift | L2 (Ratchet & Clank: only with the lock-strafe mod) |
+| Strafe (hold) | Left Shift | L2 (Ratchet & Clank: only with the lock-strafe mod) |
 | First-person view | V, back side button | L1 |
-| R2: crouch (Going Commando: strafe and crouch) | R, front side button | R2 |
+| Crouch and strafe (R2) | R, front side button | R2 |
 | Map, pause | Tab or M, Escape or P | Select, Start |
 | Ratchet & Clank only: camera behind Ratchet | Q | none |
 | Ratchet & Clank only: weapon 1 to 8, next, previous | 1 to 8, wheel | none |
@@ -89,27 +89,31 @@ texture's hash stay as painted.
 - **In the game:** Options (F1), Controls, *Keyboard and mouse*. Pick a key's
   row to replace it (press the key, button or wheel; Esc cancels), add a second
   one or remove one. A mark shows a key another action uses too.
-- **In the launcher:** Mods, Built in, *Keyboard and mouse*, Settings. Presets:
-  Default, Left-handed, Arrow keys.
+- **In the launcher:** Mods, Built in, *Keyboard and mouse*.
+
+Both show the same page, from the manifest: Presets (Default, Left-handed,
+Arrow keys; *Custom* when the keys match none), Reset to defaults, then the
+sections Mouse, Movement, Combat, Weapons, Camera, Interface and Menus, with
+the same names and order. The game's help pane shows each setting's line.
 
 Changes apply at once, from either place, while the game runs. They are kept
 as `kbm_<key> = <value>` lines in `<data>/settings/<game>-<version>.ini`
 (SETTINGS.md).
 
-| Setting | Default | What it does |
-|---|---|---|
-| Mouse sensitivity | 1.0 | How far the camera turns for the mouse's motion |
-| Up and down sensitivity | 1.0 | The up and down turn against the side to side one |
-| Your mouse's DPI | 800 | Only for the CS and cm hint (Ratchet & Clank) |
-| Mouse acceleration | 0 | Above 0 a fast flick turns further |
-| Invert the mouse's up and down | off | Mouse up looks down |
-| Camera tilt | Stays | *Levels out*: the tilt eases back when the mouse rests |
-| Capture the cursor in play | on | Off leaves the cursor free (no mouse camera) |
-| Mouse in menus | on | Ratchet & Clank: the cursor points at menu items |
-| Key prompts | on | The button icons show your keys |
-| Walk speed | 0.5 | How fast the walk key moves |
-| Stick ramp (ms) | 60 | How long the movement keys take to reach full speed |
-| Quick Select dead zone | 30 | Pixels the mouse moves before the ring picks a slot |
+| Section | Setting | Default | What it does |
+|---|---|---|---|
+| Mouse | Sensitivity | 1.0 | How far the camera turns for the mouse's motion |
+| Mouse | Vertical sensitivity | 1.0 | The up and down turn against the side to side one |
+| Mouse | Mouse DPI | 800 | Only for the CS and cm hint (Ratchet & Clank) |
+| Mouse | Acceleration | 0 | Above 0 a fast flick turns further |
+| Mouse | Invert vertical | off | Mouse up looks down |
+| Mouse | Camera tilt | Stays | *Levels out*: the tilt eases back when the mouse rests |
+| Mouse | Lock the cursor in play | on | Off leaves the cursor free (no mouse camera) |
+| Movement | Walk speed | 0.5 | How fast the walk key moves |
+| Movement | Ramp-up time (ms) | 60 | How long the movement keys take to reach full speed |
+| Weapons | Quick Select dead zone | 30 | Pixels the mouse moves before the ring picks a slot |
+| Interface | Key icons on screen | on | The button icons show your keys |
+| Interface | Mouse in menus | on | Ratchet & Clank: the cursor points at menu items |
 
 ## Good to know
 

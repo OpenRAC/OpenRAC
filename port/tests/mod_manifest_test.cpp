@@ -202,6 +202,27 @@ void presets() {
     CHECK(with(R"([{"id": "hard", "name": "Hard",
                     "values": {"damage": 2.5, "count": 30, "mode": "b", "chaos": true, "jump": "KeyJ"}},
                    {"id": "default", "name": "Retail", "values": {}}])"));
+    {
+        // The values are kept, by key, for the port's menu.
+        Manifest m;
+        std::string error;
+        CHECK(parse_manifest(
+            manifest(
+                "a",
+                "1.0.0",
+                settings + R"(, "presets": [{"id": "hard", "name": "Hard",
+                     "values": {"mode": "b", "jump": "KeyJ"}}])",
+                "1.2"
+            ),
+            m,
+            error
+        ));
+        CHECK(m.presets.size() == 1 && m.presets[0].id == "hard" && m.presets[0].name == "Hard");
+        CHECK(
+            m.presets[0].values.size() == 2 && m.presets[0].values[0].first == "jump"
+            && m.presets[0].values[0].second.s == "KeyJ" && m.presets[0].values[1].second.s == "b"
+        );
+    }
     CHECK(with("[]"));
     CHECK(!with(R"([{"id": "x", "name": "X", "values": {"damage": 5.0}}])"));     // out of range
     CHECK(!with(R"([{"id": "x", "name": "X", "values": {"count": 1.5}}])"));      // not an integer
@@ -212,6 +233,40 @@ void presets() {
     CHECK(!with(R"([{"id": "X!", "name": "X", "values": {}}])"));
     CHECK(!with(R"([{"id": "x", "name": "X", "values": {}}, {"id": "x", "name": "Y", "values": {}}])"));
     CHECK(!with(R"({"x": 1})"));
+}
+
+void sections() {
+    // A setting's heading and line under its name are kept; a heading that is not text is refused.
+    Manifest m;
+    std::string error;
+    CHECK(parse_manifest(
+        manifest(
+            "a",
+            "1.0.0",
+            R"(, "settings": [
+          {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space", "section": "Movement",
+           "description": "Cross."},
+          {"key": "trace", "name": "Trace", "type": "bool", "default": false}])",
+            "1.2"
+        ),
+        m,
+        error
+    ));
+    CHECK(
+        m.settings.size() == 2 && m.settings[0].section == "Movement"
+        && m.settings[0].description == "Cross." && m.settings[1].section.empty()
+    );
+    CHECK(!parse_manifest(
+        manifest(
+            "a",
+            "1.0.0",
+            R"(, "settings": [
+          {"key": "trace", "name": "Trace", "type": "bool", "default": false, "section": 3}])",
+            "1.2"
+        ),
+        m,
+        error
+    ));
 }
 
 void lists() {
@@ -625,6 +680,7 @@ int main() {
     several_games();
     keybinds();
     presets();
+    sections();
     lists();
     checks();
     scripts();

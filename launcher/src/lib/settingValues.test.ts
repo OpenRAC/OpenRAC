@@ -20,7 +20,7 @@ const setting = (over: Partial<PluginSetting>): PluginSetting => ({
   ...over,
 });
 
-// The difficulty mod's Enemy count, Enemy speed and Weapon prices; keyboard-mouse's Stick ramp.
+// The difficulty mod's Enemy count, Enemy speed and Weapon prices; keyboard-mouse's Ramp-up time.
 const enemies = setting({ min: 0.25, max: 4, step: 0.25 });
 const speed = setting({ min: 0.5, max: 2, step: 0.05 });
 const prices = setting({ min: 0.1, max: 5, step: 0.05 });

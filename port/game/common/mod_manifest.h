@@ -57,6 +57,16 @@ struct Setting {
     // "games": the games it is for, of the manifest's (MODS.md, section 3); empty: every one. In
     // another game it is its default, and the launcher does not show it.
     std::vector<std::string> games;
+    std::string description;  // the line under its name (optional)
+    // "section": the heading it is shown under, in the launcher and the port's menu alike; a
+    // section's settings together, the sections in the order each first appears. Empty: none.
+    std::string section;
+};
+
+// "presets" (interface 1.2): buttons that set several settings at once (sdk/docs/settings.md).
+struct Preset {
+    std::string id, name;
+    std::vector<std::pair<std::string, SettingValue>> values;  // by key
 };
 
 // Whether a setting is for this game (its "games" empty or naming it).
@@ -99,6 +109,7 @@ struct Manifest {
     std::string touch;
     std::vector<std::string> hooks;
     std::vector<Setting> settings;
+    std::vector<Preset> presets;
     std::vector<Requirement> requirements;  // the manifest's "requires"
     std::vector<Conflict> conflicts;
     std::vector<std::string> load_after, load_before;

@@ -26,27 +26,30 @@
   "settings": [
     {
       "key": "mouse_sensitivity",
-      "name": "Mouse sensitivity",
+      "name": "Sensitivity",
+      "section": "Mouse",
       "type": "float",
       "default": 1.0,
       "min": 0.1,
       "max": 10.0,
       "step": 0.1,
-      "description": "How far the camera turns for the mouse's motion. In Ratchet & Clank, at 1, 0.086 degrees a count (CS sensitivity 3.9), from raw counts with no easing; in Going Commando the mouse is the right stick."
+      "description": "How far the camera turns for the mouse's motion. Ratchet & Clank: at 1, 0.086 degrees a count (CS sensitivity 3.9), from raw counts with no smoothing. Going Commando: the mouse is the right stick."
     },
     {
       "key": "mouse_y_ratio",
-      "name": "Up and down sensitivity",
+      "name": "Vertical sensitivity",
+      "section": "Mouse",
       "type": "float",
       "default": 1.0,
       "min": 0.25,
       "max": 4.0,
       "step": 0.05,
-      "description": "The up and down turn against the side to side one: 1 turns both alike."
+      "description": "Up and down against side to side: 1 turns both alike."
     },
     {
       "key": "mouse_dpi",
-      "name": "Your mouse's DPI",
+      "name": "Mouse DPI",
+      "section": "Mouse",
       "type": "int",
       "games": [
         "rac1"
@@ -55,28 +58,31 @@
       "min": 100,
       "max": 32000,
       "step": 50,
-      "description": "Only for the hint below sensitivity (cm a full turn); the game does not use it."
+      "description": "Your mouse's DPI, only for the hint under Sensitivity (CS sensitivity, cm a full turn)."
     },
     {
       "key": "mouse_acceleration",
-      "name": "Mouse acceleration",
+      "name": "Acceleration",
+      "section": "Mouse",
       "type": "float",
       "default": 0.0,
       "min": 0.0,
       "max": 2.0,
       "step": 0.1,
-      "description": "0 for none; more turns a fast flick further than a slow drag."
+      "description": "0 for none. Above 0 a fast flick turns further than a slow drag."
     },
     {
       "key": "invert_y",
-      "name": "Invert the mouse's up and down",
+      "name": "Invert vertical",
+      "section": "Mouse",
       "type": "bool",
       "default": false,
-      "description": "Mouse up looks down. The game's own invert options are for the controller and never change the mouse."
+      "description": "Mouse up looks down. The game's own invert options are for the controller."
     },
     {
       "key": "camera_tilt",
       "name": "Camera tilt",
+      "section": "Mouse",
       "type": "choice",
       "default": "hold",
       "choices": [
@@ -93,31 +99,76 @@
     },
     {
       "key": "capture_cursor",
-      "name": "Capture the cursor in play",
+      "name": "Lock the cursor in play",
+      "section": "Mouse",
       "type": "bool",
       "default": true,
       "description": "Hides the cursor and keeps it in the window while you play; menus and pausing let it go."
     },
     {
-      "key": "menu_mouse",
-      "name": "Mouse in menus",
-      "type": "bool",
-      "games": [
-        "rac1"
-      ],
-      "default": true,
-      "description": "In menus the cursor points at the game's items, a click confirms, right click goes back and the wheel scrolls."
+      "key": "move_forward",
+      "name": "Move forward",
+      "section": "Movement",
+      "type": "keybind",
+      "default": "KeyW",
+      "group": "play",
+      "description": "Pushes the left stick forward."
     },
     {
-      "key": "key_prompts",
-      "name": "Key prompts",
-      "type": "bool",
-      "default": true,
-      "description": "While you play on the keyboard and mouse, the game's button icons show your keys (Space, LMB...)."
+      "key": "move_back",
+      "name": "Move back",
+      "section": "Movement",
+      "type": "keybind",
+      "default": "KeyS",
+      "group": "play"
+    },
+    {
+      "key": "move_left",
+      "name": "Move left",
+      "section": "Movement",
+      "type": "keybind",
+      "default": "KeyA",
+      "group": "play"
+    },
+    {
+      "key": "move_right",
+      "name": "Move right",
+      "section": "Movement",
+      "type": "keybind",
+      "default": "KeyD",
+      "group": "play"
+    },
+    {
+      "key": "jump",
+      "name": "Jump",
+      "section": "Movement",
+      "type": "keybind",
+      "default": "Space",
+      "group": "play",
+      "description": "Cross. Also confirms in menus and skips scenes and movies."
+    },
+    {
+      "key": "crouch",
+      "name": "Crouch",
+      "section": "Movement",
+      "type": "keybind",
+      "default": "ControlLeft,KeyC",
+      "group": "play",
+      "description": "R1."
+    },
+    {
+      "key": "walk",
+      "name": "Walk (hold)",
+      "section": "Movement",
+      "type": "keybind",
+      "default": "AltLeft",
+      "group": "play",
+      "description": "Moves at the walk speed below while held."
     },
     {
       "key": "walk_speed",
       "name": "Walk speed",
+      "section": "Movement",
       "type": "float",
       "default": 0.5,
       "min": 0.2,
@@ -127,7 +178,8 @@
     },
     {
       "key": "stick_ramp_ms",
-      "name": "Stick ramp (ms)",
+      "name": "Ramp-up time (ms)",
+      "section": "Movement",
       "type": "int",
       "default": 60,
       "min": 0,
@@ -135,8 +187,54 @@
       "description": "How long the movement keys take to push the stick all the way: a tap nudges, a hold runs."
     },
     {
+      "key": "fire",
+      "name": "Fire",
+      "section": "Combat",
+      "type": "keybind",
+      "default": "MouseLeft",
+      "group": "play",
+      "description": "Circle: fires the weapon or gadget in hand."
+    },
+    {
+      "key": "wrench",
+      "name": "Melee (wrench)",
+      "section": "Combat",
+      "type": "keybind",
+      "default": "KeyF,MouseMiddle",
+      "group": "play",
+      "description": "Square."
+    },
+    {
+      "key": "strafe",
+      "name": "Strafe (hold)",
+      "section": "Combat",
+      "type": "keybind",
+      "default": "ShiftLeft",
+      "group": "play",
+      "description": "L2. Ratchet & Clank: only with the lock-strafe mod (its Hold mode strafes with it)."
+    },
+    {
+      "key": "r2",
+      "name": "Crouch and strafe (R2)",
+      "section": "Combat",
+      "type": "keybind",
+      "default": "KeyR,MouseForward",
+      "group": "play",
+      "description": "R2, held. Ratchet & Clank: crouches like R1, strafes in water. Going Commando: strafes and crouches."
+    },
+    {
+      "key": "quick_select",
+      "name": "Quick Select (hold)",
+      "section": "Weapons",
+      "type": "keybind",
+      "default": "MouseRight",
+      "group": "play",
+      "description": "Triangle, held: move the mouse toward a slot and let go to take it."
+    },
+    {
       "key": "quick_select_dead_zone",
       "name": "Quick Select dead zone",
+      "section": "Weapons",
       "type": "int",
       "default": 30,
       "min": 5,
@@ -144,217 +242,9 @@
       "description": "How far, in pixels, the mouse moves before the Quick Select points at a slot."
     },
     {
-      "key": "move_forward",
-      "name": "Move forward",
-      "type": "keybind",
-      "default": "KeyW",
-      "group": "play",
-      "description": "Pushes the left stick forward."
-    },
-    {
-      "key": "move_back",
-      "name": "Move back",
-      "type": "keybind",
-      "default": "KeyS",
-      "group": "play"
-    },
-    {
-      "key": "move_left",
-      "name": "Move left",
-      "type": "keybind",
-      "default": "KeyA",
-      "group": "play"
-    },
-    {
-      "key": "move_right",
-      "name": "Move right",
-      "type": "keybind",
-      "default": "KeyD",
-      "group": "play"
-    },
-    {
-      "key": "walk",
-      "name": "Walk (hold)",
-      "type": "keybind",
-      "default": "AltLeft",
-      "group": "play",
-      "description": "Moves at the walk speed below while held."
-    },
-    {
-      "key": "jump",
-      "name": "Jump",
-      "type": "keybind",
-      "default": "Space",
-      "group": "play",
-      "description": "Cross. Also confirms in menus and skips scenes and movies."
-    },
-    {
-      "key": "fire",
-      "name": "Fire",
-      "type": "keybind",
-      "default": "MouseLeft",
-      "group": "play",
-      "description": "Circle: fires the weapon or gadget in hand."
-    },
-    {
-      "key": "quick_select",
-      "name": "Quick Select (hold)",
-      "type": "keybind",
-      "default": "MouseRight",
-      "group": "play",
-      "description": "Triangle, held: move the mouse toward a slot and let go to take it."
-    },
-    {
-      "key": "wrench",
-      "name": "Wrench",
-      "type": "keybind",
-      "default": "KeyF,MouseMiddle",
-      "group": "play",
-      "description": "Square."
-    },
-    {
-      "key": "crouch",
-      "name": "Crouch",
-      "type": "keybind",
-      "default": "ControlLeft,KeyC",
-      "group": "play",
-      "description": "R1."
-    },
-    {
-      "key": "strafe",
-      "name": "Strafe",
-      "type": "keybind",
-      "default": "ShiftLeft",
-      "group": "play",
-      "description": "L2 (the lock-strafe mod's Hold mode strafes with it)."
-    },
-    {
-      "key": "first_person",
-      "name": "First-person view",
-      "type": "keybind",
-      "default": "KeyV,MouseBack",
-      "group": "play",
-      "description": "L1, held."
-    },
-    {
-      "key": "r2",
-      "name": "R2",
-      "type": "keybind",
-      "default": "KeyR,MouseForward",
-      "group": "play",
-      "description": "R2, held. Ratchet & Clank: crouches like R1, strafes in water. Going Commando: strafes and crouches."
-    },
-    {
-      "key": "map",
-      "name": "Map",
-      "type": "keybind",
-      "default": "Tab,KeyM",
-      "group": "play",
-      "description": "Select."
-    },
-    {
-      "key": "camera_reset",
-      "name": "Camera behind Ratchet",
-      "type": "keybind",
-      "games": [
-        "rac1"
-      ],
-      "default": "KeyQ",
-      "group": "play",
-      "description": "Swings the camera round behind him and levels it."
-    },
-    {
-      "key": "pause",
-      "name": "Pause",
-      "type": "keybind",
-      "default": "Escape,KeyP",
-      "group": "play",
-      "description": "Start in play: the pause menu. In menus it goes back; in a scene or a movie it skips."
-    },
-    {
-      "key": "weapon_1",
-      "name": "Quick Select slot 1",
-      "type": "keybind",
-      "games": [
-        "rac1"
-      ],
-      "default": "Digit1",
-      "group": "play",
-      "description": "Takes the item in that slot of the Quick Select at once (slot 1 is the top, then clockwise)."
-    },
-    {
-      "key": "weapon_2",
-      "name": "Quick Select slot 2",
-      "type": "keybind",
-      "games": [
-        "rac1"
-      ],
-      "default": "Digit2",
-      "group": "play"
-    },
-    {
-      "key": "weapon_3",
-      "name": "Quick Select slot 3",
-      "type": "keybind",
-      "games": [
-        "rac1"
-      ],
-      "default": "Digit3",
-      "group": "play"
-    },
-    {
-      "key": "weapon_4",
-      "name": "Quick Select slot 4",
-      "type": "keybind",
-      "games": [
-        "rac1"
-      ],
-      "default": "Digit4",
-      "group": "play"
-    },
-    {
-      "key": "weapon_5",
-      "name": "Quick Select slot 5",
-      "type": "keybind",
-      "games": [
-        "rac1"
-      ],
-      "default": "Digit5",
-      "group": "play"
-    },
-    {
-      "key": "weapon_6",
-      "name": "Quick Select slot 6",
-      "type": "keybind",
-      "games": [
-        "rac1"
-      ],
-      "default": "Digit6",
-      "group": "play"
-    },
-    {
-      "key": "weapon_7",
-      "name": "Quick Select slot 7",
-      "type": "keybind",
-      "games": [
-        "rac1"
-      ],
-      "default": "Digit7",
-      "group": "play"
-    },
-    {
-      "key": "weapon_8",
-      "name": "Quick Select slot 8",
-      "type": "keybind",
-      "games": [
-        "rac1"
-      ],
-      "default": "Digit8",
-      "group": "play"
-    },
-    {
       "key": "weapon_next",
       "name": "Next weapon",
+      "section": "Weapons",
       "type": "keybind",
       "games": [
         "rac1"
@@ -366,16 +256,166 @@
     {
       "key": "weapon_prev",
       "name": "Previous weapon",
+      "section": "Weapons",
       "type": "keybind",
       "games": [
         "rac1"
       ],
       "default": "WheelUp",
+      "group": "play",
+      "description": "The previous Quick Select slot that holds something."
+    },
+    {
+      "key": "weapon_1",
+      "name": "Slot 1",
+      "section": "Weapons",
+      "type": "keybind",
+      "games": [
+        "rac1"
+      ],
+      "default": "Digit1",
+      "group": "play",
+      "description": "Takes the item in that slot of the Quick Select at once (slot 1 is the top, then clockwise)."
+    },
+    {
+      "key": "weapon_2",
+      "name": "Slot 2",
+      "section": "Weapons",
+      "type": "keybind",
+      "games": [
+        "rac1"
+      ],
+      "default": "Digit2",
       "group": "play"
     },
     {
+      "key": "weapon_3",
+      "name": "Slot 3",
+      "section": "Weapons",
+      "type": "keybind",
+      "games": [
+        "rac1"
+      ],
+      "default": "Digit3",
+      "group": "play"
+    },
+    {
+      "key": "weapon_4",
+      "name": "Slot 4",
+      "section": "Weapons",
+      "type": "keybind",
+      "games": [
+        "rac1"
+      ],
+      "default": "Digit4",
+      "group": "play"
+    },
+    {
+      "key": "weapon_5",
+      "name": "Slot 5",
+      "section": "Weapons",
+      "type": "keybind",
+      "games": [
+        "rac1"
+      ],
+      "default": "Digit5",
+      "group": "play"
+    },
+    {
+      "key": "weapon_6",
+      "name": "Slot 6",
+      "section": "Weapons",
+      "type": "keybind",
+      "games": [
+        "rac1"
+      ],
+      "default": "Digit6",
+      "group": "play"
+    },
+    {
+      "key": "weapon_7",
+      "name": "Slot 7",
+      "section": "Weapons",
+      "type": "keybind",
+      "games": [
+        "rac1"
+      ],
+      "default": "Digit7",
+      "group": "play"
+    },
+    {
+      "key": "weapon_8",
+      "name": "Slot 8",
+      "section": "Weapons",
+      "type": "keybind",
+      "games": [
+        "rac1"
+      ],
+      "default": "Digit8",
+      "group": "play"
+    },
+    {
+      "key": "first_person",
+      "name": "First-person view (hold)",
+      "section": "Camera",
+      "type": "keybind",
+      "default": "KeyV,MouseBack",
+      "group": "play",
+      "description": "L1, held."
+    },
+    {
+      "key": "camera_reset",
+      "name": "Reset camera",
+      "section": "Camera",
+      "type": "keybind",
+      "games": [
+        "rac1"
+      ],
+      "default": "KeyQ",
+      "group": "play",
+      "description": "Swings the camera round behind him and levels it."
+    },
+    {
+      "key": "map",
+      "name": "Map",
+      "section": "Interface",
+      "type": "keybind",
+      "default": "Tab,KeyM",
+      "group": "play",
+      "description": "Select."
+    },
+    {
+      "key": "pause",
+      "name": "Pause menu",
+      "section": "Interface",
+      "type": "keybind",
+      "default": "Escape,KeyP",
+      "group": "play",
+      "description": "Start in play: the pause menu. In menus it goes back; in a scene or a movie it skips."
+    },
+    {
+      "key": "key_prompts",
+      "name": "Key icons on screen",
+      "section": "Interface",
+      "type": "bool",
+      "default": true,
+      "description": "While you play on the keyboard and mouse, the game's button icons show your keys (Space, LMB...)."
+    },
+    {
+      "key": "menu_mouse",
+      "name": "Mouse in menus",
+      "section": "Interface",
+      "type": "bool",
+      "games": [
+        "rac1"
+      ],
+      "default": true,
+      "description": "In menus the cursor points at the game's items, a click confirms, right click goes back and the wheel scrolls."
+    },
+    {
       "key": "menu_confirm",
-      "name": "Menu: confirm",
+      "name": "Confirm",
+      "section": "Menus",
       "type": "keybind",
       "default": "Enter,MouseLeft",
       "group": "menu",
@@ -383,7 +423,8 @@
     },
     {
       "key": "menu_back",
-      "name": "Menu: back",
+      "name": "Back",
+      "section": "Menus",
       "type": "keybind",
       "default": "Backspace,MouseRight",
       "group": "menu",
@@ -391,7 +432,8 @@
     },
     {
       "key": "menu_up",
-      "name": "Menu: up",
+      "name": "Up",
+      "section": "Menus",
       "type": "keybind",
       "default": "ArrowUp,WheelUp",
       "group": "menu",
@@ -399,28 +441,35 @@
     },
     {
       "key": "menu_down",
-      "name": "Menu: down",
+      "name": "Down",
+      "section": "Menus",
       "type": "keybind",
       "default": "ArrowDown,WheelDown",
-      "group": "menu"
+      "group": "menu",
+      "description": "The d-pad down in menus."
     },
     {
       "key": "menu_left",
-      "name": "Menu: left",
+      "name": "Left",
+      "section": "Menus",
       "type": "keybind",
       "default": "ArrowLeft",
-      "group": "menu"
+      "group": "menu",
+      "description": "The d-pad left in menus."
     },
     {
       "key": "menu_right",
-      "name": "Menu: right",
+      "name": "Right",
+      "section": "Menus",
       "type": "keybind",
       "default": "ArrowRight",
-      "group": "menu"
+      "group": "menu",
+      "description": "The d-pad right in menus."
     },
     {
       "key": "menu_circle",
-      "name": "Menu: Circle",
+      "name": "Second action (Circle)",
+      "section": "Menus",
       "type": "keybind",
       "default": "KeyE",
       "group": "menu",

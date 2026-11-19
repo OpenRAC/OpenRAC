@@ -177,6 +177,8 @@ BuiltInSetting built_in_setting(std::string_view id, std::string_view key);
 // The settings a loaded built-in declares for this game, in its manifest's order (valid while the
 // program runs); empty when none is loaded.
 std::vector<const Setting*> built_in_settings(std::string_view id);
+// Its presets (the manifest's "presets"), each with only the values of settings for this game.
+std::vector<Preset> built_in_presets(std::string_view id);
 // Sets a built-in's setting from the port's menu, `literal` its JSON ("true", "1.5", "\"KeyW\""),
 // checked as setting_set_* checks it. The mod is told (on_settings) and the value kept. False when
 // refused.

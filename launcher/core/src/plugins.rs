@@ -162,6 +162,11 @@ pub struct SettingSpec {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub games: Vec<String>,
+    /// The heading it is shown under, here and in the port's menu alike: a section's settings
+    /// together, the sections in the order each first appears. Empty: by its group.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[ts(as = "Option<String>", optional)]
+    pub section: String,
 }
 
 impl SettingSpec {

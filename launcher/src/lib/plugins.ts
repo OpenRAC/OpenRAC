@@ -97,7 +97,8 @@ export function sharedWith(mod: PluginView): string {
   return sharesWith([...new Set(mod.sharedHooks.flatMap((h) => h.with))]);
 }
 
-/** A mod's settings in the sections its page shows them in: by their manifest "group", in the
+/** A mod's settings in the sections its page shows them in: by their manifest "section" (its own
+ *  words, as the port's menu shows it), else their "group", in the
  *  order each first appears; those without one first, as General (Settings when they are all). */
 export interface SettingGroup {
   id: string;
@@ -108,13 +109,13 @@ export interface SettingGroup {
 export function settingGroups(settings: PluginSetting[]): SettingGroup[] {
   const groups = new Map<string, PluginSetting[]>();
   for (const s of settings) {
-    const id = s.group ?? "";
+    const id = s.section ? `section:${s.section}` : (s.group ?? "");
     groups.set(id, [...(groups.get(id) ?? []), s]);
   }
   const ordered = [...groups.entries()].sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : 0));
   return ordered.map(([id, list]) => ({
-    id: id || "general",
-    title: groupTitle(id, list, ordered.length),
+    id: id ? id.replace(/^section:/, "s-").replace(/[^A-Za-z0-9_-]+/g, "-") : "general",
+    title: id.startsWith("section:") ? id.slice("section:".length) : groupTitle(id, list, ordered.length),
     settings: list,
   }));
 }

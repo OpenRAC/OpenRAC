@@ -181,7 +181,7 @@ bool clashes(const mods::Setting& s, const std::vector<std::string>& binds) {
     return false;
 }
 
-bool row(const std::string& label, const std::string& value, ImU32 ink = 0) {
+bool value_row(const std::string& label, const std::string& value, ImU32 ink = 0) {
     const ImU32 shown_ink = ink != 0 ? ink : ui().gold;
     return menu_row(label.c_str(), ui().text, [&](ImDrawList* list, ImVec2 right) {
         const ImVec2 size = ImGui::CalcTextSize(value.c_str());
@@ -193,6 +193,11 @@ bool sub(const std::string& label) {
     return menu_row(("      " + label).c_str(), ui().soft);
 }
 
+// The row just drawn is the setting's: its own help in the help pane.
+void hover(const mods::Setting& s) {
+    note_hover_row(static_cast<int>(menu::Id::KeyboardMouse), s.section, s.name, s.description);
+}
+
 void setting_rows(const mods::Setting& s, const mods::SettingValue& v) {
     const bool open = g.open == s.key;
     ImGui::PushID(s.key.c_str());
@@ -202,10 +207,10 @@ void setting_rows(const mods::Setting& s, const mods::SettingValue& v) {
         const std::string text = waiting         ? "press a key, button or the wheel (Esc: cancel)"
                                  : binds.empty() ? "nothing"
                                                  : shown_binds(binds);
-        if (row(s.name, text, waiting ? ui().amber : clashes(s, binds) ? ui().amber : 0)) {
+        if (value_row(s.name, text, waiting ? ui().amber : clashes(s, binds) ? ui().amber : 0)) {
             g.open = open ? "" : s.key;
         }
-        note_hover(static_cast<int>(menu::Id::KeyboardMouse));
+        hover(s);
         if (open && !waiting) {
             if (sub("Replace")) {
                 g.capture = s.key;
@@ -232,7 +237,7 @@ void setting_rows(const mods::Setting& s, const mods::SettingValue& v) {
         ImGui::PopID();
         return;
     }
-    if (row(s.name, shown(s, v))) {
+    if (value_row(s.name, shown(s, v))) {
         switch (s.type) {
             case mods::SettingType::Bool:
                 set(s.key, v.b ? "false" : "true");
@@ -251,7 +256,7 @@ void setting_rows(const mods::Setting& s, const mods::SettingValue& v) {
                 break;
         }
     }
-    note_hover(static_cast<int>(menu::Id::KeyboardMouse));
+    hover(s);
     if (s.key == "mouse_sensitivity") {
         menu_note(sensitivity_hint().c_str(), ui().dim);
     }
@@ -268,6 +273,96 @@ void setting_rows(const mods::Setting& s, const mods::SettingValue& v) {
         }
     }
     ImGui::PopID();
+}
+
+// A value as set_built_in_setting takes it: its JSON.
+std::string literal(const mods::Setting& s, const mods::SettingValue& v) {
+    switch (s.type) {
+        case mods::SettingType::Bool:
+            return v.b ? "true" : "false";
+        case mods::SettingType::Int:
+            return std::to_string(v.i);
+        case mods::SettingType::Float:
+            return std::format("{}", v.f);
+        default: {
+            std::string out = "\"";
+            for (const char c : v.s) {
+                if (c == '"' || c == '\\') {
+                    out += '\\';
+                }
+                out += c;
+            }
+            return out + "\"";
+        }
+    }
+}
+
+// A value to compare: a keybind's binds without repeats, the others as set.
+std::string held(const mods::Setting& s, const mods::SettingValue& v) {
+    if (s.type != mods::SettingType::Keybind) {
+        return literal(s, v);
+    }
+    std::vector<std::string> out;
+    for (const std::string& b : binds_of(v.s)) {
+        if (std::find(out.begin(), out.end(), b) == out.end()) {
+            out.push_back(b);
+        }
+    }
+    return joined(out);
+}
+
+// What the presets cover, as the launcher's (lib/presets.ts): every keybind and each setting a
+// preset names. A preset sets those it names and gives the others their defaults.
+bool in_scope(const mods::Setting& s, const std::vector<mods::Preset>& presets) {
+    if (s.type == mods::SettingType::Keybind) {
+        return true;
+    }
+    for (const mods::Preset& p : presets) {
+        for (const auto& [key, value] : p.values) {
+            if (key == s.key) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+const mods::SettingValue& wanted(const mods::Setting& s, const mods::Preset* preset) {
+    if (preset != nullptr) {
+        for (const auto& [key, value] : preset->values) {
+            if (key == s.key) {
+                return value;
+            }
+        }
+    }
+    return s.fallback;
+}
+
+bool is_preset(
+    const std::vector<const mods::Setting*>& all,
+    const std::vector<mods::Preset>& presets,
+    const mods::Preset* preset
+) {
+    for (const mods::Setting* s : all) {
+        if (in_scope(*s, presets)
+            && held(*s, wanted(*s, preset))
+                   != held(*s, mods::built_in_setting(kId, s->key).value)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void apply_preset(
+    const std::vector<const mods::Setting*>& all,
+    const std::vector<mods::Preset>& presets,
+    const mods::Preset* preset
+) {
+    for (const mods::Setting* s : all) {
+        if (in_scope(*s, presets)) {
+            set(s->key, literal(*s, wanted(*s, preset)));
+        }
+    }
 }
 
 // The bind an SDL event presses, or none.
@@ -308,11 +403,6 @@ bool keyboard_mouse_shown() {
 }
 
 void keyboard_mouse_panel() {
-    if (!g.message.empty()) {
-        menu_note(g.message.c_str(), ui().err);
-    } else {
-        menu_note("Changes are saved and used at once.", ui().soft);
-    }
     if (!g.capture.empty() && ImGui::GetTime() - g.since > kCaptureTimeout) {
         g.capture.clear();
         g.message = "No press came: nothing was changed";
@@ -320,28 +410,77 @@ void keyboard_mouse_panel() {
     if (!s.menu_open) {
         g.capture.clear();
     }
-    for (const mods::Setting* setting : mods::built_in_settings(kId)) {
-        setting_rows(*setting, mods::built_in_setting(kId, setting->key).value);
+    // At the top, as the launcher's mod page: the line on saving, the presets and the reset.
+    if (!g.message.empty()) {
+        menu_note(g.message.c_str(), ui().err);
+    } else {
+        menu_note("Changes save as you make them, and count at once.", ui().soft);
     }
-    if (sub("Every keyboard and mouse setting to the defaults")) {
-        for (const mods::Setting* p : mods::built_in_settings(kId)) {
-            const mods::Setting& setting = *p;
-            const mods::SettingValue& d = setting.fallback;
-            switch (setting.type) {
-                case mods::SettingType::Bool:
-                    set(setting.key, d.b ? "true" : "false");
-                    break;
-                case mods::SettingType::Int:
-                case mods::SettingType::Float:
-                    set_number(setting, value_of(d));
-                    break;
-                default:
-                    set(setting.key, "\"" + d.s + "\"");
-                    break;
+    const std::vector<const mods::Setting*> all = mods::built_in_settings(kId);
+    const std::vector<mods::Preset> presets = mods::built_in_presets(kId);
+    if (!presets.empty()) {
+        // The choices: Default (unless a preset is "default"), then the presets; null is Default.
+        std::vector<const mods::Preset*> choices;
+        if (std::none_of(presets.begin(), presets.end(), [](const mods::Preset& p) {
+                return p.id == "default";
+            })) {
+            choices.push_back(nullptr);
+        }
+        for (const mods::Preset& p : presets) {
+            choices.push_back(&p);
+        }
+        std::size_t lit = choices.size();
+        for (std::size_t i = 0; i < choices.size() && lit == choices.size(); ++i) {
+            if (is_preset(all, presets, choices[i])) {
+                lit = i;
+            }
+        }
+        const std::string name = lit == choices.size()     ? "Custom"
+                                 : choices[lit] == nullptr ? "Default"
+                                                           : choices[lit]->name;
+        if (value_row("Presets", name)) {
+            apply_preset(
+                all, presets, choices[lit == choices.size() ? 0 : (lit + 1) % choices.size()]
+            );
+        }
+        note_hover_row(
+            static_cast<int>(menu::Id::KeyboardMouse),
+            "",
+            "Presets",
+            "Sets the keys (and the settings a preset names) at once. Custom: your own."
+        );
+    }
+    if (value_row("Reset to defaults", "")) {
+        for (const mods::Setting* p : all) {
+            set(p->key, literal(*p, p->fallback));
+        }
+    }
+    note_hover_row(
+        static_cast<int>(menu::Id::KeyboardMouse),
+        "",
+        "Reset to defaults",
+        "Every keyboard and mouse setting back to its default."
+    );
+    // The settings under their sections, the sections in the order each first appears (as the
+    // launcher shows them, lib/plugins.ts settingGroups).
+    std::vector<std::string> sections;
+    for (const mods::Setting* p : all) {
+        if (std::find(sections.begin(), sections.end(), p->section) == sections.end()) {
+            sections.push_back(p->section);
+        }
+    }
+    for (const std::string& section : sections) {
+        if (!section.empty()) {
+            card_end();
+            menu_heading(section.c_str());
+            card_begin();
+        }
+        for (const mods::Setting* p : all) {
+            if (p->section == section) {
+                setting_rows(*p, mods::built_in_setting(kId, p->key).value);
             }
         }
     }
-    note_hover(static_cast<int>(menu::Id::KeyboardMouse));
 }
 
 bool keyboard_mouse_capturing() {
