@@ -62,7 +62,7 @@ or a level, not handled yet).
 | `libraries.tsv` | 204 library entry points, found by their instructions against rac2-ntsc's and rac1-pal's tables, by shape where the SDK version differs, by RPC function number (libmc), and by the game's own calls (libpad) |
 | `host/entry.c` | the loader's unpacking, crt0, InitSystemCallTableAddress (no kernel to scan) |
 | `host/dma.c` | sceDmaSend leaving CHCR as the DMAC does (the VIF1 handler retires the frame's wait mask from it), KickVif0Chain |
-| `host/sound.c` | the 989snd reply wait and flush: answered at once (no IOP, no sound yet) |
+| `host/sound.c` | 989snd's command boundary (snd_Pump, snd_SendCommandSync, snd_QueueCommandToRing, the bank loads) on the ring rac2 shares (`common/lib/snd_ring.c`): the native sound engine plays the banks' sounds and the VAG streams |
 | `host/pad.c` | libpad 4.0, Deadlocked's host pad at this disc's addresses |
 | `host/movie.c` | the movie player entry: the shared native player |
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
@@ -103,8 +103,11 @@ for it.
   UV, which the routine does not send) and the dimming fill behind the menu are still the game's
   packets; the shaded print (func_0038F458, a colour a corner) is not wrapped (its prototype is not
   known).
-- **Sound**: the 989snd commands are answered with empty replies; the shared sound replacements
-  are not bound.
+- **Music**: the menu's sound effects play (the front end's bank, an SBlk version 3 block, which
+  the shared bank reader now reads), but the boot front end asks for no music: its stream table
+  (the level table LoadLevelToc fills, `0x00160C40 + 0x7A04`) is never loaded and the music channel
+  stays at track -1. The streams' command (0x2C, two mono files as rac2's) is bound and untested.
+  `OPENRAC_AUDIO_TICKED=1 OPENRAC_AUDIO_DUMP=out.wav OPENRAC_SOUND_LOG=1` captures and logs it.
 - **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's
   `frontbin` group and `relocate` are not set up for them.
 - The memory card works through the shared `sceMc*`; saving is untested.
