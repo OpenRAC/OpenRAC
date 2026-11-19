@@ -188,7 +188,21 @@ struct Instance {
     bool floats_on_water = false;     // Visual rigid attachment to the local water height.
     bool lighting_only = false;       // An offscreen emitter captured for lighting, never geometry.
     bool gameplay_essential = false;  // Eligible for enhanced lighting's subtle GI-coloured rim.
+    // A mod's render-only material on a live moby (OPENRAC_MOBY_MATERIAL_*: 0 none, 2 platinum),
+    // which mesh.frag draws; LevelScene::instance_data packs it beside the shine distance.
+    std::uint8_t mod_material = 0;
 };
+
+// The step between a mod's materials in a moby's packed `lights` (pack_moby_lights): above any
+// shine distance, which is a byte.
+inline constexpr int kMobyMaterialLightsStep = 512;
+
+// Returns a live moby's `lights` as mesh.vert reads it: -1 - (its shine distance + the step times
+// `material`), so the per-instance attributes, all sixteen in use, carry the material too. A lit
+// tie (`lights` >= 0) and a moby with no material keep `lights` as they are.
+constexpr int pack_moby_lights(int lights, std::uint8_t material) {
+    return lights < 0 && material != 0 ? lights - kMobyMaterialLightsStep * material : lights;
+}
 
 struct SpinAnimation {
     std::size_t instance = 0;  // Index in Layer::Animated.
