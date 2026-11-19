@@ -415,7 +415,10 @@ of their own in each family of levels: the hero's whole update is
 others under `"copies"` (per disc; their symbols are aliases, the anchor the
 first's). hostgen writes them one slot: a mod's replacement runs whichever copy
 the game calls, and its `original` runs that copy (hooks.c notes the copy for
-the call). The copies must share a signature.
+the call). The copies must share a signature. Going Commando's bolt burst
+(`rac2.bolt.spawn_pickups`) is the executable's `moby_spawn_bolt_pickups` and
+its copy in every level's code, `part_spawn_bolt_pickups`, which the level copy
+of the death handler and the scripted bursts call (`port/game/rac2-*/tables/call_copies.tsv`).
 
 **Signatures** are written the same way on both sides: the return type, then
 the parameters, from `void`, `i32`, `u32` (a game address too), `i64`,
