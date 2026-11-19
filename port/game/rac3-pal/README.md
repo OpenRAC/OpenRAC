@@ -47,14 +47,14 @@ C are translated from their own instructions.
 
 - **frontbin** loads and runs: its start-up, its widgets, its intro movie (the native player through
   its own copy of the entry, `0x003AF890`) and then its menu loop, sending a display list each frame.
-- **A level** does not run yet: on the way to one (level 1, Veldin) the boot program's loading screen
-  (`0x003BD3E8`, its callback `0x003C10B0`) has `0x003BBDC0` set the memory map up again and unpack
-  a pack (`0x003A0B60`) to its fourth region (`*(0x00227598)`, `0x006F3000`); then `0x003BC7C0`
-  indexes a table in it (+0x9C, with the indices at `0x001D9030`) whose words are not the offsets
-  it expects, and a store lands at `0x80EFAFBC`. Whether the wrong block is unpacked there or its
-  source was never read is not found yet. The level's code
-  itself is not translated either: hostgen.json's `sources` has no `src/levels` and no `places`
-  catalogue (rac3-decomp's `config/levels/functions.tsv`), as Going Commando's has.
+- **A level** does not run yet. On the way to one (New Game, Load Game, or level 1 by
+  `OPENRAC_RAC3_NEXT`) the boot program's loading screen now unpacks its pack (the WAD
+  decompressor on the shared routine, `host/wad.c`) and loads its sound bank (`0x0013BC30`, the
+  shared `snd_BankLoadFromEE_CB`), then waits in its own hand-written draw kernel (`0x003CA858`,
+  `0x003CA9C0`: VU0 and a scratchpad DMA chain the port does not run), which a native drawing of
+  the loading screen is to replace. The level's code itself is not translated yet:
+  hostgen.json's `sources` has no `src/levels` and no `places` catalogue (rac3-decomp's
+  `config/levels/functions.tsv`), as Going Commando's has.
 
 Until the menus can be read, `OPENRAC_RAC3_NEXT=FRAME:LEVEL` writes what a menu's choice writes, at
 the boot program's FRAME-th display list (`-1`: frontbin).
