@@ -291,8 +291,8 @@ struct KeyStick {
 
 // The player's settings for the mouse's look.
 struct LookTuning {
-    float sensitivity = 1.0f;   // the mouse's turn, 1 the default
-    float y_ratio = 1.0f;       // the up and down turn against the side to side one
+    float sensitivity = 1.0f;  // the mouse's turn, 1 the default
+    float y_ratio = 1.0f;      // the up and down turn against the side to side one
     bool invert_y = false;
     bool pitch_holds = true;  // the camera's tilt stays where the mouse leaves it
 };

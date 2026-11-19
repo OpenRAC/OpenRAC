@@ -27,7 +27,7 @@
 #include "discs.h"
 #include "game/common/frontend/mouse_turn.h"
 #include "game/common/key_prompts.h"
-#include "kbm.hpp"
+#include "game/common/keyboard_mouse/kbm.hpp"
 #include "key_prompts_fonts.h"
 #include "keyboard_mouse.h"
 #include "openrac/openrac_mod.h"

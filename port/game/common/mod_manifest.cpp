@@ -144,7 +144,8 @@ bool parse_setting(const json::Value& v, Setting& s, std::string& error) {
         return false;
     }
     // Only looks: read where they are as the launcher has them, else left out.
-    if (const json::Value& step = v["step"]; step.is_number() && step.number() > 0.0) {
+    if (const json::Value& step = v["step"];
+        step.is_number() && std::isfinite(step.number()) && step.number() > 0.0) {
         s.step = step.number();
     }
     if (const json::Value& group = v["group"]; group.is_string()) {

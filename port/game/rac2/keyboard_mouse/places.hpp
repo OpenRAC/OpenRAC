@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <string_view>
 
-#include "game/rac1/keyboard_mouse/kbm.hpp"
+#include "game/common/keyboard_mouse/kbm.hpp"
 
 namespace kbm2 {
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The built-in keyboard and mouse's logic (game/rac1/keyboard_mouse/kbm.hpp) alone: binds read
+// The built-in keyboard and mouse's logic (game/common/keyboard_mouse/kbm.hpp) alone: binds read
 // from settings, conflicts, the keys' stick, the mouse's stick, the Quick Select's direction, the report the game reads and
 // the weapon wheel; and the manifest's keys and defaults against the action table.
 //
@@ -17,7 +17,7 @@
 #include <sstream>
 #include <string>
 
-#include "kbm.hpp"
+#include "game/common/keyboard_mouse/kbm.hpp"
 
 namespace {
 

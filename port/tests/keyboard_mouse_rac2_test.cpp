@@ -16,7 +16,7 @@
 #include <vector>
 
 #include "game/common/key_prompts.h"
-#include "game/rac1/keyboard_mouse/kbm.hpp"
+#include "game/common/keyboard_mouse/kbm.hpp"
 #include "game/rac2/keyboard_mouse/keyboard_mouse.h"
 #include "game/rac2/keyboard_mouse/places.hpp"
 #include "key_prompts_fonts.h"

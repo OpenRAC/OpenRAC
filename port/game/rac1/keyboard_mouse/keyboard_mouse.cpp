@@ -31,7 +31,7 @@
 #include "game/common/frontend/mouse_turn.h"
 #include "game/common/key_labels.h"
 #include "game/common/key_prompts.h"
-#include "kbm.hpp"
+#include "game/common/keyboard_mouse/kbm.hpp"
 #include "openrac/games/rac1.hpp"
 #include "openrac/mod.hpp"
 

@@ -102,6 +102,9 @@ pub fn view(data_home: &Path, game: &str, version: &str) -> PluginView {
 
 /// Sets one of its settings, checked as the port would read it.
 pub fn set_setting(data_home: &Path, game: &str, version: &str, key: &str, value: &Value) -> Result<(), String> {
+    if !supported(game, version) {
+        return Err(format!("{game} {version} has no keyboard and mouse settings"));
+    }
     let m = manifest();
     let spec = m
         .settings
@@ -191,6 +194,10 @@ mod tests {
         // Out of range or not a setting: refused, the file unchanged.
         assert!(set_setting(&home, "rac1", "ntsc", "mouse_sensitivity", &json!(50.0)).is_err());
         assert!(set_setting(&home, "rac1", "ntsc", "nothing", &json!(1)).is_err());
+        // A version it does not know writes no file, so no path out of the settings folder.
+        assert!(set_setting(&home, "rac1", "../../x", "jump", &json!("KeyJ")).is_err());
+        assert!(set_setting(&home, "rac1", "jp", "jump", &json!("KeyJ")).is_err());
+        assert!(!settings_file(&home, "rac1", "jp").exists());
         let _ = std::fs::remove_dir_all(&home);
     }
 
