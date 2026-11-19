@@ -226,7 +226,7 @@ def main() -> int:
     program.index_places()
     names = {place: sym for place, sym in program.by_place.items()}
     low = (getattr(program, "relocate", None) or [0x15F000])[0]
-    r = retail.Retail.from_image(args.image, low)
+    r = retail.Retail.from_image(args.image, low, (cfg.get("asm") or {}).get("loader"))
     report = json.loads(args.report.read_text())
 
     target = cfg.get("jump_tables", "tables/jump_tables.json")

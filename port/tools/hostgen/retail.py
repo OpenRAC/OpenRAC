@@ -76,9 +76,15 @@ class Retail:
         return cls(exe.read_bytes(), read_dump(dump) if dump else {}, low, exe.name)
 
     @classmethod
-    def from_image(cls, image: Path, low: int) -> "Retail":
+    def from_image(cls, image: Path, low: int, loader: dict | None = None) -> "Retail":
+        """LOADER (hostgen.json "asm" "loader"): the disc boots a loader whose data holds the game,
+        as Up Your Arsenal's does; the game is unpacked from it (loader_parts)."""
         exe, levels = read_image(image)
-        return cls(exe, levels, low, image.name)
+        if not loader:
+            return cls(exe, levels, low, image.name)
+        out = cls(None, levels, low, image.name)
+        out.exe, out.entry = loader_parts(exe, loader)
+        return out
 
     def program(self, level: int) -> list[Part]:
         """Everything in game memory while program `level` (-1 the executable) is loaded."""
@@ -147,6 +153,41 @@ def elf_parts(b: bytes) -> list[Part]:
             if kind == 1:
                 out.append(Part("load", va, b[off:off + size], True))
     return out
+
+
+def loader_parts(exe: bytes, loader: dict) -> tuple[list[Part], int]:
+    """The program a loader carries and its entry. Up Your Arsenal's disc boots SCES_524.56, a loader
+    whose data holds the game WAD-compressed at file offset LOADER["payload"]: records of (load
+    address, size, type, entry) and their bytes, the level programs' format, which the loader copies
+    to their addresses (rac3-pal/host/entry.c does the same at run time). The code and data records
+    (type 1) become the program's parts, as the unpacked executable's sections are (elf_parts): the
+    ones at LOADER["code"]'s addresses are code, those at LOADER["skip"]'s (the VU microcode) are left
+    out, and the zeros (type 8, bss) and register-use records carry no bytes to read."""
+    editor = paths.repo_root(__file__) / "editor"
+    if str(editor) not in sys.path:
+        sys.path.insert(0, str(editor))
+    from level import decoded  # noqa: E402  (the editor's WAD decompressor)
+    offset = int(str(loader["payload"]), 0)
+    if exe[offset:offset + 3] != b"WAD":
+        raise ValueError(f"the boot executable holds no game at file offset {offset:#x} (not this disc's loader?)")
+    raw = decoded(exe[offset:])
+    code = {int(str(a), 0) for a in loader.get("code", [])}
+    skip = {int(str(a), 0) for a in loader.get("skip", [])}
+    parts: list[Part] = []
+    entry = None
+    at = 0
+    while at + 16 <= len(raw):
+        address, size, kind, start = struct.unpack_from("<4I", raw, at)
+        if size > len(raw) - at - 16:
+            break
+        entry = start if entry is None else entry
+        if kind == 1 and size and address not in skip:
+            parts.append(Part("text" if address in code else "data", address, raw[at + 16:at + 16 + size],
+                              address in code))
+        at += 16 + size
+    if not parts or entry is None:
+        raise ValueError(f"the boot executable's data at file offset {offset:#x} holds no program records")
+    return parts, entry
 
 
 def manifest_records(manifest: dict) -> list[dict]:

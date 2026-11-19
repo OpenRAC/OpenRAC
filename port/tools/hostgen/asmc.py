@@ -1730,7 +1730,8 @@ def asm_config(cfg: dict) -> dict | None:
 
 def retail_source(a: dict, program: Program, base: Path) -> "retail.Retail | None":
     """The retail program hostgen.json's "asm" names, when it is there: "retail": {"image": ISO}
-    (the player's disc image) or {"exe": ELF, "dump": level dumps}, relative to the decompilation
+    (the player's disc image; "loader" when its boot executable is a loader carrying the game) or
+    {"exe": ELF, "dump": level dumps}, relative to the decompilation
     the assembly is read from (where its setup puts them) unless absolute; hostgen's
     --retail-image, --retail-exe and --retail-dump give them instead."""
     r = a.get("retail") or {}
@@ -1738,7 +1739,7 @@ def retail_source(a: dict, program: Program, base: Path) -> "retail.Retail | Non
     path = lambda key: (base / r[key]) if r.get(key) else None
     image, exe, dump = path("image"), path("exe"), path("dump")
     if image is not None and image.is_file():
-        return retail.Retail.from_image(image, low)
+        return retail.Retail.from_image(image, low, a.get("loader"))
     if exe is not None and exe.is_file():
         return retail.Retail.from_files(exe, dump if dump is not None and dump.is_dir() else None, low)
     return None

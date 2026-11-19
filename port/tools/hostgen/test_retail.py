@@ -385,6 +385,24 @@ class ReadImageTests(unittest.TestCase):
         self.assertEqual(got, exe)
         self.assertEqual(levels, {})
 
+    def test_a_loaders_payload_is_the_program(self):
+        """Up Your Arsenal's disc boots a loader whose data holds the game as WAD-compressed records;
+        the records are the program's parts, as the unpacked executable's sections would be."""
+        sys.path.insert(0, str(HERE.parents[2] / "editor"))
+        import wadpack  # noqa: E402
+        record = lambda address, kind, body: struct.pack("<4I", address, len(body), kind, 0x00100008) + body
+        code, data, vu = struct.pack("<2I", 0x0C040003, 0), b"\x11" * 8, b"\x22" * 8
+        payload = (record(0x00100000, 0x70000006, bytes(8)) + record(0x00100010, 1, vu)
+                   + record(0x00100020, 1, code) + record(0x00100030, 8, bytes(16)) + record(0x00100040, 1, data))
+        loader = bytes(0x80) + wadpack.compress(payload)
+        config = {"payload": "0x80", "code": ["0x00100020"], "skip": ["0x00100010"]}
+        parts, entry = retail.loader_parts(loader, config)
+        self.assertEqual(entry, 0x00100008)
+        self.assertEqual([(p.base, p.data, p.code) for p in parts],
+                         [(0x00100020, code, True), (0x00100040, data, False)])
+        with self.assertRaises(ValueError):
+            retail.loader_parts(loader, {"payload": "0x40"})
+
     def test_an_image_with_no_boot_line_is_refused(self):
         with tempfile.TemporaryDirectory() as d:
             image = Path(d) / "x.iso"

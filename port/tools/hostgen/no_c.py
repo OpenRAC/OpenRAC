@@ -465,7 +465,7 @@ def main(argv=None) -> int:
     cfg = configure(args.game)
     low = (cfg.get("relocate") or [0x15F000])[0]
     if args.image:
-        memory = retail.Retail.from_image(args.image, low)
+        memory = retail.Retail.from_image(args.image, low, (cfg.get("asm") or {}).get("loader"))
     elif args.exe and args.exe.is_file():
         memory = retail.Retail.from_files(args.exe, args.dump, low)
     else:

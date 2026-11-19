@@ -97,6 +97,11 @@
     "retail": {
       "exe": "baserom/boot_elf.elf"
     },
+    "loader": {
+      "payload": "0x7080",
+      "code": ["0x00116F80", "0x00381080"],
+      "skip": ["0x00100080"]
+    },
     "files": 8,
     "results_before_calls": true,
     "dma_stores": true,
