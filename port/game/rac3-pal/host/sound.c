@@ -31,3 +31,16 @@ int func_0013B620(void) {
     func_0013B818();
     return openrac_lib_snd_FlushSoundCommands();
 }
+
+unsigned int openrac_lib_snd_BankLoadByLoc(int sector, int offset);
+
+/* snd_BankLoadByLoc with a callback (0x0013BAB8, rac2-ntsc's func_00132498 and rac2/host/sound.c):
+ * the bank at a sector and offset of the disc, loaded at once; the callback is told its handle, as
+ * the IOP's answer would. The level loader waits for it (func_0039A5C0, stages 3 and 5: the
+ * level's banks, func_003A1598 and func_003A1638). */
+void func_0013BAB8(int sector, int offset, int callback, long long argument) {
+    const unsigned int handle = openrac_lib_snd_BankLoadByLoc(sector, offset);
+    if (callback != 0) {
+        GFN(void (*)(int, long long), (gaddr)callback)((int)handle, argument);
+    }
+}

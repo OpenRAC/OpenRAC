@@ -126,6 +126,7 @@
     "vu_flush": true,
     "forward_unprototyped": true,
     "vu0_programs": {
+      "0xC80": "rac3_vu0_rotation_rows",
       "0xDA0": "rac3_vu0_cosine",
       "0xDB0": "rac3_vu0_sine"
     }
