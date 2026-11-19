@@ -277,7 +277,7 @@ vec3 standard_surface(vec3 diffuse, vec3 albedo, vec3 indirect, vec3 n, vec3 tow
         return base;
     }
     vec3 broad = max(indirect, vec3(0.)) / 3.14159265359 * surface_fresnel(nv, f0);
-    vec3 specular = environment_specular(v_world_position, n, eye, roughness, f0, broad)
+    vec3 specular = environment_specular_rgb(v_world_position, n, eye, roughness, f0, broad)
         + surface_specular_direct(v_world_position, n, eye, selector, visibility, roughness, f0);
     float grazing_tint = .5 * dielectric_fresnel(nv, 0.)
         * smoothstep(.35, .65, roughness) * (1. - metallic);
