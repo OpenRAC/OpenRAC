@@ -1,0 +1,71 @@
+# What bringing Up Your Arsenal (PAL, SCES_524.56) up to its main menu worked out: functions and
+# data of boot_elf (core.text 0x116F80-0x13D420, the front end's .text 0x381080-0x3F2778), with
+# PAL addresses. For the later backfill and naming (rac3-decomp's config/names.tsv). The library
+# entry points the port answers are in libraries.tsv, each with how it was identified; they are
+# not repeated here unless more is known.
+#
+# kind	symbol	address	name	what it does, and how it was seen
+code	func_0013ADA8	0x0013ADA8	crt0	payload entry (hand-written): clears core.bss, InitMainThread/SetupHeap syscalls ($gp 0x001DC8B0, stack 0x01FFC000, heap end 0x01FF8000), _InitSys, FlushCache(0), _init (0x0012A940), atexit(0x0012A948) through 0x00116FD0, main(argc, argv at 0x0015C040), then exit (0x00118670)
+code	func_0013B330	0x0013B330	main	parses argv (two option prefixes at 0x001D4D90 and 0x001D4D98, count in 0x001D551D), then forever: call the loaded program's entry (first 0x00381250), func_0013AFF8 for the next entry, FlushCache(0), FlushCache(2). The decompilation's draft calls the US entry 0x00381280
+code	func_0013AFF8	0x0013AFF8	load_next_program	reads the record list at *0x001D4B50 (address, size, type, entry: the level program format) and returns the entry of the program to run next
+code	func_00124B90	0x00124B90	_InitSys	libkernl start-up: 0x00124988, InitSystemCallTableAddress (0x00124A80), 0x00124FB8, 0x00125130(2), 0x00125290, 0x0011FAE8, 0x00124CB8, 0x00124488, then 0x00125F38
+code	func_00124A80	0x00124A80	InitSystemCallTableAddress	SetSyscall twice, then FindAddress scans of kernel memory (0x80000000-0x80080000) until two searches meet; never ends without a kernel (host stub)
+code	func_00116FD0	0x00116FD0	atexit	newlib atexit: appends to the function table at *0x0013D770 +0x148
+code	func_0012A940	0x0012A940	_init	empty (jr ra)
+code	func_00124ED8	0x00124ED8	LoadExecPS2_wrapper	(path, argc, argv): builds the argument block (0x00124DB8) and calls syscall 6, LoadExecPS2 (0x0011EA60)
+code	func_0011F720	0x0011F720	data_cache_range_op	hand-written: walks the data cache lines with cache 0x10/0x16 against a range (COP0 TagLo); nothing to do on the host
+code	func_0011F9A8	0x0011F9A8	EnableDmac_di	hand-written: DI, EnableDmac (0x0011EB80), EI if interrupts were on
+code	func_0011F940	0x0011F940	DisableDmac_di	hand-written: DI, DisableDmac (0x0011EB90), EI if interrupts were on
+code	func_0011F860	0x0011F860	interrupts_off	hand-written: !(COP0 Status & 1)
+code	func_00381250	0x00381250	frontend_main	the boot program's entry and loop (boot_elf's own .text, frontbin's twin): func_003983C8 (start-up), load (func_003826A8), widgets (func_003811E8), then per frame: VIF1 send (func_003A9588), pads (func_003A3F70), the mode switch on 0x001D5B94 (jtbl_0031BF80), sceGsSyncV
+code	func_003983C8	0x003983C8	frontend_startup	sceGsResetPath, sceDmaReset, CD init, sceSifRebootIop + sceSifSyncIop loop, RPC/heap/module loads, sound (func_003A44D0), pads (func_003A2FC0), the VU0 program chain 0x0010F1A0 (KickVif0Chain)
+code	func_003826A8	0x003826A8	frontend_load	streams the front end's data to 0x002D2100 through func_003A2AF0 (a CD read via snd_StreamSafeCdRead and its wait)
+code	func_00381C98	0x00381C98	boot_screens	switch on 0x001D5690 (jtbl_0031C000, 10 screens): memory card checks (0x00142430), messages 0x1FD9/0x1FDB/0x1B75, a 151-frame wait, then boot state 10; runs while 0x001D568C is set
+code	func_003824A8	0x003824A8	launch_sly2_demo	func_003980A0("cdrom0:\SLY2\SLY2.ELF;1" at 0x001D5790): the main menu's demo entry
+code	func_003980A0	0x003980A0	exit_to_elf	stops sound, streams and pads (scePadEnd) and calls LoadExecPS2 (0x00124ED8)
+code	func_003A3F70	0x003A3F70	pads_update	func_003A3B40 for each of the eight pad records at 0x001CD0C0
+code	func_003A3B40	0x003A3B40	pad_update_one	libpad state machine on pad +0x198 (jtbl_0031C500: 0 find id, 40-42 digital to analog, 70-78 actuators and pressure, 99 ready), then scePadRead into +0x574 and the reader func_003A31C8; held buttons at +0x1A0, new presses at +0x1A4
+code	func_003A2FC0	0x003A2FC0	pads_init	scePadInit, scePadPortOpen for ports 0-1, slots 0-3
+code	func_003A44D0	0x003A44D0	sound_init	snd_StartSoundSystem (0x0013B3F8) and the banks
+code	func_003A9348	0x003A9348	KickVif0Chain	VIF0 source chain (CHCR 0x145), polling CHCR before and after (host)
+code	func_003A9588	0x003A9588	send_frame	sets the frame's wait mask (0x001D8014 |= 0x1F), closes the list and sends it to VIF1 (sceDmaSend 0x0012D938)
+code	func_003A96A8	0x003A96A8	wait_frame_mask	spins while 0x001D8014 & mask
+code	func_003A9EF8	0x003A9EF8	vif1_handler	DMAC handler: an end tag in CHCR clears every stage of 0x001D8014, a stage tag one bit
+code	func_003AFC48	0x003AFC48	play_movie	(first sector, size, allocator, audio channel, flag): the movie player (host: the native player). Seen with sector 402944
+code	func_003AFE10	0x003AFE10	movie_loop	the playback loop: libmpeg decode (0x00139A70) through the IPU, pads, sound
+code	func_003B0188	0x003B0188	movie_start	starts the decoder for (sector, size, channel)
+code	func_003B0360	0x003B0360	movie_stop	stops it
+code	func_0013B3F8	0x0013B3F8	snd_StartSoundSystem	binds the 989snd servers 0x123456 and 0x123457 (clients 0x001D4900, 0x001D49C0)
+code	func_0013C348	0x0013C348	snd_send_command	(command, length, data): copies to 0x0015C1C0, waits for the last reply, sceSifCallRpc, waits for this reply (0x0013B818)
+code	func_0013B818	0x0013B818	snd_reply_done	1 when the server's reply named at 0x001D4DA0 is in (host: at once)
+code	func_0013B8B0	0x0013B8B0	snd_expect_reply	names the reply buffer (0x001D4DA0) and its length (0x001D4DA4)
+code	func_0013B620	0x0013B620	snd_FlushSoundCommands	called by every waiting loop of the loader and the sound code (host: answers the reply, ends a stream read)
+code	func_0013D080	0x0013D080	snd_movie_command	sends command 59 with six words (the movie's sound)
+code	func_0013D3C0	0x0013D3C0	set_boot_state	0x001D5458 = a
+code	func_0013D3C8	0x0013D3C8	get_boot_state	returns 0x001D5458
+code	func_003A2998	0x003A2998	stream_read_start	starts a snd_StreamSafeCdRead of (sector, count, buffer) when the loader (0x001CCFD0) is idle
+code	func_003A2B50	0x003A2B50	stream_wait	runs the loader's state machine (func_003A2330) and the sound flush until 0x001CCFD4 is 0
+code	func_003A2330	0x003A2330	stream_update	the loader's and the music streams' state machine; completes a read when 0x001CCFD6 (set by the CD callback) is set
+code	func_003A2BF8	0x003A2BF8	stream_cd_callback	snd_StreamSafeCdCallback's callback (registered by func_003A1730)
+code	func_003A2958	0x003A2958	stream_read_done	snd_StreamSafeCdBreak, then 0x001CCFD6 = 1
+code	func_003AC270	0x003AC270	pool_alloc	fixed-size pool: the free list (+0x14) or the next element (+0xC used, +0x8 size, +0x4 capacity)
+code	func_003AB608	0x003AB608	gui_object_init	initialises a GUI object; forwards its callers' second and third arguments to func_003AB3F0 in their registers (the reason for hostgen's unpassed_registers)
+code	func_003AF470	0x003AF470	gui_build	builds the front end's widget tree (func_003AF1F0, func_003ADB90) after parsing the widget table ("PARSING WIDGET3D'S", 146 widgets)
+code	func_0038D478	0x0038D478	vu0_cos	cos through VU0 microprogram 0xDA0 (vf1.x)
+code	func_0038D490	0x0038D490	vu0_sin	sin through VU0 microprogram 0xDB0 (vf1.x)
+data	D_001D5B94	0x001D5B94	game_mode	the front end's mode: 0 menus, 1 movie; switch jtbl_0031BF80 in func_00381250
+data	D_001D5B90	0x001D5B90	next_game_mode	-2 none
+data	D_001D5458	0x001D5458	boot_state	the front end's state in mode 0 (jtbl_0031BFD0, 11 states: 0 the main menu, 10 and 8 on the way to it)
+data	D_001D5688	0x001D5688	idle_frames	frames without input in the main menu; past 6000 the attract state; reset by a press
+data	D_001D568C	0x001D568C	in_boot_screens	1 while func_00381C98 runs the boot screens
+data	D_001D5690	0x001D5690	boot_screen	func_00381C98's screen (0 start, 1 card check, 4, 6 message, 8 done)
+data	D_001D5694	0x001D5694	boot_screen_timer	frames in the screen
+data	D_001D52FC	0x001D52FC	active_pad	the pad record the menus read (0x001CD0C0)
+data	D_001CD0C0	0x001CD0C0	pads	eight pad records (func_003A3F70)
+data	D_001D8014	0x001D8014	frame_wait_mask	VIF1 stages outstanding (func_003A9588, func_003A9EF8)
+data	D_00142430	0x00142430	memcard_status	the boot screens' card state (+0x15C, +0x164, +0x18)
+data	D_001D4DA0	0x001D4DA0	snd_reply_buffer	the 989snd reply awaited, 0 when none
+data	D_001CCFD0	0x001CCFD0	stream_loader	+0x4 busy, +0x6 read done, +0x8 count, +0x10 buffer, +0x14 sector, +0x18 callback, +0x1C its argument
+data	D_001D5790	0x001D5790	sly2_demo_path	"cdrom0:\SLY2\SLY2.ELF;1"
+data	D_0010F1A0	0x0010F1A0	vu0_program_chain	VIF0 chain loading VU0's microprograms (MPG at 0x0010F1AC: 96 pairs at 0xC80; entries 0xC80, 0xDA0 cos, 0xDB0 sin)
+data	D_0015C040	0x0015C040	main_args	argc, then argv for main

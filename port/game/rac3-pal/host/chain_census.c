@@ -96,51 +96,80 @@ void rac3_chain_census(gaddr channel, gaddr tag_addr) {
         vif_codes(&c, at + 8u, 2u);
         gaddr data = at + 16u, next = at + 16u + qwc * 16u;
         switch (id) {
-        case 0: /* refe */
-            vif_codes(&c, w1, qwc * 4u);
-            next = 0;
-            break;
-        case 1: /* cnt */
-            vif_codes(&c, data, qwc * 4u);
-            break;
-        case 2: /* next */
-            vif_codes(&c, data, qwc * 4u);
-            next = w1;
-            break;
-        case 3: /* ref */
-        case 4: /* refs */
-            vif_codes(&c, w1, qwc * 4u);
-            next = at + 16u;
-            break;
-        case 5: /* call */
-            vif_codes(&c, data, qwc * 4u);
-            if (depth < 2) {
-                stack[depth++] = at + 16u + qwc * 16u;
-            }
-            next = w1;
-            break;
-        case 6: /* ret */
-            vif_codes(&c, data, qwc * 4u);
-            next = depth > 0 ? stack[--depth] : 0;
-            break;
-        default: /* end */
-            vif_codes(&c, data, qwc * 4u);
-            next = 0;
-            break;
+            case 0: /* refe */
+                vif_codes(&c, w1, qwc * 4u);
+                next = 0;
+                break;
+            case 1: /* cnt */
+                vif_codes(&c, data, qwc * 4u);
+                break;
+            case 2: /* next */
+                vif_codes(&c, data, qwc * 4u);
+                next = w1;
+                break;
+            case 3: /* ref */
+            case 4: /* refs */
+                vif_codes(&c, w1, qwc * 4u);
+                next = at + 16u;
+                break;
+            case 5: /* call */
+                vif_codes(&c, data, qwc * 4u);
+                if (depth < 2) {
+                    stack[depth++] = at + 16u + qwc * 16u;
+                }
+                next = w1;
+                break;
+            case 6: /* ret */
+                vif_codes(&c, data, qwc * 4u);
+                next = depth > 0 ? stack[--depth] : 0;
+                break;
+            default: /* end */
+                vif_codes(&c, data, qwc * 4u);
+                next = 0;
+                break;
         }
         if (next == 0) {
             break;
         }
         at = next & 0x0FFFFFF0u;
     }
-    fprintf(stderr,
-            "[rac3 chain %08x] %u tags, DIRECT %u qw, %u UNPACKs (%u words), %u MPG, %u MSCAL",
-            tag_addr, c.tags, c.direct_qw, c.unpacks, c.unpack_words, c.mpg, c.mscal);
+    fprintf(
+        stderr,
+        "[rac3 chain %08x] %u tags, DIRECT %u qw, %u UNPACKs (%u words), %u MPG, %u MSCAL",
+        tag_addr,
+        c.tags,
+        c.direct_qw,
+        c.unpacks,
+        c.unpack_words,
+        c.mpg,
+        c.mscal
+    );
     for (unsigned k = 0; k < c.mscal_n; k++) {
         fprintf(stderr, " %#x", c.mscal_addr[k]);
     }
-    fprintf(stderr, ", %u other; mode %d (0x001D5B94), next %d (0x001D5B90)\n", c.other,
-            (int)word(0x001D5B94u), (int)word(0x001D5B90u));
-    fprintf(stderr, "[rac3 boot] state %d (0x001D5458), frames %d (0x001D5688), 0x001D568C %d, screen %d (0x001D5690), timer %d (0x001D5694)\n",
-            (int)word(0x001D5458u), (int)word(0x001D5688u), (int)word(0x001D568Cu), (int)word(0x001D5690u), (int)word(0x001D5694u));
+    fprintf(
+        stderr,
+        ", %u other; mode %d (0x001D5B94), next %d (0x001D5B90)\n",
+        c.other,
+        (int)word(0x001D5B94u),
+        (int)word(0x001D5B90u)
+    );
+    const gaddr pad = word(0x001D52FCu);
+    fprintf(
+        stderr,
+        "[rac3 boot] state %d (0x001D5458), frames %d (0x001D5688), boot screens %d (0x001D568C), "
+        "screen %d (0x001D5690), timer %d (0x001D5694), pad %08x held %08x pressed %08x, pad state "
+        "%d getstate %d raw %08x\n",
+        (int)word(0x001D5458u),
+        (int)word(0x001D5688u),
+        (int)word(0x001D568Cu),
+        (int)word(0x001D5690u),
+        (int)word(0x001D5694u),
+        pad,
+        pad ? word(pad + 0x1A0u) : 0,
+        pad ? word(pad + 0x1A4u) : 0,
+        pad ? (int)word(pad + 0x198u) : 0,
+        pad ? (int)word(pad + 0x19Cu) : 0,
+        pad ? word(pad + 0x574u) : 0
+    );
 }

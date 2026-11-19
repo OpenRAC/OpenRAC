@@ -249,7 +249,8 @@
   ],
   "unpassed_registers": true,
   "executable_extents": {
-    "report": "progress/report.json",
-    "units": "boot_elf/"
+    "sources": [
+      "src/boot_elf"
+    ]
   }
 }

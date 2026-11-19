@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (c) 2026 the OpenRAC contributors
+ *
  * Native counterpart to Up Your Arsenal's loader and start-up.
  *
  * The disc boots SCES_524.56, a small loader linked at 0x00800000 (i5bootn's code) whose
@@ -25,8 +27,8 @@
 
 uint32_t openrac_lib_wad_decompress(const uint8_t* src, uint8_t* dst, uint32_t capacity);
 
-int func_00124B90(void);       /* _InitSys */
-void func_0011F0A0(int a0);    /* FlushCache */
+int func_00124B90(void);              /* _InitSys */
+void func_0011F0A0(int a0);           /* FlushCache */
 void func_0013B330(int a0, gaddr a1); /* main */
 
 /* Where the loader's payload is: file offset 0x7080 of an executable whose one segment is file
@@ -47,11 +49,14 @@ static void unpack_payload(void) {
         fprintf(stderr, "rac3: no memory to unpack the game\n");
         exit(1);
     }
-    const uint32_t size = openrac_lib_wad_decompress((const uint8_t*)G(RAC3_PAYLOAD), image,
-                                                     RAC3_PAYLOAD_MAX);
+    const uint32_t size =
+        openrac_lib_wad_decompress((const uint8_t*)G(RAC3_PAYLOAD), image, RAC3_PAYLOAD_MAX);
     if (size < 16) {
-        fprintf(stderr, "rac3: SCES_524.56 holds no game at 0x%08x (not the PAL disc's loader?)\n",
-                RAC3_PAYLOAD);
+        fprintf(
+            stderr,
+            "rac3: SCES_524.56 holds no game at 0x%08x (not the PAL disc's loader?)\n",
+            RAC3_PAYLOAD
+        );
         exit(1);
     }
     uint32_t at = 0;
@@ -74,15 +79,14 @@ static void unpack_payload(void) {
  * func_0011F718): it patches two kernel routines through SetSyscall, then scans kernel memory with
  * FindAddress until two searches meet, to record where the kernel's table of system calls is. The
  * port has no kernel memory, so the scan would never end; there is nothing for it to find. */
-void func_00124A80(void) {
-}
+void func_00124A80(void) {}
 
 int func_0013ADA8(void) {
     uint32_t argc;
     unpack_payload();
     openrac_game_draw(0);
-    func_00124B90();   /* _InitSys */
-    func_0011F0A0(0);  /* FlushCache(0) */
+    func_00124B90();  /* _InitSys */
+    func_0011F0A0(0); /* FlushCache(0) */
     memcpy(&argc, G(0x0015C040u), sizeof argc);
     func_0013B330((int)argc, 0x0015C044u);
     return 0;

@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (c) 2026 the OpenRAC contributors
+ *
  * Up Your Arsenal's libpad API (libpad 4.0, as Deadlocked's: rac4-ntsc/host/pad.c), backed by the
  * host's controller ports. The game's pad state machine (func_003A3B40) and its reader
  * (func_003A31C8) drive it.
@@ -61,7 +63,7 @@ int func_0012F3F8(int port, int slot, int data) { /* scePadRead */
     if (data == 0 || !connected(port, slot)) {
         return 0;
     }
-    unsigned char *out = G((gaddr)data);
+    unsigned char* out = G((gaddr)data);
     memset(out, 0, 32);
     out[1] = pads[port].analog ? (pads[port].pressure ? 0x79 : 0x73) : 0x41;
     openrac_lib_scePad2Read(port, (gaddr)data + 2u);
@@ -80,7 +82,7 @@ int func_0012F470(int port, int slot) { /* scePadGetState */
     return connected(port, slot) ? 6 : 0; /* stable / disconnected */
 }
 
-int func_0012F5A8(int port, int slot) { /* scePadGetReqState */
+int func_0012F5A8(int port, int slot) {   /* scePadGetReqState */
     return connected(port, slot) ? 0 : 1; /* completed / failed */
 }
 
@@ -101,15 +103,15 @@ int func_0012F728(int port, int slot, int info, int index) { /* scePadInfoMode *
         return 0;
     }
     switch (info) {
-    case 1: /* current id */
-    case 2: /* current extended id */
-        return pads[port].analog ? 7 : 4;
-    case 3: /* current mode-table index */
-        return pads[port].analog ? 1 : 0;
-    case 4: /* mode count, or entry */
-        return index == -1 ? 2 : index == 0 ? 4 : index == 1 ? 7 : 0;
-    default:
-        return 0;
+        case 1: /* current id */
+        case 2: /* current extended id */
+            return pads[port].analog ? 7 : 4;
+        case 3: /* current mode-table index */
+            return pads[port].analog ? 1 : 0;
+        case 4: /* mode count, or entry */
+            return index == -1 ? 2 : index == 0 ? 4 : index == 1 ? 7 : 0;
+        default:
+            return 0;
     }
 }
 

@@ -55,28 +55,54 @@ PROGRAM_FILES = ["stubs.c", "functions.c", "hooks.c", "libraries.c", "game_info.
 _STATE: dict = {}
 
 
-
 def read_extents(spec: dict | None, source: Path) -> dict[int, int]:
-    """hostgen.json "executable_extents": {"report": PATH, "units": PREFIX}: where each executable
-    function starts and how long it is, from the decompilation's objdiff progress report (its
-    units whose name starts with PREFIX). A name the C declares inside another function's extent
-    (an address of another version or another program) then starts nothing there
-    (retail.starts_of): Up Your Arsenal's front-end C declares frontbin's and the US release's
-    names, which cut boot_elf's functions apart and dropped their jump tables' targets."""
+    """hostgen.json "executable_extents": where each executable function starts and how far it
+    runs, so that a name the C only declares inside another function's extent (an address of
+    another version or another program) starts nothing there (retail.starts_of). Up Your
+    Arsenal's front-end C declares frontbin's and the US release's names, which cut boot_elf's
+    functions apart and dropped their jump tables' targets.
+
+    "sources": [DIR, ...]: the decompilation's own definitions under those directories, its C
+    definitions and its INCLUDE_ASM, ASM_FUNC and LINKER_REMNANT lines, each running to the next
+    one. "report": PATH with "units": PREFIX: the sizes its objdiff progress report gives (the
+    units whose name starts with PREFIX)."""
     if not spec:
         return {}
-    path = source / spec["report"]
-    if not path.is_file():
-        return {}
     out: dict[int, int] = {}
-    for unit in json.loads(path.read_text()).get("units", []):
-        if not unit.get("name", "").startswith(spec.get("units", "")):
-            continue
-        for f in unit.get("functions", []):
-            address = int(f.get("metadata", {}).get("virtual_address", 0))
-            if address:
-                out[address] = int(f.get("size", 0))
+    starts: set[int] = set()
+    for folder in spec.get("sources", []):
+        for path in sorted((source / folder).rglob("*.c")):
+            text = path.read_text(errors="replace")
+            for m in _DEFINED.finditer(text):
+                name = m.group(1) or m.group(2)
+                starts.add(int(name[5:13], 16))
+    ordered = sorted(starts)
+    for a, b in zip(ordered, ordered[1:]):
+        if b - a <= _LONGEST:  # not across the gap between two code sections
+            out[a] = b - a
+    report = spec.get("report")
+    path = source / report if report else None
+    if path is not None and path.is_file():
+        for unit in json.loads(path.read_text()).get("units", []):
+            if not unit.get("name", "").startswith(spec.get("units", "")):
+                continue
+            for f in unit.get("functions", []):
+                address = int(f.get("metadata", {}).get("virtual_address", 0))
+                if address:
+                    out[address] = int(f.get("size", 0))
     return out
+
+
+# The longest a function is taken to run to the next definition (the longest of boot_elf's is
+# 0x2000 bytes): past it lies another code section.
+_LONGEST = 0x10000
+
+# A function the decompilation defines: an assembly stub line, or a C definition's head (its
+# name, then its parameters, not ended by a semicolon).
+_DEFINED = re.compile(
+    r'^[ \t]*(?:INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT)\(\s*"[^"]*"\s*,\s*(func_[0-9A-F]{8})\s*\)'
+    r'|^(?!extern\b|typedef\b)[A-Za-z_][\w \t\*]*?\b(func_[0-9A-F]{8})[ \t]*\([^;{}]*\)[ \t]*(?:\{[^\n]*)?$',
+    re.M)
 
 def _init(state: dict) -> None:
     _STATE.update(state)
