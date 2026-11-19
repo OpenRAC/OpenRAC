@@ -6,13 +6,15 @@
   // Each entry folds open to say what the original does and what the port does, and why. Where
   // in the code it is, and the settings file, are a contributor's details: with developer tools on.
   // `foldable` (Android): closed under its title and a line of what it holds, until opened.
-  import FoldHead from "./FoldHead.svelte";
+  import { fly, slide } from "svelte/transition";
+
   import { api, type Differences, type DifferenceView, type VersionView } from "$lib/api";
   import { app, toast } from "$lib/app.svelte";
   import { differencesSummary, groupDifferences, splitVersion } from "$lib/differences";
   import { arrive, fold } from "$lib/motion";
   import { isPlaying } from "$lib/player.svelte";
-  import { fly, slide } from "svelte/transition";
+
+  import FoldHead from "./FoldHead.svelte";
 
   let { version, foldable = false }: { version: VersionView; foldable?: boolean } = $props();
   let unfolded = $state(false);
@@ -31,6 +33,7 @@
   $effect(() => {
     const [game, disc] = splitVersion(version.key);
     const mine = ++reading;
+
     data = null;
     open = {};
     void api
@@ -46,6 +49,7 @@
   async function setFix(entry: DifferenceView, on: boolean) {
     if (!data || playing) return; // the running game would save over it
     saving = entry.id;
+
     try {
       data = await api.setGameFix(data.game, data.version, entry.id, on);
     } catch (e) {
@@ -69,14 +73,19 @@
     {:else}
       <div class="row top">
         <h2 id="differences-title" class="grow">Differences from the original</h2>
-        {#if developer}<span class="chip mono" title="The game's settings file">{data.settingsFile}</span>{/if}
+        {#if developer}<span class="chip mono" title="The game's settings file"
+            >{data.settingsFile}</span
+          >{/if}
       </div>
     {/if}
     {#if !foldable || unfolded}
       <div id="differences-list" class="list" transition:slide={fold}>
-        {#if foldable && developer}<span class="chip mono" title="The game's settings file">{data.settingsFile}</span
+        {#if foldable && developer}<span class="chip mono" title="The game's settings file"
+            >{data.settingsFile}</span
           >{/if}
-        <p class="muted">What this PC version does otherwise than the PlayStation 2 game, and why.</p>
+        <p class="muted">
+          What this PC version does otherwise than the PlayStation 2 game, and why.
+        </p>
 
         {#each groups as group (group.kind)}
           <div class="group">
@@ -84,8 +93,9 @@
             <p class="about">{group.about}</p>
             {#if group.kind === "fix" && playing}
               <p class="about warn">
-                The game is running, so these are locked here: the game would save over a change made now. Change them
-                in the game under Options, Game fixes, or here once it has closed.
+                The game is running, so these are locked here: the game would save over a change
+                made now. Change them in the game under Options, Game fixes, or here once it has
+                closed.
               </p>
             {/if}
             <ul>
@@ -101,7 +111,9 @@
                       onclick={() => (open[entry.id] = !open[entry.id])}>{entry.name}</button
                     >
                     {#if entry.kind === "fix"}
-                      <span class="state" class:original={entry.on === false}>{entry.on ? "On" : "Original"}</span>
+                      <span class="state" class:original={entry.on === false}
+                        >{entry.on ? "On" : "Original"}</span
+                      >
                       <input
                         type="checkbox"
                         class="switch"

@@ -9,7 +9,10 @@ import { formatBinds, parseBinds } from "./keybinds";
 /** The keys of the settings the mod's presets cover. */
 export function presetScope(settings: PluginSetting[], presets: PluginPreset[]): Set<string> {
   const named = new Set(presets.flatMap((p) => Object.keys(p.values)));
-  return new Set(settings.filter((s) => s.type === "keybind" || named.has(s.key)).map((s) => s.key));
+
+  return new Set(
+    settings.filter((s) => s.type === "keybind" || named.has(s.key)).map((s) => s.key),
+  );
 }
 
 /** A value as the setting holds it, to compare: a keybind's binds in order, without repeats. */
@@ -25,18 +28,26 @@ export function presetChanges(
 ): Record<string, unknown> {
   const scope = presetScope(settings, presets);
   const out: Record<string, unknown> = {};
+
   for (const s of settings) {
     if (!scope.has(s.key)) continue;
     const wanted = held(s, preset && s.key in preset.values ? preset.values[s.key] : s.default);
+
     if (wanted !== held(s, s.value)) out[s.key] = wanted;
   }
+
   return out;
 }
 
 /** Whether the settings are as a preset (null: the defaults) would set them. */
-export const isPreset = (settings: PluginSetting[], presets: PluginPreset[], preset: PluginPreset | null): boolean =>
-  Object.keys(presetChanges(settings, presets, preset)).length === 0;
+export const isPreset = (
+  settings: PluginSetting[],
+  presets: PluginPreset[],
+  preset: PluginPreset | null,
+): boolean => Object.keys(presetChanges(settings, presets, preset)).length === 0;
 
 /** Whether the presets set keybinds only (the row is then the mod's controls). */
 export const presetsBindOnly = (settings: PluginSetting[], presets: PluginPreset[]): boolean =>
-  presets.every((p) => Object.keys(p.values).every((k) => settings.find((s) => s.key === k)?.type === "keybind"));
+  presets.every((p) =>
+    Object.keys(p.values).every((k) => settings.find((s) => s.key === k)?.type === "keybind"),
+  );

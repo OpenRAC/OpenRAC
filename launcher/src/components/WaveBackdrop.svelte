@@ -76,17 +76,21 @@ void main() {
 
   function program(gl: WebGLRenderingContext, vs: string, fs: string): WebGLProgram | null {
     const p = gl.createProgram();
+
     for (const [type, src] of [
       [gl.VERTEX_SHADER, vs],
       [gl.FRAGMENT_SHADER, fs],
     ] as const) {
       const sh = gl.createShader(type);
+
       if (!sh) return null;
       gl.shaderSource(sh, src);
       gl.compileShader(sh);
       gl.attachShader(p, sh);
     }
+
     gl.linkProgram(p);
+
     return gl.getProgramParameter(p, gl.LINK_STATUS) ? p : null;
   }
 
@@ -99,19 +103,28 @@ void main() {
       // A backdrop: the battery's GPU where there are two.
       powerPreference: "low-power",
     });
+
     if (!gl) return null;
     const cloth = program(gl, QUAD_VS, CLOTH_FS);
     const quad = gl.createBuffer();
+
     if (!cloth) return null;
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     // Only the band the cloth can reach (36% to 92% of the height, glow included): the rest of
     // the screen is never shaded.
     const top = 1 - 2 * 0.36,
       bottom = 1 - 2 * 0.92;
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, bottom, 1, bottom, -1, top, 1, top]), gl.STATIC_DRAW);
+
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, bottom, 1, bottom, -1, top, 1, top]),
+      gl.STATIC_DRAW,
+    );
     const at: Gl["at"] = {};
+
     for (const name of ["uRes", "uDpr", "uAlong", "uFrost", "uCol", "uA0", "uA1", "uA2"])
       at[name] = gl.getUniformLocation(cloth, name);
+
     return {
       gl,
       cloth,
@@ -155,6 +168,7 @@ void main() {
   function angles(s: (typeof SHEETS)[number], t: number): [number, number, number] {
     const q = t * s.pace;
     const wrap = (a: number, p: number) => ((a % p) + p) % p;
+
     return [
       wrap(q * 0.21 + s.phase, TAU),
       wrap(-q * 0.13 + s.phase * 1.7, TAU),
@@ -169,6 +183,7 @@ void main() {
         .getPropertyValue("--glow")
         .match(/[\d.]+/g) ?? []
     ).map(Number);
+
     return r === undefined || g === undefined || b === undefined ? [244, 190, 64] : [r, g, b];
   }
 
@@ -179,10 +194,16 @@ void main() {
 
   $effect(() => {
     const holder = host;
+
     if (!holder) return;
-    kept ??= { canvas: document.createElement("canvas"), frozen: document.createElement("canvas"), g: null };
+    kept ??= {
+      canvas: document.createElement("canvas"),
+      frozen: document.createElement("canvas"),
+      g: null,
+    };
     const k = kept;
     const c = k.canvas;
+
     c.className = "live";
     k.frozen.className = "frozen";
     holder.append(c, k.frozen);
@@ -210,6 +231,7 @@ void main() {
       // visit still shows until its first frame here.
       const w = Math.max(1, Math.round(c.clientWidth * dpr)),
         h = Math.max(1, Math.round(c.clientHeight * dpr));
+
       if (c.width !== w) c.width = w;
       if (c.height !== h) c.height = h;
       frost = frostOf(c);
@@ -221,6 +243,7 @@ void main() {
         h = c.height;
       const col = colour.map((v) => v / 255) as [number, number, number];
       const along = slide * 0.08;
+
       gl.viewport(0, 0, w, h);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -234,6 +257,7 @@ void main() {
       gl.uniform1f(at.uFrost ?? null, frost * dpr);
       gl.uniform3f(at.uCol ?? null, col[0], col[1], col[2]);
       const a = SHEETS.map((sh) => angles(sh, t));
+
       a.forEach((v, i) => {
         gl.uniform3f(at[`uA${i}`] ?? null, v[0], v[1], v[2]);
       });
@@ -245,31 +269,39 @@ void main() {
     let seen = start;
     const tick = (now: number) => {
       frame = requestAnimationFrame(tick);
+
       // While a page slides the still copy shows: the wave's clock and its push wait too, so the
       // live wave goes on from the copy's very picture (it jumped up to 35 px in one frame).
       if (sliding()) {
         start += now - seen;
         seen = last = now;
+
         return;
       }
+
       seen = now;
       // 60 frames a second while it follows the wheel or comes in with its push; the slow drift
       // alone, 30 (user decision: half the GPU work on a shelf left alone, same picture).
       const moving = Math.abs(shift - slide) > 0.002 || now - start < 2000;
+
       if (document.hidden || now - last < (moving ? 15 : 31)) return;
       const step = Math.min(now - last, 100) / (1000 / 60);
+
       last = now;
+
       // The colour follows the game's as it changes (a transition), read a few times a second.
       if (now - read > 120) {
         colour = rgb(c);
         read = now;
       }
+
       // After the wheel at the same pace whatever the frame rate: 8 % of the way each 60th of a second.
       slide += (shift - slide) * (1 - Math.pow(0.92, step));
       // The weak-GPU check counts 60-a-second frames only.
       if (!moving) drawn = 0;
       // The push: about three times its pace at first, back to its own within a second or so.
       const rush = still ? 0 : 1.2 * (1 - Math.exp(-(now - start) / 600));
+
       at = 10 + (now - start) / 1000 + rush;
       draw(at);
       pace(now);
@@ -280,10 +312,12 @@ void main() {
     const freeze = () => {
       if (!g) return;
       const f = k.frozen;
+
       if (f.width !== c.width) f.width = c.width;
       if (f.height !== c.height) f.height = c.height;
       draw(at);
       const ctx = f.getContext("2d");
+
       if (!ctx) return;
       ctx.clearRect(0, 0, f.width, f.height);
       ctx.drawImage(c, 0, 0);
@@ -296,7 +330,9 @@ void main() {
       if (drawn === 0) since = now;
       if (++drawn < 90) return;
       const slow = (now - since) / (drawn - 1) > 28;
+
       drawn = 0;
+
       if (slow && dpr > 1) {
         cap = 1;
         size();
@@ -309,6 +345,7 @@ void main() {
       if (still) draw(10);
       else frame = requestAnimationFrame(tick);
     };
+
     document.addEventListener("slidestart", freeze);
     const observer = new ResizeObserver(() => {
       size();
@@ -324,6 +361,7 @@ void main() {
       g = k.g = setUp(c);
       run();
     };
+
     c.addEventListener("webglcontextlost", lost);
     c.addEventListener("webglcontextrestored", restored);
     document.addEventListener("visibilitychange", shown);
@@ -332,6 +370,7 @@ void main() {
     // Coming in with a slide: the still copy for the slide's picture of this page.
     if (sliding()) freeze();
     run();
+
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();

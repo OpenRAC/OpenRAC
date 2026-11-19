@@ -1,5 +1,5 @@
 // Native iOS controller events, with the real shared pages and a mock command bridge.
-import { chromium, type Browser, type Page } from "playwright-core";
+import { type Browser, chromium, type Page } from "playwright-core";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from "vitest";
 
@@ -10,10 +10,15 @@ let base = "";
 let errors: string[];
 
 beforeAll(async () => {
-  server = await createServer({ configFile: "vite.config.ts", logLevel: "error", server: { port: 0 } });
+  server = await createServer({
+    configFile: "vite.config.ts",
+    logLevel: "error",
+    server: { port: 0 },
+  });
   await server.listen();
   base = server.resolvedUrls?.local[0] ?? "";
   const executablePath = import.meta.env.OPENRAC_E2E_CHROMIUM as string | undefined;
+
   browser = await chromium.launch(executablePath ? { executablePath } : {});
 }, 60_000);
 
@@ -67,6 +72,7 @@ async function press(...buttons: string[]) {
   for (const button of buttons) {
     await page.evaluate((name) => {
       const native = window as unknown as { __openracPad: (event: string) => void };
+
       native.__openracPad(`down:${name}`);
       native.__openracPad(`up:${name}`);
     }, button);
@@ -78,7 +84,9 @@ it("selects games and changes tabs through native controller events", async () =
   await press("down");
   expect(await page.locator(":focus").getAttribute("data-key")).toBe("rac1");
   await press("down", "accept");
-  expect(await page.locator(".list .entry[aria-current=page]").getAttribute("data-key")).toBe("rac2");
+  expect(await page.locator(".list .entry[aria-current=page]").getAttribute("data-key")).toBe(
+    "rac2",
+  );
   await press("next");
   expect(await page.locator(".tab[aria-current=page]").getAttribute("data-page")).toBe("settings");
   await press("back");
@@ -87,12 +95,16 @@ it("selects games and changes tabs through native controller events", async () =
 
 it("cycles select fields without opening a native picker", async () => {
   await page.evaluate(() => {
-    document.body.innerHTML = '<select id="choice"><option>One</option><option>Two</option></select>';
+    document.body.innerHTML =
+      '<select id="choice"><option>One</option><option>Two</option></select>';
     const select = document.querySelector("select");
+
     if (!select) throw new Error("Missing fixture");
+
     select.showPicker = () => {
       throw new Error("iOS cannot navigate a system select picker");
     };
+
     select.focus();
   });
   await press("accept");
@@ -107,13 +119,18 @@ it("keeps a visible, actionable target when WebKit declines DOM focus", async ()
     HTMLElement.prototype.focus = () => undefined;
   });
   const target = page.locator("[data-pad-focus]");
+
   expect(await target.getAttribute("data-key")).toBe("rac1");
-  expect(await target.evaluate((el) => getComputedStyle(el).outlineColor)).toBe("rgb(255, 255, 255)");
+  expect(await target.evaluate((el) => getComputedStyle(el).outlineColor)).toBe(
+    "rgb(255, 255, 255)",
+  );
   expect(await target.evaluate((el) => getComputedStyle(el).outlineWidth)).toBe("4px");
   await press("down");
   expect(await target.getAttribute("data-key")).toBe("rac2");
   await press("accept");
-  expect(await page.locator(".list .entry[aria-current=page]").getAttribute("data-key")).toBe("rac2");
+  expect(await page.locator(".list .entry[aria-current=page]").getAttribute("data-key")).toBe(
+    "rac2",
+  );
   await page.locator(".tab[data-page=settings]").click();
   expect(await page.locator("[data-pad-focus]").count()).toBe(0);
 });
@@ -121,6 +138,7 @@ it("keeps a visible, actionable target when WebKit declines DOM focus", async ()
 it("exports a chosen slot through the native share command", async () => {
   await page.getByRole("button", { name: "Export", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Export saves" });
+
   await dialog.getByRole("radio", { name: /Slot 2/ }).check();
   await dialog.getByRole("button", { name: "Share…", exact: true }).click();
   await dialog.waitFor({ state: "hidden" });
@@ -132,12 +150,17 @@ it("exports a chosen slot through the native share command", async () => {
         }
       ).__nativeSaveRequests,
   );
-  expect(requests).toContainEqual({ command: "export_saves", args: { serial: "SCES_509.16", slot: 1 } });
+
+  expect(requests).toContainEqual({
+    command: "export_saves",
+    args: { serial: "SCES_509.16", slot: 1 },
+  });
 });
 
 it("opens Files and previews a save before an explicit import confirmation", async () => {
   await page.getByRole("button", { name: "Import", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Import saves" });
+
   await dialog.getByText(/Replaces Kerwan/).waitFor();
   const commands = () =>
     page.evaluate(() =>
@@ -147,6 +170,7 @@ it("opens Files and previews a save before an explicit import confirmation", asy
         }
       ).__nativeSaveRequests.map((r) => r.command),
     );
+
   expect(await commands()).toEqual(["pick_saves_file", "preview_save_import"]);
   await dialog.getByRole("button", { name: "Import", exact: true }).click();
   await dialog.waitFor({ state: "hidden" });
@@ -156,16 +180,20 @@ it("opens Files and previews a save before an explicit import confirmation", asy
 it("keeps future games visible without offering an unsupported iOS disc import", async () => {
   await page.locator('.list .entry[data-key="rac2"]').click();
   const action = page.locator(".go .big");
+
   await action.waitFor();
   expect(await action.textContent()).toContain("Not available on iOS");
   expect(await action.isDisabled()).toBe(true);
-  expect(await page.getByRole("button", { name: "Set up from your disc", exact: true }).count()).toBe(0);
+  expect(
+    await page.getByRole("button", { name: "Set up from your disc", exact: true }).count(),
+  ).toBe(0);
   expect(await page.locator(".list .entry").count()).toBe(6);
 });
 
 it("renders the Store catalogue without requesting desktop game pictures", async () => {
   await page.addInitScript("window.__OPENRAC_STORE_ARTWORK__ = true");
   const pictures: string[] = [];
+
   page.on("request", (request) => {
     if (request.url().includes("/img/")) pictures.push(request.url());
   });

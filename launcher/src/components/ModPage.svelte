@@ -9,15 +9,24 @@
   // A built-in entry (Enhanced graphics, core/src/enhanced.rs: `builtIn`) has no folder, menu or
   // source; its page also says how far its lighting bake is, with the way to run it.
   import { onDestroy, onMount, tick } from "svelte";
-  import { ask, type BakeStatus, type ModSources, type ModUpdate, type PluginPreset, type PluginView } from "$lib/api";
-  import { phaseLabel, readProgress } from "$lib/progress";
-  import type { Job } from "$lib/queue";
+
+  import {
+    ask,
+    type BakeStatus,
+    type ModSources,
+    type ModUpdate,
+    type PluginPreset,
+    type PluginView,
+  } from "$lib/api";
   import { Saver, type SaveState } from "$lib/autosave";
   import { keybindConflicts, sharedBinds } from "$lib/keybinds";
   import { closeMod } from "$lib/modNav.svelte";
   import * as T from "$lib/modsText";
   import { modHint, modKind, settingGroups, sharedWith } from "$lib/plugins";
   import { isPreset, presetChanges } from "$lib/presets";
+  import { phaseLabel, readProgress } from "$lib/progress";
+  import type { Job } from "$lib/queue";
+
   import Icon from "./Icon.svelte";
   import Menu, { type MenuItem } from "./Menu.svelte";
   import ModSetting from "./ModSetting.svelte";
@@ -57,10 +66,17 @@
     /** Shows the mod's own page (ModTool.svelte), for a mod that has one (`tool`). */
     ontool?: () => void;
     /** A built-in entry's bake: its status, the job running it, and the way to start it. */
-    builtIn?: { bake: BakeStatus; job: Job | null; onbake: () => void; ondelete: () => void } | null;
+    builtIn?: {
+      bake: BakeStatus;
+      job: Job | null;
+      onbake: () => void;
+      ondelete: () => void;
+    } | null;
   } = $props();
 
-  const bakeProgress = $derived(builtIn?.job ? readProgress(builtIn.job.actionId, builtIn.job.lines) : null);
+  const bakeProgress = $derived(
+    builtIn?.job ? readProgress(builtIn.job.actionId, builtIn.job.lines) : null,
+  );
 
   // ---- Saving as the player goes ----
 
@@ -86,12 +102,18 @@
     },
     onerror: (key, e) => {
       const name = mod.settings.find((s) => s.key === key)?.name ?? key;
-      failure = T.withName(name, typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+
+      failure = T.withName(
+        name,
+        typeof e === "string" ? e : e instanceof Error ? e.message : String(e),
+      );
     },
   });
 
   /** The settings as their controls show them: a value not saved yet, else the core's. */
-  const shown = $derived(mod.settings.map((s) => (s.key in held ? { ...s, value: held[s.key] } : s)));
+  const shown = $derived(
+    mod.settings.map((s) => (s.key in held ? { ...s, value: held[s.key] } : s)),
+  );
   const groups = $derived(settingGroups(shown));
   const clashes = $derived(keybindConflicts(shown));
   const presets = $derived(mod.presets ?? []);
@@ -99,14 +121,17 @@
   const presetButtons = $derived<(PluginPreset | null)[]>(
     presets.length ? (presets.some((p) => p.id === "default") ? presets : [null, ...presets]) : [],
   );
-  const changed = $derived(shown.filter((s) => s.value !== s.default && String(s.value) !== String(s.default)));
+  const changed = $derived(
+    shown.filter((s) => s.value !== s.default && String(s.value) !== String(s.default)),
+  );
 
   function change(key: string, value: unknown, delay: number) {
     saver.set(key, value, delay);
   }
 
   function applyPreset(preset: PluginPreset | null) {
-    for (const [key, value] of Object.entries(presetChanges(shown, presets, preset))) saver.set(key, value, 0);
+    for (const [key, value] of Object.entries(presetChanges(shown, presets, preset)))
+      saver.set(key, value, 0);
   }
 
   async function resetAll() {
@@ -120,7 +145,9 @@
   const kind = $derived(modKind(mod.kind));
   const shared = $derived(sharedWith(mod));
   const sourceLabel = (url: string) => url.replace(/^https?:\/\/(www\.)?github\.com\//, "");
-  const cannotLoad = $derived(mod.enabled && !purist && (mod.state === "refused" || mod.state === "failed"));
+  const cannotLoad = $derived(
+    mod.enabled && !purist && (mod.state === "refused" || mod.state === "failed"),
+  );
 
   const menu = $derived<MenuItem[]>(
     builtIn
@@ -137,7 +164,9 @@
                 },
               ]
             : []),
-          ...(mod.homepage ? [{ label: T.PANEL.homepage, icon: "external" as const, run: onhomepage }] : []),
+          ...(mod.homepage
+            ? [{ label: T.PANEL.homepage, icon: "external" as const, run: onhomepage }]
+            : []),
           { label: T.PANEL.openFolder, icon: "folder" as const, run: onfolder },
           { label: T.PANEL.remove, icon: "trash" as const, danger: true, run: onremove },
         ],
@@ -152,23 +181,30 @@
 
   onMount(() => {
     void tick().then(() => heading?.focus({ preventScroll: true }));
+
     // Escape goes back, unless something on the page takes it first: an open menu (a popover), a
     // key cap waiting (it takes every key), a field being typed in (Escape leaves the field).
     const key = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;
       if (document.querySelector(":popover-open")) return;
       const at = e.target as HTMLElement | null;
+
       if (at && (at.tagName === "INPUT" || at.tagName === "SELECT" || at.tagName === "TEXTAREA")) {
         const input = at as HTMLInputElement;
+
         if (input.type !== "checkbox" && input.type !== "range") {
           input.blur();
+
           return;
         }
       }
+
       e.preventDefault();
       void back();
     };
+
     window.addEventListener("keydown", key);
+
     return () => {
       window.removeEventListener("keydown", key);
     };
@@ -181,8 +217,11 @@
 
 <div class="mod-page">
   <nav class="crumbs" aria-label={T.MOD_PAGE.crumbsLabel}>
-    <button class="back" aria-label={T.MOD_PAGE.back} title={T.MOD_PAGE.back} onclick={() => void back()}
-      ><Icon name="arrow" size={18} /></button
+    <button
+      class="back"
+      aria-label={T.MOD_PAGE.back}
+      title={T.MOD_PAGE.back}
+      onclick={() => void back()}><Icon name="arrow" size={18} /></button
     >
     <ol>
       <li><button class="crumb" onclick={() => void back()}>{T.MOD_PAGE.crumbRoot}</button></li>
@@ -203,7 +242,9 @@
                   ? T.pinnedRollback
                   : T.keptAt(source.version)}{/if}</span
           >{/if}
-        <span class={`kind ${kind.tone}`} title={modHint(mod.kind)}><span class="dot"></span>{kind.text}</span>
+        <span class={`kind ${kind.tone}`} title={modHint(mod.kind)}
+          ><span class="dot"></span>{kind.text}</span
+        >
       </p>
       {#if mod.description}<p class="desc">{mod.description}</p>{/if}
     </div>
@@ -215,9 +256,10 @@
       {/if}
       {#if update && !source?.pin}
         <button disabled={updating} onclick={onupdate}
-          >{#if updating}<span class="spinner"></span>{:else}<Icon name="refresh" size={16} />{/if}{T.MOD_PAGE.update(
-            update.available,
-          )}</button
+          >{#if updating}<span class="spinner"></span>{:else}<Icon
+              name="refresh"
+              size={16}
+            />{/if}{T.MOD_PAGE.update(update.available)}</button
         >
       {/if}
       {#if mod.kind === "tool"}
@@ -256,9 +298,13 @@
       <p class="notice"><Icon name="info" size={16} /><span>{T.WITH_MODS.offNotice}</span></p>
     {/if}
     {#if cannotLoad}
-      <div class="notice err"><Icon name="warn" size={16} /><Reason text={mod.reason} tone="err" /></div>
+      <div class="notice err">
+        <Icon name="warn" size={16} /><Reason text={mod.reason} tone="err" />
+      </div>
     {:else if !mod.enabled && mod.blocked}
-      <div class="notice"><Icon name="info" size={16} /><Reason text={T.cannotSwitchOn(mod.blocked)} /></div>
+      <div class="notice">
+        <Icon name="info" size={16} /><Reason text={T.cannotSwitchOn(mod.blocked)} />
+      </div>
     {:else if !mod.enabled && mod.settings.length}
       <p class="notice dim"><Icon name="info" size={16} /><span>{T.MOD_PAGE.offNote}</span></p>
     {/if}
@@ -280,7 +326,8 @@
           {#if source}
             <dt>{T.PANEL.source}</dt>
             <dd>
-              <span class="mono">{source.url}</span>{#if source.path}&nbsp;(<span class="mono">{source.path}/</span
+              <span class="mono">{source.url}</span>{#if source.path}&nbsp;(<span class="mono"
+                  >{source.path}/</span
                 >){/if}{#if source.tag}, {source.tag}{/if}
             </dd>
           {/if}
@@ -290,7 +337,9 @@
             <dt>{T.PANEL.folder}</dt>
             <dd class="folder">
               <span class="mono">{mod.path}</span>
-              <button class="small" onclick={onfolder}><Icon name="folder" size={14} />{T.PANEL.openFolder}</button>
+              <button class="small" onclick={onfolder}
+                ><Icon name="folder" size={14} />{T.PANEL.openFolder}</button
+              >
             </dd>
           {/if}
           {#if developer}
@@ -316,7 +365,11 @@
               ? `, ${Math.round(bakeProgress.percent)} %${bakeProgress.left ? `, ${bakeProgress.left}` : ""}`
               : "…"}
           {:else if !bake.available}
-            {bake.noBakerHere ? T.ENHANCED.noBakerHere : bake.levels === 0 ? T.ENHANCED.noLevels : T.ENHANCED.noBaker}
+            {bake.noBakerHere
+              ? T.ENHANCED.noBakerHere
+              : bake.levels === 0
+                ? T.ENHANCED.noLevels
+                : T.ENHANCED.noBaker}
           {:else if bake.ready >= bake.levels}
             {T.ENHANCED.ready(bake.levels)}
           {:else}
@@ -333,8 +386,8 @@
             aria-valuemax={100}
             aria-valuenow={bakeProgress?.percent ?? undefined}
           >
-            {#if bakeProgress?.percent != null}<i style:width={`${bakeProgress.percent}%`}></i>{:else}<i class="moving"
-              ></i>{/if}
+            {#if bakeProgress?.percent != null}<i style:width={`${bakeProgress.percent}%`}
+              ></i>{:else}<i class="moving"></i>{/if}
           </div>
         {:else if bake.ready < bake.levels && !bake.noBakerHere}
           <p class="dim small-print">{T.ENHANCED.fallback}</p>

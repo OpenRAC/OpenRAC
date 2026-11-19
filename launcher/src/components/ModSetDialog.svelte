@@ -1,8 +1,10 @@
 <script lang="ts">
   // The window both mod code dialogs are: a head, a body that scrolls, and a row of actions.
   import type { Snippet } from "svelte";
-  import { modal } from "$lib/portal";
+
   import { MOD_CODES as T } from "$lib/modsText";
+  import { modal } from "$lib/portal";
+
   import Icon, { type IconName } from "./Icon.svelte";
 
   let {
@@ -39,7 +41,13 @@
 
 <div class="overlay" role="presentation" use:modal>
   <button class="backdrop" onclick={close} tabindex="-1" aria-label={T.close}></button>
-  <div class="modal rise" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} tabindex="-1">
+  <div
+    class="modal rise"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby={`${id}-title`}
+    tabindex="-1"
+  >
     <div class="header">
       <Icon name={icon} size={20} />
       <div class="titles">

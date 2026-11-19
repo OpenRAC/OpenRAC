@@ -6,13 +6,21 @@
   // AdvancedSaveEditor.svelte, edits every chunk of the file; it saves as raw chunks, through the
   // same guards. What has been changed is marked where it is and listed above Save, Reset puts the
   // save back as read, and leaving with changes asks in the editor itself, not in a browser box.
+  import { onMount } from "svelte";
+  import { slide } from "svelte/transition";
+
   import AdvancedSaveEditor from "$components/AdvancedSaveEditor.svelte";
   import Icon from "$components/Icon.svelte";
-  import { api, type SaveBackupInfo, type SaveChange, type SaveFields, type SaveView } from "$lib/api";
+  import {
+    api,
+    type SaveBackupInfo,
+    type SaveChange,
+    type SaveFields,
+    type SaveView,
+  } from "$lib/api";
   import { app, toast } from "$lib/app.svelte";
-  import { inertPage, portal } from "$lib/portal";
-  import { tablist } from "$lib/tabs";
   import { fold } from "$lib/motion";
+  import { inertPage, portal } from "$lib/portal";
   import {
     changed,
     chunkBytes,
@@ -24,16 +32,15 @@
     NANOTECH,
     ownedCount,
     rawPatches,
+    type SaveSection,
     setAllGoldBolts,
     setAllPlanets,
     setOwned,
     skillCount,
     slotTitle,
     takeAll,
-    type SaveSection,
   } from "$lib/saveEdit";
-  import { onMount } from "svelte";
-  import { slide } from "svelte/transition";
+  import { tablist } from "$lib/tabs";
 
   let {
     serial,
@@ -66,15 +73,22 @@
   const advancedOn = $derived(app.config?.saveEditorAdvanced ?? false);
   const errors = $derived(view && fields ? fieldErrors(view, fields) : {});
   const patches = $derived(view && mode === "advanced" ? rawPatches(view, bytes) : []);
-  const dirty = $derived(!!view && !!fields && (mode === "advanced" ? patches.length > 0 : changed(view, fields)));
+  const dirty = $derived(
+    !!view && !!fields && (mode === "advanced" ? patches.length > 0 : changed(view, fields)),
+  );
   const canSave = $derived(
-    dirty && !busy && !playing && (mode === "advanced" ? hexInvalid === 0 : Object.keys(errors).length === 0),
+    dirty &&
+      !busy &&
+      !playing &&
+      (mode === "advanced" ? hexInvalid === 0 : Object.keys(errors).length === 0),
   );
   /** What the edits change, a line each, for the list above Save. */
   const edits = $derived(view && fields && mode === "player" ? editList(view, fields) : []);
   const editedSections = $derived(new Set(edits.map((e) => e.section)));
   /** How many changes the foot counts: the player view's lines, or the chunks the bytes touch. */
-  const changeCount = $derived(mode === "advanced" ? patches.length : Math.max(edits.length, dirty ? 1 : 0));
+  const changeCount = $derived(
+    mode === "advanced" ? patches.length : Math.max(edits.length, dirty ? 1 : 0),
+  );
   /** Leaving with changes asks first, in the foot. */
   let asking = $state(false);
   /** "Take all" gadgets asks first, beside the button, with the story-item warning. */
@@ -86,14 +100,18 @@
   let modalEl = $state<HTMLElement | null>(null);
   let bodyEl = $state<HTMLElement | null>(null);
   /** Planets the save can be moved to, and the one it is on even when it is a story planet. */
-  const landing = $derived(view && fields ? view.levels.filter((l) => l.canLand || l.id === view?.fields.planet) : []);
+  const landing = $derived(
+    view && fields ? view.levels.filter((l) => l.canLand || l.id === view?.fields.planet) : [],
+  );
   const weapons = $derived(view?.items.filter((i) => i.kind === "weapon") ?? []);
   const gadgets = $derived(view?.items.filter((i) => i.kind === "gadget") ?? []);
 
   async function load() {
     loadError = null;
+
     try {
       const read = await api.readSave(serial, slot);
+
       view = read;
       fields = structuredClone(read.fields);
       bytes = chunkBytes(read);
@@ -106,12 +124,14 @@
     if (!view || !fields || !canSave) return;
     busy = true;
     saveError = null;
+
     try {
       const change: SaveChange =
         mode === "advanced"
           ? { kind: "raw", chunks: $state.snapshot(patches) }
           : { kind: "fields", fields: $state.snapshot(fields) };
       const result = await api.writeSave(serial, slot, view.fingerprint, change);
+
       view = result.view;
       fields = structuredClone(result.view.fields);
       bytes = chunkBytes(result.view);
@@ -128,6 +148,7 @@
     if (!saved) return;
     busy = true;
     saveError = null;
+
     try {
       await api.restoreBackup(serial, saved.name);
       toast(`Slot ${String(slot + 1)} is back as it was before the edit.`, "info");
@@ -177,6 +198,7 @@
   function itemEdited(id: number): boolean {
     const a = view?.fields.items.find((i) => i.id === id);
     const b = item(id);
+
     return !!a && !!b && (a.owned !== b.owned || a.ammo !== b.ammo || a.gold !== b.gold);
   }
 
@@ -184,6 +206,7 @@
   function planetEdited(id: number): boolean {
     const a = view?.fields.planets.find((p) => p.id === id);
     const b = fields?.planets.find((p) => p.id === id);
+
     return !!a && !!b && (a.unlocked !== b.unlocked || a.goldBolts.join() !== b.goldBolts.join());
   }
 
@@ -197,6 +220,7 @@
     if (!fields) return;
     fields.planet = id;
     const p = fields.planets.find((s) => s.id === id);
+
     if (p) p.unlocked = true;
   }
 
@@ -226,21 +250,28 @@
     if (!bodyEl) return;
     const line = bodyEl.getBoundingClientRect().top + 60;
     let at: SaveSection = "ratchet";
+
     for (const [key] of sections) {
       const el = document.getElementById(`se-${key}`);
+
       if (el && el.getBoundingClientRect().top <= line) at = key;
     }
+
     const end = bodyEl.scrollTop + bodyEl.clientHeight >= bodyEl.scrollHeight - 2;
+
     current = end ? (target ?? "skills") : at;
   }
 
   // Scrolling by hand lets the section in view decide again.
   $effect(() => {
     const el = bodyEl;
+
     if (!el) return;
     const free = () => (target = null);
+
     el.addEventListener("wheel", free, { passive: true });
     el.addEventListener("pointerdown", free);
+
     return () => {
       el.removeEventListener("wheel", free);
       el.removeEventListener("pointerdown", free);
@@ -259,8 +290,10 @@
     // goes back where it was (the slot's Edit button).
     const back = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const release = inertPage();
+
     modalEl?.focus();
     void load();
+
     return () => {
       release();
       back?.focus();
@@ -279,7 +312,8 @@
 />
 
 <div class="overlay" role="presentation" use:portal>
-  <button class="backdrop" onclick={close} tabindex="-1" aria-label="Close the save editor"></button>
+  <button class="backdrop" onclick={close} tabindex="-1" aria-label="Close the save editor"
+  ></button>
   <div
     class="modal rise"
     role="dialog"
@@ -354,7 +388,10 @@
               onclick={() => {
                 jump(key);
               }}
-              >{label}{#if editedSections.has(key)}<span class="mark" role="img" aria-label="changed"
+              >{label}{#if editedSections.has(key)}<span
+                  class="mark"
+                  role="img"
+                  aria-label="changed"
                 ></span>{/if}</button
             >
           {/each}
@@ -363,7 +400,10 @@
           <h3 id="se-ratchet-h">Ratchet</h3>
           <div class="line">
             <label for="se-bolts"
-              >Bolts{#if fields.bolts !== view.fields.bolts}<span class="mark" role="img" aria-label="changed"
+              >Bolts{#if fields.bolts !== view.fields.bolts}<span
+                  class="mark"
+                  role="img"
+                  aria-label="changed"
                 ></span>{/if}</label
             >
             <div class="field">
@@ -389,13 +429,21 @@
           </div>
           <div class="line">
             <span id="se-health"
-              >Health{#if fields.nanotech !== view.fields.nanotech}<span class="mark" role="img" aria-label="changed"
+              >Health{#if fields.nanotech !== view.fields.nanotech}<span
+                  class="mark"
+                  role="img"
+                  aria-label="changed"
                 ></span>{/if}</span
             >
             <div class="choices" role="radiogroup" aria-labelledby="se-health">
               {#each NANOTECH as c (c.value)}
                 <label class="choice" class:on={fields.nanotech === c.value}>
-                  <input type="radio" name="se-nanotech" value={c.value} bind:group={fields.nanotech} />
+                  <input
+                    type="radio"
+                    name="se-nanotech"
+                    value={c.value}
+                    bind:group={fields.nanotech}
+                  />
                   <b>{c.health}</b>
                   {c.label}
                 </label>
@@ -407,7 +455,11 @@
         <section id="se-weapons" aria-labelledby="se-weapons-h">
           <h3 id="se-weapons-h">
             Weapons <span class="count"
-              >{ownedCount(view, fields, "weapon")[0]} of {ownedCount(view, fields, "weapon")[1]}</span
+              >{ownedCount(view, fields, "weapon")[0]} of {ownedCount(
+                view,
+                fields,
+                "weapon",
+              )[1]}</span
             >
             <span class="grow"></span>
             <span class="actions">
@@ -444,7 +496,8 @@
                         if (view && fields) setOwned(view, fields, w.id, e.currentTarget.checked);
                       }}
                     />
-                    {w.name}{#if itemEdited(w.id)}<span class="mark" role="img" aria-label="changed"></span>{/if}
+                    {w.name}{#if itemEdited(w.id)}<span class="mark" role="img" aria-label="changed"
+                      ></span>{/if}
                   </label>
                   {#if w.maxAmmo !== null && s.ammo !== null}
                     <span class="ammo" class:off={!s.owned}>
@@ -458,8 +511,10 @@
                         aria-invalid={!!errors[`ammo-${String(w.id)}`]}
                       />
                       <span class="dim">/ {w.maxAmmo}</span>
-                      <button class="ghost small" onclick={() => (s.ammo = w.maxAmmo)} disabled={s.ammo === w.maxAmmo}
-                        >Fill</button
+                      <button
+                        class="ghost small"
+                        onclick={() => (s.ammo = w.maxAmmo)}
+                        disabled={s.ammo === w.maxAmmo}>Fill</button
                       >
                     </span>
                   {:else}
@@ -485,7 +540,11 @@
         <section id="se-gadgets" aria-labelledby="se-gadgets-h">
           <h3 id="se-gadgets-h">
             Gadgets and items <span class="count"
-              >{ownedCount(view, fields, "gadget")[0]} of {ownedCount(view, fields, "gadget")[1]}</span
+              >{ownedCount(view, fields, "gadget")[0]} of {ownedCount(
+                view,
+                fields,
+                "gadget",
+              )[1]}</span
             >
             <span class="grow"></span>
             <span class="actions">
@@ -498,7 +557,8 @@
               <button
                 class="ghost small"
                 onclick={() => (confirmTake = true)}
-                disabled={confirmTake || ownedCount(view, fields, "gadget")[0] === 0}>Take all</button
+                disabled={confirmTake || ownedCount(view, fields, "gadget")[0] === 0}
+                >Take all</button
               >
             </span>
           </h3>
@@ -511,7 +571,9 @@
             >
               <Icon name="warn" size={16} />
               <span class="grow">{storyWarning} Take away every gadget and item?</span>
-              <button class="ghost small" use:focusOnShow onclick={() => (confirmTake = false)}>Keep them</button>
+              <button class="ghost small" use:focusOnShow onclick={() => (confirmTake = false)}
+                >Keep them</button
+              >
               <button
                 class="small"
                 onclick={() => {
@@ -527,7 +589,8 @@
               {#if s}
                 <label class="chip" class:on={s.owned}>
                   <input type="checkbox" bind:checked={s.owned} />
-                  {g.name}{#if itemEdited(g.id)}<span class="mark" role="img" aria-label="changed"></span>{/if}
+                  {g.name}{#if itemEdited(g.id)}<span class="mark" role="img" aria-label="changed"
+                    ></span>{/if}
                 </label>
               {/if}
             {/each}
@@ -537,7 +600,9 @@
 
         <section id="se-planets" aria-labelledby="se-planets-h">
           <h3 id="se-planets-h">
-            Planets <span class="count">{goldBoltCount(fields)[0]} of {goldBoltCount(fields)[1]} gold bolts</span>
+            Planets <span class="count"
+              >{goldBoltCount(fields)[0]} of {goldBoltCount(fields)[1]} gold bolts</span
+            >
             <span class="grow"></span>
             <span class="actions">
               <button
@@ -570,7 +635,10 @@
           </h3>
           <div class="line first">
             <label for="se-planet"
-              >Load on{#if fields.planet !== view.fields.planet}<span class="mark" role="img" aria-label="changed"
+              >Load on{#if fields.planet !== view.fields.planet}<span
+                  class="mark"
+                  role="img"
+                  aria-label="changed"
                 ></span>{/if}</label
             >
             <div class="field">
@@ -582,10 +650,14 @@
                 }}
               >
                 {#each landing as l (l.id)}
-                  <option value={l.id}>{l.name} · {l.location}{l.canLand ? "" : " (by the story)"}</option>
+                  <option value={l.id}
+                    >{l.name} · {l.location}{l.canLand ? "" : " (by the story)"}</option
+                  >
                 {/each}
               </select>
-              <span class="hint">The save loads there and Ratchet starts where the ship lands; it stays unlocked.</span>
+              <span class="hint"
+                >The save loads there and Ratchet starts where the ship lands; it stays unlocked.</span
+              >
             </div>
           </div>
           <ul class="rows planets">
@@ -595,14 +667,24 @@
                 <li>
                   <span class="planet">
                     <b
-                      >{p.name}{#if planetEdited(p.id)}<span class="mark" role="img" aria-label="changed"
+                      >{p.name}{#if planetEdited(p.id)}<span
+                          class="mark"
+                          role="img"
+                          aria-label="changed"
                         ></span>{/if}</b
                     >
                     <span class="dim">{p.location}</span>
                   </span>
                   {#if p.canUnlock}
-                    <label class="own" title={fields.planet === p.id ? "The save is on this planet" : undefined}>
-                      <input type="checkbox" bind:checked={s.unlocked} disabled={fields.planet === p.id} />
+                    <label
+                      class="own"
+                      title={fields.planet === p.id ? "The save is on this planet" : undefined}
+                    >
+                      <input
+                        type="checkbox"
+                        bind:checked={s.unlocked}
+                        disabled={fields.planet === p.id}
+                      />
                       Unlocked
                     </label>
                   {:else}
@@ -629,7 +711,9 @@
 
         <section id="se-skills" aria-labelledby="se-skills-h">
           <h3 id="se-skills-h">
-            Skill points <span class="count">{skillCount(fields)[0]} of {skillCount(fields)[1]}</span>
+            Skill points <span class="count"
+              >{skillCount(fields)[0]} of {skillCount(fields)[1]}</span
+            >
             <span class="grow"></span>
             <button
               class="ghost small"
@@ -675,7 +759,8 @@
               {/each}
             </div>
             <p class="note">
-              Numbered in the order the game keeps them: their names are read from your disc once it is set up.
+              Numbered in the order the game keeps them: their names are read from your disc once it
+              is set up.
             </p>
           {/if}
         </section>
@@ -688,7 +773,8 @@
       {/if}
       {#if playing && dirty}
         <p class="running">
-          <Icon name="info" size={16} />The game is running and writes this memory card too: close it, then save.
+          <Icon name="info" size={16} />The game is running and writes this memory card too: close
+          it, then save.
         </p>
       {/if}
       {#if reviewing && edits.length && !asking}
@@ -708,9 +794,13 @@
       {#if asking}
         <div class="row" role="alertdialog" aria-label="Close without saving?">
           <span class="grow"
-            >Close without saving your {changeCount === 1 ? "change" : `${String(changeCount)} changes`}?</span
+            >Close without saving your {changeCount === 1
+              ? "change"
+              : `${String(changeCount)} changes`}?</span
           >
-          <button class="ghost" use:focusOnShow onclick={() => (asking = false)} disabled={busy}>Keep editing</button>
+          <button class="ghost" use:focusOnShow onclick={() => (asking = false)} disabled={busy}
+            >Keep editing</button
+          >
           <button
             class="discard"
             onclick={() => {
@@ -720,7 +810,8 @@
           >
           {#if canSave}
             <button class="primary" onclick={saveAndClose} disabled={busy}>
-              {#if busy}<span class="spinner"></span>{:else}<Icon name="save" size={16} />{/if}Save and close
+              {#if busy}<span class="spinner"></span>{:else}<Icon name="save" size={16} />{/if}Save
+              and close
             </button>
           {/if}
         </div>
@@ -748,21 +839,31 @@
                 title={reviewing ? "Hide the list" : "See what you changed"}
                 ><span class="mark" aria-hidden="true"></span>{changeCount === 1
                   ? "1 change"
-                  : `${String(changeCount)} changes`}<span class="caret" class:open={reviewing} aria-hidden="true"
+                  : `${String(changeCount)} changes`}<span
+                  class="caret"
+                  class:open={reviewing}
+                  aria-hidden="true"
                 ></span></button
               >
             {:else}
               <span class="changes-text"
-                ><span class="mark" aria-hidden="true"></span>{changeCount} part{changeCount === 1 ? "" : "s"} of the file
-                changed</span
+                ><span class="mark" aria-hidden="true"></span>{changeCount} part{changeCount === 1
+                  ? ""
+                  : "s"} of the file changed</span
               >
             {/if}
             <span class="grow dim backup">Backed up before writing</span>
-            <button class="ghost" onclick={reset} disabled={busy} title="Undo every change you made here">Reset</button>
+            <button
+              class="ghost"
+              onclick={reset}
+              disabled={busy}
+              title="Undo every change you made here">Reset</button
+            >
           {:else}
             <span class="grow dim">Your memory card is backed up before anything is written.</span>
           {/if}
-          <button class="ghost" onclick={close} disabled={busy}>{dirty ? "Cancel" : "Close"}</button>
+          <button class="ghost" onclick={close} disabled={busy}>{dirty ? "Cancel" : "Close"}</button
+          >
           <button
             class="primary"
             onclick={save}

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
+
 import type { EditorState } from "./api";
-import { editorStage, levelList, levelTools, updateNote, updateNoteLine, type FlowInput } from "./editorFlow";
+import {
+  editorStage,
+  type FlowInput,
+  levelList,
+  levelTools,
+  updateNote,
+  updateNoteLine,
+} from "./editorFlow";
 import type { Job } from "./queue";
 
 const state = (over: Partial<EditorState> = {}): EditorState => ({
@@ -20,7 +28,13 @@ const state = (over: Partial<EditorState> = {}): EditorState => ({
 });
 
 const job = (actionId: string): Job =>
-  ({ key: 1, actionId, state: "running", lines: [], scope: { kind: "version", key: "rac1/pal" } }) as unknown as Job;
+  ({
+    key: 1,
+    actionId,
+    state: "running",
+    lines: [],
+    scope: { kind: "version", key: "rac1/pal" },
+  }) as unknown as Job;
 
 const input = (over: Partial<FlowInput> = {}): FlowInput => ({
   game: "rac1",
@@ -36,21 +50,26 @@ const input = (over: Partial<FlowInput> = {}): FlowInput => ({
 describe("editorStage", () => {
   it("walks a new player from the disc to playing", () => {
     expect(editorStage(input({ discFound: false })).primary).toBe("set-up");
-    expect(editorStage(input({ state: state({ levels: [] }), lacksGodot: true })).primary).toBe("get-godot");
+    expect(editorStage(input({ state: state({ levels: [] }), lacksGodot: true })).primary).toBe(
+      "get-godot",
+    );
     expect(editorStage(input({ state: state({ levels: [] }) })).kind).toBe("no-levels");
     expect(editorStage(input({ state: state({ levels: [] }) })).primary).toBe("prepare");
     expect(editorStage(input({ extracting: job("editor-extract") })).kind).toBe("extracting");
     expect(editorStage(input()).kind).toBe("ready");
     expect(editorStage(input()).primary).toBe("open");
     const edited = editorStage(input({ state: state({ unpacked: [0, 3] }) }));
+
     expect([edited.kind, edited.primary]).toEqual(["unpacked", "pack"]);
     expect(edited.line).toContain("Veldin");
     expect(editorStage(input({ packing: job("editor-pack") })).kind).toBe("packing");
     const packed = editorStage(input({ state: state({ packedAt: 1, packedLevels: 2 }) }));
+
     expect([packed.kind, packed.primary]).toEqual(["packed", "play"]);
     const expanded = editorStage(
       input({ state: state({ packedAt: 1, packedLevels: 2, packedExpandedLevels: [0, 3] }) }),
     );
+
     expect(expanded.detail).toMatch(/2 levels use streams larger than the original disc slots/);
     expect(expanded.detail).toMatch(/disc stays unchanged/);
     expect(expanded.detail).toMatch(/256 MiB RAM arena/);
@@ -60,41 +79,60 @@ describe("editorStage", () => {
   it("says an outdated project before anything else, with Update project and what it does", () => {
     const s = editorStage(
       input({
-        state: state({ outdated: [0, 1, 2].map((level) => ({ level, reason: "gameplay" as const })), unpacked: [1] }),
+        state: state({
+          outdated: [0, 1, 2].map((level) => ({ level, reason: "gameplay" as const })),
+          unpacked: [1],
+        }),
       }),
     );
+
     expect([s.kind, s.primary]).toEqual(["needs-update", "update"]);
     expect(s.title).toBe("Your levels need an update");
     expect(s.line).toContain("60 Hz");
     expect(s.line).not.toMatch(/copy the whole|scene|gameplay_source/);
     expect(s.detail).toContain("backup");
     // Some levels only: they are named.
-    const some = editorStage(input({ state: state({ outdated: [{ level: 1, reason: "schema" }] }) }));
+    const some = editorStage(
+      input({ state: state({ outdated: [{ level: 1, reason: "schema" }] }) }),
+    );
+
     expect(some.title).toBe("Some of your levels need an update");
     expect(some.line.startsWith("Novalis")).toBe(true);
   });
 
   it("an update without Godot still offers the update", () => {
-    const s = editorStage(input({ lacksGodot: true, state: state({ outdated: [{ level: 0, reason: "schema" }] }) }));
+    const s = editorStage(
+      input({ lacksGodot: true, state: state({ outdated: [{ level: 0, reason: "schema" }] }) }),
+    );
+
     expect([s.primary, s.secondary]).toEqual(["update", ["get-godot"]]);
   });
 
   it("missing files offer Repair; packed for another disc offers packing again", () => {
     expect(editorStage(input({ state: state({ broken: [5] }) })).primary).toBe("repair");
-    const other = editorStage(input({ state: state({ packedAt: 1, packedLevels: 1, packedOtherVersion: true }) }));
+    const other = editorStage(
+      input({ state: state({ packedAt: 1, packedLevels: 1, packedOtherVersion: true }) }),
+    );
+
     expect([other.kind, other.primary]).toEqual(["repack", "pack"]);
   });
 
   it("an update in progress is said as one", () => {
     const s = editorStage(
-      input({ extracting: job("editor-extract"), state: state({ outdated: [{ level: 0, reason: "schema" }] }) }),
+      input({
+        extracting: job("editor-extract"),
+        state: state({ outdated: [{ level: 0, reason: "schema" }] }),
+      }),
     );
+
     expect(s.kind).toBe("updating");
   });
 
   it("a game whose levels are not packed back has no pack or play step", () => {
     expect(editorStage(input({ early: true, state: state({ unpacked: [0] }) })).kind).toBe("ready");
-    expect(editorStage(input({ early: true, state: state({ packedAt: 1, packedLevels: 1 }) })).primary).toBe("open");
+    expect(
+      editorStage(input({ early: true, state: state({ packedAt: 1, packedLevels: 1 }) })).primary,
+    ).toBe("open");
   });
 });
 
@@ -109,6 +147,7 @@ describe("the update's note", () => {
       },
       { level: 1, carried: [], notCarried: [], failed: false },
     ]);
+
     expect(note).not.toBeNull();
     if (!note) return;
     expect(note.carried).toBe(2);
@@ -138,6 +177,7 @@ describe("Your levels", () => {
 
   it("says an export again while it runs", () => {
     const s = editorStage(input({ extracting: job("editor-reexport") }));
+
     expect(s.kind).toBe("updating");
     expect(s.title).toBe("Exporting the levels again…");
     expect(s.primary).toBeNull();

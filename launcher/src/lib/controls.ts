@@ -10,6 +10,7 @@ import type { ControlsLayer } from "./generated/ControlsLayer";
 
 /** port/platform/bindings.cpp's values that bind nothing, and no pad input. */
 export const UNBOUND = "none";
+
 export const PAD_NONE = "PadNone";
 
 /** The most of a kind one control holds (the port's kMostOfAKind). */
@@ -130,17 +131,22 @@ const TRIGGER_PRESS = 0.5;
 export function heldInputs(pad: PadReading | null): string[] {
   if (pad?.mapping !== "standard") return [];
   const out: string[] = [];
+
   STANDARD_BUTTONS.forEach((name, i) => {
     const b = pad.buttons[i];
+
     if (!b) return;
     const trigger = name === "PadLeftTrigger" || name === "PadRightTrigger";
+
     if (trigger ? b.value >= TRIGGER_PRESS : b.pressed) out.push(name);
   });
   STANDARD_AXES.forEach(([negative, positive], i) => {
     const v = pad.axes[i] ?? 0;
+
     if (v <= -STICK_FAR) out.push(negative);
     if (v >= STICK_FAR) out.push(positive);
   });
+
   return out;
 }
 
@@ -154,7 +160,9 @@ export function newlyPressed(before: readonly string[], now: readonly string[]):
 export function bindingValue(keys: readonly string[], pad: readonly string[]): string {
   if (keys.length === 0 && pad.length === 0) return UNBOUND;
   const names = [...keys, ...pad];
+
   if (pad.length === 0) names.push(PAD_NONE);
+
   return names.join(",");
 }
 
@@ -166,6 +174,7 @@ function namedKeys(value: string | null): string[] | null {
     .split(",")
     .map((n) => n.trim())
     .filter((n) => n && n !== PAD_NONE && !n.startsWith("Pad") && !n.includes("+"));
+
   return keys.length > 0 ? keys : null;
 }
 
@@ -177,7 +186,9 @@ function namedKeys(value: string | null): string[] | null {
 export function withPad(fileValue: string | null, pad: readonly string[]): string {
   const keys = namedKeys(fileValue);
   const kept = [...new Set(pad)].slice(0, MOST_OF_A_KIND);
+
   if (keys === null) return kept.length > 0 ? kept.join(",") : PAD_NONE;
+
   return bindingValue(keys, kept);
 }
 
@@ -185,11 +196,13 @@ export function withPad(fileValue: string | null, pad: readonly string[]): strin
 export function padWith(row: BindingRow, input: string, replace: boolean): string[] {
   if (replace) return [input];
   if (row.pad.includes(input)) return [...row.pad];
+
   return [...row.pad, input].slice(0, MOST_OF_A_KIND);
 }
 
 /** The other controls a lone pad input presses too, by their labels. */
 export function alsoPressing(rows: readonly BindingRow[], key: string, input: string): string[] {
   if (input.includes("+")) return [];
+
   return rows.filter((r) => r.key !== key && r.pad.includes(input)).map((r) => r.label);
 }

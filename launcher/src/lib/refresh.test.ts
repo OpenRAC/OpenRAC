@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { Config, Library } from "./api";
 
 const library = vi.fn();
@@ -6,6 +7,7 @@ const scanDiscs = vi.fn();
 
 vi.mock("./api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api")>();
+
   return { ...actual, api: { ...actual.api, library, scanDiscs } };
 });
 
@@ -29,6 +31,7 @@ function deferred<T>() {
   const promise = new Promise<T>((resolve) => {
     answer = resolve;
   });
+
   return { promise, answer };
 }
 
@@ -43,11 +46,13 @@ describe("refresh", () => {
   it("keeps the newest library when an older read comes back later", async () => {
     const first = deferred<Library>();
     const second = deferred<Library>();
+
     library.mockImplementationOnce(() => first.promise);
     library.mockImplementationOnce(() => second.promise);
 
     const reading = refresh();
     const readingToo = refresh();
+
     // The second read answers first, the first one after it: the older answer must not
     // put the older library back.
     second.answer(withRoot("/newer"));

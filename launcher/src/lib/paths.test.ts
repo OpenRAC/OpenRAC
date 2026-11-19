@@ -1,18 +1,22 @@
 import { describe, expect, it } from "vitest";
+
 import { hasPath, hidePaths } from "./paths";
 
 describe("hidePaths", () => {
   it("cuts a folder or file to its last part, the user's name with it", () => {
-    expect(hidePaths("cannot read /home/alice/.local/share/dev.openrac.launcher/plugins/difficulty").text).toBe(
-      "cannot read difficulty",
+    expect(
+      hidePaths("cannot read /home/alice/.local/share/dev.openrac.launcher/plugins/difficulty")
+        .text,
+    ).toBe("cannot read difficulty");
+    expect(
+      hidePaths("/Users/bob/OpenRAC/active/rac1/data/plugins.json: not valid JSON.").text,
+    ).toBe("plugins.json: not valid JSON.");
+    expect(
+      hidePaths("C:\\Users\\carol\\AppData\\Roaming\\OpenRAC\\mods\\x.zip is not a mod").text,
+    ).toBe("x.zip is not a mod");
+    expect(hidePaths("in ~/Downloads/lock-strafe, no manifest").text).toBe(
+      "in lock-strafe, no manifest",
     );
-    expect(hidePaths("/Users/bob/OpenRAC/active/rac1/data/plugins.json: not valid JSON.").text).toBe(
-      "plugins.json: not valid JSON.",
-    );
-    expect(hidePaths("C:\\Users\\carol\\AppData\\Roaming\\OpenRAC\\mods\\x.zip is not a mod").text).toBe(
-      "x.zip is not a mod",
-    );
-    expect(hidePaths("in ~/Downloads/lock-strafe, no manifest").text).toBe("in lock-strafe, no manifest");
   });
 
   it("says whether it hid anything", () => {

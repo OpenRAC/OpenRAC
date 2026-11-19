@@ -26,13 +26,18 @@
   // ---- names ----------------------------------------------------------------------
   const extraItems: Record<number, string> = { 1: "Clank", 8: "Wrench" };
   function itemName(id: number): string {
-    return view.items.find((i) => i.id === id)?.name ?? extraItems[id] ?? `Item ${String(id)} (not decoded)`;
+    return (
+      view.items.find((i) => i.id === id)?.name ??
+      extraItems[id] ??
+      `Item ${String(id)} (not decoded)`
+    );
   }
   const itemIds = Array.from({ length: 37 }, (_, i) => i);
   // Not lib/labels.ts's levelName: the save editor's list (core/src/save_edit.rs), with each level's
   // location, and the slots no level uses marked as such.
   function levelLabel(id: number): string {
     const l = view.levels.find((x) => x.id === id);
+
     return l ? `${l.name} · ${l.location}` : `Level ${String(id)} (unused)`;
   }
   const levelIds = Array.from({ length: 20 }, (_, i) => i);
@@ -52,7 +57,9 @@
   function setI32(key: string, i: number, text: string) {
     const n = Number(text);
     const b = bytes[key];
-    if (!b || text.trim() === "" || !Number.isInteger(n) || n < -2147483648 || n > 2147483647) return;
+
+    if (!b || text.trim() === "" || !Number.isInteger(n) || n < -2147483648 || n > 2147483647)
+      return;
     writeI32(b, i, n);
   }
   function u8(key: string, i = 0): number {
@@ -60,6 +67,7 @@
   }
   function setU8(key: string, i: number, v: number) {
     const b = bytes[key];
+
     if (b && i < b.length) b[i] = v & 0xff;
   }
 
@@ -94,37 +102,47 @@
   let rawSection = $state("g");
   let drafts = $state<Record<string, string>>({});
   const rawChunks = $derived(
-    view.chunks.filter((c) => (rawSection === "g" ? c.section === null : c.section === Number(rawSection))),
+    view.chunks.filter((c) =>
+      rawSection === "g" ? c.section === null : c.section === Number(rawSection),
+    ),
   );
 
   function draftError(key: string, size: number): string | null {
     const d = drafts[key];
+
     if (d === undefined) return null;
     const b = hexToBytes(d);
+
     if (typeof b === "string") return b;
     if (b.length !== size) return `${String(b.length)} bytes; this part is ${String(size)}`;
+
     return null;
   }
 
   $effect(() => {
-    oninvalid(view.chunks.filter((c) => draftError(chunkKey(c.section, c.id), c.size) !== null).length);
+    oninvalid(
+      view.chunks.filter((c) => draftError(chunkKey(c.section, c.id), c.size) !== null).length,
+    );
   });
 
   function onHex(key: string, size: number, text: string) {
     drafts[key] = text;
     const b = hexToBytes(text);
+
     if (typeof b !== "string" && b.length === size) bytes[key] = b;
   }
 
   function onHexDone(key: string, size: number) {
-    if (draftError(key, size) === null) drafts = Object.fromEntries(Object.entries(drafts).filter(([k]) => k !== key));
+    if (draftError(key, size) === null)
+      drafts = Object.fromEntries(Object.entries(drafts).filter(([k]) => k !== key));
   }
 </script>
 
 <div class="adv">
   <p class="warn-line">
-    Every part of the save, for debugging. Nothing here is checked against the story: a wrong value can leave the game
-    stuck or the save unloadable. Your memory card is backed up before saving, and Undo puts it back.
+    Every part of the save, for debugging. Nothing here is checked against the story: a wrong value
+    can leave the game stuck or the save unloadable. Your memory card is backed up before saving,
+    and Undo puts it back.
   </p>
 
   <details open>
@@ -140,7 +158,9 @@
         >
           {#each levelIds.slice(0, 19) as id (id)}
             <option value={id}
-              >{String(id)} · {levelLabel(id)}{view.levels.find((l) => l.id === id)?.canLand ? "" : " (story)"}</option
+              >{String(id)} · {levelLabel(id)}{view.levels.find((l) => l.id === id)?.canLand
+                ? ""
+                : " (story)"}</option
             >
           {/each}
         </select>
@@ -232,7 +252,9 @@
         {/each}
       </tbody>
     </table>
-    <p class="note">Gold flags 37 to 39 and the ammo statistics (bought, picked up, used) are in the raw view.</p>
+    <p class="note">
+      Gold flags 37 to 39 and the ammo statistics (bought, picked up, used) are in the raw view.
+    </p>
   </details>
 
   <details>
@@ -283,6 +305,7 @@
               value={b === 0xff ? -1 : b & 0x3f}
               onchange={(e) => {
                 const v = Number(e.currentTarget.value);
+
                 setU8(g(12), i, v < 0 ? 0xff : (b === 0xff ? 0 : b & 0xc0) | v);
               }}
             >
@@ -339,7 +362,8 @@
       {/each}
     </div>
     <p class="note">
-      {#each Object.entries(knownFlags) as [i, name] (i)}<span class="legend">{i}: {name}</span>{/each}
+      {#each Object.entries(knownFlags) as [i, name] (i)}<span class="legend">{i}: {name}</span
+        >{/each}
     </p>
     {#each [[7, "Cheats on"], [37, "Cheats ever used"]] as [id, label] (id)}
       <h4>{label} <span class="dim">(raw: which cheat each is is not decoded)</span></h4>
@@ -372,7 +396,8 @@
               setI32(g(20), i, e.currentTarget.value);
             }}
           >
-            {#each levelIds as id (id)}<option value={id}>{String(id)} · {levelLabel(id)}</option>{/each}
+            {#each levelIds as id (id)}<option value={id}>{String(id)} · {levelLabel(id)}</option
+              >{/each}
           </select>
         </label>
       {/each}
@@ -402,7 +427,9 @@
               <option value={0}>0 · Never</option>
               <option value={1}>1 · Visited</option>
               <option value={2}>2 · Left (completed)</option>
-              {#if u8(lv(l, 3001)) > 2}<option value={u8(lv(l, 3001))}>{u8(lv(l, 3001))} · raw</option>{/if}
+              {#if u8(lv(l, 3001)) > 2}<option value={u8(lv(l, 3001))}
+                  >{u8(lv(l, 3001))} · raw</option
+                >{/if}
             </select>
           </label>
           {#each [[4000, "Bolts collected here"], [4001, "Hits taken here"], [4002, "Deaths here"]] as [id, label] (id)}
@@ -419,7 +446,11 @@
             </label>
           {/each}
         </div>
-        <h4>Gold bolts <span class="dim">({goldTotal(l)} on this planet; the others are not used)</span></h4>
+        <h4>
+          Gold bolts <span class="dim"
+            >({goldTotal(l)} on this planet; the others are not used)</span
+          >
+        </h4>
         <div class="toggles">
           {#each [0, 1, 2, 3] as k (k)}
             <button
@@ -449,7 +480,8 @@
           {/each}
         </div>
         <p class="note">
-          Map, enemies and crates destroyed, bolts from crates, arrivals and Metal Detector spots: raw view.
+          Map, enemies and crates destroyed, bolts from crates, arrivals and Metal Detector spots:
+          raw view.
         </p>
       </details>
     {/each}
@@ -461,11 +493,13 @@
       <label for="raw-section">Section</label>
       <select id="raw-section" bind:value={rawSection}>
         <option value="g">Global</option>
-        {#each levelIds as l (l)}<option value={String(l)}>{String(l)} · {levelLabel(l)}</option>{/each}
+        {#each levelIds as l (l)}<option value={String(l)}>{String(l)} · {levelLabel(l)}</option
+          >{/each}
       </select>
     </div>
     <p class="note">
-      Each part keeps its size; the checksums are written fresh when you save. "Raw" parts are not decoded.
+      Each part keeps its size; the checksums are written fresh when you save. "Raw" parts are not
+      decoded.
     </p>
     {#each rawChunks as c (chunkKey(c.section, c.id))}
       {@const key = chunkKey(c.section, c.id)}

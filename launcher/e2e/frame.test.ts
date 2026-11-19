@@ -5,7 +5,7 @@
 // (docs/STYLE.md). Chromium, which runs this, does not, so this holds the layout that keeps it from
 // happening, not the drawing. `yarn test:android` runs it with the Android pages
 // (vitest.e2e.config.ts).
-import { chromium, type Browser, type Page } from "playwright-core";
+import { type Browser, chromium, type Page } from "playwright-core";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -30,6 +30,7 @@ beforeAll(async () => {
   await server.listen();
   base = server.resolvedUrls?.local[0] ?? "";
   const executablePath = import.meta.env.OPENRAC_E2E_CHROMIUM as string | undefined;
+
   browser = await chromium.launch(executablePath ? { executablePath } : {});
 }, 60_000);
 
@@ -43,12 +44,14 @@ afterAll(async () => {
 function countSlides() {
   window.slides = { started: 0, finished: 0, parts: [] };
   const start = document.startViewTransition.bind(document);
+
   document.startViewTransition = (update) => {
     window.slides.started += 1;
     const transition = start(update);
     const done = () => {
       window.slides.finished += 1;
     };
+
     // A skipped slide has no parts, and still finishes.
     transition.ready
       .then(() => {
@@ -59,6 +62,7 @@ function countSlides() {
       })
       .catch(() => undefined);
     void transition.finished.then(done, done);
+
     return transition;
   };
 }
@@ -86,21 +90,26 @@ async function press(tab: string) {
   return page.evaluate(async (tab) => {
     const before = window.slides.started;
     const wantsList = tab !== "settings";
+
     document.querySelector<HTMLElement>(`button.tab[data-page=${tab}]`)?.click();
     let overflow = -1;
     let end = performance.now() + 10_000;
     let over = false;
+
     while (performance.now() < end) {
       await new Promise(requestAnimationFrame);
       const main = document.querySelector("main");
       const list = !!main?.querySelector("aside");
+
       if (main && list) overflow = Math.max(overflow, main.scrollHeight - main.clientHeight);
       const { started, finished } = window.slides;
+
       if (!over && started > before && finished === started && list === wantsList) {
         over = true;
         end = performance.now() + 500;
       }
     }
+
     return { slides: window.slides.started - before, overflow, parts: window.slides.parts };
   }, tab);
 }
@@ -113,8 +122,10 @@ describe("a desktop tab with a list", () => {
     it(`never makes <main> scrollable, in a ${width} x ${height} window`, async () => {
       await page.setViewportSize({ width, height });
       await openSettings("&developer");
+
       for (const tab of ["library", "mods", "develop"]) {
         const shown = await press(tab);
+
         // At 0, not -1: the list did come, and <main> had nothing to scroll on any frame.
         expect(shown, tab).toMatchObject({ slides: 1, overflow: 0 });
         expect((await press("settings")).slides, tab).toBe(1);
@@ -133,8 +144,11 @@ describe("a desktop tab with a list", () => {
     });
     await openSettings();
     const fetched = await page.evaluate(() =>
-      performance.getEntriesByType("resource").some((entry) => entry.name.includes("/pages/Mods.svelte")),
+      performance
+        .getEntriesByType("resource")
+        .some((entry) => entry.name.includes("/pages/Mods.svelte")),
     );
+
     expect(fetched).toBe(false);
     expect((await press("mods")).parts).toContain("::view-transition-new(side)");
   });
@@ -145,21 +159,29 @@ describe("a desktop tab with a list", () => {
     // What the page loads makes it taller than this window.
     await page.waitForFunction(() => {
       const column = document.querySelector("main aside + div");
+
       return !!column && column.scrollHeight > column.clientHeight;
     });
     const moved = await page.evaluate(() => {
       const list = document.querySelector("main aside");
       const column = list?.nextElementSibling;
       const inPage = column?.firstElementChild;
+
       if (!list || !column || !inPage) return null;
-      const before = { list: list.getBoundingClientRect().top, page: inPage.getBoundingClientRect().top };
+      const before = {
+        list: list.getBoundingClientRect().top,
+        page: inPage.getBoundingClientRect().top,
+      };
+
       column.scrollTop = 100;
+
       return {
         list: list.getBoundingClientRect().top - before.list,
         page: inPage.getBoundingClientRect().top - before.page,
         main: document.querySelector("main")?.scrollTop,
       };
     });
+
     expect(moved).toEqual({ list: 0, page: -100, main: 0 });
   });
 });

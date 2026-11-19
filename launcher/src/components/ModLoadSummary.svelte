@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api, inTauri, type VersionView } from "$lib/api";
-  import type { ModLoadSummary } from "$lib/generated/ModLoadSummary";
   import { app } from "$lib/app.svelte";
+  import type { ModLoadSummary } from "$lib/generated/ModLoadSummary";
   import { levelName } from "$lib/labels";
 
   let {
@@ -41,13 +41,17 @@
 
   async function refresh(input = { version: version.key, revision: refreshKey }) {
     const id = ++request;
+
     if (loadedVersion !== input.version) {
       summary = null;
       loadedVersion = input.version;
     }
+
     loading = true;
+
     try {
       const result = await api.overridesSummary(input.version);
+
       if (id === request) {
         summary = result;
         error = null;
@@ -64,7 +68,8 @@
   $effect(() => {
     void refresh({ version: version.key, revision: refreshKey });
   });
-  const names = (levels: string[]) => levels.map((id) => levelName("rac1", Number(id.slice(6)))).join(", ");
+  const names = (levels: string[]) =>
+    levels.map((id) => levelName("rac1", Number(id.slice(6)))).join(", ");
 </script>
 
 <section class="panel load-summary" aria-label="Level and asset pack summary">
@@ -82,11 +87,14 @@
     <button class="ghost" disabled={loading} onclick={() => void refresh()}>Retry</button>
   {:else if summary}
     <p class="notice" class:quiet={enabled && current && !hasNotes}>
-      {#if !enabled}The next launch uses the original levels. Turn on <strong>Mods</strong> under Play to use your edits.
+      {#if !enabled}The next launch uses the original levels. Turn on <strong>Mods</strong> under Play
+        to use your edits.
       {:else if !prepared}Your packs are selected, but no prepared content is recorded for {edition} yet.
-      {:else if summary.stale}Your selection or packed files changed. Prepare again to confirm the next launch.
+      {:else if summary.stale}Your selection or packed files changed. Prepare again to confirm the
+        next launch.
       {:else if hasNotes}The files are prepared for {edition}, with notes to review below.
-      {:else}These are the files prepared for {edition}. Launch with <strong>Mods</strong> enabled to use them.{/if}
+      {:else}These are the files prepared for {edition}. Launch with <strong>Mods</strong> enabled to
+        use them.{/if}
     </p>
     <div class="metrics" class:previous={!enabled || !current}>
       {#each [{ label: "Objects & gameplay", levels: summary.gameplayLevels }, { label: "Scenery", levels: summary.sceneryLevels }, { label: "Terrain", levels: summary.terrainLevels }, { label: "Collision", levels: summary.collisionLevels }] as item (item.label)}
@@ -97,7 +105,13 @@
               >{prepared ? (item.levels.length === 1 ? " level" : " levels") : ""}</small
             ></strong
           >
-          <p>{prepared ? (item.levels.length ? names(item.levels) : "Original files") : "Prepare to check"}</p>
+          <p>
+            {prepared
+              ? item.levels.length
+                ? names(item.levels)
+                : "Original files"
+              : "Prepare to check"}
+          </p>
         </div>
       {/each}
     </div>
@@ -128,11 +142,15 @@
       </div>
       <details class="recorded-edits" open>
         <summary>Edits recorded by the packer</summary>
-        <p class="caption">The latest packing report. It can include object, gameplay and collision edits.</p>
+        <p class="caption">
+          The latest packing report. It can include object, gameplay and collision edits.
+        </p>
         {#if summary.packedVersion && summary.packedVersion !== version.name}<p class="notice">
             This report belongs to another disc edition.
           </p>{/if}
-        <pre>{summary.packedChanges.length ? summary.packedChanges.join("\n") : "No packing report available."}</pre>
+        <pre>{summary.packedChanges.length
+            ? summary.packedChanges.join("\n")
+            : "No packing report available."}</pre>
         {#if summary.changesTruncated}<p class="caption">Showing the first 200 lines.</p>{/if}
       </details>
     </div>
@@ -149,10 +167,8 @@
           : "Preparing a pack does not start the game."}</span
       >
       <div>
-        <button class="ghost" disabled={loading} onclick={() => void refresh()}>Refresh</button><button
-          disabled={!canPrepare || !inTauri}
-          onclick={prepare}>Prepare current mods</button
-        >
+        <button class="ghost" disabled={loading} onclick={() => void refresh()}>Refresh</button
+        ><button disabled={!canPrepare || !inTauri} onclick={prepare}>Prepare current mods</button>
       </div>
     </div>
   {:else}<p class="muted">Reading your pack selection…</p>{/if}

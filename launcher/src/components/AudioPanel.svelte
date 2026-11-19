@@ -5,13 +5,14 @@
   // shared by its discs; the version (the one the game page plays) only picks the disc exported from.
   // editor/AUDIO_MODDING.md is the modder's guide.
   import Icon from "$components/Icon.svelte";
-  import { api, inTauri, pickFolder, type ActionView, type VersionView } from "$lib/api";
+  import { type ActionView, api, inTauri, pickFolder, type VersionView } from "$lib/api";
   import { app, guardShown, jobs, runChain, toast } from "$lib/app.svelte";
   import { importOutcome } from "$lib/audioImport";
   import { levelsOf } from "$lib/labels";
   import { AUDIO } from "$lib/modsText";
   import { hidePaths } from "$lib/paths";
   import type { Job } from "$lib/queue";
+
   import CommandBox from "./CommandBox.svelte";
   import JobProgress from "./JobProgress.svelte";
 
@@ -19,7 +20,8 @@
 
   const developer = $derived(app.config?.developer ?? false);
   const scope = $derived({ kind: "version" as const, key: v.key });
-  const action = (id: string): ActionView | null => v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
+  const action = (id: string): ActionView | null =>
+    v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
   const importer = $derived(action("audio-import"));
 
   type What = keyof typeof AUDIO.what;
@@ -39,8 +41,11 @@
 
   /** The newest job of these actions of this disc. */
   const newest = (ids: string[]): Job | null =>
-    jobs.list.filter((j) => j.scope.kind === "version" && j.scope.key === v.key && ids.includes(j.actionId)).at(-1) ??
-    null;
+    jobs.list
+      .filter(
+        (j) => j.scope.kind === "version" && j.scope.key === v.key && ids.includes(j.actionId),
+      )
+      .at(-1) ?? null;
   const exported = $derived(newest(["audio-export", "audio-export-all"]));
   const imported = $derived(newest(["audio-import"]));
   const folder = $derived(exported?.state === "succeeded" ? (exported.outputs[0] ?? null) : null);
@@ -49,9 +54,15 @@
     if (!exporter) return;
     busy = "export";
     // The whole game's export names no level.
-    const ok = await runChain(scope, [exporter], level === WHOLE_GAME ? { option: what } : { level, option: what });
+    const ok = await runChain(
+      scope,
+      [exporter],
+      level === WHOLE_GAME ? { option: what } : { level, option: what },
+    );
+
     busy = null;
     const written = newest(["audio-export", "audio-export-all"])?.outputs[0];
+
     if (ok && written) {
       toast(AUDIO.exported);
       await guardShown(api.openOutput(written));
@@ -65,10 +76,12 @@
     const edited = inTauri
       ? await pickFolder(AUDIO.pickImport)
       : "/home/you/exports/audio-level_00-effects-20261101T0900";
+
     if (!edited) return;
     busy = "import";
     said = null;
     const ok = await runChain(scope, [importer], { path: edited });
+
     busy = null;
     said = importOutcome(ok, newest(["audio-import"])?.lines ?? []);
     onimported?.();
@@ -100,7 +113,8 @@
         <div class="controls">
           <select aria-label={AUDIO.levelLabel} bind:value={level} disabled={!exporter.runnable}>
             <option value={WHOLE_GAME}>{AUDIO.allLevels}</option>
-            {#each levelsOf(v.game) as l (l.number)}<option value={l.number}>{l.name}</option>{/each}
+            {#each levelsOf(v.game) as l (l.number)}<option value={l.number}>{l.name}</option
+              >{/each}
           </select>
           <select aria-label={AUDIO.whatLabel} bind:value={what} disabled={!exporter.runnable}>
             {#each WHATS as w (w)}<option value={w}>{AUDIO.what[w]}</option>{/each}
@@ -110,7 +124,10 @@
               ><Icon name="folder" size={16} />{AUDIO.openFolder}</button
             >
           {/if}
-          <button disabled={!exporter.runnable || busy !== null} onclick={() => void exportSounds()}>
+          <button
+            disabled={!exporter.runnable || busy !== null}
+            onclick={() => void exportSounds()}
+          >
             {#if busy === "export"}<span class="spinner"></span>{:else}<Icon
                 name="external"
                 size={16}
@@ -159,8 +176,14 @@
           </p>
         </div>
         <div class="controls">
-          <button disabled={!importer?.runnable || busy !== null} onclick={() => void importEdits()}>
-            {#if busy === "import"}<span class="spinner"></span>{:else}<Icon name="save" size={16} />{/if}{AUDIO.import}
+          <button
+            disabled={!importer?.runnable || busy !== null}
+            onclick={() => void importEdits()}
+          >
+            {#if busy === "import"}<span class="spinner"></span>{:else}<Icon
+                name="save"
+                size={16}
+              />{/if}{AUDIO.import}
           </button>
         </div>
         {#if developer}

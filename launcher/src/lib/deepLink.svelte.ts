@@ -6,8 +6,16 @@
 // at a time, and one more may wait; a flood of links beyond that is dropped. Each link is read by
 // core/src/deeplink.rs (deeplink_parse), never fetched. The Browse view opens the same change set
 // with `openChangeSet`.
-import { api, errorText, modErrorOf, onAndroid, type ApplyResult, type IndexView, type InstallPlan } from "./api";
 import type { ModAction, ModError, WantedMod } from "./api";
+import {
+  api,
+  type ApplyResult,
+  errorText,
+  type IndexView,
+  type InstallPlan,
+  modErrorOf,
+  onAndroid,
+} from "./api";
 import { app, lookForUpdate, runChain, saveConfig } from "./app.svelte";
 import { playerVersion } from "./player.svelte";
 
@@ -67,6 +75,7 @@ const asModError = (e: unknown): ModError =>
 export function receive(url: string | null | undefined): void {
   // A mod code's link is not an install link: modCodes.svelte.ts opens its review.
   if (!url || url.startsWith("openrac://modset/")) return;
+
   if (changeSet.link === null) {
     void openLink(url);
   } else if (changeSet.queued === null && changeSet.link !== url) {
@@ -83,13 +92,18 @@ function target(hint: string | null) {
     games.find((g) => g.id === "rac1") ??
     games[0];
   const v = game ? playerVersion(game) : null;
-  return game && v ? { game: game.id, version: v.name, title: game.title, serial: v.serial, key: v.key } : null;
+
+  return game && v
+    ? { game: game.id, version: v.name, title: game.title, serial: v.serial, key: v.key }
+    : null;
 }
 
 export async function openLink(url: string): Promise<void> {
   Object.assign(changeSet, { ...empty(), link: url, phase: "loading", queued: changeSet.queued });
+
   try {
     const install = await api.deeplinkParse(url);
+
     await openChangeSet(install.mods, install.game, url);
   } catch (e) {
     changeSet.error = asModError(e);
@@ -98,19 +112,43 @@ export async function openLink(url: string): Promise<void> {
 }
 
 /** Opens the change set for `wanted` (a link's mods, or Browse's Install), on the Mods page. */
-export async function openChangeSet(wanted: WantedMod[], game: string | null = null, link = "launcher"): Promise<void> {
+export async function openChangeSet(
+  wanted: WantedMod[],
+  game: string | null = null,
+  link = "launcher",
+): Promise<void> {
   const where = target(game);
-  Object.assign(changeSet, { ...empty(), link, wanted, phase: "loading", queued: changeSet.queued });
+
+  Object.assign(changeSet, {
+    ...empty(),
+    link,
+    wanted,
+    phase: "loading",
+    queued: changeSet.queued,
+  });
   // On a desktop the Mods tab and the game; Android's Mods page is one page.
   app.page = "mods";
+
   if (where) {
-    Object.assign(changeSet, { game: where.game, version: where.version, title: where.title, serial: where.serial });
+    Object.assign(changeSet, {
+      game: where.game,
+      version: where.version,
+      title: where.title,
+      serial: where.serial,
+    });
     if (!onAndroid) app.version = where.key;
   } else {
-    changeSet.error = { kind: "userFixable", modId: null, detail: "Set a game up first.", action: null };
+    changeSet.error = {
+      kind: "userFixable",
+      modId: null,
+      detail: "Set a game up first.",
+      action: null,
+    };
     changeSet.phase = "error";
+
     return;
   }
+
   try {
     changeSet.index = await api.indexFetch(changeSet.game, changeSet.version);
     await resolve(true);
@@ -123,15 +161,23 @@ export async function openChangeSet(wanted: WantedMod[], game: string | null = n
 /** Plans again: after a tick, a fix or at the start (`first`: the offers are taken from it). */
 export async function resolve(first = false): Promise<void> {
   const { game, version } = changeSet;
+
   if (!game || !version) return;
   const extra = changeSet.ticked.map((id) => ({ id, version: null }));
-  const plan = await api.indexResolve(game, version, [...changeSet.wanted, ...extra], changeSet.turnOff);
+  const plan = await api.indexResolve(
+    game,
+    version,
+    [...changeSet.wanted, ...extra],
+    changeSet.turnOff,
+  );
+
   if (first) {
     changeSet.offers = { recommends: plan.recommends, suggests: plan.suggests };
     // Recommended mods start ticked: planned again with them, so their own needs show too.
     changeSet.ticked = plan.recommends.map((o) => o.id);
     if (changeSet.ticked.length > 0) return resolve();
   }
+
   changeSet.plan = plan;
   changeSet.phase = "ready";
 }
@@ -149,19 +195,24 @@ export async function toggle(id: string): Promise<void> {
 export async function fix(action: ModAction): Promise<void> {
   switch (action.type) {
     case "replaceConflict":
-      if (!changeSet.turnOff.includes(action.replace)) changeSet.turnOff = [...changeSet.turnOff, action.replace];
+      if (!changeSet.turnOff.includes(action.replace))
+        changeSet.turnOff = [...changeSet.turnOff, action.replace];
       await resolve();
+
       return;
     case "switchToDev":
       await switchToDev();
+
       return;
     case "retry":
     case "useCached":
       if (changeSet.link && changeSet.link !== "launcher") await openLink(changeSet.link);
       else await openChangeSet(changeSet.wanted, changeSet.game);
+
       return;
     case "report":
       await api.openUrl(action.url);
+
       return;
     default:
       return;
@@ -172,6 +223,7 @@ export async function fix(action: ModAction): Promise<void> {
 export async function switchToDev(): Promise<void> {
   if (!app.config) return;
   const link = changeSet.link && changeSet.link !== "launcher" ? changeSet.link : null;
+
   await saveConfig({ ...app.config, updateChannel: "dev", pendingDeepLink: link });
   close();
   if (await lookForUpdate().catch(() => false)) app.showUpdateModal = true;
@@ -180,6 +232,7 @@ export async function switchToDev(): Promise<void> {
 /** Installs the plan: each mod's progress from `index-apply` events. */
 export async function apply(): Promise<void> {
   const { game, version, plan } = changeSet;
+
   if (!game || !version || !plan || plan.blocked || changeSet.phase === "applying") return;
   changeSet.phase = "applying";
   changeSet.progress = Object.fromEntries(plan.install.map((m) => [m.id, "waiting" as const]));
@@ -187,10 +240,12 @@ export async function apply(): Promise<void> {
   const stop = await onIndexApply((p) => {
     changeSet.progress[p.id] = p.step;
   });
+
   try {
     const extra = changeSet.ticked.map((id) => ({ id, version: null }));
     // A link from openrac.dev with exact versions (a shared setup) keeps those mods at them.
-    const shared = changeSet.link !== "launcher" && changeSet.wanted.some((w) => w.version !== null);
+    const shared =
+      changeSet.link !== "launcher" && changeSet.wanted.some((w) => w.version !== null);
     const result = await api.indexApply(
       game,
       version,
@@ -199,13 +254,19 @@ export async function apply(): Promise<void> {
       changeSet.serial,
       shared,
     );
+
     changeSet.result = result;
     // Data packs go to the overrides, as from a link (lib/addMods.ts).
-    const v = app.library?.games.find((g) => g.id === game)?.versions.find((x) => x.name === version);
+    const v = app.library?.games
+      .find((g) => g.id === game)
+      ?.versions.find((x) => x.name === version);
     const adder = v?.actions.find((a) => a.id === "overrides-add" && a.thisPlatform);
+
     for (const pack of result.packs) {
-      if (v && adder?.runnable) await runChain({ kind: "version", key: v.key }, [adder], { path: pack.path });
+      if (v && adder?.runnable)
+        await runChain({ kind: "version", key: v.key }, [adder], { path: pack.path });
     }
+
     changeSet.phase = "done";
   } catch (e) {
     changeSet.error = asModError(e);
@@ -219,6 +280,7 @@ export async function apply(): Promise<void> {
 export function close(): void {
   if (changeSet.phase === "applying") return;
   const next = changeSet.queued;
+
   Object.assign(changeSet, empty());
   if (next) void openLink(next);
 }
@@ -233,22 +295,33 @@ export interface LinkSource {
  *  then every one sent to it. In the browser preview, `?deeplink=<url>`. */
 export async function startDeepLinks(source?: LinkSource): Promise<() => void> {
   const pending = app.config?.pendingDeepLink ?? null;
+
   if (pending && app.config) {
     await saveConfig({ ...app.config, pendingDeepLink: null });
     receive(pending);
   }
+
   if (!source) {
     const { inTauri } = await import("./api");
+
     if (!inTauri) {
-      const asked = /[?&]deeplink=([^&#]+)/.exec(typeof location === "undefined" ? "" : location.search)?.[1];
+      const asked = /[?&]deeplink=([^&#]+)/.exec(
+        typeof location === "undefined" ? "" : location.search,
+      )?.[1];
+
       receive(asked ? decodeURIComponent(asked) : null);
+
       return () => undefined;
     }
+
     source = await import("@tauri-apps/plugin-deep-link");
   }
+
   const stop = await source.onOpenUrl((urls) => {
     receive(urls[0]);
   });
+
   receive((await source.getCurrent().catch(() => null))?.[0]);
+
   return stop;
 }

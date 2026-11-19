@@ -30,15 +30,19 @@ export function report(list: string, what: ListReport): void {
 
 /** A list is gone (another game, another page): its rows are no longer counted. */
 export function forget(list: string): void {
-  modsView.lists = Object.fromEntries(Object.entries(modsView.lists).filter(([name]) => name !== list));
+  modsView.lists = Object.fromEntries(
+    Object.entries(modsView.lists).filter(([name]) => name !== list),
+  );
 }
 
 /** All lists' rows of a group, or of every group. */
 export function total(group: ModFilter = "all"): number {
   let n = 0;
+
   for (const { counts } of Object.values(modsView.lists)) {
     for (const [g, c] of Object.entries(counts)) if (group === "all" || g === group) n += c;
   }
+
   return n;
 }
 
