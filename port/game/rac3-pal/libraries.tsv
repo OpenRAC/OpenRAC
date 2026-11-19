@@ -216,3 +216,7 @@ func_0012FC78	pad	rac3PadEnterPressMode	host	scePadEnterPressMode (host/pad.c)	i
 func_0013AFF8	boot	load_next_program	wrap	copies the next program in (frontbin or a level) and returns its entry; the port then says which program is loaded (host/program.c)
 func_003AF890__frontbin	movie	rac3PlayMovieFrontbin	host	frontbin copy of the movie player entry, the same instructions as the boot program 0x003AFC48 (host/movie.c)	int (int, int, unsigned int, int, int)
 func_003A9BE8	draw	rac3LoadScreenPicture	wrap	puts a picture from EE memory (pixels, frame address in bytes, width, height) into the frame as 512x32 image transfers and returns its TEX0: the main menu background; the picture goes to the window as a texture drawn by a full-screen 2D record (host/picture.c)	unsigned long long (int, int, int, int)
+func_003A0B60	wad	rac3WadDecompress	host	the WAD decompressor (hand-written assembly, the instructions of rac2-ntsc func_0029D4D0's routine): the shared routine (host/wad.c)	int (int, int)
+func_003A0760__frontbin	wad	rac3WadDecompressFrontbin	host	frontbin copy of 0x003A0B60 (host/wad.c)	int (int, int)
+func_003A0760	wad	rac3WadDecompressLevel	host	the levels' copies of 0x003A0B60, which rac3-decomp's catalogue names after frontbin's (host/wad.c)	int (int, int)
+func_0013BC30	989snd	snd_BankLoadFromEE_CB	host	RPC function 0x57 with the bank's EE address, the callback (in -0x7AC0($gp)) and its argument told the handle at the reply; the level loading screen (0x003BBB80) waits for it
