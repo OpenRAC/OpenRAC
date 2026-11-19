@@ -48,9 +48,11 @@ C are translated from their own instructions.
 - **frontbin** loads and runs: its start-up, its widgets, its intro movie (the native player through
   its own copy of the entry, `0x003AF890`) and then its menu loop, sending a display list each frame.
 - **A level** does not run yet: on the way to one (level 1, Veldin) the boot program's loading screen
-  (`0x003BD3E8`, its callback `0x003C10B0`, then `0x003BC7C0`) reads a block it expects at the
-  memory map's fourth region (`*(0x00227598)`, `0x006F3000`) that holds display-list data instead,
-  and faults; what fills that block before the loading screen is not found yet. The level's code
+  (`0x003BD3E8`, its callback `0x003C10B0`) has `0x003BBDC0` set the memory map up again and unpack
+  a pack (`0x003A0B60`) to its fourth region (`*(0x00227598)`, `0x006F3000`); then `0x003BC7C0`
+  indexes a table in it (+0x9C, with the indices at `0x001D9030`) whose words are not the offsets
+  it expects, and a store lands at `0x80EFAFBC`. Whether the wrong block is unpacked there or its
+  source was never read is not found yet. The level's code
   itself is not translated either: hostgen.json's `sources` has no `src/levels` and no `places`
   catalogue (rac3-decomp's `config/levels/functions.tsv`), as Going Commando's has.
 
