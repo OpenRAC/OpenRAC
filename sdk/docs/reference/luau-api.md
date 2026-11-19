@@ -615,6 +615,14 @@ rac1.player.update_equipped_items (Hero_UpdateEquippedItems) void(): What the he
 type Hero_UpdateEquippedItemsFn = () -> ()
 ```
 
+### `Hero_SteerPlanarVelocityFn`
+
+rac1.player.steer_planar_velocity (Hero_SteerPlanarVelocity) void(f32): Steers the hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by at most step a tick, up to three times that as it turns him (1.7 times in state 0x81); in gravity modes 1 and 2 it eases the velocity's length along the ground toward his target speed by step instead. steer_hero_planar_velocity in levels 0, 4, 7, 9, 10, 12, 13, 14 and 17, and its copy air_accel in the others, one hook point. The move states call it after setting the target speed and the step, the Thruster-Pack's hover (state 0x81) among them, so a replacement can steer the hero at a speed and acceleration of its own.
+
+```lua
+type Hero_SteerPlanarVelocityFn = (step: number) -> ()
+```
+
 ### `MobyUpdateFn`
 
 rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.

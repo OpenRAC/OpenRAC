@@ -76,6 +76,7 @@ type HookPoint =
     | "rac1.player.enter_move_state"
     | "rac1.player.resolve_gravity_mode"
     | "rac1.player.update_equipped_items"
+    | "rac1.player.steer_planar_velocity"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -725,6 +726,7 @@ type HookPoint =
     | "Hero_EnterMoveState"
     | "Hero_ResolveGravityMode"
     | "Hero_SetPlanarVelocity"
+    | "Hero_SteerPlanarVelocity"
     | "Hero_TakeDamage"
     | "Hero_TurnToHeading"
     | "Hero_Update"
@@ -1570,6 +1572,8 @@ type Hero_EnterMoveStateFn = (state: number, force: number) -> number
 type Hero_ResolveGravityModeFn = () -> number
 -- rac1.player.update_equipped_items (Hero_UpdateEquippedItems) void(): What the hero holds, once a tick from Hero_Update in every level: it locks item selection and use (+0x20A7, +0x20AC) while he is on magnetic ground with the Magneboots (+0x308 is 1), in control modes 0x15 and 0x16, or in water or dying, then spawns, updates, animates and lights the item mobys and runs the items (hero_update_items). Hero_EnterMoveState clears both locks on a change of state.
 type Hero_UpdateEquippedItemsFn = () -> ()
+-- rac1.player.steer_planar_velocity (Hero_SteerPlanarVelocity) void(f32): Steers the hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by at most step a tick, up to three times that as it turns him (1.7 times in state 0x81); in gravity modes 1 and 2 it eases the velocity's length along the ground toward his target speed by step instead. steer_hero_planar_velocity in levels 0, 4, 7, 9, 10, 12, 13, 14 and 17, and its copy air_accel in the others, one hook point. The move states call it after setting the target speed and the step, the Thruster-Pack's hover (state 0x81) among them, so a replacement can steer the hero at a speed and acceleration of its own.
+type Hero_SteerPlanarVelocityFn = (step: number) -> ()
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 

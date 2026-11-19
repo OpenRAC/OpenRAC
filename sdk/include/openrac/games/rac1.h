@@ -224,6 +224,15 @@ typedef int32_t (*openrac_rac1_Hero_ResolveGravityMode)(void);
 #define OPENRAC_RAC1_SIG_Hero_UpdateEquippedItems "void()"
 typedef void (*openrac_rac1_Hero_UpdateEquippedItems)(void);
 
+/* Hero_SteerPlanarVelocity (func_L00_00214520, rac1.player.steer_planar_velocity): steers the
+ * hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by
+ * at most step a tick (up to three times that as it turns him): steer_hero_planar_velocity, and
+ * its copy air_accel in the other levels (one hook point). The move states call it after setting
+ * the target speed and the step, the Thruster-Pack's hover (state 0x81) among them. */
+#define OPENRAC_RAC1_HOOK_Hero_SteerPlanarVelocity "Hero_SteerPlanarVelocity"
+#define OPENRAC_RAC1_SIG_Hero_SteerPlanarVelocity "void(f32)"
+typedef void (*openrac_rac1_Hero_SteerPlanarVelocity)(float step);
+
 /* ------------------------------------------------------------------------------------------ *
  * Taking a hook point
  * ------------------------------------------------------------------------------------------ */

@@ -555,6 +555,14 @@ struct Hero_UpdateEquippedItems {
     using fn = void (*)();
 };
 
+// Steers the hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by at most step a tick, up to three times that as it turns him (1.7 times in state 0x81); in gravity modes 1 and 2 it eases the velocity's length along the ground toward his target speed by step instead. steer_hero_planar_velocity in levels 0, 4, 7, 9, 10, 12, 13, 14 and 17, and its copy air_accel in the others, one hook point. The move states call it after setting the target speed and the step, the Thruster-Pack's hover (state 0x81) among them, so a replacement can steer the hero at a speed and acceleration of its own.
+struct Hero_SteerPlanarVelocity {
+    static constexpr const char* id = "rac1.player.steer_planar_velocity";
+    static constexpr const char* name = "Hero_SteerPlanarVelocity";
+    static constexpr const char* signature = "void(f32)";
+    using fn = void (*)(float);
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -7650,6 +7658,7 @@ namespace hooks {
         using enter_move_state = rac1::Hero_EnterMoveState;
         using resolve_gravity_mode = rac1::Hero_ResolveGravityMode;
         using set_planar_velocity = rac1::Hero_SetPlanarVelocity;
+        using steer_planar_velocity = rac1::Hero_SteerPlanarVelocity;
         using take_damage = rac1::Hero_TakeDamage;
         using turn_to_heading = rac1::Hero_TurnToHeading;
         using update = rac1::Hero_Update;

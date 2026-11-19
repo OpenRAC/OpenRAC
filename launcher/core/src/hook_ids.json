@@ -15,6 +15,7 @@
    "Hero_EnterMoveState": "rac1.player.enter_move_state",
    "Hero_ResolveGravityMode": "rac1.player.resolve_gravity_mode",
    "Hero_SetPlanarVelocity": "rac1.player.set_planar_velocity",
+   "Hero_SteerPlanarVelocity": "rac1.player.steer_planar_velocity",
    "Hero_TakeDamage": "rac1.player.take_damage",
    "Hero_TurnToHeading": "rac1.player.turn_to_heading",
    "Hero_Update": "rac1.player.update",
