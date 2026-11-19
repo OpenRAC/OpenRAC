@@ -5,6 +5,9 @@ rac1.ammo.choose_drop	pal:L00:00258250	Ammo_ChooseDrop,FUN_L00_00257218,func_L00
 rac1.ammo.spawn_drop	pal:L00:002C6608	Ammo_SpawnDrop,FUN_L00_002c52a8,func_L00_002C6608
 rac1.camera.follow.apply_overrides	pal:L00:002E74B0	FUN_L00_002e6000,FollowCamera_ApplyOverrides,func_L00_002E74B0
 rac1.combat.get_hit	pal:L00:0025B478	FUN_L00_0025a420,Moby_GetHitMessage,func_L00_0025B478
+rac1.fx.burst.spawn	pal:L00:0026DA50	FUN_L00_0026cbb0,FX_SpawnBurst,func_L00_0026DA50
+rac1.fx.thruster_flame.draw	pal:L00:002B4918	FUN_L00_002b3628,FX_ThrusterFlame_Draw,func_L00_002B4918
+rac1.fx.world_quad.draw	pal:L00:001FD1D8	FX_DrawWorldQuad,func_L00_001FD1D8,func_L00_001FD228
 rac1.gold_bolt.count_collected	pal:002160E0	FUN_00215290,GoldBolts_CountCollected,func_002160E0
 rac1.gold_bolt.count_unspent	pal:00216098	FUN_00215248,GoldBolts_CountUnspent,func_00216098
 rac1.gold_case.start_demo	pal:L01:002AFD00	FUN_L01_002aea70,GoldCase_StartDemo,func_L01_002AFD00

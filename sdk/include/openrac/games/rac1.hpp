@@ -571,6 +571,30 @@ struct Hero_UpdateMovement {
     using fn = void (*)();
 };
 
+// Queues one effect quad for the effect renderer (draw_world_quad): the 0x90-byte record at quad holds four corners (+0x00, x y z w each), four RGBA words (+0x40, alpha 0x80 opaque), four ST pairs (+0x50), then the GS words CLAMP, TEX0 (the texture), TEX1 and ALPHA (+0x70, +0x78, +0x80, +0x88); the corners go through the matrix at matrix when it is not 0. Most effects' draw callbacks call it, many times a frame: glows, flames, beams, shots. A replacement can rewrite the record (its colours, say) before it calls the original; the record is the caller's, which may draw it again. The port's own C, not the game's: the executable's quad routine, which a few draws call directly, is not this hook point.
+struct FX_DrawWorldQuad {
+    static constexpr const char* id = "rac1.fx.world_quad.draw";
+    static constexpr const char* name = "FX_DrawWorldQuad";
+    static constexpr const char* signature = "void(u32,u32,i32)";
+    using fn = void (*)(uint32_t, uint32_t, int32_t);
+};
+
+// Draws one of the Thruster-Pack's two flames (flame, a class 0xA7 moby; draw_joint_aligned_beam_effect), the draw callback its update queues each frame it burns: two quads of effect texture 0xC in the colour 0x80808080 and a glow of texture 0xB in 0x7F2020FF, through rac1.fx.world_quad.draw, then a ribbon of 196 points coloured from the table joint_beam_ribbon_colors. A replacement that sets a flag around the original can tell the flame's quads from the others in rac1.fx.world_quad.draw. The flame's sparks come from its update (rac1.moby.moby167.update) through rac1.fx.burst.spawn.
+struct FX_ThrusterFlame_Draw {
+    static constexpr const char* id = "rac1.fx.thruster_flame.draw";
+    static constexpr const char* name = "FX_ThrusterFlame_Draw";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Spawns a spark (a type 0x15 particle; spawn_burst) at the vector at pos, moving by the vector at dir, for ticks ticks (none when 0): its RGBA colour fades from colour to fade as it shrinks from size, and while children is non-zero it throws off a spark of its current colour every other frame. Returns the particle, or 0. The sparks of many effects, explosions and debris among them; the Thruster-Pack's flames spawn theirs in 0x4F007FFF fading to 0x1FFFFFFF from their update (rac1.moby.moby167.update), so a replacement can recolour only those by swapping colour and fade while that update runs.
+struct FX_SpawnBurst {
+    static constexpr const char* id = "rac1.fx.burst.spawn";
+    static constexpr const char* name = "FX_SpawnBurst";
+    static constexpr const char* signature = "u32(u32,u32,i32,i32,i32,i32,f32)";
+    using fn = uint32_t (*)(uint32_t, uint32_t, int32_t, int32_t, int32_t, int32_t, float);
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -5680,6 +5704,17 @@ namespace hooks {
     namespace combat {
         using get_hit = rac1::Moby_GetHitMessage;
     }  // namespace combat
+    namespace fx {
+        namespace burst {
+            using spawn = rac1::FX_SpawnBurst;
+        }  // namespace burst
+        namespace thruster_flame {
+            using draw = rac1::FX_ThrusterFlame_Draw;
+        }  // namespace thruster_flame
+        namespace world_quad {
+            using draw = rac1::FX_DrawWorldQuad;
+        }  // namespace world_quad
+    }  // namespace fx
     namespace gold_bolt {
         using count_collected = rac1::GoldBolts_CountCollected;
         using count_unspent = rac1::GoldBolts_CountUnspent;

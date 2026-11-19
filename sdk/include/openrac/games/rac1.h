@@ -242,6 +242,32 @@ typedef void (*openrac_rac1_Hero_SteerPlanarVelocity)(float step);
 #define OPENRAC_RAC1_SIG_Hero_UpdateMovement "void()"
 typedef void (*openrac_rac1_Hero_UpdateMovement)(void);
 
+/* FX_DrawWorldQuad (func_L00_001FD1D8, rac1.fx.world_quad.draw): queues one effect quad
+ * (draw_world_quad): the record at quad holds four corners (+0x00), four RGBA words (+0x40),
+ * four ST pairs (+0x50) and the GS words CLAMP, TEX0, TEX1, ALPHA (+0x70..+0x88), its corners
+ * through matrix when it is not 0. Most effects' draws call it, many times a frame; a replacement
+ * can rewrite the record's colours before it calls the original. */
+#define OPENRAC_RAC1_HOOK_FX_DrawWorldQuad "FX_DrawWorldQuad"
+#define OPENRAC_RAC1_SIG_FX_DrawWorldQuad "void(u32,u32,i32)"
+typedef void (*openrac_rac1_FX_DrawWorldQuad)(openrac_gaddr quad, openrac_gaddr matrix, int32_t mode);
+
+/* FX_ThrusterFlame_Draw (func_L00_002B4918, rac1.fx.thruster_flame.draw): draws one of the
+ * Thruster-Pack's flames (a class 0xA7 moby; draw_joint_aligned_beam_effect), each frame it
+ * burns: two quads in 0x80808080 and a glow in 0x7F2020FF through FX_DrawWorldQuad, then a
+ * ribbon coloured from joint_beam_ribbon_colors. */
+#define OPENRAC_RAC1_HOOK_FX_ThrusterFlame_Draw "FX_ThrusterFlame_Draw"
+#define OPENRAC_RAC1_SIG_FX_ThrusterFlame_Draw "void(u32)"
+typedef void (*openrac_rac1_FX_ThrusterFlame_Draw)(openrac_gaddr flame);
+
+/* FX_SpawnBurst (func_L00_0026DA50, rac1.fx.burst.spawn): spawns a spark (spawn_burst) at pos
+ * moving by dir for ticks ticks, its colour fading from colour to fade as it shrinks from size,
+ * throwing off sparks of its colour while children is set. Returns it, or 0. The Thruster-Pack's
+ * flames spawn theirs (0x4F007FFF) from their update, rac1.moby.moby167.update. */
+#define OPENRAC_RAC1_HOOK_FX_SpawnBurst "FX_SpawnBurst"
+#define OPENRAC_RAC1_SIG_FX_SpawnBurst "u32(u32,u32,i32,i32,i32,i32,f32)"
+typedef openrac_gaddr (*openrac_rac1_FX_SpawnBurst)(openrac_gaddr pos, openrac_gaddr dir, int32_t colour, int32_t fade,
+                                                    int32_t ticks, int32_t children, float size);
+
 /* ------------------------------------------------------------------------------------------ *
  * Taking a hook point
  * ------------------------------------------------------------------------------------------ */

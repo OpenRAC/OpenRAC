@@ -5,6 +5,9 @@
   "rac1": {
    "Ammo_ChooseDrop": "rac1.ammo.choose_drop",
    "Ammo_SpawnDrop": "rac1.ammo.spawn_drop",
+   "FX_DrawWorldQuad": "rac1.fx.world_quad.draw",
+   "FX_SpawnBurst": "rac1.fx.burst.spawn",
+   "FX_ThrusterFlame_Draw": "rac1.fx.thruster_flame.draw",
    "FollowCamera_ApplyOverrides": "rac1.camera.follow.apply_overrides",
    "GoldBolts_CountCollected": "rac1.gold_bolt.count_collected",
    "GoldBolts_CountUnspent": "rac1.gold_bolt.count_unspent",
