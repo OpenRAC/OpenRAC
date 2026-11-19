@@ -315,6 +315,21 @@ impl SaveFile {
     }
 }
 
+/// A slot the game shows as empty, made from another save of the same disc: the game writes an
+/// empty slot as a whole save whose level (chunk 0) is -1 (its slot list, `FillSaveSlotInfo`,
+/// reads that word), and the clock (chunk 4) zero is how the launcher's slot list knows it.
+pub fn empty_slot(template: &[u8]) -> Result<Vec<u8>, String> {
+    let mut file = SaveFile::parse(template)?;
+    for c in &mut file.global.chunks {
+        match c.id {
+            0 => c.data.copy_from_slice(&(-1i32).to_le_bytes()),
+            4 => c.data.fill(0),
+            _ => {}
+        }
+    }
+    Ok(file.to_bytes())
+}
+
 // ---------------------------------------------------------------------------------------------
 // What the chunks hold (each proven by a save written after changing it in a running game, see
 // the format document).
