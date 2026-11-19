@@ -77,6 +77,7 @@ type HookPoint =
     | "rac1.player.resolve_gravity_mode"
     | "rac1.player.update_equipped_items"
     | "rac1.player.steer_planar_velocity"
+    | "rac1.player.update_movement"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -732,6 +733,7 @@ type HookPoint =
     | "Hero_Update"
     | "Hero_UpdateEquippedItems"
     | "Hero_UpdateMotionInput"
+    | "Hero_UpdateMovement"
     | "Hud_QuickSelect_Draw"
     | "Hud_QuickSelect_Init"
     | "Hud_QuickSelect_Update"
@@ -1574,6 +1576,8 @@ type Hero_ResolveGravityModeFn = () -> number
 type Hero_UpdateEquippedItemsFn = () -> ()
 -- rac1.player.steer_planar_velocity (Hero_SteerPlanarVelocity) void(f32): Steers the hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by at most step a tick, up to three times that as it turns him (1.7 times in state 0x81); in gravity modes 1 and 2 it eases the velocity's length along the ground toward his target speed by step instead. steer_hero_planar_velocity in levels 0, 4, 7, 9, 10, 12, 13, 14 and 17, and its copy air_accel in the others, one hook point. The move states call it after setting the target speed and the step, the Thruster-Pack's hover (state 0x81) among them, so a replacement can steer the hero at a speed and acceleration of its own.
 type Hero_SteerPlanarVelocityFn = (step: number) -> ()
+-- rac1.player.update_movement (Hero_UpdateMovement) void(): The hero's movement for the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput after it reads the stick: a case per state that sets his target speed and turn, steers or sets his velocity (+0xE0) and applies gravity, the Thruster-Pack's hover (state 0x81) among them. hero_update_movement in levels 0, 4, 7, 9, 10 and 13, and each other level's own build of it, one hook point. A replacement can move the hero itself in the states it wants and call the original for the others; his state's transitions come after it, later in Hero_Update.
+type Hero_UpdateMovementFn = () -> ()
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 

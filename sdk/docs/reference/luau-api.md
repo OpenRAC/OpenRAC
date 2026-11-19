@@ -623,6 +623,14 @@ rac1.player.steer_planar_velocity (Hero_SteerPlanarVelocity) void(f32): Steers t
 type Hero_SteerPlanarVelocityFn = (step: number) -> ()
 ```
 
+### `Hero_UpdateMovementFn`
+
+rac1.player.update_movement (Hero_UpdateMovement) void(): The hero's movement for the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput after it reads the stick: a case per state that sets his target speed and turn, steers or sets his velocity (+0xE0) and applies gravity, the Thruster-Pack's hover (state 0x81) among them. hero_update_movement in levels 0, 4, 7, 9, 10 and 13, and each other level's own build of it, one hook point. A replacement can move the hero itself in the states it wants and call the original for the others; his state's transitions come after it, later in Hero_Update.
+
+```lua
+type Hero_UpdateMovementFn = () -> ()
+```
+
 ### `MobyUpdateFn`
 
 rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.

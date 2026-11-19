@@ -563,6 +563,14 @@ struct Hero_SteerPlanarVelocity {
     using fn = void (*)(float);
 };
 
+// The hero's movement for the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput after it reads the stick: a case per state that sets his target speed and turn, steers or sets his velocity (+0xE0) and applies gravity, the Thruster-Pack's hover (state 0x81) among them. hero_update_movement in levels 0, 4, 7, 9, 10 and 13, and each other level's own build of it, one hook point. A replacement can move the hero itself in the states it wants and call the original for the others; his state's transitions come after it, later in Hero_Update.
+struct Hero_UpdateMovement {
+    static constexpr const char* id = "rac1.player.update_movement";
+    static constexpr const char* name = "Hero_UpdateMovement";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -7664,6 +7672,7 @@ namespace hooks {
         using update = rac1::Hero_Update;
         using update_equipped_items = rac1::Hero_UpdateEquippedItems;
         using update_motion_input = rac1::Hero_UpdateMotionInput;
+        using update_movement = rac1::Hero_UpdateMovement;
     }  // namespace player
     namespace save {
         using new_game = rac1::Save_NewGame;

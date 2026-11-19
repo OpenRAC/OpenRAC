@@ -233,6 +233,15 @@ typedef void (*openrac_rac1_Hero_UpdateEquippedItems)(void);
 #define OPENRAC_RAC1_SIG_Hero_SteerPlanarVelocity "void(f32)"
 typedef void (*openrac_rac1_Hero_SteerPlanarVelocity)(float step);
 
+/* Hero_UpdateMovement (func_L00_002180F8, rac1.player.update_movement): the hero's movement for
+ * the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput: a case per state that
+ * sets his speeds, turn and velocity (+0xE0), the Thruster-Pack's hover (state 0x81) among them.
+ * hero_update_movement, and each other level's own build of it (one hook point). A replacement
+ * can move him itself in one state and call the original for the others. */
+#define OPENRAC_RAC1_HOOK_Hero_UpdateMovement "Hero_UpdateMovement"
+#define OPENRAC_RAC1_SIG_Hero_UpdateMovement "void()"
+typedef void (*openrac_rac1_Hero_UpdateMovement)(void);
+
 /* ------------------------------------------------------------------------------------------ *
  * Taking a hook point
  * ------------------------------------------------------------------------------------------ */

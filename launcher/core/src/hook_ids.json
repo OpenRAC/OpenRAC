@@ -21,6 +21,7 @@
    "Hero_Update": "rac1.player.update",
    "Hero_UpdateEquippedItems": "rac1.player.update_equipped_items",
    "Hero_UpdateMotionInput": "rac1.player.update_motion_input",
+   "Hero_UpdateMovement": "rac1.player.update_movement",
    "Hud_QuickSelect_Draw": "rac1.hud.quick_select.draw",
    "Hud_QuickSelect_Init": "rac1.hud.quick_select.init",
    "Hud_QuickSelect_Update": "rac1.hud.quick_select.update",

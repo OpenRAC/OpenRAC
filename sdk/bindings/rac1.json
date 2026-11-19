@@ -984,6 +984,49 @@
         ]
       },
       "about": "Steers the hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by at most step a tick, up to three times that as it turns him (1.7 times in state 0x81); in gravity modes 1 and 2 it eases the velocity's length along the ground toward his target speed by step instead. steer_hero_planar_velocity in levels 0, 4, 7, 9, 10, 12, 13, 14 and 17, and its copy air_accel in the others, one hook point. The move states call it after setting the target speed and the step, the Thruster-Pack's hover (state 0x81) among them, so a replacement can steer the hero at a speed and acceleration of its own."
+    },
+    {
+      "id": "rac1.player.update_movement",
+      "name": "Hero_UpdateMovement",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L00_002180F8",
+        "ntsc": "FUN_L00_00217970"
+      },
+      "copies": {
+        "pal": [
+          "func_L01_002377A8",
+          "func_L02_00226338",
+          "func_L03_0020F650",
+          "func_L05_00245208",
+          "func_L06_0022E788",
+          "func_L08_00228BD0",
+          "func_L11_00247260",
+          "func_L12_00238FF0",
+          "func_L14_00229440",
+          "func_L15_0020F460",
+          "func_L16_00214C88",
+          "func_L17_00214F68",
+          "func_L18_0021F1D8"
+        ],
+        "ntsc": [
+          "FUN_L01_002370b8",
+          "FUN_L02_00225c20",
+          "FUN_L03_0020ef60",
+          "FUN_L05_00244a70",
+          "FUN_L06_0022e020",
+          "FUN_L08_002284e0",
+          "FUN_L11_00246b70",
+          "FUN_L12_00238900",
+          "FUN_L14_00228cd0",
+          "FUN_L15_0020ed50",
+          "FUN_L16_00214598",
+          "FUN_L17_00214760",
+          "FUN_L18_0021eac8"
+        ]
+      },
+      "about": "The hero's movement for the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput after it reads the stick: a case per state that sets his target speed and turn, steers or sets his velocity (+0xE0) and applies gravity, the Thruster-Pack's hover (state 0x81) among them. hero_update_movement in levels 0, 4, 7, 9, 10 and 13, and each other level's own build of it, one hook point. A replacement can move the hero itself in the states it wants and call the original for the others; his state's transitions come after it, later in Hero_Update."
     }
   ],
   "bases": {
