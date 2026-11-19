@@ -226,11 +226,14 @@ endif()
 if(OPENRAC_METAL)
   add_library(openrac_renderer_metal STATIC
     renderer/metal/mtlgl.mm renderer/metal/mtlgl_draw.mm renderer/metal/mtlgl_resources.mm
-    renderer/metal/shader_translate.cpp renderer/metal/mtlgl_backend.cpp)
+    renderer/metal/shader_translate.cpp renderer/metal/mtlgl_backend.cpp
+    renderer/metal/mtlgl_hdr.mm)
   target_link_libraries(openrac_renderer_metal
     PUBLIC openrac_renderer_vulkan openrac_sdl3 "-framework Metal" "-framework QuartzCore" "-framework OpenGL"
            "-framework Foundation"
     PRIVATE openrac_spirv_cross)
+  # HDR output's encode pass is the Vulkan backend's (vkgl_shaders.h, openrac_embed_shaders above).
+  target_include_directories(openrac_renderer_metal PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
   target_compile_options(openrac_renderer_metal PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
   openrac_warnings(openrac_renderer_metal)
   target_link_libraries(openrac_platform PRIVATE openrac_renderer_metal)
@@ -965,6 +968,12 @@ if(OPENRAC_METAL)
   openrac_add_test(mtlgl LIBS openrac_renderer_metal openrac_renderer openrac_platform)
   set_tests_properties(mtlgl PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1")
+  # metal_hdr      HDR output on Metal: the layer for each output, the encode pass against
+  #                common/hdr.h and against the Vulkan backend's, a hidden window's layer turned
+  #                to EDR and back (tests/metal_hdr_test.cpp)
+  openrac_add_test(metal_hdr LIBS openrac_renderer_metal openrac_renderer openrac_platform)
+  set_tests_properties(metal_hdr PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1;OPENRAC_GL_API=vulkan")
 endif()
 
 # A mod's moby material packed beside the shine distance, read back as mesh.vert reads it.
