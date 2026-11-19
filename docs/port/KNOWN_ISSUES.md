@@ -118,3 +118,33 @@ discs. The pool size is data, not a fixed array:
 Evidence and scripts: the port census (`OPENRAC_TMP_CENSUS`, a temporary
 patch to `port/game/common/frontend.cpp`, not kept) and the fcheck census of
 snapshots at SpawnFallingDebrisRing (0x2EBA58), frames 1390 to 1848.
+
+## Ratchet & Clank: a class that is not a weapon or gadget loaded as one (T-63, T-64)
+
+**Seen:** a player crash on 1.1.0 (NTSC, Windows, 12 mods), 2026-11-18:
+Gaspar (level 9), game mode 0, about 300 frames after the Pilot's Helmet
+scene, "read at game address 0x0AA65AAD".
+
+**Why:** the hand slot (`hero.selected_item[0]`) held an item that is not a
+hand item. Its class is not in the weapon and gadget class list
+(`class_resource_ids`, US `D_001CBAC0`), so
+select_world_object_resource_tables (US `FUN_00204a40`) ends its search past
+the list, decodes whatever follows, and prepare_resident_class_render_data
+reads a garbage pointer. With item 7 (the helmet) written into the hand slot
+the port crashes the same way. The game itself only puts hand items there: the
+helmet scene without mods plays and carries on. A mod most likely put the item
+there; which one is not known.
+
+**What the port does now:** the wrap of that function (rac1/host/figure_items.c)
+does not decode a class that is not in the list and logs "class N is not a
+weapon or gadget class: not decoded" once. Every class in the list is decoded
+as before.
+
+**Also seen (T-64):** a player crash on 1.1.0 (NTSC, Windows), 2026-11-18,
+with the item randomizer: Novalis (level 1), game mode 5, buying at the
+vendor, "read at game address 0xF4554950". The same three frames, called from
+the vendor's selected-item preview (initialize_vendor_selected_item_mobys,
+US `FUN_L00_0029b680`), which loads the class of the list's item under the
+cursor. Not reproduced with the item randomizer 2.4.5 or 2.6.0 on Novalis
+(Pyrocitor slot giving the Swingshot, the coordinates of Hoven or the
+Hologuise, with and without the starting gear kept).
