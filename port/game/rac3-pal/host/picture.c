@@ -56,8 +56,8 @@ static uint64_t picture_tex0(uint32_t frame, int width, int height) {
     while ((1 << th) < height) {
         th++;
     }
-    return (uint64_t)((frame >> 8) & 0x3FFFu) | ((uint64_t)((width >> 6) & 0x3F) << 14)
-           | (tw << 26) | (th << 30) | (1ull << 34);
+    return (uint64_t)((frame >> 8) & 0x3FFFu) | ((uint64_t)((width >> 6) & 0x3F) << 14) | (tw << 26)
+           | (th << 30) | (1ull << 34);
 }
 
 uint64_t func_003A9BE8(int pixels, int frame, int width, int height) {
@@ -82,7 +82,7 @@ uint64_t func_003A9BE8(int pixels, int frame, int width, int height) {
     );
     q.rgba = 0x80808080u;
     q.tex0 = (tex0 & ~0x3FFFull) | PICTURE_BLOCK;
-    q.flags = 2u | 16u;     /* a sprite, clamped */
+    q.flags = 2u | 16u;       /* a sprite, clamped */
     q.clamp = 1u | (1u << 2); /* CLAMP_1: clamp both ways */
     if (!openrac_ui_send(&q, LIST_CURSOR)) {
         return (uint64_t)func_003A9BE8__game(pixels, frame, width, height);

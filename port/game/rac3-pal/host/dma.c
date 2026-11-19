@@ -12,7 +12,7 @@
 #include "openrac/guest.h"
 
 void rac3_chain_census(gaddr channel, gaddr tag); /* chain_census.c */
-void rac3_picture_frame_sent(void);                /* picture.c */
+void rac3_picture_frame_sent(void);               /* picture.c */
 
 static uint32_t reg(gaddr at) {
     uint32_t v;
