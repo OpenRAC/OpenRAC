@@ -148,16 +148,14 @@ void mouse_stick() {
     m.step(6.0f, 0.0f, false, t);
     m.step(6.0f, 0.0f, false, t);
     CHECK(near(m.x, 0.5f));
-    // Acceleration: a fast motion goes further than twice a slow one's.
+    // No curve: twice the motion is twice the stick.
     t.sensitivity = 1.0f;
-    t.acceleration = 1.0f;
     kbm::MouseLook slow, fast;
     slow.step(2.0f, 0.0f, false, t);
     slow.step(2.0f, 0.0f, false, t);
     fast.step(4.0f, 0.0f, false, t);
     fast.step(4.0f, 0.0f, false, t);
-    CHECK(fast.x > 2.0f * slow.x);
-    t.acceleration = 0.0f;
+    CHECK(near(fast.x, 2.0f * slow.x));
     // The tilt holds where the mouse left it; up (dy < 0) is a stick pushed up.
     m.reset();
     m.step(0.0f, -80.0f, false, t);
@@ -228,13 +226,13 @@ void direct_look() {
     t.sensitivity = 2.0f;
     CHECK(near(kbm::DirectLook::yaw(10.0f, 0.0f, t), 2.0f * one, 1e-6f));
     t.sensitivity = 1.0f;
-    // The mod's acceleration, when asked for, turns a fast motion further than its share.
-    t.acceleration = 1.0f;
-    CHECK(
-        std::fabs(kbm::DirectLook::yaw(40.0f, 0.0f, t))
-        > 4.0f * std::fabs(kbm::DirectLook::yaw(10.0f, 0.0f, t))
-    );
-    t.acceleration = 0.0f;
+    // No curve: a fast flick turns exactly its share, and the other axis does not change it.
+    CHECK(near(kbm::DirectLook::yaw(40.0f, 0.0f, t), 4.0f * one, 1e-6f));
+    CHECK(near(kbm::DirectLook::yaw(10.0f, 300.0f, t), one, 1e-6f));
+    // A negative sensitivity or ratio (a broken settings file) turns nothing.
+    t.sensitivity = -1.0f;
+    CHECK(kbm::DirectLook::yaw(10.0f, 0.0f, t) == 0.0f);
+    t.sensitivity = 1.0f;
     // Up and down sensitivity scales the tilt only.
     const float tilt = kbm::DirectLook::pitch(0.0f, 10.0f, t);
     t.y_ratio = 0.5f;
@@ -765,6 +763,158 @@ void manifest(const char* path) {
 
 }  // namespace
 
+// The edges of each piece: what an odd setting, an odd report or the end of a range does.
+void edges() {
+    kbm::Binds b;
+    // Separators alone, or around a name, hold no bind; a comma at the end is no third bind.
+    CHECK(kbm::parse_binds(",, ,", b) && b[0] == 0 && b[1] == 0);
+    CHECK(kbm::parse_binds("KeyW,", b) && b[0] == 26 && b[1] == 0);
+    CHECK(!kbm::parse_binds("KeyW,,KeyA,KeyS", b) && b[0] == 0 && b[1] == 0);
+    CHECK(!kbm::parse_binds("Key W", b));  // no name has a space
+
+    // The keys' stick: a ramp below zero is no ramp, a walk past 1 is held at the stick's reach.
+    kbm::MoveTuning move;
+    move.rise_ticks = -5.0f;
+    kbm::KeyStick keys;
+    keys.step(false, false, false, true, false, move);
+    CHECK(keys.x == 1.0f);
+    // All four keys: they cancel out, and the stick comes back to rest.
+    for (int i = 0; i < 3; ++i) {
+        keys.step(true, true, true, true, false, move);
+    }
+    CHECK(keys.x == 0.0f && keys.y == 0.0f);
+
+    // The mouse's stick: no up and down sensitivity, no tilt; a huge flick stops at the stick's end.
+    kbm::LookTuning look;
+    look.y_ratio = 0.0f;
+    kbm::MouseLook m;
+    m.step(1e6f, 500.0f, false, look);
+    CHECK(m.x == 1.0f && m.y == 0.0f);
+    m.step(-1e6f, 0.0f, true, look);
+    CHECK(m.x == 0.0f || std::fabs(m.x) <= 1.0f);
+    m.step(-1e6f, 0.0f, true, look);
+    CHECK(m.x == -1.0f && m.y == 0.0f);
+    // Levels out: a held tilt goes back to level once the mouse rests.
+    look.y_ratio = 1.0f;
+    look.pitch_holds = false;
+    m.reset();
+    m.step(0.0f, 80.0f, false, look);
+    CHECK(m.y > 0.0f);
+    for (int i = 0; i < 200; ++i) {
+        m.step(0.0f, 0.0f, false, look);
+    }
+    CHECK(m.y == 0.0f);
+
+    // The report: a short one (no pressure bytes) takes the buttons and sticks only; one too short
+    // for the sticks is left alone.
+    kbm::Virtual v;
+    v.held = kbm::kCross;
+    v.left_x = 1.0f;
+    std::uint8_t six[6] = {0xFF, 0xFF, 0x80, 0x80, 0x80, 0x80};
+    kbm::merge(v, six, 6);
+    CHECK(six[1] == static_cast<std::uint8_t>(~(kbm::kCross >> 8)) && six[4] != 0x80);
+    std::uint8_t five[5] = {0xFF, 0xFF, 0x80, 0x80, 0x80};
+    kbm::merge(v, five, 5);
+    CHECK(five[0] == 0xFF && five[1] == 0xFF && five[4] == 0x80);
+    // A stick value past its reach is full travel, and the game reads it back so.
+    CHECK(
+        kbm::stick_byte(5.0f) == kbm::stick_byte(1.0f)
+        && kbm::stick_byte(-5.0f) == kbm::stick_byte(-1.0f)
+    );
+    CHECK(
+        kbm::game_axis(kbm::stick_byte(1.0f)) == 1.0f
+        && kbm::game_axis(kbm::stick_byte(-1.0f)) == -1.0f
+    );
+    // The smallest push is past the game's dead zone, never lost in it.
+    CHECK(kbm::game_axis(kbm::stick_byte(0.001f)) > 0.0f);
+
+    // The Quick Select: a pointer exactly on the dead zone rests; a dead zone of 0 still caps the
+    // pointer (at twice 1 pixel), so turning back answers.
+    kbm::RingPointer r;
+    r.add(30.0f, 0.0f, 30.0f);
+    CHECK(r.stick(30.0f).first == 0.0f);
+    r.reset();
+    r.add(1000.0f, 0.0f, 0.0f);
+    CHECK(r.x == 2.0f && r.stick(0.0f).first == 1.0f);
+    r.add(-4.0f, 0.0f, 0.0f);
+    CHECK(r.stick(0.0f).first == -1.0f);
+    // The ring's slots at their exact borders, and every way round.
+    for (int s = 0; s < 8; ++s) {
+        const float a = static_cast<float>(s) * 3.14159265f / 4.0f - 3.14159265f / 2.0f;
+        CHECK(kbm::ring_slot(std::cos(a), std::sin(a)) == s);
+    }
+
+    // The weapon wheel: an empty ring keeps what is in hand; nothing in hand starts at the first.
+    const std::array<std::int32_t, 8> empty{};
+    CHECK(kbm::cycle_item(empty, 7, 1) == 7 && kbm::cycle_item(empty, 0, -1) == 0);
+    const std::array<std::int32_t, 8> one = {0, 0, 5, 0, 0, 0, 0, 0};
+    CHECK(kbm::cycle_item(one, 5, 1) == 5 && kbm::cycle_item(one, 0, 1) == 5);
+    CHECK(kbm::cycle_item(one, 0, -1) == 5);
+
+    // Where the game is: modes no table has are a menu (its keys are the safe ones).
+    CHECK(kbm::context_of(3, 99, -1) == kbm::Context::Menu);
+    CHECK(kbm::context_of(-1, -1, -1) == kbm::Context::Menu);
+
+    // The pulses: a fifth waiting one is dropped, the rest go one a tick with a rest between.
+    kbm::Pulser p;
+    for (int i = 0; i < 5; ++i) {
+        p.push(static_cast<std::uint16_t>(1u << i));
+    }
+    int sent = 0;
+    for (int i = 0; i < 12; ++i) {
+        sent += p.step() != 0 ? 1 : 0;
+    }
+    CHECK(sent == 4 && p.idle());
+    // A held key in a menu repeats: let go one tick in six after the first 24.
+    kbm::Repeat rep;
+    int released = 0;
+    for (int i = 0; i < 24 + 12; ++i) {
+        released += rep.step(true) ? 0 : 1;
+    }
+    CHECK(released == 2 && !rep.step(false) && rep.ticks == 0);
+    // The mouse's steps in a menu: the way it mostly goes wins, a diagonal is not two steps.
+    kbm::Stepper st;
+    CHECK(st.step(47.0f, 46.0f) == 0);
+    CHECK(st.step(1.0f, 0.0f) == kbm::kRight);
+
+    // The menus' rows and cells off the edges.
+    const kbm::Rect list{10, 10, 100, 0};
+    CHECK(kbm::list_row(list, 3, 0u, 10.0f) == -1);  // no height: no rows
+    const kbm::Rect rows{10, 10, 100, 40};
+    CHECK(kbm::list_row(rows, 0, 0u, 20.0f) == -1 && kbm::list_row(rows, 3, 0u, 50.0f) == -1);
+    CHECK(kbm::list_row(rows, 3, 0u, 49.9f) == 2 && kbm::list_row(rows, 3, 0u, 10.0f) == 0);
+    kbm::GridLayout grid;
+    CHECK(kbm::grid_cell_at(grid, 0.0f, 0.0f) == -1);  // no layout read
+    grid.rect = {0, 0, 100, 100};
+    grid.frame_w = grid.frame_h = 10.0f;
+    grid.icon_w = grid.icon_h = std::nanf("");
+    grid.rows = grid.cols = 2;
+    CHECK(!kbm::grid_layout_valid(grid) && kbm::grid_cell_at(grid, 10.0f, 10.0f) == -1);
+    CHECK(
+        kbm::grid_step(0, 4, 2, 2) == 0 && kbm::grid_step(-1, 0, 2, 2) == 0
+        && kbm::grid_step(1, 1, 2, 2) == 0
+    );
+    CHECK(kbm::grid_step(0, 3, 2, 2) == kbm::kDown && kbm::grid_step(3, 2, 2, 2) == kbm::kLeft);
+
+    // Without the lock-strafe mod the strafe key presses nothing, and no icon is drawn for L2's
+    // strafe (the first-person key keeps L1).
+    const kbm::ActionSet strafe = kbm::bit(Action::Strafe);
+    CHECK(kbm::buttons_for(kbm::Context::Play, strafe, -1, false, false) == 0);
+    CHECK(kbm::buttons_for(kbm::Context::Play, strafe, -1, false, true) == kbm::kL2);
+    const auto icons = kbm::prompt_actions(kbm::Context::Play, -1, false, false);
+    CHECK(icons[5] == Action::Count && icons[4] == Action::FirstPerson);
+
+    // The latch: a key held into a new place stays out until let go; one pressed there counts.
+    kbm::Latch latch;
+    const kbm::ActionSet esc = kbm::bit(Action::Pause);
+    const kbm::ActionSet space = kbm::bit(Action::Jump);
+    CHECK(latch.filter(kbm::Context::Play, esc) == esc);
+    CHECK(latch.filter(kbm::Context::Menu, esc | space) == space);
+    CHECK(latch.filter(kbm::Context::Menu, esc) == 0);
+    CHECK(latch.filter(kbm::Context::Menu, 0) == 0);
+    CHECK(latch.filter(kbm::Context::Menu, esc) == esc);
+}
+
 int main(int argc, char** argv) {
     parsing();
     conflicts();
@@ -779,6 +929,7 @@ int main(int argc, char** argv) {
     press_edges();
     menu_mouse();
     prompts();
+    edges();
 
     manifest(argc > 1 ? argv[1] : KBM_MANIFEST);
 

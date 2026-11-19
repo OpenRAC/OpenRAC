@@ -143,6 +143,13 @@ bool parse_setting(const json::Value& v, Setting& s, std::string& error) {
         || !text(v, "section", false, s.section, error)) {
         return false;
     }
+    // Only looks: read where they are as the launcher has them, else left out.
+    if (const json::Value& step = v["step"]; step.is_number() && step.number() > 0.0) {
+        s.step = step.number();
+    }
+    if (const json::Value& group = v["group"]; group.is_string()) {
+        s.group = group.string();
+    }
     for (char c : s.key) {
         if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
             error = std::format("setting key \"{}\" may hold only a-z, 0-9 and _", s.key);
@@ -743,6 +750,71 @@ bool setting_value(const Setting& s, const json::Value& v, SettingValue& out) {
 bool setting_for_game(const Setting& s, std::string_view game) {
     return s.games.empty() || game.empty()
            || std::find(s.games.begin(), s.games.end(), game) != s.games.end();
+}
+
+bool preset_covers(const Setting& s, const std::vector<Preset>& presets) {
+    if (s.type == SettingType::Keybind) {
+        return true;
+    }
+    return std::any_of(presets.begin(), presets.end(), [&](const Preset& p) {
+        return std::any_of(p.values.begin(), p.values.end(), [&](const auto& v) {
+            return v.first == s.key;
+        });
+    });
+}
+
+const SettingValue& preset_value(const Setting& s, const Preset* preset) {
+    if (preset != nullptr) {
+        for (const auto& [key, value] : preset->values) {
+            if (key == s.key) {
+                return value;
+            }
+        }
+    }
+    return s.fallback;
+}
+
+bool same_value(const Setting& s, const SettingValue& a, const SettingValue& b) {
+    switch (s.type) {
+        case SettingType::Bool:
+            return a.b == b.b;
+        case SettingType::Int:
+            return a.i == b.i;
+        case SettingType::Float:
+            return a.f == b.f;
+        case SettingType::Keybind: {
+            std::string x, y;
+            return parse_binds(a.s, s.binds, x) && parse_binds(b.s, s.binds, y) ? x == y
+                                                                                : a.s == b.s;
+        }
+        default:
+            return a.s == b.s;
+    }
+}
+
+std::string setting_literal(const Setting& s, const SettingValue& v) {
+    switch (s.type) {
+        case SettingType::Bool:
+            return v.b ? "true" : "false";
+        case SettingType::Int:
+            return std::to_string(v.i);
+        case SettingType::Float:
+            return std::isfinite(v.f) ? std::format("{}", v.f) : "0";
+        default: {
+            std::string out = "\"";
+            for (const unsigned char c : v.s) {
+                if (c == '"' || c == '\\') {
+                    out += '\\';
+                    out += static_cast<char>(c);
+                } else if (c < 0x20) {
+                    out += std::format("\\u{:04x}", c);
+                } else {
+                    out += static_cast<char>(c);
+                }
+            }
+            return out + "\"";
+        }
+    }
 }
 
 std::map<std::string, SettingValue> resolve_settings(

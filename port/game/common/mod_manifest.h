@@ -61,6 +61,10 @@ struct Setting {
     // "section": the heading it is shown under, in the launcher and the port's menu alike; a
     // section's settings together, the sections in the order each first appears. Empty: none.
     std::string section;
+    // "step": how far a number moves a notch (optional; the port's menu picks one without it).
+    std::optional<double> step;
+    // "group": a keybind's group; two keybinds of one group may not share an input (the menus warn).
+    std::string group;
 };
 
 // "presets" (interface 1.2): buttons that set several settings at once (sdk/docs/settings.md).
@@ -71,6 +75,18 @@ struct Preset {
 
 // Whether a setting is for this game (its "games" empty or naming it).
 bool setting_for_game(const Setting& s, std::string_view game);
+
+// The presets, as the launcher has them (launcher/src/lib/presets.ts): they cover every keybind and
+// each setting one of them names; a preset gives those it names its value and the others it covers
+// their defaults. `preset` null is the defaults (the Default button).
+bool preset_covers(const Setting& s, const std::vector<Preset>& presets);
+const SettingValue& preset_value(const Setting& s, const Preset* preset);
+
+// Whether two values of a setting are the same (a keybind's by its binds, in order).
+bool same_value(const Setting& s, const SettingValue& a, const SettingValue& b);
+
+// A value as JSON, as a mod's setting_set_* and the port's menu take it: true, 3, 0.5, "KeyW".
+std::string setting_literal(const Setting& s, const SettingValue& v);
 
 // A value of the setting's type from JSON, within its limits, as the list's are checked (a
 // keybind's names normalized): false when it is not one.

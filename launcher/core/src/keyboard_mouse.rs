@@ -63,21 +63,6 @@ fn written(value: &Value) -> String {
     }
 }
 
-/// The camera's turn for one mouse count at sensitivity 1 in Ratchet & Clank, in degrees
-/// (keyboard_mouse.cpp's 0.0015 radians), and Counter-Strike's at its sensitivity 1.
-const DEGREES_PER_COUNT: f64 = 0.0015 * 180.0 / std::f64::consts::PI;
-const CS_DEGREES_PER_COUNT: f64 = 0.022;
-
-/// The sensitivity in other words: Counter-Strike's, and cm a full turn at `dpi`.
-pub fn sensitivity_hint(sensitivity: f64, dpi: i64) -> String {
-    let degrees = DEGREES_PER_COUNT * sensitivity;
-    let mut hint = format!("Now as CS sensitivity {:.2}", degrees / CS_DEGREES_PER_COUNT);
-    if dpi > 0 && degrees > 0.0 {
-        hint += &format!(", {:.1} cm a full turn at {dpi} DPI", 360.0 / degrees / dpi as f64 * 2.54);
-    }
-    hint + "."
-}
-
 /// The entry for `game`/`version`, its values from the version's settings file in `data_home`.
 pub fn view(data_home: &Path, game: &str, version: &str) -> PluginView {
     let m = manifest();
@@ -89,15 +74,6 @@ pub fn view(data_home: &Path, game: &str, version: &str) -> PluginView {
         .map(|spec| SettingView { spec: spec.clone(), value: read_setting(&text, spec), conflicts: Vec::new() })
         .collect();
     mark_conflicts(&mut settings);
-    // Where the mouse turns the camera by an angle (the DPI is a setting there): the sensitivity
-    // in other words.
-    let value_of = |key: &str| settings.iter().find(|s| s.spec.key == key).map(|s| s.value.clone());
-    if let (Some(sens), Some(dpi)) = (value_of("mouse_sensitivity"), value_of("mouse_dpi")) {
-        let hint = sensitivity_hint(sens.as_f64().unwrap_or(1.0), dpi.as_i64().unwrap_or(0));
-        if let Some(s) = settings.iter_mut().find(|s| s.spec.key == "mouse_sensitivity") {
-            s.spec.description = format!("{} {hint}", s.spec.description);
-        }
-    }
     PluginView {
         id: ID.into(),
         name: m.name.clone(),
@@ -168,23 +144,21 @@ mod tests {
         let v = view(&home, "rac2", "ntsc");
         let has = |key: &str| v.settings.iter().any(|s| s.spec.key == key);
         assert!(has("jump") && has("mouse_sensitivity") && has("key_prompts"));
-        assert!(!has("weapon_1") && !has("menu_mouse") && !has("mouse_dpi") && !has("camera_reset"));
-        // No angle to speak of there: the sensitivity has no CS hint.
-        let sens = v.settings.iter().find(|s| s.spec.key == "mouse_sensitivity").unwrap();
-        assert!(!sens.spec.description.contains("Now as CS"));
+        assert!(!has("weapon_1") && !has("menu_mouse") && !has("camera_reset"));
         assert!(set_setting(&home, "rac2", "ntsc", "weapon_1", &json!("Digit1")).is_err());
         assert!(set_setting(&home, "rac2", "ntsc", "jump", &json!("KeyJ")).is_ok());
         let _ = std::fs::remove_dir_all(&home);
     }
 
     #[test]
-    fn sensitivity_in_other_words() {
-        // 0.0859 degrees a count: CS 3.91, and 13.3 cm a turn at 800 DPI.
-        assert_eq!(sensitivity_hint(1.0, 800), "Now as CS sensitivity 3.91, 13.3 cm a full turn at 800 DPI.");
-        assert_eq!(sensitivity_hint(2.0, 0), "Now as CS sensitivity 7.81.");
-        let v = view(&temp("hint"), "rac1", "ntsc");
+    fn the_settings_are_the_manifests_as_written() {
+        // The page shows the manifest's lines as they are: nothing is added to them, and the
+        // settings the mouse itself owns (its DPI, the system's acceleration) are not here.
+        let v = view(&temp("plain"), "rac1", "ntsc");
         let sens = v.settings.iter().find(|s| s.spec.key == "mouse_sensitivity").unwrap();
-        assert!(sens.spec.description.ends_with("Now as CS sensitivity 3.91, 13.3 cm a full turn at 800 DPI."));
+        let spec = manifest().settings.iter().find(|s| s.key == "mouse_sensitivity").unwrap().clone();
+        assert_eq!(sens.spec.description, spec.description);
+        assert!(!v.settings.iter().any(|s| s.spec.key == "mouse_dpi" || s.spec.key == "mouse_acceleration"));
     }
 
     #[test]

@@ -26,10 +26,6 @@ namespace {
 constexpr const char* kId = "keyboard-mouse";
 // A key capture gives up after this long without a press, in seconds.
 constexpr double kCaptureTimeout = 6.0;
-// The camera's turn a count at sensitivity 1, in degrees (kbm.hpp kRadiansPerPixel), and
-// Counter-Strike's at its sensitivity 1 (m_yaw).
-constexpr double kDegreesPerCount = 0.0015 * 180.0 / 3.14159265358979;
-constexpr double kCsDegreesPerCount = 0.022;
 
 struct Panel {
     std::string open;     // the row showing its own rows
@@ -37,6 +33,8 @@ struct Panel {
     bool add = false;     // the press adds a bind, else it replaces them
     double since = 0.0;
     std::string message;
+    bool reset_asked = false;  // Reset to defaults pressed once
+    double reset_since = 0.0;
 };
 
 Panel g;
@@ -52,9 +50,12 @@ std::string number(double v) {
     return t;
 }
 
-// How far one step of a number moves it: a hundredth of its range, rounded to 1, 2 or 5 times a
-// power of ten.
+// How far one step of a number moves it: the manifest's step (as the launcher's slider), else a
+// hundredth of its range, rounded to 1, 2 or 5 times a power of ten.
 double step_of(const mods::Setting& s) {
+    if (s.step) {
+        return s.type == mods::SettingType::Int ? std::max(1.0, std::round(*s.step)) : *s.step;
+    }
     const double range = s.max && s.min ? *s.max - *s.min : 10.0;
     double step = std::pow(10.0, std::floor(std::log10(std::max(range / 100.0, 1e-3))));
     for (const double m : {1.0, 2.0, 5.0}) {
@@ -142,34 +143,12 @@ void set_binds(const std::string& key, const std::vector<std::string>& binds) {
     set(key, "\"" + joined(binds) + "\"");
 }
 
-// The sensitivity in other words: Counter-Strike's, and cm a full turn at the DPI set. Only where
-// the mouse turns the camera by an angle (Ratchet & Clank, whose settings have the DPI).
-std::string sensitivity_hint() {
-    const mods::BuiltInSetting sens = mods::built_in_setting(kId, "mouse_sensitivity");
-    const mods::BuiltInSetting dpi = mods::built_in_setting(kId, "mouse_dpi");
-    if (sens.spec == nullptr || dpi.spec == nullptr) {
-        return "";
-    }
-    const double degrees = kDegreesPerCount * sens.value.f;
-    std::string hint = std::format("As CS sensitivity {:.2f}", degrees / kCsDegreesPerCount);
-    if (dpi.value.i > 0 && degrees > 0.0) {
-        hint += std::format(
-            ", {:.1f} cm a full turn at {} DPI",
-            360.0 / degrees / static_cast<double>(dpi.value.i) * 2.54,
-            dpi.value.i
-        );
-    }
-    return hint;
-}
-
-// Another play key with one of these binds (menu keys are only read in menus).
+// Another key of the same group with one of these binds, as the launcher marks it: a play key and
+// a menu key may share one (menu keys are only read in menus).
 bool clashes(const mods::Setting& s, const std::vector<std::string>& binds) {
-    if (s.key.starts_with("menu_")) {
-        return false;
-    }
     for (const mods::Setting* other : mods::built_in_settings(kId)) {
         if (other->key == s.key || other->type != mods::SettingType::Keybind
-            || other->key.starts_with("menu_")) {
+            || other->group != s.group) {
             continue;
         }
         for (const std::string& b : binds_of(mods::built_in_setting(kId, other->key).value.s)) {
@@ -257,9 +236,6 @@ void setting_rows(const mods::Setting& s, const mods::SettingValue& v) {
         }
     }
     hover(s);
-    if (s.key == "mouse_sensitivity") {
-        menu_note(sensitivity_hint().c_str(), ui().dim);
-    }
     if (open && (s.type == mods::SettingType::Int || s.type == mods::SettingType::Float)) {
         const double now = value_of(v), step = step_of(s);
         if (sub("Lower (-" + number(step) + ")")) {
@@ -275,82 +251,18 @@ void setting_rows(const mods::Setting& s, const mods::SettingValue& v) {
     ImGui::PopID();
 }
 
-// A value as set_built_in_setting takes it: its JSON.
-std::string literal(const mods::Setting& s, const mods::SettingValue& v) {
-    switch (s.type) {
-        case mods::SettingType::Bool:
-            return v.b ? "true" : "false";
-        case mods::SettingType::Int:
-            return std::to_string(v.i);
-        case mods::SettingType::Float:
-            return std::format("{}", v.f);
-        default: {
-            std::string out = "\"";
-            for (const char c : v.s) {
-                if (c == '"' || c == '\\') {
-                    out += '\\';
-                }
-                out += c;
-            }
-            return out + "\"";
-        }
-    }
-}
-
-// A value to compare: a keybind's binds without repeats, the others as set.
-std::string held(const mods::Setting& s, const mods::SettingValue& v) {
-    if (s.type != mods::SettingType::Keybind) {
-        return literal(s, v);
-    }
-    std::vector<std::string> out;
-    for (const std::string& b : binds_of(v.s)) {
-        if (std::find(out.begin(), out.end(), b) == out.end()) {
-            out.push_back(b);
-        }
-    }
-    return joined(out);
-}
-
-// What the presets cover, as the launcher's (lib/presets.ts): every keybind and each setting a
-// preset names. A preset sets those it names and gives the others their defaults.
-bool in_scope(const mods::Setting& s, const std::vector<mods::Preset>& presets) {
-    if (s.type == mods::SettingType::Keybind) {
-        return true;
-    }
-    for (const mods::Preset& p : presets) {
-        for (const auto& [key, value] : p.values) {
-            if (key == s.key) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-const mods::SettingValue& wanted(const mods::Setting& s, const mods::Preset* preset) {
-    if (preset != nullptr) {
-        for (const auto& [key, value] : preset->values) {
-            if (key == s.key) {
-                return value;
-            }
-        }
-    }
-    return s.fallback;
-}
-
+// Whether the settings are as a preset (null: the defaults) sets them.
 bool is_preset(
     const std::vector<const mods::Setting*>& all,
     const std::vector<mods::Preset>& presets,
     const mods::Preset* preset
 ) {
-    for (const mods::Setting* s : all) {
-        if (in_scope(*s, presets)
-            && held(*s, wanted(*s, preset))
-                   != held(*s, mods::built_in_setting(kId, s->key).value)) {
-            return false;
-        }
-    }
-    return true;
+    return std::all_of(all.begin(), all.end(), [&](const mods::Setting* s) {
+        return !mods::preset_covers(*s, presets)
+               || mods::same_value(
+                   *s, mods::preset_value(*s, preset), mods::built_in_setting(kId, s->key).value
+               );
+    });
 }
 
 void apply_preset(
@@ -359,8 +271,8 @@ void apply_preset(
     const mods::Preset* preset
 ) {
     for (const mods::Setting* s : all) {
-        if (in_scope(*s, presets)) {
-            set(s->key, literal(*s, wanted(*s, preset)));
+        if (mods::preset_covers(*s, presets)) {
+            set(s->key, mods::setting_literal(*s, mods::preset_value(*s, preset)));
         }
     }
 }
@@ -450,16 +362,24 @@ void keyboard_mouse_panel() {
             "Sets the keys (and the settings a preset names) at once. Custom: your own."
         );
     }
-    if (value_row("Reset to defaults", "")) {
-        for (const mods::Setting* p : all) {
-            set(p->key, literal(*p, p->fallback));
+    // Asked once, done on the second press (the launcher asks too).
+    if (g.reset_asked && ImGui::GetTime() - g.reset_since > kCaptureTimeout) {
+        g.reset_asked = false;
+    }
+    if (value_row("Reset to defaults", g.reset_asked ? "Press again to reset" : "", ui().amber)) {
+        if (g.reset_asked) {
+            for (const mods::Setting* p : all) {
+                set(p->key, mods::setting_literal(*p, p->fallback));
+            }
         }
+        g.reset_asked = !g.reset_asked;
+        g.reset_since = ImGui::GetTime();
     }
     note_hover_row(
         static_cast<int>(menu::Id::KeyboardMouse),
         "",
         "Reset to defaults",
-        "Every keyboard and mouse setting back to its default."
+        "Every keyboard and mouse setting back to its default. Press it twice."
     );
     // The settings under their sections, the sections in the order each first appears (as the
     // launcher shows them, lib/plugins.ts settingGroups).

@@ -5,13 +5,12 @@
 // KEYBOARD_MOUSE.md): the keys and the mouse, as the player bound them, pressed into the first
 // pad's report each tick, on top of a gamepad's. It loads through the mod interface, as a mod with
 // no library or folder. What a key presses follows where the game is (kbm::Context): in play the
-// console's layout; in the
-// title, the menus and the dialogs confirm and back; in a scene, a movie or the ship, a skip. In
-// play the mouse turns the camera itself (kbm::DirectLook: the follow camera through its hook
-// point, the first-person view before its update), and while the Quick Select is held open picks
-// its slot by the way it moves; in the menus the cursor is free, points at the game's own
-// menu items, clicks, and its wheel scrolls. Takes the keyboard from the port (its own WASD table
-// stops) and the cursor while in play.
+// console's layout; in the title, the menus and the dialogs confirm and back; in a scene, a movie
+// or the ship, a skip. In play the mouse turns the camera itself (kbm::DirectLook: the follow
+// camera through its hook point, the first-person view before its update), and while the Quick
+// Select is held open picks its slot by the way it moves; in the menus the cursor is free, points
+// at the game's own menu items, clicks, and its wheel scrolls. Takes the keyboard from the port
+// (its own WASD table stops) and the cursor while in play.
 //
 // The settings are openrac-mod.json's (shared with Going Commando's), kept as kbm_<key> lines in
 // the version's settings file and read again whenever they change. While the player is on the
@@ -67,8 +66,8 @@ constexpr gaddr kMobyUpOffset = 0xE0u;
 // How many rows of a text list are read at most (assumed): a list that reaches it is no list.
 constexpr int kMaxListRows = 32;
 
-// The follow camera's locks (assumed: discs.h states it): bit 0 stops the stick turning it, bit 1 means
-// the game holds the tilt.
+// The follow camera's locks (assumed: discs.h states it): bit 0 stops the stick turning it, bit 1
+// means the game holds the tilt.
 constexpr std::int32_t kFollowLockTurn = 1;
 constexpr std::int32_t kFollowLockTilt = 2;
 
@@ -701,8 +700,8 @@ std::optional<bool> mouse_on_page(gaddr page, bool moved, bool click, float px, 
 // The mouse in a menu: over a page's item, it is the one the game focuses (as the d-pad moves the
 // focus between a page's items: the next tick's focus change plays the game's own sound); over a
 // row of the focused list or a cell of the focused item grid, the d-pad steps the selection to it.
-// Elsewhere (the vendor, the dialogs) its motion steps the d-pad. A click on an item not yet focused focuses it first.
-// Returns false when the click must wait for the focus to move.
+// Elsewhere (the vendor, the dialogs) its motion steps the d-pad. A click on an item not yet
+// focused focuses it first. Returns false when the click must wait for the focus to move.
 bool menu_mouse(const Tick& t, bool click) {
     const openrac_input* in = t.in;
     const bool moved = in->mouse_dx != 0.0f || in->mouse_dy != 0.0f;
@@ -1291,7 +1290,6 @@ void read_settings(openrac::Mod& mod) {
         static_cast<float>(mod.setting<double>("stick_ramp_ms")) * ticks_per_second(mod) / 1000.0f;
     s_look_tuning.sensitivity = static_cast<float>(mod.setting<double>("mouse_sensitivity"));
     s_look_tuning.y_ratio = static_cast<float>(mod.setting<double>("mouse_y_ratio"));
-    s_look_tuning.acceleration = static_cast<float>(mod.setting<double>("mouse_acceleration"));
     s_look_tuning.invert_y = mod.setting<bool>("invert_y");
     s_look_tuning.pitch_holds = mod.setting<std::string>("camera_tilt") != "return";
     s_ring_dead_zone = static_cast<float>(mod.setting<double>("quick_select_dead_zone"));

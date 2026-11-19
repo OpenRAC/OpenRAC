@@ -33,9 +33,6 @@ menus, scenes, the overlay (F3) and when the window loses focus.
   other way). A pad's right stick takes the camera back.
 - **Going Commando:** the mouse is the right stick, so the camera turns as the
   stick turns it.
-- **Sensitivity in Ratchet & Clank:** at 1 one count turns 0.086 degrees, as
-  CS sensitivity 3.9. Both menus show your setting as CS sensitivity and cm a
-  full turn at *Mouse DPI*.
 
 ## Default controls
 
@@ -104,8 +101,6 @@ as `kbm_<key> = <value>` lines in `<data>/settings/<game>-<version>.ini`
 |---|---|---|---|
 | Mouse | Sensitivity | 1.0 | How far the camera turns for the mouse's motion |
 | Mouse | Vertical sensitivity | 1.0 | The up and down turn against the side to side one |
-| Mouse | Mouse DPI | 800 | Only for the CS and cm hint (Ratchet & Clank) |
-| Mouse | Acceleration | 0 | Above 0 a fast flick turns further |
 | Mouse | Invert vertical | off | Mouse up looks down |
 | Mouse | Camera tilt | Stays | *Levels out*: the tilt eases back when the mouse rests |
 | Mouse | Lock the cursor in play | on | Off leaves the cursor free (no mouse camera) |

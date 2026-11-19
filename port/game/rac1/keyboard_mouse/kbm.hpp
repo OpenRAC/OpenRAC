@@ -293,7 +293,6 @@ struct KeyStick {
 struct LookTuning {
     float sensitivity = 1.0f;   // the mouse's turn, 1 the default
     float y_ratio = 1.0f;       // the up and down turn against the side to side one
-    float acceleration = 0.0f;  // 0: none; more turns a fast flick further than a slow drag
     bool invert_y = false;
     bool pitch_holds = true;  // the camera's tilt stays where the mouse leaves it
 };
@@ -318,29 +317,18 @@ struct MouseLook {
     float tilt = 0.0f;  // the held elevation, -1 (up) .. 1 (down)
     float last_dx = 0.0f;
 
-    // The gain for a tick's motion of `speed` pixels: 1 without acceleration.
-    static float gain(float speed, const LookTuning& t) {
-        // Without acceleration every speed has the same gain.
-        if (t.acceleration <= 0.0f) {
-            return 1.0f;
-        }
-
-        return 1.0f + t.acceleration * std::min(speed / kPixelsForFullTurn, 2.0f);
-    }
-
     // One tick of the mouse's motion (dx right, dy down, in pixels) into x and y, as the stick.
     void step(float dx, float dy, bool first_person, const LookTuning& t) {
         const float sens = std::max(t.sensitivity, 0.0f);
         const float ydir = t.invert_y ? -1.0f : 1.0f;
         const float smooth_dx = 0.5f * (dx + last_dx);
         last_dx = dx;
-        const float speed = std::sqrt(smooth_dx * smooth_dx + dy * dy);
         dy *= std::max(t.y_ratio, 0.0f);
-        x = clamp1(smooth_dx * sens * gain(speed, t) / kPixelsForFullTurn);
+        x = clamp1(smooth_dx * sens / kPixelsForFullTurn);
 
         // In first person y is a rate like x, so it follows this tick's motion.
         if (first_person) {
-            y = clamp1(dy * ydir * sens * gain(speed, t) / kPixelsForFullTurn);
+            y = clamp1(dy * ydir * sens / kPixelsForFullTurn);
             return;
         }
 
@@ -464,17 +452,16 @@ inline constexpr float kRadiansPerPixel = 0.0015f;  // (assumed)
 
 // The turn and the tilt a tick's mouse motion asks for. yaw is the angle about up (the game's
 // sense: > 0 turns the view left, so mouse right gives < 0); pitch > 0 looks down (mouse down,
-// or mouse up with Invert on). The mod's acceleration, off by default, is the only curve.
+// or mouse up with Invert on). No curve: the turn is in proportion to the motion.
 struct DirectLook {
-    static float scale(float dx, float dy, const LookTuning& t) {
-        const float speed = std::sqrt(dx * dx + dy * dy);
-        return std::max(t.sensitivity, 0.0f) * MouseLook::gain(speed, t) * kRadiansPerPixel;
+    static float scale(const LookTuning& t) {
+        return std::max(t.sensitivity, 0.0f) * kRadiansPerPixel;
     }
 
-    static float yaw(float dx, float dy, const LookTuning& t) { return -dx * scale(dx, dy, t); }
+    static float yaw(float dx, float /*dy*/, const LookTuning& t) { return -dx * scale(t); }
 
-    static float pitch(float dx, float dy, const LookTuning& t) {
-        return (t.invert_y ? -dy : dy) * std::max(t.y_ratio, 0.0f) * scale(dx, dy, t);
+    static float pitch(float /*dx*/, float dy, const LookTuning& t) {
+        return (t.invert_y ? -dy : dy) * std::max(t.y_ratio, 0.0f) * scale(t);
     }
 };
 
@@ -798,9 +785,9 @@ inline constexpr int kDialogQuitRace = 0;  // (seen in game code)
 // on (Cross), and only Backspace or right click is Triangle; in a scene, a movie, the ship or a
 // slideshow, every one of them is Start (and Cross for the ship's landing and take-off), which
 // skips. The strafe key presses L2 only when `strafe` (the lock-strafe mod is on): the game's own
-// L2 is the first-person view, which has a key of its own. On the map (map_screen) confirm is Circle, which travels. Menus' own Circle (the quit
-// page's quit, a cycled value's step back) has a bind of its own. The directions are not here: the
-// stick and the d-pad come apart (step()).
+// L2 is the first-person view, which has a key of its own. On the map (map_screen) confirm is
+// Circle, which travels. Menus' own Circle (the quit page's quit, a cycled value's step back) has a
+// bind of its own. The directions are not here: the stick and the d-pad come apart (step()).
 inline std::uint16_t buttons_for(
     Context c, ActionSet held, int dialog_kind, bool map_screen = false, bool strafe = true
 ) {
@@ -1080,8 +1067,10 @@ struct Rect {
     // Whether the point is within the rectangle, with a margin round it (assumed: the pointer's
     // hot spot is not exact).
     bool contains(float px, float py, float margin = 2.0f) const {
-        return w > 0 && h > 0 && px >= x - margin && px < x + w + margin && py >= y - margin
-               && py < y + h + margin;
+        const float left = static_cast<float>(x);
+        const float top = static_cast<float>(y);
+        return w > 0 && h > 0 && px >= left - margin && px < left + static_cast<float>(w) + margin
+               && py >= top - margin && py < top + static_cast<float>(h) + margin;
     }
 };
 
@@ -1155,7 +1144,8 @@ std::uint32_t reachable_widgets(
 // 12 high, 14 with flag 4, 10 with flag 8). -1 off the list.
 inline int list_row(const Rect& r, int count, std::uint32_t flags, float py) {
     // A point off the list, or a list with no rows, is on no row.
-    if (count <= 0 || r.h <= 0 || py < r.y || py >= r.y + r.h) {
+    if (count <= 0 || r.h <= 0 || py < static_cast<float>(r.y)
+        || py >= static_cast<float>(r.y) + static_cast<float>(r.h)) {
         return -1;
     }
 
