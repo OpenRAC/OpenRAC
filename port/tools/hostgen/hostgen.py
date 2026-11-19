@@ -218,7 +218,8 @@ def read_drafts(config_dir: Path, cfg: dict) -> tuple[str, set[str]] | None:
 def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None) -> dict[str, str]:
     """Candidate C for functions the decompilation still has as assembly
     (hostgen.json "candidates": a table in the decompilation, one
-    "name<TAB>file" line each, the file relative to the decompilation; lines
+    "name<TAB>file[<TAB>...]" line each, the file relative to the decompilation, further
+    columns ignored; lines
     starting with # are comments). A missing table means none: the
     decompilation decides what it offers. Each is C that does what the retail
     function does without matching its bytes; the matching build never sees it.
@@ -233,7 +234,9 @@ def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None
     for line in (source / table).read_text().splitlines():
         if not line.strip() or line.startswith("#"):
             continue
-        name, _, rel = line.partition("\t")
+        # name, file, and any columns after them (a gate's verdict, a note): only the first two count
+        name, _, rest = line.partition("\t")
+        rel = rest.split("\t")[0]
         path = source / rel.strip()
         if path.is_file() and name.strip() not in left_out:
             if path not in texts:

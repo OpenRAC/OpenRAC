@@ -4598,5 +4598,23 @@ class ResultGuard(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.run_hostgen("func_A\tfunc_B\n")
 
+
+class CandidateTableTest(unittest.TestCase):
+    def test_columns_after_the_file_are_ignored(self):
+        # rac3-decomp's table has more columns (program, the gate's verdict, ...) after name and file.
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "f").mkdir()
+            (source / "f/func_00100000.c").write_text("int func_00100000(void) { return 1; }\n")
+            (source / "t.tsv").write_text(
+                "# name\tfile\tprogram\tgate\n"
+                "func_00100000\tf/func_00100000.c\tboot_elf\tsame 3/3 blocks, 2/2 states\n"
+            )
+            files: dict[str, str] = {}
+            got = hostgen.read_candidates(source, {"candidates": "t.tsv"}, files)
+            self.assertEqual(list(got), ["func_00100000"])
+            self.assertEqual(files["func_00100000"], "f/func_00100000.c")
+
+
 if __name__ == "__main__":
     unittest.main()
