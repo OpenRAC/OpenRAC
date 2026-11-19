@@ -435,9 +435,13 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     // HDR output may be turned on later only when it was not off at start (common/hdr.h).
     config.hdr = chosen.hdr != hdr::Mode::Off;
 #if defined(OPENRAC_VULKAN)
-    // Only the Vulkan renderer has HDR output: HDR on draws with it, whatever renderer was asked
-    // for (it falls back to OpenGL by itself where Vulkan cannot start).
-    if (config.hdr && config.gl_api != platform::GlApi::Vulkan) {
+    // Only the Vulkan renderer has HDR output: HDR on draws with it (it falls back to OpenGL by
+    // itself where Vulkan cannot start), except where the player chose Metal, which stays Metal
+    // and SDR rather than changing the renderer behind their choice.
+    if (config.hdr && config.gl_api == platform::GlApi::Metal) {
+        log::info("HDR output needs the Vulkan renderer: drawing with Metal, as chosen, in SDR");
+        config.hdr = false;
+    } else if (config.hdr && config.gl_api != platform::GlApi::Vulkan) {
         log::info("HDR output is on: drawing with Vulkan, the renderer that has it");
         config.gl_api = platform::GlApi::Vulkan;
     }
