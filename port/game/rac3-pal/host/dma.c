@@ -12,6 +12,7 @@
 #include "openrac/guest.h"
 
 void rac3_chain_census(gaddr channel, gaddr tag); /* chain_census.c */
+void rac3_program_probe(void);                    /* program.c */
 
 static uint32_t reg(gaddr at) {
     uint32_t v;
@@ -40,6 +41,9 @@ void func_0012D938(gaddr channel, gaddr tag) {
     set_reg(channel, (reg(channel) & ~0xCu) | 0x105u);
 
     rac3_chain_census(channel, tag);
+    if (channel == 0x10009000u) {
+        rac3_program_probe();
+    }
     openrac_game_dma_send(channel, tag);
 
     const uint32_t done = (reg(channel) & ~0x100u & 0x0000FFFFu) | 0x70000000u;

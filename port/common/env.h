@@ -155,6 +155,7 @@ enum class Var : std::uint16_t {
     ProbeZeroWeightReference,
     PvsOff,
     Rac3Chains,
+    Rac3Next,
     Reach,
     Record,
     RenderGraphDump,

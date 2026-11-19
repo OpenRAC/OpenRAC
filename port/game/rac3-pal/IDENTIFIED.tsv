@@ -69,3 +69,19 @@ data	D_001CCFD0	0x001CCFD0	stream_loader	+0x4 busy, +0x6 read done, +0x8 count, 
 data	D_001D5790	0x001D5790	sly2_demo_path	"cdrom0:\SLY2\SLY2.ELF;1"
 data	D_0010F1A0	0x0010F1A0	vu0_program_chain	VIF0 chain loading VU0's microprograms (MPG at 0x0010F1AC: 96 pairs at 0xC80; entries 0xC80, 0xDA0 cos, 0xDB0 sin)
 data	D_0015C040	0x0015C040	main_args	argc, then argv for main
+data	D_1D4B50	0x001D4B50	program_buffer	where the next program is read to: a header word (the records' offset, 0x60 for frontbin), then its records; 0x0013AFF8 copies them over the boot program
+data	D_001D545C	0x001D545C	current_level	the level whose program is loaded or being loaded; -2 at the boot program's front end
+data	D_1D9D04	0x001D9D04	next_level	the level a menu asks for (1 for a new game); below zero, frontbin
+data	D_001D5B74	0x001D5B74	frontend_exit	set by a menu's choice (0x003B3A80, 0x003B6AA8): the front end's loop (0x00381250) ends and calls 0x003A7CB8
+code	func_003A7CB8	0x003A7CB8	frontend_leave	on the front end's way out: 0x003BD870 (frontbin when next_level < 0), else current_level = next_level and the level loader (0x0039A5C0) until it is read
+code	func_003BD870	0x003BD870	load_next_or_frontbin	next_level < 0: 0x003BD160 (frontbin) and returns 1; else 0x003BD3E8 and a loading-screen loop
+code	func_003BD160	0x003BD160	enter_frontbin	stops sound and streams, then 0x0039A530 and waits for the read
+code	func_0039A530	0x0039A530	read_frontbin	program_buffer = below 0x01FF7FF0 by frontbin's size; header 0x60; reads the MISC wad's frontend_code range (table of contents 0x00160C40 +0x648: sector +4, range +0x20) after it
+code	func_0039A5C0	0x0039A5C0	level_loader_step	the level loader's state machine (state 0x001D4B48, jtbl_0031C140), reading the level's program and data from the table of contents' level table (0x00160C40 +0x79A4...)
+code	func_00399230	0x00399230	parse_level_data	reads the level data WAD header at program_buffer (+0x18 core, +0x1C..+0x24 ranges)
+code	func_003B3A80	0x003B3A80	menu_start_game	a menu's confirm callback (registered by 0x003B3BA0 through 0x0039C1A0): frontend_exit = 1, next_level = current_level
+code	func_003B3CC8	0x003B3CC8	frontend_dialogs	the front end's dialog state machine (0x001D8888, jtbl_0031C660)
+code	func_0039C1A0	0x0039C1A0	gui_open_dialog	(draw callback, 0, confirm callback)
+code	func_003AF890__frontbin	0x003AF890	play_movie (frontbin)	frontbin's copy of 0x003AFC48 (the same instructions): the menus' background loop starts there
+code	func_003AB250__frontbin	0x003AB250	widget_init (frontbin)	takes (object, a1, a2) and forwards a1, a2 to 0x003AB038 unnamed (its C declares only the object): translated from its instructions (from_assembly)
+code	func_0038CB78	0x0038CB78	fill (hand-written)	ASM_FUNC, called as (buffer, 0, size) by both front ends: a fill; boot_elf and frontbin each have one, now translated from their own instructions

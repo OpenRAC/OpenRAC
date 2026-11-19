@@ -4545,6 +4545,25 @@ class AssemblyGuard(unittest.TestCase):
         self.assertEqual(got["assembly_allow_unused"], [])
 
 
+class CandidateFolders(unittest.TestCase):
+    """hostgen.json "candidate_folders_left_out": a program whose retail code the build reads (Up
+    Your Arsenal's frontbin) is translated from it, not from another release's drafts."""
+
+    def test_candidates_under_a_folder_are_left_out(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "nonmatching" / "frontbin").mkdir(parents=True)
+            (root / "nonmatching" / "boot").mkdir(parents=True)
+            (root / "nonmatching" / "frontbin" / "a.c").write_text("void func_A(void) {}\n")
+            (root / "nonmatching" / "boot" / "b.c").write_text("void func_B(void) {}\n")
+            (root / "functional.tsv").write_text("# name\tfile\nfunc_A\tnonmatching/frontbin/a.c\n"
+                                                 "func_B\tnonmatching/boot/b.c\n")
+            cfg = {"candidates": "functional.tsv"}
+            self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_A", "func_B"])
+            cfg["candidate_folders_left_out"] = {"nonmatching/frontbin": "translated from the disc"}
+            self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_B"])
+
+
 class PortHeaders(unittest.TestCase):
     """hostgen.json "headers": the port's own copy of a decompilation header, found first (Up Your
     Arsenal's include/vu0.h, whose "=j" asm Clang refuses)."""

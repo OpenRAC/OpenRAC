@@ -271,10 +271,14 @@ def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None
     starting with # are comments). A missing table means none: the
     decompilation decides what it offers. Each is C that does what the retail
     function does without matching its bytes; the matching build never sees it.
-    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet.
+    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet, and
+    "candidate_folders_left_out" (folder -> why) leaves out every candidate whose file is under one
+    of those folders of the decompilation (a program whose retail code the build reads, so its
+    instructions are translated in place of another release's drafts).
     FILES, when given, gets each candidate's file (relative to the decompilation)."""
     table = cfg.get("candidates")
     left_out = cfg.get("candidates_left_out", {})
+    folders = tuple(f.rstrip("/") + "/" for f in cfg.get("candidate_folders_left_out", {}))
     if not table or not (source / table).is_file():
         return {}
     out: dict[str, str] = {}
@@ -284,7 +288,7 @@ def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None
             continue
         name, _, rel = line.partition("\t")
         path = source / rel.strip()
-        if path.is_file() and name.strip() not in left_out:
+        if path.is_file() and name.strip() not in left_out and not (folders and rel.strip().startswith(folders)):
             if path not in texts:
                 texts[path] = path.read_text(encoding="utf-8", errors="surrogateescape")
             out[name.strip()] = texts[path]
@@ -1005,7 +1009,7 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
         # The disc's files are named relative to the decompilation (rac2's "baserom/SCUS_972.68"),
         # as asmc.retail_source reads them; relative to the build's own folder they were never
         # found, so a disc set up after the first build left the stub-only C in place.
-        stat_roots += [base / v for v in (a.get("retail") or {}).values() if v]
+        stat_roots += [base / v for v in (a.get("retail") or {}).values() if v and isinstance(v, str)]
         for root in stat_roots:
             for f in sorted(_files(root)):
                 st = f.stat()
@@ -1067,9 +1071,12 @@ def apply_assembly_options(cfg: dict, args: argparse.Namespace) -> None:
     if cfg.get("asm") and cfg["asm"].get("interface"):
         cfg["asm"] = {**cfg["asm"], "interface_path": str((args.game.resolve().parent / cfg["asm"]["interface"]))}
     if cfg.get("asm") and (args.retail_image or args.retail_exe):
+        programs = (cfg["asm"].get("retail") or {}).get("programs")
         cfg["asm"] = {**cfg["asm"], "retail": {
             k: str(v.resolve()) for k, v in (("image", args.retail_image), ("exe", args.retail_exe),
                                              ("dump", args.retail_dump)) if v}}
+        if programs:
+            cfg["asm"]["retail"]["programs"] = programs
 
 
 def add_derived_names(cfg: dict, args: argparse.Namespace, source: Path) -> Path | None:

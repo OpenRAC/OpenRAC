@@ -64,13 +64,17 @@ class Part:
 class Retail:
     """The executable's sections and each level's records."""
 
-    def __init__(self, exe: bytes | None, levels: dict[int, list[Part]], low: int, label: str = "retail"):
+    def __init__(self, exe: bytes | None, levels: dict[int, list[Part]], low: int, label: str = "retail",
+                 named: dict[str, list[Part]] | None = None):
         # A loader that carries the game packed (Up Your Arsenal's) is read as the game it unpacks.
         packed = packed_program(exe) if exe else None
         self.exe: list[Part] = packed[0] if packed else elf_parts(exe) if exe else []
         self.entry = packed[1] if packed else struct.unpack_from("<I", exe, 0x18)[0] if exe else None
         self.levels = levels
         self.low = low
+        # The disc's other programs by name (Up Your Arsenal's frontbin), which hostgen.json's
+        # "asm" "retail" "programs" places in an overlay of their own (place_named).
+        self.named = named or {}
         self.label = label
 
     @classmethod
@@ -80,7 +84,13 @@ class Retail:
     @classmethod
     def from_image(cls, image: Path, low: int) -> "Retail":
         exe, levels = read_image(image)
-        return cls(exe, levels, low, image.name)
+        return cls(exe, levels, low, image.name, read_named_programs(image))
+
+    def place_named(self, programs: dict[str, int]) -> None:
+        """The named programs as the overlays hostgen gives them ({"frontbin": 100})."""
+        for name, overlay in programs.items():
+            if name in self.named:
+                self.levels[int(overlay)] = self.named[name]
 
     def program(self, level: int) -> list[Part]:
         """Everything in game memory while program `level` (-1 the executable) is loaded."""
@@ -237,6 +247,15 @@ def read_dump(dump: Path) -> dict[int, list[Part]]:
     return levels
 
 
+def read_named_programs(image: Path) -> dict[str, list[Part]]:
+    """The disc's programs other than the executable and the levels (read_wad_programs), or none
+    for a disc the editor's reader of the later games does not know."""
+    try:
+        return read_wad_programs(image)[1]
+    except (OSError, ValueError):
+        return {}
+
+
 def read_image(image: Path) -> tuple[bytes, dict[int, list[Part]]]:
     """The executable and every level's program from a disc image, through the editor's reader."""
     editor_modules()
@@ -279,19 +298,35 @@ def overlay_parts(overlay: bytes) -> list[Part]:
 
 
 def read_wad_levels(image: Path) -> dict[int, list[Part]]:
-    """Each level's program from Going Commando's disc, through the editor's reader of the later
-    games' discs. Their other games' ports read no level programs yet."""
+    """Each level's program from Going Commando's or Up Your Arsenal's disc, through the editor's
+    reader of the later games' discs. Deadlocked's port reads no level programs yet."""
+    return read_wad_programs(image)[0]
+
+
+# Up Your Arsenal's table of contents: the MISC wad's global header (0x48 bytes) at this offset, its
+# sector at +4 and the front end's program (frontbin) at +0x20, a sector offset and count in it
+# (rac3-decomp's tools/levels.py, read_core).
+RAC3_MISC_HEADER = 0x648
+RAC3_FRONTBIN = 0x20
+
+
+def read_wad_programs(image: Path) -> tuple[dict[int, list[Part]], dict[str, list[Part]]]:
+    """Each level's program by the level's number, and the disc's other programs by name (Up Your
+    Arsenal's frontbin, the front end the boot program loads over its own when a level is left)."""
+    editor_modules()
     from disc import Disc, FormatError  # noqa: E402
     from formats import unpack  # noqa: E402
     from level import decoded  # noqa: E402
     import wads  # noqa: E402
     levels: dict[int, list[Part]] = {}
+    named: dict[str, list[Part]] = {}
     try:
         with Disc(image) as disc:
             version = wads.identify(disc)
-            if version is None or version.game != "rac2":
-                return levels
-            for entry in wads.WadDisc(disc, version).levels():
+            if version is None or version.game not in ("rac2", "rac3"):
+                return levels, named
+            wad = wads.WadDisc(disc, version)
+            for entry in wad.levels():
                 part = entry.get(wads.LEVEL)
                 if part is None:
                     continue
@@ -300,9 +335,26 @@ def read_wad_levels(image: Path) -> dict[int, list[Part]]:
                 offset, size = unpack("<ii", disc.sectors(start, 1), 0)
                 if size > 0:
                     levels[int(entry["id"])] = overlay_parts(decoded(disc.read(start * 2048 + offset, size)))
+            if version.game == "rac3":
+                size, sector = unpack("<ii", wad.toc, RAC3_MISC_HEADER)
+                if size == 0x48:
+                    first, count = unpack("<ii", wad.toc, RAC3_MISC_HEADER + RAC3_FRONTBIN)
+                    named["frontbin"] = overlay_parts(records_only(disc.sectors(sector + first, count)))
     except FormatError as e:
         print(f"hostgen: {image}: its level programs cannot be read: {e}", file=sys.stderr)
-    return levels
+    return levels, named
+
+
+def records_only(raw: bytes) -> bytes:
+    """A program's records (address, size, type, entry; then the bytes) without the zeros that pad
+    its last sector."""
+    at = 0
+    while at + 16 <= len(raw):
+        address, size = struct.unpack_from("<2I", raw, at)
+        if address == 0 and size == 0:
+            break
+        at += 16 + size
+    return raw[:min(at, len(raw))]
 
 
 def read_boot_executable(image: Path) -> bytes:

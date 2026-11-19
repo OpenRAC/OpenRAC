@@ -20,7 +20,14 @@
     "src",
     "."
   ],
-  "defines": [],
+  "defines": [
+    "INCLUDE_ASM_H",
+    "ASM_FUNC(FOLDER,NAME)=extern int openrac_asm_##NAME",
+    "LINKER_REMNANT(FOLDER,NAME)=",
+    "INCLUDE_RODATA(FOLDER,NAME)=",
+    "TEXT_PADDING(N)=",
+    "TEXT_FILL(N)="
+  ],
   "symbols": [],
   "libraries": "libraries.tsv",
   "roots": [
@@ -36,7 +43,13 @@
     }
   ],
   "candidates": "nonmatching/functional.tsv",
+  "candidate_folders_left_out": {
+    "nonmatching/frontbin": "frontbin's functions are translated from its own program on the disc (asm retail programs); these are NTSC-U drafts and near misses, some far from PAL's code (func_003AF0B8's matched none of it, and the front end it starts crashed on an object it had not set up)"
+  },
   "candidates_left_out": {
+    "func_003B8430": "Clang cannot read it: use of undeclared identifier 'D_001D8A40' (rac3-decomp master)",
+    "func_003EDF58": "Clang cannot read it: use of undeclared identifier 'O_3E8420' (rac3-decomp master)",
+    "func_003F1F28": "Clang cannot read it: use of undeclared identifier 'D_001D9698' (rac3-decomp master)",
     "func_00385A98": "Clang cannot read it: it calls func_0038DF00, which it does not declare",
     "func_0038D5B0": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
     "func_003EE310": "Clang cannot read it: it calls func_003EDBE0 with an argument its declaration does not take",
@@ -95,7 +108,10 @@
     "dirs": [],
     "gp": "0x001DC8B0",
     "retail": {
-      "image": "baserom/SCES_524.56.iso"
+      "image": "baserom/SCES_524.56.iso",
+      "programs": {
+        "frontbin": 100
+      }
     },
     "files": 8,
     "results_before_calls": true,
@@ -245,8 +261,36 @@
     "func_003EF4C8",
     "func_003F02D0",
     "func_003F0AC0",
-    "func_003F2060"
+    "func_003F2060",
+    "func_00382088__frontbin",
+    "func_0038C9B0__frontbin",
+    "func_00390C88__frontbin",
+    "func_00390D20__frontbin",
+    "func_00390D48__frontbin",
+    "func_00391210__frontbin",
+    "func_00391308__frontbin",
+    "func_003AA9D8__frontbin",
+    "func_003AADE0__frontbin",
+    "func_003AAE00__frontbin",
+    "func_003AB250__frontbin",
+    "func_003B2580__frontbin",
+    "func_003B25A0__frontbin",
+    "func_003B25C0__frontbin",
+    "func_003B2830__frontbin",
+    "func_003BCD50__frontbin",
+    "func_003C4CE8__frontbin",
+    "func_003C5250__frontbin",
+    "func_003C52F8__frontbin",
+    "func_003E6378__frontbin",
+    "func_003E9450__frontbin",
+    "func_003E58F8__frontbin"
   ],
+  "overlay_hook": true,
+  "relocate": [
+    1922688,
+    7340032
+  ],
+  "headers": "headers",
   "unpassed_registers": true,
   "executable_extents": {
     "sources": [

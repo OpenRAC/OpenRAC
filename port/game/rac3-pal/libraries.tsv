@@ -213,3 +213,5 @@ func_0012F918	pad	rac3PadSetActDirect	host	scePadSetActDirect: the motors, last 
 func_0012F9E0	pad	rac3PadSetActAlign	host	scePadSetActAlign: after six alignment bytes are built (host/pad.c)	int (int, int, int)
 func_0012FC18	pad	rac3PadInfoPressMode	host	scePadInfoPressMode (host/pad.c)	int (int, int)
 func_0012FC78	pad	rac3PadEnterPressMode	host	scePadEnterPressMode (host/pad.c)	int (int, int)
+func_0013AFF8	boot	load_next_program	wrap	copies the next program in (frontbin or a level) and returns its entry; the port then says which program is loaded (host/program.c)
+func_003AF890__frontbin	movie	rac3PlayMovieFrontbin	host	frontbin copy of the movie player entry, the same instructions as the boot program 0x003AFC48 (host/movie.c)	int (int, int, unsigned int, int, int)
