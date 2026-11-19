@@ -33,7 +33,7 @@ function view(): Rac2SaveView {
     shipPaint: 0,
     items: [
       { id: 30, owned: true, ammo: 100, xp: 10, version: 1 },
-      { id: 12, owned: true, ammo: 5, xp: null, version: 0 },
+      { id: 12, owned: true, ammo: 5, xp: 0, version: 0 },
     ],
     planets: [],
     skillPoints: [],
@@ -149,6 +149,25 @@ describe("mod fields attached to items", () => {
     pickVersion(v, f, values, 12, glove, tierOptions(glove)[1]?.value ?? "");
     expect(f.items[1]?.version).toBe(1);
     expect(values.ng?.b).toBe(2);
+  });
+
+  it("a tier keeps the experience of a weapon already at its last version, and starts it at 0 there", () => {
+    // NG++ counts experience again from 0 at the last version: V4 and the tier picks on it leave
+    // the count editable and as it was.
+    const v = view();
+    const f = structuredClone(v.fields);
+    const values: ModValues = {};
+    const lancer =
+      attachments([mod("ng", [field("l", 30, "version")])], ids).get(30)?.version ?? [];
+    const item = f.items[0];
+
+    if (!item) throw new Error("no Lancer");
+    pickVersion(v, f, values, 30, lancer, tierOptions(lancer)[0]?.value ?? "");
+    expect(item).toMatchObject({ version: 3, xp: 0 });
+    item.xp = 42;
+    pickVersion(v, f, values, 30, lancer, tierOptions(lancer)[1]?.value ?? "");
+    expect(item).toMatchObject({ version: 3, xp: 42 });
+    expect(values.ng?.l).toBe(2);
   });
 
   it("a tier without requires leaves the game version", () => {

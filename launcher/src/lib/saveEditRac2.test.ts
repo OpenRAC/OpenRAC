@@ -30,22 +30,30 @@ function four(
   step3: number,
   ammo: number[],
 ): Rac2VersionInfo[] {
-  const v = (label: string, how: Rac2VersionInfo["how"], k: number, min: number, max: number) => ({
+  const v = (
+    label: string,
+    how: Rac2VersionInfo["how"],
+    k: number,
+    step: number,
+    min: number,
+    max: number,
+  ) => ({
     label,
     name: k === 0 ? name : up,
     how,
-    stepXp: how === "experience" ? min : null,
+    stepXp: how === "experience" ? step : null,
     challengeOnly: k >= 2,
     maxAmmo: ammo[k] ?? null,
     minXp: min,
     maxXp: max,
   });
 
+  // V4, the last, takes any experience: nothing reads it there, and NG++ counts from 0 there.
   return [
-    v("V1", "first", 0, 0, step1 - 1),
-    v("V2", "experience", 1, step1, MAX),
-    v("V3", "bought", 2, 0, step3 - 1),
-    v("V4", "experience", 3, step3, MAX),
+    v("V1", "first", 0, 0, 0, step1 - 1),
+    v("V2", "experience", 1, step1, step1, MAX),
+    v("V3", "bought", 2, 0, 0, step3 - 1),
+    v("V4", "experience", 3, step3, 0, MAX),
   ];
 }
 
@@ -68,7 +76,7 @@ function view(): Rac2SaveView {
         { id: 2, owned: false, ammo: null, xp: null, version: null },
         { id: 30, owned: true, ammo: 27, xp: 100, version: 0 },
         { id: 24, owned: false, ammo: 0, xp: 0, version: 0 },
-        { id: 12, owned: true, ammo: 10, xp: null, version: 0 },
+        { id: 12, owned: true, ammo: 10, xp: 0, version: 0 },
       ],
       planets: [{ id: 1, available: true, visited: true, platinum: [false, false, false, false] }],
       skillPoints: Array<boolean>(30).fill(false),
@@ -115,7 +123,7 @@ function view(): Rac2SaveView {
         maxAmmo: 40,
         upgradeName: null,
         upgradeXp: null,
-        maxXp: null,
+        maxXp: MAX,
         versions: [
           {
             label: "V1",
@@ -124,8 +132,8 @@ function view(): Rac2SaveView {
             stepXp: null,
             challengeOnly: false,
             maxAmmo: 40,
-            minXp: null,
-            maxXp: null,
+            minXp: 0,
+            maxXp: MAX,
           },
           {
             label: "V2",
@@ -134,8 +142,8 @@ function view(): Rac2SaveView {
             stepXp: null,
             challengeOnly: true,
             maxAmmo: 60,
-            minXp: null,
-            maxXp: null,
+            minXp: 0,
+            maxXp: MAX,
           },
         ],
         worn: false,
@@ -320,5 +328,39 @@ describe("the Going Commando save editor's page checks", () => {
     at(f, 30).version = 1;
     at(f, 30).xp = 8960;
     expect(fieldErrors(v, f)["version-30"]).toContain("hand");
+  });
+
+  it("takes the experience of every weapon at its last version: V4, a bought V2, the RYNO II", () => {
+    // NG++ levels weapons past their last version by experience counted again from 0 there, so
+    // a count under V4's own step, and one for a weapon the game never upgrades by experience,
+    // are both edits a player makes.
+    const v = view();
+
+    v.challengeMode = 1;
+    // The RYNO II: one version, no step by experience.
+    v.items.push({
+      id: 44,
+      name: "RYNO II",
+      kind: "weapon",
+      maxAmmo: 100,
+      upgradeName: null,
+      upgradeXp: null,
+      maxXp: MAX,
+      versions: [],
+      worn: false,
+    });
+    v.fields.items.push({ id: 44, owned: true, ammo: 100, xp: 0, version: null });
+    const f = structuredClone(v.fields);
+    const seeker = at(f, 24);
+
+    Object.assign(seeker, { owned: true, version: 3, ammo: 50, xp: 12_000 });
+    at(f, 12).version = 1;
+    at(f, 12).xp = 6_000 * 32;
+    at(f, 44).xp = 40_000 * 32;
+    expect(fieldErrors(v, f)).toEqual({});
+    expect(editList(v, f).length).toBeGreaterThan(0);
+    // Still in the range: no more than the editor's limit.
+    at(f, 44).xp = MAX + 1;
+    expect(fieldErrors(v, f)["xp-44"]).toBe("From 0 to 9,999,999");
   });
 });

@@ -4,7 +4,9 @@
 // `min`; `as: "row"` adds a control to the item's row. A target the editor does not know leaves
 // the field in the mod's own section. `requires: {version: "last"}` ties the field's values above
 // `min` to the item's last game version: picking one moves the item there, and picking a game
-// version puts the field back to `min`.
+// version puts the field back to `min`. Such a mod counts the weapon's experience again from 0 at
+// the last version (NG++ levels its tiers by it), so a weapon moved there by a tier pick starts at
+// 0, and one already there keeps its count.
 import type { ModSaveData, ModSaveField, Rac2SaveFields, Rac2SaveView } from "./api";
 import { setVersion } from "./saveEditRac2";
 
@@ -143,6 +145,10 @@ export function pickVersion(
   for (const a of version) setValue(values, a, a === pick.attached ? pick.tier : a.field.min);
   const last = lastVersion(view, id);
 
-  if (pick.attached.field.requires?.version === "last" && last !== null)
-    setVersion(view, f, id, last);
+  if (pick.attached.field.requires?.version !== "last" || last === null) return;
+  const item = f.items.find((i) => i.id === id);
+
+  if (!item || item.version === last) return;
+  setVersion(view, f, id, last);
+  if (item.xp !== null) item.xp = 0;
 }

@@ -527,7 +527,7 @@ impl ItemDef {
         if n < 2 {
             return Vec::new();
         }
-        let has_xp = self.upgrade.is_some();
+        let has_xp = self.kind == Rac2ItemKind::Weapon;
         let xp = |min: u32, max: u32| has_xp.then_some((min, max));
         let mut out = Vec::with_capacity(n);
         for depth in 0..n {
@@ -536,11 +536,19 @@ impl ItemDef {
                 _ => self.next_step(self.chain[depth - 1]),
             };
             let max = self.next_step(self.chain[depth]).map_or(MAX_XP, |s| s - 1);
+            // Raised by experience, the game leaves at least the step (func_00287EB0), and a
+            // version with a step after it keeps that. The last version has none: nothing reads
+            // its experience against anything, and a mod that levels past it (NG++) counts it
+            // again from 0 there, so any count is one the game can hold.
+            let least = |step: u32| if depth + 1 == n { 0 } else { step };
             let rule = match (depth, step_in) {
                 (0, _) => VersionRule { how: Rac2VersionHow::First, challenge: false, xp: xp(0, max) },
-                // Raised by experience: the game leaves at least the step (func_00287EB0).
-                (1, Some(step)) => VersionRule { how: Rac2VersionHow::Experience, challenge: false, xp: xp(step, max) },
-                (_, Some(step)) => VersionRule { how: Rac2VersionHow::Experience, challenge: true, xp: xp(step, max) },
+                (1, Some(step)) => {
+                    VersionRule { how: Rac2VersionHow::Experience, challenge: false, xp: xp(least(step), max) }
+                }
+                (_, Some(step)) => {
+                    VersionRule { how: Rac2VersionHow::Experience, challenge: true, xp: xp(least(step), max) }
+                }
                 // Bought (experience 0, then counting up to the next step) or, for the
                 // Sheepinator, given when challenge mode starts.
                 (_, None) => {
@@ -552,6 +560,14 @@ impl ItemDef {
             out.push(rule);
         }
         out
+    }
+
+    /// Whether the editor shows the item's experience: every weapon's. The game counts each
+    /// weapon's kills in chunk 40 whether or not a version follows by experience, and a mod that
+    /// levels weapons past their last version (NG++) reads it for the RYNO II, the Zodiac and the
+    /// two-row weapons too.
+    fn counts_xp(&self) -> bool {
+        self.kind == Rac2ItemKind::Weapon
     }
 
     fn has_ammo(&self) -> bool {
@@ -686,8 +702,9 @@ pub struct Rac2VersionInfo {
     pub challenge_only: bool,
     /// The most ammo it holds; `None` for a weapon with no ammo.
     pub max_ammo: Option<u32>,
-    /// The experience the game can leave it with, for a weapon that counts it: at least the step
-    /// it was reached at, and under the step to the next version.
+    /// The experience the editor takes in it, for a weapon (every weapon counts it): under the
+    /// step to the next version, and at least the step it was reached at when one follows it (the
+    /// last version takes any count: nothing reads it there, and NG++ counts again from 0).
     pub min_xp: Option<u32>,
     pub max_xp: Option<u32>,
 }
@@ -779,7 +796,7 @@ impl SaveFile {
                 id: d.id,
                 owned: owned[d.id] != 0,
                 ammo: d.has_ammo().then(|| i32_at(ammo, d.id).max(0) as u32),
-                xp: d.upgrade.map(|_| i32_at(xp, d.id).max(0) as u32),
+                xp: d.counts_xp().then(|| i32_at(xp, d.id).max(0) as u32),
                 version: (d.chain.len() > 1).then(|| self.depth(d) as u32),
             })
             .collect();
@@ -1098,7 +1115,7 @@ pub fn validate(f: &Rac2SaveFields) -> Result<(), String> {
         if s.ammo.is_some() != d.has_ammo() {
             return Err(format!("{}'s ammo does not match the game's", d.name));
         }
-        if s.xp.is_some() != d.upgrade.is_some() {
+        if s.xp.is_some() != d.counts_xp() {
             return Err(format!("{}'s experience does not match the game's", d.name));
         }
         if s.xp.is_some_and(|x| x > MAX_XP) {
@@ -1165,7 +1182,7 @@ pub fn view(serial: &str, slot: usize, bytes: &[u8], file: &SaveFile) -> Rac2Sav
                 max_ammo: d.has_ammo().then(|| file.max_ammo(d)),
                 upgrade_name: d.upgrade.map(|u| u.name.to_string()),
                 upgrade_xp: d.upgrade.map(|u| u.xp),
-                max_xp: d.upgrade.map(|_| d.next_step(record[d.id]).map_or(MAX_XP, |s| s - 1)),
+                max_xp: d.counts_xp().then(|| d.next_step(record[d.id]).map_or(MAX_XP, |s| s - 1)),
                 versions: d
                     .versions()
                     .iter()
@@ -1480,6 +1497,34 @@ mod tests {
         );
     }
 
+    #[test]
+    fn every_weapon_at_its_last_version_takes_its_experience() {
+        // NG++ levels weapons past their last version by the game's own experience, counted again
+        // from 0 there: the RYNO II (one version), a two-row weapon at its bought second and a
+        // four-version weapon at V4 must all take a count, under V4's own step included.
+        let mut f = oozla();
+        f.global.get_mut(id::RECORD)[30] = 80;
+        f.global.get_mut(id::RECORD)[12] = 115;
+        let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
+        for id in [30, 12, 44, 43] {
+            let info = v.items.iter().find(|i| i.id == id).unwrap();
+            assert_eq!(info.max_xp, Some(MAX_XP), "{}", info.name);
+            assert!(item(&v.fields, id).xp.is_some(), "{}", info.name);
+        }
+        assert_eq!(v.items.iter().find(|i| i.id == 30).unwrap().versions[3].min_xp, Some(0));
+        let mut want = f.fields();
+        item_mut(&mut want, 30).xp = Some(5_000);
+        item_mut(&mut want, 12).xp = Some(6_000 * 32);
+        item_mut(&mut want, 44).xp = Some(40_000 * 32);
+        item_mut(&mut want, 43).xp = Some(1);
+        f.apply(&want).unwrap();
+        let xp = f.global.get(id::XP);
+        assert_eq!((i32_at(xp, 30), i32_at(xp, 12), i32_at(xp, 44), i32_at(xp, 43)), (5_000, 192_000, 1_280_000, 1));
+        assert_eq!(f.fields(), want, "read back as written");
+        // Gadgets count none.
+        assert_eq!(item(&f.fields(), 2).xp, None);
+    }
+
     /// The fixture as the same save would be once challenge mode was started.
     fn in_challenge_mode() -> SaveFile {
         let mut f = oozla();
@@ -1500,15 +1545,16 @@ mod tests {
         assert_eq!(lancer[0], VersionRule { how: First, challenge: false, xp: Some((0, 8959)) });
         assert_eq!(lancer[1], VersionRule { how: Experience, challenge: false, xp: Some((8960, MAX_XP)) });
         assert_eq!(lancer[2], VersionRule { how: Bought, challenge: true, xp: Some((0, 255_999)) });
-        assert_eq!(lancer[3], VersionRule { how: Experience, challenge: true, xp: Some((256_000, MAX_XP)) });
+        // V4, the last, takes any count: NG++ counts its tiers' experience from 0 there.
+        assert_eq!(lancer[3], VersionRule { how: Experience, challenge: true, xp: Some((0, MAX_XP)) });
         // Two-row weapons with no step: the second row is the challenge-mode purchase.
         for id in [12, 14, 17, 18, 53] {
             let d = ITEMS.iter().find(|i| i.id == id).unwrap();
             assert_eq!(d.versions().len(), 2);
-            assert_eq!(rule(id, 1), VersionRule { how: Bought, challenge: true, xp: None }, "{}", d.name);
+            assert_eq!(rule(id, 1), VersionRule { how: Bought, challenge: true, xp: Some((0, MAX_XP)) }, "{}", d.name);
         }
         // The Clank Zapper's second row comes by experience, in either mode.
-        assert_eq!(rule(9, 1), VersionRule { how: Experience, challenge: false, xp: Some((2500 * 32, MAX_XP)) });
+        assert_eq!(rule(9, 1), VersionRule { how: Experience, challenge: false, xp: Some((0, MAX_XP)) });
         // The Sheepinator's V3 comes when challenge mode starts.
         assert_eq!(rule(16, 2).how, ChallengeStart);
         // Every four-row weapon has a step from V3 to V4; one-row items have no versions.
@@ -1570,7 +1616,8 @@ mod tests {
         assert!(try_(1, 1050 * 32 - 1, 20).unwrap_err().contains("at least 33600"), "V2 keeps its step");
         assert!(try_(1, 1050 * 32, 21).unwrap_err().contains("at most 20"), "V2's ammo");
         assert!(try_(2, 10600 * 32, 40).unwrap_err().contains("339200"), "V3 is under its step");
-        assert!(try_(3, 10600 * 32 - 1, 50).unwrap_err().contains("at least"), "V4 keeps its step");
+        // V4, the last, takes any count (NG++ counts its tiers' experience from 0 there).
+        assert!(try_(3, 0, 50).is_ok(), "V4 takes a count under its step");
         assert!(try_(2, 10600 * 32 - 1, 40).is_ok());
         assert!(try_(3, MAX_XP, 50).is_ok());
     }
@@ -1924,7 +1971,8 @@ mod tests {
         assert!(bad(&|w| w.items.pop().map(|_| ()).unwrap()));
         assert!(bad(&|w| w.planets[0].platinum.push(true)));
         assert!(bad(&|w| item_mut(w, 2).ammo = Some(1)));
-        assert!(bad(&|w| item_mut(w, 12).xp = Some(1)), "upgrades by other means");
+        assert!(bad(&|w| item_mut(w, 2).xp = Some(1)), "a gadget counts no experience");
+        assert!(bad(&|w| item_mut(w, 44).xp = None), "every weapon counts it");
         assert!(bad(&|w| item_mut(w, 24).version = None), "a weapon with versions");
         assert!(bad(&|w| item_mut(w, 24).version = Some(4)), "four versions");
         assert!(bad(&|w| item_mut(w, 43).version = Some(0)), "the Zodiac has one");

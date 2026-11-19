@@ -2557,14 +2557,16 @@ function mockRac2Versions(
     maxXp: max,
   });
 
-  if (xp === null) return [v(0, "first", null, null), v(1, "bought", null, null)];
-  if (id === 9) return [v(0, "first", 0, xp - 1), v(1, "experience", xp, 9_999_999)];
+  // Every weapon counts experience; the last version takes any count (the core's rule).
+  if (xp === null) return [v(0, "first", 0, 9_999_999), v(1, "bought", 0, 9_999_999)];
+  if (id === 9)
+    return [v(0, "first", 0, xp - 1), { ...v(1, "experience", xp, 9_999_999), minXp: 0 }];
 
   return [
     v(0, "first", 0, xp - 1),
     v(1, "experience", xp, 9_999_999),
     v(2, "bought", 0, xp * 10 - 1),
-    v(3, "experience", xp * 10, 9_999_999),
+    { ...v(3, "experience", xp * 10, 9_999_999), minXp: 0 },
   ];
 }
 
@@ -2578,11 +2580,11 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
     boosts: Array<boolean>(10).fill(false),
     armor: 0,
     shipPaint: 0,
-    items: RAC2_ITEMS.map(([id, , , ammo, up]) => ({
+    items: RAC2_ITEMS.map(([id, , kind, ammo]) => ({
       id,
       owned: owned.has(id),
       ammo: ammo === null ? null : owned.has(id) ? ammo : 0,
-      xp: up === null ? null : id === 30 ? 1968 : 0,
+      xp: kind === "weapon" ? (id === 30 ? 1968 : 0) : null,
       version: RAC2_ITEMS.find((i) => i[0] === id)?.[6] ? 0 : null,
     })),
     planets: RAC2_LEVELS.map(([id]) => ({
@@ -2610,7 +2612,7 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
       maxAmmo: ammo,
       upgradeName: up,
       upgradeXp: xp,
-      maxXp: xp === null ? null : xp - 1,
+      maxXp: kind !== "weapon" ? null : xp === null ? 9_999_999 : xp - 1,
       versions: versions ? mockRac2Versions(id, name, ammo, up, xp) : [],
       worn: id === 30,
     })),
