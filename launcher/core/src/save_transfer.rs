@@ -700,9 +700,37 @@ fn write_files(
                 }
             }
         }
+        written += fill_empty_slots(serial, folder, &dest)?;
         folders.push(folder.to_string());
     }
     Ok(ImportedSaves { folders, files: written, backup })
+}
+
+/// Going Commando opens its save folder only when it lists its four slot files (`func_00298F00`,
+/// state 8, counts nine entries), so a one-slot file imported where the folder had no others
+/// would read as no save at all. Each slot file missing from the game's own folder is written as
+/// an empty slot, made from one that is there; returns how many.
+fn fill_empty_slots(serial: &str, folder: &str, dest: &Path) -> Result<u32, String> {
+    if !crate::save_edit_rac2::edits_serial(serial)
+        || !card_folder_name(serial).is_some_and(|f| f.eq_ignore_ascii_case(folder))
+    {
+        return Ok(0);
+    }
+    let slot = |i: usize| dest.join(format!("save{i}.bin"));
+    let Some(template) = (0..4).map(slot).find(|p| p.is_file()) else {
+        return Ok(0);
+    };
+    let bytes = fs::read(&template).map_err(|e| format!("{}: {e}", template.display()))?;
+    // A save the editor cannot read is left as the file had it: the import itself is done.
+    let Ok(empty) = crate::save_edit_rac2::empty_slot(&bytes) else {
+        return Ok(0);
+    };
+    let mut made = 0;
+    for target in (0..4).map(slot).filter(|p| !p.exists()) {
+        write_file(&target, &empty)?;
+        made += 1;
+    }
+    Ok(made)
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1192,6 +1220,40 @@ mod tests {
         assert!(!to.join(FOLDER).join("stray").exists());
         let backup = done.backup.unwrap();
         assert_eq!(fs::read(Path::new(&backup.path).join(FOLDER).join("stray")).unwrap(), b"x");
+    }
+
+    /// Going Commando: one slot exported and imported onto a card without the others gets them
+    /// as empty slots, so the game still finds its folder (it needs all four slot files).
+    #[test]
+    fn a_going_commando_slot_alone_gets_empty_slots_beside_it() {
+        const RAC2: &str = "SCES_516.07";
+        let oozla = include_bytes!("../tests/fixtures/rac2/save-oozla.bin");
+        let tmp = tempfile::tempdir().unwrap();
+        let (from, to, file) = (tmp.path().join("a"), tmp.path().join("b"), tmp.path().join("one.zip"));
+        let folder = card_folder_name(RAC2).unwrap();
+        fs::create_dir_all(from.join(&folder)).unwrap();
+        fs::write(from.join(&folder).join("icon.sys"), b"icon").unwrap();
+        fs::write(from.join(&folder).join("save0.bin"), oozla).unwrap();
+        export_card(&from, RAC2, Some(0), "1.1.0", &file, &RecordFiles::default()).unwrap();
+
+        let all = SaveImportChoice { replace_all: true, slots: vec![] };
+        let done = import_into(&to, RAC2, &file, &all, &RecordFiles::default()).unwrap();
+        let dir = to.join(&folder);
+        assert_eq!(fs::read(dir.join("save0.bin")).unwrap(), oozla);
+        assert_eq!(done.files, 5, "icon.sys, save0.bin and three empty slots");
+        for i in 1..4 {
+            let bytes = fs::read(dir.join(format!("save{i}.bin"))).unwrap();
+            let slot = crate::save_edit_rac2::SaveFile::parse(&bytes).expect("a save the game loads");
+            let level = slot.global.chunks.iter().find(|c| c.id == 0).unwrap();
+            assert_eq!(level.data, (-1i32).to_le_bytes(), "the game's mark of an empty slot");
+            assert!(saves::describe_save(RAC2, &bytes).empty, "the launcher lists it empty");
+        }
+
+        // A card that has the other slots keeps them.
+        fs::write(dir.join("save2.bin"), oozla).unwrap();
+        let one = SaveImportChoice { replace_all: false, slots: vec![SaveSlotRef { folder, slot_index: 0 }] };
+        import_into(&to, RAC2, &file, &one, &RecordFiles::default()).unwrap();
+        assert_eq!(fs::read(dir.join("save2.bin")).unwrap(), oozla);
     }
 
     /// Another disc's file (NTSC's on a PAL card) is refused, naming both, and nothing is written.
