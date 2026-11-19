@@ -69,3 +69,6 @@ data	D_001CCFD0	0x001CCFD0	stream_loader	+0x4 busy, +0x6 read done, +0x8 count, 
 data	D_001D5790	0x001D5790	sly2_demo_path	"cdrom0:\SLY2\SLY2.ELF;1"
 data	D_0010F1A0	0x0010F1A0	vu0_program_chain	VIF0 chain loading VU0's microprograms (MPG at 0x0010F1AC: 96 pairs at 0xC80; entries 0xC80, 0xDA0 cos, 0xDB0 sin)
 data	D_0015C040	0x0015C040	main_args	argc, then argv for main
+data	D_00EA5000	0x00EA5000	menu_background	the main menu background picture: a 16-byte header (width 0x200, height 0x1A0), then 512x448 PSMCT32 pixels at 0x00EA5010 (416 rows of picture, alpha 0x7F), unpacked once at boot from the front end data; uploaded each frame into the draw buffer (block 0x1E00) by the list at 0x003F3000/0x005B3000 (14 REF tags of 4096 qw)
+data	D_00C73000	0x00C73000	frontend_assets	786 sectors from sector 673402: a header size (0x80), then (offset, size) pairs of WAD-compressed entries (the menu pictures among them)
+data	D_00142120	0x00142120	menu_frame_regs	GIF A+D packet: FRAME_1/FRAME_2 = FBP 0xF0 (block 0x1E00), FBW 8: the draw buffer the main menu is drawn in
