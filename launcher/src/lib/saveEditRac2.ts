@@ -127,7 +127,13 @@ export function setVersion(view: Rac2SaveView, f: Rac2SaveFields, id: number, to
 
     if (was?.version === to && was.xp !== null) item.xp = was.xp;
     else if (bought && v.how !== "experience") item.xp = v.minXp;
-    else item.xp = Math.min(Math.max(item.xp, v.minXp), v.maxXp);
+    else {
+      // Moving up to a version the game reaches by experience leaves at least its step, the last
+      // version included (which itself takes any count: a mod may count again from 0 there).
+      const least = up && v.how === "experience" ? Math.max(v.minXp, v.stepXp ?? 0) : v.minXp;
+
+      item.xp = Math.min(Math.max(item.xp, least), v.maxXp);
+    }
   }
 
   if (item.ammo !== null && v.maxAmmo !== null) {
