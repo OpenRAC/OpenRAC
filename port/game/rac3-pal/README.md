@@ -71,6 +71,30 @@ translated from its instructions), `executable_extents` (names the C only declar
 function start nothing) and `unpassed_registers` (a K&R call's missing arguments are the
 caller's registers).
 
+## Checking the C against PAL
+
+Many candidates (nonmatching/) are NTSC-U's C with its names moved to PAL addresses; a literal
+address, an offset into a table or a callee the move did not know stays NTSC-U's, and runs
+wrong on PAL (the font select's palette tables 0x80 off, the text lookup's $gp fallback, the save
+allocator's buffer top at 0x0022760C, each found only by running the game).
+`check_c_constants.py` finds them all at once: for every function the build takes from C, it
+compares the C's literals, data symbols and callees with PAL's own instructions of that function
+(the setup's `asm/`), and also flags a $gp register variable, frame-rate values and the 50 Hz
+(x*5+2)/6 timer scaling where C and assembly disagree, a draft nonmatching/README.md marks
+"differs", and a draft of one program read for the other's function at the same address. Run it
+after every decomp pin bump, from a decomp checkout whose setup wrote `asm/` and `baserom/*.elf`:
+
+```sh
+python3 port/game/rac3-pal/check_c_constants.py --asm-source <decomp with asm/>   # ~1 min
+```
+
+It exits 1 when a candidate has a strong hit; leave each one out in `hostgen.json`
+`candidates_left_out` (its assembly is translated instead) with the reason it prints, or correct
+the draft in rac3-decomp. Weak hits (small literals, inline assembly) are hints for review. The
+first run (rac3-decomp `c73ab8f`) checked 285 candidates and 2,434 matched functions and found 40
+candidates with strong hits, the three above among them; the 2 strong hits in matched C are
+matched $gp register variables (`func_0012AA78`, `func_0012FD50`).
+
 ## The menu's background
 
 The main menu's background is a still picture, not a video: the front end's data (786 sectors at
