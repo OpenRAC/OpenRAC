@@ -173,6 +173,62 @@ typedef int32_t (*openrac_rac2_Text_ById)(int32_t id);
 #define OPENRAC_RAC2_SIG_Planet_Unlock "void(i32)"
 typedef void (*openrac_rac2_Planet_Unlock)(int32_t level);
 
+/* Bolt coins. Seven classes, OPENRAC_RAC2_BOLT_CLASS (0x0D) to + 6, worth 1, 5, 20, 50, 100, 500
+ * and 1000 bolts. A burst (Bolt_SpawnPickups) makes its coins one at a time (Bolt_SpawnPickup), and
+ * each coin the hero reaches is collected (Bolt_Collect). A mod's own kind of coin (platinum bolts):
+ * mark the mobys Bolt_SpawnPickup returns, draw them with openrac_api.moby_material, and add to
+ * what Bolt_Collect gives for them with openrac_api.bolts. */
+#define OPENRAC_RAC2_BOLT_CLASS 0x0D
+#define OPENRAC_RAC2_BOLT_CLASSES 7
+
+/* Bolt_SpawnPickups (func_002ADB78, rac2.bolt.spawn_pickups): Spawns a burst of bolt coins from
+ * moby: moby_spawn_bolt_pickups, and its copy in every level's code (part_spawn_bolt_pickups,
+ * func_L00_00321878), one hook point. Rolls an amount from low to high (doubled under the bolt
+ * multiplier, scaled by how fast the level's bolts are being earned) and splits it into the biggest
+ * coins that fit, each made by Bolt_SpawnPickup. flags: 0 spawns nothing, 2 the coins fly to the
+ * hero, 8 at most maximum coins (the rest goes to the word at 0x1A7A14), 32 not in the level's bolt
+ * score; surface is a path the coins land on (-1 none), height a lift of the spawn point. Enemies'
+ * and crates' drops (Moby_RecordDeath) and the levels' scripted bursts (part_spawn_scaled_bolts)
+ * all come here. A replacement can change low and high, or make the coins itself. */
+#define OPENRAC_RAC2_HOOK_Bolt_SpawnPickups "Bolt_SpawnPickups"
+#define OPENRAC_RAC2_SIG_Bolt_SpawnPickups "void(u32,i32,i32,i32,i32,i32,f32)"
+typedef void (*openrac_rac2_Bolt_SpawnPickups)(
+    uint32_t moby,
+    int32_t low,
+    int32_t high,
+    int32_t flags,
+    int32_t surface,
+    int32_t maximum,
+    float height
+);
+
+/* Bolt_SpawnPickup (func_00302470, rac2.bolt.spawn_pickup): Makes one coin worth value (1, 5, 20,
+ * 50, 100, 500 or 1000; another value makes a 1) at position with velocity (game addresses of four
+ * floats each), from source; counted (the byte at +0x40 of its vars) says whether the level's bolt
+ * score counts it, flags 2 flies it to the hero. Returns the coin's moby, or 0: none when the moby
+ * pool is full, or when position is 64 units or more from the game's reference point (the value
+ * goes to the word at 0x1A7A14 instead). Bolt_SpawnPickups calls it for each coin, and two level
+ * mobys directly (func_L03_00383FE8, func_L02_003E7370). */
+#define OPENRAC_RAC2_HOOK_Bolt_SpawnPickup "Bolt_SpawnPickup"
+#define OPENRAC_RAC2_SIG_Bolt_SpawnPickup "u32(u32,u32,u32,u32,i32,i32)"
+typedef uint32_t (*openrac_rac2_Bolt_SpawnPickup)(
+    uint32_t source,
+    uint32_t position,
+    uint32_t velocity,
+    uint32_t flags,
+    int32_t value,
+    int32_t counted
+);
+
+/* Bolt_Collect (func_00301D10, rac2.bolt.collect): A coin collected (CollectBolts): its class's value
+ * added to the player's bolts (0x1A79F8) and, for a counted coin, to the level's bolt score, then its
+ * sparks. The coin's update calls it as the coin reaches the hero, the moby still alive, and reads
+ * no result (return the original's). A replacement can add more with openrac_api.bolts: for a coin
+ * worth five times, four times what the original added. */
+#define OPENRAC_RAC2_HOOK_Bolt_Collect "Bolt_Collect"
+#define OPENRAC_RAC2_SIG_Bolt_Collect "u32(u32)"
+typedef uint32_t (*openrac_rac2_Bolt_Collect)(uint32_t moby);
+
 
 /* The givers' updates of NTSC-U v1.01 (rac2.moby.<name>.update), each void(u32 moby): their
  * replacements see the moby; the other discs have none of them yet. */

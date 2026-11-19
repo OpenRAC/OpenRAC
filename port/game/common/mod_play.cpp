@@ -20,6 +20,8 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "common/log.h"
@@ -1306,6 +1308,19 @@ std::vector<int> g_visual_classes;
 unsigned g_visual_generation = 0;
 std::uint32_t g_sprite_tint = UINT32_MAX;
 
+// A mod's material on one moby (interface 1.23), for the level load it was set in. `oclass` is the
+// moby's class when the renderer first listed it (-1 before that), so that a slot the game frees
+// and fills with another class drops it.
+struct MaterialEntry {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    MobyMaterial material;
+    int oclass = -1;
+};
+
+// Every mod's materials, in the order set (the last set is drawn), under g_props_lock.
+std::vector<MaterialEntry> g_materials;
+
 std::uint32_t api_sprite_tint(openrac_mod* mod, std::uint32_t rgb) {
     const auto previous = g_sprite_tint;
     if (mod) {
@@ -1512,6 +1527,39 @@ int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int c
             ++g_visual_generation;
         }
     }
+    return OPENRAC_HOOK_OK;
+}
+
+// Sets, changes or clears (OPENRAC_MOBY_MATERIAL_NONE) `mod`'s material on `moby` for this level
+// load (interface 1.23); the renderer reads them with moby_materials. Writes no game memory.
+int api_moby_material(
+    openrac_mod* mod, openrac_gaddr moby, std::uint32_t material, std::uint32_t rgb
+) {
+    // A moby record is 0x100 bytes; one that would end past the address space is no moby.
+    constexpr openrac_gaddr kMobyBytes = 0x100;
+    constexpr std::uint32_t kRgbMax = 0xFFFFFF;
+    // A call the interface does not describe changes nothing.
+    if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes
+        || material > OPENRAC_MOBY_MATERIAL_PLATINUM || rgb > kRgbMax) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    std::erase_if(g_materials, [&](const MaterialEntry& e) {
+        return e.loads != loads || (e.mod == mod && e.material.moby == moby);
+    });
+    // NONE only clears; the others go last, so this mod's newest material is drawn over older ones.
+    if (material == OPENRAC_MOBY_MATERIAL_NONE) {
+        return OPENRAC_HOOK_OK;
+    }
+    const auto own = std::count_if(g_materials.begin(), g_materials.end(), [&](const auto& e) {
+        return e.mod == mod;
+    });
+    // A mod that never clears its materials stops at the cap, not at the memory's end.
+    if (own >= OPENRAC_MOBY_MATERIALS_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_materials.push_back({mod, loads, {moby, material, rgb}, -1});
     return OPENRAC_HOOK_OK;
 }
 
@@ -2070,6 +2118,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.guest_text = api_guest_text;
     api.sprite_tint = api_sprite_tint;
     api.pickup_animation = api_pickup_animation;
+    api.moby_material = api_moby_material;
     api.prop_pose = api_prop_pose;
     api.prop_attach = api_prop_attach;
     api.prop_frame = api_prop_frame;
@@ -2182,6 +2231,54 @@ std::vector<openrac_moby_visual> moby_visuals() {
     return result;
 }
 
+// Returns the materials on the frame's live mobys, and forgets the ones whose moby is gone
+// (mods.h). Rebuilds the list only on a frame where some mod has a material set.
+std::vector<MobyMaterial> moby_materials(const std::vector<LiveMobyId>& live) {
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    std::vector<MobyMaterial> result;
+    // No mod has set one: nothing to look up, most frames.
+    if (g_materials.empty()) {
+        return result;
+    }
+    std::unordered_map<openrac_gaddr, int> classes;
+    classes.reserve(live.size());
+    // The frame's live mobys by address, each with its class.
+    for (const LiveMobyId& m : live) {
+        classes.emplace(m.moby, m.oclass);
+    }
+    std::vector<MaterialEntry> kept;
+    // Each one set, in the order set: kept, drawn, or dropped with its moby.
+    for (MaterialEntry& e : g_materials) {
+        // Another level load's materials are gone with its mobys.
+        if (e.loads != loads) {
+            continue;
+        }
+        const auto found = classes.find(e.material.moby);
+        // Not listed yet, kept: the renderer's frame may come from before the game made the moby.
+        // Listed before and not now: the game removed it.
+        if (found == classes.end()) {
+            // Never listed: still waiting for the game's first frame with it.
+            if (e.oclass < 0) {
+                kept.push_back(e);
+            }
+            continue;
+        }
+        // The first frame that lists it fixes its class; another class there is another moby.
+        if (e.oclass < 0) {
+            e.oclass = found->second;
+        } else if (e.oclass != found->second) {
+            continue;
+        }
+        kept.push_back(e);
+        // The last set wins: one set earlier on this moby, by another mod, gives way.
+        std::erase_if(result, [&](const MobyMaterial& r) { return r.moby == e.material.moby; });
+        result.push_back(e.material);
+    }
+    g_materials = std::move(kept);
+    return result;
+}
+
 unsigned prop_meshes_generation() {
     const std::lock_guard<std::mutex> lock(g_props_lock);
     return g_prop_generation;
@@ -2285,6 +2382,7 @@ void reset_play() {
         g_visuals.clear();
         g_visual_classes.clear();
         ++g_visual_generation;
+        g_materials.clear();
     }
     {
         const std::lock_guard<std::mutex> lock(g_haze_lock);
@@ -2334,6 +2432,7 @@ void drop_figures(const openrac_mod* mod) {
     {
         const std::lock_guard<std::mutex> lock(g_props_lock);
         std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });
+        std::erase_if(g_materials, [&](const MaterialEntry& e) { return e.mod == mod; });
     }
     for (Figure& f : g_figures) {
         if (f.mod == mod) {

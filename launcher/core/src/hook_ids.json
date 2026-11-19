@@ -710,6 +710,9 @@
    "msg_string": "rac1.text.msg_string"
   },
   "rac2": {
+   "Bolt_Collect": "rac2.bolt.collect",
+   "Bolt_SpawnPickup": "rac2.bolt.spawn_pickup",
+   "Bolt_SpawnPickups": "rac2.bolt.spawn_pickups",
    "Hero_ApproachSpeed": "rac2.player.approach_speed",
    "Hero_NanotechSteps": "rac2.player.nanotech_steps",
    "Hero_TakeDamage": "rac2.player.take_damage",

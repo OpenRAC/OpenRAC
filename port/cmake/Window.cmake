@@ -967,6 +967,8 @@ if(OPENRAC_METAL)
     "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1")
 endif()
 
+# A mod's moby material packed beside the shine distance, read back as mesh.vert reads it.
+openrac_add_test(moby_material_pack LIBS openrac_scene)
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
 openrac_add_test(preview_animation LIBS openrac_scene)
 add_executable(viewer_test tests/viewer_test.cpp)
