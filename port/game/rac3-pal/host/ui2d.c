@@ -147,6 +147,8 @@ static void place_glyph_markers(gaddr start, int first) {
     GREF(gaddr, LIST_CURSOR) = at + rest;
 }
 
+void rac3_menu_log_text(float x, float y, gaddr text, int length); /* menu_log.c */
+
 /* The font's prints: a string, glyph by glyph. */
 void func_0038EBC8(
     float a0,
@@ -162,6 +164,7 @@ void func_0038EBC8(
     float a10,
     float a11
 ) {
+    rac3_menu_log_text(a0, a1, (gaddr)a5, a6); /* x, y, the text, its length (-1: to its end) */
     const gaddr start = GREF(gaddr, LIST_CURSOR);
     const int first = g_npending;
     ++g_glyphs;
