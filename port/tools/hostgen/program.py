@@ -1055,7 +1055,7 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
         if kind != "FunctionDecl":
             continue
         sym = symbol_of(decl)
-        if sym in BUILTINS or sym.startswith("__builtin") or sym == "openrac_hostgen_asm":
+        if sym in BUILTINS or sym.startswith("__builtin") or sym in ("openrac_hostgen_asm", "openrac_hostgen_unset"):
             continue
         if decl.get("isImplicit") and not (sym.startswith("func_") or sym in program.functions):
             # Clang's own declaration of a library builtin (fabsf, memcpy): only a

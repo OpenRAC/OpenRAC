@@ -1,7 +1,189 @@
 # The libraries Ratchet & Clank 3 (PAL) calls, by entry point, and what the port does with
 # each: the same columns and port values as port/game/rac1-pal/libraries.tsv.
-# Empty for now: the decompilation does not name its library functions yet.
-# A row binds an entry point to one of the replacements every game shares
-# (port/game/common/libraries.tsv); until then such calls are stubs.
+# Found by the instructions: rows of rac2-ntsc's and rac1-pal's tables whose function has the same
+# instructions here once addresses are masked ("the instructions of"), or the same shape of
+# instructions where the SDK's version differs a little ("the shape of", checked by hand); the
+# kernel's system-call wrappers by the call number each loads into $v1.
+# A host row binds an entry point to the replacement of that name every game shares
+# (port/game/common/libraries.tsv), or, with a signature of its own, to this game's host C
+# (port/game/rac3-pal/host). Entry points not here run from their C, or from their assembly.
 #
 # symbol	library	name	port	notes	signature (optional)
+func_0013ADA8	boot	rac3NativeEntry	host	crt0 at the payload's entry, after the loader's unpacking: _InitSys, FlushCache(0), main(argc, argv) without the PS2 thread and heap syscalls	int (void)
+func_00119F3C	libc	memchr	host	the shape of rac2-ntsc func_00115250
+func_0011A01C	libc	memcmp	host	the instructions of rac2-ntsc func_00115340
+func_0011A0B0	libc	memcpy	host	the shape of rac2-ntsc func_001153D4 (newlib's; rac3-decomp's names.tsv: memcpy)
+func_0011A264	libc	memset	host	the shape of rac2-ntsc func_00115484
+func_0011B610	libc	strcmp	host	the instructions of rac1-pal func_001165B8
+func_0011B754	libc	strcpy	host	the shape of rac2-ntsc func_00115690
+func_0011B868	libc	strlen	host	the instructions of rac1-pal func_00116810
+func_0011B9A0	libc	strncmp	host	the instructions of rac1-pal func_00116948
+func_0011BB58	libc	strncpy	host	the shape of rac2-ntsc func_00115AC0
+func_0011EA20	kernel	SetGsCrt	host	the instructions of rac2-ntsc func_0011A820
+func_0011EA40	kernel	Exit	host	the instructions of rac2-ntsc func_0011A840
+func_0011EA80	kernel	ResumeT3IntrDispatch	host	the instructions of rac1-pal func_00118A70
+func_0011EAC0	kernel	Interrupt2Iop	host	the instructions of rac1-pal func_00118A80
+func_0011EB00	kernel	AddIntcHandler	host	syscall wrapper 0x10
+func_0011EB10	kernel	AddIntcHandler	host	syscall wrapper 0x10, second entry
+func_0011EB20	kernel	RemoveIntcHandler	host	the instructions of rac2-ntsc func_0011A920
+func_0011EB30	kernel	AddDmacHandler	host	syscall wrapper 0x12
+func_0011EB40	kernel	AddDmacHandler2	host	syscall wrapper 0x12, second entry with the handler argument
+func_0011EB50	kernel	RemoveDmacHandler	host	the instructions of rac2-ntsc func_0011A950
+func_0011EB60	kernel	EnableIntc	host	the instructions of rac2-ntsc func_0011A960
+func_0011EB70	kernel	DisableIntc	host	the instructions of rac2-ntsc func_0011A970
+func_0011EB80	kernel	EnableDmac	host	the instructions of rac2-ntsc func_0011A980
+func_0011EB90	kernel	DisableDmac	host	the instructions of rac2-ntsc func_0011A990
+func_0011EBA0	kernel	SetAlarm	host	the instructions of rac2-ntsc func_0011A9A0
+func_0011EBC0	kernel	EnableIntc	host	the instructions of rac2-ntsc func_0011A9C0
+func_0011EBD0	kernel	DisableIntc	host	the instructions of rac2-ntsc func_0011A9D0
+func_0011EBE0	kernel	EnableDmac	host	the instructions of rac2-ntsc func_0011A9E0
+func_0011EBF0	kernel	DisableDmac	host	the instructions of rac2-ntsc func_0011A9F0
+func_0011EC00	kernel	ReleaseAlarm	host	the instructions of rac1-pal func_00118B40
+func_0011EC20	kernel	CreateThread	host	the instructions of rac2-ntsc func_0011AA20
+func_0011EC30	kernel	DeleteThread	host	the instructions of rac2-ntsc func_0011AA30
+func_0011EC40	kernel	StartThread	host	the instructions of rac2-ntsc func_0011AA40
+func_0011EC70	kernel	TerminateThread	host	the instructions of rac2-ntsc func_0011AA70
+func_0011EC80	kernel	TerminateThread	host	the instructions of rac2-ntsc func_0011AA80
+func_0011ECB0	kernel	ChangeThreadPriority	host	the instructions of rac2-ntsc func_0011AAB0
+func_0011ECC0	kernel	ChangeThreadPriority	host	the instructions of rac2-ntsc func_0011AAC0
+func_0011ECD0	kernel	RotateThreadReadyQueue	host	the instructions of rac2-ntsc func_0011AAD0
+func_0011ECE0	kernel	RotateThreadReadyQueue	host	the instructions of rac2-ntsc func_0011AAE0
+func_0011ED00	kernel	ReleaseWaitThread	host	the instructions of rac1-pal func_00118BD0
+func_0011ED10	kernel	GetThreadId	host	the instructions of rac2-ntsc func_0011AB10
+func_0011ED20	kernel	ReferThreadStatus	host	the instructions of rac2-ntsc func_0011AB20
+func_0011ED30	kernel	ReferThreadStatus	host	the instructions of rac2-ntsc func_0011AB30
+func_0011ED40	kernel	SleepThread	host	the instructions of rac2-ntsc func_0011AB40
+func_0011ED50	kernel	WakeupThread	host	the instructions of rac2-ntsc func_0011AB50
+func_0011ED60	kernel	WakeupThread	host	the instructions of rac2-ntsc func_0011AB60
+func_0011ED80	kernel	CancelWakeupThread	host	the instructions of rac1-pal func_00118C30
+func_0011ED90	kernel	SuspendThread	host	the instructions of rac2-ntsc func_0011AB90
+func_0011EDA0	kernel	SuspendThread	host	the instructions of rac2-ntsc func_0011ABA0
+func_0011EDC0	kernel	ResumeThread	host	the instructions of rac1-pal func_00118C50
+func_0011EE00	kernel	EndOfHeap	host	the instructions of rac2-ntsc func_0011AC00
+func_0011EE20	kernel	CreateSema	host	the instructions of rac2-ntsc func_0011AC20
+func_0011EE30	kernel	DeleteSema	host	the instructions of rac2-ntsc func_0011AC30
+func_0011EE40	kernel	SignalSema	host	the instructions of rac2-ntsc func_0011AC40
+func_0011EE50	kernel	SignalSema	host	the instructions of rac2-ntsc func_0011AC50
+func_0011EE60	kernel	WaitSema	host	the instructions of rac2-ntsc func_0011AC60
+func_0011EE70	kernel	PollSema	host	the instructions of rac2-ntsc func_0011AC70
+func_0011EE80	kernel	PollSema	host	the instructions of rac2-ntsc func_0011AC80
+func_0011EEC0	kernel	SetOsdConfigParam	host	the instructions of rac2-ntsc func_0011ACC0
+func_0011EED0	kernel	GetOsdConfigParam	host	the instructions of rac2-ntsc func_0011ACD0
+func_0011EF00	kernel	SetGsHParam	host	the instructions of rac1-pal func_00118D00
+func_0011EF40	kernel	SetEventFlag	host	the instructions of rac1-pal func_00118D10
+func_0011EFC0	kernel	iCopy	host	the instructions of rac1-pal func_00118D30
+func_0011F000	kernel	DisableIntcHandler	host	the instructions of rac1-pal func_00118D40
+func_0011F040	kernel	DisableDmacHandler	host	the instructions of rac1-pal func_00118D50
+func_0011F070	kernel	EnableCache	host	the instructions of rac2-ntsc func_0011AE70
+func_0011F080	kernel	DisableCache	host	the instructions of rac1-pal func_00118D70
+func_0011F0A0	kernel	FlushCache	host	the instructions of rac2-ntsc func_0011AEA0
+func_0011F0C0	kernel	GetCop0	host	the instructions of rac1-pal func_00118D90
+func_0011F0D0	kernel	FlushCache	host	the instructions of rac2-ntsc func_0011AED0
+func_0011F0F0	kernel	sceSifStopDma	host	the instructions of rac2-ntsc func_0011AEF0
+func_0011F100	kernel	SetCPUTimerHandler	host	the instructions of rac1-pal func_00118DB0
+func_0011F130	kernel	GetOsdConfigParam2	host	the instructions of rac2-ntsc func_0011AF30
+func_0011F140	kernel	GsGetIMR	host	the instructions of rac2-ntsc func_0011AF40
+func_0011F160	kernel	GsPutIMR	host	the instructions of rac2-ntsc func_0011AF60
+func_0011F170	kernel	GsPutIMR	host	the instructions of rac2-ntsc func_0011AF70
+func_0011F180	kernel	SetPgifHandler	host	the instructions of rac1-pal func_00118DF0
+func_0011F190	kernel	SetVSyncFlag	host	the instructions of rac2-ntsc func_0011AF90
+func_0011F1A0	kernel	SetSyscall	host	the instructions of rac2-ntsc func_0011AFA0
+func_0011F1C0	kernel	sceSifDmaStat	host	the instructions of rac2-ntsc func_0011AFC0
+func_0011F1D0	kernel	sceSifDmaStat	host	the instructions of rac2-ntsc func_0011AFD0
+func_0011F1E0	kernel	sceSifSetDma	host	the instructions of rac2-ntsc func_0011AFE0
+func_0011F1F0	kernel	sceSifSetDma	host	the instructions of rac2-ntsc func_0011AFF0
+func_0011F200	kernel	sceSifSetDChain	host	the instructions of rac2-ntsc func_0011B000
+func_0011F210	kernel	sceSifSetDChain	host	the instructions of rac2-ntsc func_0011B010
+func_0011F220	kernel	sceSifSetReg	host	the instructions of rac2-ntsc func_0011B020
+func_0011F230	kernel	sceSifGetReg	host	the instructions of rac2-ntsc func_0011B030
+func_0011F240	kernel	_ExecOSD	host	the instructions of rac1-pal func_00118E80
+func_0011F250	kernel	Deci2Call	host	the instructions of rac2-ntsc func_0011B050
+func_0011F280	kernel	GetMemorySize	host	the instructions of rac2-ntsc func_0011B080
+func_0011F290	kernel	_InitTLB	host	the instructions of rac2-ntsc func_0011B090
+func_0011F698	kernel	SyncDCache	host	the instructions of rac2-ntsc func_0011B3D0
+func_0011F7C8	kernel	InvalidDCache	host	the shape of rac2-ntsc func_0011B500
+func_00121FE8	sif	sceSifInitRpc	host	the shape of rac2-ntsc func_0011CF78
+func_00122630	sif	sceSifBindRpc	host	clears the client's +0x10 and +0x24, takes a packet, then sends the bind (as rac2-ntsc func_0011D450)
+func_00122810	sif	sceSifCallRpc	host	the shape of rac2-ntsc func_0011D620
+func_00122A10	sif	sceSifCheckStatRpc	host	the instructions of rac2-ntsc func_0011D810
+func_001233F8	fileio	sceFsReset	host	the instructions of rac2-ntsc func_0011E0A0
+func_00123430	fileio	sceOpen	host	the shape of rac1-pal func_0011BF80
+func_001236C0	fileio	sceClose	host	the shape of rac2-ntsc func_0011E360
+func_00123B10	sif	sceSifInitIopHeap	host	the instructions of rac2-ntsc func_0011E7A0
+func_00123B98	sif	sceSifAllocIopHeap	host	the shape of rac1-pal func_0011CBC8
+func_001240E0	sif	sceSifLoadModuleBuffer	host	the instructions of rac2-ntsc func_0011ED08
+func_00124308	sif	sceSifRebootIop	host	the shape of rac2-ntsc func_0011EED8
+func_00124478	kernel	SetSyscall	host	the instructions of rac2-ntsc func_0011F048
+func_00124550	kernel	_SetTLBEntry	host	the instructions of rac2-ntsc func_0011F120
+func_00124920	kernel	DIntr	host	the shape of rac2-ntsc func_0011F5E0
+func_00124970	kernel	EIntr	host	the instructions of rac2-ntsc func_0011F628
+func_00124A68	kernel	FindAddress	host	the instructions of rac2-ntsc func_0011F700
+func_001260D0	libgcc	__main	host	the shape of rac2-ntsc func_0011FC48: the host runs no global constructors for the game
+func_001260F0	libgcc	__divdi3	host	the instructions of rac2-ntsc func_0011FC68
+func_00127750	libgcc	__fixunsdfdi	host	the instructions of rac1-pal func_0011E6D8
+func_001278E0	libgcc	__moddi3	host	the instructions of rac2-ntsc func_00121450
+func_00127F48	libgcc	__muldi3	host	the instructions of rac2-ntsc func_00121AB8
+func_00127FB0	libgcc	__udivdi3	host	the instructions of rac2-ntsc func_00121B20
+func_00128580	libgcc	__umoddi3	host	the instructions of rac2-ntsc func_001220F0
+func_00129A18	libgcc	__extendsfdf2	host	the instructions of rac2-ntsc func_001234F0
+func_0012A950	vu	sceGsResetPath	host	the instructions of rac2-ntsc func_00124418
+func_0012A9F0	vu	sceGsSyncPath	host	the shape of rac2-ntsc func_001244B8, beside sceGsResetPath
+func_0012B098	cdvd	sceCdSync	host	the shape of rac2-ntsc func_00124B88
+func_0012B300	cdvd	sceCdInit	host	the shape of rac2-ntsc func_00124E08
+func_0012B5E8	cdvd	sceCdDiskReady	host	the shape of rac2-ntsc func_001250E8
+func_0012BA20	cdvd	sceCdRead	host	the shape of rac2-ntsc func_001253A8
+func_0012BC00	cdvd	sceCdGetError	host	the shape of rac2-ntsc func_00125588
+func_0012BC98	cdvd	sceCdBreak	host	the shape of rac2-ntsc func_00125620
+func_0012BD50	cdvd	sceCdMmode	host	the shape of rac2-ntsc func_001252E0
+func_0012BEE8	graph	sceGsResetGraph	host	the instructions of rac2-ntsc func_001257D0
+func_0012C128	graph	_GetGsDxDyOffset	host	the instructions of rac1-pal func_00121DB8
+func_0012C138	graph	sceGsSetDefDispEnv	host	the shape of rac2-ntsc func_00125A20
+func_0012C4B0	graph	sceGsPutDispEnv	host	the instructions of rac2-ntsc func_00125D98
+func_0012C638	graph	sceGsSetDefDrawEnv	game	the instructions of rac1-pal func_001222C8
+func_0012C820	graph	sceGsPutDrawEnv	host	the shape of rac2-ntsc func_00126108
+func_0012C908	graph	sceGsSyncV	host	the instructions of rac2-ntsc func_001261F0
+func_0012C9A0	graph	sceGsSetDefLoadImage	host	the shape of rac2-ntsc func_00126288
+func_0012CB84	graph	sceGsSetDefStoreImage	host	the shape of rac2-ntsc func_00126470
+func_0012CCC8	graph	sceGsExecLoadImage	host	the shape of rac2-ntsc func_001265B0
+func_0012CE44	graph	sceGsExecStoreImage	host	the shape of rac2-ntsc func_00126730
+func_0012D4D8	graph	sceGsSyncVCallback	host	the instructions of rac2-ntsc func_00126DC0
+func_0012D650	dma	sceDmaGetChan	game	the instructions of rac1-pal func_001232E0
+func_0012D678	dma	sceDmaReset	host	the instructions of rac2-ntsc func_00126F60
+func_0012D938	dma	rac3DmaSend	host	the instructions of rac1-pal func_001235C8; the end tag left in CHCR and the channel's handlers run, as rac2's (host/dma.c)	void (unsigned int, unsigned int)
+func_0012DDC8	mc	sceMcMkdir	host	the instructions of rac2-ntsc func_00127630
+func_0012FF40	vu0	rac3UnitMatrix	host	the instructions of rac1-pal func_00125358; host/vu0.c	void (void *)
+func_0012FFE0	vu0	sceVu0RotMatrixZ	host	the instructions of rac1-pal func_001253F8
+func_00130088	vu0	sceVu0RotMatrixX	host	the instructions of rac1-pal func_001254A0
+func_0013A880	scf	sceScfGetLanguage	host	the shape of rac1-pal func_0012D380
+func_0013BED0	989snd	snd_ResolveBankXREFS	host	the instructions of rac2-ntsc func_00132828
+func_0013BF00	989snd	snd_UnloadBank	host	the instructions of rac2-ntsc func_00132858
+func_0013BF30	989snd	snd_SetMasterVolume	host	the instructions of rac2-ntsc func_00132888
+func_0013BFE0	989snd	snd_SetPlaybackMode	host	the instructions of rac2-ntsc func_00132938
+func_0013C118	989snd	snd_StopSound	host	the instructions of rac2-ntsc func_00132A70
+func_0013C170	989snd	snd_StopAllSounds	host	the instructions of rac2-ntsc func_00132AC8
+func_0013C1A0	989snd	snd_PauseAllSoundsInGroup	host	the instructions of rac2-ntsc func_00132AF8
+func_0013C1D0	989snd	snd_ContinueAllSoundsInGroup	host	the instructions of rac2-ntsc func_00132B28
+func_0013CC10	989snd	snd_PauseVAGStream	host	the instructions of rac2-ntsc func_001333D0
+func_0013CC40	989snd	snd_ContinueVAGStream	host	the instructions of rac2-ntsc func_00133400
+func_0013CCA0	989snd	snd_GetVAGStreamTimeRemaining_CB	host	the instructions of rac2-ntsc func_00133430
+func_0013CCD0	989snd	snd_IsVAGStreamBuffered_CB	host	the instructions of rac2-ntsc func_00133460
+func_0013CD00	989snd	snd_StreamSafeCheckCDIdle	host	the instructions of rac2-ntsc func_00133490
+func_0013CD28	989snd	snd_StreamSafeCdRead	host	the instructions of rac2-ntsc func_001334B8
+func_0013CDF0	989snd	snd_StreamSafeCdSync	host	the instructions of rac2-ntsc func_00133580
+func_0013CEB0	989snd	snd_StreamSafeCdBreak	host	the instructions of rac2-ntsc func_00133640
+func_0013CEF8	989snd	snd_StreamSafeCdGetError	host	the instructions of rac2-ntsc func_00133688
+func_0013CF40	989snd	snd_StreamSafeCdCallback	host	the instructions of rac2-ntsc func_001336D0
+func_0013CFC0	989snd	snd_PreAllocReverbWorkArea	host	the instructions of rac2-ntsc func_00133750
+func_0013CFF8	989snd	snd_AutoReverb	host	the instructions of rac2-ntsc func_00133788
+func_0013D0C0	989snd	snd_ResetMovieSound	host	the instructions of rac2-ntsc func_00133890
+func_0013D180	989snd	snd_UpdateMovieADPCM	host	the instructions of rac2-ntsc func_00133930
+func_0013D1B0	989snd	snd_GetMovieNAX	host	the instructions of rac2-ntsc func_00133960
+func_00124A80	kernel	rac3InitSyscallTable	host	InitSystemCallTableAddress (rac2-ntsc func_0011F718): scans kernel memory with FindAddress; the port has none (host/entry.c)	void (void)
+func_001242B8	sif	sceSifSyncIop	host	the shape of rac2-ntsc func_0011EEA0; polled after sceSifRebootIop by func_003983C8
+func_003A9348	dma	rac3KickVif0Chain	host	KickVif0Chain (rac2-ntsc func_002FC070): programs VIF0 itself and polls CHCR (host/dma.c)	void (unsigned int)
+func_0013B818	989snd	rac3SndReplyWait	host	the wait for the sound server's reply (host/sound.c): answered at once, there is no IOP	int (void)
+func_0013B620	989snd	snd_FlushSoundCommands	host	the flush the loader's wait (func_003A2B50) and every command send call between func_0013CA28 and func_0013CA20; the shared one also ends a snd_StreamSafeCdRead
+func_0011F9A8	kernel	EnableDmac	host	hand-written wrapper: DI, EnableDmac (0x0011EB80), EI as Status had it
+func_0011F940	kernel	DisableDmac	host	hand-written wrapper: DI, DisableDmac (0x0011EB90), EI as Status had it
+func_0038D478	vu0	rac3Cosine	host	VU0 microprogram 0xDA0 on vf1.x (host/trig.c)	float (float)
+func_0038D490	vu0	rac3Sine	host	VU0 microprogram 0xDB0 on vf1.x (host/trig.c)	float (float)

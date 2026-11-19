@@ -118,8 +118,9 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
       declaration, and the name recorded as an alias of the label's symbol
       ("alias NAME SYMBOL" in the fixes), which hostgen follows.
     - "too few arguments to function call": a call to a K&R function with
-      fewer arguments than its definition. The missing ones are passed as 0
-      (on the console they were whatever the registers held).
+      fewer arguments than its definition. The missing ones are passed as
+      openrac_hostgen_unset(): 0, or with hostgen.json "unpassed_registers" the
+      caller's own arguments in those registers, as on the console (lower.py).
 
     Both edits stay on their line, so line numbers do not move.
     """
@@ -309,12 +310,12 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
         if m:
             want, have = int(m.group(1)), int(m.group(2))
             src = lines[line]
-            pad = ", ".join(["0"] * (want - have))
+            pad = ", ".join(["openrac_hostgen_unset()"] * (want - have))
             if have:
                 pad = ", " + pad
             if 0 <= col < len(src) and src[col] == ")":
                 lines[line] = src[:col] + pad + src[col:]
-                fixes.append(f"line {line + 1}: passed {want - have} missing argument(s) as 0")
+                fixes.append(f"line {line + 1}: passed {want - have} missing argument(s) as unset")
     for at, decls in inserts.items():
         lines[at] = " ".join(dict.fromkeys(decls)) + " " + lines[at]
     return "\n".join(lines), fixes

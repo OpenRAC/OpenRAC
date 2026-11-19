@@ -513,6 +513,13 @@ def starts_of(program) -> dict[int, dict[int, str]]:
     the Dynamo's update (func_00315E20, five states) lost states 3 and 4 to level 2's func_316150,
     so after one activation it returned at once every tick and never targeted again."""
     out: dict[int, dict[int, str]] = {}
+    # hostgen.json "executable_extents": an executable address strictly inside a function the
+    # decompilation's report places is no start (hostgen.read_extents).
+    extents = getattr(program, "executable_extents", {}) or {}
+    inside: set[int] = set()
+    for start, size in extents.items():
+        inside.update(range(start + 4, start + size, 4))
+    inside -= set(extents)
     short = getattr(program, "level_short_names", None)
     starts = getattr(program, "executable_starts", set())
     for sym in sorted(program.functions):
@@ -520,6 +527,8 @@ def starts_of(program) -> dict[int, dict[int, str]]:
         level_only = m is not None and len(sym) == len("func_") + 6
         for ov, addr in program.code_places(sym):
             if level_only and ov < 0 and addr not in starts:
+                continue
+            if ov < 0 and addr in inside:
                 continue
             have = out.setdefault(ov, {}).get(addr)
             if have is None or (program.functions.get(have) is not None and program.functions[have].unit is None

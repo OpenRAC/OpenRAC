@@ -55,6 +55,29 @@ PROGRAM_FILES = ["stubs.c", "functions.c", "hooks.c", "libraries.c", "game_info.
 _STATE: dict = {}
 
 
+
+def read_extents(spec: dict | None, source: Path) -> dict[int, int]:
+    """hostgen.json "executable_extents": {"report": PATH, "units": PREFIX}: where each executable
+    function starts and how long it is, from the decompilation's objdiff progress report (its
+    units whose name starts with PREFIX). A name the C declares inside another function's extent
+    (an address of another version or another program) then starts nothing there
+    (retail.starts_of): Up Your Arsenal's front-end C declares frontbin's and the US release's
+    names, which cut boot_elf's functions apart and dropped their jump tables' targets."""
+    if not spec:
+        return {}
+    path = source / spec["report"]
+    if not path.is_file():
+        return {}
+    out: dict[int, int] = {}
+    for unit in json.loads(path.read_text()).get("units", []):
+        if not unit.get("name", "").startswith(spec.get("units", "")):
+            continue
+        for f in unit.get("functions", []):
+            address = int(f.get("metadata", {}).get("virtual_address", 0))
+            if address:
+                out[address] = int(f.get("size", 0))
+    return out
+
 def _init(state: dict) -> None:
     _STATE.update(state)
 
@@ -1253,6 +1276,8 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         jump_tables = json.loads(jump_path.read_text()) if jump_path.is_file() else {}
     program.jump_tables = {k: v for k, v in jump_tables.items() if not k.startswith("#")}
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
+    program.unpassed_registers = bool(cfg.get("unpassed_registers"))
+    program.executable_extents = read_extents(cfg.get("executable_extents"), source)
     if cfg.get("executable_functions"):
         rows = [row for row in tables.read_tsv(source / cfg["executable_functions"], strip=True) if len(row) >= 2]
         program.executable_starts = {int(row[1], 16) for row in rows}

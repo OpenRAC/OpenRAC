@@ -83,6 +83,8 @@ HOST_TYPES = {
 
 # The call hostgen puts where Clang could not read inline assembly (clangast.py).
 HOSTGEN_ASM = "openrac_hostgen_asm"
+# An argument a call to a K&R function leaves out (clangast.py fixes such a call with it).
+HOSTGEN_UNSET = "openrac_hostgen_unset"
 
 # C library maths functions on plain values, called by the host's name when
 # the game uses them without defining them.
@@ -3258,6 +3260,8 @@ class Unit:
             return f"{BUILTINS[sym]}({', '.join(self.rv(a) for a in args)})"
         if sym == HOSTGEN_ASM:
             raise Unsupported("inline assembly Clang cannot read")
+        if sym == HOSTGEN_UNSET:
+            return "0"
         if sym == "__builtin_next_arg":
             return self._next_arg(result_t)
         f = self.program.lookup(self.unit, sym)
@@ -3352,7 +3356,24 @@ class Unit:
             return "agg"
         return self._reg_class(c)
 
+    def _is_unset(self, a: dict) -> bool:
+        """An argument clangast.py put in for one a call to a K&R function leaves out."""
+        while a.get("kind") in ("ImplicitCastExpr", "CStyleCastExpr", "ParenExpr") and _inner(a):
+            a = _inner(a)[0]
+        if a.get("kind") != "CallExpr" or not _inner(a):
+            return False
+        callee = _inner(a)[0]
+        while callee.get("kind") in ("ImplicitCastExpr", "ParenExpr") and _inner(callee):
+            callee = _inner(callee)[0]
+        return callee.get("kind") == "DeclRefExpr" and callee.get("referencedDecl", {}).get("name") == HOSTGEN_UNSET
+
     def _match_args(self, sym: str, sig, args: list) -> list[str]:
+        if getattr(self.program, "unpassed_registers", False):
+            # hostgen.json "unpassed_registers": an argument a call to a K&R function leaves out
+            # is the register the caller left: its own argument there, as for any call that
+            # passes fewer than the callee takes (Up Your Arsenal's func_003AB608 hands its
+            # second and third arguments to func_003AB3F0 that way).
+            args = [a for a in args if not self._is_unset(a)]
         if not sig.prototyped:
             return [self.rv(a) for a in args]
         classes = [self._arg_class(a) for a in args]
