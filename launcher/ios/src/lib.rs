@@ -356,11 +356,11 @@ mod tests {
         let preview = transfer::preview_into(&pc, serial, &archive).unwrap();
         assert_eq!(preview.slots[0].slot.bolts, Some(1234));
         let choice = transfer::SaveImportChoice { replace_all: true, slots: vec![] };
-        transfer::import_into(&pc, serial, &archive, &choice).unwrap();
+        transfer::import_into(&pc, serial, &archive, &choice, &Default::default()).unwrap();
         assert_eq!(std::fs::read(pc.join(folder).join("save0.bin")).unwrap(), bytes);
         // Export on PC, pick a private snapshot on iOS, preview without changing the card.
         let incoming = imports.join("saves.zip");
-        transfer::export_card(&pc, serial, Some(0), "desktop-test", &incoming).unwrap();
+        transfer::export_card(&pc, serial, Some(0), "desktop-test", &incoming, &Default::default()).unwrap();
         let mut old = bytes.clone();
         old[36..40].copy_from_slice(&999u32.to_le_bytes());
         std::fs::write(save_dir.join("save0.bin"), &old).unwrap();

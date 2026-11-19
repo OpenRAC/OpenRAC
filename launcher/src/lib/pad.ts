@@ -6,11 +6,21 @@
 // read with the Gamepad API.
 // Nothing here knows a page but the tabs' bar: it reads the document as it is.
 
-export type PadButton = "up" | "down" | "left" | "right" | "accept" | "back" | "prev" | "next" | "more" | "extra";
+export type PadButton =
+  "up" | "down" | "left" | "right" | "accept" | "back" | "prev" | "next" | "more" | "extra";
+
 type Direction = "up" | "down" | "left" | "right";
 
 const DIRECTIONS: readonly string[] = ["up", "down", "left", "right"];
-const BUTTONS: readonly string[] = [...DIRECTIONS, "accept", "back", "prev", "next", "more", "extra"];
+const BUTTONS: readonly string[] = [
+  ...DIRECTIONS,
+  "accept",
+  "back",
+  "prev",
+  "next",
+  "more",
+  "extra",
+];
 
 /** A held direction moves again after REPEAT_DELAY_MS, then every REPEAT_MS. */
 const REPEAT_DELAY_MS = 350;
@@ -19,7 +29,8 @@ const REPEAT_MS = 90;
 // A row of tabs or radios (tabs.ts), and a menu's items (Menu.svelte), are left out of Tab's order
 // and moved through with the arrows; the controller reaches each of them, and A takes the one it
 // is on.
-const ROVING = '[role="tablist"] [role="tab"], [role="radiogroup"] [role="radio"], [role="menu"] [role="menuitem"]';
+const ROVING =
+  '[role="tablist"] [role="tab"], [role="radiogroup"] [role="radio"], [role="menu"] [role="menuitem"]';
 const FOCUSABLE = `button, a[href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"]), ${ROVING}`;
 
 /** What B and Android's Back do once nothing is open; true when they did something. */
@@ -35,9 +46,12 @@ function visible(el: HTMLElement): boolean {
   // What a closed <details> holds keeps its boxes in Chromium (Android's WebView) but cannot take
   // the focus: picked as the next control, it left the focus where it was.
   const folded = el.closest("details:not([open])");
+
   if (folded && !(el.tagName === "SUMMARY" && el.parentElement === folded)) return false;
-  if (typeof el.checkVisibility === "function") return el.checkVisibility({ visibilityProperty: true });
+  if (typeof el.checkVisibility === "function")
+    return el.checkVisibility({ visibilityProperty: true });
   const style = getComputedStyle(el);
+
   return style.visibility !== "hidden" && style.display !== "none";
 }
 
@@ -68,8 +82,12 @@ function usable(el: HTMLElement): boolean {
 /** Where the focus may go: the open menu, else the topmost dialog, else the page. */
 export function scope(doc: Document = document): HTMLElement {
   const menu = doc.querySelector<HTMLElement>('[role="menu"]');
+
   if (menu && visible(menu)) return menu;
-  const dialogs = [...doc.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]')].filter(visible);
+  const dialogs = [
+    ...doc.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'),
+  ].filter(visible);
+
   return dialogs.at(-1) ?? doc.body;
 }
 
@@ -88,15 +106,25 @@ interface Box {
  *  more than a pixel (a button centred in the same row, a fraction higher, is not above it). */
 function ahead(from: Box, to: Box, dir: Direction): boolean {
   const centre = (a: number, b: number) => (a + b) / 2;
+
   switch (dir) {
     case "down":
-      return centre(to.top, to.bottom) > centre(from.top, from.bottom) + 1 && to.top >= from.top + 1;
+      return (
+        centre(to.top, to.bottom) > centre(from.top, from.bottom) + 1 && to.top >= from.top + 1
+      );
     case "up":
-      return centre(to.top, to.bottom) < centre(from.top, from.bottom) - 1 && to.bottom <= from.bottom - 1;
+      return (
+        centre(to.top, to.bottom) < centre(from.top, from.bottom) - 1 &&
+        to.bottom <= from.bottom - 1
+      );
     case "right":
-      return centre(to.left, to.right) > centre(from.left, from.right) + 1 && to.left >= from.left + 1;
+      return (
+        centre(to.left, to.right) > centre(from.left, from.right) + 1 && to.left >= from.left + 1
+      );
     case "left":
-      return centre(to.left, to.right) < centre(from.left, from.right) - 1 && to.right <= from.right - 1;
+      return (
+        centre(to.left, to.right) < centre(from.left, from.right) - 1 && to.right <= from.right - 1
+      );
   }
 }
 
@@ -127,6 +155,7 @@ export function distance(from: Box, to: Box, dir: Direction): number | null {
     ? (to.left + to.right) / 2 - (from.left + from.right) / 2
     : (to.top + to.bottom) / 2 - (from.top + from.bottom) / 2;
   const gap = gaps(from, to, dir).near;
+
   return 13 * gap * gap + side * side;
 }
 
@@ -144,18 +173,26 @@ function inLine(from: Box, to: Box, dir: Direction): boolean {
 function lineWins(from: Box, a: Box, b: Box, dir: Direction): boolean {
   if (!inLine(from, a, dir) || inLine(from, b, dir)) return false;
   if (dir === "left" || dir === "right") return true;
+
   return gaps(from, a, dir).near < gaps(from, b, dir).far;
 }
 
 /** The control nearest `from` going `dir` among `items`, or null. */
 export function nearest<T>(from: Box, items: { item: T; box: Box }[], dir: Direction): T | null {
   let best: { item: T; box: Box; d: number } | null = null;
+
   for (const { item, box } of items) {
     const d = distance(from, box, dir);
+
     if (d === null) continue;
-    if (!best || lineWins(from, box, best.box, dir) || (!lineWins(from, best.box, box, dir) && d < best.d))
+    if (
+      !best ||
+      lineWins(from, box, best.box, dir) ||
+      (!lineWins(from, best.box, box, dir) && d < best.d)
+    )
       best = { item, box, d };
   }
+
   return best?.item ?? null;
 }
 
@@ -188,13 +225,22 @@ function clearAside(el: HTMLElement) {
   const aside = document.querySelector<HTMLElement>("[data-pad-aside]")?.getBoundingClientRect();
   const box = el.getBoundingClientRect();
   const under =
-    aside && aside.height > 0 && !el.closest("[data-pad-aside]") && box.left < aside.right && box.right > aside.left;
-  document.documentElement.style.setProperty("--pad-aside", `${under ? Math.max(0, innerHeight - aside.top) : 0}px`);
+    aside &&
+    aside.height > 0 &&
+    !el.closest("[data-pad-aside]") &&
+    box.left < aside.right &&
+    box.right > aside.left;
+
+  document.documentElement.style.setProperty(
+    "--pad-aside",
+    `${under ? Math.max(0, innerHeight - aside.top) : 0}px`,
+  );
 }
 
 /** Scrolling to the focus glides, unless the player asked for less motion or holds a direction
  *  (each step then jumps, so that a glide does not fall behind the next). */
-const glide = typeof matchMedia === "function" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+const glide =
+  typeof matchMedia === "function" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
 let repeating = false;
 
 function markFocus(el: HTMLElement | null) {
@@ -209,7 +255,11 @@ function show(el: HTMLElement) {
   el.focus({ preventScroll: true });
   markFocus(el);
   // app.css gives the focus a margin, so its ring is not cut by the edge it scrolls to.
-  el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: glide && !repeating ? "smooth" : "auto" });
+  el.scrollIntoView({
+    block: "nearest",
+    inline: "nearest",
+    behavior: glide && !repeating ? "smooth" : "auto",
+  });
   note(el);
 }
 
@@ -217,9 +267,12 @@ function current(items: HTMLElement[]): HTMLElement | null {
   // WebKit may decline programmatic DOM focus or leave it on the preceding control.
   if (document.documentElement.dataset.input === "pad") {
     const marked = items.find((el) => el.hasAttribute("data-pad-focus"));
+
     if (marked) return marked;
   }
+
   const active = document.activeElement;
+
   return active instanceof HTMLElement && items.includes(active) ? active : null;
 }
 
@@ -236,16 +289,20 @@ function start(root: HTMLElement, items: HTMLElement[]): HTMLElement | undefined
       inMain.find((el) => el.matches('[aria-current]:not([aria-current="false"])')) ??
       inMain.find((el) => !textEntry(el)) ??
       inMain[0];
+
     if (picked) return picked;
   }
+
   return items.find((el) => el.matches("[autofocus], .primary, .btn-primary")) ?? items[0];
 }
 
 function scrollable(el: HTMLElement | null): HTMLElement | null {
   for (let at = el; at; at = at.parentElement) {
     const style = getComputedStyle(at);
+
     if (/(auto|scroll)/.test(style.overflowY) && at.scrollHeight > at.clientHeight) return at;
   }
+
   return document.scrollingElement as HTMLElement | null;
 }
 
@@ -255,14 +312,17 @@ function closest(box: DOMRect, items: HTMLElement[]): HTMLElement | undefined {
   const y = (box.top + box.bottom) / 2;
   let best: HTMLElement | undefined;
   let score = Infinity;
+
   for (const el of items) {
     const b = el.getBoundingClientRect();
     const d = ((b.left + b.right) / 2 - x) ** 2 + ((b.top + b.bottom) / 2 - y) ** 2;
+
     if (d < score) {
       score = d;
       best = el;
     }
   }
+
   return best;
 }
 
@@ -270,12 +330,15 @@ function move(dir: Direction) {
   const root = scope();
   const items = focusables(root);
   let from = current(items);
+
   if (!from) {
     // The focus put away (B closed the keyboard) or waiting for a busy button: the move goes on
     // from that control, which is still where it was.
     const still = spotIn(root);
+
     if (!still || !visible(still)) {
       const first = start(root, items);
+
       if (first) show(first);
       // In a part that asks for it (Android's wheel of discs), the first press already moves on
       // from there: on the launcher's first start, down took two presses to turn the wheel.
@@ -285,18 +348,24 @@ function move(dir: Direction) {
       from = still;
     }
   }
+
   // A range, and a list to pick from, move their value sideways.
   const sideways = (dir === "left" || dir === "right") && from === current(items);
+
   if (sideways && from instanceof HTMLInputElement && from.type === "range") {
     if (dir === "left") from.stepDown();
     else from.stepUp();
     changed(from);
+
     return;
   }
+
   if (sideways && from instanceof HTMLSelectElement) {
     step(from, dir === "left" ? -1 : 1);
+
     return;
   }
+
   const box = from.getBoundingClientRect();
   const candidates = (list: HTMLElement[]) =>
     list.filter((el) => el !== from).map((el) => ({ item: el, box: el.getBoundingClientRect() }));
@@ -313,18 +382,27 @@ function move(dir: Direction) {
     items,
     (part) => nearest(box, candidates(reachable.filter((el) => part.contains(el))), dir),
   );
+
   if (!next && from !== document.activeElement && usable(from) && !textEntry(from)) {
     show(from);
+
     return;
   }
+
   if (next) {
     show(next);
+
     return;
   }
+
   // Nothing further that way: the text there scrolls into view instead.
   if (dir === "up" || dir === "down") {
     const area = scrollable(from);
-    area?.scrollBy({ top: (dir === "down" ? 1 : -1) * area.clientHeight * 0.4, behavior: "smooth" });
+
+    area?.scrollBy({
+      top: (dir === "down" ? 1 : -1) * area.clientHeight * 0.4,
+      behavior: "smooth",
+    });
   }
 }
 
@@ -345,22 +423,33 @@ function steer(
 ): HTMLElement | null {
   // Into the tabs' bar from the page: the tab open, not whichever is nearest (the logo, Settings).
   const bar = document.querySelector<HTMLElement>(BAR);
+
   if (next && bar?.contains(next) && !bar.contains(from)) {
-    const open = items.find((el) => bar.contains(el) && el.matches("[aria-current]") && visible(el));
+    const open = items.find(
+      (el) => bar.contains(el) && el.matches("[aria-current]") && visible(el),
+    );
+
     if (open) return open;
   }
+
   const part = from.closest<HTMLElement>(`[data-pad-${dir}]`);
+
   if (!part || (next && part.contains(next))) return next;
   // A control of the part that way, even far to the side, comes before leaving it.
   const inside = within(part);
+
   if (inside) return inside;
   const rule = part.getAttribute(`data-pad-${dir}`) ?? "";
+
   if (rule === "none") return null;
+
   return items.find((el) => el !== from && el.matches(rule) && visible(el)) ?? next;
 }
 
 function escape(target: Element) {
-  target.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+  target.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+  );
 }
 
 /**
@@ -371,11 +460,15 @@ function escape(target: Element) {
  */
 function crosses(from: HTMLElement, to: HTMLElement, dir: Direction): boolean {
   const bar = document.querySelector<HTMLElement>(BAR);
+
   if (!bar) return true;
   const fromBar = bar.contains(from);
+
   if (fromBar === bar.contains(to)) return true;
   const { width, height } = bar.getBoundingClientRect();
-  const across = height > width ? dir === "left" || dir === "right" : dir === "up" || dir === "down";
+  const across =
+    height > width ? dir === "left" || dir === "right" : dir === "up" || dir === "down";
+
   return across;
 }
 
@@ -389,11 +482,14 @@ function changed(el: HTMLElement) {
  *  cannot be chosen. */
 function step(select: HTMLSelectElement, by: number) {
   const n = select.options.length;
+
   for (let i = 1; i < n; i++) {
     const at = (((select.selectedIndex + by * i) % n) + n) % n;
+
     if (!select.options[at]?.disabled) {
       select.selectedIndex = at;
       changed(select);
+
       return;
     }
   }
@@ -412,37 +508,48 @@ function pressed(el: HTMLElement) {
 function accept() {
   const items = focusables(scope());
   const el = current(items);
+
   if (!el) {
     // Nothing focused (the focus waits for a busy button, or was put away): it comes back first.
     const was = spotIn(scope());
     const first = was && usable(was) ? was : start(scope(), items);
+
     if (first) show(first);
+
     return;
   }
+
   if (el instanceof HTMLSelectElement) {
     // Android forwards controller keys to its native picker. On desktop and iOS the system
     // picker cannot receive our navigation events: A takes the next choice, as right does.
     if (!nativePicker) {
       step(el, 1);
+
       return;
     }
+
     try {
       el.showPicker();
     } catch {
       el.focus();
     }
+
     return;
   }
+
   if (el.getAttribute("aria-haspopup") === "menu") {
     opener = el;
     el.click();
     // The menu is drawn on the next frame: its first item takes the focus.
     requestAnimationFrame(() => {
       const menu = scope();
+
       if (menu.getAttribute("role") === "menu") focusables(menu)[0]?.focus();
     });
+
     return;
   }
+
   pressed(el);
   // A control can take A for itself: `padpress`, cancelled.
   if (!el.dispatchEvent(new CustomEvent("padpress", { cancelable: true }))) return;
@@ -456,6 +563,7 @@ function accept() {
 function more() {
   // Nothing focused (the focus left on the rail by a finger, or put away), the page answers still.
   const el = current(focusables(scope())) ?? scope();
+
   el.dispatchEvent(new CustomEvent("padmore", { bubbles: true }));
 }
 
@@ -466,6 +574,7 @@ function extra() {
 
 function restoreOpener() {
   const el = opener;
+
   opener = null;
   requestAnimationFrame(() => {
     if (el?.isConnected && usable(el)) show(el);
@@ -476,27 +585,34 @@ function restoreOpener() {
 function textEntry(el: Element | null): el is HTMLInputElement | HTMLTextAreaElement {
   return (
     el instanceof HTMLTextAreaElement ||
-    (el instanceof HTMLInputElement && !["range", "checkbox", "radio", "button", "submit"].includes(el.type))
+    (el instanceof HTMLInputElement &&
+      !["range", "checkbox", "radio", "button", "submit"].includes(el.type))
   );
 }
 
 /** B, or Android's Back: true when it did something here (else Android leaves the launcher). */
 export function back(): boolean {
   const active = document.activeElement;
+
   // Typing: B puts the keyboard away first.
   if (textEntry(active)) {
     // The field keeps its place: the next move goes on from it (move), and the focus is not
     // brought back to it (keep), which would open the keyboard again.
     parked = true;
     active.blur();
+
     return true;
   }
+
   const root = scope();
+
   if (root !== document.body) {
     escape(active instanceof HTMLElement && root.contains(active) ? active : root);
     if (root.getAttribute("role") === "menu") restoreOpener();
+
     return true;
   }
+
   return backHome();
 }
 
@@ -505,9 +621,11 @@ function tab(step: number) {
   const tabs = [...document.querySelectorAll<HTMLButtonElement>("header nav .tab")].filter(
     (tab) => !tab.disabled && visible(tab),
   );
+
   if (!tabs.length || scope() !== document.body) return;
   const at = tabs.findIndex((t) => t.classList.contains("on"));
   const next = tabs[(at + step + tabs.length) % tabs.length];
+
   // The new page starts at its content (keep, once it is there).
   leaving = { page: pageNow(), until: performance.now() + PAGE_WAIT_MS };
   setTimeout(schedule, PAGE_WAIT_MS);
@@ -536,23 +654,37 @@ function keep() {
   if (document.documentElement.dataset.input !== "pad" || holding || parked) return;
   const root = scope();
   const active = document.activeElement;
-  if (active instanceof HTMLElement && active !== document.body && root.contains(active) && usable(active)) return;
+
+  if (
+    active instanceof HTMLElement &&
+    active !== document.body &&
+    root.contains(active) &&
+    usable(active)
+  )
+    return;
+
   if (leaving) {
     if (pageNow() === leaving.page && performance.now() < leaving.until) return;
     leaving = null;
   }
+
   const items = focusables(root);
+
   if (!items.length) return;
   const lost = spotIn(root);
+
   if (lost && usable(lost)) {
     show(lost);
+
     return;
   }
+
   // Disabled while it works (a build, an install): the focus waits for it.
   if (lost && (lost as HTMLButtonElement).disabled && visible(lost)) return;
   const samePage = spot?.root === root && spot.page !== null && spot.page === pageNow();
   const near = spot && samePage ? closest(spot.box, items) : null;
   const next = near ?? start(root, items);
+
   if (next) show(next);
 }
 
@@ -601,8 +733,10 @@ function act(button: PadButton) {
  *  the mouse moved or pressed brings them back. */
 function usingPad(on: boolean) {
   const mode = on ? "pad" : "pointer";
+
   if (!on) markFocus(null);
-  if (document.documentElement.dataset.input !== mode) document.documentElement.dataset.input = mode;
+  if (document.documentElement.dataset.input !== mode)
+    document.documentElement.dataset.input = mode;
 }
 
 /** Whether the host forwards controller keys to a native select picker (Android). */
@@ -642,24 +776,30 @@ export function routePad(to: ((button: PadButton, down: boolean) => void) | null
 function padEvent(event: string) {
   if (holding) return;
   const [kind, name] = event.split(":");
+
   if (!name || !BUTTONS.includes(name)) return;
   const button = name as PadButton;
+
   if (routed) {
     if (kind === "down" || kind === "up") routed(button, kind === "down");
+
     return;
   }
+
   if (kind === "down") {
     if (held.has(button)) return;
     usingPad(true);
     // A press of its own: the focus put away by the last one comes back where it is needed.
     parked = false;
     act(button);
+
     const repeat = () => {
       repeating = true;
       act(button);
       repeating = false;
       held.set(button, setTimeout(repeat, REPEAT_MS));
     };
+
     held.set(button, DIRECTIONS.includes(button) ? setTimeout(repeat, REPEAT_DELAY_MS) : undefined);
   } else if (kind === "up") {
     clearTimeout(held.get(button));
@@ -705,18 +845,22 @@ export function pollGamepads(
   acting = true,
 ): Set<PadButton> {
   const now = new Set<PadButton>();
+
   for (const pad of pads) {
     if (pad?.mapping !== "standard") continue;
     for (const [index, button] of STANDARD) if (pad.buttons[index]?.pressed) now.add(button);
     const [x = 0, y = 0] = pad.axes;
+
     if (x <= -0.5) now.add("left");
     if (x >= 0.5) now.add("right");
     if (y <= -0.5) now.add("up");
     if (y >= 0.5) now.add("down");
   }
+
   if (!acting) return now;
   for (const button of now) if (!previous.has(button)) padEvent(`down:${button}`);
   for (const button of previous) if (!now.has(button)) padEvent(`up:${button}`);
+
   return now;
 }
 
@@ -737,6 +881,7 @@ export function startPad(
 ) {
   shouldersOnly = options.shouldersOnly ?? false;
   const { readGamepads, press } = options;
+
   backHome = home;
   nativePicker = options.nativePicker ?? false;
   if (press) onPress = press;
@@ -745,10 +890,12 @@ export function startPad(
     __openracPadRelease?: typeof releasePad;
     __openracBack?: typeof back;
   };
+
   w.__openracPad = padEvent;
   w.__openracPadRelease = releasePad;
   w.__openracBack = back;
   window.addEventListener("blur", releasePad);
+
   // Arrow keys that reach the page as keys (a d-pad Android does not report as a controller's, a
   // keyboard's) move the focus too, unless a text field or a list has them; else they scrolled the
   // page.
@@ -761,22 +908,29 @@ export function startPad(
     };
     const arrow = (e: KeyboardEvent) => {
       const button = ARROWS[e.key];
+
       if (!button || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return null;
       const at = document.activeElement;
+
       if (textEntry(at) || at instanceof HTMLSelectElement) return null;
+
       return button;
     };
+
     document.addEventListener("keydown", (e) => {
       const button = arrow(e);
+
       if (!button) return;
       e.preventDefault();
       if (!e.repeat) padEvent(`down:${button}`);
     });
     document.addEventListener("keyup", (e) => {
       const button = arrow(e);
+
       if (button) padEvent(`up:${button}`);
     });
   }
+
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) releasePad();
   });
@@ -786,7 +940,8 @@ export function startPad(
   // The mouse moved by the player: the browser also sends a move that did not move (a page that
   // scrolled under a pointer standing still), which must not take the focus ring away.
   window.addEventListener("pointermove", (e) => {
-    if (e.pointerType === "mouse" && Math.abs(e.movementX) + Math.abs(e.movementY) > 2) usingPad(false);
+    if (e.pointerType === "mouse" && Math.abs(e.movementX) + Math.abs(e.movementY) > 2)
+      usingPad(false);
   });
   // The focus follows what is focused another way (the mouse, a dialog's own first control), and
   // stays on something whatever goes away (keep).
@@ -811,6 +966,7 @@ export function startPad(
     if (navigator.getGamepads().some((p) => p)) requestAnimationFrame(poll);
     else polling = false;
   };
+
   window.addEventListener("gamepadconnected", () => {
     if (polling) return;
     polling = true;

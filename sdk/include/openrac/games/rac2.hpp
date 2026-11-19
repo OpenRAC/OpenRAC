@@ -267,7 +267,36 @@ struct Moby_NanotechBall_Update {
     using fn = void (*)(uint32_t);
 };
 
+// Spawns a burst of bolt coins from moby (moby_spawn_bolt_pickups in the executable and its copy in every level's code, part_spawn_bolt_pickups: one hook point): rolls an amount from low to high (doubled under the bolt multiplier, scaled by how fast the level's bolts are being earned), splits it into the biggest coins that fit (1, 5, 20, 50, 100, 500 and 1000, classes 0x0D to 0x13) and makes each with Bolt_SpawnPickup. flags 0 spawns nothing, 2 flies the coins to the hero, 8 makes at most maximum coins (the rest goes to the word at 0x1A7A14), 32 leaves them out of the level's bolt score; surface is a path the coins land on (-1 none), height a lift of the spawn point. Every drop comes here: Moby_RecordDeath's (enemies and crates; in a level its copy calls the level copy) and the levels' scripted bursts (part_spawn_scaled_bolts and its callers). A replacement can change low and high, or make the coins itself.
+struct Bolt_SpawnPickups {
+    static constexpr const char* id = "rac2.bolt.spawn_pickups";
+    static constexpr const char* name = "Bolt_SpawnPickups";
+    static constexpr const char* signature = "void(u32,i32,i32,i32,i32,i32,f32)";
+    using fn = void (*)(uint32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float);
+};
+
+// Makes one bolt coin worth value (1, 5, 20, 50, 100, 500 or 1000: classes 0x0D to 0x13; another value makes a 1) at position with velocity (game addresses of four floats each), from source (the moby it came from); counted (the byte at +0x40 of the coin's vars) says whether the level's bolt score counts it, flags 2 flies it to the hero. Returns the coin's moby, or 0: none when the pool is full, or when position is 64 units or more from the game's reference point, where the value goes to the word at 0x1A7A14 instead. Bolt_SpawnPickups calls it for each coin, and two level mobys directly (Endako's func_L03_00383FE8, Maktar's func_L02_003E7370). A replacement sees each coin and the moby made (to mark it, with openrac_api.moby_material for one), and can make another or none.
+struct Bolt_SpawnPickup {
+    static constexpr const char* id = "rac2.bolt.spawn_pickup";
+    static constexpr const char* name = "Bolt_SpawnPickup";
+    static constexpr const char* signature = "u32(u32,u32,u32,u32,i32,i32)";
+    using fn = uint32_t (*)(uint32_t, uint32_t, uint32_t, uint32_t, int32_t, int32_t);
+};
+
+// A bolt coin collected (CollectBolts): adds its class's value (classes 0x0D to 0x13: 1, 5, 20, 50, 100, 500, 1000; 1 for another) to the player's bolts (0x1A79F8) and, for a counted coin, to the level's bolt score, then throws its sparks. The coin's update (func_00300F58) calls it as the coin reaches the hero, the moby still alive, and reads no result. A replacement can change what a coin is worth: call the original and add more with openrac_api.bolts (a coin it marked worth five times: four times what the original added), or not call it.
+struct Bolt_Collect {
+    static constexpr const char* id = "rac2.bolt.collect";
+    static constexpr const char* name = "Bolt_Collect";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
+    namespace bolt {
+        using collect = rac2::Bolt_Collect;
+        using spawn_pickup = rac2::Bolt_SpawnPickup;
+        using spawn_pickups = rac2::Bolt_SpawnPickups;
+    }  // namespace bolt
     namespace combat {
         using get_hit = rac2::Moby_GetHitMessage;
         using post_hit = rac2::Moby_PostHit;

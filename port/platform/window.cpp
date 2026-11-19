@@ -957,12 +957,23 @@ void Window::set_hdr(
 #endif
     }
 #endif
+#if defined(OPENRAC_METAL)
+    // EDR is offered where the display has headroom over SDR white (SDL reads it from NSScreen).
+    if (m_metal) {
+        metal_backend().set_hdr(wanted, levels, hdr_display().headroom > 1.0f);
+    }
+#endif
 }
 
 hdr::Output Window::hdr_output() const {
 #if defined(OPENRAC_VULKAN)
     if (m_vulkan) {
         return vkgl::hdr_output();
+    }
+#endif
+#if defined(OPENRAC_METAL)
+    if (m_metal) {
+        return metal_backend().hdr_output();
     }
 #endif
     return hdr::Output::Sdr;
@@ -972,6 +983,11 @@ bool Window::hdr_offered() const {
 #if defined(OPENRAC_VULKAN)
     if (m_vulkan) {
         return vkgl::hdr_offered();
+    }
+#endif
+#if defined(OPENRAC_METAL)
+    if (m_metal) {
+        return metal_backend().hdr_offered();
     }
 #endif
     return false;

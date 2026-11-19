@@ -273,9 +273,24 @@ static void drop(Record* r) {
 }
 
 /* select_world_object_resource_tables: the figures' pieces drawn from the buffer it decodes over
- * go first; the class it holds after is noted. */
+ * go first; the class it holds after is noted. A class not in the swap list is not decoded: the
+ * game's loop ends past the list and decodes whatever follows, and the next read of it crashes (a
+ * mod that puts a non-hand item in the hand, T-63, or in the vendor's list, T-64;
+ * docs/port/KNOWN_ISSUES.md). */
 void func_00205270(int class_id, int buffer_index) {
     buffers_for_load();
+    if (!swapped(class_id)) {
+        static int warned;
+        if (!warned) {
+            char line[96];
+            snprintf(
+                line, sizeof line, "class %d is not a weapon or gadget class: not decoded", class_id
+            );
+            openrac_game_warn(line);
+            warned = 1;
+        }
+        return;
+    }
     const int32_t active = GREF(int32_t, OPENRAC_DATA(RAC1_ADDR(0x0016004Cu)));
     const int same = active >= 0 && GREF(int32_t, SWAP_IDS + 4u * (uint32_t)active) == class_id;
     if (!same) {

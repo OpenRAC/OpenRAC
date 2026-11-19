@@ -62,10 +62,13 @@
   ]);
 
   /** Android: the game picked in Games, and the tab open, one of its versions or the console. */
-  const picked = $derived(games.find((g) => g.id === app.version?.split("/")[0]) ?? games[0] ?? null);
+  const picked = $derived(
+    games.find((g) => g.id === app.version?.split("/")[0]) ?? games[0] ?? null,
+  );
   const tab = $derived.by(() => {
     if (!picked || app.develop === "console") return app.develop;
     if (picked.versions.some((v) => v.key === app.develop)) return app.develop;
+
     return (playerVersion(picked) ?? picked.versions[0])?.key ?? "console";
   });
   const selected = $derived(onAndroid ? tab : app.develop);
@@ -86,7 +89,9 @@
             tabindex={tab === v.key ? 0 : -1}
             class:on={tab === v.key}
             onclick={() => (app.develop = v.key)}
-            >{regionLabel(v.name)}<span class="dim">{v.progress ? pct(v.progress.percent) : "–"}</span></button
+            >{regionLabel(v.name)}<span class="dim"
+              >{v.progress ? pct(v.progress.percent) : "–"}</span
+            ></button
           >
         {/each}
         <button
@@ -95,7 +100,8 @@
           tabindex={tab === "console" ? 0 : -1}
           class:on={tab === "console"}
           onclick={() => (app.develop = "console")}
-          ><Icon name="terminal" size={16} />Console{#if pending}<span class="busy">{pending}</span>{/if}</button
+          ><Icon name="terminal" size={16} />Console{#if pending}<span class="busy">{pending}</span
+            >{/if}</button
         >
       </div>
     {/if}
@@ -104,7 +110,12 @@
 {:else}
   <SideFrame>
     {#snippet list()}
-      <SideList {entries} selected={app.develop} onpick={(key) => (app.develop = key)} label="Develop" />
+      <SideList
+        {entries}
+        selected={app.develop}
+        onpick={(key) => (app.develop = key)}
+        label="Develop"
+      />
     {/snippet}
     <div class="page">
       <h1 class="sr">Develop</h1>

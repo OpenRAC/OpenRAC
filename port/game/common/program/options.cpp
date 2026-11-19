@@ -30,7 +30,9 @@ namespace {
         "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--stop-on-missing] "
         "[--level N] [--skip-movies] [--unlock-all-weapons] [--unlock-all-gadgets] "
         "[--mods DIR] [--map] [--ship-map] [--destinations] "
-        "[--check-levels] [--settings FILE] [--controls DIR] "
+        "[--check-levels] [--interface-run FILE] "
+        "[--interface-export DIR [--interface-runs FILE]... [--only font,interface,effects]] "
+        "[--settings FILE] [--controls DIR] "
         "[--plugins FILE] [--probes DIR] [--no-mods] [--debug-overlay] [--debug-dump FILE]",
         program_name(),
         openrac_game.game
@@ -232,6 +234,18 @@ Options parse(int argc, char** argv) {
             o.expect_destinations = true;
         } else if (a == "--asm-part") {
             o.asm_part = value();
+        } else if (a == "--interface-run") {
+            o.interface_run = value();
+        } else if (a == "--interface-export") {
+            o.interface_export = value();
+            if (o.interface_export.empty()) {
+                // An empty folder would start the game instead of exporting.
+                usage("--interface-export needs a folder");
+            }
+        } else if (a == "--interface-runs") {
+            o.interface_runs.emplace_back(value());
+        } else if (a == "--only") {
+            o.interface_only = value();
         } else if (a == "--check-levels") {
             o.check_levels = true;
         } else if (a == "--help" || a == "-h") {

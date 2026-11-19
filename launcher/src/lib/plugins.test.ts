@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import type { PluginSetting, PluginView } from "./api";
 import {
   modBadge,
@@ -46,7 +47,10 @@ describe("pluginState", () => {
   it("says on, off, refused and not loaded, and purist mode over all of them", () => {
     expect(pluginState(mod(), false)).toEqual({ text: "On", tone: "ok" });
     expect(pluginState(mod({ enabled: false, state: "off" }), false).tone).toBe("off");
-    expect(pluginState(mod({ state: "refused" }), false)).toEqual({ text: "Cannot load", tone: "err" });
+    expect(pluginState(mod({ state: "refused" }), false)).toEqual({
+      text: "Cannot load",
+      tone: "err",
+    });
     expect(pluginState(mod({ state: "failed" }), false).text).toBe("Not loaded");
     expect(pluginState(mod(), true).tone).toBe("off");
     expect(pluginState(mod({ enabled: false }), true).text).toBe("Off");
@@ -55,7 +59,9 @@ describe("pluginState", () => {
 
 describe("settings", () => {
   it("get the control STYLE.md asks for", () => {
-    const choices = (n: number) => Array.from({ length: n }, (_, i) => ({ value: `${i}`, name: `${i}` }));
+    const choices = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ value: `${i}`, name: `${i}` }));
+
     expect(settingControl(setting({ type: "bool" }))).toBe("switch");
     expect(settingControl(setting({ type: "choice", choices: choices(2) }))).toBe("segmented");
     expect(settingControl(setting({ type: "choice", choices: choices(3) }))).toBe("segmented");
@@ -65,6 +71,7 @@ describe("settings", () => {
       { value: "a", name: "Lock with weapons, always" },
       { value: "b", name: "Hold L2 or R2 to strafe" },
     ];
+
     expect(settingControl(setting({ type: "choice", choices: long }))).toBe("select");
     expect(settingControl(setting({ type: "keybind", default: "Space" }))).toBe("keybind");
     expect(settingControl(setting({ type: "int" }))).toBe("number");
@@ -76,6 +83,7 @@ describe("settings", () => {
 
   it("take only numbers in their range", () => {
     const int = setting({ type: "int", min: 50, max: 110 });
+
     expect(settingNumber(int, "80")).toBe(80);
     expect(settingNumber(int, "80.5")).toBeNull();
     expect(settingNumber(int, "40")).toBeNull();
@@ -97,6 +105,7 @@ describe("sharedWith", () => {
         { hook: "B", with: ["Camera tweaks", "Fast walk"] },
       ],
     });
+
     expect(sharedWith(shared)).toBe(
       "Changes the same part of the game as Camera tweaks and Fast walk: the one lower in the list goes first.",
     );
@@ -129,6 +138,7 @@ describe("settingGroups", () => {
       setting({ key: "fire", type: "keybind", group: "play" }),
       setting({ key: "tilt", type: "choice" }),
     ]);
+
     expect(groups.map((g) => g.title)).toEqual(["General", "Play controls", "Menu controls"]);
     expect(groups[0]?.settings.map((s) => s.key)).toEqual(["sens", "tilt"]);
     expect(groups[1]?.settings.map((s) => s.key)).toEqual(["jump", "fire"]);
@@ -141,6 +151,7 @@ describe("settingGroups", () => {
       setting({ key: "tilt", type: "choice", section: "Mouse" }),
       setting({ key: "back", type: "keybind", group: "menu", section: "Menus" }),
     ]);
+
     expect(groups.map((g) => g.title)).toEqual(["Mouse", "Movement", "Menus"]);
     expect(groups.map((g) => g.id)).toEqual(["s-Mouse", "s-Movement", "s-Menus"]);
     expect(groups[0]?.settings.map((s) => s.key)).toEqual(["sens", "tilt"]);
@@ -148,7 +159,9 @@ describe("settingGroups", () => {
 
   it("calls a mod's only section Settings, and a mixed group by its name", () => {
     expect(settingGroups([setting({ key: "a" })]).map((g) => g.title)).toEqual(["Settings"]);
-    expect(settingGroups([setting({ key: "a", group: "camera_feel" })])[0]?.title).toBe("Camera feel");
+    expect(settingGroups([setting({ key: "a", group: "camera_feel" })])[0]?.title).toBe(
+      "Camera feel",
+    );
   });
 });
 

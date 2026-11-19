@@ -5,8 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const calls: { running: boolean; ids: string[] | null }[] = [];
 let hang = false;
 const fetched: boolean[] = [];
+
 vi.mock("./api", async (load) => {
   const real = await load<typeof import("./api")>();
+
   return {
     ...real,
     api: {
@@ -14,17 +16,39 @@ vi.mock("./api", async (load) => {
       modsAutoUpdate: vi.fn((_g: string, _v: string, ids: string[] | null, running: boolean) => {
         calls.push({ running, ids });
         if (hang) return new Promise(() => undefined);
+
         return Promise.resolve({
-          updated: [{ id: "a", name: "A", from: "1.0.0", to: "1.1.0", native: false, changelog: "", hold: null }],
+          updated: [
+            {
+              id: "a",
+              name: "A",
+              from: "1.0.0",
+              to: "1.1.0",
+              native: false,
+              changelog: "",
+              hold: null,
+            },
+          ],
           plan: { silent: [], waiting: [], held: [] },
           result: null,
         });
       }),
       modsUpdates: vi.fn((_g: string, _v: string, fresh: boolean) => {
         fetched.push(fresh);
+
         return Promise.resolve({
           silent: [],
-          waiting: [{ id: "d", name: "D", from: "1.4.0", to: "1.5.0", native: true, changelog: "", hold: null }],
+          waiting: [
+            {
+              id: "d",
+              name: "D",
+              from: "1.4.0",
+              to: "1.5.0",
+              native: true,
+              changelog: "",
+              hold: null,
+            },
+          ],
           held: [],
           turnedOff: [],
         });
@@ -49,7 +73,9 @@ describe("auto-update", () => {
     fetched.length = 0;
     hang = false;
     app.config = { autoUpdateMods: true } as never;
-    app.library = { games: [{ id: "rac1", title: "R&C", versions: [version], install: null }] } as never;
+    app.library = {
+      games: [{ id: "rac1", title: "R&C", versions: [version], install: null }],
+    } as never;
     app.discs = [];
     app.discChoices = [];
     app.game = null;
@@ -92,6 +118,7 @@ describe("auto-update", () => {
     vi.useFakeTimers();
     hang = true;
     let done = false;
+
     void auto.beforePlay("rac1/pal").then(() => (done = true));
     await vi.advanceTimersByTimeAsync(auto.BEFORE_PLAY_MS + 10);
     expect(done).toBe(true);

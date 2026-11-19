@@ -1,14 +1,16 @@
 <script lang="ts">
-  import { supports } from "$lib/capabilities";
+  import { untrack } from "svelte";
+
   // A desktop's header: no bar of its own, over the page, the logo with its first letter in the
   // game's colour and the theme's buttons: the tabs, the site, Discord.
   // On Android the same places are a navigation rail on the left, or a bar at the bottom when
   // the window is narrow, as Android's own apps have them (Material's navigation rail and bar).
   import { api, inTauri, onAndroid } from "$lib/api";
-  import { app, jobs, openDevelop, pendingJobs, runningJob, type Page } from "$lib/app.svelte";
+  import { app, jobs, openDevelop, type Page, pendingJobs, runningJob } from "$lib/app.svelte";
+  import { supports } from "$lib/capabilities";
   import { DISCORD_URL, SITE_URL } from "$lib/links";
   import { channelName, updateLabel } from "$lib/updates";
-  import { untrack } from "svelte";
+
   import Icon, { type IconName } from "./Icon.svelte";
   import Logo from "./Logo.svelte";
 
@@ -26,7 +28,9 @@
     // tools/bundle_standalone.py). Android's has the mods, Enhanced graphics and the packs, without
     // the level editor (no Godot there: Mods.svelte).
     { page: "mods", label: "Mods", icon: "edit" },
-    ...(app.config?.developer ? [{ page: "develop" as Page, label: "Develop", icon: "terminal" as IconName }] : []),
+    ...(app.config?.developer
+      ? [{ page: "develop" as Page, label: "Develop", icon: "terminal" as IconName }]
+      : []),
     { page: "settings", label: "Settings", icon: "gear" },
   ]);
 
@@ -35,6 +39,7 @@
   /** The tab that is open: a game's page belongs to the games. */
   const current = $derived.by<Page>(() => {
     const page = shown ?? app.page;
+
     return page === "game" ? "library" : page;
   });
 
@@ -46,6 +51,7 @@
   let placed = false;
   function place(page: Page) {
     const on = nav?.querySelector<HTMLElement>(`.tab[data-page="${page}"]`);
+
     slider =
       on && nav
         ? {
@@ -66,7 +72,9 @@
     const resized = new ResizeObserver(() => {
       place(untrack(() => current));
     });
+
     resized.observe(nav);
+
     return () => {
       resized.disconnect();
     };
@@ -83,6 +91,7 @@
       const left = row.scrollLeft;
       const start = left > 1;
       const end = left + row.clientWidth < row.scrollWidth - 1;
+
       if (start !== more.start || end !== more.end) more = { start, end };
     };
     const wheel = (e: WheelEvent) => {
@@ -92,11 +101,13 @@
     };
     // The row's width changes with the window, its content with a job or an update coming in.
     const resized = new ResizeObserver(look);
+
     resized.observe(row);
     if (row.firstElementChild) resized.observe(row.firstElementChild);
     row.addEventListener("scroll", look, { passive: true });
     row.addEventListener("wheel", wheel, { passive: false });
     look();
+
     return () => {
       resized.disconnect();
       row.removeEventListener("scroll", look);
@@ -107,13 +118,17 @@
   /** Whether the page has scrolled under a desktop's header (its haze, below): the page, or a
    *  column of a tab with a list (SideFrame.svelte), is not at its top. */
   let under = $state(false);
-  const scrolled = () => [...document.querySelectorAll("main, main > .frame > *")].some((e) => e.scrollTop > 1);
+  const scrolled = () =>
+    [...document.querySelectorAll("main, main > .frame > *")].some((e) => e.scrollTop > 1);
   $effect(() => {
     if (onAndroid) return;
+
     const look = () => {
       under = scrolled();
     };
+
     document.addEventListener("scroll", look, { capture: true, passive: true });
+
     return () => {
       document.removeEventListener("scroll", look, { capture: true });
     };
@@ -130,7 +145,10 @@
 <header class="site-header" class:under>
   <!-- The first run: the name, not yet a way back to the games. -->
   {#if setup}
-    <div class="brand" title={app.info?.version ? `OpenRAC Launcher ${app.info.version}` : undefined}>
+    <div
+      class="brand"
+      title={app.info?.version ? `OpenRAC Launcher ${app.info.version}` : undefined}
+    >
       <Logo height={34} />
       <span class="brand-mark"><Logo mark height={37} label="" /></span>
       {#if app.info?.version}<small class="ver">{app.info.version}</small>{/if}
@@ -178,11 +196,14 @@
             >
               <span class="icon">
                 <Icon name={tab.icon} size={onAndroid ? 22 : 17} />
-                {#if onAndroid && tab.page === "settings" && app.update}<span class="badge" aria-hidden="true"
+                {#if onAndroid && tab.page === "settings" && app.update}<span
+                    class="badge"
+                    aria-hidden="true"
                   ></span>{/if}
               </span>
               <span class="label">{tab.label}</span>
-              {#if onAndroid && tab.page === "settings" && app.update}<span class="sr-only">, an update is out</span
+              {#if onAndroid && tab.page === "settings" && app.update}<span class="sr-only"
+                  >, an update is out</span
                 >{/if}
               {#if tab.page === "develop" && pending > 0}<span class="count">{pending}</span>{/if}
             </button>
@@ -229,8 +250,11 @@
           <!-- Where OpenRAC lives: the site and the community, two marks in one capsule of the selected
            tab's dark brown. -->
           <div class="links">
-            <button class="site" onclick={() => void api.openUrl(SITE_URL)} aria-label="openrac.dev" title="openrac.dev"
-              ><Icon name="globe" size={18} /></button
+            <button
+              class="site"
+              onclick={() => void api.openUrl(SITE_URL)}
+              aria-label="openrac.dev"
+              title="openrac.dev"><Icon name="globe" size={18} /></button
             >
             <button
               class="discord"
@@ -280,6 +304,8 @@
     /* Android keeps the picked game's own ink. */
     --bar-ink-deep: var(--ink-deep);
     --bar-name: var(--text);
+    /* The page starts below the header (App.svelte): a hairline marks where. */
+    border-bottom: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
   }
 
   :global(html:not([data-platform="android"])) .site-header::before {

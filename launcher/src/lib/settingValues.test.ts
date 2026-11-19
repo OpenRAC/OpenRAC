@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import type { PluginSetting } from "./api";
 import {
   formatValue,
@@ -88,7 +89,8 @@ describe("parseTyped", () => {
   });
 
   it("refuses what is not a number yet", () => {
-    for (const typed of ["", " ", "-", ".", "abc", "1..2"]) expect(parseTyped(enemies, typed)).toBeNull();
+    for (const typed of ["", " ", "-", ".", "abc", "1..2"])
+      expect(parseTyped(enemies, typed)).toBeNull();
   });
 });
 

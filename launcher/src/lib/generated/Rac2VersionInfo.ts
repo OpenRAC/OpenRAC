@@ -26,7 +26,8 @@ challengeOnly: boolean,
  */
 maxAmmo: number | null, 
 /**
- * The experience the game can leave it with, for a weapon that counts it: at least the step
- * it was reached at, and under the step to the next version.
+ * The experience the editor takes in it, for a weapon (every weapon counts it): under the
+ * step to the next version, and at least the step it was reached at when one follows it (the
+ * last version takes any count: nothing reads it there, and NG++ counts again from 0).
  */
 minXp: number | null, maxXp: number | null, };

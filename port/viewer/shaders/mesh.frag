@@ -16,6 +16,7 @@ in vec4 v_probe_multiplier;
 flat in vec4 v_probe_selector;
 flat in int v_lit;
 flat in int v_glow;
+flat in int v_mod_material;  // a mod's material on the moby (mesh.vert): 2 platinum
 in vec3 v_script_emission;
 flat in vec3 v_probe_ambient;
 in vec3 v_emission_colour;
@@ -79,6 +80,69 @@ layout(location = 0) out vec4 out_colour;
 
 // From above and to one side, in game axes (Z up).
 const vec3 kSun = vec3(0.36, 0.48, 0.80);
+
+// A mod's platinum (openrac_api.moby_material, OPENRAC_MOBY_MATERIAL_PLATINUM): render-only, a
+// cool white metal. Its texel is made grey (kPlatinumColourKept of its colour left), brightened and
+// turned blue; so is its colour after the vertex colour (platinum_colour), which is where a
+// coloured moby's colour is: Going Commando's bolt coins are a grey texture lit gold by light set
+// 13 (moby_spawn_bolt_pickup; their trail is the game's particles, rac2/host/platinum_trail.c).
+// After the lighting it gets a tight highlight from the fixed sun and a bright rim. A glow packet's
+// colour is made silver the same way: its texel is not brightened and it gets no highlight.
+const int kModMaterialPlatinum = 2;
+const float kPlatinumColourKept = 0.0;
+const float kPlatinumGain = 1.3;
+const float kPlatinumLift = 0.1;
+const vec3 kPlatinumTint = vec3(0.86, 0.95, 1.16);
+const float kPlatinumGloss = 40.0;     // the highlight's exponent: higher is tighter
+const float kPlatinumHighlight = 0.9;  // the highlight's strength at its peak
+const float kPlatinumRim = 0.55;       // the rim's strength at a grazing angle
+const vec3 kPlatinumShine = vec3(0.92, 0.96, 1.0);
+const float kPlatinumColourGain = 1.35; // platinum_colour's brightening
+
+bool platinum() {
+    return v_mod_material == kModMaterialPlatinum;
+}
+
+// Its surface, not a glow packet's vertex: the one brightened and shone.
+bool platinum_surface() {
+    return platinum() && v_glow == 0;
+}
+
+vec4 platinum_texel(vec4 texel) {
+    if (!platinum_surface()) {
+        return texel;
+    }
+    float grey = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+    vec3 metal = mix(vec3(grey), texel.rgb, kPlatinumColourKept) * kPlatinumGain + kPlatinumLift;
+    return vec4(clamp(metal * kPlatinumTint, 0.0, 1.0), texel.a);
+}
+
+// The texel times its vertex colour (lit, or a glow packet's), made grey (with kPlatinumColourKept
+// of its colour left), turned blue and brightened; alpha as it is.
+vec4 platinum_colour(vec4 c) {
+    if (!platinum()) {
+        return c;
+    }
+    float grey = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+    vec3 metal = mix(vec3(grey), c.rgb, kPlatinumColourKept) * kPlatinumTint * kPlatinumColourGain;
+    return vec4(metal, c.a);
+}
+
+vec3 platinum_shine(vec3 rgb) {
+    if (!platinum_surface() || dot(v_normal, v_normal) < 1e-12) {
+        return rgb;
+    }
+    vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
+    vec3 to_eye = normalize(-eye_position);
+    vec3 n = normalize(mat3(view) * v_normal);
+    // Double-sided, as the game draws mobys: a face seen from behind shines as its front.
+    n = dot(n, to_eye) < 0.0 ? -n : n;
+    vec3 half_way = normalize(normalize(mat3(view) * kSun) + to_eye);
+    float highlight = pow(max(dot(n, half_way), 0.0), kPlatinumGloss);
+    float rim = pow(1.0 - max(dot(n, to_eye), 0.0), 3.0);
+    vec3 shine = kPlatinumShine * (kPlatinumHighlight * highlight + kPlatinumRim * rim);
+    return min(rgb + shine, vec3(1.0));
+}
 
 #ifdef OPENRAC_ENHANCED_RENDERING
 // Match bake_material: repeat wrapping, decode sRGB before bilinear filtering.
@@ -233,7 +297,7 @@ vec3 standard_surface(vec3 diffuse, vec3 albedo, vec3 indirect, vec3 n, vec3 tow
         return base;
     }
     vec3 broad = max(indirect, vec3(0.)) / 3.14159265359 * surface_fresnel(nv, f0);
-    vec3 specular = environment_specular(v_world_position, n, eye, roughness, f0, broad)
+    vec3 specular = environment_specular_rgb(v_world_position, n, eye, roughness, f0, broad)
         + surface_specular_direct(v_world_position, n, eye, selector, visibility, roughness, f0);
     float grazing_tint = .5 * dielectric_fresnel(nv, 0.)
         * smoothstep(.35, .65, roughness) * (1. - metallic);
@@ -508,15 +572,15 @@ void main() {
 #ifdef OPENRAC_SOLID
     // The static solid variant contains no discard. The Vulkan colour batch draws its solid
     // geometry with it too, with reused EQUAL depth and depth writes disabled.
-    vec4 texel = sample_upscaled_texture_colours(v_uv);
+    vec4 texel = platinum_texel(sample_upscaled_texture_colours(v_uv));
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
-    vec4 c = texel * v_colour * material_colour;
+    vec4 c = platinum_colour(texel * v_colour * material_colour);
     float light = 1.0;
     if (lighting != 0 && v_lit == 0) {
         light = float(mp_float(0.55) + mp_float(0.45) * abs(dot(mp_vec3(normalize(v_normal)), mp_vec3(kSun))));
     }
     vec3 rgb = min(c.rgb * light, vec3(1.0));
-    rgb = probe_surface(texel, rgb);
+    rgb = platinum_shine(probe_surface(texel, rgb));
 #ifdef OPENRAC_ATMOSPHERE
     if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
         rgb = atmosphere_apply(rgb, v_world_position, true);
@@ -595,9 +659,9 @@ void main() {
     if (effect_pass == 0 && v_glow != glow_pass) {
         discard;
     }
-    vec4 texel = sample_upscaled_texture_colours(v_uv);
+    vec4 texel = platinum_texel(sample_upscaled_texture_colours(v_uv));
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
-    vec4 c = texel * v_colour * material_colour;
+    vec4 c = platinum_colour(texel * v_colour * material_colour);
 #ifndef OPENRAC_COLOUR_SPECIALISED
     if (opacity_split != 0 && (c.a >= 1.0) != (opacity_split > 0)) {
         discard;
@@ -609,7 +673,7 @@ void main() {
             discard;
         }
         vec3 e = min(c.rgb, vec3(1.0));
-        e = probe_surface(texel, e);
+        e = platinum_shine(probe_surface(texel, e));
     #ifdef OPENRAC_ATMOSPHERE
         if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
             e = atmosphere_apply(e, v_world_position, true);
@@ -643,7 +707,7 @@ void main() {
         light = float(mp_float(0.55) + mp_float(0.45) * abs(dot(mp_vec3(normalize(v_normal)), mp_vec3(kSun))));
     }
     vec3 rgb = min(c.rgb * light, vec3(1.0));
-    rgb = probe_surface(texel, rgb);
+    rgb = platinum_shine(probe_surface(texel, rgb));
     // The GS's fog, after the texture: RGB only.
 #ifdef OPENRAC_ATMOSPHERE
     if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {

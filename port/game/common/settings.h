@@ -235,8 +235,9 @@ struct Settings {
     }
 
     // HDR output (common/hdr.h, docs/port/HDR.md), off by default: the picture goes to the screen
-    // as it always did. On (with the Vulkan renderer), the same picture is shown on an HDR
-    // screen with the game's white at paper white. From off, it takes effect at the next start.
+    // as it always did. On (with the Vulkan renderer, or Metal on macOS), the same picture is shown
+    // on an HDR screen with the game's white at paper white. From off, it takes effect at the next
+    // start (at once on Metal).
     hdr::Mode hdr = hdr::Mode::Off;
     int hdr_paper_white = 0;  // nits of the game's white; 0: the system's SDR white, else 203
     int hdr_peak = 0;         // nits the screen is told it may show; 0: the display's, else 1000

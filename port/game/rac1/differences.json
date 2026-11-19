@@ -61,6 +61,16 @@
       "refs": ["port/game/rac1/host/wide_view.c"]
     },
     {
+      "id": "wide-barriers",
+      "kind": "fix",
+      "name": "Wide-screen barriers",
+      "discs": ["pal", "ntsc"],
+      "original": "Orxon's energy barriers (the arcs across the paths that a data processor turns off) are not drawn while the barrier is outside the game's 4:3 view.",
+      "port": "Their view test sees the wider picture, so a barrier at the side of a wide picture stays drawn. Off: it vanishes between the 4:3 edge and the picture's, in view.",
+      "setting": { "key": "fix_wide_barriers", "default": true },
+      "refs": ["port/game/rac1/host/wide_view.c"]
+    },
+    {
       "id": "wide-liquids",
       "kind": "fix",
       "name": "Wide-screen seas, lava",

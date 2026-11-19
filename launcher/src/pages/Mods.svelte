@@ -15,6 +15,9 @@
   // disc goes the same way and no region is named; packs are shared by the discs
   // (editor/overrides.py stacks them for the one played). With developer tools on: the version,
   // its folders, and the command behind each step under a "Show command" toggle.
+  import { onMount, tick, untrack } from "svelte";
+  import { fade, fly } from "svelte/transition";
+
   import AddMod from "$components/AddMod.svelte";
   import AssetsPanel from "$components/AssetsPanel.svelte";
   import AudioPanel from "$components/AudioPanel.svelte";
@@ -22,29 +25,27 @@
   import EditorFlow from "$components/EditorFlow.svelte";
   import GameChip from "$components/GameChip.svelte";
   import GamesFrame from "$components/GamesFrame.svelte";
-  import Icon from "$components/Icon.svelte";
-  import PacksPanel from "$components/PacksPanel.svelte";
   import GetMods from "$components/GetMods.svelte";
+  import Icon from "$components/Icon.svelte";
   import ModLoadSummary from "$components/ModLoadSummary.svelte";
-  import ModUpdatesPanel from "$components/ModUpdatesPanel.svelte";
   import ModsToolbar from "$components/ModsToolbar.svelte";
+  import ModUpdatesPanel from "$components/ModUpdatesPanel.svelte";
+  import PacksPanel from "$components/PacksPanel.svelte";
   import PluginsPanel from "$components/PluginsPanel.svelte";
   import TexturePacksBlock from "$components/TexturePacksBlock.svelte";
-  import { api, onAndroid, type ActionView, type GameView, type VersionView } from "$lib/api";
+  import { type ActionView, api, type GameView, onAndroid, type VersionView } from "$lib/api";
   import { app, guardShown, jobs, run } from "$lib/app.svelte";
+  import { changeSet } from "$lib/deepLink.svelte";
   import type { EntryState } from "$lib/labels";
   import { SITE_URL } from "$lib/links";
+  import { followHistory, modFromAddress, modNav, openMod, resetMod } from "$lib/modNav.svelte";
   import { EDITOR, GAME_LIST, PAGE } from "$lib/modsText";
   import { resetView } from "$lib/modsView.svelte";
+  import { arrive, enter } from "$lib/motion";
   import { playerVersion } from "$lib/player.svelte";
   import type { Job } from "$lib/queue";
-  import { arrive, enter } from "$lib/motion";
-  import { followHistory, modFromAddress, modNav, openMod, resetMod } from "$lib/modNav.svelte";
-  import { changeSet } from "$lib/deepLink.svelte";
-  import { onMount, tick, untrack } from "svelte";
   import { tablist } from "$lib/tabs";
   import { themeStyle } from "$lib/themes";
-  import { fade, fly } from "svelte/transition";
 
   const developer = $derived(app.config?.developer ?? false);
   const games = $derived(app.library?.games ?? []);
@@ -56,6 +57,7 @@
   function editable(game: GameView): VersionView | null {
     const v = playerVersion(game);
     const extract = v ? action(v, "editor-extract") : null;
+
     return v && extract && extract.state !== "planned" ? v : null;
   }
 
@@ -67,12 +69,14 @@
   const folders = (v: VersionView) => {
     if (standalone && app.config?.installDir) {
       const data = `${app.config.installDir}/active/${v.game}/data`;
+
       return {
         projects: `${data}/levels/${v.name}`,
         packed: `${data}/packed/${v.name}`,
         levels: `${data}/port/${v.name}`,
       };
     }
+
     return {
       projects: `assets/levels/${v.game}/${v.name}`,
       packed: `assets/packed/${v.game}/${v.name}`,
@@ -86,7 +90,9 @@
 
   const live = (j: Job) => j.state === "queued" || j.state === "running";
   const jobsOf = (v: VersionView, ids: string[]) =>
-    jobs.list.filter((j) => j.scope.kind === "version" && j.scope.key === v.key && ids.includes(j.actionId));
+    jobs.list.filter(
+      (j) => j.scope.kind === "version" && j.scope.key === v.key && ids.includes(j.actionId),
+    );
   const running = (v: VersionView, ids: string[]) => jobsOf(v, ids).find(live) ?? null;
 
   /** The editor reads the game's levels, but they are not packed back (the version has no editor-pack).
@@ -94,11 +100,13 @@
   const early = (v: VersionView) => !action(v, "editor-pack");
   const playable = (v: VersionView) => {
     const play = action(v, "play");
+
     return !!play && play.state !== "planned";
   };
 
   /** Texture packs need the game's port and its disc set up: the game saves its pictures from it. */
-  const textured = (game: GameView, version: VersionView) => playable(version) && !!game.install?.extracted;
+  const textured = (game: GameView, version: VersionView) =>
+    playable(version) && !!game.install?.extracted;
 
   /** The texture pack's steps, folded under the lists where there are no tabs. */
   let making = $state(false);
@@ -106,23 +114,30 @@
   function makeTextures(tabs: boolean) {
     if (tabs) {
       tab = "assets";
+
       return;
     }
+
     making = true;
     void tick().then(() =>
-      document.getElementById("texture-make")?.scrollIntoView({ block: "start", behavior: "smooth" }),
+      document
+        .getElementById("texture-make")
+        ?.scrollIntoView({ block: "start", behavior: "smooth" }),
     );
   }
 
   /** What the game list says for each game on this tab. */
   function modState(game: GameView): EntryState {
     const v = editable(game);
+
     if (!v) {
       const pv = playerVersion(game);
+
       return pv && playable(pv)
         ? { text: GAME_LIST.gameplayMods, tone: "ok" }
         : { text: GAME_LIST.notModdable, tone: "info" };
     }
+
     if (
       early(v) &&
       !playable(v) &&
@@ -139,6 +154,7 @@
     ) {
       return { text: GAME_LIST.early, tone: "info" };
     }
+
     if (
       running(v, [
         "editor-extract",
@@ -153,7 +169,9 @@
     ) {
       return { text: GAME_LIST.working, tone: "warn", busy: true };
     }
+
     if (v.status.disc.state !== "found") return { text: GAME_LIST.setUp, tone: "warn" };
+
     return { text: GAME_LIST.ready, tone: "ok" };
   }
 
@@ -163,6 +181,7 @@
   const shown = $derived.by(() => {
     const byId = (id: string | null | undefined) => games.find((g) => g.id === id) ?? null;
     const last = byId(app.version?.split("/")[0]);
+
     // Android has no list here: the game is the one picked in Games, whatever it can do.
     return (
       byId(picked) ??
@@ -177,6 +196,7 @@
    *  so an installed launcher without the editor's tools still shows them. */
   const played = $derived.by(() => {
     const pv = shown ? playerVersion(shown) : null;
+
     return pv && playable(pv) ? pv : null;
   });
 
@@ -186,8 +206,11 @@
   /** The page's tab: My mods, the level editor, models and textures, or audio. */
   type Tab = "mine" | "editor" | "assets" | "audio";
   // ?tab=editor (or assets, audio) opens that tab at start: handy for screenshots, as ?page= is (App.svelte).
-  const askedTab = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("tab");
-  let tab = $state<Tab>(askedTab === "editor" || askedTab === "assets" || askedTab === "audio" ? askedTab : "mine");
+  const askedTab =
+    typeof location === "undefined" ? null : new URLSearchParams(location.search).get("tab");
+  let tab = $state<Tab>(
+    askedTab === "editor" || askedTab === "assets" || askedTab === "audio" ? askedTab : "mine",
+  );
   const TABS: { id: Tab; label: string; icon: "library" | "edit" | "folder" | "sound" }[] = [
     { id: "mine", label: PAGE.tabMine, icon: "library" },
     { id: "editor", label: PAGE.tabEditor, icon: "edit" },
@@ -195,9 +218,11 @@
     { id: "audio", label: PAGE.tabAudio, icon: "sound" },
   ];
   /** The tabs of a version: Audio only where its sounds can be exported (Ratchet & Clank's two discs). */
-  const tabsOf = (version: VersionView) => TABS.filter((t) => t.id !== "audio" || !!action(version, "audio-export"));
+  const tabsOf = (version: VersionView) =>
+    TABS.filter((t) => t.id !== "audio" || !!action(version, "audio-export"));
   /** The tab shown: one the game does not have (Audio, another game picked) is My mods. */
-  const shownTab = (version: VersionView): Tab => (tabsOf(version).some((t) => t.id === tab) ? tab : "mine");
+  const shownTab = (version: VersionView): Tab =>
+    tabsOf(version).some((t) => t.id === tab) ? tab : "mine";
   /** Bumped when a pack was added or imported: the packs' list is read again. */
   let reload = $state(0);
   /** Bumped when a gameplay mod was added: their list is read again. */
@@ -223,8 +248,10 @@
     // The page opened again: every mod shows, in load order.
     resetView();
     const asked = modFromAddress(window.location);
+
     if (asked) openMod(asked);
     const stop = followHistory();
+
     return () => {
       stop();
       resetMod();
@@ -250,6 +277,7 @@
           resetView();
           making = false;
         }
+
         picked = g.id;
       }}
   state={modState}
@@ -275,7 +303,11 @@
                first (GetMods): the launcher lists none itself. No level editor or model export:
                they need Godot and a desktop. -->
           {#if !onModPage}<GetMods /><ModsToolbar />{/if}
-          <PluginsPanel version={mine} reload={pluginsReload + reload} onpack={() => (reload += 1)} />
+          <PluginsPanel
+            version={mine}
+            reload={pluginsReload + reload}
+            onpack={() => (reload += 1)}
+          />
           {#if !onModPage}
             <ModUpdatesPanel version={mine} onchange={() => (pluginsReload += 1)} />
             <PacksPanel
@@ -286,14 +318,22 @@
                 makeTextures(false);
               }}
             />
-            {#if textured(shown, mine)}<TexturePacksBlock version={mine} folded bind:open={making} />{/if}
+            {#if textured(shown, mine)}<TexturePacksBlock
+                version={mine}
+                folded
+                bind:open={making}
+              />{/if}
             <AddMod version={mine} links={playable(mine)} onadded={added} />
           {/if}
         {:else if !v && played}
           <!-- The level editor cannot open it here (an installed launcher without its tools, say), but the
                game plays: its gameplay mods, which load when it is played from its page. -->
           {#if !onModPage}<GetMods /><AddMod version={played} onadded={added} /><ModsToolbar />{/if}
-          <PluginsPanel version={played} reload={pluginsReload + reload} onpack={() => (reload += 1)} />
+          <PluginsPanel
+            version={played}
+            reload={pluginsReload + reload}
+            onpack={() => (reload += 1)}
+          />
           {#if !onModPage}
             <ModUpdatesPanel version={played} onchange={() => (pluginsReload += 1)} />
             {#if textured(shown, played)}
@@ -327,7 +367,9 @@
 
           {#if early(v) && !playable(v)}
             <!-- Honest about early access, in a line: what works, what comes later. -->
-            <p class="early"><strong>{PAGE.earlyTitle}</strong><span class="muted">{PAGE.earlyLine}</span></p>
+            <p class="early">
+              <strong>{PAGE.earlyTitle}</strong><span class="muted">{PAGE.earlyLine}</span>
+            </p>
           {:else if early(v)}
             <!-- A game that plays, whose level edits are not packed back yet (Going Commando): what works. -->
             <p class="muted">{PAGE.packLaterLine}</p>
@@ -356,14 +398,27 @@
               in:fade={{ duration: enter().duration ?? 0 }}
             >
               {#if current === "mine" && onModPage && playable(v)}
-                <PluginsPanel version={v} reload={pluginsReload + reload} onpack={() => (reload += 1)} />
+                <PluginsPanel
+                  version={v}
+                  reload={pluginsReload + reload}
+                  onpack={() => (reload += 1)}
+                />
               {:else if current === "mine"}
                 <GetMods />
-                <AddMod version={v} links={playable(v)} files={playable(v) || !!adder?.runnable} onadded={added} />
+                <AddMod
+                  version={v}
+                  links={playable(v)}
+                  files={playable(v) || !!adder?.runnable}
+                  onadded={added}
+                />
                 <ModsToolbar />
                 {#if playable(v)}
                   <!-- Gameplay mods need the game's port: they plug into it (docs/port/MODS.md). -->
-                  <PluginsPanel version={v} reload={pluginsReload + reload} onpack={() => (reload += 1)} />
+                  <PluginsPanel
+                    version={v}
+                    reload={pluginsReload + reload}
+                    onpack={() => (reload += 1)}
+                  />
                   <ModUpdatesPanel version={v} onchange={() => (pluginsReload += 1)} />
                 {/if}
                 <PacksPanel
@@ -391,9 +446,11 @@
                       .filter((j) => !live(j))
                       .map((j) => j.key)
                       .join(",")}`}
-                    canPrepare={!!action(v, "overrides-stack")?.runnable && !running(v, ["overrides-stack"])}
+                    canPrepare={!!action(v, "overrides-stack")?.runnable &&
+                      !running(v, ["overrides-stack"])}
                     prepare={() => {
                       const stack = action(v, "overrides-stack");
+
                       if (stack) void run(scope, stack);
                     }}
                   />
@@ -406,7 +463,10 @@
                 <section class="panel">
                   <AssetsPanel version={v} onimported={() => reload++} />
                 </section>
-                {#if textured(shown, v)}<TexturePacksBlock version={v} onshow={() => (tab = "mine")} />{/if}
+                {#if textured(shown, v)}<TexturePacksBlock
+                    version={v}
+                    onshow={() => (tab = "mine")}
+                  />{/if}
               {/if}
             </div>
           {/key}
@@ -439,7 +499,9 @@
                 <button class="small" onclick={() => void openFolder(v, dirs.packed)}
                   ><Icon name="folder" size={14} />{EDITOR.packedFolder}</button
                 >
-                <button class="small" onclick={() => void guardShown(api.openPath("editor/README.md"))}
+                <button
+                  class="small"
+                  onclick={() => void guardShown(api.openPath("editor/README.md"))}
                   ><Icon name="book" size={14} />{EDITOR.docs}</button
                 >
               </div>

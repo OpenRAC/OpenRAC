@@ -15,6 +15,10 @@
 #include "program/program.h"
 #include "renderer/direct/direct.h"
 #include "renderer/gl/gl.h"
+#include "scene/vendor_preview.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace openrac::frontend {
 namespace {
@@ -55,7 +59,9 @@ void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target
     for (const Kept::TargetMoby& moby : scene.target_mobys) {
         // Other markers draw different ranges of the captured menu objects.
         if (!moby.on_screen && moby.address >= first && moby.address < first + count * 0x100u) {
-            instances.push_back(moby.instance);
+            if (moby.preview_item_class < 0) {
+                instances.push_back(moby.instance);
+            }
             camera = &moby.camera;
         }
     }
@@ -95,6 +101,27 @@ void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target
         {}
     };
     owner.scene.draw_mobys(instances, panel, state);
+    for (const Kept::TargetMoby& moby : scene.target_mobys) {
+        if (moby.on_screen || moby.preview_item_class < 0 || moby.address < first
+            || moby.address >= first + count * 0x100u) {
+            continue;
+        }
+        auto inset = panel;
+        const auto& adjustment = scene::vendor_preview::get(moby.preview_item_class);
+        inset.camera.projection =
+            scene::vendor_preview::projection(panel.camera.projection, adjustment);
+        auto instance = moby.instance;
+        const auto& shape = owner.level.models[instance.model];
+        instance.matrix = scene::vendor_preview::orient(
+            instance.matrix,
+            adjustment,
+            {(shape.min[0] + shape.max[0]) * .5f,
+             (shape.min[1] + shape.max[1]) * .5f,
+             (shape.min[2] + shape.max[2]) * .5f},
+            false
+        );
+        owner.scene.draw_mobys({instance}, inset, state);
+    }
 }
 
 // Draws a menu's mobys on the screen over the world drawn under it (frontend/menu_layers.h), with
@@ -252,6 +279,7 @@ void retain_background(SceneFrame& frame) {
     if (owner.hold_last_world && !owner.repeat_frame && owner.last_world.width() == width
         && owner.last_world.height() == height) {
         owner.last_world.blit_to(owner.frame.id(), width, height);
+        owner.frame.samples_written();
         input.keep_colour = true;
     }
 
@@ -262,7 +290,8 @@ void retain_background(SceneFrame& frame) {
     // and drew them over it once more. Going Commando's weapon upgrade turned the weapon so for
     // its whole length: every pose it had shown stayed on the screen, over the level's last frame.
     if (first && has_camera && (scene.draws & kLevelLayers) != 0 && width > 0 && height > 0) {
-        input.before_hud = [&owner, &scene, width, height]() {
+        const bool temporal = frame.temporal;
+        input.before_hud = [&owner, &scene, width, height, temporal]() {
             // Size changes invalidate the retained world attachment.
             if (owner.last_world.width() != width || owner.last_world.height() != height) {
                 std::string error;
@@ -272,6 +301,25 @@ void retain_background(SceneFrame& frame) {
                 }
             }
 
+            // The copy ends the frame's pass. When the HUD does not test the world's depth, the
+            // depth is let go first: a tiled GPU (a phone's) then neither writes it out nor
+            // reads it back for the HUD's pass.
+            if (!temporal && !owner.renderer->hud_reads_depth()
+                && gl::glInvalidateFramebuffer != nullptr) {
+                const gl::GLenum dropped[] = {gl::GL_DEPTH_ATTACHMENT, gl::GL_STENCIL_ATTACHMENT};
+                gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, owner.frame.id());
+                gl::glInvalidateFramebuffer(gl::GL_FRAMEBUFFER, 2, dropped);
+            }
+#if defined(OPENRAC_VULKAN)
+            // Nothing draws on the frame after this: its samples are resolved now and let go, so
+            // a tiled GPU does not write them out, and the copy reads the resolved colour.
+            if (!temporal && !owner.renderer->hud_draws() && gl::is_vulkan()
+                && owner.frame.samples() > 1 && !owner.frame.resolves_itself()
+                && !owner.frame.samples_let_go()
+                && vkgl::resolve_dropping_samples(owner.frame.id(), owner.frame.resolve_target())) {
+                owner.frame.samples_dropped();
+            }
+#endif
             owner.frame.blit_to(owner.last_world.id(), width, height);
             owner.last_world_tick = scene.frame;
             // A world under a menu: the menu's picture of the frame (read back once as it opened)

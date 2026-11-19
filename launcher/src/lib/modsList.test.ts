@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { dropIndex } from "./dragSort";
 import { arrange, groupOf, matches, steps } from "./modsList";
 
@@ -21,6 +22,7 @@ describe("My mods' lists", () => {
 
   it("keep load order unless sorted by name", () => {
     const rows = ["Zed", "alpha", "Mid"];
+
     expect(arrange(rows, "", "order", (r) => [r])).toEqual(["Zed", "alpha", "Mid"]);
     expect(arrange(rows, "", "name", (r) => [r])).toEqual(["alpha", "Mid", "Zed"]);
     expect(arrange(rows, "i", "order", (r) => [r])).toEqual(["Mid"]);
@@ -36,6 +38,7 @@ describe("My mods' lists", () => {
 
   it("drop a dragged row where the pointer is", () => {
     const middles = [10, 30, 50, 70];
+
     expect(dropIndex(middles, 0, 5)).toBe(0);
     expect(dropIndex(middles, 0, 35)).toBe(1);
     expect(dropIndex(middles, 0, 99)).toBe(3);

@@ -1008,6 +1008,44 @@ public:
                  : -1;
     }
 
+    // Since 1.21: whether the port has hook_entry().
+    bool has_hook_entry() const {
+      return m_api->api_minor >= 21 &&
+             m_api->size >= offsetof(openrac_api, hook_entry) + sizeof(void *);
+    }
+
+    // Since 1.21: the entry of a hook point (a type of openrac/games/<game>.hpp),
+    // to call as the game calls it: the mods' replacements, this mod's too when it
+    // took the point, then the game's own function. Asked by the type's permanent
+    // id, the same on every disc. At any time. nullptr when the port has no such
+    // hook point, another signature, or no hook_entry.
+    template <class HookPoint>
+    typename HookPoint::fn hook_entry() const {
+      if (!has_hook_entry()) {
+        return nullptr;
+      }
+      return reinterpret_cast<typename HookPoint::fn>(m_api->hook_entry(
+          detail::hook_id<HookPoint>(), HookPoint::signature));
+    }
+
+    // Since 1.23: whether the port has moby_material().
+    bool has_moby_material() const {
+      return m_api->api_minor >= 23 &&
+             m_api->size >= offsetof(openrac_api, moby_material) + sizeof(void *);
+    }
+
+    // Since 1.23: draws the live moby at `moby` with `material`
+    // (OPENRAC_MOBY_MATERIAL_TINT, _PLATINUM, or _NONE to clear it) and `rgb`
+    // (0xRRGGBB, 0xFFFFFF no tint) until the game removes the moby, the level
+    // changes or the mod clears it. Render-only: no game memory is written. At
+    // any time. Returns false when refused or the port has no such call.
+    bool moby_material(openrac_gaddr moby, std::uint32_t material,
+                       std::uint32_t rgb = 0xFFFFFF) const {
+      return has_moby_material() &&
+             m_api->moby_material(m_handle, moby, material, rgb) ==
+                 OPENRAC_HOOK_OK;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

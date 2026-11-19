@@ -17,6 +17,7 @@
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl/gl.h"
+#include "renderer/textures/interface_run.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
@@ -1315,6 +1316,10 @@ void GifInterpreter::ensure_draw() {
             // Unblended draws can use RGB under zero alpha, so only active blending permits filtering.
             const gs::Alpha* dump_blend = p.abe ? &c.alpha : nullptr;
             s.texture = m_textures.resolve(c.tex0, m_texa, dump_blend);
+            // An interface texture run (interface_run.h) files a texture drawn as text as the font.
+            if (m_glyph && interface_run::recording() && s.texture != m_textures.placeholder()) {
+                interface_run::mark_font(m_textures.pack_hash(s.texture));
+            }
             // A pack's picture is drawn as its maker made it: a field of a big one would also
             // take seconds of CPU (four times its size).
             if (m_glyph && s.texture != m_textures.placeholder()
@@ -1897,10 +1902,12 @@ bool DirectRenderer::retain_uploads(std::span<const std::uint8_t> packets) {
     return ok;
 }
 
-void DirectRenderer::render(const FrameInput& input, RenderState& state) {
+void DirectRenderer::prepare(const FrameInput& input, RenderState& state) {
     const auto packets = input.packets[static_cast<std::size_t>(bucket())];
+    m_prepared = true;
     // Draws the part before the world held back (flush) are drawn even when nothing follows.
-    if (packets.empty() && m_interpreter->draws().empty()) {
+    m_nothing = packets.empty() && m_interpreter->draws().empty();
+    if (m_nothing) {
         return;
     }
     m_interpreter->set_ui_quads(input.ui_quads);
@@ -1908,9 +1915,44 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     m_interpreter->set_picture(state.target.picture_scale_x, state.target.wide_2d);
     m_interpreter->set_over_world(std::exchange(m_world_split, false) && input.level_drawn);
     m_frame = &input;
-    {
-        const stats::Scope decode("2d decode");
-        submit(packets);
+    const stats::Scope decode("2d decode");
+    submit(packets);
+}
+
+bool DirectRenderer::draws_nothing() const {
+    // Only off-screen panels drawn (or nothing at all), none of them from the frame.
+    return m_prepared
+           && (m_nothing
+               || std::none_of(
+                   m_interpreter->draws().begin(),
+                   m_interpreter->draws().end(),
+                   [](const DirectDraw& d) {
+                       return (d.count != 0 || d.mobys != 0)
+                              && (d.state.target == 0 || d.state.frame_source);
+                   }
+               ));
+}
+
+bool DirectRenderer::reads_frame_depth() const {
+    // A draw on the frame that tests depth against what is there, or mobys drawn on it.
+    return std::any_of(
+        m_interpreter->draws().begin(), m_interpreter->draws().end(), [](const DirectDraw& d) {
+            const gs::DepthTest test = d.state.test.ztst;
+            return d.state.target == 0
+                   && (d.mobys != 0
+                       || (d.state.test.zte
+                           && (test == gs::DepthTest::Gequal || test == gs::DepthTest::Greater)));
+        }
+    );
+}
+
+void DirectRenderer::render(const FrameInput& input, RenderState& state) {
+    if (!std::exchange(m_prepared, false)) {
+        prepare(input, state);
+        m_prepared = false;
+    }
+    if (m_nothing) {
+        return;
     }
     const stats::Scope draws("2d draws");
     flush(state);

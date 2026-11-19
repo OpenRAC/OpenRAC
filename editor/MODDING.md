@@ -216,8 +216,10 @@ checkout and `<data>/port/<version>` in an installed launcher; the commands
 are the same for either. `stack --levels` names the levels the game will
 play, and its `--out` is that disc's folder: `stack --into build/overrides
 --out build/mods/ntsc --levels assets/port/rac1/ntsc` puts the same packs
-together for the other disc. `--what` is `mobys`, `textures`, `scenery`
-(ties and shrubs), `terrain` or `all`. Inside this repository, output goes under
+together for the other disc. `--what` is `mobys`, `weapons`, `textures`,
+`scenery` (ties and shrubs), `terrain` or `all`. `weapons` exports every weapon
+and gadget Ratchet uses (Ratchet & Clank and Going Commando) and ignores
+`--level`. Inside this repository, output goes under
 `assets/` or `build/` only.
 
 ## The pack format

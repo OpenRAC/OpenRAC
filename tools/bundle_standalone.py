@@ -75,7 +75,7 @@ PLAY = ("port-levels", "port-levels-check", "probe-bake", "play")
 # carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS).
 MODS = ("editor-extract", "editor-preview", "editor-import", "editor-open", "editor-pack",
         "assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "overrides-add", "overrides-stack", "editor-show-packs",
-        "editor-hide-packs", "play-edited")
+        "editor-hide-packs", "play-edited", "interface-export", "interface-run")
 KEEP = PLAY + MODS
 # Where a checkout's folders for version <game>/<version> go in the carried copy, longest first:
 # the levels the port draws, the level editor's projects, and the packed levels.
@@ -293,6 +293,12 @@ def main() -> int:
     # the STANDALONE note written below).
     files.copy_tree(ROOT / "tools/openrac_common", out / "tools/openrac_common", lambda rel: rel.suffix == ".py")
     files.copy_tree(ROOT / "editor", out / "editor", editor_file)
+    # Interface texture runs (docs/port/TEXTURE_PACKS.md): the tool that makes one and the routes it
+    # plays (the player makes their own run; the copy carries none).
+    files.copy_tree(ROOT / "port/tools/interface_runs", out / "port/tools/interface_runs",
+                    lambda rel: rel.suffix == ".py" and not rel.name.startswith("test_"))
+    files.copy_tree(ROOT / "port/tools/regress", out / "port/tools/regress",
+                    lambda rel: rel.name in {"card.py", "routes.py", "runner.py", "routes.json", "routes_rac2.json"})
     # Players have no decompilation headers. Carry the same validated typed fields the
     # checkout uses, or edits such as Novalis's moveSpeed would be ignored when packed.
     proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",

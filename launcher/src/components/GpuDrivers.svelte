@@ -35,12 +35,14 @@
     rendererPick = choice;
     busy = true;
     const saved = await guard(api.gpuRendererSelect(choice).then(() => true));
+
     await load();
     await readGame();
     busy = false;
     if (!saved) return;
     // A running game keeps what it started with: "Return to game" brings that one back.
     const name = choice === "vulkan" ? "Vulkan" : "OpenGL ES";
+
     toast(
       app.game?.running
         ? `Saved. The game that is running keeps its renderer: quit it to start it with ${name}.`
@@ -56,6 +58,7 @@
   async function add() {
     busy = true;
     const driver = await guard(api.gpuDriverImport());
+
     if (driver) toast(`Added ${driver.name} ${driver.version}.`);
     await load();
     busy = false;
@@ -151,11 +154,17 @@
               <strong>{driver.name} {driver.version}</strong>
               <small>{[driver.vendor, driver.driverVersion].filter(Boolean).join(" · ")}</small>
             </label>
-            <button class="link" disabled={busy} onclick={() => void remove(driver.id, driver.name)}>Remove</button>
+            <button class="link" disabled={busy} onclick={() => void remove(driver.id, driver.name)}
+              >Remove</button
+            >
           </div>
         {/each}
         {#if adreno}
-          <p><button class="small" disabled={busy} onclick={() => void add()}>Add driver (.zip)</button></p>
+          <p>
+            <button class="small" disabled={busy} onclick={() => void add()}
+              >Add driver (.zip)</button
+            >
+          </p>
         {:else}
           <p class="dim note">Custom drivers require an Adreno GPU.</p>
         {/if}

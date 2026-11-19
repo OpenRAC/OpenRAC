@@ -4,6 +4,7 @@
 import type { PluginView } from "./api";
 
 export const SET_URL = "https://openrac.dev/mods/set";
+
 const MAX = 32;
 
 /** The set page's address for the mods that are on and in the index; null when there are none. */
@@ -24,7 +25,9 @@ export function shareLink(
     )
     .slice(0, MAX)
     .map((m) => `${m.id}@${m.version}`);
+
   if (shared.length === 0) return null;
+
   // Ids and versions are [a-z0-9.-]: nothing in them needs encoding, so the link reads plainly.
   return `${SET_URL}?m=${shared.join(",")}&g=${encodeURIComponent(game)}&d=${encodeURIComponent(disc)}`;
 }

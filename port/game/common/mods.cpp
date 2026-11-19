@@ -692,6 +692,28 @@ int api_developer_menu_choice(
     return OPENRAC_HOOK_OK;
 }
 
+// A hook point's entry (1.21): found as api_hook finds it, by its id or any alias, and its
+// signature compared as api_hook compares it. The entry is the function the game calls by the
+// point's symbol, hooks.c's, which goes through the slot: the mods' replacements, then the game's.
+void* api_hook_entry(const char* name, const char* signature) {
+    if (g_host == nullptr || name == nullptr || signature == nullptr) {
+        return nullptr;
+    }
+    const char* id = hook_id(*g_host, name);
+    for (int i = 0; i < g_host->hook_count; ++i) {
+        const HookPoint& p = g_host->hooks[i];
+        if (p.name == nullptr || std::strcmp(hook_id(*g_host, p.name), id) != 0) {
+            continue;
+        }
+        if (p.symbol == nullptr
+            || hook_signature_form(p.signature) != hook_signature_form(signature)) {
+            return nullptr;
+        }
+        return reinterpret_cast<void*>(openrac_guest_function_named(p.symbol));
+    }
+    return nullptr;
+}
+
 int api_developer_menu_value(openrac_mod* mod, std::uint32_t action) {
     const DeveloperMenuItem* item = mod != nullptr ? developer_menu_item(mod, action) : nullptr;
     return item != nullptr && item->kind != MenuItemKind::Press ? item->value : -1;
@@ -2013,6 +2035,7 @@ void fill_api(const Host& host) {
     g_api.developer_menu_switch = api_developer_menu_switch;
     g_api.developer_menu_choice = api_developer_menu_choice;
     g_api.developer_menu_value = api_developer_menu_value;
+    g_api.hook_entry = api_hook_entry;
     g_api.data_dir = api_data_dir;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
@@ -2542,7 +2565,9 @@ std::string load(const Host& host) {
     if (host.purist) {
         log::info("mods: purist mode (--no-mods), none loaded but the built-in ones");
     } else if (read_text(host.list, text) && !parse_list(text, list, error)) {
-        log::warn("mods: {} cannot be read ({}): none loaded", log::tidy(host.list.string()), error);
+        log::warn(
+            "mods: {} cannot be read ({}): none loaded", log::tidy(host.list.string()), error
+        );
         list.clear();
     }
     if (list.empty() && built_in.empty()) {

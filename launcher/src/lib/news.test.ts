@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { news } from "./news";
 
 describe("news", () => {
@@ -20,9 +21,14 @@ describe("news", () => {
         { id: "rac3", title: "Up Your Arsenal", version: null, crashes: 2 },
       ],
     });
+
     expect(list.map((n) => n.key)).toEqual(["update", "mods-rac1", "mods-rac3", "crash-rac1"]);
     expect(list[0]?.title).toBe("OpenRAC 0.10.0 is ready");
-    expect(list[1]).toMatchObject({ title: "2 mod updates", text: "Ratchet & Clank", version: "rac1/pal" });
+    expect(list[1]).toMatchObject({
+      title: "2 mod updates",
+      text: "Ratchet & Clank",
+      version: "rac1/pal",
+    });
     expect(list[2]?.title).toBe("1 mod update");
     expect(list[3]).toMatchObject({ kind: "crash", game: "rac1", version: "rac1/pal" });
   });

@@ -271,6 +271,38 @@ void prop_placed(int id, const std::array<float, 16>& matrix);
 std::vector<std::filesystem::path> prop_meshes();
 unsigned prop_meshes_generation();
 
+// Render-only appearances, kept separately from game memory and scoped to one level load.
+std::vector<int> visual_classes();
+unsigned visual_classes_generation();
+std::uint32_t sprite_tint();
+std::vector<openrac_moby_visual> moby_visuals();
+
+// ---- Moby materials (interface 1.23, mod_play.cpp) ----
+
+// A live moby as the renderer lists it this frame: its address and class.
+struct LiveMobyId {
+    openrac_gaddr moby = 0;
+    int oclass = 0;
+};
+
+// A mod's material on one live moby (openrac_api.moby_material), as the renderer draws it.
+struct MobyMaterial {
+    openrac_gaddr moby = 0;
+    std::uint32_t material = OPENRAC_MOBY_MATERIAL_NONE;  // OPENRAC_MOBY_MATERIAL_*.
+    std::uint32_t rgb = 0xFFFFFF;                         // 0xRRGGBB, 0xFF a channel unchanged.
+};
+
+// The mods' materials on the frame's live mobys `live` (the level's whole list, not only the ones
+// drawn): one per moby, the last set where two mods set one. A material whose moby is missing from
+// `live` after it was seen there, or holds another class than when first seen, is the game's removal
+// of that moby, and is dropped. From the render thread.
+std::vector<MobyMaterial> moby_materials(const std::vector<LiveMobyId>& live);
+
+// Whether the material drawn on `moby` this level load is OPENRAC_MOBY_MATERIAL_PLATINUM (the last
+// one set on it), for the game's own effects of that moby (openrac_moby_platinum). From the game's
+// thread.
+bool moby_platinum(std::uint32_t moby);
+
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 
 // A patch of heat haze to draw this frame (openrac_haze), in the game's world.

@@ -44,6 +44,9 @@ const MetalBackend& metal_backend() {
         mtlgl::present,
         mtlgl::set_swap_interval,
         mtlgl::device_name,
+        mtlgl::set_hdr,
+        mtlgl::hdr_output,
+        mtlgl::hdr_offered,
     };
     return backend;
 }

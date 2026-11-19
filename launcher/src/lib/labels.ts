@@ -1,5 +1,6 @@
 // Words for the codes the Rust side sends.
 import type { IconName } from "$components/Icon.svelte";
+
 import type { ActionState, DiscState, Library } from "./api";
 
 /** What a game list entry (GameList.svelte) says under the game's name, and in which colour;
@@ -37,6 +38,7 @@ const SHOWN_TITLES: Record<string, string> = {
 /** The library with each game's and version's name as the launcher shows it. */
 export function withShownTitles(library: Library): Library {
   const shown = (title: string) => SHOWN_TITLES[title] ?? title;
+
   return {
     ...library,
     games: library.games.map((g) => ({
@@ -57,12 +59,16 @@ export function shortTitle(title: string): string {
  *  "Ratchet: Deadlocked" is one name and keeps one line (`game` empty). */
 export function titleLines(title: string): { series: string; game: string } {
   const at = title.startsWith("Ratchet & Clank: ") ? title.indexOf(": ") : -1;
-  return at < 0 ? { series: title, game: "" } : { series: title.slice(0, at + 1), game: title.slice(at + 2) };
+
+  return at < 0
+    ? { series: title, game: "" }
+    : { series: title.slice(0, at + 1), game: title.slice(at + 2) };
 }
 
 /** `pal` -> "PAL", `ntsc` -> "NTSC-U", `ntsc-j` -> "NTSC-J". */
 export function regionLabel(name: string): string {
   if (name === "ntsc") return "NTSC-U";
+
   return name.toUpperCase();
 }
 
@@ -81,14 +87,21 @@ export const INPUT: Record<string, string> = {
   link: "Link",
 };
 
-export const STATE: Record<ActionState, { text: string; tone: "ok" | "warn" | "info"; hint: string }> = {
+export const STATE: Record<
+  ActionState,
+  { text: string; tone: "ok" | "warn" | "info"; hint: string }
+> = {
   connected: { text: "Ready", tone: "ok", hint: "Run from the launcher and known to work." },
   unverified: {
     text: "Unverified",
     tone: "warn",
     hint: "Written from the game's documentation and not yet run from the launcher: watch its output.",
   },
-  planned: { text: "Not connected", tone: "info", hint: "Planned: the launcher cannot run this yet." },
+  planned: {
+    text: "Not connected",
+    tone: "info",
+    hint: "Planned: the launcher cannot run this yet.",
+  },
 };
 
 /** Ratchet & Clank's levels, by the number the game and the level editor give them. */
@@ -259,7 +272,9 @@ const LATER_LEVELS: Record<string, Record<number, string>> = {
 /** A game's levels in the order of their numbers: Ratchet & Clank's 19, the later games' own. */
 export function levelsOf(game: string): LevelName[] {
   const later = LATER_LEVELS[game];
+
   if (!later) return RAC1_LEVELS.map((name, number) => ({ number, name }));
+
   return Object.entries(later)
     .map(([number, name]) => ({ number: Number(number), name }))
     .sort((a, b) => a.number - b.number);

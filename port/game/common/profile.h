@@ -316,8 +316,8 @@ public:
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
 
     // Whether a moby class keeps the game's own draw distance whatever Draw distance says: one the
-    // game parks out of sight and shows only by its distance (Going Commando's Electrolyzer
-    // boards).
+    // game parks out of sight or far away and hides only by its distance. Each game lists them, with
+    // the reason, in port/game/<game>/draw_distance.tsv (game/common/draw_distance_list.h).
     virtual bool keeps_game_draw_distance(int /*class_id*/) const { return false; }
 
     // The value of the game's mode word (openrac_game_mode) while a real-time cutscene plays in a

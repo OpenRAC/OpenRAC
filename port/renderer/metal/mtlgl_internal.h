@@ -12,7 +12,9 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -204,6 +206,25 @@ struct State {
     GLuint draw_framebuffer = 0, read_framebuffer = 0, renderbuffer = 0;
 };
 
+// Gives back a colour space the context held (CGColorSpaceRetain).
+struct ColourSpaceRelease {
+    void operator()(CGColorSpaceRef space) const { CGColorSpaceRelease(space); }
+};
+
+using ColourSpace = std::unique_ptr<std::remove_pointer_t<CGColorSpaceRef>, ColourSpaceRelease>;
+
+// HDR output (mtlgl.h, mtlgl_hdr.mm).
+struct HdrState {
+    hdr::Output shown = hdr::Output::Sdr;  // what present() sends
+    hdr::Levels levels;
+    bool offered = false;                // the display offered EDR at the last set_hdr
+    bool failed = false;                 // the encode pass could not be built: SDR from then on
+    id<MTLComputePipelineState> encode;  // made the first time HDR is shown
+    MTLSize workgroup = MTLSizeMake(1, 1, 1);
+    id<MTLSamplerState> linear;  // the picture scaled to the screen, as the SDR present's
+    ColourSpace sdr_space;       // the layer's own colour space, given back in SDR
+};
+
 struct Context {
     id<MTLDevice> device;
     id<MTLCommandQueue> queue;
@@ -239,6 +260,7 @@ struct Context {
     id<MTLBuffer> attribute_defaults;  // GL's (0, 0, 0, 1) as floats, then as integers
     GLenum error = GL_NO_ERROR;
     std::string version, renderer;
+    HdrState hdr;
 };
 
 extern Context* g;
@@ -269,6 +291,9 @@ void begin_pass(const Target& target, GLbitfield clear);
 bool is_integer(MTLPixelFormat f);
 // The bound vertex array, or the default one.
 VertexArray& vertex_array();
+// HDR output's encode pass (mtlgl_hdr.mm): the default framebuffer's picture into `screen`, scaled
+// to it and the right way up, in the frame's commands. False when the pass cannot be built.
+bool encode_hdr(id<MTLTexture> screen);
 
 // mtlgl_resources.mm's GL functions, for get_proc.
 #define MTLGL OPENRAC_GLAPI

@@ -1,17 +1,18 @@
 // In-app and GitHub release updater for OpenRAC Launcher. On a desktop it is Tauri's updater; on
 // Android the launcher's own (src-tauri/src/android.rs): the release's APK, checked against the
 // same key, handed to Android's installer.
+import { type DownloadEvent, Update } from "@tauri-apps/plugin-updater";
+
 import {
+  type AndroidRelease,
   api,
   inTauri,
   onAndroid,
   onUpdateProgress,
   relaunchApp,
-  type AndroidRelease,
   type UpdateChannel,
   type UpdateSource,
 } from "./api";
-import { Update, type DownloadEvent } from "@tauri-apps/plugin-updater";
 
 export interface UpdateInfo {
   version: string;
@@ -57,6 +58,7 @@ const PUT_OFF_KEY = "openrac-update-put-off";
 export function readPutOff(): PutOff | null {
   try {
     const kept = JSON.parse(localStorage.getItem(PUT_OFF_KEY) ?? "null") as PutOff | null;
+
     return kept && typeof kept.version === "string" && typeof kept.at === "number" ? kept : null;
   } catch {
     return null;
@@ -82,14 +84,18 @@ export function isNewerVersion(current: string, latest: string): boolean {
     const rest = cut < 0 ? "" : text.slice(cut + 1);
     const pre = rest ? parseInt(rest.split(".").pop() ?? "", 10) || 0 : null;
     const parts = core.split(".").map((part) => parseInt(part, 10) || 0);
+
     return [[parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0], pre];
   };
   const [c, cPre] = parse(current);
   const [l, lPre] = parse(latest);
+
   for (let i = 0; i < 3; i++) {
     if (l[i] !== c[i]) return (l[i] ?? 0) > (c[i] ?? 0);
   }
+
   if (cPre === null) return false;
+
   return lPre === null || lPre > cPre;
 }
 
@@ -121,7 +127,9 @@ export function offeredVersion(current: string, latest: string, switching: boole
 /** What the launcher's button says for UPDATE: "Switch to Stable 0.10.0" on the other channel,
  *  "Update 0.10.1" on its own. */
 export function updateLabel(update: UpdateInfo): string {
-  return update.switchTo ? `Switch to ${channelName(update.switchTo)} ${update.version}` : `Update ${update.version}`;
+  return update.switchTo
+    ? `Switch to ${channelName(update.switchTo)} ${update.version}`
+    : `Update ${update.version}`;
 }
 
 /** CHANNEL as Settings names it. */
@@ -142,14 +150,19 @@ const LAUNCHER_TAG = /^launcher-v\d/;
 /** Why GitHub refused RES: its hourly limit for this network (60 requests without a login, shared
  *  with the Mods tab's looks), said plainly with when it lifts, or else its status. */
 export function gitHubRefusal(res: Response, where: string, now = Date.now()): string {
-  if ((res.status === 403 || res.status === 429) && res.headers.get("x-ratelimit-remaining") === "0") {
+  if (
+    (res.status === 403 || res.status === 429) &&
+    res.headers.get("x-ratelimit-remaining") === "0"
+  ) {
     const limit = res.headers.get("x-ratelimit-limit");
     const reset = Number(res.headers.get("x-ratelimit-reset"));
     const minutes = reset > 0 ? Math.max(1, Math.ceil((reset * 1000 - now) / 60_000)) : 60;
     const when = minutes === 1 ? "in a minute" : `in ${minutes} minutes`;
     const of = limit ? ` of ${limit} requests an hour` : "";
+
     return `GitHub's limit${of} from this network is used up; try again ${when} (${where})`;
   }
+
   return `GitHub answered ${res.status} (${where})`;
 }
 
@@ -162,6 +175,7 @@ export async function checkGitHubRelease(
   const release = source.channel ? `tags/${encodeURIComponent(source.channel)}` : "latest";
   const where = `github.com/${source.repository} · ${source.channel ?? "latest release"}`;
   let res: Response;
+
   try {
     res = await fetch(`https://api.github.com/repos/${source.repository}/releases/${release}`, {
       headers: { Accept: "application/vnd.github.v3+json" },
@@ -170,25 +184,36 @@ export async function checkGitHubRelease(
   } catch {
     throw new Error(`GitHub could not be reached (${where})`);
   }
+
   // No release where this launcher looks is not "the latest": a fork's builds publish none until
   // it has the update key (TAURI_SIGNING_PRIVATE_KEY), and the player is told so.
   if (res.status === 404) throw new Error(`no release has been published there yet (${where})`);
   if (!res.ok) throw new Error(gitHubRefusal(res, where));
+
   try {
     let data = (await res.json()) as GitHubReleaseResponse;
+
     // GitHub's latest release that is not the launcher's (the mod SDK's, 1.0.1, was offered to every
     // launcher as "Update 1.0.1"): the newest of the launcher's own releases instead.
     if (!source.channel && !LAUNCHER_TAG.test(data.tag_name ?? "")) {
-      const list = await fetch(`https://api.github.com/repos/${source.repository}/releases?per_page=30`, {
-        headers: { Accept: "application/vnd.github.v3+json" },
-        signal: AbortSignal.timeout(4000),
-      });
+      const list = await fetch(
+        `https://api.github.com/repos/${source.repository}/releases?per_page=30`,
+        {
+          headers: { Accept: "application/vnd.github.v3+json" },
+          signal: AbortSignal.timeout(4000),
+        },
+      );
+
       if (!list.ok) throw new Error(`GitHub answered ${list.status} (${where})`);
       const releases = (await list.json()) as GitHubReleaseResponse[];
-      const own = releases.find((r) => !r.draft && !r.prerelease && LAUNCHER_TAG.test(r.tag_name ?? ""));
+      const own = releases.find(
+        (r) => !r.draft && !r.prerelease && LAUNCHER_TAG.test(r.tag_name ?? ""),
+      );
+
       if (!own) return null;
       data = own;
     }
+
     const tag = data.tag_name ?? "";
     // A branch's rolling release keeps its tag: its version is in its title, "vX (branch)".
     const cleanVersion = source.channel
@@ -207,6 +232,7 @@ export async function checkGitHubRelease(
         switchTo: switching ? (source.channel ? "dev" : "stable") : null,
       };
     }
+
     return null;
   } catch {
     throw new Error(`the release's details could not be read (${where})`);
@@ -219,14 +245,22 @@ export async function checkGitHubRelease(
 export async function devBranches(source: UpdateSource): Promise<string[]> {
   if (!inTauri) return (await import("./mock")).MOCK_DEV_BRANCHES;
   if (!/^[\w.-]+\/[\w.-]+$/.test(source.repository)) return [];
+
   try {
-    const res = await fetch(`https://api.github.com/repos/${source.repository}/releases?per_page=100`, {
-      headers: { Accept: "application/vnd.github.v3+json" },
-      signal: AbortSignal.timeout(4000),
-    });
+    const res = await fetch(
+      `https://api.github.com/repos/${source.repository}/releases?per_page=100`,
+      {
+        headers: { Accept: "application/vnd.github.v3+json" },
+        signal: AbortSignal.timeout(4000),
+      },
+    );
+
     if (!res.ok) return [];
     const releases = (await res.json()) as GitHubReleaseResponse[];
-    return releases.flatMap((r) => (r.tag_name?.startsWith("launcher-dev-") ? [r.tag_name.slice(13)] : []));
+
+    return releases.flatMap((r) =>
+      r.tag_name?.startsWith("launcher-dev-") ? [r.tag_name.slice(13)] : [],
+    );
   } catch {
     return [];
   }
@@ -248,14 +282,17 @@ export async function checkForUpdate(
     // The browser preview's own answer (?update, ?latest, ?offline), when it has one.
     const { mockUpdate } = await import("./mock");
     const answer = mockUpdate(currentVersion, switching ? channel : null);
+
     if (answer instanceof Error) throw answer;
     if (answer !== undefined) return answer;
   }
+
   if (inTauri && onAndroid) {
     // The chosen channel's manifest in the repository that built it (a fork's) is the one answer:
     // GitHub's latest release may be another channel's, which this launcher cannot install from.
     activeAndroidRelease = null;
     const release = await api.updateCheck(channel, branch);
+
     activeAndroidRelease = release;
     if (!release) return null;
     // Android installs no older build over a newer one (its version code): the release is
@@ -263,10 +300,12 @@ export async function checkForUpdate(
     // development build is always newer (android.rs, update_check, offers no other): installed as
     // any update, also from Stable.
     const older = channel === "stable" && isNewerVersion(release.version, currentVersion);
+
     return {
       version: release.version,
       tag: `v${release.version}`,
-      url: older && !source.channel ? `${source.page}/tag/launcher-v${release.version}` : source.page,
+      url:
+        older && !source.channel ? `${source.page}/tag/launcher-v${release.version}` : source.page,
       name: `OpenRAC Launcher v${release.version}`,
       body: release.notes,
       publishedAt: release.date,
@@ -275,13 +314,17 @@ export async function checkForUpdate(
     };
   } else if (inTauri) {
     activeTauriUpdate = null;
+
     try {
       // Asked at the chosen channel's manifest (src-tauri/src/lib.rs, launcher_update_check), not
       // only the one it was built with.
       const found = await api.launcherUpdateCheck(channel, branch);
+
       if (found) {
         const update = new Update(found);
+
         activeTauriUpdate = update;
+
         return {
           version: update.version,
           tag: `v${update.version}`,
@@ -307,13 +350,18 @@ export async function checkForUpdate(
 export async function installUpdate(onProgress?: UpdateProgressCallback): Promise<void> {
   if (!inTauri) {
     const { mockInstall } = await import("./mock");
+
     await mockInstall(onProgress);
+
     return;
   }
+
   if (onAndroid && activeAndroidRelease) {
     await installAndroidUpdate(activeAndroidRelease, onProgress);
+
     return;
   }
+
   if (!activeTauriUpdate) {
     throw new Error("No downloaded update available to install");
   }
@@ -332,7 +380,9 @@ export async function installUpdate(onProgress?: UpdateProgressCallback): Promis
       });
     } else if (event.event === "Progress") {
       downloadedBytes += event.data.chunkLength;
-      const percent = totalBytes > 0 ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)) : 0;
+      const percent =
+        totalBytes > 0 ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)) : 0;
+
       onProgress?.({
         stage: "downloading",
         percent,
@@ -361,15 +411,21 @@ export async function installUpdate(onProgress?: UpdateProgressCallback): Promis
 
 /** Android: the APK is downloaded and checked, then Android's installer asks the player to confirm
  *  and restarts the launcher itself; "ready" here means that dialog is up. */
-async function installAndroidUpdate(release: AndroidRelease, onProgress?: UpdateProgressCallback): Promise<void> {
+async function installAndroidUpdate(
+  release: AndroidRelease,
+  onProgress?: UpdateProgressCallback,
+): Promise<void> {
   const off = await onUpdateProgress(({ downloaded, total }) => {
     const percent = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
+
     onProgress?.({ stage: "downloading", percent, downloadedBytes: downloaded, totalBytes: total });
   });
+
   try {
     await api.updateInstall(release.url, release.signature);
   } finally {
     off();
   }
+
   onProgress?.({ stage: "ready", percent: 100, downloadedBytes: 0, totalBytes: 0 });
 }

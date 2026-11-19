@@ -67,4 +67,12 @@ bool translate_program(
     const vkgl::CompiledProgram& spirv, bool apple, MslProgram& out, std::string& log
 );
 
+// Translates a native compute shader (vkgl::compile_native_compute: Vulkan GLSL with explicit
+// bindings and push constants) as it is, with none of the OpenGL matching above. Descriptor set
+// 0's binding n is texture slot n (and sampler slot n for a combined image sampler); the push
+// constants are buffer slot 0. False, with SPIRV-Cross's words in `log`, when it cannot.
+bool translate_native_compute(
+    const std::vector<std::uint32_t>& spirv, MslProgram& out, std::string& log
+);
+
 }  // namespace openrac::mtlgl

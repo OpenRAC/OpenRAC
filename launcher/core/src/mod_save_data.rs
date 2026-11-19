@@ -294,6 +294,112 @@ pub fn write(
     })
 }
 
+/// The mods' records kept beside the saves, for carrying them with the saves (an export, an
+/// import: save_transfer.rs): the mods' folder and every mod that describes a `clock-hex` file.
+#[derive(Debug, Clone, Default)]
+pub struct RecordFiles {
+    /// `<data home>/mod-data`.
+    pub mod_data: PathBuf,
+    /// Each mod with its `save_data`, by id.
+    pub mods: Vec<(String, SaveData)>,
+}
+
+/// One mod's record of one save as it travels: the mod, its file and the line's data (hex) for
+/// the save's clock.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CarriedRecord {
+    pub id: String,
+    pub file: String,
+    pub data: String,
+}
+
+impl RecordFiles {
+    /// The installed mods of every game in `install` (`active/<game>/data/plugins/<id>`) that
+    /// describe their save data, whether on or off: a record travels with its save even while its
+    /// mod is off. The mods' folder is the port's ([`mod_data_home`]).
+    pub fn installed(install: &Path) -> Self {
+        let mut mods: Vec<(String, SaveData)> = Vec::new();
+        let games = fs::read_dir(install.join("active")).into_iter().flatten().flatten();
+        for game in games {
+            let plugins = crate::plugins::dir(install, &game.file_name().to_string_lossy());
+            for entry in fs::read_dir(&plugins).into_iter().flatten().flatten() {
+                let id = entry.file_name().to_string_lossy().to_string();
+                if !crate::plugins::valid_id(&id) || mods.iter().any(|(m, _)| *m == id) {
+                    continue;
+                }
+                let Ok(manifest) = crate::plugins::read_manifest(&entry.path()) else { continue };
+                if let Some(spec) = manifest.save_data.filter(|s| s.validate().is_ok()) {
+                    mods.push((id, spec));
+                }
+            }
+        }
+        RecordFiles { mod_data: mod_data_home(), mods }
+    }
+
+    /// Every mod's record of the save stamped `clock`, as its file holds it (the last line of the
+    /// clock, its data whole). None for a clock of zeros: a slot the game never stamped.
+    pub fn records_of(&self, clock: &[u8; 8]) -> Vec<CarriedRecord> {
+        if clock.iter().all(|&b| b == 0) {
+            return Vec::new();
+        }
+        let key = hex(clock);
+        let mut out = Vec::new();
+        for (id, spec) in &self.mods {
+            let Ok(path) = file_of(&self.mod_data, id, spec) else { continue };
+            let Ok(text) = read_text(&path) else { continue };
+            let data = text
+                .lines()
+                .filter_map(|line| line.trim_end().split_once(' '))
+                .rfind(|(k, d)| k.eq_ignore_ascii_case(&key) && unhex(d).is_some())
+                .map(|(_, d)| d.to_ascii_lowercase());
+            if let Some(data) = data {
+                out.push(CarriedRecord { id: id.clone(), file: spec.file.clone(), data });
+            }
+        }
+        out
+    }
+
+    /// Puts `record` back as the record of the save stamped `clock`: its clock's line in the mod's
+    /// file replaced (or added at the end), every other line as it was, the file replaced in one
+    /// rename. The mod need not be installed here: its record waits in its folder.
+    pub fn put(&self, clock: &[u8; 8], record: &CarriedRecord) -> Result<(), String> {
+        // No mods' folder (RecordFiles::default()): nowhere to keep it.
+        if self.mod_data.as_os_str().is_empty() {
+            return Ok(());
+        }
+        let plain = |n: &str| {
+            !n.is_empty() && !n.starts_with('.') && !n.chars().any(|c| c.is_control() || r#"/\:*?"<>|"#.contains(c))
+        };
+        if !crate::plugins::valid_id(&record.id) || !plain(&record.file) {
+            return Err(format!("{}/{} is not a mod's record file", record.id, record.file));
+        }
+        if record.data.len() > 2 * SIZE_MAX || unhex(&record.data).is_none() {
+            return Err(format!("{}'s record is not one", record.id));
+        }
+        let path = self.mod_data.join(&record.id).join(&record.file);
+        let text = read_text(&path)?;
+        let key = hex(clock);
+        let line = format!("{key} {}", record.data);
+        let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
+        let at =
+            lines.iter().rposition(|l| l.trim_end().split_once(' ').is_some_and(|(k, _)| k.eq_ignore_ascii_case(&key)));
+        match at {
+            Some(n) => lines[n] = line,
+            None => lines.push(line),
+        }
+        let mut out = lines.join("\n");
+        out.push('\n');
+        let dir = path.parent().ok_or("no folder")?;
+        fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        let temp = path.with_extension("launcher-new");
+        fs::write(&temp, out).map_err(|e| format!("{}: {e}", temp.display()))?;
+        fs::rename(&temp, &path).map_err(|e| {
+            let _ = fs::remove_file(&temp);
+            format!("{}: {e}", path.display())
+        })
+    }
+}
+
 /// The mods' own folders: `<data home>/mod-data`, as the port's (options.cpp).
 pub fn mod_data_home() -> PathBuf {
     crate::saves::data_home().join("mod-data")

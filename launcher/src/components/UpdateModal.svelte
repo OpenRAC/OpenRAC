@@ -5,11 +5,12 @@
   // update itself (one from GitHub's page, the browser preview's ?download) is sent to the release.
   // On the other channel than the launcher's (Settings) it switches to that channel's build, also an
   // older one: a development build going back to the release.
-  import { app, saveConfig } from "$lib/app.svelte";
   import { api, onAndroid } from "$lib/api";
+  import { app, saveConfig } from "$lib/app.svelte";
   import { size } from "$lib/format";
   import { modal } from "$lib/portal";
   import { channelName, installUpdate, putOffUpdate } from "$lib/updates";
+
   import Icon from "./Icon.svelte";
 
   let stage = $state<"idle" | "downloading" | "installing" | "ready" | "failed">("idle");
@@ -18,17 +19,26 @@
   let total = $state(0);
   let error = $state<string | null>(null);
   // Android's installer takes over once the package is downloaded: the launcher waits on nothing.
-  const busy = $derived(stage === "downloading" || stage === "installing" || (stage === "ready" && !onAndroid));
+  const busy = $derived(
+    stage === "downloading" || stage === "installing" || (stage === "ready" && !onAndroid),
+  );
 
   /** What the update is doing, in words. */
   const doing = $derived.by(() => {
     if (stage === "downloading") {
-      return total > 0 ? `Downloading: ${size(done)} of ${size(total)}` : `Downloading: ${size(done)}`;
+      return total > 0
+        ? `Downloading: ${size(done)} of ${size(total)}`
+        : `Downloading: ${size(done)}`;
     }
+
     if (stage === "installing") return "Installing…";
+
     if (stage === "ready") {
-      return onAndroid ? "Confirm the update in Android's installer." : "Installed. The launcher starts again now.";
+      return onAndroid
+        ? "Confirm the update in Android's installer."
+        : "Installed. The launcher starts again now.";
     }
+
     return "";
   });
 
@@ -36,7 +46,9 @@
    *  switched launcher would be offered the other channel's build back at its next start. */
   async function keepChannel(): Promise<boolean> {
     const switchTo = app.update?.switchTo;
+
     if (!switchTo || !app.config || app.config.updateChannel === switchTo) return true;
+
     return saveConfig({ ...app.config, updateChannel: switchTo });
   }
 
@@ -50,6 +62,7 @@
     if (!(await keepChannel())) return;
     stage = "downloading";
     percent = 0;
+
     try {
       await installUpdate((p) => {
         stage = p.stage;
@@ -81,16 +94,26 @@
   {@const update = app.update}
   <div class="overlay" role="presentation" use:modal>
     <button class="backdrop" onclick={close} tabindex="-1" aria-label="Close"></button>
-    <div class="modal rise" role="dialog" aria-modal="true" aria-labelledby="update-title" tabindex="-1">
+    <div
+      class="modal rise"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="update-title"
+      tabindex="-1"
+    >
       <div class="header">
         <div class="title-row">
           <Icon name="refresh" size={20} />
           <h2 id="update-title">
-            {update.switchTo ? `Switch to the ${channelName(update.switchTo)} launcher` : "A new launcher is ready"}
+            {update.switchTo
+              ? `Switch to the ${channelName(update.switchTo)} launcher`
+              : "A new launcher is ready"}
           </h2>
         </div>
         {#if !busy}
-          <button class="close-btn" onclick={close} aria-label="Close"><Icon name="x" size={16} /></button>
+          <button class="close-btn" onclick={close} aria-label="Close"
+            ><Icon name="x" size={16} /></button
+          >
         {/if}
       </div>
 
@@ -129,7 +152,8 @@
             </div>
             <div class="status-row">
               <span class="status-msg">{doing}</span>
-              {#if stage === "downloading" && total > 0}<span class="percent-msg">{percent} %</span>{/if}
+              {#if stage === "downloading" && total > 0}<span class="percent-msg">{percent} %</span
+                >{/if}
             </div>
           </div>
         {/if}
@@ -137,7 +161,10 @@
         {#if stage === "failed"}
           <div class="error-msg" role="alert">
             <Icon name="warn" size={16} />
-            <span>The update stopped: {error}. Your launcher is unchanged; try again, or download it from GitHub.</span>
+            <span
+              >The update stopped: {error}. Your launcher is unchanged; try again, or download it
+              from GitHub.</span
+            >
           </div>
         {/if}
       </div>
@@ -149,11 +176,13 @@
           {#if !update.canInstallDirectly && update.switchTo && onAndroid}
             <!-- Android installs no older version over a newer one (updates.ts, checkForUpdate). -->
             <span class="installing-hint grow"
-              >Android cannot install an older version over this one: download it from GitHub, uninstall this launcher
-              (keep its data when Android asks), then install the download.</span
+              >Android cannot install an older version over this one: download it from GitHub,
+              uninstall this launcher (keep its data when Android asks), then install the download.</span
             >
           {:else if !update.canInstallDirectly}
-            <span class="installing-hint grow">This copy cannot update itself: get the new one from GitHub.</span>
+            <span class="installing-hint grow"
+              >This copy cannot update itself: get the new one from GitHub.</span
+            >
           {/if}
           <button class="btn-cancel" onclick={close}>Later</button>
           {#if stage === "failed" || !update.canInstallDirectly}
@@ -163,7 +192,10 @@
             >
           {/if}
           {#if update.canInstallDirectly}
-            <button class="btn-primary" class:invite={stage === "idle"} onclick={() => void install()}
+            <button
+              class="btn-primary"
+              class:invite={stage === "idle"}
+              onclick={() => void install()}
               >{stage === "failed"
                 ? "Try again"
                 : `${update.switchTo ? "Switch" : "Update"}${onAndroid ? "" : " and restart"}`}</button

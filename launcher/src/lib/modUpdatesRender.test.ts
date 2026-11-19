@@ -2,14 +2,16 @@
 // changelog, what is held back and why, and what just went in.
 import { render } from "svelte/server";
 import { beforeEach, describe, expect, it } from "vitest";
+
 import ModUpdatesPanel from "../components/ModUpdatesPanel.svelte";
 import type { VersionView } from "./api";
-import { autoUpdates } from "./modAutoUpdate.svelte";
 import { mockUpdates } from "./mockIndex";
-import { UPDATES, holdText, revokedOffText } from "./modsText";
+import { autoUpdates } from "./modAutoUpdate.svelte";
+import { holdText, revokedOffText, UPDATES } from "./modsText";
 
 const version = { key: "rac1/pal", game: "rac1", name: "pal" } as VersionView;
-const html = () => render(ModUpdatesPanel, { props: { version } }).body.replace(/<!--[^>]*-->/g, "");
+const html = () =>
+  render(ModUpdatesPanel, { props: { version } }).body.replace(/<!--[^>]*-->/g, "");
 const unescape = (s: string) =>
   s
     .replace(/&#39;/g, "'")
@@ -29,8 +31,10 @@ describe("the updates panel", () => {
 
   it("shows what waits for a click, with why and its changelog, and what is held back", () => {
     const plan = mockUpdates();
+
     autoUpdates.plans.rac1 = plan;
     const out = unescape(html());
+
     expect(out).toContain(UPDATES.waitingTitle);
     expect(out).toContain(holdText(plan.waiting[0]?.hold ?? null));
     expect(out).toContain(UPDATES.changelog);
@@ -44,7 +48,9 @@ describe("the updates panel", () => {
       silent: [],
       waiting: [],
       held: [],
-      turnedOff: [{ id: "ammo-max", name: "Ammo max", version: "1.0.0", reason: "It corrupts saves." }],
+      turnedOff: [
+        { id: "ammo-max", name: "Ammo max", version: "1.0.0", reason: "It corrupts saves." },
+      ],
     };
     expect(unescape(html())).toContain(revokedOffText("Ammo max", "1.0.0", "It corrupts saves."));
   });
@@ -53,6 +59,7 @@ describe("the updates panel", () => {
     autoUpdates.plans.rac1 = { silent: [], waiting: [], held: [], turnedOff: [] };
     autoUpdates.recent.rac1 = mockUpdates().silent;
     const out = html();
+
     expect(out).toContain(UPDATES.recentTitle);
     expect(out).toContain("1.1.0 → 1.2.0");
   });
@@ -60,9 +67,9 @@ describe("the updates panel", () => {
 
 describe("hold reasons", () => {
   it("read in a player's words", () => {
-    expect(holdText({ kind: "heldBack", by: "user", byName: "Camera tweaks", wants: "=1.2.0" })).toBe(
-      "Held back: Camera tweaks needs =1.2.0.",
-    );
+    expect(
+      holdText({ kind: "heldBack", by: "user", byName: "Camera tweaks", wants: "=1.2.0" }),
+    ).toBe("Held back: Camera tweaks needs =1.2.0.");
     expect(holdText({ kind: "major" })).toMatch(/major version/);
     expect(holdText(null)).toBe("");
   });

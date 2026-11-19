@@ -540,6 +540,19 @@ fn game_data_dir(state: &State<'_, AppState>, game: &str) -> Result<PathBuf, Str
     Ok(install::data_dir(&install, game))
 }
 
+/// What a version's interface textures can be exported from (core/src/interface_runs.rs).
+#[tauri::command]
+async fn interface_runs_view(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+) -> Result<openrac_launcher_core::interface_runs::View, String> {
+    let data = game_data_dir(&state, &game)?;
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::interface_runs::view(&data, &game, &version))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// A game version's Texture packs section.
 #[tauri::command]
 async fn texture_packs_view(
@@ -1322,6 +1335,7 @@ async fn import_pcsx2_saves(
 #[tauri::command]
 async fn export_saves(
     app: AppHandle,
+    state: State<'_, AppState>,
     serial: String,
     slot: Option<usize>,
 ) -> Result<openrac_launcher_core::save_transfer::ExportedSaves, String> {
@@ -1351,10 +1365,12 @@ async fn export_saves(
         picked.into_path().map_err(|e| e.to_string())?
     };
     let out = dest.clone();
-    let manifest =
-        tauri::async_runtime::spawn_blocking(move || save_transfer::export_saves(&serial, slot, &version, &out))
-            .await
-            .map_err(|e| e.to_string())??;
+    let records = mod_records(&state);
+    let manifest = tauri::async_runtime::spawn_blocking(move || {
+        save_transfer::export_saves(&serial, slot, &version, &out, &records.installed())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     let slots = manifest.slots.into_iter().filter(|s| !s.empty).collect();
     if cfg!(target_os = "android") {
         let saved = android::save_as(&app, &dest, &name).await;
@@ -1386,8 +1402,62 @@ async fn preview_save_import(
 #[tauri::command]
 async fn import_saves(
     app: AppHandle,
+    state: State<'_, AppState>,
     serial: String,
     source: String,
+    choice: openrac_launcher_core::save_transfer::SaveImportChoice,
+) -> Result<openrac_launcher_core::pcsx2_card::ImportedSaves, String> {
+    let in_use = card_check(&app).await?;
+    let records = mod_records(&state);
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        if let Some(game) = in_use(&card, &serial)? {
+            return Err(format!("{game} is running with this memory card: close it first"));
+        }
+        let done = openrac_launcher_core::save_transfer::import_saves(
+            &serial,
+            Path::new(&source),
+            &choice,
+            &records.installed(),
+        )?;
+        launcher_log::line(&format!("imported saves into {serial}: {} files", done.files));
+        Ok(done)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The game's other discs whose cards hold saves this disc's game reads as its own
+/// (core/src/save_transfer.rs, "Copies between the discs of one game").
+#[tauri::command]
+async fn save_copy_sources(
+    serial: String,
+) -> Result<Vec<openrac_launcher_core::save_transfer::SaveCopySource>, String> {
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::save_transfer::copy_sources(&serial))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// What copying the saves of the disc `from` onto the card of `serial` would do, before anything
+/// is written: refused for another game's disc.
+#[tauri::command]
+async fn preview_save_copy(
+    from: String,
+    serial: String,
+) -> Result<openrac_launcher_core::save_transfer::SaveImportPreview, String> {
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::save_transfer::preview_copy(&from, &serial))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Copies the saves of the disc `from` onto the card of `serial`, after a backup: every save
+/// replaced, or the chosen slots merged. Refused while the game runs with this card, as an import
+/// is.
+#[tauri::command]
+async fn copy_saves(
+    app: AppHandle,
+    from: String,
+    serial: String,
     choice: openrac_launcher_core::save_transfer::SaveImportChoice,
 ) -> Result<openrac_launcher_core::pcsx2_card::ImportedSaves, String> {
     let in_use = card_check(&app).await?;
@@ -1396,8 +1466,8 @@ async fn import_saves(
         if let Some(game) = in_use(&card, &serial)? {
             return Err(format!("{game} is running with this memory card: close it first"));
         }
-        let done = openrac_launcher_core::save_transfer::import_saves(&serial, Path::new(&source), &choice)?;
-        launcher_log::line(&format!("imported saves into {serial}: {} files", done.files));
+        let done = openrac_launcher_core::save_transfer::copy_saves(&from, &serial, &choice)?;
+        launcher_log::line(&format!("copied saves from {from} into {serial}: {} files", done.files));
         Ok(done)
     })
     .await
@@ -1696,6 +1766,24 @@ async fn editor_state(state: State<'_, AppState>, version: String) -> Result<edi
 
 /// A game's native mods' folder (`<data>/plugins`, docs/port/MODS.md), from the install folder in
 /// Settings.
+/// Where the mods' records of the saves are, for an export or an import to carry them
+/// (core/src/save_transfer.rs): the installed mods that describe one, read on the worker thread.
+struct ModRecords(Option<PathBuf>);
+
+impl ModRecords {
+    fn installed(&self) -> openrac_launcher_core::mod_save_data::RecordFiles {
+        use openrac_launcher_core::mod_save_data::{mod_data_home, RecordFiles};
+        match &self.0 {
+            Some(install) => RecordFiles::installed(install),
+            None => RecordFiles { mod_data: mod_data_home(), mods: Vec::new() },
+        }
+    }
+}
+
+fn mod_records(state: &State<'_, AppState>) -> ModRecords {
+    ModRecords(state.config.lock().unwrap().install_dir.clone())
+}
+
 fn plugins_dir(state: &State<'_, AppState>, game: &str) -> Result<PathBuf, String> {
     let install = state.config.lock().unwrap().install_dir.clone().ok_or("no install folder (Settings)")?;
     Ok(plugins::dir(&install, game))
@@ -3058,6 +3146,9 @@ pub fn run() {
             export_saves,
             preview_save_import,
             import_saves,
+            save_copy_sources,
+            preview_save_copy,
+            copy_saves,
             open_saves_folder,
             read_save,
             write_save,
@@ -3080,6 +3171,7 @@ pub fn run() {
             enhanced_view,
             enhanced_set_enabled,
             texture_packs_view,
+            interface_runs_view,
             texture_packs_set,
             texture_packs_open,
             texture_packs_preview,

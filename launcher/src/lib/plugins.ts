@@ -4,14 +4,24 @@
 // choices, a select for more, a slider for a number with both ends). The words are
 // lib/modsText.ts's; here only which ones.
 import type { PluginSetting, PluginView } from "./api";
+import {
+  BADGE,
+  GROUP_TITLE,
+  KIND_HINT,
+  KIND_LABEL,
+  type Label,
+  rangeText,
+  sharesWith,
+  STATE_LABEL,
+} from "./modsText";
 import { hasRange } from "./settingValues";
-import { BADGE, GROUP_TITLE, KIND_HINT, KIND_LABEL, STATE_LABEL, rangeText, sharesWith, type Label } from "./modsText";
 
 /** A mod's state, as a dot and a few words. With the Mods switch under Play off (purist), the game
  *  loads none, whatever is switched on. */
 export function pluginState(mod: PluginView, purist: boolean): Label {
   if (!mod.enabled) return STATE_LABEL.off;
   if (purist) return STATE_LABEL.purist;
+
   switch (mod.state) {
     case "ready":
       return STATE_LABEL.on;
@@ -48,14 +58,21 @@ export function modHint(kind: string): string {
   if (kind === "built-in") return KIND_HINT.builtIn;
   if (kind === "always-on") return KIND_HINT.alwaysOn;
   if (kind === "tool") return KIND_HINT.tool;
-  return kind === "native" ? KIND_HINT.native : kind === "script" ? KIND_HINT.script : KIND_HINT.pack;
+
+  return kind === "native"
+    ? KIND_HINT.native
+    : kind === "script"
+      ? KIND_HINT.script
+      : KIND_HINT.pack;
 }
 
-export type SettingControl = "switch" | "segmented" | "select" | "slider" | "number" | "text" | "keybind";
+export type SettingControl =
+  "switch" | "segmented" | "select" | "slider" | "number" | "text" | "keybind";
 
 /** A choice fits a segmented control when it has two to four short choices; else a select. */
 const segmentable = (s: PluginSetting): boolean => {
   const choices = s.choices ?? [];
+
   return choices.length <= 4 && choices.reduce((n, c) => n + c.name.length, 0) <= 44;
 };
 
@@ -80,10 +97,12 @@ export function settingControl(setting: PluginSetting): SettingControl {
 export function settingNumber(setting: PluginSetting, typed: string): number | null {
   if (typed.trim() === "") return null;
   const n = Number(typed);
+
   if (!Number.isFinite(n)) return null;
   if (setting.type === "int" && !Number.isInteger(n)) return null;
   if (setting.min !== undefined && n < setting.min) return null;
   if (setting.max !== undefined && n > setting.max) return null;
+
   return n;
 }
 
@@ -108,14 +127,20 @@ export interface SettingGroup {
 
 export function settingGroups(settings: PluginSetting[]): SettingGroup[] {
   const groups = new Map<string, PluginSetting[]>();
+
   for (const s of settings) {
     const id = s.section ? `section:${s.section}` : (s.group ?? "");
+
     groups.set(id, [...(groups.get(id) ?? []), s]);
   }
+
   const ordered = [...groups.entries()].sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : 0));
+
   return ordered.map(([id, list]) => ({
     id: id ? id.replace(/^section:/, "s-").replace(/[^A-Za-z0-9_-]+/g, "-") : "general",
-    title: id.startsWith("section:") ? id.slice("section:".length) : groupTitle(id, list, ordered.length),
+    title: id.startsWith("section:")
+      ? id.slice("section:".length)
+      : groupTitle(id, list, ordered.length),
     settings: list,
   }));
 }
@@ -124,6 +149,7 @@ export function settingGroups(settings: PluginSetting[]): SettingGroup[] {
 function groupTitle(id: string, list: PluginSetting[], count: number): string {
   if (id === "") return count === 1 ? GROUP_TITLE.only : GROUP_TITLE.general;
   const name = id.replace(/[_-]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+
   return list.every((s) => s.type === "keybind") ? GROUP_TITLE.controls(name) : name;
 }
 
@@ -131,10 +157,16 @@ function groupTitle(id: string, list: PluginSetting[], count: number): string {
 export const hasSettings = (mod: PluginView): boolean => mod.settings.length > 0;
 
 /** The one badge a mod's row shows, most pressing first: it cannot load, an update, what it runs. */
-export function modBadge(mod: PluginView, update: string | null, purist: boolean): Label & { hint: string } {
+export function modBadge(
+  mod: PluginView,
+  update: string | null,
+  purist: boolean,
+): Label & { hint: string } {
   if (mod.enabled && !purist && (mod.state === "refused" || mod.state === "failed")) {
     return { ...STATE_LABEL[mod.state], hint: mod.reason };
   }
+
   if (update) return { text: BADGE.update(update), tone: "warn", hint: BADGE.updateHint };
+
   return { ...modKind(mod.kind), hint: modHint(mod.kind) };
 }

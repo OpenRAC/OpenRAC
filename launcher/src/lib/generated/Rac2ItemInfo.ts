@@ -26,6 +26,12 @@ maxXp: number | null,
  */
 versions: Array<Rac2VersionInfo>, 
 /**
- * Worn by the hero (taking it away, or changing its version, is refused).
+ * On the hero in a place the editor does not change (taking it away, or changing its
+ * version, is refused). What is in hand, the pack and the boots are the fields' `hand`,
+ * `pack` and `charge_boots`, and follow them.
  */
-worn: boolean, };
+worn: boolean, 
+/**
+ * A weapon Ratchet can hold: the editor's choices for the weapon in hand.
+ */
+holdable: boolean, };

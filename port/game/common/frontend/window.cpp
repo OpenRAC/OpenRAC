@@ -37,6 +37,12 @@ bool windowed() {
 #endif
 }
 
+// Whether the window's renderer has HDR output: Vulkan, and Metal (macOS's EDR).
+bool renderer_has_hdr() {
+    const platform::GlApi api = g->window->gl_api();
+    return api == platform::GlApi::Vulkan || api == platform::GlApi::Metal;
+}
+
 // The window's own events, which the game never sees: the window moved to another display or its
 // display changed mode (the refresh rate is read again), it was sized (the size is kept for the
 // next start), it lost or got the keyboard (the player's "mute in the background").
@@ -135,8 +141,8 @@ void apply_hdr() {
     // Said once: HDR asked for where it cannot be had.
     static bool said = false;
     if (s.hdr != hdr::Mode::Off && !said) {
-        if (g->window->gl_api() != platform::GlApi::Vulkan) {
-            log::info("HDR output needs the Vulkan renderer; the picture stays SDR");
+        if (!renderer_has_hdr()) {
+            log::info("HDR output needs Vulkan, or Metal on macOS; the picture stays SDR");
             said = true;
         } else if (!g->hdr_at_start) {
             log::info("HDR output was off at start; it takes effect at the next start");
@@ -170,8 +176,8 @@ std::string hdr_status() {
     std::string sent = shown == hdr::Output::Sdr ? std::string("Sending SDR")
                                                  : std::format("Sending {}", hdr::name(shown));
     if (settings::get().hdr != hdr::Mode::Off) {
-        if (g->window->gl_api() != platform::GlApi::Vulkan) {
-            sent += " (HDR needs the Vulkan renderer)";
+        if (!renderer_has_hdr()) {
+            sent += " (HDR needs Vulkan, or Metal on macOS)";
         } else if (!g->hdr_at_start) {
             sent += " (HDR from the next start)";
         } else if (shown == hdr::Output::Sdr && !g->window->hdr_offered()) {

@@ -5,20 +5,23 @@
   // shared by its discs; the version (the one the game page plays) only picks the levels exported
   // from. editor/MODDING.md is the modder's guide.
   import Icon from "$components/Icon.svelte";
-  import { api, inTauri, pickFolder, type ActionView, type VersionView } from "$lib/api";
+  import { type ActionView, api, inTauri, pickFolder, type VersionView } from "$lib/api";
   import { app, guardShown, jobs, runChain, toast } from "$lib/app.svelte";
   import { levelName, levelsOf } from "$lib/labels";
   import { ASSETS } from "$lib/modsText";
   import { hidePaths } from "$lib/paths";
   import type { Job } from "$lib/queue";
   import { toolFailure } from "$lib/toolErrors";
+
   import CommandBox from "./CommandBox.svelte";
+  import InterfaceTextures from "./InterfaceTextures.svelte";
 
   let { version: v, onimported }: { version: VersionView; onimported?: () => void } = $props();
 
   const developer = $derived(app.config?.developer ?? false);
   const scope = $derived({ kind: "version" as const, key: v.key });
-  const action = (id: string): ActionView | null => v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
+  const action = (id: string): ActionView | null =>
+    v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
   const exporter = $derived(action("assets-export"));
   const importer = $derived(action("assets-import"));
   /** Reads the levels into the layout the exports are made from (on the game's page, for a game
@@ -27,11 +30,15 @@
 
   const WHAT = [
     { id: "mobys", label: "Characters and objects" },
+    { id: "weapons", label: "Weapons and gadgets" },
     { id: "textures", label: "Textures" },
     { id: "scenery", label: "Scenery (ties and shrubs)" },
     { id: "terrain", label: "Terrain (the ground and walls)" },
     { id: "all", label: "Everything" },
   ];
+
+  /** The games whose weapons and gadgets the export knows (editor/assets.py HELD_ITEMS). */
+  const WEAPONS = ["rac1", "rac2"];
 
   // svelte-ignore state_referenced_locally
   let level = $state(levelsOf(v.game)[0]?.number ?? 0);
@@ -49,12 +56,18 @@
   );
 
   /** The last line a finished job of ACTION printed, and whether it succeeded. */
-  function ending(
-    id: string,
-  ): { line: string; lines: Job["lines"]; ok: boolean; refused: number; folder: string | null } | null {
+  function ending(id: string): {
+    line: string;
+    lines: Job["lines"];
+    ok: boolean;
+    refused: number;
+    folder: string | null;
+  } | null {
     const job = jobs.list.filter((j) => j.scope.kind === "version" && j.actionId === id).at(-1);
+
     if (!job) return null;
     const lines = job.lines.map((l) => l.line);
+
     return {
       line: lines.findLast((l) => l.trim() !== "") ?? "",
       lines: job.lines,
@@ -68,9 +81,11 @@
     if (!exporter) return;
     busy = "export";
     const ok = await runChain(scope, [exporter], { level, option: what });
+
     busy = null;
     const end = ending("assets-export");
     const folder = end?.folder ?? /: (\/.*|[A-Za-z]:\\.*)$/.exec(end?.line ?? "")?.[1];
+
     if (ok && folder) {
       toast(ASSETS.exported(levelName(v.game, level)));
       await guardShown(end?.folder ? api.openOutput(folder) : api.openGameFolder(v.game, folder));
@@ -82,6 +97,7 @@
   /** The game page's play action is planned: its levels are read here, for packs. */
   const playable = $derived.by(() => {
     const play = action("play");
+
     return !!play && play.state !== "planned";
   });
 
@@ -89,18 +105,24 @@
     if (!reader) return;
     busy = "read";
     const ok = await runChain(scope, [reader]);
+
     busy = null;
     if (!ok) toast(ASSETS.readStopped, "error");
   }
 
   async function importEdits() {
     if (!importer) return;
-    const folder = inTauri ? await pickFolder(ASSETS.pickImport) : "/home/you/exports/level_00-mobys";
+    const folder = inTauri
+      ? await pickFolder(ASSETS.pickImport)
+      : "/home/you/exports/level_00-mobys";
+
     if (!folder) return;
     busy = "import";
     const ok = await runChain(scope, [importer], { path: folder });
+
     busy = null;
     const end = ending("assets-import");
+
     if (ok) {
       said = {
         text: end?.refused ? ASSETS.importedRefused(end.refused) : ASSETS.imported,
@@ -109,8 +131,10 @@
     } else {
       // In a player's words, never the tool's (lib/toolErrors.ts); Activity has what it printed.
       const failure = toolFailure(end?.lines ?? []);
+
       said = { text: `${failure.title}. ${failure.line}`, failed: true };
     }
+
     onimported?.();
   }
 </script>
@@ -131,6 +155,8 @@
           <p class="muted">
             {#if busy === "export"}
               {ASSETS.exporting}
+            {:else if exporter.runnable && what === "weapons"}
+              {ASSETS.weaponsNote}
             {:else if exporter.runnable}
               {ASSETS.exportLine}
             {:else if reader && !reader.done && !playable}
@@ -142,14 +168,20 @@
         </div>
         <div class="controls">
           <select aria-label={ASSETS.levelLabel} bind:value={level} disabled={!exporter.runnable}>
-            {#each levelsOf(v.game) as l (l.number)}<option value={l.number}>{l.name}</option>{/each}
+            {#each levelsOf(v.game) as l (l.number)}<option value={l.number}>{l.name}</option
+              >{/each}
           </select>
           <select aria-label={ASSETS.whatLabel} bind:value={what} disabled={!exporter.runnable}>
-            {#each WHAT as w (w.id)}<option value={w.id}>{w.label}</option>{/each}
+            {#each WHAT.filter((w) => w.id !== "weapons" || WEAPONS.includes(v.game)) as w (w.id)}<option
+                value={w.id}>{w.label}</option
+              >{/each}
           </select>
           {#if reader && !reader.done && !playable}
             <button disabled={!reader.runnable || busy !== null} onclick={() => void readLevels()}>
-              {#if busy === "read"}<span class="spinner"></span>{:else}<Icon name="build" size={16} />{/if}{ASSETS.read}
+              {#if busy === "read"}<span class="spinner"></span>{:else}<Icon
+                  name="build"
+                  size={16}
+                />{/if}{ASSETS.read}
             </button>
           {/if}
           {#if exported && busy !== "export"}
@@ -157,7 +189,10 @@
               ><Icon name="folder" size={16} />{ASSETS.openFolder}</button
             >
           {/if}
-          <button disabled={!exporter.runnable || busy !== null} onclick={() => void exportAssets()}>
+          <button
+            disabled={!exporter.runnable || busy !== null}
+            onclick={() => void exportAssets()}
+          >
             {#if busy === "export"}<span class="spinner"></span>{:else}<Icon
                 name="external"
                 size={16}
@@ -166,7 +201,11 @@
         </div>
         {#if developer}
           <div class="span">
-            <CommandBox lines={[`python3 editor/assets.py export ${levels} <out> --level ${level} --what ${what}`]} />
+            <CommandBox
+              lines={[
+                `python3 editor/assets.py export ${levels} <out> --level ${level} --what ${what}`,
+              ]}
+            />
           </div>
         {/if}
       </li>
@@ -184,7 +223,10 @@
           </p>
         </div>
         <div class="controls">
-          <button disabled={!importer?.runnable || busy !== null} onclick={() => void importEdits()}>
+          <button
+            disabled={!importer?.runnable || busy !== null}
+            onclick={() => void importEdits()}
+          >
             {#if busy === "import"}<span class="spinner"></span>{:else}<Icon
                 name="save"
                 size={16}
@@ -193,11 +235,16 @@
         </div>
         {#if developer}
           <div class="span">
-            <CommandBox lines={[`python3 editor/assets.py import <out> --levels ${levels} --into <data>/overrides`]} />
+            <CommandBox
+              lines={[
+                `python3 editor/assets.py import <out> --levels ${levels} --into <data>/overrides`,
+              ]}
+            />
           </div>
         {/if}
       </li>
     </ol>
+    <InterfaceTextures version={v} />
   </div>
 {/if}
 

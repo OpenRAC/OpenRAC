@@ -2,12 +2,22 @@
   // A mod's own page (core/src/mod_tools.rs) in a frame, with a way back. The frame is another
   // site: it can only send the messages lib/modTool.ts answers. Controller buttons go to the page as
   // { openrac: 1, event: "pad", button, down }. The page's "close" call, Back or Escape return here.
-  import { onDestroy, onMount } from "svelte";
   import { convertFileSrc } from "@tauri-apps/api/core";
+  import { onDestroy, onMount } from "svelte";
+
   import { inTauri, onAndroid, type PluginView } from "$lib/api";
-  import { launcherBackend, pageOrigin, pageUrl, PROTOCOL, reply, trackSaves, type ToolInfo } from "$lib/modTool";
-  import { routePad } from "$lib/pad";
   import * as T from "$lib/modsText";
+  import {
+    launcherBackend,
+    pageOrigin,
+    pageUrl,
+    PROTOCOL,
+    reply,
+    type ToolInfo,
+    trackSaves,
+  } from "$lib/modTool";
+  import { routePad } from "$lib/pad";
+
   import Icon from "./Icon.svelte";
   import Reason from "./Reason.svelte";
 
@@ -35,7 +45,9 @@
   });
   // The scheme's root as this system reaches it: openrac-mod://localhost/, or
   // http://openrac-mod.localhost/ on Windows and Android.
-  const src = $derived(inTauri ? pageUrl(convertFileSrc("", "openrac-mod"), game, mod.id, mod.tool) : null);
+  const src = $derived(
+    inTauri ? pageUrl(convertFileSrc("", "openrac-mod"), game, mod.id, mod.tool) : null,
+  );
 
   // The page's site: messages are taken only from it and sent only to it, never to a page the
   // frame was sent away to. (A custom scheme's URL has no origin in the URL API: it is written out.)
@@ -56,11 +68,15 @@
     if (e.source !== frame?.contentWindow || e.origin !== origin) return;
     const data: unknown = e.data;
     const asked = data as { openrac?: unknown; call?: unknown } | null;
+
     if (asked?.openrac === PROTOCOL && asked.call === "close") {
       onclose();
+
       return;
     }
+
     const answer = await reply(data, info, backend);
+
     if (!answer) return;
     // The last call's failure, gone once a call works again.
     failure = answer.message.ok === false ? T.MOD_TOOL.failed(String(answer.message.error)) : null;
@@ -76,13 +92,16 @@
     routePad((button, down) => {
       post({ openrac: PROTOCOL, event: "pad", button, down });
     });
+
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !e.defaultPrevented) {
         e.preventDefault();
         onclose();
       }
     };
+
     window.addEventListener("keydown", key);
+
     return () => {
       window.removeEventListener("keydown", key);
     };
@@ -97,8 +116,11 @@
 
 <div class="mod-tool" class:android={onAndroid} bind:this={root}>
   <nav class="crumbs" aria-label={T.MOD_PAGE.crumbsLabel}>
-    <button class="back" aria-label={T.MOD_TOOL.backTo(mod.name)} title={T.MOD_TOOL.backTo(mod.name)} onclick={onclose}
-      ><Icon name="arrow" size={18} /></button
+    <button
+      class="back"
+      aria-label={T.MOD_TOOL.backTo(mod.name)}
+      title={T.MOD_TOOL.backTo(mod.name)}
+      onclick={onclose}><Icon name="arrow" size={18} /></button
     >
     <ol>
       <li><button class="crumb" onclick={onclose}>{mod.name}</button></li>

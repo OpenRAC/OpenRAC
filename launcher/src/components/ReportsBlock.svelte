@@ -5,6 +5,8 @@
   // Kerwan"), each with Copy, Save and Delete (and all at once), after a plain question; then
   // Detailed logs. File names are a contributor's detail: shown with developer tools on.
   // `foldable` (Android): all of it closed under its title until opened, at the page's foot.
+  import { slide } from "svelte/transition";
+
   import FoldHead from "$components/FoldHead.svelte";
   import Icon from "$components/Icon.svelte";
   import { api, onAndroid, type ReportEntry } from "$lib/api";
@@ -13,7 +15,6 @@
   import { DISCORD_URL, ISSUES_URL } from "$lib/links";
   import { fold } from "$lib/motion";
   import { headline, when } from "$lib/reports";
-  import { slide } from "svelte/transition";
 
   // PROGRAM: only that version's logs and reports (a developer's chosen disc, DiscSwitch); none: all.
   let {
@@ -45,7 +46,9 @@
   const logs = $derived(entries?.filter((e) => e.kind !== "crash").length ?? 0);
   /** The crash to tell the player about: the newest, while it is recent and not dismissed (the tile's mark). */
   const latest = $derived(
-    (app.crashes[game]?.recent ?? 0) > 0 ? (entries?.find((e) => e.kind === "crash") ?? null) : null,
+    (app.crashes[game]?.recent ?? 0) > 0
+      ? (entries?.find((e) => e.kind === "crash") ?? null)
+      : null,
   );
   /** What the list holds, said in words: a count of logs alone reads as a count of crashes, and a
    *  player who closed the game a few times would think it had crashed. */
@@ -62,8 +65,10 @@
 
   async function load(only: string | null) {
     const mine = ++reading;
+
     try {
       const list = await api.reportsList(game);
+
       if (mine !== reading) return;
       entries = only ? list.filter((e) => !e.program || e.program === only) : list;
       failed = null;
@@ -81,6 +86,7 @@
 
   async function copy(e: ReportEntry) {
     const text = await guard(api.reportText(game, e.file));
+
     if (text === undefined) return;
     if (!(await copyText(text, "The report could not be copied: use Save instead."))) return;
     copied = e.file;
@@ -90,6 +96,7 @@
   async function save(e: ReportEntry) {
     saving = e.file;
     const where = await guard(api.reportSave(game, e.file));
+
     saving = null;
     if (where) savedTo = where;
   }
@@ -99,6 +106,7 @@
   async function remove(e: ReportEntry) {
     deleting = true;
     const done = await guard(api.reportDelete(game, e.file));
+
     deleting = false;
     asking = null;
     if (done === undefined) return;
@@ -114,6 +122,7 @@
     const count = program
       ? await guard(Promise.all((entries ?? []).map((e) => api.reportDelete(game, e.file))))
       : await guard(api.reportsDeleteAll(game));
+
     deleting = false;
     asking = null;
     if (count === undefined) return;
@@ -160,8 +169,8 @@
             Your saves are kept. To help us fix it, send us the report in a
             <button class="link" onclick={() => void api.openUrl(ISSUES_URL)}>GitHub issue</button>
             or on
-            <button class="link" onclick={() => void api.openUrl(DISCORD_URL)}>Discord</button>, and say what you were
-            doing.
+            <button class="link" onclick={() => void api.openUrl(DISCORD_URL)}>Discord</button>, and
+            say what you were doing.
           </p>
           <span class="acts">
             <button class="small" onclick={() => void copy(e)}>
@@ -170,7 +179,10 @@
                 : "Copy report"}
             </button>
             <button class="small" onclick={() => void save(e)} disabled={saving === e.file}>
-              {#if saving === e.file}<span class="spinner"></span>{:else}<Icon name="save" size={14} />{/if}Save report
+              {#if saving === e.file}<span class="spinner"></span>{:else}<Icon
+                  name="save"
+                  size={14}
+                />{/if}Save report
             </button>
             <button
               class="ghost small"
@@ -187,8 +199,8 @@
         </summary>
         <div class="inside">
           <p class="intro muted">
-            The game keeps a log each time you play, and writes a report when it crashes. If something goes wrong, copy
-            or save one and send it to us.
+            The game keeps a log each time you play, and writes a report when it crashes. If
+            something goes wrong, copy or save one and send it to us.
           </p>
           <div class="row tools">
             {#if !onAndroid}
@@ -198,7 +210,10 @@
               </button>
             {/if}
             {#if entries && entries.length > 0}
-              <button class="ghost small danger" onclick={() => (asking = asking === "all" ? null : "all")}>
+              <button
+                class="ghost small danger"
+                onclick={() => (asking = asking === "all" ? null : "all")}
+              >
                 <Icon name="trash" size={14} />Delete all
               </button>
             {/if}
@@ -207,12 +222,14 @@
           {#if asking === "all" && entries}
             <div class="ask" role="alertdialog" aria-label="Delete all logs and crash reports">
               <p>
-                Delete all {entries.length} logs and crash reports of this game? They can't be undone. Your saves are not
-                touched.
+                Delete all {entries.length} logs and crash reports of this game? They can't be undone.
+                Your saves are not touched.
               </p>
               <span class="choices">
-                <button class="danger-solid small" onclick={() => void removeAll()} disabled={deleting}
-                  >Delete all</button
+                <button
+                  class="danger-solid small"
+                  onclick={() => void removeAll()}
+                  disabled={deleting}>Delete all</button
                 >
                 <button class="ghost small" onclick={() => (asking = null)}>Keep them</button>
               </span>
@@ -224,10 +241,11 @@
           {:else if entries.length === 0}
             <p class="empty">
               {#if cleared}
-                All cleared. A new log is kept here each time you play, and if the game ever crashes, its report too.
+                All cleared. A new log is kept here each time you play, and if the game ever
+                crashes, its report too.
               {:else}
-                Nothing here yet. After you play, each session is listed here, and if the game ever crashes, its report
-                too, ready to send to us.
+                Nothing here yet. After you play, each session is listed here, and if the game ever
+                crashes, its report too, ready to send to us.
               {/if}
             </p>
             {#if failed && developer}<p class="dim mono">{failed}</p>{/if}
@@ -259,7 +277,10 @@
                       aria-label={`Save the report as a file: ${headline(e)}, ${when(e.time)}`}
                       title="Save as a file"
                     >
-                      {#if saving === e.file}<span class="spinner"></span>{:else}<Icon name="save" size={14} />{/if}
+                      {#if saving === e.file}<span class="spinner"></span>{:else}<Icon
+                          name="save"
+                          size={14}
+                        />{/if}
                     </button>
                     <button
                       class="ghost small danger"
@@ -275,8 +296,10 @@
                     <div class="ask" role="alertdialog" aria-label={`Delete this ${noun(e)}?`}>
                       <p>Delete this {noun(e)}? It can't be undone.</p>
                       <span class="choices">
-                        <button class="danger-solid small" onclick={() => void remove(e)} disabled={deleting}
-                          >Delete</button
+                        <button
+                          class="danger-solid small"
+                          onclick={() => void remove(e)}
+                          disabled={deleting}>Delete</button
                         >
                         <button class="ghost small" onclick={() => (asking = null)}>Keep it</button>
                       </span>
@@ -295,7 +318,9 @@
       </details>
 
       <span class="live" aria-live="polite">
-        {copied ? "Copied: paste it in your message." : ""}{savedTo ? ` Saved as ${savedTo}: attach this file.` : ""}
+        {copied ? "Copied: paste it in your message." : ""}{savedTo
+          ? ` Saved as ${savedTo}: attach this file.`
+          : ""}
       </span>
 
       <label class="option">

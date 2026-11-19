@@ -5,12 +5,75 @@
 // are made up, and jobs print a few lines and succeed.
 //
 // Add a case here for every new command in api.ts.
-import actionsFile from "../../actions.json";
 import summaryFile from "../../../progress/summary.json";
+import actionsFile from "../../actions.json";
 import packageFile from "../../package.json";
+import type { AppInfo, DiscScan, GpuDriver, GpuDrivers } from "./api";
 import { onAndroid } from "./api";
+import type { ActionView } from "./generated/ActionView";
+import type { Applied } from "./generated/Applied";
+import type { BuildInfo } from "./generated/BuildInfo";
+import type { Check } from "./generated/Check";
+import type { Config } from "./generated/Config";
+import type { ControlsScope } from "./generated/ControlsScope";
+import type { ControlsView } from "./generated/ControlsView";
+import type { Detected } from "./generated/Detected";
+import type { Differences } from "./generated/Differences";
+import type { DifferenceView } from "./generated/DifferenceView";
+import type { EditorState } from "./generated/EditorState";
+import type { ExportedSaves } from "./generated/ExportedSaves";
+import type { GameView } from "./generated/GameView";
+import type { InstallState } from "./generated/InstallState";
+import type { InterfaceRun } from "./generated/InterfaceRun";
+import type { InterfaceRunsView } from "./generated/InterfaceRunsView";
+import type { JobEvent } from "./generated/JobEvent";
+import type { Library } from "./generated/Library";
+import type { ModLoadSummary } from "./generated/ModLoadSummary";
+import type { ModProfile } from "./generated/ModProfile";
+import type { ModSources } from "./generated/ModSources";
+import type { PackView } from "./generated/PackView";
+import type { Platform } from "./generated/Platform";
+import type { PluginInstalled } from "./generated/PluginInstalled";
+import type { PluginStatus } from "./generated/PluginStatus";
+import type { PluginView } from "./generated/PluginView";
+import type { Progress } from "./generated/Progress";
+import type { Rac2ExtraFields } from "./generated/Rac2ExtraFields";
+import type { Rac2ExtraView } from "./generated/Rac2ExtraView";
+import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
+import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
+import type { Rac2SaveView } from "./generated/Rac2SaveView";
+import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
+import type { RemoteInstalled } from "./generated/RemoteInstalled";
+import type { RemotePreview } from "./generated/RemotePreview";
+import type { ReportEntry } from "./generated/ReportEntry";
+import type { ResetDone } from "./generated/ResetDone";
+import type { ResetPreview } from "./generated/ResetPreview";
+import type { Review } from "./generated/Review";
+import type { SaveArchiveSlot } from "./generated/SaveArchiveSlot";
+import type { SaveChange } from "./generated/SaveChange";
+import type { SaveCopySource } from "./generated/SaveCopySource";
+import type { SaveFields } from "./generated/SaveFields";
+import type { SaveImportPreview } from "./generated/SaveImportPreview";
+import type { SaveView } from "./generated/SaveView";
+import type { Scope } from "./generated/Scope";
+import type { Shared } from "./generated/Shared";
+import type { SharePreview } from "./generated/SharePreview";
+import type { Started } from "./generated/Started";
+import type { TexturePackView } from "./generated/TexturePackView";
+import type { UpdateChannel } from "./generated/UpdateChannel";
+import type { VersionStatus } from "./generated/VersionStatus";
+import type { VersionView } from "./generated/VersionView";
+import type { WantedMod } from "./generated/WantedMod";
+import type { WriteResult } from "./generated/WriteResult";
+import {
+  mockControlsCopy,
+  mockControlsReset,
+  mockControlsResetPlayer,
+  mockControlsResetPlayers,
+  mockControlsSet,
+  mockControlsView,
+} from "./mockControls";
 import { mockEnhanced } from "./mockEnhanced";
-import { mockRac2Extra, mockWriteRac2Extra } from "./mockRac2Extra";
 import {
   mockApply,
   mockAutoUpdate,
@@ -20,67 +83,7 @@ import {
   mockResolve,
   mockUpdates,
 } from "./mockIndex";
-import {
-  mockControlsCopy,
-  mockControlsReset,
-  mockControlsResetPlayer,
-  mockControlsResetPlayers,
-  mockControlsSet,
-  mockControlsView,
-} from "./mockControls";
-import type { ActionView } from "./generated/ActionView";
-import type { Applied } from "./generated/Applied";
-import type { ModProfile } from "./generated/ModProfile";
-import type { Review } from "./generated/Review";
-import type { SharePreview } from "./generated/SharePreview";
-import type { Shared } from "./generated/Shared";
-import type { TexturePackView } from "./generated/TexturePackView";
-import type { BuildInfo } from "./generated/BuildInfo";
-import type { Check } from "./generated/Check";
-import type { Config } from "./generated/Config";
-import type { ControlsScope } from "./generated/ControlsScope";
-import type { ControlsView } from "./generated/ControlsView";
-import type { Detected } from "./generated/Detected";
-import type { DifferenceView } from "./generated/DifferenceView";
-import type { Differences } from "./generated/Differences";
-import type { GameView } from "./generated/GameView";
-import type { InstallState } from "./generated/InstallState";
-import type { JobEvent } from "./generated/JobEvent";
-import type { Library } from "./generated/Library";
-import type { ModSources } from "./generated/ModSources";
-import type { WantedMod } from "./generated/WantedMod";
-import type { ModLoadSummary } from "./generated/ModLoadSummary";
-import type { PackView } from "./generated/PackView";
-import type { ResetDone } from "./generated/ResetDone";
-import type { ResetPreview } from "./generated/ResetPreview";
-import type { Platform } from "./generated/Platform";
-import type { PluginStatus } from "./generated/PluginStatus";
-import type { PluginInstalled } from "./generated/PluginInstalled";
-import type { RemoteInstalled } from "./generated/RemoteInstalled";
-import type { PluginView } from "./generated/PluginView";
-import type { Progress } from "./generated/Progress";
-import type { RemotePreview } from "./generated/RemotePreview";
-import type { ReportEntry } from "./generated/ReportEntry";
-import type { SaveChange } from "./generated/SaveChange";
-import type { SaveFields } from "./generated/SaveFields";
-import type { ExportedSaves } from "./generated/ExportedSaves";
-import type { SaveArchiveSlot } from "./generated/SaveArchiveSlot";
-import type { SaveImportPreview } from "./generated/SaveImportPreview";
-import type { SaveView } from "./generated/SaveView";
-import type { Scope } from "./generated/Scope";
-import type { Started } from "./generated/Started";
-import type { VersionStatus } from "./generated/VersionStatus";
-import type { UpdateChannel } from "./generated/UpdateChannel";
-import type { VersionView } from "./generated/VersionView";
-import type { EditorState } from "./generated/EditorState";
-import type { WriteResult } from "./generated/WriteResult";
-import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
-import type { Rac2SaveView } from "./generated/Rac2SaveView";
-import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
-import type { Rac2ExtraFields } from "./generated/Rac2ExtraFields";
-import type { Rac2ExtraView } from "./generated/Rac2ExtraView";
-import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
-import type { AppInfo, DiscScan, GpuDriver, GpuDrivers } from "./api";
+import { mockRac2Extra, mockWriteRac2Extra } from "./mockRac2Extra";
 import type { UpdateInfo, UpdateProgressCallback } from "./updates";
 
 // ---- the files, as the Rust side parses them --------------------------------------
@@ -140,7 +143,10 @@ type RawSummary = Record<
   }
 >;
 
-const manifests = import.meta.glob<RawGame>("../../../games/*/game.json", { eager: true, import: "default" });
+const manifests = import.meta.glob<RawGame>("../../../games/*/game.json", {
+  eager: true,
+  import: "default",
+});
 
 /** port/game/<game>/differences.json, as core/src/differences.rs reads it. */
 interface RawDifferences {
@@ -161,6 +167,7 @@ const fixValues = new Map<string, Map<string, boolean>>();
 function mockDifferences(game: string, version: string): Differences {
   const list = Object.values(differenceLists).find((l) => l.game === game);
   const values = fixValues.get(`${game}/${version}`) ?? new Map<string, boolean>();
+
   return {
     game,
     version,
@@ -179,7 +186,11 @@ function mockDifferences(game: string, version: string): Differences {
       })),
   };
 }
-const actions = actionsFile as { repository: RawAction[]; versions: Record<string, RawAction[] | undefined> };
+
+const actions = actionsFile as {
+  repository: RawAction[];
+  versions: Record<string, RawAction[] | undefined>;
+};
 const summary = summaryFile as RawSummary;
 
 // ---- made-up state -------------------------------------------------------------------
@@ -207,7 +218,9 @@ let gpu: GpuDrivers = {
 
 // The launcher's update channels (core/src/update.rs): a release's build, and develop's development
 // builds. ?fork: a fork's launcher (someone/OpenRAC), which may follow any of its branches.
-const REPOSITORY = new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("fork")
+const REPOSITORY = new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+  "fork",
+)
   ? "someone/OpenRAC"
   : "OpenRAC/OpenRAC";
 const STABLE = {
@@ -241,19 +254,27 @@ let config: Config = {
   python: "/usr/bin/python3",
   // ?godot: Godot is chosen, so the Mods tab's level editor can open a level.
   // ?longpaths: a Godot deep in a Windows user folder, as a download leaves it (PathField.svelte).
-  godot: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("longpaths")
+  godot: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+    "longpaths",
+  )
     ? LONG_GODOTS[0]
     : new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("godot")
       ? "/usr/bin/godot"
       : null,
   docker: "/usr/bin/docker",
   // ?developer shows the contributor's pages.
-  developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("developer"),
+  developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+    "developer",
+  ),
   // ?advanced switches the advanced save editor on.
-  saveEditorAdvanced: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("advanced"),
+  saveEditorAdvanced: new URLSearchParams(
+    typeof location === "undefined" ? "" : location.search,
+  ).has("advanced"),
   incrementalBuilds: false,
   // ?setup opens the first-run screen.
-  setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup"),
+  setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+    "setup",
+  ),
   installDir: "/home/you/.local/share/dev.openrac.launcher",
   saveDir: null,
   // ?discs: a games folder is chosen.
@@ -265,21 +286,31 @@ let config: Config = {
   checkUpdates: true,
   // ?modupdates: the mods are looked at when the launcher starts, and the lock-strafe has an update.
   // Off otherwise, so its prompt does not cover every page of the preview.
-  checkModUpdates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("modupdates"),
+  checkModUpdates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+    "modupdates",
+  ),
   updateChannel: null,
   updateBranch: null,
-  theme: new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("theme") ?? "openrac",
+  theme:
+    new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("theme") ??
+    "openrac",
   discordClientId: null,
   // ?gold: Game colours off, every game in the launcher's gold.
-  gameColors: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("gold"),
+  gameColors: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+    "gold",
+  ),
   detailedGameLog: false,
   // ?vulkan: the desktop's Vulkan renderer is chosen (Settings, Advanced).
-  renderer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("vulkan")
+  renderer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+    "vulkan",
+  )
     ? "vulkan"
     : "opengl",
   safeRendering: false,
   // ?mods: the Mods switch under Play is on.
-  playWithMods: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("mods"),
+  playWithMods: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+    "mods",
+  ),
   crashesSeen: {},
   discChoice: {},
   discImages: {},
@@ -293,7 +324,13 @@ let config: Config = {
 };
 
 /** A used slot as an exported file names it (Export and Import saves). */
-function mockTransferSlot(serial: string, slotIndex: number, planetId: number, planetName: string, bolts: number) {
+function mockTransferSlot(
+  serial: string,
+  slotIndex: number,
+  planetId: number,
+  planetName: string,
+  bolts: number,
+) {
   return {
     folder: serial === "SCUS_972.68" ? "BASCUS-97268RATCHET" : "BESCES-50916RATCHET",
     slotIndex,
@@ -366,7 +403,9 @@ let mockReports: ReportEntry[] = query.has("nologs")
     ];
 
 /** Which games pretend to be set up from the player's disc, and as which version. */
-const fresh = new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("fresh");
+const fresh = new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+  "fresh",
+);
 // ?fresh: nothing is set up yet, as on a player's first start.
 const installs: Record<string, BuildInfo | undefined> = fresh
   ? {}
@@ -386,7 +425,13 @@ const built = query.has("built") || query.has("crash");
 /** The steps a built game and ready levels mean are done: the ones that made them. The rest
  *  (the editor's projects, the exports, the packs) are not, whatever the mock is asked to
  *  pretend. */
-const BUILT_DONE = new Set(["play", "port-build", "port-rebuild", "port-levels", "port-levels-check"]);
+const BUILT_DONE = new Set([
+  "play",
+  "port-build",
+  "port-rebuild",
+  "port-levels",
+  "port-levels-check",
+]);
 
 function installState(game: string): InstallState {
   return {
@@ -423,6 +468,7 @@ function status(key: string, v: RawVersion): VersionStatus {
     message: placed.has(key) ? "in place" : "not placed yet: run Place inputs",
   }));
   const boot = inputs.find((i) => i.from === "boot");
+
   return {
     disc: {
       state: disc,
@@ -439,21 +485,26 @@ function status(key: string, v: RawVersion): VersionStatus {
 function view(action: RawAction, st: VersionStatus | null, version?: string): ActionView {
   const state = action.state ?? "planned";
   // The Android APK carries both RAC1 programs. The disc's levels still need preparing.
-  const bundledPlay = platform === "android" && action.id === "play" && version?.startsWith("rac1/") === true;
+  const bundledPlay =
+    platform === "android" && action.id === "play" && version?.startsWith("rac1/") === true;
   const artifactMissing = !built && !bundledPlay && (action.requires ?? []).includes("artifact");
   // As core/src/actions.rs (runs_on): Android runs only a play action, unless one names it.
   const thisPlatform = action.platforms?.length
     ? action.platforms.includes(platform)
     : platform !== "android" || action.kind === "play";
   const blockers: string[] = [];
+
   if (state === "planned") {
     blockers.push("not connected to the launcher yet");
   } else {
     if (!thisPlatform) {
       blockers.push(
-        action.platforms?.length ? `runs on ${action.platforms.join(" and ")} only` : "runs on a computer only",
+        action.platforms?.length
+          ? `runs on ${action.platforms.join(" and ")} only`
+          : "runs on a computer only",
       );
     }
+
     for (const need of action.requires ?? []) {
       const missing: Record<string, boolean> = {
         disc: st?.disc.state !== "found",
@@ -473,10 +524,13 @@ function view(action: RawAction, st: VersionStatus | null, version?: string): Ac
         docker: "Docker",
         artifact: `${action.artifact ?? "its artifact"}, which an earlier step makes`,
       };
+
       if (missing[need]) blockers.push(`needs ${words[need] ?? need}`);
     }
+
     if (bundledPlay && !built) blockers.push("needs a check of the levels (Check the levels)");
   }
+
   return {
     id: action.id,
     label: action.label,
@@ -504,9 +558,11 @@ const shown = (action: RawAction) => !action.developer || config.developer;
 
 function progress(key: string): Progress | null {
   const row = summary[key];
+
   // A version with no report yet (progress null) has no figures, as in catalog.rs.
   if (!row?.progress) return null;
   const p = row.progress;
+
   return {
     matchedCode: p.matched_code,
     totalCode: p.total_code,
@@ -527,6 +583,7 @@ function library(): Library {
       const versions: VersionView[] = Object.entries(g.versions).map(([name, v]) => {
         const key = `${g.id}/${name}`;
         const st = status(key, v);
+
         return {
           key,
           game: g.id,
@@ -551,7 +608,11 @@ function library(): Library {
                 version: v.boot.version ?? null,
               }
             : null,
-          inputs: (v.inputs ?? []).map((i) => ({ from: i.from, path: i.path, target: i.target ?? null })),
+          inputs: (v.inputs ?? []).map((i) => ({
+            from: i.from,
+            path: i.path,
+            target: i.target ?? null,
+          })),
           target: v.target ?? null,
           setup: v.setup ?? null,
           buildHost: v.build?.host ?? null,
@@ -572,8 +633,16 @@ function library(): Library {
           portCleanReason: null,
         };
       });
-      return { id: g.id, title: g.title, year: g.year ?? null, install: installState(g.id), versions };
+
+      return {
+        id: g.id,
+        title: g.title,
+        year: g.year ?? null,
+        install: installState(g.id),
+        versions,
+      };
     });
+
   return {
     root: config.root ?? "",
     platform,
@@ -589,11 +658,13 @@ function library(): Library {
 type Listener = (event: JobEvent) => void;
 const listeners = new Set<Listener>();
 let nextJob = 0;
-let gameRunning = typeof location !== "undefined" && new URLSearchParams(location.search).has("playing");
+let gameRunning =
+  typeof location !== "undefined" && new URLSearchParams(location.search).has("playing");
 const timers = new Map<number, ReturnType<typeof setInterval>>();
 
 export function mockListen(handler: Listener): () => void {
   listeners.add(handler);
+
   return () => listeners.delete(handler);
 }
 
@@ -602,7 +673,9 @@ function emit(event: JobEvent) {
 }
 
 function findAction(scope: Scope, id: string): RawAction | undefined {
-  const list = scope.kind === "repository" ? actions.repository : (actions.versions[scope.key] ?? []);
+  const list =
+    scope.kind === "repository" ? actions.repository : (actions.versions[scope.key] ?? []);
+
   return list.find((a) => a.id === id);
 }
 
@@ -619,9 +692,13 @@ let mockCodeApplied = false;
 
 function mockSharePreview(): SharePreview {
   const m = (id: string, name: string, version: string) => ({ id, name, version });
+
   return {
     mods: [m("multiplayer", "Multiplayer", "0.9.0"), m("difficulty-mod", "Difficulty", "1.4.0")],
-    optional: [m("keyboard-mouse", "Keyboard and mouse", "2.0.1"), m("xbox-icons", "Xbox icons", "1.0.1")],
+    optional: [
+      m("keyboard-mouse", "Keyboard and mouse", "2.0.1"),
+      m("xbox-icons", "Xbox icons", "1.0.1"),
+    ],
     manual: [m("my-tweak", "My tweak", "0.1.0")],
     solo: [],
   };
@@ -630,7 +707,13 @@ function mockSharePreview(): SharePreview {
 /** A code's review: an entry starting with A already matches, with B asks to trust a source, with
  *  C is for another game, with D has parts that cannot be applied; any other has a bit of it all. */
 function mockReview(text: string): Review {
-  const line = (id: string, name: string, version: string, action: string, more: Partial<Review["mods"][0]> = {}) => ({
+  const line = (
+    id: string,
+    name: string,
+    version: string,
+    action: string,
+    more: Partial<Review["mods"][0]> = {},
+  ) => ({
     id,
     name,
     version,
@@ -669,6 +752,7 @@ function mockReview(text: string): Review {
     nothing: false,
   };
   const first = text.trim().toUpperCase()[0];
+
   if (first === "A") {
     return {
       ...base,
@@ -678,12 +762,33 @@ function mockReview(text: string): Review {
       nothing: true,
     };
   }
+
   if (first === "B") {
-    const mods = [line("gravity", "Low gravity", "2.1.0", "install", { source: "someone/rac-mods", fresh: true })];
-    return { ...base, mods, ask: [{ url: "https://github.com/someone/rac-mods", label: "someone/rac-mods" }] };
+    const mods = [
+      line("gravity", "Low gravity", "2.1.0", "install", {
+        source: "someone/rac-mods",
+        fresh: true,
+      }),
+    ];
+
+    return {
+      ...base,
+      mods,
+      ask: [{ url: "https://github.com/someone/rac-mods", label: "someone/rac-mods" }],
+    };
   }
+
   if (first === "C")
-    return { ...base, mods: [], disable: [], settings: [], game: "rac2", wrongGame: true, partial: true };
+    return {
+      ...base,
+      mods: [],
+      disable: [],
+      settings: [],
+      game: "rac2",
+      wrongGame: true,
+      partial: true,
+    };
+
   if (first === "D") {
     return {
       ...base,
@@ -700,6 +805,7 @@ function mockReview(text: string): Review {
       partial: true,
     };
   }
+
   return base;
 }
 
@@ -707,14 +813,25 @@ let mockEditor = query.get("editor") ?? "ready";
 const mockHold = /^([a-z]+):(\d+)\/(\d+)(?::(\d+))?$/.exec(query.get("progress") ?? "");
 
 /** What the editor's tools print as they go (editor/progress_line.py), a few counts of each step. */
-function progressLines(step: string, total: number, levels: (n: number) => number = (n) => n - 1): string[] {
+function progressLines(
+  step: string,
+  total: number,
+  levels: (n: number) => number = (n) => n - 1,
+): string[] {
   const counts = [0, ...[0.25, 0.5, 0.75].map((f) => Math.round(total * f)), total].filter(
     (n, i, all) => all.indexOf(n) === i,
   );
+
   return counts.map((n) => `openrac-progress: ${step} ${n}/${total}${n ? ` ${levels(n)}` : ""}`);
 }
 
-const EDITOR_JOBS = ["editor-extract", "editor-reexport", "editor-pack", "port-levels", "port-levels-visibility"];
+const EDITOR_JOBS = [
+  "editor-extract",
+  "editor-reexport",
+  "editor-pack",
+  "port-levels",
+  "port-levels-visibility",
+];
 
 function mockEditorState(): EditorState {
   const all = Array.from({ length: 19 }, (_, i) => i);
@@ -738,6 +855,7 @@ function mockEditorState(): EditorState {
     path: "/home/you/OpenRAC/assets/levels/rac1/pal-backups/20261028-101500",
     levels: all,
   };
+
   switch (mockEditor) {
     case "unpacked":
       return { ...state, unpacked: [0, 3] };
@@ -769,7 +887,7 @@ function mockEditorState(): EditorState {
   }
 }
 
-function lastLines(id: string, args: Record<string, unknown>): string[] {
+function lastLines(id: string, args: Record<string, unknown>, scope?: Scope): string[] {
   const data = `${config.installDir ?? ""}/active/rac1/data`;
   const level = String(typeof args.level === "number" ? args.level : 0).padStart(2, "0");
   const path = typeof args.path === "string" ? args.path : "";
@@ -778,7 +896,52 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
       .split(/[\\/]/)
       .at(-1)
       ?.replace(/\.zip$/i, "") ?? "pack";
+
   switch (id) {
+    case "interface-export":
+      return [
+        '{"event": "start", "total": 565}',
+        `{"event": "done", "folder": "${data}/exports/interface-${String(args.option)}", "written": {"font": 96, "interface": 412, "effects": 57}, "skipped": {"disc": 0, "different": 0, "unwritable": 0}}`,
+        `openrac-output: ${data}/exports/interface-${String(args.option)}`,
+      ];
+    case "interface-run": {
+      const key = scope?.kind === "version" ? scope.key.replace("/", "-") : "";
+      // The kinds asked for are added to the earlier run (run.py --kinds).
+      const kinds = (
+        typeof args.option === "string" ? args.option : "font,interface,effects"
+      ).split(",");
+      const earlier = mockInterfaceRun[key];
+      const full = [96, 430, 61];
+      const has = (at: number) => kinds.includes(["font", "interface", "effects"][at] ?? "");
+      const pick = <T>(at: number, now: T, then: T): T => (has(at) ? now : then);
+
+      mockInterfaceRun[key] = {
+        made: "2026-11-14",
+        counts: [0, 1, 2].map((at) => pick(at, full[at] ?? 0, earlier?.counts[at] ?? 0)) as [
+          number,
+          number,
+          number,
+        ],
+        clean: true,
+        current: true,
+        complete: [0, 1, 2].map((at) => pick(at, true, earlier?.complete[at] ?? false)) as [
+          boolean,
+          boolean,
+          boolean,
+        ],
+        kindMade: [0, 1, 2].map((at) =>
+          pick<string | null>(at, "2026-11-14", earlier?.kindMade[at] ?? null),
+        ) as [string | null, string | null, string | null],
+      };
+
+      return [
+        '{"event": "start", "game": "' + key + '", "routes": 3, "skipped": []}',
+        '{"event": "route", "key": "00-long", "name": "Veldin", "status": "ok", "done": 1, "of": 3}',
+        '{"event": "route", "key": "01-pause-0", "name": "Pause", "status": "ok", "done": 2, "of": 3}',
+        '{"event": "route", "key": "title-new", "name": "Title", "status": "ok", "done": 3, "of": 3}',
+        `openrac-output: ${data}/interface_runs/${key}.json`,
+      ];
+    }
     case "assets-export":
       return [
         `level ${level}: 215 models, 414 textures`,
@@ -786,6 +949,7 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
       ];
     case "assets-import":
       mockPacks.push({ ...samplePack(name), id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") });
+
       return [
         "texture moby_0000 (1024 x 1024) replaces the game's in 20 places (the same picture in 19 more)",
         "refused: level 00 texture tie_0004.png is 300 x 200, but the game's tie_0004 is 64 x 64 (1:1); keep that shape, for example 128 x 128, 256 x 256",
@@ -805,12 +969,18 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
         models: 0,
         sounds: 3,
       });
+
       return [`Imported 3 sound(s) into ${data}/overrides as ${name}`];
     case "overrides-add":
       mockPacks.push({ ...samplePack(name), id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") });
+
       return [`Added ${name} as ${name.toLowerCase()}, on, last in the order.`];
     case "editor-extract":
-      return ["openrac-progress: project", ...progressLines("read", 19), "Godot projects, one per level: done"];
+      return [
+        "openrac-progress: project",
+        ...progressLines("read", 19),
+        "Godot projects, one per level: done",
+      ];
     case "editor-reexport":
       return [
         ...progressLines("read", 19),
@@ -818,13 +988,18 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
         "Godot projects: 19 written again; the old ones, with any edits, are in the backups folder.",
       ];
     case "editor-pack":
-      return [...progressLines("pack", 2, (n) => (n === 1 ? 0 : 3)), "Packed 2 level(s), 3 moby edit(s)"];
+      return [
+        ...progressLines("pack", 2, (n) => (n === 1 ? 0 : 3)),
+        "Packed 2 level(s), 3 moby edit(s)",
+      ];
     case "port-levels":
       return progressLines("read", 19);
     case "port-levels-visibility":
       return progressLines("visibility", 19);
     case "overrides-stack":
-      return [`Stacked ${mockPacks.filter((p) => p.enabled).length + 1} layer(s), 99 file(s): ${data}/mods/pal`];
+      return [
+        `Stacked ${mockPacks.filter((p) => p.enabled).length + 1} layer(s), 99 file(s): ${data}/mods/pal`,
+      ];
     default:
       return ["\u2714 step one", "\u2714 step two", "done"];
   }
@@ -853,7 +1028,9 @@ const mockSources: ModSources = {
 function mockPreview(url: string): RemotePreview {
   return {
     url: "https://github.com/OpenRAC/openrac-mods",
-    label: url.includes("openrac-mods") ? "OpenRAC/openrac-mods" : url.replace(/^https?:\/\/(www\.)?github\.com\//, ""),
+    label: url.includes("openrac-mods")
+      ? "OpenRAC/openrac-mods"
+      : url.replace(/^https?:\/\/(www\.)?github\.com\//, ""),
     host: "github",
     owner: "OpenRAC",
     reference: "v1.1.0",
@@ -865,7 +1042,8 @@ function mockPreview(url: string): RemotePreview {
         name: "Lock-strafe",
         version: "1.1.0",
         author: "OpenRAC contributors",
-        description: "Strafe as in the later games: hold L2 or R2, or lock it on with a weapon in hand.",
+        description:
+          "Strafe as in the later games: hold L2 or R2, or lock it on with a weapon in hand.",
         homepage: "https://github.com/OpenRAC/openrac-mods",
         path: "lock-strafe",
         kind: "native",
@@ -899,7 +1077,8 @@ function mockPreview(url: string): RemotePreview {
         name: "Button swap",
         version: "1.0.0",
         author: "OpenRAC contributors",
-        description: "Swaps two buttons of the controller: Cross and Square, Circle and Triangle, or L1 and R1.",
+        description:
+          "Swaps two buttons of the controller: Cross and Square, Circle and Triangle, or L1 and R1.",
         homepage: "https://github.com/OpenRAC/openrac-mods",
         path: "button-swap",
         kind: "script",
@@ -1000,7 +1179,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             section: "Mouse",
             type: "bool",
             default: false,
-            description: "Mouse up looks down. The game's own invert options are for the controller.",
+            description:
+              "Mouse up looks down. The game's own invert options are for the controller.",
             value: false,
           },
           {
@@ -1023,7 +1203,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             section: "Mouse",
             type: "bool",
             default: true,
-            description: "Hides the cursor and keeps it in the window while you play; menus and pausing let it go.",
+            description:
+              "Hides the cursor and keeps it in the window while you play; menus and pausing let it go.",
             value: true,
           },
           {
@@ -1113,7 +1294,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             default: 60,
             min: 0,
             max: 300,
-            description: "How long the movement keys take to push the stick all the way: a tap nudges, a hold runs.",
+            description:
+              "How long the movement keys take to push the stick all the way: a tap nudges, a hold runs.",
             value: 60,
           },
           {
@@ -1143,7 +1325,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             type: "keybind",
             default: "ShiftLeft",
             group: "play",
-            description: "L2. Ratchet & Clank: only with the lock-strafe mod (its Hold mode strafes with it).",
+            description:
+              "L2. Ratchet & Clank: only with the lock-strafe mod (its Hold mode strafes with it).",
             value: "ShiftLeft",
           },
           {
@@ -1175,7 +1358,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             default: 30,
             min: 5,
             max: 200,
-            description: "How far, in pixels, the mouse moves before the Quick Select points at a slot.",
+            description:
+              "How far, in pixels, the mouse moves before the Quick Select points at a slot.",
             value: 30,
           },
           {
@@ -1205,7 +1389,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             type: "keybind",
             default: "Digit1",
             group: "play",
-            description: "Takes the item in that slot of the Quick Select at once (slot 1 is the top, then clockwise).",
+            description:
+              "Takes the item in that slot of the Quick Select at once (slot 1 is the top, then clockwise).",
             value: "Digit1",
           },
           {
@@ -1308,7 +1493,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             type: "keybind",
             default: "Escape,KeyP",
             group: "play",
-            description: "Start in play: the pause menu. In menus it goes back; in a scene or a movie it skips.",
+            description:
+              "Start in play: the pause menu. In menus it goes back; in a scene or a movie it skips.",
             value: "Escape,KeyP",
           },
           {
@@ -1429,7 +1615,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             name: "Mode",
             type: "choice",
             default: "lock",
-            description: "Lock: always, with a weapon that fires ahead. Hold: while L2 or R2 is held.",
+            description:
+              "Lock: always, with a weapon that fires ahead. Hold: while L2 or R2 is held.",
             choices: [
               { value: "lock", name: "Lock with weapons" },
               { value: "hold", name: "Hold L2 or R2" },
@@ -1456,7 +1643,17 @@ let mockPlugins: PluginView[] = query.has("nomods")
         state: "refused",
         reason: "Needs OpenRAC with mod interface 2.0; this one has 1.0.",
         blocked: "",
-        settings: [{ key: "fov", name: "Field of view", type: "int", default: 70, min: 50, max: 110, value: 80 }],
+        settings: [
+          {
+            key: "fov",
+            name: "Field of view",
+            type: "int",
+            default: 70,
+            min: 50,
+            max: 110,
+            value: 80,
+          },
+        ],
         hooks: ["FollowCamera_ApplyOverrides"],
         sharedHooks: [{ hook: "FollowCamera_ApplyOverrides", with: ["Lock-strafe"] }],
         native: true,
@@ -1548,7 +1745,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             name: "Shuffle gadgets",
             type: "bool",
             default: true,
-            description: "The gadgets NPCs and pickups give: the Swingshot, the Heli-Pack, the Magneboots, ...",
+            description:
+              "The gadgets NPCs and pickups give: the Swingshot, the Heli-Pack, the Magneboots, ...",
             value: true,
           },
           {
@@ -1556,7 +1754,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             name: "Shuffle weapons",
             type: "bool",
             default: true,
-            description: "The weapons NPCs and pickups give: the Suck Cannon, the Morph-o-Ray, the R.Y.N.O.",
+            description:
+              "The weapons NPCs and pickups give: the Suck Cannon, the Morph-o-Ray, the R.Y.N.O.",
             value: true,
           },
           {
@@ -1738,7 +1937,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             name: "Damage to Ratchet",
             type: "float",
             default: 1.0,
-            description: "Cells of health a hit takes, on average: 2 is two cells a hit, 0.5 a cell every other hit.",
+            description:
+              "Cells of health a hit takes, on average: 2 is two cells a hit, 0.5 a cell every other hit.",
             min: 0.25,
             max: 4.0,
             step: 0.25,
@@ -1749,7 +1949,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             name: "Damage to enemies",
             type: "float",
             default: 1.0,
-            description: "The damage of every hit on an enemy or a boss: your weapons, the wrench, explosions.",
+            description:
+              "The damage of every hit on an enemy or a boss: your weapons, the wrench, explosions.",
             min: 0.25,
             max: 4.0,
             step: 0.25,
@@ -1760,7 +1961,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             name: "Enemy speed",
             type: "float",
             default: 1.0,
-            description: "How fast enemies and turrets move, turn, animate and fire (what their own clocks run on).",
+            description:
+              "How fast enemies and turrets move, turn, animate and fire (what their own clocks run on).",
             min: 0.5,
             max: 2.0,
             step: 0.05,
@@ -1898,7 +2100,8 @@ let mockPlugins: PluginView[] = query.has("nomods")
             name: "Trace",
             type: "bool",
             default: false,
-            description: "For bug reports: more lines in the game's log (each level's values, max health changes).",
+            description:
+              "For bug reports: more lines in the game's log (each level's values, max health changes).",
             value: false,
           },
         ],
@@ -1938,6 +2141,11 @@ let mockPlugins: PluginView[] = query.has("nomods")
       },
     ];
 
+/** The mods as plugins_list answers: keyboard-mouse is built in now, its own entry, not a mod. */
+function listedPlugins(): PluginView[] {
+  return mockPlugins.filter((p) => p.id !== "keyboard-mouse").map((p) => ({ ...p }));
+}
+
 // ?manymods: a long list, as a player with many mods has (My mods' toolbar, search and moving).
 if (query.has("manymods")) {
   const more: [string, string, "native" | "script", boolean][] = [
@@ -1955,6 +2163,7 @@ if (query.has("manymods")) {
     ["Vendor tweaks", "Prices and stock of Gadgetron's vendors.", "script", false],
   ];
   const at = mockPlugins.findIndex((p) => p.kind === "tool");
+
   mockPlugins.splice(
     at < 0 ? mockPlugins.length : at,
     0,
@@ -1983,6 +2192,7 @@ if (query.has("manymods")) {
 /** What the preview's game says it did with the mods at its last start. */
 function mockPluginStatus(): PluginStatus | null {
   if (mockPlugins.length === 0) return null;
+
   return {
     time: new Date().toISOString(),
     version: "pal",
@@ -2019,6 +2229,8 @@ function samplePack(name: string): PackView {
 }
 
 /** A game's texture pack and saved textures, as the preview pretends (`?notextures`: none yet). */
+/** The player's own interface runs, by version id, once "Make an interface run" ran. */
+const mockInterfaceRun: Record<string, InterfaceRun> = {};
 const mockTextures: TexturePackView = query.has("notextures")
   ? {
       id: "",
@@ -2076,7 +2288,14 @@ if (query.has("manymods")) {
       levels: 0,
       sounds: 14,
     },
-    { ...samplePack("ship-skins"), name: "Ship skins", author: "someone", textures: 36, models: 2, levels: 3 },
+    {
+      ...samplePack("ship-skins"),
+      name: "Ship skins",
+      author: "someone",
+      textures: 36,
+      models: 2,
+      levels: 3,
+    },
   );
 }
 
@@ -2098,6 +2317,7 @@ const summaryPreparedPacks = mockPacks
 
 function start(scope: Scope, id: string, args: Record<string, unknown> = {}): Started {
   const action = findAction(scope, id);
+
   if (!action) throw new Error(`no action ${id}`);
   const lib = library();
   const list =
@@ -2105,14 +2325,23 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       ? lib.repository
       : (lib.games.flatMap((g) => g.versions).find((v) => v.key === scope.key)?.actions ?? []);
   const v = list.find((a) => a.id === id);
+
   if (!v?.runnable) throw new Error(`${action.label}: ${v?.blockers.join("; ") ?? "cannot run"}`);
   const command = [action.program ?? "?", ...(action.args ?? [])].join(" ");
+
   if (action.detached) return { id: 0, title: action.label, command, detached: true, output: null };
 
-  const lines = [`$ ${command}`, "(browser preview: nothing really runs)", "working…", ...lastLines(id, args)];
+  const lines = [
+    `$ ${command}`,
+    "(browser preview: nothing really runs)",
+    "working…",
+    ...lastLines(id, args, scope),
+  ];
+
   // The build prints ninja's counter and long paths, as the real one does: to try the progress strip.
   if (id === "port-build") {
     const total = 60;
+
     for (let n = 1; n <= total; n++) {
       lines.splice(
         2 + n,
@@ -2121,16 +2350,20 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       );
     }
   }
+
   // ?toolerror=<code>: the editor's extract or pack stops as the tool does, its code first.
   const toolError = query.get("toolerror");
+
   if (toolError && ["editor-pack", "editor-extract", "editor-reexport"].includes(id)) {
     const raw = [
       ...lines.slice(0, 3),
       `openrac-error: ${toolError}`,
       "extract: level 00: this PAL project predates the 60 Hz gameplay fix. Extract the levels again to back up the old project and create a 60 Hz project, then reapply your intended edits. Do not copy the whole old scene.",
     ];
+
     return fakeJob(action.label, command, raw, () => undefined, 1);
   }
+
   // ?progress=…: an editor job stops at that count and runs on, to see the bar mid-way.
   if (mockHold && EDITOR_JOBS.includes(id)) {
     const [, step, done, total, level] = mockHold;
@@ -2140,8 +2373,10 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       `openrac-progress: ${step} 0/${total}`,
       `openrac-progress: ${step} ${done}/${total}${level ? ` ${level}` : ""}`,
     ];
+
     return fakeJob(action.label, command, held, () => undefined, 0, [], true);
   }
+
   if (id === "probe-bake" && query.get("fail") === "bake") {
     const error = {
       version: 1,
@@ -2154,6 +2389,7 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       stage: "Read baker profile",
       log: "/home/you/OpenRAC/lighting/rac1/ntsc/probe-bake.log",
     };
+
     return fakeJob(
       action.label,
       command,
@@ -2162,32 +2398,47 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       1,
     );
   }
+
   // ?fail: every job stops with an error, to see how a failure reads.
   if (query.has("fail")) {
     const failed = [...lines.slice(0, 3), "error: the step could not finish (browser preview)"];
+
     return fakeJob(action.label, command, failed, () => undefined, 1);
   }
+
   // ?crash: the game stops on a fault, as the port does (exit status 3, a report in crashes/).
   if (action.kind === "play" && query.has("crash")) {
     const crashed = [...lines, "[error] ==== the program stopped: fault ===="];
-    return fakeJob(action.label, command, crashed, () => (mockCrash.time = Math.floor(Date.now() / 1000)), 3);
+
+    return fakeJob(
+      action.label,
+      command,
+      crashed,
+      () => (mockCrash.time = Math.floor(Date.now() / 1000)),
+      3,
+    );
   }
+
   // The folder the editor's pack and the asset export write, for the Mods tab's "Open folder".
   const outputs =
     id === "editor-pack"
       ? [`/home/you/OpenRAC/assets/packed/${scope.kind === "version" ? scope.key : ""}`]
       : id === "audio-export" || id === "audio-export-all"
         ? [`/home/you/exports/audio-${String(args.option)}-20261101T0900`]
-        : id === "assets-export"
-          ? [
-              `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
-            ]
-          : [];
+        : id === "interface-export"
+          ? [`/home/you/exports/interface-${String(args.option)}`]
+          : id === "assets-export"
+            ? [
+                `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
+              ]
+            : [];
   const moved = () => {
-    if (id === "editor-extract") mockEditor = ["outdated", "broken"].includes(mockEditor) ? "carried" : "ready";
+    if (id === "editor-extract")
+      mockEditor = ["outdated", "broken"].includes(mockEditor) ? "carried" : "ready";
     if (id === "editor-reexport") mockEditor = "carried";
     if (id === "editor-pack") mockEditor = "packed";
   };
+
   return fakeJob(action.label, command, lines, moved, 0, outputs);
 }
 
@@ -2204,14 +2455,18 @@ function fakeJob(
 ): Started {
   const job = ++nextJob;
   let i = 0;
+
   timers.set(
     job,
     setInterval(() => {
       const line = lines[i++];
+
       if (line !== undefined) {
         emit({ type: "output", id: job, stream: "stdout", line });
+
         return;
       }
+
       if (hold) return;
       clearInterval(timers.get(job));
       timers.delete(job);
@@ -2219,12 +2474,14 @@ function fakeJob(
       emit({ type: "exit", id: job, code, cancelled: false, outputs });
     }, 450),
   );
+
   return { id: job, title, command, detached: false, output: null };
 }
 
 function install(game: string, image: string): Started {
   const g = Object.values(manifests).find((m) => m.id === game);
   const [name, v] = Object.entries(g?.versions ?? {})[0] ?? [];
+
   if (!g || !name || !v) throw new Error(`no game ${game}`);
   const serial = v.serial ?? "";
   const command = `python3 tools/extractor.py ${image} --game ${game} --extract --validate`;
@@ -2236,8 +2493,15 @@ function install(game: string, image: string): Started {
     "  disc.iso: linked",
     "extracted (browser preview: nothing really runs)",
   ];
+
   return fakeJob(`Set up ${game} from your disc`, command, lines, () => {
-    installs[game] = { serial, version: `${game}/${name}`, elfSha1: v.boot?.sha1 ?? "", files: 3, image };
+    installs[game] = {
+      serial,
+      version: `${game}/${name}`,
+      elfSha1: v.boot?.sha1 ?? "",
+      files: 3,
+      image,
+    };
   });
 }
 
@@ -2303,43 +2567,51 @@ const savedFields: Record<string, SaveFields> = {};
 
 /** Going Commando's items as core/src/save_edit_rac2.rs lists them: id, name, kind, full ammo of
  *  the first version, upgrade name and experience, and whether it has later versions. */
-const RAC2_ITEMS: [number, string, "weapon" | "gadget", number | null, string | null, number | null, boolean][] = [
+const RAC2_ITEMS: [
+  number,
+  string,
+  "weapon" | "gadget",
+  number | null,
+  string | null,
+  number | null,
+  boolean,
+][] = [
   [2, "Heli-Pack", "gadget", null, null, null, false],
   [3, "Thruster-Pack", "gadget", null, null, null, false],
   [4, "Hydro-Pack", "gadget", null, null, null, false],
   [5, "Mapper", "gadget", null, null, null, false],
   [7, "Armor Magnetizer", "gadget", null, null, null, false],
   [8, "Levitator", "gadget", null, null, null, false],
-  [9, "Clank Zapper", "weapon", 30, "Clank Shocker", 80000, true],
+  [9, "Clank Zapper", "weapon", 30, "Clank Shocker", 2500, true],
   [12, "Bomb Glove", "weapon", 40, null, null, true],
   [13, "Swingshot", "gadget", null, null, null, false],
   [14, "Visibomb Gun", "weapon", 20, null, null, true],
-  [16, "Sheepinator", "weapon", null, "Black Sheepinator", 28800, true],
+  [16, "Sheepinator", "weapon", null, "Black Sheepinator", 900, true],
   [17, "Decoy Glove", "weapon", 20, null, null, true],
   [18, "Tesla Claw", "weapon", 300, null, null, true],
   [19, "Gravity Boots", "gadget", null, null, null, false],
   [20, "Grindboots", "gadget", null, null, null, false],
   [21, "Glider", "gadget", null, null, null, false],
-  [22, "Chopper", "weapon", 35, "Multi-Star", 12800, true],
-  [23, "Pulse Rifle", "weapon", 8, "Vaporizer", 4800, true],
-  [24, "Seeker Gun", "weapon", 25, "HK-22", 33600, true],
-  [25, "Hoverbomb Gun", "weapon", 10, "Tetrabomb Gun", 112000, true],
-  [26, "Blitz Gun", "weapon", 40, "Blitz Cannon", 24000, true],
-  [27, "Minirocket Tube", "weapon", 25, "Megarocket Cannon", 128000, true],
-  [28, "Plasma Coil", "weapon", 15, "Plasma Storm", 67200, true],
-  [29, "Lava Gun", "weapon", 200, "Meteor Gun", 44800, true],
-  [30, "Lancer", "weapon", 200, "Heavy Lancer", 8960, true],
-  [31, "Synthenoid", "weapon", 12, "Kilonoid", 38400, true],
-  [32, "Spiderbot Glove", "weapon", 8, "Tankbot Glove", 32000, true],
+  [22, "Chopper", "weapon", 35, "Multi-Star", 400, true],
+  [23, "Pulse Rifle", "weapon", 8, "Vaporizer", 150, true],
+  [24, "Seeker Gun", "weapon", 25, "HK-22", 1050, true],
+  [25, "Hoverbomb Gun", "weapon", 10, "Tetrabomb Gun", 3500, true],
+  [26, "Blitz Gun", "weapon", 40, "Blitz Cannon", 750, true],
+  [27, "Minirocket Tube", "weapon", 25, "Megarocket Cannon", 4000, true],
+  [28, "Plasma Coil", "weapon", 15, "Plasma Storm", 2100, true],
+  [29, "Lava Gun", "weapon", 200, "Meteor Gun", 1400, true],
+  [30, "Lancer", "weapon", 200, "Heavy Lancer", 280, true],
+  [31, "Synthenoid", "weapon", 12, "Kilonoid", 1200, true],
+  [32, "Spiderbot Glove", "weapon", 8, "Tankbot Glove", 1000, true],
   [36, "Dynamo", "gadget", null, null, null, false],
-  [37, "Bouncer", "weapon", 25, "Heavy Bouncer", 54400, true],
+  [37, "Bouncer", "weapon", 25, "Heavy Bouncer", 1700, true],
   [38, "Electrolyzer", "gadget", null, null, null, false],
   [39, "Thermanator", "gadget", null, null, null, false],
-  [41, "Miniturret Glove", "weapon", 20, "Megaturret Glove", 24000, true],
-  [42, "Gravity Bomb", "weapon", 8, "Mini-Nuke", 6400, true],
+  [41, "Miniturret Glove", "weapon", 20, "Megaturret Glove", 750, true],
+  [42, "Gravity Bomb", "weapon", 8, "Mini-Nuke", 200, true],
   [43, "Zodiac", "weapon", 4, null, null, false],
   [44, "RYNO II", "weapon", 100, null, null, false],
-  [45, "Shield Charger", "weapon", 5, "Tesla Barrier", 14400, true],
+  [45, "Shield Charger", "weapon", 5, "Tesla Barrier", 450, true],
   [46, "Tractor Beam", "gadget", null, null, null, false],
   [49, "Qwark Statuette", "gadget", null, null, null, false],
   [50, "Box Breaker", "gadget", null, null, null, false],
@@ -2391,7 +2663,13 @@ const RAC2_FLAGS: [string, number | null, string, string, "proven" | "fromCode"]
     "The scene the first visit to the arena plays (cinematic 331).",
     "proven",
   ],
-  ["mock-unverified", 2, "A flag read from the code", "Shown with the unverified tag in the preview.", "fromCode"],
+  [
+    "mock-unverified",
+    2,
+    "A flag read from the code",
+    "Shown with the unverified tag in the preview.",
+    "fromCode",
+  ],
 ];
 const savedRac2: Record<string, Rac2SaveFields> = {};
 
@@ -2403,7 +2681,12 @@ function mockRac2Versions(
   up: string | null,
   xp: number | null,
 ): Rac2SaveView["items"][number]["versions"] {
-  const v = (k: number, how: "first" | "experience" | "bought", min: number | null, max: number | null) => ({
+  const v = (
+    k: number,
+    how: "first" | "experience" | "bought",
+    min: number | null,
+    max: number | null,
+  ) => ({
     label: `V${String(k + 1)}`,
     name: k > 0 && up ? up : name,
     how,
@@ -2413,13 +2696,17 @@ function mockRac2Versions(
     minXp: min,
     maxXp: max,
   });
-  if (xp === null) return [v(0, "first", null, null), v(1, "bought", null, null)];
-  if (id === 9) return [v(0, "first", 0, xp - 1), v(1, "experience", xp, 9_999_999)];
+
+  // Every weapon counts experience; the last version takes any count (the core's rule).
+  if (xp === null) return [v(0, "first", 0, 9_999_999), v(1, "bought", 0, 9_999_999)];
+  if (id === 9)
+    return [v(0, "first", 0, xp - 1), { ...v(1, "experience", xp, 9_999_999), minXp: 0 }];
+
   return [
     v(0, "first", 0, xp - 1),
     v(1, "experience", xp, 9_999_999),
     v(2, "bought", 0, xp * 10 - 1),
-    v(3, "experience", xp * 10, 9_999_999),
+    { ...v(3, "experience", xp * 10, 9_999_999), minXp: 0 },
   ];
 }
 
@@ -2429,15 +2716,18 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
   const fields: Rac2SaveFields = savedRac2[`${serial}/${String(slot)}`] ?? {
     bolts: 123456,
     raritanium: 0,
-    nanotechXp: 4141,
+    nanotechXp: 129,
     boosts: Array<boolean>(10).fill(false),
     armor: 0,
+    hand: 30,
+    pack: 2,
+    chargeBoots: false,
     shipPaint: 0,
-    items: RAC2_ITEMS.map(([id, , , ammo, up]) => ({
+    items: RAC2_ITEMS.map(([id, , kind, ammo]) => ({
       id,
       owned: owned.has(id),
       ammo: ammo === null ? null : owned.has(id) ? ammo : 0,
-      xp: up === null ? null : id === 30 ? 1968 : 0,
+      xp: kind === "weapon" ? (id === 30 ? 61 : 0) : null,
       version: RAC2_ITEMS.find((i) => i[0] === id)?.[6] ? 0 : null,
     })),
     planets: RAC2_LEVELS.map(([id]) => ({
@@ -2449,6 +2739,7 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
     skillPoints: Array<boolean>(30).fill(false),
     flags: RAC2_FLAGS.map(([id]) => ({ id, on: false })),
   };
+
   return {
     serial,
     slot,
@@ -2464,14 +2755,16 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
       maxAmmo: ammo,
       upgradeName: up,
       upgradeXp: xp,
-      maxXp: xp === null ? null : xp - 1,
+      maxXp: kind !== "weapon" ? null : xp === null ? 9_999_999 : xp - 1,
       versions: versions ? mockRac2Versions(id, name, ammo, up, xp) : [],
-      worn: id === 30,
+      worn: false,
+      holdable: kind === "weapon" && ![9, 31, 45].includes(id),
     })),
     planets: RAC2_LEVELS.map(([id, name]) => ({ id, name })),
     maxBolts: 9_999_999,
     maxXp: 9_999_999,
     challengeMode: 1,
+    bootsEditable: true,
     flags: RAC2_FLAGS.map(([id, level, name, description, confidence]) => ({
       id,
       level,
@@ -2481,6 +2774,7 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
     })),
   };
 }
+
 const savedRaw: Record<string, Record<string, string>> = {};
 
 /** The chunks as core/src/save_edit.rs lists them: id, size, name, decoded. */
@@ -2559,18 +2853,29 @@ function mockChunks(serial: string, slot: number, f: SaveFields): SaveView["chun
   const raw = savedRaw[`${serial}/${String(slot)}`] ?? {};
   const zero = (n: number) => Array.from({ length: n }, () => "00").join(" ");
   const out: SaveView["chunks"] = [];
+
   for (const [id, size, name, known] of mockGlobalChunks) {
     let hex = zero(size);
+
     if (id === 0) hex = word(f.planet);
     if (id === 1) hex = word(f.bolts);
     if (id === 19) hex = word(f.nanotech === "ultra" ? 8 : f.nanotech === "premium" ? 5 : 4);
     out.push({ section: null, id, size, name, known, hex: raw[`g:${String(id)}`] ?? hex });
   }
+
   for (let l = 0; l < 20; l++) {
     for (const [id, size, name, known] of mockLevelChunks) {
-      out.push({ section: l, id, size, name, known, hex: raw[`${String(l)}:${String(id)}`] ?? zero(size) });
+      out.push({
+        section: l,
+        id,
+        size,
+        name,
+        known,
+        hex: raw[`${String(l)}:${String(id)}`] ?? zero(size),
+      });
     }
   }
+
   return out;
 }
 
@@ -2593,6 +2898,7 @@ function mockSave(serial: string, slot: number): SaveView {
     })),
     skillPoints: Array.from({ length: 30 }, (_, k) => k % 7 === 0),
   };
+
   return {
     serial,
     slot,
@@ -2625,7 +2931,9 @@ function mockSave(serial: string, slot: number): SaveView {
     chunks: mockChunks(serial, slot, fields),
     playedSeconds: slot === 1 ? 3 * 3600 + 12 * 60 : 47 * 60,
     // The names come from the player's disc; the preview has none, so ?skillnames shows sample ones.
-    skillNames: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("skillnames")
+    skillNames: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+      "skillnames",
+    )
       ? Array.from({ length: 30 }, (_, k) => `Skill point name ${String(k + 1)}`)
       : [],
   };
@@ -2640,9 +2948,13 @@ const delay = <T>(value: T) =>
     }, 120),
   );
 
-const steamAsked = () => new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("steam");
+const steamAsked = () =>
+  new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("steam");
 
-export async function mockCall(command: string, args: Record<string, unknown> = {}): Promise<unknown> {
+export async function mockCall(
+  command: string,
+  args: Record<string, unknown> = {},
+): Promise<unknown> {
   switch (command) {
     case "app_info":
       return delay<AppInfo>({
@@ -2650,32 +2962,49 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         platform,
         configFile: "~/.config/dev.openrac.launcher/launcher.json",
         // ?standalone shows an installed launcher's pages: no checkout, nothing to find.
-        standalone: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("standalone"),
+        standalone: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+          "standalone",
+        ),
         // ?devbuild: a development build, whose Stable channel offers the older release.
-        updates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("devbuild")
+        updates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
+          "devbuild",
+        )
           ? DEV
           : STABLE,
         updateChannels: { stable: STABLE, dev: DEV },
         // ?nocompositing: a Steam Deck's webview, without page slides.
-        noCompositing: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("nocompositing"),
+        noCompositing: new URLSearchParams(
+          typeof location === "undefined" ? "" : location.search,
+        ).has("nocompositing"),
         safeRenderingAfterCrash: false,
       });
     case "get_config":
       return delay<Config>({ ...config });
+
     case "save_config": {
       config = { ...(args.config as Config) };
       // For the e2e tests: how many writes, and the last one (Games keeps a pick once it stops).
       const seen = window as unknown as { __openracConfigWrites?: { count: number; last: Config } };
-      seen.__openracConfigWrites = { count: (seen.__openracConfigWrites?.count ?? 0) + 1, last: { ...config } };
+
+      seen.__openracConfigWrites = {
+        count: (seen.__openracConfigWrites?.count ?? 0) + 1,
+        last: { ...config },
+      };
+
       return delay<Config>({ ...config });
     }
+
     case "adopt_godot":
       return delay<Config>({ ...config });
     case "detect":
       return delay<Detected>({
-        roots: query.has("setup") ? [] : [{ path: "/home/you/OpenRAC", source: "next to the launcher" }],
+        roots: query.has("setup")
+          ? []
+          : [{ path: "/home/you/OpenRAC", source: "next to the launcher" }],
         pythons: [{ path: "/usr/bin/python3", source: "PATH" }],
-        godots: query.has("longpaths") ? LONG_GODOTS.map((path) => ({ path, source: "Downloads" })) : [],
+        godots: query.has("longpaths")
+          ? LONG_GODOTS.map((path) => ({ path, source: "Downloads" }))
+          : [],
         dockers: [{ path: "/usr/bin/docker", source: "PATH" }],
       });
     case "check_root":
@@ -2684,6 +3013,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         version: null,
         message: `${Object.keys(manifests).length} games, ${Object.values(manifests).flatMap((m) => Object.keys(m.versions)).length} versions`,
       });
+
     case "check_tool": {
       // What each program says about itself, as core/src/detect.rs reads it.
       const versions: Record<string, string> = {
@@ -2692,16 +3022,20 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         docker: "Docker version 28.3.2",
       };
       const version = versions[String(args.tool)] ?? null;
+
       return delay<Check>({ ok: true, version, message: version ?? "found" });
     }
+
     case "library":
       // ?nolib: the OpenRAC folder cannot be read, as when none is set.
       if (query.has("nolib")) throw new Error("No OpenRAC folder is set: choose it in Settings.");
+
       return delay<Library>(library());
     case "install_game":
       return delay<Started>(install(args.game as string, args.image as string));
     case "prepare_disc":
       return delay((args.image as string).replace(/\.chd$/i, ".iso"));
+
     case "scan_discs": {
       // ?discs: the games folder holds the first game's PAL disc; ?discs=both, its NTSC-U disc too,
       // which with developer tools on offers the disc switch (core/src/disc_choice.rs).
@@ -2719,7 +3053,14 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
           ? [
               disc("rac1/pal", "SCES_509.16", "PAL (Europe)", "Ratchet & Clank (Europe).iso"),
               ...(asked === "both"
-                ? [disc("rac1/ntsc", "SCUS_971.99", "NTSC-U (North America)", "Ratchet & Clank (USA).iso")]
+                ? [
+                    disc(
+                      "rac1/ntsc",
+                      "SCUS_971.99",
+                      "NTSC-U (North America)",
+                      "Ratchet & Clank (USA).iso",
+                    ),
+                  ]
                 : []),
             ]
           : [];
@@ -2736,43 +3077,60 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
               },
             ]
           : [];
+
       return delay<DiscScan>({ found, choices });
     }
+
     case "choose_disc": {
       const version = args.version as string;
       const game = version.split("/")[0] ?? version;
+
       config = { ...config, discChoice: { ...config.discChoice, [game]: version } };
+
       return delay<Config>(config);
     }
+
     case "uninstall_game":
       installs[args.game as string] = undefined;
+
       return delay(null);
     case "sync_progress_from_web":
     case "apply_progress_json":
       return delay<Library>(library());
     case "run_action":
       return delay<Started>(start(args.scope as Scope, args.id as string, args));
+
     case "cancel_job": {
       const id = args.id as number;
+
       clearInterval(timers.get(id));
       timers.delete(id);
       emit({ type: "exit", id, code: null, cancelled: true, outputs: [] });
+
       return delay(null);
     }
+
     case "open_bake_log":
     case "open_path":
     case "open_url":
       console.info(`[preview] ${command}`, args);
+
       return delay(null);
     case "set_discord_status":
       return delay(null);
     case "overrides_list":
       return delay<PackView[]>([...mockPacks]);
+
     case "reset_preview": {
       // ?reset=error: the folders cannot be read; ?reset=empty: nothing is there.
       if (query.get("reset") === "error") throw new Error("permission denied");
       const there = query.get("reset") !== "empty";
-      const part = (part: ResetPreview["parts"][number]["part"], theirs: boolean, bytes: number, files: number) => ({
+      const part = (
+        part: ResetPreview["parts"][number]["part"],
+        theirs: boolean,
+        bytes: number,
+        files: number,
+      ) => ({
         part,
         theirs,
         bytes: there ? bytes : 0,
@@ -2789,17 +3147,25 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
               part("overrides", true, 21_000_000, 88),
               part("backups", true, 0, 0),
             ];
+
       return delay<ResetPreview>({ reset: args.reset as ResetPreview["reset"], parts });
     }
+
     case "editor_state":
       return delay<EditorState>(mockEditorState());
     case "reset_apply":
-      if (query.get("reset") === "fail") throw new Error("cannot remove /home/player/x: Directory not empty");
+      if (query.get("reset") === "fail")
+        throw new Error("cannot remove /home/player/x: Directory not empty");
+
       return delay<ResetDone>({ bytes: 858_000_000, files: 9_732, folders: 2 });
+
     case "overrides_summary": {
-      if (query.get("summary") === "error") throw new Error("The preparation record could not be read.");
+      if (query.get("summary") === "error")
+        throw new Error("The preparation record could not be read.");
       const version = String(args.version).split("/")[1];
-      if (version !== "pal" && version !== "ntsc") throw new Error("Choose a supported RAC1 disc version");
+
+      if (version !== "pal" && version !== "ntsc")
+        throw new Error("Choose a supported RAC1 disc version");
       const missing = query.get("summary") === "empty";
       const stale =
         query.get("summary") === "stale" ||
@@ -2807,6 +3173,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
           .filter((p) => p.enabled)
           .map((p) => p.id)
           .join(",") !== summaryPreparedPacks.map((p) => p.id).join(",");
+
       return delay<ModLoadSummary>({
         version,
         packedVersion: version,
@@ -2825,46 +3192,81 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
           .map((p) => ({
             id: p.id,
             name: p.name,
-            appliedFiles: missing ? 0 : (summaryPreparedPacks.find((s) => s.id === p.id)?.files ?? 0),
+            appliedFiles: missing
+              ? 0
+              : (summaryPreparedPacks.find((s) => s.id === p.id)?.files ?? 0),
           })),
         packedFilesApplied: missing ? 0 : 2,
         gameplayLevels: missing ? [] : ["level_00"],
         sceneryLevels: [],
-        terrainLevels: !missing && summaryPreparedPacks.some((p) => p.id === "veldin-remix") ? ["level_00"] : [],
+        terrainLevels:
+          !missing && summaryPreparedPacks.some((p) => p.id === "veldin-remix") ? ["level_00"] : [],
         collisionLevels: missing ? [] : ["level_00"],
         notes: stale ? ["Your pack selection has changed since the last preparation."] : [],
       });
     }
+
     case "overrides_set_enabled":
     case "overrides_move":
     case "overrides_remove": {
       const at = mockPacks.findIndex((p) => p.id === args.id);
       const pack = mockPacks[at];
+
       if (!pack) throw new Error(`no pack ${String(args.id)}`);
       mockPacks.splice(at, 1);
-      if (command === "overrides_set_enabled") mockPacks.splice(at, 0, { ...pack, enabled: !!args.enabled });
+      if (command === "overrides_set_enabled")
+        mockPacks.splice(at, 0, { ...pack, enabled: !!args.enabled });
+
       if (command === "overrides_move") {
         mockPacks.splice(Math.max(0, Math.min(mockPacks.length, at + (args.up ? -1 : 1))), 0, pack);
       }
+
       return delay<PackView[]>([...mockPacks]);
     }
+    case "interface_runs_view": {
+      // The preview: no run until "Make a run" ran (the player makes their own).
+      const id = `${String(args.game)}-${String(args.version)}`;
+      const local = mockInterfaceRun[id] ?? null;
+
+      return delay<InterfaceRunsView>({
+        id,
+        local,
+        unreadable: [],
+        available: [0, 1, 2].map(
+          (at) => !!local && local.current && (local.counts[at] ?? 0) > 0,
+        ) as [boolean, boolean, boolean],
+        runnable: ["rac1-ntsc", "rac1-pal", "rac2-ntsc"].includes(id),
+        localFile: `/home/you/.local/share/openrac/interface_runs/${id}.json`,
+      });
+    }
+
     case "texture_packs_view":
-      return delay<TexturePackView>({ ...mockTextures, id: `${String(args.game)}-${String(args.version)}` });
+      return delay<TexturePackView>({
+        ...mockTextures,
+        id: `${String(args.game)}-${String(args.version)}`,
+      });
     case "texture_packs_set":
       if (typeof args.pcsx2 === "string") mockTextures.pcsx2Path = args.pcsx2 || null;
       if (typeof args.enabled === "boolean") mockTextures.enabled = args.enabled;
       if (typeof args.dumping === "boolean") mockTextures.dumping = args.dumping;
-      return delay<TexturePackView>({ ...mockTextures, id: `${String(args.game)}-${String(args.version)}` });
+
+      return delay<TexturePackView>({
+        ...mockTextures,
+        id: `${String(args.game)}-${String(args.version)}`,
+      });
     case "texture_packs_open":
       return delay(null);
     case "texture_packs_preview":
       // Only a file named like a texture pack is one; any other .zip is a mod or an overrides pack.
-      if (!/texture/i.test(String(args.source))) throw new Error("This .zip holds no texture pictures.");
+      if (!/texture/i.test(String(args.source)))
+        throw new Error("This .zip holds no texture pictures.");
+
       if (String(args.source).includes("rac1")) {
         throw new Error(
           "This pack is for Ratchet & Clank (PAL), not Going Commando (NTSC-U). Add it on that game's Mods tab instead.",
         );
       }
+
       return delay({
         textures: 120,
         animated: 1,
@@ -2877,18 +3279,22 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         replacing: 12,
         skipped: 1,
       });
+
     case "texture_packs_import": {
       const added = args.mode === "replace" ? 120 : mockTextures.packCount + 108;
+
       mockTextures.packCount = added;
       mockTextures.pack = [
         { path: "Interface", label: "Interface", count: 40 },
         { path: "Shared", label: "Shared", count: added - 40 },
       ];
+
       return delay({
         textures: 120,
         kept: args.mode === "replace" ? "rac2-ntsc (before import 2026-11-03-061500)" : null,
       });
     }
+
     case "mod_tool_list":
       return delay([{ path: "level_00/textures/moby_0001.png", size: 4096 }]);
     case "mod_tool_read":
@@ -2907,27 +3313,39 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "mod_tool_save_end":
       return delay(args.keep ? "~/Downloads/Nanotech Upscaler rac1-pal.zip" : "");
     case "texture_packs_export":
-      return delay({ saved: "~/Downloads/rac2-ntsc-texture-pack.zip", textures: mockTextures.packCount, leftOut: 3 });
+      return delay({
+        saved: "~/Downloads/rac2-ntsc-texture-pack.zip",
+        textures: mockTextures.packCount,
+        leftOut: 3,
+      });
     case "enhanced_view":
     case "enhanced_set_enabled":
     case "enhanced_set_setting":
     case "enhanced_delete_bakes": {
       if (args.game !== "rac1") return delay(null);
+
       if (command === "enhanced_delete_bakes") {
         mockEnhanced.bake = { ...mockEnhanced.bake, ready: 0, partial: 0, failed: 0 };
       }
-      if (command === "enhanced_set_enabled") mockEnhanced.mod = { ...mockEnhanced.mod, enabled: !!args.enabled };
+
+      if (command === "enhanced_set_enabled")
+        mockEnhanced.mod = { ...mockEnhanced.mod, enabled: !!args.enabled };
+
       if (command === "enhanced_set_setting") {
         mockEnhanced.mod = {
           ...mockEnhanced.mod,
-          settings: mockEnhanced.mod.settings.map((s) => (s.key === args.key ? { ...s, value: args.value } : s)),
+          settings: mockEnhanced.mod.settings.map((s) =>
+            s.key === args.key ? { ...s, value: args.value } : s,
+          ),
         };
       }
+
       return delay({
         ...mockEnhanced,
         mod: { ...mockEnhanced.mod, state: mockEnhanced.mod.enabled ? "ready" : "off" },
       });
     }
+
     case "modset_share_preview":
       return delay<SharePreview>(mockSharePreview());
     case "modset_share":
@@ -2940,6 +3358,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<Review>(mockReview(String(args.text)));
     case "modset_apply":
       mockCodeApplied = true;
+
       return delay<Applied>({
         profile: "20261031T120000Z",
         installed: 2,
@@ -2951,27 +3370,43 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "modset_profiles":
       return delay<ModProfile[]>(
         mockCodeApplied
-          ? [{ id: "20261031T120000Z", code: "K7M2-9QXR", created: "2026-10-31T12:00:00Z", mods: 3 }]
+          ? [
+              {
+                id: "20261031T120000Z",
+                code: "K7M2-9QXR",
+                created: "2026-10-31T12:00:00Z",
+                mods: 3,
+              },
+            ]
           : [],
       );
     case "modset_restore":
       mockCodeApplied = false;
+
       return delay(null);
     case "modset_take_link":
       return delay<string | null>(null);
     case "plugins_list":
       // keyboard-mouse is built in now: its own entry (keyboard_mouse_view), not a mod.
-      return delay<PluginView[]>(mockPlugins.filter((p) => p.id !== "keyboard-mouse").map((p) => ({ ...p })));
+      return delay<PluginView[]>(listedPlugins());
     case "keyboard_mouse_view":
     case "keyboard_mouse_set_setting": {
       const at = mockPlugins.findIndex((p) => p.id === "keyboard-mouse");
       const found = mockPlugins[at];
+
       if (args.game !== "rac1" || !found) return delay(null);
       const mod: PluginView =
         command === "keyboard_mouse_set_setting"
-          ? { ...found, settings: found.settings.map((s) => (s.key === args.key ? { ...s, value: args.value } : s)) }
+          ? {
+              ...found,
+              settings: found.settings.map((s) =>
+                s.key === args.key ? { ...s, value: args.value } : s,
+              ),
+            }
           : found;
+
       mockPlugins[at] = mod;
+
       return delay<PluginView>({
         ...mod,
         version: "Built in",
@@ -2995,13 +3430,23 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "plugins_remove": {
       const at = mockPlugins.findIndex((p) => p.id === args.id);
       const mod = mockPlugins[at];
+
       if (!mod) throw new Error(`no mod ${String(args.id)}`);
+
       if (command === "plugins_set_enabled") {
         if (args.enabled && mod.state === "refused") throw new Error(mod.reason);
-        mockPlugins[at] = { ...mod, enabled: !!args.enabled, state: args.enabled ? "ready" : "off" };
+        mockPlugins[at] = {
+          ...mod,
+          enabled: !!args.enabled,
+          state: args.enabled ? "ready" : "off",
+        };
       } else if (command === "plugins_move") {
         mockPlugins.splice(at, 1);
-        mockPlugins.splice(Math.max(0, Math.min(mockPlugins.length, at + (args.up ? -1 : 1))), 0, mod);
+        mockPlugins.splice(
+          Math.max(0, Math.min(mockPlugins.length, at + (args.up ? -1 : 1))),
+          0,
+          mod,
+        );
       } else if (command === "plugins_set_setting") {
         mockPlugins[at] = {
           ...mod,
@@ -3010,17 +3455,25 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       } else {
         mockPlugins = mockPlugins.filter((p) => p.id !== mod.id);
       }
-      return delay<PluginView[]>(mockPlugins.map((p) => ({ ...p })));
+
+      return delay<PluginView[]>(listedPlugins());
     }
+
     case "plugins_preview": {
       const url = typeof args.url === "string" ? args.url : "";
+
       if (!/github\.com\/[^/]+\/[^/]+/.test(url)) {
-        throw new Error(`${url} is not a repository's address: paste one that starts with https://`);
+        throw new Error(
+          `${url} is not a repository's address: paste one that starts with https://`,
+        );
       }
+
       return delay<RemotePreview>(mockPreview(url));
     }
+
     case "plugins_install_remote": {
       const m = mockPreview(String(args.url)).mods.find((x) => x.id === args.id);
+
       if (!m) throw new Error(`no mod ${String(args.id)}`);
       if (!m.compatible) throw new Error(m.why ?? "it cannot be installed here");
       mockSources.mods[m.id] = {
@@ -3032,6 +3485,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         kind: m.kind,
         pin: mockSources.mods[m.id]?.pin ?? false,
       };
+
       return delay<RemoteInstalled>({
         kind: "plugin",
         id: m.id,
@@ -3041,17 +3495,27 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         enabled: true,
       });
     }
+
     case "plugins_check_updates":
       return delay({
         updates: Object.entries(mockSources.mods)
           .filter(([, s]) => !s.pin && s.version !== "1.1.0")
-          .map(([id, s]) => ({ id, installed: s.version, available: "1.1.0", tag: "v1.1.0", commit: null })),
+          .map(([id, s]) => ({
+            id,
+            installed: s.version,
+            available: "1.1.0",
+            tag: "v1.1.0",
+            commit: null,
+          })),
         errors: [],
       });
+
     case "plugins_update": {
       const s = mockSources.mods[String(args.id)];
+
       if (!s) throw new Error(`${String(args.id)} was not installed from a repository`);
       s.version = "1.1.0";
+
       return delay<RemoteInstalled>({
         kind: "plugin",
         id: String(args.id),
@@ -3061,6 +3525,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         enabled: true,
       });
     }
+
     case "deeplink_parse":
       return delay(mockParse(String(args.url)));
     // `?steam=noSteam`, `noUser`, `added`, `outdated`, or `open` for a Steam that is running.
@@ -3068,6 +3533,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay(steamAsked() === "open" ? "notAdded" : (steamAsked() ?? "notAdded"));
     case "steam_add":
       if (steamAsked() === "open") throw new Error("Close Steam, then try again.");
+
       return delay("added");
     case "shortcut_create":
       return delay(`/home/player/Desktop/${String(args.version).replace("/", "-")}.desktop`);
@@ -3076,9 +3542,12 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "index_fetch":
       // Said, so a test sees that a page did not read the mod list by itself.
       console.info("[preview] index_fetch");
+
       return delay(mockIndexView());
     case "index_resolve":
-      return delay(mockResolve(args.wanted as WantedMod[], (args.turnOff as string[] | undefined) ?? []));
+      return delay(
+        mockResolve(args.wanted as WantedMod[], (args.turnOff as string[] | undefined) ?? []),
+      );
     case "mods_updates":
       return delay(mockUpdates());
     case "mods_auto_update":
@@ -3086,33 +3555,48 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "mods_last_update":
       return delay(mockLastUpdate());
     case "mods_crash_rollback":
-      return delay<PluginView[]>(structuredClone(mockPlugins));
+      return delay<PluginView[]>(structuredClone(listedPlugins()));
+
     case "plugins_turn_on": {
-      const views = mockPlugins.map((p) => (p.id === args.id ? { ...p, enabled: true, state: "ready" as const } : p));
+      const views = mockPlugins.map((p) =>
+        p.id === args.id ? { ...p, enabled: true, state: "ready" as const } : p,
+      );
+
       mockPlugins = views;
+
       return delay({ views: structuredClone(views), alsoOn: [] });
     }
+
     case "plugins_dependents":
       return delay<[string, string][]>([]);
     case "plugins_orphans":
       return delay([]);
     case "plugins_remove_with":
-      mockPlugins = mockPlugins.filter((p) => p.id !== args.id && !(args.also as string[]).includes(p.id));
+      mockPlugins = mockPlugins.filter(
+        (p) => p.id !== args.id && !(args.also as string[]).includes(p.id),
+      );
+
       return delay<PluginView[]>(structuredClone(mockPlugins));
     case "index_apply":
       return mockApply(args.wanted as WantedMod[], (args.turnOff as string[] | undefined) ?? []);
     case "plugins_sources":
       return delay<ModSources>(structuredClone(mockSources));
+
     case "plugins_set_pin": {
       const s = mockSources.mods[String(args.id)];
+
       if (!s) throw new Error(`${String(args.id)} was not installed from a repository`);
       s.pin = !!args.pin;
+
       return delay<ModSources>(structuredClone(mockSources));
     }
+
     case "plugins_mod_folders":
       return delay<string[]>([typeof args.path === "string" ? args.path : ""]);
+
     case "plugins_install": {
       const path = typeof args.path === "string" ? args.path : "";
+
       // A name with "pack" in it stands for a data pack, which goes to the overrides.
       if (/pack/i.test(path)) return delay<PluginInstalled>({ kind: "pack" });
       const name =
@@ -3126,21 +3610,41 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-|-$/g, "") || "mod";
       const replaced = mockPlugins.some((p) => p.id === id);
+
       if (!replaced) {
         mockPlugins.push({
           ...mockPlugins[0],
-          ...{ id, name, settings: [], hooks: [], sharedHooks: [], path: `/home/you/plugins/${id}` },
+          ...{
+            id,
+            name,
+            settings: [],
+            hooks: [],
+            sharedHooks: [],
+            path: `/home/you/plugins/${id}`,
+          },
         } as PluginView);
       }
-      return delay<PluginInstalled>({ kind: "plugin", id, name, version: "1.0.0", replaced, enabled: true });
+
+      return delay<PluginInstalled>({
+        kind: "plugin",
+        id,
+        name,
+        version: "1.0.0",
+        replaced,
+        enabled: true,
+      });
     }
+
     case "open_output":
     case "open_level_in_godot":
     case "open_game_folder":
       console.info(`[preview] ${command}`, args);
+
       return delay(null);
+
     case "inspect_saves": {
       const serial = typeof args.serial === "string" ? args.serial : "SCES_509.16";
+
       return delay({
         serial,
         memcardDir: `/home/you/.local/share/openrac/memcard/${serial}`,
@@ -3246,10 +3750,12 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         ],
       });
     }
+
     case "backup_saves": {
       const serial = typeof args.serial === "string" ? args.serial : "SCES_509.16";
       const note = typeof args.note === "string" && args.note.trim() ? args.note.trim() : null;
       const name = `.backup_${Math.floor(Date.now() / 1000)}${note ? `_${note.replace(/\s+/g, "_")}` : ""}`;
+
       return delay({
         name,
         path: `/home/you/.local/share/openrac/memcard/${serial}/${name}`,
@@ -3258,6 +3764,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         totalSize: 364544,
       });
     }
+
     case "restore_backup":
     case "open_saves_folder":
       return delay(null);
@@ -3265,6 +3772,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay("/home/you/.config/PCSX2/memcards");
     case "import_pcsx2_saves":
       return delay({ folders: ["BESCES-50916RATCHET"], files: 8, backup: null });
+
     // An OpenRAC saves file (core/src/save_transfer.rs). `?saves=other` previews another game's
     // file, `?saves=damaged` a damaged one.
     case "export_saves": {
@@ -3273,16 +3781,25 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         mockTransferSlot(serial, 0, 0, "Veldin", 1250),
         mockTransferSlot(serial, 1, 3, "Kerwan", 4890),
       ].filter((s) => args.slot == null || s.slotIndex === args.slot);
-      return delay<ExportedSaves>({ saved: `~/Downloads/OpenRAC saves ${serial} 2026-11-02.zip`, slots });
+
+      return delay<ExportedSaves>({
+        saved: `~/Downloads/OpenRAC saves ${serial} 2026-11-02.zip`,
+        slots,
+      });
     }
+
     case "preview_save_import": {
       const serial = typeof args.serial === "string" ? args.serial : "SCES_509.16";
+
       if (query.get("saves") === "other")
         throw new Error(
           `These saves are from another game or disc (Ratchet & Clank, SCUS_971.99), not this one (${serial}): they can only be imported there.`,
         );
       if (query.get("saves") === "damaged")
-        throw new Error("saves.zip is damaged: BESCES-50916RATCHET/save1.bin is not the file that was exported");
+        throw new Error(
+          "saves.zip is damaged: BESCES-50916RATCHET/save1.bin is not the file that was exported",
+        );
+
       return delay<SaveImportPreview>({
         serial,
         title: "Ratchet & Clank",
@@ -3298,6 +3815,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         cardHasSaves: true,
       });
     }
+
     case "import_saves":
       return delay({
         folders: ["BESCES-50916RATCHET"],
@@ -3310,19 +3828,80 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
           totalSize: 364544,
         },
       });
+
+    // Copies between the discs of one game: Ratchet & Clank's PAL page offers the US card's
+    // saves, the US page the PAL card's (`?saves=nocopy`: no other disc has any,
+    // `?saves=twocopies`: the PAL page offers the US and Japanese cards).
+    case "save_copy_sources": {
+      if (query.get("saves") === "nocopy") return delay<SaveCopySource[]>([]);
+      const us = { serial: "SCUS_971.99", region: "NTSC-U", saves: 2 };
+      const japan = { serial: "SCPS_150.37", region: "NTSC-J", saves: 1 };
+
+      return delay<SaveCopySource[]>(
+        args.serial === "SCUS_971.99"
+          ? [{ serial: "SCES_509.16", region: "PAL", saves: 2 }]
+          : args.serial === "SCES_509.16"
+            ? query.get("saves") === "twocopies"
+              ? [us, japan]
+              : [us]
+            : [],
+      );
+    }
+
+    case "preview_save_copy": {
+      const serial = typeof args.serial === "string" ? args.serial : "SCUS_971.99";
+      const from = typeof args.from === "string" ? args.from : "SCES_509.16";
+      const folder = serial === "SCUS_971.99" ? "BASCUS-97199RATCHET" : "BESCES-50916RATCHET";
+      const us = (s: SaveArchiveSlot) => ({ ...s, folder });
+
+      return delay<SaveImportPreview>({
+        serial: from,
+        title: "Ratchet & Clank",
+        launcherVersion: "",
+        created: new Date().toISOString(),
+        slots: [
+          {
+            slot: us(mockTransferSlot(serial, 0, 8, "Batalia", 12650)),
+            replaces: us(mockTransferSlot(serial, 0, 3, "Kerwan", 4890)),
+          },
+          { slot: us(mockTransferSlot(serial, 1, 12, "Hoven", 30210)), replaces: null },
+        ],
+        cardHasSaves: true,
+      });
+    }
+
+    case "copy_saves":
+      return delay({
+        folders: ["BASCUS-97199RATCHET"],
+        files: 2,
+        backup: {
+          name: `.backup_${Math.floor(Date.now() / 1000)}_before_copy_from_PAL`,
+          path: "/home/you/.local/share/openrac/memcard/SCUS_971.99/.backup_x_before_copy_from_PAL",
+          note: "before copy from PAL",
+          createdMillis: Date.now(),
+          totalSize: 364544,
+        },
+      });
     case "reports_list":
       return delay<ReportEntry[]>(args.game === "rac1" ? mockReports : []);
     case "report_delete":
       mockReports = mockReports.filter((e) => e.file !== args.file);
+
       return delay(null);
+
     case "reports_delete_all": {
       const count = mockReports.length;
+
       mockReports = [];
+
       return delay(count);
     }
+
     case "latest_crash":
       return delay(
-        query.has("crash") && mockReports.includes(mockCrash) && mockCrash.time >= Number(args.since ?? 0)
+        query.has("crash") &&
+          mockReports.includes(mockCrash) &&
+          mockCrash.time >= Number(args.since ?? 0)
           ? mockCrash
           : null,
       );
@@ -3339,19 +3918,26 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       );
     case "open_reports_folder":
       console.info(`[preview] ${command}`, args);
+
       return delay(null);
     case "differences":
       return delay<Differences>(mockDifferences(String(args.game), String(args.version)));
+
     case "set_game_fix": {
       const now = mockDifferences(String(args.game), String(args.version));
       const fix = now.entries.find((e) => e.id === args.id && e.kind === "fix" && e.setting);
-      if (!fix?.setting) throw new Error(`${String(args.id)} is not something that can be switched off`);
+
+      if (!fix?.setting)
+        throw new Error(`${String(args.id)} is not something that can be switched off`);
       const key = `${now.game}/${now.version}`;
       const values = fixValues.get(key) ?? new Map<string, boolean>();
+
       values.set(fix.setting.key, Boolean(args.on));
       fixValues.set(key, values);
+
       return delay<Differences>(mockDifferences(now.game, now.version));
     }
+
     case "controls_view":
       return delay<ControlsView>(
         mockControlsView(
@@ -3360,7 +3946,9 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         ),
       );
     case "controls_reset_player":
-      return delay<ControlsView>(mockControlsResetPlayer(args.scope as ControlsScope, Number(args.player)));
+      return delay<ControlsView>(
+        mockControlsResetPlayer(args.scope as ControlsScope, Number(args.player)),
+      );
     case "controls_set":
       return delay<ControlsView>(
         mockControlsSet(
@@ -3375,22 +3963,30 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<ControlsView>(mockControlsResetPlayers());
     case "controls_export":
       return delay<null>(null);
+
     case "controls_import": {
       const scope = args.scope as ControlsScope;
+
       return delay<ControlsView>(mockControlsView(scope.kind === "game" ? scope.game : null));
     }
+
     case "controls_copy":
       return delay<ControlsView>(mockControlsCopy(String(args.from), String(args.to)));
     case "read_save":
       return delay<SaveView>(
-        mockSave(typeof args.serial === "string" ? args.serial : "SCES_509.16", Number(args.slot ?? 0)),
+        mockSave(
+          typeof args.serial === "string" ? args.serial : "SCES_509.16",
+          Number(args.slot ?? 0),
+        ),
       );
     case "read_save_rac2":
       return delay<Rac2SaveView>(mockSaveRac2(String(args.serial), Number(args.slot ?? 0)));
     case "read_save_rac2_extra":
       return delay<Rac2ExtraView>(mockRac2Extra(String(args.serial), Number(args.slot ?? 0)));
+
     case "write_save_rac2_extra": {
       const name = `.backup_${String(Math.floor(Date.now() / 1000))}_before_edit_slot${String(Number(args.slot) + 1)}`;
+
       return delay<Rac2ExtraWriteResult>({
         backup: {
           name,
@@ -3399,14 +3995,21 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
           createdMillis: Date.now(),
           totalSize: 456192,
         },
-        view: mockWriteRac2Extra(String(args.serial), Number(args.slot), args.fields as Rac2ExtraFields),
+        view: mockWriteRac2Extra(
+          String(args.serial),
+          Number(args.slot),
+          args.fields as Rac2ExtraFields,
+        ),
       });
     }
+
     case "write_save_rac2": {
       const fields = args.fields as Rac2SaveFields;
+
       if (fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
       savedRac2[`${String(args.serial)}/${String(args.slot)}`] = structuredClone(fields);
       const name = `.backup_${Math.floor(Date.now() / 1000)}_before_edit_slot${Number(args.slot) + 1}`;
+
       return delay<Rac2WriteResult>({
         backup: {
           name,
@@ -3418,19 +4021,26 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         view: mockSaveRac2(String(args.serial), Number(args.slot)),
       });
     }
+
     case "write_save": {
       const key = `${String(args.serial)}/${String(args.slot)}`;
       const change = args.change as SaveChange;
+
       if (change.kind === "fields") {
         if (change.fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
         savedFields[key] = structuredClone(change.fields);
       } else {
-        if (!config.saveEditorAdvanced) throw new Error("raw edits need the advanced save editor (Settings)");
+        if (!config.saveEditorAdvanced)
+          throw new Error("raw edits need the advanced save editor (Settings)");
         const raw = (savedRaw[key] ??= {});
-        for (const c of change.chunks) raw[`${c.section === null ? "g" : String(c.section)}:${String(c.id)}`] = c.hex;
+
+        for (const c of change.chunks)
+          raw[`${c.section === null ? "g" : String(c.section)}:${String(c.id)}`] = c.hex;
       }
+
       const view = mockSave(String(args.serial), Number(args.slot));
       const name = `.backup_${Math.floor(Date.now() / 1000)}_before_edit_slot${Number(args.slot) + 1}`;
+
       return delay<WriteResult>({
         backup: {
           name,
@@ -3442,6 +4052,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         view,
       });
     }
+
     case "pick_disc":
       return delay("/data/user/0/dev.openrac.launcher/files/discs/game.iso");
     case "tools_ready":
@@ -3449,16 +4060,22 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay(null);
     case "gpu_drivers":
       return delay(structuredClone(gpu));
+
     case "gpu_driver_import": {
       const driver = { ...turnip, id: `Turnip-25.3.0`, version: "25.3.0" };
+
       gpu = { ...gpu, drivers: [...gpu.drivers.filter((d) => d.id !== driver.id), driver] };
+
       return delay({ driver });
     }
+
     case "gpu_driver_select":
       gpu = { ...gpu, selected: (args.id as string | null) ?? null };
+
       return delay(null);
     case "gpu_renderer_select":
       gpu = { ...gpu, renderer: args.renderer as GpuDrivers["renderer"] };
+
       return delay(null);
     case "gpu_driver_remove":
       gpu = {
@@ -3466,6 +4083,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         drivers: gpu.drivers.filter((d) => d.id !== args.id),
         selected: gpu.selected === args.id ? null : gpu.selected,
       };
+
       return delay(null);
     case "background_status":
       return delay(null);
@@ -3474,6 +4092,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay({ running: gameRunning, library: gameRunning ? "openrac-rac1-pal" : null });
     case "game_window":
       if (args.stop) gameRunning = false;
+
       return delay(null);
     case "update_check":
     case "launcher_update_check":
@@ -3502,7 +4121,9 @@ export function mockUpdate(
     .replace(/^[^0-9]*/, "")
     .split(".")
     .map((n) => parseInt(n, 10) || 0);
-  const version = switchTo === "stable" ? `${major}.${Math.max(0, minor - 1)}.0` : `${major}.${minor + 1}.0`;
+  const version =
+    switchTo === "stable" ? `${major}.${Math.max(0, minor - 1)}.0` : `${major}.${minor + 1}.0`;
+
   return {
     version,
     tag: `v${version}`,
@@ -3524,9 +4145,11 @@ export function mockUpdate(
  *  it part way, as a lost connection would. Nothing restarts in a browser. */
 export async function mockInstall(onProgress?: UpdateProgressCallback): Promise<void> {
   const total = 31_457_280;
+
   for (let done = 0; done <= total; done += total / 20) {
     await new Promise((r) => setTimeout(r, 120));
-    if (query.has("updatefail") && done > total * 0.4) throw new Error("the download stopped: the connection was lost");
+    if (query.has("updatefail") && done > total * 0.4)
+      throw new Error("the download stopped: the connection was lost");
     onProgress?.({
       stage: "downloading",
       percent: Math.round((done / total) * 100),
@@ -3534,6 +4157,7 @@ export async function mockInstall(onProgress?: UpdateProgressCallback): Promise<
       totalBytes: total,
     });
   }
+
   onProgress?.({ stage: "installing", percent: 100, downloadedBytes: total, totalBytes: total });
   await new Promise((r) => setTimeout(r, 900));
   onProgress?.({ stage: "ready", percent: 100, downloadedBytes: total, totalBytes: total });

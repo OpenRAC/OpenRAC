@@ -25,11 +25,19 @@ enum class Sound : std::uint8_t {
     Open,     // the menu opens
     Close,    // the menu closes
     Page,     // another tab or page
+    InfobotOpen,
+    InfobotClose,
 };
 
 inline constexpr int kRate = 48000;
 
 void play(Sound sound);
+// The portable Infobot's mechanical cue, read from the player's Eudora intro.
+// Closing reverses the same mechanism to match its reversed screen motion.
+void set_infobot_audio(std::span<const std::int16_t> mono, unsigned rate);
+// Original receiving-scene audio, mixed dry rather than through the menu's effects.
+void set_pickup_audio(int item, std::span<const std::int16_t> mono, unsigned rate);
+bool play_pickup_audio(int item);  // negative: stop the current receiving clip
 
 // Adds what plays now to `interleaved` (stereo, kRate), saturating.
 void mix(std::span<std::int16_t> interleaved);
