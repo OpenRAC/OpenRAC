@@ -103,3 +103,7 @@ code	func_003E8048	0x003E8048	WidgetSetTextById	(widget id, string): the set-tex
 code	func_003E9828	0x003E9828	WidgetMessagesInit	fills the message tables (0x0031B7C8 position, 0x0031B8A0 text, ...) for each widget class
 code	func_003B4C30	0x003B4C30	MainMenuBuild	the main menu's widgets: frames 0xD0000-0xD0003, the five items 0xD000C-0xD0010 (texts at 0x00337640: 0x14C, 0x14E, 0x11E6, 0x169C, 0x107), their container 0xD0025
 code	func_003F2740	0x003F2740	PlacementNew	returns its second argument (operator new in place)
+code	func_003877A0	0x003877A0	UpdateViewContext	the view projection set-up (frontbin func_003873C0; rac2 UpdateViewContext func_0027AB40, 0.79 by opcode sequence): the view block's half-angle tangents, the vertical one divided by 4/3 with the 16:9 byte or in split screen (host/view.c)
+data	D_00225900	0x00225900	view_context	the view block UpdateViewContext fills: +0xB0 the horizontal half-angle tangent, +0xB4 the vertical one, +0xA8/+0xAC the screen's scales from +0x210-+0x21C
+data	D_001439FD	0x001439FD	option_widescreen	the Options page's 16:9 byte (+0xAD of the options at 0x00143950); kept 0 by the port (host/view.c)
+data	D_001D5B98	0x001D5B98	split_screen	1 in split screen (with view_context +0x268 set, UpdateViewContext narrows the vertical view as for 16:9)

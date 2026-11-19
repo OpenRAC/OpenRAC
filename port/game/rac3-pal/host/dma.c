@@ -13,6 +13,7 @@
 
 void rac3_chain_census(gaddr channel, gaddr tag); /* chain_census.c */
 void rac3_picture_frame_sent(void);               /* picture.c */
+void rac3_view_frame_sent(void);                  /* view.c */
 
 static uint32_t reg(gaddr at) {
     uint32_t v;
@@ -43,6 +44,7 @@ void func_0012D938(gaddr channel, gaddr tag) {
     rac3_chain_census(channel, tag);
     if (channel == 0x10009000u) {
         rac3_picture_frame_sent();
+        rac3_view_frame_sent();
     }
     openrac_game_dma_send(channel, tag);
 
