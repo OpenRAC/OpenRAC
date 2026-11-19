@@ -328,6 +328,8 @@ add_test(NAME mod_scripts COMMAND mod_scripts_test)
 # script mod on a hook point of the test's own whose call throws, reported to the log.
 openrac_add_test(mod_boundary LIBS openrac_mods)
 openrac_add_test(mod_visuals LIBS openrac_mods)
+# A mod's material on one moby (interface 1.23): the call, the renderer's list and when it ends.
+openrac_add_test(mod_material LIBS openrac_mods)
 
 # The bindings the generator writes are what their tables give, and the tables' hook points the
 # hook rows of every disc's libraries.tsv.

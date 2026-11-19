@@ -1206,6 +1206,41 @@ void log_mobys_near_hero(std::span<const std::uint8_t> ram, const host::GameStat
     }
 }
 
+// Returns the mods' materials (interface 1.23) on this frame's live mobys, by address: the level's
+// whole list of them (`listed` of `mobys`, not the extra ones), so that one the game removed drops
+// its material (mods::moby_materials).
+std::unordered_map<std::uint32_t, mods::MobyMaterial> mod_materials(
+    const std::vector<host::LiveMoby>& mobys, std::size_t listed
+) {
+    std::vector<mods::LiveMobyId> live;
+    live.reserve(listed);
+    // Each listed moby by address and class, as the mods' list checks them.
+    for (std::size_t i = 0; i < listed && i < mobys.size(); ++i) {
+        live.push_back({mobys[i].address, mobys[i].class_id});
+    }
+
+    std::unordered_map<std::uint32_t, mods::MobyMaterial> out;
+    // One material a moby, for the lookup in pose_mobys.
+    for (const mods::MobyMaterial& material : mods::moby_materials(live)) {
+        out.insert_or_assign(material.moby, material);
+    }
+    return out;
+}
+
+// Puts a mod's material on a moby's instance, render-only: its rgb multiplies the tint (0xFF a
+// channel as it is), and the material goes to mesh.frag (platinum) by Instance::mod_material.
+void apply_mod_material(scene::Instance& instance, const mods::MobyMaterial& material) {
+    // 0xRRGGBB: a byte a channel, red highest.
+    constexpr float kChannelMax = 255.0f;
+    constexpr int kRedShift = 16;
+    constexpr int kGreenShift = 8;
+    constexpr std::uint32_t kByte = 0xFF;
+    instance.tint[0] *= static_cast<float>((material.rgb >> kRedShift) & kByte) / kChannelMax;
+    instance.tint[1] *= static_cast<float>((material.rgb >> kGreenShift) & kByte) / kChannelMax;
+    instance.tint[2] *= static_cast<float>(material.rgb & kByte) / kChannelMax;
+    instance.mod_material = static_cast<std::uint8_t>(material.material);
+}
+
 // Returns the third light the moby program gives a moby from the point lights (Going Commando's
 // MobyProc): the eight after the light bank's 16 sets, {colour, falloff, position, reach}, a light
 // whose x and y are both 0 left out (0x2A51C8). Each light within reach of the moby's sphere
@@ -1431,6 +1466,8 @@ TickMobys pose_mobys(
     // draws every moby in its bind pose.
     static const bool animate = env::flag(env::Var::Anim);
     auto replacements = mods::moby_visuals();
+    // Read before the mobys the game drew but did not list are added below.
+    const auto materials = mod_materials(state.mobys, state.mobys.size());
     namespace cases = scene::gold_case_preview;
     cases::cases.clear();
     if (g->level.game == "rac1") {
@@ -2090,6 +2127,10 @@ TickMobys pose_mobys(
                 );
                 break;
             }
+        }
+        // A mod's material on it (interface 1.23), wherever it is drawn: the world or a target.
+        if (const auto material = materials.find(m.address); material != materials.end()) {
+            apply_mod_material(instance, material->second);
         }
         bool attached_bones = false;
 #ifdef OPENRAC_LIGHT_AUTHORING

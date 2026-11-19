@@ -973,6 +973,24 @@ void fill_21(openrac_api &api) {
   };
 }
 
+// The fake host's 1.23 moby material: the last call it took.
+openrac_gaddr g_23_moby = 0;
+uint32_t g_23_material = 0;
+uint32_t g_23_rgb = 0;
+
+void fill_23(openrac_api &api) {
+  api.moby_material = [](openrac_mod *, openrac_gaddr moby, uint32_t material,
+                         uint32_t rgb) {
+    if (material > OPENRAC_MOBY_MATERIAL_PLATINUM) {
+      return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_23_moby = moby;
+    g_23_material = material;
+    g_23_rgb = rgb;
+    return OPENRAC_HOOK_OK;
+  };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -2012,6 +2030,24 @@ int main() {
       api.api_minor = 20;
       CHECK(!mod.has_hook_entry() &&
             mod.hook_entry<openrac::rac1::Weapon_TakeAmmo>() == nullptr);
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.23: a moby's material, no tint unless asked.
+    {
+      fill_23(api);
+      CHECK(mod.has_moby_material() &&
+            mod.moby_material(0x1C0000, OPENRAC_MOBY_MATERIAL_PLATINUM));
+      CHECK(g_23_moby == 0x1C0000 && g_23_material == OPENRAC_MOBY_MATERIAL_PLATINUM &&
+            g_23_rgb == 0xFFFFFF);
+      CHECK(mod.moby_material(0x1C0100, OPENRAC_MOBY_MATERIAL_TINT, 0x80FF80) &&
+            g_23_rgb == 0x80FF80);
+      CHECK(!mod.moby_material(0x1C0100, 7));
+
+      // A port of 1.22 has none of it.
+      api.api_minor = 22;
+      g_23_moby = 0;
+      CHECK(!mod.has_moby_material() &&
+            !mod.moby_material(0x1C0000, OPENRAC_MOBY_MATERIAL_TINT) && g_23_moby == 0);
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);
