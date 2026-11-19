@@ -65,6 +65,7 @@
 #include "renderer/gl/gl.h"
 #include "renderer/gl/gl_warmup.h"
 #include "renderer/renderer.h"
+#include "renderer/textures/interface_run.h"
 #include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture.h"
 #include "renderer/textures/texture_pack.h"
@@ -862,6 +863,15 @@ void effect_textures() {
                 colours,
                 renderer::AlphaScale::Gs
             );
+            // An interface texture run notes how it was made (renderer/textures/interface_run.h).
+            renderer::interface_run::note_indexed8(
+                texture,
+                image.data,
+                palette.data,
+                static_cast<int>(image.width),
+                static_cast<int>(image.height),
+                texa
+            );
             // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
             renderer::texture_pack::Replacement replaced;
             if (!renderer::texture_pack::replace(texture, {}, &replaced)) {
@@ -1093,6 +1103,10 @@ std::uint32_t particle_texture(
     const std::vector<std::uint32_t> palette = renderer::clut_csm1(colours, 0x00, 16, 256, texa);
     renderer::Rgba8Image image =
         renderer::convert_t8(indices, kSide, kSide, palette, renderer::AlphaScale::Gs);
+    // An interface texture run notes how it was made (renderer/textures/interface_run.h).
+    renderer::interface_run::note_indexed8(
+        image, indices, colours, static_cast<int>(kSide), static_cast<int>(kSide), texa
+    );
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
     renderer::texture_pack::Replacement replaced;
     if (!renderer::texture_pack::replace(image, {}, &replaced)) {

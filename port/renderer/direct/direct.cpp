@@ -17,6 +17,7 @@
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl/gl.h"
+#include "renderer/textures/interface_run.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
@@ -1315,6 +1316,10 @@ void GifInterpreter::ensure_draw() {
             // Unblended draws can use RGB under zero alpha, so only active blending permits filtering.
             const gs::Alpha* dump_blend = p.abe ? &c.alpha : nullptr;
             s.texture = m_textures.resolve(c.tex0, m_texa, dump_blend);
+            // An interface texture run (interface_run.h) files a texture drawn as text as the font.
+            if (m_glyph && interface_run::recording() && s.texture != m_textures.placeholder()) {
+                interface_run::mark_font(m_textures.pack_hash(s.texture));
+            }
             // A pack's picture is drawn as its maker made it: a field of a big one would also
             // take seconds of CPU (four times its size).
             if (m_glyph && s.texture != m_textures.placeholder()

@@ -535,6 +535,48 @@ export const ASSETS = {
   exportStopped: "The export stopped. The activity log has what it said.",
   readStopped: "Reading the levels stopped. The activity log has what it said.",
   exported: (level: string) => `Exported ${level}: the folder is opening.`,
+  weaponsNote:
+    "Weapons and gadgets come from whichever level has each one; the level chosen does not matter.",
+} as const;
+
+/** Interface textures (InterfaceTextures.svelte, core/src/interface_runs.rs): the HUD, the menus, the
+ *  font and the effects exported from the player's disc, from the project's run or their own. */
+export const INTERFACE = {
+  title: "Interface textures",
+  lead: "The HUD, menus, font and effects from your disc, named the way texture packs name them.",
+  font: "Font",
+  hud: "HUD and menus",
+  effects: "Effects",
+  made: (made: string, n: number) => `${made ? `${made} · ` : ""}${n}`,
+  partly: (n: number) => `Part way · ${n}`,
+  none: "None yet",
+  outOfDate: "Out of date",
+  make: "Make",
+  finish: "Finish",
+  makeMissing: (n: number) => `Make the missing (${n})`,
+  makeAgain: "Make the run again",
+  exportKind: (kind: string) => `Export ${kind}`,
+  export: "Export",
+  exporting: "Making the pictures from your disc…",
+  exportLine: "Opens a folder of them. A few seconds.",
+  exported: (written: number, skipped: number) =>
+    `Exported ${written}${skipped ? `; ${skipped} not on your disc` : ""}. Opening the folder.`,
+  exportStopped: "The export stopped. The activity log says why.",
+  notReady: "Build the game and set up your disc first.",
+  nothingYet: "Not available for this version yet.",
+  nothingYetRun: "Make one first: the game plays a few routes hidden.",
+  runAsk:
+    "The game plays the routes these textures need, hidden, and notes what it draws. A few minutes to a quarter of an hour; you can use the computer meanwhile and stop it any time.",
+  runYes: "Start",
+  starting: "Starting the game…",
+  routeOf: (done: number, of: number) => `Route ${done} of ${of}`,
+  runLong: "you can keep using the computer",
+  stop: "Stop",
+  runDone: "Done: they can be exported.",
+  runPartly: "Done, but some routes ended early.",
+  runStopped: "Stopped. The activity log says why.",
+  developer: (id: string) =>
+    `python3 port/tools/interface_runs/run.py run --game ${id} --out <file> [--kinds font,interface,effects] · openrac-${id} --interface-export <dir> --interface-runs <file>`,
 } as const;
 
 /** Mod codes (ModSetShare.svelte, ModSetReview.svelte, ModSetSaved.svelte, core/src/modset.rs): friends

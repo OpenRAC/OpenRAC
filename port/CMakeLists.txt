@@ -119,6 +119,7 @@ add_library(openrac_common STATIC
   common/staged_file.cpp
   common/stats.cpp
   common/system_info.cpp
+  common/wad.cpp
   common/zip_writer.cpp
   "${OPENRAC_BUILD_INFO}"
 )

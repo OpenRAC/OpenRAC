@@ -50,6 +50,35 @@ another game's pack is refused, and its pictures are added to yours.
 Saved pictures go to `texture_dumps/<game id>/` in the launcher's data folder,
 not into your pack.
 
+## Export without playing
+
+**Make your own → Models and textures → Interface textures** saves the HUD,
+menu, font and effect textures from your disc, with no need to play. They go
+into a new folder under `<data>/exports/`, sorted into `Font/`,
+`HUD and menus/` and `Effects/`, with the same file names a dump uses.
+
+It works in two steps:
+
+1. **Make** plays the game's test routes once, hidden, and notes which
+   textures it draws and where they come from on the disc. This takes a few
+   minutes, and **Stop** ends it. You can make one kind at a time; a later run
+   adds to the first. The result is `<data>/interface_runs/<id>.json`. It holds
+   no game data, only hashes and disc positions.
+2. **Export** rebuilds each texture from your disc and keeps it only if it
+   matches. This takes about a second.
+
+Available for Ratchet & Clank NTSC-U and PAL, and Going Commando NTSC-U. The
+game must be set up and its levels ready. A run made by an older port shows as
+out of date: make it again. Textures the game draws from code (a fade, a
+screen effect) are not on the disc, so they can't be exported.
+
+From the command line:
+
+```
+python3 port/tools/interface_runs/run.py run --game rac1-ntsc --out run.json --exe <program> --data <data> --levels <levels> [--kinds font,interface,effects] [--fresh]
+openrac-rac1-ntsc --data <data> --interface-export <folder> --interface-runs run.json [--only font,interface,effects]
+```
+
 ## Making one by hand
 
 1. Dump the textures: start the game with

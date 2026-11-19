@@ -63,6 +63,7 @@
 #include "openrac/guest.h"
 #include "openrac/memory.h"
 #include "openrac/sound_engine.h"
+#include "program/interface_runs.h"
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
@@ -619,6 +620,20 @@ int main(int argc, char** argv) {
         log::fatalf("--check-levels needs a build with the window (it reads the levels as the window does)");
 #endif
     }
+    if (!g_options.interface_export.empty()) {
+        // An export reads the run files and the disc and ends: no game is played.
+        return export_interface(
+            g_options.data / "iso_data" / openrac_game.game / "disc.iso",
+            openrac_game.id,
+            g_options.interface_export,
+            g_options.interface_runs,
+            g_options.interface_only,
+            [](const std::string& line) {
+                std::fputs((line + "\n").c_str(), stdout);
+                std::fflush(stdout);
+            }
+        );
+    }
     // The session's log first, so that a game that cannot start says why in it (on Android the
     // only place the player can read it, through the launcher).
     open_session(argc, argv);
@@ -639,6 +654,12 @@ int main(int argc, char** argv) {
         );
     }
     log::info("{}: {}", program_name(), openrac_game.title);
+    if (!g_options.interface_run.empty()) {
+        static fs::path run_disc;
+        run_disc = disc;
+        start_interface_run(g_options.interface_run);
+        std::atexit([] { finish_interface_run(run_disc); });
+    }
 
     if (g_options.custom_map) {
         const CustomMap& map = *g_options.custom_map;

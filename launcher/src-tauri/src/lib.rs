@@ -508,6 +508,19 @@ fn game_data_dir(state: &State<'_, AppState>, game: &str) -> Result<PathBuf, Str
     Ok(install::data_dir(&install, game))
 }
 
+/// What a version's interface textures can be exported from (core/src/interface_runs.rs).
+#[tauri::command]
+async fn interface_runs_view(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+) -> Result<openrac_launcher_core::interface_runs::View, String> {
+    let data = game_data_dir(&state, &game)?;
+    tauri::async_runtime::spawn_blocking(move || openrac_launcher_core::interface_runs::view(&data, &game, &version))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// A game version's Texture packs section.
 #[tauri::command]
 async fn texture_packs_view(
@@ -3126,6 +3139,7 @@ pub fn run() {
             enhanced_view,
             enhanced_set_enabled,
             texture_packs_view,
+            interface_runs_view,
             texture_packs_set,
             texture_packs_open,
             texture_packs_preview,

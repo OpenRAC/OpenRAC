@@ -9,6 +9,7 @@ from pathlib import Path
 import struct
 import tempfile
 import unittest
+from unittest import mock
 from contextlib import redirect_stdout
 
 import assets
@@ -342,6 +343,17 @@ class AssetTests(unittest.TestCase):
         self.assertEqual(len(overrides.load_state(out)["packs"]), 1)
         self.assertEqual(pngio.size((out / "packs/yellow-ratchet/level_00/textures/moby_0003.png").read_bytes()),
                          (16, 8))
+
+    def test_weapons_come_once_from_the_first_level_with_their_model(self):
+        with mock.patch.dict(assets.HELD_ITEMS, {"rac1": (0, 1, 99)}):
+            summary, _ = quiet(assets.export, self.levels, self.root / "weapons", [1], "weapons")
+            self.assertEqual((summary["levels"], summary["models"]), ([0], 1))
+            self.assertTrue((self.root / "weapons/level_00/mobys/moby_0_ratchet/moby_0.gltf").is_file())
+            self.assertFalse((self.root / "weapons/level_01").exists())
+            self.assertFalse((self.root / "weapons/level_00/ties").exists())
+        with mock.patch.dict(assets.HELD_ITEMS, {"rac1": (99,)}):
+            with self.assertRaises(assets.AssetError):
+                quiet(assets.export, self.levels, self.root / "none", [0], "weapons")
 
     def test_unique_export_folder(self):
         code, text = quiet(assets.main, ["export", str(self.levels), str(self.export), "--level", "0", "--unique"])

@@ -138,6 +138,9 @@ int openrac_lib_sceCdInit(int);
 int openrac_lib_sceCdDiskReady(int);
 int openrac_lib_sceCdMmode(int);
 int openrac_lib_sceCdRead(unsigned int, unsigned int, gaddr, gaddr);
+/* Told of every sceCdRead (sector, count) while set: an interface run notes the sectors the game
+ * read (program/interface_runs.cpp). NULL otherwise. */
+extern void (*openrac_cdvd_read_hook)(unsigned int sector, unsigned int count);
 int openrac_lib_sceCdGetError(void);
 int openrac_lib_sceCdBreak(void);
 int openrac_lib_sceCdReadClock(gaddr);

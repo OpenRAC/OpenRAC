@@ -24,6 +24,8 @@ import type { EditorState } from "./generated/EditorState";
 import type { ExportedSaves } from "./generated/ExportedSaves";
 import type { GameView } from "./generated/GameView";
 import type { InstallState } from "./generated/InstallState";
+import type { InterfaceRun } from "./generated/InterfaceRun";
+import type { InterfaceRunsView } from "./generated/InterfaceRunsView";
 import type { JobEvent } from "./generated/JobEvent";
 import type { Library } from "./generated/Library";
 import type { ModLoadSummary } from "./generated/ModLoadSummary";
@@ -885,7 +887,7 @@ function mockEditorState(): EditorState {
   }
 }
 
-function lastLines(id: string, args: Record<string, unknown>): string[] {
+function lastLines(id: string, args: Record<string, unknown>, scope?: Scope): string[] {
   const data = `${config.installDir ?? ""}/active/rac1/data`;
   const level = String(typeof args.level === "number" ? args.level : 0).padStart(2, "0");
   const path = typeof args.path === "string" ? args.path : "";
@@ -896,6 +898,50 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
       ?.replace(/\.zip$/i, "") ?? "pack";
 
   switch (id) {
+    case "interface-export":
+      return [
+        '{"event": "start", "total": 565}',
+        `{"event": "done", "folder": "${data}/exports/interface-${String(args.option)}", "written": {"font": 96, "interface": 412, "effects": 57}, "skipped": {"disc": 0, "different": 0, "unwritable": 0}}`,
+        `openrac-output: ${data}/exports/interface-${String(args.option)}`,
+      ];
+    case "interface-run": {
+      const key = scope?.kind === "version" ? scope.key.replace("/", "-") : "";
+      // The kinds asked for are added to the earlier run (run.py --kinds).
+      const kinds = (
+        typeof args.option === "string" ? args.option : "font,interface,effects"
+      ).split(",");
+      const earlier = mockInterfaceRun[key];
+      const full = [96, 430, 61];
+      const has = (at: number) => kinds.includes(["font", "interface", "effects"][at] ?? "");
+      const pick = <T>(at: number, now: T, then: T): T => (has(at) ? now : then);
+
+      mockInterfaceRun[key] = {
+        made: "2026-11-14",
+        counts: [0, 1, 2].map((at) => pick(at, full[at] ?? 0, earlier?.counts[at] ?? 0)) as [
+          number,
+          number,
+          number,
+        ],
+        clean: true,
+        current: true,
+        complete: [0, 1, 2].map((at) => pick(at, true, earlier?.complete[at] ?? false)) as [
+          boolean,
+          boolean,
+          boolean,
+        ],
+        kindMade: [0, 1, 2].map((at) =>
+          pick<string | null>(at, "2026-11-14", earlier?.kindMade[at] ?? null),
+        ) as [string | null, string | null, string | null],
+      };
+
+      return [
+        '{"event": "start", "game": "' + key + '", "routes": 3, "skipped": []}',
+        '{"event": "route", "key": "00-long", "name": "Veldin", "status": "ok", "done": 1, "of": 3}',
+        '{"event": "route", "key": "01-pause-0", "name": "Pause", "status": "ok", "done": 2, "of": 3}',
+        '{"event": "route", "key": "title-new", "name": "Title", "status": "ok", "done": 3, "of": 3}',
+        `openrac-output: ${data}/interface_runs/${key}.json`,
+      ];
+    }
     case "assets-export":
       return [
         `level ${level}: 215 models, 414 textures`,
@@ -2093,6 +2139,8 @@ function samplePack(name: string): PackView {
 }
 
 /** A game's texture pack and saved textures, as the preview pretends (`?notextures`: none yet). */
+/** The player's own interface runs, by version id, once "Make an interface run" ran. */
+const mockInterfaceRun: Record<string, InterfaceRun> = {};
 const mockTextures: TexturePackView = query.has("notextures")
   ? {
       id: "",
@@ -2197,7 +2245,7 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
     `$ ${command}`,
     "(browser preview: nothing really runs)",
     "working…",
-    ...lastLines(id, args),
+    ...lastLines(id, args, scope),
   ];
 
   // The build prints ninja's counter and long paths, as the real one does: to try the progress strip.
@@ -2287,11 +2335,13 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       ? [`/home/you/OpenRAC/assets/packed/${scope.kind === "version" ? scope.key : ""}`]
       : id === "audio-export" || id === "audio-export-all"
         ? [`/home/you/exports/audio-${String(args.option)}-20261101T0900`]
-        : id === "assets-export"
-          ? [
-              `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
-            ]
-          : [];
+        : id === "interface-export"
+          ? [`/home/you/exports/interface-${String(args.option)}`]
+          : id === "assets-export"
+            ? [
+                `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
+              ]
+            : [];
   const moved = () => {
     if (id === "editor-extract")
       mockEditor = ["outdated", "broken"].includes(mockEditor) ? "carried" : "ready";
@@ -3082,6 +3132,22 @@ export async function mockCall(
       }
 
       return delay<PackView[]>([...mockPacks]);
+    }
+    case "interface_runs_view": {
+      // The preview: no run until "Make a run" ran (the player makes their own).
+      const id = `${String(args.game)}-${String(args.version)}`;
+      const local = mockInterfaceRun[id] ?? null;
+
+      return delay<InterfaceRunsView>({
+        id,
+        local,
+        unreadable: [],
+        available: [0, 1, 2].map(
+          (at) => !!local && local.current && (local.counts[at] ?? 0) > 0,
+        ) as [boolean, boolean, boolean],
+        runnable: ["rac1-ntsc", "rac1-pal", "rac2-ntsc"].includes(id),
+        localFile: `/home/you/.local/share/openrac/interface_runs/${id}.json`,
+      });
     }
 
     case "texture_packs_view":

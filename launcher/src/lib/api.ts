@@ -54,6 +54,8 @@ import type { IndexMod } from "./generated/IndexMod";
 import type { IndexVersion } from "./generated/IndexVersion";
 import type { IndexView } from "./generated/IndexView";
 import type { InstallPlan } from "./generated/InstallPlan";
+import type { InterfaceRun } from "./generated/InterfaceRun";
+import type { InterfaceRunsView } from "./generated/InterfaceRunsView";
 import type { JobEvent } from "./generated/JobEvent";
 import type { LastUpdate } from "./generated/LastUpdate";
 import type { Library } from "./generated/Library";
@@ -150,6 +152,8 @@ export const onAndroid =
     : typeof location !== "undefined" && new URLSearchParams(location.search).has("android"));
 
 export type { TextureFolder, TexturePackImportMode, TexturePackPreview, TexturePackView };
+
+export type { InterfaceRun, InterfaceRunsView };
 
 export type { ExportedTexturePack, ImportedTexturePack };
 
@@ -548,6 +552,9 @@ export const api = {
   pluginsSetSetting: (game: string, version: string, id: string, key: string, value: unknown) =>
     call<PluginView[]>("plugins_set_setting", { game, version, id, key, value }),
   /** The built-in Enhanced graphics entry of a version (core/src/enhanced.rs); null where it has none. */
+  /** What a version's interface textures can be exported from (core interface_runs.rs). */
+  interfaceRuns: (game: string, version: string) =>
+    call<InterfaceRunsView>("interface_runs_view", { game, version }),
   /** A version's texture pack and the textures the game saved (core texture_packs.rs). */
   texturePacks: (game: string, version: string) =>
     call<TexturePackView>("texture_packs_view", { game, version }),
