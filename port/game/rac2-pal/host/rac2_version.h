@@ -21,16 +21,23 @@
 
 /* Addresses of the executable's memory. */
 #define RAC2_ADDR_0x0010E9F0u 0x0010E9F0u /* the same microcode at the same place */
+#define RAC2_ADDR_0x00137EA0u 0x00137F20u /* the release's build */
 #define RAC2_ADDR_0x00138180u 0x00138200u /* the release's build */
 #define RAC2_ADDR_0x00138280u 0x00138300u /* the release's build */
+#define RAC2_ADDR_0x001393E0u 0x00139460u /* the release's build */
+#define RAC2_ADDR_0x00139410u 0x00139490u /* the release's build */
 #define RAC2_ADDR_0x00146B40u 0x00146BC0u /* the same instruction of the paired function */
 #define RAC2_ADDR_0x00146B44u 0x00146BC4u /* versionmap: between */
 #define RAC2_ADDR_0x00152C26u 0x00152CA6u /* the release's build */
 #define RAC2_ADDR_0x00152C64u 0x00152CE4u /* versionmap: between */
 #define RAC2_ADDR_0x00152C68u 0x00152CE8u /* versionmap: between */
+#define RAC2_ADDR_0x001A72DCu 0x001A735Cu /* the release's build */
+#define RAC2_ADDR_0x001A7340u 0x001A73C0u /* the release's build */
 #define RAC2_ADDR_0x001A7350u 0x001A73D0u /* the release's build */
 #define RAC2_ADDR_0x001A7354u 0x001A73D4u /* the release's build */
+#define RAC2_ADDR_0x001A7420u 0x001A74A0u /* the release's build */
 #define RAC2_ADDR_0x001A79F0u 0x001A7A78u /* the release's build */
+#define RAC2_ADDR_0x001A7AF8u 0x001A7B80u /* the release's build */
 #define RAC2_ADDR_0x001A7B98u 0x001A7C20u /* the release's build */
 #define RAC2_ADDR_0x001A7BA4u 0x001A7C2Cu /* the release's build */
 #define RAC2_ADDR_0x001A7BA8u 0x001A7C30u /* the release's build */
@@ -40,7 +47,15 @@
 #define RAC2_ADDR_0x001A8C60u 0x001A8D10u /* the release's build */
 #define RAC2_ADDR_0x001A8C64u 0x001A8D14u /* the release's build */
 #define RAC2_ADDR_0x001A8CFCu 0x001A8DACu /* the release's build */
+#define RAC2_ADDR_0x001A95F0u 0x001A96B0u /* the release's build */
+#define RAC2_ADDR_0x001A960Cu 0x001A96C8u /* the release's build */
+#define RAC2_ADDR_0x001A9610u 0x001A96CCu /* the release's build */
+#define RAC2_ADDR_0x001A9614u 0x001A96D0u /* the release's build */
+#define RAC2_ADDR_0x001A9618u 0x001A96D4u /* the release's build */
 #define RAC2_ADDR_0x001AA0F8u 0x001AA178u /* the release's build */
+#define RAC2_ADDR_0x001ABBF0u 0x001ABCC8u /* the release's build */
+#define RAC2_ADDR_0x001ABBF4u 0x001ABCCCu /* the release's build */
+#define RAC2_ADDR_0x001ABC08u 0x001ABCE0u /* the release's build */
 #define RAC2_ADDR_0x001ADE00u 0x001ADE78u /* the release's build */
 #define RAC2_ADDR_0x001ADE20u 0x001ADE98u /* the release's build */
 #define RAC2_ADDR_0x001ADE28u 0x001ADEA0u /* the release's build */
@@ -62,12 +77,15 @@
 #define RAC2_ADDR_0x001B187Cu 0x001B187Cu /* versionmap: exact */
 #define RAC2_ADDR_0x001B1890u 0x001B1890u /* versionmap: exact */
 #define RAC2_ADDR_0x001B1894u 0x001B1894u /* versionmap: exact */
-#define RAC2_ADDR_0x001B1B74u 0x001B1B74u /* the same instruction of the paired function */
+#define RAC2_ADDR_0x001B18D8u 0x001B18D8u /* versionmap: exact */
+#define RAC2_ADDR_0x001B18DCu 0x001B18DCu /* versionmap: exact */
+#define RAC2_ADDR_0x001B1B74u 0x001B1B74u /* versionmap: exact */
 #define RAC2_ADDR_0x001B1D48u 0x001B1D48u /* versionmap: exact */
-#define RAC2_ADDR_0x001B1D90u 0x001B1D90u /* the same instruction of the paired function */
-#define RAC2_ADDR_0x001B1D98u 0x001B1D98u /* the same instruction of the paired function */
+#define RAC2_ADDR_0x001B1D90u 0x001B1D90u /* versionmap: exact */
+#define RAC2_ADDR_0x001B1D98u 0x001B1D98u /* versionmap: exact */
 #define RAC2_ADDR_0x001B20F0u 0x001B20F0u /* versionmap: exact */
 #define RAC2_ADDR_0x001B22A8u 0x001B22A8u /* versionmap: exact */
+#define RAC2_ADDR_0x001B23C8u 0x001B23C8u /* versionmap: exact */
 #define RAC2_ADDR_0x001B5200u 0x001B5200u /* versionmap: exact */
 #define RAC2_ADDR_0x001B5570u 0x001B5570u /* versionmap: exact */
 #define RAC2_ADDR_0x001B8840u 0x001B8840u /* versionmap: exact */
@@ -83,6 +101,7 @@
 #define RAC2_ADDR_0x001BA540u 0x001BA540u /* versionmap: exact */
 #define RAC2_ADDR_0x001BADC0u 0x001BADC0u /* versionmap: exact */
 #define RAC2_ADDR_0x001C2740u 0x001C2740u /* versionmap: exact */
+#define RAC2_ADDR_0x001C4FA0u 0x001C4FA0u /* versionmap: exact */
 #define RAC2_ADDR_0x001F1F40u 0x001F1F40u /* versionmap: exact */
 #define RAC2_ADDR_0x001F2840u 0x001F2840u /* versionmap: exact */
 #define RAC2_ADDR_0x00255330u 0x00255330u /* versionmap: exact */
@@ -121,6 +140,7 @@
 #define RAC2_K_LIST_TITLE_BAR 0x98 /* v1.01 0x98; func_00341C20 as func_00343C88: 1 instructions */
 #define RAC2_K_LIST_TITLE_TEXT 0x1D0 /* v1.01 0x1D0; func_00341C20 as func_00343C88: 1 instructions */
 #define RAC2_K_MAIN_LIST_OFFSET 0x3EA78 /* v1.01 0x3E430; func_002D5748 as func_002D6320: 1 instructions */
+#define RAC2_K_MAP_MARKERS 0x1 /* v1.01 0x1; by hand: PAL's map (func_PAL_00296870, src/pal/game/00296870-map-g8.c) is v1.01's DrawMapOverlay C, which draws no Mapper markers: the port draws v2.00's (host/map_markers.c) */
 #define RAC2_K_OPTIONS_LIST_OFFSET 0x3E810 /* v1.01 0x3E1D8; func_002D58A0 as func_002D6478: 1 instructions */
 #define RAC2_K_PAUSE_LIST_COUNT 0x1CC /* v1.01 0x1CC; by hand: func_00341610 as func_00343690: sw $a0, 0x1CC($s0) at +0x7c, as v1.01's at +0x74 (the list's count) */
 #define RAC2_K_PAUSE_LIST_CURSORS 0x1B8 /* v1.01 0x1B8; func_00341610 as func_00343690: 1 instructions */

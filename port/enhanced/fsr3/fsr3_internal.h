@@ -50,19 +50,20 @@ struct Fsr3::State {
     renderer::Shader reactive_mask;     // Particle colour-difference mask.
     unsigned vao = 0;                   // Empty VAO for fullscreen triangles.
     fsr3_detail::PaletteHistory previous_palette;  // Previous displayed joint matrices.
-    unsigned output_texture = 0;        // Display texture last made storage-capable.
+    unsigned output_texture = 0;                   // Display texture last made storage-capable.
 
     std::vector<scene::Instance> instances;  // Current displayed live mobys.
     std::vector<renderer::Mat4> palette;     // Current displayed joints, padded only on upload.
     fsr3_detail::ObjectHistory previous;     // Last displayed live identities.
     std::vector<scene::MotionInstance> velocities;  // Current/previous pairs for the velocity pass.
 
-    renderer::Camera camera;                    // Current unjittered camera.
-    renderer::Camera old_camera;                // Previous unjittered camera.
-    renderer::Mat4 inverse_raster{};            // Current clip-to-world transform.
-    scene::MotionView view;                     // Camera matrices and motion target size.
-    renderer::RenderTarget display;             // Final target restored before HUD drawing.
-    scene::LevelScene* scene = nullptr;         // Frontend-owned scene, borrowed through render().
+    renderer::Camera camera;             // Current unjittered camera.
+    renderer::Camera old_camera;         // Previous unjittered camera.
+    renderer::Mat4 inverse_raster{};     // Current clip-to-world transform.
+    renderer::Mat4 previous_clip{};      // Current clip to previous clip, composed in doubles.
+    scene::MotionView view;              // Camera matrices and motion target size.
+    renderer::RenderTarget display;      // Final target restored before HUD drawing.
+    scene::LevelScene* scene = nullptr;  // Frontend-owned scene, borrowed through render().
     renderer::TexturePool* textures = nullptr;  // Renderer-owned pool, same borrow duration.
 
     fsr3_detail::Dispatch dispatch;  // Jitter, elapsed time, camera and reset flag for AMD.

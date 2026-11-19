@@ -48,7 +48,7 @@ replacement when one is hooked. hostgen's `functions.c` registers that same host
 every place the function has, in every level whose program carries its code
 (config/overlays/functions.tsv), so one row makes one hook point for all those levels, and the
 moby loop's calls through `moby->update` reach it as direct calls do. Places that
-port/game/rac1-pal/split_places.tsv gives to a variant are another function and are not covered
+port/game/rac1-pal/tables/split_places.tsv gives to a variant are another function and are not covered
 (the `covers` text says which). A hook point is per disc: rac1-ntsc needs its own row, with the
 NTSC decomp's symbol for the function, under the same name.
 

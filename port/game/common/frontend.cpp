@@ -153,6 +153,11 @@ bool skippable() {
 
 // The picture's shape now: the player's setting, for the window as it is.
 float picture_aspect(int window_width, int window_height) {
+    // A movie fills the window whatever the picture setting (set_movie_playing): the game sizes its
+    // picture to the window's shape (rac2/host/movie.c), as a television would.
+    if (g != nullptr && g->movie_playing && window_width > 0 && window_height > 0) {
+        return static_cast<float>(window_width) / static_cast<float>(window_height);
+    }
     return settings::aspect_ratio(settings::get(), window_width, window_height);
 }
 
@@ -430,9 +435,13 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     // HDR output may be turned on later only when it was not off at start (common/hdr.h).
     config.hdr = chosen.hdr != hdr::Mode::Off;
 #if defined(OPENRAC_VULKAN)
-    // Only the Vulkan renderer has HDR output: HDR on draws with it, whatever renderer was asked
-    // for (it falls back to OpenGL by itself where Vulkan cannot start).
-    if (config.hdr && config.gl_api != platform::GlApi::Vulkan) {
+    // Only the Vulkan renderer has HDR output: HDR on draws with it (it falls back to OpenGL by
+    // itself where Vulkan cannot start), except where the player chose Metal, which stays Metal
+    // and SDR rather than changing the renderer behind their choice.
+    if (config.hdr && config.gl_api == platform::GlApi::Metal) {
+        log::info("HDR output needs the Vulkan renderer: drawing with Metal, as chosen, in SDR");
+        config.hdr = false;
+    } else if (config.hdr && config.gl_api != platform::GlApi::Vulkan) {
         log::info("HDR output is on: drawing with Vulkan, the renderer that has it");
         config.gl_api = platform::GlApi::Vulkan;
     }
@@ -533,6 +542,12 @@ void world_drawn(std::span<const std::uint8_t> ram) {
     g->world_shrubs.reset();
     if (settings::get().original_draw_distance()) {
         g->world_shrubs = g->profile->shrub_draws(ram, level);
+    }
+}
+
+void set_movie_playing(bool on) {
+    if (g) {
+        g->movie_playing = on;
     }
 }
 

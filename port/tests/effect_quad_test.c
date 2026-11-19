@@ -30,6 +30,8 @@ int main(void) {
     GREF(uint32_t,0x28D148)=0x346000;
     func_L00_001FD1D8(0x1000,0,0);
     CHECK(submitted==1 && !memcmp(&input,&captured,0x90));
+    /* RAC1's quads do not opt into the physical attachment contract. */
+    CHECK(captured.attachment == 0);
     CHECK(captured.pixels == 0x346000 && captured.clut == 0x345000 && captured.source == 1);
     /* The texture is cached after its upload frame. */
     GREF(int,0x25F558)=0;

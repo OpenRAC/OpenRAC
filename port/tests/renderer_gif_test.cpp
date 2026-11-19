@@ -7,11 +7,15 @@
 #include <cfenv>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <system_error>
 #include <utility>
 
 #include "check.h"
 #include "renderer/direct/direct.h"
 #include "renderer/effects/effects.h"
+#include "renderer/textures/texture_pack.h"
 #include "renderer_gif_builder.h"
 
 namespace {
@@ -418,6 +422,54 @@ void scissor_of_a_shorter_buffer() {
     CHECK(std::fesetround(rounding) == 0);
 }
 
+// Writes a marker so the CPU-only GIF test can observe exports without a PNG encoder.
+bool save_dump_marker(const std::filesystem::path& file, const Rgba8Image&) {
+    return std::ofstream(file).put('x').good();
+}
+
+// Keeps a zero-alpha upload when an unblended draw follows a source-over draw of the same pixels.
+void test_empty_alpha_draw_export() {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "openrac_gif_empty_alpha_dump_test";
+    std::error_code error;
+    fs::remove_all(root, error);
+    CHECK(!error);
+    texture_pack::configure({}, root, {.save = save_dump_marker});
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    // A 4x4 RGBA8 image at block 0x800 has red RGB and no alpha.
+    std::vector<std::uint8_t> pixels(std::size_t{4} * 4 * 4);
+    pixels[0] = 255;
+    GifBuilder first;
+    first.image(0x800, 1, gs::kPsmct32, 4, 4, pixels);
+    // ALPHA 0x44 selects (Cs - Cd) * As + Cd; the first sprite is blended (seen in gs::Alpha).
+    first.ad(
+        {{gs::kTex0_1, openrac::test::tex0(0x800, 1, gs::kPsmct32, 2, 2, true)},
+         {gs::kAlpha1, 0x44},
+         {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, true, true)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kXyz2, xyz2(8, 8, 0)}}
+    );
+    CHECK(gif.gif(first.bytes));
+    CHECK(gif.draws().size() == 1);
+    CHECK(!fs::exists(root / "Interface"));
+    GifBuilder second;
+    second.ad(
+        {{gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kXyz2, xyz2(8, 8, 0)}}
+    );
+    CHECK(gif.gif(second.bytes));
+    CHECK(gif.draws().size() == 2);
+    const Rgba8Image& shown = textures.image(gif.draws().back().state.texture);
+    const fs::path saved =
+        root / "Interface" / texture_pack::file_name(texture_pack::image_hash(shown));
+    CHECK(fs::is_regular_file(saved));
+    texture_pack::configure({}, {}, {});
+    fs::remove_all(root, error);
+    CHECK(!error);
+}
+
 void textures_and_vif() {
     TexturePool textures;
     GifInterpreter gif(textures);
@@ -455,6 +507,36 @@ void textures_and_vif() {
     // A VU program's command is not the direct path.
     std::vector<std::uint8_t> mscal = {0, 0, 0, 0x14};
     CHECK(!gif.vif(mscal));
+}
+
+// A movie's picture (TexturePool::set_picture) under Going Commando's strips: their TEX0 is
+// 1024 x 1024 at the picture's block, as wide a buffer, over the 512 x 512 picture. A strip draws
+// the picture's texture (not nothing), its coordinates over the picture's size.
+void movie_picture_strips() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    GifBuilder b;
+    constexpr std::uint32_t kBlock = 0x2000;
+    std::vector<std::uint8_t> pixels(512 * 512 * 4, 0x40);
+    textures.set_picture(kBlock, 8, 512, 512, pixels);
+    b.ad(
+        {{gs::kTex0_1, openrac::test::tex0(kBlock, 8, gs::kPsmct32, 10, 10, true)},
+         {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+         {gs::kUv, openrac::test::uv(0, 0)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kUv, openrac::test::uv(32, 416)},
+         {gs::kXyz2, xyz2(32, 416, 0)}}
+    );
+    CHECK(gif.gif(b.bytes));
+    CHECK(gif.draws().size() == 1);
+    if (!gif.draws().empty()) {
+        const DirectState& s = gif.draws().back().state;
+        CHECK(s.textured && !s.frame_source && s.source == 0);
+        CHECK(s.texture != textures.placeholder() && textures.image(s.texture).width == 512);
+        CHECK(s.fbmsk == 0);  // drawn, not left out as a texture nothing was put at
+        const DirectVertex& corner = gif.vertices()[4];
+        CHECK(near(corner.s, 32.0f / 512.0f) && near(corner.t, 416.0f / 512.0f));
+    }
 }
 
 // A block the game drew into off-screen, then uploaded a texture to (its 2D pages reuse that
@@ -693,6 +775,8 @@ int main() {
     fill_over_the_world();
     scissor_of_a_shorter_buffer();
     textures_and_vif();
+    movie_picture_strips();
+    test_empty_alpha_draw_export();
     offscreen_then_upload();
     frame_named_without_draw();
     upload_over_offscreen();

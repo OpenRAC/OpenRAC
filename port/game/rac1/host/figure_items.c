@@ -749,3 +749,23 @@ int rac1_hero_held(openrac_game_held* out) {
     }
     return 1;
 }
+
+/* The skeleton joint of the hero's attach point `point` on `moby` (openrac_api.prop_attach,
+ * OPENRAC_ATTACH_HELD), as get_moby_joint_matrices (hand/game_joint_matrices.c) finds it: entry
+ * `point` of the joint list his pieces are put on (an s32 each, in the level loaded) names a chain
+ * of the moby's class (class +0x1C, entry + 1: a u16 length, then its joints from +4), whose last
+ * joint is the one. -1 outside a level, past the list, or for a class without that chain. */
+int rac1_attach_point_joint(gaddr moby, int point) {
+    if (moby == 0 || point < 0 || point >= JOINTS || openrac_game_loaded_overlay() < 0) {
+        return -1;
+    }
+    const int32_t chain_index = GREF(int32_t, JOINT_LIST + 4u * (uint32_t)point);
+    const gaddr cls = GREF(uint32_t, moby + 0x24u);
+    const gaddr chains = cls != 0 ? GREF(uint32_t, cls + 0x1Cu) : 0;
+    if (chains == 0 || chain_index < 0) {
+        return -1;
+    }
+    const gaddr chain = GREF(uint32_t, chains + 4u * (uint32_t)(chain_index + 1));
+    const unsigned length = chain != 0 ? GREF(uint16_t, chain) : 0u;
+    return length > 0 ? GREF(uint8_t, chain + 4u + length - 1u) : -1;
+}

@@ -1,9 +1,9 @@
 // What a player can do with a game right now: one answer, used by Android's disc
 // shelf and the game's page, so the main button says and does the same thing in both.
-import type { ActionView, GameView, VersionView } from "./api";
 import type { IconName } from "$components/Icon.svelte";
+
+import type { ActionView, GameView, VersionView } from "./api";
 import { onAndroid, pickFolder, pickIso } from "./api";
-import { onIOS } from "./ios";
 import {
   acceptWarning,
   app,
@@ -22,9 +22,10 @@ import {
   toast,
 } from "./app.svelte";
 import { choiceFor, pickVersion } from "./discChoice";
+import { onIOS } from "./ios";
 import { phaseLabel } from "./progress";
-import { PLAY_ACTIONS } from "./reports";
 import type { Job } from "./queue";
+import { PLAY_ACTIONS } from "./reports";
 
 export type PlayerKind =
   | "installing" // the disc is being read
@@ -62,8 +63,10 @@ const live = (j: Job) => j.state === "queued" || j.state === "running";
 
 function jobOf(v: VersionView, ids: string[]): Job | null {
   return (
-    jobs.list.find((j) => j.scope.kind === "version" && j.scope.key === v.key && ids.includes(j.actionId) && live(j)) ??
-    null
+    jobs.list.find(
+      (j) =>
+        j.scope.kind === "version" && j.scope.key === v.key && ids.includes(j.actionId) && live(j),
+    ) ?? null
   );
 }
 
@@ -83,8 +86,10 @@ export function foundDisc(game: string): { path: string; inFolder: boolean } | n
   const choice = choiceFor(app.discChoices, game);
   const chosen = choice?.chosen;
   const found = app.discs.find((d) => d.game === game && (!chosen || d.version === chosen));
+
   if (found) return { path: found.path, inFolder: true };
   const picked = choice ? choice.images[choice.chosen] : undefined;
+
   return picked ? { path: picked, inFolder: false } : null;
 }
 
@@ -100,7 +105,9 @@ export async function setUp(game: string, title: string, image?: string): Promis
   await refresh();
   const g = app.library?.games.find((x) => x.id === game);
   const v = g ? playerVersion(g) : null;
+
   if (v && action(v, "play")?.state !== "planned") await prepare(v);
+
   return true;
 }
 
@@ -113,28 +120,39 @@ export async function chooseGamesFolder(): Promise<number | null> {
   if (onAndroid) {
     // Android's picker gives files, not folders: the player picks a disc image, which is copied
     // into the app's own games folder (the Rust side's default there); its games are set up below.
-    if (!(await copyingDisc((progress) => guard(pickIso("Select your legitimately obtained disc image", progress)))))
+    if (
+      !(await copyingDisc((progress) =>
+        guard(pickIso("Select your legitimately obtained disc image", progress)),
+      ))
+    )
       return null;
   } else {
     const dir = await pickFolder("Choose the folder with your PlayStation 2 games");
+
     if (!dir || !app.config) return null;
     await saveConfig({ ...app.config, discsDir: dir });
   }
+
   await refresh();
   const found = [...app.discs];
+
   if (!found.length) {
     toast("No Ratchet & Clank disc image (.iso or .chd) was found in that folder.", "error");
+
     return 0;
   }
+
   for (const disc of found) {
     const game = app.library?.games.find((g) => g.id === disc.game);
     const version = game?.versions.find((x) => x.key === disc.version);
     const play = version ? action(version, "play") : null;
+
     if (game && !game.install?.extracted && play && play.state !== "planned") {
       // The game's disc a developer chose, when the folder holds two (for a player, this one).
       await setUp(disc.game, disc.title, foundDisc(disc.game)?.path ?? disc.path);
     }
   }
+
   return found.length;
 }
 
@@ -148,6 +166,7 @@ export function playerVersion(game: GameView): VersionView | null {
     found: app.discs.filter((d) => d.game === game.id).map((d) => d.version),
     playable: (v) => {
       const play = action(v, "play");
+
       return !!play && play.state !== "planned";
     },
   });
@@ -156,7 +175,10 @@ export function playerVersion(game: GameView): VersionView | null {
 /** Play waits for the game's program, which is not there, and this launcher has no step that
  *  builds it (an installer that carries neither, such as Going Commando's in launcher 1.0.0). */
 export function missingProgram(v: VersionView): boolean {
-  const builds = [action(v, "port-rebuild"), action(v, "port-build")].filter((a) => a?.thisPlatform);
+  const builds = [action(v, "port-rebuild"), action(v, "port-build")].filter(
+    (a) => a?.thisPlatform,
+  );
+
   return !!action(v, "play")?.missingArtifact && builds.length === 0;
 }
 
@@ -174,15 +196,21 @@ export function isBuilt(game: GameView, v: VersionView): boolean {
  */
 export function rebuildSteps(v: VersionView): ActionView[] | null {
   const builds = [action(v, "port-rebuild"), action(v, "port-build")].filter((a) => a !== null);
+
   if (builds.length) {
     const build = builds.find((a) => a.runnable);
+
     return build ? [build] : null;
   }
+
   if (missingProgram(v)) return null;
   const levels = action(v, "port-levels");
   const check = action(v, "port-levels-check");
   const part = action(v, "port-part");
-  return levels?.runnable ? [...(part?.runnable ? [part] : []), levels, ...(check ? [check] : [])] : null;
+
+  return levels?.runnable
+    ? [...(part?.runnable ? [part] : []), levels, ...(check ? [check] : [])]
+    : null;
 }
 
 /**
@@ -200,7 +228,10 @@ export function updateStep(
   const build = action(v, "port-build");
   const usable = (a: ActionView | null): a is ActionView => !!a?.thisPlatform && a.runnable;
   const cleanBecause = incremental && v.portCleanReason && usable(full) ? v.portCleanReason : null;
-  if (incremental && !cleanBecause && usable(build)) return { action: build, incremental: true, cleanBecause: null };
+
+  if (incremental && !cleanBecause && usable(build))
+    return { action: build, incremental: true, cleanBecause: null };
+
   return usable(full) ? { action: full, incremental: false, cleanBecause } : null;
 }
 
@@ -213,11 +244,15 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
    *  device (tools/asm_part.py), as a desktop's Build the game does with the whole game. */
   const part = action(v, "port-part");
   const setUp = game.install?.extracted ?? null;
-  const other = setUp && setUp.version !== v.key ? (game.versions.find((o) => o.key === setUp.version) ?? null) : null;
+  const other =
+    setUp && setUp.version !== v.key
+      ? (game.versions.find((o) => o.key === setUp.version) ?? null)
+      : null;
   const installing = jobs.list.find((j) => j.actionId === `install:${v.game}` && live(j)) ?? null;
   const base = { primary: false, disabled: false, job: null as Job | null };
   /** Android: a game whose Play the APK leaves out, as it carries no library for it. */
-  const notInApp = onAndroid && !play && v.actions.some((a) => a.id === "play" && a.state !== "planned");
+  const notInApp =
+    onAndroid && !play && v.actions.some((a) => a.id === "play" && a.state !== "planned");
   const noBuildHint = `This app does not carry ${game.title}: an APK built with it (tools/build_android.py) builds it from your disc.`;
 
   if (installing) {
@@ -232,6 +267,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "warn",
     };
   }
+
   if (onIOS && !play) {
     return {
       ...base,
@@ -244,9 +280,11 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "info",
     };
   }
+
   if (!setUp) {
     const planned = !play || play.state === "planned";
     const found = foundDisc(v.game);
+
     return {
       ...base,
       kind: "set-up",
@@ -264,6 +302,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: planned ? "info" : "warn",
     };
   }
+
   if (!play || play.state === "planned") {
     return {
       ...base,
@@ -276,6 +315,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "info",
     };
   }
+
   if (notInApp) {
     return {
       ...base,
@@ -288,6 +328,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "info",
     };
   }
+
   if (other) {
     return {
       ...base,
@@ -302,7 +343,12 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "info",
     };
   }
-  if (onAndroid && app.game?.running && (!app.game.library || app.game.library.startsWith(`openrac-${v.game}`))) {
+
+  if (
+    onAndroid &&
+    app.game?.running &&
+    (!app.game.library || app.game.library.startsWith(`openrac-${v.game}`))
+  ) {
     return {
       ...base,
       kind: "return",
@@ -314,7 +360,9 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "ok",
     };
   }
+
   const playing = jobOf(v, PLAY_ACTIONS);
+
   if (playing) {
     return {
       ...base,
@@ -327,7 +375,15 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "ok",
     };
   }
-  const building = jobOf(v, ["port-build", "port-rebuild", "port-part", "port-levels", "port-levels-check"]);
+
+  const building = jobOf(v, [
+    "port-build",
+    "port-rebuild",
+    "port-part",
+    "port-levels",
+    "port-levels-check",
+  ]);
+
   if (building) {
     return {
       ...base,
@@ -344,6 +400,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "warn",
     };
   }
+
   if (play.runnable) {
     // Play never builds: an outdated game is recommended a rebuild, in a notice on its page.
     return {
@@ -357,6 +414,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "ok",
     };
   }
+
   if (part?.runnable && !part.done) {
     return {
       ...base,
@@ -369,10 +427,12 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "warn",
     };
   }
+
   // The levels are ready when the game itself has read every one of them (the check's stamp),
   // not when their folder is there: an export cut short was a black world behind the HUD.
   if (play.done && levelsNeeded(levels, check)) {
     const read = !!levels?.done;
+
     return {
       ...base,
       kind: "levels",
@@ -386,6 +446,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "warn",
     };
   }
+
   if (build?.runnable && !play.done) {
     return {
       ...base,
@@ -398,6 +459,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "warn",
     };
   }
+
   if (!isBuilt(game, v) && rebuildSteps(v)) {
     return {
       ...base,
@@ -410,6 +472,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "warn",
     };
   }
+
   if (missingProgram(v)) {
     return {
       ...base,
@@ -422,7 +485,9 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "warn",
     };
   }
+
   const needs = play.blockers.map((b) => b.replace(/^needs /, "")).join(", ");
+
   return {
     ...base,
     kind: "blocked",
@@ -438,6 +503,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
 /** Something of the levels is still to do: reading them, or (where the version has it) the check. */
 function levelsNeeded(levels: ActionView | null, check: ActionView | null): boolean {
   if (levels?.runnable && !levels.done) return true;
+
   return !!check && !check.done && (check.runnable || !!levels?.runnable);
 }
 
@@ -456,6 +522,7 @@ const noVisibility = new Set<string>();
  */
 async function addVisibility(v: VersionView): Promise<void> {
   const add = action(freshVersion(v), "port-levels-visibility");
+
   if (!add?.runnable || add.done || noVisibility.has(v.key)) return;
   if (!(await runChain({ kind: "version", key: v.key }, [add]))) noVisibility.add(v.key);
   await refresh();
@@ -470,20 +537,25 @@ async function addVisibility(v: VersionView): Promise<void> {
 export async function prepare(v: VersionView): Promise<boolean> {
   const scope = { kind: "version" as const, key: v.key };
   const build = action(v, "port-build");
+
   if (build?.runnable && !action(v, "play")?.done) {
     if (!(await runChain(scope, [build]))) return false;
     await refresh();
   }
+
   const part = action(freshVersion(v), "port-part");
+
   if (part?.runnable && !part.done) {
     if (!(await runChain(scope, [part]))) return false;
     await refresh();
   }
+
   const now = freshVersion(v);
   // Levels only when Play waits for them: a game that reads none starts as it is, and is not held
   // up by minutes of reading levels it does not draw. A game with no level check (Going
   // Commando's) waits for the export alone, so prepareLevels reads it and no more.
   const waits = !action(now, "play")?.runnable;
+
   if (
     waits &&
     levelsNeeded(action(now, "port-levels"), action(now, "port-levels-check")) &&
@@ -491,6 +563,7 @@ export async function prepare(v: VersionView): Promise<boolean> {
   ) {
     return false;
   }
+
   return !!action(freshVersion(v), "play")?.runnable;
 }
 
@@ -504,21 +577,29 @@ async function prepareLevels(v: VersionView): Promise<boolean> {
   const fresh = () => freshVersion(v);
   const levels = action(v, "port-levels");
   const check = action(v, "port-levels-check");
+
   if (!check) {
     const ok = !!levels && (await runChain(scope, [levels]));
+
     await refresh();
+
     return ok;
   }
+
   if (levels && !levels.done && !(await runChain(scope, [levels]))) return false;
   await refresh();
   await addVisibility(v);
   let again = action(fresh(), "port-levels-check");
+
   if (again && (await runChain(scope, [again]))) {
     await refresh();
+
     return true;
   }
+
   // The check named levels it cannot draw: read them all again, in the old ones' place.
   const reread = action(fresh(), "port-levels");
+
   if (!reread?.runnable) return false;
   // Levels read by an older version of OpenRAC fail the check too (a newer game reads a newer format).
   toast(
@@ -528,8 +609,10 @@ async function prepareLevels(v: VersionView): Promise<boolean> {
   await refresh();
   again = action(fresh(), "port-levels-check");
   const ok = !!again && (await runChain(scope, [again]));
+
   await refresh();
   if (!ok) toast("The levels still cannot be drawn: see Activity for which, and why.", "error");
+
   return ok;
 }
 
@@ -543,10 +626,13 @@ const acting = new Set<string>();
 export async function playerAct(v: VersionView, state: PlayerState): Promise<void> {
   if (state.job) {
     await cancel(state.job);
+
     return;
   }
+
   if (acting.has(v.key)) return;
   acting.add(v.key);
+
   try {
     await act(v, state);
   } finally {
@@ -557,29 +643,39 @@ export async function playerAct(v: VersionView, state: PlayerState): Promise<voi
 async function act(v: VersionView, state: PlayerState): Promise<void> {
   if (state.kind === "return") {
     await gameWindow(false);
+
     return;
   }
+
   if (state.kind === "set-up") {
     await setUp(v.game, v.title, foundDisc(v.game)?.path);
+
     return;
   }
+
   if (state.kind === "build" || state.kind === "levels") {
     // One press gets the game ready (the build, then its levels) and starts it. A game that warns
     // before it starts (actions.json `warning`) asks first, before minutes of building.
     const scope = { kind: "version" as const, key: v.key };
     const start = action(v, "play");
+
     if (start && !(await acceptWarning(scope, start, true))) return;
+
     try {
       if (await prepare(v)) await play(v);
     } finally {
       forgetWarning(scope, "play");
     }
+
     return;
   }
+
   if (state.kind === "rebuild") {
     await rebuild(v);
+
     return;
   }
+
   if (state.kind !== "play") return;
   await addVisibility(v);
   await play(v);
@@ -588,9 +684,12 @@ async function act(v: VersionView, state: PlayerState): Promise<void> {
 /** Rebuilds the version (rebuildSteps), on demand or when it is not built. True when every step ran. */
 export async function rebuild(v: VersionView): Promise<boolean> {
   const steps = rebuildSteps(v);
+
   if (!steps) return false;
   const ok = await runChain({ kind: "version", key: v.key }, steps);
+
   await refresh();
+
   return ok;
 }
 
@@ -602,19 +701,27 @@ export async function rebuild(v: VersionView): Promise<boolean> {
 async function play(v: VersionView): Promise<void> {
   const fresh = freshVersion(v);
   const start = action(fresh, "play");
+
   if (!start?.runnable) return;
+
   // Mods load: they are brought up to date first (lib/modAutoUpdate), never holding Play long.
   if (app.config?.playWithMods) {
     const { beforePlay } = await import("./modAutoUpdate.svelte");
+
     await beforePlay(v.key);
   }
+
   showLaunch(v.game, v.title);
   const modded = app.config?.playWithMods ? action(fresh, "play-edited") : undefined;
+
   if (modded?.runnable) {
     const stack = action(fresh, "overrides-stack");
+
     await runChain({ kind: "version", key: v.key }, stack ? [stack, modded] : [modded]);
+
     return;
   }
+
   await run({ kind: "version", key: v.key }, start);
 }
 

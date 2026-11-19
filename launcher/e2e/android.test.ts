@@ -3,7 +3,7 @@
 // not have, is there. A few seconds in all: one Vite server and one browser for every test.
 // `yarn test:android`, with Playwright's headless Chromium (`yarn playwright-core install
 // chromium-headless-shell`, once) or the browser OPENRAC_E2E_CHROMIUM names.
-import { chromium, type Browser, type Page } from "playwright-core";
+import { type Browser, chromium, type Page } from "playwright-core";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -23,6 +23,7 @@ beforeAll(async () => {
   base = server.resolvedUrls?.local[0] ?? "";
   // Vitest gives the environment's variables in import.meta.env.
   const executablePath = import.meta.env.OPENRAC_E2E_CHROMIUM as string | undefined;
+
   browser = await chromium.launch(executablePath ? { executablePath } : {});
 }, 60_000);
 
@@ -50,6 +51,7 @@ afterEach(async () => {
  *  (?update): ?latest says there is none. */
 async function open(query: string) {
   const q = new URLSearchParams(query);
+
   q.set("android", "");
   if (!q.has("update")) q.set("latest", "");
   await page.goto(`${base}?${q.toString()}`);
@@ -60,9 +62,13 @@ describe("Android launcher", () => {
   it("has the rail, and no desktop header", async () => {
     await open("");
     expect(await page.evaluate(() => document.documentElement.dataset.platform)).toBe("android");
+
     for (const name of ["Games", "Mods", "Settings"]) {
-      await expect(page.getByRole("button", { name, exact: true }).count()).resolves.toBeGreaterThan(0);
+      await expect(
+        page.getByRole("button", { name, exact: true }).count(),
+      ).resolves.toBeGreaterThan(0);
     }
+
     expect(await page.locator(".discord").count()).toBe(0);
   });
 
@@ -70,6 +76,7 @@ describe("Android launcher", () => {
     // Measure the pages themselves, without Svelte entrance transitions replacing their nodes.
     await page.emulateMedia({ reducedMotion: "reduce" });
     const lefts: number[] = [];
+
     // Games is a shelf of discs across the whole window (DiscShelf), not a page with margins.
     for (const query of ["version=rac1/pal", "page=mods", "page=tasks", "page=settings"]) {
       await open(`version=rac1/pal&${query}`);
@@ -81,6 +88,7 @@ describe("Android launcher", () => {
           .evaluate((el) => Math.round(el.getBoundingClientRect().left)),
       );
     }
+
     expect(new Set(lefts).size).toBe(1);
   });
 
@@ -88,15 +96,19 @@ describe("Android launcher", () => {
     await open("developer&page=develop&version=rac1/pal");
     await expect(page.locator(".game .name").textContent()).resolves.toBe("Ratchet & Clank");
     const tabs = await page.getByRole("tab").allTextContents();
+
     expect(tabs.some((t) => t.startsWith("PAL"))).toBe(true);
     expect(tabs.some((t) => t.startsWith("NTSC"))).toBe(true);
     expect(tabs.some((t) => t.includes("Console"))).toBe(true);
     const text = (await page.locator("main").textContent()) ?? "";
+
     expect(text).not.toContain("This checkout");
     expect(text).not.toContain("more for other platforms");
     expect(text).not.toContain("Build the PS2 program");
     await page.getByRole("tab", { name: /NTSC/ }).click();
-    await expect(page.getByRole("tab", { name: /NTSC/ }).getAttribute("aria-selected")).resolves.toBe("true");
+    await expect(
+      page.getByRole("tab", { name: /NTSC/ }).getAttribute("aria-selected"),
+    ).resolves.toBe("true");
   });
 
   it("shows Mods for the picked game, without the level editor", async () => {
@@ -108,10 +120,13 @@ describe("Android launcher", () => {
   it("brings the game page in whole, its band not popping in after it", async () => {
     await open("version=rac1/pal");
     const hero = page.locator(".hero");
+
     await hero.waitFor();
     // At once, not after a fly-in of its own: the page's slide carries it.
     expect(await hero.evaluate((e) => getComputedStyle(e).opacity)).toBe("1");
-    expect(await page.locator(".hero-bg").evaluate((e) => getComputedStyle(e).animationName)).toBe("none");
+    expect(await page.locator(".hero-bg").evaluate((e) => getComputedStyle(e).animationName)).toBe(
+      "none",
+    );
   });
 
   it("offers to prepare missing levels beside the disc, and keeps Rebuild in its menu", async () => {
@@ -121,6 +136,7 @@ describe("Android launcher", () => {
     await expect(page.locator(".acts .go").textContent()).resolves.toMatch(/Play|Continue/);
     await page.locator(".acts").getByRole("button", { name: "More actions" }).click();
     const rebuild = page.getByRole("menuitem", { name: "Rebuild the game" });
+
     await rebuild.waitFor({ state: "visible" });
     await expect(rebuild.evaluate((e) => document.activeElement === e)).resolves.toBe(true);
   });
@@ -128,8 +144,10 @@ describe("Android launcher", () => {
   it("turns the Mods switch beside the disc, as Play's own", async () => {
     await open("built&version=rac1/pal&page=library");
     const mods = page.locator(".with-mods").getByRole("switch");
+
     await mods.waitFor();
     const before = await mods.isChecked();
+
     await mods.click();
     await expect(mods.isChecked()).resolves.toBe(!before);
   });
@@ -155,6 +173,7 @@ describe("Android launcher", () => {
     await page.locator(".acts .go").click();
     await page.locator(".acts").getByRole("button", { name: "Game page" }).click();
     const strip = page.locator(".hero > .job");
+
     await strip.waitFor();
     expect(await strip.evaluate((e) => getComputedStyle(e).zIndex)).toBe("1");
   });
@@ -162,7 +181,9 @@ describe("Android launcher", () => {
   it("shows no empty menu beside Set up", async () => {
     await open("fresh&version=rac1/pal&page=library");
     await page.locator(".acts .go").waitFor();
-    expect(await page.locator(".acts").getByRole("button", { name: "More actions" }).count()).toBe(0);
+    expect(await page.locator(".acts").getByRole("button", { name: "More actions" }).count()).toBe(
+      0,
+    );
   });
 
   it("spins the disc while a game starts", async () => {
@@ -174,6 +195,7 @@ describe("Android launcher", () => {
   it("covers the launcher while the game runs, and steps aside when asked", async () => {
     await open("playing&built&version=rac1/pal&page=library");
     const running = page.getByRole("dialog", { name: "Ratchet & Clank" });
+
     await running.waitFor();
     await expect(running.getByRole("button", { name: /Return to game/ }).count()).resolves.toBe(1);
     await expect(running.getByRole("button", { name: /Quit game/ }).count()).resolves.toBe(1);
@@ -185,6 +207,7 @@ describe("Android launcher", () => {
   it("offers a new launcher by itself, once until put off", async () => {
     await open("update");
     const offer = page.getByRole("dialog", { name: "A new launcher is ready" });
+
     await offer.waitFor();
     await offer.getByRole("button", { name: "Later" }).click();
     await offer.waitFor({ state: "detached" });
@@ -200,6 +223,7 @@ describe("Android launcher", () => {
     await page.waitForTimeout(900);
     const disc = await page.locator(".slot.on").boundingBox();
     const play = await page.locator(".acts .go").boundingBox();
+
     expect(disc && disc.y >= 0 && disc.y + disc.height <= 412).toBe(true);
     expect(play && play.y + play.height).toBeLessThanOrEqual(412 - 30);
     await page.getByRole("group", { name: "What's new" }).waitFor();
@@ -225,8 +249,10 @@ describe("Android launcher", () => {
     await page.waitForTimeout(700);
     const [ink, amber, glow] = await page.evaluate(() => {
       const s = getComputedStyle(document.documentElement);
+
       return ["--ink", "--amber", "--glow"].map((name) => s.getPropertyValue(name).trim());
     });
+
     expect(ink).toBe("#000000");
     expect(amber).toBe("rgb(245, 192, 64)");
     expect(glow).toBe("rgb(255, 210, 63)");
@@ -240,6 +266,7 @@ describe("A controller", () => {
     for (const b of buttons) {
       await page.evaluate((name) => {
         const pad = (window as unknown as { __openracPad: (e: string) => void }).__openracPad;
+
         pad(`down:${name}`);
         pad(`up:${name}`);
       }, b);
@@ -250,6 +277,7 @@ describe("A controller", () => {
   /** The name beside the disc, once the last game's has gone (the two cross for a moment). */
   async function shownName() {
     await page.waitForFunction(() => document.querySelectorAll(".info").length === 1);
+
     return page.locator(".info h1").textContent();
   }
 
@@ -257,7 +285,9 @@ describe("A controller", () => {
   const focused = () =>
     page.evaluate(() => {
       const el = document.activeElement;
+
       if (!el || el === document.body) return "";
+
       return (el.getAttribute("aria-label") ?? el.textContent).trim();
     });
 
@@ -298,11 +328,15 @@ describe("A controller", () => {
     await page.locator(".slot.on").focus();
     await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
     const discs = await page.locator(".slot").count();
+
     for (let i = 0; i < discs; i++) await press("down");
     const last = await focused();
+
     await press("down");
     expect(await focused()).toBe(last);
-    expect(await page.evaluate(() => document.activeElement?.classList.contains("slot"))).toBe(true);
+    expect(await page.evaluate(() => document.activeElement?.classList.contains("slot"))).toBe(
+      true,
+    );
   });
 
   it("starts a game's next step from beside its disc by a tap", async () => {
@@ -319,7 +353,9 @@ describe("A controller", () => {
     await page.locator(".launch .led.on").waitFor({ state: "attached", timeout: 4000 });
     // The black stays until the game covers the launcher; with no game window in the preview, the
     // shelf comes back after its wait (DiscShelf launched).
-    await page.getByRole("dialog", { name: /^Starting/ }).waitFor({ state: "detached", timeout: 10000 });
+    await page
+      .getByRole("dialog", { name: /^Starting/ })
+      .waitFor({ state: "detached", timeout: 10000 });
   });
 
   it("puts the disc back when B comes before the click", async () => {
@@ -334,12 +370,17 @@ describe("A controller", () => {
   it("turns the Mods switch by X and opens the game's page by Y", async () => {
     await open("built&version=rac1/pal&page=library");
     const sw = page.locator(".extra [role=switch]");
+
     await sw.waitFor();
     expect(await sw.isChecked()).toBe(false);
     await press("extra");
-    await page.waitForFunction(() => document.querySelector<HTMLInputElement>(".extra [role=switch]")?.checked);
+    await page.waitForFunction(
+      () => document.querySelector<HTMLInputElement>(".extra [role=switch]")?.checked,
+    );
     await press("extra");
-    await page.waitForFunction(() => !document.querySelector<HTMLInputElement>(".extra [role=switch]")?.checked);
+    await page.waitForFunction(
+      () => !document.querySelector<HTMLInputElement>(".extra [role=switch]")?.checked,
+    );
     expect(await page.locator(".slot").count()).toBeGreaterThan(0);
     await press("more");
     await page.locator(".hero .back").waitFor();
@@ -350,7 +391,9 @@ describe("A controller", () => {
     await page.locator(".slot.on").waitFor();
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowRight");
-    expect(await page.evaluate(() => !!document.querySelector(".info [data-pad-focus]"))).toBe(true);
+    expect(await page.evaluate(() => !!document.querySelector(".info [data-pad-focus]"))).toBe(
+      true,
+    );
     expect(await page.evaluate(() => document.scrollingElement?.scrollTop ?? 0)).toBe(0);
   });
 
@@ -359,6 +402,7 @@ describe("A controller", () => {
     await page.locator(".slot.on").waitFor();
     await page.evaluate(() => {
       const d = document.createElement("div");
+
       d.setAttribute("role", "dialog");
       document.body.append(d);
     });
@@ -412,21 +456,28 @@ describe("A controller", () => {
     await open("built&version=rac1/pal&page=library");
     await page.locator(".slot.on").focus();
     await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
+
     for (const b of ["down", "down", "down", "up"]) {
       await page.evaluate((name) => {
         const pad = (window as unknown as { __openracPad: (e: string) => void }).__openracPad;
+
         pad(`down:${name}`);
         pad(`up:${name}`);
       }, b);
       await page.waitForTimeout(60);
     }
+
     await page.waitForTimeout(1200);
     const writes = await page.evaluate(
       () =>
-        (window as unknown as { __openracConfigWrites?: { count: number; last: { lastVersion: string } } })
-          .__openracConfigWrites,
+        (
+          window as unknown as {
+            __openracConfigWrites?: { count: number; last: { lastVersion: string } };
+          }
+        ).__openracConfigWrites,
     );
     const shown = await shownName();
+
     expect(writes?.count).toBe(1);
     expect(writes?.last.lastVersion.split("/")[0]).toBe("rac3");
     expect(shown).toContain("Up Your Arsenal");
@@ -434,9 +485,12 @@ describe("A controller", () => {
 
   it("never takes the controller into the rail", async () => {
     await open("page=settings");
+
     for (const b of [...Array<string>(12).fill("up"), "left", "left", "down", "left"]) {
       await press(b);
-      expect(await page.evaluate(() => document.activeElement?.closest("header") === null)).toBe(true);
+      expect(await page.evaluate(() => document.activeElement?.closest("header") === null)).toBe(
+        true,
+      );
     }
   });
 
@@ -454,7 +508,9 @@ describe("A controller", () => {
     await press("right");
     expect(await focused()).toBe("OLED black");
     await press("accept");
-    await expect(page.getByRole("radio", { name: "OLED black" }).getAttribute("aria-checked")).resolves.toBe("true");
+    await expect(
+      page.getByRole("radio", { name: "OLED black" }).getAttribute("aria-checked"),
+    ).resolves.toBe("true");
   });
 
   it("moves through a menu's items", async () => {
@@ -462,9 +518,12 @@ describe("A controller", () => {
     await page.locator(".acts").getByRole("button", { name: "More actions" }).focus();
     await press("accept");
     const first = await focused();
+
     await press("down");
     expect(await focused()).not.toBe(first);
-    expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe("menuitem");
+    expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe(
+      "menuitem",
+    );
   });
 
   it("keeps the texture pack on Mods as a pack, not on the game's page, and reaches it by pad", async () => {
@@ -472,9 +531,11 @@ describe("A controller", () => {
     expect(await page.getByText("Your texture pack").count()).toBe(0);
     await open("page=mods&version=rac1/pal");
     const own = page.getByRole("switch", { name: "Use Your texture pack" });
+
     await own.waitFor();
     // Its steps are folded under the packs until Make your own opens them.
     const dumping = page.getByRole("switch", { name: "Save the game's textures while you play" });
+
     expect(await dumping.isVisible()).toBe(false);
     await own.focus();
     await press("right");
@@ -484,22 +545,28 @@ describe("A controller", () => {
     expect(await dumping.isVisible()).toBe(true);
     // Its arrow says it opens, and turns when it is open.
     const arrow = page.locator("#texture-make summary .chevron");
+
     expect(await arrow.isVisible()).toBe(true);
     expect(await arrow.evaluate((el) => getComputedStyle(el).transform)).not.toBe("none");
   });
 
   it("says where mods come from at the top, and lists none itself", async () => {
     const said: string[] = [];
+
     page.on("console", (m) => {
       if (m.text().includes("[preview]"))
-        void Promise.all(m.args().map((x) => x.jsonValue())).then((a: unknown[]) => said.push(JSON.stringify(a)));
+        void Promise.all(m.args().map((x) => x.jsonValue())).then((a: unknown[]) =>
+          said.push(JSON.stringify(a)),
+        );
     });
     await open("page=mods&version=rac1/pal");
     const banner = page.getByRole("region", { name: "Get mods" });
+
     await banner.waitFor();
     // First on the page, above the lists.
     const top = await banner.boundingBox();
     const list = await page.getByRole("switch", { name: "Use Your texture pack" }).boundingBox();
+
     expect(top && list && top.y < list.y).toBe(true);
     expect(await page.getByPlaceholder("Search mods").count()).toBe(0);
     // A click anywhere on it opens the hub, not only on its button.
@@ -513,26 +580,41 @@ describe("A controller", () => {
     expect(said.join(" ")).not.toContain("index_fetch");
   });
 
+  it("shows the hub buttons for every game, not only Ratchet & Clank", async () => {
+    await open("page=mods&version=rac2/ntsc");
+    const banner = page.getByRole("region", { name: "Get mods" });
+
+    await banner.getByRole("button", { name: "Open the mod hub" }).waitFor();
+    expect(await banner.getByRole("button", { name: "Publish your mod" }).count()).toBe(1);
+  });
+
   it("finds a mod and shows one kind when there are many", async () => {
     await open("page=mods&version=rac1/pal&manymods");
     const search = page.getByRole("searchbox", { name: "Find a mod" });
+
     await search.fill("bolt magnet");
     await expect(page.getByRole("switch", { name: /^Use Bolt magnet/ }).count()).resolves.toBe(1);
     await expect(page.getByRole("switch", { name: /^Use Lock-strafe/ }).count()).resolves.toBe(0);
     await search.fill("");
     await page.getByRole("radio", { name: /^Tools/ }).click();
-    await expect(page.getByRole("button", { name: "Open Nanotech Upscaler" }).count()).resolves.toBe(1);
+    await expect(
+      page.getByRole("button", { name: "Open Nanotech Upscaler" }).count(),
+    ).resolves.toBe(1);
     // A tool can't be off: its switch is on and greyed, and says why.
     const always = page.getByRole("switch", { name: /^Nanotech Upscaler: Always on/ });
+
     expect(await always.isChecked()).toBe(true);
     expect(await always.isDisabled()).toBe(true);
     await expect(page.getByRole("switch", { name: /^Use Bolt magnet/ }).count()).resolves.toBe(0);
-    await expect(page.getByRole("switch", { name: "Use Your texture pack" }).count()).resolves.toBe(0);
+    await expect(page.getByRole("switch", { name: "Use Your texture pack" }).count()).resolves.toBe(
+      0,
+    );
   });
 
   it("says once when a search finds nothing, and keeps the search while it hides mods", async () => {
     await open("page=mods&version=rac1/pal&manymods");
     const search = page.getByRole("searchbox", { name: "Find a mod" });
+
     await search.fill("no such mod");
     await page.getByText("Nothing matches “no such mod”.").waitFor();
     expect(await page.getByText(/^Nothing matches/).count()).toBe(1);
@@ -544,10 +626,12 @@ describe("A controller", () => {
   it("moves a mod by dragging its grip, and not while sorted by name", async () => {
     await open("page=mods&version=rac1/pal&manymods");
     const names = () => page.locator(".plugins ul:not(.built-in) .name").allTextContents();
+
     // The page's slide in ends first: the rows are where they show.
     await page.locator(".plugins ul:not(.built-in) li").first().waitFor();
     await page.waitForTimeout(1500);
     const before = await names();
+
     await page
       .locator(".plugins ul:not(.built-in) li")
       .first()
@@ -558,6 +642,7 @@ describe("A controller", () => {
     const grip = page.locator(".plugins ul:not(.built-in) li").nth(2).locator("[data-grip]");
     const g = await grip.boundingBox();
     const top = await page.locator(".plugins ul:not(.built-in) li").first().boundingBox();
+
     if (!g || !top) throw new Error("no grip");
     await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
     await page.mouse.down();
@@ -572,12 +657,15 @@ describe("A controller", () => {
   it("says Play starts without mods above the lists, once", async () => {
     await open("page=mods&version=rac1/pal");
     await page.getByRole("switch", { name: "Use Your texture pack" }).waitFor();
-    expect(await page.getByText("Play starts the game without mods.", { exact: false }).count()).toBe(1);
+    expect(
+      await page.getByText("Play starts the game without mods.", { exact: false }).count(),
+    ).toBe(1);
   });
 
   it("passes over what a closed fold holds", async () => {
     await open("page=settings");
     const advanced = page.locator("details:not([open]) > summary").first();
+
     if ((await advanced.count()) === 0) return;
     await advanced.focus();
     await press("up");

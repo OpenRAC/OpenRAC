@@ -99,10 +99,13 @@ struct EffectQuad {
     // Its shape is the tick's own (a sprite or a flat quad, turned by its record's rotation, which
     // a game may pick at random each tick): a frame between ticks moves it whole, by its centre,
     // rather than each corner part way (which shrinks a quad turned between the two ticks).
+    // With an attachment, it follows the anchor's position without rotating its world offset.
     bool rigid = false;
     // The moby it belongs to (its game address), or 0: a frame between ticks may move it with the
     // moby's body as that frame draws it, rather than leaving it at the tick's place, ahead.
     std::uint32_t parent = 0;
+    // Physical attachment for current-tick geometry; callback ownership alone does not imply this.
+    std::uint32_t attachment = 0;
 };
 
 // A strip the game sent to its VU1 strip program (rac1: func_L00_001FDE48's packets: the seas,
@@ -124,6 +127,8 @@ struct EffectUvMotion {
 };
 
 struct EffectStrip {
+    // Physical parent at the previous tick, for geometry from a delayed display list; 0 is unbound.
+    std::uint32_t previous_parent = 0;
     std::uint32_t first = 0, count = 0;
     std::uint64_t clamp = 0, tex0 = 0, tex1 = 0, alpha = 0x44;
     std::uint64_t test = 0;  // TEST as the DIRECT data before the strip leaves it (0: none seen)
@@ -139,9 +144,8 @@ struct EffectStrip {
     bool fogged = false;
     std::array<float, 4> fog{};
     std::uint32_t fog_colour = 0;
-    // Sent before the world's mobys (OPENRAC_WORLD_MOBYS_MARKER), from a draw callback list the
-    // game runs between the ties and the mobys: drawn with the liquids, before the shrubs and the
-    // mobys, writing depth only where the list shows the chip writes it (before_mobys_writes_z).
+    // Sent before the world's shrubs or mobys, as marked in the game's display list. Drawn with
+    // the liquids before the shrubs, writing depth where the list says (before_mobys_writes_z).
     bool before_mobys = false;
     // The list set ZBUF before the strip: with ZMSK (z_masked), or without (z_written).
     bool z_masked = false;
@@ -271,6 +275,9 @@ struct FrameInput {
     std::function<void(unsigned, int, int)> after_world_depth;
     // The game's tick this frame shows (the same for the frames drawn between two ticks).
     std::uint64_t frame = 0;
+    // The game's ticks a second: 60, or 50 for Going Commando's PAL. Effects timed by `frame`
+    // count seconds as frame / tick_rate.
+    double tick_rate = 60.0;
     double seconds = 0.0;
     // Opts a known depth hook into resource/dispatch preparation without draws or readbacks.
     bool prepares_world_depth = false;
@@ -400,6 +407,16 @@ public:
 
     virtual bool owns_gpu_timing() const { return false; }
 
+    // Reads this frame's packets ahead of render() (the HUD, before FrameInput::before_hud), so
+    // that reads_frame_depth() can answer. render() then only draws.
+    virtual void prepare(const FrameInput&, RenderState&) {}
+
+    // Whether what render() draws tests against the frame's depth. Unknown: true.
+    virtual bool reads_frame_depth() const { return true; }
+
+    // After prepare(): nothing is drawn on the frame.
+    virtual bool draws_nothing() const { return false; }
+
     // Free GL objects; the context is still current.
     virtual void release() {}
 
@@ -453,6 +470,13 @@ public:
     void set_ambient_occlusion(std::unique_ptr<AmbientOcclusion> ambient_occlusion);
 
     const FrameStats& last_stats() const { return m_stats; }
+
+    // Whether this frame's HUD tests against the world's depth; known from just before
+    // FrameInput::before_hud is called until the next frame.
+    bool hud_reads_depth() const { return m_hud_reads_depth; }
+
+    // In before_hud: something still draws on the frame after it (the HUD, ambient occlusion).
+    bool hud_draws() const { return m_hud_draws; }
 
 private:
     std::unique_ptr<AmbientOcclusion> m_ambient_occlusion;  // Null until one is registered.
@@ -517,6 +541,8 @@ private:
     std::vector<std::unique_ptr<BucketRenderer>> m_renderers;
     std::vector<unsigned> m_opaque_colour_buffers;
     FrameStats m_stats;
+    bool m_hud_reads_depth = true;  // hud_reads_depth
+    bool m_hud_draws = true;        // hud_draws
     bool m_initialised = false;
 };
 

@@ -7,17 +7,21 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <set>
+#include <system_error>
 #include <vector>
 
 #include "check.h"
 #include "game/common/particle_texture_cache.h"
 #include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture.h"
+#include "renderer/textures/texture_pack.h"
 #include "renderer/textures/texture_pool.h"
 
 namespace {
@@ -75,6 +79,12 @@ void pcsx2_texture_pack() {
     image = Rgba8Image(32, 16);
     CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));
     CHECK(image.texel(3, 3) == rgba(255, 0, 0, 128));
+    fs::remove(file);
+    image = Rgba8Image(32, 16);
+    CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));
+    CHECK(image.texel(3, 3) == rgba(255, 0, 0, 128));
+    std::ofstream(file, std::ios::binary)
+        .write(reinterpret_cast<const char*>(dds.data()), static_cast<std::streamsize>(dds.size()));
     // Reopening an explicitly selected external folder keeps its replacement available.
     pcsx2_pack::configure(folder, nullptr);
     image = Rgba8Image(32, 16);
@@ -137,12 +147,14 @@ void pcsx2_texture_pack() {
     pool.upload({block, 2, tex0.psm, 0, 0, 16, 16, neighbour});
     const auto first = pool.resolve(tex0, kTexa);
     CHECK(pool.has_cropped_replacement(first));
+    CHECK(pool.has_pcsx2_replacement(first));
     CHECK(pool.image(first).texel(65, 9) == rgba(255, 0, 0, 64));
     CHECK(pool.uv_scale(first)[0] == 32.0f / 33.0f);
     ++neighbour[3 * 16];
     pool.upload({block, 2, tex0.psm, 0, 0, 16, 16, std::move(neighbour)});
     const auto changed = pool.resolve(tex0, kTexa);
     CHECK(changed != first && !pool.has_cropped_replacement(changed));
+    CHECK(!pool.has_pcsx2_replacement(changed));
 
     pcsx2_pack::configure({}, nullptr);
     fs::remove(crop);
@@ -788,6 +800,100 @@ void cached_uploads() {
     }
 }
 
+// Writes a marker instead of PNG bytes so dump tests need no image library.
+bool save_dump_marker(const std::filesystem::path& file, const Rgba8Image&) {
+    return std::ofstream(file).put('x').good();
+}
+
+// Checks a draw's export after an invisible draw of identical pixels populated the conversion cache.
+bool empty_alpha_upload_is_dumped(const gs::Tex0& sample, const gs::Alpha* blend) {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "openrac_empty_alpha_dump_test";
+    std::error_code error;
+    fs::remove_all(root, error);
+    CHECK(!error);
+    texture_pack::configure({}, root, {.save = save_dump_marker});
+    TexturePool textures;
+    const gs::Texa texa{0, false, 0x80};
+    // The synthetic 2x2 image at block 0x100 carries red RGB beneath zero alpha.
+    std::vector<std::uint8_t> pixels(std::size_t{2} * 2 * 4);
+    pixels[0] = 255;
+    textures.upload(upload(0x100, gs::kPsmct32, 2, 2, pixels));
+    const gs::Tex0 invisible = tex0(0x100, gs::kPsmct32, 1, 1);
+    const gs::Alpha source_over{0, 1, 0, 1, 0};
+    const TextureHandle rgba = textures.resolve(invisible, texa, &source_over);
+    const fs::path saved =
+        root / "Interface"
+        / texture_pack::file_name(texture_pack::image_hash(textures.image(rgba)));
+    CHECK(!fs::exists(saved));
+    const TextureHandle shown = textures.resolve(sample, texa, blend);
+    CHECK(textures.image(shown).pixels == textures.image(rgba).pixels);
+    const bool dumped = fs::is_regular_file(saved);
+    texture_pack::configure({}, {}, {});
+    fs::remove_all(root, error);
+    CHECK(!error);
+
+    return dumped;
+}
+
+// Preserves zero-alpha artwork whenever the sampling or blend can display its colours.
+void test_empty_alpha_draw_modes() {
+    gs::Tex0 sample = tex0(0x100, gs::kPsmct32, 1, 1);
+    const gs::Alpha source_over{0, 1, 0, 1, 0};
+    // FIX blending keeps source colour independently of texture alpha; 0x80 is unit weight.
+    const gs::Alpha fixed{0, 1, 2, 1, 0x80};
+    const gs::Alpha destination{0, 1, 1, 1, 0};
+    CHECK(!empty_alpha_upload_is_dumped(sample, &source_over));
+    CHECK(empty_alpha_upload_is_dumped(sample, nullptr));
+    CHECK(empty_alpha_upload_is_dumped(sample, &fixed));
+    CHECK(empty_alpha_upload_is_dumped(sample, &destination));
+    sample.tfx = gs::Tfx::Highlight;
+    CHECK(empty_alpha_upload_is_dumped(sample, &source_over));
+    sample.tfx = gs::Tfx::Decal;
+    CHECK(!empty_alpha_upload_is_dumped(sample, &source_over));
+    sample.tfx = gs::Tfx::Highlight2;
+    CHECK(!empty_alpha_upload_is_dumped(sample, &source_over));
+    sample.tcc = false;
+    CHECK(empty_alpha_upload_is_dumped(sample, &source_over));
+}
+
+// Keeps a settled empty-alpha live upload filtered, while allowing a later visible draw to export it.
+void test_settled_empty_alpha_upload() {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "openrac_settled_empty_alpha_dump_test";
+    std::error_code error;
+    fs::remove_all(root, error);
+    CHECK(!error);
+    texture_pack::configure({}, root, {.save = save_dump_marker});
+    TexturePool textures;
+    const gs::Texa texa{0, false, 0x80};
+    const gs::Tex0 sample = tex0(0x100, gs::kPsmct32, 1, 1);
+    const gs::Alpha source_over{0, 1, 0, 1, 0};
+    // Distinct 2x2 pictures fill LiveWatch's detection window, with red changing once per tick.
+    std::vector<std::uint8_t> pixels(std::size_t{2} * 2 * 4);
+    TextureHandle shown = textures.placeholder();
+
+    // The final frame is held by LiveWatch, then sampled again after its settling delay.
+    for (std::uint64_t tick = 0; tick < texture_pack::LiveWatch::kLiveTicks; ++tick) {
+        textures.set_tick(tick);
+        pixels[0] = static_cast<std::uint8_t>(tick);
+        textures.upload(upload(sample.tbp0, gs::kPsmct32, 2, 2, pixels));
+        shown = textures.resolve(sample, texa, &source_over);
+    }
+
+    textures.set_tick(texture_pack::LiveWatch::kLiveTicks + texture_pack::LiveWatch::kMaxGap);
+    CHECK(textures.resolve(sample, texa, &source_over) == shown);
+    const fs::path saved =
+        root / "Interface"
+        / texture_pack::file_name(texture_pack::image_hash(textures.image(shown)));
+    CHECK(!fs::exists(saved));
+    CHECK(textures.resolve(sample, texa) != textures.placeholder());
+    CHECK(fs::is_regular_file(saved));
+    texture_pack::configure({}, {}, {});
+    fs::remove_all(root, error);
+    CHECK(!error);
+}
+
 void particle_pass_cache() {
     // A pass sees immutable RAM. Equal pixels with different palettes and
     // equal palettes with different pixels must resolve independently.
@@ -849,6 +955,58 @@ void thin_glyph_marks() {
     CHECK(!inside(1, 3) && !inside(5, 3) && !inside(8, 9) && !inside(12, 9));
 }
 
+// A movie's picture (set_picture): one texture at its block, refilled in place each frame, kept
+// while it is shown and read only by a draw that samples it whole.
+void pictures() {
+    TexturePool textures;
+    const gs::Texa texa{0, false, 0x80};
+    std::vector<std::uint8_t> pixels(4 * 4 * 4, 7);
+    // What the game uploaded there before is not what the memory holds once a picture is put.
+    textures.upload(upload(0x700, gs::kPsmct32, 4, 4, std::vector<std::uint8_t>(64, 1)));
+    textures.set_picture(0x700, 1, 4, 4, pixels);
+    CHECK(textures.picture_at(0x700));
+    const TextureHandle first = textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa);
+    CHECK(first != textures.placeholder());
+    CHECK(textures.image(first).texel(0, 0) == rgba(7, 7, 7, 7));
+    CHECK(textures.alpha_scale(first) == AlphaScale::Gs);
+
+    // The next frame: the same texture with the new texels, and no texture more.
+    const std::size_t count = textures.size();
+    pixels[0] = 200;
+    textures.set_picture(0x700, 1, 4, 4, pixels);
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa) == first);
+    CHECK(textures.image(first).texel(0, 0) == rgba(200, 7, 7, 7));
+    CHECK(textures.size() == count);
+
+    // A bigger texture at that block, as wide a buffer, holds the picture in its top left (Going
+    // Commando's movie strips read 1024 x 1024 over its 512 x 512 picture): the picture's texture,
+    // the draw's coordinates scaled to it.
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 3, 4), texa) == first);
+    CHECK(textures.uv_scale(first)[0] == 2.0f && textures.uv_scale(first)[1] == 4.0f);
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa) == first);
+    CHECK(textures.uv_scale(first)[0] == 1.0f && textures.uv_scale(first)[1] == 1.0f);
+
+    // Another view of that memory is not the picture: another format, another buffer width, or
+    // less than the picture.
+    gs::Tex0 other_width = tex0(0x700, gs::kPsmct32, 3, 3);
+    other_width.tbw = 2;
+    CHECK(textures.resolve(other_width, texa) == textures.placeholder());
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmt8, 2, 2), texa) == textures.placeholder());
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 1, 2), texa) == textures.placeholder());
+
+    // Kept while it is not drawn (a paused movie), unlike a converted upload.
+    for (std::uint32_t i = 0; i < TexturePool::kKeepFrames * 2; ++i) {
+        textures.end_frame();
+    }
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa) == first);
+
+    // Forgotten when the movie ends: the memory is the game's again.
+    textures.forget_picture(0x700);
+    CHECK(!textures.picture_at(0x700));
+    CHECK(textures.resolve(tex0(0x700, gs::kPsmct32, 2, 2), texa) == textures.placeholder());
+}
+
+// Runs texture conversion, cache and dump regressions without a graphics context.
 int main() {
     pcsx2_texture_pack();
     direct_colour();
@@ -863,6 +1021,9 @@ int main() {
     long_session();
     inside_and_loaded();
     cached_uploads();
+    test_empty_alpha_draw_modes();
+    test_settled_empty_alpha_upload();
     particle_pass_cache();
+    pictures();
     return openrac::test::result();
 }

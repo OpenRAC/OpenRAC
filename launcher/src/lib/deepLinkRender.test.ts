@@ -3,6 +3,7 @@
 // conflict with its fix, Switch to the dev build, and Play at the end.
 import { render } from "svelte/server";
 import { beforeEach, describe, expect, it } from "vitest";
+
 import DeepLinkInstall from "../components/DeepLinkInstall.svelte";
 import type { Config } from "./api";
 import { app } from "./app.svelte";
@@ -15,6 +16,7 @@ const html = () => render(DeepLinkInstall).body.replace(/<!--[^>]*-->/g, "");
 function show(wanted: string[], turnOff: string[] = [], api: [number, number] = [1, 10]) {
   const ws = wanted.map((id) => ({ id, version: null }));
   const plan = mockResolve(ws, turnOff, api);
+
   Object.assign(changeSet, {
     link: "openrac://install/x",
     phase: "ready",
@@ -26,6 +28,7 @@ function show(wanted: string[], turnOff: string[] = [], api: [number, number] = 
     offers: { recommends: plan.recommends, suggests: plan.suggests },
     ticked: plan.recommends.map((o) => o.id),
   });
+
   return plan;
 }
 
@@ -39,6 +42,7 @@ describe("the change set", () => {
   it("is one Install button when nothing needs a choice", () => {
     show(["ammo-max"]);
     const out = html();
+
     expect(out).toContain(installCount(1));
     expect(out).not.toContain("outside the game's sandbox");
     expect(out).not.toContain(CHANGE_SET.switchToDev);
@@ -48,6 +52,7 @@ describe("the change set", () => {
   it("warns once about native code, naming the mods", () => {
     show(["lock-strafe"]);
     const out = html();
+
     expect(out).toContain(CHANGE_SET.alsoInstalls);
     expect(out.match(/outside the game(&#39;|')s sandbox/g)).toHaveLength(1);
     expect(out).toContain(nativeWarning(["Lock-strafe"]).split(" runs")[0]);
@@ -57,8 +62,10 @@ describe("the change set", () => {
   it("blocks on a conflict and offers its fix", () => {
     // The preview's ?conflict is not set here: the conflict is within the change set.
     const plan = show(["lock-strafe", "classic-controls"]);
+
     expect(plan.blocked).toBe(true);
     const out = html();
+
     expect(out).toMatch(/can(&#39;|')t be on with/);
     expect(out).toContain(CHANGE_SET.blocked);
     expect(out).toMatch(/<button class="primary"[^>]*disabled/);
@@ -67,6 +74,7 @@ describe("the change set", () => {
   it("offers Switch to the dev build when no version fits", () => {
     show(["archipelago"]);
     const out = html();
+
     expect(out).toContain(CHANGE_SET.switchToDev);
     expect(out).not.toContain(installCount(1));
   });
@@ -84,6 +92,7 @@ describe("the change set", () => {
       rolledBack: false,
     };
     const out = html();
+
     expect(out).toContain(CHANGE_SET.play.replace("▸", ""));
     expect(out).toContain("Installed 1 mod");
     expect(out).toContain(CHANGE_SET.backedUp);
@@ -102,6 +111,7 @@ describe("the change set", () => {
       rolledBack: false,
     };
     const out = html();
+
     expect(out).toMatch(/Installed 1 of \d+\. Lock-strafe failed/);
     expect(out).toMatch(/couldn(&#39;|')t be verified/);
   });

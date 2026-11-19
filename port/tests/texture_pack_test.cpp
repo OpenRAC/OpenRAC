@@ -3,12 +3,14 @@
 //
 // Texture packs (renderer/textures/texture_pack.h): names by hash, replacement at any size, the dump,
 // animated replacements (frame by tick, the folder and GIF loaders) and the dump's cycle groups.
+#include <cstdint>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <iterator>
 #include <map>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include "check.h"
@@ -271,6 +273,59 @@ void check_cycles(const fs::path& root) {
     CHECK(disk().size() == 2);
 }
 
+// Textures made anew each tick are found live and not dumped; a cycle and slow changes are not.
+void check_live(const fs::path& root) {
+    using texture_pack::LiveWatch;
+    LiveWatch watch;
+    std::uint64_t tick = 100;
+    // A new texture every tick: live at the kLiveTicks-th, which gives back all the earlier ones.
+    for (std::uint64_t hash = 1; hash < LiveWatch::kLiveTicks; ++hash) {
+        const auto seen = watch.see(1, hash, ++tick);
+        CHECK(!seen.live && seen.undump.empty());
+    }
+    auto seen = watch.see(1, 1000, ++tick);
+    CHECK(seen.live && seen.undump.size() == LiveWatch::kLiveTicks);
+    seen = watch.see(1, 1001, tick += 2);
+    CHECK(seen.live && seen.undump.empty());
+    // After a pause the place is watched afresh.
+    CHECK(!watch.see(1, 1002, tick += LiveWatch::kMaxGap + 1).live);
+
+    bool any = false;
+    // A cycle's frames come back (made again after being dropped): only its new ones count.
+    for (int round = 0; round < 20; ++round) {
+        for (std::uint64_t hash = 1; hash <= 32; ++hash) {
+            any = any || watch.see(2, hash, tick += 2).live;
+        }
+    }
+    // New textures, but slower than kMaxGap apart (a menu's pages).
+    for (std::uint64_t hash = 1; hash < 200; ++hash) {
+        any = any || watch.see(3, hash, tick += LiveWatch::kMaxGap + 1).live;
+    }
+    // Many new textures in one tick (a menu opening) count once.
+    for (std::uint64_t hash = 1; hash < 200; ++hash) {
+        any = any || watch.see(4, hash, tick).live;
+    }
+    CHECK(!any);
+
+    // Not dumped with `dump` false; undump() takes back what this run wrote.
+    disk().clear();
+    texture_pack::configure({}, root / "live", {load, save, nullptr});
+    auto image = solid(2, 2, 7);
+    CHECK(!texture_pack::replace(image, {.interface = true, .dump = false}) && disk().empty());
+    CHECK(!texture_pack::replace(image, {.interface = true}) && disk().size() == 1);
+    const std::uint64_t hash = texture_pack::image_hash(image);
+    texture_pack::undump(std::span(&hash, 1));
+    // Forgotten: met again, it is written again.
+    disk().clear();
+    CHECK(!texture_pack::replace(image, {.interface = true}) && disk().size() == 1);
+    // A held texture that settled is dumped once, by its own hash.
+    disk().clear();
+    texture_pack::undump(std::span(&hash, 1));
+    texture_pack::dump_picture(image, {.interface = true});
+    texture_pack::dump_picture(image, {.interface = true});
+    CHECK(disk().size() == 1 && disk().contains("Interface/" + texture_pack::file_name(hash)));
+}
+
 }  // namespace
 
 // Fake KTX2 and SVG readers: a KTX2 is red 100, with one level of blocks in the format asked, an
@@ -361,6 +416,198 @@ void check_still_kinds(const fs::path& root) {
     fs::remove_all(root);
 }
 
+// Counts the reads, to see which replacements read their file again.
+int& reads() {
+    static int count = 0;
+    return count;
+}
+
+std::optional<Rgba8Image> counted_load(const fs::path& file) {
+    ++reads();
+    return load(file);
+}
+
+// A picture met again while playing is read once; a level's texture is read each time it loads.
+void check_kept_pictures(const fs::path& root) {
+    fs::remove_all(root);
+    fs::create_directories(root);
+    const auto hud = solid(2, 2, 40);
+    const auto wall = solid(2, 2, 41);
+    disk().clear();
+    for (const auto& texture : {hud, wall}) {
+        const std::string name = texture_pack::file_name(texture_pack::image_hash(texture));
+        std::ofstream(root / name) << "png";
+        disk()[name] = solid(16, 16, 250);
+    }
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    for (int i = 0; i < 3; ++i) {
+        auto image = hud;
+        CHECK(texture_pack::replace(image, {.interface = true}) && image.width == 16);
+        CHECK(image.pixels[0] == 250);
+    }
+    CHECK(reads() == 1);
+    for (int i = 0; i < 2; ++i) {
+        auto image = wall;
+        CHECK(texture_pack::replace(image, {.level = 1}) && image.width == 16);
+    }
+    CHECK(reads() == 3);
+    // A new pack reads its files again.
+    texture_pack::configure(root, {}, {counted_load, save});
+    auto image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 4);
+
+    // Read ahead while a level loads: the HUD's picture, not a dump's Planets/ folder; its first
+    // showing then reads nothing.
+    fs::create_directories(root / "Planets" / "Oozla");
+    fs::rename(
+        root / texture_pack::file_name(texture_pack::image_hash(wall)),
+        root / "Planets" / "Oozla" / texture_pack::file_name(texture_pack::image_hash(wall))
+    );
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    texture_pack::preload();
+    texture_pack::finish_preload();
+    CHECK(reads() == 1);
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && image.width == 16 && reads() == 1);
+    image = wall;
+    CHECK(texture_pack::replace(image, {.level = 1}) && reads() == 2);
+    texture_pack::preload();  // nothing left to read
+    texture_pack::finish_preload();
+    CHECK(reads() == 2);
+
+    // A level's pictures read together ahead: its texture then reads nothing, and what it did not
+    // ask for is freed.
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    const std::vector<texture_pack::TextureId> level{
+        {texture_pack::image_hash(wall), 2, 2}, {texture_pack::image_hash(hud), 2, 2}
+    };
+    texture_pack::read_level_pictures(level);
+    CHECK(reads() == 2);
+    image = wall;
+    CHECK(texture_pack::replace(image, {.level = 1}) && image.width == 16 && reads() == 2);
+    texture_pack::drop_level_pictures();
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 3);
+
+    // The play list: a run learns the HUD's picture; the next reads ahead only that one, even
+    // with a level's picture lying beside it outside Planets/.
+    const fs::path list = root / "list" / "play.txt";
+    fs::rename(
+        root / "Planets" / "Oozla" / texture_pack::file_name(texture_pack::image_hash(wall)),
+        root / texture_pack::file_name(texture_pack::image_hash(wall))
+    );
+    texture_pack::configure(root, {}, {counted_load, save});
+    texture_pack::set_play_list(list);
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}));
+    CHECK(fs::exists(list));
+    texture_pack::configure(root, {}, {counted_load, save});
+    texture_pack::set_play_list(list);
+    reads() = 0;
+    texture_pack::preload();
+    texture_pack::finish_preload();
+    CHECK(reads() == 1);
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true}) && reads() == 1);
+
+    // Later: the first ask keeps the original and reads the picture in the background; once kept,
+    // the next ask gets it without reading.
+    texture_pack::configure(root, {}, {counted_load, save});
+    reads() = 0;
+    const std::uint64_t version = texture_pack::kept_version();
+    image = hud;
+    CHECK(!texture_pack::replace(image, {.interface = true, .later = true}) && image.width == 2);
+    texture_pack::finish_preload();
+    // (The reader then goes on with the pack's other pictures.)
+    CHECK(reads() >= 1 && texture_pack::kept_version() != version);
+    const int after_reader = reads();
+    CHECK(texture_pack::is_kept(texture_pack::image_hash(hud)));
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true, .later = true}) && image.width == 16);
+    CHECK(reads() == after_reader);
+    fs::remove_all(root);
+}
+
+namespace {
+
+// Stops changing RGB beneath zero alpha from filling a dump, without dropping faint or RGB-only pictures.
+void test_empty_alpha_dump(const fs::path& root) {
+    disk().clear();
+    texture_pack::configure({}, root / "blank", {load, save});
+    // A 64x64 synthetic image changes through 256 invisible colours, as a live upload can.
+    constexpr int kSide = 64;
+    constexpr unsigned kColours = 256;
+    Rgba8Image image(kSide, kSide);
+
+    // Replacement identity and source texels must stay intact even when no PNG is exported.
+    for (unsigned colour = 0; colour < kColours; ++colour) {
+        image.pixels[0] = static_cast<std::uint8_t>(colour);
+        const std::uint64_t original = texture_pack::image_hash(image);
+        texture_pack::Replacement found;
+        CHECK(!texture_pack::replace(image, {.interface = true, .skip_empty_alpha = true}, &found));
+        CHECK(found.hash == original);
+        CHECK(texture_pack::image_hash(image) == original);
+    }
+
+    CHECK(disk().empty());
+    image.pixels.back() = 1;
+    const std::string faint = texture_pack::file_name(texture_pack::image_hash(image));
+    CHECK(!texture_pack::replace(image, {.interface = true, .skip_empty_alpha = true}));
+    CHECK(disk().size() == 1 && disk().contains("Interface/" + faint));
+    image.pixels.back() = 0;
+    const std::string rgb = texture_pack::file_name(texture_pack::image_hash(image));
+    CHECK(!texture_pack::replace(image, {.interface = true}));
+    CHECK(disk().size() == 2 && disk().contains("Interface/" + rgb));
+}
+
+// Keeps existing replacements of transparent source images addressable by their original hashes.
+void test_transparent_pack_lookup(const fs::path& root) {
+    disk().clear();
+    // Two-by-two synthetic pictures keep this file-lookup fixture small.
+    Rgba8Image blank(2, 2);
+    const std::string name = texture_pack::file_name(texture_pack::image_hash(blank));
+    const fs::path pack = root / "pack";
+    std::error_code error;
+    fs::create_directories(pack, error);
+    CHECK(!error);
+    CHECK(std::ofstream(pack / name).put('x').good());
+    disk()[name] = solid(2, 2, 200);
+    texture_pack::configure(pack, root / "dump", {load, save});
+    CHECK(texture_pack::replace(blank, {.interface = true, .skip_empty_alpha = true}));
+    CHECK(blank.pixels[0] == 200);
+    CHECK(!disk().contains("Interface/" + name));
+}
+
+// Retains blank frames in explicit animation cycles, where they can make an effect blink.
+void test_blank_animation_frames(const fs::path& root) {
+    disk().clear();
+    texture_pack::configure({}, root, {load, save});
+    // A two-frame, two-by-two synthetic animation alternates between blank and lit.
+    Rgba8Image blank(2, 2);
+    const Rgba8Image lit = solid(2, 2, 100);
+    const std::vector<std::uint64_t> order{
+        texture_pack::image_hash(blank), texture_pack::image_hash(lit)
+    };
+    const std::vector<const Rgba8Image*> images{&blank, &lit};
+    CHECK(
+        !texture_pack::replace(blank, {.interface = true, .skip_empty_alpha = true})
+        && disk().empty()
+    );
+    texture_pack::dump_animated(order, images);
+    const std::string name = texture_pack::file_name(order[0]);
+    CHECK(disk().size() == 2 && disk().contains(name.substr(0, 16) + "/" + name));
+    const fs::path folder = root / texture_pack::dump_folder({.cycle = order[0]});
+    std::ifstream in(folder / "order.txt");
+    const std::string text{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+    CHECK(text.find(name) != std::string::npos);
+}
+
+}  // namespace
+
+// Runs synthetic texture-pack lookup, export, animation and cache regressions.
 int main() {
     const auto small = solid(2, 2, 10);
     // The hash takes the size and every texel; the name is 16 hex digits.
@@ -438,10 +685,15 @@ int main() {
     CHECK(!texture_pack::dumping());
 
     check_frame_at();
+    check_kept_pictures(pack / "kept");
     check_still_kinds(pack / "kinds");
     check_folders(pack / "folders");
     check_animated_pack(pack);
     check_cycles(pack);
+    check_live(pack);
+    test_empty_alpha_dump(pack / "empty-alpha");
+    test_transparent_pack_lookup(pack / "transparent-pack");
+    test_blank_animation_frames(pack / "blank-animation");
     fs::remove_all(pack);
     return test::result();
 }

@@ -145,6 +145,9 @@ renderer::Vec3 vec3(std::span<const std::uint8_t> ram, std::uint32_t address) {
 // (+0x32), occlusion (+0x36) and rotation rows (+0xC0) are where they were.
 constexpr std::uint32_t kMobyClass = 0xAA;
 
+// Nanotech is callback-only geometry (seen in game code: func_003146C0).
+constexpr std::int32_t kNanotechClass = 806;
+
 // Ratchet's class holds only his skeleton: the game loads his packets and textures over it from a
 // pack of the disc, the armour's unless one of four flags names another (func_00292078). The export
 // has each pack past the first as a class of its own (editor/moby_class.py, HERO_LOOK_CLASSES).
@@ -213,6 +216,47 @@ std::int32_t hero_class(std::span<const std::uint8_t> ram, const Release& r) {
     return look > 0 && look <= 8 ? kHeroLookClasses + look : -1;
 }
 
+// Captures the position used by nanotech's callback without inventing a renderable moby mesh.
+std::optional<host::LiveMoby> nanotech_anchor(
+    std::uint32_t address, const renderer::Vec3& position
+) {
+    // Invalid positions cannot provide a finite interpolation anchor.
+    if (!std::all_of(position.begin(), position.end(), [](float value) {
+            return std::isfinite(value);
+        })) {
+        return std::nullopt;
+    }
+
+    host::LiveMoby anchor;
+    anchor.address = address;
+    anchor.class_id = kNanotechClass;
+    anchor.model_only = true;
+    // The callback uses world position and camera axes (seen in game code: func_003146C0).
+    anchor.matrix = renderer::translation(position);
+    return anchor;
+}
+
+// Reads a complete record's sphere in world units (seen in game code: func_002A4E68).
+std::array<float, 4> moby_sphere(std::span<const std::uint8_t> ram, std::uint32_t address) {
+    std::array<float, 4> sphere;
+    std::memcpy(sphere.data(), ram.data() + address, sizeof(sphere));
+
+    // Invalid bounds must remain unknown rather than entering the renderer's visibility tests.
+    if (!(sphere[3] > 0) || !std::all_of(sphere.begin(), sphere.end(), [](float value) {
+            return std::isfinite(value);
+        })) {
+        return {};
+    }
+
+    // The stored sphere uses 1/1024 game units (seen in game code: func_002A4E68).
+    for (float& component : sphere) {
+        component /= 1024.0f;
+    }
+
+    return sphere;
+}
+
+// Returns a mesh transform or callback-only position anchor from a complete moby record.
 std::optional<host::LiveMoby> read_live_moby(
     std::span<const std::uint8_t> ram, std::uint32_t m, const Release& r
 ) {
@@ -220,13 +264,19 @@ std::optional<host::LiveMoby> read_live_moby(
         return std::nullopt;
     }
     const renderer::Vec3 pos = vec3(ram, m + 0x10);
+    const std::int16_t class_id = at<std::int16_t>(ram, m + kMobyClass);
+    // Callback-only nanotech has no mesh axes or scale (measured: Siberius floating orb).
+    if (class_id == kNanotechClass) {
+        return nanotech_anchor(m, pos);
+    }
+
     const float scale = at<float>(ram, m + 0x2C);
     if (!std::isfinite(pos[0]) || !std::isfinite(scale) || scale <= 0.0f || scale > 1000.0f) {
         return std::nullopt;
     }
     host::LiveMoby live;
     live.address = m;
-    live.class_id = at<std::int16_t>(ram, m + kMobyClass);
+    live.class_id = class_id;
     if (live.class_id == 0) {
         live.model_class = hero_class(ram, r);
     } else if (live.class_id == kWrenchClass) {
@@ -237,14 +287,7 @@ std::optional<host::LiveMoby> read_live_moby(
         live.model_class = body > 0 && body < kShipBodies ? kShipBodyClasses + body : -1;
     }
     live.occlusion = at<std::uint16_t>(ram, m + 0x36);
-    std::array<float, 4> sphere;
-    std::memcpy(sphere.data(), ram.data() + m, sizeof(sphere));
-    if (sphere[3] > 0
-        && std::all_of(sphere.begin(), sphere.end(), [](float x) { return std::isfinite(x); })) {
-        for (std::size_t i = 0; i < sphere.size(); ++i) {
-            live.world_sphere[i] = sphere[i] / 1024.0f;
-        }
-    }
+    live.world_sphere = moby_sphere(ram, m);
     const renderer::Vec3 r0 = vec3(ram, m + 0xC0), r1 = vec3(ram, m + 0xD0),
                          r2 = vec3(ram, m + 0xE0);
     const auto usable = [](const renderer::Vec3& r) {
@@ -393,6 +436,16 @@ public:
         return read_live_moby(ram, moby, release_);
     }
 
+    // With its bangles: the vendor's ammo preview (class 3291) is bangle 0 alone, its own mesh is
+    // two triangles.
+    void add_moby(
+        std::span<const std::uint8_t> ram, std::uint32_t moby, std::vector<host::LiveMoby>& mobys
+    ) const override {
+        if (const auto live = read_live_moby(ram, moby, release_)) {
+            add_drawn_parts(ram, *live, mobys);
+        }
+    }
+
     // MobyProc leaves a moby past its draw distance (+0x32, at most the level's cap) undrawn and
     // fades it over the last 16 units, as Ratchet & Clank's does.
     std::optional<std::uint8_t> moby_distance_fade(
@@ -422,6 +475,23 @@ public:
 
     bool interpolates_effect_quads() const override { return true; }
 
+    std::uint32_t particle_attachment(std::span<const std::uint8_t> record) const override {
+        // Type 62, subtype 2 uses owner +0x24 and world offset +0x30; +0x23 applies an optional warp
+        // (seen in game code: func_002C37E0 and func_002C36D0).
+        if (record.size() < 0x40 || record[0] != 62 || record[0x22] != 2 || record[0x23] != 0) {
+            return 0;
+        }
+
+        std::uint32_t owner = 0;
+        std::memcpy(&owner, record.data() + 0x24, sizeof(owner));
+        // A complete moby must fit in the game's 32 MiB RAM, including its 0x100-byte record.
+        if (owner > 0x01FFFF00u) {
+            return 0;
+        }
+
+        return owner;
+    }
+
     bool terrain_takes_point_lights() const override { return true; }
 
     // The ties' matrices: gp + 0x31CC (PatchTieVertexLighting, 0x2F3FEC; level 0's copy
@@ -440,9 +510,12 @@ public:
 
     float depth_near() const override { return 0.25f; }
 
-    // The VRAM base of the frame (D_001A72DC, 0x1E8000 in bytes / 256 / 8): past the two 448-line
-    // buffers, where the world's passes set FRAME (func_002DF1B8: FBP 0xF4).
-    std::uint32_t draw_buffer_block() const override { return 0x1E80; }
+    // The VRAM base of the frame (D_001A72DC in bytes / 256): past the two display buffers, where
+    // the world's passes set FRAME. The 448-line discs put it at 0x1E8000 (func_002DF1B8: FBP
+    // 0xF4), PAL's 512-line mode at 0x1E0000 (0x00274128), where its movies' pictures go too.
+    std::uint32_t draw_buffer_block() const override {
+        return &release_ == &kPal ? 0x1E00 : 0x1E80;
+    }
 
     // 0x10 before Ratchet & Clank's: ResolveMobyAnimFramePtrs (func_0029F390) reads the frames at
     // +0x40, the sequences at +0x42 and writes the keys at +0x58, and the pose layer slots
@@ -492,6 +565,9 @@ public:
 
     // Game state 2 is a level's scene (host/tools.c STATE_SCENE, which skip_cutscenes ends).
     std::optional<std::uint32_t> cutscene_mode() const override { return 2; }
+
+    // Game state 4 while the weapon wheel is open (func_00286738's modal mode 7, T-49).
+    std::optional<std::uint32_t> quick_select_mode() const override { return 4; }
 
     // The pad's read (func_002B88F0): |byte - 0x7F| from 0x30, over 0x4C, as Ratchet & Clank's.
     std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }

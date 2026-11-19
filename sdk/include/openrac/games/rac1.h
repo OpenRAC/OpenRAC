@@ -138,6 +138,26 @@ typedef openrac_gaddr (*openrac_rac1_Moby_GetHitMessage)(
 #define OPENRAC_RAC1_SIG_Weapon_TakeAmmo "i32(i32,i32)"
 typedef int32_t (*openrac_rac1_Weapon_TakeAmmo)(int32_t item, int32_t amount);
 
+/* Weapon_Blaster_PickTarget (func_L00_002B5998, rac1.weapon.blaster.pick_target): The Blaster's auto-aim target (select_blaster_auto_aim_target: the nearest creature within 20 units and about 9 degrees of the heading, in sight; writes the yaw and pitch toward it). */
+#define OPENRAC_RAC1_HOOK_Weapon_Blaster_PickTarget "Weapon_Blaster_PickTarget"
+#define OPENRAC_RAC1_SIG_Weapon_Blaster_PickTarget "u32(i32,u32,u32,u32)"
+typedef openrac_gaddr (*openrac_rac1_Weapon_Blaster_PickTarget)(int32_t ignore, openrac_gaddr from, openrac_gaddr yaw, openrac_gaddr pitch);
+
+/* Weapon_Ryno_PickTarget (func_L00_002CD7B0, rac1.weapon.ryno.pick_target): A R.Y.N.O. missile's target (select_ryno_target: within the range and angles its caller gives, in sight, not one of the salvo's seven). */
+#define OPENRAC_RAC1_HOOK_Weapon_Ryno_PickTarget "Weapon_Ryno_PickTarget"
+#define OPENRAC_RAC1_SIG_Weapon_Ryno_PickTarget "u32(u32,u32,u32,f32,f32,f32)"
+typedef openrac_gaddr (*openrac_rac1_Weapon_Ryno_PickTarget)(openrac_gaddr pos, openrac_gaddr aim, openrac_gaddr skip, float max_yaw, float max_pitch, float max_distance);
+
+/* Weapon_GoldDevastator_PickTarget (func_L00_002B1290, rac1.weapon.gold_devastator.pick_target): The gold Devastator missile's target (select_gold_devastator_missile_target: within 40 units, in a cone that widens with the weapon's level, in sight; written into its data). */
+#define OPENRAC_RAC1_HOOK_Weapon_GoldDevastator_PickTarget "Weapon_GoldDevastator_PickTarget"
+#define OPENRAC_RAC1_SIG_Weapon_GoldDevastator_PickTarget "void(u32,u32,u32)"
+typedef void (*openrac_rac1_Weapon_GoldDevastator_PickTarget)(openrac_gaddr missile, openrac_gaddr data, openrac_gaddr skip);
+
+/* Weapon_Drone_PickTarget (func_L00_002CF3D8, rac1.weapon.drone.pick_target): A drone's target (select_nearest_drone_target: the nearest enemy within 4 to 6 units, not one of the nine others' targets). */
+#define OPENRAC_RAC1_HOOK_Weapon_Drone_PickTarget "Weapon_Drone_PickTarget"
+#define OPENRAC_RAC1_SIG_Weapon_Drone_PickTarget "u32(u32,u32)"
+typedef openrac_gaddr (*openrac_rac1_Weapon_Drone_PickTarget)(openrac_gaddr from, openrac_gaddr skip);
+
 /* Moby_RecordDeath (func_L00_002584A8, rac1.moby.record_death): records a placed moby's death
  * or a crate's break (SetDeathBits: its killed bits, none for a save id below 0) and drops its
  * bolts, about the s16 at +0xB4, which it then clears. */
@@ -174,6 +194,35 @@ typedef void (*openrac_rac1_Ship_TravelTo)(int32_t dest);
 #define OPENRAC_RAC1_HOOK_Moby_CollectBolt "Moby_CollectBolt"
 #define OPENRAC_RAC1_SIG_Moby_CollectBolt "void(u32)"
 typedef void (*openrac_rac1_Moby_CollectBolt)(openrac_gaddr bolt);
+
+/* Vendor_DrawIconStrip (func_00239A00, rac1.vendor.icon_strip.draw): draws the vendor's item and
+ * ammunition icons. The original also advances the carousel's scrolling. */
+#define OPENRAC_RAC1_HOOK_Vendor_DrawIconStrip "Vendor_DrawIconStrip"
+#define OPENRAC_RAC1_SIG_Vendor_DrawIconStrip "void()"
+typedef void (*openrac_rac1_Vendor_DrawIconStrip)(void);
+
+/* Hero_EnterMoveState (func_L00_00222B80, rac1.player.enter_move_state): puts the hero into a
+ * move state (+0x2084): HeroEnterMoveState, and the copy of it in each level with hero code of
+ * its own (one hook point). It sets the state up, starts its animation when force is non-zero,
+ * and returns 0 when it refuses the change (dying or a cutscene, unless force is 2). Every change
+ * of his state goes through it. */
+#define OPENRAC_RAC1_HOOK_Hero_EnterMoveState "Hero_EnterMoveState"
+#define OPENRAC_RAC1_SIG_Hero_EnterMoveState "i32(i32,i32)"
+typedef int32_t (*openrac_rac1_Hero_EnterMoveState)(int32_t state, int32_t force);
+
+/* Hero_ResolveGravityMode (func_L00_00233CC0, rac1.player.resolve_gravity_mode): the hero's
+ * gravity mode for the tick (+0x20B3: 0 the world's down, 1 the ground's normal), once a tick;
+ * 1 on magnetic ground with the Magneboots and in the magnet walk (state 0x3F). */
+#define OPENRAC_RAC1_HOOK_Hero_ResolveGravityMode "Hero_ResolveGravityMode"
+#define OPENRAC_RAC1_SIG_Hero_ResolveGravityMode "i32()"
+typedef int32_t (*openrac_rac1_Hero_ResolveGravityMode)(void);
+
+/* Hero_UpdateEquippedItems (func_L00_00210FE0, rac1.player.update_equipped_items): what the hero
+ * holds, once a tick: locks item selection and use (+0x20A7, +0x20AC) on magnetic ground with the
+ * Magneboots, in water or dying, then runs the item mobys and the items. */
+#define OPENRAC_RAC1_HOOK_Hero_UpdateEquippedItems "Hero_UpdateEquippedItems"
+#define OPENRAC_RAC1_SIG_Hero_UpdateEquippedItems "void()"
+typedef void (*openrac_rac1_Hero_UpdateEquippedItems)(void);
 
 /* ------------------------------------------------------------------------------------------ *
  * Taking a hook point

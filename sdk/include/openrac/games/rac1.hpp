@@ -147,6 +147,38 @@ struct Weapon_TakeAmmo {
     using fn = int32_t (*)(int32_t, int32_t);
 };
 
+// Chooses the Blaster's auto-aim target for a shot from from (select_blaster_auto_aim_target; from a Vec4, yaw and pitch f32s, all addresses): the nearest targetable creature (Moby flags 0x1000) within 20 units whose aim point is within about 9 degrees of the heading yaw/pitch and in sight from the camera and from from (ignore: the moby the sight test passes over). Writes the pitch toward it, and the yaw when within 10 degrees, and returns it; 0 for none.
+struct Weapon_Blaster_PickTarget {
+    static constexpr const char* id = "rac1.weapon.blaster.pick_target";
+    static constexpr const char* name = "Weapon_Blaster_PickTarget";
+    static constexpr const char* signature = "u32(i32,u32,u32,u32)";
+    using fn = uint32_t (*)(int32_t, uint32_t, uint32_t, uint32_t);
+};
+
+// Chooses a R.Y.N.O. missile's target (select_ryno_target): the creature with a target record, of class type 5, within max_distance across of pos (a Vec4 address) and max_yaw / max_pitch of the aim angles (aim, f32s at +4 pitch and +8 yaw), the best by angle and distance, in sight; skip is the seven mobys the salvo has already (0: only the ones drawn last frame). Returns the moby, 0 for none.
+struct Weapon_Ryno_PickTarget {
+    static constexpr const char* id = "rac1.weapon.ryno.pick_target";
+    static constexpr const char* name = "Weapon_Ryno_PickTarget";
+    static constexpr const char* signature = "u32(u32,u32,u32,f32,f32,f32)";
+    using fn = uint32_t (*)(uint32_t, uint32_t, uint32_t, float, float, float);
+};
+
+// Chooses the gold Devastator missile's target (select_gold_devastator_missile_target): the creature within 40 units of the missile nearest its heading, in a cone that widens with the weapon's level, in sight, not skip; writes it into the missile's data (data, its pvars).
+struct Weapon_GoldDevastator_PickTarget {
+    static constexpr const char* id = "rac1.weapon.gold_devastator.pick_target";
+    static constexpr const char* name = "Weapon_GoldDevastator_PickTarget";
+    static constexpr const char* signature = "void(u32,u32,u32)";
+    using fn = void (*)(uint32_t, uint32_t, uint32_t);
+};
+
+// Chooses a drone's target (select_nearest_drone_target): the nearest moby of class type 5, 7 or 8 to from (a Vec4 address), within 4, 5.3 or 6 units by type, not one of the nine in skip, not held by the Suck Cannon. Returns the moby, 0 for none.
+struct Weapon_Drone_PickTarget {
+    static constexpr const char* id = "rac1.weapon.drone.pick_target";
+    static constexpr const char* name = "Weapon_Drone_PickTarget";
+    static constexpr const char* signature = "u32(u32,u32)";
+    using fn = uint32_t (*)(uint32_t, uint32_t);
+};
+
 // Records a placed moby's death or a crate's break (SetDeathBits): its save id's killed bits (none for a save id below 0), its mission, then drops its bolts: about the s16 at +0xB4 (or what a tallied source has left of +0xB6), which it then clears.
 struct Moby_RecordDeath {
     static constexpr const char* id = "rac1.moby.record_death";
@@ -441,6 +473,86 @@ struct GoldBolts_CountUnspent {
     static constexpr const char* name = "GoldBolts_CountUnspent";
     static constexpr const char* signature = "i32()";
     using fn = int32_t (*)();
+};
+
+// Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+struct Vendor_DrawIconStrip {
+    static constexpr const char* id = "rac1.vendor.icon_strip.draw";
+    static constexpr const char* name = "Vendor_DrawIconStrip";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Draws the vendor selected-item name and price panel.
+struct Vendor_DrawDetails {
+    static constexpr const char* id = "rac1.vendor.draw_details";
+    static constexpr const char* name = "Vendor_DrawDetails";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Resolves an icon and animation frame to its HUD sprite frame.
+struct UI_IconFrame {
+    static constexpr const char* id = "rac1.ui.icon_frame";
+    static constexpr const char* name = "UI_IconFrame";
+    static constexpr const char* signature = "i32(i32,i32)";
+    using fn = int32_t (*)(int32_t, int32_t);
+};
+
+// Tests an NPC interaction request; identifies the owner of a purchase dialogue.
+struct NPC_TryDialog {
+    static constexpr const char* id = "rac1.npc.try_dialog";
+    static constexpr const char* name = "NPC_TryDialog";
+    static constexpr const char* signature = "i32(u32,u32)";
+    using fn = int32_t (*)(uint32_t, uint32_t);
+};
+
+// Draws a HUD sprite as one packed GIF packet.
+struct UI_DrawSprite {
+    static constexpr const char* id = "rac1.ui.sprite.draw";
+    static constexpr const char* name = "UI_DrawSprite";
+    static constexpr const char* signature = "void(i32,i32,i32,i32,i32,i32)";
+    using fn = void (*)(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
+};
+
+// Reward acquisition presentation.
+struct Pickup_StartScene {
+    static constexpr const char* id = "rac1.pickup.start_scene";
+    static constexpr const char* name = "Pickup_StartScene";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// Reward acquisition presentation.
+struct GoldCase_StartDemo {
+    static constexpr const char* id = "rac1.gold_case.start_demo";
+    static constexpr const char* name = "GoldCase_StartDemo";
+    static constexpr const char* signature = "void(u32,i32)";
+    using fn = void (*)(uint32_t, int32_t);
+};
+
+// Puts the hero into a move state (+0x2084): HeroEnterMoveState in levels 0, 4, 7, 9, 10 and 13, and each other level's own copy of it (hero_set_state), one hook point. It keeps the states before it, clears the item locks (+0x20AC, and +0x20A7 when he is not in a vehicle), sets up the new state's control mode and motion, and starts its animation when force is non-zero. It refuses the change and returns 0 while the hero is dying or in a cutscene, unless force is 2, and for most states while he falls or is hurt with no health left; else it returns 1, or 0 where it passes him on to another state. Every change of his state goes through it: his update, his items, and the mobys and triggers that move him. A replacement can send him to another state by calling the original with that state (0x3F is the slow magnet walk on magnetic ground). Under a multiplayer stand-in the port's guard (hero_grab.c) takes the call first, and a mod does not see it.
+struct Hero_EnterMoveState {
+    static constexpr const char* id = "rac1.player.enter_move_state";
+    static constexpr const char* name = "Hero_EnterMoveState";
+    static constexpr const char* signature = "i32(i32,i32)";
+    using fn = int32_t (*)(int32_t, int32_t);
+};
+
+// The hero's gravity mode for the tick, which Hero_UpdateMotionInput stores at +0x20B3 as it starts: 0 pulls him along the world's down, 1 along the ground's normal (magnetic ground), 2 along the vector at +0x290. It returns +0x308, which the ground's update sets to 1 on magnetic ground with the Magneboots, but 1 in states 0x3F (the magnet walk), 0x70 and 0x71, and in state 0 on magnetic ground with the Magneboots while he has been in the air for under 4 ticks. Once a tick, in every level.
+struct Hero_ResolveGravityMode {
+    static constexpr const char* id = "rac1.player.resolve_gravity_mode";
+    static constexpr const char* name = "Hero_ResolveGravityMode";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
+// What the hero holds, once a tick from Hero_Update in every level: it locks item selection and use (+0x20A7, +0x20AC) while he is on magnetic ground with the Magneboots (+0x308 is 1), in control modes 0x15 and 0x16, or in water or dying, then spawns, updates, animates and lights the item mobys and runs the items (hero_update_items). Hero_EnterMoveState clears both locks on a change of state.
+struct Hero_UpdateEquippedItems {
+    static constexpr const char* id = "rac1.player.update_equipped_items";
+    static constexpr const char* name = "Hero_UpdateEquippedItems";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
 };
 
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
@@ -5556,6 +5668,9 @@ namespace hooks {
         using count_collected = rac1::GoldBolts_CountCollected;
         using count_unspent = rac1::GoldBolts_CountUnspent;
     }  // namespace gold_bolt
+    namespace gold_case {
+        using start_demo = rac1::GoldCase_StartDemo;
+    }  // namespace gold_case
     namespace help {
         using request = rac1::Help_Request;
     }  // namespace help
@@ -7517,19 +7632,28 @@ namespace hooks {
             using update = rac1::Moby_Wrench_Update;
         }  // namespace wrench
     }  // namespace moby
+    namespace npc {
+        using try_dialog = rac1::NPC_TryDialog;
+    }  // namespace npc
     namespace pad {
         using process_report = rac1::Pad_ProcessReport;
     }  // namespace pad
+    namespace pickup {
+        using start_scene = rac1::Pickup_StartScene;
+    }  // namespace pickup
     namespace planet {
         using unlock = rac1::Planet_Unlock;
     }  // namespace planet
     namespace player {
         using advance_animation = rac1::Hero_AdvanceAnimation;
         using approach_speed = rac1::Hero_ApproachSpeed;
+        using enter_move_state = rac1::Hero_EnterMoveState;
+        using resolve_gravity_mode = rac1::Hero_ResolveGravityMode;
         using set_planar_velocity = rac1::Hero_SetPlanarVelocity;
         using take_damage = rac1::Hero_TakeDamage;
         using turn_to_heading = rac1::Hero_TurnToHeading;
         using update = rac1::Hero_Update;
+        using update_equipped_items = rac1::Hero_UpdateEquippedItems;
         using update_motion_input = rac1::Hero_UpdateMotionInput;
     }  // namespace player
     namespace save {
@@ -7549,14 +7673,36 @@ namespace hooks {
     namespace text {
         using msg_string = rac1::msg_string;
     }  // namespace text
+    namespace ui {
+        using icon_frame = rac1::UI_IconFrame;
+        namespace sprite {
+            using draw = rac1::UI_DrawSprite;
+        }  // namespace sprite
+    }  // namespace ui
     namespace vendor {
         using build_item_list = rac1::Vendor_BuildItemList;
+        using draw_details = rac1::Vendor_DrawDetails;
+        namespace icon_strip {
+            using draw = rac1::Vendor_DrawIconStrip;
+        }  // namespace icon_strip
         using init_level_stock = rac1::Vendor_InitLevelStock;
         using initialize_selected = rac1::Vendor_InitializeSelected;
         using menu_update = rac1::Vendor_MenuUpdate;
         using open_menu = rac1::Vendor_OpenMenu;
     }  // namespace vendor
     namespace weapon {
+        namespace blaster {
+            using pick_target = rac1::Weapon_Blaster_PickTarget;
+        }  // namespace blaster
+        namespace drone {
+            using pick_target = rac1::Weapon_Drone_PickTarget;
+        }  // namespace drone
+        namespace gold_devastator {
+            using pick_target = rac1::Weapon_GoldDevastator_PickTarget;
+        }  // namespace gold_devastator
+        namespace ryno {
+            using pick_target = rac1::Weapon_Ryno_PickTarget;
+        }  // namespace ryno
         using take_ammo = rac1::Weapon_TakeAmmo;
     }  // namespace weapon
 }  // namespace hooks

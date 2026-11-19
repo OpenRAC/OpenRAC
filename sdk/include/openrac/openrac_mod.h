@@ -68,9 +68,50 @@ extern "C" {
  * camera scripts and metal detector digs seen, the data packs applied, the
  * clipboard and a link, and which world a game's disc belongs to, 1.15 a mod's
  * own settings changed from the game (written into the launcher's list of mods)
- * and told when the launcher changes them while the game runs.
+ * and told when the launcher changes them while the game runs, 1.16 a mod's own
+ * data kept with the game's saves, 1.17 the game's own collision query asked by
+ * a mod (collision_line), 1.18 a prop fixed to a moby's joint (prop_attach),
+ * 1.19 switches and choices in a mod's developer menu, which the menu turns
+ * over at once, the game paused or not (developer_menu_switch), 1.20
+ * explicit native Vulkan access through the manifest's "vulkan_queue" field,
+ * 1.21 a hook point called as the game calls it, the mods' replacements
+ * included (hook_entry), 1.22 render-only reward models, guest text,
+ * sprite tint and pickup presentations, and 1.23 a render-only material for one
+ * moby (moby_material: a tint, or platinum).
  */
-#define OPENRAC_MOD_API_MINOR 15
+#define OPENRAC_MOD_API_MINOR 23
+
+/* What collision_line tests (openrac_api.collision_line): the level's walls and
+ * ground, the mobys (their collision meshes, and creatures' shapes on their
+ * joints), or both. Since 1.17. */
+#define OPENRAC_LINE_LEVEL 0x1u
+#define OPENRAC_LINE_MOBYS 0x2u
+
+/* What collision_line found on its line. Since 1.17. */
+typedef struct openrac_line_hit {
+  /* sizeof(openrac_line_hit), set by the mod. */
+  uint32_t size;
+  /* 1 for a hit, 0 for a clear line. */
+  int32_t hit;
+  /* The nearest hit's point (the game's units) and the normal of the face it
+   * hit (a unit vector; for a creature's joint shape, the shape's at that
+   * point). */
+  float point[3];
+  float normal[3];
+  /* The face's surface type (the game's own numbers: Ratchet & Clank's
+   * CollType), -1 for a creature's joint shape. */
+  int32_t surface;
+  /* The moby hit, by its slot (as moby_list names it), -1 for the level's own
+   * faces. */
+  int32_t moby;
+} openrac_line_hit;
+
+/* prop_attach's flags: `joint` is one of the hero's attach points
+ * (openrac_held_piece.joint), not a joint of his skeleton. Since 1.18. */
+#define OPENRAC_ATTACH_HELD 0x1u
+
+/* The most bytes of a mod's data kept with a save (openrac_api.save_data_set). Since 1.16. */
+#define OPENRAC_SAVE_DATA_MAX 65536u
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -241,9 +282,11 @@ typedef struct openrac_graphics {
   void *(*gl_proc)(const char *name);
   /* Vulkan: the backend's instance, physical device, device and graphics queue,
    * its family and its index in the family, and the vkGetInstanceProcAddr they
-   * were made with; null and 0 otherwise. While a mod has views (on_views) the
-   * port submits to the queue on the game's thread only, so a mod's own use of
-   * it there (OpenXR's xrEndFrame) needs no lock. */
+   * were made with. Mods targeting 1.20 or later get null handles and zero
+   * queue indices unless their manifest declares "vulkan_queue": true.
+   * That declaration keeps Vulkan on the game's thread, so a mod's own use
+   * of the queue there (OpenXR's xrEndFrame) needs no lock. Mods targeting
+   * 1.19 or earlier retain the existing behavior when they register views. */
   void *vk_instance;
   void *vk_physical_device;
   void *vk_device;
@@ -1277,6 +1320,30 @@ typedef struct openrac_pack_entry {
 /* What the port offers a mod. Filled by the port; valid for the life of the program. Every function
  * is called on the game's thread. Members from "1.2" on are at the end: a mod built for 1.1 never
  * sees them, and one built for 1.2 loads on a 1.2 port or newer. */
+/* A render-only replacement: the live moby's address and a class from the extracted game (-1 hides it).
+ * height 0 preserves the original model's displayed height; positive values set world units.
+ * Neither the moby's class, animation, collision nor update state is modified. Since 1.22. */
+typedef struct openrac_moby_visual {
+    openrac_gaddr moby;
+    int32_t oclass;
+    float height;
+} openrac_moby_visual;
+
+/* Maximum replacements a mod submits for one frame. Since 1.22. */
+#define OPENRAC_MOBY_VISUALS_MAX 512
+
+/* What moby_material draws a moby with (openrac_api.moby_material). Render-only: the game's memory
+ * and the moby's behaviour stay as they are. Since 1.23. */
+/* None: the moby drawn as the game draws it again (clears the mod's material on it). */
+#define OPENRAC_MOBY_MATERIAL_NONE 0
+/* Its colours times rgb (0xRRGGBB, 0xFF a channel as it is). */
+#define OPENRAC_MOBY_MATERIAL_TINT 1
+/* Platinum: a cool white metal. Its texture's colours desaturated, brightened and turned a little
+ * blue, with a stronger, tighter shine and a bright rim; then times rgb as TINT. */
+#define OPENRAC_MOBY_MATERIAL_PLATINUM 2
+/* The mobys one mod has a material on at once. Since 1.23. */
+#define OPENRAC_MOBY_MATERIALS_MAX 1024
+
 typedef struct openrac_api {
     /* sizeof(openrac_api) as the port was built: a newer port's is larger. Since 1.0. */
     uint32_t size;
@@ -1385,7 +1452,9 @@ typedef struct openrac_api {
 
     /* Asks the port to draw views of the game besides the window's picture each
      * frame, through `source` (openrac_view_source), with OpenGL and Vulkan.
-     * While a mod has views, the Vulkan renderer draws on the game's thread.
+     * While a mod has views, Vulkan draws on the game's thread. From 1.20,
+     * the manifest's "vulkan_queue": true declares native Vulkan access and
+     * selects game-thread rendering for the session.
      * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has them,
      * OPENRAC_HOOK_UNKNOWN for a source without begin or end, or
      * OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.4. */
@@ -1679,10 +1748,13 @@ typedef struct openrac_api {
      * scenes of. Since 1.9. */
     int (*play_scene)(openrac_mod* mod, int scene);
 
-    /* Hides the moby in `slot` from drawing (`hidden` 1), as the game hides one, or shows it again
-     * (0); the game's own update may change it again (one a mod drives keeps it). Listed with
-     * OPENRAC_MOBY_HIDDEN while hidden. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no
-     * moby there. Since 1.9. */
+    /* Hides the moby in `slot` from drawing (`hidden` 1), as the game hides
+     * one, or shows it again (0); the game's own update may change it again
+     * (one a mod drives keeps it). Since 1.18, a piece the hero holds
+     * (hero_held) stays hidden while it is in that slot, though the game shows
+     * his pieces again each tick: for a mod's own model in its place
+     * (prop_attach). Listed with OPENRAC_MOBY_HIDDEN while hidden. Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby there. Since 1.9. */
     int (*moby_hide)(openrac_mod* mod, int slot, int hidden);
 
     /* Fills `out` (its size set by the mod) with the last deletion the game made of the moby in
@@ -2100,6 +2172,148 @@ typedef struct openrac_api {
      * not told. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_TOO_LATE for no fn or
      * after openrac_mod_load. Since 1.15. */
     int (*on_settings)(openrac_mod *mod, openrac_frame_fn fn, void *user);
+
+    /* A mod's data kept with the game's saves (since 1.16): what a mod has to remember of a game
+     * (a weapon's experience, a new weapon owned, a counter) goes with the save it belongs to, so
+     * loading an older save brings back what the mod had then, and a new game starts with none.
+     *
+     * save_data_set: the mod's data for the game in progress, `size` bytes (at most
+     * OPENRAC_SAVE_DATA_MAX; 0 forgets it). The port keeps a copy and writes it beside each save
+     * the game writes from then on (`<save>.moddata`, with the other mods' data; the save file
+     * itself is never changed). Call it whenever the data changes: the port never asks. Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a size past the most or no bytes. */
+    int (*save_data_set)(openrac_mod *mod, const void *bytes, uint32_t size);
+    /* save_data_get: the mod's data for the game in progress (what the save it came from held, or
+     * what the mod set since): written to `out` when `size` is large enough. Returns its size in
+     * bytes (call with a null `out` to ask), 0 for none. */
+    uint32_t (*save_data_get)(openrac_mod *mod, void *out, uint32_t size);
+    /* on_save_data: calls `fn(user)` after the tick in which the game in progress changed: a save
+     * loaded (its data now save_data_get's, none when it was saved without the mod) or a new game
+     * started (none). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_TOO_LATE for no fn or after
+     * openrac_mod_load. */
+    int (*on_save_data)(openrac_mod *mod, openrac_frame_fn fn, void *user);
+
+    /* The game's own segment query, as its shots ask it each tick (since 1.17):
+     * the nearest of what `flags` says (OPENRAC_LINE_LEVEL, OPENRAC_LINE_MOBYS)
+     * on the straight line from `from` to `to` (the game's units), the moby in
+     * slot `ignore` passed over (-1 for none: the mod's own shot needs none,
+     * the hero's slot for one he fires). Fills `out` (its size set by the mod):
+     * a hit's point, normal, surface and moby. The game sees nothing of it (no
+     * hit posted: a mod that wants damage posts it with moby_hit), so it may be
+     * asked at any time in a level, as often as a mod's shots move. Returns
+     * OPENRAC_HOOK_OK (out->hit says whether something is on the line), or
+     * OPENRAC_HOOK_UNKNOWN outside a level, for no flags or a port without it.
+     */
+    int (*collision_line)(const float from[3], const float to[3],
+                          uint32_t flags, int32_t ignore,
+                          openrac_line_hit *out);
+
+    /* Fixes a prop of the mod's (prop_create) to joint `joint` of the moby in
+     * slot `slot` (since 1.18): its skeleton's joint, or with
+     * OPENRAC_ATTACH_HELD in `flags` one of the hero's attach points as
+     * hero_held names them (openrac_held_piece.joint: where the game puts the
+     * piece in his hand, his helmet, his pack), for a moby of the hero's class.
+     * From the next frame the renderer draws it at that joint's frame as the
+     * moby is drawn, times `offset` (a 4 by 4 matrix, column-major, in the
+     * joint's frame: the prop's own place, turn and scale on the joint, in the
+     * game's units, the moby's own scale left out; null for none), every
+     * frame, so it never lags behind the moby's animation. With no offset at an
+     * attach point, the prop's origin is where the game puts its own piece (a
+     * weapon model's grip, in the hero's hand). It is not drawn while the moby
+     * is not (hidden, culled, gone), nor for a joint the moby's class does not
+     * have. Its tint and blend stay as prop_pose last gave them. prop_pose
+     * takes it off the joint again. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for a prop that is not the mod's, no moby in the
+     * slot, a joint below 0, an attach point the game does not have or an
+     * offset that is not numbers. */
+    int (*prop_attach)(openrac_mod *mod, int id, int32_t slot, int32_t joint,
+                       uint32_t flags, const float offset[16]);
+
+    /* Where a prop of the mod's was drawn last (since 1.18): into `out` the 4
+     * by 4 matrix, column-major, that took its mesh's coordinates to the
+     * world's in the last frame drawn. For a prop fixed to a joint
+     * (prop_attach) that is the joint's frame then times its offset: the way
+     * a weapon in the hero's hand points, and where its muzzle is (a point of
+     * its mesh carried by the matrix), through a somersault as through a
+     * walk. For a posed one, its pose. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for a prop that is not the mod's, not posed, or not
+     * drawn on its joint since it was fixed there. */
+    int (*prop_frame)(openrac_mod *mod, int id, float out[16]);
+
+    /* Makes the mod's developer menu item `action` a switch (since 1.19), on
+     * when `on` is nonzero. The menu draws it on or off and turns it over as
+     * soon as the player presses it, while the menu pauses the game too, and
+     * queues `action` as for a press: the mod reads the state it was left in
+     * with developer_menu_value at its tick boundary (two presses before then
+     * queue it twice and leave it as it was). Called again, it sets the state,
+     * for one the mod changed itself. From openrac_mod_load, after
+     * developer_menu, or the mod's tick-boundary callback. Returns
+     * OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN for an action the mod has not
+     * registered, or OPENRAC_HOOK_TOO_LATE at another time. */
+    int (*developer_menu_switch)(openrac_mod *mod, uint32_t action, int on);
+
+    /* Makes the mod's developer menu item `action` a choice (since 1.19)
+     * among `count` values (`values`, their labels, copied), `index` the one
+     * shown. The menu shows the value between two arrows and moves it back or
+     * on as soon as the player presses one, queuing `action` as for a press;
+     * developer_menu_value says which it is at the mod's tick boundary. Called
+     * again, it sets the values and the index. The same times and returns as
+     * developer_menu_switch, and OPENRAC_HOOK_UNKNOWN for no values, a null
+     * one, or an index outside them. */
+    int (*developer_menu_choice)(openrac_mod *mod, uint32_t action,
+                                 const char *const *values, uint32_t count,
+                                 uint32_t index);
+
+    /* The state of the mod's developer menu item `action` (since 1.19): a
+     * switch's 0 or 1, a choice's index, or -1 for a plain item or an action
+     * the mod has not registered. At any time. */
+    int (*developer_menu_value)(openrac_mod *mod, uint32_t action);
+
+    /* The entry of the hook point `name` (its id, name or an alias, as hook
+     * takes them), checked against `signature` as hook checks it (since 1.21):
+     * the function the game calls there, which runs the mods' replacements
+     * (the mod loaded last first) and then the game's own function. Calling it
+     * is calling the hook point as the game does, by a name that is the same on
+     * every disc (function() needs the disc's own). A mod that took the hook
+     * point runs its own replacement too. Null for a hook point this OpenRAC
+     * lacks, another signature, or no function of it in this program. At any
+     * time. */
+    void *(*hook_entry)(const char *name, const char *signature);
+
+    /* Replaces this mod's render-only moby appearances for this level load. count 0 clears them.
+     * The renderer imports requested classes from this disc's extracted levels, including classes
+     * not resident in the current level. Missing assets leave the original visible. Replacement
+     * meshes draw in bind pose, including menu/render-to-texture cameras. Requests expire on
+     * level changes or mod unload. Returns OPENRAC_HOOK_OK, or UNKNOWN for invalid input. Since 1.22. */
+    int (*moby_visuals)(openrac_mod* mod, const openrac_moby_visual* visuals, int count);
+    /* A persistent, deduplicated game-memory copy of UTF-8 text, for a text hook's return value.
+     * At most 1,023 bytes per string and 64 KiB of unique text per mod. Returns 0 at the limit.
+     * Allocations are included in guest snapshots; callers need not hold native storage. Since 1.22. */
+    openrac_gaddr (*guest_text)(openrac_mod* mod, const char* text);
+    /* Temporarily overrides native UI sprite RGB (PS2 0..128 per channel). UINT32_MAX disables it.
+     * Returns the previous value; restore it before returning from the enclosing draw hook.
+     * Alpha is preserved. Since 1.22. */
+    uint32_t (*sprite_tint)(openrac_mod* mod, uint32_t rgb);
+    /* Local pickup presentation: 1 Gold Bolt, 2 weapon demo (item is its base ID),
+     * 3 Infobot capture/video/close (item is the destination planet ID).
+     * 4 special-item receiving motion (item is its native moby class: 37, 407,
+     * 645, 1002, 1428 or 1433). Background music resumes from its paused position.
+     * -1 polls an active sequence. Returns 1 active,
+     * 0 unsupported/finished, -1 busy (retry). Does not grant items. Since 1.22. */
+    int (*pickup_animation)(openrac_mod* mod, int kind, int item);
+
+    /* Draws the live moby at `moby` with `material` (OPENRAC_MOBY_MATERIAL_*) and `rgb` (0xRRGGBB,
+     * 0xFFFFFF: no tint) until the moby is removed (it leaves the level's list of live mobys, or its
+     * slot holds a moby of another class), the level changes, the mod sets
+     * OPENRAC_MOBY_MATERIAL_NONE on it or is unloaded. Render-only and per mod: no game memory is
+     * written, the moby's class, animation, collision and update are untouched; two mods on one
+     * moby, the last set is drawn. Every game's mobys (the port's renderer, all its back ends); a
+     * mod marks the moby it means as the game makes it (Going Commando: rac2.bolt.spawn_pickup's
+     * result) and clears it where the game removes it (rac2.bolt.collect), so a slot the game
+     * reuses at once never shows it. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby,
+     * an unknown material, rgb over 0xFFFFFF, or OPENRAC_MOBY_MATERIALS_MAX reached. At any time.
+     * Since 1.23. */
+    int (*moby_material)(openrac_mod* mod, openrac_gaddr moby, uint32_t material, uint32_t rgb);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

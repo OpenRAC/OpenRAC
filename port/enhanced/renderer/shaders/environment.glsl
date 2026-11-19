@@ -122,16 +122,18 @@ vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 n,vec3 view,fl
     return mix(fallback,radiance*(f0*brdf.x+brdf.y),coverage);
 }
 
-vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 n,vec3 view,float nv,float roughness,float f0,vec3 fallback) {
+// One name per f0 type: Metal's shading language (MoltenVK, the Metal renderer) converts a float to a
+// vector implicitly, so a float/vec3 pair of overloads is ambiguous there.
+vec3 environment_specular_surface_frame_scalar(vec3 p,vec3 receiver,vec3 n,vec3 view,float nv,float roughness,float f0,vec3 fallback) {
     return environment_specular_surface_frame(p,receiver,n,view,nv,roughness,vec3(f0),fallback);
 }
 
 vec3 environment_specular_surface(vec3 p,vec3 receiver,vec3 n,vec3 view,float roughness,float f0,vec3 fallback) {
-    return environment_specular_surface_frame(p,receiver,n,view,dot(n,view),roughness,f0,fallback);
+    return environment_specular_surface_frame_scalar(p,receiver,n,view,dot(n,view),roughness,f0,fallback);
 }
 
 vec3 environment_specular_frame(vec3 p,vec3 n,vec3 view,float nv,float roughness,float f0,vec3 fallback) {
-    return environment_specular_surface_frame(p,p,n,view,nv,roughness,f0,fallback);
+    return environment_specular_surface_frame_scalar(p,p,n,view,nv,roughness,f0,fallback);
 }
 
 // Opaque materials retain their exact original selection point, weights and reflection rays.
@@ -139,6 +141,6 @@ vec3 environment_specular(vec3 p,vec3 n,vec3 view,float roughness,float f0,vec3 
     return environment_specular_surface(p,p,n,view,roughness,f0,fallback);
 }
 
-vec3 environment_specular(vec3 p,vec3 n,vec3 view,float roughness,vec3 f0,vec3 fallback) {
+vec3 environment_specular_rgb(vec3 p,vec3 n,vec3 view,float roughness,vec3 f0,vec3 fallback) {
     return environment_specular_surface_frame(p,p,n,view,dot(n,view),roughness,f0,fallback);
 }

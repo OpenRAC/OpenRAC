@@ -13,7 +13,7 @@ before.
 
 | Call | When | What |
 |---|---|---|
-| `graphics()` | any time | What the port draws with (`openrac_graphics`): OpenGL, OpenGL ES or Vulkan. OpenGL gives `gl_proc`. Vulkan gives the instance, physical device, device and queue, with the queue's family and index |
+| `graphics()` | any time | What the port draws with (`openrac_graphics`). OpenGL gives `gl_proc`. From 1.20, native Vulkan handles require `"vulkan_queue": true` |
 | `on_views(mod, &source)` | during load | Draw views each frame through `source` (`openrac_view_source`): `begin`, `end`, optional `closing`. One mod at a time |
 | `setup_vulkan(mod, &setup)` | during load | Make the Vulkan device through `setup` (`openrac_vulkan_setup`), so the mod can share it. One mod at a time |
 
@@ -49,7 +49,7 @@ movie or a still picture instead of the scene call neither.
 | `position`, `orientation` | The eye relative to the game's camera, in its view space (X right, Y up, looking down -Z, as OpenXR's), in game units. Orientation is a quaternion x, y, z, w; all zero is the identity |
 | `angle_left`, `angle_right`, `angle_up`, `angle_down` | The field of view as OpenXR's `XrFovf` gives it, in radians. All zero: the game's own vertical one |
 | `texture` | OpenGL: a `GL_TEXTURE_2D` of the port's context, RGBA8 or SRGB8_ALPHA8, at least the view's size |
-| `image`, `image_layout` | Vulkan: a `VkImage` of the port's device, `R8G8B8A8_UNORM` or `_SRGB`, exactly the view's size, usable as a transfer destination; the layout it is in, which it is left in |
+| `image`, `image_layout` | Vulkan: a `VkImage` of the port's device, `R8G8B8A8_UNORM` or `_SRGB`, exactly the view's size, usable as a transfer destination; the layout it is in, which it is left in. Mods targeting API 1.20 or later need `"vulkan_queue": true` to supply an image. |
 | `drawn`, `picture` | Set by the port: drawn anew this frame; the port's own GL texture of the view |
 
 The picture is copied byte for byte. An sRGB image gets the game's picture as
@@ -62,13 +62,28 @@ distance, the head's last movement.
 
 ## Vulkan
 
+If your native mod targets API 1.20 or later, add `"vulkan_queue": true` to its
+manifest to access OpenRAC's Vulkan device, queue, or other native handles.
+Without the declaration, `graphics()` still identifies the Vulkan backend and
+returns null native handles. Register extra views through `on_views`.
+
+**Warning:** `"vulkan_queue": true` forces Vulkan rendering and queue
+submission onto the main game thread for the session, including when the mod
+isn't drawing views. Declare it only if you need native Vulkan access. A
+registered view source also keeps Vulkan on the main game thread in the current
+renderer.
+
+A new rendering API for mods is planned. The goal is to let mods integrate with
+OpenRAC's Render Graph while keeping rendering and queue submission on the
+render thread. Once that is in, the Vulkan mod API will be deprecated.
+
 OpenXR needs the Vulkan device made with it
 (`xrCreateVulkanInstanceKHR`, `xrGetVulkanGraphicsDevice2KHR`,
 `xrCreateVulkanDeviceKHR`). The window makes the device, so a mod that does
 this:
 
-- says `"vulkan_device": true` in its manifest, so that the mods load before
-  the window opens (without it they load after, as before);
+- says `"vulkan_device": true` in its manifest so mods load before the window
+  opens. Mods targeting API 1.20 or later also declare `"vulkan_queue": true`;
 - calls `setup_vulkan` in its load with the functions that stand in for
   `vkCreateInstance`, the choice of the physical device and `vkCreateDevice`;
   each is optional;
@@ -78,9 +93,9 @@ this:
 When `create_instance` or `create_device` fails, or the chosen device cannot
 draw the game, the game draws with OpenGL instead. Check `graphics()`.
 
-While a mod has views, the Vulkan renderer draws on the game's thread: the
-port then submits to the queue only from there, where the mod's callbacks
-run, so OpenXR calls that use the queue need no lock.
+With native Vulkan access declared, the port submits to the queue on the game's
+thread, where the mod's callbacks run. OpenXR calls that use the queue from
+those callbacks need no lock.
 
 The player picks Vulkan with `OPENRAC_GL_API=vulkan`; OpenGL is the default on
 desktops.

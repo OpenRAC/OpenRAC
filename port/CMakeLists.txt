@@ -86,8 +86,7 @@ endif()
 
 enable_testing()
 
-add_executable(rac1_hud_panels_test tests/rac1_hud_panels_test.c
-  game/rac1-ntsc/host/hud_panels.c)
+add_executable(rac1_hud_panels_test tests/rac1_hud_panels_test.c)
 target_include_directories(rac1_hud_panels_test PRIVATE tests/hud_panels_stub)
 add_test(NAME rac1_hud_panels COMMAND rac1_hud_panels_test)
 
@@ -201,6 +200,9 @@ openrac_add_test(moby_passes INCLUDES .)
 # How each tick's frames start: cleared, the last picture, or under the tick's 2D
 # (game/common/frontend/tick_picture.h).
 openrac_add_test(tick_picture INCLUDES .)
+# Far mobys the game leaves asleep, animated in the picture only
+# (game/common/frontend/sleeping_mobys.h).
+openrac_add_test(sleeping_mobys INCLUDES .)
 # Where a menu's mobys drawn with a camera of their own go, alone and over a level's world drawn
 # under it (game/common/frontend/menu_layers.h).
 openrac_add_test(menu_layers INCLUDES .)
@@ -254,7 +256,7 @@ openrac_add_c_test(level_descriptor
   INCLUDES game/common/include runtime/include)
 
 openrac_add_test(ship_destination
-  SOURCES tests/ship_destination_test.cpp game/rac1-pal/host/destinations.c
+  SOURCES tests/ship_destination_test.cpp tests/ship_destination_unit.c
   INCLUDES tests/ship_destination_stubs game/common/include
   LIBS openrac_runtime)
 
@@ -295,12 +297,14 @@ add_test(NAME rac1_shared COMMAND rac1_shared_test)
 # before the snapshot calls is.
 add_executable(mod_loader_test tests/mod_loader_test.cpp)
 target_link_libraries(mod_loader_test PRIVATE openrac_mods)
-foreach(which a b old)
+foreach(which a b old current)
   add_library(mod_loader_test_${which} MODULE tests/mod_loader_test_mod.c)
   target_include_directories(mod_loader_test_${which} PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
   target_compile_definitions(mod_loader_test_${which} PRIVATE "TEST_MOD_ID=\"test-${which}\"")
   if(which STREQUAL "old")
     target_compile_definitions(mod_loader_test_${which} PRIVATE OPENRAC_MOD_TARGET_MINOR=5)
+  elseif(NOT which STREQUAL "current")
+    target_compile_definitions(mod_loader_test_${which} PRIVATE OPENRAC_MOD_TARGET_MINOR=19)
   endif()
   set_target_properties(mod_loader_test_${which} PROPERTIES C_VISIBILITY_PRESET hidden PREFIX "")
   string(TOUPPER "${which}" upper)
@@ -324,6 +328,9 @@ add_test(NAME mod_scripts COMMAND mod_scripts_test)
 # The script runtime's C entry point stops an exception at the C boundary (common/c_boundary.h): a
 # script mod on a hook point of the test's own whose call throws, reported to the log.
 openrac_add_test(mod_boundary LIBS openrac_mods)
+openrac_add_test(mod_visuals LIBS openrac_mods)
+# A mod's material on one moby (interface 1.23): the call, the renderer's list and when it ends.
+openrac_add_test(mod_material LIBS openrac_mods)
 
 # The bindings the generator writes are what their tables give, and the tables' hook points the
 # hook rows of every disc's libraries.tsv.
@@ -464,6 +471,9 @@ openrac_add_c_test(particle53 NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(planar_limit NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(checkpoint_restore NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
+# Going Commando's nanotech render anchors before and after their crates break.
+openrac_add_c_test(rac2_effect_attachment INCLUDES game/rac2/host runtime/include)
+openrac_add_c_test(rac2_hero_attachments INCLUDES game/rac2/host)
 # Going Commando's saves as the play calls read them, on a save the game wrote.
 openrac_add_c_test(rac2_save INCLUDES game/rac2/host
   DEFINITIONS "RAC2_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac2/save-oozla.bin\"")
@@ -484,27 +494,35 @@ add_test(NAME gpu_test_config
 if(OPENRAC_PORT_GAMES)
   include(Games)
   openrac_add_games()
-  # Each rac1 version's table names every function and address the shared host C uses, and nothing
-  # else (port/game/rac1/README.md); no disc needed.
-  foreach(version rac1-pal rac1-ntsc rac1-pal1 rac1-jp)
+  # Each version's table names every function and address the shared host C uses, and nothing
+  # else (port/game/rac1/README.md; Going Commando's carried releases: release_carry.py); no disc
+  # needed.
+  foreach(version rac1-pal rac1-ntsc rac1-pal1 rac1-jp rac2-pal rac2-ntsc2)
     add_test(NAME ${version}_host_table
              COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/hostnames.py" check
                      "${PROJECT_SOURCE_DIR}/game/${version}")
     set_tests_properties(${version}_host_table PROPERTIES LABELS game-${version})
   endforeach()
-  # NTSC-U's own C (hand.tsv's rows) against the US code: every call and global the C reaches is
-  # one the retail function reaches, or allow.tsv says why not (port/game/rac1-ntsc/README.md).
-  # Skipped (77) without the retail program the decompilation's setup places.
-  set(xcheck_args "")
-  if(OPENRAC_RAC1_NTSC_ASM_SOURCE)
-    set(xcheck_args --asm-source "${OPENRAC_RAC1_NTSC_ASM_SOURCE}")
-  endif()
-  add_test(NAME rac1-ntsc_hand_xcheck
-           COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/xcheck.py" check
-                   "${PROJECT_SOURCE_DIR}/game/rac1-ntsc" --gen "${CMAKE_BINARY_DIR}/games/rac1-ntsc/gen" ${xcheck_args})
-  set_tests_properties(rac1-ntsc_hand_xcheck PROPERTIES SKIP_RETURN_CODE 77 LABELS game-rac1-ntsc)
+  # The port's own C for the US code (hand.tsv's rows) against it: every call and global the C
+  # reaches is one the retail function reaches, or allow.tsv says why not
+  # (port/game/rac1-ntsc/README.md). Skipped (77) without the retail program the decompilation's
+  # setup places. The other releases take this C (rac2: "primary_hand"; rac1: carried).
+  foreach(version rac1-ntsc rac2-ntsc)
+    string(TOUPPER "${version}" id)
+    string(REPLACE "-" "_" id "${id}")
+    set(xcheck_args "")
+    if(OPENRAC_${id}_ASM_SOURCE)
+      set(xcheck_args --asm-source "${OPENRAC_${id}_ASM_SOURCE}")
+    endif()
+    add_test(NAME ${version}_hand_xcheck
+             COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/xcheck.py" check
+                     "${PROJECT_SOURCE_DIR}/game/${version}" --gen "${CMAKE_BINARY_DIR}/games/${version}/gen"
+                     ${xcheck_args})
+    set_tests_properties(${version}_hand_xcheck PROPERTIES SKIP_RETURN_CODE 77 LABELS game-${version})
+  endforeach()
   add_test(NAME xcheck_tool
            COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_xcheck.py")
-  add_test(NAME ntsc_twins_tool
-           COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_ntsc_twins.py")
+  # Every rac1 version binds each function, its C type and its data alike, or parity.tsv says why.
+  add_test(NAME parity_tool
+           COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_parity.py")
 endif()

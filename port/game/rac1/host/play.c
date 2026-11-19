@@ -786,6 +786,8 @@ const openrac_game_play rac1_play = {
     .moby_deletion = rac1_world_moby_deletion,
     .camera_position = rac1_world_camera_position,
     .level_line = rac1_level_line,
+    .collision_line = rac1_collision_line,
+    .attach_point_joint = rac1_attach_point_joint,
     .moby_run = rac1_world_moby_run,
     .shared_read = rac1_shared_read,
     .shared_give = rac1_shared_give,
@@ -807,6 +809,9 @@ const openrac_game_play rac1_play = {
     .figure_shot2 = rac1_figure_shot2,
     .scene_playing = rac1_scene_playing,
     .scene_start = rac1_scene_start,
+    .pickup_animation = rac1_pickup_animation,
+    .pickup_background = rac1_pickup_background,
+    .infobot_presentation = rac1_infobot_presentation,
     /* Both discs: the port ticks them alike, and their levels, classes, items, scenes and saves
      * mean the same. A disc or a change of this code that breaks that takes a new number. */
     .world_family = "rac1-60-1",

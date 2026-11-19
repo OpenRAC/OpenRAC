@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { jobDuration, jobTranscript } from "./jobText";
 
 describe("jobDuration", () => {
@@ -21,6 +22,7 @@ describe("jobTranscript", () => {
       { stream: "stdout" as const, line: "building" },
       { stream: "stderr" as const, line: "warning: x" },
     ];
+
     expect(jobTranscript({ command: "make all", lines })).toBe("$ make all\nbuilding\nwarning: x");
   });
 

@@ -220,6 +220,29 @@ _CAST_RECORD = re.compile(r"\(\s*(struct|union)\s*\{([^{}]*)\}")
 _FUNCTION_START = re.compile(r"^(?:static\s+|extern\s+)?[A-Za-z_][\w\s\*]*\b\w+\s*\(")
 
 
+_CODE_NOISE = re.compile(r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|/\*.*?\*/|//[^\n]*', re.S)
+
+
+def _function_of_lines(lines: list[str]) -> list[int | None]:
+    """For each line, the first line of the function definition it is inside (by brace depth, so a
+    `}` in column 0 that closes a block of a case is not taken for the function's end), else None."""
+    text = _CODE_NOISE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), "\n".join(lines))
+    depth, start, out = 0, None, []
+    for i, line in enumerate(text.split("\n")):
+        if depth == 0 and _FUNCTION_START.match(lines[i]) and not lines[i].rstrip().endswith(";") \
+                and not lines[i].lstrip().startswith("#"):
+            start = i
+        out.append(start if depth > 0 else None)
+        for c in line:
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth = max(0, depth - 1)
+        if depth > 0 and start is not None:
+            out[i] = start
+    return out
+
+
 def name_cast_records(text: str) -> str:
     """A record defined inside a cast gets a name (openrac_cast_LINE_N) and its definition goes
     to the start of the first line of the function around it; every line stays where it was."""
@@ -229,15 +252,10 @@ def name_cast_records(text: str) -> str:
     out = []
     last = 0
     definitions: dict[int, list[str]] = {}
+    owner = _function_of_lines(lines)
     for m in _CAST_RECORD.finditer(text):
         line = text.count("\n", 0, m.start())
-        start = None
-        for i in range(line, -1, -1):
-            if i != line and lines[i].startswith("}"):
-                break  # the end of the function before: this cast is in none
-            if _FUNCTION_START.match(lines[i]) and not lines[i].rstrip().endswith(";"):
-                start = i
-                break
+        start = owner[line]
         if start is None:
             continue  # not in a function (a macro in a header): left as it is
         name = f"openrac_cast_{line + 1}_{len(definitions.get(start, []))}"
@@ -320,8 +338,8 @@ def expand_cast_macros(text: str) -> str:
     """A one-line macro of the unit whose body defines a record inside a cast is written out where
     it is used, so name_cast_records finds the record in each function (Clang's JSON leaves a
     record out that a macro defined: rac1/pal's `#define S_I(p, o) (((struct { char _p[o]; int v;
-    } *)(p))->v)`). Uses on preprocessor lines, and after an #undef, stay as they are; every line
-    stays where it was."""
+    } *)(p))->v)`). Uses in other macros' bodies are written out too; on other preprocessor lines,
+    and after an #undef, they stay as they are; every line stays where it was."""
     if not _CAST_RECORD.search(text) or "define" not in text:
         return text
     lines = _join_cast_macros(text.split("\n"))
@@ -337,8 +355,15 @@ def expand_cast_macros(text: str) -> str:
             u = _UNDEF.match(lines[j])
             if u and u.group(1) == name:
                 break
-            if lines[j].lstrip().startswith("#") or name not in lines[j]:
+            if name not in lines[j]:
                 continue
+            if lines[j].lstrip().startswith("#"):
+                # Another macro written with this one (`#define HERO(T, o) F(D_00189E20, T, o)`) gets it
+                # written out in its body, so that it is a cast macro too and its own uses are written
+                # out in turn; other preprocessor lines stay as they are.
+                d = _DEFINE.match(lines[j])
+                if d is None or lines[j].endswith("\\") or d.group(1) == name:
+                    continue
             # Again for a use in another's arguments: FLD(FLD(p, char *, 8), int, 4).
             for _ in range(_MACRO_NESTING):
                 written = _expand_line(lines[j], name, params, body)
@@ -790,6 +815,42 @@ def apply_decomp_workarounds(rel: str, text: str) -> str:
     This is a temporary workaround so that the native port builds cleanly without
     modifying the decompilation repository. Once fixed upstream, this function should be removed.
     """
+    if rel.endswith(("src/pal/game/00280218.c", "src/us2/game/00280380.c")):
+        # Going Commando PAL's func_00280A30 (v2.00's func_00280B20) is func_002804A8 (00280550) at
+        # scale 1: on the disc it leaves the caller's six arguments in a0..a5 and only sets the
+        # scale. Written with no parameters, it drew the text at address 0 with length 0.
+        text = re.sub(
+            r"extern void (func_(?:PAL_|US2_)?002(?:804A8|80550))\(float\);",
+            r"extern void \1(int, unsigned long long, int, int, unsigned long long, int, float);",
+            text,
+        )
+        text = re.sub(
+            r"void (func_(?:PAL_|US2_)?00280(?:A30|B20))\(void\) \{\s*(func_(?:PAL_|US2_)?002(?:804A8|80550))\(1\.0f\);",
+            r"void \1(int a0, unsigned long long a1, int a2, int a3, unsigned long long a4, int a5) {\n"
+            r"    \2(a0, a1, a2, a3, a4, a5, 1.0f);",
+            text,
+        )
+    if rel.endswith("src/us2/levels/shared/L18_00304470-cc.c"):
+        # Going Commando v2.00's func_L18_00304470 hands func_0027F1D8 (the release's name by now)
+        # its caller's scale, left in $f12 (the disc's code sets only a2); written with two
+        # parameters, the scale was lost. The declaration's result is void or int (rac2-decomp
+        # 005bfc4dd gave it the definition's int).
+        text = re.sub(
+            r"extern (void|int) (func_\w+)\(void \*a0, void \*a1, const char \*a2\);",
+            r"extern \1 \2(void *a0, void *a1, const char *a2, float a3);",
+            text,
+        )
+        text = re.sub(
+            r"void (func_(?:US2_)?L18_00304470)\(void \*a0, void \*a1\) \{\s*(func_\w+)\(a0, a1, (D_\w+)\);",
+            r"void \1(void *a0, void *a1, float scale) {\n    \2(a0, a1, \3, scale);",
+            text,
+        )
+    if re.search(r"src/pal/levels/[^/]+/L\d\d_[0-9A-F]+-hero\.c$", rel):
+        # Going Commando PAL's hero update (each level's copy): for each moby near the hero, the cases
+        # 0x1366 and 0x1367 call their functions with no argument, the moby `m` left in $a0 by the loop
+        # (the disc's code: lw $a0, 0($s1) before both). Without it they work on address 0 and corrupt
+        # the game's memory (the collision crash of PAL Endako and Joba at frame 1281).
+        text = re.sub(r"(case 0x136[67]:\s*\n\s*\w+)\(\);", r"\1(m);", text)
     if rel.endswith("include/asm_functions/executable.h"):
         # A candidate defines func_0020E3D0 with a Moby *: its prototype replaces this header's line
         # (clangast._supersede), so the type must be known here. Same line, so no line moves.

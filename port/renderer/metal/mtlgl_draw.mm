@@ -75,7 +75,8 @@ GLuint MTLGL create_shader(GLenum type) {
     return name;
 }
 
-void MTLGL shader_source(GLuint name, GLsizei count, const GLchar* const* strings, const GLint* lengths) {
+void MTLGL
+shader_source(GLuint name, GLsizei count, const GLchar* const* strings, const GLint* lengths) {
     Shader* sh = g->shaders.find(name);
     if (sh == nullptr) {
         return;
@@ -168,10 +169,14 @@ int depth_form(const State& s) {
     if (s.clip_zero_to_one) {
         return 1;
     }
-    return !s.depth_test || ![g->device supportsFamily:MTLGPUFamilyApple1] ? 0 : s.depth_clamp ? 4 : 2;
+    return !s.depth_test || ![g->device supportsFamily:MTLGPUFamilyApple1] ? 0
+           : s.depth_clamp                                                 ? 4
+                                                                           : 2;
 }
 
-id<MTLFunction> function_of(Program& p, id<MTLLibrary> library, const std::string& entry, int form) {
+id<MTLFunction> function_of(
+    Program& p, id<MTLLibrary> library, const std::string& entry, int form
+) {
     const bool clip = form != 0, far = form == 2 || form == 4, clamped = form >= 4;
     MTLFunctionConstantValues* constants = [MTLFunctionConstantValues new];
     [constants setConstantValue:&clip type:MTLDataTypeBool atIndex:kClipConstant];
@@ -198,14 +203,18 @@ void MTLGL link_program(GLuint name) {
     std::string vs, fs, cs;
     for (GLuint s : p->shaders) {
         if (const Shader* sh = g->shaders.find(s)) {
-            (sh->type == GL_VERTEX_SHADER ? vs : sh->type == GL_COMPUTE_SHADER ? cs : fs) = sh->source;
+            (sh->type == GL_VERTEX_SHADER    ? vs
+             : sh->type == GL_COMPUTE_SHADER ? cs
+                                             : fs) = sh->source;
         }
     }
     std::vector<GLuint> shaders = std::move(p->shaders);
     *p = Program{};
     p->shaders = std::move(shaders);
     if (!vkgl::compile_program(vs, fs, p->compiled, p->log, cs)
-        || !translate_program(p->compiled, [g->device supportsFamily:MTLGPUFamilyApple1], p->msl, p->log)) {
+        || !translate_program(
+            p->compiled, [g->device supportsFamily:MTLGPUFamilyApple1], p->msl, p->log
+        )) {
         return;
     }
     if (cs.empty()) {
@@ -363,7 +372,8 @@ void MTLGL uniform_4fv(GLint location, GLsizei count, const GLfloat* v) {
     }
 }
 
-void MTLGL uniform_matrix_4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* v) {
+void MTLGL
+uniform_matrix_4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* v) {
     for (GLsizei i = 0; location >= 0 && i < count; ++i) {
         const GLfloat* m = v + static_cast<std::size_t>(i) * 16;
         std::array<GLfloat, 16> columns;
@@ -421,8 +431,9 @@ void MTLGL enable_vertex_attrib_array(GLuint index) {
     }
 }
 
-void MTLGL vertex_attrib_pointer(GLuint index, GLint size, GLenum type, GLboolean normalized,
-                                 GLsizei stride, const void* pointer) {
+void MTLGL vertex_attrib_pointer(
+    GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer
+) {
     if (index >= kAttributes) {
         return;
     }
@@ -436,8 +447,9 @@ void MTLGL vertex_attrib_pointer(GLuint index, GLint size, GLenum type, GLboolea
     a.buffer = g->state.array_buffer;
 }
 
-void MTLGL vertex_attrib_i_pointer(GLuint index, GLint size, GLenum type, GLsizei stride,
-                                   const void* pointer) {
+void MTLGL vertex_attrib_i_pointer(
+    GLuint index, GLint size, GLenum type, GLsizei stride, const void* pointer
+) {
     vertex_attrib_pointer(index, size, type, GL_FALSE, stride, pointer);
     if (index < kAttributes) {
         vertex_array().attributes[index].integer = true;
@@ -457,54 +469,98 @@ namespace {
 // The vertex format of an attribute; invalid for float data read unnormalised from integers,
 // which Metal does not convert.
 MTLVertexFormat vertex_format(const Attribute& a) {
-    auto pick = [&](MTLVertexFormat one, MTLVertexFormat two, MTLVertexFormat three,
-                    MTLVertexFormat four) {
-        const MTLVertexFormat f[] = {one, two, three, four};
-        return f[a.size - 1];
-    };
+    auto pick =
+        [&](MTLVertexFormat one, MTLVertexFormat two, MTLVertexFormat three, MTLVertexFormat four) {
+            const MTLVertexFormat f[] = {one, two, three, four};
+            return f[a.size - 1];
+        };
     const bool plain = !a.integer && !a.normalized;
     switch (a.type) {
         case GL_FLOAT:
-            return pick(MTLVertexFormatFloat, MTLVertexFormatFloat2, MTLVertexFormatFloat3,
-                        MTLVertexFormatFloat4);
+            return pick(
+                MTLVertexFormatFloat,
+                MTLVertexFormatFloat2,
+                MTLVertexFormatFloat3,
+                MTLVertexFormatFloat4
+            );
         case GL_HALF_FLOAT:
-            return pick(MTLVertexFormatHalf, MTLVertexFormatHalf2, MTLVertexFormatHalf3,
-                        MTLVertexFormatHalf4);
+            return pick(
+                MTLVertexFormatHalf,
+                MTLVertexFormatHalf2,
+                MTLVertexFormatHalf3,
+                MTLVertexFormatHalf4
+            );
         case GL_UNSIGNED_BYTE:
-            return plain ? MTLVertexFormatInvalid
-                   : a.integer
-                       ? pick(MTLVertexFormatUChar, MTLVertexFormatUChar2, MTLVertexFormatUChar3,
-                              MTLVertexFormatUChar4)
-                       : pick(MTLVertexFormatUCharNormalized, MTLVertexFormatUChar2Normalized,
-                              MTLVertexFormatUChar3Normalized, MTLVertexFormatUChar4Normalized);
+            return plain       ? MTLVertexFormatInvalid
+                   : a.integer ? pick(
+                                     MTLVertexFormatUChar,
+                                     MTLVertexFormatUChar2,
+                                     MTLVertexFormatUChar3,
+                                     MTLVertexFormatUChar4
+                                 )
+                               : pick(
+                                     MTLVertexFormatUCharNormalized,
+                                     MTLVertexFormatUChar2Normalized,
+                                     MTLVertexFormatUChar3Normalized,
+                                     MTLVertexFormatUChar4Normalized
+                                 );
         case kGlByte:
-            return plain ? MTLVertexFormatInvalid
-                   : a.integer
-                       ? pick(MTLVertexFormatChar, MTLVertexFormatChar2, MTLVertexFormatChar3,
-                              MTLVertexFormatChar4)
-                       : pick(MTLVertexFormatCharNormalized, MTLVertexFormatChar2Normalized,
-                              MTLVertexFormatChar3Normalized, MTLVertexFormatChar4Normalized);
+            return plain       ? MTLVertexFormatInvalid
+                   : a.integer ? pick(
+                                     MTLVertexFormatChar,
+                                     MTLVertexFormatChar2,
+                                     MTLVertexFormatChar3,
+                                     MTLVertexFormatChar4
+                                 )
+                               : pick(
+                                     MTLVertexFormatCharNormalized,
+                                     MTLVertexFormatChar2Normalized,
+                                     MTLVertexFormatChar3Normalized,
+                                     MTLVertexFormatChar4Normalized
+                                 );
         case GL_UNSIGNED_SHORT:
-            return plain ? MTLVertexFormatInvalid
-                   : a.integer
-                       ? pick(MTLVertexFormatUShort, MTLVertexFormatUShort2, MTLVertexFormatUShort3,
-                              MTLVertexFormatUShort4)
-                       : pick(MTLVertexFormatUShortNormalized, MTLVertexFormatUShort2Normalized,
-                              MTLVertexFormatUShort3Normalized, MTLVertexFormatUShort4Normalized);
+            return plain       ? MTLVertexFormatInvalid
+                   : a.integer ? pick(
+                                     MTLVertexFormatUShort,
+                                     MTLVertexFormatUShort2,
+                                     MTLVertexFormatUShort3,
+                                     MTLVertexFormatUShort4
+                                 )
+                               : pick(
+                                     MTLVertexFormatUShortNormalized,
+                                     MTLVertexFormatUShort2Normalized,
+                                     MTLVertexFormatUShort3Normalized,
+                                     MTLVertexFormatUShort4Normalized
+                                 );
         case GL_SHORT:
-            return plain ? MTLVertexFormatInvalid
-                   : a.integer
-                       ? pick(MTLVertexFormatShort, MTLVertexFormatShort2, MTLVertexFormatShort3,
-                              MTLVertexFormatShort4)
-                       : pick(MTLVertexFormatShortNormalized, MTLVertexFormatShort2Normalized,
-                              MTLVertexFormatShort3Normalized, MTLVertexFormatShort4Normalized);
+            return plain       ? MTLVertexFormatInvalid
+                   : a.integer ? pick(
+                                     MTLVertexFormatShort,
+                                     MTLVertexFormatShort2,
+                                     MTLVertexFormatShort3,
+                                     MTLVertexFormatShort4
+                                 )
+                               : pick(
+                                     MTLVertexFormatShortNormalized,
+                                     MTLVertexFormatShort2Normalized,
+                                     MTLVertexFormatShort3Normalized,
+                                     MTLVertexFormatShort4Normalized
+                                 );
         case GL_INT:
-            return a.integer ? pick(MTLVertexFormatInt, MTLVertexFormatInt2, MTLVertexFormatInt3,
-                                    MTLVertexFormatInt4)
+            return a.integer ? pick(
+                                   MTLVertexFormatInt,
+                                   MTLVertexFormatInt2,
+                                   MTLVertexFormatInt3,
+                                   MTLVertexFormatInt4
+                               )
                              : MTLVertexFormatInvalid;
         case GL_UNSIGNED_INT:
-            return a.integer ? pick(MTLVertexFormatUInt, MTLVertexFormatUInt2, MTLVertexFormatUInt3,
-                                    MTLVertexFormatUInt4)
+            return a.integer ? pick(
+                                   MTLVertexFormatUInt,
+                                   MTLVertexFormatUInt2,
+                                   MTLVertexFormatUInt3,
+                                   MTLVertexFormatUInt4
+                               )
                              : MTLVertexFormatInvalid;
         default:
             return MTLVertexFormatInvalid;
@@ -655,18 +711,20 @@ struct Inputs {
     MTLVertexDescriptor* descriptor = [MTLVertexDescriptor vertexDescriptor];
     std::string key;
     std::vector<Stream> buffers;  // from slot kVertexBufferBase
-    bool defaults = false;  // GL's (0, 0, 0, 1) bound after them
+    bool defaults = false;        // GL's (0, 0, 0, 1) bound after them
 };
 
 // False, with GL_INVALID_OPERATION, for an attribute Metal cannot read.
 bool inputs_of(const Program& p, Inputs& out) {
     const VertexArray& va = vertex_array();
+
     struct Fed {
         int location;
         const Attribute* a;
         Buffer* b;
         MTLVertexFormat format;
     };
+
     std::vector<Fed> fed;
     for (const vkgl::CompiledProgram::Attribute& in : p.compiled.attributes) {
         if (in.location < 0 || in.location >= static_cast<int>(kAttributes)) {
@@ -674,7 +732,8 @@ bool inputs_of(const Program& p, Inputs& out) {
         }
         const Attribute& a = va.attributes[static_cast<std::size_t>(in.location)];
         Buffer* b = a.enabled ? g->buffers.find(a.buffer) : nullptr;
-        MTLVertexAttributeDescriptor* attribute = out.descriptor.attributes[static_cast<NSUInteger>(in.location)];
+        MTLVertexAttributeDescriptor* attribute =
+            out.descriptor.attributes[static_cast<NSUInteger>(in.location)];
         if (b != nullptr && b->buffer != nil) {
             const MTLVertexFormat format = vertex_format(a);
             if (format == MTLVertexFormatInvalid) {
@@ -684,7 +743,7 @@ bool inputs_of(const Program& p, Inputs& out) {
             fed.push_back({in.location, &a, b, format});
         } else {
             const int kind = input_kind(in.gl_type);
-            attribute.format = kind == 0 ? MTLVertexFormatFloat4
+            attribute.format = kind == 0   ? MTLVertexFormatFloat4
                                : kind == 1 ? MTLVertexFormatUInt4
                                            : MTLVertexFormatInt4;
             attribute.offset = kind == 0 ? 0 : 16;
@@ -715,7 +774,8 @@ bool inputs_of(const Program& p, Inputs& out) {
                 a.divisor != 0 ? MTLVertexStepFunctionPerInstance : MTLVertexStepFunctionPerVertex;
             out.descriptor.layouts[slot].stepRate = std::max<NSUInteger>(a.divisor, 1);
         }
-        MTLVertexAttributeDescriptor* attribute = out.descriptor.attributes[static_cast<NSUInteger>(f.location)];
+        MTLVertexAttributeDescriptor* attribute =
+            out.descriptor.attributes[static_cast<NSUInteger>(f.location)];
         attribute.format = f.format;
         attribute.bufferIndex = slot;
         attribute.offset = a.offset - out.buffers[index].offset;
@@ -750,7 +810,9 @@ id<MTLRenderPipelineState> pipeline_of(Program& p, const Target& t, const Inputs
     const bool blend = s.blend && colour != MTLPixelFormatInvalid && !is_integer(colour);
     std::string key = key_of(form, colour, depth, samples, blend, s.colour_mask);
     if (blend) {
-        key += key_of(s.blend_src_rgb, s.blend_dst_rgb, s.blend_src_a, s.blend_dst_a, s.blend_equation);
+        key += key_of(
+            s.blend_src_rgb, s.blend_dst_rgb, s.blend_src_a, s.blend_dst_a, s.blend_equation
+        );
     }
     key += in.key;
     if (const auto found = p.pipelines.find(key); found != p.pipelines.end()) {
@@ -767,8 +829,10 @@ id<MTLRenderPipelineState> pipeline_of(Program& p, const Target& t, const Inputs
     }
     MTLRenderPipelineColorAttachmentDescriptor* c = d.colorAttachments[0];
     c.pixelFormat = colour;
-    c.writeMask = (s.colour_mask[0] ? MTLColorWriteMaskRed : 0) | (s.colour_mask[1] ? MTLColorWriteMaskGreen : 0)
-                  | (s.colour_mask[2] ? MTLColorWriteMaskBlue : 0) | (s.colour_mask[3] ? MTLColorWriteMaskAlpha : 0);
+    c.writeMask = (s.colour_mask[0] ? MTLColorWriteMaskRed : 0)
+                  | (s.colour_mask[1] ? MTLColorWriteMaskGreen : 0)
+                  | (s.colour_mask[2] ? MTLColorWriteMaskBlue : 0)
+                  | (s.colour_mask[3] ? MTLColorWriteMaskAlpha : 0);
     if (blend) {
         c.blendingEnabled = YES;
         c.sourceRGBBlendFactor = blend_factor(s.blend_src_rgb);
@@ -778,7 +842,8 @@ id<MTLRenderPipelineState> pipeline_of(Program& p, const Target& t, const Inputs
         c.rgbBlendOperation = c.alphaBlendOperation = blend_operation(s.blend_equation);
     }
     NSError* error = nil;
-    id<MTLRenderPipelineState> pipeline = [g->device newRenderPipelineStateWithDescriptor:d error:&error];
+    id<MTLRenderPipelineState> pipeline = [g->device newRenderPipelineStateWithDescriptor:d
+                                                                                    error:&error];
     if (pipeline == nil) {
         log::warn("metal: a pipeline: {}", error.localizedDescription.UTF8String);
     }
@@ -795,8 +860,13 @@ id<MTLDepthStencilState> depth_state_of(const Target& t) {
         key += key_of(s.depth_func, s.depth_mask);
     }
     if (stencil) {
-        key += key_of(s.stencil_func, s.stencil_value_mask, s.stencil_write_mask, s.stencil_front,
-                      s.stencil_back);
+        key += key_of(
+            s.stencil_func,
+            s.stencil_value_mask,
+            s.stencil_write_mask,
+            s.stencil_front,
+            s.stencil_back
+        );
     }
     if (const auto found = g->depth_states.find(key); found != g->depth_states.end()) {
         return found->second;
@@ -825,21 +895,26 @@ id<MTLDepthStencilState> depth_state_of(const Target& t) {
     return state;
 }
 
-id<MTLSamplerState> sampler_of(const SamplerParams& p, int base_level, int max_level, bool nearest) {
-    const std::string key = key_of(p.min, p.mag, p.wrap_s, p.wrap_t, p.anisotropy, base_level,
-                                   max_level, nearest);
+id<MTLSamplerState> sampler_of(
+    const SamplerParams& p, int base_level, int max_level, bool nearest
+) {
+    const std::string key =
+        key_of(p.min, p.mag, p.wrap_s, p.wrap_t, p.anisotropy, base_level, max_level, nearest);
     if (const auto found = g->sampler_states.find(key); found != g->sampler_states.end()) {
         return found->second;
     }
     auto wrap = [](GLenum w) {
-        return w == GL_CLAMP_TO_EDGE        ? MTLSamplerAddressModeClampToEdge
+        return w == GL_CLAMP_TO_EDGE    ? MTLSamplerAddressModeClampToEdge
                : w == kGlMirroredRepeat ? MTLSamplerAddressModeMirrorRepeat
-                                            : MTLSamplerAddressModeRepeat;
+                                        : MTLSamplerAddressModeRepeat;
     };
     MTLSamplerDescriptor* d = [MTLSamplerDescriptor new];
-    const bool min_linear = p.min == GL_LINEAR || p.min == kGlLinearMipmapNearest || p.min == GL_LINEAR_MIPMAP_LINEAR;
-    d.minFilter = !nearest && min_linear ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
-    d.magFilter = !nearest && p.mag == GL_LINEAR ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
+    const bool min_linear =
+        p.min == GL_LINEAR || p.min == kGlLinearMipmapNearest || p.min == GL_LINEAR_MIPMAP_LINEAR;
+    d.minFilter =
+        !nearest && min_linear ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
+    d.magFilter = !nearest && p.mag == GL_LINEAR ? MTLSamplerMinMagFilterLinear
+                                                 : MTLSamplerMinMagFilterNearest;
     d.mipFilter = p.min == GL_NEAREST || p.min == GL_LINEAR ? MTLSamplerMipFilterNotMipmapped
                   : nearest || p.min == kGlNearestMipmapNearest || p.min == kGlLinearMipmapNearest
                       ? MTLSamplerMipFilterNearest
@@ -859,7 +934,8 @@ id<MTLTexture> empty_texture(MTLTextureType type) {
     __strong id<MTLTexture>& t = g->empty_textures[type];
     if (t == nil) {
         if (type == MTLTextureTypeTextureBuffer) {
-            id<MTLBuffer> zero = [g->device newBufferWithLength:256 options:MTLResourceStorageModeShared];
+            id<MTLBuffer> zero = [g->device newBufferWithLength:256
+                                                        options:MTLResourceStorageModeShared];
             MTLTextureDescriptor* d = [MTLTextureDescriptor
                 textureBufferDescriptorWithPixelFormat:MTLPixelFormatRGBA32Float
                                                  width:1
@@ -875,8 +951,12 @@ id<MTLTexture> empty_texture(MTLTextureType type) {
             t = [g->device newTextureWithDescriptor:d];
             const std::uint32_t zero = 0;
             for (NSUInteger slice = 0; slice < (type == MTLTextureTypeCube ? 6 : 1); ++slice) {
-                [t replaceRegion:MTLRegionMake3D(0, 0, 0, 1, 1, 1) mipmapLevel:0 slice:slice
-                       withBytes:&zero bytesPerRow:4 bytesPerImage:4];
+                [t replaceRegion:MTLRegionMake3D(0, 0, 0, 1, 1, 1)
+                      mipmapLevel:0
+                            slice:slice
+                        withBytes:&zero
+                      bytesPerRow:4
+                    bytesPerImage:4];
             }
         }
     }
@@ -899,15 +979,22 @@ id<MTLTexture> texel_view(Texture& t) {
                                              width:std::max<NSUInteger>(width, 1)
                                    resourceOptions:MTLResourceStorageModeShared
                                              usage:MTLTextureUsageShaderRead];
-        const NSUInteger row = (std::max<NSUInteger>(width, 1) * static_cast<NSUInteger>(f.bytes) + align - 1) / align * align;
+        const NSUInteger row =
+            (std::max<NSUInteger>(width, 1) * static_cast<NSUInteger>(f.bytes) + align - 1) / align
+            * align;
         t.buffer_view = [b->buffer newTextureWithDescriptor:d offset:0 bytesPerRow:row];
     }
     return t.buffer_view;
 }
 
 // The bytes of `size` at `slot` in both stages: `data`, padded with zeros past `length`.
-void set_bytes(id<MTLRenderCommandEncoder> pass, NSUInteger slot, const void* data, std::size_t length,
-               std::size_t size) {
+void set_bytes(
+    id<MTLRenderCommandEncoder> pass,
+    NSUInteger slot,
+    const void* data,
+    std::size_t length,
+    std::size_t size
+) {
     std::vector<std::uint8_t> bytes(std::max<std::size_t>(size, 16), 0);
     std::memcpy(bytes.data(), data, std::min(length, size));
     if (bytes.size() <= 4096) {
@@ -924,8 +1011,13 @@ void set_bytes(id<MTLRenderCommandEncoder> pass, NSUInteger slot, const void* da
 
 void set_buffer(id<MTLRenderCommandEncoder> pass, NSUInteger slot, Buffer* b, std::size_t size) {
     if (b == nullptr || b->buffer == nil || b->size < size) {
-        set_bytes(pass, slot, b != nullptr && b->buffer != nil ? b->buffer.contents : nullptr,
-                  b != nullptr ? b->size : 0, size);
+        set_bytes(
+            pass,
+            slot,
+            b != nullptr && b->buffer != nil ? b->buffer.contents : nullptr,
+            b != nullptr ? b->size : 0,
+            size
+        );
         return;
     }
     b->used = g->serial;
@@ -938,28 +1030,38 @@ void bind_resources(id<MTLRenderCommandEncoder> pass, Program& p, const Target& 
     const State& s = g->state;
     const vkgl::CompiledProgram& c = p.compiled;
     // MSL rounds a block's struct up to its alignment, at most 16 bytes, past the GL size.
-    const auto msl_size = [](std::size_t size) { return (size + 15) / 16 * 16; };
+    const auto msl_size = [](std::size_t size) {
+        return (size + 15) / 16 * 16;
+    };
     for (std::size_t slot = 0; slot < p.msl.buffers.size(); ++slot) {
         const int binding = p.msl.buffers[slot];
         if (binding == c.default_binding) {
-            set_bytes(pass, slot, p.uniforms.data(), p.uniforms.size(), msl_size(p.uniforms.size()));
+            set_bytes(
+                pass, slot, p.uniforms.data(), p.uniforms.size(), msl_size(p.uniforms.size())
+            );
             continue;
         }
         for (std::size_t i = 0; i < c.blocks.size(); ++i) {
             if (c.blocks[i].binding == binding) {
                 const GLuint unit = p.block_bindings[i];
-                set_buffer(pass, slot,
-                           unit < kUniformBindings ? g->buffers.find(s.uniform_bindings[unit]) : nullptr,
-                           msl_size(static_cast<std::size_t>(c.blocks[i].size)));
+                set_buffer(
+                    pass,
+                    slot,
+                    unit < kUniformBindings ? g->buffers.find(s.uniform_bindings[unit]) : nullptr,
+                    msl_size(static_cast<std::size_t>(c.blocks[i].size))
+                );
             }
         }
         for (const vkgl::ProgramBlock& block : c.storage) {
             if (block.binding == binding) {
-                set_buffer(pass, slot,
-                           static_cast<GLuint>(binding) < kUniformBindings
-                               ? g->buffers.find(s.storage_bindings[binding])
-                               : nullptr,
-                           static_cast<std::size_t>(block.size));
+                set_buffer(
+                    pass,
+                    slot,
+                    static_cast<GLuint>(binding) < kUniformBindings
+                        ? g->buffers.find(s.storage_bindings[binding])
+                        : nullptr,
+                    static_cast<std::size_t>(block.size)
+                );
             }
         }
     }
@@ -971,8 +1073,9 @@ void bind_resources(id<MTLRenderCommandEncoder> pass, Program& p, const Target& 
         if (u == c.uniforms.end()) {
             continue;
         }
-        const GLuint unit = static_cast<GLuint>(
-            std::clamp<GLint>(p.units[static_cast<std::size_t>(u - c.uniforms.begin())], 0, kUnits - 1));
+        const GLuint unit = static_cast<GLuint>(std::clamp<GLint>(
+            p.units[static_cast<std::size_t>(u - c.uniforms.begin())], 0, kUnits - 1
+        ));
         id<MTLTexture> texture;
         MTLTextureType type = MTLTextureType2D;
         const SamplerParams* params = nullptr;
@@ -1012,8 +1115,9 @@ void bind_resources(id<MTLRenderCommandEncoder> pass, Program& p, const Target& 
                 params = bound;
             }
             static const SamplerParams kDefault;
-            id<MTLSamplerState> sampler = sampler_of(params != nullptr ? *params : kDefault, base,
-                                                     max, is_integer(texture.pixelFormat));
+            id<MTLSamplerState> sampler = sampler_of(
+                params != nullptr ? *params : kDefault, base, max, is_integer(texture.pixelFormat)
+            );
             [pass setVertexSamplerState:sampler atIndex:static_cast<NSUInteger>(mt.sampler)];
             [pass setFragmentSamplerState:sampler atIndex:static_cast<NSUInteger>(mt.sampler)];
         }
@@ -1028,8 +1132,15 @@ id<MTLRenderCommandEncoder> pass_on(const Target& t) {
     return g->pass;
 }
 
-void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool indexed, GLenum index_type,
-          std::uintptr_t index_offset) {
+void draw(
+    GLenum mode,
+    GLint first,
+    GLsizei count,
+    GLsizei instances,
+    bool indexed,
+    GLenum index_type,
+    std::uintptr_t index_offset
+) {
     Program* p = current_program();
     const State& s = g->state;
     bool known = false;
@@ -1042,7 +1153,8 @@ void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool index
         || s.viewport[2] <= 0 || s.viewport[3] <= 0) {
         return;
     }
-    const bool triangles = primitive == MTLPrimitiveTypeTriangle || primitive == MTLPrimitiveTypeTriangleStrip;
+    const bool triangles =
+        primitive == MTLPrimitiveTypeTriangle || primitive == MTLPrimitiveTypeTriangleStrip;
     if (s.cull && s.cull_face == GL_FRONT_AND_BACK && triangles) {
         return;
     }
@@ -1078,18 +1190,28 @@ void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool index
     [pass setRenderPipelineState:pipeline];
     [pass setDepthStencilState:depth_state_of(t)];
     [pass setStencilReferenceValue:static_cast<std::uint32_t>(s.stencil_ref) & 0xFF];
-    [pass setBlendColorRed:s.blend_colour[0] green:s.blend_colour[1] blue:s.blend_colour[2] alpha:s.blend_colour[3]];
+    [pass setBlendColorRed:s.blend_colour[0]
+                     green:s.blend_colour[1]
+                      blue:s.blend_colour[2]
+                     alpha:s.blend_colour[3]];
     [pass setCullMode:!s.cull || !triangles     ? MTLCullModeNone
                       : s.cull_face == GL_FRONT ? MTLCullModeFront
                                                 : MTLCullModeBack];
     // The vertex stage turns rows over (shader_translate.h), which turns windings over with them.
-    [pass setFrontFacingWinding:s.front_face == GL_CCW ? MTLWindingClockwise : MTLWindingCounterClockwise];
-    [pass setTriangleFillMode:s.polygon_mode == GL_LINE ? MTLTriangleFillModeLines : MTLTriangleFillModeFill];
+    [pass setFrontFacingWinding:s.front_face == GL_CCW ? MTLWindingClockwise
+                                                       : MTLWindingCounterClockwise];
+    [pass setTriangleFillMode:s.polygon_mode == GL_LINE ? MTLTriangleFillModeLines
+                                                        : MTLTriangleFillModeFill];
     [pass setDepthClipMode:s.depth_clamp ? MTLDepthClipModeClamp : MTLDepthClipModeClip];
     const bool halves = form >= 2;
-    MTLViewport viewport{static_cast<double>(s.viewport[0]), static_cast<double>(s.viewport[1]),
-                         static_cast<double>(s.viewport[2]), static_cast<double>(s.viewport[3]),
-                         halves ? 0.5 : 0.0, halves ? 0.0 : 1.0};
+    MTLViewport viewport{
+        static_cast<double>(s.viewport[0]),
+        static_cast<double>(s.viewport[1]),
+        static_cast<double>(s.viewport[2]),
+        static_cast<double>(s.viewport[3]),
+        halves ? 0.5 : 0.0,
+        halves ? 0.0 : 1.0
+    };
     [pass setViewport:viewport];
     GLint x0 = 0, y0 = 0, x1 = width, y1 = height;
     if (s.scissor_test) {
@@ -1101,13 +1223,17 @@ void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool index
     if (x1 == x0 || y1 == y0) {
         return;  // Metal's scissor cannot be empty
     }
-    [pass setScissorRect:{static_cast<NSUInteger>(x0), static_cast<NSUInteger>(y0),
-                          static_cast<NSUInteger>(x1 - x0), static_cast<NSUInteger>(y1 - y0)}];
+    [pass setScissorRect:{static_cast<NSUInteger>(x0),
+                          static_cast<NSUInteger>(y0),
+                          static_cast<NSUInteger>(x1 - x0),
+                          static_cast<NSUInteger>(y1 - y0)}];
     bind_resources(pass, *p, t);
     for (std::size_t i = 0; i < inputs.buffers.size(); ++i) {
         const Stream& stream = inputs.buffers[i];
         stream.buffer->used = g->serial;
-        [pass setVertexBuffer:stream.buffer->buffer offset:stream.offset atIndex:kVertexBufferBase + i];
+        [pass setVertexBuffer:stream.buffer->buffer
+                       offset:stream.offset
+                      atIndex:kVertexBufferBase + i];
     }
     if (inputs.defaults) {
         if (g->attribute_defaults == nil) {
@@ -1116,9 +1242,13 @@ void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool index
             std::uint8_t bytes[32];
             std::memcpy(bytes, floats, 16);
             std::memcpy(bytes + 16, integers, 16);
-            g->attribute_defaults = [g->device newBufferWithBytes:bytes length:32 options:MTLResourceStorageModeShared];
+            g->attribute_defaults = [g->device newBufferWithBytes:bytes
+                                                           length:32
+                                                          options:MTLResourceStorageModeShared];
         }
-        [pass setVertexBuffer:g->attribute_defaults offset:0 atIndex:kVertexBufferBase + inputs.buffers.size()];
+        [pass setVertexBuffer:g->attribute_defaults
+                       offset:0
+                      atIndex:kVertexBufferBase + inputs.buffers.size()];
     }
     if (indexed) {
         elements->used = g->serial;
@@ -1139,7 +1269,8 @@ void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool index
         }
         [pass drawIndexedPrimitives:primitive
                          indexCount:static_cast<NSUInteger>(count)
-                          indexType:index_type == GL_UNSIGNED_SHORT ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32
+                          indexType:index_type == GL_UNSIGNED_SHORT ? MTLIndexTypeUInt16
+                                                                    : MTLIndexTypeUInt32
                         indexBuffer:elements->buffer
                   indexBufferOffset:index_offset
                       instanceCount:static_cast<NSUInteger>(instances)];
@@ -1160,8 +1291,9 @@ void MTLGL draw_elements(GLenum mode, GLsizei count, GLenum type, const void* in
     draw(mode, 0, count, 1, true, type, reinterpret_cast<std::uintptr_t>(indices));
 }
 
-void MTLGL draw_elements_instanced(GLenum mode, GLsizei count, GLenum type, const void* indices,
-                                   GLsizei instances) {
+void MTLGL draw_elements_instanced(
+    GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instances
+) {
     draw(mode, 0, count, instances, true, type, reinterpret_cast<std::uintptr_t>(indices));
 }
 

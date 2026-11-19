@@ -9,14 +9,17 @@ export const modNav = $state<{ mod: string | null }>({ mod: null });
 /** The mod named in the address at start (?mod=id or #mod=id), if any. */
 export function modFromAddress(location: { search: string; hash: string }): string | null {
   const query = /[?&]mod=([^&#]+)/.exec(location.search);
+
   if (query?.[1]) return decodeURIComponent(query[1]);
   const hash = /^#mod=(.+)$/.exec(location.hash);
+
   return hash?.[1] ? decodeURIComponent(hash[1]) : null;
 }
 
 export function openMod(id: string): void {
   if (modNav.mod === id) return;
   modNav.mod = id;
+
   try {
     history.pushState({ [KEY]: id }, "", `#mod=${encodeURIComponent(id)}`);
   } catch {
@@ -28,6 +31,7 @@ export function openMod(id: string): void {
 export function closeMod(): void {
   if (modNav.mod === null) return;
   const state: unknown = history.state;
+
   modNav.mod = null;
   if (state && typeof state === "object" && KEY in state) history.back();
 }
@@ -41,10 +45,15 @@ export function resetMod(): void {
 export function followHistory(): () => void {
   const pop = (e: PopStateEvent) => {
     const state: unknown = e.state;
+
     modNav.mod =
-      state && typeof state === "object" && KEY in state ? String((state as Record<string, unknown>)[KEY]) : null;
+      state && typeof state === "object" && KEY in state
+        ? String((state as Record<string, unknown>)[KEY])
+        : null;
   };
+
   window.addEventListener("popstate", pop);
+
   return () => {
     window.removeEventListener("popstate", pop);
   };

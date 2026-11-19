@@ -12,10 +12,10 @@ European and the North American one): the launcher uses the levels of the
 disc you set up, and a pack made from either disc's levels works with the
 other's too (below, [Packs and discs](#packs-and-discs)).
 
-Going Commando, Up Your Arsenal and Deadlocked work the same way in early
-access: export, edit and import their textures and models into packs of
-their own (`"game": "rac2"`, `"rac3"`, `"rac4"`), which wait in Your mods
-until those games are playable. A pack is used only with its own game's
+Going Commando, Up Your Arsenal and Deadlocked work the same way: export, edit
+and import their textures and models into packs of their own (`"game": "rac2"`,
+`"rac3"`, `"rac4"`). Going Commando plays, so its packs can be used now; the
+other two wait in Your mods until those games are playable. A pack is used only with its own game's
 levels ([README.md](README.md#the-later-games-early-access)).
 
 Moving objects, editing their values, volumes, paths, cameras and the

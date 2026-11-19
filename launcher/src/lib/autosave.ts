@@ -38,6 +38,7 @@ export class Saver<V = unknown> {
     if (this.#waiting.size) return "waiting";
     if (this.#inFlight) return "saving";
     if (this.#failed) return "failed";
+
     return this.#touched ? "saved" : "idle";
   }
 
@@ -63,7 +64,9 @@ export class Saver<V = unknown> {
     this.#failed = false;
     this.#touched = true;
     const timer = this.#timers.get(key);
+
     if (timer !== undefined) clearTimeout(timer);
+
     if (delay <= 0) {
       this.#timers.delete(key);
       this.#send(key);
@@ -76,6 +79,7 @@ export class Saver<V = unknown> {
         }, delay),
       );
     }
+
     this.#opts.onchange?.();
   }
 
@@ -86,6 +90,7 @@ export class Saver<V = unknown> {
       this.#timers.delete(key);
       this.#send(key);
     }
+
     return this.#chain;
   }
 
@@ -101,12 +106,14 @@ export class Saver<V = unknown> {
   #send(key: string): void {
     if (!this.#waiting.has(key)) return;
     const value = this.#waiting.get(key) as V;
+
     this.#waiting.delete(key);
     this.#inFlight += 1;
     this.#opts.onchange?.();
     this.#chain = this.#chain.then(async () => {
       try {
         await this.#opts.save(key, value);
+
         // Saved; shown from the core's list, unless the player has moved it on since.
         if (this.#held.get(key) === value && !this.#waiting.has(key)) {
           this.#held.delete(key);

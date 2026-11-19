@@ -1,0 +1,43 @@
+# Written by port/tools/hostgen/release_carry.py from the primary release's hand C and the
+# release's own (release/release.json "hand"); do not edit.
+# name	file (relative to this table)
+func_00283108	fastfunc.c
+func_00283150	fastfunc.c
+func_00283178	fastfunc.c
+func_00283188	fastfunc.c
+func_002831B0	fastfunc.c
+func_002831C0	fastfunc.c
+func_002831E8	fastfunc.c
+func_002831F8	fastfunc.c
+func_00283518	fastfunc.c
+func_L00_002EF260	fastfunc_level.c
+func_L00_002EF288	fastfunc_level.c
+func_L00_002EF298	fastfunc_level.c
+func_L00_002EF2D0	fastfunc_level.c
+func_L00_002EF2F8	fastfunc_level.c
+func_L00_002EF308	fastfunc_level.c
+func_0011B0B0	core_misc.c
+func_00124540	core_misc.c
+func_0011CDA0	core_misc.c
+func_0012A3E8	mpeg.c
+func_0012A460	mpeg.c
+func_0012A4F8	mpeg.c
+func_0012A5B0	mpeg.c
+func_0012A680	mpeg.c
+func_0012A730	mpeg.c
+func_0012A7E8	mpeg.c
+func_0012A8E0	mpeg.c
+func_0012A9E0	mpeg.c
+func_0012AA80	mpeg.c
+func_0012AB30	mpeg.c
+func_0012AC10	mpeg.c
+func_0012ACF8	mpeg.c
+func_0012ADD0	mpeg.c
+func_0012AEA0	mpeg.c
+func_0012AFC0	mpeg.c
+func_0012B180	mpeg.c
+func_0012DF18	mpeg_spr.c
+func_0012E238	mpeg_csc.c
+func_0012E538	mpeg_csc.c
+func_002A0F68	func_002A0F68.c
+func_002A2E30	func_002A2E30.c

@@ -162,6 +162,7 @@ export interface ToolFailure extends ToolError {
 /** The code a tool said, the last one if more. */
 export function errorCode(lines: Pick<Line, "line">[]): string | null {
   const said = lines.findLast((l) => l.line.startsWith(ERROR_LINE));
+
   return said ? said.line.slice(ERROR_LINE.length).trim() || null : null;
 }
 
@@ -176,5 +177,6 @@ export function toolFailure(lines: Pick<Line, "line">[], count = 15): ToolFailur
     .map((l) => l.line)
     .filter((l) => !MARKERS.some((m) => l.startsWith(m)) && l.trim() !== "")
     .slice(-count);
+
   return { ...(known ?? UNKNOWN_ERROR), code, details: hidePaths(shown.join("\n")).text };
 }

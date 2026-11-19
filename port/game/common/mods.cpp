@@ -43,6 +43,10 @@ namespace fs = std::filesystem;
 
 /* The mods loaded for this run, for lib/mc.c's save mark (game_host.h): set by load() below. */
 extern "C" const char* openrac_game_loaded_mods = "[]";
+/* The mods' data kept with the saves (game_host.h): set by load() below, called by lib/mc.c. */
+extern "C" void (*openrac_game_save_written)(const char* path, int players) = nullptr;
+extern "C" void (*openrac_game_save_read)(const char* path, int slot) = nullptr;
+extern "C" void (*openrac_game_new_game)(void) = nullptr;
 using namespace openrac;
 
 // One loaded mod: the handle openrac_mod.h's functions are given.
@@ -206,8 +210,10 @@ openrac_view_source g_views{};
 openrac_mod* g_views_mod = nullptr;
 openrac_vulkan_setup g_vulkan{};
 openrac_mod* g_vulkan_mod = nullptr;
+bool g_vulkan_queue_declared = false;
 std::vector<crash::ModImage> g_images;
 openrac_api g_api;
+openrac_api g_api_without_native_vulkan;
 const std::uint64_t g_snapshot_session = [] {
     const auto clock =
         static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
@@ -556,12 +562,12 @@ int api_developer_menu(
         if (action_taken) {
             return OPENRAC_HOOK_TAKEN;
         }
-        menu.items.push_back(
-            {items[i].label,
-             items[i].shortcut != nullptr ? items[i].shortcut : "",
-             items[i].group != nullptr ? items[i].group : "",
-             items[i].action}
-        );
+        DeveloperMenuItem item;
+        item.label = items[i].label;
+        item.shortcut = items[i].shortcut != nullptr ? items[i].shortcut : "";
+        item.group = items[i].group != nullptr ? items[i].group : "";
+        item.action = items[i].action;
+        menu.items.push_back(std::move(item));
     }
     g_developer_menus.push_back(std::move(menu));
     return OPENRAC_HOOK_OK;
@@ -624,6 +630,92 @@ int api_developer_menu_set_label(openrac_mod* mod, std::uint32_t action, const c
         }
     }
     return OPENRAC_HOOK_UNKNOWN;
+}
+
+// The mod's developer menu item of `action`, or null.
+DeveloperMenuItem* developer_menu_item(openrac_mod* mod, std::uint32_t action) {
+    for (DeveloperMenu& menu : g_developer_menus) {
+        if (menu.mod != mod) {
+            continue;
+        }
+        const auto item = std::find_if(
+            menu.items.begin(), menu.items.end(), [action](const DeveloperMenuItem& entry) {
+                return entry.action == action;
+            }
+        );
+        if (item != menu.items.end()) {
+            return &*item;
+        }
+    }
+    return nullptr;
+}
+
+// Whether the mod may make or set a switch or a choice now (1.19): while it loads, or at its tick
+// boundary, as for the labels.
+bool may_set_developer_menu(openrac_mod* mod) {
+    return mod != nullptr && (mod == g_loading || (mod == g_tick_mod && g_in_tick_boundary));
+}
+
+int api_developer_menu_switch(openrac_mod* mod, std::uint32_t action, int on) {
+    if (!may_set_developer_menu(mod)) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    DeveloperMenuItem* item = developer_menu_item(mod, action);
+    if (item == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    item->kind = MenuItemKind::Switch;
+    item->value = on != 0 ? 1 : 0;
+    item->values.clear();
+    return OPENRAC_HOOK_OK;
+}
+
+int api_developer_menu_choice(
+    openrac_mod* mod,
+    std::uint32_t action,
+    const char* const* values,
+    std::uint32_t count,
+    std::uint32_t index
+) {
+    if (!may_set_developer_menu(mod)) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    DeveloperMenuItem* item = developer_menu_item(mod, action);
+    if (item == nullptr || values == nullptr || count == 0 || index >= count
+        || std::any_of(values, values + count, [](const char* v) { return v == nullptr; })) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    item->kind = MenuItemKind::Choice;
+    item->values.assign(values, values + count);
+    item->value = static_cast<int>(index);
+    return OPENRAC_HOOK_OK;
+}
+
+// A hook point's entry (1.21): found as api_hook finds it, by its id or any alias, and its
+// signature compared as api_hook compares it. The entry is the function the game calls by the
+// point's symbol, hooks.c's, which goes through the slot: the mods' replacements, then the game's.
+void* api_hook_entry(const char* name, const char* signature) {
+    if (g_host == nullptr || name == nullptr || signature == nullptr) {
+        return nullptr;
+    }
+    const char* id = hook_id(*g_host, name);
+    for (int i = 0; i < g_host->hook_count; ++i) {
+        const HookPoint& p = g_host->hooks[i];
+        if (p.name == nullptr || std::strcmp(hook_id(*g_host, p.name), id) != 0) {
+            continue;
+        }
+        if (p.symbol == nullptr
+            || hook_signature_form(p.signature) != hook_signature_form(signature)) {
+            return nullptr;
+        }
+        return reinterpret_cast<void*>(openrac_guest_function_named(p.symbol));
+    }
+    return nullptr;
+}
+
+int api_developer_menu_value(openrac_mod* mod, std::uint32_t action) {
+    const DeveloperMenuItem* item = mod != nullptr ? developer_menu_item(mod, action) : nullptr;
+    return item != nullptr && item->kind != MenuItemKind::Press ? item->value : -1;
 }
 
 int api_on_pad(openrac_mod* mod, openrac_pad_fn fn, void* user) {
@@ -707,6 +799,21 @@ const openrac_graphics* api_graphics(void) {
     return graphics != nullptr ? graphics : &none;
 }
 
+bool native_vulkan_allowed(const mods::Manifest& manifest) {
+    return manifest.api_minor < 20 || manifest.vulkan_queue;
+}
+
+const openrac_graphics* api_graphics_without_native_vulkan() {
+    static const openrac_graphics vulkan = [] {
+        openrac_graphics info{};
+        info.size = sizeof(openrac_graphics);
+        info.backend = OPENRAC_GRAPHICS_VULKAN;
+        return info;
+    }();
+    const openrac_graphics* graphics = api_graphics();
+    return graphics->backend == OPENRAC_GRAPHICS_VULKAN ? &vulkan : graphics;
+}
+
 // A structure the mod gives with its own size first, copied into `out`: what a mod built against
 // a smaller one does not have stays zero. False when it is not even the size and the user pointer.
 template <class T>
@@ -740,6 +847,10 @@ int api_on_views(openrac_mod* mod, const openrac_view_source* source) {
 int api_setup_vulkan(openrac_mod* mod, const openrac_vulkan_setup* setup) {
     if (mod == nullptr || mod != g_loading) {
         return OPENRAC_HOOK_TOO_LATE;
+    }
+    if (!native_vulkan_allowed(mod->manifest)) {
+        log::warn("mod {} must declare \"vulkan_queue\": true to use native Vulkan", mod->id);
+        return OPENRAC_HOOK_UNKNOWN;
     }
     if (g_vulkan_mod != nullptr) {
         log::warn(
@@ -1589,6 +1700,250 @@ void follow_list() {
     }
 }
 
+// ---- A mod's data kept with the game's saves (interface 1.16) ----
+//
+// Each mod's data for the game in progress lives here, by the mod's id. lib/mc.c tells of each save
+// the game writes (save_written: every mod's data beside it, `<save>.moddata`) and of each save it
+// reads whole (save_read: that file's data kept aside). The game in progress takes it once the
+// game plays that save (follow_saves, after a tick: the play host's save_slot_current, which also
+// says a new game started after it). The save file itself is never touched, and the file beside it
+// is hidden from the game (mc.c's host_only), as the save mark is.
+//
+// The file: {"format": 1, "mods": {"<id>": {"version": "<version>", "data": "<base64>"}}}.
+
+struct SaveDataCallback {
+    openrac_frame_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+std::vector<SaveDataCallback> g_save_data_callbacks;
+// The game in progress's data, by mod id; the data of the save the game read whole last, its slot,
+// and how many such reads there were and which one the game in progress took.
+std::map<std::string, std::vector<std::uint8_t>, std::less<>> g_save_data;
+std::map<std::string, std::vector<std::uint8_t>, std::less<>> g_save_read_data;
+int g_save_read_slot = -1;
+std::uint32_t g_save_reads = 0;
+std::uint32_t g_save_taken = 0;
+// The slot of the save the game in progress plays, -1 for a new game (or none).
+int g_save_playing = -1;
+// A new game started (the host said so): the mods are told at the next tick.
+bool g_save_new_game = false;
+
+constexpr std::string_view kBase64 =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+std::string base64(const std::vector<std::uint8_t>& bytes) {
+    std::string out;
+    out.reserve((bytes.size() + 2) / 3 * 4);
+    for (std::size_t i = 0; i < bytes.size(); i += 3) {
+        const std::uint32_t n = (std::uint32_t{bytes[i]} << 16)
+                                | (i + 1 < bytes.size() ? std::uint32_t{bytes[i + 1]} << 8 : 0u)
+                                | (i + 2 < bytes.size() ? std::uint32_t{bytes[i + 2]} : 0u);
+        out += kBase64[(n >> 18) & 63u];
+        out += kBase64[(n >> 12) & 63u];
+        out += i + 1 < bytes.size() ? kBase64[(n >> 6) & 63u] : '=';
+        out += i + 2 < bytes.size() ? kBase64[n & 63u] : '=';
+    }
+    return out;
+}
+
+// False for text that is not base64 (padding only at the end).
+bool unbase64(std::string_view text, std::vector<std::uint8_t>& out) {
+    out.clear();
+    if (text.size() % 4 != 0) {
+        return false;
+    }
+    std::uint32_t n = 0;
+    int bits = 0;
+    std::size_t pad = 0;
+    for (const char c : text) {
+        if (c == '=') {
+            ++pad;
+            continue;
+        }
+        const std::size_t v = kBase64.find(c);
+        if (v == std::string_view::npos || pad != 0) {
+            return false;
+        }
+        n = (n << 6) | static_cast<std::uint32_t>(v);
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            out.push_back(static_cast<std::uint8_t>((n >> bits) & 0xFFu));
+        }
+    }
+    return pad <= 2;
+}
+
+fs::path save_data_path(const char* save) {
+    return fs::path(save).concat(".moddata");
+}
+
+// lib/mc.c: the game has just written the save at `path`. Every loaded mod's data goes beside it,
+// written whole (a hidden file renamed over it); a save with none, or a blank slot, keeps none.
+void save_written(const char* path, int players) {
+    const fs::path file = save_data_path(path);
+    std::error_code e;
+    std::string members;
+    for (const auto& loaded : g_loaded) {
+        const auto data = g_save_data.find(loaded->id);
+        if (data == g_save_data.end() || data->second.empty()) {
+            continue;
+        }
+        members += std::format(
+            "{}\n    {}: {{\"version\": {}, \"data\": {}}}",
+            members.empty() ? "" : ",",
+            mods::quoted(loaded->id),
+            mods::quoted(loaded->version),
+            mods::quoted(base64(data->second))
+        );
+    }
+    if (members.empty() || players == 0) {
+        fs::remove(file, e);
+        return;
+    }
+    // Hidden from the game while it is written (a leading dot), then in place whole.
+    const fs::path temp = file.parent_path() / ("." + file.filename().string() + ".tmp");
+    {
+        std::ofstream out(temp, std::ios::binary | std::ios::trunc);
+        out << "{\"format\": 1, \"mods\": {" << members << "\n}}\n";
+        if (!out) {
+            log::warn("the mods' data was not written beside {}", path);
+            return;
+        }
+    }
+    fs::rename(temp, file, e);
+    if (e) {
+        fs::remove(temp, e);
+        log::warn("the mods' data was not written beside {}", path);
+    }
+}
+
+// lib/mc.c: the game has just read the save at `path` whole (Load Game): the data beside it is
+// kept aside until the game plays that save (follow_saves).
+void save_read(const char* path, int slot) {
+    g_save_read_data.clear();
+    g_save_read_slot = slot;
+    ++g_save_reads;
+    std::string text;
+    const fs::path file = save_data_path(path);
+    std::error_code e;
+    if (!fs::exists(file, e) || !read_text(file, text)) {
+        return;  // saved without mods' data
+    }
+    json::Value v;
+    std::string error;
+    if (!json::parse(text, v, error) || !v["mods"].is_object()) {
+        log::warn("the mods' data beside {} is not readable: {}", path, error);
+        return;
+    }
+    for (const auto& [id, entry] : v["mods"].members()) {
+        std::vector<std::uint8_t> bytes;
+        if (!entry["data"].is_string() || !unbase64(entry["data"].string(), bytes)
+            || bytes.size() > OPENRAC_SAVE_DATA_MAX) {
+            log::warn("mod {}: its data beside {} is not readable", id, path);
+            continue;
+        }
+        g_save_read_data[id] = std::move(bytes);
+    }
+}
+
+// A game's host: a new game starts. Its data is empty from now on (the save the game writes right
+// after takes none), and a save read before is not its; the mods are told at the next tick.
+void new_game() {
+    g_save_data.clear();
+    g_save_taken = g_save_reads;
+    g_save_playing = -1;
+    g_save_new_game = true;
+}
+
+void tell_save_data() {
+    for (const SaveDataCallback& c : g_save_data_callbacks) {
+        c.fn(c.user);
+    }
+}
+
+// After each tick, while a level plays: the game in progress takes the data of the save it now
+// plays when it was read whole since, and a new game started (the play host has no save for it)
+// starts with none.
+void follow_saves() {
+    // A new game the host announced: told whatever the phase, before the mods' own frame callbacks
+    // could set the old game's data again.
+    if (g_save_new_game) {
+        g_save_new_game = false;
+        log::info("a new game: the mods' data starts empty");
+        tell_save_data();
+    }
+    if (g_api.play_status == nullptr || g_api.save_slot_current == nullptr) {
+        return;
+    }
+    openrac_play_status status{};
+    status.size = sizeof status;
+    if (g_api.play_status(&status) != OPENRAC_HOOK_OK || status.phase != OPENRAC_PLAY_PLAYING) {
+        return;
+    }
+    const int slot = g_api.save_slot_current();
+    if (slot >= 0 && slot == g_save_read_slot && g_save_reads != g_save_taken) {
+        g_save_taken = g_save_reads;
+        g_save_playing = slot;
+        g_save_data = g_save_read_data;
+        log::info("the mods' data of save {} taken ({} mods)", slot, g_save_data.size());
+        tell_save_data();
+    } else if (slot < 0 && g_save_playing >= 0) {
+        g_save_playing = -1;
+        g_save_data.clear();
+        log::info("a new game: the mods' data starts empty");
+        tell_save_data();
+    } else if (slot >= 0) {
+        g_save_playing = slot;  // saved into, or the same save played on
+    }
+}
+
+int api_save_data_set(openrac_mod* mod, const void* bytes, std::uint32_t size) {
+    if (mod == nullptr || size > OPENRAC_SAVE_DATA_MAX || (bytes == nullptr && size != 0)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (size == 0) {
+        g_save_data.erase(mod->id);
+        return OPENRAC_HOOK_OK;
+    }
+    const auto* b = static_cast<const std::uint8_t*>(bytes);
+    g_save_data[mod->id].assign(b, b + size);
+    return OPENRAC_HOOK_OK;
+}
+
+std::uint32_t api_save_data_get(openrac_mod* mod, void* out, std::uint32_t size) {
+    const auto data = mod != nullptr ? g_save_data.find(mod->id) : g_save_data.end();
+    if (data == g_save_data.end()) {
+        return 0;
+    }
+    const auto length = static_cast<std::uint32_t>(data->second.size());
+    if (out != nullptr && size >= length) {
+        std::memcpy(out, data->second.data(), length);
+    }
+    return length;
+}
+
+int api_on_save_data(openrac_mod* mod, openrac_frame_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading || fn == nullptr) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    g_save_data_callbacks.push_back({fn, user, mod});
+    return OPENRAC_HOOK_OK;
+}
+
+void reset_save_data() {
+    g_save_data_callbacks.clear();
+    g_save_data.clear();
+    g_save_read_data.clear();
+    g_save_read_slot = -1;
+    g_save_reads = 0;
+    g_save_taken = 0;
+    g_save_playing = -1;
+    g_save_new_game = false;
+}
+
 void fill_api(const Host& host) {
     static std::string game, version, openrac_version;
     game = host.game;
@@ -1632,6 +1987,10 @@ void fill_api(const Host& host) {
     g_api.developer_menu = api_developer_menu;
     g_api.take_developer_menu_action = api_take_developer_menu_action;
     g_api.developer_menu_set_label = api_developer_menu_set_label;
+    g_api.developer_menu_switch = api_developer_menu_switch;
+    g_api.developer_menu_choice = api_developer_menu_choice;
+    g_api.developer_menu_value = api_developer_menu_value;
+    g_api.hook_entry = api_hook_entry;
     g_api.data_dir = api_data_dir;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
@@ -1668,6 +2027,11 @@ void fill_api(const Host& host) {
     g_api.setting_set_float = api_setting_set_float;
     g_api.setting_set_string = api_setting_set_string;
     g_api.on_settings = api_on_settings;
+    g_api.save_data_set = api_save_data_set;
+    g_api.save_data_get = api_save_data_get;
+    g_api.on_save_data = api_on_save_data;
+    g_api_without_native_vulkan = g_api;
+    g_api_without_native_vulkan.graphics = api_graphics_without_native_vulkan;
 }
 
 // ---- status.json ----
@@ -1722,6 +2086,10 @@ void set_loaded_mods_json() {
     o << "]";
     g_loaded_mods_json = o.str();
     openrac_game_loaded_mods = g_loaded_mods_json.c_str();
+    // The mods' data kept with the saves (1.16): lib/mc.c tells of the saves written and read.
+    openrac_game_save_written = save_written;
+    openrac_game_save_read = save_read;
+    openrac_game_new_game = new_game;
 }
 
 void write_status(const Host& host, const std::vector<Outcome>& outcomes) {
@@ -1820,6 +2188,7 @@ void undo(openrac_mod* mod) {
     mod->hooks.clear();
     std::erase_if(g_frames, [&](const FrameCallback& c) { return c.mod == mod; });
     std::erase_if(g_settings_callbacks, [&](const SettingsCallback& c) { return c.mod == mod; });
+    std::erase_if(g_save_data_callbacks, [&](const SaveDataCallback& c) { return c.mod == mod; });
     std::erase_if(g_pads, [&](const PadCallback& c) { return c.mod == mod; });
     std::erase_if(g_menus, [&](const MenuCallback& c) { return c.mod == mod; });
     std::erase_if(g_overlays, [&](const OverlayCallback& c) { return c.mod == mod; });
@@ -1934,7 +2303,9 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
     mod->base = library::base_of(reinterpret_cast<const void*>(load));
     g_loading = mod.get();
     play_loading(mod.get());
-    const int result = load(&g_api, mod.get());
+    const openrac_api& api =
+        native_vulkan_allowed(mod->manifest) ? g_api : g_api_without_native_vulkan;
+    const int result = load(&api, mod.get());
     g_loading = nullptr;
     play_loading(nullptr);
     // A hook point asked for and not there (or of another signature) fails the load even when the
@@ -2079,6 +2450,14 @@ std::string load(const Host& host) {
         log::info("mod {} makes the Vulkan device", g_vulkan_mod->id);
         host.set_vulkan_setup(&g_vulkan);
     }
+    for (const auto& mod : g_loaded) {
+        if (mod->manifest.vulkan_queue) {
+            g_vulkan_queue_declared = true;
+            log::warn(
+                "mod {} requires native Vulkan access; Vulkan runs on the game's thread", mod->id
+            );
+        }
+    }
     g_outcomes = outcomes;
     write_status(kept, outcomes);
     g_images.clear();
@@ -2120,6 +2499,14 @@ bool makes_vulkan_device(const fs::path& list_path, bool purist) {
     return false;
 }
 
+bool vulkan_needs_game_thread() {
+    return g_vulkan_queue_declared;
+}
+
+bool view_source_can_use_vulkan() {
+    return g_views_mod != nullptr && native_vulkan_allowed(g_views_mod->manifest);
+}
+
 void unload() {
     for (auto it = g_loaded.rbegin(); it != g_loaded.rend(); ++it) {
         if ((*it)->unload != nullptr) {
@@ -2129,6 +2516,8 @@ void unload() {
 }
 
 void run_frame_callbacks() {
+    // The game in progress first (1.16): a mod's frame callback then sees its new data.
+    follow_saves();
     for (const FrameCallback& c : g_frames) {
         c.fn(c.user);
     }
@@ -2313,6 +2702,22 @@ void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action) {
     }
 }
 
+void set_developer_menu_value(openrac_mod* mod, std::uint32_t action, int value) {
+    DeveloperMenuItem* item = mod != nullptr ? developer_menu_item(mod, action) : nullptr;
+    if (item == nullptr) {
+        return;
+    }
+    const bool fits = item->kind == MenuItemKind::Switch
+                          ? value == 0 || value == 1
+                          : item->kind == MenuItemKind::Choice && value >= 0
+                                && value < static_cast<int>(item->values.size());
+    if (!fits) {
+        return;
+    }
+    item->value = value;
+    queue_developer_menu_action(mod, action);
+}
+
 int loaded_count() {
     return static_cast<int>(g_loaded.size());
 }
@@ -2355,10 +2760,12 @@ void reset() {
     scripts::reset();
     g_outcomes.clear();
     g_loaded.clear();
+    g_vulkan_queue_declared = false;
     g_asset_roots.clear();
     g_frames.clear();
     g_settings_callbacks.clear();
     g_list_seen.reset();
+    reset_save_data();
     g_list_wait = 0;
     g_list_unwritten_said = false;
     g_pads.clear();

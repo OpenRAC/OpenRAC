@@ -116,6 +116,31 @@ RACE_HUD(func_L04_00411298)
 RACE_HUD(func_L04_00417308)
 RACE_HUD(func_L03_003C7018)
 
+/* Tabora's own HUD while driving the Mining Vehicle, from a callback: its radar, and at the bottom
+ * its health bar beside the distance to the raritanium. The two bars are drawn side by side and
+ * meet right of the middle (283 of 512): with the split bit (renderer::GifInterpreter::kHudSplit)
+ * what lies left of that line goes left as one block and the rest right, each out to its edge,
+ * whole (stretched, or each piece by the middle, the bars grew or came apart). */
+#define SPLIT_AT(x) (1ull << 33 | (uint64_t)(x) << 34)
+#define TABORA_BARS_MEET 283
+
+static inline void openrac_tabora_hud_end(const int* side) {
+    if (*side != 0) {
+        func_002FC560(REG_NOP, 0x4853ull << 48);
+    }
+}
+
+int func_L08_0041D808(void) {
+    const int side __attribute__((cleanup(openrac_tabora_hud_end))) = openrac_game_hud_side();
+    if (side != 0) {
+        func_002FC560(REG_NOP, 0x4853ull << 48 | SPLIT_AT(TABORA_BARS_MEET) | (uint32_t)side);
+    }
+    return func_L08_0041D808__game();
+}
+
+/* The meter Tabora and Grelbin draw at the bottom, from a callback: its parts go out to their side. */
+SHIP_HUD(func_L08_003DB518)
+
 /* The meter func_00290010 shows for a while (the Thermanator's, on what it freezes or thaws), a
  * callback of func_0029B7C0: drawn right of the middle, it goes out to that side. */
 SHIP_HUD(func_002900B8)

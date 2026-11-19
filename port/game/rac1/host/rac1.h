@@ -27,6 +27,10 @@
  * own for the function, or its catalogue places something else there, or its game never calls it). */
 #define RAC1_OMIT(f) RAC1_OMIT_##f
 
+/* A ship destination's label (destinations.c): the text of an added destination's id, else 0. */
+gaddr rac1_ship_destination_text(int id);
+#define RAC1_DESTINATION_TEXT(id) rac1_ship_destination_text(id)
+
 /* A function's name in this version, as a string (for logs and switches that name functions). */
 #define RAC1_NAME_(f) #f
 #define RAC1_NAME(f) RAC1_NAME_(f)
@@ -153,6 +157,19 @@ void rac1_world_moby_hide(gaddr moby, int hidden);
 int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out);
 int rac1_world_camera_position(float out[3]);
 int rac1_level_line(const float from[3], const float to[3], int* blocked);
+/* The skeleton joint of the hero's attach point `point` on `moby` (figure_items.c), -1 for none. */
+int rac1_attach_point_joint(gaddr moby, int point);
+int rac1_collision_line(
+    const float from[3],
+    const float to[3],
+    int level,
+    int mobys,
+    uint32_t ignore,
+    float point[3],
+    float normal[3],
+    int32_t* surface,
+    uint32_t* moby
+);
 int rac1_world_moby_run(int32_t slot, openrac_game_moby_run* out);
 /* moby_pool.c's last run list of the level's mobys: how it treated `slot` (OPENRAC_MOBY_RUN_*, -1
  * not looked at, or none built this level load), how many were built and its camera; world.c's
@@ -211,6 +228,10 @@ gaddr rac1_updating_moby(void);
  * whether a moby is an actor of the scene playing (world.c's listing). */
 int32_t rac1_scene_playing(int32_t* frame);
 int rac1_scene_start(int32_t scene);
+int rac1_pickup_animation(int kind, int item);
+int rac1_pickup_background(void);
+int rac1_infobot_presentation(openrac_infobot_presentation* out);
+void rac1_pickup_tick(void);
 /* camera_script.c: the game's camera scripts for the mods (interface 1.14; play.c's table), and
  * what ends or shows one at the end of the tick's moby loop. */
 void rac1_camera_script_tick(void);

@@ -8,7 +8,8 @@ import type { Rac2PlanetState } from "./Rac2PlanetState";
  */
 export type Rac2SaveFields = { bolts: number, raritanium: number, 
 /**
- * Nanotech experience: the game raises the maximum health from it at each tick.
+ * Nanotech experience, in the units the game compares with its health table (the stored
+ * count >> 5): the game raises the maximum health from it at each tick.
  */
 nanotechXp: number, 
 /**
@@ -19,6 +20,20 @@ boosts: Array<boolean>,
  * The armour worn, 0 (none) to 4.
  */
 armor: number, 
+/**
+ * The item in Ratchet's hand (chunk 32, slot 0): a weapon's id, 0 for none (the game then
+ * gives him the Lancer at the level start).
+ */
+hand: number, 
+/**
+ * The pack on his back (chunk 32, slot 3): [`HELI_PACK`] or [`THRUSTER_PACK`] (0 when the
+ * game is to choose, another item while it has one on for the moment).
+ */
+pack: number, 
+/**
+ * Wearing the Charge Boots (progress +0x2C and chunk 32, slot 1).
+ */
+chargeBoots: boolean, 
 /**
  * The ship's paint job, 0 to 17.
  */

@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "../../common/lib/ui_quad.h"
+#include "../../common/lib/vendor_title.h"
 #include "openrac/host_env.h"
 #include "rac1.h"
 
@@ -80,13 +81,24 @@ static void hud_common(openrac_game_ui_rect* q, unsigned long long tex0, int alp
 
 /* Inside FontPrint: the quads drawn are glyphs of text. */
 static int g_glyphs = 0;
+static float g_vendor_title_scale = 1.0f;
 
 /* FontPrint: a string at (x, y) in colour, glyph by glyph through DrawTexturedQuad. */
 void func_001F6668(int x, int y, unsigned long long colour, gaddr text, int limit, long long texture,
                    gaddr glyphs) {
+    const float previous_scale = g_vendor_title_scale;
+    uint32_t mode = 0;
+    /* Only the title in the vendor's 128-pixel left monitor. */
+    g_vendor_title_scale = 1.0f;
+    if (x == 6 && y == 8 && glyphs == OPENRAC_DATA(RAC1_ADDR(0x001DF770u)) && openrac_game_mode
+        && openrac_game_mode(&mode) && mode == 5) {
+        g_vendor_title_scale =
+            openrac_vendor_title_scale((const uint8_t*)G(text), limit, (const int8_t*)G(glyphs));
+    }
     ++g_glyphs;
     func_001F6668__game(x, y, colour, text, limit, texture, glyphs);
     --g_glyphs;
+    g_vendor_title_scale = previous_scale;
 }
 
 /* DrawTexturedQuad: a w x h screen rectangle at (x, y) textured from (u, v) .. (u + uw, v + vh) of
@@ -94,6 +106,8 @@ void func_001F6668(int x, int y, unsigned long long colour, gaddr text, int limi
 void func_001F5800(int x, int y, int w, int h, int u, int v, int uw, int vh,
                    RAC1_TYPE_func_001F5800_u64 rgba_, RAC1_TYPE_func_001F5800_u64 tex_) {
     const unsigned long long rgba = (unsigned long long)rgba_, tex = (unsigned long long)tex_;
+    const float scale = g_glyphs > 0 ? g_vendor_title_scale : 1.0f;
+    const float left = 6 + (x - 6) * scale, top = 8 + (y - 8) * scale;
     if (skipped(RAC1_NAME(func_001F5800))) {
         func_001F5800__game(x, y, w, h, u, v, uw, vh, rgba, tex);
         return;
@@ -110,10 +124,10 @@ void func_001F5800(int x, int y, int w, int h, int u, int v, int uw, int vh,
     const int ofx = SCREEN_OFX, ofy = SCREEN_OFY;
     openrac_ui_rect(
         &q,
-        x * 16 + ofx - 8,
-        y * 16 + ofy - 8,
-        (x + w) * 16 + ofx - 8,
-        (y + h) * 16 + ofy - 8,
+        (int)(left * 16) + ofx - 8,
+        (int)(top * 16) + ofy - 8,
+        (int)((left + w * scale) * 16) + ofx - 8,
+        (int)((top + h * scale) * 16) + ofy - 8,
         u * 16,
         v * 16,
         (u + uw) * 16,

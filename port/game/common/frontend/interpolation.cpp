@@ -46,6 +46,7 @@
 #include "game/common/frontend/state.h"
 #include "mod_menu.h"
 #include "mod_overlay.h"
+#include "mods.h"
 #include "openrac/game_host.h"
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
@@ -110,7 +111,7 @@ double g_latency_slept = 0.0;
 // Vulkan jobs own their snapshots; mod views share the window thread and graphics queue.
 bool threaded_rendering() {
     static const bool requested = env::flag(env::Var::RenderThread);
-    return gl::is_vulkan() && requested && !views_wanted();
+    return gl::is_vulkan() && requested && !views_wanted() && !mods::vulkan_needs_game_thread();
 }
 
 // Returns the frames a second the frames between ticks are held to (the player's cap, or the
@@ -215,6 +216,22 @@ void swapped(std::chrono::steady_clock::time_point started) {
     }
     const auto swap_started = steady_clock::now();
     g->window->swap();
+    // In the background (another window has the focus, or the game is minimised), Windows'
+    // compositor stops pacing the swap: it returns at once, the frames run unbounded and take the
+    // whole machine's GPU and CPU with them. There the frames are held to the game's tick by a real
+    // sleep (never a spin), so the game keeps its speed and the rest of the system its frames.
+    {
+        static steady_clock::time_point last_background;
+        if (!g->window->focused() && pacing.period.count() > 0.0) {
+            const auto due = last_background + duration_cast<steady_clock::duration>(pacing.period);
+            if (due > steady_clock::now()) {
+                std::this_thread::sleep_until(due);
+            }
+            last_background = steady_clock::now();
+        } else {
+            last_background = {};
+        }
+    }
     profiling::frame();
     const auto after = steady_clock::now();
     renderer::ui::fps_counter::frame_drawn(

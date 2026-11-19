@@ -260,6 +260,12 @@ public:
     // round the screen) is stretched instead: its parts past the middle go out as the rest does.
     static constexpr std::uint64_t kHudSideMarker = 0x4853;
     static constexpr std::uint64_t kHudStretch = 1ull << 32;
+    // With kHudSplit instead, what is between the two markers parts at a line of its own (bits 34
+    // to 45, in the chip's pixels): left of it goes left and right of it right, each side as one
+    // block whose outer edge goes to the picture's edge (no further in than a small margin). Two
+    // panels the game draws side by side across the middle, which meet off it (Tabora's driving
+    // HUD: its health bar and its distance meter meet at 283 of 512), go apart whole.
+    static constexpr std::uint64_t kHudSplit = 1ull << 33;
     // What fills the sides of a target wider than the picture (a still picture's backdrop): from a
     // marker of the same form, kWholeMarker in the top 16 bits and 1 in the low bit, to one with 0
     // there, the draws stretch to the whole target, as a fade does, instead of keeping their shape
@@ -345,14 +351,16 @@ private:
     // The frame snapshot over the whole target (kFrameMarker).
     void draw_frame_snapshot();
     // What was drawn since the last marker out to its side, and the next stretch's width.
-    void hud_side(int side, bool stretch);
+    void hud_side(int side, bool stretch, int split);
     int m_hud_side = 0;
     bool m_hud_stretch = false;
+    int m_hud_split = -1;  // the split line in the chip's pixels, -1 for none
     std::uint32_t m_hud_side_first = 0;
     bool m_whole = false;    // between kWholeMarker's two markers
     bool m_picture = false;  // between kPictureMarker's two markers
     DirectVertex convert(const GsVertex& v) const;
     void screen_position(const GsVertex& v, float& x, float& y) const;
+    // Resolves the current sampling and draw state before grouping this primitive with earlier draws.
     void ensure_draw();
     const gs::Prim& attributes() const;
     const Context& context() const;
@@ -444,6 +452,9 @@ public:
 
     bool init(RenderState& state, std::string& error) override;
     void render(const FrameInput& input, RenderState& state) override;
+    void prepare(const FrameInput& input, RenderState& state) override;
+    bool reads_frame_depth() const override;
+    bool draws_nothing() const override;
     void release() override;
 
     // As a component of another renderer: feed packets, then flush() draws
@@ -467,6 +478,8 @@ public:
 private:
     const FrameInput* m_frame = nullptr;
     bool m_world_split = false;  // set_world_split, for the next render()
+    bool m_prepared = false;     // prepare() read this frame's packets; render() only draws
+    bool m_nothing = false;      // prepare() found nothing to draw
     void apply(const DirectState& state, RenderState& render_state);
     void draw(const DirectDraw& draw, RenderState& render_state);
     bool m_background = false;  // flush(): the part before the world

@@ -87,6 +87,9 @@ class Function:
     # parameter index -> the (callee, integer argument number) its value is only ever passed on to, unchanged
     # (forwarded_params); widen_forwarded makes such a parameter 64-bit where every one of them takes 64 bits
     forwards: dict = field(default_factory=dict)
+    # parameters its callers' declarations pass past the ones its definition names (params_from_declarations):
+    # registers the definition leaves untouched and passes on, appended to sig.params and to the definition
+    extra: tuple = ()
     widened: dict = field(default_factory=dict)  # parameter index -> the 64-bit type it was given
     # the functions whose result a `return` statement hands back as it is (returned_calls); widen_returns makes a
     # 32-bit result 64-bit where one of them is "returns_64"
@@ -99,6 +102,10 @@ class Function:
     # the names its definition uses that only the decompilation's build values (derived.DERIVED_NAME: a matched
     # function's `ref_L00_003ABEC0_00`), called, taken or read, its unit's static helpers' included (derived_uses)
     derived: tuple = ()
+
+
+# The primary's C under the release's name for a place (release.py: FUN_<place>, F<hash>_FUN_<place>).
+_TWIN = re.compile(r"^(?:F[0-9a-f]+_)?FUN_")
 
 
 @dataclass
@@ -115,6 +122,9 @@ class Program:
     symbols: dict[str, int] = field(default_factory=dict)  # other named globals -> address
     typedefs: dict[str, set] = field(default_factory=dict)  # name -> desugared type strings
     host: set = field(default_factory=set)  # functions the port writes by hand (port/game/<game>/)
+    # Another release's view of the primary's C: at one address, the release's own C answers before
+    # the primary's C under the release's name for that place (FUN_..., an F<hash>_FUN_...).
+    release_view: bool = False
     from_assembly: set = field(default_factory=set)  # C left out for C from the instructions (hostgen.json "from_assembly")
     wrap: set = field(default_factory=set)  # translated as <name>__game, called by a host <name>
     wrap_host: set = field(default_factory=set)  # with a `wrap` row: a hook point among them is <name>__hooked
@@ -337,7 +347,7 @@ class Program:
             # call through the address too, not whichever sorts first.
             own = self.canonical(sym)
             if own != sym and own in self.functions and prototype(self.functions[own], self.typedefs) is not None:
-                # Its other places are still its own (PAL v1's catalogue gives func_001F91A8 the
+                # Its other places are still its own (a release's catalogue can give func_001F91A8 the
                 # place of level 0's func_L00_001FEEC0 among its own): added below where free.
                 spare.append(sym)
                 continue
@@ -360,9 +370,15 @@ class Program:
             tables.setdefault(place[0], []).append((place[1], sym))
             taken.add(place)
         for entries in tables.values():
-            entries.sort()
+            entries.sort(key=self._table_order)
         self._code_tables = tables
         return tables
+
+    def _table_order(self, entry: tuple[int, str]) -> tuple:
+        """By address; in a release view the release's own function first (the runtime keeps the
+        first, guest.cpp), not whichever name sorts first."""
+        addr, sym = entry
+        return (addr, self.release_view and _TWIN.match(sym) is not None, sym)
 
     def places_without_function(self) -> list[str]:
         """The catalogue's places of functions with C that no table entry answers: a call through
@@ -419,6 +435,21 @@ class Program:
             # An uncached spelling of the address (func_80122B00, the double helpers L14 calls).
             return self.by_place.get((-1, address), f"func_{address:08X}")
         return own or sym
+
+    def level_short_miss(self, unit: str, sym: str, function: str = "") -> str | None:
+        """Level 0's function a six-digit name in a level's file would call when its own level has
+        no function there (canonical's fallback), or None. Such a name was copied from another
+        level: L06_0035EA68.c's func_2EEEB8 is FastVecAdd in level 17, but level 0's
+        quaternion_to_rotation_basis ran on Boldan's taxi and wrote over the level's paths."""
+        pattern = getattr(self, "level_short_names", None)
+        m = pattern.match(sym) if pattern else None
+        if m is None or not self.bare_names_in_level_0:
+            return None
+        found = _UNIT_LEVEL.search(unit) or _LEVEL_NAME.match(function)
+        address = int(m.group("addr"), 16)
+        if found is None or address in self.executable_starts or self.by_place.get((int(found.group(1)), address)):
+            return None
+        return self.by_place.get((0, address))
 
     def canonical(self, symbol: str) -> str:
         """The symbol with C at the same place as symbol, or symbol: the port's own function
@@ -651,6 +682,51 @@ def int_params(sig: Signature, typedefs: dict | None) -> list[tuple[int, str | N
     return out
 
 
+def params_from_declarations(program: Program) -> list[str]:
+    """hostgen.json "params_from_declarations": a definition that names fewer parameters than its callers'
+    declarations pass. Matching C may leave out an argument it only hands on to a call (the register keeps the
+    caller's value: Going Commando's func_003361E0(o) calls func_00335FC8(o, text, arg) with its callers' text and
+    arg). The longest such declaration's extra parameters are added to the signature (what callers are matched to)
+    and to the definition (lower.py), so the definition's own short calls pass them through (lower.py's
+    passthrough). Only where the declaration agrees with the definition on which of the shared parameters are
+    floats, and every extra one is a scalar. Not for the port's own host or wrapped functions. Returns
+    "symbol: n parameter(s)" of each one."""
+    changed = []
+    for f in program.functions.values():
+        listed = f.symbol in getattr(program, "extra_params", {})
+        if (f.unit is None or f.asm or f.static or f.symbol in program.host or f.symbol in program.wrap
+                or (f.symbol in getattr(program, "host_called", ()) and not listed)
+                or not (f.sig.prototyped or listed) or f.sig.variadic):
+            continue
+        n = len(f.sig.params)
+
+        def kind(t):
+            c = canon(t, program.typedefs)
+            return None if c is None else ("f" if c in ("float", "double", "long double") else "i")
+        own = [kind(t) for t in f.sig.params]
+        best = None
+        declared = list(f.declared)
+        listed = getattr(program, "extra_params", {}).get(f.symbol)
+        if listed:
+            # hostgen.json "extra_params": what its callers pass, where no declaration says it.
+            declared.append(Signature(f.sig.ret, f.sig.params + tuple(ctype.parse(x) for x in listed), False, True))
+        for d in declared:
+            if not d.prototyped or d.variadic or len(d.params) <= n:
+                continue
+            if [kind(t) for t in d.params[:n]] != own:
+                continue
+            if any(kind(t) is None for t in d.params[n:]):
+                continue
+            if best is None or len(d.params) > len(best.params):
+                best = d
+        if best is None:
+            continue
+        f.extra = tuple(best.params[n:])
+        f.sig = Signature(f.sig.ret, f.sig.params + f.extra, False, True)
+        changed.append(f"{f.symbol}: {len(f.extra)} parameter(s)")
+    return changed
+
+
 def widen_forwarded(program: Program) -> list[str]:
     """A parameter that a definition only passes on unchanged (forwarded_params) to callees whose parameter there is
     64-bit takes 64 bits itself: on the EE the register reaches the callee with all its bits, whatever type the C
@@ -802,6 +878,8 @@ def derived_resolves(program: Program, name: str, unit: str | None = None) -> bo
     f = program.functions.get(name)
     if f is not None and (f.unit is not None or name in program.host):
         return True
+    if any(name in names for names in program.level_data.values()):
+        return True  # a datum only the levels' builds place (lower.py _level_only_data)
     return bool(program.data_address(name) is not None or program.code_places(name))
 
 

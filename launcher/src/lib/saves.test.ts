@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { backupLabel, emptySlots, newestSave, savedSeconds, stampSeconds } from "./saves";
 
 describe("emptySlots", () => {
@@ -12,7 +13,9 @@ describe("emptySlots", () => {
 
 describe("stampSeconds", () => {
   it("reads the core's save time as local time", () => {
-    expect(stampSeconds("2026-10-09 17:01:21")).toBe(new Date(2026, 9, 9, 17, 1, 21).getTime() / 1000);
+    expect(stampSeconds("2026-10-09 17:01:21")).toBe(
+      new Date(2026, 9, 9, 17, 1, 21).getTime() / 1000,
+    );
   });
 
   it("gives null for what it cannot read", () => {
@@ -33,6 +36,7 @@ describe("backupLabel", () => {
 describe("savedSeconds", () => {
   it("takes the game's clock first, else the file's time", () => {
     const stamp = new Date(2026, 9, 9, 17, 1, 21).getTime() / 1000;
+
     expect(savedSeconds({ timestamp: "2026-10-09 17:01:21", modifiedMillis: 1 })).toBe(stamp);
     expect(savedSeconds({ timestamp: null, modifiedMillis: 5_500 })).toBe(5);
     expect(savedSeconds({ timestamp: null, modifiedMillis: null })).toBeNull();
@@ -40,7 +44,12 @@ describe("savedSeconds", () => {
 });
 
 describe("newestSave", () => {
-  const slot = (slotIndex: number, timestamp: string | null, modifiedMillis: number | null, used = true) => ({
+  const slot = (
+    slotIndex: number,
+    timestamp: string | null,
+    modifiedMillis: number | null,
+    used = true,
+  ) => ({
     slotIndex,
     exists: used,
     isEmpty: !used,
@@ -54,6 +63,7 @@ describe("newestSave", () => {
       slot(1, "2026-10-05 10:00:00", 1_000),
       slot(2, "2026-12-01 10:00:00", null, false),
     ];
+
     expect(newestSave(slots)?.slotIndex).toBe(1);
   });
 

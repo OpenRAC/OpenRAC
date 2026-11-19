@@ -3,18 +3,19 @@
   // the facts about it. Develop's left list chooses the version; playing stays on the game's page,
   // and nothing chosen here changes what Play starts.
   import {
-    api,
-    onAndroid,
     type ActionArea,
     type ActionKind,
+    api,
     type DiscState,
     type GameView,
+    onAndroid,
     type VersionView,
   } from "$lib/api";
   import { app, guard } from "$lib/app.svelte";
   import { grouped, matchedLine, pct, size } from "$lib/format";
   import { DISC, INPUT, regionLabel } from "$lib/labels";
   import { themeStyle } from "$lib/themes";
+
   import ActionRow from "./ActionRow.svelte";
   import CountUp from "./CountUp.svelte";
   import Icon from "./Icon.svelte";
@@ -25,10 +26,14 @@
   const ORDER: ActionKind[] = ["setup", "build", "check", "play", "edit"];
   const scope = $derived({ kind: "version" as const, key: v.key });
   const here = $derived(
-    v.actions.filter((a) => a.thisPlatform).toSorted((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind)),
+    v.actions
+      .filter((a) => a.thisPlatform)
+      .toSorted((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind)),
   );
   // Android runs none of the others (no shell, Python or compiler there): they are not listed.
-  const elsewhere = $derived(onAndroid ? [] : v.actions.filter((a) => !a.thisPlatform && a.area !== "port"));
+  const elsewhere = $derived(
+    onAndroid ? [] : v.actions.filter((a) => !a.thisPlatform && a.area !== "port"),
+  );
   const editor = $derived(here.filter((a) => a.area === "editor"));
   // Editing itself is under Mods; here, the editor's checks and what is not connected.
   const canEdit = $derived(editor.some((a) => a.kind === "edit" && a.state !== "planned"));
@@ -81,10 +86,13 @@
           <span class={`pill ${DISC[v.status.disc.state].tone}`}
             ><span class="dot"></span>{DISC[v.status.disc.state].text}</span
           >
-          {#if plays}<span class="pill ok"><span class="dot"></span>Set up from this disc</span>{/if}
+          {#if plays}<span class="pill ok"><span class="dot"></span>Set up from this disc</span
+            >{/if}
         </div>
       </div>
-      {#if v.progress}<span class="percent"><CountUp value={v.progress.percent} format={pct} /></span>{/if}
+      {#if v.progress}<span class="percent"
+          ><CountUp value={v.progress.percent} format={pct} /></span
+        >{/if}
     </div>
     {#if v.progress}
       <ProgressBar
@@ -102,8 +110,9 @@
       {#if v.progress.functional}
         <!-- Not progress: C that behaves like retail without matching its bytes (ByteMatch's line under the Code bar). -->
         <p class="count functional">
-          Functional C: {pct(v.progress.functional.percent)} of the code · {grouped(v.progress.functional.functions)} functions,
-          not counted as matched
+          Functional C: {pct(v.progress.functional.percent)} of the code · {grouped(
+            v.progress.functional.functions,
+          )} functions, not counted as matched
         </p>
       {/if}
     {:else}
@@ -117,12 +126,16 @@
         <div class="row">
           <h3 class="grow">{group.title}</h3>
           {#if group.area === "editor" && canEdit}
-            <button class="small" onclick={() => (app.page = "mods")}><Icon name="edit" size={14} />Open Mods</button>
+            <button class="small" onclick={() => (app.page = "mods")}
+              ><Icon name="edit" size={14} />Open Mods</button
+            >
           {/if}
         </div>
         {#if group.area === "editor"}
           <p class="blurb">
-            {canEdit ? "Extracting, editing and packing levels is under Mods." : "Not connected for this version yet."}
+            {canEdit
+              ? "Extracting, editing and packing levels is under Mods."
+              : "Not connected for this version yet."}
           </p>
         {:else if group.blurb}
           <p class="blurb">{group.blurb}</p>
@@ -158,7 +171,8 @@
       <dl class="files">
         <dt>Disc image</dt>
         <dd class="mono clip" title={v.disc?.file ?? ""}>
-          {v.disc?.file ?? "–"}{#if v.disc?.size}<span class="dim after">· {size(v.disc.size)}</span>{/if}
+          {v.disc?.file ?? "–"}{#if v.disc?.size}<span class="dim after">· {size(v.disc.size)}</span
+            >{/if}
         </dd>
         <dd class={`mark ${DISC[v.status.disc.state].tone}`} title={v.status.disc.message}>
           {v.status.disc.state === "found" ? "✓" : "!"}
@@ -194,7 +208,8 @@
         {@const repo = v.source.repo}
         <dt>From</dt>
         <dd>
-          <button class="link" onclick={() => void guard(api.openUrl(repo))}>{v.source.name}</button>
+          <button class="link" onclick={() => void guard(api.openUrl(repo))}>{v.source.name}</button
+          >
           {#if v.source.commit}<span class="mono dim">@{v.source.commit.slice(0, 7)}</span>{/if}
           {#if v.source.date}<span class="dim">· {v.source.date}</span>{/if}
         </dd>
@@ -208,7 +223,9 @@
     </dl>
     {#if v.readme}
       {@const readme = v.readme}
-      <button onclick={() => void guard(api.openPath(readme))}><Icon name="book" size={16} />README</button>
+      <button onclick={() => void guard(api.openPath(readme))}
+        ><Icon name="book" size={16} />README</button
+      >
     {/if}
   </details>
 </div>

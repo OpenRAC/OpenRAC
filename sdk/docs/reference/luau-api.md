@@ -207,6 +207,38 @@ rac1.weapon.take_ammo (Weapon_TakeAmmo) i32(i32,i32): Takes amount of ammo from 
 type Weapon_TakeAmmoFn = (item: number, amount: number) -> number
 ```
 
+### `Weapon_Blaster_PickTargetFn`
+
+rac1.weapon.blaster.pick_target (Weapon_Blaster_PickTarget) u32(i32,u32,u32,u32): Chooses the Blaster's auto-aim target for a shot from from (select_blaster_auto_aim_target; from a Vec4, yaw and pitch f32s, all addresses): the nearest targetable creature (Moby flags 0x1000) within 20 units whose aim point is within about 9 degrees of the heading yaw/pitch and in sight from the camera and from from (ignore: the moby the sight test passes over). Writes the pitch toward it, and the yaw when within 10 degrees, and returns it; 0 for none.
+
+```lua
+type Weapon_Blaster_PickTargetFn = (ignore: number, from: number, yaw: number, pitch: number) -> number
+```
+
+### `Weapon_Ryno_PickTargetFn`
+
+rac1.weapon.ryno.pick_target (Weapon_Ryno_PickTarget) u32(u32,u32,u32,f32,f32,f32): Chooses a R.Y.N.O. missile's target (select_ryno_target): the creature with a target record, of class type 5, within max_distance across of pos (a Vec4 address) and max_yaw / max_pitch of the aim angles (aim, f32s at +4 pitch and +8 yaw), the best by angle and distance, in sight; skip is the seven mobys the salvo has already (0: only the ones drawn last frame). Returns the moby, 0 for none.
+
+```lua
+type Weapon_Ryno_PickTargetFn = (pos: number, aim: number, skip: number, max_yaw: number, max_pitch: number, max_distance: number) -> number
+```
+
+### `Weapon_GoldDevastator_PickTargetFn`
+
+rac1.weapon.gold_devastator.pick_target (Weapon_GoldDevastator_PickTarget) void(u32,u32,u32): Chooses the gold Devastator missile's target (select_gold_devastator_missile_target): the creature within 40 units of the missile nearest its heading, in a cone that widens with the weapon's level, in sight, not skip; writes it into the missile's data (data, its pvars).
+
+```lua
+type Weapon_GoldDevastator_PickTargetFn = (missile: number, data: number, skip: number) -> ()
+```
+
+### `Weapon_Drone_PickTargetFn`
+
+rac1.weapon.drone.pick_target (Weapon_Drone_PickTarget) u32(u32,u32): Chooses a drone's target (select_nearest_drone_target): the nearest moby of class type 5, 7 or 8 to from (a Vec4 address), within 4, 5.3 or 6 units by type, not one of the nine in skip, not held by the Suck Cannon. Returns the moby, 0 for none.
+
+```lua
+type Weapon_Drone_PickTargetFn = (from: number, skip: number) -> number
+```
+
 ### `Moby_RecordDeathFn`
 
 rac1.moby.record_death (Moby_RecordDeath) void(u32,i32,i32): Records a placed moby's death or a crate's break (SetDeathBits): its save id's killed bits (none for a save id below 0), its mission, then drops its bolts: about the s16 at +0xB4 (or what a tallied source has left of +0xB6), which it then clears.
@@ -501,6 +533,86 @@ rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts 
 
 ```lua
 type GoldBolts_CountUnspentFn = () -> number
+```
+
+### `Vendor_DrawIconStripFn`
+
+rac1.vendor.icon_strip.draw (Vendor_DrawIconStrip) void(): Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+
+```lua
+type Vendor_DrawIconStripFn = () -> ()
+```
+
+### `Vendor_DrawDetailsFn`
+
+rac1.vendor.draw_details (Vendor_DrawDetails) void(): Draws the vendor selected-item name and price panel.
+
+```lua
+type Vendor_DrawDetailsFn = () -> ()
+```
+
+### `UI_IconFrameFn`
+
+rac1.ui.icon_frame (UI_IconFrame) i32(i32,i32): Resolves an icon and animation frame to its HUD sprite frame.
+
+```lua
+type UI_IconFrameFn = (icon: number, frame: number) -> number
+```
+
+### `NPC_TryDialogFn`
+
+rac1.npc.try_dialog (NPC_TryDialog) i32(u32,u32): Tests an NPC interaction request; identifies the owner of a purchase dialogue.
+
+```lua
+type NPC_TryDialogFn = (moby: number, request: number) -> number
+```
+
+### `UI_DrawSpriteFn`
+
+rac1.ui.sprite.draw (UI_DrawSprite) void(i32,i32,i32,i32,i32,i32): Draws a HUD sprite as one packed GIF packet.
+
+```lua
+type UI_DrawSpriteFn = (frame: number, x: number, y: number, width: number, height: number, alpha: number) -> ()
+```
+
+### `Pickup_StartSceneFn`
+
+rac1.pickup.start_scene (Pickup_StartScene) void(i32): Reward acquisition presentation.
+
+```lua
+type Pickup_StartSceneFn = (scene: number) -> ()
+```
+
+### `GoldCase_StartDemoFn`
+
+rac1.gold_case.start_demo (GoldCase_StartDemo) void(u32,i32): Reward acquisition presentation.
+
+```lua
+type GoldCase_StartDemoFn = (moby: number, item: number) -> ()
+```
+
+### `Hero_EnterMoveStateFn`
+
+rac1.player.enter_move_state (Hero_EnterMoveState) i32(i32,i32): Puts the hero into a move state (+0x2084): HeroEnterMoveState in levels 0, 4, 7, 9, 10 and 13, and each other level's own copy of it (hero_set_state), one hook point. It keeps the states before it, clears the item locks (+0x20AC, and +0x20A7 when he is not in a vehicle), sets up the new state's control mode and motion, and starts its animation when force is non-zero. It refuses the change and returns 0 while the hero is dying or in a cutscene, unless force is 2, and for most states while he falls or is hurt with no health left; else it returns 1, or 0 where it passes him on to another state. Every change of his state goes through it: his update, his items, and the mobys and triggers that move him. A replacement can send him to another state by calling the original with that state (0x3F is the slow magnet walk on magnetic ground). Under a multiplayer stand-in the port's guard (hero_grab.c) takes the call first, and a mod does not see it.
+
+```lua
+type Hero_EnterMoveStateFn = (state: number, force: number) -> number
+```
+
+### `Hero_ResolveGravityModeFn`
+
+rac1.player.resolve_gravity_mode (Hero_ResolveGravityMode) i32(): The hero's gravity mode for the tick, which Hero_UpdateMotionInput stores at +0x20B3 as it starts: 0 pulls him along the world's down, 1 along the ground's normal (magnetic ground), 2 along the vector at +0x290. It returns +0x308, which the ground's update sets to 1 on magnetic ground with the Magneboots, but 1 in states 0x3F (the magnet walk), 0x70 and 0x71, and in state 0 on magnetic ground with the Magneboots while he has been in the air for under 4 ticks. Once a tick, in every level.
+
+```lua
+type Hero_ResolveGravityModeFn = () -> number
+```
+
+### `Hero_UpdateEquippedItemsFn`
+
+rac1.player.update_equipped_items (Hero_UpdateEquippedItems) void(): What the hero holds, once a tick from Hero_Update in every level: it locks item selection and use (+0x20A7, +0x20AC) while he is on magnetic ground with the Magneboots (+0x308 is 1), in control modes 0x15 and 0x16, or in water or dying, then spawns, updates, animates and lights the item mobys and runs the items (hero_update_items). Hero_EnterMoveState clears both locks on a change of state.
+
+```lua
+type Hero_UpdateEquippedItemsFn = () -> ()
 ```
 
 ### `MobyUpdateFn`

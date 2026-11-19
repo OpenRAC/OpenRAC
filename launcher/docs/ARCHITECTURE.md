@@ -169,6 +169,7 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `open_saves_folder`                                                                                | `{serial}`                                                                         | opens the game's memory card folder, made if it is not there                                                                                                                |
 | `export_saves`                                                                                     | `{serial, slot}` (null: all)                                                       | an OpenRAC saves file (`core/src/save_transfer.rs`) where the player chooses; `{saved, slots}`                                                                              |
 | `preview_save_import` / `import_saves`                                                             | `{serial, source}` / `{serial, source, choice}`                                    | what a saves file holds (`SaveImportPreview`); imports it after a backup, replacing or merging slots                                                                        |
+| `save_copy_sources` / `preview_save_copy` / `copy_saves`                                           | `{serial}` / `{from, serial}` / `{from, serial, choice}`                           | the game's other discs with saves (`SaveCopySource`); what copying one's saves would do (`SaveImportPreview`); the copy, after a backup                                     |
 | `read_save`                                                                                        | `{serial, slot}`                                                                   | one slot for the save editor (`core/src/save_edit.rs`, `SaveView`)                                                                                                          |
 | `write_save`                                                                                       | `{serial, slot, fingerprint, change}`                                              | writes the editor's fields or raw chunks, safely (below); the backup and the slot as it now is                                                                              |
 | `reports_list`                                                                                     | `{game}`                                                                           | the game's session logs and crash reports, newest first (`core/src/reports.rs`)                                                                                             |
@@ -467,11 +468,28 @@ separator, drive, or a name Windows refuses). It is refused while the game
 runs with the card, as a restore is. Then it backs the card up
 (`.backup_<time>_before_import`), and either **replaces** (each of the file's
 save folders becomes the file's) or **merges**: only the ticked slots are
-written, with their `.mods` mark (a slot without one loses the card's old
-mark), and the folder's other files only where the card has none. A folder on
+written, with the files beside them (the `.mods` mark and the mods' `.moddata`:
+a slot without one loses the card's old one), and the folder's other files
+only where the card has none. A folder on
 the card in another case takes the file's name. Each file is written beside
 its place and renamed into it. The dialog ticks at first only the slots that
 land in an empty one, and says what each ticked slot replaces.
+
+**Copy from PAL** (or another disc) on the Saves panel does the same from the
+card of another disc of the game instead of a file. Each disc has its own card
+(`memcard/<serial>/`), so a game built from the US disc does not see the saves
+made with the PAL one, though both write the same file: every Ratchet &
+Clank disc (PAL, US, Japan) lists the same chunks (`core/src/save_edit.rs`),
+and Going Commando's US and PAL discs too (`save_edit_rac2.rs`); the saves
+hold no language or 50/60 Hz setting. `save_transfer::SAME_SAVES` lists those
+discs. The button shows when one of them has saves (`save_copy_sources`);
+`preview_save_copy` and `copy_saves` take the other card's save folder,
+renamed to this disc's (`BESCES-50916RATCHET` becomes `BASCUS-97199RATCHET`:
+`card_folder_name`, after the games' own `func_00298BB8`), the folder's
+reserved file named after it renamed too, and write it as an import does,
+after a backup (`before copy from PAL`). A card without the game's folder
+takes the other folder whole, whatever was ticked: Going Commando counts its
+folder's files and takes a folder with fewer for none at all.
 
 ## Security
 
@@ -512,7 +530,15 @@ launch options a player types: the version the game's page plays, that is the
 developer's disc choice, else the disc set up, else the game's first;
 `disc_choice::played_version`), starts a game as its Play button does, with no window:
 `library::direct_play` plans the game's first `play` action (data folder, mods,
-build checks), and a play that asks for confirmation is not started unseen. If
+build checks), and a play that asks for confirmation is not started unseen.
+`--update-mods` beside it first puts in the updates the Play button puts in by
+itself (Settings has them on): the signed mod list is waited for at most 20 s,
+then the updates that go in silently are let finish before the game starts, so
+it never starts on a half-changed folder. Majors and new hooks still wait for a
+click on the Mods tab, and the launcher log says what went in and what waits.
+The page knows nothing of a shortcut's game (it is no job of its), so its own
+updates wait while a shortcut start updates or its game runs, and a run of
+updates, the page's or a start's, is one at a time. If
 it cannot start, the window opens on that game. An open launcher gets the
 argument through single instance and starts the game itself; otherwise the
 launcher hides its window and ends with the game. A game's page offers Add to

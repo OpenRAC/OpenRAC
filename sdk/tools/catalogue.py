@@ -180,7 +180,7 @@ def load() -> Inputs:
     hand = {cols[0]: _rel(PAL / "hand" / cols[1].strip())
             for cols in _table(_read(PAL / "hand" / "hand.tsv")) if len(cols) >= 2}
     extra = [(p, _read(REPO / p)) for p in sorted(set(candidates.values()) | set(hand.values()))]
-    no_c = {cols[0]: cols[3].strip() for cols in _table(_read(PAL / "no_c.tsv")) if len(cols) >= 4 and cols[0] != "name"}
+    no_c = {cols[0]: cols[3].strip() for cols in _table(_read(PAL / "checks" / "no_c.tsv")) if len(cols) >= 4 and cols[0] != "name"}
     api = {}
     for cols in _table(_read(EDITOR / "engine_helpers.tsv")):
         if len(cols) >= 3 and cols[0] == "func":
@@ -192,7 +192,7 @@ def load() -> Inputs:
         names_h=names_h_symbols(inc / "names.h"), sources=sources, candidates=candidates, hand=hand,
         extra_sources=extra, no_c=no_c,
         libraries_pal=_read(PAL / "libraries.tsv"), libraries_ntsc=_read(NTSC / "libraries.tsv"),
-        split_places=_read(PAL / "split_places.tsv"),
+        split_places=_read(PAL / "tables" / "split_places.tsv"),
         headers=[(_rel(inc / h), _read(inc / h)) for h in TYPE_HEADERS if (inc / h).is_file()],
         pvars_header=(_rel(inc / PVARS_HEADER), _read(inc / PVARS_HEADER)),
         class_names=names, api=api, sdk_header=_read(SDK_HEADER))
@@ -731,7 +731,7 @@ def render_md(cat: dict) -> str:
         "every place the function has, in every level whose program carries its code",
         "(config/overlays/functions.tsv), so one row makes one hook point for all those levels, and the",
         "moby loop's calls through `moby->update` reach it as direct calls do. Places that",
-        "port/game/rac1-pal/split_places.tsv gives to a variant are another function and are not covered",
+        "port/game/rac1-pal/tables/split_places.tsv gives to a variant are another function and are not covered",
         "(the `covers` text says which). A hook point is per disc: rac1-ntsc needs its own row, with the",
         "NTSC decomp's symbol for the function, under the same name.",
         "",

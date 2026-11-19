@@ -56,6 +56,10 @@
 #define HERO_MOBY (HERO + 0x2080u)
 #define HERO_STATE (HERO + 0x2084u)
 #define HERO_HEALTH (HERO + 0x22A8u)
+/* His item slots (figure_items.h): each a piece's moby and a second part's. */
+#define HERO_PIECES (HERO + 0x1090u)
+#define HERO_PIECE_SIZE 0x50u
+#define HERO_PIECE_SLOTS 7
 #define BOLTS RAC1_ADDR(0x0015EE98u)
 /* The camera's position (the renderer's, render_native.c). */
 #define CAMERA_POSITION RAC1_ADDR(0x00187180u)
@@ -349,13 +353,75 @@ void rac1_world_moby_kill(gaddr moby) {
     }
 }
 
+/* The pieces in the hero's item slots a mod hid, by slot and part (0: none), and the load they are
+ * of. update_hero_item_moby_flags shows every piece of his each tick, before the draw, and hides
+ * the hand's only for the game's own reasons; the wrap below hides these again after it. */
+static gaddr held_hidden[HERO_PIECE_SLOTS * 2];
+static int16_t held_hidden_class[HERO_PIECE_SLOTS * 2]; /* its class then */
+static uint32_t held_hidden_load;
+
+static int held_piece(gaddr moby) {
+    for (int i = 0; i < HERO_PIECE_SLOTS * 2; ++i) {
+        if (GREF(gaddr, HERO_PIECES + HERO_PIECE_SIZE * (uint32_t)(i / 2) + 4u * (uint32_t)(i % 2))
+            == moby) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 void rac1_world_moby_hide(gaddr moby, int hidden) {
-    if (moby == 0 || GREF(uint8_t, moby + MOBY_STATE) >= 0x80) {
+    if (moby == 0) {
+        return;
+    }
+    if (!hidden) {
+        /* Shown again: forgotten wherever it was hidden, held now or not (a piece put away before
+         * the mod showed it again, whose address the next piece in its slot may take). */
+        for (int i = 0; i < HERO_PIECE_SLOTS * 2; ++i) {
+            if (held_hidden[i] == moby) {
+                held_hidden[i] = 0;
+            }
+        }
+    }
+    if (GREF(uint8_t, moby + MOBY_STATE) >= 0x80) {
         return;
     }
     const uint16_t mode = GREF(uint16_t, moby + MOBY_MODE);
     GREF(uint16_t, moby + MOBY_MODE) =
         (uint16_t)(hidden ? mode | 0x1u : mode & (uint16_t)~MODE_HIDDEN);
+    const int piece = in_level() && main_context() ? held_piece(moby) : -1;
+    if (piece >= 0) {
+        if (held_hidden_load != rac1_moby_generation()) {
+            memset(held_hidden, 0, sizeof held_hidden);
+            held_hidden_load = rac1_moby_generation();
+        }
+        held_hidden[piece] = hidden ? moby : 0;
+        held_hidden_class[piece] = GREF(int16_t, moby + MOBY_OCLASS);
+    }
+}
+
+/* update_hero_item_moby_flags (libraries.tsv, wrap): the game's, then the pieces a mod hid hidden
+ * again, while each is still in the slot it was hidden in. One that left its slot (put away, gone,
+ * or another item's piece made at its address) is forgotten: the game makes the next item's pieces
+ * at the same addresses, which stayed hidden (the wrench, then every weapon, flickering) until the
+ * mod showed the old piece again. A piece taken out again is shown, unless the mod hides it again. */
+void func_L00_00233950(void) {
+    func_L00_00233950__game();
+    if (held_hidden_load != rac1_moby_generation()) {
+        return;
+    }
+    for (int i = 0; i < HERO_PIECE_SLOTS * 2; ++i) {
+        const gaddr m = held_hidden[i];
+        if (m == 0) {
+            continue;
+        }
+        if (held_piece(m) != i || GREF(uint8_t, m + MOBY_STATE) >= 0x80
+            || GREF(int16_t, m + MOBY_OCLASS) != held_hidden_class[i]) {
+            held_hidden[i] = 0;
+            continue;
+        }
+        GREF(uint16_t, m + MOBY_MODE) |= 0x1u;
+    }
 }
 
 /* DeleteMoby: the game's, its slot's deletion noted first (whose update deletes it, or a mod), for

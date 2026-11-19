@@ -3,6 +3,9 @@
 // shortcut is Linux's.
 import type { Platform } from "./generated/Platform";
 
-export function shortcutOptions(platform: Platform | undefined): { steam: boolean; desktop: boolean } {
+export function shortcutOptions(platform: Platform | undefined): {
+  steam: boolean;
+  desktop: boolean;
+} {
   return { steam: platform === "linux" || platform === "windows", desktop: platform === "linux" };
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import keysH from "../../../sdk/include/openrac/keys.h?raw";
 import type { PluginSetting } from "./api";
 import {
@@ -28,6 +29,7 @@ const bind = (key: string, value: string, over: Partial<PluginSetting> = {}): Pl
 describe("bind names", () => {
   it("are keys.h's, in its order", () => {
     const names = [...keysH.matchAll(/\{"([A-Za-z0-9]+)", /g)].map((m) => m[1]);
+
     expect(BIND_NAMES).toEqual(names);
   });
 

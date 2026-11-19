@@ -18,6 +18,13 @@ gaddr openrac_lib_memcpy(gaddr dst, gaddr src, unsigned int n) {
     return dst;
 }
 
+/* memchr */
+gaddr openrac_lib_memchr(gaddr s, int c, unsigned int n) {
+    const unsigned char* host = (const unsigned char*)G(s);
+    const void* at = memchr(host, c & 0xFF, n);
+    return at == NULL ? 0 : s + (gaddr)((const unsigned char*)at - host);
+}
+
 /* memset */
 gaddr openrac_lib_memset(gaddr dst, int c, unsigned int n) {
     memset(G(dst), c, n);
@@ -79,6 +86,23 @@ unsigned long long openrac_lib___udivdi3(unsigned long long a, unsigned long lon
 
 unsigned long long openrac_lib___umoddi3(unsigned long long a, unsigned long long b) {
     return b ? a % b : a;
+}
+
+/* __divdi3, __moddi3: 64-bit signed division (libgcc's: the magnitudes divided as
+ * __udivdi3 does, the quotient negated when the signs differ, the remainder given
+ * the dividend's sign; -2^63 / -1 is -2^63). A zero divisor goes as in __udivdi3. */
+long long openrac_lib___divdi3(long long a, long long b) {
+    unsigned long long u = a < 0 ? 0ull - (unsigned long long)a : (unsigned long long)a;
+    unsigned long long v = b < 0 ? 0ull - (unsigned long long)b : (unsigned long long)b;
+    unsigned long long w = openrac_lib___udivdi3(u, v);
+    return (long long)((a < 0) != (b < 0) ? 0ull - w : w);
+}
+
+long long openrac_lib___moddi3(long long a, long long b) {
+    unsigned long long u = a < 0 ? 0ull - (unsigned long long)a : (unsigned long long)a;
+    unsigned long long v = b < 0 ? 0ull - (unsigned long long)b : (unsigned long long)b;
+    unsigned long long w = openrac_lib___umoddi3(u, v);
+    return (long long)(a < 0 ? 0ull - w : w);
 }
 
 /* __fixunsdfdi: a double to an unsigned 64-bit integer (libgcc's soft-float

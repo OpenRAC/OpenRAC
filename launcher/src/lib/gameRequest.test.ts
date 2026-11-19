@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { startGameRequests } from "./gameRequest";
 import { shortcutOptions } from "./shortcuts";
 
@@ -11,9 +12,11 @@ describe("game requests", () => {
       startupGame: () => Promise.resolve("rac1/pal"),
       onOpenGame: (handler) => {
         send = handler;
+
         return Promise.resolve(stop);
       },
     });
+
     send("rac2/ntsc");
     expect(opened).toEqual(["rac1/pal", "rac2/ntsc"]);
     expect(off).toBe(stop);
@@ -25,6 +28,7 @@ describe("game requests", () => {
       startupGame,
       onOpenGame: () => Promise.resolve(() => undefined),
     });
+
     await startGameRequests(
       (key) => opened.push(key),
       source(() => Promise.resolve(null)),

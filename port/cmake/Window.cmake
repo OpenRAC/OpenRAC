@@ -815,6 +815,7 @@ target_link_libraries(hero_shadow_test PRIVATE openrac_viewer_lib openrac_platfo
 openrac_warnings(hero_shadow_test)
 add_test(NAME hero_shadow_cpu COMMAND hero_shadow_test)
 openrac_add_test(moby_shadow LIBS openrac_scene)
+openrac_add_test(moby_key_gap LIBS openrac_scene)
 openrac_add_test(hero_attachments SOURCES tests/hero_attachments_test.cpp
   game/rac1/host/hero_attachments.c INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}")
 openrac_add_test(hero_shadow_rig INCLUDES . game/common/include runtime/include)
@@ -864,6 +865,11 @@ openrac_add_test(camera_debug SOURCES tests/camera_debug_test.cpp
 # programs compile them through cmake/Games.cmake's glob.
 openrac_add_test(frontend_geometry SOURCES tests/frontend_geometry_test.cpp
                  game/common/frontend/geometry.cpp INCLUDES .)
+  openrac_add_test(effect_attachment SOURCES tests/effect_attachment_test.cpp
+                   game/common/frontend/effect_attachment.cpp game/common/frontend/geometry.cpp
+                   INCLUDES . runtime/include)
+openrac_add_test(scenery_capture SOURCES tests/scenery_capture_test.cpp
+                 game/common/frontend/scenery_capture.cpp INCLUDES . runtime/include)
 openrac_add_test(frontend_pacing SOURCES tests/frontend_pacing_test.cpp
                  game/common/frontend/pacing.cpp INCLUDES .)
 openrac_add_test(frame_limiter SOURCES tests/frame_limiter_test.cpp
@@ -963,7 +969,10 @@ if(OPENRAC_METAL)
     "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1")
 endif()
 
+# A mod's moby material packed beside the shine distance, read back as mesh.vert reads it.
+openrac_add_test(moby_material_pack LIBS openrac_scene)
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
+openrac_add_test(preview_animation LIBS openrac_scene)
 add_executable(viewer_test tests/viewer_test.cpp)
 if(OPENRAC_VULKAN)
   target_compile_definitions(viewer_test PRIVATE OPENRAC_VULKAN=1)
@@ -1187,7 +1196,7 @@ add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
 set_property(TEST water_bake APPEND PROPERTY LABELS baker)
 
 add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c
-  game/rac1/host/water.c)
+  game/rac1/host/water.c game/rac1/host/water_surfaces.c)
 target_include_directories(water_host_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" enhanced/tests/water_host_stubs
   game/rac1-ntsc/host game/common/include runtime/include)
 openrac_warnings(water_host_test)

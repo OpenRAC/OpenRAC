@@ -312,6 +312,12 @@ inline std::uint64_t commands_recorded(const SubmissionCounters& counters) {
 // Until the first call no pipeline counts there.
 void begin_pipeline_warmup(std::uint32_t frames);
 
+// Ends the open pass drawing into `framebuffer`'s multisampled colour with that colour resolved
+// into `resolve_framebuffer`'s and the samples not stored (a tiled GPU then writes out only the
+// resolve). False, with nothing done, when no such pass is open or it cannot resolve in the pass;
+// the samples are undefined after a true one until drawn or copied again.
+bool resolve_dropping_samples(unsigned framebuffer, unsigned resolve_framebuffer);
+
 // For the tests: with `on`, an attachment glInvalidateFramebuffer let go is overwritten with
 // garbage (colour 1.0 in every channel, depth 0, stencil 0xA5) instead of being left undefined, so
 // that a later read of it shows in the picture. False when no context is open.

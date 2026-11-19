@@ -81,6 +81,22 @@ public:
     // base pointer.
     void upload(ImageUpload upload);
 
+    // A picture put in a frame buffer's memory outside the display list (a movie's frame, at
+    // `block`, PSMCT32 `width_units` wide, RGBA rows top first): drawn from there as a texture, not
+    // as the frame, until it is forgotten. One GL texture per block, its texels replaced in place
+    // each time (no hash, no conversion, no new texture per movie frame).
+    void set_picture(
+        std::uint32_t block,
+        std::uint32_t width_units,
+        int width,
+        int height,
+        std::span<const std::uint8_t> rgba
+    );
+
+    bool picture_at(std::uint32_t block) const { return m_pictures.contains(block); }
+
+    void forget_picture(std::uint32_t block);
+
     // Same ordering/replacement semantics as upload(). For repeated immutable
     // frame inputs, reuse identical stored bytes without copying or rehashing.
     // Returns true when the existing storage was reused.
@@ -161,7 +177,11 @@ public:
 
     // The texture TEX0 describes, converted with TEXA. Never 0: when nothing
     // is known at that base pointer, the placeholder (a checkerboard).
-    TextureHandle resolve(const gs::Tex0& tex0, const gs::Texa& texa);
+    // `dump_blend` is the active blend equation, or null for an unblended or unknown draw.
+    // Only proven invisible empty-alpha uploads may be omitted from dumps; rendering is unchanged.
+    TextureHandle resolve(
+        const gs::Tex0& tex0, const gs::Texa& texa, const gs::Alpha* dump_blend = nullptr
+    );
 
     TextureHandle placeholder() const { return m_placeholder; }
 
@@ -187,6 +207,10 @@ public:
 
     const Rgba8Image& image(TextureHandle texture) const;
     bool has_cropped_replacement(TextureHandle texture) const;
+    // Whether a texture pack's picture replaced `texture` (an upload's conversion).
+    bool has_pack_replacement(TextureHandle texture) const;
+    // Whether a PCSX2 texture has been replaced by a picture from the pack (a DDS or PNG read from disk).
+    bool has_pcsx2_replacement(TextureHandle texture) const;
     std::array<float, 2> uv_scale(TextureHandle texture) const;
 
     // Whether `texture` has an animated replacement's frames (animate()).
@@ -251,11 +275,14 @@ private:
         std::uint8_t psm, cpsm;
         gs::Texa texa;
         std::uint64_t pixels_hash, clut_hash, crop_border_hash;
+        // Visible draws must not reuse a conversion that omitted its empty-alpha dump.
+        bool skip_empty_alpha;
 
         bool operator==(const Key&) const = default;
     };
 
     struct KeyHash {
+        // Hashes the sampling fields and empty-alpha export policy.
         std::size_t operator()(const Key& key) const;
     };
 
@@ -302,6 +329,8 @@ private:
         std::uint8_t wrap = 0;  // the GL texture's clamp: bit 0 across, bit 1 down (0: repeats)
         Rgba8Image image;
         bool cropped_replacement = false;
+        bool pack_replacement = false;
+        bool pcsx2_replacement = false;
         std::array<float, 2> uv_scale{1.0f, 1.0f};
         AlphaScale scale = AlphaScale::Gs;
         std::string name;
@@ -309,12 +338,17 @@ private:
         std::uint64_t last_used = 0;
         Key key{};
         std::uint64_t pack_hash = 0;  // its texture pack hash (texture_pack::Replacement), or 0
+        // Not dumped yet, as LiveWatch held it back on tick `held_tick`: dumped if it is still
+        // drawn a while later (it settled, as a fade's last picture does).
+        std::shared_ptr<const Rgba8Image> held;
+        std::uint64_t held_tick = 0;
         // An animated replacement's frames (animate()): GL textures of frames past the first
         // (frame_gl[i - 1] is frame i; 0 until drawn) and the tick its clock started at.
         std::shared_ptr<const texture_pack::Animation> animation;
         // A pack KTX2's blocks (set_blocks), and whether the GL texture was made from them.
         std::shared_ptr<const CompressedImage> blocks;
         bool gl_blocks = false;
+        bool stale = false;  // a picture whose texels changed since its GL texture was filled
         std::vector<unsigned> frame_gl;
         std::uint64_t animation_start = 0;
         bool animation_started = false;
@@ -340,7 +374,10 @@ private:
     // `hash` seen in `slot`: a cycle found there is logged (`where` says where) and dumped.
     void see_cycle(std::uint64_t slot, std::uint64_t hash, const std::string& where);
     void set_wrap(Entry& e, bool repeat_s, bool repeat_t);
-    TextureHandle convert_upload(const gs::Tex0& tex0, const gs::Texa& texa);
+    // Converts an uploaded image, applying texture packs only to reusable textures.
+    TextureHandle convert_upload(
+        const gs::Tex0& tex0, const gs::Texa& texa, const gs::Alpha* dump_blend
+    );
     std::vector<std::uint8_t> texture_raster(
         const Stored& stored, const gs::Tex0& tex0, int width, int height
     ) const;
@@ -357,23 +394,33 @@ private:
         TextureHandle source
     );
 
+    // A picture's texture and the buffer width it was put with (set_picture).
+    struct Picture {
+        TextureHandle texture = 0;
+        std::uint32_t width_units = 0;
+    };
+
     std::unique_ptr<UpscaledTextureColours> m_upscaled_texture_colours;
 
     std::vector<Entry> m_entries;  // handle - 1
     float m_anisotropy = 1.0f;
     std::vector<TextureHandle> m_free;
     std::unordered_map<std::uint32_t, Stored> m_uploads;        // by base pointer
+    std::unordered_map<std::uint32_t, Picture> m_pictures;      // set_picture's, by block
     std::uint64_t m_sequence = 0;
     std::unordered_map<std::uint32_t, Clut> m_cluts;            // loaded, by CBP (load_clut)
     std::unordered_map<std::uint32_t, TextureHandle> m_placed;  // by base pointer
     std::unordered_map<Key, TextureHandle, KeyHash> m_converted;
     TextureHandle m_placeholder = 0;
     std::uint64_t m_frame = 0;
+    // texture_pack::kept_version() when the conversions were last checked against it.
+    std::uint64_t m_pack_version = 0;
     std::uint64_t m_tick = 0;  // set_tick
     // Textures drawn at each base pointer this frame, in order, and the cycles found among them:
     // only while textures are dumped (texture_pack::dumping).
     std::unordered_map<std::uint64_t, std::pair<std::uint64_t, unsigned>> m_slot_turns;
     texture_pack::CycleWatch m_cycles;
+    texture_pack::LiveWatch m_live;  // uploads the game makes anew each tick: not dumped
     std::unordered_map<std::uint64_t, TextureHandle> m_distance_fields;  // by the source's content
     // The field last given for a handle, with a sample of its texels (distance_field).
     std::unordered_map<TextureHandle, std::pair<std::uint64_t, TextureHandle>> m_field_of_handle;

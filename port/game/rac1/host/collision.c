@@ -2146,6 +2146,105 @@ int rac1_level_line(const float from[3], const float to[3], int* blocked) {
     return 1;
 }
 
+/* The game's own segment query for a mod (openrac_api.collision_line): the nearest of the level's
+ * faces (with `level`) and of the mobys' meshes and creatures' joint shapes (with `mobys`, all but
+ * `ignore`) on the line, as coll_line finds it for the game's own shots. The game sees nothing of
+ * it: no CollOutput written but the query stamp, no hit record, the vector registers as they were.
+ * The stamp moves on as for any query (the mobys it tested carry it), and a creature posed for its
+ * joints stays in the pose cache, as after the game's own. The game asks it only of short lines
+ * inside its world's box ([0, 1024) a side, or the extended tree's); a mod's may be long and leave
+ * it (a look down past the level's floor), so the line is cut to the box first, as much of it as
+ * lies inside. 1 for a hit (its point, its face's normal, the face's surface type or -1 for a
+ * creature's joint shape, the moby or 0), 0 for none or outside a level. */
+int rac1_collision_line(
+    const float from[3],
+    const float to[3],
+    int level,
+    int mobys,
+    uint32_t ignore,
+    float point[3],
+    float normal[3],
+    int32_t* surface,
+    uint32_t* moby
+) {
+    if (openrac_game_loaded_overlay() < 0 || U32(level_ctx()->out) == 0) {
+        return 0;
+    }
+    const Ctx* x = level_ctx();
+    uint32_t kept[32][4];
+    memcpy(kept, g_vf, sizeof kept);
+    const gaddr kept_joints = g_joints;
+    const int fr = fegetround();
+    fesetround(FE_TOWARDZERO);
+    /* The part of the line inside the world's box, a little within its sides. */
+    const float limit = collision_has_extended_tree(U32(x->out)) ? 131072.0f : K1024;
+    const float margin = 1.0f / 64.0f;
+    float t0 = 0.0f, t1 = 1.0f;
+    for (int k = 0; k < 3 && t0 <= t1; ++k) {
+        const float d = to[k] - from[k];
+        const float lo = margin, hi = limit - margin;
+        if (d == 0.0f) {
+            if (from[k] < lo || from[k] > hi) {
+                t1 = -1.0f;
+            }
+            continue;
+        }
+        float ta = (lo - from[k]) / d, tb = (hi - from[k]) / d;
+        if (ta > tb) {
+            const float swap = ta;
+            ta = tb;
+            tb = swap;
+        }
+        t0 = ta > t0 ? ta : t0;
+        t1 = tb < t1 ? tb : t1;
+    }
+    if (t0 > t1) {
+        return 0;
+    }
+    float cut_from[3], cut_to[3];
+    for (int k = 0; k < 3; ++k) {
+        cut_from[k] = from[k] + (to[k] - from[k]) * t0;
+        cut_to[k] = from[k] + (to[k] - from[k]) * t1;
+    }
+    const V3 a = v3(cut_from[0], cut_from[1], cut_from[2]);
+    const V3 b = v3(cut_to[0], cut_to[1], cut_to[2]);
+    Best best;
+    best_start(&best);
+    int found = 0;
+    const int64_t stamp = new_stamp(x->out);
+    if (stamp >= 0 && in_world_lo(a, b)
+        && in_world_hi(a, b, collision_has_extended_tree(U32(x->out)))) {
+        const V3 a1024 = vmuls(a, K1024);
+        const V3 b1024 = vmuls(b, K1024);
+        const int n = line_cell_list(a1024, b1024);
+        if (n >= 0) {
+            const V3 d = vsub(b1024, a1024);
+            float best_t = 1.0f;
+            g_joints = 0;
+            if (level) {
+                line_world(U32(x->out), 0, a1024, b1024, d, n, &best_t, &best);
+            }
+            if (mobys) {
+                line_mobys(x, (uint32_t)stamp, 0, a1024, b1024, d, n, ignore, &best_t, &best);
+            }
+            found = best.have;
+        }
+    }
+    if (found) {
+        const V3 p = vmuls(best.point, INV1024);
+        for (int k = 0; k < 3; ++k) {
+            point[k] = p.v[k];
+            normal[k] = best.normal.v[k];
+        }
+        *surface = best.kind >= 0x1000 ? best.kind - 0x1000 : -1;
+        *moby = best.moby;
+    }
+    fesetround(fr);
+    g_joints = kept_joints;
+    memcpy(g_vf, kept, sizeof kept);
+    return found;
+}
+
 /* The sphere query (radius, centre, flags, ignore): the closest face within the radius, the centre
  * pushed out to touch it (+0x30). */
 static int host_sphere(float a0, gaddr a1, int a2, gaddr a3) {

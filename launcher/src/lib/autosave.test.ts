@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { Saver } from "./autosave";
 
 /** A save the test answers by hand: resolve or reject the oldest call. */
@@ -10,6 +11,7 @@ function slowSave() {
         calls.push({ key, value, done, fail });
       }),
   );
+
   return { save, calls };
 }
 
@@ -29,6 +31,7 @@ describe("Saver", () => {
   it("saves a dragged value once, its last, after it settles", async () => {
     const save = vi.fn(() => Promise.resolve());
     const saver = new Saver({ save });
+
     saver.set("speed", 1.1, 300);
     vi.advanceTimersByTime(200);
     saver.set("speed", 1.2, 300);
@@ -48,6 +51,7 @@ describe("Saver", () => {
   it("saves a switch at once, without waiting", async () => {
     const save = vi.fn(() => Promise.resolve());
     const saver = new Saver({ save });
+
     expect(saver.state).toBe("idle");
     saver.set("chaos", true);
     await settle();
@@ -57,6 +61,7 @@ describe("Saver", () => {
   it("keeps showing a value until it is saved, and one moved on since after", async () => {
     const { save, calls } = slowSave();
     const saver = new Saver({ save });
+
     saver.set("a", 1);
     await settle();
     expect(saver.state).toBe("saving");
@@ -76,6 +81,7 @@ describe("Saver", () => {
   it("sends one save at a time, in the order the values settled", async () => {
     const { save, calls } = slowSave();
     const saver = new Saver({ save });
+
     saver.set("a", 1);
     saver.set("b", 2);
     saver.set("c", 3);
@@ -99,6 +105,7 @@ describe("Saver", () => {
       save: () => (fail ? Promise.reject(new Error("out of range")) : Promise.resolve()),
       onerror: (key, e) => errors.push(`${key}: ${(e as Error).message}`),
     });
+
     saver.set("a", 99);
     await settle();
     expect(errors).toEqual(["a: out of range"]);
@@ -114,6 +121,7 @@ describe("Saver", () => {
     const save = vi.fn(() => Promise.resolve());
     const saved: string[] = [];
     const saver = new Saver({ save, onsaved: (key) => saved.push(key) });
+
     saver.set("seed", "abc", 600);
     await saver.flush();
     expect(save).toHaveBeenCalledWith("seed", "abc");
@@ -126,6 +134,7 @@ describe("Saver", () => {
   it("tells the page of every change", () => {
     const onchange = vi.fn();
     const saver = new Saver({ save: () => Promise.resolve(), onchange });
+
     saver.set("a", 1, 100);
     expect(onchange).toHaveBeenCalled();
     expect(saver.held()).toEqual({ a: 1 });

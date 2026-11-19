@@ -49,6 +49,7 @@
 #include <vector>
 
 #include "common/build_info.h"
+#include "common/cache_folder.h"
 #include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
@@ -73,6 +74,7 @@
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
 #include "frontend/mod_media.h"
+#include "game/common/profile.h"
 #include "mod_menu.h"
 #include "platform/bindings.h"
 #include "platform/input.h"
@@ -716,6 +718,11 @@ int main(int argc, char** argv) {
     bool mods_loaded = false;
 
 #ifdef OPENRAC_FRONTEND
+    // The joint poses the game reads (openrac_game_moby_chain) need its moby layout with or without
+    // a window: a run without one read rac2's poses at rac1's offsets, and Notak's chain spawned
+    // until the moby pool was full.
+    scene::set_moby_anim_fields(host::game_profile(openrac_game.id).moby_anim_fields());
+    scene::set_moby_layer_records(host::game_profile(openrac_game.id).moby_layer_records());
     if (g_options.window) {
         std::string why;
         settings::load(g_options.settings);
@@ -779,6 +786,14 @@ int main(int argc, char** argv) {
                  renderer::pack_pictures::load_svg},
                 texture_pack_level_name
             );
+            // The HUD's and effects' pictures, read in the background from the start (those the
+            // last runs showed, once it knows them).
+            if (use_packs) {
+                renderer::texture_pack::set_play_list(
+                    cache_folder() / "texture_packs" / (std::string(openrac_game.id) + ".txt")
+                );
+            }
+            renderer::texture_pack::preload();
         }
         fs::path levels = g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels);
         // A mod that makes the Vulkan device with the port (a VR headset's) is loaded before the

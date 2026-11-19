@@ -55,8 +55,12 @@ game.
 
 ## Android
 
-The game runs inside the app there, and Android does not let an app load code it
-wrote itself, so native mods are not loaded on Android. Script mods are.
+The game runs inside the app there. Script mods and data packs work as
+elsewhere. A native mod loads when its release has an `android-arm64` build:
+the template's workflow makes one with the Android NDK. The game opens the
+library read-only, as Android 14 asks of code an app loads from its own files.
+A mod released before it had that build shows in the Mods tab as not built for
+this platform until its next release.
 
 ## A mod's own files
 

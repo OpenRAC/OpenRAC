@@ -16,13 +16,15 @@
   const live = (j: Job) => j.state === "queued" || j.state === "running";
   /** Which jobs' output is unfolded; a failed or selected one opens by itself. */
   const opened = $state<Record<number, boolean>>({});
-  const showOutput = (job: Job) => opened[job.key] ?? (job.key === jobs.selected || job.state === "failed");
+  const showOutput = (job: Job) =>
+    opened[job.key] ?? (job.key === jobs.selected || job.state === "failed");
   /** The most lines of output written out on the page. */
   const SHOWN = 400;
 
   /** What a finished job did, in the player's words. */
   function did(job: Job): string {
     if (job.actionId.startsWith("install:")) return "Set up from your disc.";
+
     switch (job.actionId) {
       case "port-build":
         return "Built the game for this computer.";
@@ -43,14 +45,21 @@
     if (live(job)) {
       const progress = readProgress(job.actionId, job.lines);
       const how =
-        progress.percent !== null ? ` · ${Math.round(progress.percent)} %` : progress.note ? ` · ${progress.note}` : "";
+        progress.percent !== null
+          ? ` · ${Math.round(progress.percent)} %`
+          : progress.note
+            ? ` · ${progress.note}`
+            : "";
+
       return `${phaseLabel(job, clock.now)}${how}`;
     }
+
     if (job.state === "succeeded") return did(job);
     if (job.state === "cancelled") return "Stopped before it finished.";
     // The game ended by itself: it may have crashed, or it may have been closed. Its page says
     // which, so this does not claim a crash.
     if (isGame(job)) return "The game stopped. Its page has what happened.";
+
     return "It did not finish. Copy what it printed and send it to us on GitHub or Discord.";
   }
 
@@ -65,7 +74,9 @@
       <h1 class="grow">Activity</h1>
       {#if finished}<button class="ghost small" onclick={clearFinished}>Clear finished</button>{/if}
     </div>
-    <p class="muted lead">What the launcher did for your games: setting them up, building them, playing them.</p>
+    <p class="muted lead">
+      What the launcher did for your games: setting them up, building them, playing them.
+    </p>
 
     {#if !jobs.list.length}
       <section class="panel empty">
@@ -74,7 +85,9 @@
           <h2>Nothing has run yet</h2>
           <p>When the launcher sets a game up, builds it or starts it, what it did shows here.</p>
         </div>
-        <button onclick={() => (app.page = "library")}><Icon name="library" size={16} />Your games</button>
+        <button onclick={() => (app.page = "library")}
+          ><Icon name="library" size={16} />Your games</button
+        >
       </section>
     {/if}
 
@@ -107,13 +120,22 @@
             {/if}
           </div>
           {#if progress && job.state === "running"}
-            <div class="track" role="progressbar" aria-label={job.title} aria-valuenow={progress.percent ?? undefined}>
-              {#if progress.percent !== null}<i style:width={`${progress.percent}%`}></i>{:else}<i class="moving"
+            <div
+              class="track"
+              role="progressbar"
+              aria-label={job.title}
+              aria-valuenow={progress.percent ?? undefined}
+            >
+              {#if progress.percent !== null}<i style:width={`${progress.percent}%`}></i>{:else}<i
+                  class="moving"
                 ></i>{/if}
             </div>
           {/if}
           {#if job.lines.length || job.command}
-            <details open={showOutput(job)} ontoggle={(e) => (opened[job.key] = e.currentTarget.open)}>
+            <details
+              open={showOutput(job)}
+              ontoggle={(e) => (opened[job.key] = e.currentTarget.open)}
+            >
               <summary>Show output</summary>
               <div class="row tools">
                 <span class="dim mono clip grow" title={job.command}>{job.command}</span>

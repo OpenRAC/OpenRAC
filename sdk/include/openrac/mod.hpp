@@ -864,6 +864,188 @@ public:
       }
     }
 
+    // Since 1.16: whether the port keeps a mod's data with the game's saves (save_data_set,
+    // save_data, on_save_data).
+    bool has_save_data() const {
+        return m_api->api_minor >= 16
+               && m_api->size >= offsetof(openrac_api, on_save_data) + sizeof(void*);
+    }
+
+    // Since 1.16: the mod's data for the game in progress, kept with each save the game writes
+    // from now on (at most OPENRAC_SAVE_DATA_MAX bytes; none forgets it). Call it whenever the data
+    // changes. Returns false when the port refuses it (too many bytes) or has no such call.
+    bool save_data_set(const void* bytes, std::size_t size) const {
+        return has_save_data() && size <= OPENRAC_SAVE_DATA_MAX
+               && m_api->save_data_set(m_handle, bytes, static_cast<std::uint32_t>(size))
+                      == OPENRAC_HOOK_OK;
+    }
+
+    bool save_data_set(const std::vector<std::uint8_t>& bytes) const {
+        return save_data_set(bytes.data(), bytes.size());
+    }
+
+    // Since 1.16: the mod's data for the game in progress (what its save held, or what the mod set
+    // since); empty for none, or a port without it.
+    std::vector<std::uint8_t> save_data() const {
+        if (!has_save_data()) {
+            return {};
+        }
+        std::vector<std::uint8_t> bytes(m_api->save_data_get(m_handle, nullptr, 0));
+        // It changes only on the game thread, between the two calls never.
+        if (!bytes.empty()) {
+            m_api->save_data_get(m_handle, bytes.data(), static_cast<std::uint32_t>(bytes.size()));
+        }
+        return bytes;
+    }
+
+    // Since 1.16: calls `callable()` after the tick in which the game in progress changed (a save
+    // loaded, a new game started): save_data() answers its data then. Throws openrac::Error when
+    // refused or the port has no such call. Only during load.
+    template <class F>
+    void on_save_data(F&& callable) {
+        if (!has_save_data()) {
+            throw Error("on_save_data: requires interface 1.16");
+        }
+
+        // As in on_frame, the port holds the address of the stored callable.
+        auto& stored = m_frames.emplace_back(std::forward<F>(callable));
+
+        // The port refuses a callback once load is over.
+        if (m_api->on_save_data(m_handle, &detail::frame_thunk, &stored) != OPENRAC_HOOK_OK) {
+            throw Error("on_save_data: refused (only during load)");
+        }
+    }
+
+    // Since 1.17: whether the port asks the game's own collision query for the
+    // mod.
+    bool has_collision_line() const {
+      return m_api->api_minor >= 17 &&
+             m_api->size >=
+                 offsetof(openrac_api, collision_line) + sizeof(void *);
+    }
+
+    // Since 1.17: the game's own segment query from `from` to `to` (the game's
+    // units), as its shots ask it: `flags` OPENRAC_LINE_LEVEL and/or
+    // OPENRAC_LINE_MOBYS, the moby in slot `ignore` passed over (-1 none).
+    // Fills `out` (out.hit: something on the line, its point, normal, surface
+    // and moby's slot). Returns false outside a level or on a port without it.
+    bool collision_line(const float from[3], const float to[3],
+                        openrac_line_hit &out,
+                        std::uint32_t flags = OPENRAC_LINE_LEVEL |
+                                              OPENRAC_LINE_MOBYS,
+                        int ignore = -1) const {
+      out = openrac_line_hit{};
+      out.size = sizeof out;
+      return has_collision_line() &&
+             m_api->collision_line(from, to, flags, ignore, &out) ==
+                 OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.18: whether the port fixes props to a moby's joint (prop_attach).
+    bool has_prop_attach() const {
+      return m_api->api_minor >= 18 &&
+             m_api->size >= offsetof(openrac_api, prop_attach) + sizeof(void *);
+    }
+
+    // Since 1.18: fixes the mod's prop `id` to joint `joint` of the moby in
+    // slot `slot` (with OPENRAC_ATTACH_HELD in `flags`, one of the hero's
+    // attach points as hero_held names them), drawn each frame at the joint's
+    // frame times `offset` (column-major, in the joint's frame; null for none).
+    // Returns false when refused or the port has no such call.
+    bool prop_attach(int id, int slot, int joint, std::uint32_t flags = 0,
+                     const float *offset = nullptr) const {
+      return has_prop_attach() &&
+             m_api->prop_attach(m_handle, id, slot, joint, flags, offset) ==
+                 OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.18: where the mod's prop `id` was drawn last, into `out`
+    // (column-major, its mesh's coordinates to the world's; for a prop fixed
+    // to a joint, the joint's frame then times its offset). Returns false for
+    // a prop not posed or not drawn on its joint yet, or a port without it.
+    bool prop_frame(int id, float out[16]) const {
+      return m_api->api_minor >= 18 &&
+             m_api->size >=
+                 offsetof(openrac_api, prop_frame) + sizeof(void *) &&
+             m_api->prop_frame(m_handle, id, out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.19: whether the port has switches and choices in a mod's
+    // developer menu (developer_menu_switch, developer_menu_choice).
+    bool has_menu_switches() const {
+      return m_api->api_minor >= 19 &&
+             m_api->size >=
+                 offsetof(openrac_api, developer_menu_value) + sizeof(void *);
+    }
+
+    // Since 1.19: makes the developer menu item `action` a switch, or sets it,
+    // on or off. The menu turns it over at once and queues `action`; read the
+    // state with menu_value() at the tick boundary. Only during load (after
+    // developer_menu) or from the tick boundary. Returns false when refused or
+    // the port has no such call.
+    bool menu_switch(std::uint32_t action, bool on) const {
+      return has_menu_switches() &&
+             m_api->developer_menu_switch(m_handle, action, on ? 1 : 0) ==
+                 OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.19: makes the developer menu item `action` a choice among
+    // `count` values (copied), or sets them, `index` the one shown. The menu
+    // moves it with its arrows at once and queues `action`. The same times and
+    // results as menu_switch().
+    bool menu_choice(std::uint32_t action, const char *const *values,
+                     std::uint32_t count, std::uint32_t index) const {
+      return has_menu_switches() &&
+             m_api->developer_menu_choice(m_handle, action, values, count,
+                                          index) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.19: a switch's 0 or 1, a choice's index; -1 for a plain item,
+    // an action the mod has not registered, or a port without switches.
+    int menu_value(std::uint32_t action) const {
+      return has_menu_switches()
+                 ? m_api->developer_menu_value(m_handle, action)
+                 : -1;
+    }
+
+    // Since 1.21: whether the port has hook_entry().
+    bool has_hook_entry() const {
+      return m_api->api_minor >= 21 &&
+             m_api->size >= offsetof(openrac_api, hook_entry) + sizeof(void *);
+    }
+
+    // Since 1.21: the entry of a hook point (a type of openrac/games/<game>.hpp),
+    // to call as the game calls it: the mods' replacements, this mod's too when it
+    // took the point, then the game's own function. Asked by the type's permanent
+    // id, the same on every disc. At any time. nullptr when the port has no such
+    // hook point, another signature, or no hook_entry.
+    template <class HookPoint>
+    typename HookPoint::fn hook_entry() const {
+      if (!has_hook_entry()) {
+        return nullptr;
+      }
+      return reinterpret_cast<typename HookPoint::fn>(m_api->hook_entry(
+          detail::hook_id<HookPoint>(), HookPoint::signature));
+    }
+
+    // Since 1.23: whether the port has moby_material().
+    bool has_moby_material() const {
+      return m_api->api_minor >= 23 &&
+             m_api->size >= offsetof(openrac_api, moby_material) + sizeof(void *);
+    }
+
+    // Since 1.23: draws the live moby at `moby` with `material`
+    // (OPENRAC_MOBY_MATERIAL_TINT, _PLATINUM, or _NONE to clear it) and `rgb`
+    // (0xRRGGBB, 0xFFFFFF no tint) until the game removes the moby, the level
+    // changes or the mod clears it. Render-only: no game memory is written. At
+    // any time. Returns false when refused or the port has no such call.
+    bool moby_material(openrac_gaddr moby, std::uint32_t material,
+                       std::uint32_t rgb = 0xFFFFFF) const {
+      return has_moby_material() &&
+             m_api->moby_material(m_handle, moby, material, rgb) ==
+                 OPENRAC_HOOK_OK;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

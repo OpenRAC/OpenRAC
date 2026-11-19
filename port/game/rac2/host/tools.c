@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "hero_attachments.h"
 #include "openrac/game_host.h"
 #include "openrac/host_env.h"
 #include "rac2.h"
@@ -158,8 +159,116 @@ void rac2_options_frame(void);
 int rac2_planets_take(void);
 static void flight_skip(void);
 
+static int game_mode(uint32_t* mode);
+
+#if defined(RAC2_PRIMARY)
+/*
+ * OPENRAC_MAP_WATCH=1, a catcher for a damaged map run list (T-41, T-39). A save packs the level map
+ * (map_fill_buffer, func_00297670) with func_00283EF0, which walks the run list at the map state's
+ * +0x14 (g_map_overlay_state, D_001C4FA0, the level's copy) in byte pairs until the run total is
+ * exactly 0x40000; a damaged list walks it off the end of memory. Players hit that after long
+ * sessions, never in short ones. The list is walked each frame; a frame it no longer comes to
+ * 0x40000 is logged with the bytes that changed since it last did. It only reads, so the game runs
+ * as it would without it.
+ */
+/* v1.01's address, as this block is built for v1.01 alone (RAC2_PRIMARY). */
+#define MAP_STATE 0x001C4FA0u
+#define MAP_INDEX RAC2_ADDR(0x001A79F0u)
+#define MAP_RUNS 0x40000u
+#define MAP_LIST_MAX 0x4000u
+
+/* The list's length in bytes when its runs come to MAP_RUNS, else 0. */
+static uint32_t map_list_length(gaddr list) {
+    uint32_t total = 0;
+    for (uint32_t at = 0; at + 2 <= MAP_LIST_MAX && list + at + 2 <= 0x02000000u; at += 2) {
+        const uint8_t* pair = G(list + at);
+        total += pair[0];
+        if (total == MAP_RUNS) {
+            return at + 2;
+        }
+        total += pair[1];
+    }
+    return 0;
+}
+
+static void map_watch(unsigned frame) {
+    static int mode = -1;
+    static gaddr list;
+    static int list_level = -1;
+    static uint32_t length;
+    static uint8_t copy[MAP_LIST_MAX];
+    if (mode < 0) {
+        const char* value = openrac_env_string("OPENRAC_MAP_WATCH");
+        mode = value != NULL && *value != '\0';
+    }
+    if (mode == 0) {
+        return;
+    }
+    const int level = GREF(int32_t, MAP_INDEX);
+    const gaddr state = openrac_relocate_data(MAP_STATE);
+    if (GREF(int32_t, state + 0x10) == 0) {
+        return;
+    }
+    const gaddr now = GREF(uint32_t, state + 0x14);
+    if (now < 0x00100000u || now >= 0x02000000u) {
+        return;
+    }
+    const uint32_t now_length = map_list_length(now);
+    if (now_length != 0) {
+        if (now != list || now_length != length || level != list_level
+            || memcmp(copy, G(now), now_length) != 0) {
+            list = now;
+            length = now_length;
+            list_level = level;
+            memcpy(copy, G(now), now_length);
+            fprintf(stderr, "[map watch] frame %u: level %d's map list at %08x, %u bytes\n", frame,
+                    level, list, length);
+        }
+        return;
+    }
+    if (list == 0) {
+        return;
+    }
+    /* Damaged: what changed in the copy the last good frame had. */
+    uint32_t first = length, changed = 0;
+    if (now == list) {
+        for (uint32_t i = 0; i < length; ++i) {
+            if (((const uint8_t*)G(now))[i] != copy[i]) {
+                first = i < first ? i : first;
+                ++changed;
+            }
+        }
+    }
+    uint32_t mode_now = 0;
+    const int known = game_mode(&mode_now);
+    fprintf(stderr,
+            "[map watch] frame %u: level %d's map list at %08x no longer comes to %x (list was "
+            "%08x, level %d, %u bytes); %u bytes changed from +%x; game mode %d\n",
+            frame, level, now, MAP_RUNS, list, list_level, length, changed, first,
+            known ? (int)mode_now : -1);
+    if (changed != 0) {
+        const uint32_t from = first & ~0xFu;
+        const uint32_t to = from + 32u < length ? from + 32u : length;
+        fprintf(stderr, "[map watch] +%x was:", from);
+        for (uint32_t i = from; i < to; ++i) {
+            fprintf(stderr, " %02x", copy[i]);
+        }
+        fprintf(stderr, "\n[map watch] +%x now:", from);
+        for (uint32_t i = from; i < to; ++i) {
+            fprintf(stderr, " %02x", ((const uint8_t*)G(now))[i]);
+        }
+        fprintf(stderr, "\n");
+    }
+    /* Once: the next good list is watched again. */
+    list = 0;
+}
+#endif
+
 static void on_frame(unsigned frame) {
     (void)frame;
+#if defined(RAC2_PRIMARY)
+    map_watch(frame);
+#endif
     rac2_options_frame();
     direct_start();
     /* The developer mode's Planets page (options.c): the level chosen there. */
@@ -321,6 +430,13 @@ static void skip(void) {
     }
 }
 
+/* Clank on the hero's back. The hero's set-up (func_L00_002A4928) sets this short when the
+ * Heli-Pack is not owned, and while it is set the hero's items update (func_L00_002D3068) hides the
+ * pack slot's mobys: Clank is away until Endako. Endako's rescue (func_L03_003D20F8) clears it, and so
+ * does the hero's next set-up, after a death. The hero block starts 0x80 before his position. */
+#define ITEM_HELI_PACK 2
+#define HERO_WITHOUT_CLANK (RAC2_g_heroPos - 0x80u + 0x24FCu)
+
 /* An item into the hero's hands as GiveInventoryItem (0x00288308) leaves it: owned, shown as new,
  * full of ammunition, in the weapon lists when it is a weapon, and on the quick select ring's first
  * free slot when it is one the ring takes (0x00288208: kind 0, and a class to show). The game's own routine is in each
@@ -332,6 +448,9 @@ static int give_item(int id) {
         GREF(uint8_t, RAC2_g_inventoryOwned + (unsigned)id) = 1;
         GREF(uint8_t, RAC2_g_inventoryNewFlag + (unsigned)id) = 1;
         changed = 1;
+        if (id == ITEM_HELI_PACK) {
+            GREF(int16_t, HERO_WITHOUT_CLANK) = 0;
+        }
     }
     if (ITEM_AMMO_PRICE(record) != 0) {
         GREF(int32_t, RAC2_g_weaponAmmo + 4u * (unsigned)id) = ITEM_AMMO_FULL(record);
@@ -486,6 +605,13 @@ static void front_end_start_level(int level) {
     rac2_start_level(level, 1);
 }
 
+/* Reads the resident hero state for the shared shadow rig; position is at +0x80 (play.c). */
+static unsigned hero_shadow_casters(gaddr* addresses, unsigned capacity) {
+    return rac2_hero_attachments(
+        openrac_guest_base, openrac_guest_ram_size, RAC2_g_heroPos - 0x80u, addresses, capacity
+    );
+}
+
 static const openrac_front_end front_end = {
     .levels = LEVELS,
     .level_names = rac2_level_names,
@@ -499,6 +625,7 @@ static const openrac_front_end front_end = {
      * whose bit (+0x3A) is clear in byte +0x3B, a tie (+0x10, byte +0x11), a moby (+0x36, +0x37). */
     .occlusion = RAC2_ADDR(0x001BADC0u),
     .start_level_anywhere = 1,
+    .hero_shadow_casters = hero_shadow_casters,
     /* D_001A7BB4: the language, a byte the menus' action type 9 sets (0 English, 2 French, 3 German,
      * 4 Spanish, 5 Italian: the values of the language list's items), read as a word as the text lookup reads it
      * (func_002D5E98); the port's rows on the Video pages follow it. */

@@ -2,11 +2,12 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Check the conservative pull request build gate."""
 
+from pathlib import Path
 import subprocess
 import unittest
 from unittest.mock import patch
 
-from ci_scope import docs_only, ios_plan, plan, pushed_paths
+from ci_scope import docs_only, ios_plan, plan, programs, pushed_paths
 
 
 class CiScopeTest(unittest.TestCase):
@@ -75,15 +76,27 @@ class PlanTest(unittest.TestCase):
                    enhanced=False, port_parts=[])
         self.check(["launcher/core/src/lib.rs"], launcher=True, pages=True, port_parts=[])
 
-    def test_one_program_builds_only_itself(self):
+    def test_one_program_builds_itself_and_its_games_releases(self):
         self.check(["port/game/rac2-ntsc/host/x.c"], launcher=False, port=False, enhanced=False,
-                   port_parts=["rac2-ntsc"])
+                   port_parts=["rac2-ntsc", "rac2-pal"])
+        self.check(["port/game/rac1-ntsc/libraries.tsv"], port_parts=["rac1-ntsc", "rac1-pal1"])
+
+    def test_a_releases_own_folder_builds_only_itself(self):
         self.check(["port/game/rac2-pal/hostgen.json"], port_parts=["rac2-pal"])
+        self.check(["port/game/rac1-pal1/libraries.tsv"], port=False, port_parts=["rac1-pal1"])
 
     def test_a_games_shared_folder_builds_its_own_programs(self):
+        # The releases carry the shared host C, so they are built too.
         self.check(["port/game/rac1/host/hand.c"], port=True, enhanced=False,
-                   port_parts=["rac1-ntsc", "rac1-pal"])
-        self.check(["games/rac2/game.json"], launcher=True, port=False, port_parts=["rac2-ntsc"])
+                   port_parts=["rac1-ntsc", "rac1-pal", "rac1-pal1"])
+        self.check(["games/rac2/game.json"], launcher=True, port=False, port_parts=["rac2-ntsc", "rac2-pal"])
+
+    def test_going_commandos_pal_and_v2_are_built_as_their_own_programs(self):
+        known = programs(Path(__file__).resolve().parents[1])
+        self.assertEqual((known["rac2-pal"], known["rac2-ntsc2"], known["rac1-pal1"]), (False, False, True))
+        parts = plan(["port/runtime/guest.cpp"], known)["port_parts"]
+        self.assertTrue({"rac2-ntsc", "rac2-pal", "rac2-ntsc2"} <= set(parts))
+        self.assertEqual(plan(["games/rac2/game.json"], known)["port_parts"], ["rac2-ntsc", "rac2-ntsc2", "rac2-pal"])
 
     def test_shared_code_builds_every_program_but_the_carried_releases(self):
         for path in ("port/renderer/frame.cpp", "port/game/common/main.cpp", "tools/build_port.py",
@@ -92,7 +105,7 @@ class PlanTest(unittest.TestCase):
 
     def test_a_game_folder_the_shared_tests_compile_also_runs_them(self):
         result = plan(["port/game/rac1-pal/host/destinations.c"], PROGRAMS, {"rac1-pal"})
-        self.assertEqual(result["port_parts"], ["common", "rac1-pal"])
+        self.assertEqual(result["port_parts"], ["common", "rac1-pal", "rac1-pal1"])
         self.assertTrue(result["enhanced"])
 
     def test_files_the_other_side_reads(self):
@@ -101,7 +114,7 @@ class PlanTest(unittest.TestCase):
         self.check(["launcher/src-tauri/tauri.conf.json"], launcher=True, port=True, port_parts=SHARED)
         self.check(["port/platform/bindings.cpp"], launcher=True, pages=True, port_parts=SHARED)
         self.check(["port/game/rac2-ntsc/differences.json"], launcher=True, pages=True,
-                   port_parts=["rac2-ntsc"])
+                   port_parts=["rac2-ntsc", "rac2-pal"])
         self.check(["docs/port/DEBUGGING.md"], docs_only=False, launcher=False, port=True,
                    port_parts=SHARED)
         self.check(["games/rac1/game.json"], launcher=True, pages=True)

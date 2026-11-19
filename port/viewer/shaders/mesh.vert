@@ -96,6 +96,8 @@ out vec4 v_probe_multiplier;
 flat out vec4 v_probe_selector;
 flat out int v_lit;
 flat out int v_glow;  // a glow packet's vertex drawn in the moby's glow colour
+// A mod's render-only material on a live moby (OPENRAC_MOBY_MATERIAL_*, 2 platinum), for mesh.frag.
+flat out int v_mod_material;
 out vec3 v_script_emission;
 flat out vec3 v_probe_ambient;
 out vec3 v_emission_colour;
@@ -123,6 +125,12 @@ mat4 joint_matrix(int index) {
 
 void main() {
     vec4 p = vec4(position, 1.0);
+    // A live moby's `lights` is -1 - (its shine distance + 512 x a mod's material), the distance a
+    // byte (scene::pack_moby_lights); a lit tie's is 0 or more and has neither.
+    float moby_code = lights < -0.5 ? -lights - 1.0 : 0.0;
+    float mod_material = floor(moby_code / 512.0 + 0.001);
+    float shine_distance = moby_code - 512.0 * mod_material;
+    v_mod_material = int(mod_material + 0.5);
     vec3 n = normal;
 #ifdef OPENRAC_HERO_FUR
     if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {
@@ -283,8 +291,8 @@ void main() {
         v_uv = vec2(e.x * 0.5 + 0.5, 0.5 - e.y * 0.5);
         // The shine alpha: MobyProc's gate min(((distance << 10) - depth) >> 7, 0x80), depth in raw
         // units: full up to 16 game units nearer than the moby's shine distance (+0x73, 0x18 unless the
-        // class changes it; the frontend passes it as lights = -1 - distance), none past it.
-        float reach = lights < -1.5 ? -lights - 1.0 : 24.0;
+        // class changes it; the frontend passes it in lights, above), none past it.
+        float reach = shine_distance > 0.5 ? shine_distance : 24.0;
         float centre = -(view * model[3]).z;
         float shine = clamp((reach - centre) / 16.0, 0.0, 1.0);
         v_colour = vec4(vec3(112.0 / 128.0), shine);

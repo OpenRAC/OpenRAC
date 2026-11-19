@@ -5,7 +5,9 @@
 const CONTROLS = 'button, .button, [role="menuitem"], label.option, label.setting';
 
 function press(event: PointerEvent) {
-  const target = event.target instanceof Element ? event.target.closest<HTMLElement>(CONTROLS) : null;
+  const target =
+    event.target instanceof Element ? event.target.closest<HTMLElement>(CONTROLS) : null;
+
   if (target) wave(target, event.clientX, event.clientY);
 }
 
@@ -13,6 +15,7 @@ function press(event: PointerEvent) {
 export function padRipple(target: HTMLElement) {
   if (!target.matches(CONTROLS)) return;
   const box = target.getBoundingClientRect();
+
   wave(target, (box.left + box.right) / 2, (box.top + box.bottom) / 2);
 }
 
@@ -21,20 +24,25 @@ function wave(target: HTMLElement, x: number, y: number) {
   const box = target.getBoundingClientRect();
   // Wide enough to cover the control from any point inside it.
   const size = 2 * Math.hypot(box.width, box.height);
+
   if (getComputedStyle(target).position === "static") target.style.position = "relative";
   const clip = document.createElement("span");
+
   clip.className = "ripples";
   clip.setAttribute("aria-hidden", "true");
   const ring = document.createElement("span");
+
   ring.className = "ripple";
   ring.style.left = `${x - box.left}px`;
   ring.style.top = `${y - box.top}px`;
   ring.style.width = ring.style.height = `${size}px`;
   clip.append(ring);
   target.append(clip);
+
   const done = () => {
     clip.remove();
   };
+
   ring.addEventListener("animationend", done);
   // Without animations (reduced motion) there is no end to wait for.
   setTimeout(done, 800);

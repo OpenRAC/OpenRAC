@@ -5,10 +5,11 @@
   // game runs with the card, the card backed up first), so it can sit in any part of the editor.
   // Each field was proven by a save the game wrote and loaded back (docs/RAC2_SAVE_FORMAT.md, "The
   // advanced fields").
+  import { onMount } from "svelte";
+
   import Icon from "$components/Icon.svelte";
   import { api, type Rac2ExtraFields, type Rac2ExtraView } from "$lib/api";
   import { extraChanged, extraErrors, modCost, modGroups } from "$lib/saveEditRac2Extra";
-  import { onMount } from "svelte";
 
   let {
     serial,
@@ -36,12 +37,15 @@
   const canSave = $derived(dirty && !busy && !playing && Object.keys(errors).length === 0);
   const groups = $derived(view ? modGroups(view) : []);
   const cost = $derived(view && fields ? modCost(view, fields) : 0);
-  const levelName = (id: number) => view?.levels.find((l) => l.id === id)?.name ?? `Level ${String(id)}`;
+  const levelName = (id: number) =>
+    view?.levels.find((l) => l.id === id)?.name ?? `Level ${String(id)}`;
 
   async function load() {
     loadError = null;
+
     try {
       const read = await api.readSaveRac2Extra(serial, slot);
+
       view = read;
       fields = structuredClone(read.fields);
     } catch (e) {
@@ -53,8 +57,15 @@
     if (!view || !fields || !canSave) return;
     busy = true;
     saveError = null;
+
     try {
-      const result = await api.writeSaveRac2Extra(serial, slot, view.fingerprint, $state.snapshot(fields));
+      const result = await api.writeSaveRac2Extra(
+        serial,
+        slot,
+        view.fingerprint,
+        $state.snapshot(fields),
+      );
+
       view = result.view;
       fields = structuredClone(result.view.fields);
       savedNote = `Saved. Your card was backed up first (${result.backup.note}).`;
@@ -85,7 +96,10 @@
       <h4 id="se2x-where-h">Where the save starts</h4>
       <div class="line">
         <label for="se2x-level"
-          >Planet{#if fields.level !== view.fields.level}<span class="mark" role="img" aria-label="changed"
+          >Planet{#if fields.level !== view.fields.level}<span
+              class="mark"
+              role="img"
+              aria-label="changed"
             ></span>{/if}</label
         >
         <div class="field">
@@ -95,13 +109,15 @@
             {/each}
           </select>
           {#if fields.level !== view.fields.level}
-            <button class="ghost small" onclick={() => fields && view && (fields.level = view.fields.level)}
+            <button
+              class="ghost small"
+              onclick={() => fields && view && (fields.level = view.fields.level)}
               >Back to {levelName(view.fields.level)}</button
             >
           {/if}
           <span class="hint"
-            >Loading the save puts Ratchet at this planet's landing spot. The game keeps no position in the save, so he
-            always starts there, wherever he saved.</span
+            >Loading the save puts Ratchet at this planet's landing spot. The game keeps no position
+            in the save, so he always starts there, wherever he saved.</span
           >
         </div>
       </div>
@@ -139,7 +155,10 @@
       {#each [["crystals", "Crystals", "Found on Tabora, where they sell for bolts."], ["moonstones", "Moonstones", "Found on Grelbin, where they sell for bolts."]] as const as [key, label, hint] (key)}
         <div class="line">
           <label for={`se2x-${key}`}
-            >{label}{#if fields[key] !== view.fields[key]}<span class="mark" role="img" aria-label="changed"
+            >{label}{#if fields[key] !== view.fields[key]}<span
+                class="mark"
+                role="img"
+                aria-label="changed"
               ></span>{/if}</label
           >
           <div class="field">
@@ -161,13 +180,16 @@
 
     <section aria-labelledby="se2x-mods-h">
       <h4 id="se2x-mods-h">
-        Weapon mods <span class="count">{fields.mods.filter((m) => m.bought).length} of {fields.mods.length}</span>
+        Weapon mods <span class="count"
+          >{fields.mods.filter((m) => m.bought).length} of {fields.mods.length}</span
+        >
       </h4>
       <ul class="mods">
         {#each groups as g (g.item)}
           <li>
             <span class="weapon" class:off={!g.owned}
-              >{g.name}{#if !g.owned}<span class="dim not-owned">not in the inventory</span>{/if}</span
+              >{g.name}{#if !g.owned}<span class="dim not-owned">not in the inventory</span
+                >{/if}</span
             >
             <span class="chips">
               {#each g.mods as k (k)}
@@ -178,7 +200,10 @@
                     <input type="checkbox" bind:checked={m.bought} />
                     {info.name}
                     <span class="price" title="Its price at the mod vendor">{info.price} PB</span>
-                    {#if m.bought !== view.fields.mods[k]?.bought}<span class="mark" role="img" aria-label="changed"
+                    {#if m.bought !== view.fields.mods[k]?.bought}<span
+                        class="mark"
+                        role="img"
+                        aria-label="changed"
                       ></span>{/if}
                   </label>
                 {/if}
@@ -188,9 +213,9 @@
         {/each}
       </ul>
       <p class="note">
-        A mod ticked here is bought and switched on. Ticking mods does not spend platinum bolts{#if cost !== 0}: these
-          changes would cost {Math.abs(cost)} at the vendor{cost < 0 ? " back" : ""}; change "Platinum bolts spent"
-          above to match if you like{/if}.
+        A mod ticked here is bought and switched on. Ticking mods does not spend platinum bolts{#if cost !== 0}:
+          these changes would cost {Math.abs(cost)} at the vendor{cost < 0 ? " back" : ""}; change
+          "Platinum bolts spent" above to match if you like{/if}.
       </p>
     </section>
 
@@ -199,7 +224,10 @@
       {#each view.ship as part, k (part.name)}
         <div class="line">
           <label for={`se2x-ship-${String(k)}`}
-            >{part.name}{#if fields.ship[k] !== view.fields.ship[k]}<span class="mark" role="img" aria-label="changed"
+            >{part.name}{#if fields.ship[k] !== view.fields.ship[k]}<span
+                class="mark"
+                role="img"
+                aria-label="changed"
               ></span>{/if}</label
           >
           <div class="field">
@@ -214,7 +242,9 @@
           </div>
         </div>
       {/each}
-      <p class="note">The parts the Ship Shack sells. The paint job is with Ratchet's fields above.</p>
+      <p class="note">
+        The parts the Ship Shack sells. The paint job is with Ratchet's fields above.
+      </p>
     </section>
 
     <div class="actions">
@@ -222,16 +252,21 @@
         <p class="problem"><Icon name="warn" size={16} />{saveError}</p>
       {/if}
       {#if playing && dirty}
-        <p class="running"><Icon name="info" size={16} />The game is running with this card: close it, then save.</p>
+        <p class="running">
+          <Icon name="info" size={16} />The game is running with this card: close it, then save.
+        </p>
       {/if}
       {#if savedNote && !dirty}
         <p class="ok"><Icon name="save" size={16} />{savedNote}</p>
       {/if}
       <div class="row">
-        <span class="grow dim">{dirty ? "These fields save on their own." : "No changes here."}</span>
+        <span class="grow dim"
+          >{dirty ? "These fields save on their own." : "No changes here."}</span
+        >
         <button class="ghost" onclick={reset} disabled={!dirty || busy}>Reset</button>
         <button class="primary" onclick={save} disabled={!canSave}>
-          {#if busy}<span class="spinner"></span>{:else}<Icon name="save" size={16} />{/if}Save these
+          {#if busy}<span class="spinner"></span>{:else}<Icon name="save" size={16} />{/if}Save
+          these
         </button>
       </div>
     </div>

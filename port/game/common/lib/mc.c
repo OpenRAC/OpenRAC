@@ -185,8 +185,9 @@ static int card_parent(char* parent, size_t size, char* own, size_t own_size) {
 }
 
 /* Calls `each` with every name in the folder `dir`, "." and ".." too; 0 when it cannot be read. */
-static int each_name(const char* dir, void (*each)(const char* dir, const char* name, void* data),
-                     void* data) {
+static int each_name(
+    const char* dir, void (*each)(const char* dir, const char* name, void* data), void* data
+) {
 #if defined(_WIN32)
     char query[1100];
     struct _finddata_t found;
@@ -230,8 +231,7 @@ static void consider_card(const char* parent, const char* name, void* data) {
     char path[1200];
     if (!is_serial_folder(name) || strcmp(name, search->own) == 0
         || (search->found[0] != '\0' && strcmp(name, search->found) >= 0)
-        || snprintf(path, sizeof path, "%s/%s/%s", parent, name, search->top)
-               >= (int)sizeof path
+        || snprintf(path, sizeof path, "%s/%s/%s", parent, name, search->top) >= (int)sizeof path
         || !is_dir(path) || strlen(name) >= sizeof search->found) {
         return;
     }
@@ -273,8 +273,9 @@ static int card_path_of(int port, const char* name, char* out, size_t size, int*
         >= (int)sizeof relative) {
         return 0;
     }
-    if (snprintf(out, size, "%s%s%s%s", root, port == 0 ? "" : ".slot2", *relative ? "/" : "",
-                 relative)
+    if (snprintf(
+            out, size, "%s%s%s%s", root, port == 0 ? "" : ".slot2", *relative ? "/" : "", relative
+        )
         >= (int)size) {
         return 0;
     }
@@ -377,6 +378,9 @@ static int file_foreign[MAX_FILES];
 /* The save the game in progress came from or last went to (game_host.h). */
 int openrac_game_save_in_use = -1;
 int32_t openrac_game_save_in_use_seconds;
+
+/* Tells the mods' loader of a save just written, beside its mark. */
+static void tell_written(const char* path);
 
 /* ---- The save mark ---- */
 
@@ -494,6 +498,12 @@ static void mark_save(const char* path) {
     }
     fprintf(f, "{\"format\": 1, \"saved\": \"%s\", \"mods\": %s}\n", when, mods);
     fclose(f);
+}
+
+static void tell_written(const char* path) {
+    if (openrac_game_save_written != NULL) {
+        openrac_game_save_written(path, is_a_players_save(path));
+    }
 }
 
 /* ---- The card filter ---- */
@@ -801,6 +811,7 @@ int openrac_lib_sceMcClose(int fd) {
                 remove(temp);
             } else if (put_in_place(temp, file_paths[fd])) {
                 mark_save(file_paths[fd]);
+                tell_written(file_paths[fd]);
                 card_saves++;
             }
         }
@@ -813,6 +824,7 @@ int openrac_lib_sceMcClose(int fd) {
     /* A save just written: its mark is set or removed now, never half way through the write. */
     if (file_written[fd] && slot >= 0) {
         mark_save(file_paths[fd]);
+        tell_written(file_paths[fd]);
     }
     /* A game saved, or a save read whole (Load Game: the slot list reads only each save's head):
      * the game in progress is that slot's. */
@@ -823,6 +835,10 @@ int openrac_lib_sceMcClose(int fd) {
             && (file_written[fd] || file_read[fd] >= size)) {
             openrac_game_save_in_use = slot;
             openrac_game_save_in_use_seconds = seconds;
+            /* Read whole: the mods' data beside it is the game's to come. */
+            if (!file_written[fd] && openrac_game_save_read != NULL) {
+                openrac_game_save_read(file_paths[fd], slot);
+            }
         }
     }
     file_written[fd] = 0;
@@ -983,7 +999,8 @@ static void add_entry(const char* dir, const char* name) {
 }
 
 /* Whether `name` is a file the computer keeps in a card's folders rather than one of the card's:
- * the port's save marks (`.mods`), and what file browsers and other tools leave behind, all hidden
+ * the port's save marks (`.mods`) and the mods' data beside the saves (`.moddata`, written through
+ * a hidden temporary file), and what file browsers and other tools leave behind, all hidden
  * files (Finder's .DS_Store, the launcher's .backup_ folders) and Explorer's Thumbs.db and
  * desktop.ini. A real card holds none of them, and the games count the entries of their save
  * folder: Going Commando takes its folder for no save at all unless it lists exactly its own nine
@@ -991,6 +1008,9 @@ static void add_entry(const char* dir, const char* name) {
 static int host_only(const char* name) {
     const size_t length = strlen(name);
     if (length > 5 && strcmp(name + length - 5, ".mods") == 0) {
+        return 1;
+    }
+    if (length > 8 && strcmp(name + length - 8, ".moddata") == 0) {
         return 1;
     }
     if (name[0] == '.') {
@@ -1093,7 +1113,8 @@ static void list(int port, const char* spec) {
     listing_filter filter = {pattern, 0};
     each_name(path, list_name, &filter);
     /* The first card's root also holds the other games' save folders it does not have itself. */
-    if (port != 0 || foreign || !card_path(port, "/", root, sizeof root) || strcmp(path, root) != 0) {
+    if (port != 0 || foreign || !card_path(port, "/", root, sizeof root)
+        || strcmp(path, root) != 0) {
         return;
     }
     char parent[1024], own[256];

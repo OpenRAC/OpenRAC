@@ -97,6 +97,7 @@ void GifInterpreter::clear() {
     m_draws.clear();
     m_hud_side = 0;
     m_hud_stretch = false;
+    m_hud_split = -1;
     m_whole = false;
     m_picture = false;
     m_error.clear();
@@ -348,7 +349,11 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
             } else if ((value >> 48) == kFrameMarker) {
                 draw_frame_snapshot();
             } else if ((value >> 48) == kHudSideMarker) {
-                hud_side(static_cast<std::int32_t>(value & 0xFFFFFFFFu), (value & kHudStretch) != 0);
+                hud_side(
+                    static_cast<std::int32_t>(value & 0xFFFFFFFFu),
+                    (value & kHudStretch) != 0,
+                    (value & kHudSplit) != 0 ? static_cast<int>((value >> 34) & 0xFFFu) : -1
+                );
             } else if ((value >> 48) == kWholeMarker) {
                 m_whole = (value & 1u) != 0;
                 m_state_dirty = true;
@@ -621,7 +626,7 @@ bool frame_pixel(std::uint32_t base, std::uint32_t width, int x, int y, int& fra
     return frame_y < g_draw_buffer_lines;
 }
 
-void GifInterpreter::hud_side(int side, bool stretch) {
+void GifInterpreter::hud_side(int side, bool stretch, int split) {
     // Past the middle third on each side: what is across the middle is no side's. The triangles
     // are the frame's only: what the HUD draws off-screen goes with the sprite that shows it.
     // Triangles that overlap are one element and move together, or a long panel would come apart
@@ -679,6 +684,63 @@ void GifInterpreter::hud_side(int side, bool stretch) {
                 }
             }
         }
+        if (m_hud_split >= 0 && !triangles.empty()) {
+            // Two blocks, either side of the line, each out to its edge whole.
+            constexpr float kBlockMargin = 16.0f / 320.0f;
+            const float line =
+                static_cast<float>(m_hud_split) * 2.0f / static_cast<float>(m_config.screen_width)
+                - 1.0f;
+            // A piece near the line (a bar's tip, its neighbour's corner, which overlap) goes with
+            // the clear piece drawn nearest before it: the game draws each bar's pieces together.
+            constexpr float kBand = 0.03f;
+            std::vector<std::size_t> order(triangles.size());
+            for (std::size_t i = 0; i < order.size(); ++i) {
+                order[i] = i;
+            }
+            std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+                return triangles[a].first < triangles[b].first;
+            });
+            std::vector<int> to(triangles.size(), 0);  // -1 left, 1 right
+            for (std::size_t i = 0; i < triangles.size(); ++i) {
+                const float centre = (triangles[i].left + triangles[i].right) / 2.0f;
+                if (std::abs(centre - line) > kBand) {
+                    to[i] = centre < line ? -1 : 1;
+                }
+            }
+            for (std::size_t n = 0; n < order.size(); ++n) {
+                const std::size_t i = order[n];
+                if (to[i] != 0) {
+                    continue;
+                }
+                int side = 0;
+                for (std::size_t back = n; back-- > 0 && side == 0;) {
+                    side = to[order[back]];
+                }
+                for (std::size_t on = n + 1; on < order.size() && side == 0; ++on) {
+                    side = to[order[on]];
+                }
+                const float centre = (triangles[i].left + triangles[i].right) / 2.0f;
+                to[i] = side != 0 ? side : (centre < line ? -1 : 1);
+            }
+            float left = std::numeric_limits<float>::max();
+            float right = std::numeric_limits<float>::lowest();
+            for (std::size_t i = 0; i < triangles.size(); ++i) {
+                if (to[i] < 0) {
+                    left = std::min(left, triangles[i].left);
+                } else {
+                    right = std::max(right, triangles[i].right);
+                }
+            }
+            const float to_left = -(move + std::max(0.0f, left + 1.0f - kBlockMargin));
+            const float to_right = move + std::max(0.0f, 1.0f - right - kBlockMargin);
+            for (std::size_t i = 0; i < triangles.size(); ++i) {
+                const float shift = to[i] < 0 ? to_left : to_right;
+                for (std::uint32_t k = triangles[i].first; k < triangles[i].first + 3; ++k) {
+                    m_vertices[k].x += shift;
+                }
+            }
+            triangles.clear();
+        }
         std::vector<std::pair<float, float>> extent(
             triangles.size(),
             {std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()}
@@ -718,6 +780,7 @@ void GifInterpreter::hud_side(int side, bool stretch) {
     }
     m_hud_side = side;
     m_hud_stretch = stretch;
+    m_hud_split = split;
     m_hud_side_first = static_cast<std::uint32_t>(m_vertices.size());
 }
 
@@ -1104,6 +1167,12 @@ void GifInterpreter::note_texture_kind(std::uint32_t tbp, std::uint8_t psm, Text
 }
 
 bool GifInterpreter::frame_source(std::uint32_t tbp, int& x, int& y) const {
+    // A picture put in a frame buffer outside the list (a movie's frame where the console's
+    // decoder leaves it, frontend::upload_picture) is what that memory holds: the list's sprites
+    // draw it as a texture.
+    if (m_textures.picture_at(tbp)) {
+        return false;
+    }
     for (const FrameCopy& f : m_frame_copies) {
         if (f.dbp == tbp) {
             x = f.x;
@@ -1244,13 +1313,18 @@ void GifInterpreter::ensure_draw() {
             s.clamp_s = true;
             s.clamp_t = true;
         } else if (s.textured) {
-            s.texture = m_textures.resolve(c.tex0, m_texa);
+            // Unblended draws can use RGB under zero alpha, so only active blending permits filtering.
+            const gs::Alpha* dump_blend = p.abe ? &c.alpha : nullptr;
+            s.texture = m_textures.resolve(c.tex0, m_texa, dump_blend);
             // An interface texture run (interface_run.h) files a texture drawn as text as the font.
             if (m_glyph && interface_run::recording() && s.texture != m_textures.placeholder()) {
                 interface_run::mark_font(m_textures.pack_hash(s.texture));
             }
+            // A pack's picture is drawn as its maker made it: a field of a big one would also
+            // take seconds of CPU (four times its size).
             if (m_glyph && s.texture != m_textures.placeholder()
-                && !m_textures.has_cropped_replacement(s.texture)) {
+                && !m_textures.has_cropped_replacement(s.texture)
+                && !m_textures.has_pack_replacement(s.texture)) {
                 s.field = m_textures.distance_field(s.texture);
                 s.distance_field = s.field != s.texture;
             }
@@ -1478,11 +1552,14 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
     // their sizes), so drawing the copy would only shrink it into the middle of itself.
     // The same for a copy of the draw buffer onto itself in strips, which the game makes in its
     // 448-line (60 Hz) mode: the picture already holds it, and the pool has no texture for it,
-    // so drawn it laid stripes of stale texels over the world.
+    // so drawn it laid stripes of stale texels over the world. A movie's picture put in the draw
+    // buffer (frontend::upload_picture) is not the frame: its strips are drawn.
     const std::uint32_t target = context().frame.fbp * 32;
     if (attributes().tme && context().tex0.tbp0 == g_draw_buffer_block
+        && !m_textures.picture_at(context().tex0.tbp0)
         && (target == m_config.display_block || target == g_draw_buffer_block)
-        && std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16 >= kFrameFillLines) {
+        && std::llabs(static_cast<std::int64_t>(b.y) - static_cast<std::int64_t>(a.y)) / 16
+               >= kFrameFillLines) {
         return;
     }
     // A sprite is a rectangle from two corners; depth, colour and fog come
@@ -1825,10 +1902,12 @@ bool DirectRenderer::retain_uploads(std::span<const std::uint8_t> packets) {
     return ok;
 }
 
-void DirectRenderer::render(const FrameInput& input, RenderState& state) {
+void DirectRenderer::prepare(const FrameInput& input, RenderState& state) {
     const auto packets = input.packets[static_cast<std::size_t>(bucket())];
+    m_prepared = true;
     // Draws the part before the world held back (flush) are drawn even when nothing follows.
-    if (packets.empty() && m_interpreter->draws().empty()) {
+    m_nothing = packets.empty() && m_interpreter->draws().empty();
+    if (m_nothing) {
         return;
     }
     m_interpreter->set_ui_quads(input.ui_quads);
@@ -1836,9 +1915,44 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     m_interpreter->set_picture(state.target.picture_scale_x, state.target.wide_2d);
     m_interpreter->set_over_world(std::exchange(m_world_split, false) && input.level_drawn);
     m_frame = &input;
-    {
-        const stats::Scope decode("2d decode");
-        submit(packets);
+    const stats::Scope decode("2d decode");
+    submit(packets);
+}
+
+bool DirectRenderer::draws_nothing() const {
+    // Only off-screen panels drawn (or nothing at all), none of them from the frame.
+    return m_prepared
+           && (m_nothing
+               || std::none_of(
+                   m_interpreter->draws().begin(),
+                   m_interpreter->draws().end(),
+                   [](const DirectDraw& d) {
+                       return (d.count != 0 || d.mobys != 0)
+                              && (d.state.target == 0 || d.state.frame_source);
+                   }
+               ));
+}
+
+bool DirectRenderer::reads_frame_depth() const {
+    // A draw on the frame that tests depth against what is there, or mobys drawn on it.
+    return std::any_of(
+        m_interpreter->draws().begin(), m_interpreter->draws().end(), [](const DirectDraw& d) {
+            const gs::DepthTest test = d.state.test.ztst;
+            return d.state.target == 0
+                   && (d.mobys != 0
+                       || (d.state.test.zte
+                           && (test == gs::DepthTest::Gequal || test == gs::DepthTest::Greater)));
+        }
+    );
+}
+
+void DirectRenderer::render(const FrameInput& input, RenderState& state) {
+    if (!std::exchange(m_prepared, false)) {
+        prepare(input, state);
+        m_prepared = false;
+    }
+    if (m_nothing) {
+        return;
     }
     const stats::Scope draws("2d draws");
     flush(state);

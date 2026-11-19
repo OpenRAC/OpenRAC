@@ -74,3 +74,4 @@ func_001F9518	game_sound_math.c
 func_001F97C0	game_sound_math.c
 func_L02_0024F618	level_liquid_grid.c
 func_L02_0020FCE8	level_liquid_grid.c
+func_L00_001F3580	level_return_minus_one.c

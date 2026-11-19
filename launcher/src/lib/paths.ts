@@ -10,6 +10,7 @@ const PATH =
 /** A path's last part ("plugins.json", "keyboard-mouse"), or "a folder" for a root. */
 const lastPart = (path: string): string => {
   const parts = path.split(/[\\/]+/).filter((p) => p && !/^[A-Za-z]:$/.test(p) && p !== "~");
+
   return parts.at(-1) ?? "a folder";
 };
 
@@ -19,8 +20,10 @@ export function hidePaths(text: string): { text: string; hidden: boolean } {
   const out = text.replace(PATH, (path) => {
     hidden = true;
     const dots = /[.]+$/.exec(path)?.[0] ?? "";
+
     return lastPart(path.slice(0, path.length - dots.length)) + dots;
   });
+
   return { text: out, hidden };
 }
 

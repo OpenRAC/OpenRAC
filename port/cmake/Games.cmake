@@ -24,7 +24,8 @@ include(Differences)
 # hostgen uses every core itself: one game's translation at a time (Ninja).
 set_property(GLOBAL APPEND PROPERTY JOB_POOLS openrac_hostgen=1)
 
-set(OPENRAC_HOSTGEN "${CMAKE_CURRENT_LIST_DIR}/../tools/hostgen/hostgen.py")
+set(OPENRAC_HOSTGEN  "${CMAKE_CURRENT_LIST_DIR}/../tools/hostgen/hostgen.py")
+set(OPENRAC_PARITY   "${CMAKE_CURRENT_LIST_DIR}/../tools/versionmap/parity.py")
 set(OPENRAC_GAME_DIR "${CMAKE_CURRENT_LIST_DIR}/../game")
 set(OPENRAC_REPO_DIR "${CMAKE_CURRENT_LIST_DIR}/../..")
 
@@ -61,6 +62,66 @@ target_link_libraries(sound_engine_test PRIVATE openrac_game_common)
 openrac_warnings(sound_engine_test)
 add_test(NAME sound_engine COMMAND sound_engine_test)
 
+# The decomps are git submodules (docs/SOURCES.md). A build folder made before that keeps its old
+# cached OPENRAC_<ID>_SOURCE; a submodule is empty until it is checked out, and upstream's own
+# until OpenRAC's patches go on. hostgen then fails far from the cause (no units read: every
+# libraries.tsv row "no function of this program"). Each is put right here: the path reset to the
+# default, and the one tree checked out and patched as tools/sources.py init does (init itself
+# also unapplies every other tree, which would undo work in progress in them).
+function(openrac_fix_source id ID default)
+  # OPENRAC_REPO_DIR ends in "/../..": compare normalized paths.
+  cmake_path(SET default NORMALIZE "${default}")
+  cmake_path(SET actual NORMALIZE "${OPENRAC_${ID}_SOURCE}")
+  cmake_path(SET games NORMALIZE "${OPENRAC_REPO_DIR}/games")
+  if(NOT EXISTS "${actual}/src" AND NOT actual STREQUAL default)
+    message(STATUS "openrac-${id}: OPENRAC_${ID}_SOURCE was ${actual}, a path from before the decomps "
+                   "became submodules: now ${default}")
+    set(OPENRAC_${ID}_SOURCE "${default}" CACHE PATH "The decompilation openrac-${id} is built from" FORCE)
+    set(actual "${default}")
+  endif()
+  file(RELATIVE_PATH rel "${games}" "${actual}")
+  if(rel MATCHES "^\\.\\.")
+    return()  # a decomp outside the checkout: the player's own, set up their way
+  endif()
+  cmake_path(GET games PARENT_PATH repo)
+  if(NOT EXISTS "${actual}/.git")
+    message(STATUS "openrac-${id}: checking out games/${rel}")
+    execute_process(COMMAND git -c core.autocrlf=false submodule update --init --depth 1 -- "games/${rel}"
+                    WORKING_DIRECTORY "${repo}" RESULT_VARIABLE failed OUTPUT_QUIET ERROR_VARIABLE err)
+    if(failed)
+      message(WARNING "openrac-${id}: could not check out games/${rel} (python3 tools/sources.py init): ${err}")
+      return()
+    endif()
+  endif()
+  file(GLOB patches "${actual}-patches/*.patch")
+  if(NOT patches AND NOT IS_DIRECTORY "${actual}-patches/files")
+    return()
+  endif()
+  # tools/sources.py apply records what it changed in the submodule's git folder.
+  set(git_dir "${actual}/.git")
+  if(NOT IS_DIRECTORY "${git_dir}")
+    file(READ "${git_dir}" git_file)
+    string(REGEX REPLACE "^gitdir: *([^\n]*).*" "\\1" git_dir "${git_file}")
+    if(NOT IS_ABSOLUTE "${git_dir}")
+      set(git_dir "${actual}/${git_dir}")
+    endif()
+  endif()
+  if(EXISTS "${git_dir}/openrac-patches.json")
+    file(READ "${git_dir}/openrac-patches.json" state)
+    string(JSON files ERROR_VARIABLE no_files TYPE "${state}" files)
+    string(JSON edit ERROR_VARIABLE no_edit GET "${state}" edit)
+    if((NOT no_files AND files STREQUAL "ARRAY") OR (NOT no_edit AND edit))
+      return()
+    endif()
+  endif()
+  message(STATUS "openrac-${id}: applying OpenRAC's patches to games/${rel}")
+  execute_process(COMMAND "${Python3_EXECUTABLE}" tools/sources.py apply "${rel}"
+                  WORKING_DIRECTORY "${repo}" RESULT_VARIABLE failed OUTPUT_QUIET ERROR_VARIABLE err)
+  if(failed)
+    message(WARNING "openrac-${id}: could not apply the patches to games/${rel}: ${err}")
+  endif()
+endfunction()
+
 function(openrac_add_game config)
   file(READ "${config}" json)
   string(JSON id GET "${json}" id)
@@ -71,6 +132,7 @@ function(openrac_add_game config)
   string(REPLACE "-" "_" target_id "${id}")
   set(OPENRAC_${ID}_SOURCE "${OPENRAC_REPO_DIR}/${source}" CACHE PATH
       "The decompilation openrac-${id} is built from")
+  openrac_fix_source("${id}" "${ID}" "${OPENRAC_REPO_DIR}/${source}")
   set(game_source "${OPENRAC_${ID}_SOURCE}")
   # Where the game's setup wrote the assembly, if not in that decompilation (another copy of it).
   set(OPENRAC_${ID}_ASM_SOURCE "" CACHE PATH "Where openrac-${id}'s assembly is, if not in its decompilation")
@@ -89,7 +151,9 @@ function(openrac_add_game config)
     return()
   endif()
 
-  # What hostgen will write, known now so the build can depend on it.
+  # What hostgen will write, known now so the build can depend on it. The listing follows
+  # hostgen.json (its sources and skips), so a change there configures again.
+  set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${config}")
   execute_process(
     COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${config}"
             --source "${game_source}" --out "${gen}" --list
@@ -194,7 +258,8 @@ function(openrac_add_game config)
   # the decompilation with.
   get_filename_component(hostgen_dir "${OPENRAC_HOSTGEN}" DIRECTORY)
   file(GLOB tool CONFIGURE_DEPENDS "${hostgen_dir}/*.py" "${hostgen_dir}/include/*.h")
-  file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv"
+  file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv" "${config_dir}/tables/*"
+       "${config_dir}/release/*"
        "${config_dir}/hand/*" "${OPENRAC_GAME_DIR}/common/*.tsv")
   # hostgen rewrites only the files whose text changed, so after an edit only
   # those recompile: the stamp says when it last ran, the files are byproducts
@@ -202,6 +267,17 @@ function(openrac_add_game config)
   # Handwritten replacements can live below hand/functional and other subfolders.
   # Track their contents, not only the immediate directory entry, on edits.
   file(GLOB_RECURSE hand_inputs CONFIGURE_DEPENDS "${config_dir}/hand/*")
+  # The parity check reads the tables, headers and release names of the game's programs and the
+  # game's reasons.
+  string(REGEX REPLACE "-.*" "" parity_game "${id}")
+  file(GLOB parity_inputs CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/${parity_game}-*/libraries.tsv"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/host/${parity_game}_version.h"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/release/release_names.json"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/release/release_carry.json"
+       "${OPENRAC_GAME_DIR}/${parity_game}-*/release/data_moves.tsv"
+       "${OPENRAC_GAME_DIR}/${parity_game}/parity.tsv")
+  get_filename_component(parity_dir "${OPENRAC_PARITY}" DIRECTORY)
+  list(APPEND parity_inputs "${OPENRAC_PARITY}" "${parity_dir}/data_moves.py")
   # A game whose assembly a build without the disc calls through slots (hostgen.json "asm"
   # "interface", tools/hostgen/asmext.py): its program, for the part built from the disc later
   # (asmdev.py), and its symbols exported to that part.
@@ -215,10 +291,13 @@ function(openrac_add_game config)
   add_custom_command(
     OUTPUT "${gen}/hostgen.stamp"
     BYPRODUCTS ${outputs}
+    # Every version of the game binds each function alike, or port/game/<game>/parity.tsv says
+    # why not (tools/versionmap/parity.py): a version that runs other code does not build.
+    COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_PARITY}" --program "${id}"
     COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${config}"
             --source "${game_source}" --out "${gen}" --quiet ${asm_args}
     COMMAND "${CMAKE_COMMAND}" -E touch "${gen}/hostgen.stamp"
-    DEPENDS ${inputs} ${tool} ${tables} ${hand_inputs}
+    DEPENDS ${inputs} ${tool} ${tables} ${hand_inputs} ${parity_inputs}
     COMMENT "hostgen: ${id} from ${game_source}"
     JOB_POOL openrac_hostgen
     VERBATIM)

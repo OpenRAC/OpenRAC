@@ -74,6 +74,34 @@ void upload_image(
     g->images.push_back(std::move(image));
 }
 
+void upload_picture(
+    std::uint32_t base,
+    std::uint32_t width_units,
+    std::uint32_t width,
+    std::uint32_t height,
+    std::span<const std::uint8_t> pixels
+) {
+    // The pool's pictures are read by the render thread: set with no frame being drawn. Not an
+    // upload_image: a movie frame each blank would be hashed, converted and given a new texture.
+    if (!g || !finish_render()) {
+        return;
+    }
+    if (g->renderer) {
+        g->renderer->textures().set_picture(
+            base, width_units, static_cast<int>(width), static_cast<int>(height), pixels
+        );
+    }
+}
+
+void forget_picture(std::uint32_t base) {
+    if (!g || !finish_render()) {
+        return;
+    }
+    if (g->renderer) {
+        g->renderer->textures().forget_picture(base);
+    }
+}
+
 bool store_image(
     std::uint32_t base,
     std::uint32_t width_units,

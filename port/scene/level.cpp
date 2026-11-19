@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bit>
 #include <cgltf.h>
 #include <cmath>
@@ -16,11 +17,14 @@
 #include <map>
 #include <stb_image.h>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
+#include "common/joining_thread.h"
 #include "common/json.h"
 #include "common/log.h"
 #include "common/profiler.h"
+#include "materials/catalog.h"
 #include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture_pack.h"
 #include "scene/material_overrides.h"
@@ -208,6 +212,55 @@ void replace_pcsx2(const fs::path& path, renderer::Rgba8Image& image) {
     renderer::pcsx2_pack::replace_indexed8(image, raster, palette);
 }
 
+// With a texture pack: the level's textures looked up in it all at once, on several threads, so
+// that its big pictures are decoded side by side, not one after another while the level loads.
+void read_pack_pictures_ahead(const fs::path& dir) {
+    if (!renderer::texture_pack::has_pictures()) {
+        return;
+    }
+    std::vector<fs::path> files;
+    std::error_code e;
+    for (auto it = fs::recursive_directory_iterator(dir, e);
+         it != fs::recursive_directory_iterator();
+         it.increment(e)) {
+        if (it->is_regular_file(e) && it->path().extension() == ".png") {
+            files.push_back(it->path());
+        }
+    }
+    std::vector<renderer::texture_pack::TextureId> ids(files.size());
+    std::atomic<std::size_t> next{0};
+    {
+        constexpr unsigned kMostThreads = 8;
+        const unsigned count = std::clamp(std::thread::hardware_concurrency(), 1u, kMostThreads);
+        std::vector<JoiningThread> workers;
+        for (unsigned i = 0; i < count; ++i) {
+            workers.emplace_back([&] {
+                for (std::size_t at = next++; at < files.size(); at = next++) {
+                    // Read as image_index() reads it, so that the hash is the same.
+                    int w = 0;
+                    int h = 0;
+                    int channels = 0;
+                    unsigned char* pixels =
+                        stbi_load(files[at].string().c_str(), &w, &h, &channels, 4);
+                    if (pixels == nullptr) {
+                        continue;
+                    }
+                    renderer::Rgba8Image image(w, h);
+                    std::copy(
+                        pixels,
+                        pixels + static_cast<std::ptrdiff_t>(w) * h * 4,
+                        image.pixels.begin()
+                    );
+                    stbi_image_free(pixels);
+                    ids[at] = {renderer::texture_pack::image_hash(image), w, h};
+                }
+            });
+        }
+    }
+    std::erase_if(ids, [](const renderer::texture_pack::TextureId& id) { return id.hash == 0; });
+    renderer::texture_pack::read_level_pictures(ids);
+}
+
 int image_index(const fs::path& requested, LevelData& level) {
     int overridden = 0;
     const std::string key =
@@ -235,9 +288,19 @@ int image_index(const fs::path& requested, LevelData& level) {
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size, and its frames
     // when it is animated.
     renderer::texture_pack::Replacement replaced;
-    if (!renderer::texture_pack::replace(image, {.level = level.level}, &replaced)) {
+    // The original's texels, while a pack may replace them: its material identity is the original's.
+    renderer::Rgba8Image original;
+    if (renderer::texture_pack::has_pictures()) {
+        original = image;
+    }
+    std::string identity;
+    if (renderer::texture_pack::replace(image, {.level = level.level}, &replaced)) {
+        identity = materials::texture_identity(original.width, original.height, original.pixels);
+    } else {
         replace_pcsx2(key, image);
     }
+    level.image_identities.resize(level.images.size());
+    level.image_identities.push_back(std::move(identity));
     level.image_animations.resize(level.images.size());
     level.image_animations.push_back(std::move(replaced.animation));
     level.image_blocks.resize(level.images.size());
@@ -578,6 +641,166 @@ std::optional<std::uint32_t> load_model(
     return static_cast<std::uint32_t>(level.models.size() - 1);
 }
 
+bool load_preview_animation(
+    const fs::path& path, Model& model, const char* clip, const LevelData* geometry
+) {
+    cgltf_options options{};
+    cgltf_data* raw = nullptr;
+    const auto name = path.string();
+    if (cgltf_parse_file(&options, name.c_str(), &raw) != cgltf_result_success) {
+        return false;
+    }
+    const std::unique_ptr<cgltf_data, decltype(&cgltf_free)> data(raw, cgltf_free);
+    if (cgltf_load_buffers(&options, raw, name.c_str()) != cgltf_result_success
+        || raw->skins_count != 1 || model.bones.empty()) {
+        return false;
+    }
+    const cgltf_animation* animation = nullptr;
+    for (cgltf_size i = 0; i < raw->animations_count; ++i) {
+        if (raw->animations[i].name && std::strcmp(raw->animations[i].name, clip) == 0) {
+            animation = &raw->animations[i];
+        }
+    }
+    if (!animation) {
+        return false;
+    }
+    float duration = 0;
+    for (cgltf_size i = 0; i < animation->samplers_count; ++i) {
+        const auto& sampler = animation->samplers[i];
+        if (!sampler.input || !sampler.output || sampler.input->count == 0
+            || sampler.output->count != sampler.input->count
+            || sampler.interpolation == cgltf_interpolation_type_cubic_spline) {
+            return false;
+        }
+        float last = 0;
+        if (!cgltf_accessor_read_float(sampler.input, sampler.input->count - 1, &last, 1)
+            || !std::isfinite(last)) {
+            return false;
+        }
+        duration = std::max(duration, last);
+    }
+    // Retail weapon display sequences can be a single authored pose at time zero.
+    if (duration < 0 || duration > 30) {
+        return false;
+    }
+    const auto& skin = raw->skins[0];
+    std::vector<std::vector<Mat4>> poses;
+    const int frames = std::max(1, int(std::ceil(duration * 60)));
+    for (int frame = 0; frame < frames; ++frame) {
+        const float time = float(frame) / 60;
+        for (cgltf_size i = 0; i < animation->channels_count; ++i) {
+            const auto& channel = animation->channels[i];
+            auto* node = channel.target_node;
+            if (!node || !channel.sampler) {
+                return false;
+            }
+            const auto& sampler = *channel.sampler;
+            cgltf_size a = 0;
+            float ta = 0, tb = 0;
+            cgltf_accessor_read_float(sampler.input, 0, &ta, 1);
+            while (a + 1 < sampler.input->count) {
+                cgltf_accessor_read_float(sampler.input, a + 1, &tb, 1);
+                if (tb > time) {
+                    break;
+                }
+                ta = tb;
+                ++a;
+            }
+            const auto b = std::min(a + 1, sampler.input->count - 1);
+            cgltf_accessor_read_float(sampler.input, b, &tb, 1);
+            const bool rotation = channel.target_path == cgltf_animation_path_type_rotation;
+            const int count = rotation ? 4 : 3;
+            float from[4]{}, to[4]{}, value[4]{};
+            if (!cgltf_accessor_read_float(sampler.output, a, from, count)
+                || !cgltf_accessor_read_float(sampler.output, b, to, count)) {
+                return false;
+            }
+            const float weight = sampler.interpolation == cgltf_interpolation_type_step || tb <= ta
+                                     ? 0
+                                     : std::clamp((time - ta) / (tb - ta), 0.0f, 1.0f);
+            float dot = 0;
+            for (int j = 0; j < count; ++j) {
+                dot += from[j] * to[j];
+            }
+            float norm = 0;
+            for (int j = 0; j < count; ++j) {
+                value[j] = from[j] * (1 - weight) + to[j] * weight * (rotation && dot < 0 ? -1 : 1);
+                norm += value[j] * value[j];
+            }
+            node->has_matrix = false;
+            if (rotation) {
+                if (norm <= 0) {
+                    return false;
+                }
+                for (int j = 0; j < 4; ++j) {
+                    node->rotation[j] = value[j] / std::sqrt(norm);
+                }
+                node->has_rotation = true;
+            } else if (channel.target_path == cgltf_animation_path_type_translation) {
+                std::copy_n(value, 3, node->translation);
+                node->has_translation = true;
+            } else if (channel.target_path == cgltf_animation_path_type_scale) {
+                std::copy_n(value, 3, node->scale);
+                node->has_scale = true;
+            } else {
+                return false;
+            }
+        }
+        std::vector<Mat4> pose(model.bones.size(), renderer::identity());
+        for (cgltf_size j = 0; j < skin.joints_count; ++j) {
+            const auto number = std::size_t(bone_number(skin.joints[j], int(j)));
+            if (!skin.joints[j] || number >= pose.size()) {
+                return false;
+            }
+            Mat4 world{}, inverse = renderer::identity();
+            cgltf_node_transform_world(skin.joints[j], world.data());
+            if (skin.inverse_bind_matrices
+                && !cgltf_accessor_read_float(skin.inverse_bind_matrices, j, inverse.data(), 16)) {
+                return false;
+            }
+            pose[number] = renderer::multiply(world, inverse);
+        }
+        poses.push_back(std::move(pose));
+    }
+    if (geometry) {
+        std::vector<std::uint32_t> vertices;
+        for (const auto& primitive : model.primitives) {
+            for (std::uint32_t i = 0; i < primitive.index_count; ++i) {
+                vertices.push_back(geometry->indices[primitive.first_index + i]);
+            }
+        }
+        std::sort(vertices.begin(), vertices.end());
+        vertices.erase(std::unique(vertices.begin(), vertices.end()), vertices.end());
+        Vec3 low{3.0e38f, 3.0e38f, 3.0e38f}, high{-3.0e38f, -3.0e38f, -3.0e38f};
+        for (const auto& pose : poses) {
+            for (const auto index : vertices) {
+                const auto& vertex = geometry->vertices[index];
+                const Vec3 position{vertex.position[0], vertex.position[1], vertex.position[2]};
+                Vec3 skinned{};
+                float weight = 0;
+                for (int j = 0; j < 4; ++j) {
+                    if (vertex.weights[j] <= 0 || vertex.joints[j] >= pose.size()) {
+                        continue;
+                    }
+                    const auto point = renderer::transform_point(pose[vertex.joints[j]], position);
+                    for (int axis = 0; axis < 3; ++axis) {
+                        skinned[axis] += point[axis] * vertex.weights[j];
+                    }
+                    weight += vertex.weights[j];
+                }
+                grow(low, high, weight > 0 ? skinned : position);
+            }
+        }
+        if (!vertices.empty()) {
+            model.preview_min = low;
+            model.preview_max = high;
+            model.preview_bounds = true;
+        }
+    }
+    model.preview_poses = std::move(poses);
+    return true;
+}
+
 std::uint32_t add_box_model(LevelData& level) {
     Model model;
     model.name = "box";
@@ -670,6 +893,13 @@ bool load_level(
     void (*prepare_geometry)(LevelData&)
 ) {
     const profiling::Zone trace("Load level assets");
+
+    // The pack's pictures read ahead for this level and not used are freed, whatever the outcome.
+    struct DropPictures {
+        ~DropPictures() { renderer::texture_pack::drop_level_pictures(); }
+    } drop_pictures;
+
+    read_pack_pictures_ahead(dir);
 
     out = LevelData{};
     out.dir = dir;
@@ -1437,6 +1667,8 @@ bool load_level(
     }
     prepare_chrome_geometry(out);
     prepare_material_overrides(out);
+    // The pack's HUD and effect pictures, read now behind the loading screen, not while playing.
+    renderer::texture_pack::preload();
     return true;
 }
 

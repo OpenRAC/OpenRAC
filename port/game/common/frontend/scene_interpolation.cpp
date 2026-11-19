@@ -179,11 +179,6 @@ void upload_instances(SceneFrame& frame) {
     const auto& palette = blend ? blended : frame.scene.palette;
     frame.owner.scene.set_palette(palette);
 
-    // Motion history must match the exact pose drawn into depth and colour.
-    if (frame.temporal) {
-        frame.owner.temporal->set_scene(live, palette);
-    }
-
     // "Draw distance: Original": the shrubs ShrubProc fades or draws as billboards, with the
     // mobys; the ones it draws whole stay in their layer (choose_scenery).
     frame.owner.scene.set_shrub_draws(
@@ -233,6 +228,11 @@ void upload_instances(SceneFrame& frame) {
         );
     }
     const auto& drawn = more ? with_shrubs : live;
+    // Include moved ties and shrubs: motion history must match every pose drawn into depth.
+    if (frame.temporal) {
+        frame.owner.temporal->set_scene(drawn, palette);
+    }
+
     frame.owner.scene.set_variant(frame.scene.texture_variant);
     frame.owner.scene.set_instances(scene::Layer::Mobys, drawn);
     frame.output.picker_level = frame.scene.level;

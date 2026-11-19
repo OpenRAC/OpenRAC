@@ -22,7 +22,7 @@
   "defines": ["OPENRAC_HAS_DISC=1"],
   "aliases": ["include/names.h"],
   "places": "config/overlays/functions.tsv",
-  "split_places": "split_places.tsv",
+  "split_places": "tables/split_places.tsv",
   "symbols": ["config/port_symbols.txt"],
   "libraries": "libraries.tsv",
   "host_shared": ["../rac1/host"],
@@ -124,6 +124,8 @@
   "candidates": "nonmatching/functional.tsv",
   "hand": "hand/hand.tsv",
   "overrides": "hand/overrides.tsv",
+  "assembly_allow": "checks/assembly_allow.tsv",
+  "result_allow": "checks/result_allow.tsv",
   "asm": {
     "enabled": true,
     "dirs": ["asm/nonmatchings", "asm/handwritten", "asm/overlays", "asm/remnants"],

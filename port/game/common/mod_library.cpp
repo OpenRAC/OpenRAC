@@ -134,7 +134,8 @@ std::string writable_by_others(const std::filesystem::path& path) {
     }
     for (std::filesystem::path dir = file.parent_path(); !dir.empty(); dir = dir.parent_path()) {
         if (open_to_others(dir, true)) {
-            return "its folder " + dir.string() + " can be changed by another user of this computer";
+            return "its folder " + dir.string()
+                   + " can be changed by another user of this computer";
         }
         if (dir == dir.root_path()) {
             break;
