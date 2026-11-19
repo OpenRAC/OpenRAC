@@ -5,7 +5,6 @@
 // it prints, and where a player's data lives when no option says (the folders the launcher uses).
 
 #include "program/options.h"
-#include "program/moby_states.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -19,6 +18,8 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "openrac/game_host.h"
+#include "program/control.h"
+#include "program/moby_states.h"
 
 namespace openrac::program {
 namespace {
@@ -33,7 +34,7 @@ namespace {
         "[--mods DIR] [--map] [--ship-map] [--destinations] "
         "[--check-levels] [--settings FILE] [--controls DIR] "
         "[--plugins FILE] [--probes DIR] [--no-mods] [--debug-overlay] [--debug-dump FILE] "
-        "[--moby-states FILE [--moby-states-ticks N]]",
+        "[--moby-states FILE [--moby-states-ticks N]] [--control]",
         program_name(),
         openrac_game.game
     );
@@ -220,6 +221,8 @@ Options parse(int argc, char** argv) {
             moby_states_out = value();
         } else if (a == "--moby-states-ticks") {
             moby_states_ticks = std::stol(value());
+        } else if (a == "--control") {
+            control::request();
         } else if (a == "--skip-movies") {
             o.skip_movies = true;
         } else if (a == "--unlock-all-weapons") {
@@ -247,6 +250,15 @@ Options parse(int argc, char** argv) {
         } else {
             usage("unknown option " + a);
         }
+    }
+
+    // --control (control.h): driven over stdin and stdout, without movies. tools/game_mcp.py also
+    // sets OPENRAC_DIRECT, which skips the title's notices (rac1/host/boot.c).
+    if (control::requested()) {
+        if (openrac_game_start_level >= 0) {
+            openrac_game_direct_start = 1;
+        }
+        o.skip_movies = true;
     }
 
     // --moby-states FILE (moby_states.h): straight into the --level, no movies, no card of the
