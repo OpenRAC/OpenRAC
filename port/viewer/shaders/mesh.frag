@@ -83,8 +83,11 @@ const vec3 kSun = vec3(0.36, 0.48, 0.80);
 
 // A mod's platinum (openrac_api.moby_material, OPENRAC_MOBY_MATERIAL_PLATINUM): render-only, a
 // cool white metal. Its texel is made grey with a trace of its colour left, brightened, and turned
-// a little blue; after the lighting it gets a tight highlight from the fixed sun and a bright rim.
-// A glow packet keeps the game's colour.
+// a little blue; so is its colour after the vertex colour (platinum_colour), which is where a
+// coloured moby's colour is: Going Commando's bolt coins are a grey texture lit gold by their
+// moby colour (+0x3C) and light set 13 (moby_spawn_bolt_pickup). After the lighting it gets a tight
+// highlight from the fixed sun and a bright rim. A glow packet's colour is made silver the same
+// way, its brightness kept: its texel is not brightened and it gets no highlight.
 const int kModMaterialPlatinum = 2;
 const float kPlatinumColourKept = 0.12;
 const float kPlatinumGain = 1.3;
@@ -96,11 +99,16 @@ const float kPlatinumRim = 0.3;         // the rim's strength at a grazing angle
 const vec3 kPlatinumShine = vec3(0.92, 0.96, 1.0);
 
 bool platinum() {
-    return v_mod_material == kModMaterialPlatinum && v_glow == 0;
+    return v_mod_material == kModMaterialPlatinum;
+}
+
+// Its surface, not a glow packet's vertex: the one brightened and shone.
+bool platinum_surface() {
+    return platinum() && v_glow == 0;
 }
 
 vec4 platinum_texel(vec4 texel) {
-    if (!platinum()) {
+    if (!platinum_surface()) {
         return texel;
     }
     float grey = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
@@ -108,8 +116,18 @@ vec4 platinum_texel(vec4 texel) {
     return vec4(clamp(metal * kPlatinumTint, 0.0, 1.0), texel.a);
 }
 
+// The texel times its vertex colour (lit, or a glow packet's), made grey with a trace of its colour
+// left and turned a little blue, its brightness kept; alpha as it is.
+vec4 platinum_colour(vec4 c) {
+    if (!platinum()) {
+        return c;
+    }
+    float grey = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+    return vec4(mix(vec3(grey), c.rgb, kPlatinumColourKept) * kPlatinumTint, c.a);
+}
+
 vec3 platinum_shine(vec3 rgb) {
-    if (!platinum() || dot(v_normal, v_normal) < 1e-12) {
+    if (!platinum_surface() || dot(v_normal, v_normal) < 1e-12) {
         return rgb;
     }
     vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
@@ -554,7 +572,7 @@ void main() {
     // geometry with it too, with reused EQUAL depth and depth writes disabled.
     vec4 texel = platinum_texel(sample_upscaled_texture_colours(v_uv));
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
-    vec4 c = texel * v_colour * material_colour;
+    vec4 c = platinum_colour(texel * v_colour * material_colour);
     float light = 1.0;
     if (lighting != 0 && v_lit == 0) {
         light = float(mp_float(0.55) + mp_float(0.45) * abs(dot(mp_vec3(normalize(v_normal)), mp_vec3(kSun))));
@@ -641,7 +659,7 @@ void main() {
     }
     vec4 texel = platinum_texel(sample_upscaled_texture_colours(v_uv));
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
-    vec4 c = texel * v_colour * material_colour;
+    vec4 c = platinum_colour(texel * v_colour * material_colour);
 #ifndef OPENRAC_COLOUR_SPECIALISED
     if (opacity_split != 0 && (c.a >= 1.0) != (opacity_split > 0)) {
         discard;
