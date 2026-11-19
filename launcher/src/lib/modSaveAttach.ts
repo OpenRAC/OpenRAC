@@ -26,20 +26,27 @@ export interface ItemAttachments {
 /** Whether the editor shows `f` beside one of `itemIds` (else in its mod's section). */
 export function isAttached(f: ModSaveField, itemIds: ReadonlySet<number>): boolean {
   const a = f.attach;
+
   return !!a && a.to === "item" && (a.as === "version" || a.as === "row") && itemIds.has(a.id);
 }
 
 /** The attached fields of every item that has some. */
-export function attachments(mods: ModSaveData[], itemIds: ReadonlySet<number>): Map<number, ItemAttachments> {
+export function attachments(
+  mods: ModSaveData[],
+  itemIds: ReadonlySet<number>,
+): Map<number, ItemAttachments> {
   const out = new Map<number, ItemAttachments>();
+
   for (const mod of mods) {
     for (const field of mod.fields) {
       if (!isAttached(field, itemIds) || !field.attach) continue;
       const at = out.get(field.attach.id) ?? { version: [], row: [] };
+
       (field.attach.as === "version" ? at.version : at.row).push({ mod, field });
       out.set(field.attach.id, at);
     }
   }
+
   return out;
 }
 
@@ -66,29 +73,46 @@ const modValue = (a: Attached, tier: number) => `m:${a.mod.id}:${a.field.key}:${
 /** The mod tiers that follow the game's versions in an item's picker. */
 export function tierOptions(version: Attached[]): VersionOption[] {
   const out: VersionOption[] = [];
+
   for (const a of version) {
     for (let t = a.field.min + 1; t <= a.field.max; t++) {
-      out.push({ kind: "mod", value: modValue(a, t), attached: a, tier: t, name: choiceName(a.field, t) });
+      out.push({
+        kind: "mod",
+        value: modValue(a, t),
+        attached: a,
+        tier: t,
+        name: choiceName(a.field, t),
+      });
     }
   }
+
   return out;
 }
 
 /** The tiers set (above `min`) on an item: more than one is a conflict between mods. */
-export function activeTiers(values: ModValues, version: Attached[]): { attached: Attached; tier: number }[] {
+export function activeTiers(
+  values: ModValues,
+  version: Attached[],
+): { attached: Attached; tier: number }[] {
   return version
     .map((attached) => ({ attached, tier: valueOf(values, attached) }))
     .filter((x) => x.tier > x.attached.field.min);
 }
 
 /** What the picker shows as picked: the first mod tier set, else the game version. */
-export function pickedValue(values: ModValues, version: Attached[], gameVersion: number | null): string {
+export function pickedValue(
+  values: ModValues,
+  version: Attached[],
+  gameVersion: number | null,
+): string {
   const t = activeTiers(values, version)[0];
+
   return t ? modValue(t.attached, t.tier) : `g:${String(gameVersion ?? 0)}`;
 }
 
 function lastVersion(view: Rac2SaveView, id: number): number | null {
   const n = view.items.find((i) => i.id === id)?.versions.length ?? 0;
+
   return n > 0 ? n - 1 : null;
 }
 
@@ -109,11 +133,16 @@ export function pickVersion(
   if (value.startsWith("g:")) {
     for (const a of version) setValue(values, a, a.field.min);
     setVersion(view, f, id, Number(value.slice(2)));
+
     return;
   }
+
   const pick = tierOptions(version).find((o) => o.value === value);
+
   if (pick?.kind !== "mod") return;
   for (const a of version) setValue(values, a, a === pick.attached ? pick.tier : a.field.min);
   const last = lastVersion(view, id);
-  if (pick.attached.field.requires?.version === "last" && last !== null) setVersion(view, f, id, last);
+
+  if (pick.attached.field.requires?.version === "last" && last !== null)
+    setVersion(view, f, id, last);
 }

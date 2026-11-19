@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import type { Rac2SaveFields, Rac2SaveView } from "./api";
 import type { Rac2VersionInfo } from "./generated/Rac2VersionInfo";
 import {
@@ -22,7 +23,13 @@ import {
 const MAX = 9_999_999;
 
 /** A four-version weapon as the core describes it: V2 at `step1`, V3 bought, V4 at `step3`. */
-function four(name: string, up: string, step1: number, step3: number, ammo: number[]): Rac2VersionInfo[] {
+function four(
+  name: string,
+  up: string,
+  step1: number,
+  step3: number,
+  ammo: number[],
+): Rac2VersionInfo[] {
   const v = (label: string, how: Rac2VersionInfo["how"], k: number, min: number, max: number) => ({
     label,
     name: k === 0 ? name : up,
@@ -33,6 +40,7 @@ function four(name: string, up: string, step1: number, step3: number, ammo: numb
     minXp: min,
     maxXp: max,
   });
+
   return [
     v("V1", "first", 0, 0, step1 - 1),
     v("V2", "experience", 1, step1, MAX),
@@ -137,13 +145,23 @@ function view(): Rac2SaveView {
     maxBolts: 9_999_999,
     maxXp: 9_999_999,
     challengeMode: 0,
-    flags: [{ id: "maktar-arena-entered", level: 1, name: "Arena entered", description: "", confidence: "proven" }],
+    flags: [
+      {
+        id: "maktar-arena-entered",
+        level: 1,
+        name: "Arena entered",
+        description: "",
+        confidence: "proven",
+      },
+    ],
   };
 }
 
 const at = (f: Rac2SaveFields, id: number) => {
   const i = f.items.find((x) => x.id === id);
+
   if (!i) throw new Error(`no item ${String(id)}`);
+
   return i;
 };
 
@@ -151,6 +169,7 @@ describe("the Going Commando save editor's page checks", () => {
   it("flags values past the limits, only where they were changed", () => {
     const v = view();
     const f = structuredClone(v.fields);
+
     expect(fieldErrors(v, f)).toEqual({});
     f.bolts = 10_000_000;
     at(f, 30).xp = 8960;
@@ -161,6 +180,7 @@ describe("the Going Commando save editor's page checks", () => {
   it("gives with full ammo and never takes what is in hand", () => {
     const v = view();
     const f = structuredClone(v.fields);
+
     setOwned(v, f, 24, true);
     expect(f.items[2]).toMatchObject({ owned: true, ammo: 25 });
     setOwned(v, f, 30, false);
@@ -172,6 +192,7 @@ describe("the Going Commando save editor's page checks", () => {
   it("gives, fills and takes every item of a kind at once", () => {
     const v = view();
     const f = structuredClone(v.fields);
+
     giveAll(v, f, "weapon");
     expect(ownedCount(v, f, "weapon")).toEqual([3, 3]);
     expect(at(f, 24).ammo).toBe(25);
@@ -189,6 +210,7 @@ describe("the Going Commando save editor's page checks", () => {
 
   it("sets every platinum bolt, or none", () => {
     const f = structuredClone(view().fields);
+
     setAllPlatinum(f, true);
     expect(platinumCount(f)).toBe(4);
     setAllPlatinum(f, false);
@@ -198,6 +220,7 @@ describe("the Going Commando save editor's page checks", () => {
   it("lists the changes in a player's words", () => {
     const v = view();
     const f = structuredClone(v.fields);
+
     f.raritanium = 500;
     f.boosts[0] = true;
     at(f, 2).owned = true;
@@ -219,11 +242,13 @@ describe("the Going Commando save editor's page checks", () => {
   it("names the version chosen", () => {
     const v = view();
     const f = structuredClone(v.fields);
+
     expect(versionName(v, f, 2)).toBeNull();
     expect(versionName(v, f, 24)).toBe("Seeker Gun");
     at(f, 24).version = 1;
     expect(versionName(v, f, 24)).toBe("HK-22");
     const [v1, , v3, v4] = v.items[2]?.versions ?? [];
+
     expect(v1 && versionLabel(v1)).toBe("V1");
     expect(v3 && versionLabel(v3)).toBe("V3 Mega");
     expect(v4 && versionHow(v4)).toBe("Upgrades itself at 339,200 experience, in challenge mode");
@@ -232,9 +257,11 @@ describe("the Going Commando save editor's page checks", () => {
 
   it("moves a weapon's version with the experience and ammo the game leaves", () => {
     const v = view();
+
     v.challengeMode = 1;
     const f = structuredClone(v.fields);
     const seeker = at(f, 24);
+
     seeker.owned = true;
     seeker.xp = 1000;
     // V1 to V2: experience raised to the step, full ammo of the new version.
@@ -261,8 +288,10 @@ describe("the Going Commando save editor's page checks", () => {
 
   it("accepts the Mega versions with no challenge mode, and still refuses a weapon not owned", () => {
     const v = view();
+
     expect(v.challengeMode).toBe(0);
     const f = structuredClone(v.fields);
+
     at(f, 12).version = 1;
     expect(fieldErrors(v, f)).toEqual({});
     at(f, 12).owned = false;
@@ -271,9 +300,11 @@ describe("the Going Commando save editor's page checks", () => {
 
   it("keeps experience in the chosen version's range and the held weapon's version", () => {
     const v = view();
+
     v.challengeMode = 1;
     const f = structuredClone(v.fields);
     const seeker = at(f, 24);
+
     seeker.owned = true;
     seeker.version = 1;
     seeker.ammo = 20;

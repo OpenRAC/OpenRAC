@@ -71,6 +71,7 @@ export function theme(game: string): Theme {
 export function themeStyle(game: string): string {
   const t = theme(game);
   const font = { brand: "var(--font-brand)", head: "var(--font-head)" }[t.font];
+
   return [
     "--box: color-mix(in srgb, var(--panel) 92%, transparent)",
     "--bd: var(--amber)",
@@ -99,12 +100,15 @@ export const GAME_COLORS: Record<string, Record<string, string>> = palettes.game
 export function accentProperties(game: string | null, colors = false): [string, string][] {
   const a = game ? ACCENTS[game] : undefined;
   const c = game && colors ? GAME_COLORS[game] : undefined;
+
   return [...Object.entries(a ?? {}), ...Object.entries(c ?? {})];
 }
 
 /** The custom properties accentProperties may set, to take them all off again. */
 export const ACCENT_PROPERTIES = [
-  ...new Set([...Object.values(ACCENTS), ...Object.values(GAME_COLORS)].flatMap((a) => Object.keys(a))),
+  ...new Set(
+    [...Object.values(ACCENTS), ...Object.values(GAME_COLORS)].flatMap((a) => Object.keys(a)),
+  ),
 ];
 
 /** Where the accent's game, and whether it wears its own colours, are kept for the first paint,
@@ -115,11 +119,16 @@ const STORED_COLORS = "openrac-game-colors";
 /** Puts game `game`'s accent on the page (with `colors` its own colours too) and keeps it for the
  *  next start, so the launcher opens in it rather than easing into it from the launcher's own
  *  (app.css). */
-export function applyAccent(game: string | null, colors = false, root: HTMLElement = document.documentElement) {
+export function applyAccent(
+  game: string | null,
+  colors = false,
+  root: HTMLElement = document.documentElement,
+) {
   for (const name of ACCENT_PROPERTIES) root.style.removeProperty(name);
   for (const [name, value] of accentProperties(game, colors)) root.style.setProperty(name, value);
   if (colors) root.dataset.gameColors = "";
   else delete root.dataset.gameColors;
+
   try {
     if (game) localStorage.setItem(STORED_ACCENT, game);
     else localStorage.removeItem(STORED_ACCENT);

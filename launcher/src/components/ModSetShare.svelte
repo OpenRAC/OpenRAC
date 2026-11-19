@@ -3,9 +3,17 @@
   // short code is the one thing to look at; the full code sits under it, for when the server cannot
   // be reached or a friend has none. A mod a catalogue does not hold, or one a party refuses, is
   // said here, before a friend finds out. Nothing leaves the computer before Make code.
-  import { api, errorText, type ShareMod, type Shared, type SharePreview, type VersionView } from "$lib/api";
-  import { MOD_CODES as T } from "$lib/modsText";
+  import {
+    api,
+    errorText,
+    type Shared,
+    type ShareMod,
+    type SharePreview,
+    type VersionView,
+  } from "$lib/api";
   import { copyText } from "$lib/clipboard";
+  import { MOD_CODES as T } from "$lib/modsText";
+
   import Icon from "./Icon.svelte";
   import ModSetDialog from "./ModSetDialog.svelte";
   import Reason from "./Reason.svelte";
@@ -36,11 +44,13 @@
   async function make() {
     working = true;
     error = null;
+
     try {
       shared = await api.modsetShare(v.game, v.name, extras);
     } catch (e) {
       error = errorText(e);
     }
+
     working = false;
   }
 
@@ -52,7 +62,9 @@
     }, 1600);
   }
 
-  const empty = $derived(!!preview && !preview.mods.length && !preview.manual.length && !preview.optional.length);
+  const empty = $derived(
+    !!preview && !preview.mods.length && !preview.manual.length && !preview.optional.length,
+  );
 </script>
 
 <ModSetDialog id="mod-share" icon="share" title={T.shareTitle} busy={working} {onclose}>
@@ -66,7 +78,8 @@
     {:else}
       <Reason text={T.offline} tone="warn" role="status" />
       <p class="note">{T.offlineFull}</p>
-      <textarea class="full" readonly rows="4" aria-label={T.copyFull} value={shared.long}></textarea>
+      <textarea class="full" readonly rows="4" aria-label={T.copyFull} value={shared.long}
+      ></textarea>
     {/if}
   {:else if !preview}
     {#if !error}<p class="note"><span class="spinner"></span></p>{/if}
@@ -127,12 +140,16 @@
   {#snippet actions()}
     {#if shared}
       <button class="ghost small grow" onclick={() => void copy("full", shared?.long ?? "")}>
-        <Icon name={copied === "full" ? "check" : "copy"} size={14} />{copied === "full" ? T.copied : T.copyFull}
+        <Icon name={copied === "full" ? "check" : "copy"} size={14} />{copied === "full"
+          ? T.copied
+          : T.copyFull}
       </button>
       <button class="ghost" onclick={onclose}>{T.close}</button>
       {#if shared.code}
         <button class="primary" onclick={() => void copy("code", shared?.code ?? "")}>
-          <Icon name={copied === "code" ? "check" : "copy"} size={16} />{copied === "code" ? T.copied : T.copyCode}
+          <Icon name={copied === "code" ? "check" : "copy"} size={16} />{copied === "code"
+            ? T.copied
+            : T.copyCode}
         </button>
       {/if}
     {:else}

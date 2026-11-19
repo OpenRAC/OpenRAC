@@ -34,6 +34,7 @@
   async function save(m: ModSaveData) {
     if (changedKeys(m).length === 0 || store.busy || playing) return;
     saveError[m.id] = "";
+
     try {
       await store.save(m);
       savedNote[m.id] = `Saved into ${m.name}'s own file.`;
@@ -61,7 +62,10 @@
         {#each own(m) as f (f.key)}
           <li class="line">
             <label for={`msd-${m.id}-${f.key}`}
-              >{f.name}{#if get(m.id, f.key) !== f.value}<span class="mark" role="img" aria-label="changed"
+              >{f.name}{#if get(m.id, f.key) !== f.value}<span
+                  class="mark"
+                  role="img"
+                  aria-label="changed"
                 ></span>{/if}</label
             >
             {#if f.choices && f.choices.length > f.max - f.min}
@@ -101,7 +105,9 @@
           <p class="problem"><Icon name="warn" size={16} />{saveError[m.id]}</p>
         {/if}
         {#if playing && dirty}
-          <p class="running"><Icon name="info" size={16} />The game is running: close it, then save.</p>
+          <p class="running">
+            <Icon name="info" size={16} />The game is running: close it, then save.
+          </p>
         {/if}
         {#if savedNote[m.id] && !dirty}
           <p class="ok"><Icon name="save" size={16} />{savedNote[m.id]}</p>
@@ -119,8 +125,15 @@
             }}
             disabled={!dirty || store.busy !== null}>Reset</button
           >
-          <button class="primary" onclick={() => save(m)} disabled={!dirty || store.busy !== null || playing}>
-            {#if store.busy === m.id}<span class="spinner"></span>{:else}<Icon name="save" size={16} />{/if}Save these
+          <button
+            class="primary"
+            onclick={() => save(m)}
+            disabled={!dirty || store.busy !== null || playing}
+          >
+            {#if store.busy === m.id}<span class="spinner"></span>{:else}<Icon
+                name="save"
+                size={16}
+              />{/if}Save these
           </button>
         </div>
       </div>

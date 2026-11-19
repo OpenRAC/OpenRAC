@@ -3,6 +3,7 @@
   // page beside it, scrolling on its own. On Android the list is a row above the page instead: the
   // navigation rail is already on the left, and two columns there leave the page too narrow.
   import type { Snippet } from "svelte";
+
   import { onAndroid } from "$lib/api";
 
   let { list, children }: { list: Snippet; children: Snippet } = $props();

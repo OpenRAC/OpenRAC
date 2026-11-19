@@ -9,13 +9,16 @@
   // - Copy: the same as an import, from the card of another disc of the game (PAL and US) instead
   //   of a file: the disc is chosen first when there are several.
   // The words are lib/saveTransfer.ts's.
+  import { onMount } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
+
   import Icon from "$components/Icon.svelte";
   import { api, type SaveCopySource, type SaveImportPreview, type SaveSlotInfo } from "$lib/api";
   import { toast } from "$lib/app.svelte";
+  import { onIOS } from "$lib/ios";
   import { modal } from "$lib/portal";
   import { when } from "$lib/reports";
   import {
-    TRANSFER,
     copiedText,
     copyLead,
     exportedText,
@@ -27,10 +30,8 @@
     slotKey,
     slotLine,
     sourceLine,
+    TRANSFER,
   } from "$lib/saveTransfer";
-  import { onMount } from "svelte";
-  import { onIOS } from "$lib/ios";
-  import { SvelteSet } from "svelte/reactivity";
 
   let {
     serial,
@@ -65,7 +66,8 @@
 
   const chosen = $derived(preview ? importChoice(replaceAll, preview.slots, ticked) : null);
   const ready = $derived(
-    mode === "export" || (!!preview && preview.slots.length > 0 && (replaceAll || !!chosen?.slots.length)),
+    mode === "export" ||
+      (!!preview && preview.slots.length > 0 && (replaceAll || !!chosen?.slots.length)),
   );
 
   function previewed(p: SaveImportPreview) {
@@ -92,9 +94,12 @@
   onMount(() => {
     if (mode === "copy") {
       const [only] = sources;
+
       if (only && sources.length === 1) chooseDisc(only.serial);
+
       return;
     }
+
     if (mode !== "import" || !source) return;
     api
       .previewSaveImport(serial, source)
@@ -115,26 +120,39 @@
     if (!ready || working) return;
     working = true;
     error = null;
+
     try {
       if (mode === "export") {
         const done = await api.exportSaves(serial, pick);
+
         if (!done.saved) {
           working = false; // backed out of the save dialog: the choice stays open
+
           return;
         }
+
         toast(exportedText(done.saved, done.slots.length), "info");
         onclose(false);
+
         return;
       }
+
       if (mode === "copy") {
         if (!from || !fromDisc || !chosen) return;
         const done = await api.copySaves(from, serial, chosen);
-        toast(copiedText(fromDisc.region, chosen.replaceAll, chosen.slots.length, !!done.backup), "info");
+
+        toast(
+          copiedText(fromDisc.region, chosen.replaceAll, chosen.slots.length, !!done.backup),
+          "info",
+        );
         onclose(true);
+
         return;
       }
+
       if (!source || !chosen) return;
       const done = await api.importSaves(serial, source, chosen);
+
       toast(importedText(chosen.replaceAll, chosen.slots.length, !!done.backup), "info");
       onclose(true);
     } catch (e) {
@@ -152,9 +170,19 @@
 
 <div class="overlay" role="presentation" use:modal>
   <button class="backdrop" onclick={close} tabindex="-1" aria-label={TRANSFER.cancel}></button>
-  <div class="dialog rise" role="dialog" aria-modal="true" aria-labelledby="transfer-title" tabindex="-1">
+  <div
+    class="dialog rise"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="transfer-title"
+    tabindex="-1"
+  >
     <h2 id="transfer-title">
-      {mode === "export" ? TRANSFER.exportTitle : mode === "copy" ? TRANSFER.copyTitle : TRANSFER.importTitle}
+      {mode === "export"
+        ? TRANSFER.exportTitle
+        : mode === "copy"
+          ? TRANSFER.copyTitle
+          : TRANSFER.importTitle}
     </h2>
 
     {#if mode === "copy" && sources.length > 1}
@@ -184,12 +212,22 @@
       <!-- Several discs: the choice above comes first. -->
     {:else if mode === "export"}
       <p class="muted lead">
-        {onIOS ? "Creates one OpenRAC saves file to share with another device or save in Files." : TRANSFER.exportLead}
+        {onIOS
+          ? "Creates one OpenRAC saves file to share with another device or save in Files."
+          : TRANSFER.exportLead}
       </p>
       <div class="choices" role="radiogroup" aria-label="What to export">
         <label class="choice">
-          <input type="radio" name="export-pick" checked={pick === null} onchange={() => (pick = null)} />
-          <span><strong>{TRANSFER.exportAll}</strong> <span class="muted">({savesCount(used.length)})</span></span>
+          <input
+            type="radio"
+            name="export-pick"
+            checked={pick === null}
+            onchange={() => (pick = null)}
+          />
+          <span
+            ><strong>{TRANSFER.exportAll}</strong>
+            <span class="muted">({savesCount(used.length)})</span></span
+          >
         </label>
         {#each used as s (s.slotIndex)}
           <label class="choice">
@@ -213,7 +251,8 @@
         {#if mode === "copy" && fromDisc}
           {copyLead(fromDisc)}
         {:else}
-          {preview.title ?? preview.serial} · exported {when(Date.parse(preview.created) / 1000)} · launcher {preview.launcherVersion}
+          {preview.title ?? preview.serial} · exported {when(Date.parse(preview.created) / 1000)} · launcher
+          {preview.launcherVersion}
         {/if}
       </p>
       {#if !preview.slots.length}
@@ -221,14 +260,29 @@
       {:else}
         <div class="choices" role="radiogroup" aria-label="How to import">
           <label class="choice">
-            <input type="radio" name="import-mode" checked={!replaceAll} onchange={() => (replaceAll = false)} />
-            <span><strong>{TRANSFER.merge}</strong> <span class="muted">{TRANSFER.mergeLine}</span></span>
+            <input
+              type="radio"
+              name="import-mode"
+              checked={!replaceAll}
+              onchange={() => (replaceAll = false)}
+            />
+            <span
+              ><strong>{TRANSFER.merge}</strong>
+              <span class="muted">{TRANSFER.mergeLine}</span></span
+            >
           </label>
           <label class="choice">
-            <input type="radio" name="import-mode" checked={replaceAll} onchange={() => (replaceAll = true)} />
+            <input
+              type="radio"
+              name="import-mode"
+              checked={replaceAll}
+              onchange={() => (replaceAll = true)}
+            />
             <span
               ><strong>{TRANSFER.replace}</strong>
-              <span class="muted">{mode === "copy" ? TRANSFER.copyReplaceLine : TRANSFER.replaceLine}</span></span
+              <span class="muted"
+                >{mode === "copy" ? TRANSFER.copyReplaceLine : TRANSFER.replaceLine}</span
+              ></span
             >
           </label>
         </div>
@@ -253,7 +307,10 @@
             </li>
           {/each}
         </ul>
-        {#if preview.cardHasSaves}<p class="muted"><Icon name="info" size={14} /> {TRANSFER.backedUp}</p>{/if}
+        {#if preview.cardHasSaves}<p class="muted">
+            <Icon name="info" size={14} />
+            {TRANSFER.backedUp}
+          </p>{/if}
       {/if}
     {/if}
 

@@ -4,11 +4,21 @@
   // link from outside, and a link never does more than open it. A source that is not OpenRAC's, and
   // that the player has never used, has to be ticked first; Apply waits for a running game to close.
   // After Apply the window says what came of it and offers the way back.
-  import { api, errorText, type Applied, type Review, type VersionView } from "$lib/api";
-  import { canApply, dateText, groupMods, matching, optionalMods, untrusted, valueText, versions } from "$lib/modCodes";
-  import { closeCode, modCode, modsChanged, versionFor } from "$lib/modCodes.svelte";
+  import { api, type Applied, errorText, type Review, type VersionView } from "$lib/api";
   import { app, gameRunning, run, saveConfig, toast } from "$lib/app.svelte";
+  import {
+    canApply,
+    dateText,
+    groupMods,
+    matching,
+    optionalMods,
+    untrusted,
+    valueText,
+    versions,
+  } from "$lib/modCodes";
+  import { closeCode, modCode, modsChanged, versionFor } from "$lib/modCodes.svelte";
   import { KIND_HINT, KIND_LABEL, MOD_CODES as T } from "$lib/modsText";
+
   import Icon from "./Icon.svelte";
   import ModSetDialog from "./ModSetDialog.svelte";
   import Reason from "./Reason.svelte";
@@ -36,9 +46,11 @@
     extras = [];
     trusted = [];
     version = v;
+
     try {
       const got = await api.modsetReview(v.game, v.name, text);
       const other = got.wrongGame ? versionFor(got.game) : null;
+
       if (other) {
         version = other;
         review = await api.modsetReview(other.game, other.name, text);
@@ -62,26 +74,36 @@
     if (!review || !version) return;
     working = true;
     error = null;
+
     try {
-      applied = await api.modsetApply(version.game, version.name, review.set, review.code, { extras, trusted });
+      applied = await api.modsetApply(version.game, version.name, review.set, review.code, {
+        extras,
+        trusted,
+      });
       modsChanged();
     } catch (e) {
       error = errorText(e);
     }
+
     working = false;
   }
 
   // The link named a party: the game joins it on starting, now the mods are as it plays with them.
   async function playAndJoin() {
     const party = review?.party;
+
     if (!party || !version) return;
     const v = version;
+
     working = true;
     error = null;
+
     try {
       await api.modsetJoin(v.game, party);
       const action = v.actions.find((a) => a.id === "play" && a.thisPlatform);
-      if (app.config && !app.config.playWithMods) await saveConfig({ ...app.config, playWithMods: true });
+
+      if (app.config && !app.config.playWithMods)
+        await saveConfig({ ...app.config, playWithMods: true });
       closeCode();
       app.version = v.key;
       app.page = "game";
@@ -89,12 +111,14 @@
     } catch (e) {
       error = errorText(e);
     }
+
     working = false;
   }
 
   async function undo() {
     if (!applied || !version) return;
     working = true;
+
     try {
       await api.modsetRestore(version.game, applied.profile);
       modsChanged();
@@ -103,6 +127,7 @@
     } catch (e) {
       error = errorText(e);
     }
+
     working = false;
   }
 
@@ -112,12 +137,14 @@
   const asking = $derived.by(() => {
     if (!review) return [];
     const needed = untrusted(review, extras, []);
+
     return review.ask.filter((s) => needed.includes(s.url));
   });
   const ready = $derived(!!review && canApply(review, extras, trusted, running));
   const subtitle = $derived.by(() => {
     if (!review) return null;
     const date = dateText(review.created);
+
     return review.code ? T.codeAndDate(review.code, date) : T.madeOn(date);
   });
 </script>
@@ -133,11 +160,20 @@
   >
     {#if applied}
       <p class="lead">{T.done}</p>
-      {#if applied.skipped.length}<Reason text={T.doneSkipped(applied.skipped.length)} tone="warn" role="status" />{/if}
+      {#if applied.skipped.length}<Reason
+          text={T.doneSkipped(applied.skipped.length)}
+          tone="warn"
+          role="status"
+        />{/if}
     {:else if review}
       {#if review.wrongGame}<Reason text={T.otherGame} tone="err" role="status" />{/if}
-      {#if review.otherOpenrac}<Reason text={T.otherOpenrac(review.otherOpenrac)} tone="warn" />{/if}
-      {#if review.nothing && !optional.length && !review.wrongGame}<p class="lead">{T.already}</p>{/if}
+      {#if review.otherOpenrac}<Reason
+          text={T.otherOpenrac(review.otherOpenrac)}
+          tone="warn"
+        />{/if}
+      {#if review.nothing && !optional.length && !review.wrongGame}<p class="lead">
+          {T.already}
+        </p>{/if}
 
       {#each groups as group (group.key)}
         <section>
@@ -148,7 +184,9 @@
                 <div class="row">
                   <span class="name">{m.name}</span>
                   {#if m.native && group.key !== "unavailable" && group.key !== "enable"}
-                    <span class="runs" title={KIND_HINT.native}><span class="dot"></span>{KIND_LABEL.native.text}</span>
+                    <span class="runs" title={KIND_HINT.native}
+                      ><span class="dot"></span>{KIND_LABEL.native.text}</span
+                    >
                   {/if}
                   <span class="version">{versions(m)}</span>
                 </div>
@@ -266,7 +304,9 @@
 
     {#snippet actions()}
       {#if applied}
-        <button class="ghost small grow" disabled={working || running} onclick={() => void undo()}>{T.undo}</button>
+        <button class="ghost small grow" disabled={working || running} onclick={() => void undo()}
+          >{T.undo}</button
+        >
         {#if review?.party}
           <button class="ghost" disabled={working} onclick={closeCode}>{T.close}</button>
           <button class="primary" disabled={working} onclick={() => void playAndJoin()}

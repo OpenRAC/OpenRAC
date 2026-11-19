@@ -30,6 +30,7 @@ export const mostBinds = (s: PluginSetting): number => (s.binds === 1 ? 1 : 2);
 /** A keybind's value as its names; unknown names are left out. */
 export function parseBinds(value: unknown): string[] {
   if (typeof value !== "string") return [];
+
   return value
     .split(/[,\s]+/)
     .filter((n) => KNOWN.has(n))
@@ -106,6 +107,7 @@ export function bindLabel(name: string): string {
   if (/^Digit\d$/.test(name)) return name.slice(5);
   if (/^Numpad\d$/.test(name)) return `Num ${name.slice(6)}`;
   if (/^F\d+$/.test(name)) return name;
+
   return WORDS[name] ?? name;
 }
 
@@ -117,6 +119,7 @@ export function bindSpoken(name: string): string {
     ArrowLeft: "Left arrow",
     ArrowRight: "Right arrow",
   };
+
   return arrows[name] ?? bindLabel(name);
 }
 
@@ -135,6 +138,7 @@ export function bindOfWheel(e: { deltaX: number; deltaY: number }): string | nul
   if (Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
     return e.deltaY < 0 ? "WheelUp" : e.deltaY > 0 ? "WheelDown" : null;
   }
+
   return e.deltaX < 0 ? "WheelLeft" : "WheelRight";
 }
 
@@ -143,13 +147,16 @@ export function bindOfWheel(e: { deltaX: number; deltaY: number }): string | nul
 export function withBind(binds: string[], slot: number, name: string): string[] {
   const out = [...binds];
   const there = out.indexOf(name);
+
   if (there >= 0 && there !== slot) out[there] = out[slot] ?? "";
   out[slot] = name;
+
   return out.filter((n) => !!n);
 }
 
 /** A keybind's binds without slot `slot`. */
-export const withoutBind = (binds: string[], slot: number): string[] => binds.filter((_, i) => i !== slot);
+export const withoutBind = (binds: string[], slot: number): string[] =>
+  binds.filter((_, i) => i !== slot);
 
 /** For each keybind of a mod, the names of its other keybinds of the same group that share one of
  *  its inputs (key: the setting's key; only the ones with any). */
@@ -157,23 +164,28 @@ export function keybindConflicts(settings: PluginSetting[]): Record<string, stri
   const keybinds = settings.filter((s) => s.type === "keybind");
   const binds = new Map(keybinds.map((s) => [s.key, parseBinds(s.value)]));
   const out: Record<string, string[]> = {};
+
   for (const s of keybinds) {
     const mine = binds.get(s.key) ?? [];
     const with_ = keybinds
       .filter((o) => o.key !== s.key && (o.group ?? "") === (s.group ?? ""))
       .filter((o) => (binds.get(o.key) ?? []).some((b) => mine.includes(b)))
       .map((o) => o.name);
+
     if (with_.length) out[s.key] = with_;
   }
+
   return out;
 }
 
 /** The binds of keybind `key` that another keybind of its group has too. */
 export function sharedBinds(settings: PluginSetting[], key: string): string[] {
   const me = settings.find((s) => s.key === key && s.type === "keybind");
+
   if (!me) return [];
   const others = settings
     .filter((o) => o.type === "keybind" && o.key !== key && (o.group ?? "") === (me.group ?? ""))
     .flatMap((o) => parseBinds(o.value));
+
   return parseBinds(me.value).filter((b) => others.includes(b));
 }

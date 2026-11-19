@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
+
 import type { ModSaveData, ModSaveField, Rac2SaveFields, Rac2SaveView } from "./api";
 import type { Rac2VersionInfo } from "./generated/Rac2VersionInfo";
 import {
   activeTiers,
   attachments,
   isAttached,
-  pickVersion,
-  pickedValue,
-  tierOptions,
   type ModValues,
+  pickedValue,
+  pickVersion,
+  tierOptions,
 } from "./modSaveAttach";
 
 const ver = (label: string): Rac2VersionInfo => ({
@@ -49,6 +50,7 @@ function view(): Rac2SaveView {
     versions: ["V1", "V2", "V3", "V4"].slice(0, n).map(ver),
     worn: false,
   });
+
   return {
     serial: "SCUS_972.68",
     slot: 0,
@@ -67,6 +69,7 @@ function view(): Rac2SaveView {
 }
 
 const tiers = ["None", "Alpha", "Beta"];
+
 function field(key: string, id: number, as: string, requires = true): ModSaveField {
   return {
     key,
@@ -81,7 +84,14 @@ function field(key: string, id: number, as: string, requires = true): ModSaveFie
     ...(requires ? { requires: { version: "last" } } : {}),
   };
 }
-const mod = (id: string, fields: ModSaveField[]): ModSaveData => ({ id, name: id, title: id, found: true, fields });
+
+const mod = (id: string, fields: ModSaveField[]): ModSaveData => ({
+  id,
+  name: id,
+  title: id,
+  found: true,
+  fields,
+});
 
 describe("mod fields attached to items", () => {
   const ids = new Set([30, 12]);
@@ -90,14 +100,20 @@ describe("mod fields attached to items", () => {
     expect(isAttached(field("a", 30, "version"), ids)).toBe(true);
     expect(isAttached(field("a", 99, "version"), ids)).toBe(false);
     expect(isAttached(field("a", 30, "side"), ids)).toBe(false);
-    expect(isAttached({ ...field("a", 30, "row"), attach: { to: "planet", id: 30, as: "row" } }, ids)).toBe(false);
+    expect(
+      isAttached({ ...field("a", 30, "row"), attach: { to: "planet", id: 30, as: "row" } }, ids),
+    ).toBe(false);
   });
 
   it("stacks several mods on one item", () => {
     const a = attachments(
-      [mod("ng", [field("l", 30, "version")]), mod("x", [field("l", 30, "version"), field("r", 30, "row", false)])],
+      [
+        mod("ng", [field("l", 30, "version")]),
+        mod("x", [field("l", 30, "version"), field("r", 30, "row", false)]),
+      ],
       ids,
     );
+
     expect(a.get(30)?.version.map((x) => x.mod.id)).toEqual(["ng", "x"]);
     expect(a.get(30)?.row).toHaveLength(1);
     expect(tierOptions(a.get(30)?.version ?? []).map((o) => o.kind === "mod" && o.name)).toEqual([
@@ -112,8 +128,12 @@ describe("mod fields attached to items", () => {
     const v = view();
     const f = structuredClone(v.fields);
     const values: ModValues = {};
-    const at = attachments([mod("ng", [field("l", 30, "version"), field("b", 12, "version")])], ids);
+    const at = attachments(
+      [mod("ng", [field("l", 30, "version"), field("b", 12, "version")])],
+      ids,
+    );
     const lancer = at.get(30)?.version ?? [];
+
     pickVersion(v, f, values, 30, lancer, tierOptions(lancer)[0]?.value ?? "");
     expect(values.ng?.l).toBe(1);
     expect(f.items[0]?.version).toBe(3);
@@ -125,6 +145,7 @@ describe("mod fields attached to items", () => {
 
     // Two versions: the last is V2.
     const glove = at.get(12)?.version ?? [];
+
     pickVersion(v, f, values, 12, glove, tierOptions(glove)[1]?.value ?? "");
     expect(f.items[1]?.version).toBe(1);
     expect(values.ng?.b).toBe(2);
@@ -134,19 +155,25 @@ describe("mod fields attached to items", () => {
     const v = view();
     const f = structuredClone(v.fields);
     const values: ModValues = {};
-    const list = attachments([mod("m", [field("l", 30, "version", false)])], ids).get(30)?.version ?? [];
+    const list =
+      attachments([mod("m", [field("l", 30, "version", false)])], ids).get(30)?.version ?? [];
+
     pickVersion(v, f, values, 30, list, tierOptions(list)[0]?.value ?? "");
     expect(f.items[0]?.version).toBe(1);
   });
 
   it("shows both mods' tiers when they disagree", () => {
     const list =
-      attachments([mod("a", [field("l", 30, "version")]), mod("b", [field("l", 30, "version")])], ids).get(30)
-        ?.version ?? [];
+      attachments(
+        [mod("a", [field("l", 30, "version")]), mod("b", [field("l", 30, "version")])],
+        ids,
+      ).get(30)?.version ?? [];
+
     expect(activeTiers({ a: { l: 1 }, b: { l: 2 } }, list)).toHaveLength(2);
     // Picking one through the picker puts the other back.
     const v = view();
     const values: ModValues = { a: { l: 1 }, b: { l: 2 } };
+
     pickVersion(v, structuredClone(v.fields), values, 30, list, "m:b:l:1");
     expect(values).toEqual({ a: { l: 0 }, b: { l: 1 } });
   });

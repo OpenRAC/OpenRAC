@@ -5,10 +5,11 @@
 // The once-a-day look at mods from a link (modUpdates.svelte.ts) stays for mods not in the index.
 import { api, type UpdateItem, type UpdatePlan, type VersionView } from "./api";
 import { app, jobs, toast } from "./app.svelte";
-import { playerVersion } from "./player.svelte";
 import { type IndexFound, updatedMods } from "./modsText";
+import { playerVersion } from "./player.svelte";
 
 export const SIX_HOURS = 6 * 60 * 60 * 1000;
+
 /** How long Play waits for updates before it starts anyway. */
 export const BEFORE_PLAY_MS = 20_000;
 
@@ -23,28 +24,40 @@ export const autoUpdates = $state<{
 /** Whether a game is being played now: its Play job, or Android's game activity. */
 export function gameRunning(): boolean {
   if (app.game?.running) return true;
-  return jobs.list.some((j) => j.actionId === "play" && (j.state === "running" || j.state === "queued"));
+
+  return jobs.list.some(
+    (j) => j.actionId === "play" && (j.state === "running" || j.state === "queued"),
+  );
 }
 
 function playable(): VersionView[] {
   const out: VersionView[] = [];
+
   for (const game of app.library?.games ?? []) {
     const v = playerVersion(game);
     const play = v?.actions.find((a) => a.id === "play");
+
     if (v && play && play.state !== "planned") out.push(v);
   }
+
   return out;
 }
 
 /** One version's look and silent updates; what went in. */
-export async function updateVersion(v: VersionView, ids: string[] | null = null): Promise<UpdateItem[]> {
+export async function updateVersion(
+  v: VersionView,
+  ids: string[] | null = null,
+): Promise<UpdateItem[]> {
   const run = await api.modsAutoUpdate(v.game, v.name, ids, gameRunning());
+
   autoUpdates.plans[v.game] = run.plan;
+
   if (run.updated.length > 0) {
     autoUpdates.recent[v.game] = run.updated;
     // What went in leaves the lists of what waits.
     const done = run.updated.map((u) => u.id);
     const plan = run.plan;
+
     autoUpdates.plans[v.game] = {
       silent: plan.silent.filter((u) => !done.includes(u.id)),
       waiting: plan.waiting.filter((u) => !done.includes(u.id)),
@@ -52,6 +65,7 @@ export async function updateVersion(v: VersionView, ids: string[] | null = null)
       turnedOff: plan.turnedOff,
     };
   }
+
   return run.updated;
 }
 
@@ -64,13 +78,20 @@ export async function updateVersion(v: VersionView, ids: string[] | null = null)
  */
 export async function checkIndex(v: VersionView): Promise<IndexFound> {
   let updated: UpdateItem[] = [];
+
   if (app.config?.autoUpdateMods && !gameRunning()) {
     updated = await updateVersion(v);
   } else {
     autoUpdates.plans[v.game] = await api.modsUpdates(v.game, v.name, true);
   }
+
   const plan = autoUpdates.plans[v.game];
-  return { updated: updated.length, waiting: plan?.waiting.length ?? 0, held: plan?.held.length ?? 0 };
+
+  return {
+    updated: updated.length,
+    waiting: plan?.waiting.length ?? 0,
+    held: plan?.held.length ?? 0,
+  };
 }
 
 /** Every playable game's mods, when the setting is on and no game runs. Errors are quiet. */
@@ -78,6 +99,7 @@ export async function autoUpdateAll(): Promise<void> {
   if (!app.config?.autoUpdateMods || autoUpdates.running || gameRunning()) return;
   autoUpdates.running = true;
   let count = 0;
+
   try {
     for (const v of playable()) {
       count += (await updateVersion(v).catch(() => [])).length;
@@ -85,6 +107,7 @@ export async function autoUpdateAll(): Promise<void> {
   } finally {
     autoUpdates.running = false;
   }
+
   if (count > 0) toast(updatedMods(count));
 }
 
@@ -92,12 +115,14 @@ export async function autoUpdateAll(): Promise<void> {
 export async function beforePlay(versionKey: string): Promise<void> {
   if (!app.config?.autoUpdateMods || gameRunning()) return;
   const v = playable().find((x) => x.key === versionKey);
+
   if (!v) return;
   const work = updateVersion(v)
     .then((done) => {
       if (done.length > 0) toast(updatedMods(done.length));
     })
     .catch(() => undefined);
+
   await Promise.race([work, new Promise((r) => setTimeout(r, BEFORE_PLAY_MS))]);
 }
 
@@ -105,6 +130,7 @@ export async function beforePlay(versionKey: string): Promise<void> {
 export function startAutoUpdates(): () => void {
   void autoUpdateAll();
   const timer = setInterval(() => void autoUpdateAll(), SIX_HOURS);
+
   return () => {
     clearInterval(timer);
   };

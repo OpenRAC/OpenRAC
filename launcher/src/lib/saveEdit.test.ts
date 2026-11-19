@@ -1,25 +1,26 @@
 import { describe, expect, it } from "vitest";
+
 import type { SaveView } from "./api";
 import {
   bytesToHex,
   changed,
-  editList,
-  fillAllAmmo,
-  giveAll,
-  setAllGoldBolts,
-  setAllPlanets,
-  slotTitle,
-  takeAll,
   chunkBytes,
   chunkKey,
+  editList,
   fieldErrors,
+  fillAllAmmo,
+  giveAll,
   goldBoltCount,
   hexToBytes,
   ownedCount,
   rawPatches,
   readI32,
+  setAllGoldBolts,
+  setAllPlanets,
   setOwned,
   skillCount,
+  slotTitle,
+  takeAll,
   writeI32,
 } from "./saveEdit";
 
@@ -45,7 +46,9 @@ function view(): SaveView {
       { id: 2, name: "Heli-Pack", kind: "gadget", maxAmmo: null, hasGold: false },
       { id: 15, name: "Blaster", kind: "weapon", maxAmmo: 200, hasGold: true },
     ],
-    planets: [{ id: 1, name: "Novalis", location: "Tobruk Crater", canUnlock: true, canLand: true }],
+    planets: [
+      { id: 1, name: "Novalis", location: "Tobruk Crater", canUnlock: true, canLand: true },
+    ],
     levels: [],
     maxBolts: 9_999_999,
     chunks: [],
@@ -57,6 +60,7 @@ function view(): SaveView {
 describe("the save editor's checks", () => {
   it("accepts what the save holds", () => {
     const v = view();
+
     expect(fieldErrors(v, v.fields)).toEqual({});
     expect(changed(v, structuredClone(v.fields))).toBe(false);
   });
@@ -64,8 +68,10 @@ describe("the save editor's checks", () => {
   it("names the field that is out of range", () => {
     const v = view();
     const f = structuredClone(v.fields);
+
     f.bolts = 10_000_000;
     const blaster = f.items.find((i) => i.id === 15);
+
     if (blaster) blaster.ammo = 201;
     expect(Object.keys(fieldErrors(v, f)).sort()).toEqual(["ammo-15", "bolts"]);
     f.bolts = 1.5;
@@ -78,6 +84,7 @@ describe("the save editor's checks", () => {
   it("fills an empty weapon when it is given", () => {
     const v = view();
     const f = structuredClone(v.fields);
+
     setOwned(v, f, 15, true);
     expect(f.items[1]).toMatchObject({ owned: true, ammo: 200 });
     setOwned(v, f, 2, true);
@@ -86,6 +93,7 @@ describe("the save editor's checks", () => {
 
   it("counts skill points and gold bolts", () => {
     const f = view().fields;
+
     expect(skillCount(f)).toEqual([1, 3]);
     expect(goldBoltCount(f)).toEqual([1, 3]);
   });
@@ -101,6 +109,7 @@ describe("the advanced editor's bytes", () => {
 
   it("reads and writes little-endian words", () => {
     const b = [0, 0, 0, 0, 0, 0, 0, 0];
+
     writeI32(b, 1, 123456);
     expect(b).toEqual([0, 0, 0, 0, 0x40, 0xe2, 1, 0]);
     expect(readI32(b, 1)).toBe(123456);
@@ -110,11 +119,13 @@ describe("the advanced editor's bytes", () => {
 
   it("sends only the chunks that changed", () => {
     const v = view();
+
     v.chunks = [
       { section: null, id: 1, size: 4, name: "Bolts", known: true, hex: "0a 00 00 00" },
       { section: 3, id: 3003, size: 4, name: "Gold bolts found", known: true, hex: "00 00 00 00" },
     ];
     const bytes = chunkBytes(v);
+
     expect(rawPatches(v, bytes)).toEqual([]);
     bytes[chunkKey(3, 3003)] = [1, 0, 0, 0];
     expect(rawPatches(v, bytes)).toEqual([{ section: 3, id: 3003, hex: "01 00 00 00" }]);
@@ -125,12 +136,14 @@ describe("the quick actions", () => {
   it("give, fill and take the way single edits do", () => {
     const v = view();
     const f = structuredClone(v.fields);
+
     giveAll(v, f, "weapon");
     expect(f.items.map((i) => i.owned)).toEqual([false, true]);
     expect(f.items[1]?.ammo).toBe(200);
     giveAll(v, f, "gadget");
     expect(f.items[0]?.owned).toBe(true);
     const blaster = f.items[1];
+
     if (blaster) blaster.ammo = 3;
     fillAllAmmo(v, f);
     expect(f.items[1]?.ammo).toBe(200);
@@ -142,6 +155,7 @@ describe("the quick actions", () => {
   it("set every gold bolt and planet, keeping the current planet unlocked", () => {
     const v = view();
     const f = structuredClone(v.fields);
+
     setAllGoldBolts(f, true);
     expect(f.planets[0]?.goldBolts).toEqual([true, true, true]);
     setAllPlanets(v, f, false);
@@ -159,16 +173,19 @@ describe("the quick actions", () => {
 describe("the list of changes", () => {
   it("is empty while nothing changed", () => {
     const v = view();
+
     expect(editList(v, structuredClone(v.fields))).toEqual([]);
   });
 
   it("says what changed in a player's words, by section", () => {
     const v = view();
+
     v.levels = [
       { id: 1, name: "Novalis", location: "Tobruk Crater", canUnlock: true, canLand: true },
       { id: 3, name: "Kerwan", location: "Metropolis", canUnlock: true, canLand: true },
     ];
     const f = structuredClone(v.fields);
+
     f.bolts = 50_000;
     f.nanotech = "ultra";
     setOwned(v, f, 15, true);
@@ -190,15 +207,19 @@ describe("the list of changes", () => {
   it("names ammo, gold and planets it changed", () => {
     const v = view();
     const blaster = v.fields.items[1];
+
     if (blaster) Object.assign(blaster, { owned: true, ammo: 100 });
     const f = structuredClone(v.fields);
     const now = f.items[1];
+
     if (now) Object.assign(now, { ammo: 200, gold: true });
     const novalis = f.planets[0];
+
     if (novalis) {
       novalis.unlocked = false;
       novalis.goldBolts = [false, true, false];
     }
+
     f.skillPoints = [true, true, true];
     expect(editList(v, f).map((e) => e.text)).toEqual([
       "Ammo: Blaster 100 → 200",
@@ -212,6 +233,7 @@ describe("the list of changes", () => {
   it("counts what the save owns", () => {
     const v = view();
     const f = structuredClone(v.fields);
+
     expect(ownedCount(v, f, "weapon")).toEqual([0, 1]);
     giveAll(v, f, "weapon");
     expect(ownedCount(v, f, "weapon")).toEqual([1, 1]);

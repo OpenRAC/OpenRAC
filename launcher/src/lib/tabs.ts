@@ -8,6 +8,7 @@ export function tablist(node: HTMLElement): { destroy: () => void } {
       (t) => t.getAttribute("aria-disabled") !== "true",
     );
     const at = tabs.indexOf(document.activeElement as HTMLElement);
+
     if (at < 0 || !tabs.length) return;
     const n = tabs.length;
     const to =
@@ -20,12 +21,15 @@ export function tablist(node: HTMLElement): { destroy: () => void } {
             : e.key === "End"
               ? n - 1
               : null;
+
     if (to === null) return;
     e.preventDefault();
     tabs[to]?.focus();
     tabs[to]?.click();
   };
+
   node.addEventListener("keydown", key);
+
   return {
     destroy() {
       node.removeEventListener("keydown", key);

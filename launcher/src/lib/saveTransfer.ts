@@ -32,6 +32,7 @@ export const TRANSFER = {
 /** The Saves panel's button: "Copy from PAL", or "Copy from…" when there are several discs. */
 export function copyButtonText(sources: Pick<SaveCopySource, "region">[]): string {
   const [only] = sources;
+
   return only && sources.length === 1 ? `Copy from ${only.region}` : "Copy from…";
 }
 
@@ -48,15 +49,19 @@ export function sourceLine(source: Pick<SaveCopySource, "region" | "saves">): st
 /** A slot in a player's words: "Slot 2 · Kerwan · 4 890 bolts". */
 export function slotLine(s: Pick<SaveArchiveSlot, "slotIndex" | "planetName" | "bolts">): string {
   const parts = [`Slot ${s.slotIndex + 1}`, s.planetName ?? "Unknown planet"];
+
   if (s.bolts !== null) parts.push(`${grouped(s.bolts)} bolts`);
+
   return parts.join(" · ");
 }
 
 /** What importing a slot does to the card's own: "Replaces Kerwan, 4 890 bolts". */
 export function replacesLine(s: SaveImportSlot): string {
   const r = s.replaces;
+
   if (!r) return TRANSFER.intoEmpty;
   const bolts = r.bolts !== null ? `, ${grouped(r.bolts)} bolts` : "";
+
   return `Replaces ${r.planetName ?? "a save"}${bolts}`;
 }
 
@@ -72,8 +77,13 @@ export function firstTicks(slots: SaveImportSlot[]): Set<string> {
 }
 
 /** The import's choice from the dialog: everything replaced, or the ticked slots merged. */
-export function importChoice(replaceAll: boolean, slots: SaveImportSlot[], ticked: Set<string>): SaveImportChoice {
+export function importChoice(
+  replaceAll: boolean,
+  slots: SaveImportSlot[],
+  ticked: Set<string>,
+): SaveImportChoice {
   if (replaceAll) return { replaceAll: true, slots: [] };
+
   return {
     replaceAll: false,
     slots: slots
@@ -94,14 +104,23 @@ export function exportedText(saved: string, count: number): string {
 
 /** The toast after an import. */
 export function importedText(replaceAll: boolean, slots: number, backedUp: boolean): string {
-  const what = replaceAll ? "Replaced the card's saves with the file's" : `Imported ${savesCount(slots)}`;
+  const what = replaceAll
+    ? "Replaced the card's saves with the file's"
+    : `Imported ${savesCount(slots)}`;
+
   return `${what}.${backedUp ? " The saves that were there are in Backups." : ""}`;
 }
 
 /** The toast after a copy from another disc. */
-export function copiedText(region: string, replaceAll: boolean, slots: number, backedUp: boolean): string {
+export function copiedText(
+  region: string,
+  replaceAll: boolean,
+  slots: number,
+  backedUp: boolean,
+): string {
   const what = replaceAll
     ? `Copied every save of the ${region} disc`
     : `Copied ${savesCount(slots)} from the ${region} disc`;
+
   return `${what}.${backedUp ? " The saves that were there are in Backups." : ""}`;
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { hasRead, keepRead, lastRead } from "./lastRead";
 
 describe("lastRead", () => {

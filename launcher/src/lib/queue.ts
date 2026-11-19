@@ -79,7 +79,9 @@ export class Queue {
       outputs: [],
       inputs,
     };
+
     this.jobs.push(job);
+
     // The array's own element: a reactive proxy when the array is $state.
     return this.jobs.at(-1) ?? job;
   }
@@ -89,6 +91,7 @@ export class Queue {
    *  finds the first one's job here and starts nothing. */
   live(scope: Scope, actionId: string, inputs = "", groups: ActionGroups = []): Job | undefined {
     const group = groups.find((g) => g.includes(actionId));
+
     return this.jobs.find(
       (j) =>
         (j.state === "queued" || j.state === "running") &&
@@ -104,6 +107,7 @@ export class Queue {
   /** The job to start now: the oldest queued one, if nothing runs. */
   next(): Job | undefined {
     if (this.running()) return undefined;
+
     return this.jobs.find((j) => j.state === "queued");
   }
 
@@ -156,34 +160,43 @@ export class Queue {
       if (job.lines.length > MAX_LINES) job.lines.splice(0, job.lines.length - MAX_LINES);
       lines = [];
     };
+
     for (const event of events) {
       if (event.type === "output") {
         if (job?.id !== event.id) {
           addLines();
           job = this.jobs.find((j) => j.id === event.id);
         }
+
         // Lines of a job whose start has not returned yet: kept until it has (apply).
         if (job) lines.push({ stream: event.stream, line: event.line });
         else this.apply(event, now);
         continue;
       }
+
       addLines();
       this.apply(event, now);
     }
+
     addLines();
   }
 
   apply(event: JobEvent, now = Date.now()) {
     const job = this.jobs.find((j) => j.id === event.id);
+
     if (!job) {
       this.early.set(event.id, [...(this.early.get(event.id) ?? []), event]);
+
       return;
     }
+
     if (event.type === "output") {
       job.lines.push({ stream: event.stream, line: event.line });
       if (job.lines.length > MAX_LINES) job.lines.splice(0, job.lines.length - MAX_LINES);
+
       return;
     }
+
     job.code = event.code;
     job.outputs = event.outputs;
     job.endedAt = now;
@@ -195,8 +208,10 @@ export class Queue {
   clear() {
     for (let i = this.jobs.length - 1; i >= 0; i--) {
       const state = this.jobs[i]?.state;
+
       if (state !== "queued" && state !== "running") this.jobs.splice(i, 1);
     }
+
     this.ended = this.ended.filter((job) => this.jobs.includes(job));
   }
 

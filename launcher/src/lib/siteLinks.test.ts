@@ -1,5 +1,6 @@
 // The website's links pasted into Add a mod.
 import { describe, expect, it } from "vitest";
+
 import { hubLink, isSiteLink } from "./siteLinks";
 
 describe("a pasted hub link", () => {
@@ -12,6 +13,7 @@ describe("a pasted hub link", () => {
     ]) {
       expect(hubLink(link)).toBe("openrac://install/lock-strafe");
     }
+
     expect(hubLink("openrac://install/a@1.0.0")).toBe("openrac://install/a@1.0.0");
   });
 

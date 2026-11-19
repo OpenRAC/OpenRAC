@@ -5,13 +5,28 @@
   // with the card and backs the card up first. Looks and behaves as rac1's SaveEditor.svelte:
   // changes are marked and listed above Save, Reset puts the save back as read, Undo after a save
   // restores the backup, and leaving with changes asks first.
+  import { onMount } from "svelte";
+  import { slide } from "svelte/transition";
+
   import Icon from "$components/Icon.svelte";
   import ModSaveData from "$components/ModSaveData.svelte";
   import SaveEditorRac2Advanced2 from "$components/SaveEditorRac2Advanced2.svelte";
   import { api, type Rac2SaveFields, type Rac2SaveView, type SaveBackupInfo } from "$lib/api";
   import { toast } from "$lib/app.svelte";
-  import { inertPage, portal } from "$lib/portal";
+  import {
+    activeTiers,
+    type Attached,
+    attachments,
+    choiceName,
+    type ItemAttachments,
+    pickedValue,
+    pickVersion,
+    tierOptions,
+    valueOf,
+  } from "$lib/modSaveAttach";
+  import { ModSaveStore } from "$lib/modSaveStore.svelte";
   import { fold } from "$lib/motion";
+  import { inertPage, portal } from "$lib/portal";
   import {
     ARMOR_LEVELS,
     armorName,
@@ -19,35 +34,21 @@
     editList,
     fieldErrors,
     fillAllAmmo,
+    flagGroups,
     giveAll,
     ownedCount,
     platinumCount,
+    type Rac2Section,
+    selectedVersion,
     setAllPlatinum,
     setOwned,
-    takeAll,
     setVersion,
     SHIP_PAINTS,
-    flagGroups,
-    selectedVersion,
+    takeAll,
     versionHow,
     versionLabel,
     versionName,
-    type Rac2Section,
   } from "$lib/saveEditRac2";
-  import {
-    activeTiers,
-    attachments,
-    choiceName,
-    pickVersion,
-    pickedValue,
-    tierOptions,
-    valueOf,
-    type Attached,
-    type ItemAttachments,
-  } from "$lib/modSaveAttach";
-  import { ModSaveStore } from "$lib/modSaveStore.svelte";
-  import { onMount } from "svelte";
-  import { slide } from "svelte/transition";
 
   let {
     serial,
@@ -76,7 +77,9 @@
   // svelte-ignore state_referenced_locally
   const mods = new ModSaveStore(serial, slot);
   const itemIds = $derived(new Set(view?.items.map((i) => i.id) ?? []));
-  const attached = $derived(mods.mods ? attachments(mods.mods, itemIds) : new Map<number, ItemAttachments>());
+  const attached = $derived(
+    mods.mods ? attachments(mods.mods, itemIds) : new Map<number, ItemAttachments>(),
+  );
   const modEdits = $derived(
     (mods.mods ?? []).flatMap((m) =>
       m.fields
@@ -104,8 +107,10 @@
 
   async function load() {
     loadError = null;
+
     try {
       const read = await api.readSaveRac2(serial, slot);
+
       view = read;
       fields = structuredClone(read.fields);
     } catch (e) {
@@ -117,14 +122,22 @@
     if (!view || !fields || !canSave) return;
     busy = true;
     saveError = null;
+
     try {
       if (cardDirty) {
-        const result = await api.writeSaveRac2(serial, slot, view.fingerprint, $state.snapshot(fields));
+        const result = await api.writeSaveRac2(
+          serial,
+          slot,
+          view.fingerprint,
+          $state.snapshot(fields),
+        );
+
         view = result.view;
         fields = structuredClone(result.view.fields);
         saved = result.backup;
         touchedCard = true;
       }
+
       // Each mod's record by its own path, after the card.
       await mods.saveAll();
     } catch (e) {
@@ -138,6 +151,7 @@
     if (!saved) return;
     busy = true;
     saveError = null;
+
     try {
       await api.restoreBackup(serial, saved.name);
       toast(`Slot ${String(slot + 1)} is back as it was before the edit.`, "info");
@@ -181,12 +195,16 @@
   function itemEdited(id: number): boolean {
     const a = view?.fields.items.find((i) => i.id === id);
     const b = item(id);
-    const modChanged = [...(attached.get(id)?.version ?? []), ...(attached.get(id)?.row ?? [])].some(
-      (x) => valueOf(mods.values, x) !== x.field.value,
-    );
+    const modChanged = [
+      ...(attached.get(id)?.version ?? []),
+      ...(attached.get(id)?.row ?? []),
+    ].some((x) => valueOf(mods.values, x) !== x.field.value);
+
     return (
       modChanged ||
-      (!!a && !!b && (a.owned !== b.owned || a.ammo !== b.ammo || a.xp !== b.xp || a.version !== b.version))
+      (!!a &&
+        !!b &&
+        (a.owned !== b.owned || a.ammo !== b.ammo || a.xp !== b.xp || a.version !== b.version))
     );
   }
 
@@ -198,6 +216,7 @@
   function planetEdited(id: number): boolean {
     const a = view?.fields.planets.find((p) => p.id === id);
     const b = fields?.planets.find((p) => p.id === id);
+
     return !!a && !!b && JSON.stringify(a) !== JSON.stringify(b);
   }
 
@@ -236,20 +255,27 @@
     if (!bodyEl) return;
     const line = bodyEl.getBoundingClientRect().top + 60;
     let at: Rac2Section = "ratchet";
+
     for (const [key] of sections) {
       const el = document.getElementById(`se2-${key}`);
+
       if (el && el.getBoundingClientRect().top <= line) at = key;
     }
+
     const end = bodyEl.scrollTop + bodyEl.clientHeight >= bodyEl.scrollHeight - 2;
+
     current = end ? (target ?? (advanced ? "advanced" : "skills")) : at;
   }
 
   $effect(() => {
     const el = bodyEl;
+
     if (!el) return;
     const free = () => (target = null);
+
     el.addEventListener("wheel", free, { passive: true });
     el.addEventListener("pointerdown", free);
+
     return () => {
       el.removeEventListener("wheel", free);
       el.removeEventListener("pointerdown", free);
@@ -264,9 +290,11 @@
   onMount(() => {
     const back = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const release = inertPage();
+
     modalEl?.focus();
     void load();
     void mods.load();
+
     return () => {
       release();
       back?.focus();
@@ -285,7 +313,8 @@
 />
 
 <div class="overlay" role="presentation" use:portal>
-  <button class="backdrop" onclick={close} tabindex="-1" aria-label="Close the save editor"></button>
+  <button class="backdrop" onclick={close} tabindex="-1" aria-label="Close the save editor"
+  ></button>
   <div
     class="modal rise"
     role="dialog"
@@ -325,7 +354,10 @@
               onclick={() => {
                 jump(key);
               }}
-              >{label}{#if editedSections.has(key)}<span class="mark" role="img" aria-label="changed"
+              >{label}{#if editedSections.has(key)}<span
+                  class="mark"
+                  role="img"
+                  aria-label="changed"
                 ></span>{/if}</button
             >
           {/each}
@@ -336,7 +368,10 @@
           {#each [["bolts", "Bolts"], ["raritanium", "Raritanium"]] as const as [key, label] (key)}
             <div class="line">
               <label for={`se2-${key}`}
-                >{label}{#if fields[key] !== view.fields[key]}<span class="mark" role="img" aria-label="changed"
+                >{label}{#if fields[key] !== view.fields[key]}<span
+                    class="mark"
+                    role="img"
+                    aria-label="changed"
                   ></span>{/if}</label
               >
               <div class="field">
@@ -380,7 +415,8 @@
                 aria-invalid={!!errors.nanotechXp}
               />
               <span class="hint"
-                >Health in the save: {view.maxHealth}. The game works it out again from the experience and the boosts.</span
+                >Health in the save: {view.maxHealth}. The game works it out again from the
+                experience and the boosts.</span
               >
               {#if errors.nanotechXp}<span class="err-text">{errors.nanotechXp}</span>{/if}
             </div>
@@ -410,7 +446,10 @@
           </div>
           <div class="line">
             <label for="se2-armor"
-              >Armour{#if fields.armor !== view.fields.armor}<span class="mark" role="img" aria-label="changed"
+              >Armour{#if fields.armor !== view.fields.armor}<span
+                  class="mark"
+                  role="img"
+                  aria-label="changed"
                 ></span>{/if}</label
             >
             <div class="field">
@@ -443,7 +482,11 @@
         <section id="se2-weapons" aria-labelledby="se2-weapons-h">
           <h3 id="se2-weapons-h">
             Weapons <span class="count"
-              >{ownedCount(view, fields, "weapon")[0]} of {ownedCount(view, fields, "weapon")[1]}</span
+              >{ownedCount(view, fields, "weapon")[0]} of {ownedCount(
+                view,
+                fields,
+                "weapon",
+              )[1]}</span
             >
             <span class="grow"></span>
             <span class="actions">
@@ -469,8 +512,9 @@
             </span>
           </h3>
           <p class="note">
-            Outside challenge mode a V3 still earns experience but never upgrades to V4: pick V4 here instead. A new
-            version comes with full ammo, and with the experience the game's own upgrade leaves.
+            Outside challenge mode a V3 still earns experience but never upgrades to V4: pick V4
+            here instead. A new version comes with full ammo, and with the experience the game's own
+            upgrade leaves.
           </p>
           <ul class="rows weapons">
             {#each weapons as w (w.id)}
@@ -515,13 +559,22 @@
                         aria-invalid={!!errors[`version-${String(w.id)}`]}
                         onchange={(e) => {
                           if (view && fields)
-                            pickVersion(view, fields, mods.values, w.id, at.version, e.currentTarget.value);
+                            pickVersion(
+                              view,
+                              fields,
+                              mods.values,
+                              w.id,
+                              at.version,
+                              e.currentTarget.value,
+                            );
                         }}
                       >
                         {#if w.versions.length === 0}<option value="g:0">{w.name}</option>{/if}
                         {#each w.versions as option, k (k)}
                           <option value={`g:${String(k)}`}
-                            >{versionLabel(option)}{option.name !== w.name ? ` ${option.name}` : ""}</option
+                            >{versionLabel(option)}{option.name !== w.name
+                              ? ` ${option.name}`
+                              : ""}</option
                           >
                         {/each}
                         {#each at.version as a (`${a.mod.id}:${a.field.key}`)}
@@ -532,11 +585,16 @@
                           </optgroup>
                         {/each}
                       </select>
-                      <span class="mod-tag" title={`Tiers from ${modNames(at.version)}`}>{modNames(at.version)}</span>
+                      <span class="mod-tag" title={`Tiers from ${modNames(at.version)}`}
+                        >{modNames(at.version)}</span
+                      >
                       {#if tiers.length > 1}
                         <span class="err-text small"
                           >Mods disagree: {tiers
-                            .map((t) => `${t.attached.mod.name} ${choiceName(t.attached.field, t.tier)}`)
+                            .map(
+                              (t) =>
+                                `${t.attached.mod.name} ${choiceName(t.attached.field, t.tier)}`,
+                            )
                             .join(", ")}</span
                         >
                       {/if}
@@ -557,12 +615,15 @@
                       disabled={!s.owned || w.worn}
                       aria-invalid={!!errors[`version-${String(w.id)}`]}
                       onchange={(e) => {
-                        if (view && fields) setVersion(view, fields, w.id, Number(e.currentTarget.value));
+                        if (view && fields)
+                          setVersion(view, fields, w.id, Number(e.currentTarget.value));
                       }}
                     >
                       {#each w.versions as option, k (k)}
                         <option value={k}
-                          >{versionLabel(option)}{option.name !== w.name ? ` ${option.name}` : ""}</option
+                          >{versionLabel(option)}{option.name !== w.name
+                            ? ` ${option.name}`
+                            : ""}</option
                         >
                       {/each}
                     </select>
@@ -570,7 +631,8 @@
                     <span></span>
                   {/if}
                   {#if (selectedVersion(view, fields, w.id)?.maxAmmo ?? w.maxAmmo) !== null && s.ammo !== null}
-                    {@const maxAmmo = selectedVersion(view, fields, w.id)?.maxAmmo ?? w.maxAmmo ?? 0}
+                    {@const maxAmmo =
+                      selectedVersion(view, fields, w.id)?.maxAmmo ?? w.maxAmmo ?? 0}
                     <span class="ammo" class:off={!s.owned}>
                       <input
                         type="number"
@@ -582,8 +644,10 @@
                         aria-invalid={!!errors[`ammo-${String(w.id)}`]}
                       />
                       <span class="dim">/ {maxAmmo}</span>
-                      <button class="ghost small" onclick={() => (s.ammo = maxAmmo)} disabled={s.ammo === maxAmmo}
-                        >Fill</button
+                      <button
+                        class="ghost small"
+                        onclick={() => (s.ammo = maxAmmo)}
+                        disabled={s.ammo === maxAmmo}>Fill</button
                       >
                     </span>
                   {:else}
@@ -625,7 +689,8 @@
                           }}
                         >
                           {#each a.field.choices as c, i (i)}
-                            {#if i >= a.field.min && i <= a.field.max}<option value={i}>{a.field.name}: {c}</option
+                            {#if i >= a.field.min && i <= a.field.max}<option value={i}
+                                >{a.field.name}: {c}</option
                               >{/if}
                           {/each}
                         </select>
@@ -648,15 +713,15 @@
               {/if}
             {/each}
           </ul>
-          {#each Object.entries(errors).filter(([k]) => k.startsWith("version-")) as [k, message] (k)}
+          {#each Object.entries(errors).filter( ([k]) => k.startsWith("version-") ) as [k, message] (k)}
             <p class="err-text">
               {view.items.find((i) => `version-${String(i.id)}` === k)?.name}: {message}.
             </p>
           {/each}
           {#if Object.keys(errors).some((k) => k.startsWith("ammo-") || k.startsWith("xp-"))}
             <p class="err-text">
-              Ammo goes up to what the version holds; experience stays under the next upgrade, which the game makes
-              itself, and at least at the step a version upgraded at.
+              Ammo goes up to what the version holds; experience stays under the next upgrade, which
+              the game makes itself, and at least at the step a version upgraded at.
             </p>
           {/if}
         </section>
@@ -664,7 +729,11 @@
         <section id="se2-gadgets" aria-labelledby="se2-gadgets-h">
           <h3 id="se2-gadgets-h">
             Gadgets and items <span class="count"
-              >{ownedCount(view, fields, "gadget")[0]} of {ownedCount(view, fields, "gadget")[1]}</span
+              >{ownedCount(view, fields, "gadget")[0]} of {ownedCount(
+                view,
+                fields,
+                "gadget",
+              )[1]}</span
             >
             <span class="grow"></span>
             <span class="actions">
@@ -677,7 +746,8 @@
               <button
                 class="ghost small"
                 onclick={() => (confirmTake = true)}
-                disabled={confirmTake || ownedCount(view, fields, "gadget")[0] === 0}>Take all</button
+                disabled={confirmTake || ownedCount(view, fields, "gadget")[0] === 0}
+                >Take all</button
               >
             </span>
           </h3>
@@ -690,7 +760,9 @@
             >
               <Icon name="warn" size={16} />
               <span class="grow">{storyWarning} Take away every gadget and item?</span>
-              <button class="ghost small" use:focusOnShow onclick={() => (confirmTake = false)}>Keep them</button>
+              <button class="ghost small" use:focusOnShow onclick={() => (confirmTake = false)}
+                >Keep them</button
+              >
               <button
                 class="small"
                 onclick={() => {
@@ -713,7 +785,8 @@
                       if (view && fields) setOwned(view, fields, g.id, e.currentTarget.checked);
                     }}
                   />
-                  {g.name}{#if itemEdited(g.id)}<span class="mark" role="img" aria-label="changed"></span>{/if}
+                  {g.name}{#if itemEdited(g.id)}<span class="mark" role="img" aria-label="changed"
+                    ></span>{/if}
                 </label>
               {/if}
             {/each}
@@ -747,7 +820,10 @@
                 <li>
                   <span class="planet">
                     <b
-                      >{p.name}{#if planetEdited(p.id)}<span class="mark" role="img" aria-label="changed"
+                      >{p.name}{#if planetEdited(p.id)}<span
+                          class="mark"
+                          role="img"
+                          aria-label="changed"
                         ></span>{/if}</b
                     >
                   </span>
@@ -777,8 +853,8 @@
             {/each}
           </ul>
           <p class="note">
-            Each level keeps four places for platinum bolts; the game counts every one found (40 at most), less those
-            spent on weapon mods.
+            Each level keeps four places for platinum bolts; the game counts every one found (40 at
+            most), less those spent on weapon mods.
           </p>
         </section>
 
@@ -834,8 +910,9 @@
           <section id="se2-advanced" aria-labelledby="se2-advanced-h" transition:slide={fold}>
             <h3 id="se2-advanced-h">Advanced</h3>
             <p class="running">
-              <Icon name="warn" size={16} />These change where the story stands. A flag that does not match the rest of
-              the save can replay a scene, skip one, or leave a door shut; your card is backed up first.
+              <Icon name="warn" size={16} />These change where the story stands. A flag that does
+              not match the rest of the save can replay a scene, skip one, or leave a door shut;
+              your card is backed up first.
             </p>
             {#each flagGroups(view) as group (group.planet)}
               <h4 class="group">{group.planet}</h4>
@@ -855,7 +932,8 @@
                       <span class="hint"
                         >{#if info.confidence === "fromCode"}<span
                             class="unverified"
-                            title="Read from the game's code; this one flag was not tried in the game">unverified</span
+                            title="Read from the game's code; this one flag was not tried in the game"
+                            >unverified</span
                           >{/if}{info.description}</span
                       >
                     </li>
@@ -878,7 +956,8 @@
       {/if}
       {#if playing && dirty}
         <p class="running">
-          <Icon name="info" size={16} />The game is running and writes this memory card too: close it, then save.
+          <Icon name="info" size={16} />The game is running and writes this memory card too: close
+          it, then save.
         </p>
       {/if}
       {#if reviewing && edits.length && !asking}
@@ -898,9 +977,13 @@
       {#if asking}
         <div class="row" role="alertdialog" aria-label="Close without saving?">
           <span class="grow"
-            >Close without saving your {changeCount === 1 ? "change" : `${String(changeCount)} changes`}?</span
+            >Close without saving your {changeCount === 1
+              ? "change"
+              : `${String(changeCount)} changes`}?</span
           >
-          <button class="ghost" use:focusOnShow onclick={() => (asking = false)} disabled={busy}>Keep editing</button>
+          <button class="ghost" use:focusOnShow onclick={() => (asking = false)} disabled={busy}
+            >Keep editing</button
+          >
           <button
             class="discard"
             onclick={() => {
@@ -910,7 +993,8 @@
           >
           {#if canSave}
             <button class="primary" onclick={saveAndClose} disabled={busy}>
-              {#if busy}<span class="spinner"></span>{:else}<Icon name="save" size={16} />{/if}Save and close
+              {#if busy}<span class="spinner"></span>{:else}<Icon name="save" size={16} />{/if}Save
+              and close
             </button>
           {/if}
         </div>
@@ -937,15 +1021,24 @@
               title={reviewing ? "Hide the list" : "See what you changed"}
               ><span class="mark" aria-hidden="true"></span>{changeCount === 1
                 ? "1 change"
-                : `${String(changeCount)} changes`}<span class="caret" class:open={reviewing} aria-hidden="true"
+                : `${String(changeCount)} changes`}<span
+                class="caret"
+                class:open={reviewing}
+                aria-hidden="true"
               ></span></button
             >
             <span class="grow dim backup">Backed up before writing</span>
-            <button class="ghost" onclick={reset} disabled={busy} title="Undo every change you made here">Reset</button>
+            <button
+              class="ghost"
+              onclick={reset}
+              disabled={busy}
+              title="Undo every change you made here">Reset</button
+            >
           {:else}
             <span class="grow dim">Your memory card is backed up before anything is written.</span>
           {/if}
-          <button class="ghost" onclick={close} disabled={busy}>{dirty ? "Cancel" : "Close"}</button>
+          <button class="ghost" onclick={close} disabled={busy}>{dirty ? "Cancel" : "Close"}</button
+          >
           <button
             class="primary"
             onclick={save}

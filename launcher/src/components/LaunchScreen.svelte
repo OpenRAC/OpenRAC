@@ -2,11 +2,12 @@
   // Android: a game starting. Its disc spins on the whole screen, over its picture, from the press
   // of Play until the game's window covers the launcher (app.launching, showLaunch). Only
   // transform and opacity move, so it stays smooth while the game's process starts beside it.
+  import { fade, fly } from "svelte/transition";
+
   import { app } from "$lib/app.svelte";
   import { gameArt, hideMissing } from "$lib/media";
   import { enter, reduced } from "$lib/motion";
   import { themeStyle } from "$lib/themes";
-  import { fade, fly } from "svelte/transition";
 
   const launch = $derived(app.launching);
   const art = $derived(launch ? gameArt(launch.game) : null);
@@ -88,8 +89,18 @@
     height: 100%;
     border-radius: 50%;
     background:
-      radial-gradient(circle, transparent 0 9%, rgb(255 255 255 / 0.55) 9.5% 10.5%, transparent 11%),
-      radial-gradient(circle, transparent 0 17%, rgb(210 214 222 / 0.9) 17.5% 30%, transparent 30.5%),
+      radial-gradient(
+        circle,
+        transparent 0 9%,
+        rgb(255 255 255 / 0.55) 9.5% 10.5%,
+        transparent 11%
+      ),
+      radial-gradient(
+        circle,
+        transparent 0 17%,
+        rgb(210 214 222 / 0.9) 17.5% 30%,
+        transparent 30.5%
+      ),
       conic-gradient(
         from 20deg,
         rgb(201 204 214),

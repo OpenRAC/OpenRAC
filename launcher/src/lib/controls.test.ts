@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
+
 import bindingsCpp from "../../../port/platform/bindings.cpp?raw";
 import bindingsH from "../../../port/platform/bindings.h?raw";
-import type { BindingRow } from "./generated/BindingRow";
 import {
   alsoPressing,
   bindingValue,
@@ -11,11 +11,12 @@ import {
   newlyPressed,
   PAD_NONE,
   padLabel,
+  type PadReading,
   padWith,
   playerKey,
   withPad,
-  type PadReading,
 } from "./controls";
+import type { BindingRow } from "./generated/BindingRow";
 
 const row = (key: string, label: string, pad: string[], keys: string[] = []): BindingRow => ({
   key,
@@ -39,6 +40,7 @@ const standard = (
   mapping: "standard",
   buttons: Array.from({ length: 17 }, (_, i) => {
     const value = i === 6 ? triggers[0] : i === 7 ? triggers[1] : pressed.includes(i) ? 1 : 0;
+
     return { pressed: value > 0, value };
   }),
   axes,
@@ -46,7 +48,10 @@ const standard = (
 
 describe("the port's names", () => {
   it("label every pad input the port knows", () => {
-    const names = [...bindingsCpp.matchAll(/\{"(Pad[A-Za-z0-9]+)", (?:SDL_|kNoButton)/g)].map((m) => m[1] ?? "");
+    const names = [...bindingsCpp.matchAll(/\{"(Pad[A-Za-z0-9]+)", (?:SDL_|kNoButton)/g)].map(
+      (m) => m[1] ?? "",
+    );
+
     expect(names.length).toBe(36);
     for (const name of names) expect(padLabel(name)).not.toBe(name);
   });
@@ -69,7 +74,10 @@ describe("the port's names", () => {
 describe("a browser controller's press", () => {
   it("is named by position, as SDL names it", () => {
     expect(heldInputs(standard([0, 9, 16]))).toEqual(["PadSouth", "PadStart", "PadGuide"]);
-    expect(heldInputs(standard([], [0, -0.9, 0.8, 0]))).toEqual(["PadLeftStickUp", "PadRightStickRight"]);
+    expect(heldInputs(standard([], [0, -0.9, 0.8, 0]))).toEqual([
+      "PadLeftStickUp",
+      "PadRightStickRight",
+    ]);
     expect(heldInputs(standard([], undefined, [0.2, 0.9]))).toEqual(["PadRightTrigger"]);
     expect(heldInputs({ ...standard([0]), mapping: "" })).toEqual([]);
     expect(heldInputs(null)).toEqual([]);
@@ -89,9 +97,9 @@ describe("a control's new pad inputs", () => {
     expect(withPad("PadSouth", [])).toBe(PAD_NONE);
     expect(withPad("Space", [])).toBe("Space,PadNone");
     expect(withPad("none", [])).toBe("none");
-    expect(withPad(null, ["PadEast", "PadEast", "PadWest", "PadNorth", "PadBack", "PadStart"])).toBe(
-      "PadEast,PadWest,PadNorth,PadBack",
-    );
+    expect(
+      withPad(null, ["PadEast", "PadEast", "PadWest", "PadNorth", "PadBack", "PadStart"]),
+    ).toBe("PadEast,PadWest,PadNorth,PadBack");
   });
 
   it("are written as the port writes them", () => {
@@ -102,10 +110,16 @@ describe("a control's new pad inputs", () => {
 
   it("add, replace, and say what else a press presses", () => {
     const cross = row("bind_cross", "Cross", ["PadSouth"]);
+
     expect(padWith(cross, "PadEast", false)).toEqual(["PadSouth", "PadEast"]);
     expect(padWith(cross, "PadSouth", false)).toEqual(["PadSouth"]);
     expect(padWith(cross, "PadEast", true)).toEqual(["PadEast"]);
-    const rows = [cross, row("bind_circle", "Circle", ["PadEast"]), row("bind_select", "Select", ["PadEast+PadSouth"])];
+    const rows = [
+      cross,
+      row("bind_circle", "Circle", ["PadEast"]),
+      row("bind_select", "Select", ["PadEast+PadSouth"]),
+    ];
+
     expect(alsoPressing(rows, "bind_cross", "PadEast")).toEqual(["Circle"]);
     expect(alsoPressing(rows, "bind_cross", "PadEast+PadSouth")).toEqual([]);
   });

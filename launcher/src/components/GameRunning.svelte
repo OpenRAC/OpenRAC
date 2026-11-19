@@ -2,17 +2,21 @@
   // Android: the game runs beside the launcher. While it does, the launcher in front is a screen
   // that says so, over the game's picture, with the three things to do: go back to it, end it, or
   // put this aside to use the launcher while the game waits (app.runningAside, until the next start).
-  import { app, gameWindow } from "$lib/app.svelte";
+  import { fade, fly } from "svelte/transition";
+
   import { onAndroid } from "$lib/api";
+  import { app, gameWindow } from "$lib/app.svelte";
   import { gameArt, hideMissing } from "$lib/media";
   import { enter, reduced } from "$lib/motion";
   import { themeStyle } from "$lib/themes";
-  import { fade, fly } from "svelte/transition";
+
   import Icon from "./Icon.svelte";
 
   /** The running game's id ("rac1"), from its library ("openrac-rac1-pal"); null when unknown. */
   const game = $derived(app.game?.library?.replace(/^openrac-/, "").split("-")[0] ?? null);
-  const title = $derived((game && app.library?.games.find((g) => g.id === game)?.title) ?? "Your game");
+  const title = $derived(
+    (game && app.library?.games.find((g) => g.id === game)?.title) ?? "Your game",
+  );
   const shown = $derived(onAndroid && !!app.game?.running && !app.runningAside && !app.launching);
   const art = $derived(game ? gameArt(game) : null);
   let busy = $state(false);
@@ -20,6 +24,7 @@
   async function act(stop: boolean) {
     if (busy) return;
     busy = true;
+
     try {
       await gameWindow(stop);
     } finally {
@@ -52,9 +57,13 @@
         <button class="primary" onclick={() => void act(false)} disabled={busy} use:focus>
           <Icon name="play" size={18} />Return to game
         </button>
-        <button onclick={() => void act(true)} disabled={busy}><Icon name="x" size={18} />Quit game</button>
+        <button onclick={() => void act(true)} disabled={busy}
+          ><Icon name="x" size={18} />Quit game</button
+        >
       </div>
-      <button class="aside" onclick={() => (app.runningAside = true)}>Use the launcher meanwhile</button>
+      <button class="aside" onclick={() => (app.runningAside = true)}
+        >Use the launcher meanwhile</button
+      >
     </div>
   </div>
 {/if}

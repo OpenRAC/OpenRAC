@@ -3,15 +3,23 @@
   // and --tx2 custom properties of the element around it (themes.ts).
   // Functional C, when given, follows the matched part as a striped segment: code that behaves
   // like the original without matching its bytes, which ByteMatch shows apart and never counts.
-  let { percent, label, functional = null }: { percent: number; label: string; functional?: number | null } = $props();
+  let {
+    percent,
+    label,
+    functional = null,
+  }: { percent: number; label: string; functional?: number | null } = $props();
   const matched = $derived(Math.min(100, Math.max(0, percent)));
-  const extra = $derived(functional === null ? 0 : Math.min(100 - matched, Math.max(0, functional)));
+  const extra = $derived(
+    functional === null ? 0 : Math.min(100 - matched, Math.max(0, functional)),
+  );
 </script>
 
 <div
   class="bar"
   role="progressbar"
-  aria-label={functional === null ? label : `${label}; functional C ${Math.round(extra * 10) / 10}% more`}
+  aria-label={functional === null
+    ? label
+    : `${label}; functional C ${Math.round(extra * 10) / 10}% more`}
   aria-valuenow={Math.round(percent * 10) / 10}
   aria-valuemin={0}
   aria-valuemax={100}

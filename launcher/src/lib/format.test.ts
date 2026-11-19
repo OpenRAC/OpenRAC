@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { elapsed, grouped, matchedLine, pct, size, splitPath } from "./format";
 
 describe("format", () => {
@@ -36,6 +37,9 @@ describe("format", () => {
     });
     expect(splitPath("/usr/bin/godot")).toEqual({ head: "/usr/bin", tail: "/godot" });
     expect(splitPath("godot")).toEqual({ head: "godot", tail: "" });
-    expect(splitPath(`/opt/${"x".repeat(60)}`)).toEqual({ head: `/opt/${"x".repeat(60)}`, tail: "" });
+    expect(splitPath(`/opt/${"x".repeat(60)}`)).toEqual({
+      head: `/opt/${"x".repeat(60)}`,
+      tail: "",
+    });
   });
 });
