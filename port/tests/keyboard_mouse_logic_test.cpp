@@ -709,6 +709,20 @@ void menu_mouse() {
     );
 }
 
+// A click on a button icon of the game's text, or the text after it, presses that button.
+void prompt_spots() {
+    const kbm::PromptSpot spots[3] = {
+        {0, kbm::Rect{41, 268, 139, 16}},  // Cross: View Missions
+        {9, kbm::Rect{41, 340, 24, 16}},   // the right stick: presses nothing
+        {2, kbm::Rect{41, 358, 63, 16}},   // Triangle: Exit
+    };
+    CHECK(kbm::prompt_button_at(spots, 3, 100.0f, 275.0f) == kbm::kCross);
+    CHECK(kbm::prompt_button_at(spots, 3, 60.0f, 365.0f) == kbm::kTriangle);
+    CHECK(kbm::prompt_button_at(spots, 3, 50.0f, 347.0f) == 0);
+    CHECK(kbm::prompt_button_at(spots, 3, 300.0f, 275.0f) == 0);
+    CHECK(kbm::button_of_cell(7) == kbm::kR2 && kbm::button_of_cell(8) == 0);
+}
+
 // The vendor's monitors under the pointer (window places of a 640x480 run).
 void vendor() {
     const auto at = [](float wx, float wy, int count, int cursor, int scroll = 0) {
@@ -963,6 +977,7 @@ int main(int argc, char** argv) {
     press_edges();
     menu_mouse();
     vendor();
+    prompt_spots();
     prompts();
     edges();
 

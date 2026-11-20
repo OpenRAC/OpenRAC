@@ -32,6 +32,7 @@
 #include "game/common/key_labels.h"
 #include "game/common/key_prompts.h"
 #include "game/common/keyboard_mouse/kbm.hpp"
+#include "game/rac1/host/prompt_spots.h"
 #include "openrac/games/rac1.hpp"
 #include "openrac/mod.hpp"
 
@@ -199,11 +200,11 @@ std::int32_t s_follow_locks = 0;
 // buttons it presses.
 int s_click_wait = 0;
 
-// The vendor's strip row a click asked for (-1 none), the steps left to get there, and whether the
-// click's button is still down (its confirm then presses nothing more).
+// The vendor's strip row a click asked for (-1 none) and the steps left to get there; whether a
+// click that pressed a button of its own is still down (its confirm then presses nothing more).
 int s_vendor_target = -1;
 int s_vendor_tries = 0;
-bool s_vendor_click_held = false;
+bool s_click_held = false;
 std::uint16_t s_click_button = 0;
 
 // The game's own functions the camera's reset calls, found by load().
@@ -621,12 +622,15 @@ bool mouse_on_grid(
     return !click;
 }
 
-// The mouse over a menu page's item, at (px, py) in the game's screen: the item becomes the focused
-// one, or, once focused, a text list's row or an item grid's cell under the mouse is stepped to.
-// Returns the menu_mouse result where the mouse is over an item (false: the click must wait for
-// the focus or the selection to move), and nothing where it is over none, or over a widget whose
-// rows it cannot read, which the d-pad steps instead.
-std::optional<bool> mouse_on_page(gaddr page, bool moved, bool click, float px, float py) {
+// A page's items the mouse may point at, into widgets and rects: the focused one, and those the
+// d-pad could take the focus to. Any other (a label, the item preview) the game never focuses, and
+// some of its widgets break when it is (the Quick Select's preview reads the focus as an item
+// grid). Returns how many.
+int page_items(
+    gaddr page,
+    std::array<gaddr, KBM_PAGE_WIDGET_COUNT>& widgets,
+    std::array<kbm::Rect, KBM_PAGE_WIDGET_COUNT>& rects
+) {
     std::array<gaddr, KBM_PAGE_WIDGET_COUNT> present{};
     int present_count = 0;
 
@@ -642,17 +646,14 @@ std::optional<bool> mouse_on_page(gaddr page, bool moved, bool click, float px, 
 
     const gaddr focused = read<std::uint32_t>(page + KBM_PAGE_FOCUS);
     const std::uint32_t reachable = kbm::reachable_widgets(
-        focused, present.data(), present_count, [](std::uint32_t w, std::uint32_t* out) {
-            return plausible(w) ? focus_links(w, out) : 0;
-        }
+        focused,
+        present.data(),
+        present_count,
+        [](std::uint32_t w, std::uint32_t* out) { return plausible(w) ? focus_links(w, out) : 0; }
     );
-    std::array<kbm::Rect, KBM_PAGE_WIDGET_COUNT> rects{};
-    std::array<gaddr, KBM_PAGE_WIDGET_COUNT> widgets{};
     int count = 0;
 
-    // The widgets the mouse may point at: the focused one, and those the d-pad could take the
-    // focus to. Any other (a label, the item preview) the game never focuses, and some of its
-    // widgets break when it is (the Quick Select's preview reads the focus as an item grid).
+    // Only the focused widget and those the focus can move to.
     for (int i = 0; i < present_count; ++i) {
         const gaddr w = present[static_cast<std::size_t>(i)];
 
@@ -666,6 +667,19 @@ std::optional<bool> mouse_on_page(gaddr page, bool moved, bool click, float px, 
         ++count;
     }
 
+    return count;
+}
+
+// The mouse over a menu page's item, at (px, py) in the game's screen: the item becomes the focused
+// one, or, once focused, a text list's row or an item grid's cell under the mouse is stepped to.
+// Returns the menu_mouse result where the mouse is over an item (false: the click must wait for
+// the focus or the selection to move), and nothing where it is over none, or over a widget whose
+// rows it cannot read, which the d-pad steps instead.
+std::optional<bool> mouse_on_page(gaddr page, bool moved, bool click, float px, float py) {
+    std::array<kbm::Rect, KBM_PAGE_WIDGET_COUNT> rects{};
+    std::array<gaddr, KBM_PAGE_WIDGET_COUNT> widgets{};
+    const int count = page_items(page, widgets, rects);
+    const gaddr focused = read<std::uint32_t>(page + KBM_PAGE_FOCUS);
     const int hit = kbm::hit_widget(rects.data(), count, px, py);
 
     // The mouse is over no item.
@@ -764,6 +778,59 @@ bool menu_mouse(const Tick& t, bool click) {
     }
 
     return true;
+}
+
+// ---- Clicks on the game's button icons ----
+
+// The icons the game's text showed last (prompt_spots.h), kept while no frame drew new ones for a
+// few ticks (a tick with no frame between).
+std::array<kbm::PromptSpot, OPENRAC_RAC1_PROMPT_SPOTS_MAX> s_spots{};
+int s_spot_count = 0;
+int s_spots_age = 0;
+constexpr int kSpotsKeptTicks = 3;
+
+// Takes the icons drawn since the last tick.
+void take_prompt_spots() {
+    std::array<openrac_rac1_prompt_spot, OPENRAC_RAC1_PROMPT_SPOTS_MAX> drawn{};
+    const int n = openrac_rac1_take_prompt_spots(drawn.data());
+
+    // No frame drew any: the last ones stand a little longer.
+    if (n == 0 && ++s_spots_age <= kSpotsKeptTicks) {
+        return;
+    }
+
+    s_spots_age = 0;
+    s_spot_count = n;
+
+    // Each icon and its line, in the game's screen.
+    for (int i = 0; i < n; ++i) {
+        const openrac_rac1_prompt_spot& d = drawn[static_cast<std::size_t>(i)];
+        kbm::PromptSpot& p = s_spots[static_cast<std::size_t>(i)];
+        p.cell = d.cell;
+        p.rect = kbm::Rect{d.x0, d.y0, d.x1 - d.x0, d.y1 - d.y0};
+    }
+}
+
+// The button of the icon a click is on (the icon, or the text after it on its line), 0 for none
+// and over a menu item, which the click is for (a row that shows an icon is chosen, not pressed).
+std::uint16_t prompt_click(const Tick& t) {
+    const float px = t.in->pointer_x * kbm::kScreenWidth;
+    const float py = t.in->pointer_y * kbm::kScreenHeight;
+    const gaddr page = t.where == Context::Menu ? menu_page() : 0;
+
+    // Over a menu item: the item's.
+    if (page != 0) {
+        std::array<kbm::Rect, KBM_PAGE_WIDGET_COUNT> rects{};
+        std::array<gaddr, KBM_PAGE_WIDGET_COUNT> widgets{};
+        const int count = page_items(page, widgets, rects);
+
+        // The item under the mouse has the click.
+        if (kbm::hit_widget(rects.data(), count, px, py) >= 0) {
+            return 0;
+        }
+    }
+
+    return kbm::prompt_button_at(s_spots.data(), s_spot_count, px, py);
 }
 
 // ---- The mouse at the vendor ----
@@ -1183,6 +1250,7 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
                 && in->size >= offsetof(openrac_input, reserved2);
 
     update_capture(play, in);
+    take_prompt_spots();
 
     kbm::ActionSet held = actions_held(t);
     const kbm::Context before = s_latch.last;
@@ -1194,7 +1262,7 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
         s_stepper.reset();
         s_click_wait = 0;
         s_vendor_target = -1;
-        s_vendor_click_held = false;
+        s_click_held = false;
     }
 
     const bool map = map_focused(t);
@@ -1203,34 +1271,44 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     const bool click = t.pointer && (held & kbm::bit(Action::MenuConfirm)) != 0
                        && pressed_now(t, Action::MenuConfirm);
 
-    // At the vendor a click presses the button of the monitor it is on, and nothing elsewhere; its
-    // confirm stays off while the mouse's button is down.
+    // A click of the mouse (not a key) on one of the game's button icons, or the text after it,
+    // presses that button instead (prompt_click); at the vendor, a click presses the button of the
+    // monitor it is on, and nothing elsewhere. The click's confirm then stays off while the
+    // mouse's button is down.
+    const bool mouse_click = click && mouse_bind(t, Action::MenuConfirm, true);
+    std::uint16_t click_press = 0;
+    bool click_taken = false;
+
+    // The vendor's monitors.
     if (t.where == Context::Vendor && t.pointer && s_menu_mouse) {
-        const bool mouse_click = click && mouse_bind(t, Action::MenuConfirm, true);
-        const std::uint16_t button = vendor_mouse(t, mouse_click);
-        s_vendor_click_held = mouse_click || s_vendor_click_held;
-
-        // The click's button is still down: it is not the game's Cross.
-        if (s_vendor_click_held && mouse_bind(t, Action::MenuConfirm, false)) {
-            held &= ~kbm::bit(Action::MenuConfirm);
-        } else {
-            s_vendor_click_held = false;
-        }
-
-        // The monitor's button, once.
-        if (button != 0) {
-            s_pulses.push(button);
-        }
+        click_press = vendor_mouse(t, mouse_click);
+        click_taken = mouse_click;
     } else if (!play) {
-        // Out of play the mouse points at the menus; a click that must wait is held back, and
-        // pressed again once the focus has moved.
-        // A click on an item not yet focused is not pressed yet.
-        if (!menu_mouse(t, click)) {
+        click_press = mouse_click && s_menu_mouse ? prompt_click(t) : 0;
+        click_taken = click_press != 0;
+
+        // Out of play the mouse points at the menus; a click on an item not yet focused is held
+        // back, and pressed again once the focus has moved.
+        if (!click_taken && !menu_mouse(t, click)) {
             held &= ~kbm::bit(Action::MenuConfirm);
             s_click_wait = kClickWaitTicks;
             s_click_button =
                 kbm::buttons_for(t.where, kbm::bit(Action::MenuConfirm), dialog_kind, map);
         }
+    }
+
+    s_click_held = click_taken || s_click_held;
+
+    // The click's button is still down: it is not the game's Cross.
+    if (s_click_held && mouse_bind(t, Action::MenuConfirm, false)) {
+        held &= ~kbm::bit(Action::MenuConfirm);
+    } else {
+        s_click_held = false;
+    }
+
+    // The button the click pressed, once.
+    if (click_press != 0) {
+        s_pulses.push(click_press);
     }
 
     if (s_strafe_mod < 0) {
@@ -1426,7 +1504,7 @@ void reset_state() {
     s_reset_ticks = 0;
     s_click_wait = 0;
     s_vendor_target = -1;
-    s_vendor_click_held = false;
+    s_click_held = false;
     s_follow_dx = 0.0f;
     s_follow_dy = 0.0f;
     s_follow_tick = kNoTick;

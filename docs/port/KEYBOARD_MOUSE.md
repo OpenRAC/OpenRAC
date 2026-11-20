@@ -60,7 +60,8 @@ that paused does not also close the menu.
 In Ratchet & Clank menus the cursor also points: the item under it gets the
 focus, a click confirms (*Mouse in menus* turns this off). At a vendor, click
 the Buy or Exit monitor to press it, or an icon on the strip to select it; a
-click anywhere else does nothing.
+click anywhere else does nothing. A click on a button icon the game shows with
+its text (the map's "View Missions", "Exit") presses that button.
 
 The strafe key presses L2 in Ratchet & Clank only while the lock-strafe mod is
 loaded, so the game behaves as on a pad (L2 is first-person view there).

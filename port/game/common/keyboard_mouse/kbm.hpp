@@ -1289,6 +1289,38 @@ inline std::uint16_t grid_step(int from, int to, int rows, int cols) {
     return to % cols < from % cols ? kLeft : kRight;
 }
 
+// ---- Clicks on the game's button icons ----
+
+// The pad button of a font's icon cell (key_prompts.h's order along row 96: Cross, Square,
+// Triangle, Circle, L1, L2, R1, R2, then the sticks, which press nothing).
+inline std::uint16_t button_of_cell(int cell) {
+    static constexpr std::uint16_t kByCell[8] =
+        {kCross, kSquare, kTriangle, kCircle, kL1, kL2, kR1, kR2};
+    return cell >= 0 && cell < 8 ? kByCell[cell] : 0;
+}
+
+// An icon and the text after it on its line, in the game's screen (as the game drew it).
+struct PromptSpot {
+    int cell = -1;
+    Rect rect;
+};
+
+// The button a click at (px, py) presses on the icons drawn (`count` of them): the first whose
+// line holds the point, 0 for none.
+inline std::uint16_t prompt_button_at(const PromptSpot* spots, int count, float px, float py) {
+    // Look at each icon's line in turn.
+    for (int i = 0; i < count; ++i) {
+        const std::uint16_t b = button_of_cell(spots[i].cell);
+
+        // An icon of a button, whose line is under the point.
+        if (b != 0 && spots[i].rect.contains(px, py)) {
+            return b;
+        }
+    }
+
+    return 0;
+}
+
 // ---- rac1's vendor ----
 //
 // The vendor draws its screens into textures and shows them on monitors in the scene
