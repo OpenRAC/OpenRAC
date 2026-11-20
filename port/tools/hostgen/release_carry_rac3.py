@@ -47,6 +47,8 @@ RELEASE = PORT / "game/rac3-ntsc"
 NAME = re.compile(r"\b(func|D)_(?:(L\d\d)_)?([0-9A-F]{8})(?:__(\w+))?(?![0-9A-Za-z_])")
 ADDR = re.compile(r"\bRAC3_ADDR\(\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
 LADDR = re.compile(r"\bRAC3_LADDR\(\s*(\d+)\s*,\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
+HOST_DEF = re.compile(r"^((?:unsigned |signed )?(?:void|int|float|gaddr|unsigned int|long long|unsigned long long|"
+                      r"uint32_t|int32_t)) (func_L\d\d_[0-9A-F]{8})\(([^)]*)\)\s*\{", re.M)
 ALIAS = re.compile(r"(func_[0-9A-F]{8})(_[0-9A-F]{8})")
 LITERAL = re.compile(r"\b0x(00[1-3][0-9A-Fa-f]{5})u?\b")  # an address of the executable's memory
 SHARED_SUFFIXES = ("game",)  # a wrap's own body: the same program as the plain name
@@ -274,6 +276,26 @@ def main(argv: list[str] | None = None) -> int:
     own = names.own_functions(source)
     report["own_functions"] = own
     out["roots"] = list(dict.fromkeys([*out.get("roots", []), *own]))
+    # The levels' functions the shared host C defines (wraps and replacements): PAL's prototype is
+    # its C's, NTSC-U's would be its registers' (its levels are translated from the disc), and the
+    # two clash where the host C defines it. The host C's own prototype is the assembly signature.
+    signatures = out.setdefault("asm", {}).setdefault("signatures", {})
+    # (Not the libraries' host rows: hostgen takes no assembly signature for a function the port
+    # answers itself.)
+    host_rows = {names.function(c[0])[0] for c in (line.split("\t") for line in
+                 (PRIMARY / "libraries.tsv").read_text().splitlines())
+                 if not c[0].startswith("#") and len(c) > 3 and c[3] == "host"}
+    for path in host_files():
+        if path.suffix != ".c":
+            continue
+        for m in HOST_DEF.finditer(strip_comments(path.read_text())):
+            ret, name, params = m.group(1), m.group(2), m.group(3)
+            new, _status = names.function(name)
+            if absent(new, names) or new in signatures or new in host_rows:
+                continue
+            types = [] if params.strip() in ("", "void") else [
+                re.sub(r"\s*\b\w+$", "", p.strip()) or p.strip() for p in params.split(",")]
+            signatures[new] = f"{ret} ({', '.join(t.replace('gaddr', 'unsigned int') for t in types) or 'void'})"
     put("hostgen.json", json.dumps(out, indent=2) + "\n")
 
     # checks/result_allow.tsv: PAL's rows (caller, callee, why) in NTSC-U's names.
