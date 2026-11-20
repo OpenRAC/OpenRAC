@@ -42,7 +42,7 @@ From the launcher (launcher/actions.json, `rac3/pal`), as for Going Commando: *S
 disc* runs `tools/extractor.py`, which checks the disc against games/rac3/game.json and writes
 `iso_data/rac3/` (`SCES_524.56`, `disc.iso`, `buildinfo.json`) into the game's data folder;
 *Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
-the levels into `assets/port/rac3/pal` (`levels-7.json`), and *Play* runs
+the levels into `assets/port/rac3/pal` (`levels-8.json`), and *Play* runs
 `openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
 no level plays yet. The game draws a level's world from them ([Drawing the levels](#drawing-the-levels)).
 
@@ -258,6 +258,11 @@ the picture goes to the window as a texture of its own and the display list gets
 record reading it in place of the transfers, as the 2D layer's quads do; nothing is sent to the GS
 for it.
 
+The game asks for 512 x 416 (the NTSC-U frame's height) in PAL's 448-line frame, which the console
+stretches to its 512-line display: the frame's last 32 lines stay its clear, black, a band along
+the bottom of the main menu on the console too (rows 416 to 447 of the buffer are zeros). The port
+draws it so, in every Picture shape.
+
 The darkening over it (`func_0038B200`: a colour, 0x60 of black, over the picture as sixteen
 32-pixel sprites of the fixed packet at `0x00141850`) is one flat 2D record, and the four corner
 ornaments (`func_00397680`, a HUD texture turned about its centre with a colour a corner) are
@@ -317,7 +322,7 @@ share most of them, but have their own DrawTfrag, tie and shrub passes and MobyP
 level 39's (`func_L39_...`, `OPENRAC_LDATA(39, ...)`). `IDENTIFIED.tsv` has each function and its
 Going Commando pair.
 
-The extracted levels are the shared export (`editor/extract.py port`), format 7 for this game
+The extracted levels are the shared export (`editor/extract.py port`), format 8 for this game
 (`editor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
 sky's shells and its panorama, collision, (5) Ratchet's mesh and textures from his first pack
 (`editor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
@@ -325,11 +330,12 @@ draws him with, and (6) the terrain and shrubs lit as the game lights them at lo
 colours per vertex, as Going Commando's (`games.py` `world_lighting`, `UYA_TIE`): the lighting
 routines are Going Commando's instructions, and the (cos, sin) table they light by is in each
 level's own program, not the loader the disc boots (`lighting.program_normal_table`). Against Going
-Commando's format 20 it lacks: the chrome and glass maps (grey), the mobys' glow vertices, light
-sets and bangles, his other skins, and the enhanced renderer's bake inputs (gameplay copy,
-emissions, liquids). (7) adds his wrench (pack 31, class 71), the banks of what he holds and his
+Commando's format 20 it lacks: the mobys' glow vertices, light sets and bangles, his other skins,
+and the enhanced renderer's bake inputs (gameplay copy, emissions, liquids). (7) adds his wrench (pack 31, class 71), the banks of what he holds and his
 ship's three hulls and 32 paint jobs (class 3412), where Veldin's copies of Going Commando's
-loaders read them (`wads.RAC3_PAL`).
+loaders read them (`wads.RAC3_PAL`). (8) adds the chrome and glass maps the metal packets are drawn
+with, from the GS RAM lump's stash as Going Commando's (`games.py` `maps_in_textures`: the core
+index's offsets are its, 0 and 0x4000, CLUTs 0 and 0x400).
 
 To look at a level without the game (no game code runs; the viewer's own camera):
 
@@ -344,7 +350,7 @@ and animated) draw natively with the game's camera, but
 
 - the second screen effect DrawFrame references (`0x004DF310`, two packets at `0x001D3650` and
   `0x001D3EF0` while `0x001DBCBC` is set) is not identified and still replayed;
-- the export's gaps above (chrome and glass, glow, bangles, Ratchet's other skins), water, shadows
+- the export's gaps above (glow, bangles, Ratchet's other skins), water, shadows
   and the enhanced renderer's inputs.
 
 ## What is missing
