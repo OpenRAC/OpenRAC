@@ -1441,6 +1441,7 @@ inline TextNav text_nav(const MenuText* t, int n, float px, float py) {
 struct GuiSprite {
     std::uint32_t element = 0;  // the sprite element (its guest address)
     float x = 0.0f, y = 0.0f;   // its centre, game pixels
+    float frame = 0.0f;         // its shape's frame (+0x38: a ring's highlight's slot)
 };
 
 inline constexpr int kGridSpritesMax = 256;
@@ -1459,6 +1460,16 @@ public:
 
     bool known() const { return m_cursor != 0; }
 
+    // The button let go on the cell it went to: true when the frame is there already, for the
+    // caller to confirm now; on its way, it confirms when there.
+    bool confirm() {
+        if (m_active) {
+            m_confirm = true;
+            return false;
+        }
+        return m_arrived;
+    }
+
     // A click (confirm) or the pointer resting (no confirm) at (px, py): true when it is on a
     // grid's cell, which the frame then goes to.
     bool seek(const GuiSprite* s, int n, float px, float py, bool confirm) {
@@ -1472,6 +1483,7 @@ public:
             return true;
         }
         m_active = true;
+        m_arrived = false;
         m_tx = tx;
         m_ty = ty;
         m_confirm = confirm;
@@ -1512,6 +1524,7 @@ public:
         // There: confirm if clicked.
         if (std::abs(dx) <= kGridThere && std::abs(dy) <= kGridThere) {
             m_active = false;
+            m_arrived = !m_confirm;
             return m_confirm ? kCross : 0;
         }
 
@@ -1660,6 +1673,24 @@ private:
         }
     }
 
+    // Where the frame likely is: the one element drawn once that sits on a cell.
+    static void guess(const GuiSprite* s, int n, float* x, float* y) {
+        int found = 0;
+        for (int i = 0; i < n; ++i) {
+            float cx = 0.0f, cy = 0.0f;
+            if (count(s, n, s[i].element) == 1 && cell_at(s, n, s[i].x, s[i].y, &cx, &cy)
+                && std::abs(cx - s[i].x) <= kGridThere && std::abs(cy - s[i].y) <= kGridThere) {
+                *x = s[i].x;
+                *y = s[i].y;
+                ++found;
+            }
+        }
+        if (found != 1) {
+            *x = 256.0f;
+            *y = 208.0f;
+        }
+    }
+
     // The frame not known: steps toward the cell, then away, across and down, until one shows it.
     std::uint16_t probe(const GuiSprite* s, int n) {
         static constexpr int kProbes = 4;
@@ -1670,7 +1701,10 @@ private:
         const int p = m_probe++;
         const bool across = p < 2;
         const bool toward = (p % 2) == 0;
-        const float d = across ? m_tx - 256.0f : m_ty - 208.0f;
+        // From the frame's likely place (the one element drawn once on a cell), else the middle.
+        float fx = 256.0f, fy = 208.0f;
+        guess(s, n, &fx, &fy);
+        const float d = across ? m_tx - fx : m_ty - fy;
         const bool positive = (d >= 0.0f) == toward;
         const std::uint16_t step = across ? (positive ? kRight : kLeft) : (positive ? kDown : kUp);
         start(s, n, across ? 1 : 2);
@@ -1680,6 +1714,7 @@ private:
     static constexpr int kBeforeMax = 64;
     bool m_active = false;
     bool m_confirm = false;
+    bool m_arrived = false;  // the last seek ended on its cell, not yet confirmed
     float m_tx = 0.0f, m_ty = 0.0f;
     std::uint32_t m_cursor = 0;
     int m_steps = 0;
@@ -1689,6 +1724,183 @@ private:
     int m_axis = 0;
     bool m_moved = false;
     float m_last_x = -1.0f, m_last_y = -1.0f;
+    std::array<GuiSprite, kBeforeMax> m_before{};
+    int m_before_count = 0;
+};
+
+// ---- Going Commando's Quick Select ring ----
+//
+// The Quick Select page draws its ring of eight slots as sprites all centred on the ring's middle,
+// its highlight among them: the highlight's frame (+0x38) is its slot, 0 the top right one,
+// going round clockwise (measured). Cross on the grid's weapon picks it up; then R1 moves the highlight one slot on, L1
+// one back, and Cross puts the weapon there. The highlight's element is found by the first R1
+// (the element at the middle whose frame moved). A click on a slot (or the grid's weapon dragged
+// onto it) does all of that.
+
+inline constexpr int kRingSlots = 8;
+inline constexpr int kRingPieces = 8;       // sprites drawn at one place that make a ring
+inline constexpr float kRingInner = 45.0f;  // a slot's distance from the middle (pixels)
+inline constexpr float kRingOuter = 115.0f;
+
+class RingSeek {
+public:
+    void reset() { *this = RingSeek{}; }
+
+    bool active() const { return m_active; }
+
+    // The ring's slot at (px, py), -1 for none (no ring drawn, or off its slots).
+    static int slot_at(const GuiSprite* s, int n, float px, float py) {
+        float cx = 0.0f, cy = 0.0f;
+        if (!middle(s, n, &cx, &cy)) {
+            return -1;
+        }
+        const float dx = px - cx, dy = py - cy;
+        const float d = std::sqrt(dx * dx + dy * dy);
+        if (d < kRingInner || d > kRingOuter) {
+            return -1;
+        }
+        // Clockwise from the top, in eighths; the slots count from the top right one.
+        const float turn = std::atan2(dx, -dy) / (2.0f * 3.14159265f);
+        const int k = static_cast<int>(std::lround(turn * kRingSlots)) - 1;
+        return ((k % kRingSlots) + kRingSlots) % kRingSlots;
+    }
+
+    // Pick the grid's weapon up, take the highlight to `slot`, then put it there.
+    void seek(int slot) {
+        m_active = true;
+        m_target = slot;
+        m_wait = 0;
+        m_steps = 0;
+        m_picked = false;
+    }
+
+    // A tick with the last frame's sprites: the pad button to press now (0 none).
+    std::uint16_t update(const GuiSprite* s, int n, bool idle) {
+        if (!m_active) {
+            return 0;
+        }
+
+        // A press out: wait for the highlight's frame to change.
+        if (m_wait > 0) {
+            --m_wait;
+            if (!moved(s, n) && m_wait > 0) {
+                return 0;
+            }
+            // Nothing moved in time: give up.
+            if (m_wait == 0 && !moved(s, n)) {
+                m_active = false;
+                return 0;
+            }
+            m_wait = 0;
+        }
+
+        if (!idle) {
+            return 0;
+        }
+
+        // First the weapon picked up (the ring then follows R1 and L1), and a moment for it.
+        if (!m_picked) {
+            m_picked = true;
+            m_pause = kRingPickTicks;
+            return kCross;
+        }
+        if (m_pause > 0) {
+            --m_pause;
+            return 0;
+        }
+
+        int at = -1;
+        // Not known: R1 shows it.
+        if (m_cursor == 0 || (at = slot_of(s, n, m_cursor)) < 0) {
+            m_cursor = 0;
+            return press(s, n, kR1);
+        }
+
+        if (at == m_target) {
+            m_active = false;
+            return kCross;
+        }
+        if (++m_steps > kRingSlots) {
+            m_active = false;
+            return 0;
+        }
+        const int ahead = ((m_target - at) % kRingSlots + kRingSlots) % kRingSlots;
+        return press(s, n, ahead <= kRingSlots / 2 ? kR1 : kL1);
+    }
+
+private:
+    // The ring's middle: a place where kRingPieces elements or more are drawn.
+    static bool middle(const GuiSprite* s, int n, float* cx, float* cy) {
+        for (int i = 0; i < n; ++i) {
+            int at = 0;
+            for (int j = 0; j < n; ++j) {
+                at += s[j].x == s[i].x && s[j].y == s[i].y ? 1 : 0;
+            }
+            if (at >= kRingPieces) {
+                *cx = s[i].x;
+                *cy = s[i].y;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // An element's slot by its frame (a whole number, 0 to 7), -1 when not drawn or not one.
+    static int slot_of(const GuiSprite* s, int n, std::uint32_t element) {
+        for (int i = 0; i < n; ++i) {
+            if (s[i].element == element) {
+                const float f = s[i].frame;
+                const int k = static_cast<int>(std::lround(f));
+                return std::abs(f - static_cast<float>(k)) < 0.01f && k >= 0 && k < kRingSlots ? k
+                                                                                               : -1;
+            }
+        }
+        return -1;
+    }
+
+    // A press: the frames of the elements at the middle before it.
+    std::uint16_t press(const GuiSprite* s, int n, std::uint16_t button) {
+        float cx = 0.0f, cy = 0.0f;
+        m_before_count = 0;
+        if (!middle(s, n, &cx, &cy)) {
+            m_active = false;
+            return 0;
+        }
+        for (int i = 0; i < n && m_before_count < kBeforeMax; ++i) {
+            if (s[i].x == cx && s[i].y == cy) {
+                m_before[static_cast<std::size_t>(m_before_count++)] = s[i];
+            }
+        }
+        m_wait = kGridWaitTicks;
+        return button;
+    }
+
+    // The highlight's frame changed since the press (and, not known yet, which element it is).
+    bool moved(const GuiSprite* s, int n) {
+        for (int i = 0; i < m_before_count; ++i) {
+            const GuiSprite& b = m_before[static_cast<std::size_t>(i)];
+            if (m_cursor != 0 && b.element != m_cursor) {
+                continue;
+            }
+            const int was = slot_of(m_before.data(), m_before_count, b.element);
+            const int now = slot_of(s, n, b.element);
+            if (was >= 0 && now >= 0 && now != was) {
+                m_cursor = b.element;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static constexpr int kBeforeMax = 32;
+    static constexpr int kRingPickTicks = 8;
+    bool m_active = false;
+    bool m_picked = false;
+    int m_pause = 0;
+    int m_target = 0;
+    std::uint32_t m_cursor = 0;
+    int m_wait = 0;
+    int m_steps = 0;
     std::array<GuiSprite, kBeforeMax> m_before{};
     int m_before_count = 0;
 };

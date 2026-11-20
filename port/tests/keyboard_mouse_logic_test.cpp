@@ -847,6 +847,50 @@ void grid_seek() {
     CHECK(hx == 163.0f && hy == 184.0f);
 }
 
+// The Quick Select ring: a slot under the pointer, and its highlight taken there (Cross picks the
+// weapon up, R1 or L1 a slot at a time, Cross puts it there).
+void ring_seek() {
+    std::vector<kbm::GuiSprite> s;
+    float frame = 1.0f;
+    const auto draw = [&] {
+        s.clear();
+        for (int i = 0; i < 9; ++i) {
+            s.push_back({0x1000u + static_cast<std::uint32_t>(i) * 0x10, 363.0f, 128.0f, 0.0f});
+        }
+        s.push_back({0x2928, 363.0f, 128.0f, frame});
+    };
+    draw();
+    const int n = 10;
+    // Slots count clockwise from the top right one, 80 pixels out.
+    CHECK(kbm::RingSeek::slot_at(s.data(), n, 363.0f + 57.0f, 128.0f - 57.0f) == 0);
+    CHECK(kbm::RingSeek::slot_at(s.data(), n, 363.0f, 208.0f) == 3);
+    CHECK(kbm::RingSeek::slot_at(s.data(), n, 363.0f - 80.0f, 128.0f) == 5);
+    CHECK(kbm::RingSeek::slot_at(s.data(), n, 363.0f, 128.0f) < 0);
+
+    kbm::RingSeek r;
+    r.seek(6);
+    std::vector<std::uint16_t> presses;
+    int pending = 0;
+    std::uint16_t pressed = 0;
+    for (int t = 0; t < 300 && r.active(); ++t) {
+        if (pending > 0 && --pending == 0) {
+            frame = pressed == kbm::kR1   ? std::fmod(frame + 1.0f, 8.0f)
+                    : pressed == kbm::kL1 ? std::fmod(frame + 7.0f, 8.0f)
+                                          : frame;
+        }
+        draw();
+        const std::uint16_t b = r.update(s.data(), n, pending == 0);
+        if (b != 0) {
+            presses.push_back(b);
+            pressed = b;
+            pending = 3;
+        }
+    }
+    // Picked up, then the short way round: 1 to 6 is three back.
+    CHECK(!presses.empty() && presses.front() == kbm::kCross && presses.back() == kbm::kCross);
+    CHECK(frame == 6.0f);
+}
+
 // The vendor's monitors under the pointer (window places of a 640x480 run).
 void vendor() {
     const auto at = [](float wx, float wy, int count, int cursor, int scroll = 0) {
@@ -1105,6 +1149,7 @@ int main(int argc, char** argv) {
     map_drag();
     text_nav();
     grid_seek();
+    ring_seek();
     prompts();
     edges();
 

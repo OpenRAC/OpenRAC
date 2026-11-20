@@ -22,6 +22,7 @@ typedef struct openrac_rac2_ui_quad {
     uint64_t tex0;    /* the texture (TEX0; a sprite's shape), 0 for a flat colour */
     uint32_t colour;  /* ABGR, alpha 0x80 full */
     uint32_t element; /* a GUI sprite element (its guest address), 0 for a quad */
+    float frame;      /* a sprite element's shape frame (the Quick Select ring's slot) */
 } openrac_rac2_ui_quad;
 
 #define OPENRAC_RAC2_PROMPT_SPOTS_MAX 32

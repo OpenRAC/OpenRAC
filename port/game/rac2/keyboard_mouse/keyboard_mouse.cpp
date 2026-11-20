@@ -93,6 +93,10 @@ int s_click_wait = 0;
 constexpr int kClickStepTicks = 4;  // ticks between them, for the menu to follow
 bool s_click_held = false;
 kbm::GridSeek s_grid;  // a grid's selection frame on its way to a clicked cell
+kbm::RingSeek s_ring_seek;  // the Quick Select ring's highlight on its way to a clicked slot
+bool s_dragging = false;    // the button held since a press on a grid's cell, there
+float s_drag_x = 0.0f;
+float s_drag_y = 0.0f;
 std::array<kbm::GuiSprite, kbm::kGridSpritesMax> s_sprites{};
 int s_sprite_count = 0;
 std::array<kbm::PromptSpot, OPENRAC_RAC2_PROMPT_SPOTS_MAX> s_spots{};
@@ -236,7 +240,7 @@ void take_sprites() {
         const openrac_rac2_ui_quad& d = drawn[static_cast<std::size_t>(i)];
         if (d.element != 0) {
             s_sprites[static_cast<std::size_t>(s_sprite_count++)] =
-                kbm::GuiSprite{d.element, d.x0, d.y0};
+                kbm::GuiSprite{d.element, d.x0, d.y0, d.frame};
         }
     }
 }
@@ -261,13 +265,17 @@ bool menu_mouse(const Tick& t, bool click) {
         }
     }
 
-    // A grid's frame on its way to a clicked cell: its next step.
+    // A grid's frame on its way to a clicked cell, then the Quick Select ring's highlight to its
+    // slot: the next press.
+    take_sprites();
+    std::uint16_t seek_press = 0;
     if (s_grid.active()) {
-        take_sprites();
-        const std::uint16_t step = s_grid.update(s_sprites.data(), s_sprite_count, s_pulses.idle());
-        if (step != 0) {
-            s_pulses.push(step);
-        }
+        seek_press = s_grid.update(s_sprites.data(), s_sprite_count, s_pulses.idle());
+    } else if (s_ring_seek.active()) {
+        seek_press = s_ring_seek.update(s_sprites.data(), s_sprite_count, s_pulses.idle());
+    }
+    if (seek_press != 0) {
+        s_pulses.push(seek_press);
     }
 
     // The mouse has no say out of a menu, or when the player turned it off.
@@ -307,12 +315,40 @@ bool menu_mouse(const Tick& t, bool click) {
         }
     }
 
-    // On no text: a grid's cell. A click takes its frame there and confirms; once the frame is
-    // known, the pointer moved onto a cell takes it there.
-    if (nav.hit < 0 && (click || (moved && s_grid.known()))) {
-        take_sprites();
-        const bool cell = s_grid.seek(s_sprites.data(), s_sprite_count, px, py, click);
-        return click && cell;
+    // A button held from a grid's cell let go: on a slot of the Quick Select ring, the cell's
+    // weapon goes there (dragged); on the cell it was pressed on, the cell is confirmed.
+    const bool held = mouse_bind(t, Action::MenuConfirm, false);
+    if (s_dragging && !held) {
+        s_dragging = false;
+        const int slot = kbm::RingSeek::slot_at(s_sprites.data(), s_sprite_count, px, py);
+        if (slot >= 0) {
+            s_ring_seek.seek(slot);
+        } else if (std::abs(px - s_drag_x) < kbm::kGridCellReach
+                   && std::abs(py - s_drag_y) < kbm::kGridCellReach && s_grid.confirm()) {
+            s_pulses.push(kbm::kCross);
+        }
+        return false;
+    }
+
+    // On no text: a slot of the Quick Select ring takes the grid's weapon (its highlight goes
+    // there, then Cross); a grid's cell takes its frame there, confirmed when the button is let
+    // go on it. Once the frame is known, the pointer moved onto a cell takes it there.
+    if (nav.hit < 0 && click) {
+        const int slot = kbm::RingSeek::slot_at(s_sprites.data(), s_sprite_count, px, py);
+        if (slot >= 0) {
+            s_ring_seek.seek(slot);
+            return true;
+        }
+        if (s_grid.seek(s_sprites.data(), s_sprite_count, px, py, false)) {
+            s_dragging = true;
+            s_drag_x = px;
+            s_drag_y = py;
+            return true;
+        }
+        return false;
+    }
+    if (nav.hit < 0 && moved && s_grid.known() && !s_dragging && !s_ring_seek.active()) {
+        s_grid.seek(s_sprites.data(), s_sprite_count, px, py, false);
     }
 
     return false;
@@ -378,6 +414,8 @@ void step(const openrac_input* in, bool pad_look) {
         s_pulses.clear();
         s_click_pending = false;
         s_grid.reset();
+        s_ring_seek.reset();
+        s_dragging = false;
     }
 
     openrac_rac2_ui_quads_tick();
@@ -401,6 +439,8 @@ void step(const openrac_input* in, bool pad_look) {
     } else {
         s_click_pending = false;
         s_grid.reset();
+        s_ring_seek.reset();
+        s_dragging = false;
     }
 
     kbm::Virtual v;
@@ -544,6 +584,8 @@ void load(openrac::Mod& mod) {
     s_click_pending = false;
     s_click_held = false;
     s_grid.reset();
+    s_ring_seek.reset();
+    s_dragging = false;
 
     mod.take_input(OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE);
     mod.on_settings([] { read_settings(*s_mod); });

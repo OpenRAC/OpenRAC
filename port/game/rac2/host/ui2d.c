@@ -156,10 +156,11 @@ static void record_quad(const openrac_game_ui_rect* q) {
     r->tex0 = (q->flags & 8u) != 0 ? 0 : q->tex0;
     r->colour = q->rgba;
     r->element = 0;
+    r->frame = 0.0f;
 }
 
 /* A GUI sprite element (func_00336320, GuiSpriteElementDraw): its place (+0, a pointer to its
- * centre x, y), scale (+4), colour (+12, to it), scale (+16, to it; 0 hides it) and texture (+64; 0
+ * centre x, y), scale (+4), frame (+0x38, to it), colour (+12, to it), scale (+16, to it; 0 hides it) and texture (+64; 0
  * hides it). Its box is recorded (the menus' frames and highlights), then the game draws it. */
 void func_00336320(gaddr o) {
     const gaddr place = (gaddr)GREF(int32_t, o);
@@ -175,6 +176,7 @@ void func_00336320(gaddr o) {
         r->tex0 = (uint32_t)tex;
         r->colour = GREF(uint32_t, (gaddr)GREF(int32_t, o + 12));
         r->element = o;
+        r->frame = GREF(float, (gaddr)GREF(int32_t, o + 0x38));
     }
     func_00336320__game(o);
 }

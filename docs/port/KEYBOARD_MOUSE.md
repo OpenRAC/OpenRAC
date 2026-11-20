@@ -71,6 +71,8 @@ icon in a text, or the rest of its line (Help's "Exit", a dialog's "Yes" and
 "No"), presses that button; in a dialog a click anywhere else does nothing. In a grid (weapons,
 gadgets, items, Quick Select) a click on a cell moves the selection frame there
 and confirms; once the frame has moved, the cursor over a cell moves it there.
+On the Quick Select page, drag a weapon from the grid onto a slot of the ring
+(or click a slot) to put it there.
 
 The strafe key presses L2 in Ratchet & Clank only while the lock-strafe mod is
 loaded, so the game behaves as on a pad (L2 is first-person view there).
