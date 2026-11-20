@@ -81,7 +81,10 @@ FORMAT = 4
 # normal table in each level's program (lighting.program_normal_table), and the ties' vertex colours
 # (tie_vertex_colours), as Going Commando's. 7: his wrench (class 71), the banks of what he holds
 # and his ship's hulls and paint jobs (class 3412), from the disc as Going Commando's 7, 13 and 15.
-GAME_FORMATS = {"rac2": 20, "rac3": 7}
+# 8: the chrome and glass maps from the GS RAM lump's stash, as Going Commando's 14 (they were grey).
+# 9: the mobys' glow vertices, their light sets and their bangles as classes of their own, as Going
+# Commando's 9 and 11.
+GAME_FORMATS = {"rac2": 20, "rac3": 9}
 
 
 def levels_format(game: str) -> int:

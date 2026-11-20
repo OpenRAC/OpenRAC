@@ -156,7 +156,7 @@ code	func_0038E2B0	0x0038E2B0	FontUpload	uploads both fonts' palettes (func_0038
 code	func_0038A0E0	0x0038A0E0	MakeTex0	(TBP, CBP, log2 width, log2 height, PSM): a whole TEX0, CLD 4, TCC 1
 code	func_003823D0	0x003823D0	TextGet	(text id): the string of the front end's text table (D_001D99A0, 16-byte entries, key at +4), else an empty string at D_001D5788
 code	func_003AA780	0x003AA780	DrawWidgetSprite	a Widget3D sprite (the menus' frames and art): poses its mesh (func_003AA168 bones, func_003A08E8/func_003A0A28 vertices to the scratchpad) and sends each quad as cnt + DIRECT 8 (GIF tag D_001D8020: TEX0, PRIM, four RGBAQ, ST, XYZ2; with PRIM's FST the REGLIST form RGBAQ, UV, XYZ2)
-code	func_003AA168	0x003AA168	WidgetSpritePose	the sprite's bone matrices at a frame, blended to the next
+code	func_003AA168	0x003AA168	WidgetSpritePose	the sprite's bone matrices at a frame, blended to the next: (widget, out 64-byte matrices, time in $f12), hostgen.json asm.signatures (its INCLUDE_ASM gave the translation no arguments, every bone zero, the menus' panels collapsed to their centres); frontbin 0x003A9DB0, Veldin 0x004CB648
 code	func_003EE038	0x003EE038	WidgetDraw	a Widget3D's draw through its vtable (+8, slot +0x1C) when its flag 1 is set
 code	func_003EE7E8	0x003EE7E8	WidgetContainerDraw	draws a container's children (+0x2C, count at +0x48 of it)
 code	func_003EFBB0	0x003EFBB0	WidgetBoxDraw	the box widget (vtable 0x001D9768): its separators and highlight through func_0038C6F0
