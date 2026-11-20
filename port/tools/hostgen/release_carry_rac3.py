@@ -217,9 +217,21 @@ def host_files() -> list[Path]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--source", type=Path, required=True, help="rac3-decomp (games/rac3/decomp)")
+    ap.add_argument("--source", type=Path, default=PORT.parent / "games/rac3/decomp",
+                    help="rac3-decomp (default: games/rac3/decomp)")
+    ap.add_argument("--check", action="store_true",
+                    help="write nothing: fail when a table differs from what it would be written as")
     args = ap.parse_args(argv)
     source = args.source.resolve()
+    stale: list[str] = []
+
+    def put(name: str, text: str) -> None:
+        path = RELEASE / name
+        if args.check:
+            if not path.is_file() or path.read_text() != text:
+                stale.append(name)
+            return
+        path.write_text(text)
     hand = json.loads((RELEASE / "release/release.json").read_text())
     table = json.loads((RELEASE / "release/release_names.json").read_text())
     names = Names(source, table, hand)
@@ -243,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
     own = names.own_functions(source)
     report["own_functions"] = own
     out["roots"] = list(dict.fromkeys([*out.get("roots", []), *own]))
-    (RELEASE / "hostgen.json").write_text(json.dumps(out, indent=2) + "\n")
+    put("hostgen.json", json.dumps(out, indent=2) + "\n")
 
     # libraries.tsv: the rows renamed.
     lines = (PRIMARY / "libraries.tsv").read_text().splitlines()
@@ -268,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
             report["differs"][cols[0]] = {"is": new, "status": status, "port": cols[3] if len(cols) > 3 else ""}
         cols[0] = new
         rows.append("\t".join(cols))
-    (RELEASE / "libraries.tsv").write_text("\n".join(rows) + "\n")
+    put("libraries.tsv", "\n".join(rows) + "\n")
 
     # host/rac3_names.tsv: the shared host C's function names.
     used: dict[str, str] = {}
@@ -283,8 +295,9 @@ def main(argv: list[str] | None = None) -> int:
                 used[m.group(0)] = new
                 if status not in ("match", "asm", "hand"):
                     report["differs"].setdefault(m.group(0), {"is": new, "status": status, "port": "host C"})
-    (RELEASE / "host").mkdir(exist_ok=True)
-    (RELEASE / "host/rac3_names.tsv").write_text(
+    if not args.check:
+        (RELEASE / "host").mkdir(exist_ok=True)
+    put("host/rac3_names.tsv", 
         "# The shared host C's function names (PAL's, port/game/rac3-pal/host) and NTSC-U's. Written by\n"
         "# port/tools/hostgen/release_carry_rac3.py from config/us/map.tsv; do not edit.\n"
         + "".join(f"{k}\t{v}\n" for k, v in sorted(used.items())))
@@ -348,7 +361,7 @@ def main(argv: list[str] | None = None) -> int:
     body += "\n/* Levels' own globals (release.json's level_addresses). */\n" + "".join(
         f"/* {v[1]} */\n#define RAC3_LADDR_{k} {('0x%08Xu' % v[0]) if v[0] is not None else '0u'}\n"
         for k, v in sorted(level_addresses.items()))
-    (RELEASE / "host/rac3_addresses.h").write_text(head + body + "\n#endif /* OPENRAC_RAC3_ADDRESSES_H */\n")
+    put("host/rac3_addresses.h", head + body + "\n#endif /* OPENRAC_RAC3_ADDRESSES_H */\n")
 
     # Literal addresses outside RAC3_ADDR() whose global NTSC-U has elsewhere: the shared C reads
     # PAL's there on NTSC-U too. Listed, and printed, for whoever wrote them to wrap.
@@ -364,12 +377,16 @@ def main(argv: list[str] | None = None) -> int:
                 report["unwrapped"].setdefault(path.relative_to(PORT).as_posix(), []).append(
                     f"0x{pal:08X} (NTSC-U's {new})")
     report["differs"] = dict(sorted(report["differs"].items()))
-    (RELEASE / "release/release_carry.json").write_text(json.dumps(report, indent=1) + "\n")
+    put("release/release_carry.json", json.dumps(report, indent=1) + "\n")
     print(f"rac3-ntsc: {len(rows) - 4} library rows ({len(report['left_out'])} left out), {len(used)} host names, "
           f"{len(addresses)} addresses ({len(report['addresses_not_found'])} not found), "
           f"{len(report['differs'])} on other code")
     for file, found in report["unwrapped"].items():
         print(f"  {file}: not in RAC3_ADDR(), elsewhere on NTSC-U: {', '.join(dict.fromkeys(found))}")
+    if stale:
+        print(f"rac3-ntsc: {', '.join(stale)} not what release_carry_rac3.py writes from rac3-pal's tables "
+              f"and the decompilation: run it (port/game/rac3-ntsc/README.md)", file=sys.stderr)
+        return 1
     return 0
 
 

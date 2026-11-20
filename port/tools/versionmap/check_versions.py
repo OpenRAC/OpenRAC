@@ -8,7 +8,8 @@ Checks every game version's tables, with no disc (CI runs this):
 
 - parity.py for every game in its GAMES table;
 - release_<game>.py --tables --check for every release folder with a release/release.json,
-  carried from the first program of its game, where its game has such a tool;
+  carried from the first program of its game, where its game has such a tool (Up Your Arsenal's:
+  release_carry_rac3.py --check);
 - hostnames.py check for every program with a host/<game>_version.h of rac1's, or of another
   game's release (hostgen.json "release": its tables are written from a disc, so only their
   cover of the shared C is checked);
@@ -55,6 +56,12 @@ def main() -> int:
         ok &= run("port/tools/versionmap/parity.py", game)
         primary = next(iter(spec["programs"]))
         for program in spec["programs"]:
+            # Up Your Arsenal's NTSC-U tables are carried from PAL's by their own tool, which
+            # checks them against rac3-pal's tables and the decompilation's.
+            carry = ROOT / f"port/tools/hostgen/release_carry_{game}.py"
+            if (game_dir / program / "release/release.json").is_file() and carry.is_file():
+                ok &= run(f"port/tools/hostgen/{carry.name}", "--check")
+                continue
             tool = ROOT / f"port/tools/hostgen/release_{game}.py"
             if (game_dir / program / "release/release.json").is_file() and tool.is_file():
                 ok &= run(f"port/tools/hostgen/{tool.name}", "--game", f"port/game/{program}",
