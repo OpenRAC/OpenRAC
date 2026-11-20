@@ -77,8 +77,10 @@ FORMAT = 4
 # 20: the liquid surfaces the baker lights from (bake-inputs/liquids.json and their effect textures,
 # manifest bake_inputs "liquids").
 # Up Your Arsenal, 5: Ratchet's mesh and textures from his first pack (wads.RAC3_PAL), where 4 had
-# none for class 0.
-GAME_FORMATS = {"rac2": 20, "rac3": 5}
+# none for class 0. 6: the terrain and shrubs lit as the game lights them at level load, by the
+# normal table in each level's program (lighting.program_normal_table), and the ties' vertex colours
+# (tie_vertex_colours), as Going Commando's.
+GAME_FORMATS = {"rac2": 20, "rac3": 6}
 
 
 def levels_format(game: str) -> int:

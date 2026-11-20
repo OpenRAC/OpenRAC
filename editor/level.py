@@ -64,6 +64,9 @@ class Level:
     # Going Commando's Ratchet: the file his class's packets are in (wads.WadDisc.hero_pack), which
     # the game loads over the class at run time. His textures are "moby" ones from HERO_TEXTURES.
     hero_mesh: bytes | None = None
+    # The level's own program (its code overlay, decoded), for what a later game keeps there rather
+    # than in its executable (Up Your Arsenal's normal table, lighting.program_normal_table).
+    program: bytes = b""
     # His other looks, as (pack number, mesh file), and the wrench's mesh file in each of its forms.
     hero_looks: list[tuple[int, bytes]] = field(default_factory=list)
     wrench_meshes: list[bytes] = field(default_factory=list)
@@ -290,6 +293,7 @@ def load_wad_level(source, entry: dict) -> Level:
     level = Level(entry["id"], part["header"], stored, index, core, gameplay,
                   overlay or {"entry_point": 0, "sections": []})
     level.game, level.version, level.art = version.game, version.key, art
+    level.program = sections.get("overlay", b"")
     for chunk, sector, count in wads.chunk_ranges(part["header"]):
         if chunk == 0:
             continue  # chunk 0 is the core's own terrain and collision (Wrench reads it from the core)

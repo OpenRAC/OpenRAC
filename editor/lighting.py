@@ -129,6 +129,28 @@ def normal_table(exe: bytes, address: int = NORMAL_TABLE_ADDRESS) -> list[tuple[
     raise FormatError("the executable has no normal table")
 
 
+# The table's first two pairs as float bits: (1, 0) and (cos, sin) of a 256th of a turn.
+NORMAL_TABLE_START = struct.pack("<4I", 0x3F800000, 0, 0x3F7FEC43, 0x3CC90AB0)
+
+
+def program_normal_table(program: bytes) -> list[tuple[int, int]] | None:
+    """The (cos, sin) table in a level's own program, or None where it has none: Up Your Arsenal's
+    executable is its loader, the game packed inside it, and each program carries a copy of the
+    engine with the table (Veldin's PatchTfragVertexLighting, 0x004B27B8, sends it to the
+    scratchpad from 0x002BF560): the same 2 KB as Going Commando's at 0x238F00. Each pair is a unit
+    vector, which the search checks of every one."""
+    at = program.find(NORMAL_TABLE_START)
+    while at >= 0:
+        if at % 4 == 0 and at + 2048 <= len(program):
+            words = struct.unpack("<512I", program[at:at + 2048])
+            pairs = [(words[2 * k], words[2 * k + 1]) for k in range(256)]
+            values = [struct.unpack("<2f", struct.pack("<2I", *p)) for p in pairs]
+            if all(abs(c * c + s * s - 1.0) < 1e-5 for c, s in values):
+                return pairs
+        at = program.find(NORMAL_TABLE_START, at + 1)
+    return None
+
+
 def light_bank(gameplay: bytes) -> list[list[list[int]]]:
     """16 directional sets (colour A, direction A, colour B, direction B as float bits); the
     loader copies at most 12 from the gameplay file (u32 at 0x04: count, 12 bytes, sets)."""
