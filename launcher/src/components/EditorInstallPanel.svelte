@@ -1,7 +1,8 @@
 <script lang="ts">
   // Settings' Level editor: OpenRAC Editor, a program of its own downloaded from its releases
-  // (core/src/editor_install.rs). The launcher carries none of it; this says which one is there,
-  // looks for a newer one, and downloads or removes it. The level projects are never touched here.
+  // (core/src/editor_install.rs), or a Mac app the player installed. The launcher carries none of
+  // it; this says which one is there, looks for a newer one, and downloads or removes a download.
+  // The level projects are never touched here.
   import { onMount } from "svelte";
 
   import { api } from "$lib/api";
@@ -36,13 +37,13 @@
 
 <section class="panel" aria-labelledby="editor-install-title">
   <h2 id="editor-install-title">Level editor</h2>
-  <p class="muted">
-    OpenRAC Editor opens your disc's levels for you to change them. It is a program of its own,
-    downloaded once from its releases; Mods' Level editor tab uses it.
-  </p>
-  <p class="status">
+  <p class="muted">OpenRAC Editor changes your disc's levels. It is a separate program.</p>
+  <p class="status dim">
     {#if installed}
-      <Icon name="check" size={14} /> OpenRAC Editor {installed} is downloaded.
+      <Icon name="check" size={14} />
+      {app.editor?.installedApp
+        ? `OpenRAC Editor ${installed} is installed.`
+        : `OpenRAC Editor ${installed} is downloaded.`}
     {:else}
       <Icon name="info" size={14} /> Not downloaded.
     {/if}
@@ -51,29 +52,33 @@
       have the latest.{:else if lookFailed}· Could not check.{/if}
   </p>
   <div class="row">
-    <button
-      class="small primary"
-      disabled={app.editorDownloading}
-      onclick={() => void installEditor()}
-    >
-      {#if app.editorDownloading}<span class="spinner"></span>Downloading…{:else}<Icon
-          name="download"
-          size={14}
-        />{installed
-          ? newer
-            ? `Update to ${newest}`
-            : "Download again"
-          : "Download OpenRAC Editor"}{/if}
-    </button>
+    {#if !app.editor?.installedApp}
+      <button
+        class="small primary"
+        disabled={app.editorDownloading}
+        onclick={() => void installEditor()}
+      >
+        {#if app.editorDownloading}<span class="spinner"></span>Downloading…{:else}<Icon
+            name="download"
+            size={14}
+          />{installed
+            ? newer
+              ? `Update to ${newest}`
+              : "Download again"
+            : "Download OpenRAC Editor"}{/if}
+      </button>
+    {/if}
     {#if installed}
       <button class="small" disabled={looking} onclick={() => void look()}
         ><Icon name="refresh" size={14} />Check for a newer one</button
       >
-      <button
-        class="small ghost"
-        disabled={app.editorDownloading}
-        onclick={() => void removeEditor()}><Icon name="trash" size={14} />Remove</button
-      >
+      {#if !app.editor?.installedApp}
+        <button
+          class="small ghost"
+          disabled={app.editorDownloading}
+          onclick={() => void removeEditor()}><Icon name="trash" size={14} />Remove</button
+        >
+      {/if}
     {/if}
     {#if app.editor}
       <button
@@ -86,7 +91,17 @@
 </section>
 
 <style>
+  /* As Settings' other panels: the title close over its text, the rest spaced evenly. */
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .panel h2 {
+    margin-bottom: -8px;
+  }
   .status {
+    font-size: 0.8125rem;
     display: flex;
     flex-wrap: wrap;
     align-items: center;

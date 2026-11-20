@@ -62,6 +62,9 @@ pub struct Editor {
 pub struct Status {
     /// Its folder, whether or not it is there.
     pub folder: String,
+    /// It is an app the player installed (a Mac's Applications), not the launcher's download:
+    /// the launcher does not remove it.
+    pub installed_app: bool,
     /// The version found there.
     pub version: Option<String>,
     /// Why it cannot be used with this OpenRAC, when it cannot.
@@ -70,8 +73,47 @@ pub struct Status {
     pub repository: String,
 }
 
-/// Where the editor is: [`ENV`] when set, else `editor/` in the launcher's data folder.
+/// The app a Mac's .dmg installs, by its name.
+pub const MAC_APP: &str = "OpenRAC Editor.app";
+/// Where in that app its manifest and tools are (the .dmg puts the archive's extras there).
+const MAC_APP_EXTRAS: &str = "Contents/Resources";
+
+/// Where the editor is: [`ENV`] when set; else the launcher's download when there is one; else,
+/// on a Mac, the app installed in Applications (the system's or the player's own); else where the
+/// launcher downloads it.
 pub fn folder() -> PathBuf {
+    let downloaded = download_folder();
+    if cfg!(test) || std::env::var_os(ENV).is_some_and(|d| !d.is_empty()) {
+        return downloaded;
+    }
+    if crate::under(&downloaded, MANIFEST).is_file() {
+        return downloaded;
+    }
+    if cfg!(target_os = "macos") {
+        let home = crate::detect::home_dir().map(|h| h.join("Applications"));
+        for apps in [Some(PathBuf::from("/Applications")), home].into_iter().flatten() {
+            if let Some(dir) = app_extras(&apps.join(MAC_APP)) {
+                return dir;
+            }
+        }
+    }
+    downloaded
+}
+
+/// The folder of an installed Mac app's manifest and tools, when it has them.
+fn app_extras(app: &Path) -> Option<PathBuf> {
+    let dir = app.join(MAC_APP_EXTRAS);
+    crate::under(&dir, MANIFEST).is_file().then_some(dir)
+}
+
+/// Whether `dir` is inside an installed Mac app (its [`MAC_APP_EXTRAS`]).
+fn in_app(dir: &Path) -> bool {
+    dir.ends_with(MAC_APP_EXTRAS)
+        && dir.parent().and_then(Path::parent).is_some_and(|app| app.extension().is_some_and(|e| e == "app"))
+}
+
+/// Where the launcher downloads the editor: [`ENV`] when set, else `editor/` in its data folder.
+pub fn download_folder() -> PathBuf {
     // A test never reads the editor of whoever runs it: only its own data home's.
     let env = if cfg!(test) { None } else { std::env::var_os(ENV) };
     match env {
@@ -128,7 +170,14 @@ impl Editor {
             Platform::Linux => "linux",
             Platform::Android | Platform::Ios => return None,
         };
-        let path = crate::under(&self.dir, self.manifest.program.get(key)?);
+        let program = self.manifest.program.get(key)?;
+        let path = crate::under(&self.dir, program);
+        if path.is_file() {
+            return Some(path);
+        }
+        // An installed Mac app: the manifest names the program from the folder holding the app.
+        let beside = self.dir.ancestors().nth(3).filter(|_| in_app(&self.dir))?;
+        let path = crate::under(beside, program);
         path.is_file().then_some(path)
     }
 
@@ -175,6 +224,7 @@ pub fn status(root: Option<&Path>) -> Status {
     let dir = folder();
     let found = read(&dir);
     Status {
+        installed_app: in_app(&dir),
         folder: dir.display().to_string(),
         version: found.as_ref().ok().map(|e| e.manifest.version.clone()),
         problem: match (&found, root) {
@@ -238,7 +288,7 @@ pub fn install(fetch: &dyn Fetch, hosts: &Hosts, root: Option<&Path>) -> Result<
     let bytes = fetch.get(&asset.browser_download_url, false)?;
     let digest = asset.digest.as_deref().and_then(|d| d.strip_prefix("sha256:")).map(str::to_ascii_lowercase);
     crate::remote::verify(&bytes, name, digest.as_deref(), sums.as_deref())?;
-    put_in_place(&bytes, &folder())?;
+    put_in_place(&bytes, &download_folder())?;
     Ok(status(root))
 }
 
@@ -363,7 +413,8 @@ pub fn remove() -> Result<(), String> {
     if std::env::var_os(ENV).is_some_and(|d| !d.is_empty()) {
         return Err(format!("the editor in {} is your own ({ENV}): it is not removed", folder().display()));
     }
-    let dir = folder();
+    // An app the player installed stays: only the launcher's download goes.
+    let dir = download_folder();
     if dir.exists() {
         std::fs::remove_dir_all(&dir).map_err(|e| format!("{}: {e} (close OpenRAC Editor first)", dir.display()))?;
     }
@@ -411,6 +462,33 @@ mod tests {
         } else {
             "openrac-editor.x86_64"
         }
+    }
+
+    /// A Mac's installed app keeps the manifest and tools in Contents/Resources; its program is
+    /// found from the folder holding the app, as the manifest names it.
+    #[test]
+    fn an_installed_app_runs_its_own_program() {
+        let apps = tempfile::tempdir().unwrap();
+        let app = apps.path().join(MAC_APP);
+        let extras = app.join(MAC_APP_EXTRAS);
+        std::fs::create_dir_all(extras.join("openrac")).unwrap();
+        std::fs::create_dir_all(app.join("Contents/MacOS")).unwrap();
+        std::fs::write(app.join("Contents/MacOS/Ed"), "").unwrap();
+        let program = "OpenRAC Editor.app/Contents/MacOS/Ed";
+        std::fs::write(
+            extras.join(MANIFEST),
+            format!(
+                r#"{{"format": 1, "version": "v1.0.0", "extractorApi": 1,
+                "program": {{"linux": "{program}", "windows": "{program}", "macos": "{program}"}}}}"#
+            ),
+        )
+        .unwrap();
+        assert_eq!(app_extras(&app).as_deref(), Some(extras.as_path()));
+        assert!(in_app(&extras));
+        assert!(!in_app(apps.path()));
+        let editor = read(&extras).unwrap();
+        assert_eq!(editor.program(), Some(app.join("Contents/MacOS/Ed")));
+        assert_eq!(editor.tools(), extras.join(TOOLS));
     }
 
     #[test]

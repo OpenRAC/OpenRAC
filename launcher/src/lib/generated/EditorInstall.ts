@@ -9,6 +9,11 @@ export type EditorInstall = {
  */
 folder: string, 
 /**
+ * It is an app the player installed (a Mac's Applications), not the launcher's download:
+ * the launcher does not remove it.
+ */
+installedApp: boolean, 
+/**
  * The version found there.
  */
 version: string | null, 

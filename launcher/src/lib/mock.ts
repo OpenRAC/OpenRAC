@@ -719,6 +719,7 @@ function library(): Library {
 function mockEditorInstall(): EditorInstall {
   return {
     folder: "/home/you/.local/share/openrac/editor",
+    installedApp: false,
     version: editorInstalled ? "v1.0.0" : null,
     problem: null,
     repository: "https://github.com/nickyyOO/OpenRAC-Editor",
