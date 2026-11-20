@@ -466,13 +466,13 @@ void load_mods() {
     // with its settings from the settings file.
     host.built_ins = mods::built_in_mods();
     host.built_in_settings["keyboard-mouse"] = settings::get().keyboard_mouse;
-    host.built_in_write = [](const std::string& id, const std::string& key, const std::string& text
-                          ) {
-        if (id == "keyboard-mouse") {
-            settings::get().keyboard_mouse[key] = text;
-            settings::save();
-        }
-    };
+    host.built_in_write =
+        [](const std::string& id, const std::string& key, const std::string& text) {
+            if (id == "keyboard-mouse") {
+                settings::get().keyboard_mouse[key] = text;
+                settings::save();
+            }
+        };
     host.built_in_reread = [](std::map<std::string, std::map<std::string, std::string>>& out) {
         if (!settings::reread_keyboard_mouse()) {
             return false;

@@ -162,8 +162,8 @@ struct Host {
         nullptr;
     // About once a second: the built-ins' settings again when the launcher changed them while the
     // game runs; false when nothing changed. Null: never.
-    bool (*built_in_reread)(std::map<std::string, std::map<std::string, std::string>>& out
-    ) = nullptr;
+    bool (*built_in_reread)(std::map<std::string, std::map<std::string, std::string>>& out) =
+        nullptr;
 };
 
 // A built-in mod's setting (BuiltIn), for the port's own menu: its manifest entry and value, or

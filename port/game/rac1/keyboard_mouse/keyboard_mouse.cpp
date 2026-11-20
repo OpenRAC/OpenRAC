@@ -649,10 +649,9 @@ int page_items(
 
     const gaddr focused = read<std::uint32_t>(page + KBM_PAGE_FOCUS);
     const std::uint32_t reachable = kbm::reachable_widgets(
-        focused,
-        present.data(),
-        present_count,
-        [](std::uint32_t w, std::uint32_t* out) { return plausible(w) ? focus_links(w, out) : 0; }
+        focused, present.data(), present_count, [](std::uint32_t w, std::uint32_t* out) {
+            return plausible(w) ? focus_links(w, out) : 0;
+        }
     );
     int count = 0;
 

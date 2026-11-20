@@ -1654,15 +1654,13 @@ bool same(const SettingValue& x, const SettingValue& y) {
 
 // Gives `mod` the settings `now` and tells it, when they differ from its own.
 void take_settings(openrac_mod* mod, std::map<std::string, SettingValue> now, const char* where) {
-    const bool changed = now.size() != mod->settings.size()
-                         || !std::equal(
-                             now.begin(),
-                             now.end(),
-                             mod->settings.begin(),
-                             [](const auto& x, const auto& y) {
-                                 return x.first == y.first && same(x.second, y.second);
-                             }
-                         );
+    const bool changed =
+        now.size() != mod->settings.size()
+        || !std::equal(
+            now.begin(), now.end(), mod->settings.begin(), [](const auto& x, const auto& y) {
+                return x.first == y.first && same(x.second, y.second);
+            }
+        );
     if (!changed) {
         return;
     }
