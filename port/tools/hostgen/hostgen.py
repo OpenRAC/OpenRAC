@@ -981,7 +981,9 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     paths += sorted(p for p in config.parent.rglob("*")
                     if p.is_file() and p.suffix in (".json", ".tsv", ".c", ".h", ".txt", ".inc"))
     paths += [config.parent / cfg.get("library_api", "../common/libraries.tsv"), HERE / "include"]
-    paths += sorted((config.parent.parent / str(cfg.get("game", "")) / "host").glob("*.c"))
+    for shared in [config.parent / d for d in cfg.get("host_shared", [])] or [
+            config.parent.parent / str(cfg.get("game", "")) / "host"]:
+        paths += sorted(shared.glob("*.c"))
     for key in ("libraries", "hand", "assembly_allow", "result_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
@@ -1490,9 +1492,12 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
 def port_host_text(args: argparse.Namespace, cfg: dict) -> str:
     """The port's own C for the game (its host/, and its game's shared one, rac1's ../rac1/host):
     what it calls keeps the signature it calls it by."""
-    own_dir, shared_dir = args.game.parent / "host", args.game.parent.parent / str(cfg.get("game", "")) / "host"
+    own_dir = args.game.parent / "host"
+    # hostgen.json "host_shared" (cmake/Games.cmake), else the game's folder (rac1's ../rac1/host).
+    shared_dirs = [args.game.parent / d for d in cfg.get("host_shared", [])] or [
+        args.game.parent.parent / str(cfg.get("game", "")) / "host"]
     own = "".join(p.read_text(errors="replace") for p in sorted(own_dir.glob("*.c"))) if own_dir.is_dir() else ""
-    shared = "".join(p.read_text(errors="replace") for p in sorted(shared_dir.glob("*.c"))) if shared_dir.is_dir() else ""
+    shared = "".join(p.read_text(errors="replace") for d in shared_dirs if d.is_dir() for p in sorted(d.glob("*.c")))
     if RELEASE is not None:
         # The shared C is written with the primary release's names; this release's table
         # (host/<game>_names.tsv) renames them, as its build does (release_host.py). The release's
