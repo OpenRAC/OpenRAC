@@ -61,3 +61,14 @@ void func_0012D938(gaddr channel, gaddr tag) {
 void func_003A9348(unsigned int chain) {
     func_0012D938(0x10008000u, (gaddr)chain & 0x0FFFFFFFu);
 }
+
+/* frontbin's and the levels' copies of KickVif0Chain (frontbin's 0x003A8F90, which rac3-decomp's
+ * catalogue places in every level: hostgen names those copies func_L01_004C5698). Translated from
+ * their instructions they polled VIF0's CHCR for ever, as there is no DMAC to clear it. */
+void func_003A8F90__frontbin(unsigned int chain) {
+    func_003A9348(chain);
+}
+
+void func_L01_004C5698(unsigned int chain) {
+    func_003A9348(chain);
+}
