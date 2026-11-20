@@ -83,8 +83,9 @@ FORMAT = 4
 # and his ship's hulls and paint jobs (class 3412), from the disc as Going Commando's 7, 13 and 15.
 # 8: the chrome and glass maps from the GS RAM lump's stash, as Going Commando's 14 (they were grey).
 # 9: the mobys' glow vertices, their light sets and their bangles as classes of their own, as Going
-# Commando's 9 and 11.
-GAME_FORMATS = {"rac2": 20, "rac3": 9}
+# Commando's 9 and 11. 10: his other 30 looks (his armours and skins) as classes of their own, as
+# Going Commando's 7.
+GAME_FORMATS = {"rac2": 20, "rac3": 10}
 
 
 def levels_format(game: str) -> int:

@@ -96,14 +96,15 @@ RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"
 # Veldin's copies of Going Commando's loaders read it (the table of contents at 0x00160C40):
 # - Ratchet's packs: LoadPlayerDisplayTextures (0x004255E0, Going Commando's 0x00292078), the base
 #   sector at +0x1EB4 and a pack a row of four words from +0x1EB8, picked by his skin (0x005147D8).
-#   Only the first look is read (the others are skins, many the multiplayer's: not mapped yet).
+#   The 31 packs are his looks: the armour the game keeps at 0x001D4B60 (pack 0 his first), or
+#   the skin byte at 0x001427AB when it is not 0 (0x004255E0 takes that in its place).
 # - His wrench: pack 31 (0x00425B18 reads its row at +0x20A8; Going Commando's has three forms).
 # - What he holds: 48 banks of five words from +0x4590, after their base sector at +0x458C
 #   (0x0042D110, Going Commando's 0x00294988).
 # - His ship (class 3412 as Going Commando's): three hulls from +0x1D60 and 32 paint jobs from
 #   +0x1D78, sector pairs from the sector at +0x1284 (0x00425D48, Going Commando's 0x002925F0).
 RAC3_PAL = Version(game="rac3", key="pal", **util.disc_identity("rac3", "pal"), level_header=0x60,
-                   hero_packs=0x1eb4, hero_armours=1, item_banks=0x458c, wrench_packs=(31,),
+                   hero_packs=0x1eb4, hero_armours=31, item_banks=0x458c, wrench_packs=(31,),
                    ship_bodies=0x1d60, ship_paints=0x1d78, ship_paint_count=32, flight_base=0x1284)
 RAC4_NTSC = Version(game="rac4", key="ntsc", **util.disc_identity("rac4", "ntsc"), level_header=0xc68)
 VERSIONS = (RAC2_NTSC, RAC2_PAL, RAC2_NTSC2, RAC3_NTSC, RAC3_PAL, RAC4_NTSC)

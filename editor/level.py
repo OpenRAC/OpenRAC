@@ -24,6 +24,15 @@ TEXTURE_TABLES = {"terrain": 0x30, "moby": 0x38, "tie": 0x40, "shrub": 0x48}
 HERO_TEXTURES = 1000
 # Each of his looks past the first has this many places from there, its texture numbers.
 HERO_LOOK_TEXTURES = 16
+# Looks past what fits before ITEM_TEXTURES (Up Your Arsenal has 30: his armours and skins) take
+# their places from here instead.
+MORE_LOOK_TEXTURES = 2000
+
+
+def hero_look_texture(number: int, i: int) -> int:
+    """The texture number of texture I of his look NUMBER (1 up)."""
+    at = HERO_TEXTURES + number * HERO_LOOK_TEXTURES
+    return at + i if at + HERO_LOOK_TEXTURES <= ITEM_TEXTURES else MORE_LOOK_TEXTURES + number * HERO_LOOK_TEXTURES + i
 # And those of the items he holds, one each, past all his looks'.
 ITEM_TEXTURES = 1200
 # The forms of his wrench, each a pack with one texture (the first of those places).
@@ -390,7 +399,7 @@ def hero_files(level: Level, source) -> None:
         mesh, pack = source.hero_pack(number)
         level.hero_looks.append((number, mesh))
         for i, texture in enumerate(hero_textures(pack)):
-            level.textures[("moby", HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i)] = texture
+            level.textures[("moby", hero_look_texture(number, i))] = texture
     place = 0
     armours = source.version.hero_armours
     for pack_number in source.version.wrench_packs or range(armours, armours + WRENCHES):
