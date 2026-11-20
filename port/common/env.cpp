@@ -348,7 +348,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "Up Your Arsenal: the hero's state words in a level, a line when they change, to that file (- stderr)"},
     {Var::Rac3Mobys, "OPENRAC_RAC3_MOBYS",
      Kind::Text, Truth::NotAFlag, "none",
-     "FRAME,...: with OPENRAC_RAC3_HERO, the live mobys within 60 units of the hero at those frames"},
+     "FRAME,...: with OPENRAC_RAC3_HERO, the live mobys within 500 units of the hero at those frames"},
     {Var::Rac3MenuLog, "OPENRAC_RAC3_MENU_LOG",
      Kind::Path, Truth::NotAFlag, "none",
      "Up Your Arsenal: the front end's state and printed strings, a line a frame, to that file"},

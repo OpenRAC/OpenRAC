@@ -18,8 +18,8 @@
  * - the last checkpoint reached, Veldin's D_L01_001DCA14 (checkpoint_reached keeps its id there);
  * - the level's progress flags, 16 bytes a level at progress_flags 0x001BBC40.
  *
- * OPENRAC_RAC3_MOBYS=FRAME,... adds, at those frames, a line for each live moby within 60 units of
- * the hero: its class (+0xAA), state (+0x20) and position (+0x10). Veldin's moby table runs from *0x001E001C to
+ * OPENRAC_RAC3_MOBYS=FRAME,... adds, at those frames, a line for each live moby within 500 units of
+ * the hero: its class (+0xAA), state (+0x20), update (+0x64) and position (+0x10). Veldin's moby table runs from *0x001E001C to
  * *0x001E0024 (D_L01_001E001C, moby_end), 0x100 bytes a moby.
  */
 #include <stdint.h>
@@ -93,16 +93,17 @@ static void log_mobys(unsigned frame) {
         const int8_t state = *(const int8_t*)G(m + 0x20u);
         const float x = f32_at(m + 0x10u), y = f32_at(m + 0x14u), z = f32_at(m + 0x18u);
         const float dx = x - hx, dy = y - hy, dz = z - hz;
-        if (state < 0 || dx * dx + dy * dy + dz * dz > 3600.0f) {
+        if (state < 0 || dx * dx + dy * dy + dz * dz > 250000.0f) {
             continue;
         }
         fprintf(
             g_log,
-            "%u\tmoby %08x\tclass=%d\tstate=%d\tpos=%.2f,%.2f,%.2f\n",
+            "%u\tmoby %08x\tclass=%d\tstate=%d\tupdate=%08x\tpos=%.2f,%.2f,%.2f\n",
             frame,
             (unsigned)m,
             (int)s16_at(m + 0xAAu),
             (int)state,
+            (unsigned)u32_at(m + 0x64u),
             (double)x,
             (double)y,
             (double)z
