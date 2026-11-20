@@ -869,10 +869,17 @@ class Translator:
             sym = getattr(p, "by_place", {}).get(place)
             if sym is not None:
                 return sym
-        for sym, f in p.functions.items():
-            if (self.home, target) in p.code_places(sym):
-                return sym
-        return None
+        # Every function's places, once a program: a level's code calls thousands of places no
+        # name states (rac3-pal's levels), and asking each function for each call took hours.
+        places = getattr(p, "_callee_places", None)
+        if places is None or getattr(p, "_callee_places_count", -1) != len(p.functions):
+            places = {}
+            for sym in p.functions:
+                for place in p.code_places(sym):
+                    places.setdefault(tuple(place), sym)
+            p._callee_places = places
+            p._callee_places_count = len(p.functions)
+        return places.get((self.home, target))
 
     def call(self, target: int, name: str | None, at: int | None = None) -> list[str]:
         sym = self._callee(target, name)
