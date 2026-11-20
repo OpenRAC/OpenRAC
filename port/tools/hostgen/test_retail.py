@@ -173,6 +173,22 @@ class Pairs(unittest.TestCase):
         (part,) = retail.elf_parts(image)
         self.assertEqual((part.base, part.code, part.word(0x00100000)), (0x00100000, True, 0x03E00008))
 
+    def test_a_loader_is_read_as_the_game_it_carries_packed(self):
+        # Up Your Arsenal's boot executable: a loader whose data holds the game WAD-compressed, as
+        # level-program records (address, size, type, entry; its zeros stored too); here a literal-only
+        # stream.
+        entry = 0x00100000
+        payload = struct.pack("<4I2I", entry, 8, 1, entry, 0x03E00008, 0) + struct.pack("<4I", 0x00100100, 64, 8, entry) + bytes(64)
+        stream = bytes([0x11 + len(payload)]) + payload
+        packed = b"WAD" + struct.pack("<I", 16 + len(stream)) + bytes(9) + stream
+        r = retail.Retail(elf([(0x00800000, struct.pack("<2I", 0x03E00008, 0) + packed)]), {}, 0x00200000)
+        self.assertEqual(r.entry, entry)
+        (part,) = r.exe  # the zeros record loads no bytes to read
+        self.assertEqual((part.base, part.code, part.word(entry)), (entry, True, 0x03E00008))
+        # Any other executable is read as it is.
+        plain = retail.Retail(elf([(0x00800000, struct.pack("<2I", 0x03E00008, 0) + b"WAD!")]), {}, 0x00200000)
+        self.assertEqual((plain.entry, [p.base for p in plain.exe]), (0x00800000, [0x00800000]))
+
     def _file(self, text: str) -> Path:
         d = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, d)

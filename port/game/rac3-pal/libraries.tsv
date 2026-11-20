@@ -182,7 +182,13 @@ func_00124A80	kernel	rac3InitSyscallTable	host	InitSystemCallTableAddress (rac2-
 func_001242B8	sif	sceSifSyncIop	host	the shape of rac2-ntsc func_0011EEA0; polled after sceSifRebootIop by func_003983C8
 func_003A9348	dma	rac3KickVif0Chain	host	KickVif0Chain (rac2-ntsc func_002FC070): programs VIF0 itself and polls CHCR (host/dma.c)	void (unsigned int)
 func_0013B818	989snd	rac3SndReplyWait	host	the wait for the sound server's reply (host/sound.c): answered at once, there is no IOP	int (void)
-func_0013B620	989snd	rac3SndFlush	host	snd_FlushSoundCommands: the flush the loader's wait (func_003A2B50) and every command send call; answers the pending reply and runs the shared flush, which ends a snd_StreamSafeCdRead (host/sound.c)	int (void)
+func_0013B620	989snd	rac3SndPump	host	snd_Pump (names.tsv; rac2-ntsc func_00132028, the same instructions): the flush the loader's wait (func_003A2B50) and every command send call; clears the reply wait, then the shared ring's pump (lib/snd_ring.c), which ends a snd_StreamSafeCdRead (host/sound.c)	int (void)
+func_0013C348	989snd	rac3SndSendCommandSync	host	snd_SendCommandSync (rac2-ntsc func_00132C48): the shared ring's synchronous command (host/sound.c)	int (int, int, int)
+func_0013C578	989snd	rac3SndQueueCommandToRing	host	snd_QueueCommandToRing (rac2-ntsc func_00132DF0): queued on the shared ring, answered by the native sound engine (host/sound.c)	int (int, int, int, int, long long)
+func_0013B918	989snd	snd_BankLoadByLoc	host	the shape of rac2-ntsc func_00132318: RPC 3 on the loader client, a bank by sector and offset, its handle returned
+func_0013BAB8	989snd	rac3SndBankLoadAsync	host	snd_BankLoadAsync (rac2-ntsc func_00132498): a bank by sector and offset, its handle told to the callback (host/sound.c)	void (int, int, int, long long)
+func_0013BC30	989snd	snd_BankLoadFromEE_CB	host	the shape of rac2-ntsc func_001325E8: RPC 0x57, a bank in EE memory, its handle told to the callback
+func_0013BD58	989snd	rac3SndBankLoadFromIOP	host	snd_BankLoadFromIOP (rac2-ntsc func_001326D8): RPC 0x59, a bank in the IOP's memory, its handle (host/sound.c)	int (int)
 func_0011F9A8	kernel	EnableDmac	host	hand-written wrapper: DI, EnableDmac (0x0011EB80), EI as Status had it
 func_0011F940	kernel	DisableDmac	host	hand-written wrapper: DI, DisableDmac (0x0011EB90), EI as Status had it
 func_0038D478	vu0	rac3Cosine	host	VU0 microprogram 0xDA0 on vf1.x (host/trig.c)	float (float)
@@ -213,4 +219,26 @@ func_0012F918	pad	rac3PadSetActDirect	host	scePadSetActDirect: the motors, last 
 func_0012F9E0	pad	rac3PadSetActAlign	host	scePadSetActAlign: after six alignment bytes are built (host/pad.c)	int (int, int, int)
 func_0012FC18	pad	rac3PadInfoPressMode	host	scePadInfoPressMode (host/pad.c)	int (int, int)
 func_0012FC78	pad	rac3PadEnterPressMode	host	scePadEnterPressMode (host/pad.c)	int (int, int)
+func_0013AFF8	boot	load_next_program	wrap	copies the next program in (frontbin or a level) and returns its entry; the port then says which program is loaded (host/program.c)
+func_003AF890__frontbin	movie	rac3PlayMovieFrontbin	host	frontbin copy of the movie player entry, the same instructions as the boot program 0x003AFC48 (host/movie.c)	int (int, int, unsigned int, int, int)
 func_003A9BE8	draw	rac3LoadScreenPicture	wrap	puts a picture from EE memory (pixels, frame address in bytes, width, height) into the frame as 512x32 image transfers and returns its TEX0: the main menu background; the picture goes to the window as a texture drawn by a full-screen 2D record (host/picture.c)	unsigned long long (int, int, int, int)
+func_003A0B60	wad	rac3WadDecompress	host	the WAD decompressor (hand-written assembly, the instructions of rac2-ntsc func_0029D4D0's routine): the shared routine (host/wad.c)	int (int, int)
+func_003A0760__frontbin	wad	rac3WadDecompressFrontbin	host	frontbin copy of 0x003A0B60 (host/wad.c)	int (int, int)
+func_003A0760	wad	rac3WadDecompressLevel	host	the levels' copies of 0x003A0B60, which rac3-decomp's catalogue names after frontbin's (host/wad.c)	int (int, int)
+func_0038EBC8	draw	FontPrint	wrap	a string, glyph by glyph (frontbin's func_0038E7E8): its quads are marked as glyphs (host/ui2d.c), drawn from the font's distance field
+func_0038BA50	draw	DrawGlyph	wrap	a glyph of float corners in one colour, its cell a region clamp: drawn natively inside a print (host/ui2d.c)
+func_0038BC30	draw	DrawGlyphShaded	wrap	func_0038BA50 with a colour a corner: drawn natively inside a print when they are one (host/ui2d.c)
+func_0038BE10	draw	DrawGlyphShadowed	wrap	a glyph and its drop shadow: drawn natively inside a print (host/ui2d.c)
+func_0038B8B0	draw	DrawGlyphQuad	wrap	the 2D layer's textured quad, the opcode sequence of rac2-ntsc func_0027E018: drawn natively (host/ui2d.c)
+func_0038B500	draw	DrawTurnedGlyphQuad	wrap	func_0038B8B0 turned about its centre: drawn natively (host/ui2d.c)
+func_0038C0B8	draw	DrawRotatedSprite	wrap	a turned textured quad about a pivot, the opcode sequence of rac2-ntsc func_0027E4A8: drawn natively (host/ui2d.c)
+func_0038C518	draw	DrawRingSegment	wrap	a ring's segment, the opcode sequence of rac2-ntsc func_0027E920: drawn natively (host/ui2d.c)
+func_0038C628	draw	DrawShadedBox	wrap	a box shaded from left to right, the opcode sequence of rac2-ntsc func_0027EA28 (the menus' separators and highlighted row): drawn natively (host/ui2d.c)
+func_0038B310	draw	DrawFlatBox	wrap	a box of flat colour, the opcode sequence of rac2-ntsc func_0027DE50: drawn natively (host/ui2d.c)
+func_003AA780	gui	DrawWidgetSprite	wrap	a Widget3D sprite (the menus' frames and art): its quads become records in their place (host/ui2d.c)
+func_0011B2E8	libc	sprintf	host	newlib's sprintf (it saves $a2-$t3 and $f12-$f19 and walks them): formatted by the port (host/print.c), as rac2-ntsc's func_00115DA8	int (unsigned int, unsigned int, ...)
+func_003983C8	options	rac3FrontEndStartup	wrap	the front end's start-up (it sets the language from the console's): then the options a console forgets get the remembered ones and the port's frame hook goes in (host/options.c)	int (void)
+func_003B63D0	options	rac3OptionsRowsText	wrap	the Options page's rows' names and values into the list's cells each frame: the port's rows while its Video page shows, the 16:9 row named Video (host/options.c)	int (void)
+func_003B6090	options	rac3OptionsPreview	wrap	the Options page's preview following the cursor: none on the Video row and page (host/options.c)	void (void)
+func_003B5F78	options	rac3OptionsButtons	wrap	the Options page's buttons: Cross on the Video row opens the port's page, whose rows Cross, Left and Right step and Triangle leaves (host/options.c)	void (int, int)
+func_003B6588	options	rac3OptionsWidescreen	wrap	the 16:9 row's action: kept off, the port's Video page has its place (host/options.c)	void (void)

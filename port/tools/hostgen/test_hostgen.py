@@ -931,6 +931,24 @@ class Translate(unittest.TestCase):
         self.assertEqual(self.last_report["candidates_used"], [])
         self.assertEqual(self.last_report["problems"], {})
 
+    def test_a_scoped_candidate_replaces_stubs_of_its_own_program_only(self):
+        # Up Your Arsenal: frontbin's func_003EFBB0 is another function than the boot program's of
+        # that address; each program's candidate is for its own stubs (candidate_scopes).
+        cfg = {"candidate_scopes": {"nonmatching/boot_elf": "src/boot_elf",
+                                    "nonmatching/frontbin/": "src/frontbin"}}
+        files = {"func_003EFBB0": "nonmatching/frontbin/func_003EFBB0.c",
+                 "func_003EFF68": "nonmatching/boot_elf/func_003EFF68.c",
+                 "func_00100000": "nonmatching/func_00100000.c"}
+        decomp = {name: name for name in files}
+        scopes = hostgen.candidate_scopes(cfg, files, decomp)
+        self.assertEqual(scopes, {"func_003EFBB0": "src/frontbin", "func_003EFF68": "src/boot_elf"})
+        self.assertEqual(sorted(hostgen.scoped_candidates(decomp, scopes, "src/boot_elf")),
+                         ["func_00100000", "func_003EFF68"])
+        self.assertEqual(sorted(hostgen.scoped_candidates(decomp, scopes, "src/frontbin")),
+                         ["func_00100000", "func_003EFBB0"])
+        self.assertEqual(hostgen.candidate_scopes({}, files, decomp), {})
+        self.assertIs(hostgen.scoped_candidates(decomp, {}, "src/boot_elf"), decomp)
+
     def test_a_candidate_steps_aside_for_what_the_file_has_matched(self):
         """One file of the port's own C for two functions; the decompilation has since matched one:
         the copy of that one is left out, or the file would define it twice and not be read."""
@@ -4543,6 +4561,65 @@ class AssemblyGuard(unittest.TestCase):
         got = hostgen.assembly_guard(summary, {"func_A": "why", "func_F": "why", "ref_G": "why"})
         self.assertEqual(got["assembly_unallowed"], [])
         self.assertEqual(got["assembly_allow_unused"], [])
+
+
+class CandidateFolders(unittest.TestCase):
+    """hostgen.json "candidate_folders_left_out": a program whose retail code the build reads (Up
+    Your Arsenal's frontbin) is translated from it, not from another release's drafts."""
+
+    def test_candidates_under_a_folder_are_left_out(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "nonmatching" / "frontbin").mkdir(parents=True)
+            (root / "nonmatching" / "boot").mkdir(parents=True)
+            (root / "nonmatching" / "frontbin" / "a.c").write_text("void func_A(void) {}\n")
+            (root / "nonmatching" / "boot" / "b.c").write_text("void func_B(void) {}\n")
+            (root / "functional.tsv").write_text("# name\tfile\nfunc_A\tnonmatching/frontbin/a.c\n"
+                                                 "func_B\tnonmatching/boot/b.c\n")
+            cfg = {"candidates": "functional.tsv"}
+            self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_A", "func_B"])
+            cfg["candidate_folders_left_out"] = {"nonmatching/frontbin": "translated from the disc"}
+            self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_B"])
+
+
+class PortHeaders(unittest.TestCase):
+    """hostgen.json "headers": the port's own copy of a decompilation header, found first (Up Your
+    Arsenal's include/vu0.h, whose "=j" asm Clang refuses)."""
+
+    def run_hostgen(self, headers: bool) -> tuple[int, str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            src = tmp / "game"
+            (src / "include").mkdir(parents=True)
+            (src / "include" / "common.h").write_text(COMMON_H)
+            (src / "include" / "vu0.h").write_text(
+                'static __inline__ float fabs_asm(float x) { float r; __asm__("abs.s %0, %1" : "=j"(r) : "j"(x)); return r; }\n')
+            (src / "src").mkdir()
+            (src / "src" / "a.c").write_text('#include "common.h"\n#include "vu0.h"\n'
+                                              'float func_A(float x) { return fabs_asm(x); }\n')
+            cfg = {"name": "test", "sources": ["src"], "includes": ["include", "src"],
+                   "host_functions": HOST_FUNCTIONS}
+            if headers:
+                (tmp / "headers").mkdir()
+                (tmp / "headers" / "vu0.h").write_text(
+                    "static __inline__ float fabs_asm(float x) { return x < 0.0f ? -x : x; }\n")
+                cfg["headers"] = "headers"
+            (tmp / "hostgen.json").write_text(json.dumps(cfg))
+            out = tmp / "gen"
+            with contextlib.redirect_stderr(io.StringIO()):
+                rc = hostgen.main(["--game", str(tmp / "hostgen.json"), "--source", str(src), "--out", str(out),
+                                   "--jobs", "1", "--quiet"])
+            text = "".join(f.read_text() for f in out.rglob("*.c") if "prep" not in f.parts) if rc == 0 else ""
+            return rc, text
+
+    def test_the_ports_header_is_read_in_place_of_the_decompilations(self):
+        rc, text = self.run_hostgen(True)
+        self.assertEqual(rc, 0)
+        self.assertIn("func_A", text)
+        self.assertNotIn("openrac_hostgen_asm", text)
+
+    def test_without_it_the_unit_cannot_be_read(self):
+        self.assertNotEqual(self.run_hostgen(False)[0], 0)
 
 
 class ResultGuard(unittest.TestCase):
