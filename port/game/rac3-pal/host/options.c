@@ -58,10 +58,10 @@
 
 #define CURSOR_ROW RAC3_ADDR(0x001D89B8u)  /* the Options row under the cursor (func_003B6090) */
 #define PREVIEW_ROW RAC3_ADDR(0x001D89BCu) /* the row whose preview shows, -1 none yet */
-#define PREVIEW 0x001C0003      /* the preview's widget */
-#define ROW_VIDEO 0             /* the 16:9 row, the port's Video page in its place */
+#define PREVIEW 0x001C0003                 /* the preview's widget */
+#define ROW_VIDEO 0                        /* the 16:9 row, the port's Video page in its place */
 #define ITEMS RAC3_ADDR(0x0037F830u)       /* the Options items, 16 bytes each */
-#define ITEM_PREVIEW 0x0Cu      /* an item's preview animation */
+#define ITEM_PREVIEW 0x0Cu                 /* an item's preview animation */
 
 #define MENU_TRIANGLE 0x10u /* the menus' buttons (the pad record's word at +0x1C4) */
 #define MENU_CROSS 0x40u

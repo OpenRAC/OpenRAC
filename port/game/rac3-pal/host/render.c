@@ -49,14 +49,13 @@ typedef struct Copy {
 } Copy;
 
 /* Veldin's (the single-player levels'): MobyProc's cap is $gp + 0x37A0. */
-static const Copy kVeldin = {
-    1,
-    RAC3_LADDR(1, 0x001E1068u),
-    RAC3_LADDR(1, 0x001E29E0u),
-    RAC3_LADDR(1, 0x001E7580u),
-    RAC3_LADDR(1, 0x001E0050u),
-    RAC3_LADDR(1, 0x001EA840u)
-};
+static const Copy kVeldin =
+    {1,
+     RAC3_LADDR(1, 0x001E1068u),
+     RAC3_LADDR(1, 0x001E29E0u),
+     RAC3_LADDR(1, 0x001E7580u),
+     RAC3_LADDR(1, 0x001E0050u),
+     RAC3_LADDR(1, 0x001EA840u)};
 /* The multiplayer menu's (the multiplayer maps'): MobyProc's cap is $gp + 0x3FD0. */
 static const Copy kMultiplayer =
     {39,

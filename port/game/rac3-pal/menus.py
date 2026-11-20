@@ -183,13 +183,14 @@ def routes(version: str = "pal") -> list[Route]:
                                 Step("left", "left", 40, changes=False), Step("right", "right", 40, changes=False),
                                 Step("continue", "cross", 60, expect=["LANGUAGE"]),
                                 Step("back to the main menu", "triangle", 90, expect=back_to_main)]),
-        # LANGUAGE cycles English, French, German, Spanish, Italian and back to English.
+        # LANGUAGE cycles English, French, German, Spanish, Italian and back to English; on NTSC-U
+        # English, French and Spanish (its action 0x003B64D8: the byte 0, 2, 4).
         Route("language", [main, *row(4), Step("open OPTIONS", "cross", 120, expect=["LANGUAGE"]),
                            *[Step(f"down {i}", "down", 30) for i in range(1, 4 + len(scan))],
                            Step("French", "cross", 60, expect=["LANGUE", "FRAN"]),
-                           Step("German", "cross", 60, expect=["SPRACHE", "DEUTSCH"]),
+                           *([] if scan else [Step("German", "cross", 60, expect=["SPRACHE", "DEUTSCH"])]),
                            Step("Spanish", "cross", 60, expect=["IDIOMA"]),
-                           Step("Italian", "cross", 60, expect=["LINGUA", "ITALIANO"]),
+                           *([] if scan else [Step("Italian", "cross", 60, expect=["LINGUA", "ITALIANO"])]),
                            Step("English", "cross", 60, expect=["LANGUAGE", "ENGLISH"]),
                            Step("back", "triangle", 90, expect=back_to_main)]),
         Route("sly2-demo", [main, Step("hold L1 L2 R1 R2", "l1+l2+r1+r2", 60, expect=["Sly 2"], hold=60),

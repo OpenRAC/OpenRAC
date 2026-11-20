@@ -306,10 +306,11 @@ def main(argv: list[str] | None = None) -> int:
             " * the global or function of that address renamed (config/us/names.tsv, config/us/map.tsv), else\n"
             " * release/release.json's `addresses`. One not known is 0: what reads it reads nothing of the game's. */\n"
             "#ifndef OPENRAC_RAC3_ADDRESSES_H\n#define OPENRAC_RAC3_ADDRESSES_H\n\n")
-    body = "".join(f"#define RAC3_ADDR_{k} {('0x%08Xu' % v[0]) if v[0] is not None else '0u'} /* {v[1]} */\n"
+    # Each one's evidence on a line of its own above it: the defines stay within the line length.
+    body = "".join(f"/* {v[1]} */\n#define RAC3_ADDR_{k} {('0x%08Xu' % v[0]) if v[0] is not None else '0u'}\n"
                    for k, v in sorted(addresses.items()))
     body += "\n/* Levels' own globals (release.json's level_addresses). */\n" + "".join(
-        f"#define RAC3_LADDR_{k} {('0x%08Xu' % v[0]) if v[0] is not None else '0u'} /* {v[1]} */\n"
+        f"/* {v[1]} */\n#define RAC3_LADDR_{k} {('0x%08Xu' % v[0]) if v[0] is not None else '0u'}\n"
         for k, v in sorted(level_addresses.items()))
     (RELEASE / "host/rac3_addresses.h").write_text(head + body + "\n#endif /* OPENRAC_RAC3_ADDRESSES_H */\n")
 
