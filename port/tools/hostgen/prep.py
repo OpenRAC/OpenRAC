@@ -42,6 +42,7 @@ from __future__ import annotations
 import json
 import re
 import textwrap
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 # A C token that can contain the word long without being the keyword.
@@ -959,7 +960,7 @@ def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc"),
               drafts: tuple[str, set[str]] | None = None, prefix: str = "",
               aliases: dict[str, str] | None = None, long_long_128: set[str] | None = None,
               overrides: dict[str, str] | None = None, overridden: set[str] | None = None,
-              release=None) -> int:
+              release=None, jobs: int = 1) -> int:
     """Prepares every C file under src into dst; only rewrites what changed.
     aliases (readable name -> address name) are written as their address names first (unalias).
     candidates (function name -> C) replace their assembly stubs (use_candidates);
@@ -969,36 +970,22 @@ def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc"),
     name) has those files' own drafts read (use_draft). long_long_128 (files named as drafts'
     are) has their own `long long` read as the 128-bit integer it is there (widen_long_long),
     before the candidates and overrides, which are C written for the port, go in. release
-    (release.Release) writes another release's names for the address names (release.py)."""
-    count = 0
-    for pattern in patterns:
-        for path in src.rglob(pattern):
-            out = dst / path.relative_to(src)
-            rel = (Path(prefix) / path.relative_to(src)).as_posix()
-            text = path.read_text(encoding="utf-8", errors="surrogateescape")
-            if release is not None and (release.splices.get(rel) or release.gone) and path.suffix == ".c":
-                # The release's own definitions where its code differs (release.py), first: they are
-                # the release's C, which every later step reads as it reads the shared C.
-                text = release.splice(text, rel, readable_names(aliases or {}, release))
-            if long_long_128 and rel in long_long_128:
-                text = widen_long_long(text)
-            if release is not None:
-                # Another release's names for every address name (release.py), before anything reads
-                # them; the aliases' names are the release's already.
-                text = release.text(text, rel)
-            text = prepare(unalias(text, aliases or {}))
-            if candidates and path.suffix == ".c":
-                text = use_candidates(text, candidates, used if used is not None else set())
-            if overrides and path.suffix == ".c":
-                text = use_overrides(text, overrides, overridden if overridden is not None else set())
-            if drafts and rel in drafts[1]:
-                text = use_draft(text, drafts[0])
-            text = apply_decomp_workarounds(rel, text)
-            if not out.exists() or out.read_text(encoding="utf-8", errors="surrogateescape") != text:
-                out.parent.mkdir(parents=True, exist_ok=True)
-                # LF on every system: Clang's byte offsets must match the text hostgen reads back.
-                out.write_text(text, encoding="utf-8", errors="surrogateescape", newline="\n")
-            count += 1
+    (release.Release) writes another release's names for the address names (release.py).
+    jobs > 1 prepares the files in that many processes: each file is prepared on its own."""
+    options = {"src": src, "dst": dst, "prefix": prefix, "candidates": candidates, "drafts": drafts,
+               "aliases": aliases, "long_long_128": long_long_128, "overrides": overrides, "release": release}
+    paths = [path for pattern in patterns for path in src.rglob(pattern)]
+    if jobs > 1 and len(paths) > 1:
+        with ProcessPoolExecutor(jobs, initializer=_set_copy_options, initargs=(options,)) as ex:
+            results = list(ex.map(_prepare_file, paths, chunksize=16))
+    else:
+        _set_copy_options(options)
+        results = [_prepare_file(path) for path in paths]
+    for file_used, file_overridden in results:
+        if used is not None:
+            used |= file_used
+        if overridden is not None:
+            overridden |= file_overridden
     # A file the decompilation moved or removed leaves its old copy behind, which would define
     # its functions a second time.
     if dst.is_dir():
@@ -1006,4 +993,47 @@ def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc"),
             for out in dst.rglob(pattern):
                 if not (src / out.relative_to(dst)).exists():
                     out.unlink()
-    return count
+    return len(paths)
+
+
+_COPY: dict = {}
+
+
+def _set_copy_options(options: dict) -> None:
+    _COPY.clear()
+    _COPY.update(options)
+
+
+def _prepare_file(path: Path) -> tuple[set[str], set[str]]:
+    """copy_tree's work on one file; the candidates and overrides it used."""
+    o = _COPY
+    src, dst, release, aliases = o["src"], o["dst"], o["release"], o["aliases"]
+    candidates, overrides, drafts, long_long_128 = o["candidates"], o["overrides"], o["drafts"], o["long_long_128"]
+    used: set[str] = set()
+    overridden: set[str] = set()
+    out = dst / path.relative_to(src)
+    rel = (Path(o["prefix"]) / path.relative_to(src)).as_posix()
+    text = path.read_text(encoding="utf-8", errors="surrogateescape")
+    if release is not None and (release.splices.get(rel) or release.gone) and path.suffix == ".c":
+        # The release's own definitions where its code differs (release.py), first: they are
+        # the release's C, which every later step reads as it reads the shared C.
+        text = release.splice(text, rel, readable_names(aliases or {}, release))
+    if long_long_128 and rel in long_long_128:
+        text = widen_long_long(text)
+    if release is not None:
+        # Another release's names for every address name (release.py), before anything reads
+        # them; the aliases' names are the release's already.
+        text = release.text(text, rel)
+    text = prepare(unalias(text, aliases or {}))
+    if candidates and path.suffix == ".c":
+        text = use_candidates(text, candidates, used)
+    if overrides and path.suffix == ".c":
+        text = use_overrides(text, overrides, overridden)
+    if drafts and rel in drafts[1]:
+        text = use_draft(text, drafts[0])
+    text = apply_decomp_workarounds(rel, text)
+    if not out.exists() or out.read_text(encoding="utf-8", errors="surrogateescape") != text:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        # LF on every system: Clang's byte offsets must match the text hostgen reads back.
+        out.write_text(text, encoding="utf-8", errors="surrogateescape", newline="\n")
+    return used, overridden

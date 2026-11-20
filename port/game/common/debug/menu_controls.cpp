@@ -875,6 +875,9 @@ void draw_controls_panel(Id id) {
         case Id::MenuOpen:
             menu_open_panel();
             break;
+        case Id::KeyboardMouse:
+            keyboard_mouse_panel();
+            break;
         default:
             break;
     }

@@ -407,6 +407,34 @@ check of what the PAL oracle cannot say. Until then a US function whose PAL
 counterpart the version map calls `same` has the PAL verdict as evidence (not
 a verdict of its own), and the rest stay unchecked.
 
+**Up Your Arsenal (PAL, SCES_524.56).** rac3-decomp's `tools/fcheck.py` is the
+same gate with what Going Commando taught built in from the start:
+
+- **Coverage is part of the verdict.** Each check reports retail's basic blocks
+  the states ran of all, and which were not run. A row whose states left blocks
+  unrun is `same-partial`, never `same`: it is done (`same-read`) only when those
+  blocks were read against retail's instructions and listed in the C's
+  `fcheck-read:` comment. On the first proof rows, reading unrun blocks found a
+  call that relied on a leftover `a0`.
+- **Names by symbol.** Every relocation takes the address its name has; a name
+  without one stops the build. The data addresses the C's code forms that
+  retail's never does are listed (`refs`), so a wrong `D_` name shows even in a
+  block no state ran.
+- **Memory at each call.** `openrac-fcheck --size` compares memory written so
+  far at every call the function makes, after the delay slot, not only at the
+  return; argument registers at those calls are notes.
+- **NaN.** A NaN or infinity the candidate writes where retail has a number is
+  named as such.
+
+The states are of the boot program (`boot_elf`: the engine core and its copy of
+the front end), headless through the boot, the title and the main menu's pages
+(`tools/fcheck.py capture`); `frontbin` is never in memory then, so a frontbin
+function is compiled as frontbin and checked at its boot_elf twin
+(`config/frontend_pairs.tsv`; the two programs' data have the same addresses).
+Levels have no states yet. The verdict is written into the `gate` column of
+rac3-decomp's `nonmatching/functional.tsv` (hostgen reads only the first two
+columns).
+
 ## Picking what to backfill first
 
 The port does not need every function at once: it needs the ones gameplay goes
@@ -462,13 +490,13 @@ no tier left, or the port needs it now              -> functional C, with its co
 
 ## Where the pieces are
 
-| | Ratchet & Clank (PAL) | Going Commando |
-|---|---|---|
-| Near misses | `nonmatching/<area>/` | `nonmatching/<area>/` |
-| Functional C | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac1-pal/checks/fcheck.tsv` | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac2-ntsc/checks/fcheck.tsv` |
-| Pieces of one function | `config/overlays/joined.tsv` | the catalogue, `tools/levels.py` |
-| Handwritten | `ASM_FUNC`, counted as finished | `ASM_FUNC`, counted as finished |
-| Worker bound and protocol | `docs/QUEUE.md`, `docs/AGENT_WORKFLOW.md` | `docs/AGENT_WORKFLOW.md` |
+| | Ratchet & Clank (PAL) | Going Commando | Up Your Arsenal (PAL) |
+|---|---|---|---|
+| Near misses | `nonmatching/<area>/` | `nonmatching/<area>/` | `nonmatching/<program>/` |
+| Functional C | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac1-pal/checks/fcheck.tsv` | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac2-ntsc/checks/fcheck.tsv` | `nonmatching/functional/`, `functional.tsv` with the verdict in its `gate` column |
+| Pieces of one function | `config/overlays/joined.tsv` | the catalogue, `tools/levels.py` | linker remnants, `asm/<program>/remnants` |
+| Handwritten | `ASM_FUNC`, counted as finished | `ASM_FUNC`, counted as finished | `ASM_FUNC`, counted as finished |
+| Worker bound and protocol | `docs/QUEUE.md`, `docs/AGENT_WORKFLOW.md` | `docs/AGENT_WORKFLOW.md` | `nonmatching/functional/README.md` |
 
 The measurements behind this page are in the commit history of 2026-10-12
 (the compiler comparison, the small-function sweep and its joins) and in

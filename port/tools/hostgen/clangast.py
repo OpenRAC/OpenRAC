@@ -84,8 +84,7 @@ def run(clang: str, path: Path, cwd: Path, flags: list[str], json_out: bool) -> 
     # rewritten, and ccache's inode cache can then give the answer to what the file held before
     # (a cache hit kept a conflicting declaration's check quiet, while the AST dump after it
     # failed): `clang` on PATH is ccache's wrapper on Fedora, and the port's build sets one up
-    # (cmake/FastBuild.cmake). The checks are a small part of hostgen's Clang time; the AST dumps
-    # after them cannot be cached anyway.
+    # (cmake/FastBuild.cmake). The AST dumps cannot be cached anyway.
     env = dict(os.environ, CCACHE_DISABLE="1")
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, errors="replace", env=env)
 
@@ -632,12 +631,11 @@ def parse_unit(clang: str, root: Path, rel: str, flags: list[str], attempts: int
     path = root / rel
     fixes: list[str] = []
     for _ in range(attempts):
-        check = run(clang, Path(rel), root, flags, json_out=False)
+        # One Clang run gives both the AST and the errors: a separate syntax check first was
+        # nearly half of hostgen's Clang time.
+        check = run(clang, Path(rel), root, flags, json_out=True)
         if check.returncode == 0:
-            out = run(clang, Path(rel), root, flags, json_out=True)
-            if out.returncode != 0:
-                return None, out.stderr
-            ast = json.loads(out.stdout)
+            ast = json.loads(check.stdout)
             annotate(ast)
             text = path.read_text(encoding="utf-8", errors="surrogateescape")
             asm_strings(text, ast, rel, root)

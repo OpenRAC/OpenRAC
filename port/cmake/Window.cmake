@@ -54,6 +54,7 @@ endfunction()
 
 # ---- platform ----
 add_library(openrac_platform STATIC
+  platform/active_device.cpp
   platform/audio.cpp
   platform/bindings.cpp
   platform/clock.cpp
@@ -88,6 +89,8 @@ openrac_add_test(input_ports SOURCES tests/input_ports_test.cpp INCLUDES . LIBS 
 openrac_add_test(rumble SOURCES tests/rumble_test.cpp INCLUDES . LIBS openrac_platform)
 # Start+Select opens the menu, which the game never sees (platform/menu_chord.h).
 openrac_add_test(menu_chord SOURCES tests/menu_chord_test.cpp INCLUDES . LIBS openrac_platform)
+# Which device the player uses now, the gamepad or the keyboard and mouse (platform/active_device.h).
+openrac_add_test(active_device INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp
@@ -243,6 +246,11 @@ endif()
 if(APPLE AND NOT OPENRAC_IOS)
   target_sources(openrac_platform PRIVATE platform/macos_app.mm)
   target_link_libraries(openrac_platform PRIVATE "-framework Cocoa")
+  # The mouse's own motion, without the system's acceleration (platform/raw_mouse.h).
+  target_sources(openrac_platform PRIVATE platform/raw_mouse_macos.mm)
+  target_link_libraries(openrac_platform PRIVATE "-framework GameController")
+else()
+  target_sources(openrac_platform PRIVATE platform/raw_mouse.cpp)
 endif()
 
 # ---- renderer ----
@@ -279,6 +287,7 @@ add_library(openrac_renderer STATIC
   renderer/textures/texture_pack.cpp
   renderer/textures/pcsx2_pack.cpp
   renderer/textures/pcsx2_dds.cpp
+  renderer/textures/sharp_cells.cpp
   renderer/textures/texture_pool.cpp
   renderer/textures/interface_run.cpp
 )
@@ -731,6 +740,22 @@ openrac_add_test(camera_target LIBS openrac_game_rac1_profile)
 openrac_add_test(moby_fade LIBS openrac_game_rac1_profile openrac_ps2float)
 openrac_add_test(shrub_proc LIBS openrac_game_rac1_profile openrac_ps2float)
 openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
+# Ratchet & Clank's built-in keyboard and mouse (game/rac1/keyboard_mouse): its logic alone, with
+# its manifest; and its code loaded as the port loads it, against a host table of the test's own.
+openrac_add_test(keyboard_mouse_logic INCLUDES . game/rac1/keyboard_mouse ../sdk/include
+                 DEFINITIONS "KBM_MANIFEST=\"${PROJECT_SOURCE_DIR}/game/rac1/keyboard_mouse/openrac-mod.json\"")
+openrac_add_test(keyboard_mouse_load
+                 SOURCES tests/keyboard_mouse_load_test.cpp game/rac1/keyboard_mouse/keyboard_mouse.cpp
+                         game/common/key_prompts.cpp renderer/textures/sharp_cells.cpp
+                 INCLUDES . game/rac1/keyboard_mouse ../sdk/include)
+# Going Commando's built-in keyboard and mouse, loaded against a host table of the test's own.
+openrac_add_test(keyboard_mouse_rac2
+                 SOURCES tests/keyboard_mouse_rac2_test.cpp game/rac2/keyboard_mouse/keyboard_mouse.cpp
+                         game/common/key_prompts.cpp renderer/textures/sharp_cells.cpp
+                 INCLUDES . ../sdk/include game/common/include runtime/include)
+# The keys painted over the game's button icons (game/common/key_prompts.h) and their labels.
+openrac_add_test(key_prompts SOURCES tests/key_prompts_test.cpp game/common/key_prompts.cpp
+                             renderer/textures/sharp_cells.cpp INCLUDES . ../sdk/include)
 
 # Going Commando's profile, one for its three discs (game/rac2/profile.cpp), for rac2's programs.
 add_library(openrac_game_rac2_profile STATIC game/rac2/profile.cpp)
@@ -1014,6 +1039,21 @@ endif()
 if(OPENRAC_METAL)
   add_test(NAME moby_platinum_shader_metal COMMAND moby_platinum_shader_test)
   set_tests_properties(moby_platinum_shader_metal PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
+    ENVIRONMENT "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
+# A mod's obsidian as mesh.frag draws it: a gold-lit grey coin comes out near black with a glow
+# in the mod's colour, and its gold glow packet in that colour.
+openrac_add_test(moby_obsidian_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+                 LIBS openrac_viewer_lib openrac_platform)
+set_tests_properties(moby_obsidian_shader PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu)
+if(OPENRAC_VULKAN)
+  add_test(NAME moby_obsidian_shader_vulkan COMMAND moby_obsidian_shader_test)
+  set_tests_properties(moby_obsidian_shader_vulkan PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
+    ENVIRONMENT "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+endif()
+if(OPENRAC_METAL)
+  add_test(NAME moby_obsidian_shader_metal COMMAND moby_obsidian_shader_test)
+  set_tests_properties(moby_obsidian_shader_metal PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
     ENVIRONMENT "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
 endif()
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.

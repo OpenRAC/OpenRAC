@@ -210,6 +210,7 @@ func_00132318	989snd	snd_BankLoadByLoc	host	command 3 on the loader client: a ba
 func_001326D8	game	snd_BankLoadFromIOP	host	a bank sent to the IOP's memory, its handle returned: host/sound.c	int (int)
 func_0027F2A8	draw	FontPrint	wrap	a string, glyph by glyph: its quads are marked as glyphs (host/ui2d.c), drawn from the font's distance field
 func_0027F640	draw	FontPrintScaled	wrap	func_0027F2A8 at a scale, with float positions: its quads are marked as glyphs (host/ui2d.c)
+func_00336320	draw	GuiSpriteElementDraw	wrap	a GUI sprite element (the menus' frames, icons and highlights): its box is recorded for the mouse (host/ui2d.c)
 func_0027E018	draw	DrawGlyphQuad	wrap	the 2D layer's textured quad: drawn natively (host/ui2d.c)
 func_0027E1A0	draw	DrawTexturedQuad2d	wrap	the 2D layer's quad with float corners: a glyph drawn natively (host/ui2d.c)
 func_0034E4F8	hud	DrawHudWidgets	wrap	the HUD's widgets (weapon, ammunition, health, bolts): with "HUD: Edges" two markers have the window draw them out at the sides of a wider picture (host/hud.c)
@@ -299,7 +300,7 @@ func_003136D0	moby	Moby_NanotechBall_Update	hook	The nanotech orb's update (clas
 func_002ADB78	bolt	Bolt_SpawnPickups	hook	Spawns a burst of bolt coins from a moby: rolls an amount from low to high, splits it into the biggest coins that fit (1 to 1000) and makes each with Bolt_SpawnPickup; enemies' and crates' drops (Moby_RecordDeath) and the levels' scripted bursts (part_spawn_scaled_bolts). The executable's and every level's copy (part_spawn_bolt_pickups) are one hook point. A hook point for mods; the game's C with none.
 func_L00_00321878	bolt	Bolt_SpawnPickups	hook	Spawns a burst of bolt coins from a moby: rolls an amount from low to high, splits it into the biggest coins that fit (1 to 1000) and makes each with Bolt_SpawnPickup; enemies' and crates' drops (Moby_RecordDeath) and the levels' scripted bursts (part_spawn_scaled_bolts). The executable's and every level's copy (part_spawn_bolt_pickups) are one hook point. A hook point for mods; the game's C with none.
 func_00302470	bolt	Bolt_SpawnPickup	hook	Makes one bolt coin of a value (classes 0x0D to 0x13 for 1, 5, 20, 50, 100, 500, 1000) at a position with a velocity; returns its moby, or 0 (none made: the pool full, or too far away). A hook point for mods; the game's C with none.
-func_00302848	bolt	part_spawn_trail_puff	wrap	a bolt coin's trail (the puff, ground sparkle and streak around it): silver for a coin a mod draws as platinum, gold for the rest (host/platinum_trail.c)
+func_00302848	bolt	part_spawn_trail_puff	wrap	a bolt coin's trail (the puff, ground sparkle and streak around it): silver for a coin a mod draws as platinum, its glow colour for an obsidian one, gold for the rest (host/platinum_trail.c)
 func_00301D10	bolt	Bolt_Collect	hook	A bolt coin collected (CollectBolts): its class's value added to the player's bolts and the level's bolt score; the coin's update calls it as the coin reaches the hero. A hook point for mods; the game's C with none.
 # Hand-written assembly (ASM_FUNC in the decompilation), written in C for a build without the disc: host/handasm.c.
 func_00115250	libc	memchr	host	newlib's memchr, sixteen bytes at a time with the MMI

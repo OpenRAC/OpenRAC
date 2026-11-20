@@ -138,8 +138,18 @@ bool parse_setting(const json::Value& v, Setting& s, std::string& error) {
         error = "each setting must be an object";
         return false;
     }
-    if (!text(v, "key", true, s.key, error) || !text(v, "name", true, s.name, error)) {
+    if (!text(v, "key", true, s.key, error) || !text(v, "name", true, s.name, error)
+        || !text(v, "description", false, s.description, error)
+        || !text(v, "section", false, s.section, error)) {
         return false;
+    }
+    // Only looks: read where they are as the launcher has them, else left out.
+    if (const json::Value& step = v["step"];
+        step.is_number() && std::isfinite(step.number()) && step.number() > 0.0) {
+        s.step = step.number();
+    }
+    if (const json::Value& group = v["group"]; group.is_string()) {
+        s.group = group.string();
     }
     for (char c : s.key) {
         if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
@@ -245,9 +255,14 @@ bool parse_setting(const json::Value& v, Setting& s, std::string& error) {
 }
 
 // "presets" (interface 1.2): [{"id", "name", "values": {key: value}}], buttons in the launcher that
-// set several settings at once, of any type. The game does not use them (the launcher writes the
-// values to the list), but a manifest with a broken one is refused here as there.
-bool check_presets(const json::Value& v, const std::vector<Setting>& settings, std::string& error) {
+// set several settings at once, of any type: the port's menu offers a built-in's too. A manifest
+// with a broken one is refused here as in the launcher.
+bool parse_presets(
+    const json::Value& v,
+    const std::vector<Setting>& settings,
+    std::vector<Preset>& out,
+    std::string& error
+) {
     if (v.is_null()) {
         return true;
     }
@@ -272,18 +287,21 @@ bool check_presets(const json::Value& v, const std::vector<Setting>& settings, s
             error = std::format("preset \"{}\": its id is not a-z, 0-9 and _, is there twice, or it has no name", id);
             return false;
         }
+        Preset preset{id, name, {}};
         for (const auto& [key, value] : p["values"].members()) {
             const auto s = std::find_if(settings.begin(), settings.end(), [&](const Setting& x) { return x.key == key; });
-            SettingValue out;
+            SettingValue got;
             if (s == settings.end()) {
                 error = std::format("preset \"{}\": \"{}\" is not a setting of the mod", id, key);
                 return false;
             }
-            if (!value_of(*s, value, out)) {
+            if (!value_of(*s, value, got)) {
                 error = std::format("preset \"{}\": its {} is not a value of setting \"{}\"", id, key, key);
                 return false;
             }
+            preset.values.emplace_back(key, got);
         }
+        out.push_back(std::move(preset));
     }
     return true;
 }
@@ -644,7 +662,7 @@ bool parse_manifest(std::string_view source, Manifest& m, std::string& error) {
             m.settings.push_back(std::move(s));
         }
     }
-    if (!check_presets(v["presets"], m.settings, error)) {
+    if (!parse_presets(v["presets"], m.settings, m.presets, error)) {
         return false;
     }
     if (const json::Value& r = v["requires"]; !r.is_null()) {
@@ -733,6 +751,71 @@ bool setting_value(const Setting& s, const json::Value& v, SettingValue& out) {
 bool setting_for_game(const Setting& s, std::string_view game) {
     return s.games.empty() || game.empty()
            || std::find(s.games.begin(), s.games.end(), game) != s.games.end();
+}
+
+bool preset_covers(const Setting& s, const std::vector<Preset>& presets) {
+    if (s.type == SettingType::Keybind) {
+        return true;
+    }
+    return std::any_of(presets.begin(), presets.end(), [&](const Preset& p) {
+        return std::any_of(p.values.begin(), p.values.end(), [&](const auto& v) {
+            return v.first == s.key;
+        });
+    });
+}
+
+const SettingValue& preset_value(const Setting& s, const Preset* preset) {
+    if (preset != nullptr) {
+        for (const auto& [key, value] : preset->values) {
+            if (key == s.key) {
+                return value;
+            }
+        }
+    }
+    return s.fallback;
+}
+
+bool same_value(const Setting& s, const SettingValue& a, const SettingValue& b) {
+    switch (s.type) {
+        case SettingType::Bool:
+            return a.b == b.b;
+        case SettingType::Int:
+            return a.i == b.i;
+        case SettingType::Float:
+            return a.f == b.f;
+        case SettingType::Keybind: {
+            std::string x, y;
+            return parse_binds(a.s, s.binds, x) && parse_binds(b.s, s.binds, y) ? x == y
+                                                                                : a.s == b.s;
+        }
+        default:
+            return a.s == b.s;
+    }
+}
+
+std::string setting_literal(const Setting& s, const SettingValue& v) {
+    switch (s.type) {
+        case SettingType::Bool:
+            return v.b ? "true" : "false";
+        case SettingType::Int:
+            return std::to_string(v.i);
+        case SettingType::Float:
+            return std::isfinite(v.f) ? std::format("{}", v.f) : "0";
+        default: {
+            std::string out = "\"";
+            for (const unsigned char c : v.s) {
+                if (c == '"' || c == '\\') {
+                    out += '\\';
+                    out += static_cast<char>(c);
+                } else if (c < 0x20) {
+                    out += std::format("\\u{:04x}", c);
+                } else {
+                    out += static_cast<char>(c);
+                }
+            }
+            return out + "\"";
+        }
+    }
 }
 
 std::map<std::string, SettingValue> resolve_settings(

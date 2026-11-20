@@ -649,6 +649,31 @@ class Translate(unittest.TestCase):
         })
         self.assertEqual(out, ["11"])
 
+    def test_a_record_passed_where_a_pointer_is_taken(self):
+        # The EE passes a record of more than eight bytes as the address of a copy, and a
+        # smaller one in the register (PAL Yeedil's trooper_init_spawned, Going Commando).
+        out = self.run_program({
+            "callee.c": """
+                int sum3(int *words) { words[0] = 0; return words[1] + words[2]; }
+                int low(int bits) { return bits; }
+            """,
+            "caller.c": """
+                typedef struct { int a; int b; int c; } Three;
+                typedef struct { int a; int b; } Two;
+                extern int sum3(Three);
+                extern int low(Two);
+                int test_main(void) {
+                    Three t = {1, 20, 300};
+                    Two w = {42, 7};
+                    test_print(sum3(t));
+                    test_print(t.a);
+                    test_print(low(w));
+                    return 0;
+                }
+            """,
+        })
+        self.assertEqual(out, ["320", "1", "42"])
+
     def test_a_32_bit_argument_to_a_64_bit_parameter_is_sign_extended(self):
         # The call site declares 32 bits, the definition takes 64: the EE's register held the value
         # sign-extended (FontPrintWindow's colour, a void * there, FontPrint's u64). The result of a
@@ -4674,6 +4699,24 @@ class ResultGuard(unittest.TestCase):
     def test_a_row_needs_a_reason(self):
         with self.assertRaises(SystemExit):
             self.run_hostgen("func_A\tfunc_B\n")
+
+
+class CandidateTableTest(unittest.TestCase):
+    def test_columns_after_the_file_are_ignored(self):
+        # rac3-decomp's table has more columns (program, the gate's verdict, ...) after name and file.
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "f").mkdir()
+            (source / "f/func_00100000.c").write_text("int func_00100000(void) { return 1; }\n")
+            (source / "t.tsv").write_text(
+                "# name\tfile\tprogram\tgate\n"
+                "func_00100000\tf/func_00100000.c\tboot_elf\tsame 3/3 blocks, 2/2 states\n"
+            )
+            files: dict[str, str] = {}
+            got = hostgen.read_candidates(source, {"candidates": "t.tsv"}, files)
+            self.assertEqual(list(got), ["func_00100000"])
+            self.assertEqual(files["func_00100000"], "f/func_00100000.c")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -467,6 +467,7 @@ function(openrac_add_game config)
         target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/profile_none.cpp")
       endif()
       target_link_libraries(${target} PRIVATE Threads::Threads)
+      openrac_built_in_mods(${target} ${game_name})
       # The debug overlay's moby class names: the editor's table, as text.
       openrac_moby_class_names(names_cpp)
       target_sources(${target} PRIVATE "${names_cpp}")
@@ -551,6 +552,31 @@ const unsigned char openrac_icon_png[] = {${bytes}};
 const unsigned int openrac_icon_png_size = ${size}u;
 ")
   set(${out} "${c}" PARENT_SCOPE)
+endfunction()
+
+# The mods built into a game's program (game/common/built_in_mods.h), with a window only: the
+# game's built_in_mods.cpp and its keyboard and mouse (game/<game>/keyboard_mouse), or
+# built_in_mods_none.cpp for a game with none. Ratchet & Clank and Going Commando share one
+# manifest (game/rac1/keyboard_mouse/openrac-mod.json), embedded as a C++ string
+# (openrac_keyboard_mouse_manifest).
+function(openrac_built_in_mods target game_name)
+  set(dir "${OPENRAC_GAME_DIR}/${game_name}")
+  if(NOT EXISTS "${dir}/built_in_mods.cpp")
+    target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/built_in_mods_none.cpp")
+    return()
+  endif()
+  set(json "${OPENRAC_GAME_DIR}/rac1/keyboard_mouse/openrac-mod.json")
+  set(cpp "${CMAKE_BINARY_DIR}/generated/openrac_${game_name}_built_in_manifests.cpp")
+  set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${json}")
+  file(READ "${json}" hex HEX)
+  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${hex}")
+  file(CONFIGURE OUTPUT "${cpp}" CONTENT "/* Generated from ${json} by cmake/Games.cmake. */
+extern const unsigned char openrac_keyboard_mouse_manifest[] = {${bytes}0};
+")
+  target_sources(${target} PRIVATE "${dir}/built_in_mods.cpp" "${dir}/keyboard_mouse/keyboard_mouse.cpp"
+                                   "${OPENRAC_GAME_DIR}/common/key_prompts.cpp"
+                                   "${cpp}")
+  target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
 endfunction()
 
 # The in-game menu's typefaces as C++ arrays (openrac_font_<name>, openrac_font_<name>_size), from

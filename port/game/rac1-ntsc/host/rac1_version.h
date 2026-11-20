@@ -498,7 +498,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_001F1D20 game_FUN_L00_001f19a0
 #define func_L00_001F2BE8 game_FUN_L00_001f2868
 #define func_L00_001F34F0 game_FUN_L00_001f3170
-#define func_L00_001FD1D8 func_L00_001FD228
+#define func_L00_001FD1D8__game func_L00_001FD228__game
 #define func_L00_001FE688 func_L00_001FE6D8
 #define func_L00_001FEE50 func_L00_001FEEA0
 #define func_L00_001FEE98 func_L00_001FEEE8
@@ -631,6 +631,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0015EE84u 0x0015ED84u
 #define RAC1_ADDR_0x0015EE98u 0x0015ED98u
 #define RAC1_ADDR_0x0015EF4Au 0x0015EE4Au
+#define RAC1_ADDR_0x0015EFD0u 0x0015EED0u
 #define RAC1_ADDR_0x0015F000u 0x0015EF00u
 #define RAC1_ADDR_0x0015F558u 0x0015F458u
 #define RAC1_ADDR_0x0015F564u 0x0015F464u

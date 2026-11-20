@@ -28,7 +28,7 @@ native: boolean,
  * `native` (runs code on this computer), `script` (runs scripts, sandboxed), `tool` (a page
  * of its own in the launcher, kept apart from it) or `data`.
  */
-kind: "native" | "script" | "tool" | "data" | "built-in", 
+kind: "native" | "script" | "tool" | "data" | "built-in" | "always-on", 
 /**
  * The installed folder (developer tools show it).
  */

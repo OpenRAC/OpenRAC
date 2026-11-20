@@ -981,7 +981,7 @@ uint32_t g_23_rgb = 0;
 void fill_23(openrac_api &api) {
   api.moby_material = [](openrac_mod *, openrac_gaddr moby, uint32_t material,
                          uint32_t rgb) {
-    if (material > OPENRAC_MOBY_MATERIAL_PLATINUM) {
+    if (material > OPENRAC_MOBY_MATERIAL_OBSIDIAN) {
       return OPENRAC_HOOK_UNKNOWN;
     }
     g_23_moby = moby;
@@ -2048,6 +2048,15 @@ int main() {
       g_23_moby = 0;
       CHECK(!mod.has_moby_material() &&
             !mod.moby_material(0x1C0000, OPENRAC_MOBY_MATERIAL_TINT) && g_23_moby == 0);
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.24: obsidian, with its glow colour; a port of 1.23 has the call but not it.
+    {
+      CHECK(mod.has_obsidian() &&
+            mod.moby_material(0x1C0200, OPENRAC_MOBY_MATERIAL_OBSIDIAN, 0x9020FF) &&
+            g_23_material == OPENRAC_MOBY_MATERIAL_OBSIDIAN && g_23_rgb == 0x9020FF);
+      api.api_minor = 23;
+      CHECK(mod.has_moby_material() && !mod.has_obsidian());
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);

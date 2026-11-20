@@ -29,6 +29,7 @@ export const KIND_LABEL = {
   tool: { text: "Launcher page", tone: "ok" },
   pack: { text: "Textures and models", tone: "off" },
   builtIn: { text: "Experimental", tone: "warn" },
+  alwaysOn: { text: "Part of the game", tone: "ok" },
 } as const satisfies Record<string, Label>;
 
 /** The kinds' tooltips: what each means, for whoever wonders. */
@@ -40,6 +41,7 @@ export const KIND_HINT = {
   tool: "A page of its own in the launcher, kept apart from it: it reads the game's levels and saved textures, and saves only where you choose.",
   pack: "Data only: it replaces textures, models or levels, and runs nothing.",
   builtIn: "Part of the game, off unless you turn it on. Still being worked on.",
+  alwaysOn: "Part of the game and always on: it is used the moment you play with it.",
 } as const satisfies Record<KindKey, string>;
 
 type KindKey = keyof typeof KIND_LABEL;
@@ -68,6 +70,7 @@ export const PAGE = {
   tabEditor: "Level editor",
   tabAssets: "Models and textures",
   tabAudio: "Audio",
+  toolsLabel: "Tools",
   earlyTitle: "Early access",
   earlyLine:
     "Its levels open in Godot and you can make texture and model packs. Packing level edits and playing come later.",
@@ -175,6 +178,15 @@ export const GROUP_TITLE = {
   only: "Settings",
   general: "General",
   controls: (name: string) => `${name} controls`,
+} as const;
+
+/** The built-in Keyboard and mouse entry (core/src/keyboard_mouse.rs; its page is ModPage.svelte's). */
+export const KEYBOARD_MOUSE = {
+  id: "keyboard-mouse",
+  alwaysOn:
+    "Always on: the game switches to the keyboard and mouse when you use them, and back to the gamepad when you press it.",
+  about:
+    "Play with a keyboard and mouse like a PC game. The mouse turns the camera with raw input (no acceleration) and the picture follows it at your display's rate. The game starts on the gamepad and switches the moment you press a key or move the mouse, and back when you press the gamepad. Every key can be changed below.",
 } as const;
 
 /** The built-in Enhanced graphics entry (core/src/enhanced.rs; its page is ModPage.svelte's). */
@@ -305,6 +317,10 @@ export const TEXTURES = {
   badge: "Texture pack",
   badgeHint: "Pictures that replace the game's own by their name, at any size.",
   make: "Make your own",
+  import: "Import",
+  importZip: "A texture pack (.zip)…",
+  importPcsx2: "A PCSX2 texture pack (folder)…",
+  clearPcsx2: "Stop using the PCSX2 pack",
   share: "Share my pack…",
   replace: "Replace with a pack…",
   replaceYes: "Replace my pack",

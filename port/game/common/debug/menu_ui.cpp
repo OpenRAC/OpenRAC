@@ -630,8 +630,18 @@ int menu_choice(
 }
 
 // Draws a slider using the same focus and divider as the choice rows: its value between two arrows
-// (a tap on one moves it a step), and a track to drag between them.
-int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step) {
+// (a tap on one moves it a step), and a track to drag between them. `text` is the value as shown;
+// `label_pressed`, when given, says whether the row's label (left of the slider) was pressed.
+namespace {
+int slider_row(
+    const char* label,
+    int value,
+    int minimum,
+    int maximum,
+    int step,
+    const std::string& text,
+    bool* label_pressed
+) {
     // The choice rows' column, so that the arrows line up with theirs.
     const float column = std::min(s.card.width * 0.48f, dp(190.0f));
     const float arrow_room = dp(16.0f);  // each arrow's part of the column, which a tap on it hits
@@ -660,7 +670,6 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
         const float big = tween(item_part("knob"), held ? 1.0f : 0.0f, kFast);
         const float radius = touch ? dp(7.0f) : dp(5.0f);
         list->AddCircleFilled(knob, radius + dp(4.0f) * big, ui().amber);
-        const std::string text = std::format("{}%", value);
         list->AddText(
             centred_text(
                 ImGui::GetFont(),
@@ -697,6 +706,9 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
     }
     int next = value;
     int by = 0;
+    if (label_pressed != nullptr) {
+        *label_pressed = pressed && start_x < left - dp(12.0f);
+    }
     if (pressed && (on_lower || on_raise)) {
         by = on_lower ? -1 : 1;
     } else if (touch) {
@@ -724,7 +736,8 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
         }
     }
     if (by != 0) {
-        next = std::clamp(value + by * step, minimum, maximum);
+        // Shift moves ten steps at a time.
+        next = std::clamp(value + by * step * (io.KeyShift ? 10 : 1), minimum, maximum);
     }
     // As the choice rows: the cursor's sound for each step it moves, Denied past either end.
     if (next != value) {
@@ -733,6 +746,17 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
         menu_sound(MenuSound::Denied);
     }
     return next;
+}
+}  // namespace
+
+int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step) {
+    return slider_row(label, value, minimum, maximum, step, std::format("{}%", value), nullptr);
+}
+
+int menu_number_slider(
+    const char* label, int index, int count, const std::string& text, bool* label_pressed
+) {
+    return slider_row(label, index, 0, std::max(count, 1), 1, text, label_pressed);
 }
 
 bool menu_button(const char* label) {

@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Clank700 <laborer-onto-acts@duck.com>
+Date: Thu, 19 Nov 2026 22:29:45 +0100
+Subject: space transition globals
+
+Name current_vu_chain and space_load_in_progress directly under OPENRAC_HOSTGEN.
+
+In initialize_level_runtime (src/game/system/space.c), current_vu_chain_r and
+space_load_in_progress_r were defined as byte offsets from unrelated globals
+(&D_00160000 + 0x100C and &D_0015F560 + 0x19C). That matches the boot
+executable's layout, so hostgen emitted OPENRAC_DATA(0x00160000u) + 0x100C
+and OPENRAC_DATA(0x0015F560u) + 0x19C. In any loaded level overlay, those
+globals shift independently, so neither current_vu_chain (D_0016100C) nor
+space_load_in_progress (D_0015F6FC) was updated and two unrelated level-data
+words were overwritten instead.
+
+With current_vu_chain left at the previous level's value (e.g. 0x60000 on
+Kalebo III instead of 0x100000), init_mem_slots sized the two VU1/DMA buffers
+to 0x60000 bytes each and workspace_offset = current_vu_chain - 0x60000
+evaluated to 0, placing the space scene record (LGS.rec and LGS.unk5C)
+directly on top of the active DMA buffers. Per-frame VIF/DMA tags then
+overwrote the space scene record: DMA end tag 0x70000000 corrupted the camera
+eye across all scene modes, and VIF/DMA tag 0x50000000 corrupted mode 2's
+animation frame table so update_level_gameplay_frame read 0x50000010 and
+crashed.
+
+Guarding the direct symbol aliases with OPENRAC_HOSTGEN keeps the PS2 matching
+build unchanged byte for byte while letting hostgen relocate each global
+independently via OPENRAC_DATA.
+
+Co-Authored-By: Gemini <noreply@google.com>
+---
+ src/game/system/space.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/src/game/system/space.c b/src/game/system/space.c
+index 42ecda7..58d2885 100644
+--- a/src/game/system/space.c
++++ b/src/game/system/space.c
+@@ -1834,8 +1834,16 @@ extern s32 submit_audio_stream_io_request(void *buf, u32 lsn, u32 sectors);
+ extern void store_sound_bank_handle_callback();
+ #define sequence (*(f32 *)&D_0015F53C)
+ #define D_001413D0 ((s32 *)&D_001414D0)
++#ifdef OPENRAC_HOSTGEN
++/* current_vu_chain (D_0016100C) and space_load_in_progress (D_0015F6FC) are separate globals
++   whose offsets from D_00160000 and D_0015F560 differ in level programs; name each directly so
++   hostgen relocates it through OPENRAC_DATA. */
++#define current_vu_chain_r current_vu_chain
++#define space_load_in_progress_r space_load_in_progress_m
++#else
+ #define current_vu_chain_r (*(s32 *)((u8 *)&D_00160000 + 0x100C))
+ #define space_load_in_progress_r (*(s32 *)((u8 *)&D_0015F560 + 0x19C))
++#endif
+ #define D_0015F440 D_0015F540
+ #define gs_texture_allocation_base D_0015EF8C
+ #define gs_texture_allocation_cursor D_0015EF74

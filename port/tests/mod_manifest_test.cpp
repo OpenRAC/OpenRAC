@@ -10,6 +10,7 @@
 // the file records each one's verdict and why. They are characterisation tests, so a refactor of any of
 // the three cannot move a rule unseen.
 
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <format>
@@ -202,6 +203,27 @@ void presets() {
     CHECK(with(R"([{"id": "hard", "name": "Hard",
                     "values": {"damage": 2.5, "count": 30, "mode": "b", "chaos": true, "jump": "KeyJ"}},
                    {"id": "default", "name": "Retail", "values": {}}])"));
+    {
+        // The values are kept, by key, for the port's menu.
+        Manifest m;
+        std::string error;
+        CHECK(parse_manifest(
+            manifest(
+                "a",
+                "1.0.0",
+                settings + R"(, "presets": [{"id": "hard", "name": "Hard",
+                     "values": {"mode": "b", "jump": "KeyJ"}}])",
+                "1.2"
+            ),
+            m,
+            error
+        ));
+        CHECK(m.presets.size() == 1 && m.presets[0].id == "hard" && m.presets[0].name == "Hard");
+        CHECK(
+            m.presets[0].values.size() == 2 && m.presets[0].values[0].first == "jump"
+            && m.presets[0].values[0].second.s == "KeyJ" && m.presets[0].values[1].second.s == "b"
+        );
+    }
     CHECK(with("[]"));
     CHECK(!with(R"([{"id": "x", "name": "X", "values": {"damage": 5.0}}])"));     // out of range
     CHECK(!with(R"([{"id": "x", "name": "X", "values": {"count": 1.5}}])"));      // not an integer
@@ -212,6 +234,105 @@ void presets() {
     CHECK(!with(R"([{"id": "X!", "name": "X", "values": {}}])"));
     CHECK(!with(R"([{"id": "x", "name": "X", "values": {}}, {"id": "x", "name": "Y", "values": {}}])"));
     CHECK(!with(R"({"x": 1})"));
+}
+
+void sections() {
+    // A setting's heading and line under its name are kept; a heading that is not text is refused.
+    Manifest m;
+    std::string error;
+    CHECK(parse_manifest(
+        manifest(
+            "a",
+            "1.0.0",
+            R"(, "settings": [
+          {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space", "section": "Movement",
+           "description": "Cross."},
+          {"key": "trace", "name": "Trace", "type": "bool", "default": false}])",
+            "1.2"
+        ),
+        m,
+        error
+    ));
+    CHECK(
+        m.settings.size() == 2 && m.settings[0].section == "Movement"
+        && m.settings[0].description == "Cross." && m.settings[1].section.empty()
+    );
+    CHECK(!parse_manifest(
+        manifest(
+            "a",
+            "1.0.0",
+            R"(, "settings": [
+          {"key": "trace", "name": "Trace", "type": "bool", "default": false, "section": 3}])",
+            "1.2"
+        ),
+        m,
+        error
+    ));
+}
+
+void preset_helpers() {
+    // The port's menu applies and lights the presets as the launcher does (lib/presets.ts).
+    Manifest m;
+    std::string error;
+    CHECK(parse_manifest(
+        manifest(
+            "a",
+            "1.0.0",
+            R"(, "settings": [
+          {"key": "speed", "name": "Speed", "type": "float", "default": 0.5, "min": 0, "max": 1,
+           "step": 0.05},
+          {"key": "trace", "name": "Trace", "type": "bool", "default": false},
+          {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space", "group": "play"},
+          {"key": "back", "name": "Back", "type": "keybind", "default": "Backspace", "step": "x",
+           "group": 3}],
+          "presets": [{"id": "fast", "name": "Fast", "values": {"speed": 1.0}}])",
+            "1.2"
+        ),
+        m,
+        error
+    ));
+    CHECK(m.settings.size() == 4);
+    const Setting& speed = m.settings[0];
+    const Setting& trace = m.settings[1];
+    const Setting& jump = m.settings[2];
+    const Setting& back = m.settings[3];
+    // A step and a group are read where they are what the launcher reads, else left out.
+    CHECK(speed.step && *speed.step == 0.05 && !trace.step && jump.group == "play");
+    CHECK(!back.step && back.group.empty());
+    // Covered: every keybind and each setting a preset names; a Trace switch no preset names is not.
+    CHECK(preset_covers(speed, m.presets) && preset_covers(jump, m.presets));
+    CHECK(!preset_covers(trace, m.presets));
+    // A preset's own value, else the default; null is the defaults.
+    CHECK(preset_value(speed, &m.presets[0]).f == 1.0);
+    CHECK(preset_value(jump, &m.presets[0]).s == "Space");
+    CHECK(preset_value(speed, nullptr).f == 0.5);
+    // The same value: keybinds by their binds in order, numbers exactly.
+    SettingValue a = jump.fallback;
+    SettingValue b = jump.fallback;
+    b.s = "Space";
+    CHECK(same_value(jump, a, b));
+    b.s = "Space,KeyJ";
+    CHECK(!same_value(jump, a, b));
+    a.s = "KeyJ,Space";
+    CHECK(!same_value(jump, a, b));  // the order is the player's
+    SettingValue x = speed.fallback;
+    SettingValue y = speed.fallback;
+    y.f = 0.5000001;
+    CHECK(!same_value(speed, x, y));
+    // As JSON: a switch, numbers, text escaped.
+    CHECK(setting_literal(trace, trace.fallback) == "false");
+    CHECK(setting_literal(speed, speed.fallback) == "0.5");
+    SettingValue weird = jump.fallback;
+    weird.s = "a\"b\\c\n";
+    CHECK(setting_literal(jump, weird) == R"("a\"b\\c\u000a")");
+    SettingValue nan = speed.fallback;
+    nan.f = std::nan("");
+    CHECK(setting_literal(speed, nan) == "0");
+    // Read back, a literal is the value it came from.
+    json::Value v;
+    SettingValue back_again;
+    CHECK(json::parse(setting_literal(speed, preset_value(speed, &m.presets[0])), v, error));
+    CHECK(setting_value(speed, v, back_again) && back_again.f == 1.0);
 }
 
 void lists() {
@@ -625,6 +746,8 @@ int main() {
     several_games();
     keybinds();
     presets();
+    sections();
+    preset_helpers();
     lists();
     checks();
     scripts();

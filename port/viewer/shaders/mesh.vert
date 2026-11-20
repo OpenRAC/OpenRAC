@@ -96,8 +96,10 @@ out vec4 v_probe_multiplier;
 flat out vec4 v_probe_selector;
 flat out int v_lit;
 flat out int v_glow;  // a glow packet's vertex drawn in the moby's glow colour
-// A mod's render-only material on a live moby (OPENRAC_MOBY_MATERIAL_*, 2 platinum), for mesh.frag.
+// A mod's render-only material on a live moby (OPENRAC_MOBY_MATERIAL_*: 2 platinum, 3 obsidian),
+// for mesh.frag, and the instance's tint, which holds the mod's rgb: obsidian's glow colour.
 flat out int v_mod_material;
+flat out vec3 v_mod_rgb;
 out vec3 v_script_emission;
 flat out vec3 v_probe_ambient;
 out vec3 v_emission_colour;
@@ -131,6 +133,7 @@ void main() {
     float mod_material = floor(moby_code / 512.0 + 0.001);
     float shine_distance = moby_code - 512.0 * mod_material;
     v_mod_material = int(mod_material + 0.5);
+    v_mod_rgb = tint.rgb;
     vec3 n = normal;
 #ifdef OPENRAC_HERO_FUR
     if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {

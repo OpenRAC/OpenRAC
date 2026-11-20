@@ -738,6 +738,10 @@ bool event(const SDL_Event& e) {
                 return true;
             }
         }
+        // The Keyboard and mouse panel waits for a key's new key, button or wheel.
+        if (keyboard_mouse_capture_event(e)) {
+            return true;
+        }
         if (s.menu_key_capture && e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
             s.menu_key_capture = false;
             if (e.key.key != SDLK_ESCAPE) {

@@ -173,7 +173,7 @@ fn command(runtime: &mut Runtime, name: &str, args: &Value) -> Result<Value, Str
             runtime.config.install_dir.as_deref().unwrap(),
             text(args, "game")?,
         ))?),
-        "enhanced_view" => Ok(Value::Null),
+        "enhanced_view" | "keyboard_mouse_view" => Ok(Value::Null),
         _ => Err(format!("{name} is not available in this iOS build")),
     }
 }

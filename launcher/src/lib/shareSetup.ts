@@ -19,6 +19,7 @@ export function shareLink(
       (m) =>
         m.enabled &&
         m.kind !== "built-in" &&
+        m.kind !== "always-on" &&
         inIndex(m.id) &&
         /^\d+\.\d+\.\d+(-[\w.]+)?$/.test(m.version),
     )

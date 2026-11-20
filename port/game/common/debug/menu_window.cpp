@@ -185,8 +185,9 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
     const float pad = dp(30.0f);
     // A new entry's help rises into place and fades in.
     MenuMotion& m = s.menu_motion;
-    if (m.help_of != s.menu_hover) {
+    if (m.help_of != s.menu_hover || m.help_title != s.menu_hover_title) {
         m.help_of = s.menu_hover;
+        m.help_title = s.menu_hover_title;
         m.help = 0.0f;
     }
     m.help = std::min(1.0f, m.help + ImGui::GetIO().DeltaTime / kMedium);
@@ -227,9 +228,11 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
             ImVec2(a.x + pad, y),
             ink(ui().amber),
             std::string(menu::tab_name(e.tab)) + "  /  " + e.section
+                + (s.menu_hover_section.empty() ? "" : "  /  " + s.menu_hover_section)
         );
         y += menu_fonts.small->FontSize + dp(12.0f);
-        const std::string label = entry_label(id, menu::kDesktop);
+        const bool own = !s.menu_hover_title.empty();
+        const std::string label = own ? s.menu_hover_title : entry_label(id, menu::kDesktop);
         y += text_block(
             list, menu_fonts.head, ImVec2(a.x + pad, y), ink(ui().gold), label.c_str(), wrap
         );
@@ -241,7 +244,14 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
             dp(1.5f)
         );
         y += dp(18.0f);
-        text_block(list, menu_fonts.body, ImVec2(a.x + pad, y), ink(ui().soft), e.help, wrap);
+        text_block(
+            list,
+            menu_fonts.body,
+            ImVec2(a.x + pad, y),
+            ink(ui().soft),
+            own ? s.menu_hover_help.c_str() : e.help,
+            wrap
+        );
     } else {
         const char* line = mod_tab ? "A mod's own menu: its items do what the mod says they do."
                                    : "Point at an option, or move to it with the arrow keys or a "

@@ -3,6 +3,7 @@
 """release.py and release_carry.py: another release's names for the primary's, and the port tables
 carried with them."""
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -335,6 +336,23 @@ class Committed(unittest.TestCase):
                 self.assertEqual(missing, [], "addresses the shared C uses and the table lacks")
                 missing = sorted(k for k in wanted_k if f"#define RAC2_K_{k} " not in header)
                 self.assertEqual(missing, [], "constants the shared C uses and the table lacks")
+
+    def test_rac1_release_hand_c_uses_its_own_data(self):
+        # A release's own hand C names its data by the release's addresses. PAL v1's packet builder
+        # kept v2's packet cursor (0x161280) and wrote over libc's data on Veldin.
+        for game in ("rac1-pal1", "rac1-jp"):
+            folder = REPO / "port/game" / game
+            names = json.loads((folder / "release" / "release_names.json").read_text())["names"]
+            own = set(names.values())
+            wrong = []
+            for f in sorted((folder / "hand").glob("*.c")):
+                for name in sorted(set(re.findall(r"\bD_(?:L\d\d_)?[0-9A-F]{8}\b", f.read_text()))):
+                    level = "D_L00_" + name[-8:]
+                    moved = [names[k] for k in (name, level) if names.get(k, k) != k]
+                    if moved and name not in own and level not in own:
+                        wrong.append(f"{f.name}: {name} is {moved[0]} in {game}")
+            with self.subTest(game=game):
+                self.assertEqual(wrong, [])
 
     def test_split_variants_keep_their_own_levels(self):
         # A variant split off a folded function has its own places in the release, level by level,
