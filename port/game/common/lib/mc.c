@@ -45,6 +45,7 @@
 
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
+#include "openrac/host_env.h"
 
 /* The command numbers sceMcSync reports. */
 enum {
@@ -94,7 +95,37 @@ static int no_name(gaddr name) {
     return name == 0 || *(const char*)G(name) == 0;
 }
 
+/* OPENRAC_TRACE_MC: each command on stderr with its file or folder, its mode or size and its
+ * result, to follow a game's card code in a hidden run. */
+static int tracing(void) {
+    static int on = -1;
+    if (on < 0) {
+        on = openrac_env_string("OPENRAC_TRACE_MC") != NULL;
+    }
+    return on;
+}
+
+static const char* traced_name;
+static int traced_arg;
+
+static void trace(const char* name, int arg) {
+    traced_name = name;
+    traced_arg = arg;
+}
+
 static int finish(int cmd, int result) {
+    if (tracing()) {
+        fprintf(
+            stderr,
+            "[debug] MC %02x %s %d -> %d\n",
+            cmd,
+            traced_name != NULL ? traced_name : "",
+            traced_arg,
+            result
+        );
+        traced_name = NULL;
+        traced_arg = 0;
+    }
     if (state_command != 0) {
         GREF(int, state_command) = cmd;
         GREF(int, state_result) = result;
@@ -723,6 +754,7 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
     if (no_name(name)) {
         return MC_NO_NAME;
     }
+    trace((const char*)G(name), mode);
     if (!card_present(port)
         || !card_path_of(port, (const char*)G(name), path, sizeof path, &foreign)) {
         return finish(MC_OPEN, MC_NO_CARD);
@@ -789,6 +821,7 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
 
 /* sceMcClose(fd) */
 int openrac_lib_sceMcClose(int fd) {
+    trace(fd >= 0 && fd < MAX_FILES ? file_paths[fd] : "", fd);
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_CLOSE, MC_FAILED);
     }
@@ -856,6 +889,7 @@ int openrac_lib_sceMcSeek(int fd, int offset, int whence) {
 
 /* sceMcRead(fd, buffer, size) */
 int openrac_lib_sceMcRead(int fd, gaddr buffer, int size) {
+    trace(fd >= 0 && fd < MAX_FILES ? file_paths[fd] : "", size);
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_READ, MC_FAILED);
     }
@@ -866,6 +900,7 @@ int openrac_lib_sceMcRead(int fd, gaddr buffer, int size) {
 
 /* sceMcWrite(fd, buffer, size) */
 int openrac_lib_sceMcWrite(int fd, gaddr buffer, int size) {
+    trace(fd >= 0 && fd < MAX_FILES ? file_paths[fd] : "", size);
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_WRITE, MC_FAILED);
     }
@@ -891,6 +926,7 @@ int openrac_lib_sceMcMkdir(int port, int slot, gaddr name) {
     if (no_name(name)) {
         return MC_NO_NAME;
     }
+    trace((const char*)G(name), port);
     if (!card_present(port)
         || !card_path_of(port, (const char*)G(name), path, sizeof path, &foreign)) {
         return finish(MC_MKDIR, MC_NO_CARD);
@@ -913,6 +949,7 @@ int openrac_lib_sceMcDelete(int port, int slot, gaddr name) {
     if (no_name(name)) {
         return MC_NO_NAME;
     }
+    trace((const char*)G(name), port);
     if (!card_present(port)
         || !card_path_of(port, (const char*)G(name), path, sizeof path, &foreign)) {
         return finish(MC_DELETE, MC_NO_CARD);
@@ -1149,6 +1186,7 @@ int openrac_lib_sceMcGetDir(
     if (no_name(name)) {
         return MC_NO_NAME;
     }
+    trace((const char*)G(name), (int)mode);
     if (!card_present(port)) {
         return finish(MC_GET_DIR, MC_NO_CARD);
     }
@@ -1169,6 +1207,7 @@ int openrac_lib_sceMcGetDir(
  * path, when asked for, is written as an absolute one. */
 int openrac_lib_sceMcChdir(int port, int slot, gaddr path, gaddr old_path) {
     (void)slot;
+    trace(path != 0 ? (const char*)G(path) : "", port);
     if (!card_present(port)) {
         return finish(MC_CHDIR, MC_NO_CARD);
     }

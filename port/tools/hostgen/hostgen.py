@@ -271,10 +271,14 @@ def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None
     starting with # are comments). A missing table means none: the
     decompilation decides what it offers. Each is C that does what the retail
     function does without matching its bytes; the matching build never sees it.
-    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet.
+    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet, and
+    "candidate_folders_left_out" (folder -> why) leaves out every candidate whose file is under one
+    of those folders of the decompilation (a program whose retail code the build reads, so its
+    instructions are translated in place of another release's drafts).
     FILES, when given, gets each candidate's file (relative to the decompilation)."""
     table = cfg.get("candidates")
     left_out = cfg.get("candidates_left_out", {})
+    folders = tuple(f.rstrip("/") + "/" for f in cfg.get("candidate_folders_left_out", {}))
     if not table or not (source / table).is_file():
         return {}
     out: dict[str, str] = {}
@@ -284,7 +288,7 @@ def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None
             continue
         name, _, rel = line.partition("\t")
         path = source / rel.strip()
-        if path.is_file() and name.strip() not in left_out:
+        if path.is_file() and name.strip() not in left_out and not (folders and rel.strip().startswith(folders)):
             if path not in texts:
                 texts[path] = path.read_text(encoding="utf-8", errors="surrogateescape")
             out[name.strip()] = texts[path]
@@ -1005,7 +1009,7 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
         # The disc's files are named relative to the decompilation (rac2's "baserom/SCUS_972.68"),
         # as asmc.retail_source reads them; relative to the build's own folder they were never
         # found, so a disc set up after the first build left the stub-only C in place.
-        stat_roots += [base / v for v in (a.get("retail") or {}).values() if v]
+        stat_roots += [base / v for v in (a.get("retail") or {}).values() if v and isinstance(v, str)]
         for root in stat_roots:
             for f in sorted(_files(root)):
                 st = f.stat()
@@ -1067,9 +1071,12 @@ def apply_assembly_options(cfg: dict, args: argparse.Namespace) -> None:
     if cfg.get("asm") and cfg["asm"].get("interface"):
         cfg["asm"] = {**cfg["asm"], "interface_path": str((args.game.resolve().parent / cfg["asm"]["interface"]))}
     if cfg.get("asm") and (args.retail_image or args.retail_exe):
+        programs = (cfg["asm"].get("retail") or {}).get("programs")
         cfg["asm"] = {**cfg["asm"], "retail": {
             k: str(v.resolve()) for k, v in (("image", args.retail_image), ("exe", args.retail_exe),
                                              ("dump", args.retail_dump)) if v}}
+        if programs:
+            cfg["asm"]["retail"]["programs"] = programs
 
 
 def add_derived_names(cfg: dict, args: argparse.Namespace, source: Path) -> Path | None:
@@ -1197,7 +1204,35 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
     undefined = sorted(name for name, c in overrides.items() if not prep.defines(c, name))
     overrides = {name: c for name, c in overrides.items() if name not in undefined}
     return {"candidates": candidates, "overrides": overrides, "aliases": aliases,
-            "long_long_128": long_long_128, "undefined": undefined}
+            "long_long_128": long_long_128, "undefined": undefined,
+            "candidate_scopes": candidate_scopes(cfg, files, decomp)}
+
+
+def candidate_scopes(cfg: dict, files: dict[str, str], decomp: dict[str, str]) -> dict[str, str]:
+    """The source directory each of the decompilation's candidates is for (hostgen.json
+    "candidate_scopes": {candidate folder: source directory}): name -> directory, for the
+    candidates whose file is under one of those folders. Programs whose functions share
+    addresses (Up Your Arsenal's boot front end and frontbin both run at 0x381080 on) have
+    candidates of one name for different functions, and each is C for its own program only."""
+    scopes = cfg.get("candidate_scopes", {})
+    if not scopes:
+        return {}
+    out: dict[str, str] = {}
+    for name in decomp:
+        rel = files.get(name, "")
+        for folder, source_dir in scopes.items():
+            if rel.startswith(folder.rstrip("/") + "/"):
+                out[name] = source_dir
+    return out
+
+
+def scoped_candidates(candidates: dict[str, str], scopes: dict[str, str], source_dir: str) -> dict[str, str]:
+    """The candidates that may replace stubs under SOURCE_DIR: every one without a scope, and those
+    scoped to it (candidate_scopes)."""
+    if not scopes:
+        return candidates
+    return {name: text for name, text in candidates.items()
+            if scopes.get(name, source_dir) == source_dir}
 
 
 def prepare_sources(args: argparse.Namespace, cfg: dict, source: Path, root: Path,
@@ -1209,7 +1244,8 @@ def prepare_sources(args: argparse.Namespace, cfg: dict, source: Path, root: Pat
     drafts = read_drafts(args.game.parent, cfg)
     for d in sorted(set(cfg["sources"] + cfg["includes"])):
         if (source / d).is_dir():
-            prep.copy_tree(source / d, root / d, candidates=replacements["candidates"], used=used, drafts=drafts,
+            candidates = scoped_candidates(replacements["candidates"], replacements.get("candidate_scopes", {}), d)
+            prep.copy_tree(source / d, root / d, candidates=candidates, used=used, drafts=drafts,
                            prefix=d, aliases=replacements["aliases"], long_long_128=replacements["long_long_128"],
                            overrides=replacements["overrides"], overridden=overridden, release=RELEASE)
     return used, overridden
@@ -1722,7 +1758,9 @@ def main(argv: list[str] | None = None) -> int:
     units = units_of(root, cfg)
     if args.only:
         units = [u for u in units if u in args.only]
-    flags = clangast.base_flags([Path(i) for i in cfg["includes"]] + [HERE / "include"], cfg["defines"])
+    # hostgen.json "headers": the port's own copies of headers of the decompilation, found first.
+    headers = [(args.game.parent / cfg["headers"]).resolve()] if cfg.get("headers") else []
+    flags = clangast.base_flags(headers + [Path(i) for i in cfg["includes"]] + [HERE / "include"], cfg["defines"])
     state = {"clang": clangast.clang_binary(), "root": root, "flags": flags, "out": out,
              "names": cfg["names"], "groups": cfg["groups"]}
 

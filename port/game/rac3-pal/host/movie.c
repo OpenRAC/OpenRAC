@@ -23,3 +23,9 @@ int func_003AFC48(int a, int b, gaddr alloc, int channel, int flag) {
     (void)flag;
     return openrac_game_play_movie((uint32_t)a, (uint32_t)b, channel, 1);
 }
+
+/* frontbin's copy of the entry (0x003AF890 in its program: the same instructions), which plays the
+ * menus' background loop. */
+int func_003AF890__frontbin(int a, int b, gaddr alloc, int channel, int flag) {
+    return func_003AFC48(a, b, alloc, channel, flag);
+}

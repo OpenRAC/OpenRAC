@@ -1737,11 +1737,16 @@ def retail_source(a: dict, program: Program, base: Path) -> "retail.Retail | Non
     low = (getattr(program, "relocate", None) or [0x15F000])[0]
     path = lambda key: (base / r[key]) if r.get(key) else None
     image, exe, dump = path("image"), path("exe"), path("dump")
+    found = None
     if image is not None and image.is_file():
-        return retail.Retail.from_image(image, low)
-    if exe is not None and exe.is_file():
-        return retail.Retail.from_files(exe, dump if dump is not None and dump.is_dir() else None, low)
-    return None
+        found = retail.Retail.from_image(image, low)
+    elif exe is not None and exe.is_file():
+        found = retail.Retail.from_files(exe, dump if dump is not None and dump.is_dir() else None, low)
+    # "programs": {NAME: OVERLAY}, the disc's other programs read as hostgen's overlays (Up Your
+    # Arsenal's frontbin, the "groups" overlay its src/frontbin is).
+    if found is not None:
+        found.place_named(r.get("programs", {}))
+    return found
 
 
 def file_names(cfg: dict) -> list[str]:

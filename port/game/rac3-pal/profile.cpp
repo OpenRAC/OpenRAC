@@ -329,6 +329,14 @@ public:
 
     bool sends_display_list() const override { return true; }
 
+    // The buffer the frame is drawn in: block 0x1E00 (FBP 0xF0, the front end's register packet at
+    // 0x00142120), past the 512-line display buffer, as PAL Going Commando's. Not where the
+    // display's size puts it (0x1000): taken for an off-screen target, the frame was drawn as a
+    // square and copied into the picture's middle, and what spans the whole window in a picture
+    // wider than 4:3 (the clears, the menu's darkening, the background's sides) stopped at its
+    // edges.
+    std::uint32_t draw_buffer_block() const override { return 0x1E00; }
+
     // Going Commando's: the frames at +0x40, the sequences at +0x42, the keys at +0x58 and the
     // pose layer link at +0x50 (structs/moby.h; MobyProc reads them there).
     std::uint32_t moby_anim_fields() const override { return 0x40; }

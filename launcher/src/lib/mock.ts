@@ -43,6 +43,9 @@ import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
 import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
 import type { Rac2SaveView } from "./generated/Rac2SaveView";
 import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
+import type { Rac3SaveFields } from "./generated/Rac3SaveFields";
+import type { Rac3SaveView } from "./generated/Rac3SaveView";
+import type { Rac3WriteResult } from "./generated/Rac3WriteResult";
 import type { RemoteInstalled } from "./generated/RemoteInstalled";
 import type { RemotePreview } from "./generated/RemotePreview";
 import type { ReportEntry } from "./generated/ReportEntry";
@@ -2620,6 +2623,65 @@ function mockRac2Versions(
   ];
 }
 
+/** Up Your Arsenal's weapons as the save editor lists them: item, name, V1 full ammo. */
+const RAC3_WEAPONS: [number, string, number][] = [
+  [9, "OmniWrench", 0],
+  [39, "Shock Blaster", 30],
+  [119, "Nitro Launcher", 8],
+  [47, "N60 Storm", 150],
+  [127, "Plasma Whip", 25],
+  [55, "Infector", 15],
+  [135, "Suck Cannon", 0],
+  [71, "Spitting Hydra", 15],
+  [87, "Agents of Doom", 6],
+  [111, "Flux Rifle", 10],
+  [63, "Annihilator", 20],
+  [103, "Holo Shield Glove", 8],
+  [79, "Disc Blade Gun", 25],
+  [95, "Rift Inducer", 8],
+  [143, "Qwack-O-Ray", 0],
+  [151, "RY3NO", 25],
+  [21, "Miniturret Glove", 10],
+  [17, "Lava Gun", 150],
+  [22, "Shield Charger", 3],
+  [19, "Bouncer", 10],
+  [16, "Plasma Coil", 15],
+];
+
+const savedRac3: Record<string, Rac3SaveFields> = {};
+
+/** An Up Your Arsenal slot: on Veldin, with the wrench, the Shock Blaster and the Nitro Launcher. */
+function mockSaveRac3(serial: string, slot: number): Rac3SaveView {
+  const owned = new Set([9, 39, 119]);
+  const fields: Rac3SaveFields = savedRac3[`${serial}/${String(slot)}`] ?? {
+    bolts: 12345,
+    weapons: RAC3_WEAPONS.map(([id, , ammo]) => ({
+      id,
+      owned: owned.has(id),
+      ammo: owned.has(id) ? ammo : 0,
+    })),
+  };
+
+  return {
+    serial,
+    slot,
+    fingerprint: "mock",
+    planetName: "Veldin",
+    savedAt: "2026-11-19 14:15:30",
+    playSeconds: 3723,
+    fields,
+    weapons: RAC3_WEAPONS.map(([id, name, ammo]) => ({
+      id,
+      name,
+      versionName: name,
+      version: 1,
+      maxAmmo: ammo,
+      xp: 0,
+    })),
+    maxBolts: 9_999_999,
+  };
+}
+
 /** A Going Commando slot: early in the game, on Oozla, with the Lancer in hand. */
 function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
   const owned = new Set([24, 30, 42]);
@@ -3858,6 +3920,26 @@ export async function mockCall(
           Number(args.slot ?? 0),
         ),
       );
+    case "read_save_rac3":
+      return delay<Rac3SaveView>(mockSaveRac3(String(args.serial), Number(args.slot ?? 0)));
+    case "write_save_rac3": {
+      const fields = args.fields as Rac3SaveFields;
+
+      if (fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
+      savedRac3[`${String(args.serial)}/${String(args.slot)}`] = structuredClone(fields);
+      const name = `.backup_${String(Math.floor(Date.now() / 1000))}_before_edit_slot${String(Number(args.slot) + 1)}`;
+
+      return delay<Rac3WriteResult>({
+        backup: {
+          name,
+          path: `/home/you/.local/share/openrac/memcard/${String(args.serial)}/${name}`,
+          note: `Before editing slot ${String(Number(args.slot) + 1)}`,
+          createdMillis: Date.now(),
+          totalSize: 552000,
+        },
+        view: mockSaveRac3(String(args.serial), Number(args.slot)),
+      });
+    }
     case "read_save_rac2":
       return delay<Rac2SaveView>(mockSaveRac2(String(args.serial), Number(args.slot ?? 0)));
     case "read_save_rac2_extra":

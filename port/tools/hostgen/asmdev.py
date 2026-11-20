@@ -51,7 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     expected = asmext.read(args.game.resolve().parent / a["interface"])
     # The disc in place of the decompilation's dumps, and no interface: the translation itself.
     cfg["asm"] = {k: v for k, v in a.items() if k not in ("interface", "interface_path")}
-    cfg["asm"]["retail"] = {"image": str(args.retail_image.resolve())}
+    cfg["asm"]["retail"] = {"image": str(args.retail_image.resolve()),
+                            **{k: v for k, v in (a.get("retail") or {}).items() if k == "programs"}}
     cfg["asm"]["enabled"] = True
     cfg["asm"].pop("shadows", None)  # the collision check's copies: the port's own build has none
 
