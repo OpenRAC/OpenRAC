@@ -24,7 +24,8 @@ It writes, in port/game/rac3-ntsc:
 - host/rac3_addresses.h: each RAC3_ADDR(0x...u) the shared host C and profile write, at NTSC-U's
   address (the global of that address renamed, else release.json's `addresses`);
 - release/release_carry.json: what rests on less than the same code: the host functions and wraps
-  whose NTSC-U twin is other code (`differs`), the rows left out, the addresses not found.
+  whose NTSC-U twin is other code (`differs`), the rows left out, the addresses not found, and the
+  literal addresses the shared host C writes outside RAC3_ADDR() whose global NTSC-U has elsewhere.
 
     python3 port/tools/hostgen/release_carry_rac3.py --source games/rac3/decomp
 """
@@ -45,6 +46,7 @@ RELEASE = PORT / "game/rac3-ntsc"
 # func_003A8F90__frontbin (frontbin's own), func_0038EBC8__game (the game's body of a wrap), D_001D89B8.
 NAME = re.compile(r"\b(func|D)_(?:(L\d\d)_)?([0-9A-F]{8})(?:__(\w+))?(?![0-9A-Za-z_])")
 ADDR = re.compile(r"\bRAC3_ADDR\(\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
+LITERAL = re.compile(r"\b0x(00[1-3][0-9A-Fa-f]{5})u?\b")  # an address of the executable's memory
 SHARED_SUFFIXES = ("game",)  # a wrap's own body: the same program as the plain name
 
 
@@ -239,11 +241,26 @@ def main(argv: list[str] | None = None) -> int:
                    for k, v in sorted(addresses.items()))
     (RELEASE / "host/rac3_addresses.h").write_text(head + body + "\n#endif /* OPENRAC_RAC3_ADDRESSES_H */\n")
 
+    # Literal addresses outside RAC3_ADDR() whose global NTSC-U has elsewhere: the shared C reads
+    # PAL's there on NTSC-U too. Listed, and printed, for whoever wrote them to wrap.
+    report["unwrapped"] = {}
+    for path in host_files():
+        if path.suffix == ".cpp":
+            continue  # the profile holds each disc's table (kPal, kUs)
+        text = ADDR.sub("", re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', strip_comments(path.read_text())))
+        for m in LITERAL.finditer(text):
+            pal = int(m.group(1), 16)
+            new = names.data.get(f"D_{pal:08X}")
+            if new and new != f"D_{pal:08X}" and "_PAL_" not in new:
+                report["unwrapped"].setdefault(path.relative_to(PORT).as_posix(), []).append(
+                    f"0x{pal:08X} (NTSC-U's {new})")
     report["differs"] = dict(sorted(report["differs"].items()))
     (RELEASE / "release/release_carry.json").write_text(json.dumps(report, indent=1) + "\n")
     print(f"rac3-ntsc: {len(rows) - 4} library rows ({len(report['left_out'])} left out), {len(used)} host names, "
           f"{len(addresses)} addresses ({len(report['addresses_not_found'])} not found), "
           f"{len(report['differs'])} on other code")
+    for file, found in report["unwrapped"].items():
+        print(f"  {file}: not in RAC3_ADDR(), elsewhere on NTSC-U: {', '.join(dict.fromkeys(found))}")
     return 0
 
 
