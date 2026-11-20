@@ -103,6 +103,8 @@ the boot program's FRAME-th display list (`-1`: frontbin).
 | `profile.cpp` | draws the display list the game sends (as rac4-ntsc), the records at their markers in it |
 | `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record |
 | `host/options.c` | the title's Options: the port's Video page in the 16:9 row's place, the game's 16:9 kept off, the subtitles, the sound mode and the language remembered between runs (below) |
+| `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record; in a picture wider than 4:3, its blurred edges out to the window's sides, as Going Commando's title |
+| `host/view.c` | the game's own 16:9 option kept off, so that the window's Picture setting alone shapes the view (as Going Commando's) |
 | `IDENTIFIED.tsv` | every function and global worked out on the way, for the backfill |
 
 `hostgen.json` also lists `from_assembly` (C that forwards registers or has VU0 inline assembly,

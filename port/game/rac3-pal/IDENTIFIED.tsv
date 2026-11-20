@@ -180,3 +180,7 @@ code	func_003983C8	0x003983C8	FrontEndStartup	(more) sets D_00143950 + 0xB7 from
 data	D_00143950	0x00143950	options	the game's options: +6 subtitles, +8 sound (0 mono), +0xAD 16:9, +0xB7 language (1 English, 2 French, 3 German, 4 Spanish, 5 Italian)
 data	D_0037F830	0x0037F830	options_items	the Options rows, 16 bytes each {text id, enabled, action, preview animation}: 16:9 0x508, Subtitles 0x148, Sound 0x146, Language 0x14F; ended by a zero text
 data	D_00337640	0x00337640	main_menu_items	the main menu's five items, 16 bytes each {widget id, text id, enabled, action}: Load Game, New Game, Multiplayer, Multiplayer Tutorial, Options
+code	func_003877A0	0x003877A0	UpdateViewContext	the view projection set-up (frontbin func_003873C0; rac2 UpdateViewContext func_0027AB40, 0.79 by opcode sequence): the view block's half-angle tangents, the vertical one divided by 4/3 with the 16:9 byte or in split screen (host/view.c)
+data	D_00225900	0x00225900	view_context	the view block UpdateViewContext fills: +0xB0 the horizontal half-angle tangent, +0xB4 the vertical one, +0xA8/+0xAC the screen's scales from +0x210-+0x21C
+data	D_001439FD	0x001439FD	option_widescreen	the Options page's 16:9 byte (+0xAD of the options at 0x00143950); kept 0 by the port (host/view.c)
+data	D_001D5B98	0x001D5B98	split_screen	1 in split screen (with view_context +0x268 set, UpdateViewContext narrows the vertical view as for 16:9)
