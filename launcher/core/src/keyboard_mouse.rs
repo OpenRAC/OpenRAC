@@ -147,7 +147,8 @@ mod tests {
         let v = view(&home, "rac2", "ntsc");
         let has = |key: &str| v.settings.iter().any(|s| s.spec.key == key);
         assert!(has("jump") && has("mouse_sensitivity") && has("key_prompts"));
-        assert!(!has("weapon_1") && !has("menu_mouse") && !has("camera_reset"));
+        // Clicks in menus work in Going Commando too.
+        assert!(!has("weapon_1") && !has("camera_reset") && has("menu_mouse"));
         assert!(set_setting(&home, "rac2", "ntsc", "weapon_1", &json!("Digit1")).is_err());
         assert!(set_setting(&home, "rac2", "ntsc", "jump", &json!("KeyJ")).is_ok());
         let _ = std::fs::remove_dir_all(&home);
