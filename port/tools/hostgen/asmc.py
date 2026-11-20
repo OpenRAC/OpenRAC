@@ -967,9 +967,13 @@ class Translator:
             # Code several levels carry, calling a function only some of them list: what this copy's
             # own call reaches (func_L04_00419918 in level 11 calls its own twin of func_L04_0043ABE0,
             # whose level 4 addresses are over the allocator there).
+            # Through the registers, as a call copy: the copy's own function may take more than the
+            # name's (Florana's copy of func_L01_003B2DC8, a wrapper Veldin's calls func_L01_00459AF8
+            # through with no arguments, calls a class update that takes the moby it hands on).
             home, start, size, own = variant
             self.unit.fn.uses_self = True
-            callee = f"GFN({fn_type}, openrac_call_in_copy({home}, {hx(start)}, {size}u, openrac_self_, {hx(own)}))"
+            expr = f"openrac_call_in_copy({home}, {hx(start)}, {size}u, openrac_self_, {hx(own)})"
+            return self.indirect(expr, target if at is None else at, ret == "float")
         else:
             callee = cname(sym)
         if self.forward_unprototyped and not f.sig.prototyped:
@@ -1036,12 +1040,12 @@ class Translator:
             return pre + [f"r2 = {S32(f'({ret})({call})')};"] + post
         raise AsmUnsupported(f"a call whose result is {ret}")
 
-    def indirect(self, value: str, at: int) -> list[str]:
+    def indirect(self, value: str, at: int, float_result: bool = False) -> list[str]:
         """A call through a code address: the registers as eight integers (and eight floats when the
         function sets any argument float), the result as an integer, or a float when the code after
-        reads $f0 before it writes it."""
+        reads $f0 before it writes it (or `float_result`: the callee's declaration returns one)."""
         floats = any(r in self._float_writes() for r in FARG_REGS)
-        ret = "float" if self._reads_f0_after(at) else "int"
+        ret = "float" if float_result or self._reads_f0_after(at) else "int"
         params = ["openrac_u64"] * 8 + (["float"] * 8 if floats else [])
         args = [self.R(r) for r in ARG_REGS] + ([f"f{r}" for r in FARG_REGS] if floats else [])
         t = f"{ret} (*)({', '.join(params)})"
