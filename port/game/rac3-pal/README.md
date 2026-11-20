@@ -351,7 +351,7 @@ share most of them, but have their own DrawTfrag, tie and shrub passes and MobyP
 level 39's (`func_L39_...`, `OPENRAC_LDATA(39, ...)`). `IDENTIFIED.tsv` has each function and its
 Going Commando pair.
 
-The extracted levels are the shared export (`editor/extract.py port`), format 10 for this game
+The extracted levels are the shared export (`editor/extract.py port`), format 11 for this game
 (`editor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
 sky's shells and its panorama, collision, (5) Ratchet's mesh and textures from his first pack
 (`editor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
@@ -359,8 +359,8 @@ draws him with, and (6) the terrain and shrubs lit as the game lights them at lo
 colours per vertex, as Going Commando's (`games.py` `world_lighting`, `UYA_TIE`): the lighting
 routines are Going Commando's instructions, and the (cos, sin) table they light by is in each
 level's own program, not the loader the disc boots (`lighting.program_normal_table`). Against Going
-Commando's format 20 it lacks the enhanced renderer's bake inputs (gameplay copy, emissions,
-liquids). (7) adds his wrench (pack 31, class 71), the banks of what he holds and his
+Commando's format 20 it lacks two of the enhanced renderer's bake inputs (emissions, liquids).
+(7) adds his wrench (pack 31, class 71), the banks of what he holds and his
 ship's three hulls and 32 paint jobs (class 3412), where Veldin's copies of Going Commando's
 loaders read them (`wads.RAC3_PAL`). (8) adds the chrome and glass maps the metal packets are drawn
 with, from the GS RAM lump's stash as Going Commando's (`games.py` `maps_in_textures`: the core
@@ -369,7 +369,8 @@ light sets and their bangles as classes of their own (`moby_glow_tail`, `moby_li
 `moby_bangles`): the profile draws a moby's bangles by its bangle word (+0x7C), as Going
 Commando's. (10) adds his other 30 looks, packs 1 to 30, as classes 6001 to 6030: the profile
 draws class 0 as the look of the armour at `0x001D4B60`, or of the skin byte at `0x001427AB` when it
-is set, as LoadPlayerDisplayTextures picks the pack.
+is set, as LoadPlayerDisplayTextures picks the pack. (11) adds the gameplay copy the probe baker
+plans enhanced lighting from (`bake-inputs/gameplay.bin`), as Going Commando's 18.
 
 To look at a level without the game (no game code runs; the viewer's own camera):
 
@@ -382,7 +383,34 @@ What a level's picture still lacks (Veldin, 2026-11-20, hidden runs on box2 with
 `OPENRAC_RAC3_NEXT=60:1`): the sky, terrain, ties, shrubs, fog and the live mobys (Ratchet posed
 and animated) draw natively with the game's camera, but
 
-- water, shadows and the enhanced renderer's inputs.
+- water and lava: no level with any loads yet, so whether this game's liquids reach the window as
+  the effect strips Going Commando's do is not known.
+
+### Shadows, enhanced graphics and texture packs
+
+The mobys' shadows are Going Commando's shadow volumes (`profile.cpp`): MobyProc (Veldin's
+`0x00441B78`) copies the four directions the window casts them along from the loaded level's copy of
+Going Commando's `0x1B1B90` (Veldin's `0x001E0070`, the multiplayer maps' `0x002935A0`), and every
+moby with mode `0x400` and a slab across its up axis (`+0x70`, `+0x74`) casts one, Ratchet with
+them.
+
+Enhanced graphics (probe GI, sun cascades, his shadow map, GTAO, AgX, volumetrics) draw this game as
+Going Commando's (`docs/port/RAC2_NOTES.md`, Enhanced graphics): format 11 keeps the gameplay copy
+the baker plans from (`bake-inputs/gameplay.bin`, tag `rac3-v1`; the gameplay header is Going
+Commando's, `assets/world/gameplay.cpp`), and local grids grow from Ratchet, the vendor and the
+crates (`port/enhanced/lighting/profiles/rac3`, the same class numbers as Going Commando's).
+
+```sh
+port/build/enhanced/openrac-enhanced-baker --bake-all --levels-dir <levels> --output-dir <data>/probes/pal --jobs 0
+OPENRAC_GL_API=vulkan OPENRAC_ENHANCED=1 port/build/enhanced/openrac-rac3-pal --data <data> \
+  --levels <levels> --probes <data>/probes/pal --window
+```
+
+Not carried yet: a reviewed catalog of glowing textures and the levels' sun profiles
+(`probe-emission.json`, `probe-bake.json`, Going Commando's format 19), and liquid surfaces as bake
+inputs (its 20). Texture packs (`docs/port/TEXTURE_PACKS.md`) work as in the other games: the
+pictures in `<data>/texture_packs/rac3-pal/` replace the world's, the mobys', the sky's and the
+interface's textures.
 
 ## What is missing
 
