@@ -434,6 +434,29 @@ public:
 
     std::optional<std::uint32_t> pause_mode() const override { return 4; }
 
+    // A frame between ticks moves each effect quad and particle that carries an id (PartProc's
+    // pool slot, host/render.c) part way from its last tick's place, with the mobys' fraction, as
+    // Going Commando's.
+    bool interpolates_effect_quads() const override { return true; }
+
+    // The ties' and shrubs' words, named in Veldin's program and relocated to the loaded level's
+    // copy (scenery_matrices_level): the ties' matrices gp + 0x462C and records gp + 0x4624 (the
+    // tie colour pass 0x004B6ED0 and TieProc 0x004B3590, at Going Commando's gp + 0x31CC and
+    // + 0x31C4's instructions), the shrubs' matrices gp + 0x4520 and records gp + 0x4518 (LightShrubs
+    // 0x004A75E0 and ShrubProc 0x004A5A60, Going Commando's gp + 0x30B0 and + 0x30A8). Veldin's
+    // $gp is 0x001DC8B0 (MobyProc's cap, $gp + 0x37A0, is 0x001E0050). The rest is where Going
+    // Commando keeps it from those words: CullAndEmitTfrags (0x004B1800) reads the terrain's
+    // records and count at gp + 0x45E0 and + 0x45E4 and its far cap at gp + 0x4610, ShrubProc its
+    // cap at gp + 0x4528; TieProc's cap, gp + 0x4664, is 0x40 past the records' word, not 0x48.
+    // The scenery the window draws is culled by them as the game's draw distance says.
+    std::array<std::uint32_t, 4> scenery_matrices() const override {
+        return {0x001E0EDC, 0x001E0DD0, 0x001E0ED4, 0x001E0DC8};
+    }
+
+    int scenery_matrices_level() const override { return 1; }
+
+    std::uint32_t tie_cap_after_records() const override { return 0x40; }
+
     // The pad's read (boot 0x003A31C8): |byte - 0x7F| from 0x30, over 76, as Going Commando's.
     std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }
 

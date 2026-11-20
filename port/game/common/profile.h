@@ -277,6 +277,15 @@ public:
     // bit 0 hidden, the point lights' list at +0x1E); 0 for none.
     virtual std::array<std::uint32_t, 4> scenery_matrices() const { return {0, 0, 0, 0}; }
 
+    // The level whose program scenery_matrices() names its words in, each relocated to the loaded
+    // level's copy (OPENRAC_LDATA): Up Your Arsenal's levels each carry their own engine, and its
+    // executable none; -1 for the executable's addresses (openrac_relocate_data), Going Commando's.
+    virtual int scenery_matrices_level() const { return -1; }
+
+    // Where TieProc's cap on the ties' draw distance is, past the word that points at the ties'
+    // records (scenery_matrices()[2]): Going Commando's gp + 0x320C, 0x48 past it.
+    virtual std::uint32_t tie_cap_after_records() const { return 0x48; }
+
     // Whether the world's depth is precise (renderer/gl/precise_depth.h): reversed Z in a 32-bit float
     // buffer, clip-space z to the window as it is, where the context has glClipControl (OpenGL 4.5,
     // ARB_clip_control, the Vulkan backend; not macOS's OpenGL 4.1). Going Commando's Maktar dome
