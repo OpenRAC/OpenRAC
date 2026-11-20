@@ -1,0 +1,5 @@
+# rac3-pal's tables/split_places.tsv at NTSC-U's places (config/us/levels/functions.tsv): the
+# multiplayer maps' copies of the font width wrapper (func_L01_00410820, PAL func_L01_00412E50)
+# call another routine, whose int their callers read in $v0.
+# function	variant	places
+func_L01_00410820	func_L39_005187A0	39:005187A0,40:00469348,41:0046AE38,42:00461C78,43:0045F888,44:0045EBC8,45:0045C378,46:0045CE30,47:0045F670,48:0045E9B0,49:0045E2F0,50:0047A348,51:0047BE38,52:00472C78,53:00470888

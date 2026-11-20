@@ -66,6 +66,7 @@
   ],
   "candidates": "nonmatching/functional.tsv",
   "places": "config/us/levels/functions.tsv",
+  "split_places": "tables/split_places.tsv",
   "place_kinds_as_levels": [
     "frontbin"
   ],
@@ -289,7 +290,7 @@
       "func_L01_0040CFE8": "float (float, float)",
       "func_L01_0040FFE8": "float (int, int, int, float)",
       "func_L01_00410800": "int (void)",
-      "func_L01_00410820": "int (int, int, int, float)",
+      "func_L01_00410820": "float (int, int, int, float)",
       "func_L01_00417B48": "int (void)",
       "func_L01_00418238": "int (int)",
       "func_L01_00434A78": "int (int)",
@@ -535,7 +536,8 @@
       "func_L01_004CEB08": "float (float, float, float, float, float)",
       "func_L01_00410078": "int (int, int, int)",
       "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
-      "func_L01_003E7478": "void (unsigned int, unsigned int, unsigned int)"
+      "func_L01_003E7478": "void (unsigned int, unsigned int, unsigned int)",
+      "func_L39_005187A0": "int (int, int, int, float)"
     },
     "discover_entries": true,
     "dirs": [],

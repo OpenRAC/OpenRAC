@@ -1,0 +1,9 @@
+# Places the catalogue folded into one function by their fingerprint although they are other code
+# (program.py read_split_places): each variant gets its places as its own name, and calls to the
+# function are resolved through the caller's own jal (lower.py).
+# The level font width wrapper: in the story levels func_L01_00412E50 calls func_L01_00412618, which
+# hands back a float in $f0; in the multiplayer maps the same wrapper calls another routine
+# (level 39's 0x00519EB8), whose result their callers read in $v0 (func_L39_004B9218 tests it
+# with bgez).
+# function	variant	places
+func_L01_00412E50	func_L39_005189A0	39:005189A0,40:0046AEB8,41:0046CA68,42:00463868,43:004613F8,44:00460738,45:0045DF68,46:0045E860,47:004610E0,48:004603E0,49:0045FD60,50:0047BEB8,51:0047DA68,52:00474868,53:004723F8

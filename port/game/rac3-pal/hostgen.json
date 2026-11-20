@@ -49,6 +49,7 @@
   ],
   "candidates": "nonmatching/functional.tsv",
   "places": "config/levels/functions.tsv",
+  "split_places": "tables/split_places.tsv",
   "place_kinds_as_levels": [
     "frontbin"
   ],
@@ -268,7 +269,7 @@
       "func_L01_0040F518": "float (float, float)",
       "func_L01_00412618": "float (int, int, int, float)",
       "func_L01_00412E30": "int (void)",
-      "func_L01_00412E50": "int (int, int, int, float)",
+      "func_L01_00412E50": "float (int, int, int, float)",
       "func_L01_0041A198": "int (void)",
       "func_L01_0041A910": "int (int)",
       "func_L01_00437B38": "int (int)",
@@ -521,7 +522,8 @@
       "func_L01_0040F4E0": "float (float, float)",
       "func_L01_004C61A0": "long long (int, int, int, int)",
       "func_L01_004D27C8": "float (float, float, float, float, float)",
-      "func_L01_004126A8": "int (int, int, int)"
+      "func_L01_004126A8": "int (int, int, int)",
+      "func_L39_005189A0": "int (int, int, int, float)"
     },
     "discover_entries": true,
     "dirs": [],
