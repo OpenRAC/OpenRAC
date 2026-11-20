@@ -237,3 +237,8 @@ func_0038C628	draw	DrawShadedBox	wrap	a box shaded from left to right, the opcod
 func_0038B310	draw	DrawFlatBox	wrap	a box of flat colour, the opcode sequence of rac2-ntsc func_0027DE50: drawn natively (host/ui2d.c)
 func_003AA780	gui	DrawWidgetSprite	wrap	a Widget3D sprite (the menus' frames and art): its quads become records in their place (host/ui2d.c)
 func_0011B2E8	libc	sprintf	host	newlib's sprintf (it saves $a2-$t3 and $f12-$f19 and walks them): formatted by the port (host/print.c), as rac2-ntsc's func_00115DA8	int (unsigned int, unsigned int, ...)
+func_003983C8	options	rac3FrontEndStartup	wrap	the front end's start-up (it sets the language from the console's): then the options a console forgets get the remembered ones and the port's frame hook goes in (host/options.c)	int (void)
+func_003B63D0	options	rac3OptionsRowsText	wrap	the Options page's rows' names and values into the list's cells each frame: the port's rows while its Video page shows, the 16:9 row named Video (host/options.c)	int (void)
+func_003B6090	options	rac3OptionsPreview	wrap	the Options page's preview following the cursor: none on the Video row and page (host/options.c)	void (void)
+func_003B5F78	options	rac3OptionsButtons	wrap	the Options page's buttons: Cross on the Video row opens the port's page, whose rows Cross, Left and Right step and Triangle leaves (host/options.c)	void (int, int)
+func_003B6588	options	rac3OptionsWidescreen	wrap	the 16:9 row's action: kept off, the port's Video page has its place (host/options.c)	void (void)
