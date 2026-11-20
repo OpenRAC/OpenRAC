@@ -70,7 +70,7 @@ int main() {
         api.moby_material(first, 0, OPENRAC_MOBY_MATERIAL_PLATINUM, 0xFFFFFF)
         == OPENRAC_HOOK_UNKNOWN
     );
-    CHECK(api.moby_material(first, kCoin, 3, 0xFFFFFF) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.moby_material(first, kCoin, 4, 0xFFFFFF) == OPENRAC_HOOK_UNKNOWN);
     CHECK(
         api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_TINT, 0x1000000)
         == OPENRAC_HOOK_UNKNOWN
@@ -108,6 +108,23 @@ int main() {
     CHECK(material_of(mods::moby_materials({{kCoin, kBolt}}), kCoin).rgb == 0x80FF80);
     // A tint is no platinum.
     CHECK(openrac_moby_platinum(kCoin) == 0);
+    CHECK(openrac_moby_obsidian(kCoin, nullptr) == 0);
+
+    // Obsidian (1.24): drawn, with its glow colour for the game's own effects of the moby; the
+    // last set wins over another mod's tint, and is no platinum.
+    CHECK(
+        api.moby_material(second, kCoin, OPENRAC_MOBY_MATERIAL_OBSIDIAN, 0x9020FF)
+        == OPENRAC_HOOK_OK
+    );
+    list = mods::moby_materials({{kCoin, kBolt}});
+    CHECK(list.size() == 1 && material_of(list, kCoin).material == OPENRAC_MOBY_MATERIAL_OBSIDIAN);
+    std::uint32_t glow = 0;
+    CHECK(openrac_moby_obsidian(kCoin, &glow) == 1 && glow == 0x9020FF);
+    CHECK(openrac_moby_obsidian(kCoin, nullptr) == 1);
+    CHECK(openrac_moby_obsidian(kOther, &glow) == 0 && glow == 0x9020FF);
+    CHECK(openrac_moby_platinum(kCoin) == 0);
+    CHECK(api.moby_material(second, kCoin, OPENRAC_MOBY_MATERIAL_NONE, 0) == OPENRAC_HOOK_OK);
+    CHECK(openrac_moby_obsidian(kCoin, nullptr) == 0);
     mods::drop_figures(first);
     CHECK(mods::moby_materials({{kCoin, kBolt}}).empty());
 
