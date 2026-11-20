@@ -76,7 +76,9 @@ FORMAT = 4
 # and sun profiles (probe-bake.json) the baker reads, from port/enhanced/lighting/profiles/rac2-ntsc.
 # 20: the liquid surfaces the baker lights from (bake-inputs/liquids.json and their effect textures,
 # manifest bake_inputs "liquids").
-GAME_FORMATS = {"rac2": 20}
+# Up Your Arsenal, 5: Ratchet's mesh and textures from his first pack (wads.RAC3_PAL), where 4 had
+# none for class 0.
+GAME_FORMATS = {"rac2": 20, "rac3": 5}
 
 
 def levels_format(game: str) -> int:

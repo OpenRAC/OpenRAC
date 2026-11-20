@@ -382,6 +382,8 @@ def hero_files(level: Level, source) -> None:
     level.hero_mesh, pack = source.hero_pack()
     for i, texture in enumerate(hero_textures(pack)):
         level.textures[("moby", HERO_TEXTURES + i)] = texture
+    if not source.version.item_banks:
+        return  # Up Your Arsenal: only his first pack is known so far (wads.RAC3_PAL)
     for number in range(1, source.version.hero_armours):
         mesh, pack = source.hero_pack(number)
         level.hero_looks.append((number, mesh))
