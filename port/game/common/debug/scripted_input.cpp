@@ -66,6 +66,10 @@ void push_pointer(const ScriptedInput& input, SDL_WindowID window) {
     }
 
     s.script_pointer = ImVec2{input.x, input.y};
+    // SDL's own cursor goes there too: a pushed event leaves SDL_GetMouseState where it was.
+    if (SDL_Window* w = SDL_GetWindowFromID(window)) {
+        SDL_WarpMouseInWindow(w, input.x, input.y);
+    }
     event.type = SDL_EVENT_MOUSE_MOTION;
     event.motion.windowID = window;
     event.motion.which = kScriptMouse;

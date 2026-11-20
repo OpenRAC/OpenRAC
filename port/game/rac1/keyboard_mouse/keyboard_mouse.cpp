@@ -198,6 +198,12 @@ std::int32_t s_follow_locks = 0;
 // A click on an item not yet focused: the ticks until Cross, once the focus has moved, and the
 // buttons it presses.
 int s_click_wait = 0;
+
+// The vendor's strip row a click asked for (-1 none), the steps left to get there, and whether the
+// click's button is still down (its confirm then presses nothing more).
+int s_vendor_target = -1;
+int s_vendor_tries = 0;
+bool s_vendor_click_held = false;
 std::uint16_t s_click_button = 0;
 
 // The game's own functions the camera's reset calls, found by load().
@@ -336,6 +342,27 @@ bool pressed_now(const Tick& t, Action a) {
         // A set bind, whose input counts where the mouse does, that went down this tick.
         if (b != 0 && !(kbm::is_mouse(b) && !(menu ? t.pointer : t.play))
             && openrac_bind_pressed(t.in, b)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Whether one of an action's mouse binds is down (`now`: went down this tick), with the cursor over
+// the game out of play: a click, not the same action from a key.
+bool mouse_bind(const Tick& t, Action a, bool now) {
+    // The port's overlay takes the input, and the mouse counts only with the cursor over the game.
+    if (t.in->overlay != 0 || !t.pointer) {
+        return false;
+    }
+
+    // Look at each of the action's binds.
+    for (int b : s_binds.of(a)) {
+        // A mouse bind that is down (or went down this tick).
+        if (b != 0 && kbm::is_mouse(b)
+            && (now ? openrac_bind_pressed(t.in, b)
+                    : openrac_bind_held(t.in, b) || openrac_bind_pressed(t.in, b))) {
             return true;
         }
     }
@@ -726,8 +753,8 @@ bool menu_mouse(const Tick& t, bool click) {
     }
 
     // Elsewhere (and over a grid) the mouse's motion steps the d-pad, except on the title, which
-    // has nothing to step.
-    if (moved && t.where != Context::Title) {
+    // has nothing to step, and at the vendor, where the mouse points (vendor_mouse).
+    if (moved && t.where != Context::Title && t.where != Context::Vendor) {
         const std::uint16_t dir = s_stepper.step(in->mouse_dx, in->mouse_dy);
 
         // A step of the d-pad was due: press it.
@@ -737,6 +764,71 @@ bool menu_mouse(const Tick& t, bool click) {
     }
 
     return true;
+}
+
+// ---- The mouse at the vendor ----
+
+// The vendor's screen, its monitors in the scene (kbm::vendor_hit): a click on the Buy monitor
+// presses Cross, on the Exit monitor Triangle, on an icon of the strip the d-pad steps the
+// selection to it, a step at a time as the game takes them. A click elsewhere presses nothing.
+// Returns the button the click presses, 0 for none.
+std::uint16_t vendor_mouse(const Tick& t, bool click) {
+    const gaddr v = s_mod->relocate_level(0, s_disc->vendor);
+    const bool open = read<std::int32_t>(v + KBM_VENDOR_STATE) == KBM_VENDOR_OPEN;
+    const std::int32_t count = read<std::int32_t>(v + KBM_VENDOR_ROWS);
+    const std::int32_t cursor = read<std::int32_t>(v + KBM_VENDOR_CURSOR);
+    const bool buying = read<std::int32_t>(v + KBM_VENDOR_PURCHASE) != 0;
+
+    // Opening, closing, or rows that make no sense: the mouse does nothing.
+    if (!open || count <= 0 || count > 16 || cursor < 0 || cursor >= count) {
+        s_vendor_target = -1;
+        return 0;
+    }
+
+    // A purchase under way reads left and right as the amount: no steps then.
+    if (buying) {
+        s_vendor_target = -1;
+    }
+
+    // On the way to a clicked icon: the next step once the last one is done.
+    if (s_vendor_target >= 0 && s_pulses.idle()) {
+        const std::uint16_t dir = kbm::vendor_step(cursor, s_vendor_target, count);
+
+        // There, or out of tries (the game takes no steps while the strip slides too far).
+        if (dir == 0 || s_vendor_tries-- <= 0) {
+            s_vendor_target = -1;
+        } else {
+            s_pulses.push(dir);
+        }
+    }
+
+    // Only a click does more.
+    if (!click) {
+        return 0;
+    }
+
+    const kbm::VendorHit hit = kbm::vendor_hit(
+        t.in->pointer_x, t.in->pointer_y, count, cursor, read<std::int32_t>(v + KBM_VENDOR_SCROLL)
+    );
+
+    // The monitor clicked: its button, or the icon's row to step to.
+    switch (hit.spot) {
+        case kbm::VendorSpot::Buy:
+            return kbm::kCross;
+        case kbm::VendorSpot::Exit:
+            return kbm::kTriangle;
+        case kbm::VendorSpot::Item:
+            // Not while a purchase is under way, and not the selected icon.
+            if (!buying && hit.steps != 0) {
+                s_vendor_target = ((cursor + hit.steps) % count + count) % count;
+                s_vendor_tries = 2 * count + 8;
+            }
+            return 0;
+        case kbm::VendorSpot::None:
+            break;
+    }
+
+    return 0;
 }
 
 // ---- The camera from the mouse ----
@@ -1101,6 +1193,8 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
         s_pulses.clear();
         s_stepper.reset();
         s_click_wait = 0;
+        s_vendor_target = -1;
+        s_vendor_click_held = false;
     }
 
     const bool map = map_focused(t);
@@ -1109,9 +1203,27 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     const bool click = t.pointer && (held & kbm::bit(Action::MenuConfirm)) != 0
                        && pressed_now(t, Action::MenuConfirm);
 
-    // Out of play the mouse points at the menus; a click that must wait is held back, and pressed
-    // again once the focus has moved.
-    if (!play) {
+    // At the vendor a click presses the button of the monitor it is on, and nothing elsewhere; its
+    // confirm stays off while the mouse's button is down.
+    if (t.where == Context::Vendor && t.pointer && s_menu_mouse) {
+        const bool mouse_click = click && mouse_bind(t, Action::MenuConfirm, true);
+        const std::uint16_t button = vendor_mouse(t, mouse_click);
+        s_vendor_click_held = mouse_click || s_vendor_click_held;
+
+        // The click's button is still down: it is not the game's Cross.
+        if (s_vendor_click_held && mouse_bind(t, Action::MenuConfirm, false)) {
+            held &= ~kbm::bit(Action::MenuConfirm);
+        } else {
+            s_vendor_click_held = false;
+        }
+
+        // The monitor's button, once.
+        if (button != 0) {
+            s_pulses.push(button);
+        }
+    } else if (!play) {
+        // Out of play the mouse points at the menus; a click that must wait is held back, and
+        // pressed again once the focus has moved.
         // A click on an item not yet focused is not pressed yet.
         if (!menu_mouse(t, click)) {
             held &= ~kbm::bit(Action::MenuConfirm);
@@ -1313,6 +1425,8 @@ void reset_state() {
     s_asked_capture = -1;
     s_reset_ticks = 0;
     s_click_wait = 0;
+    s_vendor_target = -1;
+    s_vendor_click_held = false;
     s_follow_dx = 0.0f;
     s_follow_dy = 0.0f;
     s_follow_tick = kNoTick;

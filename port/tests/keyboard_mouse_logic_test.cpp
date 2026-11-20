@@ -709,6 +709,34 @@ void menu_mouse() {
     );
 }
 
+// The vendor's monitors under the pointer (window places of a 640x480 run).
+void vendor() {
+    const auto at = [](float wx, float wy, int count, int cursor, int scroll = 0) {
+        return kbm::vendor_hit(wx / 640.0f, wy / 480.0f, count, cursor, scroll);
+    };
+
+    CHECK(at(115, 311, 2, 1).spot == kbm::VendorSpot::Buy);
+    CHECK(at(527, 309, 2, 1).spot == kbm::VendorSpot::Exit);
+    CHECK(at(320, 200, 2, 1).spot == kbm::VendorSpot::None);
+    // Two rows: the ammo icon left of the selected one, and the selected one.
+    CHECK(at(286, 420, 2, 1).spot == kbm::VendorSpot::Item && at(286, 420, 2, 1).steps == -1);
+    CHECK(at(355, 420, 2, 1).spot == kbm::VendorSpot::Item && at(355, 420, 2, 1).steps == 0);
+    // Off the narrow monitor of two rows, but on the wider one of seven.
+    CHECK(at(450, 420, 2, 1).spot == kbm::VendorSpot::None);
+    CHECK(at(450, 420, 7, 0).spot == kbm::VendorSpot::Item && at(450, 420, 7, 0).steps == 5);
+    // Many rows: the middle is the selected one, a slot to the right one step on.
+    CHECK(at(320, 420, 12, 3).steps == 0 && at(320, 420, 12, 3).spot == kbm::VendorSpot::Item);
+    CHECK(at(390, 420, 12, 3).steps == 1);
+    CHECK(at(250, 420, 12, 3).steps == -1);
+    CHECK(at(320, 420, 0, 0).spot == kbm::VendorSpot::None);
+
+    CHECK(kbm::vendor_step(1, 1, 2) == 0);
+    CHECK(kbm::vendor_step(1, 0, 2) == kbm::kLeft);
+    CHECK(kbm::vendor_step(0, 4, 7) == kbm::kRight);
+    CHECK(kbm::vendor_step(0, 11, 12) == kbm::kLeft);  // round the end
+    CHECK(kbm::vendor_step(10, 1, 12) == kbm::kRight);
+}
+
 // The action each button icon stands for (key prompts), in the cells' order.
 void prompts() {
     using kbm::Action;
@@ -934,6 +962,7 @@ int main(int argc, char** argv) {
     buttons();
     press_edges();
     menu_mouse();
+    vendor();
     prompts();
     edges();
 

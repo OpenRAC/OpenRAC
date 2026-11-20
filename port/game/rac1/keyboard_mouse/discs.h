@@ -48,6 +48,8 @@ typedef struct kbm_disc {
      * texture table, where the game's fonts are (key_prompts.h). */
     uint32_t font_bank;
     uint32_t font_table;
+    /* Level 0's program's, through relocate_level_data(0, ...): the vendor's state (VendorMenu). */
+    uint32_t vendor;
 } kbm_disc;
 
 /* A menu page (page_menu +4): its focused widget, its widgets, the widget it moves to next. */
@@ -103,6 +105,15 @@ typedef struct kbm_disc {
 /* The first-person view's state: how far it looks down (radians). */
 #define KBM_FIRST_PERSON_TILT 0x10u
 
+/* The vendor's state (VendorMenu, vendor_menu.h): open (1) or not, the strip's slide, the
+ * selected row, the purchase under way (0 none) and the rows. */
+#define KBM_VENDOR_STATE 0x00u
+#define KBM_VENDOR_OPEN 1
+#define KBM_VENDOR_SCROLL 0x4Cu
+#define KBM_VENDOR_CURSOR 0x58u
+#define KBM_VENDOR_PURCHASE 0x5Cu
+#define KBM_VENDOR_ROWS 0x210u
+
 /* In the hero, on both discs. */
 #define KBM_HERO_FACING 0x98u    /* f32: the way he faces (rot.z) */
 #define KBM_HERO_ITEM 0x10B8u    /* i32: the item in hand (items[0].item_id) */
@@ -110,6 +121,8 @@ typedef struct kbm_disc {
 #define KBM_HERO_VEHICLE 0x20A4u /* u8: 0 on foot */
 #define KBM_HERO_PENDING 0x20B8u /* i32: the item to take next (what the Quick Select writes) */
 
+/* One field a line, in kbm_disc's order. */
+/* clang-format off */
 static const kbm_disc k_kbm_discs[] = {
     {"pal",
      0x0013F450u,
@@ -129,7 +142,8 @@ static const kbm_disc k_kbm_discs[] = {
      "func_0021BB90",
      0x00160390u,
      0x0015F560u,
-     0x0018D540u},
+     0x0018D540u,
+     0x001CA7C0u},
     {"ntsc",
      0x0013F350u,
      0x00141EA0u,
@@ -148,7 +162,9 @@ static const kbm_disc k_kbm_discs[] = {
      "FUN_0021abf8",
      0x00160290u,
      0x0015F460u,
-     0x0018D440u},
+     0x0018D440u,
+     0x001CA4C0u},
 };
+/* clang-format on */
 
 #endif /* KBM_DISCS_H */
