@@ -110,6 +110,10 @@
   "func_0012B180": {
    "is": "func_0012B180",
    "why": "the hand C's function between func_0012B0D8 and func_0012B198, which the catalogue lists at the same addresses in both releases; the same bytes from 0x0012B134 to 0x0012B198 in both executables"
+  },
+  "func_V1_L01_00321178": {
+   "is": "func_L01_00323068",
+   "why": "PAL has its own C of moby_l01_turn_toward_target (func_PAL_L01_00323068, the same fingerprint), so the view marks v1.01's func_V1_, a stub with no C. The entry hooks the overrides carry (0x003D2898 in level 2, 0x00448968 in 6, 0x00409F00 in 9) jal this function's copy in their level on the disc (0x003335E0, 0x0036E2B0, 0x00329DF0). With the stub, PAL's dropped Chickenbots hung in the air"
   }
  },
  "hand": {
