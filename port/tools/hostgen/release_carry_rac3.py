@@ -50,6 +50,7 @@ LADDR = re.compile(r"\bRAC3_LADDR\(\s*(\d+)\s*,\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
 HOST_DEF = re.compile(r"^((?:unsigned |signed )?(?:void|int|float|gaddr|unsigned int|long long|unsigned long long|"
                       r"uint32_t|int32_t)) (func_L\d\d_[0-9A-F]{8})\(([^)]*)\)\s*\{", re.M)
 ALIAS = re.compile(r"(func_[0-9A-F]{8})(_[0-9A-F]{8})")
+RESIDENT_END = 0x001D5680  # below: the engine core, at the same addresses on both discs
 LITERAL = re.compile(r"\b0x(00[1-3][0-9A-Fa-f]{5})u?\b")  # an address of the executable's memory
 SHARED_SUFFIXES = ("game",)  # a wrap's own body: the same program as the plain name
 
@@ -133,6 +134,11 @@ class Names:
         else:
             table, which = self.boot, "boot"
         if base not in table:
+            # A PAL function map.tsv has no row for, outside the resident core (which keeps PAL's
+            # addresses): its PAL spelling is another function's on NTSC-U (PAL's func_0038D0A8 is
+            # not NTSC-U's func_0038D0A8, the twin of PAL's func_0038D160), so it is PAL's own.
+            if level or int(address, 16) >= RESIDENT_END:
+                return name.replace("func_", "func_PAL_", 1), "none"
             return name, None
         new = table[base]
         return new + (f"__{suffix}" if suffix else ""), self.status.get((which, base))
@@ -263,8 +269,17 @@ def main(argv: list[str] | None = None) -> int:
     # hostgen.json: PAL's, renamed, then the release's own keys.
     primary = json.loads((PRIMARY / "hostgen.json").read_text())
     carried = rename_json(copy.deepcopy(primary), names)
+    # The candidates left out are named as the release view names the candidates' files: a PAL
+    # name with no map row keeps its spelling there.
+    if "candidates_left_out" in primary:
+        carried["candidates_left_out"] = {
+            (lambda new: k if new.startswith("func_PAL_") else new)(names.function(k)[0]) if one_name(k) else k: v
+            for k, v in primary["candidates_left_out"].items()}
     report["hostgen_left_out"] = {}
+    kept = carried.pop("candidates_left_out", None)
     carried = leave_out_absent(carried, names, report["hostgen_left_out"])
+    if kept is not None:
+        carried["candidates_left_out"] = kept
     out = {"about": "Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/hostgen.json, "
                     "config/us/map.tsv and release/release.json; do not edit by hand (release_carry.json "
                     "says what rests on less than the same code)."}
