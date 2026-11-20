@@ -198,6 +198,7 @@ enum class Var : std::uint16_t {
     Trace,
     TraceCd,
     TraceInput,
+    TraceMc,
     TraceMissing,
     TraceRelocation,
     TraceSif,

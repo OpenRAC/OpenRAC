@@ -169,3 +169,23 @@ for it.
   `OPENRAC_AUDIO_TICKED=1 OPENRAC_AUDIO_DUMP=out.wav OPENRAC_SOUND_LOG=1` captures and logs it.
 - **A level**: see [The next program](#the-next-program).
 - The memory card works through the shared `sceMc*`; saving is untested.
+- **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's
+  `frontbin` group and `relocate` are not set up for them.
+- Saving from a level: the memory card works through the shared `sceMc*` (below), but no level
+  loads yet, so the game's own saves in a level are untested.
+
+## The memory card
+
+The game's own card code runs as it is on the shared library (`port/game/common/lib/mc.c`), the
+card being a folder (`--cards`, by default `<data home>/memcard/SCES_524.56`). It checks the card
+when it starts and reads Ratchet & Clank's and Going Commando's saves from the folders beside it.
+New Game on a card without its save asks to create one (Yes is **Circle**, No Triangle), which
+writes `BESCES-52456RATCHET/` (`icon.sys`, `static.ico`, `net.bin`, `save0.bin` to `save3.bin`
+and a file named as the folder); the Load page lists the four slots and reads the chosen save
+whole. `host/save_format.h` is the save's layout (launcher/docs/RAC3_SAVE_FORMAT.md) and
+`host/play.c` tells the shared code which files are saves. `OPENRAC_TRACE_MC=1` prints every card
+command; `OPENRAC_RAC3_CHAINS` also prints the card machine's state and its dialog.
+
+Two translations were wrong on the card's path and are left to their assembly: the scratch buffer
+allocator (`func_003932E8`, whose NTSC-U draft reads NTSC-U's address of the buffer's top) and the
+menu pages' callback callers (`func_003E73D0` and four more, which pass the page on in a0).

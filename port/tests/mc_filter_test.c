@@ -42,15 +42,22 @@ int openrac_game_no_card;
 const char* openrac_game_loaded_mods = "[{\"id\": \"multiplayer\", \"version\": \"1\"}]";
 void (*openrac_game_save_written)(const char* path, int players);
 void (*openrac_game_save_read)(const char* path, int slot);
+
+/* No environment: OPENRAC_TRACE_MC stays off. */
+const char* openrac_env_string(const char* name) {
+    (void)name;
+    return NULL;
+}
+
 static int host_save_info(
     const uint8_t* save, uint32_t size, int32_t* level, int32_t* bolts, int32_t* gold, int32_t* secs
 ) {
     *level = *bolts = *gold = *secs = 0;
     return size == SAVE_SIZE && save[0] == 'S';
 }
-static const openrac_game_play host = {
-    .save_file = "save%d.bin", .save_slots = 5, .save_info = host_save_info
-};
+
+static const openrac_game_play host =
+    {.save_file = "save%d.bin", .save_slots = 5, .save_info = host_save_info};
 const openrac_game_play* openrac_game_play_host = &host;
 
 /* The guest memory: names and buffers the game hands the library. */

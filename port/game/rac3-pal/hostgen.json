@@ -51,13 +51,13 @@
     "nonmatching/boot_elf": "src/boot_elf",
     "nonmatching/frontbin": "src/frontbin"
   },
-    "candidates_left_out": {
+      "candidates_left_out": {
     "func_003B8430": "Clang cannot read it: use of undeclared identifier 'D_001D8A40' (rac3-decomp master)",
     "func_003EDF58": "Clang cannot read it: use of undeclared identifier 'O_3E8420' (rac3-decomp master)",
     "func_003F1F28": "Clang cannot read it: use of undeclared identifier 'D_001D9698' (rac3-decomp master)",
-
     "func_0038E530": "the font select: the US draft's fixed addresses of the font's page and palette tables (0x320000 - 0x3030 and - 0x2FB0) are NTSC-U's, 0x80 past PAL's 0x0031CF50 and 0x0031CFD0, so the prints took a palette for their pages (every glyph blank); the assembly is translated instead",
     "func_003823D0": "the text lookup: its fallback string is $gp - 0x7128 through a register variable, which the host has as 0, so every text came out as a null pointer (the menu's labels empty); the assembly is translated instead",
+    "func_003932E8": "the US draft reads the buffer top at 0x0022760C, US's place; PAL's is 0x0022758C (a save's icon was read over all of memory)",
     "func_00385A98": "Clang cannot read it: it calls func_0038DF00, which it does not declare",
     "func_0038D5B0": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
     "func_003EE310": "Clang cannot read it: it calls func_003EDBE0 with an argument its declaration does not take",
@@ -312,6 +312,11 @@
     "func_003E5CB0",
     "func_003E6730",
     "func_003E6AD8",
+    "func_003E73D0",
+    "func_003E73F8",
+    "func_003E7420",
+    "func_003E7448",
+    "func_003E7470",
     "func_003E9808",
     "func_003EAB30",
     "func_003EC0D8",

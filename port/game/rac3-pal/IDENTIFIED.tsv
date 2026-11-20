@@ -90,6 +90,23 @@ data	D_00C73000	0x00C73000	frontend_assets	786 sectors from sector 673402: a hea
 data	D_00142120	0x00142120	menu_frame_regs	GIF A+D packet: FRAME_1/FRAME_2 = FBP 0xF0 (block 0x1E00), FBW 8: the draw buffer the main menu is drawn in
 code	func_003A9BE8	0x003A9BE8	load_screen_picture	(pixels, frame address in bytes, width, height): puts a picture from EE memory into the frame as 512x32 image transfers at the list cursor 0x001DA050 and returns its TEX0; the main menu calls it each frame with its background (host: picture.c, a texture and a 2D record)
 data	SCES_524.56+0x7080	0x00806080	loader_payload	the game the disc's loader carries, WAD-compressed: 18 records (address, size, type, entry 0x0013ADA8): type 1 code/data (0x00100080 the VU microcode, 0x00116F80 core.text, 0x00381080 .text, the rest data as boot_elf.elf's sections), type 8 zeros (bss 0x00152400, 0x001D9880), 0x70000006 register-use (0x00100000, 0x003F2780); hostgen reads it from the disc (hostgen.json asm loader, retail.py loader_parts)
+code	func_0039C7F0	0x0039C7F0	memcard_update	the memory card's state machine, once a frame from the front end: its block at 0x00142430 (two cards of 0xA0: +0x08 type, +0x0C free clusters, +0x14 formatted, +0x18 s16 the card's save state, +0x30 four slot entries of 0x1C; then +0x144 the last libmc result, +0x14C the card worked on, +0x154 busy, +0x15C step, +0x160 sub-state, +0x164 request (7 check, 0xF save, 0xD...), +0x16C the dialog's reason); needs 600 KB free (free + reserved under 0x258)
+code	func_0039E9C0	0x0039E9C0	save_pack	writes a save: the two section sizes, the global section (table 0x00332388) and 37 level sections (table 0x00332618)
+code	func_0039EA88	0x0039EA88	save_section_size	a table's section size: 8 + each chunk's 8 + size rounded to 4, + 8
+code	func_0039EAC0	0x0039EAC0	save_checksum	rac1's CRC-16 (seed 0xEDB88320, polynomial 0x1F45); 0 for data longer than the global section (14216)
+code	func_0039EB68	0x0039EB68	save_section_check	a section's stored checksum non-zero and equal
+code	func_0039EBA8	0x0039EBA8	save_write_section	one section from a table (entries {address, size, id, status}; id 0x1770 written as zeros): size, checksum, chunks, {-1, 0}
+code	func_0039ECC0	0x0039ECC0	save_slot_info	a slot entry of the card block from a save's global section: level, bolts (progress +0), progress byte +0x32, play time, clock
+code	func_0039ED78	0x0039ED78	save_read_section	copies a section's chunks back into memory by their table; counts unknown ids and other sizes as errors
+code	func_0039F008	0x0039F008	save_request	packs the game into the save buffers 0x001C5BD0 (global) and 0x001CBBD0 (level) and asks the card machine to write (+0x164 = 0xF)
+code	func_003932E8	0x003932E8	scratch_buffer	(size, out): a buffer below the top at 0x0022758C + 0x001DA058 (or the one at 0x001D5C90), -1 for more than 0x40000; the NTSC-U draft reads 0x0022760C
+code	func_003B7748	0x003B7748	save_slot_list_draw	the Load and Save pages' four slots: planet, date, play time (ticks / 216000 hours, 60 ticks a second), bolts
+code	func_0039B1C0	0x0039B1C0	memcard_dialog_update	runs the card dialog's handler from the table 0x003322F8 by its number (0x001D4CE8); flags 0x001D4CEC (0x20 No, 0x2000 Yes, 0x40 ...)
+code	func_003E7420	0x003E7420	page_update_call	calls a menu page's update callback (+0x0C) with the page still in a0 (as func_003E73D0, 73F8, 7448, 7470 for +0x04, +0x08, +0x10, +0x14)
+data	D_00142430	0x00142430	memcard_block	the card machine's block (func_0039C7F0)
+data	D_00332388	0x00332388	save_table_global	the global save table: 40 entries {address, size, id, status}
+data	D_00332618	0x00332618	save_table_level	the per-level save table: 9 entries
+data	D_001D4CE8	0x001D4CE8	memcard_dialog	the card dialog's number (handlers at 0x003322F8; 15 the create-save prompt, Yes on Circle)
 code	func_0013C578	0x0013C578	snd_QueueCommandToRing	(command, size, data, callback, argument): appends to the batch at D_001D4DC0[D_001D4DE0] (u16 command, u16 size, data), the callback and argument to D_001D4DD0, then commits (func_0013C8D0); command 0x68 carries a pointer and length to copy (host: the shared ring, lib/snd_ring.c)
 code	func_0013C8D0	0x0013C8D0	snd_CommitRingEntry	counts the entry in the batch, then snd_Pump
 code	func_0013C908	0x0013C908	snd_FlushCommandRing	sends the current batch with RPC 0x4D and switches to the other batch (0xFFC bytes free)

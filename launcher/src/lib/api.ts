@@ -86,6 +86,9 @@ import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
 import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
 import type { Rac2SaveView } from "./generated/Rac2SaveView";
 import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
+import type { Rac3SaveFields } from "./generated/Rac3SaveFields";
+import type { Rac3SaveView } from "./generated/Rac3SaveView";
+import type { Rac3WriteResult } from "./generated/Rac3WriteResult";
 import type { RawPatch } from "./generated/RawPatch";
 import type { RemoteInstalled } from "./generated/RemoteInstalled";
 import type { RemoteMod } from "./generated/RemoteMod";
@@ -255,6 +258,8 @@ export type {
 };
 
 export type { Rac2SaveFields, Rac2SaveView, Rac2WriteResult };
+
+export type { Rac3SaveFields, Rac3SaveView, Rac3WriteResult };
 
 export type { ModSaveData, ModSaveField };
 
@@ -503,6 +508,12 @@ export const api = {
   /** Writes the Going Commando editor's fields, with write_save's guards and backup. */
   writeSaveRac2: (serial: string, slot: number, fingerprint: string, fields: Rac2SaveFields) =>
     call<Rac2WriteResult>("write_save_rac2", { serial, slot, fingerprint, fields }),
+  /** One Up Your Arsenal slot for its save editor (core/src/save_edit_rac3.rs). */
+  readSaveRac3: (serial: string, slot: number) =>
+    call<Rac3SaveView>("read_save_rac3", { serial, slot }),
+  /** Writes the Up Your Arsenal editor's fields, with write_save's guards and backup. */
+  writeSaveRac3: (serial: string, slot: number, fingerprint: string, fields: Rac3SaveFields) =>
+    call<Rac3WriteResult>("write_save_rac3", { serial, slot, fingerprint, fields }),
   /** What the mods that are on keep beside a Going Commando save (core/src/mod_save_data.rs). */
   readModSaveDataRac2: (serial: string, slot: number) =>
     call<ModSaveData[]>("read_mod_save_data_rac2", { serial, slot }),
