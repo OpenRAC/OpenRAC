@@ -95,7 +95,10 @@ pub fn build_info(iso_data: &Path) -> Option<BuildInfo> {
 
 pub fn state(install: &Path, game: &str) -> InstallState {
     let dir = data_dir(install, game);
-    let extracted = build_info(&dir.join("iso_data").join(game));
+    let iso_data = dir.join("iso_data").join(game);
+    // A set-up whose image is gone is none: on Android the image is a link to the copy in the
+    // Disc images folder, which the player can delete in the Files app.
+    let extracted = build_info(&iso_data).filter(|_| iso_data.join("disc.iso").is_file());
     let filled = |sub: &str| std::fs::read_dir(dir.join(sub).join(game)).is_ok_and(|mut d| d.next().is_some());
     InstallState { decompiled: filled("decompiler_out"), compiled: filled("out"), extracted, dir }
 }
@@ -128,10 +131,13 @@ pub fn plan_extract(config: &Config, install: &Path, game: &str, image: &Path) -
         "--proj-path".into(),
         data_dir(install, game).display().to_string(),
     ];
-    // A phone's storage: of the disc's files only what the port reads beside the image (every
-    // file is still checked), not gigabytes more to write.
+    // Of the disc's files only what the port reads beside the image (every file is still
+    // checked), not gigabytes more to write.
+    args.push("--boot-only".into());
+    // Android lets no app make hard links, and the image is the launcher's own copy (the Disc
+    // images folder): a link to it, not a second copy of a multi-gigabyte file.
     if crate::actions::Platform::current() == crate::actions::Platform::Android {
-        args.push("--boot-only".into());
+        args.push("--link-image".into());
     }
     Ok(Plan {
         title: format!("Set up {game} from your disc"),
@@ -142,6 +148,127 @@ pub fn plan_extract(config: &Config, install: &Path, game: &str, image: &Path) -
         env: Vec::new(),
         output: None,
     })
+}
+
+/// What [`tidy`] freed: bytes, and one line per change for the launcher's log.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Tidied {
+    pub bytes: u64,
+    pub lines: Vec<String>,
+}
+
+/// What a set-up keeps of the disc beside the image: all the port reads (tools/extractor.py
+/// --boot-only), with the boot executable, named by its serial.
+const KEPT_BESIDE_IMAGE: [&str; 3] = ["disc.iso", "buildinfo.json", "SYSTEM.CNF"];
+
+/// Frees what older set-ups hold and nothing reads, in every set-up under `install` (the one in
+/// place and those kept aside, `iso_data/<game>@<version>`): the disc's files beside the image,
+/// which the extractor wrote before it kept only what the port reads (Going Commando's: 3.8 GB).
+/// With `discs` (Android's Disc images folder), an image that is a second copy of the one there is
+/// replaced by a link to it, as the extractor now makes (`--link-image`). Errors leave a file as it
+/// was: the set-up still works, only larger.
+pub fn tidy(install: &Path, discs: Option<&Path>) -> Tidied {
+    let mut done = Tidied::default();
+    let Ok(games) = std::fs::read_dir(install.join("active")) else { return done };
+    for game in games.flatten() {
+        let Ok(set_ups) = std::fs::read_dir(game.path().join("data").join("iso_data")) else { continue };
+        for set_up in set_ups.flatten() {
+            let dir = set_up.path();
+            // `_temp` is a set-up being written; only a whole one, with its build info, is tidied.
+            let whole =
+                set_up.file_type().is_ok_and(|t| t.is_dir()) && !set_up.file_name().to_string_lossy().starts_with('_');
+            let Some(info) = whole.then(|| build_info(&dir)).flatten() else { continue };
+            drop_unread_files(&dir, &info, &mut done);
+            if let Some(discs) = discs {
+                link_to_kept_image(&dir, &info, discs, &mut done);
+            }
+        }
+    }
+    done
+}
+
+fn drop_unread_files(dir: &Path, info: &BuildInfo, done: &mut Tidied) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let (mut bytes, mut count) = (0, 0);
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if KEPT_BESIDE_IMAGE.contains(&name.as_str()) || name == info.serial {
+            continue;
+        }
+        let path = entry.path();
+        let Ok(meta) = std::fs::symlink_metadata(&path) else { continue };
+        let (size, removed) = if meta.is_dir() {
+            (crate::reset::size(&path).0, std::fs::remove_dir_all(&path))
+        } else {
+            (meta.len(), std::fs::remove_file(&path))
+        };
+        if removed.is_ok() {
+            bytes += size;
+            count += 1;
+        }
+    }
+    if count > 0 {
+        done.bytes += bytes;
+        done.lines.push(format!("{}: {count} disc files nothing reads removed, {} MB", dir.display(), bytes >> 20));
+    }
+}
+
+/// `dir/disc.iso` as a link to `discs/<the image's name>` when the two are the same image (the same
+/// size and the same bytes at 16 places, the first and last MB among them).
+fn link_to_kept_image(dir: &Path, info: &BuildInfo, discs: &Path, done: &mut Tidied) {
+    let image = dir.join("disc.iso");
+    // The name the extractor wrote: a file's name alone, never a path out of the folder.
+    if Path::new(&info.image).file_name() != Some(std::ffi::OsStr::new(&info.image)) {
+        return;
+    }
+    let kept = discs.join(&info.image);
+    let (Ok(a), Ok(b)) = (std::fs::symlink_metadata(&image), std::fs::symlink_metadata(&kept)) else { return };
+    if !a.file_type().is_file() || !b.file_type().is_file() || a.len() != b.len() || same_file(&a, &b) {
+        return;
+    }
+    let open = |p: &Path| std::fs::File::open(p);
+    let same = (|| crate::android::same_samples(&open(&image)?, &open(&kept)?, a.len(), 16))();
+    if !same.unwrap_or(false) {
+        return;
+    }
+    let link = dir.join("disc.iso.link");
+    let _ = std::fs::remove_file(&link);
+    if symlink(&kept, &link).is_err() {
+        return;
+    }
+    if std::fs::rename(&link, &image).is_err() {
+        let _ = std::fs::remove_file(&link);
+        return;
+    }
+    done.bytes += a.len();
+    done.lines.push(format!(
+        "{}: second copy of {} replaced by a link, {} MB",
+        image.display(),
+        kept.display(),
+        a.len() >> 20
+    ));
+}
+
+#[cfg(unix)]
+fn symlink(target: &Path, link: &Path) -> std::io::Result<()> {
+    std::os::unix::fs::symlink(target, link)
+}
+
+#[cfg(not(unix))]
+fn symlink(_: &Path, _: &Path) -> std::io::Result<()> {
+    Err(std::io::Error::other("no symbolic links here"))
+}
+
+/// One file under two names (a hard link): nothing to free.
+#[cfg(unix)]
+fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    a.dev() == b.dev() && a.ino() == b.ino()
+}
+
+#[cfg(not(unix))]
+fn same_file(_: &std::fs::Metadata, _: &std::fs::Metadata) -> bool {
+    false
 }
 
 /// Removes what set-up made for `game` (OpenGOAL's uninstall): its
@@ -264,6 +391,88 @@ mod tests {
     }
 
     #[test]
+    fn a_set_up_whose_image_is_gone_is_none() {
+        let dir = tempfile::tempdir().unwrap();
+        extracted(dir.path(), "rac1", "SCES_509.16");
+        std::fs::remove_file(data_dir(dir.path(), "rac1").join("iso_data/rac1/disc.iso")).unwrap();
+        assert_eq!(state(dir.path(), "rac1").extracted, None);
+    }
+
+    #[test]
+    fn tidy_removes_the_disc_files_nothing_reads() {
+        let dir = tempfile::tempdir().unwrap();
+        let install = dir.path();
+        extracted(install, "rac1", "SCES_509.16");
+        let iso_data = data_dir(install, "rac1").join("iso_data");
+        let set_up = iso_data.join("rac1");
+        for name in ["SCES_509.16", "SYSTEM.CNF", "IOPRP243.IMG"] {
+            std::fs::write(set_up.join(name), b"file").unwrap();
+        }
+        std::fs::create_dir_all(set_up.join("G")).unwrap();
+        std::fs::write(set_up.join("G/MPEG.WAD"), vec![0; 4096]).unwrap();
+        // A set-up kept aside is tidied too; one being written (_temp) is left alone.
+        let kept = iso_data.join("rac1@ntsc");
+        std::fs::create_dir_all(&kept).unwrap();
+        std::fs::copy(set_up.join("buildinfo.json"), kept.join("buildinfo.json")).unwrap();
+        std::fs::write(kept.join("IOPRP243.IMG"), b"file").unwrap();
+        std::fs::create_dir_all(iso_data.join("_temp")).unwrap();
+        std::fs::write(iso_data.join("_temp/IOPRP243.IMG"), b"file").unwrap();
+
+        let done = tidy(install, None);
+        assert_eq!(done.bytes, 4 + 4096 + 4);
+        let mut left: Vec<String> =
+            std::fs::read_dir(&set_up).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into()).collect();
+        left.sort();
+        assert_eq!(left, ["SCES_509.16", "SYSTEM.CNF", "buildinfo.json", "disc.iso"]);
+        assert!(!kept.join("IOPRP243.IMG").exists());
+        assert!(iso_data.join("_temp/IOPRP243.IMG").exists());
+        assert!(state(install, "rac1").extracted.is_some());
+        assert_eq!(tidy(install, None), Tidied::default(), "nothing more the second time");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tidy_links_a_second_copy_of_the_kept_image() {
+        let dir = tempfile::tempdir().unwrap();
+        let install = dir.path().join("games");
+        let discs = dir.path().join("discs");
+        std::fs::create_dir_all(&discs).unwrap();
+        extracted(&install, "rac1", "SCES_509.16");
+        let image = data_dir(&install, "rac1").join("iso_data/rac1/disc.iso");
+        let bytes: Vec<u8> = (0..3 << 20).map(|i: u32| (i * 7 % 251) as u8).collect();
+        std::fs::write(&image, &bytes).unwrap();
+        std::fs::write(discs.join("mine.iso"), &bytes).unwrap();
+
+        let done = tidy(&install, Some(&discs));
+        assert_eq!(done.bytes, bytes.len() as u64);
+        assert!(std::fs::symlink_metadata(&image).unwrap().file_type().is_symlink());
+        assert_eq!(std::fs::read(&image).unwrap(), bytes);
+        assert!(state(&install, "rac1").extracted.is_some());
+        assert_eq!(tidy(&install, Some(&discs)), Tidied::default(), "a link is left as it is");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tidy_keeps_a_copy_that_differs_from_the_kept_image() {
+        let dir = tempfile::tempdir().unwrap();
+        let install = dir.path().join("games");
+        let discs = dir.path().join("discs");
+        std::fs::create_dir_all(&discs).unwrap();
+        extracted(&install, "rac1", "SCES_509.16");
+        let image = data_dir(&install, "rac1").join("iso_data/rac1/disc.iso");
+        let bytes = vec![1u8; 3 << 20];
+        std::fs::write(&image, &bytes).unwrap();
+        let mut other = bytes.clone();
+        other[(3 << 20) - 1] = 2;
+        std::fs::write(discs.join("mine.iso"), &other).unwrap();
+        // Another image of the same name and size, and none at all: the copy stays.
+        assert_eq!(tidy(&install, Some(&discs)), Tidied::default());
+        std::fs::remove_file(discs.join("mine.iso")).unwrap();
+        assert_eq!(tidy(&install, Some(&discs)), Tidied::default());
+        assert!(std::fs::symlink_metadata(&image).unwrap().file_type().is_file());
+    }
+
+    #[test]
     fn reads_how_far_set_up_got_and_undoes_it() {
         let dir = tempfile::tempdir().unwrap();
         let install = dir.path();
@@ -316,6 +525,7 @@ mod tests {
         // Joined as the system joins paths: with backslashes on Windows.
         let data = Path::new("/data").join("active").join("rac1").join("data");
         assert_eq!(plan.args[7], data.display().to_string());
+        assert_eq!(plan.args[8], "--boot-only", "only what the port reads, on every system");
         assert_eq!(plan.cwd, PathBuf::from("/openrac"));
         assert!(plan_extract(&Config::default(), Path::new("/data"), "rac1", &image).is_err());
         assert!(plan_extract(&config, Path::new("/data"), "rac 1", &image).is_err());

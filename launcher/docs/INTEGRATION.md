@@ -155,9 +155,12 @@ OpenRAC's are:
   `ERRORS`); the job's output is in Tasks.
 - Ratchet & Clank names only a few files in the disc's ISO 9660 file system
   (RAC1: `SYSTEM.CNF`, the boot executable and `IOPRP243.IMG`) and reads the
-  rest by sector. So, unlike OpenGOAL's, the extract step also keeps the
-  image itself in `iso_data/<game>/disc.iso` (a hard link, a copy across
-  file systems) for the decompile step to read.
+  rest by sector. So, unlike OpenGOAL's, the extract step keeps the image
+  itself in `iso_data/<game>/disc.iso` (a hard link, a copy across file
+  systems; on Android a symbolic link to the launcher's own copy) and of the
+  disc's files only what the port reads (`--boot-only`): `SYSTEM.CNF` and the
+  boot executable. At start the launcher removes what older set-ups hold
+  beyond that (`install::tidy`).
 - A disc set up this way counts as the version's disc for the level editor
   (`{disc}` in its actions), so a player needs no `baserom/`.
 - Code: `core/src/install.rs` (the layout, the state on disk, the job's plan,

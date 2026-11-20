@@ -3374,6 +3374,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let discord = start_discord(&config);
     start_log(app, config_file.as_deref());
     migrate_install_saves(&config);
+    tidy_set_ups(&config);
     let modset_link = Arc::new(Mutex::new(None));
     listen_for_links(app, &modset_link);
     app.manage(AppState {
@@ -3590,6 +3591,23 @@ fn migrate_install_saves(config: &Config) {
         Ok(copied) => launcher_log::line(&format!("saves: {copied} files from {} are in migrated/", install.display())),
         Err(e) => launcher_log::line(&format!("saves: not migrated: {e}")),
     }
+}
+
+/// Frees what older set-ups hold and nothing reads (core install.rs tidy): the disc's files beside
+/// the image and, on Android, a second copy of the image. In the background: deleting gigabytes on
+/// a phone can take a moment.
+fn tidy_set_ups(config: &Config) {
+    let Some(install) = config.install_dir.clone() else { return };
+    let discs = config.discs_dir.clone().filter(|_| Platform::current() == Platform::Android);
+    std::thread::spawn(move || {
+        let done = openrac_launcher_core::install::tidy(&install, discs.as_deref());
+        for line in &done.lines {
+            launcher_log::line(&format!("set-up: {line}"));
+        }
+        if done.bytes > 0 {
+            launcher_log::line(&format!("set-up: {} MB freed", done.bytes >> 20));
+        }
+    });
 }
 
 /// The launcher's own log, beside launcher.json (core launcher_log.rs), opened with the version and

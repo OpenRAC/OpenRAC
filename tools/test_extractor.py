@@ -63,6 +63,43 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(info["files"], 3)
         self.assertEqual(info, self.run_extract())  # the same build info as a full extraction
 
+    def test_link_image_keeps_a_symbolic_link_where_no_hard_link_can_be_made(self):
+        # Android lets no app make hard links: the launcher's own copy is linked, not copied again.
+        with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
+                mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True, link_image=True)
+        image = self.proj / "iso_data" / "rac9" / "disc.iso"
+        self.assertTrue(image.is_symlink())
+        self.assertEqual(image.resolve(), self.iso.resolve())
+        # Set up again from the same image: the new link replaces the old one, the image stays.
+        with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
+                mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True, link_image=True)
+        self.assertTrue(self.iso.is_file())
+        self.assertEqual(image.read_bytes(), self.iso.read_bytes())
+
+    def test_set_up_again_from_its_own_image_keeps_it(self):
+        # Android before --link-image: the set-up's disc.iso is a copy. Set up from it again,
+        # it moves into the new set-up instead of a link to a file that is then removed.
+        with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
+                mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True)
+            own = self.proj / "iso_data" / "rac9" / "disc.iso"
+            info = extractor.extract(own, "rac9", self.proj, minimum=0, boot_only=True, link_image=True)
+        self.assertTrue(own.is_file())
+        self.assertFalse(own.is_symlink())
+        self.assertEqual(own.read_bytes(), self.iso.read_bytes())
+        self.assertEqual(info["image"], self.iso.name, "the name of the image it was first set up from")
+        self.assertFalse((self.proj / "iso_data" / "_temp").exists())
+
+    def test_without_link_image_a_failed_hard_link_copies(self):
+        with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
+                mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True)
+        image = self.proj / "iso_data" / "rac9" / "disc.iso"
+        self.assertFalse(image.is_symlink())
+        self.assertEqual(image.read_bytes(), self.iso.read_bytes())
+
     def test_a_second_extraction_replaces_the_first(self):
         self.run_extract()
         (self.proj / "iso_data" / "rac9" / "stale").write_text("x")

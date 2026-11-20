@@ -373,19 +373,14 @@ function(openrac_add_game config)
   endif()
 
   # On Android the game is the library SDL's activity loads and whose main it calls
-  # (libopenrac-<id>.so), and the same program again as an executable the launcher runs for what
-  # needs no window (--check-levels). Android runs programs only from the app's library folder,
-  # so that one is named like a library too: libopenrac-<id>-cli.so (docs/port/ANDROID.md).
+  # (libopenrac-<id>.so). The launcher runs what needs no window (--check-levels) as a program,
+  # libopenrac-<id>-cli.so below: a few lines that call the library's main.
   if(ANDROID)
     add_library(openrac-${id} SHARED "${OPENRAC_GAME_DIR}/common/main.cpp")
     target_compile_definitions(openrac-${id} PRIVATE OPENRAC_ANDROID_ACTIVITY=1)
     # Its calls to its own functions bound inside it, as in a program (cmake/Android.cmake).
     target_link_options(openrac-${id} PRIVATE LINKER:-Bsymbolic-functions)
-    add_executable(openrac-${id}-cli "${OPENRAC_GAME_DIR}/common/main.cpp")
-    # It finds libSDL3.so and libc++_shared.so beside it, in the same folder.
-    set_target_properties(openrac-${id}-cli PROPERTIES OUTPUT_NAME "libopenrac-${id}-cli.so"
-                                                     BUILD_RPATH "\$ORIGIN")
-    set(targets openrac-${id} openrac-${id}-cli)
+    set(targets openrac-${id})
   else()
     add_executable(openrac-${id} "${OPENRAC_GAME_DIR}/common/main.cpp")
     set(targets openrac-${id})
@@ -506,6 +501,17 @@ function(openrac_add_game config)
     endif()
     openrac_warnings(${target})
   endforeach()
+  # Android runs programs only from the app's library folder, so the windowless program is named
+  # like a library too (docs/port/ANDROID.md). It holds no game code: it calls the game library's
+  # main, so the APK carries each game once. It finds that library, libSDL3.so and
+  # libc++_shared.so beside it, in the same folder.
+  if(ANDROID)
+    add_executable(openrac-${id}-cli "${PROJECT_SOURCE_DIR}/android/game_cli.c")
+    target_link_libraries(openrac-${id}-cli PRIVATE openrac-${id})
+    set_target_properties(openrac-${id}-cli PROPERTIES OUTPUT_NAME "libopenrac-${id}-cli.so"
+                                                     BUILD_RPATH "\$ORIGIN")
+    list(APPEND targets openrac-${id}-cli)
+  endif()
   # OPENRAC_PORT_GAMES_IN_ALL off: the game is built only when named (CI builds the rest of the
   # port in one job and each program in its own).
   if(NOT OPENRAC_PORT_GAMES_IN_ALL)

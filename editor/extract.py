@@ -489,12 +489,28 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
         except BaseException:
             pool.shutdown(cancel_futures=True)
             raise
+    share_identical_files(out)
     if game == "rac1":
         # port.py wrote each level's visibility: the launcher has nothing to add (occlusion.py).
         write_pvs_stamp(out)
     # Last: every level is whole. The launcher counts the levels as ready by this stamp, named
     # after the export format, so a format bump reads them again before they are checked.
     (out / levels_stamp_name(game)).write_text(json.dumps({"format": levels_format(game)}) + "\n")
+
+
+# The folders of a port level whose files many levels have alike (a moby class, a texture) and
+# nothing writes again once the levels are read: they are written once and linked.
+SHARED_FOLDERS = ("mobys", "ties", "shrubs", "textures")
+
+
+def share_identical_files(out: Path) -> int:
+    """Links the files that levels in OUT have alike (files.link_identical): Going Commando's levels
+    have 0.4 GB of them, Ratchet & Clank's 0.1 GB. Bytes freed."""
+    paths = sorted(path for folder in SHARED_FOLDERS for path in out.glob(f"*/{folder}/**/*"))
+    freed = file_ops.link_identical(paths)
+    if freed:
+        print(f"{freed >> 20} MB of files levels have alike written once", flush=True)
+    return freed
 
 
 def raw_later(source: wads.WadDisc, level_id: int, out: Path) -> None:
