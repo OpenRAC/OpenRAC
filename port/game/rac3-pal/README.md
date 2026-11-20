@@ -384,8 +384,16 @@ What a level's picture still lacks (Veldin, 2026-11-20, hidden runs on box2 with
 `OPENRAC_RAC3_NEXT=60:1`): the sky, terrain, ties, shrubs, fog and the live mobys (Ratchet posed
 and animated) draw natively with the game's camera, but
 
-- water and lava: no level with any loads yet, so whether this game's liquids reach the window as
-  the effect strips Going Commando's do is not known.
+- Obani's lava (level 11): its picture is black at the moment (the profile's camera reads a zero
+  forward axis there), so it is not seen yet. Its lava is the level's own terrain and ties
+  (`terrain_0020`, `terrain_0023`, `tie_0109`), which the native world draws, and the enhanced
+  catalog lights it.
+
+Water and other liquids reach the window as Going Commando's do. The game's own draw callbacks
+build them as effect strips, and the strips sent before the world's mobys are drawn with the liquids,
+after the ties (`renderer/effects`). Level 14's square pool draws so, from five strips of up to 115
+vertices (ALPHA 0x44 TEST 0x5310B, as Dobbo's water, and two layers blended over it, ALPHA 0x58 and
+0x6A), hidden runs on box1 at 84b906a67 with `--level 14`.
 
 ### Shadows, enhanced graphics and texture packs
 
