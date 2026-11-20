@@ -241,14 +241,14 @@ class Program:
         return named
 
     def level_copy_named(self, unit: str, name: str) -> str | None:
-        """A level unit's name of another program's function with the copy's own address after it
-        (rac3-decomp's func_003EDB08_0051BC88 in L01_0051BBB8.c: frontbin's 0x003EDB08, Veldin's copy
-        at 0x0051BC88): the function the catalogue places there in the unit's level, or None."""
-        m = re.fullmatch(r"(?:func|FUN)_[0-9A-Fa-f]{8}_([0-9A-Fa-f]{8})", name)
-        level = _UNIT_LEVEL.search(unit or "")
-        if not m or not level:
+        """A level unit's name of another program's function with the calling function's address
+        after it (rac3-decomp's per-function spellings: func_003EDB08_0051BC88 in func_L01_0051BC88
+        is frontbin's 0x003EDB08): the levels' copy of that function the catalogue places
+        (kind_renames), or None."""
+        m = re.fullmatch(r"(func|FUN)_([0-9A-Fa-f]{8})_[0-9A-Fa-f]{8}", name)
+        if not m or not level_unit(unit):
             return None
-        return self._any_place_owner().get((int(level.group(1)), int(m.group(1), 16)))
+        return self.kind_renames.get(f"func_{m.group(2).upper()}")
 
     def _any_place_owner(self) -> dict:
         """The catalogue's functions by every place they have: (overlay, address) -> name."""
