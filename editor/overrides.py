@@ -113,6 +113,8 @@ MODEL = re.compile(r"^level_(\d{2})/(moby|tie|shrub)s/\2_(\d+)\.glb$")
 TERRAIN = re.compile(r"^level_(\d{2})/terrain\.glb$")
 IMAGE = re.compile(r"((?:\.\./)?textures/)([A-Za-z0-9_.-]+)\.png")  # a port GLB's image: a level texture
 AUDIO = re.compile(r"^audio/")
+# The games whose ports play a pack's audio/<key>.wav in place of the disc's stream (sound_engine.cpp).
+AUDIO_GAMES = ("rac1", "rac2")
 PACKED = "packed.json"  # the level packer's note of the disc it packed (pack.py)
 PEOPLE = re.compile(r"^(?:[^/]+\.(?:txt|md)|(?:README|LICENSE|CREDITS)[^/]*)$", re.IGNORECASE)
 MAX_FILES = 200_000
@@ -282,12 +284,13 @@ def check(path: Path) -> tuple[dict, list[str], list[str], list[str]]:
                 if not PEOPLE.match(rel):
                     ignored.append(rel)
                 continue
-            if manifest["game"] != GAME and AUDIO.match(rel):
-                # The sound's keys are worked out for Ratchet & Clank's banks only.
+            if manifest["game"] not in AUDIO_GAMES and AUDIO.match(rel):
+                # A stream is known by its own bytes, but only these games' ports read the packs' sounds.
                 ignored.append(rel)
                 problems.append(f"{rel}: {games.title(manifest['game'])}'s sound cannot be changed yet")
                 continue
-            if manifest["game"] != GAME and not (TEXTURE.match(rel) or MODEL.match(rel) or TERRAIN.match(rel)):
+            if manifest["game"] != GAME and not (TEXTURE.match(rel) or MODEL.match(rel) or TERRAIN.match(rel)
+                                                 or AUDIO.match(rel)):
                 # Early access: the later games' levels are not packed back, so only textures and
                 # models of theirs are used.
                 ignored.append(rel)
