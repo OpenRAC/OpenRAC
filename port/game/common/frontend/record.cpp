@@ -14,6 +14,8 @@
 //                                        low), right x y, left x y
 //   c 30 ffff 128 128 128 0              the same, 30 frames after control
 //   p 45 12.50 80.25 31.00               at 45 frames after control the hero was at x y z
+//   w 600                                OPENRAC_WALK waits 600 frames at the point before, the
+//                                        stick left alone (written by hand: a fight, a scene)
 
 #include <algorithm>
 #include <cmath>
@@ -57,13 +59,14 @@ struct Held {
 // A point of a walk.
 struct Point {
     float x, y, z;
+    int wait = 0;
 };
 
 // Every this many frames a recording notes where the hero is.
 constexpr std::int64_t kPointEvery = 15;
 // A walk counts a point reached this near it, in game units.
 constexpr float kArrived = 2.0f;
-// A hero that came no nearer the point for this many frames jumps...
+// A hero that came no nearer the point for this many frames jumps twice...
 constexpr int kJumpAfter = 45;
 // ...and after this many the point is given up, and the walk goes on to the next.
 constexpr int kGiveUpAfter = 300;
@@ -104,6 +107,8 @@ void read_play(const std::string& path, std::vector<Held>* pad, std::vector<Poin
             Point p{};
             row >> frame >> p.x >> p.y >> p.z;
             points->push_back(p);
+        } else if (kind == "w" && points != nullptr && !points->empty()) {
+            row >> points->back().wait;
         }
     }
 
@@ -223,6 +228,11 @@ struct Walk {
     unsigned reached = 0, gave_up = 0;
     float nearest = 0.0f;
     int waited = 0;
+    std::int64_t idle_until = -1;
+    std::int64_t frame = -1;
+    bool steered = false;
+    std::uint8_t stick[2] = {128, 128};
+    std::uint16_t held = 0xFFFF;
     float forward[2] = {1.0f, 0.0f};
 };
 
@@ -241,6 +251,19 @@ void walk(PadState* pad) {
         read_play(*path, nullptr, &g_walk.points);
     }
 
+    // Steered once a window frame: a game that reads its pad again in the same frame (Up Your
+    // Arsenal reads it several times) gets the same stick, and the counts below stay in frames.
+    if (since_control() == g_walk.frame) {
+        if (g_walk.steered) {
+            pad->analog[2] = g_walk.stick[0];
+            pad->analog[3] = g_walk.stick[1];
+            pad->buttons = static_cast<std::uint16_t>(pad->buttons & g_walk.held);
+        }
+        return;
+    }
+    g_walk.frame = since_control();
+    g_walk.steered = false;
+
     float hero[3]{}, rotation[3]{};
     std::int32_t state = 0;
 
@@ -253,17 +276,36 @@ void walk(PadState* pad) {
     const float dx = target.x - hero[0], dy = target.y - hero[1];
     const float distance = std::sqrt(dx * dx + dy * dy);
 
+    // A point with a wait: once reached, the wait runs its window frames however far the hero is
+    // pushed (a fight), the stick left alone, and only then does the walk go on. Counted in window
+    // frames: a game may read its pad more than once a frame.
+    if (target.wait > 0 && g_walk.idle_until < 0 && distance < kArrived) {
+        g_walk.idle_until = since_control() + target.wait;
+    }
+
+    if (g_walk.idle_until >= 0) {
+        if (since_control() < g_walk.idle_until) {
+            return;
+        }
+        ++g_walk.reached;
+        ++g_walk.next;
+        g_walk.waited = 0;
+        g_walk.idle_until = -1;
+        return;
+    }
+
     if (distance < kArrived) {
         ++g_walk.reached;
     } else if (g_walk.waited >= kGiveUpAfter) {
         ++g_walk.gave_up;
         log::info(
-            "walk: point {} ({:.1f} {:.1f} {:.1f}) given up, {:.1f} away",
+            "walk: point {} ({:.1f} {:.1f} {:.1f}) given up, {:.1f} away, {} frames after control",
             g_walk.next,
             target.x,
             target.y,
             target.z,
-            distance
+            distance,
+            since_control()
         );
     } else {
         if (g_walk.waited == 0 || distance < g_walk.nearest - 0.25f) {
@@ -282,15 +324,23 @@ void walk(PadState* pad) {
         pad->analog[3] =
             static_cast<std::uint8_t>(std::clamp(128.0f - ahead * 127.0f, 0.0f, 255.0f));
 
-        if (g_walk.waited > kJumpAfter && g_walk.waited % kJumpAfter < 5) {
+        // A jump, then Cross again in the air: a double jump onto a step one jump does not reach.
+        const int phase = g_walk.waited % kJumpAfter;
+        g_walk.held = 0xFFFF;
+        if (g_walk.waited > kJumpAfter && (phase < 5 || (phase >= 14 && phase < 19))) {
+            g_walk.held = static_cast<std::uint16_t>(~kCross);
             pad->buttons = static_cast<std::uint16_t>(pad->buttons & ~kCross);
         }
+        g_walk.steered = true;
+        g_walk.stick[0] = pad->analog[2];
+        g_walk.stick[1] = pad->analog[3];
 
         return;
     }
 
     ++g_walk.next;
     g_walk.waited = 0;
+    g_walk.idle_until = -1;
 }
 
 }  // namespace

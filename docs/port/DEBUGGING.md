@@ -241,8 +241,10 @@ OPENRAC_TELEPORT=30:120:85:40 OPENRAC_SKIP_SCENES=1 OPENRAC_STATE_DUMP=state.jso
 - **A path**: `OPENRAC_RECORD=FILE` writes the pad's changes and the hero's path (every 15 frames).
   `OPENRAC_REPLAY=FILE` plays the same pad at the same frames, which repeats where the run repeats
   (`OPENRAC_AUDIO_TICKED`). `OPENRAC_WALK=FILE` walks through the file's points instead, steering
-  at each in turn, jumping when he stops getting nearer and giving a point up after 300 frames, so
-  a path survives a change of timing. The file's format is at the top of
+  at each in turn, jumping twice when he stops getting nearer and giving a point up after 300 frames, so
+  a path survives a change of timing; it steers once a window frame, however often the game reads
+  its pad. A `w FRAMES` line after a point waits there that many frames with the stick left alone
+  (a fight, a scene), however far the hero is pushed meanwhile. The file's format is at the top of
   [record.cpp](../../port/game/common/frontend/record.cpp); a walk needs only its `p` lines.
 - **What stops the game**: `OPENRAC_STUCK=SECONDS[:FRAMES]` ends a run with a crash report, whose
   backtrace names the function, when no vertical blank comes for SECONDS, or FRAMES frames pass with
