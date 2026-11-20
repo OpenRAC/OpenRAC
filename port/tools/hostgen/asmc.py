@@ -176,6 +176,13 @@ class Translator:
     # asm.input_idioms in hostgen.json: reads that are no inputs (_no_input): func_002A05A8's
     # `sub.s $f0, $f0, $f0`, func_002A3110 saving $t8 and $t9 to the scratchpad.
     input_idioms = False
+    # asm.signature_check in hostgen.json: each translated function's code checked against the
+    # signature it is translated and called with (_check_arguments, _check_result): an argument
+    # register it reads on some path from its entry that the signature does not pass, and a call
+    # after which the code reads $v0 or $f0 that the callee's signature does not hand back. Either
+    # runs on whatever the register held before, where the EE's had the value. Each finding goes to
+    # `dropped` (name -> what), for hostgen's guard (asm.signature_allow).
+    signature_check = False
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -189,6 +196,7 @@ class Translator:
         self.source = source
         self._decoded: dict = {}
         self.host_text = ""   # the port's own C for the game (host/), which calls game functions by their prototypes
+        self.dropped: dict[str, list[str]] = {}  # asm.signature_check's findings, by function
 
     # ---- What to translate ----
 
@@ -407,6 +415,8 @@ class Translator:
             sig = f.sig
         # (The console's form, a candidate of its own, takes every register its code reads.)
         self.sig = sig
+        if self.signature_check and self.mode == "host":
+            self._check_arguments(f.symbol, sig)
         self.calls_k: dict[str, int] = {}
         body = self._body()
         line_block = self.index.code.get(found)
@@ -800,6 +810,7 @@ class Translator:
                 taken = [f"goto L_{ins.target:08X};"]
             else:
                 taken = self.call(ins.target, self._operand_name(a), a)
+                self._check_result(ins.target, self._operand_name(a), a)
             if ins.likely:
                 return [f"c_ = {cond};", link, "if (c_) {", *["    " + s for s in delay + taken], "}"]
             return [f"c_ = {cond};", *delay, link, "if (c_) {", *["    " + s for s in taken], "}"]
@@ -810,6 +821,7 @@ class Translator:
         if op == "jal":
             if a in self.inline_calls:
                 return delay + [f"r31 = {S32(hx(a + 8))};", f"goto L_{ins.target:08X};"]
+            self._check_result(ins.target, self._operand_name(a), a)
             return delay + [f"r31 = {S32(hx(a + 8))};"] + self.call(ins.target, self._operand_name(a), a)
         if op == "jalr":
             # The target register is read before the delay slot runs.
@@ -1059,6 +1071,171 @@ class Translator:
             if 0 in wf or is_control(ins):
                 return False
         return False
+
+    def _reads_after(self, at: int, reg: int, fpu: bool) -> bool:
+        """Whether the code after the call at `at` reads `reg` ($f`reg` with fpu) before it writes it
+        or leaves the straight line (_reads_f0_after's walk, for either register file)."""
+        for a in range(at + 8, at + 8 + 4 * 64, 4):
+            ins = self.at(a)
+            if ins is None or a not in self.reach:
+                return False
+            rg, wg, rf, wf = rw(ins)
+            reads, writes = (rf, wf) if fpu else (rg, wg)
+            if reg in reads:
+                return True
+            if reg in writes or is_control(ins):
+                return False
+        return False
+
+    def _check_result(self, target: int, name: str | None, at: int) -> None:
+        """asm.signature_check: the call at `at` is followed by a read of $f0 (or $v0) that the
+        callee's signature does not set; the translation leaves the register as it was before the
+        call (call(), _invoke)."""
+        if not self.signature_check or self.mode != "host":
+            return
+        sym = self._callee(target, name)
+        f = self.program.functions.get(sym) if sym else None
+        if f is None or prototype(f, self.program.typedefs) is None:
+            return  # through the registers (indirect)
+        ret = canon(f.sig.ret, self.program.typedefs)
+        out = self.dropped.setdefault(self.f.symbol, [])
+        if ret != "float" and self._reads_after(at, 0, True):
+            out.append(f"{sym}: the code reads $f0 after the call at {at:08X}, its signature returns {ret}")
+        if ret in ("void", "float") and self._reads_after(at, 2, False):
+            out.append(f"{sym}: the code reads $v0 after the call at {at:08X}, its signature returns {ret}")
+        if not out:
+            del self.dropped[self.f.symbol]
+
+    def _live_arguments(self) -> tuple[int, int]:
+        """The argument registers the code reads on some path from its entry before writing them,
+        as (integer, float) counts up to the last read (_entry_reads's measure, by the flow rather
+        than in address order up to the first call or return: a parameter used past an early return
+        counts). A call reads its callee's parameters and ends every argument register's life; a
+        store of one to the frame that is never loaded again is no use (_reloaded_argument)."""
+        args_g, args_f = set(ARG_REGS), set(FARG_REGS)
+        caller_saved_g = set(range(1, 16)) | {24, 25}
+        caller_saved_f = set(range(0, 20))
+        nodes: dict = {}   # node -> (reads_g, reads_f, writes_g, writes_f, successors)
+
+        def effect(a: int):
+            ins = self.at(a)
+            rg, wg, rf, wf = rw(ins)
+            if ins.op in ("sw", "sd", "sq", "swc1") and ins.rs == 29 and not self._reloaded_argument(ins):
+                rg, rf = rg - {ins.rt}, rf - {ins.ft}
+            return set(rg), set(rf), set(wg), set(wf)
+
+        def call_node(a: int, target: int | None, then: list):
+            rg: set = set()
+            rf: set = set()
+            sym = self._callee(target, self._operand_name(a)) if target is not None else None
+            f = self.program.functions.get(sym) if sym else None
+            if f is not None and f.sig.prototyped and not f.sig.variadic:
+                ni = nf = 0
+                for p in f.sig.params:
+                    if canon(p, self.program.typedefs) == "float":
+                        if nf < len(FARG_REGS):
+                            rf.add(FARG_REGS[nf])
+                        nf += 1
+                    else:
+                        if ni < len(ARG_REGS):
+                            rg.add(ARG_REGS[ni])
+                        ni += 1
+            nodes[("call", a)] = (rg, rf, caller_saved_g, caller_saved_f, then)
+            return ("call", a)
+
+        for a in self.reach:
+            if a in self.delay_only:
+                continue
+            ins = self.at(a)
+            r_g, r_f, w_g, w_f = effect(a)
+            if not is_control(ins):
+                nodes[a] = (r_g, r_f, w_g, w_f, [a + 4])
+                continue
+            d = a + 4
+            d_g, d_f, dw_g, dw_f = effect(d)
+            op = ins.op
+            after: list = []
+            skip: list = []   # a likely branch not taken skips its delay slot
+            if op in ("jal", *COND_CALLS) and a not in self.inline_calls:
+                after = [call_node(a, ins.target, [a + 8])]
+                if op in COND_CALLS:
+                    after.append(a + 8)
+                if op in COND_CALLS and ins.likely:
+                    after, skip = [after[0]], [a + 8]
+            elif op == "jalr":
+                after = [call_node(a, None, [a + 8])]
+            elif op in ("jal", *COND_CALLS):
+                after = [ins.target]
+            elif op == "jr":
+                after = list(self.jtables.get(a, []))
+            elif op == "j":
+                after = [call_node(a, ins.target, [])] if self._is_other_entry(ins.target) else [ins.target]
+            elif op in COP0_BRANCHES:
+                after = [ins.target if op.startswith("bc0t") and self.dma_done else a + 8]
+            else:
+                uncond = op in ("beq", "beql") and ins.rs == ins.rt
+                if ins.likely and not uncond:
+                    after, skip = [ins.target], [a + 8]
+                else:
+                    after = [ins.target] if uncond else [ins.target, a + 8]
+            nodes[("delay", a)] = (d_g, d_f, dw_g, dw_f, after)
+            nodes[a] = (r_g, r_f, w_g, w_f, [("delay", a)] + skip)
+        # Backward liveness on the argument registers alone, by a worklist from each node's
+        # predecessors.
+        preds: dict = {n: [] for n in nodes}
+        for n, (*_, succ) in nodes.items():
+            for s2 in succ:
+                if s2 in preds:
+                    preds[s2].append(n)
+        live: dict = {n: (frozenset(), frozenset()) for n in nodes}
+        todo = list(nodes)
+        queued = set(todo)
+        while todo:
+            n = todo.pop()
+            queued.discard(n)
+            r_g, r_f, w_g, w_f, succ = nodes[n]
+            out_g: set = set()
+            out_f: set = set()
+            for s2 in succ:
+                if s2 in live:
+                    out_g |= live[s2][0]
+                    out_f |= live[s2][1]
+            new = (frozenset((r_g | (out_g - w_g)) & args_g), frozenset((r_f | (out_f - w_f)) & args_f))
+            if new != live[n]:
+                live[n] = new
+                for q in preds[n]:
+                    if q not in queued:
+                        queued.add(q)
+                        todo.append(q)
+        in_g, in_f = live.get(self.entry_addr, (set(), set()))
+        ints = max([k + 1 for k, r in enumerate(ARG_REGS) if r in in_g & args_g], default=0)
+        floats = max([k + 1 for k, r in enumerate(FARG_REGS) if r in in_f & args_f], default=0)
+        return ints, floats
+
+    def _check_arguments(self, sym: str, sig: Signature) -> None:
+        """asm.signature_check: an argument register the code reads that the signature it is
+        translated with does not take (_live_arguments)."""
+        if sig.variadic:
+            return
+        ints, floats = self._live_arguments()
+        have_f = sum(1 for p in sig.params if canon(p, self.program.typedefs) == "float")
+        have_i = len(sig.params) - have_f
+        if ints > have_i or floats > have_f:
+            self.dropped.setdefault(sym, []).append(
+                f"reads {ints} integer and {floats} float argument registers, its signature takes "
+                f"{have_i} and {have_f}")
+        # A result the code never makes: no write of the register and no call whose result it could
+        # hand on (a signature given by hand, asm.signatures, that is wrong the other way).
+        if sym not in self.verified_signatures:
+            return
+        ret = canon(sig.ret, self.program.typedefs)
+        calls = any((i := self.at(a)) is not None and i.op in ("jal", "jalr", "j", *COND_CALLS)
+                    for a in self.reach)
+        if ret == "float" and 0 not in self._float_writes() and not calls:
+            self.dropped.setdefault(sym, []).append("returns float, and its code never sets $f0")
+        if ret not in ("void", "float") and not calls and not any(
+                2 in rw(self.at(a))[1] for a in self.reach):
+            self.dropped.setdefault(sym, []).append(f"returns {ret}, and its code never sets $v0")
 
     def tail_call(self, target: int, name: str | None) -> list[str]:
         return self.call(target, name) + self.leave()
@@ -1886,6 +2063,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.input_idioms = bool(a.get("input_idioms"))
     tr.dma_done = bool(a.get("dma_done"))
     tr.vu_flush = bool(a.get("vu_flush"))
+    tr.signature_check = bool(a.get("signature_check"))
     tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)

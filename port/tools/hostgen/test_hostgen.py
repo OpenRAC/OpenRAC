@@ -3562,6 +3562,97 @@ class FromAssembly(unittest.TestCase):
         }, symbols={"func_00100200": 0x100200}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], results_before_calls=True)))
         self.assertEqual(out, ["8"])
 
+    # asm.signature_check (asmc.Translator._check_result, _check_arguments): a float the callee hands
+    # back in $f0 while its registers made it an int function (it uses $v0 as a temporary, as Up Your
+    # Arsenal's vector library does), and a parameter its code reads only past an early return.
+    FLOAT_CALLEE = {
+        "func_00100000": (0x100000, """
+            lui $2, 0x3F80
+            mtc1 $2, $f1
+            add.s $f0, $f12, $f1
+            jr $31
+            nop
+        """),
+        "func_00100100": (0x100100, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            lui $2, 0x4000
+            mtc1 $2, $f12
+            jal func_00100000
+            nop
+            cvt.w.s $f0, $f0
+            mfc1 $2, $f0
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """),
+    }
+    FLOAT_C = """
+        INCLUDE_ASM("asm", func_00100000);
+        INCLUDE_ASM("asm", func_00100100);
+        extern int func_00100100(void);
+        int test_main(void) {
+            test_print(func_00100100());
+            return 0;
+        }
+    """
+
+    def test_signature_check_finds_a_float_result_an_int_signature_drops(self):
+        allow = dict(ASM_CONFIG["asm"], signature_check=True,
+                     signature_allow={"func_00100100": "the test: the finding itself"})
+        self.run_asm(self.FLOAT_C, self.FLOAT_CALLEE, symbols={"func_00100000": 0x100000}, config=dict(ASM_CONFIG, asm=allow))
+        drops = self.last_report["assembly_signature_drops"]
+        self.assertEqual(list(drops), ["func_00100100"])
+        self.assertIn("func_00100000: the code reads $f0 after the call", drops["func_00100100"][0])
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, signatures={"func_00100000": "float (float)"})
+        out = self.run_asm(self.FLOAT_C, self.FLOAT_CALLEE, symbols={"func_00100000": 0x100000}, config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(out, ["3"])
+        self.assertEqual(self.last_report["assembly_signature_drops"], {})
+
+    ARGUMENT_CALLEE = {
+        "func_00100200": (0x100200, """
+            bne $4, $0, more
+            nop
+            jr $31
+            daddu $2, $0, $0
+        more:
+            jr $31
+            addu $2, $4, $5
+        """),
+        "func_00100300": (0x100300, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            addiu $4, $0, 1
+            jal func_00100200
+            addiu $5, $0, 5
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """),
+    }
+    ARGUMENT_C = """
+        INCLUDE_ASM("asm", func_00100200);
+        extern int func_00100200(int a);
+        INCLUDE_ASM("asm", func_00100300);
+        extern int func_00100300(void);
+        int test_main(void) {
+            test_print(func_00100300());
+            return 0;
+        }
+    """
+
+    def test_signature_check_finds_a_parameter_read_past_an_early_return(self):
+        allow = dict(ASM_CONFIG["asm"], signature_check=True,
+                     signature_allow={"func_00100200": "the test: the finding itself"})
+        self.run_asm(self.ARGUMENT_C, self.ARGUMENT_CALLEE, symbols={"func_00100200": 0x100200}, config=dict(ASM_CONFIG, asm=allow))
+        drops = self.last_report["assembly_signature_drops"]
+        self.assertEqual(drops, {"func_00100200": [
+            "reads 2 integer and 0 float argument registers, its signature takes 1 and 0"]})
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, signatures={"func_00100200": "int (int, int)"})
+        out = self.run_asm(self.ARGUMENT_C, self.ARGUMENT_CALLEE, symbols={"func_00100200": 0x100200}, config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(out, ["6"])
+        self.assertEqual(self.last_report["assembly_signature_drops"], {})
+
     def test_branches_and_delay_slots(self):
         # sum of n..1, the counter decremented in the delay slot after the test read it; a likely
         # branch whose delay slot runs only when it is taken.

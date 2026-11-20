@@ -801,6 +801,9 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         "from_assembly": {r.name: r.source for r in stage.translated},
         "assembly_unsupported": dict(sorted(stage.unsupported.items())),
         "assembly_unsupported_reasons": dict(sorted(asm_reasons.items(), key=lambda kv: -kv[1])),
+        # asm.signature_check: what each translated function's code takes or reads back that the
+        # signatures it is translated and called with leave out (asmc.Translator.dropped).
+        "assembly_signature_drops": dict(sorted((stage.translator.dropped if stage.translator else {}).items())),
         "without_c_or_assembly": sorted(stage.without_asm),
         "shadows": {**{k: "translated" for k in stage.shadows}, **stage.shadow_why},
         # Each function with no C or with C from its assembly: where it sits, and the spelling with
@@ -1843,6 +1846,23 @@ def main(argv: list[str] | None = None) -> int:
                   "(hand/hand.tsv, or a host row) or a row with the reason in hostgen.json \"assembly_allow\"",
                   file=sys.stderr)
         return 1
+    a_cfg = cfg.get("asm") or {}
+    if a_cfg.get("signature_check"):
+        # signature_guard: before the stamp, so the next build says it again.
+        sig_allow = a_cfg.get("signature_allow", {})
+        drops = summary.get("assembly_signature_drops", {})
+        unallowed = {k: v for k, v in drops.items() if k not in sig_allow}
+        unused = sorted(k for k in sig_allow if k not in drops)
+        for name in unused:
+            print(f"hostgen: error: hostgen.json \"asm\" \"signature_allow\" allows {name}, whose code no longer "
+                  "disagrees with its signature: remove the entry", file=sys.stderr)
+        for name, what in sorted(unallowed.items()):
+            for line in what:
+                print(f"hostgen: error: {name} (translated from its assembly): {line}: give the function "
+                      "its real signature (an \"asm\" \"signatures\" entry) or an entry with the reason in "
+                      "\"asm\" \"signature_allow\"", file=sys.stderr)
+        if unallowed or unused:
+            return 1
     if cfg.get("result_allow") and (summary["result_allow_unused"] or summary["results_zeroed_unallowed"]):
         # result_guard: before the stamp, so the next build says it again.
         for row in summary["result_allow_unused"]:
