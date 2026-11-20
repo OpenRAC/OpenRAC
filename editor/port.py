@@ -88,8 +88,10 @@ FORMAT = 4
 # (bake-inputs/gameplay.bin, manifest bake_inputs), as Going Commando's 18. 12: the reviewed
 # catalog of glowing textures (materials/version, port/enhanced/lighting/profiles/rac3-pal) and the
 # levels' sun sets (probe-bake.json), as Going Commando's 19. 13: the loading screen's ship scene
-# as level 97 (level.load_wad_loading).
-GAME_FORMATS = {"rac2": 20, "rac3": 13}
+# as level 97 (level.load_wad_loading). 14: the liquid surfaces the baker lights from
+# (bake-inputs/liquids.json, manifest bake_inputs "liquids": the class 6576 strips), as Going
+# Commando's 20.
+GAME_FORMATS = {"rac2": 20, "rac3": 14}
 
 
 def levels_format(game: str) -> int:

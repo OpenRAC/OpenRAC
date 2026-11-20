@@ -351,7 +351,7 @@ share most of them, but have their own DrawTfrag, tie and shrub passes and MobyP
 level 39's (`func_L39_...`, `OPENRAC_LDATA(39, ...)`). `IDENTIFIED.tsv` has each function and its
 Going Commando pair.
 
-The extracted levels are the shared export (`editor/extract.py port`), format 13 for this game
+The extracted levels are the shared export (`editor/extract.py port`), format 14 for this game
 (`editor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
 sky's shells and its panorama, collision, (5) Ratchet's mesh and textures from his first pack
 (`editor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
@@ -359,7 +359,7 @@ draws him with, and (6) the terrain and shrubs lit as the game lights them at lo
 colours per vertex, as Going Commando's (`games.py` `world_lighting`, `UYA_TIE`): the lighting
 routines are Going Commando's instructions, and the (cos, sin) table they light by is in each
 level's own program, not the loader the disc boots (`lighting.program_normal_table`). Against Going
-Commando's format 20 it lacks one of the enhanced renderer's bake inputs (liquids).
+Commando's format 20 it has every input of the enhanced renderer's bake.
 (7) adds his wrench (pack 31, class 71), the banks of what he holds and his
 ship's three hulls and 32 paint jobs (class 3412), where Veldin's copies of Going Commando's
 loaders read them (`wads.RAC3_PAL`). (8) adds the chrome and glass maps the metal packets are drawn
@@ -372,7 +372,8 @@ draws class 0 as the look of the armour at `0x001D4B60`, or of the skin byte at 
 is set, as LoadPlayerDisplayTextures picks the pack. (11) adds the gameplay copy the probe baker
 plans enhanced lighting from (`bake-inputs/gameplay.bin`), as Going Commando's 18. (12) adds the
 reviewed glowing textures and the levels' sun sets, as Going Commando's 19. (13) adds level 97, the loading
-screen's ship scene (below).
+screen's ship scene (below). (14) adds the liquid surfaces the baker lights from
+(`bake-inputs/liquids.json`), as Going Commando's 20.
 
 ## The loading screen
 
@@ -415,9 +416,12 @@ and animated) draw natively with the game's camera, but
 
 Water and other liquids reach the window as Going Commando's do. The game's own draw callbacks
 build them as effect strips, and the strips sent before the world's mobys are drawn with the liquids,
-after the ties (`renderer/effects`). Level 14's square pool draws so, from five strips of up to 115
-vertices (ALPHA 0x44 TEST 0x5310B, as Dobbo's water, and two layers blended over it, ALPHA 0x58 and
-0x6A), hidden runs on box1 at 84b906a67 with `--level 14`.
+after the ties (`renderer/effects`). Up Your Arsenal's surfaces are mobys of class 6576, whose draw
+(level 14's `0x003B24C8`, in the draw callback list run after the ties) strips a path of the
+gameplay file (`IDENTIFIED.tsv`). Level 14's square pool draws so: the 23 points of path 121 make
+its strips (115 vertices in the frame's five liquid strips: ALPHA 0x44 TEST 0x5310B, as Dobbo's
+water, and layers blended over it, ALPHA 0x58 and 0x6A), hidden runs on box1 at 84b906a67 with
+`--level 14`.
 
 ### Shadows, enhanced graphics and texture packs
 
@@ -446,8 +450,14 @@ brightest saturated world textures of the 34 single-player levels on contact she
 their sun from the directional set most of their ties and shrubs take (`light_set` in
 `profiles/rac3-pal/level_NN/probe-bake.json`: 6, 7, 8 and 10; set 15, which levels 3 and 30 use most,
 is empty). The launcher's Enhanced graphics entry and its Prepare the enhanced lighting action
-(`probe-bake`) take this disc, and its Build the game makes the baker. Not carried yet: liquid
-surfaces as bake inputs (Going Commando's format 20). Texture packs (`docs/port/TEXTURE_PACKS.md`) work as in the other games: the
+(`probe-bake`) take this disc, and its Build the game makes the baker. From format 14 the export
+keeps the liquid surfaces (`bake-inputs/liquids.json`, `rac3-strips-v1`): each moby of class 6576
+draws one triangle strip through a path of the gameplay file (the paths are its header word 0x78), its
+first layer a white effect texture under the pvar's colour, so the surfaces the review
+(`profiles/rac3-pal/liquids.json`) lists by that colour word are lit as emitters, as Going Commando's
+lava. None is listed yet: the candidates by colour (orange in levels 2, 4, 7 and 34) are not seen in
+a running game, as those levels do not play yet, and colour alone is not taken as emission. Texture
+packs (`docs/port/TEXTURE_PACKS.md`) work as in the other games: the
 pictures in `<data>/texture_packs/rac3-pal/` replace the world's, the mobys', the sky's and the
 interface's textures.
 
