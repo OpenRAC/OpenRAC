@@ -484,6 +484,26 @@ packs (`docs/port/TEXTURE_PACKS.md`) work as in the other games: the
 pictures in `<data>/texture_packs/rac3-pal/` replace the world's, the mobys', the sky's and the
 interface's textures.
 
+## The hero in a level
+
+`OPENRAC_RAC3_HERO=PATH` (`host/hero_log.c`) writes a line for each frame of a level in which the
+hero's state words changed: the level's mode, his state and its type (rac3-decomp
+`enums/hero_state.h`, Going Commando's numbering), health, the combo's swing, the item in his hand,
+the gun Circle brings out and their rounds, the items owned, bolts, area, deaths, the last
+checkpoint and the level's progress flags, then his position. `OPENRAC_RAC3_MOBYS=FRAME,...` adds
+the live mobys within 60 units and the level's spawn points. `host/tools.c` gives the hero to
+`OPENRAC_WALK` and `OPENRAC_RECORD`, and `OPENRAC_TELEPORT` and `OPENRAC_INVINCIBLE` work.
+The words are in IDENTIFIED.tsv.
+
+Seen on Veldin (New Game, or `OPENRAC_RAC3_NEXT=60:1`), scripted with `OPENRAC_PRESS`:
+the arrival (state 116), the opening walk (101, 102, 104), control; run (2); jump (7) and Cross
+again in the air, the double jump (14), the heli-pack's glide (8); the wrench combo (19, swings 0,
+1, 2); a gun drawn with Circle (held item 47, the N60) firing a round every 12 frames while Circle
+is held, its rounds going down one a shot; a Tyhrranoid's blows (class 5821) taking one health each
+(state 22) down to 0, then death (57) and the respawn at full health; a fall from the cliffs
+(state 121), the death counted and the respawn at the level's start. A new game owns no gun on
+Veldin; the bolts of the crates are picked up.
+
 ## What is missing
 
 - **The Options rows' text is cut at both sides**: each row's text is laid out about three glyphs
