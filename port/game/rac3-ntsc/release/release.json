@@ -142,6 +142,10 @@
     "func_003F0700__frontbin": {
       "is": "func_003EB178__frontbin",
       "why": "frontbin's copy of func_003F0AB8: the same 8 bytes at 0x003EB178 after the same 20-byte remnant (PAL 0x003F06E8, NTSC-U 0x003EB160), the only place they occur"
+    },
+    "func_003D3154": {
+      "is": "func_003D2FEC",
+      "why": "the second entry 4 bytes before func_003D3158 (NTSC-U's func_003D2FF0, map.tsv match): the same words from 4 bytes before it on both discs"
     }
   },
   "addresses": {

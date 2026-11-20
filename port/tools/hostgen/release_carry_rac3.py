@@ -47,6 +47,7 @@ RELEASE = PORT / "game/rac3-ntsc"
 NAME = re.compile(r"\b(func|D)_(?:(L\d\d)_)?([0-9A-F]{8})(?:__(\w+))?(?![0-9A-Za-z_])")
 ADDR = re.compile(r"\bRAC3_ADDR\(\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
 LADDR = re.compile(r"\bRAC3_LADDR\(\s*(\d+)\s*,\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
+ALIAS = re.compile(r"(func_[0-9A-F]{8})(_[0-9A-F]{8})")
 LITERAL = re.compile(r"\b0x(00[1-3][0-9A-Fa-f]{5})u?\b")  # an address of the executable's memory
 SHARED_SUFFIXES = ("game",)  # a wrap's own body: the same program as the plain name
 
@@ -108,6 +109,12 @@ class Names:
 
     def function(self, name: str) -> tuple[str, str | None]:
         """NAME's NTSC-U spelling and its status (None: not a function of map.tsv)."""
+        alias = ALIAS.fullmatch(name)
+        if alias:
+            # A per-caller spelling (func_003D3158_003C1558): the function renamed, the caller's
+            # place kept, as the release view writes it (release.py).
+            new, status = self.function(alias.group(1))
+            return new + alias.group(2), status
         m = NAME.fullmatch(name)
         if not m:
             return name, None
@@ -164,6 +171,10 @@ def absent(name: str, names: Names) -> bool:
     NTSC-U's levels do not have)."""
     if name.startswith("func_PAL_"):
         return True
+    if re.fullmatch(r"func_L\d\d_[0-9A-F]{8}_\w+", name) and not name.endswith(("__game", "__frontbin")):
+        # A level copy's own spelling of PAL's (func_L39_006AE8F8_006AE3D8, after the place it is
+        # called from): no function of NTSC-U's catalogue.
+        return name not in names.us_level_names
     m = NAME.fullmatch(name)
     return bool(m) and m.group(1) == "func" and (
         "_PAL_" in name or (m.group(2) is not None and name.split("__")[0] not in names.us_level_names))
@@ -188,13 +199,17 @@ def leave_out_absent(value, names: Names, report: dict, where: str = ""):
     return value
 
 
+def one_name(text: str) -> bool:
+    return bool(NAME.fullmatch(text) or ALIAS.fullmatch(text))
+
+
 def rename_json(value, names: Names):
     """VALUE with every key and string that is one name renamed (prose left as it is)."""
     if isinstance(value, dict):
-        return {(names.function(k)[0] if NAME.fullmatch(k) else k): rename_json(v, names) for k, v in value.items()}
+        return {(names.function(k)[0] if one_name(k) else k): rename_json(v, names) for k, v in value.items()}
     if isinstance(value, list):
         return [rename_json(v, names) for v in value]
-    if isinstance(value, str) and NAME.fullmatch(value):
+    if isinstance(value, str) and one_name(value):
         return names.function(value)[0]
     return value
 
