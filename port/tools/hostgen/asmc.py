@@ -836,8 +836,13 @@ class Translator:
         writes = [a for a in self.reach if reg in rw(self.at(a))[1]]
         for a in writes:
             ins = self.at(a)
-            if ins.op not in ("addi", "addiu", "daddi", "daddiu") or ins.rs != 31 or ins.imm != 0:
-                return False
+            if ins.op in ("addi", "addiu", "daddi", "daddiu") and ins.rs == 31 and ins.imm == 0:
+                continue
+            # Or a register move of it (daddu $t9, $ra, $zero: Up Your Arsenal's func_L01_004436F4
+            # returns through $t9), which went out as a call to the address it held, 0.
+            if ins.op in ("addu", "daddu", "or") and {ins.rs, ins.rt} == {31, 0}:
+                continue
+            return False
         first_call = min((a for a in self.reach if 31 in rw(self.at(a))[1]), default=None)
         return bool(writes) and (first_call is None or max(writes) < first_call)
 
