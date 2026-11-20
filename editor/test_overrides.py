@@ -110,8 +110,9 @@ class PackTests(unittest.TestCase):
             self.assertEqual(any("levels of format" in p for p in problems), flagged, made)
 
     def test_wrong_game_or_nothing_inside_is_refused(self):
-        # Deadlocked is read from its NTSC-U disc only; a game OpenRAC does not know at all.
-        for game, version in (("rac4", "pal"), ("rac9", "ntsc")):
+        # Deadlocked is read from its NTSC-U and PAL discs, not a Japanese one; a game OpenRAC does
+        # not know at all.
+        for game, version in (("rac4", "jp"), ("rac9", "ntsc")):
             other = write_pack(self.root / f"{game}-{version}", "Other", {"level_00/textures/a.png": rgb_png(2, 2, (0, 0, 0))},
                                game=game, version=version)
             with self.assertRaisesRegex(overrides.PackError, "not a pack for a game OpenRAC reads"):

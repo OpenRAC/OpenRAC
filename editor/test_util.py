@@ -141,8 +141,9 @@ OLD_IDENTITIES = {
     ("rac3", "ntsc"): ("NTSC-U", "NTSC-U v1.00", "SCUS_973.53", 771008, "601012bb03ef1213ad1253baebae8a071b8a7df7"),
     ("rac3", "pal"): ("PAL", "PAL v1.00", "SCES_524.56", 771648, "e3a8f37d6033b007a80f63dfbfca9afe24f27a47"),
     ("rac4", "ntsc"): ("NTSC-U", "NTSC-U v1.00", "SCUS_974.65", 1692216, "aa91b1c3b9b1a244320c47580b77342ef9856e95"),
+    ("rac4", "pal"): ("PAL", "PAL v1.00", "SCES_532.85", 1696356, "2ca8d367f625001a4da12fcf466b7d218431bfd0"),
 }
-OLD_VERSIONS = {"rac1": ("pal", "ntsc", "pal1", "jp"), "rac2": ("ntsc", "pal", "ntsc2"), "rac3": ("ntsc", "pal"), "rac4": ("ntsc",)}
+OLD_VERSIONS = {"rac1": ("pal", "ntsc", "pal1", "jp"), "rac2": ("ntsc", "pal", "ntsc2"), "rac3": ("ntsc", "pal"), "rac4": ("ntsc", "pal")}
 FIELDS = ("region", "label", "executable", "executable_size", "executable_sha1")
 
 
@@ -163,7 +164,7 @@ class DiscIdentityTests(unittest.TestCase):
         # PAL v1.00 and the Japanese release: where their copies of func_0020DFF8 form the table.
         self.assertEqual((disc.PAL1.key, disc.PAL1.gameplay, disc.PAL1.normal_table), ("pal1", "gameplay_ntsc", 0x165480))
         self.assertEqual((disc.JP.key, disc.JP.gameplay, disc.JP.normal_table), ("jp", "gameplay_ntsc", 0x165600))
-        self.assertEqual([v.level_header for v in wads.VERSIONS], [0x60, 0x60, 0x60, 0x60, 0x60, 0xc68])
+        self.assertEqual([v.level_header for v in wads.VERSIONS], [0x60, 0x60, 0x60, 0x60, 0x60, 0xc68, 0xc68])
 
     def test_games_versions_are_the_old_ones(self):
         self.assertEqual(games.VERSIONS, OLD_VERSIONS)
