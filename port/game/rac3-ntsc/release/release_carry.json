@@ -60,6 +60,11 @@
    "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree"
   }
  },
+ "hostgen_left_out": {
+  "asm.signatures": [
+   "func_L01_004AB368"
+  ]
+ },
  "own_functions": [
   "func_00393290__frontbin",
   "func_00395FE0__frontbin",

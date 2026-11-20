@@ -91,6 +91,13 @@ class Names:
                     out[cols[0]] = f"func_L{int(level):02d}_{int(address, 16):08X}"
             return out
         us_first = first_places(source / "config/us/levels/functions.tsv")
+        # Every name NTSC-U's level functions go by in hostgen: its catalogue's rows and the levels'
+        # copies of frontbin's functions after their first place.
+        self.us_level_names = set(us_first.values())
+        us_catalogue = source / "config/us/levels/functions.tsv"
+        if us_catalogue.is_file():
+            self.us_level_names |= {line.split("\t")[0] for line in us_catalogue.read_text().splitlines()
+                                    if not line.startswith("#")}
         for row, first in first_places(source / "config/levels/functions.tsv").items():
             twin = self.front.get(row)
             if first not in self.levels and twin in us_first:
@@ -152,6 +159,33 @@ class Names:
         return NAME.sub(lambda m: self.function(m.group(0))[0], text)
 
 
+def absent(name: str, names: Names) -> bool:
+    """A function name NTSC-U's program has no such function for (PAL's own, or a level copy
+    NTSC-U's levels do not have)."""
+    m = NAME.fullmatch(name)
+    return bool(m) and m.group(1) == "func" and (
+        "_PAL_" in name or (m.group(2) is not None and name.split("__")[0] not in names.us_level_names))
+
+
+def leave_out_absent(value, names: Names, report: dict, where: str = ""):
+    """VALUE without the keys and list items that name a function NTSC-U does not have."""
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            if absent(k, names):
+                report.setdefault(where or "hostgen.json", []).append(k)
+                continue
+            out[k] = leave_out_absent(v, names, report, f"{where}.{k}" if where else k)
+        return out
+    if isinstance(value, list):
+        kept = [v for v in value if not (isinstance(v, str) and absent(v, names))]
+        report_list = [v for v in value if isinstance(v, str) and absent(v, names)]
+        if report_list:
+            report.setdefault(where, []).extend(report_list)
+        return [leave_out_absent(v, names, report, where) for v in kept]
+    return value
+
+
 def rename_json(value, names: Names):
     """VALUE with every key and string that is one name renamed (prose left as it is)."""
     if isinstance(value, dict):
@@ -196,6 +230,8 @@ def main(argv: list[str] | None = None) -> int:
     # hostgen.json: PAL's, renamed, then the release's own keys.
     primary = json.loads((PRIMARY / "hostgen.json").read_text())
     carried = rename_json(copy.deepcopy(primary), names)
+    report["hostgen_left_out"] = {}
+    carried = leave_out_absent(carried, names, report["hostgen_left_out"])
     out = {"about": "Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/hostgen.json, "
                     "config/us/map.tsv and release/release.json; do not edit by hand (release_carry.json "
                     "says what rests on less than the same code)."}
@@ -225,7 +261,7 @@ def main(argv: list[str] | None = None) -> int:
         if cols[0] in drop:
             report["left_out"][cols[0]] = hand["libraries_left_out"][cols[0]]
             continue
-        if new.startswith("func_PAL_") or status == "none":
+        if new.startswith("func_PAL_") or status == "none" or absent(new, names):
             report["left_out"][cols[0]] = f"NTSC-U has no such function ({status})"
             continue
         if status not in ("match", "asm", None, "data", "hand"):
