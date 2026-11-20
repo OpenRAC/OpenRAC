@@ -1435,6 +1435,12 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     for sym in cfg.get("roots", []):
         program.functions.setdefault(sym, Function(
             sym, Signature(ctype.Base("int"), (), False, False), asm=True))
+    # The levels' copies of another program's functions (place_kinds_as_levels) have no C or
+    # assembly file of their own: they are functions of the levels all the same, translated from
+    # the levels' instructions.
+    for sym in program.kind_renames.values():
+        program.functions.setdefault(sym, Function(
+            sym, Signature(ctype.Base("int"), (), False, False), asm=True))
     for sym, text in host_sigs.items():
         if text:
             # The port's own version decides the signature its callers are matched to.

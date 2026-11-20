@@ -39,6 +39,7 @@ import re
 from dataclasses import dataclass, field
 
 import ctype
+from program import level_unit as program_level_unit  # noqa: E402
 from program import BUILTINS, Program, call_copy as program_call_copy, call_copy_expr, canon, cname, has_body, symbol_of
 
 VA_NAMES = {"va_list", "__builtin_va_list", "__gnuc_va_list"}
@@ -1909,6 +1910,8 @@ class Unit:
         d = self.decls.get(ref["referencedDecl"]["id"])
         raw = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         raw = self.program.aliases.get((self.unit, raw), raw)
+        if program_level_unit(self.unit):
+            raw = self.program.kind_renames.get(raw, raw)
         if raw == sym or raw in self.program.places:
             return sym
         named = self.program.code_places(raw)
@@ -1944,6 +1947,9 @@ class Unit:
         d = self.decls.get(ref["referencedDecl"]["id"])
         sym = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         sym = self.program.aliases.get((self.unit, sym), sym)
+        if program_level_unit(self.unit) and sym in self.program.kind_renames and \
+                (self.unit, sym) not in self.program.statics:
+            sym = self.program.kind_renames[sym]
         if (self.unit, sym) in self.program.statics:
             return sym
         # hostgen.json "calls_as": a level's C names a routine its level has only as a variant of

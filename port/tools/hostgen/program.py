@@ -130,6 +130,9 @@ class Program:
     wrap_host: set = field(default_factory=set)  # with a `wrap` row: a hook point among them is <name>__hooked
     hook: dict = field(default_factory=dict)  # hook points (in wrap too): symbol -> its name for mods
     aliases: dict = field(default_factory=dict)  # (unit, name) -> symbol, from labels Clang refused
+    # hostgen.json "place_kinds_as_levels": another program's name the catalogue gives the levels'
+    # copies -> the levels' own name for them, which a level's unit means by it (read_places).
+    kind_renames: dict = field(default_factory=dict)
     by_place: dict = field(default_factory=dict)  # (overlay, address) -> the symbol defined there
     level_names: dict = field(default_factory=dict)  # a level's build's name -> (overlay, address)
     splits_keep_names: bool = False  # hostgen.json: a level's name of a split place is the variant
@@ -868,6 +871,12 @@ def derived_uses(decl: dict, statics: dict) -> tuple:
     return tuple(out)
 
 
+def level_unit(unit: str | None) -> bool:
+    """A unit of a level's program (src/levels/...), whose names of another program's functions mean
+    the level's own copies (Program.kind_renames)."""
+    return bool(unit) and "levels/" in unit
+
+
 def derived_resolves(program: Program, name: str, unit: str | None = None) -> bool:
     """Whether the program knows where a derived name is: its build's table values it (the executable's symbols, a
     level's names), its spelling places it, the unit names another function by it (hostgen.json "unit_aliases"), or
@@ -1156,6 +1165,9 @@ def read_places(path: Path, program: Program) -> int:
             # translated as those are (their globals and calls the loaded level's), not as the
             # other program's C written with its own addresses.
             name = f"func_L{places[0][0]:02d}_{places[0][1]:08X}"
+            # A level's C calls the copy by the other program's name (func_003A52A0 in Veldin's
+            # file is its own copy of frontbin's function): in a level's unit that name is this one.
+            program.kind_renames[cols[0]] = name
         if places:
             program.places[name] = places
             if cols[2].isdigit():
