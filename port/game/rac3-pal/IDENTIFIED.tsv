@@ -263,7 +263,7 @@ code	func_L01_004A75E0	0x004A75E0	ShrubLighting	rac2 func_002E2C38 (frontbin row
 code	func_L01_004A58F0	0x004A58F0	PatchShrubGifs	rac2 func_002E10B8; host/render.c
 code	func_L01_0043AAC0	0x0043AAC0	PatchMobyGifs	rac2 func_0029FEE0; host/render.c
 code	func_L01_004C5B90	0x004C5B90	VU1_addGSregister	rac2 func_002FC560, the same 180 bytes: appends an A+D register write (a DMA tag, DIRECT, a GIF tag) at the list pointer 0x001E1068 (+0x30); host/render.c writes its markers the same way
-code	func_L01_00407E28	0x00407E28	DrawWorldQuad	rac2 func_00280B90, the same 608 bytes: the draw callbacks' world quad; not bound yet (effect quads)
+code	func_L01_00407E28	0x00407E28	DrawWorldQuad	rac2 func_00280B90, the same 608 bytes: the draw callbacks' world quad; host/render.c draws it natively
 code	func_L01_004255E0	0x004255E0	LoadPlayerDisplayTextures	rac2 func_00292078: Ratchet's pack by his skin (0x005147D8) from the table of contents at 0x00160C40, base sector +0x1EB4, rows from +0x1EB8 (editor/wads.py RAC3_PAL hero_packs)
 data	D_001E1068	0x001E1068	display_list_pointer	Veldin's: the display list's write pointer (DrawTfrag, VU1_addGSregister)
 data	D_001E0E10	0x001E0E10	sky_matrix	Veldin's: the matrix the shell being drawn takes (rac2 0x001B20F0); the sky header's pointer at 0x001E0DF0 (rac2 0x001B20C0)
@@ -272,3 +272,7 @@ code	func_L39_005F4690	0x005F4690	DrawTfrag	the multiplayer maps' copy (levels 3
 code	func_L39_005F61A0	0x005F61A0	DrawTies	the multiplayer maps' copy (rac2 func_002F0EF8)
 code	func_L39_005EDE28	0x005EDE28	DrawShrubs	the multiplayer maps' copy (rac2 func_002E11C0)
 code	func_L39_005B25C8	0x005B25C8	MobyProc	the multiplayer maps' copy (rac2 func_002A4E68): the group masks 0x0025F580, the draw-distance cap $gp+0x3FD0 = 0x001E0880 (not moby_end + 0x2C as in the single-player levels: profile.cpp's moby_cap 0 there)
+code	func_L01_00404040	0x00404040	GetEffectTex	rac2 func_0027C878 (0.64 by instructions; the record tail the same): the upload count 0x001DF97C, 16-byte records at 0x001E7880 (+0 CLUT address, +6 its block, +8 pixels' address, +0xE their block)
+code	func_L01_004DE670	0x004DE670	ScreenGlowCopy	rac3 only (catalogue row func_003D85C0, 49 places): REF to the packet 0x001D0A50 (size 0x001D55F0) that 0x004DDE98 builds: the frame (block 0x1E00) to FBP 0x198 (256 x 256), shrunk into FBP 0 and 0x1FD; sets $gp-0xC0C (0x001DBCA4) to 0x6000; run while 0x001DBCA0 is set
+code	func_L01_004DE6F0	0x004DE6F0	ScreenGlowAdd	rac3 only (row func_003D8640): REF to 0x001D2A50 (size 0x001D55F4), built by 0x004DE5B0 (0x004DD360 blits 64->128->256, 0x004DD900 blur, 0x004DCC70 add-back ALPHA 0x221); clears 0x001DBCA4
+code	func_L01_004DF310	0x004DF310	ScreenEffect2	rac3 only (row func_003D9260): REFs to 0x001D3650 and 0x001D3EF0 (sizes 0x001D55F8/FC, built by boot 0x003D9378/0x003D94B8), while 0x001DBCBC is set (cleared after); not identified, still replayed

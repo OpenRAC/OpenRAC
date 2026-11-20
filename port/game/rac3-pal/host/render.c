@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "game/common/lib/effect_texture.h"
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
@@ -283,6 +284,77 @@ int func_L01_00461CB8(void) {
             (int)((entry >> 32) & 0xF),
             0x80000000u | ((at >> 6) & 0x7FFFFu) << 8 | r[0]
         );
+    }
+    return 0;
+}
+
+/*
+ * The screen glow (Up Your Arsenal's own; Going Commando has none): DrawFrame, while the word
+ * 0x001DBCA0 is set, appends two prebuilt GS packets by DMA reference. 0x004DE670 the first
+ * (0x001D0A50, built by 0x004DDE98: the frame at block 0x1E00 copied into a 256 x 256 buffer at
+ * FBP 0x198 and shrunk into FBP 0 and 0x1FD), 0x004DE6F0 the second (0x001D2A50, built by
+ * 0x004DE5B0: blurred and added back over the frame, ALPHA 0x221, FIX 0x80). Replayed over the
+ * native world they drew a ghost of the picture and a copy of it in its top left corner. The port
+ * leaves them out: the enhanced renderer's bloom (enhanced/docs/bloom.md) is its glow. The word
+ * each sets for the frame (0x6000 at $gp - 0xC0C, 0 again after) is kept.
+ */
+#define GLOW_WORD 0x001DBCA4u
+
+int func_L01_004DE670(void) {
+    GREF(int32_t, VELDIN(GLOW_WORD)) = 0x6000;
+    return 0;
+}
+
+int func_L01_004DE6F0(void) {
+    GREF(int32_t, VELDIN(GLOW_WORD)) = 0;
+    return 0;
+}
+
+/* The effect textures' uploads this frame: their count and the records GetEffectTex (Veldin's
+ * 0x00404040, Going Commando's func_0027C878) writes, 16 bytes each as Going Commando's. */
+#define TEXTURE_UPLOADS 0x001DF97Cu
+#define TEXTURE_RECORDS 0x001E7880u
+
+static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
+    return openrac_effect_texture(
+        tex0, GREF(int, VELDIN(TEXTURE_UPLOADS)), VELDIN(TEXTURE_RECORDS), pixels, clut
+    );
+}
+
+/*
+ * DrawWorldQuad (0x00407E28, Going Commando's func_00280B90, the same 608 bytes): the draw
+ * callbacks' world quad. a0 a quad record as Going Commando's: four corners (+0x00), four RGBA words
+ * (+0x40), four ST pairs (+0x50), then CLAMP_1, TEX0_1, TEX1_1 and ALPHA_1 (+0x70..+0x88); a1, when
+ * set, a matrix the corners go through first. The window draws it in the world, with the TEST and
+ * ZBUF in effect at its marker (rac2/host/render.c's world_quad).
+ */
+int func_L01_00407E28(int a0, int a1) {
+    const uint8_t* r = G((gaddr)a0);
+    openrac_game_quad q;
+    memset(&q, 0, sizeof(q));
+    memcpy(q.corner, r, sizeof(q.corner));
+    if (a1 != 0) {
+        float m[16];
+        memcpy(m, G((gaddr)a1), sizeof(m));
+        for (int k = 0; k < 4; ++k) {
+            const float x = q.corner[k][0], y = q.corner[k][1], z = q.corner[k][2],
+                        w = q.corner[k][3];
+            for (int i = 0; i < 4; ++i) {
+                q.corner[k][i] = x * m[i] + y * m[4 + i] + z * m[8 + i] + w * m[12 + i];
+            }
+        }
+    }
+    memcpy(q.rgba, r + 0x40, sizeof(q.rgba));
+    memcpy(q.st, r + 0x50, sizeof(q.st));
+    memcpy(&q.clamp, r + 0x70, 8);
+    memcpy(&q.tex0, r + 0x78, 8);
+    memcpy(&q.tex1, r + 0x80, 8);
+    memcpy(&q.alpha, r + 0x88, 8);
+    q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
+    openrac_game_effect_quad(&q);
+    const uint32_t marker = openrac_game_effect_quad_marker();
+    if (marker != 0) {
+        put_marker(&kVeldin, (uint64_t)OPENRAC_EFFECT_QUAD_MARKER << 48 | marker);
     }
     return 0;
 }

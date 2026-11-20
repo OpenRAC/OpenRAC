@@ -42,7 +42,7 @@ From the launcher (launcher/actions.json, `rac3/pal`), as for Going Commando: *S
 disc* runs `tools/extractor.py`, which checks the disc against games/rac3/game.json and writes
 `iso_data/rac3/` (`SCES_524.56`, `disc.iso`, `buildinfo.json`) into the game's data folder;
 *Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
-the levels into `assets/port/rac3/pal` (`levels-5.json`), and *Play* runs
+the levels into `assets/port/rac3/pal` (`levels-7.json`), and *Play* runs
 `openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
 no level plays yet. The game draws a level's world from them ([Drawing the levels](#drawing-the-levels)).
 
@@ -297,11 +297,18 @@ passes end in `host/render.c`, which tells the window what the game drew this fr
 the display list (`openrac_game_draw`, the world's and the mobys' markers): DrawTfrag (the
 terrain, and the world's marker), the tie and shrub passes, SkyDrawShell (each shell with the
 matrix the sky code built for it, `0x001E0E10` in Veldin) and MobyProc (the mobys' drawn flags as
-the console sets them, `+0x31`; the window draws the live mobys the profile reads) and PartProc
-(each live particle of the pool, as Going Commando's records and texture table). The per-frame
+the console sets them, `+0x31`; the window draws the live mobys the profile reads), PartProc
+(each live particle of the pool, as Going Commando's records and texture table) and DrawWorldQuad
+(the draw callbacks' quads, their textures from GetEffectTex's upload records). The per-frame
 lighting and texture-packet passes do nothing: the extracted level carries what they computed. The
 window draws the world natively from the extracted level (`--levels`, the scene module's level
 renderer: `port/scene`), with the camera, view, fog and mobys the profile reads.
+
+The game's own screen glow (Going Commando has none) is left out: DrawFrame references two
+prebuilt GS packets while `0x001DBCA0` is set, the frame copied into a 256 x 256 buffer (FBP 0x198)
+and shrunk (`0x004DE670`), then blurred and added back over the frame (`0x004DE6F0`, ALPHA 0x221).
+Replayed over the native world they drew a ghost of the picture and a copy of it in its top left
+corner; the enhanced renderer's bloom (`port/enhanced/docs/bloom.md`) is the port's glow.
 
 Every level's program carries its own copy of the engine, at its own addresses: the hooks are
 written with Veldin's (`func_L01_...`, the names hostgen gives the catalogue's places) and its
@@ -310,15 +317,19 @@ share most of them, but have their own DrawTfrag, tie and shrub passes and MobyP
 level 39's (`func_L39_...`, `OPENRAC_LDATA(39, ...)`). `IDENTIFIED.tsv` has each function and its
 Going Commando pair.
 
-The extracted levels are the shared export (`editor/extract.py port`), format 5 for this game
+The extracted levels are the shared export (`editor/extract.py port`), format 7 for this game
 (`editor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
-sky's shells and its panorama, collision, and (5) Ratchet's mesh and textures from his first pack
+sky's shells and its panorama, collision, (5) Ratchet's mesh and textures from his first pack
 (`editor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
-draws him with. Against Going Commando's format 20 it lacks: the terrain's and shrubs' lighting as
-the game lights them at load (no normal table found yet: `lit` false, the renderer's defaults), the
-ties' vertex colours and relighting data, the chrome and glass maps (grey), the mobys' glow
-vertices, light sets and bangles, his other skins, his wrench and what he holds, and the enhanced
-renderer's bake inputs (gameplay copy, emissions, liquids).
+draws him with, and (6) the terrain and shrubs lit as the game lights them at load and the ties'
+colours per vertex, as Going Commando's (`games.py` `world_lighting`, `UYA_TIE`): the lighting
+routines are Going Commando's instructions, and the (cos, sin) table they light by is in each
+level's own program, not the loader the disc boots (`lighting.program_normal_table`). Against Going
+Commando's format 20 it lacks: the chrome and glass maps (grey), the mobys' glow vertices, light
+sets and bangles, his other skins, and the enhanced renderer's bake inputs (gameplay copy,
+emissions, liquids). (7) adds his wrench (pack 31, class 71), the banks of what he holds and his
+ship's three hulls and 32 paint jobs (class 3412), where Veldin's copies of Going Commando's
+loaders read them (`wads.RAC3_PAL`).
 
 To look at a level without the game (no game code runs; the viewer's own camera):
 
@@ -331,15 +342,10 @@ What a level's picture still lacks (Veldin, 2026-11-20, hidden runs on box2 with
 `OPENRAC_RAC3_NEXT=60:1`): the sky, terrain, ties, shrubs, fog and the live mobys (Ratchet posed
 and animated) draw natively with the game's camera, but
 
-- **the screen glow** is still the game's packets: it copies the frame into a 256 x 256 buffer
-  (FBP 0x198), shrinks it (FBP 0, 0x1FD) and adds it back over the frame (ALPHA 0x221, FIX 0x80);
-  replayed over the native world it leaves a ghost of the picture and a copy of it in the top left.
-  Its routine is to be found and drawn natively (or left out), as Going Commando's frame copies
-  are (`rac2/host/picture.c`);
-- the world's effect quads (DrawWorldQuad, `0x00407E28`: the draw callbacks' quads, Going
-  Commando's `world_quad`) are not bound: their effect texture records are not paired yet;
-- the export's gaps above (lighting at load, chrome and glass, glow, bangles, Ratchet's other skins
-  and what he holds), water, shadows and the enhanced renderer's inputs.
+- the second screen effect DrawFrame references (`0x004DF310`, two packets at `0x001D3650` and
+  `0x001D3EF0` while `0x001DBCBC` is set) is not identified and still replayed;
+- the export's gaps above (chrome and glass, glow, bangles, Ratchet's other skins), water, shadows
+  and the enhanced renderer's inputs.
 
 ## What is missing
 

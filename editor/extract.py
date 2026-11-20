@@ -42,7 +42,7 @@ from spaceships import add_spaceships
 from level import load_flight, load_level, load_title, load_wad_flight
 from level import decoded, load_wad_level
 from occlusion import write_stamp as write_pvs_stamp
-from lighting import normal_table
+from lighting import normal_table, program_normal_table
 from pack import pack
 import games
 import pack_later
@@ -390,14 +390,16 @@ def export_wad_level(iso: Path, number: int, out: Path, lod: int) -> dict:
     own process."""
     disc, source = open_later(iso)
     with disc:
-        return LevelWriter(out, load_wad_level(source, source.level(number)), source.normals()).write(lod)
+        level = load_wad_level(source, source.level(number))
+        return LevelWriter(out, level, source.normals() or program_normal_table(level.program)).write(lod)
 
 
 def export_port_wad_level(iso: Path, number: int, out: Path, lod: int) -> dict:
     """One later game's level in the port's layout (for the overrides packs and the viewer)."""
     disc, source = open_later(iso)
     with disc:
-        return PortLevelWriter(out, load_wad_level(source, source.level(number)), source.normals()).write(lod)
+        level = load_wad_level(source, source.level(number))
+        return PortLevelWriter(out, level, source.normals() or program_normal_table(level.program)).write(lod)
 
 
 def export_port_wad_flight(iso: Path, number: int, out: Path, lod: int) -> dict:
