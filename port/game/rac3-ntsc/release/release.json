@@ -45,9 +45,11 @@
       "../rac3-pal/host"
     ],
     "headers": "../rac3-pal/headers",
-    "places": null,
-    "place_kinds_as_levels": null,
-    "places_are_functions": null,
+    "places": "config/us/levels/functions.tsv",
+    "place_kinds_as_levels": [
+      "frontbin"
+    ],
+    "places_are_functions": true,
     "asm": {
       "retail": {
         "image": "baserom/SCUS_973.53.iso",
@@ -74,7 +76,9 @@
       "func_003B0FF0": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
       "func_003C5A98": "Clang cannot read it: too many arguments to function call, expected 1, have 3"
     },
-    "asm_signatures_why": "FontPrint (PAL's func_0038EBC8): host/ui2d.c wraps it as a void function, as PAL's prototype has it; NTSC-U's assembly leaves $v0 as a callee's, which hostgen took for a result"
+    "asm_signatures_why": "FontPrint (PAL's func_0038EBC8): host/ui2d.c wraps it as a void function, as PAL's prototype has it; NTSC-U's assembly leaves $v0 as a callee's, which hostgen took for a result",
+    "places_in_release": true,
+    "places_why": "NTSC-U's own level catalogue, in its own names: every level function is translated from the disc's level programs (no src/levels C yet: its names and its levels' data are PAL's)"
   },
   "pairs": {
     "about": "Function pairs taken as they are where map.tsv pairs nothing: PAL's name, NTSC-U's, the evidence.",

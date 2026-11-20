@@ -52,6 +52,11 @@
     }
   ],
   "candidates": "nonmatching/functional.tsv",
+  "places": "config/us/levels/functions.tsv",
+  "place_kinds_as_levels": [
+    "frontbin"
+  ],
+  "places_are_functions": true,
   "candidate_folders_left_out": {
     "nonmatching/boot_elf": "the boot program's functions are translated from its own code, which the build reads from the disc (the loader's payload); these are NTSC-U drafts and near misses, some far from PAL's code (func_003BC7C0's matched 12.5% of it, and the level loading screen faulted in it)",
     "nonmatching/frontbin": "frontbin's functions are translated from its own program on the disc (asm retail programs); these are NTSC-U drafts and near misses, some far from PAL's code (func_003AF0B8's matched none of it, and the front end it starts crashed on an object it had not set up)"
@@ -168,12 +173,12 @@
       "func_00391090": "int (int, int, int, float)",
       "func_003F0290": "int (int, int)",
       "func_0038F3A0": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
-      "func_L01_0040E9C0": "float (float, float)",
-      "func_L01_0040F3F8": "float (float, float)",
-      "func_L01_0040F440": "float (float, float)",
-      "func_L01_0040F488": "float (float)",
-      "func_L01_00443A78": "float (void)",
-      "func_L01_00446278": "float (int, int, int, float)",
+      "func_L01_0040C490": "float (float, float)",
+      "func_L01_0040CEC8": "float (float, float)",
+      "func_L01_0040CF10": "float (float, float)",
+      "func_L01_0040CF58": "float (float)",
+      "func_L01_00440978": "float (void)",
+      "func_L01_00443140": "float (int, int, int, float)",
       "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
     },
     "discover_entries": true,
@@ -412,5 +417,6 @@
   },
   "host_shared": [
     "../rac3-pal/host"
-  ]
+  ],
+  "places_in_release": true
 }
