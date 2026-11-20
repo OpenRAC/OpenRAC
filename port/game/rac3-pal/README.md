@@ -589,8 +589,19 @@ it where the transfers were (`host/picture.c`): nothing of the game's transfers 
 - Saving from a level: the pause menu has no save row (Missions, Weapons, Gadgets, Quick Select,
   Items, Options, Help, Special); the in-level save dialogs (the ship's, between planets, as far
   as known) are not reached by any run yet and are untested.
-- Movie subtitles: the native player shows the picture alone; where the PAL game draws a movie's
-  subtitles is not found yet.
+- The pause menu's pages (Veldin, hidden runs): all eight open and print their text where it
+  belongs (Missions, Weapons, Gadgets, Quick Select, Items, Options with Save / Load / Controls /
+  Audio-Visual / Quit, Help, Special with Cheats / Skins / Skill Points / Cinematics). Still wrong:
+  the pictures at the top of Missions, Options and Special draw as vertical stripes (they are left
+  to the game's packets: indexed textures, PSMT8 at 0x2CAB/0x2DAF and PSMT4 at 0x2D33, in
+  triangles and a strip, `OPENRAC_UI_RESIDUAL`), and the Weapons grid and the quick select ring
+  list no weapons although items are owned.
+- Movie subtitles: the native player shows the picture alone. The PAL game draws them in its own
+  movie list, which the hand-written vertical blank handler (`func_003B1118`) sends each blank:
+  `func_003A1428` builds it (the picture's sprites, then `func_0038A8F8`'s subtitles from the movie
+  block's table at `0x00225748`, timed by the blank count at `0x00225734`). The prints run when that
+  list is built (the New Game intro's lines reach the menu log), but a list sent from the native
+  player's blanks does not show on the window yet, so they are not drawn.
 
 ## The memory card
 
