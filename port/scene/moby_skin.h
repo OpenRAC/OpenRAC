@@ -39,6 +39,7 @@ struct MobySkins {
         int sequence = -1;
         std::uint32_t ticks = 0;
     };
+
     std::unordered_map<std::uint32_t, Clock> clocks;
 
     bool empty() const { return by_spawn_id.empty(); }

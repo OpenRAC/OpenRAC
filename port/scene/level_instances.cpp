@@ -645,7 +645,9 @@ std::vector<Instance> LevelScene::resident_scenery(std::size_t k) const {
 
 bool LevelScene::mod_hidden(std::size_t k, std::size_t i) const {
     return kSceneryLayers[k] == Layer::Ties
-           && std::binary_search(m_mod_hidden_ties.begin(), m_mod_hidden_ties.end(), static_cast<int>(i));
+           && std::binary_search(
+               m_mod_hidden_ties.begin(), m_mod_hidden_ties.end(), static_cast<int>(i)
+           );
 }
 
 void LevelScene::move_scenery(const GameScenery& game) {

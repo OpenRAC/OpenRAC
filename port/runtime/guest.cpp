@@ -611,7 +611,8 @@ openrac_host_fn openrac_guest_function(gaddr address) {
     // In another level's update (openrac_guest_foreign_enter), a callback the loaded program set
     // (its sound stream's, its interrupt's) still names the loaded program's place: that
     // function's copy in the program swapped in runs instead.
-    if (const gaddr there = foreign_code_of(address); there != 0 && there != address && find(there) != nullptr) {
+    if (const gaddr there = foreign_code_of(address);
+        there != 0 && there != address && find(there) != nullptr) {
         return openrac_guest_function(there);
     }
     // A leaf that only returns (jr ra; and in its delay slot nothing, or v0 = 0): the tail of

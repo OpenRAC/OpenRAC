@@ -59,7 +59,8 @@ void write_model(const std::filesystem::path& dir) {
     }
     const std::string json = R"({
  "asset": {"version": "2.0"},
- "buffers": [{"byteLength": 264, "uri": "data:application/octet-stream;base64,)" + base64(buffer) + R"("}],
+ "buffers": [{"byteLength": 264, "uri": "data:application/octet-stream;base64,)"
+                             + base64(buffer) + R"("}],
  "bufferViews": [
   {"buffer": 0, "byteOffset": 0, "byteLength": 128},
   {"buffer": 0, "byteOffset": 128, "byteLength": 8},
@@ -91,8 +92,12 @@ void write_model(const std::filesystem::path& dir) {
     std::ofstream(dir / "skins" / "model.gltf") << json;
 }
 
-bool load(const std::filesystem::path& dir, const std::string& skins, scene::MobySkins& out,
-          std::string& error) {
+bool load(
+    const std::filesystem::path& dir,
+    const std::string& skins,
+    scene::MobySkins& out,
+    std::string& error
+) {
     std::ofstream(dir / "skins.json") << skins;
     scene::LevelData level;
     std::vector<std::string> warnings;
@@ -112,9 +117,14 @@ int main() {
 
     std::string error;
     scene::MobySkins skins;
-    CHECK(load(dir, R"({"format": 1, "skins": [
+    CHECK(load(
+        dir,
+        R"({"format": 1, "skins": [
         {"spawn_id": 7, "model": "skins/model.gltf", "scale": 2, "animations": [1, -1, 5]},
-        {"spawn_id": 9, "model": "skins/model.gltf", "scale": 0.5}]})", skins, error));
+        {"spawn_id": 9, "model": "skins/model.gltf", "scale": 0.5}]})",
+        skins,
+        error
+    ));
     if (!error.empty()) {
         std::fprintf(stderr, "%s\n", error.c_str());
     }
@@ -139,12 +149,24 @@ int main() {
 
     // A model outside the pack, a broken entry, a model that is not there: refused or left out.
     scene::MobySkins outside;
-    CHECK(!load(dir, R"({"format": 1, "skins": [{"spawn_id": 1, "model": "../x.glb"}]})", outside, error));
+    CHECK(!load(
+        dir, R"({"format": 1, "skins": [{"spawn_id": 1, "model": "../x.glb"}]})", outside, error
+    ));
     scene::MobySkins bad;
-    CHECK(!load(dir, R"({"format": 1, "skins": [{"spawn_id": -3, "model": "skins/model.gltf"}]})", bad, error));
+    CHECK(!load(
+        dir,
+        R"({"format": 1, "skins": [{"spawn_id": -3, "model": "skins/model.gltf"}]})",
+        bad,
+        error
+    ));
     scene::MobySkins missing;
     error.clear();
-    CHECK(load(dir, R"({"format": 1, "skins": [{"spawn_id": 1, "model": "skins/none.glb"}]})", missing, error));
+    CHECK(load(
+        dir,
+        R"({"format": 1, "skins": [{"spawn_id": 1, "model": "skins/none.glb"}]})",
+        missing,
+        error
+    ));
     CHECK(missing.empty());
     std::filesystem::remove_all(dir);
     return openrac::test::result();

@@ -748,7 +748,8 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             return 9;
         }
     }
-    if (strcmp(behaviour, "keep") == 0) { /* keep: sets its own settings, hears the launcher's (1.15) */
+    if (strcmp(behaviour, "keep")
+        == 0) { /* keep: sets its own settings, hears the launcher's (1.15) */
         if (api->api_minor < 15 || s_record == NULL
             || api->on_settings(mod, on_settings, NULL) != OPENRAC_HOOK_OK
             || api->on_settings(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE) {
@@ -889,7 +890,8 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         /* The host copies its strings, so the caller's stack storage can go away. */
         items[0].label = "Changed after registration";
     }
-    if (strcmp(behaviour, "kerwan") == 0) { /* kerwan: a pack's files (pack_folder, "pack:" paths) and the language */
+    if (strcmp(behaviour, "kerwan")
+        == 0) { /* kerwan: a pack's files (pack_folder, "pack:" paths) and the language */
         char folder[512];
         char code[3];
         if (api->api_minor < 14 || s_record == NULL) {

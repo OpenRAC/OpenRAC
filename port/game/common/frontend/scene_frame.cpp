@@ -23,10 +23,10 @@
 #include "common/stats.h"
 #include "debug_overlay.h"
 #include "frontend.h"
-#include "mods.h"
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
+#include "mods.h"
 #include "openrac/game_host.h"
 #include "program/program.h"
 #include "renderer/direct/direct.h"
@@ -402,8 +402,8 @@ void set_camera(SceneFrame& frame) {
         input.camera.projection[5] *= scale;
         opened = std::max(1.0f, 1.0f / scale);
     } else if (has_camera && scene.gameplay_camera && (scene.draws & kLevelLayers) != 0
-        && !frame.output.camera_debug.settings.enabled
-        && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
+               && !frame.output.camera_debug.settings.enabled
+               && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
         const float original = 1.0f / input.camera.projection[5];
         const float percent = static_cast<float>(frame.graphics.gameplay_fov) / 100.0f;
         const float scale = original / std::tan(std::atan(original) * percent);

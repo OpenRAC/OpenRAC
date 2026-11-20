@@ -23,13 +23,23 @@ struct PropRig {
         std::array<float, 4> rotation{0.0f, 0.0f, 0.0f, 1.0f};  // x, y, z, w
         std::array<float, 3> scale{1.0f, 1.0f, 1.0f};
     };
+
     struct Joint {
         int node = 0;
-        int number = 0;                    // its palette entry
+        int number = 0;                        // its palette entry
         std::array<float, 16> inverse_bind{};  // column-major
     };
-    enum class Path { Translation, Rotation, Scale };
-    enum class Interpolation { Linear, Step, Cubic };
+    enum class Path {
+        Translation,
+        Rotation,
+        Scale
+    };
+    enum class Interpolation {
+        Linear,
+        Step,
+        Cubic
+    };
+
     struct Channel {
         int node = 0;
         Path path = Path::Translation;
@@ -37,6 +47,7 @@ struct PropRig {
         std::vector<float> times;
         std::vector<float> values;  // width a key (three of them for a cubic one)
     };
+
     struct Animation {
         std::string name;
         float duration = 0.0f;

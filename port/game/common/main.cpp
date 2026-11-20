@@ -460,8 +460,10 @@ void load_mods() {
                     float v = a < 3 ? 0.0f : f32(0x10 + 4u * static_cast<std::uint32_t>(k));
                     for (int r = 0; r < 3; ++r) {
                         v += f[static_cast<std::size_t>(a)][r] * unit
-                             * f32(0xC0 + 0x10u * static_cast<std::uint32_t>(r)
-                                   + 4u * static_cast<std::uint32_t>(k));
+                             * f32(
+                                 0xC0 + 0x10u * static_cast<std::uint32_t>(r)
+                                 + 4u * static_cast<std::uint32_t>(k)
+                             );
                     }
                     if (!std::isfinite(v)) {
                         return 0;

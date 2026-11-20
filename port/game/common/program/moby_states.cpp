@@ -36,8 +36,9 @@ float finite(float v) {
 
 void write(const std::vector<openrac_game_moby_state>& mobys) {
     std::ofstream out(g_out, std::ios::binary | std::ios::trunc);
-    out << "{\"format\": 1, \"game\": \"" << openrac_game.id << "\", \"level\": "
-        << openrac_game_start_level << ", \"ticks\": " << g_ticks << ", \"mobys\": [";
+    out << "{\"format\": 1, \"game\": \"" << openrac_game.id
+        << "\", \"level\": " << openrac_game_start_level << ", \"ticks\": " << g_ticks
+        << ", \"mobys\": [";
     bool first = true;
     for (const openrac_game_moby_state& m : mobys) {
         // Only the level's own mobys, by their record: the editor places those.
@@ -46,8 +47,9 @@ void write(const std::vector<openrac_game_moby_state>& mobys) {
         }
         out << (first ? "\n" : ",\n") << "  {\"key\": " << m.key << ", \"class\": " << m.oclass
             << ", \"state\": " << m.state << ", \"hidden\": " << ((m.flags & kHidden) ? 1 : 0)
-            << ", \"dead\": " << ((m.flags & kDead) ? 1 : 0) << ", \"pos\": [" << finite(m.position[0]) << ", "
-            << finite(m.position[1]) << ", " << finite(m.position[2]) << "]}";
+            << ", \"dead\": " << ((m.flags & kDead) ? 1 : 0) << ", \"pos\": ["
+            << finite(m.position[0]) << ", " << finite(m.position[1]) << ", "
+            << finite(m.position[2]) << "]}";
         first = false;
     }
     out << "\n]}\n";

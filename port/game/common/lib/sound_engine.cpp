@@ -75,6 +75,7 @@ std::array<std::int32_t, audio::kVolumeGroups> g_master = [] {
     a.fill(audio::kFullVolume);
     return a;
 }();
+
 // The port's own gain on each group's streams (openrac_sound_set_stream_gain): where it heads, set
 // from any thread, and where the mix has got to, moved a little each mixed frame.
 struct StreamGainTargets {
@@ -83,9 +84,12 @@ struct StreamGainTargets {
             g.store(1.0f, std::memory_order_relaxed);
         }
     }
+
     std::atomic<float>& operator[](std::size_t group) { return gains[group]; }
+
     std::array<std::atomic<float>, audio::kVolumeGroups> gains;
 };
+
 StreamGainTargets g_stream_gain_target;
 std::array<double, audio::kVolumeGroups> g_stream_gain = [] {
     std::array<double, audio::kVolumeGroups> a{};
@@ -374,9 +378,9 @@ void mix_streams(std::span<std::int16_t> out) {
     std::array<double, audio::kVolumeGroups> gain_from = g_stream_gain;
     std::array<double, audio::kVolumeGroups> gain_to{};
     for (std::size_t g = 0; g < gain_to.size(); ++g) {
-        const double target =
-            std::clamp(static_cast<double>(g_stream_gain_target[g].load(std::memory_order_relaxed)),
-                       0.0, 1.0);
+        const double target = std::clamp(
+            static_cast<double>(g_stream_gain_target[g].load(std::memory_order_relaxed)), 0.0, 1.0
+        );
         const double most = kStreamGainStep * static_cast<double>(frames);
         gain_to[g] = gain_from[g] + std::clamp(target - gain_from[g], -most, most);
     }
@@ -904,12 +908,12 @@ void openrac_sound_set_master_volume(int32_t group, int32_t volume) {
 }
 
 void openrac_sound_set_stream_gain(int32_t group, float gain) {
-    if (group < 0 || static_cast<std::size_t>(group) >= audio::kVolumeGroups || !std::isfinite(gain)) {
+    if (group < 0 || static_cast<std::size_t>(group) >= audio::kVolumeGroups
+        || !std::isfinite(gain)) {
         return;
     }
-    g_stream_gain_target[static_cast<std::size_t>(group)].store(
-        std::clamp(gain, 0.0f, 1.0f), std::memory_order_relaxed
-    );
+    g_stream_gain_target[static_cast<std::size_t>(group)]
+        .store(std::clamp(gain, 0.0f, 1.0f), std::memory_order_relaxed);
 }
 
 void openrac_sound_pause_groups(uint32_t mask) {

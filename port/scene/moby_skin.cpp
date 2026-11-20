@@ -81,9 +81,9 @@ bool load_moby_skins(
             std::string why;
             auto rig = load_prop_rig(path, why);
             if (!rig || rig->animations.empty()) {
-                warnings.push_back(std::format(
-                    "skin {}: {}", name, rig ? "the model has no animations" : why
-                ));
+                warnings.push_back(
+                    std::format("skin {}: {}", name, rig ? "the model has no animations" : why)
+                );
                 continue;
             }
             const auto model = load_model(path, level, why);

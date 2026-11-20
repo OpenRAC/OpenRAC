@@ -8,8 +8,8 @@
 #include <cstring>
 #include <limits>
 #include <mutex>
-#include <unordered_map>
 #include <optional>
+#include <unordered_map>
 
 namespace openrac::scene {
 

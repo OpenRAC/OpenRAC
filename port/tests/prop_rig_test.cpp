@@ -46,20 +46,22 @@ std::filesystem::path write_gltf(bool broken = false) {
     std::vector<unsigned char> buffer;
     put(buffer, {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});   // root: no bind offset
     put(buffer, {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -1, 1});  // child, bound one up
-    put(buffer, {0.0f, 1.0f});                                        // times
+    put(buffer, {0.0f, 1.0f});                                       // times
     const float h = std::sqrt(0.5f);
-    put(buffer, {0, 0, 0, 1, 0, 0, h, h});                            // none, a quarter about z
-    put(buffer, {0, 0, 0, 1, 0, 0, 0, 1, 0});                         // a triangle
+    put(buffer, {0, 0, 0, 1, 0, 0, h, h});     // none, a quarter about z
+    put(buffer, {0, 0, 0, 1, 0, 0, 0, 1, 0});  // a triangle
     const std::string json = R"({
  "asset": {"version": "2.0"},
- "buffers": [{"byteLength": 204, "uri": "data:application/octet-stream;base64,)" + base64(buffer) + R"("}],
+ "buffers": [{"byteLength": 204, "uri": "data:application/octet-stream;base64,)"
+                             + base64(buffer) + R"("}],
  "bufferViews": [
   {"buffer": 0, "byteOffset": 0, "byteLength": 128},
   {"buffer": 0, "byteOffset": 128, "byteLength": 8},
   {"buffer": 0, "byteOffset": 136, "byteLength": 32},
   {"buffer": 0, "byteOffset": 168, "byteLength": 36}],
  "accessors": [
-  {"bufferView": 0, "componentType": 5126, "count": )" + std::string(broken ? "9" : "2") + R"(, "type": "MAT4"},
+  {"bufferView": 0, "componentType": 5126, "count": )"
+                             + std::string(broken ? "9" : "2") + R"(, "type": "MAT4"},
   {"bufferView": 1, "componentType": 5126, "count": 2, "type": "SCALAR", "min": [0], "max": [1]},
   {"bufferView": 2, "componentType": 5126, "count": 2, "type": "VEC4"},
   {"bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0]}],
@@ -73,7 +75,8 @@ std::filesystem::path write_gltf(bool broken = false) {
    "channels": [{"sampler": 0, "target": {"node": 2, "path": "rotation"}}]}],
  "scenes": [{"nodes": [0, 1]}]
 })";
-    const auto path = std::filesystem::temp_directory_path() / (broken ? "openrac_prop_rig_broken.gltf" : "openrac_prop_rig_test.gltf");
+    const auto path = std::filesystem::temp_directory_path()
+                      / (broken ? "openrac_prop_rig_broken.gltf" : "openrac_prop_rig_test.gltf");
     std::ofstream(path) << json;
     return path;
 }
@@ -99,19 +102,22 @@ int main() {
     const renderer::Vec3 point{1.0f, 0.0f, 1.0f};
     auto at = [&](float seconds, bool loop) {
         const auto palette = scene::prop_rig_palette(*rig, 0, seconds, loop);
-        return palette.size() == 2 ? renderer::transform_point(palette[1], point) : renderer::Vec3{};
+        return palette.size() == 2 ? renderer::transform_point(palette[1], point)
+                                   : renderer::Vec3{};
     };
     CHECK(near(at(0.0f, false), {1.0f, 0.0f, 1.0f}));
     CHECK(near(at(1.0f, false), {0.0f, 1.0f, 1.0f}));
     CHECK(near(at(5.0f, false), {0.0f, 1.0f, 1.0f}));  // held at its end
     const float h = std::sqrt(0.5f);
-    CHECK(near(at(2.5f, true), {h, h, 1.0f}));         // looped: half way
+    CHECK(near(at(2.5f, true), {h, h, 1.0f}));  // looped: half way
     // The root does not move; an animation the rig has not: nothing.
     const auto palette = scene::prop_rig_palette(*rig, 0, 0.5f, false);
     CHECK(palette.size() == 2 && near(renderer::transform_point(palette[0], point), point));
     CHECK(scene::prop_rig_palette(*rig, 1, 0.0f, false).empty());
     // An accessor longer than its buffer: no rig, nothing read past it.
     std::string broken_error;
-    CHECK(!scene::load_prop_rig(write_gltf(true), broken_error).has_value() && !broken_error.empty());
+    CHECK(
+        !scene::load_prop_rig(write_gltf(true), broken_error).has_value() && !broken_error.empty()
+    );
     return openrac::test::result();
 }

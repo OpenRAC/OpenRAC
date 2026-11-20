@@ -479,7 +479,9 @@ void use_level(int number) {
                 log::warn("level {}: {}", wanted, warning);
             }
             if (!g->moby_skins.empty()) {
-                log::info("level {}: {} mobys drawn as skins", wanted, g->moby_skins.by_spawn_id.size());
+                log::info(
+                    "level {}: {} mobys drawn as skins", wanted, g->moby_skins.by_spawn_id.size()
+                );
             }
         }
     }
@@ -490,11 +492,14 @@ void use_level(int number) {
         std::error_code missing;
         if (std::filesystem::is_directory(dir / "cutscenes", missing)
             || std::filesystem::is_regular_file(dir / "behaviours.json", missing)) {
-            log::warn("level {}: made in OpenRAC Editor, and the editor-runtime mod is off", wanted);
+            log::warn(
+                "level {}: made in OpenRAC Editor, and the editor-runtime mod is off", wanted
+            );
             debug_overlay::notify({
                 .id = "editor-runtime",
                 .title = "This level needs the editor-runtime mod",
-                .text = "Turn it on in Mods: without it, its cutscenes and moving objects do not play.",
+                .text =
+                    "Turn it on in Mods: without it, its cutscenes and moving objects do not play.",
                 .tone = debug_overlay::Tone::Warning,
                 .seconds = 10.0,
             });

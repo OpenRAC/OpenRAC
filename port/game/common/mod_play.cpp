@@ -6,9 +6,8 @@
 #include "mod_play.h"
 
 #include <algorithm>
-#include <atomic>
-#include <optional>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <cmath>
 #include <cstddef>
@@ -21,6 +20,7 @@
 #include <limits>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -1446,6 +1446,7 @@ struct MusicGain {
     std::uint32_t loads = 0;
     float gain = 1.0f;
 };
+
 std::vector<MusicGain> g_music_gains;
 void (*g_music_gain)(int, float) = nullptr;
 int (*g_joint_frame)(std::uint32_t, int, float*) = nullptr;
@@ -1535,7 +1536,9 @@ int api_moby_set_joints(openrac_mod* mod, int slot, const openrac_joint_offset* 
 
 // moby_set_joints with each joint's pose set, not composed: its number carries kJointPoseSet, which
 // the host's joint_offsets reads (mods.h).
-int api_moby_set_joint_poses(openrac_mod* mod, int slot, const openrac_joint_offset* joints, int count) {
+int api_moby_set_joint_poses(
+    openrac_mod* mod, int slot, const openrac_joint_offset* joints, int count
+) {
     if (count < 0 || count > OPENRAC_JOINT_OFFSETS_MAX || (count > 0 && joints == nullptr)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
@@ -1600,7 +1603,9 @@ int api_music_volume(openrac_mod* mod, float gain) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const std::uint32_t loads = loads_now();
-    std::erase_if(g_music_gains, [&](const MusicGain& g) { return g.mod == mod || g.loads != loads; });
+    std::erase_if(g_music_gains, [&](const MusicGain& g) {
+        return g.mod == mod || g.loads != loads;
+    });
     if (gain < 1.0f) {
         g_music_gains.push_back({mod, loads, gain});
     }
@@ -2083,8 +2088,7 @@ int api_moby_sound_play(openrac_mod* mod, int slot, int sound, int loop) {
     std::int32_t level = -1;
     const gaddr moby = moby_address(slot);
     if (mod == nullptr || moby == 0 || g_play == nullptr || g_play->moby_sound_play == nullptr
-        || sound < 0
-        || !in_level(phase_now(&level))) {
+        || sound < 0 || !in_level(phase_now(&level))) {
         return -1;
     }
     const int voice = g_play->moby_sound_play(moby, sound, loop != 0 ? 1 : 0);
@@ -2102,9 +2106,10 @@ void api_moby_sound_stop(openrac_mod* mod, int voice) {
     if (mod == nullptr || g_play == nullptr || g_play->moby_sound_stop == nullptr || voice < 0) {
         return;
     }
-    const auto it = std::find_if(g_hero_voices.begin(), g_hero_voices.end(), [&](const HeroVoice& v) {
-        return v.mod == mod && v.voice == voice && v.moby != 0;
-    });
+    const auto it =
+        std::find_if(g_hero_voices.begin(), g_hero_voices.end(), [&](const HeroVoice& v) {
+            return v.mod == mod && v.voice == voice && v.moby != 0;
+        });
     if (it == g_hero_voices.end()) {
         return;  // not a looping voice of this mod's: a sound played once ends by itself
     }
@@ -2121,19 +2126,24 @@ struct AirSet {
     std::uint32_t loads = 0;
     openrac_air air{};
 };
+
 std::mutex g_air_lock;
 std::optional<AirSet> g_air;
+
 struct Stretch {
     const openrac_mod* mod = nullptr;
     std::uint32_t loads = 0;
     float stretch = 1.0f;
 };
+
 std::vector<Stretch> g_stretches;
+
 struct TieHidden {
     const openrac_mod* mod = nullptr;
     std::uint32_t loads = 0;
     int tie = 0;
 };
+
 std::vector<TieHidden> g_ties_hidden;
 
 int api_scene_air(openrac_mod* mod, const openrac_air* air) {
@@ -2151,9 +2161,12 @@ int api_scene_air(openrac_mod* mod, const openrac_air* air) {
     if (air->size < sizeof(openrac_air)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    const auto unit = [](float v) { return std::isfinite(v) && v >= 0.0f && v <= 1.0f; };
+    const auto unit = [](float v) {
+        return std::isfinite(v) && v >= 0.0f && v <= 1.0f;
+    };
     bool ok = unit(air->weight) && unit(air->fog_thickness) && std::isfinite(air->fog_near)
-              && std::isfinite(air->fog_far) && air->fog_near >= 0.0f && air->fog_far > air->fog_near;
+              && std::isfinite(air->fog_far) && air->fog_near >= 0.0f
+              && air->fog_far > air->fog_near;
     for (int i = 0; i < 3; ++i) {
         ok = ok && unit(air->fog_colour[i]) && unit(air->background[i]);
     }
@@ -2200,8 +2213,12 @@ void drop_air(const openrac_mod* mod) {
         if (g_air && (mod == nullptr || g_air->mod == mod)) {
             g_air.reset();
         }
-        std::erase_if(g_ties_hidden, [&](const TieHidden& h) { return mod == nullptr || h.mod == mod; });
-        std::erase_if(g_stretches, [&](const Stretch& s) { return mod == nullptr || s.mod == mod; });
+        std::erase_if(g_ties_hidden, [&](const TieHidden& h) {
+            return mod == nullptr || h.mod == mod;
+        });
+        std::erase_if(g_stretches, [&](const Stretch& s) {
+            return mod == nullptr || s.mod == mod;
+        });
     }
 }
 

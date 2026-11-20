@@ -1217,7 +1217,9 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::Host h = host(plugins);
     // Slot 1's record carries spawn id 1006 (moby_uid, SDK 1.15.1).
     static openrac_game_play play = kPlay;
-    play.moby_uid = [](std::int32_t slot) { return slot == 1 ? 1006 : -1; };
+    play.moby_uid = [](std::int32_t slot) {
+        return slot == 1 ? 1006 : -1;
+    };
     h.play = &play;
     h.cards = dir / "cards";
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
@@ -2057,7 +2059,9 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         && drawn[0].matrix[12] == 1.0f && drawn[0].matrix[13] == 2.0f && drawn[0].matrix[14] == 3.0f
         && drawn[0].attached_moby == 0
     );
-    CHECK(drawn.size() == 2 && drawn[0].animation == 2 && drawn[0].seconds == 1.5f && drawn[0].loop);
+    CHECK(
+        drawn.size() == 2 && drawn[0].animation == 2 && drawn[0].seconds == 1.5f && drawn[0].loop
+    );
     // The second, fixed to the hero's attach point 1 (joint 12) of the moby in slot 3, its offset
     // kept (the refused calls after it change nothing).
     CHECK(
@@ -2122,7 +2126,9 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     play.moby_sound_stop = [](gaddr moby, int voice) {
         g_cutscene_calls.push_back("stop " + std::to_string(moby) + " " + std::to_string(voice));
     };
-    play.music_group = [] { return 2; };
+    play.music_group = [] {
+        return 2;
+    };
     h.play = &play;
     h.music_gain = [](int group, float gain) {
         g_cutscene_calls.push_back(
@@ -2149,9 +2155,10 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     CHECK(mods::camera_fov() == 0.0f);
     CHECK(!mods::hud_hidden());
     mods::frame();
-    CHECK((g_records == std::vector<int>{9801, 9800, 9811, 9811, 9810, 9820, 9831, 9830, 9840,
-                                         9841, 9841, 9840, 9841, 9840, 9850, 0x3100 + 3, 9851, 9850, 1, 9865, 9869, 9881, 9880,
-                                         9891, 9890, 9901, 9900, 9900}));
+    CHECK((g_records == std::vector<int>{9801, 9800,       9811, 9811, 9810, 9820, 9831,
+                                         9830, 9840,       9841, 9841, 9840, 9841, 9840,
+                                         9850, 0x3100 + 3, 9851, 9850, 1,    9865, 9869,
+                                         9881, 9880,       9891, 9890, 9901, 9900, 9900}));
     CHECK(
         (g_cutscene_calls
          == std::vector<std::string>{
@@ -2184,7 +2191,9 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     mods::play_update();
     CHECK((g_cutscene_calls == std::vector<std::string>{"music 2 100"}));
     g_cutscene_calls.clear();
-    play.hero_moby = [] { return std::uint32_t{0x1000}; };
+    play.hero_moby = [] {
+        return std::uint32_t{0x1000};
+    };
     mods::play_update();
     CHECK((g_cutscene_calls == std::vector<std::string>{"joints 12544 0"}));
     play.hero_moby = nullptr;

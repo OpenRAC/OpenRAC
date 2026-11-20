@@ -302,6 +302,13 @@ void reader() {
     g_more.notify_one();
 }
 
+// The answers are the control protocol on stdout, not log lines: one tagged line each.
+void send_line(const std::string& json) {
+    const std::string line = "@openrac-control " + json + "\n";
+    std::fwrite(line.data(), 1, line.size(), stdout);
+    std::fflush(stdout);
+}
+
 void answer(const Value& id, const std::string& body) {
     std::string idtext = "null";
 
@@ -311,8 +318,7 @@ void answer(const Value& id, const std::string& body) {
         idtext = quoted(id.text);
     }
 
-    std::printf("@openrac-control {\"id\": %s, %s}\n", idtext.c_str(), body.c_str());
-    std::fflush(stdout);
+    send_line("{\"id\": " + idtext + ", " + body + "}");
 }
 
 void fail(const Value& id, const std::string& why) {
@@ -642,9 +648,9 @@ bool handle(const std::string& line) {
         g_run.on = true;
         g_run.id = id;
         g_run.kind = cmd;
-        g_run.left =
-            static_cast<long>(c[cmd == "step" ? "ticks" : "max_ticks"].num(cmd == "step" ? 1 : 3600)
-            );
+        g_run.left = static_cast<long>(
+            c[cmd == "step" ? "ticks" : "max_ticks"].num(cmd == "step" ? 1 : 3600)
+        );
         g_run.left = std::clamp(g_run.left, 1L, 60L * 60L * 10L);
         g_run.until = c["until"].str();
         g_run.level = static_cast<int>(c["level"].num(-1));
@@ -784,11 +790,10 @@ void tick() {
     if (!started) {
         started = true;
         std::thread(reader).detach();
-        std::printf(
-            "@openrac-control {\"id\": null, \"ok\": true, \"ready\": true, \"game\": %s}\n",
-            quoted(openrac_game.id).c_str()
+        send_line(
+            "{\"id\": null, \"ok\": true, \"ready\": true, \"game\": " + quoted(openrac_game.id)
+            + "}"
         );
-        std::fflush(stdout);
     }
 
     g_tick++;

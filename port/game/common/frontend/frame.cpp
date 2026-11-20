@@ -2180,13 +2180,14 @@ TickMobys pose_mobys(
         if (skin != nullptr) {
             // The skin's animation for the class's sequence, from when the sequence began.
             const int sequence = ram[m.address + g->profile->moby_anim_fields() + 2];
-            const auto pose = animate ? scene::prop_rig_palette(
-                                            skin->rig,
-                                            scene::moby_skin_animation(*skin, sequence),
-                                            scene::moby_skin_seconds(g->moby_skins, m.address, sequence),
-                                            true
-                                        )
-                                      : std::vector<std::array<float, 16>>{};
+            const auto pose =
+                animate ? scene::prop_rig_palette(
+                              skin->rig,
+                              scene::moby_skin_animation(*skin, sequence),
+                              scene::moby_skin_seconds(g->moby_skins, m.address, sequence),
+                              true
+                          )
+                        : std::vector<std::array<float, 16>>{};
             joints = 0;
             if (!pose.empty()) {
                 instance.palette = static_cast<int>(palette.size());
@@ -2687,7 +2688,9 @@ void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state
     float fog_near_f = state.fog_near_f, fog_far_f = state.fog_far_f;
     if (const auto air = mods::scene_air(); air && (air->flags & OPENRAC_AIR_FOG) != 0) {
         const float w = air->weight;
-        const auto mix = [w](float a, float b) { return a + (b - a) * w; };
+        const auto mix = [w](float a, float b) {
+            return a + (b - a) * w;
+        };
         for (int i = 0; i < 3; ++i) {
             fog_colour[i] = mix(fog_colour[i], air->fog_colour[i]);
         }

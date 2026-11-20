@@ -278,7 +278,7 @@ int main() {
             openrac_sound_set_stream_gain(99, 0.0f);
             std::vector<std::int16_t> ease(2 * 1200);
             openrac_sound_render(ease.data(), ease.size() / 2);
-            CHECK(ease[0] == 8000);                             // the first frame as it was
+            CHECK(ease[0] == 8000);                                 // the first frame as it was
             CHECK(ease[2 * 1199] < 8000 && ease[2 * 1199] > 4000);  // a quarter of the way down
             std::vector<std::int16_t> rest(2 * 4800);
             openrac_sound_render(rest.data(), rest.size() / 2);

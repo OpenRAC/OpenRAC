@@ -34,14 +34,21 @@ int joint_number(const cgltf_node* joint, int index) {
 Mat4 compose(const PropRig::Node& n) {
     const float x = n.rotation[0], y = n.rotation[1], z = n.rotation[2], w = n.rotation[3];
     const float r[9] = {
-        1 - 2 * (y * y + z * z), 2 * (x * y + z * w),     2 * (x * z - y * w),
-        2 * (x * y - z * w),     1 - 2 * (x * x + z * z), 2 * (y * z + x * w),
-        2 * (x * z + y * w),     2 * (y * z - x * w),     1 - 2 * (x * x + y * y),
+        1 - 2 * (y * y + z * z),
+        2 * (x * y + z * w),
+        2 * (x * z - y * w),
+        2 * (x * y - z * w),
+        1 - 2 * (x * x + z * z),
+        2 * (y * z + x * w),
+        2 * (x * z + y * w),
+        2 * (y * z - x * w),
+        1 - 2 * (x * x + y * y),
     };
     Mat4 m{};
     for (int c = 0; c < 3; ++c) {
         for (int k = 0; k < 3; ++k) {
-            m[static_cast<std::size_t>(4 * c + k)] = r[3 * c + k] * n.scale[static_cast<std::size_t>(c)];
+            m[static_cast<std::size_t>(4 * c + k)] =
+                r[3 * c + k] * n.scale[static_cast<std::size_t>(c)];
         }
     }
     m[12] = n.translation[0];
@@ -78,7 +85,9 @@ Quat slerp(Quat a, Quat b, float t) {
     }
     const float theta = std::acos(dot), s = std::sin(theta);
     const float wa = std::sin((1.0f - t) * theta) / s, wb = std::sin(t * theta) / s;
-    return {wa * a[0] + wb * b[0], wa * a[1] + wb * b[1], wa * a[2] + wb * b[2], wa * a[3] + wb * b[3]};
+    return {
+        wa * a[0] + wb * b[0], wa * a[1] + wb * b[1], wa * a[2] + wb * b[2], wa * a[3] + wb * b[3]
+    };
 }
 
 // A channel's value at `time` into `out` (its width: 3 or 4).
@@ -86,8 +95,11 @@ void sample(const PropRig::Channel& c, float time, float* out) {
     const std::size_t width = c.path == PropRig::Path::Rotation ? 4 : 3;
     const std::size_t keys = c.times.size();
     const std::size_t stride = c.interpolation == PropRig::Interpolation::Cubic ? 3 * width : width;
-    const std::size_t at = c.interpolation == PropRig::Interpolation::Cubic ? width : 0;  // the value
-    const auto value = [&](std::size_t k) { return c.values.data() + k * stride + at; };
+    const std::size_t at =
+        c.interpolation == PropRig::Interpolation::Cubic ? width : 0;  // the value
+    const auto value = [&](std::size_t k) {
+        return c.values.data() + k * stride + at;
+    };
     if (keys == 0 || c.values.size() < keys * stride) {
         return;
     }
@@ -100,7 +112,10 @@ void sample(const PropRig::Channel& c, float time, float* out) {
         return;
     }
     const std::size_t k =
-        static_cast<std::size_t>(std::upper_bound(c.times.begin(), c.times.end(), time) - c.times.begin()) - 1;
+        static_cast<std::size_t>(
+            std::upper_bound(c.times.begin(), c.times.end(), time) - c.times.begin()
+        )
+        - 1;
     const float t0 = c.times[k], t1 = c.times[k + 1], span = t1 - t0;
     const float t = span > 0.0f ? (time - t0) / span : 0.0f;
     if (c.interpolation == PropRig::Interpolation::Step) {
@@ -125,8 +140,11 @@ void sample(const PropRig::Channel& c, float time, float* out) {
         return;
     }
     if (width == 4) {
-        const Quat q = slerp({value(k)[0], value(k)[1], value(k)[2], value(k)[3]},
-                             {value(k + 1)[0], value(k + 1)[1], value(k + 1)[2], value(k + 1)[3]}, t);
+        const Quat q = slerp(
+            {value(k)[0], value(k)[1], value(k)[2], value(k)[3]},
+            {value(k + 1)[0], value(k + 1)[1], value(k + 1)[2], value(k + 1)[3]},
+            t
+        );
         std::copy(q.begin(), q.end(), out);
         return;
     }
@@ -184,7 +202,9 @@ std::optional<PropRig> load_prop_rig(const std::filesystem::path& path, std::str
             joint.number = joint_number(skin->joints[j], static_cast<int>(j));
             joint.inverse_bind = renderer::identity();
             if (skin->inverse_bind_matrices != nullptr && j < skin->inverse_bind_matrices->count) {
-                cgltf_accessor_read_float(skin->inverse_bind_matrices, j, joint.inverse_bind.data(), 16);
+                cgltf_accessor_read_float(
+                    skin->inverse_bind_matrices, j, joint.inverse_bind.data(), 16
+                );
             }
             if (joint.node >= 0) {
                 rig.joints.push_back(joint);
