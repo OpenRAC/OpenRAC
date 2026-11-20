@@ -44,22 +44,6 @@
  },
  "left_out": {},
  "addresses_not_found": [
-  "0x001A57BC",
-  "0x001A5E08",
-  "0x001D4C40",
-  "0x001427F0",
-  "0x00142668",
-  "0x00142660",
-  "0x001C5290",
-  "0x001D4CA0",
-  "0x001A71D2",
-  "0x001BBC40",
-  "0x001A4C70",
-  "0x001A71A4",
-  "L01:001DCA14",
-  "L01:001E001C",
-  "L01:001E0024",
-  "L01:001E0100",
   "L39:001E0880"
  ],
  "hand_addresses": {
@@ -71,9 +55,57 @@
    "is": "0x00143A70",
    "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_0049FBC8 (NTSC-U func_L01_0049C368) +0x1DC, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
   },
+  "0x001A57BC": {
+   "is": "0x001A57BC",
+   "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A5780 and 0x001A57F8, both moved by +0x0 (NTSC-U 0x001A5780, 0x001A57F8)"
+  },
+  "0x001A5E08": {
+   "is": "0x001A5E08",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0034DBE8 (NTSC-U func_L01_0034D168) +0x8, 3 of 3 places agree"
+  },
+  "0x001D4C40": {
+   "is": "0x001D4C40",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004CA270 (NTSC-U func_L01_004C6638) +0x138, 7 of 7 places agree"
+  },
+  "0x001427F0": {
+   "is": "0x001427F0",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0030F0B0 (NTSC-U func_L01_0030EDC0) +0xC0, 18 of 18 places agree"
+  },
+  "0x00142668": {
+   "is": "0x00142668",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00301798 (NTSC-U func_L01_003015F0) +0x94, 3 of 3 places agree"
+  },
+  "0x00142660": {
+   "is": "0x00142660",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x120, 34 of 34 places agree"
+  },
+  "0x001C5290": {
+   "is": "0x001C5290",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0xA8, 2 of 2 places agree"
+  },
+  "0x001D4CA0": {
+   "is": "0x001D4CA0",
+   "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001D4C80 and 0x001D4CA8, both moved by +0x0 (NTSC-U 0x001D4C80, 0x001D4CA8)"
+  },
+  "0x001A71D2": {
+   "is": "0x001A71D2",
+   "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A71C5 and 0x001A71D4, both moved by +0x0 (NTSC-U 0x001A71C5, 0x001A71D4)"
+  },
+  "0x001BBC40": {
+   "is": "0x001BBC40",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x78, 24 of 24 places agree"
+  },
   "0x001A71A0": {
    "is": "0x001A71A0",
    "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree"
+  },
+  "0x001A4C70": {
+   "is": "0x001A4C70",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004E51A0 (NTSC-U func_L01_004E13D8) +0x20, 3 of 3 places agree"
+  },
+  "0x001A71A4": {
+   "is": "0x001A71A4",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_003261E8 (NTSC-U func_L01_00325CE8) +0x100, 8 of 8 places agree"
   }
  },
  "hostgen_left_out": {
