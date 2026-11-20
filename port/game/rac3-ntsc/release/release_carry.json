@@ -1,0 +1,38 @@
+{
+ "about": "What rac3-ntsc's carried tables rest on besides the same code, written by port/tools/hostgen/release_carry_rac3.py; do not edit.",
+ "differs": {
+  "func_003983C8": {
+   "is": "func_003982E0",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003983C8__game": {
+   "is": "func_003982E0__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003AA780": {
+   "is": "func_003AA630",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003AA780__game": {
+   "is": "func_003AA630__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003B63D0": {
+   "is": "func_003B6220",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003B63D0__game": {
+   "is": "func_003B6220__game",
+   "status": "differs",
+   "port": "host C"
+  }
+ },
+ "left_out": {},
+ "addresses_not_found": [],
+ "hand_addresses": {}
+}

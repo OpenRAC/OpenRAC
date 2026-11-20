@@ -20,8 +20,9 @@
 
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
-#define WIDESCREEN 0x001439FDu
+#define WIDESCREEN RAC3_ADDR(0x001439FDu)
 
 /* Each frame's display list as it is sent (host/dma.c): the game's 16:9 off. */
 void rac3_view_frame_sent(void) {

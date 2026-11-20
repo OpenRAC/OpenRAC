@@ -765,14 +765,16 @@ target_link_libraries(openrac_game_rac2_profile PUBLIC openrac_scene_renderer op
 openrac_warnings(openrac_game_rac2_profile)
 openrac_add_test(rac2_moby_view LIBS openrac_game_rac2_profile)
 
-# Up Your Arsenal's PAL profile (game/rac3-pal/profile.cpp), which openrac-rac3-pal compiles itself,
-# as a library for its test. Not named openrac_game_rac3_profile: that would be every rac3 disc's.
+# Up Your Arsenal's profile (game/rac3-pal/profile.cpp), which openrac-rac3-pal compiles itself, as a
+# library for its test and for openrac-rac3-ntsc, which finds it as the game's
+# (openrac_game_rac3_profile, cmake/Games.cmake): it holds both discs' tables, picked by the id.
 add_library(openrac_game_rac3_pal_profile STATIC game/rac3-pal/profile.cpp)
 target_include_directories(openrac_game_rac3_pal_profile PRIVATE runtime/include
   "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(openrac_game_rac3_pal_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
 openrac_warnings(openrac_game_rac3_pal_profile)
 openrac_add_test(rac3_profile LIBS openrac_game_rac3_pal_profile)
+add_library(openrac_game_rac3_profile ALIAS openrac_game_rac3_pal_profile)
 
 # Tests are registered through openrac_add_test (cmake/Tests.cmake), which makes the program
 # <subject>_test and the ctest test <subject>; a program that runs under more names gets them with

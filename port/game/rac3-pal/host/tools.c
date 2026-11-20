@@ -25,14 +25,15 @@
 
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
 #define RAC3_LEVELS 54
-#define FRONT_END_MODE 0x001D5B94u
-#define FRONT_END_STATE 0x001D5458u
-#define LEVEL_CURRENT 0x001D545Cu
-#define BOOT_LEVEL_NEXT 0x001D9D04u
-#define HERO_POSITION 0x001A4C60u
-#define PADS 0x001CD0C0u
+#define FRONT_END_MODE RAC3_ADDR(0x001D5B94u)
+#define FRONT_END_STATE RAC3_ADDR(0x001D5458u)
+#define LEVEL_CURRENT RAC3_ADDR(0x001D545Cu)
+#define BOOT_LEVEL_NEXT RAC3_ADDR(0x001D9D04u)
+#define HERO_POSITION RAC3_ADDR(0x001A4C60u)
+#define PADS RAC3_ADDR(0x001CD0C0u)
 
 /* The levels, by the game's own numbers (rac3-decomp config/levels/levels.tsv); NULL: no program
  * on the disc. */

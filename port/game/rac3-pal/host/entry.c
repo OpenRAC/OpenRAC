@@ -13,6 +13,8 @@
  * registers the finaliser through atexit (0x00116FD0) and calls main (0x0013B330) with the
  * argument block at 0x0015C040.
  *
+ * NTSC-U's loader (SCUS_973.53) carries its game at the same file offset, in the same records.
+ *
  * The port's loader (main.cpp) placed SCES_524.56 as it is; this does the unpacking, then the
  * user-mode steps of crt0. The port owns the thread, the stack and the heap, and the payload's
  * bss records are zeros.
@@ -56,7 +58,7 @@ static void unpack_payload(void) {
     if (size < 16) {
         fprintf(
             stderr,
-            "rac3: SCES_524.56 holds no game at 0x%08x (not the PAL disc's loader?)\n",
+            "rac3: the disc's loader holds no game at 0x%08x (not Up Your Arsenal's?)\n",
             RAC3_PAYLOAD
         );
         exit(1);

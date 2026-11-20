@@ -36,15 +36,16 @@
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
-#define OPTIONS 0x00143950u
+#define OPTIONS RAC3_ADDR(0x00143950u)
 #define OPTION_SUBTITLES (OPTIONS + 0x06u) /* a byte */
 #define OPTION_SOUND (OPTIONS + 0x08u)     /* a word: 0 mono, else stereo */
 #define OPTION_WIDESCREEN (OPTIONS + 0xADu)
 /* A byte: 1 English, 2 French, 3 German, 4 Spanish, 5 Italian. */
 #define OPTION_LANGUAGE (OPTIONS + 0xB7u)
 
-#define LIST 0x00280CF0u /* the Options page's list (func_003B9F88(0)) */
+#define LIST RAC3_ADDR(0x00280CF0u) /* the Options page's list (func_003B9F88(0)) */
 #define LIST_TOP 0x04u
 #define LIST_CURSOR 0x08u
 #define LIST_ROWS 0x0Cu
@@ -55,11 +56,11 @@
 #define CELL_TEXT 0x40u
 #define LIST_CAPACITY 0x9000u /* the cells' room (func_003B6128 gives the list 0x9000 bytes) */
 
-#define CURSOR_ROW 0x001D89B8u  /* the Options row under the cursor (func_003B6090) */
-#define PREVIEW_ROW 0x001D89BCu /* the row whose preview shows, -1 none yet */
+#define CURSOR_ROW RAC3_ADDR(0x001D89B8u)  /* the Options row under the cursor (func_003B6090) */
+#define PREVIEW_ROW RAC3_ADDR(0x001D89BCu) /* the row whose preview shows, -1 none yet */
 #define PREVIEW 0x001C0003      /* the preview's widget */
 #define ROW_VIDEO 0             /* the 16:9 row, the port's Video page in its place */
-#define ITEMS 0x0037F830u       /* the Options items, 16 bytes each */
+#define ITEMS RAC3_ADDR(0x0037F830u)       /* the Options items, 16 bytes each */
 #define ITEM_PREVIEW 0x0Cu      /* an item's preview animation */
 
 #define MENU_TRIANGLE 0x10u /* the menus' buttons (the pad record's word at +0x1C4) */

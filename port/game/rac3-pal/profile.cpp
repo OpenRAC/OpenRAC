@@ -5,7 +5,7 @@
 // fog, the live mobys and the hero, read from game memory by program (the boot program's, frontbin's
 // and each level's copy of the engine's globals), and the frame shown being the display list it
 // sends through VIF1 DMA (the bootstrap the native renderers replace). It defines game_profile() for
-// openrac-rac3-pal.
+// openrac-rac3-pal and openrac-rac3-ntsc (by the program's id).
 //
 // The engine is Going Commando's (game/rac2/profile.cpp): each function read here is that game's,
 // instruction for instruction, at other addresses. Where a block's layout moved, the offsets below
@@ -506,15 +506,31 @@ private:
 
 static_assert(kFrontbinOverlay >= static_cast<int>(std::size(kPal.levels)));
 
-// The one instance, a constant for the program's life.
+// NTSC-U's (SCUS-97353, port/game/rac3-ntsc): the boot program's globals renamed by
+// rac3-decomp's config/us/names.tsv (D_00222420 is NTSC-U's D_002224A0, D_00225900 D_00225980,
+// D_001DA4A0 D_001DA520; the cap 0x2C past moby_end as in every PAL program). Its levels are not
+// read yet: every program reads the boot program's (addresses()).
+// clang-format off
+constexpr Release kUs{
+    {0x002224A0, 0x00225980, 0x001DA524, 0x001DA520, 0x001DA550},
+    {},
+};
+// clang-format on
+
+// The one instance per disc, a constant for the program's life.
 const Profile kPalProfile{kPal};
+const Profile kUsProfile{kUs};
 
 }  // namespace
 }  // namespace openrac::game::rac3
 
 namespace openrac::host {
 
-const GameProfile& game_profile(std::string_view /*game*/) {
+const GameProfile& game_profile(std::string_view game) {
+    // The disc's program id picks its tables; any other id reads as PAL.
+    if (game == "rac3-ntsc") {
+        return game::rac3::kUsProfile;
+    }
     return game::rac3::kPalProfile;
 }
 

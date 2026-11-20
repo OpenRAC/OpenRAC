@@ -13,6 +13,7 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
+#include "rac3_version.h"
 
 void rac3_menu_log_text(float x, float y, gaddr text, int length);
 void rac3_menu_log_install(void);
@@ -74,15 +75,15 @@ static void on_frame(unsigned frame) {
     if (!open_log()) {
         return;
     }
-    const gaddr pad = word(0x001D52FCu);
+    const gaddr pad = word(RAC3_ADDR(0x001D52FCu));
     fprintf(
         g_log,
         "%u\tmode=%d\tstate=%d\tboot=%d\tscreen=%d\theld=%04x\tpressed=%04x%s\n",
         frame,
-        (int)word(0x001D5B94u),
-        (int)word(0x001D5458u),
-        (int)word(0x001D568Cu),
-        (int)word(0x001D5690u),
+        (int)word(RAC3_ADDR(0x001D5B94u)),
+        (int)word(RAC3_ADDR(0x001D5458u)),
+        (int)word(RAC3_ADDR(0x001D568Cu)),
+        (int)word(RAC3_ADDR(0x001D5690u)),
         pad ? word(pad + 0x1A0u) & 0xFFFFu : 0u,
         pad ? word(pad + 0x1A4u) & 0xFFFFu : 0u,
         g_texts

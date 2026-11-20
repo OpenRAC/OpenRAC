@@ -16,13 +16,14 @@
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
+#include "rac3_version.h"
 
 /* The reply wait (0x0013B818): 1 when the server's reply to the last command is in (the reply
  * buffer named at 0x001D4DA0 is cleared), 0 while it is still to come. snd_StartSoundSystem
  * (0x0013B3F8, run from its instructions) waits on it; with no server the reply is in at once. */
 int func_0013B818(void) {
     const uint32_t none = 0;
-    memcpy(G(0x001D4DA0u), &none, sizeof none);
+    memcpy(G(RAC3_ADDR(0x001D4DA0u)), &none, sizeof none);
     return 1;
 }
 

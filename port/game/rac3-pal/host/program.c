@@ -23,12 +23,13 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
+#include "rac3_version.h"
 
-#define FRONTEND_ENTRY 0x00381250u
+#define FRONTEND_ENTRY RAC3_ADDR(0x00381250u)
 #define FRONTBIN_OVERLAY 100
-#define CURRENT_LEVEL 0x001D545Cu /* the level whose program is loaded, or is being loaded */
-#define NEXT_LEVEL 0x001D9D04u    /* the level a menu asks for; below zero, the front end */
-#define FRONTEND_EXIT 0x001D5B74u /* the front end's loop ends when set */
+#define CURRENT_LEVEL RAC3_ADDR(0x001D545Cu) /* the level whose program is loaded, or is being loaded */
+#define NEXT_LEVEL RAC3_ADDR(0x001D9D04u)    /* the level a menu asks for; below zero, the front end */
+#define FRONTEND_EXIT RAC3_ADDR(0x001D5B74u) /* the front end's loop ends when set */
 #define LEVELS 64
 
 gaddr func_0013AFF8__game(void);
@@ -44,7 +45,7 @@ static int32_t word(gaddr at) {
 /* The programs' range (hostgen.json "relocate"): what a level's program replaces. */
 #define PROGRAMS_LOW 0x001D5680u
 #define PROGRAMS_HIGH 0x00700000u
-#define PROGRAM_BUFFER 0x001D4B50u /* where the next program was read: a header word, its records */
+#define PROGRAM_BUFFER RAC3_ADDR(0x001D4B50u) /* where the next program was read: a header word, its records */
 #define PROGRAM_GP 0x001DC8B0u     /* $gp, crt0's, the same in every program (hostgen.json "gp") */
 
 /* A level function the catalogue names after another level (func_L05_...) is written with that

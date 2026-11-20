@@ -1,0 +1,146 @@
+{
+  "about": "What port/tools/hostgen/release_carry_rac3.py needs of NTSC-U besides rac3-decomp's tables and rac3-pal's port: the keys of hostgen.json that are this disc's own, the pairs and addresses checked by hand, each with its evidence.",
+  "game": "rac3",
+  "id": "rac3-ntsc",
+  "primary": "rac3-pal",
+  "hostgen": {
+    "about": "Keys over rac3-pal's carried hostgen.json (null removes one; a dict is merged unless it has \"replace\").",
+    "id": "rac3-ntsc",
+    "title": "Ratchet & Clank: Up Your Arsenal (NTSC-U)",
+    "serial": "SCUS_973.53",
+    "frame_rate": 60,
+    "tick_rate": 60,
+    "tick_rate_why": "The NTSC-U game leaves its settings word 0x00143950 at 0 and takes the 60 Hz branch PAL never takes (rac3-pal/README.md, Ticks): it counts in sixtieths.",
+    "sources": [
+      "src/boot_elf",
+      "src/frontbin",
+      "src/us/boot_elf",
+      "src/us/frontbin"
+    ],
+    "skip": [
+      "src/boot_elf/core/libgcc",
+      "src/boot_elf/text/3C6718.c",
+      "src/frontbin/3C6360.c"
+    ],
+    "groups": [
+      {
+        "path": "src/frontbin",
+        "suffix": "frontbin",
+        "overlay": 100
+      },
+      {
+        "path": "src/us/frontbin",
+        "suffix": "frontbin",
+        "overlay": 100
+      }
+    ],
+    "derived": {
+      "table": "release/release_names.json"
+    },
+    "release": {
+      "version": "us",
+      "table": "release/release_names.json"
+    },
+    "host_shared": [
+      "../rac3-pal/host"
+    ],
+    "headers": "../rac3-pal/headers",
+    "places": null,
+    "place_kinds_as_levels": null,
+    "places_are_functions": null,
+    "asm": {
+      "retail": {
+        "image": "baserom/SCUS_973.53.iso",
+        "required": true,
+        "programs": {
+          "frontbin": 100
+        }
+      },
+      "signatures": {
+        "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
+      }
+    },
+    "candidates_left_out": {
+      "func_00385A98": "Clang cannot read it: it calls func_0038DF00, which it does not declare",
+      "func_0038D5B0": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
+      "func_003EE310": "Clang cannot read it: it calls func_003EDBE0 with an argument its declaration does not take",
+      "func_0039F348": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
+      "func_003A2028": "Clang cannot read it in the NTSC-U view: use of undeclared identifier 'func_003A1AD0'",
+      "func_003A7480": "Clang cannot read it: it calls func_003A6F28, which it does not declare",
+      "func_003AAA00": "Clang cannot read it in the NTSC-U view: use of undeclared identifier 'func_11F940'",
+      "func_003ABA48": "Clang cannot read it in the NTSC-U view: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+      "func_003AFFA8": "Clang cannot read it: use of undeclared identifier 'func_11F940'",
+      "func_003ABBE8": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+      "func_003B0FF0": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+      "func_003C5A98": "Clang cannot read it: too many arguments to function call, expected 1, have 3"
+    },
+    "asm_signatures_why": "FontPrint (PAL's func_0038EBC8): host/ui2d.c wraps it as a void function, as PAL's prototype has it; NTSC-U's assembly leaves $v0 as a callee's, which hostgen took for a result"
+  },
+  "pairs": {
+    "about": "Function pairs taken as they are where map.tsv pairs nothing: PAL's name, NTSC-U's, the evidence.",
+    "func_0012BEE8": {
+      "is": "func_0012BEE8",
+      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+    },
+    "func_0012DA60": {
+      "is": "func_0012DA60",
+      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+    },
+    "func_0012F608": {
+      "is": "func_0012F608",
+      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+    },
+    "func_0012F728": {
+      "is": "func_0012F728",
+      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+    },
+    "func_0012FF40": {
+      "is": "func_0012FF40",
+      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+    },
+    "func_00123C20": {
+      "is": "func_00123C20",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_001249F0": {
+      "is": "func_001249F0",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_00126020": {
+      "is": "func_00126020",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_0012BE28": {
+      "is": "func_0012BE28",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_001315D8": {
+      "is": "func_001315D8",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_0013D1E8": {
+      "is": "func_0013D1E8",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_003F02C8": {
+      "is": "func_003F0168",
+      "why": "the Widget3D text class's type id (jr ra; li v0, 2): the same 8 bytes at 0x003F0168, after the same 36-byte remnant (PAL 0x003F02A0, NTSC-U 0x003F0140), and the class's vtable (PAL 0x001D9798, NTSC-U 0x001D97D8) points there at +0xC. NTSC-U's inventory counts the 8 bytes into f_003F0140, so map.tsv has no twin; without it the main menu's labels were never set (func_003E7EE8 looked their setter up under a garbage type id)"
+    },
+    "func_003F0AB8": {
+      "is": "func_003F0938",
+      "why": "the next class's type id: the same 8 bytes at 0x003F0938, after the same 20-byte remnant (PAL 0x003F0AA0, NTSC-U 0x003F0920), the only place they occur after it; as func_003F02C8"
+    },
+    "func_003EFF10__frontbin": {
+      "is": "func_003EA9A8__frontbin",
+      "why": "frontbin's copy of func_003F02C8: the same 8 bytes at 0x003EA9A8 after the same 36-byte remnant (PAL 0x003EFEE8, NTSC-U 0x003EA980)"
+    },
+    "func_003F0700__frontbin": {
+      "is": "func_003EB178__frontbin",
+      "why": "frontbin's copy of func_003F0AB8: the same 8 bytes at 0x003EB178 after the same 20-byte remnant (PAL 0x003F06E8, NTSC-U 0x003EB160), the only place they occur"
+    }
+  },
+  "addresses": {
+    "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence."
+  },
+  "libraries_left_out": {}
+}

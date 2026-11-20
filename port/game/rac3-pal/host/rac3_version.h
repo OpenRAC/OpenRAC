@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (c) 2026 the OpenRAC contributors
+ *
+ * PAL's (SCES-52456) addresses for the host C here, which is every Up Your Arsenal disc's: the
+ * NTSC-U program (port/game/rac3-ntsc, hostgen.json "host_shared") compiles it too, with its own
+ * rac3_version.h first on the include path and the functions renamed (rac3_names.tsv,
+ * tools/hostgen/release_host.py). An address of the game's memory that NTSC-U may have elsewhere is
+ * written RAC3_ADDR(0x...u), PAL's value: tools/hostgen/release_carry_rac3.py writes NTSC-U's
+ * (rac3-ntsc/host/rac3_addresses.h). The resident core below 0x001D5680 is the same on both discs
+ * for most of its data, but not all: when in doubt, wrap it. */
+#ifndef OPENRAC_RAC3_VERSION_H
+#define OPENRAC_RAC3_VERSION_H
+
+/* The release the host C is written for. */
+#define RAC3_PRIMARY 1
+#define RAC3_PAL 1
+
+#define RAC3_ADDR(a) (a)
+
+#endif /* OPENRAC_RAC3_VERSION_H */

@@ -38,11 +38,12 @@
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
 /* The offset the game adds to every 2D position (12.4), and the display list's cursor. */
-#define SCREEN_OFX GREF(int32_t, 0x001D4BD0u)
-#define SCREEN_OFY GREF(int32_t, 0x001D4BD4u)
-#define LIST_CURSOR ((gaddr)0x001DA050u)
+#define SCREEN_OFX GREF(int32_t, RAC3_ADDR(0x001D4BD0u))
+#define SCREEN_OFY GREF(int32_t, RAC3_ADDR(0x001D4BD4u))
+#define LIST_CURSOR ((gaddr)RAC3_ADDR(0x001DA050u))
 /* The far depth the 2D layer's boxes and glyph quads are drawn at (0xFFFFF0 in XYZ2's z). */
 #define FAR_Z 0xFFFFF0u
 
@@ -535,7 +536,7 @@ void func_0038B310(int y0, int y1, int x0, int x1, unsigned long long c) {
 /* The fixed packet func_0038B200 sends (a ref tag of 0x14 quadwords): an A+D tag, TEST_1 and PRIM
  * (an untextured, blended sprite), then a tag of sixteen sprites (two XYZ2 each, from +0x40), the
  * picture in 32-pixel columns, their corners as the front end's start-up set them. */
-#define DARKEN_PACKET 0x00141850u
+#define DARKEN_PACKET RAC3_ADDR(0x00141850u)
 #define DARKEN_SPRITES 16u
 
 /* The picture darkened: (r, g, b, a) over the whole of it, z writes masked (ZBUF_1's ZMSK, which
@@ -690,8 +691,8 @@ void func_003AA780(gaddr a0, float a1, float a2, int a3, float a4, gaddr a5) {
 
 /* The HUD's textures: by a texture's number, a 4-byte entry at D_001D9EA8 whose halfword at +2
  * indexes the 8-byte entries at D_001D9EAC, +6 and +7 the log2 width and height. */
-#define HUD_ENTRIES GREF(gaddr, 0x001D9EA8u)
-#define HUD_IMAGES GREF(gaddr, 0x001D9EACu)
+#define HUD_ENTRIES GREF(gaddr, RAC3_ADDR(0x001D9EA8u))
+#define HUD_IMAGES GREF(gaddr, RAC3_ADDR(0x001D9EACu))
 
 /* A HUD texture (by its number) as a quad centred on (x, y), w and h its half sizes, turned by ang,
  * a colour a corner (colours: four RGBA words), its whole texture in texels (the packet's PRIM

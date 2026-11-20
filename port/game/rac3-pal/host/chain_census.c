@@ -12,6 +12,7 @@
 
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
+#include "rac3_version.h"
 
 static uint32_t word(gaddr at) {
     uint32_t v;
@@ -151,20 +152,20 @@ void rac3_chain_census(gaddr channel, gaddr tag_addr) {
         stderr,
         ", %u other; mode %d (0x001D5B94), next %d (0x001D5B90)\n",
         c.other,
-        (int)word(0x001D5B94u),
-        (int)word(0x001D5B90u)
+        (int)word(RAC3_ADDR(0x001D5B94u)),
+        (int)word(RAC3_ADDR(0x001D5B90u))
     );
-    const gaddr pad = word(0x001D52FCu);
+    const gaddr pad = word(RAC3_ADDR(0x001D52FCu));
     fprintf(
         stderr,
         "[rac3 boot] state %d (0x001D5458), frames %d (0x001D5688), boot screens %d (0x001D568C), "
         "screen %d (0x001D5690), timer %d (0x001D5694), pad %08x held %08x pressed %08x, pad state "
         "%d getstate %d raw %08x\n",
-        (int)word(0x001D5458u),
-        (int)word(0x001D5688u),
-        (int)word(0x001D568Cu),
-        (int)word(0x001D5690u),
-        (int)word(0x001D5694u),
+        (int)word(RAC3_ADDR(0x001D5458u)),
+        (int)word(RAC3_ADDR(0x001D5688u)),
+        (int)word(RAC3_ADDR(0x001D568Cu)),
+        (int)word(RAC3_ADDR(0x001D5690u)),
+        (int)word(RAC3_ADDR(0x001D5694u)),
         pad,
         pad ? word(pad + 0x1A0u) : 0,
         pad ? word(pad + 0x1A4u) : 0,
@@ -181,35 +182,35 @@ void rac3_chain_census(gaddr channel, gaddr tag_addr) {
         "+0x164 %d, +0x17C %d, +0x16C %d, card0 type %d free %d format %d +0x10 %d +0x18 %d +0x20 "
         "%d; "
         "dialog %d (0x001D4CE8) flags %#x (0x001D4CEC)\n",
-        (int)word(0x00142430u + 0x15Cu),
-        (int)word(0x00142430u + 0x154u),
-        (int)word(0x00142430u + 0x160u),
-        (int)word(0x00142430u + 0x14Cu),
-        (int)word(0x00142430u + 0x144u),
-        (int)word(0x00142430u + 0x148u),
-        (int)word(0x00142430u + 0x158u),
-        (int)word(0x00142430u + 0x164u),
-        (int)word(0x00142430u + 0x17Cu),
-        (int)word(0x00142430u + 0x16Cu),
-        (int)word(0x00142430u + 0x8u),
-        (int)word(0x00142430u + 0xCu),
-        (int)word(0x00142430u + 0x14u),
-        (int)word(0x00142430u + 0x10u),
-        (int)(int16_t)word(0x00142430u + 0x18u),
-        (int)word(0x00142430u + 0x20u),
-        (int)word(0x001D4CE8u),
-        word(0x001D4CECu)
+        (int)word(RAC3_ADDR(0x00142430u) + 0x15Cu),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x154u),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x160u),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x14Cu),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x144u),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x148u),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x158u),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x164u),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x17Cu),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x16Cu),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x8u),
+        (int)word(RAC3_ADDR(0x00142430u) + 0xCu),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x14u),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x10u),
+        (int)(int16_t)word(RAC3_ADDR(0x00142430u) + 0x18u),
+        (int)word(RAC3_ADDR(0x00142430u) + 0x20u),
+        (int)word(RAC3_ADDR(0x001D4CE8u)),
+        word(RAC3_ADDR(0x001D4CECu))
     );
     fprintf(
         stderr,
         "[rac3 buffer] %08x (0x0022758C) + %08x (0x001DA058), %08x (0x001D5C90), %d (0x001D5BDC); "
         "toc +64C %08x +660 %08x +664 %08x\n",
-        word(0x0022758Cu),
-        word(0x001DA058u),
-        word(0x001D5C90u),
-        (int)(word(0x001D5BDCu) & 0xFFu),
-        word(0x00160C40u + 0x64Cu),
-        word(0x00160C40u + 0x660u),
-        word(0x00160C40u + 0x664u)
+        word(RAC3_ADDR(0x0022758Cu)),
+        word(RAC3_ADDR(0x001DA058u)),
+        word(RAC3_ADDR(0x001D5C90u)),
+        (int)(word(RAC3_ADDR(0x001D5BDCu)) & 0xFFu),
+        word(RAC3_ADDR(0x00160C40u) + 0x64Cu),
+        word(RAC3_ADDR(0x00160C40u) + 0x660u),
+        word(RAC3_ADDR(0x00160C40u) + 0x664u)
     );
 }

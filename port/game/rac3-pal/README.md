@@ -213,6 +213,7 @@ vertical blank callback (`func_0013D208`).
 | | |
 |---|---|
 | `libraries.tsv` | 204 library entry points, found by their instructions against rac2-ntsc's and rac1-pal's tables, by shape where the SDK version differs, by RPC function number (libmc), and by the game's own calls (libpad) |
+| `host/rac3_version.h` | PAL's switch for the host C, which is both discs': NTSC-U ([rac3-ntsc](../rac3-ntsc/README.md)) compiles the same files with its own names and addresses. An address of the game's memory is written `RAC3_ADDR(0x...u)` (PAL's value); after adding one, or a library row, run `release_carry_rac3.py` (rac3-ntsc's README) |
 | `host/entry.c` | the loader's unpacking, crt0, InitSystemCallTableAddress (no kernel to scan) |
 | `host/dma.c` | sceDmaSend leaving CHCR as the DMAC does (the VIF1 handler retires the frame's wait mask from it), KickVif0Chain |
 | `host/sound.c` | 989snd's command boundary (snd_Pump, snd_SendCommandSync, snd_QueueCommandToRing, the bank loads) on the ring rac2 shares (`common/lib/snd_ring.c`): the native sound engine plays the banks' sounds and the VAG streams |

@@ -23,14 +23,15 @@
 #include "../../common/lib/ui_quad.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
 long long func_003A9BE8__game(int pixels, int frame, int width, int height);
 
 /* The display list's cursor, which the routine writes its transfers at. */
-#define LIST_CURSOR 0x001DA050u
+#define LIST_CURSOR RAC3_ADDR(0x001DA050u)
 /* The front end's register packet (A+D): XYOFFSET_1 at +0x50, the offset the menu's 2D is drawn
  * with (0x7000, 0x7200 in 12.4). */
-#define FRONT_END_REGS 0x00142120u
+#define FRONT_END_REGS RAC3_ADDR(0x00142120u)
 
 /* The block the window keeps the picture at: one no game texture can start at in that shape (a
  * 512-wide picture from 0x3F00 would run past the GS's 4 MB), so it is never an upload of the
