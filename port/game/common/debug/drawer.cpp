@@ -45,7 +45,7 @@ const std::string& graphics_line() {
     static const std::string graphics = [] {
         const auto* name =
             reinterpret_cast<const char*>(openrac::gl::glGetString(openrac::gl::GL_RENDERER));
-        const char* api = s.gl_subset ? "Vulkan" : openrac::gl::is_es() ? "OpenGL ES" : "OpenGL";
+        const char* api = gl::is_vulkan() ? "Vulkan" : gl::is_es() ? "OpenGL ES" : "OpenGL";
         std::string gpu = name != nullptr ? name : "unknown GPU";
         // On Vulkan the renderer's GL names the GPU "<name> (Vulkan)": the API is said already.
         if (constexpr std::string_view vk = " (Vulkan)"; gpu.ends_with(vk)) {

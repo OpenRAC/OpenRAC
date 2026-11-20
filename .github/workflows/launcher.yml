@@ -304,7 +304,7 @@ jobs:
       # (port/cmake/MacApp.cmake).
       - name: Ninja and MoltenVK (macOS)
         if: matrix.name == 'macos'
-        run: brew install -q ninja molten-vk
+        uses: ./.github/actions/macos-vulkan
 
       - name: Clang (Windows)
         if: matrix.name == 'windows'
@@ -401,9 +401,16 @@ jobs:
           fi
           # On macOS each game carries MoltenVK, for the Vulkan renderer (port/cmake/MacApp.cmake).
           if [ "$NAME" = macos ]; then
-            for program in "$game" "$us"; do
+            for id in rac1-pal rac1-ntsc rac2-ntsc rac2-pal rac2-ntsc2; do
+              program=$(program "$COPY/port/build/release/openrac-$id")
               lib="$(dirname "$program")/../Frameworks/libMoltenVK.dylib"
               [ -f "$lib" ] || { echo "$program's bundle carries no libMoltenVK.dylib"; exit 1; }
+              arches=$(lipo -archs "$program") ||
+                { echo "Cannot read architectures from $program"; exit 1; }
+              for arch in $arches; do
+                lipo "$lib" -verify_arch "$arch" ||
+                  { echo "$program's MoltenVK is missing the $arch slice"; exit 1; }
+              done
             done
           fi
           # On Linux: what the game asks of the system, libc and libm but not libstdc++, and on

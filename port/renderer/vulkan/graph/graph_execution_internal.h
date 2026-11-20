@@ -49,7 +49,6 @@ struct GraphExecution::Recording {
 
     std::vector<Packet> packets;       // Owned work, appended in pass order and retained for reuse.
     bool executed = false;             // A compiled entry state can be consumed only once.
-    bool attachment_fallback = false;  // Match legacy draws' immutable feedback substitution.
     bool trusted_reads = false;  // A shader-only import used the current buffer visibility epoch.
     VkCommandBuffer target = VK_NULL_HANDLE;  // Independent upload/readback stream, when supplied.
 

@@ -26,6 +26,7 @@
 #include "scene/level_renderer.h"
 #include "scene/object_preview.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 using namespace openrac;
@@ -153,7 +154,7 @@ void check(
         glUniform4fv(shader.uniform("positions"), 8, positions[0].data());
         glUniform4fv(shader.uniform("normals"), 8, normals[0].data());
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = frame.read_rgba();
 
         if (zero_weight_reference) {
@@ -164,7 +165,7 @@ void check(
             glUniform3f(reference.uniform("test_camera"), 16, 16, 20);
             glUniform4fv(reference.uniform("positions"), 8, positions[0].data());
             glUniform4fv(reference.uniform("normals"), 8, normals[0].data());
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             CHECK(frame.read_rgba() == pixels);
         }
 
@@ -258,7 +259,7 @@ void coverage_seam(
         glUniform4fv(shader.uniform("positions"), 8, points[0].data());
         glUniform4fv(shader.uniform("normals"), 8, directions[0].data());
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = frame.read_rgba();
 
         for (unsigned i = 0; i < 8; ++i) {
@@ -956,7 +957,7 @@ void main() {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, depth);
             glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             return target.read_rgba();
         };
         const auto tiled = draw(1), reference = draw(2);
@@ -1079,7 +1080,7 @@ struct RegionLookup {
         glDisable(GL_BLEND);
         glDisable(GL_CULL_FACE);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = target.read_rgba();
         std::vector<std::pair<float, unsigned>> expected;
 
@@ -1335,7 +1336,7 @@ void camera_regions(renderer::Shader& shader, renderer::FrameBuffer& frame, unsi
             glUniform4fv(shader.uniform("positions"), 8, points[0].data());
             glUniform4fv(shader.uniform("normals"), 8, directions[0].data());
             glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto pixels = frame.read_rgba();
 
             for (unsigned i = 0; i < 8; ++i) {
@@ -1563,7 +1564,7 @@ void main() {
 
     for (float visibility : {1.f, 0.f}) {
         glUniform1f(shader.uniform("test_visibility"), visibility);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = frame.read_rgba();
         // The point light stays unchanged; both directionals retain their shadow floor.
         const float floor = visibility > 0 ? 1.f : .1f;
@@ -1577,7 +1578,7 @@ void main() {
     // Upward primary light cannot illuminate the upward receiver; fill and point light stay unchanged.
     glUniform4f(shader.uniform("probe_sunlight_direction"), 0, 0, 1, 1);
     glUniform1f(shader.uniform("test_visibility"), 1);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto overridden = frame.read_rgba();
     CHECK(std::abs(overridden[0] / 255.f - .2f) < .008f);
     CHECK(std::abs(overridden[1] / 255.f - .1f) < .008f);
@@ -1653,7 +1654,7 @@ void main() {
             }
 
             glUniform1i(shader.uniform("updated"), updated);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto read = frame.read_rgba();
 
             if (read[0] != 255 || read[1] != 255 || read[2] != 255 || read[3] != 255) {

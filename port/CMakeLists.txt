@@ -495,6 +495,19 @@ if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
 include(Render)
+if(OPENRAC_PORT_WINDOW)
+  openrac_link_graph_fixtures(
+    agx area_light_overlay atmosphere atmosphere_precision colour_graph depth_combine
+    early_lighting enhanced_rendering environment_selection foliage_gpu fsr3_frame fsr3_motion
+    fur fur_detail fur_lighting fur_shell graph_immediate_work
+    gtao gtao_depth gtao_horizon local_lights moby_energy_shader moby_obsidian_shader
+    moby_platinum_shader
+    precise_depth probe_compression_gpu probe_depth_gpu probe_gpu probe_sphere_culling
+    program_cache render_equivalence_support render_opt shadow_graph sun_shadow
+    surface_normals texture_blocks_gl texture_filter tracy_vulkan vulkan_buffer
+    vulkan_failure vulkan_hdr vulkan_prewarm vulkan_uniform water_gpu water_runtime wetness_gpu
+  )
+endif()
 include(GpuTests)
 openrac_configure_gpu_tests(${openrac_parallel_gpu_tests})
 add_test(NAME gpu_test_config

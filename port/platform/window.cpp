@@ -336,11 +336,8 @@ GlApi default_gl_api() {
         if (value == "desktop" || value == "gl") {
             return GlApi::Desktop;
         }
-        if (value == "vulkan" || value == "vk") {
+        if (value == "vulkan" || value == "vk" || value == "metal") {
             return GlApi::Vulkan;
-        }
-        if (value == "metal") {
-            return GlApi::Metal;
         }
         log::warn("OPENRAC_GL_API={}: not es, desktop, vulkan or metal, ignored", value);
     }
@@ -484,7 +481,16 @@ bool Window::open_vulkan(const WindowConfig& config, std::string& error) {
          g_vulkan_setup.create_device};
     vk.validation = config.debug_context;
     vk.gpu_breadcrumbs = config.gpu_breadcrumbs;
+#if defined(__APPLE__)
+    // Keep live HDR switching available when MoltenVK exposes HDR colour spaces.
+    vk.hdr_colour_spaces = true;
+#else
     vk.hdr_colour_spaces = config.hdr;
+#endif
+    // A mod-provided device factory keeps the thread it was registered on.
+    if (vk.setup.create_device == nullptr && vk.setup.physical_device == nullptr) {
+        vk.device_work = config.vulkan_device_work;
+    }
     if (!vkgl::open(vk, error)) {
         SDL_DestroyWindow(m_window);
         m_window = nullptr;
@@ -519,67 +525,8 @@ bool Window::open_vulkan(const WindowConfig& config, std::string& error) {
 #endif
 }
 
-bool Window::open_metal(const WindowConfig& config, std::string& error) {
-#if defined(OPENRAC_METAL)
-    // A hidden window is a Metal one as well: macOS opens OpenGL for one without a graphics flag.
-    SDL_WindowFlags flags = SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_METAL;
-    if (config.hidden) {
-        flags |= SDL_WINDOW_HIDDEN;
-    }
-    if (config.resizable) {
-        flags |= SDL_WINDOW_RESIZABLE;
-    }
-    m_window = SDL_CreateWindow(config.title.c_str(), config.width, config.height, flags);
-    if (m_window == nullptr) {
-        error = std::format("no window for Metal: {}", SDL_GetError());
-        return false;
-    }
-    int width = 0, height = 0;
-    SDL_GetWindowSizeInPixels(m_window, &width, &height);
-    SDL_Window* screen = config.hidden ? nullptr : m_window;
-    if (!metal_backend().open(screen, width, height, config.vsync, error)) {
-        SDL_DestroyWindow(m_window);
-        m_window = nullptr;
-        return false;
-    }
-    m_metal = true;
-    m_gl_api = GlApi::Metal;
-    m_gl_version = "Metal";
-    m_gl_renderer = metal_backend().device_name();
-    log::info("graphics: {}, Metal, the renderer's GL carried out with Metal", m_gl_renderer);
-    log::header(std::format("graphics  {}, Metal", m_gl_renderer), false);
-    if (config.display > 0 && config.mode == DisplayMode::Windowed) {
-        if (const SDL_DisplayID id = display_id(config.display)) {
-            SDL_SetWindowPosition(
-                m_window,
-                static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(id)),
-                static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(id))
-            );
-        }
-    }
-    if (config.mode != DisplayMode::Windowed) {
-        set_display_mode(config.mode, config.display);
-    }
-    return true;
-#else
-    (void)config;
-    error = "this build has no Metal renderer";
-    return false;
-#endif
-}
-
 std::unique_ptr<Window> Window::open(const WindowConfig& asked, std::string& error) {
     WindowConfig config = asked;
-    if (config.gl_api == GlApi::Metal) {
-        std::unique_ptr<Window> window(new Window());
-        std::string why;
-        if (window->open_metal(config, why)) {
-            return window;
-        }
-        // Not Vulkan: on Apple's systems it is MoltenVK, on the same Metal that just failed.
-        log::warn("graphics: Metal could not be used ({}); drawing with OpenGL", why);
-        config.gl_api = GlApi::Desktop;
-    }
     if (config.gl_api == GlApi::Vulkan) {
         std::unique_ptr<Window> window(new Window());
         std::string why;
@@ -775,16 +722,7 @@ std::unique_ptr<Window> Window::open(const WindowConfig& asked, std::string& err
 }
 
 Window::~Window() {
-#if defined(OPENRAC_METAL)
-    if (m_metal) {
-        metal_backend().close();
-    }
-#endif
-#if defined(OPENRAC_VULKAN)
-    if (m_vulkan) {
-        vkgl::close();
-    }
-#endif
+    close_vulkan();
     if (m_context != nullptr) {
         SDL_GL_DestroyContext(m_context);
     }
@@ -794,6 +732,15 @@ Window::~Window() {
 #if defined(OPENRAC_VULKAN)
     if (m_vulkan_library) {
         SDL_Vulkan_UnloadLibrary();
+    }
+#endif
+}
+
+void Window::close_vulkan() {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        vkgl::close();
+        m_vulkan = false;
     }
 #endif
 }
@@ -836,12 +783,6 @@ bool Window::set_display_mode(DisplayMode mode, int display) {
 }
 
 bool Window::set_vsync(bool on) {
-#if defined(OPENRAC_METAL)
-    if (m_metal) {
-        metal_backend().set_swap_interval(on ? 1 : 0);
-        return true;
-    }
-#endif
 #if defined(OPENRAC_VULKAN)
     if (m_vulkan) {
         vkgl::set_swap_interval(on ? -1 : 0);
@@ -858,14 +799,6 @@ bool Window::set_vsync(bool on) {
 }
 
 SwapInterval Window::set_swap_interval(SwapInterval interval) {
-#if defined(OPENRAC_METAL)
-    if (m_metal) {
-        // The layer's display sync is on or off; there is no adaptive mode.
-        const bool on = interval != SwapInterval::Immediate;
-        metal_backend().set_swap_interval(on ? 1 : 0);
-        return on ? SwapInterval::VSync : SwapInterval::Immediate;
-    }
-#endif
 #if defined(OPENRAC_VULKAN)
     if (m_vulkan) {
         const int got = vkgl::set_swap_interval(interval == SwapInterval::Adaptive ? -1
@@ -957,23 +890,12 @@ void Window::set_hdr(
 #endif
     }
 #endif
-#if defined(OPENRAC_METAL)
-    // EDR is offered where the display has headroom over SDR white (SDL reads it from NSScreen).
-    if (m_metal) {
-        metal_backend().set_hdr(wanted, levels, hdr_display().headroom > 1.0f);
-    }
-#endif
 }
 
 hdr::Output Window::hdr_output() const {
 #if defined(OPENRAC_VULKAN)
     if (m_vulkan) {
         return vkgl::hdr_output();
-    }
-#endif
-#if defined(OPENRAC_METAL)
-    if (m_metal) {
-        return metal_backend().hdr_output();
     }
 #endif
     return hdr::Output::Sdr;
@@ -983,11 +905,6 @@ bool Window::hdr_offered() const {
 #if defined(OPENRAC_VULKAN)
     if (m_vulkan) {
         return vkgl::hdr_offered();
-    }
-#endif
-#if defined(OPENRAC_METAL)
-    if (m_metal) {
-        return metal_backend().hdr_offered();
     }
 #endif
     return false;
@@ -1033,15 +950,31 @@ bool Window::focused() const {
 }
 
 void Window::swap() {
-#if defined(OPENRAC_METAL)
-    if (m_metal) {
-        metal_backend().present();
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        int width = 0, height = 0;
+        drawable_size(width, height);
+        swap(width, height);
         return;
     }
 #endif
+    swap(0, 0);
+}
+
+#if defined(OPENRAC_IOS)
+void Window::restore_vulkan_surface() {
 #if defined(OPENRAC_VULKAN)
     if (m_vulkan) {
-        vkgl::present();
+        vkgl::restore_window_surface();
+    }
+#endif
+}
+#endif
+
+void Window::swap([[maybe_unused]] int drawable_width, [[maybe_unused]] int drawable_height) {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        vkgl::present(drawable_width, drawable_height);
         return;
     }
 #endif
@@ -1059,11 +992,6 @@ void Window::drawable_size(int& width, int& height) const {
 }
 
 GlLoader Window::gl_loader() {
-#if defined(OPENRAC_METAL)
-    if (metal_backend().active()) {
-        return metal_backend().get_proc;
-    }
-#endif
 #if defined(OPENRAC_VULKAN)
     if (vkgl::active()) {
         return vkgl::get_proc;

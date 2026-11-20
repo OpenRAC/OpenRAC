@@ -15,12 +15,6 @@
 
 namespace openrac::renderer {
 using namespace gl;
-#if !defined(OPENRAC_VULKAN)
-void Gtao::render_prepass(unsigned, const std::function<void()>& record) {
-    record();
-}
-#endif
-
 bool Gtao::execute(
     const FrameInput& input, const RenderTarget& target, bool apply_to_colour, bool evaluate_only
 ) {

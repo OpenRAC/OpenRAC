@@ -44,6 +44,7 @@
 #include "mod_menu.h"
 #include "mod_overlay.h"
 #include "mod_ui.h"
+#include "mods.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
@@ -55,6 +56,7 @@
 #include "renderer/direct/direct.h"
 #include "renderer/effects/effects.h"
 #include "renderer/effects/shadows.h"
+#include "renderer/frame/colour_transfer.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/gl_stats.h"
@@ -231,15 +233,19 @@ void present(unsigned framebuffer, int width, int height, int window_width, int 
         log_hdr_frame(framebuffer, width, height);
     }
     const Box b = frame_box(window_width, window_height, aspect);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glDisable(GL_SCISSOR_TEST);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
     const int y0 = flip ? b.y + b.height : b.y;
     const int y1 = flip ? b.y : b.y + b.height;
-    glBlitFramebuffer(0, 0, width, height, b.x, y0, b.x + b.width, y1, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    renderer::blit_colour(
+        "window picture",
+        framebuffer,
+        0,
+        {{0, 0},
+         {width, height},
+         {b.x, y0},
+         {b.x + b.width, y1},
+         true,
+         std::array{0.0f, 0.0f, 0.0f, 1.0f}}
+    );
 }
 
 // OpenRAC's icon on the window (the taskbar's, and the title bar's where there is one): the
@@ -358,7 +364,12 @@ static void ensure_linux_desktop_integration(const std::string& game_id) {
 }
 #endif
 
-bool open(const std::string& game_id, const std::filesystem::path& levels, std::string& error) {
+bool open(
+    const std::string& game_id,
+    const std::filesystem::path& levels,
+    bool vulkan_on_game_thread,
+    std::string& error
+) {
     g = std::make_unique<State>();
     g->game = game_id;
     g->profile = &host::game_profile(game_id);
@@ -435,31 +446,25 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     // HDR output may be turned on later only when it was not off at start (common/hdr.h).
     config.hdr = chosen.hdr != hdr::Mode::Off;
 #if defined(OPENRAC_VULKAN)
-    // The Vulkan renderer has HDR output, and on macOS the Metal one (EDR): HDR on draws with
-    // Vulkan (it falls back to OpenGL by itself where Vulkan cannot start), except where the
-    // player chose Metal, which stays Metal. A build without Metal opens OpenGL for it, in SDR.
-    if (config.hdr && config.gl_api == platform::GlApi::Metal) {
-#if defined(__APPLE__)
-        log::info("HDR output is on: drawing with Metal, as chosen, through macOS's EDR");
-#else
-        log::info("HDR output needs Vulkan, or Metal on macOS: drawing as chosen, in SDR");
-        config.hdr = false;
-#endif
-    } else if (config.hdr && config.gl_api != platform::GlApi::Vulkan) {
+    if (config.hdr && config.gl_api != platform::GlApi::Vulkan) {
         log::info("HDR output is on: drawing with Vulkan, the renderer that has it");
         config.gl_api = platform::GlApi::Vulkan;
     }
 #endif
     config.gpu_breadcrumbs = chosen.gpu_breadcrumbs;
     g->hdr_at_start = config.hdr;
+    if (!vulkan_on_game_thread) {
+        config.vulkan_device_work = [](std::function<void()> job) {
+            run_vulkan_graphics(std::move(job));
+        };
+    }
     g->window = platform::Window::open(config, error);
     if (!g->window) {
         return false;
     }
-    // Metal's layer turns to HDR at any time; Vulkan's colour spaces are chosen as it opens.
-    if (g->window->gl_api() == platform::GlApi::Metal) {
-        g->hdr_at_start = true;
-    }
+#if defined(__APPLE__)
+    g->hdr_at_start = g->window->gl_api() == platform::GlApi::Vulkan;
+#endif
     platform::install_app_menus(env::flag(env::Var::Developer));
     set_window_icon(*g->window);
     g->swap_asked = wanted_swap();
@@ -510,12 +515,7 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
         );
     }
 #if defined(OPENRAC_IOS)
-    platform::set_background_handler([] {
-        // Finish both the worker's recording and GPU execution before UIKit suspends the scene.
-        if (g && finish_render() && gl::glFinish != nullptr) {
-            gl::glFinish();
-        }
-    });
+    platform::set_background_handler(drain_graphics_for_background);
 #endif
     return true;
 }
@@ -560,7 +560,6 @@ void set_movie_playing(bool on) {
 }
 
 bool show_picture(const std::uint8_t* rgba, int width, int height, float black) {
-    using namespace gl;
     // Movie frames also share the graphics context with pending world recording.
     if (!finish_render()) {
         return false;
@@ -594,17 +593,23 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
             }
         }
     }
-    std::string error;
-    if (g->picture.width() != width || g->picture.height() != height) {
-        g->picture.create(width, height, error);
-    }
-    glBindTexture(GL_TEXTURE_2D, g->picture.colour_texture());
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-
     int window_width = 0;
     int window_height = 0;
     g->window->drawable_size(window_width, window_height);
     const std::uint64_t index = g->index++;
+    const auto frame = static_cast<std::int64_t>(index);
+    run_graphics(
+        [&] {
+            std::string error;
+            if (g->picture.width() != width || g->picture.height() != height) {
+                g->picture.create(width, height, error);
+            }
+            renderer::upload_rgba8(g->picture.colour_texture(), width, height, pixels);
+            // Movie rows run from top to bottom, so presentation flips them.
+            present(g->picture.id(), width, height, window_width, window_height, true);
+        },
+        frame
+    );
     if (shots().due(index)) {
         const std::string path = shots().prefix + std::to_string(index) + ".png";
         scene::write_png_later(
@@ -615,8 +620,6 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
             std::format("frame {} written to {}", index, path)
         );
     }
-    // The picture fills the frame the game's own frames fill; its first row is the top.
-    present(g->picture.id(), width, height, window_width, window_height, true);
     draw_touch_pad(window_width, window_height);
     {
         // [debug tools] The overlay over a picture too (no renderer or camera then).
@@ -634,7 +637,7 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
         shown.vsync = g->swap != platform::SwapInterval::Immediate;
         debug_overlay::draw(shown);
     }
-    g->window->swap();
+    swap_rendered_frame(frame);
     return true;
 }
 
@@ -663,29 +666,44 @@ void close() {
     platform::set_background_handler(nullptr);
 #endif
     if (g) {
-        // Stop the worker before releasing the scene, temporal history or graphics context.
-        // Cleanup still releases resources after a previously reported render error.
-        [[maybe_unused]] const bool finished = finish_render();
-        g->render_worker.reset();
+        const bool finished = finish_render();
+        // Keep the mod's game-thread policy through teardown, after release_views clears it.
+        const bool release_on_worker =
+            finished && g->render_worker && !mods::vulkan_needs_game_thread();
+        const auto release_graphics = [release_on_worker](std::function<void()> job) {
+            if (release_on_worker) {
+                run_graphics(std::move(job));
+            } else {
+                job();
+            }
+        };
         debug_overlay::release();
         settings::save();  // the window's size, if it was changed
-        renderer::ui::fps_counter::release();
-        renderer::ui::touch_overlay::release();
-        debug_menu::release();
-        mod_menu::release();
-        mod_overlay::release();
+        release_graphics([] {
+            renderer::ui::fps_counter::release();
+            renderer::ui::touch_overlay::release();
+            debug_menu::release();
+            mod_menu::release();
+            mod_overlay::release();
+        });
         // A mod's views: it lets go of what it made with the context, while the context is there.
         release_views(*g);
         // Temporal histories reference the target and scene, so retire them before either owner.
-        g->temporal.reset();
-        g->bloom.release();
-        g->agx.release();
-        g->haze.release();
-        g->frame.release();
-        g->picture.release();
-        g->last_world.release();
-        g->renderer.reset();
-        g->scene.release();
+        release_graphics([] {
+            g->temporal.reset();
+            g->bloom.release();
+            g->agx.release();
+            g->haze.release();
+            g->frame.release();
+            g->picture.release();
+            g->last_world.release();
+            g->renderer.reset();
+            g->scene.release();
+            if (g->window) {
+                g->window->close_vulkan();
+            }
+        });
+        g->render_worker.reset();
         g.reset();
     }
 }

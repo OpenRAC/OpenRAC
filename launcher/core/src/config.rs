@@ -71,13 +71,11 @@ pub struct Config {
     /// what the port is missing. Off by default, so a log stays small.
     pub detailed_game_log: bool,
     /// What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
-    /// Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries),
-    /// "opengl" (OpenGL 4.1), or, on macOS only, "metal", the port's Metal renderer
-    /// (OPENRAC_GL_API=metal, port/renderer/metal). Where Vulkan or Metal cannot start, the game
-    /// draws with OpenGL (port/platform/window.cpp); "metal" on any other system plays as
-    /// "vulkan" (renderer_for). Not used on Android, which keeps its own choice
-    /// (src-tauri/src/android.rs).
-    #[ts(type = "\"opengl\" | \"vulkan\" | \"metal\"")]
+    /// Vulkan renderer, shown as Metal on macOS because the game runs it through MoltenVK,
+    /// or "opengl" (OpenGL 4.1). Android keeps its own renderer setting. iOS uses Metal
+    /// through MoltenVK.
+    #[serde(deserialize_with = "deserialize_renderer")]
+    #[ts(type = "\"opengl\" | \"vulkan\"")]
     pub renderer: String,
     /// Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
     /// (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
@@ -182,16 +180,16 @@ pub fn load(path: &Path) -> Config {
     std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default()
 }
 
-/// The renderer Play starts the game with on `platform`, from Settings' `renderer`: "vulkan",
-/// "opengl", or "metal" on macOS only. Metal anywhere else (a settings file carried over from a
-/// Mac) is Vulkan, the default; anything unknown is OpenGL, as it always was.
-pub fn renderer_for(renderer: &str, platform: crate::actions::Platform) -> &'static str {
+/// Normalizes saved renderer names and names passed to Play.
+pub fn renderer_for(renderer: &str) -> &'static str {
     match renderer {
-        "vulkan" => "vulkan",
-        "metal" if platform == crate::actions::Platform::Macos => "metal",
-        "metal" => "vulkan",
+        "vulkan" | "metal" => "vulkan",
         _ => "opengl",
     }
+}
+
+fn deserialize_renderer<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    Ok(renderer_for(&String::deserialize(deserializer)?).to_owned())
 }
 
 /// Writes `config` to `path` through a temporary file, so a crash never
@@ -281,7 +279,7 @@ mod tests {
         assert!(c.auto_update_mods && c.cleanup_unused_deps);
     }
 
-    /// A settings file from before the renderer choice draws with OpenGL; Vulkan, chosen, is kept.
+    /// Files without a renderer use the default. Old Metal selections migrate to Vulkan.
     #[test]
     fn renderer_defaults_to_vulkan() {
         let dir = tempfile::tempdir().unwrap();
@@ -290,23 +288,19 @@ mod tests {
         assert_eq!(load(&path).renderer, "vulkan");
         save(&path, &Config { renderer: "opengl".into(), ..Config::default() }).unwrap();
         assert_eq!(load(&path).renderer, "opengl");
-        save(&path, &Config { renderer: "metal".into(), ..Config::default() }).unwrap();
-        assert_eq!(load(&path).renderer, "metal");
+        std::fs::write(&path, r#"{"renderer": "metal"}"#).unwrap();
+        let migrated = load(&path);
+        assert_eq!(migrated.renderer, "vulkan");
+        save(&path, &migrated).unwrap();
+        assert!(std::fs::read_to_string(&path).unwrap().contains("\"renderer\": \"vulkan\""));
     }
 
-    /// Metal only on macOS: a Mac's "metal" plays with Vulkan on any other system.
     #[test]
-    fn metal_is_for_macos_only() {
-        use crate::actions::Platform;
-        assert_eq!(renderer_for("metal", Platform::Macos), "metal");
-        for platform in [Platform::Windows, Platform::Linux, Platform::Android, Platform::Ios] {
-            assert_eq!(renderer_for("metal", platform), "vulkan", "{platform:?}");
-        }
-        for platform in [Platform::Macos, Platform::Windows, Platform::Linux] {
-            assert_eq!(renderer_for("vulkan", platform), "vulkan");
-            assert_eq!(renderer_for("opengl", platform), "opengl");
-            assert_eq!(renderer_for("glide", platform), "opengl");
-        }
+    fn renderer_names_are_normalized() {
+        assert_eq!(renderer_for("metal"), "vulkan");
+        assert_eq!(renderer_for("vulkan"), "vulkan");
+        assert_eq!(renderer_for("opengl"), "opengl");
+        assert_eq!(renderer_for("glide"), "opengl");
     }
 
     /// An old file with the removed "hdr" key still loads; HDR is the game's own setting now.

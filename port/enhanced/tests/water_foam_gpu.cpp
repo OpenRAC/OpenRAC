@@ -15,6 +15,7 @@
 #include "renderer/gl/gl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 
 namespace openrac::test::water {
 namespace {
@@ -147,7 +148,7 @@ void main() {
         glUniform1f(shader.uniform("height_shift"), shift);
         for (const int legacy : {0, 1}) {
             glUniform1i(shader.uniform("legacy_field"), legacy);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
             for (unsigned i = 0; i < kCount; ++i) {
                 const auto at = i * 4;

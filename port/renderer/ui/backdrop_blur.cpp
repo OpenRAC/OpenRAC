@@ -11,8 +11,11 @@
 #include <string>
 
 #include "common/log.h"
+#include "renderer/frame/colour_transfer.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
+#include "renderer/renderer.h"
 
 namespace openrac::renderer::ui::backdrop_blur {
 namespace {
@@ -28,11 +31,11 @@ void main() {
 }
 )glsl";
 
-// One direction of the Gaussian: `step` is one texel along it, in texture units.
+// One direction of the Gaussian: `texel_step` is one texel along it, in texture units.
 constexpr const char* kFragment = R"glsl(#version 410 core
 in vec2 v_uv;
 uniform sampler2D tex_T0;
-uniform vec2 step;
+uniform vec2 texel_step;
 uniform float sigma;
 uniform float calm;
 uniform float upscale;
@@ -86,7 +89,8 @@ void main() {
     float total = 1.0;
     for (int i = 1; i <= radius; ++i) {
         float w = exp(-float(i * i) / (2.0 * sigma * sigma));
-        sum += w * (texture(tex_T0, v_uv + step * float(i)) + texture(tex_T0, v_uv - step * float(i)));
+        sum += w * (texture(tex_T0, v_uv + texel_step * float(i))
+                  + texture(tex_T0, v_uv - texel_step * float(i)));
         total += 2.0 * w;
     }
     vec3 c = sum.rgb / total;
@@ -156,20 +160,27 @@ void pass(
     float dy,
     float sigma,
     float calm = 0.0f,
-    bool upscale = false
+    bool upscale = false,
+    bool blend = false
 ) {
     glBindFramebuffer(GL_FRAMEBUFFER, to.framebuffer);
     glViewport(0, 0, to.width, to.height);
     glBindTexture(GL_TEXTURE_2D, from.texture);
     glUniform2f(
-        s->shader.uniform("step"),
+        s->shader.uniform("texel_step"),
         dx / static_cast<float>(from.width),
         dy / static_cast<float>(from.height)
     );
     glUniform1f(s->shader.uniform("sigma"), sigma);
     glUniform1f(s->shader.uniform("calm"), calm);
     glUniform1f(s->shader.uniform("upscale"), upscale ? 1.0f : 0.0f);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    const RasterTexture input{from.texture};
+    const auto attachments = blend ? ColourAttachments::Colour : ColourAttachments::ColourOverwrite;
+    raster_pass(
+        "backdrop blur", {to.framebuffer, to.width, to.height}, {{}, {&input, 1}, attachments}, [] {
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+        }
+    );
 }
 
 }  // namespace
@@ -217,13 +228,18 @@ Picture blur(int width, int height, int rows, float sigma, const Shade& shade) {
             return {};
         }
         // The window's top rows first, then each level from the one before.
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, i == 0 ? 0 : s->levels[i - 1].framebuffer);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s->levels[i].framebuffer);
+        const unsigned source = i == 0 ? 0 : s->levels[i - 1].framebuffer;
         const int sx0 = 0;
         const int sy0 = i == 0 ? height - rows : 0;
         const int sx1 = i == 0 ? width : s->levels[i - 1].width;
         const int sy1 = i == 0 ? height : s->levels[i - 1].height;
-        glBlitFramebuffer(sx0, sy0, sx1, sy1, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        blit_colour(
+            "backdrop downsample",
+            source,
+            s->levels[i].framebuffer,
+            {{sx0, sy0}, {sx1, sy1}, {0, 0}, {w, h}, true},
+            true
+        );
     }
     Target& out = s->levels[level];
     if (!fit(s->across, w, h)) {
@@ -259,7 +275,7 @@ Picture blur(int width, int height, int rows, float sigma, const Shade& shade) {
     }
     glUniform3f(s->shader.uniform("shade_colour"), shade.r, shade.g, shade.b);
     glUniform4f(s->shader.uniform("shade"), shade.top, shade.bottom, shade.side, shade.side_width);
-    pass(out, s->shown, 0.0f, 0.0f, 0.0f, 0.0f, true);
+    pass(out, s->shown, 0.0f, 0.0f, 0.0f, 0.0f, true, !fresh);
     glDisable(GL_BLEND);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindVertexArray(0);

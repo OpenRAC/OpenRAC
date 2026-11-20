@@ -23,6 +23,7 @@
 #include "renderer/textures/pack_pictures.h"
 #include "renderer/textures/texture_pool.h"
 #include "renderer_gl_context.h"
+#include "tests/graph_fixture.h"
 
 namespace {
 
@@ -82,7 +83,7 @@ bool draws_quadrants(const Shader& shader, unsigned texture, float lod) {
     glUniform1f(shader.uniform("lod"), lod);
     glClearColor(0.5f, 0.5f, 0.5f, 0.5f);
     glClear(GL_COLOR_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     std::array<std::uint8_t, kSide * kSide * 4> pixels{};
     glReadPixels(0, 0, kSide, kSide, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     const auto at = [&](int x, int y) {

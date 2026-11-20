@@ -81,6 +81,7 @@
 #define RAC2_ADDR_0x001B18D8u 0x001B18D8u /* versionmap: exact */
 #define RAC2_ADDR_0x001B18DCu 0x001B18DCu /* versionmap: exact */
 #define RAC2_ADDR_0x001B1B74u 0x001B1B74u /* versionmap: exact */
+#define RAC2_ADDR_0x001B1B78u 0x001B1B78u /* the release's build */
 #define RAC2_ADDR_0x001B1D48u 0x001B1D48u /* versionmap: exact */
 #define RAC2_ADDR_0x001B1D90u 0x001B1D90u /* versionmap: exact */
 #define RAC2_ADDR_0x001B1D98u 0x001B1D98u /* versionmap: exact */
@@ -103,6 +104,7 @@
 #define RAC2_ADDR_0x001BADC0u 0x001BADC0u /* versionmap: exact */
 #define RAC2_ADDR_0x001C2740u 0x001C2740u /* versionmap: exact */
 #define RAC2_ADDR_0x001C4FA0u 0x001C4FA0u /* versionmap: exact */
+#define RAC2_ADDR_0x001EE5A0u 0x001EE5A0u /* the release's build */
 #define RAC2_ADDR_0x001F1F40u 0x001F1F40u /* versionmap: exact */
 #define RAC2_ADDR_0x001F2840u 0x001F2840u /* versionmap: exact */
 #define RAC2_ADDR_0x00210D40u 0x00210D70u /* the release's build */

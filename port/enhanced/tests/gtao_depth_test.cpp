@@ -15,6 +15,7 @@
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -88,7 +89,7 @@ colour=vec4(texelFetch(tex_T0,first_cell+i).rg,0,1);}
     shader.use();
     glUniform1i(shader.uniform("first_cell"), static_cast<int>(level.offset / sizeof(Bounds)));
     glUniform1i(shader.uniform("width"), level.width);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     std::vector<std::uint8_t> pixels(expected.size() * 4);
     glReadPixels(0, 0, level.width, level.height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
 
@@ -133,12 +134,39 @@ void test_depth_bounds(renderer::GtaoDepth& pyramid, int width, int height) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     CHECK(pyramid.prepare(width, height));
 
-    for (unsigned index = 0; index < pyramid.levels().size(); ++index) {
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-        pyramid.build_level(texture, index);
+    namespace graph = renderer::graph;
+    vkgl::GraphExecution execution;
+    const auto input = execution.read_image("fixture depth", texture, graph::Stage::ComputeShader);
+    const auto storage = execution.import_buffer(
+        "fixture depth bounds", pyramid.buffer(), vkgl::InitialContents::Discard
+    );
+    CHECK(input && storage);
+    if (!input || !storage) {
+        glDeleteTextures(1, &texture);
+        return;
     }
+    const auto levels = pyramid.levels();
+    constexpr graph::State write{
+        graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer
+    };
+    constexpr graph::State read{
+        graph::Stage::ComputeShader, graph::Access::Read, graph::Layout::Buffer
+    };
+    for (unsigned index = 0; index < levels.size(); ++index) {
+        auto pass = execution.make_pass("fixture GTAO depth reduction");
+        pass.buffers.push_back({*storage, {levels[index].offset, levels[index].bytes}, write});
+        if (index == 0) {
+            pass.images.push_back(*input);
+        } else {
+            pass.compute_indexed_storage = true;
+            pass.compute_metadata_only = true;
+            const auto& previous = levels[index - 1];
+            pass.buffers.push_back({*storage, {previous.offset, previous.bytes}, read});
+        }
+        execution.add_pass(std::move(pass));
+    }
+    CHECK(execution.run([&](unsigned index) { pyramid.build_level(texture, index); }));
 
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, pyramid.buffer());
 
     for (const auto& level : pyramid.levels()) {

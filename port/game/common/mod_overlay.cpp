@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <string_view>
 
+#include "frontend.h"
 #include "mods.h"
 #include "openrac/openrac_mod.h"
 #include "renderer/ui/overlay_draw.h"
@@ -85,7 +86,7 @@ void draw(
     overlay.fade = fade;
     overlay.text_width = text_width;
     mods::run_overlays(overlay);
-    s.draw.draw(framebuffer, width, height, s.list.vertices());
+    run_graphics([&] { s.draw.draw(framebuffer, width, height, s.list.vertices()); });
 }
 
 void release() {

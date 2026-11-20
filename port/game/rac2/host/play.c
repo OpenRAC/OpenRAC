@@ -884,6 +884,92 @@ static void trace_copies(const char* script) {
     );
 }
 
+/* `copywatch`: every 30 frames of play, each copy of this load whose original is within 45 units of
+ * the hero, and that original (state, place, update, seq, flags, pvars, group, alpha), and every
+ * SetDeathBits (PTRACE copy death and orig death lines); `copykill=F` (and `origkill=F`): from F
+ * frames into play, for 600 frames, a hit of 10,000 every 30 frames on each such copy (each such
+ * original) through QueueMobyImpact, a shot's and a blast's in turn: a hidden run's proof that copies
+ * wake, fight, die, drop their bolts once and go as their originals do. */
+static void watch_one(const char* who, int i, gaddr m) {
+    fprintf(
+        stderr,
+        "PTRACE %s %d slot %d state 0x%X class %d uid %d pos %.2f %.2f %.2f update 0x%X seq %u "
+        "flags 0x%X pvars 0x%X impact %u group %u alpha %u drawn %u dist %u\n",
+        who,
+        i,
+        (int)slot_of(m),
+        (unsigned)GREF(uint8_t, m + MOBY_STATE),
+        (int)GREF(int16_t, m + MOBY_OCLASS),
+        (int)GREF(int16_t, m + MOBY_UID),
+        GREF(float, m + MOBY_POS),
+        GREF(float, m + MOBY_POS + 4u),
+        GREF(float, m + MOBY_POS + 8u),
+        (unsigned)GREF(gaddr, m + MOBY_UPDATE),
+        (unsigned)GREF(uint8_t, m + MOBY_SEQ),
+        (unsigned)GREF(uint16_t, m + MOBY_FLAGS),
+        (unsigned)GREF(gaddr, m + MOBY_PVARS),
+        (unsigned)GREF(uint8_t, m + 0xA8u),
+        (unsigned)GREF(uint8_t, m + 0x21u),
+        (unsigned)GREF(uint8_t, m + MOBY_ALPHA),
+        (unsigned)GREF(uint8_t, m + MOBY_DRAWN),
+        (unsigned)GREF(uint8_t, m + MOBY_UPDATE_DIST)
+    );
+}
+
+static void hit_hard(gaddr m) {
+    static unsigned turn;
+    const gaddr hero = hero_moby();
+    GFRAME(req, 48);
+    memset(G(req), 0, 48);
+    GREF(float, req + 8u) = 0.1f;
+    GREF(gaddr, req + 0x10u) = hero;
+    /* A shot's kind of hit, then a blast's, in turn (classes read one or the other). */
+    GREF(int32_t, req + 0x14u) = (turn++ & 1) != 0 ? 0x830000 : 0x210000;
+    GREF(uint8_t, req + 0x18u) = 1;
+    GREF(uint8_t, req + 0x19u) = 3;
+    GREF(int16_t, req + 0x1Au) = hero != 0 ? GREF(int16_t, hero + MOBY_OCLASS) : 0;
+    GREF(float, req + 0x1Cu) = 10000.0f;
+    GREF(int32_t, req + 0x20u) = 1;
+    func_002A8E20(m, req);
+}
+
+static void trace_copy_watch(const char* script, unsigned playing) {
+    const int watch = strstr(script, "copywatch") != NULL;
+    rac2_copy_trace = watch;
+    const char* ck = strstr(script, "copykill=");
+    const char* ok = strstr(script, "origkill=");
+    const unsigned copy_at = ck != NULL ? (unsigned)atoi(ck + 9) : 0u;
+    const unsigned orig_at = ok != NULL ? (unsigned)atoi(ok + 9) : 0u;
+    for (int i = 0;; ++i) {
+        gaddr orig = 0;
+        const gaddr m = rac2_copy_at(i, &orig);
+        if (m == 0) {
+            break;
+        }
+        const gaddr hero = hero_moby();
+        const float dx =
+            hero != 0 ? GREF(float, orig + MOBY_POS) - GREF(float, hero + MOBY_POS) : 0.0f;
+        const float dy = hero != 0
+                             ? GREF(float, orig + MOBY_POS + 4u) - GREF(float, hero + MOBY_POS + 4u)
+                             : 0.0f;
+        if (dx * dx + dy * dy > 45.0f * 45.0f) {
+            continue;
+        }
+        if (watch && playing % 30 == 1) {
+            watch_one("copywatch copy", i, m);
+            watch_one("copywatch orig", i, orig);
+        }
+        if (copy_at != 0 && playing >= copy_at && playing < copy_at + 600 && playing % 30 == 0
+            && GREF(uint8_t, m + MOBY_STATE) < 0x80) {
+            hit_hard(m);
+        }
+        if (orig_at != 0 && playing >= orig_at && playing < orig_at + 600 && playing % 30 == 0
+            && GREF(uint8_t, orig + MOBY_STATE) < 0x80) {
+            hit_hard(orig);
+        }
+    }
+}
+
 static void play_trace(void) {
     static const char* script;
     static int read;
@@ -938,6 +1024,7 @@ static void play_trace(void) {
         return;
     }
     ++playing;
+    trace_copy_watch(script, (unsigned)playing);
     history[playing % TRACE_DELAY] = pose;
     if (playing % 120 == 1) {
         const gaddr hero = hero_moby();

@@ -3,6 +3,7 @@
 //
 // An OpenGL 4.1 core context for the tests that draw: a hidden window through
 // SDL's offscreen driver (EGL; Mesa's llvmpipe on a machine without a GPU).
+// On macOS the hidden window uses Cocoa for MoltenVK and OpenGL.
 // When none can be made, a test prints why and exits with kSkip, which CTest
 // reports as skipped (SKIP_RETURN_CODE in port/cmake/Window.cmake).
 
@@ -22,12 +23,20 @@ inline constexpr int kSkip = 77;
 
 class GlContext {
 public:
-    bool open(std::string& why, int width = 64, int height = 64, bool visible = false) {
+    bool open(
+        std::string& why,
+        int width = 64,
+        int height = 64,
+        bool visible = false,
+        decltype(platform::WindowConfig::vulkan_device_work) device_work = nullptr
+    ) {
+#if !defined(__APPLE__)
         // The offscreen driver unless the caller chose one.
         const char* driver = std::getenv("SDL_VIDEO_DRIVER");
         if (!visible && (driver == nullptr || driver[0] == '\0')) {
             platform::Platform::use_offscreen_video();
         }
+#endif
         m_sdl = std::make_unique<platform::Platform>(platform::kVideo);
         if (!m_sdl->ok()) {
             why = m_sdl->error();
@@ -40,6 +49,7 @@ public:
         config.hidden = !visible;
         config.vsync = false;
         config.resizable = false;
+        config.vulkan_device_work = device_work;
         m_window = platform::Window::open(config, why);
         if (!m_window) {
             return false;

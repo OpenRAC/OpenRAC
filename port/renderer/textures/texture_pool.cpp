@@ -869,8 +869,7 @@ void TexturePool::set_blocks(TextureHandle texture, std::shared_ptr<const Compre
 }
 
 BlockFormat TexturePool::gpu_block_format() {
-    // The Metal backend is left to RGBA8 until its BC7 and ASTC uploads of mip levels are tried.
-    if (!gl::loaded() || gl::is_metal()) {
+    if (!gl::loaded()) {
         return BlockFormat::None;
     }
     if (gl::has_extension("GL_ARB_texture_compression_bptc")
@@ -947,8 +946,33 @@ void TexturePool::see_cycle(std::uint64_t slot, std::uint64_t hash, const std::s
 // ---- GPU textures ----
 
 unsigned TexturePool::gl_texture(TextureHandle texture) {
-    Entry& e = m_entries[texture - 1];
-    e.last_used = m_frame;
+    return draw_texture(m_entries[texture - 1], true);
+}
+
+std::pair<unsigned, unsigned> TexturePool::prepare_draw_texture(TextureHandle texture) {
+    Entry& entry = m_entries[texture - 1];
+    const unsigned name = draw_texture(entry, false);
+    if (name == entry.gl && entry.gl_blocks) {
+        return {name, static_cast<unsigned>(block_levels(*entry.blocks, entry.mipmaps))};
+    }
+    const auto& image =
+        name == entry.gl ? entry.image
+                         : entry.animation->frames[texture_pack::frame_at(
+                               *entry.animation,
+                               m_tick >= entry.animation_start ? m_tick - entry.animation_start : 0
+                           )];
+    return {
+        name,
+        entry.mipmaps ? std::bit_width(static_cast<unsigned>(std::max(image.width, image.height)))
+                      : 1u
+    };
+}
+
+// Resolves one image for both planned and immediate draws.
+unsigned TexturePool::draw_texture(Entry& e, bool used) {
+    if (used) {
+        e.last_used = m_frame;
+    }
 
     // The first use of a texture prepare() did not make: it is made now, inside the frame.
     if (e.gl == 0) {
@@ -981,6 +1005,9 @@ unsigned TexturePool::gl_texture(TextureHandle texture) {
 
     // An animation's clock starts at its first draw.
     if (!e.animation_started) {
+        if (!used) {
+            return e.gl;
+        }
         e.animation_start = m_tick;
         e.animation_started = true;
     }

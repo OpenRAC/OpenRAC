@@ -187,17 +187,22 @@ bool set_built_in_setting(std::string_view id, std::string_view key, const std::
 
 // Loads the mods the list has on. Returns the session header's line: "lock-strafe 1.0.0", "none",
 // "none (purist mode)". Called once, after the game's functions are registered, before it runs:
-// after the window opens, or before it when makes_vulkan_device says so.
+// after the window opens, or before it when a mod creates the Vulkan device.
 std::string load(const Host& host);
 
-// Whether an enabled mod of the list `list` (plugins.json) says in its manifest that it makes the
-// Vulkan device ("vulkan_device": true, interface 1.4): then load() runs before the window opens,
-// which makes the device, and otherwise after it, as before. Reads the manifests only; false in
-// purist mode or with no list.
-bool makes_vulkan_device(const std::filesystem::path& list, bool purist);
+struct VulkanStartup {
+    bool creates_device = false;
+    bool uses_queue = false;
+};
 
-// True while a loaded mod has declared native Vulkan access.
+// Reads enabled manifests before opening the window. Device setup needs early mod loading;
+// queue access needs game-thread device creation.
+VulkanStartup vulkan_startup(const std::filesystem::path& list, bool purist);
+
+// True while a loaded mod has declared native Vulkan access or registered legacy views.
 bool vulkan_needs_game_thread();
+
+// True when the registered view source can supply native Vulkan images.
 bool view_source_can_use_vulkan();
 
 // Each loaded mod's openrac_mod_unload, last first (at exit).

@@ -2,17 +2,14 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Declares GTAO's image and exact buffer-range dependencies; callbacks retain the existing shader dispatches.
-#include <stdexcept>
 #include <utility>
 
 #include "common/log.h"
 #include "enhanced/renderer/gtao.h"
-#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/graph/surface_batch.h"
-#include "renderer/vulkan/vkgl.h"
 
 namespace openrac::renderer {
 
@@ -193,92 +190,7 @@ void declare_ao(
     execution.add_pass(std::move(boundary));
 }
 
-// Declares cleared prepass attachments and their immediate reuse/sampling consumers.
-void declare_prepass(
-    vkgl::GraphExecution& execution,
-    graph::ImageHandle depth,
-    graph::ImageHandle normal,
-    bool multisample
-) {
-    auto prepass = execution.make_pass("depth/normal prepass");
-    prepass.images =
-        {{depth,
-          {graph::Aspect::Depth | graph::Aspect::Stencil},
-          {graph::Stage::DepthTests, graph::Access::Write, graph::Layout::DepthAttachment},
-          graph::Load::Clear},
-         {normal,
-          {},
-          {graph::Stage::ColourOutput, graph::Access::Write, graph::Layout::ColourAttachment},
-          graph::Load::Clear}};
-    execution.add_pass(std::move(prepass));
-    // The copy and resolve paths declare their own transfer states. Single-sample normals
-    // also have a sampled handoff for consumers outside the collected section.
-    if (!multisample) {
-        auto consumers = execution.make_pass("prepass consumers");
-        consumers.images.push_back(
-            {normal,
-             {},
-             {graph::Stage::ComputeShader | graph::Stage::FragmentShader,
-              graph::Access::Read,
-              graph::Layout::Sampled}}
-        );
-        consumers.images.back().continuation = true;
-        consumers.kind = graph::PassKind::Export;
-        execution.add_pass(std::move(consumers));
-    }
-}
 }  // namespace
-
-void Gtao::render_prepass(unsigned framebuffer, const std::function<void()>& record) {
-    // OpenGL uses the same scene draw callback without Vulkan declarations.
-    if (!vkgl::active()) {
-        record();
-        return;
-    }
-
-    namespace graph = renderer::graph;
-    vkgl::GraphExecution execution;
-    const auto depth = execution.import_attachment(
-        "prepass depth", framebuffer, graph::Aspect::Depth, vkgl::InitialContents::Discard
-    );
-    const auto normal = execution.import_attachment(
-        "prepass normals", framebuffer, graph::Aspect::Colour, vkgl::InitialContents::Discard
-    );
-
-    // A missing attachment cannot satisfy the declared clear/write contract.
-    if (!depth || !normal) {
-        log::error("prepass graph: {}", !depth ? depth.error().message : normal.error().message);
-        record();
-        return;
-    }
-
-    gl::GLint samples = 1;
-    gl::glGetIntegerv(gl::GL_SAMPLES, &samples);
-    declare_prepass(execution, *depth, *normal, samples > 1);
-    // A surface chain owns this callback until its enclosing preparation/execution call returns.
-    if (vkgl::detail::collecting_surface_chain()) {
-        const auto result = execution.run_prepared(record);
-        // Do not publish a prepass whose deferred declaration was rejected.
-        if (!result) {
-            throw std::runtime_error(result.error().message);
-        }
-        return;
-    }
-    // The callback runs synchronously while this render state remains alive.
-    bool recorded = false;
-    const auto result = execution.run([&](unsigned) {
-        recorded = true;
-        record();
-    });
-
-    if (!result) {
-        log::error("prepass graph: {}", result.error().message);
-        // Validation precedes callbacks, so the ordinary prepass can still run exactly once.
-        if (!recorded) {
-            record();
-        }
-    }
-}
 
 bool Gtao::execute_graph(
     const FrameInput& input,

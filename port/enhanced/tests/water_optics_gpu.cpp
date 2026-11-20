@@ -24,6 +24,7 @@
 #include "renderer/vulkan/vkgl.h"
 #endif
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace openrac::test::water {
@@ -90,7 +91,7 @@ void main(){
         swell_test.build("Gerstner water displacement and tangents", vertex, swell_source, error)
     );
     swell_test.use();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     const auto swell_position = [](double x, double y) {
         const double norm = std::hypot(.87, .49), dx = .87 / norm, dy = .49 / norm;
@@ -166,7 +167,7 @@ void main() {
     CHECK(physical_test.build("water physical lighting", vertex, physical.c_str(), error));
     physical_test.use();
     glUniform3f(physical_test.uniform("water_material"), .22f, .02037f, 1);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     const double refracted_cosine = std::sqrt(1. - 1. / (1.333 * 1.333));
     const std::array<double, 8> expected_light{
@@ -202,7 +203,7 @@ void main() {
     renderer::Shader fallback_test;
     CHECK(fallback_test.build("local GI reflection fallback", vertex, fallback_source, error));
     fallback_test.use();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     const std::array<float, 4> expected_fallback{.04f, 1, 0, 0};
     for (unsigned x = 0; x < kWidth; ++x) {
@@ -260,7 +261,7 @@ void main() {
     };
     for (int component = 0; component < 3; ++component) {
         glUniform1i(smooth_test.uniform("component"), component);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
         for (unsigned at = 0; at < pixels.size(); at += 4) {
             auto bits = std::uint32_t(pixels[at]) | (std::uint32_t(pixels[at + 1]) << 8)
@@ -295,7 +296,7 @@ void main() {
     std::vector<Cell> wake_velocity(kCount);
     for (int c = 0; c < 2; ++c) {
         glUniform1i(wake_test.uniform("component"), c);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
         for (unsigned i = 0; i < kCount; ++i) {
             unsigned at = i * 4;
@@ -348,7 +349,7 @@ void main() {
     renderer::Shader fine_test;
     CHECK(fine_test.build("fine water normals", vertex, fine_source.c_str(), error));
     fine_test.use();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     const double tau = 6.28318531;
     const std::array<double, 2> k1{.94 * tau / 1.1, .34 * tau / 1.1},

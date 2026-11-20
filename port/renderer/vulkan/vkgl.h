@@ -31,6 +31,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -71,6 +72,7 @@ struct Config {
     // and the device VK_EXT_hdr_metadata where offered. Off (the player's `hdr = off` at start),
     // the instance, the device and the swapchain are made as they always were.
     bool hdr_colour_spaces = false;
+    void (*device_work)(std::function<void()>) = nullptr;
 
     // An outside maker of the instance and the device, which then shares them (a mod's OpenXR
     // session, openrac_mod.h's openrac_vulkan_setup): each function stands in for the backend's
@@ -386,6 +388,12 @@ bool wait_for_present(std::chrono::nanoseconds timeout);
 
 // Shows the default framebuffer. The next frame slot is reclaimed on its first graphics use.
 void present();
+// The window thread supplies the drawable size when presentation runs on a worker.
+void present(int width, int height);
+#if defined(OPENRAC_IOS)
+// Native surface recreation must run on the game thread while the worker is idle.
+void restore_window_surface();
+#endif
 
 // The wait for the display, as platform::SwapInterval counts it: -1 adaptive, 0 none, 1 vsync.
 // Returns what the screen allows: the nearest of those.

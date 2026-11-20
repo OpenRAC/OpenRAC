@@ -83,6 +83,16 @@ async function openSettings(query = "") {
   await page.waitForFunction(() => window.slides.finished === window.slides.started);
 }
 
+it("shows Metal and OpenGL as the macOS renderer choices", async () => {
+  await openSettings("&macos&vulkan");
+  const renderer = page.getByRole("radiogroup", { name: "Renderer" });
+
+  expect(await renderer.getByRole("radio").allTextContents()).toEqual(["Metal", "OpenGL"]);
+  expect(await renderer.getByRole("radio", { name: "Metal" }).getAttribute("aria-checked")).toBe(
+    "true",
+  );
+});
+
 /** Presses TAB and watches every frame until its slide is over and what its page loads has had
  *  time to arrive. A press during a slide would make no slide of its own, so `slides` says that
  *  this one did. `overflow`: how far <main> overflowed, at its worst, while the list was there. */

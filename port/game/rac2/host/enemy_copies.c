@@ -38,7 +38,14 @@
  * (+0xB2, +0xB4), so its death drops bolts and counts as the original's would, through the same
  * SetDeathBits and moby_spawn_bolt_pickups; SetDeathBits also marks the save id killed and counts
  * the kill toward the id's falloff (the nibble table and the two collection tables), which the wrap
- * below puts back for a copy, so the level's own record of the original never changes.
+ * below puts back for a copy, so the level's own record of the original never changes. A copy dies
+ * once: a class that runs its death again pays nothing more.
+ *
+ * Awake. A copy is put in the moby cells at its place (MobyUpdateCell, as the game's spawners do)
+ * and on its squad's group list (moved to room of the port's, the copy after the members): a
+ * squad's members sleep until it is woken and alerted through that list, so a copy left off it
+ * never woke, was never drawn and could not be hit (0.4.1's copies: in hidden runs of every planet
+ * none of the copies past the first of a squad woke; now they wake with their originals).
  *
  * Where. On the original's floor (the ground under the spot within a unit of the ground under the
  * original), in the open (no wall on the line from the original), 2.5 to 4 units away, at the
@@ -48,6 +55,7 @@
 #include "enemy_copies.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "game_protos.h"
@@ -216,7 +224,9 @@ static struct {
     uint32_t loads;
     int count;
     gaddr moby[COPIES_MAX];
+    gaddr orig[COPIES_MAX];
     int16_t uid[COPIES_MAX];
+    uint8_t died[COPIES_MAX];
     gaddr room;
     uint32_t room_used;
 } made;
@@ -543,6 +553,68 @@ gaddr func_L00_00300618(int reload) {
 
 /* ---- The copies ---- */
 
+/* The level's moby groups at run time (LoadLevelData lays them out from section 0x50): per group a
+ * list of pool indices (from g_moby_pool_start, the table's base), the last with 0x8000, and the
+ * highest group (GetFirstMobyInGroup, GetNextMobyInGroup, moby_count_group_not_in_state in
+ * src/game/002A7750.c). A squad's controller wakes, alerts and counts its members through the list,
+ * so a copy that is not on it sleeps forever (0.4.1's copies: never drawn, never run). */
+#define GROUP_LISTS OPENRAC_DATA(RAC2_ADDR(0x001EE5A0u))
+#define GROUP_COUNT OPENRAC_DATA(RAC2_ADDR(0x001B1B78u))
+#define MOBY_GROUP 0x21u
+#define GROUP_NONE 0xFFu
+#define GROUP_LAST 0x8000u
+#define GROUP_MEMBERS_MAX 1024
+#define GROUP_ROOM_BYTES 0x8000u
+
+/* The lists the copies' groups were moved to, in room of the port's (one load's). */
+static struct {
+    uint32_t loads;
+    gaddr room;
+    uint32_t used;
+} lists;
+
+/* Puts copy `m` on its group's list, after the members: the list moved to the port's room with one
+ * more entry. 0 when it has no group, or no room. */
+static int join_group(const rac2_moby_table* t, gaddr m) {
+    const uint32_t group = GREF(uint8_t, m + MOBY_GROUP);
+    if (group == GROUP_NONE || (int32_t)group > GREF(int32_t, GROUP_COUNT)) {
+        return 0;
+    }
+    if (lists.loads != this_load()) {
+        lists.loads = this_load();
+        lists.used = 0;
+    }
+    const gaddr at = GROUP_LISTS + 4u * group;
+    const gaddr list = GREF(gaddr, at);
+    /* The level's own list, or one of ours (the port's room is past the game's RAM). */
+    const int ours = lists.room != 0 && list >= lists.room && list < lists.room + GROUP_ROOM_BYTES;
+    if (list == 0 || (!ours && !in_ram(list, 2))) {
+        return 0;
+    }
+    int n = 0;
+    while (n < GROUP_MEMBERS_MAX && (GREF(uint16_t, list + 2u * (uint32_t)n) & GROUP_LAST) == 0) {
+        ++n;
+    }
+    if (n >= GROUP_MEMBERS_MAX) {
+        return 0;
+    }
+    ++n; /* the last, with its mark */
+    const uint32_t bytes = ((uint32_t)(n + 1) * 2u + 15u) & ~15u;
+    if (lists.room == 0) {
+        lists.room = openrac_guest_static(GROUP_ROOM_BYTES);
+    }
+    if (lists.room == 0 || lists.used + bytes > GROUP_ROOM_BYTES) {
+        return 0;
+    }
+    const gaddr moved = lists.room + lists.used;
+    lists.used += bytes;
+    memmove(G(moved), G(list), 2u * (uint32_t)n);
+    GREF(uint16_t, moved + 2u * (uint32_t)(n - 1)) &= (uint16_t)~GROUP_LAST;
+    GREF(uint16_t, moved + 2u * (uint32_t)n) = (uint16_t)(((m - t->base) / MOBY_SIZE) | GROUP_LAST);
+    GREF(gaddr, at) = moved;
+    return 1;
+}
+
 static int copy_alive(int i) {
     const gaddr m = made.moby[i];
     return GREF(uint8_t, m + MOBY_STATE) < 0x80 && GREF(int16_t, m + MOBY_UID) == made.uid[i];
@@ -568,14 +640,30 @@ int rac2_copy_count(void) {
     return made.count;
 }
 
-int rac2_copy_is(gaddr moby) {
+gaddr rac2_copy_at(int i, gaddr* orig) {
+    forget_old();
+    if (i < 0 || i >= made.count) {
+        return 0;
+    }
+    if (orig != NULL) {
+        *orig = made.orig[i];
+    }
+    return made.moby[i];
+}
+
+/* The index of the live copy at `moby` in this load's, -1 for none. */
+static int copy_index(gaddr moby) {
     forget_old();
     for (int i = 0; i < made.count; ++i) {
         if (made.moby[i] == moby) {
-            return copy_alive(i);
+            return copy_alive(i) ? i : -1;
         }
     }
-    return 0;
+    return -1;
+}
+
+int rac2_copy_is(gaddr moby) {
+    return copy_index(moby) >= 0;
 }
 
 /* The pool's free slots: each one given back (0xFE), and every one from the first never used on
@@ -686,6 +774,22 @@ static const struct {
     {MOBY_SLOT, 4},
 };
 
+/* Whether the `size` bytes of pvars at `pvars` hold the address of a moby of the pool other than
+ * `self` and the hero's: a part the moby made of its own (a head, a gun, a shield) or one it
+ * follows. A copy would drive the same one, and once the original died and freed it, a moby that
+ * is no longer its (Todano's and Dobbo's guards: a hang or a fault in their update). */
+static int names_a_moby(const rac2_moby_table* t, gaddr pvars, uint32_t size, gaddr self) {
+    const gaddr hero = GREF(gaddr, OPENRAC_DATA(RAC2_g_pHeroMoby));
+    for (uint32_t off = 0; pvars != 0 && off + 4u <= size; off += 4u) {
+        const gaddr v = GREF(gaddr, pvars + off);
+        if (v >= t->base && v < t->end && (v - t->base) % MOBY_SIZE == 0 && v != self
+            && v != hero) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
     if (index < 0 || rac2_copy_check(t, orig) != RAC2_COPY_OK) {
         return 0;
@@ -704,6 +808,9 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
         if (made.room == 0 || made.room_used + room_need > ROOM_BYTES) {
             return 0;
         }
+    }
+    if (names_a_moby(t, GREF(gaddr, orig + MOBY_PVARS), size, orig)) {
+        return 0;
     }
     float spot[3];
     if (!find_spot(t, orig, index, spot)) {
@@ -753,7 +860,14 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
             }
         }
     }
+    /* In the moby cells at its place, as a spawned moby is once placed (func_002A0F48 after the
+     * place, as the game's spawners do): the cells near the hero are where the moby loop wakes a
+     * sleeping enemy, so one in no cell sleeps forever. */
+    func_002A0F48(m);
+    (void)join_group(t, m);
     made.moby[made.count] = m;
+    made.orig[made.count] = orig;
+    made.died[made.count] = 0;
     made.uid[made.count] = GREF(int16_t, m + MOBY_UID);
     ++made.count;
     return m;
@@ -765,11 +879,29 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
  * func_002A6C58__hooked): for a copy, the marks it leaves on the save id are put back after, so the
  * original's record is the level's own; its bolts, its experience and the kill streak are the
  * game's. */
+int rac2_copy_trace;
+
 void func_002A6C58(gaddr moby, int flags, int arg) {
-    if (!rac2_copy_is(moby)) {
+    const int index = copy_index(moby);
+    if (index < 0) {
+        if (rac2_copy_trace) {
+            fprintf(
+                stderr,
+                "PTRACE orig death 0x%X uid %d class %d\n",
+                (unsigned)moby,
+                (int)GREF(int16_t, moby + MOBY_UID),
+                (int)GREF(int16_t, moby + MOBY_OCLASS)
+            );
+        }
         func_002A6C58__hooked(moby, flags, arg);
         return;
     }
+    /* A copy dies once: a class that runs its death again (the save id's marks put back read to
+     * it as alive) drops nothing more and counts no second kill. */
+    if (made.died[index]) {
+        return;
+    }
+    made.died[index] = 1;
     const int16_t uid = GREF(int16_t, moby + MOBY_UID);
     const int32_t map = GREF(int32_t, MAP_INDEX);
     const int known = uid >= 0 && uid < UID_MAX && map >= 0 && map < 32;
@@ -782,7 +914,19 @@ void func_002A6C58(gaddr moby, int flags, int arg) {
         known ? GREF(uint8_t, collected) : 0,
         known ? GREF(uint8_t, checkpoint) : 0,
     };
+    const int32_t word_before = GREF(int32_t, RAC2_g_playerProgress + 0x1Cu);
     func_002A6C58__hooked(moby, flags, arg);
+    if (rac2_copy_trace) {
+        fprintf(
+            stderr,
+            "PTRACE copy death 0x%X uid %d bolts %d word %d->%d\n",
+            (unsigned)moby,
+            (int)uid,
+            (int)GREF(int16_t, moby + 0xB4u),
+            (int)word_before,
+            (int)GREF(int32_t, RAC2_g_playerProgress + 0x1Cu)
+        );
+    }
     if (known) {
         GREF(uint8_t, nibble) = kept[0];
         GREF(uint8_t, collected) = kept[1];

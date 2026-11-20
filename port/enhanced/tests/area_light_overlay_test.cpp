@@ -28,6 +28,7 @@
 #include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -313,14 +314,14 @@ void main() { colour=vec4(environment_count>0 ? texelFetch(environment_map,ivec2
     glDisable(GL_BLEND);
     attachment.bind(shader, false);
     captures.bind(shader, true);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto reference = target.read_rgba();
     CHECK(reference[0] > 50);
     // Reload clears the attachment's per-shader binding cache before reversing the call order.
     attachment.load();
     captures.bind(shader, true);
     attachment.bind(shader, false);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     CHECK(target.read_rgba() == reference);
     attachment.release();
     shader.release();
@@ -448,7 +449,7 @@ void main() { colour=vec4(float(object_reflection_enabled),object_reflection_mat
     materials.set_material_overrides(true);
     const auto draw = [&](unsigned model) {
         materials.bind_material(shader, model, -1, source);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return target.read_rgba();
     };
     const auto clank = draw(4);

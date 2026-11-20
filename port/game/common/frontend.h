@@ -14,6 +14,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -42,7 +43,15 @@ namespace openrac::frontend {
 std::string hdr_status();
 
 // Opens the window. `levels` holds the extracted levels (level_00, level_01, ...).
-bool open(const std::string& game_id, const std::filesystem::path& levels, std::string& error);
+bool open(
+    const std::string& game_id,
+    const std::filesystem::path& levels,
+    bool vulkan_on_game_thread,
+    std::string& error
+);
+
+// Runs graphics work to completion while the window thread retains ownership of SDL.
+void run_graphics(std::function<void()> job, std::int64_t frame = -1);
 
 // Draws a frame from the game's main memory and reads the input; false once the window was closed.
 // The game's world renderers are drawing now: the camera they draw with is kept for this frame's

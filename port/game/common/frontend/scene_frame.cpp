@@ -558,7 +558,8 @@ void render_scene(
     State& owner,
     const Kept& snapshot,
     const settings::Settings& graphics,
-    FramePresentation& output
+    FramePresentation& output,
+    bool views_begun
 ) {
     const crash::BreadcrumbScope breadcrumbs(output.source_frame);
     crash::breadcrumb("scene setup");
@@ -582,6 +583,9 @@ void render_scene(
 
     // A mod's views (a headset's eyes), from the same scene; nothing without a mod's.
     if (views_wanted()) {
+        if (!views_begun) {
+            begin_views();
+        }
         draw_views(frame, world);
     }
 

@@ -14,6 +14,7 @@
 #include "renderer/gl/gl.h"
 #include "scene_shaders.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 
 namespace openrac::test::water {
 // Check packed captures, interface-side selection and unchanged opaque material reflection.
@@ -118,7 +119,7 @@ void main() {
     CHECK(reference_selection.prepare(metadata, fixture.error));
     reference_selection.bind(shader);
     glUniform1i(shader.uniform("environment_columns"), static_cast<int>(asset.columns()));
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
     const auto brdf = lighting::unpack_environment_colour(
         asset.pixels[std::size_t(asset.brdf_row() + 63) * asset.width() + 63]
@@ -160,7 +161,7 @@ void main() {
     reference_selection.bind(shader);
     for (const int side : {1, -1}) {
         glUniform1i(shader.uniform("interface_side"), side);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
         for (unsigned x = 0; x < kWidth; ++x) {
             unsigned bits = 0;
@@ -232,7 +233,7 @@ void main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     const auto draw = [&](const renderer::Shader& program, int count) {
         glUniform1i(program.uniform("environment_count"), count);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
         return std::array{fixture.pixels[0], fixture.pixels[1], fixture.pixels[2]};
     };

@@ -410,6 +410,8 @@ struct Image {
     renderer::graph::ImageContents uniform_contents;
     std::vector<renderer::graph::ImageContents> subresource_contents;
     std::uint64_t touched = 0;  // the recording that last used it in `main`
+    std::uint64_t material_scope = 0;
+    renderer::graph::ImageRange material_range;
     // A number of its own, never given to another image of the backend: a descriptor set kept
     // across frames names the image by it, since a destroyed view's handle may be handed out again
     // (R-14). 0 for an image destroy_image_now has emptied.
@@ -702,6 +704,7 @@ struct Program {
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
     std::vector<std::uint8_t> uniforms;  // the default block, std140
+    int upscaled_colours_ready_offset = -1;  // The guard for the optional upscaled sampler.
     // One opted-in vertex draw integer, appended to the CPU shadow but excluded from its UBO.
     int draw_uniform_offset = -1;
 
@@ -1326,6 +1329,7 @@ struct Context {
     std::vector<VkImage> swapchain_images;
     std::vector<VkSemaphore> rendered;  // per swapchain image
     bool swapchain_stale = false;
+    int drawable_width = 0, drawable_height = 0;
     // The window's surface went with the app to the background (Android lets go of its window
     // there): a new one is made from the window SDL holds before the next frame is shown.
     std::atomic<bool> surface_lost{false};

@@ -3256,10 +3256,12 @@ bool begin_capture(State& owner) {
         return false;
     }
     // Deferred uploads belong to this frame, after the previous snapshot has finished.
-    if (owner.renderer) {
-        for (const auto& image : owner.pending_images) {
-            owner.renderer->textures().upload(image);
-        }
+    if (owner.renderer && !owner.pending_images.empty()) {
+        run_graphics([&] {
+            for (const auto& image : owner.pending_images) {
+                owner.renderer->textures().upload(image);
+            }
+        });
     }
     // What the game sent during the last tick goes again once that tick's list has been replayed.
     owner.pending_images = std::move(owner.images_after_list);

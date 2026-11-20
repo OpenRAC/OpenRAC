@@ -491,6 +491,12 @@ const Shots& shots();
 // Whether a development switch keeps one frame a tick whatever the settings say (frontend.cpp).
 bool one_frame_a_tick();
 
+void swap_rendered_frame(std::int64_t frame);
+void run_vulkan_graphics(std::function<void()> job, std::int64_t frame = -1);
+#if defined(OPENRAC_IOS)
+void drain_graphics_for_background();
+#endif
+
 // Draws `framebuffer` (width x height) into the window's box for a picture of shape `aspect`, black
 // around it; `flip`: its first row is the top (frontend.cpp).
 void present(
@@ -571,7 +577,8 @@ void render_scene(
     State& owner,
     const Kept& snapshot,
     const settings::Settings& graphics,
-    FramePresentation& output
+    FramePresentation& output,
+    bool views_begun = false
 );
 
 // Draws the kept tick, the camera and mobys part way from the last tick's to its own (as far as

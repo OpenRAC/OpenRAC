@@ -18,6 +18,7 @@
 #include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -269,7 +270,7 @@ int test_gpu() {
     glUniform1i(
         fixture.shader.uniform("foliage_parameters1"), std::bit_cast<std::int32_t>(words[1])
     );
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto pixels = fixture.frame.read_rgba();
     CHECK(pixels.size() == 256u);
     // A failed readback is reported without accessing an incomplete image.
