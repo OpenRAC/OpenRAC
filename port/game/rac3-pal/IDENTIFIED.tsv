@@ -113,3 +113,33 @@ code	func_003A8D38	0x003A8D38	movie_prepare	before a movie: stops the sounds and
 code	func_003A8E10	0x003A8E10	movie_resume	after a movie: plays the kept music track again (func_003A1D30(D_001DA044, 1, 0x400)); -1 after the intro, which follows no music
 code	func_003A2028	0x003A2028	sound_streams_stop	stops every stream (snd_StopAllStreams, command 0x34) and the stream channels
 code	func_003A2120	0x003A2120	stream_channel_update	one of the four stream channels of 0x001CCFD0 (+0x44, +0x6C, +0x94, +0xBC): pause, continue, stop and the buffered question
+code	func_0038B310	0x0038B310	DrawFlatBox	(top, bottom, left, right, colour): a box of flat colour at the far depth; rac2-ntsc func_0027DE50 by opcode sequence (0.77)
+code	func_0038B8B0	0x0038B8B0	DrawGlyphQuad	(x, y, w, h, u, v, uw, vh, colour, TEX0): the 2D layer's textured quad, its own DMA tag; rac2-ntsc func_0027E018
+code	func_0038B500	0x0038B500	DrawTurnedGlyphQuad	func_0038B8B0 turned by an angle about its centre (VU0 adds of the half edges)
+code	func_0038BA50	0x0038BA50	DrawGlyph	(u, v, w, h, colour, TEX0, snap, x, y, w, h): one glyph loop (six quadwords: TEX0, PRIM, CLAMP region, RGBAQ, four UV/XYZ2) of a print's GIF packet, no tag of its own; 0 when off the 4096 window
+code	func_0038BC30	0x0038BC30	DrawGlyphShaded	func_0038BA50 with a colour a corner (four RGBAQ doublewords)
+code	func_0038BE10	0x0038BE10	DrawGlyphShadowed	a glyph and its drop shadow (two loops: the shadow's colour moved by dx, dy first)
+code	func_0038C0B8	0x0038C0B8	DrawRotatedSprite	a turned textured quad about a pivot, mirrored by two flags; rac2-ntsc func_0027E4A8 (0.67)
+code	func_0038C518	0x0038C518	DrawRingSegment	(XYZ2s, UVs, colours, TEX0, clamped); rac2-ntsc func_0027E920 (0.96)
+code	func_0038C628	0x0038C628	DrawShadedBox	(XYZ2s, two colours), strip order 0, 2, 1, 3; rac2-ntsc func_0027EA28 (0.94)
+code	func_0038C6F0	0x0038C6F0	DrawShadedRect	(x0, y0, x1, y1, z, colours) to func_0038C628; rac2-ntsc func_0027EAE8 (0.99): the menus' separators and highlighted row
+code	func_0038C790	0x0038C790	DrawBevelBox	seven func_0038B310 boxes; rac2-ntsc func_0027EB88 (0.99)
+code	func_0038EBC8	0x0038EBC8	FontPrint	(x, y, scale x, scale y, text, length, ...TEX0 colours): frontbin's func_0038E7E8; reserves 0x20 bytes, sends every glyph as one loop of one GIF packet (func_0038BA50, func_0038BE10) and writes the header (cnt and DIRECT of 6n + 1, the tag of D_001D77D0) last
+code	func_0038FDF8	0x0038FDF8	FontPrintWrapped	frontbin's func_0038FA18: lines of func_0038EBC8 within a window (the boot screens' notices)
+code	func_0038E928	0x0038E928	FontTextWidth	(text, length, scale): the width of a string in the font of func_0038E530
+code	func_0038E530	0x0038E530	FontSelect	(font): D_001D55C0/C4/C8 its metrics and glyph tables, D_001D5B38 its pages' TEX0 table (0x0031CF50 + 64 n), D_001D5B3C its palettes' (0x0031CFD0 + 64 n)
+code	func_0038E2B0	0x0038E2B0	FontUpload	uploads both fonts' palettes (func_0038A028) and pages (func_00389EF0) once a frame into the 2D layer's GS area (allocator D_001D4BB0)
+code	func_0038A0E0	0x0038A0E0	MakeTex0	(TBP, CBP, log2 width, log2 height, PSM): a whole TEX0, CLD 4, TCC 1
+code	func_003823D0	0x003823D0	TextGet	(text id): the string of the front end's text table (D_001D99A0, 16-byte entries, key at +4), else an empty string at D_001D5788
+code	func_003AA780	0x003AA780	DrawWidgetSprite	a Widget3D sprite (the menus' frames and art): poses its mesh (func_003AA168 bones, func_003A08E8/func_003A0A28 vertices to the scratchpad) and sends each quad as cnt + DIRECT 8 (GIF tag D_001D8020: TEX0, PRIM, four RGBAQ, ST, XYZ2)
+code	func_003AA168	0x003AA168	WidgetSpritePose	the sprite's bone matrices at a frame, blended to the next
+code	func_003EE038	0x003EE038	WidgetDraw	a Widget3D's draw through its vtable (+8, slot +0x1C) when its flag 1 is set
+code	func_003EE7E8	0x003EE7E8	WidgetContainerDraw	draws a container's children (+0x2C, count at +0x48 of it)
+code	func_003EFBB0	0x003EFBB0	WidgetBoxDraw	the box widget (vtable 0x001D9768): its separators and highlight through func_0038C6F0
+code	func_003F03F0	0x003F03F0	WidgetTextDraw	the text widget (vtable 0x001D9798, text at +0x3C): (widget, parent rectangle), its bounds through func_003F05C8, then func_0038EBC8
+code	func_003F2158	0x003F2158	WidgetSpriteDraw	the sprite widget (vtable 0x001D97F8): func_003AA6D8 to func_003AA780
+code	func_003EAF08	0x003EAF08	WidgetSetText	the text widget's handler of the set-text message (table 0x0031B8A0): +0x3C = the string
+code	func_003E8048	0x003E8048	WidgetSetTextById	(widget id, string): the set-text message to a widget found by its id
+code	func_003E9828	0x003E9828	WidgetMessagesInit	fills the message tables (0x0031B7C8 position, 0x0031B8A0 text, ...) for each widget class
+code	func_003B4C30	0x003B4C30	MainMenuBuild	the main menu's widgets: frames 0xD0000-0xD0003, the five items 0xD000C-0xD0010 (texts at 0x00337640: 0x14C, 0x14E, 0x11E6, 0x169C, 0x107), their container 0xD0025
+code	func_003F2740	0x003F2740	PlacementNew	returns its second argument (operator new in place)
