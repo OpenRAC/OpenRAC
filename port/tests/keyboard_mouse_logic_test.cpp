@@ -782,7 +782,18 @@ void text_nav() {
         text(3, 0x70fffeed, 300, 50, 50),
     };
     nav = kbm::text_nav(r, 3, 120.0f, 55.0f);
-    CHECK(nav.hit == 0 && nav.selected == 2 && nav.step == kbm::kLeft);
+    CHECK(nav.hit == 0 && nav.selected == 2 && nav.step == kbm::kLeft && nav.steps == 2);
+    // A list of prints that scrolls round its middle, its ends faded: the middle is selected.
+    const kbm::MenuText sc[5] = {
+        text(1, 0x40808080, 200, 316, 80),
+        text(1, 0x80f0f0f0, 210, 339, 60),
+        text(1, 0x80f0f0f0, 205, 362, 70),
+        text(1, 0x80f0f0f0, 200, 385, 80),
+        text(1, 0x40808080, 215, 408, 50),
+    };
+    nav = kbm::text_nav(sc, 5, 240.0f, 412.0f);
+    CHECK(nav.hit == 4 && nav.selected == 2 && nav.scrolls && nav.step == kbm::kDown);
+    CHECK(nav.steps == 2);
 }
 
 // A click on a Going Commando grid's cell: the frame, found by a first step, goes there and

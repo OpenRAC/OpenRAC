@@ -1295,7 +1295,7 @@ inline std::uint16_t grid_step(int from, int to, int rows, int cols) {
 // in (texts of its height one above the other, centred alike, or side by side on its line) and the
 // list's selected item, drawn in a colour of its own while the rest share one.
 
-inline constexpr int kTextListMax = 64;
+inline constexpr int kTextListMax = 128;
 
 struct MenuText {
     std::uint32_t element = 0;  // the game's text element, 0 for a plain print (in no list)
@@ -1314,11 +1314,52 @@ struct TextNav {
     int hit = -1;            // the text under the pointer
     int selected = -1;       // its list's selected text, -1 unknown
     std::uint16_t step = 0;  // the d-pad's step from the selected text toward the hit one, 0 there
+    int steps = 0;           // how many of them: the items between, in the list's order
+    bool scrolls = false;    // a list that scrolls round its middle (the items move, not the frame)
 };
 
 // The pointer's margin round a text (assumed: the rows' boxes are taller than their letters).
 inline constexpr float kTextMarginX = 6.0f;
 inline constexpr float kTextMarginY = 5.0f;
+
+// A list's selected item among its texts in order: the one whose colour is its own while the rest
+// share one; else, in a list that scrolls round its middle (an odd count, the colours alike from
+// both ends, not all one: the ends faded), the middle one (`scrolls` set). -1 when neither.
+inline int selected_text(const MenuText* t, const int* list, int count, bool* scrolls) {
+    for (int a = 0; a < count; ++a) {
+        int same = 0;
+        for (int b = 0; b < count; ++b) {
+            same += t[list[b]].colour == t[list[a]].colour ? 1 : 0;
+        }
+        // Its colour is its own: the selected one if the rest share theirs.
+        if (same == 1) {
+            const std::uint32_t rest = t[list[a == 0 ? 1 : 0]].colour;
+            bool shared = true;
+            for (int b = 0; b < count; ++b) {
+                shared = shared && (b == a || t[list[b]].colour == rest);
+            }
+            if (shared) {
+                return list[a];
+            }
+            break;
+        }
+    }
+
+    // Faded ends round a middle.
+    if (count % 2 == 1) {
+        bool mirrored = true;
+        bool one = true;
+        for (int i = 0; i < count; ++i) {
+            mirrored = mirrored && t[list[i]].colour == t[list[count - 1 - i]].colour;
+            one = one && t[list[i]].colour == t[list[0]].colour;
+        }
+        if (mirrored && !one) {
+            *scrolls = true;
+            return list[count / 2];
+        }
+    }
+    return -1;
+}
 
 inline TextNav text_nav(const MenuText* t, int n, float px, float py) {
     TextNav nav;
@@ -1345,7 +1386,7 @@ inline TextNav text_nav(const MenuText* t, int n, float px, float py) {
 
     // The texts of its height in its column (centred alike) and on its line.
     for (int i = 0; i < n; ++i) {
-        // Only the game's shown text elements of the same height.
+        // Only the game's shown list texts (an element, or a plain print) of the same height.
         if (!t[i].shown() || t[i].element == 0 || std::abs((t[i].y1 - t[i].y0) - height) > 1.0f) {
             continue;
         }
@@ -1360,7 +1401,7 @@ inline TextNav text_nav(const MenuText* t, int n, float px, float py) {
     }
 
     const bool vertical = in_column >= in_row;
-    const int* list = vertical ? column : row;
+    int* list = vertical ? column : row;
     const int count = vertical ? in_column : in_row;
 
     // Fewer than three: no colour of its own to tell the selected one by.
@@ -1368,36 +1409,23 @@ inline TextNav text_nav(const MenuText* t, int n, float px, float py) {
         return nav;
     }
 
-    // The selected one: the only one whose colour differs from all the others, which share theirs.
-    for (int a = 0; a < count; ++a) {
-        int same = 0;
+    // In order down or across.
+    std::sort(list, list + count, [&](int a, int b) {
+        return vertical ? t[a].cy() < t[b].cy() : t[a].cx() < t[b].cx();
+    });
 
-        for (int b = 0; b < count; ++b) {
-            same += t[list[b]].colour == t[list[a]].colour ? 1 : 0;
-        }
+    nav.selected = selected_text(t, list, count, &nav.scrolls);
 
-        // Its colour is its own, and the rest share one.
-        if (same == 1) {
-            const std::uint32_t rest = t[list[a == 0 ? 1 : 0]].colour;
-            bool shared = true;
-
-            for (int b = 0; b < count; ++b) {
-                shared = shared && (b == a || t[list[b]].colour == rest);
-            }
-
-            // Two colours of their own: no way to tell.
-            if (!shared) {
-                return nav;
-            }
-
-            nav.selected = list[a];
-        }
-    }
-
-    // The selected one known and not the hit one: a step toward it.
+    // The selected one known and not the hit one: steps toward it.
     if (nav.selected >= 0 && nav.selected != nav.hit) {
         const MenuText& s = t[nav.selected];
         nav.step = vertical ? (h.cy() < s.cy() ? kUp : kDown) : (h.cx() < s.cx() ? kLeft : kRight);
+        int at_hit = 0, at_selected = 0;
+        for (int i = 0; i < count; ++i) {
+            at_hit = list[i] == nav.hit ? i : at_hit;
+            at_selected = list[i] == nav.selected ? i : at_selected;
+        }
+        nav.steps = std::abs(at_hit - at_selected);
     }
 
     return nav;

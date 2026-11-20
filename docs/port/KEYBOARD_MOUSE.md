@@ -65,7 +65,8 @@ its text (the map's "View Missions", "Exit") presses that button. On the map,
 drag with the left button to move it and turn the wheel to zoom.
 
 In Going Commando menus a click on a list item moves the selection to it and
-confirms, and the cursor over one moves the selection there. A click on a text
+confirms, and the cursor over one moves the selection there (not in lists that
+scroll round their middle, such as the skill points'). A click on a text
 with a button icon (Help's "Exit") presses that button. In a grid (weapons,
 gadgets, items, Quick Select) a click on a cell moves the selection frame there
 and confirms; once the frame has moved, the cursor over a cell moves it there.

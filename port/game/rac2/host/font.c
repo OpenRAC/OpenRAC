@@ -43,67 +43,89 @@ int func_00336A40(gaddr object);
 #define FONT_SMALL RAC2_ADDR(0x00263EF0u)
 #define FONT_THIRD RAC2_ADDR(0x00264290u)
 
-static void record_print(int x, int y, gaddr text, int length, int width, gaddr table);
+static void record_print(
+    int x, int y, uint32_t colour, gaddr text, int length, int width, gaddr table
+);
 
 /* Print in the large font (texture 1) and the small one (texture 2). */
 void func_0027F538(int x, int y, int style, gaddr text, int length) {
-    record_print(x, y, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE));
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
 }
 
 void func_0027F5B8(int x, int y, int style, gaddr text, int length) {
-    record_print(x, y, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL));
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
 }
 
 /* Right-aligned (x is the right edge). */
 void func_0027F980(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F178(text, length);
-    record_print(x, y, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE));
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
 }
 
 void func_0027FA10(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F198(text, length);
-    record_print(x, y, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL));
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
 }
 
 /* Centred on x; the left edge is returned. */
 int func_0027FAA8(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F178(text, length) >> 1;
-    record_print(x, y, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE));
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
     return x;
 }
 
 int func_0027FB40(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F198(text, length) >> 1;
-    record_print(x, y, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL));
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
     return x;
 }
 
 int func_0027FBD8(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F1B8(text, length) >> 1;
-    record_print(x, y, text, length, func_0027F1B8(text, length), OPENRAC_DATA(FONT_THIRD));
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F1B8(text, length), OPENRAC_DATA(FONT_THIRD)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(3), (int)OPENRAC_DATA(FONT_THIRD));
     return x;
 }
 
 /* The same through 0x0027FC70, which takes no style. */
 void func_00280190(int x, int y, gaddr text, int length) {
-    record_print(x, y, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE));
+    record_print(
+        x, y, 0x80808080u, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE)
+    );
     func_0027FC70(x, y, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
 }
 
 void func_00280200(int x, int y, gaddr text, int length) {
-    record_print(x, y, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL));
+    record_print(
+        x, y, 0x80808080u, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL)
+    );
     func_0027FC70(x, y, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
 }
 
 void func_00280270(int x, int y, gaddr text, int length) {
-    record_print(x, y, text, length, func_0027F1B8(text, length), OPENRAC_DATA(FONT_THIRD));
+    record_print(
+        x, y, 0x80808080u, text, length, func_0027F1B8(text, length), OPENRAC_DATA(FONT_THIRD)
+    );
     func_0027FC70(x, y, (int)text, length, func_0027C878(3), (int)OPENRAC_DATA(FONT_THIRD));
 }
 
@@ -168,12 +190,13 @@ static void record_text(
     }
 }
 
-/* A print with a button icon in it, for a click on it (plain prints join no menu list). */
-static void record_print(int x, int y, gaddr text, int length, int width, gaddr table) {
+/* A print, for a click on it: one with a button icon in it as itself (element 0, in no list), a
+ * plain one as an item of a list drawn as prints (element 1, as the cheats' and skill points'). */
+static void record_print(
+    int x, int y, uint32_t colour, gaddr text, int length, int width, gaddr table
+) {
     const int cell = icon_cell(text, length, table);
-    if (cell >= 0) {
-        record_text(0, (float)x, (float)y, width, 1.0f, 0x80808080u, cell);
-    }
+    record_text(cell >= 0 ? 0u : 1u, (float)x, (float)y, width, 1.0f, colour, cell);
 }
 
 /* The GUI's text element draw (0x00336A78, the decompilation's C with the

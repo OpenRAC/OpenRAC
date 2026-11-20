@@ -86,9 +86,11 @@ std::array<kbm::MenuText, OPENRAC_RAC2_GUI_TEXTS_MAX> s_texts{};
 int s_text_count = 0;
 int s_texts_age = 0;
 constexpr int kTextsKeptTicks = 3;
-std::uint32_t s_click_element = 0;
-int s_click_ticks = 0;
-constexpr int kClickTicks = 90;
+bool s_click_pending = false;  // a clicked list item the selection is on its way to
+std::uint16_t s_click_step = 0;
+int s_click_left = 0;  // steps still to press, then Cross
+int s_click_wait = 0;
+constexpr int kClickStepTicks = 4;  // ticks between them, for the menu to follow
 bool s_click_held = false;
 kbm::GridSeek s_grid;  // a grid's selection frame on its way to a clicked cell
 std::array<kbm::GuiSprite, kbm::kGridSpritesMax> s_sprites{};
@@ -230,27 +232,14 @@ kbm::TextNav nav_at(float px, float py) {
 // stepping to it; a click on an item not yet selected waits for the selection and then confirms.
 // Returns whether the mouse took the click (it is not the game's Cross now).
 bool menu_mouse(const Tick& t, bool click) {
-    // A clicked item the selection is on its way to: Cross once it is there, a step otherwise.
-    if (s_click_element != 0) {
-        int at = -1;
-
-        // Where the clicked item is drawn now.
-        for (int i = 0; i < s_text_count; ++i) {
-            at = s_texts[static_cast<std::size_t>(i)].element == s_click_element ? i : at;
-        }
-
-        const kbm::TextNav nav = at >= 0 ? nav_at(
-                                               s_texts[static_cast<std::size_t>(at)].cx(),
-                                               s_texts[static_cast<std::size_t>(at)].cy()
-                                           )
-                                         : kbm::TextNav{};
-
-        // Gone, no longer known, or too long: the click is dropped.
-        if (at < 0 || nav.selected < 0 || --s_click_ticks <= 0) {
-            s_click_element = 0;
+    // A clicked item the selection is on its way to: its steps, a few ticks apart, then Cross.
+    if (s_click_pending) {
+        if (s_click_wait > 0) {
+            --s_click_wait;
         } else if (s_pulses.idle()) {
-            s_pulses.push(nav.selected == nav.hit ? kbm::kCross : nav.step);
-            s_click_element = nav.selected == nav.hit ? 0 : s_click_element;
+            s_pulses.push(s_click_left > 0 ? s_click_step : kbm::kCross);
+            s_click_pending = s_click_left-- > 0;
+            s_click_wait = kClickStepTicks;
         }
     }
 
@@ -289,13 +278,16 @@ bool menu_mouse(const Tick& t, bool click) {
     // Over an item not selected: a click goes there and confirms; the mouse moved there steps.
     if (nav.hit >= 0 && nav.selected >= 0 && nav.hit != nav.selected) {
         if (click) {
-            s_click_element = s_texts[static_cast<std::size_t>(nav.hit)].element;
-            s_click_ticks = kClickTicks;
+            s_click_pending = true;
+            s_click_step = nav.step;
+            s_click_left = nav.steps;
+            s_click_wait = 0;
             return true;
         }
 
-        // The selection follows the mouse, a step at a time.
-        if (moved && s_pulses.idle() && s_click_element == 0) {
+        // The selection follows the mouse, a step at a time (not in a list that scrolls: its items
+        // would move on under the mouse).
+        if (moved && s_pulses.idle() && !s_click_pending && !nav.scrolls) {
             s_pulses.push(nav.step);
         }
     }
@@ -369,7 +361,7 @@ void step(const openrac_input* in, bool pad_look) {
     kbm::ActionSet held = s_latch.filter(t.where, actions_held(t));
     if (before != t.where) {
         s_pulses.clear();
-        s_click_element = 0;
+        s_click_pending = false;
         s_grid.reset();
     }
 
@@ -388,7 +380,7 @@ void step(const openrac_input* in, bool pad_look) {
             s_click_held = false;
         }
     } else {
-        s_click_element = 0;
+        s_click_pending = false;
         s_grid.reset();
     }
 
@@ -530,7 +522,7 @@ void load(openrac::Mod& mod) {
     s_asked_capture = -1;
     s_painter.forget();
     s_text_count = 0;
-    s_click_element = 0;
+    s_click_pending = false;
     s_click_held = false;
     s_grid.reset();
 

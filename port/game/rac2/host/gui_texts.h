@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-#define OPENRAC_RAC2_GUI_TEXTS_MAX 64
+#define OPENRAC_RAC2_GUI_TEXTS_MAX 128
 
 typedef struct openrac_rac2_gui_text {
     uint32_t element; /* the GUI text element (its guest address), 0 for a plain print */
