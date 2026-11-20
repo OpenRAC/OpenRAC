@@ -163,7 +163,9 @@ bool green(const Colour& c) {
 
 // Returns the instance tint that carries `rgb` for energy: 1 - kBody + kBody x rgb a channel.
 std::array<float, 3> energy_tint(const std::array<float, 3>& rgb) {
-    return {1.0f - kBody + kBody * rgb[0], 1.0f - kBody + kBody * rgb[1], 1.0f - kBody + kBody * rgb[2]};
+    return {
+        1.0f - kBody + kBody * rgb[0], 1.0f - kBody + kBody * rgb[1], 1.0f - kBody + kBody * rgb[2]
+    };
 }
 
 void print(const char* name, const Colour& c) {

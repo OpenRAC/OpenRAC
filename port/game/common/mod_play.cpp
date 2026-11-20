@@ -1543,8 +1543,9 @@ int api_moby_material(
     constexpr std::uint32_t kEnergyLevels = 0xF00;
     const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material);
     const std::uint32_t extra = material & ~0xFFu;
-    const bool known = kind <= OPENRAC_MOBY_MATERIAL_ENERGY
-                       && (extra == 0 || (kind == OPENRAC_MOBY_MATERIAL_ENERGY && (extra & ~kEnergyLevels) == 0));
+    const bool known =
+        kind <= OPENRAC_MOBY_MATERIAL_ENERGY
+        && (extra == 0 || (kind == OPENRAC_MOBY_MATERIAL_ENERGY && (extra & ~kEnergyLevels) == 0));
     // A call the interface does not describe changes nothing.
     if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes || !known || rgb > kRgbMax) {
         return OPENRAC_HOOK_UNKNOWN;

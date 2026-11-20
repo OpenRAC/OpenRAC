@@ -43,12 +43,16 @@ inline std::optional<Look> look_of(std::uint32_t material, std::uint32_t rgb) {
 
 // Returns the brightening at `level`.
 inline float gain(int level) {
-    return kGain + kGainPerLevel * static_cast<float>(std::clamp(level, 0, OPENRAC_MOBY_MATERIAL_ENERGY_TOP));
+    return kGain
+           + kGainPerLevel
+                 * static_cast<float>(std::clamp(level, 0, OPENRAC_MOBY_MATERIAL_ENERGY_TOP));
 }
 
 // Returns a particle's size at `level`, times its own.
 inline float size(int level) {
-    return 1.0f + kSizePerLevel * static_cast<float>(std::clamp(level, 0, OPENRAC_MOBY_MATERIAL_ENERGY_TOP));
+    return 1.0f
+           + kSizePerLevel
+                 * static_cast<float>(std::clamp(level, 0, OPENRAC_MOBY_MATERIAL_ENERGY_TOP));
 }
 
 // Returns the chip's colour word `abgr` (R in the low byte, 0x80 = 1.0, alpha the high byte) in
@@ -82,9 +86,9 @@ void apply(Quad& quad, const Look& look, bool grow) {
 
     const float scale = size(look.level);
     for (int axis = 0; axis < 3; ++axis) {
-        const float centre =
-            (quad.corner[0][axis] + quad.corner[1][axis] + quad.corner[2][axis] + quad.corner[3][axis])
-            / 4.0f;
+        const float centre = (quad.corner[0][axis] + quad.corner[1][axis] + quad.corner[2][axis]
+                              + quad.corner[3][axis])
+                             / 4.0f;
         for (auto& corner : quad.corner) {
             corner[axis] = centre + (corner[axis] - centre) * scale;
         }

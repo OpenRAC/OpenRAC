@@ -47,14 +47,18 @@ int main() {
     CHECK(channel(energy::colour(0x80FFFFFFu, top), 8) == 0xFF);
     // A higher level is brighter; black stays black.
     const energy::Look low{0x20FF40, 0};
-    CHECK(channel(energy::colour(0x80404040u, top), 8) > channel(energy::colour(0x80404040u, low), 8));
+    CHECK(
+        channel(energy::colour(0x80404040u, top), 8) > channel(energy::colour(0x80404040u, low), 8)
+    );
     CHECK((energy::colour(0x80000000u, top) & 0x00FFFFFFu) == 0);
     CHECK(energy::gain(OPENRAC_MOBY_MATERIAL_ENERGY_TOP) / energy::gain(0) > 1.3f);
     CHECK(std::fabs(energy::size(OPENRAC_MOBY_MATERIAL_ENERGY_TOP) - 4.0f / 3.0f) < 1e-4f);
     CHECK(energy::size(0) == 1.0f);
 
     // A particle grows from its centre; a callback's quad keeps its corners.
-    Quad quad{{{-1, -1, 2, 1}, {1, -1, 2, 1}, {-1, 1, 2, 1}, {1, 1, 2, 1}}, {blue, blue, blue, blue}};
+    Quad quad{
+        {{-1, -1, 2, 1}, {1, -1, 2, 1}, {-1, 1, 2, 1}, {1, 1, 2, 1}}, {blue, blue, blue, blue}
+    };
     Quad ribbon = quad;
     energy::apply(quad, top, true);
     energy::apply(ribbon, top, false);

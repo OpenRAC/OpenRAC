@@ -1240,7 +1240,8 @@ void apply_mod_material(scene::Instance& instance, const mods::MobyMaterial& mat
     constexpr int kGreenShift = 8;
     constexpr std::uint32_t kByte = 0xFF;
     const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material.material);
-    const float share = kind == OPENRAC_MOBY_MATERIAL_ENERGY ? OPENRAC_MOBY_MATERIAL_ENERGY_BODY : 1.0f;
+    const float share =
+        kind == OPENRAC_MOBY_MATERIAL_ENERGY ? OPENRAC_MOBY_MATERIAL_ENERGY_BODY : 1.0f;
     const auto channel = [&](int shift) {
         const float value = static_cast<float>((material.rgb >> shift) & kByte) / kChannelMax;
         return 1.0f - share + share * value;

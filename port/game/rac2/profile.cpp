@@ -490,7 +490,9 @@ public:
 
     // A particle made for a moby names it at +0x24 (the owner, as a moby's own sparks and fades set
     // it: func_L00_003C3D90's), an attached halo (type 89, func_002C6B80) at +0x20.
-    std::array<std::uint32_t, 2> particle_owners(std::span<const std::uint8_t> record) const override {
+    std::array<std::uint32_t, 2> particle_owners(
+        std::span<const std::uint8_t> record
+    ) const override {
         if (record.size() < 0x28) {
             return {0, 0};
         }
