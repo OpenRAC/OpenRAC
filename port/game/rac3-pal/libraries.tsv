@@ -135,6 +135,7 @@ func_0012BA20	cdvd	sceCdRead	host	the shape of rac2-ntsc func_001253A8
 func_0012BC00	cdvd	sceCdGetError	host	the shape of rac2-ntsc func_00125588
 func_0012BC98	cdvd	sceCdBreak	host	the shape of rac2-ntsc func_00125620
 func_0012BD50	cdvd	sceCdMmode	host	the shape of rac2-ntsc func_001252E0
+func_0012BE28	cdvd	sceCdReadClock	host	the S-command RPC 1 of libcdvd into its buffer 0x00140B00 (+4 the eight BCD bytes), its caller the save's clock (frontbin 0x0039BEF0, 0x001D4BE0): translated, the RPC answered nothing and the save slots showed a date of 95.00.00
 func_0012BEE8	graph	sceGsResetGraph	host	the instructions of rac2-ntsc func_001257D0
 func_0012C128	graph	_GetGsDxDyOffset	host	the instructions of rac1-pal func_00121DB8
 func_0012C138	graph	sceGsSetDefDispEnv	host	the shape of rac2-ntsc func_00125A20
@@ -155,6 +156,7 @@ func_0012FF40	vu0	rac3UnitMatrix	host	the instructions of rac1-pal func_00125358
 func_0012FFE0	vu0	sceVu0RotMatrixZ	host	the instructions of rac1-pal func_001253F8
 func_00130088	vu0	sceVu0RotMatrixX	host	the instructions of rac1-pal func_001254A0
 func_0013A880	scf	sceScfGetLanguage	host	the shape of rac1-pal func_0012D380
+func_0013AD58	scf	sceScfGetLocalTimefromRTC	host	the shape of rac2-pal func_00131AF8 (0.87 of its opcodes, the SDK's version differs): the clock sceCdReadClock gives is local already
 func_0013BED0	989snd	snd_ResolveBankXREFS	host	the instructions of rac2-ntsc func_00132828
 func_0013BF00	989snd	snd_UnloadBank	host	the instructions of rac2-ntsc func_00132858
 func_0013BF30	989snd	snd_SetMasterVolume	host	the instructions of rac2-ntsc func_00132888
