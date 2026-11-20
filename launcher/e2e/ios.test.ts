@@ -80,6 +80,14 @@ async function press(...buttons: string[]) {
   }
 }
 
+it("shows Metal as the iOS renderer", async () => {
+  await page.goto(`${base}?built&latest&page=settings&vulkan`);
+  const renderer = page.locator(".setting").filter({ hasText: "Renderer" });
+
+  await renderer.getByText("Metal", { exact: true }).waitFor();
+  expect(await renderer.getByRole("radio").count()).toBe(0);
+});
+
 it("selects games and changes tabs through native controller events", async () => {
   await press("down");
   expect(await page.locator(":focus").getAttribute("data-key")).toBe("rac1");

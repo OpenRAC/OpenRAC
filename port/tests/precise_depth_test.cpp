@@ -19,6 +19,7 @@
 #include "renderer/gl/precise_depth.h"
 #include "renderer/gl/shader.h"
 #include "renderer/math.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 using namespace openrac;
@@ -97,10 +98,10 @@ double lost(
     // The nearer wall first (green), then the farther (red): a tie goes to the farther.
     upload_wall(buffer, distance - kGap);
     glUniform4f(shader.uniform("colour"), 0, 1, 0, 1);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLE_STRIP, 0, 4);
     upload_wall(buffer, distance);
     glUniform4f(shader.uniform("colour"), 1, 0, 0, 1);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLE_STRIP, 0, 4);
     if (precise) {
         glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
     }

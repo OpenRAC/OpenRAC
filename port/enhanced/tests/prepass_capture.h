@@ -9,6 +9,7 @@
 #include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 
 namespace openrac::test {
 // Observe the real prepass without changing its geometry, then read its completed attachments.
@@ -64,7 +65,7 @@ result=v;})",
             gl::glActiveTexture(gl::GL_TEXTURE0);
             gl::glBindTexture(gl::GL_TEXTURE_2D, texture);
             gl::glBindVertexArray(m_vao);
-            gl::glDrawArrays(gl::GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(gl::glDrawArrays, gl::GL_TRIANGLES, 0, 3);
             return m_output.read_rgba();
         };
         normals = read(std::exchange(m_normal, 0), false);

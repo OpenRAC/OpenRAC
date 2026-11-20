@@ -11,6 +11,7 @@
 #include "enhanced/viewer/environment_overlay.h"
 #include "enhanced/viewer/probe_texture_upload.h"
 #include "enhanced_viewer_shaders.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #if defined(OPENRAC_VULKAN)
@@ -237,7 +238,13 @@ bool EnvironmentLighting::draw_previews(
     glCullFace(GL_FRONT);
     constexpr unsigned kVerticesPerSphere = 24 * 16 * 6;
     const auto count = static_cast<unsigned>(m_metadata.size() / 5);
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(count * kVerticesPerSphere));
+    // Capture the texture views and the metadata buffer read by the procedural vertex shader.
+    renderer::raster_pass(
+        "environment probe spheres",
+        state.target,
+        {{}, {}, renderer::ColourAttachments::ColourDepthRead, true},
+        [&] { glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(count * kVerticesPerSphere)); }
+    );
     ++state.stats.draw_calls;
     state.stats.triangles += count * (kVerticesPerSphere / 3);
     glDepthMask(GL_TRUE);

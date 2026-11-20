@@ -5,17 +5,22 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <optional>
+#include <set>
 #include <source_location>
 #include <stdexcept>
+#include <tuple>
 #include <unordered_set>
 #include <vector>
 
 #include "common/stats.h"
 #include "renderer/direct/gs.h"
 #include "renderer/effects/effects.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 #include "renderer/settings/render_opt.h"
+#include "renderer/textures/texture_pack.h"
 
 namespace openrac::renderer {
 using namespace gl;
@@ -41,7 +46,10 @@ void normalize_quad_state(std::uint64_t& tex1, std::uint64_t& clamp, std::uint64
 // ---- Ordered effect draws ----
 
 void EffectRenderer::draw_prepared(
-    const FrameInput& input, RenderState& state, const PreparedEffects& prepared
+    const FrameInput& input,
+    RenderState& state,
+    const PreparedEffects& prepared,
+    bool has_colour_pass
 ) {
     const bool quads = prepared.quads;
     const auto& strip_counts = prepared.strip_counts;
@@ -136,7 +144,7 @@ void EffectRenderer::draw_prepared(
         state.stats.draw_calls++;
         state.stats.triangles += static_cast<std::uint64_t>(batch.count / 3);
     };
-    const auto flush = [&] {
+    const auto draw_batch_with_alpha_test = [&] {
         // TEST and depth-writing batches may require separate alpha-pass and alpha-fail draws.
         if (batch.count > 0 && set && (set->test != 0 || set->z_write)) {
             // A quad drawn with the list's TEST and ZBUF, as the chip draws it: the pixels that
@@ -187,7 +195,39 @@ void EffectRenderer::draw_prepared(
             const profiling::Zone trace("Effects draw batch");
             draw_batch();
         }
-
+    };
+    bool quads_declared = false;
+    const auto flush = [&] {
+        if (!batch.count) {
+            return;
+        }
+        // Enhanced batches use their enclosing snapshot and geometry scopes.
+        if (quads_declared || (has_colour_pass && enhanced_rendering_available())) {
+            draw_batch_with_alpha_test();
+        } else {
+            RasterTexture texture{m_applied.offscreen};
+            if (m_applied.texture && m_applied.texture != kOffscreenHandle) {
+                const auto [name, mips] = state.textures.prepare_draw_texture(m_applied.texture);
+                texture = {name, mips};
+            }
+            const RasterBuffer geometry[]{
+                {m_vbo, m_vertices.size() * sizeof(Vertex)},
+                {m_quad_indices, m_quad_capacity * 6 * sizeof(std::uint32_t)}
+            };
+            // A batch may have two alpha draws, but both borrow the same geometry and texture.
+            const auto buffers = std::span(geometry).first(quad_indices ? 2 : 1);
+            const auto attachments = m_part == EffectPart::Opaque
+                                             || (m_part == EffectPart::Liquids && !set->z_masked)
+                                             || set->z_write
+                                         ? ColourAttachments::ColourDepth
+                                         : ColourAttachments::ColourDepthRead;
+            raster_pass(
+                name(),
+                state.target,
+                {buffers, {&texture, 1}, attachments, m_material != nullptr},
+                std::cref(draw_batch_with_alpha_test)
+            );
+        }
         batch.count = 0;
     };
     // Adds `count` vertices from `first` to the draw, with this state; false when the state has
@@ -398,56 +438,102 @@ void EffectRenderer::draw_prepared(
     unsigned tested_quads = 0;
     unsigned texture_splits = 0, sampler_splits = 0, blend_splits = 0;
 
-    // Captured quad order preserves back-to-front blending across shader switches.
-    for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
-        if (!draws(q, input)) {
-            continue;
-        }
-        State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
-        if (quad_indices) {
-            normalize_quad_state(wanted.tex1, wanted.clamp, wanted.alpha);
-        }
-        Shader* shader = quad_shader;
+    const auto draw_quads = [&] {
+        // Captured quad order preserves back-to-front blending across shader switches.
+        for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
+            if (!draws(q, input)) {
+                continue;
+            }
+            State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
+            if (quad_indices) {
+                normalize_quad_state(wanted.tex1, wanted.clamp, wanted.alpha);
+            }
+            Shader* shader = quad_shader;
 
-        // Captured list registers override quad alpha testing and depth writes.
-        if (q.registers && m_part != EffectPart::Opaque) {
-            // The list's TEST and ZBUF (EffectQuad::test, zbuf). An alpha test needs the shader
-            // that keeps it; without that shader the quad is drawn as before, every pixel, no Z.
-            const gs::Test t = gs::Test::decode(q.test);
-            const bool testing =
-                t.ate && t.atst != gs::AlphaTest::Always && t.atst != gs::AlphaTest::Never;
+            // Captured list registers override quad alpha testing and depth writes.
+            if (q.registers && m_part != EffectPart::Opaque) {
+                // The list's TEST and ZBUF (EffectQuad::test, zbuf). An alpha test needs the shader
+                // that keeps it; without that shader the quad is drawn as before, every pixel, no Z.
+                const gs::Test t = gs::Test::decode(q.test);
+                const bool testing =
+                    t.ate && t.atst != gs::AlphaTest::Always && t.atst != gs::AlphaTest::Never;
 
-            // Missing optional test shaders retain the original untested path.
-            if (!testing || m_test_shader.id()) {
-                wanted.test = q.test;
-                wanted.z_write = !gs::Zbuf::decode(q.zbuf).zmsk;
+                // Missing optional test shaders retain the original untested path.
+                if (!testing || m_test_shader.id()) {
+                    wanted.test = q.test;
+                    wanted.z_write = !gs::Zbuf::decode(q.zbuf).zmsk;
 
-                // Only nontrivial alpha tests need the dedicated tested variant.
-                if (testing) {
-                    shader = &m_test_shader;
-                    ++tested_quads;
+                    // Only nontrivial alpha tests need the dedicated tested variant.
+                    if (testing) {
+                        shader = &m_test_shader;
+                        ++tested_quads;
+                    }
                 }
             }
+
+            // List TEST changes must finish the preceding quad batch first.
+            if (m_active_shader != shader) {
+                flush();
+                use_shader(*shader, view_projection, input.camera.view);
+                set.reset();
+            }
+
+            if (batch.count > 0 && set) {
+                texture_splits +=
+                    wanted.tex0 != set->tex0 || wanted.tbp != set->tbp || wanted.cbp != set->cbp;
+                sampler_splits += wanted.tex1 != set->tex1 || wanted.clamp != set->clamp;
+                blend_splits += wanted.alpha != set->alpha;
+            }
+            add(wanted, at, 6, true);
+            at += 6;
         }
 
-        // List TEST changes must finish the preceding quad batch first.
-        if (m_active_shader != shader) {
-            flush();
-            use_shader(*shader, view_projection, input.camera.view);
-            set.reset();
+        flush();
+    };
+    // Quad uploads are finished, so the texture set stays stable through every blend and TEST batch.
+    if (quads_from < m_vertices.size() && !m_material && !enhanced_rendering_available()
+        && !texture_pack::dumping()) {
+        std::vector<RasterTexture> textures;
+        std::set<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> sources;
+        for (const EffectQuad& quad : input.effects) {
+            if (!draws(quad, input) || !sources.emplace(quad.tex0, quad.tbp, quad.cbp).second) {
+                continue;
+            }
+            if (const unsigned panel = offscreen_texture(quad.tex0, quad.tbp)) {
+                textures.push_back({panel});
+                continue;
+            }
+            auto tex0 = gs::Tex0::decode(quad.tex0);
+            if (quad.tbp != 0) {
+                tex0.tbp0 = quad.tbp;
+                tex0.cbp = quad.cbp;
+            }
+            // The quad draw takes the same TEXA interpretation as the ordinary batch path.
+            const auto handle = state.textures.resolve(tex0, {0, false, 0x80});
+            const auto [texture, mips] = state.textures.prepare_draw_texture(handle);
+            textures.push_back({texture, mips});
         }
-
-        if (batch.count > 0 && set) {
-            texture_splits +=
-                wanted.tex0 != set->tex0 || wanted.tbp != set->tbp || wanted.cbp != set->cbp;
-            sampler_splits += wanted.tex1 != set->tex1 || wanted.clamp != set->clamp;
-            blend_splits += wanted.alpha != set->alpha;
-        }
-        add(wanted, at, 6, true);
-        at += 6;
+        std::ranges::sort(textures, {}, &RasterTexture::name);
+        const auto distinct = std::ranges::unique(textures, {}, &RasterTexture::name);
+        textures.erase(distinct.begin(), distinct.end());
+        const RasterBuffer geometry[]{
+            {m_vbo, m_vertices.size() * sizeof(Vertex)},
+            {m_quad_indices, m_quad_capacity * 6 * sizeof(std::uint32_t)}
+        };
+        // A newly prepared image can leave a different sampler binding than the strip batch did.
+        m_applied = AppliedState{};
+        quads_declared = true;
+        raster_pass(
+            "effect quads",
+            state.target,
+            {std::span(geometry).first(quad_indices ? 2 : 1),
+             textures,
+             ColourAttachments::ColourDepth},
+            std::cref(draw_quads)
+        );
+    } else {
+        draw_quads();
     }
-
-    flush();
     if (clamp_quads) {
         glDisable(GL_DEPTH_CLAMP);
     }

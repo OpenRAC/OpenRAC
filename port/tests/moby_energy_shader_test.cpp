@@ -20,6 +20,7 @@
 #include "renderer/textures/texture_pool.h"
 #include "renderer_gl_context.h"
 #include "scene_shaders.h"
+#include "tests/graph_fixture.h"
 
 using namespace openrac;
 using namespace openrac::gl;
@@ -133,7 +134,7 @@ public:
         glUniform1i(m_shader.uniform("textured"), 1);
         glUniform1i(m_shader.uniform("tcc"), 1);
         glUniform1f(m_shader.uniform("tex_alpha_scale"), 0.5f);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto out = m_frame.read_rgba();
         const std::size_t at = (std::size_t{kSize / 2} * kSize + kSize / 2) * 4;
         return {out[at] / 255.0f, out[at + 1] / 255.0f, out[at + 2] / 255.0f};

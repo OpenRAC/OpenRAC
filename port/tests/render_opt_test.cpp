@@ -29,6 +29,7 @@
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 #endif
 
@@ -178,7 +179,7 @@ void draw_frames(openrac::test::GlContext& context, const openrac::renderer::Sha
 
         // The same triangle each time: what is counted is the draws, not what they show.
         for (int draw = 0; draw < kDraws; ++draw) {
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         }
 
         context.window().swap();

@@ -168,7 +168,10 @@ private:
     // Records the existing fused GS batching loop with prepared, frame-owned geometry.
     // Hot path: retains the existing size/nesting of effect batching to preserve draw and upload order.
     void draw_prepared(
-        const FrameInput& input, RenderState& state, const PreparedEffects& prepared
+        const FrameInput& input,
+        RenderState& state,
+        const PreparedEffects& prepared,
+        bool has_colour_pass
     );
     // Orders shared material inputs once per selected effect shader, after provider bindings are
     // installed.
@@ -176,6 +179,8 @@ private:
     void use_shader(Shader& shader, const Mat4& view_projection, const Mat4& view);
     void bind_vertex_stream(unsigned vao, std::size_t first);
     void reserve_quad_indices(std::size_t quads);
+    // Resolves a panel drawn by the 2D renderer before this effect pass.
+    static unsigned offscreen_texture(std::uint64_t tex0_bits, std::uint32_t tbp);
     // Binds TEX0's texture with TEX1's filtering and CLAMP's wrapping, and sets ALPHA's blend.
     // False when the pool has nothing at TEX0's block (the draw is left out, not the placeholder).
     bool apply(

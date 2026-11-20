@@ -48,10 +48,13 @@ void retain_background(SceneFrame& frame);
 
 // ---- A mod's views (frontend/views.cpp, frontend.h's set_view_source) ----
 
-// True while a mod has views: then each frame draws them, on the window's thread.
+// True while a mod has registered views, including before the window opens.
 bool views_wanted();
 
-// Asks the mod for this frame's views and draws each after the window's picture, from the same
+// Asks the mod for this frame's views on the game thread.
+void begin_views();
+
+// Draws each requested view after the window's picture, from the same
 // scene (`world`: whether this frame drew its world anew, else the last pictures are given again),
 // then copies them where the mod said.
 void draw_views(SceneFrame& frame, bool world);

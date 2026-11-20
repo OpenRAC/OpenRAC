@@ -56,10 +56,18 @@ bool valid_compute_images(std::span<const NativeImageUse> uses) {
 
 // Validates all native compute image contracts before any callback or transition can be recorded.
 Result<Imports> compute_images(
-    GraphExecution& execution, std::string_view name, std::span<const NativeImageUse> uses
+    GraphExecution& execution,
+    std::string_view name,
+    std::span<const NativeImageUse> uses,
+    TemporalNativePipeline pipeline
 ) {
     Imports result{{std::string(name)}, {}};
     result.images.reserve(uses.size());
+    const bool graphics = pipeline == TemporalNativePipeline::GraphicsAndCompute;
+    const auto readers = graphics ? graph::Stage::FragmentShader | graph::Stage::ComputeShader
+                                  : graph::Stage::ComputeShader;
+    // A mixed SDK can write colour attachments internally before returning the output to GENERAL.
+    const auto writers = graphics ? graph::Stage::All : graph::Stage::ComputeShader;
 
     // Each writable image occupies a unique allocation; duplicate sampled reads remain legal.
     for (const auto& use : uses) {
@@ -81,7 +89,7 @@ Result<Imports> compute_images(
         result.pass.images.push_back(
             {*image,
              {aspect},
-             {graph::Stage::ComputeShader,
+             {use.write ? writers : readers,
               use.write ? graph::Access::Write : graph::Access::Read,
               use.write ? graph::Layout::General : graph::Layout::Sampled}}
         );
@@ -121,7 +129,8 @@ void set_output_defined(std::span<const NativeImageUse> uses, bool defined) {
 bool temporal_compute(
     std::string_view name,
     std::span<const NativeImageUse> inputs,
-    const std::function<bool(VkCommandBuffer, std::span<const NativeImage>)>& record
+    const std::function<bool(VkCommandBuffer, std::span<const NativeImage>)>& record,
+    TemporalNativePipeline pipeline
 ) {
     // A provider cannot retain or record without an active owning graphics context.
     if (!detail::g || !detail::g->open || !record) {
@@ -137,7 +146,7 @@ bool temporal_compute(
             if (!valid_compute_images(inputs)) {
                 return unexpected(Error{"invalid temporal compute images"});
             }
-            return compute_images(execution, name, inputs);
+            return compute_images(execution, name, inputs, pipeline);
         }();
 
         // Import validation completes before any native command is recorded.

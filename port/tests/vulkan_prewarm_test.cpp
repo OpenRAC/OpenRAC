@@ -28,6 +28,7 @@
 #include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -90,7 +91,7 @@ void draw_states(const openrac::renderer::FrameBuffer& target) {
             glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
         }
 
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     }
 }
 
@@ -285,7 +286,7 @@ std::vector<std::uint8_t> draw_layouts(std::uint64_t& linked) {
     for (const unsigned vao : vaos) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const std::vector<std::uint8_t> picture = target.read_rgba();
         pixels.insert(pixels.end(), picture.begin(), picture.end());
     }

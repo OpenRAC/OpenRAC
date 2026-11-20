@@ -150,7 +150,16 @@ Native SDK decisions flush before their result is consumed; private histories an
 internal barriers remain SDK-owned. Pose/history commits follow successful recording.
 HUD drawing and acquired-image presentation remain explicit boundaries.
 
-GPU-driven materials, vertex streams and indirect batches use backend-managed bindings.
+Classic sky and world layers declare their sampled materials and prepared vertex, index and
+instance streams before recording their existing draw order. Effects declare the current texture
+when a strip can upload between batches. The quad pass can declare its complete texture set once
+the frame's quad uploads are ready.
+Stencil volumes and heat haze use explicit raster scopes for their composite draws.
+
+Vulkan declares the image and mip range of each bindless material before publishing its
+descriptor. When an ordered world callback selects a material late, a nested graph export
+declares that read before the draw. GPU-driven vertex streams and indirect batches retain
+their existing culling graph and backend bindings.
 See the [Vulkan backend](../vulkan/README.md) for its import and transfer contracts.
 
 ## Errors
@@ -167,8 +176,14 @@ fallback before recording resumes.
 
 ## Configuration
 
-Vulkan always uses graph planning for the migrated passes. OpenGL keeps its compatibility
-recording. Hi-Z is independently configurable and defaults off.
+Vulkan, OpenGL and OpenGL ES use graph planning for migrated classic world rendering, UI and
+presentation work, including raster resources and colour transfers. Hi-Z is independently
+configurable and defaults off.
+
+Vulkan draws and dispatches require an owning work pass on the recording stream. Buffer and
+image transfers declare their source and destination ranges before encoding, or validate those
+ranges against the enclosing pass. External providers receive their declared native views and
+command stream through the existing integration boundaries.
 
 Frame capture is opt-in: `OPENRAC_RENDER_GRAPH_DUMP=1` logs the first nonempty presented
 capture once, skipping presentation-only startup frames. `vkgl::capture_frame_graph()`
@@ -191,7 +206,7 @@ barriers are never applied to the GPU and cannot justify barrier removal or memo
 | `surface_chain`, `sky_chain`, `sky_chain_separate`, `sky_chain_scroll` | Complete output, AO scales, MSAA, resizing, shadows, visible sky/fog, draw order, shared consumers and failure recovery. |
 | `colour_graph`, `effect_material` | Refraction snapshots, depth bits, graphics mip/range capture, rejected feedback, inherited blend/mask state, real water/particles and retained metadata. |
 | `graph_compute`, `vulkan_failure` | Ring aliases, storage promotion, cross-scope buffer visibility, transactional input capture, invalid ranges/layouts and rejection before dispatch. |
-| `graph_immediate_work` | Transfer resource/state/range enforcement, depth/stencil copy masks, repeated VBO draw batching, staged immutable uploads and compute mip-chain sampling. |
+| `graph_immediate_work` | Rejection of unscoped commands, transfer ranges, multisample blits, depth/stencil copy masks, draw batching, and compute mip-chain sampling. |
 | `graph_attachment` | Undeclared and read-only attachment rejection, writable draws/clears, read-only depth, masked clears and stencil-aspect contracts. |
 | `graph_state_translation` | Host geometry uploads, build-to-query visibility, scratch reuse and allocation-role alias validation without a GPU. |
 | `gtao_depth`, `gtao_vulkan` | CPU depth reductions, odd extents, Hi-Z on/off, normals, copies and MSAA. |

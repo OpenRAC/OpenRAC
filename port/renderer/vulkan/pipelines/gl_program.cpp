@@ -549,6 +549,12 @@ bool make_program_layouts(Program& program) {
 // Initialises GL uniforms and creates the compute pipeline after every prerequisite exists.
 bool finish_program_link(Program& program) {
     const auto& c = program.compiled;
+    const auto upscaled_ready =
+        std::ranges::find(c.uniforms, "upscaled_texture_colours_ready", &ProgramUniform::name);
+    program.upscaled_colours_ready_offset =
+        upscaled_ready != c.uniforms.end() && upscaled_ready->gl_type == gl::GL_INT
+            ? upscaled_ready->offset
+            : -1;
     // Uniforms start at zero, as GL's do; a relink keeps nothing, as GL's does.
     program.uniforms.assign(
         program.gpu_materials ? program.material_start + kMaterialBytes

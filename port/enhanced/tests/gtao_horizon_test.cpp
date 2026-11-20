@@ -18,6 +18,7 @@
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 
@@ -335,7 +336,7 @@ void main() {
                             glBindFramebuffer(GL_FRAMEBUFFER, target.id());
                             glViewport(0, 0, w, h);
                             uniforms(original);
-                            glDrawArrays(GL_TRIANGLES, 0, 3);
+                            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                             const auto fragment = target.read_rgba();
                             std::vector<std::uint8_t> compute, profiled_open;
                             std::array<std::vector<std::uint8_t>, 5> cpu;
@@ -345,7 +346,12 @@ void main() {
                                 uniforms(shader);
                                 glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, buffer);
                                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-                                glDispatchCompute(unsigned((w + 7) / 8), unsigned((h + 7) / 8), 1);
+                                openrac::test::graph_dispatch(
+                                    glDispatchCompute,
+                                    unsigned((w + 7) / 8),
+                                    unsigned((h + 7) / 8),
+                                    1
+                                );
                                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
                                 glBindFramebuffer(GL_FRAMEBUFFER, target.id());
                                 glViewport(0, 0, w, h);
@@ -353,7 +359,7 @@ void main() {
                                 glUniform1i(copy.uniform("ao_width"), w);
                                 glActiveTexture(GL_TEXTURE0 + 1);
                                 glBindTexture(renderer::world::gl::GL_TEXTURE_BUFFER, texture);
-                                glDrawArrays(GL_TRIANGLES, 0, 3);
+                                openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                                 return target.read_rgba();
                             };
                             if (cpu_case) {

@@ -16,6 +16,7 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "common/stats.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 #include "renderer/textures/interface_run.h"
 #include "renderer_shaders.h"
@@ -1979,7 +1980,10 @@ const DirectRenderer::Offscreen& DirectRenderer::offscreen(std::uint32_t block) 
     glBindFramebuffer(GL_FRAMEBUFFER, o.framebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, o.texture, 0);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, o.depth);
+    // A new panel's clear must cover every channel even after a masked draw.
     glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClearDepth(0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1993,7 +1997,8 @@ void DirectRenderer::use_program(bool masked) {
     (masked ? m_shader_masked : m_shader).use();
 }
 
-void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
+std::array<unsigned, 2> DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
+    std::array<unsigned, 2> textures{};
     // Off-screen targets have one sample a pixel; the frame has several when it has a resolve
     // target. The program first: every uniform below is set for this draw. Apple's OpenGL on AMD
     // GPUs ignores gl_SampleMask, so there, where Metal shares its pictures, a pixel is discarded.
@@ -2005,15 +2010,15 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     if (masked != m_masked) {
         use_program(masked);
     }
+    // Allocate the draw target before binding any sampled textures.
+    const unsigned framebuffer =
+        s.target != 0 ? offscreen(s.target).framebuffer : render_state.target.framebuffer;
     // Where the draw goes: an off-screen target's square, or the frame.
     if (s.target != 0) {
-        const Offscreen& o = offscreen(s.target);
-        glBindFramebuffer(GL_FRAMEBUFFER, o.framebuffer);
         glViewport(0, 0, kOffscreenPixels * kOffscreenScale, kOffscreenPixels * kOffscreenScale);
         const float side = static_cast<float>(kOffscreenPixels * kOffscreenScale);
         glUniform2f(m_uniforms.pixel_offset, 0.5f / side, -0.5f / side);
     } else {
-        glBindFramebuffer(GL_FRAMEBUFFER, render_state.target.framebuffer);
         glViewport(0, 0, render_state.target.width, render_state.target.height);
         glUniform2f(m_uniforms.pixel_offset, 0.5f / static_cast<float>(std::max(render_state.target.width, 1)),
                     -0.5f / static_cast<float>(std::max(render_state.target.height, 1)));
@@ -2022,10 +2027,10 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     if (s.textured) {
         glActiveTexture(GL_TEXTURE0);
         if (s.snapshot) {
-            glBindTexture(GL_TEXTURE_2D, g_frame_snapshot.texture);
+            textures[0] = g_frame_snapshot.texture;
         } else if (s.source != 0) {
             // A panel the game rendered off-screen, as the chip would read it from its memory.
-            glBindTexture(GL_TEXTURE_2D, offscreen(s.source).texture);
+            textures[0] = offscreen(s.source).texture;
         } else if (s.frame_source) {
             // What the frame holds now, as the chip would read it from its memory.
             const int w = render_state.target.width;
@@ -2033,6 +2038,7 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
             if (m_frame_copy == 0) {
                 glGenTextures(1, &m_frame_copy);
             }
+            textures[0] = m_frame_copy;
             glBindTexture(GL_TEXTURE_2D, m_frame_copy);
             if (w != m_frame_copy_width || h != m_frame_copy_height) {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -2042,11 +2048,10 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
             // (A multisampled frame is resolved first: readable() leaves the bindings changed.)
             glBindFramebuffer(GL_READ_FRAMEBUFFER, readable(render_state.target));
             glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, w, h);
-            glBindFramebuffer(GL_FRAMEBUFFER,
-                              s.target != 0 ? offscreen(s.target).framebuffer : render_state.target.framebuffer);
         } else {
-            glBindTexture(GL_TEXTURE_2D, render_state.textures.gl_texture(s.texture));
+            textures[0] = render_state.textures.gl_texture(s.texture);
         }
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
         const unsigned sampler_idx = (s.linear_mag ? 1u : 0u) | (s.linear_min ? 2u : 0u)
                                    | (s.clamp_s ? 4u : 0u) | (s.clamp_t ? 8u : 0u);
         const unsigned sampler = m_samplers[sampler_idx];
@@ -2060,7 +2065,8 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         glUniform1i(m_uniforms.distance_field, s.distance_field ? 1 : 0);
         if (s.distance_field) {
             glActiveTexture(GL_TEXTURE0 + 1);
-            glBindTexture(GL_TEXTURE_2D, render_state.textures.gl_texture(s.field));
+            textures[1] = render_state.textures.gl_texture(s.field);
+            glBindTexture(GL_TEXTURE_2D, textures[1]);
             glBindSampler(1, m_samplers[15]);  // linear mag/min + clamp s/t
             glUniform1i(m_uniforms.tex_T1, 1);
             glActiveTexture(GL_TEXTURE0);
@@ -2072,14 +2078,18 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     if (!s.textured || !s.distance_field) {
         const GLuint none = render_state.textures.gl_texture(render_state.textures.placeholder());
         if (!s.textured) {
+            textures[0] = none;
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, none);
         }
         glActiveTexture(GL_TEXTURE0 + 1);
+        textures[1] = none;
         glBindTexture(GL_TEXTURE_2D, none);
         glUniform1i(m_uniforms.tex_T1, 1);
         glActiveTexture(GL_TEXTURE0);
     }
+    // A sampled panel's first clear or a frame resolve can change framebuffer bindings.
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glUniform1i(m_uniforms.fog_enable, s.fog ? 1 : 0);
     glUniform3f(
         m_uniforms.fog_colour,
@@ -2111,10 +2121,8 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         glUniform1i(m_uniforms.source_scale, 0);
     }
 
-    if (!s.test.zte) {
-        glDisable(GL_DEPTH_TEST);
-    } else {
-        glEnable(GL_DEPTH_TEST);
+    // The alpha-fail policy decides whether each draw needs to enable depth testing.
+    if (s.test.zte) {
         glDepthFunc(depth_func(s.test.ztst));
     }
 
@@ -2148,6 +2156,7 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     const auto y1 = static_cast<GLint>(std::lround(static_cast<float>(s.scissor.y1 + 1) * sy));
     glEnable(GL_SCISSOR_TEST);
     glScissor(x0, target_height - y1, std::max(0, x1 - x0), std::max(0, y1 - y0));
+    return textures;
 }
 
 void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
@@ -2185,7 +2194,24 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
         }
         return;
     }
-    apply(s, render_state);
+    // The direct renderer has no stencil work, so a depth test of NEVER has no output.
+    if (s.test.zte && s.test.ztst == gs::DepthTest::Never) {
+        return;
+    }
+    const auto bindings = apply(s, render_state);
+    const RasterTexture textures[]{{bindings[0]}, {bindings[1] == bindings[0] ? 0 : bindings[1]}};
+    const RasterBuffer geometry{
+        m_vbo, (static_cast<std::size_t>(d.first) + d.count) * sizeof(DirectVertex)
+    };
+    RenderTarget target = render_state.target;
+    // A vendor or cockpit panel writes to its own colour and depth attachments.
+    if (s.target != 0) {
+        const auto& panel = offscreen(s.target);
+        target =
+            {panel.framebuffer,
+             kOffscreenPixels * kOffscreenScale,
+             kOffscreenPixels * kOffscreenScale};
+    }
 
     // FRAME.FBMSK: a channel whose bits are all masked is not written.
     const GLboolean red = (s.fbmsk & 0x000000FFu) != 0x000000FFu ? GL_TRUE : GL_FALSE;
@@ -2193,6 +2219,9 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     const GLboolean blue = (s.fbmsk & 0x00FF0000u) != 0x00FF0000u ? GL_TRUE : GL_FALSE;
     const GLboolean alpha = (s.fbmsk & 0xFF000000u) != 0xFF000000u ? GL_TRUE : GL_FALSE;
     const GLboolean depth = s.depth_write && !m_background ? GL_TRUE : GL_FALSE;
+    const bool compare_depth =
+        s.test.zte
+        && (s.test.ztst == gs::DepthTest::Gequal || s.test.ztst == gs::DepthTest::Greater);
 
     auto call = [&](int test,
                     bool keep_failing,
@@ -2203,8 +2232,18 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
         glUniform1f(m_uniforms.alpha_ref, static_cast<float>(s.test.aref));
         glUniform1i(m_uniforms.alpha_keep_failing, keep_failing ? 1 : 0);
         glColorMask(red & colour, green & colour, blue & colour, alpha & write_alpha);
-        glDepthMask(depth & write_depth);
-        glDrawArrays(GL_TRIANGLES, static_cast<GLint>(d.first), static_cast<GLsizei>(d.count));
+        const bool updates_depth = s.test.zte && (depth & write_depth);
+        glDepthMask(updates_depth ? GL_TRUE : GL_FALSE);
+        // ALWAYS with writes masked needs no attachment, even if the GS enabled testing.
+        if (compare_depth || updates_depth) {
+            glEnable(GL_DEPTH_TEST);
+        } else {
+            glDisable(GL_DEPTH_TEST);
+        }
+        const auto attachments = colour_with_depth(compare_depth, updates_depth);
+        raster_pass("game interface", target, {{&geometry, 1}, textures, attachments}, [&] {
+            glDrawArrays(GL_TRIANGLES, static_cast<GLint>(d.first), static_cast<GLsizei>(d.count));
+        });
         ++render_state.stats.draw_calls;
         render_state.stats.triangles += d.count / 3;
     };

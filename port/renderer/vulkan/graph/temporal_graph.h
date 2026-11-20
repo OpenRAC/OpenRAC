@@ -64,12 +64,18 @@ struct TemporalTarget {
     TemporalConsumer consumer,
     const std::function<void()>& record
 );
+enum class TemporalNativePipeline : std::uint8_t {
+    Compute,
+    GraphicsAndCompute
+};
+
 // Declares external renderer images around a native upscaler, leaving its private history/barriers
 // opaque.
 // The callback restores sampled-read/GENERAL layouts before returning.
 [[nodiscard]] bool temporal_compute(
     std::string_view name,
     std::span<const NativeImageUse> inputs,
-    const std::function<bool(VkCommandBuffer, std::span<const NativeImage>)>& record
+    const std::function<bool(VkCommandBuffer, std::span<const NativeImage>)>& record,
+    TemporalNativePipeline pipeline = TemporalNativePipeline::Compute
 );
 }  // namespace openrac::vkgl

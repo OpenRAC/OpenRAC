@@ -4,7 +4,9 @@
 #include "scene/object_preview.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstddef>
+#include <exception>
 
 #include "renderer/gl/gl.h"
 #include "scene_shaders.h"
@@ -89,15 +91,17 @@ void ObjectPreview::upload_vertices() {
 
 void ObjectPreview::upload_images() {
     m_images.resize(m_mesh.images.size() + 1);
-    glGenTextures(GLsizei(m_images.size()), m_images.data());
     const std::array<std::uint8_t, 4> white{255, 255, 255, 255};
     glActiveTexture(GL_TEXTURE0);
 
     for (std::size_t i = 0; i < m_images.size(); ++i) {
-        glBindTexture(GL_TEXTURE_2D, m_images[i]);
+        auto& image = m_images[i];
+        glGenTextures(1, &image.name);
+        glBindTexture(GL_TEXTURE_2D, image.name);
         const bool fallback = i == m_mesh.images.size();
         const int width = fallback ? 1 : m_mesh.images[i].width;
         const int height = fallback ? 1 : m_mesh.images[i].height;
+        image.mip_levels = std::bit_width(static_cast<unsigned>(std::max(width, height)));
         const void* pixels = fallback ? white.data() : m_mesh.images[i].pixels.data();
         glTexImage2D(
             GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels
@@ -158,7 +162,7 @@ void ObjectPreview::draw_parts(bool transparent) {
             const int image = unit == 0 ? material.image : material.emission_image;
             const auto index = image >= 0 ? std::size_t(image) : m_images.size() - 1;
             glActiveTexture(GL_TEXTURE0 + unit);
-            glBindTexture(GL_TEXTURE_2D, m_images[index]);
+            glBindTexture(GL_TEXTURE_2D, m_images[index].name);
             glTexParameteri(
                 GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, material.clamp_s ? GL_CLAMP_TO_EDGE : GL_REPEAT
             );
@@ -201,6 +205,27 @@ void ObjectPreview::draw_parts(bool transparent) {
     }
 }
 
+void ObjectPreview::record_parts(std::string_view name, bool transparent) {
+    const renderer::RasterBuffer geometry{
+        m_vertices, m_mesh.vertices.size() * sizeof(scene::Vertex)
+    };
+    // Material images are declared explicitly. Capture only the other prepared shader inputs.
+    glActiveTexture(GL_TEXTURE0 + 1);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    renderer::raster_pass(
+        name,
+        {m_target.id()},
+        {{&geometry, 1},
+         m_images,
+         transparent ? renderer::ColourAttachments::ColourDepthRead
+                     : renderer::ColourAttachments::ColourDepth,
+         true},
+        [&] { draw_parts(transparent); }
+    );
+}
+
 // Bind only private target state; the overlay restores its window target afterwards.
 void ObjectPreview::bind_target(const renderer::Camera& camera, int width, int height) {
     glBindFramebuffer(GL_FRAMEBUFFER, m_target.id());
@@ -234,7 +259,7 @@ void ObjectPreview::draw_surfaces(const renderer::Camera& camera, int width, int
         glUniform1i(m_shader.uniform("preview_depth_only"), 1);
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
         glBindVertexArray(m_vao);
-        draw_parts(false);
+        record_parts("object preview depth", false);
         m_lighting->cull(m_target.depth_texture(), camera, width, height);
         m_shader.use();
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -248,7 +273,7 @@ void ObjectPreview::draw_surfaces(const renderer::Camera& camera, int width, int
 
     // Depth culling is optional; opaque and transparent surfaces retain their original alpha split.
     glBindVertexArray(m_vao);
-    draw_parts(false);
+    record_parts("object preview opaque", false);
     glEnable(GL_BLEND);
     glBlendEquation(GL_FUNC_ADD);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
@@ -258,7 +283,7 @@ void ObjectPreview::draw_surfaces(const renderer::Camera& camera, int width, int
         m_lighting->bind(m_shader, camera, false);
     }
 
-    draw_parts(true);
+    record_parts("object preview transparent", true);
     glDepthMask(GL_TRUE);
 }
 
@@ -287,11 +312,18 @@ Result<void> ObjectPreview::draw(int width, int height, const PreviewOrbit& orbi
     }
 
     bind_target(camera, width, height);
-    draw_surfaces(camera, width, height);
+    Result<void> result;
+    try {
+        draw_surfaces(camera, width, height);
+    } catch (const std::exception& failure) {
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glDepthMask(GL_TRUE);
+        result = unexpected(Error{failure.what()});
+    }
     glBindVertexArray(0);
     glActiveTexture(GL_TEXTURE0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    return {};
+    return result;
 }
 
 void ObjectPreview::release() {
@@ -305,7 +337,9 @@ void ObjectPreview::release() {
         }
 
         m_lighting.reset();
-        glDeleteTextures(GLsizei(m_images.size()), m_images.data());
+        for (const auto& image : m_images) {
+            glDeleteTextures(1, &image.name);
+        }
         glDeleteBuffers(1, &m_vertices);
         glDeleteVertexArrays(1, &m_vao);
     }

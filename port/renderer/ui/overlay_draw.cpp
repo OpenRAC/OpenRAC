@@ -7,7 +7,9 @@
 #include <string>
 
 #include "common/log.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
+#include "renderer/renderer.h"
 
 namespace openrac::renderer::ui {
 
@@ -91,7 +93,11 @@ void OverlayDraw::draw(
         stride,
         reinterpret_cast<const void*>(offsetof(OverlayVertex, rgba))
     );
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size()));
+    const RasterBuffer geometry{m_buffer, vertices.size_bytes()};
+    // Upload and vertex layout are complete before the pass borrows the buffer.
+    raster_pass("mod overlay", {framebuffer, width, height}, {{&geometry, 1}}, [&] {
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size()));
+    });
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDisable(GL_BLEND);

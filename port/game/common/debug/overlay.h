@@ -202,7 +202,6 @@ struct State {
     bool configured = false;            // the environment was read
     bool visible = false;               // the panel is shown (F3)
     bool initialised = false;           // the ImGui context exists
-    bool gl_subset = false;  // drawn with the renderer's GL (imgui_gl.h): the window's is Vulkan's
     std::array<bool, kSectionCount> open_at_start = {true, false, false, false, false, false};
 
     // The last tick, as the window gave it.

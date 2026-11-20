@@ -1500,9 +1500,10 @@ typedef struct openrac_api {
 
     /* Asks the port to draw views of the game besides the window's picture each
      * frame, through `source` (openrac_view_source), with OpenGL and Vulkan.
-     * While a mod has views, Vulkan draws on the game's thread. From 1.20,
-     * the manifest's "vulkan_queue": true declares native Vulkan access and
-     * selects game-thread rendering for the session.
+     * A view source from a mod targeting API 1.19 or earlier keeps Vulkan on
+     * the game's thread. From 1.20, the manifest's "vulkan_queue": true
+     * declares native Vulkan access and selects game-thread rendering for the
+     * session.
      * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has them,
      * OPENRAC_HOOK_UNKNOWN for a source without begin or end, or
      * OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.4. */

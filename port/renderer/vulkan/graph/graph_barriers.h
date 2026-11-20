@@ -65,6 +65,9 @@ void record_graph_buffer_barrier(
 [[nodiscard]] bool image_has_layout(
     const Image& image, const renderer::graph::ImageRange& range, VkImageLayout layout
 );
+[[nodiscard]] bool image_contents_defined(
+    const Image& image, const renderer::graph::ImageRange& range
+);
 void set_whole_image_state(Image& image, renderer::graph::State state);
 void discard_image_contents(Image& image, const renderer::graph::ImageRange& range);
 void record_graph_image_access(

@@ -15,6 +15,7 @@
 #include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/render_frame_batch.h"
 #include "tests/renderer_gl_context.h"
 
@@ -74,7 +75,7 @@ std::vector<std::uint8_t> fresh_draw(
     gl::GLuint vao = 0;
     gl::glGenVertexArrays(1, &vao);
     gl::glBindVertexArray(vao);
-    gl::glDrawArrays(gl::GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(gl::glDrawArrays, gl::GL_TRIANGLES, 0, 3);
     const auto pixels = frame.read_rgba();
     gl::glDeleteVertexArrays(1, &vao);
     shader.release();
@@ -261,7 +262,7 @@ void test_multisample_resolve() {
         gl::glBindVertexArray(vao);
         shader.use();
         gl::glUniform4f(shader.uniform("tint"), 1, 1, 1, 1);
-        gl::glDrawArrays(gl::GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(gl::glDrawArrays, gl::GL_TRIANGLES, 0, 3);
         const auto pixels = frame.read_rgba();
         // Black/white geometry must contain genuinely resolved fractional coverage.
         CHECK(std::any_of(pixels.begin(), pixels.end(), [](auto value) {

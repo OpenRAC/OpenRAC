@@ -22,6 +22,7 @@
 #include "renderer/gl/program_cache.h"
 #include "renderer/gl/shader.h"
 #include "renderer_gl_context.h"
+#include "tests/graph_fixture.h"
 
 namespace {
 
@@ -59,7 +60,7 @@ std::vector<std::uint8_t> draw(const Shader& shader) {
     glViewport(0, 0, 16, 16);
     shader.use();
     glUniform4f(shader.uniform("tint"), 0.0f, 0.0f, 0.25f, 0.75f);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     std::vector<std::uint8_t> pixels = frame.read_rgba();
     glDeleteVertexArrays(1, &vao);
     frame.release();

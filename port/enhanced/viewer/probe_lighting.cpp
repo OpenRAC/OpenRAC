@@ -27,6 +27,7 @@
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_texture_upload.h"
 #include "enhanced_viewer_shaders.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 
 #if defined(OPENRAC_VULKAN)
@@ -1179,12 +1180,23 @@ void ProbeLighting::draw_spheres(
             return;
         }
 #endif
-        glDrawElementsInstanced(
-            GL_TRIANGLES,
-            vertices,
-            GL_UNSIGNED_INT,
-            nullptr,
-            static_cast<GLsizei>(m_visible_spheres.size())
+        const renderer::RasterBuffer geometry[]{
+            {m_sphere_buffer, m_visible_spheres.size() * sizeof(Sphere)},
+            {m_sphere_indices, vertices * sizeof(unsigned)}
+        };
+        renderer::raster_pass(
+            "probe sphere overlay",
+            state.target,
+            {geometry, {}, renderer::ColourAttachments::ColourDepthRead, true},
+            [&] {
+                glDrawElementsInstanced(
+                    GL_TRIANGLES,
+                    vertices,
+                    GL_UNSIGNED_INT,
+                    nullptr,
+                    static_cast<GLsizei>(m_visible_spheres.size())
+                );
+            }
         );
         ++state.stats.draw_calls;
         state.stats.triangles += m_visible_spheres.size() * (vertices / 3);

@@ -2,10 +2,9 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // A mod's views of the game (interface 1.4, openrac_mod.h's openrac_view_source, sdk/docs/views.md):
-// the eyes of a headset, a panel for the 2D. In each frame that draws the scene, after the window's
-// picture, the mod says which views it wants; each is drawn from the same scene into a picture of
-// its own and copied where the mod said (its GL texture, or its VkImage). Once the frame is
-// submitted, the mod is told. Without a mod's views nothing here runs.
+// the eyes of a headset, a panel for the 2D. The mod describes its views on the game thread, and
+// each is drawn from the same scene as the window and copied to the mod's texture or VkImage.
+// Once the frame is submitted, the mod is told.
 
 #include <algorithm>
 #include <array>
@@ -289,10 +288,10 @@ void set_view_source(const openrac_view_source* source) {
 }
 
 bool views_wanted() {
-    return g_source.has_value() && g && g->window;
+    return g_source.has_value();
 }
 
-void draw_views(SceneFrame& frame, bool world) {
+void begin_views() {
     // A frame drawn twice before its swap (none should be) ends the first one's views first.
     finish_views();
     g_views = {};
@@ -300,7 +299,9 @@ void draw_views(SceneFrame& frame, bool world) {
         g_source->begin(g_source->user, g_views.data(), OPENRAC_VIEW_MAX), 0, OPENRAC_VIEW_MAX
     );
     g_pending = true;
+}
 
+void draw_views(SceneFrame& frame, bool world) {
     for (int i = 0; i < g_count; ++i) {
         draw_view(frame, i, world);
     }

@@ -19,7 +19,7 @@ Implementation files are grouped by responsibility:
 | `direct/` | Direct packet rendering and register definitions |
 | `effects/`, `debug/` | Effects, shadows and diagnostic geometry |
 | `settings/` | Rendering settings and the optimisation registry |
-| `graph/`, `vulkan/`, `metal/` | CPU graph planning and native backend implementations |
+| `graph/`, `vulkan/` | CPU graph planning and Vulkan execution, through MoltenVK on Apple platforms |
 | `world/`, `ui/`, `shaders/` | World rendering, overlays and shader sources |
 
 | File | What | OpenGOAL's |

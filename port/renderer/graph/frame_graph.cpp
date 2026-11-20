@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <atomic>
 #include <limits>
+#include <tuple>
 #include <utility>
 
 #include "renderer/graph/graph_internal.h"
@@ -65,63 +66,63 @@ bool valid_initial_ranges(const ImageDesc& image) {
     return true;
 }
 
+}  // namespace
+
 // Coalesces exact allocation aliases, rejecting incompatible descriptions or resource types.
-template <typename Description, typename Handle>
-Result<Handle> import_resource(
-    std::vector<Resource>& resources,
-    std::size_t& count,
-    std::string_view name,
-    const Description& description,
-    std::uint64_t owner
-) {
-    // All views of one live allocation must share metadata and initial state.
-    for (unsigned index = 0; index < count; ++index) {
-        const ResourceKey key =
-            std::visit([](const auto& value) { return value.key; }, resources[index].description);
-
-        // A recycled generation is a separate allocation, even when its identity matches.
-        if (key != description.key) {
-            continue;
+template <typename Handle, typename Description>
+Result<Handle> Graph::import_resource(std::string_view name, const Description& description) {
+    const auto entry = std::ranges::lower_bound(
+        m_resource_lookup,
+        std::tie(description.key.identity, description.key.generation),
+        {},
+        [](const ResourceIndex& resource) {
+            return std::tie(resource.key.identity, resource.key.generation);
         }
-
-        const auto* existing = std::get_if<Description>(&resources[index].description);
-
+    );
+    // All views of one live allocation must share metadata and initial state.
+    if (entry != m_resource_lookup.end() && entry->key == description.key) {
+        const auto* existing = std::get_if<Description>(&m_resources[entry->index].description);
         // Conflicting aliases would create two incompatible histories for the same memory.
         if (!existing || *existing != description) {
             return unexpected(Error{std::string("inconsistent alias import: ").append(name)});
         }
 
-        return Handle{index, owner};
+        return Handle{entry->index, m_owner};
     }
 
     // Public handles must represent every canonical resource index.
+    const auto count = m_resource_lookup.size();
     if (count >= std::numeric_limits<unsigned>::max()) {
         return unexpected(Error{"frame graph has too many resources"});
     }
 
-    if (count == resources.size()) {
+    if (count == m_resources.size()) {
         // The label may refer to a resource in this vector.
-        resources.push_back({std::string(name), description, {}, {}});
+        m_resources.push_back({std::string(name), description, {}, {}});
     } else {
-        auto& resource = resources[count];
+        auto& resource = m_resources[count];
         resource.name.assign(name);
         resource.description = description;
     }
-    return Handle{static_cast<unsigned>(count++), owner};
+    const auto index = static_cast<unsigned>(count);
+    m_resource_lookup.insert(entry, {description.key, index});
+    return Handle{index, m_owner};
 }
-}  // namespace
 
 Graph::Graph(Graph&& other) noexcept
     : m_resources(std::move(other.m_resources)),
-      m_resource_count(std::exchange(other.m_resource_count, 0)),
+      m_resource_lookup(std::move(other.m_resource_lookup)),
       m_passes(std::move(other.m_passes)),
       m_spare_passes(std::move(other.m_spare_passes)),
-      m_owner(std::exchange(other.m_owner, 0)) {}
+      m_owner(std::exchange(other.m_owner, 0)) {
+    other.m_resource_lookup.clear();
+}
 
 Graph& Graph::operator=(Graph&& other) noexcept {
     if (this != &other) {
         m_resources = std::move(other.m_resources);
-        m_resource_count = std::exchange(other.m_resource_count, 0);
+        m_resource_lookup = std::move(other.m_resource_lookup);
+        other.m_resource_lookup.clear();
         m_passes = std::move(other.m_passes);
         m_spare_passes = std::move(other.m_spare_passes);
         m_owner = std::exchange(other.m_owner, 0);
@@ -147,9 +148,7 @@ Result<ImageHandle> Graph::import_image(std::string_view name, const ImageDesc& 
     if (!m_owner) {
         m_owner = next_owner();
     }
-    return import_resource<ImageDesc, ImageHandle>(
-        m_resources, m_resource_count, name, description, m_owner
-    );
+    return import_resource<ImageHandle>(name, description);
 }
 
 Result<BufferHandle> Graph::import_buffer(std::string_view name, BufferDesc description) {
@@ -162,21 +161,20 @@ Result<BufferHandle> Graph::import_buffer(std::string_view name, BufferDesc desc
     if (!m_owner) {
         m_owner = next_owner();
     }
-    return import_resource<BufferDesc, BufferHandle>(
-        m_resources, m_resource_count, name, description, m_owner
-    );
+    return import_resource<BufferHandle>(name, description);
 }
 
 Result<void> Graph::validate_handles(const Pass& pass) const {
     for (const auto& use : pass.images) {
-        if (!m_owner || use.image.owner != m_owner || use.image.index >= m_resource_count) {
+        if (!m_owner || use.image.owner != m_owner || use.image.index >= m_resource_lookup.size()) {
             return unexpected(
                 Error{pass.name + ": image handle does not belong to this recording"}
             );
         }
     }
     for (const auto& use : pass.buffers) {
-        if (!m_owner || use.buffer.owner != m_owner || use.buffer.index >= m_resource_count) {
+        if (!m_owner || use.buffer.owner != m_owner
+            || use.buffer.index >= m_resource_lookup.size()) {
             return unexpected(
                 Error{pass.name + ": buffer handle does not belong to this recording"}
             );
@@ -276,7 +274,7 @@ void Graph::clear() noexcept {
             pass.compute_indexed_storage = false;
         }
     }
-    m_resource_count = 0;
+    m_resource_lookup.clear();
     m_owner = 0;
 }
 }  // namespace openrac::renderer::graph
