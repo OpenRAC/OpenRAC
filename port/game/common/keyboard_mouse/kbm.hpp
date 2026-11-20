@@ -1289,6 +1289,37 @@ inline std::uint16_t grid_step(int from, int to, int rows, int cols) {
     return to % cols < from % cols ? kLeft : kRight;
 }
 
+// ---- rac1's map screen ----
+//
+// The mouse drags the map and the wheel zooms it, as the sticks do (update_map_zoom_and_pan): the
+// pan is 16.15 fixed point over 0..0x10000000, the zoom 0.65..4.
+
+// The pan for one pixel of the game's screen at zoom 1, across and down (measured: the map
+// follows the mouse).
+inline constexpr float kMapPanPerPixelX = 522000.0f;
+inline constexpr float kMapPanPerPixelY = 436000.0f;
+inline constexpr float kMapZoomMin = 0.65f;
+inline constexpr float kMapZoomMax = 4.0f;
+inline constexpr float kMapZoomPerNotch = 1.15f;
+
+// A map's pan dragged `pixels` along one axis at `zoom`, within the game's bounds for that axis
+// (y keeps 1280 / zoom of its range at each end, x none).
+inline std::int32_t map_pan(std::int32_t pan, float pixels, float zoom, bool y_axis) {
+    const float z = std::clamp(zoom, kMapZoomMin, kMapZoomMax);
+    const std::int64_t moved =
+        static_cast<std::int64_t>(pan)
+        - static_cast<std::int64_t>(pixels * (y_axis ? kMapPanPerPixelY : kMapPanPerPixelX) / z);
+    const std::int64_t lo =
+        static_cast<std::int64_t>(static_cast<int>((y_axis ? 1280.0f : 0.0f) / z)) << 15;
+    const std::int64_t hi = 0x10000000 - lo;
+    return static_cast<std::int32_t>(std::clamp(moved, lo, std::max(lo, hi)));
+}
+
+// A map's zoom after the wheel's `notches` (in for more), within the game's bounds.
+inline float map_zoom(float zoom, float notches) {
+    return std::clamp(zoom * std::pow(kMapZoomPerNotch, notches), kMapZoomMin, kMapZoomMax);
+}
+
 // ---- Clicks on the game's button icons ----
 
 // The pad button of a font's icon cell (key_prompts.h's order along row 96: Cross, Square,

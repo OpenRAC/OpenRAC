@@ -709,6 +709,20 @@ void menu_mouse() {
     );
 }
 
+// The map dragged and zoomed within the game's bounds.
+void map_drag() {
+    // Dragged right, the pan goes back (the map follows the mouse), less at a closer zoom.
+    const std::int32_t far = kbm::map_pan(0x08000000, 10.0f, 1.0f, false);
+    const std::int32_t near = kbm::map_pan(0x08000000, 10.0f, 2.0f, false);
+    CHECK(far < near && near < 0x08000000);
+    CHECK(kbm::map_pan(0x00000100, 100.0f, 1.0f, false) == 0);
+    CHECK(kbm::map_pan(0x0FFFFF00, -100.0f, 1.0f, false) == 0x10000000);
+    // Down, a margin of 1280 / zoom at each end.
+    CHECK(kbm::map_pan(0, 0.0f, 1.0f, true) == (1280 << 15));
+    CHECK(kbm::map_zoom(1.0f, 1.0f) > 1.0f && kbm::map_zoom(1.0f, -1.0f) < 1.0f);
+    CHECK(kbm::map_zoom(3.9f, 5.0f) == 4.0f && kbm::map_zoom(0.7f, -5.0f) == 0.65f);
+}
+
 // A click on a button icon of the game's text, or the text after it, presses that button.
 void prompt_spots() {
     const kbm::PromptSpot spots[3] = {
@@ -978,6 +992,7 @@ int main(int argc, char** argv) {
     menu_mouse();
     vendor();
     prompt_spots();
+    map_drag();
     prompts();
     edges();
 

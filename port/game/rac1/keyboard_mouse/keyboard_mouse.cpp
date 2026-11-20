@@ -205,6 +205,9 @@ int s_click_wait = 0;
 int s_vendor_target = -1;
 int s_vendor_tries = 0;
 bool s_click_held = false;
+
+// Whether the map is focused this tick (the wheel zooms it then).
+bool s_map_shown = false;
 std::uint16_t s_click_button = 0;
 
 // The game's own functions the camera's reset calls, found by load().
@@ -768,7 +771,7 @@ bool menu_mouse(const Tick& t, bool click) {
 
     // Elsewhere (and over a grid) the mouse's motion steps the d-pad, except on the title, which
     // has nothing to step, and at the vendor, where the mouse points (vendor_mouse).
-    if (moved && t.where != Context::Title && t.where != Context::Vendor) {
+    if (moved && t.where != Context::Title && t.where != Context::Vendor && !s_map_shown) {
         const std::uint16_t dir = s_stepper.step(in->mouse_dx, in->mouse_dy);
 
         // A step of the d-pad was due: press it.
@@ -778,6 +781,59 @@ bool menu_mouse(const Tick& t, bool click) {
     }
 
     return true;
+}
+
+// ---- The mouse on the map ----
+
+// A drag of the map under way, and where the mouse was at the last tick (the game's screen).
+bool s_map_drag = false;
+float s_map_drag_x = 0.0f;
+float s_map_drag_y = 0.0f;
+
+// The focused map: the mouse's left button held down over it drags it, the wheel zooms it (the
+// game's own pan and zoom of the loaded map, kbm::map_pan and map_zoom).
+void map_mouse(const Tick& t) {
+    const gaddr m = s_mod->relocate(s_disc->map_state);
+    const std::int32_t loaded = read<std::int32_t>(m + KBM_MAP_LOADED);
+
+    // No map shown: nothing to move.
+    if (read<std::int32_t>(m + KBM_MAP_READY) == 0 || loaded < 0 || loaded >= KBM_MAP_COUNT) {
+        s_map_drag = false;
+        return;
+    }
+
+    const gaddr at = static_cast<gaddr>(loaded) * 4u;
+    const float zoom = read<float>(m + KBM_MAP_ZOOM + at);
+    const float px = t.in->pointer_x * kbm::kScreenWidth;
+    const float py = t.in->pointer_y * kbm::kScreenHeight;
+    const gaddr page = menu_page();
+    const gaddr focused = page != 0 ? read<std::uint32_t>(page + KBM_PAGE_FOCUS) : 0;
+    const bool over = plausible(focused) && rect_of(focused).contains(px, py);
+
+    // The button let go ends a drag; pressed over the map, one starts.
+    if (!mouse_bind(t, Action::MenuConfirm, false)) {
+        s_map_drag = false;
+    } else if (mouse_bind(t, Action::MenuConfirm, true) && over) {
+        s_map_drag = true;
+        s_map_drag_x = px;
+        s_map_drag_y = py;
+    }
+
+    // Dragged: the map follows the mouse.
+    if (s_map_drag && std::isfinite(zoom) && (px != s_map_drag_x || py != s_map_drag_y)) {
+        ref<std::int32_t>(m + KBM_MAP_PAN_X + at) = kbm::map_pan(
+            read<std::int32_t>(m + KBM_MAP_PAN_X + at), px - s_map_drag_x, zoom, false
+        );
+        ref<std::int32_t>(m + KBM_MAP_PAN_Y + at) =
+            kbm::map_pan(read<std::int32_t>(m + KBM_MAP_PAN_Y + at), py - s_map_drag_y, zoom, true);
+        s_map_drag_x = px;
+        s_map_drag_y = py;
+    }
+
+    // The wheel over the map zooms it.
+    if (over && t.in->wheel_y != 0.0f && std::isfinite(zoom)) {
+        ref<float>(m + KBM_MAP_ZOOM + at) = kbm::map_zoom(zoom, t.in->wheel_y);
+    }
 }
 
 // ---- Clicks on the game's button icons ----
@@ -1112,7 +1168,9 @@ void menu_directions(const Tick& t, kbm::ActionSet held, kbm::Virtual& v) {
     // Take each direction in turn.
     for (int i = 0; i < kMenuDirections; ++i) {
         const bool on = (held & kbm::bit(dirs[i])) != 0 && held_not_wheel(t, dirs[i]);
-        const bool notch = (held & kbm::bit(dirs[i])) != 0 && !on && wheel_notch(t, dirs[i]);
+        // The wheel zooms the map (map_mouse), and steps elsewhere.
+        const bool notch =
+            (held & kbm::bit(dirs[i])) != 0 && !on && !s_map_shown && wheel_notch(t, dirs[i]);
 
         // A wheel notch is one queued press; a key is held, and repeats while it stays down.
         if (notch) {
@@ -1266,6 +1324,7 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     }
 
     const bool map = map_focused(t);
+    s_map_shown = map && t.pointer && s_menu_mouse;
     kbm::Virtual v;
     // A click on a menu item not yet focused waits for the focus; then it confirms.
     const bool click = t.pointer && (held & kbm::bit(Action::MenuConfirm)) != 0
@@ -1285,7 +1344,13 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
         click_taken = mouse_click;
     } else if (!play) {
         click_press = mouse_click && s_menu_mouse ? prompt_click(t) : 0;
-        click_taken = click_press != 0;
+        // On the map a click drags it (map_mouse): it presses only an icon's button.
+        click_taken = click_press != 0 || (map && mouse_click && s_menu_mouse);
+
+        // The focused map moves with the mouse.
+        if (map && t.pointer && s_menu_mouse) {
+            map_mouse(t);
+        }
 
         // Out of play the mouse points at the menus; a click on an item not yet focused is held
         // back, and pressed again once the focus has moved.

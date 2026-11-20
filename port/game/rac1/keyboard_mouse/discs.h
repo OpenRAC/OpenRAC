@@ -50,6 +50,8 @@ typedef struct kbm_disc {
     uint32_t font_table;
     /* Level 0's program's, through relocate_level_data(0, ...): the vendor's state (VendorMenu). */
     uint32_t vendor;
+    /* The executable's, through relocate_data: the map screen's state (MapState, map_state.h). */
+    uint32_t map_state;
 } kbm_disc;
 
 /* A menu page (page_menu +4): its focused widget, its widgets, the widget it moves to next. */
@@ -114,6 +116,15 @@ typedef struct kbm_disc {
 #define KBM_VENDOR_PURCHASE 0x5Cu
 #define KBM_VENDOR_ROWS 0x210u
 
+/* The map screen's state (MapState): whether a map is there, the loaded map (-1 none), and each
+ * map's zoom (0.65..4) and pan (16.15 fixed point, 0..0x10000000; update_map_zoom_and_pan). */
+#define KBM_MAP_READY 0x24u
+#define KBM_MAP_ZOOM 0xB4u
+#define KBM_MAP_PAN_X 0x104u
+#define KBM_MAP_PAN_Y 0x154u
+#define KBM_MAP_LOADED 0x228u
+#define KBM_MAP_COUNT 20
+
 /* In the hero, on both discs. */
 #define KBM_HERO_FACING 0x98u    /* f32: the way he faces (rot.z) */
 #define KBM_HERO_ITEM 0x10B8u    /* i32: the item in hand (items[0].item_id) */
@@ -143,7 +154,8 @@ static const kbm_disc k_kbm_discs[] = {
      0x00160390u,
      0x0015F560u,
      0x0018D540u,
-     0x001CA7C0u},
+     0x001CA7C0u,
+     0x001A01F0u},
     {"ntsc",
      0x0013F350u,
      0x00141EA0u,
@@ -163,7 +175,8 @@ static const kbm_disc k_kbm_discs[] = {
      0x00160290u,
      0x0015F460u,
      0x0018D440u,
-     0x001CA4C0u},
+     0x001CA4C0u,
+     0x001A00F0u},
 };
 /* clang-format on */
 
