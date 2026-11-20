@@ -313,6 +313,22 @@
     "L01:001E0100": {
       "is": "001E0180",
       "why": "the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0x23C, 21 of 21 places agree"
+    },
+    "L01:001DFD0C": {
+      "is": "001DFD8C",
+      "why": "the same instruction of the same code: the HUD slot update func_L01_0041FE80 (NTSC-U func_L01_0041D750) +0x4C writes it 0x00FFFFF0, 1 of 1 place"
+    },
+    "L01:001DFD20": {
+      "is": "001DFDA0",
+      "why": "the same instruction of the same code: the HUD texture TEX0 func_L01_00420080 (NTSC-U func_L01_0041D950) +0x4, 1 of 1 place"
+    },
+    "L01:001DFD24": {
+      "is": "001DFDA4",
+      "why": "the same instruction of the same code: func_L01_00420080 (NTSC-U func_L01_0041D950) +0x24, 1 of 1 place"
+    },
+    "L01:002E60D0": {
+      "is": "002E6110",
+      "why": "the same instruction of the same code: the HUD slot update func_L01_0041FE80 (NTSC-U func_L01_0041D750) +0x44, the 13 slots"
     }
   }
 }
