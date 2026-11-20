@@ -46,6 +46,7 @@ RELEASE = PORT / "game/rac3-ntsc"
 # func_003A8F90__frontbin (frontbin's own), func_0038EBC8__game (the game's body of a wrap), D_001D89B8.
 NAME = re.compile(r"\b(func|D)_(?:(L\d\d)_)?([0-9A-F]{8})(?:__(\w+))?(?![0-9A-Za-z_])")
 ADDR = re.compile(r"\bRAC3_ADDR\(\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
+LADDR = re.compile(r"\bRAC3_LADDR\(\s*(\d+)\s*,\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
 LITERAL = re.compile(r"\b0x(00[1-3][0-9A-Fa-f]{5})u?\b")  # an address of the executable's memory
 SHARED_SUFFIXES = ("game",)  # a wrap's own body: the same program as the plain name
 
@@ -250,6 +251,19 @@ def main(argv: list[str] | None = None) -> int:
                 addresses[key] = (None, "not known on NTSC-U")
             else:
                 addresses[key] = found
+    # Each RAC3_LADDR(level, 0x...u): a level's own global, paired by rac3_level_pairs.py.
+    level_rows = {k: v for k, v in hand.get("level_addresses", {}).items() if not k.startswith("about")}
+    level_addresses = {}
+    for path in host_files():
+        for m in LADDR.finditer(strip_comments(path.read_text())):
+            level, pal = int(m.group(1)), int(m.group(2), 16)
+            row = level_rows.get(f"L{level:02d}:{pal:08X}")
+            key = f"{level}_0x{pal:08X}u"
+            if row:
+                level_addresses[key] = (int(row["is"], 16), row["why"])
+            else:
+                level_addresses[key] = (None, "not paired (rac3_level_pairs.py)")
+                report["addresses_not_found"].append(f"L{level:02d}:{pal:08X}")
     head = ("/* Written by port/tools/hostgen/release_carry_rac3.py; do not edit. */\n"
             "/* SPDX-License-Identifier: GPL-3.0-or-later\n"
             " * Copyright (c) 2026 the OpenRAC contributors\n"
@@ -260,6 +274,9 @@ def main(argv: list[str] | None = None) -> int:
             "#ifndef OPENRAC_RAC3_ADDRESSES_H\n#define OPENRAC_RAC3_ADDRESSES_H\n\n")
     body = "".join(f"#define RAC3_ADDR_{k} {('0x%08Xu' % v[0]) if v[0] is not None else '0u'} /* {v[1]} */\n"
                    for k, v in sorted(addresses.items()))
+    body += "\n/* Levels' own globals (release.json's level_addresses). */\n" + "".join(
+        f"#define RAC3_LADDR_{k} {('0x%08Xu' % v[0]) if v[0] is not None else '0u'} /* {v[1]} */\n"
+        for k, v in sorted(level_addresses.items()))
     (RELEASE / "host/rac3_addresses.h").write_text(head + body + "\n#endif /* OPENRAC_RAC3_ADDRESSES_H */\n")
 
     # Literal addresses outside RAC3_ADDR() whose global NTSC-U has elsewhere: the shared C reads
