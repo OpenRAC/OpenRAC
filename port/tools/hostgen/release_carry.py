@@ -886,6 +886,8 @@ def carry_overrides(p: Pairing, table: Path, out: Path) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     rows = ["# Written by port/tools/hostgen/release_carry.py from the primary release's overrides; do not edit.",
             "# name\tfile (relative to this table)"]
+    extra = {k: v["is"] for k, v in p.facts.get("hand_names", {}).items() if v.get("why")}
+    word = re.compile(r"\b(" + "|".join(map(re.escape, extra)) + r")\b") if extra else None
     v1_texts = {path: path.read_text(errors="replace") for path in (p.source / "src").rglob("*.c")
                 if path.relative_to(p.source / "src").parts[0] not in ("pal", "us2", "jp", "kr")}
     for line in table.read_text().splitlines():
@@ -919,6 +921,9 @@ def carry_overrides(p: Pairing, table: Path, out: Path) -> None:
             body = "\n".join(patched).replace(own_name, name, 1)
             override = override[:at[0]] + body + override[at[1]:]
         written = p.table.text(override)
+        # A callee the view marks func_V1_ (the release has C of its own for it) takes the facts'
+        # "hand_names" pair, as in the hand C: else the override calls a stub with no C.
+        written = word.sub(lambda m: extra[m.group(1)], written) if word else written
         # The definition goes by the release's name of the function, which the release view may spell
         # otherwise (a primary definition the release replaces with its own is func_V1_ there).
         written = re.sub(r"\b" + re.escape(p.table.name(name)) + r"\b", new, written)
