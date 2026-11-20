@@ -165,7 +165,9 @@
       "func_00391150": "int (int, int, int, float)",
       "func_003F03F0": "int (int, int)",
       "func_0038F458": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
-      "func_L01_003AB448": "void (unsigned int, unsigned long long, unsigned long long)"
+      "func_L01_003AB448": "void (unsigned int, unsigned long long, unsigned long long)",
+      "func_L01_0043B548": "unsigned int (unsigned int, int)",
+      "func_L01_0043B568": "unsigned int (int, int, int)"
     },
     "discover_entries": true,
     "dirs": [],
@@ -381,7 +383,9 @@
     "func_003E7068__frontbin",
     "func_003E7090__frontbin",
     "func_003E70B8__frontbin",
-    "func_L01_003AB448"
+    "func_L01_003AB448",
+    "func_L01_0043B548",
+    "func_L01_0043B568"
   ],
   "overlay_hook": true,
   "relocate": [
