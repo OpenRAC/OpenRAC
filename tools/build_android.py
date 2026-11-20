@@ -159,7 +159,7 @@ def embree_android_options(ndk: Path) -> dict[str, str]:
         "ANDROID_PLATFORM": "android-28",
         "ANDROID_STL": "c++_shared",
         "CMAKE_BUILD_TYPE": "Release",
-        **desktop.embree_options("aarch64"),
+        **desktop.embree_options("aarch64", windows=False),
     }
 
 
