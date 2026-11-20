@@ -27,3 +27,21 @@ void func_003CB6B8(int list, int count) {
         );
     }
 }
+
+/* A level's frame draw: frontbin's 0x003D9CF0, which rac3-decomp's catalogue places in every level
+ * (hostgen names those copies func_L01_004B3238). It uploads the VU1 programs and builds the
+ * world, moby and particle packets through hand-written code (0x003D9E28 and on) that waits on the
+ * DMAC in the scratchpad (Veldin's start-up stopped in one such wait, func_L01_004B44CC). The
+ * native level renderers take its place; until then the level's update runs on without a picture. */
+void func_L01_004B3238(void) {
+    static int told;
+    if (!told) {
+        told = 1;
+        fprintf(
+            stderr,
+            "[info] rac3: the level's frame draw (0x003D9CF0's copies) draws nothing until the "
+            "native "
+            "renderers\n"
+        );
+    }
+}

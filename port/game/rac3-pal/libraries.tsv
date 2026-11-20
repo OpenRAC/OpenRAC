@@ -248,3 +248,4 @@ func_003B5F78	options	rac3OptionsButtons	wrap	the Options page's buttons: Cross 
 func_003B6588	options	rac3OptionsWidescreen	wrap	the 16:9 row's action: kept off, the port's Video page has its place (host/options.c)	void (void)
 func_003A8F90__frontbin	dma	rac3KickVif0ChainFrontbin	host	frontbin copy of KickVif0Chain (0x003A9348; host/dma.c)	void (unsigned int)
 func_L01_004C5698	dma	rac3KickVif0ChainLevel	host	the levels copies of KickVif0Chain (the catalogue frontbin row func_003A8F90): Veldin start-up polled the VIF0 CHCR for ever (host/dma.c)	void (unsigned int)
+func_L01_004B3238	render	rac3DrawLevelFrame	host	the levels copies of the frame draw (frontbin func_003D9CF0: VU1 programs, then the world, moby and particle passes through hand-written packet builders that wait on the DMAC): replaced, draws nothing until the native level renderers (host/render.c)	void (void)
