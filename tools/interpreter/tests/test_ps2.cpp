@@ -19,10 +19,12 @@
 
 #include "check.h"
 #include "dma.h"
+#include "ee.h"
 #include "gif.h"
 #include "gs.h"
 #include "memory.h"
 #include "vif.h"
+#include "vu.h"
 
 using namespace ps2;
 
@@ -1808,6 +1810,39 @@ void test_whole_path() {
     CHECK_EQ(m.vif.unknown_codes, u64{0});
 }
 
+/**
+ * A misaligned access at the very end of main memory or of the scratchpad stays in what is
+ * mapped: its bytes past the end go to the hardware callbacks, the rest to memory. It used to
+ * read and write past the host mapping and stop the process.
+ */
+void test_access_at_the_end_of_memory() {
+    GuestMemory memory;
+    std::vector<u8> micro(4096), data(4096);
+    Vu vu0{Vu::Memory{micro.data(), 4096, data.data(), 4096}};
+    Ee ee{memory, vu0};
+    std::vector<u32> outside;
+    ee.on_read = [&](u32 a, unsigned) -> u64 {
+        outside.push_back(a);
+        return 0xAB;
+    };
+    ee.on_write = [&](u32 a, u64, unsigned) { outside.push_back(a); };
+
+    memory.write<u16>(GuestMemory::kRamBytes - 2, 0x2211);
+    CHECK_EQ(ee.read32(GuestMemory::kRamBytes - 2), 0xABAB2211u);
+    CHECK_EQ(outside.size(), std::size_t{2});
+    ee.write64(GuestMemory::kRamBytes - 4, 0x8877665544332211ull);
+    CHECK_EQ(memory.read<u32>(GuestMemory::kRamBytes - 4), 0x44332211u);
+    CHECK_EQ(outside.size(), std::size_t{6});
+
+    // The scratchpad's last bytes and an aligned access just before the end are memory alone.
+    ee.write32(GuestMemory::kScratchpadBase + GuestMemory::kScratchpadBytes - 2, 0xDDCCBBAAu);
+    CHECK_EQ(ee.read16(GuestMemory::kScratchpadBase + GuestMemory::kScratchpadBytes - 2), 0xBBAAu);
+    outside.clear();
+    ee.write64(GuestMemory::kRamBytes - 8, 1);
+    CHECK_EQ(ee.read64(GuestMemory::kRamBytes - 8), u64{1});
+    CHECK(outside.empty());
+}
+
 }  // namespace
 
 /**
@@ -1818,6 +1853,7 @@ void test_whole_path() {
 int main() {
     const TestCase tests[] = {
         {"memory layout", test_memory_layout},
+        {"access at the end of memory", test_access_at_the_end_of_memory},
         {"memory is one to one", test_memory_is_one_to_one},
         {"memory tables", test_memory_tables},
         {"memory formats", test_memory_formats},
