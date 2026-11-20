@@ -118,8 +118,10 @@ static int loaded_level(void) {
 }
 
 /* openrac_game_mode: the loaded level's mode word; none outside a level (the front end's word is
- * openrac_front_end.game_mode). */
-static int game_mode(uint32_t* mode) {
+ * openrac_front_end.game_mode). play.c's phase reads it too. */
+int rac3_level_mode(uint32_t* mode);
+
+int rac3_level_mode(uint32_t* mode) {
     const int level = loaded_level();
     const uint32_t word = level >= 0 ? level_mode_word(level) : 0;
     if (word == 0) {
@@ -157,7 +159,7 @@ static int state_json(char* out, int size) {
         );
     }
     uint32_t mode = 0;
-    if (game_mode(&mode) && at < size) {
+    if (rac3_level_mode(&mode) && at < size) {
         at += snprintf(out + at, (size_t)(size - at), ",\"level_mode\":%d", (int)mode);
     }
     float xyz[3];
@@ -203,7 +205,7 @@ static const openrac_front_end front_end = {
 /* From crt0 (entry.c), not a constructor: the game is a static library, and nothing else names this
  * file, so a constructor here is dropped with it at the link. */
 void rac3_install_tools(void) {
-    openrac_game_mode = game_mode;
+    openrac_game_mode = rac3_level_mode;
     openrac_game_hero_position = hero_position;
     openrac_game_front_end = &front_end;
     openrac_game_tools_host = &tools;

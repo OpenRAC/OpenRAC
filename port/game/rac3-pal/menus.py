@@ -124,6 +124,13 @@ def routes() -> list[Route]:
                                     known="feat/rac3-saves (#627): func_003932E8's NTSC-U draft reads NTSC-U's "
                                           "buffer top, and the save's icon is read over memory"),
                                Step("start in slot 1", "cross", 300, allow_empty=True, known=LEVEL_LOAD)]),
+        # The New Game slot page on a fresh card: the cursor moves over the four slots (the
+        # highlighted slot's box), and the dates read the console's clock (sceCdReadClock).
+        Route("slots-move", [main, *row(1), Step("open NEW GAME", "cross", 120, expect=["save file"]),
+                             Step("create the save file", "circle", 240, expect=["SELECT", "EMPTY", "00.00.00"]),
+                             Step("down", "down", 30), Step("down again", "down", 30),
+                             Step("up", "up", 30),
+                             Step("back", "triangle", 90, expect=back_to_main)]),
         Route("multiplayer", [main, *row(2), Step("open MULTIPLAYER", "cross", 240, absent=["LOAD GAME"], known=NEXT_ELF),
                               Step("down", "down", 30, changes=False, absent=["LOAD GAME"], known=NEXT_ELF),
                               Step("back", "triangle", 90, changes=False, absent=["LOAD GAME"], known=NEXT_ELF)]),

@@ -29,3 +29,11 @@ int func_003AFC48(int a, int b, gaddr alloc, int channel, int flag) {
 int func_003AF890__frontbin(int a, int b, gaddr alloc, int channel, int flag) {
     return func_003AFC48(a, b, alloc, channel, flag);
 }
+
+/* Every level's copy of the entry (Veldin's place 0x004D28B0, the catalogue's frontbin row
+ * func_003AF890 in 49 levels: the same instructions). The levels' story movies start it
+ * (func_L01_004AFFF8, func_L01_004B88B0; the multiplayer maps' func_L39_005FB960); translated, it
+ * ran the IPU decoder and its threads, which the port does not have. */
+int func_L01_004D28B0(int a, int b, gaddr alloc, int channel, int flag) {
+    return func_003AFC48(a, b, alloc, channel, flag);
+}

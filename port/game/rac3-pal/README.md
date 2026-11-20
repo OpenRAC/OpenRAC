@@ -217,7 +217,7 @@ vertical blank callback (`func_0013D208`).
 | `host/dma.c` | sceDmaSend leaving CHCR as the DMAC does (the VIF1 handler retires the frame's wait mask from it), KickVif0Chain |
 | `host/sound.c` | 989snd's command boundary (snd_Pump, snd_SendCommandSync, snd_QueueCommandToRing, the bank loads) on the ring rac2 shares (`common/lib/snd_ring.c`): the native sound engine plays the banks' sounds and the VAG streams |
 | `host/pad.c` | libpad 4.0, Deadlocked's host pad at this disc's addresses |
-| `host/movie.c` | the movie player entry, the boot program's and frontbin's: the shared native player |
+| `host/movie.c` | the movie player entry, the boot program's, frontbin's and every level's copy (`func_L01_004D28B0`, which the levels' story movies start): the shared native player |
 | `host/program.c` | which program is loaded (the overlay hook), `OPENRAC_RAC3_NEXT` |
 | `headers/vu0.h` | the vector-library helpers of the decompilation's `include/vu0.h` (asm Clang refuses) in C, read in its place (hostgen.json `headers`) |
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
@@ -475,8 +475,11 @@ interface's textures.
 - The memory card works through the shared `sceMc*`; saving is untested.
 - **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's
   `frontbin` group and `relocate` are not set up for them.
-- Saving from a level: the memory card works through the shared `sceMc*` (below), but no level
-  loads yet, so the game's own saves in a level are untested.
+- Saving from a level: the pause menu has no save row (Missions, Weapons, Gadgets, Quick Select,
+  Items, Options, Help, Special); the in-level save dialogs (the ship's, between planets, as far
+  as known) are not reached by any run yet and are untested.
+- Movie subtitles: the native player shows the picture alone; where the PAL game draws a movie's
+  subtitles is not found yet.
 
 ## The memory card
 

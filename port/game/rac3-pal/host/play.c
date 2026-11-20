@@ -19,11 +19,18 @@
  * the other six regions' folders) when it starts, as Going Commando does for the Barlow vendor:
  * mc.c's other games' saves let it read them.
  *
- * No level loads yet, so the phase is always the front end. */
+ * The phase. Outside a level the boot program (or frontbin) runs: its mode word (0x001D5B94) is 6
+ * while a level's program loads (the way out of the menus, the level asked for at 0x001D9D04),
+ * else it is the front end. In a level, its own mode word (tools.c, rac3_level_mode; game_mode_push
+ * writes it, game_mode_apply's switch reads it): 0 play, once the hero's moby is made (0x001A71A0),
+ * 2 a scene and 6 a level's landing (the opening of Veldin, Ratchet leaving the ship), 1 the
+ * level's movie; 4 the pause menus and the quick select pause, 5 the vendor, 8 a weapon's upgrade
+ * and the others are menus. */
 #include <stdint.h>
 #include <stdio.h>
 
 #include "openrac/game_host.h"
+#include "openrac/guest.h"
 #include "save_format.h"
 
 #define LEVELS RAC3_SAVE_LEVEL_LIMIT
@@ -83,11 +90,48 @@ static const char* const rac3_level_names[LEVELS] = {
     [55] = "Blackwater City (split screen)",
 };
 
+#define FRONT_END_MODE 0x001D5B94u /* the boot program's (and frontbin's) mode: 6 loading */
+#define LEVEL_NEXT 0x001D9D04u     /* the level the front end goes to */
+#define HERO_MOBY 0x001A71A0u      /* the hero's moby, 0 until the level makes it */
+#define FRONT_END_LOADING 6
+
+int rac3_level_mode(uint32_t* mode); /* tools.c */
+
 static int phase(int32_t* level) {
-    if (level != NULL) {
-        *level = -1;
+    int32_t ignored;
+    if (level == NULL) {
+        level = &ignored;
     }
-    return OPENRAC_GAME_PHASE_FRONT_END;
+    const int loaded = openrac_game_loaded_overlay();
+    uint32_t mode = 0;
+    if (loaded > 0 && loaded < LEVELS && rac3_level_names[loaded] != NULL
+        && rac3_level_mode(&mode)) {
+        *level = loaded;
+        switch (mode) {
+            case 0:
+                return GREF(gaddr, HERO_MOBY) != 0 ? OPENRAC_GAME_PHASE_PLAYING
+                                                   : OPENRAC_GAME_PHASE_LOADING;
+            case 1:
+            case 2:
+            case 6:
+                return OPENRAC_GAME_PHASE_SCENE;
+            default:
+                return OPENRAC_GAME_PHASE_MENU;
+        }
+    }
+    if (loaded < 0 || loaded >= LEVELS || rac3_level_names[loaded] == NULL) {
+        /* The boot program or frontbin. */
+        if (GREF(int32_t, FRONT_END_MODE) == FRONT_END_LOADING) {
+            const int32_t next = GREF(int32_t, LEVEL_NEXT);
+            *level = next > 0 && next < LEVELS && rac3_level_names[next] != NULL ? next : -1;
+            return OPENRAC_GAME_PHASE_LOADING;
+        }
+        *level = -1;
+        return OPENRAC_GAME_PHASE_FRONT_END;
+    }
+    /* A level without a known mode word (the multiplayer maps'). */
+    *level = loaded;
+    return GREF(gaddr, HERO_MOBY) != 0 ? OPENRAC_GAME_PHASE_PLAYING : OPENRAC_GAME_PHASE_LOADING;
 }
 
 static uint32_t loads(void) {

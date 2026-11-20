@@ -173,7 +173,11 @@
       "func_L01_0040F440": "float (float, float)",
       "func_L01_0040F488": "float (float)",
       "func_L01_00443A78": "float (void)",
-      "func_L01_00446278": "float (int, int, int, float)"
+      "func_L01_00446278": "float (int, int, int, float)",
+      "func_L01_00412708": "int (int, int)",
+      "func_L01_004127C0": "int (int, int, float)",
+      "func_L01_004127E8": "int (int, int, float)",
+      "func_L01_00412810": "int (int, int, int, float)"
     },
     "discover_entries": true,
     "dirs": [],
