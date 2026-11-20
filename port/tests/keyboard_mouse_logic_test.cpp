@@ -846,6 +846,20 @@ void grid_seek() {
     CHECK(hx == 163.0f && hy == 184.0f);
 }
 
+// Going Commando's vendor: an icon of the strip is that many steps from the one in the middle,
+// the item's panel buys.
+void gc_vendor() {
+    const kbm::StripIcon strip[4] =
+        {{181, 329, 221, 369}, {237, 329, 277, 369}, {293, 329, 333, 369}, {349, 329, 389, 369}};
+    CHECK(kbm::gc_strip_steps(strip, 4, 200, 350) == -1);
+    CHECK(kbm::gc_strip_steps(strip, 4, 255, 350) == 0);
+    CHECK(kbm::gc_strip_steps(strip, 4, 370, 350) == 2);
+    CHECK(kbm::gc_strip_steps(strip, 4, 230, 350) == kbm::kGcNoIcon);
+    CHECK(kbm::gc_strip_steps(strip, 0, 255, 350) == kbm::kGcNoIcon);
+    CHECK(kbm::gc_vendor_panel(256, 170));
+    CHECK(!kbm::gc_vendor_panel(420, 170));
+}
+
 // The Quick Select ring: a slot under the pointer, and its highlight taken there (Cross picks the
 // weapon up, R1 or L1 a slot at a time, Cross puts it there).
 void ring_seek() {
@@ -1149,6 +1163,7 @@ int main(int argc, char** argv) {
     text_nav();
     grid_seek();
     ring_seek();
+    gc_vendor();
     prompts();
     edges();
 

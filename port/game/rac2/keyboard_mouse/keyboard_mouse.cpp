@@ -90,6 +90,7 @@ bool s_click_pending = false;  // a clicked list item the selection is on its wa
 std::uint16_t s_click_step = 0;
 int s_click_left = 0;  // steps still to press, then Cross
 int s_click_wait = 0;
+bool s_click_confirm = true;        // Cross after the steps (not for a vendor's icon)
 constexpr int kClickStepTicks = 4;  // ticks between them, for the menu to follow
 bool s_click_held = false;
 kbm::GridSeek s_grid;       // a grid's selection frame on its way to a clicked cell
@@ -100,6 +101,8 @@ float s_drag_x = 0.0f;
 float s_drag_y = 0.0f;
 std::array<kbm::GuiSprite, kbm::kGridSpritesMax> s_sprites{};
 int s_sprite_count = 0;
+std::array<kbm::StripIcon, 16> s_strip{};  // a vendor's strip of item icons
+int s_strip_count = 0;
 std::array<kbm::PromptSpot, OPENRAC_RAC2_PROMPT_SPOTS_MAX> s_spots{};
 int s_spot_count = 0;
 
@@ -237,8 +240,17 @@ void take_sprites() {
     static std::array<openrac_rac2_ui_quad, OPENRAC_RAC2_UI_QUADS_MAX> drawn{};
     const int n = openrac_rac2_take_ui_quads(drawn.data());
     s_sprite_count = 0;
+    s_strip_count = 0;
     for (int i = 0; i < n; ++i) {
         const openrac_rac2_ui_quad& d = drawn[static_cast<std::size_t>(i)];
+        // A textured 40-pixel quad low on the screen: an icon of a vendor's strip.
+        const float w = d.x1 - d.x0;
+        const float h = d.y1 - d.y0;
+        if (d.element == 0 && d.tex0 != 0 && w > 30.0f && w < 50.0f && h > 30.0f && h < 50.0f
+            && d.y0 >= 300.0f && s_strip_count < static_cast<int>(s_strip.size())) {
+            s_strip[static_cast<std::size_t>(s_strip_count++)] =
+                kbm::StripIcon{d.x0, d.y0, d.x1, d.y1};
+        }
         if (d.element != 0) {
             s_sprites[static_cast<std::size_t>(s_sprite_count++)] =
                 kbm::GuiSprite{d.element, d.x0, d.y0, d.frame};
@@ -301,7 +313,9 @@ bool menu_mouse(const Tick& t, bool click) {
         if (s_click_wait > 0) {
             --s_click_wait;
         } else if (s_pulses.idle()) {
-            s_pulses.push(s_click_left > 0 ? s_click_step : kbm::kCross);
+            if (s_click_left > 0 || s_click_confirm) {
+                s_pulses.push(s_click_left > 0 ? s_click_step : kbm::kCross);
+            }
             s_click_pending = s_click_left-- > 0;
             s_click_wait = kClickStepTicks;
         }
@@ -345,6 +359,22 @@ bool menu_mouse(const Tick& t, bool click) {
         return true;
     }
 
+    // A vendor: a click on an icon of the strip selects it (the d-pad's steps there), one on the
+    // item's panel buys it (Cross); the rest of its screen takes no click.
+    if (t.where == Context::Vendor) {
+        const int steps = kbm::gc_strip_steps(s_strip.data(), s_strip_count, px, py);
+        if (click && steps != kbm::kGcNoIcon && steps != 0 && !s_click_pending) {
+            s_click_pending = true;
+            s_click_step = steps > 0 ? kbm::kRight : kbm::kLeft;
+            s_click_left = std::abs(steps);
+            s_click_wait = 0;
+            s_click_confirm = false;
+        } else if (click && kbm::gc_vendor_panel(px, py) && s_pulses.idle() && !s_click_pending) {
+            s_pulses.push(kbm::kCross);
+        }
+        return click;
+    }
+
     // A click on the selected item confirms it: a whole press, however short the click.
     if (click && nav.hit >= 0 && nav.hit == nav.selected && s_pulses.idle() && !s_click_pending) {
         s_pulses.push(kbm::kCross);
@@ -357,6 +387,7 @@ bool menu_mouse(const Tick& t, bool click) {
             s_click_pending = true;
             s_click_step = nav.step;
             s_click_left = nav.steps;
+            s_click_confirm = true;
             s_click_wait = 0;
             return true;
         }

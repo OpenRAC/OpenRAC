@@ -2084,6 +2084,46 @@ inline std::uint16_t vendor_step(int cursor, int target, int count) {
     return right <= count - right ? kRight : kLeft;
 }
 
+// ---- Going Commando's vendor ----
+
+// Its strip of item icons (40 pixels, 56 apart, plain quads) keeps the selected one in the middle
+// of the screen and slides under it. Above the strip the panel shows the item: Cross buys it.
+inline constexpr float kGcStripStep = 56.0f;
+inline constexpr int kGcNoIcon = 1000;
+
+struct StripIcon {
+    float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f;
+
+    float cx() const { return (x0 + x1) * 0.5f; }
+};
+
+// The d-pad's steps from the selected icon (the one nearest the screen's middle) to the one at
+// (px, py), right for more; kGcNoIcon for no icon there.
+inline int gc_strip_steps(const StripIcon* icons, int count, float px, float py) {
+    int hit = -1;
+    int middle = -1;
+    for (int i = 0; i < count; ++i) {
+        const StripIcon& c = icons[i];
+        if (px >= c.x0 && px < c.x1 && py >= c.y0 && py < c.y1) {
+            hit = i;
+        }
+        if (middle < 0
+            || std::abs(c.cx() - kScreenWidth * 0.5f)
+                   < std::abs(icons[middle].cx() - kScreenWidth * 0.5f)) {
+            middle = i;
+        }
+    }
+    if (hit < 0) {
+        return kGcNoIcon;
+    }
+    return static_cast<int>(std::lround((icons[hit].cx() - icons[middle].cx()) / kGcStripStep));
+}
+
+// Whether (px, py) is on the item's panel (measured on the screen).
+inline bool gc_vendor_panel(float px, float py) {
+    return px >= 146.0f && px <= 370.0f && py >= 99.0f && py <= 245.0f;
+}
+
 }  // namespace kbm
 
 #endif  // KBM_HPP
