@@ -4651,7 +4651,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac3/ntsc/levels-11.json",
+        "artifact": "assets/port/rac3/ntsc/levels-12.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
@@ -4688,7 +4688,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/levels-11.json",
+            "path": "assets/port/rac3/ntsc/levels-12.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -4719,7 +4719,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/levels-11.json",
+            "path": "assets/port/rac3/ntsc/levels-12.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -4772,7 +4772,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/levels-11.json",
+            "path": "assets/port/rac3/ntsc/levels-12.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -4965,7 +4965,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac3/pal/levels-11.json",
+        "artifact": "assets/port/rac3/pal/levels-12.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
@@ -5002,7 +5002,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/pal/levels-11.json",
+            "path": "assets/port/rac3/pal/levels-12.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -5033,7 +5033,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/pal/levels-11.json",
+            "path": "assets/port/rac3/pal/levels-12.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -5086,7 +5086,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/pal/levels-11.json",
+            "path": "assets/port/rac3/pal/levels-12.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -5105,7 +5105,8 @@
           "tools/build_port.py",
           "rac3-pal",
           "--disc",
-          "{disc}"
+          "{disc}",
+          "--probe-baker"
         ],
         "cwd": ".",
         "platforms": [
@@ -5117,7 +5118,45 @@
           "python"
         ],
         "docs": "port/game/rac3-pal/README.md",
-        "todo": "Run it from the desktop app. --disc {disc}: the disc boots a loader (SCES_524.56) that carries the game WAD-compressed; hostgen unpacks it from the image (hostgen.json \"asm\" \"loader\", retail.py loader_parts) and translates the functions still in assembly from it, the same C as from the decompilation's unpacked boot_elf.elf (compared 2026-11-19). No --probe-baker: Up Your Arsenal has no enhanced lighting profile yet."
+        "todo": "Run it from the desktop app. --disc {disc}: the disc boots a loader (SCES_524.56) that carries the game WAD-compressed; hostgen unpacks it from the image (hostgen.json \"asm\" \"loader\", retail.py loader_parts) and translates the functions still in assembly from it, the same C as from the decompilation's unpacked boot_elf.elf (compared 2026-11-19). --probe-baker: the enhanced lighting's baker, as Going Commando's build makes it."
+      },
+      {
+        "id": "probe-bake",
+        "label": "Prepare the enhanced lighting",
+        "description": "Prepares interior lighting, bounced light and reflections from your extracted levels, for Enhanced graphics. Native workers share CPU and memory budgets; verified cached levels are reused.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--bake-all",
+          "--levels-dir",
+          "{root}/assets/port/rac3/pal",
+          "--output-dir",
+          "{data}/probes/pal",
+          "--jobs",
+          "0",
+          "--update"
+        ],
+        "output": "{data}/probes/pal",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac3/pal/levels-12.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/enhanced/lighting/README.md",
+        "todo": "The same baker as Going Commando's: Up Your Arsenal's PAL exports carry their gameplay copy from format 11 (its header is Going Commando's), whose environment transitions and moby placements seed the local lighting (port/enhanced/lighting/profiles/rac3), and from format 12 the reviewed glowing textures and the levels' sun sets (profiles/rac3-pal). From a shell on box1 (Linux, 2026-11-20) it baked Veldin, Florana, Marcadia and Aquatos, and Veldin played with them on Vulkan (port/game/rac3-pal/README.md)."
       },
       {
         "id": "port-rebuild",
@@ -5178,7 +5217,7 @@
             "from": "your disc set up (Set up from your disc)"
           },
           {
-            "path": "assets/port/rac3/pal/levels-11.json",
+            "path": "assets/port/rac3/pal/levels-12.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
