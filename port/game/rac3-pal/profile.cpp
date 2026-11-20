@@ -329,6 +329,11 @@ public:
 
     bool sends_display_list() const override { return true; }
 
+    // The front end's menus are 2D alone (the picture behind them is a 2D record, picture.c): no
+    // world camera, so its ticks get the frames between ticks by this, the 2D the tick recorded
+    // drawn again at the player's frame rate, as Going Commando's menus get them for their camera.
+    bool frames_between_without_camera() const override { return true; }
+
     // The buffer the frame is drawn in: block 0x1E00 (FBP 0xF0, the front end's register packet at
     // 0x00142120), past the 512-line display buffer, as PAL Going Commando's. Not where the
     // display's size puts it (0x1000): taken for an off-screen target, the frame was drawn as a

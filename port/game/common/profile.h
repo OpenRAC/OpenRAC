@@ -205,6 +205,12 @@ public:
     // two list buffers it alternates (shown_chain()).
     virtual bool sends_display_list() const { return false; }
 
+    // Whether the frames between ticks are drawn for a tick without a world camera as well: the
+    // kept tick's 2D drawn again at the frame rate the player chose, the game's time unmoved (its
+    // records are the tick's). For a game whose menus are 2D alone (Up Your Arsenal's front end),
+    // where Going Commando's and Ratchet & Clank's have a camera and get those frames for it.
+    virtual bool frames_between_without_camera() const { return false; }
+
     // Whether the 2D path of a frame is split for its mobys at the first moby the game drew from a
     // list of its own (a menu's or a shop's, openrac_game_mobys_drawn): the 2D before it goes under
     // them. Going Commando's Ship Shack draws its ship there, over its grid panel.

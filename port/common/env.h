@@ -86,6 +86,7 @@ enum class Var : std::uint16_t {
     DumpVif,
     EarlyLightingOff,
     Enhanced,
+    FocusedPacing,
     Fps,
     FrameCost,
     FrameLog,
