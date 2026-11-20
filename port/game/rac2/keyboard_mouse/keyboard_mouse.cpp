@@ -62,6 +62,8 @@ float s_ring_dead_zone = 30.0f;
 bool s_capture = true;
 bool s_prompts = true;
 bool s_menu_mouse = true;
+float s_last_px = -1.0f;  // the pointer's last place in a menu, game pixels
+float s_last_py = -1.0f;
 
 // What the keys and the mouse hold now.
 kbm::Virtual s_pad;
@@ -242,7 +244,10 @@ bool menu_mouse(const Tick& t, bool click) {
     const float px = t.in->pointer_x * kbm::kScreenWidth;
     const float py = t.in->pointer_y * kbm::kScreenHeight;
     const kbm::TextNav nav = nav_at(px, py);
-    const bool moved = t.in->mouse_dx != 0.0f || t.in->mouse_dy != 0.0f;
+    // Moved: the pointer's place changed (the motion delta is only kept while captured).
+    const bool moved = std::abs(px - s_last_px) >= 0.5f || std::abs(py - s_last_py) >= 0.5f;
+    s_last_px = px;
+    s_last_py = py;
 
     const std::uint16_t icon =
         nav.hit >= 0 ? kbm::button_of_cell(s_texts[static_cast<std::size_t>(nav.hit)].cell) : 0;
