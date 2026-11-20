@@ -87,8 +87,9 @@ FORMAT = 4
 # Going Commando's 7. 11: the gameplay copy the probe baker plans enhanced lighting from
 # (bake-inputs/gameplay.bin, manifest bake_inputs), as Going Commando's 18. 12: the reviewed
 # catalog of glowing textures (materials/version, port/enhanced/lighting/profiles/rac3-pal) and the
-# levels' sun sets (probe-bake.json), as Going Commando's 19.
-GAME_FORMATS = {"rac2": 20, "rac3": 12}
+# levels' sun sets (probe-bake.json), as Going Commando's 19. 13: the loading screen's ship scene
+# as level 97 (level.load_wad_loading).
+GAME_FORMATS = {"rac2": 20, "rac3": 13}
 
 
 def levels_format(game: str) -> int:

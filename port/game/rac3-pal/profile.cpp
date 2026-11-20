@@ -405,6 +405,11 @@ public:
 
     bool has_title_world() const override { return false; }
 
+    // The loading screen (the boot program in mode 6, 0x003C3BB8) draws the ship's scene's mobys of
+    // the boot program's table through MobyProc's draw side (host/render.c): their classes are the
+    // scene pack's, exported as level 97 (editor/level.py load_wad_loading).
+    int loading_world() const override { return 97; }
+
     // The front end's menus are 2D alone (the picture behind them is a 2D record, picture.c): no
     // world camera, so its ticks get the frames between ticks by this, the 2D the tick recorded
     // drawn again at the player's frame rate, as Going Commando's menus get them for their camera.

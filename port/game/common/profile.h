@@ -342,6 +342,12 @@ public:
     // title is a picture, and its levels have no level 0.
     virtual bool has_title_world() const { return true; }
 
+    // The extracted level the loading screen between levels (the game mode the window takes for a
+    // flight between planets, world -2) is drawn with, or -1 for the flight world: Up Your
+    // Arsenal's loading screen is its ship's scene, exported as level 97 (editor/level.py
+    // load_wad_loading).
+    virtual int loading_world() const { return -1; }
+
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
 
