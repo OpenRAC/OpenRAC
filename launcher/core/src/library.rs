@@ -378,30 +378,30 @@ mod tests {
         assert!(play.warning.is_none(), "{:?}", play.warning);
     }
 
-    /// Up Your Arsenal's PAL disc is played the way Going Commando's is (set up, build, levels,
-    /// Play), with a warning first: it runs as far as its menus. Its NTSC-U disc has no port yet.
+    /// Up Your Arsenal's discs are played the way Going Commando's are (set up, build, levels,
+    /// Play), with a warning first: they run as far as their menus. NTSC-U's program is PAL's
+    /// carried to its addresses (port/game/rac3-ntsc).
     #[test]
-    fn up_your_arsenals_pal_disc_plays_its_menus() {
+    fn up_your_arsenals_discs_play_their_menus() {
         let player = Config { root: Some(checkout()), ..Config::default() };
         let library = library(&player).unwrap();
         let version = |key: &str| library.games.iter().flat_map(|g| &g.versions).find(|v| v.version.key == key);
-        let pal = version("rac3/pal").expect("rac3/pal");
-        let action = |id: &str| pal.actions.iter().find(|a| a.id == id).cloned();
-        let play = action("play").expect("a player has Up Your Arsenal's Play");
-        assert!(!play.developer);
-        assert_ne!(play.state, actions::State::Planned);
-        let warning = play.warning.expect("Play says what does not work yet");
-        assert!(warning.contains("no level loads"), "{warning}");
-        for id in ["port-build", "port-rebuild", "port-levels"] {
-            let a = action(id).unwrap_or_else(|| panic!("a player has Up Your Arsenal's {id}"));
-            assert!(!a.developer, "{id}");
+        for key in ["rac3/pal", "rac3/ntsc"] {
+            let disc = version(key).unwrap_or_else(|| panic!("{key}"));
+            let action = |id: &str| disc.actions.iter().find(|a| a.id == id).cloned();
+            let play = action("play").unwrap_or_else(|| panic!("a player has {key}'s Play"));
+            assert!(!play.developer, "{key}");
+            assert_ne!(play.state, actions::State::Planned, "{key}");
+            let warning = play.warning.unwrap_or_else(|| panic!("{key}'s Play says what does not work yet"));
+            assert!(warning.contains("no level loads"), "{key}: {warning}");
+            for id in ["port-build", "port-rebuild", "port-levels"] {
+                let a = action(id).unwrap_or_else(|| panic!("a player has {key}'s {id}"));
+                assert!(!a.developer, "{key} {id}");
+            }
+            for a in &disc.actions {
+                assert!(!a.description.to_lowercase().contains("not playable"), "{key} {}", a.id);
+            }
         }
-        for a in &pal.actions {
-            assert!(!a.description.to_lowercase().contains("not playable"), "rac3/pal {}", a.id);
-        }
-        let ntsc = version("rac3/ntsc").expect("rac3/ntsc");
-        let ntsc_play = ntsc.actions.iter().find(|a| a.id == "play").expect("rac3/ntsc play");
-        assert_eq!(ntsc_play.state, actions::State::Planned);
     }
 
     #[test]

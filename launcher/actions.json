@@ -4626,8 +4626,8 @@
       },
       {
         "id": "port-levels",
-        "label": "Read the levels for packs",
-        "description": "Reads its 51 levels (the single-player ones and the multiplayer maps) from your disc into the layout texture and model packs are made from, in assets/port/rac3/ntsc. A few minutes and a few GB, once. The game is not playable yet: this is for making packs.",
+        "label": "Get the levels ready",
+        "description": "Reads its 51 levels (the single-player ones and the multiplayer maps) from your disc into the form the game will draw them in, and texture and model packs are made from, in assets/port/rac3/ntsc. A few minutes and a few GB, once. The game runs its menus but loads no level yet, so for now they are for making packs.",
         "kind": "build",
         "area": "port",
         "state": "unverified",
@@ -4780,14 +4780,94 @@
         "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
       },
       {
+        "id": "port-build",
+        "label": "Build the game",
+        "description": "Compiles Up Your Arsenal's decompiled C for this computer (openrac-rac3-ntsc), with the code still in assembly translated from your disc. A few minutes the first time; later builds redo only what changed.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac3-ntsc",
+          "--disc",
+          "{disc}"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python"
+        ],
+        "docs": "port/game/rac3-ntsc/README.md",
+        "todo": "Run it from the desktop app. --disc {disc}: the NTSC-U disc's loader (SCUS_973.53) carries the game as PAL's does, at the same file offset; the program is rac3-pal's carried to this disc's addresses (port/game/rac3-ntsc/README.md). No --probe-baker: Up Your Arsenal has no enhanced lighting profile yet."
+      },
+      {
+        "id": "port-rebuild",
+        "label": "Rebuild the game from scratch",
+        "description": "Deletes everything built before and compiles Up Your Arsenal again from the start, keeping the decompilation and disc it was built from. The launcher offers this when the game was built from an older checkout. A few minutes.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac3-ntsc",
+          "--disc",
+          "{disc}",
+          "--clean"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python"
+        ],
+        "docs": "port/game/rac3-ntsc/README.md"
+      },
+      {
         "id": "play",
         "label": "Play",
-        "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
+        "description": "Up Your Arsenal as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the data from your disc. It boots to its main menu, which takes the controller; starting a game loads no level yet.",
         "kind": "play",
         "area": "port",
-        "state": "planned",
-        "docs": "port/game/README.md",
-        "todo": "openrac-rac3-ntsc builds from this version's decompilation (port/, cmake --preset release); before it runs it needs the game's main in port/game/rac3-ntsc/hostgen.json and its library table (port/game/README.md). rac1/pal is furthest along."
+        "state": "unverified",
+        "warning": "Up Your Arsenal runs as far as its menus: no level loads yet, so a new game or a save does not start. Saving is untested.",
+        "docs": "port/game/rac3-ntsc/README.md",
+        "todo": "Run it from the desktop app. From a shell, openrac-rac3-ntsc --data <set-up folder> --window boots to the main menu, which takes the pad (port/game/rac3-ntsc/README.md). --levels is passed as for PAL, though nothing reads the levels until the first level loads.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac3/ntsc"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac3-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac3/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac3/ntsc/levels-10.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
       }
     ],
     "rac3/pal": [
