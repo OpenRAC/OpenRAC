@@ -715,6 +715,7 @@
    "msg_string": "rac1.text.msg_string"
   },
   "rac2": {
+   "Arena_Prize": "rac2.arena.prize",
    "Bolt_Collect": "rac2.bolt.collect",
    "Bolt_SpawnPickup": "rac2.bolt.spawn_pickup",
    "Bolt_SpawnPickups": "rac2.bolt.spawn_pickups",

@@ -1,6 +1,7 @@
 # The hook points' ids of rac2, by sdk/tools/gen_binding.py: id, anchor (the function's place
 # on the first disc) and every alias it has had. It only grows: an id is never removed or reused,
 # and an alias once given stays (docs/port/MODS.md, section 4). Regenerated, never edited.
+rac2.arena.prize	ntsc:L02:003FCDF8	Arena_Prize,func_L02_003FCDF8,func_L02_003FE398,func_L02_00401550
 rac2.bolt.collect	ntsc:00301D10	Bolt_Collect,func_00301D10,func_00302B08,func_00302E18
 rac2.bolt.spawn_pickup	ntsc:00302470	Bolt_SpawnPickup,func_00302470,func_00303268,func_00303578
 rac2.bolt.spawn_pickups	ntsc:002ADB78	Bolt_SpawnPickups,func_002ADB78,func_002AE6D8,func_002AE9E0,func_L00_00321878,func_L00_00322AF0,func_L00_00323918
