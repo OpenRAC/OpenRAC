@@ -13,6 +13,18 @@
 #include "game/common/profile.h"
 #include "tests/check.h"
 
+// The runtime's program and level-to-level tables, as the test sets them: the level loaded, and a
+// relocation that moves level 1's (and level 39's) globals by a known amount.
+int g_overlay = 0;
+
+extern "C" int openrac_guest_overlay(void) {
+    return g_overlay;
+}
+
+extern "C" std::uint32_t openrac_relocate_level_data(int from, std::uint32_t address) {
+    return g_overlay == from ? address : address + 0x100;
+}
+
 namespace {
 using namespace openrac;
 
@@ -219,6 +231,26 @@ void shares_going_commandos_moby_fields() {
     CHECK(profile.sends_display_list());
 }
 
+// The mobys' shadows as Going Commando's, with the loaded level's copy of the four directions
+// MobyProc copies: Veldin's 0x001E0070 for the single-player levels, level 39's 0x002935A0 for the
+// multiplayer maps.
+void casts_going_commandos_shadows() {
+    const host::GameProfile& profile = host::game_profile("rac3-pal");
+    CHECK(profile.shadow_slab_on_up_axis());
+    CHECK(profile.every_moby_casts_shadow());
+    g_overlay = 1;
+    CHECK(profile.shadow_directions() == 0x001E0070u);
+    g_overlay = 2;
+    CHECK(profile.shadow_directions() == 0x001E0170u);
+    g_overlay = 39;
+    CHECK(profile.shadow_directions() == 0x002935A0u);
+    g_overlay = 44;
+    CHECK(profile.shadow_directions() == 0x002936A0u);
+    g_overlay = 100;
+    CHECK(profile.shadow_directions() == 0x001E0070u);
+    g_overlay = 0;
+}
+
 // The levels are drawn natively from the extracted ones (host/render.c); the title is a picture,
 // with no world under it.
 void draws_the_extracted_levels() {
@@ -235,5 +267,6 @@ int main() {
     culls_past_the_cap();
     shares_going_commandos_moby_fields();
     draws_the_extracted_levels();
+    casts_going_commandos_shadows();
     return openrac::test::result();
 }

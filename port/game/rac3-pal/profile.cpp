@@ -87,6 +87,12 @@ struct Release {
 
 constexpr int kFrontbinOverlay = 100;
 
+// The multiplayer maps (39 to 53) carry MobyProc's copy of their own, written with level 39's
+// addresses; the single-player levels' are Veldin's.
+constexpr int kFirstMultiplayer = 39;
+constexpr std::uint32_t kVeldinShadowDirections = 0x001E0070;
+constexpr std::uint32_t kMultiplayerShadowDirections = 0x002935A0;
+
 // PAL's (SCES-52456).
 // clang-format off
 constexpr Release kPal{
@@ -426,6 +432,28 @@ public:
     std::uint32_t hero_state() const override { return 0x001A4BE0u; }
 
     std::uint32_t hero_air_frames() const override { return 0x36E; }
+
+    // The mobys' shadows are Going Commando's (game/rac2/profile.cpp): shadow volumes that MobyProc
+    // queues for the mobys with mode 0x400 and a slab across their up axis (+0x70 the offset, +0x74
+    // the half thickness), which the port's MobyProc (host/render.c) does not queue: the window
+    // draws them from the moby. MobyProc copies the four directions to the scratchpad's +0x3300
+    // from the loaded level's copy of Going Commando's 0x1B1B90: Veldin's 0x001E0070 (MobyProc
+    // 0x00441C8C; slot 0 aimed by 0x0043AB98, Going Commando's func_0029FFB8), the multiplayer
+    // maps' 0x002935A0 (level 39's MobyProc, 0x005B26DC).
+    std::uint32_t shadow_directions() const override {
+        const int program = openrac_guest_overlay();
+        if (program >= kFirstMultiplayer && program < static_cast<int>(std::size(kPal.levels))) {
+            return openrac_relocate_level_data(kFirstMultiplayer, kMultiplayerShadowDirections);
+        }
+        if (program >= 1 && program < kFirstMultiplayer) {
+            return openrac_relocate_level_data(1, kVeldinShadowDirections);
+        }
+        return kVeldinShadowDirections;  // no level: the window reads none
+    }
+
+    bool shadow_slab_on_up_axis() const override { return true; }
+
+    bool every_moby_casts_shadow() const override { return true; }
 
     // A level's game mode (host/tools.c): 2 a level's scene, as Going Commando numbers them and
     // hero_camera_allowed refuses the hero camera in; 4 the overlay modes (the pause menus and the
