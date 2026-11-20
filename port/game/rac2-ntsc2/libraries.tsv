@@ -250,6 +250,7 @@ func_0027EB28	draw	DrawRotatedSprite	wrap	a turned textured quad about a pivot: 
 func_0027EFA0	draw	DrawRingSegment	wrap	a ring's segment, a colour a corner and the texture's wrap: drawn natively (host/ui2d.c)
 func_0027E4D0	draw	DrawFlatBox	wrap	a box of flat colour (the pages' frames): drawn natively (host/ui2d.c)
 func_003144C8	moby	NanotechBallUpdate	wrap	the nanotech cluster's update: its sphere test runs against the picture's sides (host/wide_view.c)
+func_002A7AA8	moby	SetDeathBits	wrap	a moby's death recorded: for an enemy's copy (host/enemy_copies.c) the marks it leaves on its original's save id are put back
 func_L00_004264A8	camera	FollowCameraReadStick	wrap	the follow camera's stick read: notes the camera, for the picture's late camera latch (host/camera_latch.c)
 func_002E5720	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
 func_0027F0A8	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)
@@ -272,7 +273,7 @@ func_L00_002A4EF8	player	Hero_TakeDamage	hook	Takes a hit's points from the hero
 func_002AA4A8	combat	Moby_GetHitMessage	hook	The pending hit for a moby from the hit ring (the damage, f32 at +0x2C; its source at +0x38), or 0: what an enemy's damage path reads. A hook point for mods; the game's C with none.
 func_002A9C88	combat	Moby_PostHit	hook	Posts a hit to moby victim from request (+0x1C its damage, f32) into the hit ring Moby_GetHitMessage reads; the weapons' shots and explosions call it. A hook point for mods; the game's C with none.
 func_L00_002D42D0	moby	Weapon_TakeAmmo	hook	Takes rounds of a weapon's ammo (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo. A hook point for mods; the game's C with none.
-func_002A7AA8	moby	Moby_RecordDeath	hook	A moby's death recorded: its experience, the bestiary and its bolt drop (the moby's s16 at +0xB4); crates call it too. A hook point for mods; the game's C with none.
+func_002A7AA8	moby	Moby_RecordDeath	hook	A moby's death recorded: its experience, the bestiary and its bolt drop (the moby's s16 at +0xB4); crates call it too. A hook point for mods, under the port's own wrap (SetDeathBits): the mod's replacement or the game's C runs where the wrap calls the game's.
 func_L00_00304660	level	Level_Load	hook	Loads a level (new, or resumed after a death); it calls the gameplay file's loader. A hook point for mods; the game's C with none.
 func_L00_002B42C0	player	Hero_ApproachSpeed	hook	Eases the hero's speed (+0x1B4) toward his target speed (+0x1B0) each tick; rac1's approach_speed. A hook point for mods; the game's C with none.
 func_L00_002D61D0	player	Hero_NanotechSteps	hook	Adds the nanotech levels' steps of health to *total; the recount of the most health each tick adds the boosts after it (the HUD's experience bar calls it too, ignoring total). A hook point for mods; the game's C with none.

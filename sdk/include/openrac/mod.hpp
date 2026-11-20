@@ -1058,6 +1058,30 @@ public:
                  OPENRAC_HOOK_OK;
     }
 
+    // Since 1.25: whether the port has moby_copy_check() and moby_copy().
+    bool has_moby_copy() const {
+      return m_api->api_minor >= 25 &&
+             m_api->size >= offsetof(openrac_api, moby_copy) + sizeof(void *);
+    }
+
+    // Since 1.25: whether moby_copy() may copy the moby in `slot`: OPENRAC_COPY_OK, or
+    // why not (OPENRAC_COPY_*); OPENRAC_HOOK_UNKNOWN for no moby there, outside a
+    // level, once the level's own data is gone, or a port or game without copies. Ask
+    // at the level's load (Going Commando: rac2.level.load).
+    int moby_copy_check(int slot) const {
+      return has_moby_copy() ? m_api->moby_copy_check(m_handle, slot)
+                             : OPENRAC_HOOK_UNKNOWN;
+    }
+
+    // Since 1.25: makes copy `index` (0 the first) of the moby in `slot` at a clear
+    // spot beside it, running on its own and dropping what its original drops. Returns
+    // the copy's slot, or -1 (not allowed, no spot, no room, or no such call).
+    int moby_copy(int slot, int index) const {
+      const int copy =
+          has_moby_copy() ? m_api->moby_copy(m_handle, slot, index) : OPENRAC_HOOK_UNKNOWN;
+      return copy >= 0 ? copy : -1;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

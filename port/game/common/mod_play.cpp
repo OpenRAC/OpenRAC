@@ -538,6 +538,32 @@ int api_moby_spawn(openrac_mod* mod, int oclass, const openrac_moby* pose) {
     return slot;
 }
 
+// Copies of a level's placed enemies (interface 1.25): the host's check and copy, by slot.
+int api_moby_copy_check(openrac_mod* mod, int slot) {
+    const gaddr m = moby_address(slot);
+    if (mod == nullptr || m == 0 || g_play->moby_copy_check == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int why = g_play->moby_copy_check(m);
+    return why >= 0 ? why : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_moby_copy(openrac_mod* mod, int slot, int index) {
+    const gaddr m = moby_address(slot);
+    if (mod == nullptr || m == 0 || index < 0 || g_play->moby_copy == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int copy = g_play->moby_copy(m, index);
+    if (copy < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    // The game's moby, never driven: a mod that drove a moby gone from this slot lets go of it.
+    if (static_cast<std::size_t>(copy) < kSlots) {
+        g_drives[static_cast<std::size_t>(copy)] = Drive{};
+    }
+    return copy;
+}
+
 int api_figure_slot(openrac_mod* mod, int id) {
     if (g_play == nullptr || g_play->hero_slot == nullptr) {
         return -1;
@@ -2126,6 +2152,8 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.sprite_tint = api_sprite_tint;
     api.pickup_animation = api_pickup_animation;
     api.moby_material = api_moby_material;
+    api.moby_copy_check = api_moby_copy_check;
+    api.moby_copy = api_moby_copy;
     api.prop_pose = api_prop_pose;
     api.prop_attach = api_prop_attach;
     api.prop_frame = api_prop_frame;

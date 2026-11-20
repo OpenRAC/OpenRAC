@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "enemy_copies.h"
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/host_env.h"
@@ -91,6 +92,7 @@ enum {
     MOBY_ALPHA = 0x23,
     MOBY_CLASS = 0x24,
     MOBY_SCALE = 0x2C,
+    MOBY_UPDATE_DIST = 0x30,
     MOBY_DRAWN = 0x31,
     MOBY_DRAW_DIST = 0x32,
     MOBY_FLAGS = 0x34,
@@ -509,6 +511,54 @@ static void moby_kill(gaddr moby) {
     }
 }
 
+/* A moby of class `oclass` made for a mod (openrac_api moby_spawn), as the game's spawners make
+ * theirs: CreateMoby (func_0029EFD0), which leaves the distances it is updated (+0x30) and drawn
+ * (+0x32) within at 0, never in range; a mod's moby gets the spawners' widest where CreateMoby left
+ * nothing (the scenes' 0x1FF drawn, func_00291758's), and is drawn (+0x31). A class the level has
+ * not loaded (InitMobyFromClass leaves it with no class, +0x24) is given back. The place is the
+ * hero's until the mod poses it. */
+static int32_t moby_spawn(int32_t oclass) {
+    if (!in_level() || oclass < 0 || hero_moby() == 0) {
+        return -1;
+    }
+    const gaddr m = func_0029EFD0(oclass);
+    if (m == 0) {
+        return -1;
+    }
+    if (GREF(gaddr, m + MOBY_CLASS) == 0) {
+        func_0029F338(m);
+        return -1;
+    }
+    if (GREF(uint8_t, m + MOBY_UPDATE_DIST) == 0) {
+        GREF(uint8_t, m + MOBY_UPDATE_DIST) = 0xFFu;
+    }
+    if (GREF(int16_t, m + MOBY_DRAW_DIST) == 0) {
+        GREF(int16_t, m + MOBY_DRAW_DIST) = 0x1FF;
+    }
+    GREF(uint8_t, m + MOBY_DRAWN) = 1;
+    memcpy(G(m + MOBY_POS), G(hero_moby() + MOBY_POS), 16);
+    return slot_of(m);
+}
+
+/* Copies of the level's placed enemies (enemy_copies.c), in the level's table as play.c reads it. */
+static int copy_table(rac2_moby_table* t) {
+    return moby_table(&t->base, &t->dynamic, &t->end);
+}
+
+static int moby_copy_check(uint32_t moby) {
+    rac2_moby_table t;
+    return copy_table(&t) ? rac2_copy_check(&t, moby) : RAC2_COPY_UNKNOWN;
+}
+
+static int32_t moby_copy(uint32_t moby, int index) {
+    rac2_moby_table t;
+    if (!copy_table(&t)) {
+        return -1;
+    }
+    const gaddr m = rac2_copy_make(&t, moby, index);
+    return m != 0 ? slot_of(m) : -1;
+}
+
 static int32_t hero_slot(void) {
     return slot_of(hero_moby());
 }
@@ -643,11 +693,14 @@ static openrac_game_play play = {
     .slot_of = slot_of,
     .moby_pose = pose_moby,
     .moby_kill = moby_kill,
+    .moby_spawn = moby_spawn,
     .hero_slot = hero_slot,
     .bolts = bolts,
     .camera_position = camera_position,
     .world_family = world_family,
     .hero_moby = hero_moby,
+    .moby_copy_check = moby_copy_check,
+    .moby_copy = moby_copy,
 };
 
 void rac2_install_play(void) {
@@ -757,6 +810,77 @@ static void trace_start(const char* what) {
     );
 }
 
+/* `copies`: once a load, as soon as the level's loop runs, every placed moby the bestiary counts with
+ * what moby_copy_check says of it (PTRACE copy lines), and a count by answer; `copies=N` then makes N
+ * copies of each one it allows (a hidden run's proof that copies are made and run). */
+static void trace_copies(const char* script) {
+    static uint32_t seen_loads, seen_counter;
+    const char* c = strstr(script, "copies");
+    rac2_moby_table t;
+    if (c == NULL || !copy_table(&t)) {
+        return;
+    }
+    const uint32_t counter = GREF(uint32_t, OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B19C8u)));
+    if (seen_loads == loads() && seen_counter == counter) {
+        return;
+    }
+    seen_loads = loads();
+    seen_counter = counter;
+    const int each = c[6] == '=' ? atoi(c + 7) : 0;
+    int by_answer[8] = {0}, unknown = 0, made = 0, asked = 0;
+    for (gaddr m = t.base; m < t.dynamic; m += MOBY_SIZE) {
+        const int why = rac2_copy_check(&t, m);
+        if (why == RAC2_COPY_NOT_ENEMY || GREF(uint8_t, m + MOBY_STATE) >= 0x80) {
+            continue;
+        }
+        if (why < 0) {
+            ++unknown;
+            continue;
+        }
+        ++by_answer[why & 7];
+        fprintf(
+            stderr,
+            "PTRACE copy level %d slot %d class %d uid %d bolts %d answer %d pos %.1f %.1f %.1f\n",
+            openrac_game_loaded_overlay(),
+            (int)slot_of(m),
+            (int)GREF(int16_t, m + MOBY_OCLASS),
+            (int)GREF(int16_t, m + 0xB2u),
+            (int)GREF(int16_t, m + 0xB4u),
+            why,
+            GREF(float, m + MOBY_POS),
+            GREF(float, m + MOBY_POS + 4u),
+            GREF(float, m + MOBY_POS + 8u)
+        );
+        for (int k = 0; why == RAC2_COPY_OK && k < each; ++k) {
+            ++asked;
+            made += rac2_copy_make(&t, m, k) != 0;
+        }
+    }
+    int free_slots = 0;
+    for (gaddr m = t.dynamic; m < t.end; m += MOBY_SIZE) {
+        free_slots += GREF(uint8_t, m + MOBY_STATE) >= 0xFEu;
+    }
+    fprintf(
+        stderr,
+        "PTRACE copies level %d loads %u counter %u: ok %d scripted %d listed %d not_placed %d "
+        "no_room %d unknown %d; made %d of %d; pool %d placed %d free %d\n",
+        openrac_game_loaded_overlay(),
+        (unsigned)loads(),
+        (unsigned)counter,
+        by_answer[RAC2_COPY_OK],
+        by_answer[RAC2_COPY_SCRIPTED],
+        by_answer[RAC2_COPY_LISTED],
+        by_answer[RAC2_COPY_NOT_PLACED],
+        by_answer[RAC2_COPY_NO_ROOM],
+        unknown,
+        made,
+        asked,
+        (int)((t.end - t.base) / MOBY_SIZE),
+        (int)((t.dynamic - t.base) / MOBY_SIZE),
+        free_slots
+    );
+}
+
 static void play_trace(void) {
     static const char* script;
     static int read;
@@ -797,6 +921,7 @@ static void play_trace(void) {
             playing = 0;
         }
     }
+    trace_copies(script);
     if (now == OPENRAC_GAME_PHASE_FRONT_END && !started
         && GREF(int32_t, RAC2_g_frameCounter) >= 30) {
         const char* s = strstr(script, "start=");

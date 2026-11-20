@@ -991,6 +991,17 @@ void fill_23(openrac_api &api) {
   };
 }
 
+// The fake host's 1.25 copies: slot 30 may be copied (its copies in slots 300 and up), slot 31 is
+// a group's, others are no mobys.
+void fill_25_copies(openrac_api &api) {
+  api.moby_copy_check = [](openrac_mod *, int slot) {
+    return slot == 30 ? OPENRAC_COPY_OK : slot == 31 ? OPENRAC_COPY_SCRIPTED : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.moby_copy = [](openrac_mod *, int slot, int index) {
+    return slot == 30 && index >= 0 ? 300 + index : OPENRAC_HOOK_UNKNOWN;
+  };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -2069,6 +2080,18 @@ int main() {
             g_23_material == OPENRAC_MOBY_MATERIAL_ENERGY_AT(3) && g_23_rgb == 0x20FF40);
       api.api_minor = 24;
       CHECK(mod.has_obsidian() && !mod.has_energy());
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.25: copies of the level's enemies; a port of 1.24 has none.
+    {
+      fill_25_copies(api);
+      CHECK(mod.has_moby_copy() && mod.moby_copy_check(30) == OPENRAC_COPY_OK &&
+            mod.moby_copy_check(31) == OPENRAC_COPY_SCRIPTED &&
+            mod.moby_copy_check(5) == OPENRAC_HOOK_UNKNOWN);
+      CHECK(mod.moby_copy(30, 0) == 300 && mod.moby_copy(30, 2) == 302 && mod.moby_copy(31, 0) == -1);
+      api.api_minor = 24;
+      CHECK(!mod.has_moby_copy() && mod.moby_copy_check(30) == OPENRAC_HOOK_UNKNOWN &&
+            mod.moby_copy(30, 0) == -1);
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);

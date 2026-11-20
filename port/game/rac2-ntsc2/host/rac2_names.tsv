@@ -1,6 +1,7 @@
 # The shared host C's function names (v1.01's) and this release's. Written by
 # port/tools/hostgen/release_carry.py (release_carry.json says how each was paired); do not edit.
 func_0026F7A0	func_0026F7A8
+func_002761F8	func_00276208
 func_0027B858	func_0027BEB8
 func_0027B858__game	func_0027BEB8__game
 func_0027C540	func_0027CBA0
@@ -99,8 +100,11 @@ func_002A4078	func_002A4EC8
 func_002A4AD8	func_002A5928
 func_002A4D88	func_002A5BD8
 func_002A4E68	func_002A5CB8
+func_002A6C58	func_002A7AA8
+func_002A6C58__hooked	func_002A7AA8__hooked
 func_002A7398	func_002A8200
 func_002A7470	func_002A82D8
+func_002A89A8	func_002A9810
 func_002B6480	func_002B73A0
 func_002B9420	func_002BA340
 func_002D5748	func_002D63B0

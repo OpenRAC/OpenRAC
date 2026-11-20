@@ -79,7 +79,8 @@ extern "C" {
  * sprite tint and pickup presentations, 1.23 a render-only material for one
  * moby (moby_material: a tint, or platinum), 1.24 obsidian, a third
  * material for moby_material, and 1.25 energy, a fourth, which recolours the
- * effects a moby draws.
+ * effects a moby draws, and copies of a level's placed enemies
+ * (moby_copy_check, moby_copy).
  */
 #define OPENRAC_MOD_API_MINOR 25
 
@@ -1370,6 +1371,23 @@ typedef struct openrac_moby_visual {
 #define OPENRAC_MOBY_MATERIAL_KIND(material) ((uint32_t)(material) & 0xFFu)
 /* Energy's share of rgb in its body's colours (the rest the body's own). Since 1.25. */
 #define OPENRAC_MOBY_MATERIAL_ENERGY_BODY 0.35f
+/* What moby_copy_check says of a moby: OPENRAC_COPY_OK when moby_copy may copy it, else why not.
+ * Since 1.25. */
+#define OPENRAC_COPY_OK 0
+/* Not an enemy: its class is not of the kind the game counts as one (the bestiary's, which the kill
+ * streak counts). */
+#define OPENRAC_COPY_NOT_ENEMY 1
+/* Not one the level placed (the game made it), or one that gives no reward when it dies. */
+#define OPENRAC_COPY_NOT_PLACED 2
+/* The level's own data needs it alone: one of a group (a wave, an arena, a door that opens when its
+ * group is defeated), named by the level's scripts or by another moby, or naming another itself. */
+#define OPENRAC_COPY_SCRIPTED 3
+/* In the port's table of classes never copied: bosses, turrets, spawners, and the creatures a
+ * level's own trade needs (Going Commando: Tabora's and Grelbin's crystal fields). */
+#define OPENRAC_COPY_LISTED 4
+/* Its data is larger than a copy may have. */
+#define OPENRAC_COPY_NO_ROOM 5
+
 /* The mobys one mod has a material on at once. Since 1.23. */
 #define OPENRAC_MOBY_MATERIALS_MAX 1024
 
@@ -2344,6 +2362,26 @@ typedef struct openrac_api {
      * Since 1.23; OPENRAC_MOBY_MATERIAL_OBSIDIAN since 1.24, OPENRAC_MOBY_MATERIAL_ENERGY (with its
      * level, OPENRAC_MOBY_MATERIAL_ENERGY_AT) since 1.25. */
     int (*moby_material)(openrac_mod* mod, openrac_gaddr moby, uint32_t material, uint32_t rgb);
+
+    /* Copies of a level's placed enemies (since 1.25; Going Commando's, a game without them answers
+     * OPENRAC_HOOK_UNKNOWN). Ask at the level's load, as its load hook point returns (Going
+     * Commando: rac2.level.load): the checks read the level's own data, which the game reuses
+     * later, and a copy made then starts as its original does.
+     *
+     * moby_copy_check: whether moby_copy may copy the moby in `slot`: OPENRAC_COPY_OK, or why not
+     * (OPENRAC_COPY_*). OPENRAC_HOOK_UNKNOWN for no moby there, outside a level, or once the level's
+     * own data is gone. */
+    int (*moby_copy_check)(openrac_mod* mod, int slot);
+    /* moby_copy: makes copy `index` (0 for the first, 1 the second...) of the moby in `slot` (one
+     * moby_copy_check allows) at a clear spot beside it: on its floor, in the open, 2.5 to 4 units
+     * from it and 2 from any other of its class, each index turned to its own spot. The copy is the
+     * game's moby, not the mod's: it runs on its own and is never driven. Its death drops its
+     * original's bolts and experience and counts toward the kill streak as its original's would,
+     * through the game's own path (the bolt hook points see it), while the level's record of the
+     * original (killed, and how often) stays as it was. The pool keeps room for what the level
+     * spawns. Returns the copy's slot, or OPENRAC_HOOK_UNKNOWN (not allowed, no clear spot, no
+     * room). */
+    int (*moby_copy)(openrac_mod* mod, int slot, int index);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *
