@@ -15,10 +15,11 @@ from . import liquids, profiles
 
 
 # The games and disc versions whose gameplay schema the baker reads, and the tag each export's
-# gameplay copy carries: Ratchet & Clank's PAL and NTSC-U, and Going Commando's three discs, whose light
-# bank and environment transitions port/assets/world/gameplay.cpp places.
+# gameplay copy carries: Ratchet & Clank's PAL and NTSC-U, Going Commando's three discs and Up Your
+# Arsenal's PAL disc, whose light bank and environment transitions port/assets/world/gameplay.cpp
+# places (Up Your Arsenal's header is Going Commando's).
 GAMEPLAY_TAGS = {("rac1", "pal"): "rac1-v1", ("rac1", "ntsc"): "rac1-v1", ("rac2", "ntsc"): "rac2-v1",
-                 ("rac2", "pal"): "rac2-v1", ("rac2", "ntsc2"): "rac2-v1"}
+                 ("rac2", "pal"): "rac2-v1", ("rac2", "ntsc2"): "rac2-v1", ("rac3", "pal"): "rac3-v1"}
 
 
 def write_bake_inputs(level, directory):

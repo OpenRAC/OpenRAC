@@ -84,8 +84,9 @@ FORMAT = 4
 # 8: the chrome and glass maps from the GS RAM lump's stash, as Going Commando's 14 (they were grey).
 # 9: the mobys' glow vertices, their light sets and their bangles as classes of their own, as Going
 # Commando's 9 and 11. 10: his other 30 looks (his armours and skins) as classes of their own, as
-# Going Commando's 7.
-GAME_FORMATS = {"rac2": 20, "rac3": 10}
+# Going Commando's 7. 11: the gameplay copy the probe baker plans enhanced lighting from
+# (bake-inputs/gameplay.bin, manifest bake_inputs), as Going Commando's 18.
+GAME_FORMATS = {"rac2": 20, "rac3": 11}
 
 
 def levels_format(game: str) -> int:
