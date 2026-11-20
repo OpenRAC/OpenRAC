@@ -45,6 +45,7 @@ static int32_t word(gaddr at) {
 #define PROGRAMS_LOW 0x001D5680u
 #define PROGRAMS_HIGH 0x00700000u
 #define PROGRAM_BUFFER 0x001D4B50u /* where the next program was read: a header word, its records */
+#define PROGRAM_GP 0x001DC8B0u     /* $gp, crt0's, the same in every program (hostgen.json "gp") */
 
 /* A level function the catalogue names after another level (func_L05_...) is written with that
  * level's addresses; the runtime pairs them with the loaded level's by their code (guest.h,
@@ -73,6 +74,13 @@ gaddr func_0013AFF8(void) {
     static int range_set;
     if (!range_set) {
         range_set = 1;
+        /* Only $gp: a level's small globals are reached from it (the same in every program), and
+         * the pairs of a level function's copies need it to pair them (Florana's copy of
+         * func_L01_004E52E0 forms its joint table as $gp - 0xA08, Veldin's as $gp - 0x8C8; without
+         * it the table stayed Veldin's address and the hero's joints were read from garbage). No
+         * range: the boot program's own C is not relocated (its front end gives way to frontbin's
+         * and the levels' copies, which hostgen names apart). */
+        openrac_guest_set_relocation(0, 0, PROGRAM_GP, NULL, 0, 0);
         openrac_guest_set_level_range(PROGRAMS_LOW, PROGRAMS_HIGH);
     }
     const int level = word(CURRENT_LEVEL);

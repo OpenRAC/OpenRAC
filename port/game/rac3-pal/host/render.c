@@ -310,6 +310,14 @@ int func_L01_004DE6F0(void) {
     return 0;
 }
 
+/* The second screen effect (0x004DF310, while 0x001DBCBC is set; DrawFrame clears it after): the
+ * same family, two more prebuilt packets, 0x001D3650 (0x004DF070: the frame copied and blurred
+ * twice) and 0x001D3EF0 (0x004DF1B0: tinted and added back over the frame). Left out as the glow
+ * is. */
+int func_L01_004DF310(void) {
+    return 0;
+}
+
 /* The effect textures' uploads this frame: their count and the records GetEffectTex (Veldin's
  * 0x00404040, Going Commando's func_0027C878) writes, 16 bytes each as Going Commando's. */
 #define TEXTURE_UPLOADS 0x001DF97Cu

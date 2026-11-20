@@ -180,6 +180,33 @@ vertical blank callback (`func_0013D208`).
   in a level the HUD keeps them). Without `OPENRAC_FOCUSED_PACING` a hidden window is never
   focused, and the window's background throttle holds it to a frame a tick (48 a second at
   `unlimited`).
+- **Frames between ticks in a level**: the camera, the mobys and their poses move from one tick to
+  the next as in the menus' description above. The effect quads and particles that carry an id
+  (PartProc's pool slot, `host/render.c`) move with them (`interpolates_effect_quads`, as Going
+  Commando's). In Veldin at 120 frames a second (box1, GTX 1070, `OPENRAC_SHOT_BETWEEN`), a gun
+  bolt steps across a tick's four between-tick frames.
+- **The late camera latch** (Responsive controls): `host/camera_latch.c` wraps the follow camera's
+  stick read (Veldin's `func_L01_003E92F8`, Going Commando's `func_L00_00424F98`, every
+  single-player level's copy). Between ticks the frontend asks it what the next tick will turn with
+  the stick as it is now: the camera's spring (`0x00382BC8`, stiffness 2 and damping 4, constants
+  here) stepped from the camera's state at +0x1E0 of its data, times its turn speed. The
+  multiplayer maps' cameras are not latched. Right stick held in Veldin
+  (`OPENRAC_CAMERA_LATCH_LOG`): each tick turned 0.0502 radians and the latch guessed 0.0502, and
+  0.0345 against 0.0346 while the turn eases in. The camera only turns since the levels' vector
+  library returns its floats (`hostgen.json` `asm` `signatures`: `func_L01_0040F3F8` and five more
+  were taken for int functions, and 212 C callers read 0 from them). Before that, the follow
+  camera's pitch and the stick turn came out as 0, and the camera sat level with Ratchet's feet,
+  cutting him off at the bottom of the picture.
+- **Draw distance and active distance** (Video > Draw distance: Original, 150% and up,
+  Unlimited; Active distance): the mobys go through MobyProc's own test (the profile's view block,
+  near plane and cap). The ties, shrubs and terrain are culled by the game's records, as Going
+  Commando's are: `scenery_matrices` names the words in Veldin's program, relocated to the loaded
+  level's (`scenery_matrices_level`). TieProc's cap sits 0x40 past the ties' records' word, not
+  0x48 (`tie_cap_after_records`). Veldin reads 1,960 ties, 1,894 shrubs, 802 terrain fragments,
+  and caps of 960 (ties) and 500 (shrubs). At Original 1,729 shrubs are left out where Ratchet
+  stands, at 400% 1,044 to 1,483, at Unlimited none. Active distance is the shared one
+  (`frontend/sleeping_mobys.h`). No class needs the game's own distance yet (Going Commando's
+  `draw_distance.tsv`), and the occlusion mask is not read (`occlusion mask unavailable`).
 
 ## What the port answers
 
@@ -313,7 +340,9 @@ The game's own screen glow (Going Commando has none) is left out: DrawFrame refe
 prebuilt GS packets while `0x001DBCA0` is set, the frame copied into a 256 x 256 buffer (FBP 0x198)
 and shrunk (`0x004DE670`), then blurred and added back over the frame (`0x004DE6F0`, ALPHA 0x221).
 Replayed over the native world they drew a ghost of the picture and a copy of it in its top left
-corner; the enhanced renderer's bloom (`port/enhanced/docs/bloom.md`) is the port's glow.
+corner; the enhanced renderer's bloom (`port/enhanced/docs/bloom.md`) is the port's glow. A second
+effect of the same family (`0x004DF310`, while `0x001DBCBC` is set: the frame blurred twice, tinted
+and added back) is left out the same way.
 
 Every level's program carries its own copy of the engine, at its own addresses: the hooks are
 written with Veldin's (`func_L01_...`, the names hostgen gives the catalogue's places) and its
@@ -322,7 +351,7 @@ share most of them, but have their own DrawTfrag, tie and shrub passes and MobyP
 level 39's (`func_L39_...`, `OPENRAC_LDATA(39, ...)`). `IDENTIFIED.tsv` has each function and its
 Going Commando pair.
 
-The extracted levels are the shared export (`editor/extract.py port`), format 10 for this game
+The extracted levels are the shared export (`editor/extract.py port`), format 11 for this game
 (`editor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
 sky's shells and its panorama, collision, (5) Ratchet's mesh and textures from his first pack
 (`editor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
@@ -330,8 +359,8 @@ draws him with, and (6) the terrain and shrubs lit as the game lights them at lo
 colours per vertex, as Going Commando's (`games.py` `world_lighting`, `UYA_TIE`): the lighting
 routines are Going Commando's instructions, and the (cos, sin) table they light by is in each
 level's own program, not the loader the disc boots (`lighting.program_normal_table`). Against Going
-Commando's format 20 it lacks the enhanced renderer's bake inputs (gameplay copy, emissions,
-liquids). (7) adds his wrench (pack 31, class 71), the banks of what he holds and his
+Commando's format 20 it lacks two of the enhanced renderer's bake inputs (emissions, liquids).
+(7) adds his wrench (pack 31, class 71), the banks of what he holds and his
 ship's three hulls and 32 paint jobs (class 3412), where Veldin's copies of Going Commando's
 loaders read them (`wads.RAC3_PAL`). (8) adds the chrome and glass maps the metal packets are drawn
 with, from the GS RAM lump's stash as Going Commando's (`games.py` `maps_in_textures`: the core
@@ -340,7 +369,8 @@ light sets and their bangles as classes of their own (`moby_glow_tail`, `moby_li
 `moby_bangles`): the profile draws a moby's bangles by its bangle word (+0x7C), as Going
 Commando's. (10) adds his other 30 looks, packs 1 to 30, as classes 6001 to 6030: the profile
 draws class 0 as the look of the armour at `0x001D4B60`, or of the skin byte at `0x001427AB` when it
-is set, as LoadPlayerDisplayTextures picks the pack.
+is set, as LoadPlayerDisplayTextures picks the pack. (11) adds the gameplay copy the probe baker
+plans enhanced lighting from (`bake-inputs/gameplay.bin`), as Going Commando's 18.
 
 To look at a level without the game (no game code runs; the viewer's own camera):
 
@@ -353,9 +383,34 @@ What a level's picture still lacks (Veldin, 2026-11-20, hidden runs on box2 with
 `OPENRAC_RAC3_NEXT=60:1`): the sky, terrain, ties, shrubs, fog and the live mobys (Ratchet posed
 and animated) draw natively with the game's camera, but
 
-- the second screen effect DrawFrame references (`0x004DF310`, two packets at `0x001D3650` and
-  `0x001D3EF0` while `0x001DBCBC` is set) is not identified and still replayed;
-- water, shadows and the enhanced renderer's inputs.
+- water and lava: no level with any loads yet, so whether this game's liquids reach the window as
+  the effect strips Going Commando's do is not known.
+
+### Shadows, enhanced graphics and texture packs
+
+The mobys' shadows are Going Commando's shadow volumes (`profile.cpp`): MobyProc (Veldin's
+`0x00441B78`) copies the four directions the window casts them along from the loaded level's copy of
+Going Commando's `0x1B1B90` (Veldin's `0x001E0070`, the multiplayer maps' `0x002935A0`), and every
+moby with mode `0x400` and a slab across its up axis (`+0x70`, `+0x74`) casts one, Ratchet with
+them.
+
+Enhanced graphics (probe GI, sun cascades, his shadow map, GTAO, AgX, volumetrics) draw this game as
+Going Commando's (`docs/port/RAC2_NOTES.md`, Enhanced graphics): format 11 keeps the gameplay copy
+the baker plans from (`bake-inputs/gameplay.bin`, tag `rac3-v1`; the gameplay header is Going
+Commando's, `assets/world/gameplay.cpp`), and local grids grow from Ratchet, the vendor and the
+crates (`port/enhanced/lighting/profiles/rac3`, the same class numbers as Going Commando's).
+
+```sh
+port/build/enhanced/openrac-enhanced-baker --bake-all --levels-dir <levels> --output-dir <data>/probes/pal --jobs 0
+OPENRAC_GL_API=vulkan OPENRAC_ENHANCED=1 port/build/enhanced/openrac-rac3-pal --data <data> \
+  --levels <levels> --probes <data>/probes/pal --window
+```
+
+Not carried yet: a reviewed catalog of glowing textures and the levels' sun profiles
+(`probe-emission.json`, `probe-bake.json`, Going Commando's format 19), and liquid surfaces as bake
+inputs (its 20). Texture packs (`docs/port/TEXTURE_PACKS.md`) work as in the other games: the
+pictures in `<data>/texture_packs/rac3-pal/` replace the world's, the mobys', the sky's and the
+interface's textures.
 
 ## What is missing
 
@@ -371,6 +426,12 @@ and animated) draw natively with the game's camera, but
   (the level table LoadLevelToc fills, `0x00160C40 + 0x7A04`) is never loaded and the music channel
   stays at track -1. The streams' command (0x2C, two mono files as rac2's) is bound and untested.
   `OPENRAC_AUDIO_TICKED=1 OPENRAC_AUDIO_DUMP=out.wav OPENRAC_SOUND_LOG=1` captures and logs it.
+- **Sound in a level**: Veldin loads its bank (321 sounds) through the shared ring and starts its
+  music as two-part VAG streams (0x2C). It also plays a one-part stream (a voice), sets its sounds'
+  volumes and pans (0x21) and asks whether they still play (0x19). Few effects play yet: 7 plays
+  in 450 ticks of walking and swinging the wrench. Command 0x30, a stream query whose answer the
+  level's stream code keeps at its record's +0x14 (`0x0045F3C0`, callback `0x00460170`), is not
+  known to the ring and answers 0.
 - **A level**: see [The next program](#the-next-program).
 - The memory card works through the shared `sceMc*`; saving is untested.
 - **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's

@@ -87,6 +87,12 @@ struct Release {
 
 constexpr int kFrontbinOverlay = 100;
 
+// The multiplayer maps (39 to 53) carry MobyProc's copy of their own, written with level 39's
+// addresses; the single-player levels' are Veldin's.
+constexpr int kFirstMultiplayer = 39;
+constexpr std::uint32_t kVeldinShadowDirections = 0x001E0070;
+constexpr std::uint32_t kMultiplayerShadowDirections = 0x002935A0;
+
 // PAL's (SCES-52456).
 // clang-format off
 constexpr Release kPal{
@@ -427,12 +433,57 @@ public:
 
     std::uint32_t hero_air_frames() const override { return 0x36E; }
 
+    // The mobys' shadows are Going Commando's (game/rac2/profile.cpp): shadow volumes that MobyProc
+    // queues for the mobys with mode 0x400 and a slab across their up axis (+0x70 the offset, +0x74
+    // the half thickness), which the port's MobyProc (host/render.c) does not queue: the window
+    // draws them from the moby. MobyProc copies the four directions to the scratchpad's +0x3300
+    // from the loaded level's copy of Going Commando's 0x1B1B90: Veldin's 0x001E0070 (MobyProc
+    // 0x00441C8C; slot 0 aimed by 0x0043AB98, Going Commando's func_0029FFB8), the multiplayer
+    // maps' 0x002935A0 (level 39's MobyProc, 0x005B26DC).
+    std::uint32_t shadow_directions() const override {
+        const int program = openrac_guest_overlay();
+        if (program >= kFirstMultiplayer && program < static_cast<int>(std::size(kPal.levels))) {
+            return openrac_relocate_level_data(kFirstMultiplayer, kMultiplayerShadowDirections);
+        }
+        if (program >= 1 && program < kFirstMultiplayer) {
+            return openrac_relocate_level_data(1, kVeldinShadowDirections);
+        }
+        return kVeldinShadowDirections;  // no level: the window reads none
+    }
+
+    bool shadow_slab_on_up_axis() const override { return true; }
+
+    bool every_moby_casts_shadow() const override { return true; }
+
     // A level's game mode (host/tools.c): 2 a level's scene, as Going Commando numbers them and
     // hero_camera_allowed refuses the hero camera in; 4 the overlay modes (the pause menus and the
     // quick-select pause, overlay_update), over the world as it was paused.
     std::optional<std::uint32_t> cutscene_mode() const override { return 2; }
 
     std::optional<std::uint32_t> pause_mode() const override { return 4; }
+
+    // A frame between ticks moves each effect quad and particle that carries an id (PartProc's
+    // pool slot, host/render.c) part way from its last tick's place, with the mobys' fraction, as
+    // Going Commando's.
+    bool interpolates_effect_quads() const override { return true; }
+
+    // The ties' and shrubs' words, named in Veldin's program and relocated to the loaded level's
+    // copy (scenery_matrices_level): the ties' matrices gp + 0x462C and records gp + 0x4624 (the
+    // tie colour pass 0x004B6ED0 and TieProc 0x004B3590, at Going Commando's gp + 0x31CC and
+    // + 0x31C4's instructions), the shrubs' matrices gp + 0x4520 and records gp + 0x4518 (LightShrubs
+    // 0x004A75E0 and ShrubProc 0x004A5A60, Going Commando's gp + 0x30B0 and + 0x30A8). Veldin's
+    // $gp is 0x001DC8B0 (MobyProc's cap, $gp + 0x37A0, is 0x001E0050). The rest is where Going
+    // Commando keeps it from those words: CullAndEmitTfrags (0x004B1800) reads the terrain's
+    // records and count at gp + 0x45E0 and + 0x45E4 and its far cap at gp + 0x4610, ShrubProc its
+    // cap at gp + 0x4528; TieProc's cap, gp + 0x4664, is 0x40 past the records' word, not 0x48.
+    // The scenery the window draws is culled by them as the game's draw distance says.
+    std::array<std::uint32_t, 4> scenery_matrices() const override {
+        return {0x001E0EDC, 0x001E0DD0, 0x001E0ED4, 0x001E0DC8};
+    }
+
+    int scenery_matrices_level() const override { return 1; }
+
+    std::uint32_t tie_cap_after_records() const override { return 0x40; }
 
     // The pad's read (boot 0x003A31C8): |byte - 0x7F| from 0x30, over 76, as Going Commando's.
     std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }

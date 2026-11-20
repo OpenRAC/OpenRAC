@@ -135,6 +135,7 @@ func_0012BA20	cdvd	sceCdRead	host	the shape of rac2-ntsc func_001253A8
 func_0012BC00	cdvd	sceCdGetError	host	the shape of rac2-ntsc func_00125588
 func_0012BC98	cdvd	sceCdBreak	host	the shape of rac2-ntsc func_00125620
 func_0012BD50	cdvd	sceCdMmode	host	the shape of rac2-ntsc func_001252E0
+func_0012BE28	cdvd	sceCdReadClock	host	the S-command RPC 1 of libcdvd into its buffer 0x00140B00 (+4 the eight BCD bytes), its caller the save's clock (frontbin 0x0039BEF0, 0x001D4BE0): translated, the RPC answered nothing and the save slots showed a date of 95.00.00
 func_0012BEE8	graph	sceGsResetGraph	host	the instructions of rac2-ntsc func_001257D0
 func_0012C128	graph	_GetGsDxDyOffset	host	the instructions of rac1-pal func_00121DB8
 func_0012C138	graph	sceGsSetDefDispEnv	host	the shape of rac2-ntsc func_00125A20
@@ -155,6 +156,7 @@ func_0012FF40	vu0	rac3UnitMatrix	host	the instructions of rac1-pal func_00125358
 func_0012FFE0	vu0	sceVu0RotMatrixZ	host	the instructions of rac1-pal func_001253F8
 func_00130088	vu0	sceVu0RotMatrixX	host	the instructions of rac1-pal func_001254A0
 func_0013A880	scf	sceScfGetLanguage	host	the shape of rac1-pal func_0012D380
+func_0013AD58	scf	sceScfGetLocalTimefromRTC	host	the shape of rac2-pal func_00131AF8 (0.87 of its opcodes, the SDK's version differs): the clock sceCdReadClock gives is local already
 func_0013BED0	989snd	snd_ResolveBankXREFS	host	the instructions of rac2-ntsc func_00132828
 func_0013BF00	989snd	snd_UnloadBank	host	the instructions of rac2-ntsc func_00132858
 func_0013BF30	989snd	snd_SetMasterVolume	host	the instructions of rac2-ntsc func_00132888
@@ -272,3 +274,5 @@ func_L01_004DE670	render	rac3ScreenGlowCopy	host	the screen glow's first packet 
 func_L01_004DE6F0	render	rac3ScreenGlowAdd	host	the screen glow's second packet (0x001D2A50: blurred and added back over the frame): left out (host/render.c)	int (void)
 func_L01_00407E28	render	rac3DrawWorldQuad	host	DrawWorldQuad (func_00280B90's instructions): the draw callbacks' world quad drawn natively, its effect texture from GetEffectTex's records (host/render.c)	int (int, int)
 func_0012CE48	graph	sceGsExecStoreImage	host	the entry itself, a fill word past func_0012CE44 (the name the decompilation gives with the word before it): the levels call 0x0012CE48, which ran the SDK code (\"DMA Ch.1 does not terminate\")
+func_L01_004DF310	render	rac3ScreenEffect2	host	the second screen effect's packets (0x001D3650, 0x001D3EF0: the frame copied, blurred twice, tinted and added back), appended by DMA reference: left out as the glow is (host/render.c)	int (void)
+func_L01_003E92F8	camera	rac3FollowCameraReadStick	wrap	the follow camera's stick read, every single-player level's copy (Going Commando's func_L00_00424F98, the same steps): notes the camera, for the picture's late camera latch, and scales the turn by the camera speed (host/camera_latch.c)

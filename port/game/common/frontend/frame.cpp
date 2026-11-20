@@ -1353,7 +1353,9 @@ std::optional<scene::GameScenery> scenery_matrices(
         state,
         settings::get().draw_distance_scale(),
         {g->level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size(),
-         g->level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size()}
+         g->level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size()},
+        g->profile->scenery_matrices_level(),
+        g->profile->tie_cap_after_records()
     );
     const auto& result = captured.scenery;
     const std::uint32_t tie_cap = captured.tie_cap;

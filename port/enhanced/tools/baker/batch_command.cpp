@@ -294,7 +294,7 @@ std::string game_version(const std::filesystem::path& directory) {
     const auto& version = manifest["version"].string();
 
     if (!bake_identity_supported(manifest["game"].string(), version)) {
-        throw std::runtime_error("expected a RAC1 PAL or NTSC export or a RAC2 NTSC one");
+        throw std::runtime_error("expected a RAC1 PAL or NTSC, RAC2 or RAC3 PAL export");
     }
 
     return manifest["game"].string() + "-" + version;

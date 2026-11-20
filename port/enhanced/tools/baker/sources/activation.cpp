@@ -491,7 +491,12 @@ LevelBakeProfile load_level_bake_profile(
 
 bool bake_identity_supported(std::string_view game, std::string_view version) {
     return (game == "rac1" && (version == "pal" || version == "ntsc"))
-           || (game == "rac2" && (version == "ntsc" || version == "pal" || version == "ntsc2"));
+           || (game == "rac2" && (version == "ntsc" || version == "pal" || version == "ntsc2"))
+           || (game == "rac3" && version == "pal");
+}
+
+int highest_level(std::string_view game) {
+    return game == "rac3" ? 53 : game == "rac2" ? 30 : 18;
 }
 
 bool bake_identity_supported(std::string_view game_version) {
