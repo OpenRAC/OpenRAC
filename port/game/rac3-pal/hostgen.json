@@ -378,7 +378,8 @@
     "func_003E7040__frontbin",
     "func_003E7068__frontbin",
     "func_003E7090__frontbin",
-    "func_003E70B8__frontbin"
+    "func_003E70B8__frontbin",
+    "func_L01_003AB448"
   ],
   "overlay_hook": true,
   "relocate": [
