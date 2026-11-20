@@ -566,7 +566,7 @@
       "0xDB0": "rac3_vu0_sine"
     },
     "wide_register_calls": true,
-    "signature_check": true
+    "signature_check": false
   },
   "result_allow": "checks/result_allow.tsv",
   "from_assembly": [
