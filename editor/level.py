@@ -386,16 +386,15 @@ def hero_files(level: Level, source) -> None:
     level.hero_mesh, pack = source.hero_pack()
     for i, texture in enumerate(hero_textures(pack)):
         level.textures[("moby", HERO_TEXTURES + i)] = texture
-    if not source.version.item_banks:
-        return  # Up Your Arsenal: only his first pack is known so far (wads.RAC3_PAL)
     for number in range(1, source.version.hero_armours):
         mesh, pack = source.hero_pack(number)
         level.hero_looks.append((number, mesh))
         for i, texture in enumerate(hero_textures(pack)):
             level.textures[("moby", HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i)] = texture
     place = 0
-    for number in range(WRENCHES):
-        mesh, pack = source.hero_pack(source.version.hero_armours + number)
+    armours = source.version.hero_armours
+    for pack_number in source.version.wrench_packs or range(armours, armours + WRENCHES):
+        mesh, pack = source.hero_pack(pack_number)
         level.wrench_meshes.append(mesh)
         level.textures[("moby", ITEM_TEXTURES + place)] = hero_textures(pack)[0]
         place += 1

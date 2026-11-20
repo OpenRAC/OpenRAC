@@ -79,8 +79,9 @@ FORMAT = 4
 # Up Your Arsenal, 5: Ratchet's mesh and textures from his first pack (wads.RAC3_PAL), where 4 had
 # none for class 0. 6: the terrain and shrubs lit as the game lights them at level load, by the
 # normal table in each level's program (lighting.program_normal_table), and the ties' vertex colours
-# (tie_vertex_colours), as Going Commando's.
-GAME_FORMATS = {"rac2": 20, "rac3": 6}
+# (tie_vertex_colours), as Going Commando's. 7: his wrench (class 71), the banks of what he holds
+# and his ship's hulls and paint jobs (class 3412), from the disc as Going Commando's 7, 13 and 15.
+GAME_FORMATS = {"rac2": 20, "rac3": 7}
 
 
 def levels_format(game: str) -> int:
