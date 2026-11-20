@@ -218,7 +218,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_COPY_OK` | `0` | What moby_copy_check says of a moby: OPENRAC_COPY_OK when moby_copy may copy it, else why not. Since 1.25. |
 | `OPENRAC_COPY_NOT_ENEMY` | `1` | Not an enemy: its class is not of the kind the game counts as one (the bestiary's, which the kill streak counts). |
 | `OPENRAC_COPY_NOT_PLACED` | `2` | Not one the level placed (the game made it), or one that gives no reward when it dies. |
-| `OPENRAC_COPY_SCRIPTED` | `3` | The level's own data needs it alone: one of a group (a wave, an arena, a door that opens when its group is defeated), named by the level's scripts or by another moby, or naming another itself. |
+| `OPENRAC_COPY_SCRIPTED` | `3` | The level's own data needs it alone: one of a set piece's group (a wave, an arena, a door that opens when its group is defeated; Going Commando's squads of one class are not), named by the level's scripts or by another moby, or naming another itself. |
 | `OPENRAC_COPY_LISTED` | `4` | In the port's table of classes never copied: bosses, turrets, spawners, and the creatures a level's own trade needs (Going Commando: Tabora's and Grelbin's crystal fields). |
 | `OPENRAC_COPY_NO_ROOM` | `5` | Its data is larger than a copy may have. |
 | `OPENRAC_MOBY_MATERIALS_MAX` | `1024` | The mobys one mod has a material on at once. Since 1.23. |

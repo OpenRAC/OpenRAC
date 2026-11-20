@@ -1379,8 +1379,9 @@ typedef struct openrac_moby_visual {
 #define OPENRAC_COPY_NOT_ENEMY 1
 /* Not one the level placed (the game made it), or one that gives no reward when it dies. */
 #define OPENRAC_COPY_NOT_PLACED 2
-/* The level's own data needs it alone: one of a group (a wave, an arena, a door that opens when its
- * group is defeated), named by the level's scripts or by another moby, or naming another itself. */
+/* The level's own data needs it alone: one of a set piece's group (a wave, an arena, a door that
+ * opens when its group is defeated; Going Commando's squads of one class are not), named by the
+ * level's scripts or by another moby, or naming another itself. */
 #define OPENRAC_COPY_SCRIPTED 3
 /* In the port's table of classes never copied: bosses, turrets, spawners, and the creatures a
  * level's own trade needs (Going Commando: Tabora's and Grelbin's crystal fields). */
