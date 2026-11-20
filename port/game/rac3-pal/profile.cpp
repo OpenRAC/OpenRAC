@@ -169,6 +169,22 @@ renderer::Vec3 vec3(std::span<const std::uint8_t> ram, std::uint32_t address) {
 // occlusion +0x36, the class +0xAA and the rotation rows +0xC0.
 constexpr std::uint32_t kMobyClass = 0xAA;
 
+// Ratchet's class holds only his skeleton: the game loads his packets and textures over it from one
+// of 31 packs of the disc (LoadPlayerDisplayTextures, Veldin's 0x004255E0, as Going Commando's
+// func_00292078): the armour it keeps at 0x001D4B60, or the skin byte at 0x001427AB when that is
+// not 0. The export has each pack past the first as a class of its own (editor/moby_class.py,
+// HERO_LOOK_CLASSES), as Going Commando's (game/rac2/profile.cpp's hero_class).
+constexpr std::int32_t kHeroLookClasses = 6000;
+constexpr std::int32_t kHeroLooks = 31;
+constexpr std::uint32_t kHeroArmour = 0x001D4B60;
+constexpr std::uint32_t kHeroSkin = 0x001427AB;
+
+std::int32_t hero_class(std::span<const std::uint8_t> ram) {
+    const std::int32_t skin = at<std::uint8_t>(ram, kHeroSkin);
+    const std::int32_t look = skin != 0 ? skin : at<std::int32_t>(ram, kHeroArmour);
+    return look > 0 && look < kHeroLooks ? kHeroLookClasses + look : -1;
+}
+
 // Reads a complete record's sphere in world units (MobyProc's lqc2 of +0x00, in 1/1024 units).
 std::array<float, 4> moby_sphere(std::span<const std::uint8_t> ram, std::uint32_t address) {
     std::array<float, 4> sphere;
@@ -197,6 +213,9 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
     host::LiveMoby live;
     live.address = m;
     live.class_id = at<std::int16_t>(ram, m + kMobyClass);
+    if (live.class_id == 0) {
+        live.model_class = hero_class(ram);
+    }
     live.occlusion = at<std::uint16_t>(ram, m + 0x36);
     live.world_sphere = moby_sphere(ram, m);
     const renderer::Vec3 r0 = vec3(ram, m + 0xC0), r1 = vec3(ram, m + 0xD0),

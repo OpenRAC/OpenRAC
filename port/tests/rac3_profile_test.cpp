@@ -164,6 +164,22 @@ void reads_the_moby_table() {
         CHECK(m.matrix[14] == 6.0f);
         const auto one = profile.read_moby(ram, kTable + 0x200);
         CHECK(one.has_value() && one->matrix == m.matrix);
+        CHECK(s.mobys[0].model_class == -1);  // his first look: his own class
+        // His look: the armour (0x001D4B60), or the skin byte (0x001427AB) when it is set.
+        ram[0x001D4B60] = 3;
+        CHECK(profile.read_state(ram, p.level).mobys[0].model_class == 6003);
+        ram[0x001427AB] = 12;
+        CHECK(profile.read_state(ram, p.level).mobys[0].model_class == 6012);
+        // And a moby's bangles, by its bangle word (+0x7C): bit 15 set, those alone.
+        ram[kTable + 0x200 + 0x7C] = 0x06;
+        ram[kTable + 0x200 + 0x7D] = 0x80;
+        const host::GameState banged = profile.read_state(ram, p.level);
+        CHECK(banged.mobys.size() == 3u);
+        if (banged.mobys.size() == 3u) {
+            CHECK(banged.mobys[1].model_class == 100000 + 4321 * 16 + 1);
+            CHECK(banged.mobys[2].model_class == 100000 + 4321 * 16 + 2);
+            CHECK(banged.mobys[1].model_only);
+        }
     }
 }
 
