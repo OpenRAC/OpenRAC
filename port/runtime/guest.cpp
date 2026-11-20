@@ -549,6 +549,16 @@ void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t
     }
 }
 
+void openrac_guest_unregister_all(void) {
+    forget_answers();
+    g_exe.clear();
+    g_overlays.clear();
+    g_ambiguous.clear();
+    g_thunks.clear();
+    g_overlay = OPENRAC_OVERLAY_EXE;
+    g_cache_generation.fetch_add(1, std::memory_order_relaxed);
+}
+
 void openrac_guest_register_thunks(const openrac_thunk_entry* entries, size_t count) {
     for (size_t i = 0; i < count; i++) {
         g_thunks.emplace(entries[i].fn, entries[i].thunk);

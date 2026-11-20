@@ -324,3 +324,12 @@ int openrac_snd_ring_bank_from_iop(int bank) {
     }
     return bank != 0 && at != NULL ? (int)openrac_sound_load_bank(at, available) : 0;
 }
+
+/* LoadExecPS2 ended the program (game_lib.h): nothing of its queued, out or sounding. */
+void openrac_snd_ring_reset(void) {
+    memset(batches, 0, sizeof batches);
+    current = 0;
+    batch_out = 0;
+    (void)openrac_lib_snd_StreamSafeCdCallback(0); /* the end of its disc read: its code too */
+    openrac_lib_snd_StopAllSounds();
+}

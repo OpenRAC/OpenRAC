@@ -1960,7 +1960,12 @@ def retail_source(a: dict, program: Program, base: Path) -> "retail.Retail | Non
     path = lambda key: (base / r[key]) if r.get(key) else None
     image, exe, dump = path("image"), path("exe"), path("dump")
     found = None
-    if image is not None and image.is_file():
+    if image is not None and image.is_file() and r.get("executable"):
+        # "executable": another program of the disc than the one SYSTEM.CNF boots, read as the
+        # executable (Up Your Arsenal's multiplayer, I5BOOTN.ELF: a loader carrying its game packed,
+        # as the boot executable does); the levels are read as for the boot executable.
+        found = retail.Retail.from_image(image, low, executable=r["executable"])
+    elif image is not None and image.is_file():
         found = retail.Retail.from_image(image, low)
     elif exe is not None and exe.is_file():
         found = retail.Retail.from_files(exe, dump if dump is not None and dump.is_dir() else None, low)
@@ -1968,6 +1973,11 @@ def retail_source(a: dict, program: Program, base: Path) -> "retail.Retail | Non
     # Arsenal's frontbin, the "groups" overlay its src/frontbin is).
     if found is not None:
         found.place_named(r.get("programs", {}))
+        # "levels": only these levels' programs are read as this program's (the multiplayer
+        # executable's maps; the others run on the boot executable's code).
+        if r.get("levels") is not None:
+            keep = {int(n) for n in r["levels"]}
+            found.levels = {n: parts for n, parts in found.levels.items() if n in keep}
     if r.get("required"):
         retail_required(r, image if image is not None else exe, found, program)
     return found
@@ -2091,11 +2101,25 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
             # JAL and addresses formed for callbacks identify entries missed
             # by catalogue heuristics. Plain J targets include internal
             # labels, so they must not become independent functions here.
-            for home, address in sorted(source_of.called(include_jumps=False)):
-                if home < 0 and address % 4 == 0 and (home, address) not in program.by_place:
+            # "discover_levels": the levels whose programs have no catalogue (a second executable's
+            # maps: the catalogue's places are the boot executable's), named func_Lnn_ADDRESS.
+            levels = {int(n) for n in a.get("discover_levels", [])}
+            found_entries = set(source_of.called(include_jumps=False))
+            if a.get("discover_pointers"):
+                # The entries only a table in the data names (vtables, update functions): a word in
+                # a program's data that is an address in its code just after a function's end.
+                found_entries |= source_of.pointed(levels, found_entries)
+            for home, address in sorted(found_entries):
+                if address % 4 or (home, address) in program.by_place:
+                    continue
+                if home < 0:
                     name = f"func_{address:08X}"
-                    program.functions.setdefault(name, Function(name,
-                        Signature(ctype.Base("int"), (), False, False), asm=True))
+                elif home in levels:
+                    name = f"func_L{home:02d}_{address:08X}"
+                else:
+                    continue
+                program.functions.setdefault(name, Function(name,
+                    Signature(ctype.Base("int"), (), False, False), asm=True))
             program.index_places()
         from_retail = retail.RetailCode(source_of, retail.starts_of(program), source_of.low)
         from_retail.follow_far = bool(a.get("follow_saved_registers"))

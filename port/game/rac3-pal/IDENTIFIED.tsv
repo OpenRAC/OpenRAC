@@ -371,3 +371,42 @@ code	func_L01_003B4FB0	0x003B4FB0	veldin_item_giver	class 6628's update (one, at
 data	class 5821	-	tyhrranoid	Veldin's Tyhrranoid trooper (update 0x00350750); a blow takes one of the hero's health; spawned from pods (class 7032 update 0x003326A8, class 6886 0x003C8E98) on the ledge above the first valley; each kill gives 20 bolts
 data	class 6306	-	galactic_ranger	Veldin's Galactic Rangers (update 0x003A0778), at (390.4,152.2), (405.1,149.3), (402.0,176.6)
 code	func_L01_00436150	0x00436150	MessageBoxDraw	the levels' copy of the message box (boot 0x003AF7C0, catalogue frontbin row func_003AF408): forwards ten arguments (two on the stack) to func_L01_004CDF20 (boot 0x003AC590); translated with seven, the in-level Quit Game question lost its "Square Yes" and its wrap width
+code	func_00398128	0x00398128	start_multiplayer	the main menu's MULTIPLAYER: argv[1] = "BOPT=" (0x001D5F00) and the boot options func_0013B0C8 writes after it, argv[0] the stack's own bytes, then func_003980A0("cdrom0:\I5BOOTN.ELF;1" at 0x001D5EE8, 2, argv at 0x001D9F48): the multiplayer executable (host/exec.c)
+code	func_0013B0C8	0x0013B0C8	write_boot_options	writes the boot options after "BOPT=" (the argument the multiplayer executable's main reads back, and this one's when it is started again)
+data	D_001D5EE8	0x001D5EE8	str_i5bootn_path	"cdrom0:\I5BOOTN.ELF;1", the multiplayer executable
+data	D_001D5F00	0x001D5F00	str_bopt	"BOPT=", the boot options' argument
+mp-code	func_00192D18	0x00192D18	mp_crt0	the multiplayer executable's payload entry (I5BOOTN.ELF, hand-written): clears core.bss (0x001C2B00-0x00240710), SetupThread ($gp 0x00247FC0, stack below 0x01FFC000, arguments 0x001EBE00), SetupHeap (0x01F48000), _InitSys (0x0012CFD0), FlushCache(0) (0x001264E0), _init (0x001330F0), atexit (0x00118ED0) of 0x001330F8, main(argc, argv) (0x001932A0), exit (0x0011A6F0)
+mp-code	func_001932A0	0x001932A0	mp_main	reads its arguments ("BOPT=" at 0x00240B70: func_00193178 on what follows; "gooey" at 0x00240B78: func_001205B0), counting them in 0x0024139D, then for ever: the loaded program's entry (first 0x0027B1C0), func_00192F68 for the next one, FlushCache(0), FlushCache(2): the boot program's main (0x0013B330)
+mp-code	func_00192F68	0x00192F68	mp_load_next_program	the boot program's func_0013AFF8 at this executable's addresses: the record list at *0x00240290 copied over the last program, the next entry returned (level 39's 0x00575CC8: the multiplayer menus)
+mp-code	func_0027B1C0	0x0027B1C0	mp_front_end	the executable's own program's entry (its .text 0x0027B100-0x002A0A38, the boot program's front end at 0x0038xxxx in this program): start-up, then the loading of the menus' level
+mp-code	func_0012D318	0x0012D318	mp_LoadExecPS2_wrapper	the boot program's func_00124ED8: the argument block, then syscall 6
+mp-code	func_0012CFD0	0x0012CFD0	mp_InitSys	the boot program's _InitSys (0x00124B90); InitSystemCallTableAddress is 0x0012CEC0
+mp-code	func_00281240	0x00281240	mp_FontPrint	the boot program's func_0038EBC8 (the font's print), the same instructions: wrapped as it is (host/ui2d.c)
+mp-code	func_0027F7A0	0x0027F7A0	mp_DrawGlyph	the boot program's func_0038BA50
+mp-code	func_0027F980	0x0027F980	mp_DrawGlyphShaded	the boot program's func_0038BC30
+mp-code	func_0027FB60	0x0027FB60	mp_DrawGlyphShadowed	the boot program's func_0038BE10
+mp-code	func_0027F458	0x0027F458	mp_DrawGlyphQuad	the boot program's func_0038B8B0
+mp-code	func_0027F0A8	0x0027F0A8	mp_DrawTurnedGlyphQuad	the boot program's func_0038B500
+mp-code	func_0027FE08	0x0027FE08	mp_DrawShadedBox	the boot program's func_0038C628
+mp-code	func_0027EDA8	0x0027EDA8	mp_DarkenPicture	the boot program's func_0038B200 (its fixed packet at 0x001A3800)
+mp-code	func_0027EEB8	0x0027EEB8	mp_DrawFlatBox	the boot program's func_0038B310
+mp-code	func_00284F80	0x00284F80	mp_DrawHudSpriteShaded	the boot program's func_00397680
+mp-code	func_00284D30	0x00284D30	mp_HudTextureTex0	the boot program's func_00396E18: a HUD texture's TEX0
+mp-code	func_00280498	0x00280498	mp_vu0_cos	the boot program's func_0038D478 (VU0 microprogram 0xDA0)
+mp-code	func_002804B0	0x002804B0	mp_vu0_sin	the boot program's func_0038D490 (0xDB0)
+mp-code	func_0028BBE0	0x0028BBE0	mp_WadDecompress	the boot program's func_003A0B60
+mp-code	func_00298D70	0x00298D70	mp_KickVif0Chain	the boot program's func_003A9348
+mp-data	D_00240310	0x00240310	mp_screen_offset	the 2D offset (12.4, x then y): the boot program's 0x001D4BD0
+mp-data	D_002446A8	0x002446A8	mp_list_cursor	the display list's cursor: the boot program's 0x001DA050
+mp-data	D_00244428	0x00244428	mp_hud_textures	the HUD's texture tables (entries, images): the boot program's 0x001D9EA8
+mp-data	D_00240B80	0x00240B80	mp_snd_reply	the sound server's reply word ($gp - 0x7440): the boot program's 0x001D4DA0
+mp-data	D_00240290	0x00240290	mp_program_buffer	where the next program is read (a header word, its records): the boot program's 0x001D4B50
+mp-data	D_001EBE00	0x001EBE00	mp_arguments	crt0's argument block (argc, argv): the boot program's 0x0015C040
+mp-code	func_L39_00575CC8	0x00575CC8	mp_menus_entry	level 39's program's entry: the multiplayer menus
+mp-code	func_L39_005FCB98	0x005FCB98	mp_menus_KickVif0Chain	the catalogue's frontbin row func_003A8F90 at 39:005FCB98 (host/mp.c)
+mp-code	func_L39_005A9AA0	0x005A9AA0	mp_menus_WadDecompress	the catalogue's func_003A0760 at 39:005A9AA0
+mp-code	func_L39_00592238	0x00592238	mp_menus_FontPrint	the front end's font print (frontbin func_0038E7E8 at 39:00592238), the boot program's func_0038EBC8 signature; wrapped (host/ui2d.c)
+mp-code	func_00193888	0x00193888	mp_snd_BankLoadAsync	the boot program's func_0013BAB8
+mp-code	func_0012C528	0x0012C528	mp_sceSifLoadModule	the loadfile RPC through 0x0012C300; loads cdrom0:\DEV9.IRX at start-up, retrying
+mp-code	func_002877A8	0x002877A8	mp_menus_loader	the front end's loader of level 39: states 0-5 at 0x00240288 (table 0x002786E0), state 3 waits for a sound bank's handle at 0x001FE0B0
+mp-data	D_001A43E0	0x001A43E0	mp_memcard_block	the memory card machine's block (0x00288CA8, the boot program's func_0039C7F0 and 0x00142430)

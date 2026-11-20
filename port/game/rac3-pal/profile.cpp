@@ -410,6 +410,10 @@ public:
     // scene pack's, exported as level 97 (editor/level.py load_wad_loading).
     int loading_world() const override { return 97; }
 
+    // Level 39 is the multiplayer menus (the multiplayer executable's, host/mp.c): its picture is
+    // the 2D path alone, as the title's.
+    bool level_is_menus(int number) const override { return number == 39; }
+
     // The front end's menus are 2D alone (the picture behind them is a 2D record, picture.c): no
     // world camera, so its ticks get the frames between ticks by this, the 2D the tick recorded
     // drawn again at the player's frame rate, as Going Commando's menus get them for their camera.

@@ -254,6 +254,9 @@ void openrac_snd_ring_queue_bytes(
 );
 int openrac_snd_ring_send_sync(unsigned int command, gaddr data, int bytes);
 int openrac_snd_ring_bank_from_iop(int bank);
+/* The ring of a program LoadExecPS2 ended: its batches dropped (their callbacks are its code) and
+ * every sound stopped, as the console's IOP is reset for the next executable. */
+void openrac_snd_ring_reset(void);
 
 /* The IOP's memory from an address on, as sceSifSetDma left it, and how many bytes follow; NULL
  * past its end. A host accessor, not a library function. */

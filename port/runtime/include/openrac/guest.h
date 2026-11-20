@@ -263,6 +263,10 @@ typedef struct openrac_fn_entry {
 /* Overlay -1 is the executable; 0..n are the level programs. */
 #define OPENRAC_OVERLAY_EXE (-1)
 void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t count);
+/* Forgets every function and thunk registered: another executable of the disc is loaded over the
+ * whole of memory (LoadExecPS2: Up Your Arsenal's multiplayer, I5BOOTN.ELF), whose functions sit
+ * at the same addresses as the first's; its own tables are registered next. */
+void openrac_guest_unregister_all(void);
 void openrac_guest_set_overlay(int overlay);
 int openrac_guest_overlay(void);
 openrac_host_fn openrac_guest_function(gaddr address);

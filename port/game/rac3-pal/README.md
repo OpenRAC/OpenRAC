@@ -53,7 +53,8 @@ state words (mode, boot state, boot screen, the pad's held and pressed buttons) 
 
 `menus.py` walks every page the front end reaches, each route from the boot screens: the card
 notices (an empty card and no card), the main menu, Load Game, New Game and its save questions,
-Multiplayer, the multiplayer tutorial, Options with each row, Adjust Screen and every language,
+Multiplayer (the other executable, there and back), the multiplayer tutorial, Options with each
+row, Adjust Screen and every language,
 the Sly 2 demo's button combination and the attract movie after 6000 idle frames. It runs the port
 hidden and muted, presses the pad by script (`OPENRAC_PRESS`) and reads `OPENRAC_RAC3_MENU_LOG`
 (each frame's state words and every string the font printed). After each step the page must have
@@ -67,7 +68,7 @@ python3 port/game/rac3-pal/menus.py --data <data> --out build/rac3-menus \
 
 `build/rac3-menus/report.md` has a row for every step; each route's folder has its pictures,
 `menu.log`, `pages.txt` (the frames where the page changed) and `run.log`. A failure another branch
-owns (the level load, the multiplayer executable, saving) is marked known and does not fail the
+owns (the level load, saving) is marked known and does not fail the
 run. `--list` prints the routes, `--only` picks some, `--jobs` runs several at once.
 
 ## How it starts
@@ -104,6 +105,55 @@ C are translated from their own instructions.
 
 Until the menus can be read, `OPENRAC_RAC3_NEXT=FRAME:LEVEL` writes what a menu's choice writes, at
 the boot program's FRAME-th display list (`-1`: frontbin).
+
+## The multiplayer executable
+
+Multiplayer is another executable. The main menu's MULTIPLAYER row ends the boot program with
+`LoadExecPS2("cdrom0:\I5BOOTN.ELF;1", 2, {..., "BOPT=..."})` (`0x00398128`, `0x003980A0`,
+`0x00124ED8`), and leaving multiplayer starts `SCES_524.56` again the same way. `I5BOOTN.ELF` is
+the boot executable's loader again (rac3-decomp's `src/i5bootn`, matched C) carrying another game
+WAD-compressed at file offset `0x7080`: an engine core at `0x00100000` to `0x00241A00` whose
+libraries are the boot program's SDK build at other addresses, its own program at `0x0027B100`
+(the boot program's front end and 2D layer, `0x0038xxxx` there) and the multiplayer levels'
+programs over `0x00241A00`: level 39 is the multiplayer menus, 40 to 55 the maps.
+
+The port builds both into one program. `mp/hostgen.json` (beside this file's, listed in its
+`executables`) translates the multiplayer game from the disc's own instructions, every C name with
+`mp_` before it (`"prefix"`): the executable read from the disc image (`asm` `retail` `executable`),
+its entries found by its calls and by the code addresses its data holds (`discover_entries`,
+`discover_pointers`), and level 39's program with it (`levels`, `discover_levels`), its functions
+named `func_L39_...` as the catalogue would. cmake/Games.cmake writes it into `gen/mp` and compiles
+it into the game's library with the boot program.
+
+`mp/libraries.tsv` is the boot program's rows at the multiplayer addresses, each found by the
+instructions (the boot program's function against this one's, immediates and call targets masked;
+the system-call wrappers by their call number). The rows with a signature bind to `host/mp.c`,
+which hands them to the boot program's host C (the pads, DMA, 989snd's ring with this program's
+reply word); its 2D layer is wrapped in `host/ui2d.c` beside the boot program's, through the same
+helpers with this program's addresses (its 2D offset `0x00240310`, list cursor `0x002446A8`).
+
+LoadExecPS2 (`host/exec.c`) does what the console does: the program that called it does not come
+back (a longjmp to `func_0013ADA8`, the port's entry), the other executable is read from the disc
+image, its game unpacked over memory, its functions registered in place of the first's
+(`openrac_guest_unregister_all`), and its crt0's steps run with the arguments the kernel hands it
+(`argv[0]` the path, then the caller's). The multiplayer program's next-program routine
+(`0x00192F68`, the boot program's `0x0013AFF8`) says which of its programs is loaded, for the
+overlay hook: its own front end, or level 39.
+
+The menus' level is the multiplayer program's own copy of the front end's routines: its 2D layer
+(the catalogue's frontbin rows at level 39's places, frontbin's font print `func_0038E7E8` at
+`0x00592238`) is wrapped in `host/ui2d.c` (list cursor `0x0024CAD0`), its KickVif0Chain and WAD decompressor are the
+boot program's host C (`host/mp.c`), and the window draws its picture as the 2D path alone
+(`profile.cpp` `level_is_menus`). The menus run and take the pad: the network notice, LOCAL PLAY's
+CREATE GAME page and its options, and EXIT MULTIPLAYER, which starts `SCES_524.56` again through
+its boot screens to the main menu (`menus.py`'s `multiplayer` route).
+
+What is left: the menus' text and icons are not drawn (their strings print, `OPENRAC_RAC3_MENU_LOG`,
+and the panels and frames draw, but the glyphs and icon sprites show nothing, nor do the game's own
+packets with `OPENRAC_UI_REPLAY`: their textures are not where the window looks), the print with a
+colour a corner and the HUD sprite of level 39 are not wrapped, and a map (levels 40 to 55) is not
+loaded: they would be translated as level 39 is (`discover_levels`), with the native world
+renderers the boot program's levels use.
 
 ## Ticks, pacing and input
 

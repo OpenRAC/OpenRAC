@@ -83,7 +83,9 @@
     "places_in_release": true,
     "places_why": "NTSC-U's own level catalogue, in its own names: every level function is translated from the disc's level programs (no src/levels C yet: its names and its levels' data are PAL's)",
     "split_places_why": "NTSC-U's own tables/split_places.tsv: the multiplayer maps' copies of the font width wrapper (func_L01_00410820) are their own function, func_L39_005187A0, whose name the carry leaves out as no function of NTSC-U's catalogue; its signature below, as rac3-pal's func_L39_005189A0",
-    "asm_signature_check_why": "rac3-pal's check of translated code against its signatures finds 1,994 calls in 706 NTSC-U functions (its levels are all translated from the disc, PAL's from C): off here until NTSC-U has their signatures, as PAL's had before the check"
+    "asm_signature_check_why": "rac3-pal's check of translated code against its signatures finds 1,994 calls in 706 NTSC-U functions (its levels are all translated from the disc, PAL's from C): off here until NTSC-U has their signatures, as PAL's had before the check",
+    "executables": null,
+    "executables_why": "PAL's multiplayer executable (rac3-pal/mp/hostgen.json, I5BOOTN.ELF) is built for PAL alone: NTSC-U's has not been paired with it yet"
   },
   "pairs": {
     "about": "Function pairs taken as they are where map.tsv pairs nothing: PAL's name, NTSC-U's, the evidence.",
@@ -215,7 +217,9 @@
       "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001D4C80 and 0x001D4CA8, both moved by +0x0 (NTSC-U 0x001D4C80, 0x001D4CA8)"
     }
   },
-  "libraries_left_out": {},
+  "libraries_left_out": {
+    "func_00124ED8": "LoadExecPS2's wrapper starts PAL's multiplayer executable (rac3-pal host/exec.c), which NTSC-U does not build yet: the call stays unanswered (rac3/parity.tsv)"
+  },
   "level_addresses": {
     "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
     "L01:001D6694": {

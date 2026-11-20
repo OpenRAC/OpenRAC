@@ -1150,6 +1150,10 @@ void openrac_game_run_vsync_handlers(void);
  * save-state may be taken or restored. */
 void openrac_game_tick_boundary(void);
 void openrac_game_run_dmac_handlers(int channel);
+/* The kernel's state of a program that LoadExecPS2 ended (its interrupt, DMA and vsync handlers,
+ * semaphores, threads, RPC clients, system calls): the next executable starts with none, as on the
+ * console, whose kernel forgets them when it loads another (Up Your Arsenal's multiplayer). */
+void openrac_game_kernel_reset(void);
 
 #ifdef __cplusplus
 }

@@ -60,8 +60,6 @@
 #define RAC3_ADDR_0x001D4B50u 0x001D4B50u
 /* D_001D4BD0 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D4BD0u 0x001D4BD0u
-/* D_001D4BD4 (names.tsv, the same address) */
-#define RAC3_ADDR_0x001D4BD4u 0x001D4BD4u
 /* release.json: Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004CA270 (NTSC-U func_L01_004C6638) +0x138, 7 of 7 places agree */
 #define RAC3_ADDR_0x001D4C40u 0x001D4C40u
 /* release.json: Veldin's program (rac3_level_pairs.py): between the same code's 0x001D4C80 and 0x001D4CA8, both moved by +0x0 (NTSC-U 0x001D4C80, 0x001D4CA8) */

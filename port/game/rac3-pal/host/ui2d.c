@@ -50,10 +50,24 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
+#ifndef RAC3_NTSC
+#include "exec.h"
+#include "mp/game_protos.h"
+#endif
 
-/* The offset the game adds to every 2D position (12.4): the core's, which every program shares. */
-#define SCREEN_OFX GREF(int32_t, RAC3_ADDR(0x001D4BD0u))
-#define SCREEN_OFY GREF(int32_t, RAC3_ADDR(0x001D4BD4u))
+/* The offset the game adds to every 2D position (12.4): the core's, which every program shares
+ * (the multiplayer executable's core has it at 0x00240310). */
+static gaddr screen_offset(void) {
+#ifndef RAC3_NTSC
+    if (rac3_exec_program() == RAC3_EXEC_MULTIPLAYER) {
+        return 0x00240310u;
+    }
+#endif
+    return RAC3_ADDR(0x001D4BD0u);
+}
+
+#define SCREEN_OFX GREF(int32_t, screen_offset())
+#define SCREEN_OFY GREF(int32_t, screen_offset() + 4u)
 /* The far depth the 2D layer's boxes and glyph quads are drawn at (0xFFFFF0 in XYZ2's z). */
 #define FAR_Z 0xFFFFF0u
 
@@ -890,8 +904,8 @@ void func_L01_00405AD8(int y0, int y1, int x0, int x1, unsigned long long c) {
  * the routine sets and puts back), as one record of flat colour over the sixteen sprites' extent
  * (the main menu's 0x60 of black over its background; in a level, the pause menu's over the
  * world). */
-static int darken(gaddr cursor, int r, int g, int b, int a) {
-    const gaddr first = DARKEN_PACKET + 0x40u;
+static int darken(gaddr cursor, gaddr packet, int r, int g, int b, int a) {
+    const gaddr first = packet + 0x40u;
     const gaddr last = first + 16u * (DARKEN_SPRITES - 1u);
     const uint64_t top_left = GREF(uint64_t, first);
     const uint64_t bottom_right = GREF(uint64_t, last + 8u);
@@ -916,13 +930,13 @@ static int darken(gaddr cursor, int r, int g, int b, int a) {
 }
 
 void func_0038B200(int r, int g, int b, int a) {
-    if (!darken(kBoot.cursor, r, g, b, a)) {
+    if (!darken(kBoot.cursor, DARKEN_PACKET, r, g, b, a)) {
         func_0038B200__game(r, g, b, a);
     }
 }
 
 void func_L01_004059C8(int r, int g, int b, int a) {
-    if (!darken(rac3_ui2d_level().cursor, r, g, b, a)) {
+    if (!darken(rac3_ui2d_level().cursor, DARKEN_PACKET, r, g, b, a)) {
         func_L01_004059C8__game(r, g, b, a);
     }
 }
@@ -1116,3 +1130,187 @@ void func_L01_00420AE8(int tex, gaddr colours, float x, float y, float w, float 
         func_L01_00420AE8__game(tex, colours, x, y, w, h, ang);
     }
 }
+
+#ifndef RAC3_NTSC
+/* The multiplayer executable's 2D layer (I5BOOTN.ELF, mp.c): its own program's (0x0027xxxx, which
+ * its loading screen draws with) and level 39's, the multiplayer menus' (frontbin's routines at the
+ * catalogue's level 39 places), each paired with the boot program's instruction by instruction
+ * (mp/libraries.tsv), drawn as the boot program's are. The core's display list cursor and darkening
+ * packet are 0x002446A8 and 0x001A3800, level 39's cursor 0x0024CAD0. The print with a colour a
+ * corner and its glyph (level 39's) and the turned HUD sprite (both programs') are left to their
+ * packets for now. */
+#define MP_CURSOR 0x002446A8u
+#define MP_MENUS_CURSOR 0x0024CAD0u
+#define MP_DARKEN_PACKET 0x001A3800u
+
+void mp_func_00281240(
+    float a0,
+    float a1,
+    float a2,
+    float a3,
+    int a4,
+    int a5,
+    int a6,
+    int a7,
+    int a8,
+    unsigned long long a9,
+    float a10,
+    float a11
+) {
+    rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
+    const Print p = print_begin(MP_CURSOR);
+    mp_func_00281240__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+    print_end(MP_CURSOR, p);
+}
+
+void mp_func_L39_00592238(
+    float a0,
+    float a1,
+    float a2,
+    float a3,
+    int a4,
+    int a5,
+    int a6,
+    int a7,
+    int a8,
+    unsigned long long a9,
+    float a10,
+    float a11
+) {
+    rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
+    const Print p = print_begin(MP_MENUS_CURSOR);
+    mp_func_L39_00592238__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+    print_end(MP_MENUS_CURSOR, p);
+}
+
+#define MP_GLYPH(name)                                                                             \
+    int name(                                                                                      \
+        int u,                                                                                     \
+        int v,                                                                                     \
+        int w,                                                                                     \
+        int h,                                                                                     \
+        long long t0,                                                                              \
+        long long t1,                                                                              \
+        int flag,                                                                                  \
+        float x,                                                                                   \
+        float y,                                                                                   \
+        float fw,                                                                                  \
+        float fh                                                                                   \
+    ) {                                                                                            \
+        const int r = glyph(u, v, w, h, t0, t1, flag, x, y, fw, fh);                               \
+        return r >= 0 ? r : name##__game(u, v, w, h, t0, t1, flag, x, y, fw, fh);                  \
+    }
+MP_GLYPH(mp_func_0027F7A0)
+MP_GLYPH(mp_func_L39_0058BBB0)
+
+int mp_func_0027F980(
+    int u,
+    int v,
+    int w,
+    int h,
+    gaddr colours,
+    long long t1,
+    int flag,
+    float x,
+    float y,
+    float fw,
+    float fh
+) {
+    const int r = glyph_shaded(u, v, w, h, colours, t1, flag, x, y, fw, fh);
+    return r >= 0 ? r : mp_func_0027F980__game(u, v, w, h, colours, t1, flag, x, y, fw, fh);
+}
+
+#define MP_GLYPH_SHADOWED(name)                                                                    \
+    int name(                                                                                      \
+        int x,                                                                                     \
+        int y,                                                                                     \
+        int w,                                                                                     \
+        int h,                                                                                     \
+        long long t0,                                                                              \
+        long long t1,                                                                              \
+        long long t2,                                                                              \
+        int snap,                                                                                  \
+        float sx,                                                                                  \
+        float sy,                                                                                  \
+        float sw,                                                                                  \
+        float sh,                                                                                  \
+        float dx,                                                                                  \
+        float dy                                                                                   \
+    ) {                                                                                            \
+        const int r = glyph_shadowed(x, y, w, h, t0, t1, t2, snap, sx, sy, sw, sh, dx, dy);        \
+        return r >= 0 ? r : name##__game(x, y, w, h, t0, t1, t2, snap, sx, sy, sw, sh, dx, dy);    \
+    }
+MP_GLYPH_SHADOWED(mp_func_0027FB60)
+MP_GLYPH_SHADOWED(mp_func_L39_0058BF70)
+
+#define MP_GLYPH_QUAD(name, cursor)                                                                \
+    void name(                                                                                     \
+        int x, int y, int w, int h, int u, int v, int uw, int vh, long long a8, long long a9       \
+    ) {                                                                                            \
+        if (!glyph_quad(cursor, x, y, w, h, u, v, uw, vh, a8, a9)) {                               \
+            name##__game(x, y, w, h, u, v, uw, vh, a8, a9);                                        \
+        }                                                                                          \
+    }
+MP_GLYPH_QUAD(mp_func_0027F458, MP_CURSOR)
+MP_GLYPH_QUAD(mp_func_L39_0058B868, MP_MENUS_CURSOR)
+
+#define MP_TURNED_GLYPH_QUAD(name, cursor, sine, cosine)                                           \
+    void name(                                                                                     \
+        int x,                                                                                     \
+        int y,                                                                                     \
+        int w,                                                                                     \
+        int h,                                                                                     \
+        int u,                                                                                     \
+        int v,                                                                                     \
+        int du,                                                                                    \
+        int dv,                                                                                    \
+        float ang,                                                                                 \
+        long long col,                                                                             \
+        long long tex                                                                              \
+    ) {                                                                                            \
+        const float s = sine(ang), c = cosine(ang);                                                \
+        if (!turned_glyph_quad(cursor, x, y, w, h, u, v, du, dv, s, c, col, tex)) {                \
+            name##__game(x, y, w, h, u, v, du, dv, ang, col, tex);                                 \
+        }                                                                                          \
+    }
+MP_TURNED_GLYPH_QUAD(mp_func_0027F0A8, MP_CURSOR, mp_func_002804B0, mp_func_00280498)
+MP_TURNED_GLYPH_QUAD(
+    mp_func_L39_0058B4B8, MP_MENUS_CURSOR, mp_func_L39_00590A80, mp_func_L39_00590A68
+)
+
+void mp_func_0027FE08(gaddr xyz, gaddr colours) {
+    if (!shaded_box(MP_CURSOR, xyz, colours)) {
+        mp_func_0027FE08__game(xyz, colours);
+    }
+}
+
+void mp_func_L39_0058C678(gaddr xyz, gaddr colours) {
+    if (!shaded_box(MP_MENUS_CURSOR, xyz, colours)) {
+        mp_func_L39_0058C678__game(xyz, colours);
+    }
+}
+
+void mp_func_0027EEB8(int y0, int y1, int x0, int x1, unsigned long long c) {
+    if (!flat_box(MP_CURSOR, y0, y1, x0, x1, c)) {
+        mp_func_0027EEB8__game(y0, y1, x0, x1, c);
+    }
+}
+
+void mp_func_L39_0058B2C8(int y0, int y1, int x0, int x1, unsigned long long c) {
+    if (!flat_box(MP_MENUS_CURSOR, y0, y1, x0, x1, c)) {
+        mp_func_L39_0058B2C8__game(y0, y1, x0, x1, c);
+    }
+}
+
+void mp_func_0027EDA8(int r, int g, int b, int a) {
+    if (!darken(MP_CURSOR, MP_DARKEN_PACKET, r, g, b, a)) {
+        mp_func_0027EDA8__game(r, g, b, a);
+    }
+}
+
+void mp_func_L39_0058B1B8(int r, int g, int b, int a) {
+    if (!darken(MP_MENUS_CURSOR, MP_DARKEN_PACKET, r, g, b, a)) {
+        mp_func_L39_0058B1B8__game(r, g, b, a);
+    }
+}
+#endif /* RAC3_NTSC */

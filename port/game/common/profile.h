@@ -348,6 +348,13 @@ public:
     // load_wad_loading).
     virtual int loading_world() const { return -1; }
 
+    // A level whose program draws no world of the extracted levels, its picture the 2D path alone
+    // as the title's (Up Your Arsenal's level 39, the multiplayer menus, of its second executable).
+    virtual bool level_is_menus(int number) const {
+        (void)number;
+        return false;
+    }
+
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
 

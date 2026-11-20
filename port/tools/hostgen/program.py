@@ -44,13 +44,25 @@ BUILTINS = {
 }
 
 
+# hostgen.json "prefix": what every C name of the program starts with, for a second executable of
+# one disc built into the same port beside the first (Up Your Arsenal's multiplayer, I5BOOTN.ELF,
+# whose functions sit at the boot program's addresses): "mp_" gives mp_func_00192D18. Set once,
+# before anything is named (set_name_prefix), in each worker too.
+NAME_PREFIX = ""
+
+
+def set_name_prefix(prefix: str) -> None:
+    global NAME_PREFIX
+    NAME_PREFIX = prefix or ""
+
+
 def cname(symbol: str) -> str:
     """The host C name of a game function. Names the game shares with the C
     library or the host's own program (memcpy, sprintf, main, _start) get a
-    prefix; func_ names stay as they are."""
+    prefix; func_ names stay as they are (after hostgen.json's "prefix", if any)."""
     if symbol.startswith("func_"):
-        return symbol
-    return f"game_{symbol}"
+        return NAME_PREFIX + symbol
+    return f"{NAME_PREFIX}game_{symbol}"
 
 
 VA_LIST_NAMES = ("va_list", "__builtin_va_list", "__gnuc_va_list")

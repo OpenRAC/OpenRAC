@@ -85,9 +85,6 @@ class Route:
 # Failures another branch owns: shown as known in the report, and not counted in the exit status.
 LEVEL_LOAD = ("feat/rac3-programs: the boot program's level load faults (a store at 0x80EFAFxx after "
               "0x003BBDC0 unpacks the level's pack)")
-NEXT_ELF = ("feat/rac3-programs: multiplayer is another executable (LoadExecPS2 of cdrom0:/I5BOOTN.ELF;1), "
-            "which the port does not start: the screen fades to black and stays")
-
 
 # The main menu's rows top to bottom: LOAD GAME, NEW GAME, MULTIPLAYER, MULTIPLAYER TUTORIAL,
 # OPTIONS. Each route starts from the boot screens.
@@ -143,9 +140,15 @@ def routes(version: str = "pal") -> list[Route]:
                              Step("down", "down", 30), Step("down again", "down", 30),
                              Step("up", "up", 30),
                              Step("back", "triangle", 90, expect=back_to_main)]),
-        Route("multiplayer", [main, *row(2), Step("open MULTIPLAYER", "cross", 240, absent=["LOAD GAME"], known=NEXT_ELF),
-                              Step("down", "down", 30, changes=False, absent=["LOAD GAME"], known=NEXT_ELF),
-                              Step("back", "triangle", 90, changes=False, absent=["LOAD GAME"], known=NEXT_ELF)]),
+        # Multiplayer is the other executable (I5BOOTN.ELF, host/exec.c): its menus (level 39 of its
+        # programs) come up with the network notice; EXIT MULTIPLAYER starts the boot program again,
+        # whose boot screens lead back to the main menu.
+        Route("multiplayer", [main, *row(2),
+                              Step("open MULTIPLAYER", "cross", 450, expect=["LOCAL PLAY", "EXIT MULTIPLAYER"],
+                                   absent=["LOAD GAME"]),
+                              Step("down", "down", 30, expect=["EXIT MULTIPLAYER"]),
+                              Step("down again", "down", 30, expect=["EXIT MULTIPLAYER"]),
+                              Step("exit multiplayer", "cross", 420, expect=back_to_main)]),
         # The tutorial is a movie (skipped by --skip-movies); the main menu comes back after it.
         Route("mp-tutorial", [main, *row(3), Step("open MULTIPLAYER TUTORIAL", "cross", 240, expect=back_to_main,
                                                   changes=False),

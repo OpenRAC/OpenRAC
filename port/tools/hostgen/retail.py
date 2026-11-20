@@ -82,9 +82,127 @@ class Retail:
         return cls(exe.read_bytes(), read_dump(dump) if dump else {}, low, exe.name)
 
     @classmethod
-    def from_image(cls, image: Path, low: int) -> "Retail":
+    def from_image(cls, image: Path, low: int, executable: str | None = None) -> "Retail":
         exe, levels = read_image(image)
-        return cls(exe, levels, low, image.name, read_named_programs(image))
+        if executable is not None:
+            # Another executable of the disc (hostgen.json "asm" "retail" "executable"), by its
+            # name in the disc's root: I5BOOTN.ELF.
+            from openrac_common import iso9660
+            exe = iso9660.read(image, executable)
+        return cls(exe, levels, low, f"{image.name}:{executable}" if executable else image.name,
+                   read_named_programs(image))
+
+    def pointed(self, levels: set[int], known: set[tuple[int, int]] = frozenset()) -> set[tuple[int, int]]:
+        """(program, address) for each word of a program's data (the executable's, and each of
+        `levels`) that is an address in code where a function starts: after the end of another (a
+        jr ra or a j and its delay slot, then any zeros), or where a frame is set up before any
+        branch. The words of the jump tables the code indexes are left out: their targets are
+        inside a function, and some follow a return. Nor is an address inside a function that starts
+        before it (`known`, the entries its calls found): one whose code branches past it, or code
+        after it that branches back before it (a switch's case, reached through a table the scan
+        did not see)."""
+        out: set[tuple[int, int]] = set()
+        starts: dict[int, list[int]] = {}
+        for h, a in known:
+            starts.setdefault(h, []).append(a)
+        for h in starts:
+            starts[h].sort()
+
+        def branch_target(w, at):
+            op = w >> 26
+            if op in (4, 5, 6, 7, 0x14, 0x15, 0x16, 0x17) or (op == 1 and ((w >> 16) & 31) in (0, 1, 2, 3)):
+                off = w & 0xFFFF
+                return at + 4 + 4 * (off - 0x10000 if off & 0x8000 else off)
+            if op == 2:
+                return (at & 0xF0000000) | ((w & 0x3FFFFFF) << 2)
+            return None
+
+        def inside(parts, h, a):
+            st = starts.get(h, [])
+            i = bisect.bisect_left(st, a)
+            before = st[i - 1] if i > 0 else None
+            after = st[i] if i < len(st) and st[i] != a else (st[i + 1] if i + 1 < len(st) else None)
+            if before is None or a - before > 0x8000:
+                return False
+            for at in range(before, a, 4):
+                w = word_in(parts, at)
+                t = branch_target(w, at) if w is not None else None
+                if t is not None and t > a and (after is None or t < after):
+                    return True
+            end = min(after if after is not None else a + 0x8000, a + 0x8000)
+            for at in range(a, end, 4):
+                w = word_in(parts, at)
+                t = branch_target(w, at) if w is not None else None
+                if t is not None and before <= t < a:
+                    return True
+            return False
+
+        homes = [-1] + sorted(h for h in levels if h in self.levels)
+        code = {h: self.code_parts(h) for h in homes}
+        exe_code = code[-1]
+
+        def word_in(parts, a):
+            for q in parts:
+                if q.holds(a):
+                    return q.word(a)
+            return None
+
+        def starts_here(parts, a):
+            k, steps = a - 4, 0
+            while steps < 4 and word_in(parts, k) == 0:
+                k -= 4
+                steps += 1
+            for at in (k, k - 4):
+                w = word_in(parts, at)
+                if w is not None and (w == 0x03E00008 or w >> 26 == 2):
+                    return True
+            # Or a leaf that only returns (jr ra, its result in the delay slot: a callback answering
+            # a constant), or a frame set up in its first instructions (addiu $sp, $sp, -N before any branch):
+            # behind the function before it, a return path's last instructions, not its jr ra.
+            if word_in(parts, a) == 0x03E00008:
+                return True
+            for i in range(4):
+                w = word_in(parts, a + 4 * i)
+                if w is None or (w >> 26) in (1, 2, 3, 4, 5, 6, 7, 0x14, 0x15, 0x16, 0x17) \
+                        or (w >> 26 == 0 and (w & 0x3E) == 0x08):
+                    return False
+                if w >> 16 == 0x27BD and w & 0x8000:
+                    return True
+            return False
+
+        for home in homes:
+            tables: set[int] = set()
+            for p in code[home]:
+                n = len(p.data) // 4
+                for (_jr, table) in RetailCode.table_scan(p.base, list(struct.unpack_from(f"<{n}I", p.data))):
+                    tables.add(table)
+            own = self.exe if home < 0 else self.levels.get(home, [])
+            data_parts = [p for p in own if not p.code]
+            table_words: set[int] = set()
+            for t in tables:
+                k = 0
+                while k < 1024:
+                    w = None
+                    for q in data_parts + code[home]:
+                        if q.holds(t + 4 * k):
+                            w = q.word(t + 4 * k)
+                            break
+                    if w is None or not any(c.holds(w) for c in code[home]):
+                        break
+                    table_words.add(t + 4 * k)
+                    k += 1
+            for p in data_parts:
+                n = len(p.data) // 4
+                for k, w in enumerate(struct.unpack_from(f"<{n}I", p.data)):
+                    if w & 3 or w < RAM[0] or w >= RAM[1] or p.base + 4 * k in table_words:
+                        continue
+                    for parts, h in ((code[home], home), (exe_code, -1)):
+                        if any(c.holds(w) for c in parts):
+                            owner = h if h < 0 or w >= self.low else -1
+                            if starts_here(parts, w) and not inside(parts, owner, w):
+                                out.add((owner, w))
+                            break
+        return out
 
     def place_named(self, programs: dict[str, int]) -> None:
         """The named programs as the overlays hostgen gives them ({"frontbin": 100})."""
@@ -459,6 +577,38 @@ class RetailCode:
         if home >= 0 and address >= self.low:
             return f"D_L{home:02d}_{address:08X}", 0
         return f"D_{address:08X}", 0
+
+    @staticmethod
+    def table_scan(start: int, words: list[int]) -> list[tuple[int, int]]:
+        """(jr address, table address) of the jump tables a run of code indexes: a jr through a
+        register loaded by a lw from a lui-formed address after an addu with an index (as pairs
+        finds them, without naming anything)."""
+        hi: dict[int, int] = {}
+        idx: dict[int, int] = {}
+        loaded: dict[int, int] = {}
+        out = []
+        for k, w in enumerate(words):
+            op, rs, rt, rd = w >> 26, (w >> 21) & 31, (w >> 16) & 31, (w >> 11) & 31
+            imm = w & 0xFFFF
+            simm = imm - 0x10000 if imm & 0x8000 else imm
+            if op == 0x0F:
+                hi[rt] = imm << 16
+                continue
+            if op == 0x09 and rs in hi:                           # addiu %lo(table)
+                hi[rt] = (hi[rs] + simm) & 0xFFFFFFFF
+                continue
+            if op == 0 and (w & 63) in (0x21, 0x2D) and rd:       # addu / daddu with an index
+                if (rs in hi) != (rt in hi):
+                    idx[rd] = hi[rs if rs in hi else rt]
+                    continue
+            if op == 0x23 and rs in idx:                          # lw
+                loaded[rt] = (idx[rs] + simm) & 0xFFFFFFFF
+                continue
+            if op == 0 and (w & 63) == 0x08 and rs != 31 and rs in loaded:
+                out.append((start + 4 * k, loaded[rs]))
+            if op == 0 and (w & 63) == 0x08:
+                hi.clear(); idx.clear(); loaded.clear()
+        return out
 
     def pairs(self, home: int, start: int, words: list[int]):
         """The %hi/%lo relocations of a run of code's words, and its jump tables (jr address ->

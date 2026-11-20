@@ -314,7 +314,54 @@ function(openrac_add_game config)
     COMMENT "hostgen: ${id} from ${game_source}"
     JOB_POOL openrac_hostgen
     VERBATIM)
-  add_custom_target(openrac_${target_id}_hostgen DEPENDS "${gen}/hostgen.stamp")
+  # Other executables of the disc built into the same program ("executables": each a hostgen.json
+  # in a folder beside the game's, whose "prefix" starts every C name it writes): Up Your Arsenal's
+  # multiplayer game, I5BOOTN.ELF, which the boot program starts by LoadExecPS2. Each is translated
+  # into gen/<folder> and compiled into the game's library with the first.
+  set(stamps "${gen}/hostgen.stamp")
+  string(JSON exe_count ERROR_VARIABLE no_exes LENGTH "${json}" executables)
+  if(NOT no_exes AND exe_count GREATER 0)
+    math(EXPR last "${exe_count} - 1")
+    foreach(i RANGE ${last})
+      string(JSON exe_config GET "${json}" executables ${i})
+      set(exe_config "${config_dir}/${exe_config}")
+      get_filename_component(exe_dir "${exe_config}" DIRECTORY)
+      get_filename_component(exe_name "${exe_dir}" NAME)
+      set(exe_gen "${gen}/${exe_name}")
+      set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${exe_config}")
+      execute_process(
+        COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${exe_config}"
+                --source "${game_source}" --out "${exe_gen}" --list
+        OUTPUT_VARIABLE exe_listing
+        RESULT_VARIABLE status)
+      if(NOT status EQUAL 0)
+        message(FATAL_ERROR "hostgen could not list the sources of ${id}'s ${exe_name}")
+      endif()
+      string(REPLACE "\n" ";" exe_listing "${exe_listing}")
+      set(exe_outputs "")
+      foreach(file IN LISTS exe_listing)
+        if(file)
+          list(APPEND exe_outputs "${exe_gen}/${file}")
+          if(file MATCHES "\\.c$")
+            list(APPEND sources "${exe_gen}/${file}")
+          endif()
+        endif()
+      endforeach()
+      file(GLOB exe_tables CONFIGURE_DEPENDS "${exe_dir}/*.json" "${exe_dir}/*.tsv")
+      add_custom_command(
+        OUTPUT "${exe_gen}/hostgen.stamp"
+        BYPRODUCTS ${exe_outputs}
+        COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${exe_config}"
+                --source "${game_source}" --out "${exe_gen}" --quiet ${asm_args}
+        COMMAND "${CMAKE_COMMAND}" -E touch "${exe_gen}/hostgen.stamp"
+        DEPENDS ${inputs} ${tool} ${exe_tables} "${OPENRAC_GAME_DIR}/common/libraries.tsv"
+        COMMENT "hostgen: ${id}'s ${exe_name} from ${game_source}"
+        JOB_POOL openrac_hostgen
+        VERBATIM)
+      list(APPEND stamps "${exe_gen}/hostgen.stamp")
+    endforeach()
+  endif()
+  add_custom_target(openrac_${target_id}_hostgen DEPENDS ${stamps})
   # Every call through a known code address passes its arguments as the function there takes them,
   # by position (Windows x64) as well as by kind (tools/hostgen/abicheck.py), and the game's host C
   # declares the game functions it calls or replaces as game_protos.h has them.

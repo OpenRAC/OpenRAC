@@ -402,8 +402,9 @@ void use_level(int number) {
     // at its menus), and the title of a game whose boot program draws no world (Up Your Arsenal's,
     // has_title_world), have no scenery to read: their whole picture is the 2D path, both its parts,
     // and nothing is missing to tell the player about.
-    const bool has_levels =
-        g->profile->has_levels() && (number != -1 || g->profile->has_title_world());
+    const bool has_levels = g->profile->has_levels()
+                            && (number != -1 || g->profile->has_title_world())
+                            && !g->profile->level_is_menus(number);
     const bool read = read_level(wanted, sources, error);
     if (!has_levels && !read) {
         crash::level_breadcrumb("level scenery unavailable", wanted);

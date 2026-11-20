@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "exec.h"
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
@@ -43,7 +44,7 @@ void func_0012D938(gaddr channel, gaddr tag) {
     set_reg(channel, (reg(channel) & ~0xCu) | 0x105u);
 
     rac3_chain_census(channel, tag);
-    if (channel == 0x10009000u) {
+    if (channel == 0x10009000u && rac3_exec_program() == RAC3_EXEC_BOOT) {
         rac3_program_probe();
         rac3_picture_frame_sent();
         rac3_view_frame_sent();

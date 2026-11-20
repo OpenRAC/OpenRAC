@@ -108,6 +108,12 @@ gaddr func_0013AFF8(void) {
     return entry;
 }
 
+/* The multiplayer executable's next-program wrapper (mp.c) says which of its programs is loaded,
+ * and LoadExecPS2 (exec.c) that none is: the executable's own code. */
+void rac3_program_set_overlay(int overlay) {
+    loaded_overlay = overlay;
+}
+
 /* hostgen.json: "overlay_hook": true. */
 int openrac_game_loaded_overlay(void) {
     return loaded_overlay;

@@ -180,6 +180,7 @@ func_0013CFF8	989snd	snd_AutoReverb	host	the instructions of rac2-ntsc func_0013
 func_0013D0C0	989snd	snd_ResetMovieSound	host	the instructions of rac2-ntsc func_00133890
 func_0013D180	989snd	snd_UpdateMovieADPCM	host	the instructions of rac2-ntsc func_00133930
 func_0013D1B0	989snd	snd_GetMovieNAX	host	the instructions of rac2-ntsc func_00133960
+func_00124ED8	kernel	rac3LoadExec	host	LoadExecPS2's wrapper (0x00124DB8 builds the argument block, then syscall 6): the multiplayer executable, I5BOOTN.ELF, or this one again, started as the console does (host/exec.c)	void (unsigned int, int, unsigned int)
 func_00124A80	kernel	rac3InitSyscallTable	host	InitSystemCallTableAddress (rac2-ntsc func_0011F718): scans kernel memory with FindAddress; the port has none (host/entry.c)	void (void)
 func_001242B8	sif	sceSifSyncIop	host	the shape of rac2-ntsc func_0011EEA0; polled after sceSifRebootIop by func_003983C8
 func_003A9348	dma	rac3KickVif0Chain	host	KickVif0Chain (rac2-ntsc func_002FC070): programs VIF0 itself and polls CHCR (host/dma.c)	void (unsigned int)
