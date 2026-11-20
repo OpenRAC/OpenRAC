@@ -49,7 +49,8 @@ typedef struct Copy {
 /* Veldin's (the single-player levels'): MobyProc's cap is $gp + 0x37A0. */
 static const Copy kVeldin = {1, 0x001E1068u, 0x001E29E0u, 0x001E7580u, 0x001E0050u, 0x001EA840u};
 /* The multiplayer menu's (the multiplayer maps'): MobyProc's cap is $gp + 0x3FD0. */
-static const Copy kMultiplayer = {39, 0x0024CAD0u, 0x0024DE20u, 0x0025D6C0u, 0x001E0880u, 0x0025F580u};
+static const Copy kMultiplayer =
+    {39, 0x0024CAD0u, 0x0024DE20u, 0x0025D6C0u, 0x001E0880u, 0x0025F580u};
 
 static gaddr at_copy(const Copy* c, gaddr address) {
     return OPENRAC_LDATA(c->from, address);
