@@ -195,6 +195,7 @@ static int console_language(int game) {
 }
 
 static void on_frame(unsigned frame);
+static void (*g_previous_on_frame)(unsigned frame);
 
 /* The front end's start-up: it sets the language from the console's (openrac_game_language, the
  * one the port remembered); the options it leaves at their defaults get the remembered ones. */
@@ -208,13 +209,19 @@ int func_003983C8(void) {
     if (sound >= 0) {
         GREF(int32_t, OPTION_SOUND) = sound;
     }
+    /* The hook another part set (menu_log.c's) runs first, then this one. */
+    if (openrac_game_on_frame != on_frame) {
+        g_previous_on_frame = openrac_game_on_frame;
+    }
     openrac_game_on_frame = on_frame;
     return r;
 }
 
 /* Each frame: the 16:9 off, and the options as the player left them, for the next run. */
 static void on_frame(unsigned frame) {
-    (void)frame;
+    if (g_previous_on_frame != NULL) {
+        g_previous_on_frame(frame);
+    }
     GREF(uint8_t, OPTION_WIDESCREEN) = 0;
     const int language = console_language(GREF(uint8_t, OPTION_LANGUAGE));
     if (language > 0) {
