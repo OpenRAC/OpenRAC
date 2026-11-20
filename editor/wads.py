@@ -97,10 +97,12 @@ RAC2_NTSC2 = Version(game="rac2", key="ntsc2", **util.disc_identity("rac2", "nts
                      normal_table=0x238e80)
 # Up Your Arsenal's NTSC-U disc: the same table of contents as PAL's (below), read at the same
 # offsets by the same code (Veldin's 0x00422D70 reads Ratchet's packs at +0x1EB4 and his wrench's
-# row at +0x20A8, 0x0042A300 the banks from +0x4590, as PAL's 0x00425B18 and 0x0042D110 do).
+# row at +0x20A8, 0x0042A300 the banks from +0x4590, as PAL's 0x00425B18 and 0x0042D110 do; the
+# loading screen's packs are read by 0x003C0FA8, PAL's 0x003C10B0's C: rac3-decomp's map.tsv match).
 RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"), level_header=0x60,
                     hero_packs=0x1eb4, hero_armours=31, item_banks=0x458c, wrench_packs=(31,),
-                    ship_bodies=0x1d60, ship_paints=0x1d78, ship_paint_count=32, flight_base=0x1284)
+                    ship_bodies=0x1d60, ship_paints=0x1d78, ship_paint_count=32, flight_base=0x1284,
+                    loading_packs=0x1288, loading_ship_pack=11)
 # Up Your Arsenal's PAL disc: the same table of contents and level headers as NTSC-U's, read where
 # Veldin's copies of Going Commando's loaders read it (the table of contents at 0x00160C40):
 # - Ratchet's packs: LoadPlayerDisplayTextures (0x004255E0, Going Commando's 0x00292078), the base
