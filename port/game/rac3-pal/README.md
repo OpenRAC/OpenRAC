@@ -180,6 +180,33 @@ vertical blank callback (`func_0013D208`).
   in a level the HUD keeps them). Without `OPENRAC_FOCUSED_PACING` a hidden window is never
   focused, and the window's background throttle holds it to a frame a tick (48 a second at
   `unlimited`).
+- **Frames between ticks in a level**: the camera, the mobys and their poses move from one tick to
+  the next as in the menus' description above. The effect quads and particles that carry an id
+  (PartProc's pool slot, `host/render.c`) move with them (`interpolates_effect_quads`, as Going
+  Commando's). In Veldin at 120 frames a second (box1, GTX 1070, `OPENRAC_SHOT_BETWEEN`), a gun
+  bolt steps across a tick's four between-tick frames.
+- **The late camera latch** (Responsive controls): `host/camera_latch.c` wraps the follow camera's
+  stick read (Veldin's `func_L01_003E92F8`, Going Commando's `func_L00_00424F98`, every
+  single-player level's copy). Between ticks the frontend asks it what the next tick will turn with
+  the stick as it is now: the camera's spring (`0x00382BC8`, stiffness 2 and damping 4, constants
+  here) stepped from the camera's state at +0x1E0 of its data, times its turn speed. The
+  multiplayer maps' cameras are not latched. Right stick held in Veldin
+  (`OPENRAC_CAMERA_LATCH_LOG`): each tick turned 0.0502 radians and the latch guessed 0.0502, and
+  0.0345 against 0.0346 while the turn eases in. The camera only turns since the levels' vector
+  library returns its floats (`hostgen.json` `asm` `signatures`: `func_L01_0040F3F8` and five more
+  were taken for int functions, and 212 C callers read 0 from them). Before that, the follow
+  camera's pitch and the stick turn came out as 0, and the camera sat level with Ratchet's feet,
+  cutting him off at the bottom of the picture.
+- **Draw distance and active distance** (Video > Draw distance: Original, 150% and up,
+  Unlimited; Active distance): the mobys go through MobyProc's own test (the profile's view block,
+  near plane and cap). The ties, shrubs and terrain are culled by the game's records, as Going
+  Commando's are: `scenery_matrices` names the words in Veldin's program, relocated to the loaded
+  level's (`scenery_matrices_level`). TieProc's cap sits 0x40 past the ties' records' word, not
+  0x48 (`tie_cap_after_records`). Veldin reads 1,960 ties, 1,894 shrubs, 802 terrain fragments,
+  and caps of 960 (ties) and 500 (shrubs). At Original 1,729 shrubs are left out where Ratchet
+  stands, at 400% 1,044 to 1,483, at Unlimited none. Active distance is the shared one
+  (`frontend/sleeping_mobys.h`). No class needs the game's own distance yet (Going Commando's
+  `draw_distance.tsv`), and the occlusion mask is not read (`occlusion mask unavailable`).
 
 ## What the port answers
 
@@ -371,6 +398,12 @@ and animated) draw natively with the game's camera, but
   (the level table LoadLevelToc fills, `0x00160C40 + 0x7A04`) is never loaded and the music channel
   stays at track -1. The streams' command (0x2C, two mono files as rac2's) is bound and untested.
   `OPENRAC_AUDIO_TICKED=1 OPENRAC_AUDIO_DUMP=out.wav OPENRAC_SOUND_LOG=1` captures and logs it.
+- **Sound in a level**: Veldin loads its bank (321 sounds) through the shared ring and starts its
+  music as two-part VAG streams (0x2C). It also plays a one-part stream (a voice), sets its sounds'
+  volumes and pans (0x21) and asks whether they still play (0x19). Few effects play yet: 7 plays
+  in 450 ticks of walking and swinging the wrench. Command 0x30, a stream query whose answer the
+  level's stream code keeps at its record's +0x14 (`0x0045F3C0`, callback `0x00460170`), is not
+  known to the ring and answers 0.
 - **A level**: see [The next program](#the-next-program).
 - The memory card works through the shared `sceMc*`; saving is untested.
 - **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's
