@@ -17,7 +17,18 @@
   // Tab goes back to the button.
   import Icon, { type IconName } from "./Icon.svelte";
 
-  let { items, label = "More actions" }: { items: MenuItem[]; label?: string } = $props();
+  let {
+    items,
+    label = "More actions",
+    text,
+    icon,
+  }: {
+    items: MenuItem[];
+    label?: string;
+    /** A button with words (and an icon) in place of the three dots: Import, say. */
+    text?: string;
+    icon?: IconName;
+  } = $props();
 
   let open = $state(false);
   let root = $state<HTMLElement | null>(null);
@@ -120,15 +131,26 @@
 </script>
 
 <div class="menu" bind:this={root}>
-  <button
-    class="trigger"
-    bind:this={trigger}
-    aria-label={label}
-    title={label}
-    aria-haspopup="menu"
-    aria-expanded={open}
-    onclick={() => (open = !open)}><Icon name="more" size={20} /></button
-  >
+  {#if text}
+    <button
+      class="small"
+      bind:this={trigger}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      onclick={() => (open = !open)}
+      >{#if icon}<Icon name={icon} size={14} />{/if}{text}</button
+    >
+  {:else}
+    <button
+      class="trigger"
+      bind:this={trigger}
+      aria-label={label}
+      title={label}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      onclick={() => (open = !open)}><Icon name="more" size={20} /></button
+    >
+  {/if}
   {#if open}
     <div class="list" role="menu" popover="manual" tabindex="-1" bind:this={list} onkeydown={move}>
       {#each plain as item (item.label)}
