@@ -204,7 +204,9 @@ int check_levels(const fs::path& levels, const fs::path& mods) {
         for (const auto& entry : fs::directory_iterator(levels, ignored)) {
             int id = 0;
             const std::string name = entry.path().filename().string();
-            if (entry.is_directory() && std::sscanf(name.c_str(), "level_%d", &id) == 1) {
+            // level_NN exactly: not a copy left beside it (level_05-old) or a hidden one.
+            if (entry.is_directory() && std::sscanf(name.c_str(), "level_%d", &id) == 1
+                && name == std::format("level_{:02d}", id)) {
                 ids.push_back(id);
             }
         }

@@ -217,12 +217,18 @@ fn drop_unread_files(dir: &Path, info: &BuildInfo, done: &mut Tidied) {
 /// size and the same bytes at 16 places, the first and last MB among them).
 fn link_to_kept_image(dir: &Path, info: &BuildInfo, discs: &Path, done: &mut Tidied) {
     let image = dir.join("disc.iso");
+    // The name the extractor wrote: a file's name alone, never a path out of the folder.
+    if Path::new(&info.image).file_name() != Some(std::ffi::OsStr::new(&info.image)) {
+        return;
+    }
     let kept = discs.join(&info.image);
     let (Ok(a), Ok(b)) = (std::fs::symlink_metadata(&image), std::fs::symlink_metadata(&kept)) else { return };
     if !a.file_type().is_file() || !b.file_type().is_file() || a.len() != b.len() || same_file(&a, &b) {
         return;
     }
-    if !same_samples(&image, &kept, a.len()).unwrap_or(false) {
+    let open = |p: &Path| std::fs::File::open(p);
+    let same = (|| crate::android::same_samples(&open(&image)?, &open(&kept)?, a.len(), 16))();
+    if !same.unwrap_or(false) {
         return;
     }
     let link = dir.join("disc.iso.link");
@@ -263,28 +269,6 @@ fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
 #[cfg(not(unix))]
 fn same_file(_: &std::fs::Metadata, _: &std::fs::Metadata) -> bool {
     false
-}
-
-fn same_samples(a: &Path, b: &Path, len: u64) -> std::io::Result<bool> {
-    use std::io::{Read, Seek, SeekFrom};
-    const SAMPLE: u64 = 1 << 20;
-    const PLACES: u64 = 16;
-    let (mut a, mut b) = (std::fs::File::open(a)?, std::fs::File::open(b)?);
-    let size = SAMPLE.min(len) as usize;
-    let (mut x, mut y) = (vec![0; size], vec![0; size]);
-    let last = len - size as u64;
-    for i in 0..PLACES {
-        let at = last / (PLACES - 1) * i;
-        let at = if i == PLACES - 1 { last } else { at };
-        a.seek(SeekFrom::Start(at))?;
-        b.seek(SeekFrom::Start(at))?;
-        a.read_exact(&mut x)?;
-        b.read_exact(&mut y)?;
-        if x != y {
-            return Ok(false);
-        }
-    }
-    Ok(true)
 }
 
 /// Removes what set-up made for `game` (OpenGOAL's uninstall): its

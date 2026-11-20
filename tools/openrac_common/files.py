@@ -51,6 +51,23 @@ def replace(source: Path | str, dest: Path | str) -> None:
     _move(os.replace, source, dest)
 
 
+def _link(source: Path | str, dest: Path | str, symlink_target: str | None) -> str | None:
+    """A hard link to SOURCE at DEST ("linked"), else a symbolic link to SYMLINK_TARGET when one
+    is given ("symlinked"), else None: Android lets no app make hard links."""
+    try:
+        os.link(source, dest)
+        return "linked"
+    except OSError:
+        pass
+    if symlink_target is not None:
+        try:
+            os.symlink(symlink_target, dest)
+            return "symlinked"
+        except OSError:
+            pass
+    return None
+
+
 def link_or_copy(source: Path | str, dest: Path | str, *, keep_metadata: bool = True,
                  symlink: bool = False) -> str:
     """Hard-link SOURCE at DEST, or copy it when the link fails (another file system, or one
@@ -61,21 +78,14 @@ def link_or_copy(source: Path | str, dest: Path | str, *, keep_metadata: bool = 
     to SOURCE's absolute path before a copy ("symlinked"); Android lets no app make hard links.
     KEEP_METADATA copies the times and mode too, as tools/openrac.py does (shutil.copy2); False
     copies the bytes alone, as tools/extractor.py does (shutil.copyfile)."""
-    try:
-        os.link(source, dest)
-        return "linked"
-    except OSError:
-        if symlink:
-            try:
-                os.symlink(os.path.abspath(source), dest)
-                return "symlinked"
-            except OSError:
-                pass
-        if keep_metadata:
-            shutil.copy2(source, dest)
-        else:
-            shutil.copyfile(source, dest)
-        return "copied"
+    how = _link(source, dest, os.path.abspath(source) if symlink else None)
+    if how:
+        return how
+    if keep_metadata:
+        shutil.copy2(source, dest)
+    else:
+        shutil.copyfile(source, dest)
+    return "copied"
 
 
 def copy_tree(source: Path | str, dest: Path | str, keep: Callable[[Path], bool]) -> None:
@@ -100,7 +110,7 @@ def link_identical(paths: list[Path]) -> int:
     first: dict[tuple[int, bytes], Path] = {}
     freed = 0
     for path in paths:
-        if path.is_symlink() or not path.is_file():
+        if path.name.startswith(".") or path.is_symlink() or not path.is_file():
             continue
         size = path.stat().st_size
         digest = hashlib.sha256(path.read_bytes()).digest()
@@ -110,13 +120,8 @@ def link_identical(paths: list[Path]) -> int:
         staged = path.with_name(f".{path.name}.link")
         if os.path.lexists(staged):
             os.remove(staged)
-        try:
-            os.link(kept, staged)
-        except OSError:
-            try:
-                os.symlink(os.path.relpath(kept, path.parent), staged)
-            except OSError:
-                continue
+        if not _link(kept, staged, os.path.relpath(kept, path.parent)):
+            continue
         replace(staged, path)
         freed += size
     return freed

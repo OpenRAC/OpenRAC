@@ -197,18 +197,28 @@ def extract(image: Path, game: str, proj: Path, minimum: int = MIN_IMAGE_SIZE, b
     print(f"validated: {g['title']} ({version['region']}, {serial}), boot executable SHA-1 matches games/{game}/game.json")
 
     # Most of Ratchet & Clank's data is addressed by sector, outside the file
-    # system: keep the image beside the files for the decompile step.
-    how = files.link_or_copy(image, temp / "disc.iso", keep_metadata=False, symlink=link_image)
-    print(f"  disc.iso: {how} from {image}")
+    # system: keep the image beside the files for the decompile step. An image
+    # inside the set-up being replaced (its own disc.iso, a copy, not a link)
+    # moves into the new one at the end: a link to it would go with the old set-up.
+    inside = final.resolve() in image.resolve().parents
+    if inside:
+        print(f"  disc.iso: kept from {image}")
+    else:
+        how = files.link_or_copy(image, temp / "disc.iso", keep_metadata=False, symlink=link_image)
+        print(f"  disc.iso: {how} from {image}")
+    earlier = final / "buildinfo.json"
+    named = json.loads(earlier.read_text())[0].get("image") if inside and earlier.is_file() else None
     info = [{
         "serial": serial,
         "version": f"{game}/{name}",
         "elf_sha1": hashes[serial],
         "files": len(hashes),
         "contents": contents_hash(hashes),
-        "image": image.name,
+        "image": named or image.name,
     }]
     (temp / "buildinfo.json").write_text(json.dumps(info, indent=2) + "\n")
+    if inside:
+        files.replace(image.resolve(), temp / "disc.iso")
     if final.exists():
         shutil.rmtree(final)
     temp.rename(final)
