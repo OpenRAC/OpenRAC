@@ -26,6 +26,8 @@
 #define RAC3_ADDR_0x00160C40u 0x00160C40u
 /* D_001A4C60 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001A4C60u 0x001A4C60u
+/* release.json: the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree */
+#define RAC3_ADDR_0x001A71A0u 0x001A71A0u
 /* D_001CD0C0 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001CD0C0u 0x001CD0C0u
 /* D_001D4B50 (names.tsv, the same address) */

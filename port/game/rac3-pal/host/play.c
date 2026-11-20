@@ -31,6 +31,7 @@
 
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 #include "save_format.h"
 
 #define LEVELS RAC3_SAVE_LEVEL_LIMIT
@@ -90,9 +91,10 @@ static const char* const rac3_level_names[LEVELS] = {
     [55] = "Blackwater City (split screen)",
 };
 
-#define FRONT_END_MODE 0x001D5B94u /* the boot program's (and frontbin's) mode: 6 loading */
-#define LEVEL_NEXT 0x001D9D04u     /* the level the front end goes to */
-#define HERO_MOBY 0x001A71A0u      /* the hero's moby, 0 until the level makes it */
+#define FRONT_END_MODE                                                                             \
+    RAC3_ADDR(0x001D5B94u)                /* the boot program's (and frontbin's) mode: 6 loading */
+#define LEVEL_NEXT RAC3_ADDR(0x001D9D04u) /* the level the front end goes to */
+#define HERO_MOBY RAC3_ADDR(0x001A71A0u)  /* the hero's moby, 0 until the level makes it */
 #define FRONT_END_LOADING 6
 
 int rac3_level_mode(uint32_t* mode); /* tools.c */
