@@ -181,6 +181,12 @@ the picture goes to the window as a texture of its own and the display list gets
 record reading it in place of the transfers, as the 2D layer's quads do; nothing is sent to the GS
 for it.
 
+The darkening over it (`func_0038B200`: a colour, 0x60 of black, over the picture as sixteen
+32-pixel sprites of the fixed packet at `0x00141850`) is one flat 2D record, and the four corner
+ornaments (`func_00397680`, a HUD texture turned about its centre with a colour a corner) are
+records too: the main menu, its pages and Options draw nothing from the game's packets but the
+frame's own clear and hand-over (`OPENRAC_UI_RESIDUAL=1` lists what is left).
+
 ## The options
 
 The title's Options page (the boot program's screen at `D_001DA168`) is a list widget of two
@@ -193,6 +199,11 @@ shows the port's settings (`openrac_game_option_*`, the in-game menu's entries m
 game's pages) in the same list, four rows at a time scrolling with the cursor as the game's own
 lists scroll; Cross or Right steps the row under the cursor, Left steps it back, Triangle goes
 back to the game's rows. A step is saved to the settings file and applied at once.
+
+Each row has its picture beside the list, the preview widget's animation for the row (the items'
+fourth word at `D_0037F830`: 16:9's 5, Subtitles' 2, Sound's 4, Language's 9), a Widget3D sprite
+drawn as 2D records. The Video row shows the 16:9 row's picture, the one the game gives its
+screen setting, and the Video page keeps it while it is open.
 
 A console forgets the options at power off; the port keeps them in the settings file
 (`game_subtitles`, `game_playback`, and the language as the console's `game_language`, which
@@ -209,10 +220,6 @@ F-key overlay (F3) are the shared ones, and the pad is the shared keyboard and c
 - **The mods' pages** (`openrac_api.ui_main_item`, Going Commando's rac2/host/mod_pages.c) are not
   in rac3's menus yet.
 
-- **The rest of the 2D layer**: the menu's two corner ornaments (Widget3D quads whose PRIM takes
-  UV, which the routine does not send) and the dimming fill behind the menu are still the game's
-  packets; the shaded print (func_0038F458, a colour a corner) is not wrapped (its prototype is not
-  known).
 - **Music**: the menu's sound effects play (the front end's bank, an SBlk version 3 block, which
   the shared bank reader now reads), but the boot front end asks for no music: its stream table
   (the level table LoadLevelToc fills, `0x00160C40 + 0x7A04`) is never loaded and the music channel
