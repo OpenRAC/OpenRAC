@@ -31,7 +31,7 @@
 #define RAC2_ADDR_0x00152C26u 0x00152C26u /* versionmap: between */
 #define RAC2_ADDR_0x00152C64u 0x00152C64u /* versionmap: between */
 #define RAC2_ADDR_0x00152C68u 0x00152C68u /* versionmap: between */
-#define RAC2_ADDR_0x0019B4A8u 0x0019B4A8u /* the release's build (release/data_moves.tsv) */
+#define RAC2_ADDR_0x0019B4A8u 0x0019B4A8u /* the release's build */
 #define RAC2_ADDR_0x001A72DCu 0x001A72DCu /* versionmap: exact */
 #define RAC2_ADDR_0x001A7340u 0x001A7340u /* versionmap: exact */
 #define RAC2_ADDR_0x001A7350u 0x001A7350u /* versionmap: exact */
@@ -105,8 +105,8 @@
 #define RAC2_ADDR_0x001C4FA0u 0x001C4F20u /* the release's build */
 #define RAC2_ADDR_0x001F1F40u 0x001F1EC0u /* the release's build */
 #define RAC2_ADDR_0x001F2840u 0x001F27C0u /* the release's build */
-#define RAC2_ADDR_0x00210D40u 0x00210CF0u /* the release's build (release/data_moves.tsv) */
-#define RAC2_ADDR_0x002119B0u 0x00211960u /* the release's build (release/data_moves.tsv) */
+#define RAC2_ADDR_0x00210D40u 0x00210CF0u /* the release's build */
+#define RAC2_ADDR_0x002119B0u 0x00211960u /* the release's build */
 #define RAC2_ADDR_0x00255330u 0x002552B0u /* the release's build */
 #define RAC2_ADDR_0x00261540u 0x00261520u /* the release's build */
 #define RAC2_ADDR_0x00261590u 0x00261570u /* the release's build */
@@ -120,10 +120,10 @@
 /* Addresses of a level's program. */
 #define RAC2_LADDR_00_0x001B14ACu 0x001B144Cu /* the release's build */
 #define RAC2_LADDR_00_0x001B14B0u 0x001B1450u /* the release's build */
-#define RAC2_LADDR_00_0x001B19C8u 0x001B1948u /* the release's build (release/data_moves.tsv) */
+#define RAC2_LADDR_00_0x001B19C8u 0x001B1948u /* the release's build */
 #define RAC2_LADDR_00_0x001B8E10u 0x001B8D90u /* the release's build */
 #define RAC2_LADDR_00_0x001B8E20u 0x001B8DA0u /* the release's build */
-#define RAC2_LADDR_00_0x001BF140u 0x001BF0C0u /* the release's build (release/data_moves.tsv) */
+#define RAC2_LADDR_00_0x001BF140u 0x001BF0C0u /* the release's build */
 /* Constants of the game's code (RAC2_K): the same instruction's in this release. */
 #define RAC2_K_CAMERA_CURSOR 0x2D8 /* v1.01 0x2A8; func_0033C738 as func_0033D780: 4 instructions */
 #define RAC2_K_HELP_0 0x2C3C /* v1.01 0x2DA6; word 0 of the table at 0x00265270 (v1.01's 0x002652B0) */
