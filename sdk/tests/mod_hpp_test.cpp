@@ -2094,6 +2094,13 @@ int main() {
             mod.moby_copy(30, 0) == -1);
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
+    // Interface 1.26: copies that wake with their squad; a port of 1.25 has copies but not them.
+    {
+      CHECK(mod.has_squad_copies());
+      api.api_minor = 25;
+      CHECK(mod.has_moby_copy() && !mod.has_squad_copies());
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
     check_refused_loads(api, handle);
     check_reload(api, handle);
 

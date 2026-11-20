@@ -78,11 +78,13 @@ extern "C" {
  * included (hook_entry), 1.22 render-only reward models, guest text,
  * sprite tint and pickup presentations, 1.23 a render-only material for one
  * moby (moby_material: a tint, or platinum), 1.24 obsidian, a third
- * material for moby_material, and 1.25 energy, a fourth, which recolours the
+ * material for moby_material, 1.25 energy, a fourth, which recolours the
  * effects a moby draws, and copies of a level's placed enemies
- * (moby_copy_check, moby_copy).
+ * (moby_copy_check, moby_copy), and 1.26 copies that wake and fight with
+ * their squad (the table is unchanged: a 1.25 port's copies of a squad's
+ * enemies never wake, so a mod asks for 1.26 before it makes them).
  */
-#define OPENRAC_MOD_API_MINOR 25
+#define OPENRAC_MOD_API_MINOR 26
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -2381,8 +2383,11 @@ typedef struct openrac_api {
      * original's bolts and experience and counts toward the kill streak as its original's would,
      * through the game's own path (the bolt hook points see it), while the level's record of the
      * original (killed, and how often) stays as it was. The pool keeps room for what the level
-     * spawns. Returns the copy's slot, or OPENRAC_HOOK_UNKNOWN (not allowed, no clear spot, no
-     * room). */
+     * spawns. Since 1.26 the copy is in the moby cells and on its squad's group list, so it wakes,
+     * is alerted and is counted with its squad (a 1.25 port's copies of a squad's enemies never
+     * woke), and it dies once; a moby whose pvars hold another moby (a part of its own) is not
+     * copied. Returns the copy's slot, or OPENRAC_HOOK_UNKNOWN (not allowed, no clear spot, no
+     * room, a part of its own). */
     int (*moby_copy)(openrac_mod* mod, int slot, int index);
 } openrac_api;
 

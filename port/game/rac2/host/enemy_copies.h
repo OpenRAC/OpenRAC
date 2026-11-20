@@ -63,6 +63,12 @@ int rac2_copy_detail(const rac2_moby_table* table, gaddr moby);
  * it: its address, or 0 (not one that may be copied, no clear spot, no room in the pool). */
 gaddr rac2_copy_make(const rac2_moby_table* table, gaddr moby, int index);
 
+/* The `i`-th copy of this load (0 past the last), alive or not, and its original in *orig. */
+gaddr rac2_copy_at(int i, gaddr* orig);
+
+/* Set by OPENRAC_PLAY_TRACE's copywatch: each SetDeathBits is printed (PTRACE death lines). */
+extern int rac2_copy_trace;
+
 /* Whether the moby at `moby` is a live copy (rac2_copy_make's) of this load. */
 int rac2_copy_is(gaddr moby);
 

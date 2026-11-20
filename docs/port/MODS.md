@@ -779,6 +779,12 @@ the C++ layer's `moby_copy_check()`, `moby_copy()`, `has_moby_copy()`), after `m
 Commando's (`port/game/rac2/host/enemy_copies.c`), which also makes a mod's moby with `moby_spawn`
 (1.9) from this release on.
 
+1.26 (SDK 1.26.0) copies that wake: the table is unchanged, but a copy is now put in the moby cells
+and on its squad's group list, so it wakes, is alerted and is counted with its squad (a 1.25 port's
+copies of a squad's enemies never woke, were never drawn and could not be hit), it dies once, and a
+moby whose pvars hold another moby (a part of its own) is not copied. A mod that makes copies asks
+for 1.26 (the C++ layer's `has_squad_copies()`).
+
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
 does. The port keeps every hook point it has had, with its

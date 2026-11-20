@@ -5,8 +5,9 @@
  * group, one the level names or that names another, one with a script slot; a spawner, a boss and
  * Tabora's crystal creatures of the port's table; a moby of another kind; one with no reward), the
  * copies (their spot on the floor, in the open and apart, what they keep of their slot and take of
- * their original, their pvars and the pointers into them), the pool's reserve, a stale file, a new
- * load, and a copy's death leaving the original's record as it was. */
+ * their original, their pvars and the pointers into them, the moby cells and their squad's list),
+ * the pool's reserve, a stale file, a new load, and a copy's death, once, leaving the original's
+ * record as it was. */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -187,6 +188,14 @@ static void make_level(void) {
     put16(FILE_AT + 0x201Au, 0x8004u);
     put16(FILE_AT + 0x201Cu, 0x0000u);
     put16(FILE_AT + 0x201Eu, 0x8009u);
+    /* The groups as the load lays them out: lists of pool indices, the squad's group 1. */
+    put32(0x001B1B78u, 2);
+    put32(0x001EE5A0u + 4u, 0x00880000u);
+    put16(0x00880000u, 0x0000u);
+    put16(0x00880002u, 0x8009u);
+    for (uint32_t i = 0; i < PLACED; ++i) {
+        GREF(uint8_t, BASE + 0x100u * i + 0x21u) = i == 0 || i == 9 ? 1u : 0xFFu;
+    }
     /* Fields naming a moby: the camera's names moby 2, block 6 names moby 4, block 0's names none. */
     const uint32_t refs[] = {CAMERA_BLOB, 0x8, 6, 0x4, 0, 0xC, 0xFFFFFFFFu, 0};
     for (unsigned i = 0; i < 8; ++i) {
@@ -250,6 +259,12 @@ int func_002761F8(gaddr from, gaddr to, int mask, gaddr ignore, gaddr out) {
 
 static int deaths;
 static int gameplay_loads;
+static gaddr celled;
+
+/* MobyUpdateCell: the moby put in the cells at its place. */
+void func_002A0F48(gaddr m) {
+    celled = m;
+}
 
 /* LoadLevelData: the level laid out (make_level did), the heap's cursor returned. */
 gaddr func_L00_00300618__game(int reload) {
@@ -362,6 +377,16 @@ static void copies(void) {
         CHECK(pv == SLOT_PVARS_AT + 0x80u * (uint32_t)k);
         CHECK(memcmp(G(pv), G(blob_at(0)), 0x40u) == 0);
         CHECK(rac2_copy_is(c));
+        CHECK(celled == c); /* in the moby cells */
+        /* On its squad's list, after the members and the copies before it. */
+        const gaddr list = GREF(gaddr, 0x001EE5A0u + 4u);
+        CHECK(list != 0x00880000u);
+        CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x0009u);
+        for (int j = 0; j <= k; ++j) {
+            const uint16_t want =
+                (uint16_t)((made_copies[j] - BASE) / 0x100u) | (j == k ? 0x8000u : 0u);
+            CHECK(GREF(uint16_t, list + 4u + 2u * (uint32_t)j) == want);
+        }
     }
     CHECK(rac2_copy_count() == 3);
     CHECK(!rac2_copy_is(orig));
@@ -398,6 +423,12 @@ static void no_spot(void) {
         putf(m + 0x18u, 1.0f);
     }
     CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
+    /* Pvars that hold another moby (a part it made of its own): no copy; itself or none: one. */
+    make_level();
+    put32(blob_at(0) + 0x20u, placed(4));
+    CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
+    put32(blob_at(0) + 0x20u, placed(0));
+    CHECK(rac2_copy_make(&table, placed(0), 0) != 0);
 }
 
 static void reserve(void) {
@@ -465,6 +496,9 @@ static void death(void) {
     GREF(uint8_t, nibble) = 0x31u;
     /* A copy's death: the game's own (its drop, its count), its marks on the save id put back. */
     deaths = 0;
+    func_002A6C58(copy, 0, 0);
+    CHECK(deaths == 1);
+    /* Its death again (a class that runs it twice): nothing more. */
     func_002A6C58(copy, 0, 0);
     CHECK(deaths == 1);
     CHECK(
