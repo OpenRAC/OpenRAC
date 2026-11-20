@@ -223,7 +223,9 @@ void swapped(std::chrono::steady_clock::time_point started) {
     // sleep (never a spin), so the game keeps its speed and the rest of the system its frames.
     {
         static steady_clock::time_point last_background;
-        if (!g->window->focused() && pacing.period.count() > 0.0) {
+        // OPENRAC_FOCUSED_PACING: not for a hidden run measuring the frame rate a player gets.
+        static const bool focused_pacing = env::flag(env::Var::FocusedPacing);
+        if (!focused_pacing && !g->window->focused() && pacing.period.count() > 0.0) {
             const auto due = last_background + duration_cast<steady_clock::duration>(pacing.period);
             if (due > steady_clock::now()) {
                 std::this_thread::sleep_until(due);
@@ -694,8 +696,10 @@ std::chrono::steady_clock::duration take_shot_time() {
 
 bool wants_between() {
     // A skipped capture keeps the last complete picture for pause, but cannot interpolate a new tick.
+    // Without a camera, only for a game whose menus are 2D alone (profile.h): there is nothing to
+    // move between the ticks, and the frames are the tick's picture shown at the player's rate.
     return interpolating() && g->kept->frame + 1 == g->index && g->kept->has_state
-           && g->kept->has_camera;
+           && (g->kept->has_camera || g->profile->frames_between_without_camera());
 }
 
 int between(std::chrono::steady_clock::time_point next_tick) {
