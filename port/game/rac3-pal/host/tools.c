@@ -178,9 +178,20 @@ static const openrac_game_tools tools = {
     .state_json = state_json,
 };
 
+int rac3_start_level(int level); /* program.c */
+
+/* The developer menu's levels (debug_menu.cpp), from the front end or from a level. */
+static void front_end_start_level(int level) {
+    if (level >= 0 && level < RAC3_LEVELS && level_names[level] != NULL) {
+        rac3_start_level(level);
+    }
+}
+
 static const openrac_front_end front_end = {
     .levels = RAC3_LEVELS,
     .level_names = level_names,
+    .start_level = front_end_start_level,
+    .start_level_anywhere = 1,
     /* The front end's mode (0 menus, 1 movie). The window reads 6 here as Going Commando's flight
      * between planets: this game's boot program has no mode 6 (its switch's default). */
     .game_mode = FRONT_END_MODE,
