@@ -155,6 +155,10 @@ class Translator:
     # their registers (lui 0x1000), which no DMA controller answers: their word stores go through
     # openrac_ee_sw_dma, which does the transfer (openrac/ee_ops.h).
     dma_stores = False
+    # asm.wide_register_calls in hostgen.json: a call through a code address hands on the upper
+    # halves of $a0-$a3 as well (openrac_guest_hi_args), and a function's entry takes them in, so a
+    # 128-bit argument survives the call (Up Your Arsenal's func_L01_003AB448, two vectors by value).
+    wide_register_calls = False
     # asm.fit_declarations in hostgen.json: of the declarations of a function that has no C, the one
     # its code agrees with, not the longest (fitting_declaration).
     fit_declarations = False
@@ -270,6 +274,7 @@ class Translator:
         sub.forward_unprototyped = self.forward_unprototyped
         sub.in_place = self.in_place
         sub.dma_stores = self.dma_stores
+        sub.wide_register_calls = self.wide_register_calls
         sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
         sub.input_idioms = self.input_idioms
@@ -1022,6 +1027,11 @@ class Translator:
         else:
             body = f"{{ float fr_; r2 = {S32(f'(int)openrac_guest_call_regs({regs}, 0)')}; }}"
         thunked = ["OPENRAC_ASM_CALL();", "OPENRAC_VU0_OUT();", body, "OPENRAC_VU0_IN();"]
+        if self.wide_register_calls:
+            his = " ".join(f"openrac_guest_hi_args[{k}] = {self.H(r)};" for k, r in enumerate(ARG_REGS[:4]))
+            before = f"{his} openrac_guest_hi_pending = 1;"
+            after = "openrac_guest_hi_pending = 0;"
+            return [before, "#if OPENRAC_REGS_THUNKS", *thunked, "#else", *cast, "#endif", after]
         return ["#if OPENRAC_REGS_THUNKS", *thunked, "#else", *cast, "#endif"]
 
     def _float_writes(self) -> set:
@@ -1585,6 +1595,13 @@ class Translator:
         if self.gp is not None and re.search(r"\br28\b", text):
             setup.append(f"    r28 = {S32(hx(self.gp))};")
         setup.append("    OPENRAC_VU0_IN();")
+        if self.wide_register_calls:
+            # The upper halves a call through a code address handed on (indirect), when this
+            # function reads them before it writes them.
+            taken = [f"h{r} = openrac_guest_hi_args[{k}];" for k, r in enumerate(ARG_REGS[:4]) if r in highs]
+            if taken:
+                setup.append(f"    if (openrac_guest_hi_pending) {{ {' '.join(taken)} }}")
+            setup.append("    openrac_guest_hi_pending = 0;")
         ni = nf = 0
         stacked: list[str] = []
         for k, t in enumerate(sig.params):
@@ -1858,6 +1875,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.forward_unprototyped = bool(a.get("forward_unprototyped"))
     tr.in_place = frozenset(a.get("in_place", []))
     tr.dma_stores = bool(a.get("dma_stores"))
+    tr.wide_register_calls = bool(a.get("wide_register_calls"))
     tr.fit_declarations = bool(a.get("fit_declarations"))
     tr.register_jumps = bool(a.get("register_jumps"))
     tr.input_idioms = bool(a.get("input_idioms"))

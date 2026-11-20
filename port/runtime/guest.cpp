@@ -1917,6 +1917,8 @@ gaddr openrac_relocate_level_data(int from, gaddr address) {
 }
 
 gaddr openrac_guest_last_entry = 0;
+uint64_t openrac_guest_hi_args[4] = {0, 0, 0, 0};
+int openrac_guest_hi_pending = 0;
 openrac_host_fn openrac_guest_last_fn = nullptr;
 
 // Which lui each register's upper half came from, as a function's code runs straight through: a

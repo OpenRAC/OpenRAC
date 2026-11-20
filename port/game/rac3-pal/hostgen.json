@@ -164,7 +164,8 @@
       "func_00391128": "int (int, int, float)",
       "func_00391150": "int (int, int, int, float)",
       "func_003F03F0": "int (int, int)",
-      "func_0038F458": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
+      "func_0038F458": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+      "func_L01_003AB448": "void (unsigned int, unsigned long long, unsigned long long)"
     },
     "discover_entries": true,
     "dirs": [],
@@ -191,7 +192,8 @@
       "0xC80": "rac3_vu0_rotation_rows",
       "0xDA0": "rac3_vu0_cosine",
       "0xDB0": "rac3_vu0_sine"
-    }
+    },
+    "wide_register_calls": true
   },
   "from_assembly": [
     "func_0011FD40",

@@ -113,6 +113,8 @@ typedef uint32_t gaddr;
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = 0x02000000u;
 gaddr openrac_guest_sp, openrac_relocate_low, openrac_relocate_high, openrac_guest_last_entry;
+unsigned long long openrac_guest_hi_args[4];
+int openrac_guest_hi_pending;
 void* openrac_guest_last_fn;
 
 #define LOG_MAX 4096
