@@ -167,6 +167,8 @@
       "func_003F03F0": "int (int, int)",
       "func_0038F458": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_L01_003AB448": "void (unsigned int, unsigned long long, unsigned long long)",
+      "func_L01_004C5B90": "void (int, unsigned long long)",
+      "func_003A9440__frontbin": "void (int, unsigned long long)",
       "func_L01_0043B548": "unsigned int (unsigned int, int)",
       "func_L01_0043B568": "unsigned int (int, int, int)",
       "func_L01_0040E9C0": "float (float, float)",
@@ -968,6 +970,11 @@
   ],
   "headers": "headers",
   "unpassed_registers": true,
+  "returns_64": [
+    "func_00389598__frontbin",
+    "func_00396A38__frontbin",
+    "func_003A9830__frontbin"
+  ],
   "executable_extents": {
     "sources": [
       "src/boot_elf"

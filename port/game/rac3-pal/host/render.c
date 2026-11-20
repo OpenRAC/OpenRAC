@@ -80,8 +80,8 @@ enum {
 /* A marker in the display list: the A+D write of `value` to the chip's NOP register (the packet
  * 0x004C5B90, Going Commando's func_002FC560, appends: a DMA tag of two quadwords, DIRECT, a GIF
  * tag of one A+D register). The chip ignores it; the window reads its top 16 bits. Written here
- * rather than through the translated routine, whose second argument is a word: the value is a
- * doubleword. */
+ * for any list pointer, the boot program's too; the translated routine takes the doubleword whole
+ * (hostgen.json asm signature void (int, unsigned long long)). */
 static void put_marker_at(gaddr pointer, uint64_t value) {
     const gaddr at = GREF(gaddr, pointer);
     if (at == 0 || at >= 0x02000000u - 0x30u) {

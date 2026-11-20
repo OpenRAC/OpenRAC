@@ -188,6 +188,8 @@
       "func_003F0290": "int (int, int)",
       "func_0038F3A0": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_L01_003A9CC0": "void (unsigned int, unsigned long long, unsigned long long)",
+      "func_L01_004C1FE8": "void (int, unsigned long long)",
+      "func_003A3EF0__frontbin": "void (int, unsigned long long)",
       "func_L01_00438468": "unsigned int (unsigned int, int)",
       "func_L01_00438488": "unsigned int (int, int, int)",
       "func_L01_0040C490": "float (float, float)",
@@ -981,6 +983,11 @@
   ],
   "headers": "../rac3-pal/headers",
   "unpassed_registers": true,
+  "returns_64": [
+    "func_00384EC0__frontbin",
+    "func_003921D8__frontbin",
+    "func_003A42E0__frontbin"
+  ],
   "executable_extents": {
     "sources": [
       "src/boot_elf"
