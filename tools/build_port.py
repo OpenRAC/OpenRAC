@@ -125,6 +125,13 @@ EMBREE_X86_ISAS = {
     "EMBREE_ISA_AVX": "ON",
     "EMBREE_ISA_AVX512": "OFF",
 }
+# Windows: Embree's compiler settings drop the C runtime flags, so it links the static runtime
+# (/MT) and the baker (/MD) fails at link time. CMake's runtime setting (policy CMP0091) picks
+# the DLL runtime, as the port uses.
+EMBREE_WINDOWS = {
+    "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
+    "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL",
+}
 EMBREE_DIR = PORT / "build" / "embree"
 # Tries at Embree's download, and the wait before the second (doubled each time): GitHub's archives
 # sometimes answer a request with a 5xx.
@@ -185,10 +192,11 @@ def is_x86(machine: str | None = None) -> bool:
     return (machine or platform.machine()).lower() in ("x86_64", "amd64", "x64", "i386", "i686")
 
 
-def embree_options(machine: str | None = None) -> dict[str, str]:
+def embree_options(machine: str | None = None, windows: bool = WINDOWS) -> dict[str, str]:
     """The options Embree is configured with on MACHINE (platform.machine(), this one's unless
-    given): EMBREE_OPTIONS, and EMBREE_X86_ISAS on x86-64 only."""
-    return {**EMBREE_OPTIONS, **(EMBREE_X86_ISAS if is_x86(machine) else {})}
+    given): EMBREE_OPTIONS, EMBREE_X86_ISAS on x86-64 only and EMBREE_WINDOWS for Windows."""
+    return {**EMBREE_OPTIONS, **(EMBREE_X86_ISAS if is_x86(machine) else {}),
+            **(EMBREE_WINDOWS if windows else {})}
 
 
 def ships_baker(system: str | None = None, machine: str | None = None) -> bool:
