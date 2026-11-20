@@ -109,6 +109,10 @@ EMBREE_OPTIONS = {
     # CXXFLAGS: the launcher's Linux builds set -stdlib=libc++ there, and an Embree built against
     # libstdc++ does not link into their baker. Embree's MSVC settings do not read this option.
     "EMBREE_IGNORE_CMAKE_CXX_FLAGS": "OFF",
+    # Embree asks for C++11 (-std=c++11), but Visual Studio's C++ library (MSVC 14.52) needs C++14.
+    # CMake's own flag comes after Embree's, so it wins.
+    "CMAKE_CXX_STANDARD": "14",
+    "CMAKE_CXX_EXTENSIONS": "OFF",
 }
 # x86-64: SSE2 for any machine, AVX and AVX2 for most; Embree picks one at run time. AVX stays on
 # beside AVX2: Embree compiles the 8-wide BVH and its primitives (bvh/bvh.cpp, BVHN<8>, CurveNi<8>)
