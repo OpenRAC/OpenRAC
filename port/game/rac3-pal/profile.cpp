@@ -228,6 +228,42 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
     return live;
 }
 
+// A class's bangles, as Going Commando's (game/rac2/profile.cpp): parts of its mesh past its LOD
+// lists, which a moby draws by the bits of its bangle word (+0x7C, an s16, which MobyProc copies to
+// its job: boot 0x003CBEDC): bit 15 clear, the class's mesh and the bangles of the bits set; set,
+// those bangles alone (bangle 0 for none). The export has each bangle as a class of its own
+// (editor/moby_class.py, BANGLE_CLASSES, format 9).
+constexpr std::uint32_t kMobyBangles = 0x7C;
+constexpr int kBangleClasses = 100000;
+constexpr int kBangles = 15;
+
+// Adds `live` to `mobys` once for each part the game draws of it: its class's mesh, its bangles.
+void add_drawn_parts(
+    std::span<const std::uint8_t> ram,
+    const host::LiveMoby& live,
+    std::vector<host::LiveMoby>& mobys
+) {
+    const auto word = at<std::int16_t>(ram, live.address + kMobyBangles);
+    if (word == 0 || live.class_id <= 0 || live.model_class >= 0) {
+        mobys.push_back(live);
+        return;
+    }
+    unsigned mask = static_cast<std::uint16_t>(word) & 0x7FFFu;
+    if (word < 0) {
+        mask = std::max(mask, 1u);
+    } else {
+        mobys.push_back(live);
+    }
+    for (int bangle = 0; bangle < kBangles; ++bangle) {
+        if ((mask & (1u << bangle)) != 0) {
+            host::LiveMoby part = live;
+            part.model_class = kBangleClasses + live.class_id * 16 + bangle;
+            part.model_only = true;
+            mobys.push_back(part);
+        }
+    }
+}
+
 float colour_byte(std::span<const std::uint8_t> ram, std::uint32_t address) {
     return static_cast<float>(at<std::uint32_t>(ram, address) & 0xFF) / 255.0f;
 }
@@ -298,7 +334,7 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const Address
             continue;
         }
         if (const auto live = read_live_moby(ram, m)) {
-            s.mobys.push_back(*live);
+            add_drawn_parts(ram, *live, s.mobys);
         }
     }
     return s;
@@ -317,6 +353,15 @@ public:
         std::span<const std::uint8_t> ram, std::uint32_t moby
     ) const override {
         return read_live_moby(ram, moby);
+    }
+
+    // With its bangles (add_drawn_parts).
+    void add_moby(
+        std::span<const std::uint8_t> ram, std::uint32_t moby, std::vector<host::LiveMoby>& mobys
+    ) const override {
+        if (const auto live = read_live_moby(ram, moby)) {
+            add_drawn_parts(ram, *live, mobys);
+        }
     }
 
     // MobyProc leaves a moby past its draw distance (+0x32, at most the program's cap) undrawn and

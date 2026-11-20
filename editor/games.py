@@ -226,7 +226,7 @@ RAC2 = Format("rac2", "Ratchet & Clank: Going Commando", ties=0x34, shrubs=0x40,
               **LATER)
 RAC3 = Format("rac3", "Ratchet & Clank: Up Your Arsenal", ties=0x34, shrubs=0x40, mobys=0x4c, moby=UYA_MOBY,
               tie_header=UYA_TIE, moby_sound_remap=True, maps_in_textures=True, sky_short_shells=True,
-              world_lighting=True,
+              world_lighting=True, moby_glow_tail=True, moby_lights=True, moby_bangles=True,
               level_names=LEVEL_NAMES["rac3"], **LATER)
 RAC4 = Format("rac4", "Ratchet: Deadlocked", ties=0x08, shrubs=0x14, mobys=0x30, moby=DL_MOBY,
               tie_header=UYA_DL_TIE, ratchet_sequences=False, swizzled_textures=True, skeleton_3x4=True,

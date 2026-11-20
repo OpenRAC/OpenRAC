@@ -4651,7 +4651,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac3/ntsc/levels-8.json",
+        "artifact": "assets/port/rac3/ntsc/levels-9.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
@@ -4688,7 +4688,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/levels-8.json",
+            "path": "assets/port/rac3/ntsc/levels-9.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -4719,7 +4719,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/levels-8.json",
+            "path": "assets/port/rac3/ntsc/levels-9.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -4772,7 +4772,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/levels-8.json",
+            "path": "assets/port/rac3/ntsc/levels-9.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -4965,7 +4965,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac3/pal/levels-8.json",
+        "artifact": "assets/port/rac3/pal/levels-9.json",
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
       },
@@ -5002,7 +5002,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/pal/levels-8.json",
+            "path": "assets/port/rac3/pal/levels-9.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -5033,7 +5033,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/pal/levels-8.json",
+            "path": "assets/port/rac3/pal/levels-9.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -5086,7 +5086,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/pal/levels-8.json",
+            "path": "assets/port/rac3/pal/levels-9.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -5178,7 +5178,7 @@
             "from": "your disc set up (Set up from your disc)"
           },
           {
-            "path": "assets/port/rac3/pal/levels-8.json",
+            "path": "assets/port/rac3/pal/levels-9.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
