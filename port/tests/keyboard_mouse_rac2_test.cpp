@@ -17,6 +17,8 @@
 
 #include "game/common/key_prompts.h"
 #include "game/common/keyboard_mouse/kbm.hpp"
+#include "game/rac2/host/gui_texts.h"
+#include "game/rac2/host/ui_quads.h"
 #include "game/rac2/keyboard_mouse/keyboard_mouse.h"
 #include "game/rac2/keyboard_mouse/places.hpp"
 #include "key_prompts_fonts.h"
@@ -38,6 +40,31 @@ bool keyboard_mouse_in_use() {
     return g_keyboard_mouse_in_use;
 }
 }  // namespace openrac::frontend
+
+// What the game drew (rac2/host/font.c, ui2d.c, map_markers.c): nothing in these checks.
+extern "C" {
+int openrac_rac2_take_gui_texts(openrac_rac2_gui_text*) {
+    return 0;
+}
+
+int openrac_rac2_take_prompt_spots(openrac_rac2_prompt_spot*) {
+    return 0;
+}
+
+int openrac_rac2_take_ui_quads(openrac_rac2_ui_quad*) {
+    return 0;
+}
+
+void openrac_rac2_ui_quads_tick(void) {}
+
+int openrac_rac2_take_map(float*) {
+    return 0;
+}
+
+void openrac_rac2_map_move(float, float, float) {}
+
+void openrac_rac2_screen_size(float*, float*) {}
+}
 
 // Where the game is, as touch.c would say.
 const char* g_context = "foot";

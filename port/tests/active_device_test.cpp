@@ -27,6 +27,8 @@ void test_keys() {
     CHECK(!plays_with_key(58));   // F1
     CHECK(!plays_with_key(69));   // F12
     CHECK(!plays_with_key(227));  // Left Windows / Cmd
+    CHECK(!plays_with_key(226));  // Left Alt (Alt+Tab)
+    CHECK(!plays_with_key(230));  // Right Alt
     CHECK(!plays_with_key(128));  // Volume Up
     CHECK(!plays_with_key(270));  // AC Back (a phone's Back)
 }

@@ -15,8 +15,9 @@ as you use them, and back as soon as you press the pad. Nothing to set.
   the wheel, or a real push of the mouse (6 pixels in a quarter second).
 - **Switches back:** a pad button, a stick or trigger past half way, or a
   finger on a touch screen.
-- **Never switches:** F1 to F12, system keys, a repeating key, and the motion
-  SDL sends when it catches or frees the cursor.
+- **Never switches:** F1 to F12, Alt (so Alt+Tab from the pad stays on the
+  pad), system keys, a repeating key, and the motion SDL sends when it catches
+  or frees the cursor.
 
 On the gamepad the game reads the pad exactly as before, so its logic is the
 original's. On the keyboard and mouse the cursor is caught in play and free in

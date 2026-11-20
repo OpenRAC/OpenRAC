@@ -268,7 +268,8 @@ float s_map_drag_y = 0.0f;
 
 // The mouse on the map: a press on it drags it (the map follows the mouse), the wheel over it
 // zooms it, as the sticks do (Track/Zoom). Returns whether it took the click.
-bool map_mouse(const Tick& t, bool click) {
+// Takes where the map was drawn since the last tick (every tick, so an old one never counts).
+void take_map() {
     std::array<float, 4> box{};
     if (openrac_rac2_take_map(box.data()) != 0) {
         s_map_box = box;
@@ -276,6 +277,9 @@ bool map_mouse(const Tick& t, bool click) {
     } else if (s_map_age <= kTextsKeptTicks) {
         ++s_map_age;
     }
+}
+
+bool map_mouse(const Tick& t, bool click) {
     const float x = t.in->pointer_x;
     const float y = t.in->pointer_y;
     s_map_over = s_map_age <= kTextsKeptTicks && x >= s_map_box[0] && x < s_map_box[2]
@@ -344,8 +348,12 @@ bool menu_mouse(const Tick& t, bool click) {
         return true;
     }
 
-    const float px = t.in->pointer_x * kbm::kScreenWidth;
-    const float py = t.in->pointer_y * kbm::kScreenHeight;
+    // The game's screen (512 x 416 on the NTSC disc; the size it keeps, should a disc differ).
+    float sw = kbm::kScreenWidth;
+    float sh = kbm::kScreenHeight;
+    openrac_rac2_screen_size(&sw, &sh);
+    const float px = t.in->pointer_x * sw;
+    const float py = t.in->pointer_y * sh;
     const kbm::TextNav nav = nav_at(px, py);
     // Moved: the pointer's place changed (the motion delta is only kept while captured).
     const bool moved = std::abs(px - s_last_px) >= 0.5f || std::abs(py - s_last_py) >= 0.5f;
@@ -505,6 +513,7 @@ void step(const openrac_input* in, bool pad_look) {
     openrac_rac2_ui_quads_tick();
     take_texts();
     take_spots();
+    take_map();
 
     // Out of play the mouse points at the menus' items; a click it takes is not the game's Cross
     // while its button stays down.

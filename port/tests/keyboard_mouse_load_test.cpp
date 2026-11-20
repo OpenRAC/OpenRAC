@@ -28,6 +28,7 @@
 #include "game/common/frontend/mouse_turn.h"
 #include "game/common/key_prompts.h"
 #include "game/common/keyboard_mouse/kbm.hpp"
+#include "game/rac1/host/prompt_spots.h"
 #include "key_prompts_fonts.h"
 #include "keyboard_mouse.h"
 #include "openrac/openrac_mod.h"
@@ -45,6 +46,11 @@ openrac::frontend::MouseTurnFn g_mouse_turn = nullptr;
 
 // The device in use (frontend/active_input.h): the gamepad unless a check says otherwise.
 bool g_keyboard_mouse_in_use = false;
+
+// The button icons the game drew (rac1/host/ui2d.c): none in these checks.
+extern "C" int openrac_rac1_take_prompt_spots(openrac_rac1_prompt_spot*) {
+    return 0;
+}
 
 namespace openrac::frontend {
 void set_mouse_turn(MouseTurnFn fn) {
@@ -937,8 +943,9 @@ void run() {
         }
 
         CHECK(crossed);
-        // The map focused (its handler DrawMapScreen): Enter and a click travel (Circle), Space
-        // turns the page (Cross), Escape goes back; E is Circle on any page.
+        // The map focused (its handler DrawMapScreen): Enter travels (Circle), Space turns the
+        // page (Cross), Escape goes back, a click drags the map (no button); E is Circle on any
+        // page.
         at<std::uint32_t>(w1 + 4u) = kMapCode;
         tick();
         g_input.captured = 0;
@@ -958,7 +965,7 @@ void run() {
         g_input.pointer_inside = 1;
         g_input.mouse_held = g_input.mouse_pressed = OPENRAC_MOUSE_LEFT;
         r = read_pad();
-        CHECK(r.held(kbm::kCircle));
+        CHECK(!r.held(kbm::kCircle) && !r.held(kbm::kCross));
         tick();
         r = read_pad();
         tick();

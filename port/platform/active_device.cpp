@@ -18,9 +18,10 @@ bool plays_with_key(int scancode) {
     if ((scancode >= 73 && scancode <= 82) || (scancode >= 84 && scancode <= 99)) {
         return true;
     }
-    // The modifiers: Ctrl, Shift, Alt on both sides (224 to 226, 228 to 230); not the system key
-    // (227, 231).
-    return (scancode >= 224 && scancode <= 226) || (scancode >= 228 && scancode <= 230);
+    // The modifiers: Ctrl and Shift on both sides (224, 225, 228, 229); not Alt (226, 230), held
+    // for the system's window keys (Alt+Tab from a game on the gamepad), nor the system key (227,
+    // 231).
+    return scancode == 224 || scancode == 225 || scancode == 228 || scancode == 229;
 }
 
 void DeviceSwitch::use(ActiveDevice device) {

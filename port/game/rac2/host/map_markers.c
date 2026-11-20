@@ -178,6 +178,15 @@ static void note_map(int set_clip) {
     g_map_drawn = 1;
 }
 
+void openrac_rac2_screen_size(float* width, float* height) {
+    const int32_t w = GREF(int32_t, SCREEN);
+    const int32_t h = GREF(int32_t, SCREEN + 4u);
+    if (w > 0 && h > 0 && w <= 1024 && h <= 1024) {
+        *width = (float)w;
+        *height = (float)h;
+    }
+}
+
 int openrac_rac2_take_map(float box[4]) {
     const int drawn = g_map_drawn;
     for (int i = 0; i < 4; ++i) {

@@ -49,6 +49,9 @@ int openrac_rac2_take_ui_quads(openrac_rac2_ui_quad* out);
  * (a frame with no set-up), what was drawn since stands for the last whole frame. */
 void openrac_rac2_ui_quads_tick(void);
 
+/* The game's screen in pixels (g_screen_extent), left as they are when it holds none. */
+void openrac_rac2_screen_size(float* width, float* height);
+
 /* The map shown since the last call (map_markers.c), its box in the screen as fractions of it
  * (x0, y0, x1, y1): 1, or 0 for none. */
 int openrac_rac2_take_map(float box[4]);
