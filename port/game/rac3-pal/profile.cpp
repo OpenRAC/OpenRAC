@@ -82,7 +82,7 @@ constexpr std::uint32_t kBackground = 0x25C;
 // program, hostgen's overlay 100, whose globals are the boot program's) and the levels by number.
 struct Release {
     Addresses boot;
-    Addresses levels[54];
+    Addresses levels[56];  // PAL's 1-53, NTSC-U's 1-55
 };
 
 constexpr int kFrontbinOverlay = 100;
@@ -506,14 +506,74 @@ private:
 
 static_assert(kFrontbinOverlay >= static_cast<int>(std::size(kPal.levels)));
 
-// NTSC-U's (SCUS-97353, port/game/rac3-ntsc): the boot program's globals renamed by
-// rac3-decomp's config/us/names.tsv (D_00222420 is NTSC-U's D_002224A0, D_00225900 D_00225980,
-// D_001DA4A0 D_001DA520; the cap 0x2C past moby_end as in every PAL program). Its levels are not
-// read yet: every program reads the boot program's (addresses()).
+// NTSC-U's (SCUS-97353, port/game/rac3-ntsc): the boot program's globals renamed by rac3-decomp's
+// config/us/names.tsv (D_00222420 is NTSC-U's D_002224A0, D_00225900 D_00225980, D_001DA4A0
+// D_001DA520; the cap 0x2C past moby_end as in every PAL program), each level's from the same
+// instruction of the same code as PAL's (tools/hostgen/rac3_level_pairs.py: every value below was
+// formed by the NTSC-U twin of a function forming PAL's, all places agreeing). Levels 54 and 55,
+// NTSC-U's own split-screen maps, are builds of 44 and 45 linked higher, their data where those
+// have it, as PAL's 50-53 are of 40-43.
 // clang-format off
 constexpr Release kUs{
     {0x002224A0, 0x00225980, 0x001DA524, 0x001DA520, 0x001DA550},
-    {},
+    {
+    {},  // 0: no program
+    {0x001E2A60, 0x001E7600, 0x001E00A4, 0x001E00A0, 0x001E00D0},  // 1 Veldin
+    {0x001E1320, 0x001E5EC0, 0x001DEA24, 0x001DEA20, 0x001DEA50},  // 2
+    {0x001E24E0, 0x001E7080, 0x001DFA24, 0x001DFA20, 0x001DFA50},  // 3
+    {0x001E2860, 0x001E7400, 0x001DFE24, 0x001DFE20, 0x001DFE50},  // 4
+    {0x001E2720, 0x001E72C0, 0x001DFC24, 0x001DFC20, 0x001DFC50},  // 5
+    {0x001E16A0, 0x001E6240, 0x001DEDA4, 0x001DEDA0, 0x001DEDD0},  // 6
+    {0x001E1E60, 0x001E6A00, 0x001DF424, 0x001DF420, 0x001DF450},  // 7
+    {0x001E1CE0, 0x001E6880, 0x001DF224, 0x001DF220, 0x001DF250},  // 8
+    {0x001E2BA0, 0x001E7740, 0x001E0124, 0x001E0120, 0x001E0150},  // 9
+    {0x001E1BE0, 0x001E6780, 0x001DF324, 0x001DF320, 0x001DF350},  // 10
+    {0x001E1720, 0x001E62C0, 0x001DEE24, 0x001DEE20, 0x001DEE50},  // 11
+    {0x001E27A0, 0x001E7340, 0x001DFDA4, 0x001DFDA0, 0x001DFDD0},  // 12
+    {0x001E2160, 0x001E6D00, 0x001DF624, 0x001DF620, 0x001DF650},  // 13
+    {0x001E20E0, 0x001E6C80, 0x001DF724, 0x001DF720, 0x001DF750},  // 14
+    {},  // 15: no program
+    {0x001E2B20, 0x001E76C0, 0x001E0164, 0x001E0160, 0x001E0190},  // 16
+    {0x001E1920, 0x001E64C0, 0x001DF0A4, 0x001DF0A0, 0x001DF0D0},  // 17
+    {0x001E2AE0, 0x001E7680, 0x001E0124, 0x001E0120, 0x001E0150},  // 18
+    {0x001E20A0, 0x001E6C40, 0x001DF724, 0x001DF720, 0x001DF750},  // 19
+    {0x001E2E20, 0x001E79C0, 0x001E02A4, 0x001E02A0, 0x001E02D0},  // 20
+    {0x001E1720, 0x001E62C0, 0x001DEE24, 0x001DEE20, 0x001DEE50},  // 21
+    {0x001E2AA0, 0x001E7640, 0x001DFDA4, 0x001DFDA0, 0x001DFDD0},  // 22
+    {0x001E1A60, 0x001E6600, 0x001DF1E4, 0x001DF1E0, 0x001DF210},  // 23
+    {0x001E21A0, 0x001E6D40, 0x001DF524, 0x001DF520, 0x001DF550},  // 24
+    {},  // 25: no program
+    {0x001E2860, 0x001E7400, 0x001DFEA4, 0x001DFEA0, 0x001DFED0},  // 26
+    {0x001E1620, 0x001E61C0, 0x001DED24, 0x001DED20, 0x001DED50},  // 27
+    {0x001E14E0, 0x001E6080, 0x001DECA4, 0x001DECA0, 0x001DECD0},  // 28
+    {0x001E2520, 0x001E70C0, 0x001DFB24, 0x001DFB20, 0x001DFB50},  // 29
+    {0x001E2260, 0x001E6E00, 0x001DF724, 0x001DF720, 0x001DF750},  // 30
+    {0x001E2460, 0x001E7000, 0x001DF824, 0x001DF820, 0x001DF850},  // 31
+    {0x001E2BE0, 0x001E7780, 0x001DFE24, 0x001DFE20, 0x001DFE50},  // 32
+    {0x001E28E0, 0x001E7480, 0x001DFBA4, 0x001DFBA0, 0x001DFBD0},  // 33
+    {0x001E2460, 0x001E7000, 0x001DF824, 0x001DF820, 0x001DF850},  // 34
+    {0x001E25A0, 0x001E7140, 0x001DF924, 0x001DF920, 0x001DF950},  // 35
+    {0x001E27A0, 0x001E7340, 0x001DFB24, 0x001DFB20, 0x001DFB50},  // 36
+    {},  // 37: no program
+    {},  // 38: no program
+    {0x0024DF20, 0x0025D7C0, 0x0024C064, 0x0024C060, 0},  // 39 multiplayer menu
+    {0x0024A0E0, 0x00259A80, 0x002485E4, 0x002485E0, 0},  // 40
+    {0x0024A220, 0x00259BC0, 0x002487E4, 0x002487E0, 0},  // 41
+    {0x0024A120, 0x00259AC0, 0x002486E4, 0x002486E0, 0},  // 42
+    {0x00249FA0, 0x00259940, 0x00248564, 0x00248560, 0},  // 43
+    {0x00249FE0, 0x00259980, 0x002485E4, 0x002485E0, 0},  // 44
+    {0x00249FA0, 0x00259940, 0x00248564, 0x00248560, 0},  // 45
+    {0x00249B60, 0x00259500, 0x00248164, 0x00248160, 0},  // 46
+    {0x00249CA0, 0x00259640, 0x00248264, 0x00248260, 0},  // 47
+    {0x00249CE0, 0x00259680, 0x00248264, 0x00248260, 0},  // 48
+    {0x00249C60, 0x00259600, 0x00248264, 0x00248260, 0},  // 49
+    {0x0024A0E0, 0x00259A80, 0x002485E4, 0x002485E0, 0},  // 50
+    {0x0024A220, 0x00259BC0, 0x002487E4, 0x002487E0, 0},  // 51
+    {0x0024A120, 0x00259AC0, 0x002486E4, 0x002486E0, 0},  // 52
+    {0x00249FA0, 0x00259940, 0x00248564, 0x00248560, 0},  // 53
+    {0x00249FE0, 0x00259980, 0x002485E4, 0x002485E0, 0},  // 54 (44 linked 0x11000 higher, its data where 44 has it, as 50-53 are 40-43)
+    {0x00249FA0, 0x00259940, 0x00248564, 0x00248560, 0},  // 55 (45, as 54)
+    },
 };
 // clang-format on
 

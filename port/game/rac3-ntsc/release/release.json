@@ -144,7 +144,102 @@
     }
   },
   "addresses": {
-    "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence."
+    "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence.",
+    "0x001439F4": {
+      "is": "0x001439F4",
+      "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_004D0E90 (NTSC-U func_L01_004CD1D0) +0x68, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
+    },
+    "0x00143A70": {
+      "is": "0x00143A70",
+      "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_0049FBC8 (NTSC-U func_L01_0049C368) +0x1DC, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
+    }
   },
-  "libraries_left_out": {}
+  "libraries_left_out": {},
+  "level_addresses": {
+    "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
+    "L01:001D6694": {
+      "is": "001D6694",
+      "why": "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree"
+    },
+    "L01:001DBCA4": {
+      "is": "001DBCE4",
+      "why": "between the same code's 0x001DBCA0 and 0x001DBCBC, both moved by +0x40 (NTSC-U 0x001DBCE0, 0x001DBCFC)"
+    },
+    "L01:001DF97C": {
+      "is": "001DF9FC",
+      "why": "the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree"
+    },
+    "L01:001E0050": {
+      "is": "001E00D0",
+      "why": "between the same code's 0x001E002C and 0x001E0054, both moved by +0x80 (NTSC-U 0x001E00AC, 0x001E00D4)"
+    },
+    "L01:001E0278": {
+      "is": "001E02F8",
+      "why": "the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0x1C, 5 of 5 places agree"
+    },
+    "L01:001E0280": {
+      "is": "001E0300",
+      "why": "the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0xC, 8 of 8 places agree"
+    },
+    "L01:001E0E10": {
+      "is": "001E0E90",
+      "why": "between the same code's 0x001E0DF0 and 0x001E0E90, both moved by +0x80 (NTSC-U 0x001E0E70, 0x001E0F10)"
+    },
+    "L01:001E1068": {
+      "is": "001E10E8",
+      "why": "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 96 of 96 places agree"
+    },
+    "L01:001E29E0": {
+      "is": "001E2A60",
+      "why": "the same instruction of the same code: func_L01_003649E8 (NTSC-U func_L01_00363C60) +0x74, 13 of 13 places agree"
+    },
+    "L01:001E2AA0": {
+      "is": "001E2B20",
+      "why": "the same instruction of the same code: func_L01_003E4428 (NTSC-U func_L01_003E2638) +0x14, 8 of 8 places agree"
+    },
+    "L01:001E2B90": {
+      "is": "001E2C10",
+      "why": "the same instruction of the same code: func_L01_003E7000 (NTSC-U func_L01_003E5198) +0x44, 5 of 5 places agree"
+    },
+    "L01:001E7580": {
+      "is": "001E7600",
+      "why": "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree"
+    },
+    "L01:001E7880": {
+      "is": "001E7900",
+      "why": "the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x88, 1 of 1 places agree"
+    },
+    "L01:001EA840": {
+      "is": "001EA8C0",
+      "why": "between the same code's 0x001EA7C0 and 0x001EA940, both moved by +0x80 (NTSC-U 0x001EA840, 0x001EA9C0)"
+    },
+    "L01:00220A40": {
+      "is": "00220AC0",
+      "why": "between the same code's 0x00220840 and 0x00220E40, both moved by +0x80 (NTSC-U 0x002208C0, 0x00220EC0)"
+    },
+    "L12:001D66E4": {
+      "is": "001D66E4",
+      "why": "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree"
+    },
+    "L19:001D66D4": {
+      "is": "001D66D4",
+      "why": "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 48 of 48 places agree"
+    },
+    "L39:0024CAD0": {
+      "is": "0024CBD0",
+      "why": "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 95 of 95 places agree"
+    },
+    "L39:0024DE20": {
+      "is": "0024DF20",
+      "why": "the same instruction of the same code: func_L39_0067A4E0 (NTSC-U func_L39_00677AE8) +0x18, 1 of 1 places agree"
+    },
+    "L39:0025D6C0": {
+      "is": "0025D7C0",
+      "why": "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree"
+    },
+    "L39:0025F580": {
+      "is": "0025F680",
+      "why": "the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0xE8, 1 of 1 places agree"
+    }
+  }
 }

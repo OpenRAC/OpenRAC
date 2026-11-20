@@ -16,5 +16,9 @@
 #define RAC3_PAL 1
 
 #define RAC3_ADDR(a) (a)
+/* An address of level `level`'s own memory (its .lit, .bss, .data), PAL's in that level: NTSC-U's
+ * comes from the same instruction of the same code (tools/hostgen/rac3_level_pairs.py). Write the
+ * level as a decimal number. */
+#define RAC3_LADDR(level, a) (a)
 
 #endif /* OPENRAC_RAC3_VERSION_H */

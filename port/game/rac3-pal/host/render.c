@@ -25,6 +25,7 @@
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
 /* A global of Veldin's program, in the program loaded now. */
 #define VELDIN(a) OPENRAC_LDATA(1, (gaddr)(a))
@@ -48,10 +49,22 @@ typedef struct Copy {
 } Copy;
 
 /* Veldin's (the single-player levels'): MobyProc's cap is $gp + 0x37A0. */
-static const Copy kVeldin = {1, 0x001E1068u, 0x001E29E0u, 0x001E7580u, 0x001E0050u, 0x001EA840u};
+static const Copy kVeldin = {
+    1,
+    RAC3_LADDR(1, 0x001E1068u),
+    RAC3_LADDR(1, 0x001E29E0u),
+    RAC3_LADDR(1, 0x001E7580u),
+    RAC3_LADDR(1, 0x001E0050u),
+    RAC3_LADDR(1, 0x001EA840u)
+};
 /* The multiplayer menu's (the multiplayer maps'): MobyProc's cap is $gp + 0x3FD0. */
 static const Copy kMultiplayer =
-    {39, 0x0024CAD0u, 0x0024DE20u, 0x0025D6C0u, 0x001E0880u, 0x0025F580u};
+    {39,
+     RAC3_LADDR(39, 0x0024CAD0u),
+     RAC3_LADDR(39, 0x0024DE20u),
+     RAC3_LADDR(39, 0x0025D6C0u),
+     RAC3_LADDR(39, 0x001E0880u),
+     RAC3_LADDR(39, 0x0025F580u)};
 
 static gaddr at_copy(const Copy* c, gaddr address) {
     return OPENRAC_LDATA(c->from, address);
@@ -59,7 +72,7 @@ static gaddr at_copy(const Copy* c, gaddr address) {
 
 /* The sky: its header (+0x06 the shell count, +0x20 the shells) and the matrix the shell being
  * drawn takes (0x004A7E10 builds it from the shell's angles before each 0x004A8158). */
-#define SKY_MATRIX 0x001E0E10u
+#define SKY_MATRIX RAC3_LADDR(1, 0x001E0E10u)
 
 enum {
     NOP_REGISTER = 0x7F
@@ -261,9 +274,9 @@ int func_L01_00440090(int a0, int a1) {
  * Commando's 0x001F1F40): the low half the palette's address << 4, the high half the pixels'
  * address << 4 with the log2 of the side.
  */
-#define PARTICLE_POOL 0x001E0278u
-#define PARTICLE_HIGHEST 0x001E0280u
-#define PARTICLE_TEXTURES 0x00220A40u
+#define PARTICLE_POOL RAC3_LADDR(1, 0x001E0278u)
+#define PARTICLE_HIGHEST RAC3_LADDR(1, 0x001E0280u)
+#define PARTICLE_TEXTURES RAC3_LADDR(1, 0x00220A40u)
 
 int func_L01_00461CB8(void) {
     const gaddr pool = GREF(gaddr, VELDIN(PARTICLE_POOL));
@@ -301,7 +314,7 @@ int func_L01_00461CB8(void) {
  * leaves them out: the enhanced renderer's bloom (enhanced/docs/bloom.md) is its glow. The word
  * each sets for the frame (0x6000 at $gp - 0xC0C, 0 again after) is kept.
  */
-#define GLOW_WORD 0x001DBCA4u
+#define GLOW_WORD RAC3_LADDR(1, 0x001DBCA4u)
 
 int func_L01_004DE670(void) {
     GREF(int32_t, VELDIN(GLOW_WORD)) = 0x6000;
@@ -323,8 +336,8 @@ int func_L01_004DF310(void) {
 
 /* The effect textures' uploads this frame: their count and the records GetEffectTex (Veldin's
  * 0x00404040, Going Commando's func_0027C878) writes, 16 bytes each as Going Commando's. */
-#define TEXTURE_UPLOADS 0x001DF97Cu
-#define TEXTURE_RECORDS 0x001E7880u
+#define TEXTURE_UPLOADS RAC3_LADDR(1, 0x001DF97Cu)
+#define TEXTURE_RECORDS RAC3_LADDR(1, 0x001E7880u)
 
 static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
     return openrac_effect_texture(

@@ -102,14 +102,14 @@ static uint32_t level_mode_word(int level) {
         case 18:
         case 26:
         case 29:
-            return 0x001D66E4u;
+            return RAC3_LADDR(12, 0x001D66E4u);
         case 19:
-            return 0x001D66D4u;
+            return RAC3_LADDR(19, 0x001D66D4u);
         case 15:
         case 25:
             return 0;
         default:
-            return level >= 1 && level <= 36 ? 0x001D6694u : 0;
+            return level >= 1 && level <= 36 ? RAC3_LADDR(1, 0x001D6694u) : 0;
     }
 }
 

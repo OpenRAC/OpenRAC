@@ -43,7 +43,11 @@
   }
  },
  "left_out": {},
- "addresses_not_found": [],
+ "addresses_not_found": [
+  "0x001439F4",
+  "0x00143A70",
+  "L39:001E0880"
+ ],
  "hand_addresses": {},
  "unwrapped": {}
 }

@@ -34,14 +34,15 @@
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
 /* A global of Veldin's program, in the program loaded now. */
 #define VELDIN(a) OPENRAC_LDATA(1, (gaddr)(a))
 
-#define CAMERA_SETTING 0x001439F4u      /* byte: 0 third person, 1 lock-strafe, 2 first person */
-#define CAMERA_INVERT_H 0x00143A70u     /* 3 settings x 8 players' words */
-#define CAMERA_PADS VELDIN(0x001E2B90u) /* +0x134 the player's pad block */
-#define CAMERA_AXES VELDIN(0x001E2AA0u) /* +0x20 the axis the offset turns about */
+#define CAMERA_SETTING RAC3_ADDR(0x001439F4u)      /* byte: 0 third person, 1 lock-strafe, 2 first person */
+#define CAMERA_INVERT_H RAC3_ADDR(0x00143A70u)     /* 3 settings x 8 players' words */
+#define CAMERA_PADS VELDIN(RAC3_LADDR(1, 0x001E2B90u)) /* +0x134 the player's pad block */
+#define CAMERA_AXES VELDIN(RAC3_LADDR(1, 0x001E2AA0u)) /* +0x20 the axis the offset turns about */
 #define CAMERA_ENTRY 0x460u
 
 /* The camera's stick state: its data (the moby's +0x70) + 0x1E0. */
