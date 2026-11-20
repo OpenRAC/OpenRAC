@@ -284,6 +284,11 @@ std::vector<MobyMaterial> moby_materials(const std::vector<LiveMobyId>& live);
 // thread.
 bool moby_platinum(std::uint32_t moby);
 
+// The material drawn on `moby` this level load (the last one set on it), its material
+// OPENRAC_MOBY_MATERIAL_NONE when there is none, for the game's own effects of that moby
+// (openrac_moby_obsidian). From the game's thread.
+MobyMaterial moby_material_drawn(std::uint32_t moby);
+
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 
 // A patch of heat haze to draw this frame (openrac_haze), in the game's world.

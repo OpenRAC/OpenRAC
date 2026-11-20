@@ -16,7 +16,8 @@ in vec4 v_probe_multiplier;
 flat in vec4 v_probe_selector;
 flat in int v_lit;
 flat in int v_glow;
-flat in int v_mod_material;  // a mod's material on the moby (mesh.vert): 2 platinum
+flat in int v_mod_material;  // a mod's material on the moby (mesh.vert): 2 platinum, 3 obsidian
+flat in vec3 v_mod_rgb;      // the moby's tint (mesh.vert), the mod's rgb: obsidian's glow colour
 in vec3 v_script_emission;
 flat in vec3 v_probe_ambient;
 in vec3 v_emission_colour;
@@ -142,6 +143,93 @@ vec3 platinum_shine(vec3 rgb) {
     float rim = pow(1.0 - max(dot(n, to_eye), 0.0), 3.0);
     vec3 shine = kPlatinumShine * (kPlatinumHighlight * highlight + kPlatinumRim * rim);
     return min(rgb + shine, vec3(1.0));
+}
+
+// A mod's obsidian (OPENRAC_MOBY_MATERIAL_OBSIDIAN, interface 1.24): render-only, glossy black
+// with a glow from within. Its texel is made grey and dark (kObsidianAlbedo), so the enhanced
+// lighting sees a black albedo; its colour after the vertex colour is made grey at its luminance
+// (the mod's tint, which multiplied it, taken out again), turned the body's near black, and given
+// a little of the glow (obsidian_colour). After the lighting the glow from within, strongest where
+// the surface faces the eye, a dim ember red at its rim and a sharp white highlight from the fixed
+// sun (obsidian_shine). A glow packet's colour becomes the glow's at its luminance. The glow's
+// colour is the mod's rgb (v_mod_rgb), white for kObsidianGlow: a coin's trail takes the same
+// colour (rac2/host/platinum_trail.c).
+const int kModMaterialObsidian = 3;
+const float kObsidianAlbedo = 0.25;          // the texel's grey kept
+const vec3 kObsidianBody = vec3(0.85, 0.70, 1.0); // the lit body's colour, times its luminance
+const vec3 kObsidianGlow = vec3(0.55, 0.15, 0.95); // the default glow: violet
+const float kObsidianGlowBase = 0.6;         // the glow in the body, times its luminance
+const float kObsidianGlowPacket = 1.6;       // a glow packet's brightening
+const float kObsidianInner = 0.5;            // the glow from within, facing the eye
+const float kObsidianInnerFalloff = 2.0;     // how fast it fades towards the edge
+const vec3 kObsidianEmber = vec3(0.85, 0.10, 0.12); // the rim: ember red
+const float kObsidianRim = 0.4;              // the rim's strength at a grazing angle
+const float kObsidianGloss = 90.0;           // the highlight's exponent: glassy
+const float kObsidianHighlight = 1.0;        // the highlight's strength at its peak
+
+bool obsidian() {
+    return v_mod_material == kModMaterialObsidian;
+}
+
+bool obsidian_surface() {
+    return obsidian() && v_glow == 0;
+}
+
+// The glow's colour: the mod's rgb, or kObsidianGlow for white (no colour given).
+vec3 obsidian_glow() {
+    return all(greaterThan(v_mod_rgb, vec3(0.999))) ? kObsidianGlow : v_mod_rgb;
+}
+
+vec4 obsidian_texel(vec4 texel) {
+    if (!obsidian_surface()) {
+        return texel;
+    }
+    float grey = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+    return vec4(vec3(grey * kObsidianAlbedo), texel.a);
+}
+
+vec4 obsidian_colour(vec4 c) {
+    if (!obsidian()) {
+        return c;
+    }
+    // The tint is the glow's colour, not the moby's: its luminance is taken out of the colour's.
+    float tint = max(dot(v_mod_rgb, vec3(0.299, 0.587, 0.114)), 0.05);
+    float grey = dot(c.rgb, vec3(0.299, 0.587, 0.114)) / tint;
+    if (v_glow != 0) {
+        return vec4(obsidian_glow() * grey * kObsidianGlowPacket, c.a);
+    }
+    return vec4(grey * (kObsidianBody + kObsidianGlowBase * obsidian_glow()), c.a);
+}
+
+vec3 obsidian_shine(vec3 rgb) {
+    if (!obsidian_surface() || dot(v_normal, v_normal) < 1e-12) {
+        return rgb;
+    }
+    vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
+    vec3 to_eye = normalize(-eye_position);
+    vec3 n = normalize(mat3(view) * v_normal);
+    // Double-sided, as the game draws mobys.
+    n = dot(n, to_eye) < 0.0 ? -n : n;
+    float facing = max(dot(n, to_eye), 0.0);
+    vec3 half_way = normalize(normalize(mat3(view) * kSun) + to_eye);
+    float highlight = pow(max(dot(n, half_way), 0.0), kObsidianGloss);
+    vec3 inner = obsidian_glow() * (kObsidianInner * pow(facing, kObsidianInnerFalloff));
+    vec3 rim = kObsidianEmber * (kObsidianRim * pow(1.0 - facing, 3.0));
+    return min(rgb + inner + rim + vec3(kObsidianHighlight * highlight), vec3(1.0));
+}
+
+// A mod's material on the texel, the colour and the lit colour: platinum's or obsidian's, the
+// value as it is for a moby with neither.
+vec4 mod_texel(vec4 texel) {
+    return obsidian_texel(platinum_texel(texel));
+}
+
+vec4 mod_colour(vec4 c) {
+    return obsidian_colour(platinum_colour(c));
+}
+
+vec3 mod_shine(vec3 rgb) {
+    return obsidian_shine(platinum_shine(rgb));
 }
 
 #ifdef OPENRAC_ENHANCED_RENDERING
@@ -572,15 +660,15 @@ void main() {
 #ifdef OPENRAC_SOLID
     // The static solid variant contains no discard. The Vulkan colour batch draws its solid
     // geometry with it too, with reused EQUAL depth and depth writes disabled.
-    vec4 texel = platinum_texel(sample_upscaled_texture_colours(v_uv));
+    vec4 texel = mod_texel(sample_upscaled_texture_colours(v_uv));
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
-    vec4 c = platinum_colour(texel * v_colour * material_colour);
+    vec4 c = mod_colour(texel * v_colour * material_colour);
     float light = 1.0;
     if (lighting != 0 && v_lit == 0) {
         light = float(mp_float(0.55) + mp_float(0.45) * abs(dot(mp_vec3(normalize(v_normal)), mp_vec3(kSun))));
     }
     vec3 rgb = min(c.rgb * light, vec3(1.0));
-    rgb = platinum_shine(probe_surface(texel, rgb));
+    rgb = mod_shine(probe_surface(texel, rgb));
 #ifdef OPENRAC_ATMOSPHERE
     if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
         rgb = atmosphere_apply(rgb, v_world_position, true);
@@ -659,9 +747,9 @@ void main() {
     if (effect_pass == 0 && v_glow != glow_pass) {
         discard;
     }
-    vec4 texel = platinum_texel(sample_upscaled_texture_colours(v_uv));
+    vec4 texel = mod_texel(sample_upscaled_texture_colours(v_uv));
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
-    vec4 c = platinum_colour(texel * v_colour * material_colour);
+    vec4 c = mod_colour(texel * v_colour * material_colour);
 #ifndef OPENRAC_COLOUR_SPECIALISED
     if (opacity_split != 0 && (c.a >= 1.0) != (opacity_split > 0)) {
         discard;
@@ -673,7 +761,7 @@ void main() {
             discard;
         }
         vec3 e = min(c.rgb, vec3(1.0));
-        e = platinum_shine(probe_surface(texel, e));
+        e = mod_shine(probe_surface(texel, e));
     #ifdef OPENRAC_ATMOSPHERE
         if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
             e = atmosphere_apply(e, v_world_position, true);
@@ -707,7 +795,7 @@ void main() {
         light = float(mp_float(0.55) + mp_float(0.45) * abs(dot(mp_vec3(normalize(v_normal)), mp_vec3(kSun))));
     }
     vec3 rgb = min(c.rgb * light, vec3(1.0));
-    rgb = platinum_shine(probe_surface(texel, rgb));
+    rgb = mod_shine(probe_surface(texel, rgb));
     // The GS's fog, after the texture: RGB only.
 #ifdef OPENRAC_ATMOSPHERE
     if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
