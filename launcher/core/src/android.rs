@@ -54,7 +54,7 @@ pub fn copy_disc(
 ) -> std::io::Result<()> {
     use std::io::{Read, Seek, SeekFrom};
     if total > 0 && dest.metadata().is_ok_and(|m| m.len() == total) && (&from).seek(SeekFrom::Start(0)).is_ok() {
-        let same = same_ends(&from, dest, total).unwrap_or(false);
+        let same = std::fs::File::open(dest).and_then(|kept| same_samples(&from, &kept, total, 2)).unwrap_or(false);
         (&from).seek(SeekFrom::Start(0))?;
         if same {
             progress(total);
@@ -134,21 +134,25 @@ pub fn unpack_chd(
     result
 }
 
-/// Whether two images of `total` bytes begin and end with the same MB.
-fn same_ends(from: &std::fs::File, dest: &std::path::Path, total: u64) -> std::io::Result<bool> {
+/// Whether two images of `total` bytes are the same at `places` MB spread evenly over them, the
+/// first and the last among them (2: the ends only). Not the whole image: reading gigabytes twice
+/// on a phone takes minutes, and another dump of the same size differs at its ends or in between.
+pub fn same_samples(a: &std::fs::File, b: &std::fs::File, total: u64, places: u64) -> std::io::Result<bool> {
     use std::io::{Read, Seek, SeekFrom};
     const SAMPLE: u64 = 1 << 20;
-    let mut kept = std::fs::File::open(dest)?;
-    let mut from = from;
-    let ends = [0, total.saturating_sub(SAMPLE)];
-    for at in ends {
-        let len = SAMPLE.min(total) as usize;
-        let (mut a, mut b) = (vec![0; len], vec![0; len]);
-        from.seek(SeekFrom::Start(at))?;
-        from.read_exact(&mut a)?;
-        kept.seek(SeekFrom::Start(at))?;
-        kept.read_exact(&mut b)?;
-        if a != b {
+    let places = places.max(2);
+    let size = SAMPLE.min(total);
+    let last = total - size;
+    let (mut a, mut b) = (a, b);
+    let (mut x, mut y) = (vec![0; size as usize], vec![0; size as usize]);
+    for i in 0..places {
+        let at = last / (places - 1) * i;
+        let at = if i == places - 1 { last } else { at };
+        a.seek(SeekFrom::Start(at))?;
+        b.seek(SeekFrom::Start(at))?;
+        a.read_exact(&mut x)?;
+        b.read_exact(&mut y)?;
+        if x != y {
             return Ok(false);
         }
     }

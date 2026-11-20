@@ -752,6 +752,12 @@ typedef struct openrac_game_play {
     /* A portable pickup presentation keeps the level background visible. */
     int (*pickup_background)(void);
     int (*infobot_presentation)(openrac_infobot_presentation* out);
+    /* Copies of a level's placed enemies (openrac_api moby_copy_check, moby_copy): why the moby at
+     * `moby` may not be copied (OPENRAC_COPY_*, 0 when it may; negative outside a level or once the
+     * level's own data is gone), and its copy `index` made at a clear spot beside it: the copy's
+     * slot, -1 for none. NULL for a game without them. */
+    int (*moby_copy_check)(uint32_t moby);
+    int32_t (*moby_copy)(uint32_t moby, int index);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)

@@ -308,12 +308,30 @@ int check_levels(const fs::path& levels, const fs::path& mods) {
     }
     std::vector<int> ids;
 
-    for (int i = 0; i < 19; ++i) {
-        ids.push_back(i);
+    if (std::string(openrac_game.game) == "rac1") {
+        for (int i = 0; i < 19; ++i) {
+            ids.push_back(i);
+        }
+        ids.push_back(98);
+        ids.push_back(99);
+    } else {
+        // A later game's levels are what its disc has (editor/extract.py port): every level
+        // folder there. The export writes its stamp last, so a folder that is there is whole.
+        for (const auto& entry : fs::directory_iterator(levels, ignored)) {
+            int id = 0;
+            const std::string name = entry.path().filename().string();
+            // level_NN exactly: not a copy left beside it (level_05-old) or a hidden one.
+            if (entry.is_directory() && std::sscanf(name.c_str(), "level_%d", &id) == 1
+                && name == std::format("level_{:02d}", id)) {
+                ids.push_back(id);
+            }
+        }
+        std::sort(ids.begin(), ids.end());
+        if (ids.empty()) {
+            log::error("{} has no levels: read them from the disc first", levels.string());
+            return 1;
+        }
     }
-
-    ids.push_back(98);
-    ids.push_back(99);
     int bad = 0;
     int newer = 0;  // levels of a newer format than this game reads: the game is out of date
 

@@ -16,6 +16,7 @@ are comparable within a game, not between games.
 | Ratchet & Clank: Up Your Arsenal | SCUS_973.53 ([`games/rac3/decomp`](../games/rac3/decomp)) | 10.01% (751,972 / 7,508,980 bytes) | 6,401 / 16,222 | 10.73% | 2026-11-07 |
 | Ratchet & Clank: Up Your Arsenal | SCES_524.56 ([`games/rac3/decomp`](../games/rac3/decomp)) | 10.42% (786,100 / 7,546,948 bytes) | 6,499 / 16,164 | 10.42% | 2026-11-07 |
 | Ratchet: Deadlocked | SCUS_974.65 ([`games/rac4/decomp`](../games/rac4/decomp)) | 0.51% (26,572 / 5,175,440 bytes) | 243 / 15,056 | 0.51% | 2026-10-05 |
+| Ratchet: Deadlocked | SCES_532.85 ([`games/rac4/decomp`](../games/rac4/decomp)) | 12.56% (730,100 / 5,810,856 bytes) | 7,644 / 18,134 | 12.99% | 2026-11-08 |
 | Ratchet & Clank: Size Matters | SCUS_976.15 ([`games/rac5/decomp`](../games/rac5/decomp)) | – | – | – | – |
 | Ratchet & Clank: Secret Agent Clank | SCUS_976.23 ([`games/rac6/decomp`](../games/rac6/decomp)) | – | – | – | – |
 
@@ -31,3 +32,4 @@ are comparable within a game, not between games.
 - **rac3/ntsc**: rac3-decomp's NTSC-U report (SCUS_973.53_report): a C function counts as final only when every NTSC-U program that has it builds it from C (docs/versions.md, The counts).
 - **rac3/pal**: rac3-decomp's PAL report: the three core programs and the 49 level programs; a function counts as matched when its C builds into a program that equals retail.
 - **rac4/ntsc**: Functions are compared one by one with most 16-bit immediates masked (symbols, struct offsets and small constants are not checked), and nothing is linked yet, so this is a looser proof than the other games'. Overlay code identical to resident code is counted once.
+- **rac4/pal**: rac4-decomp's PAL report: the same function-by-function comparison as NTSC-U's (most 16-bit immediates masked, nothing linked yet), on the PAL disc's programs.

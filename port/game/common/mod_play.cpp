@@ -538,6 +538,32 @@ int api_moby_spawn(openrac_mod* mod, int oclass, const openrac_moby* pose) {
     return slot;
 }
 
+// Copies of a level's placed enemies (interface 1.25): the host's check and copy, by slot.
+int api_moby_copy_check(openrac_mod* mod, int slot) {
+    const gaddr m = moby_address(slot);
+    if (mod == nullptr || m == 0 || g_play->moby_copy_check == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int why = g_play->moby_copy_check(m);
+    return why >= 0 ? why : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_moby_copy(openrac_mod* mod, int slot, int index) {
+    const gaddr m = moby_address(slot);
+    if (mod == nullptr || m == 0 || index < 0 || g_play->moby_copy == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int copy = g_play->moby_copy(m, index);
+    if (copy < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    // The game's moby, never driven: a mod that drove a moby gone from this slot lets go of it.
+    if (static_cast<std::size_t>(copy) < kSlots) {
+        g_drives[static_cast<std::size_t>(copy)] = Drive{};
+    }
+    return copy;
+}
+
 int api_figure_slot(openrac_mod* mod, int id) {
     if (g_play == nullptr || g_play->hero_slot == nullptr) {
         return -1;
@@ -1531,7 +1557,7 @@ int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int c
 }
 
 // Sets, changes or clears (OPENRAC_MOBY_MATERIAL_NONE) `mod`'s material on `moby` for this level
-// load (interface 1.23, obsidian 1.24); the renderer reads them with moby_materials. Writes no
+// load (interface 1.23, obsidian 1.24, energy 1.25); the renderer reads them with moby_materials. Writes no
 // game memory.
 int api_moby_material(
     openrac_mod* mod, openrac_gaddr moby, std::uint32_t material, std::uint32_t rgb
@@ -1539,9 +1565,15 @@ int api_moby_material(
     // A moby record is 0x100 bytes; one that would end past the address space is no moby.
     constexpr openrac_gaddr kMobyBytes = 0x100;
     constexpr std::uint32_t kRgbMax = 0xFFFFFF;
+    // Energy carries its level in bits 8 to 11 (OPENRAC_MOBY_MATERIAL_ENERGY_AT); the others none.
+    constexpr std::uint32_t kEnergyLevels = 0xF00;
+    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material);
+    const std::uint32_t extra = material & ~0xFFu;
+    const bool known =
+        kind <= OPENRAC_MOBY_MATERIAL_ENERGY
+        && (extra == 0 || (kind == OPENRAC_MOBY_MATERIAL_ENERGY && (extra & ~kEnergyLevels) == 0));
     // A call the interface does not describe changes nothing.
-    if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes
-        || material > OPENRAC_MOBY_MATERIAL_OBSIDIAN || rgb > kRgbMax) {
+    if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes || !known || rgb > kRgbMax) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const std::uint32_t loads = loads_now();
@@ -2120,6 +2152,8 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.sprite_tint = api_sprite_tint;
     api.pickup_animation = api_pickup_animation;
     api.moby_material = api_moby_material;
+    api.moby_copy_check = api_moby_copy_check;
+    api.moby_copy = api_moby_copy;
     api.prop_pose = api_prop_pose;
     api.prop_attach = api_prop_attach;
     api.prop_frame = api_prop_frame;
@@ -2292,6 +2326,26 @@ MobyMaterial moby_material_drawn(std::uint32_t moby) {
     }
 
     return MobyMaterial{moby};
+}
+
+std::unordered_map<std::uint32_t, MobyMaterial> energy_materials() {
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    std::unordered_map<std::uint32_t, MobyMaterial> out;
+    // In the order set, so the last set on a moby is the one kept; another material set later on
+    // it takes it out again.
+    for (const MaterialEntry& e : g_materials) {
+        if (e.loads != loads) {
+            continue;
+        }
+        if (OPENRAC_MOBY_MATERIAL_KIND(e.material.material) == OPENRAC_MOBY_MATERIAL_ENERGY) {
+            out.insert_or_assign(e.material.moby, e.material);
+        } else {
+            out.erase(e.material.moby);
+        }
+    }
+
+    return out;
 }
 
 bool moby_platinum(std::uint32_t moby) {

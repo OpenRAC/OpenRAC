@@ -51,6 +51,7 @@
 #include "frontend.h"
 #include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
+#include "game/common/frontend/energy_effects.h"
 #include "game/common/frontend/hero_shadows.h"
 #include "game/common/frontend/input_latency.h"
 #include "game/common/frontend/menu_layers.h"
@@ -1231,16 +1232,26 @@ std::unordered_map<std::uint32_t, mods::MobyMaterial> mod_materials(
 
 // Puts a mod's material on a moby's instance, render-only: its rgb multiplies the tint (0xFF a
 // channel as it is), and the material goes to mesh.frag (platinum) by Instance::mod_material.
+// Energy (interface 1.25) multiplies only its share of rgb (OPENRAC_MOBY_MATERIAL_ENERGY_BODY), which
+// mesh.frag takes back out for its rim and glow packets; its level stays with the effects
+// (energy_effects.h).
 void apply_mod_material(scene::Instance& instance, const mods::MobyMaterial& material) {
     // 0xRRGGBB: a byte a channel, red highest.
     constexpr float kChannelMax = 255.0f;
     constexpr int kRedShift = 16;
     constexpr int kGreenShift = 8;
     constexpr std::uint32_t kByte = 0xFF;
-    instance.tint[0] *= static_cast<float>((material.rgb >> kRedShift) & kByte) / kChannelMax;
-    instance.tint[1] *= static_cast<float>((material.rgb >> kGreenShift) & kByte) / kChannelMax;
-    instance.tint[2] *= static_cast<float>(material.rgb & kByte) / kChannelMax;
-    instance.mod_material = static_cast<std::uint8_t>(material.material);
+    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material.material);
+    const float share =
+        kind == OPENRAC_MOBY_MATERIAL_ENERGY ? OPENRAC_MOBY_MATERIAL_ENERGY_BODY : 1.0f;
+    const auto channel = [&](int shift) {
+        const float value = static_cast<float>((material.rgb >> shift) & kByte) / kChannelMax;
+        return 1.0f - share + share * value;
+    };
+    instance.tint[0] *= channel(kRedShift);
+    instance.tint[1] *= channel(kGreenShift);
+    instance.tint[2] *= channel(0);
+    instance.mod_material = static_cast<std::uint8_t>(kind);
 }
 
 // Returns the third light the moby program gives a moby from the point lights (Going Commando's
@@ -3040,6 +3051,25 @@ void choose_repeat_frame(int level, bool debug) {
     }
 }
 
+// Draws the quads a moby's draw callbacks drew this tick (EffectQuad::parent) in its mod's energy
+// colour (interface 1.25, energy_effects.h), when a mod draws it as energy. The particles took
+// theirs in particle_quads.
+void energy_callback_quads() {
+    const auto energy_mobys = mods::energy_materials();
+    if (energy_mobys.empty()) {
+        return;
+    }
+    for (renderer::EffectQuad& quad : g->effects) {
+        const auto found = quad.parent != 0 ? energy_mobys.find(quad.parent) : energy_mobys.end();
+        if (found == energy_mobys.end()) {
+            continue;
+        }
+        if (const auto look = energy::look_of(found->second.material, found->second.rgb)) {
+            energy::apply(quad, *look, false);
+        }
+    }
+}
+
 // Keeps the world effects, the sky and the particles the game drew this tick, and the native
 // quads its 2D list names (`named_quads`, capture_2d_path), and clears what was gathered.
 void keep_effects(
@@ -3058,6 +3088,7 @@ void keep_effects(
     effect_textures();  // before the sky's sprites go in front of the effect quads
     sky_sprite_quads(state);
     particle_quads(ram, state);
+    energy_callback_quads();
     // The last tick's corners of the quads that carry an id, when it was the tick before this
     // one: a frame drawn between ticks moves each from there, as the mobys move (scene_hud.cpp's
     // set_packets). Kept effects of an older tick, or of a tick that kept no world, move nothing.

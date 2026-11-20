@@ -261,6 +261,16 @@ public:
         return 0;
     }
 
+    // Returns the mobys an active particle record may name as its maker (its owner, an attached
+    // halo's parent), 0 where it names none: a mod's energy material on one of them draws the
+    // particle in the material's colour (energy_effects.h). A word that names no moby is harmless:
+    // only mobys a mod drew as energy are looked for.
+    [[nodiscard]] virtual std::array<std::uint32_t, 2> particle_owners(
+        std::span<const std::uint8_t>
+    ) const {
+        return {0, 0};
+    }
+
     // Whether the terrain's vertex colours take the point lights in reach, as Going Commando's
     // PatchTfragVertexLighting (0x2F0468) adds them to the colours the level lit (mesh.vert),
     // rather than not at all.

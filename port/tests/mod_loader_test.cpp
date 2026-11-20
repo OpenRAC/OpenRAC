@@ -1213,7 +1213,19 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "world"}}]})");
     mods::Host h = host(plugins);
-    h.play = &kPlay;
+    static openrac_game_play play = kPlay;
+    // Copies of the level's enemies (1.25): slot 1 may be copied, the others are listed; a copy of
+    // slot 1 goes to slot 6.
+    play.moby_copy_check = [](gaddr moby) {
+        return slot_at(moby) == 1 ? OPENRAC_COPY_OK : OPENRAC_COPY_LISTED;
+    };
+    play.moby_copy = [](gaddr moby, int index) -> std::int32_t {
+        g_played.push_back(
+            "moby_copy " + std::to_string(slot_at(moby)) + " " + std::to_string(index)
+        );
+        return 6;
+    };
+    h.play = &play;
     h.cards = dir / "cards";
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
     g_loads = 1;
@@ -1255,6 +1267,11 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              8143,
              8163,
              8172,
+             // Copies: slot 1 allowed, slot 0 listed; slot 1's copy in slot 6, none of dead slot 7.
+             8150,
+             8159,
+             8256,
+             8259,
              // The hero's slot; no figure 0; eyes (the count clamped to 8 in the game); bolts +5.
              8189,
              8190,
@@ -1298,6 +1315,7 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              "moby_kill 2",
              "moby_spawn 77",
              "moby_pose 3 4 2",
+             "moby_copy 1 2",
              "eyes 2",
              "eyes 8",
              "eyes 0",

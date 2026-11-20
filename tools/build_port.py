@@ -109,12 +109,10 @@ EMBREE_OPTIONS = {
     # CXXFLAGS: the launcher's Linux builds set -stdlib=libc++ there, and an Embree built against
     # libstdc++ does not link into their baker. Embree's MSVC settings do not read this option.
     "EMBREE_IGNORE_CMAKE_CXX_FLAGS": "OFF",
-    # Embree's Clang settings append -std=c++11 (common/cmake/clang.cmake), and Visual Studio 18's
-    # C++ library (MSVC 14.52) no longer builds as C++11 ("deduced return types are a C++14
-    # extension"), which broke the Windows launcher build. CMake puts the standard's flag after
-    # CMAKE_CXX_FLAGS, so this one wins; Embree 4.4.1 builds as C++17.
-    "CMAKE_CXX_STANDARD": "17",
-    "CMAKE_CXX_STANDARD_REQUIRED": "ON",
+    # Embree asks for C++11 (-std=c++11), but Visual Studio's C++ library (MSVC 14.52) needs C++14.
+    # CMake's own flag comes after Embree's, so it wins.
+    "CMAKE_CXX_STANDARD": "14",
+    "CMAKE_CXX_EXTENSIONS": "OFF",
 }
 # x86-64: SSE2 for any machine, AVX and AVX2 for most; Embree picks one at run time. AVX stays on
 # beside AVX2: Embree compiles the 8-wide BVH and its primitives (bvh/bvh.cpp, BVHN<8>, CurveNi<8>)
@@ -126,6 +124,13 @@ EMBREE_X86_ISAS = {
     "EMBREE_ISA_SSE42": "OFF",
     "EMBREE_ISA_AVX": "ON",
     "EMBREE_ISA_AVX512": "OFF",
+}
+# Windows: Embree's compiler settings drop the C runtime flags, so it links the static runtime
+# (/MT) and the baker (/MD) fails at link time. CMake's runtime setting (policy CMP0091) picks
+# the DLL runtime, as the port uses.
+EMBREE_WINDOWS = {
+    "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
+    "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL",
 }
 EMBREE_DIR = PORT / "build" / "embree"
 # Tries at Embree's download, and the wait before the second (doubled each time): GitHub's archives
@@ -187,10 +192,11 @@ def is_x86(machine: str | None = None) -> bool:
     return (machine or platform.machine()).lower() in ("x86_64", "amd64", "x64", "i386", "i686")
 
 
-def embree_options(machine: str | None = None) -> dict[str, str]:
+def embree_options(machine: str | None = None, windows: bool = WINDOWS) -> dict[str, str]:
     """The options Embree is configured with on MACHINE (platform.machine(), this one's unless
-    given): EMBREE_OPTIONS, and EMBREE_X86_ISAS on x86-64 only."""
-    return {**EMBREE_OPTIONS, **(EMBREE_X86_ISAS if is_x86(machine) else {})}
+    given): EMBREE_OPTIONS, EMBREE_X86_ISAS on x86-64 only and EMBREE_WINDOWS for Windows."""
+    return {**EMBREE_OPTIONS, **(EMBREE_X86_ISAS if is_x86(machine) else {}),
+            **(EMBREE_WINDOWS if windows else {})}
 
 
 def ships_baker(system: str | None = None, machine: str | None = None) -> bool:

@@ -7,9 +7,8 @@
 
 #include <algorithm>
 #include <array>
-#include <charconv>
 #include <cmath>
-#include <cstring>
+#include <cstdlib>
 #include <format>
 #include <imgui.h>
 #include <string>
@@ -227,10 +226,10 @@ void number_rows(const mods::Setting& s, const mods::SettingValue& v, bool open)
             ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue
         );
         if (done) {
-            double typed = 0.0;
-            const char* end = g.typed.data() + std::strlen(g.typed.data());
-            if (std::from_chars(g.typed.data(), end, typed).ec == std::errc{}
-                && std::isfinite(typed)) {
+            // strtod, not from_chars: libc++ (Linux builds) has no floating-point from_chars.
+            char* end = nullptr;
+            const double typed = std::strtod(g.typed.data(), &end);
+            if (end != g.typed.data() && *end == '\0' && std::isfinite(typed)) {
                 set_number(s, low + std::round((typed - low) / step) * step);
             }
             g.typing.clear();

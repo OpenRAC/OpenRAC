@@ -181,6 +181,152 @@ std::vector<u8> wad_decompress(ByteView bytes) {
     return out;
 }
 
+GameWadOutput wad_decompress_as_game(ByteView memory, ByteView before) {
+    const std::size_t total = wad_compressed_size(memory);
+
+    // The size must cover the header; the routine reads its packets from there on.
+    if (total < kWadHeaderSize) {
+        fail("WAD: compressed size {:#x} is smaller than the header", total);
+    }
+
+    const u8* stream = memory.data() + kWadHeaderSize;
+    const std::size_t readable = memory.size() - kWadHeaderSize;
+    const std::size_t end = total - kWadHeaderSize;
+    std::size_t ptr = 0;
+    std::vector<u8> out;
+    out.reserve(total * 2);
+
+    auto next = [&]() -> u8 {
+        // Past what may be read: the stream runs off the end of memory.
+        if (ptr >= readable) {
+            fail("WAD: the stream runs off the end of memory");
+        }
+
+        return stream[ptr++];
+    };
+    // A byte already written, counting back from the output's end into the memory before it.
+    auto written = [&](std::size_t back) -> u8 {
+        if (back <= out.size()) {
+            return out[out.size() - back];
+        }
+
+        const std::size_t into = back - out.size();
+        if (into > before.size()) {
+            fail("WAD: a match starts before the memory");
+        }
+
+        return before.data()[before.size() - into];
+    };
+
+    // Bytes the last little literals wrote past the output, until the output covers them.
+    std::vector<u8> spill;
+    auto put = [&](u8 byte) {
+        out.push_back(byte);
+        if (!spill.empty()) {
+            spill.erase(spill.begin());
+        }
+    };
+
+    // The routine's own end check, between packets only.
+    bool literal_last = false;
+    while (ptr < end) {
+        const u8 flag = next();
+
+        // A flag below 0x10 starts a literal run, which the routine traps on after literals.
+        if (flag < 0x10) {
+            if (literal_last) {
+                fail("WAD: a literal packet follows literal bytes, where the game's routine traps");
+            }
+
+            const std::size_t n = flag == 0 ? std::size_t{next()} + 18 : std::size_t{flag} + 3;
+            for (std::size_t i = 0; i < n; ++i) {
+                put(next());
+            }
+
+            literal_last = true;
+            continue;
+        }
+
+        std::size_t length = 0;
+        std::size_t displacement = 0;
+        u8 little = 0;
+
+        // Flags 0x10 to 0x1f are far matches, or pad and dummy packets with no displacement.
+        if (flag < 0x20) {
+            std::size_t ml = flag & 7;
+
+            // A zero length field means the length follows in the next byte.
+            if (ml == 0) {
+                ml = std::size_t{next()} + 7;
+            }
+
+            const u8 b0 = next();
+            const u8 b1 = next();
+            const std::size_t a = (flag >> 3) & 1;
+            const std::size_t far = std::size_t{b1} * 0x40 + (b0 >> 2);
+
+            // Padding: the routine goes on at the next 0x2000-byte chunk it streams.
+            if (a == 0 && far == 0 && ml != 1) {
+                ptr = (ptr + 0x1fff) & ~std::size_t{0x1fff};
+                literal_last = false;
+                continue;
+            }
+
+            // The dummy packet only carries little literals.
+            if (a != 0 || far != 0) {
+                displacement = 0x4000 * (a + 1) + far;
+                length = ml + 2;
+            }
+
+            little = b0;
+        } else if (flag < 0x40) {
+            std::size_t ml = flag & 0x1f;
+
+            // A zero length field means the length follows in the next byte.
+            if (ml == 0) {
+                ml = std::size_t{next()} + 0x1f;
+            }
+
+            length = ml + 2;
+            const u8 b1 = next();
+            const u8 b2 = next();
+            displacement = std::size_t{b2} * 0x40 + (b1 >> 2) + 1;
+            little = b1;
+        } else {
+            const u8 b1 = next();
+            length = (flag >> 5) + 1;
+            displacement = std::size_t{b1} * 8 + ((flag >> 2) & 7) + 1;
+            little = flag;
+        }
+
+        // Byte by byte, so a match that overlaps its own output repeats it.
+        for (std::size_t i = 0; i < length; ++i) {
+            put(written(displacement));
+        }
+
+        // The routine stores three little literal bytes and keeps as many as the packet has.
+        const std::size_t n = little & 3;
+        if (n != 0) {
+            u8 three[3];
+            for (u8& byte : three) {
+                byte = next();
+            }
+            ptr -= 3 - n;
+            for (std::size_t i = 0; i < n; ++i) {
+                put(three[i]);
+            }
+            spill.assign(three + n, three + 3);
+        }
+
+        literal_last = n != 0;
+    }
+
+    // The bytes the last little literals wrote past the output stay written.
+    const std::size_t size = out.size();
+    out.insert(out.end(), spill.begin(), spill.end());
+    return {std::move(out), size};
+}
+
 namespace {
 
 class Encoder {

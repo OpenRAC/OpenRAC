@@ -21,6 +21,7 @@
 #include <format>
 #include <future>
 #include <memory>
+#include <optional>
 #include <set>
 #include <span>
 #include <string>
@@ -50,6 +51,7 @@
 #include "frontend.h"
 #include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
+#include "game/common/frontend/energy_effects.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
 #include "game/common/mods.h"
@@ -1301,6 +1303,21 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
     if (effects_dump::armed()) {
         note_particles(ram, state);
     }
+    // The mobys a mod draws as energy (interface 1.25): the particles tied to them take its colour.
+    const auto energy_mobys = mods::energy_materials();
+    const auto energy_of = [&](const State::Particle& p) -> std::optional<energy::Look> {
+        if (energy_mobys.empty()) {
+            return std::nullopt;
+        }
+        const auto owners = g->profile->particle_owners(p.record);
+        for (const std::uint32_t owner : {p.attachment, owners[0], owners[1]}) {
+            const auto found = owner != 0 ? energy_mobys.find(owner) : energy_mobys.end();
+            if (found != energy_mobys.end()) {
+                return energy::look_of(found->second.material, found->second.rgb);
+            }
+        }
+        return std::nullopt;
+    };
     const bool covering = draw_coverage::armed();
     // particle_update's, by type, for OPENRAC_DRAW_COVERAGE.
     std::vector<std::string> updates(covering ? 256 : 0);
@@ -1406,6 +1423,10 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
         q.id = p.id;
         q.attachment = p.attachment;
         q.rigid = kind != 3;
+        // Made by a moby a mod draws as energy: in its colour, a sprite or flat quad larger.
+        if (const auto look = energy_of(p)) {
+            energy::apply(q, *look, kind != 3);
+        }
         items.push_back({z, q});
     }
     stats::gauge("particle texture resolves", double(texture_resolves));

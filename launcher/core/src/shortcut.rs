@@ -173,6 +173,7 @@ mod tests {
         std::fs::create_dir_all(&info).unwrap();
         let text = format!(r#"[{{"serial": "S", "version": "{second}", "elf_sha1": "0", "files": 1, "image": "i"}}]"#);
         std::fs::write(info.join("buildinfo.json"), text).unwrap();
+        std::fs::write(info.join("disc.iso"), b"image").unwrap();
         let set_up = crate::config::Config { install_dir: Some(install.path().into()), ..config.clone() };
         assert_eq!(version_to_play(&set_up, &catalog, &game.id), Some(second.clone()));
         // A developer's choice of disc is the one played.
