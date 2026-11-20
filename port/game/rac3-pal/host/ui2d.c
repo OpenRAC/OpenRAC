@@ -15,15 +15,21 @@
  * box (func_0038C628, func_0027EA28) are the same routines at other addresses. Up Your Arsenal's
  * font builds its glyphs with routines of its own, float corners and the glyph's cell as a region
  * clamp: one colour (func_0038BA50), a colour a corner (func_0038BC30), and a glyph with its drop
- * shadow (func_0038BE10); func_0038B500 is a turned glyph quad. Its print (func_0038EBC8, which
- * the others call) marks what it draws as glyphs; func_0038F458's, a colour a corner, is not
- * wrapped yet (its prototype is unknown), and its glyphs stay the game's packets.
+ * shadow (func_0038BE10); func_0038B500 is a turned glyph quad. Its prints mark what they draw as
+ * glyphs: func_0038EBC8, which the menus call, and func_0038F458, the same print with a colour a
+ * corner (four RGBAQ doublewords in place of the colour), which no code of the boot program or of
+ * frontbin calls (frontbin's twin is func_0038F078) but which is wrapped as its twin is, so that
+ * nothing of the font is drawn from the game's packets.
+ *
+ * The darkening over the main menu's background picture (func_0038B200, a colour over the picture
+ * as sixteen 32-pixel sprites of a fixed packet, D_00141850) is one record of flat colour.
  *
  * The menus' frames and art are Widget3D sprites: a small animated mesh of quads that
  * func_003AA780 poses (its bones through func_003AA168, its vertices to the scratchpad through
  * func_003A08E8 or func_003A0A28) and sends one quad at a time, a GIF tag, TEX0, PRIM and four
- * corners (RGBAQ, ST, XYZ2) each. Its wrapper takes those quads, which it alone builds, as records
- * in their place.
+ * corners each: RGBAQ, ST, XYZ2, or for a quad whose PRIM takes texel coordinates (FST: the
+ * menus' corner ornaments) RGBAQ, UV, XYZ2. Its wrapper takes those quads, which it alone builds, as
+ * records in their place.
  */
 #include <stdint.h>
 #include <string.h>
@@ -80,11 +86,19 @@ static int glyph_corners(float x, float y, float w, float h, int snap, int out[4
 static int g_pending[MOST_GLYPHS];
 static int g_npending = 0;
 
-/* A glyph's record: the cell (u, v) to (u + w, v + h) texels of tex0 at the corners c, in rgba.
- * False when the window replays the 2D layer (or the print has too many glyphs), and the caller
- * sends the game's packet. */
-static int record_glyph(
-    const int c[4], int u, int v, int w, int h, uint32_t rgba, unsigned long long tex0
+/* A glyph's record: the cell (u, v) to (u + w, v + h) texels of tex0 at the corners c, in rgba, or
+ * with a colour a corner (corners, else NULL; each triangle in its last corner's, as the packet's
+ * PRIM 0x154 is unshaded). False when the window replays the 2D layer (or the print has too many
+ * glyphs), and the caller sends the game's packet. */
+static int record_glyph_corners(
+    const int c[4],
+    int u,
+    int v,
+    int w,
+    int h,
+    uint32_t rgba,
+    unsigned long long tex0,
+    const uint32_t* corners
 ) {
     if (g_npending >= MOST_GLYPHS) {
         return 0;
@@ -95,12 +109,22 @@ static int record_glyph(
     q.rgba = rgba;
     q.tex0 = tex0;
     q.flags = 1u;
+    if (corners != NULL) {
+        memcpy(q.corners, corners, sizeof(q.corners));
+        q.flags |= 4u;
+    }
     const int index = openrac_game_ui_quad(&q);
     if (index < 0) {
         return 0;
     }
     g_pending[g_npending++] = index;
     return 1;
+}
+
+static int record_glyph(
+    const int c[4], int u, int v, int w, int h, uint32_t rgba, unsigned long long tex0
+) {
+    return record_glyph_corners(c, u, v, w, h, rgba, tex0, NULL);
 }
 
 /* A record's marker at the list's cursor, as openrac_ui_send writes it. */
@@ -176,6 +200,36 @@ void func_0038EBC8(
     g_npending = first;
 }
 
+/* The shaded print: func_0038EBC8's with a colour for each glyph's corner (colours: four RGBAQ
+ * doublewords, the corners in the strip's order), its glyphs through func_0038BC30, the same
+ * packet. Its prototype is the assembly's: it saves and uses the registers as func_0038EBC8 does,
+ * a4 aside, which it reads as a pointer (four words at +0, +8, +0x10, +0x18). */
+void func_0038F458(
+    float a0,
+    float a1,
+    float a2,
+    float a3,
+    int colours, /* the four colours' address */
+    int a5,
+    int a6,
+    int a7,
+    int a8,
+    unsigned long long a9,
+    float a10,
+    float a11
+) {
+    rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
+    const gaddr start = GREF(gaddr, LIST_CURSOR);
+    const int first = g_npending;
+    ++g_glyphs;
+    func_0038F458__game(a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11);
+    --g_glyphs;
+    if (g_npending > first) {
+        place_glyph_markers(start, first);
+    }
+    g_npending = first;
+}
+
 /* A glyph in one colour: the cell (u, v), w x h texels, at (x, y), fw x fh pixels. Only a glyph of
  * a print comes here natively: elsewhere the game's packet keeps the texels to the cell (a region
  * CLAMP), which a record does not. */
@@ -205,8 +259,8 @@ int func_0038BA50(
     return 1;
 }
 
-/* func_0038BA50 with a colour a corner (colours: four RGBAQ doublewords): natively for a glyph
- * whose corners share their colour. */
+/* func_0038BA50 with a colour a corner (colours: four RGBAQ doublewords): natively for a glyph,
+ * its corners each in their colour (the shaded print's). */
 int func_0038BC30(
     int u,
     int v,
@@ -220,18 +274,24 @@ int func_0038BC30(
     float fw,
     float fh
 ) {
-    const uint32_t first = GREF(uint32_t, colours);
-    const int same = g_glyphs > 0 && GREF(uint32_t, colours + 8) == first
-                     && GREF(uint32_t, colours + 16) == first
-                     && GREF(uint32_t, colours + 24) == first;
     int c[4];
-    if (!same) {
+    if (g_glyphs <= 0) {
         return func_0038BC30__game(u, v, w, h, colours, t1, flag, x, y, fw, fh);
     }
+    const uint32_t corners[4] = {
+        GREF(uint32_t, colours),
+        GREF(uint32_t, colours + 8),
+        GREF(uint32_t, colours + 16),
+        GREF(uint32_t, colours + 24),
+    };
+    const int same =
+        corners[1] == corners[0] && corners[2] == corners[0] && corners[3] == corners[0];
     if (!glyph_corners(x, y, fw, fh, flag, c)) {
         return 0;
     }
-    if (!record_glyph(c, u, v, w, h, first, (unsigned long long)t1)) {
+    if (!record_glyph_corners(
+            c, u, v, w, h, corners[0], (unsigned long long)t1, same ? NULL : corners
+        )) {
         return func_0038BC30__game(u, v, w, h, colours, t1, flag, x, y, fw, fh);
     }
     return 1;
@@ -472,23 +532,64 @@ void func_0038B310(int y0, int y1, int x0, int x1, unsigned long long c) {
     }
 }
 
+/* The fixed packet func_0038B200 sends (a ref tag of 0x14 quadwords): an A+D tag, TEST_1 and PRIM
+ * (an untextured, blended sprite), then a tag of sixteen sprites (two XYZ2 each, from +0x40), the
+ * picture in 32-pixel columns, their corners as the front end's start-up set them. */
+#define DARKEN_PACKET 0x00141850u
+#define DARKEN_SPRITES 16u
+
+/* The picture darkened: (r, g, b, a) over the whole of it, z writes masked (ZBUF_1's ZMSK, which
+ * the routine sets and puts back), as one record of flat colour over the sixteen sprites' extent
+ * (the main menu's 0x60 of black over its background). */
+void func_0038B200(int r, int g, int b, int a) {
+    const gaddr first = DARKEN_PACKET + 0x40u;
+    const gaddr last = first + 16u * (DARKEN_SPRITES - 1u);
+    const uint64_t top_left = GREF(uint64_t, first);
+    const uint64_t bottom_right = GREF(uint64_t, last + 8u);
+    openrac_game_ui_rect q;
+    memset(&q, 0, sizeof(q));
+    openrac_ui_rect(
+        &q,
+        (int)(top_left & 0xFFFFu),
+        (int)((top_left >> 16) & 0xFFFFu),
+        (int)(bottom_right & 0xFFFFu),
+        (int)((bottom_right >> 16) & 0xFFFFu),
+        0,
+        0,
+        0,
+        0
+    );
+    q.z = (uint32_t)(top_left >> 32);
+    q.rgba = ((uint32_t)r & 0xFFu) | (((uint32_t)g & 0xFFu) << 8) | (((uint32_t)b & 0xFFu) << 16)
+             | ((uint32_t)a << 24);
+    q.flags = 2u | 8u; /* a sprite, flat */
+    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+        func_0038B200__game(r, g, b, a);
+    }
+}
+
 /* One of func_003AA780's quads, at `at` in the display list: a cnt tag of 8 quadwords with VIF
  * DIRECT 8, its GIF tag (D_001D8020: one loop of TEX0, PRIM and four RGBAQ, ST, XYZ2), then the
  * registers. */
 #define SPRITE_QUAD_BYTES 0x90u
 
+/* The GIF tag's register lists (REGLIST, fourteen registers): TEX0, PRIM, then four corners of
+ * RGBAQ, ST, XYZ2 (a quad of ST over Q), or of RGBAQ, UV, XYZ2 (PRIM's FST: texel coordinates). */
+#define SPRITE_REGS_ST 0x0052152152152106ull
+#define SPRITE_REGS_UV 0x0053153153153106ull
+
 static int sprite_quad_at(gaddr at) {
-    /* PRIM's FST (UV, not ST): the quad's texels are the UV register's, which the routine does not
-     * send; such a sprite stays the game's packets. */
-    return (GREF(uint64_t, at + 40) & 0x100u) == 0 && GREF(uint32_t, at) == 0x10000008u
-           && GREF(uint32_t, at + 12) == 0x50000008u
+    const uint64_t regs = GREF(uint64_t, at + 24);
+    const int fst = (GREF(uint64_t, at + 40) & 0x100u) != 0;
+    return GREF(uint32_t, at) == 0x10000008u && GREF(uint32_t, at + 12) == 0x50000008u
            && GREF(uint64_t, at + 16) == 0xE400000000008001ull
-           && GREF(uint64_t, at + 24) == 0x0052152152152106ull;
+           && regs == (fst ? SPRITE_REGS_UV : SPRITE_REGS_ST);
 }
 
 /* The quad's record: its corners in the order sent (a strip), each corner's colour, shaded when
- * its PRIM is (IIP), textured when it is (TME, with ST over Q into texels of TEX0's size), the
- * texture repeated as the routine's setup (D_001D8030: CLAMP_1 0) leaves it. */
+ * its PRIM is (IIP), textured when it is (TME, with ST over Q into texels of TEX0's size, or the
+ * UV register's texels with FST), the texture repeated as the routine's setup (D_001D8030:
+ * CLAMP_1 0) leaves it. */
 static void sprite_record(gaddr at, openrac_game_ui_rect* q) {
     const gaddr r = at + 32;
     const uint64_t tex0 = GREF(uint64_t, r);
@@ -496,12 +597,22 @@ static void sprite_record(gaddr at, openrac_game_ui_rect* q) {
     const float tw = (float)(1u << ((tex0 >> 26) & 15u)), th = (float)(1u << ((tex0 >> 30) & 15u));
     float us[4], vs[4];
     float umin = 0.0f, vmin = 0.0f;
+    const int fst = (prim & 0x100u) != 0;
     memset(q, 0, sizeof(*q));
     for (int i = 0; i < 4; ++i) {
         const gaddr v = r + 16 + 24u * (gaddr)i;
         const uint64_t rgbaq = GREF(uint64_t, v);
         const uint64_t st = GREF(uint64_t, v + 8);
         const uint64_t xyz = GREF(uint64_t, v + 16);
+        if (fst) {
+            /* UV: 12.4 texels, U in bits 0 to 13 and V in 16 to 29, as the record holds them. */
+            q->x[i] = (uint32_t)(xyz & 0xFFFFu);
+            q->y[i] = (uint32_t)((xyz >> 16) & 0xFFFFu);
+            q->u[i] = (uint32_t)(st & 0x3FFFu);
+            q->v[i] = (uint32_t)((st >> 16) & 0x3FFFu);
+            q->corners[i] = (uint32_t)rgbaq;
+            continue;
+        }
         float s, t, w;
         uint32_t bits = (uint32_t)st, tbits = (uint32_t)(st >> 32), qbits = (uint32_t)(rgbaq >> 32);
         memcpy(&s, &bits, 4);
@@ -520,11 +631,13 @@ static void sprite_record(gaddr at, openrac_game_ui_rect* q) {
     }
     /* The texture repeats (CLAMP_1 0), and the quads reach above its top (t below 0): moved by
      * whole repeats to texel coordinates of 0 on, which the record's UV holds. */
-    const float du = tw * (float)(int)(umin < 0.0f ? (umin / tw) - 1.0f : umin / tw);
-    const float dv = th * (float)(int)(vmin < 0.0f ? (vmin / th) - 1.0f : vmin / th);
-    for (int i = 0; i < 4; ++i) {
-        q->u[i] = (uint32_t)(int32_t)((us[i] - du) * 16.0f);
-        q->v[i] = (uint32_t)(int32_t)((vs[i] - dv) * 16.0f);
+    if (!fst) {
+        const float du = tw * (float)(int)(umin < 0.0f ? (umin / tw) - 1.0f : umin / tw);
+        const float dv = th * (float)(int)(vmin < 0.0f ? (vmin / th) - 1.0f : vmin / th);
+        for (int i = 0; i < 4; ++i) {
+            q->u[i] = (uint32_t)(int32_t)((us[i] - du) * 16.0f);
+            q->v[i] = (uint32_t)(int32_t)((vs[i] - dv) * 16.0f);
+        }
     }
     q->z = (uint32_t)(GREF(uint64_t, r + 16 + 16) >> 32);
     q->rgba = q->corners[3];
@@ -533,17 +646,11 @@ static void sprite_record(gaddr at, openrac_game_ui_rect* q) {
     q->clamp = 0u;
 }
 
-/* A Widget3D sprite: the game poses it and sends its quads, which become records in their place
- * (markers), the routine's other packets left as they are. Should the window replay the 2D layer,
- * the packets stay the game's. */
-void func_003AA780(gaddr a0, float a1, float a2, int a3, float a4, gaddr a5) {
-    const gaddr start = GREF(gaddr, LIST_CURSOR);
-    func_003AA780__game(a0, a1, a2, a3, a4, a5);
+/* The quads a routine sent from `at` to the list's cursor as records in their place (markers), what
+ * came before `at` left as it is. Should the window replay the 2D layer, or something else be
+ * among the quads, the packets stay the game's. */
+static void quads_to_records(gaddr at) {
     const gaddr end = GREF(gaddr, LIST_CURSOR);
-    gaddr at = start;
-    while (at + 16 <= end && !sprite_quad_at(at)) {
-        at += 16; /* the setup before the quads (func_003AA328's reference to D_001D8030) */
-    }
     if (at >= end) {
         return;
     }
@@ -565,5 +672,54 @@ void func_003AA780(gaddr a0, float a1, float a2, int a3, float a4, gaddr a5) {
             GREF(gaddr, LIST_CURSOR) = end; /* replaying: the packets are still there, untouched */
             return;
         }
+    }
+}
+
+/* A Widget3D sprite: the game poses it and sends its quads, which become records in their place
+ * (markers), the routine's other packets left as they are. */
+void func_003AA780(gaddr a0, float a1, float a2, int a3, float a4, gaddr a5) {
+    const gaddr start = GREF(gaddr, LIST_CURSOR);
+    func_003AA780__game(a0, a1, a2, a3, a4, a5);
+    const gaddr end = GREF(gaddr, LIST_CURSOR);
+    gaddr at = start;
+    while (at + 16 <= end && !sprite_quad_at(at)) {
+        at += 16; /* the setup before the quads (func_003AA328's reference to D_001D8030) */
+    }
+    quads_to_records(at);
+}
+
+/* The HUD's textures: by a texture's number, a 4-byte entry at D_001D9EA8 whose halfword at +2
+ * indexes the 8-byte entries at D_001D9EAC, +6 and +7 the log2 width and height. */
+#define HUD_ENTRIES GREF(gaddr, 0x001D9EA8u)
+#define HUD_IMAGES GREF(gaddr, 0x001D9EACu)
+
+/* A HUD texture (by its number) as a quad centred on (x, y), w and h its half sizes, turned by ang,
+ * a colour a corner (colours: four RGBA words), its whole texture in texels (the packet's PRIM
+ * 0x15C: shaded, blended, UV), at the far depth: the menus' corner ornaments. The corners as the
+ * game works them out (the VU0's sums: c - a + b, c - a - b, c + a + b, c + a - b with
+ * a = h (sin, cos), b = w (-cos, sin)), cut to whole pixels, then 12.4 with the 2D offset. */
+void func_00397680(int tex, gaddr colours, float x, float y, float w, float h, float ang) {
+    const gaddr image = HUD_IMAGES + 8u * (gaddr)GREF(int16_t, HUD_ENTRIES + 4u * (gaddr)tex + 2u);
+    const int tw = 1 << GREF(uint8_t, image + 6u), th = 1 << GREF(uint8_t, image + 7u);
+    const float ax = h * func_0038D490(ang), ay = h * func_0038D478(ang);
+    const float bx = -w * func_0038D478(ang), by = w * func_0038D490(ang);
+    const float px[4] = {(x - ax) + bx, (x - ax) - bx, (x + ax) + bx, (x + ax) - bx};
+    const float py[4] = {(y - ay) + by, (y - ay) - by, (y + ay) + by, (y + ay) - by};
+    const int us[4] = {0, tw << 4, 0, tw << 4}, vs[4] = {0, 0, th << 4, th << 4};
+    openrac_game_ui_rect q;
+    memset(&q, 0, sizeof(q));
+    for (int i = 0; i < 4; ++i) {
+        q.x[i] = (uint32_t)to_screen_x((int)px[i] << 4) & 0xFFFFu;
+        q.y[i] = (uint32_t)to_screen_y((int)py[i] << 4) & 0xFFFFu;
+        q.u[i] = (uint32_t)us[i];
+        q.v[i] = (uint32_t)vs[i];
+        q.corners[i] = GREF(uint32_t, colours + 4u * (gaddr)i);
+    }
+    q.z = FAR_Z;
+    q.rgba = q.corners[3];
+    q.tex0 = (unsigned long long)func_00396E18(tex);
+    q.flags = 4u | 32u; /* a colour a corner, shaded */
+    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+        func_00397680__game(tex, colours, x, y, w, h, ang);
     }
 }

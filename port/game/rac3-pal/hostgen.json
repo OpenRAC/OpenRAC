@@ -161,7 +161,8 @@
       "func_00391100": "int (int, int, float)",
       "func_00391128": "int (int, int, float)",
       "func_00391150": "int (int, int, int, float)",
-      "func_003F03F0": "int (int, int)"
+      "func_003F03F0": "int (int, int)",
+      "func_0038F458": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
     },
     "discover_entries": true,
     "dirs": [],

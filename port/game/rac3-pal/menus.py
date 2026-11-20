@@ -131,10 +131,12 @@ def routes() -> list[Route]:
         Route("mp-tutorial", [main, *row(3), Step("open MULTIPLAYER TUTORIAL", "cross", 240, expect=back_to_main,
                                                   changes=False),
                               *pad_checks()]),
-        # Options: four rows (16:9, SUBTITLES, SOUND, LANGUAGE), the cursor on the first; Cross
-        # toggles a row, R1 opens ADJUST SCREEN, Triangle goes back.
-        Route("options", [main, *row(4), Step("open OPTIONS", "cross", 120, expect=["LANGUAGE", "STEREO"]),
-                          Step("16:9 on", "cross", 40, expect=["ON"]), Step("16:9 off", "cross", 40),
+        # Options: four rows (VIDEO in the 16:9 row's place, SUBTITLES, SOUND, LANGUAGE), the
+        # cursor on the first; Cross on VIDEO opens the port's Video page (Triangle back to the
+        # game's rows), Cross toggles the others, R1 opens ADJUST SCREEN, Triangle goes back.
+        Route("options", [main, *row(4), Step("open OPTIONS", "cross", 120, expect=["VIDEO", "LANGUAGE", "STEREO"]),
+                          Step("open the Video page", "cross", 40, expect=["DISPLAY MODE", "PICTURE"]),
+                          Step("back to the game's rows", "triangle", 40, expect=["VIDEO", "SUBTITLES"]),
                           Step("to SUBTITLES", "down", 30), Step("subtitles on", "cross", 40, expect=["ON"]),
                           Step("subtitles off", "cross", 40),
                           Step("to SOUND", "down", 30), Step("sound mono", "cross", 40, expect=["MONO"]),
@@ -143,6 +145,16 @@ def routes() -> list[Route]:
                           Step("left", "left", 30, changes=False), Step("right", "right", 30, changes=False),
                           Step("start", "start", 30, changes=False),
                           Step("back", "triangle", 90, expect=back_to_main)]),
+        # Each Options row's picture (the preview beside the list), the VIDEO row's (the 16:9
+        # row's own) and the Video page's, which keeps it.
+        Route("options-pictures", [main, *row(4), Step("open OPTIONS on VIDEO", "cross", 120, expect=["VIDEO"]),
+                                   Step("SUBTITLES' picture", "down", 90), Step("SOUND's picture", "down", 90),
+                                   Step("LANGUAGE's picture", "down", 90),
+                                   *[Step(f"up {i}", "up", 40) for i in range(1, 3)],
+                                   Step("VIDEO's picture", "up", 90),
+                                   Step("open the Video page", "cross", 90, expect=["DISPLAY MODE"]),
+                                   Step("down the Video page", "down", 60, expect=["DISPLAY MODE"]),
+                                   Step("back to the game's rows", "triangle", 90, expect=["VIDEO", "SUBTITLES"])]),
         Route("adjust-screen", [main, *row(4), Step("open OPTIONS", "cross", 120, expect=["LANGUAGE"]),
                                 Step("open ADJUST SCREEN", "r1", 90, expect=["to adjust screen position"]),
                                 # The d-pad moves the console's picture (the OSD offset); the port
@@ -285,7 +297,8 @@ def run_route(route: Route, exe: Path, data: Path, out: Path, timeout: float) ->
         else:
             if not texts and not s.allow_empty:
                 problems.append("nothing printed")
-            if any(t.strip() == "" for t in texts):
+            # The Options page's VIDEO row has no value: its cell prints empty by design.
+            if any(t.strip() == "" for t in texts) and "VIDEO" not in texts:
                 problems.append("an empty string printed")
             if any("(null)" in t for t in texts):
                 problems.append("(null) printed")

@@ -24,6 +24,11 @@
  * port's rows (game_host.h, openrac_game_option_*) in the same list, its four shown rows moving
  * with the cursor as the game's own lists scroll; Cross or Right steps the row under the cursor to
  * its next value, Left to the one before, Triangle goes back to the game's rows.
+ *
+ * Each row's picture is the preview widget's animation for it (the items' fourth word: 16:9's 5,
+ * Subtitles' 2, the sound's 4, the language's 9), a Widget3D sprite drawn as the 2D layer's records
+ * (ui2d.c, func_003AA780). The Video row keeps the 16:9 row's picture, the one the game shows for
+ * its screen setting, and the Video page shows it as long as it is open.
  */
 #include <stdint.h>
 #include <string.h>
@@ -54,6 +59,8 @@
 #define PREVIEW_ROW 0x001D89BCu /* the row whose preview shows, -1 none yet */
 #define PREVIEW 0x001C0003      /* the preview's widget */
 #define ROW_VIDEO 0             /* the 16:9 row, the port's Video page in its place */
+#define ITEMS 0x0037F830u       /* the Options items, 16 bytes each */
+#define ITEM_PREVIEW 0x0Cu      /* an item's preview animation */
 
 #define MENU_TRIANGLE 0x10u /* the menus' buttons (the pad record's word at +0x1C4) */
 #define MENU_CROSS 0x40u
@@ -111,7 +118,10 @@ static void video_show(int open) {
         game_rows = GREF(int32_t, LIST + LIST_ROWS);
         video_count = rows;
         list_reset(rows);
-        func_003E7DD0(PREVIEW, 0);
+        /* The 16:9 row's picture, shown at once (the game waits a few frames after the cursor
+         * moves) and kept while the page is open. */
+        func_003E8200(PREVIEW, GREF(int32_t, ITEMS + 16u * ROW_VIDEO + ITEM_PREVIEW));
+        func_003E7DD0(PREVIEW, 1);
     } else {
         list_reset(game_rows);
         GREF(int32_t, PREVIEW_ROW) = -1; /* the preview again, the row's */
@@ -144,16 +154,13 @@ int func_003B63D0(void) {
     return 0;
 }
 
-/* The preview follows the cursor among the game's rows; the Video row and page have none. */
+/* The preview follows the cursor among the game's rows, the Video row's the 16:9 row's own; the
+ * Video page keeps it (its rows are the port's, which the game's items do not describe). */
 void func_003B6090(void) {
     if (video_open) {
-        func_003E7DD0(PREVIEW, 0);
         return;
     }
     func_003B6090__game();
-    if (GREF(int32_t, CURSOR_ROW) == ROW_VIDEO) {
-        func_003E7DD0(PREVIEW, 0);
-    }
 }
 
 /* The menus' buttons on the Options page: Cross on the Video row opens the port's page; on it,
