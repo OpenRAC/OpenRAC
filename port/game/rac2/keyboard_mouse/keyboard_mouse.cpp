@@ -345,6 +345,12 @@ bool menu_mouse(const Tick& t, bool click) {
         return true;
     }
 
+    // A click on the selected item confirms it: a whole press, however short the click.
+    if (click && nav.hit >= 0 && nav.hit == nav.selected && s_pulses.idle() && !s_click_pending) {
+        s_pulses.push(kbm::kCross);
+        return true;
+    }
+
     // Over an item not selected: a click goes there and confirms; the mouse moved there steps.
     if (nav.hit >= 0 && nav.selected >= 0 && nav.hit != nav.selected) {
         if (click) {
