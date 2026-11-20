@@ -244,6 +244,8 @@ def main(argv: list[str] | None = None) -> int:
 
     def put(name: str, text: str) -> None:
         path = RELEASE / name
+        if not args.check:
+            path.parent.mkdir(parents=True, exist_ok=True)
         if args.check:
             if not path.is_file() or path.read_text() != text:
                 stale.append(name)
@@ -273,6 +275,22 @@ def main(argv: list[str] | None = None) -> int:
     report["own_functions"] = own
     out["roots"] = list(dict.fromkeys([*out.get("roots", []), *own]))
     put("hostgen.json", json.dumps(out, indent=2) + "\n")
+
+    # checks/result_allow.tsv: PAL's rows (caller, callee, why) in NTSC-U's names.
+    if primary.get("result_allow"):
+        allow = ["# Written by port/tools/hostgen/release_carry_rac3.py from rac3-pal's table, in NTSC-U's names;",
+                 "# do not edit."]
+        for line in (PRIMARY / primary["result_allow"]).read_text().splitlines():
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 3:
+                if line.startswith("#"):
+                    allow.append(line)
+                continue
+            new = [names.function(c)[0] if one_name(c) else c for c in cols[:2]]
+            if any(absent(c, names) for c in new):
+                continue
+            allow.append("\t".join([*new, *cols[2:]]))
+        put(primary["result_allow"], "\n".join(allow) + "\n")
 
     # libraries.tsv: the rows renamed.
     lines = (PRIMARY / "libraries.tsv").read_text().splitlines()
