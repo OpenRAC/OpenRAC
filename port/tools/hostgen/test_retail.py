@@ -10,12 +10,15 @@ program need Clang, as test_hostgen.py's do.
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import re
 import shutil
 import struct
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -388,6 +391,32 @@ def tiny_iso(files: dict[str, bytes]) -> bytes:
     for at, data in body.items():
         image[at * sector:at * sector + len(data)] = data
     return bytes(image)
+
+
+class RequiredRetail(unittest.TestCase):
+    """hostgen.json "asm" "retail" "required": no disc, or another game's, stops the build."""
+
+    def program(self):
+        from types import SimpleNamespace
+        return SimpleNamespace(entry_address=0x00100000, relocate=None)
+
+    def test_a_missing_or_wrong_disc_stops_the_build(self):
+        import asmc
+        import os
+        with unittest.mock.patch.dict(os.environ, {"OPENRAC_HOSTGEN_NO_DISC": ""}):
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                asmc.retail_required({"required": True}, Path("/nowhere.iso"), None, self.program())
+            other = retail.Retail(elf([(0x00200000, struct.pack("<2I", 0x03E00008, 0))]), {}, 0x00200000)
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                asmc.retail_required({"required": True}, Path("other.iso"), other, self.program())
+            game = retail.Retail(elf([(0x00100000, struct.pack("<2I", 0x03E00008, 0))]), {}, 0x00200000)
+            asmc.retail_required({"required": True}, Path("game.iso"), game, self.program())
+
+    def test_a_build_without_a_disc_on_purpose_goes_on(self):
+        import asmc
+        import os
+        with unittest.mock.patch.dict(os.environ, {"OPENRAC_HOSTGEN_NO_DISC": "1"}):
+            asmc.retail_required({"required": True}, None, None, self.program())
 
 
 class ReadImageTests(unittest.TestCase):

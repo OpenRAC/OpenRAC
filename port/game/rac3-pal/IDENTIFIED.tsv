@@ -89,6 +89,110 @@ data	D_00EA5000	0x00EA5000	menu_background	the main menu background picture: a 1
 data	D_00C73000	0x00C73000	frontend_assets	786 sectors from sector 673402: a header size (0x80), then (offset, size) pairs of WAD-compressed entries (the menu pictures among them)
 data	D_00142120	0x00142120	menu_frame_regs	GIF A+D packet: FRAME_1/FRAME_2 = FBP 0xF0 (block 0x1E00), FBW 8: the draw buffer the main menu is drawn in
 code	func_003A9BE8	0x003A9BE8	load_screen_picture	(pixels, frame address in bytes, width, height): puts a picture from EE memory into the frame as 512x32 image transfers at the list cursor 0x001DA050 and returns its TEX0; the main menu calls it each frame with its background (host: picture.c, a texture and a 2D record)
+data	SCES_524.56+0x7080	0x00806080	loader_payload	the game the disc's loader carries, WAD-compressed: 18 records (address, size, type, entry 0x0013ADA8): type 1 code/data (0x00100080 the VU microcode, 0x00116F80 core.text, 0x00381080 .text, the rest data as boot_elf.elf's sections), type 8 zeros (bss 0x00152400, 0x001D9880), 0x70000006 register-use (0x00100000, 0x003F2780); hostgen reads it from the disc (hostgen.json asm loader, retail.py loader_parts)
+code	func_0039C7F0	0x0039C7F0	memcard_update	the memory card's state machine, once a frame from the front end: its block at 0x00142430 (two cards of 0xA0: +0x08 type, +0x0C free clusters, +0x14 formatted, +0x18 s16 the card's save state, +0x30 four slot entries of 0x1C; then +0x144 the last libmc result, +0x14C the card worked on, +0x154 busy, +0x15C step, +0x160 sub-state, +0x164 request (7 check, 0xF save, 0xD...), +0x16C the dialog's reason); needs 600 KB free (free + reserved under 0x258)
+code	func_0039E9C0	0x0039E9C0	save_pack	writes a save: the two section sizes, the global section (table 0x00332388) and 37 level sections (table 0x00332618)
+code	func_0039EA88	0x0039EA88	save_section_size	a table's section size: 8 + each chunk's 8 + size rounded to 4, + 8
+code	func_0039EAC0	0x0039EAC0	save_checksum	rac1's CRC-16 (seed 0xEDB88320, polynomial 0x1F45); 0 for data longer than the global section (14216)
+code	func_0039EB68	0x0039EB68	save_section_check	a section's stored checksum non-zero and equal
+code	func_0039EBA8	0x0039EBA8	save_write_section	one section from a table (entries {address, size, id, status}; id 0x1770 written as zeros): size, checksum, chunks, {-1, 0}
+code	func_0039ECC0	0x0039ECC0	save_slot_info	a slot entry of the card block from a save's global section: level, bolts (progress +0), progress byte +0x32, play time, clock
+code	func_0039ED78	0x0039ED78	save_read_section	copies a section's chunks back into memory by their table; counts unknown ids and other sizes as errors
+code	func_0039F008	0x0039F008	save_request	packs the game into the save buffers 0x001C5BD0 (global) and 0x001CBBD0 (level) and asks the card machine to write (+0x164 = 0xF)
+code	func_003932E8	0x003932E8	scratch_buffer	(size, out): a buffer below the top at 0x0022758C + 0x001DA058 (or the one at 0x001D5C90), -1 for more than 0x40000; the NTSC-U draft reads 0x0022760C
+code	func_003B7748	0x003B7748	save_slot_list_draw	the Load and Save pages' four slots: planet, date, play time (ticks / 216000 hours, 60 ticks a second), bolts
+code	func_0039B1C0	0x0039B1C0	memcard_dialog_update	runs the card dialog's handler from the table 0x003322F8 by its number (0x001D4CE8); flags 0x001D4CEC (0x20 No, 0x2000 Yes, 0x40 ...)
+code	func_003E7420	0x003E7420	page_update_call	calls a menu page's update callback (+0x0C) with the page still in a0 (as func_003E73D0, 73F8, 7448, 7470 for +0x04, +0x08, +0x10, +0x14)
+data	D_00142430	0x00142430	memcard_block	the card machine's block (func_0039C7F0)
+data	D_00332388	0x00332388	save_table_global	the global save table: 40 entries {address, size, id, status}
+data	D_00332618	0x00332618	save_table_level	the per-level save table: 9 entries
+data	D_001D4CE8	0x001D4CE8	memcard_dialog	the card dialog's number (handlers at 0x003322F8; 15 the create-save prompt, Yes on Circle)
+code	func_0013C578	0x0013C578	snd_QueueCommandToRing	(command, size, data, callback, argument): appends to the batch at D_001D4DC0[D_001D4DE0] (u16 command, u16 size, data), the callback and argument to D_001D4DD0, then commits (func_0013C8D0); command 0x68 carries a pointer and length to copy (host: the shared ring, lib/snd_ring.c)
+code	func_0013C8D0	0x0013C8D0	snd_CommitRingEntry	counts the entry in the batch, then snd_Pump
+code	func_0013C908	0x0013C908	snd_FlushCommandRing	sends the current batch with RPC 0x4D and switches to the other batch (0xFFC bytes free)
+code	func_0013BAB8	0x0013BAB8	snd_BankLoadAsync	(sector, offset, callback, argument): RPC 3 on the loader client 0x001D49C0; snd_Pump calls the callback with the handle (host: loaded at once from the disc)
+code	func_0013BC30	0x0013BC30	snd_BankLoadFromEE_CB	(bank in EE memory, callback, argument): RPC 0x57
+code	func_0013BD58	0x0013BD58	snd_BankLoadFromIOP	RPC 0x59: a bank in the IOP's memory, its handle
+code	func_0013CA30	0x0013CA30	snd_InitVAGStreamingEx	synchronous command 0x2A (streams, buffer size, ...), its answer kept at D_001D4DAC: nonzero sends snd_StreamSafeCd* through the sound server
+code	func_0013CB20	0x0013CB20	snd_PlayVAGStreamTwoParts_CB	command 0x2C: (right, left, 0, 0, volume, pan, group, queue on, 0, flags, callback, argument); words right, left, volume << 16, pan << 16, group, queue on, 0, flags
+code	func_0013C0B8	0x0013C0B8	snd_PlaySoundVolPanPMPB_CB	command 0x11: bank, sound, volume, pan, pitch mod, pitch bend; the callback gets the handle
+code	func_0013C2C0	0x0013C2C0	snd_SetSoundParams_CB	command 0x21: handle, mask, volume, pan, pitch mod, pitch bend; func_0013C2A0 without a callback
+code	func_003A1558	0x003A1558	sound_streams_init	snd_InitVAGStreamingEx(7, 0xA000, 0, 1)
+code	func_003A1580	0x003A1580	sound_bank_loaded	a bank load's callback: stores the handle at its argument
+code	func_003A1598	0x003A1598	sound_load_common_bank	snd_BankLoadAsync of the disc table's bank (D_00160C40 +0x79A4 base, +0x79B8), its handle at 0x001A30B0+0x90
+code	func_003A1638	0x003A1638	sound_load_bank	snd_BankLoadAsync of bank idx of the disc table (+0x79E8), its handle at 0x001A30B0+0x98+4*idx
+code	func_003A1C38	0x003A1C38	music_play	plays music track a0 (two mono files, the disc table +0x7A04 base) paused (flags 1) as stream channel 0 of 0x001CCFD0
+code	func_003A1F40	0x003A1F40	stream_play_mono	plays one mono file of the disc table as stream channel 2 (flags 0x20)
+code	func_003A53F8	0x003A53F8	sound_slot_start	takes one of the 52 sound slots (0x80 bytes each from 0x001A30C0) for a sound definition; the sound tick (func_003A4688) sends the play
+code	func_003A5748	0x003A5748	sound_play_global	plays sound a of the global sound table (D_001D9D2C, count D_001D5B9C) through func_003A53F8 (a sound slot the sound tick func_003A4688 plays)
+data	D_00160C40	0x00160C40	disc_table	the disc's table of contents read at boot: +0x79A4 the sound banks' base sector, +0x7A04 the streams' base sector, sector tables after them
+code	func_003A1D30	0x003A1D30	music_play_track	(track, flags, volume): music channel 0 of 0x001CCFD0 plays the track's two files (the level table at D_00160C40+0x7A04, which LoadLevelToc func_0013D310 fills; empty in the boot front end, so the boot menu has no music to play)
+code	func_003A8D38	0x003A8D38	movie_prepare	before a movie: stops the sounds and streams (func_003A2028), keeps the music track playing (0x001CD018) at D_001DA044 and the movie's arguments at D_001DA030
+code	func_003A8E10	0x003A8E10	movie_resume	after a movie: plays the kept music track again (func_003A1D30(D_001DA044, 1, 0x400)); -1 after the intro, which follows no music
+code	func_003A2028	0x003A2028	sound_streams_stop	stops every stream (snd_StopAllStreams, command 0x34) and the stream channels
+code	func_003A2120	0x003A2120	stream_channel_update	one of the four stream channels of 0x001CCFD0 (+0x44, +0x6C, +0x94, +0xBC): pause, continue, stop and the buffered question
+code	func_0038B310	0x0038B310	DrawFlatBox	(top, bottom, left, right, colour): a box of flat colour at the far depth; rac2-ntsc func_0027DE50 by opcode sequence (0.77)
+code	func_0038B8B0	0x0038B8B0	DrawGlyphQuad	(x, y, w, h, u, v, uw, vh, colour, TEX0): the 2D layer's textured quad, its own DMA tag; rac2-ntsc func_0027E018
+code	func_0038B500	0x0038B500	DrawTurnedGlyphQuad	func_0038B8B0 turned by an angle about its centre (VU0 adds of the half edges)
+code	func_0038BA50	0x0038BA50	DrawGlyph	(u, v, w, h, colour, TEX0, snap, x, y, w, h): one glyph loop (six quadwords: TEX0, PRIM, CLAMP region, RGBAQ, four UV/XYZ2) of a print's GIF packet, no tag of its own; 0 when off the 4096 window
+code	func_0038BC30	0x0038BC30	DrawGlyphShaded	func_0038BA50 with a colour a corner (four RGBAQ doublewords)
+code	func_0038BE10	0x0038BE10	DrawGlyphShadowed	a glyph and its drop shadow (two loops: the shadow's colour moved by dx, dy first)
+code	func_0038C0B8	0x0038C0B8	DrawRotatedSprite	a turned textured quad about a pivot, mirrored by two flags; rac2-ntsc func_0027E4A8 (0.67)
+code	func_0038C518	0x0038C518	DrawRingSegment	(XYZ2s, UVs, colours, TEX0, clamped); rac2-ntsc func_0027E920 (0.96)
+code	func_0038C628	0x0038C628	DrawShadedBox	(XYZ2s, two colours), strip order 0, 2, 1, 3; rac2-ntsc func_0027EA28 (0.94)
+code	func_0038C6F0	0x0038C6F0	DrawShadedRect	(x0, y0, x1, y1, z, colours) to func_0038C628; rac2-ntsc func_0027EAE8 (0.99): the menus' separators and highlighted row
+code	func_0038C790	0x0038C790	DrawBevelBox	seven func_0038B310 boxes; rac2-ntsc func_0027EB88 (0.99)
+code	func_0038EBC8	0x0038EBC8	FontPrint	(x, y, scale x, scale y, text, length, ...TEX0 colours): frontbin's func_0038E7E8; reserves 0x20 bytes, sends every glyph as one loop of one GIF packet (func_0038BA50, func_0038BE10) and writes the header (cnt and DIRECT of 6n + 1, the tag of D_001D77D0) last
+code	func_0038FDF8	0x0038FDF8	FontPrintWrapped	frontbin's func_0038FA18: lines of func_0038EBC8 within a window (the boot screens' notices)
+code	func_0038E928	0x0038E928	FontTextWidth	(text, length, scale): the width of a string in the font of func_0038E530
+code	func_0038E530	0x0038E530	FontSelect	(font): D_001D55C0/C4/C8 its metrics and glyph tables, D_001D5B38 its pages' TEX0 table (0x0031CF50 + 64 n), D_001D5B3C its palettes' (0x0031CFD0 + 64 n)
+code	func_0038E2B0	0x0038E2B0	FontUpload	uploads both fonts' palettes (func_0038A028) and pages (func_00389EF0) once a frame into the 2D layer's GS area (allocator D_001D4BB0)
+code	func_0038A0E0	0x0038A0E0	MakeTex0	(TBP, CBP, log2 width, log2 height, PSM): a whole TEX0, CLD 4, TCC 1
+code	func_003823D0	0x003823D0	TextGet	(text id): the string of the front end's text table (D_001D99A0, 16-byte entries, key at +4), else an empty string at D_001D5788
+code	func_003AA780	0x003AA780	DrawWidgetSprite	a Widget3D sprite (the menus' frames and art): poses its mesh (func_003AA168 bones, func_003A08E8/func_003A0A28 vertices to the scratchpad) and sends each quad as cnt + DIRECT 8 (GIF tag D_001D8020: TEX0, PRIM, four RGBAQ, ST, XYZ2)
+code	func_003AA168	0x003AA168	WidgetSpritePose	the sprite's bone matrices at a frame, blended to the next
+code	func_003EE038	0x003EE038	WidgetDraw	a Widget3D's draw through its vtable (+8, slot +0x1C) when its flag 1 is set
+code	func_003EE7E8	0x003EE7E8	WidgetContainerDraw	draws a container's children (+0x2C, count at +0x48 of it)
+code	func_003EFBB0	0x003EFBB0	WidgetBoxDraw	the box widget (vtable 0x001D9768): its separators and highlight through func_0038C6F0
+code	func_003F03F0	0x003F03F0	WidgetTextDraw	the text widget (vtable 0x001D9798, text at +0x3C): (widget, parent rectangle), its bounds through func_003F05C8, then func_0038EBC8
+code	func_003F2158	0x003F2158	WidgetSpriteDraw	the sprite widget (vtable 0x001D97F8): func_003AA6D8 to func_003AA780
+code	func_003EAF08	0x003EAF08	WidgetSetText	the text widget's handler of the set-text message (table 0x0031B8A0): +0x3C = the string
+code	func_003E8048	0x003E8048	WidgetSetTextById	(widget id, string): the set-text message to a widget found by its id
+code	func_003E9828	0x003E9828	WidgetMessagesInit	fills the message tables (0x0031B7C8 position, 0x0031B8A0 text, ...) for each widget class
+code	func_003B4C30	0x003B4C30	MainMenuBuild	the main menu's widgets: frames 0xD0000-0xD0003, the five items 0xD000C-0xD0010 (texts at 0x00337640: 0x14C, 0x14E, 0x11E6, 0x169C, 0x107), their container 0xD0025
+code	func_003F2740	0x003F2740	PlacementNew	returns its second argument (operator new in place)
+code	func_003B5580	0x003B5580	OptionsScreen	the title's Options screen object (D_001DA168): build func_003B55D8, update func_003B5890, leave func_003B5B80; func_003B4BC0 (the main menu's Options item) opens it
+code	func_003B55D8	0x003B55D8	OptionsBuild	builds the Options page: its frame and title (0x107), the list (func_003B6128), the preview widget 0x1C0003 and the footer 0x1C0004 (text 0x1EBD)
+code	func_003B5890	0x003B5890	OptionsUpdate	the Options page's states (gp - 0x3ECC): 0 the list (func_003BA8B0, func_003B6090, func_003B5F78, func_003B63D0), the others the screen adjustment's dialog
+code	func_003B6128	0x003B6128	OptionsListInit	sets up list 0 (func_003B9F88(0), func_003BA020): the items at D_0037F830 counted, up to 6 shown, 2 columns, 0x9000 bytes of cells
+code	func_003B63D0	0x003B63D0	OptionsRowsText	each frame: every row's name ("%s:") and value into the list's cells (values at D_0037F790, 0x20 bytes each), the footer's text
+code	func_003B6090	0x003B6090	OptionsPreview	the row under the cursor into D_001D89B8; 30 frames after it moved, the preview widget 0x1C0003 plays the row's animation (the item's fourth word)
+code	func_003B5F78	0x003B5F78	OptionsButtons	(screen, menu buttons): Cross the row's action, R1 the screen adjustment (text 0xB3B), Triangle back to the main menu
+code	func_003B6588	0x003B6588	OptionToggleWidescreen	flips the 16:9 byte (D_00143950 + 0xAD) and updates the view (func_003877A0)
+code	func_003B6608	0x003B6608	OptionToggleSubtitles	flips D_00143950 + 6
+code	func_003B6620	0x003B6620	OptionToggleSound	flips the word D_00143950 + 8 (0 mono, else stereo)
+code	func_003B65B8	0x003B65B8	OptionNextLanguage	D_00143950 + 0xB7 to the next of 1 to 5, then func_003B6638 (the texts in that language)
+code	func_003B5088	0x003B5088	MainMenuUpdate	the main menu's update: Up and Down over the enabled items of D_00337640 ({widget, text, enabled, action}), Cross the item's action
+code	func_003B9F88	0x003B9F88	ListGet	(n): list widget n of four at D_00280CF0 (0xB4 bytes each: +4 first row shown, +8 cursor among them, +0xC rows, +0x10 shown, +0x14 columns, +0xB0 cells of 0x44 bytes, +0x40 a cell's state, 4 skipped)
+code	func_003BA1E8	0x003BA1E8	ListCell	(list, column, row): the cell's address
+code	func_003BACD8	0x003BACD8	ListMoveCursor	Up and Down, skipping cells of state 4, scrolling the shown rows
+code	func_003983C8	0x003983C8	FrontEndStartup	(more) sets D_00143950 + 0xB7 from sceScfGetLanguage unless an argument says otherwise (D_001D551D): the console's 1 English, 2 French, 3 Spanish, 4 German, 5 Italian to the game's 1, 2, 4, 3, 5 (jtbl_0031C120)
+data	D_00143950	0x00143950	options	the game's options: +6 subtitles, +8 sound (0 mono), +0xAD 16:9, +0xB7 language (1 English, 2 French, 3 German, 4 Spanish, 5 Italian)
+data	D_0037F830	0x0037F830	options_items	the Options rows, 16 bytes each {text id, enabled, action, preview animation}: 16:9 0x508, Subtitles 0x148, Sound 0x146, Language 0x14F; ended by a zero text
+data	D_00337640	0x00337640	main_menu_items	the main menu's five items, 16 bytes each {widget id, text id, enabled, action}: Load Game, New Game, Multiplayer, Multiplayer Tutorial, Options
+code	func_003877A0	0x003877A0	UpdateViewContext	the view projection set-up (frontbin func_003873C0; rac2 UpdateViewContext func_0027AB40, 0.79 by opcode sequence): the view block's half-angle tangents, the vertical one divided by 4/3 with the 16:9 byte or in split screen (host/view.c)
+data	D_00225900	0x00225900	view_context	the view block UpdateViewContext fills: +0xB0 the horizontal half-angle tangent, +0xB4 the vertical one, +0xA8/+0xAC the screen's scales from +0x210-+0x21C
+data	D_001439FD	0x001439FD	option_widescreen	the Options page's 16:9 byte (+0xAD of the options at 0x00143950); kept 0 by the port (host/view.c)
+data	D_001D5B98	0x001D5B98	split_screen	1 in split screen (with view_context +0x268 set, UpdateViewContext narrows the vertical view as for 16:9)
+code	func_003AF7C0	0x003AF7C0	MessageBoxDraw	(x, y, w, h, message, button texts ..., flag byte at 88(sp)): forwards all twelve arguments, four of them on the stack, to func_003AC590 with the GUI memory base (*0x001D5C78 + 0x1FCA8); the memory card dialogs' box. The NTSC-U draft forwarded only seven, so the dialogs lost their Yes button and their wrap width (translated from assembly)
+code	func_003AC590	0x003AC590	MessageBoxDrawImpl	a message box: sprintf's its buttons into one line (\x11 Yes, spaces, \x12 No), then the message through FontPrintWrapped (func_0038FDF8) and the buttons line
+code	func_003E73D0	0x003E73D0	PageCallEnter	calls a menu page's callback at +4 with the page still in a0 (and +8 func_003E73F8, +12 func_003E7420 update, +16 func_003E7448, +20 func_003E7470 draw); the callbacks take the page as their argument
+code	func_003E62E0	0x003E62E0	PageStackUpdate	the front end's sixteen page slots (current, pending): switches pages and runs each page's update (func_003E7420)
+code	func_003B8040	0x003B8040	LoadGamePageUpdate	the memory card pages' update: a switch on D_001D8A40 (0 check, 1, 2-3 func_003B87E8, 6 the dialog's answer), then back to the main menu page (func_00381BD0)
+code	func_003B9AB8	0x003B9AB8	DialogOpen	(kind, yes text, no text, message, flag): a yes/no dialog's state at 0x001D8BB8-0x001D8BD0 when none is open (0x001D8BBC == 1); func_003B9B68 reads its answer from the pad (+0x1C4) against the masks at 0x001D8BD4/0x001D8BD8 (func_003B9A90: 64 Cross, 16 Triangle by default)
+data	D_001D99A0	0x001D99A0	text_table	the front end's text: a pointer (0x00873000 at the menu) to 16-byte entries (string, id, -1, 0xFFFF); 0x8DF "\x12 No", 0x8E2 "\x10 Yes", 0x8E3 "\x11 Yes", 0x8DD/0x8DE Continue
+data	D_001CD0C0	0x001CD0C0	pads	the button bits the menus read at a pad record's +0x1A0 (held) and +0x1A4 (pressed): 0x1 L2, 0x2 R2, 0x4 L1, 0x8 R1, 0x10 Triangle, 0x20 Circle, 0x40 Cross, 0x80 Square (seen with OPENRAC_RAC3_MENU_LOG)
+code	func_00381250	0x00381250	frontend_main	the Sly 2 demo: L1, L2, R1 and R2 held on the main menu (0x003816B0) set boot screen 9, which prints "Congratulations! You have accessed the Sly 2 demo." (text 0x1700) for 151 frames, then calls launch_sly2_demo (func_003824A8)
 code	func_0013C578	0x0013C578	snd_QueueCommandToRing	(command, size, data, callback, argument): appends to the batch at D_001D4DC0[D_001D4DE0] (u16 command, u16 size, data), the callback and argument to D_001D4DD0, then commits (func_0013C8D0); command 0x68 carries a pointer and length to copy (host: the shared ring, lib/snd_ring.c)
 code	func_0013C8D0	0x0013C8D0	snd_CommitRingEntry	counts the entry in the batch, then snd_Pump
 code	func_0013C908	0x0013C908	snd_FlushCommandRing	sends the current batch with RPC 0x4D and switches to the other batch (0xFFC bytes free)

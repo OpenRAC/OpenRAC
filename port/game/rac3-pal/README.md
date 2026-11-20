@@ -4,8 +4,9 @@ Up Your Arsenal's PAL disc (`SCES_524.56`), built by [hostgen](../../tools/hostg
 [games/rac3](../../../games/rac3/decomp), whose C is PAL's own (`src/boot_elf`, `src/frontbin`).
 The NTSC-U drafts are read only where PAL's code is the same.
 
-**An experiment, not playable.** It boots to the main menu, which runs and takes the pad, but
-draws only its boxes over its background picture: no text, no 3D (below). Levels are not loaded.
+**An experiment, not playable.** It boots to the main menu, which runs, takes the pad and draws
+its frames, labels and icons (the 2D layer's routines, wrapped: `host/ui2d.c`) over its
+background picture, but no 3D (below). Levels are not loaded.
 
 ## Running it
 
@@ -13,6 +14,22 @@ The functions with no C are translated from the disc image: the player's (`--dis
 `OPENRAC_RAC3_PAL_RETAIL_IMAGE`), else `games/rac3/decomp/baserom/SCES_524.56.iso`. The disc's
 executable is the loader; retail.py reads it as the game it carries packed (the same sections as
 the decompilation's `boot_elf.elf`, which the build does not need).
+**Runs as far as its menus.** It boots to the main menu, which runs and takes the pad, but
+draws only its boxes over its background picture: no text, no 3D (below). Levels are not loaded,
+so a new game or a save does not start yet. The launcher builds and starts it from a player's PAL
+disc (below), with a warning that says so.
+
+## Running it
+
+The functions with no C are translated from the game's own instructions: from the player's disc
+image when the build is given one (`tools/build_port.py rac3-pal --disc IMAGE`, or
+`-DOPENRAC_RAC3_PAL_RETAIL_IMAGE=IMAGE`), else from `boot_elf.elf`, the unpacked game the
+decompilation's setup puts in `games/rac3/decomp/baserom/`. The disc's executable is the loader,
+which carries the game WAD-compressed at file offset `0x7080`; hostgen.json's `asm` `loader` says
+where, and which of its records are code (`core.text`, `.text`) and which to leave out (the VU
+microcode), and `retail.py` (`loader_parts`) unpacks it as `host/entry.c` does at run time. Both
+give the same C (compared 2026-11-19: every generated file equal but for the source's name in its
+comments).
 
 ```sh
 cmake --preset release && cmake --build --preset release --target openrac-rac3-pal
@@ -21,8 +38,37 @@ SDL_AUDIODRIVER=dummy "port/build/release/apps/openrac-rac3-pal/Ratchet & Clank 
     --data <data> --window --skip-movies
 ```
 
+From the launcher (launcher/actions.json, `rac3/pal`), as for Going Commando: *Set up from your
+disc* runs `tools/extractor.py`, which checks the disc against games/rac3/game.json and writes
+`iso_data/rac3/` (`SCES_524.56`, `disc.iso`, `buildinfo.json`) into the game's data folder;
+*Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
+the levels into `assets/port/rac3/pal` (`levels-4.json`), and *Play* runs
+`openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
+no level loads yet. Nothing reads the levels until the first level loads.
+
 `OPENRAC_RAC3_CHAINS=N` prints the VIF codes of the first N display lists and the front end's
 state words (mode, boot state, boot screen, the pad's held and pressed buttons) each frame.
+
+## Testing the menus
+
+`menus.py` walks every page the front end reaches, each route from the boot screens: the card
+notices (an empty card and no card), the main menu, Load Game, New Game and its save questions,
+Multiplayer, the multiplayer tutorial, Options with each row, Adjust Screen and every language,
+the Sly 2 demo's button combination and the attract movie after 6000 idle frames. It runs the port
+hidden and muted, presses the pad by script (`OPENRAC_PRESS`) and reads `OPENRAC_RAC3_MENU_LOG`
+(each frame's state words and every string the font printed). After each step the page must have
+printed its strings (none empty or "(null)"), changed after the press and still be running; a
+picture of each step is kept. Re-run it after every change to the front end:
+
+```sh
+python3 port/game/rac3-pal/menus.py --data <data> --out build/rac3-menus \
+    --exe "port/build/release/apps/openrac-rac3-pal/Ratchet & Clank 3 (PAL).app/Contents/MacOS/Ratchet & Clank 3 (PAL)"
+```
+
+`build/rac3-menus/report.md` has a row for every step; each route's folder has its pictures,
+`menu.log`, `pages.txt` (the frames where the page changed) and `run.log`. A failure another branch
+owns (the level load, the multiplayer executable, saving) is marked known and does not fail the
+run. `--list` prints the routes, `--only` picks some, `--jobs` runs several at once.
 
 ## How it starts
 
@@ -73,9 +119,14 @@ the boot program's FRAME-th display list (`-1`: frontbin).
 | `headers/vu0.h` | the vector-library helpers of the decompilation's `include/vu0.h` (asm Clang refuses) in C, read in its place (hostgen.json `headers`) |
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
 | `host/spr_dma.c` | the scratchpad DMA channels the kernels start |
-| `host/chain_census.c` | `OPENRAC_RAC3_CHAINS` |
-| `profile.cpp` | draws the display list the game sends (as rac4-ntsc) |
+| `host/ui2d.c` | the 2D layer's routines, wrapped as Going Commando's (rac2/host/ui2d.c): boxes, glyph quads, turned sprites, ring segments, the font's glyphs (drawn from its distance field) and the menus' Widget3D sprites become window records |
+| `host/chain_census.c` | `OPENRAC_RAC3_CHAINS` (a rough census: it reads image data inside DIRECT as VIF codes) |
+| `host/menu_log.c` | `OPENRAC_RAC3_MENU_LOG`: the front end's state and printed strings a frame, for `menus.py` |
+| `profile.cpp` | draws the display list the game sends (as rac4-ntsc), the records at their markers in it |
 | `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record |
+| `host/options.c` | the title's Options: the port's Video page in the 16:9 row's place, the game's 16:9 kept off, the subtitles, the sound mode and the language remembered between runs (below) |
+| `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record; in a picture wider than 4:3, its blurred edges out to the window's sides, as Going Commando's title |
+| `host/view.c` | the game's own 16:9 option kept off, so that the window's Picture setting alone shapes the view (as Going Commando's) |
 | `IDENTIFIED.tsv` | every function and global worked out on the way, for the backfill |
 
 `hostgen.json` also lists `from_assembly` (C that forwards registers or has VU0 inline assembly,
@@ -84,6 +135,12 @@ frontbin give way to the programs' own instructions, which the build reads from 
 drafts were far from PAL's code and crashed frontbin's start-up and the level loading screen), `executable_extents` (names the C only declares inside another
 function start nothing) and `unpassed_registers` (a K&R call's missing arguments are the
 caller's registers).
+translated from its instructions), `executable_extents` (names the C only declares inside another
+function start nothing), `unpassed_registers` (a K&R call's missing arguments are the
+caller's registers), `candidate_scopes` (frontbin's drafts are for frontbin only: its functions
+share the boot program's addresses but not their code) and `asm.signatures` (a translated
+function's arguments and result the decompilation's declarations do not give: the text widget's
+draw hands its second argument on, and the font's width wrappers return the width they forward).
 
 ## Checking the C against PAL
 
@@ -124,11 +181,38 @@ the picture goes to the window as a texture of its own and the display list gets
 record reading it in place of the transfers, as the 2D layer's quads do; nothing is sent to the GS
 for it.
 
+## The options
+
+The title's Options page (the boot program's screen at `D_001DA168`) is a list widget of two
+columns, the rows' names and values, over the options at `D_00143950`: 16:9 (+0xAD), Subtitles
+(+6), Sound, stereo or mono (+8) and Language (+0xB7, the game's 1 English, 2 French, 3 German,
+4 Spanish, 5 Italian). As Going Commando's port does with its 16:9 page (rac2/host/options.c), the
+16:9 row is the port's **Video** page: the window's picture has the player's shape, so the game's
+16:9 (which narrows the view for a television that stretches it back) is kept off. Cross on it
+shows the port's settings (`openrac_game_option_*`, the in-game menu's entries marked for the
+game's pages) in the same list, four rows at a time scrolling with the cursor as the game's own
+lists scroll; Cross or Right steps the row under the cursor, Left steps it back, Triangle goes
+back to the game's rows. A step is saved to the settings file and applied at once.
+
+A console forgets the options at power off; the port keeps them in the settings file
+(`game_subtitles`, `game_playback`, and the language as the console's `game_language`, which
+the front end's start-up reads back through `sceScfGetLanguage`). The in-window menu (Esc) and the
+F-key overlay (F3) are the shared ones, and the pad is the shared keyboard and controller path
+(Return is Start).
+
 ## What is missing
 
-- **Menu text**: the menus' text and icons go to VU1 (UNPACK, then MSCNT), not as GIF packets; the
-  direct renderer draws only the GIF part (the boxes). A native renderer for that VU1 program, or
-  the port's own text drawing hooked at the game's text calls, is next.
+- **The Options rows' text is cut at both sides**: each row's text is laid out about three glyphs
+  left of its column on the left and one right on the right, and clipped by its panel (the
+  translated layout, func_003AC590 → func_0038FDF8; the game's own packets show the same). The
+  Video page's rows inherit it.
+- **The mods' pages** (`openrac_api.ui_main_item`, Going Commando's rac2/host/mod_pages.c) are not
+  in rac3's menus yet.
+
+- **The rest of the 2D layer**: the menu's two corner ornaments (Widget3D quads whose PRIM takes
+  UV, which the routine does not send) and the dimming fill behind the menu are still the game's
+  packets; the shaded print (func_0038F458, a colour a corner) is not wrapped (its prototype is not
+  known).
 - **Music**: the menu's sound effects play (the front end's bank, an SBlk version 3 block, which
   the shared bank reader now reads), but the boot front end asks for no music: its stream table
   (the level table LoadLevelToc fills, `0x00160C40 + 0x7A04`) is never loaded and the music channel
@@ -136,3 +220,23 @@ for it.
   `OPENRAC_AUDIO_TICKED=1 OPENRAC_AUDIO_DUMP=out.wav OPENRAC_SOUND_LOG=1` captures and logs it.
 - **A level**: see [The next program](#the-next-program).
 - The memory card works through the shared `sceMc*`; saving is untested.
+- **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's
+  `frontbin` group and `relocate` are not set up for them.
+- Saving from a level: the memory card works through the shared `sceMc*` (below), but no level
+  loads yet, so the game's own saves in a level are untested.
+
+## The memory card
+
+The game's own card code runs as it is on the shared library (`port/game/common/lib/mc.c`), the
+card being a folder (`--cards`, by default `<data home>/memcard/SCES_524.56`). It checks the card
+when it starts and reads Ratchet & Clank's and Going Commando's saves from the folders beside it.
+New Game on a card without its save asks to create one (Yes is **Circle**, No Triangle), which
+writes `BESCES-52456RATCHET/` (`icon.sys`, `static.ico`, `net.bin`, `save0.bin` to `save3.bin`
+and a file named as the folder); the Load page lists the four slots and reads the chosen save
+whole. `host/save_format.h` is the save's layout (launcher/docs/RAC3_SAVE_FORMAT.md) and
+`host/play.c` tells the shared code which files are saves. `OPENRAC_TRACE_MC=1` prints every card
+command; `OPENRAC_RAC3_CHAINS` also prints the card machine's state and its dialog.
+
+Two translations were wrong on the card's path and are left to their assembly: the scratch buffer
+allocator (`func_003932E8`, whose NTSC-U draft reads NTSC-U's address of the buffer's top) and the
+menu pages' callback callers (`func_003E73D0` and four more, which pass the page on in a0).

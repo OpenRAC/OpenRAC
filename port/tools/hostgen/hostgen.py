@@ -1071,12 +1071,11 @@ def apply_assembly_options(cfg: dict, args: argparse.Namespace) -> None:
     if cfg.get("asm") and cfg["asm"].get("interface"):
         cfg["asm"] = {**cfg["asm"], "interface_path": str((args.game.resolve().parent / cfg["asm"]["interface"]))}
     if cfg.get("asm") and (args.retail_image or args.retail_exe):
-        programs = (cfg["asm"].get("retail") or {}).get("programs")
+        kept = {k: v for k, v in (cfg["asm"].get("retail") or {}).items() if k in ("programs", "required")}
         cfg["asm"] = {**cfg["asm"], "retail": {
             k: str(v.resolve()) for k, v in (("image", args.retail_image), ("exe", args.retail_exe),
                                              ("dump", args.retail_dump)) if v}}
-        if programs:
-            cfg["asm"]["retail"]["programs"] = programs
+        cfg["asm"]["retail"].update(kept)
 
 
 def add_derived_names(cfg: dict, args: argparse.Namespace, source: Path) -> Path | None:
@@ -1204,7 +1203,35 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
     undefined = sorted(name for name, c in overrides.items() if not prep.defines(c, name))
     overrides = {name: c for name, c in overrides.items() if name not in undefined}
     return {"candidates": candidates, "overrides": overrides, "aliases": aliases,
-            "long_long_128": long_long_128, "undefined": undefined}
+            "long_long_128": long_long_128, "undefined": undefined,
+            "candidate_scopes": candidate_scopes(cfg, files, decomp)}
+
+
+def candidate_scopes(cfg: dict, files: dict[str, str], decomp: dict[str, str]) -> dict[str, str]:
+    """The source directory each of the decompilation's candidates is for (hostgen.json
+    "candidate_scopes": {candidate folder: source directory}): name -> directory, for the
+    candidates whose file is under one of those folders. Programs whose functions share
+    addresses (Up Your Arsenal's boot front end and frontbin both run at 0x381080 on) have
+    candidates of one name for different functions, and each is C for its own program only."""
+    scopes = cfg.get("candidate_scopes", {})
+    if not scopes:
+        return {}
+    out: dict[str, str] = {}
+    for name in decomp:
+        rel = files.get(name, "")
+        for folder, source_dir in scopes.items():
+            if rel.startswith(folder.rstrip("/") + "/"):
+                out[name] = source_dir
+    return out
+
+
+def scoped_candidates(candidates: dict[str, str], scopes: dict[str, str], source_dir: str) -> dict[str, str]:
+    """The candidates that may replace stubs under SOURCE_DIR: every one without a scope, and those
+    scoped to it (candidate_scopes)."""
+    if not scopes:
+        return candidates
+    return {name: text for name, text in candidates.items()
+            if scopes.get(name, source_dir) == source_dir}
 
 
 def prepare_sources(args: argparse.Namespace, cfg: dict, source: Path, root: Path,
@@ -1216,7 +1243,8 @@ def prepare_sources(args: argparse.Namespace, cfg: dict, source: Path, root: Pat
     drafts = read_drafts(args.game.parent, cfg)
     for d in sorted(set(cfg["sources"] + cfg["includes"])):
         if (source / d).is_dir():
-            prep.copy_tree(source / d, root / d, candidates=replacements["candidates"], used=used, drafts=drafts,
+            candidates = scoped_candidates(replacements["candidates"], replacements.get("candidate_scopes", {}), d)
+            prep.copy_tree(source / d, root / d, candidates=candidates, used=used, drafts=drafts,
                            prefix=d, aliases=replacements["aliases"], long_long_128=replacements["long_long_128"],
                            overrides=replacements["overrides"], overridden=overridden, release=RELEASE)
     return used, overridden
@@ -1311,6 +1339,9 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.jump_tables = {k: v for k, v in jump_tables.items() if not k.startswith("#")}
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
     program.unpassed_registers = bool(cfg.get("unpassed_registers"))
+    # The game's entry as an address (func_0013ADA8), which a required retail program must have.
+    entry_name = re.fullmatch(r"func_([0-9A-Fa-f]{8})", cfg.get("entry") or "")
+    program.entry_address = int(entry_name.group(1), 16) if entry_name else None
     program.executable_extents = read_extents(cfg.get("executable_extents"), source)
     if cfg.get("executable_functions"):
         rows = [row for row in tables.read_tsv(source / cfg["executable_functions"], strip=True) if len(row) >= 2]

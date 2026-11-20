@@ -172,4 +172,44 @@ void rac3_chain_census(gaddr channel, gaddr tag_addr) {
         pad ? (int)word(pad + 0x19Cu) : 0,
         pad ? word(pad + 0x574u) : 0
     );
+    /* The memory card's state machine (func_0039C7F0's block at 0x00142430): its state (the
+     * CS_* names' order in the executable), the card it works on, the slot chosen. */
+    fprintf(
+        stderr,
+        "[rac3 card] step %d (+0x15C), busy %d (+0x154), state %d (+0x160), card %d (+0x14C), "
+        "+0x144 %d, slot %d (+0x148), +0x158 %d, "
+        "+0x164 %d, +0x17C %d, +0x16C %d, card0 type %d free %d format %d +0x10 %d +0x18 %d +0x20 "
+        "%d; "
+        "dialog %d (0x001D4CE8) flags %#x (0x001D4CEC)\n",
+        (int)word(0x00142430u + 0x15Cu),
+        (int)word(0x00142430u + 0x154u),
+        (int)word(0x00142430u + 0x160u),
+        (int)word(0x00142430u + 0x14Cu),
+        (int)word(0x00142430u + 0x144u),
+        (int)word(0x00142430u + 0x148u),
+        (int)word(0x00142430u + 0x158u),
+        (int)word(0x00142430u + 0x164u),
+        (int)word(0x00142430u + 0x17Cu),
+        (int)word(0x00142430u + 0x16Cu),
+        (int)word(0x00142430u + 0x8u),
+        (int)word(0x00142430u + 0xCu),
+        (int)word(0x00142430u + 0x14u),
+        (int)word(0x00142430u + 0x10u),
+        (int)(int16_t)word(0x00142430u + 0x18u),
+        (int)word(0x00142430u + 0x20u),
+        (int)word(0x001D4CE8u),
+        word(0x001D4CECu)
+    );
+    fprintf(
+        stderr,
+        "[rac3 buffer] %08x (0x0022758C) + %08x (0x001DA058), %08x (0x001D5C90), %d (0x001D5BDC); "
+        "toc +64C %08x +660 %08x +664 %08x\n",
+        word(0x0022758Cu),
+        word(0x001DA058u),
+        word(0x001D5C90u),
+        (int)(word(0x001D5BDCu) & 0xFFu),
+        word(0x00160C40u + 0x64Cu),
+        word(0x00160C40u + 0x660u),
+        word(0x00160C40u + 0x664u)
+    );
 }

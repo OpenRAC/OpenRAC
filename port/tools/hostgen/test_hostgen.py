@@ -931,6 +931,24 @@ class Translate(unittest.TestCase):
         self.assertEqual(self.last_report["candidates_used"], [])
         self.assertEqual(self.last_report["problems"], {})
 
+    def test_a_scoped_candidate_replaces_stubs_of_its_own_program_only(self):
+        # Up Your Arsenal: frontbin's func_003EFBB0 is another function than the boot program's of
+        # that address; each program's candidate is for its own stubs (candidate_scopes).
+        cfg = {"candidate_scopes": {"nonmatching/boot_elf": "src/boot_elf",
+                                    "nonmatching/frontbin/": "src/frontbin"}}
+        files = {"func_003EFBB0": "nonmatching/frontbin/func_003EFBB0.c",
+                 "func_003EFF68": "nonmatching/boot_elf/func_003EFF68.c",
+                 "func_00100000": "nonmatching/func_00100000.c"}
+        decomp = {name: name for name in files}
+        scopes = hostgen.candidate_scopes(cfg, files, decomp)
+        self.assertEqual(scopes, {"func_003EFBB0": "src/frontbin", "func_003EFF68": "src/boot_elf"})
+        self.assertEqual(sorted(hostgen.scoped_candidates(decomp, scopes, "src/boot_elf")),
+                         ["func_00100000", "func_003EFF68"])
+        self.assertEqual(sorted(hostgen.scoped_candidates(decomp, scopes, "src/frontbin")),
+                         ["func_00100000", "func_003EFBB0"])
+        self.assertEqual(hostgen.candidate_scopes({}, files, decomp), {})
+        self.assertIs(hostgen.scoped_candidates(decomp, {}, "src/boot_elf"), decomp)
+
     def test_a_candidate_steps_aside_for_what_the_file_has_matched(self):
         """One file of the port's own C for two functions; the decompilation has since matched one:
         the copy of that one is left out, or the file would define it twice and not be read."""

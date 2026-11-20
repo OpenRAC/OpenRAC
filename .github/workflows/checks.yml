@@ -28,6 +28,9 @@ env:
   OPENRAC_BUILD_JOBS: all
   # Reinstalling identical compiler bytes must not invalidate all cached objects.
   CCACHE_COMPILERCHECK: content
+  # The runners have no disc: games whose code is translated from it (rac3-pal's "retail"
+  # "required") build with stubs on purpose instead of stopping (port/tools/hostgen/asmc.py).
+  OPENRAC_HOSTGEN_NO_DISC: "1"
 
 # New PR pushes and develop merges supersede old runs; master's release checks all finish.
 concurrency:

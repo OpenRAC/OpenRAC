@@ -17,6 +17,14 @@ namespace {
 class Profile final : public host::GameProfile {
 public:
     bool sends_display_list() const override { return true; }
+
+    // The buffer the frame is drawn in: block 0x1E00 (FBP 0xF0, the front end's register packet at
+    // 0x00142120), past the 512-line display buffer, as PAL Going Commando's. Not where the
+    // display's size puts it (0x1000): taken for an off-screen target, the frame was drawn as a
+    // square and copied into the picture's middle, and what spans the whole window in a picture
+    // wider than 4:3 (the clears, the menu's darkening, the background's sides) stopped at its
+    // edges.
+    std::uint32_t draw_buffer_block() const override { return 0x1E00; }
 };
 
 // The one instance, a constant for the program's life.
