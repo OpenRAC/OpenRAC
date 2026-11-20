@@ -133,7 +133,7 @@
 <div class="menu" bind:this={root}>
   {#if text}
     <button
-      class="small"
+      class="small words"
       bind:this={trigger}
       aria-haspopup="menu"
       aria-expanded={open}
@@ -189,6 +189,12 @@
     padding: 0;
     justify-content: center;
     background: var(--control);
+  }
+
+  /* As tall as the three dots beside it, the words centred on the icon. */
+  .words {
+    height: 44px;
+    line-height: 1;
   }
 
   .list {
