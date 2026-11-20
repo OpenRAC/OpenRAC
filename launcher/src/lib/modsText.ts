@@ -68,6 +68,7 @@ export const PAGE = {
   tabEditor: "Level editor",
   tabAssets: "Models and textures",
   tabAudio: "Audio",
+  toolsLabel: "Tools",
   earlyTitle: "Early access",
   earlyLine:
     "Its levels open in Godot and you can make texture and model packs. Packing level edits and playing come later.",
