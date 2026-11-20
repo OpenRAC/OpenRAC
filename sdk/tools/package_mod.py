@@ -146,6 +146,8 @@ def _check_setting(i: int, s, errors: list[str]) -> None:
         errors.append(f"{where}: no name")
     if "description" in s and not isinstance(s["description"], str):
         errors.append(f"{where}: description is not text")
+    if "section" in s and not isinstance(s["section"], str):
+        errors.append(f"{where}: section is not text")
     kind = s.get("type")
     if kind not in SETTING_TYPES:
         errors.append(f"{where}: type must be one of {', '.join(sorted(SETTING_TYPES))}")

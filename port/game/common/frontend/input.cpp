@@ -23,6 +23,7 @@
 #include "debug_menu.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/active_input.h"
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
@@ -89,27 +90,44 @@ void draw_touch_pad(int window_width, int window_height) {
 }
 
 // The cursor as the mods ask for it, while nothing else has the mouse: captured only with the
-// window focused and the overlay's windows, the menu and the debug menu shut.
+// window focused, the overlay's windows, the menu and the debug menu shut, and the player on the
+// keyboard and mouse (platform/active_device.h): on a gamepad the mouse is left alone.
 void apply_mouse_capture() {
     if (!g || !g->window || g->window->sdl() == nullptr) {
         return;
     }
     SDL_Window* w = g->window->sdl();
     const bool focused = (SDL_GetWindowFlags(w) & SDL_WINDOW_INPUT_FOCUS) != 0;
-    const bool capture = focused && !debug_menu::is_open()
-                         && (debug_overlay::camera_debug_capturing()
-                             || (g->capture_wanted && !debug_overlay::free_camera_enabled()
-                                 && !debug_overlay::wants_cursor()));
+    const bool keyboard_mouse = g->input.active_device() == platform::ActiveDevice::KeyboardMouse;
+    const bool capture =
+        focused && !debug_menu::is_open()
+        && (debug_overlay::camera_debug_capturing()
+            || (g->capture_wanted && keyboard_mouse && !debug_overlay::free_camera_enabled()
+                && !debug_overlay::wants_cursor()));
     if (SDL_GetWindowRelativeMouseMode(w) != capture) {
+        // Captured, the window keeps the cursor as well: no click lands on another window.
+        SDL_SetWindowMouseGrab(w, capture);
         SDL_SetWindowRelativeMouseMode(w, capture);
+        // The motion SDL reports as it warps or puts back the cursor is not the player's.
+        g->input.device_switch().settle(SDL_GetTicksNS());
     }
     g->input.set_captured(capture);
-    // The pointer only where one of the overlay's windows uses it, hidden over the game. (A
+    // The pointer where one of the overlay's windows uses it; over the game's own menus only for
+    // a mod that points at them with the mouse (the keyboard and mouse), while the player is on
+    // the mouse and has moved it in the last two seconds, as Dusklight does. Hidden otherwise. (A
     // captured mouse hides it anyway; let go, SDL shows it as set here.)
-    const bool pointer = debug_overlay::wants_cursor();
+    constexpr std::uint64_t kCursorIdleNs = 2'000'000'000;
+    const std::uint64_t moved = g->input.device_switch().last_motion();
+    const bool pointer = debug_overlay::wants_cursor()
+                         || (keyboard_mouse && g->keyboard_taken && !capture && moved != 0
+                             && SDL_GetTicksNS() - moved < kCursorIdleNs);
     if (SDL_CursorVisible() != pointer) {
         pointer ? SDL_ShowCursor() : SDL_HideCursor();
     }
+}
+
+bool keyboard_mouse_in_use() {
+    return g && g->input.active_device() == platform::ActiveDevice::KeyboardMouse;
 }
 
 KeyboardMouseView keyboard_mouse() {
@@ -120,6 +138,14 @@ KeyboardMouseView keyboard_mouse() {
         &g->input.keyboard_mouse(),
         debug_overlay::visible() || debug_menu::is_open() || debug_overlay::free_camera_enabled()
     };
+    // The keyboard is player 2's (players.h): the port's own keyboard table presses its pad, and
+    // a mod on pad 0 reads nothing held.
+    if (g->input.keyboard_player() == 1) {
+        static platform::KeyboardMouse none;
+        none.tick = g->input.keyboard_mouse().tick;
+        view.state = &none;
+        return view;
+    }
     SDL_Window* w = g->window ? g->window->sdl() : nullptr;
     if (w == nullptr) {
         return view;
@@ -152,7 +178,10 @@ KeyboardMouseView keyboard_mouse() {
         static_cast<float>(box.x) + (static_cast<float>(box.width) - tv_width) / 2.0f;
     view.pointer_x = (px - tv_x) / tv_width;
     view.pointer_y = (py - static_cast<float>(box.y)) / static_cast<float>(box.height);
-    view.pointer_inside = SDL_GetMouseFocus() == w && view.pointer_x >= 0.0f
+    // The menus follow the cursor only while the player is on the keyboard and mouse: a mouse left
+    // over the window does not move them under a gamepad.
+    view.pointer_inside = g->input.active_device() == platform::ActiveDevice::KeyboardMouse
+                          && SDL_GetMouseFocus() == w && view.pointer_x >= 0.0f
                           && view.pointer_x <= 1.0f && view.pointer_y >= 0.0f
                           && view.pointer_y <= 1.0f;
     return view;

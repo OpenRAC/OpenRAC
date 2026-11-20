@@ -630,6 +630,11 @@ export const api = {
     call<EnhancedView | null>("enhanced_set_enabled", { game, version, enabled }),
   enhancedSetSetting: (game: string, version: string, key: string, value: unknown) =>
     call<EnhancedView | null>("enhanced_set_setting", { game, version, key, value }),
+  /** The built-in Keyboard and mouse entry (core keyboard_mouse.rs), null for a version without it. */
+  keyboardMouseView: (game: string, version: string) =>
+    call<PluginView | null>("keyboard_mouse_view", { game, version }),
+  keyboardMouseSetSetting: (game: string, version: string, key: string, value: unknown) =>
+    call<PluginView | null>("keyboard_mouse_set_setting", { game, version, key, value }),
   /** Deletes every lighting bake of a version; the entry as it is after. */
   enhancedDeleteBakes: (game: string, version: string) =>
     call<EnhancedView | null>("enhanced_delete_bakes", { game, version }),

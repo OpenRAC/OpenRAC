@@ -198,7 +198,8 @@ struct FramePresentation {
     // submission: radians about the world's up axis, through the pivot.
     float latch_yaw = 0;
     renderer::Vec3 latch_pivot{};
-    Box box{};  // Picture rectangle in the window.
+    float latch_pitch = 0;  // then radians up about the camera's side axis (CameraTurn::pitch)
+    Box box{};              // Picture rectangle in the window.
 
     bool first = false;  // First displayed frame for this game tick.
     bool enhanced_graphics = false;

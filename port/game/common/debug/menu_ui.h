@@ -16,6 +16,7 @@
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_gamepad.h>
 
 #include "audio/ui_sounds.h"
@@ -179,6 +180,13 @@ int menu_choice(
 // track or an arrow, or left and right while it has the focus (the d-pad).
 int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step);
 
+// The same slider over `count` steps (0..count), its value shown as `text`: the new step after a
+// drag, a tap or an arrow (Shift with an arrow moves ten). `label_pressed`, when given, is set when
+// the row's label was pressed.
+int menu_number_slider(
+    const char* label, int index, int count, const std::string& text, bool* label_pressed = nullptr
+);
+
 // The launcher's primary button, across the space left.
 bool menu_button(const char* label);
 
@@ -237,6 +245,9 @@ std::string entry_label(menu::Id id, std::uint8_t where);
 // Remembers `entry` (a menu::Id) as the one under the pointer or the focus when the item just drawn
 // is, for the desktop's help: a focus moved by a controller or keys wins over the pointer.
 void note_hover(int entry);
+// The same for a row of the entry's panel with help of its own: its heading (after the entry's),
+// name and line take the help's place.
+void note_hover_row(int entry, std::string section, std::string title, std::string help);
 
 // ---- The Controls tab (debug/menu_controls.cpp) ----
 
@@ -257,6 +268,14 @@ void controls_act(menu::Id id, int by);
 
 // Draws a Controls panel (menu::Kind::Panel): its rows on the card open now.
 void draw_controls_panel(menu::Id id);
+
+// The Keyboard and mouse panel (debug/menu_keyboard_mouse.cpp): whether there is one (the built-in
+// keyboard and mouse is loaded), its rows, and its key capture: an SDL event taken as the new key
+// (true: the event is used up).
+bool keyboard_mouse_shown();
+void keyboard_mouse_panel();
+bool keyboard_mouse_capturing();
+bool keyboard_mouse_capture_event(const SDL_Event& e);
 
 // Each frame: a press awaited for a binding arrives, gives up after a while, or ends with the
 // menu.

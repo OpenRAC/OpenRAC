@@ -7,7 +7,8 @@
   // Saving… and then Saved; a refused one says why. Escape or Back returns to the list. No folder
   // shows outside About, folded (players share screenshots of this page).
   // A built-in entry (Enhanced graphics, core/src/enhanced.rs: `builtIn`) has no folder, menu or
-  // source; its page also says how far its lighting bake is, with the way to run it.
+  // source; its page also says how far its lighting bake is, with the way to run it. Keyboard and
+  // mouse (core/src/keyboard_mouse.rs, kind "always-on") is built in and always on: no switch either.
   import { onDestroy, onMount, tick } from "svelte";
 
   import {
@@ -149,8 +150,11 @@
     mod.enabled && !purist && (mod.state === "refused" || mod.state === "failed"),
   );
 
+  /** Built into the game and always on (Keyboard and mouse): no switch, folder or menu. */
+  const alwaysOn = $derived(mod.kind === "always-on");
+
   const menu = $derived<MenuItem[]>(
-    builtIn
+    builtIn || alwaysOn
       ? []
       : [
           ...(source
@@ -275,6 +279,18 @@
             disabled
           />
         </label>
+      {:else if alwaysOn}
+        <label class="power on" title={T.KEYBOARD_MOUSE.alwaysOn}>
+          <span>{T.VIEW.toolAlwaysOnShort}</span>
+          <input
+            type="checkbox"
+            role="switch"
+            class="switch"
+            aria-label={`${mod.name}: ${T.KEYBOARD_MOUSE.alwaysOn}`}
+            checked
+            disabled
+          />
+        </label>
       {:else}
         <label class="power" class:on={mod.enabled}>
           <span>{mod.enabled ? T.MOD_PAGE.on : T.MOD_PAGE.off}</span>
@@ -294,7 +310,7 @@
       {#if menu.length}<Menu label={T.MOD_PAGE.more(mod.name)} items={menu} />{/if}
     </div>
 
-    {#if purist && mod.enabled && !mod.tool}
+    {#if purist && mod.enabled && !mod.tool && !alwaysOn}
       <p class="notice"><Icon name="info" size={16} /><span>{T.WITH_MODS.offNotice}</span></p>
     {/if}
     {#if cannotLoad}
@@ -319,6 +335,7 @@
       <summary>{T.MOD_PAGE.about}</summary>
       <div class="about-body">
         {#if builtIn}<p class="long">{T.ENHANCED.about}</p>
+        {:else if alwaysOn}<p class="long">{T.KEYBOARD_MOUSE.about}</p>
         {:else if mod.description}<p class="long">{mod.description}</p>{/if}
         <dl>
           <dt>{T.MOD_PAGE.aboutKind}</dt>
@@ -333,7 +350,7 @@
           {/if}
           {#if mod.license}<dt>{T.PANEL.license}</dt>
             <dd>{mod.license}</dd>{/if}
-          {#if !builtIn}
+          {#if !builtIn && !alwaysOn}
             <dt>{T.PANEL.folder}</dt>
             <dd class="folder">
               <span class="mono">{mod.path}</span>

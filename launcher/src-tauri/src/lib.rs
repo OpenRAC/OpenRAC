@@ -500,6 +500,38 @@ async fn enhanced_set_enabled(
     enhanced_view(state, game, version).await
 }
 
+/// The Mods tab's built-in Keyboard and mouse entry for a version (core keyboard_mouse.rs), or None
+/// for a version that has none.
+#[tauri::command]
+async fn keyboard_mouse_view(game: String, version: String) -> Result<Option<PluginView>, String> {
+    use openrac_launcher_core::keyboard_mouse;
+    if !keyboard_mouse::supported(&game, &version) {
+        return Ok(None);
+    }
+    let home = openrac_launcher_core::saves::data_home();
+    tauri::async_runtime::spawn_blocking(move || Some(keyboard_mouse::view(&home, &game, &version)))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Sets one of Keyboard and mouse's settings for a version, in its settings file.
+#[tauri::command]
+async fn keyboard_mouse_set_setting(
+    game: String,
+    version: String,
+    key: String,
+    value: serde_json::Value,
+) -> Result<Option<PluginView>, String> {
+    let home = openrac_launcher_core::saves::data_home();
+    let (g, v) = (game.clone(), version.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::keyboard_mouse::set_setting(&home, &g, &v, &key, &value)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    keyboard_mouse_view(game, version).await
+}
+
 // ---- Texture packs (core/src/texture_packs.rs) ----
 
 /// The game's folder in the install folder (`{data}`), where its texture pack lives.
@@ -3155,6 +3187,8 @@ pub fn run() {
             mod_tool::mod_tool_save_end,
             mod_tool::mod_tool_open,
             enhanced_set_setting,
+            keyboard_mouse_view,
+            keyboard_mouse_set_setting,
             enhanced_delete_bakes,
             plugins_set_enabled,
             plugins_move,

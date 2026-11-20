@@ -288,6 +288,12 @@ Platform::Platform(unsigned subsystems) {
     if ((subsystems & kAudio) != 0) {
         flags |= SDL_INIT_AUDIO;
     }
+    // The captured mouse as the hardware moves it (docs/port/KEYBOARD_MOUSE.md): the device's own
+    // counts, with no pointer acceleration or speed of the system's on them (Windows' raw input,
+    // X11's raw XInput2 values, Wayland's unaccelerated motion). These are SDL's defaults, said
+    // here so that they stay; an SDL_MOUSE_RELATIVE_* in the environment still wins.
+    SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "0");
+    SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SPEED_SCALE, "1");
     m_ok = SDL_Init(flags);
     if (!m_ok) {
         m_error = std::format("SDL could not start: {}", SDL_GetError());

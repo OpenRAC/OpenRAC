@@ -10,6 +10,8 @@
 #include <cstring>
 #include <format>
 #include <fstream>
+#include <map>
+#include <optional>
 #include <system_error>
 
 #include "common/log.h"
@@ -133,6 +135,15 @@ Settings g_settings;
 std::atomic<float> g_gain{1.0f};  // g_settings.volume, read by the sound's thread
 std::atomic<bool> g_muted{false};
 std::filesystem::path g_file;
+// The file's time when the port last read or wrote it (reread_keyboard_mouse).
+std::optional<std::filesystem::file_time_type> g_file_seen;
+
+std::optional<std::filesystem::file_time_type> file_time() {
+    std::error_code e;
+    const auto t = std::filesystem::last_write_time(g_file, e);
+    return e ? std::nullopt : std::optional(t);
+}
+
 bool g_display_mode_in_file = false;  // the file load() read said display_mode or fullscreen
 
 // How far from 0 a game's option in the file may be (game_option): no option a game keeps comes
@@ -297,6 +308,7 @@ Settings& get() {
 
 void load(const std::filesystem::path& file) {
     g_file = file;
+    g_file_seen = file_time();
     g_display_mode_in_file = false;
     g_settings = Settings{};
     fixes::reset();
@@ -575,6 +587,10 @@ void load(const std::filesystem::path& file) {
             // (platform/bindings.h), not here: this file knows nothing of SDL. An empty value is
             // kept as it is, and means the port's default.
             s.bindings[key] = value;
+        } else if (key.starts_with(kKeyboardMousePrefix)) {
+            // The built-in keyboard and mouse's setting: checked by the mod loader against the
+            // mod's manifest, which this file does not read.
+            s.keyboard_mouse[key.substr(kKeyboardMousePrefix.size())] = value;
         } else if (key.starts_with(kGameOptionPrefix)) {
             // An option the game keeps itself (game_option): any whole number in the file's range.
             int number = 0;
@@ -785,6 +801,13 @@ void save() {
             out << key << " = " << value << "\n";
         }
     }
+    // The keyboard and mouse's, likewise (the launcher's Mods tab, Keyboard and mouse).
+    if (!s.keyboard_mouse.empty()) {
+        out << "# Keyboard and mouse (the launcher's Mods tab)\n";
+        for (const auto& [key, value] : s.keyboard_mouse) {
+            out << kKeyboardMousePrefix << key << " = " << value << "\n";
+        }
+    }
     if (fixes::count() > 0) {
         out << "# Game fixes: 1 the port's, 0 the console's behaviour (Options, Game fixes)\n";
         for (int i = 0; i < fixes::count(); ++i) {
@@ -800,6 +823,30 @@ void save() {
         log::warn("the settings could not be written to {}", g_file.string());
         std::filesystem::remove(written, moved);
     }
+    g_file_seen = file_time();
+}
+
+bool reread_keyboard_mouse() {
+    const auto now = file_time();
+    if (g_file.empty() || !now || now == g_file_seen) {
+        return false;
+    }
+    g_file_seen = now;
+    std::map<std::string, std::string> read;
+    std::ifstream in(g_file);
+    std::string line;
+    while (in && std::getline(in, line)) {
+        const auto eq = line.find('=');
+        const std::string key = eq == std::string::npos ? "" : trimmed(line.substr(0, eq));
+        if (key.starts_with(kKeyboardMousePrefix) && !trimmed(line).starts_with('#')) {
+            read[key.substr(kKeyboardMousePrefix.size())] = trimmed(line.substr(eq + 1));
+        }
+    }
+    if (read == g_settings.keyboard_mouse) {
+        return false;
+    }
+    g_settings.keyboard_mouse = std::move(read);
+    return true;
 }
 
 bool set_hdr_mode(std::string_view name) {

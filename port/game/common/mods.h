@@ -14,10 +14,12 @@
 #include <cstdint>
 #include <deque>
 #include <filesystem>
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "mod_manifest.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/openrac_mod.h"
@@ -69,6 +71,17 @@ struct DeveloperMenu {
     std::string title;
     std::vector<DeveloperMenuItem> items;
     std::deque<std::uint32_t> actions;
+};
+
+// A mod built into the port (docs/port/MODS.md, "Built-in mods"): its manifest and its two entries,
+// in the program itself. It loads first, with no folder and no library, for the games and discs
+// its manifest names, even in purist mode: to the player it is part of the port, not a mod. Its
+// settings come from the program (Host::built_in_settings). A mod of the launcher's list with the
+// same id is not loaded.
+struct BuiltIn {
+    std::string_view manifest;  // its openrac-mod.json
+    openrac_mod_query_fn query = nullptr;
+    openrac_mod_load_fn load = nullptr;
 };
 
 // What the loader needs of the program.
@@ -138,7 +151,38 @@ struct Host {
     // test's), and the call says so.
     void (*joint_offsets)(std::uint32_t moby, const openrac_joint_offset* joints, int count) =
         nullptr;
+    // The mods built into this program, and the values of their settings by mod id, as text
+    // ("1", "0.5", "KeyW,ArrowUp"): what a list entry's would say. A value missing or not of the
+    // setting's type is its default.
+    std::vector<BuiltIn> built_ins;
+    std::map<std::string, std::map<std::string, std::string>> built_in_settings;
+    // A built-in's setting changed in the game (its own setting_set_* or the menu): keep `text`
+    // for key `key` of mod `id`. Null: kept for this run only.
+    void (*built_in_write)(const std::string& id, const std::string& key, const std::string& text) =
+        nullptr;
+    // About once a second: the built-ins' settings again when the launcher changed them while the
+    // game runs; false when nothing changed. Null: never.
+    bool (*built_in_reread)(std::map<std::string, std::map<std::string, std::string>>& out) =
+        nullptr;
 };
+
+// A built-in mod's setting (BuiltIn), for the port's own menu: its manifest entry and value, or
+// null when no built-in of that id is loaded or it has no such setting for this game.
+struct BuiltInSetting {
+    const Setting* spec = nullptr;
+    SettingValue value;
+};
+
+BuiltInSetting built_in_setting(std::string_view id, std::string_view key);
+// The settings a loaded built-in declares for this game, in its manifest's order (valid while the
+// program runs); empty when none is loaded.
+std::vector<const Setting*> built_in_settings(std::string_view id);
+// Its presets (the manifest's "presets"), each with only the values of settings for this game.
+std::vector<Preset> built_in_presets(std::string_view id);
+// Sets a built-in's setting from the port's menu, `literal` its JSON ("true", "1.5", "\"KeyW\""),
+// checked as setting_set_* checks it. The mod is told (on_settings) and the value kept. False when
+// refused.
+bool set_built_in_setting(std::string_view id, std::string_view key, const std::string& literal);
 
 // Loads the mods the list has on. Returns the session header's line: "lock-strafe 1.0.0", "none",
 // "none (purist mode)". Called once, after the game's functions are registered, before it runs:
