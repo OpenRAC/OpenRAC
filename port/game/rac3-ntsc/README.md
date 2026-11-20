@@ -6,9 +6,11 @@ Commando's PAL and USA v2.00 are rac2-ntsc's ([rac2: carried releases](../rac2/R
 PAL is the primary release here: rac3-decomp's C is named by PAL's addresses, and the port's tables
 and host C are written for PAL first.
 
-**Runs as far as its main menu**, as PAL does: the boot screens (the legal notice, the credit
-screen), then the main menu with its labels, frames and background picture. Levels are not
-translated yet (no `src/levels`, no level catalogue): see [What is left](#what-is-left).
+**Runs as far as PAL does**: the boot screens (the legal notice, the credit screen), the main
+menu with its labels, frames and background picture, and a level: Veldin loads and is drawn
+natively from the disc's level data, Ratchet in his armour, as on PAL. Every level function is
+translated from the disc's level programs (NTSC-U's own catalogue, `config/us/levels/functions.tsv`):
+rac3-decomp's level C is PAL's, named by PAL's level addresses.
 
 ```sh
 python3 tools/build_port.py rac3-ntsc --disc <your NTSC-U disc image>
@@ -42,14 +44,22 @@ Nothing of PAL's port is copied here. The NTSC-U program is built from:
 | `hostgen.json`, `libraries.tsv` | rac3-pal's, in NTSC-U's names |
 | `host/rac3_names.tsv`, `host/rac3_addresses.h` | the shared host C's function names and addresses, NTSC-U's |
 | `host/rac3_version.h` | the shared host C's switch to NTSC-U (by hand) |
+| `release/release.json` `level_addresses` | a level's own globals the shared C writes as `RAC3_LADDR(level, 0x...u)`, from the same instruction of the same code ([`rac3_level_pairs.py`](../../tools/hostgen/rac3_level_pairs.py), which reads both discs' level dumps) |
 
 After a change to rac3-pal's hostgen.json, libraries.tsv or the addresses its host C wraps, or a
-sync of `games/rac3/decomp`, write them again:
+sync of `games/rac3/decomp`, write them again (the second needs both discs' level dumps in the
+decompilation's `baserom/`, for a new `RAC3_LADDR`):
 
 ```sh
 python3 port/tools/hostgen/release_rac3.py --game port/game/rac3-ntsc/hostgen.json --source games/rac3/decomp
+python3 port/tools/hostgen/rac3_level_pairs.py --source games/rac3/decomp --write
 python3 port/tools/hostgen/release_carry_rac3.py --source games/rac3/decomp
 ```
+
+`release_carry_rac3.py` names every literal address of rac3-pal's host C that NTSC-U has
+elsewhere and that is not wrapped yet: wrap it. `parity.py rac3` (run by the build) checks that the
+two programs bind the same functions the same way (`port/game/rac3/parity.tsv` for the known
+exceptions).
 
 ## What differs from PAL
 
@@ -72,8 +82,20 @@ python3 port/tools/hostgen/release_carry_rac3.py --source games/rac3/decomp
   0x003F0168's `jr ra; li v0, 2`). Without them the main menu's labels were never set (the setter
   is looked up by that type id): paired by hand in release.json.
 
+- **Level programs**: the same 49 single-player and multiplayer levels plus two split-screen maps
+  of NTSC-U's own (54, 55: builds of 44 and 45). Veldin's globals sit 0x80 higher (its `.lit` is
+  0x40 longer); the multiplayer levels' `$gp` is 0x00248140 (PAL 0x00247FC0). Of Veldin's
+  functions whose catalogue rows start there, 2,161 are PAL's C (`match`), 1,251 assembly on both
+  discs and 781 other code on NTSC-U (`differs`).
+- **The editor's export** reads Ratchet's looks, wrench, items and ship where PAL's does (the
+  same table of contents): editor/wads.py.
+
 ## What is left
 
-- menus.py's walk (`--version ntsc`), then New Game and a level: the levels' C (`src/levels`) needs
-  the release view's level names and NTSC-U's level catalogue (`config/us/levels/functions.tsv`),
-  and the profile's per-level addresses (`kUs.levels`) and render.c's level tables NTSC-U's values.
+- menus.py's walk on NTSC-U (`--version ntsc`) and New Game through the menus to Veldin; the
+  pause and in-level menus.
+- rac3-decomp's level C on NTSC-U (src/levels in the release view): its level names and its
+  levels' data names would need NTSC-U's values per level (rac3-decomp's NTSC-U build reads them
+  from the disc; they are not in its tables yet).
+- The multiplayer copies' MobyProc cap (`RAC3_LADDR(39, 0x001E0880u)`): no instruction of the
+  same code forms it, so it is 0 on NTSC-U.
