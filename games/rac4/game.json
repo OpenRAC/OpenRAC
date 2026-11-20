@@ -30,7 +30,9 @@
         "crc32": "66eb35f4",
         "md5": "c1e1992076becc7de5aa70ef1de8bcd0",
         "sha1": "a85482348f741d848dd2ff4e4c3ba7c2c40f431d",
-        "sha256": "dda48512e9b7609f69a49146ab239c4ebda7f13cf3d06397f19f6f3ce155a42b"
+        "sha256": "dda48512e9b7609f69a49146ab239c4ebda7f13cf3d06397f19f6f3ce155a42b",
+        "files": 38,
+        "contents": "036a5c78229ad0437096e87ab24096e4642bfc4a7e550548710eb6142c3008e0"
       },
       "boot": {
         "file": "SCUS_974.65",
@@ -89,6 +91,64 @@
           "report": "games/rac4/decomp/progress/report.json"
         },
         "setup": "bash tools/setup_asm.sh in games/rac4/decomp, and wrenchbuild unpack baserom/SCUS_974.65.iso -o build/rac4/wrench_out -g dl -r us"
+      }
+    },
+    "pal": {
+      "dir": "games/rac4/decomp",
+      "region": "PAL (Europe)",
+      "serial": "SCES_532.85",
+      "bytematch": "OpenRAC/rac4-decomp",
+      "disc": {
+        "file": "SCES_532.85.iso",
+        "volume": "RATCHETGLADIATOR",
+        "version": "1.00",
+        "video": "PAL",
+        "size": 4420075520,
+        "crc32": "feeb23da",
+        "md5": "6a02eb4d546e2931f3607b8772f88d2f",
+        "sha1": "092b5cf23f309b8426cdec2b8a871da939c2bbf7",
+        "sha256": "4173e108f618cbf52740546dd061b0008d57ac9475d837216064aef7e6ddaebe",
+        "files": 38,
+        "contents": "998d38c19923a13dc40c473b5fc4f63fe09de31820ff034893c868878dbc5c92"
+      },
+      "boot": {
+        "file": "SCES_532.85",
+        "size": 1696356,
+        "crc32": "995d4d03",
+        "md5": "414b778a94bfcc6c248d71b9618895cd",
+        "sha1": "2ca8d367f625001a4da12fcf466b7d218431bfd0",
+        "sha256": "a0cc45f8d747fe46e2d4f145b46af07a1831d61b4317bcef03d9d1825f691fdb"
+      },
+      "target": "rac4-decomp's second version, Ratchet: Gladiator: the main program, the front end and the 47 level programs read from the disc, counted function by function with the same C as NTSC-U wherever it builds to the PAL bytes; there is no linked image yet.",
+      "inputs": [
+        {
+          "from": "disc",
+          "path": "games/rac4/decomp/baserom/SCES_532.85.iso"
+        },
+        {
+          "from": "toolchains",
+          "path": "games/rac4/decomp/toolchain"
+        }
+      ],
+      "setup": "in games/rac4/decomp: python3 tools/levels.py dump --version pal, then python3 tools/match_map.py --version pal --write and python3 tools/progress.py --version pal --write (its README, \"Both discs\")",
+      "source": {
+        "shared": "decomp",
+        "name": "rac4-decomp",
+        "repo": "https://github.com/OpenRAC/rac4-decomp",
+        "branch": "main",
+        "license": "MIT (GPL libgcc, newlib libm)",
+        "commit": "4a7372f50e345023672172c7e08a8cfba0f3170c",
+        "date": "2026-11-08",
+        "imported": "2026-11-08"
+      },
+      "build": {
+        "host": "macOS or Linux through Docker (rac1/pal's linux/386 image with Wine); SN ProDG toolchain you supply",
+        "readme": "games/rac4/decomp/README.md"
+      },
+      "progress": {
+        "report": "games/rac4/decomp/progress/pal/report.json",
+        "format": "objdiff",
+        "note": "rac4-decomp's PAL report: the same function-by-function comparison as NTSC-U's (most 16-bit immediates masked, nothing linked yet), on the PAL disc's programs."
       }
     }
   }
