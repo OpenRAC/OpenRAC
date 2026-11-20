@@ -297,6 +297,8 @@ static void answers(void) {
     for (unsigned i = 0; i < sizeof bosses / sizeof bosses[0]; ++i) {
         CHECK(listed(bosses[i]));
     }
+    /* Grelbin's moonstone droppers, as Tabora's crystal creatures (slots 10 and 11). */
+    CHECK(listed(3927) && listed(4551));
     for (unsigned i = 0; i < rac2_copy_never_count; ++i) {
         CHECK(rac2_copy_never[i].what != NULL);
         for (unsigned j = i + 1; j < rac2_copy_never_count; ++j) {

@@ -149,13 +149,16 @@ const rac2_copy_class rac2_copy_never[] = {
     {3104, "Turret (moby-dispatch.tsv): fixed in its place"},
     /* Tabora's crystal field: the creatures whose death makes the crystals the collector buys
      * (class 2244, whose pickup marks its maker's save id killed: func_L08_003CC750). A copy's
-     * crystals would mark its original and pay the trade twice. */
-    {
-        2410,
-        "Desert Crystal Shell, Tabora: crystal_shell_update_damage (func_L08_003D2F50) makes "
-        "crystals"
-    },
+     * crystals would mark its original and pay the collector twice. */
+    {2410,
+     "Desert Crystal Shell, Tabora: crystal_shell_update_damage (func_L08_003D2F50) makes "
+     "crystals"},
     {4098, "Desert Dune Monster, Tabora: dune_monster_update (func_L08_00426730) makes crystals"},
+    /* Grelbin's moonstones: the creatures and the breakable crystals that drop them (class 4710,
+     * marking the dropper's save id: func_L19_004160A0, func_L19_004203F0). */
+    {3927, "Arctic Leviathan, Grelbin (moby-dispatch.tsv): its death drops moonstones"},
+    {4551,
+     "Grelbin's breakable moonstone crystal: UpdateBreakablePickupSpawner (func_L19_004203F0)"},
     /* The bosses. */
     {2644, "Swamp Monster II, Oozla (moby-dispatch.tsv)"},
     {2701, "Swamp Monster I Arm, Oozla (moby-dispatch.tsv)"},
