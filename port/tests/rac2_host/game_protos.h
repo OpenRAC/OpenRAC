@@ -14,5 +14,6 @@ void func_0029F338(gaddr a0);
 int func_002761F8(gaddr a0, gaddr a1, int a2, gaddr a3, gaddr a4);
 float func_002A89A8(gaddr a0, int a1, float a2);
 void func_002A6C58__hooked(gaddr a0, int a1, int a2);
+gaddr func_L00_00300618__game(int a0);
 
 #endif /* OPENRAC_GAME_PROTOS_H */

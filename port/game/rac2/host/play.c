@@ -814,18 +814,16 @@ static void trace_start(const char* what) {
  * what moby_copy_check says of it (PTRACE copy lines), and a count by answer; `copies=N` then makes N
  * copies of each one it allows (a hidden run's proof that copies are made and run). */
 static void trace_copies(const char* script) {
-    static uint32_t seen_loads, seen_counter;
+    static uint32_t seen_loads;
     const char* c = strstr(script, "copies");
     rac2_moby_table t;
     if (c == NULL || !copy_table(&t)) {
         return;
     }
-    const uint32_t counter = GREF(uint32_t, OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B19C8u)));
-    if (seen_loads == loads() && seen_counter == counter) {
+    if (seen_loads == loads()) {
         return;
     }
     seen_loads = loads();
-    seen_counter = counter;
     const int each = c[6] == '=' ? atoi(c + 7) : 0;
     int by_answer[8] = {0}, unknown = 0, made = 0, asked = 0;
     for (gaddr m = t.base; m < t.dynamic; m += MOBY_SIZE) {
@@ -840,13 +838,15 @@ static void trace_copies(const char* script) {
         ++by_answer[why & 7];
         fprintf(
             stderr,
-            "PTRACE copy level %d slot %d class %d uid %d bolts %d answer %d pos %.1f %.1f %.1f\n",
+            "PTRACE copy level %d slot %d class %d uid %d bolts %d answer %d why %d pos %.1f %.1f "
+            "%.1f\n",
             openrac_game_loaded_overlay(),
             (int)slot_of(m),
             (int)GREF(int16_t, m + MOBY_OCLASS),
             (int)GREF(int16_t, m + 0xB2u),
             (int)GREF(int16_t, m + 0xB4u),
             why,
+            rac2_copy_detail(&t, m),
             GREF(float, m + MOBY_POS),
             GREF(float, m + MOBY_POS + 4u),
             GREF(float, m + MOBY_POS + 8u)
@@ -858,15 +858,18 @@ static void trace_copies(const char* script) {
     }
     int free_slots = 0;
     for (gaddr m = t.dynamic; m < t.end; m += MOBY_SIZE) {
-        free_slots += GREF(uint8_t, m + MOBY_STATE) >= 0xFEu;
+        if (GREF(uint8_t, m + MOBY_STATE) == 0xFFu) {
+            free_slots += (int)((t.end - m) / MOBY_SIZE);
+            break;
+        }
+        free_slots += GREF(uint8_t, m + MOBY_STATE) == 0xFEu;
     }
     fprintf(
         stderr,
-        "PTRACE copies level %d loads %u counter %u: ok %d scripted %d listed %d not_placed %d "
+        "PTRACE copies level %d loads %u: ok %d scripted %d listed %d not_placed %d "
         "no_room %d unknown %d; made %d of %d; pool %d placed %d free %d\n",
         openrac_game_loaded_overlay(),
         (unsigned)loads(),
-        (unsigned)counter,
         by_answer[RAC2_COPY_OK],
         by_answer[RAC2_COPY_SCRIPTED],
         by_answer[RAC2_COPY_LISTED],

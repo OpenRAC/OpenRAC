@@ -128,13 +128,14 @@ static gaddr class_of(int16_t oclass) {
     }
 }
 
-/* The level's loads so far (LoadLevelArchiveResources counts them). */
-static uint32_t level_loads;
-
+/* Each level of the test a program of its own (rac2_program_loads). */
 static void make_level(void) {
     memset(openrac_guest_base, 0, openrac_guest_ram_size);
+    ++program_loads;
     put32(0x001BF140u + 0x0Cu, FILE_AT);
-    put32(0x001B19C8u, ++level_loads);
+    put32(RAC2_g_mobyTableBase, BASE);
+    put32(RAC2_g_mobyTableBase + 4u, DYNAMIC);
+    put32(RAC2_g_mobyTableEnd, END);
     put32(RAC2_g_playerProgress, MAP);
     put16(CLASS_ENEMY + 0x46u, 5);
     put16(CLASS_THING + 0x46u, 3);
@@ -177,10 +178,15 @@ static void make_level(void) {
     }
     put32(blob_at(7) + 0x10u, blob_at(7) + 0x100u);
     put32(blob_at(7) + 0x14u, 0x00123456u); /* a pointer elsewhere, not listed as inner */
-    /* One group: record 1. */
-    put32(FILE_AT + 0x2000u, 1);
+    /* Two groups: a set piece (records 1 and 4, an enemy and a moby of another kind) and a squad
+     * (records 0 and 9, two enemies of one class). */
+    put32(FILE_AT + 0x2000u, 2);
     put32(FILE_AT + 0x2010u, 0);
-    put16(FILE_AT + 0x2014u, 0x8001u);
+    put32(FILE_AT + 0x2014u, 4);
+    put16(FILE_AT + 0x2018u, 0x0001u);
+    put16(FILE_AT + 0x201Au, 0x8004u);
+    put16(FILE_AT + 0x201Cu, 0x0000u);
+    put16(FILE_AT + 0x201Eu, 0x8009u);
     /* Fields naming a moby: the camera's names moby 2, block 6 names moby 4, block 0's names none. */
     const uint32_t refs[] = {CAMERA_BLOB, 0x8, 6, 0x4, 0, 0xC, 0xFFFFFFFFu, 0};
     for (unsigned i = 0; i < 8; ++i) {
@@ -205,6 +211,10 @@ gaddr func_0029EFD0(int oclass) {
     for (gaddr m = DYNAMIC; m < END; m += 0x100u) {
         if (GREF(uint8_t, m + 0x20u) >= 0xFEu) {
             const uint32_t index = (m - DYNAMIC) / 0x100u;
+            /* The never-used mark moves up past the slot taken. */
+            if (GREF(uint8_t, m + 0x20u) == 0xFFu && m + 0x100u < END) {
+                GREF(uint8_t, m + 0x120u) = 0xFFu;
+            }
             memset(G(m), 0, 0x100u);
             put16(m + 0xAAu, (uint16_t)oclass);
             put32(m + 0x24u, class_of((int16_t)oclass));
@@ -239,6 +249,14 @@ int func_002761F8(gaddr from, gaddr to, int mask, gaddr ignore, gaddr out) {
 }
 
 static int deaths;
+static int gameplay_loads;
+
+/* LoadLevelData: the level laid out (make_level did), the heap's cursor returned. */
+gaddr func_L00_00300618__game(int reload) {
+    (void)reload;
+    ++gameplay_loads;
+    return 0x00900000u;
+}
 
 /* SetDeathBits's marks for the moby's save id: its kill count and both collection bytes. */
 void func_002A6C58__hooked(gaddr moby, int flags, int arg) {
@@ -262,12 +280,17 @@ static gaddr placed(uint32_t i) {
 static void answers(void) {
     make_level();
     CHECK(rac2_copy_check(&table, placed(0)) == RAC2_COPY_OK);
-    CHECK(rac2_copy_check(&table, placed(1)) == RAC2_COPY_SCRIPTED); /* a group's */
+    CHECK(rac2_copy_check(&table, placed(1)) == RAC2_COPY_SCRIPTED); /* a set piece's */
     CHECK(rac2_copy_check(&table, placed(2)) == RAC2_COPY_SCRIPTED); /* the camera names it */
     CHECK(rac2_copy_check(&table, placed(3)) == RAC2_COPY_LISTED);   /* a spawner */
     CHECK(rac2_copy_check(&table, placed(4)) == RAC2_COPY_NOT_ENEMY);
     CHECK(rac2_copy_check(&table, placed(5)) == RAC2_COPY_SCRIPTED); /* a script slot */
     CHECK(rac2_copy_check(&table, placed(6)) == RAC2_COPY_SCRIPTED); /* names moby 4 */
+    CHECK(rac2_copy_detail(&table, placed(1)) == RAC2_COPY_WHY_GROUP);
+    CHECK(rac2_copy_detail(&table, placed(2)) == RAC2_COPY_WHY_NAMED);
+    CHECK(rac2_copy_detail(&table, placed(5)) == RAC2_COPY_WHY_SCRIPT);
+    CHECK(rac2_copy_detail(&table, placed(6)) == RAC2_COPY_WHY_NAMES);
+    CHECK(rac2_copy_detail(&table, placed(0)) == 0);
     CHECK(rac2_copy_check(&table, placed(7)) == RAC2_COPY_OK);
     CHECK(rac2_copy_check(&table, placed(8)) == RAC2_COPY_NOT_PLACED); /* no reward */
     CHECK(rac2_copy_check(&table, placed(9)) == RAC2_COPY_OK);         /* no pvars */
@@ -299,6 +322,7 @@ static void answers(void) {
     }
     /* Grelbin's moonstone droppers, as Tabora's crystal creatures (slots 10 and 11). */
     CHECK(listed(3927) && listed(4551));
+    CHECK(listed(4304)); /* the yetis their spawner lets out */
     for (unsigned i = 0; i < rac2_copy_never_count; ++i) {
         CHECK(rac2_copy_never[i].what != NULL);
         for (unsigned j = i + 1; j < rac2_copy_never_count; ++j) {
@@ -378,6 +402,11 @@ static void no_spot(void) {
 
 static void reserve(void) {
     make_level();
+    /* The pool as the game leaves it: given-back slots, then the never-used mark and zeros past. */
+    for (gaddr m = DYNAMIC + 100u * 0x100u; m < END; m += 0x100u) {
+        GREF(uint8_t, m + 0x20u) = 0;
+    }
+    GREF(uint8_t, DYNAMIC + 100u * 0x100u + 0x20u) = 0xFFu;
     /* The pool keeps RESERVE slots free for the level's own spawns. */
     const uint32_t take = DYNAMIC_SLOTS - RESERVE - 1u;
     for (uint32_t i = 0; i < take; ++i) {
@@ -389,17 +418,37 @@ static void reserve(void) {
 
 static void stale_and_new_load(void) {
     make_level();
-    CHECK(rac2_copy_make(&table, placed(0), 0) != 0);
-    CHECK(rac2_copy_count() == 1);
-    /* The level loaded again (a death): what was made is forgotten, the file read again. */
-    put32(0x001B19C8u, ++level_loads);
+    const gaddr copy = rac2_copy_make(&table, placed(0), 0);
+    CHECK(copy != 0 && rac2_copy_count() == 1);
+    /* The level loaded again after a death: the pool laid out again, the copies gone and
+     * forgotten; the answers kept from the first scan, as the level is laid out alike. */
+    memset(G(copy), 0, 0x100u);
+    GREF(uint8_t, copy + 0x20u) = 0xFFu;
     CHECK(rac2_copy_count() == 0);
     CHECK(rac2_copy_check(&table, placed(0)) == RAC2_COPY_OK);
-    /* The memory reused: an enemy's block no longer its pvars. Nothing may be copied. */
-    put32(0x001B19C8u, ++level_loads);
+    CHECK(rac2_copy_make(&table, placed(0), 0) != 0 && rac2_copy_count() == 1);
+    /* The file's memory reused after the scan: the copies keep what the scan read. */
+    memset(G(FILE_AT), 0, 0x6000u);
+    CHECK(rac2_copy_make(&table, placed(7), 0) != 0);
+    /* A file no longer the level's at the first ask: nothing may be copied, and it is read again
+     * a tick later. */
+    make_level();
     put32(FILE_AT + 0x4000u + 8u * 5u, 0x00777000u);
     CHECK(rac2_copy_check(&table, placed(0)) == RAC2_COPY_UNKNOWN);
     CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
+    put32(FILE_AT + 0x4000u + 8u * 5u, blob_at(5));
+    CHECK(rac2_copy_check(&table, placed(0)) == RAC2_COPY_UNKNOWN);
+    put32(0x001B19C8u, 1);
+    CHECK(rac2_copy_check(&table, placed(0)) == RAC2_COPY_OK);
+    /* The file read as LoadLevelData returns: what the rest of the load does to its memory after
+     * changes nothing (Tabora's reuses it). */
+    make_level();
+    CHECK(func_L00_00300618(0) == 0x00900000u && gameplay_loads > 0);
+    memset(G(FILE_AT), 0x5A, 0x6000u);
+    put32(0x001B19C8u, 7);
+    CHECK(rac2_copy_check(&table, placed(0)) == RAC2_COPY_OK);
+    CHECK(rac2_copy_check(&table, placed(1)) == RAC2_COPY_SCRIPTED);
+    CHECK(rac2_copy_make(&table, placed(7), 0) != 0);
     /* No file at all. */
     make_level();
     put32(0x001BF140u + 0x0Cu, 0);

@@ -13,8 +13,10 @@
  *
  *   - its record names no slot of the level's table of mobys the scripts look up (the record's last
  *     word, +0x84, not -1: LoadLevelData hands it to level_store_value_in_table_slot);
- *   - it is in none of the level's moby groups (section 0x50: the waves, the arenas and the doors
- *     that open when a group is defeated count their group's members);
+ *   - it is in no set piece: a moby group (section 0x50) of anything but enemies of one class
+ *     (the waves, the arenas, the doors that open when a group is defeated count their group's
+ *     members; a squad of one class, which nearly every enemy is in, wakes and fights together,
+ *     and a copy fights with it);
  *   - no other moby's, camera's or sound's data names it, and its own names no other (section 0x58,
  *     the fields LoadLevelData turns into moby indices: a copy would name the same one);
  *   - its class is not in rac2_copy_never (bosses, turrets, spawners and the crystals' creatures of
@@ -22,11 +24,11 @@
  *   - it gives a reward (a save id, +0xB2, and +0xB1's 0x80 clear: SetDeathBits gives nothing
  *     otherwise, so a copy would drop nothing either).
  *
- * The level's file is still in memory after its load (g_level_load_context +0x0C, which
- * LoadLevelData decompresses it into). Its pvar table (section 0x5C) has each block's address in
- * the level's heap by then: a placed moby's pvars are the block its record names. Every check reads
- * the file only while that holds for each placed enemy; once the file is gone (the memory reused)
- * no moby may be copied.
+ * The level's file is read as LoadLevelData returns (it decompressed it at g_level_load_context
+ * +0x0C; the wrap below): what follows in the load reuses that memory on some levels (Tabora's).
+ * Its pvar table (section 0x5C) has each block's address in the level's heap by then: a placed
+ * moby's pvars are the block its record names. The scan holds only when that holds for each placed
+ * enemy; a file found otherwise lets no moby be copied.
  *
  * A copy. CreateMoby gives a slot of the pool past the placed mobys, the class's update and 0x80
  * bytes of pvars of its own. The copy takes the original's record but what is its slot's own (its
@@ -56,9 +58,6 @@
 /* g_level_load_context (D_L00_001BF140): +0x0C the gameplay file LoadLevelData read. */
 #define LOAD_CONTEXT OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001BF140u))
 #define CONTEXT_FILE 0x0Cu
-/* g_frame_l00_counter (D_L00_001B19C8): LoadLevelArchiveResources adds one at each load, a load
- * after a death too. */
-#define LOAD_COUNTER OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B19C8u))
 
 /* The gameplay file's sections: each a word of its header, the section's offset in the file. */
 #define SECTION_MOBYS 0x4Cu
@@ -95,6 +94,7 @@
 #define CLASS_KIND 0x46u
 #define KIND_ENEMY 5
 #define STATE_FREE 0xFEu
+#define STATE_UNUSED 0xFFu
 /* What CreateMoby gives a moby of the pool of pvars. */
 #define SLOT_PVARS 0x80u
 
@@ -124,6 +124,11 @@
 #define LIST_MAX 65536
 /* Placed mobys this file tracks (slots). */
 #define PLACED_MAX 4096
+/* The pointers into blocks the scan keeps. */
+#define INNER_MAX 8192
+/* g_frame_l00_counter (D_L00_001B19C8): the level loop's ticks, which LoadLevelArchiveResources
+ * counts from; a scan that found the file gone is tried again a tick later at most. */
+#define TICKS OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B19C8u))
 
 /* The spot: the tries, the turn between them, the jitter, the distances, the floor's tolerance, the
  * line's height over the floor, the gap to the class's others. */
@@ -159,6 +164,9 @@ const rac2_copy_class rac2_copy_never[] = {
     {3927, "Arctic Leviathan, Grelbin (moby-dispatch.tsv): its death drops moonstones"},
     {4551,
      "Grelbin's breakable moonstone crystal: UpdateBreakablePickupSpawner (func_L19_004203F0)"},
+    /* Squads a controller holds back and lets out (a spawner of the level's, not one of the
+     * group): their copies would come out at once. */
+    {4304, "Y.E.T.I., Grelbin: yeti_group_spawner_update (func_L19_0041EE60) lets them out"},
     /* The bosses. */
     {2644, "Swamp Monster II, Oozla (moby-dispatch.tsv)"},
     {2701, "Swamp Monster I Arm, Oozla (moby-dispatch.tsv)"},
@@ -183,23 +191,29 @@ const unsigned rac2_copy_never_count = sizeof rac2_copy_never / sizeof rac2_copy
 
 /* ---- The scan of a load ---- */
 
+/* What the scan keeps of the file for the copies (the file's memory is the level's to reuse once
+ * it has loaded): each placed moby's answer, why a scripted one is, its pvars' size and block, and
+ * the pointers into the blocks. It holds for the program's load and the loads of the same level
+ * after a death, which lay the level out alike. */
 static struct {
-    int valid; /* 1 the scan holds for this load, -1 it found the file gone */
+    int valid; /* 1 the scan holds, -1 it found the file gone (tried again a tick later) */
     uint32_t loads;
-    uint32_t counter;
+    uint32_t tick;
     gaddr base;
     gaddr dynamic;
-    gaddr file;  /* the gameplay file */
-    gaddr blobs; /* its pvar table */
-    gaddr inner; /* its list of pointers into blocks, 0 for none */
+    gaddr file;
     int8_t verdict[PLACED_MAX];
+    uint8_t detail[PLACED_MAX];
     int16_t blob[PLACED_MAX];
+    uint16_t size[PLACED_MAX];
+    int inner_count;
+    int16_t inner_blob[INNER_MAX];
+    uint16_t inner_offset[INNER_MAX];
 } scan;
 
 /* The copies of this load, and the room their larger pvars take. */
 static struct {
     uint32_t loads;
-    uint32_t counter;
     int count;
     gaddr moby[COPIES_MAX];
     int16_t uid[COPIES_MAX];
@@ -214,8 +228,8 @@ static int16_t uid_of_record[RECORDS_MAX];
 static uint8_t uid_marks[UID_MAX];
 static uint8_t names_moby[BLOBS_MAX / 8];
 static uint8_t named[PLACED_MAX / 8];
-#define MARK_SCRIPT 1u
-#define MARK_GROUP 2u
+#define MARK_SCRIPT RAC2_COPY_WHY_SCRIPT
+#define MARK_GROUP RAC2_COPY_WHY_GROUP
 
 static int in_ram(gaddr a, uint32_t bytes) {
     return a >= 0x00100000u && a < openrac_guest_ram_size && bytes <= openrac_guest_ram_size - a;
@@ -225,8 +239,8 @@ static uint32_t this_load(void) {
     return rac2_program_loads();
 }
 
-static uint32_t this_counter(void) {
-    return GREF(uint32_t, LOAD_COUNTER);
+static uint32_t this_tick(void) {
+    return GREF(uint32_t, TICKS);
 }
 
 static int listed(int16_t oclass) {
@@ -282,8 +296,22 @@ static int read_records(gaddr file, int32_t* count) {
     return 1;
 }
 
-/* The groups (section 0x50): each a list of record indices (low 15 bits), the last with 0x8000. */
-static void read_groups(gaddr file, int32_t records) {
+/* The placed moby of a save id, 0 for none (one the load left out). */
+static gaddr moby_of_uid(const rac2_moby_table* t, int16_t uid) {
+    for (gaddr m = t->base; m < t->dynamic; m += MOBY_SIZE) {
+        if (GREF(uint8_t, m + MOBY_STATE) < 0x80 && GREF(int16_t, m + MOBY_UID) == uid) {
+            return m;
+        }
+    }
+    return 0;
+}
+
+/* The groups (section 0x50): each a list of record indices (low 15 bits), the last with 0x8000.
+ * Going Commando puts nearly every enemy in one: a squad of one class, which wakes and fights
+ * together (moby +0x21 is its group). A squad's copy fights beside it and is copied. A group of
+ * anything else (enemies of several classes, or enemies with a door, a crate, a prop or a moby of
+ * no class loaded) is a set piece a controller of the level runs: its enemies are not copied. */
+static void read_groups(const rac2_moby_table* t, gaddr file, int32_t records) {
     const gaddr s = section(file, SECTION_GROUPS);
     if (s == 0) {
         return;
@@ -299,7 +327,33 @@ static void read_groups(gaddr file, int32_t records) {
         if (off < 0) {
             continue;
         }
+        /* A squad: every member the load placed an enemy of one class. */
+        int squad = 1;
+        int16_t oclass = -1;
         gaddr e = data + (uint32_t)off;
+        for (int k = 0; k < LIST_MAX && in_ram(e, 2); ++k, e += 2) {
+            const uint16_t v = GREF(uint16_t, e);
+            const int32_t id = v & 0x7FFF;
+            const gaddr m =
+                id < records && uid_of_record[id] >= 0 ? moby_of_uid(t, uid_of_record[id]) : 0;
+            if (m != 0) {
+                const gaddr cls = GREF(gaddr, m + MOBY_CLASS);
+                const int16_t c = GREF(int16_t, m + MOBY_OCLASS);
+                if (cls == 0 || !in_ram(cls, CLASS_KIND + 2)
+                    || GREF(int16_t, cls + CLASS_KIND) != KIND_ENEMY
+                    || (oclass >= 0 && c != oclass)) {
+                    squad = 0;
+                }
+                oclass = c;
+            }
+            if ((v & 0x8000u) != 0) {
+                break;
+            }
+        }
+        if (squad) {
+            continue;
+        }
+        e = data + (uint32_t)off;
         for (int k = 0; k < LIST_MAX && in_ram(e, 2); ++k, e += 2) {
             const uint16_t v = GREF(uint16_t, e);
             const int32_t id = v & 0x7FFF;
@@ -341,8 +395,18 @@ static void read_refs(gaddr file, gaddr blobs, gaddr base, gaddr dynamic) {
     }
 }
 
-static int8_t judge(gaddr m, uint32_t slot, gaddr blobs, int16_t* blob, int* stale) {
+static int8_t judge(
+    gaddr m,
+    uint32_t slot,
+    gaddr blobs,
+    int16_t* blob,
+    uint16_t* size_out,
+    uint8_t* detail,
+    int* stale
+) {
     *blob = -1;
+    *size_out = 0;
+    *detail = 0;
     if (GREF(uint8_t, m + MOBY_STATE) >= 0x80) {
         return RAC2_COPY_NOT_PLACED;
     }
@@ -373,34 +437,38 @@ static int8_t judge(gaddr m, uint32_t slot, gaddr blobs, int16_t* blob, int* sta
     if (listed(GREF(int16_t, m + MOBY_OCLASS))) {
         return RAC2_COPY_LISTED;
     }
-    if (uid_marks[uid] != 0 || bit(named, slot)
-        || (*blob >= 0 && bit(names_moby, (uint32_t)*blob))) {
+    *detail =
+        (uint8_t)(uid_marks[uid] | (bit(named, slot) ? RAC2_COPY_WHY_NAMED : 0u)
+                  | (*blob >= 0 && bit(names_moby, (uint32_t)*blob) ? RAC2_COPY_WHY_NAMES : 0u));
+    if (*detail != 0) {
         return RAC2_COPY_SCRIPTED;
     }
+    *size_out = (uint16_t)(size <= PVARS_MAX ? size : 0);
     return size > PVARS_MAX ? RAC2_COPY_NO_ROOM : RAC2_COPY_OK;
 }
 
 /* The scan for this load, made at the first ask. 0 when the file is not the level's now. */
 static int scanned(const rac2_moby_table* t) {
-    if (scan.valid != 0 && scan.loads == this_load() && scan.counter == this_counter()
-        && scan.base == t->base && scan.dynamic == t->dynamic) {
+    const gaddr ctx = LOAD_CONTEXT;
+    const gaddr file = in_ram(ctx, 16) ? GREF(gaddr, ctx + CONTEXT_FILE) : 0;
+    if (scan.valid != 0 && scan.loads == this_load() && scan.base == t->base
+        && scan.dynamic == t->dynamic && scan.file == file
+        && (scan.valid > 0 || scan.tick == this_tick())) {
         return scan.valid > 0;
     }
     memset(&scan, 0, sizeof scan);
     scan.loads = this_load();
-    scan.counter = this_counter();
+    scan.tick = this_tick();
     scan.base = t->base;
     scan.dynamic = t->dynamic;
+    scan.file = file;
     scan.valid = -1;
-    const gaddr ctx = LOAD_CONTEXT;
-    const gaddr file = in_ram(ctx, 16) ? GREF(gaddr, ctx + CONTEXT_FILE) : 0;
     const uint32_t placed = (t->dynamic - t->base) / MOBY_SIZE;
     if (file == 0 || !in_ram(file, 0xC0) || placed > PLACED_MAX) {
         return 0;
     }
-    scan.file = file;
-    scan.blobs = section(file, SECTION_BLOBS);
-    scan.inner = section(file, SECTION_INNER);
+    const gaddr blobs = section(file, SECTION_BLOBS);
+    const gaddr inner = section(file, SECTION_INNER);
     memset(record_of_uid, 0xFF, sizeof record_of_uid);
     memset(record_at, 0, sizeof record_at);
     memset(uid_of_record, 0xFF, sizeof uid_of_record);
@@ -408,14 +476,27 @@ static int scanned(const rac2_moby_table* t) {
     memset(names_moby, 0, sizeof names_moby);
     memset(named, 0, sizeof named);
     int32_t records = 0;
-    if (scan.blobs == 0 || !read_records(file, &records)) {
+    if (blobs == 0 || !read_records(file, &records)) {
         return 0;
     }
-    read_groups(file, records);
-    read_refs(file, scan.blobs, t->base, t->dynamic);
+    read_groups(t, file, records);
+    read_refs(file, blobs, t->base, t->dynamic);
     int stale = 0;
     for (uint32_t s = 0; s < placed && !stale; ++s) {
-        scan.verdict[s] = judge(t->base + s * MOBY_SIZE, s, scan.blobs, &scan.blob[s], &stale);
+        scan.verdict[s] = judge(
+            t->base + s * MOBY_SIZE, s, blobs, &scan.blob[s], &scan.size[s], &scan.detail[s], &stale
+        );
+    }
+    /* The pointers into blocks (section 0x64: block, offset pairs to a negative block). */
+    for (gaddr q = inner; q != 0 && in_ram(q, 8) && GREF(int32_t, q) >= 0
+                          && q < inner + 8u * LIST_MAX && scan.inner_count < INNER_MAX;
+         q += 8) {
+        const int32_t k = GREF(int32_t, q), off = GREF(int32_t, q + 4);
+        if (k < BLOBS_MAX && off >= 0 && off < (int32_t)PVARS_MAX) {
+            scan.inner_blob[scan.inner_count] = (int16_t)k;
+            scan.inner_offset[scan.inner_count] = (uint16_t)off;
+            ++scan.inner_count;
+        }
     }
     scan.valid = stale ? -1 : 1;
     return !stale;
@@ -434,14 +515,50 @@ int rac2_copy_check(const rac2_moby_table* t, gaddr moby) {
     return scan.verdict[(moby - t->base) / MOBY_SIZE];
 }
 
+int rac2_copy_detail(const rac2_moby_table* t, gaddr moby) {
+    return rac2_copy_check(t, moby) == RAC2_COPY_SCRIPTED
+               ? scan.detail[(moby - t->base) / MOBY_SIZE]
+               : 0;
+}
+
+/* The level's mobys as LoadLevelData leaves them (the boot program's words, the level's copy):
+ * the first, the first past the placed ones, the end. */
+#define TABLE_BASE OPENRAC_DATA(RAC2_g_mobyTableBase)
+#define TABLE_DYNAMIC OPENRAC_DATA(RAC2_g_mobyTableBase + 4u)
+#define TABLE_END OPENRAC_DATA(RAC2_g_mobyTableEnd)
+
+/* LoadLevelData (func_L00_00300618; a level's own load, and its load again after a death): the
+ * level's file read for the copies as the game has just laid the level out from it. */
+gaddr func_L00_00300618(int reload) {
+    const gaddr heap = func_L00_00300618__game(reload);
+    const rac2_moby_table t =
+        {GREF(gaddr, TABLE_BASE), GREF(gaddr, TABLE_DYNAMIC), GREF(gaddr, TABLE_END)};
+    if (t.base != 0 && t.dynamic >= t.base && t.end >= t.dynamic
+        && (t.end - t.base) % MOBY_SIZE == 0) {
+        scan.valid = 0;
+        (void)scanned(&t);
+    }
+    return heap;
+}
+
 /* ---- The copies ---- */
 
+static int copy_alive(int i) {
+    const gaddr m = made.moby[i];
+    return GREF(uint8_t, m + MOBY_STATE) < 0x80 && GREF(int16_t, m + MOBY_UID) == made.uid[i];
+}
+
+/* Another program forgets the copies; so does a load of the same level after a death, which
+ * leaves none of them (the pool laid out again): their room is free again. */
 static void forget_old(void) {
-    if (made.loads == this_load() && made.counter == this_counter()) {
+    int alive = made.loads == this_load() ? 0 : -1;
+    for (int i = 0; alive == 0 && i < made.count; ++i) {
+        alive = copy_alive(i);
+    }
+    if (alive > 0 || (alive == 0 && made.count == 0)) {
         return;
     }
     made.loads = this_load();
-    made.counter = this_counter();
     made.count = 0;
     made.room_used = 0;
 }
@@ -455,17 +572,22 @@ int rac2_copy_is(gaddr moby) {
     forget_old();
     for (int i = 0; i < made.count; ++i) {
         if (made.moby[i] == moby) {
-            return GREF(uint8_t, moby + MOBY_STATE) < 0x80
-                   && GREF(int16_t, moby + MOBY_UID) == made.uid[i];
+            return copy_alive(i);
         }
     }
     return 0;
 }
 
+/* The pool's free slots: each one given back (0xFE), and every one from the first never used on
+ * (0xFF: CreateMoby moves that mark up as it takes one). */
 static int free_slots(const rac2_moby_table* t) {
     int n = 0;
     for (gaddr m = t->dynamic; m < t->end; m += MOBY_SIZE) {
-        n += GREF(uint8_t, m + MOBY_STATE) >= STATE_FREE;
+        const uint8_t state = GREF(uint8_t, m + MOBY_STATE);
+        if (state == STATE_UNUSED) {
+            return n + (int)((t->end - m) / MOBY_SIZE);
+        }
+        n += state == STATE_FREE;
     }
     return n;
 }
@@ -573,7 +695,7 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
         return 0;
     }
     const int16_t k = scan.blob[(orig - t->base) / MOBY_SIZE];
-    const uint32_t size = k >= 0 ? GREF(uint32_t, scan.blobs + BLOB_BYTES * (uint32_t)k + 4u) : 0;
+    const uint32_t size = scan.size[(orig - t->base) / MOBY_SIZE];
     const uint32_t room_need = size > SLOT_PVARS ? (size + 15u) & ~15u : 0;
     if (room_need > 0) {
         if (made.room == 0) {
@@ -619,17 +741,15 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
     }
     if (from != 0 && to != 0 && size > 0) {
         memmove(G(to), G(from), size);
-        /* The pointers into the block (section 0x64: block, offset pairs) point into the copy's. */
-        for (gaddr q = scan.inner;
-             q != 0 && in_ram(q, 8) && GREF(int32_t, q) >= 0 && q < scan.inner + 8u * LIST_MAX;
-             q += 8) {
-            const int32_t off = GREF(int32_t, q + 4);
-            if (GREF(int32_t, q) != k || off < 0 || (uint32_t)off + 4u > size) {
+        /* The pointers into the block (section 0x64) point into the copy's. */
+        for (int i = 0; i < scan.inner_count; ++i) {
+            const uint32_t off = scan.inner_offset[i];
+            if (scan.inner_blob[i] != k || off + 4u > size) {
                 continue;
             }
-            const gaddr v = GREF(gaddr, to + (uint32_t)off);
+            const gaddr v = GREF(gaddr, to + off);
             if (v >= from && v < from + size) {
-                GREF(gaddr, to + (uint32_t)off) = v - from + to;
+                GREF(gaddr, to + off) = v - from + to;
             }
         }
     }

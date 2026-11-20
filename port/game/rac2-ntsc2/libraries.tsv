@@ -251,6 +251,7 @@ func_0027EFA0	draw	DrawRingSegment	wrap	a ring's segment, a colour a corner and 
 func_0027E4D0	draw	DrawFlatBox	wrap	a box of flat colour (the pages' frames): drawn natively (host/ui2d.c)
 func_003144C8	moby	NanotechBallUpdate	wrap	the nanotech cluster's update: its sphere test runs against the picture's sides (host/wide_view.c)
 func_002A7AA8	moby	SetDeathBits	wrap	a moby's death recorded: for an enemy's copy (host/enemy_copies.c) the marks it leaves on its original's save id are put back
+func_L00_003012A0	level	LoadLevelData	wrap	the level's gameplay file read for the mods' enemy copies as the game has laid the level out from it (host/enemy_copies.c)
 func_L00_004264A8	camera	FollowCameraReadStick	wrap	the follow camera's stick read: notes the camera, for the picture's late camera latch (host/camera_latch.c)
 func_002E5720	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
 func_0027F0A8	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)

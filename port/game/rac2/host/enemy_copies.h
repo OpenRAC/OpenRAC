@@ -27,6 +27,15 @@ enum {
     RAC2_COPY_UNKNOWN = -1
 };
 
+/* Why a scripted moby is (RAC2_COPY_SCRIPTED): its record's script slot, a group's member, named by
+ * another's data, naming another. */
+enum {
+    RAC2_COPY_WHY_SCRIPT = 1,
+    RAC2_COPY_WHY_GROUP = 2,
+    RAC2_COPY_WHY_NAMED = 4,
+    RAC2_COPY_WHY_NAMES = 8
+};
+
 /* A class the port never copies, and why (RAC2_COPY_LISTED). */
 typedef struct rac2_copy_class {
     int16_t oclass;
@@ -46,6 +55,9 @@ typedef struct rac2_moby_table {
 
 /* Whether the placed moby at `moby` may be copied (RAC2_COPY_*). */
 int rac2_copy_check(const rac2_moby_table* table, gaddr moby);
+
+/* Why a moby rac2_copy_check calls scripted is (RAC2_COPY_WHY_* bits), 0 for another answer. */
+int rac2_copy_detail(const rac2_moby_table* table, gaddr moby);
 
 /* A copy of the placed moby at `moby`, its `index`-th (0 for its first), at a clear spot beside
  * it: its address, or 0 (not one that may be copied, no clear spot, no room in the pool). */
