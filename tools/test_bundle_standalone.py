@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 import subprocess
+import os
 import sys
 import tempfile
 import unittest
@@ -426,6 +427,38 @@ class Bundle(unittest.TestCase):
             exe.write_bytes(b"MZ")
             self.assertFalse(bundle.strip_debug(exe))
             self.assertEqual(exe.read_bytes(), b"MZ")
+
+    def test_the_python_copy_keeps_what_the_tools_use(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home, out = Path(tmp) / "python", Path(tmp) / "out"
+            for rel in ("bin/python3.12", "bin/pip3", "bin/python3-config", "lib/libpython3.12.so.1.0",
+                        "lib/libtcl9.0.so", "lib/tcl9.0/init.tcl", "lib/python3.12/os.py",
+                        "lib/python3.12/lib-dynload/_ssl.so", "lib/python3.12/lib-dynload/_tkinter.so",
+                        "lib/python3.12/site-packages/pip/__init__.py", "lib/python3.12/test/a.py",
+                        "lib/python3.12/unittest/__init__.py"):
+                (home / rel).parent.mkdir(parents=True, exist_ok=True)
+                (home / rel).write_text(rel)
+            os.symlink("python3.12", home / "bin/python3")
+            os.symlink("python3.12", home / "bin/python")
+            bundle.copy_python(home, out)
+            kept = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
+            self.assertEqual(kept, ["bin/python3", "lib/python3.12/lib-dynload/_ssl.so",
+                                    "lib/python3.12/os.py", "lib/python3.12/unittest/__init__.py"])
+            # The program itself, not a link to a file the copy no longer has.
+            self.assertFalse((out / "bin/python3").is_symlink())
+            self.assertEqual((out / "bin/python3").read_text(), "bin/python3.12")
+
+    def test_a_windows_python_copy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home, out = Path(tmp) / "python", Path(tmp) / "out"
+            for rel in ("python.exe", "pythonw.exe", "python312.dll", "DLLs/_ssl.pyd", "DLLs/tcl86t.dll",
+                        "DLLs/_tkinter.pyd", "Lib/os.py", "Lib/site-packages/pip/__init__.py", "tcl/init.tcl",
+                        "libs/python312.lib", "include/Python.h", "Scripts/pip.exe"):
+                (home / rel).parent.mkdir(parents=True, exist_ok=True)
+                (home / rel).write_text(rel)
+            bundle.copy_python(home, out)
+            kept = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
+            self.assertEqual(kept, ["DLLs/_ssl.pyd", "Lib/os.py", "python.exe", "python312.dll"])
 
     def test_the_android_copy(self):
         # The games and the Python program are the APK's libraries: the copy carries a PYTHONHOME.
