@@ -5,6 +5,7 @@ Placing files: links, tree copies and atomic moves that tolerate brief Windows l
 
   from openrac_common import files
   files.link_or_copy(image, dest)                    # "linked" or "copied"
+  files.link_identical(paths)                        # bytes freed
   files.copy_tree(src, dest, lambda rel: rel.suffix == ".py")
   files.rename(staged, dest)
   files.replace(staged, dest)
@@ -15,6 +16,7 @@ tools/bundle_standalone.py's; those three use these now.
 port/tools/hostgen/prep.py has a copy_tree of the same name that rewrites C as it copies;
 it is a different function and stays where it is.
 """
+import hashlib
 import os
 import shutil
 import time
@@ -49,18 +51,26 @@ def replace(source: Path | str, dest: Path | str) -> None:
     _move(os.replace, source, dest)
 
 
-def link_or_copy(source: Path | str, dest: Path | str, *, keep_metadata: bool = True) -> str:
+def link_or_copy(source: Path | str, dest: Path | str, *, keep_metadata: bool = True,
+                 symlink: bool = False) -> str:
     """Hard-link SOURCE at DEST, or copy it when the link fails (another file system, or one
     without hard links); "linked" or "copied". DEST must not exist and its folder must.
 
     Hard links, not symbolic ones: a build container that mounts only part of the tree still sees
-    the file (tools/openrac.py's reason). KEEP_METADATA copies the times and mode too, as
-    tools/openrac.py does (shutil.copy2); False copies the bytes alone, as tools/extractor.py does
-    (shutil.copyfile)."""
+    the file (tools/openrac.py's reason). SYMLINK: when no hard link can be made, a symbolic link
+    to SOURCE's absolute path before a copy ("symlinked"); Android lets no app make hard links.
+    KEEP_METADATA copies the times and mode too, as tools/openrac.py does (shutil.copy2); False
+    copies the bytes alone, as tools/extractor.py does (shutil.copyfile)."""
     try:
         os.link(source, dest)
         return "linked"
     except OSError:
+        if symlink:
+            try:
+                os.symlink(os.path.abspath(source), dest)
+                return "symlinked"
+            except OSError:
+                pass
         if keep_metadata:
             shutil.copy2(source, dest)
         else:
@@ -79,3 +89,34 @@ def copy_tree(source: Path | str, dest: Path | str, keep: Callable[[Path], bool]
         if path.is_file() and "__pycache__" not in relative.parts and keep(relative):
             (dest / relative).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, dest / relative)
+
+
+def link_identical(paths: list[Path]) -> int:
+    """Each file of PATHS whose bytes another earlier in the list has becomes a link to that one:
+    a hard link, else a relative symbolic link (Android lets no app make hard links), else it stays
+    a copy. Each is replaced at once (os.replace), so a reader never sees it missing. The files
+    must not be written in place later: a write through one name changes them all. Returns the
+    bytes freed."""
+    first: dict[tuple[int, bytes], Path] = {}
+    freed = 0
+    for path in paths:
+        if path.is_symlink() or not path.is_file():
+            continue
+        size = path.stat().st_size
+        digest = hashlib.sha256(path.read_bytes()).digest()
+        kept = first.setdefault((size, digest), path)
+        if kept == path or os.path.samefile(kept, path):
+            continue
+        staged = path.with_name(f".{path.name}.link")
+        if os.path.lexists(staged):
+            os.remove(staged)
+        try:
+            os.link(kept, staged)
+        except OSError:
+            try:
+                os.symlink(os.path.relpath(kept, path.parent), staged)
+            except OSError:
+                continue
+        replace(staged, path)
+        freed += size
+    return freed

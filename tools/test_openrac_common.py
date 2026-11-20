@@ -493,6 +493,44 @@ class FilesTests(TempDir):
         self.assertEqual((self.dir / "kept.bin").stat().st_mtime, 1_000_000_000)
         self.assertNotEqual((self.dir / "plain.bin").stat().st_mtime, 1_000_000_000)
 
+    def test_symlinks_when_asked_and_no_hard_link_can_be_made(self):
+        with mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            dest = self.dir / "image.iso"
+            self.assertEqual(files.link_or_copy(self.source, dest, symlink=True), "symlinked")
+        self.assertTrue(dest.is_symlink())
+        self.assertTrue(os.path.isabs(os.readlink(dest)))
+        self.assertEqual(dest.read_bytes(), b"contents")
+
+    def test_link_identical_links_alike_files_and_keeps_the_rest(self):
+        a = self.write("a/mobys/m.glb", b"model")
+        b = self.write("b/mobys/m.glb", b"model")
+        c = self.write("c/mobys/m.glb", b"other")
+        self.assertEqual(files.link_identical([a, b, c]), 5)
+        self.assertEqual(b.stat().st_ino, a.stat().st_ino)
+        self.assertNotEqual(c.stat().st_ino, a.stat().st_ino)
+        self.assertEqual([p.name for p in self.dir.rglob(".*.link")], [])
+        self.assertEqual(files.link_identical([a, b, c]), 0, "already linked")
+
+    def test_link_identical_makes_relative_symlinks_without_hard_links(self):
+        a = self.write("a/textures/t.png", b"texture")
+        b = self.write("b/textures/t.png", b"texture")
+        with mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            self.assertEqual(files.link_identical([a, b]), 7)
+        self.assertTrue(b.is_symlink())
+        self.assertEqual(os.readlink(b), os.path.join("..", "..", "a", "textures", "t.png"))
+        # The folder moves as a whole (a publish's rename): the link still finds its file.
+        os.rename(self.dir / "b", self.dir / "moved")
+        self.assertEqual((self.dir / "moved/textures/t.png").read_bytes(), b"texture")
+        self.assertEqual(files.link_identical([a, self.dir / "moved/textures/t.png"]), 0)
+
+    def test_link_identical_keeps_a_copy_when_no_link_can_be_made(self):
+        a = self.write("a.bin", b"same")
+        b = self.write("b.bin", b"same")
+        with mock.patch("os.link", side_effect=OSError("no")), mock.patch("os.symlink", side_effect=OSError("no")):
+            self.assertEqual(files.link_identical([a, b]), 0)
+        self.assertEqual(b.read_bytes(), b"same")
+        self.assertFalse(b.is_symlink())
+
     def test_copy_tree_keeps_what_keep_accepts(self):
         for name in ("a.py", "test_a.py", "sub/b.py", "sub/c.tsv", "sub/__pycache__/b.pyc", "deep/er/d.py"):
             self.write(f"src/{name}", name)
