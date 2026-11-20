@@ -525,7 +525,11 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_RENDER_OPT_OFF` | `NAME,...` or `all` | Switches the listed render optimisations of the registry off (`all`: every one), so their reference paths draw; an unknown name is warned of and ignored. Read once, at the first question the draw code asks. The names, what each lowers and how its frames are compared are in [RENDER_PERF.md](RENDER_PERF.md). | `port/renderer/settings/render_opt.cpp` |
 | `OPENRAC_PVS_OFF` | any (set) | Profiling reference: no baked camera visibility (rooms the game hides then show); the F3 overlay has the switch too. See [Baked camera PVS](#baked-camera-pvs). | `port/scene/level_renderer.cpp` |
 | `OPENRAC_RAC3_CHAINS` | N | Up Your Arsenal: the VIF codes of the first N display lists sent to VIF1, and the front end's state words, on stderr. | `port/game/rac3-pal/host/chain_census.c` |
+<<<<<<< HEAD
 | `OPENRAC_RAC3_NEXT` | `FRAME:LEVEL` | Up Your Arsenal, a development probe until its menus can be read: at the boot program's FRAME-th display list, writes what a menu's choice does (the front end's exit word and the level to go to), so the game loads that level's program itself, or frontbin for a LEVEL below zero. | `port/game/rac3-pal/host/program.c` |
+=======
+| `OPENRAC_RAC3_MENU_LOG` | path | Up Your Arsenal: one line a frame of the front end's state words (mode, boot state, boot screen, the pad's held and pressed buttons) and every string the font printed, with its place; read by the scripted menu walk (`port/game/rac3-pal/menus.py`). | `port/game/rac3-pal/host/menu_log.c` |
+>>>>>>> origin/feat/rac3-menus
 | `OPENRAC_DEPTH_REUSE_OFF` | any (set) | Profiling reference: the GTAO prepass's depth is discarded before the world's colour pass instead of being reused. | `port/renderer/renderer.cpp` |
 | `OPENRAC_RENDER_THREAD` | `0` disables | Vulkan world-recording worker with one owned snapshot in flight, enabled by default. Set to `0` for synchronous rendering. UI and presentation stay on the window thread; OpenGL stays synchronous. | `port/game/common/frontend/interpolation.cpp` |
 | `OPENRAC_ADPF_OFF` | any (set) | Android: turns off the performance hint (ADPF) so a diagnostics recording can be compared with and without it. | `port/platform/performance_hint.cpp` |

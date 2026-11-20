@@ -184,3 +184,36 @@ code	func_003877A0	0x003877A0	UpdateViewContext	the view projection set-up (fron
 data	D_00225900	0x00225900	view_context	the view block UpdateViewContext fills: +0xB0 the horizontal half-angle tangent, +0xB4 the vertical one, +0xA8/+0xAC the screen's scales from +0x210-+0x21C
 data	D_001439FD	0x001439FD	option_widescreen	the Options page's 16:9 byte (+0xAD of the options at 0x00143950); kept 0 by the port (host/view.c)
 data	D_001D5B98	0x001D5B98	split_screen	1 in split screen (with view_context +0x268 set, UpdateViewContext narrows the vertical view as for 16:9)
+code	func_003AF7C0	0x003AF7C0	MessageBoxDraw	(x, y, w, h, message, button texts ..., flag byte at 88(sp)): forwards all twelve arguments, four of them on the stack, to func_003AC590 with the GUI memory base (*0x001D5C78 + 0x1FCA8); the memory card dialogs' box. The NTSC-U draft forwarded only seven, so the dialogs lost their Yes button and their wrap width (translated from assembly)
+code	func_003AC590	0x003AC590	MessageBoxDrawImpl	a message box: sprintf's its buttons into one line (\x11 Yes, spaces, \x12 No), then the message through FontPrintWrapped (func_0038FDF8) and the buttons line
+code	func_003E73D0	0x003E73D0	PageCallEnter	calls a menu page's callback at +4 with the page still in a0 (and +8 func_003E73F8, +12 func_003E7420 update, +16 func_003E7448, +20 func_003E7470 draw); the callbacks take the page as their argument
+code	func_003E62E0	0x003E62E0	PageStackUpdate	the front end's sixteen page slots (current, pending): switches pages and runs each page's update (func_003E7420)
+code	func_003B8040	0x003B8040	LoadGamePageUpdate	the memory card pages' update: a switch on D_001D8A40 (0 check, 1, 2-3 func_003B87E8, 6 the dialog's answer), then back to the main menu page (func_00381BD0)
+code	func_003B9AB8	0x003B9AB8	DialogOpen	(kind, yes text, no text, message, flag): a yes/no dialog's state at 0x001D8BB8-0x001D8BD0 when none is open (0x001D8BBC == 1); func_003B9B68 reads its answer from the pad (+0x1C4) against the masks at 0x001D8BD4/0x001D8BD8 (func_003B9A90: 64 Cross, 16 Triangle by default)
+data	D_001D99A0	0x001D99A0	text_table	the front end's text: a pointer (0x00873000 at the menu) to 16-byte entries (string, id, -1, 0xFFFF); 0x8DF "\x12 No", 0x8E2 "\x10 Yes", 0x8E3 "\x11 Yes", 0x8DD/0x8DE Continue
+data	D_001CD0C0	0x001CD0C0	pads	the button bits the menus read at a pad record's +0x1A0 (held) and +0x1A4 (pressed): 0x1 L2, 0x2 R2, 0x4 L1, 0x8 R1, 0x10 Triangle, 0x20 Circle, 0x40 Cross, 0x80 Square (seen with OPENRAC_RAC3_MENU_LOG)
+code	func_00381250	0x00381250	frontend_main	the Sly 2 demo: L1, L2, R1 and R2 held on the main menu (0x003816B0) set boot screen 9, which prints "Congratulations! You have accessed the Sly 2 demo." (text 0x1700) for 151 frames, then calls launch_sly2_demo (func_003824A8)
+code	func_0013C578	0x0013C578	snd_QueueCommandToRing	(command, size, data, callback, argument): appends to the batch at D_001D4DC0[D_001D4DE0] (u16 command, u16 size, data), the callback and argument to D_001D4DD0, then commits (func_0013C8D0); command 0x68 carries a pointer and length to copy (host: the shared ring, lib/snd_ring.c)
+code	func_0013C8D0	0x0013C8D0	snd_CommitRingEntry	counts the entry in the batch, then snd_Pump
+code	func_0013C908	0x0013C908	snd_FlushCommandRing	sends the current batch with RPC 0x4D and switches to the other batch (0xFFC bytes free)
+code	func_0013BAB8	0x0013BAB8	snd_BankLoadAsync	(sector, offset, callback, argument): RPC 3 on the loader client 0x001D49C0; snd_Pump calls the callback with the handle (host: loaded at once from the disc)
+code	func_0013BC30	0x0013BC30	snd_BankLoadFromEE_CB	(bank in EE memory, callback, argument): RPC 0x57
+code	func_0013BD58	0x0013BD58	snd_BankLoadFromIOP	RPC 0x59: a bank in the IOP's memory, its handle
+code	func_0013CA30	0x0013CA30	snd_InitVAGStreamingEx	synchronous command 0x2A (streams, buffer size, ...), its answer kept at D_001D4DAC: nonzero sends snd_StreamSafeCd* through the sound server
+code	func_0013CB20	0x0013CB20	snd_PlayVAGStreamTwoParts_CB	command 0x2C: (right, left, 0, 0, volume, pan, group, queue on, 0, flags, callback, argument); words right, left, volume << 16, pan << 16, group, queue on, 0, flags
+code	func_0013C0B8	0x0013C0B8	snd_PlaySoundVolPanPMPB_CB	command 0x11: bank, sound, volume, pan, pitch mod, pitch bend; the callback gets the handle
+code	func_0013C2C0	0x0013C2C0	snd_SetSoundParams_CB	command 0x21: handle, mask, volume, pan, pitch mod, pitch bend; func_0013C2A0 without a callback
+code	func_003A1558	0x003A1558	sound_streams_init	snd_InitVAGStreamingEx(7, 0xA000, 0, 1)
+code	func_003A1580	0x003A1580	sound_bank_loaded	a bank load's callback: stores the handle at its argument
+code	func_003A1598	0x003A1598	sound_load_common_bank	snd_BankLoadAsync of the disc table's bank (D_00160C40 +0x79A4 base, +0x79B8), its handle at 0x001A30B0+0x90
+code	func_003A1638	0x003A1638	sound_load_bank	snd_BankLoadAsync of bank idx of the disc table (+0x79E8), its handle at 0x001A30B0+0x98+4*idx
+code	func_003A1C38	0x003A1C38	music_play	plays music track a0 (two mono files, the disc table +0x7A04 base) paused (flags 1) as stream channel 0 of 0x001CCFD0
+code	func_003A1F40	0x003A1F40	stream_play_mono	plays one mono file of the disc table as stream channel 2 (flags 0x20)
+code	func_003A53F8	0x003A53F8	sound_slot_start	takes one of the 52 sound slots (0x80 bytes each from 0x001A30C0) for a sound definition; the sound tick (func_003A4688) sends the play
+code	func_003A5748	0x003A5748	sound_play_global	plays sound a of the global sound table (D_001D9D2C, count D_001D5B9C) through func_003A53F8 (a sound slot the sound tick func_003A4688 plays)
+data	D_00160C40	0x00160C40	disc_table	the disc's table of contents read at boot: +0x79A4 the sound banks' base sector, +0x7A04 the streams' base sector, sector tables after them
+code	func_003A1D30	0x003A1D30	music_play_track	(track, flags, volume): music channel 0 of 0x001CCFD0 plays the track's two files (the level table at D_00160C40+0x7A04, which LoadLevelToc func_0013D310 fills; empty in the boot front end, so the boot menu has no music to play)
+code	func_003A8D38	0x003A8D38	movie_prepare	before a movie: stops the sounds and streams (func_003A2028), keeps the music track playing (0x001CD018) at D_001DA044 and the movie's arguments at D_001DA030
+code	func_003A8E10	0x003A8E10	movie_resume	after a movie: plays the kept music track again (func_003A1D30(D_001DA044, 1, 0x400)); -1 after the intro, which follows no music
+code	func_003A2028	0x003A2028	sound_streams_stop	stops every stream (snd_StopAllStreams, command 0x34) and the stream channels
+code	func_003A2120	0x003A2120	stream_channel_update	one of the four stream channels of 0x001CCFD0 (+0x44, +0x6C, +0x94, +0xBC): pause, continue, stop and the buffered question

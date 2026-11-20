@@ -156,6 +156,7 @@ enum class Var : std::uint16_t {
     PvsOff,
     Rac3Chains,
     Rac3Next,
+    Rac3MenuLog,
     Reach,
     Record,
     RenderGraphDump,
