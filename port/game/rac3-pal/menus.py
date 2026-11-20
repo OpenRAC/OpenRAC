@@ -91,8 +91,11 @@ NEXT_ELF = ("feat/rac3-programs: multiplayer is another executable (LoadExecPS2 
 
 # The main menu's rows top to bottom: LOAD GAME, NEW GAME, MULTIPLAYER, MULTIPLAYER TUTORIAL,
 # OPTIONS. Each route starts from the boot screens.
-def routes() -> list[Route]:
+def routes(version: str = "pal") -> list[Route]:
     main = Step("main menu", None, 1, expect=["NEW GAME", "OPTIONS"], changes=False)
+    # NTSC-U's Options page has a PROGRESSIVE SCAN row after the 16:9 one (VIDEO here): one row
+    # more to SUBTITLES, SOUND and LANGUAGE.
+    scan = [Step("to PROGRESSIVE SCAN", "down", 30)] if version == "ntsc" else []
     back_to_main = ["LOAD GAME", "NEW GAME", "OPTIONS"]
 
     def row(n: int) -> list[Step]:
@@ -153,7 +156,7 @@ def routes() -> list[Route]:
         Route("options", [main, *row(4), Step("open OPTIONS", "cross", 120, expect=["VIDEO", "LANGUAGE", "STEREO"]),
                           Step("open the Video page", "cross", 40, expect=["DISPLAY MODE", "PICTURE"]),
                           Step("back to the game's rows", "triangle", 40, expect=["VIDEO", "SUBTITLES"]),
-                          Step("to SUBTITLES", "down", 30), Step("subtitles on", "cross", 40, expect=["ON"]),
+                          *scan, Step("to SUBTITLES", "down", 30), Step("subtitles on", "cross", 40, expect=["ON"]),
                           Step("subtitles off", "cross", 40),
                           Step("to SOUND", "down", 30), Step("sound mono", "cross", 40, expect=["MONO"]),
                           Step("sound stereo", "cross", 40, expect=["STEREO"]),
@@ -164,9 +167,10 @@ def routes() -> list[Route]:
         # Each Options row's picture (the preview beside the list), the VIDEO row's (the 16:9
         # row's own) and the Video page's, which keeps it.
         Route("options-pictures", [main, *row(4), Step("open OPTIONS on VIDEO", "cross", 120, expect=["VIDEO"]),
+                                   *[Step("PROGRESSIVE SCAN's picture", "down", 90)] * bool(scan),
                                    Step("SUBTITLES' picture", "down", 90), Step("SOUND's picture", "down", 90),
                                    Step("LANGUAGE's picture", "down", 90),
-                                   *[Step(f"up {i}", "up", 40) for i in range(1, 3)],
+                                   *[Step(f"up {i}", "up", 40) for i in range(1, 3 + len(scan))],
                                    Step("VIDEO's picture", "up", 90),
                                    Step("open the Video page", "cross", 90, expect=["DISPLAY MODE"]),
                                    Step("down the Video page", "down", 60, expect=["DISPLAY MODE"]),
@@ -181,7 +185,7 @@ def routes() -> list[Route]:
                                 Step("back to the main menu", "triangle", 90, expect=back_to_main)]),
         # LANGUAGE cycles English, French, German, Spanish, Italian and back to English.
         Route("language", [main, *row(4), Step("open OPTIONS", "cross", 120, expect=["LANGUAGE"]),
-                           *[Step(f"down {i}", "down", 30) for i in range(1, 4)],
+                           *[Step(f"down {i}", "down", 30) for i in range(1, 4 + len(scan))],
                            Step("French", "cross", 60, expect=["LANGUE", "FRAN"]),
                            Step("German", "cross", 60, expect=["SPRACHE", "DEUTSCH"]),
                            Step("Spanish", "cross", 60, expect=["IDIOMA"]),
@@ -392,7 +396,7 @@ def main() -> int:
     ap.add_argument("--timeout", type=float, default=300)
     ap.add_argument("--list", action="store_true", help="the routes and their steps")
     a = ap.parse_args()
-    todo = [for_version(r, a.version) for r in routes() if not a.only or r.name in a.only.split(",")]
+    todo = [for_version(r, a.version) for r in routes(a.version) if not a.only or r.name in a.only.split(",")]
     if a.list:
         for r in todo:
             print(r.name + ": " + ", ".join(s.name for s in r.steps))

@@ -56,5 +56,20 @@
    "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_0049FBC8 (NTSC-U func_L01_0049C368) +0x1DC, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
   }
  },
+ "own_functions": [
+  "func_00393290__frontbin",
+  "func_00395FE0__frontbin",
+  "func_0039DB38__frontbin",
+  "func_003A0170__frontbin",
+  "func_003AF160__frontbin",
+  "func_003B0C70__frontbin",
+  "func_003B0D18__frontbin",
+  "func_00131900",
+  "func_0039B098",
+  "func_003A5850",
+  "func_003B4920",
+  "func_003B6430",
+  "func_003B64D8"
+ ],
  "unwrapped": {}
 }

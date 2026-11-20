@@ -121,6 +121,33 @@ class Names:
         new = table[base]
         return new + (f"__{suffix}" if suffix else ""), self.status.get((which, base))
 
+    def own_functions(self, source: Path) -> list[str]:
+        """NTSC-U's inventory functions of the executable and frontbin that are no PAL function's
+        twin and hold none (config/us/inventory.tsv against map.tsv and the hand pairs)."""
+        path = source / "config/us/inventory.tsv"
+        if not path.is_file():
+            return []
+        named = {"boot_elf": set(), "frontbin": set()}
+        for program, table in (("boot_elf", self.boot), ("frontbin", self.front)):
+            for new in table.values():
+                m = NAME.fullmatch(new)
+                if m and "PAL" not in new:
+                    named[program].add(int(m.group(3), 16))
+        for pal, new in self.pairs.items():
+            m = NAME.fullmatch(new)
+            if m:
+                named["frontbin" if pal.endswith("__frontbin") else "boot_elf"].add(int(m.group(3), 16))
+        out = []
+        for line in path.read_text().splitlines():
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 5 or cols[0] not in named or cols[4] != "function":
+                continue
+            start, size = int(cols[2], 16), int(cols[3])
+            if any(start <= a < start + size for a in named[cols[0]]):
+                continue
+            out.append(f"func_{start:08X}" + ("__frontbin" if cols[0] == "frontbin" else ""))
+        return out
+
     def text(self, text: str) -> str:
         return NAME.sub(lambda m: self.function(m.group(0))[0], text)
 
@@ -173,6 +200,13 @@ def main(argv: list[str] | None = None) -> int:
                     "config/us/map.tsv and release/release.json; do not edit by hand (release_carry.json "
                     "says what rests on less than the same code)."}
     out.update(merge(carried, hand.get("hostgen", {})))
+    # NTSC-U's own functions of the executable and frontbin, which no PAL function is the twin of
+    # (the Options page's PROGRESSIVE SCAN and LANGUAGE actions, 0x003B6430 and 0x003B64D8, which
+    # its items table points at): roots, translated from the disc's instructions. An inventory row
+    # holding a paired function after a remnant (0x003F0140 and its 0x003F0168) is that function's.
+    own = names.own_functions(source)
+    report["own_functions"] = own
+    out["roots"] = list(dict.fromkeys([*out.get("roots", []), *own]))
     (RELEASE / "hostgen.json").write_text(json.dumps(out, indent=2) + "\n")
 
     # libraries.tsv: the rows renamed.
