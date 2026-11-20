@@ -41,6 +41,7 @@
 #include "frontend.h"
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/geometry.h"
+#include "game/common/frontend/input_latency.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "game/common/frontend/state.h"
@@ -547,6 +548,7 @@ void present_frame(FramePresentation& output) {
     draw_overlay(output);
     const stats::Scope swap_scope("swap");
     swapped(started);
+    input_latency::shown(output.tick);  // [debug tools] OPENRAC_INPUT_LATENCY
     // A mod's views were submitted with the frame: the mod may hand them on (nothing without one).
     finish_views();
     report_frame_cost(output);

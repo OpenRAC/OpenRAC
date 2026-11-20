@@ -52,6 +52,7 @@
 #include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/hero_shadows.h"
+#include "game/common/frontend/input_latency.h"
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/scenery_capture.h"
 #include "game/common/frontend/state.h"
@@ -738,6 +739,7 @@ bool read_window_events() {
     // A controls file changed beside the game (the launcher) is applied within a second.
     g->controls.poll(static_cast<double>(SDL_GetTicks()) / 1000.0);
     g->input.update();
+    input_latency::sampled(g->input.pad(0).buttons);  // [debug tools] OPENRAC_INPUT_LATENCY
     // The controllers connected are remembered beside the controls, for the launcher.
     if (g->input.take_devices_changed()) {
         g->controls.remember(g->input.devices());
