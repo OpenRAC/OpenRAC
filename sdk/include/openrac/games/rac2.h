@@ -229,6 +229,15 @@ typedef uint32_t (*openrac_rac2_Bolt_SpawnPickup)(
 #define OPENRAC_RAC2_SIG_Bolt_Collect "u32(u32)"
 typedef uint32_t (*openrac_rac2_Bolt_Collect)(uint32_t moby);
 
+/* Arena_Prize (func_L02_003FCDF8, rac2.arena.prize): The bolts arena challenge `challenge` pays
+ * (moby_compute_scaled_entry_value; one function in Maktar's and Joba's code): its record's prize
+ * (+0xC), times 0.3 for each earlier win, kept between 500 and the prize, ten times that in
+ * challenge mode. The arena's menu prints it and a win adds it to the bolts, so a replacement that
+ * returns more pays and shows more. */
+#define OPENRAC_RAC2_HOOK_Arena_Prize "Arena_Prize"
+#define OPENRAC_RAC2_SIG_Arena_Prize "i32(i32)"
+typedef int32_t (*openrac_rac2_Arena_Prize)(int32_t challenge);
+
 
 /* The givers' updates of NTSC-U v1.01 (rac2.moby.<name>.update), each void(u32 moby): their
  * replacements see the moby; the other discs have none of them yet. */

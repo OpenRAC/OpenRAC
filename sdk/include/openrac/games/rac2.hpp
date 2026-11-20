@@ -291,7 +291,18 @@ struct Bolt_Collect {
     using fn = void (*)(uint32_t);
 };
 
+// The bolts an arena challenge pays (moby_compute_scaled_entry_value, Maktar's and Joba's arena: one function in both levels): the challenge record's prize (+0xC of its entry in the level's challenge table), times 0.3 for each time it was won before, kept between 500 and the prize, ten times that in challenge mode. The arena's menu prints it and the win adds it to the bolts (and keeps it for the results screen), so a replacement changes a prize everywhere it shows.
+struct Arena_Prize {
+    static constexpr const char* id = "rac2.arena.prize";
+    static constexpr const char* name = "Arena_Prize";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
 namespace hooks {
+    namespace arena {
+        using prize = rac2::Arena_Prize;
+    }  // namespace arena
     namespace bolt {
         using collect = rac2::Bolt_Collect;
         using spawn_pickup = rac2::Bolt_SpawnPickup;
