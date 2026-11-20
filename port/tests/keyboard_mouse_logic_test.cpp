@@ -737,6 +737,53 @@ void prompt_spots() {
     CHECK(kbm::button_of_cell(7) == kbm::kR2 && kbm::button_of_cell(8) == 0);
 }
 
+// Going Commando's menu texts: the list item under the pointer and the d-pad's step to it.
+void text_nav() {
+    const auto text = [](std::uint32_t element, std::uint32_t colour, float x, float y, float w) {
+        kbm::MenuText m;
+        m.element = element;
+        m.colour = colour;
+        m.x0 = x;
+        m.y0 = y;
+        m.x1 = x + w;
+        m.y1 = y + 16.0f;
+        return m;
+    };
+    // A column of four, the second selected; then a plain print with Triangle's icon.
+    kbm::MenuText t[5] = {
+        text(1, 0x80f0f0f0, 200, 100, 80),
+        text(2, 0x70fffeed, 205, 130, 70),
+        text(3, 0x80f0f0f0, 210, 160, 60),
+        text(4, 0x80f0f0f0, 200, 190, 80),
+        text(0, 0x80808080, 393, 293, 40),
+    };
+    t[4].cell = 2;
+
+    kbm::TextNav nav = kbm::text_nav(t, 5, 240.0f, 195.0f);
+    CHECK(nav.hit == 3 && nav.selected == 1 && nav.step == kbm::kDown);
+    nav = kbm::text_nav(t, 5, 240.0f, 105.0f);
+    CHECK(nav.hit == 0 && nav.selected == 1 && nav.step == kbm::kUp);
+    nav = kbm::text_nav(t, 5, 240.0f, 135.0f);
+    CHECK(nav.hit == 1 && nav.step == 0);
+    // The print: no list, its icon presses Triangle.
+    nav = kbm::text_nav(t, 5, 400.0f, 300.0f);
+    CHECK(
+        nav.hit == 4 && nav.selected < 0 && kbm::button_of_cell(t[nav.hit].cell) == kbm::kTriangle
+    );
+    CHECK(kbm::text_nav(t, 5, 20.0f, 20.0f).hit < 0);
+    // Two selected colours: no way to tell.
+    t[3].colour = 0x70ffffff;
+    CHECK(kbm::text_nav(t, 5, 240.0f, 195.0f).selected < 0);
+    // A row of three side by side, the right one selected.
+    const kbm::MenuText r[3] = {
+        text(1, 0x80f0f0f0, 100, 50, 50),
+        text(2, 0x80f0f0f0, 200, 50, 50),
+        text(3, 0x70fffeed, 300, 50, 50),
+    };
+    nav = kbm::text_nav(r, 3, 120.0f, 55.0f);
+    CHECK(nav.hit == 0 && nav.selected == 2 && nav.step == kbm::kLeft);
+}
+
 // The vendor's monitors under the pointer (window places of a 640x480 run).
 void vendor() {
     const auto at = [](float wx, float wy, int count, int cursor, int scroll = 0) {
@@ -993,6 +1040,7 @@ int main(int argc, char** argv) {
     vendor();
     prompt_spots();
     map_drag();
+    text_nav();
     prompts();
     edges();
 

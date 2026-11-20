@@ -381,9 +381,6 @@
       "name": "Mouse in menus",
       "section": "Interface",
       "type": "bool",
-      "games": [
-        "rac1"
-      ],
       "default": true,
       "description": "In menus the cursor points at the game's items, a click confirms, right click goes back and the wheel scrolls."
     },

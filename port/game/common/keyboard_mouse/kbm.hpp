@@ -1289,6 +1289,120 @@ inline std::uint16_t grid_step(int from, int to, int rows, int cols) {
     return to % cols < from % cols ? kLeft : kRight;
 }
 
+// ---- Menus by their texts (Going Commando) ----
+//
+// A menu whose items are texts the game drew this frame: the text under the pointer, the list it is
+// in (texts of its height one above the other, centred alike, or side by side on its line) and the
+// list's selected item, drawn in a colour of its own while the rest share one.
+
+inline constexpr int kTextListMax = 64;
+
+struct MenuText {
+    std::uint32_t element = 0;  // the game's text element, 0 for a plain print (in no list)
+    std::uint32_t colour = 0;   // ABGR, alpha 0x80 full
+    float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f;
+    int cell = -1;  // its first button icon's cell (key_prompts.h), -1 none
+
+    bool shown() const { return (colour >> 24) != 0 && x1 > x0 && y1 > y0; }
+
+    float cx() const { return (x0 + x1) * 0.5f; }
+
+    float cy() const { return (y0 + y1) * 0.5f; }
+};
+
+struct TextNav {
+    int hit = -1;            // the text under the pointer
+    int selected = -1;       // its list's selected text, -1 unknown
+    std::uint16_t step = 0;  // the d-pad's step from the selected text toward the hit one, 0 there
+};
+
+// The pointer's margin round a text (assumed: the rows' boxes are taller than their letters).
+inline constexpr float kTextMarginX = 6.0f;
+inline constexpr float kTextMarginY = 5.0f;
+
+inline TextNav text_nav(const MenuText* t, int n, float px, float py) {
+    TextNav nav;
+
+    // The first shown text the pointer is on.
+    for (int i = 0; i < n && nav.hit < 0; ++i) {
+        if (t[i].shown() && px >= t[i].x0 - kTextMarginX && px <= t[i].x1 + kTextMarginX
+            && py >= t[i].y0 - kTextMarginY && py <= t[i].y1 + kTextMarginY) {
+            nav.hit = i;
+        }
+    }
+
+    // On no text: nothing to point at.
+    if (nav.hit < 0) {
+        return nav;
+    }
+
+    const MenuText& h = t[nav.hit];
+    const float height = h.y1 - h.y0;
+    int column[kTextListMax];
+    int row[kTextListMax];
+    int in_column = 0;
+    int in_row = 0;
+
+    // The texts of its height in its column (centred alike) and on its line.
+    for (int i = 0; i < n; ++i) {
+        // Only the game's shown text elements of the same height.
+        if (!t[i].shown() || t[i].element == 0 || std::abs((t[i].y1 - t[i].y0) - height) > 1.0f) {
+            continue;
+        }
+
+        if (std::abs(t[i].cx() - h.cx()) <= 4.0f && in_column < kTextListMax) {
+            column[in_column++] = i;
+        }
+
+        if (std::abs(t[i].y0 - h.y0) <= 3.0f && in_row < kTextListMax) {
+            row[in_row++] = i;
+        }
+    }
+
+    const bool vertical = in_column >= in_row;
+    const int* list = vertical ? column : row;
+    const int count = vertical ? in_column : in_row;
+
+    // Fewer than three: no colour of its own to tell the selected one by.
+    if (count < 3) {
+        return nav;
+    }
+
+    // The selected one: the only one whose colour differs from all the others, which share theirs.
+    for (int a = 0; a < count; ++a) {
+        int same = 0;
+
+        for (int b = 0; b < count; ++b) {
+            same += t[list[b]].colour == t[list[a]].colour ? 1 : 0;
+        }
+
+        // Its colour is its own, and the rest share one.
+        if (same == 1) {
+            const std::uint32_t rest = t[list[a == 0 ? 1 : 0]].colour;
+            bool shared = true;
+
+            for (int b = 0; b < count; ++b) {
+                shared = shared && (b == a || t[list[b]].colour == rest);
+            }
+
+            // Two colours of their own: no way to tell.
+            if (!shared) {
+                return nav;
+            }
+
+            nav.selected = list[a];
+        }
+    }
+
+    // The selected one known and not the hit one: a step toward it.
+    if (nav.selected >= 0 && nav.selected != nav.hit) {
+        const MenuText& s = t[nav.selected];
+        nav.step = vertical ? (h.cy() < s.cy() ? kUp : kDown) : (h.cx() < s.cx() ? kLeft : kRight);
+    }
+
+    return nav;
+}
+
 // ---- rac1's map screen ----
 //
 // The mouse drags the map and the wheel zooms it, as the sticks do (update_map_zoom_and_pan): the

@@ -64,6 +64,10 @@ click anywhere else does nothing. A click on a button icon the game shows with
 its text (the map's "View Missions", "Exit") presses that button. On the map,
 drag with the left button to move it and turn the wheel to zoom.
 
+In Going Commando menus a click on a list item moves the selection to it and
+confirms, and the cursor over one moves the selection there. A click on a text
+with a button icon (Help's "Exit") presses that button.
+
 The strafe key presses L2 in Ratchet & Clank only while the lock-strafe mod is
 loaded, so the game behaves as on a pad (L2 is first-person view there).
 

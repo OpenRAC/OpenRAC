@@ -20,6 +20,7 @@
 #include "game/common/frontend/active_input.h"
 #include "game/common/key_labels.h"
 #include "game/common/key_prompts.h"
+#include "game/rac2/host/gui_texts.h"
 #include "openrac/game_host.h"
 #include "openrac/mod.hpp"
 #include "places.hpp"
@@ -60,6 +61,7 @@ kbm::LookTuning s_look_tuning;
 float s_ring_dead_zone = 30.0f;
 bool s_capture = true;
 bool s_prompts = true;
+bool s_menu_mouse = true;
 
 // What the keys and the mouse hold now.
 kbm::Virtual s_pad;
@@ -73,6 +75,18 @@ bool s_ring_open = false;
 std::uint32_t s_tick = kNoTick;
 int s_asked_capture = -1;
 openrac::key_prompts::Painter s_painter;
+
+// The menus' texts the game drew last (gui_texts.h), kept while no frame drew any for a few ticks;
+// a clicked text the selection is on its way to, and the ticks it may still take; whether the
+// button of a click the mouse took is still down.
+std::array<kbm::MenuText, OPENRAC_RAC2_GUI_TEXTS_MAX> s_texts{};
+int s_text_count = 0;
+int s_texts_age = 0;
+constexpr int kTextsKeptTicks = 3;
+std::uint32_t s_click_element = 0;
+int s_click_ticks = 0;
+constexpr int kClickTicks = 90;
+bool s_click_held = false;
 
 // A tick's input and where the game is.
 struct Tick {
@@ -126,6 +140,19 @@ bool wheel_notch(const Tick& t, Action a) {
     return false;
 }
 
+// Whether one of an action's mouse binds is down (`now`: went down this tick), with the cursor over
+// the game out of play: a click, not the same action from a key.
+bool mouse_bind(const Tick& t, Action a, bool now) {
+    for (int b : s_binds.of(a)) {
+        if (b != 0 && kbm::is_mouse(b) && bind_counts(t, a, b, false)
+            && (now ? openrac_bind_pressed(t.in, b)
+                    : openrac_bind_held(t.in, b) || openrac_bind_pressed(t.in, b))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 kbm::ActionSet actions_held(const Tick& t) {
     kbm::ActionSet held = 0;
     for (int a = 0; a < kbm::kActionCount; ++a) {
@@ -151,6 +178,97 @@ void menu_directions(const Tick& t, kbm::ActionSet held, kbm::Virtual& v) {
         }
     }
     v.held = static_cast<std::uint16_t>(v.held | s_pulses.step());
+}
+
+// Takes the menus' texts drawn since the last tick.
+void take_texts() {
+    std::array<openrac_rac2_gui_text, OPENRAC_RAC2_GUI_TEXTS_MAX> drawn{};
+    const int n = openrac_rac2_take_gui_texts(drawn.data());
+
+    // No frame drew any: the last ones stand a little longer.
+    if (n == 0 && ++s_texts_age <= kTextsKeptTicks) {
+        return;
+    }
+
+    s_texts_age = 0;
+    s_text_count = n;
+
+    // Each text as the menus' pointing reads it.
+    for (int i = 0; i < n; ++i) {
+        const openrac_rac2_gui_text& d = drawn[static_cast<std::size_t>(i)];
+        kbm::MenuText& m = s_texts[static_cast<std::size_t>(i)];
+        m = kbm::MenuText{d.element, d.colour, d.x0, d.y0, d.x1, d.y1, d.cell};
+    }
+}
+
+// The navigation to the text at (px, py) of the game's screen.
+kbm::TextNav nav_at(float px, float py) {
+    return kbm::text_nav(s_texts.data(), s_text_count, px, py);
+}
+
+// The mouse in a menu: the item under it (a text of a list) becomes the selected one, the d-pad
+// stepping to it; a click on an item not yet selected waits for the selection and then confirms.
+// Returns whether the mouse took the click (it is not the game's Cross now).
+bool menu_mouse(const Tick& t, bool click) {
+    // A clicked item the selection is on its way to: Cross once it is there, a step otherwise.
+    if (s_click_element != 0) {
+        int at = -1;
+
+        // Where the clicked item is drawn now.
+        for (int i = 0; i < s_text_count; ++i) {
+            at = s_texts[static_cast<std::size_t>(i)].element == s_click_element ? i : at;
+        }
+
+        const kbm::TextNav nav = at >= 0 ? nav_at(
+                                               s_texts[static_cast<std::size_t>(at)].cx(),
+                                               s_texts[static_cast<std::size_t>(at)].cy()
+                                           )
+                                         : kbm::TextNav{};
+
+        // Gone, no longer known, or too long: the click is dropped.
+        if (at < 0 || nav.selected < 0 || --s_click_ticks <= 0) {
+            s_click_element = 0;
+        } else if (s_pulses.idle()) {
+            s_pulses.push(nav.selected == nav.hit ? kbm::kCross : nav.step);
+            s_click_element = nav.selected == nav.hit ? 0 : s_click_element;
+        }
+    }
+
+    // The mouse has no say out of a menu, or when the player turned it off.
+    if (!t.pointer || !s_menu_mouse) {
+        return false;
+    }
+
+    const float px = t.in->pointer_x * kbm::kScreenWidth;
+    const float py = t.in->pointer_y * kbm::kScreenHeight;
+    const kbm::TextNav nav = nav_at(px, py);
+    const bool moved = t.in->mouse_dx != 0.0f || t.in->mouse_dy != 0.0f;
+
+    const std::uint16_t icon =
+        nav.hit >= 0 ? kbm::button_of_cell(s_texts[static_cast<std::size_t>(nav.hit)].cell) : 0;
+
+    // A click on a text with a button icon (not a list's item): that button.
+    if (click && icon != 0
+        && (s_texts[static_cast<std::size_t>(nav.hit)].element == 0 || nav.selected < 0)) {
+        s_pulses.push(icon);
+        return true;
+    }
+
+    // Over an item not selected: a click goes there and confirms; the mouse moved there steps.
+    if (nav.hit >= 0 && nav.selected >= 0 && nav.hit != nav.selected) {
+        if (click) {
+            s_click_element = s_texts[static_cast<std::size_t>(nav.hit)].element;
+            s_click_ticks = kClickTicks;
+            return true;
+        }
+
+        // The selection follows the mouse, a step at a time.
+        if (moved && s_pulses.idle() && s_click_element == 0) {
+            s_pulses.push(nav.step);
+        }
+    }
+
+    return false;
 }
 
 // The cursor captured in play, free everywhere else, asked of the port when that changes.
@@ -208,9 +326,28 @@ void step(const openrac_input* in, bool pad_look) {
     update_capture(play, in);
 
     const Context before = s_latch.last;
-    const kbm::ActionSet held = s_latch.filter(t.where, actions_held(t));
+    kbm::ActionSet held = s_latch.filter(t.where, actions_held(t));
     if (before != t.where) {
         s_pulses.clear();
+        s_click_element = 0;
+    }
+
+    take_texts();
+
+    // Out of play the mouse points at the menus' items; a click it takes is not the game's Cross
+    // while its button stays down.
+    if (!play) {
+        const bool click = t.pointer && mouse_bind(t, Action::MenuConfirm, true);
+        s_click_held = menu_mouse(t, click) || s_click_held;
+
+        // The click's button is still down: its confirm presses nothing.
+        if (s_click_held && mouse_bind(t, Action::MenuConfirm, false)) {
+            held &= ~kbm::bit(Action::MenuConfirm);
+        } else {
+            s_click_held = false;
+        }
+    } else {
+        s_click_element = 0;
     }
 
     kbm::Virtual v;
@@ -318,6 +455,7 @@ void read_settings(openrac::Mod& mod) {
     s_ring_dead_zone = static_cast<float>(mod.setting<double>("quick_select_dead_zone"));
     s_capture = mod.setting<bool>("capture_cursor");
     s_prompts = mod.setting<bool>("key_prompts");
+    s_menu_mouse = mod.setting<bool>("menu_mouse");
 }
 
 void load(openrac::Mod& mod) {
@@ -349,6 +487,9 @@ void load(openrac::Mod& mod) {
     s_tick = kNoTick;
     s_asked_capture = -1;
     s_painter.forget();
+    s_text_count = 0;
+    s_click_element = 0;
+    s_click_held = false;
 
     mod.take_input(OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE);
     mod.on_settings([] { read_settings(*s_mod); });
