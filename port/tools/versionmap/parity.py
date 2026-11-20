@@ -6,6 +6,7 @@
     parity.py rac1                 the check: errors, then exit 1 if any
     parity.py rac1 --table         also every function a table binds, version by version
     parity.py --program rac1-pal1  the same for that program's game (its build runs it)
+    parity.py rac3                 Up Your Arsenal's PAL and NTSC-U (rac3-decomp's config/us/map.tsv)
 
 Every row of a program's libraries.tsv (host, wrap, hook, game) is read as a place: the
 executable or a level, and an address. The decomp's catalogue of that version
@@ -60,10 +61,19 @@ GAMES = {
     "rac2": {"source": "games/rac2/decomp",
              "catalogue": ["config/{v}boot/functions.tsv", "config/{v}levels/functions.tsv"],
              "programs": {"rac2-ntsc": "", "rac2-ntsc2": "us2/", "rac2-pal": "pal/"}},
+    # rac3-decomp's C is PAL's; NTSC-U's places of PAL's names are its config/us/map.tsv (read by
+    # rac3_catalogue). frontbin, a program of its own over the executable's addresses, is its own
+    # place ("frontbin": hostgen's func_..._frontbin names).
+    "rac3": {"source": "games/rac3/decomp",
+             "catalogue": ["config/inventory.tsv"],
+             "reader": "rac3",
+             "programs": {"rac3-pal": "pal", "rac3-ntsc": "us"}},
 }
 
 
 def catalogue(spec: dict, source: Path, version: str) -> "Catalogue":
+    if spec.get("reader") == "rac3":
+        return rac3_catalogue(source, version)
     files = spec.get("catalogue", ["config/versions/{v}/functions.tsv"])
     return Catalogue([source / f.format(v=version) for f in files])
 
@@ -113,6 +123,72 @@ class Catalogue:
         return None
 
 
+def rac3_catalogue(source: Path, version: str) -> "Catalogue":
+    """Up Your Arsenal's functions on one disc by PAL's names: PAL's own (config/inventory.tsv, the
+    level catalogue), or NTSC-U's places of them (config/us/map.tsv, NTSC-U's level catalogue for
+    every place of a level row, and rac3-ntsc's release.json pairs map.tsv does not make yet)."""
+    cat = Catalogue([])
+
+    def put(name: str, place: str, address: int, size: int) -> None:
+        cat.at.setdefault((place, address), name)
+        cat.spans[place].append((address, size, name))
+        cat.places[name].add(place)
+
+    def level_rows(path: Path) -> dict[str, tuple[str, int, list[tuple[str, int]]]]:
+        out = {}
+        for line in path.read_text().splitlines() if path.is_file() else []:
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 7:
+                continue
+            places = [(item[:2], int(item[3:], 16)) for item in cols[6].split(",") if ":" in item]
+            out[cols[0]] = (cols[1], int(cols[2]) if cols[2].isdigit() else 0, places)
+        return out
+
+    def own(program: str, name: str) -> str:
+        return f"{name}__frontbin" if program == "frontbin" else name
+
+    if version == "pal":
+        for line in (source / "config/inventory.tsv").read_text().splitlines():
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 4 or cols[0] not in ("boot_elf", "frontbin"):
+                continue
+            place = "frontbin" if cols[0] == "frontbin" else "boot"
+            put(own(cols[0], f"func_{int(cols[2], 16):08X}"), place, int(cols[2], 16), int(cols[3]))
+        for name, (_kind, size, places) in level_rows(source / "config/levels/functions.tsv").items():
+            for place, address in places:
+                put(name, place, address, size)
+        return cat
+    us_levels = level_rows(source / "config/us/levels/functions.tsv")
+    front_twin: dict[str, str] = {}
+    hand = ROOT / "port/game/rac3-ntsc/release/release.json"
+    pairs = {k: v["is"] for k, v in json.loads(hand.read_text()).get("pairs", {}).items()
+             if isinstance(v, dict)} if hand.is_file() else {}
+    for line in (source / "config/us/map.tsv").read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 7:
+            continue
+        pal, program, us, place, size = cols[0], cols[1], cols[2], cols[3], cols[4]
+        if program in ("boot_elf", "frontbin"):
+            us = pairs.get(own(program, pal), us).removesuffix("__frontbin")
+            if us == "-":
+                continue
+            put(own(program, pal), "frontbin" if program == "frontbin" else "boot", int(us[-8:], 16),
+                int(size) if size.isdigit() else 0)
+            if program == "frontbin":
+                front_twin[us] = pal
+        elif program == "levels" and us in us_levels:
+            _kind, us_size, places = us_levels[us]
+            for level, address in places:
+                put(pal, level, address, us_size)
+    # The levels' copies of frontbin's functions: NTSC-U's rows are named by NTSC-U's frontbin
+    # function, PAL's by PAL's.
+    for us, (kind, size, places) in us_levels.items():
+        if kind == "frontbin" and us in front_twin:
+            for level, address in places:
+                put(front_twin[us], level, address, size)
+    return cat
+
+
 def symbols(source: Path) -> dict[str, int]:
     """The named functions of a decomp whose rows use names, not addresses (the NTSC decomp)."""
     out = {}
@@ -125,6 +201,8 @@ def symbols(source: Path) -> dict[str, int]:
 
 def place_of(name: str, named: dict[str, int]) -> tuple[str, int] | None:
     m = NAME.match(name)
+    if m and name.endswith("__frontbin") and not m.group(1):
+        return ("frontbin", int(m.group(2), 16))  # rac3's front end, a program of its own
     if m:
         return (m.group(1) or "boot", int(m.group(2), 16))
     if name in named:
