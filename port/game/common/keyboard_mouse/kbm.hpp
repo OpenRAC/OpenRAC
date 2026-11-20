@@ -1403,6 +1403,268 @@ inline TextNav text_nav(const MenuText* t, int n, float px, float py) {
     return nav;
 }
 
+// ---- Going Commando's grids: following the selection frame ----
+//
+// A grid (weapons, gadgets, items, Quick Select) draws its cells with one GUI sprite element moved
+// from cell to cell, and its selection frame with another drawn once. The frame's element is not
+// known up front: the first step pressed shows it (the element drawn once that moved by a cell).
+// A click on a cell steps the frame there, a step at a time, watching it move, then confirms.
+
+struct GuiSprite {
+    std::uint32_t element = 0;  // the sprite element (its guest address)
+    float x = 0.0f, y = 0.0f;   // its centre, game pixels
+};
+
+inline constexpr int kGridSpritesMax = 256;
+// How near a cell's centre a click must be, and how near the frame counts as there (pixels).
+inline constexpr float kGridCellReach = 30.0f;
+inline constexpr float kGridThere = 6.0f;
+// Ticks to wait for the frame to move after a step, and steps at most for one click.
+inline constexpr int kGridWaitTicks = 14;
+inline constexpr int kGridMaxSteps = 40;
+
+class GridSeek {
+public:
+    void reset() { *this = GridSeek{}; }
+
+    bool active() const { return m_active; }
+
+    bool known() const { return m_cursor != 0; }
+
+    // A click (confirm) or the pointer resting (no confirm) at (px, py): true when it is on a
+    // grid's cell, which the frame then goes to.
+    bool seek(const GuiSprite* s, int n, float px, float py, bool confirm) {
+        float tx = 0.0f, ty = 0.0f;
+        if (!cell_at(s, n, px, py, &tx, &ty)) {
+            return false;
+        }
+        // Already on its way there: nothing new.
+        if (m_active && std::abs(tx - m_tx) < 1.0f && std::abs(ty - m_ty) < 1.0f) {
+            m_confirm = m_confirm || confirm;
+            return true;
+        }
+        m_active = true;
+        m_tx = tx;
+        m_ty = ty;
+        m_confirm = confirm;
+        m_steps = 0;
+        m_blocked = 0;
+        m_probe = 0;
+        m_wait = 0;
+        return true;
+    }
+
+    // A tick with the last frame's sprites: the pad button to press now (0 none). `idle`: the
+    // last press is over.
+    std::uint16_t update(const GuiSprite* s, int n, bool idle) {
+        if (!m_active) {
+            return 0;
+        }
+
+        // A step out: wait for the frame to move and settle.
+        if (m_wait > 0) {
+            --m_wait;
+            if (!settled(s, n)) {
+                return 0;
+            }
+        }
+
+        if (!idle) {
+            return 0;
+        }
+
+        float hx = 0.0f, hy = 0.0f;
+        // The frame not known: a probe step shows it.
+        if (m_cursor == 0 || !once(s, n, m_cursor, &hx, &hy)) {
+            m_cursor = 0;
+            return probe(s, n);
+        }
+
+        const float dx = m_tx - hx, dy = m_ty - hy;
+        // There: confirm if clicked.
+        if (std::abs(dx) <= kGridThere && std::abs(dy) <= kGridThere) {
+            m_active = false;
+            return m_confirm ? kCross : 0;
+        }
+
+        const bool across = std::abs(dx) >= std::abs(dy);
+        int axis = across ? 1 : 2;
+        // That way does not move it: the other, while it has a way to go.
+        if ((m_blocked & axis) != 0) {
+            axis = axis == 1 ? 2 : 1;
+            const float other = axis == 1 ? dx : dy;
+            if ((m_blocked & axis) != 0 || std::abs(other) <= kGridThere) {
+                m_active = false;
+                return 0;
+            }
+        }
+
+        if (++m_steps > kGridMaxSteps) {
+            m_active = false;
+            return 0;
+        }
+
+        const std::uint16_t step =
+            axis == 1 ? (dx > 0.0f ? kRight : kLeft) : (dy > 0.0f ? kDown : kUp);
+        start(s, n, axis);
+        return step;
+    }
+
+private:
+    // The nearest cell of a grid to (px, py): a sprite element drawn three times or more.
+    static bool cell_at(const GuiSprite* s, int n, float px, float py, float* tx, float* ty) {
+        float best = kGridCellReach * kGridCellReach;
+        bool found = false;
+        for (int i = 0; i < n; ++i) {
+            const float d = (s[i].x - px) * (s[i].x - px) + (s[i].y - py) * (s[i].y - py);
+            if (std::abs(s[i].x - px) > kGridCellReach || std::abs(s[i].y - py) > kGridCellReach
+                || d >= best || count(s, n, s[i].element) < 3) {
+                continue;
+            }
+            best = d;
+            *tx = s[i].x;
+            *ty = s[i].y;
+            found = true;
+        }
+        return found;
+    }
+
+    static int count(const GuiSprite* s, int n, std::uint32_t element) {
+        int c = 0;
+        for (int i = 0; i < n; ++i) {
+            c += s[i].element == element ? 1 : 0;
+        }
+        return c;
+    }
+
+    // An element drawn exactly once, and where.
+    static bool once(const GuiSprite* s, int n, std::uint32_t element, float* x, float* y) {
+        int c = 0;
+        for (int i = 0; i < n; ++i) {
+            if (s[i].element == element) {
+                *x = s[i].x;
+                *y = s[i].y;
+                ++c;
+            }
+        }
+        return c == 1;
+    }
+
+    // A step pressed: where every element drawn once was.
+    void start(const GuiSprite* s, int n, int axis) {
+        m_before_count = 0;
+        for (int i = 0; i < n && m_before_count < kBeforeMax; ++i) {
+            if (count(s, n, s[i].element) == 1) {
+                m_before[static_cast<std::size_t>(m_before_count++)] = s[i];
+            }
+        }
+        m_axis = axis;
+        m_wait = kGridWaitTicks;
+        m_moved = false;
+        m_last_x = -1.0f;
+        m_last_y = -1.0f;
+    }
+
+    // Still waiting for the step's move: false. Once the frame has moved and stays put, true; a
+    // step that moved nothing marks its way blocked.
+    bool settled(const GuiSprite* s, int n) {
+        // The frame not known yet: the element drawn once that moved a cell along the step.
+        if (m_cursor == 0) {
+            learn(s, n);
+            if (m_cursor == 0) {
+                if (m_wait == 0) {
+                    m_blocked |= m_axis;
+                }
+                return m_wait == 0;
+            }
+        }
+
+        float x = 0.0f, y = 0.0f;
+        if (!once(s, n, m_cursor, &x, &y)) {
+            return m_wait == 0;
+        }
+        const bool still = std::abs(x - m_last_x) < 0.5f && std::abs(y - m_last_y) < 0.5f;
+        m_last_x = x;
+        m_last_y = y;
+        if (!m_moved) {
+            for (int i = 0; i < m_before_count; ++i) {
+                const GuiSprite& b = m_before[static_cast<std::size_t>(i)];
+                m_moved = m_moved
+                          || (b.element == m_cursor
+                              && (std::abs(b.x - x) >= 2.0f || std::abs(b.y - y) >= 2.0f));
+            }
+        }
+        if (m_moved && still) {
+            m_wait = 0;
+            return true;
+        }
+        // No move in time: that way is blocked (an edge).
+        if (m_wait == 0 && !m_moved) {
+            m_blocked |= m_axis;
+        }
+        return m_wait == 0;
+    }
+
+    // The element drawn once, before and now, that moved along the step's axis (either way: a
+    // grid wraps round at its edges) onto a grid's cell.
+    void learn(const GuiSprite* s, int n) {
+        for (int i = 0; i < m_before_count; ++i) {
+            const GuiSprite& b = m_before[static_cast<std::size_t>(i)];
+            float x = 0.0f, y = 0.0f;
+            if (!once(s, n, b.element, &x, &y)) {
+                continue;
+            }
+            const float along = m_axis == 1 ? std::abs(x - b.x) : std::abs(y - b.y);
+            const float off = m_axis == 1 ? std::abs(y - b.y) : std::abs(x - b.x);
+            if (along < 4.0f || off >= along) {
+                continue;
+            }
+            // It sits on a cell now (within the frame's reach of one).
+            float cx = 0.0f, cy = 0.0f;
+            if (cell_at(s, n, x, y, &cx, &cy) && std::abs(cx - x) <= kGridThere
+                && std::abs(cy - y) <= kGridThere) {
+                m_cursor = b.element;
+                m_blocked = 0;
+                m_moved = true;
+                m_last_x = -1.0f;
+                return;
+            }
+        }
+    }
+
+    // The frame not known: steps toward the cell, then away, across and down, until one shows it.
+    std::uint16_t probe(const GuiSprite* s, int n) {
+        static constexpr int kProbes = 4;
+        if (m_probe >= kProbes) {
+            m_active = false;
+            return 0;
+        }
+        const int p = m_probe++;
+        const bool across = p < 2;
+        const bool toward = (p % 2) == 0;
+        const float d = across ? m_tx - 256.0f : m_ty - 208.0f;
+        const bool positive = (d >= 0.0f) == toward;
+        const std::uint16_t step = across ? (positive ? kRight : kLeft) : (positive ? kDown : kUp);
+        start(s, n, across ? 1 : 2);
+        return step;
+    }
+
+    static constexpr int kBeforeMax = 64;
+    bool m_active = false;
+    bool m_confirm = false;
+    float m_tx = 0.0f, m_ty = 0.0f;
+    std::uint32_t m_cursor = 0;
+    int m_steps = 0;
+    int m_blocked = 0;  // 1 across, 2 down: steps that way moved nothing
+    int m_probe = 0;
+    int m_wait = 0;
+    int m_axis = 0;
+    bool m_moved = false;
+    float m_last_x = -1.0f, m_last_y = -1.0f;
+    std::array<GuiSprite, kBeforeMax> m_before{};
+    int m_before_count = 0;
+};
+
 // ---- rac1's map screen ----
 //
 // The mouse drags the map and the wheel zooms it, as the sticks do (update_map_zoom_and_pan): the

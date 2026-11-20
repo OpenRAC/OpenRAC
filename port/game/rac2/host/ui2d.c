@@ -19,10 +19,11 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "game_protos.h"
-#include "rac2.h"
 #include "../../common/lib/ui_quad.h"
+#include "game_protos.h"
 #include "openrac/game_host.h"
+#include "rac2.h"
+#include "ui_quads.h"
 
 /* The offset the game adds to every 2D position (g_gsPixelOffsetX, Y), shared by every program. */
 #define SCREEN_OFX GREF(int, RAC2_ADDR(0x001A7350u))
@@ -37,6 +38,72 @@
 
 /* Inside a font print: the quads drawn are glyphs of text. */
 static int g_glyphs = 0;
+
+/* The quads drawn in this frame and the last whole one, apart from glyphs (ui_quads.h). */
+static openrac_rac2_ui_quad g_quads[2][OPENRAC_RAC2_UI_QUADS_MAX];
+static int g_quad_count[2] = {0, 0};
+
+int openrac_rac2_take_ui_quads(openrac_rac2_ui_quad* out) {
+    memcpy(out, g_quads[1], sizeof(g_quads[1][0]) * (size_t)g_quad_count[1]);
+    return g_quad_count[1];
+}
+
+void openrac_rac2_ui_quads_frame(void) {
+    memcpy(g_quads[1], g_quads[0], sizeof(g_quads[0][0]) * (size_t)g_quad_count[0]);
+    g_quad_count[1] = g_quad_count[0];
+    g_quad_count[0] = 0;
+}
+
+/* A quad's box in the game's screen pixels, from its 12.4 corners. */
+static void record_quad(const openrac_game_ui_rect* q) {
+    if ((q->flags & 1u) != 0 || g_quad_count[0] >= OPENRAC_RAC2_UI_QUADS_MAX) {
+        return;
+    }
+    const int ox = SCREEN_OFX - 8, oy = SCREEN_OFY - 8;
+    int x0 = (int)(q->x[0] & 0xFFFFu), x1 = x0, y0 = (int)(q->y[0] & 0xFFFFu), y1 = y0;
+    for (int i = 1; i < 4; ++i) {
+        const int x = (int)(q->x[i] & 0xFFFFu), y = (int)(q->y[i] & 0xFFFFu);
+        x0 = x < x0 ? x : x0;
+        x1 = x > x1 ? x : x1;
+        y0 = y < y0 ? y : y0;
+        y1 = y > y1 ? y : y1;
+    }
+    openrac_rac2_ui_quad* r = &g_quads[0][g_quad_count[0]++];
+    r->x0 = (float)(x0 - ox) / 16.0f;
+    r->x1 = (float)(x1 - ox) / 16.0f;
+    r->y0 = (float)(y0 - oy) / 16.0f;
+    r->y1 = (float)(y1 - oy) / 16.0f;
+    r->tex0 = (q->flags & 8u) != 0 ? 0 : q->tex0;
+    r->colour = q->rgba;
+    r->element = 0;
+}
+
+/* A GUI sprite element (func_00336320, GuiSpriteElementDraw): its place (+0, a pointer to its
+ * centre x, y), scale (+4), colour (+12, to it), scale (+16, to it; 0 hides it) and texture (+64; 0
+ * hides it). Its box is recorded (the menus' frames and highlights), then the game draws it. */
+void func_00336320(gaddr o) {
+    const gaddr place = (gaddr)GREF(int32_t, o);
+    const int tex = GREF(int32_t, o + 64);
+    if (GREF(float, (gaddr)GREF(int32_t, o + 16)) != 0.0f && tex != 0
+        && g_quad_count[0] < OPENRAC_RAC2_UI_QUADS_MAX) {
+        const float x = GREF(float, place), y = GREF(float, place + 4);
+        openrac_rac2_ui_quad* r = &g_quads[0][g_quad_count[0]++];
+        r->x0 = x;
+        r->x1 = x;
+        r->y0 = y;
+        r->y1 = y;
+        r->tex0 = (uint32_t)tex;
+        r->colour = GREF(uint32_t, (gaddr)GREF(int32_t, o + 12));
+        r->element = o;
+    }
+    func_00336320__game(o);
+}
+
+/* A quad to the window as a record (else the game's packet goes out): recorded first. */
+static int send(const openrac_game_ui_rect* q) {
+    record_quad(q);
+    return openrac_ui_send(q, LIST_CURSOR);
+}
 
 static int to_screen_x(int sixteenths) {
     return sixteenths + SCREEN_OFX - 8;
@@ -123,7 +190,7 @@ void func_0027E018(
     q.rgba = (uint32_t)rgba;
     q.tex0 = tex;
     q.flags = g_glyphs > 0 ? 1u : 0u;
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0027E018__game(x, y, w, h, u, v, uw, vh, rgba, tex);
     }
 }
@@ -165,7 +232,7 @@ void func_0027E1A0(
     q.rgba = GREF(uint32_t, colours);
     q.tex0 = tex;
     q.flags = 1u;
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0027E1A0__game(x, y, w, h, u, v, uw, vh, colours, tex);
     }
 }
@@ -177,7 +244,7 @@ void func_0028E868(int tex, int x, int y, int w, int h, int alpha) {
     hud_size(tex, &tw, &th);
     hud_common(&q, func_0028E640(tex), alpha);
     hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, tw * 16, th * 16);
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0028E868__game(tex, x, y, w, h, alpha);
     }
 }
@@ -187,7 +254,7 @@ void func_0028ECD8(int tex, int x, int y, int w, int h, int alpha) {
     openrac_game_ui_rect q;
     hud_common(&q, func_0028E640(tex), alpha);
     hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, w * 16, h * 16);
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0028ECD8__game(tex, x, y, w, h, alpha);
     }
 }
@@ -199,7 +266,7 @@ void func_0028EE98(int tex, int x, int y, int w, int h, int alpha) {
     hud_size(tex, &tw, &th);
     hud_common(&q, func_0028E640(tex), alpha);
     hud_rect(&q, x, y, x + w, y + h, 0, 0, tw * 16, th * 16);
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0028EE98__game(tex, x, y, w, h, alpha);
     }
 }
@@ -212,7 +279,7 @@ void func_0028F078(int tex, int x, int y, int w, int h, int alpha, unsigned int 
     hud_common(&q, func_0028E640(tex), alpha);
     q.rgba = ((uint32_t)alpha << 24) | (colour & 0xFFFFFFu);
     hud_rect(&q, x, y, x + w, y + h, 0, 0, tw * 16, th * 16);
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0028F078__game(tex, x, y, w, h, alpha, colour);
     }
 }
@@ -225,7 +292,7 @@ void func_0028F278(
     openrac_game_ui_rect q;
     hud_common(&q, (unsigned long long)tex0, alpha);
     hud_rect(&q, x, y, x + w, y + h, u, v, u + (1 << (lw + 4)), v + (1 << (lh + 4)));
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0028F278__game(tex0, x, y, lw, lh, w, h, u, v, alpha);
     }
 }
@@ -248,7 +315,7 @@ void func_0028F410(int u, int v, long long tex, float x, float y, float w, float
         q.u[i] = (uint32_t)us[i];
         q.v[i] = (uint32_t)vs[i];
     }
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0028F410__game(u, v, tex, x, y, w, h, rot);
     }
 }
@@ -261,7 +328,7 @@ void func_0028F788(
     openrac_game_ui_rect q;
     hud_common(&q, func_0028E640(tex), alpha);
     hud_rect(&q, x0, y0, x1, y1, u0, v0, u1, v1);
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0028F788__game(tex, x0, y0, x1, y1, u0, v0, u1, v1, alpha);
     }
 }
@@ -288,7 +355,7 @@ void func_0028EA58(int tex, int x, int y, int w, int h, gaddr colours) {
     for (int i = 0; i < 4; ++i) {
         q.corners[i] = GREF(uint32_t, colours + 4u * (gaddr)i);
     }
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0028EA58__game(tex, x, y, w, h, colours);
     }
 }
@@ -339,7 +406,7 @@ void func_0027E4A8(
     q.z = (uint32_t)z;
     q.rgba = (uint32_t)colour;
     q.tex0 = (unsigned long long)tex0;
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0027E4A8__game(cx, cy, w, h, angle, tw, th, tex0, z, colour, flip_u, flip_v, pu, pv);
     }
 }
@@ -360,7 +427,7 @@ void func_0027E920(gaddr xyz, gaddr uv, gaddr colours, unsigned long long tex0, 
     q.tex0 = tex0;
     q.flags = 4u | 16u;
     q.clamp = clamped ? 5u : 0u;
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0027E920__game(xyz, uv, colours, tex0, clamped);
     }
 }
@@ -384,7 +451,7 @@ void func_0027DE50(int top, int bottom, int left, int right, unsigned long long 
     q.z = 0xFFFFF0u;
     q.rgba = (uint32_t)colour;
     q.flags = 8u;
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0027DE50__game(top, bottom, left, right, colour);
     }
 }
@@ -404,7 +471,7 @@ void func_0027EA28(gaddr xyz, gaddr colours) {
     }
     q.z = (uint32_t)(GREF(uint64_t, xyz) >> 32);
     q.flags = 4u | 8u | 32u;
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
+    if (!send(&q)) {
         func_0027EA28__game(xyz, colours);
     }
 }

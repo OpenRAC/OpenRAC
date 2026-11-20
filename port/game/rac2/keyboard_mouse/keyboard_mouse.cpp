@@ -21,6 +21,7 @@
 #include "game/common/key_labels.h"
 #include "game/common/key_prompts.h"
 #include "game/rac2/host/gui_texts.h"
+#include "game/rac2/host/ui_quads.h"
 #include "openrac/game_host.h"
 #include "openrac/mod.hpp"
 #include "places.hpp"
@@ -89,6 +90,9 @@ std::uint32_t s_click_element = 0;
 int s_click_ticks = 0;
 constexpr int kClickTicks = 90;
 bool s_click_held = false;
+kbm::GridSeek s_grid;  // a grid's selection frame on its way to a clicked cell
+std::array<kbm::GuiSprite, kbm::kGridSpritesMax> s_sprites{};
+int s_sprite_count = 0;
 
 // A tick's input and where the game is.
 struct Tick {
@@ -203,6 +207,20 @@ void take_texts() {
     }
 }
 
+// The GUI sprite elements the last whole frame drew.
+void take_sprites() {
+    static std::array<openrac_rac2_ui_quad, OPENRAC_RAC2_UI_QUADS_MAX> drawn{};
+    const int n = openrac_rac2_take_ui_quads(drawn.data());
+    s_sprite_count = 0;
+    for (int i = 0; i < n; ++i) {
+        const openrac_rac2_ui_quad& d = drawn[static_cast<std::size_t>(i)];
+        if (d.element != 0) {
+            s_sprites[static_cast<std::size_t>(s_sprite_count++)] =
+                kbm::GuiSprite{d.element, d.x0, d.y0};
+        }
+    }
+}
+
 // The navigation to the text at (px, py) of the game's screen.
 kbm::TextNav nav_at(float px, float py) {
     return kbm::text_nav(s_texts.data(), s_text_count, px, py);
@@ -233,6 +251,15 @@ bool menu_mouse(const Tick& t, bool click) {
         } else if (s_pulses.idle()) {
             s_pulses.push(nav.selected == nav.hit ? kbm::kCross : nav.step);
             s_click_element = nav.selected == nav.hit ? 0 : s_click_element;
+        }
+    }
+
+    // A grid's frame on its way to a clicked cell: its next step.
+    if (s_grid.active()) {
+        take_sprites();
+        const std::uint16_t step = s_grid.update(s_sprites.data(), s_sprite_count, s_pulses.idle());
+        if (step != 0) {
+            s_pulses.push(step);
         }
     }
 
@@ -271,6 +298,14 @@ bool menu_mouse(const Tick& t, bool click) {
         if (moved && s_pulses.idle() && s_click_element == 0) {
             s_pulses.push(nav.step);
         }
+    }
+
+    // On no text: a grid's cell. A click takes its frame there and confirms; once the frame is
+    // known, the pointer moved onto a cell takes it there.
+    if (nav.hit < 0 && (click || (moved && s_grid.known()))) {
+        take_sprites();
+        const bool cell = s_grid.seek(s_sprites.data(), s_sprite_count, px, py, click);
+        return click && cell;
     }
 
     return false;
@@ -335,6 +370,7 @@ void step(const openrac_input* in, bool pad_look) {
     if (before != t.where) {
         s_pulses.clear();
         s_click_element = 0;
+        s_grid.reset();
     }
 
     take_texts();
@@ -353,6 +389,7 @@ void step(const openrac_input* in, bool pad_look) {
         }
     } else {
         s_click_element = 0;
+        s_grid.reset();
     }
 
     kbm::Virtual v;
@@ -495,6 +532,7 @@ void load(openrac::Mod& mod) {
     s_text_count = 0;
     s_click_element = 0;
     s_click_held = false;
+    s_grid.reset();
 
     mod.take_input(OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE);
     mod.on_settings([] { read_settings(*s_mod); });

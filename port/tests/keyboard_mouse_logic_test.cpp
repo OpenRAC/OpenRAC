@@ -16,6 +16,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "game/common/keyboard_mouse/kbm.hpp"
 
@@ -784,6 +785,57 @@ void text_nav() {
     CHECK(nav.hit == 0 && nav.selected == 2 && nav.step == kbm::kLeft);
 }
 
+// A click on a Going Commando grid's cell: the frame, found by a first step, goes there and
+// confirms (a grid that wraps round at its edges, its cursor moving a few ticks after a press).
+void grid_seek() {
+    std::vector<kbm::GuiSprite> s;
+    float hx = 56.0f, hy = 88.0f;
+    const auto frame = [&] {
+        s.clear();
+        for (int r = 0; r < 6; ++r) {
+            for (int c = 0; c < 4; ++c) {
+                s.push_back(
+                    {0x2420,
+                     56.0f + 53.5f * static_cast<float>(c),
+                     88.0f + 48.0f * static_cast<float>(r)}
+                );
+            }
+        }
+        s.push_back({0x259c, hx, hy});
+        s.push_back({0x2388, 250.0f, 200.0f});
+    };
+    frame();
+    kbm::GridSeek g;
+    CHECK(!g.seek(s.data(), static_cast<int>(s.size()), 400.0f, 400.0f, true));
+    CHECK(g.seek(s.data(), static_cast<int>(s.size()), 162.7f, 177.6f, true));
+
+    int pending = 0;
+    std::uint16_t pressed = 0;
+    std::uint16_t last = 0;
+    for (int t = 0; t < 200 && g.active(); ++t) {
+        if (pending > 0 && --pending == 0) {
+            if (pressed == kbm::kLeft) {
+                hx = hx < 60.0f ? 216.5f : hx - 53.5f;
+            } else if (pressed == kbm::kRight) {
+                hx = hx > 210.0f ? 56.0f : hx + 53.5f;
+            } else if (pressed == kbm::kUp) {
+                hy = hy < 90.0f ? 328.0f : hy - 48.0f;
+            } else if (pressed == kbm::kDown) {
+                hy = hy > 320.0f ? 88.0f : hy + 48.0f;
+            }
+        }
+        frame();
+        const std::uint16_t step = g.update(s.data(), static_cast<int>(s.size()), pending == 0);
+        if (step != 0) {
+            pressed = step;
+            last = step;
+            pending = 3;
+        }
+    }
+    CHECK(!g.active() && g.known() && last == kbm::kCross);
+    CHECK(hx == 163.0f && hy == 184.0f);
+}
+
 // The vendor's monitors under the pointer (window places of a 640x480 run).
 void vendor() {
     const auto at = [](float wx, float wy, int count, int cursor, int scroll = 0) {
@@ -1041,6 +1093,7 @@ int main(int argc, char** argv) {
     prompt_spots();
     map_drag();
     text_nav();
+    grid_seek();
     prompts();
     edges();
 
