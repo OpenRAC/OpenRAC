@@ -271,3 +271,4 @@ func_L39_005B25C8	render	rac3MobyProcMultiplayer	host	MobyProc, the multiplayer 
 func_L01_004DE670	render	rac3ScreenGlowCopy	host	the screen glow's first packet (0x001D0A50: the frame copied to FBP 0x198 and shrunk), appended by DMA reference: left out, the word it sets kept (host/render.c)	int (void)
 func_L01_004DE6F0	render	rac3ScreenGlowAdd	host	the screen glow's second packet (0x001D2A50: blurred and added back over the frame): left out (host/render.c)	int (void)
 func_L01_00407E28	render	rac3DrawWorldQuad	host	DrawWorldQuad (func_00280B90's instructions): the draw callbacks' world quad drawn natively, its effect texture from GetEffectTex's records (host/render.c)	int (int, int)
+func_L01_004DF310	render	rac3ScreenEffect2	host	the second screen effect's packets (0x001D3650, 0x001D3EF0: the frame copied, blurred twice, tinted and added back), appended by DMA reference: left out as the glow is (host/render.c)	int (void)

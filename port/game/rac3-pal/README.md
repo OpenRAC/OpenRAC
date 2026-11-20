@@ -313,7 +313,9 @@ The game's own screen glow (Going Commando has none) is left out: DrawFrame refe
 prebuilt GS packets while `0x001DBCA0` is set, the frame copied into a 256 x 256 buffer (FBP 0x198)
 and shrunk (`0x004DE670`), then blurred and added back over the frame (`0x004DE6F0`, ALPHA 0x221).
 Replayed over the native world they drew a ghost of the picture and a copy of it in its top left
-corner; the enhanced renderer's bloom (`port/enhanced/docs/bloom.md`) is the port's glow.
+corner; the enhanced renderer's bloom (`port/enhanced/docs/bloom.md`) is the port's glow. A second
+effect of the same family (`0x004DF310`, while `0x001DBCBC` is set: the frame blurred twice, tinted
+and added back) is left out the same way.
 
 Every level's program carries its own copy of the engine, at its own addresses: the hooks are
 written with Veldin's (`func_L01_...`, the names hostgen gives the catalogue's places) and its
@@ -353,8 +355,6 @@ What a level's picture still lacks (Veldin, 2026-11-20, hidden runs on box2 with
 `OPENRAC_RAC3_NEXT=60:1`): the sky, terrain, ties, shrubs, fog and the live mobys (Ratchet posed
 and animated) draw natively with the game's camera, but
 
-- the second screen effect DrawFrame references (`0x004DF310`, two packets at `0x001D3650` and
-  `0x001D3EF0` while `0x001DBCBC` is set) is not identified and still replayed;
 - water, shadows and the enhanced renderer's inputs.
 
 ## What is missing
