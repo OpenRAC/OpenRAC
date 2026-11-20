@@ -11,7 +11,7 @@
 using namespace openrac::assets;
 
 int main() {
-    CHECK(versions().size() == 10);
+    CHECK(versions().size() == 11);
     const GameVersion* pal = find_version("rac1-pal");
     CHECK(pal != nullptr);
     if (pal) {
