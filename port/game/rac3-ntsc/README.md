@@ -44,6 +44,7 @@ Nothing of PAL's port is copied here. The NTSC-U program is built from:
 | `hostgen.json`, `libraries.tsv` | rac3-pal's, in NTSC-U's names |
 | `host/rac3_names.tsv`, `host/rac3_addresses.h` | the shared host C's function names and addresses, NTSC-U's |
 | `host/rac3_version.h` | the shared host C's switch to NTSC-U (by hand) |
+| `checks/result_allow.tsv` | rac3-pal's, in NTSC-U's names |
 | `release/release.json` `level_addresses` | a level's own globals the shared C writes as `RAC3_LADDR(level, 0x...u)`, from the same instruction of the same code ([`rac3_level_pairs.py`](../../tools/hostgen/rac3_level_pairs.py), which reads both discs' level dumps) |
 
 After a change to rac3-pal's hostgen.json, libraries.tsv or the addresses its host C wraps, or a
@@ -92,10 +93,14 @@ exceptions).
 
 ## What is left
 
-- menus.py's walk on NTSC-U (`--version ntsc`) and New Game through the menus to Veldin; the
-  pause and in-level menus.
+- The pause and in-level menus, the HUD and the other levels on NTSC-U (menus.py's walk passes on
+  NTSC-U: `--version ntsc`, the boot screens, card notices, Load Game, New Game with and without a
+  save, Options with its PROGRESSIVE SCAN row, Adjust Screen and its three languages; New Game
+  reaches Veldin through the loading screen).
 - rac3-decomp's level C on NTSC-U (src/levels in the release view): its level names and its
   levels' data names would need NTSC-U's values per level (rac3-decomp's NTSC-U build reads them
   from the disc; they are not in its tables yet).
+- `asm.signature_check` is off for NTSC-U (release.json says why): its levels are translated from
+  the disc, and rac3-pal's signatures cover PAL's names only (1,994 findings in 706 functions).
 - The multiplayer copies' MobyProc cap (`RAC3_LADDR(39, 0x001E0880u)`): no instruction of the
   same code forms it, so it is 0 on NTSC-U.
