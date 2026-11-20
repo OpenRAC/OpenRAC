@@ -206,7 +206,9 @@ void ObjectPreview::draw_parts(bool transparent) {
 }
 
 void ObjectPreview::record_parts(std::string_view name, bool transparent) {
-    const renderer::RasterBuffer geometry{m_vertices, m_mesh.vertices.size() * sizeof(scene::Vertex)};
+    const renderer::RasterBuffer geometry{
+        m_vertices, m_mesh.vertices.size() * sizeof(scene::Vertex)
+    };
     // Material images are declared explicitly. Capture only the other prepared shader inputs.
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_2D, 0);

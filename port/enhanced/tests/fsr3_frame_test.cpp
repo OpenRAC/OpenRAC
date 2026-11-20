@@ -236,10 +236,14 @@ void main(){result=vec4(0,1,0,1);})",
             glEnable(GL_SCISSOR_TEST);
             glScissor(40, 30, 1, 1);
             glUniform1f(m_glimmer.uniform("depth"), .25f);
-            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);  // behind the wall: must remain hidden
+            openrac::test::graph_draw(
+                glDrawArrays, GL_TRIANGLES, 0, 3
+            );  // behind the wall: must remain hidden
             glScissor(43, 30, 1, 1);
             glUniform1f(m_glimmer.uniform("depth"), .75f);
-            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);  // in front: must remain visible
+            openrac::test::graph_draw(
+                glDrawArrays, GL_TRIANGLES, 0, 3
+            );  // in front: must remain visible
             glDisable(GL_DEPTH_TEST);
             glEnable(GL_SCISSOR_TEST);
             glScissor(48, 36, 1, 1);

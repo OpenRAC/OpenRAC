@@ -346,7 +346,12 @@ void main() {
                                 uniforms(shader);
                                 glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, buffer);
                                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-                                openrac::test::graph_dispatch(glDispatchCompute, unsigned((w + 7) / 8), unsigned((h + 7) / 8), 1);
+                                openrac::test::graph_dispatch(
+                                    glDispatchCompute,
+                                    unsigned((w + 7) / 8),
+                                    unsigned((h + 7) / 8),
+                                    1
+                                );
                                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
                                 glBindFramebuffer(GL_FRAMEBUFFER, target.id());
                                 glViewport(0, 0, w, h);

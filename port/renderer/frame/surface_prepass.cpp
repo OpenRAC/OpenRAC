@@ -40,7 +40,9 @@ void Renderer::draw_surface_prepass(const FrameInput& input, RenderState& state,
 }
 
 void Renderer::render_surface_prepass(const FrameInput& input, RenderState& state, bool normals) {
-    const auto record = [this, &input, &state, normals] { draw_surface_prepass(input, state, normals); };
+    const auto record = [this, &input, &state, normals] {
+        draw_surface_prepass(input, state, normals);
+    };
 #if defined(OPENRAC_VULKAN)
     // The depth-only path writes directly into the world target.
     if (gl::is_vulkan()) {

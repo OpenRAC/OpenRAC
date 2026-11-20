@@ -121,17 +121,18 @@ void blit_into_multisample(
         throw std::runtime_error(!input ? input.error().message : output.error().message);
     }
     auto pass = execution.make_pass("blit colour into multisample attachment");
-    pass.images = {
-        *input,
-        {*output,
-         {},
-         {graph::Stage::ColourOutput,
-          preserve ? graph::Access::ReadWrite : graph::Access::Write,
-          graph::Layout::ColourAttachment},
-         preserve ? graph::Load::Preserve : initialize ? graph::Load::Clear : graph::Load::Discard,
-         graph::Store::Preserve,
-         partial}
-    };
+    pass.images =
+        {*input,
+         {*output,
+          {},
+          {graph::Stage::ColourOutput,
+           preserve ? graph::Access::ReadWrite : graph::Access::Write,
+           graph::Layout::ColourAttachment},
+          preserve     ? graph::Load::Preserve
+          : initialize ? graph::Load::Clear
+                       : graph::Load::Discard,
+          graph::Store::Preserve,
+          partial}};
     execution.add_pass(std::move(pass));
     const auto copied = execution.run([initialize](unsigned) {
         if (initialize) {

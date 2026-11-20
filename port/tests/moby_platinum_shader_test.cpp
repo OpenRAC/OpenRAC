@@ -11,7 +11,6 @@
 #include <string>
 #include <vector>
 
-#include "tests/graph_fixture.h"
 #include "check.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "renderer/gl/framebuffer.h"
@@ -20,6 +19,7 @@
 #include "renderer/textures/texture_pool.h"
 #include "renderer_gl_context.h"
 #include "scene_shaders.h"
+#include "tests/graph_fixture.h"
 
 using namespace openrac;
 using namespace openrac::gl;

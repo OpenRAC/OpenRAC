@@ -68,7 +68,10 @@ public:
     );
     // Imports a read-only storage, texel or uniform-buffer view, retaining its actual allocation offset.
     [[nodiscard]] Result<renderer::graph::BufferUse> read_buffer(
-        std::string_view name, unsigned buffer, renderer::graph::Stage stages, bool instanced = false
+        std::string_view name,
+        unsigned buffer,
+        renderer::graph::Stage stages,
+        bool instanced = false
     );
     // Imports the sampled texture view, preserving its actual aspect and mip range.
     [[nodiscard]] Result<renderer::graph::ImageUse> read_image(

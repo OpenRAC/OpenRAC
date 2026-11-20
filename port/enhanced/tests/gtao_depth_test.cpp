@@ -146,8 +146,12 @@ void test_depth_bounds(renderer::GtaoDepth& pyramid, int width, int height) {
         return;
     }
     const auto levels = pyramid.levels();
-    constexpr graph::State write{graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer};
-    constexpr graph::State read{graph::Stage::ComputeShader, graph::Access::Read, graph::Layout::Buffer};
+    constexpr graph::State write{
+        graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer
+    };
+    constexpr graph::State read{
+        graph::Stage::ComputeShader, graph::Access::Read, graph::Layout::Buffer
+    };
     for (unsigned index = 0; index < levels.size(); ++index) {
         auto pass = execution.make_pass("fixture GTAO depth reduction");
         pass.buffers.push_back({*storage, {levels[index].offset, levels[index].bytes}, write});

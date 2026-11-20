@@ -108,8 +108,10 @@ void test_multisample_colour_blit(test::GlContext& context) {
     target.blit_to(0, 64, 64);
     context.window().swap();
     const auto description = vkgl::frame_graph_description();
-    CHECK(description && description->find("work blit colour into multisample attachment")
-                             != std::string::npos);
+    CHECK(
+        description
+        && description->find("work blit colour into multisample attachment") != std::string::npos
+    );
 
     // A first partial copy initializes the pixels outside its rectangle even under discard poisoning.
     renderer::FrameBuffer fresh;
@@ -1139,9 +1141,8 @@ int main() {
             return test::kSkip;
         }
         check_requires_pass([] {
-            vkgl::NativeCommandEncoder{VK_NULL_HANDLE}.copy_buffer(
-                VK_NULL_HANDLE, VK_NULL_HANDLE, 0, nullptr
-            );
+            vkgl::NativeCommandEncoder{VK_NULL_HANDLE}
+                .copy_buffer(VK_NULL_HANDLE, VK_NULL_HANDLE, 0, nullptr);
         });
         test_multisample_colour_blit(context);
         test_transfer_declarations();

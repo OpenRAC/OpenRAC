@@ -350,8 +350,10 @@ void test_depth_only([[maybe_unused]] test::GlContext& context) {
             if (capture_reads) {
                 context.window().swap();
                 const auto description = vkgl::frame_graph_description();
-                CHECK(description && description->find("export depth prepass mesh inputs")
-                                         != std::string::npos);
+                CHECK(
+                    description
+                    && description->find("export depth prepass mesh inputs") != std::string::npos
+                );
             }
 #endif
             stats::begin_frame(stats::FrameKind::Tick, ++stamp);

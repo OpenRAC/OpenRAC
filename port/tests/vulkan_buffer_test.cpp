@@ -179,7 +179,10 @@ std::array<std::uint8_t, 4> draw_frame(
     if (index_type == GL_UNSIGNED_BYTE) {
         openrac::test::graph_draw(
             glDrawElements,
-            GL_TRIANGLES, 3, GL_UNSIGNED_BYTE, reinterpret_cast<const void*>(kByteIndexOffset)
+            GL_TRIANGLES,
+            3,
+            GL_UNSIGNED_BYTE,
+            reinterpret_cast<const void*>(kByteIndexOffset)
         );
     } else {
         openrac::test::graph_draw(glDrawElements, GL_TRIANGLES, 3, GL_UNSIGNED_INT, nullptr);

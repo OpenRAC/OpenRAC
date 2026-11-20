@@ -16,7 +16,6 @@
 #include <string>
 #include <vector>
 
-#include "tests/graph_fixture.h"
 #include "check.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
@@ -24,6 +23,7 @@
 #include "renderer/textures/pack_pictures.h"
 #include "renderer/textures/texture_pool.h"
 #include "renderer_gl_context.h"
+#include "tests/graph_fixture.h"
 
 namespace {
 
