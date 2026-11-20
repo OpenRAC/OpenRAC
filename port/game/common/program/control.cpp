@@ -479,7 +479,7 @@ std::string mobys(const Value& c) {
     return out + "]";
 }
 
-// The floor under a point: the highest collision triangle facing up below it.
+// The floor under a point: the highest collision triangle one can stand on below it.
 std::string ground(const Value& c) {
     float at[3];
 
@@ -517,7 +517,9 @@ std::string ground(const Value& c) {
     const Triangle* floor = nullptr;
 
     for (const Triangle& t : found) {
-        if (t.normal[2] <= 0.2f) {
+        // One can stand on it: not a wall or a slope steeper than about 53 degrees. The corners'
+        // order makes a floor's normal point down as often as up, so either way counts.
+        if (std::fabs(t.normal[2]) < 0.6f) {
             continue;
         }
 
@@ -553,8 +555,10 @@ std::string ground(const Value& c) {
     }
 
     const float point[3] = {at[0], at[1], best};
-    return "\"ok\": true, \"found\": true, \"position\": " + vec(point) + ", \"normal\": "
-           + vec(floor->normal) + ", \"surface\": " + std::to_string(floor->type & 31u)
+    const float sign = floor->normal[2] < 0.0f ? -1.0f : 1.0f;
+    const float up[3] = {floor->normal[0] * sign, floor->normal[1] * sign, floor->normal[2] * sign};
+    return "\"ok\": true, \"found\": true, \"position\": " + vec(point) + ", \"normal\": " + vec(up)
+           + ", \"surface\": " + std::to_string(floor->type & 31u)
            + ", \"moby\": " + std::to_string(floor->moby);
 }
 
