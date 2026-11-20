@@ -136,6 +136,7 @@ Arsenal's SCES_524.56) is read as the game it unpacks (`packed_program`).
 |---|---|
 | `hostgen.json` `"asm"` `"retail"` | `{"exe": ..., "dump": ...}` (or `{"image": ...}`), relative to the decompilation the assembly is read from: rac1/pal's `baserom/SCES_509.16` and `baserom/overlays`, the NTSC decomp's `config/us/SCUS_971.99` and `config/us/overlays` |
 | `--retail-image ISO`, `--retail-exe ELF` and `--retail-dump DIR` | in place of those |
+| `"retail"` `"required": true` | a game whose code is mostly translated from the disc (Up Your Arsenal's: its boot program is the loader's packed payload) stops with an error when the image is missing or is another game's (its entry is not `entry`), rather than writing a program of stubs that stops at its first frame (as #418 did for a stale derived table). `OPENRAC_HOSTGEN_NO_DISC=1` builds the stubs on purpose (the CI runners, which have no disc). CMake runs hostgen again when the linked image appears |
 | `"retail"` `"programs"` | `{NAME: OVERLAY}`: the disc's other programs, read as that overlay's retail code. Up Your Arsenal's `{"frontbin": 100}`: the front end's program in the MISC wad, the `groups` overlay `src/frontbin` is (its levels are read by their numbers, as Going Commando's) |
 | `OPENRAC_<ID>_RETAIL_IMAGE` | the build's: the player's disc image. `tools/build_port.py GAME --disc IMAGE` sets it, and the launcher's "Build the game" passes the disc it set up |
 

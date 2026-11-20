@@ -160,6 +160,7 @@
     "gp": "0x001DC8B0",
     "retail": {
       "image": "baserom/SCES_524.56.iso",
+      "required": true,
       "programs": {
         "frontbin": 100
       }

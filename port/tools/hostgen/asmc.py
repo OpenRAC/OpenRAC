@@ -47,6 +47,7 @@ retail (tests/asmc_console.h).
 
 from __future__ import annotations
 
+import os
 import sys
 import re
 from collections import Counter
@@ -1746,7 +1747,32 @@ def retail_source(a: dict, program: Program, base: Path) -> "retail.Retail | Non
     # Arsenal's frontbin, the "groups" overlay its src/frontbin is).
     if found is not None:
         found.place_named(r.get("programs", {}))
+    if r.get("required"):
+        retail_required(r, image if image is not None else exe, found, program)
     return found
+
+
+def retail_required(r: dict, named: Path | None, found: "retail.Retail | None", program: Program) -> None:
+    """"retail": {"required": true}: a game whose code is mostly translated from the disc (Up Your
+    Arsenal's: its boot program is the loader's packed payload, which no other input holds) does
+    not build without it, as a stale derived table no longer builds into silent stubs (rac2's
+    #418): with no disc, or another game's, nearly every function the game runs would be a stub
+    that does nothing, and the program would stop at its first frame. A build with no disc on
+    purpose (CI) sets OPENRAC_HOSTGEN_NO_DISC=1 and gets the stubs."""
+    if os.environ.get("OPENRAC_HOSTGEN_NO_DISC") == "1":
+        return
+    entry = getattr(program, "entry_address", None)
+    if found is None:
+        why = f"{named} is not there" if named is not None else "no disc image is named"
+    elif entry is not None and found.entry != entry:
+        why = f"{named} is not this game's disc (its entry is {found.entry:#010x}, not {entry:#010x})"
+    else:
+        return
+    print(f"hostgen: error: the retail program to translate the functions with no C from is "
+          f"required, and {why}. Link the disc image there (the decompilation's setup does), pass "
+          f"--retail-image (OPENRAC_<ID>_RETAIL_IMAGE), or set OPENRAC_HOSTGEN_NO_DISC=1 to build "
+          f"with stubs on purpose.", file=sys.stderr)
+    raise SystemExit(1)
 
 
 def file_names(cfg: dict) -> list[str]:

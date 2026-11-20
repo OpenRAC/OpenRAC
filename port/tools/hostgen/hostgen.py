@@ -1071,12 +1071,11 @@ def apply_assembly_options(cfg: dict, args: argparse.Namespace) -> None:
     if cfg.get("asm") and cfg["asm"].get("interface"):
         cfg["asm"] = {**cfg["asm"], "interface_path": str((args.game.resolve().parent / cfg["asm"]["interface"]))}
     if cfg.get("asm") and (args.retail_image or args.retail_exe):
-        programs = (cfg["asm"].get("retail") or {}).get("programs")
+        kept = {k: v for k, v in (cfg["asm"].get("retail") or {}).items() if k in ("programs", "required")}
         cfg["asm"] = {**cfg["asm"], "retail": {
             k: str(v.resolve()) for k, v in (("image", args.retail_image), ("exe", args.retail_exe),
                                              ("dump", args.retail_dump)) if v}}
-        if programs:
-            cfg["asm"]["retail"]["programs"] = programs
+        cfg["asm"]["retail"].update(kept)
 
 
 def add_derived_names(cfg: dict, args: argparse.Namespace, source: Path) -> Path | None:
@@ -1339,6 +1338,9 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.jump_tables = {k: v for k, v in jump_tables.items() if not k.startswith("#")}
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
     program.unpassed_registers = bool(cfg.get("unpassed_registers"))
+    # The game's entry as an address (func_0013ADA8), which a required retail program must have.
+    entry_name = re.fullmatch(r"func_([0-9A-Fa-f]{8})", cfg.get("entry") or "")
+    program.entry_address = int(entry_name.group(1), 16) if entry_name else None
     program.executable_extents = read_extents(cfg.get("executable_extents"), source)
     if cfg.get("executable_functions"):
         rows = [row for row in tables.read_tsv(source / cfg["executable_functions"], strip=True) if len(row) >= 2]
