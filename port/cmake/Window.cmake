@@ -1056,6 +1056,21 @@ if(OPENRAC_METAL)
   set_tests_properties(moby_obsidian_shader_metal PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
     ENVIRONMENT "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
 endif()
+# A mod's energy as mesh.frag draws it: a gold-lit grey surface keeps its gold with a little of the
+# mod's colour, and its gold glow packet comes out in that colour, brightened.
+openrac_add_test(moby_energy_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+                 LIBS openrac_viewer_lib openrac_platform)
+set_tests_properties(moby_energy_shader PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu)
+if(OPENRAC_VULKAN)
+  add_test(NAME moby_energy_shader_vulkan COMMAND moby_energy_shader_test)
+  set_tests_properties(moby_energy_shader_vulkan PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
+    ENVIRONMENT "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+endif()
+if(OPENRAC_METAL)
+  add_test(NAME moby_energy_shader_metal COMMAND moby_energy_shader_test)
+  set_tests_properties(moby_energy_shader_metal PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
+    ENVIRONMENT "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
 openrac_add_test(preview_animation LIBS openrac_scene)
 add_executable(viewer_test tests/viewer_test.cpp)

@@ -70,8 +70,7 @@ enum {
  * tag of one A+D register). The chip ignores it; the window reads its top 16 bits. Written here
  * rather than through the translated routine, whose second argument is a word: the value is a
  * doubleword. */
-static void put_marker(const Copy* c, uint64_t value) {
-    const gaddr pointer = at_copy(c, c->list_pointer);
+static void put_marker_at(gaddr pointer, uint64_t value) {
     const gaddr at = GREF(gaddr, pointer);
     if (at == 0 || at >= 0x02000000u - 0x30u) {
         return;
@@ -89,6 +88,10 @@ static void put_marker(const Copy* c, uint64_t value) {
     w[10] = NOP_REGISTER;
     w[11] = 0;
     GREF(gaddr, pointer) = at + 0x30u;
+}
+
+static void put_marker(const Copy* c, uint64_t value) {
+    put_marker_at(at_copy(c, c->list_pointer), value);
 }
 
 /* DrawTfrag (Going Commando's func_002EF3B0, the same 208 bytes): the world's first native pass
@@ -399,11 +402,22 @@ int func_L01_0043AAC0(void) {
     return 0;
 }
 
+/* The boot program's display list pointer (0x003A97F8, its VU1_addGSregister, appends there). */
+#define BOOT_LIST_POINTER 0x001DA050u
+
 /* 0x003CB6B8 (boot_elf, hand-written; Going Commando's func_002A4D88, MobyAnimProc's draw side):
- * draws the moby list (D_001D9D30, D_001D9D38) through 0x003C81D8 with VU0 and the scratchpad,
- * called by 0x003C39A8 in the level loading screen's pass (0x003C3BB8). Translated from its
- * instructions it read past the scratchpad (0x700045FC). */
+ * draws the jobs the boot program's MobyProc queued (a list in the display list buffer, *0x001D9D30,
+ * each job's packets through 0x003C81D8 and 0x003D5A20 with VU0 and the scratchpad), called by
+ * 0x003C39A8 in the level loading screen's pass (0x003C3BB8, the boot program in mode 6), after its
+ * stars and before its text. Those mobys are the boot program's table's (Ratchet's ship, class
+ * 3412, its parts and the planet): the window draws them natively, with the boot program's camera,
+ * from the scene's export (level 97, GameProfile::loading_world), where the world's marker and the
+ * mobys' put them in the list, over the stars. */
 void func_003CB6B8(int list, int count) {
     (void)list;
     (void)count;
+    openrac_game_world_view();
+    put_marker_at(BOOT_LIST_POINTER, 0x574Cull << 48);
+    put_marker_at(BOOT_LIST_POINTER, (uint64_t)OPENRAC_WORLD_MOBYS_MARKER << 48);
+    openrac_game_draw(OPENRAC_DRAW_MOBYS);
 }

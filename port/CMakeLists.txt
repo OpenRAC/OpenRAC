@@ -203,6 +203,9 @@ openrac_add_test(tick_picture INCLUDES .)
 # Far mobys the game leaves asleep, animated in the picture only
 # (game/common/frontend/sleeping_mobys.h).
 openrac_add_test(sleeping_mobys INCLUDES .)
+# A mod's energy material on the effects a moby makes: their colour, brightness and size
+# (game/common/frontend/energy_effects.h).
+openrac_add_test(energy_effects INCLUDES . "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Where a menu's mobys drawn with a camera of their own go, alone and over a level's world drawn
 # under it (game/common/frontend/menu_layers.h).
 openrac_add_test(menu_layers INCLUDES .)
@@ -474,6 +477,10 @@ openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Going Commando's nanotech render anchors before and after their crates break.
 openrac_add_c_test(rac2_effect_attachment INCLUDES game/rac2/host runtime/include)
 openrac_add_c_test(rac2_hero_attachments INCLUDES game/rac2/host)
+# Going Commando's enemy copies for the mods (moby_copy_check, moby_copy) on a level laid out as
+# LoadLevelData leaves one.
+openrac_add_c_test(rac2_enemy_copies NO_STRICT_ALIASING MATH
+  INCLUDES tests/rac2_host game/rac2/host game/rac2-ntsc/host runtime/include)
 # Going Commando's saves as the play calls read them, on a save the game wrote.
 openrac_add_c_test(rac2_save INCLUDES game/rac2/host
   DEFINITIONS "RAC2_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac2/save-oozla.bin\"")

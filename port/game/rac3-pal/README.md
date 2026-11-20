@@ -42,7 +42,7 @@ From the launcher (launcher/actions.json, `rac3/pal`), as for Going Commando: *S
 disc* runs `tools/extractor.py`, which checks the disc against games/rac3/game.json and writes
 `iso_data/rac3/` (`SCES_524.56`, `disc.iso`, `buildinfo.json`) into the game's data folder;
 *Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
-the levels into `assets/port/rac3/pal` (`levels-10.json`), and *Play* runs
+the levels into `assets/port/rac3/pal` (`levels-13.json`), and *Play* runs
 `openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
 no level plays yet. The game draws a level's world from them ([Drawing the levels](#drawing-the-levels)).
 
@@ -351,7 +351,7 @@ share most of them, but have their own DrawTfrag, tie and shrub passes and MobyP
 level 39's (`func_L39_...`, `OPENRAC_LDATA(39, ...)`). `IDENTIFIED.tsv` has each function and its
 Going Commando pair.
 
-The extracted levels are the shared export (`editor/extract.py port`), format 12 for this game
+The extracted levels are the shared export (`editor/extract.py port`), format 13 for this game
 (`editor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
 sky's shells and its panorama, collision, (5) Ratchet's mesh and textures from his first pack
 (`editor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
@@ -371,7 +371,31 @@ Commando's. (10) adds his other 30 looks, packs 1 to 30, as classes 6001 to 6030
 draws class 0 as the look of the armour at `0x001D4B60`, or of the skin byte at `0x001427AB` when it
 is set, as LoadPlayerDisplayTextures picks the pack. (11) adds the gameplay copy the probe baker
 plans enhanced lighting from (`bake-inputs/gameplay.bin`), as Going Commando's 18. (12) adds the
-reviewed glowing textures and the levels' sun sets, as Going Commando's 19.
+reviewed glowing textures and the levels' sun sets, as Going Commando's 19. (13) adds level 97, the loading
+screen's ship scene (below).
+
+## The loading screen
+
+Between levels the boot program runs its loading screen (mode 6, the pass `0x003C3BB8`): the game
+draws its stars and its galaxy picture itself (2D), then the scene's mobys through MobyProc's draw
+side, `0x003CB6B8`, which walks the jobs the boot program's MobyProc queued. Those mobys are the
+boot program's table's: Ratchet's ship (class 3412) and its parts (4308 to 4325) and a planet
+(7683), whose classes are the scene's pack's: one of the loading packs the table of contents lists
+from `+0x1288` (after their base sector), pack 11 the ship's scene, which the loading screen unpacks
+at `0x006F3000` (picked at random among the scenes by `0x003BE0F0`). The export reads it as a small
+core (`editor/level.py` `load_wad_loading`: GS RAM at word 1, data base at word 2, the GS upload at
+4 and 5, the classes at 0xa and 0xc, the moby textures at 0xe and 0xf, the texture data at 0x17)
+and writes it as level 97, with Ratchet's pack. The profile names that level the loading screen's
+world (`loading_world`), and `0x003CB6B8` puts the world's and the mobys' markers in the list, so the
+window draws those mobys natively with the boot program's camera, over the stars and the galaxy
+(the game's own triangles of texture `0x2DAF`). While the game reads the disc it resends a list that
+ends before that pass's markers: such a list is drawn whole under the world (`frame.cpp`), else
+its clear covered the ship.
+
+Not drawn yet: the planet (class 7683, a picture on a quad the ship flies towards, past its draw
+distance until the scene's last part, which the port's quicker loading never reaches) and the
+level's name ("Veldin" at `0x002D2018`, which `0x003C1890` prints through FontPrint fading in with
+the timer at `0x00225734` once `0x002D2008 + 0x51` is set; no string is printed in our runs).
 
 To look at a level without the game (no game code runs; the viewer's own camera):
 
@@ -384,8 +408,16 @@ What a level's picture still lacks (Veldin, 2026-11-20, hidden runs on box2 with
 `OPENRAC_RAC3_NEXT=60:1`): the sky, terrain, ties, shrubs, fog and the live mobys (Ratchet posed
 and animated) draw natively with the game's camera, but
 
-- water and lava: no level with any loads yet, so whether this game's liquids reach the window as
-  the effect strips Going Commando's do is not known.
+- Obani's lava (level 11): its picture is black at the moment (the profile's camera reads a zero
+  forward axis there), so it is not seen yet. Its lava is the level's own terrain and ties
+  (`terrain_0020`, `terrain_0023`, `tie_0109`), which the native world draws, and the enhanced
+  catalog lights it.
+
+Water and other liquids reach the window as Going Commando's do. The game's own draw callbacks
+build them as effect strips, and the strips sent before the world's mobys are drawn with the liquids,
+after the ties (`renderer/effects`). Level 14's square pool draws so, from five strips of up to 115
+vertices (ALPHA 0x44 TEST 0x5310B, as Dobbo's water, and two layers blended over it, ALPHA 0x58 and
+0x6A), hidden runs on box1 at 84b906a67 with `--level 14`.
 
 ### Shadows, enhanced graphics and texture packs
 

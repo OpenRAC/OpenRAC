@@ -416,6 +416,53 @@ def hero_files(level: Level, source) -> None:
     level.ship_bodies = source.ship_bodies()
 
 
+# Up Your Arsenal's loading screen between levels, the ship's scene (wads.Version.loading_ship_pack):
+# its pack is a small core of its own. Its header's words as the boot program reads them (0x003C10B0,
+# the mobys' class data at the data base plus a class entry's offset, seen in the loading screen's
+# memory): 1 the GS RAM lump, 2 the data base, 4 and 5 the GS upload table, 0xa and 0xc the moby
+# classes (Ratchet, Clank, the ship's parts 4308 to 4325, the planet 7683), 0xe and 0xf the moby
+# textures, 0x17 the texture data. Exported as level 97 with those classes and Ratchet's pack, for
+# the window to draw the loading screen's mobys with (rac3-pal/profile.cpp); the stars, the
+# galaxy and the caption are the game's draws.
+LOADING_ID = 97
+
+
+def load_wad_loading(source) -> Level:
+    lump = decoded(source.loading_pack(source.version.loading_ship_pack))
+
+    def h(i: int) -> int:
+        return unpack("<i", lump, i * 4)[0]
+
+    gs_at, base, p = h(1), h(2), TITLE_INDEX_TABLES
+    if not 0 < gs_at < base <= len(lump):
+        raise FormatError(f"loading screen: GS RAM {gs_at:#x}, data base {base:#x}")
+    header = bytearray(TITLE_INDEX_TABLES)
+
+    def put(at: int, value: int) -> None:
+        struct.pack_into("<i", header, at, value)
+
+    def table(at: int, count: int, offset: int) -> None:
+        put(at, h(count))
+        put(at + 4, h(offset) + p)
+
+    table(0x00, 4, 5)          # the GS upload
+    put(0x0c, 0)
+    table(0x18, 0xa, 0xc)      # moby classes
+    table(0x38, 0xe, 0xf)      # moby textures
+    put(0x60, h(0x17))         # texture data
+    data = lump[base:]
+    put(0x8c, len(data))
+    index = bytes(header) + lump[:base]
+    level = Level(LOADING_ID, b"", {}, index, data, bytes(0x100), {"entry_point": 0, "sections": []})
+    level.game, level.version = source.version.game, source.version.key
+    level.boundaries = core_boundaries(level)
+    level.textures = textures(level, lump[gs_at:base])
+    level.no_terrain = True
+    if source.version.hero_packs:
+        hero_files(level, source)
+    return level
+
+
 def load_wad_flight(source, number: int) -> Level:
     """Going Commando's flights to a planet: the same lump, four of them (wads.WadDisc.flight), which
     its transition loader (func_002EAB18) reads as Ratchet & Clank's does. Levels 98 down to 95."""

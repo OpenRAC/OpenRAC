@@ -67,6 +67,10 @@ class Version:
     item_banks: int = 0     # where it keeps the banks of the items he holds, if it does
     flights: int = 0        # where it keeps the flights' (sector, sector count) pairs, after their base sector
     flight_count: int = 0
+    # Up Your Arsenal's loading screens: the (sector, sector count) pairs of their packs, after
+    # their base sector (the word before), and which pack is the ship's scene.
+    loading_packs: int = 0
+    loading_ship_pack: int = 0
     normal_table: int = 0   # the executable's (cos, sin) table the terrain is lit by (lighting.py), if known
     # Where a game keeps what Going Commando keeps at the module's constants (0 for those): the hero
     # packs of his wrench's forms (else the WRENCHES after his looks), his ship's hulls and paint
@@ -105,9 +109,12 @@ RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"
 #   +0x1D78, sector pairs from the sector at +0x1284 (0x00425D48, Going Commando's 0x002925F0).
 RAC3_PAL = Version(game="rac3", key="pal", **util.disc_identity("rac3", "pal"), level_header=0x60,
                    hero_packs=0x1eb4, hero_armours=31, item_banks=0x458c, wrench_packs=(31,),
-                   ship_bodies=0x1d60, ship_paints=0x1d78, ship_paint_count=32, flight_base=0x1284)
+                   ship_bodies=0x1d60, ship_paints=0x1d78, ship_paint_count=32, flight_base=0x1284,
+                   loading_packs=0x1288, loading_ship_pack=11)
 RAC4_NTSC = Version(game="rac4", key="ntsc", **util.disc_identity("rac4", "ntsc"), level_header=0xc68)
-VERSIONS = (RAC2_NTSC, RAC2_PAL, RAC2_NTSC2, RAC3_NTSC, RAC3_PAL, RAC4_NTSC)
+# Deadlocked's PAL disc (Ratchet: Gladiator): the same table of contents and level headers as NTSC-U's.
+RAC4_PAL = Version(game="rac4", key="pal", **util.disc_identity("rac4", "pal"), level_header=0xc68)
+VERSIONS = (RAC2_NTSC, RAC2_PAL, RAC2_NTSC2, RAC3_NTSC, RAC3_PAL, RAC4_NTSC, RAC4_PAL)
 
 
 def boot_name(disc: Disc) -> str | None:
@@ -299,6 +306,14 @@ class WadDisc:
             return None
         from lighting import normal_table
         return normal_table(self.executable(), self.version.normal_table)
+
+    def loading_pack(self, number: int) -> bytes:
+        """Loading screen pack NUMBER as stored: Up Your Arsenal's (sector, sector count) pairs at
+        `loading_packs`, from the sector the word before them holds. The boot program's loading
+        screen (0x003C10B0) unpacks one at 0x006F3000; pack 11 is the ship's scene."""
+        base, = unpack("<I", self.toc, self.version.loading_packs - 4)
+        sector, count = unpack("<II", self.toc, self.version.loading_packs + number * 8)
+        return self.disc.sectors(base + sector, count)
 
     def flight(self, number: int) -> bytes:
         """A flight's lump as stored: the sector ranges at `flights`, relative to the sector the

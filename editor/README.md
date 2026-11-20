@@ -18,7 +18,7 @@ supported yet.
 It sits at the top of OpenRAC because it serves all four games. It reads
 Ratchet & Clank's four discs in full, and Going Commando's three
 discs (playable; moved and changed mobys are packed back) and Up Your Arsenal's and
-Deadlocked's NTSC-U discs in early access: their levels,
+Deadlocked's NTSC-U and PAL discs in early access: their levels,
 textures and models, to look at and to make texture and model packs from
 ([The later games](#the-later-games-early-access)).
 
@@ -924,7 +924,7 @@ the formats and the evidence for them.
 ## The later games (early access)
 
 Going Commando (`SCUS_972.68` v1.01 and v2.00, `SCES_516.07` v1.00), Up Your
-Arsenal (`SCUS_973.53` NTSC-U and `SCES_524.56` PAL) and Deadlocked (`SCUS_974.65`, NTSC-U). Their levels are the first game's
+Arsenal (`SCUS_973.53` NTSC-U and `SCES_524.56` PAL) and Deadlocked (`SCUS_974.65` NTSC-U and `SCES_532.85` PAL, Ratchet: Gladiator). Their levels are the first game's
 format with a few differences, read by the same readers through a table of
 what each game changes ([games.py](games.py); the formats, and what was
 checked on each disc, are in

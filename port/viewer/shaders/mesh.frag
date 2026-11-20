@@ -16,7 +16,7 @@ in vec4 v_probe_multiplier;
 flat in vec4 v_probe_selector;
 flat in int v_lit;
 flat in int v_glow;
-flat in int v_mod_material;  // a mod's material on the moby (mesh.vert): 2 platinum, 3 obsidian
+flat in int v_mod_material;  // a mod's material on the moby (mesh.vert): 2 platinum, 3 obsidian, 4 energy
 flat in vec3 v_mod_rgb;      // the moby's tint (mesh.vert), the mod's rgb: obsidian's glow colour
 in vec3 v_script_emission;
 flat in vec3 v_probe_ambient;
@@ -218,18 +218,62 @@ vec3 obsidian_shine(vec3 rgb) {
     return min(rgb + inner + rim + vec3(kObsidianHighlight * highlight), vec3(1.0));
 }
 
-// A mod's material on the texel, the colour and the lit colour: platinum's or obsidian's, the
-// value as it is for a moby with neither.
+// A mod's energy (OPENRAC_MOBY_MATERIAL_ENERGY, interface 1.25): render-only, the moby charged
+// with the mod's colour. Its body keeps its own colours with kEnergyBody of the colour (the
+// instance tint holds 1 - kEnergyBody + kEnergyBody x rgb: frame.cpp's apply_mod_material), and
+// after the lighting a rim glows in the colour where the surface turns from the eye
+// (energy_shine). A glow packet's colour becomes the energy's at its luminance, brightened
+// (energy_colour). The effects the moby makes take the colour on the CPU (energy_effects.h).
+const int kModMaterialEnergy = 4;
+const float kEnergyBody = 0.35;        // OPENRAC_MOBY_MATERIAL_ENERGY_BODY
+const float kEnergyGlowPacket = 2.0;   // a glow packet's brightening
+const float kEnergyRim = 0.65;         // the rim's strength at a grazing angle
+const float kEnergyRimFalloff = 2.0;   // how fast it fades towards the middle
+
+bool energy() {
+    return v_mod_material == kModMaterialEnergy;
+}
+
+// The energy's colour, taken back out of the tint's share of it.
+vec3 energy_rgb() {
+    return clamp((v_mod_rgb - vec3(1.0 - kEnergyBody)) / kEnergyBody, 0.0, 1.0);
+}
+
+vec4 energy_colour(vec4 c) {
+    if (!energy() || v_glow == 0) {
+        return c;
+    }
+    // The tint's share is taken out of the glow packet's luminance first.
+    float tint = max(dot(v_mod_rgb, vec3(0.299, 0.587, 0.114)), 0.05);
+    float grey = dot(c.rgb, vec3(0.299, 0.587, 0.114)) / tint;
+    return vec4(energy_rgb() * grey * kEnergyGlowPacket, c.a);
+}
+
+vec3 energy_shine(vec3 rgb) {
+    if (!energy() || v_glow != 0 || dot(v_normal, v_normal) < 1e-12) {
+        return rgb;
+    }
+    vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
+    vec3 to_eye = normalize(-eye_position);
+    vec3 n = normalize(mat3(view) * v_normal);
+    // Double-sided, as the game draws mobys.
+    n = dot(n, to_eye) < 0.0 ? -n : n;
+    float rim = pow(1.0 - max(dot(n, to_eye), 0.0), kEnergyRimFalloff);
+    return min(rgb + energy_rgb() * (kEnergyRim * rim), vec3(1.0));
+}
+
+// A mod's material on the texel, the colour and the lit colour: platinum's, obsidian's or
+// energy's, the value as it is for a moby with none.
 vec4 mod_texel(vec4 texel) {
     return obsidian_texel(platinum_texel(texel));
 }
 
 vec4 mod_colour(vec4 c) {
-    return obsidian_colour(platinum_colour(c));
+    return energy_colour(obsidian_colour(platinum_colour(c)));
 }
 
 vec3 mod_shine(vec3 rgb) {
-    return obsidian_shine(platinum_shine(rgb));
+    return energy_shine(obsidian_shine(platinum_shine(rgb)));
 }
 
 #ifdef OPENRAC_ENHANCED_RENDERING

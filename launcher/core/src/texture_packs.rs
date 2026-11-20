@@ -175,6 +175,7 @@ pub fn title(id: &str) -> String {
         "rac3-ntsc" => "Up Your Arsenal (NTSC-U)".into(),
         "rac3-pal" => "Up Your Arsenal (PAL)".into(),
         "rac4-ntsc" => "Deadlocked (NTSC-U)".into(),
+        "rac4-pal" => "Deadlocked (PAL)".into(),
         other => other.into(),
     }
 }

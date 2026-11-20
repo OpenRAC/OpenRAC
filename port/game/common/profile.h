@@ -261,6 +261,16 @@ public:
         return 0;
     }
 
+    // Returns the mobys an active particle record may name as its maker (its owner, an attached
+    // halo's parent), 0 where it names none: a mod's energy material on one of them draws the
+    // particle in the material's colour (energy_effects.h). A word that names no moby is harmless:
+    // only mobys a mod drew as energy are looked for.
+    [[nodiscard]] virtual std::array<std::uint32_t, 2> particle_owners(
+        std::span<const std::uint8_t>
+    ) const {
+        return {0, 0};
+    }
+
     // Whether the terrain's vertex colours take the point lights in reach, as Going Commando's
     // PatchTfragVertexLighting (0x2F0468) adds them to the colours the level lit (mesh.vert),
     // rather than not at all.
@@ -331,6 +341,12 @@ public:
     // levels (a title world, else level 0's), rather than as its 2D path alone: Up Your Arsenal's
     // title is a picture, and its levels have no level 0.
     virtual bool has_title_world() const { return true; }
+
+    // The extracted level the loading screen between levels (the game mode the window takes for a
+    // flight between planets, world -2) is drawn with, or -1 for the flight world: Up Your
+    // Arsenal's loading screen is its ship's scene, exported as level 97 (editor/level.py
+    // load_wad_loading).
+    virtual int loading_world() const { return -1; }
 
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }

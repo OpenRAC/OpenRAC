@@ -156,6 +156,25 @@ class ShipTableTests(unittest.TestCase):
         self.assertEqual(Source.read, [(1001, 2), (1003, 4), (1005, 6), (1007, 8), (1009, 10)])
         self.assertEqual(wads.RAC3_PAL.wrench_packs, (31,))
 
+    def test_a_loading_screen_pack(self):
+        # Up Your Arsenal: (sector, sector count) pairs after their base sector.
+        class Source:
+            version = wads.Version("rac3", "pal", "", "", "", 0, "", 0x60, loading_packs=0x14)
+            toc = bytearray(0x40)
+            read = []
+
+            class disc:
+                @staticmethod
+                def sectors(lba, count):
+                    Source.read.append((lba, count))
+                    return b""
+
+        struct.pack_into("<i", Source.toc, 0x10, 500)
+        struct.pack_into("<4i", Source.toc, 0x14, 1, 2, 30, 40)
+        wads.WadDisc.loading_pack(Source, 1)
+        self.assertEqual(Source.read, [(530, 40)])
+        self.assertEqual((wads.RAC3_PAL.loading_packs, wads.RAC3_PAL.loading_ship_pack), (0x1288, 11))
+
 
 class WadDiscTests(unittest.TestCase):
     def open(self, version: wads.Version, levels, swap=False) -> Disc:

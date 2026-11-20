@@ -133,7 +133,12 @@ image (from `chdman createdvd` or `createcd`) is unpacked to `.iso` instead
 (`launcher/core/src/chd.rs`). A CHD is known by its first bytes too, as a
 picker may drop the name's extension, and one the picker streams rather than
 opens is copied first and unpacked from the copy. A failure is shown with its
-reason, as is the extractor's when it refuses a disc.
+reason, as is the extractor's when it refuses a disc. Android lets no app
+make hard links, so the set-up keeps a symbolic link to that copy
+(`iso_data/<game>/disc.iso`, `--link-image`), not a second copy. Deleting the
+image in the Files app's Disc images undoes the set-up: the game asks for its
+disc again. A set-up made before this held a second copy; the launcher
+replaces it with the link when it starts (`install::tidy`).
 
 **The setup** is the desktop's: `tools/extractor.py`, `editor/extract.py port`
 for the levels, then the game's `--check-levels`, with their output in the
@@ -148,7 +153,7 @@ library folder, so the APK carries them as libraries:
 |---|---|
 | `libpython3.13.so`, `libopenrac-python.so` | CPython for Android from [Chaquopy](https://github.com/chaquo/chaquopy) (MIT, pinned from Maven Central), and a small `python3` around it (`port/android/python_main.c`) |
 | `libopenrac-zig.so` | [Zig](https://ziglang.org)'s static AArch64 Linux release (MIT, pinned by SHA-256): Clang and lld (`zig clang`, `zig ld.lld`), which build Going Commando's part from the disc on the device (`tools/asm_part.py`) |
-| `libopenrac-<id>-cli.so` | the game without a window, for `--check-levels` |
+| `libopenrac-<id>-cli.so` | the game without a window, for `--check-levels`: a few lines (`port/android/game_cli.c`) that call the main of `libopenrac-<id>.so`, so each game's code is in the APK once |
 | `libopenrac-enhanced-baker.so` | Enhanced graphics' probe baker, with Embree built by the NDK (the release `tools/build_port.py` pins) |
 
 The copy of OpenRAC (`tools/bundle_standalone.py --android`) is
@@ -161,7 +166,9 @@ so if it takes more than a second.
 
 - the image is copied by the kernel (`copy_file_range` or `sendfile`);
 - the extractor writes only `SYSTEM.CNF` and the boot executable
-  (`--boot-only`), though it still checks every file;
+  (`--boot-only`, on every system), though it still checks every file;
+- files that levels have alike (a moby class, a texture) are written once and
+  linked (`editor/extract.py`, `share_identical_files`);
 - Android's Python has no process pools (no `sem_open`), so `editor/extract.py`
   runs up to four levels in separate processes (`SubprocessPool`);
 - `openrac-enhanced-baker` schedules the largest lighting levels first and shares a bounded

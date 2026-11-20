@@ -17,6 +17,7 @@
 #include <map>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "mod_manifest.h"
@@ -307,6 +308,11 @@ bool moby_platinum(std::uint32_t moby);
 // OPENRAC_MOBY_MATERIAL_NONE when there is none, for the game's own effects of that moby
 // (openrac_moby_obsidian). From the game's thread.
 MobyMaterial moby_material_drawn(std::uint32_t moby);
+
+// The energy materials (OPENRAC_MOBY_MATERIAL_ENERGY, interface 1.25) drawn this level load, by
+// moby: the last material set on each, where it is energy. For the effects those mobys make
+// (energy_effects.h), read once a tick. From the game's thread.
+std::unordered_map<std::uint32_t, MobyMaterial> energy_materials();
 
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 
