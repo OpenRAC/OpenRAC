@@ -1295,7 +1295,10 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     if cfg.get("places"):
         program.place_kinds_as_levels = tuple(cfg.get("place_kinds_as_levels", ()))
         read_places(source / cfg["places"], program)
-        if RELEASE is not None:
+        # hostgen.json "places_in_release": the catalogue is the release's own, in its names
+        # (rac3-ntsc's config/us/levels/functions.tsv): renaming it again as the primary's would
+        # take one of its names for another function's.
+        if RELEASE is not None and not cfg.get("places_in_release"):
             program.places = {in_release(k): v for k, v in program.places.items()}
             program.boot_places = {in_release(k): v for k, v in program.boot_places.items()}
             program.sizes = {in_release(k): v for k, v in program.sizes.items()}

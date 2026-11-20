@@ -74,6 +74,27 @@ class Names:
                 continue  # a second row of one name: the first with a twin is its place
             which[pal] = us if us != "-" else pal.replace("func_", "func_PAL_", 1)
             self.status[(kind, pal)] = status
+        # The levels' copies of frontbin's functions (the catalogues' "frontbin" rows) are named after
+        # their first place (hostgen's place_kinds_as_levels): PAL's func_L01_00436F60 is the row of
+        # frontbin's func_003A0760, NTSC-U's that of frontbin's twin, at its own first place.
+        def first_places(path: Path) -> dict[str, str]:
+            out = {}
+            if not path.is_file():
+                return out
+            for line in path.read_text().splitlines():
+                cols = line.split("\t")
+                if line.startswith("#") or len(cols) < 7 or cols[1] != "frontbin":
+                    continue
+                level, _, address = cols[6].split(",")[0].partition(":")
+                if address:
+                    out[cols[0]] = f"func_L{int(level):02d}_{int(address, 16):08X}"
+            return out
+        us_first = first_places(source / "config/us/levels/functions.tsv")
+        for row, first in first_places(source / "config/levels/functions.tsv").items():
+            twin = self.front.get(row)
+            if first not in self.levels and twin in us_first:
+                self.levels[first] = us_first[twin]
+                self.status[("levels", first)] = self.status.get(("frontbin", row))
         self.data = {k: v for k, v in table["names"].items() if k.startswith("D_")}
         self.pairs = {k: v["is"] for k, v in hand.get("pairs", {}).items() if not k.startswith("about")}
 
