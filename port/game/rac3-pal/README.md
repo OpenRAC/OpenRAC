@@ -14,6 +14,22 @@ The functions with no C are translated from the disc image: the player's (`--dis
 `OPENRAC_RAC3_PAL_RETAIL_IMAGE`), else `games/rac3/decomp/baserom/SCES_524.56.iso`. The disc's
 executable is the loader; retail.py reads it as the game it carries packed (the same sections as
 the decompilation's `boot_elf.elf`, which the build does not need).
+**Runs as far as its menus.** It boots to the main menu, which runs and takes the pad, but
+draws only its boxes over its background picture: no text, no 3D (below). Levels are not loaded,
+so a new game or a save does not start yet. The launcher builds and starts it from a player's PAL
+disc (below), with a warning that says so.
+
+## Running it
+
+The functions with no C are translated from the game's own instructions: from the player's disc
+image when the build is given one (`tools/build_port.py rac3-pal --disc IMAGE`, or
+`-DOPENRAC_RAC3_PAL_RETAIL_IMAGE=IMAGE`), else from `boot_elf.elf`, the unpacked game the
+decompilation's setup puts in `games/rac3/decomp/baserom/`. The disc's executable is the loader,
+which carries the game WAD-compressed at file offset `0x7080`; hostgen.json's `asm` `loader` says
+where, and which of its records are code (`core.text`, `.text`) and which to leave out (the VU
+microcode), and `retail.py` (`loader_parts`) unpacks it as `host/entry.c` does at run time. Both
+give the same C (compared 2026-11-19: every generated file equal but for the source's name in its
+comments).
 
 ```sh
 cmake --preset release && cmake --build --preset release --target openrac-rac3-pal
@@ -21,6 +37,14 @@ cmake --preset release && cmake --build --preset release --target openrac-rac3-p
 SDL_AUDIODRIVER=dummy "port/build/release/apps/openrac-rac3-pal/Ratchet & Clank 3 (PAL).app/Contents/MacOS/Ratchet & Clank 3 (PAL)" \
     --data <data> --window --skip-movies
 ```
+
+From the launcher (launcher/actions.json, `rac3/pal`), as for Going Commando: *Set up from your
+disc* runs `tools/extractor.py`, which checks the disc against games/rac3/game.json and writes
+`iso_data/rac3/` (`SCES_524.56`, `disc.iso`, `buildinfo.json`) into the game's data folder;
+*Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
+the levels into `assets/port/rac3/pal` (`levels-4.json`), and *Play* runs
+`openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
+no level loads yet. Nothing reads the levels until the first level loads.
 
 `OPENRAC_RAC3_CHAINS=N` prints the VIF codes of the first N display lists and the front end's
 state words (mode, boot state, boot screen, the pad's held and pressed buttons) each frame.
