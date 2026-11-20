@@ -113,6 +113,11 @@ EMBREE_OPTIONS = {
     # standard flag comes after Embree's and wins.
     "CMAKE_CXX_STANDARD": "17",
     "CMAKE_CXX_EXTENSIONS": "OFF",
+    # Windows: the DLL C runtime (/MD), as the baker has. Embree's Clang settings clear the release
+    # flags that carry it under the old policy, and its objects then ask for the static one (/MT),
+    # which the baker's link refuses. Other systems ignore both.
+    "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
+    "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL",
 }
 # x86-64: SSE2 for any machine, AVX and AVX2 for most; Embree picks one at run time. AVX stays on
 # beside AVX2: Embree compiles the 8-wide BVH and its primitives (bvh/bvh.cpp, BVHN<8>, CurveNi<8>)
