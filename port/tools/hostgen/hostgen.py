@@ -1165,7 +1165,8 @@ def prepare_sources(args: argparse.Namespace, cfg: dict, source: Path, root: Pat
         if (source / d).is_dir():
             prep.copy_tree(source / d, root / d, candidates=replacements["candidates"], used=used, drafts=drafts,
                            prefix=d, aliases=replacements["aliases"], long_long_128=replacements["long_long_128"],
-                           overrides=replacements["overrides"], overridden=overridden, release=RELEASE)
+                           overrides=replacements["overrides"], overridden=overridden, release=RELEASE,
+                           jobs=args.jobs)
     return used, overridden
 
 
