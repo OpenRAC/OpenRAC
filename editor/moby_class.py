@@ -494,7 +494,8 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
     # His looks past the first are classes of their own: his skeleton with another pack's packets.
     # The port asks for the class of the pack the game loaded (rac2/profile.cpp).
     starts = {c: s for s, c in (unpack("<ii", e) for e in level.table(0x18, 32))}
-    for number, mesh_file in level.hero_looks:
+    # A level with no class 0 (no Ratchet of its own: the vid-comics, the ship levels) has no looks.
+    for number, mesh_file in level.hero_looks if 0 in starts else ():
         remap = [hero_look_texture(number, i) for i in range(16)]
         result[HERO_LOOK_CLASSES + number] = lenient(level, level.block(starts[0]), remap, HERO_LOOK_CLASSES + number,
                                                      fmt, mesh_file)

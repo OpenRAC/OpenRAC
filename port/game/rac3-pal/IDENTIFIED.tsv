@@ -295,3 +295,6 @@ code	func_L01_00441B78	0x00441B78	MobyProc	rac2 func_002A4E68 (hand-written), th
 code	func_L01_0043AB98	0x0043AB98	AimHeroShadow	rac2 func_0029FFB8, the same 144 bytes: aims the first shadow direction (0x001E0070) by the angle 0x0043BA48 reads from the record at *0x001A71A0, z -0.99
 data	D_L01_001E0070	0x001E0070	shadow_directions	Veldin's four shadow directions (rac2 0x001B1B90), 16 bytes each: the slot a moby's +0xBD picks; moby_end + 0x4C in the single-player levels
 data	D_L39_002935A0	0x002935A0	shadow_directions	the multiplayer maps' copy (level 39's MobyProc 0x005B25C8 copies it at 0x005B26DC)
+code	func_00392DF0	0x00392DF0	request_level_change	(level, save): sets level_next and the change request the level main loop acts on; each story level has its own copy (Veldin 0x0041A3F0, 34 places), which host/program.c calls for the developer menu
+code	func_L01_0045E4B0	0x0045E4B0	MobyUpdateAll	links the live mobys (+0x28 next, from D_001E0028) and calls each one's update (+0x64); a class update that hands its moby on in a0 without naming it (func_L02_003AB1F0 -> moby_remove) needs its own registers: hostgen.json from_assembly
+code	func_003C2880	0x003C2880	moby_remove	frontbin; Veldin's copy func_L01_00439300; calls update_moby_grids (func_003C7958, Veldin 0x0043C430) with the moby
