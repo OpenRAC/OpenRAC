@@ -327,6 +327,20 @@ python3 editor/extract.py port <disc> build/rac3pal --level 1 --anywhere
 openrac-viewer build/rac3pal/level_01 --camera 365,103,82,90,-5 --screenshot veldin.png --frames 5
 ```
 
+What a level's picture still lacks (Veldin, 2026-11-20, hidden runs on box2 with
+`OPENRAC_RAC3_NEXT=60:1`): the sky, terrain, ties, shrubs, fog and the live mobys (Ratchet posed
+and animated) draw natively with the game's camera, but
+
+- **the screen glow** is still the game's packets: it copies the frame into a 256 x 256 buffer
+  (FBP 0x198), shrinks it (FBP 0, 0x1FD) and adds it back over the frame (ALPHA 0x221, FIX 0x80);
+  replayed over the native world it leaves a ghost of the picture and a copy of it in the top left.
+  Its routine is to be found and drawn natively (or left out), as Going Commando's frame copies
+  are (`rac2/host/picture.c`);
+- the world's effect quads (DrawWorldQuad, `0x00407E28`: the draw callbacks' quads, Going
+  Commando's `world_quad`) are not bound: their effect texture records are not paired yet;
+- the export's gaps above (lighting at load, chrome and glass, glow, bangles, Ratchet's other skins
+  and what he holds), water, shadows and the enhanced renderer's inputs.
+
 ## What is missing
 
 - **The Options rows' text is cut at both sides**: each row's text is laid out about three glyphs
