@@ -126,6 +126,39 @@ inline std::string icon_label(std::string_view name) {
     return out.substr(0, 5);
 }
 
+// The same on a narrow key (a round button's place), whose lines hold at most 4: signs for the keys
+// with longer names ("\x01" return, "\x02" shift, "\x03" backspace, "\x04" space, as
+// game/common/key_prompts.cpp draws them), else each line cut to 4.
+inline std::string narrow_icon_label(std::string_view name) {
+    if (name == "Enter") {
+        return "\x01";
+    }
+    if (name == "ShiftLeft" || name == "ShiftRight") {
+        return "\x02";
+    }
+    if (name == "Backspace") {
+        return "\x03";
+    }
+    if (name == "Space") {
+        return "\x04";
+    }
+    if (name == "NumpadEnter") {
+        return "NUM\nENT";
+    }
+    std::string out;
+    std::size_t from = 0;
+    const std::string full = icon_label(name);
+    while (from <= full.size()) {
+        const std::size_t end = std::min(full.find('\n', from), full.size());
+        out += full.substr(from, std::min<std::size_t>(end - from, 4));
+        if (end < full.size()) {
+            out += '\n';
+        }
+        from = end + 1;
+    }
+    return out;
+}
+
 // The movement keys (forward, left, back, right) on one key icon: their four letters ("WASD") when
 // each is one letter, else "MOVE".
 inline std::string move_label(const std::array<std::string_view, 4>& names) {

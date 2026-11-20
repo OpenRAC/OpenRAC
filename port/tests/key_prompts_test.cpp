@@ -255,20 +255,34 @@ int whites(const std::vector<std::uint8_t>& m, std::uint32_t u) {
     return n;
 }
 
-void every_key() {
-    // Every key and mouse button a bind can name shows on a key: its label fits (one or two lines
-    // of at most 5), each of its letters and signs has a glyph, and no two keys look alike unless
-    // they read the same (left and right Shift).
+// Font 0's cell at `u` (24 x 16).
+std::vector<std::uint8_t> cell_at(const std::vector<std::uint8_t>& m, std::uint32_t u) {
+    std::vector<std::uint8_t> cell;
+    for (std::uint32_t v = 0; v < 16; ++v) {
+        cell.insert(
+            cell.end(), &m[kBank + (96 + v) * 256 + u], &m[kBank + (96 + v) * 256 + u + 24]
+        );
+    }
+    return cell;
+}
+
+// Every key and mouse button a bind can name shows on a key, a tab (L1, lines of at most 5) and a
+// narrow key (Cross, lines of at most 4): each of its letters and signs has a glyph, and no two keys
+// look alike unless they read the same (left and right Shift).
+void every_key_on(kp::Cell at, std::size_t most) {
+    const bool narrow = at == kp::Cross;
+    const std::uint32_t u = narrow ? 0u : 96u;
     std::set<std::vector<std::uint8_t>> pictures;
     std::set<std::string> texts;
     for (int i = 0; i < OPENRAC_BIND_NAME_COUNT; ++i) {
         const std::string name = openrac_bind_names[i].name;
-        const std::string label = openrac::keys::icon_label(name);
+        const std::string label =
+            narrow ? openrac::keys::narrow_icon_label(name) : openrac::keys::icon_label(name);
         const std::size_t split = label.find('\n');
         CHECK(label.find('\n', split == std::string::npos ? 0 : split + 1) == std::string::npos);
         CHECK(
-            split == std::string::npos ? label.size() <= 5
-                                       : split <= 5 && label.size() - split - 1 <= 5
+            split == std::string::npos ? label.size() <= most
+                                       : split <= most && label.size() - split - 1 <= most
         );
         for (char c : label) {
             if (c == '\n') {
@@ -278,31 +292,64 @@ void every_key() {
             kp::Fonts f;
             CHECK(kp::find_fonts(m.data(), kRam, kBankWord, kTable, f));
             kp::Labels one{};
-            one[kp::Cross] = std::string(1, c);
+            one[at] = std::string(1, c);
             CHECK(kp::paint(f, one));
-            if (whites(m, 0) == 0) {
+            if (whites(m, u) == 0) {
                 std::fprintf(stderr, "no glyph for '%c' (%s)\n", c, name.c_str());
             }
-            CHECK(whites(m, 0) > 0);
+            CHECK(whites(m, u) > 0);
         }
         std::vector<std::uint8_t> m = game_memory(3, 64);
         kp::Fonts f;
         CHECK(kp::find_fonts(m.data(), kRam, kBankWord, kTable, f));
         kp::Labels l{};
-        l[kp::Cross] = name;
+        l[at] = name;
         CHECK(kp::paint(f, l));
-        CHECK(whites(m, 0) > 0);
-        std::vector<std::uint8_t> cell;
-        for (std::uint32_t v = 0; v < 16; ++v) {
-            cell.insert(cell.end(), &m[kBank + (96 + v) * 256], &m[kBank + (96 + v) * 256 + 24]);
-        }
+        CHECK(whites(m, u) > 0);
         const bool same_text = !texts.insert(label).second;
-        const bool same_picture = !pictures.insert(cell).second;
+        const bool same_picture = !pictures.insert(cell_at(m, u)).second;
         if (same_picture && !same_text) {
             std::fprintf(stderr, "%s looks like another key\n", name.c_str());
         }
         CHECK(!same_picture || same_text);
     }
+}
+
+void every_key() {
+    every_key_on(kp::L1, 5);
+    every_key_on(kp::Cross, 4);
+}
+
+void narrow_keys() {
+    // Where the game's icon is round (the face buttons, the sticks) the key ends four texels sooner
+    // than a tab, and the texels after it stay the game's: the text after the icon keeps its gap.
+    std::vector<std::uint8_t> m = game_memory(3, 64);
+    const std::vector<std::uint8_t> game = game_memory(3, 64);
+    kp::Fonts f;
+    CHECK(kp::find_fonts(m.data(), kRam, kBankWord, kTable, f));
+    kp::Labels l{};
+    l[kp::Cross] = "KeyE";
+    l[kp::RightStick] = "Mouse";
+    l[kp::L1] = "KeyE";
+    CHECK(kp::paint(f, l));
+    for (std::uint32_t v = 0; v < 16; ++v) {
+        for (std::uint32_t x = 20; x < 24; ++x) {
+            CHECK(at(m, x, v) == at(game, x, v));
+            CHECK(at(m, 232 + x, v) == at(game, 232 + x, v));
+        }
+    }
+    // The same key as a tab and as a narrow key: not the same picture, and the tab's right border
+    // (its last columns) is where the narrow key's ends.
+    CHECK(cell_at(m, 0) != cell_at(m, 96));
+    for (std::uint32_t v = 0; v < 16; ++v) {
+        CHECK(at(m, 19, v) == at(m, 96 + 23, v));
+    }
+    // Long names take a sign there: return, shift, backspace and space, one glyph each.
+    for (const char* name : {"Enter", "ShiftLeft", "Backspace", "Space"}) {
+        CHECK(openrac::keys::narrow_icon_label(name).size() == 1);
+    }
+    CHECK(openrac::keys::narrow_icon_label("CapsLock") == "CAPS\nLOCK");
+    CHECK(openrac::keys::narrow_icon_label("Pause") == "PAUS");
 }
 
 // Font 0 as the renderer converts it: each texel its palette entry's colour (CSM1 order).
@@ -398,6 +445,7 @@ int main() {
     blank_keys_and_mice();
     long_labels();
     every_key();
+    narrow_keys();
     sharp_pictures();
     std::puts("key_prompts: ok");
     return 0;

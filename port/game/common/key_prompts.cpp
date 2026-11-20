@@ -22,6 +22,9 @@ constexpr int kCellW = 24, kCellH = 16;
 constexpr std::array<std::uint32_t, kCells> kCellU = {0, 24, 48, 72, 96, 120, 144, 168, 208, 232};
 // The shoulder tabs' face inside a cell: x 4..22, y 3..13 (the tab's border around it).
 constexpr int kFaceX0 = 4, kFaceX1 = 23, kFaceY0 = 3, kFaceY1 = 14;
+// A narrow key, where the game's icon is a round button or a stick: the tab with four columns of its
+// middle taken out, so it ends (x 19) where the round icon does and the text after it keeps its gap.
+constexpr int kNarrowCut = 10, kNarrowLess = 4, kNarrowX1 = kFaceX1 - kNarrowLess;
 
 // clang-format off
 // A glyph: its character and its rows' bits, the leftmost pixel the highest of the glyph's width.
@@ -36,6 +39,11 @@ struct Small {
 
 // 5 x 7, for up to three letters.
 constexpr Big kBig[] = {
+    // Signs for keys whose names do not fit a narrow key: return, shift, backspace and space.
+    {'\x01', {0x01, 0x01, 0x09, 0x1F, 0x08, 0x00, 0x00}},
+    {'\x02', {0x04, 0x0A, 0x11, 0x1B, 0x0A, 0x0A, 0x0E}},
+    {'\x03', {0x00, 0x04, 0x08, 0x1F, 0x08, 0x04, 0x00}},
+    {'\x04', {0x00, 0x00, 0x00, 0x00, 0x11, 0x11, 0x1F}},
     {'A', {0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11}},
     {'B', {0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E}},
     {'C', {0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E}},
@@ -151,8 +159,12 @@ std::uint8_t* row_of(std::uint8_t* font, std::uint32_t y) {
     return font + (kRow + y) * kFontWidth;
 }
 
-// A cell's picture: 0 the key's face, 1 white, 2 the letters' grey edge.
-using Picture = std::array<std::array<std::uint8_t, kCellW>, kCellH>;
+// A cell's picture: 0 the key's face, 1 white, 2 the letters' grey edge; and the face's left and
+// right end (x1 past it): a tab's, or a narrow key's.
+struct Picture : std::array<std::array<std::uint8_t, kCellW>, kCellH> {
+    int x0 = kFaceX0;
+    int x1 = kFaceX1;
+};
 
 // The mouse, 9 x 10: its outline, its two buttons and the wheel between them.
 constexpr std::array<std::uint16_t, 10> kMouse =
@@ -180,7 +192,7 @@ enum class Turn {
 };
 
 void put(Picture& p, int x, int y, std::uint8_t v) {
-    if (x >= kFaceX0 && x < kFaceX1 && y >= kFaceY0 && y < kFaceY1) {
+    if (x >= p.x0 && x < p.x1 && y >= kFaceY0 && y < kFaceY1) {
         p[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)] = v;
     }
 }
@@ -261,8 +273,8 @@ const std::uint8_t* glyph(char c, bool big) {
 // One line of text, centred across the face, its top at `top`.
 void draw_line(Picture& p, std::string_view text, bool big, int top) {
     const int w = big ? 5 : 3, h = big ? 7 : 5, advance = w + 1;
-    const int n = std::min(static_cast<int>(text.size()), (kFaceX1 - kFaceX0 + 1) / advance);
-    const int left = (kFaceX0 + kFaceX1 - (n * advance - 1)) / 2;
+    const int n = std::min(static_cast<int>(text.size()), (p.x1 - p.x0 + 1) / advance);
+    const int left = (p.x0 + p.x1 - (n * advance - 1)) / 2;
     for (int i = 0; i < n; ++i) {
         if (const std::uint8_t* rows = glyph(text[static_cast<std::size_t>(i)], big)) {
             draw_bits(p, left + i * advance, top, rows, w, h, Turn::Up);
@@ -270,7 +282,7 @@ void draw_line(Picture& p, std::string_view text, bool big, int top) {
     }
 }
 
-// Up to 3 letters in the large font, more in the small one, two lines ("NUM\n4") in the small one
+// Few letters in the large font, more in the small one, two lines ("NUM\n4") in the small one
 // one above the other; what does not fit is left out.
 void draw_text(Picture& p, std::string_view text) {
     const std::size_t split = text.find('\n');
@@ -279,23 +291,26 @@ void draw_text(Picture& p, std::string_view text) {
         draw_line(p, text.substr(split + 1), false, kFaceY1 - 5);
         return;
     }
-    const bool big = text.size() <= 3;
+    // The large letters when they fit the face (up to 3 on a tab, 2 on a narrow key).
+    const bool big = static_cast<int>(text.size()) * 6 - 1 <= p.x1 - p.x0;
     draw_line(p, text, big, (kFaceY0 + kFaceY1 - (big ? 7 : 5)) / 2);
 }
 
-// What a cell shows for `label` (Labels).
-Picture key_picture(const std::string& label) {
+// What a cell shows for `label` (Labels), on a tab or a narrow key.
+Picture key_picture(const std::string& label, bool narrow) {
     Picture p{};
+    p.x1 = narrow ? kNarrowX1 : kFaceX1;
     const int top = (kFaceY0 + kFaceY1 - 10) / 2;
     // The mouse alone, or a button of it lit.
     const auto mouse_only = [&](MouseLit lit) {
-        draw_mouse(p, 9, top, lit);
+        draw_mouse(p, (p.x0 + p.x1 - 9) / 2, top, lit);
     };
     // The mouse on the left, the way it goes on the right.
     const auto mouse_way = [&](MouseLit lit, Turn turn) {
-        draw_mouse(p, 6, top, lit);
+        const int left = narrow ? p.x0 : 6;
+        draw_mouse(p, left, top, lit);
         const bool across = turn == Turn::Left || turn == Turn::Right;
-        draw_bits(p, across ? 17 : 16, top + (across ? 2 : 3), kWheelArrow, 5, 3, turn);
+        draw_bits(p, left + (across ? 11 : 10), top + (across ? 2 : 3), kWheelArrow, 5, 3, turn);
     };
     if (label == "Mouse") {
         mouse_only(MouseLit::None);
@@ -322,13 +337,15 @@ Picture key_picture(const std::string& label) {
                           : label == "ArrowDown" ? Turn::Down
                           : label == "ArrowLeft" ? Turn::Left
                                                  : Turn::Right;
-        draw_bits(p, (kFaceX0 + kFaceX1 - 7) / 2, (kFaceY0 + kFaceY1 - 7) / 2, kArrow, 7, 7, turn);
+        draw_bits(p, (p.x0 + p.x1 - 7) / 2, (kFaceY0 + kFaceY1 - 7) / 2, kArrow, 7, 7, turn);
     } else {
-        draw_text(p, openrac::keys::icon_label(label));
+        draw_text(
+            p, narrow ? openrac::keys::narrow_icon_label(label) : openrac::keys::icon_label(label)
+        );
     }
     // The game's letters have a grey edge to their right.
     for (int y = kFaceY0; y < kFaceY1; ++y) {
-        for (int x = kFaceX1 - 1; x > kFaceX0; --x) {
+        for (int x = p.x1 - 1; x > p.x0; --x) {
             auto& row = p[static_cast<std::size_t>(y)];
             if (row[static_cast<std::size_t>(x)] == 0
                 && row[static_cast<std::size_t>(x - 1)] == 1) {
@@ -465,6 +482,30 @@ bool blank_key(const std::uint8_t* font, const std::uint8_t* palette, Key& out) 
     return true;
 }
 
+// A font's narrow key for the cell whose own texels are `own` (a row of the font at the cell's left):
+// the tab without kNarrowLess columns of its middle, its shading squeezed to match, then the cell's
+// own texels past it (where the game's round icon leaves them empty).
+Key narrow_key(const Key& wide, const std::uint8_t* own) {
+    Key k = wide;
+    for (int y = 0; y < kCellH; ++y) {
+        auto& row = k.cell[static_cast<std::size_t>(y)];
+        const auto& from = wide.cell[static_cast<std::size_t>(y)];
+        for (int x = kNarrowCut; x < kCellW; ++x) {
+            row[static_cast<std::size_t>(x)] =
+                x + kNarrowLess < kCellW
+                    ? from[static_cast<std::size_t>(x + kNarrowLess)]
+                    : own[static_cast<std::size_t>(y) * kFontWidth + static_cast<std::size_t>(x)];
+        }
+    }
+    // The same shading from the face's left end to its right one, over the shorter face.
+    const double squeeze = static_cast<double>(kFaceX1 - kFaceX0) / (kNarrowX1 - kFaceX0);
+    for (auto& channel : k.plane) {
+        channel[0] += channel[1] * kFaceX0 * (1.0 - squeeze);
+        channel[1] *= squeeze;
+    }
+    return k;
+}
+
 // How many times as big the sharp picture of a cell is: enough for a 4K screen (2160 lines over the
 // game's 448).
 constexpr int kSharp = 6;
@@ -526,7 +567,7 @@ std::vector<std::uint8_t> sharp_picture(
         for (int x = 0; x < kCellW; ++x) {
             const auto sy = static_cast<std::size_t>(y), sx = static_cast<std::size_t>(x);
             white[sy][sx] = p[sy][sx] == 1;
-            const bool face = x >= kFaceX0 && x < kFaceX1 && y >= kFaceY0 && y < kFaceY1;
+            const bool face = x >= p.x0 && x < p.x1 && y >= kFaceY0 && y < kFaceY1;
             const auto plane = [&](int k) {
                 return std::clamp(
                     key.plane[k][0] + key.plane[k][1] * x + key.plane[k][2] * y, 0.0, 255.0
@@ -564,7 +605,7 @@ std::vector<std::uint8_t> sharp_picture(
             const double strokes = stroke_cover(white, px, py);
             const double shade = std::min<double>(
                 stroke_cover(white, px - 1.0f, py),
-                px <= static_cast<float>(kFaceX1) - 0.5f ? 1.0 : 0.0
+                px <= static_cast<float>(p.x1) - 0.5f ? 1.0 : 0.0
             );
             colour =
                 {mix(colour.r, edge.r, shade),
@@ -661,10 +702,17 @@ bool paint(const Fonts& f, const Labels& labels) {
         if (label.empty()) {
             continue;
         }
-        const Picture p = key_picture(label);
+        // The game's round buttons and sticks are narrower than its shoulder tabs, and its text
+        // follows them closer: a narrow key there.
+        const bool narrow = c < L1 || c > R2;
+        const Picture p = key_picture(label, narrow);
         const std::uint32_t u = kCellU[static_cast<std::size_t>(c)];
         for (int i = 0; i < f.count; ++i) {
-            const Key& key = keys[static_cast<std::size_t>(i)];
+            const Key key = narrow ? narrow_key(
+                                         keys[static_cast<std::size_t>(i)],
+                                         rows[static_cast<std::size_t>(i)].data() + u
+                                     )
+                                   : keys[static_cast<std::size_t>(i)];
             renderer::sharp_cells::Cell cell{
                 static_cast<int>(u), static_cast<int>(kRow), kCellW, kCellH, {}, {}
             };
