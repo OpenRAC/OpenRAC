@@ -159,6 +159,7 @@
   "asm": {
     "enabled": true,
     "signatures": {
+      "func_003AA168": "int (int, int, float)",
       "func_00391100": "int (int, int, float)",
       "func_00391128": "int (int, int, float)",
       "func_00391150": "int (int, int, int, float)",
