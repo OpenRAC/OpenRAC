@@ -1,0 +1,94 @@
+# Ratchet & Clank 3, SCES_524.56 (PAL): the functions of the program that the
+# runtime answers itself, by address. The disc boots a loader (SCES_524.56,
+# linked at 0x800000) that unpacks the game's program over low memory and
+# starts it at 0x13ADA8: the `payload` line says so, and the lines after it
+# are of that program (the decompilation's boot_elf). They were found by
+# carrying SCUS_972.68.hooks over by the shape of the first instructions
+# (tools/port_hooks.py), the rest by the library function each one calls; the
+# names are those of the services in src/sys/services.cpp.
+#
+# address  service            what is there
+#
+# `inputs=N` is how many argument registers (a0-a3, then t0-t3) the replaced
+# library function takes, from its public signature: openrac-fcheck compares
+# those of a call, and not what the caller merely left in the others. A line
+# without it compares a0 alone.
+
+payload 0013ADA8
+
+# The disc drive.
+0012B300 sceCdInit inputs=1
+0012B5E8 sceCdDiskReady inputs=1
+0012BD50 sceCdMmode inputs=1
+0012BA20 sceCdRead.callback inputs=4
+0012AA78 sceCdCallback inputs=1
+0012B098 sceCdSync inputs=1
+0012BC00 sceCdGetError inputs=0
+0012BC98 sceCdBreak inputs=0
+
+# The second processor: there is none, so starting it and talking to it succeed at once.
+00124308 return1            # sceSifRebootIop
+001242B8 return1            # sceSifSyncIop
+00121FE8 return0            # sceSifInitRpc
+00123B10 return0            # sceSifInitIopHeap
+001233F8 return0            # sceFsReset
+
+# The display.
+0012C908 sceGsSyncV inputs=1
+
+# The console.
+0013A880 sceScfGetLanguage
+0012E9B0 printf             # the game's own message printer
+
+# Start-up code that searches and patches the console's kernel. There is no
+# kernel image here; what those patches provide, the runtime's kernel calls do.
+00124A80 nothing            # InitSystemCallTableAddress
+00124FB8 nothing            # the alarm patch
+00124CB8 nothing            # the configuration patch
+00124488 return0            # the TLB functions
+
+# Remote calls to the second processor. Only the sound library reaches them:
+# the disc, card and pad libraries are replaced above them.
+00122630 sceSifBindRpc inputs=3
+00122A10 sceSifCheckStatRpc inputs=1
+00122810 sceSifCallRpc.989snd inputs=8
+
+# The sound library's own disc access (it shares the drive with streaming):
+# each calls the disc library function it stands for when the sound system is
+# off, and queues the request for the sound processor otherwise.
+0013CD28 sceCdRead.callback inputs=4    # calls sceCdRead (0012BA20)
+0013CDF0 sceCdSync inputs=1             # calls sceCdSync (0012B098)
+0013CEB0 sceCdBreak inputs=0            # calls sceCdBreak (0012BC98)
+0013CEF8 sceCdGetError inputs=0         # calls sceCdGetError (0012BC00)
+0013CF40 sceCdCallback inputs=1         # calls sceCdCallback (0012AA78)
+
+# The memory card.
+0012DCA0 sceMcOpen inputs=4
+0012DDC8 sceMcMkdir inputs=3
+0012DE00 sceMcClose inputs=1
+0012E050 sceMcRead inputs=3
+0012E168 sceMcWrite inputs=3
+0012E2E0 sceMcSync inputs=3
+0012E400 sceMcGetInfo inputs=5
+0012E580 sceMcGetDir inputs=6
+
+# The pad: the first pad library (libpad), found by the front end's pad state
+# machine (its calls in the order of the public start-up sequence).
+0012EA38 return1                        # sceDbcInit
+0012EC90 return1                        # scePadInit
+0012EF10 return1                        # scePadPortOpen
+0012F3F8 scePadRead inputs=3
+0012F470 scePadGetState inputs=2
+0012F5A8 scePadGetReqState inputs=2
+0012F608 return1                        # scePadInfoAct
+0012F728 scePadInfoMode inputs=4
+0012F860 return1                        # scePadSetMainMode
+0012F9E0 return1                        # scePadSetActAlign
+0012FC18 return1                        # scePadInfoPressMode
+0012FC78 return1                        # scePadEnterPressMode
+0012FF40 return1                        # scePadSetActDirect
+0012FFE0 return1
+
+# Movies are not played: the boot front end's player returns at once, 1 as
+# for a skipped movie.
+003AFC48 return1

@@ -29,6 +29,21 @@ its result, kept registers and a memory hash. Compare memory, not just the rando
 a loader with its `resume` test inverted passed those, and memory caught it. It covers only what the
 route ran.
 
+`openrac-fcheck --size BYTES` (the retail function's size) also compares memory at each call the
+function itself makes, when the callee starts (after the delay slot): where the call goes and every
+word written so far, so a store retail makes in a call's delay slot that the candidate makes after
+the call differs, though both leave the same memory at the return. The argument registers at those
+calls are printed as `note:` lines, not differences. `--coverage FILE --cover-size BYTES` with a
+candidate writes which of retail's instructions the states ran while comparing; a NaN or infinity
+the candidate writes where retail has a number is named in the difference.
+
+Up Your Arsenal (PAL, `SCES_524.56.hooks`) boots a loader that unpacks the game's program over low
+memory: its hooks table's `payload ENTRY` line holds the lines after it until the loader has written
+the program (the first kernel call after the word at ENTRY changed). It runs headless through the
+boot, the logos and the title to the main menu and its pages; its pad is the first pad library
+(`scePadRead` and friends in `src/sys/services.cpp`), its movies are skipped. The decompilation's
+`tools/fcheck.py` drives it.
+
 The EE is charged 2 cycles an instruction. At that rate Going Commando's
 level 0 misses a field now and then, so a `--trace` repeats or skips a game
 tick and a `--press` lands on a different tick than the port's. For a

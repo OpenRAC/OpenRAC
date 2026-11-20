@@ -347,6 +347,12 @@ int openrac_mod_pages_after(int index);
  * (rac2/host/platinum_trail.c). From the game's thread (mod_play.cpp). */
 int openrac_moby_platinum(gaddr moby);
 
+/* Whether a mod draws `moby` as obsidian (OPENRAC_MOBY_MATERIAL_OBSIDIAN, interface 1.24): 1 when
+ * the material on it this level load is obsidian, with its glow colour (0xRRGGBB, 0xFFFFFF the
+ * default) in `*rgb` when `rgb` is not null; else 0. For the same effects as openrac_moby_platinum.
+ * From the game's thread (mod_play.cpp). */
+int openrac_moby_obsidian(gaddr moby, uint32_t* rgb);
+
 #define OPENRAC_MOD_PAGES_TEXT 64
 #define OPENRAC_MOD_PAGES_ROWS 12
 #define OPENRAC_MOD_PAGES_FOOTER 3

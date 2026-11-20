@@ -70,6 +70,7 @@ export const PAGE = {
   tabEditor: "Level editor",
   tabAssets: "Models and textures",
   tabAudio: "Audio",
+  toolsLabel: "Tools",
   earlyTitle: "Early access",
   earlyLine:
     "Its levels open in Godot and you can make texture and model packs. Packing level edits and playing come later.",
@@ -316,6 +317,10 @@ export const TEXTURES = {
   badge: "Texture pack",
   badgeHint: "Pictures that replace the game's own by their name, at any size.",
   make: "Make your own",
+  import: "Import",
+  importZip: "A texture pack (.zip)…",
+  importPcsx2: "A PCSX2 texture pack (folder)…",
+  clearPcsx2: "Stop using the PCSX2 pack",
   share: "Share my pack…",
   replace: "Replace with a pack…",
   replaceYes: "Replace my pack",

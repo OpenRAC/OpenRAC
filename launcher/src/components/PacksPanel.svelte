@@ -275,38 +275,43 @@
               PCSX2 · {pack.pcsx2Path}
             </div>{/if}
         </div>
-        {#if onmake}
-          <button class="small" onclick={onmake}
-            ><Icon name="edit" size={14} />{TEXTURES.make}</button
-          >
-        {/if}
+        <!-- Import first: where a pack comes from is picked in its menu (a .zip, or PCSX2's folder). -->
         <Menu
-          label={`More for ${TEXTURES.name}`}
+          text={TEXTURES.import}
+          icon="download"
+          label={`${TEXTURES.import} into ${TEXTURES.name}`}
           items={[
-            ...(!onAndroid && pack.pcsx2Path
+            { label: TEXTURES.importZip, icon: "download" as const, run: () => void replace() },
+            ...(!onAndroid
               ? [
                   {
-                    label: "Clear PCSX2 Pack",
-                    icon: "trash" as const,
-                    run: () => void selectPcsx2(true),
+                    label: TEXTURES.importPcsx2,
+                    icon: "folder" as const,
+                    run: () => void selectPcsx2(),
                   },
                 ]
               : []),
+          ]}
+        />
+        <Menu
+          label={`More for ${TEXTURES.name}`}
+          items={[
+            ...(onmake ? [{ label: TEXTURES.make, icon: "edit" as const, run: onmake }] : []),
             ...(pack.packCount
               ? [{ label: TEXTURES.share, icon: "upload" as const, run: () => void share() }]
               : []),
-            { label: TEXTURES.replace, icon: "download" as const, run: () => void replace() },
             {
               label: TEXTURES.openFolder,
               icon: "folder" as const,
               run: () => void guardShown(api.texturePacksOpen(v.game, v.name, false)),
             },
-            ...(!onAndroid
+            ...(!onAndroid && pack.pcsx2Path
               ? [
                   {
-                    label: "Choose PCSX2 Pack",
-                    icon: "folder" as const,
-                    run: () => void selectPcsx2(),
+                    label: TEXTURES.clearPcsx2,
+                    icon: "trash" as const,
+                    danger: true,
+                    run: () => void selectPcsx2(true),
                   },
                 ]
               : []),

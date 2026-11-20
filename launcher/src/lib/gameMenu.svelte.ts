@@ -14,7 +14,6 @@ import {
   toast,
   uninstallGame,
 } from "./app.svelte";
-import { supports } from "./capabilities";
 import { isBuilt, type PlayerState, rebuild, rebuildSteps } from "./player.svelte";
 
 /** Asked of the game's page as it opens: unfold Help with its logs (the menu's way from Games). */
@@ -68,7 +67,6 @@ export function gameMenu(
   const scope = { kind: "version" as const, key: v.key };
   const setUp = !!game.install?.extracted;
   const playGodot = action("editor-preview");
-  const extract = action("editor-extract");
   const items: MenuItem[] = [];
 
   if (next?.kind === "return") {
@@ -92,11 +90,6 @@ export function gameMenu(
       icon: "play",
       run: () => void run(scope, playGodot),
     });
-  }
-
-  if (extract && extract.state !== "planned" && !onAndroid && supports(app.info, "mods")) {
-    // Android has no Godot: its Mods tab has the mods and packs, not the level editor.
-    items.push({ label: "Edit its levels (Mods)", icon: "edit", run: () => (app.page = "mods") });
   }
 
   if (setUp) items.push({ label: "Logs and crash reports", icon: "book", run: showLogs });

@@ -76,6 +76,11 @@ type HookPoint =
     | "rac1.player.enter_move_state"
     | "rac1.player.resolve_gravity_mode"
     | "rac1.player.update_equipped_items"
+    | "rac1.player.steer_planar_velocity"
+    | "rac1.player.update_movement"
+    | "rac1.fx.world_quad.draw"
+    | "rac1.fx.thruster_flame.draw"
+    | "rac1.fx.burst.spawn"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -715,6 +720,9 @@ type HookPoint =
     | "rac1.moby.moby1906.update"
     | "Ammo_ChooseDrop"
     | "Ammo_SpawnDrop"
+    | "FX_DrawWorldQuad"
+    | "FX_SpawnBurst"
+    | "FX_ThrusterFlame_Draw"
     | "FollowCamera_ApplyOverrides"
     | "GoldBolts_CountCollected"
     | "GoldBolts_CountUnspent"
@@ -725,11 +733,13 @@ type HookPoint =
     | "Hero_EnterMoveState"
     | "Hero_ResolveGravityMode"
     | "Hero_SetPlanarVelocity"
+    | "Hero_SteerPlanarVelocity"
     | "Hero_TakeDamage"
     | "Hero_TurnToHeading"
     | "Hero_Update"
     | "Hero_UpdateEquippedItems"
     | "Hero_UpdateMotionInput"
+    | "Hero_UpdateMovement"
     | "Hud_QuickSelect_Draw"
     | "Hud_QuickSelect_Init"
     | "Hud_QuickSelect_Update"
@@ -1570,6 +1580,16 @@ type Hero_EnterMoveStateFn = (state: number, force: number) -> number
 type Hero_ResolveGravityModeFn = () -> number
 -- rac1.player.update_equipped_items (Hero_UpdateEquippedItems) void(): What the hero holds, once a tick from Hero_Update in every level: it locks item selection and use (+0x20A7, +0x20AC) while he is on magnetic ground with the Magneboots (+0x308 is 1), in control modes 0x15 and 0x16, or in water or dying, then spawns, updates, animates and lights the item mobys and runs the items (hero_update_items). Hero_EnterMoveState clears both locks on a change of state.
 type Hero_UpdateEquippedItemsFn = () -> ()
+-- rac1.player.steer_planar_velocity (Hero_SteerPlanarVelocity) void(f32): Steers the hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by at most step a tick, up to three times that as it turns him (1.7 times in state 0x81); in gravity modes 1 and 2 it eases the velocity's length along the ground toward his target speed by step instead. steer_hero_planar_velocity in levels 0, 4, 7, 9, 10, 12, 13, 14 and 17, and its copy air_accel in the others, one hook point. The move states call it after setting the target speed and the step, the Thruster-Pack's hover (state 0x81) among them, so a replacement can steer the hero at a speed and acceleration of its own.
+type Hero_SteerPlanarVelocityFn = (step: number) -> ()
+-- rac1.player.update_movement (Hero_UpdateMovement) void(): The hero's movement for the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput after it reads the stick: a case per state that sets his target speed and turn, steers or sets his velocity (+0xE0) and applies gravity, the Thruster-Pack's hover (state 0x81) among them. hero_update_movement in levels 0, 4, 7, 9, 10 and 13, and each other level's own build of it, one hook point. A replacement can move the hero itself in the states it wants and call the original for the others; his state's transitions come after it, later in Hero_Update.
+type Hero_UpdateMovementFn = () -> ()
+-- rac1.fx.world_quad.draw (FX_DrawWorldQuad) void(u32,u32,i32): Queues one effect quad for the effect renderer (draw_world_quad): the 0x90-byte record at quad holds four corners (+0x00, x y z w each), four RGBA words (+0x40, alpha 0x80 opaque), four ST pairs (+0x50), then the GS words CLAMP, TEX0 (the texture), TEX1 and ALPHA (+0x70, +0x78, +0x80, +0x88); the corners go through the matrix at matrix when it is not 0. Most effects' draw callbacks call it, many times a frame: glows, flames, beams, shots. A replacement can rewrite the record (its colours, say) before it calls the original; the record is the caller's, which may draw it again. The port's own C, not the game's: the executable's quad routine, which a few draws call directly, is not this hook point.
+type FX_DrawWorldQuadFn = (quad: number, matrix: number, mode: number) -> ()
+-- rac1.fx.thruster_flame.draw (FX_ThrusterFlame_Draw) void(u32): Draws one of the Thruster-Pack's two flames (flame, a class 0xA7 moby; draw_joint_aligned_beam_effect), the draw callback its update queues each frame it burns: two quads of effect texture 0xC in the colour 0x80808080 and a glow of texture 0xB in 0x7F2020FF, through rac1.fx.world_quad.draw, then a ribbon of 196 points coloured from the table joint_beam_ribbon_colors. A replacement that sets a flag around the original can tell the flame's quads from the others in rac1.fx.world_quad.draw. The flame's sparks come from its update (rac1.moby.moby167.update) through rac1.fx.burst.spawn.
+type FX_ThrusterFlame_DrawFn = (flame: number) -> ()
+-- rac1.fx.burst.spawn (FX_SpawnBurst) u32(u32,u32,i32,i32,i32,i32,f32): Spawns a spark (a type 0x15 particle; spawn_burst) at the vector at pos, moving by the vector at dir, for ticks ticks (none when 0): its RGBA colour fades from colour to fade as it shrinks from size, and while children is non-zero it throws off a spark of its current colour every other frame. Returns the particle, or 0. The sparks of many effects, explosions and debris among them; the Thruster-Pack's flames spawn theirs in 0x4F007FFF fading to 0x1FFFFFFF from their update (rac1.moby.moby167.update), so a replacement can recolour only those by swapping colour and fade while that update runs.
+type FX_SpawnBurstFn = (pos: number, dir: number, colour: number, fade: number, ticks: number, children: number, size: number) -> number
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 
