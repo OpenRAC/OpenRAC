@@ -12,9 +12,9 @@
 #define RAC3_ADDR_0x00142120u 0x00142120u /* D_00142120 (names.tsv, the same address) */
 #define RAC3_ADDR_0x00142430u 0x00142430u /* D_00142430 (names.tsv, the same address) */
 #define RAC3_ADDR_0x00143950u 0x00143950u /* D_00143950 (names.tsv, the same address) */
-#define RAC3_ADDR_0x001439F4u 0u /* not known on NTSC-U */
+#define RAC3_ADDR_0x001439F4u 0x001439F4u /* release.json: the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_004D0E90 (NTSC-U func_L01_004CD1D0) +0x68, 2 of 2 places; the options block D_00143950 is at the same address on both discs */
 #define RAC3_ADDR_0x001439FDu 0x001439FDu /* D_001439FD (names.tsv, the same address) */
-#define RAC3_ADDR_0x00143A70u 0u /* not known on NTSC-U */
+#define RAC3_ADDR_0x00143A70u 0x00143A70u /* release.json: the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_0049FBC8 (NTSC-U func_L01_0049C368) +0x1DC, 2 of 2 places; the options block D_00143950 is at the same address on both discs */
 #define RAC3_ADDR_0x00160C40u 0x00160C40u /* D_00160C40 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001A4C60u 0x001A4C60u /* D_001A4C60 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001CD0C0u 0x001CD0C0u /* D_001CD0C0 (names.tsv, the same address) */
