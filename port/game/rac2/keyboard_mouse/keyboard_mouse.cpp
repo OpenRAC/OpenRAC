@@ -95,6 +95,8 @@ bool s_click_held = false;
 kbm::GridSeek s_grid;  // a grid's selection frame on its way to a clicked cell
 std::array<kbm::GuiSprite, kbm::kGridSpritesMax> s_sprites{};
 int s_sprite_count = 0;
+std::array<kbm::PromptSpot, OPENRAC_RAC2_PROMPT_SPOTS_MAX> s_spots{};
+int s_spot_count = 0;
 
 // A tick's input and where the game is.
 struct Tick {
@@ -209,6 +211,22 @@ void take_texts() {
     }
 }
 
+// The button icons in the texts the last whole frame drew.
+void take_spots() {
+    std::array<openrac_rac2_prompt_spot, OPENRAC_RAC2_PROMPT_SPOTS_MAX> drawn{};
+    const int n = openrac_rac2_take_prompt_spots(drawn.data());
+    for (int i = 0; i < n; ++i) {
+        const openrac_rac2_prompt_spot& d = drawn[static_cast<std::size_t>(i)];
+        const auto at = [](float v) {
+            return static_cast<std::int32_t>(std::lround(v));
+        };
+        s_spots[static_cast<std::size_t>(i)] = kbm::PromptSpot{
+            d.cell, kbm::Rect{at(d.x0), at(d.y0), at(d.x1 - d.x0), at(d.y1 - d.y0)}
+        };
+    }
+    s_spot_count = n;
+}
+
 // The GUI sprite elements the last whole frame drew.
 void take_sprites() {
     static std::array<openrac_rac2_ui_quad, OPENRAC_RAC2_UI_QUADS_MAX> drawn{};
@@ -265,12 +283,9 @@ bool menu_mouse(const Tick& t, bool click) {
     s_last_px = px;
     s_last_py = py;
 
-    const std::uint16_t icon =
-        nav.hit >= 0 ? kbm::button_of_cell(s_texts[static_cast<std::size_t>(nav.hit)].cell) : 0;
-
-    // A click on a text with a button icon (not a list's item): that button.
-    if (click && icon != 0
-        && (s_texts[static_cast<std::size_t>(nav.hit)].element == 0 || nav.selected < 0)) {
+    // A click on a button icon in a text, or the rest of its line: that button.
+    const std::uint16_t icon = kbm::prompt_button_at(s_spots.data(), s_spot_count, px, py);
+    if (click && icon != 0) {
         s_pulses.push(icon);
         return true;
     }
@@ -365,13 +380,17 @@ void step(const openrac_input* in, bool pad_look) {
         s_grid.reset();
     }
 
+    openrac_rac2_ui_quads_tick();
     take_texts();
+    take_spots();
 
     // Out of play the mouse points at the menus' items; a click it takes is not the game's Cross
     // while its button stays down.
     if (!play) {
         const bool click = t.pointer && mouse_bind(t, Action::MenuConfirm, true);
-        s_click_held = menu_mouse(t, click) || s_click_held;
+        // In a dialog a click no item takes presses nothing: Cross could answer yes.
+        s_click_held =
+            menu_mouse(t, click) || (click && t.where == Context::Dialog) || s_click_held;
 
         // The click's button is still down: its confirm presses nothing.
         if (s_click_held && mouse_bind(t, Action::MenuConfirm, false)) {

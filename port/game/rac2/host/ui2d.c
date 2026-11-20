@@ -43,15 +43,95 @@ static int g_glyphs = 0;
 static openrac_rac2_ui_quad g_quads[2][OPENRAC_RAC2_UI_QUADS_MAX];
 static int g_quad_count[2] = {0, 0};
 
+/* The button icon spots of this frame and the last whole one; the one a glyph after it extends. */
+static openrac_rac2_prompt_spot g_spots[2][OPENRAC_RAC2_PROMPT_SPOTS_MAX];
+static int g_spot_count[2] = {0, 0};
+static int g_open_spot = -1;
+/* Inside a box's wrapped text (font.c): its quads are glyphs for the spots, drawn as before. */
+static int g_box_text = 0;
+/* The glyph table of the print going out (4 bytes a character: u, v, offset, advance). */
+static gaddr g_glyph_table = 0;
+
+void openrac_rac2_box_text_begin(gaddr table) {
+    ++g_box_text;
+    g_glyph_table = table;
+    g_open_spot = -1;
+}
+
+void openrac_rac2_box_text_end(void) {
+    --g_box_text;
+    g_open_spot = -1;
+}
+
+int openrac_rac2_take_prompt_spots(openrac_rac2_prompt_spot* out) {
+    memcpy(out, g_spots[1], sizeof(g_spots[1][0]) * (size_t)g_spot_count[1]);
+    return g_spot_count[1];
+}
+
+/* A glyph a print drew at (x, y), w x h, from (u, v) of its font: an icon (the texels of one of
+ * the characters 0x10 to 0x19 in the print's glyph table, as key_prompts.h's cells) starts a
+ * spot; a glyph after it on its line makes the spot longer. */
+static void prompt_glyph(float x, float y, float w, float h, int u, int v) {
+    /* Characters 0x10 to 0x19: Cross, Circle, Triangle, Square, L1, R1, L2, R2, the sticks. */
+    static const int cell_of[10] = {0, 3, 2, 1, 4, 5, 6, 7, 8, 9};
+    int cell = -1;
+    for (int c = 0; c < 10 && g_glyph_table != 0; ++c) {
+        const gaddr e = g_glyph_table + (gaddr)(0x10 + c) * 4u;
+        if (GREF(uint8_t, e) == (uint8_t)u && GREF(uint8_t, e + 1) == (uint8_t)v && u < 256
+            && v < 256) {
+            cell = cell_of[c];
+            break;
+        }
+    }
+    if (cell >= 0) {
+        g_open_spot = -1;
+        if (g_spot_count[0] < OPENRAC_RAC2_PROMPT_SPOTS_MAX) {
+            openrac_rac2_prompt_spot* s = &g_spots[0][g_spot_count[0]];
+            s->cell = cell;
+            s->x0 = x;
+            s->y0 = y;
+            s->x1 = x + w;
+            s->y1 = y + h;
+            g_open_spot = g_spot_count[0]++;
+        }
+        return;
+    }
+    if (g_open_spot >= 0) {
+        openrac_rac2_prompt_spot* s = &g_spots[0][g_open_spot];
+        /* Only on the icon's line: a glyph below it starts no part of it. */
+        if (y < s->y1 && y + h > s->y0) {
+            s->x1 = x + w > s->x1 ? x + w : s->x1;
+        } else {
+            g_open_spot = -1;
+        }
+    }
+}
+
 int openrac_rac2_take_ui_quads(openrac_rac2_ui_quad* out) {
     memcpy(out, g_quads[1], sizeof(g_quads[1][0]) * (size_t)g_quad_count[1]);
     return g_quad_count[1];
 }
 
+/* A frame started since the last tick's look. */
+static int g_flipped = 0;
+
+void openrac_rac2_ui_quads_tick(void) {
+    /* No frame set-up went out (a dialog's frames have none): the tick's draws stand for one. */
+    if (!g_flipped) {
+        openrac_rac2_ui_quads_frame();
+    }
+    g_flipped = 0;
+}
+
 void openrac_rac2_ui_quads_frame(void) {
+    g_flipped = 1;
     memcpy(g_quads[1], g_quads[0], sizeof(g_quads[0][0]) * (size_t)g_quad_count[0]);
     g_quad_count[1] = g_quad_count[0];
     g_quad_count[0] = 0;
+    memcpy(g_spots[1], g_spots[0], sizeof(g_spots[0][0]) * (size_t)g_spot_count[0]);
+    g_spot_count[1] = g_spot_count[0];
+    g_spot_count[0] = 0;
+    g_open_spot = -1;
 }
 
 /* A quad's box in the game's screen pixels, from its 12.4 corners. */
@@ -148,7 +228,10 @@ void func_0027F2A8(
     gaddr glyphs
 ) {
     ++g_glyphs;
+    g_open_spot = -1;
+    g_glyph_table = glyphs;
     func_0027F2A8__game(x, y, colour, text, limit, texture, glyphs);
+    g_open_spot = -1;
     --g_glyphs;
 }
 
@@ -163,7 +246,10 @@ void func_0027F640(
     gaddr glyphs
 ) {
     ++g_glyphs;
+    g_open_spot = -1;
+    g_glyph_table = glyphs;
     func_0027F640__game(x, y, colour, text, limit, scale, texture, glyphs);
+    g_open_spot = -1;
     --g_glyphs;
 }
 
@@ -190,6 +276,9 @@ void func_0027E018(
     q.rgba = (uint32_t)rgba;
     q.tex0 = tex;
     q.flags = g_glyphs > 0 ? 1u : 0u;
+    if (g_glyphs > 0 || g_box_text > 0) {
+        prompt_glyph((float)x, (float)y, (float)w, (float)h, u, v);
+    }
     if (!send(&q)) {
         func_0027E018__game(x, y, w, h, u, v, uw, vh, rgba, tex);
     }
@@ -232,6 +321,7 @@ void func_0027E1A0(
     q.rgba = GREF(uint32_t, colours);
     q.tex0 = tex;
     q.flags = 1u;
+    prompt_glyph(x, y, w, h, u, v);
     if (!send(&q)) {
         func_0027E1A0__game(x, y, w, h, u, v, uw, vh, colours, tex);
     }

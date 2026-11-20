@@ -17,6 +17,7 @@
 #include "gui_texts.h"
 #include "openrac/guest.h"
 #include "rac2.h"
+#include "ui_quads.h"
 
 unsigned long long func_0027C878(int index);
 int func_0027F178(gaddr text, int length);
@@ -107,26 +108,24 @@ int func_0027FBD8(int x, int y, int style, gaddr text, int length) {
     return x;
 }
 
-/* The same through 0x0027FC70, which takes no style. */
+/* The same through 0x0027FC70: text wrapped in a box (x is the box, y the colour). Their button
+ * icons are found by their glyphs (ui2d.c). */
 void func_00280190(int x, int y, gaddr text, int length) {
-    record_print(
-        x, y, 0x80808080u, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE)
-    );
+    openrac_rac2_box_text_begin(OPENRAC_DATA(FONT_LARGE));
     func_0027FC70(x, y, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
+    openrac_rac2_box_text_end();
 }
 
 void func_00280200(int x, int y, gaddr text, int length) {
-    record_print(
-        x, y, 0x80808080u, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL)
-    );
+    openrac_rac2_box_text_begin(OPENRAC_DATA(FONT_SMALL));
     func_0027FC70(x, y, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
+    openrac_rac2_box_text_end();
 }
 
 void func_00280270(int x, int y, gaddr text, int length) {
-    record_print(
-        x, y, 0x80808080u, text, length, func_0027F1B8(text, length), OPENRAC_DATA(FONT_THIRD)
-    );
+    openrac_rac2_box_text_begin(OPENRAC_DATA(FONT_THIRD));
     func_0027FC70(x, y, (int)text, length, func_0027C878(3), (int)OPENRAC_DATA(FONT_THIRD));
+    openrac_rac2_box_text_end();
 }
 
 static float f32_at(gaddr a) {
