@@ -86,6 +86,7 @@ static void unpack_payload(void) {
 void func_00124A80(void) {}
 
 void rac3_menu_log_install(void); /* menu_log.c */
+void rac3_hero_log_install(void); /* hero_log.c */
 
 int func_0013ADA8(void) {
     uint32_t argc;
@@ -93,6 +94,7 @@ int func_0013ADA8(void) {
     rac3_install_camera_latch();
     unpack_payload();
     rac3_menu_log_install();
+    rac3_hero_log_install();
     openrac_game_draw(0);
     func_00124B90();  /* _InitSys */
     func_0011F0A0(0); /* FlushCache(0) */

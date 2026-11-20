@@ -18,10 +18,12 @@
  *   it; 0 play (gameplay_update), 2 a scene, 4 the overlays (pause menus, the quick-select pause:
  *   overlay_update), 5 the vendor, 8 a weapon's upgrade, and others less known. The word before it
  *   is the mode asked for.
- * - 0x001A4C60: the hero's position (the hero code's base 0x001A4BE0 + 0x80).
+ * - 0x001A4C60: the hero's position (the hero code's base 0x001A4BE0 + 0x80), +0x10 his roll,
+ *   pitch and yaw; 0x001A71A4 his state (rac3-decomp enums/hero_state.h), 0x001A7430 his health.
  */
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
@@ -33,6 +35,9 @@
 #define LEVEL_CURRENT RAC3_ADDR(0x001D545Cu)
 #define BOOT_LEVEL_NEXT RAC3_ADDR(0x001D9D04u)
 #define HERO_POSITION RAC3_ADDR(0x001A4C60u)
+#define HERO_ROTATION RAC3_ADDR(0x001A4C70u)
+#define HERO_STATE RAC3_ADDR(0x001A71A4u)
+#define HERO_HEALTH RAC3_ADDR(0x001A7430u)
 #define PADS RAC3_ADDR(0x001CD0C0u)
 
 /* The levels, by the game's own numbers (rac3-decomp config/levels/levels.tsv); NULL: no program
@@ -142,6 +147,44 @@ static int hero_position(float xyz[3]) {
     return 1;
 }
 
+/* For OPENRAC_WALK, OPENRAC_RECORD and the crash report: where the hero is, which way he faces and
+ * his state, as Going Commando's host/tools.c gives them. */
+static int hero(float position[3], float rotation[3], int32_t* state) {
+    if (loaded_level() < 0) {
+        return 0;
+    }
+    memcpy(position, G(HERO_POSITION), 12);
+    memcpy(rotation, G(HERO_ROTATION), 12);
+    *state = GREF(int32_t, HERO_STATE);
+    return 1;
+}
+
+/* OPENRAC_TELEPORT. */
+static int teleport(const float xyz[3]) {
+    if (loaded_level() < 0) {
+        return 0;
+    }
+    memcpy(G(HERO_POSITION), xyz, 12);
+    return 1;
+}
+
+/* OPENRAC_INVINCIBLE: health counts down from what the level's start gave him, so the most it has
+ * been is full (Going Commando's heal). */
+static void heal(void) {
+    static int32_t full;
+    const int32_t health = GREF(int32_t, HERO_HEALTH);
+    if (loaded_level() < 0) {
+        full = 0;
+        return;
+    }
+    if (health > full) {
+        full = health;
+    }
+    if (health > 0 && health < full) {
+        GREF(int32_t, HERO_HEALTH) = full;
+    }
+}
+
 /* For OPENRAC_STATE_DUMP and the debug overlay: the front end's words, and the level's mode and
  * the hero's place while a level runs. */
 static int state_json(char* out, int size) {
@@ -178,6 +221,8 @@ static int state_json(char* out, int size) {
 }
 
 static const openrac_game_tools tools = {
+    .heal = heal,
+    .teleport = teleport,
     .state_json = state_json,
 };
 
@@ -208,6 +253,7 @@ static const openrac_front_end front_end = {
 void rac3_install_tools(void) {
     openrac_game_mode = rac3_level_mode;
     openrac_game_hero_position = hero_position;
+    openrac_game_hero = hero;
     openrac_game_front_end = &front_end;
     openrac_game_tools_host = &tools;
 }

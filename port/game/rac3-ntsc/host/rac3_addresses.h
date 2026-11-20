@@ -14,6 +14,14 @@
 #define RAC3_ADDR_0x00142120u 0x00142120u
 /* D_00142430 (names.tsv, the same address) */
 #define RAC3_ADDR_0x00142430u 0x00142430u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x00142660u 0u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x00142668u 0u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x001427F0u 0u
+/* D_00142CA0 (names.tsv, the same address) */
+#define RAC3_ADDR_0x00142CA0u 0x00142CA0u
 /* D_00143950 (names.tsv, the same address) */
 #define RAC3_ADDR_0x00143950u 0x00143950u
 /* release.json: the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_004D0E90 (NTSC-U func_L01_004CD1D0) +0x68, 2 of 2 places; the options block D_00143950 is at the same address on both discs */
@@ -24,10 +32,28 @@
 #define RAC3_ADDR_0x00143A70u 0x00143A70u
 /* D_00160C40 (names.tsv, the same address) */
 #define RAC3_ADDR_0x00160C40u 0x00160C40u
+/* D_001A4BE0 (names.tsv, the same address) */
+#define RAC3_ADDR_0x001A4BE0u 0x001A4BE0u
 /* D_001A4C60 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001A4C60u 0x001A4C60u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x001A4C70u 0u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x001A57BCu 0u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x001A5E08u 0u
 /* release.json: the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree */
 #define RAC3_ADDR_0x001A71A0u 0x001A71A0u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x001A71A4u 0u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x001A71D2u 0u
+/* D_001A7430 (names.tsv, the same address) */
+#define RAC3_ADDR_0x001A7430u 0x001A7430u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x001BBC40u 0u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x001C5290u 0u
 /* D_001CD0C0 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001CD0C0u 0x001CD0C0u
 /* D_001D4B50 (names.tsv, the same address) */
@@ -36,6 +62,10 @@
 #define RAC3_ADDR_0x001D4BD0u 0x001D4BD0u
 /* D_001D4BD4 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D4BD4u 0x001D4BD4u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x001D4C40u 0u
+/* not known on NTSC-U */
+#define RAC3_ADDR_0x001D4CA0u 0u
 /* D_001D4CE8 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D4CE8u 0x001D4CE8u
 /* D_001D4CEC (names.tsv, the same address) */
@@ -98,10 +128,18 @@
 #define RAC3_LADDR_1_0x001D6694u 0x001D6694u
 /* between the same code's 0x001DBCA0 and 0x001DBCBC, both moved by +0x40 (NTSC-U 0x001DBCE0, 0x001DBCFC) */
 #define RAC3_LADDR_1_0x001DBCA4u 0x001DBCE4u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_1_0x001DCA14u 0u
 /* the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree */
 #define RAC3_LADDR_1_0x001DF97Cu 0x001DF9FCu
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_1_0x001E001Cu 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_1_0x001E0024u 0u
 /* between the same code's 0x001E002C and 0x001E0054, both moved by +0x80 (NTSC-U 0x001E00AC, 0x001E00D4) */
 #define RAC3_LADDR_1_0x001E0050u 0x001E00D0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_1_0x001E0100u 0u
 /* the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0x1C, 5 of 5 places agree */
 #define RAC3_LADDR_1_0x001E0278u 0x001E02F8u
 /* the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0xC, 8 of 8 places agree */

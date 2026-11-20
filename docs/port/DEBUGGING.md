@@ -530,6 +530,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 <<<<<<< HEAD
 | `OPENRAC_RAC3_NEXT` | `FRAME:LEVEL` | Up Your Arsenal, a development probe until its menus can be read: at the boot program's FRAME-th display list, writes what a menu's choice does (the front end's exit word and the level to go to), so the game loads that level's program itself, or frontbin for a LEVEL below zero. | `port/game/rac3-pal/host/program.c` |
 =======
+| `OPENRAC_RAC3_HERO` | path | Up Your Arsenal: in a level, a line for each frame the hero's state words changed (and every 60th): level mode, state and its type, health, the combo's swing, the held item and gun with their ammunition, bolts, area, deaths, the last checkpoint, the level's progress flags, then the frames in the state, frames off the ground, position and the pad; `-` writes to stderr. | `port/game/rac3-pal/host/hero_log.c` |
 | `OPENRAC_RAC3_MENU_LOG` | path | Up Your Arsenal: one line a frame of the front end's state words (mode, boot state, boot screen, the pad's held and pressed buttons) and every string the font printed, with its place; read by the scripted menu walk (`port/game/rac3-pal/menus.py`). | `port/game/rac3-pal/host/menu_log.c` |
 >>>>>>> origin/feat/rac3-menus
 | `OPENRAC_DEPTH_REUSE_OFF` | any (set) | Profiling reference: the GTAO prepass's depth is discarded before the world's colour pass instead of being reused. | `port/renderer/renderer.cpp` |
