@@ -24,10 +24,13 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
+#include "ui2d.h"
 
 long long func_003A9BE8__game(int pixels, int frame, int width, int height);
+long long func_L01_004C61A0__game(int pixels, int frame, int width, int height);
 
-/* The display list's cursor, which the routine writes its transfers at. */
+/* The display list's cursor the boot program's routine writes its transfers at (a level's copy
+ * writes the level's: ui2d.h). */
 #define LIST_CURSOR RAC3_ADDR(0x001DA050u)
 /* The front end's register packet (A+D): XYOFFSET_1 at +0x50, the offset the menu's 2D is drawn
  * with (0x7000, 0x7200 in 12.4). */
@@ -141,8 +144,8 @@ static int make_backdrop(const uint8_t* from, int lines) {
 
 /* A marker at the list's cursor: an A+D write of `value` to the NOP register, as openrac_ui_send
  * writes a record's. */
-static void put_marker(uint64_t value) {
-    const gaddr at = GREF(gaddr, LIST_CURSOR);
+static void put_marker(gaddr cursor, uint64_t value) {
+    const gaddr at = GREF(gaddr, cursor);
     GREF(uint32_t, at + 0) = 0x10000002u;
     GREF(uint32_t, at + 4) = 0;
     GREF(uint32_t, at + 8) = 0;
@@ -151,13 +154,13 @@ static void put_marker(uint64_t value) {
     GREF(uint64_t, at + 24) = 0xEull;
     GREF(uint64_t, at + 32) = value;
     GREF(uint64_t, at + 40) = 0x7Full;
-    GREF(gaddr, LIST_CURSOR) = at + 48;
+    GREF(gaddr, cursor) = at + 48;
 }
 
 /* One side of the backdrop, a band of the whole window from `outer` to `seam` (16ths of the chip's
  * pixels): the backdrop's texels from `far` (at the window's side, dim) to `edge` (at the
  * picture's side, lit), 16ths of a texel, shaded between them. */
-static void draw_side(int outer, int seam, int far, int edge, int top, int bottom) {
+static void draw_side(gaddr cursor, int outer, int seam, int far, int edge, int top, int bottom) {
     openrac_game_ui_rect q;
     memset(&q, 0, sizeof q);
     openrac_ui_rect(&q, outer, top, seam, bottom, far, 8, edge, (s_backdrop_rows << 4) - 8);
@@ -167,25 +170,30 @@ static void draw_side(int outer, int seam, int far, int edge, int top, int botto
     q.clamp = 1u | (1u << 2);
     q.corners[0] = q.corners[2] = 0x80383838u; /* the window's side */
     q.corners[1] = q.corners[3] = 0x80808080u; /* the picture's */
-    openrac_ui_send(&q, LIST_CURSOR);
+    openrac_ui_send(&q, cursor);
 }
 
 /* The window's sides past the picture (x0 to x1, y0 to y1), the window `wider` times the
  * picture's width: on each side the backdrop's outer texels drawn out to the window's side, as the
  * whole window's. In whole-window coordinates the picture's own 512 pixels span the window, so each
  * side is (1 - 1 / wider) / 2 of them. */
-static void draw_sides(float wider, int x0, int x1, int y0, int y1) {
+static void draw_sides(gaddr cursor, float wider, int x0, int x1, int y0, int y1) {
     const int band = (int)((float)((x1 - x0) / 2) * (1.0f - 1.0f / wider));
     const int texels = BACKDROP_WIDTH << 4;
-    put_marker(WHOLE_MARKER | 1u);
-    draw_side(x0, x0 + band, 8 + 2 * 16, 8, y0, y1);
-    draw_side(x1, x1 - band, texels - 8 - 2 * 16, texels - 8, y0, y1);
-    put_marker(WHOLE_MARKER);
+    put_marker(cursor, WHOLE_MARKER | 1u);
+    draw_side(cursor, x0, x0 + band, 8 + 2 * 16, 8, y0, y1);
+    draw_side(cursor, x1, x1 - band, texels - 8 - 2 * 16, texels - 8, y0, y1);
+    put_marker(cursor, WHOLE_MARKER);
 }
 
-uint64_t func_003A9BE8(int pixels, int frame, int width, int height) {
+/* The picture as a record in the list whose cursor is at `cursor` (and, in a wider picture, its
+ * backdrop's sides), its TEX0 in *tex0_out. False when it is not one the port draws, or the 2D layer
+ * is replayed: the caller runs the game's routine. */
+static int draw_picture(
+    gaddr cursor, int pixels, int frame, int width, int height, uint64_t* tex0_out
+) {
     if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
-        return (uint64_t)func_003A9BE8__game(pixels, frame, width, height);
+        return 0;
     }
     const uint64_t tex0 = picture_tex0((uint32_t)frame, width, height);
     const uint32_t ofx = GREF(uint32_t, FRONT_END_REGS + 0x50u) & 0xFFFFu;
@@ -207,8 +215,8 @@ uint64_t func_003A9BE8(int pixels, int frame, int width, int height) {
     q.tex0 = (tex0 & ~0x3FFFull) | PICTURE_BLOCK;
     q.flags = 2u | 16u;       /* a sprite, clamped */
     q.clamp = 1u | (1u << 2); /* CLAMP_1: clamp both ways */
-    if (!openrac_ui_send(&q, LIST_CURSOR)) {
-        return (uint64_t)func_003A9BE8__game(pixels, frame, width, height);
+    if (!openrac_ui_send(&q, cursor)) {
+        return 0;
     }
     const uint32_t bytes = (uint32_t)width * (uint32_t)height * 4u;
     const uint8_t* rgba = (const uint8_t*)G((gaddr)pixels & 0x01FFFFFFu);
@@ -234,9 +242,29 @@ uint64_t func_003A9BE8(int pixels, int frame, int width, int height) {
                 {BACKDROP_BLOCK, 1, 0, 0, 0, BACKDROP_WIDTH, s_backdrop_rows, 0};
             openrac_game_load_picture(&under, s_backdrop);
         }
-        draw_sides(wider, (int)q.x[0], (int)q.x[3], (int)q.y[0], (int)q.y[3]);
+        draw_sides(cursor, wider, (int)q.x[0], (int)q.x[3], (int)q.y[0], (int)q.y[3]);
+    }
+    *tex0_out = tex0;
+    return 1;
+}
+
+uint64_t func_003A9BE8(int pixels, int frame, int width, int height) {
+    uint64_t tex0;
+    if (!draw_picture(LIST_CURSOR, pixels, frame, width, height, &tex0)) {
+        return (uint64_t)func_003A9BE8__game(pixels, frame, width, height);
     }
     return tex0;
+}
+
+/* The levels' copy (Veldin's 0x004C61A0, frontbin's row func_003A9830: the same instructions but for
+ * the list's cursor): a picture a level puts in its frame, the video screens of Holostar's studio
+ * (levels 13 and 14) among them, which drew as solid blue boxes from the game's transfers. */
+long long func_L01_004C61A0(int pixels, int frame, int width, int height) {
+    uint64_t tex0;
+    if (!draw_picture(rac3_ui2d_level().cursor, pixels, frame, width, height, &tex0)) {
+        return func_L01_004C61A0__game(pixels, frame, width, height);
+    }
+    return (long long)tex0;
 }
 
 /* Each frame's display list as it is sent (host/dma.c): a picture no draw of this frame asked for
@@ -251,4 +279,45 @@ void rac3_picture_frame_sent(void) {
         }
     }
     s_used = 0;
+}
+
+/* The frame under a level's pause menu, as Going Commando's (rac2/host/picture.c, func_002FC8D0 and
+ * func_002FC990, whose instructions Veldin's func_L01_004C5F70 and func_L01_004C6030 are). When
+ * the pause menu opens, the game draws the world once more and reads the frame buffer back to main
+ * memory (`to`), 64 x 64 tiles of PSMCT24 from its pages (`frame`: the buffer's address in the
+ * chip's words, `bytes` its size, the lines times 2048); every frame after it writes those tiles
+ * back over the buffer as image transfers in the display list (func_L01_00403C88), darkens them
+ * (func_L01_004059C8) and draws the menu over them. The window has no chip memory to read or
+ * write: it keeps the frame it drew, whole and at its own resolution and shape
+ * (openrac_game_store_image, frontend/images.cpp), and a marker in the list
+ * (renderer::GifInterpreter::kFrameMarker) draws that frame where the tiles would have landed, over
+ * the whole window, so the world under the menu is as sharp and as wide as it was. Nothing of the
+ * game's transfers is sent. */
+#define FRAME_MARKER (0x4653ull << 48)
+#define FRAME_LINES_MOST 512
+
+void func_L01_004C5F70__game(int to, int frame, int bytes);
+
+void func_L01_004C5F70(int to, int frame, int bytes) {
+    static gaddr pixels;
+    int lines = bytes >> 11;
+    if (lines <= 0 || lines > FRAME_LINES_MOST) {
+        func_L01_004C5F70__game(to, frame, bytes);
+        return;
+    }
+    (void)to;
+    if (pixels == 0) {
+        pixels = openrac_guest_static(512 * FRAME_LINES_MOST * 4);
+    }
+    /* The frame read back, at the chip's 512 x lines: the window keeps its own whole picture as it
+     * answers (the snapshot the marker draws). */
+    const openrac_game_image image = {frame >> 8, 512 / 64, 0, 0, 0, 512, lines, pixels};
+    openrac_game_store_image(&image);
+}
+
+void func_L01_004C6030(int from, int frame, int bytes) {
+    (void)from;
+    (void)frame;
+    (void)bytes;
+    rac3_ui2d_marker(rac3_ui2d_level().cursor, FRAME_MARKER);
 }

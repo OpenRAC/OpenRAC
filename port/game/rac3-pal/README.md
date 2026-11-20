@@ -223,7 +223,8 @@ vertical blank callback (`func_0013D208`).
 | `headers/vu0.h` | the vector-library helpers of the decompilation's `include/vu0.h` (asm Clang refuses) in C, read in its place (hostgen.json `headers`) |
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
 | `host/spr_dma.c` | the scratchpad DMA channels the kernels start |
-| `host/ui2d.c` | the 2D layer's routines, wrapped as Going Commando's (rac2/host/ui2d.c): boxes, glyph quads, turned sprites, ring segments, the font's glyphs (drawn from its distance field) and the menus' Widget3D sprites become window records |
+| `host/ui2d.c` | the 2D layer's routines, wrapped as Going Commando's (rac2/host/ui2d.c): boxes, glyph quads, turned sprites, ring segments, the font's glyphs (drawn from its distance field) and the menus' Widget3D sprites become window records; the levels' copies of them too (below) |
+| `host/hud.c` | the level HUD's sprites as records, and its slots out at the picture's sides with "HUD: Edges" (Going Commando's rac2/host/hud.c) |
 | `host/chain_census.c` | `OPENRAC_RAC3_CHAINS` (a rough census: it reads image data inside DIRECT as VIF codes) |
 | `host/menu_log.c` | `OPENRAC_RAC3_MENU_LOG`: the front end's state and printed strings a frame, for `menus.py` |
 | `profile.cpp` | draws the display list the game sends (as rac4-ntsc), the records at their markers in it; the camera, view, fog and live mobys of each program; the levels extracted (`has_levels`), the title drawn without a world (`has_title_world`) |
@@ -504,8 +505,63 @@ is held, its rounds going down one a shot; a Tyhrranoid's blows (class 5821) tak
 (state 121), the death counted and the respawn at the level's start. A new game owns no gun on
 Veldin; the bolts of the crates are picked up.
 
+## The level's 2D: the HUD, its text and the pause menu
+
+Every level's program carries its own copy of the 2D layer (rac3-decomp's catalogue folds them with
+frontbin's; hostgen names them after Veldin's places): the boxes, glyph quads, turned sprites, ring
+segments, the font's glyph builders and prints, the darkening and the Widget3D sprites, the same
+instructions as the boot program's, writing to the level's display list (Veldin's cursor
+`0x001E1068`). They are wrapped as the boot program's are (`host/ui2d.c`, through the same code), so
+the HUD, the help and tutorial messages, the subtitles, the names of what is picked up and every
+page of the pause menu are window records, their text drawn from the font's distance field. Their
+prototypes are the assembly's (hostgen.json `asm` `signatures`): the catalogue's frontbin rows have
+only `INCLUDE_ASM`, and a level place hostgen renames from them has no C of its own: translated as
+an `int` function, a 64-bit or float result is cut, and an argument the code hands on in a register
+it does not name is lost (as the boot program's Widget3D pose did, 409d2795). Two did that to every
+text of a level: the TEX0 the prints draw their glyphs with (`func_L01_004047A8`, boot
+func_0038A0E0's `unsigned long`) lost its upper word, so every glyph drew blank (the help message's
+orange box over Ratchet, empty), and the text widget's draw (`func_L01_0051F940`, boot
+func_003F03F0's `int (int, int)`) lost the second argument its rectangle callback reads, so the pause
+menu's rows were placed at x = -132509. The signatures of the frontbin rows whose C (or the boot
+program's twin's, `config/frontend_pairs.tsv`) returns 64 bits or a float are given the same way.
+
+The HUD is Going Commando's (`host/hud.c`): its 13 slots (0x90 bytes, Veldin's at `0x002E60D0`, each
+drawn by its callback from the update `func_L01_0041FE80`, Going Commando's func_0028E458 to the
+instruction), whose places are anchored to the screen's sides by the same flags, and its sprites
+(func_0028E868, func_0028ECD8, func_0028F078 and the gradient func_0028EA58 there). With the
+player's **HUD: Edges** the slots anchored left or right are drawn out at the sides of a picture
+wider than 4:3 (`game/common/lib/hud_edges.h`, as Ratchet & Clank's and Going Commando's); centred
+ones stay. The weapon, ammunition and bolts panels are a tree of widgets as Going Commando's
+(`func_L01_004D24C0`, its func_0034E4F8), but drawn, with every other screen of the GUI (the help
+messages, the pause menu), by `func_L01_00478B10` once a frame: Going Commando's two side markers go
+around that draw, so the bolts' panel goes out to the right while the weapon's panel in the top
+middle, the messages and the pause menu stay.
+
+The pause menu draws over the world it paused on, as Going Commando's (rac2/host/picture.c): when
+it opens the game reads the frame buffer back to main memory in 64 x 64 tiles
+(`func_L01_004C5F70`, func_002FC8D0's instructions) and each frame writes them back as image
+transfers (`func_L01_004C6030`, func_002FC990's) before darkening them and drawing the menu. The
+window keeps the frame it drew instead (whole, at its own resolution and shape) and a marker draws
+it where the transfers were (`host/picture.c`): nothing of the game's transfers is sent.
+
 ## What is missing
 
+- **The level's 2D still sent as the game's packets**: the screen fade DrawFrame draws while its
+  counters run (`func_L01_004054F0`, boot func_0038AD28), `func_L01_00407588` (boot func_0038CB30)
+  and `func_L01_00415788` (boot func_00392B28), the screen glow's copies and the second screen
+  effect (above); `OPENRAC_UI_RESIDUAL=1` lists their kinds. The HUD textures' uploads
+  (`func_L01_004045B8`, `func_L01_004046F0`) are uploads, not draws.
+- **The quick select ring** (HUD slot 3, anchored left) stays in its 4:3 place: neither the slot's
+  shift nor the side markers move it.
+- **Holostar's blue box** (levels 13 and 14, while Ratchet is down): a solid dark blue rectangle of
+  about 256 x 224 in the middle of the picture. Not the level's picture routine
+  (`func_L01_004C61A0`, wrapped as the boot program's, never called there) nor any wrapped 2D
+  routine; the residual kinds there include a sprite textured from the frame buffer (block 0x1E00).
+- **The bolts count** is printed (its text widget, "0" at the start) but does not show in its panel,
+  with the game's own packets too (`OPENRAC_UI_REPLAY=1`): not yet found.
+- **Other levels' HUD**: the wrappers are written with Veldin's places, and every level's copy that
+  the catalogue folds with them runs through them; levels whose HUD has routines of its own (the
+  multiplayer maps' and the arena's) are not checked.
 - **The Options rows' text is cut at both sides**: each row's text is laid out about three glyphs
   left of its column on the left and one right on the right, and clipped by its panel (the
   translated layout, func_003AC590 → func_0038FDF8; the game's own packets show the same). The

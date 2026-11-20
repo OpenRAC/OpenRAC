@@ -326,3 +326,34 @@ data	D_L01_001DCA14	0x001DCA14	last_checkpoint	Veldin's: the id of the last chec
 data	D_L01_001E0100	0x001E0100	spawn_points	Veldin's: a pointer to the level's spawn points, 0x80 bytes each, +0x30 the position, +0x70 the rotation; checkpoint_reached respawns the hero at its save's +0x28-th
 data	D_L01_001E001C	0x001E001C	moby_first	Veldin's: the first moby of the 0x100-byte table (D_L01_001E0024 moby_end); OPENRAC_RAC3_MOBYS walks it
 code	func_L01_004227D8	0x004227D8	give_level_items	gives a level's standing items at its start: the suit (23, worn: 0x001D4C48), 6, the camera options 36 to 38, the thruster-pack 3, then func_L01_004228B0 for the level's own
+code	func_L01_00405AD8	0x00405AD8	DrawFlatBox	the levels' copy of the boot program's flat box func_0038B310 (catalogue row func_0038AF30 frontbin, 49 places), the same instructions: Veldin's display list cursor 0x001E1068 for the boot program's 0x001DA050; the 2D offset 0x001D4BD0/4 is the core's, shared
+code	func_L01_00406078	0x00406078	DrawGlyphQuad	the levels' copy of func_0038B8B0 (row func_0038B4D0 frontbin), the same instructions
+code	func_L01_00405CC8	0x00405CC8	DrawTurnedGlyphQuad	the levels' copy of func_0038B500 (row func_0038B120 frontbin)
+code	func_L01_00406B10	0x00406B10	DrawRotatedSprite	the levels' copy of func_0038C0B8 (row func_0038BCD8 frontbin)
+code	func_L01_00406F70	0x00406F70	DrawRingSegment	the levels' copy of func_0038C518 (rac2 func_0027E920)
+code	func_L01_00407080	0x00407080	DrawShadedBox	the levels' copy of func_0038C628 (row func_0038C248 frontbin)
+code	func_L01_004064A8	0x004064A8	DrawGlyph	the levels' copy of func_0038BA50 (row func_0038B670 frontbin)
+code	func_L01_00406688	0x00406688	DrawGlyphShaded	the levels' copy of func_0038BC30 (row func_0038B850 frontbin, 48 places)
+code	func_L01_00406868	0x00406868	DrawGlyphShadowed	the levels' copy of func_0038BE10 (row func_0038BA30 frontbin)
+code	func_L01_00410208	0x00410208	FontPrint	the levels' copy of func_0038EBC8 (row func_0038E7E8 frontbin)
+code	func_L01_00410A98	0x00410A98	FontPrintShaded	the levels' copy of func_0038F458 (row func_0038F078 frontbin)
+code	func_L01_004059C8	0x004059C8	DarkenPicture	the levels' copy of func_0038B200: the same core packet D_00141850
+code	func_L01_00420AE8	0x00420AE8	DrawHudSpriteShaded	the levels' copy of func_00397680 (row func_003972A0 frontbin); its HUD tables at *0x001DFD20 and *0x001DFD24 (the boot program's 0x001D9EA8, 0x001D9EAC)
+code	func_L01_00420080	0x00420080	HudTextureTex0	the levels' copy of func_00396E18 (row func_00396A38 frontbin, 34 places), rac2 func_0028E640: a HUD texture's TEX0 by its number
+code	func_L01_0040E910	0x0040E910	Sin	the levels' copy of func_0038D490 (row func_0038D0B0 frontbin)
+code	func_L01_0040E8F8	0x0040E8F8	Cos	the levels' copy of func_0038D478 (row func_0038D098 frontbin)
+code	func_L01_004CBC60	0x004CBC60	DrawWidgetSprite	the levels' copy of func_003AA780 (row func_003AA3C8 frontbin, 34 places)
+code	func_L01_0041FE80	0x0041FE80	UpdateHud	rac2 func_0028E458, the same 300 bytes (row func_00396838 frontbin, 49 places): the 13 HUD slots (0x90 bytes, Veldin's at 0x002E60D0; rac2's 0x00255330) each drawn by its +0x18 callback; writes the HUD depth 0x00FFFFF0 to 0x001DFD0C (rac2 0x001B187C); called from DrawFrame
+code	func_L01_004202A8	0x004202A8	DrawHudSprite	rac2 func_0028E868, the same 496 bytes (row func_00396C60 frontbin): a HUD texture as a sprite, its whole texture
+code	func_L01_00420720	0x00420720	DrawHudBar	rac2 func_0028ECD8, the same 424 bytes (row func_003970D8 frontbin, 34 places): a texel a pixel
+code	func_L01_004208E0	0x004208E0	DrawHudSpriteColour	rac2 func_0028F078, the same 512 bytes (shared row, 34 places)
+code	func_L01_00420498	0x00420498	DrawHudGradient	rac2 func_0028EA58 (0.875 of the opcodes; the same arguments and corners, PRIM 0x15C; row func_00396E50 frontbin, 49 places)
+code	func_L01_004C5F70	0x004C5F70	SaveFrame	rac2 func_002FC8D0, the same 188 bytes: the frame buffer read back to main memory
+code	func_L01_004C6030	0x004C6030	WriteFrameBack	rac2 func_002FC990, the same 364 bytes
+data	D_L01_001E1068	0x001E1068	g_listCursor	Veldin's display list cursor (the 2D layer's and DrawTfrag's)
+data	D_L01_002E60D0	0x002E60D0	g_hudSlots	Veldin's 13 HUD slots (rac2 0x00255330)
+code	func_L01_004D24C0	0x004D24C0	DrawHudWidgets	rac2 func_0034E4F8, its calls one for one (0x00401A38 = func_0027AB40, 0x004D1700 = the bolts counter func_0034DB98, 0x004D0CB0 = func_0034CA68, 0x004CF120 = func_00338F58 the HUD messages); called from func_L01_004365A0 (rac2 func_0029C108) with *0x001D67C8 + 0x1FCA8
+code	func_L01_004047A8	0x004047A8	FontTex0	the TEX0 the font's prints draw their glyphs with (boot func_0038A0E0, frontbin func_00389D00, C: unsigned long); a 64-bit result: translated as int f() the levels' text lost its upper word (CLUT and format) and every glyph drew blank
+code	func_L01_0051F940	0x0051F940	TextWidgetDraw	the levels' copy of the boot program's text widget draw func_003F03F0 (row func_003F0038 frontbin, 49 places): hands its second argument on to the widget's rectangle callback (vtable +0x20); as int f(a0) the pause menu's rows were laid out from a garbage rectangle (x -132509, off the screen)
+code	func_L01_004127C0	0x004127C0	FontWidth	a wrapper forwarding its registers to the text width func_L01_0040FF68 (int (int, int, float)); its matched C is void (void), so the width was lost: from_assembly with the width's signature (also func_L01_004127E8, func_L01_00412810, func_L01_00412708 with a scale of 1.0, func_L01_004126A8 to func_L01_0040FC08, func_L01_00412E30 to func_L01_0040F8F0, func_L01_00412E50 to the float func_L01_00412618); the HUD's counters were placed from it
+code	func_L01_004C61A0	0x004C61A0	LoadScreenPicture	the levels' copy of func_003A9BE8 (row func_003A9830 frontbin, 34 places; boot C long long): a picture from EE memory into the frame as image transfers, its TEX0 returned; called from func_L01_003FF240 (from func_L01_00423040); Holostar's (13, 14) video screens showed a solid blue box from its transfers
