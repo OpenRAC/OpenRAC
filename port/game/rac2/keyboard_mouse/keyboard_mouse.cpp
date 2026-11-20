@@ -92,8 +92,9 @@ int s_click_left = 0;  // steps still to press, then Cross
 int s_click_wait = 0;
 constexpr int kClickStepTicks = 4;  // ticks between them, for the menu to follow
 bool s_click_held = false;
-kbm::GridSeek s_grid;  // a grid's selection frame on its way to a clicked cell
+kbm::GridSeek s_grid;       // a grid's selection frame on its way to a clicked cell
 kbm::RingSeek s_ring_seek;  // the Quick Select ring's highlight on its way to a clicked slot
+bool s_map_over = false;    // the pointer over the pause menu's map: the wheel zooms it, not steps
 bool s_dragging = false;    // the button held since a press on a grid's cell, there
 float s_drag_x = 0.0f;
 float s_drag_y = 0.0f;
@@ -185,7 +186,7 @@ void menu_directions(const Tick& t, kbm::ActionSet held, kbm::Virtual& v) {
     constexpr std::array<std::uint16_t, 4> pads = {kbm::kUp, kbm::kDown, kbm::kLeft, kbm::kRight};
     for (std::size_t i = 0; i < dirs.size(); ++i) {
         const bool on = (held & kbm::bit(dirs[i])) != 0 && held_not_wheel(t, dirs[i]);
-        if (!on && wheel_notch(t, dirs[i])) {
+        if (!on && !s_map_over && wheel_notch(t, dirs[i])) {
             s_pulses.push(pads[i]);
         } else if (s_repeat[i].step(on)) {
             v.held = static_cast<std::uint16_t>(v.held | pads[i]);
@@ -245,6 +246,47 @@ void take_sprites() {
     }
 }
 
+// The map (a level's, in the pause menu): where it was drawn lately, as fractions of the screen,
+// and the mouse dragging it.
+std::array<float, 4> s_map_box{};
+int s_map_age = kTextsKeptTicks + 1;
+bool s_map_drag = false;
+float s_map_drag_x = 0.0f;
+float s_map_drag_y = 0.0f;
+
+// The mouse on the map: a press on it drags it (the map follows the mouse), the wheel over it
+// zooms it, as the sticks do (Track/Zoom). Returns whether it took the click.
+bool map_mouse(const Tick& t, bool click) {
+    std::array<float, 4> box{};
+    if (openrac_rac2_take_map(box.data()) != 0) {
+        s_map_box = box;
+        s_map_age = 0;
+    } else if (s_map_age <= kTextsKeptTicks) {
+        ++s_map_age;
+    }
+    const float x = t.in->pointer_x;
+    const float y = t.in->pointer_y;
+    s_map_over = s_map_age <= kTextsKeptTicks && x >= s_map_box[0] && x < s_map_box[2]
+                 && y >= s_map_box[1] && y < s_map_box[3];
+    if (s_map_age > kTextsKeptTicks || !mouse_bind(t, Action::MenuConfirm, false)) {
+        s_map_drag = false;
+    } else if (click && s_map_over) {
+        s_map_drag = true;
+        s_map_drag_x = x;
+        s_map_drag_y = y;
+    }
+
+    if (s_map_drag && (x != s_map_drag_x || y != s_map_drag_y)) {
+        openrac_rac2_map_move(x - s_map_drag_x, y - s_map_drag_y, 0.0f);
+        s_map_drag_x = x;
+        s_map_drag_y = y;
+    }
+    if (s_map_over && t.in->wheel_y != 0.0f) {
+        openrac_rac2_map_move(0.0f, 0.0f, t.in->wheel_y);
+    }
+    return click && s_map_over;
+}
+
 // The navigation to the text at (px, py) of the game's screen.
 kbm::TextNav nav_at(float px, float py) {
     return kbm::text_nav(s_texts.data(), s_text_count, px, py);
@@ -280,7 +322,12 @@ bool menu_mouse(const Tick& t, bool click) {
 
     // The mouse has no say out of a menu, or when the player turned it off.
     if (!t.pointer || !s_menu_mouse) {
+        s_map_over = false;
+        s_map_drag = false;
         return false;
+    }
+    if (map_mouse(t, click)) {
+        return true;
     }
 
     const float px = t.in->pointer_x * kbm::kScreenWidth;

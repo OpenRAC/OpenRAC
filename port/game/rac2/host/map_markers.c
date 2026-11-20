@@ -14,11 +14,16 @@
  * PAL's map is v1.01's (src/pal/game/00296870-map-g8.c: the same rectangle and state), so it gets
  * them too. USA v2.00 draws them itself: its RAC2_K(MAP_MARKERS) is 0 (release.json), and the wrap
  * only calls its map.
+ *
+ * The wrap also notes where the map was drawn, for the mouse to drag and zoom it (ui_quads.h).
  */
+#include <math.h>
 #include <stdint.h>
+
 #include "game_protos.h"
-#include "rac2.h"
 #include "openrac/game_host.h"
+#include "rac2.h"
+#include "ui_quads.h"
 
 void func_00295F60__game(int paging, int set_clip);
 
@@ -144,9 +149,79 @@ static void draw_markers(float x0, float x1, float y0, float y1, float scale) {
     }
 }
 
+/* The map's state and its selected map, or 0 when none is shown. */
+static gaddr shown_map(int* selected) {
+    const gaddr state = OPENRAC_DATA(MAP_STATE);
+    *selected = GREF(int32_t, state + MAP_SELECTED);
+    if (GREF(int32_t, OPENRAC_DATA(MAP_HIDDEN)) != 0 || GREF(int32_t, state + MAP_ENABLED) == 0
+        || *selected < 0 || *selected >= MAPS) {
+        return 0;
+    }
+    return state;
+}
+
+/* Where the map was last drawn, as fractions of the screen. */
+static int g_map_drawn;
+static float g_map_box[4];
+
+static void note_map(int set_clip) {
+    int selected;
+    const float w = (float)GREF(int32_t, SCREEN);
+    const float h = (float)GREF(int32_t, SCREEN + 4u);
+    if (shown_map(&selected) == 0 || w <= 0.0f || h <= 0.0f) {
+        return;
+    }
+    g_map_box[0] = set_clip ? (float)GREF(int32_t, OPENRAC_DATA(MAP_SCISSOR_A)) / w : 0.0f;
+    g_map_box[1] = set_clip ? (float)GREF(int32_t, OPENRAC_DATA(MAP_SCISSOR_B)) / h : 0.0f;
+    g_map_box[2] = set_clip ? (float)(GREF(int32_t, OPENRAC_DATA(MAP_SCISSOR_C)) + 1) / w : 1.0f;
+    g_map_box[3] = set_clip ? (float)(GREF(int32_t, OPENRAC_DATA(MAP_SCISSOR_D)) + 1) / h : 1.0f;
+    g_map_drawn = 1;
+}
+
+int openrac_rac2_take_map(float box[4]) {
+    const int drawn = g_map_drawn;
+    for (int i = 0; i < 4; ++i) {
+        box[i] = g_map_box[i];
+    }
+    g_map_drawn = 0;
+    return drawn;
+}
+
+/* A pan moved by `pixels` at `zoom`: a pixel is 16 of the map's units at zoom 1 (DrawMapOverlay
+ * draws at zoom * (pan >> 15) sixteenths), kept in the pan's whole range; the game's own update
+ * (func_00295D00) clamps it to the map's edges. */
+static int32_t panned(int32_t pan, float pixels, float zoom) {
+    const double moved = (double)pan - (double)pixels * 16.0 * 32768.0 / (double)zoom;
+    return (int32_t)(moved < 0.0 ? 0.0 : moved > 268435456.0 ? 268435456.0 : moved);
+}
+
+void openrac_rac2_map_move(float dx, float dy, float notches) {
+    int selected;
+    const gaddr state = shown_map(&selected);
+    if (state == 0) {
+        return;
+    }
+    const gaddr at = 4u * (unsigned)selected;
+    float zoom = GREF(float, state + MAP_ZOOM + at);
+    if (!(zoom > 0.0f)) {
+        return;
+    }
+    if (notches != 0.0f) {
+        zoom *= powf(1.15f, notches);
+        zoom = zoom < 0.65f ? 0.65f : zoom > 4.0f ? 4.0f : zoom;
+        GREF(float, state + MAP_ZOOM + at) = zoom;
+    }
+    GREF(int32_t, state + MAP_OFFSET_X + at) =
+        panned(GREF(int32_t, state + MAP_OFFSET_X + at), dx * (float)GREF(int32_t, SCREEN), zoom);
+    GREF(int32_t, state + MAP_OFFSET_Y + at) = panned(
+        GREF(int32_t, state + MAP_OFFSET_Y + at), dy * (float)GREF(int32_t, SCREEN + 4u), zoom
+    );
+}
+
 /* DrawMapOverlay: v1.01's map, then v2.00's markers where v2.00 draws them. */
 void func_00295F60(int paging, int set_clip) {
     func_00295F60__game(paging, set_clip);
+    note_map(set_clip);
     if (!MARKERS || GREF(int32_t, OPENRAC_DATA(MAP_HIDDEN)) != 0
         || GREF(uint8_t, ITEM_OWNED + ITEM_MAPPER) == 0) {
         return;

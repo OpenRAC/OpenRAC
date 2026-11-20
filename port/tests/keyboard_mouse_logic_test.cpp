@@ -272,8 +272,7 @@ void direct_look() {
         kbm::with_elevation(orbit, up, e0 + kbm::DirectLook::pitch(0.0f, -40.0f, t));
     CHECK(kbm::elevation(lowered, up) < e0 && view_of(lowered).z > view_of(orbit).z);
     CHECK(near(kbm::length(lowered), kbm::length(orbit), 1e-4f));
-    CHECK(
-        near(std::atan2(lowered.y, lowered.x), std::atan2(orbit.y, orbit.x), 1e-5f)
+    CHECK(near(std::atan2(lowered.y, lowered.x), std::atan2(orbit.y, orbit.x), 1e-5f)
     );  // the same way round
     t.invert_y = true;
     CHECK(kbm::DirectLook::pitch(0.0f, -10.0f, t) > 0.0f);
