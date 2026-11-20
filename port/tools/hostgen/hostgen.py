@@ -1445,6 +1445,14 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     for sym in program.kind_renames.values():
         program.functions.setdefault(sym, Function(
             sym, Signature(ctype.Base("int"), (), False, False), asm=True))
+    # hostgen.json "places_are_functions": every function the level catalogue places is one of the
+    # program's, translated from the levels' code where no unit defines it (a unit left out with
+    # "skip", rac3-pal's L01_0045A6F0.c, which Clang cannot read: Veldin called its functions'
+    # places and found none).
+    if cfg.get("places_are_functions"):
+        for sym in program.places:
+            program.functions.setdefault(sym, Function(
+                sym, Signature(ctype.Base("int"), (), False, False), asm=True))
     for sym, text in host_sigs.items():
         if text:
             # The port's own version decides the signature its callers are matched to.

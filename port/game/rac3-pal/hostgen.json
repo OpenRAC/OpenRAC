@@ -52,18 +52,19 @@
   "place_kinds_as_levels": [
     "frontbin"
   ],
+  "places_are_functions": true,
   "candidate_folders_left_out": {
     "nonmatching/boot_elf": "the boot program's functions are translated from its own code, which the build reads from the disc (the loader's payload); these are NTSC-U drafts and near misses, some far from PAL's code (func_003BC7C0's matched 12.5% of it, and the level loading screen faulted in it)",
     "nonmatching/frontbin": "frontbin's functions are translated from its own program on the disc (asm retail programs); these are NTSC-U drafts and near misses, some far from PAL's code (func_003AF0B8's matched none of it, and the front end it starts crashed on an object it had not set up)"
   },
-    "candidate_scopes": {
+  "candidate_scopes": {
     "nonmatching/boot_elf": "src/boot_elf",
     "nonmatching/frontbin": "src/frontbin"
   },
-      "candidates_left_out": {
+  "candidates_left_out": {
     "func_003B8430": "Clang cannot read it: use of undeclared identifier 'D_001D8A40' (rac3-decomp master)",
     "func_003EDF58": "Clang cannot read it: use of undeclared identifier 'O_3E8420' (rac3-decomp master)",
-    "func_003F1F28": "Clang cannot read it: use of undeclared identifier 'D_001D9698' (rac3-decomp master)",
+    "func_003F1F28": "check_c_constants.py: frontbin: calls func_003A4A78, not a callee of PAL's code (an NTSC-U address); the assembly is translated instead",
     "func_0038E530": "the font select: the US draft's fixed addresses of the font's page and palette tables (0x320000 - 0x3030 and - 0x2FB0) are NTSC-U's, 0x80 past PAL's 0x0031CF50 and 0x0031CFD0, so the prints took a palette for their pages (every glyph blank); the assembly is translated instead",
     "func_003823D0": "the text lookup: its fallback string is $gp - 0x7128 through a register variable, which the host has as 0, so every text came out as a null pointer (the menu's labels empty); the assembly is translated instead",
     "func_003932E8": "the US draft reads the buffer top at 0x0022760C, US's place; PAL's is 0x0022758C (a save's icon was read over all of memory)",
@@ -153,8 +154,7 @@
     "func_003BFEB0": "check_c_constants.py: frontbin: calls func_00384DA0, not a callee of PAL's code (an NTSC-U address); the assembly is translated instead",
     "func_003C24B0": "check_c_constants.py: frontbin: calls func_003BD0D8, not a callee of PAL's code (an NTSC-U address); the assembly is translated instead",
     "func_003C5370": "check_c_constants.py: frontbin: its NTSC-U draft did not build to PAL's bytes (nonmatching/README.md: differs); the assembly is translated instead",
-    "func_003D13B0": "check_c_constants.py: frontbin: calls func_003CCB40, not a callee of PAL's code (an NTSC-U address); calls func_003CC950, not a callee of PAL's code (an NTSC-U address); calls func_003CCFB0, not a callee of PAL's code (an NTSC-U address); calls func_003CD250, not a callee of PAL's code (an NTSC-U address); the assembly is translated instead",
-    "func_003F1F28": "check_c_constants.py: frontbin: calls func_003A4A78, not a callee of PAL's code (an NTSC-U address); the assembly is translated instead"
+    "func_003D13B0": "check_c_constants.py: frontbin: calls func_003CCB40, not a callee of PAL's code (an NTSC-U address); calls func_003CC950, not a callee of PAL's code (an NTSC-U address); calls func_003CCFB0, not a callee of PAL's code (an NTSC-U address); calls func_003CD250, not a callee of PAL's code (an NTSC-U address); the assembly is translated instead"
   },
   "asm": {
     "enabled": true,

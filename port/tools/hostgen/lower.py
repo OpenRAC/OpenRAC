@@ -1962,6 +1962,8 @@ class Unit:
         if program_level_unit(self.unit) and sym in self.program.kind_renames and \
                 (self.unit, sym) not in self.program.statics:
             sym = self.program.kind_renames[sym]
+        if program_level_unit(self.unit) and (copy := self.program.level_copy_named(self.unit, sym)):
+            sym = copy
         if (self.unit, sym) in self.program.statics:
             return sym
         # hostgen.json "calls_as": a level's C names a routine its level has only as a variant of

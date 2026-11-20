@@ -45,3 +45,15 @@ void func_L01_004B3238(void) {
         );
     }
 }
+
+/* frontbin's and the levels' copies of the moby renderer (frontbin's 0x003CB300, which the
+ * catalogue places in every level: hostgen names those copies func_L01_00441A98), called by the
+ * moby pass 0x003C35F0 outside the frame draw. Translated from its instructions it went on past
+ * the scratchpad's 16 KB (0x700045FC, through 0x003C7E20) in Veldin's first seconds. */
+void func_003CB300__frontbin(int list, int count) {
+    func_003CB6B8(list, count);
+}
+
+void func_L01_00441A98(int list, int count) {
+    func_003CB6B8(list, count);
+}

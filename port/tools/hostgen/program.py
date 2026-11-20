@@ -240,6 +240,16 @@ class Program:
             return exe + self.places[symbol]
         return named
 
+    def level_copy_named(self, unit: str, name: str) -> str | None:
+        """A level unit's name of another program's function with the copy's own address after it
+        (rac3-decomp's func_003EDB08_0051BC88 in L01_0051BBB8.c: frontbin's 0x003EDB08, Veldin's copy
+        at 0x0051BC88): the function the catalogue places there in the unit's level, or None."""
+        m = re.fullmatch(r"(?:func|FUN)_[0-9A-Fa-f]{8}_([0-9A-Fa-f]{8})", name)
+        level = _UNIT_LEVEL.search(unit or "")
+        if not m or not level:
+            return None
+        return self._any_place_owner().get((int(level.group(1)), int(m.group(1), 16)))
+
     def _any_place_owner(self) -> dict:
         """The catalogue's functions by every place they have: (overlay, address) -> name."""
         owner = getattr(self, "_any_owner_cache", None)
