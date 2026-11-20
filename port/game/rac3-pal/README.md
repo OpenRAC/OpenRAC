@@ -125,26 +125,29 @@ vertical blank callback (`func_0013D208`).
   ran 1.2 times too fast.
 - **Input**: read at the end of each tick (or just before the next one, with the player's
   Responsive controls, which reads the pads as the tick starts: `frontend::refresh_pads`). The
-  game reads them first thing in its pass. Measured with `OPENRAC_INPUT_LATENCY` (a virtual pad
-  pressing at random moments; `docs/port/DEBUGGING.md`) in the main menu, hidden window, OpenGL:
+  game reads them early in its pass. Measured with `OPENRAC_INPUT_LATENCY` (a virtual pad
+  pressing at random moments; `docs/port/DEBUGGING.md`) in the main menu, hidden window:
 
-  | from a press to | 60 Hz ticks (before) | 50 Hz ticks | 50 Hz, Responsive controls |
-  |---|---|---|---|
-  | the game's pad read | 27.4 ms | 32.1 ms | 10.2 ms |
-  | its tick's frame shown | 45.0 ms | 53.0 ms | 31.1 ms |
-  | the frame with the response | 62.5 ms | 73.9 ms | 52.0 ms |
+  | from a press to | 60 Hz ticks (before) | 50 Hz | 50 Hz, Responsive controls | Vulkan, 50 Hz | Vulkan, Responsive |
+  |---|---|---|---|---|---|
+  | the game's pad read | 27.4 ms | 30.4 ms | 9.8 ms | 16.9 ms | 10.3 ms |
+  | its tick's frame shown | 45.0 ms | 50.2 ms | 29.3 ms | 53.1 ms | 46.1 ms |
+  | the frame with the response | 62.5 ms | 71.1 ms | 50.2 ms | 73.8 ms | 66.6 ms |
 
-  Averages of 72 to 88 presses each. A hidden window is never focused, so the window's background
-  throttle (a sleep of a tick after each swap, on a clock of its own) held these runs to 56 and 46
-  ticks a second, and its late ticks lengthen every row; a focused window keeps the full rate.
-  The menu's response is in the frame after its tick's: the window draws the list the game sends
-  at the top of a pass, which the last pass built, as the console shows it. Native 2D (the game's
-  2D routines wrapped, as `rac2/host/ui2d.c`) is drawn on the tick that made it and takes that
-  frame (about 20 ms) off.
+  OpenGL unless marked, averages of 72 to 88 presses each (the "before" column is the tree
+  before the 50 Hz change, the others the main menu with native 2D). A hidden window is never
+  focused, so the window's background throttle (a sleep of a tick after each swap, on a clock of
+  its own) held these runs to 56 (60 Hz) and 48 (50 Hz) ticks a second, and its late ticks
+  lengthen every row; a focused window keeps the full rate. Vulkan hands each tick's frame to the
+  render worker, which presents it at the next handoff (frontend/README.md: bounded latency for
+  overlapping work), hence its later frames. The menu's response is in the frame after its tick's,
+  as on the console and in Going Commando: the list drawn is the one the last pass built (sent at
+  the top of the pass), and the 2D records go with the list whose markers name them
+  (`frontend/frame.cpp`, `ui_kept`).
 - **Frames between ticks**: drawn at the display's rate, with the camera and objects between two
-  ticks, as soon as the profile reads a world: `profile.cpp`'s `read_state` with a camera
-  (`has_camera`) and `read_moby` (`frontend/interpolation.cpp`'s `wants_between`). Until then
-  each tick is one frame.
+  ticks, whenever the tick has a camera: `profile.cpp`'s `read_state` gives the view's rows and
+  `read_moby` the mobys, and `frontend/interpolation.cpp`'s `wants_between` takes them (a tick
+  whose forward row is zero is one frame).
 
 ## What the port answers
 
