@@ -203,6 +203,9 @@ openrac_add_test(tick_picture INCLUDES .)
 # Far mobys the game leaves asleep, animated in the picture only
 # (game/common/frontend/sleeping_mobys.h).
 openrac_add_test(sleeping_mobys INCLUDES .)
+# A mod's energy material on the effects a moby makes: their colour, brightness and size
+# (game/common/frontend/energy_effects.h).
+openrac_add_test(energy_effects INCLUDES . "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Where a menu's mobys drawn with a camera of their own go, alone and over a level's world drawn
 # under it (game/common/frontend/menu_layers.h).
 openrac_add_test(menu_layers INCLUDES .)

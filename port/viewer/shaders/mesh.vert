@@ -96,7 +96,7 @@ out vec4 v_probe_multiplier;
 flat out vec4 v_probe_selector;
 flat out int v_lit;
 flat out int v_glow;  // a glow packet's vertex drawn in the moby's glow colour
-// A mod's render-only material on a live moby (OPENRAC_MOBY_MATERIAL_*: 2 platinum, 3 obsidian),
+// A mod's render-only material on a live moby (OPENRAC_MOBY_MATERIAL_*: 2 platinum, 3 obsidian, 4 energy),
 // for mesh.frag, and the instance's tint, which holds the mod's rgb: obsidian's glow colour.
 flat out int v_mod_material;
 flat out vec3 v_mod_rgb;

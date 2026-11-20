@@ -77,10 +77,11 @@ extern "C" {
  * 1.21 a hook point called as the game calls it, the mods' replacements
  * included (hook_entry), 1.22 render-only reward models, guest text,
  * sprite tint and pickup presentations, 1.23 a render-only material for one
- * moby (moby_material: a tint, or platinum), and 1.24 obsidian, a third
- * material for moby_material.
+ * moby (moby_material: a tint, or platinum), 1.24 obsidian, a third
+ * material for moby_material, and 1.25 energy, a fourth, which recolours the
+ * effects a moby draws.
  */
-#define OPENRAC_MOD_API_MINOR 24
+#define OPENRAC_MOD_API_MINOR 25
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1348,6 +1349,27 @@ typedef struct openrac_moby_visual {
  * is drawn in the glow's colour too. A port older than 1.24 refuses it (OPENRAC_HOOK_UNKNOWN), so a
  * mod can fall back to another. Since 1.24. */
 #define OPENRAC_MOBY_MATERIAL_OBSIDIAN 3
+/* Energy: the moby charged with rgb's colour, and the effects it makes drawn in it. Its body keeps
+ * its colours with a little of rgb (OPENRAC_MOBY_MATERIAL_ENERGY_BODY) and a glowing rim in rgb; its
+ * glow packets, the world quads its draw callbacks draw and the particles tied to it (attached to
+ * it, or naming it as their owner) are drawn in rgb at their own colour's brightness, so a blue
+ * weapon flash comes out in the mod's colour. A level from 0 to OPENRAC_MOBY_MATERIAL_ENERGY_TOP in
+ * the material's bits 8 to 11 (OPENRAC_MOBY_MATERIAL_ENERGY_AT) makes the effects brighter and its
+ * particles larger, step by step: at the top, about half again as bright and a third larger.
+ * Render-only, as the others: the game's particles and quads keep their colours in its memory. A
+ * port older than 1.25 refuses it (OPENRAC_HOOK_UNKNOWN), so a mod can fall back to another. Since
+ * 1.25. */
+#define OPENRAC_MOBY_MATERIAL_ENERGY 4
+/* The highest energy level (OPENRAC_MOBY_MATERIAL_ENERGY_AT). Since 1.25. */
+#define OPENRAC_MOBY_MATERIAL_ENERGY_TOP 15
+/* OPENRAC_MOBY_MATERIAL_ENERGY at `level` (0 to OPENRAC_MOBY_MATERIAL_ENERGY_TOP). Since 1.25. */
+#define OPENRAC_MOBY_MATERIAL_ENERGY_AT(level) \
+    (OPENRAC_MOBY_MATERIAL_ENERGY | ((uint32_t)(level) & 0xFu) << 8)
+/* What a moby_material value draws: its low byte (OPENRAC_MOBY_MATERIAL_*), without energy's level.
+ * Since 1.25. */
+#define OPENRAC_MOBY_MATERIAL_KIND(material) ((uint32_t)(material) & 0xFFu)
+/* Energy's share of rgb in its body's colours (the rest the body's own). Since 1.25. */
+#define OPENRAC_MOBY_MATERIAL_ENERGY_BODY 0.35f
 /* The mobys one mod has a material on at once. Since 1.23. */
 #define OPENRAC_MOBY_MATERIALS_MAX 1024
 
@@ -2319,7 +2341,8 @@ typedef struct openrac_api {
      * result) and clears it where the game removes it (rac2.bolt.collect), so a slot the game
      * reuses at once never shows it. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby,
      * an unknown material, rgb over 0xFFFFFF, or OPENRAC_MOBY_MATERIALS_MAX reached. At any time.
-     * Since 1.23; OPENRAC_MOBY_MATERIAL_OBSIDIAN since 1.24. */
+     * Since 1.23; OPENRAC_MOBY_MATERIAL_OBSIDIAN since 1.24, OPENRAC_MOBY_MATERIAL_ENERGY (with its
+     * level, OPENRAC_MOBY_MATERIAL_ENERGY_AT) since 1.25. */
     int (*moby_material)(openrac_mod* mod, openrac_gaddr moby, uint32_t material, uint32_t rgb);
 } openrac_api;
 

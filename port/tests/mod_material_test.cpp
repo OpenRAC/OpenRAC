@@ -70,7 +70,16 @@ int main() {
         api.moby_material(first, 0, OPENRAC_MOBY_MATERIAL_PLATINUM, 0xFFFFFF)
         == OPENRAC_HOOK_UNKNOWN
     );
-    CHECK(api.moby_material(first, kCoin, 4, 0xFFFFFF) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.moby_material(first, kCoin, 5, 0xFFFFFF) == OPENRAC_HOOK_UNKNOWN);
+    // A level is energy's alone, at most OPENRAC_MOBY_MATERIAL_ENERGY_TOP, in bits 8 to 11.
+    CHECK(
+        api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_TINT | 0x100u, 0xFFFFFF)
+        == OPENRAC_HOOK_UNKNOWN
+    );
+    CHECK(
+        api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_ENERGY | 0x1000u, 0xFFFFFF)
+        == OPENRAC_HOOK_UNKNOWN
+    );
     CHECK(
         api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_TINT, 0x1000000)
         == OPENRAC_HOOK_UNKNOWN
@@ -125,6 +134,26 @@ int main() {
     CHECK(openrac_moby_platinum(kCoin) == 0);
     CHECK(api.moby_material(second, kCoin, OPENRAC_MOBY_MATERIAL_NONE, 0) == OPENRAC_HOOK_OK);
     CHECK(openrac_moby_obsidian(kCoin, nullptr) == 0);
+
+    // Energy (1.25) at a level: drawn, and listed for the effects the moby makes with its colour
+    // and level; another material set later on the moby takes it out of that list.
+    CHECK(mods::energy_materials().empty());
+    CHECK(
+        api.moby_material(second, kOther, OPENRAC_MOBY_MATERIAL_ENERGY_AT(7), 0x20FF40)
+        == OPENRAC_HOOK_OK
+    );
+    list = mods::moby_materials({{kCoin, kBolt}, {kOther, kBolt}});
+    CHECK(material_of(list, kOther).material == OPENRAC_MOBY_MATERIAL_ENERGY_AT(7));
+    auto energy = mods::energy_materials();
+    CHECK(energy.size() == 1 && energy.contains(kOther));
+    CHECK(energy[kOther].rgb == 0x20FF40);
+    CHECK(OPENRAC_MOBY_MATERIAL_KIND(energy[kOther].material) == OPENRAC_MOBY_MATERIAL_ENERGY);
+    CHECK(openrac_moby_platinum(kOther) == 0 && openrac_moby_obsidian(kOther, nullptr) == 0);
+    CHECK(
+        api.moby_material(second, kOther, OPENRAC_MOBY_MATERIAL_TINT, 0x20FF40) == OPENRAC_HOOK_OK
+    );
+    CHECK(mods::energy_materials().empty());
+    CHECK(api.moby_material(second, kOther, OPENRAC_MOBY_MATERIAL_NONE, 0) == OPENRAC_HOOK_OK);
     mods::drop_figures(first);
     CHECK(mods::moby_materials({{kCoin, kBolt}}).empty());
 

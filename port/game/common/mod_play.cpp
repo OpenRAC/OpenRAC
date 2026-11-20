@@ -1531,7 +1531,7 @@ int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int c
 }
 
 // Sets, changes or clears (OPENRAC_MOBY_MATERIAL_NONE) `mod`'s material on `moby` for this level
-// load (interface 1.23, obsidian 1.24); the renderer reads them with moby_materials. Writes no
+// load (interface 1.23, obsidian 1.24, energy 1.25); the renderer reads them with moby_materials. Writes no
 // game memory.
 int api_moby_material(
     openrac_mod* mod, openrac_gaddr moby, std::uint32_t material, std::uint32_t rgb
@@ -1539,9 +1539,14 @@ int api_moby_material(
     // A moby record is 0x100 bytes; one that would end past the address space is no moby.
     constexpr openrac_gaddr kMobyBytes = 0x100;
     constexpr std::uint32_t kRgbMax = 0xFFFFFF;
+    // Energy carries its level in bits 8 to 11 (OPENRAC_MOBY_MATERIAL_ENERGY_AT); the others none.
+    constexpr std::uint32_t kEnergyLevels = 0xF00;
+    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material);
+    const std::uint32_t extra = material & ~0xFFu;
+    const bool known = kind <= OPENRAC_MOBY_MATERIAL_ENERGY
+                       && (extra == 0 || (kind == OPENRAC_MOBY_MATERIAL_ENERGY && (extra & ~kEnergyLevels) == 0));
     // A call the interface does not describe changes nothing.
-    if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes
-        || material > OPENRAC_MOBY_MATERIAL_OBSIDIAN || rgb > kRgbMax) {
+    if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes || !known || rgb > kRgbMax) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const std::uint32_t loads = loads_now();
@@ -2292,6 +2297,26 @@ MobyMaterial moby_material_drawn(std::uint32_t moby) {
     }
 
     return MobyMaterial{moby};
+}
+
+std::unordered_map<std::uint32_t, MobyMaterial> energy_materials() {
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    std::unordered_map<std::uint32_t, MobyMaterial> out;
+    // In the order set, so the last set on a moby is the one kept; another material set later on
+    // it takes it out again.
+    for (const MaterialEntry& e : g_materials) {
+        if (e.loads != loads) {
+            continue;
+        }
+        if (OPENRAC_MOBY_MATERIAL_KIND(e.material.material) == OPENRAC_MOBY_MATERIAL_ENERGY) {
+            out.insert_or_assign(e.material.moby, e.material);
+        } else {
+            out.erase(e.material.moby);
+        }
+    }
+
+    return out;
 }
 
 bool moby_platinum(std::uint32_t moby) {

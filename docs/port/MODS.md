@@ -767,6 +767,13 @@ and `_PLATINUM`; the C++ layer's `moby_material()`, `has_moby_material()`), afte
 glossy black with an inner glow in `rgb`'s colour (0xFFFFFF the default violet-red). The table is
 unchanged; a port older than 1.24 refuses the material, so a mod falls back to another.
 
+1.25 (SDK 1.25.0) energy, a fourth material for `moby_material` (`OPENRAC_MOBY_MATERIAL_ENERGY`, or
+`OPENRAC_MOBY_MATERIAL_ENERGY_AT(level)` with a level from 0 to 15): the moby's body keeps its colours
+with a little of `rgb` and a glowing rim in it, and the effects it makes are drawn in `rgb` at their
+own brightness: its glow packets, the world quads its draw callbacks draw and the particles tied to
+it (attached, or naming it as their owner). A higher level draws them brighter and the particles
+larger. Render-only; the table is unchanged and a port older than 1.25 refuses the material.
+
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
 does. The port keeps every hook point it has had, with its

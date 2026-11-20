@@ -1039,10 +1039,16 @@ public:
       return has_moby_material() && m_api->api_minor >= 24;
     }
 
+    // Since 1.25: whether the port draws OPENRAC_MOBY_MATERIAL_ENERGY (and its levels).
+    bool has_energy() const {
+      return has_moby_material() && m_api->api_minor >= 25;
+    }
+
     // Since 1.23: draws the live moby at `moby` with `material`
-    // (OPENRAC_MOBY_MATERIAL_TINT, _PLATINUM, _OBSIDIAN since 1.24, or _NONE to
-    // clear it) and `rgb` (0xRRGGBB, 0xFFFFFF no tint; obsidian's glow colour,
-    // 0xFFFFFF its default) until the game removes the moby, the level
+    // (OPENRAC_MOBY_MATERIAL_TINT, _PLATINUM, _OBSIDIAN since 1.24,
+    // _ENERGY_AT(level) since 1.25, or _NONE to clear it) and `rgb` (0xRRGGBB,
+    // 0xFFFFFF no tint; obsidian's glow colour, 0xFFFFFF its default; energy's
+    // colour) until the game removes the moby, the level
     // changes or the mod clears it. Render-only: no game memory is written. At
     // any time. Returns false when refused or the port has no such call.
     bool moby_material(openrac_gaddr moby, std::uint32_t material,
