@@ -483,7 +483,10 @@
       "func_00131ED8": "float (int)",
       "func_L39_005A4290": "int (int, int, int, int, int, int)",
       "func_L39_0067ABC8": "int (int, int, int, int, int)",
-      "func_L39_006879E0": "int (int, int, int, int, int)"
+      "func_L39_006879E0": "int (int, int, int, int, int)",
+      "func_003D3154": "void (int, int, int, int)",
+      "func_003D3158": "void (int, int, int, int)",
+      "func_003D3158_003C1558": "void (int, int, int, int)"
     },
     "discover_entries": true,
     "dirs": [],
