@@ -4334,6 +4334,44 @@ class FromAssembly(unittest.TestCase):
             extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source, symbols)})
         self.assertEqual(out, ["7", "6", "4"])
 
+    def test_a_computed_jump_runs_past_its_compares(self):
+        # A run of compares, each a branch forward over its own instructions, entered by a computed
+        # offset (Up Your Arsenal's func_003D37D8 at 0x003D3A4C): every compare is an entry, the
+        # branches' delay slots are not, and the run ends at the jump.
+        source = """
+                sll $4, $4, 4
+                lui $8, %hi(run)
+                addiu $8, $8, %lo(run)
+                addu $9, $8, $4
+                addiu $2, $0, 0
+                jr $9
+                nop
+            run:
+                bltz $5, one
+                nop
+                addiu $2, $2, 1
+                nop
+            one:
+                bltz $5, two
+                nop
+                addiu $2, $2, 2
+                nop
+            two:
+                addiu $2, $2, 4
+                jr $31
+                nop
+        """
+        symbols = {"run": assembler.label_addresses(0x00100000, source)["run"]}
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int, int);
+            int test_main(void) { test_print(func_00100000(0, 0)); test_print(func_00100000(1, 0));
+                                  test_print(func_00100000(2, 0)); test_print(func_00100000(0, -1));
+                                  return 0; }
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], register_jumps=True)),
+            extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source, symbols)})
+        self.assertEqual(out, ["7", "6", "4", "4"])
+
     def test_the_declaration_the_code_agrees_with(self):
         # One file declares a float where the register is an integer's and adds a parameter: its
         # length must not win over what the code reads ($4, $5 and $f12).

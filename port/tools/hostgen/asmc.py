@@ -128,6 +128,13 @@ def is_control(i: asm.Insn) -> bool:
     return i.op in asm.BRANCHES
 
 
+def _conditional(i: asm.Insn) -> bool:
+    """A branch that may fall through: not j, jr, jal or jalr, nor beq of a register with itself."""
+    if i.op in ("j", "jal", "jr", "jalr") or i.op.endswith("al") or i.op.endswith("all"):
+        return False
+    return not (i.op == "beq" and i.rs == i.rt)
+
+
 LEVEL_DATUM = re.compile(r"D_L(\d\d)_([0-9A-Fa-f]{8})")
 
 
@@ -514,14 +521,22 @@ class Translator:
             return []
         if base is None or not 0 < base - self.entry_addr < 0x10000 or self._is_other_entry(base):
             return []
+        # The run goes on past a conditional branch forward inside it (Up Your Arsenal's
+        # func_003D37D8 enters a chain of compares, each skipping its two instructions: 0x003D3A4C
+        # into 0x003D3A54 + 24 a vector); its delay slot is no entry. It ends at a jump.
         targets = []
+        slot = False
         for t in range(base, base + 4 * 256, 4):
             i = self.at(t)
             if i is None:
                 return []
-            targets.append(t)
+            if not slot:
+                targets.append(t)
+            slot = False
             if is_control(i):
-                break
+                if not (_conditional(i) and t < i.target <= t + 4 * 64):
+                    break
+                slot = True
         return targets
 
     def _flow(self):
