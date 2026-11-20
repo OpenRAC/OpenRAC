@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
-"""Walks Up Your Arsenal's (PAL) menus by script and checks every page.
+"""Walks Up Your Arsenal's menus by script and checks every page, on either disc (--version).
 
 Each route starts the port hidden and muted, from the boot screens, with a fresh empty memory card
 folder, and presses the pad by script (OPENRAC_PRESS). Every frame the port writes the front end's
@@ -18,10 +18,13 @@ The picture of the window at the end of each step is kept as OUT/ROUTE/NN-step.p
 has a table of every step's result, OUT/report.json the same for a program.
 
     python3 port/game/rac3-pal/menus.py --exe "<the built app's program>" --data <data folder>
-        [--out build/rac3-menus] [--only ROUTE,...] [--jobs N]
+        [--version pal|ntsc] [--out build/rac3-menus] [--only ROUTE,...] [--jobs N]
 
-The data folder holds iso_data/rac3/SCES_524.56 and iso_data/rac3/disc.iso, as for a run by hand
-(README.md). Exit status 0 when every step passes.
+The data folder holds iso_data/rac3/SCES_524.56 (PAL) or SCUS_973.53 (NTSC-U, openrac-rac3-ntsc) and
+iso_data/rac3/disc.iso, as for a run by hand (README.md). NTSC-U ticks 60 times a second where PAL
+ticks 50, and its pages last the same seconds: every wait is counted in PAL's fiftieths and run as
+that many sixtieths on NTSC-U (TICKS). Its pages print other strings in places (NTSC_TEXT). Exit
+status 0 when every step passes.
 """
 
 from __future__ import annotations
@@ -45,6 +48,12 @@ BUTTONS = {
     "l2": 0x0100, "r2": 0x0200, "l1": 0x0400, "r1": 0x0800,
     "triangle": 0x1000, "circle": 0x2000, "cross": 0x4000, "square": 0x8000,
 }
+
+# Each version's ticks a second (hostgen.json tick_rate): the routes' waits are PAL's.
+TICKS = {"pal": 50, "ntsc": 60}
+# What NTSC-U's pages print in place of PAL's strings a step expects (None: the page has no such
+# string on NTSC-U, the check is left out).
+NTSC_TEXT: dict[str, str | None] = {}
 
 HOLD = 4          # frames a button is held
 WINDOW = 8        # the frames before a check whose strings it reads
@@ -225,6 +234,21 @@ def read_log(path: Path) -> dict[int, dict]:
     return out
 
 
+def for_version(route: Route, version: str) -> Route:
+    """ROUTE as VERSION runs it: its waits in that version's ticks, its strings that version's."""
+    if version == "pal":
+        return route
+
+    def ticks(n: int) -> int:
+        return round(n * TICKS[version] / TICKS["pal"])
+
+    def text(t: list[str]) -> list[str]:
+        return [NTSC_TEXT.get(e, e) for e in t if NTSC_TEXT.get(e, e) is not None]
+    steps = [Step(s.name, s.press, ticks(s.wait), text(s.expect), s.changes, s.allow_empty, s.hold, s.known,
+                  text(s.absent)) for s in route.steps]
+    return Route(route.name, steps, ticks(route.boot_wait), route.card)
+
+
 def press_spec(route: Route) -> tuple[str, list[tuple[Step, int, int]]]:
     """OPENRAC_PRESS for the route, and each step with the frame it presses at and the frame it is
     checked at."""
@@ -359,6 +383,8 @@ def report(results: list[dict], out: Path) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--exe", type=Path, required=True)
+    ap.add_argument("--version", choices=sorted(TICKS), default="pal",
+                    help="the disc the program is built for: pal (openrac-rac3-pal) or ntsc (openrac-rac3-ntsc)")
     ap.add_argument("--data", type=Path, required=True)
     ap.add_argument("--out", type=Path, default=Path("build/rac3-menus"))
     ap.add_argument("--only", default="")
@@ -366,7 +392,7 @@ def main() -> int:
     ap.add_argument("--timeout", type=float, default=300)
     ap.add_argument("--list", action="store_true", help="the routes and their steps")
     a = ap.parse_args()
-    todo = [r for r in routes() if not a.only or r.name in a.only.split(",")]
+    todo = [for_version(r, a.version) for r in routes() if not a.only or r.name in a.only.split(",")]
     if a.list:
         for r in todo:
             print(r.name + ": " + ", ".join(s.name for s in r.steps))
