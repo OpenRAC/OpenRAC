@@ -246,3 +246,4 @@ func_003B63D0	options	rac3OptionsRowsText	wrap	the Options page's rows' names an
 func_003B6090	options	rac3OptionsPreview	wrap	the Options page's preview following the cursor: none on the Video row and page (host/options.c)	void (void)
 func_003B5F78	options	rac3OptionsButtons	wrap	the Options page's buttons: Cross on the Video row opens the port's page, whose rows Cross, Left and Right step and Triangle leaves (host/options.c)	void (int, int)
 func_003B6588	options	rac3OptionsWidescreen	wrap	the 16:9 row's action: kept off, the port's Video page has its place (host/options.c)	void (void)
+func_003CB6B8	render	rac3DrawMobys	host	hand-written moby renderer (0x003C81D8 with VU0 and the scratchpad): replaced, draws nothing until the native renderer (host/render.c)	void (int, int)
