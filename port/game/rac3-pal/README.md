@@ -42,9 +42,9 @@ From the launcher (launcher/actions.json, `rac3/pal`), as for Going Commando: *S
 disc* runs `tools/extractor.py`, which checks the disc against games/rac3/game.json and writes
 `iso_data/rac3/` (`SCES_524.56`, `disc.iso`, `buildinfo.json`) into the game's data folder;
 *Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
-the levels into `assets/port/rac3/pal` (`levels-4.json`), and *Play* runs
+the levels into `assets/port/rac3/pal` (`levels-5.json`), and *Play* runs
 `openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
-no level loads yet. Nothing reads the levels until the first level loads.
+no level plays yet. The game draws a level's world from them ([Drawing the levels](#drawing-the-levels)).
 
 `OPENRAC_RAC3_CHAINS=N` prints the VIF codes of the first N display lists and the front end's
 state words (mode, boot state, boot screen, the pad's held and pressed buttons) each frame.
@@ -198,7 +198,8 @@ vertical blank callback (`func_0013D208`).
 | `host/ui2d.c` | the 2D layer's routines, wrapped as Going Commando's (rac2/host/ui2d.c): boxes, glyph quads, turned sprites, ring segments, the font's glyphs (drawn from its distance field) and the menus' Widget3D sprites become window records |
 | `host/chain_census.c` | `OPENRAC_RAC3_CHAINS` (a rough census: it reads image data inside DIRECT as VIF codes) |
 | `host/menu_log.c` | `OPENRAC_RAC3_MENU_LOG`: the front end's state and printed strings a frame, for `menus.py` |
-| `profile.cpp` | draws the display list the game sends (as rac4-ntsc), the records at their markers in it |
+| `profile.cpp` | draws the display list the game sends (as rac4-ntsc), the records at their markers in it; the camera, view, fog and live mobys of each program; the levels extracted (`has_levels`), the title drawn without a world (`has_title_world`) |
+| `host/render.c` | the game's hand-written renderers the port does not run: each level's DrawFrame passes (terrain, ties, shrubs, sky shells, MobyProc) tell the window what to draw from the extracted level, as Going Commando's (below) |
 | `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record |
 | `host/options.c` | the title's Options: the port's Video page in the 16:9 row's place, the game's 16:9 kept off, the subtitles, the sound mode and the language remembered between runs (below) |
 | `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record; in a picture wider than 4:3, its blurred edges out to the window's sides, as Going Commando's title |
@@ -286,6 +287,59 @@ A console forgets the options at power off; the port keeps them in the settings 
 the front end's start-up reads back through `sceScfGetLanguage`). The in-window menu (Esc) and the
 F-key overlay (F3) are the shared ones, and the pad is the shared keyboard and controller path
 (Return is Start).
+
+## Drawing the levels
+
+As Going Commando's port (`rac2/host/render.c`): the game's renderers, hand-written VU1 and GS
+packet builders, do not run. Each level's frame pass, DrawFrame (Veldin's `0x00403440`, Going
+Commando's `func_0027BD70`, whose calls line up with it one for one), runs as translated, and its
+passes end in `host/render.c`, which tells the window what the game drew this frame and where in
+the display list (`openrac_game_draw`, the world's and the mobys' markers): DrawTfrag (the
+terrain, and the world's marker), the tie and shrub passes, SkyDrawShell (each shell with the
+matrix the sky code built for it, `0x001E0E10` in Veldin) and MobyProc (the mobys' drawn flags as
+the console sets them, `+0x31`; the window draws the live mobys the profile reads) and PartProc
+(each live particle of the pool, as Going Commando's records and texture table). The per-frame
+lighting and texture-packet passes do nothing: the extracted level carries what they computed. The
+window draws the world natively from the extracted level (`--levels`, the scene module's level
+renderer: `port/scene`), with the camera, view, fog and mobys the profile reads.
+
+Every level's program carries its own copy of the engine, at its own addresses: the hooks are
+written with Veldin's (`func_L01_...`, the names hostgen gives the catalogue's places) and its
+globals go through `OPENRAC_LDATA(1, ...)` to the loaded level's. The multiplayer maps (39 to 53)
+share most of them, but have their own DrawTfrag, tie and shrub passes and MobyProc, written with
+level 39's (`func_L39_...`, `OPENRAC_LDATA(39, ...)`). `IDENTIFIED.tsv` has each function and its
+Going Commando pair.
+
+The extracted levels are the shared export (`editor/extract.py port`), format 5 for this game
+(`editor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
+sky's shells and its panorama, collision, and (5) Ratchet's mesh and textures from his first pack
+(`editor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
+draws him with. Against Going Commando's format 20 it lacks: the terrain's and shrubs' lighting as
+the game lights them at load (no normal table found yet: `lit` false, the renderer's defaults), the
+ties' vertex colours and relighting data, the chrome and glass maps (grey), the mobys' glow
+vertices, light sets and bangles, his other skins, his wrench and what he holds, and the enhanced
+renderer's bake inputs (gameplay copy, emissions, liquids).
+
+To look at a level without the game (no game code runs; the viewer's own camera):
+
+```sh
+python3 editor/extract.py port <disc> build/rac3pal --level 1 --anywhere
+openrac-viewer build/rac3pal/level_01 --camera 365,103,82,90,-5 --screenshot veldin.png --frames 5
+```
+
+What a level's picture still lacks (Veldin, 2026-11-20, hidden runs on box2 with
+`OPENRAC_RAC3_NEXT=60:1`): the sky, terrain, ties, shrubs, fog and the live mobys (Ratchet posed
+and animated) draw natively with the game's camera, but
+
+- **the screen glow** is still the game's packets: it copies the frame into a 256 x 256 buffer
+  (FBP 0x198), shrinks it (FBP 0, 0x1FD) and adds it back over the frame (ALPHA 0x221, FIX 0x80);
+  replayed over the native world it leaves a ghost of the picture and a copy of it in the top left.
+  Its routine is to be found and drawn natively (or left out), as Going Commando's frame copies
+  are (`rac2/host/picture.c`);
+- the world's effect quads (DrawWorldQuad, `0x00407E28`: the draw callbacks' quads, Going
+  Commando's `world_quad`) are not bound: their effect texture records are not paired yet;
+- the export's gaps above (lighting at load, chrome and glass, glow, bangles, Ratchet's other skins
+  and what he holds), water, shadows and the enhanced renderer's inputs.
 
 ## What is missing
 

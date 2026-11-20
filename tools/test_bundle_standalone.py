@@ -13,10 +13,16 @@ from unittest import mock
 import bundle_standalone as bundle
 
 
+def game_format(game: str) -> str:
+    """The format of a game's export that moves on alone (editor/port.py GAME_FORMATS)."""
+    text = (bundle.ROOT / "editor" / "port.py").read_text(encoding="utf-8")
+    table = re.search(r'^GAME_FORMATS = (\{.*\})$', text, re.MULTILINE).group(1)
+    return re.search(rf'"{game}": (\d+)', table).group(1)
+
+
 def going_commando_format() -> str:
     """The format of Going Commando's export, which moves on alone (editor/port.py GAME_FORMATS)."""
-    text = (bundle.ROOT / "editor" / "port.py").read_text(encoding="utf-8")
-    return re.search(r'^GAME_FORMATS = \{"rac2": (\d+)\}$', text, re.MULTILINE).group(1)
+    return game_format("rac2")
 
 
 class LevelsStamp(unittest.TestCase):
@@ -33,7 +39,10 @@ class LevelsStamp(unittest.TestCase):
         # The levels are ready by a stamp of their own, named after the format too, so a bump
         # reads them again before the check runs.
         # Going Commando's export moved on alone, so its bump reads only its levels again.
-        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected), going_commando_format()})
+        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)),
+                         {str(expected), going_commando_format(), game_format("rac3")})
+        self.assertEqual(set(re.findall(r"rac3/(?:ntsc|pal)/levels-(\d+)\.json", actions)),
+                         {game_format("rac3")})
         self.assertEqual(set(re.findall(r"rac2/ntsc/levels-(\d+)\.json", actions)), {going_commando_format()})
         self.assertEqual(bundle.LEVELS_STAMP, f"levels-{expected}.json")
         extract = (bundle.ROOT / "editor" / "extract.py").read_text(encoding="utf-8")
@@ -69,7 +78,8 @@ class PlayerActions(unittest.TestCase):
         # Going Commando, Up Your Arsenal and Deadlocked: their levels are read into the data
         # folder for texture and model packs. Going Commando's are packed back there too, the
         # early access games' not.
-        for key, stamp in (("rac2/ntsc", going_commando_format()), ("rac3/ntsc", 4), ("rac4/ntsc", 4)):
+        for key, stamp in (("rac2/ntsc", going_commando_format()), ("rac3/ntsc", game_format("rac3")),
+                           ("rac4/ntsc", 4)):
             with self.subTest(key):
                 actions = {a["id"]: a for a in self.actions["versions"][key]}
                 if key == "rac2/ntsc":

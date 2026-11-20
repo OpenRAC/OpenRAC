@@ -318,6 +318,11 @@ public:
     // scenery cannot be read is something missing, not a game with no scenery yet.
     virtual bool has_levels() const { return false; }
 
+    // Whether the boot program (the title and its menus) is drawn over a world of the extracted
+    // levels (a title world, else level 0's), rather than as its 2D path alone: Up Your Arsenal's
+    // title is a picture, and its levels have no level 0.
+    virtual bool has_title_world() const { return true; }
+
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
 

@@ -243,3 +243,32 @@ data	D_001DA4A0	0x001DA4A0	moby_first	the boot program's first spawned moby (*),
 data	D_001D545C	0x001D545C	level_current	the level whose program is loaded or loading (level_load, request_level_change); core data, every program's
 data	D_001D9D04	0x001D9D04	level_next	the boot program's and frontbin's level to go to ($gp-relative; a level's own copy elsewhere)
 data	D_001A4BE0	0x001A4BE0	hero	the hero code's base: position +0x80 (0x001A4C60, read by the boot program's 0x003A0180), frames off the ground +0x36E (lh 0x36E in Veldin's hero code); the profile's hero_state
+code	func_L01_00403440	0x00403440	DrawFrame	Veldin's copy (catalogue row func_00388AF8 frontbin, the 34 single-player levels): rac2 func_0027BD70's calls one for one (BuildViewMatrices 0x00400868, the sky 0x00407B38, DrawTfrag, the ties, the draw callback lists 0x00404920/0x00404998/0x00404858/0x00404A60, the shrubs, PartProc 0x00461CB8, ...); runs as translated, its passes end in host/render.c
+code	func_L01_004B1728	0x004B1728	DrawTfrag	rac2 func_002EF3B0, the same 208 bytes (frontbin row func_003CF0F0): the terrain's pass; host/render.c draws it natively and puts the world's marker in the list
+code	func_L01_004B3238	0x004B3238	DrawTies	rac2 func_002F0EF8 (frontbin row func_003D9CF0): the tie pass; host/render.c
+code	func_L01_004A59F8	0x004A59F8	DrawShrubs	rac2 func_002E11C0, the same 104 bytes (frontbin row func_003DEF28): the shrub pass; host/render.c
+code	func_L01_004A7F28	0x004A7F28	SkyDraw	the sky's shells in order: 0x004A7E10 then SkyDrawShell for each of the header's (*0x001E0DF0) +0x06 shells; called by 0x00407B38 (rac2 func_00291268's pair)
+code	func_L01_004A7E10	0x004A7E10	SkyShellMatrix	a shell's turn: its angles (+0x04..+0x08 shorts, 2pi/65536) advanced by its speeds (+0x0A..+0x0E) once a tick, built into the sky matrix 0x001E0E10 (0x0040EBA8)
+code	func_L01_004A8158	0x004A8158	SkyDrawShell	rac2 func_002E3940 (shell header +0x02 bit 0: textured 0x004A8360, else 0x004A81B8; rac2 tests +0x04): host/render.c hands the shell and 0x001E0E10 to the window
+code	func_L01_00441B78	0x00441B78	MobyProc	Veldin's copy of boot 0x003CB798 (frontbin row func_003CB3E0): the group masks 0x001EA840 (rac2 0x001BADC0), the cap $gp+0x37A0 = 0x001E0050; host/render.c sets the drawn flags as it does and the window draws the mobys
+code	func_L01_00441A98	0x00441A98	MobyDrawSide	rac2 func_002A4D88 (MobyAnimProc's draw side), the 224 bytes before MobyProc; the boot program's copy is 0x003CB6B8
+code	func_L01_004417E8	0x004417E8	DmaMobyTextures	rac2 func_002A4AD8, the same 688 bytes
+code	func_L01_00440090	0x00440090	moby_anim_eval_chain	rac2 func_002A4078: the marked joints' poses into the scratchpad; host/render.c asks the port's evaluator (openrac_game_moby_chain)
+code	func_L01_00461CB8	0x00461CB8	PartProc	rac2 func_002B9420, the same 3112 bytes (frontbin row func_003CD3D8): the pool $gp+0x39C8 (0x001E0278), the highest slot $gp+0x39D0 (0x001E0280), the texture table 0x00220A40 (rac2 0x001F1F40); host/render.c hands each live record to the window
+code	func_L01_004B27B8	0x004B27B8	PatchTfragVertexLighting	rac2 func_002F0468 (frontbin row func_003D0180); host/render.c: the extracted level carries the lighting
+code	func_L01_004B1688	0x004B1688	PatchTfragGifs	rac2 func_002EF310; host/render.c
+code	func_L01_004B6ED0	0x004B6ED0	TieColours	rac2 func_002F3E78 (frontbin row func_003DD768); host/render.c
+code	func_L01_004B3178	0x004B3178	PatchTieGifs	rac2 func_002F0E38; host/render.c
+code	func_L01_004A75E0	0x004A75E0	ShrubLighting	rac2 func_002E2C38 (frontbin row func_003E0B10); host/render.c
+code	func_L01_004A58F0	0x004A58F0	PatchShrubGifs	rac2 func_002E10B8; host/render.c
+code	func_L01_0043AAC0	0x0043AAC0	PatchMobyGifs	rac2 func_0029FEE0; host/render.c
+code	func_L01_004C5B90	0x004C5B90	VU1_addGSregister	rac2 func_002FC560, the same 180 bytes: appends an A+D register write (a DMA tag, DIRECT, a GIF tag) at the list pointer 0x001E1068 (+0x30); host/render.c writes its markers the same way
+code	func_L01_00407E28	0x00407E28	DrawWorldQuad	rac2 func_00280B90, the same 608 bytes: the draw callbacks' world quad; not bound yet (effect quads)
+code	func_L01_004255E0	0x004255E0	LoadPlayerDisplayTextures	rac2 func_00292078: Ratchet's pack by his skin (0x005147D8) from the table of contents at 0x00160C40, base sector +0x1EB4, rows from +0x1EB8 (editor/wads.py RAC3_PAL hero_packs)
+data	D_001E1068	0x001E1068	display_list_pointer	Veldin's: the display list's write pointer (DrawTfrag, VU1_addGSregister)
+data	D_001E0E10	0x001E0E10	sky_matrix	Veldin's: the matrix the shell being drawn takes (rac2 0x001B20F0); the sky header's pointer at 0x001E0DF0 (rac2 0x001B20C0)
+data	D_00160C40	0x00160C40	table_of_contents	the disc's table of contents in memory (the level table at +0x7A04, Ratchet's packs at +0x1EB4)
+code	func_L39_005F4690	0x005F4690	DrawTfrag	the multiplayer maps' copy (levels 39 to 53), rac2 func_002EF3B0's 208 bytes: the list pointer 0x0024CAD0; the other render passes but these four are the single-player levels' rows (49 places)
+code	func_L39_005F61A0	0x005F61A0	DrawTies	the multiplayer maps' copy (rac2 func_002F0EF8)
+code	func_L39_005EDE28	0x005EDE28	DrawShrubs	the multiplayer maps' copy (rac2 func_002E11C0)
+code	func_L39_005B25C8	0x005B25C8	MobyProc	the multiplayer maps' copy (rac2 func_002A4E68): the group masks 0x0025F580, the draw-distance cap $gp+0x3FD0 = 0x001E0880 (not moby_end + 0x2C as in the single-player levels: profile.cpp's moby_cap 0 there)

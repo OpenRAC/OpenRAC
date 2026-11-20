@@ -329,6 +329,12 @@ public:
 
     bool sends_display_list() const override { return true; }
 
+    // The levels are extracted for the port (editor/extract.py port: --levels), and drawn natively
+    // from them (host/render.c). The boot program's title and menus draw no world: a picture.
+    bool has_levels() const override { return true; }
+
+    bool has_title_world() const override { return false; }
+
     // The front end's menus are 2D alone (the picture behind them is a 2D record, picture.c): no
     // world camera, so its ticks get the frames between ticks by this, the 2D the tick recorded
     // drawn again at the player's frame rate, as Going Commando's menus get them for their camera.
