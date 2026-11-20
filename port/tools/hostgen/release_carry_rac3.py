@@ -162,6 +162,8 @@ class Names:
 def absent(name: str, names: Names) -> bool:
     """A function name NTSC-U's program has no such function for (PAL's own, or a level copy
     NTSC-U's levels do not have)."""
+    if name.startswith("func_PAL_"):
+        return True
     m = NAME.fullmatch(name)
     return bool(m) and m.group(1) == "func" and (
         "_PAL_" in name or (m.group(2) is not None and name.split("__")[0] not in names.us_level_names))
