@@ -178,6 +178,7 @@
       "func_L01_00443A78": "float (void)",
       "func_L01_00446278": "float (int, int, int, float)",
       "func_L01_0051F940": "int (int, int)",
+      "func_L01_00436150": "void (void *, unsigned int, void *, int, int, int, int, void *, void *, int)",
       "func_L01_00412708": "int (int, int)",
       "func_L01_004127C0": "int (int, int, float)",
       "func_L01_004127E8": "int (int, int, float)",

@@ -370,3 +370,4 @@ code	func_L01_0032A168	0x0032A168	veldin_exit_point	class 3950's update (5 in Ve
 code	func_L01_003B4FB0	0x003B4FB0	veldin_item_giver	class 6628's update (one, at (212,528,100)): by its state (+0x20, 1 to 7) gives the item of the table at 0x001DE748 its +0x52 byte picks
 data	class 5821	-	tyhrranoid	Veldin's Tyhrranoid trooper (update 0x00350750); a blow takes one of the hero's health; spawned from pods (class 7032 update 0x003326A8, class 6886 0x003C8E98) on the ledge above the first valley; each kill gives 20 bolts
 data	class 6306	-	galactic_ranger	Veldin's Galactic Rangers (update 0x003A0778), at (390.4,152.2), (405.1,149.3), (402.0,176.6)
+code	func_L01_00436150	0x00436150	MessageBoxDraw	the levels' copy of the message box (boot 0x003AF7C0, catalogue frontbin row func_003AF408): forwards ten arguments (two on the stack) to func_L01_004CDF20 (boot 0x003AC590); translated with seven, the in-level Quit Game question lost its "Square Yes" and its wrap width

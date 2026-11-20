@@ -586,16 +586,21 @@ it where the transfers were (`host/picture.c`): nothing of the game's transfers 
 - The memory card works through the shared `sceMc*`; saving is untested.
 - **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's
   `frontbin` group and `relocate` are not set up for them.
-- Saving from a level: the pause menu has no save row (Missions, Weapons, Gadgets, Quick Select,
-  Items, Options, Help, Special); the in-level save dialogs (the ship's, between planets, as far
-  as known) are not reached by any run yet and are untested.
+- Saving from a level: the pause menu's Options > SAVE runs the game's own card code (Veldin,
+  hidden runs): an empty card asks to create the save file, the SAVE slot page lists the slots, a
+  slot saves ("Saving Data", then "Veldin" with the date); the main menu's Load Game loads it back
+  into Veldin with what was owned (the N60 given in Veldin's scene came back, held, 8/8). Still
+  missing on the in-level slot page: its left column (the slots' level pictures and the empty
+  slots' art) draws nothing. Options > QUIT GAME asks its question (Square Yes, Triangle No); Yes
+  loads frontbin, which faults in its Widget3D pose (func_003A9DB0__frontbin, SIGBUS).
 - The pause menu's pages (Veldin, hidden runs): all eight open and print their text where it
   belongs (Missions, Weapons, Gadgets, Quick Select, Items, Options with Save / Load / Controls /
   Audio-Visual / Quit, Help, Special with Cheats / Skins / Skill Points / Cinematics). Still wrong:
   the pictures at the top of Missions, Options and Special draw as vertical stripes (they are left
   to the game's packets: indexed textures, PSMT8 at 0x2CAB/0x2DAF and PSMT4 at 0x2D33, in
-  triangles and a strip, `OPENRAC_UI_RESIDUAL`), and the Weapons grid and the quick select ring
-  list no weapons although items are owned.
+  triangles and a strip, `OPENRAC_UI_RESIDUAL`). The Weapons grid and the quick select ring are
+  empty, as on the console, until Veldin's scenes give the first guns (item 39 the Shock Blaster, 119 the N60;
+  the ring and the grid show the N60 once given).
 - Movie subtitles: the native player shows the picture alone. The PAL game draws them in its own
   movie list, which the hand-written vertical blank handler (`func_003B1118`) sends each blank:
   `func_003A1428` builds it (the picture's sprites, then `func_0038A8F8`'s subtitles from the movie
