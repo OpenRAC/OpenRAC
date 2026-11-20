@@ -86,7 +86,13 @@ void draw_touch_pad(int window_width, int window_height) {
         settings::save();
     }
     was_editing = editing;
-    renderer::ui::touch_overlay::draw(touch, window_width, window_height);
+    if (touch.visible()) {
+        run_graphics([&] {
+            renderer::ui::touch_overlay::draw(touch, window_width, window_height);
+        });
+    } else if (window_width > 0 && window_height > 0) {
+        touch.set_aspect(static_cast<float>(window_width) / static_cast<float>(window_height));
+    }
 }
 
 // The cursor as the mods ask for it, while nothing else has the mouse: captured only with the

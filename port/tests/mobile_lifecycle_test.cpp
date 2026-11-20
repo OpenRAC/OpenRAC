@@ -38,10 +38,25 @@ int main() {
     openrac::platform::poll_event(event);
     CHECK(resumed);  // A frame cannot be submitted while the scene is in the background.
     foreground.join();
+
+    event.type = SDL_EVENT_WILL_ENTER_BACKGROUND;
+    resumed = false;
+    CHECK(SDL_PushEvent(&event));
+    CHECK(drains == 2);
+    std::thread resume_during_pump([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(40));
+        SDL_Event active{};
+        active.type = SDL_EVENT_DID_ENTER_FOREGROUND;
+        resumed = true;
+        SDL_PushEvent(&active);
+    });
+    openrac::platform::pump_events();
+    CHECK(resumed);  // A worker wait that pumps SDL must also stay paused.
+    resume_during_pump.join();
     openrac::platform::set_background_handler(nullptr);
     event.type = SDL_EVENT_WILL_ENTER_BACKGROUND;
     CHECK(SDL_PushEvent(&event));
-    CHECK(drains == 1);
+    CHECK(drains == 2);
     openrac::platform::poll_event(event);
     SDL_Quit();
     return openrac::test::result();

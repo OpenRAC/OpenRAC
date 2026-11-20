@@ -17,6 +17,7 @@
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 using namespace openrac;
 using namespace openrac::gl;
@@ -267,7 +268,7 @@ void check() {
                     fill.uniform("projection"), 1, GL_FALSE, input.camera.projection.data()
                 );
                 glUniform1i(fill.uniform("fixture"), fixture);
-                glDrawArrays(GL_TRIANGLES, 0, 3);
+                openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                 CHECK(early.render(
                     depth.depth_texture(),
                     input,
@@ -312,7 +313,7 @@ void check() {
                     glActiveTexture(GL_TEXTURE0);
                     glBindTexture(GL_TEXTURE_2D, depth.depth_texture());
                     glBindVertexArray(vao);
-                    glDrawArrays(GL_TRIANGLES, 0, 3);
+                    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                     return output.read_rgba();
                 };
                 const auto reference = draw(false, false), actual = draw(true, false);

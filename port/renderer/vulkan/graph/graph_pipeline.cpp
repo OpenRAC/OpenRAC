@@ -5,15 +5,23 @@
 #include "renderer/vulkan/graph/graph_pipeline.h"
 
 #include <algorithm>
+#include <atomic>
 #include <stdexcept>
 
+#include "renderer/vulkan/graph/graph_barriers.h"
 #include "renderer/vulkan/graph/graph_execution_internal.h"
+#include "renderer/vulkan/graph/graph_immediate_work.h"
 
 namespace openrac::vkgl::detail {
 namespace {
 namespace graph = renderer::graph;
 thread_local const GraphPipelineScope* active_pass = nullptr;
 thread_local const ComputeBindingScope* preparing_compute = nullptr;
+// Images can keep their cached declaration across a graphics-owner handoff.
+std::atomic<std::uint64_t> next_material_scope{1};
+constexpr graph::State kMaterialRead{
+    graph::Stage::FragmentShader, graph::Access::Read, graph::Layout::Sampled
+};
 
 const graph::Pass* compute_pass() {
     return preparing_compute ? &preparing_compute->pass
@@ -42,6 +50,29 @@ bool covers(graph::ImageRange declared, graph::ImageRange required) {
            && required.first_layer - declared.first_layer <= declared.layer_count
            && required.layer_count
                   <= declared.layer_count - (required.first_layer - declared.first_layer);
+}
+
+bool material_read_declared(const Sampled& sample) {
+    if (!sample.image || sample.image == g->dummy_image.get()) {
+        return true;
+    }
+    if (!active_pass) {
+        return false;
+    }
+    auto& image = *sample.image;
+    if (image.material_scope == active_pass->material_scope
+        && covers(image.material_range, sample.range)) {
+        return true;
+    }
+    for (const auto& use : active_pass->pass.images) {
+        if (active_pass->bindings[use.image.index].image.get() == &image
+            && covers(use.range, sample.range) && covers(use.state, kMaterialRead)) {
+            image.material_scope = active_pass->material_scope;
+            image.material_range = use.range;
+            return true;
+        }
+    }
+    return false;
 }
 
 // Constrains native indirect reads to the pass's declared allocation and byte range.
@@ -158,6 +189,73 @@ void validate_compute_sampler(const Sampled& sampled) {
     });
     if (!declared) {
         throw std::runtime_error(pass->name + ": dispatch samples an undeclared image or range");
+    }
+}
+
+void validate_material_sampler(const Sampled& sample) {
+    if (!material_read_declared(sample)) {
+        throw std::runtime_error(
+            (active_pass ? active_pass->pass.name : "raster")
+            + std::string{": bindless material samples an undeclared image or range"}
+        );
+    }
+    if (sample.image && sample.image != g->dummy_image.get()
+        && !image_contents_defined(*sample.image, sample.range)) {
+        throw std::runtime_error(
+            active_pass->pass.name + ": bindless material samples unwritten contents"
+        );
+    }
+}
+
+void GraphImmediateWork::prepare_material_reads(std::span<const Sampled> textures) {
+    // Most classic draws already declare the complete material set in the enclosing layer.
+    const auto missing = [](const Sampled& sample) {
+        return sample.image && sample.image != g->dummy_image.get()
+               && (!material_read_declared(sample)
+                   || !image_has_layout(
+                       *sample.image, sample.range, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                   )
+                   || !image_contents_defined(*sample.image, sample.range));
+    };
+    if (std::ranges::none_of(textures, missing)) {
+        return;
+    }
+    if (!active_pass) {
+        throw std::logic_error("material preparation requires an owning raster pass");
+    }
+
+    const auto scope = active_pass->material_scope;
+    GraphExecution execution;
+    auto pass = execution.make_pass("bindless material reads");
+    pass.kind = graph::PassKind::Export;
+    for (const auto& sample : textures) {
+        if (!missing(sample)) {
+            continue;
+        }
+        end_rendering_for(sample.image);
+        auto owner = sample.image->owner.lock();
+        if (!owner) {
+            throw std::logic_error("bindless material requires a renderer-owned image");
+        }
+        const auto image =
+            execution.m_recording->import_image("material texture", std::move(owner), true);
+        if (!image) {
+            throw std::runtime_error(image.error().message);
+        }
+        pass.images.push_back({*image, sample.range, kMaterialRead});
+    }
+    execution.add_pass(std::move(pass));
+    const auto result = execution.run();
+    if (!result) {
+        throw std::runtime_error(result.error().message);
+    }
+    // Each real selection now belongs to the owning raster scope, even if a later
+    // ordered draw selects the same texture before the bucket ends.
+    for (const auto& sample : textures) {
+        if (sample.image && sample.image != g->dummy_image.get()) {
+            sample.image->material_scope = scope;
+            sample.image->material_range = sample.range;
+        }
     }
 }
 
@@ -317,6 +415,7 @@ GraphPipelineScope::GraphPipelineScope(
     : pass(declaration),
       bindings(resources),
       target(command),
+      material_scope(next_material_scope.fetch_add(1, std::memory_order_relaxed)),
       m_commands(scheduled),
       m_previous(active_pass) {
     if (declaration.name != scheduled.name || declaration.kind != scheduled.kind) {
@@ -381,14 +480,15 @@ void record_pipeline_command(
     VkBuffer indirect,
     std::optional<graph::BufferRange> generated_arguments
 ) {
-    if (active_pass) {
-        const auto valid = graph::validate_pipeline_command(active_pass->pass, command);
-        if (!valid) {
-            throw std::runtime_error(valid.error().message);
-        }
-        if (const auto* args = std::get_if<graph::DrawIndexedIndirect>(&command)) {
-            validate_indirect_arguments(*active_pass, *args, indirect, generated_arguments);
-        }
+    if (!graph_pipeline_records(buffer)) {
+        throw std::logic_error("pipeline command requires an owning graph pass on its stream");
+    }
+    const auto valid = graph::validate_pipeline_command(active_pass->pass, command);
+    if (!valid) {
+        throw std::runtime_error(valid.error().message);
+    }
+    if (const auto* args = std::get_if<graph::DrawIndexedIndirect>(&command)) {
+        validate_indirect_arguments(*active_pass, *args, indirect, generated_arguments);
     }
     NativeCommandEncoder encoder{buffer};
     if (const auto* draw = std::get_if<graph::Draw>(&command)) {

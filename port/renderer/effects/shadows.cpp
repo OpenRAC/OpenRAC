@@ -2,7 +2,9 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #include "renderer/effects/shadows.h"
 
-#include "renderer/frame/colour_graph.h"
+#include <exception>
+
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 #include "renderer_shaders.h"
 
@@ -28,13 +30,12 @@ bool ShadowRenderer::init(RenderState&, std::string& error) {
 
 // Volume counting clears and writes stencil before the composite samples it.
 Result<void> ShadowRenderer::record_colour(const FrameInput& input, RenderState& state) {
-    return colour_pass(
-        name(),
-        state.target,
-        [this, &input, &state] { render(input, state); },
-        ColourAttachments::ColourDepthStencil,
-        {{}, {}, ColourRecording::Ordered}
-    );
+    try {
+        render(input, state);
+        return {};
+    } catch (const std::exception& failure) {
+        return unexpected(Error{failure.what()});
+    }
 }
 
 void ShadowRenderer::render(const FrameInput& input, RenderState& state) {
@@ -59,40 +60,46 @@ void ShadowRenderer::render(const FrameInput& input, RenderState& state) {
         vertices.data(),
         GL_STREAM_DRAW
     );
-    glDisable(GL_SCISSOR_TEST);
-    glDisable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-    glDisable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_GEQUAL);
-    glDepthMask(GL_FALSE);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glEnable(GL_STENCIL_TEST);
-    glStencilMask(0xff);
-    glClearStencil(0);
-    glClear(GL_STENCIL_BUFFER_BIT);
-    glStencilFunc(GL_ALWAYS, 0, 0xff);
-    // Depth fail (reversed depth too): count the closed surfaces behind the
-    // receiver. Overlapping capsules are one shadow, composited only once.
-    glStencilOpSeparate(GL_BACK, GL_KEEP, GL_INCR_WRAP, GL_KEEP);
-    glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_DECR_WRAP, GL_KEEP);
-    m_volume.use();
-    const auto vp = multiply(input.camera.projection, input.camera.view);
-    glUniformMatrix4fv(m_volume.uniform("view_projection"), 1, GL_FALSE, vp.data());
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size()));
+    const RasterBuffer geometry{m_buffer, vertices.size() * sizeof(Vec3)};
+    const auto draw = [&] {
+        glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_CULL_FACE);
+        glFrontFace(GL_CCW);
+        glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_GEQUAL);
+        glDepthMask(GL_FALSE);
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        glEnable(GL_STENCIL_TEST);
+        glStencilMask(0xff);
+        glClearStencil(0);
+        glClear(GL_STENCIL_BUFFER_BIT);
+        glStencilFunc(GL_ALWAYS, 0, 0xff);
+        // Depth fail (reversed depth too): count the closed surfaces behind the
+        // receiver. Overlapping capsules are one shadow, composited only once.
+        glStencilOpSeparate(GL_BACK, GL_KEEP, GL_INCR_WRAP, GL_KEEP);
+        glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_DECR_WRAP, GL_KEEP);
+        m_volume.use();
+        const auto vp = multiply(input.camera.projection, input.camera.view);
+        glUniformMatrix4fv(m_volume.uniform("view_projection"), 1, GL_FALSE, vp.data());
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size()));
 
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glStencilMask(0);
-    glStencilFunc(GL_NOTEQUAL, 0, 0xff);
-    glStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendEquation(GL_FUNC_ADD);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
-    m_composite.use();
-    // Retail submit_graphics_setup_command_stream uses ALPHA FIX=32, divisor 128.
-    glUniform1f(m_composite.uniform("opacity"), 32.0f / 128.0f);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glStencilMask(0);
+        glStencilFunc(GL_NOTEQUAL, 0, 0xff);
+        glStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+        m_composite.use();
+        // Retail submit_graphics_setup_command_stream uses ALPHA FIX=32, divisor 128.
+        glUniform1f(m_composite.uniform("opacity"), 32.0f / 128.0f);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    };
+    raster_pass(
+        name(), state.target, {{&geometry, 1}, {}, ColourAttachments::ColourDepthStencil}, draw
+    );
     state.stats.draw_calls += 2;
     state.stats.triangles += vertices.size() / 3 + 1;
 

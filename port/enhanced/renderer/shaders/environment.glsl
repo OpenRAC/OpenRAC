@@ -122,8 +122,8 @@ vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 n,vec3 view,fl
     return mix(fallback,radiance*(f0*brdf.x+brdf.y),coverage);
 }
 
-// One name per f0 type: Metal's shading language (MoltenVK, the Metal renderer) converts a float to a
-// vector implicitly, so a float/vec3 pair of overloads is ambiguous there.
+// MoltenVK translates to Metal's shading language, which implicitly converts floats to vectors.
+// Separate names avoid an ambiguous float/vec3 overload.
 vec3 environment_specular_surface_frame_scalar(vec3 p,vec3 receiver,vec3 n,vec3 view,float nv,float roughness,float f0,vec3 fallback) {
     return environment_specular_surface_frame(p,receiver,n,view,nv,roughness,vec3(f0),fallback);
 }

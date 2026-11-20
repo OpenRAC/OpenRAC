@@ -19,6 +19,7 @@
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -171,7 +172,7 @@ struct MotionFixture {
         glBindTexture(GL_TEXTURE_2D, motion.texture());
         read.use();
         glUniform1f(read.uniform("motion_scale"), scale);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return output.read_rgba();
     }
 
@@ -202,7 +203,7 @@ struct MotionFixture {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, depth);
         const auto draw = [] {
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         };
 
         // Vulkan needs declared image reads; compatibility GL draws immediately.

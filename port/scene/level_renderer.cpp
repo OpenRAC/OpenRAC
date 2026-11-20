@@ -451,6 +451,25 @@ bool LevelScene::upload(
     // does not change the picture; the blended passes keep the stored order.
     std::vector<std::uint32_t> indices = level.indices;
     m_opaque.assign(m_models.size(), 0);
+    m_classic_materials.clear();
+    m_classic_materials.reserve(m_models.size());
+    std::vector<int> materials;
+    for (const Model& model : m_models) {
+        materials.clear();
+        materials.reserve(model.primitives.size());
+        for (const Primitive& primitive : model.primitives) {
+            materials.push_back(primitive.material);
+        }
+        std::ranges::sort(materials);
+        const auto duplicates = std::ranges::unique(materials);
+        auto& classic = m_classic_materials.emplace_back();
+        classic.slots.assign(materials.begin(), duplicates.begin());
+        for (int slot : classic.slots) {
+            const auto& material = m_materials[static_cast<std::size_t>(slot)];
+            classic.cutout |= material.cutout && !material.metal;
+            classic.metal |= material.metal;
+        }
+    }
     std::vector<bool> fixed(m_models.size(), false);
     for (const Layer layer : {Layer::Terrain, Layer::Ties, Layer::Shrubs}) {
         for (const Instance& instance : level.instances[static_cast<std::size_t>(layer)]) {
@@ -577,6 +596,7 @@ bool LevelScene::upload(
         }
     }
 
+    m_vertex_count = level.vertices.size();
     glGenBuffers(1, &m_vertices);
     glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
     glBufferData(
@@ -685,7 +705,7 @@ void LevelScene::draw_mobys(
     std::vector<Group> own;
     own.swap(groups);
     build_groups(Layer::Mobys, instances, true);
-    draw_layer(Layer::Mobys, input, state);
+    draw_layer(Layer::Mobys, input, state, "menu mobys");
     idle.insert(
         idle.end(), std::make_move_iterator(groups.begin()), std::make_move_iterator(groups.end())
     );
@@ -925,12 +945,173 @@ std::vector<Instance> LevelScene::animated_instances(double seconds) const {
     return result;
 }
 
+// Builds a compact stream only when the terrain visibility mask changes.
+const LevelScene::PvsModel& LevelScene::prepare_terrain_indices(
+    std::uint32_t model, const Pvs::Mask& mask
+) {
+    auto& cached = m_pvs_models[model];
+    if (!cached.valid || cached.mask != mask) {
+        cached.primitives.clear();
+        cached.rejected = 0;
+        cached.index_bytes = 0;
+        std::vector<std::uint32_t> visible_indices;
+        for (const auto& primitive : m_models[model].primitives) {
+            const auto fragment = static_cast<std::size_t>(primitive.terrain_fragment);
+            // Another streamed chunk than the game's: not drawn (move_scenery).
+            if (primitive.terrain_fragment >= 0 && m_terrain_chunk >= 0
+                && primitive.terrain_chunk != m_terrain_chunk) {
+                ++cached.rejected;
+                continue;
+            }
+            const bool far = primitive.terrain_fragment >= 0 && fragment < m_terrain_far.size()
+                             && m_terrain_far[fragment];
+            if (far || !Pvs::visible(mask, primitive.occlusion)) {
+                ++cached.rejected;
+                continue;
+            }
+            auto kept = primitive;
+            kept.first_index = static_cast<std::uint32_t>(visible_indices.size());
+            visible_indices.insert(
+                visible_indices.end(),
+                m_cpu_indices.begin() + primitive.first_index,
+                m_cpu_indices.begin() + primitive.first_index + primitive.index_count
+            );
+            cached.primitives.push_back(kept);
+        }
+        if (cached.rejected && !visible_indices.empty()) {
+            if (!cached.indices) {
+                glGenBuffers(1, &cached.indices);
+            }
+            cached.index_bytes = visible_indices.size() * sizeof(std::uint32_t);
+            glBindBuffer(GL_ARRAY_BUFFER, cached.indices);
+            glBufferData(
+                GL_ARRAY_BUFFER,
+                static_cast<GLsizeiptr>(cached.index_bytes),
+                visible_indices.data(),
+                GL_DYNAMIC_DRAW
+            );
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+        }
+        cached.mask = mask;
+        cached.valid = true;
+    }
+    return cached;
+}
+
+// Prepares sources available to a layer's existing material and visibility passes.
+renderer::RasterInputs LevelScene::classic_colour_inputs(
+    Layer layer, renderer::RenderState& state, const renderer::GpuCullView& view, bool inspection
+) {
+    const auto index = static_cast<std::size_t>(layer);
+    const bool sky = layer == Layer::Sky;
+    const bool mobys = layer == Layer::Mobys;
+    const bool authored =
+        !state.depth_prepass && m_lighting && m_lighting->enhanced_materials_enabled();
+    m_classic_geometry.clear();
+    m_classic_textures.clear();
+    m_classic_material_images.clear();
+    const auto buffer = [&](unsigned name, std::size_t bytes, bool instanced = false) {
+        if (name && bytes) {
+            m_classic_geometry.push_back({name, bytes, instanced});
+        }
+    };
+    buffer(m_vertices, m_vertex_count * sizeof(Vertex));
+    // Both position layouts share the same mesh data, but only an enabled stream is bound.
+    if (m_position_stream) {
+        buffer(m_positions, m_vertex_count * 3 * sizeof(float));
+    }
+    buffer(m_indices, m_cpu_indices.size() * sizeof(std::uint32_t));
+    for (std::size_t i = 0; i < m_groups[index].size(); ++i) {
+        const auto& group = m_groups[index][i];
+        if (!group.count || (!sky && !m_colour_visible[index][i])) {
+            continue;
+        }
+        const auto& materials = m_classic_materials[group.model];
+        // Vulkan's GPU-driven draws bind the output of the culler in the backend.
+        // CPU draws select the same prepared stream as the VAO in draw_visible_layer.
+        if (sky) {
+            buffer(group.instances, static_cast<std::size_t>(group.count) * sizeof(InstanceData));
+        } else if (!group.gpu_camera) {
+            const int camera_count = view.plane_count ? group.camera_count : 0;
+            // Only the late cutout and metal draws use the wider visibility when culling.
+            const bool draws_broad =
+                mobys ? !m_sweep_moby_blended_off && (materials.metal || authored)
+                      : !m_sweep_translucent_off && (materials.cutout || authored);
+            const int pvs_count =
+                !view.plane_count || (!state.depth_prepass && !inspection && draws_broad)
+                    ? group.pvs_count
+                    : 0;
+            if (!camera_count && !pvs_count) {
+                continue;
+            }
+            buffer(
+                camera_count == group.count ? group.instances : group.camera_instances,
+                static_cast<std::size_t>(camera_count) * sizeof(InstanceData),
+                true
+            );
+            buffer(
+                pvs_count == group.count ? group.instances : group.pvs_instances,
+                static_cast<std::size_t>(pvs_count) * sizeof(InstanceData),
+                true
+            );
+        }
+        // The opaque model has reordered indices but uses the same set of materials.
+        if (layer == Layer::Terrain && view.use_pvs) {
+            const auto& original = prepare_terrain_indices(group.model, view.pvs);
+            buffer(original.indices, original.index_bytes);
+            if (group.model < m_opaque.size() && m_opaque[group.model] != group.model) {
+                const auto& sorted = prepare_terrain_indices(m_opaque[group.model], view.pvs);
+                buffer(sorted.indices, sorted.index_bytes);
+            }
+        }
+        for (int slot : materials.slots) {
+            const auto& original = m_materials[static_cast<std::size_t>(slot)];
+            if (state.depth_prepass && (original.metal || (!mobys && !original.cutout))) {
+                continue;
+            }
+            const auto& material = m_lighting && !sky && !state.depth_prepass
+                                       ? m_lighting->resolve_material(group.model, slot, original)
+                                       : original;
+            m_classic_material_images.push_back(
+                material.image >= 0 ? m_textures[static_cast<std::size_t>(material.image)] : m_white
+            );
+        }
+    }
+    std::ranges::sort(m_classic_geometry, {}, &renderer::RasterBuffer::name);
+    const auto distinct_buffers =
+        std::ranges::unique(m_classic_geometry, {}, &renderer::RasterBuffer::name);
+    m_classic_geometry.erase(distinct_buffers.begin(), distinct_buffers.end());
+    std::ranges::sort(m_classic_material_images);
+    const auto unique = std::ranges::unique(m_classic_material_images);
+    m_classic_material_images.erase(unique.begin(), unique.end());
+    for (auto image : m_classic_material_images) {
+        const auto [name, mips] = state.textures.prepare_draw_texture(image);
+        m_classic_textures.push_back({name, mips});
+    }
+    if (!sky) {
+        m_classic_textures.push_back({m_lights});
+        if (layer == Layer::Mobys) {
+            m_classic_textures.push_back({m_palette});
+        }
+        if (!state.depth_prepass) {
+            m_classic_textures.push_back({state.gtao_visibility});
+        }
+    }
+    return {
+        m_classic_geometry,
+        m_classic_textures,
+        sky ? renderer::ColourAttachments::Colour : renderer::ColourAttachments::ColourDepth
+    };
+}
+
 // Draws a layer, sharing camera visibility between passes only while its inputs remain current.
 void LevelScene::draw_layer(
-    Layer layer, const renderer::FrameInput& input, renderer::RenderState& state
+    Layer layer,
+    const renderer::FrameInput& input,
+    renderer::RenderState& state,
+    std::string_view pass_name
 ) {
     sync_position_stream();
-    const bool enhanced_materials = m_lighting && m_lighting->enhanced_materials_enabled();
     if (m_lighting) {
         m_lighting->prepare_deformation(input, *this);
     }
@@ -953,10 +1134,13 @@ void LevelScene::draw_layer(
     }
     const bool colour_batch = !state.depth_prepass && batches_opaque_colour()
                               && (state.opaque_colour_phase >= 0 || state.opaque_colour_batched);
+    const bool own_colour_pass =
+        !state.depth_prepass && (!pass_name.empty() || !enhanced_rendering_available());
     bool reuse_camera = colour_batch && state.opaque_colour_phase != 0;
     const stats::Scope colour(
         layer_name(layer),
-        state.depth_prepass || colour_batch || layer == Layer::Mobys || layer == Layer::Ties
+        state.depth_prepass || colour_batch || (own_colour_pass && gl::is_vulkan())
+                || layer == Layer::Mobys || layer == Layer::Ties
             ? 0
             : stats::kGpu
     );
@@ -1030,7 +1214,7 @@ void LevelScene::draw_layer(
     gpu_view.plane_count = camera_culling_off ? 0u : 6u;
     gpu_view.pvs = pvs_mask;
     gpu_view.use_pvs = use_pvs;
-    std::uint64_t pvs_rejected = 0, pvs_primitives_rejected = 0;
+    std::uint64_t pvs_rejected = 0;
     if (!reuse_camera) {
         for (std::size_t i = 0; i < groups.size(); ++i) {
             visible[i] = !groups[i].bounded
@@ -1147,6 +1331,59 @@ void LevelScene::draw_layer(
         stats::gauge(names.camera_submitted, static_cast<double>(camera_counts.submitted));
         stats::gauge(names.camera_culled, static_cast<double>(camera_counts.rejected));
     }
+    const auto draw = [&] {
+        std::optional<stats::Scope> timing;
+        // Time raster work inside its own Vulkan pass.
+        if (own_colour_pass && gl::is_vulkan()) {
+            timing.emplace(layer_name(layer), stats::kGpu);
+        }
+        draw_visible_layer(
+            layer,
+            input,
+            state,
+            gpu_view,
+            inspection,
+            colour_batch,
+            !pvs_off && (!m_pvs.grid.empty() || m_pvs.game),
+            pvs_rejected
+        );
+    };
+    // The enclosing prepass owns the attachments. Declare reads after culling chooses the streams.
+    if (state.depth_prepass && gl::is_vulkan()) {
+        const auto reads = renderer::raster_reads(
+            "depth prepass mesh inputs", classic_colour_inputs(layer, state, gpu_view, inspection)
+        );
+        if (!reads) {
+            throw std::runtime_error(reads.error().message);
+        }
+    }
+    // Enhanced world buckets and the depth prepass already have an enclosing pass.
+    if (!own_colour_pass) {
+        draw();
+        return;
+    }
+    const auto inputs = classic_colour_inputs(layer, state, gpu_view, inspection);
+    // Standalone layer draws preserve the original blend and material order.
+    renderer::raster_pass(
+        pass_name.empty() ? layer_name(layer) : pass_name, state.target, inputs, draw
+    );
+}
+
+void LevelScene::draw_visible_layer(
+    Layer layer,
+    const renderer::FrameInput& input,
+    renderer::RenderState& state,
+    const renderer::GpuCullView& gpu_view,
+    bool inspection,
+    bool colour_batch,
+    bool pvs_enabled,
+    std::uint64_t pvs_rejected
+) {
+    const auto index = static_cast<std::size_t>(layer);
+    auto& groups = m_groups[index];
+    const auto& visible = m_colour_visible[index];
+    const bool enhanced_materials = m_lighting && m_lighting->enhanced_materials_enabled();
+    std::uint64_t pvs_primitives_rejected = 0;
     // On a target wider than the game's picture, the 2D layer's mobys are cut at the picture's sides
     // (mesh.vert).
     // An ES driver without GL_EXT_clip_cull_distance has no clip planes (renderer/gl/shader.h,
@@ -1503,7 +1740,8 @@ void LevelScene::draw_layer(
                 continue;
             }
             // Inspection includes blended and chrome geometry in the selected frustum filter.
-            const bool culled = !camera_culling_off && (inspection || (mobys ? !metal : pass <= 1));
+            const bool culled =
+                gpu_view.plane_count && (inspection || (mobys ? !metal : pass <= 1));
             const int instances = culled ? g.camera_count : g.pvs_count;
             if (!instances) {
                 continue;
@@ -1691,52 +1929,8 @@ void LevelScene::draw_layer(
                 pass <= 1 && !mobys && g.model < m_opaque.size() ? m_opaque[g.model] : g.model;
             const auto* primitives = &m_models[model].primitives;
             bool compact_indices = false;
-            if (use_pvs && layer == Layer::Terrain) {
-                auto& cached = m_pvs_models[model];
-                if (!cached.valid || cached.mask != pvs_mask) {
-                    cached.primitives.clear();
-                    cached.rejected = 0;
-                    std::vector<std::uint32_t> visible_indices;
-                    for (const auto& primitive : *primitives) {
-                        const auto fragment = static_cast<std::size_t>(primitive.terrain_fragment);
-                        // Another streamed chunk than the game's: not drawn (move_scenery).
-                        if (primitive.terrain_fragment >= 0 && m_terrain_chunk >= 0
-                            && primitive.terrain_chunk != m_terrain_chunk) {
-                            ++cached.rejected;
-                            continue;
-                        }
-                        const bool far = primitive.terrain_fragment >= 0
-                                         && fragment < m_terrain_far.size()
-                                         && m_terrain_far[fragment];
-                        if (far || !Pvs::visible(pvs_mask, primitive.occlusion)) {
-                            ++cached.rejected;
-                            continue;
-                        }
-                        auto kept = primitive;
-                        kept.first_index = static_cast<std::uint32_t>(visible_indices.size());
-                        visible_indices.insert(
-                            visible_indices.end(),
-                            m_cpu_indices.begin() + primitive.first_index,
-                            m_cpu_indices.begin() + primitive.first_index + primitive.index_count
-                        );
-                        cached.primitives.push_back(kept);
-                    }
-                    if (cached.rejected && !visible_indices.empty()) {
-                        if (!cached.indices) {
-                            glGenBuffers(1, &cached.indices);
-                        }
-                        glBindBuffer(GL_ARRAY_BUFFER, cached.indices);
-                        glBufferData(
-                            GL_ARRAY_BUFFER,
-                            static_cast<GLsizeiptr>(visible_indices.size() * sizeof(std::uint32_t)),
-                            visible_indices.data(),
-                            GL_DYNAMIC_DRAW
-                        );
-                        glBindBuffer(GL_ARRAY_BUFFER, 0);
-                    }
-                    cached.mask = pvs_mask;
-                    cached.valid = true;
-                }
+            if (gpu_view.use_pvs && layer == Layer::Terrain) {
+                const auto& cached = prepare_terrain_indices(model, gpu_view.pvs);
                 pvs_primitives_rejected += cached.rejected;
                 if (cached.rejected) {
                     primitives = &cached.primitives;
@@ -1815,7 +2009,7 @@ void LevelScene::draw_layer(
         }
         stats::gauge(names.pvs_instances, static_cast<double>(pvs_rejected));
         stats::gauge(names.pvs_primitives, static_cast<double>(pvs_primitives_rejected));
-        stats::gauge("pvs enabled", !pvs_off && (!m_pvs.grid.empty() || m_pvs.game) ? 1 : 0);
+        stats::gauge("pvs enabled", pvs_enabled ? 1 : 0);
     }
     if (cut) {
         glDisable(GL_CLIP_DISTANCE0);
@@ -1835,6 +2029,25 @@ LayerRenderer::LayerRenderer(LevelScene& scene, Layer layer)
     : BucketRenderer(layer_name(layer), bucket_of(layer)),
       m_scene(scene),
       m_layer(layer) {}
+
+bool LayerRenderer::prepares_colour_chain() const {
+    return m_layer != Layer::Sky && enhanced_rendering_available();
+}
+
+Result<void> LayerRenderer::record_colour(
+    const renderer::FrameInput& input, renderer::RenderState& state
+) {
+    // Classic layers declare geometry after visibility. Enhanced layers keep their outer scope.
+    if (enhanced_rendering_available()) {
+        return BucketRenderer::record_colour(input, state);
+    }
+    try {
+        render(input, state);
+        return {};
+    } catch (const std::exception& failure) {
+        return unexpected(Error{failure.what()});
+    }
+}
 
 void LayerRenderer::render(const renderer::FrameInput& input, renderer::RenderState& state) {
     if (m_layer == Layer::Animated) {

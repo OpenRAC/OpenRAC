@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "tests/graph_fixture.h"
 #include "check.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "renderer/gl/framebuffer.h"
@@ -127,7 +128,7 @@ public:
         glUniform1i(m_shader.uniform("textured"), 1);
         glUniform1i(m_shader.uniform("tcc"), 1);
         glUniform1f(m_shader.uniform("tex_alpha_scale"), 0.5f);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto out = m_frame.read_rgba();
         const std::size_t at = (std::size_t{kSize / 2} * kSize + kSize / 2) * 4;
         return {out[at] / 255.0f, out[at + 1] / 255.0f, out[at + 2] / 255.0f};

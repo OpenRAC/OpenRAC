@@ -37,6 +37,9 @@ std::optional<Cell> cell(std::string_view name);
 // The texture: red the white ink's coverage, green the accent's (0 before cell() made it).
 gl::GLuint texture();
 
+// The number of mip levels generated for the current atlas.
+unsigned mip_levels();
+
 // Frees the texture (the context is current); the icons stay, to be drawn again.
 void release();
 

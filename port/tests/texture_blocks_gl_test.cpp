@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "tests/graph_fixture.h"
 #include "check.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
@@ -82,7 +83,7 @@ bool draws_quadrants(const Shader& shader, unsigned texture, float lod) {
     glUniform1f(shader.uniform("lod"), lod);
     glClearColor(0.5f, 0.5f, 0.5f, 0.5f);
     glClear(GL_COLOR_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     std::array<std::uint8_t, kSide * kSide * 4> pixels{};
     glReadPixels(0, 0, kSide, kSide, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     const auto at = [&](int x, int y) {

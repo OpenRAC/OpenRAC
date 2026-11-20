@@ -176,6 +176,8 @@ private:
     void use_shader(Shader& shader, const Mat4& view_projection, const Mat4& view);
     void bind_vertex_stream(unsigned vao, std::size_t first);
     void reserve_quad_indices(std::size_t quads);
+    // Resolves a panel drawn by the 2D renderer before this effect pass.
+    static unsigned offscreen_texture(std::uint64_t tex0_bits, std::uint32_t tbp);
     // Binds TEX0's texture with TEX1's filtering and CLAMP's wrapping, and sets ALPHA's blend.
     // False when the pool has nothing at TEX0's block (the draw is left out, not the placeholder).
     bool apply(

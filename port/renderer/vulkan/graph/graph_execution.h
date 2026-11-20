@@ -19,6 +19,7 @@ class SurfaceBatch;
 struct PreparedDispatch;
 struct Program;
 class GraphImmediateWork;
+class GraphFixture;
 }
 // Preserves valid incoming contents, or requires each imported range to be written before its first read.
 enum class InitialContents : std::uint8_t {
@@ -67,7 +68,7 @@ public:
     );
     // Imports a read-only storage, texel or uniform-buffer view, retaining its actual allocation offset.
     [[nodiscard]] Result<renderer::graph::BufferUse> read_buffer(
-        std::string_view name, unsigned buffer, renderer::graph::Stage stages
+        std::string_view name, unsigned buffer, renderer::graph::Stage stages, bool instanced = false
     );
     // Imports the sampled texture view, preserving its actual aspect and mip range.
     [[nodiscard]] Result<renderer::graph::ImageUse> read_image(
@@ -110,6 +111,7 @@ public:
 private:
     friend class detail::SurfaceBatch;
     friend class detail::GraphImmediateWork;
+    friend class detail::GraphFixture;
     [[nodiscard]] Result<void> add_dispatch_pass(
         renderer::graph::Pass pass, detail::PreparedDispatch packet
     );

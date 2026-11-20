@@ -23,6 +23,7 @@
 #include "renderer/vulkan/vkgl.h"
 #endif
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace openrac::test::water {
@@ -96,7 +97,7 @@ wave_pixels[at]=probe_history!=0?wave_at(at):vec4(wave_at(at).x,float(window_phy
     glUniform2f(prepare_window.uniform("previous_window"), -4, -4);
     glUniform1f(prepare_window.uniform("water_current_scale"), 1);
     glUniform4f(prepare_window.uniform("window_config"), -4, -4, kWidth, 0);
-    glDispatchCompute((kCount + 63) / 64, 1, 1);
+    openrac::test::graph_dispatch(glDispatchCompute, (kCount + 63) / 64, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     upload(buffers[0], local_state);  // Restore controlled history after metadata initialization.
     window_probe.use();
@@ -104,7 +105,7 @@ wave_pixels[at]=probe_history!=0?wave_at(at):vec4(wave_at(at).x,float(window_phy
     glUniform1i(window_probe.uniform("cell_count"), kCount);
     glUniform4f(window_probe.uniform("window_config"), -4, -4, kWidth, 0);
     glUniform2f(window_probe.uniform("previous_window"), -5, -4);
-    glDispatchCompute((kCount + 63) / 64, 1, 1);
+    openrac::test::graph_dispatch(glDispatchCompute, (kCount + 63) / 64, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     const auto read_local = [&](int channel) {
         read.use();
@@ -118,7 +119,7 @@ wave_pixels[at]=probe_history!=0?wave_at(at):vec4(wave_at(at).x,float(window_phy
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kWidth, kWidth, GL_RGBA, GL_FLOAT, nullptr);
         glBindBuffer(wgl::GL_PIXEL_UNPACK_BUFFER, 0);
 #endif
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     };
     const auto pixel_float = [&](unsigned i) {
@@ -168,7 +169,7 @@ wave_pixels[at]=probe_history!=0?wave_at(at):vec4(wave_at(at).x,float(window_phy
     for (unsigned step = 0; step < 240; ++step) {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[step % 2]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1 - step % 2]);
-        glDispatchCompute((kCount + 63) / 64, 1, 1);
+        openrac::test::graph_dispatch(glDispatchCompute, (kCount + 63) / 64, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     }
     read_local(0);
@@ -222,10 +223,10 @@ wave_pixels[at]=probe_history!=0?wave_at(at):vec4(wave_at(at).x,float(window_phy
         prepare_window.use();
         glUniform1i(prepare_window.uniform("water_body_count"), 2);
         glUniform1f(prepare_window.uniform("water_sim_height"), 1.f);
-        glDispatchCompute((kCount + 63) / 64, 1, 1);
+        openrac::test::graph_dispatch(glDispatchCompute, (kCount + 63) / 64, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         window_probe.use();
-        glDispatchCompute((kCount + 63) / 64, 1, 1);
+        openrac::test::graph_dispatch(glDispatchCompute, (kCount + 63) / 64, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         read_local(3);
         for (unsigned i = 0; i < kCount; ++i) {
@@ -256,13 +257,13 @@ wave_pixels[at]=probe_history!=0?wave_at(at):vec4(wave_at(at).x,float(window_phy
     prepare_window.use();
     glUniform4f(prepare_window.uniform("window_config"), -4, -4, kWidth, 1);
     glUniform1f(prepare_window.uniform("water_sim_height"), 4);
-    glDispatchCompute((kCount + 63) / 64, 1, 1);
+    openrac::test::graph_dispatch(glDispatchCompute, (kCount + 63) / 64, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     for (unsigned state : {0u, 1u}) {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[state]);
         window_probe.use();
         glUniform1i(window_probe.uniform("probe_history"), 1);
-        glDispatchCompute((kCount + 63) / 64, 1, 1);
+        openrac::test::graph_dispatch(glDispatchCompute, (kCount + 63) / 64, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         read_local(0);
         for (unsigned i = 0; i < kCount; ++i) {
@@ -325,7 +326,7 @@ uint bits=floatBitsToUint(value);result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)
         );
         for (float weight : {1.f, .5f, 0.f}) {
             glUniform1f(local_sample_test.uniform("water_sim_weight"), weight);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
             for (unsigned i = 0; i < kCount; ++i) {
                 const unsigned test = i % kWidth % 12;
@@ -392,7 +393,7 @@ float sun_shadow_visibility(vec3 p,vec3 n,vec3 plane){return 1.;}
     glUniform1i(cache_test.uniform("water_bodies"), 4);
     glUniform1i(cache_test.uniform("water_body_count"), 1);
     glUniform1i(cache_test.uniform("water_light_count"), 25);
-    glDispatchCompute(1, 1, 1);
+    openrac::test::graph_dispatch(glDispatchCompute, 1, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     read_local(3);
     for (unsigned i = 0; i < 25; ++i) {
@@ -401,7 +402,7 @@ float sun_shadow_visibility(vec3 p,vec3 n,vec3 plane){return 1.;}
     receiver_coast[8 * kWidth + 8] = {513, 1, 0, 0};
     upload(buffers[2], receiver_coast);
     cache_test.use();
-    glDispatchCompute(1, 1, 1);
+    openrac::test::graph_dispatch(glDispatchCompute, 1, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     read_local(3);
     CHECK(pixel_float(12) == 1.f);
@@ -419,7 +420,7 @@ float sun_shadow_visibility(vec3 p,vec3 n,vec3 plane){return 1.;}
         }
         upload(buffers[2], receiver_coast);
         cache_test.use();
-        glDispatchCompute(1, 1, 1);
+        openrac::test::graph_dispatch(glDispatchCompute, 1, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         for (unsigned axis = 0; axis < 4; ++axis) {
             read_local(axis);

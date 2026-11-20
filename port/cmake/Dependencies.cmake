@@ -195,10 +195,8 @@ if(NOT TARGET openrac_cgltf)
 endif()
 
 # ---- Dear ImGui: the debug overlay of the games (game/common/debug_overlay.cpp) ----
-# What OpenGOAL draws its debug windows with. The repository has no build of
-# its own: its four sources and the SDL3 and OpenGL 3 backends are compiled
-# here into one static library, without the port's warnings. The OpenGL
-# backend brings its own small loader, so it needs nothing of renderer/gl/gl.h.
+# The core and SDL3 input backend are built here. OpenRAC records the draw data
+# through its own renderer.
 FetchContent_Declare(imgui
   GIT_REPOSITORY https://github.com/ocornut/imgui.git
   GIT_TAG v1.91.9b
@@ -213,21 +211,9 @@ if(NOT TARGET openrac_imgui)
     "${imgui_SOURCE_DIR}/imgui_tables.cpp"
     "${imgui_SOURCE_DIR}/imgui_widgets.cpp"
     "${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
-    "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
   )
   target_include_directories(openrac_imgui SYSTEM PUBLIC "${imgui_SOURCE_DIR}" "${imgui_SOURCE_DIR}/backends")
   target_link_libraries(openrac_imgui PUBLIC openrac_sdl3)
-  if(ANDROID OR OPENRAC_IOS)
-    # OpenGL ES 3 there (platform/window.h, GlApi), linked as the system's libGLESv3.
-    target_compile_definitions(openrac_imgui PUBLIC IMGUI_IMPL_OPENGL_ES3)
-    if(OPENRAC_IOS)
-      target_link_libraries(openrac_imgui PRIVATE "-framework OpenGLES")
-    else()
-      target_link_libraries(openrac_imgui PRIVATE GLESv3)
-    endif()
-  elseif(UNIX AND NOT APPLE)
-    target_link_libraries(openrac_imgui PRIVATE ${CMAKE_DL_LIBS})  # the backend's loader opens libGL
-  endif()
   if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(openrac_imgui PRIVATE /w)
   else()
@@ -309,31 +295,6 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
   endif()
   add_library(openrac_glslang INTERFACE)
   target_link_libraries(openrac_glslang INTERFACE glslang SPIRV glslang-default-resource-limits)
-
-  # ---- Metal: the renderer's own API on Apple's systems (renderer/metal/README.md) ----
-  # SPIRV-Cross (Apache-2.0) turns the SPIR-V glslang makes of the renderer's GLSL into Metal's
-  # shading language, so that Metal draws from the same shader sources as OpenGL and Vulkan.
-  option(OPENRAC_METAL "Build the Metal renderer (OPENRAC_GL_API=metal)" ${APPLE})
-  if(OPENRAC_METAL)
-    FetchContent_Declare(spirv_cross
-      GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Cross.git
-      GIT_TAG vulkan-sdk-1.4.350.1
-      GIT_SHALLOW TRUE
-      ${openrac_sdl_options}
-    )
-    set(SPIRV_CROSS_CLI OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_HLSL OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_CPP OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_REFLECT OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_C_API OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_UTIL OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_SHARED OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_SKIP_INSTALL ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(spirv_cross)
-    add_library(openrac_spirv_cross INTERFACE)
-    target_link_libraries(openrac_spirv_cross INTERFACE spirv-cross-msl spirv-cross-glsl spirv-cross-core)
-  endif()
 
   # macOS: MoltenVK's library, copied into each application bundle's Contents/Frameworks, where
   # the window opens it (platform/window.cpp): a player needs nothing installed. Homebrew's

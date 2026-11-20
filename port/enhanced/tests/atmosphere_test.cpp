@@ -19,6 +19,7 @@
 #include "renderer_shaders.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
 #include "renderer/vulkan/vkgl.h"
@@ -127,7 +128,7 @@ void main(){
         glBindVertexArray(vao);
         for (int c = 0; c < 4; ++c) {
             glUniform1i(read.uniform("test_channel"), c);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             std::array<std::uint8_t, 4> pixel{};
             glReadPixels(
                 target.width / 2, target.height / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data()
@@ -385,7 +386,7 @@ void main(){
             reference_sky.use();
             atmosphere.bind(reference_sky);
             glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             glBindVertexArray(0);
             glDisable(GL_BLEND);
             glDepthMask(GL_TRUE);
@@ -414,7 +415,7 @@ void main(){
                     glDisable(GL_BLEND);
                     {
                         const stats::Scope lookup("atmosphere surface lookup", stats::kGpu);
-                        glDrawArrays(GL_TRIANGLES, 0, 3);
+                        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                     }
                     // Alternate order to avoid giving either path a consistent cache advantage.
                     if (iteration % 2 == 0) {

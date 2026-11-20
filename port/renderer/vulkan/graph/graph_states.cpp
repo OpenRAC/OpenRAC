@@ -108,6 +108,21 @@ bool image_has_layout(const Image& image, const graph::ImageRange& range, VkImag
     return matches;
 }
 
+bool image_contents_defined(const Image& image, const graph::ImageRange& range) {
+    if (!tracks_subresources(image)) {
+        return image.layout != VK_IMAGE_LAYOUT_UNDEFINED
+               && !(image.discarded & static_cast<VkImageAspectFlags>(range.aspects));
+    }
+    if (image.subresource_contents.empty()) {
+        return image.uniform_contents.defined;
+    }
+    bool defined = true;
+    visit_range(range, [&](auto aspect, auto mip, auto layer) {
+        defined &= image_contents(image, aspect, mip, layer).defined;
+    });
+    return defined;
+}
+
 void set_whole_image_state(Image& image, graph::State state) {
     update_range(image, whole_image(image), [state](auto& contents) {
         contents.state = state;

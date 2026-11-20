@@ -11,6 +11,7 @@
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
 #include "renderer/vulkan/passes/native_compute.h"
@@ -173,7 +174,7 @@ void test_precision(std::uint64_t before) {
 // Directionality can be disabled independently; zero material strengths produce exactly zero added light.
 void test_controls(const renderer::Shader& shader, renderer::FrameBuffer& target) {
     const auto draw = [&] {
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return target.read_rgba();
     };
     test_response(draw());

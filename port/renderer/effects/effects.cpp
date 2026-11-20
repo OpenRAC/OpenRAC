@@ -17,17 +17,17 @@
 #include "renderer/direct/direct.h"
 #include "renderer/direct/gs.h"
 #include "renderer/frame/colour_graph.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/frame/surface_chain.h"
 #include "renderer/gl/gl.h"
 #include "renderer/settings/render_opt.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
-namespace {
 
 // The GL texture of the off-screen target the 2D path drew at TEX0's block (g_offscreen_textures),
 // or 0.
-unsigned offscreen_texture(std::uint64_t tex0_bits, std::uint32_t tbp) {
+unsigned EffectRenderer::offscreen_texture(std::uint64_t tex0_bits, std::uint32_t tbp) {
     if (!g_quads_sample_targets) {
         return 0;
     }
@@ -39,8 +39,6 @@ unsigned offscreen_texture(std::uint64_t tex0_bits, std::uint32_t tbp) {
     }
     return 0;
 }
-
-}  // namespace
 
 using namespace gl;
 
@@ -599,6 +597,11 @@ void EffectRenderer::render_depth(const FrameInput& input, RenderState& state) {
         ++state.stats.draw_calls;
         state.stats.triangles += count / 3;
     };
+    const RasterBuffer geometry{m_vbo, m_vertices.size() * sizeof(Vertex)};
+    const auto reads = raster_reads("depth prepass effect inputs", {{&geometry, 1}});
+    if (!reads) {
+        throw std::runtime_error(reads.error().message);
+    }
     if (quad_start != 0) {
         draw(0, quad_start);
     }

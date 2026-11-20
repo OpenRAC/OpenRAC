@@ -6,7 +6,10 @@
 #include <array>
 #include <cstdio>
 #include <exception>
+#include <functional>
 #include <source_location>
+#include <stdexcept>
+#include <string_view>
 #include <utility>
 #include <vector>
 #include <volk.h>
@@ -17,11 +20,15 @@
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
 #include "renderer/settings/render_opt.h"
+#include "renderer/textures/texture_filter.h"
+#include "renderer/vulkan/diagnostics/frame_capture.h"
 #include "renderer/vulkan/graph/graph_barriers.h"
 #include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/graph/graph_immediate_work.h"
+#include "renderer/vulkan/graph/graph_pipeline.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -66,6 +73,70 @@ void check_pixels(
             return;
         }
     }
+}
+
+void check_requires_pass(const std::function<void()>& record) {
+    bool rejected = false;
+    try {
+        record();
+    } catch (const std::logic_error& error) {
+        rejected = std::string_view(error.what()).find("graph") != std::string_view::npos;
+    }
+    CHECK(rejected);
+}
+
+void test_multisample_colour_blit(test::GlContext& context) {
+    if (renderer::FrameBuffer::max_samples() < 2) {
+        return;
+    }
+    renderer::FrameBuffer source, target;
+    std::string error;
+    CHECK(source.create_colour(2, 2, error));
+    CHECK(target.create(4, 2, error, 4));
+    CHECK(vkgl::capture_frame_graph());
+    clear_target(source, {1, 0, 0, 1});
+    clear_target(target, {0, 0, 1, 1});
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, source.id());
+    glBlitFramebuffer(0, 0, 2, 2, 0, 0, 2, 2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    const auto pixels = target.read_rgba();
+    constexpr std::array<std::uint8_t, 16> row{
+        255, 0, 0, 255, 255, 0, 0, 255, 0, 0, 255, 255, 0, 0, 255, 255
+    };
+    std::vector<std::uint8_t> expected(row.begin(), row.end());
+    expected.insert(expected.end(), row.begin(), row.end());
+    CHECK(pixels == expected);
+    target.blit_to(0, 64, 64);
+    context.window().swap();
+    const auto description = vkgl::frame_graph_description();
+    CHECK(description && description->find("work blit colour into multisample attachment")
+                             != std::string::npos);
+
+    // A first partial copy initializes the pixels outside its rectangle even under discard poisoning.
+    renderer::FrameBuffer fresh;
+    CHECK(fresh.create(4, 2, error, 4));
+    CHECK(vkgl::test_poison_discards(true));
+    const auto partial_copy = [&] {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, source.id());
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fresh.id());
+        glBlitFramebuffer(0, 0, 2, 2, 0, 0, 2, 2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    };
+    constexpr std::array<std::uint8_t, 16> first_copy_row{
+        255, 0, 0, 255, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    expected.assign(first_copy_row.begin(), first_copy_row.end());
+    expected.insert(expected.end(), first_copy_row.begin(), first_copy_row.end());
+    namespace native = vkgl::detail;
+    const auto* attachment = native::target_of(fresh.id()).colour;
+    CHECK(attachment && !native::image_contents_defined(*attachment, {graph::Aspect::Colour}));
+    partial_copy();
+    CHECK(fresh.read_rgba() == expected);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fresh.id());
+    const GLenum colour = GL_COLOR_ATTACHMENT0;
+    glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, &colour);
+    partial_copy();
+    CHECK(fresh.read_rgba() == expected);
+    CHECK(vkgl::test_poison_discards(false));
 }
 
 void add_full_copy(
@@ -405,10 +476,11 @@ void main(){result=vec4(0,1,0,1);}
     glDisable(GL_BLEND);
     shader.use();
     clear_target(target, {0, 0, 0, 1});
+    check_requires_pass([] { glDrawArrays(GL_TRIANGLES, 0, 3); });
     const auto before = vkgl::submission_counters();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto first = vkgl::submission_counters();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto second = vkgl::submission_counters();
     CHECK(second.barriers == first.barriers);
     glFinish();
@@ -511,7 +583,7 @@ void main(){result=vec4(0,1,0,1);}
     glGenVertexArrays(1, &array);
     glBindVertexArray(array);
     shader.use();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     check_pixels(destination, {0, 255, 0, 255});
     glDeleteVertexArrays(1, &array);
     glDisable(GL_STENCIL_TEST);
@@ -554,7 +626,8 @@ void main(){colour=packUnorm4x8(textureLod(tex_T0,vec2(.5),1.0));}
     graph::Pass pass{"mip-chain input"};
     CHECK(capture.capture_compute_reads(pass));
     CHECK(pass.images.size() == 1 && pass.images[0].range.mip_count == 2);
-    glDispatchCompute(1, 1, 1);
+    check_requires_pass([] { glDispatchCompute(1, 1, 1); });
+    openrac::test::graph_dispatch(glDispatchCompute, 1, 1, 1);
     CHECK(vkgl::copy_buffer_to_texture(buffer, target.colour_texture(), 1, 1));
     check_pixels(target, mip);
     glDeleteBuffers(1, &buffer);
@@ -851,6 +924,149 @@ void test_single_mip_partial_upload() {
     glDeleteTextures(1, &texture);
 }
 
+void test_bindless_material_range() {
+    namespace native = vkgl::detail;
+    unsigned texture = 0;
+    glGenTextures(1, &texture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    const std::array<std::uint8_t, 64> pixels{};
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    auto& image = *native::g->textures.find(texture)->image;
+    const native::Sampled base{.image = &image, .range = {graph::Aspect::Colour}};
+    const native::Sampled mip{.image = &image, .range = {graph::Aspect::Colour, 1}};
+    constexpr graph::State sampled{
+        graph::Stage::FragmentShader, graph::Access::Read, graph::Layout::Sampled
+    };
+
+    vkgl::GraphExecution execution;
+    const auto handle = execution.import_image("material image", texture).value();
+    execution.add_pass({"base material mip", {{handle, base.range, sampled}}});
+    CHECK(execution.run([&](unsigned) {
+        native::validate_material_sampler(base);
+        try {
+            native::validate_material_sampler(mip);
+            CHECK(false);
+        } catch (const std::runtime_error& failure) {
+            CHECK(
+                std::string_view(failure.what()).find("undeclared image or range")
+                != std::string_view::npos
+            );
+        }
+        native::GraphImmediateWork::prepare_material_reads({&mip, 1});
+        native::validate_material_sampler(mip);
+    }));
+
+    vkgl::GraphExecution next;
+    next.add_pass({"unrelated raster"});
+    CHECK(!next.run([&](unsigned) { native::validate_material_sampler(mip); }));
+    glDeleteTextures(1, &texture);
+}
+
+void test_inactive_material_sampler() {
+    renderer::FrameBuffer output;
+    renderer::Shader shader;
+    std::string error;
+    CHECK(output.create_colour(4, 4, error));
+    CHECK(shader.build(
+        "optional material sampler",
+        R"(#version 410 core
+layout(location=0) in mat4 model;
+void main() {
+    vec2 xy = vec2(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0);
+    gl_Position = vec4(xy + model[0][0] * 0.001, 0.0, 1.0);
+}
+)",
+        R"(#version 410 core
+uniform vec4 material_colour;
+uniform sampler2D upscaled_texture_colours;
+uniform int upscaled_texture_colours_ready;
+layout(location=0) out vec4 result;
+void main() {
+    result = upscaled_texture_colours_ready == 0
+        ? material_colour : texture(upscaled_texture_colours, vec2(0.5));
+}
+)",
+        error
+    ));
+    unsigned texture = 0, vao = 0;
+    glGenTextures(1, &texture);
+    glActiveTexture(GL_TEXTURE0 + renderer::kUpscaledTextureColoursUnit);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    clear_target(output, {0, 0, 0, 1});
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    shader.use();
+    glUniform4f(shader.uniform("material_colour"), 1, 0, 0, 1);
+    const int ready = shader.uniform("upscaled_texture_colours_ready");
+    glUniform1i(ready, 0);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
+    check_pixels(output, {255, 0, 0, 255});
+
+    const std::array<std::uint8_t, 4> blue{0, 0, 255, 255};
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, blue.data());
+    glBindFramebuffer(GL_FRAMEBUFFER, output.id());
+    glUniform1i(ready, 1);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
+    check_pixels(output, blue);
+    glDeleteVertexArrays(1, &vao);
+    glDeleteTextures(1, &texture);
+    glActiveTexture(GL_TEXTURE0);
+}
+
+void test_discarded_material_contents() {
+    namespace native = vkgl::detail;
+    renderer::FrameBuffer source;
+    std::string error;
+    CHECK(source.create_colour(2, 2, error));
+    clear_target(source, {1, 0, 0, 1});
+    auto& image = *native::g->textures.find(source.colour_texture())->image;
+    const native::Sampled sample{.image = &image, .range = {graph::Aspect::Colour}};
+    vkgl::GraphExecution execution;
+    execution.add_pass({"material read across discard"});
+    bool prepared = false;
+    const auto result = execution.run([&](unsigned) {
+        native::GraphImmediateWork::prepare_material_reads({&sample, 1});
+        native::validate_material_sampler(sample);
+        prepared = true;
+
+        const GLenum discarded = GL_COLOR_ATTACHMENT0;
+        glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, &discarded);
+        native::GraphImmediateWork::prepare_material_reads({&sample, 1});
+    });
+    CHECK(prepared);
+    CHECK(!result);
+    if (!result) {
+        CHECK(result.error().message.find("unwritten contents") != std::string::npos);
+    }
+}
+
+void test_external_view_copy() {
+    namespace native = vkgl::detail;
+    renderer::FrameBuffer source, destination;
+    std::string error;
+    CHECK(source.create_colour(2, 2, error));
+    CHECK(destination.create_colour(2, 2, error));
+    clear_target(source, {0, 1, 0, 1});
+    clear_target(destination, {1, 0, 0, 1});
+    auto& external = *native::g->textures.find(destination.colour_texture())->image;
+    constexpr auto layout = VK_IMAGE_LAYOUT_GENERAL;
+    native::barrier(native::cmd_for(&external, true), external, layout);
+    CHECK(vkgl::copy_to_image(source.colour_texture(), external.image, layout, 2, 2));
+    CHECK(external.layout == layout);
+    check_pixels(destination, {0, 255, 0, 255});
+
+    renderer::FrameBuffer unwritten;
+    CHECK(unwritten.create_colour(2, 2, error));
+    native::barrier(native::cmd_for(&external, true), external, layout);
+    CHECK(!vkgl::copy_to_image(unwritten.colour_texture(), external.image, layout, 2, 2));
+    check_pixels(destination, {0, 255, 0, 255});
+}
+
 void test_packed_depth_stencil_state(unsigned layers) {
     namespace native = vkgl::detail;
     unsigned texture = 0;
@@ -922,6 +1138,12 @@ int main() {
         if (!context.open(error) || !vkgl::active()) {
             return test::kSkip;
         }
+        check_requires_pass([] {
+            vkgl::NativeCommandEncoder{VK_NULL_HANDLE}.copy_buffer(
+                VK_NULL_HANDLE, VK_NULL_HANDLE, 0, nullptr
+            );
+        });
+        test_multisample_colour_blit(context);
         test_transfer_declarations();
         test_transient_colour_reuse();
         test_transient_colour_validation();
@@ -944,6 +1166,10 @@ int main() {
         test_packed_depth_stencil_state(2);
         test_attachment_validity_between_scopes();
         test_single_mip_partial_upload();
+        test_bindless_material_range();
+        test_inactive_material_sampler();
+        test_discarded_material_contents();
+        test_external_view_copy();
         test_partial_copy_requires_partial_declaration();
         test_indirect_requires_arguments();
         CHECK(vkgl::submission_counters().validation_errors == 0);

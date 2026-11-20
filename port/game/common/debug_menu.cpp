@@ -10,6 +10,7 @@
 
 #include "common/env.h"
 #include "common/log.h"
+#include "frontend.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
@@ -418,7 +419,7 @@ void draw(unsigned framebuffer, int width, int height) {
     const int w = static_cast<int>(static_cast<float>(p.width()) * sx);
     const int h = static_cast<int>(static_cast<float>(p.height()) * sy);
     const renderer::ui::PictureRect centred{(width - w) / 2, (height - h) / 2, w, h};
-    s.blit.draw(framebuffer, {p.pixels(), p.width(), p.height()}, centred);
+    run_graphics([&] { s.blit.draw(framebuffer, {p.pixels(), p.width(), p.height()}, centred); });
 }
 
 void release() {

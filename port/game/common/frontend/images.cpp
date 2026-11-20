@@ -66,7 +66,7 @@ void upload_image(
     if (render_pending()) {
         g->pending_images.push_back(image);
     } else if (g->renderer) {
-        g->renderer->textures().upload(image);
+        run_graphics([&] { g->renderer->textures().upload(image); });
     }
     if (g->profile->images_outlast_list()) {
         g->images_after_list.push_back(image);
@@ -87,9 +87,11 @@ void upload_picture(
         return;
     }
     if (g->renderer) {
-        g->renderer->textures().set_picture(
-            base, width_units, static_cast<int>(width), static_cast<int>(height), pixels
-        );
+        run_graphics([&] {
+            g->renderer->textures().set_picture(
+                base, width_units, static_cast<int>(width), static_cast<int>(height), pixels
+            );
+        });
     }
 }
 
@@ -98,7 +100,7 @@ void forget_picture(std::uint32_t base) {
         return;
     }
     if (g->renderer) {
-        g->renderer->textures().forget_picture(base);
+        run_graphics([=] { g->renderer->textures().forget_picture(base); });
     }
 }
 
@@ -133,31 +135,42 @@ bool store_image(
     constexpr int kChipWidth = 512;
     const int lines = renderer::g_draw_buffer_lines;
     if (read_at != g->index) {
-        using namespace openrac::gl;
+        std::vector<std::uint8_t> full;
+        run_graphics([&] {
+            using namespace openrac::gl;
+            renderer::FrameSnapshot& snap = renderer::g_frame_snapshot;
+            snap.answered.clear();
+            if (snap.texture == 0) {
+                glGenTextures(1, &snap.texture);
+            }
+            glBindTexture(GL_TEXTURE_2D, snap.texture);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, source->resolved());
+            static int snap_w = 0;
+            static int snap_h = 0;
+            if (snap_w != source->width() || snap_h != source->height()) {
+                snap_w = source->width();
+                snap_h = source->height();
+                glTexImage2D(
+                    GL_TEXTURE_2D,
+                    0,
+                    GL_RGBA8,
+                    snap_w,
+                    snap_h,
+                    0,
+                    GL_RGBA,
+                    GL_UNSIGNED_BYTE,
+                    nullptr
+                );
+                snap.width = snap_w;
+                snap.height = snap_h;
+            }
+            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, snap_w, snap_h);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            full = source->read_rgba();
+        });
         read_at = g->index;
-        renderer::FrameSnapshot& snap = renderer::g_frame_snapshot;
-        snap.answered.clear();
-        if (snap.texture == 0) {
-            glGenTextures(1, &snap.texture);
-        }
-        glBindTexture(GL_TEXTURE_2D, snap.texture);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, source->resolved());
-        static int snap_w = 0;
-        static int snap_h = 0;
-        if (snap_w != source->width() || snap_h != source->height()) {
-            snap_w = source->width();
-            snap_h = source->height();
-            glTexImage2D(
-                GL_TEXTURE_2D, 0, GL_RGBA8, snap_w, snap_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
-            );
-            snap.width = snap_w;
-            snap.height = snap_h;
-        }
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, snap_w, snap_h);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-        const std::vector<std::uint8_t> full = source->read_rgba();
         const int fw = source->width();
         const int fh = source->height();
         chip.assign(static_cast<std::size_t>(kChipWidth) * lines * 4, 0);

@@ -12,6 +12,7 @@
 #include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -115,7 +116,7 @@ int run() {
         glUniform1i(shader.uniform("eligible"), eligible);
         for (int layer = 0; layer <= layers; ++layer) {
             glUniform1f(shader.uniform("hero_fur_shell"), float(layer) / 11.f);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         }
         return target.read_rgba();
     };

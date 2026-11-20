@@ -69,9 +69,9 @@ returns null native handles. Register extra views through `on_views`.
 
 **Warning:** `"vulkan_queue": true` forces Vulkan rendering and queue
 submission onto the main game thread for the session, including when the mod
-isn't drawing views. Declare it only if you need native Vulkan access. A
-registered view source also keeps Vulkan on the main game thread in the current
-renderer.
+isn't drawing views. Declare it only if you need native Vulkan access. Mods
+targeting API 1.19 or earlier also keep Vulkan on the main game thread when
+they register a view source.
 
 A new rendering API for mods is planned. The goal is to let mods integrate with
 OpenRAC's Render Graph while keeping rendering and queue submission on the

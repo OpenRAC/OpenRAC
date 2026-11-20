@@ -33,7 +33,6 @@
 #include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/cache/pipeline_cache_file.h"
 #include "renderer/vulkan/graph/graph_barriers.h"
-#include "renderer/vulkan/graph/graph_immediate_work.h"
 #include "renderer/vulkan/graph/graph_pipeline.h"
 #include "renderer/vulkan/graph/prepared_dispatch.h"
 #include "renderer/vulkan/graph/surface_batch.h"
@@ -2107,6 +2106,15 @@ VkDescriptorSet allocate_set(VkDescriptorSetLayout layout) {
 
 Texture* sampled_texture(const Program& p, std::size_t i) {
     const ProgramUniform& uniform = p.compiled.uniforms[i];
+    // The shader samples unit 13 only when the upscaled material is ready.
+    // Use the same dummy descriptor for capture and binding when that branch is inactive.
+    if (p.upscaled_colours_ready_offset >= 0 && uniform.name == "upscaled_texture_colours") {
+        std::int32_t ready;
+        std::memcpy(&ready, p.uniforms.data() + p.upscaled_colours_ready_offset, sizeof(ready));
+        if (ready == 0) {
+            return nullptr;
+        }
+    }
     const int unit = std::clamp(p.units[i], 0, kUnits - 1);
     const auto& state = g->state;
     // Match the descriptor path's separate bindings for texel buffers, array images and ordinary textures.
@@ -2762,17 +2770,17 @@ void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
         return;
     }
     const bool collecting = collecting_surface_chain();
-    if (!collecting && !graph_pipeline_active()) {
-        if (x && y && z) {
-            GraphImmediateWork::dispatch([=] { dispatch_compute(x, y, z); });
-        }
-        return;
-    }
-    prepare_frame();
     auto* p = g->programs.find(g->state.program);
     if (!p || !p->linked || !p->compute_pipeline || !x || !y || !z) {
         return;
     }
+
+    // A collector freezes dispatch packets for its compiled pass to record later.
+    if (!collecting && !graph_pipeline_active()) {
+        throw std::logic_error("compute dispatch requires an owning graph pass");
+    }
+
+    prepare_frame();
     end_rendering(PassEnd::Compute);
     auto& samplers = g->scratch.compute_samplers;
     samplers.clear();

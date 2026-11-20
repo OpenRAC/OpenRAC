@@ -105,14 +105,11 @@ gameColors: boolean,
 detailedGameLog: boolean, 
 /**
  * What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
- * Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries),
- * "opengl" (OpenGL 4.1), or, on macOS only, "metal", the port's Metal renderer
- * (OPENRAC_GL_API=metal, port/renderer/metal). Where Vulkan or Metal cannot start, the game
- * draws with OpenGL (port/platform/window.cpp); "metal" on any other system plays as
- * "vulkan" (renderer_for). Not used on Android, which keeps its own choice
- * (src-tauri/src/android.rs).
+ * Vulkan renderer, shown as Metal on macOS because the game runs it through MoltenVK,
+ * or "opengl" (OpenGL 4.1). Android keeps its own renderer setting. iOS uses Metal
+ * through MoltenVK.
  */
-renderer: "opengl" | "vulkan" | "metal", 
+renderer: "opengl" | "vulkan", 
 /**
  * Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
  * (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after

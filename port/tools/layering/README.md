@@ -25,7 +25,7 @@ module with no layer).
 ## The layers
 
 ```
-sdk, common  <  runtime  <  platform, assets, audio, media  <  renderer, renderer/vulkan, renderer/metal, renderer/world
+sdk, common  <  runtime  <  platform, assets, audio, media  <  renderer, renderer/vulkan, renderer/world
              <  scene  <  enhanced  <  game/common  <  game/<id>  <  viewer, extract, tools, android, tests
 ```
 
@@ -36,7 +36,7 @@ checker:
   build's include directories). It depends on nothing, so it sits at the
   bottom; the host program's mod code includes it.
 - `renderer` has three submodules on its layer, `renderer/world` (the world
-  renderers), `renderer/vulkan` and `renderer/metal` (the backends). All build
+  renderers) and `renderer/vulkan` (the Vulkan backend). All build
   on renderer's GL-shaped interface, the backends also carry out
   `renderer/world/gl_world.h`, and Metal compiles its shaders with Vulkan's
   compiler; rules.tsv allows those edges and no others.

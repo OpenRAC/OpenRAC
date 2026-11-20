@@ -2,8 +2,10 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Renderer depth/normal prepass recording and its Vulkan graph boundary, before depth reuse and GTAO.
+#include <stdexcept>
+
 #include "common/stats.h"
-#include "renderer/frame/surface_chain.h"
+#include "renderer/frame/colour_graph_backend.h"
 #include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 
@@ -38,16 +40,23 @@ void Renderer::draw_surface_prepass(const FrameInput& input, RenderState& state,
 }
 
 void Renderer::render_surface_prepass(const FrameInput& input, RenderState& state, bool normals) {
-    // Multisample declarations join shared execution; the immediate reference keeps its original prepass.
-    if (normals && m_ambient_occlusion
-        && (m_surface_prepass.samples() == 1 || collecting_surface_chain())) {
-        m_ambient_occlusion->render_prepass(
-            m_surface_prepass.id(),
-            [this, &input, &state, normals] { draw_surface_prepass(input, state, normals); }
+    const auto record = [this, &input, &state, normals] { draw_surface_prepass(input, state, normals); };
+#if defined(OPENRAC_VULKAN)
+    // The depth-only path writes directly into the world target.
+    if (gl::is_vulkan()) {
+        const auto result = backend::record_surface_prepass(
+            normals ? m_surface_prepass.id() : state.target.framebuffer,
+            normals,
+            normals && m_surface_prepass.samples() > 1,
+            record
         );
+        // Fail the frame if its depth producer could not record.
+        if (!result) {
+            throw std::runtime_error(result.error().message);
+        }
         return;
     }
-
-    draw_surface_prepass(input, state, normals);
+#endif
+    record();
 }
 }  // namespace openrac::renderer

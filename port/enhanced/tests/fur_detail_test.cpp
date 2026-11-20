@@ -13,6 +13,7 @@
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
 #include "renderer/vulkan/passes/native_compute.h"
@@ -166,7 +167,7 @@ public:
     }
 
     std::vector<std::uint8_t> draw() {
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return m_target.read_rgba();
     }
 

@@ -8,7 +8,7 @@
 #include <atomic>
 #endif
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(OPENRAC_IOS)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -19,7 +19,7 @@
 
 namespace openrac::platform {
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(OPENRAC_IOS)
 
 namespace {
 
@@ -157,6 +157,14 @@ int run_pumped(int (*program)(void*), void* argument) {
 
 void pump_events() {
     SDL_PumpEvents();
+#if defined(OPENRAC_IOS)
+    // The render worker's completion wait also pumps SDL. Once the lifecycle callback has
+    // drained the GPU, keep that wait from returning to frame recording until the app resumes.
+    while (backgrounded && !SDL_HasEvent(SDL_EVENT_QUIT)) {
+        SDL_Delay(10);
+        SDL_PumpEvents();
+    }
+#endif
 }
 
 bool poll_event(SDL_Event& event) {

@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <format>
 #include <functional>
 #include <optional>
@@ -136,14 +137,55 @@ bool renew_surface() {
         vkDestroySurfaceKHR(g->instance, g->surface, nullptr);
         g->surface = VK_NULL_HANDLE;
     }
-    std::string error;
-    if (!make_surface(g->window, error)) {
-        diagnostic(std::format("Vulkan surface renewal deferred: {}", error));
+
+    struct SurfaceCreation {
+        SDL_Window* window;
+        std::string error;
+        std::exception_ptr failure;
+        bool created = false;
+    } creation{g->window, {}, {}};
+
+    const bool dispatched = SDL_RunOnMainThread(
+        [](void* argument) {
+            auto& request = *static_cast<SurfaceCreation*>(argument);
+            try {
+                request.created = make_surface(request.window, request.error);
+            } catch (...) {
+                request.failure = std::current_exception();
+            }
+        },
+        &creation,
+        true
+    );
+    if (creation.failure) {
+        std::rethrow_exception(creation.failure);
+    }
+    if (!dispatched || !creation.created) {
+        diagnostic(
+            std::format(
+                "Vulkan surface renewal deferred: {}",
+                dispatched ? creation.error.c_str() : SDL_GetError()
+            )
+        );
         return false;  // no window yet: tried again with the next frame
     }
-    g->surface_lost = false;
     g->swapchain_stale = true;
     log::info("vulkan: the window's surface made again");
+    return true;
+}
+
+bool prepare_surface() {
+#if defined(OPENRAC_IOS)
+    // UIKit can wait for the render worker inside its background notification. Only the game
+    // thread may recreate the surface, so the worker can complete without asking SDL for help.
+    if (!SDL_IsMainThread()) {
+        return !g->surface_lost.load();
+    }
+#endif
+    if (g->surface_lost.exchange(false) && !renew_surface()) {
+        g->surface_lost = true;
+        return false;
+    }
     return true;
 }
 
@@ -267,10 +309,9 @@ bool make_swapchain() {
     // or, asked for and offered, an HDR one the encode pass writes (surface_format.h).
     const VkSurfaceFormatKHR format = choose_hdr_format(formats, caps);
     const bool hdr = g->hdr.shown != hdr::Output::Sdr;
-    int w = 0, h = 0;
-    SDL_GetWindowSizeInPixels(g->window, &w, &h);
     VkExtent2D extent{
-        static_cast<std::uint32_t>(std::max(w, 1)), static_cast<std::uint32_t>(std::max(h, 1))
+        static_cast<std::uint32_t>(std::max(g->drawable_width, 1)),
+        static_cast<std::uint32_t>(std::max(g->drawable_height, 1))
     };
 #if !defined(__ANDROID__)
     if (caps.currentExtent.width != 0xFFFFFFFFu) {
@@ -642,7 +683,7 @@ renderer::graph::BlitRegion default_copy_region(const Image& source, VkExtent2D 
 
 bool present_to_screen() {
     const stats::Scope pass("vulkan present");
-    if (g->surface_lost && !renew_surface()) {
+    if (!prepare_surface()) {
         return false;
     }
     if (g->swapchain_stale || g->swapchain == VK_NULL_HANDLE) {
@@ -778,6 +819,14 @@ bool present_to_screen() {
 
 namespace openrac::vkgl {
 
+#if defined(OPENRAC_IOS)
+void restore_window_surface() {
+    if (active() && detail::g->window != nullptr) {
+        detail::prepare_surface();
+    }
+}
+#endif
+
 namespace {
 
 // Reads `image` back (four bytes a texel, rows as stored) into `out`, waiting for the GPU.
@@ -802,12 +851,16 @@ bool read_back(detail::Image& image, std::vector<std::uint8_t>& out) {
     }
 
     VkCommandBuffer cmd = cmd_for(&image, true);
-    barrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     VkBufferImageCopy copy{};
     copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     copy.imageExtent =
         {static_cast<std::uint32_t>(image.width), static_cast<std::uint32_t>(image.height), 1};
-    GraphImmediateWork::read_image(cmd, image, {buffer, 0, bytes}, copy);
+    try {
+        GraphImmediateWork::read_image(cmd, image, {buffer, 0, bytes}, copy);
+    } catch (const std::runtime_error&) {
+        defer([buffer, allocation] { vmaDestroyBuffer(g->allocator, buffer, allocation); });
+        return false;
+    }
     count_command(Command::Copy);
     flush_and_wait();
     vmaInvalidateAllocation(g->allocator, allocation, 0, VK_WHOLE_SIZE);

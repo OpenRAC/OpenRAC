@@ -29,6 +29,7 @@
 #include "tests/renderer_gl_context.h"
 
 #if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/diagnostics/frame_capture.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 
@@ -294,7 +295,7 @@ void test_mesh_variants(int samples) {
 }
 
 // A depth callback requests the plain prepass without GI or a normal attachment.
-void test_depth_only() {
+void test_depth_only([[maybe_unused]] test::GlContext& context) {
     stats::set_enabled(stats::Client::Dump, true);
     std::uint64_t stamp = 0;
     for (bool cutout : {false, true}) {
@@ -338,7 +339,21 @@ void test_depth_only() {
         for (bool rigid : {false, true}) {
             renderer::render_opt::set(renderer::render_opt::Opt::PrepassRigid, rigid);
             stats::begin_frame(stats::FrameKind::Tick, ++stamp);
+#if defined(OPENRAC_VULKAN)
+            const bool capture_reads = gl::is_vulkan() && cutout && !rigid;
+            if (capture_reads) {
+                CHECK(vkgl::capture_frame_graph());
+            }
+#endif
             renderer.render(input, target);
+#if defined(OPENRAC_VULKAN)
+            if (capture_reads) {
+                context.window().swap();
+                const auto description = vkgl::frame_graph_description();
+                CHECK(description && description->find("export depth prepass mesh inputs")
+                                         != std::string::npos);
+            }
+#endif
             stats::begin_frame(stats::FrameKind::Tick, ++stamp);
             const auto actual = frame.read_rgba();
             CHECK(capture->normals.empty() && !capture->depths.empty());
@@ -390,7 +405,7 @@ int main() {
             test_mesh_variants(samples);
         }
 
-        test_depth_only();
+        test_depth_only(context);
 #if defined(OPENRAC_VULKAN)
         if (gl::is_vulkan()) {
             CHECK(vkgl::submission_counters().test_program_reuses > 0);

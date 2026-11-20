@@ -28,6 +28,8 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_init.h>
+
 #include "assets/disc/disc.h"
 #include "assets/disc/level.h"
 #include "assets/disc/scene.h"
@@ -369,22 +371,22 @@ void use_level(int number) {
     // display list, the fonts) across the change.
     const bool fresh = !g->renderer;
     g->hud = nullptr;
-    if (fresh) {
-        g->renderer = std::make_unique<renderer::Renderer>();
-        // The enhanced renderer's ambient occlusion, drawn when the player's settings ask for it.
-        g->renderer->set_ambient_occlusion(std::make_unique<renderer::Gtao>());
-        for (const renderer::ImageUpload& image : g->images) {
-            g->renderer->textures().upload(image);
+    run_graphics([&] {
+        if (fresh) {
+            g->renderer = std::make_unique<renderer::Renderer>();
+            g->renderer->set_ambient_occlusion(std::make_unique<renderer::Gtao>());
+            for (const renderer::ImageUpload& image : g->images) {
+                g->renderer->textures().upload(image);
+            }
+        } else {
+            g->renderer->clear_renderers();
+            g->renderer->textures().clear_upscaled_texture_colours();
         }
-    } else {
-        g->renderer->clear_renderers();
-        g->renderer->textures().clear_upscaled_texture_colours();
-    }
-    crash::level_breadcrumb("level scene reset", wanted);
-    g->scene.release();
-    g->scene = scene::LevelScene();
-    // The enhanced renderer's probe and early lighting, drawn when the player's settings ask.
-    lighting::use_scene_lighting(g->scene);
+        crash::level_breadcrumb("level scene reset", wanted);
+        g->scene.release();
+        g->scene = scene::LevelScene();
+        lighting::use_scene_lighting(g->scene);
+    });
     g->level = scene::LevelData();
     g->prop_models.clear();
     audio::ui_sounds::play_pickup_audio(-1);
@@ -407,17 +409,19 @@ void use_level(int number) {
         log::info(
             "level {}: no scenery for this game yet ({}); the 2D path is drawn alone", wanted, error
         );
-        auto hud = std::make_unique<renderer::DirectRenderer>(
-            "hud",
-            renderer::Bucket::Hud,
-            renderer::DirectConfig{},
-            renderer::DirectRenderer::Input::Vif
-        );
-        g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
-        g->renderer->add(std::move(hud), error);
-        if (fresh) {
-            init_level_renderer(wanted, error);
-        }
+        run_graphics([&] {
+            auto hud = std::make_unique<renderer::DirectRenderer>(
+                "hud",
+                renderer::Bucket::Hud,
+                renderer::DirectConfig{},
+                renderer::DirectRenderer::Input::Vif
+            );
+            g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
+            g->renderer->add(std::move(hud), error);
+            if (fresh) {
+                init_level_renderer(wanted, error);
+            }
+        });
         return;
     }
     if (has_levels && !read) {
@@ -436,18 +440,20 @@ void use_level(int number) {
             .tone = debug_overlay::Tone::Error,
             .seconds = 0.0,
         });
-        g->renderer->add(
-            std::make_unique<renderer::DirectRenderer>(
-                "hud",
-                renderer::Bucket::Hud,
-                renderer::DirectConfig{},
-                renderer::DirectRenderer::Input::Vif
-            ),
-            error
-        );
-        if (fresh) {
-            init_level_renderer(wanted, error);
-        }
+        run_graphics([&] {
+            g->renderer->add(
+                std::make_unique<renderer::DirectRenderer>(
+                    "hud",
+                    renderer::Bucket::Hud,
+                    renderer::DirectConfig{},
+                    renderer::DirectRenderer::Input::Vif
+                ),
+                error
+            );
+            if (fresh) {
+                init_level_renderer(wanted, error);
+            }
+        });
         return;
     }
     // The mods' prop meshes, read as an assets classes.json's are (MODS.md, section 6): a mesh that
@@ -548,108 +554,119 @@ void use_level(int number) {
         )) {
         load_special_pickup_clips();
     }
-    enhanced::install_texture_upscaler(g->renderer->textures());
     crash::level_breadcrumb("level scene upload", wanted);
-    if (!g->scene.upload(g->level, g->renderer->textures(), error)) {
+    bool uploaded = false;
+    run_graphics([&] {
+        enhanced::install_texture_upscaler(g->renderer->textures());
+        uploaded = g->scene.upload(g->level, g->renderer->textures(), error);
+    });
+    if (!uploaded) {
         crash::level_breadcrumb("level upload failed", wanted);
         log::error("level {}: {}", wanted, error);
         return;
     }
-    // The 2D path: its part before the world first, the rest after the world renderers.
-    crash::level_breadcrumb("level renderers setup", wanted);
-    auto hud = std::make_unique<renderer::DirectRenderer>(
-        "hud", renderer::Bucket::Hud, renderer::DirectConfig{}, renderer::DirectRenderer::Input::Vif
-    );
-    g->hud = hud.get();
-    g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
-    configure_level_shadows(*g, wanted);
-    bool split_opaque_effects = false;
-    for (std::size_t layer = 0; layer < scene::kLayerCount; ++layer) {
-        // The caster is drawn after its shadow, so its proxy cannot darken
-        // Ratchet himself. Opaque scenery has already filled the depth buffer.
-        if (g->profile->shadow_directions() != 0
-            && layer == static_cast<std::size_t>(scene::Layer::Mobys)) {
-            if (g->renderer->add(std::make_unique<renderer::ShadowRenderer>(), error) == nullptr) {
-                log::error("shadow renderer: {}", error);
-            }
-        }
-        g->renderer->add(
-            std::make_unique<scene::LayerRenderer>(g->scene, static_cast<scene::Layer>(layer)),
-            error
+    run_graphics([&] {
+        // The 2D path: its part before the world first, the rest after the world renderers.
+        crash::level_breadcrumb("level renderers setup", wanted);
+        auto hud = std::make_unique<renderer::DirectRenderer>(
+            "hud",
+            renderer::Bucket::Hud,
+            renderer::DirectConfig{},
+            renderer::DirectRenderer::Input::Vif
         );
-        if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
-            && g->game.starts_with("rac1-")) {
-            split_opaque_effects = g->renderer->add(
-                                       std::make_unique<renderer::EffectRenderer>(
-                                           "opaque effects",
-                                           renderer::EffectPart::Opaque,
-                                           renderer::Bucket::Ties,
-                                           enhanced::atmosphere_material(g->scene)
-                                       ),
-                                       error
-                                   )
-                                   != nullptr;
-            if (!split_opaque_effects) {
-                log::error("opaque effect renderer: {}", error);
+        g->hud = hud.get();
+        g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
+        configure_level_shadows(*g, wanted);
+        bool split_opaque_effects = false;
+        for (std::size_t layer = 0; layer < scene::kLayerCount; ++layer) {
+            // The caster is drawn after its shadow, so its proxy cannot darken
+            // Ratchet himself. Opaque scenery has already filled the depth buffer.
+            if (g->profile->shadow_directions() != 0
+                && layer == static_cast<std::size_t>(scene::Layer::Mobys)) {
+                if (g->renderer->add(std::make_unique<renderer::ShadowRenderer>(), error)
+                    == nullptr) {
+                    log::error("shadow renderer: {}", error);
+                }
+            }
+            g->renderer->add(
+                std::make_unique<scene::LayerRenderer>(g->scene, static_cast<scene::Layer>(layer)),
+                error
+            );
+            if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
+                && g->game.starts_with("rac1-")) {
+                split_opaque_effects = g->renderer->add(
+                                           std::make_unique<renderer::EffectRenderer>(
+                                               "opaque effects",
+                                               renderer::EffectPart::Opaque,
+                                               renderer::Bucket::Ties,
+                                               enhanced::atmosphere_material(g->scene)
+                                           ),
+                                           error
+                                       )
+                                       != nullptr;
+                if (!split_opaque_effects) {
+                    log::error("opaque effect renderer: {}", error);
+                }
+            }
+            // The liquids (the seas and lava the game draws solid) after the ties, where retail's draw
+            // callback list 3 draws them, before the shrubs and mobys (renderer/effects/effects.h).
+            if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
+                && g->renderer->add(
+                       std::make_unique<renderer::EffectRenderer>(
+                           "liquids",
+                           renderer::EffectPart::Liquids,
+                           renderer::Bucket::Ties,
+                           enhanced::atmosphere_material(g->scene),
+                           split_opaque_effects
+                       ),
+                       error
+                   ) == nullptr) {
+                log::error("liquid renderer: {}", error);
             }
         }
-        // The liquids (the seas and lava the game draws solid) after the ties, where retail's draw
-        // callback list 3 draws them, before the shrubs and mobys (renderer/effects/effects.h).
-        if (static_cast<scene::Layer>(layer) == scene::Layer::Ties
-            && g->renderer->add(
-                   std::make_unique<renderer::EffectRenderer>(
-                       "liquids",
-                       renderer::EffectPart::Liquids,
-                       renderer::Bucket::Ties,
-                       enhanced::atmosphere_material(g->scene),
-                       split_opaque_effects
-                   ),
-                   error
-               ) == nullptr) {
-            log::error("liquid renderer: {}", error);
-        }
-    }
-    if (g->renderer->add(
-            std::make_unique<renderer::EffectRenderer>(
-                "effects",
-                renderer::EffectPart::Rest,
-                renderer::Bucket::Particles,
-                enhanced::atmosphere_material(
-                    g->scene,
-                    supports_enhanced_water(g->game, wanted) ? enhanced::make_water(g->scene, dir)
-                                                             : nullptr
+        if (g->renderer->add(
+                std::make_unique<renderer::EffectRenderer>(
+                    "effects",
+                    renderer::EffectPart::Rest,
+                    renderer::Bucket::Particles,
+                    enhanced::atmosphere_material(
+                        g->scene,
+                        supports_enhanced_water(g->game, wanted)
+                            ? enhanced::make_water(g->scene, dir)
+                            : nullptr
+                    ),
+                    split_opaque_effects
                 ),
-                split_opaque_effects
-            ),
-            error
-        )
-        == nullptr) {
-        log::error("effect renderer: {}", error);
-    }
-    g->renderer->add(std::move(hud), error);
-    if (fresh) {
-        init_level_renderer(wanted, error);
-    }
-    // The sky's textures at pool keys of their own (kSkyTextureKey + number), for its sprites.
-    crash::level_breadcrumb("level sky upload", wanted);
-    const auto sky = scene::load_sky_textures(dir, g->level.overrides);
-    for (std::size_t i = 0; i < sky.size(); ++i) {
-        if (sky[i].width > 0) {
-            const renderer::TextureHandle h = g->renderer->textures().add(
-                sky[i], renderer::AlphaScale::Full, std::format("sky {} of level {}", i, wanted)
-            );
-            g->renderer->textures().place(kSkyTextureKey + static_cast<std::uint32_t>(i), h);
+                error
+            )
+            == nullptr) {
+            log::error("effect renderer: {}", error);
         }
-    }
-    // Build shader work from earlier runs now, behind the loading screen (docs/port/RENDER_PERF.md).
-    crash::level_breadcrumb("level pipelines", wanted);
+        g->renderer->add(std::move(hud), error);
+        if (fresh) {
+            init_level_renderer(wanted, error);
+        }
+        // The sky's textures at pool keys of their own (kSkyTextureKey + number), for its sprites.
+        crash::level_breadcrumb("level sky upload", wanted);
+        const auto sky = scene::load_sky_textures(dir, g->level.overrides);
+        for (std::size_t i = 0; i < sky.size(); ++i) {
+            if (sky[i].width > 0) {
+                const renderer::TextureHandle h = g->renderer->textures().add(
+                    sky[i], renderer::AlphaScale::Full, std::format("sky {} of level {}", i, wanted)
+                );
+                g->renderer->textures().place(kSkyTextureKey + static_cast<std::uint32_t>(i), h);
+            }
+        }
+        // Build shader work from earlier runs now, behind the loading screen (docs/port/RENDER_PERF.md).
+        crash::level_breadcrumb("level pipelines", wanted);
 #if defined(OPENRAC_VULKAN)
-    if (gl::is_vulkan()) {
-        vkgl::finish_pipelines(platform::pump_events);
-    }
+        if (gl::is_vulkan()) {
+            vkgl::finish_pipelines(SDL_IsMainThread() ? platform::pump_events : nullptr);
+        }
 #endif
-    renderer::gl_warmup::warm();
-    crash::level_breadcrumb("level load finished", wanted);
+        renderer::gl_warmup::warm();
+        crash::level_breadcrumb("level load finished", wanted);
+    });
     log::info("drawing level {} natively ({} models)", wanted, g->level.models.size());
 }
 
