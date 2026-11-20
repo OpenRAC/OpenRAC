@@ -172,6 +172,13 @@ def build(source: Path, cfg: dict, pairs: dict[str, str] | None = None) -> dict:
             names[k] = name.replace("_U_", "_", 1)
             evidence["src/us: its own name, without the mark"] += 1
 
+    # A hand pair map.tsv has no row for (a second entry, func_003D3154): its place, as paired.
+    for pal, us in pairs.items():
+        k = key(pal.removesuffix("__frontbin"))
+        if k is not None and not pal.endswith("__frontbin") and k not in names:
+            names[k] = us
+            evidence["function: paired by hand (release.json)"] += 1
+
     # The names the C reads, and what it reads that nothing places on NTSC-U.
     roots = sorted(set(cfg.get("sources", ["src"]) + cfg.get("includes", ["include"])) - {"."})
     if cfg.get("candidates"):
