@@ -415,7 +415,7 @@ int func_L01_0043AAC0(void) {
 }
 
 /* The boot program's display list pointer (0x003A97F8, its VU1_addGSregister, appends there). */
-#define BOOT_LIST_POINTER 0x001DA050u
+#define BOOT_LIST_POINTER RAC3_ADDR(0x001DA050u)
 
 /* 0x003CB6B8 (boot_elf, hand-written; Going Commando's func_002A4D88, MobyAnimProc's draw side):
  * draws the jobs the boot program's MobyProc queued (a list in the display list buffer, *0x001D9D30,
