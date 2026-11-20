@@ -123,7 +123,8 @@ struct Capture {
             output.scenery.tie_hidden.resize(counts[0]);
             // The cap, in 16-unit steps (lw s1; srl 4): a tie's own distance is its record's byte at
             // +0x1C in the same steps, and the cull takes the smaller, shifted back (pminw; dsll32 4).
-            const auto cap = words[2] != 0 ? word_at_address(words[2] + tie_cap_after) : std::nullopt;
+            const auto cap =
+                words[2] != 0 ? word_at_address(words[2] + tie_cap_after) : std::nullopt;
             const std::uint32_t cap_steps = cap ? *cap >> 4 : 0;
             output.tie_cap = cap_steps << 4;
 

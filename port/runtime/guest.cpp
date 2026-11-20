@@ -201,6 +201,7 @@ std::uint64_t returns_nothing() {
 // What a callback that is only `jr ra` with a constant put in v0 returns: the constant of the
 // leaf the call was last looked up for (openrac_guest_function sets it just before the call).
 thread_local std::uint64_t g_leaf_value = 0;
+
 std::uint64_t returns_leaf_value() {
     return g_leaf_value;
 }
@@ -621,7 +622,9 @@ openrac_host_fn openrac_guest_function(gaddr address) {
         // Veldin points at func_L01_0051F7F0's tail, `return 2`, as a callback.
         if (w[0] == 0x03E00008u && ((w[1] >> 16) == 0x2402u || (w[1] >> 16) == 0x3402u)) {
             const std::uint32_t k = w[1] & 0xFFFFu;
-            g_leaf_value = (w[1] >> 16) == 0x2402u ? static_cast<std::uint64_t>(static_cast<std::int16_t>(k)) : k;
+            g_leaf_value = (w[1] >> 16) == 0x2402u
+                               ? static_cast<std::uint64_t>(static_cast<std::int16_t>(k))
+                               : k;
             return reinterpret_cast<openrac_host_fn>(&returns_leaf_value);
         }
     }

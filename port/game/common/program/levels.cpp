@@ -135,7 +135,12 @@ bool rac3_level_program(int level, std::vector<std::uint8_t>* bytes) {
             const std::size_t at = (static_cast<std::size_t>(lba) - kTocSector) * kSector;
             const auto size = static_cast<std::uint32_t>(word(toc, at));
             switch (size) {
-                case 0x60: case 0xC68: case 0x1018: case 0x1818: case 0x2A0: case 0x137C:
+                case 0x60:
+                case 0xC68:
+                case 0x1018:
+                case 0x1818:
+                case 0x2A0:
+                case 0x137C:
                 case 0x26F0:
                     return at + 8 <= toc.size() ? size : 0;
                 default:
@@ -178,18 +183,17 @@ bool rac3_level_program(int level, std::vector<std::uint8_t>* bytes) {
                 if (word(toc, header + 8) != level) {
                     continue;
                 }
-                const std::uint64_t data =
-                    (static_cast<std::uint64_t>(word(toc, header + 4))
-                     + static_cast<std::uint64_t>(word(toc, header + 0x10)))
-                    * kSector;
+                const std::uint64_t data = (static_cast<std::uint64_t>(word(toc, header + 4))
+                                            + static_cast<std::uint64_t>(word(toc, header + 0x10)))
+                                           * kSector;
                 const std::vector<std::uint8_t> slot = iso->read_bytes(data, 8);
                 const std::int32_t offset = word(slot, 0), size = word(slot, 4);
                 if (size <= 0) {
                     return false;
                 }
                 std::vector<std::uint8_t> raw = iso->read_bytes(data + offset, size);
-                *bytes = assets::disc::is_wad(raw) ? assets::disc::wad_decompress(raw)
-                                                   : std::move(raw);
+                *bytes =
+                    assets::disc::is_wad(raw) ? assets::disc::wad_decompress(raw) : std::move(raw);
                 return !bytes->empty();
             }
         }
