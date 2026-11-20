@@ -105,7 +105,9 @@ static int command_answer(unsigned int command, const uint8_t* data, int bytes) 
                 static unsigned int last_reported = 0xFFFFFFFFu;
                 if (last_reported != command) {
                     fprintf(
-                        stderr, "[warning] sound command %#x is not supported; answered 0\n", command
+                        stderr,
+                        "[warning] sound command %#x is not supported; answered 0\n",
+                        command
                     );
                     last_reported = command;
                 }
