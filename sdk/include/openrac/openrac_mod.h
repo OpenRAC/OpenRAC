@@ -76,10 +76,11 @@ extern "C" {
  * explicit native Vulkan access through the manifest's "vulkan_queue" field,
  * 1.21 a hook point called as the game calls it, the mods' replacements
  * included (hook_entry), 1.22 render-only reward models, guest text,
- * sprite tint and pickup presentations, and 1.23 a render-only material for one
- * moby (moby_material: a tint, or platinum).
+ * sprite tint and pickup presentations, 1.23 a render-only material for one
+ * moby (moby_material: a tint, or platinum), and 1.24 obsidian, a third
+ * material for moby_material.
  */
-#define OPENRAC_MOD_API_MINOR 23
+#define OPENRAC_MOD_API_MINOR 24
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1341,6 +1342,12 @@ typedef struct openrac_moby_visual {
 /* Platinum: a cool white metal. Its texture's colours desaturated, brightened and turned a little
  * blue, with a stronger, tighter shine and a bright rim; then times rgb as TINT. */
 #define OPENRAC_MOBY_MATERIAL_PLATINUM 2
+/* Obsidian: glossy black with an inner glow. Its colours turned near black, with a sharp white
+ * highlight, a glow from within strongest where it faces the eye, and its glow packets in the glow's
+ * colour: rgb (0xRRGGBB), 0xFFFFFF for the default violet-red. Going Commando: a bolt coin's trail
+ * is drawn in the glow's colour too. A port older than 1.24 refuses it (OPENRAC_HOOK_UNKNOWN), so a
+ * mod can fall back to another. Since 1.24. */
+#define OPENRAC_MOBY_MATERIAL_OBSIDIAN 3
 /* The mobys one mod has a material on at once. Since 1.23. */
 #define OPENRAC_MOBY_MATERIALS_MAX 1024
 
@@ -2303,16 +2310,16 @@ typedef struct openrac_api {
     int (*pickup_animation)(openrac_mod* mod, int kind, int item);
 
     /* Draws the live moby at `moby` with `material` (OPENRAC_MOBY_MATERIAL_*) and `rgb` (0xRRGGBB,
-     * 0xFFFFFF: no tint) until the moby is removed (it leaves the level's list of live mobys, or its
-     * slot holds a moby of another class), the level changes, the mod sets
-     * OPENRAC_MOBY_MATERIAL_NONE on it or is unloaded. Render-only and per mod: no game memory is
-     * written, the moby's class, animation, collision and update are untouched; two mods on one
-     * moby, the last set is drawn. Every game's mobys (the port's renderer, all its back ends); a
+     * 0xFFFFFF: no tint; obsidian's glow colour, 0xFFFFFF its default) until the moby is removed
+     * (it leaves the level's list of live mobys, or its slot holds a moby of another class), the
+     * level changes, the mod sets OPENRAC_MOBY_MATERIAL_NONE on it or is unloaded. Render-only
+     * and per mod: no game memory is written, the moby's class, animation, collision and update
+     * are untouched; two mods on one moby, the last set is drawn. Every game's mobys (the port's renderer, all its back ends); a
      * mod marks the moby it means as the game makes it (Going Commando: rac2.bolt.spawn_pickup's
      * result) and clears it where the game removes it (rac2.bolt.collect), so a slot the game
      * reuses at once never shows it. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no moby,
      * an unknown material, rgb over 0xFFFFFF, or OPENRAC_MOBY_MATERIALS_MAX reached. At any time.
-     * Since 1.23. */
+     * Since 1.23; OPENRAC_MOBY_MATERIAL_OBSIDIAN since 1.24. */
     int (*moby_material)(openrac_mod* mod, openrac_gaddr moby, uint32_t material, uint32_t rgb);
 } openrac_api;
 

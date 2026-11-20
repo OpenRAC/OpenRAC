@@ -1531,7 +1531,8 @@ int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int c
 }
 
 // Sets, changes or clears (OPENRAC_MOBY_MATERIAL_NONE) `mod`'s material on `moby` for this level
-// load (interface 1.23); the renderer reads them with moby_materials. Writes no game memory.
+// load (interface 1.23, obsidian 1.24); the renderer reads them with moby_materials. Writes no
+// game memory.
 int api_moby_material(
     openrac_mod* mod, openrac_gaddr moby, std::uint32_t material, std::uint32_t rgb
 ) {
@@ -1540,7 +1541,7 @@ int api_moby_material(
     constexpr std::uint32_t kRgbMax = 0xFFFFFF;
     // A call the interface does not describe changes nothing.
     if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes
-        || material > OPENRAC_MOBY_MATERIAL_PLATINUM || rgb > kRgbMax) {
+        || material > OPENRAC_MOBY_MATERIAL_OBSIDIAN || rgb > kRgbMax) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const std::uint32_t loads = loads_now();
@@ -2279,18 +2280,22 @@ std::vector<MobyMaterial> moby_materials(const std::vector<LiveMobyId>& live) {
     return result;
 }
 
-bool moby_platinum(std::uint32_t moby) {
+MobyMaterial moby_material_drawn(std::uint32_t moby) {
     const std::uint32_t loads = loads_now();
     const std::lock_guard<std::mutex> lock(g_props_lock);
     // The last set on it is the one drawn (moby_materials).
     for (auto e = g_materials.rbegin(); e != g_materials.rend(); ++e) {
         // Its own, of this level load.
         if (e->loads == loads && e->material.moby == moby) {
-            return e->material.material == OPENRAC_MOBY_MATERIAL_PLATINUM;
+            return e->material;
         }
     }
 
-    return false;
+    return MobyMaterial{moby};
+}
+
+bool moby_platinum(std::uint32_t moby) {
+    return moby_material_drawn(moby).material == OPENRAC_MOBY_MATERIAL_PLATINUM;
 }
 
 unsigned prop_meshes_generation() {
@@ -2529,4 +2534,16 @@ void drop_figures(const openrac_mod* mod) {
 
 int openrac_moby_platinum(gaddr moby) {
     return openrac::mods::moby_platinum(moby) ? 1 : 0;
+}
+
+int openrac_moby_obsidian(gaddr moby, uint32_t* rgb) {
+    const openrac::mods::MobyMaterial drawn = openrac::mods::moby_material_drawn(moby);
+    // Not obsidian: nothing to say of its colour.
+    if (drawn.material != OPENRAC_MOBY_MATERIAL_OBSIDIAN) {
+        return 0;
+    }
+    if (rgb != nullptr) {
+        *rgb = drawn.rgb;
+    }
+    return 1;
 }

@@ -14,10 +14,11 @@ using namespace openrac;
 
 namespace {
 
-// OPENRAC_MOBY_MATERIAL_NONE, _TINT and _PLATINUM (sdk/include/openrac/openrac_mod.h).
+// OPENRAC_MOBY_MATERIAL_NONE, _TINT, _PLATINUM and _OBSIDIAN (sdk/include/openrac/openrac_mod.h).
 constexpr std::uint8_t kNone = 0;
 constexpr std::uint8_t kTint = 1;
 constexpr std::uint8_t kPlatinum = 2;
+constexpr std::uint8_t kObsidian = 3;
 
 // What mesh.vert makes of `lights`: the mod's material and the shine distance (0: none).
 struct Read {
@@ -42,7 +43,7 @@ int main() {
     constexpr int kDistances = 256;
 
     // Every material with every distance comes back as it went in.
-    for (const std::uint8_t material : {kNone, kTint, kPlatinum}) {
+    for (const std::uint8_t material : {kNone, kTint, kPlatinum, kObsidian}) {
         // The distances 0 (none) to 255.
         for (int distance = 0; distance < kDistances; ++distance) {
             const Read r = read_lights(scene::pack_moby_lights(-1 - distance, material));
