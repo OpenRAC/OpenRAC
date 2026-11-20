@@ -526,6 +526,7 @@ mod tests {
                 "rac3/ntsc",
                 "rac3/pal",
                 "rac4/ntsc",
+                "rac4/pal",
                 "rac5/ntsc",
                 "rac6/ntsc"
             ]
@@ -540,6 +541,12 @@ mod tests {
         assert!(catalog.version_of_disc(Some("rac1"), "SCES_516.07", None).is_none());
         let uya_pal = catalog.version_of_disc(None, "SCES_524.56", Some("1.00")).map(|v| v.key.as_str());
         assert_eq!(uya_pal, Some("rac3/pal"));
+        // Ratchet: Gladiator is Deadlocked's PAL disc: the same game, another serial.
+        let gladiator = catalog.version_of_disc(None, "SCES_532.85", Some("1.00")).map(|v| v.key.as_str());
+        assert_eq!(gladiator, Some("rac4/pal"));
+        assert!(catalog.version_of_disc(Some("rac3"), "SCES_532.85", Some("1.00")).is_none());
+        // Deadlocked's public online beta (SCUS_974.87) is not a disc the tools read.
+        assert!(catalog.version_of_disc(None, "SCUS_974.87", Some("1.00")).is_none());
         // Ratchet & Clank's PAL v1.00 and v2.00 boot the same serial; the disc's VER tells them apart.
         let rac1 =
             |disc_version| catalog.version_of_disc(Some("rac1"), "SCES_509.16", disc_version).map(|v| v.key.as_str());

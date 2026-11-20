@@ -87,7 +87,9 @@ RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"
 # Up Your Arsenal's PAL disc: the same table of contents and level headers as NTSC-U's.
 RAC3_PAL = Version(game="rac3", key="pal", **util.disc_identity("rac3", "pal"), level_header=0x60)
 RAC4_NTSC = Version(game="rac4", key="ntsc", **util.disc_identity("rac4", "ntsc"), level_header=0xc68)
-VERSIONS = (RAC2_NTSC, RAC2_PAL, RAC2_NTSC2, RAC3_NTSC, RAC3_PAL, RAC4_NTSC)
+# Deadlocked's PAL disc (Ratchet: Gladiator): the same table of contents and level headers as NTSC-U's.
+RAC4_PAL = Version(game="rac4", key="pal", **util.disc_identity("rac4", "pal"), level_header=0xc68)
+VERSIONS = (RAC2_NTSC, RAC2_PAL, RAC2_NTSC2, RAC3_NTSC, RAC3_PAL, RAC4_NTSC, RAC4_PAL)
 
 
 def boot_name(disc: Disc) -> str | None:
