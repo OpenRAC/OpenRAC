@@ -96,6 +96,7 @@ void func_00213C78(void) {
         rac1_hero_down_tick();
         rac1_camera_script_tick();
         rac1_hero_grab_tick();
+        rac1_pickup_tick();
     }
 }
 

@@ -60,6 +60,7 @@ pub mod hook_ids;
 pub mod index;
 pub mod index_apply;
 pub mod install;
+pub mod interface_runs;
 pub mod jobs;
 pub mod launcher_log;
 pub mod library;

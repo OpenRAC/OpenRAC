@@ -8,10 +8,9 @@
   import { app, run, saveConfig } from "$lib/app.svelte";
   import { apply, changeSet, close, fix, toggle } from "$lib/deepLink.svelte";
   import {
-    CHANGE_SET as T,
-    STEP_LABEL,
     alsoCount,
     appliedText,
+    CHANGE_SET as T,
     conflictText,
     installCount,
     missingText,
@@ -21,10 +20,12 @@
     noteText,
     offeredBy,
     replaceWith,
+    STEP_LABEL,
     updateFrom,
     whyText,
   } from "$lib/modsText";
   import { modal } from "$lib/portal";
+
   import Icon from "./Icon.svelte";
 
   const shown = $derived(changeSet.link !== null && !!app.config?.setupComplete);
@@ -34,12 +35,15 @@
   const picked = $derived(all.filter((m) => wantedIds.has(m.id)));
   const packs = $derived(plan ? plan.packs.filter((m) => wantedIds.has(m.id)) : []);
   const also = $derived(plan ? plan.install.filter((m) => !wantedIds.has(m.id)) : []);
-  const natives = $derived(plan ? plan.install.filter((m) => m.kind === "native").map((m) => m.name) : []);
+  const natives = $derived(
+    plan ? plan.install.filter((m) => m.kind === "native").map((m) => m.name) : [],
+  );
   const canInstall = $derived(
     !!plan && !plan.blocked && (plan.install.length > 0 || plan.alreadyOk.some((m) => m.enable)),
   );
   const failedName = $derived.by(() => {
     const id = changeSet.result?.failed?.modId;
+
     return id ? (all.find((m) => m.id === id)?.name ?? id) : null;
   });
   const fixLabel = (a: ModAction): string | null => {
@@ -66,8 +70,11 @@
     const game = app.library?.games.find((g) => g.id === changeSet.game);
     const v = game?.versions.find((x) => x.name === changeSet.version);
     const action = v?.actions.find((a) => a.id === "play" && a.thisPlatform);
-    if (app.config && !app.config.playWithMods) await saveConfig({ ...app.config, playWithMods: true });
+
+    if (app.config && !app.config.playWithMods)
+      await saveConfig({ ...app.config, playWithMods: true });
     close();
+
     if (v) {
       app.version = v.key;
       app.page = "game";
@@ -85,7 +92,13 @@
 {#if shown}
   <div class="overlay" role="presentation" use:modal>
     <button class="backdrop" onclick={close} tabindex="-1" aria-label={T.closeAria}></button>
-    <div class="modal rise" role="dialog" aria-modal="true" aria-labelledby="change-set-title" tabindex="-1">
+    <div
+      class="modal rise"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="change-set-title"
+      tabindex="-1"
+    >
       <div class="header">
         <div class="title-row">
           <Icon name="library" size={20} />
@@ -98,8 +111,12 @@
         {#if changeSet.phase === "loading"}
           <p class="muted"><span class="spinner"></span>{T.loading}</p>
         {:else if changeSet.phase === "error" && changeSet.error}
-          <p class="error" role="alert"><Icon name="warn" size={16} /><span>{modErrorText(changeSet.error)}</span></p>
-          <details class="more"><summary>{T.copyDetails}</summary><code>{changeSet.error.detail}</code></details>
+          <p class="error" role="alert">
+            <Icon name="warn" size={16} /><span>{modErrorText(changeSet.error)}</span>
+          </p>
+          <details class="more">
+            <summary>{T.copyDetails}</summary><code>{changeSet.error.detail}</code>
+          </details>
         {:else if plan && (changeSet.phase === "ready" || changeSet.phase === "applying" || changeSet.phase === "done")}
           <section>
             <h3>{T.picked}</h3>
@@ -131,7 +148,9 @@
                       <span class={`pill ${s.tone}`}>{s.text}</span>
                     {:else if m.requiredBy.length > 0}
                       <span class="dim"
-                        >{neededBy(m.requiredBy.map((id) => all.find((x) => x.id === id)?.name ?? id))}</span
+                        >{neededBy(
+                          m.requiredBy.map((id) => all.find((x) => x.id === id)?.name ?? id),
+                        )}</span
                       >
                     {/if}
                   </li>
@@ -153,7 +172,8 @@
                         onchange={() => void toggle(o.id)}
                       />
                       <span
-                        ><strong>{o.name}</strong> <span class="dim">{offeredBy(o.by)}</span><br />{o.description}</span
+                        ><strong>{o.name}</strong> <span class="dim">{offeredBy(o.by)}</span><br
+                        />{o.description}</span
                       >
                     </label>
                   {/each}
@@ -162,7 +182,9 @@
             {/each}
 
             {#if natives.length > 0}
-              <p class="warn"><Icon name="warn" size={16} /><span>{nativeWarning(natives)}</span></p>
+              <p class="warn">
+                <Icon name="warn" size={16} /><span>{nativeWarning(natives)}</span>
+              </p>
             {/if}
             {#each plan.notes as n, i (i)}<p class="note">{noteText(n)}</p>{/each}
 
@@ -171,7 +193,9 @@
                 <span>{conflictText(c.name, c.withName, c.reason)}</span>
                 {#if c.action}
                   {@const a = c.action}
-                  <button class="small" onclick={() => void fix(a)}>{replaceWith(c.withName, c.name)}</button>
+                  <button class="small" onclick={() => void fix(a)}
+                    >{replaceWith(c.withName, c.name)}</button
+                  >
                 {/if}
               </div>
             {/each}
@@ -205,7 +229,9 @@
           <button class="ghost" onclick={close}>{T.backToMods}</button>
           {#if changeSet.result?.failed}
             {@const f = changeSet.result.failed}
-            {#if f.action?.type === "retry"}<button class="ghost" onclick={() => void apply()}>{T.retry}</button>{/if}
+            {#if f.action?.type === "retry"}<button class="ghost" onclick={() => void apply()}
+                >{T.retry}</button
+              >{/if}
           {/if}
           <button class="primary" onclick={() => void play()}>{T.play}</button>
         {:else if changeSet.phase === "error"}
@@ -216,15 +242,20 @@
           {/if}
         {:else}
           {#if plan?.blocked}<span class="dim grow">{T.blocked}</span>{/if}
-          <button class="ghost" disabled={changeSet.phase === "applying"} onclick={close}>{T.cancel}</button>
+          <button class="ghost" disabled={changeSet.phase === "applying"} onclick={close}
+            >{T.cancel}</button
+          >
           {#if plan?.action?.type === "switchToDev"}
             {@const a = plan.action}
             <button class="primary" onclick={() => void fix(a)}>{T.switchToDev}</button>
           {:else}
-            <button class="primary" disabled={!canInstall || changeSet.phase !== "ready"} onclick={() => void apply()}>
-              {#if changeSet.phase === "applying"}<span class="spinner"></span>{T.working}{:else}{installCount(
-                  plan?.install.length ?? 0,
-                )}{/if}
+            <button
+              class="primary"
+              disabled={!canInstall || changeSet.phase !== "ready"}
+              onclick={() => void apply()}
+            >
+              {#if changeSet.phase === "applying"}<span class="spinner"
+                ></span>{T.working}{:else}{installCount(plan?.install.length ?? 0)}{/if}
             </button>
           {/if}
         {/if}

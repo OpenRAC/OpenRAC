@@ -78,14 +78,57 @@ The progress block (chunk 39, 0x1A79F8):
 | +0x00  | 0x1A79F8 | bolts, u32 (`g_boltCount`)                                    |
 | +0x04  | 0x1A79FC | raritanium, u32                                               |
 | +0x08  | 0x1A7A00 | maximum health (`g_maxHealth`): the game sets it each tick    |
+| +0x0C  | 0x1A7A04 | the last weapon held, s32 (`g_current_item_slot`)             |
+| +0x10  | 0x1A7A08 | 1 while the wrench is out (`g_player_stats[8]`)               |
 | +0x12  | 0x1A7A0A | challenge mode counter (`g_miscExtras`, +1 at each New Game+) |
 | +0x14  | 0x1A7A0C | nanotech experience, u32                                      |
 | +0x20  | 0x1A7A18 | armour worn, u8 0..4 (`g_equippedArmor`)                      |
+| +0x2C  | 0x1A7A24 | the boots, s16: 0 plain, 54 Charge Boots                      |
 | +0x30  | 0x1A7A28 | the ten Nanotech Boosts, u8 each                              |
 
 The game works the maximum health out at each tick (`func_L00_002D5EB8`): 4, plus the health
 steps reached by `nanotech experience >> 5` in the table `D_L00_00262260`, plus one per
 non-zero boost byte.
+
+## What Ratchet has in hand and on (chunk 32)
+
+Chunk 32 (0x1A7398, `g_itemEquipSlotTable`, the decomp's `g_menu_choice_table`) is s32[7], one
+item id per equipment slot, in slot order; the last three words are unused (0 in every save
+seen). An item's slot is its record's +0x0C (the pause menu's choice for slot `j` goes to slot
+`j`, `menu_close_and_save_choices` 0x002C7748; `ApplyHeroEquipmentRequest`,
+`func_L00_002AFBC0`, keeps the chunk in step with the hero's slots).
+
+| slot | what                                                                                                            |
+| ---- | --------------------------------------------------------------------------------------------------------------- |
+| 0    | in hand: a weapon; 0 becomes the Lancer at the level start (`func_L00_002A3B80`)                                |
+| 1    | boots: 54 Charge Boots, 0 or 52 plain; 20 Grindboots and 19 Gravity Boots for a moment                          |
+| 2    | head: 47 by default (0 means 47), shown only under water                                                        |
+| 3    | pack: 2 Heli-Pack (also the default, worn before it is owned), 3 Thruster-Pack; 4 Hydro-Pack and 8 for a moment |
+
+Saves seen: Oozla {30, 0, 0, 2}, {30, 52, 47, 2}, {28, 54, 47, 3} (Plasma Coil V4 in hand),
+{44, 54, 0, 3}.
+
+**On load** (`SpawnHeroItemMobies`, `func_L00_002AFBC0`): the hand's model is its record's class
+(chunk 30), loaded at the level start with the last weapon's (progress +0x0C,
+`func_L00_002A3B88`); the wrench is shown instead while progress +0x10 is set. Slot 3 at 0, 4
+or 8 becomes the Heli-Pack (or the Thruster-Pack after one); the boots slot is set from
+progress +0x2C in the first frames, so that is what a save loads with; the head and boots are
+hidden with armour 4. The game's own hand switch writes the hand and makes the weapon held
+before the last weapon (progress +0x0C; never the Electrolyzer 38 or the Infiltrator 51).
+Choosing the Clank Zapper (9), the Synthenoid (31) or the Shield Charger (45) uses it at once
+(`ApplyHeroEquipmentRequest` clears those requests), so none of them is ever in hand. Nothing
+else in the save names the weapon in hand: the quick select need not hold it (a save with the
+Plasma Coil in hand has it in slot 3, another with the RYNO II in slot 4, and a weapon in hand
+can be out of it).
+
+**What the editor changes.** The weapon in hand: an owned weapon that can be held; it is
+written to slot 0, and when it was the last weapon, the one held before becomes the last (as the
+game's switch). The pack: the Heli-Pack or an owned Thruster-Pack, slot 3. The boots: plain or
+owned Charge Boots, in progress +0x2C and slot 1 (0 for plain, as the pause menu's "none"
+leaves them); refused while the save has the Grindboots or Gravity Boots on. What is in hand
+or on can't be taken away, and the weapon in hand keeps the version it has in the save (below).
+Not offered: holding a gadget or nothing (the game takes gadgets out when needed and gives the
+Lancer for nothing), the wrench flag, the head, and the slots' temporary items.
 
 ## The record table and weapon versions
 
@@ -156,7 +199,8 @@ Oozla, and the RAM 900 frames later holds every value, with the game's reactions
 - **The version of the weapon in hand.** Setting the held weapon's record to its upgraded one
   (Lancer to Heavy Lancer) crashed the port at the level start in the held Lancer's update
   (`func_L00_003A6C30`, moby class 1490). The editor changes the version of the other weapons
-  only (below), with the experience and ammo the game's own upgrade leaves.
+  only (below), with the experience and ammo the game's own upgrade leaves. Putting another
+  weapon in hand frees the one held before; the new one keeps its saved version in that write.
 - **Experience at or past the next step.** A save with the held Lancer at 9,000 (step 8,960)
   stopped at the level start in hero state 98 and never gave control. The game never saves that
   state, so the editor keeps experience under the step of the version in the save.
@@ -166,7 +210,9 @@ Oozla, and the RAM 900 frames later holds every value, with the game's reactions
   points are numbered.
 - **Platinum bolts per level**: each level has four places; how many a level really holds is not
   in the save, so all four are offered.
-- **Gadgets the hero has on** (and the weapon in hand): chunk 32; taking them away is refused.
+- **The head slot, and boots or packs the game put on for the moment**: chunk 32, above; the
+  editor changes the weapon in hand, the pack and the Charge Boots only, and what is in hand or
+  on can't be taken away.
 
 ## Advanced: progress flags (L-2)
 

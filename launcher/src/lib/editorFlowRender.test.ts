@@ -2,12 +2,13 @@
 // and the tool's own message is not on the page.
 import { render } from "svelte/server";
 import { beforeEach, describe, expect, it } from "vitest";
+
 import EditorFlow from "../components/EditorFlow.svelte";
 import type { GameView, VersionView } from "./api";
 import { jobs } from "./app.svelte";
-import type { Job } from "./queue";
 import { LEVELS_SECTION } from "./editorFlow";
 import { RESET } from "./editorReset";
+import type { Job } from "./queue";
 import { TOOL_ERRORS, UNKNOWN_ERROR } from "./toolErrors";
 
 const RAW =
@@ -68,6 +69,7 @@ describe("EditorFlow", () => {
   it("says a failed pack in a player's words and never the tool's message", () => {
     jobs.list.push(failedPack("openrac-error: project-outdated-gameplay", RAW));
     const { body } = render(EditorFlow, { props: { game, version } });
+
     expect(body).toContain(TOOL_ERRORS["project-outdated-gameplay"]?.title);
     expect(body).toContain("Update project");
     expect(body).toContain("Show details");
@@ -79,6 +81,7 @@ describe("EditorFlow", () => {
   it("an error without a code gets the generic sentence, still not the raw text", () => {
     jobs.list.push(failedPack("Traceback (most recent call last):", "KeyError: 'rc1_index'"));
     const { body } = render(EditorFlow, { props: { game, version } });
+
     expect(body).toContain(UNKNOWN_ERROR.title);
     expect(body).not.toContain("KeyError");
     expect(body).not.toContain("Traceback");
@@ -86,6 +89,7 @@ describe("EditorFlow", () => {
 
   it("shows Your levels open, with the resets in view", () => {
     const { body } = render(EditorFlow, { props: { game, version } });
+
     expect(body).toContain(LEVELS_SECTION);
     expect(body).toContain(RESET.editorTitle);
     expect(body).toContain(RESET.levelsTitle);
@@ -107,6 +111,7 @@ describe("EditorFlow", () => {
       })),
     });
     const { body } = render(EditorFlow, { props: { game, version } });
+
     expect(body).toContain("Reading levels");
     expect(body).toContain("Kerwan, 3 of 18");
     expect(body).toContain('role="progressbar"');

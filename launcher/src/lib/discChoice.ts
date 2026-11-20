@@ -15,7 +15,12 @@ export function choiceFor(choices: readonly DiscChoice[], game: string): DiscCho
  */
 export function pickVersion<V extends { key: string }>(
   versions: readonly V[],
-  pick: { chosen?: string | null; own?: string | null; found: readonly string[]; playable: (v: V) => boolean },
+  pick: {
+    chosen?: string | null;
+    own?: string | null;
+    found: readonly string[];
+    playable: (v: V) => boolean;
+  },
 ): V | null {
   return (
     versions.find((v) => v.key === pick.chosen) ??

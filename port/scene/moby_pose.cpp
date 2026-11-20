@@ -3,7 +3,10 @@
 
 #include "scene/moby_pose.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstring>
+#include <limits>
 #include <mutex>
 #include <unordered_map>
 #include <optional>
@@ -103,7 +106,9 @@ bool g_layer_records = false;
 
 namespace {
 
-std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind);
+std::vector<rac1::JointMatrix> evaluate_moby(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind, const AnimKeys* keys
+);
 
 }  // namespace
 
@@ -121,16 +126,100 @@ void set_moby_class_region(std::span<const std::uint8_t> bytes, std::uint32_t ad
 }
 
 std::vector<rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, std::uint32_t moby) {
-    return evaluate_moby(ram, moby, true);
+    return evaluate_moby(ram, moby, true, nullptr);
+}
+
+std::vector<rac1::JointMatrix> moby_palette(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, const AnimKeys& keys
+) {
+    return evaluate_moby(ram, moby, true, &keys);
 }
 
 std::vector<rac1::JointMatrix> moby_pose_matrices(std::span<const std::uint8_t> ram, std::uint32_t moby) {
-    return evaluate_moby(ram, moby, false);
+    return evaluate_moby(ram, moby, false, nullptr);
+}
+
+std::vector<rac1::JointMatrix> moby_pose_matrices(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, const AnimKeys& keys
+) {
+    return evaluate_moby(ram, moby, false, &keys);
+}
+
+std::optional<KeyGap> key_gap(
+    std::span<const std::uint8_t> ram, std::uint32_t cls, std::uint32_t a, std::uint32_t b
+) {
+    if (!inside(ram, cls, 0x48)) {
+        return std::nullopt;
+    }
+    const std::size_t joints = at<std::uint8_t>(ram, cls + 0x08);
+    if (joints == 0 || joints > kMaxJoints) {
+        return std::nullopt;
+    }
+    const auto ka = key_at(ram, a, joints);
+    const auto kb = key_at(ram, b, joints);
+    if (!ka || !kb) {
+        return std::nullopt;
+    }
+    KeyGap gap;
+    for (std::size_t j = 0; j < joints; ++j) {
+        const auto qa = ka->quat_at(j);
+        const auto qb = kb->quat_at(j);
+        double dot = 0.0, na = 0.0, nb = 0.0;
+        for (std::size_t k = 0; k < 4; ++k) {
+            dot += double(qa[k]) * qb[k];
+            na += double(qa[k]) * qa[k];
+            nb += double(qb[k]) * qb[k];
+        }
+        if (na == 0.0 || nb == 0.0) {
+            if (na != nb) {
+                gap.turn = std::numeric_limits<float>::infinity();
+            }
+            continue;
+        }
+        // q and -q are one turn.
+        const double cos_half = std::min(1.0, std::abs(dot) / std::sqrt(na * nb));
+        gap.turn = std::max(gap.turn, static_cast<float>(2.0 * std::acos(cos_half)));
+    }
+    // A joint's translation in a frame: its record's, else its rest translation (common_trans),
+    // as the evaluator sets it.
+    const auto common_trans = at<std::uint32_t>(ram, cls + 0x18);
+    if (!inside(ram, common_trans, 0x10 * joints)) {
+        return std::nullopt;
+    }
+    std::vector<std::array<float, 3>> ta(joints), tb(joints);
+    std::vector<bool> moved(joints, false);
+    for (std::size_t j = 0; j < joints; ++j) {
+        for (std::size_t k = 0; k < 3; ++k) {
+            ta[j][k] = tb[j][k] =
+                at<float>(ram, common_trans + static_cast<std::uint32_t>(0x10 * j + 4 * k));
+        }
+    }
+    const auto apply = [&](const rac1::MobyFrame& f, std::vector<std::array<float, 3>>& out) {
+        for (const rac1::MobyTransRecord& r : f.trans) {
+            const auto j = static_cast<std::int8_t>(r.joint);
+            if (j >= 0 && static_cast<std::size_t>(j) < joints) {
+                for (std::size_t k = 0; k < 3; ++k) {
+                    out[j][k] = static_cast<float>(r.trans[k]);
+                }
+                moved[j] = true;
+            }
+        }
+    };
+    apply(*ka, ta);
+    apply(*kb, tb);
+    for (std::size_t j = 0; j < joints; ++j) {
+        for (std::size_t k = 0; moved[j] && k < 3; ++k) {
+            gap.move = std::max(gap.move, std::fabs(ta[j][k] - tb[j][k]));
+        }
+    }
+    return gap;
 }
 
 namespace {
 
-std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind) {
+std::vector<rac1::JointMatrix> evaluate_moby(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind, const AnimKeys* keys
+) {
     const auto cls = at<std::uint32_t>(ram, moby + 0x24);
     if (!inside(ram, cls, 0x48)) {
         return {};
@@ -150,9 +239,14 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
     const auto seq_a = at<std::uint8_t>(ram, fields + 2);
     const auto seq_b = at<std::uint8_t>(ram, fields + 3);
     float t = at<float>(ram, fields + 4);
-    std::optional<rac1::MobyFrame> a = key_at(ram, at<std::uint32_t>(ram, fields + 0x18), joints);
-    std::optional<rac1::MobyFrame> b = key_at(ram, at<std::uint32_t>(ram, fields + 0x1C), joints);
-    bool plain = seq_a == seq_b && frame_b == frame_a + 1;
+    std::optional<rac1::MobyFrame> a =
+        key_at(ram, keys ? keys->a : at<std::uint32_t>(ram, fields + 0x18), joints);
+    std::optional<rac1::MobyFrame> b =
+        key_at(ram, keys ? keys->b : at<std::uint32_t>(ram, fields + 0x1C), joints);
+    bool plain = keys ? keys->plain : seq_a == seq_b && frame_b == frame_a + 1;
+    if (keys) {
+        t = keys->t;
+    }
     if (!a && b) {
         // Key A missing (a snapshot the port has not written): the target key alone.
         a = std::move(b);

@@ -215,7 +215,7 @@ LevelScene::InstanceData LevelScene::instance_data(const Instance& instance) {
     std::copy(instance.matrix.begin(), instance.matrix.end(), data.matrix);
     std::copy(instance.tint.begin(), instance.tint.end(), data.tint);
     data.palette = static_cast<float>(instance.palette);
-    data.lights = static_cast<float>(instance.lights);
+    data.lights = static_cast<float>(pack_moby_lights(instance.lights, instance.mod_material));
     std::copy(instance.moby_light.begin(), instance.moby_light.end(), data.moby_light);
     std::copy(instance.moby_ambient.begin(), instance.moby_ambient.end(), data.moby_ambient);
     return data;

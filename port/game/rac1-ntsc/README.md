@@ -1,127 +1,56 @@
-# openrac-rac1-ntsc: Ratchet & Clank (NTSC-U), native
+# openrac-rac1-ntsc: Ratchet & Clank, NTSC-U
 
-The native program of Ratchet & Clank (NTSC-U, SCUS-97199), built from the
-NTSC decomp in [games/rac1/ntsc-decomp](../../../games/rac1/ntsc-decomp) by
-[hostgen](../../tools/hostgen/README.md). It was started from
-[rac1-pal](../rac1-pal/README.md), the version that plays: what PAL's port
-knows by address was carried to this version's addresses, not found again.
+Ratchet & Clank's NTSC-U disc (`SCUS_971.99`), built by [hostgen](../../tools/hostgen/README.md)
+from the NTSC decomp ([games/rac1/ntsc-decomp](../../../games/rac1/ntsc-decomp)). Its tables were
+carried from [rac1-pal](../rac1-pal/README.md) by [versionmap](../../tools/versionmap/README.md):
+what PAL's port knows by address, moved to this disc's addresses. Shared parts:
+[rac1](../rac1/README.md).
 
 ```sh
-python3 tools/build_port.py rac1-ntsc                 # from the top of OpenRAC
-port/build/release/openrac-extractor baserom/SCUS_971.99.iso --game rac1 \
-    --proj-path <data> --extract --decompile          # the data folder, from your disc
-port/build/release/openrac-rac1-ntsc --data <data> --cards <a folder> --frames 3000 --skip-movies
-port/build/release/openrac-rac1-ntsc --data <data> --cards <a folder> --window --levels <levels>
+python3 tools/build_port.py rac1-ntsc
+port/build/release/openrac-rac1-ntsc --data <data> --cards <a folder> --window --levels <its levels>
 ```
 
-`--data`, `--cards`, `--frames`, `--level`, `--skip-movies`, `--no-card`,
-`--settings` and `--levels` are rac1-pal's. Without a card folder the game
-shows its no-card warning and waits for a button, which only a window can
-give (`OPENRAC_PRESS`, [port/README.md](../../README.md)).
+The options are rac1-pal's. Its levels are its own disc's (the launcher's "Get the levels ready"
+writes `assets/port/rac1/ntsc`; without `--levels` the program reads `<data>/port/ntsc`). Without a
+card folder the game waits on its no-card warning for a button (`OPENRAC_PRESS` gives one,
+[port/README.md](../../README.md)).
 
-## Where it is (2026-10-16)
+## Files
 
-| | |
+| File | |
 |---|---|
-| Builds and links | yes: 1,836 files of the NTSC decomp read, 10 left out (below) |
-| Title | the title world, the logo, the menu and its dialogs; the menu's text sits near the top of the screen and its panels lower left (PAL's are centred together), and PRESS START was not seen |
-| New game | title -> New Game -> "Continue anyway?" -> the opening captions -> Veldin's opening scene -> play, with no function without C called |
-| Veldin (0) | plays: Ratchet walks, swings and throws the wrench, the follow camera frames him, the HelpDesk speaks; Start skips the opening scene |
-| Novalis (1), Kerwan (3) | direct start (`OPENRAC_DIRECT=1 --level N`): the flight between planets (Start skips it), the arrival scene, then play. On Kerwan a particle callback (level 0's 0x267BE8) is called with no function |
-| Other levels | not tried |
-| Levels to draw from | its own, from the NTSC-U disc: the launcher's rac1/ntsc "Get the levels ready" writes `assets/port/rac1/ntsc` (`<data>/port/ntsc` in an installer); without `--levels` the program reads `<data>/port/ntsc`. The tests here passed `--levels ../../build/ntsc-levels`. Same format as PAL's; the manifests say `"version": "ntsc"` ([OpenRAC Editor's guide](https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md#the-four-discs) says how the discs' levels differ) |
+| `hostgen.json` | rac1-pal's lists moved to this disc (`relocate` from 0x15EF00, level hooks); `defines` gives C for two inline-assembly macros (`qzero`, `MOBY_CALL_UPDATE`: without it no moby updates); `skip` leaves out libgcc and `malloc_extend_top.c`, which Clang cannot read |
+| `libraries.tsv` | rac1-pal's rows at this disc's addresses; each note keeps PAL's symbol |
+| `split_places.tsv` | rac1-pal's, only where this catalogue folds the same places into one name |
+| `host/rac1_version.h` | this disc's table for the shared host C, checked against the map by [hostnames.py](../../tools/versionmap/README.md#the-shared-host-cs-tables) |
+| `host/catalogue.c` | the levels' copy of WadDecompress, which this catalogue lists apart |
+| `host/ship_glass.c`, `host/water.c` | C only the NTSC disc needs |
+| `hand/` | C for functions the NTSC decomp has only as assembly, from rac1-pal's `hand/` |
+| `hand/functional/` | PAL's matched or functional C for functions the NTSC decomp has only as assembly (each file's header says where it came from) |
+| `hand/overrides.tsv` | the port's C in place of matched C where the port must differ |
+| `hand/fcheck.tsv` | fcheck's verdict per `hand.tsv` row (`unchecked` until fcheck runs the NTSC-U disc) |
+| `hand/allow.tsv` | what the hand C does differently from the US code on purpose (below) |
+| `drafts.tsv` | the NTSC decomp's own pending C read in place of a stub |
+| `no_c.tsv` | the functions with no C ([port/game](../README.md#the-functions-with-no-c)) |
 
-It is not offered by the launcher yet (`play` is `planned` in
-[launcher/actions.json](../../../launcher/actions.json)).
+Known trouble spots of the US game's code: [RAC1_NTSC_HINTS.md](../../../docs/port/RAC1_NTSC_HINTS.md).
 
-## What is carried, and how far to trust it
+## Checking the hand C against the US code
 
-Everything below was written by [port/tools/versionmap](../../tools/versionmap/README.md)
-from rac1-pal's files and the two discs' code. A function is `same` when
-the two versions have the same instructions for it (only addresses differ),
-`near` when it sits between the same neighbours but changed.
-
-| File | From | |
-|---|---|---|
-| [libraries.tsv](libraries.tsv) | rac1-pal's | 273 rows (carried again on 2026-10-16: the flight's update and the sky shells wrapped, the scene start written for this version, the checkpoint variants); each note keeps PAL's symbol. `strcmp` and `strncmp` have no counterpart (NTSC-U's libc is laid out otherwise) |
-| [hostgen.json](hostgen.json) `defines` | by hand | macros of the NTSC decomp whose body is inline assembly, given as C here, with their header's guard defined so the header is skipped: `qzero` (the runtime's `openrac_qzero`) and `MOBY_CALL_UPDATE` (the moby update loops' `if (update) update(moby);`, written as a `jalr` in `include/moby_update.h`; without it no moby's update runs) |
-| [hostgen.json](hostgen.json) | rac1-pal's lists | `relocate` from 0x15EF00 (every section from `core.lit` on is 0x100 under PAL's), the eleven level hooks, `returns_64`, `host_functions` |
-| [split_places.tsv](split_places.tsv) | rac1-pal's | 30 rows: only where the NTSC decomp's catalogue folds the same places into one name; where it names a place apart, the NTSC decomp's own function stands |
-| [host/rac1_version.h](host/rac1_version.h) | the version map, checked by [hostnames.py](../../tools/versionmap/README.md#the-shared-host-cs-tables) | this version's names and addresses for the host C both discs share ([port/game/rac1](../rac1/README.md)): the overlay hook, the direct start, the hardware routines, the native 2D and world hand-off, collision, the HUD at a wide picture's edges, the Video options rows, the developer menu's Planets page. Each entry agrees with the map but those written above its mark with their reason |
-| [host/catalogue.c](host/catalogue.c) | by hand | what only this version needs: the levels' copy of WadDecompress, which this catalogue lists apart |
-| [hand/*.c](hand) | rac1-pal's `hand/` | 59 functions the NTSC decomp has as assembly (one, the integer as a float, written here) |
-| [hand/overrides.tsv](hand/overrides.tsv) | by hand, as rac1-pal's | the port's own C for a function the NTSC decomp has as matching C: Batalia's grid effect, its variable-length arrays from alloca (as PAL's `func_L08_002F7318`); the Gadgetron vendor's effects, d0 handed to the second rotation basis where the matching C does it with an asm statement |
-| [hand/fcheck.tsv](hand/fcheck.tsv) | `tools/fcheck_gate.py` | the fcheck verdict of each `hand.tsv` row ([BACKFILL.md](../../../docs/port/BACKFILL.md#the-gate-done-means-fcheck-says-same)): every one is `unchecked (no US oracle)` until fcheck can run the NTSC-U disc |
-| [hand/functional/](hand/functional) | the PAL decompilation's functional C and its matched C (rac1-pal's `hand/` where it has its own) | 220 files for functions the NTSC decomp has only as assembly: refreshed on 2026-10-16 from what PAL had then (some `near`: their header says so), and 34 more on 2026-10-17 by [carry_functions.py](../../tools/versionmap/README.md#carrying-functions) (their header says so). The 97 rows (and files) that no longer replaced a stub, the NTSC decomp having its own C for them, are gone. On 2026-10-27, with the NTSC decomp at 8a5972b3, 127 more went the same way (seven of them libc routines the decomp has C for besides their stubs), and 14 functions it still has as assembly took PAL's matched C (`--replace`; two from rac1-pal's overrides, where that C calls through inline assembly): 110 files now |
-| [drafts.tsv](drafts.tsv) | the NTSC decomp itself | files whose own pending C (the `#else` of their `NON_MATCHING` guard) is read in place of the stub, where rac1-pal has nothing for the function. That decompilation never compiles these. Three are left: the NTSC decomp has matched the others since (their rows went when their files lost the guard or moved) |
-
-### Checking the hand C against the US code
-
-Carried C keeps whatever the carry got wrong: a neighbour's address, PAL's
-name for a routine the US program has elsewhere, a level 0 routine called
-from a level that has its own copy, locals the US code keeps together.
-[xcheck.py](../../tools/versionmap/xcheck.py) reads both sides of every row
-of `hand.tsv` that hostgen places: the US function's instructions (the
-executable and level dumps the NTSC decomp's setup placed) and Clang's IR
-of the row's C, prepared as hostgen prepares it, where every address the C
-forms from a global and a constant is folded into one. Calls are compared
-by the function `functions.c` binds at each place (so `func_L00_001FF500`
-and `FUN_001f9bf8` are one), globals by address, field and element offsets
-included; each level's copy of a shared function is compared call by call
-with the home copy, and a difference counts only where hostgen would not
-take that copy's own `jal` for it. What differs on purpose is in
-[hand/allow.tsv](hand/allow.tsv), each row with its reason; a row there
-that nothing matches any more fails as well. ctest runs it as
-`rac1-ntsc_hand_xcheck` (skipped where the retail program is not there):
+Carried C can keep what the carry got wrong: a neighbour's address, PAL's name for a routine the
+US program has elsewhere, a level 0 routine called from a level with its own copy.
+[xcheck.py](../../tools/versionmap/xcheck.py) compares every placed `hand.tsv` row's C (Clang's IR,
+prepared as hostgen does) with the US function's instructions: calls by the function bound at each
+place, globals by address with their offsets, each level copy against the home copy. What differs
+on purpose is in `hand/allow.tsv` with its reason; a row there that matches nothing fails too.
+ctest runs it as `rac1-ntsc_hand_xcheck` (skipped without the retail program):
 
 ```sh
 python3 port/tools/versionmap/xcheck.py check port/game/rac1-ntsc --gen port/build/release/games/rac1-ntsc/gen
-python3 port/tools/versionmap/xcheck.py report port/game/rac1-ntsc --gen ... -v FUN_L07_00314150   # one row, both sides
+python3 port/tools/versionmap/xcheck.py report port/game/rac1-ntsc --gen ... -v FUN_L07_00314150   # one row
 ```
 
-In a worktree, `--asm-source` (or `OPENRAC_RAC1_NTSC_ASM_SOURCE`, as for
-the build) names the checkout whose `games/rac1/ntsc-decomp` holds
-`config/us/SCUS_971.99` and `config/us/overlays`. Rows the NTSC decomp now
-has its own C for are not read by hostgen; the check lists them (they can
-go) and does not compare them. The data side is coarse where the C or the
-code indexes an array: an element within 0x1000 bytes of one passes.
-
-The title's Options list gets the Video page back (the US game's list is
-Language and Sound; the page is still in its data), with the port's rows on
-it, as on the PAL disc.
-
-## Left out of the build
-
-`hostgen.json`, "skip": files Clang cannot read as they are. Each is a stub
-for all its functions.
-
-| File | Clang says |
-|---|---|
-| `src/sdk/library/__divdi3.c`, `__muldi3.c`, `moddi3.c`, `udivdi3.c`, `umoddi3.c` | libgcc's macros with GCC-only inline assembly; the host compiler has its own |
-| `src/sdk/library/malloc_extend_top.c` | assignment to a cast (`sbrk_base = brk`) |
-| `src/overlays/shared/ui/text/00262ae8.c` (its draft only) | the draft does not read |
-
-Not carried, for the record: 9 of PAL's functional files that lean on the
-PAL file they sit in beyond what the carry brings along, and 36 PAL
-functions that are entries inside a function this decompilation cuts
-otherwise.
-
-## What is left
-
-1. **The title's layout.** The menu's text sits near the top of the
-   screen and its panels lower left (PAL's are centred together), and
-   PRESS START was not seen. The menu works.
-2. **Play every level.** Veldin, Novalis and Kerwan play; the others are
-   not tried. hostgen's report lists 97 calls short of an argument
-   (filled with 0): each is a call in the NTSC decomp's C that relies on
-   a register the C does not set; fix them in its C as
-   the patches in
-   [games/rac1/ntsc-decomp-patches](../../../games/rac1/ntsc-decomp-patches/README.md)
-   do, worst first.
-3. **The shared code's PAL addresses.** The viewer's address tables and two
-   words in the front end have NTSC-U values now; `debug_menu.cpp` and
-   `options_menu.cpp` are still PAL's and only act for `rac1-pal`. The
-   vertical field-of-view factor (0.756) is PAL's.
-
-Known trouble spots of the US game's own code, with where to look in this tree:
-[docs/port/RAC1_NTSC_HINTS.md](../../../docs/port/RAC1_NTSC_HINTS.md).
+In a worktree, `--asm-source` (or `OPENRAC_RAC1_NTSC_ASM_SOURCE`) names the checkout whose
+`games/rac1/ntsc-decomp` holds `config/us/SCUS_971.99` and `config/us/overlays`. Where code
+indexes an array, an element within 0x1000 bytes passes.

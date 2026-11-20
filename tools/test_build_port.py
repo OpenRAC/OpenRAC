@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 import build_port
+import build_port_tools as build_tools
 
 CACHE = """# This is the CMakeCache file.
 //Path to a program.
@@ -53,7 +54,7 @@ class Reading(unittest.TestCase):
         self.assertEqual(len(cache), 5)
 
     def test_what_cmd_set_prints(self):
-        env = build_port.parse_environment("Path=C:\\a;C:\\b\r\nINCLUDE=C:\\inc\r\n=C:=C:\\\r\n")
+        env = build_tools.parse_environment("Path=C:\\a;C:\\b\r\nINCLUDE=C:\\inc\r\n=C:=C:\\\r\n")
         self.assertEqual(env, {"PATH": "C:\\a;C:\\b", "INCLUDE": "C:\\inc"})
 
     def test_names_follow_the_games(self):
@@ -66,7 +67,7 @@ class Reading(unittest.TestCase):
 
     def test_clang_is_looked_for_in_order(self):
         env = {"OPENRAC_CLANG": "X:/mine/clang.exe", "PROGRAMFILES": "X:/PF", "USERPROFILE": "X:/me", "PATH": ""}
-        found = build_port.clang_candidates(env, Path("X:/VS"))
+        found = build_tools.clang_candidates(env, Path("X:/VS"))
         self.assertEqual(found[:4], [
             Path("X:/mine/clang.exe"),
             Path("X:/PF/LLVM/bin/clang.exe"),
@@ -87,33 +88,33 @@ class MsvcEnvironment(unittest.TestCase):
         self.bat.write_text("@exit /b 0\n", encoding="ascii")
 
     def result(self, environment="", diagnostics="", code=0):
-        return build_port.subprocess.CompletedProcess(
+        return build_tools.subprocess.CompletedProcess(
             "cmd", code, environment.encode("utf-16-le"),
             diagnostics.encode("oem" if os.name == "nt" else "utf-8"),
         )
 
     def failure(self, result):
-        with mock.patch.object(build_port.subprocess, "run", return_value=result), \
-                mock.patch.object(build_port, "find_program", return_value=None), \
-                self.assertRaises(build_port.BuildError) as caught:
-            build_port.msvc_environment(self.visual_studio)
+        with mock.patch.object(build_tools.subprocess, "run", return_value=result), \
+                mock.patch.object(build_tools, "find_program", return_value=None), \
+                self.assertRaises(build_tools.BuildError) as caught:
+            build_tools.msvc_environment(self.visual_studio)
         return str(caught.exception)
 
     def test_success_keeps_unicode_paths(self):
         environment = "INCLUDE=C:\\include\\\u03bb\r\nPath=C:\\tools\r\n"
-        with mock.patch.object(build_port.subprocess, "run", return_value=self.result(environment)):
-            self.assertEqual(build_port.msvc_environment(self.visual_studio),
+        with mock.patch.object(build_tools.subprocess, "run", return_value=self.result(environment)):
+            self.assertEqual(build_tools.msvc_environment(self.visual_studio),
                              {"INCLUDE": "C:\\include\\\u03bb", "PATH": "C:\\tools"})
 
     def test_missing_setup_script_names_the_repair(self):
         self.bat.unlink()
-        with self.assertRaisesRegex(build_port.BuildError, "repair Visual Studio"):
-            build_port.msvc_environment(self.visual_studio)
+        with self.assertRaisesRegex(build_tools.BuildError, "repair Visual Studio"):
+            build_tools.msvc_environment(self.visual_studio)
 
     def test_cannot_start_cmd_preserves_the_cause(self):
-        with mock.patch.object(build_port.subprocess, "run", side_effect=OSError("access denied")), \
-                self.assertRaises(build_port.BuildError) as caught:
-            build_port.msvc_environment(self.visual_studio)
+        with mock.patch.object(build_tools.subprocess, "run", side_effect=OSError("access denied")), \
+                self.assertRaises(build_tools.BuildError) as caught:
+            build_tools.msvc_environment(self.visual_studio)
         self.assertIn("Could not start cmd.exe", str(caught.exception))
         self.assertIn("access denied", str(caught.exception))
         self.assertIsInstance(caught.exception.__cause__, OSError)
@@ -153,15 +154,15 @@ class MsvcEnvironment(unittest.TestCase):
         self.bat.write_text('@echo off\necho Setup output\necho Setup warning 1>&2\n'
                             'set "INCLUDE=%OPENRAC_TEST_INCLUDE%"\nexit /b 0\n', encoding="ascii")
         with mock.patch.dict(os.environ, {"OPENRAC_TEST_INCLUDE": "C:\\include\\\u03bb"}):
-            environment = build_port.msvc_environment(self.visual_studio)
+            environment = build_tools.msvc_environment(self.visual_studio)
         self.assertEqual(environment["INCLUDE"], "C:\\include\\\u03bb")
 
     @unittest.skipUnless(os.name == "nt", "requires Windows cmd.exe")
     def test_real_batch_failure_keeps_stdout_and_stderr(self):
         self.bat.write_text("@echo off\necho Setup output\necho SDK missing 1>&2\nexit /b 7\n",
                             encoding="ascii")
-        with self.assertRaises(build_port.BuildError) as caught:
-            build_port.msvc_environment(self.visual_studio)
+        with self.assertRaises(build_tools.BuildError) as caught:
+            build_tools.msvc_environment(self.visual_studio)
         for expected in ("Setup output", "SDK missing", "Exit code: 7", "did not complete"):
             self.assertIn(expected, str(caught.exception))
 

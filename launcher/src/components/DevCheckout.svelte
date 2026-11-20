@@ -3,6 +3,7 @@
   // baserom/, and the checkout's own actions (identify discs, place inputs, the tools' tests).
   import { api } from "$lib/api";
   import { app, guard, refresh } from "$lib/app.svelte";
+
   import ActionRow from "./ActionRow.svelte";
   import Icon from "./Icon.svelte";
 
@@ -18,10 +19,15 @@
   <section class="panel">
     <div class="row">
       <h2 class="grow">This checkout</h2>
-      <button class="ghost small" onclick={() => void refresh()}><Icon name="refresh" size={14} />Refresh</button>
+      <button class="ghost small" onclick={() => void refresh()}
+        ><Icon name="refresh" size={14} />Refresh</button
+      >
     </div>
     <p class="where">
-      <button class="link mono" onclick={() => void guard(api.openPath("."))} title="Open the folder">{lib.root}</button
+      <button
+        class="link mono"
+        onclick={() => void guard(api.openPath("."))}
+        title="Open the folder">{lib.root}</button
       >
       <span class="dim">·</span>
       {discs} of {versions.length} disc images found in <span class="mono">baserom/</span>

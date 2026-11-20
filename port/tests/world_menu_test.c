@@ -139,6 +139,10 @@ void func_L00_00277A88__game(void) {
 
 void func_001FD3E8__game(void) {}
 
+/* The hero's held pieces shown again each tick (update_hero_item_moby_flags, wrapped by world.c):
+ * no hero here. */
+void func_L00_00233950__game(void) {}
+
 /* The level's update: its mobys' collision queries, each a new stamp; how many found the queries
  * off (a creature finding no ground). */
 static int level_updates, queries_off;

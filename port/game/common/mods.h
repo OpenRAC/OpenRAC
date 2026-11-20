@@ -47,11 +47,22 @@ struct SavestateRuntime {
     int overlay = -1;
 };
 
+// What a developer menu item is: a press (1.10), or since 1.19 a switch or a choice the menu turns
+// over or moves itself (developer_menu_switch, developer_menu_choice).
+enum class MenuItemKind {
+    Press,
+    Switch,
+    Choice
+};
+
 struct DeveloperMenuItem {
     std::string label;
     std::string shortcut;
     std::string group;
     std::uint32_t action = 0;
+    MenuItemKind kind = MenuItemKind::Press;
+    int value = 0;                    // a switch's 0 or 1, a choice's index
+    std::vector<std::string> values;  // a choice's values
 };
 
 struct DeveloperMenu {
@@ -158,6 +169,10 @@ std::string load(const Host& host);
 // purist mode or with no list.
 bool makes_vulkan_device(const std::filesystem::path& list, bool purist);
 
+// True while a loaded mod has declared native Vulkan access.
+bool vulkan_needs_game_thread();
+bool view_source_can_use_vulkan();
+
 // Each loaded mod's openrac_mod_unload, last first (at exit).
 void unload();
 
@@ -177,6 +192,9 @@ void tick_boundary(std::uint32_t tick);
 // Optional mod-provided top-level menus for the in-window menu bar.
 const std::vector<DeveloperMenu>& developer_menus();
 void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action);
+// The menu turned a switch over or moved a choice (1.19): its new state, and its action queued as
+// for a press. A value the item cannot have is ignored.
+void set_developer_menu_value(openrac_mod* mod, std::uint32_t action, int value);
 
 // How many mods are loaded.
 int loaded_count();
@@ -210,6 +228,10 @@ struct PropDraw {
     std::array<float, 16> matrix{};
     std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
     int blend = 0;  // OPENRAC_PROP_OPAQUE, _ALPHA or _ADD
+    // Fixed to a moby's joint (interface 1.18, prop_attach): the moby (a game address, 0 for
+    // none), its joint, and `matrix` is then the offset in the joint's frame.
+    std::uint32_t attached_moby = 0;
+    int attached_joint = -1;
     // Its .glb's animation to draw it in (-1: the mesh as stored), the time into it, looped
     // (openrac_api.prop_animate).
     int animation = -1;
@@ -220,11 +242,47 @@ struct PropDraw {
 // The props shown in the level now (posed, not hidden, of this level load). From any thread.
 std::vector<PropDraw> props_drawn();
 
+// The renderer drew prop `id`, fixed to a joint, with `matrix` this frame (interface 1.18,
+// prop_frame tells the mod). From any thread.
+void prop_placed(int id, const std::array<float, 16>& matrix);
+
 // Every mesh a prop was made of in this run, in the order first asked for, and a count that grows
 // when one is added: the front end reads them with each level's scenery, and reads the level's
 // again when the count has grown. From any thread.
 std::vector<std::filesystem::path> prop_meshes();
 unsigned prop_meshes_generation();
+
+// Render-only appearances, kept separately from game memory and scoped to one level load.
+std::vector<int> visual_classes();
+unsigned visual_classes_generation();
+std::uint32_t sprite_tint();
+std::vector<openrac_moby_visual> moby_visuals();
+
+// ---- Moby materials (interface 1.23, mod_play.cpp) ----
+
+// A live moby as the renderer lists it this frame: its address and class.
+struct LiveMobyId {
+    openrac_gaddr moby = 0;
+    int oclass = 0;
+};
+
+// A mod's material on one live moby (openrac_api.moby_material), as the renderer draws it.
+struct MobyMaterial {
+    openrac_gaddr moby = 0;
+    std::uint32_t material = OPENRAC_MOBY_MATERIAL_NONE;  // OPENRAC_MOBY_MATERIAL_*.
+    std::uint32_t rgb = 0xFFFFFF;                         // 0xRRGGBB, 0xFF a channel unchanged.
+};
+
+// The mods' materials on the frame's live mobys `live` (the level's whole list, not only the ones
+// drawn): one per moby, the last set where two mods set one. A material whose moby is missing from
+// `live` after it was seen there, or holds another class than when first seen, is the game's removal
+// of that moby, and is dropped. From the render thread.
+std::vector<MobyMaterial> moby_materials(const std::vector<LiveMobyId>& live);
+
+// Whether the material drawn on `moby` this level load is OPENRAC_MOBY_MATERIAL_PLATINUM (the last
+// one set on it), for the game's own effects of that moby (openrac_moby_platinum). From the game's
+// thread.
+bool moby_platinum(std::uint32_t moby);
 
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 

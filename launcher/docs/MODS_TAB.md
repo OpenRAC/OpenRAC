@@ -16,7 +16,7 @@ are on. `modsText.test.ts` keeps lines under 120 characters.
 | Game list on the left                      | `pages/Mods.svelte` on `GamesFrame.svelte`                | always                                                   |
 | Head: name, a line, Play with mods         | `pages/Mods.svelte`                                       | a game is picked                                         |
 | Tabs: My mods, Level editor, Models, Audio | `pages/Mods.svelte`                                       | the level editor can open the game (Audio: rac1 only)    |
-| Get mods (banner, first)                   | `components/GetMods.svelte`                               | My mods; hub buttons for Ratchet & Clank                 |
+| Get mods (banner, first)                   | `components/GetMods.svelte`                               | My mods; hub buttons for every game                      |
 | Add a mod                                  | `components/AddMod.svelte`                                | My mods                                                  |
 | Toolbar: search, kind, order               | `components/ModsToolbar.svelte`, `lib/modsView.svelte.ts` | six or more mods and packs                               |
 | Gameplay mods                              | `components/PluginsPanel.svelte`                          | the game has a port that plays                           |

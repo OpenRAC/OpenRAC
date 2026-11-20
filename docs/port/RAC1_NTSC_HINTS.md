@@ -268,7 +268,7 @@ See 4.3.
   levels' copies of a routine can differ in a constant or a field offset and
   still be catalogued as one. Whatever C is written for the name then runs
   on a place it does not fit (a rail search, a hero routine, a Vendor update).
-- **Where.** `port/game/rac1-ntsc/split_places.tsv` (23 rows carried from
+- **Where.** `port/game/rac1-ntsc/tables/split_places.tsv` (23 rows carried from
   PAL) and `host/variants.c`; the catalogue is
   `games/rac1/ntsc-decomp/config/us/levels/functions.tsv`.
 - **Port today.** Handled where PAL found it. Anything new needs the same

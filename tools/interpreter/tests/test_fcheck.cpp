@@ -61,7 +61,8 @@ void put(std::vector<u8>& ram, u32 at, const std::vector<u32>& words) {
 
 /** Runs openrac-fcheck on RETAIL and CANDIDATE with a hooks table of LINE; true when its exit status is WANT. */
 void check(const char* what, const std::string& fcheck, const std::string& dir, const std::string& line,
-           const std::vector<u32>& retail, const std::vector<u32>& candidate, int want) {
+           const std::vector<u32>& retail, const std::vector<u32>& candidate, int want,
+           const std::string& extra = "") {
     sys::CallState s;
     s.address = kRetail;
     s.ram.assign(GuestMemory::kRamBytes, 0);
@@ -85,7 +86,7 @@ void check(const char* what, const std::string& fcheck, const std::string& dir, 
     std::ofstream(hooks) << "00100100 " << line << "\n";
     char entry[16];
     std::snprintf(entry, sizeof(entry), "%x", kCandidate);
-    std::string cmd = "'" + fcheck + "' --hooks '" + hooks + "' --entry " + entry + " --code '" + code + "@" + entry +
+    std::string cmd = "'" + fcheck + "' " + extra + " --hooks '" + hooks + "' --entry " + entry + " --code '" + code + "@" + entry +
                       "' '" + state + "' > '" + dir + "/out.txt' 2>&1";
     int r = std::system(cmd.c_str());
     int got = WIFEXITED(r) ? WEXITSTATUS(r) : -1;
@@ -135,6 +136,25 @@ int main(int argc, char** argv) {
     u32 jr_zero = 8, clear_a1 = (a1 << 11) | 0x2D;  // jr zero; daddu a1, zero, zero
     check("a retail run that jumps below the program is skipped", fcheck, dir, "sceCdSync",
           {beq_a1, kNop, jr_zero, clear_a1, kJrRa, kNop}, {kJrRa, kNop}, 4);
+
+    /*
+     * A store before a call: retail makes it in the call's delay slot, so the callee sees it; a
+     * candidate that stores after the call leaves the same memory at the return. With --size
+     * (the retail function's bytes) memory is also compared at each of the function's calls.
+     */
+    u32 store = sw(a1, 0x7000, zero);
+    std::vector<u32> early = {addiu(sp, sp, -16), sw(ra, 0, sp), addiu(a0, zero, 1), jal(kHooked), store,
+                              lw(ra, 0, sp), addiu(sp, sp, 16), kJrRa, kNop};
+    std::vector<u32> late = {addiu(sp, sp, -16), sw(ra, 0, sp), addiu(a0, zero, 1), jal(kHooked), kNop, store,
+                             lw(ra, 0, sp), addiu(sp, sp, 16), kJrRa, kNop};
+    std::vector<u32> before = {addiu(sp, sp, -16), sw(ra, 0, sp), store, addiu(a0, zero, 1), jal(kHooked), kNop,
+                               lw(ra, 0, sp), addiu(sp, sp, 16), kJrRa, kNop};
+    check("a store after a call that retail makes in its delay slot: same at the return", fcheck, dir,
+          "sceCdSync inputs=1", early, late, 0);
+    check("a store after a call that retail makes in its delay slot differs at the call", fcheck, dir,
+          "sceCdSync inputs=1", early, late, 1, "--size 36");
+    check("a store before the call, as retail's delay slot has it, is the same", fcheck, dir,
+          "sceCdSync inputs=1", early, before, 0, "--size 36");
 
     std::printf("%s\n", failures ? "FAILED" : "all passed");
     return failures ? 1 : 0;

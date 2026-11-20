@@ -44,6 +44,8 @@ static void* test_guest(gaddr address) {
 
 const char* openrac_game_card_dir;
 const char* openrac_game_loaded_mods;
+void (*openrac_game_save_written)(const char* path, int players);
+void (*openrac_game_save_read)(const char* path, int slot);
 const openrac_game_play* openrac_game_play_host;
 int openrac_game_no_card;
 

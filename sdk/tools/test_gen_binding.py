@@ -111,6 +111,35 @@ class Binding(unittest.TestCase):
         rac1 = {h["id"].split(".", 1)[1] for h in gen_binding.load("rac1")["hooks"]}
         self.assertIn("player.take_damage", rac1)
 
+    def test_rac2s_bolt_hooks_cover_every_disc_and_the_level_copy(self):
+        b = gen_binding.load("rac2")
+        bolt = {h["id"]: h for h in b["hooks"] if h["id"].startswith("rac2.bolt.")}
+        self.assertEqual(sorted(bolt), ["rac2.bolt.collect", "rac2.bolt.spawn_pickup", "rac2.bolt.spawn_pickups"])
+        # The port's prototypes (game_protos.h): the splitter, one coin, the collector.
+        self.assertEqual(bolt["rac2.bolt.spawn_pickups"]["signature"], "void(u32,i32,i32,i32,i32,i32,f32)")
+        self.assertEqual(bolt["rac2.bolt.spawn_pickup"]["signature"], "u32(u32,u32,u32,u32,i32,i32)")
+        self.assertEqual(bolt["rac2.bolt.collect"]["signature"], "void(u32)")
+        for h in bolt.values():
+            self.assertEqual(set(h["symbols"]), {"ntsc", "pal", "ntsc2"}, h["id"])
+        # The splitter is the executable's and each level's copy (part_spawn_bolt_pickups, which
+        # SetDeathBits' level copy and part_spawn_scaled_bolts call): a hook row for each, one id.
+        splitter = bolt["rac2.bolt.spawn_pickups"]
+        self.assertEqual(splitter["copies"], {"ntsc": ["func_L00_00321878"], "pal": ["func_L00_00323918"],
+                                              "ntsc2": ["func_L00_00322AF0"]})
+        rows = gen_binding.hook_rows("rac2", b["discs"])
+        self.assertEqual(rows["ntsc"]["Bolt_SpawnPickups"], {"func_002ADB78", "func_L00_00321878"})
+        self.assertEqual(rows["pal"]["Bolt_SpawnPickups"], {"func_002AE6D8", "func_L00_00323918"})
+        self.assertEqual(rows["ntsc2"]["Bolt_SpawnPickups"], {"func_002AE9E0", "func_L00_00322AF0"})
+        for name in ("func_L00_00321878", "func_L00_00323918", "func_L00_00322AF0", "func_002AE6D8"):
+            self.assertEqual(b["aliases"][name], "rac2.bolt.spawn_pickups")
+        self.assertEqual(b["aliases"]["Bolt_Collect"], "rac2.bolt.collect")
+        # Anchored on NTSC-U v1.01 and kept in the lock.
+        locked = gen_binding.read_lock(ROOT / "sdk/bindings/rac2.ids.lock")
+        self.assertEqual(locked["rac2.bolt.spawn_pickups"][0], "ntsc:002ADB78")
+        self.assertEqual(locked["rac2.bolt.spawn_pickup"][0], "ntsc:00302470")
+        self.assertEqual(locked["rac2.bolt.collect"][0], "ntsc:00301D10")
+        self.assertEqual(gen_binding.check_rows(b), [])
+
     def test_the_catalogues_update_functions_are_hook_points(self):
         b = gen_binding.load("rac1")
         cat = [h for h in b["hooks"] if h["origin"] == "catalogue"]

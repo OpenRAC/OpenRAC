@@ -148,6 +148,10 @@ struct Model {
     Vec3 max{};
     std::vector<ModelJoint> bones;  // Indexed by the same joint number as skin weights.
     int joints = 0;                 // a skinned mesh: one past the highest joint its vertices use
+    // Optional exported idle animation for a render-only replacement, sampled at 60 Hz.
+    std::vector<std::vector<Mat4>> preview_poses;
+    Vec3 preview_min{}, preview_max{};
+    bool preview_bounds = false;
 };
 
 struct Instance {
@@ -184,7 +188,21 @@ struct Instance {
     bool floats_on_water = false;     // Visual rigid attachment to the local water height.
     bool lighting_only = false;       // An offscreen emitter captured for lighting, never geometry.
     bool gameplay_essential = false;  // Eligible for enhanced lighting's subtle GI-coloured rim.
+    // A mod's render-only material on a live moby (OPENRAC_MOBY_MATERIAL_*: 0 none, 2 platinum),
+    // which mesh.frag draws; LevelScene::instance_data packs it beside the shine distance.
+    std::uint8_t mod_material = 0;
 };
+
+// The step between a mod's materials in a moby's packed `lights` (pack_moby_lights): above any
+// shine distance, which is a byte.
+inline constexpr int kMobyMaterialLightsStep = 512;
+
+// Returns a live moby's `lights` as mesh.vert reads it: -1 - (its shine distance + the step times
+// `material`), so the per-instance attributes, all sixteen in use, carry the material too. A lit
+// tie (`lights` >= 0) and a moby with no material keep `lights` as they are.
+constexpr int pack_moby_lights(int lights, std::uint8_t material) {
+    return lights < 0 && material != 0 ? lights - kMobyMaterialLightsStep * material : lights;
+}
 
 struct SpinAnimation {
     std::size_t instance = 0;  // Index in Layer::Animated.
@@ -247,6 +265,9 @@ struct LevelData {
     std::vector<std::shared_ptr<const renderer::texture_pack::Animation>> image_animations;
     // Parallel to images (or shorter): a texture pack KTX2's picture of each in GPU blocks, or null.
     std::vector<std::shared_ptr<const renderer::CompressedImage>> image_blocks;
+    // Parallel to images (or shorter): for one a texture pack replaced, the original's material
+    // identity (materials::texture_identity), so that material rules still find it; else empty.
+    std::vector<std::string> image_identities;
     std::vector<std::string> image_paths;
     // Parallel to images: whether some texel is below full alpha (under the chip's 0x80), which
     // the GS blends however the export's alpha mode reads (material_index).
@@ -341,6 +362,13 @@ std::vector<renderer::Rgba8Image> load_sky_textures(
 // game's joint numbers). Returns the model's index.
 std::optional<std::uint32_t> load_model(
     const std::filesystem::path& path, LevelData& level, std::string& error
+);
+
+bool load_preview_animation(
+    const std::filesystem::path& path,
+    Model& model,
+    const char* clip,
+    const LevelData* geometry = nullptr
 );
 
 // A unit box, 0.5 on a side, standing on its base: what the viewer draws for

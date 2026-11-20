@@ -6,9 +6,10 @@
   // by dragging or a row's menu, or A to Z, for looking only). A search that finds nothing says so
   // here, once, as the lists hide.
   import { app, saveConfig } from "$lib/app.svelte";
-  import { TOOLBAR_FROM, type ModFilter } from "$lib/modsList";
+  import { type ModFilter, TOOLBAR_FROM } from "$lib/modsList";
   import { VIEW, WITH_MODS } from "$lib/modsText";
   import { modsView, searching, total, totalFound, totalOn } from "$lib/modsView.svelte";
+
   import Icon from "./Icon.svelte";
 
   const FILTERS: { id: ModFilter; label: string }[] = [
@@ -22,7 +23,10 @@
   /** Shown from that many rows, and while it hides any: removing mods during a search never
    *  leaves rows hidden with no way to show them. */
   const visible = $derived(
-    total() >= TOOLBAR_FROM || searching() || modsView.filter !== "all" || modsView.sort !== "order",
+    total() >= TOOLBAR_FROM ||
+      searching() ||
+      modsView.filter !== "all" ||
+      modsView.sort !== "order",
   );
   /** The Mods switch under Play is off (the default): Play starts the game without these. */
   const purist = $derived(!(app.config?.playWithMods ?? false));
@@ -87,7 +91,9 @@
       {/each}
     </div>
   </div>
-  {#if searching() && totalFound() === 0}<p class="none" role="status">{VIEW.none(modsView.query.trim())}</p>{/if}
+  {#if searching() && totalFound() === 0}<p class="none" role="status">
+      {VIEW.none(modsView.query.trim())}
+    </p>{/if}
 {/if}
 
 <style>

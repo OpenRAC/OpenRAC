@@ -46,8 +46,8 @@ import derived  # noqa: E402
 import release  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
-from lower import Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
+from lower import LEVEL_SHORT_MISS, Unit, UnitReport  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PROGRAM_FILES = ["stubs.c", "functions.c", "hooks.c", "libraries.c", "game_info.c", "game_protos.h"]
@@ -218,7 +218,8 @@ def read_drafts(config_dir: Path, cfg: dict) -> tuple[str, set[str]] | None:
 def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None) -> dict[str, str]:
     """Candidate C for functions the decompilation still has as assembly
     (hostgen.json "candidates": a table in the decompilation, one
-    "name<TAB>file" line each, the file relative to the decompilation; lines
+    "name<TAB>file[<TAB>...]" line each, the file relative to the decompilation, further
+    columns ignored; lines
     starting with # are comments). A missing table means none: the
     decompilation decides what it offers. Each is C that does what the retail
     function does without matching its bytes; the matching build never sees it.
@@ -233,7 +234,9 @@ def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None
     for line in (source / table).read_text().splitlines():
         if not line.strip() or line.startswith("#"):
             continue
-        name, _, rel = line.partition("\t")
+        # name, file, and any columns after them (a gate's verdict, a note): only the first two count
+        name, _, rest = line.partition("\t")
+        rel = rest.split("\t")[0]
         path = source / rel.strip()
         if path.is_file() and name.strip() not in left_out:
             if path not in texts:
@@ -348,13 +351,16 @@ def write_hook_copies(program: Program, name: str, syms: list[str], lines: list[
     each family of levels): one slot, whichever copy the game calls. The mod's replacement is told
     nothing of the copy; its original runs the copy that called it (the host's <name>__original,
     through the copy noted for the call, restored after it, so a nested call sees its own). One row
-    in the table, under the first copy's symbol. Returns the copies with no hook signature, or that
-    a wrap of the port's covers (none is then written); the signature must be the same for all."""
+    in the table, under the first copy's symbol. A copy the port wraps too (a `wrap` row: the hero's
+    move-state setters, hero_grab.c) gets its hook under the port's function, as <name>__hooked,
+    which the port's function calls, as write_hooks does for one function. Returns the copies with
+    no hook signature, or that pass a tail call's result on (none is then written); the signature
+    must be the same for all."""
     shapes = []
     for sym in syms:
         f = program.functions.get(sym)
         shape = hook_signature(f, program.typedefs) if f is not None else None
-        if shape is None or f.inherits or sym in program.wrap_host:
+        if shape is None or f.inherits:
             return list(syms)
         shapes.append(shape)
     if any(sh[0] != shapes[0][0] for sh in shapes):
@@ -371,7 +377,8 @@ def write_hook_copies(program: Program, name: str, syms: list[str], lines: list[
               f"static {ret} {name}__original({decl}) {{ {give}(({fptr}){game})({args}); }}"]
     for sym in syms:
         c = cname(sym)
-        lines += [f"{ret} {c}({decl}) {{",
+        entry = f"{c}__hooked" if sym in program.wrap_host else c
+        lines += [f"{ret} {entry}({decl}) {{",
                   f"    if ({slot} != 0) {{",
                   f"        void* was = {game};",
                   f"        {game} = (void*){c}__game;"]
@@ -527,7 +534,8 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
     for overlay in sorted(code_tables):
         name = "exe" if overlay < 0 else f"overlay_{overlay:02d}"
         fn.append(f"static const openrac_fn_entry k_{name}[] = {{")
-        for addr, sym in sorted(code_tables[overlay]):
+        # In the tables' order: the runtime keeps the first of two functions at one address.
+        for addr, sym in code_tables[overlay]:
             fn.append(f"    {{0x{addr:08X}u, (openrac_host_fn){cname(sym)}, \"{sym}\"}},")
         fn.append("};")
         fn.append("")
@@ -606,6 +614,14 @@ def _c_string(text: str | None) -> str:
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def rows_without_function(program: Program, host_rows: dict) -> list[str]:
+    """The library table's host, wrap and hook rows that name no function of the program. Such a
+    row binds nothing: a renamed or moved function would run its console C, or lose its wrap,
+    without a word. hostgen fails on them."""
+    rows = set(host_rows) | program.wrap | set(program.hook)
+    return sorted(sym for sym in rows if sym not in program.functions)
+
+
 def write_libraries(program: Program, out: Path, rows: dict, api: dict) -> int:
     """libraries.c: each library address the game's table binds to a shared
     replacement, as a function of that address calling openrac_lib_<name>."""
@@ -648,6 +664,9 @@ def write_game_info(program: Program, out: Path, cfg: dict) -> None:
              "const openrac_game_info openrac_game = {",
              f"    {_c_string(cfg.get('id'))}, {_c_string(cfg.get('title'))}, {_c_string(cfg.get('game'))},",
              f"    {_c_string(cfg.get('serial'))}, {int(cfg.get('frame_rate', 60))}, {_c_string(entry)},",
+             # hostgen.json "tick_rate": the ticks a second the port runs the game at (vsync.cpp tick_rate): 60,
+             # unless the disc's code has its own rate built in (Going Commando's PAL: 50).
+             f"    {int(cfg.get('tick_rate', 60))},",
              "};", "", "int openrac_game_run(void) {"]
     f = program.functions.get(entry) if entry else None
     if f is None:
@@ -684,6 +703,8 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         reasons[key] = reasons.get(key, 0) + 1
     no_c = [f for f in program.stubs()]
     stage = extra.pop("asm", None) or asmc.Stage()
+    allow = extra.pop("assembly_allow", {})
+    result_allow = extra.pop("result_allow", None)
     asm_reasons: dict[str, int] = {}
     for why in stage.unsupported.values():
         key = re.sub(r",? at [0-9A-F]{8}\b| \([0-9A-F]{8}\)", "", why)
@@ -703,7 +724,17 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         "functions_without_c_other_spelling": sum(1 for f in no_c if program.canonical(f.symbol) != f.symbol),
         "arguments_passed_through": sum(f.passthrough for f in fns),
         "arguments_filled_with_zero": {f.name: f.zero_args for f in fns if f.zero_args},
+        "computed_gotos": {f.name: f.computed_gotos for f in fns if getattr(f, "computed_gotos", None)},
         "call_site_mismatches": {f.name: sorted(set(f.mismatches)) for f in fns if f.mismatches},
+        # Each function whose definition returns another kind of result (or none) than a caller's
+        # declaration of it reads: the decompilation matches each file alone, so nothing there sees
+        # it (func_002E46C0 defined float, declared int where StartSoundEmitter calls it).
+        "extern_result_mismatch": extern_result_mismatch(fns),
+        # Not a function another release's view marks as one this release does not have
+        # (func_V1_...): nothing runs it.
+        "results_zeroed": {f.name: sorted(f.zeroed_results) for f in fns
+                           if f.status == "translated" and getattr(f, "zeroed_results", None)
+                           and f"_{release.DEAD}_" not in f.name},
         "call_graph": {f.name: sorted(f.calls) for f in fns if f.status == "translated" and f.calls},
         "hardware_accesses": sum(f.hw for f in fns),
         "functions_touching_hardware": sorted(f.name for f in fns if f.hw),
@@ -733,6 +764,9 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
                                   if r.report is not None and r.report.calls})
     frontier = boot_frontier(fns_and_asm, program, extra.get("roots", []))
     summary["frontier"] = frontier
+    summary.update(assembly_guard(summary, allow))
+    if result_allow is not None:
+        summary.update(result_guard(summary, result_allow))
     (out / "report.json").write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
     md = [
         f"# hostgen report: {game}",
@@ -892,7 +926,7 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
                     if p.is_file() and p.suffix in (".json", ".tsv", ".c", ".h", ".txt", ".inc"))
     paths += [config.parent / cfg.get("library_api", "../common/libraries.tsv"), HERE / "include"]
     paths += sorted((config.parent.parent / str(cfg.get("game", "")) / "host").glob("*.c"))
-    for key in ("libraries", "hand", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
+    for key in ("libraries", "hand", "assembly_allow", "result_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
     if cfg.get("drafts"):
@@ -1153,6 +1187,7 @@ def override_problems(root: Path, replacements: dict, overridden: set[str]) -> l
 def new_program(cfg: dict, source: Path) -> Program:
     """The program's names, groups and symbol tables, read before any unit."""
     program = Program()
+    program.release_view = RELEASE is not None
     program.set_names(cfg["names"].get("code"), cfg["names"].get("data"))
     program.groups = cfg["groups"]
     program.expanded_target_table_addresses = {
@@ -1204,8 +1239,22 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.aliases.update({(unit, name): symbol for unit, names in cfg.get("unit_aliases", {}).items()
                             for name, symbol in names.items()})
     program.global_views = bool(cfg.get("global_views", False))
-    program.formed_as = {name: int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
+    # Keyed by the primary's names, as release_carry.py writes them; a release's C says the release's
+    # (USA v2.00's D_001F0000, the particle textures' pointers, is D_001EFF80 there): unmatched, the
+    # name went to OPENRAC_DATA alone and read another word, so the trail puffs took texture 0, the
+    # rain's streak, and bolts on Oozla stood in cones of light (T-46).
+    program.formed_as = {in_release(name): int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
+    # hostgen.json "cross_level_data": {name: reason} — a datum a level function may name by another
+    # level's address with no copy of the function there to find its own from (lower.py _copy_named_in).
+    program.cross_level_data = dict(cfg.get("cross_level_data", {}))
     program.returns_64 = set(cfg.get("returns_64", []))
+    # hostgen.json "jump_tables": the labels a computed goto's table in the game's data holds, by table and index
+    # (lower.py _indirect_goto); a file beside hostgen.json when it is a name (jumptables.py writes it).
+    jump_tables = cfg.get("jump_tables", {})
+    if isinstance(jump_tables, str):
+        jump_path = args.game.parent / jump_tables
+        jump_tables = json.loads(jump_path.read_text()) if jump_path.is_file() else {}
+    program.jump_tables = {k: v for k, v in jump_tables.items() if not k.startswith("#")}
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
     if cfg.get("executable_functions"):
         rows = [row for row in tables.read_tsv(source / cfg["executable_functions"], strip=True) if len(row) >= 2]
@@ -1219,8 +1268,13 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         # its build's values (below) cover the shared names its C uses.
         own = re.compile(r"(?:func|FUN)_([0-9A-Fa-f]{8})" if RELEASE is None
                          else r"(?:func|FUN)_(?!L\d\d_)[A-Z][A-Z0-9]*_([0-9A-Fa-f]{8})")
+        shared = re.compile(r"(?:func|FUN)_([0-9A-Fa-f]{8})")
         for row in rows:
             m = own.fullmatch(row[0])
+            if m is None and RELEASE is not None:
+                # A shared row, in the release's name: a release's func_002C00F0 (its func_002C1010, named after
+                # the fill word in front) is entered at 0x002C1018, which its callers' func_002C1018 spells.
+                m = shared.fullmatch(RELEASE.name(row[0]))
             if m is not None and int(m.group(1), 16) != int(row[1], 16):
                 program.executable_entry_at[int(m.group(1), 16)] = int(row[1], 16)
     table = derived.resolve(source, args.game.parent, cfg)
@@ -1308,6 +1362,13 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     program.unresolved_derived = users_of_unresolved_derived(program)
     # A parameter the C only passes on to 64-bit parameters is 64-bit itself (program.py widen_forwarded): the EE's
     # register carries all its bits through (FontPrintCenter's colour to FontPrint's u64).
+    # A definition that names fewer parameters than its callers pass, which it hands on in their registers (program.py
+    # params_from_declarations): the callers' extra parameters are its own too.
+    if cfg.get("params_from_declarations"):
+        # hostgen.json "extra_params": {function: [type, ...]}, the parameters its callers pass in registers it
+        # hands on, where no declaration says so (the retail assembly shows them).
+        program.extra_params = {k: v for k, v in cfg.get("extra_params", {}).items() if not k.startswith("#")}
+        program.params_added = params_from_declarations(program)
     program.widened = widen_forwarded(program)
     program.index_places()
     # A 32-bit result that is a "returns_64" function's result, returned as it is, is 64-bit itself (program.py
@@ -1363,7 +1424,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
                   overridden: set[str], inherited: list[str], asm_stage: dict, asm_results: dict) -> dict | None:
     """Every file after the units': the program's files, the libraries, the hooks, the assembly's,
     units.txt and the report. Returns the report's summary, or None when a hook point has no
-    signature a hook can take (said)."""
+    signature a hook can take or a library row names no function (said)."""
     extra = write_program_files(program, out, cfg.get("title", cfg.get("name", args.game.parent.name)))
     # Places of functions with C that a call through their address does not reach (should be none).
     extra["places_without_function"] = program.places_without_function()
@@ -1372,10 +1433,16 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     extra["overrides_used"] = sorted(overridden)
     extra["results_inherited"] = sorted(inherited)
     extra["params_widened"] = sorted(getattr(program, "widened", []))
+    extra["params_from_declarations"] = sorted(getattr(program, "params_added", []))
     extra["results_widened"] = sorted(getattr(program, "results_widened", []))
     extra["unprototyped_callers"] = sorted(getattr(program, "unprototyped_callers", []))
     extra["unresolved_derived"] = dict(sorted(getattr(program, "unresolved_derived", {}).items()))
     extra["bound_libraries"] = write_libraries(program, out, host_rows, library_api(args.game.parent, cfg))
+    extra["rows_without_function"] = rows_without_function(program, host_rows)
+    for sym in extra["rows_without_function"]:
+        print(f"hostgen: error: libraries.tsv binds {sym}, which is no function of this program", file=sys.stderr)
+    if extra["rows_without_function"]:
+        return None
     write_game_info(program, out, cfg)
     extra["hooks"] = sorted(program.hook.values())
     extra["hooks_skipped"] = write_hooks(program, out, cfg.get("title", cfg.get("name", args.game.parent.name)))
@@ -1405,9 +1472,135 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
                   "--disc <image> --kit <Windows kit> --out <dir>", file=sys.stderr)
             return None
     extra["asm"] = asm_stage
+    extra["assembly_allow"] = read_assembly_allow(args.game.parent, cfg)
+    if cfg.get("result_allow"):
+        extra["result_allow"] = read_result_allow(args.game.parent, cfg)
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))
     return write_report(out, reports, program, extra, cfg.get("title", cfg.get("name", "")))
+
+
+def read_assembly_allow(config_dir: Path, cfg: dict) -> dict[str, str]:
+    """hostgen.json "assembly_allow": a table of name<TAB>reason, the functions the program may leave to
+    their assembly although translated code reaches them (assembly_guard)."""
+    table = cfg.get("assembly_allow")
+    if not table:
+        return {}
+    out = {}
+    for line in (config_dir / table).read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            name, _, reason = line.partition("\t")
+            if not reason.strip():
+                raise SystemExit(f"hostgen: {table}: {name.strip()} has no reason")
+            out[name.strip()] = reason.strip()
+    return out
+
+
+def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
+    """The functions the port runs as their retail assembly, or as a stub in its place, although
+    translated code reaches them: a call, or its address taken (in code or as a literal). Without the
+    disc such a function is a stub that returns 0, and the game goes wrong quietly (Going Commando's
+    72 routines in a release build without the disc's part); with it, it runs the assembly's
+    translation, which nothing but play checks. Each needs C of the port's own (hand/hand.tsv, a host
+    row) or a row of "assembly_allow" saying why not. main() fails the run on any other; the report
+    keeps them all ("assembly_reached": name -> the functions that reach it). A game opts in by having
+    the table (rac1, rac2: their release builds run without the disc's assembly)."""
+    asm = {n for n, p in summary["without_c_places"].items() if p.get("kind") == "asm" and "other_spelling" not in p}
+    asm |= set(summary.get("from_assembly", {}))
+    # A call by another spelling of the function (a derived r1_ name for the same place) is a call of it.
+    # So is a name at the same place (r1_func_0012A418, the address the decompilation's derived names
+    # give func_0012E238).
+    spelling = {n: p["other_spelling"] for n, p in summary["without_c_places"].items() if "other_spelling" in p}
+    at = {tuple(pl): n for n in asm for pl in summary["without_c_places"].get(n, {}).get("places", [])}
+    for n, p in summary["without_c_places"].items():
+        if n not in asm and n not in spelling:
+            for pl in p.get("places", []):
+                if tuple(pl) in at:
+                    spelling[n] = at[tuple(pl)]
+    reached: dict[str, set[str]] = {}
+    for caller, callees in summary["call_graph"].items():
+        for c in callees:
+            c = spelling.get(c, c)
+            if c in asm and c != caller:
+                reached.setdefault(c, set()).add(caller)
+    # A function translated from assembly is its assembly, reached or not: the disc's part, in the
+    # report. Only a reached one fails, as without the disc: rac1's disc build translates 260 that
+    # no translated code reaches, which a build without it never sees.
+    for name in summary.get("from_assembly", {}):
+        reached.setdefault(name, set())
+    # A row stands for its code place: two names of one place (a release's catalogue name and a
+    # reference into it) are one function, whichever of them the calls use in a build.
+    def places(n: str) -> set:
+        return {same_place(n)} | {tuple(pl) for pl in summary["without_c_places"].get(n, {}).get("places", [])}
+    allowed = set().union(*(places(n) for n in allow))
+    reached_at = set().union(*(places(n) for n in reached))
+    # A row goes once its function has C. One still without it stays, reached or not here: a build
+    # without the disc has no assembly to translate, so a call from the release's own assembly, or
+    # to a stub of no C, does not show.
+    without_c = set().union(*(places(n) for n in summary["without_c_places"]))
+    return {"assembly_reached": {n: sorted(v) for n, v in sorted(reached.items())},
+            "assembly_unallowed": sorted(n for n, by in reached.items() if by and not places(n) & allowed),
+            "assembly_allow_unused": sorted(n for n in allow if not places(n) & (reached_at | without_c))}
+
+
+def extern_result_mismatch(fns) -> dict:
+    """callee -> {"returns": its definition's kind, "read_as": {kind the call site reads: [callers]},
+    "used_by": [callers whose read value is used]}, from the calls lowering recorded."""
+    out: dict = {}
+    for f in fns:
+        for m in set(f.mismatches):
+            hit = re.match(r"(\S+): .*reads a (\w+) result, returns (\w+)", m)
+            if hit:
+                e = out.setdefault(hit[1], {"returns": hit[3], "read_as": {}, "used_by": []})
+                e["read_as"].setdefault(hit[2], []).append(f.name)
+                if hit[1] in getattr(f, "zeroed_results", ()):
+                    e["used_by"].append(f.name)
+    for e in out.values():
+        for v in e["read_as"].values():
+            v.sort()
+        e["used_by"].sort()
+    return dict(sorted(out.items()))
+
+
+# Two spellings of one place (a release view's FUN_<place> and func_<place>): one function to the
+# allow tables, so a row survives the table's choice of spelling.
+_SPELLING = re.compile(r"^(?:F[0-9a-f]+_)?FUN_")
+
+
+def same_place(name: str) -> str:
+    return _SPELLING.sub("func_", name)
+
+
+def read_result_allow(config_dir: Path, cfg: dict) -> dict[tuple[str, str], str]:
+    """hostgen.json "result_allow": a table of caller<TAB>callee<TAB>reason, the calls whose result
+    the translation may take as 0 (result_guard)."""
+    table = cfg["result_allow"]
+    out = {}
+    for line in (config_dir / table).read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            caller, _, rest = line.partition("\t")
+            callee, _, reason = rest.partition("\t")
+            if not callee.strip() or not reason.strip():
+                raise SystemExit(f"hostgen: {table}: {line.strip()}: a row is caller, callee and the reason")
+            out[(caller.strip(), callee.strip())] = reason.strip()
+    return out
+
+
+def result_guard(summary: dict, allow: dict[tuple[str, str], str]) -> dict:
+    """The calls that read a result the callee does not hand back in that register: it returns
+    nothing, or a float where the caller reads an integer (or the other way). On the console the
+    caller read whatever the register held; the translation reads 0. Mostly that is the
+    decompilation's own sloppiness about a value nobody uses, but a decompilation bump that changed
+    a callee's C result type silenced Going Commando's 3D sounds this way (func_002E46C0 turned
+    float, StartSoundEmitter reads its $v0). Each such call needs a row of "result_allow" with the
+    reason the 0 is right, or the callee's real type (hand C, an "asm" "signatures" entry); main()
+    fails the run on any other."""
+    zeroed = {(caller, callee) for caller, callees in summary.get("results_zeroed", {}).items() for callee in callees}
+    allowed = {(same_place(a), same_place(b)) for a, b in allow}
+    seen = {(same_place(a), same_place(b)) for a, b in zeroed}
+    return {"results_zeroed_unallowed": sorted(f"{a}\t{b}" for a, b in zeroed
+                                               if (same_place(a), same_place(b)) not in allowed),
+            "result_allow_unused": sorted(f"{a}\t{b}" for a, b in allow if (same_place(a), same_place(b)) not in seen)}
 
 
 def stop_for_unreadable_units(reports: list[UnitReport], allow_unreadable: bool) -> bool:
@@ -1494,6 +1687,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     problems += index_units(program, state, units, args.jobs)
     host_sigs = {sym: sig for sym, (_name, sig) in host_rows.items()}
+    if cfg.get("params_from_declarations"):
+        # What the port's own C calls keeps the signature it calls it by (params_from_declarations leaves it).
+        program.host_called = set(re.findall(r"\b(?:func|FUN)_\w+", port_host_text(args, cfg)))
     problems += settle_signatures(program, cfg, source, host_sigs)
     warn_of_unresolved_derived(derived_table, source, cfg, args, program)
     if args.program_out:
@@ -1516,6 +1712,41 @@ def main(argv: list[str] | None = None) -> int:
     summary = write_outputs(out, args, cfg, program, units, reports, problems, host_rows, used, overridden,
                             inherited, asm_stage, asm_results)
     if summary is None:
+        return 1
+    misses = [(r.unit, p) for r in reports for p in r.problems if p.startswith(LEVEL_SHORT_MISS)]
+    if misses:
+        # The decompilation's build reads such a name's value from the retail jal, so it still
+        # matches; the port would call another function. Fixed in the decompilation, by the name
+        # the level's own function has there (or the executable's name, which each level's copy takes).
+        for unit, problem in misses:
+            print(f"hostgen: error: {unit}: {problem}", file=sys.stderr)
+        return 1
+    if cfg.get("assembly_allow") and summary["assembly_allow_unused"]:
+        # A row that allows nothing any more: the table stays true, so it goes with the change.
+        for name in summary["assembly_allow_unused"]:
+            print(f"hostgen: error: {cfg['assembly_allow']} allows {name}, which is no longer left to its "
+                  "assembly where translated code reaches it: remove the row", file=sys.stderr)
+        return 1
+    if cfg.get("assembly_allow") and summary["assembly_unallowed"]:
+        # assembly_guard: before the stamp, so the next build says it again.
+        for name in summary["assembly_unallowed"]:
+            by = summary["assembly_reached"][name]
+            print(f"hostgen: error: {name} runs as its assembly ({'translated from it' if name in summary['from_assembly'] else 'a stub without the disc'}), "
+                  f"and {', '.join(by[:3]) or 'the program'}{' and more' if len(by) > 3 else ''} reach it: give it C "
+                  "(hand/hand.tsv, or a host row) or a row with the reason in hostgen.json \"assembly_allow\"",
+                  file=sys.stderr)
+        return 1
+    if cfg.get("result_allow") and (summary["result_allow_unused"] or summary["results_zeroed_unallowed"]):
+        # result_guard: before the stamp, so the next build says it again.
+        for row in summary["result_allow_unused"]:
+            print(f"hostgen: error: {cfg['result_allow']} allows {row.replace(chr(9), ' -> ')}, a call that no "
+                  "longer reads a result its callee does not set: remove the row", file=sys.stderr)
+        for row in summary["results_zeroed_unallowed"]:
+            caller, callee = row.split("\t")
+            print(f"hostgen: error: {caller} reads a result of {callee} from a register it does not set, which "
+                  f"the translation takes as 0: give {callee} its real result type (hand C, an \"asm\" "
+                  f"\"signatures\" entry) or a row with the reason in hostgen.json \"result_allow\"",
+                  file=sys.stderr)
         return 1
     if not args.quiet:
         print(f"hostgen: {summary['units']} units, {summary['functions_translated']} functions translated, "

@@ -13,6 +13,7 @@
  */
 #include "draw_owner.h"
 #include "game_protos.h"
+#include "openrac/game_host.h"
 
 #define WIDE_CAMERA OPENRAC_DATA(RAC2_ADDR(0x001B5200u))
 #define WIDE_VIEW OPENRAC_DATA(RAC2_ADDR(0x001B9040u))
@@ -28,6 +29,11 @@ static int g_effects;
 static float g_effect_wider = 1.0f;
 static float g_effect_taller = 1.0f;
 
+/* Writes an attachment scope through the GS NOP register; zero ends the scope (game_host.h). */
+static void put_attachment_marker(gaddr attachment) {
+    func_002FC560(0x7F, (uint64_t)OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER << 48 | attachment);
+}
+
 static void run_list(void (*run)(void)) {
     float taller;
     const float wider = wide_wider_for(&g_fix_liquids, "fix_wide_liquids", &taller);
@@ -42,7 +48,18 @@ static void run_callbacks(gaddr count_at, gaddr functions, gaddr arguments) {
     for (int index = 0; index < GREF(int, count_at); ++index) {
         const gaddr argument = GREF(gaddr, arguments + (gaddr)index * 4u);
         rac2_draw_owner = argument;
+        const gaddr attachment = rac2_effect_attachment(argument);
+        /* The sent list is one tick behind the native mobys (measured: frontend quad generations). */
+        if (attachment != 0) {
+            put_attachment_marker(attachment);
+        }
+
         GFN(void (*)(int), GREF(gaddr, functions + (gaddr)index * 4u))((int)argument);
+
+        /* Subsequent callbacks can emit unrelated world-space geometry. */
+        if (attachment != 0) {
+            put_attachment_marker(0);
+        }
     }
     rac2_draw_owner = outer;
 }

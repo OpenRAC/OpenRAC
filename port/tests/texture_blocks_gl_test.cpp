@@ -223,6 +223,35 @@ int main(int argc, char** argv) {
         );
     }
 
+    // A movie's picture (set_picture) keeps its one GL texture: the next frame's texels go into it.
+    std::vector<std::uint8_t> picture(static_cast<std::size_t>(kSide) * kSide * 4, 0);
+    pool.set_picture(0x700, 1, kSide, kSide, picture);
+    gs::Tex0 tex0{};
+    tex0.tbp0 = 0x700;
+    tex0.tbw = 1;
+    tex0.psm = gs::kPsmct32;
+    tex0.tw = 3;
+    tex0.th = 3;
+    const TextureHandle movie = pool.resolve(tex0, {0, false, 0x80});
+    const unsigned movie_gl = pool.gl_texture(movie);
+    CHECK(movie_gl != 0 && !draws_quadrants(shader, movie_gl, 0.0f));
+    for (int y = 0; y < kSide; ++y) {
+        for (int x = 0; x < kSide; ++x) {
+            const std::size_t i = (static_cast<std::size_t>(y) * kSide + x) * 4;
+            const bool right = x >= kSide / 2;
+            const bool down = y >= kSide / 2;
+            picture[i] = !right && !down ? 255 : 0;
+            picture[i + 1] = right && !down ? 255 : 0;
+            picture[i + 2] = !right && down ? 255 : 0;
+            picture[i + 3] = right && down ? 0 : 255;
+        }
+    }
+    pool.set_picture(0x700, 1, kSide, kSide, picture);
+    CHECK(pool.resolve(tex0, {0, false, 0x80}) == movie);
+    CHECK(pool.gl_texture(movie) == movie_gl);
+    CHECK(draws_quadrants(shader, movie_gl, 0.0f));
+    pool.forget_picture(0x700);
+
     // After the context's textures are let go, the blocks are uploaded again.
     pool.release_gl();
     CHECK(

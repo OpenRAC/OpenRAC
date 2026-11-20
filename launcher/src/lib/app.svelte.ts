@@ -1,40 +1,47 @@
 // The UI's shared state: settings, the library, navigation, toasts and the
 // job queue. Pages read `app` and call the functions below; nothing else
 // talks to the Rust side except through api.ts.
-import { hidePaths } from "./paths";
-import { toolFailure } from "./toolErrors";
-import { bakeFailure, type BakeFailure } from "./bakeFailure";
 import {
-  api,
-  ask,
-  pickIso,
-  onDiscCopy,
-  onAndroid,
-  errorText,
-  onJobEvents,
   type ActionView,
-  type DiscCopy,
+  api,
   type AppInfo,
+  ask,
   type Config,
   type DiscChoice,
+  type DiscCopy,
   type EditorInstall,
+  errorText,
   type FoundDisc,
   type GameStatus,
   type Library,
+  onAndroid,
+  onDiscCopy,
+  onJobEvents,
+  pickIso,
   type RunInputs,
   type Scope,
   type Started,
-  type VersionView,
-  updateChannelOf,
   updateBranchOf,
+  updateChannelOf,
   updateSourceOf,
+  type VersionView,
   watchFirstDraw,
 } from "./api";
+import { type BakeFailure, bakeFailure } from "./bakeFailure";
+import { withShownTitles } from "./labels";
 import { stopSlides } from "./motion";
-import { Queue, type Job } from "./queue";
+import { hidePaths } from "./paths";
 import { backgroundStatus } from "./progress";
-import { lastLines, PLAY_ACTIONS, unseenRecent, type StopNotice } from "./reports";
-import { checkForUpdate, offerUpdate, readPutOff, switchingChannel, type UpdateInfo } from "./updates";
+import { type Job, Queue } from "./queue";
+import { lastLines, PLAY_ACTIONS, type StopNotice, unseenRecent } from "./reports";
+import { toolFailure } from "./toolErrors";
+import {
+  checkForUpdate,
+  offerUpdate,
+  readPutOff,
+  switchingChannel,
+  type UpdateInfo,
+} from "./updates";
 
 export type Page = "library" | "game" | "mods" | "tasks" | "develop" | "settings";
 
@@ -130,11 +137,13 @@ export const app = $state<AppState>({
 export async function readGame() {
   if (!onAndroid) return;
   const wasRunning = app.game?.running ?? false;
+
   try {
     app.game = await api.gameStatus();
   } catch {
     app.game = null;
   }
+
   // The game's activity ended since (its own process: no job ends with it): its log, any crash
   // report and its saves are new, so the lists read them again.
   if (wasRunning && !app.game?.running) {
@@ -163,6 +172,7 @@ export async function gameWindow(stop: boolean) {
  *  covers the launcher, or for kLaunchMs when it does not (a start that failed says why in a toast). */
 const kLaunchMs = 4000;
 let launchTimer: ReturnType<typeof setTimeout> | undefined;
+
 export function showLaunch(game: string, title: string) {
   if (!onAndroid) return;
   app.launching = { game, title };
@@ -177,6 +187,7 @@ export const clock = $state({ now: Date.now() });
 
 /** The jobs, oldest first; reactive. */
 export const jobs = $state<{ list: Job[]; selected: number | null }>({ list: [], selected: null });
+
 const queue = new Queue(jobs.list);
 
 // ---- Android: the set-up goes on in the background -----------------------------------------
@@ -192,13 +203,16 @@ function keepAliveInBackground() {
   let stopping: ReturnType<typeof setTimeout> | undefined;
   const send = (status: ReturnType<typeof backgroundStatus>) => {
     const text = JSON.stringify(status);
+
     if (text === sent) return;
     sent = text;
     void api.backgroundStatus(status).catch(() => undefined);
   };
+
   $effect.root(() => {
     $effect(() => {
       const status = backgroundStatus(runningJob(), pendingJobs(), app.discCopy);
+
       clearTimeout(stopping);
       if (status) send(status);
       else
@@ -215,23 +229,35 @@ let toastId = 0;
 /** The time an information toast has left, paused while the pointer or the focus is on the toasts. */
 // Not state: nothing is drawn from it.
 // eslint-disable-next-line svelte/prefer-svelte-reactivity
-const toastTimers = new Map<number, { left: number; since: number; handle: ReturnType<typeof setTimeout> | null }>();
+const toastTimers = new Map<
+  number,
+  { left: number; since: number; handle: ReturnType<typeof setTimeout> | null }
+>();
 let toastsHeld = false;
 
 function expire(id: number) {
   const t = toastTimers.get(id);
+
   if (t?.handle) clearTimeout(t.handle);
   toastTimers.delete(id);
   app.toasts = app.toasts.filter((t) => t.id !== id);
 }
 
 /** Says something for a moment; an error stays until it is dismissed, as it may need reading twice. */
-export function toast(text: string, kind: "info" | "error" = "info", bake?: BakeNotice, details?: string) {
+export function toast(
+  text: string,
+  kind: "info" | "error" = "info",
+  bake?: BakeNotice,
+  details?: string,
+) {
   const id = ++toastId;
+
   app.toasts.push({ id, text, kind, bake, details });
   // No more than four errors at once: the oldest gives way.
   const errors = app.toasts.filter((t) => t.kind === "error");
+
   if (errors.length > 4 && errors[0]) expire(errors[0].id);
+
   if (kind === "info") {
     toastTimers.set(id, {
       left: 4000,
@@ -253,6 +279,7 @@ export function dismissToast(id: number) {
 /** While the pointer or the focus is on the toasts, they wait to be read. */
 export function holdToasts(held: boolean) {
   toastsHeld = held;
+
   for (const [id, t] of toastTimers) {
     if (held && t.handle) {
       clearTimeout(t.handle);
@@ -276,6 +303,7 @@ export async function guard<T>(work: Promise<T>): Promise<T | undefined> {
     return await work;
   } catch (e) {
     toast(errorText(e), "error");
+
     return undefined;
   }
 }
@@ -287,6 +315,7 @@ export async function guardShown<T>(work: Promise<T>): Promise<T | undefined> {
     return await work;
   } catch (e) {
     toast(hidePaths(errorText(e)).text, "error");
+
     return undefined;
   }
 }
@@ -301,6 +330,7 @@ let clockTimer: ReturnType<typeof setInterval> | undefined;
 
 export async function start() {
   app.startError = null;
+
   try {
     if (!listening) {
       await onJobEvents((events) => {
@@ -313,6 +343,7 @@ export async function start() {
       // The time, once a second: what a running job's elapsed time is counted against.
       if (clockTimer) clearInterval(clockTimer);
       clockTimer = setInterval(() => (clock.now = Date.now()), 1000);
+
       if (onAndroid) {
         keepAliveInBackground();
         void readGame();
@@ -325,12 +356,15 @@ export async function start() {
         });
       }
     }
+
     app.info = await api.appInfo();
     if (app.info.noCompositing) stopSlides();
     if (app.info.platform === "linux" && !app.info.noCompositing) watchFirstDraw();
+
     if (app.info.safeRenderingAfterCrash) {
       toast("The launcher crashed last time, so Safe rendering is now on (Settings, Advanced).");
     }
+
     // Android: the config names the carried tools' Python only once they are unpacked.
     if (onAndroid) await prepareTools();
     app.config = await firstRun(await api.getConfig());
@@ -338,14 +372,17 @@ export async function start() {
     // The launcher could not read what it needs to start: it says so, and the player may
     // try again. Without this the window waits for a spinner that never goes away.
     app.startError = errorText(e);
+
     return;
   }
+
   // The version the launcher showed last; a version named in the address (the browser
   // preview's ?version=) is kept.
   if (!app.version && app.config.lastVersion) app.version = app.config.lastVersion;
   await refresh();
   void syncProgressWeb();
   void readEditor();
+
   // A new launcher is looked for at start unless the player turned that off (Settings). One
   // found opens its window, unless it was put off lately (updates.ts) or a game is running; a
   // failed look is told only when the player asks (Settings' "Check now").
@@ -353,6 +390,7 @@ export async function start() {
     lookForUpdate()
       .then((found) => {
         const up = app.update;
+
         if (!found || !up || !app.config?.setupComplete || app.game?.running) return;
         if (offerUpdate(up.version, readPutOff(), Date.now())) app.showUpdateModal = true;
       })
@@ -364,6 +402,7 @@ export async function start() {
  *  page; nothing reads them before they are there. A second's wait shows why. */
 async function prepareTools() {
   const shown = setTimeout(() => (app.preparing = true), 1000);
+
   try {
     await api.toolsReady();
   } catch (e) {
@@ -382,29 +421,40 @@ async function prepareTools() {
 function handleExit(job: Job) {
   const version = job.scope.kind === "version" ? job.scope.key : null;
   const played = version !== null && PLAY_ACTIONS.includes(job.actionId);
+
   if (played) {
     app.reportsChanged++;
     // The game may have saved: the Saves list reads the card again, without leaving the page.
     app.savesChanged++;
     void countCrashes();
   }
+
   // The game stopping on its own is not a failed task: the Play page says what happened.
   if (job.state === "failed" && played) void gameStopped(job);
   // Setting a game up says why it stopped itself (installFromDisc).
   else if (job.state === "failed" && job.actionId === "probe-bake" && version !== null) {
     const failure = bakeFailure(job);
+
     toast(failure.title, "error", { failure, version, jobKey: job.key });
   } else if (job.state === "failed" && !job.actionId.startsWith("install:"))
     // What the task printed last says why: without it the player only reads that it failed.
     toast(`${job.title} failed`, "error", undefined, toolFailure(job.lines).details || undefined);
+
   // Played to the end since: the notice folds to a line (CrashNotice), the report still a click away.
-  if (job.state === "succeeded" && played && app.stopped && version.startsWith(`${app.stopped.game}/`)) {
+  if (
+    job.state === "succeeded" &&
+    played &&
+    app.stopped &&
+    version.startsWith(`${app.stopped.game}/`)
+  ) {
     app.stopped = { ...app.stopped, playedSince: true };
   }
+
   // The levels were read again and checked: Enhanced graphics' lighting is baked again for them.
   if (job.state === "succeeded" && version !== null && job.actionId === "port-levels-check") {
     void bakeAfterLevels(version);
   }
+
   settle(job.key, job.state === "succeeded");
   void refresh();
   updateDiscordPresence();
@@ -415,11 +465,15 @@ function handleExit(job: Job) {
  *  missing or older than their export: the probe-bake action, which keeps the ones still current. */
 async function bakeAfterLevels(key: string) {
   const [game, name] = key.split("/");
+
   if (!game || !name) return;
   const view = await api.enhancedView(game, name).catch(() => null);
   const bake = view?.bake;
+
   if (!view?.mod.enabled || !bake?.available || bake.ready >= bake.levels) return;
-  const version = app.library?.games.find((g) => g.id === game)?.versions.find((v) => v.key === key);
+  const version = app.library?.games
+    .find((g) => g.id === game)
+    ?.versions.find((v) => v.key === key);
   const action = version?.actions.find((a) => a.id === "probe-bake" && a.thisPlatform);
   const busy = jobs.list.some(
     (j) =>
@@ -428,6 +482,7 @@ async function bakeAfterLevels(key: string) {
       j.scope.key === key &&
       (j.state === "queued" || j.state === "running"),
   );
+
   if (action && !busy) void run({ kind: "version", key }, action);
 }
 
@@ -439,7 +494,16 @@ async function gameStopped(job: Job) {
   const since = Math.floor((job.startedAt ?? job.queuedAt) / 1000) - 2;
   // No install folder: the notice still says it stopped.
   const crash = await api.latestCrash(game, since).catch(() => null);
-  app.stopped = { game, versionKey, code: job.code, at: job.endedAt ?? Date.now(), crash, lines: lastLines(job.lines) };
+
+  app.stopped = {
+    game,
+    versionKey,
+    code: job.code,
+    at: job.endedAt ?? Date.now(),
+    crash,
+    lines: lastLines(job.lines),
+  };
+
   // On another page, the player is told where to look. A crash is worth a message to us; a game
   // that was closed is not.
   if (app.page !== "game" || currentVersion()?.game !== game) {
@@ -461,16 +525,20 @@ export async function countCrashes() {
   const seq = ++crashesSeq;
   const counts: AppState["crashes"] = {};
   const recent = Date.now() / 1000 - 3 * 86400;
+
   for (const g of app.library?.games ?? []) {
     if (!g.install?.extracted) continue;
+
     try {
       const crashes = (await api.reportsList(g.id)).filter((e) => e.kind === "crash");
       const seen = app.config?.crashesSeen[g.id] ?? 0;
+
       counts[g.id] = { total: crashes.length, recent: unseenRecent(crashes, seen, recent).length };
     } catch {
       // no install folder: nothing to count
     }
   }
+
   // A count that is not the newest one is not put in: it would undo a newer one.
   if (seq === crashesSeq) app.crashes = counts;
 }
@@ -482,14 +550,18 @@ export async function countCrashes() {
 export async function dismissCrashes(game: string) {
   if (!app.config) return;
   let newest = app.config.crashesSeen[game] ?? 0;
+
   try {
-    for (const e of await api.reportsList(game)) if (e.kind === "crash") newest = Math.max(newest, e.time);
+    for (const e of await api.reportsList(game))
+      if (e.kind === "crash") newest = Math.max(newest, e.time);
   } catch {
     // no install folder: nothing to mark
   }
+
   const saved = await guard(
     api.saveConfig({ ...app.config, crashesSeen: { ...app.config.crashesSeen, [game]: newest } }),
   );
+
   if (saved) app.config = saved;
   await countCrashes();
 }
@@ -497,6 +569,7 @@ export async function dismissCrashes(game: string) {
 /** Puts the notice away; its crash counts as seen. */
 export function dismissStopped() {
   const game = app.stopped?.game;
+
   app.stopped = null;
   if (game) void dismissCrashes(game);
 }
@@ -509,8 +582,16 @@ export async function lookForUpdate(config: Config | null = app.config): Promise
   const channel = updateChannelOf(app.info, config);
   const source = updateSourceOf(app.info, config);
   const switching = switchingChannel(app.info.updates, source);
-  const up = await checkForUpdate(app.info.version, source, channel, updateBranchOf(config), switching);
+  const up = await checkForUpdate(
+    app.info.version,
+    source,
+    channel,
+    updateBranchOf(config),
+    switching,
+  );
+
   app.update = up;
+
   return !!up;
 }
 
@@ -522,24 +603,30 @@ const seen = { library: "", discs: "" };
 
 function same(key: keyof typeof seen, value: unknown): boolean {
   const json = JSON.stringify(value);
+
   if (json === seen[key]) return true;
   seen[key] = json;
+
   return false;
 }
 
 function setLibrary(library: Library | null) {
-  if (!same("library", library)) app.library = library;
+  if (!same("library", library)) app.library = library && withShownTitles(library);
 }
 
 export async function refresh() {
   if (!app.config?.root) {
     setLibrary(null);
     app.libraryError = "Choose your OpenRAC folder in Settings.";
+
     return;
   }
+
   const library = ++librarySeq;
+
   try {
     const read = await api.library();
+
     if (library === librarySeq) {
       setLibrary(read);
       app.libraryError = null;
@@ -547,15 +634,18 @@ export async function refresh() {
   } catch (e) {
     if (library === librarySeq) app.libraryError = errorText(e);
   }
+
   void countCrashes();
   const discs = ++discsSeq;
   let scan: { found: FoundDisc[]; choices: DiscChoice[] } = { found: [], choices: [] };
+
   try {
     // A developer's disc switch also draws on the discs set up without a games folder.
     if (app.config.discsDir || app.config.developer) scan = await api.scanDiscs();
   } catch {
     // A folder that went away: the game pages ask for an image as before.
   }
+
   if (discs === discsSeq && !same("discs", scan)) {
     app.discs = scan.found;
     app.discChoices = scan.choices;
@@ -568,8 +658,10 @@ export async function refresh() {
 async function syncProgressWeb() {
   if (!app.config?.root) return;
   const library = ++librarySeq;
+
   try {
     const read = await api.syncProgressFromWeb();
+
     if (library === librarySeq) setLibrary(read);
   } catch {
     // Offline: keep what was read at start (the kept copy)
@@ -579,6 +671,7 @@ async function syncProgressWeb() {
 /** What is downloaded of OpenRAC Editor, the level editor (core editor_install.rs). */
 export async function readEditor() {
   if (onAndroid) return;
+
   try {
     app.editor = await api.editorInstall();
   } catch {
@@ -591,12 +684,15 @@ export async function readEditor() {
 export async function installEditor(): Promise<boolean> {
   if (app.editorDownloading) return false;
   app.editorDownloading = true;
+
   try {
     const got = await guard(api.installEditor());
+
     if (!got) return false;
     app.editor = got;
     toast(`OpenRAC Editor ${got.version ?? ""} is ready.`);
     await refresh();
+
     return true;
   } finally {
     app.editorDownloading = false;
@@ -606,6 +702,7 @@ export async function installEditor(): Promise<boolean> {
 /** Removes the downloaded OpenRAC Editor; the level projects stay. */
 export async function removeEditor() {
   const left = await guard(api.removeEditor());
+
   if (left) app.editor = left;
   await refresh();
 }
@@ -614,9 +711,11 @@ export async function removeEditor() {
  *  and says so, instead of going back to the settings that were saved. */
 export async function saveConfig(config: Config): Promise<boolean> {
   const saved = await guard(api.saveConfig(config));
+
   if (!saved) return false;
   app.config = saved;
   await refresh();
+
   return true;
 }
 
@@ -645,14 +744,18 @@ export function pickVersion(key: string) {
 /** Writes the version picked (app.version) to the settings as lastVersion, after `delay` ms. */
 function keepLastVersion(delay: number) {
   clearTimeout(keepTimer);
+
   const write = () => {
     keeping = keeping.then(async () => {
       const key = app.version;
+
       if (!key || !app.config || app.config.lastVersion === key) return;
       const saved = await guard(api.saveConfig({ ...app.config, lastVersion: key }));
+
       if (saved) app.config = saved;
     });
   };
+
   if (delay === 0) write();
   else keepTimer = setTimeout(write, delay);
 }
@@ -666,6 +769,7 @@ export function openDevelop(target?: string) {
 
 export function currentVersion(): VersionView | null {
   const versions = app.library?.games.flatMap((g) => g.versions) ?? [];
+
   return versions.find((v) => v.key === app.version) ?? null;
 }
 
@@ -673,24 +777,31 @@ export function currentVersion(): VersionView | null {
 function taskOf(actionId: string): string | null {
   if (actionId.startsWith("install:")) return "Setting up from the disc";
   if (actionId === "port-build" || actionId === "build") return "Building the game";
-  if (actionId === "editor-extract" || actionId === "editor-import") return "Preparing the level editor";
+  if (actionId === "editor-extract" || actionId === "editor-import")
+    return "Preparing the level editor";
+
   return null;
 }
 
 /** Whether a game runs now: mods load at its start, so changing them waits for it to close. */
 export function gameRunning(): boolean {
   if (onAndroid) return !!app.game?.running;
+
   return jobs.list.some((j) => PLAY_ACTIONS.includes(j.actionId) && j.state === "running");
 }
 
 export function updateDiscordPresence(page: Page = app.page, version: string | null = app.version) {
   // While the game (the native port) runs, the status stays PlayingGame. The game with
   // the player's mods is the same program, so it counts too.
-  const playingJob = jobs.list.find((j) => PLAY_ACTIONS.includes(j.actionId) && j.state === "running");
+  const playingJob = jobs.list.find(
+    (j) => PLAY_ACTIONS.includes(j.actionId) && j.state === "running",
+  );
+
   if (playingJob?.scope.kind === "version") {
     const scope = playingJob.scope;
     const versions = app.library?.games.flatMap((g) => g.versions) ?? [];
     const v = versions.find((ver) => ver.key === scope.key);
+
     if (v) {
       void api.setDiscordStatus({
         kind: "playingGame",
@@ -699,18 +810,25 @@ export function updateDiscordPresence(page: Page = app.page, version: string | n
         gameId: v.game,
         startTime: playingJob.startedAt ? Math.floor(playingJob.startedAt / 1000) : null,
       });
+
       return;
     }
   }
 
   // A long job for a game: what it does, while it runs.
   const working = jobs.list.find((j) => j.state === "running" && taskOf(j.actionId) !== null);
+
   if (working) {
     const games = app.library?.games ?? [];
     const game =
       working.scope.kind === "version"
-        ? games.find((g) => g.versions.some((ver) => working.scope.kind === "version" && ver.key === working.scope.key))
+        ? games.find((g) =>
+            g.versions.some(
+              (ver) => working.scope.kind === "version" && ver.key === working.scope.key,
+            ),
+          )
         : games.find((g) => working.actionId === `install:${g.id}`);
+
     if (game) {
       void api.setDiscordStatus({
         kind: "working",
@@ -719,12 +837,14 @@ export function updateDiscordPresence(page: Page = app.page, version: string | n
         gameId: game.id,
         startTime: working.startedAt ? Math.floor(working.startedAt / 1000) : null,
       });
+
       return;
     }
   }
 
   if (page === "game" && version) {
     const v = currentVersion();
+
     if (v) {
       void api.setDiscordStatus({
         kind: "viewingGame",
@@ -733,9 +853,11 @@ export function updateDiscordPresence(page: Page = app.page, version: string | n
         progressPct: v.progress?.percent ?? null,
         gameId: v.game,
       });
+
       return;
     }
   }
+
   void api.setDiscordStatus({ kind: "idle" });
 }
 
@@ -757,6 +879,7 @@ const asking = new Set<string>();
 /** A request's key in `asking`: an action of a group is known by its group, whatever its inputs. */
 function requestKey(scope: Scope, id: string, inputs = ""): string {
   const group = ACTION_GROUPS.find((g) => g.includes(id));
+
   return `${scope.kind === "version" ? scope.key : "repository"}\n${group?.[0] ?? id}\n${group ? "" : inputs}`;
 }
 
@@ -766,9 +889,11 @@ function requestKey(scope: Scope, id: string, inputs = ""): string {
 function alreadyAsked(scope: Scope, id: string, inputs = ""): boolean {
   if (asking.has(requestKey(scope, id, inputs))) return true;
   const job = queue.live(scope, id, inputs, ACTION_GROUPS);
+
   if (!job) return false;
   jobs.selected = job.key;
   toast(job.state === "running" ? `Already running: ${job.title}` : `Already queued: ${job.title}`);
+
   return true;
 }
 
@@ -776,6 +901,7 @@ function alreadyAsked(scope: Scope, id: string, inputs = ""): boolean {
  *  starts nothing (see alreadyAsked). */
 async function asked<T>(key: string, fn: () => Promise<T>): Promise<T> {
   asking.add(key);
+
   try {
     return await fn();
   } finally {
@@ -788,21 +914,31 @@ async function asked<T>(key: string, fn: () => Promise<T>): Promise<T> {
 // eslint-disable-next-line svelte/prefer-svelte-reactivity
 const accepted = new Set<string>();
 
-const warningKey = (scope: Scope, id: string) => `${scope.kind === "version" ? scope.key : "repository"}\n${id}`;
+const warningKey = (scope: Scope, id: string) =>
+  `${scope.kind === "version" ? scope.key : "repository"}\n${id}`;
 
 /** An action with a `warning` (actions.json: a game far from finished) starts only once the
  *  player has read it and said go ahead, in the system's dialog. True when it may start. With
  *  KEEP the answer is kept for the start that follows (a build first, then the game): that start
  *  then asks nothing; forgetWarning drops it when it never came. */
-export async function acceptWarning(scope: Scope, action: ActionView, keep = false): Promise<boolean> {
+export async function acceptWarning(
+  scope: Scope,
+  action: ActionView,
+  keep = false,
+): Promise<boolean> {
   if (!action.warning) return true;
   const key = warningKey(scope, action.id);
+
   if (accepted.has(key)) {
     if (!keep) accepted.delete(key);
+
     return true;
   }
-  if (!(await ask(action.warning, action.kind === "play" ? "Play anyway" : "Run anyway"))) return false;
+
+  if (!(await ask(action.warning, action.kind === "play" ? "Play anyway" : "Run anyway")))
+    return false;
   if (keep) accepted.add(key);
+
   return true;
 }
 
@@ -816,17 +952,23 @@ export function forgetWarning(scope: Scope, id: string) {
 export async function run(scope: Scope, action: ActionView, given?: number | RunInputs) {
   const inputs = typeof given === "number" ? { level: given } : given;
   const key = inputs === undefined ? "" : JSON.stringify(inputs);
+
   if (alreadyAsked(scope, action.id, key)) return;
   if (!(await asked(requestKey(scope, action.id, key), () => acceptWarning(scope, action)))) return;
+
   if (action.detached) {
     const started = await asked(requestKey(scope, action.id, key), () =>
       guard(api.runAction(scope, action.id, inputs)),
     );
+
     if (started) toast(`Started: ${started.title}`);
     updateDiscordPresence();
+
     return;
   }
+
   const job = queue.add(scope, action.id, action.label, Date.now(), key);
+
   if (inputs !== undefined) starters[job.key] = () => api.runAction(scope, action.id, inputs);
   jobs.selected = job.key;
   toast(queue.running() ? `Queued: ${action.label}` : `Started: ${action.label}`);
@@ -847,16 +989,23 @@ function settle(key: number, succeeded: boolean) {
  * action (the editor) is started and not waited for. Resolves to whether
  * every step ran.
  */
-export async function runChain(scope: Scope, actions: ActionView[], given?: number | RunInputs): Promise<boolean> {
+export async function runChain(
+  scope: Scope,
+  actions: ActionView[],
+  given?: number | RunInputs,
+): Promise<boolean> {
   const inputs = typeof given === "number" ? { level: given } : given;
   const key = inputs === undefined ? "" : JSON.stringify(inputs);
   // The chain is one request, known by its last step (what the button is for: the game, the
   // editor): a second click while any step is queued, running or between steps does nothing.
   const last = actions.at(-1);
+
   if (!last) return true;
   if (actions.some((a) => alreadyAsked(scope, a.id, key))) return false;
+
   return asked(requestKey(scope, last.id, key), async () => {
     for (const action of actions) if (!(await acceptWarning(scope, action))) return false;
+
     return chainSteps(scope, actions, inputs, key);
   });
 }
@@ -870,18 +1019,23 @@ async function chainSteps(
   for (const action of actions) {
     if (action.detached) {
       const started = await guard(api.runAction(scope, action.id, inputs));
+
       if (!started) return false;
       continue;
     }
+
     const job = queue.add(scope, action.id, action.label, Date.now(), key);
+
     if (inputs !== undefined) starters[job.key] = () => api.runAction(scope, action.id, inputs);
     jobs.selected = job.key;
     const ended = new Promise<boolean>((resolve) => {
       waiting[job.key] = resolve;
     });
+
     pump();
     if (!(await ended)) return false;
   }
+
   return true;
 }
 
@@ -892,8 +1046,10 @@ async function chainSteps(
  */
 export async function installGame(game: string, title: string, found?: string): Promise<boolean> {
   const scope: Scope = { kind: "repository" };
+
   // A second click while the disc is being picked, copied or set up does nothing.
   if (alreadyAsked(scope, `install:${game}`)) return false;
+
   return asked(requestKey(scope, `install:${game}`), () => installFromDisc(game, title, found));
 }
 
@@ -904,54 +1060,75 @@ async function installFromDisc(game: string, title: string, found?: string): Pro
     (await copyingDisc((progress) =>
       guard(pickIso(`Select your legitimately obtained disc image of ${title}`, progress)),
     ));
+
   if (!picked) return false;
   // A .chd is unpacked into a plain image first (on Android the picker already did).
   let image = picked;
+
   if (/\.chd$/i.test(picked)) {
     const plain = await copyingDisc(async (progress) => {
       const off = await onDiscCopy(progress);
+
       try {
         return await guard(api.prepareDisc(picked));
       } finally {
         off();
       }
     });
+
     if (!plain) return false;
     image = plain;
   }
-  const job = queue.add({ kind: "repository" }, `install:${game}`, `Set up ${title} from your disc`);
+
+  const job = queue.add(
+    { kind: "repository" },
+    `install:${game}`,
+    `Set up ${title} from your disc`,
+  );
+
   starters[job.key] = () => api.installGame(game, image);
   jobs.selected = job.key;
   const ended = new Promise<boolean>((resolve) => {
     waiting[job.key] = resolve;
   });
+
   pump();
   const ok = await ended;
-  const why = ok ? undefined : extractorError(jobs.list.find((j) => j.key === job.key)?.lines ?? []);
+  const why = ok
+    ? undefined
+    : extractorError(jobs.list.find((j) => j.key === job.key)?.lines ?? []);
+
   toast(
     ok
       ? `${title} is set up from your disc.`
       : `Setting ${title} up stopped: ${why ?? "Activity has what it printed."}`,
     ok ? "info" : "error",
   );
+
   return ok;
 }
 
 /** The extractor's reason for refusing a disc: its last "error NNNN: ..." line (tools/extractor.py). */
 export function extractorError(lines: { line: string }[]): string | undefined {
   const line = lines.findLast((l) => /^error \d{4}: /.test(l.line))?.line;
+
   return line?.replace(/^error \d{4}: /, "").replace(/^./, (c) => c.toUpperCase());
 }
 
 /** Runs a disc image's copy into the Android app's storage, or a .chd's unpacking, with its
  *  progress in a toast at each quarter and in `app.discCopy` (Android's notification). */
-export async function copyingDisc<T>(run: (progress: (progress: DiscCopy) => void) => Promise<T>): Promise<T> {
+export async function copyingDisc<T>(
+  run: (progress: (progress: DiscCopy) => void) => Promise<T>,
+): Promise<T> {
   let shown = -1;
+
   try {
     return await run((progress) => {
       const { name, copied, total } = progress;
+
       app.discCopy = progress;
       const quarter = total > 0 ? Math.floor((copied / total) * 4) : 0;
+
       if (quarter === shown) return;
       shown = quarter;
       toast(quarter >= 4 ? `${name} is ready.` : `Preparing ${name}: ${quarter * 25}%`);
@@ -965,6 +1142,7 @@ export async function copyingDisc<T>(run: (progress: (progress: DiscCopy) => voi
 /** Developers only: plays VERSION's disc of its game from now on (the switch on the game's page). */
 export async function chooseDisc(version: string) {
   const saved = await guard(api.chooseDisc(version));
+
   if (saved) {
     app.config = saved;
     await refresh();
@@ -986,6 +1164,7 @@ async function firstRun(config: Config): Promise<Config> {
   const found = await guard(api.detect());
   const root = config.root ?? found?.roots[0]?.path ?? null;
   const python = config.python ?? found?.pythons[0]?.path ?? null;
+
   if (!root || !python) return config;
   const saved = await guard(
     api.saveConfig({
@@ -996,31 +1175,38 @@ async function firstRun(config: Config): Promise<Config> {
       setupComplete: true,
     }),
   );
+
   return saved ?? config;
 }
 
 /** Starts the next queued job, if nothing is running. */
 function pump() {
   const job = queue.next();
+
   if (!job) return;
   job.state = "running";
   const start = starters[job.key] ?? (() => api.runAction(job.scope, job.actionId));
+
   starters[job.key] = undefined;
   start().then(
     (started) => {
       job.title = started.title;
+
       if (started.detached) {
         queue.launched(job, started.command);
         settle(job.key, true);
         if (PLAY_ACTIONS.includes(job.actionId)) void readGameSoon();
         updateDiscordPresence();
         pump();
+
         return;
       }
+
       queue.started(job, started.id, started.command);
       // The job may have ended before the start call returned: its exit event was kept
       // until the id was known, and the end is acted on now.
       const ended = queue.takeEnded();
+
       if (ended) handleExit(ended);
       else updateDiscordPresence();
     },
@@ -1038,8 +1224,10 @@ export async function cancel(job: Job) {
   if (job.state === "queued") {
     queue.dequeue(job);
     settle(job.key, false);
+
     return;
   }
+
   if (job.state === "running" && job.id !== null) await guard(api.cancelJob(job.id));
 }
 

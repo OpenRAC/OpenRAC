@@ -26,6 +26,7 @@ The files are OpenRAC's own, read only by the port or by OpenRAC:
 | [0004-named-addresses.patch](0004-named-addresses.patch) | Name globals and functions instead of literal addresses. |
 | [0005-big-modded-levels.patch](0005-big-modded-levels.patch) | Let a modded level use more than 32 MiB. |
 | [0006-rac1-decomp-licence.patch](0006-rac1-decomp-licence.patch) | Name rac1-decomp's licence as GPL-3.0. |
+| [0007-malloc-extend-top-without-a-cast-as-lvalue.patch](0007-malloc-extend-top-without-a-cast-as-lvalue.patch) | Store sbrk_base through its word, not through a cast. |
 
 Files under [files/](files) (copied as they are):
 

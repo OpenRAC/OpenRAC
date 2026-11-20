@@ -28,12 +28,14 @@ uint32_t openrac_sound_load_bank(const void* bytes, size_t size);
 uint32_t openrac_sound_load_bank_from_disc(uint32_t sector, uint32_t offset);
 void openrac_sound_unload_bank(uint32_t bank);
 
-uint32_t openrac_sound_play(uint32_t bank, int32_t sound, int32_t volume, int32_t pan,
-                            int32_t pitch_mod, int32_t pitch_bend);
+uint32_t openrac_sound_play(
+    uint32_t bank, int32_t sound, int32_t volume, int32_t pan, int32_t pitch_mod, int32_t pitch_bend
+);
 /* snd_SetSoundParams: bit 0 volume, bits 1-2 pan, bit 3 pitch modifier, bit 4 pitch bend.
  * Returns the handle while the sound plays, else 0. */
-uint32_t openrac_sound_set_params(uint32_t sound, int32_t mask, int32_t volume, int32_t pan,
-                                  int32_t pitch_mod, int32_t pitch_bend);
+uint32_t openrac_sound_set_params(
+    uint32_t sound, int32_t mask, int32_t volume, int32_t pan, int32_t pitch_mod, int32_t pitch_bend
+);
 int openrac_sound_playing(uint32_t sound);
 void openrac_sound_stop(uint32_t sound);
 void openrac_sound_stop_all(void);
@@ -53,8 +55,9 @@ uint32_t openrac_sound_command(uint32_t command, const void* data, uint32_t size
  * `queue_on`: a live stream's handle to play this one after (the same stream: either handle
  * names it). Flags: 1 start paused, 4 loop. `group`: the master volume group (1 music). */
 #define OPENRAC_STREAM_TAG 0x40000000u
-uint32_t openrac_stream_play(uint32_t sector, int32_t volume, int32_t group, uint32_t queue_on,
-                             uint32_t flags);
+uint32_t openrac_stream_play(
+    uint32_t sector, int32_t volume, int32_t group, uint32_t queue_on, uint32_t flags
+);
 /* The same in stereo from two mono VAG files of one length, the right channel's and the left's;
  * a left sector of 0 is openrac_stream_play. */
 uint32_t openrac_stream_play_stereo(
@@ -72,6 +75,8 @@ int openrac_stream_buffered(uint32_t stream);
 int32_t openrac_stream_remaining_ms(uint32_t stream);
 void openrac_stream_stop(uint32_t stream); /* 0: every stream */
 void openrac_stream_pause(uint32_t stream, int paused);
+/* Hold background music at its current sample through a reward presentation. */
+void openrac_music_hold(int held);
 void openrac_stream_set_volume(uint32_t stream, int32_t volume);
 
 /* Interleaved stereo, 48 kHz: the sounds and the streams. */

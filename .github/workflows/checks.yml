@@ -91,10 +91,11 @@ jobs:
           python-version: "3.12"
 
       # Each decomp's pin matches its game.json, and a pull request that moves one also changes
-      # the port's tables made from it (tools/sources.py check).
+      # the port's tables made from it and has its build facts published (tools/sources.py check).
       - name: Decomp pins
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ -n "$BASE" ]; then
             git fetch -q --depth=1 origin "$BASE"
@@ -121,6 +122,15 @@ jobs:
 
       - name: PAL and NTSC rendering host-hook parity
         run: python -m unittest discover -s port/tools/hostgen -p test_host_hook_parity.py -v
+
+      # Every game version's tables, with no disc (port/tools/versionmap/check_versions.py): each
+      # version binds each function alike or its game's parity.tsv says why, carried releases'
+      # tables are what their tool writes, and each version's names table covers the shared host C.
+      # A new game or version is found by its files, so this step does not change.
+      - name: Game versions' tables
+        run: |
+          python -m unittest discover -s port/tools/versionmap -p test_parity.py -v
+          python port/tools/versionmap/check_versions.py
 
       # The extractor (what OpenRAC Editor's tools import: extractor_api.json), synthetic data only.
       - name: Extractor (synthetic data only)
@@ -349,7 +359,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -470,7 +480,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -638,7 +648,7 @@ jobs:
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
     runs-on: ubuntu-26.04
     container: registry.fedoraproject.org/fedora:44
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       # Every compile through ccache, kept between runs as the other port jobs keep theirs.
       CMAKE_C_COMPILER_LAUNCHER: ccache
@@ -703,7 +713,7 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       CMAKE_C_COMPILER_LAUNCHER: ccache
       CMAKE_CXX_COMPILER_LAUNCHER: ccache

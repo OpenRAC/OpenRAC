@@ -188,6 +188,7 @@ struct Settings {
             gtao_settings.quality = static_cast<renderer::GtaoQuality>(choice - 1);
         }
     }
+
     renderer::TemporalQuality temporal_quality =  // Enhanced Vulkan only.
         kHandheldDefaults ? renderer::TemporalQuality::Balanced
                           : renderer::TemporalQuality::Quality;
@@ -223,25 +224,20 @@ struct Settings {
     // Original: the game's own distances, with its fades and billboards.
     bool original_draw_distance() const { return draw_distance == 100; }
 
-    // Active distance: how far the game updates its mobys (animation, AI) when its moby loop goes
-    // by what MobyProc drew (the +0x31 flag). Match (the default) takes Draw distance's reach, so
-    // whatever is drawn far away is live; Original keeps the game's own distances, so a moby past
-    // them is drawn standing in its pose, as before. The AI's own ranges (sight, aggro, attack)
-    // are the game's at either setting.
+    // Active distance: what the far mobys the game leaves asleep do in the picture. The game runs
+    // a moby only near the camera, as on the console, at any setting (its drawn flag +0x31 is game
+    // logic). Match (the default) animates the sleeping ones the window draws farther away, in the
+    // picture only (frontend/sleeping_mobys.h); Original draws them standing in their spawn pose.
     bool original_active_distance = false;
-
-    // The active distance's factor: Draw distance's at Match, 1 at Original.
-    float active_distance_scale() const {
-        return original_active_distance ? 1.0f : draw_distance_scale();
-    }
 
     int anisotropy_samples(bool enhanced) const {
         return anisotropy ? anisotropy : enhanced ? 4 : 1;
     }
 
     // HDR output (common/hdr.h, docs/port/HDR.md), off by default: the picture goes to the screen
-    // as it always did. On (with the Vulkan renderer), the same picture is shown on an HDR
-    // screen with the game's white at paper white. From off, it takes effect at the next start.
+    // as it always did. On (with the Vulkan renderer, or Metal on macOS), the same picture is shown
+    // on an HDR screen with the game's white at paper white. From off, it takes effect at the next
+    // start (at once on Metal).
     hdr::Mode hdr = hdr::Mode::Off;
     int hdr_paper_white = 0;  // nits of the game's white; 0: the system's SDR white, else 203
     int hdr_peak = 0;         // nits the screen is told it may show; 0: the display's, else 1000

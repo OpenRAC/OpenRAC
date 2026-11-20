@@ -122,9 +122,10 @@ std::vector<std::uint8_t> stage_pixels(
     const std::size_t row = static_cast<std::size_t>(width) * static_cast<std::size_t>(to.bytes);
     std::vector<std::uint8_t> out(row * static_cast<std::size_t>(height));
     const auto* src = static_cast<const std::uint8_t*>(pixels);
-    const bool packs = float_rgba
-                       && (to.pixel == MTLPixelFormatRG11B10Float || to.pixel == MTLPixelFormatRG32Float
-                           || to.pixel == MTLPixelFormatRGBA16Float);
+    const bool packs =
+        float_rgba
+        && (to.pixel == MTLPixelFormatRG11B10Float || to.pixel == MTLPixelFormatRG32Float
+            || to.pixel == MTLPixelFormatRGBA16Float);
     for (int y = 0; y < height; ++y) {
         const std::uint8_t* in = src + pitch * static_cast<std::size_t>(y);
         std::uint8_t* o = out.data() + row * static_cast<std::size_t>(y);
@@ -133,17 +134,19 @@ std::vector<std::uint8_t> stage_pixels(
                 float rgba[4];
                 std::memcpy(rgba, in + x * 16, sizeof rgba);
                 if (to.pixel == MTLPixelFormatRG11B10Float) {
-                    const std::uint32_t packed = float_encoding::pack_small_float(rgba[0], 6, false)
-                                                 | (float_encoding::pack_small_float(rgba[1], 6, false) << 11)
-                                                 | (float_encoding::pack_small_float(rgba[2], 5, false) << 22);
+                    const std::uint32_t packed =
+                        float_encoding::pack_small_float(rgba[0], 6, false)
+                        | (float_encoding::pack_small_float(rgba[1], 6, false) << 11)
+                        | (float_encoding::pack_small_float(rgba[2], 5, false) << 22);
                     std::memcpy(o + x * 4, &packed, sizeof packed);
                 } else if (to.pixel == MTLPixelFormatRG32Float) {
                     std::memcpy(o + x * 8, rgba, sizeof(float) * 2);
                 } else {
                     std::uint16_t packed[4];
                     for (unsigned c = 0; c < 4; ++c) {
-                        packed[c] =
-                            static_cast<std::uint16_t>(float_encoding::pack_small_float(rgba[c], 10, true));
+                        packed[c] = static_cast<std::uint16_t>(
+                            float_encoding::pack_small_float(rgba[c], 10, true)
+                        );
                     }
                     std::memcpy(o + x * 8, packed, sizeof packed);
                 }
@@ -163,22 +166,34 @@ std::vector<std::uint8_t> stage_pixels(
 }
 
 // Copies `size` bytes of rows `row_bytes` long into `t`'s `level` at (x, y).
-void upload(Texture& t, int level, int x, int y, int width, int height, const void* bytes,
-            std::size_t size, std::size_t row_bytes) {
+void upload(
+    Texture& t,
+    int level,
+    int x,
+    int y,
+    int width,
+    int height,
+    const void* bytes,
+    std::size_t size,
+    std::size_t row_bytes
+) {
     id<MTLBuffer> staging = [g->device newBufferWithBytes:bytes
                                                    length:size
                                                   options:MTLResourceStorageModeShared];
-    [blit_for(t) copyFromBuffer:staging
-                   sourceOffset:0
-              sourceBytesPerRow:row_bytes
-            sourceBytesPerImage:size
-                     sourceSize:MTLSizeMake(static_cast<NSUInteger>(width),
-                                            static_cast<NSUInteger>(height), 1)
-                      toTexture:t.texture
-               destinationSlice:0
-               destinationLevel:static_cast<NSUInteger>(level)
-              destinationOrigin:MTLOriginMake(static_cast<NSUInteger>(x),
-                                              static_cast<NSUInteger>(y), 0)];
+    [blit_for(t)
+             copyFromBuffer:staging
+               sourceOffset:0
+          sourceBytesPerRow:row_bytes
+        sourceBytesPerImage:size
+                 sourceSize:MTLSizeMake(
+                                static_cast<NSUInteger>(width), static_cast<NSUInteger>(height), 1
+                            )
+                  toTexture:t.texture
+           destinationSlice:0
+           destinationLevel:static_cast<NSUInteger>(level)
+          destinationOrigin:MTLOriginMake(
+                                static_cast<NSUInteger>(x), static_cast<NSUInteger>(y), 0
+                            )];
 }
 
 // `t`'s texture with every mip level, level 0 kept.
@@ -187,8 +202,13 @@ void with_chain(Texture& t) {
         return;
     }
     const Format f{t.texture.pixelFormat};
-    id<MTLTexture> chained = make_texture(f, static_cast<int>(t.texture.width),
-                                          static_cast<int>(t.texture.height), full_chain(t.texture), 1);
+    id<MTLTexture> chained = make_texture(
+        f,
+        static_cast<int>(t.texture.width),
+        static_cast<int>(t.texture.height),
+        full_chain(t.texture),
+        1
+    );
     [blit_for(t) copyFromTexture:t.texture
                      sourceSlice:0
                      sourceLevel:0
@@ -220,7 +240,8 @@ std::size_t compressed_bytes(GLenum format, int width, int height) {
 }
 
 bool is_compressed(GLenum internal) {
-    return internal == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT || internal == GL_COMPRESSED_RGBA_ASTC_8x8_KHR
+    return internal == GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
+           || internal == GL_COMPRESSED_RGBA_ASTC_8x8_KHR
            || internal == GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
 }
 
@@ -277,7 +298,8 @@ GLuint* buffer_binding(GLenum target) {
 
 Framebuffer* bound_framebuffer(GLenum target) {
     return g->framebuffers.find(
-        target == GL_READ_FRAMEBUFFER ? g->state.read_framebuffer : g->state.draw_framebuffer);
+        target == GL_READ_FRAMEBUFFER ? g->state.read_framebuffer : g->state.draw_framebuffer
+    );
 }
 
 // A half float's value (IEEE 754 binary16).
@@ -298,7 +320,8 @@ float half_to_float(std::uint16_t h) {
 
 #define MTLGL OPENRAC_GLAPI
 
-void MTLGL read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, void* pixels) {
+void MTLGL
+read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, void* pixels) {
     id<MTLTexture> image = target_of(g->state.read_framebuffer).colour;
     // A float frame (an HDR one) is read as bytes, clamped as an 8-bit one's would be, or as
     // floats (GL_FLOAT).
@@ -324,8 +347,12 @@ void MTLGL read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GL
     [blit() copyFromTexture:image
                      sourceSlice:0
                      sourceLevel:0
-                    sourceOrigin:MTLOriginMake(static_cast<NSUInteger>(x0), static_cast<NSUInteger>(y0), 0)
-                      sourceSize:MTLSizeMake(static_cast<NSUInteger>(cw), static_cast<NSUInteger>(ch), 1)
+                    sourceOrigin:MTLOriginMake(
+                                     static_cast<NSUInteger>(x0), static_cast<NSUInteger>(y0), 0
+                                 )
+                      sourceSize:MTLSizeMake(
+                                     static_cast<NSUInteger>(cw), static_cast<NSUInteger>(ch), 1
+                                 )
                         toBuffer:read
                destinationOffset:0
           destinationBytesPerRow:row
@@ -350,33 +377,55 @@ void MTLGL read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GL
             if (type == GL_FLOAT) {
                 std::memcpy(to + n * 4, &value, 4);
             } else {
-                to[n] = static_cast<std::uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
+                to[n] =
+                    static_cast<std::uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
             }
         }
     }
 }
 
 namespace {
-void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLint sx1, GLint sy1,
-               GLint dx0, GLint dy0, GLint dx1, GLint dy1, GLenum filter, NSUInteger level = 0);
+void draw_blit(
+    id<MTLTexture> src,
+    id<MTLTexture> dst,
+    GLint sx0,
+    GLint sy0,
+    GLint sx1,
+    GLint sy1,
+    GLint dx0,
+    GLint dy0,
+    GLint dx1,
+    GLint dy1,
+    GLenum filter,
+    NSUInteger level = 0
+);
 }  // namespace
 
-void MTLGL copy_tex_sub_image(GLenum target, GLint level, GLint xoff, GLint yoff, GLint x, GLint y,
-                              GLsizei w, GLsizei h) {
+void MTLGL copy_tex_sub_image(
+    GLenum target, GLint level, GLint xoff, GLint yoff, GLint x, GLint y, GLsizei w, GLsizei h
+) {
     Texture* t = bound_texture(target);
     id<MTLTexture> from = target_of(g->state.read_framebuffer).colour;
-    if (t == nullptr || t->texture == nil || from == nil || w <= 0 || h <= 0 || from.sampleCount != 1) {
+    if (t == nullptr || t->texture == nil || from == nil || w <= 0 || h <= 0
+        || from.sampleCount != 1) {
         return;
     }
     id<MTLTexture> to = t->texture;
     // Clipped to both images, as GL leaves what lies outside the source undefined.
     const int sx = std::max(x, 0), sy = std::max(y, 0);
     const int dx = xoff + (sx - x), dy = yoff + (sy - y);
-    const int cw = std::min({w - (sx - x), static_cast<int>(from.width) - sx,
-                             std::max(static_cast<int>(to.width) >> level, 1) - dx});
-    const int ch = std::min({h - (sy - y), static_cast<int>(from.height) - sy,
-                             std::max(static_cast<int>(to.height) >> level, 1) - dy});
-    if (cw <= 0 || ch <= 0 || dx < 0 || dy < 0 || level < 0 || level >= static_cast<int>(to.mipmapLevelCount)) {
+    const int cw = std::min(
+        {w - (sx - x),
+         static_cast<int>(from.width) - sx,
+         std::max(static_cast<int>(to.width) >> level, 1) - dx}
+    );
+    const int ch = std::min(
+        {h - (sy - y),
+         static_cast<int>(from.height) - sy,
+         std::max(static_cast<int>(to.height) >> level, 1) - dy}
+    );
+    if (cw <= 0 || ch <= 0 || dx < 0 || dy < 0 || level < 0
+        || level >= static_cast<int>(to.mipmapLevelCount)) {
         return;
     }
     t->used = g->serial;
@@ -386,19 +435,34 @@ void MTLGL copy_tex_sub_image(GLenum target, GLint level, GLint xoff, GLint yoff
             fail(kGlInvalidOperation);
             return;
         }
-        draw_blit(from, to, sx, sy, sx + cw, sy + ch, dx, dy, dx + cw, dy + ch, GL_NEAREST,
-                  static_cast<NSUInteger>(level));
+        draw_blit(
+            from,
+            to,
+            sx,
+            sy,
+            sx + cw,
+            sy + ch,
+            dx,
+            dy,
+            dx + cw,
+            dy + ch,
+            GL_NEAREST,
+            static_cast<NSUInteger>(level)
+        );
         return;
     }
-    [blit() copyFromTexture:from
-                sourceSlice:0
-                sourceLevel:0
-               sourceOrigin:MTLOriginMake(static_cast<NSUInteger>(sx), static_cast<NSUInteger>(sy), 0)
-                 sourceSize:MTLSizeMake(static_cast<NSUInteger>(cw), static_cast<NSUInteger>(ch), 1)
-                  toTexture:to
-           destinationSlice:0
-           destinationLevel:static_cast<NSUInteger>(level)
-          destinationOrigin:MTLOriginMake(static_cast<NSUInteger>(dx), static_cast<NSUInteger>(dy), 0)];
+    [blit()
+          copyFromTexture:from
+              sourceSlice:0
+              sourceLevel:0
+             sourceOrigin:MTLOriginMake(static_cast<NSUInteger>(sx), static_cast<NSUInteger>(sy), 0)
+               sourceSize:MTLSizeMake(static_cast<NSUInteger>(cw), static_cast<NSUInteger>(ch), 1)
+                toTexture:to
+         destinationSlice:0
+         destinationLevel:static_cast<NSUInteger>(level)
+        destinationOrigin:MTLOriginMake(
+                              static_cast<NSUInteger>(dx), static_cast<NSUInteger>(dy), 0
+                          )];
 }
 
 // ---- Textures ----
@@ -444,8 +508,17 @@ void MTLGL active_texture(GLenum unit) {
     g->state.active_unit = std::min<GLuint>(unit - GL_TEXTURE0, kUnits - 1);
 }
 
-void MTLGL tex_image_2d(GLenum target, GLint level, GLint internal, GLsizei w, GLsizei h, GLint,
-                        GLenum format, GLenum type, const void* pixels) {
+void MTLGL tex_image_2d(
+    GLenum target,
+    GLint level,
+    GLint internal,
+    GLsizei w,
+    GLsizei h,
+    GLint,
+    GLenum format,
+    GLenum type,
+    const void* pixels
+) {
     Texture* t = bound_texture(target);
     if (t == nullptr || level < 0) {
         return;
@@ -483,12 +556,29 @@ void MTLGL tex_image_2d(GLenum target, GLint level, GLint internal, GLsizei w, G
         return;
     }
     const auto staged = stage_pixels(f, w, h, format, type, pixels);
-    upload(*t, level, 0, 0, w, h, staged.data(), staged.size(),
-           static_cast<std::size_t>(w) * static_cast<std::size_t>(f.bytes));
+    upload(
+        *t,
+        level,
+        0,
+        0,
+        w,
+        h,
+        staged.data(),
+        staged.size(),
+        static_cast<std::size_t>(w) * static_cast<std::size_t>(f.bytes)
+    );
 }
 
-void MTLGL compressed_tex_image_2d(GLenum target, GLint level, GLenum internal, GLsizei w, GLsizei h,
-                                   GLint border, GLsizei size, const void* pixels) {
+void MTLGL compressed_tex_image_2d(
+    GLenum target,
+    GLint level,
+    GLenum internal,
+    GLsizei w,
+    GLsizei h,
+    GLint border,
+    GLsizei size,
+    const void* pixels
+) {
     Texture* t = bound_texture(target);
     const Format f = format_of(internal);
     if (!extent_valid(w, h)) {
@@ -506,31 +596,67 @@ void MTLGL compressed_tex_image_2d(GLenum target, GLint level, GLenum internal, 
     t->internal = internal;
     t->used = 0;
     if (pixels != nullptr) {
-        upload(*t, 0, 0, 0, w, h, pixels, static_cast<std::size_t>(size),
-               static_cast<std::size_t>((w + f.block - 1) / f.block) * 16);
+        upload(
+            *t,
+            0,
+            0,
+            0,
+            w,
+            h,
+            pixels,
+            static_cast<std::size_t>(size),
+            static_cast<std::size_t>((w + f.block - 1) / f.block) * 16
+        );
     }
 }
 
-void MTLGL compressed_tex_sub_image_2d(GLenum target, GLint level, GLint x, GLint y, GLsizei w,
-                                       GLsizei h, GLenum internal, GLsizei size, const void* pixels) {
+void MTLGL compressed_tex_sub_image_2d(
+    GLenum target,
+    GLint level,
+    GLint x,
+    GLint y,
+    GLsizei w,
+    GLsizei h,
+    GLenum internal,
+    GLsizei size,
+    const void* pixels
+) {
     Texture* t = bound_texture(target);
     const int side = internal == GL_COMPRESSED_RGBA_ASTC_8x8_KHR ? 8 : 4;
     const int tw = t != nullptr && t->texture != nil ? static_cast<int>(t->texture.width) : 0;
     const int th = t != nullptr && t->texture != nil ? static_cast<int>(t->texture.height) : 0;
-    if (t == nullptr || t->texture == nil || pixels == nullptr || level != 0 || internal != t->internal
-        || !is_compressed(internal) || x < 0 || y < 0 || w <= 0 || h <= 0 || size < 0 || x % side != 0
-        || y % side != 0 || x > tw || w > tw - x || y > th || h > th - y
-        || (w % side != 0 && x + w != tw) || (h % side != 0 && y + h != th)
+    if (t == nullptr || t->texture == nil || pixels == nullptr || level != 0
+        || internal != t->internal || !is_compressed(internal) || x < 0 || y < 0 || w <= 0 || h <= 0
+        || size < 0 || x % side != 0 || y % side != 0 || x > tw || w > tw - x || y > th
+        || h > th - y || (w % side != 0 && x + w != tw) || (h % side != 0 && y + h != th)
         || static_cast<std::size_t>(size) != compressed_bytes(internal, w, h)) {
         fail(kGlInvalidEnum);
         return;
     }
-    upload(*t, 0, x, y, w, h, pixels, static_cast<std::size_t>(size),
-           static_cast<std::size_t>((w + side - 1) / side) * 16);
+    upload(
+        *t,
+        0,
+        x,
+        y,
+        w,
+        h,
+        pixels,
+        static_cast<std::size_t>(size),
+        static_cast<std::size_t>((w + side - 1) / side) * 16
+    );
 }
 
-void MTLGL tex_sub_image_2d(GLenum target, GLint level, GLint x, GLint y, GLsizei w, GLsizei h,
-                            GLenum format, GLenum type, const void* pixels) {
+void MTLGL tex_sub_image_2d(
+    GLenum target,
+    GLint level,
+    GLint x,
+    GLint y,
+    GLsizei w,
+    GLsizei h,
+    GLenum format,
+    GLenum type,
+    const void* pixels
+) {
     Texture* t = bound_texture(target);
     if (t == nullptr || t->texture == nil || pixels == nullptr || w <= 0 || h <= 0 || level < 0
         || level >= static_cast<int>(t->texture.mipmapLevelCount)) {
@@ -542,12 +668,21 @@ void MTLGL tex_sub_image_2d(GLenum target, GLint level, GLint x, GLint y, GLsize
     }
     const Format f = format_of(t->internal);
     const auto staged = stage_pixels(f, w, h, format, type, pixels);
-    upload(*t, level, x, y, w, h, staged.data(), staged.size(),
-           static_cast<std::size_t>(w) * static_cast<std::size_t>(f.bytes));
+    upload(
+        *t,
+        level,
+        x,
+        y,
+        w,
+        h,
+        staged.data(),
+        staged.size(),
+        static_cast<std::size_t>(w) * static_cast<std::size_t>(f.bytes)
+    );
 }
 
-void MTLGL tex_image_3d(GLenum, GLint, GLint, GLsizei, GLsizei, GLsizei, GLint, GLenum, GLenum,
-                        const void*) {
+void MTLGL
+tex_image_3d(GLenum, GLint, GLint, GLsizei, GLsizei, GLsizei, GLint, GLenum, GLenum, const void*) {
     fail(kGlInvalidEnum);  // no renderer draws with a texture array yet, as in vkgl
 }
 
@@ -678,8 +813,11 @@ void MTLGL buffer_sub_data(GLenum target, GLintptr offset, GLsizeiptr size, cons
                                           options:MTLResourceStorageModeShared];
         b->used = 0;
     }
-    std::memcpy(static_cast<std::uint8_t*>(b->buffer.contents) + offset, data,
-                static_cast<std::size_t>(size));
+    std::memcpy(
+        static_cast<std::uint8_t*>(b->buffer.contents) + offset,
+        data,
+        static_cast<std::size_t>(size)
+    );
 }
 
 // ---- Framebuffers and renderbuffers ----
@@ -711,7 +849,8 @@ void MTLGL bind_framebuffer(GLenum target, GLuint name) {
     }
 }
 
-void MTLGL framebuffer_texture_2d(GLenum target, GLenum attachment, GLenum, GLuint texture, GLint level) {
+void MTLGL
+framebuffer_texture_2d(GLenum target, GLenum attachment, GLenum, GLuint texture, GLint level) {
     Framebuffer* fb = bound_framebuffer(target);
     if (fb == nullptr) {
         return;
@@ -744,8 +883,9 @@ GLenum MTLGL check_framebuffer_status(GLenum target) {
     constexpr GLenum kIncompleteAttachment = 0x8CD6;
     constexpr GLenum kMissingAttachment = 0x8CD7;
     constexpr GLenum kIncompleteMultisample = 0x8D56;
-    const Target t =
-        target_of(target == GL_READ_FRAMEBUFFER ? g->state.read_framebuffer : g->state.draw_framebuffer);
+    const Target t = target_of(
+        target == GL_READ_FRAMEBUFFER ? g->state.read_framebuffer : g->state.draw_framebuffer
+    );
     const Framebuffer* fb = bound_framebuffer(target);
     if (fb != nullptr
         && (((fb->colour_texture != 0 || fb->colour_renderbuffer != 0) && t.colour == nil)
@@ -774,7 +914,8 @@ void MTLGL bind_renderbuffer(GLenum, GLuint name) {
     g->state.renderbuffer = name;
 }
 
-void MTLGL renderbuffer_storage_multisample(GLenum, GLsizei samples, GLenum format, GLsizei w, GLsizei h) {
+void MTLGL
+renderbuffer_storage_multisample(GLenum, GLsizei samples, GLenum format, GLsizei w, GLsizei h) {
     Renderbuffer* r = g->renderbuffers.find(g->state.renderbuffer);
     const Format f = format_of(format);
     if (r == nullptr || f.pixel == MTLPixelFormatInvalid || f.block != 1) {
@@ -804,35 +945,53 @@ namespace {
 
 // A scaled, flipped or converting colour blit, drawn: `src` sampled into the destination box,
 // clipped to `dst`.
-void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLint sx1, GLint sy1,
-               GLint dx0, GLint dy0, GLint dx1, GLint dy1, GLenum filter, NSUInteger level) {
+void draw_blit(
+    id<MTLTexture> src,
+    id<MTLTexture> dst,
+    GLint sx0,
+    GLint sy0,
+    GLint sx1,
+    GLint sy1,
+    GLint dx0,
+    GLint dy0,
+    GLint dx1,
+    GLint dy1,
+    GLenum filter,
+    NSUInteger level
+) {
     // Along one axis: the destination's pixels lo..hi inside `size`, and the source's coordinates
     // (0..1) at them, as d0..d1 shows s0..s1.
     struct Axis {
         int lo, hi;
         float a, b;
     };
+
     auto axis = [](int s0, int s1, int d0, int d1, NSUInteger size, NSUInteger source) {
         const int lo = std::max(std::min(d0, d1), 0);
         const int hi = std::min(std::max(d0, d1), static_cast<int>(size));
         auto at = [&](int d) {
-            return static_cast<float>((s0 + (s1 - s0) * static_cast<double>(d - d0) / (d1 - d0)) / source);
+            return static_cast<float>(
+                (s0 + (s1 - s0) * static_cast<double>(d - d0) / (d1 - d0)) / source
+            );
         };
         return hi > lo ? Axis{lo, hi, at(lo), at(hi)} : Axis{0, 0, 0, 0};
     };
     const Axis x = axis(sx0, sx1, dx0, dx1, std::max<NSUInteger>(dst.width >> level, 1), src.width);
-    const Axis y = axis(sy0, sy1, dy0, dy1, std::max<NSUInteger>(dst.height >> level, 1), src.height);
+    const Axis y =
+        axis(sy0, sy1, dy0, dy1, std::max<NSUInteger>(dst.height >> level, 1), src.height);
     if (x.hi == x.lo || y.hi == y.lo) {
         return;
     }
     const bool depth = is_depth(dst.pixelFormat);
-    __strong id<MTLRenderPipelineState>& pipeline = g->blits[dst.pixelFormat | dst.sampleCount << 16];
+    __strong id<MTLRenderPipelineState>& pipeline =
+        g->blits[dst.pixelFormat | dst.sampleCount << 16];
     if (pipeline == nil) {
         MTLRenderPipelineDescriptor* d = [MTLRenderPipelineDescriptor new];
         d.vertexFunction = [g->library newFunctionWithName:@"blit_vertex"];
-        d.fragmentFunction = [g->library newFunctionWithName:depth                         ? @"blit_depth"
-                                                             : is_integer(dst.pixelFormat) ? @"blit_uint"
-                                                                                           : @"blit_fragment"];
+        d.fragmentFunction =
+            [g->library newFunctionWithName:depth                         ? @"blit_depth"
+                                            : is_integer(dst.pixelFormat) ? @"blit_uint"
+                                                                          : @"blit_fragment"];
         d.rasterSampleCount = dst.sampleCount;
         if (depth) {
             d.depthAttachmentPixelFormat = dst.pixelFormat;
@@ -861,8 +1020,12 @@ void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLi
     const float uv[4] = {x.a, y.a, x.b, y.b};
     const std::uint32_t linear = filter == GL_LINEAR ? 1 : 0;
     [pass setRenderPipelineState:pipeline];
-    [pass setViewport:{static_cast<double>(x.lo), static_cast<double>(y.lo), static_cast<double>(x.hi - x.lo),
-                       static_cast<double>(y.hi - y.lo), 0.0, 1.0}];
+    [pass setViewport:{static_cast<double>(x.lo),
+                       static_cast<double>(y.lo),
+                       static_cast<double>(x.hi - x.lo),
+                       static_cast<double>(y.hi - y.lo),
+                       0.0,
+                       1.0}];
     [pass setVertexBytes:uv length:sizeof uv atIndex:0];
     [pass setFragmentTexture:src atIndex:0];
     [pass setFragmentBytes:&linear length:sizeof linear atIndex:0];
@@ -875,8 +1038,18 @@ void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLi
 // Copies of one size and format and resolves; other blits drawn. A scaled, flipped or converting
 // blit of stencil, a resolve of part of depth and part of one multisampled image copied into
 // another are GL_INVALID_OPERATION (README.md).
-void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx0, GLint dy0,
-                            GLint dx1, GLint dy1, GLbitfield mask, GLenum filter) {
+void MTLGL blit_framebuffer(
+    GLint sx0,
+    GLint sy0,
+    GLint sx1,
+    GLint sy1,
+    GLint dx0,
+    GLint dy0,
+    GLint dx1,
+    GLint dy1,
+    GLbitfield mask,
+    GLenum filter
+) {
     const Target from = target_of(g->state.read_framebuffer);
     const Target to = target_of(g->state.draw_framebuffer);
     auto blit_one = [&](id<MTLTexture> src, id<MTLTexture> dst, bool stencil) {
@@ -884,7 +1057,8 @@ void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx
             return;
         }
         const bool exact = is_depth(src.pixelFormat) || is_integer(src.pixelFormat);
-        if (is_integer(src.pixelFormat) != is_integer(dst.pixelFormat) || (exact && filter != GL_NEAREST)) {
+        if (is_integer(src.pixelFormat) != is_integer(dst.pixelFormat)
+            || (exact && filter != GL_NEAREST)) {
             fail(kGlInvalidOperation);
             return;
         }
@@ -893,8 +1067,9 @@ void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx
         // GL's rules for multisampled blits.
         if ((src.sampleCount > 1 || dst.sampleCount > 1)
             && (!same_size
-                || (src.sampleCount > 1 && (src.pixelFormat != dst.pixelFormat
-                                            || (dst.sampleCount > 1 && dst.sampleCount != src.sampleCount))))) {
+                || (src.sampleCount > 1
+                    && (src.pixelFormat != dst.pixelFormat
+                        || (dst.sampleCount > 1 && dst.sampleCount != src.sampleCount))))) {
             fail(kGlInvalidOperation);
             return;
         }
@@ -935,21 +1110,24 @@ void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx
             // Part of an image is resolved whole into a scratch one, then copied.
             id<MTLTexture> resolved = dst;
             if (!whole) {
-                MTLTextureDescriptor* t = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:src.pixelFormat
-                                                                                             width:src.width
-                                                                                            height:src.height
-                                                                                         mipmapped:NO];
+                MTLTextureDescriptor* t =
+                    [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:src.pixelFormat
+                                                                       width:src.width
+                                                                      height:src.height
+                                                                   mipmapped:NO];
                 t.storageMode = MTLStorageModePrivate;
                 t.usage = MTLTextureUsageRenderTarget;
                 resolved = [g->device newTextureWithDescriptor:t];
             }
-            __strong id<MTLRenderPipelineState>& pipeline = g->blits[src.pixelFormat | NSUInteger{1} << 24];
+            __strong id<MTLRenderPipelineState>& pipeline =
+                g->blits[src.pixelFormat | NSUInteger{1} << 24];
             if (pipeline == nil) {
                 MTLRenderPipelineDescriptor* p = [MTLRenderPipelineDescriptor new];
                 p.vertexFunction = [g->library newFunctionWithName:@"flip_vertex"];
                 const bool bytes = src.pixelFormat == MTLPixelFormatRGBA8Unorm
                                    && ![g->device supportsFamily:MTLGPUFamilyApple1];
-                p.fragmentFunction = [g->library newFunctionWithName:bytes ? @"resolve_bytes" : @"resolve_fragment"];
+                p.fragmentFunction =
+                    [g->library newFunctionWithName:bytes ? @"resolve_bytes" : @"resolve_fragment"];
                 p.colorAttachments[0].pixelFormat = src.pixelFormat;
                 pipeline = [g->device newRenderPipelineStateWithDescriptor:p error:nil];
             }
@@ -978,20 +1156,36 @@ void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx
         // Clipped to both images, as copy_tex_sub_image is.
         const int x0 = std::max(sx0, 0), y0 = std::max(sy0, 0);
         const int ox = dx0 + (x0 - sx0), oy = dy0 + (y0 - sy0);
-        const int cw = std::min(sx1, static_cast<int>(src.width)) - x0 - std::max(0, ox + (std::min(sx1, static_cast<int>(src.width)) - x0) - static_cast<int>(dst.width));
-        const int ch = std::min(sy1, static_cast<int>(src.height)) - y0 - std::max(0, oy + (std::min(sy1, static_cast<int>(src.height)) - y0) - static_cast<int>(dst.height));
+        const int cw =
+            std::min(sx1, static_cast<int>(src.width)) - x0
+            - std::max(
+                0,
+                ox + (std::min(sx1, static_cast<int>(src.width)) - x0) - static_cast<int>(dst.width)
+            );
+        const int ch = std::min(sy1, static_cast<int>(src.height)) - y0
+                       - std::max(
+                           0,
+                           oy + (std::min(sy1, static_cast<int>(src.height)) - y0)
+                               - static_cast<int>(dst.height)
+                       );
         if (cw <= 0 || ch <= 0 || ox < 0 || oy < 0) {
             return;
         }
         [blit() copyFromTexture:src
                     sourceSlice:0
                     sourceLevel:0
-                   sourceOrigin:MTLOriginMake(static_cast<NSUInteger>(x0), static_cast<NSUInteger>(y0), 0)
-                     sourceSize:MTLSizeMake(static_cast<NSUInteger>(cw), static_cast<NSUInteger>(ch), 1)
+                   sourceOrigin:MTLOriginMake(
+                                    static_cast<NSUInteger>(x0), static_cast<NSUInteger>(y0), 0
+                                )
+                     sourceSize:MTLSizeMake(
+                                    static_cast<NSUInteger>(cw), static_cast<NSUInteger>(ch), 1
+                                )
                       toTexture:dst
                destinationSlice:0
                destinationLevel:0
-              destinationOrigin:MTLOriginMake(static_cast<NSUInteger>(ox), static_cast<NSUInteger>(oy), 0)];
+              destinationOrigin:MTLOriginMake(
+                                    static_cast<NSUInteger>(ox), static_cast<NSUInteger>(oy), 0
+                                )];
     };
     if ((mask & GL_COLOR_BUFFER_BIT) != 0) {
         blit_one(from.colour, to.colour, false);

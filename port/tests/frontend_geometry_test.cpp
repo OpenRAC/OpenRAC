@@ -305,9 +305,76 @@ void test_usable_view_refuses_broken_matrices() {
     CHECK(!usable_view(view, backwards));
 }
 
+// Checks an attached point against the arithmetic result within float rounding tolerance.
+void check_attached_point(const float point[3], const Vec3& expected) {
+    // Each world coordinate must preserve the parent's local offset.
+    for (int axis = 0; axis < 3; ++axis) {
+        CHECK(std::fabs(point[axis] - expected[axis]) < 0.0001f);
+    }
+}
+
+// Aligns current quads and delayed mesh vertices with the same displayed parent at every alpha.
+void test_attached_effects_agree_across_source_ticks() {
+    const Mat4 previous = openrac::renderer::translation({100, 200, 300});
+    Mat4 current = previous;
+    current[12] += 2;
+    current[13] += 1;
+    const openrac::renderer::Vec3 local{0.25f, -0.5f, 0.75f};
+
+    // Endpoints and intermediate frames must all keep the same offset from the moving parent.
+    for (const float alpha : {0.0f, 0.25f, 0.5f, 1.0f}) {
+        const Mat4 drawn = blend_matrix(previous, current, alpha);
+        const auto old_point = openrac::renderer::transform_point(previous, local);
+        const auto new_point = openrac::renderer::transform_point(current, local);
+        float mesh[3] = {old_point[0], old_point[1], old_point[2]};
+        float quad[3] = {new_point[0], new_point[1], new_point[2]};
+        openrac::frontend::follow_moby(previous, drawn, mesh);
+        openrac::frontend::follow_moby(current, drawn, quad);
+        const auto expected = openrac::renderer::transform_point(drawn, local);
+
+        check_attached_point(mesh, expected);
+        check_attached_point(quad, expected);
+    }
+}
+
+// Preserves local offsets through nonuniform scale and a rotating parent's interpolated axes.
+void test_attached_effects_follow_rotating_parents() {
+    Mat4 source = openrac::renderer::identity();
+    source[0] = 2;
+    source[5] = 3;
+    source[10] = 4;
+    Mat4 drawn = source;
+    // A quarter-turn around Z maps local +X to world +Y.
+    drawn[0] = 0;
+    drawn[1] = 2;
+    drawn[4] = -3;
+    drawn[5] = 0;
+    drawn[12] = 10;
+    float point[3] = {2, 6, 12};
+    openrac::frontend::follow_moby(source, drawn, point);
+    CHECK(std::fabs(point[0] - (10 - 6)) < 0.0001f);
+    CHECK(std::fabs(point[1] - 2) < 0.0001f);
+    CHECK(std::fabs(point[2] - 12) < 0.0001f);
+}
+
+// Falls back to translation for singular parent axes instead of dividing by zero.
+void test_attached_effects_allow_singular_parents() {
+    const Mat4 source = openrac::renderer::scale(0);
+    Mat4 drawn = source;
+    drawn[12] = 3;
+    float point[3] = {1, 2, 3};
+    openrac::frontend::follow_moby(source, drawn, point);
+    CHECK(point[0] == 4);
+    CHECK(point[1] == 2);
+    CHECK(point[2] == 3);
+}
+
 }  // namespace
 
 int main() {
+    test_attached_effects_agree_across_source_ticks();
+    test_attached_effects_follow_rotating_parents();
+    test_attached_effects_allow_singular_parents();
     test_a_four_by_three_window_is_filled();
     test_a_wide_window_centres_a_full_height_box();
     test_a_portrait_window_centres_a_full_width_box();

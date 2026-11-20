@@ -332,6 +332,64 @@ void relocation_with_folded_copies() {
     openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
 }
 
+int block_head(int a) {
+    return a;
+}
+
+int block_tail(int a) {
+    return a;
+}
+
+int block_next(int a) {
+    return a;
+}
+
+// An executable global no code names and no pair is near (rac1: the pause screens, reached through a
+// pointer): between two pairs that moved alike, it moved with them; between two that moved apart,
+// it is kept as before, since nothing says where it went.
+void relocation_between_pairs() {
+    const auto words = [](gaddr at, std::initializer_list<std::uint32_t> w) {
+        std::memcpy(G(at), w.begin(), w.size() * 4);
+    };
+    // Executable: three functions forming 0x150000, 0x151000 and 0x152000.
+    std::vector<std::uint8_t> exe(0x300, 0);
+    const std::uint32_t head[] = {0x3C040015u, 0x24840000u, 0x03E00008u, 0};
+    const std::uint32_t tail[] = {0x3C040015u, 0x24841000u, 0x03E00008u, 0};
+    const std::uint32_t next[] = {0x3C040015u, 0x24842000u, 0x03E00008u, 0};
+    std::memcpy(exe.data(), head, sizeof head);
+    std::memcpy(exe.data() + 0x100, tail, sizeof tail);
+    std::memcpy(exe.data() + 0x200, next, sizeof next);
+    // The level: the first two blocks 0x10000 higher, the third 0x10100 higher.
+    words(0x001B0000u, {0x3C040016u, 0x24840000u, 0x03E00008u, 0});
+    words(0x001B0100u, {0x3C040016u, 0x24841000u, 0x03E00008u, 0});
+    words(0x001B0200u, {0x3C040016u, 0x24842100u, 0x03E00008u, 0});
+    const auto fn = [](auto f) {
+        return reinterpret_cast<openrac_host_fn>(f);
+    };
+    static const openrac_fn_entry exe_fns[] = {
+        {0x0010C000u, fn(block_head), "head"},
+        {0x0010C100u, fn(block_tail), "tail"},
+        {0x0010C200u, fn(block_next), "next"},
+    };
+    static const openrac_fn_entry level_fns[] = {
+        {0x001B0000u, fn(block_head), "head"},
+        {0x001B0100u, fn(block_tail), "tail"},
+        {0x001B0200u, fn(block_next), "next"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 3);
+    openrac_guest_register(10, level_fns, 3);
+    openrac_guest_set_relocation(
+        0x00140000u, 0x00170000u, 0, exe.data(), 0x0010C000u, static_cast<std::uint32_t>(exe.size())
+    );
+    openrac_guest_set_overlay(10);
+    CHECK(OPENRAC_DATA(0x00150000u) == 0x00160000u);
+    CHECK(OPENRAC_DATA(0x00150800u) == 0x00160800u);  // between two pairs of +0x10000
+    CHECK(OPENRAC_DATA(0x00151800u) == 0x00151800u);  // between +0x10000 and +0x10100: kept
+    CHECK(OPENRAC_DATA(0x00152000u) == 0x00162100u);
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
+}
+
 int card_prompt(int a) {
     return a;
 }
@@ -629,6 +687,7 @@ int main() {
     code_in_copy_jal();
     folded_address();
     relocation_with_folded_copies();
+    relocation_between_pairs();
     level_data_in_the_executable();
     elf();
     reach_report_updates();

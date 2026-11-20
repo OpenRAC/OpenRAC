@@ -286,16 +286,19 @@ void openrac_game_set_display(const openrac_game_display* d) {
 // The video mode the game asks the console for (sceGsResetGraph, SetGsCrt): 2 is NTSC, 60 fields a
 // second, 3 is PAL, 50. The game's tick is one field: a PAL game that changes to its 60 Hz mode
 // counts its time in sixtieths from then on (rac1/pal: func_002157C0 sets the time base when a
-// level starts). The port keeps the PAL game in that mode and ticks every game 60 times a second.
+// level starts). The port keeps such a game in that mode and ticks it 60 times a second; a disc
+// whose code is written for 50 (Going Commando's PAL) ticks 50 (openrac_game.tick_rate).
 void openrac_game_set_video_mode(int interlace, int mode, int field_mode) {
     c_boundary::call("openrac_game_set_video_mode", [&] {
-        // Logged only: the port paces every game at 60 Hz whatever the mode (tick_rate()).
+        // Logged only: the port paces the game at tick_rate() whatever the mode.
         log::info(
             "video mode {:#x} (interlace {}, field mode {}){}",
             mode,
             interlace,
             field_mode,
-            mode == 3 ? " (PAL 50 Hz: the port keeps 60)" : ""
+            mode != 3           ? ""
+            : tick_rate() == 50 ? " (PAL 50 Hz)"
+                                : " (PAL 50 Hz: the port keeps 60)"
         );
     });
 }
@@ -327,6 +330,39 @@ void openrac_game_load_image(const openrac_game_image* image) {
                 )
             );
         }
+#endif
+    });
+}
+
+void openrac_game_load_picture(const openrac_game_image* image, const uint8_t* pixels) {
+    c_boundary::call("openrac_game_load_picture", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && image->width > 0 && image->height > 0) {
+            frontend::upload_picture(
+                static_cast<std::uint32_t>(image->base),
+                static_cast<std::uint32_t>(image->width_units),
+                static_cast<std::uint32_t>(image->width),
+                static_cast<std::uint32_t>(image->height),
+                std::span<const std::uint8_t>(
+                    pixels, static_cast<std::size_t>(image->width) * image->height * 4
+                )
+            );
+        }
+#else
+        (void)image;
+        (void)pixels;
+#endif
+    });
+}
+
+void openrac_game_forget_picture(int base) {
+    c_boundary::call("openrac_game_forget_picture", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            frontend::forget_picture(static_cast<std::uint32_t>(base));
+        }
+#else
+        (void)base;
 #endif
     });
 }
@@ -365,6 +401,18 @@ void openrac_game_store_image(const openrac_game_image* image) {
 int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
     return c_boundary::call("openrac_game_play_movie", 0, [&]() -> int {
         return play_movie(lsn, bytes, channel, start_skips);
+    });
+}
+
+int openrac_game_play_movie_over(
+    uint32_t lsn,
+    uint32_t bytes,
+    int channel,
+    int start_skips,
+    void (*overlay)(const uint8_t* rgba, int width, int height)
+) {
+    return c_boundary::call("openrac_game_play_movie_over", 0, [&]() -> int {
+        return play_movie(lsn, bytes, channel, start_skips, overlay);
     });
 }
 
@@ -475,28 +523,6 @@ uint32_t openrac_game_effect_quad_marker(void) {
         }
 #endif
         return 0u;
-    });
-}
-
-float openrac_game_active_distance(void) {
-    return c_boundary::call("openrac_game_active_distance", 1.0f, [&]() -> float {
-#ifdef OPENRAC_FRONTEND
-        if (g_window) {
-            return settings::get().active_distance_scale();
-        }
-#endif
-        return 1.0f;
-    });
-}
-
-float openrac_game_draw_distance(void) {
-    return c_boundary::call("openrac_game_draw_distance", 1.0f, [&]() -> float {
-#ifdef OPENRAC_FRONTEND
-        if (g_window) {
-            return settings::get().draw_distance_scale();
-        }
-#endif
-        return 1.0f;
     });
 }
 

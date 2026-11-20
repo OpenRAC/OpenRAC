@@ -444,6 +444,27 @@ gaddr openrac_hook_in_copy(gaddr exe_fn, uint32_t size, int home, gaddr home_fn,
  * denormal, which the EE reads as zero) gives +-FLT_MAX with the operands' signs XORed, and a
  * quotient too large saturates the same way, where the host would give infinity (and NaN from
  * there on: an animation loop that never ends). */
+/* The EE's integer divide (div, divu), which never traps: a divisor of zero leaves the quotient -1 (1 for a
+ * negative dividend; all ones unsigned) and the remainder the dividend, and the most negative number over
+ * -1 is itself, remainder 0. Matching C relies on it (Going Commando's func_0034C9D0 takes a column count
+ * a type out of range leaves 0); the host's would raise SIGFPE. hostgen writes these for an int's / and %
+ * by a divisor that is not a constant. */
+static inline int32_t openrac_sdiv(int32_t a, int32_t b) {
+    return b == 0 ? (a < 0 ? 1 : -1) : (a == INT32_MIN && b == -1) ? a : a / b;
+}
+
+static inline int32_t openrac_smod(int32_t a, int32_t b) {
+    return b == 0 ? a : b == -1 ? 0 : a % b;
+}
+
+static inline uint32_t openrac_udiv(uint32_t a, uint32_t b) {
+    return b == 0 ? 0xFFFFFFFFu : a / b;
+}
+
+static inline uint32_t openrac_umod(uint32_t a, uint32_t b) {
+    return b == 0 ? a : a % b;
+}
+
 static inline float openrac_fdiv(float a, float b) {
     uint32_t ua, ub;
     memcpy(&ua, &a, 4);

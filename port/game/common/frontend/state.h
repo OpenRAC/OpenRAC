@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <optional>
 #include <span>
@@ -32,6 +33,7 @@
 #include "game/common/debug_camera.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/render_worker.h"
+#include "game/common/frontend/sleeping_mobys.h"
 #include "game/common/frontend/tick_picture.h"
 #include "game/common/profile.h"
 #include "openrac/guest.h"
@@ -47,6 +49,7 @@
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
 #include "scene/object_picker.h"
+#include "scene/special_acquisition.h"
 #include "settings.h"
 
 union SDL_Event;
@@ -65,9 +68,9 @@ namespace openrac::frontend {
 // One tick's scene, as frame() read it from the game, for the frames drawn until the next tick
 // (between), and the last tick's camera and moby matrices to move them from.
 struct Kept {
-    int level = -3;  // the level the mobys belong to: another one starts over
+    int level = -3;                // the level the mobys belong to: another one starts over
     bool gameplay_camera = false;  // The level was in normal play when this camera was captured.
-    bool cutscene = false;  // Captured game state, never queried by the render worker.
+    bool cutscene = false;         // Captured game state, never queried by the render worker.
     host::GameState state, prev_state;
     bool has_state = false, has_prev_state = false;
     std::vector<scene::Instance> live;
@@ -120,6 +123,7 @@ struct Kept {
         scene::Instance instance;
         host::GameState camera;
         bool on_screen = false;
+        int preview_item_class = -1;
     };
 
     std::vector<TargetMoby> target_mobys;
@@ -131,6 +135,8 @@ struct Kept {
     // The world was drawn under a menu (State::world_under_menu): the menu's picture of the frame
     // is this tick's world.
     bool world_under_menu = false;
+    // A movie's tick (frontend::set_movie_playing).
+    bool movie = false;
     std::uint64_t frame = 0;
 };
 
@@ -180,9 +186,9 @@ struct FramePresentation {
     std::vector<renderer::Mat4> picker_palette;
     int picker_level = -1;
     unsigned picker_layers = 0;
-    bool freecam = false;     // Set by the renderer when it applies freecam to this frame.
-    int camera_level = -1;    // Level that supplied the rendered camera.
-    std::uint64_t tick = 0;   // Submitted window-frame number, including interpolation metadata.
+    bool freecam = false;    // Set by the renderer when it applies freecam to this frame.
+    int camera_level = -1;   // Level that supplied the rendered camera.
+    std::uint64_t tick = 0;  // Submitted window-frame number, including interpolation metadata.
 
     int window_width = 0;   // Drawable window extent, read on the window thread.
     int window_height = 0;  // Drawable window height.
@@ -194,9 +200,9 @@ struct FramePresentation {
     // submission: radians about the world's up axis, through the pivot.
     float latch_yaw = 0;
     renderer::Vec3 latch_pivot{};
-    Box box{};              // Picture rectangle in the window.
+    Box box{};  // Picture rectangle in the window.
 
-    bool first = false;         // First displayed frame for this game tick.
+    bool first = false;  // First displayed frame for this game tick.
     bool enhanced_graphics = false;
     bool dump_draws = false;    // Draw diagnostics captured before graphics ownership transfers.
     bool measure_cost = false;  // Enables the deliberately blocking frame-cost diagnostic.
@@ -222,6 +228,10 @@ struct State {
     // program's, never null while the window is open.
     const host::GameProfile* profile = nullptr;
     ScriptedMobyColours scripted_moby_colours;
+    // Far mobys the game leaves asleep, posed in the picture only (Active distance: Match), and
+    // the level their clocks belong to.
+    SleepingMobys sleeping_mobys;
+    int sleeping_level = -100;
     std::filesystem::path levels;
     std::unique_ptr<platform::Platform> sdl;
     std::unique_ptr<platform::Window> window;
@@ -254,6 +264,9 @@ struct State {
     std::vector<std::pair<std::filesystem::path, scene::PropRig>> prop_rigs;
     // The level's mobys drawn as another model (the editor's skins.json beside its placements).
     scene::MobySkins moby_skins;
+    std::map<int, scene::SpecialClip> special_pickup_clips;
+    int infobot_pickup_model = -1;
+    std::vector<std::vector<renderer::Mat4>> infobot_pickup_poses;
     scene::ObjectPicker picker;
     scene::LevelScene scene;
     DebugCamera debug_camera;  // Only the scene/render owner updates inspection poses.
@@ -306,7 +319,8 @@ struct State {
         std::array<std::uint8_t, 0x40> record;
         std::uint32_t pixels, clut;
         int log2_side;
-        std::uint32_t id;  // its slot and type (particle), 0 when not known
+        std::uint32_t id;              // its slot and type (particle), 0 when not known
+        std::uint32_t attachment = 0;  // Position anchor, including particles with no slot history.
     };
 
     std::vector<Particle> particles;
@@ -366,6 +380,7 @@ struct State {
     TickPictures tick_pictures;
     bool repeat_frame = false;
     bool overdraw = false;
+    bool movie_playing = false;  // set_movie_playing
     // What the window is in now of the player's settings (apply_settings): the display mode, the
     // display; the picture's shape; the swap's wait as asked and as the
     // driver took it; whether the sound is held silent (the window lost the keyboard).
@@ -377,8 +392,8 @@ struct State {
     platform::SwapInterval swap_asked = platform::SwapInterval::VSync;
     platform::SwapInterval swap = platform::SwapInterval::VSync;
     bool muted = false;
-    // The window was opened for HDR output (the settings' `hdr` was not off): only then can it
-    // be turned on (apply_hdr).
+    // The window was opened for HDR output (the settings' `hdr` was not off), or is a Metal one,
+    // which can turn to HDR at any time: only then can it be turned on (apply_hdr).
     bool hdr_at_start = false;
     // What the window's display said of HDR when apply_hdr last asked (for hdr_status).
     hdr::Display hdr_display;
@@ -391,7 +406,7 @@ struct State {
     std::shared_ptr<FramePresentation>
         pending_frame;  // Window-thread owned; worker writes its result.
     std::vector<renderer::ImageUpload>
-        pending_images;          // Game-thread uploads held until the worker finishes.
+        pending_images;  // Game-thread uploads held until the worker finishes.
     std::vector<renderer::ImageUpload>
         images_after_list;       // Sent again a capture later (GameProfile::images_outlast_list).
     bool render_failed = false;  // A caught render error terminates the frontend cleanly.
@@ -415,12 +430,12 @@ struct Pacing {
     // The display's refresh rate is to be read again: at start, and whenever the window says its
     // display or that display's mode changed (window_event), not by asking every so many frames.
     bool interval_stale = true;
-    double cost = 0.004;                      // seconds
+    double cost = 0.004;       // seconds
     double cost_spread = 0.0;  // seconds: how much the cost moves from frame to frame, smoothed
     std::chrono::duration<double> late{0.0};  // how long after its time the tick came (set_tick)
     // The game's work for a tick (set_tick), the longest of late, ebbing a tenth a tick: seconds.
     double tick_work = 0.0;
-    float last_alpha = -1.0f;                 // how far between ticks the last frame was drawn
+    float last_alpha = -1.0f;  // how far between ticks the last frame was drawn
     // When the frame cap lets the next frame start, or (CapEdge::Present, cap_edge) when it is to
     // be shown.
     std::chrono::steady_clock::time_point due{};

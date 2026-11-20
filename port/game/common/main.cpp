@@ -49,6 +49,7 @@
 #include <vector>
 
 #include "common/build_info.h"
+#include "common/cache_folder.h"
 #include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
@@ -62,6 +63,7 @@
 #include "openrac/guest.h"
 #include "openrac/memory.h"
 #include "openrac/sound_engine.h"
+#include "program/interface_runs.h"
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
@@ -72,6 +74,7 @@
 #include "enhanced/viewer/probe_lighting.h"
 #include "frontend.h"
 #include "frontend/mod_media.h"
+#include "game/common/profile.h"
 #include "mod_menu.h"
 #include "options_menu.h"
 #include "platform/bindings.h"
@@ -673,6 +676,20 @@ int main(int argc, char** argv) {
         log::fatalf("--check-levels needs a build with the window (it reads the levels as the window does)");
 #endif
     }
+    if (!g_options.interface_export.empty()) {
+        // An export reads the run files and the disc and ends: no game is played.
+        return export_interface(
+            g_options.data / "iso_data" / openrac_game.game / "disc.iso",
+            openrac_game.id,
+            g_options.interface_export,
+            g_options.interface_runs,
+            g_options.interface_only,
+            [](const std::string& line) {
+                std::fputs((line + "\n").c_str(), stdout);
+                std::fflush(stdout);
+            }
+        );
+    }
     // The session's log first, so that a game that cannot start says why in it (on Android the
     // only place the player can read it, through the launcher).
     open_session(argc, argv);
@@ -693,6 +710,12 @@ int main(int argc, char** argv) {
         );
     }
     log::info("{}: {}", program_name(), openrac_game.title);
+    if (!g_options.interface_run.empty()) {
+        static fs::path run_disc;
+        run_disc = disc;
+        start_interface_run(g_options.interface_run);
+        std::atexit([] { finish_interface_run(run_disc); });
+    }
 
     if (g_options.custom_map) {
         const CustomMap& map = *g_options.custom_map;
@@ -751,6 +774,11 @@ int main(int argc, char** argv) {
     bool mods_loaded = false;
 
 #ifdef OPENRAC_FRONTEND
+    // The joint poses the game reads (openrac_game_moby_chain) need its moby layout with or without
+    // a window: a run without one read rac2's poses at rac1's offsets, and Notak's chain spawned
+    // until the moby pool was full.
+    scene::set_moby_anim_fields(host::game_profile(openrac_game.id).moby_anim_fields());
+    scene::set_moby_layer_records(host::game_profile(openrac_game.id).moby_layer_records());
     if (g_options.window) {
         std::string why;
         settings::load(g_options.settings);
@@ -814,6 +842,14 @@ int main(int argc, char** argv) {
                  renderer::pack_pictures::load_svg},
                 texture_pack_level_name
             );
+            // The HUD's and effects' pictures, read in the background from the start (those the
+            // last runs showed, once it knows them).
+            if (use_packs) {
+                renderer::texture_pack::set_play_list(
+                    cache_folder() / "texture_packs" / (std::string(openrac_game.id) + ".txt")
+                );
+            }
+            renderer::texture_pack::preload();
         }
         fs::path levels = g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels);
         // A mod that makes the Vulkan device with the port (a VR headset's) is loaded before the

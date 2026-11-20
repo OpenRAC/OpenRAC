@@ -53,6 +53,34 @@ int main() {
          Sound::Close,
          Sound::Page};
 
+    // Portable Infobot motor/chirp cues remain audible, soft and finite.
+    for (const Sound s : {Sound::InfobotOpen, Sound::InfobotClose}) {
+        ui_sounds::reset();
+        ui_sounds::play(s);
+        const auto out = render(120);
+        CHECK(peak(out) > 300 && peak(out) < 32767 / 4);
+        CHECK(!ui_sounds::sounding());
+    }
+
+    // Disc cues resample from their native rate and finish in either direction.
+    // They replace the fallback tone and survive resetting playback between acquisitions.
+    std::vector<std::int16_t> cue(22050, 0);
+    std::fill(cue.begin() + 2205, cue.begin() + 6615, 2000);
+    ui_sounds::set_infobot_audio(cue, 22050);
+    ui_sounds::reset();
+    ui_sounds::play(Sound::InfobotOpen);
+    const auto opening = render(140);
+    CHECK(peak(opening) > 1000);
+    CHECK(peak(std::vector<std::int16_t>(opening.begin(), opening.begin() + 4800)) == 0);
+    CHECK(!ui_sounds::sounding());
+    ui_sounds::reset();
+    ui_sounds::play(Sound::InfobotClose);
+    const auto closing = render(140);
+    CHECK(peak(std::vector<std::int16_t>(closing.begin(), closing.begin() + 48000)) == 0);
+    CHECK(peak(closing) > 1000);
+    CHECK(!ui_sounds::sounding());
+    ui_sounds::set_infobot_audio({}, 0);
+
     // Nothing plays: silence.
     ui_sounds::reset();
     CHECK(peak(render(5)) == 0);

@@ -19,6 +19,7 @@ extern "C" {
 int openrac_lib_memcmp(gaddr, gaddr, unsigned int);
 gaddr openrac_lib_memcpy(gaddr, gaddr, unsigned int);
 gaddr openrac_lib_memset(gaddr, int, unsigned int);
+gaddr openrac_lib_memchr(gaddr, int, unsigned int);
 gaddr openrac_lib_strchr(gaddr, int);
 int openrac_lib_strcmp(gaddr, gaddr);
 gaddr openrac_lib_strcpy(gaddr, gaddr);
@@ -128,6 +129,8 @@ double openrac_lib___extendsfdf2(float);
 long long openrac_lib___muldi3(long long, long long);
 unsigned long long openrac_lib___udivdi3(unsigned long long, unsigned long long);
 unsigned long long openrac_lib___umoddi3(unsigned long long, unsigned long long);
+long long openrac_lib___divdi3(long long, long long);
+long long openrac_lib___moddi3(long long, long long);
 unsigned long long openrac_lib___fixunsdfdi(double);
 /* cdvd */
 int openrac_lib_sceCdSync(int);
@@ -135,6 +138,9 @@ int openrac_lib_sceCdInit(int);
 int openrac_lib_sceCdDiskReady(int);
 int openrac_lib_sceCdMmode(int);
 int openrac_lib_sceCdRead(unsigned int, unsigned int, gaddr, gaddr);
+/* Told of every sceCdRead (sector, count) while set: an interface run notes the sectors the game
+ * read (program/interface_runs.cpp). NULL otherwise. */
+extern void (*openrac_cdvd_read_hook)(unsigned int sector, unsigned int count);
 int openrac_lib_sceCdGetError(void);
 int openrac_lib_sceCdBreak(void);
 int openrac_lib_sceCdReadClock(gaddr);

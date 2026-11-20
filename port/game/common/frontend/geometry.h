@@ -50,6 +50,10 @@ void frame_size(int box_width, int box_height, int render_scale, int& width, int
 // squared) and its X axis turned by less than about 45 degrees (0.7 is that angle's cosine).
 bool same_moby(const renderer::Mat4& from, const renderer::Mat4& to);
 
+// Moves an attached world-space point from its source parent transform to the displayed one.
+// Singular source axes fall back to translation, preserving the point's finite position.
+void follow_moby(const renderer::Mat4& source, const renderer::Mat4& drawn, float point[3]);
+
 // A moby's matrix part way from the last tick's to this one's, or this one's when it moved too far
 // or turned too much in a tick to be the same thing moving (a moby slot used again, a teleport).
 // `t`: how far, from 0 (`from`) to 1 (`to`).

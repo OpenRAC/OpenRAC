@@ -1029,8 +1029,8 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
         if note.get("format", 1) > PACKED_FORMAT:
             raise PackError(f"{packed} was packed by a newer OpenRAC Editor (format {note['format']}); "
                             "update OpenRAC to play it")
-        made = note.get("version", "pal")
-        layers.append(("your packed levels", "packed", Path(packed), made))
+        layers.append(("your packed levels", "packed", Path(packed),
+                       {"game": note.get("game", GAME), "version": note.get("version", "pal")}))
     if folder is not None and Path(folder).is_dir():
         for entry in load_state(folder)["packs"]:
             if entry.get("enabled", True):

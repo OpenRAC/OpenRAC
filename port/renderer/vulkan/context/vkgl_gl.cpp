@@ -1623,6 +1623,29 @@ namespace openrac::vkgl {
 
 using namespace detail;
 
+// ---- The frame's samples ----
+
+bool resolve_dropping_samples(unsigned framebuffer, unsigned resolve_framebuffer) {
+    if (g == nullptr || !g->rendering || !g->pass.deferred) {
+        return false;
+    }
+    const Target from = target_of(framebuffer);
+    const ImagePtr to = colour_owner(resolve_framebuffer);
+    if (from.colour == nullptr || to == nullptr || g->rendering_target.colour != from.colour) {
+        return false;
+    }
+    // The samples are not stored as the pass ends; its resolve writes the only copy kept.
+    const VkImageAspectFlags dropped = g->pass.drop_colour;
+    g->pass.drop_colour |= VK_IMAGE_ASPECT_COLOR_BIT;
+    if (!resolve_in_pass(
+            *from.colour, *to, {0, 0, from.width, from.height, 0, 0, to->width, to->height}
+        )) {
+        g->pass.drop_colour = dropped;
+        return false;
+    }
+    return true;
+}
+
 // ---- The device, the screen and the frames ----
 
 Proc get_proc(const char* name) {

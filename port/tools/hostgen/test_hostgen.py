@@ -10,6 +10,8 @@ is game code, except the paired colour-write regression below.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import re
 import shutil
@@ -1546,8 +1548,19 @@ class Translate(unittest.TestCase):
         out = prep.expand_cast_macros(src).split("\n")
         self.assertEqual(len(out), len(src.split("\n")))
         self.assertEqual(out[1], "int f(char *s) { return (((struct { char _p[8]; int v; } *)(s))->v) + AT(s,")
-        self.assertEqual(out[3], "#define B AT(x, 4)")
+        # A macro written with it gets it written out (and is then one itself); #undef and what
+        # follows it stay as they are.
+        self.assertEqual(out[3], "#define B (((struct { char _p[4]; int v; } *)(x))->v)")
+        self.assertEqual(out[4], "#undef AT")
         self.assertEqual(out[5], "int g(char *s) { return AT(s, 4); }")
+
+    def test_a_macro_written_with_a_cast_macro_is_written_out_where_it_is_used(self):
+        # Going Commando's L00_002A7E60.c: HERO(T, o) is F(D_00189E20, T, o).
+        src = ("#define F(b, T, o) (((struct { char pad[o]; T v; } *)(b))->v)\n"
+               "#define HERO(T, o) F(hero, T, o)\n"
+               "int f(void) { return HERO(int, 8); }\n")
+        out = prep.expand_cast_macros(src).split("\n")
+        self.assertEqual(out[2], "int f(void) { return (((struct { char pad[8]; int v; } *)(hero))->v); }")
 
     def test_a_cast_macro_over_several_lines_is_written_out_too(self):
         src = ("#define AT(p, o)    \\\n"
@@ -1774,6 +1787,51 @@ class Translate(unittest.TestCase):
             }
         """)
         self.assertEqual(out, ["11", "12", "1", "1", "111", "112"])
+
+    def test_copies_under_wraps_of_the_ports_are_one_hook_point(self):
+        # The hero's move-state setters: each level's copy is wrapped by the port (hero_grab.c) and
+        # all are one hook point. The port's <name> stays and calls <name>__hooked; the mod's
+        # original runs the copy that called it, under the port's wrap.
+        out = self.run_program({"a.c": """
+            extern void test_take(void);
+            int func_00100000(int x) { return x + 1; }
+            int func_00100100(int x) { return x + 2; }
+            int test_main(void) {
+                test_print(func_00100000(10));
+                test_print(func_00100100(10));
+                test_take();
+                test_print(func_00100000(10));
+                test_print(func_00100100(10));
+                return 0;
+            }
+        """}, places="func_00100000\t0x00100000\t0x40\nfunc_00100100\t0x00100100\t0x40\n",
+            config={"libraries": "libraries.tsv", "host_functions": HOST_FUNCTIONS + ["test_take"]},
+            extra_files={"libraries.tsv": "# symbol\tlibrary\tname\tport\n"
+                                          "func_00100000\tgame\tSame\twrap\n"
+                                          "func_00100100\tgame\tSame\twrap\n"
+                                          "func_00100000\tgame\tSame\thook\n"
+                                          "func_00100100\tgame\tSame\thook\n"},
+            host_c="""
+            #include <string.h>
+            typedef struct { const char* name; const char* symbol; const char* signature; void** slot; void* original; } point;
+            extern const point openrac_game_hook_points[];
+            extern const int openrac_game_hook_point_count;
+            void game_test_print(int v);
+            int func_00100000__hooked(int x);
+            int func_00100100__hooked(int x);
+            int func_00100000(int x) { return 1000 + func_00100000__hooked(x); }  /* the port's wraps */
+            int func_00100100(int x) { return 2000 + func_00100100__hooked(x); }
+            static int (*s_original)(int);
+            static int replacement(int x) { return 100 + s_original(x); }
+            void game_test_take(void) {
+                const point* p = &openrac_game_hook_points[0];
+                game_test_print(openrac_game_hook_point_count);
+                game_test_print(strcmp(p->name, "Same") == 0 && strcmp(p->signature, "i32(i32)") == 0);
+                s_original = (int (*)(int))p->original;
+                *p->slot = (void*)replacement;
+            }
+        """)
+        self.assertEqual(out, ["1011", "2012", "1", "1", "1111", "2112"])
 
 
     def test_literal_addresses_reach_the_loaded_levels_globals(self):
@@ -2021,6 +2079,20 @@ class SharedLibraries(unittest.TestCase):
         self.assertEqual(len(re.findall(r" openrac_lib_\w+\(", header)), len(names))
 
 
+class RowsWithoutFunction(unittest.TestCase):
+    def test_a_row_must_name_a_function(self):
+        # A row that binds nothing would leave the console C running (or a wrap lost) without a
+        # word: hostgen lists it and fails.
+        from program import Function, Program
+        program = Program()
+        program.functions["func_00100000"] = Function("func_00100000", None)
+        program.wrap = {"func_00100000", "func_00100100"}
+        program.hook = {"func_00100200": "Hook"}
+        self.assertEqual(hostgen.rows_without_function(program, {"func_00100000": ("X", ""),
+                                                                 "func_00100300": ("Y", "")}),
+                         ["func_00100100", "func_00100200", "func_00100300"])
+
+
 class VariantCalls(unittest.TestCase):
     def unit(self, places: dict, shared_level=None):
         from lower import Unit
@@ -2208,6 +2280,41 @@ class Places(unittest.TestCase):
                           (out / "levels" / "16_x" / "L16_00435CE8.c").read_text())
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_six_digit_name_its_level_lacks_stops_the_build(self):
+        # Going Commando's L06_0035EA68.c called func_2EEEB8, FastVecAdd only in level 17. Level 6
+        # has no function there, so the port called level 0's quaternion_to_rotation_basis at that
+        # address, which wrote over Boldan's paths.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "game").mkdir(parents=True)
+            (src / "src" / "game" / "m.c").write_text(
+                "void func_00283958(void *q, void *m) { }\n"
+                "void func_00282CC0(void *a, void *b, void *c) { }\n")
+            unit = src / "src" / "levels" / "shared" / "L06_003E4FA0.c"
+            (src / "functions.tsv").write_text(
+                "func_00283958\tboot\t8\tfingerprint\t1\t00:002EEEB8\n"
+                "func_00282CC0\tboot\t8\tfingerprint\t1\t06:0032D5C8\n"
+                "func_L06_003E4FA0\tshared\t8\tfingerprint\t1\t06:003E4FA0\n")
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "relocate": [0x1A7C80, 0x500000], "bare_names_in_level_0": True,
+                "level_short_names": "^func_(?P<addr>[0-9A-F]{6,8})$",
+            }))
+            args = ["--game", str(root / "hostgen.json"), "--source", str(src),
+                    "--out", str(root / "gen"), "--jobs", "1", "--quiet"]
+            unit.write_text("extern void func_2EEEB8(void *, void *, void *);\n"
+                            "void func_L06_003E4FA0(char *p) { func_2EEEB8(p, p, p); }\n")
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(hostgen.main(args), 1)
+            self.assertIn("func_2EEEB8 names no function of this file's level", err.getvalue())
+            # Its own level's name for the copy there is fine.
+            unit.write_text("extern void func_32D5C8(void *, void *, void *);\n"
+                            "void func_L06_003E4FA0(char *p) { func_32D5C8(p, p, p); }\n")
+            self.assertEqual(hostgen.main(args), 0)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_function_entered_away_from_its_name_calls_the_levels_hook(self):
         # Going Commando's func_0031FC28 (the ammo pickup's update) is entered at 0x0031FC60, after
         # another function's leftover instructions, and the level catalogue lists its copies under
@@ -2299,6 +2406,69 @@ class Places(unittest.TestCase):
                                            "--jobs", "1", "--quiet"]), 0)
             self.assertIn("OPENRAC_LDATA(1, 0x001B255Cu)",
                           (out / "levels" / "shared" / "L01_002A7248.c").read_text())
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_level_files_global_that_does_not_pair_is_read_from_the_copy(self):
+        # Going Commando's func_L00_004272A0 reads D_L00_001B15DC, the ship levels' object count.
+        # Level 0's func_L00_00427290 writes that address too, but in Feltzin they are two
+        # globals, so the pair was the other one and the minimap had no enemies. data_copies.tsv
+        # lists it: the running copy's own address, even for the file's own level's name.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L00_00427290-g8.c").write_text(
+                "extern int D_L00_001B15DC;\n"
+                "int func_L00_004272A0(void) { return D_L00_001B15DC; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_004272A0\tshared\t8\tfingerprint\t2\t00:004272A0,05:00379EC8\n")
+            (root / "data_copies.tsv").write_text("func_L00_004272A0\t001B15DC\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {"D_L00_001B15DC": "0x001b15dc"},
+                "level_data": {"0": {"D_L00_001B15DC": "0x001b15dc"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+                "data_copies": "data_copies.tsv",
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L00_00427290-g8.c").read_text()
+            self.assertIn("openrac_data_in_copy(0, 0x004272A0u, 8u, openrac_self_, 0x001B15DCu)", text)
+            self.assertNotIn("OPENRAC_LDATA(0, 0x001B15DCu)", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_another_levels_derived_name_is_that_levels_address(self):
+        # Going Commando's fade_set_level (func_L00_0037E670) stores the Shield Charger's strength
+        # as ref_L02_00385E18_00, the address level 2's build derived (0x001B3DB0). Read as level
+        # 0's, it was another word in every level: fade_get_value saw 0 and the shield went at once.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L00_0037E668.c").write_text(
+                "extern float ref_L02_00385E18_00;\n"
+                "void func_L00_0037E670(int raised) { if (!raised) ref_L02_00385E18_00 = 40.0f; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_0037E670\tshared\t40\tfingerprint\t2\t00:0037E670,02:00385E20\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {"ref_L02_00385E18_00": "0x001b3db0"},
+                "level_data": {"2": {"ref_L02_00385E18_00": "0x001b3db0"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L00_0037E668.c").read_text()
+            self.assertIn("OPENRAC_LDATA(2, 0x001B3DB0u)", text)
+            self.assertNotIn("OPENRAC_LDATA(0, 0x001B3DB0u)", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_the_gp_view_of_a_level_derived_global_is_that_global(self):
@@ -2657,6 +2827,94 @@ class Places(unittest.TestCase):
             problems, stats = abicheck.check(out)
             self.assertEqual(problems, [])
             self.assertEqual(stats["known"], 2)
+
+    def test_release_view_puts_the_releases_own_first(self):
+        import program as program_mod
+        p = program_mod.Program()
+        entries = [(0x003468F8, "func_003468F8"), (0x003468F8, "FUN_003468F8"), (0x00270000, "Fb1bbe20c_FUN_00270000"),
+                   (0x00270000, "func_00270000")]
+        self.assertEqual(sorted(entries, key=p._table_order)[2:], [(0x003468F8, "FUN_003468F8"), (0x003468F8, "func_003468F8")])
+        p.release_view = True
+        self.assertEqual(sorted(entries, key=p._table_order),
+                         [(0x00270000, "func_00270000"), (0x00270000, "Fb1bbe20c_FUN_00270000"),
+                          (0x003468F8, "func_003468F8"), (0x003468F8, "FUN_003468F8")])
+
+    def test_abicheck_finds_v1_c_beside_the_releases_own(self):
+        # The primary's C at the release's place beside the release's own C there is an error;
+        # two spellings of one function (func_X and func_X_1) are fine.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "functions.c"
+            path.write_text(
+                "static const openrac_fn_entry k_exe[] = {\n"
+                "    {0x003468F8u, (openrac_host_fn)game_FUN_003468F8, \"FUN_003468F8\"},\n"
+                "    {0x003468F8u, (openrac_host_fn)func_003468F8, \"func_003468F8\"},\n"
+                "    {0x00270000u, (openrac_host_fn)func_00270000, \"func_00270000\"},\n"
+                "    {0x00270000u, (openrac_host_fn)func_00270000_1, \"func_00270000_1\"},\n};\n")
+            import abicheck
+            twins = abicheck.two_bodies(abicheck.read_tables(path)[0])
+        self.assertEqual(len(twins), 1)
+        self.assertIn("0x003468F8", twins[0])
+
+    def test_abicheck_lets_two_spellings_of_the_same_code_be(self):
+        # Two names of one place pass only when their C is the same code (names of parameters,
+        # comments, layout and the spelling of a place aside); otherwise a release whose table is
+        # rebuilt (its "placed") fails.
+        import abicheck
+        table = ("static const openrac_fn_entry k_exe[] = {\n"
+                 "    {0x00270000u, (openrac_host_fn)Fb1bbe20c_FUN_00270000, \"x\"},\n"
+                 "    {0x00270000u, (openrac_host_fn)func_00270000, \"func_00270000\"},\n};\n")
+        same = ("int Fb1bbe20c_FUN_00270000(int a)\n{\n    return FUN_00280000(a); /* v1 */\n}\n"
+                "int func_00270000(int pass_0)\n{\n    return func_00280000(pass_0);\n}\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            gen = Path(tmp)
+            (gen / "functions.c").write_text(table)
+            (gen / "game_protos.h").write_text("")
+            (gen / "game").mkdir()
+            (gen / "game" / "a.c").write_text(same)
+            at = abicheck.read_tables(gen / "functions.c")[0]
+            names = {"Fb1bbe20c_FUN_00270000", "func_00270000"}
+            self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
+            (gen / "game" / "a.c").write_text(same.replace("return func_00280000(pass_0)", "return 1"))
+            self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            # Two that do nothing alike pass whatever their parameters: hostgen's stubs for a
+            # function without C, or void functions without a statement. A stub beside an empty
+            # function, or an empty one returning a value, does not.
+            stub = ("void {0}({1}) {{\n    static openrac_reach_site site_ = {{\"{0}\", \"no-c\", 0, 0, 0}};\n"
+                    "    openrac_guest_reach(&site_);\n}}\n")
+            (gen / "stubs.c").write_text(stub.format("Fb1bbe20c_FUN_00270000", "gaddr a0")
+                                         + stub.format("func_00270000", "gaddr a0, int a1"))
+            (gen / "game" / "a.c").write_text("")
+            self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
+            (gen / "stubs.c").write_text("")
+            (gen / "game" / "a.c").write_text("void Fb1bbe20c_FUN_00270000(void)\n{\n}\n"
+                                              "void func_00270000(gaddr pass_0)\n{\n    /* nothing */\n}\n")
+            self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
+            (gen / "stubs.c").write_text(stub.format("func_00270000", "gaddr a0"))
+            (gen / "game" / "a.c").write_text("void Fb1bbe20c_FUN_00270000(void)\n{\n}\n")
+            self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            (gen / "stubs.c").write_text("")
+            (gen / "game" / "a.c").write_text("void Fb1bbe20c_FUN_00270000(void)\n{\n}\n"
+                                              "int func_00270000(void)\n{\n}\n")
+            self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            # Two that only return an integer 0 pass whatever their parameters; a 1 does not.
+            zero = ("unsigned int Fb1bbe20c_FUN_00270000(void)\n{\n    return (unsigned int)(((unsigned int)(0)));\n}\n"
+                    "unsigned int func_00270000(int pass_0)\n{\n    return 0;\n}\n")
+            (gen / "game" / "a.c").write_text(zero)
+            self.assertEqual(abicheck.two_bodies(at, abicheck.definitions(gen, names)), [])
+            (gen / "game" / "a.c").write_text(zero.replace("return 0;", "return 1;"))
+            self.assertEqual(len(abicheck.two_bodies(at, abicheck.definitions(gen, names))), 1)
+            (gen / "game" / "a.c").write_text(same.replace("return func_00280000(pass_0)", "return 1"))
+            config = gen / "cfg"
+            (config / "host").mkdir(parents=True)
+            (config / "hostgen.json").write_text(json.dumps({"release": {"table": "t.json"}}))
+            (config / "t.json").write_text(json.dumps({"names": {}}))
+            self.assertFalse(abicheck.strict_twins(config / "host"))
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(abicheck.main([str(gen), "--host", str(config / "host")]), 0)
+            (config / "t.json").write_text(json.dumps({"names": {}, "placed": []}))
+            self.assertTrue(abicheck.strict_twins(config / "host"))
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(abicheck.main([str(gen), "--host", str(config / "host")]), 1)
 
     def test_abicheck_finds_a_long_long_passed_as_an_int(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -4251,6 +4509,112 @@ class StaleExports(unittest.TestCase):
                          ["openrac_asmx_func_00100010: the part fills it, the list leaves it out"])
 
 
+
+class AssemblyGuard(unittest.TestCase):
+    """hostgen.json "assembly_allow": a function left to its assembly that translated code reaches."""
+
+    def summary(self):
+        return {"without_c_places": {"func_A": {"kind": "asm"}, "func_B": {"kind": "asm"},
+                                     "func_C": {"kind": "asm", "other_spelling": "func_C2"},
+                                     "func_D": {"kind": "no-c"}},
+                "from_assembly": {"func_E": "<disc>", "func_F": "<disc>"},
+                "call_graph": {"func_X": ["func_A", "func_C", "func_D", "func_F"], "func_B": ["func_B"]}}
+
+    def test_every_translation_is_listed_and_a_reached_one_fails(self):
+        # func_E: translated from the disc, reached by nothing, as a build without it has it.
+        got = hostgen.assembly_guard(self.summary(), {})
+        self.assertEqual(got["assembly_reached"], {"func_A": ["func_X"], "func_E": [], "func_F": ["func_X"]})
+        self.assertEqual(got["assembly_unallowed"], ["func_A", "func_F"])
+
+    def test_an_allowed_row_stands_and_an_unused_one_is_said(self):
+        got = hostgen.assembly_guard(self.summary(), {"func_A": "why", "func_Z": "why"})
+        self.assertEqual(got["assembly_unallowed"], ["func_F"])
+        self.assertEqual(got["assembly_allow_unused"], ["func_Z"])
+        # func_D has no C yet but nothing reaches it here (a build without the disc): its row stands.
+        got = hostgen.assembly_guard(self.summary(), {"func_A": "why", "func_D": "why"})
+        self.assertEqual(got["assembly_allow_unused"], [])
+
+    def test_a_row_stands_for_every_name_of_its_place(self):
+        # ref_G and func_G are one place: a build whose calls reach either name uses the row.
+        summary = self.summary()
+        summary["without_c_places"].update({"func_G": {"kind": "asm", "places": [[-1, "00100000"]]},
+                                            "ref_G": {"kind": "no-c", "places": [[-1, "00100000"]]}})
+        summary["call_graph"]["func_X"].append("func_G")
+        got = hostgen.assembly_guard(summary, {"func_A": "why", "func_F": "why", "ref_G": "why"})
+        self.assertEqual(got["assembly_unallowed"], [])
+        self.assertEqual(got["assembly_allow_unused"], [])
+
+
+class ResultGuard(unittest.TestCase):
+    """hostgen.json "result_allow": a call reading a result its callee does not set, taken as 0."""
+
+    def run_hostgen(self, allow: str | None) -> tuple[int, dict]:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            src = tmp / "game"
+            (src / "include").mkdir(parents=True)
+            (src / "include" / "common.h").write_text(COMMON_H)
+            (src / "src").mkdir()
+            (src / "src" / "callee.c").write_text('#include "common.h"\nvoid func_B(int x) { (void)x; }\n'
+                                                   'float func_C(void) { return 1.0f; }\n')
+            (src / "src" / "caller.c").write_text(textwrap.dedent("""\
+                #include "common.h"
+                int func_B(int x);
+                int func_C(void);
+                int func_A(int x) { func_B(x); (void)func_C(); return func_B(x) + func_C(); }
+                """))
+            cfg = {"name": "test", "sources": ["src"], "includes": ["include", "src"],
+                   "host_functions": HOST_FUNCTIONS}
+            if allow is not None:
+                (tmp / "result_allow.tsv").write_text(allow)
+                cfg["result_allow"] = "result_allow.tsv"
+            (tmp / "hostgen.json").write_text(json.dumps(cfg))
+            out = tmp / "gen"
+            with contextlib.redirect_stderr(io.StringIO()):
+                rc = hostgen.main(["--game", str(tmp / "hostgen.json"), "--source", str(src), "--out", str(out),
+                                   "--jobs", "1", "--quiet"])
+            return rc, json.loads((out / "report.json").read_text())
+
+    def test_a_read_result_is_listed_and_a_discarded_one_is_not(self):
+        rc, report = self.run_hostgen(None)
+        self.assertEqual(rc, 0)  # a game without the table is not checked
+        self.assertEqual(report["results_zeroed"], {"func_A": ["func_B", "func_C"]})
+        self.assertEqual(report["extern_result_mismatch"]["func_C"],
+                         {"returns": "float", "read_as": {"int": ["func_A"]}, "used_by": ["func_A"]})
+
+    def test_a_call_without_a_row_fails_the_run(self):
+        rc, report = self.run_hostgen("func_A\tfunc_B\tits caller adds a value nobody reads\n")
+        self.assertEqual(rc, 1)
+        self.assertEqual(report["results_zeroed_unallowed"], ["func_A\tfunc_C"])
+
+    def test_every_call_allowed_passes_and_a_stale_row_fails(self):
+        rows = "func_A\tfunc_B\twhy\nfunc_A\tfunc_C\twhy\n"
+        self.assertEqual(self.run_hostgen(rows)[0], 0)
+        rc, report = self.run_hostgen(rows + "func_A\tfunc_Z\twhy\n")
+        self.assertEqual(rc, 1)
+        self.assertEqual(report["result_allow_unused"], ["func_A\tfunc_Z"])
+
+    def test_a_row_needs_a_reason(self):
+        with self.assertRaises(SystemExit):
+            self.run_hostgen("func_A\tfunc_B\n")
+
+
+class CandidateTableTest(unittest.TestCase):
+    def test_columns_after_the_file_are_ignored(self):
+        # rac3-decomp's table has more columns (program, the gate's verdict, ...) after name and file.
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "f").mkdir()
+            (source / "f/func_00100000.c").write_text("int func_00100000(void) { return 1; }\n")
+            (source / "t.tsv").write_text(
+                "# name\tfile\tprogram\tgate\n"
+                "func_00100000\tf/func_00100000.c\tboot_elf\tsame 3/3 blocks, 2/2 states\n"
+            )
+            files: dict[str, str] = {}
+            got = hostgen.read_candidates(source, {"candidates": "t.tsv"}, files)
+            self.assertEqual(list(got), ["func_00100000"])
+            self.assertEqual(files["func_00100000"], "f/func_00100000.c")
+
+
 if __name__ == "__main__":
     unittest.main()
-

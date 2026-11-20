@@ -22,14 +22,18 @@ interface Rule {
 function css(file: string, text: string): { code: string; line: number } {
   let code = text;
   let line = 1;
+
   if (file.endsWith(".svelte")) {
     const open = /<style[^>]*>/.exec(text);
+
     if (!open) return { code: "", line };
     const start = open.index + open[0].length;
     const end = text.indexOf("</style>", start);
+
     code = text.slice(start, end < 0 ? undefined : end);
     line = text.slice(0, start).split("\n").length;
   }
+
   return { code: code.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, " ")), line };
 }
 
@@ -40,28 +44,38 @@ function rules(file: string, text: string): Rule[] {
   const stack: Rule[] = [];
   let buffer = "";
   let line = first;
+
   for (const ch of code) {
     if (ch === "{") {
       const path = [...(stack.at(-1)?.path ?? []), buffer.trim().replace(/\s+/g, " ")];
+
       stack.push({ where: `${file}:${line}`, path, declarations: [] });
       buffer = "";
     } else if (ch === ";" || ch === "}") {
       const top = stack.at(-1);
+
       if (top && buffer.trim()) top.declarations.push(buffer.trim());
+
       if (ch === "}") {
         const done = stack.pop();
+
         if (done?.declarations.length) out.push(done);
       }
+
       buffer = "";
     } else {
       buffer += ch;
     }
+
     if (ch === "\n") line++;
   }
+
   return out;
 }
 
-const all = Object.entries(sources).flatMap(([file, text]) => rules(file.replace(/^\.\.\//, "src/"), text));
+const all = Object.entries(sources).flatMap(([file, text]) =>
+  rules(file.replace(/^\.\.\//, "src/"), text),
+);
 
 describe("stylesheets", () => {
   it("keeps root font sizing independent of rem during animated game accents", () => {
@@ -73,7 +87,10 @@ describe("stylesheets", () => {
           .some((selector) => selector.trim() === "html"),
       )
       .flatMap((rule) => rule.declarations)
-      .filter((declaration) => /^font(?:-size)?\s*:/.test(declaration) && /[\d.]rem\b/.test(declaration));
+      .filter(
+        (declaration) => /^font(?:-size)?\s*:/.test(declaration) && /[\d.]rem\b/.test(declaration),
+      );
+
     expect(relativeRootFonts).toEqual([]);
   });
 
@@ -82,6 +99,7 @@ describe("stylesheets", () => {
       .filter((rule) => rule.path.some((path) => /^@keyframes page-(in|out)$/.test(path)))
       .flatMap((rule) => rule.declarations)
       .filter((declaration) => /^scale\s*:|\bscale\(/.test(declaration));
+
     expect(zooms).toEqual([]);
   });
 
@@ -95,6 +113,7 @@ describe("stylesheets", () => {
       .filter((r) => r.path.at(-1)?.includes(":hover"))
       .filter((r) => !r.path.some((p) => /^@media\b.*\(hover:\s*hover\)/.test(p)))
       .map((r) => `${r.where} ${r.path.at(-1) ?? ""}`);
+
     expect(outside).toEqual([]);
   });
 
@@ -104,6 +123,7 @@ describe("stylesheets", () => {
       .filter((r) => r.path.at(-1)?.includes(":hover"))
       .flatMap((r) => (r.path.at(-1) ?? "").split(",").map((s) => `${r.where} ${s.trim()}`))
       .filter((s) => !s.includes('html:where(:not([data-input="pad"]))'));
+
     expect(loose).toEqual([]);
   });
 
@@ -112,7 +132,10 @@ describe("stylesheets", () => {
     // :root's value (app.css, the accent's colours).
     const loose = all
       .filter((r) => !r.path.includes(":root") && !r.path[0]?.startsWith("@property"))
-      .flatMap((r) => r.declarations.filter((d) => /#[0-9a-f]{3,8}\b/i.test(d)).map((d) => `${r.where} ${d}`));
+      .flatMap((r) =>
+        r.declarations.filter((d) => /#[0-9a-f]{3,8}\b/i.test(d)).map((d) => `${r.where} ${d}`),
+      );
+
     expect(loose).toEqual([]);
   });
 });

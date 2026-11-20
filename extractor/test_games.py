@@ -74,6 +74,7 @@ class TableTests(unittest.TestCase):
         self.assertEqual(RAC4.level_name(42), "Catacrom Graveyard (multiplayer)")
         self.assertEqual(RAC4.level_name(99), "Level 99")
         self.assertTrue(games.known("rac1", "pal") and games.known("rac3", "ntsc") and games.known("rac3", "pal"))
+        self.assertTrue(all(games.known("rac2", v) for v in ("ntsc", "pal", "ntsc2")))
         self.assertFalse(games.known("rac4", "pal") or games.known("rac9", "ntsc"))
         self.assertEqual(games.title("rac4"), "Ratchet: Deadlocked")
         self.assertEqual(games.of(object()), RAC1)

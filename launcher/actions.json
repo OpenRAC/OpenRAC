@@ -358,6 +358,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -406,6 +407,110 @@
         ],
         "docs": "extractor/MODDING.md",
         "todo": "Run it from the desktop app. From a shell on macOS: an export with Ratchet's mesh edited in Blender and his textures upscaled 4x became a pack the port drew on level 0."
+      },
+      {
+        "id": "interface-export",
+        "label": "Export interface textures",
+        "description": "Rebuilds the textures of the HUD, the menus, the font and the effects from your disc, as the game makes them, into a folder named the way texture packs name them (Font, HUD and menus, Effects). Reads the run you made with Make a run. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--interface-export",
+          "{data}/exports/interface-{option}",
+          "--interface-runs",
+          "{data}/interface_runs/rac1-pal.json",
+          "--only",
+          "{option}"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-pal.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac1/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          }
+        ],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
+      },
+      {
+        "id": "interface-run",
+        "label": "Make an interface run",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. A kind at a time or all; a later run adds to the earlier one. About half an hour for all; the computer can be used meanwhile.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "port/tools/interface_runs/run.py",
+          "run",
+          "--game",
+          "rac1-pal",
+          "--exe",
+          "{artifact}",
+          "--data",
+          "{data}",
+          "--levels",
+          "{root}/assets/port/rac1/pal",
+          "--out",
+          "{data}/interface_runs/rac1-pal.json",
+          "--kinds",
+          "{option}"
+        ],
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects",
+          "fresh"
+        ],
+        "output": "{data}/interface_runs",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python",
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-pal.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac1/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac1/pal/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
       },
       {
         "id": "audio-export",
@@ -908,6 +1013,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -956,6 +1062,110 @@
         ],
         "docs": "extractor/MODDING.md",
         "todo": "Run it from the desktop app. The same command as PAL's, with the NTSC-U levels; an export is imported with the levels of the disc it was made from."
+      },
+      {
+        "id": "interface-export",
+        "label": "Export interface textures",
+        "description": "Rebuilds the textures of the HUD, the menus, the font and the effects from your disc, as the game makes them, into a folder named the way texture packs name them (Font, HUD and menus, Effects). Reads the run you made with Make a run. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--interface-export",
+          "{data}/exports/interface-{option}",
+          "--interface-runs",
+          "{data}/interface_runs/rac1-ntsc.json",
+          "--only",
+          "{option}"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac1/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          }
+        ],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
+      },
+      {
+        "id": "interface-run",
+        "label": "Make an interface run",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. A kind at a time or all; a later run adds to the earlier one. About half an hour for all; the computer can be used meanwhile.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "port/tools/interface_runs/run.py",
+          "run",
+          "--game",
+          "rac1-ntsc",
+          "--exe",
+          "{artifact}",
+          "--data",
+          "{data}",
+          "--levels",
+          "{root}/assets/port/rac1/ntsc",
+          "--out",
+          "{data}/interface_runs/rac1-ntsc.json",
+          "--kinds",
+          "{option}"
+        ],
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects",
+          "fresh"
+        ],
+        "output": "{data}/interface_runs",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python",
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac1/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac1/ntsc/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
       },
       {
         "id": "audio-export",
@@ -1243,6 +1453,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -1602,6 +1813,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -1953,6 +2165,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -2003,9 +2216,113 @@
         "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
       },
       {
+        "id": "interface-export",
+        "label": "Export interface textures",
+        "description": "Rebuilds the textures of the HUD, the menus, the font and the effects from your disc, as the game makes them, into a folder named the way texture packs name them (Font, HUD and menus, Effects). Reads the run you made with Make a run. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--interface-export",
+          "{data}/exports/interface-{option}",
+          "--interface-runs",
+          "{data}/interface_runs/rac2-ntsc.json",
+          "--only",
+          "{option}"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          }
+        ],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
+      },
+      {
+        "id": "interface-run",
+        "label": "Make an interface run",
+        "description": "Plays the game's test routes hidden (every level, the pause pages, the vendor, the title) and notes which textures of the interface it draws, so that the export can make them. A kind at a time or all; a later run adds to the earlier one. About half an hour for all; the computer can be used meanwhile.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "port/tools/interface_runs/run.py",
+          "run",
+          "--game",
+          "rac2-ntsc",
+          "--exe",
+          "{artifact}",
+          "--data",
+          "{data}",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc",
+          "--out",
+          "{data}/interface_runs/rac2-ntsc.json",
+          "--kinds",
+          "{option}"
+        ],
+        "options": [
+          "font",
+          "interface",
+          "effects",
+          "font,interface",
+          "font,effects",
+          "interface,effects",
+          "font,interface,effects",
+          "fresh"
+        ],
+        "output": "{data}/interface_runs",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "python",
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
+      },
+      {
         "id": "overrides-add",
         "label": "Add an overrides pack",
-        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are used when you play with your mods.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -2027,7 +2344,7 @@
       {
         "id": "overrides-stack",
         "label": "Put the mods together",
-        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "description": "Puts your packed levels and the overrides packs that are on, in their order, into the one folder the game reads its mods from. A pack for another game is left out and listed.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -2039,6 +2356,8 @@
           "{data}/overrides",
           "--out",
           "{data}/mods/ntsc",
+          "--packed",
+          "{root}/assets/packed/rac2/ntsc",
           "--levels",
           "{root}/assets/port/rac2/ntsc"
         ],
@@ -2053,7 +2372,7 @@
           }
         ],
         "docs": "extractor/MODDING.md",
-        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+        "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15): a texture pack of level 4 stacked into {data}/mods/ntsc and played with --mods drew every texture from it."
       },
       {
         "id": "port-build",
@@ -2066,8 +2385,6 @@
         "args": [
           "tools/build_port.py",
           "rac2-ntsc",
-          "--disc",
-          "{disc}",
           "--probe-baker"
         ],
         "cwd": ".",
@@ -2077,40 +2394,10 @@
           "windows"
         ],
         "requires": [
-          "disc",
           "python"
         ],
         "docs": "port/game/rac2-ntsc/README.md",
         "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. --probe-baker: the enhanced lighting's baker, as Ratchet & Clank's build makes it. From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc in port/ built the program (2026-10-27)."
-      },
-      {
-        "id": "port-part",
-        "label": "Build the game from your disc",
-        "description": "Translates the part of Going Commando's code that is still in assembly from your disc and compiles it on this device, into the game's data folder. A few minutes, once for each new app version that changes the game; nothing is downloaded.",
-        "kind": "build",
-        "area": "port",
-        "state": "unverified",
-        "program": "{python}",
-        "args": [
-          "tools/asm_part.py",
-          "build",
-          "rac2-ntsc",
-          "--disc",
-          "{disc}",
-          "--out",
-          "{data}/asm-part"
-        ],
-        "makes": "{data}/asm-part/libopenrac-rac2-ntsc-part.so",
-        "cwd": ".",
-        "platforms": [
-          "android"
-        ],
-        "requires": [
-          "disc",
-          "python"
-        ],
-        "docs": "port/game/rac2-ntsc/README.md",
-        "todo": "Run it on a device. An Android launcher's copy (tools/bundle_standalone.py --android) writes it to a folder named by what it is built from (its kit and hostgen, bundle_standalone.py part_tag) and Play waits for it there; the APK carries the kit (tools/asm_part.py kit) and Clang and lld from Zig's static AArch64 release (tools/build_android.py ZIG_FILES)."
       },
       {
         "id": "probe-bake",
@@ -2162,8 +2449,6 @@
         "args": [
           "tools/build_port.py",
           "rac2-ntsc",
-          "--disc",
-          "{disc}",
           "--clean"
         ],
         "cwd": ".",
@@ -2173,7 +2458,6 @@
           "windows"
         ],
         "requires": [
-          "disc",
           "python"
         ],
         "docs": "port/game/rac2-ntsc/README.md"
@@ -2185,7 +2469,6 @@
         "kind": "play",
         "area": "port",
         "state": "unverified",
-        "warning": "Going Commando is early and unstable: every level runs, but expect wrong graphics, missing effects and crashes.",
         "docs": "port/game/rac2-ntsc/README.md",
         "todo": "Run it from the desktop app on each platform. From a shell on macOS, openrac-rac2-ntsc --data <set-up folder> --levels <the export> --window boots, plays a new game and loads saves, and its --level tour ran all 27 levels to control (2026-11-02, port/game/rac2-ntsc/README.md). There is no --check-levels for this game yet, so Play waits for the export's own stamp. On Android the APK carries it built without the disc, and port-part builds the rest from the player's disc first.",
         "program": "{artifact}",
@@ -2195,6 +2478,46 @@
           "--window",
           "--levels",
           "{root}/assets/port/rac2/ntsc"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
+      },
+      {
+        "id": "play-edited",
+        "label": "Play with your edits",
+        "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Built like Play. The Mods page runs overrides-stack first, which writes {data}/mods/ntsc.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc",
+          "--mods",
+          "{data}/mods/ntsc"
         ],
         "platforms": [
           "linux",
@@ -2332,6 +2655,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -2384,7 +2708,7 @@
       {
         "id": "overrides-add",
         "label": "Add an overrides pack",
-        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are used when you play with your mods.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -2406,7 +2730,7 @@
       {
         "id": "overrides-stack",
         "label": "Put the mods together",
-        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "description": "Puts your packed levels and the overrides packs that are on, in their order, into the one folder the game reads its mods from. A pack for another game is left out and listed.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -2418,6 +2742,8 @@
           "{data}/overrides",
           "--out",
           "{data}/mods/pal",
+          "--packed",
+          "{root}/assets/packed/rac2/pal",
           "--levels",
           "{root}/assets/port/rac2/pal"
         ],
@@ -2432,7 +2758,7 @@
           }
         ],
         "docs": "extractor/MODDING.md",
-        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+        "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15): a texture pack of level 4 stacked into {data}/mods/pal and played with --mods drew every texture from it."
       },
       {
         "id": "port-build",
@@ -2445,8 +2771,6 @@
         "args": [
           "tools/build_port.py",
           "rac2-pal",
-          "--disc",
-          "{disc}",
           "--probe-baker"
         ],
         "cwd": ".",
@@ -2456,40 +2780,10 @@
           "windows"
         ],
         "requires": [
-          "disc",
           "python"
         ],
         "docs": "port/game/rac2-ntsc/README.md",
         "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. --probe-baker: the enhanced lighting's baker, as Ratchet & Clank's build makes it. From a shell on macOS, cmake --build --preset release --target openrac-rac2-pal in port/ built the program (2026-10-27)."
-      },
-      {
-        "id": "port-part",
-        "label": "Build the game from your disc",
-        "description": "Translates the part of Going Commando's code that is still in assembly from your disc and compiles it on this device, into the game's data folder. A few minutes, once for each new app version that changes the game; nothing is downloaded.",
-        "kind": "build",
-        "area": "port",
-        "state": "unverified",
-        "program": "{python}",
-        "args": [
-          "tools/asm_part.py",
-          "build",
-          "rac2-pal",
-          "--disc",
-          "{disc}",
-          "--out",
-          "{data}/asm-part"
-        ],
-        "makes": "{data}/asm-part/libopenrac-rac2-pal-part.so",
-        "cwd": ".",
-        "platforms": [
-          "android"
-        ],
-        "requires": [
-          "disc",
-          "python"
-        ],
-        "docs": "port/game/rac2-ntsc/README.md",
-        "todo": "Run it on a device. An Android launcher's copy (tools/bundle_standalone.py --android) writes it to a folder named by what it is built from (its kit and hostgen, bundle_standalone.py part_tag) and Play waits for it there; the APK carries the kit (tools/asm_part.py kit) and Clang and lld from Zig's static AArch64 release (tools/build_android.py ZIG_FILES)."
       },
       {
         "id": "probe-bake",
@@ -2541,8 +2835,6 @@
         "args": [
           "tools/build_port.py",
           "rac2-pal",
-          "--disc",
-          "{disc}",
           "--clean"
         ],
         "cwd": ".",
@@ -2552,7 +2844,6 @@
           "windows"
         ],
         "requires": [
-          "disc",
           "python"
         ],
         "docs": "port/game/rac2-ntsc/README.md"
@@ -2564,7 +2855,6 @@
         "kind": "play",
         "area": "port",
         "state": "unverified",
-        "warning": "Going Commando is early and unstable: every level runs, but expect wrong graphics, missing effects and crashes.",
         "docs": "port/game/rac2-ntsc/README.md",
         "todo": "Run it from the desktop app on each platform. From a shell on macOS, openrac-rac2-pal --data <set-up folder> --levels <the export> --window boots, plays a new game and loads saves, and its --level tour ran all 27 levels to control (2026-11-02, port/game/rac2-ntsc/README.md). There is no --check-levels for this game yet, so Play waits for the export's own stamp. On Android the APK carries it built without the disc, and port-part builds the rest from the player's disc first.",
         "program": "{artifact}",
@@ -2574,6 +2864,46 @@
           "--window",
           "--levels",
           "{root}/assets/port/rac2/pal"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-pal.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
+      },
+      {
+        "id": "play-edited",
+        "label": "Play with your edits",
+        "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Built like Play. The Mods page runs overrides-stack first, which writes {data}/mods/pal.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac2/pal",
+          "--mods",
+          "{data}/mods/pal"
         ],
         "platforms": [
           "linux",
@@ -2711,6 +3041,7 @@
         "output": "{data}/exports",
         "options": [
           "mobys",
+          "weapons",
           "textures",
           "scenery",
           "terrain",
@@ -2763,7 +3094,7 @@
       {
         "id": "overrides-add",
         "label": "Add an overrides pack",
-        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are used when you play with your mods.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -2785,7 +3116,7 @@
       {
         "id": "overrides-stack",
         "label": "Put the mods together",
-        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "description": "Puts your packed levels and the overrides packs that are on, in their order, into the one folder the game reads its mods from. A pack for another game is left out and listed.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -2797,6 +3128,8 @@
           "{data}/overrides",
           "--out",
           "{data}/mods/ntsc2",
+          "--packed",
+          "{root}/assets/packed/rac2/ntsc2",
           "--levels",
           "{root}/assets/port/rac2/ntsc2"
         ],
@@ -2811,7 +3144,7 @@
           }
         ],
         "docs": "extractor/MODDING.md",
-        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+        "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15): a texture pack of level 4 stacked into {data}/mods/ntsc2 and played with --mods drew every texture from it."
       },
       {
         "id": "port-build",
@@ -2824,8 +3157,6 @@
         "args": [
           "tools/build_port.py",
           "rac2-ntsc2",
-          "--disc",
-          "{disc}",
           "--probe-baker"
         ],
         "cwd": ".",
@@ -2835,40 +3166,10 @@
           "windows"
         ],
         "requires": [
-          "disc",
           "python"
         ],
         "docs": "port/game/rac2-ntsc/README.md",
         "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. --probe-baker: the enhanced lighting's baker, as Ratchet & Clank's build makes it. From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc2 in port/ built the program (2026-10-27)."
-      },
-      {
-        "id": "port-part",
-        "label": "Build the game from your disc",
-        "description": "Translates the part of Going Commando's code that is still in assembly from your disc and compiles it on this device, into the game's data folder. A few minutes, once for each new app version that changes the game; nothing is downloaded.",
-        "kind": "build",
-        "area": "port",
-        "state": "unverified",
-        "program": "{python}",
-        "args": [
-          "tools/asm_part.py",
-          "build",
-          "rac2-ntsc2",
-          "--disc",
-          "{disc}",
-          "--out",
-          "{data}/asm-part"
-        ],
-        "makes": "{data}/asm-part/libopenrac-rac2-ntsc2-part.so",
-        "cwd": ".",
-        "platforms": [
-          "android"
-        ],
-        "requires": [
-          "disc",
-          "python"
-        ],
-        "docs": "port/game/rac2-ntsc/README.md",
-        "todo": "Run it on a device. An Android launcher's copy (tools/bundle_standalone.py --android) writes it to a folder named by what it is built from (its kit and hostgen, bundle_standalone.py part_tag) and Play waits for it there; the APK carries the kit (tools/asm_part.py kit) and Clang and lld from Zig's static AArch64 release (tools/build_android.py ZIG_FILES)."
       },
       {
         "id": "probe-bake",
@@ -2920,8 +3221,6 @@
         "args": [
           "tools/build_port.py",
           "rac2-ntsc2",
-          "--disc",
-          "{disc}",
           "--clean"
         ],
         "cwd": ".",
@@ -2931,7 +3230,6 @@
           "windows"
         ],
         "requires": [
-          "disc",
           "python"
         ],
         "docs": "port/game/rac2-ntsc/README.md"
@@ -2943,7 +3241,6 @@
         "kind": "play",
         "area": "port",
         "state": "unverified",
-        "warning": "Going Commando is early and unstable: every level runs, but expect wrong graphics, missing effects and crashes.",
         "docs": "port/game/rac2-ntsc/README.md",
         "todo": "Run it from the desktop app on each platform. From a shell on macOS, openrac-rac2-ntsc2 --data <set-up folder> --levels <the export> --window boots, plays a new game and loads saves, and its --level tour ran all 27 levels to control (2026-11-02, port/game/rac2-ntsc/README.md). There is no --check-levels for this game yet, so Play waits for the export's own stamp. On Android the APK carries it built without the disc, and port-part builds the rest from the player's disc first.",
         "program": "{artifact}",
@@ -2953,6 +3250,46 @@
           "--window",
           "--levels",
           "{root}/assets/port/rac2/ntsc2"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc2.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
+      },
+      {
+        "id": "play-edited",
+        "label": "Play with your edits",
+        "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Built like Play. The Mods page runs overrides-stack first, which writes {data}/mods/ntsc2.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc2",
+          "--mods",
+          "{data}/mods/ntsc2"
         ],
         "platforms": [
           "linux",

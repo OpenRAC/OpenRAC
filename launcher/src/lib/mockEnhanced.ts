@@ -7,7 +7,8 @@ export const mockEnhanced: EnhancedView = {
     name: "Enhanced graphics",
     version: "Experimental",
     author: "OpenRAC",
-    description: "Improved lighting and effects whilst preserving the charm of the original visuals we all love.",
+    description:
+      "Improved lighting and effects whilst preserving the charm of the original visuals we all love.",
     homepage: "",
     license: "GPL-3.0-or-later",
     enabled: false,
@@ -40,7 +41,8 @@ export const mockEnhanced: EnhancedView = {
           { value: "fast", name: "Fast" },
           { value: "soft", name: "Soft" },
         ],
-        description: "Soft blurs shadow edges with a wide filter. Fast costs less and leaves them harder.",
+        description:
+          "Soft blurs shadow edges with a wide filter. Fast costs less and leaves them harder.",
       },
       {
         key: "gtao",
@@ -80,7 +82,8 @@ export const mockEnhanced: EnhancedView = {
         type: "choice",
         default: "quality",
         value: "quality",
-        description: "Reconstructs a lower-resolution world image. The HUD stays at full resolution.",
+        description:
+          "Reconstructs a lower-resolution world image. The HUD stays at full resolution.",
         choices: [
           { value: "off", name: "Off" },
           { value: "native-aa", name: "Native AA" },
@@ -108,7 +111,8 @@ export const mockEnhanced: EnhancedView = {
         type: "bool",
         default: true,
         value: true,
-        description: "Balances colour and contrast for a softer, more natural image, and lets you adjust brightness.",
+        description:
+          "Balances colour and contrast for a softer, more natural image, and lets you adjust brightness.",
       },
       {
         key: "agx_brightness",
@@ -160,5 +164,13 @@ export const mockEnhanced: EnhancedView = {
     kind: "built-in",
     path: "",
   },
-  bake: { available: true, why: "", noBakerHere: false, levels: 19, ready: 7, failed: 0, partial: 2 },
+  bake: {
+    available: true,
+    why: "",
+    noBakerHere: false,
+    levels: 19,
+    ready: 7,
+    failed: 0,
+    partial: 2,
+  },
 };

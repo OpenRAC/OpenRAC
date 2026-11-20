@@ -1,0 +1,5 @@
+# Functions this program may leave to their assembly although translated code reaches them
+# (hostgen.json "assembly_allow"; hostgen.py assembly_guard). Every other one fails the build.
+# name	reason
+func_001271D8	libmpeg's motion compensation (hand-written MMI): the port's movie player decodes the game's movies itself, so nothing of sceMpeg runs
+func_0012A2D8	libmpeg's colour conversion, whose address _doCSC2 forms for its DMA handler: the port's movie player decodes the game's movies itself, so nothing of sceMpeg runs

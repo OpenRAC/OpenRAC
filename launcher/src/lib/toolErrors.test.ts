@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ERROR_LINE, TOOL_ERRORS, UNKNOWN_ERROR, errorCode, toolFailure } from "./toolErrors";
+
+import { ERROR_LINE, errorCode, TOOL_ERRORS, toolFailure, UNKNOWN_ERROR } from "./toolErrors";
 
 const RAW =
   "extract: level 00: this PAL project predates the 60 Hz gameplay fix. Extract the levels again to back up the old project and create a 60 Hz project, then reapply your intended edits. Do not copy the whole old scene.";
@@ -10,6 +11,7 @@ describe("toolFailure", () => {
     const f = toolFailure(
       lines("$ python3 extractor/extract.py pack …", `${ERROR_LINE}project-outdated-gameplay`, RAW),
     );
+
     expect(f.code).toBe("project-outdated-gameplay");
     expect(f.title).toBe(TOOL_ERRORS["project-outdated-gameplay"]?.title);
     expect(f.next).toBe("update");
@@ -17,8 +19,11 @@ describe("toolFailure", () => {
   });
 
   it("gives an unknown code, or none, the generic sentence", () => {
-    expect(toolFailure(lines(`${ERROR_LINE}a-code-from-the-future`, "boom")).title).toBe(UNKNOWN_ERROR.title);
+    expect(toolFailure(lines(`${ERROR_LINE}a-code-from-the-future`, "boom")).title).toBe(
+      UNKNOWN_ERROR.title,
+    );
     const none = toolFailure(lines("Traceback (most recent call last):", "KeyError: 'x'"));
+
     expect(none.code).toBeNull();
     expect(none.title).toBe(UNKNOWN_ERROR.title);
   });
@@ -30,6 +35,7 @@ describe("toolFailure", () => {
         "extract: [Errno 13] Permission denied: '/home/ana/OpenRAC/assets/levels/x.tscn'",
       ),
     );
+
     expect(f.details).toContain("Permission denied");
     expect(f.details).not.toContain("/home/ana");
     expect(f.details).not.toContain(ERROR_LINE);
@@ -38,13 +44,16 @@ describe("toolFailure", () => {
   it("never puts a tool's raw message in the sentence, whatever the code", () => {
     for (const code of [...Object.keys(TOOL_ERRORS), "unknown-code", ""]) {
       const f = toolFailure(lines(`${ERROR_LINE}${code}`, RAW));
+
       expect(`${f.title} ${f.line}`).not.toContain("extract:");
       expect(`${f.title} ${f.line}`).not.toContain("predates");
     }
   });
 
   it("reads the last code said", () => {
-    expect(errorCode(lines(`${ERROR_LINE}disk-full`, "x", `${ERROR_LINE}file-error`))).toBe("file-error");
+    expect(errorCode(lines(`${ERROR_LINE}disk-full`, "x", `${ERROR_LINE}file-error`))).toBe(
+      "file-error",
+    );
     expect(errorCode(lines("nothing"))).toBeNull();
   });
 

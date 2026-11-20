@@ -95,6 +95,12 @@
         { "id": "skip", "icon": "skip", "press": ["start"], "at": 0, "size": "large" }
       ]
     },
+    "minigame": {
+      "actions": [
+        { "id": "retry", "icon": "retry", "press": ["circle"], "at": 1, "size": "large" },
+        { "id": "quit", "icon": "back", "press": ["triangle"], "at": 2 }
+      ]
+    },
     "menu": {
       "dpad": true,
       "actions": [

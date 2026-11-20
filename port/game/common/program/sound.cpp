@@ -146,11 +146,7 @@ HealthWindow g_health;
 
 void report_health() {
     const platform::AudioOutput::Health h = g_sound->take_health();
-    if (h.reopens > 0) {
-        log::warn("audio: the device stopped asking for sound and was opened again");
-    }
     if (stats::enabled()) {
-        stats::gauge("audio device reopened", h.reopens);
         stats::gauge("audio short frames", h.short_frames);
         stats::gauge("audio request gap ms", h.worst_gap_ms);
         stats::gauge("audio mix ms", h.worst_render_ms);
@@ -279,3 +275,29 @@ void watch_sound() {
 #endif
 
 }  // namespace openrac::program
+
+extern "C" void openrac_game_infobot_sound(int opening) {
+#ifdef OPENRAC_FRONTEND
+    using namespace openrac::audio::ui_sounds;
+    play(opening ? Sound::InfobotOpen : Sound::InfobotClose);
+#else
+    (void)opening;
+#endif
+}
+
+extern "C" void openrac_game_special_sound(int item) {
+#ifdef OPENRAC_FRONTEND
+    if (!openrac::audio::ui_sounds::play_pickup_audio(item)) {
+        openrac::log::warn("Receiving audio unavailable for item {}", item);
+    }
+#else
+    (void)item;
+#endif
+}
+
+#ifndef OPENRAC_FRONTEND
+extern "C" int openrac_game_special_available(int item) {
+    (void)item;
+    return 0;
+}
+#endif

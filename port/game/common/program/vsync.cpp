@@ -239,7 +239,9 @@ std::chrono::microseconds tick_period() {
 // ---- The clock and the end ----
 
 int tick_rate() {
-    return 60;
+    // The game's own rate where its code has one built in (Going Commando's PAL counts in fiftieths:
+    // its 1.2x steps and 1/50 s constants); otherwise 60, a PAL game being kept in its own 60 Hz mode.
+    return openrac_game.tick_rate == 50 ? 50 : 60;
 }
 
 void finish() {

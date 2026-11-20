@@ -26,7 +26,7 @@
 |---|---|
 | needs interface 1.1; this OpenRAC has 1.0 | the player needs a newer OpenRAC, or set `api` to what you really use |
 | not for this disc | add the disc to `games` if the mod works there |
-| no library for this platform | build for it (the template's workflow builds all desktop ones), or it is Android, which loads only script mods |
+| no library for this platform | build for it: the template's workflow builds `windows-x86_64`, `linux-x86_64`, `linux-aarch64`, `macos-arm64`, `macos-x86_64` and `android-arm64`; a mod released before its workflow had the Android build needs a new release |
 | no hook point X | check its [id](hooks.md#stable-ids), or ask for the hook point |
 | signature differs | the hook point's signature is in the [reference](reference/hooks-rac1.md) |
 | stopped while the game ran: hook X: ... | your script's error, or it ran over its 2 ms budget |

@@ -20,7 +20,9 @@ struct SceneFrame {
     bool temporal = false;    // Temporal reconstruction is active for this scene.
     float picture_scale = 1;  // Width of the original picture inside the wider frame.
     bool has_camera = false;  // The world is drawn: the tick has a camera and set_camera kept one.
-    std::vector<renderer::EffectQuad> effects;  // Effect quads moved between ticks, for input.
+    std::vector<renderer::EffectQuad> effects{};  // Effect quads moved between ticks, for input.
+    // Attached strip vertices moved from the display list's tick to the displayed parent.
+    std::vector<renderer::EffectVertex> strip_vertices{};
 };
 
 // The camera part way from the last tick's to this one's (a cut is not blended).
@@ -34,6 +36,9 @@ void blend_shadows(SceneFrame& frame);
 
 // Binds the owned packets, effects and HUD quads for this scene.
 void set_packets(SceneFrame& frame);
+
+// Binds captured strip and quad geometry, including interpolated effect attachments.
+void set_effects(SceneFrame& frame);
 
 // Registers the native HUD callback, consumed synchronously before the owned snapshot is released.
 void set_target_mobys(SceneFrame& frame);

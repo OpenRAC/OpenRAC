@@ -32,6 +32,8 @@ typedef struct openrac_game_info {
     const char* serial; /* "SCES_509.16": its executable on the disc */
     int frame_rate;     /* 50 (PAL) or 60 */
     const char* entry;  /* the game's main, or NULL while it is not known */
+    int tick_rate; /* the ticks a second the port runs it at: 60, or 50 for a disc whose code has
+                           50 Hz built in (hostgen.json "tick_rate"; Going Commando's PAL) */
 } openrac_game_info;
 
 extern const openrac_game_info openrac_game;
@@ -61,6 +63,10 @@ void openrac_game_register_functions(void);
 /* The player's disc image, as the extractor kept it (iso_data/<game>/disc.iso).
  * The game reads it by sector. */
 extern const char* openrac_game_disc_image;
+/* Portable presentation's own mechanical/chirp cues, mixed with game audio. */
+void openrac_game_infobot_sound(int opening);
+void openrac_game_special_sound(int item);
+int openrac_game_special_available(int item);
 
 /* A folder of edited levels (--mods), or NULL: its patches.tsv lists the disc
  * sectors that are read from files beside it instead (OpenRAC Editor's openrac/tools/pack.py writes
@@ -106,6 +112,17 @@ extern const char* openrac_game_loaded_mods;
  * save_slot_current reads them (openrac_api.save_slot_current). */
 extern int openrac_game_save_in_use;
 extern int32_t openrac_game_save_in_use_seconds;
+
+/* Set by the mods' loader (interface 1.16, the mods' data kept with the saves; game/common/mods.cpp,
+ * null until it loads), called by lib/mc.c: a save the game has just written at `path` (its mark set; `players` 0
+ * for one of the blank slots the game writes on a fresh card), and a save it has just read whole
+ * (Load Game) from `slot`. */
+extern void (*openrac_game_save_written)(const char* path, int players);
+extern void (*openrac_game_save_read)(const char* path, int slot);
+/* The same, called by a game's host when the game starts a new game (Ratchet & Clank: NewGameInit,
+ * rac1/host/boot.c), before the save it may write right after: the mods' data starts empty. A game
+ * without it is still seen starting one once it plays with no save of its own (save_slot_current). */
+extern void (*openrac_game_new_game)(void);
 
 /* The console's language setting (sceScfGetLanguage): 1 English, 2 French,
  * 3 Spanish, 4 German, 5 Italian. */
@@ -220,13 +237,13 @@ typedef struct openrac_front_end {
     /* The menus' sound for a widget (rac1: the confirm sound, 0x11, from the widget's moby). */
     void (*menu_sound)(int sound, gaddr moby);
     /* The front end's page menu, data in the boot program (rac1: debug_menu.cpp describes it). */
-    gaddr page_menu;      /* +4 the page shown */
-    gaddr options_list;   /* the Options list widget: +0x34 its items, 12 bytes each */
-    gaddr options_items;  /* the items the game gives it, ended by one without a label */
-    gaddr video_item;     /* the item that opens the Video page, added where the game's lack it */
+    gaddr page_menu;     /* +4 the page shown */
+    gaddr options_list;  /* the Options list widget: +0x34 its items, 12 bytes each */
+    gaddr options_items; /* the items the game gives it, ended by one without a label */
+    gaddr video_item;    /* the item that opens the Video page, added where the game's lack it */
     gaddr language_page, language_title, language_list; /* what the Planets page is copied from */
-    int16_t planets_text;                                /* "Planets" */
-    const int16_t* planet_texts;                         /* each level's planet name, by level */
+    int16_t planets_text;                               /* "Planets" */
+    const int16_t* planet_texts;                        /* each level's planet name, by level */
     gaddr video_page, video_list, video_rows; /* the Video options page, its list, its own rows */
     gaddr sound_hint;                         /* the Sound options page's hint widget */
     int32_t sound_list_seq, sound_hint_seq;   /* that page's frame animations */
@@ -323,6 +340,12 @@ extern const openrac_mod_pages_host* openrac_game_mod_pages;
 int openrac_mod_pages_items(int pause);
 int openrac_mod_pages_label(int pause, int index, char* out, int size);
 int openrac_mod_pages_after(int index);
+
+/* Whether a mod draws `moby` as platinum (openrac_api.moby_material, interface 1.23): 1 when the
+ * material on it this level load is OPENRAC_MOBY_MATERIAL_PLATINUM, else 0. For the game's own
+ * effects of that moby, which the renderer cannot tie to it: Going Commando's bolt coin trail
+ * (rac2/host/platinum_trail.c). From the game's thread (mod_play.cpp). */
+int openrac_moby_platinum(gaddr moby);
 
 #define OPENRAC_MOD_PAGES_TEXT 64
 #define OPENRAC_MOD_PAGES_ROWS 12
@@ -484,6 +507,14 @@ typedef struct openrac_game_shot2 {
     float velocity2[3];
     float aux[4];
 } openrac_game_shot2;
+
+typedef struct openrac_infobot_presentation {
+    float position[3];
+    float openness;
+    float scale;
+    int special_item;
+    float time, yaw;
+} openrac_infobot_presentation;
 
 typedef struct openrac_game_play {
     /* The levels, by the game's own numbers, and their names. */
@@ -691,6 +722,30 @@ typedef struct openrac_game_play {
     int (*mission_state_clear)(int level, const uint8_t* flags);
     /* Whether the destination is playing its landing scene. NULL when unsupported. */
     int (*landing)(int level);
+    /* The game's own segment query for a mod (openrac_api.collision_line): the nearest of the
+     * level's faces (with `level`) and the mobys' (with `mobys`, all but `ignore`) between two
+     * points, the game seeing nothing of it: 1 for a hit (its point, its face's normal, the face's
+     * surface type or -1 for a creature's joint shape, the moby or 0), 0 for none or outside a
+     * level. NULL for a game without it. */
+    int (*collision_line)(
+        const float from[3],
+        const float to[3],
+        int level,
+        int mobys,
+        uint32_t ignore,
+        float point[3],
+        float normal[3],
+        int32_t* surface,
+        uint32_t* moby
+    );
+    /* The skeleton joint of the hero's attach point `point` on the moby at `moby` (one of the
+     * hero's class), as openrac_held_piece.joint names them (openrac_api.prop_attach,
+     * OPENRAC_ATTACH_HELD); -1 for one the game does not have. NULL for a game without it. */
+    int (*attach_point_joint)(uint32_t moby, int point);
+    int (*pickup_animation)(int kind, int item);
+    /* A portable pickup presentation keeps the level background visible. */
+    int (*pickup_background)(void);
+    int (*infobot_presentation)(openrac_infobot_presentation* out);
     /* hero_sound_play and hero_sound_stop on any moby of the level (openrac_api.moby_sound_play,
      * moby_sound_stop), and the volume group the game's music streams play in (openrac_api
      * music_volume), -1 for none. NULL for a game without them. */
@@ -855,6 +910,9 @@ typedef struct openrac_game_quad {
      * between ticks may move it with the moby's body (an engine's flame), so that it stays where it
      * is on the moby; the window decides which owners' quads sit on them. */
     uint32_t parent;
+    /* A physical attachment whose current-tick geometry follows this moby's displayed transform;
+     * 0 for world-space effects, including trails emitted by a moving callback owner. */
+    uint32_t attachment;
 } openrac_game_quad;
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);
@@ -866,12 +924,21 @@ void openrac_game_effect_quad(const openrac_game_quad* quad);
 #define OPENRAC_EFFECT_QUAD_MARKER 0x4551u
 uint32_t openrac_game_effect_quad_marker(void);
 
+/* A scoped attachment for strips in a display list delayed by one tick: write this tag in bits
+ * 48-63 and the parent moby's address in bits 0-31 to NOP; address 0 ends the scope. The frontend
+ * moves these vertices from the previous parent transform to its displayed transform. */
+#define OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER 0x4550u
+
 /* Where the game's moby renderer draws the world's mobys, for the display list: the game puts
  * (OPENRAC_WORLD_MOBYS_MARKER << 48) in it with an A+D write to the NOP register where the world's
  * moby packets would have gone. The strips the game sent before it, after the world's marker (its
  * draw callback lists run between the ties and the mobys), are drawn before the shrubs and mobys,
  * as the console drew them (renderer::EffectStrip::before_mobys). */
 #define OPENRAC_WORLD_MOBYS_MARKER 0x4D57u
+
+/* Where the game's shrub renderer starts, for the display list. Its strips between the world
+ * marker and this NOP tag belong before the shrubs, including both layers of Hoven's ice. */
+#define OPENRAC_WORLD_SHRUBS_MARKER 0x5357u
 
 /* World-space explosion; optional visual water response, with no gameplay side effects. */
 void openrac_game_water_explosion(const float position[3], float radius, float strength);
@@ -937,18 +1004,6 @@ float openrac_game_picture_wider(void);
  * culled. 1 at 100%, below it, and while the setting does not apply (cutscenes, the debug camera). */
 float openrac_game_view_opened(void);
 
-/* The player's Draw distance as a factor of the game's (settings.h draw_distance): 1 at Original,
- * 4 at 400%, 0 Unlimited; 1 without a window. The moby renderers' drawn flag (+0x31) takes it, so
- * that a moby the window draws farther away is drawn to the game too, which keeps it active (the
- * moby loop updates a drawn moby whatever its update distance). */
-float openrac_game_draw_distance(void);
-
-/* The player's Active distance as a factor of the game's (settings.h active_distance_scale): Draw
- * distance's at Match (the default), 1 at Original; 1 without a window. The moby renderers' drawn
- * flag (+0x31) takes it, so that a moby the window draws farther away is drawn to the game too,
- * which keeps it active (the moby loop updates a drawn moby whatever its update distance). */
-float openrac_game_active_distance(void);
-
 /* A game fix's flag, by its setting key (port/game/<game>/differences.json, kind "fix";
  * game/common/fixes.h): nonzero while the port's fix is on, 0 for the console's behaviour. The
  * pointer stays good for the program's life and follows the player's setting, so the code a fix
@@ -985,6 +1040,30 @@ void openrac_game_sky_sprite(const uint8_t* record, uint64_t tex0);
  * such channel). Start skips it when `start_skips` (the console's readMpeg rule for the caller).
  * Returns 1 if skipped, 0 if played to the end or when there is no window to play it in. */
 int openrac_game_play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips);
+
+/* openrac_game_play_movie as a game whose player draws each movie frame with a display list of its
+ * own: on each of the movie's vertical blanks `overlay` gets the picture (RGBA, rows top to
+ * bottom), puts it where the console's decoder leaves it in the GS's memory
+ * (openrac_game_load_picture) and sends the list the console's player sends then, which the window
+ * draws as a tick of the game (Going Commando's: the picture, then its title's "Press START" or the
+ * movie's subtitles). NULL shows the picture alone. */
+int openrac_game_play_movie_over(
+    uint32_t lsn,
+    uint32_t bytes,
+    int channel,
+    int start_skips,
+    void (*overlay)(const uint8_t* rgba, int width, int height)
+);
+
+/* A picture the game's decoder leaves in a frame buffer's memory (a movie's frame), PSMCT32 at
+ * image's base and width (x, y, psm and pixels are not read), its RGBA rows in the port's memory
+ * (the native player decodes outside the game's). The list's draws from that block read it as a
+ * texture, not as the frame drawn, until openrac_game_forget_picture. */
+void openrac_game_load_picture(const openrac_game_image* image, const uint8_t* pixels);
+
+/* Forgets the pictures openrac_game_load_picture put at block `base`: the GS's memory there is
+ * what the game draws again (a movie's frames in the displayed buffer, once it is over). */
+void openrac_game_forget_picture(int base);
 
 /* The buttons of a pad, in the console's bit order (active low, as the pad
  * library reports them) and its analog values; false if none is connected. */

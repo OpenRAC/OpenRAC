@@ -39,11 +39,11 @@
     }
   ],
   "derived": {
-    "table": "release_names.json"
+    "table": "release/release_names.json"
   },
   "release": {
     "version": "us",
-    "table": "release_names.json"
+    "table": "release/release_names.json"
   },
   "candidates": "nonmatching/functional.tsv",
   "candidates_left_out": {

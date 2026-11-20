@@ -50,6 +50,35 @@ another game's pack is refused, and its pictures are added to yours.
 Saved pictures go to `texture_dumps/<game id>/` in the launcher's data folder,
 not into your pack.
 
+## Export without playing
+
+**Make your own → Models and textures → Interface textures** saves the HUD,
+menu, font and effect textures from your disc, with no need to play. They go
+into a new folder under `<data>/exports/`, sorted into `Font/`,
+`HUD and menus/` and `Effects/`, with the same file names a dump uses.
+
+It works in two steps:
+
+1. **Make** plays the game's test routes once, hidden, and notes which
+   textures it draws and where they come from on the disc. This takes a few
+   minutes, and **Stop** ends it. You can make one kind at a time; a later run
+   adds to the first. The result is `<data>/interface_runs/<id>.json`. It holds
+   no game data, only hashes and disc positions.
+2. **Export** rebuilds each texture from your disc and keeps it only if it
+   matches. This takes about a second.
+
+Available for Ratchet & Clank NTSC-U and PAL, and Going Commando NTSC-U. The
+game must be set up and its levels ready. A run made by an older port shows as
+out of date: make it again. Textures the game draws from code (a fade, a
+screen effect) are not on the disc, so they can't be exported.
+
+From the command line:
+
+```
+python3 port/tools/interface_runs/run.py run --game rac1-ntsc --out run.json --exe <program> --data <data> --levels <levels> [--kinds font,interface,effects] [--fresh]
+openrac-rac1-ntsc --data <data> --interface-export <folder> --interface-runs run.json [--only font,interface,effects]
+```
+
 ## Making one by hand
 
 1. Dump the textures: start the game with
@@ -68,6 +97,10 @@ not into your pack.
 
    A second run into the same folder writes only what is new, and still moves
    textures to `Shared/`.
+   Fully transparent uploads are omitted only when the draw's texture function
+   and source-over blend make their colours invisible. Unknown draw states,
+   RGB-only textures and blank animation frames are kept. Texture hashes and
+   replacement names are unchanged.
 2. Edit or upscale the pictures you want. Keep the file name. Any size works:
    the game samples a replacement over the same area as the original.
 3. Put the edited files in `<data>/texture_packs/<game id>/`, in any folders,
@@ -109,6 +142,18 @@ side). Give it the texture's shape (the same `viewBox` ratio). Only shapes,
 fills, strokes and gradients are drawn, so turn text into paths. Images,
 fonts, links and scripts are not read, and the launcher refuses an SVG with
 them. Up to 4 MB. Not for photos or painted textures.
+
+**Size and speed.** The game reads each picture from disk once. A level's
+pictures are read while it loads, several at a time. HUD, menu and effect
+pictures are read in the background from the start, smallest first, and kept
+in memory (up to 1 GB, 512 MB on Android). A HUD or menu picture past that is
+read the first time it shows, in the background: the original shows for a few
+frames until it is ready, so the game never waits for it. The game remembers
+which pictures were HUD, menus or effects (in its cache folder), and from the
+next run reads ahead only those. Keep HUD pictures no bigger than they need to
+be, and keep level pictures in a `Planets/` folder (as the dump does), so the
+first run does not read them ahead too. A replaced font is drawn as
+the picture is, without the sharpening the game gives the original font.
 
 **Several formats for one texture.** The game tries SVG, then KTX2, then PNG.
 If one cannot be read, it uses the next. Keep a PNG beside an SVG or KTX2 so
@@ -179,7 +224,9 @@ frame by frame.
   there are no frames to replace.
 - **Made while the game runs.** Fades, the picture drawn into a screen (the
   vendor's screen, the ship's cockpit display) and other textures the game
-  draws itself change every frame. They cannot be replaced.
+  draws itself change every frame. They cannot be replaced. In the 2D layer
+  a dump skips them: a place that gets a new texture on almost every tick for
+  about a second is not dumped, and its first ones are removed again.
 
 Examples from Going Commando (NTSC-U):
 

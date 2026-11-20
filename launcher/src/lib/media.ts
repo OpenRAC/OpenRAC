@@ -24,7 +24,11 @@ const GAME_THUMB: Record<string, string> = {
 /** Store bundles use original OpenRAC illustrations; desktop/dev keeps its existing artwork. */
 /** Whether the build shows the store's own drawings in place of the games' art. */
 export function storeArtwork(): boolean {
-  const host = typeof window === "undefined" ? null : (window as Window & { __OPENRAC_STORE_ARTWORK__?: boolean });
+  const host =
+    typeof window === "undefined"
+      ? null
+      : (window as Window & { __OPENRAC_STORE_ARTWORK__?: boolean });
+
   return !!host?.__OPENRAC_STORE_ARTWORK__;
 }
 
@@ -55,6 +59,7 @@ const kept = new Map<string, HTMLImageElement>();
 export function keepDecoded(src: string): void {
   if (kept.has(src) || typeof Image === "undefined") return;
   const img = new Image();
+
   img.src = src;
   img.decode().catch(() => undefined); // a picture that is not there stays out
   kept.set(src, img);

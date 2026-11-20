@@ -552,6 +552,53 @@ void add_library_services(Machine& machine) {
         m.result(18);
     });
 
+    /*
+     * The first pad library, libpad (Up Your Arsenal's), by its public interface: a DualShock 2
+     * connected in port 0, analog, with pressures.
+     */
+    // scePadGetState(port, slot): 6, scePadStateStable.
+    machine.add_service("scePadGetState", [](Machine& m) { m.result(6); });
+    // scePadGetReqState(port, slot): 0, the last request completed.
+    machine.add_service("scePadGetReqState", [](Machine& m) { m.result(0); });
+    // scePadInfoMode(port, slot, term, offset): the current mode's id is 7 (analog); the mode
+    // table has two entries (-1 asks for the count), digital (4) and analog (7).
+    machine.add_service("scePadInfoMode", [](Machine& m) {
+        u32 term = m.arg(2);
+        s32 offset = static_cast<s32>(m.arg(3));
+        if (term == 1) {  // PAD_MODECURID
+            m.result(7);
+        } else if (term == 4) {  // PAD_MODETABLE
+            m.result(offset == -1 ? 2 : offset == 0 ? 4 : 7);
+        } else {  // PAD_MODECUREXID, PAD_MODECUROFFS
+            m.result(term == 2 ? 7 : 1);
+        }
+    });
+    /*
+     * scePadRead(port, slot, data): 32 bytes, a status byte (0: read), the mode's id (7) and its
+     * length in halfwords (9) in one byte, two bytes of buttons (a clear bit is a pressed
+     * button), the right stick, the left stick and twelve pressures; the result is nonzero.
+     */
+    machine.add_service("scePadRead", [](Machine& m) {
+        const Machine::Pad& pad = m.pad;
+        u32 to = m.arg(2);
+        static constexpr unsigned bit[12] = {5, 7, 4, 6, 12, 13, 14, 15, 10, 11, 8, 9};
+
+        for (u32 n = 0; n < 32; n++) {
+            m.ee.write8(to + n, 0);
+        }
+        m.ee.write8(to + 1, 0x79);
+        m.ee.write8(to + 2, static_cast<u8>(~pad.buttons));
+        m.ee.write8(to + 3, static_cast<u8>(~(pad.buttons >> 8)));
+        m.ee.write8(to + 4, pad.right_x);
+        m.ee.write8(to + 5, pad.right_y);
+        m.ee.write8(to + 6, pad.left_x);
+        m.ee.write8(to + 7, pad.left_y);
+        for (u32 n = 0; n < 12; n++) {
+            m.ee.write8(to + 8 + n, (pad.buttons >> bit[n]) & 1 ? 0xFF : 0);
+        }
+        m.result(32);
+    });
+
     // --- the display ---
 
     // sceGsSyncV(mode): wait for the next vertical blank; which field follows.

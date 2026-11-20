@@ -19,8 +19,10 @@ export class ModSaveStore {
 
   async load(): Promise<void> {
     this.loadError = null;
+
     try {
       const read = await api.readModSaveDataRac2(this.serial, this.slot);
+
       this.mods = read;
       for (const m of read) this.take(m);
     } catch (e) {
@@ -52,8 +54,10 @@ export class ModSaveStore {
   /** Writes mod `m`'s changed fields; throws the command's error. */
   async save(m: ModSaveData): Promise<void> {
     const keys = this.changedKeys(m);
+
     if (keys.length === 0) return;
     this.busy = m.id;
+
     try {
       const read = await api.writeModSaveDataRac2(
         this.serial,
@@ -61,6 +65,7 @@ export class ModSaveStore {
         m.id,
         Object.fromEntries(keys.map((k) => [k, this.get(m.id, k)])),
       );
+
       this.mods = (this.mods ?? []).map((x) => (x.id === read.id ? read : x));
       this.take(read);
     } finally {

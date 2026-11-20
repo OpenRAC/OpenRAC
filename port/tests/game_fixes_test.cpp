@@ -53,7 +53,8 @@ int main() {
           "fix_wide_nanotech_orbs",
           "fix_wide_liquids",
           "fix_wide_air_traffic",
-          "fix_wide_fires"}) {
+          "fix_wide_fires",
+          "fix_wide_barriers"}) {
         const int i = fixes::find(key);
         CHECK(i >= 0);
         CHECK(fixes::fix(i).on);
@@ -84,6 +85,7 @@ int main() {
     CHECK(asked.count("fix_wide_nanotech_orbs") == 1);
     CHECK(asked.count("fix_wide_air_traffic") == 1);
     CHECK(asked.count("fix_wide_fires") == 1);
+    CHECK(asked.count("fix_wide_barriers") == 1);
     for (const std::string& key : asked) {
         if (fixes::find(key.c_str()) < 0) {
             std::fprintf(

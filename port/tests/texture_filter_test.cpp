@@ -56,6 +56,7 @@ out vec4 v_probe_multiplier;
 flat out vec4 v_probe_selector;
 flat out int v_lit;
 flat out int v_glow;
+flat out int v_mod_material;
 out vec3 v_script_emission;
 flat out vec3 v_probe_ambient;
 out vec3 v_emission_colour;
@@ -64,7 +65,7 @@ void main(){
  vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);
  gl_Position=vec4(p*2-1,0,1);v_uv=p;v_stq=vec3(p,1);
  v_colour=vec4(1);v_normal=vec3(0,0,1);v_world_position=vec3(0);
- v_probe_multiplier=vec4(1);v_probe_selector=vec4(0);v_lit=1;v_glow=0;
+ v_probe_multiplier=vec4(1);v_probe_selector=vec4(0);v_lit=1;v_glow=0;v_mod_material=0;
  v_script_emission=vec3(0);v_probe_ambient=vec3(0);v_emission_colour=vec3(0);v_fog_w=vec2(0,1);
 })";
 

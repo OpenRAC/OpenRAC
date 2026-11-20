@@ -12,8 +12,9 @@ Daxter. Nothing here emulates the console.
 
 It covers all six games: Ratchet & Clank (PAL and NTSC-U, and PAL v1.00 and
 Japan's disc, which it finds but cannot play yet), Going Commando, Up
-Your Arsenal, Deadlocked, Size Matters and Secret Agent Clank. Only
-Ratchet & Clank (PAL v2.00 and NTSC-U) is playable today. The others can be browsed, and set
+Your Arsenal, Deadlocked, Size Matters and Secret Agent Clank. Ratchet &
+Clank (PAL v2.00 and NTSC-U) and Going Commando (USA v1.01, USA v2.00 and
+Europe's) are playable today. The others can be browsed, and set
 up, built and checked where their projects support it. Each game's Play
 button says what is still missing.
 
@@ -103,6 +104,10 @@ the game you used last.
   replaces every save on the card, after a backup. A file from another game
   or disc (PAL and NTSC are different discs) is refused, and so is a damaged
   one ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#saves-between-devices)).
+  **Copy from PAL** (or **Copy from NTSC-U**), on the Saves panel, brings the
+  saves of the game's other disc onto this one's card the same way: each disc
+  keeps its own card, but Ratchet & Clank's and Going Commando's discs read
+  each other's saves.
 - **Crashes**: the game page says when the game stopped unexpectedly. Your
   saves are kept. **Copy report** gives text for a
   [GitHub issue](https://github.com/OpenRAC/OpenRAC/issues) or Discord.
@@ -117,7 +122,7 @@ the game you used last.
   own** saves the game's pictures while you play, so you can edit them
   ([docs/port/TEXTURE_PACKS.md](../docs/port/TEXTURE_PACKS.md)).
 - **Differences from the original**: for a game with a port, what it does
-  differently and why. **Game fixes** can be switched; **Kept from crashing**
+  differently and why. **Game fixes** can be switched (some are always on); **Kept from crashing**
   and **Playing on a PC** are listed for the record. The list is
   `port/game/<game>/differences.json`
   ([docs/port/SETTINGS.md](../docs/port/SETTINGS.md#8-game-fixes-and-the-differences-from-the-original)).
@@ -207,19 +212,15 @@ the packs: on or off, order, remove, add a `.zip` or folder, or drop one on
 the page. With the **Mods** switch under Play on, Play first combines the packed
 levels with the packs that are on ([extractor/MODDING.md](../extractor/MODDING.md)).
 
-Going Commando (any of its three discs: USA v1.01, USA v2.00 and Europe's),
-Up Your Arsenal and Deadlocked (NTSC-U) are early access.
-Their levels open in OpenRAC Editor and **Models and textures** works, but edits are
-not packed back. Their packs wait in Your mods
+Going Commando (any of its three discs: USA v1.01, USA v2.00 and Europe's) is
+playable; Up Your Arsenal and Deadlocked (NTSC-U) are early access. Their
+levels open in OpenRAC Editor and **Models and textures** works, but level edits are
+not packed back yet. Their packs wait in Your mods
 ([OpenRAC Editor's guide](https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md)). Up
-Your Arsenal and Deadlocked are not playable yet. Going Commando's program
-still needs code from your disc. The Windows installer carries the game without
-that code and a small compiler: **Build and play** builds the missing part from
-your disc, with nothing to install or download, then gets its levels ready as
-Ratchet & Clank's does. On Linux and macOS no installer carries it: **Build and
-play** downloads OpenRAC's source and builds it from your disc. That needs a
-compiler, and says which is missing. On Linux it also needs SDL's X11, Wayland
-and audio development packages, such as `libxss-dev`.
+Your Arsenal and Deadlocked are not playable yet. Going Commando's decompilation
+is whole, so every installer carries its three programs built as Ratchet &
+Clank's are: pick the disc, get the levels ready, Play. Nothing is built on
+your computer.
 
 ## Develop
 

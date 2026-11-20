@@ -13,9 +13,11 @@
   import { supports } from "$lib/capabilities";
   import { modsOnCount, setWithMods } from "$lib/gameMenu.svelte";
   import { WITH_MODS } from "$lib/modsText";
+
   import Icon from "./Icon.svelte";
 
-  let { version, setUp, onopen }: { version: VersionView; setUp: boolean; onopen: () => void } = $props();
+  let { version, setUp, onopen }: { version: VersionView; setUp: boolean; onopen: () => void } =
+    $props();
 
   const on = $derived(app.config?.playWithMods ?? false);
 
@@ -23,13 +25,16 @@
   let count = $state<number | null>(null);
   $effect(() => {
     const shown = version;
+
     count = lastCount[shown.key] ?? null;
     if (!setUp) return;
     let current = true;
+
     void modsOnCount(shown).then((n) => {
       lastCount[shown.key] = n;
       if (current) count = n;
     });
+
     return () => {
       current = false;
     };
@@ -48,7 +53,9 @@
     /></label
   >
   {#if on}
-    <button class="link" onclick={onopen}>{WITH_MODS.count(count)}<Icon name="next" size={12} /></button>
+    <button class="link" onclick={onopen}
+      >{WITH_MODS.count(count)}<Icon name="next" size={12} /></button
+    >
   {:else}
     <span class="dim">{WITH_MODS.original}</span>
   {/if}

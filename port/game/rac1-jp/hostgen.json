@@ -31,9 +31,9 @@
     "include/names.h"
   ],
   "places": "config/versions/jp/functions.tsv",
-  "split_places": "split_places.tsv",
+  "split_places": "tables/split_places.tsv",
   "symbols": [
-    "../../../port/game/rac1-jp/port_symbols.txt"
+    "../../../port/game/rac1-jp/tables/port_symbols.txt"
   ],
   "libraries": "libraries.tsv",
   "host_shared": [
@@ -170,6 +170,8 @@
   "candidates": "nonmatching/functional.tsv",
   "hand": "hand/hand.tsv",
   "overrides": "hand/overrides.tsv",
+  "assembly_allow": "checks/assembly_allow.tsv",
+  "result_allow": "checks/result_allow.tsv",
   "asm": {
     "enabled": true,
     "dirs": [],
@@ -192,7 +194,7 @@
   },
   "release": {
     "version": "jp",
-    "table": "release_names.json",
+    "table": "release/release_names.json",
     "splice": "src/versions/jp"
   },
   "names": {

@@ -1789,6 +1789,29 @@ gaddr search_pair(gaddr address, int overlay) {
     return 0;
 }
 
+// An address no pair is near and no code forms (data the game reaches through a pointer, as rac1's
+// pause screens): when the nearest pairs below and above it move their addresses by the same amount,
+// the data between them moved as one block, and the address with it. 0 otherwise.
+gaddr between_pairs(const LevelMap& map, gaddr address) {
+    auto above =
+        std::upper_bound(map.data.begin(), map.data.end(), std::make_pair(address, INT32_MAX));
+    if (above == map.data.begin() || above == map.data.end()) {
+        return 0;
+    }
+    const auto below = std::prev(above);
+    if (openrac::env::flag(openrac::env::Var::TraceRelocation)) {
+        info(
+            "  {:#x}: pairs around it {:#x} ({:+#x}) and {:#x} ({:+#x})",
+            address,
+            below->first,
+            below->second,
+            above->first,
+            above->second
+        );
+    }
+    return below->second == above->second ? address + static_cast<gaddr>(below->second) : 0;
+}
+
 // What openrac_relocate_data() answers for an address in a level's program, looked up in its tables
 // under the lock.
 gaddr relocate_data_slow(gaddr address, int overlay) {
@@ -1802,14 +1825,20 @@ gaddr relocate_data_slow(gaddr address, int overlay) {
         LevelMap& found = level_map(overlay);
         auto s = found.searched.find(address);
         if (s == found.searched.end()) {
-            s = found.searched.emplace(address, search_pair(address, overlay)).first;
+            gaddr at = search_pair(address, overlay);
+            const char* how = "found by its code";
+            if (at == 0) {
+                at = between_pairs(found, address);
+                how = "moved as the pairs around it";
+            }
+            s = found.searched.emplace(address, at).first;
             if (openrac::env::flag(openrac::env::Var::TraceRelocation)) {
                 warn(
                     "executable address {:#x} has no paired address within 0x100 below it in level "
                     "{}; {}",
                     address,
                     overlay,
-                    s->second != 0 ? std::format("found by its code at {:#x}", s->second) : "kept"
+                    s->second != 0 ? std::format("{} at {:#x}", how, s->second) : "kept"
                 );
             }
         }

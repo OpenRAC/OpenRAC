@@ -6,8 +6,9 @@ export type Rac2ItemState = { id: number, owned: boolean,
  */
 ammo: number | null, 
 /**
- * Experience, for a weapon that upgrades by it: in a level, the game upgrades the weapon
- * itself once this reaches the upgrade's threshold.
+ * Experience, for a weapon (every weapon counts it), in the units the game compares with the
+ * upgrade steps (the stored count >> 5): in a level, the game upgrades the weapon itself once
+ * this reaches the upgrade's step.
  */
 xp: number | null, 
 /**

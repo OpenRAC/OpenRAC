@@ -1,0 +1,190 @@
+{
+ "about": "What port/tools/hostgen/release.py and release_carry.py need of this release besides the decompilation and the primary release's port: its ids, the decompilation's places for it, and the pairs checked by hand, each with its evidence.",
+ "game": "rac2",
+ "id": "rac2-pal",
+ "version": "pal",
+ "primary": "rac2-ntsc",
+ "title": "Ratchet & Clank: Going Commando (PAL)",
+ "serial": "SCES_516.07",
+ "frame_rate": 50,
+ "tick_rate": 50,
+ "tick_rate_why": "The release's code counts in fiftieths (its own constants, no 60 Hz mode): the port ticks it 50 times a second.",
+ "tag": "PAL",
+ "config": "config/pal",
+ "build": "build/pal",
+ "baserom": "baserom/pal",
+ "level_base": "0x001A7D00",
+ "gp": "0x001AF070",
+ "skip": {
+  "own": [
+   "src/pal",
+   "src/us2"
+  ],
+  "as": "src/us2",
+  "why": "the releases' own C under the decompilation's src/: the other release's is left out"
+ },
+ "pairs": {
+  "about": "Function pairs taken as they are where nothing else pairs them: the primary's name, the release's (in the release's names), the evidence.",
+  "func_0027F640": {
+   "is": "func_0027FB48",
+   "why": "FontPrintScaled: between func_0027F5B8 and func_0027F980 as in v1.01; the same calls in order (func_00283CE0 x3, func_0027E1A0 x3, func_00283CE0) after a new first call of func_002FC560; 832 bytes for 808"
+  },
+  "func_L01_003CEDA0": {
+   "is": "func_L01_003D2EF0",
+   "why": "rac2-decomp's func_PAL_L01_003D2EF0 (src/pal/levels/01_oozla/L01_003D2EF0.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_L01_003D2E50": {
+   "is": "func_L01_003D7098",
+   "why": "rac2-decomp's func_PAL_L01_003D7098 (src/pal/levels/01_oozla/L01_003D7098.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_L01_00416440": {
+   "is": "func_L01_0041B900",
+   "why": "rac2-decomp's func_PAL_L01_0041B900 (src/pal/levels/01_oozla/L01_0041B900-cc-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_L04_00434BB0": {
+   "is": "func_L04_00439C28",
+   "why": "rac2-decomp's func_PAL_L04_00439C28 (src/pal/levels/04_barlow/L04_00439C28-sale-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_L04_00456628": {
+   "is": "func_L04_0045C268",
+   "why": "rac2-decomp's func_PAL_L04_0045C268 (src/pal/levels/04_barlow/L04_0045B130.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_L03_003F09C0": {
+   "is": "func_L03_003F5090",
+   "why": "rac2-decomp's func_PAL_L03_003F5090 (src/pal/levels/03_endako/L03_003F5090-help-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_L08_0040E9B8": {
+   "is": "func_L08_004137E8",
+   "why": "rac2-decomp's func_PAL_L08_004137E8 (src/pal/levels/08_tabora/L08_004137E8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_L11_004618C0": {
+   "is": "func_L11_004676D0",
+   "why": "rac2-decomp's func_PAL_L11_004676D0 (src/pal/levels/11_joba/L11_004676D0-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_L11_003F8510": {
+   "is": "func_L11_003FCA30",
+   "why": "rac2-decomp's func_PAL_L11_003FCA30 (src/pal/levels/11_joba/L11_003FCA30-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_L18_003F90A0": {
+   "is": "func_L18_003FD180",
+   "why": "rac2-decomp's func_PAL_L18_003FD180 (src/pal/levels/18_damosel/L18_003FD180-sw-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_L18_00440718": {
+   "is": "func_L18_00445BB0",
+   "why": "rac2-decomp's func_PAL_L18_00445BB0 (src/pal/levels/18_damosel/L18_00445BB0-cc-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes"
+  },
+  "func_001158F8": {
+   "is": "func_001158F8",
+   "why": "strncmp: the same bytes at the same address (the catalogue names it func_001158F4, entered after its fill word at 0x001158F8)"
+  },
+  "func_0026F7A0": {
+   "is": "func_0026F610",
+   "why": "returns 0 (jr $ra; daddu $v0, $zero, $zero) at 0x0026F610, after the same two empty stubs as in v1.01; the catalogue does not list it"
+  }
+ },
+ "constants": {
+  "about": "RAC2_K constants taken as they are: name, value, the evidence.",
+  "PAUSE_LIST_COUNT": {
+   "value": "0x1CC",
+   "why": "func_00341610 as func_00343690: sw $a0, 0x1CC($s0) at +0x7c, as v1.01's at +0x74 (the list's count)"
+  },
+  "PAUSE_OPTIONS_ROWS": {
+   "value": "7",
+   "why": "func_00341610 as func_00343690: addiu $v1, $zero, 0x7 at +0x5c for v1.01's 0x8 (the Options list's rows, list 1)"
+  },
+  "MAP_MARKERS": {
+   "value": "1",
+   "why": "PAL's map (func_PAL_00296870, src/pal/game/00296870-map-g8.c) is v1.01's DrawMapOverlay C, which draws no Mapper markers: the port draws v2.00's (host/map_markers.c)"
+  }
+ },
+ "hand_names": {
+  "about": "Names of the primary's hand C the release table has no value for: the primary's name, the release's, the evidence.",
+  "D_0013CF58": {
+   "is": "D_0013CFD8",
+   "why": "data_moves.tsv: the boot run 0x00133B80-0x001A7900 moved +0x80 (528 pairs); sceSif's code is the same at the same place"
+  },
+  "D_00146940": {
+   "is": "D_001469C0",
+   "why": "data_moves.tsv: boot run 00133B80-001A7900 moved +0x80 over 528 pairs (both neighbours in the view agree: D_00143180->D_00143200, D_00146CC0->D_00146D40)"
+  },
+  "func_0012B180": {
+   "is": "func_0012B180",
+   "why": "the hand C's function between func_0012B0D8 and func_0012B198, which the catalogue lists at the same addresses in both releases; the same bytes from 0x0012B134 to 0x0012B198 in both executables"
+  }
+ },
+ "hand": {
+  "about": "The port's own C for the release's own hand-written assembly: name, file in hand/.",
+  "func_002A0F68": "func_002A0F68.c",
+  "func_002A2E30": "func_002A2E30.c"
+ },
+ "extra": {
+  "about": "The release's own additions to the carried hostgen.json (release_carry.py merges them): each with why.",
+  "from_assembly": {},
+  "unit_aliases": {
+   "src/levels/shared/L00_002B5A88-qcopy.c": {
+    "func_V1_L00_002B55F0_1": {
+     "is": "func_L00_002B5518",
+     "why": "rac2-decomp's func_PAL_L00_002B5518 (src/pal/levels/shared/L00_002B5518-cc.c) is its PAL copy of func_L00_002B55F0, which the release table could not pair (the C calls it by its _1 spelling, which the release's build gave no value); call_copies.tsv pairs this caller's call with it in every level (func_L00_002B59B0 -> func_L00_002B5518 at level 0). Without it the hero's position history copies a stale ring entry over his position every tick and he falls to 0,0,0"
+    }
+   },
+   "src/pal/levels/shared/L00_003BEE68-cc.c": {
+    "func_V1_802EE138_1": {
+     "is": "func_002835B0",
+     "why": "the file's own note: func_802EE138_1 becomes func_00282CF0 (v1.01), PAL's func_002835B0, as in L00_003B9CB8.c's aliases"
+    },
+    "func_V1_802EE3D0_1": {
+     "is": "func_002837E0",
+     "why": "the file's own note: func_802EE3D0_1 becomes func_00282F20 (v1.01), PAL's func_002837E0, as in L00_003B9CB8.c's aliases"
+    }
+   },
+   "src/pal/levels/shared/L13_002C56D8-deck.c": {
+    "func_L00_002BDB68": {
+     "is": "func_L00_002B2BE0",
+     "why": "the file calls func_US2_L00_002B2DD0, USA v2.00's name; PAL's copy of that function (the same catalogue row, 1052 bytes) is func_PAL_L00_002B2BE0"
+    }
+   },
+   "src/pal/levels/shared/L02_003E2FB0.c": {
+    "func_V1_L00_0037E5F0": {
+     "is": "func_L00_00381328",
+     "why": "v1.01's func_L00_0037E5F0, which PAL has as its own func_PAL_L00_00381328 (versionmap: same code, level 0; 76 bytes)"
+    }
+   },
+   "src/levels/shared/L00_003EE100.c": {
+    "func_V1_L00_003F0198_2": {
+     "is": "func_L00_003F4518",
+     "why": "v1.01's func_L00_003F0198 (its _2 spelling), PAL's own func_PAL_L00_003F4518 (versionmap: near, level 0; 1252 bytes both)"
+    }
+   },
+   "src/pal/levels/10_hrugis_cloud/L10_00318BA0.c": {
+    "func_V1_L05_00419CC8": {
+     "is": "func_L05_0041EA08",
+     "why": "rac2-decomp's func_PAL_L05_0041EA08 (src/pal/levels/shared/L05_0041EA08-cc-g8.c) is its PAL copy of func_L05_00419CC8 (the same C at 50 Hz), which the release table could not pair; this PAL file calls it by the v1.01 name. Without it levels 10 and 15 run v1.01's copy, which takes level 5's address of its callback (an unknown call, 0x0041EF88) and steps at 60 Hz"
+    }
+   },
+   "src/pal/levels/15_gorn/L15_00316F78-effects-g8.c": {
+    "func_V1_L05_00419CC8": {
+     "is": "func_L05_0041EA08",
+     "why": "rac2-decomp's func_PAL_L05_0041EA08 (src/pal/levels/shared/L05_0041EA08-cc-g8.c) is its PAL copy of func_L05_00419CC8 (the same C at 50 Hz), which the release table could not pair; this PAL file calls it by the v1.01 name. Without it levels 10 and 15 run v1.01's copy, which takes level 5's address of its callback (an unknown call, 0x0041EF88) and steps at 60 Hz"
+    }
+   },
+   "src/game/002AA800.c": {
+    "F500f9762_FUN_00283CE0": {
+     "is": "func_002845A0",
+     "why": "v1.01's C of gfx_start_color_fade and its sibling (func_002AB800, func_002AB8C0: PAL's FUN_002AC290, FUN_002AC3C0) calls IntToFloat (v1.01 func_00283CE0) by its F500f9762_ spelling, which PAL's build gives no value (PAL builds its own copies, src/pal/game/002AC290.c), so the view would keep v1.01's address, another function in PAL (PAL's 0x00283CE0); PAL's own code at 0x002AC290 calls 0x002845A0 here"
+    },
+    "F500f9762_FUN_00283CF0": {
+     "is": "func_002845B0",
+     "why": "v1.01's C of gfx_start_color_fade and its sibling (func_002AB800, func_002AB8C0: PAL's FUN_002AC290, FUN_002AC3C0) calls FloatToInt (v1.01 func_00283CF0) by its F500f9762_ spelling, which PAL's build gives no value (PAL builds its own copies, src/pal/game/002AC290.c), so the view would keep v1.01's address, another function in PAL (PAL's func_00283CF0 is mat_fast_helper_b, which returns nothing); PAL's own code at 0x002AC290 calls 0x002845B0 here"
+    },
+    "F500f9762_FUN_002A04B8": {
+     "is": "func_002A0E78",
+     "why": "v1.01's C of gfx_start_color_fade and its sibling (func_002AB800, func_002AB8C0: PAL's FUN_002AC290, FUN_002AC3C0) calls get_moby_color (v1.01 func_002A04B8) by its F500f9762_ spelling, which PAL's build gives no value (PAL builds its own copies, src/pal/game/002AC290.c), so the view would keep v1.01's address, another function in PAL (PAL's 0x002A04B8); PAL's own code at 0x002AC290 calls 0x002A0E78 here"
+    }
+   }
+  },
+  "more_places": {
+   "func_0029DE68": "01:00305C50,04:00330D70,06:0034F968,08:0031C9F8,18:0032A980,20:00324A58",
+   "#": "the WAD decompressor's level copies, which this release's catalogue names apart (func_PAL_/func_US2_L01_...): the same 720 bytes as func_0029D4D0's, and a tail"
+  }
+ }
+}

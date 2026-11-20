@@ -107,6 +107,10 @@ static void on_tick_boundary(void* user, uint32_t tick) {
         if (action != 0) {
             s_record(9000 + (int)action);
             s_record(9100 + s_api->developer_menu_set_label(s_mod, action, "Saved: Veldin"));
+            /* Interface 1.19: the state the menu left the switch or the choice in. */
+            s_record(9200 + s_api->developer_menu_value(s_mod, action));
+            /* The mod sets its own switch here, as it changed elsewhere. */
+            s_record(9300 + -s_api->developer_menu_switch(s_mod, 3, 0));
         }
         return;
     }
@@ -291,7 +295,9 @@ static void world_frame(void) {
 /* Interface 1.12, a step a frame. Frame 1 (in a level): the hero's pose set (the test's game
  * names Test_Add, which the mod holds, as the hero's update), the collision triangles (3, two
  * read), a prop made (one outside the mod's folder and one missing refused) and posed at (1, 2, 3)
- * at scale 2, a sound loaded (a missing one refused) and played, its voice changed and stopped.
+ * at scale 2, a second prop of it fixed to joint 5 of the moby in slot 3, then to the hero's attach
+ * point 1 (interface 1.18; no moby in slot 4 and no attach point 2 refused), a sound loaded (a
+ * missing one refused) and played, its voice changed and stopped.
  * Frame 2 (another hook point named, the level loaded again): the pose refused, the prop gone. */
 static void motion_frame(void) {
     openrac_pose pose;
@@ -322,6 +328,23 @@ static void motion_frame(void) {
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop + 1, &where));
         s_api->prop_animate(s_mod, s_prop, 2, 1.5f, 1);
+        {
+            const float offset[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.5f, 0, 0, 1};
+            const int held = s_api->prop_create(s_mod, "board.glb");
+            s_record(9660 + -s_api->prop_attach(s_mod, held, 3, 5, 0, offset));
+            s_record(9660 + -s_api->prop_attach(s_mod, held, 4, 5, 0, NULL));
+            s_record(9670 + -s_api->prop_attach(s_mod, held, 3, 1, OPENRAC_ATTACH_HELD, offset));
+            s_record(9670 + -s_api->prop_attach(s_mod, held, 3, 2, OPENRAC_ATTACH_HELD, NULL));
+            {
+                /* Where they were drawn: the posed one at its pose; the fixed one not drawn on
+                 * its joint yet; another mod's not ours. */
+                float at[16];
+                memset(at, 0, sizeof at);
+                s_record(9680 + -s_api->prop_frame(s_mod, s_prop, at) + (at[12] == 1.0f ? 0 : 5));
+                s_record(9680 + -s_api->prop_frame(s_mod, held, at));
+                s_record(9680 + -s_api->prop_frame(s_mod, s_prop + 2, at));
+            }
+        }
         sound = s_api->sound_load(s_mod, "beep.wav");
         s_record(9560 + sound);
         s_record(9560 + -s_api->sound_load(s_mod, "missing.wav"));
@@ -503,6 +526,10 @@ static void on_frame(void* user) {
                     + (s_api->developer_menu_set_label(s_mod, 1, "Too late")
                        == OPENRAC_HOOK_TOO_LATE)
                 );
+                /* Interface 1.19: a switch is set while loading or at the tick boundary only. */
+                s_record(
+                    1800 + (s_api->developer_menu_switch(s_mod, 3, 0) == OPENRAC_HOOK_TOO_LATE)
+                );
             }
         }
     }
@@ -570,6 +597,24 @@ static void on_settings(void* user) {
     s_record(12100 + (int)s_api->setting_int(s_mod, "tag"));
 }
 
+/* The game in progress changed (interface 1.16): its data's size, and its first byte. */
+static void on_save_data(void* user) {
+    unsigned char first = 0;
+    const uint32_t size = s_api->save_data_get(s_mod, NULL, 0);
+    (void)user;
+    if (size > 0) {
+        unsigned char bytes[16];
+        s_record(
+            13300
+            + (int)(size <= sizeof bytes
+                    && s_api->save_data_get(s_mod, bytes, sizeof bytes) == size)
+        );
+        first = bytes[0];
+    }
+    s_record(13100 + (int)size);
+    s_record(13200 + first);
+}
+
 static void on_party_rules(void* user, const void* data, uint32_t size) {
     (void)user;
     s_record(data == NULL ? 7000 : 7000 + (int)size * 10 + ((const char*)data)[0] - 'a');
@@ -628,6 +673,19 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     s_record = (void (*)(int))api->function("Test_Record");
     const char* behaviour = api->setting_string(mod, "behaviour");
     api->log(mod, OPENRAC_LOG_INFO, behaviour);
+    if (strcmp(behaviour, "native_handles") == 0) {
+        const openrac_graphics* graphics = api->graphics();
+        if (graphics->backend != OPENRAC_GRAPHICS_VULKAN) {
+            return 1;
+        }
+        const int has_handles = graphics->vk_device != NULL;
+        if ((graphics->vk_queue != NULL) != has_handles
+            || (graphics->vk_queue_index != 0) != has_handles) {
+            return 2;
+        }
+        s_record(14000 + has_handles);
+        return 0;
+    }
     if (behaviour[0] == 'z') { /* watchers registered before an exclusive gate refuses */
         if (api->on_camera_script(mod, failed_camera, NULL) != OPENRAC_HOOK_OK
             || api->on_metal_detect(mod, failed_metal, NULL) != OPENRAC_HOOK_OK) {
@@ -705,6 +763,17 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         s_record(12060 + -api->setting_set_float(mod, "tag", 1.5));
         s_record(12300 + (int)api->setting_int(mod, "tag"));
         s_record(12200 + (strcmp(api->setting_string(mod, "jump"), "KeyW,ArrowUp") == 0));
+    }
+    if (behaviour[0] == 'j') { /* journal: its data kept with the saves (1.16) */
+        static unsigned char big[OPENRAC_SAVE_DATA_MAX + 1u];
+        if (api->api_minor < 16 || s_record == NULL
+            || api->on_save_data(mod, on_save_data, NULL) != OPENRAC_HOOK_OK
+            || api->on_save_data(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE) {
+            return 18;
+        }
+        s_record(13000 + -api->save_data_set(mod, "abc", 3));
+        s_record(13010 + -api->save_data_set(mod, big, sizeof big));
+        s_record(13020 + (int)api->save_data_get(mod, NULL, 0));
     }
     if (behaviour[0] == 'r') { /* rules */
         if (api->api_minor < 14 || s_record == NULL
@@ -789,16 +858,33 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         openrac_developer_menu_item items[] = {
             {"Empty", "Shift+Num0", 1, "Save"},
             {"Empty", "Ctrl+Num0", 2, "Load"},
+            {"Invincible", NULL, 3, NULL},
+            {"Speed", NULL, 4, NULL},
         };
         const openrac_developer_menu_item duplicate_action[] = {{"Other", NULL, 1, "Other"}};
+        const char* speeds[] = {"x1", "x2", "x4"};
+        const char* null_speed[] = {"x1", NULL};
         s_developer_menu = 1;
         if (api->api_minor < 10
-            || api->developer_menu(mod, "Savestates", items, 2) != OPENRAC_HOOK_OK
-            || api->developer_menu(mod, "Savestates", items, 2) != OPENRAC_HOOK_TAKEN
-            || api->developer_menu(mod, "Developer", items, 2) != OPENRAC_HOOK_TAKEN
+            || api->developer_menu(mod, "Savestates", items, 4) != OPENRAC_HOOK_OK
+            || api->developer_menu(mod, "Savestates", items, 4) != OPENRAC_HOOK_TAKEN
+            || api->developer_menu(mod, "Developer", items, 4) != OPENRAC_HOOK_TAKEN
             || api->developer_menu(mod, "Other", duplicate_action, 1) != OPENRAC_HOOK_TAKEN
             || api->on_tick_boundary(mod, on_tick_boundary, NULL) != OPENRAC_HOOK_OK) {
             return 16;
+        }
+        /* Interface 1.19: item 3 a switch, item 4 a choice; nothing else is either. */
+        if (api->api_minor < 19 || api->developer_menu_value(mod, 3) != -1
+            || api->developer_menu_switch(mod, 3, 7) != OPENRAC_HOOK_OK
+            || api->developer_menu_value(mod, 3) != 1
+            || api->developer_menu_switch(mod, 99, 1) != OPENRAC_HOOK_UNKNOWN
+            || api->developer_menu_choice(mod, 4, speeds, 3, 3) != OPENRAC_HOOK_UNKNOWN
+            || api->developer_menu_choice(mod, 4, speeds, 0, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->developer_menu_choice(mod, 4, null_speed, 2, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->developer_menu_choice(mod, 4, speeds, 3, 1) != OPENRAC_HOOK_OK
+            || api->developer_menu_value(mod, 4) != 1 || api->developer_menu_value(mod, 1) != -1
+            || api->developer_menu_value(mod, 99) != -1) {
+            return 23;
         }
         /* The host copies its strings, so the caller's stack storage can go away. */
         items[0].label = "Changed after registration";

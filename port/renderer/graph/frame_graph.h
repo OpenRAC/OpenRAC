@@ -207,7 +207,7 @@ struct Pass {
     // Metadata kernels bind dummy samplers. Indexed kernels address explicit storage intervals.
     bool compute_metadata_only = false;
     bool compute_indexed_storage = false;
-    bool separate = false;             // Never joins the open render pass on its attachments.
+    bool separate = false;  // Never joins the open render pass on its attachments.
     bool operator==(const Pass&) const = default;
 };
 

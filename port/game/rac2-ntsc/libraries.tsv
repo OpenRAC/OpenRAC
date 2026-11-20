@@ -99,6 +99,8 @@ func_0011FAA8	kernel	GetEntryAddress	host	syscall wrapper 0x5b
 func_00121AB8	libgcc	__muldi3	host	symbol_addrs.txt name
 func_00121B20	libgcc	__udivdi3	host	symbol_addrs.txt name
 func_001220F0	libgcc	__umoddi3	host	symbol_addrs.txt name
+func_0011FC68	libgcc	__divdi3	host	src/core/0011FC68.c, which hostgen.json skips (libgcc)
+func_00121450	libgcc	__moddi3	host	src/core/00121450.c, which hostgen.json skips (libgcc)
 func_00124E08	cdvd	sceCdInit	host	symbol_addrs.txt name
 func_001250E8	cdvd	sceCdDiskReady	host	symbol_addrs.txt name
 func_001252E0	cdvd	sceCdMmode	host	symbol_addrs.txt name
@@ -176,6 +178,7 @@ func_00133640	989snd	snd_StreamSafeCdBreak	host	symbol_addrs.txt CdStopRead; que
 func_00133688	989snd	snd_StreamSafeCdGetError	host	symbol_addrs.txt CdGetLoadStatus; the stream's error, else sceCdGetError (0x00125588)
 func_001336D0	989snd	snd_StreamSafeCdCallback	host	same opening as rac4's; installs the callback or forwards to sceCdCallback (0x001245D0); catalogue place 0x001336C0
 func_0027B858	graphics	StartFrameList	wrap	the frame's first packets: a picture written straight to the frame buffer is drawn after them (host/picture.c)
+func_002ECB70	graphics	ShipGlassDraw	wrap	the ship's cockpit glass, drawn as world quads: gives them ids so that a frame between ticks moves them with the hull (host/ship_glass.c)
 func_00131CB8	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's (host/level.c)
 func_0029D4D0	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
 # The sound library's wrappers each send one command, the same number as in Ratchet & Clank's.
@@ -220,12 +223,15 @@ func_L04_0040AD28	hud	RaceHudStart	wrap	the hoverbike race's own HUD (Barlow and
 func_L04_00411298	hud	RaceHud	wrap	the hoverbike race's own HUD (Barlow and Joba), a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
 func_L04_00417308	hud	RaceHudEnd	wrap	the hoverbike race's own HUD (Barlow and Joba), a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
 func_L03_003C7018	hud	CraneHud	wrap	the crane's own HUD on Endako, a callback of func_0029B7C0: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
+func_L08_0041D808	hud	StatusHud8	wrap	Tabora's own status HUD (its bar, labels and counters), drawn from a callback: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)	int (void)
+func_L08_003DB518	hud	MeterHud8	wrap	the meter Tabora and Grelbin draw at the bottom (its labels, icon and counter), from a callback: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)	int (void)
 func_002900B8	hud	MeterHud	wrap	the meter func_00290010 shows for a while (the Thermanator's), a callback of func_0029B7C0: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
 func_0028E458	hud	UpdateHud	wrap	the level HUD's slots: with the player's "HUD: Edges" the elements anchored left or right are drawn out at the sides of a picture wider than the game's (host/hud.c)
 func_0028E868	hud	HudSprite	wrap	a HUD texture as a sprite: drawn natively (host/ui2d.c)
 func_0028ECD8	hud	HudBarSprite	wrap	a HUD texture as a sprite, a texel a pixel: drawn natively (host/ui2d.c)
 func_0028EE98	hud	HudSpriteFine	wrap	a HUD texture as a sprite, in 16ths of a pixel: drawn natively (host/ui2d.c)
 func_0028F078	hud	HudSpriteColour	wrap	func_0028EE98 in a colour: drawn natively (host/ui2d.c)
+func_00295F60	draw	DrawMapOverlay	wrap	the map: with the Mapper, v2.00's crystal and moonstone markers are drawn after it (host/map_markers.c)
 func_0028F278	hud	HudTextureSprite	wrap	a sprite of a given texture: drawn natively (host/ui2d.c)
 func_0028F410	hud	HudRotatedSprite	wrap	a rotated sprite: drawn natively (host/ui2d.c)
 func_0028F788	hud	HudSpriteRect	wrap	a HUD texture as a sprite with explicit texel corners: drawn natively (host/ui2d.c)
@@ -252,6 +258,7 @@ func_002D5748	menu	MainMenuEnter	wrap	the title's main menu as it opens (its lis
 func_00341540	menu	PauseListItems	wrap	the pause menu's lists' items: the Options list's are a copy with a Video row after Camera (host/options.c)	void (unsigned int, int, int, int)
 func_00341610	menu	PauseListShow	wrap	shows one of the pause menu's lists: the Options list has a ninth row, with the rows closer (host/options.c)	void (unsigned int, int)
 func_00341C20	options	OptionsListDraw	wrap	the pause list's panel, whose art has no ninth row: drawn in two clipped parts for it
+func_002DDA10	menu	SaveSlotListDraw	wrap	the Load and Save pages' four slots: a MODS badge on each one saved with mods loaded (host/save_marks.c)
 func_0033C590	menu	CameraPageUpdate	wrap	the pause menu's Camera page: its 16:9 row is not reached, and the copy the Options list's Video row opens shows the port's Video rows, which move as the title's (host/options.c)
 func_0033C738	menu	CameraPageDraw	wrap	the pause menu's Camera page: its three camera rows, or the Video rows drawn in the panel for the Options list's Video row (host/options.c)
 func_0029B168	card	RestoreBlocks	wrap	a save's blocks into their places (rac1's memcard_restore_data): the language and the Sound page stay the player's (host/options.c)
@@ -260,7 +267,7 @@ func_L16_0042FB10	game	func_L16_0042FB10	host	a place the catalogue folds into f
 func_L00_002A4EF8	player	Hero_TakeDamage	hook	Takes a hit's points from the hero's health (the hero at 0x189E20 on NTSC-U, health at +0x24CC), after the armour's scale; the hero's state machine calls it for each hit. A hook point for mods; the game's C with none.
 func_002A9640	combat	Moby_GetHitMessage	hook	The pending hit for a moby from the hit ring (the damage, f32 at +0x2C; its source at +0x38), or 0: what an enemy's damage path reads. A hook point for mods; the game's C with none.
 func_002A8E20	combat	Moby_PostHit	hook	Posts a hit to moby victim from request (+0x1C its damage, f32) into the hit ring Moby_GetHitMessage reads; the weapons' shots and explosions call it. A hook point for mods; the game's C with none.
-func_L00_002D3F30	weapon	Weapon_TakeAmmo	hook	Takes rounds of a weapon's ammo (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo. A hook point for mods; the game's C with none.
+func_L00_002D3F30	moby	Weapon_TakeAmmo	hook	Takes rounds of a weapon's ammo (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo. A hook point for mods; the game's C with none.
 func_002A6C58	moby	Moby_RecordDeath	hook	A moby's death recorded: its experience, the bestiary and its bolt drop (the moby's s16 at +0xB4); crates call it too. A hook point for mods; the game's C with none.
 func_L00_00303990	level	Level_Load	hook	Loads a level (new, or resumed after a death); it calls the gameplay file's loader. A hook point for mods; the game's C with none.
 func_L00_002B41B8	player	Hero_ApproachSpeed	hook	Eases the hero's speed (+0x1B4) toward his target speed (+0x1B0) each tick; rac1's approach_speed. A hook point for mods; the game's C with none.
@@ -289,3 +296,58 @@ func_L04_00419918	moby	Moby_RaceController_Update	hook	The hoverbike race's cont
 func_L18_003F90A0	moby	Moby_MapperReturn_Update	hook	Damosel's return from the Giant Clank battle (class 3841): gives the Mapper (item 5) while it is not owned. A hook point for mods; the game's C with none.
 func_L18_00440718	moby	Moby_HypnomaticMaker_Update	hook	Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte. A hook point for mods; the game's C with none.
 func_003136D0	moby	Moby_NanotechBall_Update	hook	The nanotech orb's update (class 0x326): its pieces fly to the hero, each giving health as it lands (1, or 4 for the special orb). A hook point for mods, under the port's own wrap (NanotechBallUpdate): the mod's replacement or the game's C runs where the wrap calls the game's.
+func_002ADB78	bolt	Bolt_SpawnPickups	hook	Spawns a burst of bolt coins from a moby: rolls an amount from low to high, splits it into the biggest coins that fit (1 to 1000) and makes each with Bolt_SpawnPickup; enemies' and crates' drops (Moby_RecordDeath) and the levels' scripted bursts (part_spawn_scaled_bolts). The executable's and every level's copy (part_spawn_bolt_pickups) are one hook point. A hook point for mods; the game's C with none.
+func_L00_00321878	bolt	Bolt_SpawnPickups	hook	Spawns a burst of bolt coins from a moby: rolls an amount from low to high, splits it into the biggest coins that fit (1 to 1000) and makes each with Bolt_SpawnPickup; enemies' and crates' drops (Moby_RecordDeath) and the levels' scripted bursts (part_spawn_scaled_bolts). The executable's and every level's copy (part_spawn_bolt_pickups) are one hook point. A hook point for mods; the game's C with none.
+func_00302470	bolt	Bolt_SpawnPickup	hook	Makes one bolt coin of a value (classes 0x0D to 0x13 for 1, 5, 20, 50, 100, 500, 1000) at a position with a velocity; returns its moby, or 0 (none made: the pool full, or too far away). A hook point for mods; the game's C with none.
+func_00302848	bolt	part_spawn_trail_puff	wrap	a bolt coin's trail (the puff, ground sparkle and streak around it): silver for a coin a mod draws as platinum, gold for the rest (host/platinum_trail.c)
+func_00301D10	bolt	Bolt_Collect	hook	A bolt coin collected (CollectBolts): its class's value added to the player's bolts and the level's bolt score; the coin's update calls it as the coin reaches the hero. A hook point for mods; the game's C with none.
+# Hand-written assembly (ASM_FUNC in the decompilation), written in C for a build without the disc: host/handasm.c.
+func_00115250	libc	memchr	host	newlib's memchr, sixteen bytes at a time with the MMI
+func_00129178	vu0	rac2UnitMatrix	host	sceVu0UnitMatrix, the second entry of func_00129160: the identity (host/handasm.c)	void (void *)
+func_0011AF40	kernel	GsGetIMR	host	klib.o GsGetIMR
+func_0011CEC8	sif	sceSifWriteBackDCache	host	nothing to write back (host/handasm.c)	void (void *, int)
+func_0011DDD8	kernel	rac2CallRecord	host	{function, argument} called when set (host/handasm.c)	void (int, void *)
+func_0011B8D8	kernel	rac2WakeupWrapper	host	a stub in every build so far (host/handasm.c)	void (int)
+func_00127B18	kernel	rac2WakeupHandler	host	wakes its third argument's thread (host/handasm.c)	void (int, unsigned short, void *)
+func_0012B0D8	mpeg	rac2ClampSum	host	two halfword blocks added and clamped to bytes (host/handasm.c)	void (void *, void *, void *)
+func_0012B138	mpeg	rac2Clamp	host	a halfword block clamped to bytes (host/handasm.c)	void (void *, void *)
+func_00282A28	fastfunc	rac2Trap	host	teq $zero, $zero: the game's assert (host/handasm.c)	void (void)
+func_00282C68	fastfunc	rac2Clampf	host	max.s then min.s (host/handasm.c)	float (float, float, float)
+func_00282D78	fastfunc	rac2VecMul	host	vmul (host/handasm.c)	void (void *, void *, void *)
+func_00282DD8	fastfunc	rac2VecCross	host	vopmula, vopmsub; w from vf3 (host/handasm.c)	void (void *, void *, void *)
+func_001290E0	vu0	sceVu0Normalize	host	the second entry of func_001290BC (host/handasm.c)	void (void *, void *)
+func_00129148	vu0	sceVu0ScaleVector	host	the second entry of func_00129120 (host/handasm.c)	void (void *, void *, float)
+func_0029CFB0	dma	rac2SprCopy	host	quadwords through the scratchpad, 1024 at a time (host/handasm.c)	void (void *, void *, int)
+func_L00_002EE058	fastfunc	rac2VecMax	host	vmax (host/handasm.c)	void (void *, void *, void *)
+func_L00_002EE078	fastfunc	rac2VecMin	host	vmini (host/handasm.c)	void (void *, void *, void *)
+func_L00_002EE0C0	fastfunc	rac2Clear12	host	sd $0, sw $0 (host/handasm.c)	void (void *)
+func_L04_0030EDE0	fastfunc	rac2VecSubInPlace	host	vsub.xyz into the second argument (host/handasm.c)	void (void *, void *, void *)
+func_L01_003042AC	texture	rac2OozlaBlend	host	two frames of a palette texture blended (host/handasm.c)	void (void *, void *, void *, void *, void *, int, float)
+func_00117848	libm	rac2Fmod	host	fdlibm __ieee754_fmod: exact, as the host's fmod (host/handasm.c)	double (double, double)
+func_0026F7A0	game	rac2ReturnZero	host	returns 0; a release's catalogue may not list its copy (host/handasm.c)	unsigned int (void)
+func_001291A0	vu0	rac2Vu0Sine	host	the sine kernel on the vector unit's registers (host/handasm.c)	int (int, int, int, int)
+func_002F1E60	render	rac2Fragment002F1E60	host	a fragment of func_002F1010: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F29E4	render	rac2Fragment002F29E4	host	a fragment of func_002F1E88: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F2A0C	render	rac2Fragment002F2A0C	host	a fragment of func_002F1E88: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F32AC	render	rac2Fragment002F32AC	host	a fragment of func_002F2A38: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F32D4	render	rac2Fragment002F32D4	host	a fragment of func_002F2A38: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F3C40	render	rac2Fragment002F3C40	host	a fragment of func_002F35B0: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F3D20	render	rac2Fragment002F3D20	host	a fragment of func_002F35B0: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F3E40	render	rac2Fragment002F3E40	host	a fragment of func_002F35B0: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F4F78	render	rac2Fragment002F4F78	host	a fragment of func_002F3E78: reports a reach (host/handasm_vu0.c)	void (void)
+func_002EF480	render	rac2Renderer002EF480	host	a renderer only func_002EF3B0 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F1010	render	rac2Renderer002F1010	host	a renderer only func_002F0EF8 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F1E88	render	rac2Renderer002F1E88	host	a renderer only func_002F0EF8 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002F2A38	render	rac2Renderer002F2A38	host	a renderer only func_002F0EF8 calls, which the port replaces: reports a reach (host/handasm_vu0.c)	void (void)
+func_002A1738	render	rac2MobyAnimPose	host	host-replaced renderer: the port never calls it; reports a reach (host/handasm_render_big.c)	int (int, int)
+func_002E1228	render	rac2CullAndEmitShrubs	host	host-replaced renderer: the port never calls it; reports a reach (host/handasm_render_big.c)	void (void)
+func_002E182C	render	rac2ShrubsResume182C	host	a fragment of func_002E1228 (host-replaced renderer): reports a reach (host/handasm_render_big.c)	int (int, int, int, int)
+func_002E25C0	render	rac2ShrubsResume25C0	host	a fragment of func_002E1228 (host-replaced renderer): reports a reach (host/handasm_render_big.c)	int (void)
+func_00120528	libgcc	__sjthrow	host	not reached: C++ exception throw (longjmp to a guest handler); nothing in the game throws (host/handasm_libgcc_unwind.c)	void (void)
+func_001205E0	libgcc	rac2SjthrowLanding	host	a fragment of func_00120528 (its setjmp landing), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_00120748	libgcc	rac2SjpopnthrowTail	host	a fragment of __sjpopnthrow, entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_00120FA4	libgcc	rac2ThrowLanding	host	a fragment of __throw (00120F00-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_0012118C	libgcc	rac2RethrowLanding	host	a fragment of __rethrow (001210E0-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_00130004	mpeg	rac2DecodeFrameTail	host	a fragment of func_0012FEC0 (its epilogue), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_L00_00403730	moby	sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)
+func_L00_00408800	moby	dark_sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)

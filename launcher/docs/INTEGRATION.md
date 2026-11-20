@@ -66,11 +66,11 @@ One action:
 | `description` |                                                                       | one or two sentences for players: what it does, how long, what it needs                                                                                                                                                                      |
 | `kind`        | required                                                              | `setup`, `build`, `check`, `play` or `edit`: the game page's section                                                                                                                                                                         |
 | `state`       | default `planned`                                                     | see above                                                                                                                                                                                                                                    |
-| `program`     | for runnable states                                                   | `{python}`, `{editor}` or `{docker}` (the paths in Settings, OpenRAC Editor's program), a command on PATH (`bash`, `make`), or a path with placeholders (`{dir}/venv/bin/python`)                                                                                       |
+| `program`     | for runnable states                                                   | `{python}`, `{editor}` or `{docker}` (the paths in Settings, OpenRAC Editor's program), a command on PATH (`bash`, `make`), or a path with placeholders (`{dir}/venv/bin/python`)                                                            |
 | `args`        |                                                                       | the arguments, one per string; placeholders allowed; never a shell line                                                                                                                                                                      |
 | `cwd`         | default: the version's folder, or the checkout for repository actions | relative to the checkout (`"."` for the checkout itself)                                                                                                                                                                                     |
 | `platforms`   | default: all                                                          | `linux`, `macos`, `windows`; the others' actions are tucked away                                                                                                                                                                             |
-| `requires`    |                                                                       | what must be in place, each shown as a reason when missing: `disc`, `inputs`, `toolchains`, `python`, `editor`, `docker`, `artifact`                                                                                                          |
+| `requires`    |                                                                       | what must be in place, each shown as a reason when missing: `disc`, `inputs`, `toolchains`, `python`, `editor`, `docker`, `artifact`                                                                                                         |
 | `artifact`    |                                                                       | a file the action makes (a build) or needs (play the build), relative to the checkout; `{artifact}` in `args`                                                                                                                                |
 | `output`      |                                                                       | the folder the action writes its results in, relative to the checkout or `{data}/...`: the job's start (`output`) and exit (`outputs`) name it, and `open_output` opens it. A tool names the exact folder on a line `openrac-output: <path>` |
 | `detached`    | default false                                                         | start it and let it run (the game, an editor) instead of a job in Tasks                                                                                                                                                                      |
@@ -82,26 +82,26 @@ One action:
 
 Placeholders (anything else is rejected by the tests):
 
-| Placeholder           | Value                                                             |
-| --------------------- | ----------------------------------------------------------------- |
-| `{root}`              | the checkout, absolute                                            |
-| `{dir}`               | the version's folder, absolute (`…/games/rac1`)                   |
-| `{python}`            | the path in Settings (refused while unset)                        |
-| `{docker}`            | the path in Settings, or `docker` from PATH                       |
-| `{disc}`              | the disc image found for the version (absolute)                   |
-| `{boot}`              | the boot executable `openrac.py setup` placed for it              |
-| `{artifact}`          | the action's `artifact`, absolute                                 |
-| `{serial}`, `{key}`   | `SCES_509.16`, `rac1/pal`                                         |
-| `{data}`              | the game's set-up folder, `<install>/active/<game>/data`          |
-| `{level}`             | the level a run is for, two digits (00 while listed)              |
-| `{path}`              | a file or folder the player chose for the run, absolute and there |
-| `{option}`            | one of the action's `options`, chosen for the run                 |
-| `{editor}`            | OpenRAC Editor's program, once downloaded (refused before)        |
-| `{editor_tools}`      | OpenRAC Editor's Python tools (`<editor>/openrac/tools`)          |
-| `{projects}`          | the level editor's projects: `assets/levels/<key>`, or `{data}/levels/<version>` in a carried copy |
-| `{levels}`            | the port's levels: `assets/port/<key>`, or `{data}/port/<version>` in a carried copy |
-| `{packed}`            | the packed levels: `assets/packed/<key>`, or `{data}/packed/<version>` in a carried copy |
-| `{states}`            | the game's states program (docs/port/MOBY_STATES.md)              |
+| Placeholder         | Value                                                                                              |
+| ------------------- | -------------------------------------------------------------------------------------------------- |
+| `{root}`            | the checkout, absolute                                                                             |
+| `{dir}`             | the version's folder, absolute (`…/games/rac1`)                                                    |
+| `{python}`          | the path in Settings (refused while unset)                                                         |
+| `{docker}`          | the path in Settings, or `docker` from PATH                                                        |
+| `{disc}`            | the disc image found for the version (absolute)                                                    |
+| `{boot}`            | the boot executable `openrac.py setup` placed for it                                               |
+| `{artifact}`        | the action's `artifact`, absolute                                                                  |
+| `{serial}`, `{key}` | `SCES_509.16`, `rac1/pal`                                                                          |
+| `{data}`            | the game's set-up folder, `<install>/active/<game>/data`                                           |
+| `{level}`           | the level a run is for, two digits (00 while listed)                                               |
+| `{path}`            | a file or folder the player chose for the run, absolute and there                                  |
+| `{option}`          | one of the action's `options`, chosen for the run                                                  |
+| `{editor}`          | OpenRAC Editor's program, once downloaded (refused before)                                         |
+| `{editor_tools}`    | OpenRAC Editor's Python tools (`<editor>/openrac/tools`)                                           |
+| `{projects}`        | the level editor's projects: `assets/levels/<key>`, or `{data}/levels/<version>` in a carried copy |
+| `{levels}`          | the port's levels: `assets/port/<key>`, or `{data}/port/<version>` in a carried copy               |
+| `{packed}`          | the packed levels: `assets/packed/<key>`, or `{data}/packed/<version>` in a carried copy           |
+| `{states}`          | the game's states program (docs/port/MOBY_STATES.md)                                               |
 
 `cargo test -p openrac-launcher-core` checks the file against the checkout:
 known versions, unique ids, known placeholders (and no version placeholders in
@@ -316,13 +316,13 @@ The level editor's own steps (`editor-extract`, `editor-reexport`, `editor-impor
 own once the player downloaded the editor from its releases (core `editor_install.rs`). An editor
 written against another `extractor/extractor_api.json` version is refused with what to update.
 
-| Action            | State (PAL / NTSC-U)   | What it does                                                                                           |
-| ----------------- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
-| `assets-export`   | unverified             | a level's models and textures from `assets/port/rac1/<version>` into `{data}/exports`                  |
-| `assets-import`   | unverified             | an edited export back as an overrides pack in `{data}/overrides`                                       |
-| `overrides-add`   | unverified             | a pack (.zip or folder) into `{data}/overrides`                                                        |
-| `overrides-stack` | unverified             | the packed levels and the packs that are on into `{data}/mods/<version>`, for that disc's levels       |
-| `play-edited`     | unverified / planned   | the game with `--mods {data}/mods/<version>`; NTSC-U's waits for its Play                              |
+| Action            | State (PAL / NTSC-U) | What it does                                                                                     |
+| ----------------- | -------------------- | ------------------------------------------------------------------------------------------------ |
+| `assets-export`   | unverified           | a level's models and textures from `assets/port/rac1/<version>` into `{data}/exports`            |
+| `assets-import`   | unverified           | an edited export back as an overrides pack in `{data}/overrides`                                 |
+| `overrides-add`   | unverified           | a pack (.zip or folder) into `{data}/overrides`                                                  |
+| `overrides-stack` | unverified           | the packed levels and the packs that are on into `{data}/mods/<version>`, for that disc's levels |
+| `play-edited`     | unverified / planned | the game with `--mods {data}/mods/<version>`; NTSC-U's waits for its Play                        |
 
 Exports and packs are the game's, shared by its versions: a pack records
 what each file replaces, and `overrides-stack` (`extractor/overrides.py stack

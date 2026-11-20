@@ -587,10 +587,22 @@ bool parse_manifest(std::string_view source, Manifest& m, std::string& error) {
         }
         m.touch = touch.string();
     }
-    // Interface 1.4: only moves the loading before the window, so it is read and never refused (the
-    // packager's and the launcher's checks know nothing of it): true on a native mod of 1.4 or later.
+    // Interface 1.4: a native mod can request loading before the window to make the Vulkan device.
     m.vulkan_device = v["vulkan_device"].boolean(false) && !m.script && m.has_api
                       && (m.api_major > 1 || m.api_minor >= 4);
+    const bool can_declare_vulkan = m.api_major > 1 || (m.api_major == 1 && m.api_minor >= 20);
+    if (const auto queue = v.members().find("vulkan_queue"); queue != v.members().end()) {
+        if (!is_bool(queue->second) || m.script || m.plugin.empty() || !can_declare_vulkan) {
+            error = "\"vulkan_queue\" must be a boolean on a native mod targeting interface 1.20 "
+                    "or later";
+            return false;
+        }
+        m.vulkan_queue = queue->second.boolean();
+    }
+    if (m.vulkan_device && can_declare_vulkan && !m.vulkan_queue) {
+        error = "\"vulkan_device\" requires \"vulkan_queue\": true from interface 1.20";
+        return false;
+    }
     // Interface 1.11: what the mod is to a party; a word the port does not know refuses the manifest,
     // as the packager's and the launcher's checks do.
     if (const json::Value& party = v["multiplayer"]; !party.is_null()) {

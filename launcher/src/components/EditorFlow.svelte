@@ -7,31 +7,46 @@
   // focus (the player saved in the editor) and when one of the editor's jobs ends; the words and the
   // order of the states are lib/editorFlow.ts's. A failed step is said in a player's words
   // (lib/toolErrors.ts), never in the tool's: what it printed is behind "Show details".
+  import { onMount } from "svelte";
+
   import { api, type EditorState, type GameView, type VersionView } from "$lib/api";
-  import { app, guardShown, installEditor, jobs, run, runChain, saveConfig, toast } from "$lib/app.svelte";
   import {
+    app,
+    guardShown,
+    installEditor,
+    jobs,
+    run,
+    runChain,
+    saveConfig,
+    toast,
+  } from "$lib/app.svelte";
+  import {
+    editorStage,
     LEVEL_TOOL_TEXT,
     LEVELS_SECTION,
     levelTools,
     OPEN_ANYWAY,
     OPEN_ANYWAY_HINT,
+    type Step,
     STEP_LABEL,
-    editorStage,
     updateNote,
     updateNoteLine,
-    type Step,
   } from "$lib/editorFlow";
   import { levelName, levelsOf } from "$lib/labels";
   import { EDITOR } from "$lib/modsText";
   import { foundDisc, setUp } from "$lib/player.svelte";
   import type { Job } from "$lib/queue";
-  import { toolFailure, type NextStep } from "$lib/toolErrors";
-  import { onMount } from "svelte";
+  import { type NextStep, toolFailure } from "$lib/toolErrors";
+
   import EditorReset from "./EditorReset.svelte";
   import Icon from "./Icon.svelte";
   import JobProgress from "./JobProgress.svelte";
 
-  let { game, version, onchanged }: { game: GameView; version: VersionView; onchanged?: () => void } = $props();
+  let {
+    game,
+    version,
+    onchanged,
+  }: { game: GameView; version: VersionView; onchanged?: () => void } = $props();
 
   const scope = $derived({ kind: "version" as const, key: version.key });
   const action = (id: string) => version.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
@@ -43,7 +58,13 @@
   /** Null when OpenRAC Editor is downloaded and fits this OpenRAC; else why not ("" when it is not
    *  downloaded): the panel then offers the download. */
   const lacksEditor = $derived(
-    app.editor === null ? null : !app.editor.version ? "" : app.editor.problem ? `${app.editor.problem}.` : null,
+    app.editor === null
+      ? null
+      : !app.editor.version
+        ? ""
+        : app.editor.problem
+          ? `${app.editor.problem}.`
+          : null,
   );
   /** The editor is there and fits, but brings no steps for this version. */
   const unsupported = $derived(lacksEditor === null && app.editor !== null && !extract);
@@ -51,8 +72,12 @@
 
   const live = (j: Job) => j.state === "queued" || j.state === "running";
   const jobsOf = (ids: string[]) =>
-    jobs.list.filter((j) => j.scope.kind === "version" && j.scope.key === version.key && ids.includes(j.actionId));
-  const extracting = $derived(jobsOf(["editor-extract", "editor-reexport", "editor-import"]).find(live) ?? null);
+    jobs.list.filter(
+      (j) => j.scope.kind === "version" && j.scope.key === version.key && ids.includes(j.actionId),
+    );
+  const extracting = $derived(
+    jobsOf(["editor-extract", "editor-reexport", "editor-import"]).find(live) ?? null,
+  );
   const packing = $derived(jobsOf(["editor-pack"]).find(live) ?? null);
 
   // ---- What the core found, asked again when it may have changed ----
@@ -62,8 +87,10 @@
   let asking = 0;
   async function look() {
     const mine = ++asking;
+
     try {
       const seen = await api.editorState(version.key);
+
       if (mine === asking) {
         found = seen;
         unreadable = false;
@@ -82,8 +109,10 @@
     const shown = () => {
       if (document.visibilityState === "visible") void look();
     };
+
     window.addEventListener("focus", focused);
     document.addEventListener("visibilitychange", shown);
+
     return () => {
       window.removeEventListener("focus", focused);
       document.removeEventListener("visibilitychange", shown);
@@ -92,9 +121,13 @@
 
   // An editor job ended (here, from Activity or from the game page): look again.
   const ended = $derived(
-    jobsOf(["editor-extract", "editor-reexport", "editor-import", "editor-pack", "overrides-stack"]).filter(
-      (j) => !live(j),
-    ).length,
+    jobsOf([
+      "editor-extract",
+      "editor-reexport",
+      "editor-import",
+      "editor-pack",
+      "overrides-stack",
+    ]).filter((j) => !live(j)).length,
   );
   // (It runs once at first too: the tab's first look.)
   $effect(() => {
@@ -108,6 +141,7 @@
     const last = jobsOf(["editor-extract", "editor-reexport", "editor-pack"])
       .filter((j) => !live(j))
       .at(-1);
+
     return last?.state === "failed" && last.key !== dismissed ? last : null;
   });
   const failure = $derived(failed ? toolFailure(failed.lines) : null);
@@ -127,7 +161,9 @@
   );
   const note = $derived(found ? updateNote(version.game, found.carried) : null);
   // The failure's own sentence is the stage's when the core already found the same thing.
-  const failureShown = $derived(failure && !(failure.next === "update" && stage.kind === "needs-update"));
+  const failureShown = $derived(
+    failure && !(failure.next === "update" && stage.kind === "needs-update"),
+  );
 
   function emptyState(): EditorState {
     return {
@@ -155,68 +191,84 @@
 
   async function take(step: Step | NextStep) {
     if (busy) return;
+
     switch (step) {
       case "set-up":
         await setUp(game.id, game.title, foundDisc(game.id)?.path);
+
         return;
       case "get-editor":
         busy = step;
+
         try {
           if (await installEditor()) await look();
         } finally {
           busy = null;
         }
+
         return;
       case "prepare":
       case "open":
         if (!edit) return;
         busy = step;
+
         try {
           // The first time (or a level not read yet), the levels are read before the editor opens.
           const done =
             edit.runnable && found?.levels.includes(level) !== false
               ? (await guardShown(api.openLevelInEditor(version.key, level))) !== undefined
               : await runChain(scope, extract ? [extract, edit] : [edit], level);
+
           if (done) toast(EDITOR.opening(levelName(version.game, level)));
         } finally {
           busy = null;
         }
+
         return;
       case "update":
       case "repair":
         if (!extract) return;
         busy = step;
+
         try {
           await runChain(scope, [extract]);
         } finally {
           busy = null;
         }
+
         await look();
         onchanged?.();
+
         return;
       case "retry":
         if (failed?.actionId === "editor-pack") return take("pack");
         if (failed?.actionId === "editor-extract") return take("update");
         if (failed?.actionId === "editor-reexport") return exportAgain();
+
         return;
       case "pack":
         if (pack) await run(scope, pack);
+
         return;
       case "play":
         if (!app.config) return;
         if (!app.config.playWithMods) await saveConfig({ ...app.config, playWithMods: true });
         app.version = version.key;
         app.page = "game";
+
         return;
       case "start-over":
         levelsHeading?.scrollIntoView({ behavior: "smooth", block: "start" });
         levelsHeading?.focus({ preventScroll: true });
+
         return;
       case "settings":
         app.page = "settings";
+
         return;
       case "report":
         app.page = "tasks";
+
         return;
       default:
         return;
@@ -236,7 +288,9 @@
 
   // One orange button on the panel: while a failure offers its own step, that step is the main
   // one and the stage's main step waits beside the others.
-  const failureLeads = $derived(!!(failureShown && failure && failure.next !== "none" && NEXT_LABEL[failure.next]));
+  const failureLeads = $derived(
+    !!(failureShown && failure && failure.next !== "none" && NEXT_LABEL[failure.next]),
+  );
 
   const disabled = (step: Step) => {
     if (busy || extracting || packing) return true;
@@ -244,6 +298,7 @@
     if (step === "update" || step === "repair") return !extract?.runnable;
     if (step === "open" || step === "prepare") return !edit || lacksEditor !== null;
     if (step === "get-editor") return app.editorDownloading;
+
     return false;
   };
 
@@ -262,7 +317,8 @@
   const steps = $derived([...(stage.primary ? [stage.primary] : []), ...stage.secondary]);
   /** The level picker sits right before the button it is for. */
   const pickerBefore = $derived(lacksEditor !== null ? null : (steps.find(picksLevel) ?? null));
-  const label = (step: Step) => (step === "open" && stage.kind === "needs-update" ? OPEN_ANYWAY : STEP_LABEL[step]);
+  const label = (step: Step) =>
+    step === "open" && stage.kind === "needs-update" ? OPEN_ANYWAY : STEP_LABEL[step];
 
   const backup = $derived(found?.backups[0] ?? null);
 
@@ -277,11 +333,13 @@
   async function exportAgain() {
     if (!reexport || busy) return;
     busy = "update";
+
     try {
       await runChain(scope, [reexport]);
     } finally {
       busy = null;
     }
+
     await look();
     onchanged?.();
   }
@@ -290,7 +348,10 @@
   const running = (tool: "pack-again" | "export-again") =>
     tool === "pack-again" ? packing !== null : extracting?.actionId === "editor-reexport";
   const toolDisabled = (tool: "pack-again" | "export-again") =>
-    !!busy || !!extracting || !!packing || (tool === "pack-again" ? !pack?.runnable : !reexport?.runnable);
+    !!busy ||
+    !!extracting ||
+    !!packing ||
+    (tool === "pack-again" ? !pack?.runnable : !reexport?.runnable);
 </script>
 
 <section class="panel flow" aria-labelledby="flow-title" aria-busy={stage.tone === "busy"}>
@@ -299,7 +360,10 @@
       {#if stage.tone === "busy"}<span class="spinner"></span>{:else if stage.tone === "ok"}<Icon
           name="check"
           size={18}
-        />{:else if stage.tone === "warn"}<Icon name="warn" size={18} />{:else}<Icon name="info" size={18} />{/if}
+        />{:else if stage.tone === "warn"}<Icon name="warn" size={18} />{:else}<Icon
+          name="info"
+          size={18}
+        />{/if}
     </span>
     <h2 id="flow-title">{stage.title}</h2>
     {#if stage.line}<p class="line">{stage.line}</p>{/if}
@@ -317,7 +381,9 @@
         <p>{failure.line}</p>
         <div class="row">
           {#if failure.next !== "none" && NEXT_LABEL[failure.next]}
-            <button class="small primary" onclick={() => void take(failure.next)}>{NEXT_LABEL[failure.next]}</button>
+            <button class="small primary" onclick={() => void take(failure.next)}
+              >{NEXT_LABEL[failure.next]}</button
+            >
           {/if}
           <button class="small ghost" aria-expanded={details} onclick={() => (details = !details)}
             >{details ? "Hide details" : "Show details"}</button
@@ -341,7 +407,9 @@
               onchange={(e) => (picked = Number(e.currentTarget.value))}
               disabled={!!busy || !!extracting}
             >
-              {#each levelsOf(version.game) as l (l.number)}<option value={l.number}>{l.name}</option>{/each}
+              {#each levelsOf(version.game) as l (l.number)}<option value={l.number}
+                  >{l.name}</option
+                >{/each}
             </select>
           {/if}
           <button
@@ -349,7 +417,10 @@
             disabled={disabled(step)}
             onclick={() => void take(step)}
           >
-            {#if busy === step}<span class="spinner"></span>{:else}<Icon name={ICON[step]} size={16} />{/if}
+            {#if busy === step}<span class="spinner"></span>{:else}<Icon
+                name={ICON[step]}
+                size={16}
+              />{/if}
             {label(step)}
           </button>
         {/each}
@@ -384,9 +455,12 @@
     <p class="muted">Your disc, saves and gameplay mods are never touched here.</p>
     {#if backup}
       <p class="muted">
-        Older copies of your levels, kept by updates, are in the backup folder ({found?.backups.length ?? 0}
+        Older copies of your levels, kept by updates, are in the backup folder ({found?.backups
+          .length ?? 0}
         {(found?.backups.length ?? 0) === 1 ? "copy" : "copies"}).
-        <button class="link" onclick={() => void guardShown(api.openOutput(backup.path))}>Open it</button>
+        <button class="link" onclick={() => void guardShown(api.openOutput(backup.path))}
+          >Open it</button
+        >
       </p>
     {/if}
     <EditorReset

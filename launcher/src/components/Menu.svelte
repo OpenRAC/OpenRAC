@@ -30,12 +30,17 @@
   function place() {
     if (!root || !list) return;
     const at = root.getBoundingClientRect();
+
     anchorLeft = at.left;
     anchorTop = at.top;
     const gap = 8;
     const below = at.bottom + gap + list.offsetHeight <= window.innerHeight - gap;
     const top = below ? at.bottom + gap : Math.max(gap, at.top - gap - list.offsetHeight);
-    const left = Math.min(Math.max(gap, at.right - list.offsetWidth), window.innerWidth - list.offsetWidth - gap);
+    const left = Math.min(
+      Math.max(gap, at.right - list.offsetWidth),
+      window.innerWidth - list.offsetWidth - gap,
+    );
+
     list.style.top = `${top}px`;
     list.style.left = `${left}px`;
   }
@@ -52,6 +57,7 @@
 
   $effect(() => {
     if (!open) return;
+
     const outside = (e: MouseEvent) => {
       if (root && !root.contains(e.target as Node)) open = false;
     };
@@ -67,13 +73,16 @@
       // A scroll queued before opening can arrive after this listener is attached.
       // Dismiss only if the trigger actually moved since the menu was placed.
       const at = root?.getBoundingClientRect();
+
       if (at?.left !== anchorLeft || at.top !== anchorTop) open = false;
     };
+
     window.addEventListener("mousedown", outside);
     window.addEventListener("keydown", key);
     window.addEventListener("resize", resized);
     // Capturing: the page scrolls inside <main> or SideFrame's column, and scroll does not bubble.
     window.addEventListener("scroll", moved, true);
+
     return () => {
       window.removeEventListener("mousedown", outside);
       window.removeEventListener("keydown", key);
@@ -96,6 +105,7 @@
             : e.key === "End"
               ? all.length - 1
               : null;
+
     if (to === null) return;
     e.preventDefault();
     all[to]?.focus();

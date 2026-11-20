@@ -226,11 +226,14 @@ endif()
 if(OPENRAC_METAL)
   add_library(openrac_renderer_metal STATIC
     renderer/metal/mtlgl.mm renderer/metal/mtlgl_draw.mm renderer/metal/mtlgl_resources.mm
-    renderer/metal/shader_translate.cpp renderer/metal/mtlgl_backend.cpp)
+    renderer/metal/shader_translate.cpp renderer/metal/mtlgl_backend.cpp
+    renderer/metal/mtlgl_hdr.mm)
   target_link_libraries(openrac_renderer_metal
     PUBLIC openrac_renderer_vulkan openrac_sdl3 "-framework Metal" "-framework QuartzCore" "-framework OpenGL"
            "-framework Foundation"
     PRIVATE openrac_spirv_cross)
+  # HDR output's encode pass is the Vulkan backend's (vkgl_shaders.h, openrac_embed_shaders above).
+  target_include_directories(openrac_renderer_metal PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
   target_compile_options(openrac_renderer_metal PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
   openrac_warnings(openrac_renderer_metal)
   target_link_libraries(openrac_platform PRIVATE openrac_renderer_metal)
@@ -277,6 +280,7 @@ add_library(openrac_renderer STATIC
   renderer/textures/pcsx2_pack.cpp
   renderer/textures/pcsx2_dds.cpp
   renderer/textures/texture_pool.cpp
+  renderer/textures/interface_run.cpp
 )
 
 # A texture pack's KTX2 and SVG pictures (renderer/textures/pack_pictures.h): their own library, so
@@ -698,10 +702,21 @@ add_library(openrac_viewer_lib INTERFACE)
 target_link_libraries(openrac_viewer_lib INTERFACE openrac_scene_renderer openrac_enhanced_viewer
   openrac_enhanced_textures)
 
-# MobyProc's distance test and fade (game/common/moby_proc.h), which both games' profiles share.
-add_library(openrac_game_moby_proc STATIC game/common/moby_proc.cpp)
+# MobyProc's distance test and fade (game/common/moby_proc.h), which both games' profiles share,
+# and the reader of each game's draw distance exceptions (game/common/draw_distance_list.h).
+add_library(openrac_game_moby_proc STATIC game/common/moby_proc.cpp game/common/draw_distance_list.cpp)
 target_link_libraries(openrac_game_moby_proc PUBLIC openrac_scene_renderer)
 openrac_warnings(openrac_game_moby_proc)
+# Each game's draw_distance.tsv, as text in draw_distance_lists.h.
+set(draw_distance_rac1 "${CMAKE_CURRENT_SOURCE_DIR}/game/rac1/draw_distance.tsv")
+set(draw_distance_rac2 "${CMAKE_CURRENT_SOURCE_DIR}/game/rac2/draw_distance.tsv")
+file(READ "${draw_distance_rac1}" draw_distance_rac1_text)
+file(READ "${draw_distance_rac2}" draw_distance_rac2_text)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${draw_distance_rac1}" "${draw_distance_rac2}")
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/draw_distance_lists.h"
+  CONTENT "#pragma once\nnamespace openrac::host { inline constexpr char kRac1DrawDistanceList[] = R\"tsv(${draw_distance_rac1_text})tsv\"; inline constexpr char kRac2DrawDistanceList[] = R\"tsv(${draw_distance_rac2_text})tsv\"; }\n" @ONLY)
+openrac_add_test(draw_distance_list INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+  LIBS openrac_game_moby_proc)
 
 # Ratchet & Clank's profile (game/common/profile.h): what the renderers read of the running game
 # from its memory (game/rac1/game_state.h), for rac1's programs (cmake/Games.cmake links it as
@@ -712,7 +727,8 @@ add_library(openrac_game_rac1_profile STATIC
   game/rac1/shrub_proc.cpp
   game/rac1/ship_visor.cpp
 )
-target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include)
+target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include
+  "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
 openrac_warnings(openrac_game_rac1_profile)
 openrac_add_test(camera_target LIBS openrac_game_rac1_profile)
@@ -722,7 +738,8 @@ openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
 
 # Going Commando's profile, one for its three discs (game/rac2/profile.cpp), for rac2's programs.
 add_library(openrac_game_rac2_profile STATIC game/rac2/profile.cpp)
-target_include_directories(openrac_game_rac2_profile PRIVATE runtime/include)
+target_include_directories(openrac_game_rac2_profile PRIVATE runtime/include
+  "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(openrac_game_rac2_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
 openrac_warnings(openrac_game_rac2_profile)
 openrac_add_test(rac2_moby_view LIBS openrac_game_rac2_profile)
@@ -818,6 +835,7 @@ target_link_libraries(hero_shadow_test PRIVATE openrac_viewer_lib openrac_platfo
 openrac_warnings(hero_shadow_test)
 add_test(NAME hero_shadow_cpu COMMAND hero_shadow_test)
 openrac_add_test(moby_shadow LIBS openrac_scene)
+openrac_add_test(moby_key_gap LIBS openrac_scene)
 openrac_add_test(hero_attachments SOURCES tests/hero_attachments_test.cpp
   game/rac1/host/hero_attachments.c INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}")
 openrac_add_test(hero_shadow_rig INCLUDES . game/common/include runtime/include)
@@ -867,6 +885,11 @@ openrac_add_test(camera_debug SOURCES tests/camera_debug_test.cpp
 # programs compile them through cmake/Games.cmake's glob.
 openrac_add_test(frontend_geometry SOURCES tests/frontend_geometry_test.cpp
                  game/common/frontend/geometry.cpp INCLUDES .)
+  openrac_add_test(effect_attachment SOURCES tests/effect_attachment_test.cpp
+                   game/common/frontend/effect_attachment.cpp game/common/frontend/geometry.cpp
+                   INCLUDES . runtime/include)
+openrac_add_test(scenery_capture SOURCES tests/scenery_capture_test.cpp
+                 game/common/frontend/scenery_capture.cpp INCLUDES . runtime/include)
 openrac_add_test(frontend_pacing SOURCES tests/frontend_pacing_test.cpp
                  game/common/frontend/pacing.cpp INCLUDES .)
 openrac_add_test(frame_limiter SOURCES tests/frame_limiter_test.cpp
@@ -886,6 +909,7 @@ openrac_add_test(overlay_draw LIBS openrac_renderer_ui openrac_platform)
 set_tests_properties(overlay_draw PROPERTIES SKIP_RETURN_CODE 77)
 
 openrac_add_test(renderer_texture LIBS openrac_renderer)
+openrac_add_test(interface_run LIBS openrac_renderer)
 # Texture packs' KTX2 and SVG pictures, from small files made for the test (tests/data/pack_pictures).
 openrac_add_test(pack_pictures LIBS openrac_pack_pictures
   DEFINITIONS "PACK_PICTURES_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/data/pack_pictures\"")
@@ -963,9 +987,32 @@ if(OPENRAC_METAL)
   openrac_add_test(mtlgl LIBS openrac_renderer_metal openrac_renderer openrac_platform)
   set_tests_properties(mtlgl PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1")
+  # metal_hdr      HDR output on Metal: the layer for each output, the encode pass against
+  #                common/hdr.h and against the Vulkan backend's, a hidden window's layer turned
+  #                to EDR and back (tests/metal_hdr_test.cpp)
+  openrac_add_test(metal_hdr LIBS openrac_renderer_metal openrac_renderer openrac_platform)
+  set_tests_properties(metal_hdr PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1;OPENRAC_GL_API=vulkan")
 endif()
 
+# A mod's moby material packed beside the shine distance, read back as mesh.vert reads it.
+openrac_add_test(moby_material_pack LIBS openrac_scene)
+# A mod's platinum as mesh.frag draws it: a gold-lit grey coin and a gold glow come out cool white.
+openrac_add_test(moby_platinum_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+                 LIBS openrac_viewer_lib openrac_platform)
+set_tests_properties(moby_platinum_shader PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu)
+if(OPENRAC_VULKAN)
+  add_test(NAME moby_platinum_shader_vulkan COMMAND moby_platinum_shader_test)
+  set_tests_properties(moby_platinum_shader_vulkan PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
+    ENVIRONMENT "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+endif()
+if(OPENRAC_METAL)
+  add_test(NAME moby_platinum_shader_metal COMMAND moby_platinum_shader_test)
+  set_tests_properties(moby_platinum_shader_metal PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
+    ENVIRONMENT "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
+openrac_add_test(preview_animation LIBS openrac_scene)
 add_executable(viewer_test tests/viewer_test.cpp)
 if(OPENRAC_VULKAN)
   target_compile_definitions(viewer_test PRIVATE OPENRAC_VULKAN=1)
@@ -1189,7 +1236,7 @@ add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
 set_property(TEST water_bake APPEND PROPERTY LABELS baker)
 
 add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c
-  game/rac1/host/water.c)
+  game/rac1/host/water.c game/rac1/host/water_surfaces.c)
 target_include_directories(water_host_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" enhanced/tests/water_host_stubs
   game/rac1-ntsc/host game/common/include runtime/include)
 openrac_warnings(water_host_test)

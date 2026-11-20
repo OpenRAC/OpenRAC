@@ -1,5 +1,10 @@
 {
   "contexts": {
+    "foot": {
+      "actions": [
+        { "id": "strafe", "icon": "strafe", "press": ["l2"], "at": 0, "size": "small", "side": "left", "toggle": true, "wide": true }
+      ]
+    },
     "ship": {
       "replace": true,
       "extends": "base",

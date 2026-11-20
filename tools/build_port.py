@@ -71,30 +71,15 @@ import urllib.request
 from pathlib import Path
 
 from openrac_common import background, digest, paths, proc
+from build_port_tools import (
+    BuildError, MissingTool, NO_CLANG, NO_NINJA, find_clang, find_cmake, find_program,
+    find_visual_studio, install_windows_tool, msvc_environment, windows_path,
+)
 
 ROOT = paths.repo_root()
 PORT = ROOT / "port"
 WINDOWS = os.name == "nt"
 DEFAULT_GAME = "rac1-pal"
-
-NO_VISUAL_STUDIO = (
-    "Visual Studio's C++ tools were not found. Install Visual Studio (Community is free) or its "
-    'Build Tools with the "Desktop development with C++" workload, then build again.'
-)
-NO_CLANG = (
-    "Clang was not found. Install LLVM (winget install LLVM.LLVM) or Visual Studio's "
-    '"C++ Clang tools for Windows", then build again.'
-    if WINDOWS
-    else "Clang was not found. Install it (apt install clang, or Xcode's command line tools), then build again."
-)
-NO_NINJA = (
-    'Ninja was not found. Install it (winget install Ninja-build.Ninja) or Visual Studio\'s "C++ CMake '
-    'tools for Windows", then build again.'
-    if WINDOWS
-    else "Ninja was not found. Install it (apt install ninja-build, or brew install ninja), then build again."
-)
-NO_CMAKE = "CMake 3.25 or newer was not found. Install it (https://cmake.org/download/), then build again."
-
 
 # Embree, for the probe baker only (never linked into a game): this release's source, checked
 # against its SHA-256, built static with Embree's own task scheduler (no TBB) and only the
@@ -147,10 +132,6 @@ BAKER = "openrac-enhanced-baker"
 # A level without a bake keeps the original lighting (port/enhanced/viewer/probe_lighting.cpp), and
 # the launcher says the same (launcher/core/src/enhanced.rs, NO_BAKER_HERE).
 NO_BAKER_HERE = "Intel Macs ship without the probe baker: their enhanced graphics keep the original lighting."
-
-
-class BuildError(Exception):
-    """Why the build cannot start, worded for whoever reads the launcher's Tasks."""
 
 
 def build_jobs() -> int:
@@ -388,17 +369,6 @@ def remove_tree(path: Path) -> None:
         shutil.rmtree(path, onerror=writable_then_again)
 
 
-def parse_environment(text: str) -> dict[str, str]:
-    """What cmd.exe's `set` prints, as an environment. Names are upper-cased, as Windows ignores
-    their case; the drive entries (=C:=...) are left out."""
-    env = {}
-    for line in text.splitlines():
-        key, sep, value = line.partition("=")
-        if sep and key:
-            env[key.upper()] = value
-    return env
-
-
 def kept_choices(cache: dict[str, str]) -> dict[str, str]:
     """What a build folder keeps of --source, --disc and --probe-baker (OPENRAC_<ID>_SOURCE,
     _RETAIL_IMAGE, OPENRAC_PROBE_BAKER)."""
@@ -526,128 +496,29 @@ def commands(
     return out
 
 
-# ---- the tools, found ----------------------------------------------------------------------
-
-
-def find_visual_studio() -> Path:
-    """The newest Visual Studio (any edition, Build Tools too) with the C++ x64 tools."""
-    base = os.environ.get("PROGRAMFILES(X86)") or r"C:\Program Files (x86)"
-    vswhere = Path(base) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
-    if not vswhere.is_file():
-        raise BuildError(NO_VISUAL_STUDIO)
-    found = subprocess.run(
-        [str(vswhere), "-latest", "-products", "*", "-requires",
-         "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath"],
-        capture_output=True, text=True,
-    )
-    lines = found.stdout.strip().splitlines()
-    if found.returncode != 0 or not lines:
-        raise BuildError(NO_VISUAL_STUDIO)
-    return Path(lines[0])
-
-
-def msvc_environment(visual_studio: Path) -> dict[str, str]:
-    """The environment vcvars64.bat sets up, read back with `set` (UTF-16, cmd's /u, so any
-    character in a path comes through). Failures identify setup or readback and include the
-    script's output and toolchain availability, without dumping unrelated environment values."""
-    bat = visual_studio / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
-    if not bat.is_file():
-        raise BuildError(f"{bat} is missing: repair Visual Studio's C++ tools, then build again.")
-    setup_complete = "OPENRAC_VCVARS_COMPLETE"
-    # Write the marker before starting the environment dump so its failure can be identified.
-    command = f'cmd /d /s /c "call "{bat}" 1>&2 && (1>&2 echo {setup_complete}& cmd /d /u /c set)"'
-    try:
-        done = subprocess.run(command, capture_output=True)
-    except OSError as error:
-        raise BuildError(f"Could not start cmd.exe to run {bat}\n{error}") from error
-    env = parse_environment(done.stdout.decode("utf-16-le", errors="replace"))
-    if done.returncode == 0 and env.get("INCLUDE"):
-        return env
-
-    diagnostics = done.stderr.decode("oem" if WINDOWS else "utf-8", errors="replace")
-    setup_output, marker, dump_output = diagnostics.partition(setup_complete + "\r\n")
-    if not marker:
-        failure = "vcvars64.bat did not complete successfully"
-    elif done.returncode != 0 or not env:
-        failure = "cmd.exe could not read back the configured environment"
-    else:
-        failure = "INCLUDE is missing from the configured environment"
-
-    summary = [
-        f"Visual Studio environment setup failed: {failure}.",
-        f"Visual Studio: {visual_studio}",
-        f"Setup script: {bat}",
-        f"Exit code: {done.returncode}",
-    ]
-    if env:
-        summary.append(f"MSVC toolset: {env.get('VCTOOLSVERSION') or 'unset'}")
-        summary.append(f"Windows SDK: {env.get('WINDOWSSDKVERSION') or 'unset'}")
-        for name in ("INCLUDE", "LIB", "LIBPATH"):
-            summary.append(f"{name}: {'set' if env.get(name) else 'unset'}")
-        for tool in ("clang.exe", "cl.exe", "link.exe", "rc.exe", "llvm-rc.exe"):
-            path = find_program(tool, env.get("PATH"))
-            summary.append(f"{tool} on configured PATH: {path or 'not found'}")
-    else:
-        summary.append("Toolchain environment: unavailable")
-    summary.extend(("", "vcvars64.bat output:", setup_output.strip() or "(no output)"))
-    if dump_output.strip():
-        summary.extend(("", "Environment dump diagnostics:", dump_output.strip()))
-    raise BuildError("\n".join(summary))
-
-
-def clang_candidates(env: dict[str, str], visual_studio: Path | None) -> list[Path]:
-    """Where Clang is looked for on Windows, in order."""
-    out = []
-    if env.get("OPENRAC_CLANG"):
-        out.append(Path(env["OPENRAC_CLANG"]))
-    for base in (env.get("PROGRAMFILES"), env.get("PROGRAMW6432")):
-        if base:
-            out.append(Path(base) / "LLVM" / "bin" / "clang.exe")
-    if env.get("USERPROFILE"):
-        out.append(Path(env["USERPROFILE"]) / "scoop" / "apps" / "llvm" / "current" / "bin" / "clang.exe")
-    if visual_studio is not None:
-        out.append(visual_studio / "VC" / "Tools" / "Llvm" / "x64" / "bin" / "clang.exe")
-    on_path = shutil.which("clang", path=env.get("PATH"))
-    if on_path:
-        out.append(Path(on_path))
-    return out
-
-
-def find_clang(env: dict[str, str], visual_studio: Path | None) -> tuple[Path, Path]:
-    """Clang and Clang++ (beside it), for a new build folder on Windows."""
-    for clang in clang_candidates(env, visual_studio):
-        if clang.is_file():
-            cxx = clang.with_name("clang++.exe")
-            return clang, cxx if cxx.is_file() else clang
-    raise BuildError(NO_CLANG)
-
-
-def find_program(name: str, *paths: str | None) -> Path | None:
-    for path in paths:
-        if path:
-            found = shutil.which(name, path=path)
-            if found:
-                return Path(found)
-    return None
-
-
-def find_cmake(cache: dict[str, str], *paths: str | None) -> Path:
-    """The CMake that configured the build folder, else the first on these PATHs."""
-    cached = cache.get("CMAKE_COMMAND")
-    if cached and Path(cached).is_file():
-        return Path(cached)
-    found = find_program("cmake", *paths)
-    if found is None:
-        raise BuildError(NO_CMAKE)
-    return found
-
-
 # ---- the build ---------------------------------------------------------------------------
 
 
-def prepare(cache: dict[str, str]) -> tuple[dict[str, str], Path, tuple[str, str, str] | None]:
+def prepare(cache: dict[str, str], *, install_deps: bool = True
+            ) -> tuple[dict[str, str], Path, tuple[str, str, str] | None]:
+    """Install missing Windows tools once each, then recheck before starting the build."""
+    installed: set[str] = set()
+    while True:
+        try:
+            return prepare_tools(cache)
+        except MissingTool as missing:
+            if not WINDOWS or not install_deps:
+                raise
+            if missing.package in installed:
+                raise BuildError(f"Setup finished, but the tool is still unavailable. "
+                                 f"Repair its installation, or restart Windows if the installer asked.\n{missing}") from missing
+            install_windows_tool(missing)
+            installed.add(missing.package)
+
+
+def prepare_tools(cache: dict[str, str]) -> tuple[dict[str, str], Path, tuple[str, str, str] | None]:
     """The environment to build in, CMake, and the compilers to configure a new folder with."""
-    user_path = os.environ.get("PATH")
+    user_path = windows_path() if WINDOWS else os.environ.get("PATH")
     if not WINDOWS:
         if not cache:
             if find_program("ninja", user_path) is None:
@@ -659,6 +530,9 @@ def prepare(cache: dict[str, str]) -> tuple[dict[str, str], Path, tuple[str, str
     visual_studio = find_visual_studio()
     say(f"Visual Studio: {visual_studio}")
     env = msvc_environment(visual_studio)
+    env["PATH"] = os.pathsep.join(filter(None, (env.get("PATH"), user_path)))
+    if find_program("git", env.get("PATH")) is None:
+        raise MissingTool("Git was not found. Install Git for Windows, then build again.", "Git.Git")
     compilers = None
     if "CMAKE_C_COMPILER" in cache:
         clang = Path(cache["CMAKE_C_COMPILER"])
@@ -666,7 +540,7 @@ def prepare(cache: dict[str, str]) -> tuple[dict[str, str], Path, tuple[str, str
         clang, cxx = find_clang(env, visual_studio)
         ninja = find_program("ninja", env.get("PATH"))
         if ninja is None:
-            raise BuildError(NO_NINJA)
+            raise MissingTool(NO_NINJA, "Ninja-build.Ninja")
         compilers = (clang.as_posix(), cxx.as_posix(), ninja.as_posix())
     say(f"Clang: {clang}")
     # hostgen reads the decompilation with the same Clang (port/tools/hostgen/clangast.py).
@@ -706,6 +580,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tracy-sampling", action="store_true", help="enable Tracy sampling (implies system tracing)")
     parser.add_argument("--clean", action="store_true",
                         help="delete the build folder first and build everything again (its --source and --disc kept)")
+    parser.add_argument("--no-install-deps", action="store_true",
+                        help="report missing Windows build tools without installing them through WinGet")
     args = parser.parse_args(argv)
     # Whatever the player does comes first; the compilers have the rest of the CPU.
     background.lower_priority()
@@ -738,7 +614,7 @@ def main(argv: list[str] | None = None) -> int:
         remove_tree(build)
         cache = {}
     try:
-        env, cmake, compilers = prepare(cache)
+        env, cmake, compilers = prepare(cache, install_deps=not args.no_install_deps)
     except BuildError as e:
         print(f"error: {e}", file=sys.stderr, flush=True)
         return 1

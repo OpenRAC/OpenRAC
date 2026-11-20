@@ -55,9 +55,9 @@ constexpr Entry kEntries[] = {
      "steps draw farther, and Unlimited draws everything in view. What the game hides from a "
      "place stays hidden."},
     {Id::ActiveDistance, Tab::Graphics, "Picture", kChoice, A, "Active distance",
-     "How far away things still move and run their logic. Match keeps everything Draw distance "
-     "shows alive; Original stops where the console did, so far things stand still. Enemies "
-     "notice you from their usual ranges either way."},
+     "What far things do in the picture. The game always runs as on the console. Match animates "
+     "the far things the game has not woken yet, in the picture only; Original shows them "
+     "standing still."},
     {Id::FrameRate, Tab::Graphics, "Frames", kChoice, AG, "Frame rate",
      "Original keeps the console's rate. The others draw extra frames between the game's ticks: "
      "as fast as the display, up to a cap, or without a limit. The game itself runs at its own "
@@ -72,8 +72,8 @@ constexpr Entry kEntries[] = {
     {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, AG, "Frame counter",
      "Shows the frames a second in a corner of the picture. F2 changes it too."},
     {Id::Hdr, Tab::Graphics, "HDR", kChoice, AG, "HDR",
-     "High dynamic range output, whenever the screen offers it. Turned on from Off, it starts "
-     "with the game's next start."},
+     "High dynamic range output, whenever the screen offers it, with Vulkan or with Metal on "
+     "macOS. Turned on from Off, it starts with the game's next start (at once with Metal)."},
     {Id::HdrPaperWhite, Tab::Graphics, "HDR", kChoice, A, "HDR paper white",
      "How bright the game's white is in HDR. System takes the brightness the system gives "
      "ordinary pictures."},

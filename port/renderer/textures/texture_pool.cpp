@@ -11,6 +11,7 @@
 #include <cstring>
 #include <format>
 #include <functional>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -22,6 +23,7 @@
 #include "common/stats.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
+#include "renderer/textures/interface_run.h"
 #include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture_pack.h"
 
@@ -67,6 +69,18 @@ std::size_t uploaded_block_bytes(const CompressedImage& blocks, bool mipmaps) {
     return bytes;
 }
 
+// Proves zero texture alpha leaves the destination colour unchanged for this sampling state.
+bool empty_alpha_is_invisible(const gs::Tex0& tex0, const gs::Alpha* blend) {
+    // Highlight adds vertex alpha; RGB-only and unknown or unblended draws can display these colours.
+    if (!tex0.tcc || tex0.tfx == gs::Tfx::Highlight || blend == nullptr) {
+        return false;
+    }
+
+    // Source-over is (Cs - Cd) * As + Cd; zero As removes all texture colour (direct.frag).
+    // ALPHA selectors use 0 for source colour/alpha and 1 for destination colour (gs::Alpha).
+    return blend->a == 0 && blend->b == 1 && blend->c == 0 && blend->d == 1;
+}
+
 }  // namespace
 
 std::uint64_t hash_bytes(const std::uint8_t* data, std::size_t size) {
@@ -94,10 +108,13 @@ std::uint64_t hash_bytes(const std::uint8_t* data, std::size_t size) {
 }
 
 std::size_t TexturePool::KeyHash::operator()(const Key& key) const {
+    // The highest bit distinguishes draws allowed to omit empty-alpha exports.
+    constexpr int kSkipEmptyAlphaShift = 63;
     const std::uint64_t words[] = {
         key.tbp | (std::uint64_t{key.tbw} << 16) | (std::uint64_t{key.tw} << 32)
             | (std::uint64_t{key.th} << 40) | (std::uint64_t{key.psm} << 48)
-            | (std::uint64_t{key.cpsm} << 56),
+            | (std::uint64_t{key.cpsm} << 56)
+            | (std::uint64_t{key.skip_empty_alpha} << kSkipEmptyAlphaShift),
         key.cbp | (std::uint64_t{key.texa.ta0} << 16) | (std::uint64_t{key.texa.ta1} << 24)
             | (std::uint64_t{key.texa.aem} << 32),
         key.pixels_hash,
@@ -207,6 +224,54 @@ void TexturePool::upload(ImageUpload upload) {
     m_uploads[dbp] = std::move(stored);
     // An upload replaces a texture placed at the same base pointer.
     m_placed.erase(dbp);
+}
+
+void TexturePool::set_picture(
+    std::uint32_t block,
+    std::uint32_t width_units,
+    int width,
+    int height,
+    std::span<const std::uint8_t> rgba
+) {
+    if (width <= 0 || height <= 0 || rgba.size() < static_cast<std::size_t>(width) * height * 4) {
+        return;
+    }
+    Picture& picture = m_pictures[block];
+    picture.width_units = width_units;
+    if (picture.texture == 0) {
+        // Kept until forget_picture: neither from_upload nor a field, so end_frame leaves it.
+        picture.texture = add(Rgba8Image(width, height), AlphaScale::Gs, "picture");
+    }
+    Entry& e = m_entries[picture.texture - 1];
+    e.last_used = m_frame;
+    if (e.image.width != width || e.image.height != height) {
+        // Another size: a new GL texture at the next use.
+        if (e.gl != 0 && gl::loaded()) {
+            delete_gl(e);
+        }
+        e.gl = 0;
+        e.image = Rgba8Image(width, height);
+    }
+    std::copy_n(rgba.begin(), e.image.pixels.size(), e.image.pixels.begin());
+    e.stale = e.gl != 0;
+    // What the game uploaded there before is not what the memory holds now.
+    m_uploads.erase(block);
+    m_placed.erase(block);
+}
+
+void TexturePool::forget_picture(std::uint32_t block) {
+    const auto found = m_pictures.find(block);
+    if (found == m_pictures.end()) {
+        return;
+    }
+    const TextureHandle handle = found->second.texture;
+    m_pictures.erase(found);
+    Entry& e = m_entries[handle - 1];
+    if (e.gl != 0 && gl::loaded()) {
+        delete_gl(e);
+    }
+    e = Entry{};
+    m_free.push_back(handle);
 }
 
 bool TexturePool::upload_cached(const ImageUpload& upload) {
@@ -380,7 +445,9 @@ const TexturePool::Clut* TexturePool::palette_clut(const gs::Tex0& tex0, Clut& n
     return nullptr;
 }
 
-TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& texa) {
+TextureHandle TexturePool::convert_upload(
+    const gs::Tex0& tex0, const gs::Texa& texa, const gs::Alpha* dump_blend
+) {
     // The chip samples textures up to 1024 x 1024 (TW and TH up to 10); a
     // larger claim only arrives in a garbage register write, and converting
     // one would allocate up to gigabytes (a 32768 x 32768 RGBA8 image).
@@ -427,9 +494,19 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
         texa,
         stored->hash ^ (static_cast<std::uint64_t>(offset) << 40),
         clut_hash,
-        border_hash
+        border_hash,
+        empty_alpha_is_invisible(tex0, dump_blend) && texture_pack::dumping()
     };
     if (auto found = m_converted.find(key); found != m_converted.end()) {
+        // A held texture still drawn after the place went quiet is a still picture: dumped now.
+        Entry& e = m_entries[found->second - 1];
+        if (e.held != nullptr
+            && (m_tick < e.held_tick || m_tick - e.held_tick > texture_pack::LiveWatch::kMaxGap)) {
+            texture_pack::dump_picture(
+                *e.held, {.interface = true, .skip_empty_alpha = key.skip_empty_alpha}
+            );
+            e.held = nullptr;
+        }
         return found->second;
     }
     if (indexed && colours.empty()) {
@@ -471,14 +548,81 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
         if (rgb != nullptr) std::fclose(rgb);
         if (a != nullptr) std::fclose(a);
     }
+    // An interface texture run (interface_run.h): what the picture was made from, for an export
+    // that rebuilds it from the player's disc.
+    std::uint64_t noted = 0;
+    if (m_noting && interface_run::recording()) {
+        std::vector<interface_run::PoolUpload> used{{&stored->upload, stored->sequence}};
+        for (const auto& block : border) {
+            if (block.upload != nullptr) {
+                used.push_back({&block.upload->upload, block.upload->sequence});
+            }
+        }
+        std::optional<ImageUpload> clut_upload;
+        if (clut != nullptr && clut->width > 0) {
+            // The CLUT as the conversion read it, as an upload of its own at its block.
+            const std::size_t row = static_cast<std::size_t>(clut->width)
+                                    * static_cast<std::size_t>(gs::bits_per_pixel(clut->cpsm)) / 8;
+            const auto rows = static_cast<std::uint32_t>(row == 0 ? 0 : clut->data.size() / row);
+            clut_upload = ImageUpload{
+                tex0.cbp,
+                1,
+                clut->cpsm,
+                0,
+                0,
+                static_cast<std::uint32_t>(clut->width),
+                rows,
+                clut->data
+            };
+        }
+        noted = interface_run::note_pool(
+            image, tex0, texa, used, clut_upload ? &*clut_upload : nullptr
+        );
+    }
     // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size: the 2D layer's
     // texture coordinates are fractions of the chip's size, not of the picture's.
     // An animated one gives its frames as well.
     texture_pack::Replacement replaced;
     bool cropped = false;
+    bool pcsx2 = false;
     std::array<float, 2> uv_scale{1.0f, 1.0f};
-    if (!texture_pack::replace(image, {.interface = true}, &replaced) && clut != nullptr) {
-        pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs);
+    // A pack picture not read yet is read in the background: the original is drawn until then,
+    // and end_frame() has the texture converted again (no frame waits for the disk).
+    // A texture the game makes anew each tick (a fade, a picture it draws) is not dumped: each
+    // tick's would be a file of its own, and no pack can replace them.
+    bool dump = true;
+    std::vector<std::uint64_t> taken_back;
+    if (texture_pack::dumping()) {
+        const auto seen = m_live.see(
+            std::uint64_t{tex0.tbp0} | (std::uint64_t{tex0.tw} << 20)
+                | (std::uint64_t{tex0.th} << 24) | (std::uint64_t{tex0.psm} << 28),
+            texture_pack::image_hash(image),
+            m_tick
+        );
+        dump = !seen.live;
+        if (!seen.undump.empty()) {
+            texture_pack::undump(seen.undump);
+            taken_back = seen.undump;
+            log::info(
+                "textures: the upload at block {:#x} ({}x{}) changes every tick; not dumped "
+                "({} taken back)",
+                tex0.tbp0,
+                image.width,
+                image.height,
+                seen.undump.size()
+            );
+        }
+    }
+    // The original, for a dump later (Entry::held): a texture pack of PCSX2's may change `image`.
+    std::shared_ptr<const Rgba8Image> held =
+        dump ? nullptr : std::make_shared<const Rgba8Image>(image);
+    const bool packed = texture_pack::replace(
+        image,
+        {.interface = true, .later = true, .dump = dump, .skip_empty_alpha = key.skip_empty_alpha},
+        &replaced
+    );
+    if (!packed && clut != nullptr) {
+        pcsx2 = pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs);
         if (extent[0] != 0) {
             auto extended = border.empty() ? std::vector<std::uint8_t>{}
                                            : texture_raster(*stored, tex0, extent[0], extent[1]);
@@ -522,22 +666,56 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
     const TextureHandle h = add(std::move(image), AlphaScale::Gs, "upload");
     auto& entry = m_entries[h - 1];
     entry.cropped_replacement = cropped;
+    entry.pack_replacement = packed;
+    entry.pcsx2_replacement = pcsx2 || cropped;
     entry.uv_scale = uv_scale;
     entry.from_upload = true;
     entry.key = key;
-    entry.pack_hash = replaced.hash;
+    entry.pack_hash = replaced.hash != 0 ? replaced.hash : noted;
+    if (!packed && held != nullptr) {
+        entry.held = std::move(held);
+        entry.held_tick = m_tick;
+    }
+    // The place's earlier textures taken back from the dump: held too, in case one settles.
+    if (!taken_back.empty()) {
+        const std::set<std::uint64_t> back(taken_back.begin(), taken_back.end());
+        for (Entry& other : m_entries) {
+            if (other.live && other.from_upload && other.held == nullptr && !other.pack_replacement
+                && back.contains(other.pack_hash) && &other != &entry
+                && texture_pack::image_hash(other.image) == other.pack_hash) {
+                other.held = std::make_shared<const Rgba8Image>(other.image);
+                other.held_tick = m_tick;
+            }
+        }
+    }
     animate(h, std::move(replaced.animation));
     set_blocks(h, std::move(replaced.blocks));
     m_converted.emplace(key, h);
     return h;
 }
 
-TextureHandle TexturePool::resolve(const gs::Tex0& tex0, const gs::Texa& texa) {
+TextureHandle TexturePool::resolve(
+    const gs::Tex0& tex0, const gs::Texa& texa, const gs::Alpha* dump_blend
+) {
     TextureHandle h = 0;
-    if (auto placed = m_placed.find(tex0.tbp0); placed != m_placed.end()) {
+    // A picture (set_picture) is what a draw reads from its block in its format and buffer width,
+    // as the movie's sprites do: its rows are the top left of the draw's texture, which can be
+    // bigger (Going Commando's strips read 1024 x 1024 over the 512 x 512 picture). The picture's
+    // texture holds the picture alone, so the draw's coordinates are scaled to it (uv_scale).
+    // Another view of that memory finds no upload there.
+    if (auto picture = m_pictures.find(tex0.tbp0); picture != m_pictures.end()) {
+        Entry& e = m_entries[picture->second.texture - 1];
+        if (tex0.psm == gs::kPsmct32 && tex0.tbw == picture->second.width_units
+            && tex0.width() >= e.image.width && tex0.height() >= e.image.height) {
+            h = picture->second.texture;
+            e.uv_scale =
+                {static_cast<float>(tex0.width()) / static_cast<float>(e.image.width),
+                 static_cast<float>(tex0.height()) / static_cast<float>(e.image.height)};
+        }
+    } else if (auto placed = m_placed.find(tex0.tbp0); placed != m_placed.end()) {
         h = placed->second;
     } else {
-        h = convert_upload(tex0, texa);
+        h = convert_upload(tex0, texa, dump_blend);
         // A pack maker's dump groups the textures the game cycles in one place.
         if (h != 0 && texture_pack::dumping()) {
             watch_cycle(tex0, h);
@@ -556,6 +734,14 @@ const Rgba8Image& TexturePool::image(TextureHandle texture) const {
 
 bool TexturePool::has_cropped_replacement(TextureHandle texture) const {
     return m_entries[texture - 1].cropped_replacement;
+}
+
+bool TexturePool::has_pack_replacement(TextureHandle texture) const {
+    return m_entries[texture - 1].pack_replacement;
+}
+
+bool TexturePool::has_pcsx2_replacement(TextureHandle texture) const {
+    return m_entries[texture - 1].pcsx2_replacement;
 }
 
 std::array<float, 2> TexturePool::uv_scale(TextureHandle texture) const {
@@ -747,6 +933,25 @@ unsigned TexturePool::gl_texture(TextureHandle texture) {
     // The first use of a texture prepare() did not make: it is made now, inside the frame.
     if (e.gl == 0) {
         create_gl(e);
+    } else if (e.stale) {
+        // A picture's new texels (set_picture), into the texture it already has.
+        glBindTexture(GL_TEXTURE_2D, e.gl);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glTexSubImage2D(
+            GL_TEXTURE_2D,
+            0,
+            0,
+            0,
+            e.image.width,
+            e.image.height,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            e.image.pixels.data()
+        );
+        if (m_upscaled_texture_colours) {
+            m_upscaled_texture_colours->forget(e.gl);
+        }
+        e.stale = false;
     }
 
     // A still texture is its one GL texture.
@@ -849,6 +1054,7 @@ void TexturePool::create_gl(Entry& e) {
         e.gl = upload_gl(e, e.image);
     }
     e.wrap = 0;  // a new texture repeats (set_wrap)
+    e.stale = false;
 }
 
 unsigned TexturePool::upload_gl(const Entry& e, const Rgba8Image& image) {
@@ -1066,6 +1272,22 @@ void TexturePool::release_gl() {
 void TexturePool::end_frame() {
     ++m_frame;
     m_slot_turns.clear();
+    // Pack pictures read in the background since: the uploads drawn as their originals meanwhile
+    // are converted again at their next use.
+    if (const std::uint64_t version = texture_pack::kept_version(); version != m_pack_version) {
+        m_pack_version = version;
+        for (std::size_t i = 0; i < m_entries.size(); ++i) {
+            const Entry& e = m_entries[i];
+            if (e.live && e.from_upload && !e.pack_replacement && e.pack_hash != 0
+                && texture_pack::is_kept(e.pack_hash)) {
+                if (const auto found = m_converted.find(e.key);
+                    found != m_converted.end()
+                    && found->second == static_cast<TextureHandle>(i + 1)) {
+                    m_converted.erase(found);
+                }
+            }
+        }
+    }
     for (std::size_t i = 0; i < m_entries.size(); ++i) {
         Entry& e = m_entries[i];
         if (!e.live || !(e.from_upload || e.field) || m_frame - e.last_used < kKeepFrames) {
@@ -1075,8 +1297,10 @@ void TexturePool::end_frame() {
             delete_gl(e);
         }
         const auto handle = static_cast<TextureHandle>(i + 1);
-        if (e.from_upload) {
-            m_converted.erase(e.key);
+        // Only its own: a conversion made again since (end_frame()) has the same key.
+        if (const auto found = m_converted.find(e.key);
+            e.from_upload && found != m_converted.end() && found->second == handle) {
+            m_converted.erase(found);
         }
         if (e.field) {
             // A field nobody drew with for a while: made again if its glyphs come back. Kept for

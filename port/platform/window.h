@@ -164,6 +164,10 @@ struct MetalBackend {
     void (*present)();
     void (*set_swap_interval)(int interval);
     std::string (*device_name)();
+    // HDR output through macOS's EDR (mtlgl.h): `edr` says the window's display offers it.
+    void (*set_hdr)(hdr::Output wanted, const hdr::Levels& levels, bool edr);
+    hdr::Output (*hdr_output)();
+    bool (*hdr_offered)();
 };
 
 const MetalBackend& metal_backend();
@@ -205,8 +209,9 @@ public:
 
     // HDR output (common/hdr.h): what the system says of the window's display (SDL; on Android
     // the activity, platform/display_hdr.h; unknown on X11), and the screen asked to show `wanted`
-    // at `levels`. Vulkan only (and WindowConfig::hdr); OpenGL always shows SDR. hdr_output: what
-    // it shows; hdr_offered: the screen offers an HDR format at all.
+    // at `levels`. Vulkan (with WindowConfig::hdr) and Metal (macOS's EDR, at any time); OpenGL
+    // always shows SDR. hdr_output: what it shows; hdr_offered: the screen offers an HDR format
+    // at all.
     hdr::Display hdr_display() const;
     void set_hdr(hdr::Output wanted, const hdr::Levels& levels);
     hdr::Output hdr_output() const;

@@ -23,6 +23,8 @@
 #include <string>
 #include <string_view>
 
+#include "draw_distance_lists.h"
+#include "game/common/draw_distance_list.h"
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
 #include "game/rac1/host/collision_notes.h"
@@ -234,6 +236,13 @@ public:
     bool interpolates_effect_quads() const override { return true; }
 
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
+
+    // The classes in game/rac1/draw_distance.tsv (Pokitaru's class 1161) keep the game's draw
+    // distance at every Draw distance.
+    bool keeps_game_draw_distance(int class_id) const override {
+        static const host::DrawDistanceList list{host::kRac1DrawDistanceList};
+        return list.has(class_id);
+    }
 
     // Level mode 2 is a real-time cutscene (rac1/host/front_end.c).
     std::optional<std::uint32_t> cutscene_mode() const override { return 2; }

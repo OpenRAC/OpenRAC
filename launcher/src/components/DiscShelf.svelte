@@ -3,32 +3,41 @@
   // the one picked, its name, last save, Play, the "..." menu and the Mods switch (gameMenu.svelte.ts).
   // Up/down or a drag turns the wheel; A puts the disc into the console (DiscLaunch.svelte) and
   // plays; X turns the Mods switch, Y opens its page.
-  import { fly } from "svelte/transition";
   import { backOut, cubicIn, cubicOut } from "svelte/easing";
+  import { fly } from "svelte/transition";
+
   import type { GameView, SaveSlotInfo } from "$lib/api";
   import { api } from "$lib/api";
   import { app, dismissCrashes, jobs, openVersion, pickVersion } from "$lib/app.svelte";
-  import { choiceFor } from "$lib/discChoice";
   import { supports } from "$lib/capabilities";
-  import { gameMenu, setWithMods, startsPlay } from "$lib/gameMenu.svelte";
+  import { choiceFor } from "$lib/discChoice";
   import { grouped, pct } from "$lib/format";
-  import { keepRead, lastRead } from "$lib/lastRead";
+  import { gameMenu, setWithMods, startsPlay } from "$lib/gameMenu.svelte";
   import { regionLabel, titleLines } from "$lib/labels";
-  import { reduced } from "$lib/motion";
+  import { keepRead, lastRead } from "$lib/lastRead";
   import { modUpdates } from "$lib/modUpdates.svelte";
+  import { reduced } from "$lib/motion";
   import { news, type NewsItem } from "$lib/news";
-  import { hasPort, offersStep, playerAct, playerState, playerVersion, playWarning } from "$lib/player.svelte";
+  import {
+    hasPort,
+    offersStep,
+    playerAct,
+    playerState,
+    playerVersion,
+    playWarning,
+  } from "$lib/player.svelte";
   import { backgroundStatus } from "$lib/progress";
   import { when } from "$lib/reports";
   import { newestSave, savedSeconds } from "$lib/saves";
+  import { shelfWave } from "$lib/shelfWave.svelte";
   import { ACCENTS, themeStyle } from "$lib/themes";
+
   import Disc from "./Disc.svelte";
   import DiscLaunch from "./DiscLaunch.svelte";
   import DiscSwitch from "./DiscSwitch.svelte";
   import Icon from "./Icon.svelte";
   import Menu from "./Menu.svelte";
   import ModsSwitch from "./ModsSwitch.svelte";
-  import WaveBackdrop from "./WaveBackdrop.svelte";
 
   let { games }: { games: GameView[] } = $props();
 
@@ -51,14 +60,18 @@
   const rebuilt = $derived(v?.progress && v.progress.percent < 100 ? v.progress.percent : null);
   const matched = $derived(
     app.config?.developer && game
-      ? game.versions.map((o) => `${regionLabel(o.name)} ${o.progress ? pct(o.progress.percent) : "–"}`).join(" · ")
+      ? game.versions
+          .map((o) => `${regionLabel(o.name)} ${o.progress ? pct(o.progress.percent) : "–"}`)
+          .join(" · ")
       : "",
   );
 
   /** The game's "..." menu, as on its page. */
   const menu = $derived(game && v ? gameMenu(game, v, next) : []);
   /** Developer tools on and two of the game's discs found: which one Play plays. */
-  const choice = $derived(app.config?.developer && game ? choiceFor(app.discChoices, game.id) : null);
+  const choice = $derived(
+    app.config?.developer && game ? choiceFor(app.discChoices, game.id) : null,
+  );
 
   /** The Mods switch (ModsSwitch), shown while Play would start the game. */
   const startsGame = $derived(startsPlay(next));
@@ -69,6 +82,7 @@
   function pick(i: number) {
     const g = games.at(Math.min(games.length - 1, Math.max(0, i)));
     const gv = g ? playerVersion(g) : null;
+
     if (!gv || g?.id === game?.id) return;
     dir = i < at ? -1 : 1;
     pickVersion(gv.key);
@@ -90,6 +104,7 @@
   $effect(() => {
     const serial = v?.serial;
     const changed = app.savesChanged;
+
     if (!serial || !set || !playable || changed < 0) return;
     api
       .inspectSaves(serial)
@@ -102,13 +117,18 @@
   const last = $derived(v ? (saves[v.serial] ?? null) : null);
   const lastWhen = $derived.by(() => {
     const seconds = last ? savedSeconds(last) : null;
+
     return seconds ? when(seconds) : null;
   });
   const continues = $derived(next?.kind === "play" && !!last);
 
   // ---- what changed ----
 
-  const TONE: Record<NewsItem["kind"], string> = { update: "var(--amber)", mods: "var(--ok)", crash: "var(--err)" };
+  const TONE: Record<NewsItem["kind"], string> = {
+    update: "var(--amber)",
+    mods: "var(--ok)",
+    crash: "var(--err)",
+  };
   const changes = $derived(
     news({
       update: app.update,
@@ -140,11 +160,15 @@
   let size = $state(400);
   $effect(() => {
     const el = wheel;
+
     if (!el) return;
     const read = () => (size = el.querySelector<HTMLElement>(".slot.on")?.offsetWidth ?? 400);
+
     read();
     const watch = new ResizeObserver(read);
+
     watch.observe(el);
+
     return () => {
       watch.disconnect();
     };
@@ -165,21 +189,27 @@
 
   function settle(now: number) {
     const dt = Math.min(1 / 30, (now - then) / 1000);
+
     then = now;
     const to = goal();
+
     speed += (-STIFF * (pos - to) - DAMP * speed) * dt;
     pos += speed * dt;
+
     if (Math.abs(pos - to) < 0.0008 && Math.abs(speed) < 0.002) {
       pos = to;
       speed = 0;
       frame = 0;
+
       return;
     }
+
     frame = requestAnimationFrame(settle);
   }
 
   $effect(() => {
     const to = goal();
+
     if (dragging || reduced || !placed) {
       // A finger moves the wheel itself; the first look has it in place.
       cancelAnimationFrame(frame);
@@ -187,8 +217,10 @@
       pos = to;
       speed = 0;
       placed = true;
+
       return;
     }
+
     if (!frame) {
       then = performance.now();
       frame = requestAnimationFrame(settle);
@@ -202,6 +234,19 @@
    *  overshoot and the pull past the first or last disc never move the wave. */
   const calm = $derived(Math.max(0, Math.min(games.length - 1, at - drag / step)));
 
+  // The wave itself is drawn behind the app (App.svelte, shelfWave.svelte.ts): on while the shelf shows.
+  $effect(() => {
+    shelfWave.on = Boolean(game && v && next);
+
+    return () => {
+      shelfWave.on = false;
+    };
+  });
+  $effect(() => {
+    shelfWave.shift = calm;
+    shelfWave.glow = glow;
+  });
+
   /** Where disc `i` stands: its offset from the middle of the wheel, and how it shows there. */
   function place(i: number) {
     const d = i - pos;
@@ -214,6 +259,7 @@
     // Not seen at all (two discs away and more): not drawn either. Never the picked disc's
     // neighbours, which the controller's focus may be on its way to while the wheel turns.
     const hidden = opacity <= 0 && Math.abs(i - at) >= 2 ? "; visibility: hidden" : "";
+
     return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; --shade: ${shade.toFixed(3)}; opacity: ${opacity}${hidden}`;
   }
 
@@ -250,7 +296,8 @@
   /** How long the wheel runs on after a fling, in s: the distance is the speed times this. */
   const GLIDE = 0.32;
 
-  const angle = (x: number, y: number, cx: number, cy: number) => (Math.atan2(y - cy, x - cx) * 180) / Math.PI;
+  const angle = (x: number, y: number, cx: number, cy: number) =>
+    (Math.atan2(y - cy, x - cx) * 180) / Math.PI;
 
   function down(e: PointerEvent) {
     if ((e.pointerType === "mouse" && e.button !== 0) || touch || launching || covered()) return;
@@ -266,6 +313,7 @@
       at: e.clientY,
     };
     const roll = (e.target as Element).closest<HTMLElement>(".slot.on .roll");
+
     if (roll && !reduced)
       touch.hold = window.setTimeout(() => {
         grab(roll);
@@ -278,6 +326,7 @@
     const r = roll.getBoundingClientRect();
     const cx = r.left + r.width / 2,
       cy = r.top + r.height / 2;
+
     touch.spin = { cx, cy, last: angle(touch.x, touch.at, cx, cy) };
     clearTimeout(unwind);
     if (twisted !== game?.id) twist = 0;
@@ -291,18 +340,25 @@
     touch.x = e.clientX;
     touch.at = e.clientY;
     const spin = touch.spin;
+
     if (spin) {
       const a = angle(e.clientX, e.clientY, spin.cx, spin.cy);
+
       twist += ((a - spin.last + 540) % 360) - 180;
       spin.last = a;
+
       return;
     }
+
     const dy = e.clientY - touch.y;
+
     if (!touch.moved && Math.abs(dy) < 8) return;
+
     if (!touch.moved) {
       clearTimeout(touch.hold);
       stage?.setPointerCapture(e.pointerId);
     }
+
     touch.moved = true;
     dragging = true;
     touch.trail.push({ y: e.clientY, t: e.timeStamp });
@@ -311,14 +367,17 @@
     // damped, so the wheel never jumps as the finger crosses it.
     const most = at * step,
       least = (at - (games.length - 1)) * step;
+
     drag = dy > most ? most + (dy - most) * 0.35 : dy < least ? least + (dy - least) * 0.35 : dy;
   }
 
   function up(e: PointerEvent) {
     if (touch?.id !== e.pointerId) return;
     const { moved, spin, trail, hold } = touch;
+
     touch = null;
     clearTimeout(hold);
+
     if (spin) {
       // Let go: the disc turns on to the nearest whole turn, its label up again.
       twist = Math.round(twist / 360) * 360;
@@ -331,8 +390,10 @@
         twist = 0;
         requestAnimationFrame(() => requestAnimationFrame(() => (snap = false)));
       }, 950);
+
       return;
     }
+
     dragging = false;
     if (!moved) return;
     swallow = true;
@@ -341,9 +402,12 @@
     const first = trail.find((p) => end.t - p.t <= 100) ?? end;
     const ms = end.t - first.t;
     const fling =
-      e.type === "pointerup" && ms > 0 ? Math.max(-24, Math.min(24, ((first.y - end.y) / ms) * (1000 / step))) : 0;
+      e.type === "pointerup" && ms > 0
+        ? Math.max(-24, Math.min(24, ((first.y - end.y) / ms) * (1000 / step)))
+        : 0;
     const now = at - drag / step;
     const target = Math.max(0, Math.min(games.length - 1, Math.round(now + fling * GLIDE)));
+
     drag = 0;
     pick(target);
     // The spring starts at the finger's speed: no stop between the finger and the wheel.
@@ -371,19 +435,32 @@
 
   // ---- what A does ----
 
-  let launching = $state<{ game: string; version: string; title: string; from: DOMRect } | null>(null);
+  let launching = $state<{ game: string; version: string; title: string; from: DOMRect } | null>(
+    null,
+  );
 
   function primary() {
     if (!v || !next || !game) return;
+
     if (!offers) {
       openVersion(v.key);
+
       return;
     }
+
     const disc = wheel?.querySelector<HTMLElement>(".slot.on .roll");
+
     if (next.kind === "play" && !reduced && disc) {
-      launching = { game: game.id, version: v.name, title: game.title, from: disc.getBoundingClientRect() };
+      launching = {
+        game: game.id,
+        version: v.name,
+        title: game.title,
+        from: disc.getBoundingClientRect(),
+      };
+
       return;
     }
+
     void playerAct(v, next);
   }
 
@@ -393,16 +470,19 @@
   let back: (() => void) | null = null;
   function launched() {
     if (v && next) void playerAct(v, next);
+
     const clear = () => {
       clearTimeout(aside);
       if (back) document.removeEventListener("visibilitychange", back);
       back = null;
       launching = null;
     };
+
     back = () => {
       if (document.visibilityState === "hidden") clearTimeout(aside);
       else clear();
     };
+
     document.addEventListener("visibilitychange", back);
     // The game never came (it failed to start): the shelf comes back.
     aside = window.setTimeout(clear, 6000);
@@ -424,7 +504,15 @@
 
   /** X: the Mods switch, while it shows and nothing covers the shelf. */
   function toggleMods() {
-    if (!startsGame || !playable || launching || covered() || !app.config || !supports(app.info, "mods")) return;
+    if (
+      !startsGame ||
+      !playable ||
+      launching ||
+      covered() ||
+      !app.config ||
+      !supports(app.info, "mods")
+    )
+      return;
     void setWithMods(!app.config.playWithMods);
   }
 
@@ -448,10 +536,12 @@
   let root = $state<HTMLElement | null>(null);
   $effect(() => {
     const el = root;
+
     if (!el) return;
     // On the document: Y reaches the shelf wherever the focus is (or with none).
     document.addEventListener("padmore", padPage);
     document.addEventListener("padextra", toggleMods);
+
     return () => {
       document.removeEventListener("padmore", padPage);
       document.removeEventListener("padextra", toggleMods);
@@ -470,6 +560,7 @@
   let opened = $state(false);
   $effect(() => {
     const t = setTimeout(() => (opened = true));
+
     return () => {
       clearTimeout(t);
     };
@@ -479,8 +570,6 @@
 
 {#if game && v && next}
   <div class="shelf" bind:this={root} style={glow ? `--glow: ${glow}` : undefined}>
-    <!-- Behind the whole shelf, its foot too. -->
-    <div class="backdrop" aria-hidden="true"><WaveBackdrop shift={calm} still={reduced} /></div>
     <div
       class="stage"
       class:twisting
@@ -526,8 +615,16 @@
             }}
           >
             <span class="roll" style={`animation-delay: ${Math.abs(i - at) * 90}ms`}>
-              <span class="twist" style={g.id === twisted && twist ? `rotate: ${twist}deg` : undefined}>
-                <Disc game={g.id} version={gv?.name ?? "ntsc"} title={g.title} idle={Math.abs(i - at) <= 2} />
+              <span
+                class="twist"
+                style={g.id === twisted && twist ? `rotate: ${twist}deg` : undefined}
+              >
+                <Disc
+                  game={g.id}
+                  version={gv?.name ?? "ntsc"}
+                  title={g.title}
+                  idle={Math.abs(i - at) <= 2}
+                />
               </span>
             </span>
           </button>
@@ -573,10 +670,14 @@
           <div class="acts" in:fly={enter(3)}>
             {#if offers}
               <button class="go" class:primary={next.primary} onclick={primary}>
-                <span class="glyph a" aria-hidden="true">A</span>{continues ? "Continue" : next.label}
+                <span class="glyph a" aria-hidden="true">A</span>{continues
+                  ? "Continue"
+                  : next.label}
               </button>
             {/if}
-            <button onclick={openPage}><span class="glyph" aria-hidden="true">Y</span>Game page</button>
+            <button onclick={openPage}
+              ><span class="glyph" aria-hidden="true">Y</span>Game page</button
+            >
             {#if menu.length}<Menu items={menu} />{/if}
           </div>
           {#if (startsGame && playable) || choice}
@@ -594,7 +695,13 @@
       {/key}
 
       {#if changes.length}
-        <div class="news" role="group" aria-label="What's new" data-pad-down=".info .acts button" data-pad-left="none">
+        <div
+          class="news"
+          role="group"
+          aria-label="What's new"
+          data-pad-down=".info .acts button"
+          data-pad-left="none"
+        >
           {#each changes as n, i (n.key)}
             <span
               class="chip"
@@ -609,7 +716,10 @@
               >
               {#if n.kind === "crash" && n.game}
                 {@const crashedGame = n.game}
-                <button class="x" aria-label="Dismiss" onclick={() => void dismissCrashes(crashedGame)}
+                <button
+                  class="x"
+                  aria-label="Dismiss"
+                  onclick={() => void dismissCrashes(crashedGame)}
                   ><Icon name="x" size={12} /></button
                 >
               {/if}
@@ -686,19 +796,6 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
-  }
-
-  /* Behind everything: the wave in the game's colour (WaveBackdrop.svelte). */
-  .backdrop {
-    position: absolute;
-    inset: 0;
-    /* On under the rail, frosted there (WaveBackdrop.svelte). */
-    left: calc(-1 * var(--nav-left));
-    --frost: var(--nav-left);
-    overflow: hidden;
-    pointer-events: none;
-    /* Fades in place when the page changes, never sliding with it under the rail (app.css). */
-    view-transition-name: wave;
   }
 
   /* ---- the wheel: the discs stand one above the other, the one picked in the middle ---- */

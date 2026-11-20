@@ -6,14 +6,15 @@
   // shared or replaced; a line here says so, with the way there. Counts per folder (Interface,
   // Shared, each planet) open that folder. Hashes, paths and the environment the game is started
   // with stay out of sight: they are in the docs.
-  import Icon from "./Icon.svelte";
   import { api, type TextureFolder, type TexturePackView, type VersionView } from "$lib/api";
   import { toast } from "$lib/app.svelte";
   import { grouped } from "$lib/format";
+  import { keepRead, lastRead } from "$lib/lastRead";
   import { TEXTURES } from "$lib/modsText";
   import { isPlaying } from "$lib/player.svelte";
-  import { keepRead, lastRead } from "$lib/lastRead";
   import { textureCount } from "$lib/texturePacks";
+
+  import Icon from "./Icon.svelte";
 
   let {
     version,
@@ -41,9 +42,11 @@
   let reading = 0;
   async function load() {
     const mine = ++reading;
+
     try {
       const key = keptKey();
       const read = await api.texturePacks(version.game, version.name);
+
       if (mine === reading) {
         view = read;
         keepRead(key, read);
@@ -62,6 +65,7 @@
 
   async function work(run: () => Promise<void>) {
     busy = true;
+
     try {
       await run();
     } catch (e) {
@@ -74,9 +78,14 @@
   const setDumping = (dumping: boolean) =>
     work(async () => {
       const key = keptKey();
+
       view = await api.texturePacksSet(version.game, version.name, { dumping });
       keepRead(key, view);
-      toast(dumping ? "The game saves its textures from your next Play." : "The game no longer saves its textures.");
+      toast(
+        dumping
+          ? "The game saves its textures from your next Play."
+          : "The game no longer saves its textures.",
+      );
     });
 
   const openFolder = (dump: boolean, folder: TextureFolder | null = null) =>
@@ -115,8 +124,8 @@
         <div>
           <h3>Save the game's textures while you play</h3>
           <p class="muted">
-            Every picture the game shows is saved once, sorted into Interface, Shared and a folder for each planet. They
-            come from your disc: keep them to yourself.
+            Every picture the game shows is saved once, sorted into Interface, Shared and a folder
+            for each planet. They come from your disc: keep them to yourself.
           </p>
         </div>
         <div class="controls">
@@ -140,7 +149,11 @@
           <div class="span counts" aria-label="Saved textures by folder">
             <span class="total">{textureCount(view.dumpCount)} saved</span>
             {#each view.dump as folder (folder.path)}
-              <button class="count" title={`Open ${folder.label}`} onclick={() => void openFolder(true, folder)}>
+              <button
+                class="count"
+                title={`Open ${folder.label}`}
+                onclick={() => void openFolder(true, folder)}
+              >
                 {folder.label}<b>{grouped(folder.count)}</b>
               </button>
             {/each}
@@ -151,16 +164,17 @@
         <div>
           <h3>Make your own pictures</h3>
           <p class="muted">
-            Open a saved picture in any image editor, upscale or repaint it at any size, and keep its file name. Put it
-            in your pack, in any folder.
+            Open a saved picture in any image editor, upscale or repaint it at any size, and keep
+            its file name. Put it in your pack, in any folder.
           </p>
           <p class="muted">
-            PNG works everywhere. For sharp icons, text and logos an SVG works too. For a smaller pack that takes a
-            quarter of the graphics memory, KTX2 in Basis Universal (UASTC or ETC1S; world textures with mip levels).
+            PNG works everywhere. For sharp icons, text and logos an SVG works too. For a smaller
+            pack that takes a quarter of the graphics memory, KTX2 in Basis Universal (UASTC or
+            ETC1S; world textures with mip levels).
           </p>
           <p class="muted">
-            Animated: put numbered pictures (0001.png, 0002.png…) in a folder named like the saved picture, without
-            .png.
+            Animated: put numbered pictures (0001.png, 0002.png…) in a folder named like the saved
+            picture, without .png.
           </p>
         </div>
         <div class="controls">
@@ -172,7 +186,11 @@
           <div class="span counts" aria-label="Your pack by folder">
             <span class="total">{textureCount(view.packCount)} in your pack</span>
             {#each view.pack as folder (folder.path)}
-              <button class="count" title={`Open ${folder.label}`} onclick={() => void openFolder(false, folder)}>
+              <button
+                class="count"
+                title={`Open ${folder.label}`}
+                onclick={() => void openFolder(false, folder)}
+              >
                 {folder.label}<b>{grouped(folder.count)}</b>
               </button>
             {/each}

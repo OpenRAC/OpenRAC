@@ -1,14 +1,16 @@
 <script lang="ts">
-  import { supports } from "$lib/capabilities";
+  import { untrack } from "svelte";
+
   // A desktop's header: no bar of its own, over the page, the logo with its first letter in the
   // game's colour and the theme's buttons: the tabs, the site, Discord.
   // On Android the same places are a navigation rail on the left, or a bar at the bottom when
   // the window is narrow, as Android's own apps have them (Material's navigation rail and bar).
   import { api, inTauri, onAndroid } from "$lib/api";
-  import { app, jobs, openDevelop, pendingJobs, runningJob, type Page } from "$lib/app.svelte";
+  import { app, jobs, openDevelop, type Page, pendingJobs, runningJob } from "$lib/app.svelte";
+  import { supports } from "$lib/capabilities";
   import { DISCORD_URL, SITE_URL } from "$lib/links";
   import { channelName, updateLabel } from "$lib/updates";
-  import { untrack } from "svelte";
+
   import Icon, { type IconName } from "./Icon.svelte";
   import Logo from "./Logo.svelte";
 
@@ -26,7 +28,9 @@
     // tools/bundle_standalone.py). Android's has the mods, Enhanced graphics and the packs, without
     // the level editor (no OpenRAC Editor there: Mods.svelte).
     { page: "mods", label: "Mods", icon: "edit" },
-    ...(app.config?.developer ? [{ page: "develop" as Page, label: "Develop", icon: "terminal" as IconName }] : []),
+    ...(app.config?.developer
+      ? [{ page: "develop" as Page, label: "Develop", icon: "terminal" as IconName }]
+      : []),
     { page: "settings", label: "Settings", icon: "gear" },
   ]);
 
@@ -35,6 +39,7 @@
   /** The tab that is open: a game's page belongs to the games. */
   const current = $derived.by<Page>(() => {
     const page = shown ?? app.page;
+
     return page === "game" ? "library" : page;
   });
 
@@ -46,6 +51,7 @@
   let placed = false;
   function place(page: Page) {
     const on = nav?.querySelector<HTMLElement>(`.tab[data-page="${page}"]`);
+
     slider =
       on && nav
         ? {
@@ -66,22 +72,63 @@
     const resized = new ResizeObserver(() => {
       place(untrack(() => current));
     });
+
     resized.observe(nav);
+
     return () => {
       resized.disconnect();
+    };
+  });
+
+  // The row after the logo scrolls sideways when it does not fit; `more` says which of its ends
+  // hide something, so that end fades out. A mouse wheel scrolls it too (a desktop, not Android).
+  let strip = $state<HTMLElement | null>(null);
+  let more = $state({ start: false, end: false });
+  $effect(() => {
+    if (!strip || onAndroid) return;
+    const row = strip;
+    const look = () => {
+      const left = row.scrollLeft;
+      const start = left > 1;
+      const end = left + row.clientWidth < row.scrollWidth - 1;
+
+      if (start !== more.start || end !== more.end) more = { start, end };
+    };
+    const wheel = (e: WheelEvent) => {
+      if (row.scrollWidth <= row.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      row.scrollLeft += e.deltaY;
+    };
+    // The row's width changes with the window, its content with a job or an update coming in.
+    const resized = new ResizeObserver(look);
+
+    resized.observe(row);
+    if (row.firstElementChild) resized.observe(row.firstElementChild);
+    row.addEventListener("scroll", look, { passive: true });
+    row.addEventListener("wheel", wheel, { passive: false });
+    look();
+
+    return () => {
+      resized.disconnect();
+      row.removeEventListener("scroll", look);
+      row.removeEventListener("wheel", wheel);
     };
   });
 
   /** Whether the page has scrolled under a desktop's header (its haze, below): the page, or a
    *  column of a tab with a list (SideFrame.svelte), is not at its top. */
   let under = $state(false);
-  const scrolled = () => [...document.querySelectorAll("main, main > .frame > *")].some((e) => e.scrollTop > 1);
+  const scrolled = () =>
+    [...document.querySelectorAll("main, main > .frame > *")].some((e) => e.scrollTop > 1);
   $effect(() => {
     if (onAndroid) return;
+
     const look = () => {
       under = scrolled();
     };
+
     document.addEventListener("scroll", look, { capture: true, passive: true });
+
     return () => {
       document.removeEventListener("scroll", look, { capture: true });
     };
@@ -98,7 +145,10 @@
 <header class="site-header" class:under>
   <!-- The first run: the name, not yet a way back to the games. -->
   {#if setup}
-    <div class="brand" title={app.info?.version ? `OpenRAC Launcher ${app.info.version}` : undefined}>
+    <div
+      class="brand"
+      title={app.info?.version ? `OpenRAC Launcher ${app.info.version}` : undefined}
+    >
       <Logo height={34} />
       <span class="brand-mark"><Logo mark height={37} label="" /></span>
       {#if app.info?.version}<small class="ver">{app.info.version}</small>{/if}
@@ -118,97 +168,111 @@
     </button>
   {/if}
 
-  {#if !setup}
-    <nav bind:this={nav}>
-      <span
-        class="slider"
-        class:shown={slider.shown}
-        class:moving={slider.moving}
-        style={`--l: ${slider.left}px; --r: ${slider.right}px`}
-        aria-hidden="true"
-      ></span>
-      {#each tabs as tab (tab.page)}
-        {@const on = current === tab.page}
+  <!-- Everything after the logo, in one row that scrolls sideways when the window is too narrow
+       for it (a job and an update at once): its ends fade out where more of it is hidden. -->
+  <div class="strip" class:more-start={more.start} class:more-end={more.end} bind:this={strip}>
+    <div class="strip-row">
+      {#if !setup}
+        <nav bind:this={nav}>
+          <span
+            class="slider"
+            class:shown={slider.shown}
+            class:moving={slider.moving}
+            style={`--l: ${slider.left}px; --r: ${slider.right}px`}
+            aria-hidden="true"
+          ></span>
+          {#each tabs as tab (tab.page)}
+            {@const on = current === tab.page}
+            <button
+              class="tab"
+              class:on
+              disabled={tab.page === "mods" && !supports(app.info, "mods")}
+              title={tab.page === "mods" && !supports(app.info, "mods")
+                ? "Mods are not available in this build"
+                : undefined}
+              data-page={tab.page}
+              aria-current={on ? "page" : undefined}
+              onclick={() => (app.page = tab.page)}
+            >
+              <span class="icon">
+                <Icon name={tab.icon} size={onAndroid ? 22 : 17} />
+                {#if onAndroid && tab.page === "settings" && app.update}<span
+                    class="badge"
+                    aria-hidden="true"
+                  ></span>{/if}
+              </span>
+              <span class="label">{tab.label}</span>
+              {#if onAndroid && tab.page === "settings" && app.update}<span class="sr-only"
+                  >, an update is out</span
+                >{/if}
+              {#if tab.page === "develop" && pending > 0}<span class="count">{pending}</span>{/if}
+            </button>
+          {/each}
+        </nav>
+      {/if}
+
+      {#if running && !setup}
         <button
-          class="tab"
-          class:on
-          disabled={tab.page === "mods" && !supports(app.info, "mods")}
-          title={tab.page === "mods" && !supports(app.info, "mods")
-            ? "Mods are not available in this build"
-            : undefined}
-          data-page={tab.page}
-          aria-current={on ? "page" : undefined}
-          onclick={() => (app.page = tab.page)}
+          class="job"
+          title={`${running.title}: show its output`}
+          onclick={() => {
+            jobs.selected = running.key;
+            if (app.config?.developer) openDevelop("console");
+            else app.page = "tasks";
+          }}
         >
-          <span class="icon">
-            <Icon name={tab.icon} size={onAndroid ? 22 : 17} />
-            {#if onAndroid && tab.page === "settings" && app.update}<span class="badge" aria-hidden="true"></span>{/if}
-          </span>
-          <span class="label">{tab.label}</span>
-          {#if onAndroid && tab.page === "settings" && app.update}<span class="sr-only">, an update is out</span>{/if}
-          {#if tab.page === "develop" && pending > 0}<span class="count">{pending}</span>{/if}
+          <span class="spinner"></span>
+          <span class="clip">{running.title}</span>
+          {#if pending > 1}<span class="count">+{pending - 1}</span>{/if}
         </button>
-      {/each}
-    </nav>
-  {/if}
+      {/if}
 
-  {#if running && !setup}
-    <button
-      class="job"
-      title={`${running.title}: show its output`}
-      onclick={() => {
-        jobs.selected = running.key;
-        if (app.config?.developer) openDevelop("console");
-        else app.page = "tasks";
-      }}
-    >
-      <span class="spinner"></span>
-      <span class="clip">{running.title}</span>
-      {#if pending > 1}<span class="count">+{pending - 1}</span>{/if}
-    </button>
-  {/if}
-
-  <div class="end">
-    <!-- Android says it with a dot on Settings, where the update is (a pill at the rail's foot
+      <div class="end">
+        <!-- Android says it with a dot on Settings, where the update is (a pill at the rail's foot
          looked like a stray bar). -->
-    {#if app.update && !onAndroid}
-      {@const update = app.update}
-      <!-- A newer launcher: in the bar's dark brown, with a dot that says something is new. -->
-      <button
-        class="update"
-        onclick={() => (app.showUpdateModal = true)}
-        title={update.switchTo
-          ? `${updateLabel(update)}: the channel chosen in Settings`
-          : `Launcher ${update.version} is out: see what's new and update`}
-      >
-        <span class="pulse" aria-hidden="true"></span>{update.switchTo
-          ? `Switch to ${channelName(update.switchTo)}`
-          : "Update"}<span class="label">{update.version}</span>
-      </button>
-    {/if}
-    {#if !inTauri}<span class="preview">Browser preview</span>{/if}
-    {#if !onAndroid}
-      <!-- Where OpenRAC lives: the site and the community, two marks in one capsule of the selected
+        {#if app.update && !onAndroid}
+          {@const update = app.update}
+          <!-- A newer launcher: in the bar's dark brown, with a dot that says something is new. -->
+          <button
+            class="update"
+            onclick={() => (app.showUpdateModal = true)}
+            title={update.switchTo
+              ? `${updateLabel(update)}: the channel chosen in Settings`
+              : `Launcher ${update.version} is out: see what's new and update`}
+          >
+            <span class="pulse" aria-hidden="true"></span>{update.switchTo
+              ? `Switch to ${channelName(update.switchTo)}`
+              : "Update"}<span class="label">{update.version}</span>
+          </button>
+        {/if}
+        {#if !inTauri}<span class="preview">Browser preview</span>{/if}
+        {#if !onAndroid}
+          <!-- Where OpenRAC lives: the site and the community, two marks in one capsule of the selected
            tab's dark brown. -->
-      <div class="links">
-        <button class="site" onclick={() => void api.openUrl(SITE_URL)} aria-label="openrac.dev" title="openrac.dev"
-          ><Icon name="globe" size={18} /></button
-        >
-        <button
-          class="discord"
-          onclick={() => void api.openUrl(DISCORD_URL)}
-          aria-label="Join the OpenRAC Discord"
-          title="Discord"
-        >
-          <svg class="mark" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path
-              d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"
-              fill="currentColor"
-            />
-          </svg>
-        </button>
+          <div class="links">
+            <button
+              class="site"
+              onclick={() => void api.openUrl(SITE_URL)}
+              aria-label="openrac.dev"
+              title="openrac.dev"><Icon name="globe" size={18} /></button
+            >
+            <button
+              class="discord"
+              onclick={() => void api.openUrl(DISCORD_URL)}
+              aria-label="Join the OpenRAC Discord"
+              title="Discord"
+            >
+              <svg class="mark" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path
+                  d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          </div>
+        {/if}
       </div>
-    {/if}
+    </div>
   </div>
 </header>
 
@@ -240,6 +304,8 @@
     /* Android keeps the picked game's own ink. */
     --bar-ink-deep: var(--ink-deep);
     --bar-name: var(--text);
+    /* The page starts below the header (App.svelte): a hairline marks where. */
+    border-bottom: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
   }
 
   :global(html:not([data-platform="android"])) .site-header::before {
@@ -469,6 +535,65 @@
     animation: rise var(--medium) var(--ease) both;
   }
 
+  /* The row after the logo: it takes the rest of the bar and scrolls sideways, without a scroll
+     bar, when its buttons do not fit. It reaches the window's edge, so its fade does too. */
+  .strip {
+    flex: 1;
+    min-width: 0;
+    align-self: stretch;
+    margin-right: -18px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    /* The header's gap, for the row inside. */
+    gap: inherit;
+    --fade-start: 0px;
+    --fade-end: 0px;
+    /* Eased ends: a straight ramp showed a button's dark left end as a hard half circle. */
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      rgb(0 0 0 / 0.35) calc(var(--fade-start) * 0.35),
+      rgb(0 0 0 / 0.8) calc(var(--fade-start) * 0.7),
+      black var(--fade-start),
+      black calc(100% - var(--fade-end)),
+      rgb(0 0 0 / 0.8) calc(100% - var(--fade-end) * 0.7),
+      rgb(0 0 0 / 0.35) calc(100% - var(--fade-end) * 0.35),
+      transparent
+    );
+    transition:
+      --fade-start var(--medium) var(--ease),
+      --fade-end var(--medium) var(--ease);
+  }
+
+  .strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .strip.more-start {
+    --fade-start: 56px;
+  }
+
+  .strip.more-end {
+    --fade-end: 80px;
+  }
+
+  .strip-row {
+    display: flex;
+    align-items: center;
+    gap: inherit;
+    width: max-content;
+    min-width: 100%;
+    height: 100%;
+    padding-right: 18px;
+  }
+
+  /* Android's rail and bottom bar lay the same buttons out themselves (below). */
+  :global(html[data-platform="android"]) .strip,
+  :global(html[data-platform="android"]) .strip-row {
+    display: contents;
+  }
+
   .end {
     margin-left: auto;
     display: flex;
@@ -592,54 +717,11 @@
     margin-left: -4px;
   }
 
+  /* The preview's badge gives way first. The rest keeps its size and room at any width: the row
+     scrolls when it does not fit (.strip). */
   @media (max-width: 1240px) {
-    header,
-    .site-header {
-      gap: 18px;
-    }
-
     .preview {
       display: none;
-    }
-  }
-
-  /* Down to the window's smallest (960 px), with developer tools, a job and an update all showing:
-     the update keeps its word, the job less of its name. */
-  @media (max-width: 1180px) {
-    header,
-    .site-header {
-      gap: 14px;
-    }
-
-    .update .label {
-      display: none;
-    }
-
-    .job {
-      max-width: 150px;
-    }
-  }
-
-  /* Where room runs short (developer tools, a job and an update all showing), the tabs keep their
-     words and drop their icons first. */
-  @media (max-width: 1100px) {
-    :global(html:not([data-platform="android"])) .tab .icon {
-      display: none;
-    }
-
-    :global(html:not([data-platform="android"])) .tab {
-      padding: 0 12px;
-    }
-  }
-
-  /* A narrow window keeps the tabs. */
-  @media (max-width: 900px) {
-    .site-header {
-      gap: 12px;
-    }
-
-    .job {
-      max-width: 160px;
     }
   }
 

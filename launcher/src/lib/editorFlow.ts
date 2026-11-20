@@ -26,7 +26,8 @@ export type StageKind =
   | "ready";
 
 /** What a button of the panel does. */
-export type Step = "set-up" | "get-editor" | "prepare" | "open" | "update" | "repair" | "pack" | "play";
+export type Step =
+  "set-up" | "get-editor" | "prepare" | "open" | "update" | "repair" | "pack" | "play";
 
 export interface Stage {
   kind: StageKind;
@@ -70,9 +71,13 @@ export const STEP_LABEL: Record<Step, string> = {
 /** Level names in a sentence: "Veldin, Novalis and 3 more". */
 export function levelList(game: string, levels: number[], most = 3): string {
   const names = levels.map((n) => levelName(game, n));
+
   if (names.length <= most) {
-    return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+    return names.length <= 1
+      ? (names[0] ?? "")
+      : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
   }
+
   return `${names.slice(0, most).join(", ")} and ${names.length - most} more`;
 }
 
@@ -93,12 +98,15 @@ export const UPDATE_DETAIL =
 
 /** The Open button while levels need an update, and what it is good for. */
 export const OPEN_ANYWAY = "Open anyway";
-export const OPEN_ANYWAY_HINT = "Opening an outdated level works for looking around. Pack it after the update.";
+
+export const OPEN_ANYWAY_HINT =
+  "Opening an outdated level works for looking around. Pack it after the update.";
 
 /** Where the player is, and what comes next. */
 export function editorStage(input: FlowInput): Stage {
   const { game, state, early } = input;
   const base = { secondary: [] as Step[], levels: [] as number[] };
+
   if (!input.discFound) {
     return {
       ...base,
@@ -109,16 +117,20 @@ export function editorStage(input: FlowInput): Stage {
       primary: "set-up",
     };
   }
+
   if (input.lacksEditor !== null) {
     return {
       ...base,
       kind: "no-editor",
       tone: "warn",
       title: "Get OpenRAC Editor to edit levels",
-      line: input.lacksEditor || "Levels open in OpenRAC Editor, OpenRAC's own level editor. Download it here, once.",
+      line:
+        input.lacksEditor ||
+        "Levels open in OpenRAC Editor, OpenRAC's own level editor. Download it here, once.",
       primary: "get-editor",
     };
   }
+
   if (input.unsupported) {
     return {
       ...base,
@@ -129,6 +141,7 @@ export function editorStage(input: FlowInput): Stage {
       primary: null,
     };
   }
+
   if (input.extracting) {
     if (input.extracting.actionId === "editor-reexport") {
       return {
@@ -140,7 +153,9 @@ export function editorStage(input: FlowInput): Stage {
         primary: null,
       };
     }
+
     const updating = (state?.outdated.length ?? 0) > 0 || (state?.broken.length ?? 0) > 0;
+
     return updating
       ? {
           ...base,
@@ -159,6 +174,7 @@ export function editorStage(input: FlowInput): Stage {
           primary: null,
         };
   }
+
   if (input.packing) {
     return {
       ...base,
@@ -169,25 +185,41 @@ export function editorStage(input: FlowInput): Stage {
       primary: null,
     };
   }
+
   if (!state) {
-    return { ...base, kind: "loading", tone: "info", title: "Looking at your levels…", line: "", primary: null };
+    return {
+      ...base,
+      kind: "loading",
+      tone: "info",
+      title: "Looking at your levels…",
+      line: "",
+      primary: null,
+    };
   }
+
   const opening: Step[] = ["open"];
+
   if (state.outdated.length) {
     const levels = state.outdated.map((o) => o.level);
     const reason = state.outdated[0]?.reason ?? "schema";
+
     return {
       kind: "needs-update",
       tone: "warn",
       title:
-        levels.length === state.levels.length ? "Your levels need an update" : "Some of your levels need an update",
-      line: (levels.length === state.levels.length ? "" : `${levelList(game, levels)}. `) + OUTDATED_LINE[reason],
+        levels.length === state.levels.length
+          ? "Your levels need an update"
+          : "Some of your levels need an update",
+      line:
+        (levels.length === state.levels.length ? "" : `${levelList(game, levels)}. `) +
+        OUTDATED_LINE[reason],
       detail: UPDATE_DETAIL,
       primary: "update",
       secondary: opening,
       levels,
     };
   }
+
   if (state.broken.length) {
     return {
       kind: "broken",
@@ -199,6 +231,7 @@ export function editorStage(input: FlowInput): Stage {
       levels: state.broken,
     };
   }
+
   if (!early && state.unpacked.length) {
     return {
       kind: "unpacked",
@@ -210,6 +243,7 @@ export function editorStage(input: FlowInput): Stage {
       levels: state.unpacked,
     };
   }
+
   if (!state.levels.length) {
     return {
       ...base,
@@ -222,6 +256,7 @@ export function editorStage(input: FlowInput): Stage {
       primary: "prepare",
     };
   }
+
   if (!early && state.packedAt !== null && state.packedOtherVersion) {
     return {
       ...base,
@@ -233,6 +268,7 @@ export function editorStage(input: FlowInput): Stage {
       secondary: ["open"],
     };
   }
+
   if (!early && state.packedAt !== null && state.packedLevels > 0) {
     return {
       ...base,
@@ -247,6 +283,7 @@ export function editorStage(input: FlowInput): Stage {
       secondary: ["open"],
     };
   }
+
   return {
     ...base,
     kind: "ready",
@@ -271,10 +308,13 @@ export interface UpdateNote {
 
 export function updateNote(game: string, carried: Carried[]): UpdateNote | null {
   if (!carried.length) return null;
+
   return {
     carried: carried.reduce((n, c) => n + c.carried.length, 0),
     failed: carried.filter((c) => c.failed).map((c) => c.level),
-    redo: carried.flatMap((c) => c.notCarried.map((line) => `${levelName(game, c.level)}: ${line}`)),
+    redo: carried.flatMap((c) =>
+      c.notCarried.map((line) => `${levelName(game, c.level)}: ${line}`),
+    ),
     levels: carried.length,
   };
 }
@@ -288,6 +328,7 @@ export function updateNoteLine(note: UpdateNote): string {
   const redo = note.redo.length
     ? ` ${plural(note.redo.length, "change")} could not be carried: redo ${note.redo.length === 1 ? "it" : "them"} in OpenRAC Editor.`
     : "";
+
   return head + redo + " Your old levels are in the backup folder.";
 }
 
@@ -315,11 +356,17 @@ export const LEVEL_TOOL_TEXT = {
 
 /** The panel's own rows: Pack again where packing is offered and there is a project, Export the
  *  levels again wherever levels have been read. The resets (read the game's levels, delete) follow. */
-export function levelTools(state: EditorState | null, early: boolean, discFound: boolean): LevelTool[] {
+export function levelTools(
+  state: EditorState | null,
+  early: boolean,
+  discFound: boolean,
+): LevelTool[] {
   const project = (state?.levels.length ?? 0) > 0;
   const tools: LevelTool[] = [];
+
   if (project && !early) tools.push("pack-again");
   if (project && discFound) tools.push("export-again");
+
   return tools;
 }
 

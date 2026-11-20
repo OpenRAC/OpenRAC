@@ -2,7 +2,7 @@
 /* Copyright (c) 2026 the OpenRAC contributors */
 #pragma once
 typedef unsigned int gaddr;
-int game_FUN_L00_00239810(gaddr element);
+int game_FUN_L00_00239810(unsigned int element);
 int game_FUN_L00_00239810__game(gaddr element);
 int game_FUN_001ff960(int group, int frame);
 void game_FUN_001ffc30(int frame, int x, int y, int w, int h, int alpha);

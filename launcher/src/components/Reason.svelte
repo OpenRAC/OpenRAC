@@ -9,7 +9,11 @@
     text,
     tone = "plain",
     role,
-  }: { text: string; tone?: "plain" | "ok" | "err" | "warn" | "dim"; role?: "status" | "alert" } = $props();
+  }: {
+    text: string;
+    tone?: "plain" | "ok" | "err" | "warn" | "dim";
+    role?: "status" | "alert";
+  } = $props();
 
   const shown = $derived(hidePaths(text));
 </script>

@@ -24,7 +24,11 @@
 
 <script lang="ts">
   // Drawn in the current colour.
-  let { mark = false, height = 32, label = "OpenRAC" }: { mark?: boolean; height?: number; label?: string } = $props();
+  let {
+    mark = false,
+    height = 32,
+    label = "OpenRAC",
+  }: { mark?: boolean; height?: number; label?: string } = $props();
   const view = $derived(mark ? VIEW.mark : VIEW.full);
   const width = $derived(Math.round((height * view[2]) / view[3]));
 </script>

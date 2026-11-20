@@ -20,6 +20,7 @@
     withoutBind,
   } from "$lib/keybinds";
   import * as T from "$lib/modsText";
+
   import Icon from "./Icon.svelte";
 
   let {
@@ -54,11 +55,14 @@
 
   function take(name: string) {
     const slot = capturing;
+
     if (slot === null) return;
     capturing = null;
     const next = withBind(binds, slot, name);
+
     onnote(binds.includes(name) && binds.indexOf(name) !== slot ? T.KEYBIND.swapped : null);
     const value = formatBinds(next);
+
     if (value !== formatBinds(binds)) onchange(value);
     caps[Math.min(slot, next.length - 1)]?.focus();
   }
@@ -77,6 +81,7 @@
       e.preventDefault();
       e.stopPropagation();
       const name = bindOfKey(e);
+
       if (name) take(name);
     };
     const down = (e: MouseEvent) => {
@@ -84,6 +89,7 @@
         e.preventDefault();
         e.stopPropagation();
         const name = bindOfMouse(e);
+
         if (name) {
           boundAt = Date.now();
           take(name);
@@ -98,14 +104,17 @@
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
       const name = bindOfWheel(e);
+
       if (name) take(name);
     };
     const away = () => (capturing = null);
+
     window.addEventListener("keydown", key, true);
     window.addEventListener("mousedown", down, true);
     window.addEventListener("contextmenu", menu, true);
     window.addEventListener("blur", away);
     cap?.addEventListener("wheel", wheel, { passive: false });
+
     return () => {
       window.removeEventListener("keydown", key, true);
       window.removeEventListener("mousedown", down, true);
@@ -135,8 +144,8 @@
           onclick={() => {
             start(slot);
           }}
-          >{#if capturing === slot}{T.KEYBIND.press}{:else if name}{bindLabel(name)}{:else}<span class="add"
-              >{slot === 0 ? T.KEYBIND.none : T.KEYBIND.add}</span
+          >{#if capturing === slot}{T.KEYBIND.press}{:else if name}{bindLabel(name)}{:else}<span
+              class="add">{slot === 0 ? T.KEYBIND.none : T.KEYBIND.add}</span
             >{/if}</button
         >{#if name && capturing !== slot}<button
             class="clear"

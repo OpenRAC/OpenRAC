@@ -6,18 +6,19 @@
 #include <chrono>
 #include <cmath>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
 #include <vector>
 
 #include "common/log.h"
 #include "frontend.h"
 #include "game/common/frontend/effects_dump.h"
-#include "game/common/frontend/geometry.h"
 #include "game/common/frontend/scene_frame_internal.h"
+#include "program/program.h"
 #include "renderer/direct/direct.h"
 #include "renderer/gl/gl.h"
+#include "scene/vendor_preview.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace openrac::frontend {
 namespace {
@@ -58,7 +59,9 @@ void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target
     for (const Kept::TargetMoby& moby : scene.target_mobys) {
         // Other markers draw different ranges of the captured menu objects.
         if (!moby.on_screen && moby.address >= first && moby.address < first + count * 0x100u) {
-            instances.push_back(moby.instance);
+            if (moby.preview_item_class < 0) {
+                instances.push_back(moby.instance);
+            }
             camera = &moby.camera;
         }
     }
@@ -98,6 +101,27 @@ void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target
         {}
     };
     owner.scene.draw_mobys(instances, panel, state);
+    for (const Kept::TargetMoby& moby : scene.target_mobys) {
+        if (moby.on_screen || moby.preview_item_class < 0 || moby.address < first
+            || moby.address >= first + count * 0x100u) {
+            continue;
+        }
+        auto inset = panel;
+        const auto& adjustment = scene::vendor_preview::get(moby.preview_item_class);
+        inset.camera.projection =
+            scene::vendor_preview::projection(panel.camera.projection, adjustment);
+        auto instance = moby.instance;
+        const auto& shape = owner.level.models[instance.model];
+        instance.matrix = scene::vendor_preview::orient(
+            instance.matrix,
+            adjustment,
+            {(shape.min[0] + shape.max[0]) * .5f,
+             (shape.min[1] + shape.max[1]) * .5f,
+             (shape.min[2] + shape.max[2]) * .5f},
+            false
+        );
+        owner.scene.draw_mobys({instance}, inset, state);
+    }
 }
 
 // Draws a menu's mobys on the screen over the world drawn under it (frontend/menu_layers.h), with
@@ -145,86 +169,6 @@ void draw_screen_mobys(
     owner.scene.draw_mobys(instances, menu, state);
 }
 
-// Moves `point`, where the effects of the tick put it on a moby the tick drew with `now`, to the same
-// place on the moby drawn with `drawn` (a frame between ticks): through the moby's own axes, so an
-// effect on a moby that turns as it moves (the ship's flame in a barrel roll) stays where it is on
-// it. Axes without an inverse move it by the position alone.
-void follow_moby(const renderer::Mat4& now, const renderer::Mat4& drawn, float point[3]) {
-    // The axes' inverse by cofactors: column c of `now` is axis c (elements c * 4 .. c * 4 + 2).
-    const float a = now[0], b = now[4], c = now[8];
-    const float d = now[1], e = now[5], f = now[9];
-    const float g = now[2], h = now[6], i = now[10];
-    const float co[9] = {
-        e * i - f * h,
-        c * h - b * i,
-        b * f - c * e,
-        f * g - d * i,
-        a * i - c * g,
-        c * d - a * f,
-        d * h - e * g,
-        b * g - a * h,
-        a * e - b * d,
-    };
-    const float det = a * co[0] + b * co[3] + c * co[6];
-    if (!(std::fabs(det) > 1e-12f)) {
-        for (int k = 0; k < 3; ++k) {
-            point[k] += drawn[12 + k] - now[12 + k];
-        }
-        return;
-    }
-    const float r[3] = {point[0] - now[12], point[1] - now[13], point[2] - now[14]};
-    float local[3];
-    for (int k = 0; k < 3; ++k) {
-        local[k] = (co[k * 3] * r[0] + co[k * 3 + 1] * r[1] + co[k * 3 + 2] * r[2]) / det;
-    }
-    for (int k = 0; k < 3; ++k) {
-        point[k] =
-            drawn[k] * local[0] + drawn[4 + k] * local[1] + drawn[8 + k] * local[2] + drawn[12 + k];
-    }
-}
-
-// The moves of the mobys that carry their effect quads (EffectQuad::parent), by address: this
-// tick's matrix and the one this frame draws the moby with, part way from the last tick's
-// (blend_matrix). Only an owner that is not drawn itself but has a drawn moby at its very place,
-// its body: level 5's ship, 0x018C7400 in the challenge, whose flame func_L05_004186D8 places by
-// its rotation +0xC0 and position +0x10, while its body is drawn as other mobys at its place
-// (classes 4305 to 4325). Its quads move as that body does. Others' quads stay where the tick has
-// them: a callback's argument is often a moby whose quads are not on it (a Lancer shot's trail
-// reaching back along its path, beams to far points), and turning those with the moby tore them
-// into stray lines.
-std::unordered_map<std::uint32_t, std::pair<renderer::Mat4, renderer::Mat4>> owner_moves(
-    const Kept& scene, float alpha
-) {
-    std::unordered_map<std::uint32_t, std::pair<renderer::Mat4, renderer::Mat4>> moves;
-    if (alpha >= 1.0f || !scene.has_prev_state) {
-        return moves;
-    }
-    std::unordered_set<std::uint32_t> drawn_here(scene.addresses.begin(), scene.addresses.end());
-    std::unordered_set<std::uint32_t> owners;
-    for (const renderer::EffectQuad& q : scene.effects) {
-        if (q.parent != 0 && !drawn_here.contains(q.parent)) {
-            owners.insert(q.parent);
-        }
-    }
-    for (const host::LiveMoby& m : scene.state.mobys) {
-        if (!owners.contains(m.address)) {
-            continue;
-        }
-        // The drawn moby at its place this tick, drawn the tick before too.
-        for (std::size_t n = 0; n < scene.live.size() && n < scene.addresses.size(); ++n) {
-            const renderer::Mat4& now = scene.live[n].matrix;
-            const float dx = now[12] - m.matrix[12], dy = now[13] - m.matrix[13],
-                        dz = now[14] - m.matrix[14];
-            const auto last = scene.prev_matrices.find(scene.addresses[n]);
-            if (dx * dx + dy * dy + dz * dz < 1e-6f && last != scene.prev_matrices.end()) {
-                moves.emplace(m.address, std::pair{now, blend_matrix(last->second, now, alpha)});
-                break;
-            }
-        }
-    }
-    return moves;
-}
-
 }  // namespace
 
 void set_packets(SceneFrame& frame) {
@@ -239,6 +183,7 @@ void set_packets(SceneFrame& frame) {
     // Mesh shaders apply AO to indirect lighting before direct light is added.
     input.gtao = enhanced && graphics.gtao && has_camera && (scene.draws & 0x1Fu) != 0;
     input.frame = scene.frame;
+    input.tick_rate = program::tick_rate();
     input.enhanced_water = enhanced;
     input.lily_momentum = graphics.lily_momentum;
     input.water_hands = scene.water_hands;
@@ -258,75 +203,12 @@ void set_packets(SceneFrame& frame) {
     }
     // Shadow direction easing follows display time rather than the number of rendered frames.
     input.seconds = std::chrono::duration<double>(started.time_since_epoch()).count();
-    input.strip_vertices = scene.strip_vertices;
-    input.strips = scene.strips;
     input.direct_before_world =
         std::span<const std::uint8_t>(scene.packets).first(scene.before_world);
     input.level_drawn = (scene.draws & kLevelLayers) != 0;
     input.packets[static_cast<std::size_t>(renderer::Bucket::Hud)] =
         std::span<const std::uint8_t>(scene.packets).subspan(scene.before_world);
-    input.effects = scene.effects;
-    // Between ticks, each quad with an id moves from its last tick's corners as the mobys move
-    // (Kept::prev_effect_corners); one that jumped further than anything carried moves (a slot
-    // freed and taken again in a tick) and one new this tick are drawn where the tick has them.
-    // A rigid quad (EffectQuad::rigid: a sprite or flat quad) keeps this tick's shape and moves by
-    // its centre: Going Commando turns the Lancer's glow to a random angle every tick (its
-    // spawner, level 3's 0x0033F6B0, as retail does), and corners taken part way between two
-    // angles drew it shrunken, at times to a point, on every frame between ticks: a flicker, at
-    // 60 fps too, whose frames do not fall on the ticks.
-    // A quad on a moby's body (EffectQuad::parent, owner_moves: the ship's engine flame in the
-    // space fights) moves with the body as this frame draws it, through its axes: left at the
-    // tick's place, the flame ran ahead of the ship, into its middle as it flew and out to the side
-    // in a barrel roll.
-    const float alpha = frame.output.alpha;
-    const bool owned = std::any_of(scene.effects.begin(), scene.effects.end(), [](const auto& q) {
-        return q.parent != 0;
-    });
-    if (alpha < 1.0f && (owned || !scene.prev_effect_corners.empty())) {
-        constexpr float kFarthest = 4.0f;  // world units a tick
-        frame.effects = scene.effects;
-        const auto parents = owner_moves(scene, owned ? alpha : 1.0f);
-        for (renderer::EffectQuad& q : frame.effects) {
-            if (q.parent != 0) {
-                const auto parent = parents.find(q.parent);
-                if (parent != parents.end()) {
-                    for (auto& corner : q.corner) {
-                        follow_moby(parent->second.first, parent->second.second, corner);
-                    }
-                    continue;
-                }
-            }
-            if (q.id == 0) {
-                continue;
-            }
-            const auto last = scene.prev_effect_corners.find(q.id);
-            if (last == scene.prev_effect_corners.end()) {
-                continue;
-            }
-            const auto& from = last->second;
-            float d[3];
-            for (int i = 0; i < 3; ++i) {
-                d[i] = (q.corner[0][i] + q.corner[3][i] - from[0][i] - from[3][i]) * 0.5f;
-            }
-            if (!(d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < kFarthest * kFarthest)) {
-                continue;
-            }
-            if (q.rigid) {
-                for (int k = 0; k < 4; ++k) {
-                    for (int i = 0; i < 3; ++i) {
-                        q.corner[k][i] -= d[i] * (1.0f - alpha);
-                    }
-                }
-                continue;
-            }
-            for (int k = 0; k < 4; ++k) {
-                for (int i = 0; i < 4; ++i) {
-                    q.corner[k][i] = from[k][i] + (q.corner[k][i] - from[k][i]) * alpha;
-                }
-            }
-        }
-        input.effects = frame.effects;
-    }
+    set_effects(frame);
     input.sky_shells = scene.sky_shells;
     input.sky_shell_mask = scene.sky_shell_mask;
     input.effect_uploads = scene.effect_uploads;
@@ -397,6 +279,7 @@ void retain_background(SceneFrame& frame) {
     if (owner.hold_last_world && !owner.repeat_frame && owner.last_world.width() == width
         && owner.last_world.height() == height) {
         owner.last_world.blit_to(owner.frame.id(), width, height);
+        owner.frame.samples_written();
         input.keep_colour = true;
     }
 
@@ -407,7 +290,8 @@ void retain_background(SceneFrame& frame) {
     // and drew them over it once more. Going Commando's weapon upgrade turned the weapon so for
     // its whole length: every pose it had shown stayed on the screen, over the level's last frame.
     if (first && has_camera && (scene.draws & kLevelLayers) != 0 && width > 0 && height > 0) {
-        input.before_hud = [&owner, &scene, width, height]() {
+        const bool temporal = frame.temporal;
+        input.before_hud = [&owner, &scene, width, height, temporal]() {
             // Size changes invalidate the retained world attachment.
             if (owner.last_world.width() != width || owner.last_world.height() != height) {
                 std::string error;
@@ -417,6 +301,25 @@ void retain_background(SceneFrame& frame) {
                 }
             }
 
+            // The copy ends the frame's pass. When the HUD does not test the world's depth, the
+            // depth is let go first: a tiled GPU (a phone's) then neither writes it out nor
+            // reads it back for the HUD's pass.
+            if (!temporal && !owner.renderer->hud_reads_depth()
+                && gl::glInvalidateFramebuffer != nullptr) {
+                const gl::GLenum dropped[] = {gl::GL_DEPTH_ATTACHMENT, gl::GL_STENCIL_ATTACHMENT};
+                gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, owner.frame.id());
+                gl::glInvalidateFramebuffer(gl::GL_FRAMEBUFFER, 2, dropped);
+            }
+#if defined(OPENRAC_VULKAN)
+            // Nothing draws on the frame after this: its samples are resolved now and let go, so
+            // a tiled GPU does not write them out, and the copy reads the resolved colour.
+            if (!temporal && !owner.renderer->hud_draws() && gl::is_vulkan()
+                && owner.frame.samples() > 1 && !owner.frame.resolves_itself()
+                && !owner.frame.samples_let_go()
+                && vkgl::resolve_dropping_samples(owner.frame.id(), owner.frame.resolve_target())) {
+                owner.frame.samples_dropped();
+            }
+#endif
             owner.frame.blit_to(owner.last_world.id(), width, height);
             owner.last_world_tick = scene.frame;
             // A world under a menu: the menu's picture of the frame (read back once as it opened)

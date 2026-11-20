@@ -153,6 +153,16 @@ public:
         return std::nullopt;
     }
 
+    // Adds the moby at game address `moby` to `mobys`, once for each part the game draws of it
+    // (Going Commando's bangles); nothing when read_moby reads none.
+    virtual void add_moby(
+        std::span<const std::uint8_t> ram, std::uint32_t moby, std::vector<LiveMoby>& mobys
+    ) const {
+        if (const auto live = read_moby(ram, moby)) {
+            mobys.push_back(*live);
+        }
+    }
+
     // The vertex alpha's distance fade the game's moby renderer gives the moby whose record starts
     // at `moby`, seen from `state`'s camera, in the GS's units (0x80 none, 0 at its draw distance);
     // none when it leaves the moby undrawn by its distance.
@@ -243,6 +253,12 @@ public:
     // were until its render equivalence is run with the change.
     virtual bool interpolates_effect_quads() const { return false; }
 
+    // Returns the position anchor of an active particle record, or 0 for world-space particles.
+    // Attached sprites can follow it from their first frame, before their slot has any history.
+    [[nodiscard]] virtual std::uint32_t particle_attachment(std::span<const std::uint8_t>) const {
+        return 0;
+    }
+
     // Whether the terrain's vertex colours take the point lights in reach, as Going Commando's
     // PatchTfragVertexLighting (0x2F0468) adds them to the colours the level lit (mesh.vert),
     // rather than not at all.
@@ -304,8 +320,8 @@ public:
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
 
     // Whether a moby class keeps the game's own draw distance whatever Draw distance says: one the
-    // game parks out of sight and shows only by its distance (Going Commando's Electrolyzer
-    // boards).
+    // game parks out of sight or far away and hides only by its distance. Each game lists them, with
+    // the reason, in port/game/<game>/draw_distance.tsv (game/common/draw_distance_list.h).
     virtual bool keeps_game_draw_distance(int /*class_id*/) const { return false; }
 
     // The value of the game's mode word (openrac_game_mode) while a real-time cutscene plays in a
@@ -316,6 +332,11 @@ public:
     // The value of the game's mode word while the pause menu is open over a level (the Field of
     // View keeps the world under it as it was paused); none for a game without one known.
     virtual std::optional<std::uint32_t> pause_mode() const { return std::nullopt; }
+
+    // The value of the game's mode word while the weapon quick select is open over play: the
+    // world goes on under it with the gameplay camera, so the Field of View stays; none for a
+    // game whose quick select keeps the play mode.
+    virtual std::optional<std::uint32_t> quick_select_mode() const { return std::nullopt; }
 
     // Returns the executable's address of the particle updates, one per particle type byte
     // (relocated when read); 0 for a game without them.

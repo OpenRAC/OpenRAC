@@ -81,9 +81,21 @@ def programs(key: str) -> dict[str, dict[str, tuple[int, bytes]]]:
     return out
 
 
+def port_gp(key: str) -> int | None:
+    """$gp as the port's configuration of the version states it (port/game/<game>-<version>/hostgen.json
+    "asm" "gp"), for an executable whose start-up code sets it in a way gp_of does not read (Going
+    Commando's)."""
+    config = ROOT / "port/game" / key.replace("/", "-") / "hostgen.json"
+    if not config.is_file():
+        return None
+    gp = json.loads(config.read_text()).get("asm", {}).get("gp")
+    return int(gp, 0) if gp else None
+
+
 def gp_of(sections: dict) -> int | None:
-    """$gp as the start-up code sets it: the first `lui gp` and the `addiu gp, gp` that completes it."""
-    for name in CODE_SECTIONS:
+    """$gp as the start-up code sets it: the first `lui gp` and the `addiu gp, gp` that completes it (in the
+    code sections functions() reads, .text among them: Going Commando's executable has no other)."""
+    for name in CODE_SECTIONS + (".text",):
         if name not in sections:
             continue
         ws = mips.words(sections[name][1])
@@ -151,7 +163,7 @@ def build(src_key: str, dst_key: str, entries: dict[str, list[int]] | None = Non
     src, dst = programs(src_key), programs(dst_key)
     if "boot" not in src or "boot" not in dst:
         raise SystemExit("the executables are not there: run each game's setup, or set OPENRAC_CODE_ROOT")
-    gps = gp_of(src["boot"]), gp_of(dst["boot"])
+    gps = gp_of(src["boot"]) or port_gp(src_key), gp_of(dst["boot"]) or port_gp(dst_key)
     out = {"from": src_key, "to": dst_key, "gp": list(gps), "programs": {}}
     for prog in sorted(src):
         if prog not in dst:

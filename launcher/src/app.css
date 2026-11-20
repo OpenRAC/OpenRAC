@@ -147,6 +147,20 @@
   initial-value: #ffe08f;
 }
 
+/* How far the header's scrolling row fades out at each end (Header.svelte): a length, so the fade
+   eases in and out. */
+@property --fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 html {
   transition:
     --glow var(--slow) var(--ease),
@@ -184,8 +198,16 @@ body::after {
   pointer-events: none;
   mix-blend-mode: screen;
   background:
-    radial-gradient(90% 620px at 50% 0, color-mix(in srgb, var(--glow) 13%, transparent), transparent 72%),
-    radial-gradient(60% 380px at 50% 0, color-mix(in srgb, var(--glow) 7%, transparent), transparent 70%);
+    radial-gradient(
+      90% 620px at 50% 0,
+      color-mix(in srgb, var(--glow) 13%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      60% 380px at 50% 0,
+      color-mix(in srgb, var(--glow) 7%, transparent),
+      transparent 70%
+    );
 }
 
 /* While the launcher starts (main.ts, App.svelte), its accent goes on at once, not eased in. */
@@ -407,7 +429,8 @@ button[data-on] {
   /* Not a dialog's backdrop, a button over the whole window that went grey under the pointer,
      nor a link-like button (.link), which a touch screen left lit after a tap (:where keeps the
      weight as it was). */
-  html:where(:not([data-input="pad"])) button:hover:not(:disabled):where(:not(.backdrop):not(.link)),
+  html:where(:not([data-input="pad"]))
+    button:hover:not(:disabled):where(:not(.backdrop):not(.link)),
   html:where(:not([data-input="pad"])) .button:hover {
     background-color: var(--control-hi);
   }
@@ -545,9 +568,23 @@ input[type="search"] {
   padding: 8px 12px;
 }
 
-:is(input[type="text"], input[type="search"], input[type="number"], input[type="url"], textarea, select):focus-visible,
+:is(
+  input[type="text"],
+  input[type="search"],
+  input[type="number"],
+  input[type="url"],
+  textarea,
+  select
+):focus-visible,
 html[data-input="pad"]
-  :is(input[type="text"], input[type="search"], input[type="number"], input[type="url"], textarea, select):focus {
+  :is(
+    input[type="text"],
+    input[type="search"],
+    input[type="number"],
+    input[type="url"],
+    textarea,
+    select
+  ):focus {
   outline: none;
   box-shadow: inset 0 0 0 2px var(--amber);
 }
@@ -942,8 +979,18 @@ main {
   view-transition-name: page;
 }
 
+/* A desktop's header lies over the page (Header.svelte). In the root picture it was under the
+   page's picture, and a scrolled page washed over its buttons; in a layer of its own, on top. */
+html:not([data-platform="android"]) .site-header {
+  view-transition-name: header;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root),
+::view-transition-group(header),
+::view-transition-image-pair(header),
+::view-transition-old(header),
+::view-transition-new(header),
 ::view-transition-group(side),
 ::view-transition-image-pair(side),
 ::view-transition-old(side),
@@ -954,6 +1001,7 @@ main {
 /* The browser lays the old picture under the new one and adds them up (plus-lighter): with no
    fade, both showed at once. The old bar and game list hide; the new ones are live. */
 ::view-transition-old(root),
+::view-transition-old(header),
 ::view-transition-old(side) {
   opacity: 0;
 }
@@ -996,24 +1044,13 @@ html[data-nav="up"] {
   --page-in-time: 0.32s;
 }
 
-/* Android Games' wave (DiscShelf) only fades as its page comes or goes, under the page and the
-   rail, over the window's ground. */
-::view-transition-group(wave) {
-  animation: none;
-  z-index: 1;
-}
-
 ::view-transition-group(page),
 ::view-transition-group(side) {
   z-index: 2;
 }
 
-::view-transition-old(wave):only-child {
-  animation: page-fade 0.2s ease-in both;
-}
-
-::view-transition-new(wave):only-child {
-  animation: page-fade 0.45s var(--ease) reverse both;
+::view-transition-group(header) {
+  z-index: 3;
 }
 
 ::view-transition-old(page) {
@@ -1189,7 +1226,8 @@ body {
 
 /* A finger needs 44 px (Material's 48 dp less the space around): every button and field keeps
    its look and grows to that height, so they all stay the same height. */
-html[data-platform="android"] :is(button, input:not([type="checkbox"], [type="radio"], [type="range"]), select) {
+html[data-platform="android"]
+  :is(button, input:not([type="checkbox"], [type="radio"], [type="range"]), select) {
   min-height: 44px;
 }
 
@@ -1199,7 +1237,8 @@ html[data-platform="android"] .segmented button {
 }
 
 /* 16 px text in a field on Android, so the WebView does not zoom in on focus. */
-html[data-platform="android"] :is(input[type="text"], input[type="search"], input[type="number"], textarea, select) {
+html[data-platform="android"]
+  :is(input[type="text"], input[type="search"], input[type="number"], textarea, select) {
   font-size: 1rem;
 }
 
