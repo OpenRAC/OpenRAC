@@ -164,7 +164,13 @@
       "func_00391128": "int (int, int, float)",
       "func_00391150": "int (int, int, int, float)",
       "func_003F03F0": "int (int, int)",
-      "func_0038F458": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
+      "func_0038F458": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+    "func_L01_0040E9C0": "float (float, float)",
+    "func_L01_0040F3F8": "float (float, float)",
+    "func_L01_0040F440": "float (float, float)",
+    "func_L01_0040F488": "float (float)",
+    "func_L01_00443A78": "float (void)",
+    "func_L01_00446278": "float (int, int, int, float)"
     },
     "discover_entries": true,
     "dirs": [],
