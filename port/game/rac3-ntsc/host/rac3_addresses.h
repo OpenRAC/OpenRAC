@@ -132,11 +132,11 @@
 #define RAC3_LADDR_1_0x001DCA14u 0x001DCA54u
 /* the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree */
 #define RAC3_LADDR_1_0x001DF97Cu 0x001DF9FCu
-/* the same instruction of the same code: the HUD slot update func_L01_0041FE80 (NTSC-U func_L01_0041D750) +0x4C writes it 0x00FFFFF0, 1 of 1 place */
+/* the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x160, 6 of 6 places agree */
 #define RAC3_LADDR_1_0x001DFD0Cu 0x001DFD8Cu
-/* the same instruction of the same code: the HUD texture TEX0 func_L01_00420080 (NTSC-U func_L01_0041D950) +0x4, 1 of 1 place */
+/* the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x8, 1 of 1 places agree */
 #define RAC3_LADDR_1_0x001DFD20u 0x001DFDA0u
-/* the same instruction of the same code: func_L01_00420080 (NTSC-U func_L01_0041D950) +0x24, 1 of 1 place */
+/* the same instruction of the same code: func_L01_0041C4A0 (NTSC-U func_L01_00419D98) +0x34, 4 of 4 places agree */
 #define RAC3_LADDR_1_0x001DFD24u 0x001DFDA4u
 /* the same instruction of the same code: func_L01_002FBB10 (NTSC-U func_L01_002FBAE8) +0x58, 185 of 185 places agree */
 #define RAC3_LADDR_1_0x001E001Cu 0x001E009Cu
@@ -168,10 +168,10 @@
 #define RAC3_LADDR_1_0x001EA840u 0x001EA8C0u
 /* between the same code's 0x00220840 and 0x00220E40, both moved by +0x80 (NTSC-U 0x002208C0, 0x00220EC0) */
 #define RAC3_LADDR_1_0x00220A40u 0x00220AC0u
-/* the same instruction of the same code: the HUD slot update func_L01_0041FE80 (NTSC-U func_L01_0041D750) +0x44, the 13 slots */
+/* the same instruction of the same code: func_L01_0041BFE8 (NTSC-U func_L01_004198E0) +0xC, 3 of 3 places agree */
 #define RAC3_LADDR_1_0x002E60D0u 0x002E6110u
-/* not paired (rac3_level_pairs.py) */
-#define RAC3_LADDR_39_0x001E0880u 0u
+/* the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0x1B8, 1 of 1 places agree */
+#define RAC3_LADDR_39_0x0024BF90u 0x0024C090u
 /* the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 95 of 95 places agree */
 #define RAC3_LADDR_39_0x0024CAD0u 0x0024CBD0u
 /* the same instruction of the same code: func_L39_0067A4E0 (NTSC-U func_L39_00677AE8) +0x18, 1 of 1 places agree */

@@ -102,5 +102,3 @@ exceptions).
   from the disc; they are not in its tables yet).
 - `asm.signature_check` is off for NTSC-U (release.json says why): its levels are translated from
   the disc, and rac3-pal's signatures cover PAL's names only (1,994 findings in 706 functions).
-- The multiplayer copies' MobyProc cap (`RAC3_LADDR(39, 0x001E0880u)`): no instruction of the
-  same code forms it, so it is 0 on NTSC-U.

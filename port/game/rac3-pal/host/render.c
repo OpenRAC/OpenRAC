@@ -56,13 +56,14 @@ static const Copy kVeldin =
      RAC3_LADDR(1, 0x001E7580u),
      RAC3_LADDR(1, 0x001E0050u),
      RAC3_LADDR(1, 0x001EA840u)};
-/* The multiplayer menu's (the multiplayer maps'): MobyProc's cap is $gp + 0x3FD0. */
+/* The multiplayer menu's (the multiplayer maps'): MobyProc's cap is $gp + 0x3FD0, the maps' own
+ * $gp 0x00247FC0 (config/gp.tsv; lw s7 at 0x005B2780), not the executable's 0x001DC8B0. */
 static const Copy kMultiplayer =
     {39,
      RAC3_LADDR(39, 0x0024CAD0u),
      RAC3_LADDR(39, 0x0024DE20u),
      RAC3_LADDR(39, 0x0025D6C0u),
-     RAC3_LADDR(39, 0x001E0880u),
+     RAC3_LADDR(39, 0x0024BF90u),
      RAC3_LADDR(39, 0x0025F580u)};
 
 static gaddr at_copy(const Copy* c, gaddr address) {

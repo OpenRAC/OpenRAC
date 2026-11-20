@@ -53,9 +53,7 @@
   }
  },
  "left_out": {},
- "addresses_not_found": [
-  "L39:001E0880"
- ],
+ "addresses_not_found": [],
  "hand_addresses": {
   "0x001439F4": {
    "is": "0x001439F4",
