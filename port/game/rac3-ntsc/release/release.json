@@ -59,7 +59,8 @@
         }
       },
       "signatures": {
-        "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
+        "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+        "func_L01_003E7478": "void (unsigned int, unsigned int, unsigned int)"
       }
     },
     "candidates_left_out": {
@@ -76,7 +77,7 @@
       "func_003B0FF0": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
       "func_003C5A98": "Clang cannot read it: too many arguments to function call, expected 1, have 3"
     },
-    "asm_signatures_why": "FontPrint (PAL's func_0038EBC8): host/ui2d.c wraps it as a void function, as PAL's prototype has it; NTSC-U's assembly leaves $v0 as a callee's, which hostgen took for a result",
+    "asm_signatures_why": "FontPrint (PAL's func_0038EBC8): host/ui2d.c wraps it as a void function, as PAL's prototype has it; NTSC-U's assembly leaves $v0 as a callee's, which hostgen took for a result; the follow camera's stick read (PAL's func_L01_003E92F8, whose C gives PAL its prototype): host/camera_latch.c wraps it with the camera and the two axes' addresses, NTSC-U's copy being assembly here",
     "places_in_release": true,
     "places_why": "NTSC-U's own level catalogue, in its own names: every level function is translated from the disc's level programs (no src/levels C yet: its names and its levels' data are PAL's)"
   },
