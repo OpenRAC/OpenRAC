@@ -203,6 +203,14 @@ void shares_going_commandos_moby_fields() {
     CHECK(profile.sends_display_list());
 }
 
+// The levels are drawn natively from the extracted ones (host/render.c); the title is a picture,
+// with no world under it.
+void draws_the_extracted_levels() {
+    const host::GameProfile& profile = host::game_profile("rac3-pal");
+    CHECK(profile.has_levels());
+    CHECK(!profile.has_title_world());
+}
+
 }  // namespace
 
 int main() {
@@ -210,5 +218,6 @@ int main() {
     reads_the_moby_table();
     culls_past_the_cap();
     shares_going_commandos_moby_fields();
+    draws_the_extracted_levels();
     return openrac::test::result();
 }

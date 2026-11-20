@@ -329,6 +329,12 @@ public:
 
     bool sends_display_list() const override { return true; }
 
+    // The levels are extracted for the port (editor/extract.py port: --levels), and drawn natively
+    // from them (host/render.c). The boot program's title and menus draw no world: a picture.
+    bool has_levels() const override { return true; }
+
+    bool has_title_world() const override { return false; }
+
     // The buffer the frame is drawn in: block 0x1E00 (FBP 0xF0, the front end's register packet at
     // 0x00142120), past the 512-line display buffer, as PAL Going Commando's. Not where the
     // display's size puts it (0x1000): taken for an off-screen target, the frame was drawn as a
