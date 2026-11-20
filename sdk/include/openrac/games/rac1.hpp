@@ -555,6 +555,46 @@ struct Hero_UpdateEquippedItems {
     using fn = void (*)();
 };
 
+// Steers the hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by at most step a tick, up to three times that as it turns him (1.7 times in state 0x81); in gravity modes 1 and 2 it eases the velocity's length along the ground toward his target speed by step instead. steer_hero_planar_velocity in levels 0, 4, 7, 9, 10, 12, 13, 14 and 17, and its copy air_accel in the others, one hook point. The move states call it after setting the target speed and the step, the Thruster-Pack's hover (state 0x81) among them, so a replacement can steer the hero at a speed and acceleration of its own.
+struct Hero_SteerPlanarVelocity {
+    static constexpr const char* id = "rac1.player.steer_planar_velocity";
+    static constexpr const char* name = "Hero_SteerPlanarVelocity";
+    static constexpr const char* signature = "void(f32)";
+    using fn = void (*)(float);
+};
+
+// The hero's movement for the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput after it reads the stick: a case per state that sets his target speed and turn, steers or sets his velocity (+0xE0) and applies gravity, the Thruster-Pack's hover (state 0x81) among them. hero_update_movement in levels 0, 4, 7, 9, 10 and 13, and each other level's own build of it, one hook point. A replacement can move the hero itself in the states it wants and call the original for the others; his state's transitions come after it, later in Hero_Update.
+struct Hero_UpdateMovement {
+    static constexpr const char* id = "rac1.player.update_movement";
+    static constexpr const char* name = "Hero_UpdateMovement";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Queues one effect quad for the effect renderer (draw_world_quad): the 0x90-byte record at quad holds four corners (+0x00, x y z w each), four RGBA words (+0x40, alpha 0x80 opaque), four ST pairs (+0x50), then the GS words CLAMP, TEX0 (the texture), TEX1 and ALPHA (+0x70, +0x78, +0x80, +0x88); the corners go through the matrix at matrix when it is not 0. Most effects' draw callbacks call it, many times a frame: glows, flames, beams, shots. A replacement can rewrite the record (its colours, say) before it calls the original; the record is the caller's, which may draw it again. The port's own C, not the game's: the executable's quad routine, which a few draws call directly, is not this hook point.
+struct FX_DrawWorldQuad {
+    static constexpr const char* id = "rac1.fx.world_quad.draw";
+    static constexpr const char* name = "FX_DrawWorldQuad";
+    static constexpr const char* signature = "void(u32,u32,i32)";
+    using fn = void (*)(uint32_t, uint32_t, int32_t);
+};
+
+// Draws one of the Thruster-Pack's two flames (flame, a class 0xA7 moby; draw_joint_aligned_beam_effect), the draw callback its update queues each frame it burns: two quads of effect texture 0xC in the colour 0x80808080 and a glow of texture 0xB in 0x7F2020FF, through rac1.fx.world_quad.draw, then a ribbon of 196 points coloured from the table joint_beam_ribbon_colors. A replacement that sets a flag around the original can tell the flame's quads from the others in rac1.fx.world_quad.draw. The flame's sparks come from its update (rac1.moby.moby167.update) through rac1.fx.burst.spawn.
+struct FX_ThrusterFlame_Draw {
+    static constexpr const char* id = "rac1.fx.thruster_flame.draw";
+    static constexpr const char* name = "FX_ThrusterFlame_Draw";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Spawns a spark (a type 0x15 particle; spawn_burst) at the vector at pos, moving by the vector at dir, for ticks ticks (none when 0): its RGBA colour fades from colour to fade as it shrinks from size, and while children is non-zero it throws off a spark of its current colour every other frame. Returns the particle, or 0. The sparks of many effects, explosions and debris among them; the Thruster-Pack's flames spawn theirs in 0x4F007FFF fading to 0x1FFFFFFF from their update (rac1.moby.moby167.update), so a replacement can recolour only those by swapping colour and fade while that update runs.
+struct FX_SpawnBurst {
+    static constexpr const char* id = "rac1.fx.burst.spawn";
+    static constexpr const char* name = "FX_SpawnBurst";
+    static constexpr const char* signature = "u32(u32,u32,i32,i32,i32,i32,f32)";
+    using fn = uint32_t (*)(uint32_t, uint32_t, int32_t, int32_t, int32_t, int32_t, float);
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -5664,6 +5704,17 @@ namespace hooks {
     namespace combat {
         using get_hit = rac1::Moby_GetHitMessage;
     }  // namespace combat
+    namespace fx {
+        namespace burst {
+            using spawn = rac1::FX_SpawnBurst;
+        }  // namespace burst
+        namespace thruster_flame {
+            using draw = rac1::FX_ThrusterFlame_Draw;
+        }  // namespace thruster_flame
+        namespace world_quad {
+            using draw = rac1::FX_DrawWorldQuad;
+        }  // namespace world_quad
+    }  // namespace fx
     namespace gold_bolt {
         using count_collected = rac1::GoldBolts_CountCollected;
         using count_unspent = rac1::GoldBolts_CountUnspent;
@@ -7650,11 +7701,13 @@ namespace hooks {
         using enter_move_state = rac1::Hero_EnterMoveState;
         using resolve_gravity_mode = rac1::Hero_ResolveGravityMode;
         using set_planar_velocity = rac1::Hero_SetPlanarVelocity;
+        using steer_planar_velocity = rac1::Hero_SteerPlanarVelocity;
         using take_damage = rac1::Hero_TakeDamage;
         using turn_to_heading = rac1::Hero_TurnToHeading;
         using update = rac1::Hero_Update;
         using update_equipped_items = rac1::Hero_UpdateEquippedItems;
         using update_motion_input = rac1::Hero_UpdateMotionInput;
+        using update_movement = rac1::Hero_UpdateMovement;
     }  // namespace player
     namespace save {
         using new_game = rac1::Save_NewGame;

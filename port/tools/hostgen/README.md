@@ -337,7 +337,10 @@ error. The name is an alias of the hook point's permanent id
 (`sdk/bindings/<game>.json`, which the loader resolves). A symbol with both a
 `wrap` row and a `hook` row keeps the port's `<name>`, and the hook is written
 as `<name>__hooked` (the mod's replacement or the game's C), which the port's
-function calls in place of `<name>__game`. A hook point declared `void` whose
+function calls in place of `<name>__game`. A symbol with a `host` row and a
+`hook` row (rac1's effect quad, `FX_DrawWorldQuad`) has the port's own C as its
+original: the host C defines `<name>__game`, and hooks.c the `<name>` every
+caller reaches. A hook point declared `void` whose
 C ends in a call whose result its callers read (`inherit_results` gives it the
 callee's result type) keeps `void(...)` for mods, the signature the SDK's
 tables give it: its `<name>` returns the result the game's C gave when the

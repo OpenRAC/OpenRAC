@@ -491,6 +491,11 @@ same holds for each copy of a hook point with copies: the hero's move-state
 setters (`Hero_EnterMoveState`) are each wrapped by the multiplayer stand-in's
 guard (`rac1/host/hero_grab.c`), and the mod's setter runs under it.
 
+**A function the port writes itself** (a `host` row beside the `hook` row:
+rac1's effect quad, `FX_DrawWorldQuad`, `rac1/host/effect_quad.c`) is the
+original the mod's replacement calls: the port's C is defined as
+`<name>__game`, and hostgen writes `<name>`, which every caller reaches.
+
 ## 5. The list and the answer
 
 `<data>/plugins/plugins.json`, written by the launcher (also by hand: it is
