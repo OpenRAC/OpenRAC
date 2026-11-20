@@ -610,8 +610,7 @@ static int join_group(const rac2_moby_table* t, gaddr m) {
     lists.used += bytes;
     memmove(G(moved), G(list), 2u * (uint32_t)n);
     GREF(uint16_t, moved + 2u * (uint32_t)(n - 1)) &= (uint16_t)~GROUP_LAST;
-    GREF(uint16_t, moved + 2u * (uint32_t)n) =
-        (uint16_t)(((m - t->base) / MOBY_SIZE) | GROUP_LAST);
+    GREF(uint16_t, moved + 2u * (uint32_t)n) = (uint16_t)(((m - t->base) / MOBY_SIZE) | GROUP_LAST);
     GREF(gaddr, at) = moved;
     return 1;
 }
@@ -917,15 +916,17 @@ void func_002A6C58(gaddr moby, int flags, int arg) {
     };
     const int32_t word_before = GREF(int32_t, RAC2_g_playerProgress + 0x1Cu);
     func_002A6C58__hooked(moby, flags, arg);
-    if (rac2_copy_trace) fprintf(
-        stderr,
-        "PTRACE copy death 0x%X uid %d bolts %d word %d->%d\n",
-        (unsigned)moby,
-        (int)uid,
-        (int)GREF(int16_t, moby + 0xB4u),
-        (int)word_before,
-        (int)GREF(int32_t, RAC2_g_playerProgress + 0x1Cu)
-    );
+    if (rac2_copy_trace) {
+        fprintf(
+            stderr,
+            "PTRACE copy death 0x%X uid %d bolts %d word %d->%d\n",
+            (unsigned)moby,
+            (int)uid,
+            (int)GREF(int16_t, moby + 0xB4u),
+            (int)word_before,
+            (int)GREF(int32_t, RAC2_g_playerProgress + 0x1Cu)
+        );
+    }
     if (known) {
         GREF(uint8_t, nibble) = kept[0];
         GREF(uint8_t, collected) = kept[1];

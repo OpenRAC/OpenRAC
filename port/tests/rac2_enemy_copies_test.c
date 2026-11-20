@@ -383,8 +383,8 @@ static void copies(void) {
         CHECK(list != 0x00880000u);
         CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x0009u);
         for (int j = 0; j <= k; ++j) {
-            const uint16_t want = (uint16_t)((made_copies[j] - BASE) / 0x100u)
-                                  | (j == k ? 0x8000u : 0u);
+            const uint16_t want =
+                (uint16_t)((made_copies[j] - BASE) / 0x100u) | (j == k ? 0x8000u : 0u);
             CHECK(GREF(uint16_t, list + 4u + 2u * (uint32_t)j) == want);
         }
     }

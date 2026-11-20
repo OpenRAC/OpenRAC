@@ -947,9 +947,11 @@ static void trace_copy_watch(const char* script, unsigned playing) {
             break;
         }
         const gaddr hero = hero_moby();
-        const float dx = hero != 0 ? GREF(float, orig + MOBY_POS) - GREF(float, hero + MOBY_POS) : 0.0f;
-        const float dy =
-            hero != 0 ? GREF(float, orig + MOBY_POS + 4u) - GREF(float, hero + MOBY_POS + 4u) : 0.0f;
+        const float dx =
+            hero != 0 ? GREF(float, orig + MOBY_POS) - GREF(float, hero + MOBY_POS) : 0.0f;
+        const float dy = hero != 0
+                             ? GREF(float, orig + MOBY_POS + 4u) - GREF(float, hero + MOBY_POS + 4u)
+                             : 0.0f;
         if (dx * dx + dy * dy > 45.0f * 45.0f) {
             continue;
         }
