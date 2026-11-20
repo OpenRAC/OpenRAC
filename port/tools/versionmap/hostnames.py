@@ -280,11 +280,15 @@ def check_release(program: Path) -> list[str]:
     for t in code:
         keys |= {f"{big}_ADDR_0x{a}u" for a in re.findall(rf"\b{big}_ADDR\(\s*0x([0-9A-F]{{8}})u\s*\)", t)}
         keys |= {f"{big}_LADDR_{n}_0x{a}u"
-                 for n, a in re.findall(rf"\b{big}_LADDR\(\s*(\d\d)\s*,\s*0x([0-9A-F]{{8}})u\s*\)", t)}
+                 for n, a in re.findall(rf"\b{big}_LADDR\(\s*(\d+)\s*,\s*0x([0-9A-F]{{8}})u\s*\)", t)}
         keys |= {f"{big}_K_{k}" for k in re.findall(rf"\b{big}_K\(\s*(\w+)\s*,", t)}
     out = []
     header = program / "host" / f"{game}_version.h"
     text = header.read_text(encoding="utf-8")
+    # The headers it includes from its own folder (rac3's rac3_addresses.h) hold entries too.
+    for name in re.findall(r'^#\s*include\s+"([^"/]+)"', text, re.M):
+        if (header.parent / name).is_file():
+            text += (header.parent / name).read_text(encoding="utf-8")
     # An entry the tool could not pair is a comment ("not found"): still an answer for that use.
     have = set(re.findall(rf"^#define ({big}_(?:ADDR_0x|LADDR_|K_)\w+)", text, re.M))
     have |= set(re.findall(rf"^/\* ({big}_(?:ADDR_0x|LADDR_|K_)\w+): not found \*/", text, re.M))
