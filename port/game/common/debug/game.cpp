@@ -38,6 +38,19 @@ void game_section(const Shown& shown) {
         text("bolts {}", openrac_game_bolts());
     }
 
+    // What the game's host C says of its state (OPENRAC_STATE_DUMP's members): rac3's front-end
+    // mode and state, the level words, a level's mode.
+    if (const openrac_game_tools* tools = openrac_game_tools_host;
+        tools != nullptr && tools->state_json != nullptr) {
+        static char members[2048];
+        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+
+        if (tools->state_json(members, sizeof members) > 0 && ImGui::TreeNode("game state")) {
+            ImGui::TextWrapped("%s", members);
+            ImGui::TreePop();
+        }
+    }
+
     if (const host::LiveMoby* h = hero()) {
         text(
             "hero {:.2f} {:.2f} {:.2f}   state {}",
