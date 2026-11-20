@@ -144,10 +144,42 @@ vertical blank callback (`func_0013D208`).
   as on the console and in Going Commando: the list drawn is the one the last pass built (sent at
   the top of the pass), and the 2D records go with the list whose markers name them
   (`frontend/frame.cpp`, `ui_kept`).
-- **Frames between ticks**: drawn at the display's rate, with the camera and objects between two
-  ticks, whenever the tick has a camera: `profile.cpp`'s `read_state` gives the view's rows and
-  `read_moby` the mobys, and `frontend/interpolation.cpp`'s `wants_between` takes them (a tick
-  whose forward row is zero is one frame).
+- **Frames between ticks**: the frame rate is the player's (Video > Frame rate: Original, the
+  display's, 30 to 360 or unlimited, as Going Commando's), the game's time its own 50 ticks a
+  second. With a world camera the frames between ticks move the camera and the mobys from one
+  tick to the next (`profile.cpp`'s `read_state` gives the view's rows and `read_moby` the mobys,
+  and `frontend/interpolation.cpp`'s `wants_between` takes them), as Going Commando's. The front
+  end's menus have no world camera (their background is a 2D record, `host/picture.c`), where
+  Going Commando's title has one: the profile's `frames_between_without_camera` gives them the
+  frames between ticks all the same, the 2D the tick recorded (`ui_kept`) drawn again unchanged
+  until the next tick. Nothing the game counts moves with them: its passes are the ticks, the
+  menus' animations and idle count (`D_001D5688`) step once a pass, and the T0 time
+  (`D_001D4AC0`) and the frame time (`D_001D9D0C`) stay 0 at any frame rate, so
+  func_003E3E68 never takes a double step. Movies play on the player's own clock, a picture a tick.
+
+  Measured in the main menu (Apple M5 Max, 120 Hz display, hidden window with
+  `OPENRAC_FOCUSED_PACING`, the last 10 s of a 25 s run, `OPENRAC_PACING` and
+  `OPENRAC_WATCH=1D5688:1:i`; OpenGL unless marked):
+
+  | `frame_rate`, `vsync` | frames a second | ticks a second | the menu's idle count a second | before (a frame a tick) |
+  |---|---|---|---|---|
+  | `original` | 50.1 | 50.00 | 50.00 | 50 |
+  | `display`, on | 120.1 | 49.94 | 49.94 | 50 |
+  | `display`, off | 120.1 | 50.04 | 50.04 | 50 |
+  | `60`, off | 60.1 | 50.00 | 50.00 | 50 |
+  | `144`, off | 144.1 | 49.93 | 49.93 | 50 |
+  | `240`, off | 239.9 | 50.00 | 50.00 | 50 |
+  | `unlimited`, off | 1806 | 50.00 | 50.00 | 50 |
+  | Vulkan, `144`, off | 144.2 | 50.07 | 50.07 | 50 |
+  | Vulkan, `unlimited`, off | 4147 | 50.00 | 50.00 | 50 |
+
+  A frame between ticks at 144 is the tick's own picture, pixel for pixel (`OPENRAC_SHOT_BETWEEN`
+  at tick 800: the tick's frame and its four between-tick frames the same). A cap under the
+  tick rate (`30`) still draws every tick's frame in the menus (50 a second): their lists send
+  images, and a tick's frame with images is never left out (`frame.cpp`, `retain_tick_uploads`;
+  in a level the HUD keeps them). Without `OPENRAC_FOCUSED_PACING` a hidden window is never
+  focused, and the window's background throttle holds it to a frame a tick (48 a second at
+  `unlimited`).
 
 ## What the port answers
 
