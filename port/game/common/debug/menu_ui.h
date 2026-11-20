@@ -180,6 +180,13 @@ int menu_choice(
 // track or an arrow, or left and right while it has the focus (the d-pad).
 int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step);
 
+// The same slider over `count` steps (0..count), its value shown as `text`: the new step after a
+// drag, a tap or an arrow (Shift with an arrow moves ten). `label_pressed`, when given, is set when
+// the row's label was pressed.
+int menu_number_slider(
+    const char* label, int index, int count, const std::string& text, bool* label_pressed = nullptr
+);
+
 // The launcher's primary button, across the space left.
 bool menu_button(const char* label);
 

@@ -80,7 +80,8 @@ std::int64_t setting_int(openrac_mod*, const char*) {
 }
 
 double setting_float(openrac_mod*, const char* key) {
-    if (std::strcmp(key, "mouse_sensitivity") == 0 || std::strcmp(key, "mouse_y_ratio") == 0) {
+    if (std::strcmp(key, "mouse_sensitivity") == 0
+        || std::strcmp(key, "mouse_sensitivity_y") == 0) {
         return 1.0;
     }
     if (std::strcmp(key, "walk_speed") == 0) {

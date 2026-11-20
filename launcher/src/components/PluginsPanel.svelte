@@ -695,19 +695,22 @@
 
       {#if said}<Reason text={said.text} tone={said.failed ? "err" : "ok"} role="status" />{/if}
 
-      {#if enhanced && enhancedShown}
-        {@const entry = enhanced.mod}
-        {@const badge = modBadge(entry, null, purist)}
+      {#if keyboard && keyboardShown}
+        {@const entry = keyboard}
+        {@const badge = modBadge(entry, null, false)}
         <ul class="built-in">
-          <li class="mod" class:off={!entry.enabled}>
-            <input
-              type="checkbox"
-              role="switch"
-              class="switch"
-              aria-label={T.useAria(entry.name)}
-              checked={entry.enabled}
-              onchange={(e) => void setEnhanced(e.currentTarget.checked)}
-            />
+          <li class="mod">
+            <!-- Always on: its switch shows on, greyed, with why. -->
+            <span class="always" title={T.KEYBOARD_MOUSE.alwaysOn}
+              ><input
+                type="checkbox"
+                role="switch"
+                class="switch"
+                aria-label={`${entry.name}: ${T.KEYBOARD_MOUSE.alwaysOn}`}
+                checked
+                disabled
+              /></span
+            >
             <button
               class="open"
               id={`open-${entry.id}`}
@@ -728,22 +731,19 @@
           </li>
         </ul>
       {/if}
-      {#if keyboard && keyboardShown}
-        {@const entry = keyboard}
-        {@const badge = modBadge(entry, null, false)}
+      {#if enhanced && enhancedShown}
+        {@const entry = enhanced.mod}
+        {@const badge = modBadge(entry, null, purist)}
         <ul class="built-in">
-          <li class="mod">
-            <!-- Always on: its switch shows on, greyed, with why. -->
-            <span class="always" title={T.KEYBOARD_MOUSE.alwaysOn}
-              ><input
-                type="checkbox"
-                role="switch"
-                class="switch"
-                aria-label={`${entry.name}: ${T.KEYBOARD_MOUSE.alwaysOn}`}
-                checked
-                disabled
-              /></span
-            >
+          <li class="mod" class:off={!entry.enabled}>
+            <input
+              type="checkbox"
+              role="switch"
+              class="switch"
+              aria-label={T.useAria(entry.name)}
+              checked={entry.enabled}
+              onchange={(e) => void setEnhanced(e.currentTarget.checked)}
+            />
             <button
               class="open"
               id={`open-${entry.id}`}

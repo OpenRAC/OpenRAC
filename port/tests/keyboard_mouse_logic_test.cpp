@@ -233,12 +233,18 @@ void direct_look() {
     t.sensitivity = -1.0f;
     CHECK(kbm::DirectLook::yaw(10.0f, 0.0f, t) == 0.0f);
     t.sensitivity = 1.0f;
-    // Up and down sensitivity scales the tilt only.
+    // Each sensitivity scales its own axis only.
     const float tilt = kbm::DirectLook::pitch(0.0f, 10.0f, t);
-    t.y_ratio = 0.5f;
+    t.sensitivity_y = 0.5f;
     CHECK(near(kbm::DirectLook::pitch(0.0f, 10.0f, t), 0.5f * tilt, 1e-6f));
     CHECK(near(kbm::DirectLook::yaw(10.0f, 0.0f, t), one, 1e-6f));
-    t.y_ratio = 1.0f;
+    t.sensitivity_y = 1.0f;
+    t.sensitivity = 2.0f;
+    CHECK(near(kbm::DirectLook::pitch(0.0f, 10.0f, t), tilt, 1e-6f));
+    t.sensitivity = 1.0f;
+    t.sensitivity_y = -1.0f;
+    CHECK(kbm::DirectLook::pitch(0.0f, 10.0f, t) == 0.0f);
+    t.sensitivity_y = 1.0f;
 
     // Mouse right turns the view right. The follow camera west of Ratchet looks east (+x); right of
     // that is south (-y), with z up. The game's turn is about up, right-handed (rotate).
@@ -786,7 +792,7 @@ void edges() {
 
     // The mouse's stick: no up and down sensitivity, no tilt; a huge flick stops at the stick's end.
     kbm::LookTuning look;
-    look.y_ratio = 0.0f;
+    look.sensitivity_y = 0.0f;
     kbm::MouseLook m;
     m.step(1e6f, 500.0f, false, look);
     CHECK(m.x == 1.0f && m.y == 0.0f);
@@ -795,7 +801,7 @@ void edges() {
     m.step(-1e6f, 0.0f, true, look);
     CHECK(m.x == -1.0f && m.y == 0.0f);
     // Levels out: a held tilt goes back to level once the mouse rests.
-    look.y_ratio = 1.0f;
+    look.sensitivity_y = 1.0f;
     look.pitch_holds = false;
     m.reset();
     m.step(0.0f, 80.0f, false, look);

@@ -99,8 +99,8 @@ as `kbm_<key> = <value>` lines in `<data>/settings/<game>-<version>.ini`
 
 | Section | Setting | Default | What it does |
 |---|---|---|---|
-| Mouse | Sensitivity | 1.0 | How far the camera turns for the mouse's motion |
-| Mouse | Vertical sensitivity | 1.0 | The up and down turn against the side to side one |
+| Mouse | Horizontal sensitivity | 1.0 | How far the camera turns left and right for the mouse's motion |
+| Mouse | Vertical sensitivity | 1.0 | How far the camera turns up and down for the mouse's motion |
 | Mouse | Invert vertical | off | Mouse up looks down |
 | Mouse | Camera tilt | Stays | *Levels out*: the tilt eases back when the mouse rests |
 | Mouse | Lock the cursor in play | on | Off leaves the cursor free (no mouse camera) |

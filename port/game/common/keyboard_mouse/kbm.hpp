@@ -291,8 +291,8 @@ struct KeyStick {
 
 // The player's settings for the mouse's look.
 struct LookTuning {
-    float sensitivity = 1.0f;  // the mouse's turn, 1 the default
-    float y_ratio = 1.0f;      // the up and down turn against the side to side one
+    float sensitivity = 1.0f;    // the side to side turn, 1 the default
+    float sensitivity_y = 1.0f;  // the up and down turn, 1 the default
     bool invert_y = false;
     bool pitch_holds = true;  // the camera's tilt stays where the mouse leaves it
 };
@@ -320,19 +320,19 @@ struct MouseLook {
     // One tick of the mouse's motion (dx right, dy down, in pixels) into x and y, as the stick.
     void step(float dx, float dy, bool first_person, const LookTuning& t) {
         const float sens = std::max(t.sensitivity, 0.0f);
+        const float sens_y = std::max(t.sensitivity_y, 0.0f);
         const float ydir = t.invert_y ? -1.0f : 1.0f;
         const float smooth_dx = 0.5f * (dx + last_dx);
         last_dx = dx;
-        dy *= std::max(t.y_ratio, 0.0f);
         x = clamp1(smooth_dx * sens / kPixelsForFullTurn);
 
         // In first person y is a rate like x, so it follows this tick's motion.
         if (first_person) {
-            y = clamp1(dy * ydir * sens / kPixelsForFullTurn);
+            y = clamp1(dy * ydir * sens_y / kPixelsForFullTurn);
             return;
         }
 
-        tilt = clamp1(tilt + dy * ydir * sens / kPixelsForFullTilt);
+        tilt = clamp1(tilt + dy * ydir * sens_y / kPixelsForFullTilt);
 
         // The player chose Levels out: the held tilt eases back to level while the mouse rests.
         if (!t.pitch_holds && dy == 0.0f) {
@@ -454,14 +454,12 @@ inline constexpr float kRadiansPerPixel = 0.0015f;  // (assumed)
 // sense: > 0 turns the view left, so mouse right gives < 0); pitch > 0 looks down (mouse down,
 // or mouse up with Invert on). No curve: the turn is in proportion to the motion.
 struct DirectLook {
-    static float scale(const LookTuning& t) {
-        return std::max(t.sensitivity, 0.0f) * kRadiansPerPixel;
+    static float yaw(float dx, float /*dy*/, const LookTuning& t) {
+        return -dx * std::max(t.sensitivity, 0.0f) * kRadiansPerPixel;
     }
 
-    static float yaw(float dx, float /*dy*/, const LookTuning& t) { return -dx * scale(t); }
-
     static float pitch(float /*dx*/, float dy, const LookTuning& t) {
-        return (t.invert_y ? -dy : dy) * std::max(t.y_ratio, 0.0f) * scale(t);
+        return (t.invert_y ? -dy : dy) * std::max(t.sensitivity_y, 0.0f) * kRadiansPerPixel;
     }
 };
 

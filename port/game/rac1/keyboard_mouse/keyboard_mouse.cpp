@@ -1289,7 +1289,7 @@ void read_settings(openrac::Mod& mod) {
     s_move.rise_ticks =
         static_cast<float>(mod.setting<double>("stick_ramp_ms")) * ticks_per_second(mod) / 1000.0f;
     s_look_tuning.sensitivity = static_cast<float>(mod.setting<double>("mouse_sensitivity"));
-    s_look_tuning.y_ratio = static_cast<float>(mod.setting<double>("mouse_y_ratio"));
+    s_look_tuning.sensitivity_y = static_cast<float>(mod.setting<double>("mouse_sensitivity_y"));
     s_look_tuning.invert_y = mod.setting<bool>("invert_y");
     s_look_tuning.pitch_holds = mod.setting<std::string>("camera_tilt") != "return";
     s_ring_dead_zone = static_cast<float>(mod.setting<double>("quick_select_dead_zone"));

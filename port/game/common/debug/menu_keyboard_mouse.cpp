@@ -6,7 +6,10 @@
 // used from the next tick (mods::set_built_in_setting). A key is changed by pressing the new one.
 
 #include <algorithm>
+#include <array>
+#include <charconv>
 #include <cmath>
+#include <cstring>
 #include <format>
 #include <imgui.h>
 #include <string>
@@ -35,6 +38,8 @@ struct Panel {
     std::string message;
     bool reset_asked = false;  // Reset to defaults pressed once
     double reset_since = 0.0;
+    std::string typing;            // the number whose value is being typed
+    std::array<char, 16> typed{};  // what is typed so far
 };
 
 Panel g;
@@ -177,6 +182,73 @@ void hover(const mods::Setting& s) {
     note_hover_row(static_cast<int>(menu::Id::KeyboardMouse), s.section, s.name, s.description);
 }
 
+// The decimals a number is shown with: its step's (0.01: two).
+int decimals_of(double step) {
+    int d = 0;
+    while (d < 4
+           && std::fabs(step * std::pow(10.0, d) - std::round(step * std::pow(10.0, d))) > 1e-6) {
+        ++d;
+    }
+    return d;
+}
+
+// A number with both ends: a slider on its steps (the arrows a step, Shift ten), its label opening
+// a row to type the value exactly and one back to the default.
+void number_rows(const mods::Setting& s, const mods::SettingValue& v, bool open) {
+    const double step = step_of(s), low = *s.min, now = value_of(v);
+    const int count = static_cast<int>(std::lround((*s.max - low) / step));
+    const int index = static_cast<int>(std::lround((now - low) / step));
+    const int places = decimals_of(step);
+    bool label = false;
+    const int next = menu_number_slider(
+        s.name.c_str(), index, count, std::format("{:.{}f}", now, places), &label
+    );
+    hover(s);
+    if (next != index) {
+        set_number(s, low + next * step);
+    }
+    if (label) {
+        g.open = open ? "" : s.key;
+        g.typing.clear();
+    }
+    if (!open) {
+        return;
+    }
+    if (g.typing == s.key) {
+        // The value typed: Enter keeps it (within the ends, on a step), Escape or leaving drops it.
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (ImGui::IsWindowAppearing() || !ImGui::IsAnyItemActive()) {
+            ImGui::SetKeyboardFocusHere();
+        }
+        const bool done = ImGui::InputText(
+            "##typed",
+            g.typed.data(),
+            g.typed.size(),
+            ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue
+        );
+        if (done) {
+            double typed = 0.0;
+            const char* end = g.typed.data() + std::strlen(g.typed.data());
+            if (std::from_chars(g.typed.data(), end, typed).ec == std::errc{}
+                && std::isfinite(typed)) {
+                set_number(s, low + std::round((typed - low) / step) * step);
+            }
+            g.typing.clear();
+        } else if (ImGui::IsItemDeactivated() || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            g.typing.clear();
+        }
+    } else if (sub("Type a value")) {
+        g.typing = s.key;
+        const std::string text = std::format("{:.{}f}", now, places);
+        g.typed.fill('\0');
+        std::copy_n(text.begin(), std::min(text.size(), g.typed.size() - 1), g.typed.begin());
+    }
+    if (value_of(s.fallback) != now
+        && sub("Default (" + std::format("{:.{}f}", value_of(s.fallback), places) + ")")) {
+        set_number(s, value_of(s.fallback));
+    }
+}
+
 void setting_rows(const mods::Setting& s, const mods::SettingValue& v) {
     const bool open = g.open == s.key;
     ImGui::PushID(s.key.c_str());
@@ -213,6 +285,12 @@ void setting_rows(const mods::Setting& s, const mods::SettingValue& v) {
                 set(s.key, "\"" + s.fallback.s + "\"");
             }
         }
+        ImGui::PopID();
+        return;
+    }
+    if ((s.type == mods::SettingType::Int || s.type == mods::SettingType::Float) && s.min
+        && s.max) {
+        number_rows(s, v, open);
         ImGui::PopID();
         return;
     }

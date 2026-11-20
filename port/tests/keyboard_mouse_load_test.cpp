@@ -157,7 +157,7 @@ double setting_float(openrac_mod*, const char* key) {
         return g_sensitivity;
     }
 
-    if (std::strcmp(key, "mouse_y_ratio") == 0) {
+    if (std::strcmp(key, "mouse_sensitivity_y") == 0) {
         return 1.0;
     }
 
