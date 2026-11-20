@@ -63,6 +63,14 @@ void func_0013BAB8(int sector, int offset, int callback, long long argument) {
     }
 }
 
+/* snd_BankLoadFromEE_CB (0x0013BC30, RPC 0x57): the shared load (the bank read at once, the callback
+ * told its handle). Retail ends in sceSifCallRpc and hands its result on, 0 when the call was sent;
+ * the multiplayer menu (func_L39_005A61D8) reads it. */
+int func_0013BC30(int bank, int callback, long long argument) {
+    openrac_lib_snd_BankLoadFromEE_CB(bank, callback, argument);
+    return 0;
+}
+
 /* snd_BankLoadFromIOP (0x0013BD58, RPC 0x59): a bank the game sent to the IOP's memory, its handle. */
 int func_0013BD58(int bank) {
     return openrac_snd_ring_bank_from_iop(bank);

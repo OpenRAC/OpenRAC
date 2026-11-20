@@ -189,7 +189,7 @@ func_0013C348	989snd	rac3SndSendCommandSync	host	snd_SendCommandSync (rac2-ntsc 
 func_0013C578	989snd	rac3SndQueueCommandToRing	host	snd_QueueCommandToRing (rac2-ntsc func_00132DF0): queued on the shared ring, answered by the native sound engine (host/sound.c)	int (int, int, int, int, long long)
 func_0013B918	989snd	snd_BankLoadByLoc	host	the shape of rac2-ntsc func_00132318: RPC 3 on the loader client, a bank by sector and offset, its handle returned
 func_0013BAB8	989snd	rac3SndBankLoadAsync	host	snd_BankLoadAsync (rac2-ntsc func_00132498): a bank by sector and offset, its handle told to the callback (host/sound.c)	void (int, int, int, long long)
-func_0013BC30	989snd	snd_BankLoadFromEE_CB	host	the shape of rac2-ntsc func_001325E8: RPC 0x57, a bank in EE memory, its handle told to the callback
+func_0013BC30	989snd	rac3SndBankLoadFromEE	host	snd_BankLoadFromEE_CB (the shape of rac2-ntsc func_001325E8): RPC 0x57, a bank in EE memory, its handle told to the callback; returns the RPC call's result, 0 when it was sent, as retail ends in sceSifCallRpc (the multiplayer menu's bank load, func_L39_005A61D8, reads it) (host/sound.c)	int (int, int, long long)
 func_0013BD58	989snd	rac3SndBankLoadFromIOP	host	snd_BankLoadFromIOP (rac2-ntsc func_001326D8): RPC 0x59, a bank in the IOP's memory, its handle (host/sound.c)	int (int)
 func_0011F9A8	kernel	EnableDmac	host	hand-written wrapper: DI, EnableDmac (0x0011EB80), EI as Status had it
 func_0011F940	kernel	DisableDmac	host	hand-written wrapper: DI, DisableDmac (0x0011EB90), EI as Status had it

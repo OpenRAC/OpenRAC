@@ -246,6 +246,28 @@ share the boot program's addresses but not their code) and `asm.signatures` (a t
 function's arguments and result the decompilation's declarations do not give: the text widget's
 draw hands its second argument on, and the font's width wrappers return the width they forward).
 
+## Signatures of the code from assembly
+
+The functions with no C are translated from their instructions, with the signature hostgen
+infers from their registers or their callers' declarations. Where that signature drops a value,
+the translation runs on whatever the register held: Up Your Arsenal's vector library uses $v0 as a
+temporary, so it was inferred `int` while it returns its result in $f0, and the follow camera's
+pitch read 0 from it. `hostgen.json` `asm` `signature_check` (asmc.py) checks every translated
+function against its code and fails the build on:
+
+- an argument register its code reads on some path from its entry that its signature does not
+  take (liveness over the flow, so a parameter read only past an early return counts);
+- a call after which the translated code reads $v0 or $f0 that the callee's signature does not
+  return;
+- an `asm` `signatures` entry claiming a result its code never sets.
+
+Each finding gets the function's real signature in `asm` `signatures`, checked against its
+instructions. A function whose C says `void` but hands its callee's result back is translated from
+its instructions instead (`from_assembly`). An exception goes to `asm` `signature_allow` with
+its reason. The first run found 1,003 findings in 678 functions, across boot, frontbin and the
+49 level programs, and 39 C callers reading zeroed results; both are now 0. The C callers' side is
+hostgen's `result_allow` guard (`checks/result_allow.tsv`, empty).
+
 ## Checking the C against PAL
 
 Many candidates (nonmatching/) are NTSC-U's C with its names moved to PAL addresses; a literal
@@ -476,11 +498,13 @@ interface's textures.
   stays at track -1. The streams' command (0x2C, two mono files as rac2's) is bound and untested.
   `OPENRAC_AUDIO_TICKED=1 OPENRAC_AUDIO_DUMP=out.wav OPENRAC_SOUND_LOG=1` captures and logs it.
 - **Sound in a level**: Veldin loads its bank (321 sounds) through the shared ring and starts its
-  music as two-part VAG streams (0x2C). It also plays a one-part stream (a voice), sets its sounds'
-  volumes and pans (0x21) and asks whether they still play (0x19). Few effects play yet: 7 plays
-  in 450 ticks of walking and swinging the wrench. Command 0x30, a stream query whose answer the
-  level's stream code keeps at its record's +0x14 (`0x0045F3C0`, callback `0x00460170`), is not
-  known to the ring and answers 0.
+  music as two-part VAG streams (0x2C) and a one-part voice stream. Its effects play with the
+  volume and pan the game works out from the camera: 166 plays in 600 ticks of walking and swinging
+  the wrench, pans across the whole range. Before the levels' functions got their real return
+  types (asm signature check, below), the positional code read 0 from them and 7 sounds played,
+  all with a pan of 0. Command 0x30 (a stream query whose answer the level's stream code stores at
+  its record's +0x14, `0x00460170`, which nothing in Veldin's stream code reads) is not known to the
+  ring and answers 0.
 - **A level**: see [The next program](#the-next-program).
 - The memory card works through the shared `sceMc*`; saving is untested.
 - **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's
