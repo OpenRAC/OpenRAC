@@ -30,9 +30,20 @@
    "is": "func_003B6220__game",
    "status": "differs",
    "port": "host C"
+  },
+  "func_L01_003E92F8": {
+   "is": "func_L01_003E7478",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_L01_003E92F8__game": {
+   "is": "func_L01_003E7478__game",
+   "status": "differs",
+   "port": "host C"
   }
  },
  "left_out": {},
  "addresses_not_found": [],
- "hand_addresses": {}
+ "hand_addresses": {},
+ "unwrapped": {}
 }
