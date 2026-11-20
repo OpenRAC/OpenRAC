@@ -1064,6 +1064,12 @@ public:
              m_api->size >= offsetof(openrac_api, moby_copy) + sizeof(void *);
     }
 
+    // Since 1.26: whether moby_copy()'s copies wake and fight with their squad (a 1.25
+    // port's copies of a squad's enemies never woke).
+    bool has_squad_copies() const {
+      return has_moby_copy() && m_api->api_minor >= 26;
+    }
+
     // Since 1.25: whether moby_copy() may copy the moby in `slot`: OPENRAC_COPY_OK, or
     // why not (OPENRAC_COPY_*); OPENRAC_HOOK_UNKNOWN for no moby there, outside a
     // level, once the level's own data is gone, or a port or game without copies. Ask
