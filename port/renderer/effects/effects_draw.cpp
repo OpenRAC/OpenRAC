@@ -46,7 +46,10 @@ void normalize_quad_state(std::uint64_t& tex1, std::uint64_t& clamp, std::uint64
 // ---- Ordered effect draws ----
 
 void EffectRenderer::draw_prepared(
-    const FrameInput& input, RenderState& state, const PreparedEffects& prepared
+    const FrameInput& input,
+    RenderState& state,
+    const PreparedEffects& prepared,
+    bool has_colour_pass
 ) {
     const bool quads = prepared.quads;
     const auto& strip_counts = prepared.strip_counts;
@@ -198,8 +201,8 @@ void EffectRenderer::draw_prepared(
         if (!batch.count) {
             return;
         }
-        // Enhanced materials use their enclosing snapshot and geometry scopes.
-        if (quads_declared || enhanced_rendering_available()) {
+        // Enhanced batches use their enclosing snapshot and geometry scopes.
+        if (quads_declared || (has_colour_pass && enhanced_rendering_available())) {
             draw_batch_with_alpha_test();
         } else {
             RasterTexture texture{m_applied.offscreen};
@@ -221,7 +224,7 @@ void EffectRenderer::draw_prepared(
             raster_pass(
                 name(),
                 state.target,
-                {buffers, {&texture, 1}, attachments},
+                {buffers, {&texture, 1}, attachments, m_material != nullptr},
                 std::cref(draw_batch_with_alpha_test)
             );
         }

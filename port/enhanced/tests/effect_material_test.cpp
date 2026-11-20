@@ -17,6 +17,7 @@
 #include "enhanced/tests/water_test_bake.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "renderer/effects/effects.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/frame/surface_chain.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
@@ -172,7 +173,12 @@ void check_opaque_effects() {
     glClearDepth(0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     const auto clear = target.read_rgba();
-    opaque.render_depth(input, state);
+    renderer::raster_pass(
+        "opaque effects fixture prepass",
+        state.target,
+        {.attachments = renderer::ColourAttachments::ColourDepth},
+        [&] { opaque.render_depth(input, state); }
+    );
     const auto normals = target.read_rgba();
     CHECK(normals != clear);
     glClear(GL_COLOR_BUFFER_BIT);

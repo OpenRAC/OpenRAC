@@ -10,9 +10,11 @@
 #include "enhanced/renderer/water_mesh.h"
 #include "enhanced/tests/water_test_bake.h"
 #include "enhanced_viewer_shaders.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
+#include "renderer/renderer.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -100,6 +102,10 @@ void main(){
             mesh.begin_pass();
             const auto plan = mesh.prepare(strip, source);
             mesh.upload();
+            const auto& geometry = mesh.plan(plan.handle);
+            const renderer::RasterBuffer vertices{
+                geometry.buffer, geometry.vertices.size() * sizeof(enhanced::WaterMesh::Vertex)
+            };
             const auto a = reference(source[0], strip.uv_motion);
             const auto b = reference(source[1], strip.uv_motion);
             const auto c = reference(source[2], strip.uv_motion);
@@ -111,7 +117,12 @@ void main(){
                 shader.use();
                 mesh.bind(shader);
                 glUniform1i(shader.uniform("component"), component);
-                mesh.draw(shader, plan);
+                renderer::raster_pass(
+                    "baked water UV fixture",
+                    {frame.id(), 32, 32},
+                    {.geometry = {&vertices, 1}, .bound_shader_reads = true},
+                    [&] { mesh.draw(shader, plan); }
+                );
                 const auto pixels = frame.read_rgba();
                 CHECK(pixels.size() == 32 * 32 * 4);
                 if (pixels.size() != 32 * 32 * 4) {

@@ -168,7 +168,10 @@ private:
     // Records the existing fused GS batching loop with prepared, frame-owned geometry.
     // Hot path: retains the existing size/nesting of effect batching to preserve draw and upload order.
     void draw_prepared(
-        const FrameInput& input, RenderState& state, const PreparedEffects& prepared
+        const FrameInput& input,
+        RenderState& state,
+        const PreparedEffects& prepared,
+        bool has_colour_pass
     );
     // Orders shared material inputs once per selected effect shader, after provider bindings are
     // installed.
