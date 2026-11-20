@@ -21,8 +21,25 @@ pub const FILE: &str = "launcher/actions.json";
 
 /// The only `{name}` placeholders an argument, `program` or `cwd` may hold.
 pub const PLACEHOLDERS: &[&str] = &[
-    "root", "dir", "python", "docker", "disc", "boot", "artifact", "serial", "key", "data", "level", "path",
-    "option", "editor", "editor_tools", "projects", "levels", "packed", "states",
+    "root",
+    "dir",
+    "python",
+    "docker",
+    "disc",
+    "boot",
+    "artifact",
+    "serial",
+    "key",
+    "data",
+    "level",
+    "path",
+    "option",
+    "editor",
+    "editor_tools",
+    "projects",
+    "levels",
+    "packed",
+    "states",
 ];
 
 #[derive(Debug, Clone, Deserialize)]
@@ -405,7 +422,8 @@ impl ActionFile {
 }
 
 /// Placeholders that only mean something for a version.
-const VERSION_ONLY: &[&str] = &["dir", "disc", "boot", "serial", "key", "data", "projects", "levels", "packed", "states"];
+const VERSION_ONLY: &[&str] =
+    &["dir", "disc", "boot", "serial", "key", "data", "projects", "levels", "packed", "states"];
 
 /// The `{name}`s in `text`.
 fn placeholders(text: &str) -> Vec<String> {
@@ -755,7 +773,8 @@ fn value(name: &str, ctx: &Context) -> Result<String, String> {
         "root" => ctx.root.display().to_string(),
         "python" => path(&ctx.config.python, "Python")?,
         "editor" | "editor_tools" => {
-            let editor = crate::editor_install::find().ok_or("OpenRAC Editor is not downloaded (Mods, Level editor)")?;
+            let editor =
+                crate::editor_install::find().ok_or("OpenRAC Editor is not downloaded (Mods, Level editor)")?;
             let path = if name == "editor" {
                 editor.program().ok_or("OpenRAC Editor has no program for this system")?
             } else {
@@ -830,17 +849,16 @@ mod tests {
     use crate::testing::checkout;
 
     /// Going Commando plays (prebuilt, like rac1): none of its actions call it early access or
-    /// say the game is not playable. Its level edits are packed back and it plays with its mods.
+    /// say the game is not playable. It plays its edited levels with its mods; packing them back
+    /// is OpenRAC Editor's action (editor_install.rs), not the checkout's.
     #[test]
     fn going_commando_is_not_early_access() {
-        let file = load(&checkout()).unwrap();
+        let file = load_own(&checkout()).unwrap();
         for key in ["rac2/ntsc", "rac2/pal", "rac2/ntsc2"] {
             let list = &file.versions[key];
             let play = list.iter().find(|a| a.id == "play").unwrap_or_else(|| panic!("{key} has no play"));
             assert_ne!(play.state, State::Planned, "{key} play");
-            for id in ["editor-pack", "play-edited"] {
-                assert!(list.iter().any(|a| a.id == id), "{key} has no {id}");
-            }
+            assert!(list.iter().any(|a| a.id == "play-edited"), "{key} has no play-edited");
             let stack = list.iter().find(|a| a.id == "overrides-stack").expect("overrides-stack");
             assert!(stack.args.iter().any(|a| a == "--packed"), "{key}: the stack leaves the packed levels out");
             for a in list {

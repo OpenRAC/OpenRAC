@@ -481,7 +481,8 @@ mod tests {
                 plan(&config, &scope, "editor-preview", &Inputs { level: Some(3), ..Inputs::default() }).is_err(),
                 "level 03 was not extracted"
             );
-            let plan = plan(&config, &scope, "editor-preview", &Inputs { level: Some(7), ..Inputs::default() }).unwrap();
+            let plan =
+                plan(&config, &scope, "editor-preview", &Inputs { level: Some(7), ..Inputs::default() }).unwrap();
             assert_eq!(plan.program, editor.join(program));
             assert!(plan.detached);
             assert_eq!(plan.args[1], project.display().to_string());
