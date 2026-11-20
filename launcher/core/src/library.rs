@@ -485,7 +485,8 @@ mod tests {
                 plan(&config, &scope, "editor-preview", &Inputs { level: Some(7), ..Inputs::default() }).unwrap();
             assert_eq!(plan.program, editor.join(program));
             assert!(plan.detached);
-            assert_eq!(plan.args[1], project.display().to_string());
+            // Compared as paths: on Windows the placeholders add '/' after the root's backslashes.
+            assert_eq!(std::path::Path::new(&plan.args[1]), project);
             assert!(plan.env.iter().any(|(k, _)| k == "OPENRAC_ROOT"), "the editor's tools find OpenRAC by it");
 
             // An editor written for another extractor is not run.
