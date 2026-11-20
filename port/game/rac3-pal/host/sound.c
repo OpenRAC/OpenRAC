@@ -67,4 +67,3 @@ void func_0013BAB8(int sector, int offset, int callback, long long argument) {
 int func_0013BD58(int bank) {
     return openrac_snd_ring_bank_from_iop(bank);
 }
-}
