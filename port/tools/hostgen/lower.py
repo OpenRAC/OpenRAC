@@ -99,6 +99,12 @@ class Unsupported(Exception):
     """A construct this translator does not write; the function becomes a stub."""
 
 
+@dataclass(frozen=True)
+class ByRef:
+    """A frame slot for a copy of a record passed by its address (Unit._record_copy_slot)."""
+    record: ctype.Type
+
+
 @dataclass
 class LV:
     """An lvalue: in game memory (addr) or a host variable (text only)."""
@@ -406,6 +412,12 @@ class Unit:
         OPENRAC_FRAME_ALIGN, in openrac/guest.h): the game copies such locals with quadword
         loads and stores (lq/sq, which the host makes movaps), and a 16-byte copy into a
         `float v[3]` puts its fourth word in the slot's padding there, not in the next local."""
+        if isinstance(t, ByRef):
+            # Space only when the record is passed by address (bigger than eight bytes): none
+            # otherwise, so such a frame keeps the console's size.
+            tn = self.host(t.record)
+            return (f"    char {name}[sizeof({tn}) > 8 ? OPENRAC_FRAME_SIZE({tn}) : 0]"
+                    f" __attribute__((aligned(sizeof({tn}) > 8 ? OPENRAC_FRAME_ALIGN({tn}) : 1)));")
         decl = self.declare(t, name)
         r = self.resolve(t)
         aggregate = isinstance(r, ctype.Arr) or (
@@ -3340,6 +3352,16 @@ class Unit:
             out += [f"(void)({self.rv(a)})" for a in given[pcls.count(kind):] if _does_something(a)]
         return out
 
+    def _record_copy_slot(self, t: ctype.Type) -> str:
+        """Space for a copy of a record of type T in the function's frame, for passing it by
+        its address (used only when T is bigger than eight bytes)."""
+        fn = self.fn
+        if fn is None:
+            raise Unsupported("a record passed by address outside a function")
+        fname = f"byref_{len(fn.frame)}"
+        fn.frame.append((fname, ByRef(t)))
+        return f"(frame_ + (gaddr)offsetof(struct openrac_frame_{fn.name}, {fname}))"
+
     def _arg_class(self, a: dict) -> str:
         """Which register file the call site put the argument in."""
         t = self.ty(a)
@@ -3363,11 +3385,15 @@ class Unit:
             out = []
             for a, c, p, pc in zip(args, classes, sig.params, pcls):
                 if c == "agg" and pc != "agg":
-                    # A record where the callee takes a scalar: the EE passed the
-                    # record's first eight bytes in the register.
+                    # A record where the callee takes a scalar. The EE's ABI (EABI) passes a
+                    # record of up to eight bytes in the register, and a bigger one as the
+                    # address of a copy in the caller's frame (PAL Yeedil's trooper_init_spawned
+                    # hands its three links to moby_fuse_linked_objects so).
                     canon_p = self.canon(p) or "int"
+                    copy = self._record_copy_slot(self.ty(a))
                     out.append(f"({{ {self.declare(self.ty(a), 'rec_')} = {self.rv(a)}; uint64_t bits_ = 0; "
-                               f"memcpy(&bits_, &rec_, sizeof rec_ < 8 ? sizeof rec_ : 8); ({canon_p})bits_; }})")
+                               f"if (sizeof rec_ > 8) {{ memcpy(G({copy}), &rec_, sizeof rec_); bits_ = {copy}; }} "
+                               f"else memcpy(&bits_, &rec_, sizeof rec_); ({canon_p})bits_; }})")
                 elif c != "agg" and pc == "agg":
                     raise Unsupported(f"call to {sym}: a scalar where it takes a record")
                 else:
