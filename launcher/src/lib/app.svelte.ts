@@ -707,6 +707,25 @@ export async function removeEditor() {
   await refresh();
 }
 
+/** Uses the OpenRAC Editor in a folder the player picked; the library is read again, as the level
+ *  editor's steps come with it. */
+export async function chooseEditor(path: string) {
+  const got = await guard(api.chooseEditor(path));
+
+  if (!got) return;
+  app.editor = got;
+  toast(`OpenRAC Editor ${got.version ?? ""} is ready.`);
+  await refresh();
+}
+
+/** Stops using the picked folder (it stays as it is). */
+export async function forgetEditor() {
+  const left = await guard(api.forgetEditor());
+
+  if (left) app.editor = left;
+  await refresh();
+}
+
 /** Saves the settings. False when the write failed: the page then keeps what was typed
  *  and says so, instead of going back to the settings that were saved. */
 export async function saveConfig(config: Config): Promise<boolean> {

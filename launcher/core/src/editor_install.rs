@@ -65,6 +65,9 @@ pub struct Status {
     /// It is an app the player installed (a Mac's Applications), not the launcher's download:
     /// the launcher does not remove it.
     pub installed_app: bool,
+    /// The player picked its folder (Settings, "Choose its folder"): the launcher neither
+    /// downloads into it nor removes it.
+    pub chosen: bool,
     /// The version found there.
     pub version: Option<String>,
     /// Why it cannot be used with this OpenRAC, when it cannot.
@@ -78,15 +81,21 @@ pub const MAC_APP: &str = "OpenRAC Editor.app";
 /// Where in that app its manifest and tools are (the .dmg puts the archive's extras there).
 const MAC_APP_EXTRAS: &str = "Contents/Resources";
 
-/// Where the editor is: [`ENV`] when set; else the launcher's download when there is one; else,
-/// on a Mac, the app installed in Applications (the system's or the player's own); else where the
-/// launcher downloads it.
+/// The file in the launcher's data folder naming the editor folder the player picked.
+const CHOSEN_FILE: &str = "editor-folder.txt";
+
+/// Where the editor is: [`ENV`] when set; else the folder the player picked; else the launcher's
+/// download when there is one; else, on a Mac, the app installed in Applications (the system's or
+/// the player's own); else where the launcher downloads it.
 pub fn folder() -> PathBuf {
     let downloaded = download_folder();
-    if cfg!(test) || std::env::var_os(ENV).is_some_and(|d| !d.is_empty()) {
+    if std::env::var_os(ENV).is_some_and(|d| !d.is_empty()) && !cfg!(test) {
         return downloaded;
     }
-    if crate::under(&downloaded, MANIFEST).is_file() {
+    if let Some(dir) = chosen() {
+        return dir;
+    }
+    if cfg!(test) || crate::under(&downloaded, MANIFEST).is_file() {
         return downloaded;
     }
     if cfg!(target_os = "macos") {
@@ -98,6 +107,45 @@ pub fn folder() -> PathBuf {
         }
     }
     downloaded
+}
+
+/// The folder the player picked, while it still holds an editor.
+fn chosen() -> Option<PathBuf> {
+    let text = std::fs::read_to_string(crate::saves::data_home().join(CHOSEN_FILE)).ok()?;
+    let dir = PathBuf::from(text.trim());
+    (!text.trim().is_empty() && crate::under(&dir, MANIFEST).is_file()).then_some(dir)
+}
+
+/// Where in `picked` an editor is: the folder itself, the app it is (a Mac's .app), or the folder
+/// holding the editor's program. None when it holds no editor.
+fn editor_in(picked: &Path) -> Option<PathBuf> {
+    let mut places = vec![picked.to_path_buf(), picked.join(MAC_APP_EXTRAS), picked.join(MAC_APP).join(MAC_APP_EXTRAS)];
+    if picked.is_file() {
+        places.extend(picked.parent().map(Path::to_path_buf));
+    }
+    places.into_iter().find(|dir| read(dir).is_ok())
+}
+
+/// Uses the editor in `picked` (a folder the player chose, anywhere) from now on. What is there then.
+pub fn choose(picked: &Path, root: Option<&Path>) -> Result<Status, String> {
+    let dir = editor_in(picked)
+        .ok_or_else(|| format!("{} holds no OpenRAC Editor (its {MANIFEST} is missing)", picked.display()))?;
+    let file = crate::saves::data_home().join(CHOSEN_FILE);
+    if let Some(parent) = file.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
+    }
+    std::fs::write(&file, dir.to_string_lossy().as_bytes()).map_err(|e| format!("{}: {e}", file.display()))?;
+    Ok(status(root))
+}
+
+/// Stops using the folder the player picked (it stays as it is). What is used then.
+pub fn forget_chosen(root: Option<&Path>) -> Result<Status, String> {
+    let file = crate::saves::data_home().join(CHOSEN_FILE);
+    match std::fs::remove_file(&file) {
+        Ok(()) => Ok(status(root)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(status(root)),
+        Err(e) => Err(format!("{}: {e}", file.display())),
+    }
 }
 
 /// The folder of an installed Mac app's manifest and tools, when it has them.
@@ -224,6 +272,7 @@ pub fn status(root: Option<&Path>) -> Status {
     let dir = folder();
     let found = read(&dir);
     Status {
+        chosen: chosen().is_some_and(|c| c == dir),
         installed_app: in_app(&dir),
         folder: dir.display().to_string(),
         version: found.as_ref().ok().map(|e| e.manifest.version.clone()),
@@ -462,6 +511,33 @@ mod tests {
         } else {
             "openrac-editor.x86_64"
         }
+    }
+
+    /// A folder the player picks is used until it is forgotten: the editor's own folder, its app
+    /// or its program; one holding no editor is refused.
+    #[test]
+    fn a_chosen_folder_is_used_until_forgotten() {
+        let home = tempfile::tempdir().unwrap();
+        let mine = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(mine.path().join("openrac")).unwrap();
+        std::fs::write(mine.path().join(MANIFEST), MANIFEST_TEXT).unwrap();
+        std::fs::write(mine.path().join("openrac-editor.x86_64"), "").unwrap();
+        crate::saves::with_data_home(home.path(), || {
+            let empty = tempfile::tempdir().unwrap();
+            assert!(choose(empty.path(), None).unwrap_err().contains("holds no OpenRAC Editor"));
+            assert!(!status(None).chosen);
+
+            let got = choose(&mine.path().join("openrac-editor.x86_64"), None).unwrap();
+            assert!(got.chosen);
+            assert_eq!(got.version.as_deref(), Some("v1.0.0"));
+            assert_eq!(folder(), mine.path());
+            assert!(find().is_some());
+
+            let left = forget_chosen(None).unwrap();
+            assert!(!left.chosen);
+            assert_eq!(folder(), download_folder());
+            assert!(mine.path().join(MANIFEST).is_file(), "forgetting leaves the folder as it is");
+        });
     }
 
     /// A Mac's installed app keeps the manifest and tools in Contents/Resources; its program is

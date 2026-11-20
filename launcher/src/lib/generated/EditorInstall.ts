@@ -14,6 +14,11 @@ folder: string,
  */
 installedApp: boolean, 
 /**
+ * The player picked its folder (Settings, "Choose its folder"): the launcher neither
+ * downloads into it nor removes it.
+ */
+chosen: boolean, 
+/**
  * The version found there.
  */
 version: string | null, 

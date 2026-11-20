@@ -361,6 +361,25 @@ fn remove_editor(state: State<'_, AppState>) -> Result<openrac_launcher_core::ed
     Ok(openrac_launcher_core::editor_install::status(root.as_deref()))
 }
 
+/// Uses the OpenRAC Editor in a folder the player picked (anywhere: its folder, its app or its
+/// program); the level editor's steps come with it.
+#[tauri::command]
+fn choose_editor(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<openrac_launcher_core::editor_install::Status, String> {
+    let root = state.config.lock().unwrap().root.clone();
+    launcher_log::line(&format!("editor: using the one in {path}"));
+    openrac_launcher_core::editor_install::choose(std::path::Path::new(&path), root.as_deref())
+}
+
+/// Stops using the picked folder; the folder stays as it is.
+#[tauri::command]
+fn forget_editor(state: State<'_, AppState>) -> Result<openrac_launcher_core::editor_install::Status, String> {
+    let root = state.config.lock().unwrap().root.clone();
+    openrac_launcher_core::editor_install::forget_chosen(root.as_deref())
+}
+
 #[tauri::command]
 async fn library(state: State<'_, AppState>) -> Result<Library, String> {
     let config = state.config.lock().unwrap().clone();
@@ -3110,6 +3129,8 @@ pub fn run() {
             editor_newest,
             install_editor,
             remove_editor,
+            choose_editor,
+            forget_editor,
             library,
             run_action,
             cancel_job,

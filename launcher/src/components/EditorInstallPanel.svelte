@@ -5,8 +5,16 @@
   // The level projects are never touched here.
   import { onMount } from "svelte";
 
-  import { api } from "$lib/api";
-  import { app, guardShown, installEditor, readEditor, removeEditor } from "$lib/app.svelte";
+  import { api, inTauri, pickFolder } from "$lib/api";
+  import {
+    app,
+    chooseEditor,
+    forgetEditor,
+    guardShown,
+    installEditor,
+    readEditor,
+    removeEditor,
+  } from "$lib/app.svelte";
 
   import Icon from "./Icon.svelte";
 
@@ -15,6 +23,9 @@
   let lookFailed = $state(false);
 
   const installed = $derived(app.editor?.version ?? null);
+  // An app the player installed, or a folder they picked: the launcher neither downloads into it
+  // nor removes it.
+  const own = $derived(!!app.editor?.installedApp || !!app.editor?.chosen);
   const newer = $derived(!!newest && !!installed && newest !== installed && installed !== "dev");
 
   async function look() {
@@ -30,6 +41,14 @@
     }
   }
 
+  async function choose() {
+    const picked = inTauri
+      ? await pickFolder("OpenRAC Editor's folder")
+      : "/home/you/OpenRAC Editor";
+
+    if (picked) await chooseEditor(picked);
+  }
+
   onMount(() => {
     void readEditor();
   });
@@ -41,9 +60,9 @@
   <p class="status dim">
     {#if installed}
       <Icon name="check" size={14} />
-      {app.editor?.installedApp
-        ? `OpenRAC Editor ${installed} is installed.`
-        : `OpenRAC Editor ${installed} is downloaded.`}
+      {#if app.editor?.chosen}OpenRAC Editor {installed} from
+        <span class="mono">{app.editor.folder}</span>.{:else if app.editor?.installedApp}OpenRAC
+        Editor {installed} is installed.{:else}OpenRAC Editor {installed} is downloaded.{/if}
     {:else}
       <Icon name="info" size={14} /> Not downloaded.
     {/if}
@@ -52,7 +71,7 @@
       have the latest.{:else if lookFailed}· Could not check.{/if}
   </p>
   <div class="row">
-    {#if !app.editor?.installedApp}
+    {#if !own}
       <button
         class="small primary"
         disabled={app.editorDownloading}
@@ -72,13 +91,22 @@
       <button class="small" disabled={looking} onclick={() => void look()}
         ><Icon name="refresh" size={14} />Check for a newer one</button
       >
-      {#if !app.editor?.installedApp}
-        <button
-          class="small ghost"
-          disabled={app.editorDownloading}
-          onclick={() => void removeEditor()}><Icon name="trash" size={14} />Remove</button
-        >
-      {/if}
+    {/if}
+    {#if app.editor?.chosen}
+      <button class="small" onclick={() => void forgetEditor()}
+        ><Icon name="x" size={14} />Stop using this folder</button
+      >
+    {:else}
+      <button class="small" onclick={() => void choose()}
+        ><Icon name="folder" size={14} />Choose its folder</button
+      >
+    {/if}
+    {#if installed && !own}
+      <button
+        class="small ghost"
+        disabled={app.editorDownloading}
+        onclick={() => void removeEditor()}><Icon name="trash" size={14} />Remove</button
+      >
     {/if}
     {#if app.editor}
       <button

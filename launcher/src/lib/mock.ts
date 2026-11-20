@@ -194,6 +194,7 @@ const actions = actionsFile as {
 };
 
 /** OpenRAC Editor in the preview: downloaded unless ?noeditor (core/src/editor_install.rs). */
+let editorChosen = false;
 let editorInstalled = !(
   typeof location !== "undefined" && new URLSearchParams(location.search).has("noeditor")
 );
@@ -720,6 +721,7 @@ function mockEditorInstall(): EditorInstall {
   return {
     folder: "/home/you/.local/share/openrac/editor",
     installedApp: false,
+    chosen: editorChosen,
     version: editorInstalled ? "v1.0.0" : null,
     problem: null,
     repository: "https://github.com/nickyyOO/OpenRAC-Editor",
@@ -2981,6 +2983,15 @@ export async function mockCall(
       return delay<string>("v1.0.0");
     case "install_editor":
       editorInstalled = true;
+
+      return delay<EditorInstall>(mockEditorInstall());
+    case "choose_editor":
+      editorInstalled = true;
+      editorChosen = true;
+
+      return delay<EditorInstall>(mockEditorInstall());
+    case "forget_editor":
+      editorChosen = false;
 
       return delay<EditorInstall>(mockEditorInstall());
     case "remove_editor":

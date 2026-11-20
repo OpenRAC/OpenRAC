@@ -397,6 +397,10 @@ export const api = {
   installEditor: () => call<EditorInstall>("install_editor"),
   /** Removes the downloaded OpenRAC Editor; the level projects stay. */
   removeEditor: () => call<EditorInstall>("remove_editor"),
+  /** Uses the OpenRAC Editor in a folder the player picked: its folder, its app or its program. */
+  chooseEditor: (path: string) => call<EditorInstall>("choose_editor", { path }),
+  /** Stops using the picked folder; the folder stays as it is. */
+  forgetEditor: () => call<EditorInstall>("forget_editor"),
   library: () => call<Library>("library"),
   /** `inputs`: which level a per-level action is for (the level editor's projects, one each), a
    *  file or folder the player chose (`{path}`), one of the action's options (`{option}`). */
